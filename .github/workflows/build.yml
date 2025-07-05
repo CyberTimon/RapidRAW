@@ -62,6 +62,12 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
+      - name: Apply patches (Linux)
+        if: startsWith(inputs.platform, 'ubuntu')
+        run: |-
+          find patches/linux -type f -executable -exec sh {} \;
+          find patches/linux -type f -iname "*.patch" -exec sh -c 'cat {} | patch -p1' \;
+
       - name: Install frontend dependencies
         run: npm install
 

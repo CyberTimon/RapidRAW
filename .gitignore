@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# dynamic libraries
+src-tauri/resources/libonnxruntime.so
+src-tauri/resources/libonnxruntime.dylib
+src-tauri/resources/onnxruntime.dll
