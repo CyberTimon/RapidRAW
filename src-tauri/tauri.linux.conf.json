@@ -2,7 +2,12 @@
   "app": {
     "windows": [
       {
-        "transparent": false
+        "label": "main",
+        "title": "RapidRAW",
+        "width": 1200,
+        "height": 800,
+        "transparent": false,
+        "decorations": false
       }
     ]
   },
