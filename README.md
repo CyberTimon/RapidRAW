@@ -11,6 +11,7 @@
 [![Tauri](https://img.shields.io/badge/Tauri-24C8DB?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app/)
 [![AGPL-3.0](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=for-the-badge)](https://opensource.org/licenses/AGPL-3.0)
 [![GitHub stars](https://img.shields.io/github/stars/CyberTimon/RapidRAW?style=for-the-badge&logo=github&label=Stars)](https://github.com/CyberTimon/RapidRAW/stargazers)
+[![Visualise&nbsp;Repo](https://img.shields.io/badge/Visualise%20Repo-blue?style=for-the-badge)](https://repomapr.com/cybertimon/rapidraw)
 
 </div>
 
