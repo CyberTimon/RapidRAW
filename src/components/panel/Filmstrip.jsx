@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Image as ImageIcon, Star } from 'lucide-react';
+import { Image as ImageIcon, Star, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const COLOR_LABELS = [
@@ -10,10 +10,10 @@ const COLOR_LABELS = [
   { name: 'purple', color: '#a78bfa' },
 ];
 
-export default function Filmstrip({ 
-  imageList, 
-  selectedImage, 
-  onImageSelect, 
+export default function Filmstrip({
+  imageList,
+  selectedImage,
+  onImageSelect,
   onContextMenu,
   thumbnails,
   multiSelectedPaths,
@@ -57,15 +57,15 @@ export default function Filmstrip({
               block: 'nearest',
               inline: 'center',
             });
-          }, 320); 
+          }, 320);
         }
       }
     }
   }, [selectedImage, imageList]);
 
   return (
-    <div 
-      ref={filmstripRef} 
+    <div
+      ref={filmstripRef}
       className="h-full overflow-x-auto overflow-y-hidden p-1"
       onClick={onClearSelection}
     >
@@ -74,17 +74,18 @@ export default function Filmstrip({
           {imageList.map((imageFile) => {
             const path = imageFile.path;
             const isActive = selectedImage?.path === path;
+            const isEdited = imageFile.is_edited;
             const isSelected = multiSelectedPaths.includes(path);
             const thumbData = thumbnails[path];
             const rating = imageRatings?.[path] || 0;
             const colorTag = imageFile.tags?.find(t => t.startsWith('color:'))?.substring(6);
             const colorLabel = COLOR_LABELS.find(c => c.name === colorTag);
-            
+
             const ringClass = isActive
               ? 'ring-2 ring-accent'
               : isSelected
-              ? 'ring-2 ring-gray-400'
-              : 'hover:ring-2 hover:ring-hover-color';
+                ? 'ring-2 ring-gray-400'
+                : 'hover:ring-2 hover:ring-hover-color';
 
             return (
               <motion.div
@@ -111,11 +112,11 @@ export default function Filmstrip({
                     <ImageIcon size={24} className="text-text-secondary animate-pulse" />
                   </div>
                 )}
-                
-                {(colorLabel || rating > 0) && (
+
+                {(colorLabel || rating > 0 || isEdited) && (
                   <div className="absolute top-1 right-1 bg-primary rounded-full px-1.5 py-0.5 text-xs text-white flex items-center gap-1 backdrop-blur-sm">
                     {colorLabel && (
-                      <div 
+                      <div
                         className="w-3 h-3 rounded-full ring-1 ring-black/20"
                         style={{ backgroundColor: colorLabel.color }}
                         title={`Color: ${colorLabel.name}`}
@@ -127,6 +128,9 @@ export default function Filmstrip({
                         <Star size={10} className="fill-white text-white" />
                       </>
                     )}
+                    {isEdited && (<div className="fill-white text-white">
+                      <Pencil size={12} />
+                    </div>)}
                   </div>
                 )}
               </motion.div>
