@@ -13,6 +13,7 @@ import {
   Loader2,
   AlertTriangle,
   FolderInput,
+  Pencil,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FixedSizeGrid as Grid } from 'react-window';
@@ -286,9 +287,9 @@ function ViewOptionsDropdown({
   sortCriteria,
   setSortCriteria,
 }) {
-  const isFilterActive = filterCriteria.rating > 0 || 
-                        (filterCriteria.rawStatus && filterCriteria.rawStatus !== 'all') ||
-                        (filterCriteria.colors && filterCriteria.colors.length > 0);
+  const isFilterActive = filterCriteria.rating > 0 ||
+    (filterCriteria.rawStatus && filterCriteria.rawStatus !== 'all') ||
+    (filterCriteria.colors && filterCriteria.colors.length > 0);
 
   return (
     <DropdownMenu
@@ -316,7 +317,7 @@ function ViewOptionsDropdown({
   );
 }
 
-function Thumbnail({ path, data, onImageClick, onImageDoubleClick, isSelected, isActive, rating, onContextMenu, tags }) {
+function Thumbnail({ isEdited, path, data, onImageClick, onImageDoubleClick, isSelected, isActive, rating, onContextMenu, tags }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -342,11 +343,11 @@ function Thumbnail({ path, data, onImageClick, onImageDoubleClick, isSelected, i
           <ImageIcon className="text-text-secondary animate-pulse" />
         </div>
       )}
-      
+
       {(colorLabel || rating > 0) && (
         <div className="absolute top-1.5 right-1.5 bg-bg-primary/50 rounded-full px-1.5 py-0.5 text-xs text-text-primary flex items-center gap-1 backdrop-blur-sm">
           {colorLabel && (
-            <div 
+            <div
               className="w-3 h-3 rounded-full ring-1 ring-black/20"
               style={{ backgroundColor: colorLabel.color }}
               title={`Color: ${colorLabel.name}`}
@@ -364,6 +365,11 @@ function Thumbnail({ path, data, onImageClick, onImageDoubleClick, isSelected, i
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
         <p className="text-white text-xs truncate">{path.split(/[\\/]/).pop()}</p>
       </div>
+      {isEdited && (
+        <div className="absolute top-2 right-2">
+          <Pencil size={12} />
+        </div>
+      )}
     </div>
   );
 }
@@ -384,6 +390,7 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
         className="p-2 h-full"
       >
         <Thumbnail
+          isEdited={imageFile.is_edited}
           path={imageFile.path}
           data={thumbnails[imageFile.path]}
           rating={imageRatings?.[imageFile.path] || 0}
@@ -527,12 +534,12 @@ export default function MainLibrary({
         <div className="flex-1 flex flex-col items-center justify-center text-text-secondary" onContextMenu={onEmptyAreaContextMenu}>
           <Loader2 className="h-12 w-12 text-secondary animate-spin mb-4" />
           <p className="text-lg font-semibold">
-            {aiModelDownloadStatus ? `Downloading ${aiModelDownloadStatus}...` 
-             : (isIndexing && indexingProgress.total > 0) 
-               ? `Indexing images... (${indexingProgress.current}/${indexingProgress.total})`
-               : (importState.status === 'importing' && importState.progress.total > 0)
-                 ? `Importing images... (${importState.progress.current}/${importState.progress.total})`
-                 : "Processing images..."
+            {aiModelDownloadStatus ? `Downloading ${aiModelDownloadStatus}...`
+              : (isIndexing && indexingProgress.total > 0)
+                ? `Indexing images... (${indexingProgress.current}/${indexingProgress.total})`
+                : (importState.status === 'importing' && importState.progress.total > 0)
+                  ? `Importing images... (${importState.progress.current}/${importState.progress.total})`
+                  : "Processing images..."
             }
           </p>
           <p className="text-sm mt-2">This may take a moment.</p>
