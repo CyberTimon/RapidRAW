@@ -344,7 +344,7 @@ function Thumbnail({ isEdited, path, data, onImageClick, onImageDoubleClick, isS
         </div>
       )}
 
-      {(colorLabel || rating > 0) && (
+      {(colorLabel || rating > 0 || isEdited) && (
         <div className="absolute top-1.5 right-1.5 bg-bg-primary/50 rounded-full px-1.5 py-0.5 text-xs text-text-primary flex items-center gap-1 backdrop-blur-sm">
           {colorLabel && (
             <div
@@ -359,17 +359,17 @@ function Thumbnail({ isEdited, path, data, onImageClick, onImageDoubleClick, isS
               <StarIcon size={12} className="text-accent fill-accent" />
             </>
           )}
+          {isEdited && (
+            <>
+              <Pencil className="text-accent" size={12} />
+            </>
+          )}
         </div>
       )}
 
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
         <p className="text-white text-xs truncate">{path.split(/[\\/]/).pop()}</p>
       </div>
-      {isEdited && (
-        <div className="absolute top-2 right-2">
-          <Pencil size={12} />
-        </div>
-      )}
     </div>
   );
 }
