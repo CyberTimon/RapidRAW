@@ -13,6 +13,8 @@ use serde::Deserialize;
 use serde_json::{Value, from_value};
 use std::fs;
 
+
+/// Structure representing information about a patch mask, including its ID, name, inversion status, and sub-masks.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PatchMaskInfo {
@@ -24,6 +26,16 @@ struct PatchMaskInfo {
     sub_masks: Vec<SubMask>,
 }
 
+
+/// Loads an image from the given path, applies composite patches based on adjustments, and returns the resulting image.
+///
+/// # Arguments
+/// * `path` - Path to the image file.
+/// * `adjustments` - JSON value containing adjustment data.
+/// * `use_fast_raw_dev` - Whether to use fast RAW development.
+///
+/// # Returns
+/// * `Result<DynamicImage>` - The composited image or an error.
 pub fn load_and_composite(
     path: &str,
     adjustments: &Value,
@@ -34,6 +46,16 @@ pub fn load_and_composite(
     composite_patches_on_image(&base_image, adjustments)
 }
 
+
+/// Loads a base image from bytes, handling RAW and non-RAW formats appropriately.
+///
+/// # Arguments
+/// * `bytes` - Image file bytes.
+/// * `path_for_ext_check` - Path used to check file extension.
+/// * `use_fast_raw_dev` - Whether to use fast RAW development (see [`RapidRAW::raw_processing::develop_raw_image`]).
+///
+/// # Returns
+/// * `Result<DynamicImage>` - The loaded image or an error.
 pub fn load_base_image_from_bytes(
     bytes: &[u8],
     path_for_ext_check: &str,
@@ -46,6 +68,14 @@ pub fn load_base_image_from_bytes(
     }
 }
 
+
+/// Loads an image from bytes and applies orientation based on EXIF data if available.
+///
+/// # Arguments
+/// * `bytes` - Image file bytes.
+///
+/// # Returns
+/// * `Result<DynamicImage>` - The oriented image or an error.
 pub fn load_image_with_orientation(bytes: &[u8]) -> Result<DynamicImage> {
     let cursor = Cursor::new(bytes);
     let mut reader = ImageReader::new(cursor.clone())
@@ -71,6 +101,15 @@ pub fn load_image_with_orientation(bytes: &[u8]) -> Result<DynamicImage> {
     Ok(image)
 }
 
+
+/// Applies composite patches on the base image according to the current adjustments and returns the resulting image.
+///
+/// # Arguments
+/// * `base_image` - The base image to composite onto.
+/// * `current_adjustments` - JSON value containing adjustment data.
+///
+/// # Returns
+/// * `Result<DynamicImage>` - The composited image or an error.
 pub fn composite_patches_on_image(
     base_image: &DynamicImage,
     current_adjustments: &Value,

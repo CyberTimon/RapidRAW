@@ -8,6 +8,16 @@ use crate::{AppState, GpuImageCache};
 use crate::image_processing::{AllAdjustments, GpuContext};
 use crate::lut_processing::Lut;
 
+
+/// Initializes or retrieves the GPU context for image processing.
+/// This context contains the device, queue, and hardware limits.
+/// Returns a cloned `GpuContext` if already initialized, or creates a new one.
+///
+/// # Arguments
+/// * `state` - Application state containing the GPU context.
+///
+/// # Returns
+/// * `Result<GpuContext, String>` - The GPU context or an error message.
 pub fn get_or_init_gpu_context(state: &tauri::State<AppState>) -> Result<GpuContext, String> {
     let mut context_lock = state.gpu_context.lock().unwrap();
     if let Some(context) = &*context_lock {
@@ -47,6 +57,18 @@ pub fn get_or_init_gpu_context(state: &tauri::State<AppState>) -> Result<GpuCont
     Ok(new_context)
 }
 
+
+/// Reads pixel data from a GPU texture and returns it as a byte vector.
+/// Handles row padding required by the GPU.
+///
+/// # Arguments
+/// * `device` - The GPU device.
+/// * `queue` - The GPU queue.
+/// * `texture` - The texture to read from.
+/// * `size` - The size of the texture.
+///
+/// # Returns
+/// * `Result<Vec<u8>, String>` - The raw pixel data or an error message.
 fn read_texture_data(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -109,6 +131,22 @@ fn read_texture_data(
     }
 }
 
+
+/// Runs the main GPU image processing pipeline.
+/// Applies adjustments, masks, and optional LUT to the input image using compute shaders.
+/// Returns the processed image as a byte vector.
+///
+/// # Arguments
+/// * `context` - The GPU context.
+/// * `input_texture_view` - The input texture view.
+/// * `width` - Image width.
+/// * `height` - Image height.
+/// * `adjustments` - Image adjustments.
+/// * `mask_bitmaps` - Array of mask bitmaps.
+/// * `lut` - Optional LUT for color grading.
+///
+/// # Returns
+/// * `Result<Vec<u8>, String>` - The processed image data or an error message.
 pub fn run_gpu_processing(
     context: &GpuContext,
     input_texture_view: &wgpu::TextureView,
@@ -431,6 +469,22 @@ pub fn run_gpu_processing(
     Ok(final_pixels)
 }
 
+
+/// Processes the input image on the GPU and returns a `DynamicImage`.
+/// Uses caching to avoid redundant GPU uploads for identical transformations.
+/// Applies all adjustments, masks, and optional LUT.
+///
+/// # Arguments
+/// * `context` - The GPU context.
+/// * `state` - Application state for caching.
+/// * `base_image` - The input image.
+/// * `transform_hash` - Hash representing the transformation.
+/// * `all_adjustments` - All image adjustments.
+/// * `mask_bitmaps` - Array of mask bitmaps.
+/// * `lut` - Optional LUT for color grading.
+///
+/// # Returns
+/// * `Result<DynamicImage, String>` - The processed image or an error message.
 pub fn process_and_get_dynamic_image(
     context: &GpuContext,
     state: &tauri::State<AppState>,

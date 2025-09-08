@@ -45,6 +45,15 @@ impl PartialEq for HeapItem {
 }
 impl Eq for HeapItem {}
 
+/// Performs Criminisi inpainting algorithm on the source image using the provided mask and patch radius.
+///
+/// # Arguments
+/// * `source_image` - The source RGB image.
+/// * `mask` - The mask indicating regions to inpaint.
+/// * `patch_radius` - The radius of the patch used for inpainting.
+///
+/// # Returns
+/// * `RgbImage` - The inpainted image.
 fn inpaint_criminisi(source_image: &RgbImage, mask: &GrayImage, patch_radius: u32) -> RgbImage {
     let (width, height) = source_image.dimensions();
     let mut output = source_image.clone();
@@ -204,6 +213,14 @@ fn inpaint_criminisi(source_image: &RgbImage, mask: &GrayImage, patch_radius: u3
     output
 }
 
+/// Generates a Gaussian kernel for patch weighting.
+///
+/// # Arguments
+/// * `radius` - The radius of the kernel.
+/// * `sigma` - The standard deviation of the Gaussian.
+///
+/// # Returns
+/// * `Vec<f32>` - The Gaussian kernel.
 fn get_gaussian_kernel(radius: u32, sigma: f32) -> Vec<f32> {
     let diameter = (radius * 2 + 1) as usize;
     let mut kernel = vec![0.0; diameter * diameter];
@@ -225,10 +242,25 @@ fn get_gaussian_kernel(radius: u32, sigma: f32) -> Vec<f32> {
     kernel
 }
 
+/// Computes the luminance of an RGB pixel.
+///
+/// # Arguments
+/// * `p` - The RGB pixel.
+///
+/// # Returns
+/// * `f32` - The luminance value.
 fn get_pixel_luma(p: &Rgb<u8>) -> f32 {
     0.299 * p[0] as f32 + 0.587 * p[1] as f32 + 0.114 * p[2] as f32
 }
 
+/// Returns the coordinates of neighboring pixels for a given pixel.
+///
+/// # Arguments
+/// * `x`, `y` - Pixel coordinates.
+/// * `width`, `height` - Image dimensions.
+///
+/// # Returns
+/// * `Vec<(u32, u32)>` - Neighbor coordinates.
 fn get_neighbors(x: u32, y: u32, width: u32, height: u32) -> Vec<(u32, u32)> {
     let mut neighbors = Vec::with_capacity(8);
     for dy in -1..=1 {
@@ -246,6 +278,15 @@ fn get_neighbors(x: u32, y: u32, width: u32, height: u32) -> Vec<(u32, u32)> {
     neighbors
 }
 
+/// Calculates the normal vector at a given pixel on the front.
+///
+/// # Arguments
+/// * `pixel_states` - State of each pixel.
+/// * `width`, `height` - Image dimensions.
+/// * `x`, `y` - Pixel coordinates.
+///
+/// # Returns
+/// * `(f32, f32)` - The normal vector.
 fn calculate_normal(pixel_states: &[u8], width: u32, height: u32, x: u32, y: u32) -> (f32, f32) {
     let x_p1 = (x + 1).min(width - 1);
     let x_m1 = x.saturating_sub(1);
@@ -268,6 +309,15 @@ fn calculate_normal(pixel_states: &[u8], width: u32, height: u32, x: u32, y: u32
     }
 }
 
+/// Calculates and smooths normals for all front pixels.
+///
+/// # Arguments
+/// * `pixel_states` - State of each pixel.
+/// * `width`, `height` - Image dimensions.
+/// * `smoothing_window` - Window size for smoothing.
+///
+/// # Returns
+/// * `HashMap<(u32, u32), (f32, f32)>` - Smoothed normals.
 fn calculate_and_smooth_normals(
     pixel_states: &[u8],
     width: u32,
@@ -318,6 +368,16 @@ fn calculate_and_smooth_normals(
     smoothed_normals
 }
 
+/// Computes the gradient at a given pixel.
+///
+/// # Arguments
+/// * `image` - The RGB image.
+/// * `pixel_states` - State of each pixel.
+/// * `width`, `height` - Image dimensions.
+/// * `x`, `y` - Pixel coordinates.
+///
+/// # Returns
+/// * `(f32, f32)` - The gradient vector.
 fn get_gradient_at_point(
     image: &RgbImage,
     pixel_states: &[u8],
@@ -360,6 +420,19 @@ fn get_gradient_at_point(
     (-grad_y, grad_x)
 }
 
+/// Calculates the priority for a front pixel during inpainting.
+///
+/// # Arguments
+/// * `image` - The RGB image.
+/// * `pixel_states` - State of each pixel.
+/// * `confidence` - Confidence values.
+/// * `width`, `height` - Image dimensions.
+/// * `px`, `py` - Pixel coordinates.
+/// * `patch_radius` - Patch radius.
+/// * `normal` - Normal vector.
+///
+/// # Returns
+/// * `(f32, f32)` - Priority and confidence term.
 fn calculate_priority(
     image: &RgbImage,
     pixel_states: &[u8],
@@ -400,6 +473,19 @@ fn calculate_priority(
     (priority, confidence_term)
 }
 
+/// Calculates the sum of squared differences (SSD) between two patches.
+///
+/// # Arguments
+/// * `image` - The RGB image.
+/// * `pixel_states` - State of each pixel.
+/// * `width`, `height` - Image dimensions.
+/// * `px`, `py` - Target patch coordinates.
+/// * `qx`, `qy` - Source patch coordinates.
+/// * `patch_radius` - Patch radius.
+/// * `kernel` - Gaussian kernel.
+///
+/// # Returns
+/// * `f64` - The SSD value.
 fn calculate_ssd(
     image: &RgbImage,
     pixel_states: &[u8],
@@ -448,6 +534,20 @@ fn calculate_ssd(
     }
 }
 
+/// Finds the best matching patch in the local neighborhood for inpainting.
+///
+/// # Arguments
+/// * `image` - The RGB image.
+/// * `pixel_states` - State of each pixel.
+/// * `width`, `height` - Image dimensions.
+/// * `px`, `py` - Target patch coordinates.
+/// * `patch_radius` - Patch radius.
+/// * `search_radius` - Search radius.
+/// * `max_samples` - Maximum number of samples.
+/// * `kernel` - Gaussian kernel.
+///
+/// # Returns
+/// * `(u32, u32)` - Coordinates of the best matching patch.
 fn find_best_match_local(
     image: &RgbImage,
     pixel_states: &[u8],
@@ -540,6 +640,15 @@ fn find_best_match_local(
     best_match.map(|v| *v).unwrap_or((px, py))
 }
 
+/// Performs fast inpainting on the source image using the provided mask and patch radius.
+///
+/// # Arguments
+/// * `source_image` - The source image.
+/// * `mask` - The mask indicating regions to inpaint.
+/// * `patch_radius` - The radius of the patch used for inpainting.
+///
+/// # Returns
+/// * `Result<RgbaImage, String>` - The inpainted image or an error.
 pub fn perform_fast_inpaint(
     source_image: &DynamicImage,
     mask: &GrayImage,
