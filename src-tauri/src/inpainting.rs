@@ -1,3 +1,8 @@
+//! Image inpainting module.
+//!
+//! Implements Criminisi and fast inpainting algorithms for filling missing regions in images.
+//! Provides utilities for patch matching, mask handling, and pixel-level operations to restore or modify image content.
+
 use image::{DynamicImage, GenericImageView, GrayImage, Rgb, RgbImage, Rgba, RgbaImage};
 use rand::seq::SliceRandom;
 use rayon::prelude::*;
@@ -45,7 +50,7 @@ impl PartialEq for HeapItem {
 }
 impl Eq for HeapItem {}
 
-/// Performs Criminisi inpainting algorithm on the source image using the provided mask and patch radius.
+/// Performs Criminisi inpainting algorithm on the source image using the provided mask and patch radius to find a best matching patch.
 ///
 /// # Arguments
 /// * `source_image` - The source RGB image.

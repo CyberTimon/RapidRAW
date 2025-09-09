@@ -1,3 +1,8 @@
+//! File management module.
+//!
+//! Provides utilities for loading, saving, deleting, renaming files, and listing directory contents.
+//! Facilitates file operations required for image workflows and metadata handling.
+
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Cursor;

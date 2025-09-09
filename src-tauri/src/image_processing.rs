@@ -1,3 +1,9 @@
+//! Image processing and adjustment module.
+//!
+//! Contains structures and functions for image metadata, orientation, rotation, cropping, flipping,
+//! and all adjustment parameters. Supports both CPU and GPU pipelines, histogram and waveform analysis,
+//! and automatic adjustment suggestions for enhanced editing.
+
 use bytemuck::{Pod, Zeroable};
 use image::{DynamicImage, GenericImageView, Rgba};
 use imageproc::geometric_transformations::{Interpolation, rotate_about_center};

@@ -1,3 +1,8 @@
+//! RAW image processing module.
+//!
+//! Handles decoding and development of RAW image files, including tonemapping, gamma correction, and orientation adjustment.
+//! Integrates with the `rawler` crate for advanced RAW processing workflows.
+
 use crate::image_processing::apply_orientation;
 use anyhow::Result;
 use image::DynamicImage;
@@ -8,11 +13,26 @@ use rawler::{
     rawsource::RawSource,
 };
 
+/// Develops a RAW image from bytes, applies tonemapping and orientation correction.
+///
+/// # Arguments
+/// * `file_bytes` - The RAW file bytes.
+/// * `fast_demosaic` - Whether to use fast demosaic algorithm (see `rawler` crate).
+///
+/// # Returns
+/// * `Result<DynamicImage>` - The developed image or an error.
 pub fn develop_raw_image(file_bytes: &[u8], fast_demosaic: bool) -> Result<DynamicImage> {
     let (developed_image, orientation) = develop_internal(file_bytes, fast_demosaic)?;
     Ok(apply_orientation(developed_image, orientation))
 }
 
+/// Applies tonemapping and gamma correction to a linear pixel value.
+///
+/// # Arguments
+/// * `linear_val` - The linear pixel value.
+///
+/// # Returns
+/// * `f32` - The corrected pixel value.
 fn apply_tonemap_and_gamma(linear_val: f32) -> f32 {
     let x = linear_val.max(0.0);
     let a = 2.51;
@@ -31,6 +51,15 @@ fn apply_tonemap_and_gamma(linear_val: f32) -> f32 {
     }
 }
 
+/// Decodes RAW image data, applies custom processing pipeline, and outputs a tone-mapped image with preserved highlight detail.
+/// Uses the `rawler` crate for RAW decoding and processing.
+///
+/// # Arguments
+/// * `file_bytes` - The RAW file bytes.
+/// * `fast_demosaic` - Whether to use fast demosaic algorithm.
+///
+/// # Returns
+/// * `Result<(DynamicImage, Orientation)>` - The developed image and orientation or an error.
 fn develop_internal(file_bytes: &[u8], fast_demosaic: bool) -> Result<(DynamicImage, Orientation)> {
     let source = RawSource::new_from_slice(file_bytes);
     let decoder = rawler::get_decoder(&source)?;

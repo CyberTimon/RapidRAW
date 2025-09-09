@@ -1,3 +1,8 @@
+//! Panorama stitching module.
+//!
+//! Implements feature detection, matching, homography estimation, and progressive blending to stitch multiple images into panoramas.
+//! Includes data structures for keypoints, features, matches, and image information for robust panorama creation.
+
 use image::{GrayImage, RgbImage};
 use nalgebra::Matrix3;
 use rayon::prelude::*;
@@ -9,26 +14,32 @@ use tauri::{AppHandle, Emitter};
 
 use crate::panorama_utils::{processing, stitching};
 
+/// Size of the BRIEF descriptor in bits.
 pub const BRIEF_DESCRIPTOR_SIZE: usize = 256;
+/// Type alias for a BRIEF descriptor.
 pub type Descriptor = [u8; BRIEF_DESCRIPTOR_SIZE / 8];
 
+/// Structure representing a keypoint in an image.
 #[derive(Debug, Clone, Copy)]
 pub struct KeyPoint {
     pub x: u32,
     pub y: u32,
 }
 
+/// Structure representing a feature with a keypoint and descriptor.
 pub struct Feature {
     pub keypoint: KeyPoint,
     pub descriptor: Descriptor,
 }
 
+/// Structure representing a match between two keypoints in different images.
 #[derive(Debug, Clone, Copy)]
 pub struct Match {
     pub index1: usize,
     pub index2: usize,
 }
 
+/// Structure containing information about an image for panorama stitching.
 pub struct ImageInfo {
     pub id: usize,
     pub filename: String,
@@ -38,12 +49,21 @@ pub struct ImageInfo {
     pub features: Vec<Feature>,
 }
 
+/// Structure containing match information, including homography and inlier count.
 #[derive(Clone)]
 pub struct MatchInfo {
     pub homography: Matrix3<f64>,
     pub inliers: usize,
 }
 
+/// Takes a vector of image file paths and creates a panorama using feature detection, matching, homography calculation, and progressive seam blending.
+///
+/// # Arguments
+/// * `image_paths` - Vector of image file paths.
+/// * `app_handle` - Tauri application handle for progress events.
+///
+/// # Returns
+/// * `Result<RgbImage, String>` - The stitched panorama image or an error.
 pub fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<RgbImage, String> {
     if image_paths.len() < 2 {
         return Err("At least two images are required for a panorama.".to_string());
@@ -270,17 +290,20 @@ pub fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<
     Ok(panorama)
 }
 
+/// Disjoint Set Union (DSU) structure for connected components in graph algorithms.
 struct DSU {
     parent: Vec<usize>,
 }
 
 impl DSU {
+    /// Creates a new DSU for n elements.
     fn new(n: usize) -> Self {
         DSU {
             parent: (0..n).collect(),
         }
     }
 
+    /// Finds the root of the set containing element i.
     fn find(&mut self, i: usize) -> usize {
         if self.parent[i] == i {
             i
@@ -290,6 +313,7 @@ impl DSU {
         }
     }
 
+    /// Unions the sets containing elements i and j.
     fn union(&mut self, i: usize, j: usize) {
         let root_i = self.find(i);
         let root_j = self.find(j);
@@ -299,6 +323,14 @@ impl DSU {
     }
 }
 
+/// Builds the stitching order and computes global homographies for the panorama.
+///
+/// # Arguments
+/// * `images` - Slice of ImageInfo structures.
+/// * `matches` - Pairwise match information.
+///
+/// # Returns
+/// * `(Vec<usize>, HashMap<usize, Matrix3<f64>>)` - Ordered image indices and global homographies.
 fn build_stitching_order(
     images: &[ImageInfo],
     matches: &HashMap<(usize, usize), MatchInfo>,

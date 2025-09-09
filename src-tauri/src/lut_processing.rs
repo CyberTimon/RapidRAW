@@ -1,3 +1,8 @@
+//! LUT (Look-Up Table) processing module.
+//!
+//! Supports parsing and handling of 3D LUTs from .cube, .3dl, and HALD image formats.
+//! Enables color grading and transformation of images using external LUT files.
+
 use anyhow::{Result, anyhow};
 use image::{DynamicImage, GenericImageView};
 use std::fs::File;

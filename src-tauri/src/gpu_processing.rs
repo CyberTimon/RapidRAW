@@ -1,3 +1,9 @@
+//! GPU-based image processing module.
+//!
+//! Handles initialization and management of GPU context for image processing.
+//! Provides functions for running compute pipelines, applying adjustments, masks, and LUTs,
+//! and retrieving processed images efficiently using GPU acceleration.
+
 use std::sync::Arc;
 
 use bytemuck;

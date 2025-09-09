@@ -1,3 +1,9 @@
+//! Image loading and compositing module.
+//!
+//! Provides functions to load images from disk or memory, handle RAW and non-RAW formats,
+//! applies orientation from EXIF metadata, and composite AI-generated patches onto images.
+//! Supports mask generation and patch blending for advanced image editing workflows.
+
 use crate::Cursor;
 use crate::formats::is_raw_file;
 use crate::image_processing::apply_orientation;
@@ -52,7 +58,7 @@ pub fn load_and_composite(
 /// # Arguments
 /// * `bytes` - Image file bytes.
 /// * `path_for_ext_check` - Path used to check file extension.
-/// * `use_fast_raw_dev` - Whether to use fast RAW development (see [`RapidRAW::raw_processing::develop_raw_image`]).
+/// * `use_fast_raw_dev` - Whether to use fast RAW development (see [`develop_raw_image`] function).
 ///
 /// # Returns
 /// * `Result<DynamicImage>` - The loaded image or an error.
