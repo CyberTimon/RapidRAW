@@ -1,3 +1,4 @@
+/// A comprehensive list of tag candidates for image tagging.
 pub const TAG_CANDIDATES: [&str; 590] = [
     // --- People & Anatomy ---
     "person",

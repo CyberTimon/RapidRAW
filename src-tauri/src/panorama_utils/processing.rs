@@ -1,3 +1,9 @@
+//! Panorama feature detection and matching utilities.
+//!
+//! This module provides functions for downscaling images, detecting keypoints and features,
+//! generating BRIEF descriptor pairs, matching features between images, estimating homographies
+//! using RANSAC, and generating low-detail masks for panorama stitching workflows.
+
 use crate::panorama_stitching::{BRIEF_DESCRIPTOR_SIZE, Descriptor, Feature, KeyPoint, Match};
 use image::{GrayImage, ImageBuffer, Luma};
 use imageproc::corners::{Corner, corners_fast9};
@@ -18,6 +24,14 @@ pub const MIN_INLIERS_FOR_CONNECTION: usize = 15;
 const LOW_DETAIL_WINDOW_RADIUS: u32 = 16;
 const LOW_DETAIL_VARIANCE_THRESHOLD: f64 = 60.0;
 
+/// Calculates new dimensions and scale factor for downscaling an image to a maximum processing size.
+///
+/// # Arguments
+/// * `width` - Original image width.
+/// * `height` - Original image height.
+///
+/// # Returns
+/// * `(u32, u32, f64)` - New width, new height, and scale factor.
 pub fn calculate_downscale_dimensions(width: u32, height: u32) -> (u32, u32, f64) {
     let long_side = width.max(height);
     if long_side <= MAX_PROCESSING_DIMENSION {
@@ -29,6 +43,14 @@ pub fn calculate_downscale_dimensions(width: u32, height: u32) -> (u32, u32, f64
     (new_width, new_height, scale_factor)
 }
 
+/// Detects keypoints and computes BRIEF descriptors for a grayscale image.
+///
+/// # Arguments
+/// * `img` - Grayscale image.
+/// * `brief_pairs` - Pairs of points for BRIEF descriptor.
+///
+/// # Returns
+/// * `Vec<Feature>` - List of detected features.
 pub fn find_features(img: &GrayImage, brief_pairs: &[(Point2<i32>, Point2<i32>)]) -> Vec<Feature> {
     let blurred_img_u8 = imageproc::filter::gaussian_blur_f32(img, 1.5);
     let corners = corners_fast9(&blurred_img_u8, FAST_THRESHOLD);
@@ -48,6 +70,14 @@ pub fn find_features(img: &GrayImage, brief_pairs: &[(Point2<i32>, Point2<i32>)]
     features
 }
 
+/// Applies non-maximal suppression to a list of corners to select keypoints.
+///
+/// # Arguments
+/// * `corners` - List of detected corners.
+/// * `radius` - Suppression radius.
+///
+/// # Returns
+/// * `Vec<KeyPoint>` - Suppressed keypoints.
 fn non_maximal_suppression(corners: &[Corner], radius: f32) -> Vec<KeyPoint> {
     let mut sorted_corners = corners.to_vec();
     sorted_corners.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
@@ -78,6 +108,10 @@ fn non_maximal_suppression(corners: &[Corner], radius: f32) -> Vec<KeyPoint> {
     result
 }
 
+/// Generates random pairs of points for BRIEF descriptor computation.
+///
+/// # Returns
+/// * `Vec<(Point2<i32>, Point2<i32>)>` - List of point pairs.
 pub fn generate_brief_pairs() -> Vec<(Point2<i32>, Point2<i32>)> {
     let mut rng = StdRng::seed_from_u64(12345);
     let half_patch = BRIEF_PATCH_SIZE as i32 / 2;
@@ -96,6 +130,16 @@ pub fn generate_brief_pairs() -> Vec<(Point2<i32>, Point2<i32>)> {
         .collect()
 }
 
+/// Computes the BRIEF descriptor for a keypoint in a blurred image patch.
+///
+/// # Arguments
+/// * `img` - Blurred grayscale image.
+/// * `kp` - Keypoint.
+/// * `patch_size` - Size of the patch.
+/// * `pairs` - BRIEF pairs.
+///
+/// # Returns
+/// * `Option<Descriptor>` - The computed descriptor or None.
 fn compute_brief_descriptor(
     img: &ImageBuffer<Luma<f32>, Vec<f32>>,
     kp: &KeyPoint,
@@ -128,6 +172,14 @@ fn compute_brief_descriptor(
     Some(descriptor)
 }
 
+/// Computes the Hamming distance between two BRIEF descriptors.
+///
+/// # Arguments
+/// * `d1` - First descriptor.
+/// * `d2` - Second descriptor.
+///
+/// # Returns
+/// * `u32` - Hamming distance.
 fn hamming_distance(d1: &Descriptor, d2: &Descriptor) -> u32 {
     d1.iter()
         .zip(d2.iter())
@@ -135,6 +187,14 @@ fn hamming_distance(d1: &Descriptor, d2: &Descriptor) -> u32 {
         .sum()
 }
 
+/// Matches features between two images using the ratio test on Hamming distances.
+///
+/// # Arguments
+/// * `features1` - Features from the first image.
+/// * `features2` - Features from the second image.
+///
+/// # Returns
+/// * `Vec<Match>` - List of matched features.
 pub fn match_features(features1: &[Feature], features2: &[Feature]) -> Vec<Match> {
     if features1.is_empty() || features2.is_empty() {
         return Vec::new();
@@ -170,6 +230,15 @@ pub fn match_features(features1: &[Feature], features2: &[Feature]) -> Vec<Match
         .collect()
 }
 
+/// Estimates a homography between two sets of keypoints using RANSAC.
+///
+/// # Arguments
+/// * `matches` - List of matched features.
+/// * `keypoints1` - Keypoints from the first image.
+/// * `keypoints2` - Keypoints from the second image.
+///
+/// # Returns
+/// * `Option<(Matrix3<f64>, Vec<Match>)>` - Homography matrix and inliers.
 pub fn find_homography_ransac(
     matches: &[Match],
     keypoints1: &[KeyPoint],
@@ -257,11 +326,25 @@ pub fn find_homography_ransac(
     }
 }
 
+/// Checks if three points are collinear.
+///
+/// # Arguments
+/// * `p1`, `p2`, `p3` - Points to check.
+///
+/// # Returns
+/// * `bool` - True if collinear, false otherwise.
 fn are_points_collinear(p1: Point2<f64>, p2: Point2<f64>, p3: Point2<f64>) -> bool {
     let area = p1.x * (p2.y - p3.y) + p2.x * (p3.y - p1.y) + p3.x * (p1.y - p2.y);
     area.abs() < 1e-6
 }
 
+/// Computes the homography matrix from point correspondences.
+///
+/// # Arguments
+/// * `points` - List of point pairs.
+///
+/// # Returns
+/// * `Option<Matrix3<f64>>` - Homography matrix or None.
 pub fn compute_homography(points: &[(Point2<f64>, Point2<f64>)]) -> Option<Matrix3<f64>> {
     if points.len() < 4 {
         return None;
@@ -300,6 +383,13 @@ pub fn compute_homography(points: &[(Point2<f64>, Point2<f64>)]) -> Option<Matri
     Some(Matrix3::from_iterator(h_vec.iter().cloned()).transpose())
 }
 
+/// Converts a grayscale image from u8 to f32 format.
+///
+/// # Arguments
+/// * `img` - Grayscale image.
+///
+/// # Returns
+/// * `ImageBuffer<Luma<f32>, Vec<f32>>` - Converted image.
 fn convert_gray_u8_to_f32(img: &GrayImage) -> ImageBuffer<Luma<f32>, Vec<f32>> {
     let (width, height) = img.dimensions();
     ImageBuffer::from_fn(width, height, |x, y| {
@@ -307,6 +397,13 @@ fn convert_gray_u8_to_f32(img: &GrayImage) -> ImageBuffer<Luma<f32>, Vec<f32>> {
     })
 }
 
+/// Builds integral images (summed area tables) for fast local statistics computation.
+///
+/// # Arguments
+/// * `gray` - Grayscale image.
+///
+/// # Returns
+/// * `(Vec<u64>, Vec<u128>)` - Integral images for pixel values and squared values.
 fn build_integral_images(gray: &GrayImage) -> (Vec<u64>, Vec<u128>) {
     let (width, height) = gray.dimensions();
     let mut sat = vec![0u64; (width * height) as usize];
@@ -345,6 +442,13 @@ fn build_integral_images(gray: &GrayImage) -> (Vec<u64>, Vec<u128>) {
     (sat, sat_sq)
 }
 
+/// Generates a mask highlighting low-detail regions in a grayscale image.
+///
+/// # Arguments
+/// * `gray_full` - Full-resolution grayscale image.
+///
+/// # Returns
+/// * `GrayImage` - Low-detail mask image.
 pub fn generate_low_detail_mask(gray_full: &GrayImage) -> GrayImage {
     println!("    - Generating low-detail mask...");
     let (width, height) = gray_full.dimensions();
