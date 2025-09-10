@@ -1,3 +1,5 @@
+//! Image format definitions and utilities.
+
 /// List of recognized RAW file extensions, associated with their format name.
 /// Used to identify RAW files from various camera manufacturers.
 /// Currently supported formats include:
