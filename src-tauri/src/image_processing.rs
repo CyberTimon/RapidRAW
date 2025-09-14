@@ -1,3 +1,9 @@
+//! Image processing and adjustment module.
+//!
+//! Contains structures and functions for image metadata, orientation, rotation, cropping, flipping,
+//! and all adjustment parameters. Supports both CPU and GPU pipelines, histogram and waveform analysis,
+//! and automatic adjustment suggestions for enhanced editing.
+
 use bytemuck::{Pod, Zeroable};
 use image::{DynamicImage, GenericImageView, Rgba};
 use imageproc::geometric_transformations::{Interpolation, rotate_about_center};
@@ -11,6 +17,7 @@ use std::sync::Arc;
 pub use crate::gpu_processing::{get_or_init_gpu_context, process_and_get_dynamic_image};
 use crate::{AppState, load_settings, mask_generation::MaskDefinition};
 
+/// Structure containing all image adjustment parameters for processing.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageMetadata {
     pub version: u32,
@@ -20,6 +27,7 @@ pub struct ImageMetadata {
     pub tags: Option<Vec<String>>,
 }
 
+/// Structure representing the GPU context, including device, queue, and hardware limits.
 impl Default for ImageMetadata {
     fn default() -> Self {
         ImageMetadata {
@@ -31,6 +39,7 @@ impl Default for ImageMetadata {
     }
 }
 
+/// Structure representing crop parameters for an image.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Crop {
     pub x: f64,
@@ -39,6 +48,14 @@ pub struct Crop {
     pub height: f64,
 }
 
+/// Applies orientation correction to an image based on the provided orientation metadata.
+///
+/// # Arguments
+/// * `image` - The image to be oriented.
+/// * `orientation` - The orientation metadata.
+///
+/// # Returns
+/// * `DynamicImage` - The oriented image.
 pub fn apply_orientation(image: DynamicImage, orientation: Orientation) -> DynamicImage {
     match orientation {
         Orientation::Normal | Orientation::Unknown => image,
@@ -52,6 +69,14 @@ pub fn apply_orientation(image: DynamicImage, orientation: Orientation) -> Dynam
     }
 }
 
+/// Applies a coarse rotation to the image in 90-degree steps.
+///
+/// # Arguments
+/// * `image` - The image to rotate.
+/// * `orientation_steps` - Number of 90-degree steps.
+///
+/// # Returns
+/// * `DynamicImage` - The rotated image.
 pub fn apply_coarse_rotation(image: DynamicImage, orientation_steps: u8) -> DynamicImage {
     match orientation_steps {
         1 => image.rotate90(),
@@ -61,6 +86,14 @@ pub fn apply_coarse_rotation(image: DynamicImage, orientation_steps: u8) -> Dyna
     }
 }
 
+/// Rotates the image by an arbitrary angle in degrees.
+///
+/// # Arguments
+/// * `image` - The image to rotate.
+/// * `rotation_degrees` - Angle in degrees.
+///
+/// # Returns
+/// * `DynamicImage` - The rotated image.
 pub fn apply_rotation(image: &DynamicImage, rotation_degrees: f32) -> DynamicImage {
     if rotation_degrees % 360.0 == 0.0 {
         return image.clone();
@@ -78,6 +111,14 @@ pub fn apply_rotation(image: &DynamicImage, rotation_degrees: f32) -> DynamicIma
     DynamicImage::ImageRgba8(rotated)
 }
 
+/// Crops the image according to the provided crop parameters.
+///
+/// # Arguments
+/// * `image` - The image to crop.
+/// * `crop_value` - Crop parameters as JSON.
+///
+/// # Returns
+/// * `DynamicImage` - The cropped image.
 pub fn apply_crop(mut image: DynamicImage, crop_value: &Value) -> DynamicImage {
     if crop_value.is_null() {
         return image;
@@ -102,6 +143,15 @@ pub fn apply_crop(mut image: DynamicImage, crop_value: &Value) -> DynamicImage {
     image
 }
 
+/// Flips the image horizontally and/or vertically.
+///
+/// # Arguments
+/// * `image` - The image to flip.
+/// * `horizontal` - Whether to flip horizontally.
+/// * `vertical` - Whether to flip vertically.
+///
+/// # Returns
+/// * `DynamicImage` - The flipped image.
 pub fn apply_flip(image: DynamicImage, horizontal: bool, vertical: bool) -> DynamicImage {
     let mut img = image;
     if horizontal {
@@ -113,6 +163,7 @@ pub fn apply_flip(image: DynamicImage, horizontal: bool, vertical: bool) -> Dyna
     img
 }
 
+/// Structure containing results of automatic image adjustments.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AutoAdjustmentResults {
     pub exposure: f64,
@@ -126,6 +177,7 @@ pub struct AutoAdjustmentResults {
     pub dehaze: f64,
 }
 
+/// Structure representing a point for curve adjustments.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct Point {
@@ -135,6 +187,7 @@ pub struct Point {
     _pad2: f32,
 }
 
+/// Structure representing HSL color adjustments.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct HslColor {
@@ -144,6 +197,7 @@ pub struct HslColor {
     _pad: f32,
 }
 
+/// Structure representing color grading settings.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct ColorGradeSettings {
@@ -153,6 +207,7 @@ pub struct ColorGradeSettings {
     _pad: f32,
 }
 
+/// Structure containing global image adjustments.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct GlobalAdjustments {
@@ -220,6 +275,7 @@ pub struct GlobalAdjustments {
     pub blue_curve_count: u32,
 }
 
+/// Structure containing adjustments for a mask.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct MaskAdjustments {
@@ -265,6 +321,7 @@ pub struct MaskAdjustments {
     pub blue_curve_count: u32,
 }
 
+/// Structure containing all adjustments, including global and mask-specific.
 #[derive(Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct AllAdjustments {
@@ -276,6 +333,7 @@ pub struct AllAdjustments {
     pub mask_atlas_cols: u32,
 }
 
+/// Structure containing adjustment scales for normalization.
 struct AdjustmentScales {
     exposure: f32,
     contrast: f32,
@@ -354,6 +412,13 @@ const SCALES: AdjustmentScales = AdjustmentScales {
     color_grading_balance: 200.0,
 };
 
+/// Parses HSL adjustments from JSON into an array of HslColor.
+///
+/// # Arguments
+/// * `js_hsl` - JSON value containing HSL adjustments.
+///
+/// # Returns
+/// * `[HslColor; 8]` - Array of HSL color adjustments.
 fn parse_hsl_adjustments(js_hsl: &serde_json::Value) -> [HslColor; 8] {
     let mut hsl_array = [HslColor::default(); 8];
     if let Some(hsl_map) = js_hsl.as_object() {
@@ -384,6 +449,13 @@ fn parse_hsl_adjustments(js_hsl: &serde_json::Value) -> [HslColor; 8] {
     hsl_array
 }
 
+/// Parses color grading settings from JSON.
+///
+/// # Arguments
+/// * `js_cg` - JSON value containing color grading settings.
+///
+/// # Returns
+/// * `ColorGradeSettings` - Parsed color grading settings.
 fn parse_color_grade_settings(js_cg: &serde_json::Value) -> ColorGradeSettings {
     if js_cg.is_null() {
         return ColorGradeSettings::default();
@@ -398,6 +470,13 @@ fn parse_color_grade_settings(js_cg: &serde_json::Value) -> ColorGradeSettings {
     }
 }
 
+/// Converts frontend curve points from JSON to an aligned array of Point.
+///
+/// # Arguments
+/// * `frontend_points` - Vector of JSON values representing points.
+///
+/// # Returns
+/// * `[Point; 16]` - Array of aligned points.
 fn convert_points_to_aligned(frontend_points: Vec<serde_json::Value>) -> [Point; 16] {
     let mut aligned_points = [Point::default(); 16];
     for (i, point) in frontend_points.iter().enumerate().take(16) {
@@ -413,6 +492,13 @@ fn convert_points_to_aligned(frontend_points: Vec<serde_json::Value>) -> [Point;
     aligned_points
 }
 
+/// Extracts global adjustments from JSON.
+///
+/// # Arguments
+/// * `js_adjustments` - JSON value containing adjustments.
+///
+/// # Returns
+/// * `GlobalAdjustments` - Parsed global adjustments.
 fn get_global_adjustments_from_json(js_adjustments: &serde_json::Value) -> GlobalAdjustments {
     if js_adjustments.is_null() {
         return GlobalAdjustments::default();
@@ -626,6 +712,13 @@ fn get_global_adjustments_from_json(js_adjustments: &serde_json::Value) -> Globa
     }
 }
 
+/// Extracts mask adjustments from JSON.
+///
+/// # Arguments
+/// * `adj` - JSON value containing mask adjustments.
+///
+/// # Returns
+/// * `MaskAdjustments` - Parsed mask adjustments.
 fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
     if adj.is_null() {
         return MaskAdjustments::default();
@@ -744,6 +837,13 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
     }
 }
 
+/// Extracts all adjustments (global and masks) from JSON.
+///
+/// # Arguments
+/// * `js_adjustments` - JSON value containing all adjustments.
+///
+/// # Returns
+/// * `AllAdjustments` - Parsed adjustments.
 pub fn get_all_adjustments_from_json(js_adjustments: &serde_json::Value) -> AllAdjustments {
     let global = get_global_adjustments_from_json(js_adjustments);
     let mut mask_adjustments = [MaskAdjustments::default(); 14];
@@ -774,6 +874,7 @@ pub fn get_all_adjustments_from_json(js_adjustments: &serde_json::Value) -> AllA
     }
 }
 
+/// Structure representing the GPU context for image processing.
 #[derive(Clone)]
 pub struct GpuContext {
     pub device: Arc<wgpu::Device>,
@@ -781,6 +882,7 @@ pub struct GpuContext {
     pub limits: wgpu::Limits,
 }
 
+/// Structure containing histogram data for an image.
 #[derive(Serialize, Clone)]
 pub struct HistogramData {
     red: Vec<f32>,
@@ -789,6 +891,14 @@ pub struct HistogramData {
     luma: Vec<f32>,
 }
 
+/// Generates a histogram from the current image in the application state.
+///
+/// # Arguments
+/// * `state` - Application state.
+/// * `app_handle` - Tauri application handle.
+///
+/// # Returns
+/// * `Result<HistogramData, String>` - The histogram data or an error.
 #[tauri::command]
 pub fn generate_histogram(
     state: tauri::State<AppState>,
@@ -816,6 +926,13 @@ pub fn generate_histogram(
     }
 }
 
+/// Calculates histogram data from a given image.
+///
+/// # Arguments
+/// * `image` - The image to analyze.
+///
+/// # Returns
+/// * `Result<HistogramData, String>` - The histogram data or an error.
 pub fn calculate_histogram_from_image(image: &DynamicImage) -> Result<HistogramData, String> {
     let mut red_counts = vec![0u32; 256];
     let mut green_counts = vec![0u32; 256];
@@ -857,6 +974,11 @@ pub fn calculate_histogram_from_image(image: &DynamicImage) -> Result<HistogramD
     })
 }
 
+/// Applies Gaussian smoothing to a histogram.
+///
+/// # Arguments
+/// * `histogram` - The histogram data.
+/// * `sigma` - Smoothing factor.
 fn apply_gaussian_smoothing(histogram: &mut Vec<f32>, sigma: f32) {
     if sigma <= 0.0 {
         return;
@@ -900,6 +1022,11 @@ fn apply_gaussian_smoothing(histogram: &mut Vec<f32>, sigma: f32) {
     }
 }
 
+/// Normalizes the histogram range based on a percentile clip.
+///
+/// # Arguments
+/// * `histogram` - The histogram data.
+/// * `percentile_clip` - Percentile for clipping.
 fn normalize_histogram_range(histogram: &mut Vec<f32>, percentile_clip: f32) {
     if histogram.is_empty() {
         return;
@@ -923,6 +1050,7 @@ fn normalize_histogram_range(histogram: &mut Vec<f32>, percentile_clip: f32) {
     }
 }
 
+/// Structure containing waveform data for an image.
 #[derive(Serialize, Clone)]
 pub struct WaveformData {
     red: Vec<u32>,
@@ -933,6 +1061,14 @@ pub struct WaveformData {
     height: u32,
 }
 
+/// Generates waveform data from the current image in the application state.
+///
+/// # Arguments
+/// * `state` - Application state.
+/// * `app_handle` - Tauri application handle.
+///
+/// # Returns
+/// * `Result<WaveformData, String>` - The waveform data or an error.
 #[tauri::command]
 pub fn generate_waveform(
     state: tauri::State<AppState>,
@@ -960,6 +1096,13 @@ pub fn generate_waveform(
     }
 }
 
+/// Calculates waveform data from a given image.
+///
+/// # Arguments
+/// * `image` - The image to analyze.
+///
+/// # Returns
+/// * `Result<WaveformData, String>` - The waveform data or an error.
 pub fn calculate_waveform_from_image(image: &DynamicImage) -> Result<WaveformData, String> {
     const WAVEFORM_WIDTH: u32 = 256;
     const WAVEFORM_HEIGHT: u32 = 256;
@@ -1012,6 +1155,13 @@ pub fn calculate_waveform_from_image(image: &DynamicImage) -> Result<WaveformDat
     })
 }
 
+/// Performs automatic analysis of an image to suggest adjustment values.
+///
+/// # Arguments
+/// * `image` - The image to analyze.
+///
+/// # Returns
+/// * `AutoAdjustmentResults` - Suggested adjustment values.
 pub fn perform_auto_analysis(image: &DynamicImage) -> AutoAdjustmentResults {
     let analysis_preview = image.thumbnail(1024, 1024);
     let rgb_image = analysis_preview.to_rgb8();
@@ -1217,6 +1367,13 @@ pub fn perform_auto_analysis(image: &DynamicImage) -> AutoAdjustmentResults {
     }
 }
 
+/// Converts auto adjustment results to JSON format.
+///
+/// # Arguments
+/// * `results` - The auto adjustment results.
+///
+/// # Returns
+/// * `serde_json::Value` - JSON representation of the results.
 pub fn auto_results_to_json(results: &AutoAdjustmentResults) -> serde_json::Value {
     json!({
         "exposure": results.exposure,
@@ -1236,6 +1393,13 @@ pub fn auto_results_to_json(results: &AutoAdjustmentResults) -> serde_json::Valu
     })
 }
 
+/// Calculates automatic adjustment values for the current image in the application state.
+///
+/// # Arguments
+/// * `state` - Application state.
+///
+/// # Returns
+/// * `Result<serde_json::Value, String>` - JSON adjustment values or an error.
 #[tauri::command]
 pub fn calculate_auto_adjustments(
     state: tauri::State<AppState>,

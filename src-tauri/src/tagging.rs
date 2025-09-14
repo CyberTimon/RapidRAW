@@ -1,3 +1,7 @@
+//! Image tagging module using CLIP (Contrastive Language-Image Pre-Training) model and color extraction.
+//! 
+//! Supports background indexing, tag management, and color-based tagging for enhanced search and organization.
+
 use anyhow::Result;
 use futures::stream::{self, StreamExt};
 use image::{DynamicImage, imageops::FilterType};
@@ -22,15 +26,23 @@ use crate::image_processing::ImageMetadata;
 
 pub const COLOR_TAG_PREFIX: &str = "color:";
 
+/// Preprocesses an image for CLIP model input by resizing and normalizing pixel values.
+///
+/// # Arguments
+/// * `image` - The image to preprocess.
+///
+/// # Returns
+/// * `Array<f32, ndarray::Dim<[usize; 4]>>` - The processed image array.
 fn preprocess_clip_image(image: &DynamicImage) -> Array<f32, ndarray::Dim<[usize; 4]>> {
-    let input_size = 224;
+    let input_size = 224; // CLIP model input size
     let resized = image.resize_to_fill(input_size, input_size, FilterType::Triangle);
     let rgb_image = resized.to_rgb8();
 
-    let mean = [0.48145466, 0.4578275, 0.40821073];
-    let std = [0.26862954, 0.26130258, 0.27577711];
+    let mean = [0.48145466, 0.4578275, 0.40821073]; // R, G, B
+    let std = [0.26862954, 0.26130258, 0.27577711]; // R, G, B
 
     let mut array = Array::zeros((1, 3, input_size as usize, input_size as usize));
+    // Pixel-by-pixel Normalization and array population
     for (x, y, pixel) in rgb_image.enumerate_pixels() {
         array[[0, 0, y as usize, x as usize]] = (pixel[0] as f32 / 255.0 - mean[0]) / std[0];
         array[[0, 1, y as usize, x as usize]] = (pixel[1] as f32 / 255.0 - mean[1]) / std[1];
@@ -39,6 +51,13 @@ fn preprocess_clip_image(image: &DynamicImage) -> Array<f32, ndarray::Dim<[usize
     array
 }
 
+/// Applies softmax normalization to a 2D array.
+///
+/// # Arguments
+/// * `array` - The input array.
+///
+/// # Returns
+/// * `Array<f32, ndarray::Dim<[usize; 2]>>` - The softmax-normalized array.
 fn softmax(array: &Array<f32, ndarray::Dim<[usize; 2]>>) -> Array<f32, ndarray::Dim<[usize; 2]>> {
     let mut new_array = array.clone();
     for mut row in new_array.axis_iter_mut(Axis(0)) {
@@ -52,6 +71,13 @@ fn softmax(array: &Array<f32, ndarray::Dim<[usize; 2]>>) -> Array<f32, ndarray::
     new_array
 }
 
+/// Converts an RGB pixel to HSV color space.
+///
+/// # Arguments
+/// * `(r, g, b)` - The RGB pixel.
+///
+/// # Returns
+/// * `(f32, f32, f32)` - The HSV values.
 fn rgb_to_hsv((r, g, b): (u8, u8, u8)) -> (f32, f32, f32) {
     let r = r as f32 / 255.0;
     let g = g as f32 / 255.0;
@@ -82,6 +108,13 @@ fn rgb_to_hsv((r, g, b): (u8, u8, u8)) -> (f32, f32, f32) {
     (h, s, v)
 }
 
+/// Extracts dominant color tags from an image.
+///
+/// # Arguments
+/// * `image` - The image to analyze.
+///
+/// # Returns
+/// * `Vec<String>` - The extracted color tags.
 pub fn extract_color_tags(image: &DynamicImage) -> Vec<String> {
     let resized = image.resize(100, 100, FilterType::Triangle);
     let rgb_image = resized.to_rgb8();
@@ -141,6 +174,15 @@ pub fn extract_color_tags(image: &DynamicImage) -> Vec<String> {
     }
 }
 
+/// Generates tags for an image using the CLIP model and tokenizer.
+///
+/// # Arguments
+/// * `image` - The image to tag.
+/// * `clip_session` - The CLIP model session.
+/// * `tokenizer` - The tokenizer.
+///
+/// # Returns
+/// * `Result<Vec<String>>` - The generated tags or an error.
 pub fn generate_tags_with_clip(
     image: &DynamicImage,
     clip_session: &Session,
@@ -237,6 +279,15 @@ pub fn generate_tags_with_clip(
     Ok(final_tags)
 }
 
+/// Starts background indexing of images in a folder, generating tags asynchronously.
+///
+/// # Arguments
+/// * `folder_path` - Path to the folder.
+/// * `app_handle` - Tauri application handle.
+/// * `state` - Application state.
+///
+/// # Returns
+/// * `Result<(), String>` - Success or error.
 #[tauri::command]
 pub async fn start_background_indexing(
     folder_path: String,
@@ -383,6 +434,13 @@ pub async fn start_background_indexing(
     Ok(())
 }
 
+/// Clears all AI-generated tags from sidecar files in the given root path, keeping color tags.
+///
+/// # Arguments
+/// * `root_path` - Path to the root directory.
+///
+/// # Returns
+/// * `Result<usize, String>` - Number of updated files or error.
 #[tauri::command]
 pub fn clear_all_tags(root_path: String) -> Result<usize, String> {
     if !Path::new(&root_path).exists() {

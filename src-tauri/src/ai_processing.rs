@@ -1,3 +1,5 @@
+//! AI processing module for image segmentation and tagging.
+
 use std::fs;
 use std::io::{self, Cursor};
 use std::path::{Path, PathBuf};

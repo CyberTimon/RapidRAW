@@ -1,3 +1,5 @@
+//! ComfyUI connector module handling communication with a local ComfyUI server for image processing tasks.
+
 use anyhow::{Result, anyhow};
 use futures_util::StreamExt;
 use image::{DynamicImage, GenericImageView, ImageFormat, codecs::jpeg::JpegEncoder};

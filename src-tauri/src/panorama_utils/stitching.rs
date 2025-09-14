@@ -1,3 +1,9 @@
+//! Panorama progressive seam stitching utilities.
+//!
+//! This module provides functions for blending and stitching multiple images into a panorama.
+//! It includes adaptive seam finding, dynamic feathering, and pixel interpolation to minimize visible seams
+//! and blend overlapping regions smoothly. Supports both vertical and horizontal seam orientation.
+
 use crate::panorama_stitching::ImageInfo;
 use image::{GrayImage, Rgb, RgbImage};
 use nalgebra::{Matrix3, Point3};
@@ -8,11 +14,13 @@ use tauri::{AppHandle, Emitter};
 
 const FEATHER_WIDTH: f64 = 100.0;
 
+/// Orientation of the seam (vertical or horizontal).
 enum SeamOrientation {
     Vertical,
     Horizontal,
 }
 
+/// Information about a detected seam, including orientation, coordinates, and direction.
 struct SeamInfo {
     orientation: SeamOrientation,
     coords: Vec<i32>,
@@ -20,6 +28,15 @@ struct SeamInfo {
     dy: f64,
 }
 
+/// Progressively stitches images into a panorama using adaptive seams and feather blending.
+///
+/// # Arguments
+/// * `images` - Slice of image information.
+/// * `global_homographies` - Homography matrices for each image.
+/// * `app_handle` - Tauri application handle for progress events.
+///
+/// # Returns
+/// * `RgbImage` - The stitched panorama image.
 pub fn progressive_seam_stitcher(
     images: &[&ImageInfo],
     global_homographies: &HashMap<usize, Matrix3<f64>>,
@@ -358,6 +375,18 @@ pub fn progressive_seam_stitcher(
     panorama
 }
 
+/// Finds the adaptive seam between the panorama and the image to add, choosing vertical or horizontal orientation.
+///
+/// # Arguments
+/// * `pano` - Current panorama image.
+/// * `pano_mask` - Mask of the panorama.
+/// * `img_to_add` - Image to add.
+/// * `h_add` - Homography matrix for the image to add.
+/// * `offset_x`, `offset_y` - Canvas offsets.
+/// * `out_width`, `out_height` - Output dimensions.
+///
+/// # Returns
+/// * `Option<SeamInfo>` - Information about the detected seam.
 fn find_adaptive_seam(
     pano: &RgbImage,
     pano_mask: &GrayImage,
@@ -435,6 +464,13 @@ fn find_adaptive_seam(
     }
 }
 
+/// Finds the optimal vertical seam using dynamic programming.
+///
+/// # Arguments
+/// * `pano`, `pano_mask`, `img_to_add`, `h_add`, `offset_x`, `offset_y`, `out_width`, `out_height`
+///
+/// # Returns
+/// * `Vec<i32>` - Seam coordinates for each row.
 fn find_pairwise_seam_dp_vertical(
     pano: &RgbImage,
     pano_mask: &GrayImage,
@@ -541,6 +577,13 @@ fn find_pairwise_seam_dp_vertical(
     seam
 }
 
+/// Finds the optimal horizontal seam using dynamic programming.
+///
+/// # Arguments
+/// * `pano`, `pano_mask`, `img_to_add`, `h_add`, `offset_x`, `offset_y`, `out_width`, `out_height`
+///
+/// # Returns
+/// * `Vec<i32>` - Seam coordinates for each column.
 fn find_pairwise_seam_dp_horizontal(
     pano: &RgbImage,
     pano_mask: &GrayImage,
@@ -641,6 +684,14 @@ fn find_pairwise_seam_dp_horizontal(
     seam
 }
 
+/// Performs bilinear interpolation to get the pixel value at non-integer coordinates.
+///
+/// # Arguments
+/// * `img` - Source image.
+/// * `x`, `y` - Floating point coordinates.
+///
+/// # Returns
+/// * `Rgb<u8>` - Interpolated pixel value.
 fn get_interpolated_pixel(img: &RgbImage, x: f64, y: f64) -> Rgb<u8> {
     let (width, height) = img.dimensions();
     let x_floor = x.floor() as u32;

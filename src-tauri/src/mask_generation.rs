@@ -1,3 +1,8 @@
+//! Mask generation module.
+//!
+//! Defines structures and functions for creating and manipulating masks, including sub-masks, AI masks,
+//! radial, linear, and brush masks. Supports bitmap generation and advanced mask compositing for image editing.
+
 use crate::ai_processing::{
     AiForegroundMaskParameters, AiSkyMaskParameters, AiSubjectMaskParameters,
 };
@@ -9,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::f32::consts::PI;
 
+/// Enum representing the mode of a sub-mask (additive or subtractive).
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum SubMaskMode {
@@ -16,6 +22,7 @@ pub enum SubMaskMode {
     Subtractive,
 }
 
+/// Structure representing a sub-mask with its parameters and visibility.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SubMask {
@@ -31,6 +38,7 @@ fn default_opacity() -> f32 {
     100.0
 }
 
+/// Structure representing a mask definition, including its sub-masks and adjustments.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MaskDefinition {
@@ -44,6 +52,7 @@ pub struct MaskDefinition {
     pub sub_masks: Vec<SubMask>,
 }
 
+/// Structure representing patch data for AI masks.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PatchData {
@@ -51,6 +60,7 @@ pub struct PatchData {
     pub mask: String,
 }
 
+/// Structure representing an AI patch definition.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AiPatchDefinition {
@@ -66,6 +76,7 @@ pub struct AiPatchDefinition {
     pub sub_masks: Vec<SubMask>,
 }
 
+/// Structure for grow and feather parameters for mask processing.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 struct GrowFeatherParameters {
@@ -75,6 +86,7 @@ struct GrowFeatherParameters {
     feather: f32,
 }
 
+/// Structure for radial mask parameters.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 struct RadialMaskParameters {
@@ -86,6 +98,7 @@ struct RadialMaskParameters {
     feather: f32,
 }
 
+/// Structure for linear mask parameters.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 struct LinearMaskParameters {
@@ -101,6 +114,7 @@ fn default_range() -> f32 {
     50.0
 }
 
+/// Default implementation for LinearMaskParameters.
 impl Default for LinearMaskParameters {
     fn default() -> Self {
         Self {
@@ -113,12 +127,14 @@ impl Default for LinearMaskParameters {
     }
 }
 
+/// Structure representing a point for brush strokes.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Point {
     x: f64,
     y: f64,
 }
 
+/// Structure representing a brush line with its properties and points.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 struct BrushLine {
@@ -133,6 +149,7 @@ fn default_brush_feather() -> f32 {
     0.5
 }
 
+/// Structure for brush mask parameters.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 struct BrushMaskParameters {
@@ -140,6 +157,14 @@ struct BrushMaskParameters {
     lines: Vec<BrushLine>,
 }
 
+/// Applies grow (dilation/erosion) and feather (gaussian blur) effects to a grayscale mask image.
+///
+/// # Arguments
+/// * `mask` - The mask image to modify.
+/// * `grow` - Grow amount.
+/// * `feather` - Feather amount.
+/// * `width` - Image width.
+/// * `height` - Image height.
 fn apply_grow_and_feather(mask: &mut GrayImage, grow: f32, feather: f32, width: u32, height: u32) {
     let base_dimension = width.min(height) as f32;
 
@@ -178,6 +203,15 @@ fn apply_grow_and_feather(mask: &mut GrayImage, grow: f32, feather: f32, width: 
     }
 }
 
+/// Draws a feathered (soft-edged) ellipse on a grayscale image mask.
+///
+/// # Arguments
+/// * `mask` - The mask image.
+/// * `center` - Center coordinates.
+/// * `radius` - Ellipse radius.
+/// * `feather` - Feather amount.
+/// * `color_value` - Color value to apply.
+/// * `is_eraser` - Whether to erase or add.
 fn draw_feathered_ellipse_mut(
     mask: &mut GrayImage,
     center: (i32, i32),
@@ -232,6 +266,13 @@ fn draw_feathered_ellipse_mut(
     }
 }
 
+/// Creates a grayscale image with a radial gradient that can be elliptical, rotated, and feathered from the edges.
+///
+/// # Arguments
+/// * `params_value` - Radial mask parameters as JSON.
+/// * `width`, `height` - Image dimensions.
+/// * `scale` - Scale factor.
+/// * `crop_offset` - Translation offset from the center position.
 fn generate_radial_bitmap(
     params_value: &Value,
     width: u32,
@@ -276,6 +317,13 @@ fn generate_radial_bitmap(
     mask
 }
 
+/// Creates a grayscale image with a linear gradient perpendicular to a defined line segment, useful for creating band-like masks or linear transitions.
+///
+/// # Arguments
+/// * `params_value` - Linear mask parameters as JSON.
+/// * `width`, `height` - Image dimensions.
+/// * `scale` - Scale factor.
+/// * `crop_offset` - Translation offset for positioning.
 fn generate_linear_bitmap(
     params_value: &Value,
     width: u32,
@@ -287,6 +335,7 @@ fn generate_linear_bitmap(
         serde_json::from_value(params_value.clone()).unwrap_or_default();
     let mut mask = GrayImage::new(width, height);
 
+    // Line definition
     let start_x = params.start_x as f32 * scale - crop_offset.0;
     let start_y = params.start_y as f32 * scale - crop_offset.1;
     let end_x = params.end_x as f32 * scale - crop_offset.0;
@@ -302,6 +351,7 @@ fn generate_linear_bitmap(
         return mask;
     }
 
+    // Perpendicular unit vector
     let perp_vec_x = -line_vec_y / len_sq.sqrt();
     let perp_vec_y = line_vec_x / len_sq.sqrt();
 
@@ -330,6 +380,13 @@ fn generate_linear_bitmap(
     mask
 }
 
+/// Creates a grayscale mask from brush stroke data, supporting both painting and erasing operations with smooth interpolation between points.
+///
+/// # Arguments
+/// * `params_value` - Brush mask parameters as JSON.
+/// * `width`, `height` - Image dimensions.
+/// * `scale` - Scale factor.
+/// * `crop_offset` - Translation offset for positioning.
 fn generate_brush_bitmap(
     params_value: &Value,
     width: u32,
@@ -415,6 +472,17 @@ fn generate_brush_bitmap(
     mask
 }
 
+/// Generates an AI mask bitmap from a full mask image and transformation parameters.
+///
+/// # Arguments
+/// * `full_mask_image` - The full mask image.
+/// * `rotation` - Rotation angle.
+/// * `flip_horizontal` - Flip horizontally.
+/// * `flip_vertical` - Flip vertically.
+/// * `orientation_steps` - Orientation steps.
+/// * `width`, `height` - Output dimensions.
+/// * `scale` - Scale factor.
+/// * `crop_offset` - Crop offset.
 fn generate_ai_bitmap_from_full_mask(
     full_mask_image: &GrayImage,
     rotation: f32,
@@ -496,6 +564,17 @@ fn generate_ai_bitmap_from_full_mask(
     final_mask
 }
 
+/// Generates an AI mask bitmap from a base64-encoded image and transformation parameters.
+///
+/// # Arguments
+/// * `data_url` - Base64-encoded image data.
+/// * `rotation` - Rotation angle.
+/// * `flip_horizontal` - Flip horizontally.
+/// * `flip_vertical` - Flip vertically.
+/// * `orientation_steps` - Orientation steps.
+/// * `width`, `height` - Output dimensions.
+/// * `scale` - Scale factor.
+/// * `crop_offset` - Crop offset.
 fn generate_ai_bitmap_from_base64(
     data_url: &str,
     rotation: f32,
@@ -529,6 +608,13 @@ fn generate_ai_bitmap_from_base64(
     ))
 }
 
+/// Generates an AI sky mask bitmap from parameters.
+///
+/// # Arguments
+/// * `params_value` - AI sky mask parameters as JSON.
+/// * `width`, `height` - Output dimensions.
+/// * `scale` - Scale factor.
+/// * `crop_offset` - Crop offset.
 fn generate_ai_sky_bitmap(
     params_value: &Value,
     width: u32,
@@ -564,6 +650,13 @@ fn generate_ai_sky_bitmap(
     Some(mask)
 }
 
+/// Generates an AI foreground mask bitmap from parameters.
+///
+/// # Arguments
+/// * `params_value` - AI foreground mask parameters as JSON.
+/// * `width`, `height` - Output dimensions.
+/// * `scale` - Scale factor.
+/// * `crop_offset` - Crop offset.
 fn generate_ai_foreground_bitmap(
     params_value: &Value,
     width: u32,
@@ -599,6 +692,13 @@ fn generate_ai_foreground_bitmap(
     Some(mask)
 }
 
+/// Generates an AI subject mask bitmap from parameters.
+///
+/// # Arguments
+/// * `params_value` - AI subject mask parameters as JSON.
+/// * `width`, `height` - Output dimensions.
+/// * `scale` - Scale factor.
+/// * `crop_offset` - Crop offset.
 fn generate_ai_subject_bitmap(
     params_value: &Value,
     width: u32,
@@ -634,6 +734,13 @@ fn generate_ai_subject_bitmap(
     Some(mask)
 }
 
+/// Generates a bitmap for a sub-mask based on its type and parameters.
+///
+/// # Arguments
+/// * `sub_mask` - The sub-mask definition.
+/// * `width`, `height` - Output dimensions.
+/// * `scale` - Scale factor.
+/// * `crop_offset` - Crop offset.
 fn generate_sub_mask_bitmap(
     sub_mask: &SubMask,
     width: u32,
@@ -681,6 +788,16 @@ fn generate_sub_mask_bitmap(
     }
 }
 
+/// Generates the final mask bitmap from a mask definition and its sub-masks.
+///
+/// # Arguments
+/// * `mask_def` - The mask definition.
+/// * `width`, `height` - Output dimensions.
+/// * `scale` - Scale factor.
+/// * `crop_offset` - Crop offset.
+///
+/// # Returns
+/// * `Option<GrayImage>` - The generated mask bitmap or None.
 pub fn generate_mask_bitmap(
     mask_def: &MaskDefinition,
     width: u32,

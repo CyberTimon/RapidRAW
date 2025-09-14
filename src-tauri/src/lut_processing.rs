@@ -1,15 +1,28 @@
+//! LUT (Look-Up Table) processing module.
+//!
+//! Supports parsing and handling of 3D LUTs from .cube, .3dl, and HALD image formats.
+//! Enables color grading and transformation of images using external LUT files.
+
 use anyhow::{Result, anyhow};
 use image::{DynamicImage, GenericImageView};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
+/// Structure representing a 3D LUT (Look-Up Table) with its size and data.
 #[derive(Debug, Clone)]
 pub struct Lut {
     pub size: u32,
     pub data: Vec<f32>,
 }
 
+/// Parses a .cube LUT file and returns a Lut struct.
+///
+/// # Arguments
+/// * `path` - Path to the .cube file.
+///
+/// # Returns
+/// * `Result<Lut>` - The parsed LUT or an error.
 fn parse_cube(path: &Path) -> Result<Lut> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -111,6 +124,13 @@ fn parse_cube(path: &Path) -> Result<Lut> {
     })
 }
 
+/// Parses a .3dl LUT file and returns a Lut struct.
+///
+/// # Arguments
+/// * `path` - Path to the .3dl file.
+///
+/// # Returns
+/// * `Result<Lut>` - The parsed LUT or an error.
 fn parse_3dl(path: &Path) -> Result<Lut> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -150,6 +170,13 @@ fn parse_3dl(path: &Path) -> Result<Lut> {
     Ok(Lut { size, data })
 }
 
+/// Parses a HALD image and returns a Lut struct.
+///
+/// # Arguments
+/// * `image` - The HALD image.
+///
+/// # Returns
+/// * `Result<Lut>` - The parsed LUT or an error.
 fn parse_hald(image: DynamicImage) -> Result<Lut> {
     let (width, height) = image.dimensions();
     if width != height {
@@ -182,6 +209,13 @@ fn parse_hald(image: DynamicImage) -> Result<Lut> {
     Ok(Lut { size, data })
 }
 
+/// Parses a LUT file (.cube, .3dl, or HALD image) and returns a Lut struct.
+///
+/// # Arguments
+/// * `path_str` - Path to the LUT file.
+///
+/// # Returns
+/// * `Result<Lut>` - The parsed LUT or an error.
 pub fn parse_lut_file(path_str: &str) -> Result<Lut> {
     let path = Path::new(path_str);
     let extension = path

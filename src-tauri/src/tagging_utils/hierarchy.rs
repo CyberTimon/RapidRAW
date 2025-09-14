@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
+/// A hierarchical mapping of tags to their parent categories for image tagging.
 pub static TAG_HIERARCHY: Lazy<HashMap<&'static str, Vec<&'static str>>> = Lazy::new(|| {
     let mut m = HashMap::new();
 
