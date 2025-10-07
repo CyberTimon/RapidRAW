@@ -486,8 +486,9 @@ pub fn generate_thumbnail_data(
         } else {
             let mmap = read_file_mapped(Path::new(path_str)).
                 map_err(|e| anyhow::anyhow!("Failed to map file {}: {:?}", path_str, e))?;
-            
-            image_loader::load_and_composite(&mmap, path_str, &adjustments, true)?
+            let bytes = Path::new(path_str);
+            let img = fs::read(bytes).map_err(|e| anyhow::anyhow!("Failed to read file {}: {:?}", path_str, e))?;
+            image_loader::load_and_composite(&img, path_str, &adjustments, true)?
         };
 
 
