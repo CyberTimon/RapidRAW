@@ -39,10 +39,10 @@ jobs:
             builds-args: '--bundles nsis'
             target: 'aarch64-pc-windows-msvc'
             asset-prefix: '01'
-          - platform: 'macos-13'
+          - platform: 'macos-14'
             target: aarch64-apple-darwin
             asset-prefix: '02'
-          - platform: 'macos-13'
+          - platform: 'macos-15-intel'
             target: x86_64-apple-darwin
             asset-prefix: '02'
           - platform: 'ubuntu-22.04'

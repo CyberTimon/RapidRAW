@@ -1,5 +1,5 @@
 use regex::Regex;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -29,13 +29,15 @@ fn num_to_json(num: Num) -> Option<Value> {
 }
 
 fn get_attr_as_f64(attrs: &HashMap<String, String>, key: &str) -> Option<f64> {
-    attrs.get(key)
+    attrs
+        .get(key)
         .and_then(|s| s.trim_start_matches('+').parse::<f64>().ok())
 }
 
 fn extract_xmp_name(xmp_content: &str) -> Option<String> {
-    let re = Regex::new(r#"(?s)<crs:Name>.*?<rdf:Alt>.*?<rdf:li[^>]*>([^<]+)</rdf:li>.*?</crs:Name>"#)
-        .ok()?;
+    let re =
+        Regex::new(r#"(?s)<crs:Name>.*?<rdf:Alt>.*?<rdf:li[^>]*>([^<]+)</rdf:li>.*?</crs:Name>"#)
+            .ok()?;
     re.captures(xmp_content)
         .and_then(|c| c.get(1).map(|m| m.as_str().trim().to_string()))
 }
@@ -68,8 +70,9 @@ fn extract_tone_curve_points(xmp_str: &str, curve_name: &str) -> Option<Vec<Valu
             if y_f64 > x_f64 && x_f64 < SHADOW_RANGE_END {
                 let lift_amount = y_f64 - x_f64;
                 let progress = x_f64 / SHADOW_RANGE_END;
-                let dampening_factor = SHADOW_DAMPEN_START + (SHADOW_DAMPEN_END - SHADOW_DAMPEN_START) * progress;
-                
+                let dampening_factor =
+                    SHADOW_DAMPEN_START + (SHADOW_DAMPEN_END - SHADOW_DAMPEN_START) * progress;
+
                 let new_y = x_f64 + (lift_amount * dampening_factor);
                 final_y = new_y.round().clamp(0.0, 255.0) as u32;
             }
@@ -122,7 +125,10 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
         ("ColorNoiseReductionDetail", "colorNoiseDetail"),
         ("ColorNoiseReductionSmoothness", "colorNoiseSmoothness"),
         ("ChromaticAberrationRedCyan", "chromaticAberrationRedCyan"),
-        ("ChromaticAberrationBlueYellow", "chromaticAberrationBlueYellow"),
+        (
+            "ChromaticAberrationBlueYellow",
+            "chromaticAberrationBlueYellow",
+        ),
         ("PostCropVignetteAmount", "vignetteAmount"),
         ("PostCropVignetteMidpoint", "vignetteMidpoint"),
         ("PostCropVignetteFeather", "vignetteFeather"),
@@ -138,7 +144,7 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
             if let Some(num) = parse_num(raw_val.trim_start_matches('+')) {
                 if let Some(json_val) = num_to_json(num) {
                     if rr_key == "blending" {
-                         color_grading_map.insert(rr_key.to_string(), json_val);
+                        color_grading_map.insert(rr_key.to_string(), json_val);
                     } else {
                         adjustments.insert(rr_key.to_string(), json_val);
                     }
@@ -154,7 +160,10 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
 
     if let Some(sharpness_val) = get_attr_as_f64(&attrs, "Sharpness") {
         let scaled_sharpness = (sharpness_val / 150.0) * 100.0;
-        adjustments.insert("sharpness".to_string(), json!(scaled_sharpness.clamp(0.0, 100.0)));
+        adjustments.insert(
+            "sharpness".to_string(),
+            json!(scaled_sharpness.clamp(0.0, 100.0)),
+        );
     }
 
     if let Some(adjusted_k) = get_attr_as_f64(&attrs, "Temperature") {
@@ -165,7 +174,10 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
         let mired_as_shot = 1_000_000.0 / as_shot_k;
         let mired_delta = mired_adjusted - mired_as_shot;
         let temp_value = (-mired_delta / MAX_MIRED_SHIFT) * 100.0;
-        adjustments.insert("temperature".to_string(), json!(temp_value.clamp(-100.0, 100.0)));
+        adjustments.insert(
+            "temperature".to_string(),
+            json!(temp_value.clamp(-100.0, 100.0)),
+        );
     }
 
     if let Some(tint_val) = get_attr_as_f64(&attrs, "Tint") {
@@ -174,9 +186,14 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     }
 
     let colors = [
-        ("Red", "reds"), ("Orange", "oranges"), ("Yellow", "yellows"),
-        ("Green", "greens"), ("Aqua", "aquas"), ("Blue", "blues"),
-        ("Purple", "purples"), ("Magenta", "magentas"),
+        ("Red", "reds"),
+        ("Orange", "oranges"),
+        ("Yellow", "yellows"),
+        ("Green", "greens"),
+        ("Aqua", "aquas"),
+        ("Blue", "blues"),
+        ("Purple", "purples"),
+        ("Magenta", "magentas"),
     ];
     for (src, dst) in colors {
         let mut color_map = Map::new();
@@ -192,12 +209,16 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
         }
         if let Some(raw) = attrs.get(&format!("SaturationAdjustment{}", src)) {
             if let Some(num) = parse_num(raw.trim_start_matches('+')) {
-                if let Some(json_val) = num_to_json(num) { color_map.insert("saturation".to_string(), json_val); }
+                if let Some(json_val) = num_to_json(num) {
+                    color_map.insert("saturation".to_string(), json_val);
+                }
             }
         }
         if let Some(raw) = attrs.get(&format!("LuminanceAdjustment{}", src)) {
             if let Some(num) = parse_num(raw.trim_start_matches('+')) {
-                if let Some(json_val) = num_to_json(num) { color_map.insert("luminance".to_string(), json_val); }
+                if let Some(json_val) = num_to_json(num) {
+                    color_map.insert("luminance".to_string(), json_val);
+                }
             }
         }
         if !color_map.is_empty() {
@@ -211,24 +232,94 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     let mut shadows_map = Map::new();
     let mut midtones_map = Map::new();
     let mut highlights_map = Map::new();
-    if let Some(raw) = attrs.get("SplitToningShadowHue") { if let Some(num) = parse_num(raw) { if let Some(json_val) = num_to_json(num) { shadows_map.insert("hue".to_string(), json_val); }}}
-    if let Some(raw) = attrs.get("ColorGradeMidtoneHue") { if let Some(num) = parse_num(raw) { if let Some(json_val) = num_to_json(num) { midtones_map.insert("hue".to_string(), json_val); }}}
-    if let Some(raw) = attrs.get("SplitToningHighlightHue") { if let Some(num) = parse_num(raw) { if let Some(json_val) = num_to_json(num) { highlights_map.insert("hue".to_string(), json_val); }}}
-    if let Some(raw) = attrs.get("SplitToningShadowSaturation") { if let Some(num) = parse_num(raw) { if let Some(json_val) = num_to_json(num) { shadows_map.insert("saturation".to_string(), json_val); }}}
-    if let Some(raw) = attrs.get("ColorGradeMidtoneSat") { if let Some(num) = parse_num(raw) { if let Some(json_val) = num_to_json(num) { midtones_map.insert("saturation".to_string(), json_val); }}}
-    if let Some(raw) = attrs.get("SplitToningHighlightSaturation") { if let Some(num) = parse_num(raw) { if let Some(json_val) = num_to_json(num) { highlights_map.insert("saturation".to_string(), json_val); }}}
-    if let Some(raw) = attrs.get("ColorGradeShadowLum") { if let Some(num) = parse_num(raw) { if let Some(json_val) = num_to_json(num) { shadows_map.insert("luminance".to_string(), json_val); }}}
-    if let Some(raw) = attrs.get("ColorGradeMidtoneLum") { if let Some(num) = parse_num(raw) { if let Some(json_val) = num_to_json(num) { midtones_map.insert("luminance".to_string(), json_val); }}}
-    if let Some(raw) = attrs.get("ColorGradeHighlightLum") { if let Some(num) = parse_num(raw) { if let Some(json_val) = num_to_json(num) { highlights_map.insert("luminance".to_string(), json_val); }}}
-    if let Some(raw) = attrs.get("SplitToningBalance") { if let Some(num) = parse_num(raw) { if let Some(json_val) = num_to_json(num) { color_grading_map.insert("balance".to_string(), json_val); }}}
-    if !shadows_map.is_empty() { color_grading_map.insert("shadows".to_string(), Value::Object(shadows_map)); }
-    if !midtones_map.is_empty() { color_grading_map.insert("midtones".to_string(), Value::Object(midtones_map)); }
-    if !highlights_map.is_empty() { color_grading_map.insert("highlights".to_string(), Value::Object(highlights_map)); }
-    if !color_grading_map.is_empty() { adjustments.insert("colorGrading".to_string(), Value::Object(color_grading_map)); }
+    if let Some(raw) = attrs.get("SplitToningShadowHue") {
+        if let Some(num) = parse_num(raw) {
+            if let Some(json_val) = num_to_json(num) {
+                shadows_map.insert("hue".to_string(), json_val);
+            }
+        }
+    }
+    if let Some(raw) = attrs.get("ColorGradeMidtoneHue") {
+        if let Some(num) = parse_num(raw) {
+            if let Some(json_val) = num_to_json(num) {
+                midtones_map.insert("hue".to_string(), json_val);
+            }
+        }
+    }
+    if let Some(raw) = attrs.get("SplitToningHighlightHue") {
+        if let Some(num) = parse_num(raw) {
+            if let Some(json_val) = num_to_json(num) {
+                highlights_map.insert("hue".to_string(), json_val);
+            }
+        }
+    }
+    if let Some(raw) = attrs.get("SplitToningShadowSaturation") {
+        if let Some(num) = parse_num(raw) {
+            if let Some(json_val) = num_to_json(num) {
+                shadows_map.insert("saturation".to_string(), json_val);
+            }
+        }
+    }
+    if let Some(raw) = attrs.get("ColorGradeMidtoneSat") {
+        if let Some(num) = parse_num(raw) {
+            if let Some(json_val) = num_to_json(num) {
+                midtones_map.insert("saturation".to_string(), json_val);
+            }
+        }
+    }
+    if let Some(raw) = attrs.get("SplitToningHighlightSaturation") {
+        if let Some(num) = parse_num(raw) {
+            if let Some(json_val) = num_to_json(num) {
+                highlights_map.insert("saturation".to_string(), json_val);
+            }
+        }
+    }
+    if let Some(raw) = attrs.get("ColorGradeShadowLum") {
+        if let Some(num) = parse_num(raw) {
+            if let Some(json_val) = num_to_json(num) {
+                shadows_map.insert("luminance".to_string(), json_val);
+            }
+        }
+    }
+    if let Some(raw) = attrs.get("ColorGradeMidtoneLum") {
+        if let Some(num) = parse_num(raw) {
+            if let Some(json_val) = num_to_json(num) {
+                midtones_map.insert("luminance".to_string(), json_val);
+            }
+        }
+    }
+    if let Some(raw) = attrs.get("ColorGradeHighlightLum") {
+        if let Some(num) = parse_num(raw) {
+            if let Some(json_val) = num_to_json(num) {
+                highlights_map.insert("luminance".to_string(), json_val);
+            }
+        }
+    }
+    if let Some(raw) = attrs.get("SplitToningBalance") {
+        if let Some(num) = parse_num(raw) {
+            if let Some(json_val) = num_to_json(num) {
+                color_grading_map.insert("balance".to_string(), json_val);
+            }
+        }
+    }
+    if !shadows_map.is_empty() {
+        color_grading_map.insert("shadows".to_string(), Value::Object(shadows_map));
+    }
+    if !midtones_map.is_empty() {
+        color_grading_map.insert("midtones".to_string(), Value::Object(midtones_map));
+    }
+    if !highlights_map.is_empty() {
+        color_grading_map.insert("highlights".to_string(), Value::Object(highlights_map));
+    }
+    if !color_grading_map.is_empty() {
+        adjustments.insert("colorGrading".to_string(), Value::Object(color_grading_map));
+    }
 
     let curve_mappings = [
-        ("ToneCurvePV2012", "luma"), ("ToneCurvePV2012Red", "red"),
-        ("ToneCurvePV2012Green", "green"), ("ToneCurvePV2012Blue", "blue"),
+        ("ToneCurvePV2012", "luma"),
+        ("ToneCurvePV2012Red", "red"),
+        ("ToneCurvePV2012Green", "green"),
+        ("ToneCurvePV2012Blue", "blue"),
     ];
     for (xmp_curve, rr_curve) in curve_mappings {
         if let Some(points) = extract_tone_curve_points(xmp_content, xmp_curve) {
@@ -239,7 +330,8 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
         adjustments.insert("curves".to_string(), Value::Object(curves_map));
     }
 
-    let preset_name = extract_xmp_name(xmp_content).unwrap_or_else(|| "Imported Preset".to_string());
+    let preset_name =
+        extract_xmp_name(xmp_content).unwrap_or_else(|| "Imported Preset".to_string());
 
     Ok(Preset {
         id: Uuid::new_v4().to_string(),

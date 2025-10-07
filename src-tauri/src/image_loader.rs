@@ -3,7 +3,7 @@ use crate::formats::is_raw_file;
 use crate::image_processing::apply_orientation;
 use crate::mask_generation::{MaskDefinition, SubMask, generate_mask_bitmap};
 use crate::raw_processing::develop_raw_image;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use base64::{Engine as _, engine::general_purpose};
 use exif::{Reader as ExifReader, Tag};
 use image::{DynamicImage, GenericImageView, ImageReader, imageops};
@@ -11,6 +11,7 @@ use rawler::Orientation;
 use rayon::prelude::*;
 use serde::Deserialize;
 use serde_json::{Value, from_value};
+use std::panic;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,7 +40,17 @@ pub fn load_base_image_from_bytes(
     use_fast_raw_dev: bool,
 ) -> Result<DynamicImage> {
     if is_raw_file(path_for_ext_check) {
-        develop_raw_image(bytes, use_fast_raw_dev)
+        match panic::catch_unwind(|| develop_raw_image(bytes, use_fast_raw_dev)) {
+            Ok(Ok(image)) => Ok(image),
+            Ok(Err(e)) => {
+                log::warn!("Error developing RAW file '{}': {}", path_for_ext_check, e);
+                Err(e)
+            }
+            Err(_) => {
+                log::error!("Panic while processing corrupt RAW file: {}", path_for_ext_check);
+                Err(anyhow!("Failed to process corrupt RAW file: {}", path_for_ext_check))
+            }
+        }
     } else {
         load_image_with_orientation(bytes)
     }

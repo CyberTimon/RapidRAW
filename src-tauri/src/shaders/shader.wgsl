@@ -389,27 +389,36 @@ fn apply_tonal_adjustments(color: vec3<f32>, con: f32, hi: f32, sh: f32, wh: f32
 }
 
 fn apply_color_calibration(color: vec3<f32>, cal: ColorCalibrationSettings) -> vec3<f32> {
-    var c = color;
+    let h_r = cal.red_hue;
+    let h_g = cal.green_hue;
+    let h_b = cal.blue_hue;
+    let r_prime = vec3<f32>(1.0 - abs(h_r), max(0.0, h_r), max(0.0, -h_r));
+    let g_prime = vec3<f32>(max(0.0, -h_g), 1.0 - abs(h_g), max(0.0, h_g));
+    let b_prime = vec3<f32>(max(0.0, h_b), max(0.0, -h_b), 1.0 - abs(h_b));
+    let hue_matrix = mat3x3<f32>(r_prime, g_prime, b_prime);
+    var c = hue_matrix * color;
 
-    let s_r = cal.red_saturation;
-    let s_g = cal.green_saturation;
-    let s_b = cal.blue_saturation;
-    let h_r = cal.red_hue * 0.5;
-    let h_g = cal.green_hue * 0.5;
-    let h_b = cal.blue_hue * 0.5;
+    let luma = get_luma(max(vec3(0.0), c));
+    let desaturated_color = vec3<f32>(luma);
+    let sat_vector = c - desaturated_color;
 
-    let cal_matrix = mat3x3<f32>(
-        vec3<f32>(1.0 + s_r, -h_g, h_b),
-        vec3<f32>(h_r, 1.0 + s_g, -h_b),
-        vec3<f32>(-h_r, h_g, 1.0 + s_b)
-    );
+    let color_sum = c.r + c.g + c.b;
+    var masks = vec3<f32>(0.0);
+    if (color_sum > 0.001) {
+        masks = c / color_sum;
+    }
 
-    c = cal_matrix * c;
+    let total_sat_adjustment =
+        masks.r * cal.red_saturation +
+        masks.g * cal.green_saturation +
+        masks.b * cal.blue_saturation;
+
+    c += sat_vector * total_sat_adjustment;
 
     let st = cal.shadows_tint;
     if (abs(st) > 0.001) {
-        let luma = get_luma(max(vec3(0.0), c));
-        let mask = 1.0 - smoothstep(0.0, 0.3, luma);
+        let shadow_luma = get_luma(max(vec3(0.0), c));
+        let mask = 1.0 - smoothstep(0.0, 0.3, shadow_luma);
         let tint_mult = vec3<f32>(1.0 + st * 0.25, 1.0 - st * 0.25, 1.0 + st * 0.25);
         c = mix(c, c * tint_mult, mask);
     }

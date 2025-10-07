@@ -78,8 +78,6 @@ use tagging_utils::{candidates, hierarchy};
 pub struct LoadedImage {
     path: String,
     image: DynamicImage,
-    full_width: u32,
-    full_height: u32,
 }
 
 #[derive(Clone)]
@@ -165,8 +163,9 @@ struct LutParseResult {
 fn apply_all_transformations(
     image: &DynamicImage,
     adjustments: &serde_json::Value,
-    scale: f32,
 ) -> (DynamicImage, (f32, f32)) {
+    let start_time = std::time::Instant::now();
+
     let orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
     let rotation_degrees = adjustments["rotation"].as_f64().unwrap_or(0.0) as f32;
     let flip_horizontal = adjustments["flipHorizontal"].as_bool().unwrap_or(false);
@@ -177,23 +176,13 @@ fn apply_all_transformations(
     let rotated_image = apply_rotation(&flipped_image, rotation_degrees);
 
     let crop_data: Option<Crop> = serde_json::from_value(adjustments["crop"].clone()).ok();
-
-    let scaled_crop_json = if let Some(c) = &crop_data {
-        serde_json::to_value(Crop {
-            x: c.x * scale as f64,
-            y: c.y * scale as f64,
-            width: c.width * scale as f64,
-            height: c.height * scale as f64,
-        })
-        .unwrap_or(serde_json::Value::Null)
-    } else {
-        serde_json::Value::Null
-    };
-
-    let cropped_image = apply_crop(rotated_image, &scaled_crop_json);
+    let crop_json = serde_json::to_value(crop_data.clone()).unwrap_or(serde_json::Value::Null);
+    let cropped_image = apply_crop(rotated_image, &crop_json);
 
     let unscaled_crop_offset = crop_data.map_or((0.0, 0.0), |c| (c.x as f32, c.y as f32));
 
+    let duration = start_time.elapsed();
+    log::info!("apply_all_transformations took: {:?}", duration);
     (cropped_image, unscaled_crop_offset)
 }
 
@@ -287,26 +276,25 @@ fn generate_transformed_preview(
     let patched_original_image = composite_patches_on_image(&loaded_image.image, adjustments)
         .map_err(|e| format!("Failed to composite AI patches: {}", e))?;
 
-    let (full_w, full_h) = (loaded_image.full_width, loaded_image.full_height);
+    let (transformed_full_res, unscaled_crop_offset) =
+        apply_all_transformations(&patched_original_image, adjustments);
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let final_preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
 
-    let (processing_base, scale_for_gpu) =
-        if full_w > final_preview_dim || full_h > final_preview_dim {
-            let base = patched_original_image.thumbnail(final_preview_dim, final_preview_dim);
-            let scale = if full_w > 0 {
-                base.width() as f32 / full_w as f32
-            } else {
-                1.0
-            };
-            (base, scale)
-        } else {
-            (patched_original_image.clone(), 1.0)
-        };
+    let (full_res_w, full_res_h) = transformed_full_res.dimensions();
 
-    let (final_preview_base, unscaled_crop_offset) =
-        apply_all_transformations(&processing_base, adjustments, scale_for_gpu);
+    let final_preview_base = if full_res_w > final_preview_dim || full_res_h > final_preview_dim {
+        transformed_full_res.thumbnail(final_preview_dim, final_preview_dim)
+    } else {
+        transformed_full_res
+    };
+
+    let scale_for_gpu = if full_res_w > 0 {
+        final_preview_base.width() as f32 / full_res_w as f32
+    } else {
+        1.0
+    };
 
     Ok((final_preview_base, scale_for_gpu, unscaled_crop_offset))
 }
@@ -385,8 +373,6 @@ async fn load_image(
     *state.original_image.lock().unwrap() = Some(LoadedImage {
         path: path.clone(),
         image: pristine_img,
-        full_width: orig_width,
-        full_height: orig_height,
     });
 
     Ok(LoadImageResult {
@@ -637,17 +623,18 @@ fn generate_original_transformed_preview(
         .clone()
         .ok_or("No original image loaded")?;
 
+    let (transformed_full_res, _unscaled_crop_offset) =
+        apply_all_transformations(&loaded_image.image, &js_adjustments);
+
     let settings = load_settings(app_handle).unwrap_or_default();
     let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
-    let preview_base = loaded_image.image.thumbnail(preview_dim, preview_dim);
-    let scale = if loaded_image.full_width > 0 {
-        preview_base.width() as f32 / loaded_image.full_width as f32
-    } else {
-        1.0
-    };
 
-    let (transformed_image, _unscaled_crop_offset) =
-        apply_all_transformations(&preview_base, &js_adjustments, scale);
+    let (w, h) = transformed_full_res.dimensions();
+    let transformed_image = if w > preview_dim || h > preview_dim {
+        transformed_full_res.thumbnail(preview_dim, preview_dim)
+    } else {
+        transformed_full_res
+    };
 
     let mut buf = Cursor::new(Vec::new());
     transformed_image
@@ -686,7 +673,7 @@ fn generate_fullscreen_preview(
         .map_err(|e| format!("Failed to composite AI patches for fullscreen: {}", e))?;
 
     let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(&base_image, &js_adjustments, 1.0);
+        apply_all_transformations(&base_image, &js_adjustments);
     let (img_w, img_h) = transformed_image.dimensions();
 
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -732,7 +719,7 @@ fn process_image_for_export(
     state: &tauri::State<AppState>,
 ) -> Result<DynamicImage, String> {
     let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(&base_image, &js_adjustments, 1.0);
+        apply_all_transformations(&base_image, &js_adjustments);
     let (img_w, img_h) = transformed_image.dimensions();
 
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -1603,7 +1590,7 @@ fn generate_preset_preview(
     let preview_base = original_image.thumbnail(PRESET_PREVIEW_DIM, PRESET_PREVIEW_DIM);
 
     let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(&preview_base, &js_adjustments, 1.0);
+        apply_all_transformations(&preview_base, &js_adjustments);
     let (img_w, img_h) = transformed_image.dimensions();
 
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -1976,7 +1963,7 @@ async fn generate_all_community_previews(
 
         for (i, base_image) in base_thumbnails.iter().enumerate() {
             let (transformed_image, unscaled_crop_offset) =
-                crate::apply_all_transformations(&base_image, &js_adjustments, 1.0);
+                crate::apply_all_transformations(&base_image, &js_adjustments);
             let (img_w, img_h) = transformed_image.dimensions();
 
             let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -2150,7 +2137,7 @@ fn generate_preview_for_path(
     let base_image =
         load_and_composite(&image[..], &path, &js_adjustments, false).map_err(|e| e.to_string())?;
     let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(&base_image, &js_adjustments, 1.0);
+        apply_all_transformations(&base_image, &js_adjustments);
     let (img_w, img_h) = transformed_image.dimensions();
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
         .get("masks")

@@ -1,16 +1,16 @@
+use memmap2::{Mmap, MmapOptions};
+use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::fs;
-use memmap2::{MmapOptions, Mmap};
+use std::hash::{Hash, Hasher};
+use std::io::BufReader;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
-use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
-use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
-use std::io::BufReader;
 
 use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
@@ -22,12 +22,12 @@ use little_exif::metadata::Metadata;
 use num_cpus;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::*;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 use walkdir::WalkDir;
-use regex::Regex;
 
 use crate::AppState;
 use crate::formats::is_supported_image_file;
@@ -39,8 +39,8 @@ use crate::image_processing::{
     auto_results_to_json, get_all_adjustments_from_json, perform_auto_analysis,
 };
 use crate::mask_generation::{MaskDefinition, generate_mask_bitmap};
-use crate::tagging::COLOR_TAG_PREFIX;
 use crate::preset_converter;
+use crate::tagging::COLOR_TAG_PREFIX;
 
 const THUMBNAIL_WIDTH: u32 = 640;
 
@@ -108,7 +108,7 @@ pub enum ReadFileError {
     Locked,
     Empty,
     NotFound,
-    Invalid
+    Invalid,
 }
 
 impl fmt::Display for ReadFileError {
@@ -118,7 +118,7 @@ impl fmt::Display for ReadFileError {
             ReadFileError::Locked => write!(f, "File is locked"),
             ReadFileError::Empty => write!(f, "File is empty"),
             ReadFileError::NotFound => write!(f, "File not found"),
-            ReadFileError::Invalid => write!(f, "Invalid file")
+            ReadFileError::Invalid => write!(f, "Invalid file"),
         }
     }
 }
@@ -270,7 +270,9 @@ pub struct ImportSettings {
 }
 
 #[tauri::command]
-pub async fn read_exif_for_paths(paths: Vec<String>) -> Result<HashMap<String, HashMap<String, String>>, String> {
+pub async fn read_exif_for_paths(
+    paths: Vec<String>,
+) -> Result<HashMap<String, HashMap<String, String>>, String> {
     let exif_data: HashMap<String, HashMap<String, String>> = paths
         .par_iter()
         .filter_map(|path_str| {
@@ -405,7 +407,10 @@ fn scan_dir_recursive(path: &Path) -> Result<Vec<FolderNode>, std::io::Error> {
 fn get_folder_tree_sync(path: String) -> Result<FolderNode, String> {
     let root_path = Path::new(&path);
     if !root_path.is_dir() {
-        return Err(format!("Could not scan directory '{}': No such file or directory (os error 2)", path));
+        return Err(format!(
+            "Could not scan directory '{}': No such file or directory (os error 2)",
+            path
+        ));
     }
     let name = root_path
         .file_name()
@@ -491,6 +496,14 @@ pub fn generate_thumbnail_data(
             image_loader::load_and_composite(&img, path_str, &adjustments, true)?
         };
 
+    let composite_image = if let Some(img) = preloaded_image {
+        image_loader::composite_patches_on_image(img, &adjustments)?
+    } else {
+        let mmap = read_file_mapped(Path::new(path_str))
+            .map_err(|e| anyhow::anyhow!("Failed to map file {}: {:?}", path_str, e))?;
+
+        image_loader::load_and_composite(&mmap, path_str, &adjustments, true)?
+    };
 
     if let (Some(context), Some(meta)) = (gpu_context, metadata) {
         if !meta.adjustments.is_null() {
@@ -519,8 +532,7 @@ pub fn generate_thumbnail_data(
             let flip_horizontal = meta.adjustments["flipHorizontal"]
                 .as_bool()
                 .unwrap_or(false);
-            let flip_vertical = meta.adjustments["flipVertical"].as_bool()
-                .unwrap_or(false);
+            let flip_vertical = meta.adjustments["flipVertical"].as_bool().unwrap_or(false);
 
             let flipped_image = apply_flip(processing_base, flip_horizontal, flip_vertical);
             let rotated_image = apply_rotation(&flipped_image, rotation_degrees);
@@ -617,7 +629,6 @@ fn encode_thumbnail(image: &DynamicImage) -> Result<Vec<u8>> {
     encoder.encode_image(&thumbnail.to_rgba8())?;
     Ok(buf.into_inner())
 }
-
 
 fn generate_single_thumbnail_and_cache(
     path_str: &str,

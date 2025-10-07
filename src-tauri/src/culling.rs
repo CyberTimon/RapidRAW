@@ -1,10 +1,10 @@
-use image::{imageops, GenericImageView, GrayImage};
+use image::{GenericImageView, GrayImage, imageops};
 use image_hasher::{HashAlg, HasherConfig};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tauri::{AppHandle, Emitter};
 
 use crate::image_loader;
@@ -87,8 +87,11 @@ fn calculate_laplacian_variance(image: &GrayImage) -> f64 {
         return 0.0;
     }
     let mean = sum / laplacian_values.len() as f64;
-    let variance =
-        laplacian_values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / laplacian_values.len() as f64;
+    let variance = laplacian_values
+        .iter()
+        .map(|v| (v - mean).powi(2))
+        .sum::<f64>()
+        / laplacian_values.len() as f64;
     variance
 }
 
@@ -102,8 +105,12 @@ fn calculate_exposure_metric(image: &GrayImage) -> f64 {
     let clip_threshold_dark = 5;
     let clip_threshold_bright = 250;
 
-    let dark_pixels = histogram.channels[0][0..clip_threshold_dark].iter().sum::<u32>() as f64;
-    let bright_pixels = histogram.channels[0][clip_threshold_bright..256].iter().sum::<u32>() as f64;
+    let dark_pixels = histogram.channels[0][0..clip_threshold_dark]
+        .iter()
+        .sum::<u32>() as f64;
+    let bright_pixels = histogram.channels[0][clip_threshold_bright..256]
+        .iter()
+        .sum::<u32>() as f64;
 
     let dark_clip_ratio = dark_pixels / total_pixels;
     let bright_clip_ratio = bright_pixels / total_pixels;
@@ -128,9 +135,14 @@ fn analyze_image(path: &str, hasher: &image_hasher::Hasher) -> Result<ImageAnaly
     let exposure_metric = calculate_exposure_metric(&gray_thumbnail);
 
     let (thumb_w, thumb_h) = gray_thumbnail.dimensions();
-    let center_crop =
-        imageops::crop_imm(&gray_thumbnail, thumb_w / 4, thumb_h / 4, thumb_w / 2, thumb_h / 2)
-            .to_image();
+    let center_crop = imageops::crop_imm(
+        &gray_thumbnail,
+        thumb_w / 4,
+        thumb_h / 4,
+        thumb_w / 2,
+        thumb_h / 2,
+    )
+    .to_image();
     let center_focus_metric = calculate_laplacian_variance(&center_crop);
 
     let normalized_sharpness = ((sharpness_metric + 1.0).log10() / 3.5).min(1.0);
@@ -212,7 +224,10 @@ pub async fn cull_images(
         },
     );
 
-    let mut suggestions = CullingSuggestions { failed_paths, ..Default::default() };
+    let mut suggestions = CullingSuggestions {
+        failed_paths,
+        ..Default::default()
+    };
     let mut processed_indices = vec![false; successful_analyses.len()];
 
     if settings.group_similar {

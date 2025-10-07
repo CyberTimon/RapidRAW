@@ -328,6 +328,9 @@ struct AdjustmentScales {
     color_grading_luminance: f32,
     color_grading_blending: f32,
     color_grading_balance: f32,
+
+    color_calibration_hue: f32,
+    color_calibration_saturation: f32,
 }
 
 const SCALES: AdjustmentScales = AdjustmentScales {
@@ -367,6 +370,9 @@ const SCALES: AdjustmentScales = AdjustmentScales {
     color_grading_luminance: 500.0,
     color_grading_blending: 100.0,
     color_grading_balance: 200.0,
+
+    color_calibration_hue: 400.0,
+    color_calibration_saturation: 120.0,
 };
 
 fn parse_hsl_adjustments(js_hsl: &serde_json::Value) -> [HslColor; 8] {
@@ -490,13 +496,13 @@ fn get_global_adjustments_from_json(js_adjustments: &serde_json::Value) -> Globa
 
     let color_cal_settings = if is_visible("color") {
         ColorCalibrationSettings {
-            shadows_tint: cal_obj["shadowsTint"].as_f64().unwrap_or(0.0) as f32 / 100.0,
-            red_hue: cal_obj["redHue"].as_f64().unwrap_or(0.0) as f32 / 100.0,
-            red_saturation: cal_obj["redSaturation"].as_f64().unwrap_or(0.0) as f32 / 100.0,
-            green_hue: cal_obj["greenHue"].as_f64().unwrap_or(0.0) as f32 / 100.0,
-            green_saturation: cal_obj["greenSaturation"].as_f64().unwrap_or(0.0) as f32 / 100.0,
-            blue_hue: cal_obj["blueHue"].as_f64().unwrap_or(0.0) as f32 / 100.0,
-            blue_saturation: cal_obj["blueSaturation"].as_f64().unwrap_or(0.0) as f32 / 100.0,
+            shadows_tint: cal_obj["shadowsTint"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_hue,
+            red_hue: cal_obj["redHue"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_hue,
+            red_saturation: cal_obj["redSaturation"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_saturation,
+            green_hue: cal_obj["greenHue"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_hue,
+            green_saturation: cal_obj["greenSaturation"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_saturation,
+            blue_hue: cal_obj["blueHue"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_hue,
+            blue_saturation: cal_obj["blueSaturation"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_saturation,
             _pad1: 0.0,
         }
     } else {
