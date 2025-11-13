@@ -348,17 +348,23 @@ fn encode_to_base64_png(image: &GrayImage) -> Result<String, String> {
     Ok(format!("data:image/png;base64,{}", base64_str))
 }
 
-fn read_exif_data(file_bytes: &[u8]) -> HashMap<String, String> {
+fn read_exif_data(file_bytes: &[u8], is_raw: bool) -> HashMap<String, String> {
     let mut exif_data = HashMap::new();
-    let exif_reader = exif::Reader::new();
-    if let Ok(exif) = exif_reader.read_from_container(&mut Cursor::new(file_bytes)) {
-        for field in exif.fields() {
-            exif_data.insert(
-                field.tag.to_string(),
-                field.display_value().with_unit(&exif).to_string(),
-            );
+
+    if is_raw {
+        exif_data = file_management::read_exif_from_raw_file(file_bytes).unwrap_or(HashMap::new());
+    } else {
+        let exif_reader = exif::Reader::new();
+        if let Ok(exif) = exif_reader.read_from_container(&mut Cursor::new(file_bytes)) {
+            for field in exif.fields() {
+                exif_data.insert(
+                    field.tag.to_string(),
+                    field.display_value().with_unit(&exif).to_string(),
+                );
+            }
         }
     }
+
     exif_data
 }
 
@@ -393,6 +399,8 @@ async fn load_image(
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
 
+    let is_raw = is_raw_file(&source_path_str);
+
     let path_clone = source_path_str.clone();
     let (pristine_img, exif_data) = tokio::task::spawn_blocking(move || {
         let result: Result<(DynamicImage, HashMap<String, String>), String> = (|| {
@@ -401,7 +409,7 @@ async fn load_image(
                     let img =
                         load_base_image_from_bytes(&mmap, &path_clone, false, highlight_compression)
                             .map_err(|e| e.to_string())?;
-                    let exif = read_exif_data(&mmap);
+                    let exif = read_exif_data(&mmap, is_raw);
                     Ok((img, exif))
                 }
                 Err(e) => {
@@ -420,7 +428,7 @@ async fn load_image(
                         highlight_compression,
                     )
                     .map_err(|e| e.to_string())?;
-                    let exif = read_exif_data(&bytes);
+                    let exif = read_exif_data(&bytes, is_raw);
                     Ok((img, exif))
                 }
             }

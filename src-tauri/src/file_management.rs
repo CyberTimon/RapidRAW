@@ -20,6 +20,8 @@ use image::{DynamicImage, GenericImageView, ImageBuffer, Luma};
 use little_exif::exif_tag::ExifTag;
 use little_exif::metadata::Metadata;
 use num_cpus;
+use rawler::rawsource::RawSource;
+use rawler::decoders::RawDecodeParams;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::*;
 use regex::Regex;
@@ -385,6 +387,383 @@ pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
     (source_path, sidecar_path)
 }
 
+pub fn read_exif_from_raw_file(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
+    let source = RawSource::new_from_slice(file_bytes);
+    let decoder = rawler::get_decoder(&source).ok()?;
+    let metadata = decoder.raw_metadata(&source, &RawDecodeParams::default()).ok()?;
+
+    log::info!("RAW EXIF - Make: {}, Model: {}", metadata.make, metadata.model);
+
+    let mut exif_map = HashMap::new();
+
+    // Extract camera make and model from RawMetadata (not EXIF)
+    if !metadata.make.is_empty() {
+        exif_map.insert("Make".to_string(), metadata.make.clone());
+    }
+    if !metadata.model.is_empty() {
+        exif_map.insert("Model".to_string(), metadata.model.clone());
+    }
+
+    // Extract lens information
+    if let Some(lens_make) = &metadata.exif.lens_make {
+        exif_map.insert("LensMake".to_string(), lens_make.clone());
+    }
+    if let Some(lens_model) = &metadata.exif.lens_model {
+        exif_map.insert("LensModel".to_string(), lens_model.clone());
+    }
+    if let Some(lens_serial) = &metadata.exif.lens_serial_number {
+        exif_map.insert("LensSerialNumber".to_string(), lens_serial.clone());
+    }
+    if let Some(lens_spec) = metadata.exif.lens_spec {
+        // lens_spec is [min_focal, max_focal, min_aperture, max_aperture]
+        let min_focal = lens_spec[0].n as f64 / lens_spec[0].d as f64;
+        let max_focal = lens_spec[1].n as f64 / lens_spec[1].d as f64;
+        let min_aperture = lens_spec[2].n as f64 / lens_spec[2].d as f64;
+        let max_aperture = lens_spec[3].n as f64 / lens_spec[3].d as f64;
+        exif_map.insert("LensSpecification".to_string(),
+            format!("{}-{}mm f/{}-{}", min_focal, max_focal, min_aperture, max_aperture));
+    }
+
+    // Basic EXIF fields
+    if let Some(orientation) = metadata.exif.orientation {
+        exif_map.insert("Orientation".to_string(), orientation.to_string());
+    }
+
+    // ISO - can be in multiple fields
+    if let Some(iso) = metadata.exif.iso_speed {
+        exif_map.insert("ISOSpeed".to_string(), iso.to_string());
+        exif_map.insert("PhotographicSensitivity".to_string(), iso.to_string());
+    } else if let Some(iso) = metadata.exif.iso_speed_ratings {
+        exif_map.insert("ISOSpeedRatings".to_string(), iso.to_string());
+        exif_map.insert("PhotographicSensitivity".to_string(), iso.to_string());
+    }
+    if let Some(iso) = metadata.exif.recommended_exposure_index {
+        exif_map.insert("RecommendedExposureIndex".to_string(), iso.to_string());
+    }
+    if let Some(sensitivity_type) = metadata.exif.sensitivity_type {
+        exif_map.insert("SensitivityType".to_string(), sensitivity_type.to_string());
+    }
+
+    // Exposure settings - Rational types
+    if let Some(exposure_time) = metadata.exif.exposure_time {
+        // Show as fraction for shutter speeds
+        if exposure_time.n == 1 && exposure_time.d > 1 {
+            exif_map.insert("ExposureTime".to_string(), format!("1/{}", exposure_time.d));
+        } else if exposure_time.d == 1 {
+            exif_map.insert("ExposureTime".to_string(), format!("{}", exposure_time.n));
+        } else {
+            exif_map.insert("ExposureTime".to_string(), format!("{}/{}", exposure_time.n, exposure_time.d));
+        }
+    }
+
+    if let Some(fnumber) = metadata.exif.fnumber {
+        let value = fnumber.n as f64 / fnumber.d as f64;
+        exif_map.insert("FNumber".to_string(), format!("{:.1}", value));
+    }
+
+    // Aperture/brightness - SRational types
+    if let Some(aperture_value) = metadata.exif.aperture_value {
+        let value = aperture_value.n as f64 / aperture_value.d as f64;
+        exif_map.insert("ApertureValue".to_string(), format!("{:.2}", value));
+    }
+    if let Some(max_aperture) = metadata.exif.max_aperture_value {
+        let value = max_aperture.n as f64 / max_aperture.d as f64;
+        exif_map.insert("MaxApertureValue".to_string(), format!("{:.2}", value));
+    }
+    if let Some(brightness) = metadata.exif.brightness_value {
+        let value = brightness.n as f64 / brightness.d as f64;
+        exif_map.insert("BrightnessValue".to_string(), format!("{:.2}", value));
+    }
+
+    // Shutter speed - SRational type
+    if let Some(shutter_speed) = metadata.exif.shutter_speed_value {
+        let value = shutter_speed.n as f64 / shutter_speed.d as f64;
+        exif_map.insert("ShutterSpeedValue".to_string(), format!("{:.2}", value));
+    }
+
+    // Exposure bias - SRational type
+    if let Some(exposure_bias) = metadata.exif.exposure_bias {
+        let value = exposure_bias.n as f64 / exposure_bias.d as f64;
+        exif_map.insert("ExposureBiasValue".to_string(), format!("{:.2}", value));
+    }
+
+    // Focal length - Rational type
+    if let Some(focal_len) = metadata.exif.focal_length {
+        let value = focal_len.n as f64 / focal_len.d as f64;
+        exif_map.insert("FocalLength".to_string(), format!("{} mm", value));
+    }
+
+    // Subject distance - Rational type
+    if let Some(subject_distance) = metadata.exif.subject_distance {
+        let value = subject_distance.n as f64 / subject_distance.d as f64;
+        exif_map.insert("SubjectDistance".to_string(), format!("{:.2} m", value));
+    }
+
+    // Flash energy - Rational type
+    if let Some(flash_energy) = metadata.exif.flash_energy {
+        let value = flash_energy.n as f64 / flash_energy.d as f64;
+        exif_map.insert("FlashEnergy".to_string(), format!("{:.2}", value));
+    }
+
+    // Camera settings - u16 values (with decoding)
+    if let Some(exposure_program) = metadata.exif.exposure_program {
+        exif_map.insert("ExposureProgram".to_string(), exposure_program.to_string());
+    }
+    if let Some(metering_mode) = metadata.exif.metering_mode {
+        exif_map.insert("MeteringMode".to_string(), metering_mode.to_string());
+    }
+    if let Some(light_source) = metadata.exif.light_source {
+        exif_map.insert("LightSource".to_string(), light_source.to_string());
+    }
+    if let Some(flash) = metadata.exif.flash {
+        exif_map.insert("Flash".to_string(), flash.to_string());
+    }
+    if let Some(white_balance) = metadata.exif.white_balance {
+        exif_map.insert("WhiteBalance".to_string(), white_balance.to_string());
+    }
+    if let Some(exposure_mode) = metadata.exif.exposure_mode {
+        exif_map.insert("ExposureMode".to_string(), exposure_mode.to_string());
+    }
+    if let Some(scene_capture) = metadata.exif.scene_capture_type {
+        exif_map.insert("SceneCaptureType".to_string(), scene_capture.to_string());
+    }
+    if let Some(subject_distance_range) = metadata.exif.subject_distance_range {
+        exif_map.insert("SubjectDistanceRange".to_string(), subject_distance_range.to_string());
+    }
+    if let Some(color_space) = metadata.exif.color_space {
+        exif_map.insert("ColorSpace".to_string(), color_space.to_string());
+    }
+
+    // Image metadata
+    if let Some(image_number) = metadata.exif.image_number {
+        exif_map.insert("ImageNumber".to_string(), image_number.to_string());
+    }
+
+    // Date/Time fields
+    if let Some(date_time) = &metadata.exif.date_time_original {
+        exif_map.insert("DateTimeOriginal".to_string(), date_time.clone());
+    }
+    if let Some(create_date) = &metadata.exif.create_date {
+        exif_map.insert("CreateDate".to_string(), create_date.clone());
+    }
+    if let Some(modify_date) = &metadata.exif.modify_date {
+        exif_map.insert("ModifyDate".to_string(), modify_date.clone());
+    }
+
+    // Timezone/offset fields
+    if let Some(offset_time) = &metadata.exif.offset_time {
+        exif_map.insert("OffsetTime".to_string(), offset_time.clone());
+    }
+    if let Some(offset_time_original) = &metadata.exif.offset_time_original {
+        exif_map.insert("OffsetTimeOriginal".to_string(), offset_time_original.clone());
+    }
+    if let Some(offset_time_digitized) = &metadata.exif.offset_time_digitized {
+        exif_map.insert("OffsetTimeDigitized".to_string(), offset_time_digitized.clone());
+    }
+    if let Some(timezone_offset) = &metadata.exif.timezone_offset {
+        exif_map.insert("TimeZoneOffset".to_string(), format!("{:?}", timezone_offset));
+    }
+
+    // Subsecond time fields
+    if let Some(subsec) = &metadata.exif.sub_sec_time {
+        exif_map.insert("SubSecTime".to_string(), subsec.clone());
+    }
+    if let Some(subsec_orig) = &metadata.exif.sub_sec_time_original {
+        exif_map.insert("SubSecTimeOriginal".to_string(), subsec_orig.clone());
+    }
+    if let Some(subsec_dig) = &metadata.exif.sub_sec_time_digitized {
+        exif_map.insert("SubSecTimeDigitized".to_string(), subsec_dig.clone());
+    }
+
+    // People/copyright fields
+    if let Some(artist) = &metadata.exif.artist {
+        exif_map.insert("Artist".to_string(), artist.clone());
+    }
+    if let Some(copyright) = &metadata.exif.copyright {
+        exif_map.insert("Copyright".to_string(), copyright.clone());
+    }
+    if let Some(owner_name) = &metadata.exif.owner_name {
+        exif_map.insert("OwnerName".to_string(), owner_name.clone());
+    }
+    if let Some(serial) = &metadata.exif.serial_number {
+        exif_map.insert("SerialNumber".to_string(), serial.clone());
+    }
+    if let Some(user_comment) = &metadata.exif.user_comment {
+        exif_map.insert("UserComment".to_string(), user_comment.clone());
+    }
+
+    // GPS data
+    if let Some(gps) = &metadata.exif.gps {
+        // Latitude - Format as "deg min sec" for frontend parsing
+        if let (Some(lat), Some(lat_ref)) = (gps.gps_latitude, &gps.gps_latitude_ref) {
+            let degrees = lat[0].n as f64 / lat[0].d as f64;
+            let minutes = lat[1].n as f64 / lat[1].d as f64;
+            let seconds = lat[2].n as f64 / lat[2].d as f64;
+
+            // Format for RapidRAW frontend: "degrees deg minutes min seconds sec"
+            exif_map.insert("GPSLatitude".to_string(),
+                format!("{} deg {} min {:.2} sec", degrees, minutes, seconds));
+            exif_map.insert("GPSLatitudeRef".to_string(), lat_ref.clone());
+        }
+
+        // Longitude - Format as "deg min sec" for frontend parsing
+        if let (Some(lon), Some(lon_ref)) = (gps.gps_longitude, &gps.gps_longitude_ref) {
+            let degrees = lon[0].n as f64 / lon[0].d as f64;
+            let minutes = lon[1].n as f64 / lon[1].d as f64;
+            let seconds = lon[2].n as f64 / lon[2].d as f64;
+
+            // Format for RapidRAW frontend: "degrees deg minutes min seconds sec"
+            exif_map.insert("GPSLongitude".to_string(),
+                format!("{} deg {} min {:.2} sec", degrees, minutes, seconds));
+            exif_map.insert("GPSLongitudeRef".to_string(), lon_ref.clone());
+        }
+
+        // Altitude
+        if let Some(alt) = gps.gps_altitude {
+            let altitude = alt.n as f64 / alt.d as f64;
+
+            // Format altitude with unit
+            exif_map.insert("GPSAltitude".to_string(), format!("{:.2} m", altitude));
+
+            // Altitude reference
+            if let Some(alt_ref) = gps.gps_altitude_ref {
+                let ref_str = if alt_ref == 0 { "Above Sea Level" } else { "Below Sea Level" };
+                exif_map.insert("GPSAltitudeRef".to_string(), ref_str.to_string());
+            }
+        }
+
+        if let Some(date_stamp) = &gps.gps_date_stamp {
+            exif_map.insert("GPSDateStamp".to_string(), date_stamp.clone());
+        }
+        if let Some(satellites) = &gps.gps_satellites {
+            exif_map.insert("GPSSatellites".to_string(), satellites.clone());
+        }
+        if let Some(map_datum) = &gps.gps_map_datum {
+            exif_map.insert("GPSMapDatum".to_string(), map_datum.clone());
+        }
+    }
+
+    log::info!("RAW EXIF - Extracted {} fields", exif_map.len());
+    for (k, v) in &exif_map{
+        log::info!("RAW EXIF - {}: {}", k, v);
+    }
+
+    // For RAF files, try to extract GPS from embedded JPEG if not already present
+    // RAF files store GPS data in the embedded JPEG preview, not in the RAF container
+    if file_bytes.len() >= 16 {
+        let magic = &file_bytes[0..16];
+        if magic == b"FUJIFILMCCD-RAW " && !exif_map.contains_key("GPSLatitude") {
+            log::debug!("RAF file detected, attempting to extract GPS from embedded JPEG");
+            if let Some(gps_data) = extract_gps_from_raf_embedded_jpeg(file_bytes) {
+                log::debug!("Merging {} GPS fields from RAF embedded JPEG into EXIF map", gps_data.len());
+                exif_map.extend(gps_data);
+            }
+        }
+    }
+
+    if exif_map.is_empty() {
+        None
+    } else {
+        Some(exif_map)
+    }
+}
+
+fn extract_gps_from_raf_embedded_jpeg(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
+    // Following exiftool's pattern for RAF embedded JPEG extraction
+    // See: https://github.com/exiftool/exiftool/blob/master/lib/Image/ExifTool/FujiFilm.pm
+
+    // Minimum size check: magic(16) + header + offset directory up to JPEG length
+    if file_bytes.len() < 92 {
+        log::warn!("RAF file too small to contain complete header");
+        return None;
+    }
+
+    // Verify RAF magic bytes: "FUJIFILMCCD-RAW "
+    let magic = &file_bytes[0..16];
+    if magic != b"FUJIFILMCCD-RAW " {
+        log::warn!("Not a valid RAF file: magic bytes mismatch");
+        return None;
+    }
+
+    // ExifTool pattern: unpack('x84NN', $buff)
+    // Skip 84 bytes, then read two 32-bit big-endian unsigned integers
+    // Offset 84 (0x54): JPEG position
+    // Offset 88 (0x58): JPEG length
+    let jpeg_offset = u32::from_be_bytes([
+        file_bytes[84],
+        file_bytes[85],
+        file_bytes[86],
+        file_bytes[87],
+    ]) as usize;
+
+    let jpeg_length = u32::from_be_bytes([
+        file_bytes[88],
+        file_bytes[89],
+        file_bytes[90],
+        file_bytes[91],
+    ]) as usize;
+
+    // ExifTool checks: $jpos & 0x8000 and return 0
+    // This checks if the high bit is set (which indicates an error condition)
+    if (jpeg_offset as u32) & 0x8000 != 0 {
+        log::warn!("RAF JPEG offset has error flag set (high bit)");
+        return None;
+    }
+
+    // ExifTool also checks: if ($jpos) - ensure offset is non-zero
+    if jpeg_offset == 0 {
+        log::warn!("RAF JPEG offset is zero - no embedded JPEG");
+        return None;
+    }
+
+    log::debug!("RAF embedded JPEG at offset: {}, length: {}", jpeg_offset, jpeg_length);
+
+    // Validate bounds
+    if jpeg_offset + jpeg_length > file_bytes.len() {
+        log::warn!(
+            "RAF embedded JPEG bounds ({} + {}) exceed file size ({})",
+            jpeg_offset,
+            jpeg_length,
+            file_bytes.len()
+        );
+        return None;
+    }
+
+    // Extract the JPEG bytes
+    let jpeg_bytes = &file_bytes[jpeg_offset..jpeg_offset + jpeg_length];
+
+    // Read EXIF from the embedded JPEG using kamadak-exif
+    // This matches exiftool's ProcessJPEG step
+    let cursor = std::io::Cursor::new(jpeg_bytes);
+    let mut buf_reader = BufReader::new(cursor);
+    let exif_reader = exif::Reader::new();
+
+    if let Ok(exif_data) = exif_reader.read_from_container(&mut buf_reader) {
+        let mut gps_map = HashMap::new();
+
+        // Extract GPS fields using kamadak-exif's default formatting
+        for field in exif_data.fields() {
+            let key = field.tag.to_string();
+            if key.starts_with("GPS") {
+                let value = field.display_value().with_unit(&exif_data).to_string();
+                log::debug!("RAF embedded JPEG GPS field: {} = {}", key, value);
+                gps_map.insert(key, value);
+            }
+        }
+
+        if !gps_map.is_empty() {
+            log::debug!("Successfully extracted {} GPS fields from RAF embedded JPEG", gps_map.len());
+            return Some(gps_map);
+        } else {
+            log::debug!("No GPS fields found in RAF embedded JPEG (this is normal for images without GPS)");
+        }
+    } else {
+        log::warn!("Failed to read EXIF from RAF embedded JPEG");
+    }
+
+    None
+}
+
 #[tauri::command]
 pub async fn read_exif_for_paths(
     paths: Vec<String>,
@@ -393,7 +772,26 @@ pub async fn read_exif_for_paths(
         .par_iter()
         .filter_map(|path_str| {
             let (source_path, _) = parse_virtual_path(path_str);
-            let file = match fs::File::open(source_path) {
+
+            // Try rawler for RAW files (RAF, ORF, etc.)
+            if is_raw_file(path_str) {
+                log::info!("Reading EXIF from RAW file: {}", path_str);
+                if let Ok(file_bytes) = fs::read(&source_path) {
+                    if let Some(exif_map) = read_exif_from_raw_file(&file_bytes) {
+                        log::info!("Successfully extracted EXIF from RAW file using rawler");
+                        return Some((path_str.clone(), exif_map));
+                    } else {
+                        log::warn!("rawler returned no EXIF data for: {}", path_str);
+                    }
+                } else {
+                    log::error!("Failed to read RAW file: {}", path_str);
+                }
+                // If rawler fails, fall through to kamadak-exif
+                log::info!("Falling back to kamadak-exif for: {}", path_str);
+            }
+
+            // Use kamadak-exif for non-RAW files or as fallback
+            let file = match fs::File::open(&source_path) {
                 Ok(f) => f,
                 Err(_) => return None,
             };
@@ -408,6 +806,7 @@ pub async fn read_exif_for_paths(
                         field.display_value().with_unit(&exif).to_string(),
                     );
                 }
+
                 if exif_map.is_empty() {
                     None
                 } else {
