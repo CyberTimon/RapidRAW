@@ -3,12 +3,13 @@ use crate::formats::is_raw_file;
 use crate::image_processing::apply_orientation;
 use crate::mask_generation::{MaskDefinition, SubMask, generate_mask_bitmap};
 use crate::raw_processing::develop_raw_image;
+use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 use base64::{Engine as _, engine::general_purpose};
 use exif::{Reader as ExifReader, Tag};
 use exr::prelude::*;
 use exr::image::pixel_vec::PixelVec;
-use image::{DynamicImage, GenericImageView, ImageReader, imageops};
+use image::{DynamicImage, GenericImageView, ImageReader, Rgb32FImage, imageops};
 use rawler::Orientation;
 use rayon::prelude::*;
 use serde::Deserialize;
@@ -35,7 +36,7 @@ pub fn load_and_composite(
 ) -> Result<DynamicImage> {
     let base_image =
         load_base_image_from_bytes(base_image, path, use_fast_raw_dev, highlight_compression)?;
-    composite_patches_on_image(&base_image, adjustments)
+    composite_patches_on_image(&base_image, adjustments, None, path)
 }
 
 fn load_exr_from_bytes(bytes: &[u8]) -> Result<DynamicImage> {
@@ -128,9 +129,28 @@ pub fn load_image_with_orientation(bytes: &[u8]) -> Result<DynamicImage> {
     Ok(DynamicImage::ImageRgb32F(oriented_image.to_rgb32f()))
 }
 
+/// Decodes a base64-encoded patch image and resizes it to the target dimensions.
+fn decode_and_resize_patch(color_b64: &str, target_w: u32, target_h: u32) -> Result<Rgb32FImage> {
+    let color_bytes = general_purpose::STANDARD.decode(color_b64)?;
+    let color_image_u8 = image::load_from_memory(&color_bytes)?.to_rgb8();
+
+    let (patch_w, patch_h) = color_image_u8.dimensions();
+    let color_image_f32 = if target_w != patch_w || target_h != patch_h {
+        let resized =
+            imageops::resize(&color_image_u8, target_w, target_h, imageops::FilterType::Lanczos3);
+        DynamicImage::ImageRgb8(resized).to_rgb32f()
+    } else {
+        DynamicImage::ImageRgb8(color_image_u8).to_rgb32f()
+    };
+
+    Ok(color_image_f32)
+}
+
 pub fn composite_patches_on_image(
     base_image: &DynamicImage,
     current_adjustments: &Value,
+    state: Option<&tauri::State<crate::AppState>>,
+    image_path: &str,
 ) -> Result<DynamicImage> {
     let patches_val = match current_adjustments.get("aiPatches") {
         Some(val) => val,
@@ -189,16 +209,52 @@ pub fn composite_patches_on_image(
             .get("color")
             .and_then(|v| v.as_str())
             .context("Missing color data")?;
-        let color_bytes = general_purpose::STANDARD.decode(color_b64)?;
-        let color_image_u8 = image::load_from_memory(&color_bytes)?.to_rgb8();
 
-        let (patch_w, patch_h) = color_image_u8.dimensions();
-        let color_image_f32 = if base_w != patch_w || base_h != patch_h {
-            let resized =
-                imageops::resize(&color_image_u8, base_w, base_h, imageops::FilterType::Lanczos3);
-            DynamicImage::ImageRgb8(resized).to_rgb32f()
+        // Try to get decoded patch from cache
+        let color_image_f32 = if let Some(state) = state {
+            // Hash the patch content to detect when it changes (regeneration/edits)
+            use std::hash::{Hash, Hasher};
+            use std::collections::hash_map::DefaultHasher;
+            let mut hasher = DefaultHasher::new();
+            color_b64.hash(&mut hasher);
+            let content_hash = hasher.finish();
+
+            let cache_key = crate::cache::CacheKey::DecodedPatch {
+                image_path: image_path.to_string(),
+                patch_id: mask_def.id.clone(),
+                width: base_w,
+                height: base_h,
+                content_hash,
+            };
+
+            let mut cache_lock = state.processing_cache.lock().unwrap();
+            if let Some(cached_data) = cache_lock.get(&cache_key) {
+                if let Some(patch_image) = cached_data.as_patch() {
+                    drop(cache_lock);
+                    (*patch_image).clone()
+                } else {
+                    drop(cache_lock);
+                    // Cache miss - decode and resize
+                    let decoded = decode_and_resize_patch(color_b64, base_w, base_h)?;
+                    let byte_size = crate::cache::calculate_patch_size(base_w, base_h);
+                    let cached_data = crate::cache::CachedData::Patch(Arc::new(decoded.clone()), byte_size);
+                    let mut cache_lock = state.processing_cache.lock().unwrap();
+                    cache_lock.insert(cache_key, cached_data);
+                    decoded
+                }
+            } else {
+                drop(cache_lock);
+                // Cache miss - decode and resize
+                let decoded = decode_and_resize_patch(color_b64, base_w, base_h)?;
+                let byte_size = crate::cache::calculate_patch_size(base_w, base_h);
+                let cached_data = crate::cache::CachedData::Patch(Arc::new(decoded.clone()), byte_size);
+                let mut cache_lock = state.processing_cache.lock().unwrap();
+                cache_lock.insert(cache_key, cached_data);
+                decoded
+            }
         } else {
-            DynamicImage::ImageRgb8(color_image_u8).to_rgb32f()
+            // No cache available - decode directly
+            decode_and_resize_patch(color_b64, base_w, base_h)?
         };
 
         composited_rgba

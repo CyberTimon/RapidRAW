@@ -61,6 +61,7 @@ io = "0.0.2"
 half = { version = "2.7.1", features = ["bytemuck"] }
 exr = "1.73.0"
 glam = "0.30.9"
+lru = "0.12"
 
 [build-dependencies]
 tauri-build = { version = "2.4", features = [] }

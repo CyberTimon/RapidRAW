@@ -5,6 +5,7 @@ use mimalloc::MiMalloc;
 static GLOBAL: MiMalloc = MiMalloc;
 
 mod ai_processing;
+mod cache;
 mod comfyui_connector;
 mod culling;
 mod file_management;
@@ -100,9 +101,20 @@ pub struct GpuImageCache {
 
 pub struct AppState {
     original_image: Mutex<Option<LoadedImage>>,
+    /// Final transformed CPU-side preview image. Stores the complete rendered preview after
+    /// all adjustments, masks, and patches have been applied.
     cached_preview: Mutex<Option<CachedPreview>>,
     gpu_context: Mutex<Option<GpuContext>>,
+    /// GPU texture upload cache. Prevents redundant CPU-to-GPU memory transfers by caching
+    /// uploaded textures. Indexed by transform hash to invalidate when transforms change.
     gpu_image_cache: Mutex<Option<GpuImageCache>>,
+    /// Reusable GPU pipeline and shader resources. Avoids recreating WGPU pipelines, shaders,
+    /// and bind groups on every render call. Global scope - shared across all images.
+    gpu_processor: Mutex<Option<Arc<gpu_processing::GpuProcessor>>>,
+    /// LRU cache for decoded masks, AI patches, and transformed images. Caches intermediate
+    /// processing results to avoid redundant base64 decoding, image loading, resizing, and
+    /// CPU-side transforms. Multi-image LRU with 2GB default size limit.
+    processing_cache: Mutex<cache::ImageProcessingCache>,
     ai_state: Mutex<Option<AiState>>,
     ai_init_lock: TokioMutex<()>,
     export_task_handle: Mutex<Option<JoinHandle<()>>>,
@@ -254,26 +266,19 @@ fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
                 is_visible.hash(&mut hasher);
 
                 if let Some(patch_data) = patch.get("patchData") {
-                    let color_len = patch_data
-                        .get("color")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .len();
-                    color_len.hash(&mut hasher);
+                    // Hash actual content, not just length, to detect regenerated patches
+                    if let Some(color_str) = patch_data.get("color").and_then(|v| v.as_str()) {
+                        color_str.hash(&mut hasher);
+                    }
 
-                    let mask_len = patch_data
-                        .get("mask")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .len();
-                    mask_len.hash(&mut hasher);
+                    if let Some(mask_str) = patch_data.get("mask").and_then(|v| v.as_str()) {
+                        mask_str.hash(&mut hasher);
+                    }
                 } else {
-                    let data_len = patch
-                        .get("patchDataBase64")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .len();
-                    data_len.hash(&mut hasher);
+                    // Hash actual content, not just length
+                    if let Some(data_str) = patch.get("patchDataBase64").and_then(|v| v.as_str()) {
+                        data_str.hash(&mut hasher);
+                    }
                 }
 
                 if let Some(sub_masks_val) = patch.get("subMasks") {
@@ -292,6 +297,70 @@ fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
     hasher.finish()
 }
 
+/// Gets the transformed image either from cache or by computing it.
+///
+/// This function encapsulates the caching logic for CPU-side transforms (orientation, rotation, crop).
+/// It checks if a cached result exists with a matching transform_hash and context, and if not, calls
+/// the provided compute function to generate the transformed image and caches the result in the
+/// processing_cache LRU.
+///
+/// The context string prevents cache contamination between different rendering paths (e.g., "Preview"
+/// with patches vs "OriginalPreview" with RAW defaults).
+fn get_or_compute_transformed_image<F>(
+    state: &tauri::State<AppState>,
+    image_path: &str,
+    transform_hash: u64,
+    context_name: &str,
+    compute_fn: F,
+) -> Result<(DynamicImage, (f32, f32)), String>
+where
+    F: FnOnce() -> Result<(DynamicImage, (f32, f32)), String>,
+{
+    // Create composite cache key from transform_hash + context to prevent contamination
+    let mut hasher = DefaultHasher::new();
+    transform_hash.hash(&mut hasher);
+    context_name.hash(&mut hasher);
+    let composite_hash = hasher.finish();
+
+    log::debug!("Cache: {} - checking transform cache (composite_hash: {:016x}, transform_hash: {:016x})",
+        context_name, composite_hash, transform_hash);
+
+    // Check processing_cache for existing transformed image
+    let mut cache_lock = state.processing_cache.lock().unwrap();
+    if let Some(cached_data) = cache_lock.get_transformed_image(image_path, composite_hash) {
+        if let Some((img, offset)) = cached_data.as_transformed_image() {
+            drop(cache_lock);
+            return Ok(((*img).clone(), offset));
+        }
+    }
+    drop(cache_lock);
+
+    // Cache miss - compute the transformed image
+    log::debug!("Cache: {} - computing transformed image...", context_name);
+    let (transformed, offset) = compute_fn()?;
+
+    // Cache the result
+    let (width, height) = transformed.dimensions();
+    let byte_size = cache::calculate_transformed_image_size(width, height);
+    let cache_key = cache::CacheKey::TransformedImage {
+        image_path: image_path.to_string(),
+        composite_hash,
+        width,
+        height,
+    };
+    let cached_data = cache::CachedData::TransformedImage(
+        Arc::new(transformed.clone()),
+        offset,
+        byte_size,
+    );
+
+    let mut cache_lock = state.processing_cache.lock().unwrap();
+    cache_lock.insert(cache_key, cached_data);
+    drop(cache_lock);
+
+    Ok((transformed, offset))
+}
+
 fn calculate_full_job_hash(path: &str, adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
     path.hash(&mut hasher);
@@ -304,11 +373,20 @@ fn generate_transformed_preview(
     adjustments: &serde_json::Value,
     app_handle: &tauri::AppHandle,
 ) -> Result<(DynamicImage, f32, (f32, f32)), String> {
-    let patched_original_image = composite_patches_on_image(&loaded_image.image, adjustments)
-        .map_err(|e| format!("Failed to composite AI patches: {}", e))?;
+    let state = app_handle.state::<AppState>();
+    let transform_hash = calculate_transform_hash(adjustments);
 
-    let (transformed_full_res, unscaled_crop_offset) =
-        apply_all_transformations(&patched_original_image, adjustments);
+    let (transformed_full_res, unscaled_crop_offset) = get_or_compute_transformed_image(
+        &state,
+        &loaded_image.path,
+        transform_hash,
+        "Preview",
+        || {
+            let patched_original_image = composite_patches_on_image(&loaded_image.image, adjustments, Some(&state), &loaded_image.path)
+                .map_err(|e| format!("Failed to composite AI patches: {}", e))?;
+            Ok(apply_all_transformations(&patched_original_image, adjustments))
+        },
+    )?;
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let final_preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
@@ -426,8 +504,13 @@ async fn load_image(
     let (orig_width, orig_height) = pristine_img.dimensions();
     let is_raw = is_raw_file(&path);
 
+    log::info!("Cache: loading image {}", path);
     *state.cached_preview.lock().unwrap() = None;
     *state.gpu_image_cache.lock().unwrap() = None;
+
+    // Note: processing_cache (masks, patches, transforms) persists across image loads
+    // for fast browsing. LRU eviction handles memory limits automatically.
+
     *state.original_image.lock().unwrap() = Some(LoadedImage {
         path: path.clone(),
         image: pristine_img,
@@ -587,16 +670,54 @@ fn apply_adjustments(
             unscaled_crop_offset.1 * scale_for_gpu,
         );
 
+        // Generate or retrieve cached mask bitmaps
         let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
             .iter()
             .filter_map(|def| {
-                generate_mask_bitmap(
+                // Create cache key from mask definition AND viewport state (scale, crop offset)
+                let mask_json = serde_json::to_string(def).ok()?;
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                mask_json.hash(&mut hasher);
+                // Include viewport state in hash since it affects the final bitmap
+                scale_for_gpu.to_bits().hash(&mut hasher);
+                scaled_crop_offset.0.to_bits().hash(&mut hasher);
+                scaled_crop_offset.1.to_bits().hash(&mut hasher);
+                let transform_hash = hasher.finish();
+
+                let cache_key = cache::CacheKey::DecodedMask {
+                    image_path: loaded_image.path.clone(),
+                    mask_id: def.id.clone(),
+                    width: preview_width,
+                    height: preview_height,
+                    transform_hash,
+                };
+
+                // Try to get from cache first
+                let mut cache_lock = state.processing_cache.lock().unwrap();
+                if let Some(cached_data) = cache_lock.get(&cache_key) {
+                    if let Some(mask_image) = cached_data.as_mask() {
+                        return Some((*mask_image).clone());
+                    }
+                }
+                drop(cache_lock);
+
+                // Cache miss - generate the mask
+                let mask_bitmap = generate_mask_bitmap(
                     def,
                     preview_width,
                     preview_height,
                     scale_for_gpu,
                     scaled_crop_offset,
-                )
+                )?;
+
+                // Store in cache
+                let byte_size = cache::calculate_mask_size(preview_width, preview_height);
+                let cached_data = cache::CachedData::Mask(Arc::new(mask_bitmap.clone()), byte_size);
+                let mut cache_lock = state.processing_cache.lock().unwrap();
+                cache_lock.insert(cache_key, cached_data);
+                drop(cache_lock);
+
+                Some(mask_bitmap)
             })
             .collect();
 
@@ -661,7 +782,7 @@ fn generate_uncropped_preview(
         let is_raw = loaded_image.is_raw;
         let unique_hash = calculate_full_job_hash(&path, &adjustments_clone);
         let patched_image =
-            match composite_patches_on_image(&loaded_image.image, &adjustments_clone) {
+            match composite_patches_on_image(&loaded_image.image, &adjustments_clone, Some(&state), &path) {
                 Ok(img) => img,
                 Err(e) => {
                     eprintln!("Failed to composite patches for uncropped preview: {}", e);
@@ -756,8 +877,15 @@ fn generate_original_transformed_preview(
         apply_cpu_default_raw_processing(&mut image_for_preview);
     }
 
-    let (transformed_full_res, _unscaled_crop_offset) =
-        apply_all_transformations(&image_for_preview, &js_adjustments);
+    let transform_hash = calculate_transform_hash(&js_adjustments);
+
+    let (transformed_full_res, _unscaled_crop_offset) = get_or_compute_transformed_image(
+        &state,
+        &loaded_image.path,
+        transform_hash,
+        "OriginalPreview",
+        || Ok(apply_all_transformations(&image_for_preview, &js_adjustments)),
+    )?;
 
     let settings = load_settings(app_handle).unwrap_or_default();
     let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
@@ -804,11 +932,19 @@ fn generate_fullscreen_preview(
         .path
         .clone();
     let unique_hash = calculate_full_job_hash(&path, &js_adjustments);
-    let base_image = composite_patches_on_image(&original_image, &js_adjustments)
-        .map_err(|e| format!("Failed to composite AI patches for fullscreen: {}", e))?;
+    let transform_hash = calculate_transform_hash(&js_adjustments);
 
-    let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(&base_image, &js_adjustments);
+    let (transformed_image, unscaled_crop_offset) = get_or_compute_transformed_image(
+        &state,
+        &path,
+        transform_hash,
+        "Fullscreen",
+        || {
+            let base_image = composite_patches_on_image(&original_image, &js_adjustments, Some(&state), &path)
+                .map_err(|e| format!("Failed to composite AI patches for fullscreen: {}", e))?;
+            Ok(apply_all_transformations(&base_image, &js_adjustments))
+        },
+    )?;
     let (img_w, img_h) = transformed_image.dimensions();
 
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -854,8 +990,15 @@ fn process_image_for_export(
     state: &tauri::State<AppState>,
     is_raw: bool,
 ) -> Result<DynamicImage, String> {
-    let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(&base_image, &js_adjustments);
+    let transform_hash = calculate_transform_hash(&js_adjustments);
+
+    let (transformed_image, unscaled_crop_offset) = get_or_compute_transformed_image(
+        &state,
+        path,
+        transform_hash,
+        "Export",
+        || Ok(apply_all_transformations(&base_image, &js_adjustments)),
+    )?;
     let (img_w, img_h) = transformed_image.dimensions();
 
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -1002,7 +1145,7 @@ async fn export_image(
     let task = tokio::spawn(async move {
         let state = app_handle.state::<AppState>();
         let processing_result: Result<(), String> = (|| {
-            let base_image = composite_patches_on_image(&original_image_data, &js_adjustments)
+            let base_image = composite_patches_on_image(&original_image_data, &js_adjustments, Some(&state), &original_path)
                 .map_err(|e| format!("Failed to composite AI patches for export: {}", e))?;
 
             let final_image = process_image_for_export(
@@ -1966,7 +2109,7 @@ fn calculate_dynamic_patch_radius(width: u32, height: u32) -> u32 {
 
 #[tauri::command]
 async fn invoke_generative_replace_with_mask_def(
-    _path: String,
+    path: String,
     patch_definition: AiPatchDefinition,
     current_adjustments: Value,
     use_fast_inpaint: bool,
@@ -1985,7 +2128,7 @@ async fn invoke_generative_replace_with_mask_def(
     }
 
     let (base_image, _) = get_full_image_for_processing(&state)?;
-    let source_image = composite_patches_on_image(&base_image, &source_image_adjustments)
+    let source_image = composite_patches_on_image(&base_image, &source_image_adjustments, Some(&state), &path)
         .map_err(|e| format!("Failed to prepare source image: {}", e))?;
 
     let (img_w, img_h) = source_image.dimensions();
@@ -2611,6 +2754,46 @@ fn setup_logging(app_handle: &tauri::AppHandle) {
     );
 }
 
+#[tauri::command]
+fn get_cache_stats(state: tauri::State<AppState>) -> Result<cache::CacheStats, String> {
+    let cache_lock = state.processing_cache.lock().unwrap();
+    let stats = cache_lock.stats();
+    log::debug!("Cache: stats requested - {} hits, {} misses, {} entries, {:.1} MB / {:.0} MB",
+        stats.hits, stats.misses, stats.entry_count,
+        stats.current_size_bytes as f64 / (1024.0 * 1024.0),
+        stats.max_size_bytes as f64 / (1024.0 * 1024.0));
+    Ok(stats)
+}
+
+#[tauri::command]
+fn clear_processing_cache(state: tauri::State<AppState>) -> Result<(), String> {
+    let mut cache_lock = state.processing_cache.lock().unwrap();
+    cache_lock.clear();
+    log::info!("Processing cache cleared manually");
+    Ok(())
+}
+
+#[tauri::command]
+fn set_cache_max_size(state: tauri::State<AppState>, size_mb: usize) -> Result<(), String> {
+    let size_bytes = size_mb * 1024 * 1024;
+    let mut cache_lock = state.processing_cache.lock().unwrap();
+    cache_lock.set_max_size(size_bytes);
+    log::info!("Cache max size set to {} MB ({} bytes)", size_mb, size_bytes);
+    Ok(())
+}
+
+#[tauri::command]
+fn apply_cache_settings(state: tauri::State<AppState>, app_handle: tauri::AppHandle) -> Result<(), String> {
+    let settings = load_settings(app_handle).unwrap_or_default();
+    let cache_size_mb = settings.cache_max_size_mb.unwrap_or(2048);
+    let cache_size_bytes = cache_size_mb * 1024 * 1024;
+
+    let mut cache_lock = state.processing_cache.lock().unwrap();
+    cache_lock.set_max_size(cache_size_bytes);
+    log::info!("Applied cache settings: {} MB max size", cache_size_mb);
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_os::init())
@@ -2667,6 +2850,27 @@ fn main() {
                 }
             }
 
+            // Initialize cache with user's saved settings
+            let cache_size_mb = settings.cache_max_size_mb.unwrap_or(2048);
+            let cache_size_bytes = cache_size_mb * 1024 * 1024;
+            log::info!("Initializing image processing cache with {} MB limit", cache_size_mb);
+
+            app.manage(AppState {
+                original_image: Mutex::new(None),
+                cached_preview: Mutex::new(None),
+                gpu_context: Mutex::new(None),
+                gpu_image_cache: Mutex::new(None),
+                gpu_processor: Mutex::new(None),
+                processing_cache: Mutex::new(cache::ImageProcessingCache::new(cache_size_bytes)),
+                ai_state: Mutex::new(None),
+                ai_init_lock: TokioMutex::new(()),
+                export_task_handle: Mutex::new(None),
+                panorama_result: Arc::new(Mutex::new(None)),
+                indexing_task_handle: Mutex::new(None),
+                lut_cache: Mutex::new(HashMap::new()),
+                thumbnail_cancellation_token: Arc::new(AtomicBool::new(false)),
+            });
+
             let window_cfg = app.config().app.windows.get(0).unwrap().clone();
             let transparent = settings.transparent.unwrap_or(window_cfg.transparent);
             let decorations = settings.decorations.unwrap_or(window_cfg.decorations);
@@ -2684,19 +2888,6 @@ fn main() {
             }
 
             Ok(())
-        })
-        .manage(AppState {
-            original_image: Mutex::new(None),
-            cached_preview: Mutex::new(None),
-            gpu_context: Mutex::new(None),
-            gpu_image_cache: Mutex::new(None),
-            ai_state: Mutex::new(None),
-            ai_init_lock: TokioMutex::new(()),
-            export_task_handle: Mutex::new(None),
-            panorama_result: Arc::new(Mutex::new(None)),
-            indexing_task_handle: Mutex::new(None),
-            lut_cache: Mutex::new(HashMap::new()),
-            thumbnail_cancellation_token: Arc::new(AtomicBool::new(false)),
         })
         .invoke_handler(tauri::generate_handler![
             load_image,
@@ -2768,6 +2959,10 @@ fn main() {
             tagging::start_background_indexing,
             tagging::clear_all_tags,
             culling::cull_images,
+            get_cache_stats,
+            clear_processing_cache,
+            set_cache_max_size,
+            apply_cache_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

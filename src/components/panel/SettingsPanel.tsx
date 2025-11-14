@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   ArrowLeft,
   Check,
@@ -134,6 +134,84 @@ const KeybindItem = ({ keys, description }: KeybindItemProps) => (
     </div>
   </div>
 );
+
+const CacheStats = () => {
+  const [stats, setStats] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStats = async () => {
+    try {
+      const cacheStats = await invoke('get_cache_stats');
+      setStats(cacheStats);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch cache stats:', err);
+      setError(String(err));
+    }
+  };
+
+  const handleClearCache = async () => {
+    try {
+      await invoke('clear_processing_cache');
+      await fetchStats();
+    } catch (err) {
+      console.error('Failed to clear cache:', err);
+      setError(String(err));
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+    const interval = setInterval(fetchStats, 2000); // Update every 2 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  if (error) {
+    return (
+      <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-3 text-xs text-red-300">
+        Failed to load cache stats: {error}
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return <div className="text-xs text-text-secondary">Loading cache statistics...</div>;
+  }
+
+  const hitRate = stats.hits + stats.misses > 0
+    ? ((stats.hits / (stats.hits + stats.misses)) * 100).toFixed(1)
+    : '0.0';
+  const utilizationPercent = ((stats.currentSizeBytes / stats.maxSizeBytes) * 100).toFixed(1);
+  const currentSizeMB = (stats.currentSizeBytes / (1024 * 1024)).toFixed(1);
+  const maxSizeMB = (stats.maxSizeBytes / (1024 * 1024)).toFixed(0);
+
+  return (
+    <div className="bg-bg-primary border border-border-color rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-text-secondary">Cache Efficiency:</span>
+        <span className="text-text-primary font-medium">{hitRate}% hit rate</span>
+      </div>
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-text-secondary">Memory Usage:</span>
+        <span className="text-text-primary font-medium">{currentSizeMB} / {maxSizeMB} MB ({utilizationPercent}%)</span>
+      </div>
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-text-secondary">Cached Items:</span>
+        <span className="text-text-primary font-medium">{stats.entryCount}</span>
+      </div>
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-text-secondary">Stats:</span>
+        <span className="text-text-primary font-mono">{stats.hits} hits / {stats.misses} misses / {stats.evictions} evictions</span>
+      </div>
+      <button
+        onClick={handleClearCache}
+        className="w-full mt-2 px-3 py-1.5 bg-red-900/20 hover:bg-red-900/30 text-red-300 border border-red-500/50 rounded text-xs transition-colors"
+      >
+        Clear Cache
+      </button>
+    </div>
+  );
+};
 
 const SettingItem = ({ children, description, label }: SettingItemProps) => (
   <div>
@@ -295,8 +373,10 @@ export default function SettingsPanel({
     rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
     processingBackend: appSettings?.processingBackend || 'auto',
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
+    cacheMaxSizeMb: appSettings?.cacheMaxSizeMb || 2048,
   });
   const [restartRequired, setRestartRequired] = useState(false);
+  const cacheUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (appSettings?.comfyuiAddress !== comfyUiAddress) {
@@ -311,9 +391,18 @@ export default function SettingsPanel({
       rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
       processingBackend: appSettings?.processingBackend || 'auto',
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
+      cacheMaxSizeMb: appSettings?.cacheMaxSizeMb || 2048,
     });
     setRestartRequired(false);
   }, [appSettings]);
+
+  useEffect(() => {
+    return () => {
+      if (cacheUpdateTimeoutRef.current) {
+        clearTimeout(cacheUpdateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleProcessingSettingChange = (key: string, value: any) => {
     setProcessingSettings((prev) => ({ ...prev, [key]: value }));
@@ -662,6 +751,37 @@ export default function SettingsPanel({
                   label="Enable Compatibility Mode"
                   onChange={(checked) => handleProcessingSettingChange('linuxGpuOptimization', checked)}
                 />
+              </SettingItem>
+
+              <SettingItem
+                label="Image Processing Cache Size"
+                description="Maximum memory allocated for caching decoded masks, AI patches, and transformed images. Higher values improve performance but use more RAM. Changes apply immediately."
+              >
+                <div className="space-y-3">
+                  <Slider
+                    label={`${processingSettings.cacheMaxSizeMb} MB`}
+                    min={512}
+                    max={8192}
+                    step={256}
+                    value={processingSettings.cacheMaxSizeMb}
+                    defaultValue={2048}
+                    onChange={(e: any) => {
+                      const newValue = parseInt(e.target.value);
+                      handleProcessingSettingChange('cacheMaxSizeMb', newValue);
+
+                      // Clear existing timeout
+                      if (cacheUpdateTimeoutRef.current) {
+                        clearTimeout(cacheUpdateTimeoutRef.current);
+                      }
+
+                      // Set new timeout to update backend after user stops adjusting
+                      cacheUpdateTimeoutRef.current = setTimeout(() => {
+                        invoke('set_cache_max_size', { sizeMb: newValue });
+                      }, 500);
+                    }}
+                  />
+                  <CacheStats />
+                </div>
               </SettingItem>
 
               {restartRequired && (

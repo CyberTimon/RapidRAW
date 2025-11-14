@@ -260,6 +260,9 @@ pub struct AppSettings {
     pub processing_backend: Option<String>,
     #[serde(default)]
     pub linux_gpu_optimization: Option<bool>,
+    /// Cache size limit in megabytes (default: 2048 MB = 2 GB)
+    #[serde(default)]
+    pub cache_max_size_mb: Option<usize>,
 }
 
 fn default_adjustment_visibility() -> HashMap<String, bool> {
@@ -309,6 +312,7 @@ impl Default for AppSettings {
             linux_gpu_optimization: Some(true),
             #[cfg(not(target_os = "linux"))]
             linux_gpu_optimization: Some(false),
+            cache_max_size_mb: Some(2048),
         }
     }
 }
@@ -564,7 +568,8 @@ pub fn generate_thumbnail_data(
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
 
     let composite_image = if let Some(img) = preloaded_image {
-        image_loader::composite_patches_on_image(img, &adjustments)?
+        let state = app_handle.state::<crate::AppState>();
+        image_loader::composite_patches_on_image(img, &adjustments, Some(&state), path_str)?
     } else {
         match read_file_mapped(Path::new(path_str)) {
             Ok(mmap) => image_loader::load_and_composite(

@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_PATH="$(readlink -f "$0")"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+
+find_real_cargo() {
+  local candidates=()
+  if [[ -n "${CARGO_REAL:-}" ]]; then
+    candidates+=("$CARGO_REAL")
+  fi
+  if [[ -n "${HOME:-}" ]]; then
+    candidates+=("$HOME/.cargo/bin/cargo")
+  fi
+  candidates+=("/usr/bin/cargo" "/usr/local/bin/cargo")
+
+  for candidate in "${candidates[@]}"; do
+    if [[ -x "$candidate" ]]; then
+      local resolved_candidate
+      resolved_candidate="$(readlink -f "$candidate" 2>/dev/null || echo "$candidate")"
+      if [[ "$resolved_candidate" != "$SCRIPT_PATH" ]]; then
+        echo "$candidate"
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+REAL_CARGO="$(find_real_cargo)" || {
+  echo "cargo wrapper: unable to locate a real cargo binary (searched ~/.cargo/bin, /usr/bin, /usr/local/bin)" >&2
+  exit 1
+}
+
+subcommand="${1:-}"
+
+if [[ "$subcommand" != "metadata" ]]; then
+  exec "$REAL_CARGO" "$@"
+fi
+
+tmpfile="$(mktemp)"
+cleanup() {
+  rm -f "$tmpfile"
+}
+trap cleanup EXIT
+
+if ! "$REAL_CARGO" "$@" >"$tmpfile"; then
+  status=$?
+  cat "$tmpfile"
+  exit $status
+fi
+
+manifest_path=""
+argv=("$@")
+for ((i = 0; i < ${#argv[@]}; i++)); do
+  if [[ "${argv[$i]}" == "--manifest-path" && $((i + 1)) -lt ${#argv[@]} ]]; then
+    manifest_path="${argv[$((i + 1))]}"
+    break
+  fi
+done
+
+if [[ -n "$manifest_path" ]]; then
+  workspace_root="$(python - <<'PY' "$manifest_path"
+import os, sys
+print(os.path.dirname(os.path.abspath(sys.argv[1])))
+PY
+)"
+else
+  workspace_root="$(pwd)"
+fi
+
+target_dir="${workspace_root}/target"
+
+python - <<'PY' "$tmpfile" "$workspace_root" "$target_dir"
+import json
+import sys
+path, workspace, target = sys.argv[1:4]
+with open(path, 'r', encoding='utf-8') as handle:
+    data = json.load(handle)
+
+if 'target_directory' not in data:
+    data['target_directory'] = target
+if 'workspace_root' not in data:
+    data['workspace_root'] = workspace
+if 'metadata' not in data:
+    data['metadata'] = {}
+
+json.dump(data, sys.stdout)
+PY
