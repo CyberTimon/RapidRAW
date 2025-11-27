@@ -1,5 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 
+const MAX_HISTORY_ENTRIES = 50;
+
 export const useHistoryState = (initialState: any) => {
   const [history, setHistory] = useState([initialState]);
   const [index, setIndex] = useState(0);
@@ -13,8 +15,13 @@ export const useHistoryState = (initialState: any) => {
       }
       const newHistory = history.slice(0, index + 1);
       newHistory.push(resolvedState);
-      setHistory(newHistory);
-      setIndex(newHistory.length - 1);
+      const trimmedHistory =
+        newHistory.length > MAX_HISTORY_ENTRIES
+          ? newHistory.slice(newHistory.length - MAX_HISTORY_ENTRIES)
+          : newHistory;
+      const newIndex = trimmedHistory.length - 1;
+      setHistory(trimmedHistory);
+      setIndex(newIndex);
     },
     [history, index],
   );

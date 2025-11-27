@@ -143,6 +143,7 @@ export interface AppSettings {
   theme: Theme;
   thumbnailSize?: ThumbnailSize;
   thumbnailAspectRatio?: ThumbnailAspectRatio;
+  thumbnailMemoryLimit?: number;
   uiVisibility?: UiVisibility;
   adjustmentVisibility?: { [key: string]: boolean };
   activeTreeSection?: string | null;

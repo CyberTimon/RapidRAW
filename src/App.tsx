@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { homeDir } from '@tauri-apps/api/path';
@@ -180,6 +180,9 @@ interface SearchCriteria {
 
 const DEBUG = false;
 const REVOCATION_DELAY = 5000;
+const DEFAULT_THUMBNAIL_MEMORY_LIMIT = 300;
+const MIN_THUMBNAIL_MEMORY_LIMIT = 50;
+const MAX_THUMBNAIL_MEMORY_LIMIT = 2000;
 
 const useDelayedRevokeBlobUrl = (url: string | null | undefined) => {
   const previousUrlRef = useRef<string | null | undefined>(null);
@@ -376,8 +379,54 @@ function App() {
   const [libraryScrollTop, setLibraryScrollTop] = useState<number>(0);
   const { showContextMenu } = useContextMenu();
   const imagePathList = useMemo(() => imageList.map((f: ImageFile) => f.path), [imageList]);
-  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
-  const { loading: isThumbnailsLoading } = useThumbnails(imageList, setThumbnails);
+  const [thumbnails, setThumbnailsState] = useState<Record<string, string>>({});
+  const thumbnailCacheRef = useRef<Map<string, string>>(new Map());
+  const [thumbnailMemoryLimit, setThumbnailMemoryLimit] = useState<number>(DEFAULT_THUMBNAIL_MEMORY_LIMIT);
+
+  const enforceThumbnailLimit = useCallback(
+    (limitOverride?: number) => {
+      const cache = thumbnailCacheRef.current;
+      const effectiveLimit = Math.max(
+        MIN_THUMBNAIL_MEMORY_LIMIT,
+        Math.min(limitOverride ?? thumbnailMemoryLimit ?? DEFAULT_THUMBNAIL_MEMORY_LIMIT, MAX_THUMBNAIL_MEMORY_LIMIT),
+      );
+      while (cache.size > effectiveLimit) {
+        const oldestKey = cache.keys().next().value;
+        if (oldestKey === undefined) break;
+        cache.delete(oldestKey);
+      }
+      setThumbnailsState(Object.fromEntries(cache));
+    },
+    [thumbnailMemoryLimit],
+  );
+
+  const resetThumbnails = useCallback(
+    (next: Record<string, string>) => {
+      const cache = thumbnailCacheRef.current;
+      cache.clear();
+      Object.entries(next || {}).forEach(([key, value]) => cache.set(key, value));
+      enforceThumbnailLimit();
+    },
+    [enforceThumbnailLimit],
+  );
+
+  const updateThumbnailEntry = useCallback(
+    (path: string, url?: string) => {
+      const cache = thumbnailCacheRef.current;
+      if (!url) {
+        cache.delete(path);
+      } else {
+        if (cache.has(path)) {
+          cache.delete(path);
+        }
+        cache.set(path, url);
+      }
+      enforceThumbnailLimit();
+    },
+    [enforceThumbnailLimit],
+  );
+
+  const { loading: isThumbnailsLoading } = useThumbnails(imageList, resetThumbnails);
   const transformWrapperRef = useRef<any>(null);
   const isProgrammaticZoom = useRef(false);
   const isInitialMount = useRef(true);
@@ -620,6 +669,22 @@ function App() {
       setActiveAiSubMaskId,
     ],
   );
+
+  const normalizeThumbnailSrc = useCallback((raw?: string | null) => {
+    if (!raw) return undefined;
+    const value = raw.trim();
+    if (
+      value.startsWith('data:') ||
+      value.startsWith('asset:') ||
+      value.startsWith('http') ||
+      value.startsWith('tauri://') ||
+      value.startsWith('https://asset.') ||
+      value.startsWith('app:')
+    ) {
+      return value;
+    }
+    return convertFileSrc(value);
+  }, []);
 
   const handleQuickErase = useCallback(
     async (subMaskId: string | null, startPoint: Coord, endPoint: Coord) => {
@@ -1188,6 +1253,9 @@ function App() {
         if (settings?.thumbnailAspectRatio) {
           setThumbnailAspectRatio(settings.thumbnailAspectRatio);
         }
+        if (settings?.thumbnailMemoryLimit) {
+          setThumbnailMemoryLimit(settings.thumbnailMemoryLimit);
+        }
         if (settings?.activeTreeSection) {
           setActiveTreeSection(settings.activeTreeSection);
         }
@@ -1218,6 +1286,17 @@ function App() {
       handleSettingsChange({ ...appSettings, uiVisibility });
     }
   }, [uiVisibility, appSettings, handleSettingsChange]);
+
+  useEffect(() => {
+    if (!appSettings) return;
+    if (appSettings.thumbnailMemoryLimit !== undefined && appSettings.thumbnailMemoryLimit !== null) {
+      setThumbnailMemoryLimit(appSettings.thumbnailMemoryLimit);
+    }
+  }, [appSettings?.thumbnailMemoryLimit]);
+
+  useEffect(() => {
+    enforceThumbnailLimit();
+  }, [thumbnailMemoryLimit, enforceThumbnailLimit]);
 
   const handleToggleWaveform = useCallback(() => {
     setIsWaveformVisible((prev: boolean) => !prev);
@@ -2109,7 +2188,7 @@ function App() {
         metadata: null,
         originalUrl: null,
         path,
-        thumbnailUrl: thumbnails[path],
+        thumbnailUrl: normalizeThumbnailSrc(thumbnails[path]) || thumbnails[path],
         width: 0,
       });
       setOriginalSize({ width: 0, height: 0 });
@@ -2226,9 +2305,11 @@ function App() {
       }),
       listen('thumbnail-generated', (event: any) => {
         if (isEffectActive) {
-          const { path, data, rating } = event.payload;
-          if (data) {
-            setThumbnails((prev) => ({ ...prev, [path]: data }));
+          const { path, cachePath, data, rating } = event.payload;
+          // Prefer base64 (fastest to display), fall back to cachePath
+          const resolved = normalizeThumbnailSrc(data || cachePath);
+          if (resolved) {
+            updateThumbnailEntry(path, resolved);
           }
           if (rating !== undefined) {
             setImageRatings((prev) => ({ ...prev, [path]: rating }));

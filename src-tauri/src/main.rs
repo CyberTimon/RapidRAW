@@ -32,6 +32,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
+use std::time::Instant;
 use std::io::Write;
 use std::sync::Mutex;
 
@@ -78,6 +79,8 @@ use crate::lut_processing::Lut;
 use crate::mask_generation::{AiPatchDefinition, MaskDefinition, generate_mask_bitmap};
 use tagging_utils::{candidates, hierarchy};
 
+pub const MAX_LUT_CACHE: usize = 8;
+
 #[derive(Clone)]
 pub struct LoadedImage {
     path: String,
@@ -111,9 +114,14 @@ pub struct AppState {
     export_task_handle: Mutex<Option<JoinHandle<()>>>,
     panorama_result: Arc<Mutex<Option<RgbImage>>>,
     indexing_task_handle: Mutex<Option<JoinHandle<()>>>,
-    pub lut_cache: Mutex<HashMap<String, Arc<Lut>>>,
+    pub lut_cache: Mutex<HashMap<String, LutCacheEntry>>,
     initial_file_path: Mutex<Option<String>>,
     thumbnail_cancellation_token: Arc<AtomicBool>,
+}
+
+pub struct LutCacheEntry {
+    pub lut: Arc<Lut>,
+    pub loaded_at: Instant,
 }
 
 #[derive(serde::Serialize)]
@@ -363,13 +371,31 @@ fn read_exif_data(file_bytes: &[u8]) -> HashMap<String, String> {
 
 fn get_or_load_lut(state: &tauri::State<AppState>, path: &str) -> Result<Arc<Lut>, String> {
     let mut cache = state.lut_cache.lock().unwrap();
-    if let Some(lut) = cache.get(path) {
-        return Ok(lut.clone());
+    if let Some(entry) = cache.get(path) {
+        return Ok(entry.lut.clone());
     }
 
     let lut = lut_processing::parse_lut_file(path).map_err(|e| e.to_string())?;
     let arc_lut = Arc::new(lut);
-    cache.insert(path.to_string(), arc_lut.clone());
+    cache.insert(
+        path.to_string(),
+        LutCacheEntry {
+            lut: arc_lut.clone(),
+            loaded_at: Instant::now(),
+        },
+    );
+
+    if cache.len() > MAX_LUT_CACHE {
+        if let Some(oldest_key) = cache
+            .iter()
+            .min_by_key(|(_, entry)| entry.loaded_at)
+            .map(|(k, _)| k.clone())
+        {
+            if oldest_key != path {
+                cache.remove(&oldest_key);
+            }
+        }
+    }
     Ok(arc_lut)
 }
 
@@ -2527,7 +2553,24 @@ async fn load_and_parse_lut(
     let lut_size = lut.size;
 
     let mut cache = state.lut_cache.lock().unwrap();
-    cache.insert(path, Arc::new(lut));
+    cache.insert(
+        path.clone(),
+        LutCacheEntry {
+            lut: Arc::new(lut),
+            loaded_at: Instant::now(),
+        },
+    );
+    if cache.len() > MAX_LUT_CACHE {
+        if let Some(oldest_key) = cache
+            .iter()
+            .min_by_key(|(_, entry)| entry.loaded_at)
+            .map(|(k, _)| k.clone())
+        {
+            if oldest_key != path {
+                cache.remove(&oldest_key);
+            }
+        }
+    }
 
     Ok(LutParseResult { size: lut_size })
 }

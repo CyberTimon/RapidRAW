@@ -125,7 +125,7 @@ pub fn load_image_with_orientation(bytes: &[u8]) -> Result<DynamicImage> {
         }
     };
 
-    Ok(DynamicImage::ImageRgb32F(oriented_image.to_rgb32f()))
+    Ok(DynamicImage::ImageRgb8(oriented_image.to_rgb8()))
 }
 
 pub fn composite_patches_on_image(

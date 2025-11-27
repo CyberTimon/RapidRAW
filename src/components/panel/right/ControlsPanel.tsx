@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { RotateCcw, Copy, ClipboardPaste, Aperture } from 'lucide-react';
 import BasicAdjustments from '../../adjustments/Basic';
 import CurveGraph from '../../adjustments/Curves';
@@ -33,7 +34,7 @@ interface ControlsProps {
   appSettings: AppSettings | null;
 }
 
-export default function Controls({
+function Controls({
   adjustments,
   collapsibleState,
   copiedSectionAdjustments,
@@ -214,3 +215,17 @@ export default function Controls({
     </div>
   );
 }
+
+function arePropsEqual(prev: ControlsProps, next: ControlsProps) {
+  return (
+    prev.adjustments === next.adjustments &&
+    prev.collapsibleState === next.collapsibleState &&
+    prev.copiedSectionAdjustments === next.copiedSectionAdjustments &&
+    prev.histogram === next.histogram &&
+    prev.selectedImage?.path === next.selectedImage?.path &&
+    prev.theme === next.theme &&
+    prev.appSettings === next.appSettings
+  );
+}
+
+export default memo(Controls, arePropsEqual);

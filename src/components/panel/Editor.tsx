@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { Crop, PercentCrop } from 'react-image-crop';
 import { Loader2 } from 'lucide-react';
@@ -67,7 +67,7 @@ interface EditorProps {
   isLoadingFullRes?: boolean;
 }
 
-export default function Editor({
+function Editor({
   activeAiPatchContainerId,
   activeAiSubMaskId,
   activeMaskContainerId,
@@ -589,3 +589,34 @@ export default function Editor({
     </>
   );
 }
+
+function arePropsEqual(prev: EditorProps, next: EditorProps) {
+  return (
+    prev.selectedImage?.path === next.selectedImage?.path &&
+    prev.finalPreviewUrl === next.finalPreviewUrl &&
+    prev.uncroppedAdjustedPreviewUrl === next.uncroppedAdjustedPreviewUrl &&
+    prev.transformedOriginalUrl === next.transformedOriginalUrl &&
+    prev.fullScreenUrl === next.fullScreenUrl &&
+    prev.isLoading === next.isLoading &&
+    prev.isAdjusting === next.isAdjusting &&
+    prev.isFullScreen === next.isFullScreen &&
+    prev.isMaskControlHovered === next.isMaskControlHovered &&
+    prev.showOriginal === next.showOriginal &&
+    prev.targetZoom === next.targetZoom &&
+    prev.renderedRightPanel === next.renderedRightPanel &&
+    prev.activeRightPanel === next.activeRightPanel &&
+    prev.activeMaskId === next.activeMaskId &&
+    prev.activeMaskContainerId === next.activeMaskContainerId &&
+    prev.activeAiPatchContainerId === next.activeAiPatchContainerId &&
+    prev.activeAiSubMaskId === next.activeAiSubMaskId &&
+    prev.isWaveformVisible === next.isWaveformVisible &&
+    prev.waveform === next.waveform &&
+    prev.isFullResolution === next.isFullResolution &&
+    prev.fullResolutionUrl === next.fullResolutionUrl &&
+    prev.isLoadingFullRes === next.isLoadingFullRes &&
+    prev.thumbnails === next.thumbnails &&
+    prev.adjustments === next.adjustments
+  );
+}
+
+export default memo(Editor, arePropsEqual);

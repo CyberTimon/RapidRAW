@@ -11,6 +11,7 @@ use std::process::Command;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
+use std::time::Instant;
 
 use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
@@ -29,7 +30,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 use walkdir::WalkDir;
 
-use crate::AppState;
+use crate::{AppState, LutCacheEntry, MAX_LUT_CACHE};
 use crate::formats::{is_raw_file, is_supported_image_file};
 use crate::gpu_processing;
 use crate::image_loader;
@@ -262,6 +263,7 @@ pub struct AppSettings {
     pub tagging_shortcuts: Option<Vec<String>>,
     pub thumbnail_size: Option<String>,
     pub thumbnail_aspect_ratio: Option<String>,
+    pub thumbnail_memory_limit: Option<usize>,
     pub ai_provider: Option<String>,
     #[serde(default = "default_adjustment_visibility")]
     pub adjustment_visibility: HashMap<String, bool>,
@@ -315,6 +317,7 @@ impl Default for AppSettings {
             tagging_shortcuts: default_tagging_shortcuts_option(),
             thumbnail_size: Some("medium".to_string()),
             thumbnail_aspect_ratio: Some("cover".to_string()),
+            thumbnail_memory_limit: Some(300),
             ai_provider: Some("cpu".to_string()),
             adjustment_visibility: default_adjustment_visibility(),
             enable_exif_reading: Some(false),
@@ -846,11 +849,28 @@ pub fn generate_thumbnail_data(
             let lut = lut_path.and_then(|p| {
                 let mut cache = state.lut_cache.lock().unwrap();
                 if let Some(cached_lut) = cache.get(p) {
-                    return Some(cached_lut.clone());
+                    return Some(cached_lut.lut.clone());
                 }
                 if let Ok(loaded_lut) = crate::lut_processing::parse_lut_file(p) {
                     let arc_lut = Arc::new(loaded_lut);
-                    cache.insert(p.to_string(), arc_lut.clone());
+                    cache.insert(
+                        p.to_string(),
+                        LutCacheEntry {
+                            lut: arc_lut.clone(),
+                            loaded_at: Instant::now(),
+                        },
+                    );
+                    if cache.len() > MAX_LUT_CACHE {
+                        if let Some(oldest_key) = cache
+                            .iter()
+                            .min_by_key(|(_, entry)| entry.loaded_at)
+                            .map(|(k, _)| k.clone())
+                        {
+                            if oldest_key != p {
+                                cache.remove(&oldest_key);
+                            }
+                        }
+                    }
                     return Some(arc_lut);
                 }
                 None
@@ -907,7 +927,7 @@ fn generate_single_thumbnail_and_cache(
     preloaded_image: Option<&DynamicImage>,
     force_regenerate: bool,
     app_handle: &AppHandle,
-) -> Option<(String, u8)> {
+) -> Option<(String, String, u8)> {
     let (source_path, sidecar_path) = parse_virtual_path(path_str);
 
     let img_mod_time = fs::metadata(source_path)
@@ -945,7 +965,7 @@ fn generate_single_thumbnail_and_cache(
     if !force_regenerate && cache_path.exists() {
         if let Ok(data) = fs::read(&cache_path) {
             let base64_str = general_purpose::STANDARD.encode(&data);
-            return Some((format!("data:image/jpeg;base64,{}", base64_str), rating));
+            return Some((format!("data:image/jpeg;base64,{}", base64_str), cache_path.to_string_lossy().to_string(), rating));
         }
     }
 
@@ -955,7 +975,11 @@ fn generate_single_thumbnail_and_cache(
         if let Ok(thumb_data) = encode_thumbnail(&thumb_image) {
             let _ = fs::write(&cache_path, &thumb_data);
             let base64_str = general_purpose::STANDARD.encode(&thumb_data);
-            return Some((format!("data:image/jpeg;base64,{}", base64_str), rating));
+            return Some((
+                format!("data:image/jpeg;base64,{}", base64_str),
+                cache_path.to_string_lossy().to_string(),
+                rating,
+            ));
         }
     }
     None
@@ -991,7 +1015,7 @@ pub async fn generate_thumbnails(
                     false,
                     &app_handle_clone,
                 )
-                .map(|(data, _rating)| (path_str.clone(), data))
+                .map(|(data, _cache_path, _rating)| (path_str.clone(), data))
             })
             .collect();
 
@@ -1052,13 +1076,13 @@ pub fn generate_thumbnails_progressive(
                 &app_handle_clone,
             );
 
-            if let Some((thumbnail_data, rating)) = result {
+            if let Some((thumbnail_data, thumbnail_path, rating)) = result {
                 if cancellation_token.load(Ordering::Relaxed) {
                     return Err(());
                 }
                 let _ = app_handle_clone.emit(
                     "thumbnail-generated",
-                    serde_json::json!({ "path": path_str, "data": thumbnail_data, "rating": rating }),
+                    serde_json::json!({ "path": path_str, "data": thumbnail_data, "cachePath": thumbnail_path, "rating": rating }),
                 );
             }
 
@@ -1365,10 +1389,10 @@ pub fn save_metadata_and_update_thumbnail(
             &app_handle_clone,
         );
 
-        if let Some((thumbnail_data, rating)) = result {
+        if let Some((thumbnail_data, cache_path, rating)) = result {
             let _ = app_handle_clone.emit(
                 "thumbnail-generated",
-                serde_json::json!({ "path": path_clone, "data": thumbnail_data, "rating": rating }),
+                serde_json::json!({ "path": path_clone, "data": thumbnail_data, "cachePath": cache_path, "rating": rating }),
             );
         }
 
@@ -1443,10 +1467,10 @@ pub fn apply_adjustments_to_paths(
                 &app_handle,
             );
 
-            if let Some((thumbnail_data, rating)) = result {
+            if let Some((thumbnail_data, cache_path, rating)) = result {
                 let _ = app_handle.emit(
                     "thumbnail-generated",
-                    serde_json::json!({ "path": path_str, "data": thumbnail_data, "rating": rating }),
+                    serde_json::json!({ "path": path_str, "data": thumbnail_data, "cachePath": cache_path, "rating": rating }),
                 );
             }
 
@@ -1513,10 +1537,10 @@ pub fn reset_adjustments_for_paths(
                 &app_handle,
             );
 
-            if let Some((thumbnail_data, rating)) = result {
+            if let Some((thumbnail_data, cache_path, rating)) = result {
                 let _ = app_handle.emit(
                     "thumbnail-generated",
-                    serde_json::json!({ "path": path_str, "data": thumbnail_data, "rating": rating }),
+                    serde_json::json!({ "path": path_str, "data": thumbnail_data, "cachePath": cache_path, "rating": rating }),
                 );
             }
 
@@ -1630,10 +1654,10 @@ pub fn apply_auto_adjustments_to_paths(
                 &app_handle,
             );
 
-            if let Some((thumbnail_data, rating)) = result {
+            if let Some((thumbnail_data, cache_path, rating)) = result {
                 let _ = app_handle.emit(
                     "thumbnail-generated",
-                    serde_json::json!({ "path": path_str, "data": thumbnail_data, "rating": rating }),
+                    serde_json::json!({ "path": path_str, "data": thumbnail_data, "cachePath": cache_path, "rating": rating }),
                 );
             }
 
