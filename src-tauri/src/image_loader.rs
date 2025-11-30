@@ -125,7 +125,8 @@ pub fn load_image_with_orientation(bytes: &[u8]) -> Result<DynamicImage> {
         }
     };
 
-    Ok(DynamicImage::ImageRgb8(oriented_image.to_rgb8()))
+    // Preserve precision and avoid a u8 down/up-sample cycle by keeping the oriented image in f32
+    Ok(DynamicImage::ImageRgb32F(oriented_image.to_rgb32f()))
 }
 
 pub fn composite_patches_on_image(
