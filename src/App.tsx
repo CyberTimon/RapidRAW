@@ -180,9 +180,6 @@ interface SearchCriteria {
 
 const DEBUG = false;
 const REVOCATION_DELAY = 5000;
-const DEFAULT_THUMBNAIL_MEMORY_LIMIT = 300;
-const MIN_THUMBNAIL_MEMORY_LIMIT = 50;
-const MAX_THUMBNAIL_MEMORY_LIMIT = 2000;
 
 const useDelayedRevokeBlobUrl = (url: string | null | undefined) => {
   const previousUrlRef = useRef<string | null | undefined>(null);
@@ -381,14 +378,14 @@ function App() {
   const imagePathList = useMemo(() => imageList.map((f: ImageFile) => f.path), [imageList]);
   const [thumbnails, setThumbnailsState] = useState<Record<string, string>>({});
   const thumbnailCacheRef = useRef<Map<string, string>>(new Map());
-  const [thumbnailMemoryLimit, setThumbnailMemoryLimit] = useState<number>(DEFAULT_THUMBNAIL_MEMORY_LIMIT);
+  const [thumbnailMemoryLimit, setThumbnailMemoryLimit] = useState<number>(300);
 
   const enforceThumbnailLimit = useCallback(
     (limitOverride?: number) => {
       const cache = thumbnailCacheRef.current;
       const effectiveLimit = Math.max(
-        MIN_THUMBNAIL_MEMORY_LIMIT,
-        Math.min(limitOverride ?? thumbnailMemoryLimit ?? DEFAULT_THUMBNAIL_MEMORY_LIMIT, MAX_THUMBNAIL_MEMORY_LIMIT),
+        50,
+        Math.min(limitOverride ?? thumbnailMemoryLimit ?? 300, 2000),
       );
       while (cache.size > effectiveLimit) {
         const oldestKey = cache.keys().next().value;
