@@ -65,6 +65,8 @@ interface EditorProps {
   isFullResolution?: boolean;
   fullResolutionUrl?: string | null;
   isLoadingFullRes?: boolean;
+  isWbPickerActive?: boolean;
+  onWbPicked?: () => void;
 }
 
 function Editor({
@@ -116,6 +118,8 @@ function Editor({
   isFullResolution,
   fullResolutionUrl,
   isLoadingFullRes,
+  isWbPickerActive = false,
+  onWbPicked,
 }: EditorProps) {
   const [crop, setCrop] = useState<Crop | null>(null);
   const prevCropParams = useRef<any>(null);
@@ -535,7 +539,7 @@ function Editor({
             limitToBounds={true}
             centerZoomedOut={true}
             doubleClick={doubleClickProps}
-            panning={{ disabled: isPanningDisabled }}
+            panning={{ disabled: isPanningDisabled || isWbPickerActive }}
             onTransformed={handleTransform}
           >
             <TransformComponent
@@ -581,6 +585,9 @@ function Editor({
                 fullResolutionUrl={fullResolutionUrl}
                 isFullResolution={isFullResolution}
                 isLoadingFullRes={isLoadingFullRes}
+                isWbPickerActive={isWbPickerActive}
+                onWbPicked={onWbPicked}
+                setAdjustments={setAdjustments}
               />
             </TransformComponent>
           </TransformWrapper>

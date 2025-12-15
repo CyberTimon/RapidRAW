@@ -187,6 +187,35 @@ export default function AIPanel({
       });
     }
 
+    if (adjustments?.crop && subMask.parameters && (type === Mask.Linear || type === Mask.Radial)) {
+      const { x, y, width, height } = adjustments.crop;
+      const { width: imgW, height: imgH } = selectedImage;
+
+      if (imgW && imgH && (width !== imgW || height !== imgH)) {
+        const ratioX = width / imgW;
+        const ratioY = height / imgH;
+        const cx = x + width / 2;
+        const cy = y + height / 2;
+        const ox = imgW / 2;
+        const oy = imgH / 2;
+
+        const p = { ...subMask.parameters };
+
+        if (type === Mask.Linear) {
+          if (typeof p.startX === 'number') p.startX = cx + (p.startX - ox) * ratioX;
+          if (typeof p.endX === 'number') p.endX = cx + (p.endX - ox) * ratioX;
+          if (typeof p.startY === 'number') p.startY = cy + (p.startY - oy) * ratioY;
+          if (typeof p.endY === 'number') p.endY = cy + (p.endY - oy) * ratioY;
+        } else if (type === Mask.Radial) {
+          if (typeof p.centerX === 'number') p.centerX = cx + (p.centerX - ox) * ratioX;
+          if (typeof p.centerY === 'number') p.centerY = cy + (p.centerY - oy) * ratioY;
+          if (typeof p.radiusX === 'number') p.radiusX *= ratioX;
+          if (typeof p.radiusY === 'number') p.radiusY *= ratioY;
+        }
+        subMask.parameters = p;
+      }
+    }
+
     let name: string;
     if (type === Mask.QuickEraser) {
       const count =
@@ -316,6 +345,7 @@ export default function AIPanel({
           <AIControls
             activeSubMask={activeSubMask}
             activeSubMaskId={activeSubMaskId}
+            adjustments={adjustments}
             aiModelDownloadStatus={aiModelDownloadStatus}
             brushSettings={brushSettings}
             editingPatch={editingPatch}

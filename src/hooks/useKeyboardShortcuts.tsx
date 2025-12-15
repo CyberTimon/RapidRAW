@@ -25,6 +25,7 @@ interface KeyboardShortcutsProps {
   handleToggleFullScreen(): void;
   handleZoomChange(zoomValue: number, fitToWindow?: boolean): void;
   isFullScreen: boolean;
+  isModalOpen: boolean;
   isStraightenActive: boolean;
   isViewLoading: boolean;
   libraryActivePath: string | null;
@@ -73,6 +74,7 @@ export const useKeyboardShortcuts = ({
   handleToggleFullScreen,
   handleZoomChange,
   isFullScreen,
+  isModalOpen,
   isStraightenActive,
   isViewLoading,
   libraryActivePath,
@@ -98,6 +100,10 @@ export const useKeyboardShortcuts = ({
 }: KeyboardShortcutsProps) => {
   useEffect(() => {
     const handleKeyDown = (event: any) => {
+      if (isModalOpen) {
+        return;
+      }
+
       const isInputFocused =
         document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
       if (isInputFocused) {

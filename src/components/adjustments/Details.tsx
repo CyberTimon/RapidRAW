@@ -30,7 +30,7 @@ export default function DetailsPanel({
           <Slider
             label="Sharpness"
             max={100}
-            min={0}
+            min={-100}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Sharpness, e.target.value)}
             step={1}
             value={adjustments.sharpness}

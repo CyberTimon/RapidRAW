@@ -71,32 +71,32 @@ fn main() {
             ("windows", "x86_64") => (
                 "onnxruntime-windows-x86_64.dll",
                 "onnxruntime.dll",
-                "11b44104fdb643cddcdc1ff54a17d8e6e4d06671cf32cdf1b151ebff31ea6b5f",
+                "579b636403983254346a5c1d80bd28f1519cd1e284cd204f8d4ff41f8d711559",
             ),
             ("windows", "aarch64") => (
                 "onnxruntime-windows-aarch64.dll",
                 "onnxruntime.dll",
-                "d7b8e35948bb5a043f59cfbffcc4ea991f78e3ebe5dedf4151b919c8448431c3",
+                "79281671a386ed1baab9dbdbb09fe55f99577011472e9526cf9d0b468bb6bcc7",
             ),
             ("linux", "x86_64") => (
                 "libonnxruntime-linux-x86_64.so",
                 "libonnxruntime.so",
-                "a6f4b5dc4312d72488d108ad8cbc555c1c52ac58f7f79eb67aa9f73331745192",
+                "3da6146e14e7b8aaec625dde11d6114c7457c87a5f93d744897da8781e35c673",
             ),
             ("linux", "aarch64") => (
                 "libonnxruntime-linux-aarch64.so",
                 "libonnxruntime.so",
-                "a423523eb36b843d33c642169f5fd76af586401b440feb199d868d5edfb30b0d",
+                "0afd69a0ae38c5099fd0e8604dda398ac43dee67cd9c6394b5142b19e82528de",
             ),
             ("macos", "x86_64") => (
                 "libonnxruntime-macos-x86_64.dylib",
                 "libonnxruntime.dylib",
-                "24a75fe1419994bb51983634d0c1d62410a079c98b7800fbd453c57020303638",
+                "283e595e61cf65df7a6b1d59a1616cbd35c8b6399dd90d799d99b71a3ff83160",
             ),
             ("macos", "aarch64") => (
                 "libonnxruntime-macos-aarch64.dylib",
                 "libonnxruntime.dylib",
-                "c76366c3d221c697c4528eb4682a42f0d37a08641478cd08911ec03cea6dda05",
+                "2b885992d3d6fa4130d39ec84a80d7504ff52750027c547bb22c86165f19406a",
             ),
             _ => panic!("Unsupported target: {}-{}", target_os, target_arch),
         };
@@ -136,7 +136,7 @@ fn main() {
             target_os, target_arch
         );
         let base_url =
-            "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/onnxruntimes/";
+            "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/onnxruntimes-v1.22.0/";
         let download_url = format!("{}{}?download=true", base_url, download_filename);
         println!("cargo:warning=URL: {}", download_url);
 

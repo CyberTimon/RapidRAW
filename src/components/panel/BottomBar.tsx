@@ -139,10 +139,7 @@ export default function BottomBar({
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newZoom = parseFloat(e.target.value);
     setLatchedSliderValue(newZoom);
-    if (originalSize && baseRenderSize) {
-      const calculatedPercent = (newZoom / (originalSize.width / baseRenderSize.width)) * 100;
-      setLatchedDisplayPercent(Math.round(calculatedPercent));
-    }
+    setLatchedDisplayPercent(Math.round(newZoom * 100));
     onZoomChange(newZoom);
   };
 

@@ -209,7 +209,17 @@ export default function BasicAdjustments({ adjustments, setAdjustments, isForMas
         step={1}
         value={adjustments.blacks}
       />
-      {!isForMask && (
+
+      {isForMask ? (
+        <Slider
+          label="Exposure"
+          max={5}
+          min={-5}
+          onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Exposure, e.target.value)}
+          step={0.01}
+          value={adjustments.exposure}
+        />
+      ) : (
         <ToneMapperSwitch
           selectedMapper={adjustments.toneMapper || 'agx'}
           onMapperChange={handleToneMapperChange}

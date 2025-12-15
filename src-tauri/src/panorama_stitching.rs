@@ -1,4 +1,4 @@
-use image::{GrayImage, RgbImage};
+use image::{DynamicImage, GrayImage, Rgb32FImage};
 use nalgebra::Matrix3;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -7,6 +7,8 @@ use std::path::Path;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
 
+use crate::formats::is_raw_file;
+use crate::image_processing::apply_cpu_default_raw_processing;
 use crate::panorama_utils::{processing, stitching};
 
 pub const BRIEF_DESCRIPTOR_SIZE: usize = 256;
@@ -32,7 +34,7 @@ pub struct Match {
 pub struct ImageInfo {
     pub id: usize,
     pub filename: String,
-    pub color_full: RgbImage,
+    pub image: Rgb32FImage,
     pub low_detail_mask: GrayImage,
     pub scale_factor: f64,
     pub features: Vec<Feature>,
@@ -44,7 +46,7 @@ pub struct MatchInfo {
     pub inliers: usize,
 }
 
-pub fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<RgbImage, String> {
+pub fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<DynamicImage, String> {
     if image_paths.len() < 2 {
         return Err("At least two images are required for a panorama.".to_string());
     }
@@ -78,12 +80,19 @@ pub fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<
 
             let file_bytes = fs::read(filename)
                 .map_err(|e| format!("Failed to read image {}: {}", filename, e))?;
-            let dynamic_image =
+
+            let mut dynamic_image =
                 crate::image_loader::load_base_image_from_bytes(&file_bytes, filename, false, 2.5)
                     .map_err(|e| format!("Failed to load image {}: {}", filename, e))?;
 
-            let color_full = dynamic_image.to_rgb8();
-            let gray_full = image::imageops::colorops::grayscale(&color_full);
+            if is_raw_file(filename) {
+                apply_cpu_default_raw_processing(&mut dynamic_image);
+            }
+
+            let image_f32 = dynamic_image.to_rgb32f();
+
+            let color_full_u8 = dynamic_image.to_rgb8();
+            let gray_full = image::imageops::colorops::grayscale(&color_full_u8);
 
             let (w, h) = gray_full.dimensions();
             let (new_w, new_h, scale_factor) = processing::calculate_downscale_dimensions(w, h);
@@ -103,7 +112,7 @@ pub fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<
             Ok(ImageInfo {
                 id: i,
                 filename: filename.to_string(),
-                color_full,
+                image: image_f32,
                 low_detail_mask,
                 scale_factor,
                 features,
@@ -267,7 +276,8 @@ pub fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<
     println!("Stitching completed in {:.2?}\n", start_time.elapsed());
 
     let _ = app_handle.emit("panorama-progress", "Finalizing panorama...");
-    Ok(panorama)
+
+    Ok(DynamicImage::ImageRgb32F(panorama))
 }
 
 struct DSU {

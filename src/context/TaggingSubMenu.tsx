@@ -14,9 +14,7 @@ interface TaggingSubMenuProps {
 
 const USER_TAG_PREFIX = 'user:';
 
-// Animation variants for adding/removing tags
 const tagVariants = {
-  // No 'hidden' variant needed for initial load, 'visible' is the default state
   visible: { opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 500, damping: 30 } },
   exit: { opacity: 0, scale: 0.8, transition: { duration: 0.15 } },
 };
@@ -91,7 +89,7 @@ export default function TaggingSubMenu({
                   key={tagItem.tag}
                   layout
                   variants={tagVariants}
-                  initial={false} // Prevents animation on initial render
+                  initial={false}
                   animate="visible"
                   exit="exit"
                   onClick={() => handleRemoveTag(tagItem)}
@@ -99,7 +97,6 @@ export default function TaggingSubMenu({
                   className="flex items-center gap-1 bg-bg-primary text-text-primary text-xs font-medium px-2 py-1 rounded group cursor-pointer"
                 >
                   <span>{tagItem.tag}</span>
-                  {/* This span now gets a hover effect from the parent 'group' class */}
                   <span className="rounded-full group-hover:bg-black/20 p-0.5 transition-colors">
                     <X size={12} />
                   </span>

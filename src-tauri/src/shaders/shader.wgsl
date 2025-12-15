@@ -268,10 +268,10 @@ fn hsv_to_rgb(c: vec3<f32>) -> vec3<f32> {
     return rgb_prime + vec3<f32>(m, m, m);
 }
 
-fn get_raw_hsl_influence(hue: f32, range: HslRange) -> f32 {
-    let dist = min(abs(hue - range.center), 360.0 - abs(hue - range.center));
+fn get_raw_hsl_influence(hue: f32, center: f32, width: f32) -> f32 {
+    let dist = min(abs(hue - center), 360.0 - abs(hue - center));
     const sharpness = 1.5; 
-    let falloff = dist / (range.width * 0.5);
+    let falloff = dist / (width * 0.5);
     return exp(-sharpness * falloff * falloff);
 }
 
@@ -559,8 +559,11 @@ fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords
     }
     let original_hsv = rgb_to_hsv(color);
     let original_luma = get_luma(color);
-    let saturation_mask = smoothstep(0.05, 0.25, original_hsv.y);
-    if (saturation_mask < 0.001) {
+
+    let saturation_mask = smoothstep(0.05, 0.20, original_hsv.y);
+    let luminance_weight = smoothstep(0.0, 1.0, original_hsv.y); 
+
+    if (saturation_mask < 0.001 && luminance_weight < 0.001) {
         return color;
     }
 
@@ -569,7 +572,8 @@ fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords
     var raw_influences: array<f32, 8>;
     var total_raw_influence: f32 = 0.0;
     for (var i = 0u; i < 8u; i = i + 1u) {
-        let influence = get_raw_hsl_influence(original_hue, HSL_RANGES[i]);
+        let range = HSL_RANGES[i];
+        let influence = get_raw_hsl_influence(original_hue, range.center, range.width);
         raw_influences[i] = influence;
         total_raw_influence += influence;
     }
@@ -580,11 +584,13 @@ fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords
 
     for (var i = 0u; i < 8u; i = i + 1u) {
         let normalized_influence = raw_influences[i] / total_raw_influence;
-        let final_influence = normalized_influence * saturation_mask;
-
-        total_hue_shift += hsl_adjustments[i].hue * 2.0 * final_influence;
-        total_sat_multiplier += hsl_adjustments[i].saturation * final_influence;
-        total_lum_adjust += hsl_adjustments[i].luminance * final_influence;
+        
+        let hue_sat_influence = normalized_influence * saturation_mask;
+        let luma_influence = normalized_influence * luminance_weight;
+        
+        total_hue_shift += hsl_adjustments[i].hue * 2.0 * hue_sat_influence;
+        total_sat_multiplier += hsl_adjustments[i].saturation * hue_sat_influence;
+        total_lum_adjust += hsl_adjustments[i].luminance * luma_influence;
     }
 
     if (original_hsv.y * (1.0 + total_sat_multiplier) < 0.0001) {
@@ -1059,7 +1065,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         if (influence > 0.001) {
             let mask_adj = adjustments.mask_adjustments[i];
 
-            var mask_base_linear = globally_adjusted_linear;
+            var mask_base_linear = composite_rgb_linear;
             mask_base_linear = apply_local_contrast(mask_base_linear, sharpness_blurred, mask_adj.sharpness, adjustments.global.is_raw_image);
             mask_base_linear = apply_local_contrast(mask_base_linear, clarity_blurred, mask_adj.clarity, adjustments.global.is_raw_image);
             mask_base_linear = apply_local_contrast(mask_base_linear, structure_blurred, mask_adj.structure, adjustments.global.is_raw_image);

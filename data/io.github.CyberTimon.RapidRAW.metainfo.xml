@@ -38,6 +38,25 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.4.6" date="2025-11-30">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.4.6</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Recursive Library View: You can now display an image grid that includes files from all subfolders within a selected directory.</li>
+                <li>Reworked HSL Luminance Controls: Reworked logic to prevent blocky artifacts on compressed images, resulting in smoother transitions.</li>
+                <li>Mask Stacking: Adding a new empty mask on top of another now adds to the stack without visually resetting the previous mask's changes.</li>
+                <li>Vibrancy Improvement: The algorithm has been tweaked to better protect skin tones from oversaturation.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Added support for the QOI file format.</li>
+                <li>Updated the rawloader library to support a wider range of cameras.</li>
+                <li>Improved handling of DNG files.</li>
+                <li>Fixed several bugs within the masking system.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.4.5" date="2025-11-16">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.4.5</url>
         <description translate="no">

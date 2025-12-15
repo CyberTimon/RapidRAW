@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Pipette } from 'lucide-react';
 import Slider from '../ui/Slider';
 import ColorWheel from '../ui/ColorWheel';
 import {
@@ -20,6 +21,8 @@ interface ColorPanelProps {
   setAdjustments(adjustments: Partial<Adjustments>): any;
   appSettings: AppSettings | null;
   isForMask?: boolean;
+  isWbPickerActive?: boolean;
+  toggleWbPicker?: () => void;
 }
 
 interface ColorSwatchProps {
@@ -215,7 +218,14 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments }: ColorPanelProps)
   );
 };
 
-export default function ColorPanel({ adjustments, setAdjustments, appSettings, isForMask = false }: ColorPanelProps) {
+export default function ColorPanel({
+  adjustments,
+  setAdjustments,
+  appSettings,
+  isForMask = false,
+  isWbPickerActive = false,
+  toggleWbPicker,
+}: ColorPanelProps) {
   const [activeColor, setActiveColor] = useState('reds');
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
 
@@ -241,7 +251,22 @@ export default function ColorPanel({ adjustments, setAdjustments, appSettings, i
   return (
     <div>
       <div className="mb-4 p-2 bg-bg-tertiary rounded-md">
-        <p className="text-md font-semibold mb-2 text-primary">White Balance</p>
+        <div className="flex justify-between items-center mb-2">
+          <p className="text-md font-semibold text-primary">White Balance</p>
+          {!isForMask && toggleWbPicker && (
+            <button
+              onClick={toggleWbPicker}
+              className={`p-1.5 rounded-md transition-colors ${
+                isWbPickerActive
+                  ? 'bg-accent text-button-text'
+                  : 'hover:bg-bg-secondary text-text-secondary'
+              }`}
+              title="White Balance Picker (Click to pick a neutral grey area)"
+            >
+              <Pipette size={16} />
+            </button>
+          )}
+        </div>
         <Slider
           label="Temperature"
           max={100}

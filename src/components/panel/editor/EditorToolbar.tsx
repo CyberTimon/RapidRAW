@@ -92,64 +92,77 @@ const EditorToolbar = memo(
     }, [isAnyLoading, isLoading, isLoaderVisible]);
 
     return (
-      <div className="relative flex-shrink-0 flex justify-between items-center px-4 h-14">
-        <button
-          className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors"
-          onClick={onBackToLibrary}
-          title="Back to Library"
-        >
-          <ArrowLeft size={20} />
-        </button>
-
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface text-text-secondary text-xs px-4 py-2 rounded-full select-none truncate flex items-center max-w-[50%]">
-          <span className="font-medium text-text-primary truncate">{baseName}</span>
-
-          {isVirtualCopy && (
-            <div
-              className="ml-2 flex-shrink-0 bg-accent/20 text-accent text-xs font-bold px-2 py-0.5 rounded-full flex items-center overflow-hidden cursor-default"
-              onMouseEnter={() => setIsVcHovered(true)}
-              onMouseLeave={() => setIsVcHovered(false)}
-            >
-              <span>VC</span>
-              <div
-                className={clsx(
-                  'transition-all duration-300 ease-out overflow-hidden whitespace-nowrap',
-                  isVcHovered ? 'max-w-20 opacity-100' : 'max-w-0 opacity-0',
-                )}
-              >
-                <span>-{vcId}</span>
-              </div>
-            </div>
-          )}
-
-          <div
-            className={clsx(
-              'transition-all duration-300 ease-out overflow-hidden whitespace-nowrap',
-              showResolution ? 'max-w-[10rem] opacity-100 ml-2' : 'max-w-0 opacity-0 ml-0',
-            )}
+      <div className="relative flex-shrink-0 flex items-center justify-between px-4 h-14 gap-4">
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors flex-shrink-0"
+            onClick={onBackToLibrary}
+            title="Back to Library"
           >
-            <span
-              className={clsx(
-                'block transition-transform duration-200 delay-100',
-                showResolution ? 'scale-100' : 'scale-95',
-              )}
-            >
-              {displayedResolution}
-            </span>
-          </div>
+            <ArrowLeft size={20} />
+          </button>
 
-          <div
-            className={clsx(
-              'overflow-hidden',
-              isLoaderVisible ? 'max-w-[1rem] opacity-100 ml-2' : 'max-w-0 opacity-0 ml-0',
-              disableLoaderTransition ? 'transition-none' : 'transition-all duration-300',
-            )}
-          >
-            <Loader2 size={12} className="animate-spin" />
+          <div className="hidden 2xl:flex items-center gap-2" aria-hidden="true">
+            <div className="p-2 invisible pointer-events-none"><Undo size={20} /></div>
+            <div className="p-2 invisible pointer-events-none"><Undo size={20} /></div>
+            <div className="p-2 invisible pointer-events-none"><Undo size={20} /></div>
+            <div className="p-2 invisible pointer-events-none"><Undo size={20} /></div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex-1 flex justify-center min-w-0">
+          <div className="bg-surface text-text-secondary text-xs px-4 h-9 rounded-full select-none flex items-center max-w-full">
+            <span className="font-medium text-text-primary truncate min-w-0 shrink">
+              {baseName}
+            </span>
+
+            {isVirtualCopy && (
+              <div
+                className="ml-2 flex-shrink-0 bg-accent/20 text-accent text-xs font-bold px-2 py-0.5 rounded-full flex items-center overflow-hidden cursor-default"
+                onMouseEnter={() => setIsVcHovered(true)}
+                onMouseLeave={() => setIsVcHovered(false)}
+              >
+                <span>VC</span>
+                <div
+                  className={clsx(
+                    'transition-all duration-300 ease-out overflow-hidden whitespace-nowrap',
+                    isVcHovered ? 'max-w-20 opacity-100' : 'max-w-0 opacity-0',
+                  )}
+                >
+                  <span>-{vcId}</span>
+                </div>
+              </div>
+            )}
+
+            <div
+              className={clsx(
+                'transition-all duration-300 ease-out overflow-hidden whitespace-nowrap flex-shrink-0',
+                showResolution ? 'max-w-[10rem] opacity-100 ml-2' : 'max-w-0 opacity-0 ml-0',
+              )}
+            >
+              <span
+                className={clsx(
+                  'block transition-transform duration-200 delay-100',
+                  showResolution ? 'scale-100' : 'scale-95',
+                )}
+              >
+                {displayedResolution}
+              </span>
+            </div>
+
+            <div
+              className={clsx(
+                'overflow-hidden flex-shrink-0',
+                isLoaderVisible ? 'max-w-[1rem] opacity-100 ml-2' : 'max-w-0 opacity-0 ml-0',
+                disableLoaderTransition ? 'transition-none' : 'transition-all duration-300',
+              )}
+            >
+              <Loader2 size={12} className="animate-spin" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
             className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!canUndo}

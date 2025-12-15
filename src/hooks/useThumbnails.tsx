@@ -17,7 +17,6 @@ export function useThumbnails(imageList: Array<ImageFile>, setThumbnails: any) {
     }
 
     processedImageListKey.current = newKey;
-    setThumbnails({});
 
     if (!imageList || imageList.length === 0) {
       setThumbnails({});
@@ -27,6 +26,23 @@ export function useThumbnails(imageList: Array<ImageFile>, setThumbnails: any) {
     }
 
     const imagePaths = imageList.map((img: ImageFile) => img.path);
+
+    setThumbnails((prevThumbnails: Record<string, string>) => {
+      const newPathSet = new Set(imagePaths);
+      const nextThumbnails = { ...prevThumbnails };
+      let hasChanges = false;
+
+      Object.keys(nextThumbnails).forEach((path) => {
+        if (!newPathSet.has(path)) {
+          delete nextThumbnails[path];
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges || Object.keys(nextThumbnails).length !== imagePaths.length 
+        ? nextThumbnails 
+        : prevThumbnails;
+    });
 
     let unlistenComplete: any;
     let unlistenProgress: any;

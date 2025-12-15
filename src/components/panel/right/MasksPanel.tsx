@@ -25,7 +25,7 @@ import {
 } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { Mask, MaskType, SubMask, MASK_PANEL_CREATION_TYPES, OTHERS_MASK_TYPES } from './Masks';
-import { BrushSettings, OPTION_SEPARATOR, SelectedImage } from '../../ui/AppProperties';
+import { BrushSettings, OPTION_SEPARATOR, SelectedImage, AppSettings } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
 import { usePresets } from '../../../hooks/usePresets';
 
@@ -34,6 +34,7 @@ interface MasksPanelProps {
   activeMaskId: string | null;
   adjustments: Adjustments;
   aiModelDownloadStatus: string | null;
+  appSettings: AppSettings | null;
   brushSettings: BrushSettings | null;
   copiedMask: MaskContainer | null;
   histogram: any;
@@ -65,6 +66,7 @@ export default function MasksPanel({
   activeMaskId,
   adjustments,
   aiModelDownloadStatus,
+  appSettings,
   brushSettings,
   copiedMask,
   histogram,
@@ -124,6 +126,36 @@ export default function MasksPanel({
 
   const handleAddMaskContainer = (type: Mask) => {
     const subMask = createSubMask(type, selectedImage);
+
+    if (adjustments?.crop && subMask.parameters && (type === Mask.Linear || type === Mask.Radial)) {
+      const { x, y, width, height } = adjustments.crop;
+      const { width: imgW, height: imgH } = selectedImage;
+
+      if (imgW && imgH && (width !== imgW || height !== imgH)) {
+        const ratioX = width / imgW;
+        const ratioY = height / imgH;
+        const cx = x + width / 2;
+        const cy = y + height / 2;
+        const ox = imgW / 2;
+        const oy = imgH / 2;
+
+        const p = { ...subMask.parameters };
+
+        if (type === Mask.Linear) {
+          if (typeof p.startX === 'number') p.startX = cx + (p.startX - ox) * ratioX;
+          if (typeof p.endX === 'number') p.endX = cx + (p.endX - ox) * ratioX;
+          if (typeof p.startY === 'number') p.startY = cy + (p.startY - oy) * ratioY;
+          if (typeof p.endY === 'number') p.endY = cy + (p.endY - oy) * ratioY;
+        } else if (type === Mask.Radial) {
+          if (typeof p.centerX === 'number') p.centerX = cx + (p.centerX - ox) * ratioX;
+          if (typeof p.centerY === 'number') p.centerY = cy + (p.centerY - oy) * ratioY;
+          if (typeof p.radiusX === 'number') p.radiusX *= ratioX;
+          if (typeof p.radiusY === 'number') p.radiusY *= ratioY;
+        }
+        subMask.parameters = p;
+      }
+    }
+
     const newContainer = {
       ...INITIAL_MASK_CONTAINER,
       id: uuidv4(),
@@ -382,7 +414,9 @@ export default function MasksPanel({
           <MaskControls
             activeMaskId={activeMaskId}
             activeSubMask={activeSubMask}
+            adjustments={adjustments}
             aiModelDownloadStatus={aiModelDownloadStatus}
+            appSettings={appSettings}
             brushSettings={brushSettings}
             editingMask={editingContainer}
             histogram={histogram}

@@ -46,7 +46,8 @@
           "dng", "pro", "ari", "crw", "cr2", "cr3", "bay", "raw", "erf", "raf",
           "3fr", "fff", "iiq", "kdc", "k25", "dcs", "dcr", "mos", "rwl", "mef",
           "mrw", "nef", "nrw", "orf", "rw2", "pef", "ptx", "srw", "x3f", "arw",
-          "srf", "sr2", "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "exr"
+          "srf", "sr2", "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "exr",
+          "qoi"
         ],
         "name": "RapidRAW Image",
         "description": "Image file supported by RapidRAW",
@@ -59,5 +60,5 @@
       }
     }
   },
-  "version": "1.4.5"
+  "version": "1.4.6"
 }

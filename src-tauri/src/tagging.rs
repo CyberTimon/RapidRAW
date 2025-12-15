@@ -2,7 +2,8 @@ use anyhow::Result;
 use futures::stream::{self, StreamExt};
 use image::{DynamicImage, imageops::FilterType};
 use ndarray::{Array, Axis};
-use ort::{Session, Value};
+use ort::session::Session;
+use ort::value::Tensor; 
 use rayon::prelude::*;
 use serde_json;
 use std::collections::{HashMap, HashSet};
@@ -145,7 +146,7 @@ pub fn extract_color_tags(image: &DynamicImage) -> Vec<String> {
 
 pub fn generate_tags_with_clip(
     image: &DynamicImage,
-    clip_session: &Session,
+    clip_session_mutex: &Mutex<Session>,
     tokenizer: &Tokenizer,
 ) -> Result<Vec<String>> {
     let image_input = preprocess_clip_image(image);
@@ -191,14 +192,14 @@ pub fn generate_tags_with_clip(
     let ids_layout = ids_array_dyn.as_standard_layout();
     let mask_layout = mask_array_dyn.as_standard_layout();
 
-    let image_val = Value::from_array(clip_session.allocator(), &image_layout)?;
-    let ids_val = Value::from_array(clip_session.allocator(), &ids_layout)?;
-    let mask_val = Value::from_array(clip_session.allocator(), &mask_layout)?;
+    let image_val = Tensor::from_array(image_layout.into_owned())?;
+    let ids_val = Tensor::from_array(ids_layout.into_owned())?;
+    let mask_val = Tensor::from_array(mask_layout.into_owned())?;
 
-    let inputs = vec![ids_val, image_val, mask_val];
-    let outputs = clip_session.run(inputs)?;
+    let mut clip_session = clip_session_mutex.lock().unwrap();
+    let outputs = clip_session.run(ort::inputs![ids_val, image_val, mask_val])?;
 
-    let logits_dyn = outputs[0].try_extract::<f32>()?.view().to_owned();
+    let logits_dyn = outputs[0].try_extract_array::<f32>()?.to_owned();
     let logits = logits_dyn.into_dimensionality::<ndarray::Dim<[usize; 2]>>()?;
     let probs = softmax(&logits);
 

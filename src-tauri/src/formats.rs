@@ -67,7 +67,9 @@ pub const RAW_EXTENSIONS: &[(&str, &str)] = &[
     ("sr2", "Sony Raw 2"),
 ]; // Tell me if your's is missing.
 
-pub const NON_RAW_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "exr"];
+pub const NON_RAW_EXTENSIONS: &[&str] = &[
+    "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "exr", "qoi",
+];
 
 pub fn is_raw_file(path: &str) -> bool {
     if let Some(ext) = std::path::Path::new(path)

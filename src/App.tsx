@@ -322,6 +322,7 @@ function App() {
   const [thumbnailAspectRatio, setThumbnailAspectRatio] = useState(ThumbnailAspectRatio.Cover);
   const [copiedAdjustments, setCopiedAdjustments] = useState<Adjustments | null>(null);
   const [isStraightenActive, setIsStraightenActive] = useState(false);
+  const [isWbPickerActive, setIsWbPickerActive] = useState(false);
   const [copiedFilePaths, setCopiedFilePaths] = useState<Array<string>>([]);
   const [aiModelDownloadStatus, setAiModelDownloadStatus] = useState<string | null>(null);
   const [copiedSectionAdjustments, setCopiedSectionAdjustments] = useState(null);
@@ -488,6 +489,14 @@ function App() {
     },
     [setAdjustments],
   );
+
+  const toggleWbPicker = useCallback(() => {
+    setIsWbPickerActive((prev) => !prev);
+  }, []);
+
+  const handleWbPicked = useCallback(() => {
+    //setIsWbPickerActive(false); // lets keep it active
+  }, []);
 
   useEffect(() => {
     setLiveAdjustments(historyAdjustments);
@@ -1392,18 +1401,27 @@ function App() {
     return () => clearTimeout(timer);
   }, [theme]);
 
-  const handleRefreshFolderTree = useCallback(async () => {
-    if (!rootPath) {
-      return;
+  const refreshAllFolderTrees = useCallback(async () => {
+    if (rootPath) {
+      try {
+        const treeData = await invoke(Invokes.GetFolderTree, { path: rootPath });
+        setFolderTree(treeData);
+      } catch (err) {
+        console.error('Failed to refresh main folder tree:', err);
+        setError(`Failed to refresh folder tree: ${err}.`);
+      }
     }
-    try {
-      const treeData = await invoke(Invokes.GetFolderTree, { path: rootPath });
-      setFolderTree(treeData);
-    } catch (err) {
-      console.error('Failed to refresh folder tree:', err);
-      setError(`Failed to refresh folder tree: ${err}.`);
+
+    const currentPins = appSettings?.pinnedFolders || [];
+    if (currentPins.length > 0) {
+      try {
+        const trees = await invoke(Invokes.GetPinnedFolderTrees, { paths: currentPins });
+        setPinnedFolderTrees(trees);
+      } catch (err) {
+        console.error('Failed to refresh pinned folder trees:', err);
+      }
     }
-  }, [rootPath]);
+  }, [rootPath, appSettings?.pinnedFolders]);
 
   const pinnedFolders = useMemo(() => appSettings?.pinnedFolders || [], [appSettings]);
 
@@ -1577,33 +1595,46 @@ function App() {
       const isExifSortActive = exifSortKeys.includes(sortCriteria.key);
       const shouldReadExif = appSettings?.enableExifReading ?? false;
 
-      if (shouldReadExif && files.length > 0) {
-        const paths = files.map((f: ImageFile) => f.path);
+      let freshExifData: Record<string, any> | null = null;
 
-        if (isExifSortActive) {
-          const exifDataMap: Record<string, any> = await invoke(Invokes.ReadExifForPaths, { paths });
-          const finalImageList = files.map((image) => ({
-            ...image,
-            exif: exifDataMap[image.path] || image.exif || null,
-          }));
-          setImageList(finalImageList);
-        } else {
-          setImageList(files);
-          invoke(Invokes.ReadExifForPaths, { paths })
-            .then((exifDataMap: any) => {
-              setImageList((currentImageList) =>
-                currentImageList.map((image) => ({
-                  ...image,
-                  exif: exifDataMap[image.path] || image.exif || null,
-                })),
-              );
-            })
-            .catch((err) => {
-              console.error('Failed to read EXIF data in background:', err);
-            });
-        }
-      } else {
-        setImageList(files);
+      if (shouldReadExif && files.length > 0 && isExifSortActive) {
+        const paths = files.map((f: ImageFile) => f.path);
+        freshExifData = await invoke(Invokes.ReadExifForPaths, { paths });
+      }
+
+      setImageList((prevList) => {
+        const prevMap = new Map(prevList.map((img) => [img.path, img]));
+
+        return files.map((newFile) => {
+          if (freshExifData && freshExifData[newFile.path]) {
+            newFile.exif = freshExifData[newFile.path];
+            return newFile;
+          }
+          const existing = prevMap.get(newFile.path);
+          if (existing && existing.modified === newFile.modified) {
+            return existing;
+          }
+
+          return newFile;
+        });
+      });
+
+      if (shouldReadExif && files.length > 0 && !isExifSortActive) {
+        const paths = files.map((f: ImageFile) => f.path);
+        invoke(Invokes.ReadExifForPaths, { paths })
+          .then((exifDataMap: any) => {
+            setImageList((currentImageList) =>
+              currentImageList.map((image) => {
+                if (exifDataMap[image.path] && !image.exif) {
+                   return { ...image, exif: exifDataMap[image.path] };
+                }
+                return image;
+              }),
+            );
+          })
+          .catch((err) => {
+            console.error('Failed to read EXIF data in background:', err);
+          });
       }
     } catch (err) {
       console.error('Failed to refresh image list:', err);
@@ -1659,15 +1690,101 @@ function App() {
     setActiveMaskId(null);
     setActiveMaskContainerId(null);
     setActiveAiPatchContainerId(null);
+    setIsWbPickerActive(false);
     setActiveAiSubMaskId(null);
     setLibraryActivePath(lastActivePath);
   }, [selectedImage?.path]);
+
+  const handleImageSelect = useCallback(
+    (path: string) => {
+      if (selectedImage?.path === path) {
+        return;
+      }
+      applyAdjustments.cancel();
+      debouncedSave.cancel();
+
+      setSelectedImage({
+        exif: null,
+        height: 0,
+        isRaw: false,
+        isReady: false,
+        metadata: null,
+        originalUrl: null,
+        path,
+        thumbnailUrl: thumbnails[path],
+        width: 0,
+      });
+      setOriginalSize({ width: 0, height: 0 });
+      setPreviewSize({ width: 0, height: 0 });
+      setMultiSelectedPaths([path]);
+      setLibraryActivePath(null);
+      setIsViewLoading(true);
+      setError(null);
+      setHistogram(null);
+      setFinalPreviewUrl(null);
+      setUncroppedAdjustedPreviewUrl(null);
+      setFullScreenUrl(null);
+      setFullResolutionUrl(null);
+      setTransformedOriginalUrl(null);
+      setLiveAdjustments(INITIAL_ADJUSTMENTS);
+      resetAdjustmentsHistory(INITIAL_ADJUSTMENTS);
+      setShowOriginal(false);
+      setActiveMaskId(null);
+      setActiveMaskContainerId(null);
+      setActiveAiPatchContainerId(null);
+      setActiveAiSubMaskId(null);
+      setIsWbPickerActive(false); 
+
+      if (transformWrapperRef.current) {
+        transformWrapperRef.current.resetTransform(0);
+      }
+
+      setZoom(1);
+      setIsLibraryExportPanelVisible(false);
+    },
+    [selectedImage?.path, applyAdjustments, debouncedSave, thumbnails, resetAdjustmentsHistory],
+  );
 
   const executeDelete = useCallback(
     async (pathsToDelete: Array<string>, options = { includeAssociated: false }) => {
       if (!pathsToDelete || pathsToDelete.length === 0) {
         return;
       }
+
+      const activePath = selectedImage ? selectedImage.path : libraryActivePath;
+      let nextImagePath: string | null = null;
+
+      if (activePath) {
+        const physicalPath = activePath.split('?vc=')[0];
+        const isActiveImageDeleted = pathsToDelete.some(
+          (p) => p === activePath || p === physicalPath,
+        );
+
+        if (isActiveImageDeleted) {
+          const currentIndex = sortedImageList.findIndex((img) => img.path === activePath);
+          if (currentIndex !== -1) {
+            const nextCandidate = sortedImageList
+              .slice(currentIndex + 1)
+              .find((img) => !pathsToDelete.includes(img.path));
+
+            if (nextCandidate) {
+              nextImagePath = nextCandidate.path;
+            } else {
+              const prevCandidate = sortedImageList
+                .slice(0, currentIndex)
+                .reverse()
+                .find((img) => !pathsToDelete.includes(img.path));
+              
+              if (prevCandidate) {
+                nextImagePath = prevCandidate.path;
+              }
+            }
+          }
+        } else {
+          nextImagePath = activePath;
+        }
+      }
+
       try {
         const command = options.includeAssociated ? 'delete_files_with_associated' : 'delete_files_from_disk';
         await invoke(command, { paths: pathsToDelete });
@@ -1681,20 +1798,27 @@ function App() {
           );
 
           if (isFileBeingEditedDeleted) {
-            handleBackToLibrary();
+            if (nextImagePath) {
+              handleImageSelect(nextImagePath);
+            } else {
+              handleBackToLibrary();
+            }
           }
-        }
-
-        setMultiSelectedPaths([]);
-        if (libraryActivePath && pathsToDelete.includes(libraryActivePath)) {
-          setLibraryActivePath(null);
+        } else {
+          if (nextImagePath) {
+            setMultiSelectedPaths([nextImagePath]);
+            setLibraryActivePath(nextImagePath);
+          } else {
+            setMultiSelectedPaths([]);
+            setLibraryActivePath(null);
+          }
         }
       } catch (err) {
         console.error('Failed to delete files:', err);
         setError(`Failed to delete files: ${err}`);
       }
     },
-    [refreshImageList, selectedImage, handleBackToLibrary, libraryActivePath],
+    [refreshImageList, selectedImage, handleBackToLibrary, libraryActivePath, sortedImageList, handleImageSelect],
   );
 
   const handleDeleteSelected = useCallback(() => {
@@ -2050,6 +2174,10 @@ function App() {
 
   const handleFullResolutionLogic = useCallback(
     (targetZoomPercent: number, currentDisplayWidth: number) => {
+      if (appSettings?.enableZoomHifi === false) {
+        return;
+      }
+
       if (!initialFitScale) {
         return;
       }
@@ -2093,6 +2221,7 @@ function App() {
       adjustments,
       fullResolutionUrl,
       visualAdjustmentsKey,
+      appSettings,
     ],
   );
 
@@ -2217,8 +2346,19 @@ function App() {
     },
     [selectedImage?.path, applyAdjustments, debouncedSave, thumbnails, resetAdjustmentsHistory],
   );
+  const isAnyModalOpen = 
+    isCreateFolderModalOpen ||
+    isRenameFolderModalOpen ||
+    isRenameFileModalOpen ||
+    isImportModalOpen ||
+    isCopyPasteSettingsModalOpen ||
+    confirmModalState.isOpen ||
+    panoramaModalState.isOpen ||
+    cullingModalState.isOpen ||
+    collageModalState.isOpen;
 
   useKeyboardShortcuts({
+    isModalOpen: isAnyModalOpen,
     activeAiPatchContainerId,
     activeAiSubMaskId,
     activeMaskContainerId,
@@ -2399,7 +2539,7 @@ function App() {
       listen('import-complete', () => {
         if (isEffectActive) {
           setImportState((prev: ImportState) => ({ ...prev, status: Status.Success }));
-          handleRefreshFolderTree();
+          refreshAllFolderTrees();
           if (currentFolderPathRef.current) {
             handleSelectSubfolder(currentFolderPathRef.current, false);
           }
@@ -2419,7 +2559,7 @@ function App() {
       isEffectActive = false;
       listeners.forEach((p) => p.then((unlisten) => unlisten()));
     };
-  }, [handleRefreshFolderTree, handleSelectSubfolder]);
+  }, [refreshAllFolderTrees, handleSelectSubfolder]);
 
   useEffect(() => {
     if ([Status.Success, Status.Error, Status.Cancelled].includes(exportState.status)) {
@@ -3261,7 +3401,7 @@ function App() {
             onClick: () => handleCreateVirtualCopy(finalSelection[0]),
           },
           {
-            disabled: selectionCount < 2  || selectionCount > 9,
+            disabled: selectionCount < 2  || selectionCount > 30,
             icon: Images,
             label: stitchLabel,
             onClick: () => {
@@ -3390,7 +3530,7 @@ function App() {
     if (folderName && folderName.trim() !== '' && folderActionTarget) {
       try {
         await invoke(Invokes.CreateFolder, { path: `${folderActionTarget}/${folderName.trim()}` });
-        handleRefreshFolderTree();
+        refreshAllFolderTrees();
       } catch (err) {
         setError(`Failed to create folder: ${err}`);
       }
@@ -3400,20 +3540,41 @@ function App() {
   const handleRenameFolder = async (newName: string) => {
     if (newName && newName.trim() !== '' && folderActionTarget) {
       try {
-        await invoke(Invokes.RenameFolder, { path: folderActionTarget, newName: newName.trim() });
-        if (rootPath === folderActionTarget) {
-          const newRootPath = folderActionTarget.substring(0, folderActionTarget.lastIndexOf('/') + 1) + newName.trim();
-          setRootPath(newRootPath);
-          handleSettingsChange({ ...appSettings, lastRootPath: newRootPath } as AppSettings);
+        const oldPath = folderActionTarget;
+        const trimmedNewName = newName.trim();
+
+        await invoke(Invokes.RenameFolder, { path: oldPath, newName: trimmedNewName });
+
+        const parentDir = getParentDir(oldPath);
+        const separator = oldPath.includes('/') ? '/' : '\\';
+        const newPath = parentDir ? `${parentDir}${separator}${trimmedNewName}` : trimmedNewName;
+
+        const newAppSettings = { ...appSettings } as AppSettings;
+        let settingsChanged = false;
+
+        if (rootPath === oldPath) {
+          setRootPath(newPath);
+          newAppSettings.lastRootPath = newPath;
+          settingsChanged = true;
         }
-        if (currentFolderPath?.startsWith(folderActionTarget)) {
-          const newCurrentPath = currentFolderPath.replace(
-            folderActionTarget,
-            folderActionTarget.substring(0, folderActionTarget.lastIndexOf('/') + 1) + newName.trim(),
-          );
+        if (currentFolderPath?.startsWith(oldPath)) {
+          const newCurrentPath = currentFolderPath.replace(oldPath, newPath);
           setCurrentFolderPath(newCurrentPath);
         }
-        handleRefreshFolderTree();
+
+        const currentPins = appSettings?.pinnedFolders || [];
+        if (currentPins.includes(oldPath)) {
+          const newPins = currentPins.map(p => (p === oldPath ? newPath : p)).sort((a, b) => a.localeCompare(b));
+          newAppSettings.pinnedFolders = newPins;
+          settingsChanged = true;
+        }
+
+        if (settingsChanged) {
+          handleSettingsChange(newAppSettings);
+        }
+
+        await refreshAllFolderTrees();
+
       } catch (err) {
         setError(`Failed to rename folder: ${err}`);
       }
@@ -3488,7 +3649,7 @@ function App() {
                 await invoke(Invokes.MoveFiles, { sourcePaths: copiedFilePaths, destinationFolder: targetPath });
                 setCopiedFilePaths([]);
                 setMultiSelectedPaths([]);
-                handleRefreshFolderTree();
+                refreshAllFolderTrees();
                 handleLibraryRefresh();
               } catch (err) {
                 setError(`Failed to move files: ${err}`);
@@ -3522,7 +3683,7 @@ function App() {
                     try {
                       await invoke(Invokes.DeleteFolder, { path: targetPath });
                       if (currentFolderPath?.startsWith(targetPath)) await handleSelectSubfolder(rootPath);
-                      handleRefreshFolderTree();
+                      refreshAllFolderTrees();
                     } catch (err) {
                       setError(`Failed to delete folder: ${err}`);
                     }
@@ -3567,7 +3728,7 @@ function App() {
                 await invoke(Invokes.MoveFiles, { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
                 setCopiedFilePaths([]);
                 setMultiSelectedPaths([]);
-                handleRefreshFolderTree();
+                refreshAllFolderTrees();
                 handleLibraryRefresh();
               } catch (err) {
                 setError(`Failed to move files: ${err}`);
@@ -3631,6 +3792,8 @@ function App() {
               onZoomed={handleUserTransform}
               renderedRightPanel={renderedRightPanel}
               selectedImage={selectedImage}
+              isWbPickerActive={isWbPickerActive}
+              onWbPicked={handleWbPicked}
               setAdjustments={setAdjustments}
               setShowOriginal={setShowOriginal}
               showOriginal={showOriginal}
@@ -3723,6 +3886,8 @@ function App() {
                           theme={theme}
                           handleLutSelect={handleLutSelect}
                           appSettings={appSettings}
+                          isWbPickerActive={isWbPickerActive}
+                          toggleWbPicker={toggleWbPicker}
                         />
                       )}
                       {renderedRightPanel === Panel.Metadata && <MetadataPanel selectedImage={selectedImage} />}
@@ -3741,6 +3906,7 @@ function App() {
                           activeMaskId={activeMaskId}
                           adjustments={adjustments}
                           aiModelDownloadStatus={aiModelDownloadStatus}
+                          appSettings={appSettings}
                           brushSettings={brushSettings}
                           copiedMask={copiedMask}
                           histogram={histogram}

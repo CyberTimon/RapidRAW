@@ -311,6 +311,7 @@ export default function SettingsPanel({
   });
   const [restartRequired, setRestartRequired] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
+  const [logPath, setLogPath] = useState('');
 
   useEffect(() => {
     if (appSettings?.comfyuiAddress !== comfyUiAddress) {
@@ -328,6 +329,19 @@ export default function SettingsPanel({
     });
     setRestartRequired(false);
   }, [appSettings]);
+
+  useEffect(() => {
+    const fetchLogPath = async () => {
+      try {
+        const path: string = await invoke(Invokes.GetLogFilePath);
+        setLogPath(path);
+      } catch (error) {
+        console.error('Failed to get log file path:', error);
+        setLogPath('Could not retrieve log file path.');
+      }
+    };
+    fetchLogPath();
+  }, []);
 
   const handleProcessingSettingChange = (key: string, value: any) => {
     setProcessingSettings((prev) => ({ ...prev, [key]: value }));
@@ -899,6 +913,18 @@ export default function SettingsPanel({
                     </SettingItem>
 
                     <SettingItem
+                      label="High Quality Zoom"
+                      description="Load a higher quality version of the image when zooming in for more detail. Disabling this can improve performance."
+                    >
+                      <Switch
+                        checked={appSettings?.enableZoomHifi ?? true}
+                        id="zoom-hifi-toggle"
+                        label="Enable High Quality Zoom"
+                        onChange={(checked) => onSettingsChange({ ...appSettings, enableZoomHifi: checked })}
+                      />
+                    </SettingItem>
+
+                    <SettingItem
                       label="RAW Highlight Recovery"
                       description="Controls how much detail is recovered from clipped highlights in RAW files. Higher values recover more detail but can introduce purple artefacts."
                     >
@@ -1348,6 +1374,28 @@ export default function SettingsPanel({
                       isProcessing={isClearingCache}
                       message={cacheClearMessage}
                       title="Clear Thumbnail Cache"
+                    />
+
+                    <DataActionItem
+                      buttonAction={async () => {
+                        if (logPath && !logPath.startsWith('Could not')) {
+                          await invoke(Invokes.ShowInFinder, { path: logPath });
+                        }
+                      }}
+                      buttonText="Open Log File"
+                      description={
+                        <>
+                          View the application's log file for troubleshooting. The log is located at:
+                          <span className="block font-mono text-xs bg-bg-primary p-2 rounded mt-2 break-all border border-border-color">
+                            {logPath || 'Loading...'}
+                          </span>
+                        </>
+                      }
+                      disabled={!logPath || logPath.startsWith('Could not')}
+                      icon={<ExternalLinkIcon size={16} className="mr-2" />}
+                      isProcessing={false}
+                      message=""
+                      title="View Application Logs"
                     />
                   </div>
                 </div>

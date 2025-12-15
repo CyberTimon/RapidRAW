@@ -7,7 +7,8 @@ use anyhow::Result;
 use image::imageops::{self, FilterType};
 use image::{DynamicImage, GenericImageView, GrayImage};
 use ndarray::{Array, IxDyn};
-use ort::{Environment, Session, SessionBuilder, Value};
+use ort::session::Session;
+use ort::value::Tensor;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::Emitter;
@@ -44,11 +45,11 @@ const CLIP_TOKENIZER_FILENAME: &str = "clip_tokenizer.json";
 const CLIP_MODEL_SHA256: &str = "57879bb1c23cdeb350d23569dd251ed4b740a96d747c529e94a2bb8040ac5d00";
 
 pub struct AiModels {
-    pub sam_encoder: Session,
-    pub sam_decoder: Session,
-    pub u2netp: Session,
-    pub sky_seg: Session,
-    pub clip_model: Option<Session>,
+    pub sam_encoder: Mutex<Session>,
+    pub sam_decoder: Mutex<Session>,
+    pub u2netp: Mutex<Session>,
+    pub sky_seg: Mutex<Session>,
+    pub clip_model: Option<Mutex<Session>>,
     pub clip_tokenizer: Option<Tokenizer>,
 }
 
@@ -192,7 +193,10 @@ pub async fn get_or_init_ai_models(
     )
     .await?;
 
-    let environment = Arc::new(Environment::builder().with_name("AI").build()?);
+    let _ = ort::init()
+        .with_name("AI")
+        .commit();
+
     let mut clip_model = None;
     let mut clip_tokenizer = None;
 
@@ -215,8 +219,9 @@ pub async fn get_or_init_ai_models(
         }
 
         let clip_model_path = models_dir.join(CLIP_MODEL_FILENAME);
-        clip_model =
-            Some(SessionBuilder::new(&environment)?.with_model_from_file(clip_model_path)?);
+        clip_model = Some(Mutex::new(
+            Session::builder()?.commit_from_file(clip_model_path)?
+        ));
         clip_tokenizer = Some(
             Tokenizer::from_file(clip_tokenizer_path)
                 .map_err(|e| anyhow::anyhow!(e.to_string()))?,
@@ -228,16 +233,16 @@ pub async fn get_or_init_ai_models(
     let u2netp_path = models_dir.join(U2NETP_FILENAME);
     let sky_seg_path = models_dir.join(SKYSEG_FILENAME);
 
-    let sam_encoder = SessionBuilder::new(&environment)?.with_model_from_file(encoder_path)?;
-    let sam_decoder = SessionBuilder::new(&environment)?.with_model_from_file(decoder_path)?;
-    let u2netp = SessionBuilder::new(&environment)?.with_model_from_file(u2netp_path)?;
-    let sky_seg = SessionBuilder::new(&environment)?.with_model_from_file(sky_seg_path)?;
+    let sam_encoder = Session::builder()?.commit_from_file(encoder_path)?;
+    let sam_decoder = Session::builder()?.commit_from_file(decoder_path)?;
+    let u2netp = Session::builder()?.commit_from_file(u2netp_path)?;
+    let sky_seg = Session::builder()?.commit_from_file(sky_seg_path)?;
 
     let models = Arc::new(AiModels {
-        sam_encoder,
-        sam_decoder,
-        u2netp,
-        sky_seg,
+        sam_encoder: Mutex::new(sam_encoder),
+        sam_decoder: Mutex::new(sam_decoder),
+        u2netp: Mutex::new(u2netp),
+        sky_seg: Mutex::new(sky_seg),
         clip_model,
         clip_tokenizer,
     });
@@ -253,7 +258,7 @@ pub async fn get_or_init_ai_models(
 
 pub fn generate_image_embeddings(
     image: &DynamicImage,
-    encoder: &Session,
+    encoder: &Mutex<Session>,
 ) -> Result<ImageEmbeddings> {
     let (orig_width, orig_height) = image.dimensions();
 
@@ -278,10 +283,11 @@ pub fn generate_image_embeddings(
     let input_tensor_dyn = input_tensor.into_dyn();
 
     let input_values = input_tensor_dyn.as_standard_layout();
-    let inputs = vec![Value::from_array(encoder.allocator(), &input_values)?];
+    let input_tensor_ort = Tensor::from_array(input_values.into_owned())?;
+    let mut session = encoder.lock().unwrap();
+    let outputs = session.run(ort::inputs![input_tensor_ort])?;
 
-    let outputs = encoder.run(inputs)?;
-    let embeddings = outputs[0].try_extract::<f32>()?.view().to_owned();
+    let embeddings = outputs[0].try_extract_array::<f32>()?.to_owned();
 
     Ok(ImageEmbeddings {
         path_hash: "".to_string(),
@@ -291,7 +297,7 @@ pub fn generate_image_embeddings(
 }
 
 pub fn run_sam_decoder(
-    decoder: &Session,
+    decoder: &Mutex<Session>,
     embeddings: &ImageEmbeddings,
     start_point: (f64, f64),
     end_point: (f64, f64),
@@ -323,17 +329,24 @@ pub fn run_sam_decoder(
     let has_mask_input_values = has_mask_input.as_standard_layout();
     let orig_im_size_values = orig_im_size.as_standard_layout();
 
-    let inputs = vec![
-        Value::from_array(decoder.allocator(), &embeddings_values)?,
-        Value::from_array(decoder.allocator(), &point_coords_values)?,
-        Value::from_array(decoder.allocator(), &point_labels_values)?,
-        Value::from_array(decoder.allocator(), &mask_input_values)?,
-        Value::from_array(decoder.allocator(), &has_mask_input_values)?,
-        Value::from_array(decoder.allocator(), &orig_im_size_values)?,
-    ];
+    let t_embeddings = Tensor::from_array(embeddings_values.into_owned())?;
+    let t_point_coords = Tensor::from_array(point_coords_values.into_owned())?;
+    let t_point_labels = Tensor::from_array(point_labels_values.into_owned())?;
+    let t_mask_input = Tensor::from_array(mask_input_values.into_owned())?;
+    let t_has_mask = Tensor::from_array(has_mask_input_values.into_owned())?;
+    let t_orig_im_size = Tensor::from_array(orig_im_size_values.into_owned())?;
 
-    let outputs = decoder.run(inputs)?;
-    let mask_tensor = outputs[0].try_extract::<f32>()?.view().to_owned();
+    let mut session = decoder.lock().unwrap();
+    let outputs = session.run(ort::inputs![
+        t_embeddings,
+        t_point_coords,
+        t_point_labels,
+        t_mask_input,
+        t_has_mask,
+        t_orig_im_size
+    ])?;
+    
+    let mask_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
 
     let mask_dims = mask_tensor.shape();
     let mask_height = mask_dims[2];
@@ -352,7 +365,7 @@ pub fn run_sam_decoder(
     Ok(feathered_mask)
 }
 
-pub fn run_sky_seg_model(image: &DynamicImage, sky_seg_session: &Session) -> Result<GrayImage> {
+pub fn run_sky_seg_model(image: &DynamicImage, sky_seg_session: &Mutex<Session>) -> Result<GrayImage> {
     let (orig_width, orig_height) = image.dimensions();
 
     let resized_image = image.resize(SKYSEG_INPUT_SIZE, SKYSEG_INPUT_SIZE, FilterType::Triangle);
@@ -388,13 +401,11 @@ pub fn run_sky_seg_model(image: &DynamicImage, sky_seg_session: &Session) -> Res
 
     let input_tensor_dyn = input_tensor.into_dyn();
     let input_values = input_tensor_dyn.as_standard_layout();
-    let inputs = vec![Value::from_array(
-        sky_seg_session.allocator(),
-        &input_values,
-    )?];
+    let t_input = Tensor::from_array(input_values.into_owned())?;
 
-    let outputs = sky_seg_session.run(inputs)?;
-    let output_tensor = outputs[0].try_extract::<f32>()?.view().to_owned();
+    let mut session = sky_seg_session.lock().unwrap();
+    let outputs = session.run(ort::inputs![t_input])?;
+    let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
 
     let (min_val, max_val) = output_tensor
         .iter()
@@ -427,7 +438,7 @@ pub fn run_sky_seg_model(image: &DynamicImage, sky_seg_session: &Session) -> Res
     Ok(final_mask)
 }
 
-pub fn run_u2netp_model(image: &DynamicImage, u2netp_session: &Session) -> Result<GrayImage> {
+pub fn run_u2netp_model(image: &DynamicImage, u2netp_session: &Mutex<Session>) -> Result<GrayImage> {
     let (orig_width, orig_height) = image.dimensions();
 
     let resized_image = image.resize(U2NETP_INPUT_SIZE, U2NETP_INPUT_SIZE, FilterType::Triangle);
@@ -463,13 +474,11 @@ pub fn run_u2netp_model(image: &DynamicImage, u2netp_session: &Session) -> Resul
 
     let input_tensor_dyn = input_tensor.into_dyn();
     let input_values = input_tensor_dyn.as_standard_layout();
-    let inputs = vec![Value::from_array(
-        u2netp_session.allocator(),
-        &input_values,
-    )?];
+    let t_input = Tensor::from_array(input_values.into_owned())?;
 
-    let outputs = u2netp_session.run(inputs)?;
-    let output_tensor = outputs[0].try_extract::<f32>()?.view().to_owned();
+    let mut session = u2netp_session.lock().unwrap();
+    let outputs = session.run(ort::inputs![t_input])?;
+    let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
 
     let (min_val, max_val) = output_tensor
         .iter()

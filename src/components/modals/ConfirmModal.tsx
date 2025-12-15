@@ -49,24 +49,21 @@ export default function ConfirmModal({
   }, [onConfirm, onClose]);
 
   const handleKeyDown = useCallback(
-    (e: any) => {
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation();
         handleConfirm();
       } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation();
         onClose();
       }
     },
     [handleConfirm, onClose],
   );
-
-  useEffect(() => {
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, handleKeyDown]);
 
   if (!isMounted) {
     return null;
@@ -92,6 +89,7 @@ export default function ConfirmModal({
           ${show ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 -translate-y-4'}
         `}
         onClick={(e: any) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
       >
         <h3 id="confirm-modal-title" className="text-lg font-semibold text-text-primary mb-4">
           {title}
@@ -99,13 +97,19 @@ export default function ConfirmModal({
         <p className="text-sm text-text-secondary mb-6 whitespace-pre-wrap">{message}</p>
         <div className="flex justify-end gap-3 mt-5">
           <Button
-            className="bg-bg-primary shadow-transparent hover:bg-bg-primary text-white shadow-none"
+            className="bg-bg-primary shadow-transparent hover:bg-bg-primary text-white shadow-none focus:outline-none focus:ring-0"
             onClick={onClose}
             variant="ghost"
+            tabIndex={0}
           >
             {cancelText}
           </Button>
-          <Button onClick={handleConfirm} variant={confirmVariant} autoFocus={true}>
+          <Button 
+            onClick={handleConfirm} 
+            variant={confirmVariant} 
+            autoFocus={true}
+            className="focus:outline-none focus:ring-0 focus:ring-offset-0"
+          >
             {confirmText}
           </Button>
         </div>

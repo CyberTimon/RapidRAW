@@ -39,6 +39,7 @@ export enum Invokes {
   GenerateUncroppedPreview = 'generate_uncropped_preview',
   GenerateWaveform = 'image_processing::generate_waveform',
   GetFolderTree = 'get_folder_tree',
+  GetLogFilePath = 'get_log_file_path',
   GetPinnedFolderTrees = 'get_pinned_folder_trees',
   GetSupportedFileTypes = 'get_supported_file_types',
   HandleExportPresetsToFile = 'handle_export_presets_to_file',
@@ -133,6 +134,7 @@ export interface AppSettings {
   comfyuiWorkflowConfig?: ComfyUIWorkflowConfig;
   decorations?: any;
   editorPreviewResolution?: number;
+  enableZoomHifi?: boolean;
   enableAiTagging?: boolean;
   enableExifReading?: boolean;
   filterCriteria?: FilterCriteria;

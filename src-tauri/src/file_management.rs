@@ -246,6 +246,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub pinned_folders: Vec<String>,
     pub editor_preview_resolution: Option<u32>,
+    #[serde(default)]
+    pub enable_zoom_hifi: Option<bool>,
     pub sort_criteria: Option<SortCriteria>,
     pub filter_criteria: Option<FilterCriteria>,
     pub theme: Option<String>,
@@ -299,6 +301,7 @@ impl Default for AppSettings {
             last_root_path: None,
             pinned_folders: Vec::new(),
             editor_preview_resolution: Some(1920),
+            enable_zoom_hifi: Some(true),
             sort_criteria: None,
             filter_criteria: None,
             theme: Some("dark".to_string()),
@@ -1151,7 +1154,12 @@ pub fn rename_folder(path: String, new_name: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn delete_folder(path: String) -> Result<(), String> {
-    trash::delete(&path).map_err(|e| e.to_string())
+    if let Err(trash_error) = trash::delete(&path) {
+        log::warn!("Failed to move folder to trash: {}. Falling back to permanent delete.", trash_error);
+        fs::remove_dir_all(&path).map_err(|e| e.to_string())
+    } else {
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -1321,7 +1329,14 @@ pub fn move_files(source_paths: Vec<String>, destination_folder: String) -> Resu
     }
 
     if !all_files_to_trash.is_empty() {
-        trash::delete_all(&all_files_to_trash).map_err(|e| e.to_string())?;
+        if let Err(trash_error) = trash::delete_all(&all_files_to_trash) {
+            log::warn!("Failed to move source files to trash: {}. Falling back to permanent delete.", trash_error);
+            for path in all_files_to_trash {
+                if path.is_file() {
+                    fs::remove_file(&path).map_err(|e| format!("Failed to delete source file {}: {}", path.display(), e))?;
+                }
+            }
+        }
     }
 
     Ok(())
@@ -2069,7 +2084,17 @@ pub fn delete_files_from_disk(paths: Vec<String>) -> Result<(), String> {
     }
 
     let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
-    trash::delete_all(&final_paths_to_delete).map_err(|e| e.to_string())
+    if let Err(trash_error) = trash::delete_all(&final_paths_to_delete) {
+        log::warn!("Failed to move files to trash: {}. Falling back to permanent delete.", trash_error);
+        for path in final_paths_to_delete {
+            if path.is_file() {
+                fs::remove_file(&path).map_err(|e| format!("Failed to delete file {}: {}", path.display(), e))?;
+            } else if path.is_dir() {
+                fs::remove_dir_all(&path).map_err(|e| format!("Failed to delete directory {}: {}", path.display(), e))?;
+            }
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -2128,7 +2153,15 @@ pub fn delete_files_with_associated(paths: Vec<String>) -> Result<(), String> {
     }
 
     let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
-    trash::delete_all(&final_paths_to_delete).map_err(|e| e.to_string())
+    if let Err(trash_error) = trash::delete_all(&final_paths_to_delete) {
+        log::warn!("Failed to move files to trash: {}. Falling back to permanent delete.", trash_error);
+        for path in final_paths_to_delete {
+            if path.is_file() {
+                fs::remove_file(&path).map_err(|e| format!("Failed to delete file {}: {}", path.display(), e))?;
+            }
+        }
+    }
+    Ok(())
 }
 
 pub fn get_thumb_cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
@@ -2297,9 +2330,15 @@ pub async fn import_files(
                 }
 
                 if settings.delete_after_import {
-                    trash::delete(&source_path).map_err(|e| e.to_string())?;
+                    if let Err(trash_error) = trash::delete(&source_path) {
+                        log::warn!("Failed to trash source file {}: {}. Deleting permanently.", source_path.display(), trash_error);
+                        fs::remove_file(&source_path).map_err(|e| e.to_string())?;
+                    }
                     if source_sidecar.exists() {
-                        trash::delete(source_sidecar).map_err(|e| e.to_string())?;
+                        if let Err(trash_error) = trash::delete(&source_sidecar) {
+                            log::warn!("Failed to trash source sidecar {}: {}. Deleting permanently.", source_sidecar.display(), trash_error);
+                            fs::remove_file(&source_sidecar).map_err(|e| e.to_string())?;
+                        }
                     }
                 }
 

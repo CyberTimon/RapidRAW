@@ -1,5 +1,5 @@
 use crate::panorama_stitching::ImageInfo;
-use image::{GrayImage, Rgb, RgbImage};
+use image::{GrayImage, Rgb, Rgb32FImage};
 use nalgebra::{Matrix3, Point3};
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -24,9 +24,9 @@ pub fn progressive_seam_stitcher(
     images: &[&ImageInfo],
     global_homographies: &HashMap<usize, Matrix3<f64>>,
     app_handle: AppHandle,
-) -> RgbImage {
+) -> Rgb32FImage {
     if images.is_empty() {
-        return RgbImage::new(0, 0);
+        return Rgb32FImage::new(0, 0);
     }
 
     let mut min_x = f64::INFINITY;
@@ -36,7 +36,7 @@ pub fn progressive_seam_stitcher(
 
     for &img_info in images {
         let h = global_homographies[&img_info.id];
-        let (w, h_img) = img_info.color_full.dimensions();
+        let (w, h_img) = img_info.image.dimensions();
         let corners = [
             Point3::new(0.0, 0.0, 1.0),
             Point3::new(w as f64, 0.0, 1.0),
@@ -60,7 +60,7 @@ pub fn progressive_seam_stitcher(
     let out_height = (max_y - min_y).ceil() as u32;
     println!("  - Output canvas size: {}x{}", out_width, out_height);
 
-    let mut panorama = RgbImage::new(out_width, out_height);
+    let mut panorama = Rgb32FImage::new(out_width, out_height);
     let mut panorama_mask = GrayImage::new(out_width, out_height);
 
     let base_img_info = images[0];
@@ -81,11 +81,11 @@ pub fn progressive_seam_stitcher(
                 let sy = source_p.y / source_p.z;
 
                 if sx >= 0.0
-                    && sx < base_img_info.color_full.width() as f64
+                    && sx < base_img_info.image.width() as f64
                     && sy >= 0.0
-                    && sy < base_img_info.color_full.height() as f64
+                    && sy < base_img_info.image.height() as f64
                 {
-                    let color = get_interpolated_pixel(&base_img_info.color_full, sx, sy);
+                    let color = get_interpolated_pixel(&base_img_info.image, sx, sy);
                     let start = x as usize * 3;
                     row_slice[start..start + 3].copy_from_slice(&color.0);
                     mask_row[x as usize] = 255;
@@ -108,7 +108,7 @@ pub fn progressive_seam_stitcher(
 
         let h_add = &global_homographies[&img_to_add_info.id];
         let h_add_inv = h_add.try_inverse().unwrap();
-        let img_to_add = &img_to_add_info.color_full;
+        let img_to_add = &img_to_add_info.image;
 
         let seam_info = find_adaptive_seam(
             &panorama,
@@ -222,15 +222,12 @@ pub fn progressive_seam_stitcher(
                                     let weight_pano = 1.0 - weight_add;
 
                                     let final_color = Rgb([
-                                        (color_on_pano[0] as f64 * weight_pano
-                                            + color_to_add[0] as f64 * weight_add)
-                                            .round() as u8,
-                                        (color_on_pano[1] as f64 * weight_pano
-                                            + color_to_add[1] as f64 * weight_add)
-                                            .round() as u8,
-                                        (color_on_pano[2] as f64 * weight_pano
-                                            + color_to_add[2] as f64 * weight_add)
-                                            .round() as u8,
+                                        color_on_pano[0] * weight_pano as f32
+                                            + color_to_add[0] * weight_add as f32,
+                                        color_on_pano[1] * weight_pano as f32
+                                            + color_to_add[1] * weight_add as f32,
+                                        color_on_pano[2] * weight_pano as f32
+                                            + color_to_add[2] * weight_add as f32,
                                     ]);
                                     let start = x as usize * 3;
                                     row_slice[start..start + 3].copy_from_slice(&final_color.0);
@@ -317,15 +314,12 @@ pub fn progressive_seam_stitcher(
                                     let weight_pano = 1.0 - weight_add;
 
                                     let final_color = Rgb([
-                                        (color_on_pano[0] as f64 * weight_pano
-                                            + color_to_add[0] as f64 * weight_add)
-                                            .round() as u8,
-                                        (color_on_pano[1] as f64 * weight_pano
-                                            + color_to_add[1] as f64 * weight_add)
-                                            .round() as u8,
-                                        (color_on_pano[2] as f64 * weight_pano
-                                            + color_to_add[2] as f64 * weight_add)
-                                            .round() as u8,
+                                        color_on_pano[0] * weight_pano as f32
+                                            + color_to_add[0] * weight_add as f32,
+                                        color_on_pano[1] * weight_pano as f32
+                                            + color_to_add[1] * weight_add as f32,
+                                        color_on_pano[2] * weight_pano as f32
+                                            + color_to_add[2] * weight_add as f32,
                                     ]);
                                     let start = x as usize * 3;
                                     row_slice[start..start + 3].copy_from_slice(&final_color.0);
@@ -359,9 +353,9 @@ pub fn progressive_seam_stitcher(
 }
 
 fn find_adaptive_seam(
-    pano: &RgbImage,
+    pano: &Rgb32FImage,
     pano_mask: &GrayImage,
-    img_to_add: &RgbImage,
+    img_to_add: &Rgb32FImage,
     h_add: &Matrix3<f64>,
     offset_x: f64,
     offset_y: f64,
@@ -436,9 +430,9 @@ fn find_adaptive_seam(
 }
 
 fn find_pairwise_seam_dp_vertical(
-    pano: &RgbImage,
+    pano: &Rgb32FImage,
     pano_mask: &GrayImage,
-    img_to_add: &RgbImage,
+    img_to_add: &Rgb32FImage,
     h_add: &Matrix3<f64>,
     offset_x: f64,
     offset_y: f64,
@@ -542,9 +536,9 @@ fn find_pairwise_seam_dp_vertical(
 }
 
 fn find_pairwise_seam_dp_horizontal(
-    pano: &RgbImage,
+    pano: &Rgb32FImage,
     pano_mask: &GrayImage,
-    img_to_add: &RgbImage,
+    img_to_add: &Rgb32FImage,
     h_add: &Matrix3<f64>,
     offset_x: f64,
     offset_y: f64,
@@ -641,7 +635,7 @@ fn find_pairwise_seam_dp_horizontal(
     seam
 }
 
-fn get_interpolated_pixel(img: &RgbImage, x: f64, y: f64) -> Rgb<u8> {
+fn get_interpolated_pixel(img: &Rgb32FImage, x: f64, y: f64) -> Rgb<f32> {
     let (width, height) = img.dimensions();
     let x_floor = x.floor() as u32;
     let y_floor = y.floor() as u32;
@@ -668,8 +662,8 @@ fn get_interpolated_pixel(img: &RgbImage, x: f64, y: f64) -> Rgb<u8> {
         final_pixel[i] = top * (1.0 - dy) + bottom * dy;
     }
     Rgb([
-        final_pixel[0].round() as u8,
-        final_pixel[1].round() as u8,
-        final_pixel[2].round() as u8,
+        final_pixel[0] as f32,
+        final_pixel[1] as f32,
+        final_pixel[2] as f32,
     ])
 }

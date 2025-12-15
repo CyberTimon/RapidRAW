@@ -9,6 +9,7 @@ use exif::{Reader as ExifReader, Tag};
 use exr::prelude::*;
 use exr::image::pixel_vec::PixelVec;
 use image::{DynamicImage, GenericImageView, ImageReader, imageops};
+use qoi::Channels;
 use rawler::Orientation;
 use rayon::prelude::*;
 use serde::Deserialize;
@@ -72,6 +73,26 @@ fn load_exr_from_bytes(bytes: &[u8]) -> Result<DynamicImage> {
     Ok(DynamicImage::ImageRgb32F(rgb_image))
 }
 
+pub fn load_qoi_from_bytes(bytes: &[u8]) -> Result<DynamicImage> {
+    let (qoi_header, qoi_image) =
+        qoi::decode_to_vec(bytes).context("Failed to decode QOI image")?;
+
+    match qoi_header.channels {
+        Channels::Rgb => {
+            let img_buffer =
+                image::RgbImage::from_raw(qoi_header.width, qoi_header.height, qoi_image)
+                    .context("Failed to create RGB image from QOI data")?;
+            Ok(DynamicImage::ImageRgb8(img_buffer))
+        }
+        Channels::Rgba => {
+            let img_buffer =
+                image::RgbaImage::from_raw(qoi_header.width, qoi_header.height, qoi_image)
+                    .context("Failed to create RGBA image from QOI data")?;
+            Ok(DynamicImage::ImageRgba8(img_buffer))
+        }
+    }
+}
+
 pub fn load_base_image_from_bytes(
     bytes: &[u8],
     path_for_ext_check: &str,
@@ -81,6 +102,14 @@ pub fn load_base_image_from_bytes(
     let path = std::path::Path::new(path_for_ext_check);
     if path.extension().and_then(|s| s.to_str()).map_or(false, |s| s.eq_ignore_ascii_case("exr")) {
         return load_exr_from_bytes(bytes);
+    }
+
+    if path
+        .extension()
+        .and_then(|s| s.to_str())
+        .map_or(false, |s| s.eq_ignore_ascii_case("qoi"))
+    {
+        return load_qoi_from_bytes(bytes);
     }
 
     if is_raw_file(path_for_ext_check) {
