@@ -1695,56 +1695,6 @@ function App() {
     setLibraryActivePath(lastActivePath);
   }, [selectedImage?.path]);
 
-  const handleImageSelect = useCallback(
-    (path: string) => {
-      if (selectedImage?.path === path) {
-        return;
-      }
-      applyAdjustments.cancel();
-      debouncedSave.cancel();
-
-      setSelectedImage({
-        exif: null,
-        height: 0,
-        isRaw: false,
-        isReady: false,
-        metadata: null,
-        originalUrl: null,
-        path,
-        thumbnailUrl: thumbnails[path],
-        width: 0,
-      });
-      setOriginalSize({ width: 0, height: 0 });
-      setPreviewSize({ width: 0, height: 0 });
-      setMultiSelectedPaths([path]);
-      setLibraryActivePath(null);
-      setIsViewLoading(true);
-      setError(null);
-      setHistogram(null);
-      setFinalPreviewUrl(null);
-      setUncroppedAdjustedPreviewUrl(null);
-      setFullScreenUrl(null);
-      setFullResolutionUrl(null);
-      setTransformedOriginalUrl(null);
-      setLiveAdjustments(INITIAL_ADJUSTMENTS);
-      resetAdjustmentsHistory(INITIAL_ADJUSTMENTS);
-      setShowOriginal(false);
-      setActiveMaskId(null);
-      setActiveMaskContainerId(null);
-      setActiveAiPatchContainerId(null);
-      setActiveAiSubMaskId(null);
-      setIsWbPickerActive(false); 
-
-      if (transformWrapperRef.current) {
-        transformWrapperRef.current.resetTransform(0);
-      }
-
-      setZoom(1);
-      setIsLibraryExportPanelVisible(false);
-    },
-    [selectedImage?.path, applyAdjustments, debouncedSave, thumbnails, resetAdjustmentsHistory],
-  );
-
   const executeDelete = useCallback(
     async (pathsToDelete: Array<string>, options = { includeAssociated: false }) => {
       if (!pathsToDelete || pathsToDelete.length === 0) {
@@ -2336,6 +2286,7 @@ function App() {
       setActiveMaskContainerId(null);
       setActiveAiPatchContainerId(null);
       setActiveAiSubMaskId(null);
+      setIsWbPickerActive(false);
 
       if (transformWrapperRef.current) {
         transformWrapperRef.current.resetTransform(0);
