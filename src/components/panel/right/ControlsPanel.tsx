@@ -222,16 +222,4 @@ function Controls({
   );
 }
 
-function arePropsEqual(prev: ControlsProps, next: ControlsProps) {
-  return (
-    prev.adjustments === next.adjustments &&
-    prev.collapsibleState === next.collapsibleState &&
-    prev.copiedSectionAdjustments === next.copiedSectionAdjustments &&
-    prev.histogram === next.histogram &&
-    prev.selectedImage?.path === next.selectedImage?.path &&
-    prev.theme === next.theme &&
-    prev.appSettings === next.appSettings
-  );
-}
-
-export default memo(Controls, arePropsEqual);
+export default memo(Controls);

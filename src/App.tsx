@@ -400,33 +400,19 @@ function App() {
   const imagePathList = useMemo(() => imageList.map((f: ImageFile) => f.path), [imageList]);
   const [thumbnails, setThumbnailsState] = useState<Record<string, string>>({});
   const thumbnailCacheRef = useRef<Map<string, string>>(new Map());
-  const [thumbnailMemoryLimit, setThumbnailMemoryLimit] = useState<number>(300);
-
-  const enforceThumbnailLimit = useCallback(
-    (limitOverride?: number) => {
-      const cache = thumbnailCacheRef.current;
-      const effectiveLimit = Math.max(
-        50,
-        Math.min(limitOverride ?? thumbnailMemoryLimit ?? 300, 2000),
-      );
-      while (cache.size > effectiveLimit) {
-        const oldestKey = cache.keys().next().value;
-        if (oldestKey === undefined) break;
-        cache.delete(oldestKey);
-      }
-      setThumbnailsState(Object.fromEntries(cache));
-    },
-    [thumbnailMemoryLimit],
-  );
 
   const resetThumbnails = useCallback(
-    (next: Record<string, string>) => {
+    (next: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => {
       const cache = thumbnailCacheRef.current;
+      
+      // Handle both direct value and updater function
+      const resolvedNext = typeof next === 'function' ? next(Object.fromEntries(cache)) : next;
+      
       cache.clear();
-      Object.entries(next || {}).forEach(([key, value]) => cache.set(key, value));
-      enforceThumbnailLimit();
+      Object.entries(resolvedNext || {}).forEach(([key, value]) => cache.set(key, value));
+      setThumbnailsState(Object.fromEntries(cache));
     },
-    [enforceThumbnailLimit],
+    [],
   );
 
   const updateThumbnailEntry = useCallback(
@@ -440,9 +426,9 @@ function App() {
         }
         cache.set(path, url);
       }
-      enforceThumbnailLimit();
+      setThumbnailsState(Object.fromEntries(cache));
     },
-    [enforceThumbnailLimit],
+    [],
   );
 
   const { loading: isThumbnailsLoading } = useThumbnails(imageList, resetThumbnails);
@@ -450,6 +436,7 @@ function App() {
   const isProgrammaticZoom = useRef(false);
   const isInitialMount = useRef(true);
   const currentFolderPathRef = useRef<string>(currentFolderPath);
+  const handleImageSelectRef = useRef<((path: string) => void) | null>(null);
 
   const [exportState, setExportState] = useState<ExportState>({
     errorMessage: '',
@@ -1280,9 +1267,6 @@ function App() {
         if (settings?.thumbnailAspectRatio) {
           setThumbnailAspectRatio(settings.thumbnailAspectRatio);
         }
-        if (settings?.thumbnailMemoryLimit) {
-          setThumbnailMemoryLimit(settings.thumbnailMemoryLimit);
-        }
         if (settings?.activeTreeSection) {
           setActiveTreeSection(settings.activeTreeSection);
         }
@@ -1313,17 +1297,6 @@ function App() {
       handleSettingsChange({ ...appSettings, uiVisibility });
     }
   }, [uiVisibility, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    if (!appSettings) return;
-    if (appSettings.thumbnailMemoryLimit !== undefined && appSettings.thumbnailMemoryLimit !== null) {
-      setThumbnailMemoryLimit(appSettings.thumbnailMemoryLimit);
-    }
-  }, [appSettings?.thumbnailMemoryLimit]);
-
-  useEffect(() => {
-    enforceThumbnailLimit();
-  }, [thumbnailMemoryLimit, enforceThumbnailLimit]);
 
   const handleToggleWaveform = useCallback(() => {
     setIsWaveformVisible((prev: boolean) => !prev);
@@ -1481,6 +1454,11 @@ function App() {
       setIsViewLoading(true);
       setSearchCriteria({ tags: [], text: '', mode: 'OR' });
       setLibraryScrollTop(0);
+      
+      // Clear thumbnail cache when switching folders
+      thumbnailCacheRef.current.clear();
+      setThumbnailsState({});
+      
       try {
         setCurrentFolderPath(path);
         setActiveView('library');
@@ -1770,7 +1748,7 @@ function App() {
 
           if (isFileBeingEditedDeleted) {
             if (nextImagePath) {
-              handleImageSelect(nextImagePath);
+              handleImageSelectRef.current?.(nextImagePath);
             } else {
               handleBackToLibrary();
             }
@@ -1789,7 +1767,7 @@ function App() {
         setError(`Failed to delete files: ${err}`);
       }
     },
-    [refreshImageList, selectedImage, handleBackToLibrary, libraryActivePath, sortedImageList, handleImageSelect],
+    [refreshImageList, selectedImage, handleBackToLibrary, libraryActivePath, sortedImageList],
   );
 
   const handleDeleteSelected = useCallback(() => {
@@ -2318,6 +2296,12 @@ function App() {
     },
     [selectedImage?.path, applyAdjustments, debouncedSave, thumbnails, resetAdjustmentsHistory],
   );
+  
+  // Update ref to avoid circular dependency
+  useEffect(() => {
+    handleImageSelectRef.current = handleImageSelect;
+  }, [handleImageSelect]);
+  
   const isAnyModalOpen = 
     isCreateFolderModalOpen ||
     isRenameFolderModalOpen ||

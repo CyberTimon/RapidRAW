@@ -681,23 +681,6 @@ export default function SettingsPanel({
                     </SettingItem>
 
                     <SettingItem
-                      label="Thumbnails in Memory"
-                      description="Maximum thumbnails kept in RAM before older ones are evicted (all thumbs remain on disk)."
-                    >
-                      <Input
-                        type="number"
-                        min={50}
-                        max={2000}
-                        value={appSettings?.thumbnailMemoryLimit ?? 300}
-                        onChange={(e: any) => {
-                          const raw = Number(e.target.value) || 0;
-                          const clamped = Math.max(50, Math.min(2000, raw));
-                          onSettingsChange({ ...appSettings, thumbnailMemoryLimit: clamped });
-                        }}
-                      />
-                    </SettingItem>
-
-                    <SettingItem
                       description="Enables or disables transparency effects for the application window. Relaunch required."
                       label="Window Effects"
                     >
