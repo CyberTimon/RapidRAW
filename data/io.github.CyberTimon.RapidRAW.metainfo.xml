@@ -38,6 +38,27 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.4.7" date="2025-12-23">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.4.7</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Image Denoising: Implemented the BM3D algorithm for effective noise removal while preserving actual image detail.</li>
+                <li>White Balance Picker: Added a pipette tool to pick a neutral reference point and automatically set the correct temperature and tint.</li>
+                <li>Reworked Metadata Handling: Hovering over the file name now displays key shooting data. EXIF data is now reliably written to the file during export.</li>
+                <li>Reworked Grain: A new film grain engine that generates natural monochromatic noise without RGB color noise or grid patterns.</li>
+                <li>Delete Workflow Improvements: Deleting an image no longer forces the library list to reload, making culling significantly smoother.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Exposure slider added to masking tools.</li>
+                <li>Improved mask eraser tool behavior.</li>
+                <li>Batch export stability improvements and RAM optimization.</li>
+                <li>New export option added directly to the context menu.</li>
+                <li>Updated dark mode wallpaper.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.4.6" date="2025-11-30">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.4.6</url>
         <description translate="no">

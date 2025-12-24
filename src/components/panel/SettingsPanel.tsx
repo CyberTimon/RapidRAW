@@ -590,8 +590,8 @@ export default function SettingsPanel({
     <>
       <ConfirmModal {...confirmModalState} onClose={closeConfirmModal} />
       <div className="flex flex-col h-full w-full text-text-primary">
-        <header className="flex-shrink-0 flex items-center justify-between mb-6">
-          <div className="flex items-center">
+        <header className="flex-shrink-0 flex flex-wrap items-center justify-between gap-y-4 mb-8 pt-4">
+          <div className="flex items-center flex-shrink-0">
             <Button
               className="mr-4 hover:bg-surface text-text-primary rounded-full"
               onClick={onBack}
@@ -600,10 +600,10 @@ export default function SettingsPanel({
             >
               <ArrowLeft />
             </Button>
-            <h1 className="text-3xl font-bold text-accent">Settings</h1>
+            <h1 className="text-3xl font-bold text-accent whitespace-nowrap">Settings</h1>
           </div>
 
-          <div className="relative flex w-[450px] p-2 bg-surface rounded-md">
+          <div className="relative flex w-full min-[1200px]:w-[450px] p-2 bg-surface rounded-md">
             {settingCategories.map((category) => (
               <button
                 key={category.id}
@@ -626,8 +626,8 @@ export default function SettingsPanel({
                   />
                 )}
                 <span className="relative z-10 flex items-center">
-                  <category.icon size={16} className="mr-2" />
-                  {category.label}
+                  <category.icon size={16} className="mr-2 flex-shrink-0" />
+                  <span className="truncate">{category.label}</span>
                 </span>
               </button>
             ))}
@@ -718,6 +718,7 @@ export default function SettingsPanel({
                     preserved and applied even when hidden.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                    {/* Hide noise reduction to stop people from thinking it exists
                     <Switch
                       label="Noise Reduction"
                       checked={appSettings?.adjustmentVisibility?.noiseReduction ?? true}
@@ -730,7 +731,8 @@ export default function SettingsPanel({
                           },
                         })
                       }
-                    />
+                    /> 
+                    */}
                     <Switch
                       label="Chromatic Aberration"
                       checked={appSettings?.adjustmentVisibility?.chromaticAberration ?? false}

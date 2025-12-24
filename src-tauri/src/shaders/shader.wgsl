@@ -276,26 +276,30 @@ fn get_raw_hsl_influence(hue: f32, center: f32, width: f32) -> f32 {
 }
 
 fn hash(p: vec2<f32>) -> f32 {
-    var p_mut = p * mat2x2<f32>(vec2<f32>(127.1, 311.7), vec2<f32>(269.5, 183.3));
-    return fract(sin(p_mut.x + p_mut.y) * 43758.5453123);
+    var p3  = fract(vec3<f32>(p.xyx) * .1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 fn gradient_noise(p: vec2<f32>) -> f32 {
     let i = floor(p);
     let f = fract(p);
-    let u = f * f * (3.0 - 2.0 * f);
-    let grad_00 = (vec2<f32>(hash(i), hash(i + 17.0)) * 2.0 - 1.0);
-    let grad_01 = (vec2<f32>(hash(i + vec2(0.0, 1.0)), hash(i + vec2(0.0, 1.0) + 17.0)) * 2.0 - 1.0);
-    let grad_10 = (vec2<f32>(hash(i + vec2(1.0, 0.0)), hash(i + vec2(1.0, 0.0) + 17.0)) * 2.0 - 1.0);
-    let grad_11 = (vec2<f32>(hash(i + vec2(1.0, 1.0)), hash(i + vec2(1.0, 1.0) + 17.0)) * 2.0 - 1.0);
-    let dot_00 = dot(grad_00, f - vec2(0.0, 0.0));
-    let dot_01 = dot(grad_01, f - vec2(0.0, 1.0));
-    let dot_10 = dot(grad_10, f - vec2(1.0, 0.0));
-    let dot_11 = dot(grad_11, f - vec2(1.0, 1.0));
+    let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+
+    let ga = vec2<f32>(hash(i + vec2(0.0, 0.0)), hash(i + vec2(0.0, 0.0) + vec2(11.0, 37.0))) * 2.0 - 1.0;
+    let gb = vec2<f32>(hash(i + vec2(1.0, 0.0)), hash(i + vec2(1.0, 0.0) + vec2(11.0, 37.0))) * 2.0 - 1.0;
+    let gc = vec2<f32>(hash(i + vec2(0.0, 1.0)), hash(i + vec2(0.0, 1.0) + vec2(11.0, 37.0))) * 2.0 - 1.0;
+    let gd = vec2<f32>(hash(i + vec2(1.0, 1.0)), hash(i + vec2(1.0, 1.0) + vec2(11.0, 37.0))) * 2.0 - 1.0;
+    
+    let dot_00 = dot(ga, f - vec2(0.0, 0.0));
+    let dot_10 = dot(gb, f - vec2(1.0, 0.0));
+    let dot_01 = dot(gc, f - vec2(0.0, 1.0));
+    let dot_11 = dot(gd, f - vec2(1.0, 1.0));
+    
     let bottom_interp = mix(dot_00, dot_10, u.x);
     let top_interp = mix(dot_01, dot_11, u.x);
-    let final_interp = mix(bottom_interp, top_interp, u.y);
-    return final_interp;
+    
+    return mix(bottom_interp, top_interp, u.y);
 }
 
 fn dither(coords: vec2<u32>) -> f32 {
@@ -1117,10 +1121,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let luma_mask = smoothstep(0.0, 0.15, luma) * (1.0 - smoothstep(0.6, 1.0, luma));
         let base_coord = coord * grain_frequency;
         let rough_coord = coord * grain_frequency * 0.6;
-        let noise1 = vec3<f32>(gradient_noise(base_coord), gradient_noise(base_coord + 11.3), gradient_noise(base_coord + 23.7));
-        let noise2 = vec3<f32>(gradient_noise(rough_coord + 35.1), gradient_noise(rough_coord + 43.9), gradient_noise(rough_coord + 57.5));
-        let noise = mix(noise1, noise2, roughness);
-        final_rgb += noise * amount * luma_mask;
+        let noise_base = gradient_noise(base_coord);
+        let noise_rough = gradient_noise(rough_coord + vec2<f32>(5.2, 1.3)); 
+        let noise_val = mix(noise_base, noise_rough, roughness);
+        final_rgb += vec3<f32>(noise_val) * amount * luma_mask;
     }
 
     let g = adjustments.global;

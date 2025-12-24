@@ -5,10 +5,14 @@
 <div align="center">
 
 [![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![wgpu](https://img.shields.io/badge/wgpu-%23282C34.svg?style=for-the-badge&logo=webgpu&logoColor=white)](https://wgpu.rs/)
 [![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)](https://react.dev/)
 [![Tauri](https://img.shields.io/badge/Tauri-24C8DB?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app/)
 [![AGPL-3.0](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=for-the-badge)](https://opensource.org/licenses/AGPL-3.0)
 [![GitHub stars](https://img.shields.io/github/stars/CyberTimon/RapidRAW?style=for-the-badge&logo=github&label=Stars)](https://github.com/CyberTimon/RapidRAW/stargazers)
+<br>
+[![Website](https://img.shields.io/website?up_message=getrapidraw.com&down_message=offline&url=https%3A%2F%2Fwww.getrapidraw.com&label=Website&style=for-the-badge&logo=google-chrome&logoColor=white)](https://www.getrapidraw.com)
+[![Instagram](https://img.shields.io/badge/Instagram-%23E4405F.svg?style=for-the-badge&logo=Instagram&logoColor=white)](https://www.instagram.com/getrapidraw/)
 
 </div>
 
@@ -59,20 +63,27 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+*   **2025-12-23:** Metadata card in toolbar & context menu export
+*   **2025-12-23:** Monochromatic grain & white balance picker improvements
+*   **2025-12-22:** BM3D Denoising with comparison slider
+*   **2025-12-20:** Batch export stability improvements & RAM optimization
+*   **2025-12-14:** Exposure slider added to masking tools
+*   **2025-12-14:** Improved delete workflow
+*   **2025-12-08:** Improved mask eraser tool behavior & ORT v2 migration
 *   **2025-12-07:** Write EXIF metadata to file
 *   **2025-12-07:** Color picker for white balance
 *   **2025-11-30:** HSL luminance artifacts fix
 *   **2025-11-29:** Improved mask stacking & many bug fixes
+
+<details>
+<summary><strong>Expand further</strong></summary>
+
 *   **2025-11-28:** QOI support
 *   **2025-11-25:** Update rawler
 *   **2025-11-23:** Recursive library view to display images from all subfolders
 *   **2025-11-22:** DNG loader improvements
 *   **2025-11-18:** Improved vibrancy adjustment
 *   **2025-11-15:** Virtual copies & library improvements
-
-<details>
-<summary><strong>Expand further</strong></summary>
-
 *   **2025-11-14:** Open-with-file cross plattform compatibilty & single instance lock
 *   **2025-11-13:** Rewritten tagging system to support pill-like image tagging
 *   **2025-11-10:** Improved folder tree with search functionality

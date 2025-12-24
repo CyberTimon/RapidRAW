@@ -45,7 +45,6 @@ jobs:
           ref: ${{ inputs.ref }}
           fetch-depth: 0
           submodules: recursive
-          submodules-depth: 1
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1

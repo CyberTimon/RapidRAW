@@ -653,43 +653,45 @@ const ImageCanvas = memo(
       const pointerPos = stage.getPointerPosition();
       if (!pointerPos) return;
 
-      const x = (pointerPos.x - imageRenderSize.offsetX) / imageRenderSize.scale;
-      const y = (pointerPos.y - imageRenderSize.offsetY) / imageRenderSize.scale;
+      const x = pointerPos.x / imageRenderSize.scale;
+      const y = pointerPos.y / imageRenderSize.scale;
 
-      const imgWidth = imageRenderSize.width / imageRenderSize.scale;
-      const imgHeight = imageRenderSize.height / imageRenderSize.scale;
+      const imgLogicalWidth = imageRenderSize.width / imageRenderSize.scale;
+      const imgLogicalHeight = imageRenderSize.height / imageRenderSize.scale;
       
-      if (x < 0 || x > imgWidth || y < 0 || y > imgHeight) return;
+      if (x < 0 || x > imgLogicalWidth || y < 0 || y > imgLogicalHeight) return;
 
       const img = new Image();
       img.crossOrigin = "Anonymous";
       img.src = finalPreviewUrl;
       
       img.onload = () => {
+        const radius = 5;
+        const side = radius * 2 + 1;
+
         const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
+        canvas.width = side;
+        canvas.height = side;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
 
-        ctx.drawImage(img, 0, 0);
-
-        const scaleX = img.width / imgWidth;
-        const scaleY = img.height / imgHeight;
+        const scaleX = img.width / imgLogicalWidth;
+        const scaleY = img.height / imgLogicalHeight;
         const srcX = Math.floor(x * scaleX);
         const srcY = Math.floor(y * scaleY);
 
-        const radius = 5; 
         const startX = Math.max(0, srcX - radius);
         const startY = Math.max(0, srcY - radius);
         const endX = Math.min(img.width, srcX + radius + 1);
         const endY = Math.min(img.height, srcY + radius + 1);
-        const w = endX - startX;
-        const h = endY - startY;
+        const sw = endX - startX;
+        const sh = endY - startY;
 
-        if (w <= 0 || h <= 0) return;
+        if (sw <= 0 || sh <= 0) return;
 
-        const imageData = ctx.getImageData(startX, startY, w, h);
+        ctx.drawImage(img, startX, startY, sw, sh, 0, 0, sw, sh);
+
+        const imageData = ctx.getImageData(0, 0, sw, sh);
         const data = imageData.data;
         
         let rTotal = 0, gTotal = 0, bTotal = 0;
@@ -701,6 +703,8 @@ const ImageCanvas = memo(
           bTotal += data[i + 2];
           count++;
         }
+
+        if (count === 0) return;
 
         const avgR = rTotal / count;
         const avgG = gTotal / count;
@@ -773,9 +777,19 @@ const ImageCanvas = memo(
           return;
         }
 
-        if (isToolActive) {
+        let pos;
+        if (e && typeof e.target?.getStage === 'function') {
           const stage = e.target.getStage();
-          const pos = stage.getPointerPosition();
+          pos = stage.getPointerPosition();
+        } else if (e && e.clientX != null && e.clientY != null) {
+          const stageEl = document.querySelector('.konvajs-content');
+          if (stageEl) {
+            const rect = stageEl.getBoundingClientRect();
+            pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+          }
+        }
+
+        if (isToolActive) {
           if (pos) {
             setCursorPreview({ x: pos.x, y: pos.y, visible: true });
           } else {
@@ -787,8 +801,6 @@ const ImageCanvas = memo(
           return;
         }
 
-        const stage = e.target.getStage();
-        const pos = stage.getPointerPosition();
         if (!pos) {
           return;
         }
@@ -888,10 +900,25 @@ const ImageCanvas = memo(
 
     const handleMouseLeave = useCallback(() => {
       setCursorPreview((p: CursorPreview) => ({ ...p, visible: false }));
-      if (isDrawing.current) {
+    }, []);
+
+    useEffect(() => {
+      if (!isToolActive) return;
+      function onMove(e: MouseEvent) {
+        handleMouseMove(e);
+      }
+      function onUp(e: MouseEvent) {
         handleMouseUp();
       }
-    }, [handleMouseUp]);
+      if (isDrawing.current) {
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        };
+      }
+    }, [isToolActive, handleMouseMove, handleMouseUp]);
 
     const handleStraightenMouseDown = (e: any) => {
       if (e.evt.button !== 0) {

@@ -49,8 +49,8 @@
           "srf", "sr2", "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "exr",
           "qoi"
         ],
-        "name": "RapidRAW Image",
-        "description": "Image file supported by RapidRAW",
+        "name": "Image",
+        "description": "Image file",
         "role": "Editor"
       }
     ],
@@ -60,5 +60,5 @@
       }
     }
   },
-  "version": "1.4.6"
+  "version": "1.4.7"
 }

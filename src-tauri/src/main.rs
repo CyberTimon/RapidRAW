@@ -7,6 +7,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 mod ai_processing;
 mod comfyui_connector;
 mod culling;
+mod denoising;
 mod file_management;
 mod formats;
 mod gpu_processing;
@@ -112,6 +113,7 @@ pub struct AppState {
     ai_init_lock: TokioMutex<()>,
     export_task_handle: Mutex<Option<JoinHandle<()>>>,
     panorama_result: Arc<Mutex<Option<DynamicImage>>>,
+    denoise_result: Arc<Mutex<Option<DynamicImage>>>,
     indexing_task_handle: Mutex<Option<JoinHandle<()>>>,
     pub lut_cache: Mutex<HashMap<String, LutCacheEntry>>,
     initial_file_path: Mutex<Option<String>>,
@@ -1000,7 +1002,13 @@ fn encode_image_to_bytes(
                 .map_err(|e| e.to_string())?;
         }
         "png" => {
-            image
+            let image_to_encode = if image.as_rgb32f().is_some() {
+                DynamicImage::ImageRgb16(image.to_rgb16())
+            } else {
+                image.clone()
+            };
+
+            image_to_encode
                 .write_to(&mut cursor, image::ImageFormat::Png)
                 .map_err(|e| e.to_string())?;
         }
@@ -1107,6 +1115,11 @@ async fn batch_export_images(
     let context = Arc::new(context);
     let progress_counter = Arc::new(AtomicUsize::new(0));
 
+    let available_cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
+    let num_threads = (available_cores / 2).clamp(1, 4); 
+    
+    log::info!("Starting batch export. System cores: {}, Export threads: {}", available_cores, num_threads);
+
     let task = tokio::spawn(async move {
         let state = app_handle.state::<AppState>();
         let output_folder_path = std::path::Path::new(&output_folder);
@@ -1114,134 +1127,166 @@ async fn batch_export_images(
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
         let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
 
-        let results: Vec<Result<(), String>> = paths
-            .par_iter()
-            .enumerate()
-            .map(|(global_index, image_path_str)| {
-                if app_handle
-                    .state::<AppState>()
-                    .export_task_handle
-                    .lock()
-                    .unwrap()
-                    .is_none()
-                {
-                    return Err("Export cancelled".to_string());
-                }
+        let pool_result = rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build();
 
-                let current_progress = progress_counter.fetch_add(1, Ordering::SeqCst) + 1;
+        if let Err(e) = pool_result {
+            let _ = app_handle.emit("export-error", format!("Failed to initialize worker threads: {}", e));
+            *app_handle.state::<AppState>().export_task_handle.lock().unwrap() = None;
+            return;
+        }
+        let pool = pool_result.unwrap();
 
-                let _ = app_handle.emit(
-                    "batch-export-progress",
-                    serde_json::json!({
-                        "current": current_progress,
-                        "total": total_paths,
-                        "path": image_path_str
-                    }),
-                );
+        let results: Vec<Result<(), String>> = pool.install(|| {
+            paths
+                .par_iter()
+                .enumerate()
+                .map(|(global_index, image_path_str)| {
+                    if app_handle
+                        .state::<AppState>()
+                        .export_task_handle
+                        .lock()
+                        .unwrap()
+                        .is_none()
+                    {
+                        return Err("Export cancelled".to_string());
+                    }
 
-                let result: Result<(), String> = (|| {
-                    let (source_path, sidecar_path) = parse_virtual_path(image_path_str);
-                    let source_path_str = source_path.to_string_lossy().to_string();
+                    let current_progress = progress_counter.fetch_add(1, Ordering::SeqCst) + 1;
 
-                    let metadata: ImageMetadata = if sidecar_path.exists() {
-                        let file_content = fs::read_to_string(sidecar_path)
-                            .map_err(|e| format!("Failed to read sidecar: {}", e))?;
-                        serde_json::from_str(&file_content).unwrap_or_default()
-                    } else {
-                        ImageMetadata::default()
-                    };
-                    let js_adjustments = metadata.adjustments;
-                    let is_raw = is_raw_file(&source_path_str);
-
-                    let mmap = read_file_mapped(Path::new(&source_path_str))
-                        .map_err(|e| format!("Failed to mmap file {}: {}", source_path_str, e))?;
-
-                    let base_image =
-                        load_and_composite(&mmap[..], &source_path_str, &js_adjustments, false, highlight_compression)
-                            .map_err(|e| format!("Failed to load image: {}", e))?;
-
-                    let final_image = process_image_for_export(
-                        &source_path_str,
-                        &base_image,
-                        &js_adjustments,
-                        &export_settings,
-                        &context,
-                        &state,
-                        is_raw,
-                    )?;
-
-                    let original_path = std::path::Path::new(&source_path_str);
-
-                    let file_date: DateTime<Utc> = Metadata::new_from_path(original_path)
-                        .ok()
-                        .and_then(|metadata| {
-                            metadata
-                                .get_tag(&ExifTag::DateTimeOriginal("".to_string()))
-                                .next()
-                                .and_then(|tag| {
-                                    if let &ExifTag::DateTimeOriginal(ref dt_str) = tag {
-                                        chrono::NaiveDateTime::parse_from_str(
-                                            dt_str,
-                                            "%Y:%m:%d %H:%M:%S",
-                                        )
-                                        .ok()
-                                        .map(|dt| DateTime::from_naive_utc_and_offset(dt, Utc))
-                                    } else {
-                                        None
-                                    }
-                                })
-                        })
-                        .unwrap_or_else(|| {
-                            fs::metadata(original_path)
-                                .ok()
-                                .and_then(|m| m.created().ok())
-                                .map(DateTime::<Utc>::from)
-                                .unwrap_or_else(Utc::now)
-                        });
-
-                    let filename_template = export_settings
-                        .filename_template
-                        .as_deref()
-                        .unwrap_or("{original_filename}_edited");
-                    let new_stem = crate::file_management::generate_filename_from_template(
-                        filename_template,
-                        original_path,
-                        global_index + 1,
-                        total_paths,
-                        &file_date,
+                    let _ = app_handle.emit(
+                        "batch-export-progress",
+                        serde_json::json!({
+                            "current": current_progress,
+                            "total": total_paths,
+                            "path": image_path_str
+                        }),
                     );
-                    let new_filename = format!("{}.{}", new_stem, output_format);
-                    let output_path = output_folder_path.join(new_filename);
 
-                    let mut image_bytes = encode_image_to_bytes(
-                        &final_image,
-                        &output_format,
-                        export_settings.jpeg_quality,
-                    )?;
+                    let result: Result<(), String> = (|| {
+                        let (source_path, sidecar_path) = parse_virtual_path(image_path_str);
+                        let source_path_str = source_path.to_string_lossy().to_string();
 
-                    write_image_with_metadata(
-                        &mut image_bytes,
-                        &source_path_str,
-                        &output_format,
-                        export_settings.keep_metadata,
-                        export_settings.strip_gps,
-                    )?;
+                        let metadata: ImageMetadata = if sidecar_path.exists() {
+                            let file_content = fs::read_to_string(sidecar_path)
+                                .map_err(|e| format!("Failed to read sidecar: {}", e))?;
+                            serde_json::from_str(&file_content).unwrap_or_default()
+                        } else {
+                            ImageMetadata::default()
+                        };
+                        let js_adjustments = metadata.adjustments;
+                        let is_raw = is_raw_file(&source_path_str);
 
-                    fs::write(&output_path, image_bytes)
-                        .map_err(|e| format!("Failed to write output: {}", e))?;
+                        let base_image = match read_file_mapped(Path::new(&source_path_str)) {
+                            Ok(mmap) => load_and_composite(
+                                &mmap,
+                                &source_path_str,
+                                &js_adjustments,
+                                false,
+                                highlight_compression,
+                            )
+                            .map_err(|e| format!("Failed to load image from mmap: {}", e))?,
+                            Err(e) => {
+                                log::warn!(
+                                    "Failed to memory-map file '{}': {}. Falling back to standard read.",
+                                    source_path_str,
+                                    e
+                                );
+                                let bytes = fs::read(&source_path_str).map_err(|io_err| {
+                                    format!("Fallback read failed for {}: {}", source_path_str, io_err)
+                                })?;
+                                load_and_composite(
+                                    &bytes,
+                                    &source_path_str,
+                                    &js_adjustments,
+                                    false,
+                                    highlight_compression,
+                                )
+                                .map_err(|e| format!("Failed to load image from bytes: {}", e))?
+                            }
+                        };
 
-                    Ok(())
-                })();
+                        let final_image = process_image_for_export(
+                            &source_path_str,
+                            &base_image,
+                            &js_adjustments,
+                            &export_settings,
+                            &context,
+                            &state,
+                            is_raw,
+                        )?;
 
-                result
-            })
-            .collect();
+                        let original_path = std::path::Path::new(&source_path_str);
+
+                        let file_date: DateTime<Utc> = {
+                            let mut date = None;
+                            if let Ok(file) = std::fs::File::open(original_path) {
+                                let mut bufreader = std::io::BufReader::new(&file);
+                                let exifreader = exif::Reader::new();
+                                if let Ok(exif_obj) = exifreader.read_from_container(&mut bufreader) {
+                                    if let Some(field) = exif_obj.get_field(exif::Tag::DateTimeOriginal, exif::In::PRIMARY) {
+                                        let s = field.display_value().to_string().replace("\"", "");
+                                        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s.trim(), "%Y:%m:%d %H:%M:%S") {
+                                            date = Some(DateTime::from_naive_utc_and_offset(dt, Utc));
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            date.unwrap_or_else(|| {
+                                fs::metadata(original_path)
+                                    .ok()
+                                    .and_then(|m| m.created().ok())
+                                    .map(DateTime::<Utc>::from)
+                                    .unwrap_or_else(Utc::now)
+                            })
+                        };
+
+                        let filename_template = export_settings
+                            .filename_template
+                            .as_deref()
+                            .unwrap_or("{original_filename}_edited");
+                        let new_stem = crate::file_management::generate_filename_from_template(
+                            filename_template,
+                            original_path,
+                            global_index + 1,
+                            total_paths,
+                            &file_date,
+                        );
+                        let new_filename = format!("{}.{}", new_stem, output_format);
+                        let output_path = output_folder_path.join(new_filename);
+
+                        let mut image_bytes = encode_image_to_bytes(
+                            &final_image,
+                            &output_format,
+                            export_settings.jpeg_quality,
+                        )?;
+
+                        write_image_with_metadata(
+                            &mut image_bytes,
+                            &source_path_str,
+                            &output_format,
+                            export_settings.keep_metadata,
+                            export_settings.strip_gps,
+                        )?;
+
+                        fs::write(&output_path, image_bytes)
+                            .map_err(|e| format!("Failed to write output: {}", e))?;
+
+                        Ok(())
+                    })();
+
+                    result
+                })
+                .collect()
+        });
 
         let mut error_count = 0;
         for result in results {
             if let Err(e) = result {
                 error_count += 1;
-                eprintln!("Export error: {}", e);
+                log::error!("Batch export error: {}", e);
                 let _ = app_handle.emit("export-error", e);
             }
         }
@@ -1466,9 +1511,21 @@ async fn estimate_batch_export_size(
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
 
     const ESTIMATE_DIM: u32 = 1280;
-    let img_bytes = read_file_mapped(Path::new(&source_path_str)).map_err(|e| e.to_string())?;
-    let original_image =
-        load_base_image_from_bytes(&img_bytes, &source_path_str, true, highlight_compression).map_err(|e| e.to_string())?;
+
+    let original_image = match read_file_mapped(Path::new(&source_path_str)) {
+        Ok(mmap) => load_base_image_from_bytes(&mmap, &source_path_str, true, highlight_compression)
+            .map_err(|e| e.to_string())?,
+        Err(e) => {
+            log::warn!(
+                "Failed to memory-map file '{}': {}. Falling back to standard read.",
+                source_path_str,
+                e
+            );
+            let bytes = fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
+            load_base_image_from_bytes(&bytes, &source_path_str, true, highlight_compression)
+                .map_err(|e| e.to_string())?
+        }
+    };
 
     let base_image_preview = downscale_f32_image(&original_image, ESTIMATE_DIM, ESTIMATE_DIM);
 
@@ -1483,7 +1540,9 @@ async fn estimate_batch_export_size(
 
     let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
         .iter()
-        .filter_map(|def| generate_mask_bitmap(def, preview_w, preview_h, 1.0, unscaled_crop_offset))
+        .filter_map(|def| {
+            generate_mask_bitmap(def, preview_w, preview_h, 1.0, unscaled_crop_offset)
+        })
         .collect();
 
     let mut all_adjustments = get_all_adjustments_from_json(&js_adjustments, is_raw);
@@ -1601,7 +1660,6 @@ fn write_image_with_metadata(
 
     let original_path = std::path::Path::new(original_path_str);
     if !original_path.exists() {
-        eprintln!("Original file not found for metadata copy: {}", original_path_str);
         return Ok(());
     }
 
@@ -1620,185 +1678,173 @@ fn write_image_with_metadata(
         _ => return Ok(()),
     };
 
-    use little_exif::rational::{uR64, iR64};
+    let mut metadata = Metadata::new();
 
-    let to_ur64 = |val: &exif::Rational| -> uR64 {
-        uR64 { nominator: val.num, denominator: val.denom }
-    };
+    if let Ok(file) = std::fs::File::open(original_path) {
+        let mut bufreader = std::io::BufReader::new(&file);
+        let exifreader = exif::Reader::new();
 
-    let to_ir64 = |val: &exif::SRational| -> iR64 {
-        iR64 { nominator: val.num, denominator: val.denom }
-    };
+        if let Ok(exif_obj) = exifreader.read_from_container(&mut bufreader) {
+            
+            use little_exif::rational::{uR64, iR64};
 
-    let get_string_val = |field: &exif::Field| -> String {
-        match &field.value {
-            exif::Value::Ascii(vec) => {
-                vec.iter()
-                    .map(|v| String::from_utf8_lossy(v).trim_matches(char::from(0)).to_string())
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            },
-            _ => field.display_value().to_string().replace("\"", "").trim().to_string()
-        }
-    };
+            let to_ur64 = |val: &exif::Rational| -> uR64 {
+                uR64 { nominator: val.num, denominator: val.denom }
+            };
 
-    let mut metadata = match Metadata::new_from_path(original_path) {
-        Ok(m) => m,
-        Err(_) => {
-            let file = std::fs::File::open(original_path).map_err(|e| e.to_string())?;
-            let mut bufreader = std::io::BufReader::new(&file);
-            let exifreader = exif::Reader::new();
-            let mut new_meta = Metadata::new();
+            let to_ir64 = |val: &exif::SRational| -> iR64 {
+                iR64 { nominator: val.num, denominator: val.denom }
+            };
 
-            if let Ok(exif_obj) = exifreader.read_from_container(&mut bufreader) {
-                if let Some(f) = exif_obj.get_field(exif::Tag::Make, exif::In::PRIMARY) {
-                    new_meta.set_tag(ExifTag::Make(get_string_val(f)));
+            let get_string_val = |field: &exif::Field| -> String {
+                match &field.value {
+                    exif::Value::Ascii(vec) => {
+                        vec.iter()
+                            .map(|v| String::from_utf8_lossy(v).trim_matches(char::from(0)).to_string())
+                            .collect::<Vec<String>>()
+                            .join(" ")
+                    },
+                    _ => field.display_value().to_string().replace("\"", "").trim().to_string()
                 }
-                if let Some(f) = exif_obj.get_field(exif::Tag::Model, exif::In::PRIMARY) {
-                    new_meta.set_tag(ExifTag::Model(get_string_val(f)));
-                }
-                if let Some(f) = exif_obj.get_field(exif::Tag::LensMake, exif::In::PRIMARY) {
-                    new_meta.set_tag(ExifTag::LensMake(get_string_val(f)));
-                }
-                if let Some(f) = exif_obj.get_field(exif::Tag::LensModel, exif::In::PRIMARY) {
-                    new_meta.set_tag(ExifTag::LensModel(get_string_val(f)));
-                }
-                if let Some(f) = exif_obj.get_field(exif::Tag::Artist, exif::In::PRIMARY) {
-                    new_meta.set_tag(ExifTag::Artist(get_string_val(f)));
-                }
-                if let Some(f) = exif_obj.get_field(exif::Tag::Copyright, exif::In::PRIMARY) {
-                    new_meta.set_tag(ExifTag::Copyright(get_string_val(f)));
-                }
-                if let Some(f) = exif_obj.get_field(exif::Tag::DateTimeOriginal, exif::In::PRIMARY) {
-                    new_meta.set_tag(ExifTag::DateTimeOriginal(get_string_val(f)));
-                }
-                if let Some(f) = exif_obj.get_field(exif::Tag::DateTime, exif::In::PRIMARY) {
-                    new_meta.set_tag(ExifTag::CreateDate(get_string_val(f))); 
-                }
+            };
 
-                if let Some(f) = exif_obj.get_field(exif::Tag::FNumber, exif::In::PRIMARY) {
-                    if let exif::Value::Rational(v) = &f.value {
-                        if !v.is_empty() { new_meta.set_tag(ExifTag::FNumber(vec![to_ur64(&v[0])])); }
-                    }
-                }
-                if let Some(f) = exif_obj.get_field(exif::Tag::ExposureTime, exif::In::PRIMARY) {
-                    if let exif::Value::Rational(v) = &f.value {
-                        if !v.is_empty() { new_meta.set_tag(ExifTag::ExposureTime(vec![to_ur64(&v[0])])); }
-                    }
-                }
-                if let Some(f) = exif_obj.get_field(exif::Tag::FocalLength, exif::In::PRIMARY) {
-                    if let exif::Value::Rational(v) = &f.value {
-                        if !v.is_empty() { new_meta.set_tag(ExifTag::FocalLength(vec![to_ur64(&v[0])])); }
-                    }
-                }
-
-                if let Some(f) = exif_obj.get_field(exif::Tag::ExposureBiasValue, exif::In::PRIMARY) {
-                    match &f.value {
-                        exif::Value::SRational(v) if !v.is_empty() => {
-                             new_meta.set_tag(ExifTag::ExposureCompensation(vec![to_ir64(&v[0])]));
-                        },
-                        exif::Value::Rational(v) if !v.is_empty() => {
-                             new_meta.set_tag(ExifTag::ExposureCompensation(vec![iR64 { nominator: v[0].num as i32, denominator: v[0].denom as i32 }]));
-                        },
-                        _ => {}
-                    }
-                }
-
-                if let Some(f) = exif_obj.get_field(exif::Tag::PhotographicSensitivity, exif::In::PRIMARY) {
-                    if let Some(val) = f.value.get_uint(0) {
-                        new_meta.set_tag(ExifTag::ISO(vec![val as u16]));
-                    }
-                } else if let Some(f) = exif_obj.get_field(exif::Tag::ISOSpeed, exif::In::PRIMARY) {
-                    if let Some(val) = f.value.get_uint(0) {
-                        new_meta.set_tag(ExifTag::ISO(vec![val as u16]));
-                    }
-                }
-
-                if let Some(f) = exif_obj.get_field(exif::Tag::Flash, exif::In::PRIMARY) {
-                    if let Some(val) = f.value.get_uint(0) {
-                        new_meta.set_tag(ExifTag::Flash(vec![val as u16]));
-                    }
-                }
-                if let Some(f) = exif_obj.get_field(exif::Tag::MeteringMode, exif::In::PRIMARY) {
-                    if let Some(val) = f.value.get_uint(0) {
-                        new_meta.set_tag(ExifTag::MeteringMode(vec![val as u16]));
-                    }
-                }
-                if let Some(f) = exif_obj.get_field(exif::Tag::WhiteBalance, exif::In::PRIMARY) {
-                    if let Some(val) = f.value.get_uint(0) {
-                        new_meta.set_tag(ExifTag::WhiteBalance(vec![val as u16]));
-                    }
-                }
-                if let Some(f) = exif_obj.get_field(exif::Tag::ExposureProgram, exif::In::PRIMARY) {
-                    if let Some(val) = f.value.get_uint(0) {
-                        new_meta.set_tag(ExifTag::ExposureProgram(vec![val as u16]));
-                    }
-                }
-                if let Some(f) = exif_obj.get_field(exif::Tag::FocalLengthIn35mmFilm, exif::In::PRIMARY) {
-                    if let Some(val) = f.value.get_uint(0) {
-                        new_meta.set_tag(ExifTag::FocalLengthIn35mmFormat(vec![val as u16]));
-                    }
-                }
-
-                if !strip_gps {
-                    if let Some(f) = exif_obj.get_field(exif::Tag::GPSLatitude, exif::In::PRIMARY) {
-                         if let exif::Value::Rational(v) = &f.value {
-                             if v.len() >= 3 {
-                                 new_meta.set_tag(ExifTag::GPSLatitude(vec![to_ur64(&v[0]), to_ur64(&v[1]), to_ur64(&v[2])]));
-                             }
-                         }
-                    }
-                    if let Some(f) = exif_obj.get_field(exif::Tag::GPSLatitudeRef, exif::In::PRIMARY) {
-                        new_meta.set_tag(ExifTag::GPSLatitudeRef(get_string_val(f)));
-                    }
-                    if let Some(f) = exif_obj.get_field(exif::Tag::GPSLongitude, exif::In::PRIMARY) {
-                         if let exif::Value::Rational(v) = &f.value {
-                             if v.len() >= 3 {
-                                 new_meta.set_tag(ExifTag::GPSLongitude(vec![to_ur64(&v[0]), to_ur64(&v[1]), to_ur64(&v[2])]));
-                             }
-                         }
-                    }
-                    if let Some(f) = exif_obj.get_field(exif::Tag::GPSLongitudeRef, exif::In::PRIMARY) {
-                        new_meta.set_tag(ExifTag::GPSLongitudeRef(get_string_val(f)));
-                    }
-                    if let Some(f) = exif_obj.get_field(exif::Tag::GPSAltitude, exif::In::PRIMARY) {
-                        if let exif::Value::Rational(v) = &f.value {
-                            if !v.is_empty() { new_meta.set_tag(ExifTag::GPSAltitude(vec![to_ur64(&v[0])])); }
-                        }
-                    }
-                    if let Some(f) = exif_obj.get_field(exif::Tag::GPSAltitudeRef, exif::In::PRIMARY) {
-                         if let Some(val) = f.value.get_uint(0) {
-                             new_meta.set_tag(ExifTag::GPSAltitudeRef(vec![val as u8]));
-                         }
-                    }
-                }
-
-                new_meta.set_tag(ExifTag::Software("RapidRAW".to_string()));
+            if let Some(f) = exif_obj.get_field(exif::Tag::Make, exif::In::PRIMARY) {
+                metadata.set_tag(ExifTag::Make(get_string_val(f)));
             }
-            new_meta
+            if let Some(f) = exif_obj.get_field(exif::Tag::Model, exif::In::PRIMARY) {
+                metadata.set_tag(ExifTag::Model(get_string_val(f)));
+            }
+            if let Some(f) = exif_obj.get_field(exif::Tag::LensMake, exif::In::PRIMARY) {
+                metadata.set_tag(ExifTag::LensMake(get_string_val(f)));
+            }
+            if let Some(f) = exif_obj.get_field(exif::Tag::LensModel, exif::In::PRIMARY) {
+                metadata.set_tag(ExifTag::LensModel(get_string_val(f)));
+            }
+            if let Some(f) = exif_obj.get_field(exif::Tag::Artist, exif::In::PRIMARY) {
+                metadata.set_tag(ExifTag::Artist(get_string_val(f)));
+            }
+            if let Some(f) = exif_obj.get_field(exif::Tag::Copyright, exif::In::PRIMARY) {
+                metadata.set_tag(ExifTag::Copyright(get_string_val(f)));
+            }
+            if let Some(f) = exif_obj.get_field(exif::Tag::DateTimeOriginal, exif::In::PRIMARY) {
+                metadata.set_tag(ExifTag::DateTimeOriginal(get_string_val(f)));
+            }
+            if let Some(f) = exif_obj.get_field(exif::Tag::DateTime, exif::In::PRIMARY) {
+                metadata.set_tag(ExifTag::CreateDate(get_string_val(f))); 
+            }
+
+            if let Some(f) = exif_obj.get_field(exif::Tag::FNumber, exif::In::PRIMARY) {
+                if let exif::Value::Rational(v) = &f.value {
+                    if !v.is_empty() { metadata.set_tag(ExifTag::FNumber(vec![to_ur64(&v[0])])); }
+                }
+            }
+            if let Some(f) = exif_obj.get_field(exif::Tag::ExposureTime, exif::In::PRIMARY) {
+                if let exif::Value::Rational(v) = &f.value {
+                    if !v.is_empty() { metadata.set_tag(ExifTag::ExposureTime(vec![to_ur64(&v[0])])); }
+                }
+            }
+            if let Some(f) = exif_obj.get_field(exif::Tag::FocalLength, exif::In::PRIMARY) {
+                if let exif::Value::Rational(v) = &f.value {
+                    if !v.is_empty() { metadata.set_tag(ExifTag::FocalLength(vec![to_ur64(&v[0])])); }
+                }
+            }
+
+            if let Some(f) = exif_obj.get_field(exif::Tag::ExposureBiasValue, exif::In::PRIMARY) {
+                match &f.value {
+                    exif::Value::SRational(v) if !v.is_empty() => {
+                            metadata.set_tag(ExifTag::ExposureCompensation(vec![to_ir64(&v[0])]));
+                    },
+                    exif::Value::Rational(v) if !v.is_empty() => {
+                            metadata.set_tag(ExifTag::ExposureCompensation(vec![iR64 { nominator: v[0].num as i32, denominator: v[0].denom as i32 }]));
+                    },
+                    _ => {}
+                }
+            }
+
+            if let Some(f) = exif_obj.get_field(exif::Tag::PhotographicSensitivity, exif::In::PRIMARY) {
+                if let Some(val) = f.value.get_uint(0) {
+                    metadata.set_tag(ExifTag::ISO(vec![val as u16]));
+                }
+            } else if let Some(f) = exif_obj.get_field(exif::Tag::ISOSpeed, exif::In::PRIMARY) {
+                if let Some(val) = f.value.get_uint(0) {
+                    metadata.set_tag(ExifTag::ISO(vec![val as u16]));
+                }
+            }
+
+            if let Some(f) = exif_obj.get_field(exif::Tag::Flash, exif::In::PRIMARY) {
+                if let Some(val) = f.value.get_uint(0) {
+                    metadata.set_tag(ExifTag::Flash(vec![val as u16]));
+                }
+            }
+            if let Some(f) = exif_obj.get_field(exif::Tag::MeteringMode, exif::In::PRIMARY) {
+                if let Some(val) = f.value.get_uint(0) {
+                    metadata.set_tag(ExifTag::MeteringMode(vec![val as u16]));
+                }
+            }
+            if let Some(f) = exif_obj.get_field(exif::Tag::WhiteBalance, exif::In::PRIMARY) {
+                if let Some(val) = f.value.get_uint(0) {
+                    metadata.set_tag(ExifTag::WhiteBalance(vec![val as u16]));
+                }
+            }
+            if let Some(f) = exif_obj.get_field(exif::Tag::ExposureProgram, exif::In::PRIMARY) {
+                if let Some(val) = f.value.get_uint(0) {
+                    metadata.set_tag(ExifTag::ExposureProgram(vec![val as u16]));
+                }
+            }
+            if let Some(f) = exif_obj.get_field(exif::Tag::FocalLengthIn35mmFilm, exif::In::PRIMARY) {
+                if let Some(val) = f.value.get_uint(0) {
+                    metadata.set_tag(ExifTag::FocalLengthIn35mmFormat(vec![val as u16]));
+                }
+            }
+
+            if !strip_gps {
+                if let Some(f) = exif_obj.get_field(exif::Tag::GPSLatitude, exif::In::PRIMARY) {
+                        if let exif::Value::Rational(v) = &f.value {
+                            if v.len() >= 3 {
+                                metadata.set_tag(ExifTag::GPSLatitude(vec![to_ur64(&v[0]), to_ur64(&v[1]), to_ur64(&v[2])]));
+                            }
+                        }
+                }
+                if let Some(f) = exif_obj.get_field(exif::Tag::GPSLatitudeRef, exif::In::PRIMARY) {
+                    metadata.set_tag(ExifTag::GPSLatitudeRef(get_string_val(f)));
+                }
+                if let Some(f) = exif_obj.get_field(exif::Tag::GPSLongitude, exif::In::PRIMARY) {
+                        if let exif::Value::Rational(v) = &f.value {
+                            if v.len() >= 3 {
+                                metadata.set_tag(ExifTag::GPSLongitude(vec![to_ur64(&v[0]), to_ur64(&v[1]), to_ur64(&v[2])]));
+                            }
+                        }
+                }
+                if let Some(f) = exif_obj.get_field(exif::Tag::GPSLongitudeRef, exif::In::PRIMARY) {
+                    metadata.set_tag(ExifTag::GPSLongitudeRef(get_string_val(f)));
+                }
+                if let Some(f) = exif_obj.get_field(exif::Tag::GPSAltitude, exif::In::PRIMARY) {
+                    if let exif::Value::Rational(v) = &f.value {
+                        if !v.is_empty() { metadata.set_tag(ExifTag::GPSAltitude(vec![to_ur64(&v[0])])); }
+                    }
+                }
+                if let Some(f) = exif_obj.get_field(exif::Tag::GPSAltitudeRef, exif::In::PRIMARY) {
+                        if let Some(val) = f.value.get_uint(0) {
+                            metadata.set_tag(ExifTag::GPSAltitudeRef(vec![val as u8]));
+                        }
+                }
+            }
         }
-    };
-
-    if strip_gps {
-        let dummy_rational = uR64 { nominator: 0, denominator: 1 };
-        let dummy_vec1 = vec![dummy_rational.clone()];
-        let dummy_vec3 = vec![dummy_rational.clone(), dummy_rational.clone(), dummy_rational.clone()];
-
-        metadata.remove_tag(ExifTag::GPSVersionID(vec![0,0,0,0]));
-        metadata.remove_tag(ExifTag::GPSLatitudeRef(String::new()));
-        metadata.remove_tag(ExifTag::GPSLatitude(dummy_vec3.clone()));
-        metadata.remove_tag(ExifTag::GPSLongitudeRef(String::new()));
-        metadata.remove_tag(ExifTag::GPSLongitude(dummy_vec3.clone()));
-        metadata.remove_tag(ExifTag::GPSAltitudeRef(vec![0]));
-        metadata.remove_tag(ExifTag::GPSAltitude(dummy_vec1.clone()));
-        metadata.remove_tag(ExifTag::GPSTimeStamp(dummy_vec3.clone()));
     }
 
+    metadata.set_tag(ExifTag::Software("RapidRAW".to_string()));
     metadata.set_tag(ExifTag::Orientation(vec![1u16]));
     metadata.set_tag(ExifTag::ColorSpace(vec![1u16]));
 
-    if let Err(e) = metadata.write_to_vec(image_bytes, file_type) {
-        eprintln!("Failed to write metadata to image vector: {}", e);
+    // little_exif has a bug where writing a Metadata object causes a panic, even if you do everything else right - see https://github.com/TechnikTobi/little_exif/issues/76
+    let write_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        metadata.write_to_vec(image_bytes, file_type)
+    }));
+
+    match write_result {
+        Ok(Ok(_)) => {},
+        Ok(Err(e)) => log::warn!("Failed to write metadata: {}", e),
+        Err(_) => log::error!("Recovered from little_exif library panic. Saving image without metadata."),
     }
 
     Ok(())
@@ -2308,78 +2354,6 @@ fn get_supported_file_types() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
-async fn stitch_panorama(
-    paths: Vec<String>,
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-) -> Result<(), String> {
-    if paths.len() < 2 {
-        return Err("Please select at least two images to stitch.".to_string());
-    }
-
-    let source_paths: Vec<String> = paths
-        .iter()
-        .map(|p| parse_virtual_path(p).0.to_string_lossy().into_owned())
-        .collect();
-
-    let panorama_result_handle = state.panorama_result.clone();
-
-    let task = tokio::task::spawn_blocking(move || {
-        let panorama_result = panorama_stitching::stitch_images(source_paths, app_handle.clone());
-
-        match panorama_result {
-            Ok(panorama_image) => {
-                let _ = app_handle.emit("panorama-progress", "Creating preview...");
-
-                let (w, h) = panorama_image.dimensions();
-                let (new_w, new_h) = if w > h {
-                    (800, (800.0 * h as f32 / w as f32).round() as u32)
-                } else {
-                    ((800.0 * w as f32 / h as f32).round() as u32, 800)
-                };
-
-                let preview_f32 = crate::image_processing::downscale_f32_image(
-                    &panorama_image,
-                    new_w,
-                    new_h
-                );
-
-                let preview_u8 = preview_f32.to_rgb8();
-
-                let mut buf = Cursor::new(Vec::new());
-
-                if let Err(e) = preview_u8.write_to(&mut buf, ImageFormat::Png) {
-                    return Err(format!("Failed to encode panorama preview: {}", e));
-                }
-
-                let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
-                let final_base64 = format!("data:image/png;base64,{}", base64_str);
-
-                *panorama_result_handle.lock().unwrap() = Some(panorama_image);
-
-                let _ = app_handle.emit(
-                    "panorama-complete",
-                    serde_json::json!({
-                        "base64": final_base64,
-                    }),
-                );
-                Ok(())
-            }
-            Err(e) => {
-                let _ = app_handle.emit("panorama-error", e.clone());
-                Err(e)
-            }
-        }
-    });
-
-    match task.await {
-        Ok(Ok(_)) => Ok(()),
-        Ok(Err(e)) => Err(e),
-        Err(join_err) => Err(format!("Panorama task failed: {}", join_err)),
-    }
-}
-
-#[tauri::command]
 async fn fetch_community_presets() -> Result<Vec<CommunityPreset>, String> {
     let client = reqwest::Client::new();
     let url = "https://raw.githubusercontent.com/CyberTimon/RapidRAW-Presets/main/manifest.json";
@@ -2543,6 +2517,78 @@ async fn save_temp_file(bytes: Vec<u8>) -> Result<String, String> {
 }
 
 #[tauri::command]
+async fn stitch_panorama(
+    paths: Vec<String>,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    if paths.len() < 2 {
+        return Err("Please select at least two images to stitch.".to_string());
+    }
+
+    let source_paths: Vec<String> = paths
+        .iter()
+        .map(|p| parse_virtual_path(p).0.to_string_lossy().into_owned())
+        .collect();
+
+    let panorama_result_handle = state.panorama_result.clone();
+
+    let task = tokio::task::spawn_blocking(move || {
+        let panorama_result = panorama_stitching::stitch_images(source_paths, app_handle.clone());
+
+        match panorama_result {
+            Ok(panorama_image) => {
+                let _ = app_handle.emit("panorama-progress", "Creating preview...");
+
+                let (w, h) = panorama_image.dimensions();
+                let (new_w, new_h) = if w > h {
+                    (800, (800.0 * h as f32 / w as f32).round() as u32)
+                } else {
+                    ((800.0 * w as f32 / h as f32).round() as u32, 800)
+                };
+
+                let preview_f32 = crate::image_processing::downscale_f32_image(
+                    &panorama_image,
+                    new_w,
+                    new_h
+                );
+
+                let preview_u8 = preview_f32.to_rgb8();
+
+                let mut buf = Cursor::new(Vec::new());
+
+                if let Err(e) = preview_u8.write_to(&mut buf, ImageFormat::Png) {
+                    return Err(format!("Failed to encode panorama preview: {}", e));
+                }
+
+                let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
+                let final_base64 = format!("data:image/png;base64,{}", base64_str);
+
+                *panorama_result_handle.lock().unwrap() = Some(panorama_image);
+
+                let _ = app_handle.emit(
+                    "panorama-complete",
+                    serde_json::json!({
+                        "base64": final_base64,
+                    }),
+                );
+                Ok(())
+            }
+            Err(e) => {
+                let _ = app_handle.emit("panorama-error", e.clone());
+                Err(e)
+            }
+        }
+    });
+
+    match task.await {
+        Ok(Ok(_)) => Ok(()),
+        Ok(Err(e)) => Err(e),
+        Err(join_err) => Err(format!("Panorama task failed: {}", join_err)),
+    }
+}
+
+#[tauri::command]
 async fn save_panorama(
     first_path_str: String,
     state: tauri::State<'_, AppState>,
@@ -2566,14 +2612,88 @@ async fn save_panorama(
         .and_then(|s| s.to_str())
         .unwrap_or("panorama");
 
-    let output_filename = format!("{}_Pano.png", stem);
-    let output_path = parent_dir.join(output_filename);
+    let (output_filename, image_to_save): (String, DynamicImage) = if panorama_image.color().has_alpha() {
+        (format!("{}_Pano.png", stem), DynamicImage::ImageRgba8(panorama_image.to_rgba8()))
+    } else if panorama_image.as_rgb32f().is_some() {
+        (format!("{}_Pano.tiff", stem), panorama_image)
+    } else {
+        (format!("{}_Pano.png", stem), DynamicImage::ImageRgb8(panorama_image.to_rgb8()))
+    };
 
-    let image_to_save = panorama_image.to_rgb8();
+    let output_path = parent_dir.join(output_filename);
 
     image_to_save
         .save(&output_path)
         .map_err(|e| format!("Failed to save panorama image: {}", e))?;
+
+    Ok(output_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn apply_denoising(
+    path: String,
+    intensity: f32,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let (source_path, _) = parse_virtual_path(&path);
+    let path_str = source_path.to_string_lossy().to_string();
+
+    let denoise_result_handle = state.denoise_result.clone();
+
+    tokio::task::spawn_blocking(move || {
+        match denoising::denoise_image(path_str, intensity, app_handle.clone()) {
+            Ok((image, _base64_ignored_in_this_handler_logic)) => {
+                *denoise_result_handle.lock().unwrap() = Some(image);
+            }
+            Err(e) => {
+                let _ = app_handle.emit("denoise-error", e);
+            }
+        }
+    })
+    .await
+    .map_err(|e| format!("Denoising task failed: {}", e))
+}
+
+#[tauri::command]
+async fn save_denoised_image(
+    original_path_str: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
+    let denoised_image = state
+        .denoise_result
+        .lock()
+        .unwrap()
+        .take()
+        .ok_or_else(|| {
+            "No denoised image found in memory. It might have already been saved or cleared."
+                .to_string()
+        })?;
+
+    let is_raw = crate::formats::is_raw_file(&original_path_str);
+
+    let (first_path, _) = parse_virtual_path(&original_path_str);
+    let parent_dir = first_path
+        .parent()
+        .ok_or_else(|| "Could not determine parent directory.".to_string())?;
+    let stem = first_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("denoised");
+
+    let (output_filename, image_to_save): (String, DynamicImage) = if is_raw {
+        let filename = format!("{}_Denoised.tiff", stem);
+        (filename, denoised_image) 
+    } else {
+        let filename = format!("{}_Denoised.png", stem);
+        (filename, DynamicImage::ImageRgb8(denoised_image.to_rgb8()))
+    };
+
+    let output_path = parent_dir.join(output_filename);
+
+    image_to_save
+        .save(&output_path)
+        .map_err(|e| format!("Failed to save image: {}", e))?;
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -2619,11 +2739,36 @@ fn generate_preview_for_path(
     let (source_path, _) = parse_virtual_path(&path);
     let source_path_str = source_path.to_string_lossy().to_string();
     let is_raw = is_raw_file(&source_path_str);
-    let image = read_file_mapped(&source_path).map_err(|e| e.to_string())?;
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
-    let base_image =
-        load_and_composite(&image[..], &source_path_str, &js_adjustments, false,highlight_compression).map_err(|e| e.to_string())?;
+
+    let base_image = match read_file_mapped(&source_path) {
+        Ok(mmap) => load_and_composite(
+            &mmap,
+            &source_path_str,
+            &js_adjustments,
+            false,
+            highlight_compression,
+        )
+        .map_err(|e| e.to_string())?,
+        Err(e) => {
+            log::warn!(
+                "Failed to memory-map file '{}': {}. Falling back to standard read.",
+                source_path_str,
+                e
+            );
+            let bytes = fs::read(&source_path).map_err(|io_err| io_err.to_string())?;
+            load_and_composite(
+                &bytes,
+                &source_path_str,
+                &js_adjustments,
+                false,
+                highlight_compression,
+            )
+            .map_err(|e| e.to_string())?
+        }
+    };
+
     let (transformed_image, unscaled_crop_offset) =
         apply_all_transformations(&base_image, &js_adjustments);
     let (img_w, img_h) = transformed_image.dimensions();
@@ -2942,6 +3087,7 @@ fn main() {
             ai_init_lock: TokioMutex::new(()),
             export_task_handle: Mutex::new(None),
             panorama_result: Arc::new(Mutex::new(None)),
+            denoise_result: Arc::new(Mutex::new(None)),
             indexing_task_handle: Mutex::new(None),
             lut_cache: Mutex::new(HashMap::new()),
             initial_file_path: Mutex::new(None),
@@ -2973,6 +3119,8 @@ fn main() {
             save_collage,
             stitch_panorama,
             save_panorama,
+            apply_denoising,
+            save_denoised_image,
             load_and_parse_lut,
             fetch_community_presets,
             generate_all_community_previews,

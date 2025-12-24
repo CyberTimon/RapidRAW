@@ -210,7 +210,7 @@ impl<'a> GpuProcessor<'a> {
         let blur_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Blur Pipeline Layout"),
             bind_group_layouts: &[&blur_bgl],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
         let h_blur_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -342,7 +342,7 @@ impl<'a> GpuProcessor<'a> {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Pipeline Layout"),
             bind_group_layouts: &[&main_bgl],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
         let main_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {

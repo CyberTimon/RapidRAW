@@ -65,7 +65,7 @@ function MetadataItem({ label, value }: MetaDataItemProps) {
 const KEY_CAMERA_SETTINGS_MAP: CameraSettings = {
   FNumber: {
     format: (value: number) => `${value}`,
-    label: 'F Number',
+    label: 'Aperature',
   },
   ExposureTime: {
     format: (value: number) => `${value}`,
@@ -133,9 +133,11 @@ export default function MetadataPanel({ selectedImage }: MetaDataPanelProps) {
       }
     }
 
-    const otherExifEntries = Object.entries(exif).filter(
-      ([key]) => !KEY_SETTINGS_ORDER.includes(key) && !gpsKeys.includes(key),
-    );
+    const otherExifEntries = Object.entries(exif)
+      .filter(
+        ([key]) => !KEY_SETTINGS_ORDER.includes(key) && !gpsKeys.includes(key),
+      )
+      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
 
     return { keyCameraSettings, gpsData, otherExifEntries };
   }, [selectedImage?.exif]);
