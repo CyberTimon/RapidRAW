@@ -2,16 +2,15 @@ import { useState, useEffect, useCallback, useRef, useLayoutEffect, type JSX } f
 import { invoke } from '@tauri-apps/api/core';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle, XCircle, Loader2, Save, Crop, Proportions, LayoutTemplate, Shuffle, RectangleHorizontal, RectangleVertical, Palette } from 'lucide-react';
-import { ImageFile, Invokes } from '../ui/AppProperties';
+import { useBloc } from '@blac/react';
+import { ModalsCubit } from '../../cubits';
+import { Invokes } from '../ui/AppProperties';
 import Button from '../ui/Button';
 import Slider from '../ui/Slider';
 import clsx from 'clsx';
 
 interface CollageModalProps {
-  isOpen: boolean;
-  onClose(): void;
   onSave(base64Data: string, firstPath: string): Promise<string>;
-  sourceImages: ImageFile[];
   thumbnails: Record<string, string>;
 }
 
@@ -135,7 +134,11 @@ const DEFAULT_EXPORT_WIDTH = 3000;
 const INITIAL_SPACING = 10;
 const INITIAL_BORDER_RADIUS = 8;
 
-export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: CollageModalProps) {
+export default function CollageModal({ onSave, thumbnails }: CollageModalProps) {
+  const [modals, modalsCubit] = useBloc(ModalsCubit);
+  const { isOpen, sourceImages } = modals.collage;
+
+  const onClose = useCallback(() => modalsCubit.closeCollage(), [modalsCubit]);
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
 

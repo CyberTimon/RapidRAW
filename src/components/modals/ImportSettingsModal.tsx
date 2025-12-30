@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useBloc } from '@blac/react';
+import { ModalsCubit } from '../../cubits';
 import Switch from '../ui/Switch';
 import { FILENAME_VARIABLES } from '../panel/right/ExportImportProperties';
 
 interface ImportSettingsModalProps {
-  fileCount: number;
-  isOpen: boolean;
-  onClose(): void;
   onSave(settings: any): void;
 }
 
-export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave }: ImportSettingsModalProps) {
+export default function ImportSettingsModal({ onSave }: ImportSettingsModalProps) {
+  const [modals, modalsCubit] = useBloc(ModalsCubit);
+  const { isOpen, sourcePaths = [] } = modals.import;
+  const fileCount = sourcePaths.length;
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
 
@@ -18,6 +20,10 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
   const [dateFolderFormat, setDateFolderFormat] = useState('YYYY/MM-DD');
   const [deleteAfterImport, setDeleteAfterImport] = useState(false);
   const filenameInputRef = useRef<HTMLInputElement>(null);
+
+  const handleClose = useCallback(() => {
+    modalsCubit.closeImport();
+  }, [modalsCubit]);
 
   useEffect(() => {
     if (isOpen) {
@@ -49,18 +55,18 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
       dateFolderFormat,
       deleteAfterImport,
     });
-    onClose();
-  }, [onSave, onClose, filenameTemplate, organizeByDate, dateFolderFormat, deleteAfterImport, fileCount]);
+    handleClose();
+  }, [onSave, handleClose, filenameTemplate, organizeByDate, dateFolderFormat, deleteAfterImport, fileCount]);
 
   const handleKeyDown = useCallback(
     (e: any) => {
       if (e.key === 'Enter') {
         handleSave();
       } else if (e.key === 'Escape') {
-        onClose();
+        handleClose();
       }
     },
-    [handleSave, onClose],
+    [handleSave, handleClose],
   );
 
   const handleVariableClick = (variable: string) => {
@@ -90,7 +96,7 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
       className={`fixed inset-0 flex items-center justify-center z-50 bg-black/30 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
         show ? 'opacity-100' : 'opacity-0'
       }`}
-      onClick={onClose}
+      onClick={handleClose}
       role="dialog"
     >
       <div
@@ -159,7 +165,7 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
         <div className="flex justify-end gap-3 mt-8">
           <button
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors"
-            onClick={onClose}
+            onClick={handleClose}
           >
             Cancel
           </button>

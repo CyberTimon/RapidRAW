@@ -237,6 +237,26 @@ export class SettingsCubit extends Cubit<SettingsState> {
     this.updateAppSettings({ adaptiveEditorTheme: theme });
   };
 
+  setAiProvider = (provider: string) => {
+    this.updateAppSettings({ aiProvider: provider });
+  };
+
+  setTransparent = (transparent: boolean) => {
+    this.updateAppSettings({ transparent });
+  };
+
+  setTaggingShortcuts = (shortcuts: string[]) => {
+    this.updateAppSettings({ taggingShortcuts: shortcuts });
+  };
+
+  setCopyPasteSettings = (settings: any) => {
+    this.updateAppSettings({ copyPasteSettings: settings });
+  };
+
+  setDecorations = (decorations: any) => {
+    this.updateAppSettings({ decorations });
+  };
+
   resetSettings = () => {
     this.emit({
       isLoaded: true,

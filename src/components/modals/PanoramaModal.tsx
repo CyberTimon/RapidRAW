@@ -1,26 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, XCircle, Loader2, Save } from 'lucide-react';
+import { useBloc } from '@blac/react';
+import { ModalsCubit } from '../../cubits';
 import Button from '../ui/Button';
 
 interface PanoramaModalProps {
-  error: string | null;
-  finalImageBase64: string | null;
-  isOpen: boolean;
-  onClose(): void;
   onOpenFile(path: string): void;
   onSave(): Promise<string>;
-  progressMessage: string | null;
 }
 
 export default function PanoramaModal({
-  error,
-  finalImageBase64,
-  isOpen,
-  onClose,
   onOpenFile,
   onSave,
-  progressMessage,
 }: PanoramaModalProps) {
+  const [modals, modalsCubit] = useBloc(ModalsCubit);
+  const { isOpen, error, finalImageBase64, progressMessage } = modals.panorama;
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -46,8 +40,8 @@ export default function PanoramaModal({
     if (isSaving) {
       return;
     }
-    onClose();
-  }, [onClose, isSaving]);
+    modalsCubit.closePanorama();
+  }, [modalsCubit, isSaving]);
 
   const handleSave = async () => {
     setIsSaving(true);

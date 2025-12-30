@@ -1,19 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { CheckCircle, XCircle, Loader2, Save, Grip, RefreshCw, ZoomIn, ZoomOut, Move } from 'lucide-react';
+import { useBloc } from '@blac/react';
+import { ModalsCubit } from '../../cubits';
 import Button from '../ui/Button';
 import Slider from '../ui/Slider';
 
 interface DenoiseModalProps {
-  isOpen: boolean;
-  onClose(): void;
   onDenoise(intensity: number): void;
   onSave(): Promise<string>;
   onOpenFile(path: string): void;
-  error: string | null;
-  previewBase64: string | null;
-  originalBase64: string | null;
-  isProcessing: boolean;
-  progressMessage: string | null;
 }
 
 const ImageCompare = ({ original, denoised }: { original: string; denoised: string }) => {
@@ -168,17 +163,12 @@ const ImageCompare = ({ original, denoised }: { original: string; denoised: stri
 };
 
 export default function DenoiseModal({
-  isOpen,
-  onClose,
   onDenoise,
   onSave,
   onOpenFile,
-  error,
-  previewBase64,
-  originalBase64,
-  isProcessing,
-  progressMessage,
 }: DenoiseModalProps) {
+  const [modals, modalsCubit] = useBloc(ModalsCubit);
+  const { isOpen, isProcessing, previewBase64, originalBase64, error, progressMessage } = modals.denoise;
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   // Initializing at 50 (0-100 range) instead of 0.5 so the Slider displays integer percentages
@@ -206,8 +196,8 @@ export default function DenoiseModal({
 
   const handleClose = useCallback(() => {
     if (isSaving) return;
-    onClose();
-  }, [onClose, isSaving]);
+    modalsCubit.closeDenoise();
+  }, [modalsCubit, isSaving]);
 
   const handleBackdropMouseDown = (e: React.MouseEvent) => {
     mouseDownTarget.current = e.target;

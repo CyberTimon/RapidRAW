@@ -33,7 +33,7 @@ import Input from '../ui/Input';
 import Slider from '../ui/Slider';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
 import { Invokes } from '../ui/AppProperties';
-import { ModalsCubit } from '../../cubits';
+import { ModalsCubit, SettingsCubit } from '../../cubits';
 
 interface DataActionItemProps {
   buttonAction(): void;
@@ -58,10 +58,8 @@ interface SettingItemProps {
 }
 
 interface SettingsPanelProps {
-  appSettings: any;
   onBack(): void;
   onLibraryRefresh(): void;
-  onSettingsChange(settings: any): void;
   rootPath: string | null;
 }
 
@@ -264,14 +262,14 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
 };
 
 export default function SettingsPanel({
-  appSettings,
   onBack,
   onLibraryRefresh,
-  onSettingsChange,
   rootPath,
 }: SettingsPanelProps) {
   const { user } = useUser();
   const [, modalsCubit] = useBloc(ModalsCubit);
+  const [settingsState, settingsCubit] = useBloc(SettingsCubit);
+  const { appSettings, theme } = settingsState;
   const [isClearing, setIsClearing] = useState(false);
   const [clearMessage, setClearMessage] = useState('');
   const [isClearingCache, setIsClearingCache] = useState(false);
@@ -334,15 +332,12 @@ export default function SettingsPanel({
     if (key === 'processingBackend' || key === 'linuxGpuOptimization') {
       setRestartRequired(true);
     } else {
-      onSettingsChange({ ...appSettings, [key]: value });
+      settingsCubit.updateAppSettings({ [key]: value });
     }
   };
 
   const handleSaveAndRelaunch = async () => {
-    onSettingsChange({
-      ...appSettings,
-      ...processingSettings,
-    });
+    settingsCubit.updateAppSettings(processingSettings);
     await new Promise((resolve) => setTimeout(resolve, 200));
     await relaunch();
   };
@@ -353,7 +348,7 @@ export default function SettingsPanel({
 
   const handleProviderChange = (provider: string) => {
     setAiProvider(provider);
-    onSettingsChange({ ...appSettings, aiProvider: provider });
+    settingsCubit.setAiProvider(provider);
   };
 
   const handleConfigChange = (field: any, value: any) => {
@@ -363,7 +358,7 @@ export default function SettingsPanel({
   const handleSaveComfyConfig = () => {
     setSaveStatus({ saving: true, message: 'Saving...' });
     const newConfig = { ...comfyConfig };
-    onSettingsChange({ ...appSettings, comfyuiWorkflowConfig: newConfig });
+    settingsCubit.setComfyuiWorkflowConfig(newConfig);
     setTimeout(() => {
       setSaveStatus({ saving: false, message: 'Saved!' });
       setTimeout(() => setSaveStatus({ saving: false, message: '' }), EXECUTE_TIMEOUT - 500);
@@ -479,7 +474,7 @@ export default function SettingsPanel({
   };
 
   const executeSetTransparent = async (transparent: boolean) => {
-    onSettingsChange({ ...appSettings, transparent });
+    settingsCubit.setTransparent(transparent);
     await relaunch();
   };
 
@@ -544,7 +539,7 @@ export default function SettingsPanel({
     const newTag = newShortcut.trim().toLowerCase();
     if (newTag && !shortcuts.includes(newTag)) {
       const newShortcuts = [...shortcuts, newTag].sort();
-      onSettingsChange({ ...appSettings, taggingShortcuts: newShortcuts });
+      settingsCubit.setTaggingShortcuts(newShortcuts);
       setNewShortcut('');
     }
   };
@@ -552,7 +547,7 @@ export default function SettingsPanel({
   const handleRemoveShortcut = (shortcutToRemove: string) => {
     const shortcuts = appSettings?.taggingShortcuts || [];
     const newShortcuts = shortcuts.filter((s: string) => s !== shortcutToRemove);
-    onSettingsChange({ ...appSettings, taggingShortcuts: newShortcuts });
+    settingsCubit.setTaggingShortcuts(newShortcuts);
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -626,8 +621,8 @@ export default function SettingsPanel({
                   <div className="space-y-6">
                     <SettingItem label="Theme" description="Change the look and feel of the application.">
                       <Dropdown
-                        onChange={(value: any) => onSettingsChange({ ...appSettings, theme: value })}
-                        options={THEMES.map((theme: ThemeProps) => ({ value: theme.id, label: theme.name }))}
+                        onChange={(value: any) => settingsCubit.setTheme(value)}
+                        options={THEMES.map((t: ThemeProps) => ({ value: t.id, label: t.name }))}
                         value={appSettings?.theme || DEFAULT_THEME_ID}
                       />
                     </SettingItem>
@@ -637,10 +632,10 @@ export default function SettingsPanel({
                       label="Editor Theme"
                     >
                       <Switch
-                        checked={appSettings?.adaptiveEditorTheme ?? false}
+                        checked={!!appSettings?.adaptiveEditorTheme}
                         id="adaptive-theme-toggle"
                         label="Adaptive Editor Theme"
-                        onChange={(checked) => onSettingsChange({ ...appSettings, adaptiveEditorTheme: checked })}
+                        onChange={(checked) => settingsCubit.setAdaptiveEditorTheme(checked ? theme : undefined)}
                       />
                     </SettingItem>
 
@@ -652,7 +647,7 @@ export default function SettingsPanel({
                         checked={appSettings?.enableExifReading ?? false}
                         id="exif-reading-toggle"
                         label="EXIF Reading"
-                        onChange={(checked) => onSettingsChange({ ...appSettings, enableExifReading: checked })}
+                        onChange={(checked) => settingsCubit.setEnableExifReading(checked)}
                       />
                     </SettingItem>
 
@@ -695,54 +690,22 @@ export default function SettingsPanel({
                     <Switch
                       label="Chromatic Aberration"
                       checked={appSettings?.adjustmentVisibility?.chromaticAberration ?? false}
-                      onChange={(checked) =>
-                        onSettingsChange({
-                          ...appSettings,
-                          adjustmentVisibility: {
-                            ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                            chromaticAberration: checked,
-                          },
-                        })
-                      }
+                      onChange={(checked) => settingsCubit.setAdjustmentVisibility('chromaticAberration', checked)}
                     />
                     <Switch
                       label="Grain"
                       checked={appSettings?.adjustmentVisibility?.grain ?? true}
-                      onChange={(checked) =>
-                        onSettingsChange({
-                          ...appSettings,
-                          adjustmentVisibility: {
-                            ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                            grain: checked,
-                          },
-                        })
-                      }
+                      onChange={(checked) => settingsCubit.setAdjustmentVisibility('grain', checked)}
                     />
                     <Switch
                       label="Color Calibration"
                       checked={appSettings?.adjustmentVisibility?.colorCalibration ?? true}
-                      onChange={(checked) =>
-                        onSettingsChange({
-                          ...appSettings,
-                          adjustmentVisibility: {
-                            ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                            colorCalibration: checked,
-                          },
-                        })
-                      }
+                      onChange={(checked) => settingsCubit.setAdjustmentVisibility('colorCalibration', checked)}
                     />
                     <Switch
                       label="Negative Conversion"
                       checked={appSettings?.adjustmentVisibility?.negativeConversion ?? false}
-                      onChange={(checked) =>
-                        onSettingsChange({
-                          ...appSettings,
-                          adjustmentVisibility: {
-                            ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                            negativeConversion: checked,
-                          },
-                        })
-                      }
+                      onChange={(checked) => settingsCubit.setAdjustmentVisibility('negativeConversion', checked)}
                     />
                   </div>
                 </div>
@@ -758,7 +721,7 @@ export default function SettingsPanel({
                         checked={appSettings?.enableAiTagging ?? false}
                         id="ai-tagging-toggle"
                         label="Automatic AI Tagging"
-                        onChange={(checked) => onSettingsChange({ ...appSettings, enableAiTagging: checked })}
+                        onChange={(checked) => settingsCubit.setEnableAiTagging(checked)}
                       />
                     </SettingItem>
                     <SettingItem
@@ -881,7 +844,7 @@ export default function SettingsPanel({
                         checked={appSettings?.enableZoomHifi ?? true}
                         id="zoom-hifi-toggle"
                         label="Enable High Quality Zoom"
-                        onChange={(checked) => onSettingsChange({ ...appSettings, enableZoomHifi: checked })}
+                        onChange={(checked) => settingsCubit.setEnableZoomHifi(checked)}
                       />
                     </SettingItem>
 
@@ -998,7 +961,7 @@ export default function SettingsPanel({
                                 <Input
                                   className="flex-grow"
                                   id="comfyui-address"
-                                  onBlur={() => onSettingsChange({ ...appSettings, comfyuiAddress: comfyUiAddress })}
+                                  onBlur={() => settingsCubit.setComfyuiAddress(comfyUiAddress)}
                                   onChange={(e: any) => setComfyUiAddress(e.target.value)}
                                   onKeyDown={(e: any) => e.stopPropagation()}
                                   placeholder="127.0.0.1:8188"

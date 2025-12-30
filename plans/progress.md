@@ -18,8 +18,8 @@
 - [x] Create `src/cubits/ModalsCubit.ts`
 - [x] Define modal state interfaces
 - [x] Implement open/close methods
-- [~] Update modal components to use cubit (ConfirmModal done)
-- [~] Remove modal state from App.tsx (confirmModalState removed)
+- [x] Update modal components to use cubit (All 10 modals complete)
+- [x] Remove modal state from App.tsx (All modal useState removed)
 
 ### 1.3 SettingsCubit
 - [x] Create `src/cubits/SettingsCubit.ts`
@@ -245,3 +245,186 @@ function ConfirmModal() {
 1. Continue with ImportSettingsModal integration
 2. Continue with CopyPasteSettingsModal integration
 3. Remaining complex modals: PanoramaModal, DenoiseModal, CullingModal, CollageModal
+
+### Session 3 Continued - 2024-12-30
+
+**Completed**:
+- Integrated `ModalsCubit` into `ImportSettingsModal.tsx`
+  - Component now uses `useBloc(ModalsCubit)` for `isOpen` and `sourcePaths`
+  - Derives `fileCount` from `sourcePaths.length`
+  - Removed `isOpen`, `onClose`, and `fileCount` props, kept only `onSave` callback
+  - Added `handleClose` using `modalsCubit.closeImport()`
+- Updated `App.tsx` for ImportSettingsModal
+  - Removed `isImportModalOpen`, `importTargetFolder`, `importSourcePaths` useState
+  - Updated `handleImportFiles` to use `modalsCubit.openImport(targetPath, selected)`
+  - Updated `handleStartImport` to read `targetFolder` and `sourcePaths` from cubit state
+  - Updated `isAnyModalOpen` to use `modalsState.import.isOpen`
+  - Simplified `<ImportSettingsModal onSave={...} />` render
+
+- Integrated `ModalsCubit` into `CopyPasteSettingsModal.tsx`
+  - Component now uses `useBloc(ModalsCubit)` for `isOpen`
+  - Kept `settings` and `onSave` props (settings come from appSettings)
+  - Added `handleClose` using `modalsCubit.closeCopyPasteSettings()`
+- Updated `App.tsx` for CopyPasteSettingsModal
+  - Removed `isCopyPasteSettingsModalOpen` useState
+  - Updated Controls/ExportPanel to use `modalsCubit.openCopyPasteSettings()`
+  - Updated `isAnyModalOpen` to use `modalsState.copyPasteSettings.isOpen`
+  - Simplified `<CopyPasteSettingsModal settings={...} onSave={...} />` render
+
+**State Removed from App.tsx (this session)**:
+- `isImportModalOpen` useState
+- `importTargetFolder` useState
+- `importSourcePaths` useState
+- `isCopyPasteSettingsModalOpen` useState
+
+**Total State Removed from App.tsx (all sessions)**:
+- `confirmModalState` (Session 2)
+- `isCreateFolderModalOpen` (Session 3)
+- `isRenameFolderModalOpen` (Session 3)
+- `isRenameFileModalOpen` (Session 3)
+- `renameTargetPaths` (Session 3)
+- `isImportModalOpen` (Session 3)
+- `importTargetFolder` (Session 3)
+- `importSourcePaths` (Session 3)
+- `isCopyPasteSettingsModalOpen` (Session 3)
+
+**All Simple Modals Completed**:
+- ConfirmModal
+- CreateFolderModal
+- RenameFolderModal
+- RenameFileModal
+- ImportSettingsModal
+- CopyPasteSettingsModal
+
+**Remaining Complex Modals** (require more state management):
+- PanoramaModal
+- DenoiseModal
+- CullingModal
+- CollageModal
+
+**Notes**:
+- CopyPasteSettingsModal keeps `settings` prop since it's external data from appSettings
+- Pre-existing TypeScript errors remain unrelated to migration
+
+**Next Steps**:
+1. Integrate complex modals (Panorama, Denoise, Culling, Collage) if desired
+2. Move to SettingsCubit integration for greater impact
+3. Begin NavigationCubit integration for folder tree state
+
+### Session 4 - 2024-12-30
+
+**Started**: Phase 4 - Component Integration (Complex Modals + SettingsCubit)
+
+**Completed - Complex Modals**:
+- Integrated `ModalsCubit` into `PanoramaModal.tsx`
+  - Uses `useBloc(ModalsCubit)` for `isOpen`, `error`, `finalImageBase64`, `progressMessage`, `stitchingSourcePaths`
+  - Kept `onOpenFile`, `onSave` props (callbacks)
+  - Removed event handlers from App.tsx, now uses `modalsCubit.updatePanoramaProgress()`, `setPanoramaResult()`, `setPanoramaError()`
+
+- Integrated `ModalsCubit` into `DenoiseModal.tsx`
+  - Uses `useBloc(ModalsCubit)` for `isOpen`, `isProcessing`, `previewBase64`, `originalBase64`, `error`, `progressMessage`, `targetPath`
+  - Kept `onDenoise`, `onSave`, `onOpenFile` props (callbacks)
+  - Removed event handlers from App.tsx, now uses `modalsCubit.updateDenoiseState()`
+
+- Integrated `ModalsCubit` into `CullingModal.tsx`
+  - Uses `useBloc(ModalsCubit)` for `isOpen`, `pathsToCull`, `suggestions`, `progress`, `error`
+  - Kept `thumbnails`, `onApply` props
+  - Removed event handlers from App.tsx, now uses `modalsCubit.updateCullingProgress()`, `setCullingSuggestions()`, `setCullingError()`
+
+- Integrated `ModalsCubit` into `CollageModal.tsx`
+  - Uses `useBloc(ModalsCubit)` for `isOpen`, `sourceImages`
+  - Kept `onSave`, `thumbnails` props
+
+**State Removed from App.tsx (Session 4)**:
+- `panoramaModalState` useState + `PanoramaModalState` interface
+- `denoiseModalState` useState + `DenoiseModalState` interface
+- `cullingModalState` useState + `CullingModalState` interface
+- `collageModalState` useState + `CollageModalState` interface
+
+**All 10 Modals Now Complete**:
+- ConfirmModal ✓
+- CreateFolderModal ✓
+- RenameFolderModal ✓
+- RenameFileModal ✓
+- ImportSettingsModal ✓
+- CopyPasteSettingsModal ✓
+- PanoramaModal ✓
+- DenoiseModal ✓
+- CullingModal ✓
+- CollageModal ✓
+
+**Notes**:
+- `isAnyModalOpen` in App.tsx now uses `modalsState.panorama.isOpen`, `modalsState.culling.isOpen`, `modalsState.collage.isOpen`
+- Event listeners for panorama/denoise/culling now call cubit methods instead of setting local state
+- Pre-existing TypeScript errors remain unrelated to migration
+
+**Next Steps**:
+1. Begin SettingsCubit integration into SettingsPanel.tsx
+2. Migrate settings state from App.tsx to SettingsCubit
+3. Update components (MainLibrary, BottomBar, FolderTree) to use SettingsCubit
+
+### Session 5 - 2024-12-30
+
+**Started**: Phase 4 - Component Integration (SettingsCubit)
+
+**Completed**:
+- Added missing properties to `AppSettings` interface:
+  - `aiProvider?: string`
+  - `taggingShortcuts?: string[]`
+  - `transparent?: boolean`
+  - `copyPasteSettings?: any`
+
+- Added new methods to `SettingsCubit`:
+  - `setAiProvider()`
+  - `setTransparent()`
+  - `setTaggingShortcuts()`
+  - `setCopyPasteSettings()`
+  - `setDecorations()`
+
+- Integrated `SettingsCubit` into `SettingsPanel.tsx`:
+  - Added `useBloc(SettingsCubit)` hook
+  - Removed `appSettings` and `onSettingsChange` props
+  - Replaced all `onSettingsChange()` calls with appropriate cubit methods:
+    - Theme changes → `settingsCubit.setTheme()`
+    - Adaptive theme → `settingsCubit.setAdaptiveEditorTheme()`
+    - EXIF reading → `settingsCubit.setEnableExifReading()`
+    - AI tagging → `settingsCubit.setEnableAiTagging()`
+    - Zoom HiFi → `settingsCubit.setEnableZoomHifi()`
+    - Adjustment visibility → `settingsCubit.setAdjustmentVisibility()`
+    - Tagging shortcuts → `settingsCubit.setTaggingShortcuts()`
+    - AI provider → `settingsCubit.setAiProvider()`
+    - ComfyUI address → `settingsCubit.setComfyuiAddress()`
+    - ComfyUI config → `settingsCubit.setComfyuiWorkflowConfig()`
+    - Transparency → `settingsCubit.setTransparent()`
+    - Processing settings → `settingsCubit.updateAppSettings()`
+
+- Updated `MainLibrary.tsx`:
+  - Removed `appSettings` and `onSettingsChange` props from SettingsPanel usage
+
+- Updated `App.tsx`:
+  - Added `useBloc(SettingsCubit)` hook
+  - Added useEffect to call `settingsCubit.loadSettings()` on mount
+
+**Props Removed from SettingsPanel**:
+- `appSettings` (now from cubit)
+- `onSettingsChange` (now uses cubit methods)
+
+**Architecture Notes**:
+- App.tsx still maintains local state for backward compatibility with other components
+- SettingsCubit automatically saves settings via debounced auto-save when state changes
+- SettingsPanel reads from and writes to SettingsCubit directly
+- This is an incremental migration - full state consolidation can happen in future sessions
+
+**Pre-existing TypeScript Errors** (unrelated to migration):
+- `Uint8Array` / `BlobPart` type incompatibility in App.tsx
+- `ComfyUIWorkflowConfig` missing properties in SettingsPanel.tsx
+- Various implicit `any` types
+- `Input` component missing `readOnly` prop support
+
+**Next Steps**:
+1. Continue migrating components to read from SettingsCubit:
+   - MainLibrary (for filter/sort criteria, thumbnail settings)
+   - BottomBar (for thumbnailAspectRatio)
+   - FolderTree (for UI visibility)
+2. Eventually consolidate App.tsx local state with SettingsCubit
+3. Begin NavigationCubit integration

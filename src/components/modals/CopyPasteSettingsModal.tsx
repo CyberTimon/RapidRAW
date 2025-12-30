@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
+import { useBloc } from '@blac/react';
+import { ModalsCubit } from '../../cubits';
 import { ADJUSTMENT_SECTIONS, COPYABLE_ADJUSTMENT_KEYS, CopyPasteSettings, PasteMode } from '../../utils/adjustments';
 import Button from '../ui/Button';
 import Switch from '../ui/Switch';
 
 interface CopyPasteSettingsModalProps {
-  isOpen: boolean;
-  onClose(): void;
   onSave(settings: CopyPasteSettings): void;
   settings: CopyPasteSettings;
 }
@@ -110,10 +110,16 @@ const PasteModeSwitch = ({ selectedMode, onModeChange, isVisible }: PasteModeSwi
   );
 };
 
-export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settings }: CopyPasteSettingsModalProps) {
+export default function CopyPasteSettingsModal({ onSave, settings }: CopyPasteSettingsModalProps) {
+  const [modals, modalsCubit] = useBloc(ModalsCubit);
+  const { isOpen } = modals.copyPasteSettings;
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [localSettings, setLocalSettings] = useState<CopyPasteSettings>(settings || DEFAULT_SETTINGS);
+
+  const handleClose = useCallback(() => {
+    modalsCubit.closeCopyPasteSettings();
+  }, [modalsCubit]);
 
   useEffect(() => {
     if (isOpen) {
@@ -130,14 +136,14 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
 
   const handleSave = useCallback(() => {
     onSave(localSettings);
-    onClose();
-  }, [localSettings, onSave, onClose]);
+    handleClose();
+  }, [localSettings, onSave, handleClose]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') handleClose();
     },
-    [onClose],
+    [handleClose],
   );
 
   useEffect(() => {
@@ -176,7 +182,7 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
       className={`fixed inset-0 flex items-center justify-center z-50 bg-black/30 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
         show ? 'opacity-100' : 'opacity-0'
       }`}
-      onClick={onClose}
+      onClick={handleClose}
       role="dialog"
     >
       <div
@@ -246,7 +252,7 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-surface">
           <Button
             className="px-4 py-2 rounded-md text-text-secondary bg-surface hover:bg-surface transition-colors"
-            onClick={onClose}
+            onClick={handleClose}
           >
             Cancel
           </Button>

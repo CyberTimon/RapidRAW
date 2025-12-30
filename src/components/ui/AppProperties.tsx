@@ -132,8 +132,10 @@ export interface ComfyUIWorkflowConfig {
 
 export interface AppSettings {
   adaptiveEditorTheme?: Theme;
+  aiProvider?: string;
   comfyuiAddress?: string;
   comfyuiWorkflowConfig?: ComfyUIWorkflowConfig;
+  copyPasteSettings?: any;
   decorations?: any;
   editorPreviewResolution?: number;
   enableZoomHifi?: boolean;
@@ -144,9 +146,11 @@ export interface AppSettings {
   pinnedFolders?: any;
   lastRootPath: string | null;
   sortCriteria?: SortCriteria;
+  taggingShortcuts?: string[];
   theme: Theme;
   thumbnailSize?: ThumbnailSize;
   thumbnailAspectRatio?: ThumbnailAspectRatio;
+  transparent?: boolean;
   uiVisibility?: UiVisibility;
   adjustmentVisibility?: { [key: string]: boolean };
   activeTreeSection?: string | null;

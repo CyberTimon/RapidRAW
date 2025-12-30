@@ -2,22 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { CheckCircle, XCircle, Loader2, Users, Trash2, Star, Tag } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CullingSettings, CullingSuggestions, Invokes, Progress } from '../ui/AppProperties';
+import { useBloc } from '@blac/react';
+import { ModalsCubit } from '../../cubits';
+import { CullingSettings, Invokes } from '../ui/AppProperties';
 import Button from '../ui/Button';
 import Switch from '../ui/Switch';
 import Slider from '../ui/Slider';
 import Dropdown from '../ui/Dropdown';
 
 interface CullingModalProps {
-  isOpen: boolean;
-  onClose(): void;
-  progress: Progress | null;
-  suggestions: CullingSuggestions | null;
-  error: string | null;
-  imagePaths: string[];
   thumbnails: Record<string, string>;
   onApply(action: 'reject' | 'rate_zero' | 'delete', paths: string[]): void;
-  onError(error: string): void;
 }
 
 type CullAction = 'reject' | 'rate_zero' | 'delete';
@@ -56,16 +51,14 @@ function ImageThumbnail({ path, thumbnails, isSelected, onToggle, children }: an
 }
 
 export default function CullingModal({
-  isOpen,
-  onClose,
-  progress,
-  suggestions,
-  error,
-  imagePaths,
   thumbnails,
   onApply,
-  onError,
 }: CullingModalProps) {
+  const [modals, modalsCubit] = useBloc(ModalsCubit);
+  const { isOpen, pathsToCull: imagePaths, suggestions, progress, error } = modals.culling;
+
+  const onClose = useCallback(() => modalsCubit.closeCulling(), [modalsCubit]);
+  const onError = useCallback((err: string) => modalsCubit.setCullingError(err), [modalsCubit]);
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [stage, setStage] = useState<'settings' | 'progress' | 'results'>('settings');

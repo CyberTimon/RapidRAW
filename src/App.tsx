@@ -9,7 +9,7 @@ import debounce from 'lodash.debounce';
 import { ClerkProvider } from '@clerk/clerk-react';
 import { useBloc } from '@blac/react';
 import clsx from 'clsx';
-import { ModalsCubit } from './cubits';
+import { ModalsCubit, SettingsCubit } from './cubits';
 import {
   Aperture,
   Check,
@@ -143,36 +143,13 @@ interface MultiSelectOptions {
   shiftAnchor: string | null;
 }
 
-interface CollageModalState {
-  isOpen: boolean;
-  sourceImages: ImageFile[];
-}
 
-interface PanoramaModalState {
-  error: string | null;
-  finalImageBase64: string | null;
-  isOpen: boolean;
-  progressMessage: string | null;
-  stitchingSourcePaths: Array<string>;
-}
 
-interface DenoiseModalState {
-  isOpen: boolean;
-  isProcessing: boolean;
-  previewBase64: string | null;
-  originalBase64?: string | null;
-  error: string | null;
-  targetPath: string | null;
-  progressMessage: string | null;
-}
 
-interface CullingModalState {
-  isOpen: boolean;
-  suggestions: CullingSuggestions | null;
-  progress: { current: number; total: number; stage: string } | null;
-  error: string | null;
-  pathsToCull: Array<string>;
-}
+
+
+
+
 
 interface LutData {
   size: number;
@@ -223,6 +200,7 @@ const getParentDir = (filePath: string): string => {
 
 function App() {
   const [modalsState, modalsCubit] = useBloc(ModalsCubit);
+  const [settingsState, settingsCubit] = useBloc(SettingsCubit);
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
   const [activeView, setActiveView] = useState('library');
@@ -351,38 +329,13 @@ function App() {
   
   
   
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [isCopyPasteSettingsModalOpen, setIsCopyPasteSettingsModalOpen] = useState(false);
-  const [importTargetFolder, setImportTargetFolder] = useState<string | null>(null);
-  const [importSourcePaths, setImportSourcePaths] = useState<Array<string>>([]);
+  
   const [folderActionTarget, setFolderActionTarget] = useState<string | null>(null);
 
-  const [panoramaModalState, setPanoramaModalState] = useState<PanoramaModalState>({
-    error: null,
-    finalImageBase64: null,
-    isOpen: false,
-    progressMessage: '',
-    stitchingSourcePaths: [],
-  });
-  const [denoiseModalState, setDenoiseModalState] = useState<DenoiseModalState>({
-    isOpen: false,
-    isProcessing: false,
-    previewBase64: null,
-    error: null,
-    targetPath: null,
-    progressMessage: null,
-  });
-  const [cullingModalState, setCullingModalState] = useState<CullingModalState>({
-    isOpen: false,
-    suggestions: null,
-    progress: null,
-    error: null,
-    pathsToCull: [],
-  });
-  const [collageModalState, setCollageModalState] = useState<CollageModalState>({
-    isOpen: false,
-    sourceImages: [],
-  });
+
+
+
+
   const [customEscapeHandler, setCustomEscapeHandler] = useState(null);
   const [isGeneratingAiMask, setIsGeneratingAiMask] = useState(false);
   const [isComfyUiConnected, setIsComfyUiConnected] = useState(false);
@@ -1175,6 +1128,11 @@ function App() {
     },
     [theme],
   );
+
+  // Initialize SettingsCubit on mount
+  useEffect(() => {
+    settingsCubit.loadSettings();
+  }, [settingsCubit]);
 
   useEffect(() => {
     invoke(Invokes.LoadSettings)
@@ -2239,12 +2197,12 @@ function App() {
     modalsState.createFolder.isOpen ||
     modalsState.renameFolder.isOpen ||
     modalsState.renameFile.isOpen ||
-    isImportModalOpen ||
-    isCopyPasteSettingsModalOpen ||
+    modalsState.import.isOpen ||
+    modalsState.copyPasteSettings.isOpen ||
     modalsState.confirm.isOpen ||
-    panoramaModalState.isOpen ||
-    cullingModalState.isOpen ||
-    collageModalState.isOpen;
+    modalsState.panorama.isOpen ||
+    modalsState.culling.isOpen ||
+    modalsState.collage.isOpen;
 
   useKeyboardShortcuts({
     isModalOpen: isAnyModalOpen,
@@ -2443,7 +2401,7 @@ function App() {
       }),
       listen('denoise-progress', (event: any) => {
         if (isEffectActive) {
-          setDenoiseModalState((prev) => ({ ...prev, progressMessage: event.payload as string }));
+          modalsCubit.updateDenoiseState({ progressMessage: event.payload as string });
         }
       }),
       listen('denoise-complete', (event: any) => {
@@ -2451,23 +2409,21 @@ function App() {
           const payload = event.payload;
           const isObject = typeof payload === 'object' && payload !== null;
           
-          setDenoiseModalState((prev) => ({
-            ...prev,
+          modalsCubit.updateDenoiseState({
             isProcessing: false,
             previewBase64: isObject ? payload.denoised : payload,
             originalBase64: isObject ? payload.original : null,
             progressMessage: null
-          }));
+          });
         }
       }),
       listen('denoise-error', (event: any) => {
         if (isEffectActive) {
-          setDenoiseModalState((prev) => ({
-            ...prev,
+          modalsCubit.updateDenoiseState({
             isProcessing: false,
             error: String(event.payload),
             progressMessage: null
-          }));
+          });
         }
       }),
     ];
@@ -2523,36 +2479,20 @@ function App() {
 
     const unlistenProgress = listen('panorama-progress', (event: any) => {
       if (isEffectActive) {
-        setPanoramaModalState((prev: PanoramaModalState) => ({
-          ...prev,
-          error: null,
-          finalImageBase64: null,
-          isOpen: true,
-          progressMessage: event.payload,
-        }));
+        modalsCubit.updatePanoramaProgress(event.payload);
       }
     });
 
     const unlistenComplete = listen('panorama-complete', (event: any) => {
       if (isEffectActive) {
         const { base64 } = event.payload;
-        setPanoramaModalState((prev: PanoramaModalState) => ({
-          ...prev,
-          error: null,
-          finalImageBase64: base64,
-          progressMessage: 'Panorama Ready',
-        }));
+        modalsCubit.setPanoramaResult(base64);
       }
     });
 
     const unlistenError = listen('panorama-error', (event: any) => {
       if (isEffectActive) {
-        setPanoramaModalState((prev: PanoramaModalState) => ({
-          ...prev,
-          error: String(event.payload),
-          finalImageBase64: null,
-          progressMessage: 'An error occurred.',
-        }));
+        modalsCubit.setPanoramaError(String(event.payload));
       }
     });
 
@@ -2569,30 +2509,25 @@ function App() {
 
     const unlistenStart = listen('culling-start', (event: any) => {
       if (isEffectActive) {
-        setCullingModalState({
-          isOpen: true,
-          progress: { current: 0, total: event.payload, stage: 'Initializing...' },
-          suggestions: null,
-          error: null,
-        });
+        modalsCubit.updateCullingProgress(0, event.payload, 'Initializing...');
       }
     });
 
     const unlistenProgress = listen('culling-progress', (event: any) => {
       if (isEffectActive) {
-        setCullingModalState((prev) => ({ ...prev, progress: event.payload }));
+        modalsCubit.updateCullingProgress(event.payload.current, event.payload.total, event.payload.stage);
       }
     });
 
     const unlistenComplete = listen('culling-complete', (event: any) => {
       if (isEffectActive) {
-        setCullingModalState((prev) => ({ ...prev, progress: null, suggestions: event.payload }));
+        modalsCubit.setCullingSuggestions(event.payload);
       }
     });
 
     const unlistenError = listen('culling-error', (event: any) => {
       if (isEffectActive) {
-        setCullingModalState((prev) => ({ ...prev, progress: null, error: String(event.payload) }));
+        modalsCubit.setCullingError(String(event.payload));
       }
     });
 
@@ -2606,53 +2541,54 @@ function App() {
   }, []);
 
   const handleSavePanorama = async (): Promise<string> => {
-    if (panoramaModalState.stitchingSourcePaths.length === 0) {
+    const { stitchingSourcePaths } = modalsState.panorama;
+    if (stitchingSourcePaths.length === 0) {
       const err = 'Source paths for panorama not found.';
-      setPanoramaModalState((prev: PanoramaModalState) => ({ ...prev, error: err }));
+      modalsCubit.setPanoramaError(err);
       throw new Error(err);
     }
 
     try {
       const savedPath: string = await invoke(Invokes.SavePanorama, {
-        firstPathStr: panoramaModalState.stitchingSourcePaths[0],
+        firstPathStr: stitchingSourcePaths[0],
       });
       await refreshImageList();
       return savedPath;
     } catch (err) {
       console.error('Failed to save panorama:', err);
-      setPanoramaModalState((prev: PanoramaModalState) => ({ ...prev, error: String(err) }));
+      modalsCubit.setPanoramaError(String(err));
       throw err;
     }
   };
 
   const handleApplyDenoise = useCallback(async (intensity: number) => {
-    if (!denoiseModalState.targetPath) return;
+    const { targetPath } = modalsState.denoise;
+    if (!targetPath) return;
     
-    setDenoiseModalState(prev => ({ 
-      ...prev, 
+    modalsCubit.updateDenoiseState({ 
       isProcessing: true, 
       error: null, 
       progressMessage: "Starting engine..." 
-    }));
+    });
     
     try {
         await invoke(Invokes.ApplyDenoising, { 
-            path: denoiseModalState.targetPath,
+            path: targetPath,
             intensity: intensity 
         });
     } catch (err) {
-        setDenoiseModalState(prev => ({ 
-            ...prev, 
+        modalsCubit.updateDenoiseState({ 
             isProcessing: false, 
             error: String(err) 
-        }));
+        });
     }
-  }, [denoiseModalState.targetPath]);
+  }, [modalsState.denoise.targetPath, modalsCubit]);
 
   const handleSaveDenoisedImage = async (): Promise<string> => {
-    if (!denoiseModalState.targetPath) throw new Error("No target path");
+    const { targetPath } = modalsState.denoise;
+    if (!targetPath) throw new Error("No target path");
     const savedPath = await invoke<string>(Invokes.SaveDenoisedImage, {
-        originalPathStr: denoiseModalState.targetPath
+        originalPathStr: targetPath
     });
     await refreshImageList();
     return savedPath;
@@ -3007,11 +2943,12 @@ function App() {
   );
 
   const handleStartImport = async (settings: AppSettings) => {
-    if (importSourcePaths.length > 0 && importTargetFolder) {
+    const { targetFolder, sourcePaths } = modalsState.import;
+    if (sourcePaths && sourcePaths.length > 0 && targetFolder) {
       invoke(Invokes.ImportFiles, {
-        destinationFolder: importTargetFolder,
+        destinationFolder: targetFolder,
         settings: settings,
-        sourcePaths: importSourcePaths,
+        sourcePaths: sourcePaths,
       }).catch((err) => {
         console.error('Failed to start import:', err);
         setImportState({ status: Status.Error, errorMessage: `Failed to start import: ${err}` });
@@ -3077,9 +3014,7 @@ function App() {
         });
 
         if (Array.isArray(selected) && selected.length > 0) {
-          setImportSourcePaths(selected);
-          setImportTargetFolder(targetPath);
-          setIsImportModalOpen(true);
+          modalsCubit.openImport(targetPath, selected);
         }
       } catch (err) {
         console.error('Failed to open file dialog for import:', err);
@@ -3382,14 +3317,7 @@ function App() {
             icon: Grip,
             disabled: !isSingleSelection,
             onClick: () => {
-                setDenoiseModalState({
-                    isOpen: true,
-                    isProcessing: false,
-                    previewBase64: null,
-                    error: null,
-                    targetPath: finalSelection[0],
-                    progressMessage: null
-                });
+                modalsCubit.openDenoise(finalSelection[0]);
             }
           },
           {
@@ -3397,20 +3325,10 @@ function App() {
             icon: Images,
             label: stitchLabel,
             onClick: () => {
-              setPanoramaModalState({
-                error: null,
-                finalImageBase64: null,
-                isOpen: true,
-                progressMessage: 'Starting panorama process...',
-                stitchingSourcePaths: finalSelection,
-              });
+              modalsCubit.openPanorama(finalSelection);
+              modalsCubit.updatePanoramaProgress('Starting panorama process...');
               invoke(Invokes.StitchPanorama, { paths: finalSelection }).catch((err) => {
-                setPanoramaModalState((prev: PanoramaModalState) => ({
-                  ...prev,
-                  error: String(err),
-                  isOpen: true,
-                  progressMessage: 'Failed to start.',
-                }));
+                modalsCubit.setPanoramaError(String(err));
               });
             },
           },
@@ -3419,24 +3337,14 @@ function App() {
             label: collageLabel,
             onClick: () => {
               const imagesForCollage = imageList.filter(img => finalSelection.includes(img.path));
-              setCollageModalState({
-                isOpen: true,
-                sourceImages: imagesForCollage,
-              });
+              modalsCubit.openCollage(imagesForCollage);
             },
             disabled: selectionCount === 0 || selectionCount > 9,
           },
           {
             label: cullLabel,
             icon: Users,
-            onClick: () =>
-              setCullingModalState({
-                isOpen: true,
-                progress: null,
-                suggestions: null,
-                error: null,
-                pathsToCull: finalSelection,
-              }),
+            onClick: () => modalsCubit.openCulling(finalSelection),
             disabled: imageList.length < 2,
           },
         ],
@@ -3830,7 +3738,7 @@ function App() {
               onClearSelection={handleClearSelection}
               onContextMenu={handleThumbnailContextMenu}
               onCopy={handleCopyAdjustments}
-              onOpenCopyPasteSettings={() => setIsCopyPasteSettingsModalOpen(true)}
+              onOpenCopyPasteSettings={() => modalsCubit.openCopyPasteSettings()}
               onImageSelect={handleImageClick}
               onPaste={() => handlePasteAdjustments()}
               onRate={handleRate}
@@ -4045,7 +3953,7 @@ function App() {
               multiSelectedPaths={multiSelectedPaths}
               onCopy={handleCopyAdjustments}
               onExportClick={() => setIsLibraryExportPanelVisible((prev) => !prev)}
-              onOpenCopyPasteSettings={() => setIsCopyPasteSettingsModalOpen(true)}
+              onOpenCopyPasteSettings={() => modalsCubit.openCopyPasteSettings()}
               onPaste={() => handlePasteAdjustments()}
               onRate={handleRate}
               onReset={() => handleResetAdjustments()}
@@ -4135,59 +4043,26 @@ function App() {
         </div>
       </div>
       <CopyPasteSettingsModal
-        isOpen={isCopyPasteSettingsModalOpen}
-        onClose={() => setIsCopyPasteSettingsModalOpen(false)}
         settings={appSettings?.copyPasteSettings as CopyPasteSettings}
         onSave={(newSettings) => handleSettingsChange({ ...appSettings, copyPasteSettings: newSettings } as AppSettings)}
       />
       <PanoramaModal
-        error={panoramaModalState.error}
-        finalImageBase64={panoramaModalState.finalImageBase64}
-        isOpen={panoramaModalState.isOpen}
-        onClose={() =>
-          setPanoramaModalState({
-            isOpen: false,
-            progressMessage: '',
-            finalImageBase64: null,
-            error: null,
-            stitchingSourcePaths: [],
-          })
-        }
         onOpenFile={(path: string) => {
           handleImageSelect(path);
         }}
         onSave={handleSavePanorama}
-        progressMessage={panoramaModalState.progressMessage}
       />
       <DenoiseModal 
-        isOpen={denoiseModalState.isOpen}
-        onClose={() => setDenoiseModalState(prev => ({ ...prev, isOpen: false }))}
         onDenoise={handleApplyDenoise}
         onSave={handleSaveDenoisedImage}
         onOpenFile={handleImageSelect}
-        previewBase64={denoiseModalState.previewBase64}
-        originalBase64={denoiseModalState.originalBase64 || null}
-        isProcessing={denoiseModalState.isProcessing}
-        error={denoiseModalState.error}
-        progressMessage={denoiseModalState.progressMessage}
       />
       <CreateFolderModal onSave={handleCreateFolder} />
       <RenameFolderModal onSave={handleRenameFolder} />
       <RenameFileModal onSave={handleSaveRename} />
       <ConfirmModal />
-      <ImportSettingsModal
-        fileCount={importSourcePaths.length}
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onSave={handleStartImport}
-      />
+      <ImportSettingsModal onSave={handleStartImport} />
       <CullingModal
-        isOpen={cullingModalState.isOpen}
-        onClose={() => setCullingModalState({ isOpen: false, progress: null, suggestions: null, error: null, pathsToCull: [] })}
-        progress={cullingModalState.progress}
-        suggestions={cullingModalState.suggestions}
-        error={cullingModalState.error}
-        imagePaths={cullingModalState.pathsToCull}
         thumbnails={thumbnails}
         onApply={(action, paths) => {
           if (action === 'reject') {
@@ -4197,17 +4072,11 @@ function App() {
           } else if (action === 'delete') {
             executeDelete(paths, { includeAssociated: false });
           }
-          setCullingModalState({ isOpen: false, progress: null, suggestions: null, error: null, pathsToCull: [] });
-        }}
-        onError={(err) => {
-          setCullingModalState((prev) => ({ ...prev, error: err, progress: null }));
+          modalsCubit.closeCulling();
         }}
       />
       <CollageModal
-        isOpen={collageModalState.isOpen}
-        onClose={() => setCollageModalState({ isOpen: false, sourceImages: [] })}
         onSave={handleSaveCollage}
-        sourceImages={collageModalState.sourceImages}
         thumbnails={thumbnails}
       />
     </div>
