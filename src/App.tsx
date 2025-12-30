@@ -7,7 +7,9 @@ import { homeDir } from '@tauri-apps/api/path';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import debounce from 'lodash.debounce';
 import { ClerkProvider } from '@clerk/clerk-react';
+import { useBloc } from '@blac/react';
 import clsx from 'clsx';
+import { ModalsCubit } from './cubits';
 import {
   Aperture,
   Check,
@@ -128,15 +130,6 @@ interface CollapsibleSectionsState {
   effects: boolean;
 }
 
-interface ConfirmModalState {
-  confirmText?: string;
-  confirmVariant?: string;
-  isOpen: boolean;
-  message?: string;
-  onConfirm?(): void;
-  title?: string;
-}
-
 interface Metadata {
   adjustments: Adjustments;
   rating: number;
@@ -229,6 +222,7 @@ const getParentDir = (filePath: string): string => {
 };
 
 function App() {
+  const [modalsState, modalsCubit] = useBloc(ModalsCubit);
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
   const [activeView, setActiveView] = useState('library');
@@ -354,16 +348,15 @@ function App() {
     feather: 50,
     tool: ToolType.Brush,
   });
-  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
-  const [isRenameFolderModalOpen, setIsRenameFolderModalOpen] = useState(false);
-  const [isRenameFileModalOpen, setIsRenameFileModalOpen] = useState(false);
-  const [renameTargetPaths, setRenameTargetPaths] = useState<Array<string>>([]);
+  
+  
+  
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isCopyPasteSettingsModalOpen, setIsCopyPasteSettingsModalOpen] = useState(false);
   const [importTargetFolder, setImportTargetFolder] = useState<string | null>(null);
   const [importSourcePaths, setImportSourcePaths] = useState<Array<string>>([]);
   const [folderActionTarget, setFolderActionTarget] = useState<string | null>(null);
-  const [confirmModalState, setConfirmModalState] = useState<ConfirmModalState>({ isOpen: false });
+
   const [panoramaModalState, setPanoramaModalState] = useState<PanoramaModalState>({
     error: null,
     finalImageBase64: null,
@@ -1795,15 +1788,14 @@ function App() {
       confirmText = 'Delete Selected Only';
     }
 
-    setConfirmModalState({
+    modalsCubit.openConfirm({
+      title: modalTitle,
+      message: modalMessage,
       confirmText,
       confirmVariant: 'destructive',
-      isOpen: true,
-      message: modalMessage,
       onConfirm: () => executeDelete(pathsToDelete, { includeAssociated: false }),
-      title: modalTitle,
     });
-  }, [multiSelectedPaths, executeDelete, imageList]);
+  }, [multiSelectedPaths, executeDelete, imageList, modalsCubit]);
 
   const handleToggleFullScreen = useCallback(() => {
     if (isFullScreen) {
@@ -2049,7 +2041,7 @@ function App() {
     );
   }, [setImageList]);
 
-  const closeConfirmModal = () => setConfirmModalState({ ...confirmModalState, isOpen: false });
+
 
   const handlePasteFiles = useCallback(
     async (mode = 'copy') => {
@@ -2244,12 +2236,12 @@ function App() {
   );
 
   const isAnyModalOpen = 
-    isCreateFolderModalOpen ||
-    isRenameFolderModalOpen ||
-    isRenameFileModalOpen ||
+    modalsState.createFolder.isOpen ||
+    modalsState.renameFolder.isOpen ||
+    modalsState.renameFile.isOpen ||
     isImportModalOpen ||
     isCopyPasteSettingsModalOpen ||
-    confirmModalState.isOpen ||
+    modalsState.confirm.isOpen ||
     panoramaModalState.isOpen ||
     cullingModalState.isOpen ||
     collageModalState.isOpen;
@@ -2969,13 +2961,13 @@ function App() {
 
   const handleRenameFiles = useCallback(async (paths: Array<string>) => {
     if (paths && paths.length > 0) {
-      setRenameTargetPaths(paths);
-      setIsRenameFileModalOpen(true);
+      modalsCubit.openRenameFile(paths);
     }
-  }, []);
+  }, [modalsCubit]);
 
   const handleSaveRename = useCallback(
     async (nameTemplate: string) => {
+      const renameTargetPaths = modalsState.renameFile.paths || [];
       if (renameTargetPaths.length > 0 && nameTemplate) {
         try {
           const newPaths: Array<string> = await invoke(Invokes.RenameFiles, {
@@ -3010,10 +3002,8 @@ function App() {
           setError(`Failed to rename files: ${err}`);
         }
       }
-
-      setRenameTargetPaths([]);
     },
-    [renameTargetPaths, refreshImageList, selectedImage, libraryActivePath, handleImageSelect, handleBackToLibrary],
+    [modalsState.renameFile.paths, refreshImageList, selectedImage, libraryActivePath, handleImageSelect, handleBackToLibrary],
   );
 
   const handleStartImport = async (settings: AppSettings) => {
@@ -3529,9 +3519,10 @@ function App() {
   };
 
   const handleCreateFolder = async (folderName: string) => {
-    if (folderName && folderName.trim() !== '' && folderActionTarget) {
+    const parentPath = modalsState.createFolder.parentPath;
+    if (folderName && folderName.trim() !== '' && parentPath) {
       try {
-        await invoke(Invokes.CreateFolder, { path: `${folderActionTarget}/${folderName.trim()}` });
+        await invoke(Invokes.CreateFolder, { path: `${parentPath}/${folderName.trim()}` });
         refreshAllFolderTrees();
       } catch (err) {
         setError(`Failed to create folder: ${err}`);
@@ -3540,9 +3531,10 @@ function App() {
   };
 
   const handleRenameFolder = async (newName: string) => {
-    if (newName && newName.trim() !== '' && folderActionTarget) {
+    const folderPath = modalsState.renameFolder.path;
+    if (newName && newName.trim() !== '' && folderPath) {
       try {
-        const oldPath = folderActionTarget;
+        const oldPath = folderPath;
         const trimmedNewName = newName.trim();
 
         await invoke(Invokes.RenameFolder, { path: oldPath, newName: trimmedNewName });
@@ -3614,8 +3606,7 @@ function App() {
         icon: FolderPlus,
         label: 'New Folder',
         onClick: () => {
-          setFolderActionTarget(targetPath);
-          setIsCreateFolderModalOpen(true);
+          modalsCubit.openCreateFolder(targetPath);
         },
       },
       {
@@ -3624,7 +3615,8 @@ function App() {
         label: 'Rename Folder',
         onClick: () => {
           setFolderActionTarget(targetPath);
-          setIsRenameFolderModalOpen(true);
+          const currentName = targetPath.split(/[\\/]/).pop() || '';
+          modalsCubit.openRenameFolder(targetPath, currentName);
         },
       },
       { type: OPTION_SEPARATOR },
@@ -4179,24 +4171,10 @@ function App() {
         error={denoiseModalState.error}
         progressMessage={denoiseModalState.progressMessage}
       />
-      <CreateFolderModal
-        isOpen={isCreateFolderModalOpen}
-        onClose={() => setIsCreateFolderModalOpen(false)}
-        onSave={handleCreateFolder}
-      />
-      <RenameFolderModal
-        currentName={folderActionTarget ? folderActionTarget.split(/[\\/]/).pop() : ''}
-        isOpen={isRenameFolderModalOpen}
-        onClose={() => setIsRenameFolderModalOpen(false)}
-        onSave={handleRenameFolder}
-      />
-      <RenameFileModal
-        filesToRename={renameTargetPaths}
-        isOpen={isRenameFileModalOpen}
-        onClose={() => setIsRenameFileModalOpen(false)}
-        onSave={handleSaveRename}
-      />
-      <ConfirmModal {...confirmModalState} onClose={closeConfirmModal} />
+      <CreateFolderModal onSave={handleCreateFolder} />
+      <RenameFolderModal onSave={handleRenameFolder} />
+      <RenameFileModal onSave={handleSaveRename} />
+      <ConfirmModal />
       <ImportSettingsModal
         fileCount={importSourcePaths.length}
         isOpen={isImportModalOpen}

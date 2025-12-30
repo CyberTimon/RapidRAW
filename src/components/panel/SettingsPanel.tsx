@@ -24,6 +24,7 @@ import { open as openLink } from '@tauri-apps/plugin-shell';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from '@clerk/clerk-react';
+import { useBloc } from '@blac/react';
 import Button from '../ui/Button';
 import ConfirmModal from '../modals/ConfirmModal';
 import Dropdown, { OptionItem } from '../ui/Dropdown';
@@ -32,15 +33,7 @@ import Input from '../ui/Input';
 import Slider from '../ui/Slider';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
 import { Invokes } from '../ui/AppProperties';
-
-interface ConfirmModalState {
-  confirmText: string;
-  confirmVariant: string;
-  isOpen: boolean;
-  message: string;
-  onConfirm(): void;
-  title: string;
-}
+import { ModalsCubit } from '../../cubits';
 
 interface DataActionItemProps {
   buttonAction(): void;
@@ -278,6 +271,7 @@ export default function SettingsPanel({
   rootPath,
 }: SettingsPanelProps) {
   const { user } = useUser();
+  const [, modalsCubit] = useBloc(ModalsCubit);
   const [isClearing, setIsClearing] = useState(false);
   const [clearMessage, setClearMessage] = useState('');
   const [isClearingCache, setIsClearingCache] = useState(false);
@@ -286,14 +280,6 @@ export default function SettingsPanel({
   const [aiTagsClearMessage, setAiTagsClearMessage] = useState('');
   const [isClearingTags, setIsClearingTags] = useState(false);
   const [tagsClearMessage, setTagsClearMessage] = useState('');
-  const [confirmModalState, setConfirmModalState] = useState<ConfirmModalState>({
-    confirmText: 'Confirm',
-    confirmVariant: 'primary',
-    isOpen: false,
-    message: '',
-    onConfirm: () => {},
-    title: '',
-  });
   const [testStatus, setTestStatus] = useState<TestStatus>({ message: '', success: null, testing: false });
   const [saveStatus, setSaveStatus] = useState({ saving: false, message: '' });
   const [isConfigExpanded, setIsConfigExpanded] = useState(false);
@@ -419,14 +405,13 @@ export default function SettingsPanel({
   };
 
   const handleClearSidecars = () => {
-    setConfirmModalState({
-      confirmText: 'Delete All Edits',
-      confirmVariant: 'destructive',
-      isOpen: true,
+    modalsCubit.openConfirm({
+      title: 'Confirm Deletion',
       message:
         'Are you sure you want to delete all sidecar files?\n\nThis will permanently remove all your edits for all images inside the current base folder and its subfolders.',
+      confirmText: 'Delete All Edits',
+      confirmVariant: 'destructive',
       onConfirm: executeClearSidecars,
-      title: 'Confirm Deletion',
     });
   };
 
@@ -449,14 +434,13 @@ export default function SettingsPanel({
   };
 
   const handleClearAiTags = () => {
-    setConfirmModalState({
-      confirmText: 'Clear AI Tags',
-      confirmVariant: 'destructive',
-      isOpen: true,
+    modalsCubit.openConfirm({
+      title: 'Confirm AI Tag Deletion',
       message:
         'Are you sure you want to remove all AI-generated tags from all images in the current base folder?\n\nThis will not affect user-added tags. This action cannot be undone.',
+      confirmText: 'Clear AI Tags',
+      confirmVariant: 'destructive',
       onConfirm: executeClearAiTags,
-      title: 'Confirm AI Tag Deletion',
     });
   };
 
@@ -479,14 +463,13 @@ export default function SettingsPanel({
   };
 
   const handleClearTags = () => {
-    setConfirmModalState({
-      confirmText: 'Clear All Tags',
-      confirmVariant: 'destructive',
-      isOpen: true,
+    modalsCubit.openConfirm({
+      title: 'Confirm All Tag Deletion',
       message:
         'Are you sure you want to remove all AI-generated and user-added tags from all images in the current base folder?\n\nThis action cannot be undone.',
+      confirmText: 'Clear All Tags',
+      confirmVariant: 'destructive',
       onConfirm: executeClearTags,
-      title: 'Confirm All Tag Deletion',
     });
   };
 
@@ -501,15 +484,13 @@ export default function SettingsPanel({
   };
 
   const handleSetTransparent = (transparent: boolean) => {
-    setConfirmModalState({
-      confirmText: 'Toggle Transparency',
-      confirmVariant: 'primary',
-      isOpen: true,
+    modalsCubit.openConfirm({
+      title: 'Confirm Window Transparency',
       message: `Are you sure you want to ${transparent ? 'enable' : 'disable'} window transparency effects?\n\n${
         transparent ? 'These effects may reduce application performance.' : ''
       }\n\nThe application will relaunch to make this change.`,
+      confirmText: 'Toggle Transparency',
       onConfirm: () => executeSetTransparent(transparent),
-      title: 'Confirm Window Transparency',
     });
   };
 
@@ -532,14 +513,13 @@ export default function SettingsPanel({
   };
 
   const handleClearCache = () => {
-    setConfirmModalState({
-      confirmText: 'Clear Cache',
-      confirmVariant: 'destructive',
-      isOpen: true,
+    modalsCubit.openConfirm({
+      title: 'Confirm Cache Deletion',
       message:
         'Are you sure you want to clear the thumbnail cache?\n\nAll thumbnails will need to be regenerated, which may be slow for large folders.',
+      confirmText: 'Clear Cache',
+      confirmVariant: 'destructive',
       onConfirm: executeClearCache,
-      title: 'Confirm Cache Deletion',
     });
   };
 
@@ -557,10 +537,6 @@ export default function SettingsPanel({
     } finally {
       setTimeout(() => setTestStatus({ testing: false, message: '', success: null }), EXECUTE_TIMEOUT);
     }
-  };
-
-  const closeConfirmModal = () => {
-    setConfirmModalState({ ...confirmModalState, isOpen: false });
   };
 
   const handleAddShortcut = () => {
@@ -588,7 +564,7 @@ export default function SettingsPanel({
 
   return (
     <>
-      <ConfirmModal {...confirmModalState} onClose={closeConfirmModal} />
+      <ConfirmModal />
       <div className="flex flex-col h-full w-full text-text-primary">
         <header className="flex-shrink-0 flex flex-wrap items-center justify-between gap-y-4 mb-8 pt-4">
           <div className="flex items-center flex-shrink-0">

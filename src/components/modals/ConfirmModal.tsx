@@ -1,27 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useBloc } from '@blac/react';
 import Button from '../ui/Button';
+import { ModalsCubit } from '../../cubits';
 
-interface ConfirmModalProps {
-  cancelText?: string;
-  confirmText?: string;
-  confirmVariant?: string;
-  isOpen: boolean;
-  message?: string;
-  onClose(): void;
-  onConfirm?(): void;
-  title?: string;
-}
+export default function ConfirmModal() {
+  const [modals, modalsCubit] = useBloc(ModalsCubit);
+  const { isOpen, title, message, confirmText = 'Confirm', confirmVariant = 'default', onConfirm } = modals.confirm;
+  const cancelText = 'Cancel';
 
-export default function ConfirmModal({
-  cancelText = 'Cancel',
-  confirmText = 'Confirm',
-  confirmVariant = 'primary',
-  isOpen,
-  message,
-  onClose,
-  onConfirm,
-  title,
-}: ConfirmModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
 
@@ -41,12 +27,16 @@ export default function ConfirmModal({
     }
   }, [isOpen]);
 
+  const handleClose = useCallback(() => {
+    modalsCubit.closeConfirm();
+  }, [modalsCubit]);
+
   const handleConfirm = useCallback(() => {
     if (onConfirm) {
       onConfirm();
     }
-    onClose();
-  }, [onConfirm, onClose]);
+    handleClose();
+  }, [onConfirm, handleClose]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -59,10 +49,10 @@ export default function ConfirmModal({
         e.preventDefault();
         e.stopPropagation();
         e.nativeEvent.stopImmediatePropagation();
-        onClose();
+        handleClose();
       }
     },
-    [handleConfirm, onClose],
+    [handleConfirm, handleClose],
   );
 
   if (!isMounted) {
@@ -79,7 +69,7 @@ export default function ConfirmModal({
         transition-opacity duration-300 ease-in-out
         ${show ? 'opacity-100' : 'opacity-0'}
       `}
-      onClick={onClose}
+      onClick={handleClose}
       role="dialog"
     >
       <div
@@ -98,9 +88,8 @@ export default function ConfirmModal({
         <div className="flex justify-end gap-3 mt-5">
           <Button
             className="bg-bg-primary shadow-transparent hover:bg-bg-primary text-white shadow-none focus:outline-none focus:ring-0"
-            onClick={onClose}
-            variant="ghost"
-            tabIndex={0}
+      onClick={handleClose}
+      variant="ghost"
           >
             {cancelText}
           </Button>

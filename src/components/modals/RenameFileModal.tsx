@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useBloc } from '@blac/react';
+import { ModalsCubit } from '../../cubits';
 import { FILENAME_VARIABLES } from '../panel/right/ExportImportProperties';
 
 interface RenameFileModalProps {
-  filesToRename: Array<string>;
-  isOpen: boolean;
-  onClose(): void;
   onSave(template: any): void;
 }
 
-export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave }: RenameFileModalProps) {
+export default function RenameFileModal({ onSave }: RenameFileModalProps) {
+  const [modals, modalsCubit] = useBloc(ModalsCubit);
+  const { isOpen, paths: filesToRename = [] } = modals.renameFile;
   const [nameTemplate, setNameTemplate] = useState('');
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
@@ -16,6 +17,10 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
 
   const fileCount = filesToRename.length;
   const isSingleFile = fileCount === 1;
+
+  const handleClose = useCallback(() => {
+    modalsCubit.closeRenameFile();
+  }, [modalsCubit]);
 
   useEffect(() => {
     if (isOpen) {
@@ -49,8 +54,8 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
       }
       onSave(finalTemplate);
     }
-    onClose();
-  }, [nameTemplate, onSave, onClose, isSingleFile]);
+    handleClose();
+  }, [nameTemplate, onSave, handleClose, isSingleFile]);
 
   const handleKeyDown = useCallback(
     (e: any) => {
@@ -58,10 +63,10 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
         e.preventDefault();
         handleSave();
       } else if (e.key === 'Escape') {
-        onClose();
+        handleClose();
       }
     },
-    [handleSave, onClose],
+    [handleSave, handleClose],
   );
 
   const handleVariableClick = (variable: string) => {
@@ -91,7 +96,7 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
       className={`fixed inset-0 flex items-center justify-center z-50 bg-black/30 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
         show ? 'opacity-100' : 'opacity-0'
       }`}
-      onClick={onClose}
+      onClick={handleClose}
       role="dialog"
     >
       <div
@@ -137,7 +142,7 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
         <div className="flex justify-end gap-3 mt-8">
           <button
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors"
-            onClick={onClose}
+            onClick={handleClose}
           >
             Cancel
           </button>

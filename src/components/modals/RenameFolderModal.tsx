@@ -1,16 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useBloc } from '@blac/react';
+import { ModalsCubit } from '../../cubits';
 
 interface RenameFolderProps {
-  currentName?: string;
-  isOpen: boolean;
-  onClose(): void;
   onSave(name: string): void;
 }
 
-export default function RenameFolderModal({ isOpen, onClose, onSave, currentName }: RenameFolderProps) {
+export default function RenameFolderModal({ onSave }: RenameFolderProps) {
+  const [modals, modalsCubit] = useBloc(ModalsCubit);
+  const { isOpen, currentName } = modals.renameFolder;
   const [name, setName] = useState('');
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
+
+  const handleClose = useCallback(() => {
+    modalsCubit.closeRenameFolder();
+  }, [modalsCubit]);
 
   useEffect(() => {
     if (isOpen) {
@@ -32,18 +37,18 @@ export default function RenameFolderModal({ isOpen, onClose, onSave, currentName
     if (name.trim() && name.trim() !== currentName) {
       onSave(name.trim());
     }
-    onClose();
-  }, [name, currentName, onSave, onClose]);
+    handleClose();
+  }, [name, currentName, onSave, handleClose]);
 
   const handleKeyDown = useCallback(
     (e: any) => {
       if (e.key === 'Enter') {
         handleSave();
       } else if (e.key === 'Escape') {
-        onClose();
+        handleClose();
       }
     },
-    [handleSave, onClose],
+    [handleSave, handleClose],
   );
 
   if (!isMounted) {
@@ -59,7 +64,7 @@ export default function RenameFolderModal({ isOpen, onClose, onSave, currentName
         transition-opacity duration-300 ease-in-out
         ${show ? 'opacity-100' : 'opacity-0'}
       `}
-      onClick={onClose}
+      onClick={handleClose}
       role="dialog"
     >
       <div
@@ -83,7 +88,7 @@ export default function RenameFolderModal({ isOpen, onClose, onSave, currentName
         <div className="flex justify-end gap-3 mt-5">
           <button
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors"
-            onClick={onClose}
+            onClick={handleClose}
           >
             Cancel
           </button>

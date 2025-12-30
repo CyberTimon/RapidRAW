@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useBloc } from '@blac/react';
+import { ModalsCubit } from '../../cubits';
 
-interface FolderModalProps {
-  isOpen: boolean;
-  onClose(): void;
+interface CreateFolderModalProps {
   onSave(name: string): void;
 }
 
-export default function CreateFolderModal({ isOpen, onClose, onSave }: FolderModalProps) {
+export default function CreateFolderModal({ onSave }: CreateFolderModalProps) {
+  const [modals, modalsCubit] = useBloc(ModalsCubit);
+  const { isOpen } = modals.createFolder;
   const [name, setName] = useState('');
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
@@ -26,22 +28,26 @@ export default function CreateFolderModal({ isOpen, onClose, onSave }: FolderMod
     }
   }, [isOpen]);
 
+  const handleClose = useCallback(() => {
+    modalsCubit.closeCreateFolder();
+  }, [modalsCubit]);
+
   const handleSave = useCallback(() => {
     if (name.trim()) {
       onSave(name.trim());
     }
-    onClose();
-  }, [name, onSave, onClose]);
+    handleClose();
+  }, [name, onSave, handleClose]);
 
   const handleKeyDown = useCallback(
     (e: any) => {
       if (e.key === 'Enter') {
         handleSave();
       } else if (e.key === 'Escape') {
-        onClose();
+        handleClose();
       }
     },
-    [handleSave, onClose],
+    [handleSave, handleClose],
   );
 
   if (!isMounted) {
@@ -57,7 +63,7 @@ export default function CreateFolderModal({ isOpen, onClose, onSave }: FolderMod
         transition-opacity duration-300 ease-in-out
         ${show ? 'opacity-100' : 'opacity-0'}
       `}
-      onClick={onClose}
+      onClick={handleClose}
       role="dialog"
     >
       <div
@@ -81,7 +87,7 @@ export default function CreateFolderModal({ isOpen, onClose, onSave }: FolderMod
         <div className="flex justify-end gap-3 mt-5">
           <button
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors"
-            onClick={onClose}
+            onClick={handleClose}
           >
             Cancel
           </button>
