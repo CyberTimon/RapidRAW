@@ -168,13 +168,9 @@ export default function DenoiseModal({
   onOpenFile,
 }: DenoiseModalProps) {
   const [modals, modalsCubit] = useBloc(ModalsCubit);
-  const { isOpen, isProcessing, previewBase64, originalBase64, error, progressMessage } = modals.denoise;
+  const { isOpen, isProcessing, previewBase64, originalBase64, error, progressMessage, isSaving, savedPath, intensity } = modals.denoise;
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
-  // Initializing at 50 (0-100 range) instead of 0.5 so the Slider displays integer percentages
-  const [intensity, setIntensity] = useState<number>(50);
-  const [isSaving, setIsSaving] = useState(false);
-  const [savedPath, setSavedPath] = useState<string | null>(null);
   
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
@@ -187,8 +183,6 @@ export default function DenoiseModal({
       setShow(false);
       const timer = setTimeout(() => {
         setIsMounted(false);
-        setSavedPath(null);
-        setIsSaving(false);
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -211,20 +205,19 @@ export default function DenoiseModal({
   };
 
   const handleRunDenoise = () => {
-    setSavedPath(null);
+    modalsCubit.updateDenoiseState({ savedPath: null });
     // Convert 0-100 back to 0-1 for the processing function
     onDenoise(intensity / 100);
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
+    modalsCubit.setDenoiseSaving(true);
     try {
       const path = await onSave();
-      setSavedPath(path);
+      modalsCubit.setDenoiseSavedPath(path);
     } catch (e) {
       console.error(e);
-    } finally {
-      setIsSaving(false);
+      modalsCubit.setDenoiseSaving(false);
     }
   };
 
@@ -316,7 +309,7 @@ export default function DenoiseModal({
                 max={100}
                 step={1}
                 defaultValue={50}
-                onChange={(e) => setIntensity(Number(e.target.value))}
+                onChange={(e) => modalsCubit.setDenoiseIntensity(Number(e.target.value))}
                 trackClassName="bg-bg-secondary"
             />
         </div>

@@ -1,5 +1,5 @@
 import { Cubit } from '@blac/core';
-import { ImageFile, CullingSuggestions } from '../components/ui/AppProperties';
+import { ImageFile, CullingSuggestions, CullingSettings } from '../components/ui/AppProperties';
 
 export interface ConfirmModalState {
   isOpen: boolean;
@@ -38,6 +38,8 @@ export interface PanoramaModalState {
   progressMessage: string | null;
   finalImageBase64: string | null;
   error: string | null;
+  isSaving: boolean;
+  savedPath: string | null;
 }
 
 export interface DenoiseModalState {
@@ -48,7 +50,12 @@ export interface DenoiseModalState {
   originalBase64: string | null;
   progressMessage: string | null;
   error: string | null;
+  isSaving: boolean;
+  savedPath: string | null;
+  intensity: number;
 }
+
+export type CullAction = 'reject' | 'rate_zero' | 'delete';
 
 export interface CullingModalState {
   isOpen: boolean;
@@ -56,11 +63,19 @@ export interface CullingModalState {
   suggestions: CullingSuggestions | null;
   progress: { current: number; total: number; stage: string } | null;
   error: string | null;
+  settings: CullingSettings;
+  selectedRejects: string[];
+  action: CullAction;
+  activeTab: 'similar' | 'blurry';
 }
 
 export interface CollageModalState {
   isOpen: boolean;
   sourceImages: ImageFile[];
+  isLoading: boolean;
+  isSaving: boolean;
+  savedPath: string | null;
+  error: string | null;
 }
 
 export interface CopyPasteSettingsModalState {
@@ -113,6 +128,8 @@ const defaultModalsState: ModalsState = {
     progressMessage: null,
     finalImageBase64: null,
     error: null,
+    isSaving: false,
+    savedPath: null,
   },
   denoise: {
     isOpen: false,
@@ -122,6 +139,9 @@ const defaultModalsState: ModalsState = {
     originalBase64: null,
     progressMessage: null,
     error: null,
+    isSaving: false,
+    savedPath: null,
+    intensity: 50,
   },
   culling: {
     isOpen: false,
@@ -129,10 +149,23 @@ const defaultModalsState: ModalsState = {
     suggestions: null,
     progress: null,
     error: null,
+    settings: {
+      groupSimilar: true,
+      similarityThreshold: 28,
+      filterBlurry: true,
+      blurThreshold: 100.0,
+    },
+    selectedRejects: [],
+    action: 'reject' as CullAction,
+    activeTab: 'similar' as const,
   },
   collage: {
     isOpen: false,
     sourceImages: [],
+    isLoading: true,
+    isSaving: false,
+    savedPath: null,
+    error: null,
   },
   copyPasteSettings: {
     isOpen: false,
@@ -213,6 +246,8 @@ export class ModalsCubit extends Cubit<ModalsState> {
         progressMessage: null,
         finalImageBase64: null,
         error: null,
+        isSaving: false,
+        savedPath: null,
       },
     });
   };
@@ -246,6 +281,20 @@ export class ModalsCubit extends Cubit<ModalsState> {
     }));
   };
 
+  setPanoramaSaving = (isSaving: boolean) => {
+    this.update((state) => ({
+      ...state,
+      panorama: { ...state.panorama, isSaving },
+    }));
+  };
+
+  setPanoramaSavedPath = (savedPath: string) => {
+    this.update((state) => ({
+      ...state,
+      panorama: { ...state.panorama, savedPath, isSaving: false },
+    }));
+  };
+
   closePanorama = () => {
     this.patch({ panorama: { ...defaultModalsState.panorama } });
   };
@@ -261,6 +310,9 @@ export class ModalsCubit extends Cubit<ModalsState> {
         originalBase64: null,
         progressMessage: null,
         error: null,
+        isSaving: false,
+        savedPath: null,
+        intensity: 50,
       },
     });
   };
@@ -269,6 +321,27 @@ export class ModalsCubit extends Cubit<ModalsState> {
     this.update((state) => ({
       ...state,
       denoise: { ...state.denoise, ...updates },
+    }));
+  };
+
+  setDenoiseIntensity = (intensity: number) => {
+    this.update((state) => ({
+      ...state,
+      denoise: { ...state.denoise, intensity },
+    }));
+  };
+
+  setDenoiseSaving = (isSaving: boolean) => {
+    this.update((state) => ({
+      ...state,
+      denoise: { ...state.denoise, isSaving },
+    }));
+  };
+
+  setDenoiseSavedPath = (savedPath: string) => {
+    this.update((state) => ({
+      ...state,
+      denoise: { ...state.denoise, savedPath, isSaving: false },
     }));
   };
 
@@ -285,6 +358,15 @@ export class ModalsCubit extends Cubit<ModalsState> {
         suggestions: null,
         progress: null,
         error: null,
+        settings: {
+          groupSimilar: true,
+          similarityThreshold: 28,
+          filterBlurry: true,
+          blurThreshold: 100.0,
+        },
+        selectedRejects: [],
+        action: 'reject' as CullAction,
+        activeTab: 'similar' as const,
       },
     });
   };
@@ -321,13 +403,101 @@ export class ModalsCubit extends Cubit<ModalsState> {
     }));
   };
 
+  setCullingSettings = (settings: CullingSettings) => {
+    this.update((state) => ({
+      ...state,
+      culling: { ...state.culling, settings },
+    }));
+  };
+
+  updateCullingSettings = (updates: Partial<CullingSettings>) => {
+    this.update((state) => ({
+      ...state,
+      culling: {
+        ...state.culling,
+        settings: { ...state.culling.settings, ...updates },
+      },
+    }));
+  };
+
+  setCullingSelectedRejects = (selectedRejects: string[]) => {
+    this.update((state) => ({
+      ...state,
+      culling: { ...state.culling, selectedRejects },
+    }));
+  };
+
+  toggleCullingReject = (path: string) => {
+    this.update((state) => {
+      const currentSelected = state.culling.selectedRejects;
+      const newSelected = currentSelected.includes(path)
+        ? currentSelected.filter((p) => p !== path)
+        : [...currentSelected, path];
+      return {
+        ...state,
+        culling: { ...state.culling, selectedRejects: newSelected },
+      };
+    });
+  };
+
+  setCullingAction = (action: CullAction) => {
+    this.update((state) => ({
+      ...state,
+      culling: { ...state.culling, action },
+    }));
+  };
+
+  setCullingActiveTab = (activeTab: 'similar' | 'blurry') => {
+    this.update((state) => ({
+      ...state,
+      culling: { ...state.culling, activeTab },
+    }));
+  };
+
   closeCulling = () => {
     this.patch({ culling: { ...defaultModalsState.culling } });
   };
 
   // Collage Modal
   openCollage = (images: ImageFile[]) => {
-    this.patch({ collage: { isOpen: true, sourceImages: images } });
+    this.patch({
+      collage: {
+        isOpen: true,
+        sourceImages: images,
+        isLoading: true,
+        isSaving: false,
+        savedPath: null,
+        error: null,
+      },
+    });
+  };
+
+  setCollageLoading = (isLoading: boolean) => {
+    this.update((state) => ({
+      ...state,
+      collage: { ...state.collage, isLoading },
+    }));
+  };
+
+  setCollageSaving = (isSaving: boolean) => {
+    this.update((state) => ({
+      ...state,
+      collage: { ...state.collage, isSaving },
+    }));
+  };
+
+  setCollageSavedPath = (savedPath: string) => {
+    this.update((state) => ({
+      ...state,
+      collage: { ...state.collage, savedPath, isSaving: false },
+    }));
+  };
+
+  setCollageError = (error: string) => {
+    this.update((state) => ({
+      ...state,
+      collage: { ...state.collage, error, isLoading: false, isSaving: false },
+    }));
   };
 
   closeCollage = () => {

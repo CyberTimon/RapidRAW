@@ -136,16 +136,11 @@ const INITIAL_BORDER_RADIUS = 8;
 
 export default function CollageModal({ onSave, thumbnails }: CollageModalProps) {
   const [modals, modalsCubit] = useBloc(ModalsCubit);
-  const { isOpen, sourceImages } = modals.collage;
+  const { isOpen, sourceImages, isLoading, isSaving, savedPath, error } = modals.collage;
 
   const onClose = useCallback(() => modalsCubit.closeCollage(), [modalsCubit]);
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [savedPath, setSavedPath] = useState<string | null>(null);
 
   const [availableLayouts, setAvailableLayouts] = useState<LayoutDefinition[]>([]);
   const [activeLayout, setActiveLayout] = useState<Layout | null>(null);
@@ -185,10 +180,6 @@ export default function CollageModal({ onSave, thumbnails }: CollageModalProps) 
       setShow(false);
       const timer = setTimeout(() => {
         setIsMounted(false);
-        setIsLoading(true);
-        setIsSaving(false);
-        setError(null);
-        setSavedPath(null);
         setLoadedImages([]);
         setImageStates({});
         imageElementsRef.current = {};
@@ -208,8 +199,7 @@ export default function CollageModal({ onSave, thumbnails }: CollageModalProps) 
     if (!isOpen || sourceImages.length === 0) return;
 
     const loadImages = async () => {
-      setIsLoading(true);
-      setError(null);
+      modalsCubit.setCollageLoading(true);
       try {
         const imagePromises = sourceImages.map(async (imageFile) => {
           const metadata: any = await invoke(Invokes.LoadMetadata, { path: imageFile.path });
@@ -217,7 +207,7 @@ export default function CollageModal({ onSave, thumbnails }: CollageModalProps) 
           
           const imageData: Uint8Array = await invoke(Invokes.GeneratePreviewForPath, { path: imageFile.path, jsAdjustments: adjustments });
           
-          const blob = new Blob([imageData], { type: 'image/jpeg' });
+          const blob = new Blob([new Uint8Array(imageData)], { type: 'image/jpeg' });
           const url = URL.createObjectURL(blob);
           
           return new Promise<LoadedImage>((resolve, reject) => {
@@ -239,12 +229,11 @@ export default function CollageModal({ onSave, thumbnails }: CollageModalProps) 
           initialStates[img.path] = { offsetX: 0, offsetY: 0 };
         });
         setImageStates(initialStates);
+        modalsCubit.setCollageLoading(false);
 
       } catch (err: any) {
         console.error("Failed to load images for collage:", err);
-        setError(err.message || 'Could not load one or more images.');
-      } finally {
-        setIsLoading(false);
+        modalsCubit.setCollageError(err.message || 'Could not load one or more images.');
       }
     };
 
@@ -254,7 +243,7 @@ export default function CollageModal({ onSave, thumbnails }: CollageModalProps) 
       clearTimeout(timerId);
       Object.values(imageElementsRef.current).forEach(img => URL.revokeObjectURL(img.src));
     };
-  }, [isOpen, sourceImages]);
+  }, [isOpen, sourceImages, modalsCubit]);
 
   useEffect(() => {
     if (loadedImages.length > 0) {
@@ -437,19 +426,16 @@ export default function CollageModal({ onSave, thumbnails }: CollageModalProps) 
 
   const handleSave = async () => {
     if (isSaving || !activeLayout) return;
-    setIsSaving(true);
-    setError(null);
+    modalsCubit.setCollageSaving(true);
     try {
       const offscreenCanvas = document.createElement('canvas');
       drawCanvas(offscreenCanvas, true);
       const base64Data = offscreenCanvas.toDataURL('image/png');
       const path = await onSave(base64Data, sourceImages[0].path);
-      setSavedPath(path);
+      modalsCubit.setCollageSavedPath(path);
     } catch (err: any) {
       console.error("Failed to save collage:", err);
-      setError(err.message || 'Could not save the collage.');
-    } finally {
-      setIsSaving(false);
+      modalsCubit.setCollageError(err.message || 'Could not save the collage.');
     }
   };
 

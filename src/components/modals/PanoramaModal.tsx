@@ -14,9 +14,7 @@ export default function PanoramaModal({
   onSave,
 }: PanoramaModalProps) {
   const [modals, modalsCubit] = useBloc(ModalsCubit);
-  const { isOpen, error, finalImageBase64, progressMessage } = modals.panorama;
-  const [isSaving, setIsSaving] = useState(false);
-  const [savedPath, setSavedPath] = useState<string | null>(null);
+  const { isOpen, error, finalImageBase64, progressMessage, isSaving, savedPath } = modals.panorama;
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
 
@@ -29,8 +27,6 @@ export default function PanoramaModal({
       setShow(false);
       const timer = setTimeout(() => {
         setIsMounted(false);
-        setIsSaving(false);
-        setSavedPath(null);
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -44,14 +40,12 @@ export default function PanoramaModal({
   }, [modalsCubit, isSaving]);
 
   const handleSave = async () => {
-    setIsSaving(true);
+    modalsCubit.setPanoramaSaving(true);
     try {
       const path = await onSave();
-      setSavedPath(path);
+      modalsCubit.setPanoramaSavedPath(path);
     } catch (e) {
-      // Error handling can be added here if needed
-    } finally {
-      setIsSaving(false);
+      // Error is handled by the cubit via setPanoramaError
     }
   };
 

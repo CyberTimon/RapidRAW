@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { CheckCircle, XCircle, Loader2, Users, Trash2, Star, Tag } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useBloc } from '@blac/react';
-import { ModalsCubit } from '../../cubits';
+import { ModalsCubit, CullAction } from '../../cubits';
 import { CullingSettings, Invokes } from '../ui/AppProperties';
 import Button from '../ui/Button';
 import Switch from '../ui/Switch';
@@ -14,8 +14,6 @@ interface CullingModalProps {
   thumbnails: Record<string, string>;
   onApply(action: 'reject' | 'rate_zero' | 'delete', paths: string[]): void;
 }
-
-type CullAction = 'reject' | 'rate_zero' | 'delete';
 
 const CULL_ACTIONS = [
   { value: 'reject', label: 'Mark as Rejected (Red Label)', icon: <Tag size={16} className="text-red-500" /> },
@@ -55,24 +53,15 @@ export default function CullingModal({
   onApply,
 }: CullingModalProps) {
   const [modals, modalsCubit] = useBloc(ModalsCubit);
-  const { isOpen, pathsToCull: imagePaths, suggestions, progress, error } = modals.culling;
+  const { isOpen, pathsToCull: imagePaths, suggestions, progress, error, settings, selectedRejects, action, activeTab } = modals.culling;
 
   const onClose = useCallback(() => modalsCubit.closeCulling(), [modalsCubit]);
   const onError = useCallback((err: string) => modalsCubit.setCullingError(err), [modalsCubit]);
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
-  const [stage, setStage] = useState<'settings' | 'progress' | 'results'>('settings');
 
-  const [settings, setSettings] = useState<CullingSettings>({
-    groupSimilar: true,
-    similarityThreshold: 28,
-    filterBlurry: true,
-    blurThreshold: 100.0,
-  });
-
-  const [selectedRejects, setSelectedRejects] = useState<Set<string>>(new Set());
-  const [action, setAction] = useState<CullAction>('reject');
-  const [activeTab, setActiveTab] = useState<'similar' | 'blurry'>('similar');
+  // Derive stage from cubit state
+  const stage: 'settings' | 'progress' | 'results' = suggestions || error ? 'results' : progress ? 'progress' : 'settings';
 
   useEffect(() => {
     if (isOpen) {
@@ -83,33 +72,22 @@ export default function CullingModal({
       setShow(false);
       const timer = setTimeout(() => {
         setIsMounted(false);
-        setStage('settings');
-        setSelectedRejects(new Set());
       }, 300);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
+  // Auto-select rejects when suggestions are received
   useEffect(() => {
-    if (suggestions || error) {
-      setStage('results');
-    } else if (progress) {
-      setStage('progress');
-    } else if (isOpen) {
-      setStage('settings');
-    }
-  }, [progress, suggestions, error, isOpen]);
-
-  useEffect(() => {
-    if (stage === 'results' && suggestions) {
-      const initialRejects = new Set<string>();
+    if (stage === 'results' && suggestions && selectedRejects.length === 0) {
+      const initialRejects: string[] = [];
       suggestions.similarGroups.forEach((group) => {
-        group.duplicates.forEach((dup) => initialRejects.add(dup.path));
+        group.duplicates.forEach((dup) => initialRejects.push(dup.path));
       });
-      suggestions.blurryImages.forEach((img) => initialRejects.add(img.path));
-      setSelectedRejects(initialRejects);
+      suggestions.blurryImages.forEach((img) => initialRejects.push(img.path));
+      modalsCubit.setCullingSelectedRejects(initialRejects);
     }
-  }, [stage, suggestions]);
+  }, [stage, suggestions, selectedRejects.length, modalsCubit]);
 
   const handleStartCulling = useCallback(async () => {
     try {
@@ -121,19 +99,11 @@ export default function CullingModal({
   }, [imagePaths, settings, onError]);
 
   const handleToggleReject = (path: string) => {
-    setSelectedRejects((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(path)) {
-        newSet.delete(path);
-      } else {
-        newSet.add(path);
-      }
-      return newSet;
-    });
+    modalsCubit.toggleCullingReject(path);
   };
 
   const handleApply = () => {
-    onApply(action, Array.from(selectedRejects));
+    onApply(action, selectedRejects);
   };
 
   const numSimilar = suggestions?.similarGroups.reduce((acc, group) => acc + group.duplicates.length, 0) || 0;
@@ -147,7 +117,7 @@ export default function CullingModal({
       <h3 className="text-lg font-semibold text-text-primary mb-6 text-center">Cull Images</h3>
       <div className="space-y-6 text-sm">
         <div>
-          <Switch label="Group Similar Images" checked={settings.groupSimilar} onChange={(v) => setSettings((s) => ({ ...s, groupSimilar: v }))} />
+          <Switch label="Group Similar Images" checked={settings.groupSimilar} onChange={(v) => modalsCubit.updateCullingSettings({ groupSimilar: v })} />
           {settings.groupSimilar && (
             <div className="mt-3 pl-6">
               <Slider
@@ -158,7 +128,7 @@ export default function CullingModal({
                 value={settings.similarityThreshold}
                 defaultValue={28}
                 onChange={(e) =>
-                  setSettings((s) => ({ ...s, similarityThreshold: Number(e.target.value) }))
+                  modalsCubit.updateCullingSettings({ similarityThreshold: Number(e.target.value) })
                 }
               />
               <p className="text-xs text-text-secondary mt-1">
@@ -168,7 +138,7 @@ export default function CullingModal({
           )}
         </div>
         <div>
-          <Switch label="Filter Blurry Images" checked={settings.filterBlurry} onChange={(v) => setSettings((s) => ({ ...s, filterBlurry: v }))} />
+          <Switch label="Filter Blurry Images" checked={settings.filterBlurry} onChange={(v) => modalsCubit.updateCullingSettings({ filterBlurry: v })} />
           {settings.filterBlurry && (
             <div className="mt-3 pl-6">
               <Slider
@@ -179,7 +149,7 @@ export default function CullingModal({
                 value={settings.blurThreshold}
                 defaultValue={100.0}
                 onChange={(e) =>
-                  setSettings((s) => ({ ...s, blurThreshold: Number(e.target.value) }))
+                  modalsCubit.updateCullingSettings({ blurThreshold: Number(e.target.value) })
                 }
               />
               <p className="text-xs text-text-secondary mt-1">
@@ -245,7 +215,7 @@ export default function CullingModal({
           <nav className="-mb-px flex space-x-4" aria-label="Tabs">
             {numSimilar > 0 && (
               <button
-                onClick={() => setActiveTab('similar')}
+                onClick={() => modalsCubit.setCullingActiveTab('similar')}
                 className={`${
                   activeTab === 'similar'
                     ? 'border-accent text-accent'
@@ -257,7 +227,7 @@ export default function CullingModal({
             )}
             {numBlurry > 0 && (
               <button
-                onClick={() => setActiveTab('blurry')}
+                onClick={() => modalsCubit.setCullingActiveTab('blurry')}
                 className={`${
                   activeTab === 'blurry'
                     ? 'border-accent text-accent'
@@ -302,7 +272,7 @@ export default function CullingModal({
                                 key={dup.path}
                                 path={dup.path}
                                 thumbnails={thumbnails}
-                                isSelected={selectedRejects.has(dup.path)}
+                                isSelected={selectedRejects.includes(dup.path)}
                                 onToggle={() => handleToggleReject(dup.path)}
                               >
                                 Score: {dup.qualityScore.toFixed(2)}
@@ -322,7 +292,7 @@ export default function CullingModal({
                       key={img.path}
                       path={img.path}
                       thumbnails={thumbnails}
-                      isSelected={selectedRejects.has(img.path)}
+                      isSelected={selectedRejects.includes(img.path)}
                       onToggle={() => handleToggleReject(img.path)}
                     >
                       Sharpness: {img.sharpnessMetric.toFixed(0)}
@@ -339,14 +309,14 @@ export default function CullingModal({
             <Dropdown
               options={CULL_ACTIONS.map(({ value, label }) => ({ value, label }))}
               value={action}
-              onChange={(newValue: CullAction) => setAction(newValue)}
+              onChange={(newValue: CullAction) => modalsCubit.setCullingAction(newValue)}
               className="w-full"
             />
           </div>
           <div className="flex gap-3">
             <button className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors" onClick={onClose}>Cancel</button>
-            <Button onClick={handleApply} disabled={selectedRejects.size === 0}>
-              Apply to {selectedRejects.size} image{selectedRejects.size !== 1 && 's'}
+            <Button onClick={handleApply} disabled={selectedRejects.length === 0}>
+              Apply to {selectedRejects.length} image{selectedRejects.length !== 1 && 's'}
             </Button>
           </div>
         </div>

@@ -543,3 +543,78 @@ function ConfirmModal() {
 1. Begin EditorCubit integration into Editor component
 2. MasksCubit integration for MasksPanel
 3. Consider deleting `useThumbnails` hook (it now just triggers generation, thumbnails stored in cubit)
+
+### Session 7 - 2024-12-30
+
+**Started**: Phase 4 - Making Cubits the Single Source of Truth for Complex Modals
+
+**Goal**: Ensure that `ModalsCubit` is the only source of truth for complex modal state. Previously, the complex modals were using `useBloc(ModalsCubit)` but still had local `useState` for things like `isSaving`, `savedPath`, `settings`, etc.
+
+**Updated ModalsCubit** with additional state fields:
+
+1. **PanoramaModalState**:
+   - Added `isSaving: boolean`
+   - Added `savedPath: string | null`
+   - Added methods: `setPanoramaSaving()`, `setPanoramaSavedPath()`
+
+2. **DenoiseModalState**:
+   - Added `isSaving: boolean`
+   - Added `savedPath: string | null`
+   - Added `intensity: number`
+   - Added methods: `setDenoiseIntensity()`, `setDenoiseSaving()`, `setDenoiseSavedPath()`
+
+3. **CullingModalState**:
+   - Added `settings: CullingSettings`
+   - Added `selectedRejects: string[]`
+   - Added `action: CullAction`
+   - Added `activeTab: 'similar' | 'blurry'`
+   - Added methods: `setCullingSettings()`, `updateCullingSettings()`, `setCullingSelectedRejects()`, `toggleCullingReject()`, `setCullingAction()`, `setCullingActiveTab()`
+   - Note: `stage` is now derived from cubit state (suggestions/error/progress) rather than stored
+
+4. **CollageModalState**:
+   - Added `isLoading: boolean`
+   - Added `isSaving: boolean`
+   - Added `savedPath: string | null`
+   - Added `error: string | null`
+   - Added methods: `setCollageLoading()`, `setCollageSaving()`, `setCollageSavedPath()`, `setCollageError()`
+
+**Updated Complex Modal Components**:
+
+1. **PanoramaModal.tsx**:
+   - Removed local `isSaving`, `savedPath` useState
+   - Now reads from `modals.panorama` cubit state
+   - Uses `modalsCubit.setPanoramaSaving()` and `setPanoramaSavedPath()`
+
+2. **DenoiseModal.tsx**:
+   - Removed local `intensity`, `isSaving`, `savedPath` useState
+   - Now reads from `modals.denoise` cubit state
+   - Uses `modalsCubit.setDenoiseIntensity()`, `setDenoiseSaving()`, `setDenoiseSavedPath()`
+
+3. **CullingModal.tsx**:
+   - Removed local `stage`, `settings`, `selectedRejects`, `action`, `activeTab` useState
+   - Removed `stage` useEffect (now derived: `const stage = suggestions || error ? 'results' : progress ? 'progress' : 'settings'`)
+   - Removed `CullingSettings` import from local type (uses cubit)
+   - Now reads from `modals.culling` cubit state
+   - Uses cubit methods for all state updates
+
+4. **CollageModal.tsx**:
+   - Removed local `isLoading`, `isSaving`, `error`, `savedPath` useState
+   - Now reads from `modals.collage` cubit state
+   - Uses cubit methods for all state updates
+   - Note: Layout/image editor state (`activeLayout`, `spacing`, etc.) remain local as they are purely UI state
+
+**Exported new types**:
+- Added `CullAction` type export from `index.ts`
+
+**Architecture Notes**:
+- UI animation state (`isMounted`, `show`) remains local in modals - these are purely for CSS transitions
+- Complex editor state in CollageModal (layouts, image positions) remains local as it doesn't need to be shared
+- ModalsCubit is now the single source of truth for all modal business logic state
+
+**Pre-existing TypeScript Errors** (unrelated to migration):
+- `Uint8Array` / `BlobPart` type incompatibility remains in some files
+
+**Next Steps**:
+1. Begin EditorCubit integration into Editor component
+2. MasksCubit integration for MasksPanel
+3. Consider deleting `useThumbnails` hook (it now just triggers generation, thumbnails stored in cubit)
