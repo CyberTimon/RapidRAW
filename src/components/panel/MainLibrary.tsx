@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, forwardRef, useMemo, useCallback } from 'react';
+import { useBloc } from '@blac/react';
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-shell';
+import { LibraryCubit } from '../../cubits';
 import {
   AlertTriangle,
   Check,
@@ -71,9 +73,6 @@ interface MainLibraryProps {
   aiModelDownloadStatus: string | null;
   appSettings: AppSettings | null;
   currentFolderPath: string | null;
-  filterCriteria: FilterCriteria;
-  imageList: Array<ImageFile>;
-  imageRatings: Record<string, number>;
   importState: ImportState;
   indexingProgress: Progress;
   isLoading: boolean;
@@ -82,8 +81,6 @@ interface MainLibraryProps {
   isTreeLoading: boolean;
   libraryScrollTop: number;
   libraryViewMode: LibraryViewMode;
-  multiSelectedPaths: Array<string>;
-  onClearSelection(): void;
   onContextMenu(event: any, path: string): void;
   onContinueSession(): void;
   onEmptyAreaContextMenu(event: any): void;
@@ -92,20 +89,13 @@ interface MainLibraryProps {
   onImageDoubleClick(path: string): void;
   onLibraryRefresh(): void;
   onOpenFolder(): void;
-  onSettingsChange(settings: AppSettings): void;
   onThumbnailAspectRatioChange(aspectRatio: ThumbnailAspectRatio): void;
   onThumbnailSizeChange(size: ThumbnailSize): void;
   rootPath: string | null;
-  searchCriteria: SearchCriteria;
-  setFilterCriteria(criteria: FilterCriteria): void;
   setLibraryScrollTop(scrollTop: number): void;
   setLibraryViewMode(mode: LibraryViewMode): void;
-  setSearchCriteria(criteria: SearchCriteria | ((prev: SearchCriteria) => SearchCriteria)): void;
-  setSortCriteria(criteria: SortCriteria | ((prev: SortCriteria) => SortCriteria)): void;
-  sortCriteria: SortCriteria;
   theme: string;
   thumbnailAspectRatio: ThumbnailAspectRatio;
-  thumbnails: Record<string, string>;
   thumbnailSize: ThumbnailSize;
   onNavigateToCommunity(): void;
 }
@@ -1111,9 +1101,6 @@ export default function MainLibrary({
   aiModelDownloadStatus,
   appSettings,
   currentFolderPath,
-  filterCriteria,
-  imageList,
-  imageRatings,
   importState,
   indexingProgress,
   isIndexing,
@@ -1122,8 +1109,6 @@ export default function MainLibrary({
   isTreeLoading,
   libraryScrollTop,
   libraryViewMode,
-  multiSelectedPaths,
-  onClearSelection,
   onContextMenu,
   onContinueSession,
   onEmptyAreaContextMenu,
@@ -1132,23 +1117,27 @@ export default function MainLibrary({
   onImageDoubleClick,
   onLibraryRefresh,
   onOpenFolder,
-  onSettingsChange,
   onThumbnailAspectRatioChange,
   onThumbnailSizeChange,
   rootPath,
-  searchCriteria,
-  setFilterCriteria,
   setLibraryScrollTop,
   setLibraryViewMode,
-  setSearchCriteria,
-  setSortCriteria,
-  sortCriteria,
   theme,
   thumbnailAspectRatio,
-  thumbnails,
   thumbnailSize,
   onNavigateToCommunity,
 }: MainLibraryProps) {
+  const [libraryState, libraryCubit] = useBloc(LibraryCubit);
+  const {
+    imageRatings,
+    thumbnails,
+    multiSelectedPaths,
+    sortCriteria,
+    filterCriteria,
+    searchCriteria,
+  } = libraryState;
+  const imageList = libraryCubit.sortedImageList;
+
   const [showSettings, setShowSettings] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [supportedTypes, setSupportedTypes] = useState<SupportedTypes | null>(null);
@@ -1166,11 +1155,11 @@ export default function MainLibrary({
   }, [imageList, currentFolderPath, libraryViewMode]);
 
   const handleSortChange = useCallback(
-    (criteria: SortCriteria | ((prev: SortCriteria) => SortCriteria)) => {
-      onClearSelection();
-      setSortCriteria(criteria);
+    (criteria: SortCriteria) => {
+      libraryCubit.clearSelection();
+      libraryCubit.setSortCriteria(criteria);
     },
-    [onClearSelection, setSortCriteria],
+    [libraryCubit],
   );
 
   const sortOptions = useMemo(() => {
@@ -1259,9 +1248,9 @@ export default function MainLibrary({
     const isCurrentSortExif = exifSortKeys.includes(sortCriteria.key);
 
     if (!exifEnabled && isCurrentSortExif) {
-      setSortCriteria({ key: 'name', order: SortDirection.Ascending });
+      libraryCubit.setSortCriteria({ key: 'name', order: SortDirection.Ascending });
     }
-  }, [appSettings?.enableExifReading, sortCriteria.key, setSortCriteria]);
+  }, [appSettings?.enableExifReading, sortCriteria.key, libraryCubit]);
 
   useEffect(() => {
     let showTimer: number | undefined;
@@ -1559,14 +1548,14 @@ export default function MainLibrary({
             indexingProgress={indexingProgress}
             isIndexing={isIndexing}
             searchCriteria={searchCriteria}
-            setSearchCriteria={setSearchCriteria}
+            setSearchCriteria={libraryCubit.setSearchCriteria}
           />
           <ViewOptionsDropdown
             filterCriteria={filterCriteria}
             libraryViewMode={libraryViewMode}
             onSelectSize={onThumbnailSizeChange}
             onSelectAspectRatio={onThumbnailAspectRatioChange}
-            setFilterCriteria={setFilterCriteria}
+            setFilterCriteria={libraryCubit.setFilterCriteria}
             setLibraryViewMode={setLibraryViewMode}
             setSortCriteria={handleSortChange}
             sortCriteria={sortCriteria}
@@ -1598,7 +1587,7 @@ export default function MainLibrary({
         </div>
       </header>
       {imageList.length > 0 ? (
-        <div className="flex-1 w-full h-full" onClick={onClearSelection} onContextMenu={onEmptyAreaContextMenu}>
+        <div className="flex-1 w-full h-full" onClick={libraryCubit.clearSelection} onContextMenu={onEmptyAreaContextMenu}>
           <AutoSizer>
             {({ height, width }) => {
               const OUTER_PADDING = 12;

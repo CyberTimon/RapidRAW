@@ -2,30 +2,23 @@ import { Folder, FolderOpen, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, 
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useMemo, useEffect } from 'react';
+import { useBloc } from '@blac/react';
+import { NavigationCubit, FolderNode } from '../../cubits';
 
 export interface FolderTree {
   children: any;
-  is_dir: boolean;
+  is_dir?: boolean;
+  hasChildren?: boolean;
   name: string;
   path: string;
 }
 
 interface FolderTreeProps {
-  expandedFolders: Set<string>;
-  isLoading: boolean;
   isResizing: boolean;
   isVisible: boolean;
   onContextMenu(event: any, path: string | null, isPinned?: boolean): void;
-  onFolderSelect(folder: string): void;
-  onToggleFolder(folder: string): void;
-  selectedPath: string | null;
   setIsVisible(visible: boolean): void;
   style: any;
-  tree: FolderTree | null;
-  pinnedFolderTrees: FolderTree[];
-  pinnedFolders: string[];
-  activeSection: string | null;
-  onActiveSectionChange(section: string | null): void;
 }
 
 interface TreeNodeProps {
@@ -224,22 +217,27 @@ function TreeNode({
 }
 
 export default function FolderTree({
-  expandedFolders,
-  isLoading,
   isResizing,
   isVisible,
   onContextMenu,
-  onFolderSelect,
-  onToggleFolder,
-  selectedPath,
   setIsVisible,
   style,
-  tree,
-  pinnedFolderTrees,
-  pinnedFolders,
-  activeSection,
-  onActiveSectionChange,
 }: FolderTreeProps) {
+  const [navigationState, navigationCubit] = useBloc(NavigationCubit);
+  const {
+    expandedFolders,
+    isTreeLoading: isLoading,
+    currentFolderPath: selectedPath,
+    folderTree: tree,
+    pinnedFolderTrees,
+    pinnedFolders,
+    activeTreeSection: activeSection,
+  } = navigationState;
+
+  const onFolderSelect = navigationCubit.selectFolder;
+  const onToggleFolder = navigationCubit.toggleFolderExpanded;
+  const onActiveSectionChange = navigationCubit.setActiveTreeSection;
+
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleEmptyAreaContextMenu = (e: any) => {

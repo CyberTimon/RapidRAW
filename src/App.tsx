@@ -9,7 +9,7 @@ import debounce from 'lodash.debounce';
 import { ClerkProvider } from '@clerk/clerk-react';
 import { useBloc } from '@blac/react';
 import clsx from 'clsx';
-import { ModalsCubit, SettingsCubit } from './cubits';
+import { ModalsCubit, SettingsCubit, NavigationCubit, LibraryCubit } from './cubits';
 import {
   Aperture,
   Check,
@@ -201,6 +201,20 @@ const getParentDir = (filePath: string): string => {
 function App() {
   const [modalsState, modalsCubit] = useBloc(ModalsCubit);
   const [settingsState, settingsCubit] = useBloc(SettingsCubit);
+  const [navigationState, navigationCubit] = useBloc(NavigationCubit);
+  const [libraryState, libraryCubit] = useBloc(LibraryCubit);
+
+  // Destructure commonly used state from LibraryCubit (early for useThumbnails)
+  const {
+    imageList,
+    imageRatings,
+    thumbnails,
+    multiSelectedPaths,
+    sortCriteria,
+    filterCriteria,
+    searchCriteria,
+  } = libraryState;
+
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
   const [activeView, setActiveView] = useState('library');
@@ -209,17 +223,9 @@ function App() {
   const [expandedFolders, setExpandedFolders] = useState(new Set<string>());
   const [folderTree, setFolderTree] = useState<any>(null);
   const [pinnedFolderTrees, setPinnedFolderTrees] = useState<any[]>([]);
-  const [imageList, setImageList] = useState<Array<ImageFile>>([]);
-  const [imageRatings, setImageRatings] = useState<Record<string, number>>({});
-  const [sortCriteria, setSortCriteria] = useState<SortCriteria>({ key: 'name', order: SortDirection.Ascending });
-  const [filterCriteria, setFilterCriteria] = useState<FilterCriteria>({
-    colors: [],
-    rating: 0,
-    rawStatus: RawStatus.All,
-  });
   const [supportedTypes, setSupportedTypes] = useState<SupportedTypes | null>(null);
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
-  const [multiSelectedPaths, setMultiSelectedPaths] = useState<Array<string>>([]);
+
   const [libraryActivePath, setLibraryActivePath] = useState<string | null>(null);
   const [libraryActiveAdjustments, setLibraryActiveAdjustments] = useState<Adjustments>(INITIAL_ADJUSTMENTS);
   const [finalPreviewUrl, setFinalPreviewUrl] = useState<string | null>(null);
@@ -316,11 +322,7 @@ function App() {
   const [isPasted, setIsPasted] = useState(false);
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexingProgress, setIndexingProgress] = useState<Progress>({ current: 0, total: 0 });
-  const [searchCriteria, setSearchCriteria] = useState<SearchCriteria>({
-    tags: [],
-    text: '',
-    mode: 'OR',
-  });
+
   const [brushSettings, setBrushSettings] = useState<BrushSettings | null>({
     size: 50,
     feather: 50,
@@ -343,9 +345,16 @@ function App() {
   const [isMaskControlHovered, setIsMaskControlHovered] = useState(false);
   const [libraryScrollTop, setLibraryScrollTop] = useState<number>(0);
   const { showContextMenu } = useContextMenu();
-  const imagePathList = useMemo(() => imageList.map((f: ImageFile) => f.path), [imageList]);
-  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
-  const { loading: isThumbnailsLoading } = useThumbnails(imageList, setThumbnails);
+  const { loading: isThumbnailsLoading } = useThumbnails(imageList, (updater: any) => {
+    if (typeof updater === 'function') {
+      libraryCubit.update((state) => ({
+        ...state,
+        thumbnails: updater(state.thumbnails),
+      }));
+    } else {
+      libraryCubit.setThumbnails(updater);
+    }
+  });
   const transformWrapperRef = useRef<any>(null);
   const isProgrammaticZoom = useRef(false);
   const isInitialMount = useRef(true);
@@ -822,176 +831,8 @@ function App() {
     }
   };
 
-  const sortedImageList = useMemo(() => {
-    const filteredList = imageList.filter((image) => {
-      if (filterCriteria.rating > 0) {
-        const rating = imageRatings[image.path] || 0;
-        if (filterCriteria.rating === 5) {
-          if (rating !== 5) return false;
-        } else {
-          if (rating < filterCriteria.rating) return false;
-        }
-      }
-
-      if (filterCriteria.rawStatus && filterCriteria.rawStatus !== RawStatus.All && supportedTypes) {
-        const extension = image.path.split('.').pop()?.toLowerCase() || '';
-        const isRaw = supportedTypes.raw?.includes(extension);
-
-        if (filterCriteria.rawStatus === RawStatus.RawOnly && !isRaw) {
-          return false;
-        }
-        if (filterCriteria.rawStatus === RawStatus.NonRawOnly && isRaw) {
-          return false;
-        }
-      }
-
-      if (filterCriteria.colors && filterCriteria.colors.length > 0) {
-        const imageColor = (image.tags || []).find((tag: string) => tag.startsWith('color:'))?.substring(6);
-
-        const hasMatchingColor = imageColor && filterCriteria.colors.includes(imageColor);
-        const matchesNone = !imageColor && filterCriteria.colors.includes('none');
-
-        if (!hasMatchingColor && !matchesNone) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-
-    const { tags: searchTags, text: searchText, mode: searchMode } = searchCriteria;
-    const lowerCaseSearchText = searchText.trim().toLowerCase();
-
-    const filteredBySearch =
-      searchTags.length === 0 && lowerCaseSearchText === ''
-        ? filteredList
-        : filteredList.filter((image: ImageFile) => {
-            const lowerCaseImageTags = (image.tags || []).map((t) => t.toLowerCase().replace('user:', ''));
-            const filename = image?.path?.split(/[\\/]/)?.pop()?.toLowerCase() || '';
-
-            let tagsMatch = true;
-            if (searchTags.length > 0) {
-              const lowerCaseSearchTags = searchTags.map((t) => t.toLowerCase());
-              if (searchMode === 'OR') {
-                tagsMatch = lowerCaseSearchTags.some((searchTag) =>
-                  lowerCaseImageTags.some((imgTag) => imgTag.includes(searchTag)),
-                );
-              } else {
-                tagsMatch = lowerCaseSearchTags.every((searchTag) =>
-                  lowerCaseImageTags.some((imgTag) => imgTag.includes(searchTag)),
-                );
-              }
-            }
-
-            let textMatch = true;
-            if (lowerCaseSearchText !== '') {
-              textMatch =
-                filename.includes(lowerCaseSearchText) ||
-                lowerCaseImageTags.some((t) => t.includes(lowerCaseSearchText));
-            }
-
-            return tagsMatch && textMatch;
-          });
-
-    const list = [...filteredBySearch];
-
-    const parseShutter = (val: string | undefined): number | null => {
-      if (!val) return null;
-      const cleanVal = val.replace(/s/i, '').trim();
-      const parts = cleanVal.split('/');
-      if (parts.length === 2) {
-        const num = parseFloat(parts[0]);
-        const den = parseFloat(parts[1]);
-        return den !== 0 ? num / den : null;
-      }
-      const numVal = parseFloat(cleanVal);
-      return isNaN(numVal) ? null : numVal;
-    };
-
-    const parseAperture = (val: string | undefined): number | null => {
-      if (!val) return null;
-      const match = val.match(/(\d+(\.\d+)?)/);
-      const numVal = match ? parseFloat(match[0]) : null;
-      return numVal === null || isNaN(numVal) ? null : numVal;
-    };
-
-    const parseFocalLength = (val: string | undefined): number | null => {
-      if (!val) return null;
-      const match = val.match(/(\d+(\.\d+)?)/);
-      if (!match) return null;
-      const numVal = parseFloat(match[0]);
-      return isNaN(numVal) ? null : numVal;
-    };
-
-    list.sort((a, b) => {
-      const { key, order } = sortCriteria;
-      let comparison = 0;
-
-      const compareNullable = (valA: any, valB: any) => {
-        if (valA !== null && valB !== null) {
-          if (valA < valB) return -1;
-          if (valA > valB) return 1;
-          return 0;
-        }
-        if (valA !== null) return -1;
-        if (valB !== null) return 1;
-        return 0;
-      };
-
-      switch (key) {
-        case 'date_taken': {
-          const dateA = a.exif?.DateTimeOriginal;
-          const dateB = b.exif?.DateTimeOriginal;
-          comparison = compareNullable(dateA, dateB);
-          if (comparison === 0) comparison = a.modified - b.modified;
-          break;
-        }
-        case 'iso': {
-          const getIso = (exif: { [key: string]: string } | null): number | null => {
-            if (!exif) return null;
-            const isoStr = exif.PhotographicSensitivity || exif.ISOSpeedRatings;
-            if (!isoStr) return null;
-            const isoNum = parseInt(isoStr, 10);
-            return isNaN(isoNum) ? null : isoNum;
-          };
-          const isoA = getIso(a.exif);
-          const isoB = getIso(b.exif);
-          comparison = compareNullable(isoA, isoB);
-          break;
-        }
-        case 'shutter_speed': {
-          const shutterA = parseShutter(a.exif?.ExposureTime);
-          const shutterB = parseShutter(b.exif?.ExposureTime);
-          comparison = compareNullable(shutterA, shutterB);
-          break;
-        }
-        case 'aperture': {
-          const apertureA = parseAperture(a.exif?.FNumber);
-          const apertureB = parseAperture(b.exif?.FNumber);
-          comparison = compareNullable(apertureA, apertureB);
-          break;
-        }
-        case 'focal_length': {
-          const focalA = parseFocalLength(a.exif?.FocalLength);
-          const focalB = parseFocalLength(b.exif?.FocalLength);
-          comparison = compareNullable(focalA, focalB);
-          break;
-        }
-        case 'date':
-          comparison = a.modified - b.modified;
-          break;
-        case 'rating':
-          comparison = (imageRatings[a.path] || 0) - (imageRatings[b.path] || 0);
-          break;
-        default:
-          comparison = a.path.localeCompare(b.path);
-          break;
-      }
-
-      return order === SortDirection.Ascending ? comparison : -comparison;
-    });
-    return list;
-  }, [imageList, sortCriteria, imageRatings, filterCriteria, supportedTypes, searchCriteria, appSettings]);
+  // Sorted/filtered image list from LibraryCubit
+  const sortedImageList = libraryCubit.sortedImageList;
 
   const applyAdjustments = useCallback(
     debounce((currentAdjustments) => {
@@ -1134,6 +975,51 @@ function App() {
     settingsCubit.loadSettings();
   }, [settingsCubit]);
 
+  // Sync local navigation state to NavigationCubit for FolderTree
+  useEffect(() => {
+    if (rootPath) {
+      navigationCubit.patch({
+        rootPath,
+        currentFolderPath,
+        folderTree,
+        pinnedFolderTrees,
+        pinnedFolders: appSettings?.pinnedFolders || [],
+        expandedFolders,
+        activeTreeSection: activeTreeSection,
+        isTreeLoading: isTreeLoading,
+      });
+    }
+  }, [rootPath, currentFolderPath, folderTree, pinnedFolderTrees, appSettings?.pinnedFolders, expandedFolders, activeTreeSection, isTreeLoading, navigationCubit]);
+
+  // Listen for folder selection changes from NavigationCubit (when FolderTree selects a folder)
+  useEffect(() => {
+    const navCurrentPath = navigationState.currentFolderPath;
+    // Only respond if it's different from our local state and came from NavigationCubit
+    if (navCurrentPath && navCurrentPath !== currentFolderPath) {
+      handleSelectSubfolder(navCurrentPath, false);
+    }
+  }, [navigationState.currentFolderPath]);
+
+  // Listen for folder expansion changes from NavigationCubit
+  useEffect(() => {
+    const navExpandedFolders = navigationState.expandedFolders;
+    if (navExpandedFolders.size !== expandedFolders.size || 
+        ![...navExpandedFolders].every(f => expandedFolders.has(f))) {
+      setExpandedFolders(navExpandedFolders);
+    }
+  }, [navigationState.expandedFolders]);
+
+  // Listen for active tree section changes from NavigationCubit
+  useEffect(() => {
+    const navActiveSection = navigationState.activeTreeSection;
+    if (navActiveSection !== activeTreeSection) {
+      setActiveTreeSection(navActiveSection);
+      if (appSettings) {
+        handleSettingsChange({ ...appSettings, activeTreeSection: navActiveSection });
+      }
+    }
+  }, [navigationState.activeTreeSection]);
+
   useEffect(() => {
     invoke(Invokes.LoadSettings)
       .then(async (settings: any) => {
@@ -1148,14 +1034,13 @@ function App() {
           };
         }
         setAppSettings(settings);
-        if (settings?.sortCriteria) setSortCriteria(settings.sortCriteria);
+        if (settings?.sortCriteria) libraryCubit.setSortCriteria(settings.sortCriteria);
         if (settings?.filterCriteria) {
-          setFilterCriteria((prev: FilterCriteria) => ({
-            ...prev,
+          libraryCubit.setFilterCriteria({
             ...settings.filterCriteria,
             rawStatus: settings.filterCriteria.rawStatus || RawStatus.All,
             colors: settings.filterCriteria.colors || [],
-          }));
+          });
         }
         if (settings?.theme) {
           setTheme(settings.theme);
@@ -1354,7 +1239,7 @@ function App() {
     async (path: string | null, isNewRoot = false) => {
       await invoke('cancel_thumbnail_generation');
       setIsViewLoading(true);
-      setSearchCriteria({ tags: [], text: '', mode: 'OR' });
+      libraryCubit.clearSearch();
       setLibraryScrollTop(0);
       try {
         setCurrentFolderPath(path);
@@ -1406,9 +1291,7 @@ function App() {
           }
         }
 
-        setImageList([]);
-        setImageRatings({});
-        setMultiSelectedPaths([]);
+        libraryCubit.clear();
         setLibraryActivePath(null);
         if (selectedImage) {
           setSelectedImage(null);
@@ -1434,24 +1317,25 @@ function App() {
               ...image,
               exif: exifDataMap[image.path] || image.exif || null,
             }));
-            setImageList(finalImageList);
+            libraryCubit.setImageList(finalImageList);
           } else {
-            setImageList(files);
+            libraryCubit.setImageList(files);
             invoke(Invokes.ReadExifForPaths, { paths })
               .then((exifDataMap: any) => {
-                setImageList((currentImageList) =>
-                  currentImageList.map((image) => ({
+                libraryCubit.update((state) => ({
+                  ...state,
+                  imageList: state.imageList.map((image) => ({
                     ...image,
                     exif: exifDataMap[image.path] || image.exif || null,
                   })),
-                );
+                }));
               })
               .catch((err) => {
                 console.error('Failed to read EXIF data in background:', err);
               });
           }
         } else {
-          setImageList(files);
+          libraryCubit.setImageList(files);
         }
 
         invoke(Invokes.StartBackgroundIndexing, { folderPath: path }).catch((err) => {
@@ -1498,35 +1382,39 @@ function App() {
         freshExifData = await invoke(Invokes.ReadExifForPaths, { paths });
       }
 
-      setImageList((prevList) => {
-        const prevMap = new Map(prevList.map((img) => [img.path, img]));
+      libraryCubit.update((state) => {
+        const prevMap = new Map(state.imageList.map((img) => [img.path, img]));
 
-        return files.map((newFile) => {
-          if (freshExifData && freshExifData[newFile.path]) {
-            newFile.exif = freshExifData[newFile.path];
+        return {
+          ...state,
+          imageList: files.map((newFile) => {
+            if (freshExifData && freshExifData[newFile.path]) {
+              newFile.exif = freshExifData[newFile.path];
+              return newFile;
+            }
+            const existing = prevMap.get(newFile.path);
+            if (existing && existing.modified === newFile.modified) {
+              return existing;
+            }
+
             return newFile;
-          }
-          const existing = prevMap.get(newFile.path);
-          if (existing && existing.modified === newFile.modified) {
-            return existing;
-          }
-
-          return newFile;
-        });
+          }),
+        };
       });
 
       if (shouldReadExif && files.length > 0 && !isExifSortActive) {
         const paths = files.map((f: ImageFile) => f.path);
         invoke(Invokes.ReadExifForPaths, { paths })
           .then((exifDataMap: any) => {
-            setImageList((currentImageList) =>
-              currentImageList.map((image) => {
+            libraryCubit.update((state) => ({
+              ...state,
+              imageList: state.imageList.map((image) => {
                 if (exifDataMap[image.path] && !image.exif) {
                    return { ...image, exif: exifDataMap[image.path] };
                 }
                 return image;
               }),
-            );
+            }));
           })
           .catch((err) => {
             console.error('Failed to read EXIF data in background:', err);
@@ -1612,7 +1500,7 @@ function App() {
       });
       setOriginalSize({ width: 0, height: 0 });
       setPreviewSize({ width: 0, height: 0 });
-      setMultiSelectedPaths([path]);
+      libraryCubit.setSelection([path]);
       setLibraryActivePath(null);
       setIsViewLoading(true);
       setError(null);
@@ -1702,10 +1590,10 @@ function App() {
           }
         } else {
           if (nextImagePath) {
-            setMultiSelectedPaths([nextImagePath]);
+            libraryCubit.setSelection([nextImagePath]);
             setLibraryActivePath(nextImagePath);
           } else {
-            setMultiSelectedPaths([]);
+            libraryCubit.clearSelection();
             setLibraryActivePath(null);
           }
         }
@@ -1890,12 +1778,8 @@ function App() {
 
       const finalRating = newRating === currentRating ? 0 : newRating;
 
-      setImageRatings((prev: Record<string, number>) => {
-        const newRatings = { ...prev };
-        pathsToRate.forEach((path: string) => {
-          newRatings[path] = finalRating;
-        });
-        return newRatings;
+      pathsToRate.forEach((path: string) => {
+        libraryCubit.setImageRating(path, finalRating);
       });
 
       if (selectedImage && pathsToRate.includes(selectedImage.path)) {
@@ -1943,8 +1827,9 @@ function App() {
       try {
         await invoke(Invokes.SetColorLabelForPaths, { paths: pathsToUpdate, color: finalColor });
 
-        setImageList((prevList: Array<ImageFile>) =>
-          prevList.map((image: ImageFile) => {
+        libraryCubit.update((state) => ({
+          ...state,
+          imageList: state.imageList.map((image: ImageFile) => {
             if (pathsToUpdate.includes(image.path)) {
               const otherTags = (image.tags || []).filter((tag: string) => !tag.startsWith('color:'));
               const newTags = finalColor ? [...otherTags, `color:${finalColor}`] : otherTags;
@@ -1952,7 +1837,7 @@ function App() {
             }
             return image;
           }),
-        );
+        }));
       } catch (err) {
         console.error('Failed to set color label:', err);
         setError(`Failed to set color label: ${err}`);
@@ -1986,18 +1871,19 @@ function App() {
   }, [imageList]);
 
   const handleTagsChanged = useCallback((changedPaths: string[], newTags: { tag: string; isUser: boolean }[]) => {
-    setImageList((prevList) =>
-      prevList.map((image) => {
+    libraryCubit.update((state) => ({
+      ...state,
+      imageList: state.imageList.map((image) => {
         if (changedPaths.includes(image.path)) {
-          const colorTags = (image.tags || []).filter((t) => t.startsWith('color:'));
+          const colorTags = (image.tags || []).filter((t: string) => t.startsWith('color:'));
           const prefixedNewTags = newTags.map((t) => (t.isUser ? `user:${t.tag}` : t.tag));
           const finalTags = [...colorTags, ...prefixedNewTags].sort();
           return { ...image, tags: finalTags.length > 0 ? finalTags : null };
         }
         return image;
       }),
-    );
-  }, [setImageList]);
+    }));
+  }, [libraryCubit]);
 
 
 
@@ -2242,7 +2128,7 @@ function App() {
     setIsStraightenActive,
     setIsWaveformVisible,
     setLibraryActivePath,
-    setMultiSelectedPaths,
+    setMultiSelectedPaths: libraryCubit.setSelection,
     setShowOriginal,
     sortedImageList,
     undo,
@@ -2291,10 +2177,10 @@ function App() {
         if (isEffectActive) {
           const { path, data, rating } = event.payload;
           if (data) {
-            setThumbnails((prev) => ({ ...prev, [path]: data }));
+            libraryCubit.setThumbnail(path, data);
           }
           if (rating !== undefined) {
-            setImageRatings((prev) => ({ ...prev, [path]: rating }));
+            libraryCubit.setImageRating(path, rating);
           }
         }
       }),
@@ -2328,7 +2214,7 @@ function App() {
               try {
                 const list: ImageFile[] = await invoke(Invokes.ListImagesInDir, { path: currentFolderPathRef.current });
                 if (Array.isArray(list)) {
-                  setImageList(list);
+                  libraryCubit.setImageList(list);
                 }
               } catch (err) {
                 console.error('Failed to refresh after indexing:', err);
@@ -2707,10 +2593,8 @@ function App() {
   const handleGoHome = () => {
     setRootPath(null);
     setCurrentFolderPath(null);
-    setImageList([]);
-    setImageRatings({});
+    libraryCubit.clear();
     setFolderTree(null);
-    setMultiSelectedPaths([]);
     setLibraryActivePath(null);
     setIsLibraryExportPanelVisible(false);
     setExpandedFolders(new Set());
@@ -2732,21 +2616,19 @@ function App() {
         const baseSelection = isCtrlPressed ? multiSelectedPaths : [shiftAnchor];
         const newSelection = Array.from(new Set([...baseSelection, ...range]));
 
-        setMultiSelectedPaths(newSelection);
+        libraryCubit.setSelection(newSelection);
         if (updateLibraryActivePath) {
           setLibraryActivePath(path);
         }
       }
     } else if (isCtrlPressed) {
-      const newSelection = new Set(multiSelectedPaths);
-      if (newSelection.has(path)) {
-        newSelection.delete(path);
+      if (multiSelectedPaths.includes(path)) {
+        libraryCubit.removeFromSelection(path);
       } else {
-        newSelection.add(path);
+        libraryCubit.addToSelection(path);
       }
 
-      const newSelectionArray = Array.from(newSelection);
-      setMultiSelectedPaths(newSelectionArray);
+      const newSelectionArray = libraryCubit.state.multiSelectedPaths;
 
       if (updateLibraryActivePath) {
         if (newSelectionArray.includes(path)) {
@@ -2766,8 +2648,8 @@ function App() {
     handleMultiSelectClick(path, event, {
       shiftAnchor: libraryActivePath,
       updateLibraryActivePath: true,
-      onSimpleClick: (p: any) => {
-        setMultiSelectedPaths([p]);
+      onSimpleClick: (p: string) => {
+        libraryCubit.setSelection([p]);
         setLibraryActivePath(p);
       },
     });
@@ -2888,9 +2770,9 @@ function App() {
 
   const handleClearSelection = () => {
     if (selectedImage) {
-      setMultiSelectedPaths([selectedImage.path]);
+      libraryCubit.setSelection([selectedImage.path]);
     } else {
-      setMultiSelectedPaths([]);
+      libraryCubit.clearSelection();
       setLibraryActivePath(null);
     }
   };
@@ -2933,13 +2815,13 @@ function App() {
             }
           }
 
-          setMultiSelectedPaths(newPaths);
+          libraryCubit.setSelection(newPaths);
         } catch (err) {
           setError(`Failed to rename files: ${err}`);
         }
       }
     },
-    [modalsState.renameFile.paths, refreshImageList, selectedImage, libraryActivePath, handleImageSelect, handleBackToLibrary],
+    [modalsState.renameFile.paths, refreshImageList, selectedImage, libraryActivePath, handleImageSelect, handleBackToLibrary, libraryCubit],
   );
 
   const handleStartImport = async (settings: AppSettings) => {
@@ -3110,7 +2992,7 @@ function App() {
 
     if (!isTargetInSelection) {
       finalSelection = [path];
-      setMultiSelectedPaths([path]);
+      libraryCubit.setSelection([path]);
       if (!selectedImage) {
         setLibraryActivePath(path);
       }
@@ -3550,7 +3432,7 @@ function App() {
               try {
                 await invoke(Invokes.MoveFiles, { sourcePaths: copiedFilePaths, destinationFolder: targetPath });
                 setCopiedFilePaths([]);
-                setMultiSelectedPaths([]);
+                libraryCubit.clearSelection();
                 refreshAllFolderTrees();
                 handleLibraryRefresh();
               } catch (err) {
@@ -3629,7 +3511,7 @@ function App() {
               try {
                 await invoke(Invokes.MoveFiles, { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
                 setCopiedFilePaths([]);
-                setMultiSelectedPaths([]);
+                libraryCubit.clearSelection();
                 refreshAllFolderTrees();
                 handleLibraryRefresh();
               } catch (err) {
@@ -3901,9 +3783,6 @@ function App() {
               aiModelDownloadStatus={aiModelDownloadStatus}
               appSettings={appSettings}
               currentFolderPath={currentFolderPath}
-              filterCriteria={filterCriteria}
-              imageList={sortedImageList}
-              imageRatings={imageRatings}
               importState={importState}
               indexingProgress={indexingProgress}
               isIndexing={isIndexing}
@@ -3912,8 +3791,6 @@ function App() {
               isTreeLoading={isTreeLoading}
               libraryScrollTop={libraryScrollTop}
               libraryViewMode={libraryViewMode}
-              multiSelectedPaths={multiSelectedPaths}
-              onClearSelection={handleClearSelection}
               onContextMenu={handleThumbnailContextMenu}
               onContinueSession={handleContinueSession}
               onEmptyAreaContextMenu={handleMainLibraryContextMenu}
@@ -3922,20 +3799,13 @@ function App() {
               onImageDoubleClick={handleImageSelect}
               onLibraryRefresh={handleLibraryRefresh}
               onOpenFolder={handleOpenFolder}
-              onSettingsChange={handleSettingsChange}
               onThumbnailAspectRatioChange={setThumbnailAspectRatio}
               onThumbnailSizeChange={setThumbnailSize}
               rootPath={rootPath}
-              searchCriteria={searchCriteria}
-              setFilterCriteria={setFilterCriteria}
               setLibraryScrollTop={setLibraryScrollTop}
               setLibraryViewMode={setLibraryViewMode}
-              setSearchCriteria={setSearchCriteria}
-              setSortCriteria={setSortCriteria}
-              sortCriteria={sortCriteria}
               theme={theme}
               thumbnailAspectRatio={thumbnailAspectRatio}
-              thumbnails={thumbnails}
               thumbnailSize={thumbnailSize}
               onNavigateToCommunity={() => setActiveView('community')}
             />
@@ -3996,23 +3866,13 @@ function App() {
           {rootPath && (
             <>
               <FolderTree
-                expandedFolders={expandedFolders}
-                isLoading={isTreeLoading}
                 isResizing={isResizing}
                 isVisible={uiVisibility.folderTree}
                 onContextMenu={handleFolderTreeContextMenu}
-                onFolderSelect={(path) => handleSelectSubfolder(path, false)}
-                onToggleFolder={handleToggleFolder}
-                selectedPath={currentFolderPath}
                 setIsVisible={(value: boolean) =>
                   setUiVisibility((prev: UiVisibility) => ({ ...prev, folderTree: value }))
                 }
                 style={{ width: uiVisibility.folderTree ? `${leftPanelWidth}px` : '32px' }}
-                tree={folderTree}
-                pinnedFolderTrees={pinnedFolderTrees}
-                pinnedFolders={pinnedFolders}
-                activeSection={activeTreeSection}
-                onActiveSectionChange={handleActiveTreeSectionChange}
               />
               <Resizer
                 direction={Orientation.Vertical}

@@ -428,3 +428,118 @@ function ConfirmModal() {
    - FolderTree (for UI visibility)
 2. Eventually consolidate App.tsx local state with SettingsCubit
 3. Begin NavigationCubit integration
+
+### Session 6 - 2024-12-30
+
+**Started**: Phase 4 - Component Integration (LibraryCubit)
+
+**Completed**:
+- Integrated `LibraryCubit` into `MainLibrary.tsx`:
+  - Added `useBloc(LibraryCubit)` hook
+  - Component now reads library state from cubit:
+    - `sortedImageList` (via `libraryCubit.sortedImageList` getter)
+    - `imageRatings`
+    - `thumbnails`
+    - `multiSelectedPaths`
+    - `sortCriteria`
+    - `filterCriteria`
+    - `searchCriteria`
+  - Uses cubit methods for state updates:
+    - `libraryCubit.clearSelection()` for clear selection
+    - `libraryCubit.setSortCriteria()` for sort changes
+    - `libraryCubit.setFilterCriteria()` for filter changes
+    - `libraryCubit.setSearchCriteria()` for search changes
+
+- Updated `MainLibraryProps` interface - removed 12 props:
+  - `filterCriteria`
+  - `imageList`
+  - `imageRatings`
+  - `multiSelectedPaths`
+  - `onClearSelection`
+  - `onSettingsChange`
+  - `searchCriteria`
+  - `setFilterCriteria`
+  - `setSearchCriteria`
+  - `setSortCriteria`
+  - `sortCriteria`
+  - `thumbnails`
+
+- Updated `App.tsx`:
+  - Added `useBloc(LibraryCubit)` hook
+  - Added sync effects to push local state to LibraryCubit:
+    - `imageList` → `libraryCubit.setImageList()`
+    - `imageRatings` → `libraryCubit.setImageRatings()`
+    - `thumbnails` → `libraryCubit.setThumbnails()`
+    - `multiSelectedPaths` → `libraryCubit.setSelection()`
+    - `sortCriteria` → `libraryCubit.setSortCriteria()`
+    - `filterCriteria` → `libraryCubit.setFilterCriteria()`
+    - `searchCriteria` → `libraryCubit.setSearchCriteria()`
+  - Added listener effects to sync cubit changes back to local state:
+    - Selection changes
+    - Sort criteria changes
+    - Filter criteria changes
+    - Search criteria changes
+  - Removed 12 props from `<MainLibrary>` component usage
+
+**Architecture Notes** (SUPERSEDED - see Session 6 Continued):
+- ~~App.tsx still maintains local state for backward compatibility with other components~~
+- ~~LibraryCubit uses dual-state sync pattern~~
+
+### Session 6 Continued - 2024-12-30
+
+**Refactored**: LibraryCubit is now the single source of truth (Option A)
+
+**Completed**:
+- **Removed all sync useEffects** - No more dual-state sync pattern
+- **LibraryCubit is now the authoritative source** for library state
+
+**Replaced all local state setters with cubit methods**:
+- `setImageList()` → `libraryCubit.setImageList()`, `libraryCubit.update()`, `libraryCubit.clear()`
+- `setMultiSelectedPaths()` → `libraryCubit.setSelection()`, `libraryCubit.clearSelection()`, `libraryCubit.addToSelection()`, `libraryCubit.removeFromSelection()`
+- `setThumbnails()` → `libraryCubit.setThumbnail()`
+- `setImageRatings()` → `libraryCubit.setImageRating()`
+- `setSortCriteria()` → `libraryCubit.setSortCriteria()`
+- `setFilterCriteria()` → `libraryCubit.setFilterCriteria()`
+- `setSearchCriteria()` → `libraryCubit.clearSearch()`
+
+**Removed local useState declarations**:
+- `imageList`, `setImageList`
+- `imageRatings`, `setImageRatings`
+- `sortCriteria`, `setSortCriteria`
+- `filterCriteria`, `setFilterCriteria`
+- `multiSelectedPaths`, `setMultiSelectedPaths`
+- `searchCriteria`, `setSearchCriteria`
+- `thumbnails`, `setThumbnails`
+
+**Updated App.tsx**:
+- Destructure library state from `libraryState` early (for `useThumbnails` hook)
+- Use `libraryCubit.sortedImageList` getter (replaces ~170 lines of useMemo sorting logic)
+- Updated `useThumbnails` hook to use cubit's update method
+- Updated `useKeyboardShortcuts` to use `libraryCubit.setSelection`
+
+**Props Removed from MainLibrary** (12 total, now from cubit):
+- `filterCriteria`, `setFilterCriteria`
+- `imageList` (now `sortedImageList` from cubit)
+- `imageRatings`
+- `multiSelectedPaths`, `onClearSelection`
+- `searchCriteria`, `setSearchCriteria`
+- `sortCriteria`, `setSortCriteria`
+- `thumbnails`
+- `onSettingsChange`
+
+**Architecture (Final)**:
+- LibraryCubit is the single source of truth for library state
+- App.tsx reads from `libraryState` via destructuring
+- App.tsx calls cubit methods to modify state
+- MainLibrary reads from cubit via `useBloc(LibraryCubit)`
+- No more sync useEffects or dual-state pattern
+
+**Pre-existing TypeScript Errors** (unrelated to migration):
+- `Uint8Array` / `BlobPart` type incompatibility
+- Spread types / implicit any
+- Editor component prop mismatches
+
+**Next Steps**:
+1. Begin EditorCubit integration into Editor component
+2. MasksCubit integration for MasksPanel
+3. Consider deleting `useThumbnails` hook (it now just triggers generation, thumbnails stored in cubit)
