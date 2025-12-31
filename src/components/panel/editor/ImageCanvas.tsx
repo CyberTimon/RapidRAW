@@ -4,10 +4,12 @@ import 'react-image-crop/dist/ReactCrop.css';
 import { Stage, Layer, Ellipse, Line, Transformer, Group, Circle, Rect } from 'react-konva';
 import { PercentCrop, Crop } from 'react-image-crop';
 import clsx from 'clsx';
+import { useBloc } from '@blac/react';
 import { Adjustments, AiPatch, Coord, MaskContainer } from '../../../utils/adjustments';
 import { Mask, SubMask, SubMaskMode, ToolType } from '../right/Masks';
-import { BrushSettings, SelectedImage } from '../../ui/AppProperties';
+import { BrushSettings } from '../../ui/AppProperties';
 import { RenderSize } from '../../../hooks/useImageRenderSize';
+import { EditorCubit, MasksCubit } from '../../../cubits';
 
 interface CursorPreview {
   visible: boolean;
@@ -23,41 +25,20 @@ interface DrawnLine {
 }
 
 interface ImageCanvasProps {
-  activeAiPatchContainerId: string | null;
-  activeAiSubMaskId: string | null;
-  activeMaskContainerId: string | null;
-  activeMaskId: string | null;
-  adjustments: Adjustments;
-  brushSettings: BrushSettings | null;
   crop: Crop | null;
-  finalPreviewUrl: string | null;
   handleCropComplete(c: Crop, cp: PercentCrop): void;
   imageRenderSize: RenderSize;
-  isAdjusting: boolean;
   isAiEditing: boolean;
   isCropping: boolean;
-  isMaskControlHovered: boolean;
   isMasking: boolean;
-  isStraightenActive: boolean;
   maskOverlayUrl: string | null;
   onGenerateAiMask(id: string | null, start: Coord, end: Coord): void;
   onQuickErase(subMaskId: string | null, startPoint: Coord, endpoint: Coord): void;
-  onSelectAiSubMask(id: string | null): void;
-  onSelectMask(id: string | null): void;
   onStraighten(val: number): void;
-  selectedImage: SelectedImage;
   setCrop(crop: Crop, perfentCrop: PercentCrop): void;
   setIsMaskHovered(isHovered: boolean): void;
-  showOriginal: boolean;
-  transformedOriginalUrl: string | null;
-  uncroppedAdjustedPreviewUrl: string | null;
   updateSubMask(id: string | null, subMask: Partial<SubMask>): void;
-  fullResolutionUrl?: string | null;
-  isFullResolution?: boolean;
-  isLoadingFullRes?: boolean;
-  isWbPickerActive?: boolean;
   onWbPicked?: () => void;
-  setAdjustments(fn: (prev: Adjustments) => Adjustments): void;
 }
 
 interface ImageLayer {
@@ -460,42 +441,55 @@ const MaskOverlay = memo(
 
 const ImageCanvas = memo(
   ({
-    activeAiPatchContainerId,
-    activeAiSubMaskId,
-    activeMaskContainerId,
-    activeMaskId,
-    adjustments,
-    brushSettings,
     crop,
-    finalPreviewUrl,
     handleCropComplete,
     imageRenderSize,
-    isAdjusting,
     isAiEditing,
     isCropping,
-    isMaskControlHovered,
     isMasking,
-    isStraightenActive,
     maskOverlayUrl,
     onGenerateAiMask,
     onQuickErase,
-    onSelectAiSubMask,
-    onSelectMask,
     onStraighten,
-    selectedImage,
     setCrop,
     setIsMaskHovered,
-    showOriginal,
-    transformedOriginalUrl,
-    uncroppedAdjustedPreviewUrl,
     updateSubMask,
-    fullResolutionUrl,
-    isFullResolution,
-    isLoadingFullRes,
-    isWbPickerActive = false,
     onWbPicked,
-    setAdjustments,
   }: ImageCanvasProps) => {
+    // Get state from cubits
+    const [editorState, editorCubit] = useBloc(EditorCubit);
+    const [masksState, masksCubit] = useBloc(MasksCubit);
+
+    // Destructure editor state
+    const {
+      selectedImage,
+      adjustments,
+      showOriginal,
+      isAdjusting,
+      isStraightenActive,
+      finalPreviewUrl,
+      transformedOriginalUrl,
+      uncroppedAdjustedPreviewUrl,
+      isFullResolution,
+      fullResolutionUrl,
+      isLoadingFullRes,
+      isWbPickerActive,
+    } = editorState;
+
+    // Destructure masks state
+    const {
+      activeAiPatchContainerId,
+      activeAiSubMaskId,
+      activeMaskContainerId,
+      activeMaskId,
+      brushSettings,
+      isMaskControlHovered,
+    } = masksState;
+
+    // Cubit method aliases
+    const setAdjustments = editorCubit.setAdjustments;
+    const onSelectAiSubMask = masksCubit.setActiveAiSubMask;
+    const onSelectMask = masksCubit.setActiveMask;
     const [isCropViewVisible, setIsCropViewVisible] = useState(false);
     const [layers, setLayers] = useState<Array<ImageLayer>>([]);
     const cropImageRef = useRef<HTMLImageElement>(null);
@@ -567,6 +561,7 @@ const ImageCanvas = memo(
     }, [activeContainer, activeMaskId, activeAiSubMaskId, isMasking, isAiEditing]);
 
     useEffect(() => {
+      if (!selectedImage) return;
       const { path: currentImagePath, originalUrl, thumbnailUrl } = selectedImage;
       const imageChanged = currentImagePath !== imagePathRef.current;
 
@@ -1027,7 +1022,7 @@ const ImageCanvas = memo(
       }
     };
 
-    const cropPreviewUrl = uncroppedAdjustedPreviewUrl || selectedImage.originalUrl;
+    const cropPreviewUrl = uncroppedAdjustedPreviewUrl || selectedImage?.originalUrl;
     const isContentReady = layers.length > 0 && layers.some((l) => l.url);
 
     const uncroppedImageRenderSize = useMemo<Partial<RenderSize> | null>(() => {

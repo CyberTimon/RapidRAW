@@ -373,8 +373,15 @@ export class LibraryCubit extends Cubit<LibraryState> {
   };
 
   // Sorting
-  setSortCriteria = (criteria: SortCriteria) => {
-    this.patch({ sortCriteria: criteria });
+  setSortCriteria = (criteriaOrUpdater: SortCriteria | ((prev: SortCriteria) => SortCriteria)) => {
+    if (typeof criteriaOrUpdater === 'function') {
+      this.update((state) => ({
+        ...state,
+        sortCriteria: criteriaOrUpdater(state.sortCriteria),
+      }));
+    } else {
+      this.patch({ sortCriteria: criteriaOrUpdater });
+    }
   };
 
   setSortKey = (key: string) => {
@@ -397,8 +404,18 @@ export class LibraryCubit extends Cubit<LibraryState> {
   };
 
   // Filtering
-  setFilterCriteria = (criteria: FilterCriteria) => {
-    this.patch({ filterCriteria: criteria });
+  setFilterCriteria = (criteriaOrUpdater: Partial<FilterCriteria> | ((prev: FilterCriteria) => FilterCriteria)) => {
+    if (typeof criteriaOrUpdater === 'function') {
+      this.update((state) => ({
+        ...state,
+        filterCriteria: criteriaOrUpdater(state.filterCriteria),
+      }));
+    } else {
+      this.update((state) => ({
+        ...state,
+        filterCriteria: { ...state.filterCriteria, ...criteriaOrUpdater },
+      }));
+    }
   };
 
   setRatingFilter = (rating: number) => {

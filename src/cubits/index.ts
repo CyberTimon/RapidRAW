@@ -22,5 +22,5 @@ export type {
 export type { SettingsState } from './SettingsCubit';
 export type { NavigationState, FolderNode } from './NavigationCubit';
 export type { LibraryState, SearchCriteria } from './LibraryCubit';
-export type { EditorState } from './EditorCubit';
+export type { EditorState, CollapsibleSectionsState } from './EditorCubit';
 export type { MasksState } from './MasksCubit';

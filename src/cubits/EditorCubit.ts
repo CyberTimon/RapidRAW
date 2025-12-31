@@ -1,9 +1,18 @@
 import { Cubit } from '@blac/core';
 import debounce from 'lodash.debounce';
 import { invoke } from '@tauri-apps/api/core';
-import { Invokes, SelectedImage, Panel } from '../components/ui/AppProperties';
+import { Invokes, SelectedImage, Panel, WaveformData } from '../components/ui/AppProperties';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
+import { ChannelConfig } from '../components/adjustments/Curves';
+
+export interface CollapsibleSectionsState {
+  basic: boolean;
+  color: boolean;
+  curves: boolean;
+  details: boolean;
+  effects: boolean;
+}
 
 export interface EditorState {
   selectedImage: SelectedImage | null;
@@ -23,7 +32,9 @@ export interface EditorState {
   isAdjusting: boolean;
   isLoadingFullRes: boolean;
   isFullResolution: boolean;
+  isViewLoading: boolean;
   copiedAdjustments: Adjustments | null;
+  copiedSectionAdjustments: any;
   activeRightPanel: Panel | null;
   renderedRightPanel: Panel | null;
   isStraightenActive: boolean;
@@ -33,8 +44,22 @@ export interface EditorState {
   fullScreenUrl: string | null;
   fullResolutionUrl: string | null;
   transformedOriginalUrl: string | null;
+  histogram: ChannelConfig | null;
+  waveform: WaveformData | null;
+  isWaveformVisible: boolean;
+  collapsibleSectionsState: CollapsibleSectionsState;
   error: string | null;
+  libraryActivePath: string | null;
+  libraryActiveAdjustments: Adjustments;
 }
+
+const defaultCollapsibleSections: CollapsibleSectionsState = {
+  basic: true,
+  color: false,
+  curves: true,
+  details: false,
+  effects: false,
+};
 
 const defaultState: EditorState = {
   selectedImage: null,
@@ -54,7 +79,9 @@ const defaultState: EditorState = {
   isAdjusting: false,
   isLoadingFullRes: false,
   isFullResolution: false,
+  isViewLoading: false,
   copiedAdjustments: null,
+  copiedSectionAdjustments: null,
   activeRightPanel: Panel.Adjustments,
   renderedRightPanel: Panel.Adjustments,
   isStraightenActive: false,
@@ -64,16 +91,26 @@ const defaultState: EditorState = {
   fullScreenUrl: null,
   fullResolutionUrl: null,
   transformedOriginalUrl: null,
+  histogram: null,
+  waveform: null,
+  isWaveformVisible: false,
+  collapsibleSectionsState: defaultCollapsibleSections,
   error: null,
+  libraryActivePath: null,
+  libraryActiveAdjustments: INITIAL_ADJUSTMENTS,
 };
 
 export class EditorCubit extends Cubit<EditorState> {
   private debouncedSaveMetadata: ReturnType<typeof debounce>;
+  private debouncedSetHistory: ReturnType<typeof debounce>;
 
   constructor() {
     super(defaultState);
 
-    this.debouncedSaveMetadata = debounce(this.saveMetadata, 500);
+    this.debouncedSaveMetadata = debounce(this.saveMetadata, 300);
+    this.debouncedSetHistory = debounce((newAdjustments: Adjustments) => {
+      this.addToHistory(newAdjustments);
+    }, 300);
   }
 
   // Computed getters
@@ -97,17 +134,41 @@ export class EditorCubit extends Cubit<EditorState> {
     return this.state.selectedImage?.isReady ?? false;
   }
 
+  get geometricAdjustmentsKey(): string {
+    const adj = this.state.adjustments;
+    if (!adj) return '';
+    const { crop, rotation, flipHorizontal, flipVertical, orientationSteps } = adj;
+    return JSON.stringify({ crop, rotation, flipHorizontal, flipVertical, orientationSteps });
+  }
+
+  get visualAdjustmentsKey(): string {
+    const adj = this.state.adjustments;
+    if (!adj) return '';
+    const { rating, sectionVisibility, ...visualAdjustments } = adj;
+    return JSON.stringify(visualAdjustments);
+  }
+
   // Selected image management
   setSelectedImage = (image: SelectedImage | null) => {
     if (image) {
       this.emit({
-        ...defaultState,
+        ...this.state,
         selectedImage: image,
         adjustments: INITIAL_ADJUSTMENTS,
         history: [INITIAL_ADJUSTMENTS],
         historyIndex: 0,
-        activeRightPanel: this.state.activeRightPanel,
-        renderedRightPanel: this.state.renderedRightPanel,
+        zoom: 1,
+        pan: { x: 0, y: 0 },
+        showOriginal: false,
+        isViewLoading: true,
+        finalPreviewUrl: null,
+        uncroppedAdjustedPreviewUrl: null,
+        fullScreenUrl: null,
+        fullResolutionUrl: null,
+        transformedOriginalUrl: null,
+        histogram: null,
+        error: null,
+        libraryActivePath: null,
       });
     } else {
       this.patch({ selectedImage: null });
@@ -123,6 +184,18 @@ export class EditorCubit extends Cubit<EditorState> {
   };
 
   // Adjustments management with history
+  private addToHistory = (newAdjustments: Adjustments) => {
+    this.update((state) => {
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push(newAdjustments);
+      return {
+        ...state,
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+      };
+    });
+  };
+
   setAdjustments = (updates: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)) => {
     this.update((state) => {
       const currentAdj = state.adjustments;
@@ -130,23 +203,14 @@ export class EditorCubit extends Cubit<EditorState> {
         ? updates(currentAdj)
         : { ...currentAdj, ...updates };
 
-      // Check if actually changed
-      if (JSON.stringify(newAdjustments) === JSON.stringify(currentAdj)) {
-        return state;
-      }
-
-      // Trim history and add new state
-      const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push(newAdjustments);
-
       return {
         ...state,
         adjustments: newAdjustments,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
       };
     });
 
+    // Debounced history update
+    this.debouncedSetHistory(this.state.adjustments);
     this.debouncedSaveMetadata();
   };
 
@@ -159,8 +223,25 @@ export class EditorCubit extends Cubit<EditorState> {
     });
   };
 
+  // Set adjustments directly (bypassing debounce for immediate history update)
+  setAdjustmentsImmediate = (adjustments: Adjustments) => {
+    this.debouncedSetHistory.cancel();
+    this.update((state) => {
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push(adjustments);
+      return {
+        ...state,
+        adjustments,
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+      };
+    });
+    this.debouncedSaveMetadata();
+  };
+
   undo = () => {
     if (!this.canUndo) return;
+    this.debouncedSetHistory.cancel();
     this.update((state) => {
       const newIndex = state.historyIndex - 1;
       return {
@@ -174,6 +255,7 @@ export class EditorCubit extends Cubit<EditorState> {
 
   redo = () => {
     if (!this.canRedo) return;
+    this.debouncedSetHistory.cancel();
     this.update((state) => {
       const newIndex = state.historyIndex + 1;
       return {
@@ -186,11 +268,16 @@ export class EditorCubit extends Cubit<EditorState> {
   };
 
   resetHistory = (adjustments: Adjustments = INITIAL_ADJUSTMENTS) => {
+    this.debouncedSetHistory.cancel();
     this.patch({
       adjustments,
       history: [adjustments],
       historyIndex: 0,
     });
+  };
+
+  cancelPendingHistoryUpdate = () => {
+    this.debouncedSetHistory.cancel();
   };
 
   private saveMetadata = async () => {
@@ -200,8 +287,6 @@ export class EditorCubit extends Cubit<EditorState> {
       await invoke(Invokes.SaveMetadataAndUpdateThumbnail, {
         path: this.state.selectedImage.path,
         adjustments: this.state.adjustments,
-        rating: this.state.adjustments.rating,
-        tags: null,
       });
     } catch (error) {
       console.error('Failed to save metadata:', error);
@@ -265,6 +350,10 @@ export class EditorCubit extends Cubit<EditorState> {
     this.patch({ originalSize: size });
   };
 
+  setBaseRenderSize = (size: ImageDimensions) => {
+    this.patch({ baseRenderSize: size });
+  };
+
   // View state
   setShowOriginal = (show: boolean) => {
     this.patch({ showOriginal: show });
@@ -279,7 +368,11 @@ export class EditorCubit extends Cubit<EditorState> {
   };
 
   toggleFullScreen = () => {
-    this.patch({ isFullScreen: !this.state.isFullScreen });
+    if (this.state.isFullScreen) {
+      this.patch({ isFullScreen: false, fullScreenUrl: null });
+    } else if (this.state.selectedImage) {
+      this.patch({ isFullScreen: true });
+    }
   };
 
   setIsFullScreenLoading = (loading: boolean) => {
@@ -298,7 +391,15 @@ export class EditorCubit extends Cubit<EditorState> {
     this.patch({ isFullResolution: isFullRes });
   };
 
+  setIsViewLoading = (loading: boolean) => {
+    this.patch({ isViewLoading: loading });
+  };
+
   // Copy/paste adjustments
+  setCopiedAdjustments = (adjustments: Adjustments | null) => {
+    this.patch({ copiedAdjustments: adjustments });
+  };
+
   copyAdjustments = () => {
     this.patch({ copiedAdjustments: { ...this.state.adjustments } });
   };
@@ -309,12 +410,11 @@ export class EditorCubit extends Cubit<EditorState> {
     if (mode === 'replace') {
       this.setAdjustments(this.state.copiedAdjustments);
     } else {
-      // Merge mode - only paste specified keys or all copyable keys
       const toPaste = keys ?? Object.keys(this.state.copiedAdjustments);
       const updates: Partial<Adjustments> = {};
       for (const key of toPaste) {
         if (key in this.state.copiedAdjustments) {
-          updates[key] = this.state.copiedAdjustments[key];
+          (updates as any)[key] = (this.state.copiedAdjustments as any)[key];
         }
       }
       this.setAdjustments(updates);
@@ -325,9 +425,17 @@ export class EditorCubit extends Cubit<EditorState> {
     this.patch({ copiedAdjustments: null });
   };
 
+  setCopiedSectionAdjustments = (adjustments: any) => {
+    this.patch({ copiedSectionAdjustments: adjustments });
+  };
+
   // Right panel
   setActiveRightPanel = (panel: Panel | null) => {
-    this.patch({ activeRightPanel: panel });
+    if (panel === this.state.activeRightPanel) {
+      this.patch({ activeRightPanel: null });
+    } else {
+      this.patch({ activeRightPanel: panel, renderedRightPanel: panel });
+    }
   };
 
   setRenderedRightPanel = (panel: Panel | null) => {
@@ -341,6 +449,10 @@ export class EditorCubit extends Cubit<EditorState> {
 
   setIsWbPickerActive = (active: boolean) => {
     this.patch({ isWbPickerActive: active });
+  };
+
+  toggleWbPicker = () => {
+    this.patch({ isWbPickerActive: !this.state.isWbPickerActive });
   };
 
   // Preview URLs
@@ -364,6 +476,38 @@ export class EditorCubit extends Cubit<EditorState> {
     this.patch({ transformedOriginalUrl: url });
   };
 
+  // Histogram and waveform
+  setHistogram = (histogram: ChannelConfig | null) => {
+    this.patch({ histogram });
+  };
+
+  setWaveform = (waveform: WaveformData | null) => {
+    this.patch({ waveform });
+  };
+
+  setIsWaveformVisible = (visible: boolean) => {
+    this.patch({ isWaveformVisible: visible });
+  };
+
+  toggleWaveform = () => {
+    this.patch({ isWaveformVisible: !this.state.isWaveformVisible });
+  };
+
+  // Collapsible sections
+  setCollapsibleSectionsState = (state: CollapsibleSectionsState) => {
+    this.patch({ collapsibleSectionsState: state });
+  };
+
+  updateCollapsibleSection = (section: keyof CollapsibleSectionsState, expanded: boolean) => {
+    this.update((state) => ({
+      ...state,
+      collapsibleSectionsState: {
+        ...state.collapsibleSectionsState,
+        [section]: expanded,
+      },
+    }));
+  };
+
   // Error
   setError = (error: string | null) => {
     this.patch({ error });
@@ -371,6 +515,20 @@ export class EditorCubit extends Cubit<EditorState> {
 
   clearError = () => {
     this.patch({ error: null });
+  };
+
+  // Library active state (for when no image is open in editor)
+  setLibraryActivePath = (path: string | null) => {
+    this.patch({ libraryActivePath: path });
+  };
+
+  setLibraryActiveAdjustments = (adjustments: Adjustments | ((prev: Adjustments) => Adjustments)) => {
+    this.update((state) => {
+      const newAdjustments = typeof adjustments === 'function'
+        ? adjustments(state.libraryActiveAdjustments)
+        : adjustments;
+      return { ...state, libraryActiveAdjustments: newAdjustments };
+    });
   };
 
   // Reset editor
@@ -397,10 +555,52 @@ export class EditorCubit extends Cubit<EditorState> {
       URL.revokeObjectURL(this.state.transformedOriginalUrl);
     }
 
+    const lastActivePath = this.state.selectedImage?.path ?? null;
+
     this.emit({
       ...defaultState,
       activeRightPanel: this.state.activeRightPanel,
       renderedRightPanel: this.state.renderedRightPanel,
+      collapsibleSectionsState: this.state.collapsibleSectionsState,
+      copiedAdjustments: this.state.copiedAdjustments,
+      copiedSectionAdjustments: this.state.copiedSectionAdjustments,
+      libraryActivePath: lastActivePath,
+    });
+  };
+
+  // Back to library handler
+  backToLibrary = () => {
+    const lastActivePath = this.state.selectedImage?.path ?? null;
+
+    // Revoke blob URLs
+    if (this.state.finalPreviewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.state.finalPreviewUrl);
+    }
+    if (this.state.uncroppedAdjustedPreviewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.state.uncroppedAdjustedPreviewUrl);
+    }
+    if (this.state.fullScreenUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.state.fullScreenUrl);
+    }
+    if (this.state.fullResolutionUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.state.fullResolutionUrl);
+    }
+    if (this.state.transformedOriginalUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.state.transformedOriginalUrl);
+    }
+
+    this.patch({
+      selectedImage: null,
+      finalPreviewUrl: null,
+      uncroppedAdjustedPreviewUrl: null,
+      fullScreenUrl: null,
+      fullResolutionUrl: null,
+      transformedOriginalUrl: null,
+      histogram: null,
+      waveform: null,
+      isWaveformVisible: false,
+      isWbPickerActive: false,
+      libraryActivePath: lastActivePath,
     });
   };
 }

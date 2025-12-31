@@ -13,6 +13,7 @@ import {
   SortDirection,
   Invokes,
 } from '../components/ui/AppProperties';
+import { COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
 
 export interface SettingsState {
   isLoaded: boolean;
@@ -82,6 +83,18 @@ export class SettingsCubit extends Cubit<SettingsState> {
       const loaded = await invoke<AppSettings | null>(Invokes.LoadSettings);
 
       if (loaded) {
+        // Ensure copyPasteSettings has valid defaults
+        if (
+          !loaded.copyPasteSettings ||
+          !loaded.copyPasteSettings.includedAdjustments ||
+          loaded.copyPasteSettings.includedAdjustments.length === 0
+        ) {
+          loaded.copyPasteSettings = {
+            mode: 'merge',
+            includedAdjustments: COPYABLE_ADJUSTMENT_KEYS,
+          };
+        }
+
         this.emit({
           isLoaded: true,
           theme: loaded.theme ?? Theme.Dark,

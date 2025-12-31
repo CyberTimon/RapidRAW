@@ -1,14 +1,9 @@
 import { useEffect } from 'react';
-import { ImageFile, Panel, SelectedImage } from '../components/ui/AppProperties';
+import { useBloc } from '@blac/react';
+import { EditorCubit, LibraryCubit, MasksCubit, ModalsCubit } from '../cubits';
+import { ImageFile, Panel } from '../components/ui/AppProperties';
 
 interface KeyboardShortcutsProps {
-  activeAiPatchContainerId?: string | null;
-  activeAiSubMaskId: string | null;
-  activeMaskContainerId: string | null;
-  activeMaskId: string | null;
-  activeRightPanel: Panel | null;
-  canRedo: boolean;
-  canUndo: boolean;
   copiedFilePaths: Array<string>;
   customEscapeHandler: any;
   handleBackToLibrary(): void;
@@ -24,40 +19,11 @@ interface KeyboardShortcutsProps {
   handleSetColorLabel(label: string | null): void;
   handleToggleFullScreen(): void;
   handleZoomChange(zoomValue: number, fitToWindow?: boolean): void;
-  isFullScreen: boolean;
-  isModalOpen: boolean;
-  isStraightenActive: boolean;
-  isViewLoading: boolean;
-  libraryActivePath: string | null;
-  multiSelectedPaths: Array<string>;
-  onSelectPatchContainer?(container: string | null): void;
-  redo(): void;
-  selectedImage: SelectedImage | null;
-  setActiveAiSubMaskId(id: string | null): void;
-  setActiveMaskContainerId(id: string | null): void;
-  setActiveMaskId(id: string | null): void;
   setCopiedFilePaths(paths: Array<string>): void;
-  setIsStraightenActive(active: any): void;
-  setIsWaveformVisible(visible: any): void;
-  setLibraryActivePath(path: string): void;
-  setMultiSelectedPaths(paths: Array<string>): void;
-  setShowOriginal(show: any): void;
-  sortedImageList: Array<ImageFile>;
-  undo(): void;
-  zoom: number;
-  displaySize?: { width: number; height: number };
-  baseRenderSize?: { width: number; height: number };
-  originalSize?: { width: number; height: number };
+  onSelectPatchContainer?(container: string | null): void;
 }
 
 export const useKeyboardShortcuts = ({
-  activeAiPatchContainerId,
-  activeAiSubMaskId,
-  activeMaskContainerId,
-  activeMaskId,
-  activeRightPanel,
-  canRedo,
-  canUndo,
   copiedFilePaths,
   customEscapeHandler,
   handleBackToLibrary,
@@ -73,31 +39,53 @@ export const useKeyboardShortcuts = ({
   handleSetColorLabel,
   handleToggleFullScreen,
   handleZoomChange,
-  isFullScreen,
-  isModalOpen,
-  isStraightenActive,
-  isViewLoading,
-  libraryActivePath,
-  multiSelectedPaths,
-  onSelectPatchContainer,
-  redo,
-  selectedImage,
-  setActiveAiSubMaskId,
-  setActiveMaskContainerId,
-  setActiveMaskId,
   setCopiedFilePaths,
-  setIsStraightenActive,
-  setIsWaveformVisible,
-  setLibraryActivePath,
-  setMultiSelectedPaths,
-  setShowOriginal,
-  sortedImageList,
-  undo,
-  zoom,
-  displaySize,
-  baseRenderSize,
-  originalSize,
+  onSelectPatchContainer,
 }: KeyboardShortcutsProps) => {
+  // Get state and actions from cubits
+  const [editorState, editorCubit] = useBloc(EditorCubit);
+  const [libraryState, libraryCubit] = useBloc(LibraryCubit);
+  const [masksState, masksCubit] = useBloc(MasksCubit);
+  const [modalsState] = useBloc(ModalsCubit);
+
+  // Destructure needed state from cubits
+  const {
+    selectedImage,
+    activeRightPanel,
+    isStraightenActive,
+    isFullScreen,
+    displaySize,
+    baseRenderSize,
+    originalSize,
+    libraryActivePath,
+  } = editorState;
+
+  const canUndo = editorCubit.canUndo;
+  const canRedo = editorCubit.canRedo;
+
+  const { multiSelectedPaths } = libraryState;
+  const sortedImageList = libraryCubit.sortedImageList;
+
+  const {
+    activeMaskContainerId,
+    activeMaskId,
+    activeAiPatchContainerId,
+    activeAiSubMaskId,
+  } = masksState;
+
+  // Check if any modal is open
+  const isModalOpen =
+    modalsState.createFolder.isOpen ||
+    modalsState.renameFolder.isOpen ||
+    modalsState.renameFile.isOpen ||
+    modalsState.import.isOpen ||
+    modalsState.copyPasteSettings.isOpen ||
+    modalsState.denoise.isOpen ||
+    modalsState.confirm.isOpen ||
+    modalsState.panorama.isOpen ||
+    modalsState.culling.isOpen ||
+    modalsState.collage.isOpen;
+
   useEffect(() => {
     const handleKeyDown = (event: any) => {
       if (isModalOpen) {
@@ -118,17 +106,17 @@ export const useKeyboardShortcuts = ({
         if (key === 'escape') {
           event.preventDefault();
           if (isStraightenActive) {
-            setIsStraightenActive(false);
+            editorCubit.setIsStraightenActive(false);
           } else if (customEscapeHandler) {
             customEscapeHandler();
           } else if (activeAiSubMaskId) {
-            setActiveAiSubMaskId(null);
+            masksCubit.setActiveAiSubMask(null);
           } else if (activeAiPatchContainerId && onSelectPatchContainer) {
             onSelectPatchContainer(null);
           } else if (activeMaskId) {
-            setActiveMaskId(null);
+            masksCubit.setActiveMask(null);
           } else if (activeMaskContainerId) {
-            setActiveMaskContainerId(null);
+            masksCubit.setActiveMaskContainer(null);
           } else if (activeRightPanel === Panel.Crop) {
             handleRightPanelSelect(Panel.Adjustments);
           } else if (isFullScreen) {
@@ -188,7 +176,7 @@ export const useKeyboardShortcuts = ({
         }
         if (key === 'b' && !isCtrl) {
           event.preventDefault();
-          setShowOriginal((prev: boolean) => !prev);
+          editorCubit.toggleShowOriginal();
         }
         if (key === 'd' && !isCtrl) {
           event.preventDefault();
@@ -220,7 +208,7 @@ export const useKeyboardShortcuts = ({
         }
         if (key === 'w' && !isCtrl) {
           event.preventDefault();
-          setIsWaveformVisible((prev: boolean) => !prev);
+          editorCubit.toggleWaveform();
         }
       } else {
         if ((key === 'enter' || key === ' ') && !isCtrl) {
@@ -286,8 +274,8 @@ export const useKeyboardShortcuts = ({
           }
           const nextImage = sortedImageList[nextIndex];
           if (nextImage) {
-            setLibraryActivePath(nextImage.path);
-            setMultiSelectedPaths([nextImage.path]);
+            editorCubit.setLibraryActivePath(nextImage.path);
+            libraryCubit.setSelection([nextImage.path]);
           }
         }
       }
@@ -352,22 +340,22 @@ export const useKeyboardShortcuts = ({
           case 'a':
             event.preventDefault();
             if (sortedImageList.length > 0) {
-              setMultiSelectedPaths(sortedImageList.map((f: ImageFile) => f.path));
+              libraryCubit.setSelection(sortedImageList.map((f: ImageFile) => f.path));
               if (!selectedImage) {
-                setLibraryActivePath(sortedImageList[sortedImageList.length - 1].path);
+                editorCubit.setLibraryActivePath(sortedImageList[sortedImageList.length - 1].path);
               }
             }
             break;
           case 'z':
             if (selectedImage) {
               event.preventDefault();
-              undo();
+              editorCubit.undo();
             }
             break;
           case 'y':
             if (selectedImage) {
               event.preventDefault();
-              redo();
+              editorCubit.redo();
             }
             break;
           case '0':
@@ -409,6 +397,7 @@ export const useKeyboardShortcuts = ({
     canUndo,
     copiedFilePaths,
     customEscapeHandler,
+    editorCubit,
     handleBackToLibrary,
     handleCopyAdjustments,
     handleDeleteAiPatch,
@@ -423,25 +412,16 @@ export const useKeyboardShortcuts = ({
     handleToggleFullScreen,
     handleZoomChange,
     isFullScreen,
+    isModalOpen,
     isStraightenActive,
-    isViewLoading,
+    libraryCubit,
     libraryActivePath,
+    masksCubit,
     multiSelectedPaths,
     onSelectPatchContainer,
-    redo,
     selectedImage,
-    setActiveAiSubMaskId,
-    setActiveMaskContainerId,
-    setActiveMaskId,
     setCopiedFilePaths,
-    setIsStraightenActive,
-    setIsWaveformVisible,
-    setLibraryActivePath,
-    setMultiSelectedPaths,
-    setShowOriginal,
     sortedImageList,
-    undo,
-    zoom,
     displaySize,
     baseRenderSize,
     originalSize,

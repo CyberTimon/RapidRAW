@@ -16,6 +16,7 @@ import {
   Trash2,
   Bookmark,
 } from 'lucide-react';
+import { useBloc } from '@blac/react';
 import MaskControls from './MaskControls';
 import {
   Adjustments,
@@ -25,30 +26,16 @@ import {
 } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { Mask, MaskType, SubMask, MASK_PANEL_CREATION_TYPES, OTHERS_MASK_TYPES } from './Masks';
-import { BrushSettings, OPTION_SEPARATOR, SelectedImage, AppSettings } from '../../ui/AppProperties';
+import { OPTION_SEPARATOR } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
 import { usePresets } from '../../../hooks/usePresets';
+import { EditorCubit, MasksCubit, SettingsCubit } from '../../../cubits';
 
 interface MasksPanelProps {
-  activeMaskContainerId: string | null;
-  activeMaskId: string | null;
-  adjustments: Adjustments;
   aiModelDownloadStatus: string | null;
-  appSettings: AppSettings | null;
-  brushSettings: BrushSettings | null;
-  copiedMask: MaskContainer | null;
-  histogram: any;
-  isGeneratingAiMask: boolean;
   onGenerateAiForegroundMask(id: string): void;
   onGenerateAiSkyMask(id: string): void;
-  onSelectContainer(id: string | null): void;
-  onSelectMask(id: string | null): void;
-  selectedImage: SelectedImage;
-  setAdjustments(adjustments: Partial<Adjustments>): void;
-  setBrushSettings(brushSettings: BrushSettings): void;
-  setCopiedMask(mask: MaskContainer): void;
   setCustomEscapeHandler(handler: any): void;
-  setIsMaskControlHovered(hovered: boolean): void;
 }
 
 const itemVariants = {
@@ -62,26 +49,19 @@ const itemVariants = {
 };
 
 export default function MasksPanel({
-  activeMaskContainerId,
-  activeMaskId,
-  adjustments,
   aiModelDownloadStatus,
-  appSettings,
-  brushSettings,
-  copiedMask,
-  histogram,
-  isGeneratingAiMask,
   onGenerateAiForegroundMask,
   onGenerateAiSkyMask,
-  onSelectContainer,
-  onSelectMask,
-  selectedImage,
-  setAdjustments,
-  setBrushSettings,
-  setCopiedMask,
   setCustomEscapeHandler,
-  setIsMaskControlHovered,
 }: MasksPanelProps) {
+  const [editorState, editorCubit] = useBloc(EditorCubit);
+  const [masksState, masksCubit] = useBloc(MasksCubit);
+  const [settingsState] = useBloc(SettingsCubit);
+
+  const { adjustments, selectedImage, histogram } = editorState;
+  const { activeMaskContainerId, activeMaskId, brushSettings, copiedMask, isGeneratingAiMask } = masksState;
+  const { appSettings } = settingsState;
+
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [renamingContainerId, setRenamingContainerId] = useState(null);
   const [tempName, setTempName] = useState('');
@@ -90,9 +70,9 @@ export default function MasksPanel({
   const isInitialRender = useRef(true);
 
   const handleBackToList = useCallback(() => {
-    onSelectContainer(null);
-    onSelectMask(null);
-  }, [onSelectContainer, onSelectMask]);
+    masksCubit.setActiveMaskContainer(null);
+    masksCubit.setActiveMask(null);
+  }, [masksCubit]);
 
   const handleFinishRename = () => {
     if (renamingContainerId && tempName.trim()) {
@@ -125,11 +105,11 @@ export default function MasksPanel({
   }, []);
 
   const handleAddMaskContainer = (type: Mask) => {
-    const subMask = createSubMask(type, selectedImage);
+    const subMask = createSubMask(type, selectedImage || { width: 1000, height: 1000 });
 
     if (adjustments?.crop && subMask.parameters && (type === Mask.Linear || type === Mask.Radial)) {
       const { x, y, width, height } = adjustments.crop;
-      const { width: imgW, height: imgH } = selectedImage;
+      const { width: imgW, height: imgH } = selectedImage || { width: 0, height: 0 };
 
       if (imgW && imgH && (width !== imgW || height !== imgH)) {
         const ratioX = width / imgW;
@@ -162,9 +142,9 @@ export default function MasksPanel({
       name: `Mask ${adjustments.masks.length + 1}`,
       subMasks: [subMask],
     };
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, masks: [...(prev.masks || []), newContainer] }));
-    onSelectContainer(newContainer.id);
-    onSelectMask(subMask.id);
+    editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, masks: [...(prev.masks || []), newContainer] }));
+    masksCubit.setActiveMaskContainer(newContainer.id);
+    masksCubit.setActiveMask(subMask.id);
     if (type === Mask.AiForeground) {
       onGenerateAiForegroundMask(subMask.id);
     } else if (type === Mask.AiSky) {
@@ -185,12 +165,12 @@ export default function MasksPanel({
   const handleDeleteContainer = (id: string) => {
     setDeletingItemId(id);
     setTimeout(() => {
-      if (activeMaskContainerId === id) onSelectContainer(null);
+      if (activeMaskContainerId === id) masksCubit.setActiveMaskContainer(null);
       const container = adjustments.masks.find((c: MaskContainer) => c.id === id);
       if (container && container.subMasks.some((sm: SubMask) => sm.id === activeMaskId)) {
-        onSelectMask(null);
+        masksCubit.setActiveMask(null);
       }
-      setAdjustments((prev: Partial<Adjustments>) => ({
+      editorCubit.setAdjustments((prev: Adjustments) => ({
         ...prev,
         masks: (prev.masks || []).filter((c: MaskContainer) => c.id !== id),
       }));
@@ -199,21 +179,21 @@ export default function MasksPanel({
   };
 
   const handleToggleContainerVisibility = (id: string) => {
-    setAdjustments((prev: Partial<Adjustments>) => ({
+    editorCubit.setAdjustments((prev: Adjustments) => ({
       ...prev,
       masks: prev.masks?.map((c: MaskContainer) => (c.id === id ? { ...c, visible: !c.visible } : c)),
     }));
   };
 
   const updateContainer = (containerId: string, updatedData: any) => {
-    setAdjustments((prev: Partial<Adjustments>) => ({
+    editorCubit.setAdjustments((prev: Adjustments) => ({
       ...prev,
       masks: (prev.masks || []).map((c: MaskContainer) => (c.id === containerId ? { ...c, ...updatedData } : c)),
     }));
   };
 
   const updateSubMask = (subMaskId: string, updatedData: any) => {
-    setAdjustments((prev: Partial<Adjustments>) => ({
+    editorCubit.setAdjustments((prev: Adjustments) => ({
       ...prev,
       masks: prev.masks?.map((c: MaskContainer) => ({
         ...c,
@@ -223,18 +203,18 @@ export default function MasksPanel({
   };
 
   const handleResetAllMasks = () => {
-    onSelectContainer(null);
-    onSelectMask(null);
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, masks: [] }));
+    masksCubit.setActiveMaskContainer(null);
+    masksCubit.setActiveMask(null);
+    editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, masks: [] }));
   };
 
   const handleOpenContainerForEditing = (container: MaskContainer) => {
-    onSelectContainer(container.id);
+    masksCubit.setActiveMaskContainer(container.id);
     const lastSubMaskId = container.subMasks.length > 0 ? container.subMasks[container.subMasks.length - 1].id : null;
-    onSelectMask(lastSubMaskId);
+    masksCubit.setActiveMask(lastSubMaskId);
   };
 
-  const handleDeselect = () => onSelectMask(null);
+  const handleDeselect = () => masksCubit.setActiveMask(null);
 
   const handleStartRename = (container: MaskContainer) => {
     setRenamingContainerId(container.id);
@@ -255,7 +235,7 @@ export default function MasksPanel({
     newContainer.id = uuidv4();
     newContainer.name = `${containerToDuplicate.name} Copy`;
     newContainer.subMasks = newContainer.subMasks.map((sm: SubMask) => ({ ...sm, id: uuidv4() }));
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, masks: [...(prev.masks || []), newContainer] }));
+    editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, masks: [...(prev.masks || []), newContainer] }));
   };
 
   const handlePasteContainer = () => {
@@ -265,14 +245,14 @@ export default function MasksPanel({
     const newContainer = JSON.parse(JSON.stringify(copiedMask));
     newContainer.id = uuidv4();
     newContainer.subMasks = newContainer.subMasks.map((sm: SubMask) => ({ ...sm, id: uuidv4() }));
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, masks: [...(prev.masks || []), newContainer] }));
+    editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, masks: [...(prev.masks || []), newContainer] }));
   };
 
   const handlePasteContainerAdjustments = (targetContainerId: string) => {
     if (!copiedMask) {
       return;
     }
-    setAdjustments((prev: Partial<Adjustments>) => ({
+    editorCubit.setAdjustments((prev: Adjustments) => ({
       ...prev,
       masks: prev.masks?.map((c: MaskContainer) =>
         c.id === targetContainerId ? { ...c, adjustments: JSON.parse(JSON.stringify(copiedMask.adjustments)) } : c,
@@ -281,7 +261,7 @@ export default function MasksPanel({
   };
 
   const handleApplyPresetToMask = (containerId: string, presetAdjustments: Partial<Adjustments>) => {
-    setAdjustments((prev: Adjustments) => ({
+    editorCubit.setAdjustments((prev: Adjustments) => ({
       ...prev,
       masks: prev.masks.map((c: MaskContainer) => {
         if (c.id === containerId) {
@@ -338,7 +318,7 @@ export default function MasksPanel({
       { label: 'Rename Mask', icon: FileEdit, onClick: () => handleStartRename(container) },
       { type: OPTION_SEPARATOR },
       { label: 'Duplicate Mask', icon: PlusSquare, onClick: () => handleDuplicateContainer(container) },
-      { label: 'Copy Mask', icon: Copy, onClick: () => setCopiedMask(container) },
+      { label: 'Copy Mask', icon: Copy, onClick: () => masksCubit.setCopiedMask(container) },
       {
         label: 'Paste Adjustments',
         icon: ClipboardPaste,
@@ -423,11 +403,11 @@ export default function MasksPanel({
             isGeneratingAiMask={isGeneratingAiMask}
             onGenerateAiForegroundMask={onGenerateAiForegroundMask}
             onGenerateAiSkyMask={onGenerateAiSkyMask}
-            onSelectMask={onSelectMask}
+            onSelectMask={masksCubit.setActiveMask}
             selectedImage={selectedImage}
-            setAdjustments={setAdjustments}
-            setBrushSettings={setBrushSettings}
-            setIsMaskControlHovered={setIsMaskControlHovered}
+            setAdjustments={editorCubit.setAdjustments}
+            setBrushSettings={masksCubit.setBrushSettings}
+            setIsMaskControlHovered={masksCubit.setIsMaskControlHovered}
             updateMask={updateContainer}
             updateSubMask={updateSubMask}
           />

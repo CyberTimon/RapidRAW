@@ -6,121 +6,101 @@ import clsx from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import { AnimatePresence } from 'framer-motion';
+import { useBloc } from '@blac/react';
 import { ImageDimensions, useImageRenderSize } from '../../hooks/useImageRenderSize';
 import { Adjustments, AiPatch, Coord, MaskContainer } from '../../utils/adjustments';
+import { EditorCubit, MasksCubit } from '../../cubits';
 import FullScreenViewer from './editor/FullScreenViewer';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
 import Waveform from './editor/Waveform';
 import { Mask, SubMask } from './right/Masks';
-import { BrushSettings, Invokes, Panel, SelectedImage, TransformState, WaveformData } from '../ui/AppProperties';
+import { Invokes, Panel, TransformState, WaveformData } from '../ui/AppProperties';
 
 interface EditorProps {
-  activeAiPatchContainerId: string | null;
-  activeAiSubMaskId: string | null;
-  activeMaskContainerId: string | null;
-  activeMaskId: string | null;
-  activeRightPanel: Panel | null;
-  adjustments: Adjustments;
-  brushSettings: BrushSettings | null;
-  canRedo: boolean;
-  canUndo: boolean;
-  finalPreviewUrl: string | null;
-  fullScreenUrl: string | null;
-  isAdjusting: boolean;
-  isFullScreen: boolean;
-  isFullScreenLoading: boolean;
   isLoading: boolean;
-  isMaskControlHovered: boolean;
-  isStraightenActive: boolean;
-  isWaveformVisible: boolean;
   onBackToLibrary(): void;
-  onCloseWaveform(): void;
   onContextMenu(event: any): void;
   onGenerateAiMask(subMaskId: string, startPoint: Coord, endPoint: Coord): void;
   onQuickErase(subMaskId: string | null, startPoint: Coord, endpoint: Coord): void;
-  onRedo(): void;
-  onSelectAiSubMask(id: string | null): void;
-  onSelectMask(id: string): void;
   onStraighten(val: number): void;
   onToggleFullScreen(): void;
-  onToggleWaveform(): void;
-  onUndo(): void;
   onZoomed(state: TransformState): void;
-  renderedRightPanel: Panel | null;
-  selectedImage: SelectedImage;
-  setAdjustments(adjustments: Partial<Adjustments>): void;
-  setShowOriginal(show: any): void;
-  showOriginal: boolean;
   targetZoom: number;
   thumbnails: Record<string, string>;
   transformWrapperRef: any;
-  transformedOriginalUrl: string | null;
-  uncroppedAdjustedPreviewUrl: string | null;
   updateSubMask(id: string | null, subMask: Partial<SubMask>): void;
-  waveform: WaveformData | null;
   onDisplaySizeChange?(size: any): void;
   onInitialFitScale?(scale: number): void;
-  originalSize?: ImageDimensions;
-  isFullResolution?: boolean;
-  fullResolutionUrl?: string | null;
-  isLoadingFullRes?: boolean;
-  isWbPickerActive?: boolean;
+  onZoomChange?(zoom: number, fitToWindow?: boolean): void;
   onWbPicked?: () => void;
 }
 
 export default function Editor({
-  activeAiPatchContainerId,
-  activeAiSubMaskId,
-  activeMaskContainerId,
-  activeMaskId,
-  activeRightPanel,
-  adjustments,
-  brushSettings,
-  canRedo,
-  canUndo,
-  finalPreviewUrl,
-  fullScreenUrl,
-  isAdjusting,
-  isFullScreen,
-  isFullScreenLoading,
   isLoading,
-  isMaskControlHovered,
-  isStraightenActive,
-  isWaveformVisible,
   onBackToLibrary,
-  onCloseWaveform,
   onContextMenu,
   onGenerateAiMask,
   onQuickErase,
-  onRedo,
-  onSelectAiSubMask,
-  onSelectMask,
   onStraighten,
   onToggleFullScreen,
-  onToggleWaveform,
-  onUndo,
   onZoomed,
-  selectedImage,
-  setAdjustments,
-  setShowOriginal,
-  showOriginal,
   targetZoom,
   thumbnails,
   transformWrapperRef,
-  transformedOriginalUrl,
-  uncroppedAdjustedPreviewUrl,
   updateSubMask,
-  waveform,
   onDisplaySizeChange,
   onInitialFitScale,
-  originalSize,
-  isFullResolution,
-  fullResolutionUrl,
-  isLoadingFullRes,
-  isWbPickerActive = false,
+  onZoomChange,
   onWbPicked,
 }: EditorProps) {
+  // Get state from cubits - single source of truth
+  const [editorState, editorCubit] = useBloc(EditorCubit);
+  const [masksState, masksCubit] = useBloc(MasksCubit);
+
+  // Destructure editor state
+  const {
+    selectedImage,
+    adjustments,
+    showOriginal,
+    isAdjusting,
+    isFullScreen,
+    isFullScreenLoading,
+    isStraightenActive,
+    isWaveformVisible,
+    finalPreviewUrl,
+    fullScreenUrl,
+    transformedOriginalUrl,
+    uncroppedAdjustedPreviewUrl,
+    waveform,
+    activeRightPanel,
+    renderedRightPanel,
+    originalSize,
+    baseRenderSize,
+    isFullResolution,
+    fullResolutionUrl,
+    isLoadingFullRes,
+    isWbPickerActive,
+  } = editorState;
+
+  // Computed getters from EditorCubit
+  const canUndo = editorCubit.canUndo;
+  const canRedo = editorCubit.canRedo;
+
+  // Destructure masks state
+  const {
+    activeAiPatchContainerId,
+    activeAiSubMaskId,
+    activeMaskContainerId,
+    activeMaskId,
+    brushSettings,
+    isMaskControlHovered,
+  } = masksState;
+
+  // Cubit method aliases for cleaner code
+  const setAdjustments = editorCubit.setAdjustments;
+  const setShowOriginal = editorCubit.setShowOriginal;
+
   const [crop, setCrop] = useState<Crop | null>(null);
   const prevCropParams = useRef<any>(null);
   const [isMaskHovered, setIsMaskHovered] = useState(false);
@@ -205,7 +185,7 @@ export default function Editor({
   const isMasking = activeRightPanel === Panel.Masks;
   const isAiEditing = activeRightPanel === Panel.Ai;
 
-  const hasDisplayableImage = finalPreviewUrl || selectedImage.originalUrl || selectedImage.thumbnailUrl;
+  const hasDisplayableImage = finalPreviewUrl || selectedImage?.originalUrl || selectedImage?.thumbnailUrl;
   const showSpinner = isLoading && !hasDisplayableImage;
 
   const croppedDimensions = useMemo<ImageDimensions | null>(() => {
@@ -434,7 +414,7 @@ export default function Editor({
     [selectedImage, adjustments.orientationSteps, setAdjustments],
   );
 
-  const toggleShowOriginal = useCallback(() => setShowOriginal((prev: boolean) => !prev), [setShowOriginal]);
+  const toggleShowOriginal = useCallback(() => editorCubit.toggleShowOriginal(), [editorCubit]);
 
   const doubleClickProps: any = useMemo(() => {
     if (isCropping || isMasking || isAiEditing) {
@@ -497,23 +477,12 @@ export default function Editor({
 
       <div className="flex-1 bg-bg-secondary rounded-lg flex flex-col relative overflow-hidden p-2 gap-2 min-h-0">
         <AnimatePresence>
-          {isWaveformVisible && <Waveform waveformData={waveFormData} onClose={onCloseWaveform} />}
+          {isWaveformVisible && <Waveform waveformData={waveFormData} onClose={() => editorCubit.setIsWaveformVisible(false)} />}
         </AnimatePresence>
         <EditorToolbar
-          canRedo={canRedo}
-          canUndo={canUndo}
-          isFullScreenLoading={isFullScreenLoading}
           isLoading={isLoading}
-          isWaveformVisible={isWaveformVisible}
           onBackToLibrary={onBackToLibrary}
-          onRedo={onRedo}
           onToggleFullScreen={onToggleFullScreen}
-          onToggleShowOriginal={toggleShowOriginal}
-          onToggleWaveform={onToggleWaveform}
-          onUndo={onUndo}
-          selectedImage={selectedImage}
-          showOriginal={showOriginal}
-          isLoadingFullRes={isLoadingFullRes}
         />
 
         <div
@@ -553,41 +522,20 @@ export default function Editor({
               }}
             >
               <ImageCanvas
-                activeAiPatchContainerId={activeAiPatchContainerId}
-                activeAiSubMaskId={activeAiSubMaskId}
-                activeMaskContainerId={activeMaskContainerId}
-                activeMaskId={activeMaskId}
-                adjustments={adjustments}
-                brushSettings={brushSettings}
                 crop={crop}
-                finalPreviewUrl={finalPreviewUrl}
                 handleCropComplete={handleCropComplete}
                 imageRenderSize={imageRenderSize}
-                isAdjusting={isAdjusting}
                 isAiEditing={isAiEditing}
                 isCropping={isCropping}
-                isMaskControlHovered={isMaskControlHovered}
                 isMasking={isMasking}
-                isStraightenActive={isStraightenActive}
                 maskOverlayUrl={maskOverlayUrl}
                 onGenerateAiMask={onGenerateAiMask}
                 onQuickErase={onQuickErase}
-                onSelectAiSubMask={onSelectAiSubMask}
-                onSelectMask={onSelectMask}
                 onStraighten={onStraighten}
-                selectedImage={selectedImage}
                 setCrop={handleCropChange}
                 setIsMaskHovered={setIsMaskHovered}
-                showOriginal={showOriginal}
-                transformedOriginalUrl={transformedOriginalUrl}
-                uncroppedAdjustedPreviewUrl={uncroppedAdjustedPreviewUrl}
                 updateSubMask={updateSubMask}
-                fullResolutionUrl={fullResolutionUrl}
-                isFullResolution={isFullResolution}
-                isLoadingFullRes={isLoadingFullRes}
-                isWbPickerActive={isWbPickerActive}
                 onWbPicked={onWbPicked}
-                setAdjustments={setAdjustments}
               />
             </TransformComponent>
           </TransformWrapper>

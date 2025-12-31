@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 export interface MasksState {
   activeMaskContainerId: string | null;
   activeMaskId: string | null;
+  activeAiPatchContainerId: string | null;
+  activeAiSubMaskId: string | null;
   brushSettings: BrushSettings;
   copiedMask: MaskContainer | null;
   isGeneratingAiMask: boolean;
@@ -22,6 +24,8 @@ const defaultBrushSettings: BrushSettings = {
 const defaultState: MasksState = {
   activeMaskContainerId: null,
   activeMaskId: null,
+  activeAiPatchContainerId: null,
+  activeAiSubMaskId: null,
   brushSettings: defaultBrushSettings,
   copiedMask: null,
   isGeneratingAiMask: false,
@@ -53,6 +57,29 @@ export class MasksCubit extends Cubit<MasksState> {
     this.patch({
       activeMaskContainerId: null,
       activeMaskId: null,
+    });
+  };
+
+  // Active AI patch management
+  setActiveAiPatchContainer = (containerId: string | null) => {
+    this.patch({ activeAiPatchContainerId: containerId });
+  };
+
+  setActiveAiSubMask = (subMaskId: string | null) => {
+    this.patch({ activeAiSubMaskId: subMaskId });
+  };
+
+  setActiveAiPatchAndSubMask = (containerId: string | null, subMaskId: string | null) => {
+    this.patch({
+      activeAiPatchContainerId: containerId,
+      activeAiSubMaskId: subMaskId,
+    });
+  };
+
+  clearActiveAiPatch = () => {
+    this.patch({
+      activeAiPatchContainerId: null,
+      activeAiSubMaskId: null,
     });
   };
 

@@ -1,43 +1,34 @@
 import { memo, useState, useEffect, useRef, useMemo } from 'react';
 import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo, Waves } from 'lucide-react';
 import clsx from 'clsx';
-import { SelectedImage } from '../../ui/AppProperties';
+import { useBloc } from '@blac/react';
+import { EditorCubit } from '../../../cubits';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from './ExifIcons';
 
 interface EditorToolbarProps {
-  canRedo: boolean;
-  canUndo: boolean;
-  isFullScreenLoading: boolean;
-  isWaveformVisible: boolean;
   isLoading: boolean;
-  isLoadingFullRes?: boolean;
   onBackToLibrary(): void;
-  onRedo(): void;
   onToggleFullScreen(): void;
-  onToggleShowOriginal(): void;
-  onToggleWaveform(): void;
-  onUndo(): void;
-  selectedImage: SelectedImage;
-  showOriginal: boolean;
 }
 
 const EditorToolbar = memo(
   ({
-    canRedo,
-    canUndo,
-    isFullScreenLoading,
     isLoading,
-    isLoadingFullRes,
-    isWaveformVisible,
     onBackToLibrary,
-    onRedo,
     onToggleFullScreen,
-    onToggleShowOriginal,
-    onToggleWaveform,
-    onUndo,
-    selectedImage,
-    showOriginal,
   }: EditorToolbarProps) => {
+    const [editorState, editorCubit] = useBloc(EditorCubit);
+    
+    const {
+      selectedImage,
+      showOriginal,
+      isFullScreenLoading,
+      isWaveformVisible,
+      isLoadingFullRes,
+    } = editorState;
+    
+    const canUndo = editorCubit.canUndo;
+    const canRedo = editorCubit.canRedo;
     const isAnyLoading = isLoading || !!isLoadingFullRes || isFullScreenLoading;
     const [isLoaderVisible, setIsLoaderVisible] = useState(false);
     const [disableLoaderTransition, setDisableLoaderTransition] = useState(false);
@@ -46,10 +37,13 @@ const EditorToolbar = memo(
     const [isVcHovered, setIsVcHovered] = useState(false);
     const [isInfoHovered, setIsInfoHovered] = useState(false);
 
-    const showResolution = selectedImage.width > 0 && selectedImage.height > 0;
+    const showResolution = selectedImage && selectedImage.width > 0 && selectedImage.height > 0;
     const [displayedResolution, setDisplayedResolution] = useState('');
 
     const { baseName, isVirtualCopy, vcId, exifData, hasExif } = useMemo(() => {
+      if (!selectedImage) {
+        return { baseName: '', isVirtualCopy: false, vcId: null, exifData: { iso: null, fNumber: null, shutter: null, focal: null }, hasExif: false };
+      }
       const path = selectedImage.path;
       const parts = path.split('?vc=');
       const fullFileName = parts[0].split(/[\/\\]/).pop() || '';
@@ -78,13 +72,13 @@ const EditorToolbar = memo(
         exifData: data,
         hasExif: hasData
       };
-    }, [selectedImage.path, selectedImage.exif]);
+    }, [selectedImage?.path, selectedImage?.exif]);
 
     useEffect(() => {
-      if (showResolution) {
+      if (showResolution && selectedImage) {
         setDisplayedResolution(` - ${selectedImage.width} × ${selectedImage.height}`);
       }
-    }, [showResolution, selectedImage.width, selectedImage.height]);
+    }, [showResolution, selectedImage?.width, selectedImage?.height]);
 
     useEffect(() => {
       const wasLoadingResolution = prevIsLoadingRef.current && !isLoading;
@@ -238,7 +232,7 @@ const EditorToolbar = memo(
           <button
             className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!canUndo}
-            onClick={onUndo}
+            onClick={() => editorCubit.undo()}
             title="Undo (Ctrl+Z)"
           >
             <Undo size={20} />
@@ -246,7 +240,7 @@ const EditorToolbar = memo(
           <button
             className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!canRedo}
-            onClick={onRedo}
+            onClick={() => editorCubit.redo()}
             title="Redo (Ctrl+Y)"
           >
             <Redo size={20} />
@@ -258,7 +252,7 @@ const EditorToolbar = memo(
                 ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
                 : 'bg-surface hover:bg-card-active text-text-primary',
             )}
-            onClick={onToggleWaveform}
+            onClick={() => editorCubit.toggleWaveform()}
             title="Toggle Waveform (W)"
           >
             <Waves size={20} />
@@ -271,7 +265,7 @@ const EditorToolbar = memo(
                 ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
                 : 'bg-surface hover:bg-card-active text-text-primary',
             )}
-            onClick={onToggleShowOriginal}
+            onClick={() => editorCubit.setShowOriginal(!showOriginal)}
             title={showOriginal ? 'Show Edited (.)' : 'Show Original (.)'}
           >
             {showOriginal ? <EyeOff size={20} /> : <Eye size={20} />}

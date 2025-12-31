@@ -33,7 +33,7 @@ interface AiControlsProps {
   onGenerateAiForegroundMask(id: string): void;
   onGenerativeReplace(id: string, prompt: string, useFastInpaint: boolean): void;
   onSelectSubMask(id: string | null): void;
-  selectedImage: SelectedImage;
+  selectedImage: SelectedImage | null;
   setAdjustments(adjustments: Partial<Adjustments>): void;
   setBrushSettings(brushSettings: BrushSettings): void;
   updatePatch(id: string, patch: Partial<AiPatch>): void;
@@ -187,7 +187,7 @@ export default function AIControls({
   }, [isGeneratingAiMask]);
 
   const handleAddSubMask = (containerId: string, type: Mask) => {
-    const subMask = createSubMask(type, selectedImage);
+    const subMask = createSubMask(type, selectedImage || { width: 1000, height: 1000 });
 
     const config = SUB_MASK_CONFIG[type];
     if (config && config.parameters) {
@@ -200,7 +200,7 @@ export default function AIControls({
 
     if (adjustments?.crop && subMask.parameters && (type === Mask.Linear || type === Mask.Radial)) {
       const { x, y, width, height } = adjustments.crop;
-      const { width: imgW, height: imgH } = selectedImage;
+      const { width: imgW, height: imgH } = selectedImage || { width: 0, height: 0 };
 
       if (imgW && imgH && (width !== imgW || height !== imgH)) {
         const ratioX = width / imgW;

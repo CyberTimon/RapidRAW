@@ -24,7 +24,7 @@ import { open as openLink } from '@tauri-apps/plugin-shell';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from '@clerk/clerk-react';
-import { useBloc } from '@blac/react';
+import { useBloc, useBlocActions } from '@blac/react';
 import Button from '../ui/Button';
 import ConfirmModal from '../modals/ConfirmModal';
 import Dropdown, { OptionItem } from '../ui/Dropdown';
@@ -267,7 +267,7 @@ export default function SettingsPanel({
   rootPath,
 }: SettingsPanelProps) {
   const { user } = useUser();
-  const [, modalsCubit] = useBloc(ModalsCubit);
+  const modalsCubit = useBlocActions(ModalsCubit);
   const [settingsState, settingsCubit] = useBloc(SettingsCubit);
   const { appSettings, theme } = settingsState;
   const [isClearing, setIsClearing] = useState(false);

@@ -205,6 +205,27 @@ export class NavigationCubit extends Cubit<NavigationState> {
     }
   };
 
+  // Direct state setters for App.tsx migration
+  setFolderTree = (tree: FolderNode | null) => {
+    this.patch({ folderTree: tree });
+  };
+
+  setPinnedFolderTrees = (trees: FolderNode[]) => {
+    this.patch({ pinnedFolderTrees: trees });
+  };
+
+  setIsTreeLoading = (loading: boolean) => {
+    this.patch({ isTreeLoading: loading });
+  };
+
+  setRootPathSimple = (path: string | null) => {
+    this.patch({ rootPath: path });
+  };
+
+  setCurrentFolderPath = (path: string | null) => {
+    this.patch({ currentFolderPath: path });
+  };
+
   // Restore state from saved settings
   restoreFromSettings = (settings: {
     lastRootPath?: string | null;

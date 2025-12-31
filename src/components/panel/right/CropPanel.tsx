@@ -9,20 +9,14 @@ import {
   Ruler,
   X,
 } from 'lucide-react';
+import { useBloc } from '@blac/react';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import clsx from 'clsx';
-import { Orientation, SelectedImage } from '../../ui/AppProperties';
+import { Orientation } from '../../ui/AppProperties';
+import { EditorCubit } from '../../../cubits';
 
 const BASE_RATIO = 1.618;
 const ORIGINAL_RATIO = 0;
-
-interface CropPanelProps {
-  adjustments: Adjustments;
-  isStraightenActive: boolean;
-  selectedImage: SelectedImage;
-  setAdjustments(adjustments: Partial<Adjustments>): void;
-  setIsStraightenActive(active: any): void;
-}
 
 interface CropPreset {
   name: string;
@@ -41,13 +35,10 @@ const PRESETS: Array<CropPreset> = [
   { name: '65:24', value: 65 / 24 },
 ];
 
-export default function CropPanel({
-  adjustments,
-  isStraightenActive,
-  selectedImage,
-  setAdjustments,
-  setIsStraightenActive,
-}: CropPanelProps) {
+export default function CropPanel() {
+  const [editorState, editorCubit] = useBloc(EditorCubit);
+  const { adjustments, isStraightenActive, selectedImage } = editorState;
+
   const [customW, setCustomW] = useState('');
   const [customH, setCustomH] = useState('');
 
@@ -117,10 +108,10 @@ export default function CropPanel({
     if (activePreset?.value === ORIGINAL_RATIO) {
       const newOriginalRatio = getEffectiveOriginalRatio();
       if (newOriginalRatio !== null && aspectRatio && Math.abs(aspectRatio - newOriginalRatio) > 0.001) {
-        setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aspectRatio: newOriginalRatio, crop: null }));
+        editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, aspectRatio: newOriginalRatio, crop: null }));
       }
     }
-  }, [orientationSteps, activePreset, aspectRatio, getEffectiveOriginalRatio, setAdjustments]);
+  }, [orientationSteps, activePreset, aspectRatio, getEffectiveOriginalRatio, editorCubit]);
 
   const handleCustomInputChange = (e: any) => {
     const { name, value } = e.target;
@@ -138,7 +129,7 @@ export default function CropPanel({
     if (numW > 0 && numH > 0) {
       const newAspectRatio = numW / numH;
       if (adjustments?.aspectRatio && Math.abs(adjustments.aspectRatio - newAspectRatio) > 0.001) {
-        setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aspectRatio: newAspectRatio, crop: null }));
+        editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, aspectRatio: newAspectRatio, crop: null }));
       }
     }
   };
@@ -153,7 +144,7 @@ export default function CropPanel({
 
   const handlePresetClick = (preset: CropPreset) => {
     if (preset.value === ORIGINAL_RATIO) {
-      setAdjustments((prev: Partial<Adjustments>) => ({
+      editorCubit.setAdjustments((prev: Adjustments) => ({
         ...prev,
         aspectRatio: getEffectiveOriginalRatio(),
         crop: null,
@@ -163,7 +154,7 @@ export default function CropPanel({
 
     let targetRatio = preset.value;
     if (activePreset === preset && targetRatio && targetRatio !== 1) {
-      setAdjustments((prev: Partial<Adjustments>) => ({
+      editorCubit.setAdjustments((prev: Adjustments) => ({
         ...prev,
         aspectRatio: 1 / (prev.aspectRatio ? prev.aspectRatio : 1),
         crop: null,
@@ -179,24 +170,24 @@ export default function CropPanel({
       newAspectRatio = 1 / targetRatio;
     }
 
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aspectRatio: newAspectRatio, crop: null }));
+    editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, aspectRatio: newAspectRatio, crop: null }));
   };
 
   const handleOrientationToggle = useCallback(() => {
     if (aspectRatio && aspectRatio !== 1) {
-      setAdjustments((prev: Partial<Adjustments>) => ({
+      editorCubit.setAdjustments((prev: Adjustments) => ({
         ...prev,
         aspectRatio: 1 / (prev.aspectRatio ? prev.aspectRatio : 1),
         crop: null,
       }));
     }
-  }, [aspectRatio, setAdjustments]);
+  }, [aspectRatio, editorCubit]);
 
   const handleReset = () => {
     const originalAspectRatio =
       selectedImage?.width && selectedImage?.height ? selectedImage.width / selectedImage.height : null;
 
-    setAdjustments((prev: Partial<Adjustments>) => ({
+    editorCubit.setAdjustments((prev: Adjustments) => ({
       ...prev,
       aspectRatio: originalAspectRatio,
       crop: INITIAL_ADJUSTMENTS.crop,
@@ -216,12 +207,12 @@ export default function CropPanel({
 
   const handleFineRotationChange = (e: any) => {
     const newFineRotation = parseFloat(e.target.value);
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, rotation: newFineRotation }));
+    editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, rotation: newFineRotation }));
   };
 
   const handleStepRotate = (degrees: number) => {
     const increment = degrees > 0 ? 1 : 3;
-    setAdjustments((prev: Partial<Adjustments>) => {
+    editorCubit.setAdjustments((prev: Adjustments) => {
       const newAspectRatio = prev.aspectRatio && prev.aspectRatio !== 0 ? 1 / prev.aspectRatio : null;
       return {
         ...prev,
@@ -234,7 +225,7 @@ export default function CropPanel({
   };
 
   const resetFineRotation = () => {
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, rotation: 0 }));
+    editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, rotation: 0 }));
   };
 
   return (
@@ -291,7 +282,7 @@ export default function CropPanel({
                     if (imageRatio && imageRatio < 1) {
                       newAspectRatio = 1 / BASE_RATIO;
                     }
-                    setAdjustments((prev: Partial<Adjustments>) => ({
+                    editorCubit.setAdjustments((prev: Adjustments) => ({
                       ...prev,
                       aspectRatio: newAspectRatio,
                       crop: null,
@@ -383,7 +374,7 @@ export default function CropPanel({
                       : 'bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary',
                   )}
                   onClick={() =>
-                    setAdjustments((prev: Partial<Adjustments>) => ({
+                    editorCubit.setAdjustments((prev: Adjustments) => ({
                       ...prev,
                       flipHorizontal: !prev.flipHorizontal,
                     }))
@@ -400,7 +391,7 @@ export default function CropPanel({
                       : 'bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary',
                   )}
                   onClick={() =>
-                    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, flipVertical: !prev.flipVertical }))
+                    editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, flipVertical: !prev.flipVertical }))
                   }
                 >
                   <FlipVertical size={20} className="transition-none" />
@@ -414,13 +405,11 @@ export default function CropPanel({
                       : 'bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary',
                   )}
                   onClick={() => {
-                    setIsStraightenActive((isActive: boolean) => {
-                      const willBeActive = !isActive;
-                      if (willBeActive) {
-                        setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, rotation: 0 }));
-                      }
-                      return willBeActive;
-                    });
+                    const willBeActive = !isStraightenActive;
+                    if (willBeActive) {
+                      editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, rotation: 0 }));
+                    }
+                    editorCubit.setIsStraightenActive(willBeActive);
                   }}
                 >
                   <Ruler size={20} className="transition-none" />

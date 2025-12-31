@@ -1,4 +1,5 @@
 import { RotateCcw, Copy, ClipboardPaste, Aperture } from 'lucide-react';
+import { useBloc } from '@blac/react';
 import BasicAdjustments from '../../adjustments/Basic';
 import CurveGraph from '../../adjustments/Curves';
 import ColorPanel from '../../adjustments/Color';
@@ -7,8 +8,8 @@ import EffectsPanel from '../../adjustments/Effects';
 import CollapsibleSection from '../../ui/CollapsibleSection';
 import { Adjustments, SectionVisibility, INITIAL_ADJUSTMENTS, ADJUSTMENT_SECTIONS } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
-import { OPTION_SEPARATOR, SelectedImage, AppSettings } from '../../ui/AppProperties';
-import { ChannelConfig } from '../../adjustments/Curves';
+import { OPTION_SEPARATOR } from '../../ui/AppProperties';
+import { EditorCubit, SettingsCubit } from '../../../cubits';
 
 interface ControlsPanelOption {
   disabled?: boolean;
@@ -19,42 +20,31 @@ interface ControlsPanelOption {
 }
 
 interface ControlsProps {
-  adjustments: Adjustments;
-  collapsibleState: any;
-  copiedSectionAdjustments: Adjustments | null;
   handleAutoAdjustments(): void;
   handleLutSelect(path: string): void;
-  histogram: ChannelConfig | null;
-  selectedImage: SelectedImage;
-  setAdjustments(updater: (prev: Adjustments) => Adjustments): void;
-  setCollapsibleState(state: any): void;
-  setCopiedSectionAdjustments(adjustments: any): void;
-  theme: string;
-  appSettings: AppSettings | null;
-  isWbPickerActive?: boolean;
-  toggleWbPicker?: () => void;
 }
 
 export default function Controls({
-  adjustments,
-  collapsibleState,
-  copiedSectionAdjustments,
   handleAutoAdjustments,
   handleLutSelect,
-  histogram,
-  selectedImage,
-  setAdjustments,
-  setCollapsibleState,
-  setCopiedSectionAdjustments,
-  theme,
-  appSettings,
-  isWbPickerActive,
-  toggleWbPicker,
 }: ControlsProps) {
+  const [editorState, editorCubit] = useBloc(EditorCubit);
+  const [settingsState] = useBloc(SettingsCubit);
   const { showContextMenu } = useContextMenu();
 
+  const {
+    adjustments,
+    collapsibleSectionsState: collapsibleState,
+    copiedSectionAdjustments,
+    histogram,
+    selectedImage,
+    isWbPickerActive,
+  } = editorState;
+
+  const { theme, appSettings } = settingsState;
+
   const handleToggleVisibility = (sectionName: string) => {
-    setAdjustments((prev: Adjustments) => {
+    editorCubit.setAdjustments((prev: Adjustments) => {
       const currentVisibility: SectionVisibility = prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility;
       return {
         ...prev,
@@ -67,7 +57,7 @@ export default function Controls({
   };
 
   const handleResetAdjustments = () => {
-    setAdjustments((prev: Adjustments) => ({
+    editorCubit.setAdjustments((prev: Adjustments) => ({
       ...prev,
       ...Object.keys(ADJUSTMENT_SECTIONS)
         .flatMap((s) => ADJUSTMENT_SECTIONS[s])
@@ -80,7 +70,10 @@ export default function Controls({
   };
 
   const handleToggleSection = (section: string) => {
-    setCollapsibleState((prev: any) => ({ ...prev, [section]: !prev[section] }));
+    editorCubit.setCollapsibleSectionsState({
+      ...collapsibleState,
+      [section]: !collapsibleState[section as keyof typeof collapsibleState],
+    });
   };
 
   const handleSectionContextMenu = (event: any, sectionName: string) => {
@@ -99,14 +92,14 @@ export default function Controls({
           adjustmentsToCopy[key] = JSON.parse(JSON.stringify(adjustments[key]));
         }
       }
-      setCopiedSectionAdjustments({ section: sectionName, values: adjustmentsToCopy });
+      editorCubit.setCopiedSectionAdjustments({ section: sectionName, values: adjustmentsToCopy });
     };
 
     const handlePaste = () => {
       if (!copiedSectionAdjustments || copiedSectionAdjustments.section !== sectionName) {
         return;
       }
-      setAdjustments((prev: Adjustments) => ({
+      editorCubit.setAdjustments((prev: Adjustments) => ({
         ...prev,
         ...copiedSectionAdjustments.values,
         sectionVisibility: {
@@ -121,7 +114,7 @@ export default function Controls({
       for (const key of sectionKeys) {
         resetValues[key] = JSON.parse(JSON.stringify(INITIAL_ADJUSTMENTS[key]));
       }
-      setAdjustments((prev: Adjustments) => ({
+      editorCubit.setAdjustments((prev: Adjustments) => ({
         ...prev,
         ...resetValues,
         sectionVisibility: {
@@ -196,7 +189,7 @@ export default function Controls({
             <div className="flex-shrink-0 group" key={sectionName}>
               <CollapsibleSection
                 isContentVisible={sectionVisibility[sectionName]}
-                isOpen={collapsibleState[sectionName]}
+                isOpen={collapsibleState[sectionName as keyof typeof collapsibleState]}
                 onContextMenu={(e: any) => handleSectionContextMenu(e, sectionName)}
                 onToggle={() => handleToggleSection(sectionName)}
                 onToggleVisibility={() => handleToggleVisibility(sectionName)}
@@ -204,13 +197,13 @@ export default function Controls({
               >
                 <SectionComponent
                   adjustments={adjustments}
-                  setAdjustments={setAdjustments}
+                  setAdjustments={editorCubit.setAdjustments}
                   histogram={histogram}
                   theme={theme}
                   handleLutSelect={handleLutSelect}
                   appSettings={appSettings}
                   isWbPickerActive={isWbPickerActive}
-                  toggleWbPicker={toggleWbPicker}
+                  toggleWbPicker={editorCubit.toggleWbPicker}
                 />
               </CollapsibleSection>
             </div>

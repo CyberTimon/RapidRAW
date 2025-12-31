@@ -16,7 +16,7 @@ import CollapsibleSection from '../../ui/CollapsibleSection';
 import Switch from '../../ui/Switch';
 import Slider from '../../ui/Slider';
 import BasicAdjustments from '../../adjustments/Basic';
-import CurveGraph from '../../adjustments/Curves';
+import CurveGraph, { ChannelConfig } from '../../adjustments/Curves';
 import ColorPanel from '../../adjustments/Color';
 import DetailsPanel from '../../adjustments/Details';
 import EffectsPanel from '../../adjustments/Effects';
@@ -54,12 +54,12 @@ interface MaskControlsProps {
   appSettings: AppSettings | null;
   brushSettings: BrushSettings | null;
   editingMask: MaskContainer;
-  histogram: string;
+  histogram: ChannelConfig | null;
   isGeneratingAiMask: boolean;
   onGenerateAiForegroundMask(id: string): void;
   onGenerateAiSkyMask(id: string): void;
   onSelectMask(id: string | null): void;
-  selectedImage: SelectedImage;
+  selectedImage: SelectedImage | null;
   setAdjustments(updater: (prev: Adjustments) => Adjustments): void;
   setBrushSettings(brushSettings: BrushSettings): void;
   setIsMaskControlHovered(hovered: boolean): void;
@@ -211,11 +211,11 @@ export default function MaskControls({
   }, [isGeneratingAiMask]);
 
   const handleAddSubMask = (containerId: string, type: Mask) => {
-    const subMask = createSubMask(type, selectedImage);
+    const subMask = createSubMask(type, selectedImage || { width: 1000, height: 1000 });
 
     if (adjustments?.crop && subMask.parameters && (type === Mask.Linear || type === Mask.Radial)) {
       const { x, y, width, height } = adjustments.crop;
-      const { width: imgW, height: imgH } = selectedImage;
+      const { width: imgW, height: imgH } = selectedImage || { width: 0, height: 0 };
 
       if (imgW && imgH && (width !== imgW || height !== imgH)) {
         const ratioX = width / imgW;

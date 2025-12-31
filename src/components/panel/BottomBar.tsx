@@ -1,25 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Copy, ClipboardPaste, RotateCcw, ChevronUp, ChevronDown, Check, Save, Loader2, Settings } from 'lucide-react';
+import { Star, Copy, ClipboardPaste, RotateCcw, ChevronUp, ChevronDown, Check, Save, Settings } from 'lucide-react';
 import clsx from 'clsx';
+import { useBloc } from '@blac/react';
 import Filmstrip from './Filmstrip';
-import { GLOBAL_KEYS, ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
+import { GLOBAL_KEYS, ThumbnailAspectRatio } from '../ui/AppProperties';
+import { EditorCubit, LibraryCubit, SettingsCubit } from '../../cubits';
 
 interface BottomBarProps {
   filmstripHeight?: number;
-  imageList?: Array<ImageFile>;
-  imageRatings?: Record<string, number> | null;
   isCopied: boolean;
   isCopyDisabled: boolean;
   isExportDisabled?: boolean;
-  isFilmstripVisible?: boolean;
   isLibraryView?: boolean;
-  isLoading?: boolean;
   isPasted: boolean;
   isPasteDisabled: boolean;
   isRatingDisabled?: boolean;
   isResetDisabled?: boolean;
   isResizing?: boolean;
-  multiSelectedPaths?: Array<string>;
   onClearSelection?(): void;
   onContextMenu?(event: any, path: string): void;
   onCopy(): void;
@@ -31,14 +28,6 @@ interface BottomBarProps {
   onReset?(): void;
   onZoomChange?(zoomValue: number, fitToWindow?: boolean): void;
   rating: number;
-  selectedImage?: SelectedImage;
-  setIsFilmstripVisible?(isVisible: boolean): void;
-  thumbnails?: Record<string, string>;
-  thumbnailAspectRatio: ThumbnailAspectRatio;
-  zoom?: number;
-  displaySize?: { width: number; height: number };
-  originalSize?: { width: number; height: number };
-  baseRenderSize?: { width: number; height: number };
 }
 
 interface StarRatingProps {
@@ -80,20 +69,15 @@ const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
 
 export default function BottomBar({
   filmstripHeight,
-  imageList = [],
-  imageRatings,
   isCopied,
   isCopyDisabled,
   isExportDisabled,
-  isFilmstripVisible,
   isLibraryView = false,
-  isLoading = false,
   isPasted,
   isPasteDisabled,
   isRatingDisabled = false,
   isResetDisabled = false,
   isResizing,
-  multiSelectedPaths = [],
   onClearSelection,
   onContextMenu,
   onCopy,
@@ -105,15 +89,23 @@ export default function BottomBar({
   onReset,
   onZoomChange = () => {},
   rating,
-  selectedImage,
-  setIsFilmstripVisible,
-  thumbnails,
-  thumbnailAspectRatio,
-  zoom = 0,
-  displaySize,
-  originalSize,
-  baseRenderSize,
 }: BottomBarProps) {
+  // Get state from cubits
+  const [editorState] = useBloc(EditorCubit);
+  const [libraryState, libraryCubit] = useBloc(LibraryCubit);
+  const [settingsState, settingsCubit] = useBloc(SettingsCubit);
+
+  // Destructure cubit state
+  const { selectedImage, displaySize, originalSize, isViewLoading: isLoading } = editorState;
+  const { thumbnails, multiSelectedPaths, imageRatings } = libraryState;
+  const { appSettings } = settingsState;
+  
+  const thumbnailAspectRatio = appSettings?.thumbnailAspectRatio ?? ThumbnailAspectRatio.Cover;
+  const isFilmstripVisible = appSettings?.uiVisibility?.filmstrip ?? true;
+
+  // Get sorted image list from LibraryCubit getter
+  const imageList = libraryCubit.sortedImageList;
+
   const [isEditingPercent, setIsEditingPercent] = useState(false);
   const [percentInputValue, setPercentInputValue] = useState('');
   const isDraggingSlider = useRef(false);
@@ -128,6 +120,10 @@ export default function BottomBar({
 
   const numSelected = multiSelectedPaths.length;
   const showSelectionCounter = numSelected > 1;
+
+  const setIsFilmstripVisible = (value: boolean) => {
+    settingsCubit.setUiVisibility({ filmstrip: value });
+  };
 
   useEffect(() => {
     if (isZoomReady && !isDraggingSlider.current) {
@@ -217,7 +213,7 @@ export default function BottomBar({
             onClearSelection={onClearSelection}
             onContextMenu={onContextMenu}
             onImageSelect={onImageSelect}
-            selectedImage={selectedImage}
+            selectedImage={selectedImage ?? undefined}
             thumbnails={thumbnails}
             thumbnailAspectRatio={thumbnailAspectRatio}
           />
@@ -343,7 +339,7 @@ export default function BottomBar({
             <div className="h-5 w-px bg-surface"></div>
             <button
               className="p-1.5 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
-              onClick={() => setIsFilmstripVisible?.(!isFilmstripVisible)}
+              onClick={() => setIsFilmstripVisible(!isFilmstripVisible)}
               title={isFilmstripVisible ? 'Collapse Filmstrip' : 'Expand Filmstrip'}
             >
               {isFilmstripVisible ? <ChevronDown size={18} /> : <ChevronUp size={18} />}

@@ -2,31 +2,22 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Edit, Eye, EyeOff, FileEdit, Loader2, RotateCcw, Trash2, Wand2 } from 'lucide-react';
+import { useBloc } from '@blac/react';
 import AIControls, { SUB_MASK_CONFIG } from './AIControls';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { Mask, AI_PANEL_CREATION_TYPES, MaskType, SubMask } from './Masks';
 import { Adjustments, AiPatch, MaskContainer } from '../../../utils/adjustments';
-import { BrushSettings, SelectedImage } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
+import { EditorCubit, MasksCubit } from '../../../cubits';
 
 interface AiPanelProps {
-  adjustments: Adjustments;
-  activePatchContainerId: string | null;
-  activeSubMaskId: string | null;
   aiModelDownloadStatus: string | null;
-  brushSettings: BrushSettings | null;
   isComfyUiConnected: boolean;
   isGeneratingAi: boolean;
-  isGeneratingAiMask: boolean;
   onDeletePatch(id: string): void;
   onGenerateAiForegroundMask(id: string): void;
   onGenerativeReplace(patchId: string, prompt: any, useFastInpaint: boolean): void;
-  onSelectPatchContainer(id: string | null): void;
-  onSelectSubMask(id: string | null): void;
   onTogglePatchVisibility(id: string): void;
-  selectedImage: SelectedImage;
-  setAdjustments(adjustments: Partial<Adjustments>): void;
-  setBrushSettings(brushSettings: BrushSettings | null): void;
   setCustomEscapeHandler(handler: any): void;
 }
 
@@ -88,25 +79,20 @@ const ConnectionStatus = ({ isConnected }: ConnectionStatusProps) => {
 };
 
 export default function AIPanel({
-  adjustments,
-  setAdjustments,
-  selectedImage,
+  aiModelDownloadStatus,
   isComfyUiConnected,
   isGeneratingAi,
-  onGenerativeReplace,
   onDeletePatch,
-  onTogglePatchVisibility,
-  activePatchContainerId,
-  onSelectPatchContainer,
-  activeSubMaskId,
-  onSelectSubMask,
-  brushSettings,
-  setBrushSettings,
-  isGeneratingAiMask,
-  aiModelDownloadStatus,
   onGenerateAiForegroundMask,
+  onGenerativeReplace,
+  onTogglePatchVisibility,
   setCustomEscapeHandler,
 }: AiPanelProps) {
+  const [editorState, editorCubit] = useBloc(EditorCubit);
+  const [masksState, masksCubit] = useBloc(MasksCubit);
+
+  const { adjustments, selectedImage } = editorState;
+  const { activeAiPatchContainerId: activePatchContainerId, activeAiSubMaskId: activeSubMaskId, brushSettings, isGeneratingAiMask } = masksState;
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [renamingContainerId, setRenamingContainerId] = useState<string | null>(null);
   const [tempName, setTempName] = useState('');
@@ -118,25 +104,25 @@ export default function AIPanel({
     if (isGeneratingAi) {
       return;
     }
-    onSelectPatchContainer(null);
-    onSelectSubMask(null);
-    setAdjustments((prev: Adjustments) => ({ ...prev, aiPatches: [] }));
+    masksCubit.setActiveAiPatchContainer(null);
+    masksCubit.setActiveAiSubMask(null);
+    editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, aiPatches: [] }));
   };
 
   const handleBackToList = useCallback(() => {
-    onSelectPatchContainer(null);
-    onSelectSubMask(null);
-  }, [onSelectPatchContainer, onSelectSubMask]);
+    masksCubit.setActiveAiPatchContainer(null);
+    masksCubit.setActiveAiSubMask(null);
+  }, [masksCubit]);
 
   const updatePatch = (patchId: string, updatedData: any) => {
-    setAdjustments((prev: Adjustments) => ({
+    editorCubit.setAdjustments((prev: Adjustments) => ({
       ...prev,
       aiPatches: (prev.aiPatches || []).map((p: AiPatch) => (p.id === patchId ? { ...p, ...updatedData } : p)),
     }));
   };
 
   const updateSubMask = (subMaskId: string, updatedData: any) => {
-    setAdjustments((prev: Adjustments) => ({
+    editorCubit.setAdjustments((prev: Adjustments) => ({
       ...prev,
       aiPatches: prev.aiPatches.map((p: AiPatch) => ({
         ...p,
@@ -176,7 +162,7 @@ export default function AIPanel({
   }, []);
 
   const handleAddAiPatchContainer = (type: Mask) => {
-    const subMask = createSubMask(type, selectedImage);
+    const subMask = createSubMask(type, selectedImage || { width: 1000, height: 1000 });
 
     const config = SUB_MASK_CONFIG[type];
     if (config && config.parameters) {
@@ -189,7 +175,7 @@ export default function AIPanel({
 
     if (adjustments?.crop && subMask.parameters && (type === Mask.Linear || type === Mask.Radial)) {
       const { x, y, width, height } = adjustments.crop;
-      const { width: imgW, height: imgH } = selectedImage;
+      const { width: imgW, height: imgH } = selectedImage || { width: 0, height: 0 };
 
       if (imgW && imgH && (width !== imgW || height !== imgH)) {
         const ratioX = width / imgW;
@@ -237,9 +223,9 @@ export default function AIPanel({
       subMasks: [subMask],
       visible: true,
     };
-    setAdjustments((prev: Adjustments) => ({ ...prev, aiPatches: [...(prev.aiPatches || []), newContainer] }));
-    onSelectPatchContainer(newContainer.id);
-    onSelectSubMask(subMask.id);
+    editorCubit.setAdjustments((prev: Adjustments) => ({ ...prev, aiPatches: [...(prev.aiPatches || []), newContainer] }));
+    masksCubit.setActiveAiPatchContainer(newContainer.id);
+    masksCubit.setActiveAiSubMask(subMask.id);
     if (type === Mask.AiForeground) {
       onGenerateAiForegroundMask(subMask.id);
     }
@@ -249,11 +235,11 @@ export default function AIPanel({
     setDeletingItemId(id);
     setTimeout(() => {
       if (activePatchContainerId === id) {
-        onSelectPatchContainer(null);
+        masksCubit.setActiveAiPatchContainer(null);
       }
       const container = adjustments.aiPatches.find((c: AiPatch) => c.id === id);
       if (container && container.subMasks.some((sm: SubMask) => sm.id === activeSubMaskId)) {
-        onSelectSubMask(null);
+        masksCubit.setActiveAiSubMask(null);
       }
       onDeletePatch(id);
       setDeletingItemId(null);
@@ -265,12 +251,12 @@ export default function AIPanel({
   };
 
   const handleOpenContainerForEditing = (container: AiPatch) => {
-    onSelectPatchContainer(container.id);
+    masksCubit.setActiveAiPatchContainer(container.id);
     const lastSubMaskId = container.subMasks.length > 0 ? container.subMasks[container.subMasks.length - 1].id : null;
-    onSelectSubMask(lastSubMaskId);
+    masksCubit.setActiveAiSubMask(lastSubMaskId);
   };
 
-  const handleDeselect = () => onSelectSubMask(null);
+  const handleDeselect = () => masksCubit.setActiveAiSubMask(null);
 
   const handleStartRename = (container: AiPatch | MaskContainer) => {
     setRenamingContainerId(container.id);
@@ -354,10 +340,10 @@ export default function AIPanel({
             isGeneratingAiMask={isGeneratingAiMask}
             onGenerateAiForegroundMask={onGenerateAiForegroundMask}
             onGenerativeReplace={onGenerativeReplace}
-            onSelectSubMask={onSelectSubMask}
+            onSelectSubMask={masksCubit.setActiveAiSubMask}
             selectedImage={selectedImage}
-            setAdjustments={setAdjustments}
-            setBrushSettings={setBrushSettings}
+            setAdjustments={editorCubit.setAdjustments}
+            setBrushSettings={masksCubit.setBrushSettings}
             updatePatch={updatePatch}
             updateSubMask={updateSubMask}
           />

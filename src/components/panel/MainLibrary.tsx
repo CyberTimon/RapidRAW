@@ -3,7 +3,7 @@ import { useBloc } from '@blac/react';
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-shell';
-import { LibraryCubit } from '../../cubits';
+import { LibraryCubit, SettingsCubit, NavigationCubit } from '../../cubits';
 import {
   AlertTriangle,
   Check,
@@ -71,16 +71,12 @@ interface SearchCriteria {
 interface MainLibraryProps {
   activePath: string | null;
   aiModelDownloadStatus: string | null;
-  appSettings: AppSettings | null;
-  currentFolderPath: string | null;
   importState: ImportState;
   indexingProgress: Progress;
   isLoading: boolean;
   isThumbnailsLoading?: boolean;
   isIndexing: boolean;
-  isTreeLoading: boolean;
   libraryScrollTop: number;
-  libraryViewMode: LibraryViewMode;
   onContextMenu(event: any, path: string): void;
   onContinueSession(): void;
   onEmptyAreaContextMenu(event: any): void;
@@ -89,14 +85,7 @@ interface MainLibraryProps {
   onImageDoubleClick(path: string): void;
   onLibraryRefresh(): void;
   onOpenFolder(): void;
-  onThumbnailAspectRatioChange(aspectRatio: ThumbnailAspectRatio): void;
-  onThumbnailSizeChange(size: ThumbnailSize): void;
-  rootPath: string | null;
   setLibraryScrollTop(scrollTop: number): void;
-  setLibraryViewMode(mode: LibraryViewMode): void;
-  theme: string;
-  thumbnailAspectRatio: ThumbnailAspectRatio;
-  thumbnailSize: ThumbnailSize;
   onNavigateToCommunity(): void;
 }
 
@@ -109,7 +98,7 @@ interface SearchInputProps {
 
 interface SortOptionsProps {
   sortCriteria: SortCriteria;
-  setSortCriteria(criteria: SortCriteria): void;
+  setSortCriteria(criteriaOrUpdater: SortCriteria | ((prev: SortCriteria) => SortCriteria)): void;
   sortOptions: Array<Omit<SortCriteria, 'order'> & { label?: string; disabled?: boolean }>;
 }
 
@@ -1099,16 +1088,12 @@ const Row = ({ index, style, data }: any) => {
 export default function MainLibrary({
   activePath,
   aiModelDownloadStatus,
-  appSettings,
-  currentFolderPath,
   importState,
   indexingProgress,
   isIndexing,
   isLoading,
   isThumbnailsLoading,
-  isTreeLoading,
   libraryScrollTop,
-  libraryViewMode,
   onContextMenu,
   onContinueSession,
   onEmptyAreaContextMenu,
@@ -1117,17 +1102,15 @@ export default function MainLibrary({
   onImageDoubleClick,
   onLibraryRefresh,
   onOpenFolder,
-  onThumbnailAspectRatioChange,
-  onThumbnailSizeChange,
-  rootPath,
   setLibraryScrollTop,
-  setLibraryViewMode,
-  theme,
-  thumbnailAspectRatio,
-  thumbnailSize,
   onNavigateToCommunity,
 }: MainLibraryProps) {
+  // Get state from cubits - single source of truth
   const [libraryState, libraryCubit] = useBloc(LibraryCubit);
+  const [settingsState, settingsCubit] = useBloc(SettingsCubit);
+  const [navigationState, navigationCubit] = useBloc(NavigationCubit);
+
+  // Destructure library state
   const {
     imageRatings,
     thumbnails,
@@ -1137,6 +1120,14 @@ export default function MainLibrary({
     searchCriteria,
   } = libraryState;
   const imageList = libraryCubit.sortedImageList;
+
+  // Destructure settings state
+  const { theme, appSettings } = settingsState;
+  const thumbnailSize = appSettings?.thumbnailSize ?? ThumbnailSize.Medium;
+  const thumbnailAspectRatio = appSettings?.thumbnailAspectRatio ?? ThumbnailAspectRatio.Cover;
+
+  // Destructure navigation state
+  const { rootPath, currentFolderPath, libraryViewMode, isTreeLoading } = navigationState;
 
   const [showSettings, setShowSettings] = useState(false);
   const [appVersion, setAppVersion] = useState('');
@@ -1338,7 +1329,7 @@ export default function MainLibrary({
             ? Math.min(currentIndex + 1, thumbnailSizeOptions.length - 1)
             : Math.max(currentIndex - 1, 0);
         if (nextIndex !== currentIndex) {
-          onThumbnailSizeChange(thumbnailSizeOptions[nextIndex].id);
+          settingsCubit.setThumbnailSize(thumbnailSizeOptions[nextIndex].id);
         }
       }
     };
@@ -1347,7 +1338,7 @@ export default function MainLibrary({
     return () => {
       window.removeEventListener('wheel', handleWheel);
     };
-  }, [thumbnailSize, onThumbnailSizeChange]);
+  }, [thumbnailSize, settingsCubit]);
 
   if (!rootPath) {
     if (!appSettings) {
@@ -1553,10 +1544,10 @@ export default function MainLibrary({
           <ViewOptionsDropdown
             filterCriteria={filterCriteria}
             libraryViewMode={libraryViewMode}
-            onSelectSize={onThumbnailSizeChange}
-            onSelectAspectRatio={onThumbnailAspectRatioChange}
+            onSelectSize={settingsCubit.setThumbnailSize}
+            onSelectAspectRatio={settingsCubit.setThumbnailAspectRatio}
             setFilterCriteria={libraryCubit.setFilterCriteria}
-            setLibraryViewMode={setLibraryViewMode}
+            setLibraryViewMode={navigationCubit.setLibraryViewMode}
             setSortCriteria={handleSortChange}
             sortCriteria={sortCriteria}
             sortOptions={sortOptions}

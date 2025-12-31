@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useMemo, useEffect } from 'react';
 import { useBloc } from '@blac/react';
-import { NavigationCubit, FolderNode } from '../../cubits';
+import { NavigationCubit, SettingsCubit, FolderNode } from '../../cubits';
 
 export interface FolderTree {
   children: any;
@@ -15,9 +15,7 @@ export interface FolderTree {
 
 interface FolderTreeProps {
   isResizing: boolean;
-  isVisible: boolean;
   onContextMenu(event: any, path: string | null, isPinned?: boolean): void;
-  setIsVisible(visible: boolean): void;
   style: any;
 }
 
@@ -218,12 +216,14 @@ function TreeNode({
 
 export default function FolderTree({
   isResizing,
-  isVisible,
   onContextMenu,
-  setIsVisible,
   style,
 }: FolderTreeProps) {
+  // Get state from cubits - single source of truth
   const [navigationState, navigationCubit] = useBloc(NavigationCubit);
+  const [settingsState, settingsCubit] = useBloc(SettingsCubit);
+
+  // Destructure navigation state
   const {
     expandedFolders,
     isTreeLoading: isLoading,
@@ -234,9 +234,13 @@ export default function FolderTree({
     activeTreeSection: activeSection,
   } = navigationState;
 
+  // Destructure settings state
+  const isVisible = settingsState.appSettings?.uiVisibility?.folderTree ?? true;
+
   const onFolderSelect = navigationCubit.selectFolder;
   const onToggleFolder = navigationCubit.toggleFolderExpanded;
   const onActiveSectionChange = navigationCubit.setActiveTreeSection;
+  const setIsVisible = (visible: boolean) => settingsCubit.setUiVisibility({ folderTree: visible });
 
   const [searchQuery, setSearchQuery] = useState('');
 
