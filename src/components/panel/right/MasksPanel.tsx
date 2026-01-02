@@ -29,10 +29,9 @@ import { Mask, MaskType, SubMask, MASK_PANEL_CREATION_TYPES, OTHERS_MASK_TYPES }
 import { OPTION_SEPARATOR } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
 import { usePresets } from '../../../hooks/usePresets';
-import { EditorCubit, MasksCubit, SettingsCubit } from '../../../cubits';
+import { ComfyUICubit, EditorCubit, MasksCubit, SettingsCubit } from '../../../cubits';
 
 interface MasksPanelProps {
-  aiModelDownloadStatus: string | null;
   onGenerateAiForegroundMask(id: string): void;
   onGenerateAiSkyMask(id: string): void;
   setCustomEscapeHandler(handler: any): void;
@@ -49,7 +48,6 @@ const itemVariants = {
 };
 
 export default function MasksPanel({
-  aiModelDownloadStatus,
   onGenerateAiForegroundMask,
   onGenerateAiSkyMask,
   setCustomEscapeHandler,
@@ -57,10 +55,12 @@ export default function MasksPanel({
   const [editorState, editorCubit] = useBloc(EditorCubit);
   const [masksState, masksCubit] = useBloc(MasksCubit);
   const [settingsState] = useBloc(SettingsCubit);
+  const [comfyUIState] = useBloc(ComfyUICubit);
 
   const { adjustments, selectedImage, histogram } = editorState;
   const { activeMaskContainerId, activeMaskId, brushSettings, copiedMask, isGeneratingAiMask } = masksState;
   const { appSettings } = settingsState;
+  const { modelDownloadStatus: aiModelDownloadStatus } = comfyUIState;
 
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [renamingContainerId, setRenamingContainerId] = useState(null);
@@ -395,12 +395,10 @@ export default function MasksPanel({
             activeMaskId={activeMaskId}
             activeSubMask={activeSubMask}
             adjustments={adjustments}
-            aiModelDownloadStatus={aiModelDownloadStatus}
             appSettings={appSettings}
             brushSettings={brushSettings}
             editingMask={editingContainer}
             histogram={histogram}
-            isGeneratingAiMask={isGeneratingAiMask}
             onGenerateAiForegroundMask={onGenerateAiForegroundMask}
             onGenerateAiSkyMask={onGenerateAiSkyMask}
             onSelectMask={masksCubit.setActiveMask}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Circle, Eye, EyeOff, Loader2, Minus, Plus, Send, Trash2 } from 'lucide-react';
+import { useBloc } from '@blac/react';
 import CollapsibleSection from '../../ui/CollapsibleSection';
 import Switch from '../../ui/Switch';
 import Slider from '../../ui/Slider';
@@ -19,17 +20,14 @@ import {
 import { Adjustments, AiPatch } from '../../../utils/adjustments';
 import { BrushSettings, SelectedImage } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
+import { ComfyUICubit, MasksCubit } from '../../../cubits';
 
 interface AiControlsProps {
   activeSubMaskId: string | null;
   activeSubMask: SubMask | null;
   adjustments: Adjustments;
-  aiModelDownloadStatus: string | null;
   brushSettings: BrushSettings | null;
   editingPatch: any;
-  isComfyUiConnected: boolean;
-  isGeneratingAi: boolean;
-  isGeneratingAiMask: boolean;
   onGenerateAiForegroundMask(id: string): void;
   onGenerativeReplace(id: string, prompt: string, useFastInpaint: boolean): void;
   onSelectSubMask(id: string | null): void;
@@ -139,12 +137,8 @@ export default function AIControls({
   activeSubMask,
   activeSubMaskId,
   adjustments,
-  aiModelDownloadStatus,
   brushSettings,
   editingPatch,
-  isComfyUiConnected,
-  isGeneratingAi,
-  isGeneratingAiMask,
   onGenerateAiForegroundMask,
   onGenerativeReplace,
   onSelectSubMask,
@@ -154,6 +148,10 @@ export default function AIControls({
   updatePatch,
   updateSubMask,
 }: AiControlsProps) {
+  const [comfyUIState] = useBloc(ComfyUICubit);
+  const [masksState] = useBloc(MasksCubit);
+  const { isConnected: isComfyUiConnected, isGenerating: isGeneratingAi, modelDownloadStatus: aiModelDownloadStatus } = comfyUIState;
+  const { isGeneratingAiMask } = masksState;
   const { showContextMenu } = useContextMenu();
   const [isSettingsSectionOpen, setSettingsSectionOpen] = useState(true);
   const [showAnalyzingMessage, setShowAnalyzingMessage] = useState(false);

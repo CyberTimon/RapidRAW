@@ -4,15 +4,13 @@ import clsx from 'clsx';
 import { useBloc } from '@blac/react';
 import Filmstrip from './Filmstrip';
 import { GLOBAL_KEYS, ThumbnailAspectRatio } from '../ui/AppProperties';
-import { EditorCubit, LibraryCubit, SettingsCubit } from '../../cubits';
+import { ClipboardCubit, EditorCubit, LibraryCubit, SettingsCubit } from '../../cubits';
 
 interface BottomBarProps {
   filmstripHeight?: number;
-  isCopied: boolean;
   isCopyDisabled: boolean;
   isExportDisabled?: boolean;
   isLibraryView?: boolean;
-  isPasted: boolean;
   isPasteDisabled: boolean;
   isRatingDisabled?: boolean;
   isResetDisabled?: boolean;
@@ -69,11 +67,9 @@ const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
 
 export default function BottomBar({
   filmstripHeight,
-  isCopied,
   isCopyDisabled,
   isExportDisabled,
   isLibraryView = false,
-  isPasted,
   isPasteDisabled,
   isRatingDisabled = false,
   isResetDisabled = false,
@@ -94,6 +90,9 @@ export default function BottomBar({
   const [editorState] = useBloc(EditorCubit);
   const [libraryState, libraryCubit] = useBloc(LibraryCubit);
   const [settingsState, settingsCubit] = useBloc(SettingsCubit);
+  const [clipboardState] = useBloc(ClipboardCubit);
+  
+  const { isCopied, isPasted } = clipboardState;
 
   // Destructure cubit state
   const { selectedImage, displaySize, originalSize, isViewLoading: isLoading } = editorState;

@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useMemo, useEffect } from 'react';
 import { useBloc } from '@blac/react';
-import { NavigationCubit, SettingsCubit, FolderNode } from '../../cubits';
+import { NavigationCubit, SettingsCubit, UICubit, FolderNode } from '../../cubits';
 
 export interface FolderTree {
   children: any;
@@ -14,7 +14,6 @@ export interface FolderTree {
 }
 
 interface FolderTreeProps {
-  isResizing: boolean;
   onContextMenu(event: any, path: string | null, isPinned?: boolean): void;
   style: any;
 }
@@ -215,13 +214,15 @@ function TreeNode({
 }
 
 export default function FolderTree({
-  isResizing,
   onContextMenu,
   style,
 }: FolderTreeProps) {
   // Get state from cubits - single source of truth
   const [navigationState, navigationCubit] = useBloc(NavigationCubit);
   const [settingsState, settingsCubit] = useBloc(SettingsCubit);
+  const [uiState] = useBloc(UICubit);
+
+  const { isResizing } = uiState;
 
   // Destructure navigation state
   const {

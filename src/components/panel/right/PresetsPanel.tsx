@@ -28,6 +28,7 @@ import {
   Users,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useBloc } from '@blac/react';
 import AddPresetModal from '../../modals/AddPresetModal';
 import RenamePresetModal from '../../modals/RenamePresetModal';
 import CreateFolderModal from '../../modals/CreateFolderModal';
@@ -35,6 +36,7 @@ import RenameFolderModal from '../../modals/RenameFolderModal';
 import Button from '../../ui/Button';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
+import { EditorCubit, NavigationCubit } from '../../../cubits';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -72,13 +74,7 @@ interface PresetItemDisplayProps {
   previewUrl: string;
 }
 
-interface PresetsPanelProps {
-  activePanel: Panel | null;
-  adjustments: Adjustments;
-  selectedImage: SelectedImage;
-  setAdjustments(adjustments: Partial<Adjustments>): void;
-  onNavigateToCommunity(): void;
-}
+interface PresetsPanelProps {}
 
 const itemVariants = {
   hidden: { opacity: 0, x: -15 },
@@ -251,13 +247,17 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
   );
 }
 
-export default function PresetsPanel({
-  activePanel,
-  adjustments,
-  selectedImage,
-  setAdjustments,
-  onNavigateToCommunity,
-}: PresetsPanelProps) {
+export default function PresetsPanel({}: PresetsPanelProps) {
+  const [editorState, editorCubit] = useBloc(EditorCubit);
+  const [, navigationCubit] = useBloc(NavigationCubit);
+
+  const { adjustments, selectedImage, activeRightPanel: activePanel } = editorState;
+  const setAdjustments = editorCubit.setAdjustments;
+  const onNavigateToCommunity = () => {
+    editorCubit.backToLibrary();
+    navigationCubit.switchToCommunity();
+  };
+
   const {
     addFolder,
     addPreset,

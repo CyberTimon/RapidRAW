@@ -1,5 +1,6 @@
 import { Cubit, blac } from '@blac/core';
 import { invoke } from '@tauri-apps/api/core';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import {
   ImageFile,
   Invokes,
@@ -67,10 +68,36 @@ const defaultState: LibraryState = {
 
 @blac({ keepAlive: true })
 export class LibraryCubit extends Cubit<LibraryState> {
+  private unlistenFns: UnlistenFn[] = [];
+  private listenersSetup = false;
+
   constructor() {
     super(defaultState);
     this.loadSupportedTypes();
   }
+
+  setupEventListeners = async () => {
+    if (this.listenersSetup) return;
+    this.listenersSetup = true;
+
+    const unlistenThumbnail = await listen('thumbnail-generated', (event: any) => {
+      const { path, data, rating } = event.payload;
+      if (data) {
+        this.setThumbnail(path, data);
+      }
+      if (rating !== undefined) {
+        this.setImageRating(path, rating);
+      }
+    });
+
+    this.unlistenFns = [unlistenThumbnail];
+  };
+
+  dispose = () => {
+    this.unlistenFns.forEach((fn) => fn());
+    this.unlistenFns = [];
+    this.listenersSetup = false;
+  };
 
   // Computed getters
   get imagePathList(): string[] {

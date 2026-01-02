@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { SelectedImage } from '../../ui/AppProperties';
+import { useBloc } from '@blac/react';
+import { EditorCubit } from '../../../cubits';
 
 interface CameraSetting {
   format?(value: number): void;
@@ -24,10 +25,6 @@ interface GPSData {
 interface MetaDataItemProps {
   label: string;
   value: any;
-}
-
-interface MetaDataPanelProps {
-  selectedImage: SelectedImage;
 }
 
 function formatExifTag(str: string) {
@@ -92,7 +89,10 @@ const KEY_SETTINGS_ORDER: Array<string> = [
   'LensModel',
 ];
 
-export default function MetadataPanel({ selectedImage }: MetaDataPanelProps) {
+export default function MetadataPanel() {
+  const [editorState] = useBloc(EditorCubit);
+  const { selectedImage } = editorState;
+
   const { keyCameraSettings, gpsData, otherExifEntries } = useMemo(() => {
     const exif = selectedImage?.exif || {};
 

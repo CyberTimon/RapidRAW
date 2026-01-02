@@ -8,12 +8,9 @@ import { useContextMenu } from '../../../context/ContextMenuContext';
 import { Mask, AI_PANEL_CREATION_TYPES, MaskType, SubMask } from './Masks';
 import { Adjustments, AiPatch, MaskContainer } from '../../../utils/adjustments';
 import { createSubMask } from '../../../utils/maskUtils';
-import { EditorCubit, MasksCubit } from '../../../cubits';
+import { ComfyUICubit, EditorCubit, MasksCubit } from '../../../cubits';
 
 interface AiPanelProps {
-  aiModelDownloadStatus: string | null;
-  isComfyUiConnected: boolean;
-  isGeneratingAi: boolean;
   onDeletePatch(id: string): void;
   onGenerateAiForegroundMask(id: string): void;
   onGenerativeReplace(patchId: string, prompt: any, useFastInpaint: boolean): void;
@@ -79,9 +76,6 @@ const ConnectionStatus = ({ isConnected }: ConnectionStatusProps) => {
 };
 
 export default function AIPanel({
-  aiModelDownloadStatus,
-  isComfyUiConnected,
-  isGeneratingAi,
   onDeletePatch,
   onGenerateAiForegroundMask,
   onGenerativeReplace,
@@ -90,9 +84,11 @@ export default function AIPanel({
 }: AiPanelProps) {
   const [editorState, editorCubit] = useBloc(EditorCubit);
   const [masksState, masksCubit] = useBloc(MasksCubit);
+  const [comfyUIState] = useBloc(ComfyUICubit);
 
   const { adjustments, selectedImage } = editorState;
   const { activeAiPatchContainerId: activePatchContainerId, activeAiSubMaskId: activeSubMaskId, brushSettings, isGeneratingAiMask } = masksState;
+  const { isConnected: isComfyUiConnected, isGenerating: isGeneratingAi, modelDownloadStatus: aiModelDownloadStatus } = comfyUIState;
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [renamingContainerId, setRenamingContainerId] = useState<string | null>(null);
   const [tempName, setTempName] = useState('');
@@ -332,12 +328,8 @@ export default function AIPanel({
             activeSubMask={activeSubMask}
             activeSubMaskId={activeSubMaskId}
             adjustments={adjustments}
-            aiModelDownloadStatus={aiModelDownloadStatus}
             brushSettings={brushSettings}
             editingPatch={editingPatch}
-            isComfyUiConnected={isComfyUiConnected}
-            isGeneratingAi={isGeneratingAi || editingPatch.isLoading}
-            isGeneratingAiMask={isGeneratingAiMask}
             onGenerateAiForegroundMask={onGenerateAiForegroundMask}
             onGenerativeReplace={onGenerativeReplace}
             onSelectSubMask={masksCubit.setActiveAiSubMask}

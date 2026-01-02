@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -9,7 +8,20 @@ import debounce from 'lodash.debounce';
 import { ClerkProvider } from '@clerk/clerk-react';
 import { useBloc } from '@blac/react';
 import clsx from 'clsx';
-import { ModalsCubit, SettingsCubit, NavigationCubit, LibraryCubit, EditorCubit, MasksCubit, FolderNode } from './cubits';
+import {
+  ModalsCubit,
+  SettingsCubit,
+  NavigationCubit,
+  LibraryCubit,
+  EditorCubit,
+  MasksCubit,
+  FolderNode,
+  UICubit,
+  ExportImportCubit,
+  ClipboardCubit,
+  IndexingCubit,
+  ComfyUICubit,
+} from './cubits';
 import {
   Aperture,
   Check,
@@ -43,17 +55,10 @@ import CommunityPage from './components/panel/CommunityPage';
 import MainLibrary from './components/panel/MainLibrary';
 import FolderTree from './components/panel/FolderTree';
 import Editor from './components/panel/Editor';
-import Controls from './components/panel/right/ControlsPanel';
 import { useThumbnails } from './hooks/useThumbnails';
 import { ImageDimensions } from './hooks/useImageRenderSize';
-import RightPanelSwitcher from './components/panel/right/RightPanelSwitcher';
-import MetadataPanel from './components/panel/right/MetadataPanel';
-import CropPanel from './components/panel/right/CropPanel';
-import PresetsPanel from './components/panel/right/PresetsPanel';
-import AIPanel from './components/panel/right/AIPanel';
-import ExportPanel from './components/panel/right/ExportPanel';
+import RightPanelContainer from './components/layout/RightPanelContainer';
 import LibraryExportPanel from './components/panel/right/LibraryExportPanel';
-import MasksPanel from './components/panel/right/MasksPanel';
 import BottomBar from './components/panel/BottomBar';
 import { ContextMenuProvider, useContextMenu } from './context/ContextMenuContext';
 import TaggingSubMenu from './context/TaggingSubMenu';
@@ -190,6 +195,11 @@ function App() {
   const [libraryState, libraryCubit] = useBloc(LibraryCubit);
   const [editorState, editorCubit] = useBloc(EditorCubit);
   const [masksState, masksCubit] = useBloc(MasksCubit);
+  const [uiState, uiCubit] = useBloc(UICubit);
+  const [exportImportState, exportImportCubit] = useBloc(ExportImportCubit);
+  const [clipboardState, clipboardCubit] = useBloc(ClipboardCubit);
+  const [indexingState, indexingCubit] = useBloc(IndexingCubit);
+  const [comfyUIState, comfyUICubit] = useBloc(ComfyUICubit);
 
   // Destructure commonly used state from LibraryCubit (early for useThumbnails)
   const {
@@ -274,10 +284,8 @@ function App() {
   const setIsFullResolution = editorCubit.setIsFullResolution;
   const setIsViewLoading = editorCubit.setIsViewLoading;
   const setCopiedAdjustments = editorCubit.setCopiedAdjustments;
-  const setCopiedSectionAdjustments = editorCubit.setCopiedSectionAdjustments;
   const setActiveRightPanel = editorCubit.setActiveRightPanel;
   const setRenderedRightPanel = editorCubit.setRenderedRightPanel;
-  const setIsStraightenActive = editorCubit.setIsStraightenActive;
   const setFinalPreviewUrl = editorCubit.setFinalPreviewUrl;
   const setUncroppedAdjustedPreviewUrl = editorCubit.setUncroppedAdjustedPreviewUrl;
   const setFullScreenUrl = editorCubit.setFullScreenUrl;
@@ -286,25 +294,20 @@ function App() {
   const setHistogram = editorCubit.setHistogram;
   const setWaveform = editorCubit.setWaveform;
   const setIsWaveformVisible = editorCubit.setIsWaveformVisible;
-  const setCollapsibleSectionsState = editorCubit.setCollapsibleSectionsState;
   const setLibraryActivePath = editorCubit.setLibraryActivePath;
   const setLibraryActiveAdjustments = editorCubit.setLibraryActiveAdjustments;
   const setInitialFitScale = editorCubit.setInitialFitScale;
   const setZoom = editorCubit.setZoom;
   const setOriginalSize = editorCubit.setOriginalSize;
   const setPreviewSize = editorCubit.setPreviewSize;
-  const setDisplaySize = editorCubit.setDisplaySize;
-  const setBaseRenderSize = editorCubit.setBaseRenderSize;
   const resetAdjustmentsHistory = editorCubit.resetHistory;
   const setIsWbPickerActive = editorCubit.setIsWbPickerActive;
 
   // For callback-style setSelectedImage updates
   const updateSelectedImage = editorCubit.updateSelectedImage;
 
-  // handleDisplaySizeChange wraps EditorCubit.setDisplaySize
-  const handleDisplaySizeChange = useCallback((size: ImageDimensions & { scale?: number }) => {
-    editorCubit.setDisplaySize(size);
-  }, [editorCubit]);
+  // Delegate to EditorCubit
+  const handleDisplaySizeChange = editorCubit.setDisplaySize;
 
   const [initialFileToOpen, setInitialFileToOpen] = useState<string | null>(null);
   // uiVisibility is derived from appSettings (SettingsCubit is single source of truth)
@@ -328,30 +331,82 @@ function App() {
   // NOTE: Blob URLs are now managed by EditorCubit.clearSelectedImage()
   // useDelayedRevokeBlobUrl hooks removed - cubit handles cleanup
 
-  const [isLibraryExportPanelVisible, setIsLibraryExportPanelVisible] = useState(false);
-  const [leftPanelWidth, setLeftPanelWidth] = useState<number>(256);
-  const [rightPanelWidth, setRightPanelWidth] = useState<number>(320);
-  const [bottomPanelHeight, setBottomPanelHeight] = useState<number>(144);
-  const [isResizing, setIsResizing] = useState(false);
+  // UI state from UICubit - single source of truth
+  const {
+    leftPanelWidth,
+    rightPanelWidth,
+    bottomPanelHeight,
+    isResizing,
+    isLibraryExportPanelVisible,
+    libraryScrollTop,
+    isAnimatingTheme: uiIsAnimatingTheme,
+    isWindowFullScreen: uiIsWindowFullScreen,
+  } = uiState;
+
+  // Export/Import state from ExportImportCubit - single source of truth
+  const { export: exportState, import: importState } = exportImportState;
+
+  // Clipboard state from ClipboardCubit - single source of truth
+  const {
+    copiedFilePaths,
+    copiedAdjustments: clipboardCopiedAdjustments,
+    isCopied,
+    isPasted,
+  } = clipboardState;
+
+  // Indexing state from IndexingCubit - single source of truth
+  const { isIndexing, progress: indexingProgress } = indexingState;
+
+  // ComfyUI state from ComfyUICubit - single source of truth
+  const {
+    isConnected: isComfyUiConnected,
+    isGenerating: isGeneratingAi,
+    modelDownloadStatus: aiModelDownloadStatus,
+  } = comfyUIState;
+
   // thumbnailSize and thumbnailAspectRatio derived from appSettings (SettingsCubit is single source of truth)
   const thumbnailSize = appSettings?.thumbnailSize ?? ThumbnailSize.Medium;
   const thumbnailAspectRatio = appSettings?.thumbnailAspectRatio ?? ThumbnailAspectRatio.Cover;
-  const [copiedFilePaths, setCopiedFilePaths] = useState<Array<string>>([]);
-  const [aiModelDownloadStatus, setAiModelDownloadStatus] = useState<string | null>(null);
+
   // copiedMask now comes from MasksCubit
   const { copiedMask } = masksState;
-  const [isCopied, setIsCopied] = useState(false);
-  const [isPasted, setIsPasted] = useState(false);
-  const [isIndexing, setIsIndexing] = useState(false);
-  const [indexingProgress, setIndexingProgress] = useState<Progress>({ current: 0, total: 0 });
 
   // NOTE: brushSettings, isGeneratingAiMask, isMaskControlHovered now come from MasksCubit
 
+  // Wrapper setters for backward compatibility (delegate to cubits)
+  const setIsLibraryExportPanelVisible = uiCubit.setIsLibraryExportPanelVisible;
+  const setLibraryScrollTop = uiCubit.setLibraryScrollTop;
+
+  const setExportState = (state: Partial<ExportState> | ((prev: ExportState) => ExportState)) => {
+    if (typeof state === 'function') {
+      const newState = state(exportState);
+      exportImportCubit.setExportState(newState);
+    } else {
+      exportImportCubit.setExportState(state);
+    }
+  };
+
+  const setImportState = (state: Partial<ImportState> | ((prev: ImportState) => ImportState)) => {
+    if (typeof state === 'function') {
+      const newState = state(importState);
+      exportImportCubit.setImportState(newState);
+    } else {
+      exportImportCubit.setImportState(state);
+    }
+  };
+
+  const setCopiedFilePaths = clipboardCubit.setCopiedFilePaths;
+  const setIsCopied = (value: boolean) => {
+    if (value) clipboardCubit.copyAdjustments(adjustments);
+  };
+  const setIsPasted = (_value: boolean) => {
+    // Handled by ClipboardCubit internally
+  };
+
+  const setIsGeneratingAi = comfyUICubit.setIsGenerating;
+
   const [folderActionTarget, setFolderActionTarget] = useState<string | null>(null);
   const [customEscapeHandler, setCustomEscapeHandler] = useState(null);
-  const [isComfyUiConnected, setIsComfyUiConnected] = useState(false);
-  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
-  const [libraryScrollTop, setLibraryScrollTop] = useState<number>(0);
   const { showContextMenu } = useContextMenu();
   const { loading: isThumbnailsLoading } = useThumbnails(imageList, (updater: any) => {
     if (typeof updater === 'function') {
@@ -368,60 +423,20 @@ function App() {
   const isInitialMount = useRef(true);
   const currentFolderPathRef = useRef<string>(currentFolderPath);
 
-  const [exportState, setExportState] = useState<ExportState>({
-    errorMessage: '',
-    progress: { current: 0, total: 0 },
-    status: Status.Idle,
-  });
-
-  const [importState, setImportState] = useState<ImportState>({
-    errorMessage: '',
-    path: '',
-    progress: { current: 0, total: 0 },
-    status: Status.Idle,
-  });
-
   useEffect(() => {
     currentFolderPathRef.current = currentFolderPath;
   }, [currentFolderPath]);
 
-  useEffect(() => {
-    if (!isCopied) {
-      return;
-    }
-    const timer = setTimeout(() => setIsCopied(false), 1000);
-    return () => clearTimeout(timer);
-  }, [isCopied]);
-  useEffect(() => {
-    if (!isPasted) {
-      return;
-    }
-    const timer = setTimeout(() => setIsPasted(false), 1000);
-    return () => clearTimeout(timer);
-  }, [isPasted]);
+  // NOTE: isCopied/isPasted feedback timers are now handled by ClipboardCubit
 
   // setAdjustments wraps EditorCubit.setAdjustments
   const setAdjustments = editorCubit.setAdjustments;
 
-  const handleStraighten = useCallback(
-    (angleCorrection: number) => {
-      editorCubit.setAdjustments((prev: Adjustments) => {
-        const newRotation = (prev.rotation || 0) + angleCorrection;
-        return { ...prev, rotation: newRotation, crop: null };
-      });
+  // Delegate to EditorCubit.applyStraighten
+  const handleStraighten = editorCubit.applyStraighten;
 
-      editorCubit.setIsStraightenActive(false);
-    },
-    [editorCubit],
-  );
-
-  const toggleWbPicker = useCallback(() => {
-    editorCubit.toggleWbPicker();
-  }, [editorCubit]);
-
-  const handleWbPicked = useCallback(() => {
-    //editorCubit.setIsWbPickerActive(false); // lets keep it active
-  }, []);
+  // No-op callback for white balance picker (keeps picker active after use)
+  const handleWbPicked = () => {};
 
   useEffect(() => {
     if (
@@ -489,31 +504,10 @@ function App() {
     }
   }, [libraryViewMode]);
 
-  useEffect(() => {
-    const unlisten = listen('comfyui-status-update', (event: any) => {
-      setIsComfyUiConnected(event.payload.connected);
-    });
-    invoke(Invokes.CheckComfyuiStatus);
-    const interval = setInterval(() => invoke(Invokes.CheckComfyuiStatus), 3000);
-    return () => {
-      clearInterval(interval);
-      unlisten.then((f) => f());
-    };
-  }, []);
+  // Note: ComfyUI status polling is handled by ComfyUICubit (in constructor)
 
-  const updateSubMask = (subMaskId: string, updatedData: any) => {
-    setAdjustments((prev: Adjustments) => ({
-      ...prev,
-      masks: prev.masks.map((c: MaskContainer) => ({
-        ...c,
-        subMasks: c.subMasks.map((sm: SubMask) => (sm.id === subMaskId ? { ...sm, ...updatedData } : sm)),
-      })),
-      aiPatches: (prev.aiPatches || []).map((p: AiPatch) => ({
-        ...p,
-        subMasks: p.subMasks.map((sm: SubMask) => (sm.id === subMaskId ? { ...sm, ...updatedData } : sm)),
-      })),
-    }));
-  };
+  // Delegate to EditorCubit
+  const updateSubMask = editorCubit.updateSubMask;
 
   const handleGenerativeReplace = useCallback(
     async (patchId: string, prompt: string, useFastInpaint: boolean) => {
@@ -667,125 +661,38 @@ function App() {
 
   const handleDeleteMaskContainer = useCallback(
     (containerId: string) => {
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        masks: (prev.masks || []).filter((c) => c.id !== containerId),
-      }));
+      editorCubit.deleteMaskContainer(containerId);
       if (activeMaskContainerId === containerId) {
         masksCubit.clearActiveMask();
       }
     },
-    [setAdjustments, activeMaskContainerId],
+    [editorCubit, activeMaskContainerId, masksCubit],
   );
 
   const handleDeleteAiPatch = useCallback(
     (patchId: string) => {
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        aiPatches: (prev.aiPatches || []).filter((p) => p.id !== patchId),
-      }));
+      editorCubit.deleteAiPatch(patchId);
       if (activeAiPatchContainerId === patchId) {
         masksCubit.clearActiveAiPatch();
       }
     },
-    [setAdjustments, activeAiPatchContainerId, masksCubit],
+    [editorCubit, activeAiPatchContainerId, masksCubit],
   );
 
-  const handleToggleAiPatchVisibility = useCallback(
-    (patchId: string) => {
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        aiPatches: (prev.aiPatches || []).map((p: AiPatch) => (p.id === patchId ? { ...p, visible: !p.visible } : p)),
-      }));
-    },
-    [setAdjustments],
-  );
+  // Delegate to EditorCubit
+  const handleToggleAiPatchVisibility = editorCubit.toggleAiPatchVisibility;
 
-  const handleGenerateAiMask = async (subMaskId: string, startPoint: Coord, endPoint: Coord) => {
-    if (!selectedImage?.path) {
-      console.error('Cannot generate AI mask: No image selected.');
-      return;
-    }
-    masksCubit.setIsGeneratingAiMask(true);
-    try {
-      const newParameters = await invoke(Invokes.GenerateAiSubjectMask, {
-        endPoint: [endPoint.x, endPoint.y],
-        flipHorizontal: adjustments.flipHorizontal,
-        flipVertical: adjustments.flipVertical,
-        orientationSteps: adjustments.orientationSteps,
-        path: selectedImage.path,
-        rotation: adjustments.rotation,
-        startPoint: [startPoint.x, startPoint.y],
-      });
-
-      const subMask = adjustments.aiPatches
-        ?.flatMap((p: AiPatch) => p.subMasks)
-        .find((sm: SubMask) => sm.id === subMaskId);
-
-      const mergedParameters = { ...(subMask?.parameters || {}), ...newParameters };
-      updateSubMask(subMaskId, { parameters: mergedParameters });
-    } catch (error) {
-      console.error('Failed to generate AI subject mask:', error);
-      setError(`AI Mask Failed: ${error}`);
-    } finally {
-      masksCubit.setIsGeneratingAiMask(false);
-    }
+  // Delegate AI mask generation to MasksCubit (with editorCubit context)
+  const handleGenerateAiMask = (subMaskId: string, startPoint: Coord, endPoint: Coord) => {
+    masksCubit.generateAiMask(subMaskId, startPoint, endPoint, editorCubit as unknown as EditorCubit);
   };
 
-  const handleGenerateAiForegroundMask = async (subMaskId: string) => {
-    if (!selectedImage?.path) {
-      console.error('Cannot generate AI mask: No image selected.');
-      return;
-    }
-    masksCubit.setIsGeneratingAiMask(true);
-    try {
-      const newParameters = await invoke(Invokes.GenerateAiForegroundMask, {
-        flipHorizontal: adjustments.flipHorizontal,
-        flipVertical: adjustments.flipVertical,
-        orientationSteps: adjustments.orientationSteps,
-        rotation: adjustments.rotation,
-      });
-
-      const subMask = adjustments.aiPatches
-        ?.flatMap((p: AiPatch) => p.subMasks)
-        .find((sm: SubMask) => sm.id === subMaskId);
-
-      const mergedParameters = { ...(subMask?.parameters || {}), ...newParameters };
-      updateSubMask(subMaskId, { parameters: mergedParameters });
-    } catch (error) {
-      console.error('Failed to generate AI foreground mask:', error);
-      setError(`AI Mask Failed: ${error}`);
-    } finally {
-      masksCubit.setIsGeneratingAiMask(false);
-    }
+  const handleGenerateAiForegroundMask = (subMaskId: string) => {
+    masksCubit.generateAiForegroundMask(subMaskId, editorCubit as unknown as EditorCubit);
   };
 
-  const handleGenerateAiSkyMask = async (subMaskId: string) => {
-    if (!selectedImage?.path) {
-      console.error('Cannot generate AI mask: No image selected.');
-      return;
-    }
-    masksCubit.setIsGeneratingAiMask(true);
-    try {
-      const newParameters = await invoke(Invokes.GenerateAiSkyMask, {
-        flipHorizontal: adjustments.flipHorizontal,
-        flipVertical: adjustments.flipVertical,
-        orientationSteps: adjustments.orientationSteps,
-        rotation: adjustments.rotation,
-      });
-
-      const subMask = adjustments.aiPatches
-        ?.flatMap((p: AiPatch) => p.subMasks)
-        .find((sm: SubMask) => sm.id === subMaskId);
-
-      const mergedParameters = { ...(subMask?.parameters || {}), ...newParameters };
-      updateSubMask(subMaskId, { parameters: mergedParameters });
-    } catch (error) {
-      console.error('Failed to generate AI sky mask:', error);
-      setError(`AI Mask Failed: ${error}`);
-    } finally {
-      masksCubit.setIsGeneratingAiMask(false);
-    }
+  const handleGenerateAiSkyMask = (subMaskId: string) => {
+    masksCubit.generateAiSkyMask(subMaskId, editorCubit as unknown as EditorCubit);
   };
 
   // Sorted/filtered image list from LibraryCubit
@@ -828,30 +735,8 @@ function App() {
     [],
   );
 
-  const createResizeHandler = (setter: any, startSize: number) => (e: any) => {
-    e.preventDefault();
-    setIsResizing(true);
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const doDrag = (moveEvent: any) => {
-      if (setter === setLeftPanelWidth) {
-        setter(Math.max(200, Math.min(startSize + (moveEvent.clientX - startX), 500)));
-      } else if (setter === setRightPanelWidth) {
-        setter(Math.max(280, Math.min(startSize - (moveEvent.clientX - startX), 600)));
-      } else if (setter === setBottomPanelHeight) {
-        setter(Math.max(100, Math.min(startSize - (moveEvent.clientY - startY), 400)));
-      }
-    };
-    const stopDrag = () => {
-      document.documentElement.style.cursor = '';
-      window.removeEventListener('mousemove', doDrag);
-      window.removeEventListener('mouseup', stopDrag);
-      setIsResizing(false);
-    };
-    document.documentElement.style.cursor = setter === setBottomPanelHeight ? 'row-resize' : 'col-resize';
-    window.addEventListener('mousemove', doDrag);
-    window.addEventListener('mouseup', stopDrag);
-  };
+  // Resize handlers - delegate to UICubit
+  const createResizeHandler = uiCubit.createResizeHandler;
 
   useEffect(() => {
     const appWindow = getCurrentWindow();
@@ -866,30 +751,6 @@ function App() {
       unlistenPromise.then((unlisten: any) => unlisten());
     };
   }, []);
-
-  const handleLutSelect = useCallback(
-    async (path: string) => {
-      try {
-        const result: LutData = await invoke('load_and_parse_lut', { path });
-        const name = path.split(/[\\/]/).pop() || 'LUT';
-        setAdjustments((prev: Partial<Adjustments>) => ({
-          ...prev,
-          lutPath: path,
-          lutName: name,
-          lutSize: result.size,
-          lutIntensity: 100,
-          sectionVisibility: {
-            ...(prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility),
-            effects: true,
-          },
-        }));
-      } catch (err) {
-        console.error('Failed to load or parse LUT:', err);
-        setError(`Failed to load LUT: ${err}`);
-      }
-    },
-    [setAdjustments],
-  );
 
   const handleRightPanelSelect = useCallback(
     (panelId: Panel) => {
@@ -924,6 +785,44 @@ function App() {
   useEffect(() => {
     settingsCubit.loadSettings();
   }, [settingsCubit]);
+
+  // Setup event listeners for cubits
+  useEffect(() => {
+    editorCubit.setupEventListeners();
+    exportImportCubit.setupEventListeners();
+    indexingCubit.setupEventListeners();
+    libraryCubit.setupEventListeners();
+    modalsCubit.setupEventListeners();
+    // Note: ComfyUICubit sets up its own listeners in constructor (including ai-model-download events)
+
+    // Set callbacks for cubit events
+    indexingCubit.setOnIndexingFinished(() => {
+      if (currentFolderPathRef.current) {
+        invoke(Invokes.ListImagesInDir, { path: currentFolderPathRef.current })
+          .then((list: any) => {
+            if (Array.isArray(list)) {
+              libraryCubit.setImageList(list);
+            }
+          })
+          .catch((err) => console.error('Failed to refresh after indexing:', err));
+      }
+    });
+
+    exportImportCubit.setOnImportComplete(() => {
+      refreshAllFolderTrees();
+      if (currentFolderPathRef.current) {
+        handleSelectSubfolder(currentFolderPathRef.current, false);
+      }
+    });
+
+    return () => {
+      editorCubit.disposeEventListeners();
+      exportImportCubit.dispose();
+      indexingCubit.dispose();
+      libraryCubit.dispose();
+      modalsCubit.dispose();
+    };
+  }, [editorCubit, exportImportCubit, indexingCubit, libraryCubit, modalsCubit]);
 
 
 
@@ -1047,50 +946,24 @@ function App() {
     return () => clearTimeout(timer);
   }, [theme]);
 
-  const refreshAllFolderTrees = useCallback(async () => {
-    if (rootPath) {
-      try {
-        const treeData: FolderNode = await invoke(Invokes.GetFolderTree, { path: rootPath });
-        navigationCubit.setFolderTree(treeData);
-      } catch (err) {
-        console.error('Failed to refresh main folder tree:', err);
-        setError(`Failed to refresh folder tree: ${err}.`);
-      }
-    }
-
-    const currentPins = appSettings?.pinnedFolders || [];
-    if (currentPins.length > 0) {
-      try {
-        const trees: FolderNode[] = await invoke(Invokes.GetPinnedFolderTrees, { paths: currentPins });
-        navigationCubit.setPinnedFolderTrees(trees);
-      } catch (err) {
-        console.error('Failed to refresh pinned folder trees:', err);
-      }
-    }
-  }, [rootPath, appSettings?.pinnedFolders, navigationCubit]);
+  // Delegate to NavigationCubit
+  const refreshAllFolderTrees = navigationCubit.refreshAllFolderTrees;
 
   const handleTogglePinFolder = useCallback(async (path: string) => {
     if (!appSettings) return;
-    const currentPins = appSettings.pinnedFolders || [];
-    const isPinned = currentPins.includes(path);
-    const newPins = isPinned
-      ? currentPins.filter((p: string) => p !== path)
-      : [...currentPins, path].sort((a: string, b: string) => a.localeCompare(b));
+    const isPinned = pinnedFolders.includes(path);
 
+    // If pinning the current folder, switch to pinned section
     if (!isPinned && path === currentFolderPath) {
       handleActiveTreeSectionChange('pinned');
     }
 
-    handleSettingsChange({ ...appSettings, pinnedFolders: newPins });
-    navigationCubit.setPinnedFolders(newPins);
+    // Toggle pin in NavigationCubit (handles tree refresh)
+    const newPins = await navigationCubit.togglePinFolder(path);
 
-    try {
-      const trees: FolderNode[] = await invoke(Invokes.GetPinnedFolderTrees, { paths: newPins });
-      navigationCubit.setPinnedFolderTrees(trees);
-    } catch (err) {
-      console.error('Failed to refresh pinned folders:', err);
-    }
-  }, [appSettings, handleSettingsChange, currentFolderPath, navigationCubit]);
+    // Persist to settings
+    handleSettingsChange({ ...appSettings, pinnedFolders: newPins });
+  }, [appSettings, handleSettingsChange, currentFolderPath, pinnedFolders, navigationCubit]);
 
   const handleActiveTreeSectionChange = (section: string | null) => {
     navigationCubit.setActiveTreeSection(section);
@@ -1288,10 +1161,6 @@ function App() {
       setError('Failed to refresh image list.');
     }
   }, [currentFolderPath, sortCriteria.key, appSettings?.enableExifReading, libraryViewMode]);
-
-  const handleToggleFolder = useCallback((path: string) => {
-    navigationCubit.toggleFolderExpanded(path);
-  }, [navigationCubit]);
 
   useEffect(() => {
     if (isInitialMount.current || !appSettings || !rootPath) {
@@ -1589,27 +1458,6 @@ function App() {
     },
     [copiedAdjustments, appSettings, multiSelectedPaths, selectedImage, adjustments, setAdjustments],
   );
-
-  const handleAutoAdjustments = async () => {
-    if (!selectedImage) {
-      return;
-    }
-    try {
-      const autoAdjustments: Adjustments = await invoke(Invokes.CalculateAutoAdjustments);
-      setAdjustments((prev: Adjustments) => {
-        const newAdjustments = { ...prev, ...autoAdjustments };
-        newAdjustments.sectionVisibility = {
-          ...prev.sectionVisibility,
-          ...autoAdjustments.sectionVisibility,
-        };
-
-        return newAdjustments;
-      });
-    } catch (err) {
-      console.error('Failed to calculate auto adjustments:', err);
-      setError(`Failed to apply auto adjustments: ${err}`);
-    }
-  };
 
   const handleRate = useCallback(
     (newRating: number, paths?: Array<string>) => {
@@ -1960,186 +1808,19 @@ function App() {
     onSelectPatchContainer: masksCubit.setActiveAiPatchContainer,
   });
 
+  // Open-with-file event listener (app launch with file)
   useEffect(() => {
     let isEffectActive = true;
-    const listeners = [
-      listen('preview-update-final', (event: any) => {
-        if (isEffectActive) {
-          const imageData = new Uint8Array(event.payload);
-          const blob = new Blob([imageData], { type: 'image/jpeg' });
-          const url = URL.createObjectURL(blob);
-          setFinalPreviewUrl(url);
-          setIsAdjusting(false);
-        }
-      }),
-      listen('preview-update-uncropped', (event: any) => {
-        if (isEffectActive) {
-          const imageData = new Uint8Array(event.payload);
-          const blob = new Blob([imageData], { type: 'image/jpeg' });
-          const url = URL.createObjectURL(blob);
-          setUncroppedAdjustedPreviewUrl(url);
-        }
-      }),
-      listen('histogram-update', (event: any) => {
-        if (isEffectActive) {
-          setHistogram(event.payload);
-        }
-      }),
-      listen('open-with-file', (event: any) => {
-        if (isEffectActive) {
-          setInitialFileToOpen(event.payload as string);
-        }
-      }),
-      listen('waveform-update', (event: any) => {
-        if (isEffectActive) {
-          setWaveform(event.payload);
-        }
-      }),
-      listen('thumbnail-generated', (event: any) => {
-        if (isEffectActive) {
-          const { path, data, rating } = event.payload;
-          if (data) {
-            libraryCubit.setThumbnail(path, data);
-          }
-          if (rating !== undefined) {
-            libraryCubit.setImageRating(path, rating);
-          }
-        }
-      }),
-      listen('ai-model-download-start', (event: any) => {
-        if (isEffectActive) {
-          setAiModelDownloadStatus(event.payload);
-        }
-      }),
-      listen('ai-model-download-finish', () => {
-        if (isEffectActive) {
-          setAiModelDownloadStatus(null);
-        }
-      }),
-      listen('indexing-started', () => {
-        if (isEffectActive) {
-          setIsIndexing(true);
-          setIndexingProgress({ current: 0, total: 0 });
-        }
-      }),
-      listen('indexing-progress', (event: any) => {
-        if (isEffectActive) {
-          setIndexingProgress(event.payload);
-        }
-      }),
-      listen('indexing-finished', () => {
-        if (isEffectActive) {
-          setIsIndexing(false);
-          setIndexingProgress({ current: 0, total: 0 });
-          if (currentFolderPathRef.current) {
-            const refreshImageList = async () => {
-              try {
-                const list: ImageFile[] = await invoke(Invokes.ListImagesInDir, { path: currentFolderPathRef.current });
-                if (Array.isArray(list)) {
-                  libraryCubit.setImageList(list);
-                }
-              } catch (err) {
-                console.error('Failed to refresh after indexing:', err);
-              }
-            };
-            refreshImageList();
-          }
-        }
-      }),
-      listen('batch-export-progress', (event: any) => {
-        if (isEffectActive) {
-          setExportState((prev: ExportState) => ({ ...prev, progress: event.payload }));
-        }
-      }),
-      listen('export-complete', () => {
-        if (isEffectActive) {
-          setExportState((prev: ExportState) => ({ ...prev, status: Status.Success }));
-        }
-      }),
-      listen('export-error', (event) => {
-        if (isEffectActive) {
-          setExportState((prev: ExportState) => ({
-            ...prev,
-            status: Status.Error,
-            errorMessage: typeof event.payload === 'string' ? event.payload : 'An unknown export error occurred.',
-          }));
-        }
-      }),
-      listen('export-cancelled', () => {
-        if (isEffectActive) {
-          setExportState((prev: ExportState) => ({ ...prev, status: Status.Cancelled }));
-        }
-      }),
-      listen('import-start', (event: any) => {
-        if (isEffectActive) {
-          setImportState({
-            errorMessage: '',
-            path: '',
-            progress: { current: 0, total: event.payload.total },
-            status: Status.Importing,
-          });
-        }
-      }),
-      listen('import-progress', (event: any) => {
-        if (isEffectActive) {
-          setImportState((prev: ImportState) => ({
-            ...prev,
-            path: event.payload.path,
-            progress: { current: event.payload.current, total: event.payload.total },
-          }));
-        }
-      }),
-      listen('import-complete', () => {
-        if (isEffectActive) {
-          setImportState((prev: ImportState) => ({ ...prev, status: Status.Success }));
-          refreshAllFolderTrees();
-          if (currentFolderPathRef.current) {
-            handleSelectSubfolder(currentFolderPathRef.current, false);
-          }
-        }
-      }),
-      listen('import-error', (event) => {
-        if (isEffectActive) {
-          setImportState((prev: ImportState) => ({
-            ...prev,
-            errorMessage: typeof event.payload === 'string' ? event.payload : 'An unknown import error occurred.',
-            status: Status.Error,
-          }));
-        }
-      }),
-      listen('denoise-progress', (event: any) => {
-        if (isEffectActive) {
-          modalsCubit.updateDenoiseState({ progressMessage: event.payload as string });
-        }
-      }),
-      listen('denoise-complete', (event: any) => {
-        if (isEffectActive) {
-          const payload = event.payload;
-          const isObject = typeof payload === 'object' && payload !== null;
-          
-          modalsCubit.updateDenoiseState({
-            isProcessing: false,
-            previewBase64: isObject ? payload.denoised : payload,
-            originalBase64: isObject ? payload.original : null,
-            progressMessage: null
-          });
-        }
-      }),
-      listen('denoise-error', (event: any) => {
-        if (isEffectActive) {
-          modalsCubit.updateDenoiseState({
-            isProcessing: false,
-            error: String(event.payload),
-            progressMessage: null
-          });
-        }
-      }),
-    ];
+    const unlistenPromise = listen('open-with-file', (event: any) => {
+      if (isEffectActive) {
+        setInitialFileToOpen(event.payload as string);
+      }
+    });
     return () => {
       isEffectActive = false;
-      listeners.forEach((p) => p.then((unlisten) => unlisten()));
+      unlistenPromise.then((unlisten) => unlisten());
     };
-  }, [refreshAllFolderTrees, handleSelectSubfolder]);
+  }, []);
 
   useEffect(() => {
     if ([Status.Success, Status.Error, Status.Cancelled].includes(exportState.status)) {
@@ -2181,72 +1862,6 @@ function App() {
       setLibraryActiveAdjustments(INITIAL_ADJUSTMENTS);
     }
   }, [libraryActivePath]);
-
-  useEffect(() => {
-    let isEffectActive = true;
-
-    const unlistenProgress = listen('panorama-progress', (event: any) => {
-      if (isEffectActive) {
-        modalsCubit.updatePanoramaProgress(event.payload);
-      }
-    });
-
-    const unlistenComplete = listen('panorama-complete', (event: any) => {
-      if (isEffectActive) {
-        const { base64 } = event.payload;
-        modalsCubit.setPanoramaResult(base64);
-      }
-    });
-
-    const unlistenError = listen('panorama-error', (event: any) => {
-      if (isEffectActive) {
-        modalsCubit.setPanoramaError(String(event.payload));
-      }
-    });
-
-    return () => {
-      isEffectActive = false;
-      unlistenProgress.then((f: any) => f());
-      unlistenComplete.then((f: any) => f());
-      unlistenError.then((f: any) => f());
-    };
-  }, []);
-
-  useEffect(() => {
-    let isEffectActive = true;
-
-    const unlistenStart = listen('culling-start', (event: any) => {
-      if (isEffectActive) {
-        modalsCubit.updateCullingProgress(0, event.payload, 'Initializing...');
-      }
-    });
-
-    const unlistenProgress = listen('culling-progress', (event: any) => {
-      if (isEffectActive) {
-        modalsCubit.updateCullingProgress(event.payload.current, event.payload.total, event.payload.stage);
-      }
-    });
-
-    const unlistenComplete = listen('culling-complete', (event: any) => {
-      if (isEffectActive) {
-        modalsCubit.setCullingSuggestions(event.payload);
-      }
-    });
-
-    const unlistenError = listen('culling-error', (event: any) => {
-      if (isEffectActive) {
-        modalsCubit.setCullingError(String(event.payload));
-      }
-    });
-
-    return () => {
-      isEffectActive = false;
-      unlistenStart.then((f) => f());
-      unlistenProgress.then((f) => f());
-      unlistenComplete.then((f) => f());
-      unlistenError.then((f) => f());
-    };
-  }, []);
 
   const handleSavePanorama = async (): Promise<string> => {
     const { stitchingSourcePaths } = modalsState.panorama;
@@ -2747,7 +2362,7 @@ function App() {
         disabled: copiedAdjustments === null,
       },
       { type: OPTION_SEPARATOR },
-      { label: 'Auto Adjust Image', icon: Aperture, onClick: handleAutoAdjustments },
+      { label: 'Auto Adjust Image', icon: Aperture, onClick: editorCubit.applyAutoAdjustments },
       {
         label: 'Rating',
         icon: Star,
@@ -3346,12 +2961,6 @@ function App() {
   };
 
   const renderMainView = () => {
-    const panelVariants: any = {
-      animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'circOut' } },
-      exit: { opacity: 0.4, y: -20, transition: { duration: 0.1, ease: 'circIn' } },
-      initial: { opacity: 0.4, y: 20 },
-    };
-
     if (selectedImage) {
       return (
         <div className="flex flex-row flex-grow h-full min-h-0">
@@ -3376,13 +2985,11 @@ function App() {
             />
             <Resizer
               direction={Orientation.Horizontal}
-              onMouseDown={createResizeHandler(setBottomPanelHeight, bottomPanelHeight)}
+              onMouseDown={createResizeHandler('bottom', bottomPanelHeight)}
             />
             <BottomBar
               filmstripHeight={bottomPanelHeight}
-              isCopied={isCopied}
               isCopyDisabled={!selectedImage}
-              isPasted={isPasted}
               isPasteDisabled={copiedAdjustments === null}
               isRatingDisabled={!selectedImage}
               isResizing={isResizing}
@@ -3399,88 +3006,17 @@ function App() {
           </div>
 
           <Resizer
-            onMouseDown={createResizeHandler(setRightPanelWidth, rightPanelWidth)}
+            onMouseDown={createResizeHandler('right', rightPanelWidth)}
             direction={Orientation.Vertical}
           />
-          <div className="flex bg-bg-secondary rounded-lg h-full">
-            <div
-              className={clsx('h-full overflow-hidden', !isResizing && 'transition-all duration-300 ease-in-out')}
-              style={{ width: activeRightPanel ? `${rightPanelWidth}px` : '0px' }}
-            >
-              <div style={{ width: `${rightPanelWidth}px` }} className="h-full">
-                <AnimatePresence mode="wait">
-                  {activeRightPanel && (
-                    <motion.div
-                      animate="animate"
-                      className="h-full w-full"
-                      exit="exit"
-                      initial="initial"
-                      key={renderedRightPanel}
-                      variants={panelVariants}
-                    >
-                      {renderedRightPanel === Panel.Adjustments && (
-                        <Controls
-                          handleAutoAdjustments={handleAutoAdjustments}
-                          handleLutSelect={handleLutSelect}
-                        />
-                      )}
-                      {renderedRightPanel === Panel.Metadata && <MetadataPanel selectedImage={selectedImage} />}
-                      {renderedRightPanel === Panel.Crop && <CropPanel />}
-                      {renderedRightPanel === Panel.Masks && (
-                        <MasksPanel
-                          aiModelDownloadStatus={aiModelDownloadStatus}
-                          onGenerateAiForegroundMask={handleGenerateAiForegroundMask}
-                          onGenerateAiSkyMask={handleGenerateAiSkyMask}
-                          setCustomEscapeHandler={setCustomEscapeHandler}
-                        />
-                      )}
-                      {renderedRightPanel === Panel.Presets && (
-                        <PresetsPanel
-                          activePanel={activeRightPanel}
-                          adjustments={adjustments}
-                          selectedImage={selectedImage}
-                          onNavigateToCommunity={() => {
-                            handleBackToLibrary();
-                            navigationCubit.switchToCommunity();
-                          }}
-                          setAdjustments={setAdjustments}
-                        />
-                      )}
-                      {renderedRightPanel === Panel.Export && (
-                        <ExportPanel
-                          adjustments={adjustments}
-                          exportState={exportState}
-                          multiSelectedPaths={multiSelectedPaths}
-                          selectedImage={selectedImage}
-                          setExportState={setExportState}
-                        />
-                      )}
-                      {renderedRightPanel === Panel.Ai && (
-                        <AIPanel
-                          aiModelDownloadStatus={aiModelDownloadStatus}
-                          isComfyUiConnected={isComfyUiConnected}
-                          isGeneratingAi={isGeneratingAi}
-                          onDeletePatch={handleDeleteAiPatch}
-                          onGenerateAiForegroundMask={handleGenerateAiForegroundMask}
-                          onGenerativeReplace={handleGenerativeReplace}
-                          onTogglePatchVisibility={handleToggleAiPatchVisibility}
-                          setCustomEscapeHandler={setCustomEscapeHandler}
-                        />
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-            <div
-              className={clsx(
-                'h-full border-l transition-colors',
-                activeRightPanel ? 'border-surface' : 'border-transparent',
-              )}
-            >
-              <RightPanelSwitcher activePanel={activeRightPanel} onPanelSelect={handleRightPanelSelect} />
-            </div>
-          </div>
+          <RightPanelContainer
+            onGenerateAiForegroundMask={handleGenerateAiForegroundMask}
+            onGenerateAiSkyMask={handleGenerateAiSkyMask}
+            onDeletePatch={handleDeleteAiPatch}
+            onGenerativeReplace={handleGenerativeReplace}
+            onTogglePatchVisibility={handleToggleAiPatchVisibility}
+            setCustomEscapeHandler={setCustomEscapeHandler}
+          />
         </div>
       );
     }
@@ -3518,16 +3054,14 @@ function App() {
           )}
           {rootPath && (
             <BottomBar
-              isCopied={isCopied}
               isCopyDisabled={multiSelectedPaths.length !== 1}
               isExportDisabled={multiSelectedPaths.length === 0}
               isLibraryView={true}
-              isPasted={isPasted}
               isPasteDisabled={copiedAdjustments === null || multiSelectedPaths.length === 0}
               isRatingDisabled={multiSelectedPaths.length === 0}
               isResetDisabled={multiSelectedPaths.length === 0}
               onCopy={handleCopyAdjustments}
-              onExportClick={() => setIsLibraryExportPanelVisible((prev) => !prev)}
+              onExportClick={() => setIsLibraryExportPanelVisible(!isLibraryExportPanelVisible)}
               onOpenCopyPasteSettings={() => modalsCubit.openCopyPasteSettings()}
               onPaste={() => handlePasteAdjustments()}
               onRate={handleRate}
@@ -3570,13 +3104,12 @@ function App() {
           {rootPath && (
             <>
               <FolderTree
-                isResizing={isResizing}
                 onContextMenu={handleFolderTreeContextMenu}
                 style={{ width: uiVisibility.folderTree ? `${leftPanelWidth}px` : '32px' }}
               />
               <Resizer
                 direction={Orientation.Vertical}
-                onMouseDown={createResizeHandler(setLeftPanelWidth, leftPanelWidth)}
+                onMouseDown={createResizeHandler('left', leftPanelWidth)}
               />
             </>
           )}
@@ -3584,7 +3117,7 @@ function App() {
           {!selectedImage && isLibraryExportPanelVisible && (
             <Resizer
               direction={Orientation.Vertical}
-              onMouseDown={createResizeHandler(setRightPanelWidth, rightPanelWidth)}
+              onMouseDown={createResizeHandler('right', rightPanelWidth)}
             />
           )}
           <div
@@ -3592,12 +3125,8 @@ function App() {
             style={{ width: isLibraryExportPanelVisible ? `${rightPanelWidth}px` : '0px' }}
           >
             <LibraryExportPanel
-              exportState={exportState}
-              imageList={sortedImageList}
               isVisible={isLibraryExportPanelVisible}
-              multiSelectedPaths={multiSelectedPaths}
               onClose={() => setIsLibraryExportPanelVisible(false)}
-              setExportState={setExportState}
             />
           </div>
         </div>

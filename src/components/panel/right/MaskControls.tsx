@@ -12,6 +12,7 @@ import {
   Minus,
   Folder as FolderIcon,
 } from 'lucide-react';
+import { useBloc } from '@blac/react';
 import CollapsibleSection from '../../ui/CollapsibleSection';
 import Switch from '../../ui/Switch';
 import Slider from '../../ui/Slider';
@@ -35,6 +36,7 @@ import { useContextMenu } from '../../../context/ContextMenuContext';
 import { AppSettings, BrushSettings, Option, OPTION_SEPARATOR, SelectedImage } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
 import { usePresets } from '../../../hooks/usePresets';
+import { ComfyUICubit, MasksCubit } from '../../../cubits';
 
 interface BrushToolsProps {
   onSettingsChange(settings: any): void;
@@ -50,12 +52,10 @@ interface MaskControlsProps {
   activeMaskId: string | null;
   activeSubMask: SubMask | null;
   adjustments: Adjustments;
-  aiModelDownloadStatus: string | null;
   appSettings: AppSettings | null;
   brushSettings: BrushSettings | null;
   editingMask: MaskContainer;
   histogram: ChannelConfig | null;
-  isGeneratingAiMask: boolean;
   onGenerateAiForegroundMask(id: string): void;
   onGenerateAiSkyMask(id: string): void;
   onSelectMask(id: string | null): void;
@@ -161,12 +161,10 @@ export default function MaskControls({
   activeMaskId,
   activeSubMask,
   adjustments,
-  aiModelDownloadStatus,
   appSettings,
   brushSettings,
   editingMask,
   histogram,
-  isGeneratingAiMask,
   onGenerateAiForegroundMask,
   onGenerateAiSkyMask,
   onSelectMask,
@@ -177,6 +175,10 @@ export default function MaskControls({
   updateMask,
   updateSubMask,
 }: MaskControlsProps) {
+  const [comfyUIState] = useBloc(ComfyUICubit);
+  const [masksState] = useBloc(MasksCubit);
+  const { modelDownloadStatus: aiModelDownloadStatus } = comfyUIState;
+  const { isGeneratingAiMask } = masksState;
   const { showContextMenu } = useContextMenu();
   const { presets } = usePresets(editingMask.adjustments);
   const [isSettingsSectionOpen, setSettingsSectionOpen] = useState(true);

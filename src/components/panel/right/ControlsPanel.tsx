@@ -19,18 +19,13 @@ interface ControlsPanelOption {
   type?: string;
 }
 
-interface ControlsProps {
-  handleAutoAdjustments(): void;
-  handleLutSelect(path: string): void;
-}
-
-export default function Controls({
-  handleAutoAdjustments,
-  handleLutSelect,
-}: ControlsProps) {
+export default function Controls() {
   const [editorState, editorCubit] = useBloc(EditorCubit);
   const [settingsState] = useBloc(SettingsCubit);
   const { showContextMenu } = useContextMenu();
+
+  const handleAutoAdjustments = editorCubit.applyAutoAdjustments;
+  const handleLutSelect = editorCubit.applyLut;
 
   const {
     adjustments,

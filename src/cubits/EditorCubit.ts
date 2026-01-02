@@ -1,6 +1,7 @@
 import { Cubit } from '@blac/core';
 import debounce from 'lodash.debounce';
 import { invoke } from '@tauri-apps/api/core';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { Invokes, SelectedImage, Panel, WaveformData } from '../components/ui/AppProperties';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
@@ -103,6 +104,8 @@ const defaultState: EditorState = {
 export class EditorCubit extends Cubit<EditorState> {
   private debouncedSaveMetadata: ReturnType<typeof debounce>;
   private debouncedSetHistory: ReturnType<typeof debounce>;
+  private unlistenFns: UnlistenFn[] = [];
+  private listenersSetup = false;
 
   constructor() {
     super(defaultState);
@@ -112,6 +115,40 @@ export class EditorCubit extends Cubit<EditorState> {
       this.addToHistory(newAdjustments);
     }, 300);
   }
+
+  setupEventListeners = async () => {
+    if (this.listenersSetup) return;
+    this.listenersSetup = true;
+
+    const listeners = await Promise.all([
+      listen('preview-update-final', (event: any) => {
+        const imageData = new Uint8Array(event.payload);
+        const blob = new Blob([imageData as any], { type: 'image/jpeg' });
+        const url = URL.createObjectURL(blob);
+        this.patch({ finalPreviewUrl: url, isAdjusting: false });
+      }),
+      listen('preview-update-uncropped', (event: any) => {
+        const imageData = new Uint8Array(event.payload);
+        const blob = new Blob([imageData as any], { type: 'image/jpeg' });
+        const url = URL.createObjectURL(blob);
+        this.patch({ uncroppedAdjustedPreviewUrl: url });
+      }),
+      listen('histogram-update', (event: any) => {
+        this.patch({ histogram: event.payload });
+      }),
+      listen('waveform-update', (event: any) => {
+        this.patch({ waveform: event.payload });
+      }),
+    ]);
+
+    this.unlistenFns = listeners;
+  };
+
+  disposeEventListeners = () => {
+    this.unlistenFns.forEach(fn => fn());
+    this.unlistenFns = [];
+    this.listenersSetup = false;
+  };
 
   // Computed getters
   get canUndo(): boolean {
@@ -566,6 +603,100 @@ export class EditorCubit extends Cubit<EditorState> {
       copiedSectionAdjustments: this.state.copiedSectionAdjustments,
       libraryActivePath: lastActivePath,
     });
+  };
+
+  // Auto adjustments
+  applyAutoAdjustments = async () => {
+    if (!this.state.selectedImage) return;
+    
+    try {
+      const autoAdjustments: Adjustments = await invoke(Invokes.CalculateAutoAdjustments);
+      this.setAdjustments((prev: Adjustments) => {
+        const newAdjustments = { ...prev, ...autoAdjustments };
+        newAdjustments.sectionVisibility = {
+          ...prev.sectionVisibility,
+          ...autoAdjustments.sectionVisibility,
+        };
+        return newAdjustments;
+      });
+    } catch (err) {
+      console.error('Failed to calculate auto adjustments:', err);
+      this.setError(`Failed to apply auto adjustments: ${err}`);
+    }
+  };
+
+  // LUT selection
+  applyLut = async (path: string) => {
+    try {
+      const result: { size: number } = await invoke('load_and_parse_lut', { path });
+      const name = path.split(/[\\/]/).pop() || 'LUT';
+      this.setAdjustments((prev: Adjustments) => ({
+        ...prev,
+        lutPath: path,
+        lutName: name,
+        lutSize: result.size,
+        lutIntensity: 100,
+        sectionVisibility: {
+          ...(prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility),
+          effects: true,
+        },
+      }));
+    } catch (err) {
+      console.error('Failed to load or parse LUT:', err);
+      this.setError(`Failed to load LUT: ${err}`);
+    }
+  };
+
+  // Straighten tool
+  applyStraighten = (angleCorrection: number) => {
+    this.setAdjustments((prev: Adjustments) => {
+      const newRotation = (prev.rotation || 0) + angleCorrection;
+      return { ...prev, rotation: newRotation, crop: null };
+    });
+    this.setIsStraightenActive(false);
+  };
+
+  // Mask container operations
+  deleteMaskContainer = (containerId: string) => {
+    this.setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      masks: (prev.masks || []).filter((c) => c.id !== containerId),
+    }));
+  };
+
+  // AI Patch operations
+  deleteAiPatch = (patchId: string) => {
+    this.setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      aiPatches: (prev.aiPatches || []).filter((p) => p.id !== patchId),
+    }));
+  };
+
+  toggleAiPatchVisibility = (patchId: string) => {
+    this.setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      aiPatches: (prev.aiPatches || []).map((p: any) => 
+        p.id === patchId ? { ...p, visible: !p.visible } : p
+      ),
+    }));
+  };
+
+  updateSubMask = (subMaskId: string, updatedData: any) => {
+    this.setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      masks: prev.masks.map((c: any) => ({
+        ...c,
+        subMasks: c.subMasks.map((sm: any) => 
+          sm.id === subMaskId ? { ...sm, ...updatedData } : sm
+        ),
+      })),
+      aiPatches: (prev.aiPatches || []).map((p: any) => ({
+        ...p,
+        subMasks: p.subMasks.map((sm: any) => 
+          sm.id === subMaskId ? { ...sm, ...updatedData } : sm
+        ),
+      })),
+    }));
   };
 
   // Back to library handler

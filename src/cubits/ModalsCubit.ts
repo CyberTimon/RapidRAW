@@ -1,4 +1,5 @@
 import { Cubit } from '@blac/core';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { ImageFile, CullingSuggestions, CullingSettings } from '../components/ui/AppProperties';
 
 export interface ConfirmModalState {
@@ -173,9 +174,76 @@ const defaultModalsState: ModalsState = {
 };
 
 export class ModalsCubit extends Cubit<ModalsState> {
+  private unlistenFns: UnlistenFn[] = [];
+  private listenersSetup = false;
+
   constructor() {
     super(defaultModalsState);
   }
+
+  setupEventListeners = async () => {
+    if (this.listenersSetup) return;
+    this.listenersSetup = true;
+
+    const listeners = await Promise.all([
+      // Denoise events
+      listen('denoise-progress', (event: any) => {
+        this.updateDenoiseState({ progressMessage: event.payload as string });
+      }),
+      listen('denoise-complete', (event: any) => {
+        const payload = event.payload;
+        const isObject = typeof payload === 'object' && payload !== null;
+        this.updateDenoiseState({
+          isProcessing: false,
+          previewBase64: isObject ? payload.denoised : payload,
+          originalBase64: isObject ? payload.original : null,
+          progressMessage: null,
+        });
+      }),
+      listen('denoise-error', (event: any) => {
+        this.updateDenoiseState({
+          isProcessing: false,
+          error: String(event.payload),
+          progressMessage: null,
+        });
+      }),
+
+      // Panorama events
+      listen('panorama-progress', (event: any) => {
+        this.updatePanoramaProgress(event.payload);
+      }),
+      listen('panorama-complete', (event: any) => {
+        const { base64 } = event.payload;
+        this.setPanoramaResult(base64);
+      }),
+      listen('panorama-error', (event: any) => {
+        this.setPanoramaError(String(event.payload));
+      }),
+
+      // Culling events
+      listen('culling-start', (event: any) => {
+        this.updateCullingProgress(0, event.payload, 'Initializing...');
+      }),
+      listen('culling-progress', (event: any) => {
+        const { current, total, stage } = event.payload;
+        this.updateCullingProgress(current, total, stage);
+      }),
+      listen('culling-complete', (event: any) => {
+        this.setCullingSuggestions(event.payload as CullingSuggestions);
+      }),
+      listen('culling-error', (event: any) => {
+        this.setCullingError(String(event.payload));
+      }),
+    ]);
+
+    this.unlistenFns = listeners;
+  };
+
+  dispose = () => {
+    this.unlistenFns.forEach((fn) => fn());
+    this.unlistenFns = [];
+    this.listenersSetup = false;
+  };
 
   // Confirm Modal
   openConfirm = (options: {

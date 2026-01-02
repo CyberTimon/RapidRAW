@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { Save, CheckCircle, XCircle, Loader, X, Ban } from 'lucide-react';
 import debounce from 'lodash.debounce';
+import { useBloc } from '@blac/react';
 import Switch from '../../ui/Switch';
 import Dropdown from '../../ui/Dropdown';
 import Slider from '../../ui/Slider';
@@ -17,15 +18,12 @@ import {
   FileFormats,
   WatermarkAnchor,
 } from './ExportImportProperties';
-import { Invokes, ImageFile } from '../../ui/AppProperties';
+import { Invokes } from '../../ui/AppProperties';
+import { ExportImportCubit, LibraryCubit } from '../../../cubits';
 
 interface LibraryExportPanelProps {
-  exportState: ExportState;
   isVisible: boolean;
-  multiSelectedPaths: Array<string>;
   onClose(): void;
-  setExportState(state: any): void;
-  imageList: ImageFile[];
 }
 
 interface SectionProps {
@@ -157,13 +155,24 @@ const resizeModeOptions = [
 ];
 
 export default function LibraryExportPanel({
-  exportState,
   isVisible,
-  multiSelectedPaths,
   onClose,
-  setExportState,
-  imageList,
 }: LibraryExportPanelProps) {
+  const [libraryState] = useBloc(LibraryCubit);
+  const [exportImportState, exportImportCubit] = useBloc(ExportImportCubit);
+
+  const { multiSelectedPaths, imageList } = libraryState;
+  const { export: exportState } = exportImportState;
+
+  const setExportState = (state: Partial<ExportState> | ((prev: ExportState) => ExportState)) => {
+    if (typeof state === 'function') {
+      const newState = state(exportState);
+      exportImportCubit.setExportState(newState);
+    } else {
+      exportImportCubit.setExportState(state);
+    }
+  };
+
   const [fileFormat, setFileFormat] = useState('jpeg');
   const [jpegQuality, setJpegQuality] = useState(90);
   const [enableResize, setEnableResize] = useState(false);

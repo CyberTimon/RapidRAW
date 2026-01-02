@@ -1,8 +1,10 @@
 import { Cubit } from '@blac/core';
-import { BrushSettings } from '../components/ui/AppProperties';
-import { MaskContainer, INITIAL_MASK_ADJUSTMENTS } from '../utils/adjustments';
+import { invoke } from '@tauri-apps/api/core';
+import { BrushSettings, Invokes } from '../components/ui/AppProperties';
+import { AiPatch, MaskContainer, INITIAL_MASK_ADJUSTMENTS, Coord } from '../utils/adjustments';
 import { SubMask, ToolType } from '../components/panel/right/Masks';
 import { v4 as uuidv4 } from 'uuid';
+import { EditorCubit } from './EditorCubit';
 
 export interface MasksState {
   activeMaskContainerId: string | null;
@@ -133,6 +135,106 @@ export class MasksCubit extends Cubit<MasksState> {
   // Reset
   reset = () => {
     this.emit(defaultState);
+  };
+
+  // AI Mask Generation - requires EditorCubit for image context
+  // EditorCubit is passed as parameter since static access methods may not be available
+  generateAiMask = async (
+    subMaskId: string,
+    startPoint: Coord,
+    endPoint: Coord,
+    editorCubit: EditorCubit,
+  ) => {
+    const { selectedImage, adjustments } = editorCubit.state;
+    if (!selectedImage?.path) {
+      console.error('Cannot generate AI mask: No image selected.');
+      return;
+    }
+
+    this.setIsGeneratingAiMask(true);
+    try {
+      const newParameters = await invoke(Invokes.GenerateAiSubjectMask, {
+        endPoint: [endPoint.x, endPoint.y],
+        flipHorizontal: adjustments.flipHorizontal,
+        flipVertical: adjustments.flipVertical,
+        orientationSteps: adjustments.orientationSteps,
+        path: selectedImage.path,
+        rotation: adjustments.rotation,
+        startPoint: [startPoint.x, startPoint.y],
+      });
+
+      const subMask = adjustments.aiPatches
+        ?.flatMap((p: AiPatch) => p.subMasks)
+        .find((sm: SubMask) => sm.id === subMaskId);
+
+      const mergedParameters = { ...(subMask?.parameters || {}), ...(newParameters as object) };
+      editorCubit.updateSubMask(subMaskId, { parameters: mergedParameters });
+    } catch (error) {
+      console.error('Failed to generate AI subject mask:', error);
+      editorCubit.setError(`AI Mask Failed: ${error}`);
+    } finally {
+      this.setIsGeneratingAiMask(false);
+    }
+  };
+
+  generateAiForegroundMask = async (subMaskId: string, editorCubit: EditorCubit) => {
+    const { selectedImage, adjustments } = editorCubit.state;
+    if (!selectedImage?.path) {
+      console.error('Cannot generate AI mask: No image selected.');
+      return;
+    }
+
+    this.setIsGeneratingAiMask(true);
+    try {
+      const newParameters = await invoke(Invokes.GenerateAiForegroundMask, {
+        flipHorizontal: adjustments.flipHorizontal,
+        flipVertical: adjustments.flipVertical,
+        orientationSteps: adjustments.orientationSteps,
+        rotation: adjustments.rotation,
+      });
+
+      const subMask = adjustments.aiPatches
+        ?.flatMap((p: AiPatch) => p.subMasks)
+        .find((sm: SubMask) => sm.id === subMaskId);
+
+      const mergedParameters = { ...(subMask?.parameters || {}), ...(newParameters as object) };
+      editorCubit.updateSubMask(subMaskId, { parameters: mergedParameters });
+    } catch (error) {
+      console.error('Failed to generate AI foreground mask:', error);
+      editorCubit.setError(`AI Mask Failed: ${error}`);
+    } finally {
+      this.setIsGeneratingAiMask(false);
+    }
+  };
+
+  generateAiSkyMask = async (subMaskId: string, editorCubit: EditorCubit) => {
+    const { selectedImage, adjustments } = editorCubit.state;
+    if (!selectedImage?.path) {
+      console.error('Cannot generate AI mask: No image selected.');
+      return;
+    }
+
+    this.setIsGeneratingAiMask(true);
+    try {
+      const newParameters = await invoke(Invokes.GenerateAiSkyMask, {
+        flipHorizontal: adjustments.flipHorizontal,
+        flipVertical: adjustments.flipVertical,
+        orientationSteps: adjustments.orientationSteps,
+        rotation: adjustments.rotation,
+      });
+
+      const subMask = adjustments.aiPatches
+        ?.flatMap((p: AiPatch) => p.subMasks)
+        .find((sm: SubMask) => sm.id === subMaskId);
+
+      const mergedParameters = { ...(subMask?.parameters || {}), ...(newParameters as object) };
+      editorCubit.updateSubMask(subMaskId, { parameters: mergedParameters });
+    } catch (error) {
+      console.error('Failed to generate AI sky mask:', error);
+      editorCubit.setError(`AI Mask Failed: ${error}`);
+    } finally {
+      this.setIsGeneratingAiMask(false);
+    }
   };
 
   // Helper to create a new mask container

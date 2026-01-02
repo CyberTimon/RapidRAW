@@ -205,6 +205,66 @@ export class NavigationCubit extends Cubit<NavigationState> {
     }
   };
 
+  // Refresh all folder trees (root + pinned)
+  refreshAllFolderTrees = async () => {
+    const promises: Promise<void>[] = [];
+
+    // Refresh root folder tree
+    if (this.state.rootPath) {
+      promises.push(
+        invoke<FolderNode>(Invokes.GetFolderTree, { path: this.state.rootPath })
+          .then((treeData) => {
+            this.patch({ folderTree: treeData });
+          })
+          .catch((error) => {
+            console.error('Failed to refresh root folder tree:', error);
+          })
+      );
+    }
+
+    // Refresh pinned folder trees
+    if (this.state.pinnedFolders.length > 0) {
+      promises.push(
+        invoke<FolderNode[]>(Invokes.GetPinnedFolderTrees, { paths: this.state.pinnedFolders })
+          .then((trees) => {
+            this.patch({ pinnedFolderTrees: trees });
+          })
+          .catch((error) => {
+            console.error('Failed to refresh pinned folder trees:', error);
+          })
+      );
+    }
+
+    await Promise.all(promises);
+  };
+
+  // Toggle pin folder (add or remove)
+  togglePinFolder = async (path: string): Promise<string[]> => {
+    const isPinned = this.state.pinnedFolders.includes(path);
+    let newPins: string[];
+
+    if (isPinned) {
+      newPins = this.state.pinnedFolders.filter((p) => p !== path);
+      this.patch({
+        pinnedFolders: newPins,
+        pinnedFolderTrees: this.state.pinnedFolderTrees.filter((t) => t.path !== path),
+      });
+    } else {
+      newPins = [...this.state.pinnedFolders, path];
+      this.patch({ pinnedFolders: newPins });
+
+      // Load updated pinned folder trees
+      try {
+        const trees = await invoke<FolderNode[]>(Invokes.GetPinnedFolderTrees, { paths: newPins });
+        this.patch({ pinnedFolderTrees: trees });
+      } catch (error) {
+        console.error('Failed to load pinned folder trees:', error);
+      }
+    }
+
+    return newPins;
+  };
+
   // Direct state setters for App.tsx migration
   setFolderTree = (tree: FolderNode | null) => {
     this.patch({ folderTree: tree });

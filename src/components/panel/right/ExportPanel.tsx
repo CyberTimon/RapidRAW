@@ -3,11 +3,11 @@ import { save, open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { Save, CheckCircle, XCircle, Loader, Ban } from 'lucide-react';
 import debounce from 'lodash.debounce';
+import { useBloc } from '@blac/react';
 import Switch from '../../ui/Switch';
 import Dropdown from '../../ui/Dropdown';
 import Slider from '../../ui/Slider';
 import ImagePicker from '../../ui/ImagePicker';
-import { Adjustments } from '../../../utils/adjustments';
 import {
   ExportSettings,
   FileFormat,
@@ -18,15 +18,10 @@ import {
   FileFormats,
   WatermarkAnchor,
 } from './ExportImportProperties';
-import { Invokes, SelectedImage } from '../../ui/AppProperties';
+import { Invokes } from '../../ui/AppProperties';
+import { EditorCubit, ExportImportCubit, LibraryCubit } from '../../../cubits';
 
-interface ExportPanelProps {
-  adjustments: Adjustments;
-  exportState: ExportState;
-  multiSelectedPaths: Array<string>;
-  selectedImage: SelectedImage;
-  setExportState(state: any): void;
-}
+interface ExportPanelProps {}
 
 interface SectionProps {
   children: any;
@@ -156,13 +151,24 @@ const resizeModeOptions = [
   { label: 'Height', value: 'height' },
 ];
 
-export default function ExportPanel({
-  adjustments,
-  exportState,
-  multiSelectedPaths,
-  selectedImage,
-  setExportState,
-}: ExportPanelProps) {
+export default function ExportPanel({}: ExportPanelProps) {
+  const [editorState] = useBloc(EditorCubit);
+  const [libraryState] = useBloc(LibraryCubit);
+  const [exportImportState, exportImportCubit] = useBloc(ExportImportCubit);
+
+  const { adjustments, selectedImage } = editorState;
+  const { multiSelectedPaths } = libraryState;
+  const { export: exportState } = exportImportState;
+
+  const setExportState = (state: Partial<ExportState> | ((prev: ExportState) => ExportState)) => {
+    if (typeof state === 'function') {
+      const newState = state(exportState);
+      exportImportCubit.setExportState(newState);
+    } else {
+      exportImportCubit.setExportState(state);
+    }
+  };
+
   const [fileFormat, setFileFormat] = useState<string>('jpeg');
   const [jpegQuality, setJpegQuality] = useState<number>(90);
   const [enableResize, setEnableResize] = useState<boolean>(false);
