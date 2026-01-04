@@ -39,8 +39,13 @@ export interface HistogramData {
 export interface WaveformData {
   width: number;
   height: number;
-  data: Uint8Array;
+  red: number[];
+  green: number[];
+  blue: number[];
+  luma: number[];
 }
+
+export type WaveformDisplayMode = 'rgb' | 'luma' | 'red' | 'green' | 'blue';
 
 export interface LoadImageResult {
   width: number;

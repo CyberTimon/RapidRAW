@@ -101,7 +101,7 @@
 | `ZoomControls` - Zoom slider | [x] Done | Agent C |
 | `Filmstrip` integration for editor | [x] Done | Agent A |
 | `ImageHistogram` - Histogram display | [x] Done | Agent B |
-| `ImageWaveform` - Waveform display | [ ] TODO | Agent C |
+| `ImageWaveform` - Waveform display | [x] Done | Agent C |
 
 ### 3.3 Adjustment Modules
 | Task | Status | Parallelizable |
@@ -132,9 +132,9 @@
 | `CropBloc` - Crop, rotate, straighten | [ ] TODO | Agent A |
 | `MasksBloc` - Mask editing state | [ ] TODO | Agent B |
 | `PresetsBloc` - Preset management | [ ] TODO | Agent C |
-| `ExportBloc` - Export settings, progress | [ ] TODO | Agent A |
+| `ExportBloc` - Export settings, progress | [x] Done | Agent A |
 | `AIBloc` - AI features state | [ ] TODO | Agent B |
-| `MetadataBloc` - EXIF/metadata display | [ ] TODO | Agent C |
+| `MetadataBloc` - EXIF/metadata display | [x] Done | Agent C |
 
 ### 4.2 Panel Modules
 | Task | Status | Parallelizable |
@@ -142,8 +142,8 @@
 | `CropPanel` - Crop controls | [ ] TODO | Agent A |
 | `MasksPanel` - Mask editing UI | [ ] TODO | Agent B |
 | `PresetsPanel` - Preset browser | [ ] TODO | Agent C |
-| `ExportPanel` - Export settings | [ ] TODO | Agent A |
-| `MetadataPanel` - EXIF display | [ ] TODO | Agent B |
+| `ExportPanel` - Export settings | [x] Done | Agent A |
+| `MetadataPanel` - EXIF display | [x] Done | Agent B |
 | `AIPanel` - AI tools | [ ] TODO | Agent C |
 
 ### 4.3 Modal System
@@ -207,7 +207,7 @@
 | `welcome-screen` | WelcomeScreen | [x] Done |
 | `image-preview` | ImagePreview | [x] Done |
 | `image-histogram` | ImageHistogram | [x] Done |
-| `image-waveform` | ImageWaveform | [ ] TODO |
+| `image-waveform` | ImageWaveform | [x] Done |
 | `editor-toolbar` | EditorToolbar | [x] Done |
 | `zoom-controls` | ZoomControls | [x] Done |
 | `exposure-controls` | ExposureControls | [x] Done |
@@ -221,8 +221,8 @@
 | `crop-panel` | CropPanel | [ ] TODO |
 | `masks-panel` | MasksPanel | [ ] TODO |
 | `presets-panel` | PresetsPanel | [ ] TODO |
-| `export-panel` | ExportPanel | [ ] TODO |
-| `metadata-panel` | MetadataPanel | [ ] TODO |
+| `export-panel` | ExportPanel | [x] Done |
+| `metadata-panel` | MetadataPanel | [x] Done |
 | `ai-panel` | AIPanel | [ ] TODO |
 | `panel-switcher` | PanelSwitcher | [x] Done |
 | `rating-control` | RatingControl | [ ] TODO |
@@ -240,12 +240,12 @@
 |-------|-------------|-----------|-----------|
 | Phase 1: Foundation | 19 | 19 | 0 |
 | Phase 2: Library View | 18 | 18 | 0 |
-| Phase 3: Editor View | 21 | 20 | 1 |
-| Phase 4: Advanced Features | 16 | 0 | 16 |
+| Phase 3: Editor View | 21 | 21 | 0 |
+| Phase 4: Advanced Features | 16 | 4 | 12 |
 | Phase 5: Polish | 13 | 0 | 13 |
-| **TOTAL** | **87** | **57** | **30** |
+| **TOTAL** | **87** | **62** | **25** |
 
-**Progress: ~66% complete**
+**Progress: ~71% complete**
 
 ---
 
@@ -259,6 +259,7 @@
 | Session 4 | Phase 2 nearly complete: Added remaining library modules (FolderTree, ImageCard, GalleryGrid, Filmstrip). Created module registry with lazy loading. Wired up ExploreView with conditional WelcomeScreen and moduleRenderer. Only SearchBloc remains for Phase 2. |
 | Session 5 | Phase 2 complete + Phase 3 blocs done: Created SearchBloc (completing Phase 2). Added all Phase 3 editor blocs: EditorBloc, AdjustmentsBloc, HistoryBloc, PreviewBloc, ZoomBloc, FullscreenBloc. Added editor modules: ImagePreview, EditorToolbar, ZoomControls, ImageHistogram. Updated module registry. ~55% complete. |
 | Session 6 | Phase 3 nearly complete: Added all adjustment modules (ExposureControls, ColorControls, DetailControls, EffectsControls, HSLControls, ToneCurves with full Bezier interpolation and performance-optimized RAF updates, LensCorrections). Added CollapsibleSection primitive. Created AdjustmentsPanel container, PanelBloc, and PanelSwitcher with tab navigation. Only ImageWaveform remains for Phase 3. ~66% complete. |
+| Session 7 | Phase 3 complete + Phase 4 started: Added ImageWaveform with canvas-based rendering for RGB/Luma/individual channel display modes. Updated WaveformData type to support separate channel arrays. Created MetadataBloc, MetadataPanel (with GPS map, collapsible sections), ExportBloc (with full export settings state), and ExportPanel (with format selection, resize, metadata, color space options). Updated PanelSwitcher to route to new panels. ~71% complete. |
 
 ---
 
@@ -269,30 +270,33 @@ Copy and paste this prompt to continue work in the next session:
 ```
 Continue work on the RapidRAW React frontend rewrite. Read the plan at @rewrite-react-plan/PROGRESS.md for current status.
 
-**Current State (Session 6 completed):**
-- Phase 1 & 2: 100% complete
-- Phase 3: 95% complete (20/21 tasks) - only ImageWaveform remains
-- Overall: ~66% complete (57/87 tasks)
+**Current State (Session 7 completed):**
+- Phase 1, 2 & 3: 100% complete
+- Phase 4: 25% complete (4/16 tasks)
+- Overall: ~71% complete (62/87 tasks)
 
 **Completed this session:**
-- All adjustment modules: ExposureControls, ColorControls, DetailControls, EffectsControls, HSLControls, ToneCurves (with Bezier curves + RAF optimization), LensCorrections
-- CollapsibleSection primitive
-- AdjustmentsPanel container with all adjustment sections
-- PanelBloc for panel state management
-- PanelSwitcher with tab navigation (7 tabs, only Adjustments implemented)
+- ImageWaveform module (canvas-based, RGB/Luma/channel modes)
+- Updated WaveformData type for separate channel arrays
+- MetadataBloc with EXIF parsing, GPS extraction, key camera settings
+- MetadataPanel with GPS map, collapsible sections, file properties
+- ExportBloc with full export state (format, quality, resize, metadata, color space)
+- ExportPanel with complete export UI (format selection, resize options, metadata handling)
+- Updated PanelSwitcher to route Metadata and Export tabs
 
 **Key files to reference:**
 - Module registry: `src/modules/registry.tsx`
-- Adjustment modules: `src/modules/adjustments/*.tsx`
 - Panel modules: `src/modules/panels/*.tsx`
-- AdjustmentsBloc: `src/blocs/editor/AdjustmentsBloc.ts`
-- PanelBloc: `src/blocs/editor/PanelBloc.ts`
+- Editor blocs: `src/blocs/editor/*.ts`
 - Legacy reference: `src_legacy_deprecated_reference/` (DO NOT import, only reference)
 
-**Next tasks (choose based on priority):**
-1. Complete Phase 3: Create ImageWaveform module (reference legacy `src_legacy_deprecated_reference/components/panel/editor/Waveform.tsx`)
-2. Start Phase 4: Begin with simpler panels (MetadataPanel, ExportPanel) or core blocs (CropBloc, ExportBloc)
-3. Wire up EditView to use PanelSwitcher in the right panel
+**Next tasks (Phase 4 remaining):**
+1. CropBloc + CropPanel - Crop, rotate, straighten functionality
+2. MasksBloc + MasksPanel - Mask editing state and UI
+3. PresetsBloc + PresetsPanel - Preset management
+4. AIBloc + AIPanel - AI features state and UI
+5. Modal system (ModalBloc + Modal primitive)
+6. Metadata widgets: RatingControl, ColorLabel, TagEditor
 
 **Technical preferences established:**
 - No animations - focus on functionality and performance
@@ -300,6 +304,7 @@ Continue work on the RapidRAW React frontend rewrite. Read the plan at @rewrite-
 - Curves editor has full Bezier interpolation with RAF for non-blocking updates
 - Use `useBloc` hook from @blac/react for state access
 - All modules lazy-loaded via registry
+- CollapsibleSection uses `defaultOpen` prop (not `defaultExpanded`)
 
 **IMPORTANT:** When you finish your session, update this `## Next Session Prompt` section with current progress, completed items, and next tasks so the next session can start quickly.
 ```

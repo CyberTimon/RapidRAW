@@ -88,6 +88,11 @@ const moduleRegistry: Partial<Record<ModuleId, ModuleEntry>> = {
       import('./editor/ImageHistogram.js').then((m) => ({ default: m.ImageHistogram }))
     ),
   },
+  'image-waveform': {
+    component: lazy(() =>
+      import('./editor/ImageWaveform.js').then((m) => ({ default: m.ImageWaveform }))
+    ),
+  },
   'exposure-controls': {
     component: lazy(() =>
       import('./adjustments/ExposureControls.js').then((m) => ({ default: m.ExposureControls }))
@@ -131,6 +136,16 @@ const moduleRegistry: Partial<Record<ModuleId, ModuleEntry>> = {
   'panel-switcher': {
     component: lazy(() =>
       import('./panels/PanelSwitcher.js').then((m) => ({ default: m.PanelSwitcher }))
+    ),
+  },
+  'metadata-panel': {
+    component: lazy(() =>
+      import('./panels/MetadataPanel.js').then((m) => ({ default: m.MetadataPanel }))
+    ),
+  },
+  'export-panel': {
+    component: lazy(() =>
+      import('./panels/ExportPanel.js').then((m) => ({ default: m.ExportPanel }))
     ),
   },
 };

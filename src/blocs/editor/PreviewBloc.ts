@@ -124,8 +124,38 @@ export class PreviewBloc extends Cubit<PreviewState> {
       // const tauri = borrow(TauriService);
       // const waveformData = await tauri.generateWaveform();
 
+      // Mock waveform data - 256x256 grid
+      const width = 256;
+      const height = 256;
+      const size = width * height;
+
+      const generateWaveformChannel = () => {
+        const data = new Array(size).fill(0);
+        for (let x = 0; x < width; x++) {
+          const baseIntensity = Math.sin(x / width * Math.PI) * 200;
+          const spread = 30 + Math.random() * 20;
+          for (let i = 0; i < 100; i++) {
+            const y = Math.floor(height - baseIntensity - (Math.random() - 0.5) * spread * 2);
+            if (y >= 0 && y < height) {
+              const idx = y * width + x;
+              data[idx] = (data[idx] || 0) + Math.random() * 10;
+            }
+          }
+        }
+        return data;
+      };
+
+      const generateLuma = (r: number[], g: number[], b: number[]) => {
+        return r.map((_, i) => r[i] * 0.299 + g[i] * 0.587 + b[i] * 0.114);
+      };
+
+      const red = generateWaveformChannel();
+      const green = generateWaveformChannel();
+      const blue = generateWaveformChannel();
+      const luma = generateLuma(red, green, blue);
+
       this.patch({
-        waveformData: null, // Will be populated by actual call
+        waveformData: { width, height, red, green, blue, luma },
         isWaveformLoading: false,
       });
     } catch {

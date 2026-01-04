@@ -23,13 +23,21 @@ const PANEL_TABS: PanelTabConfig[] = [
   { id: 'crop', label: 'Crop', icon: Crop, implemented: false },
   { id: 'masks', label: 'Masks', icon: Layers, implemented: false },
   { id: 'presets', label: 'Presets', icon: Bookmark, implemented: false },
-  { id: 'export', label: 'Export', icon: Download, implemented: false },
-  { id: 'metadata', label: 'Metadata', icon: Info, implemented: false },
+  { id: 'export', label: 'Export', icon: Download, implemented: true },
+  { id: 'metadata', label: 'Metadata', icon: Info, implemented: true },
   { id: 'ai', label: 'AI', icon: Sparkles, implemented: false },
 ];
 
 const AdjustmentsPanel = lazy(() =>
   import('./AdjustmentsPanel.js').then((m) => ({ default: m.AdjustmentsPanel }))
+);
+
+const MetadataPanel = lazy(() =>
+  import('./MetadataPanel.js').then((m) => ({ default: m.MetadataPanel }))
+);
+
+const ExportPanel = lazy(() =>
+  import('./ExportPanel.js').then((m) => ({ default: m.ExportPanel }))
 );
 
 function LoadingFallback() {
@@ -87,6 +95,10 @@ export function PanelSwitcher() {
     switch (activePanel) {
       case 'adjustments':
         return <AdjustmentsPanel />;
+      case 'metadata':
+        return <MetadataPanel />;
+      case 'export':
+        return <ExportPanel />;
       default:
         return <PlaceholderPanel panelId={activePanel} />;
     }
