@@ -168,24 +168,24 @@
 ### 5.1 Remaining Features
 | Task | Status | Parallelizable |
 |------|--------|----------------|
-| Community presets view (full implementation) | [ ] TODO | Agent A |
-| Fullscreen viewer | [ ] TODO | Agent B |
-| Keyboard shortcuts system | [ ] TODO | Agent C |
-| Context menus | [ ] TODO | Agent A |
-| All modals | [ ] TODO | Agent B |
+| Community presets view (full implementation) | [x] Done | Agent A |
+| Fullscreen viewer | [x] Done | Agent B |
+| Keyboard shortcuts system | [x] Done | Agent C |
+| Context menus | [x] Done | Agent A |
+| All modals | [x] Done | Agent B |
 
 ### 5.2 Services
 | Task | Status | Parallelizable |
 |------|--------|----------------|
-| `KeyboardService` - Keyboard shortcuts | [ ] TODO | Agent A |
-| `ContextMenuService` - Context menu state | [ ] TODO | Agent B |
-| `ClipboardService` - Copy/paste state | [ ] TODO | Agent C |
+| `KeyboardService` - Keyboard shortcuts | [x] Done | Agent A |
+| `ContextMenuService` - Context menu state | [x] Done | Agent B |
+| `ClipboardService` - Copy/paste state | [x] Done | Agent C |
 
 ### 5.3 Performance
 | Task | Status | Parallelizable |
 |------|--------|----------------|
 | Virtualization optimization | [ ] TODO | Agent A |
-| Lazy loading for modules | [ ] TODO | Agent B |
+| Lazy loading for modules | [x] Done | Agent B |
 | Memory management for previews | [ ] TODO | Agent C |
 
 ### 5.4 Testing & QA
@@ -228,9 +228,10 @@
 | `rating-control` | RatingControl | [x] Done |
 | `color-label` | ColorLabel | [x] Done |
 | `tag-editor` | TagEditor | [x] Done |
-| `context-menu` | ContextMenu | [ ] TODO |
+| `context-menu` | ContextMenu | [x] Done |
 | `loading-spinner` | LoadingSpinner | [x] Done |
-| `error-message` | ErrorMessage | [ ] TODO |
+| `error-message` | ErrorMessage | [x] Done |
+| `fullscreen-viewer` | FullscreenViewer | [x] Done |
 
 ---
 
@@ -242,10 +243,10 @@
 | Phase 2: Library View | 18 | 18 | 0 |
 | Phase 3: Editor View | 21 | 21 | 0 |
 | Phase 4: Advanced Features | 16 | 16 | 0 |
-| Phase 5: Polish | 13 | 0 | 13 |
-| **TOTAL** | **87** | **74** | **13** |
+| Phase 5: Polish | 13 | 9 | 4 |
+| **TOTAL** | **87** | **83** | **4** |
 
-**Progress: ~85% complete**
+**Progress: ~95% complete**
 
 ---
 
@@ -262,6 +263,7 @@
 | Session 7 | Phase 3 complete + Phase 4 started: Added ImageWaveform with canvas-based rendering for RGB/Luma/individual channel display modes. Updated WaveformData type to support separate channel arrays. Created MetadataBloc, MetadataPanel (with GPS map, collapsible sections), ExportBloc (with full export settings state), and ExportPanel (with format selection, resize, metadata, color space options). Updated PanelSwitcher to route to new panels. ~71% complete. |
 | Session 8 | Phase 4 mostly complete: Added CropBloc (aspect ratios, rotation, flip, straighten), CropPanel (grid presets, custom ratio, rotation slider, transform tools). Created MasksBloc (mask containers, sub-masks, brush settings), MasksPanel (creation grid, editing view, adjustments per mask). Added PresetsBloc (folders, presets, import/export), PresetsPanel (folder tree, apply presets). Created AIBloc (patches, ComfyUI status, generative fill), AIPanel (tool grid, brush settings, prompt input). Updated registry and PanelSwitcher to enable all panel tabs. ~80% complete. |
 | Session 9 | Phase 4 complete: Created ModalBloc (modal visibility registry with confirm promise API), Modal primitive (with ConfirmModal and InputModal variants, portal rendering, keyboard handling). Added all metadata widgets: RatingControl (5-star rating with hover, keyboard shortcuts), ColorLabelPicker (swatches, dropdown variant), TagEditor (autocomplete, keyboard navigation, tag chips). Note: Metadata widgets are standalone prop-based components, not layout modules. ~85% complete. |
+| Session 10 | Phase 5 mostly complete: Added KeyboardService (centralized shortcuts with modifier keys, category grouping, formatShortcut helper). Created ContextMenuService + ContextMenu component (nested submenus, keyboard close, click outside). Added ClipboardService (copy/paste adjustments by category, file paths for cut/copy). Built FullscreenViewer (image display, navigation, auto-hide UI). Created ErrorMessage component (variants, retry/dismiss actions). Implemented full CommunityView with CommunityBloc (preset browsing, search, categories, grid/list views, download/like actions). Added modal implementations: KeyboardShortcutsModal, AboutModal, ExportProgressModal. ~95% complete. |
 
 ---
 
@@ -272,25 +274,29 @@ Copy and paste this prompt to continue work in the next session:
 ```
 Continue work on the RapidRAW React frontend rewrite. Read the plan at @rewrite-react-plan/PROGRESS.md for current status.
 
-**Current State (Session 9 completed):**
+**Current State (Session 10 completed):**
 - Phase 1, 2, 3 & 4: 100% complete
-- Phase 5 (Polish): 0% complete (0/13 tasks)
-- Overall: ~85% complete (74/87 tasks)
+- Phase 5 (Polish): 9/13 complete
+- Overall: ~95% complete (83/87 tasks)
 
 **Completed this session:**
-- ModalBloc with modal visibility registry, typed modal data, confirm() promise API
-- Modal primitive with portal rendering, escape/backdrop close, size variants
-- ConfirmModal with confirm/cancel buttons, keyboard Enter handling
-- InputModal with input validation, focus management, Enter to submit
-- RatingControl with 5-star rating, hover preview, keyboard shortcuts (0-5)
-- ColorLabelPicker with swatch display mode and dropdown variant
-- CompactRating and CompactColorLabel for thumbnail overlays
-- TagEditor with autocomplete suggestions, keyboard navigation, comma/Enter to add
-- Tag, TagList, QuickTags helper components
+- KeyboardService - centralized keyboard shortcuts with modifiers, categories, formatShortcut()
+- ContextMenuService + ContextMenu component - nested submenus, position adjustment, keyboard/click handling
+- ClipboardService - copy/paste adjustments by category, file paths for cut/copy operations
+- FullscreenViewer - portal-based fullscreen with navigation arrows, auto-hide UI, cursor hiding
+- ErrorMessage component - error/warning/info variants, InlineError, FullPageError helpers
+- CommunityBloc + CommunityView - full preset browsing with search, categories, grid/list, download/like
+- KeyboardShortcutsModal - organized shortcuts by category with visual keys
+- AboutModal - app info, version, GitHub/docs links
+- ExportProgressModal - progress bar, file count, completion state
 
 **Key files created:**
-- Modal system: `src/blocs/app/ModalBloc.ts`, `src/primitives/Modal.tsx`
-- Metadata widgets: `src/modules/metadata/RatingControl.tsx`, `src/modules/metadata/ColorLabel.tsx`, `src/modules/metadata/TagEditor.tsx`
+- Services: `src/blocs/services/KeyboardService.ts`, `ContextMenuService.ts`, `ClipboardService.ts`
+- ContextMenu: `src/modules/common/ContextMenu.tsx`
+- Community: `src/blocs/community/CommunityBloc.ts`, `src/views/CommunityView/CommunityView.tsx`
+- Modals: `src/modules/modals/KeyboardShortcutsModal.tsx`, `AboutModal.tsx`, `ExportProgressModal.tsx`
+- Error display: `src/modules/common/ErrorMessage.tsx`
+- Fullscreen: `src/modules/editor/FullscreenViewer.tsx`
 
 **Key files to reference:**
 - Module registry: `src/modules/registry.tsx`
@@ -298,29 +304,21 @@ Continue work on the RapidRAW React frontend rewrite. Read the plan at @rewrite-
 - Editor blocs: `src/blocs/editor/*.ts`
 - Legacy reference: `src_legacy_deprecated_reference/` (DO NOT import, only reference)
 
-**Phase 5 tasks (all remaining):**
-1. Community presets view (full implementation)
-2. Fullscreen viewer  
-3. Keyboard shortcuts system (KeyboardService)
-4. Context menus (ContextMenuService)
-5. All modals (specific modal implementations beyond primitives)
-6. ClipboardService
-7. Virtualization optimization
-8. Lazy loading for modules
-9. Memory management for previews
-10. Bloc unit tests
-11. Integration testing
-12. Bug fixes
-13. ErrorMessage component
+**Phase 5 tasks remaining (4 tasks):**
+1. Virtualization optimization for GalleryGrid (large image collections)
+2. Memory management for previews (blob URL cleanup)
+3. Bloc unit tests
+4. Integration testing / bug fixes
 
 **Technical preferences established:**
 - No animations - focus on functionality and performance
 - HSL uses color swatches (not dropdown)
 - Curves editor has full Bezier interpolation with RAF for non-blocking updates
-- Use `useBloc` hook from @blac/react for state access
+- Use `useBloc` hook from @blac/react: `const [state, bloc] = useBloc(BlocClass)`
 - All layout modules lazy-loaded via registry
 - CollapsibleSection uses `defaultOpen` prop (not `defaultExpanded`)
 - Metadata widgets are standalone prop-based components (not layout modules)
+- Services are Cubits that manage global application state
 
 **IMPORTANT:** When you finish your session, update this `## Next Session Prompt` section with current progress, completed items, and next tasks so the next session can start quickly.
 ```

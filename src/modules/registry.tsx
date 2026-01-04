@@ -8,6 +8,8 @@ export type ModuleId =
   | 'welcome-screen'
   | 'image-card'
   | 'loading-spinner'
+  | 'context-menu'
+  | 'fullscreen-viewer'
   | 'image-preview'
   | 'image-histogram'
   | 'image-waveform'
@@ -63,6 +65,16 @@ const moduleRegistry: Partial<Record<ModuleId, ModuleEntry>> = {
   'loading-spinner': {
     component: lazy(() =>
       import('./common/LoadingSpinner.js').then((m) => ({ default: m.LoadingSpinner }))
+    ),
+  },
+  'context-menu': {
+    component: lazy(() =>
+      import('./common/ContextMenu.js').then((m) => ({ default: m.ContextMenu }))
+    ),
+  },
+  'fullscreen-viewer': {
+    component: lazy(() =>
+      import('./editor/FullscreenViewer.js').then((m) => ({ default: m.FullscreenViewer }))
     ),
   },
   'image-preview': {
