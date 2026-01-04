@@ -149,16 +149,16 @@
 ### 4.3 Modal System
 | Task | Status | Parallelizable |
 |------|--------|----------------|
-| `ModalBloc` - Modal visibility registry | [ ] TODO | Agent A |
-| `Modal` primitive | [ ] TODO | Agent B |
-| Individual modal components | [ ] TODO | Agent C |
+| `ModalBloc` - Modal visibility registry | [x] Done | Agent A |
+| `Modal` primitive | [x] Done | Agent B |
+| Individual modal components | [x] Done | Agent C |
 
 ### 4.4 Metadata Modules
 | Task | Status | Parallelizable |
 |------|--------|----------------|
-| `RatingControl` - Star rating widget | [ ] TODO | Agent A |
-| `ColorLabel` - Color label picker | [ ] TODO | Agent B |
-| `TagEditor` - Tag management | [ ] TODO | Agent C |
+| `RatingControl` - Star rating widget | [x] Done | Agent A |
+| `ColorLabel` - Color label picker | [x] Done | Agent B |
+| `TagEditor` - Tag management | [x] Done | Agent C |
 
 ---
 
@@ -225,9 +225,9 @@
 | `metadata-panel` | MetadataPanel | [x] Done |
 | `ai-panel` | AIPanel | [x] Done |
 | `panel-switcher` | PanelSwitcher | [x] Done |
-| `rating-control` | RatingControl | [ ] TODO |
-| `color-label` | ColorLabel | [ ] TODO |
-| `tag-editor` | TagEditor | [ ] TODO |
+| `rating-control` | RatingControl | [x] Done |
+| `color-label` | ColorLabel | [x] Done |
+| `tag-editor` | TagEditor | [x] Done |
 | `context-menu` | ContextMenu | [ ] TODO |
 | `loading-spinner` | LoadingSpinner | [x] Done |
 | `error-message` | ErrorMessage | [ ] TODO |
@@ -241,11 +241,11 @@
 | Phase 1: Foundation | 19 | 19 | 0 |
 | Phase 2: Library View | 18 | 18 | 0 |
 | Phase 3: Editor View | 21 | 21 | 0 |
-| Phase 4: Advanced Features | 16 | 12 | 4 |
+| Phase 4: Advanced Features | 16 | 16 | 0 |
 | Phase 5: Polish | 13 | 0 | 13 |
-| **TOTAL** | **87** | **70** | **17** |
+| **TOTAL** | **87** | **74** | **13** |
 
-**Progress: ~80% complete**
+**Progress: ~85% complete**
 
 ---
 
@@ -261,6 +261,7 @@
 | Session 6 | Phase 3 nearly complete: Added all adjustment modules (ExposureControls, ColorControls, DetailControls, EffectsControls, HSLControls, ToneCurves with full Bezier interpolation and performance-optimized RAF updates, LensCorrections). Added CollapsibleSection primitive. Created AdjustmentsPanel container, PanelBloc, and PanelSwitcher with tab navigation. Only ImageWaveform remains for Phase 3. ~66% complete. |
 | Session 7 | Phase 3 complete + Phase 4 started: Added ImageWaveform with canvas-based rendering for RGB/Luma/individual channel display modes. Updated WaveformData type to support separate channel arrays. Created MetadataBloc, MetadataPanel (with GPS map, collapsible sections), ExportBloc (with full export settings state), and ExportPanel (with format selection, resize, metadata, color space options). Updated PanelSwitcher to route to new panels. ~71% complete. |
 | Session 8 | Phase 4 mostly complete: Added CropBloc (aspect ratios, rotation, flip, straighten), CropPanel (grid presets, custom ratio, rotation slider, transform tools). Created MasksBloc (mask containers, sub-masks, brush settings), MasksPanel (creation grid, editing view, adjustments per mask). Added PresetsBloc (folders, presets, import/export), PresetsPanel (folder tree, apply presets). Created AIBloc (patches, ComfyUI status, generative fill), AIPanel (tool grid, brush settings, prompt input). Updated registry and PanelSwitcher to enable all panel tabs. ~80% complete. |
+| Session 9 | Phase 4 complete: Created ModalBloc (modal visibility registry with confirm promise API), Modal primitive (with ConfirmModal and InputModal variants, portal rendering, keyboard handling). Added all metadata widgets: RatingControl (5-star rating with hover, keyboard shortcuts), ColorLabelPicker (swatches, dropdown variant), TagEditor (autocomplete, keyboard navigation, tag chips). Note: Metadata widgets are standalone prop-based components, not layout modules. ~85% complete. |
 
 ---
 
@@ -271,22 +272,25 @@ Copy and paste this prompt to continue work in the next session:
 ```
 Continue work on the RapidRAW React frontend rewrite. Read the plan at @rewrite-react-plan/PROGRESS.md for current status.
 
-**Current State (Session 8 completed):**
-- Phase 1, 2 & 3: 100% complete
-- Phase 4: 75% complete (12/16 tasks)
-- Overall: ~80% complete (70/87 tasks)
+**Current State (Session 9 completed):**
+- Phase 1, 2, 3 & 4: 100% complete
+- Phase 5 (Polish): 0% complete (0/13 tasks)
+- Overall: ~85% complete (74/87 tasks)
 
 **Completed this session:**
-- CropBloc with aspect ratio presets, rotation (-45 to 45), orientation steps, flip H/V, straighten mode
-- CropPanel with preset grid (Free, Original, 1:1, 5:4, 4:3, 3:2, 16:9, 21:9, 65:24), custom ratio inputs, rotation slider, transform tools (rotate left/right, flip H/V, straighten)
-- MasksBloc with mask containers, sub-masks (brush, gradient, radial, luminosity, color, AI), brush settings, AI mask generation status
-- MasksPanel with mask creation grid, mask list, editing view with sub-mask settings, per-mask adjustments (exposure, color, effects)
-- PresetsBloc with folder/preset tree, add/rename/delete/duplicate, sort alphabetically, preview URLs
-- PresetsPanel with folder tree, preset items with thumbnails, inline add preset/folder forms, community navigation
-- AIBloc with AI patches, ComfyUI connection status, generative fill prompt/loading state
-- AIPanel with connection status indicator, tool grid (Quick Erase, AI Select, Radial), brush settings, generative fill prompt input
-- Updated module registry with all new panels
-- Updated PanelSwitcher to route all panel tabs (all marked implemented: true)
+- ModalBloc with modal visibility registry, typed modal data, confirm() promise API
+- Modal primitive with portal rendering, escape/backdrop close, size variants
+- ConfirmModal with confirm/cancel buttons, keyboard Enter handling
+- InputModal with input validation, focus management, Enter to submit
+- RatingControl with 5-star rating, hover preview, keyboard shortcuts (0-5)
+- ColorLabelPicker with swatch display mode and dropdown variant
+- CompactRating and CompactColorLabel for thumbnail overlays
+- TagEditor with autocomplete suggestions, keyboard navigation, comma/Enter to add
+- Tag, TagList, QuickTags helper components
+
+**Key files created:**
+- Modal system: `src/blocs/app/ModalBloc.ts`, `src/primitives/Modal.tsx`
+- Metadata widgets: `src/modules/metadata/RatingControl.tsx`, `src/modules/metadata/ColorLabel.tsx`, `src/modules/metadata/TagEditor.tsx`
 
 **Key files to reference:**
 - Module registry: `src/modules/registry.tsx`
@@ -294,26 +298,29 @@ Continue work on the RapidRAW React frontend rewrite. Read the plan at @rewrite-
 - Editor blocs: `src/blocs/editor/*.ts`
 - Legacy reference: `src_legacy_deprecated_reference/` (DO NOT import, only reference)
 
-**Next tasks (Phase 4 remaining):**
-1. Modal system (ModalBloc + Modal primitive)
-2. Metadata widgets: RatingControl, ColorLabel, TagEditor
-
-**Phase 5 tasks (Polish):**
+**Phase 5 tasks (all remaining):**
 1. Community presets view (full implementation)
-2. Fullscreen viewer
+2. Fullscreen viewer  
 3. Keyboard shortcuts system (KeyboardService)
 4. Context menus (ContextMenuService)
-5. ClipboardService
-6. Performance optimizations
-7. Bloc unit tests
+5. All modals (specific modal implementations beyond primitives)
+6. ClipboardService
+7. Virtualization optimization
+8. Lazy loading for modules
+9. Memory management for previews
+10. Bloc unit tests
+11. Integration testing
+12. Bug fixes
+13. ErrorMessage component
 
 **Technical preferences established:**
 - No animations - focus on functionality and performance
 - HSL uses color swatches (not dropdown)
 - Curves editor has full Bezier interpolation with RAF for non-blocking updates
 - Use `useBloc` hook from @blac/react for state access
-- All modules lazy-loaded via registry
+- All layout modules lazy-loaded via registry
 - CollapsibleSection uses `defaultOpen` prop (not `defaultExpanded`)
+- Metadata widgets are standalone prop-based components (not layout modules)
 
 **IMPORTANT:** When you finish your session, update this `## Next Session Prompt` section with current progress, completed items, and next tasks so the next session can start quickly.
 ```

@@ -27,10 +27,7 @@ export type ModuleId =
   | 'export-panel'
   | 'metadata-panel'
   | 'ai-panel'
-  | 'panel-switcher'
-  | 'rating-control'
-  | 'color-label'
-  | 'tag-editor';
+  | 'panel-switcher';
 
 interface ModuleEntry {
   component: ComponentType;
