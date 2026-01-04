@@ -19,6 +19,7 @@ export type ModuleId =
   | 'detail-controls'
   | 'effects-controls'
   | 'hsl-controls'
+  | 'lens-corrections'
   | 'adjustments-panel'
   | 'crop-panel'
   | 'masks-panel'
@@ -85,6 +86,51 @@ const moduleRegistry: Partial<Record<ModuleId, ModuleEntry>> = {
   'image-histogram': {
     component: lazy(() =>
       import('./editor/ImageHistogram.js').then((m) => ({ default: m.ImageHistogram }))
+    ),
+  },
+  'exposure-controls': {
+    component: lazy(() =>
+      import('./adjustments/ExposureControls.js').then((m) => ({ default: m.ExposureControls }))
+    ),
+  },
+  'color-controls': {
+    component: lazy(() =>
+      import('./adjustments/ColorControls.js').then((m) => ({ default: m.ColorControls }))
+    ),
+  },
+  'detail-controls': {
+    component: lazy(() =>
+      import('./adjustments/DetailControls.js').then((m) => ({ default: m.DetailControls }))
+    ),
+  },
+  'effects-controls': {
+    component: lazy(() =>
+      import('./adjustments/EffectsControls.js').then((m) => ({ default: m.EffectsControls }))
+    ),
+  },
+  'hsl-controls': {
+    component: lazy(() =>
+      import('./adjustments/HSLControls.js').then((m) => ({ default: m.HSLControls }))
+    ),
+  },
+  'tone-curves': {
+    component: lazy(() =>
+      import('./adjustments/ToneCurves.js').then((m) => ({ default: m.ToneCurves }))
+    ),
+  },
+  'lens-corrections': {
+    component: lazy(() =>
+      import('./adjustments/LensCorrections.js').then((m) => ({ default: m.LensCorrections }))
+    ),
+  },
+  'adjustments-panel': {
+    component: lazy(() =>
+      import('./panels/AdjustmentsPanel.js').then((m) => ({ default: m.AdjustmentsPanel }))
+    ),
+  },
+  'panel-switcher': {
+    component: lazy(() =>
+      import('./panels/PanelSwitcher.js').then((m) => ({ default: m.PanelSwitcher }))
     ),
   },
 };
