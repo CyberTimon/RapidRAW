@@ -1,10 +1,24 @@
+import { useBloc } from '@blac/react';
+import { LayoutRenderer } from '../../layouts/LayoutRenderer.js';
+import { exploreLayout } from '../../config/layouts/explore.js';
+import { LibraryBloc } from '../../blocs/library/LibraryBloc.js';
+import { WelcomeScreen } from '../../modules/library/WelcomeScreen.js';
+import { renderModule } from '../../modules/registry.js';
+
 export function ExploreView() {
-  return (
-    <div className="h-full w-full flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-4">Explore View</h1>
-        <p className="text-text-secondary">Library and gallery view (TODO)</p>
+  const [library] = useBloc(LibraryBloc);
+
+  if (!library.rootPath) {
+    return (
+      <div className="h-full w-full bg-bg-primary">
+        <WelcomeScreen />
       </div>
+    );
+  }
+
+  return (
+    <div className="h-full w-full bg-bg-primary">
+      <LayoutRenderer config={exploreLayout} moduleRenderer={renderModule} />
     </div>
   );
 }

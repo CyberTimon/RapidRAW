@@ -1,0 +1,131 @@
+import { lazy, ComponentType } from 'react';
+
+export type ModuleId =
+  | 'folder-tree'
+  | 'gallery-grid'
+  | 'gallery-controls'
+  | 'filmstrip'
+  | 'welcome-screen'
+  | 'image-card'
+  | 'loading-spinner'
+  | 'image-preview'
+  | 'image-histogram'
+  | 'image-waveform'
+  | 'editor-toolbar'
+  | 'zoom-controls'
+  | 'exposure-controls'
+  | 'color-controls'
+  | 'tone-curves'
+  | 'detail-controls'
+  | 'effects-controls'
+  | 'hsl-controls'
+  | 'adjustments-panel'
+  | 'crop-panel'
+  | 'masks-panel'
+  | 'presets-panel'
+  | 'export-panel'
+  | 'metadata-panel'
+  | 'ai-panel'
+  | 'panel-switcher'
+  | 'rating-control'
+  | 'color-label'
+  | 'tag-editor';
+
+interface ModuleEntry {
+  component: ComponentType;
+  preload?: () => Promise<unknown>;
+}
+
+const moduleRegistry: Partial<Record<ModuleId, ModuleEntry>> = {
+  'folder-tree': {
+    component: lazy(() =>
+      import('./library/FolderTree.js').then((m) => ({ default: m.FolderTree }))
+    ),
+  },
+  'gallery-grid': {
+    component: lazy(() =>
+      import('./library/GalleryGrid.js').then((m) => ({ default: m.GalleryGrid }))
+    ),
+  },
+  'gallery-controls': {
+    component: lazy(() =>
+      import('./library/GalleryControls.js').then((m) => ({ default: m.GalleryControls }))
+    ),
+  },
+  filmstrip: {
+    component: lazy(() =>
+      import('./library/Filmstrip.js').then((m) => ({ default: m.Filmstrip }))
+    ),
+  },
+  'welcome-screen': {
+    component: lazy(() =>
+      import('./library/WelcomeScreen.js').then((m) => ({ default: m.WelcomeScreen }))
+    ),
+  },
+  'loading-spinner': {
+    component: lazy(() =>
+      import('./common/LoadingSpinner.js').then((m) => ({ default: m.LoadingSpinner }))
+    ),
+  },
+  'image-preview': {
+    component: lazy(() =>
+      import('./editor/ImagePreview.js').then((m) => ({ default: m.ImagePreview }))
+    ),
+  },
+  'editor-toolbar': {
+    component: lazy(() =>
+      import('./editor/EditorToolbar.js').then((m) => ({ default: m.EditorToolbar }))
+    ),
+  },
+  'zoom-controls': {
+    component: lazy(() =>
+      import('./editor/ZoomControls.js').then((m) => ({ default: m.ZoomControls }))
+    ),
+  },
+  'image-histogram': {
+    component: lazy(() =>
+      import('./editor/ImageHistogram.js').then((m) => ({ default: m.ImageHistogram }))
+    ),
+  },
+};
+
+export function getModule(moduleId: ModuleId): ComponentType | null {
+  const entry = moduleRegistry[moduleId];
+  return entry?.component || null;
+}
+
+export function isModuleRegistered(moduleId: string): moduleId is ModuleId {
+  return moduleId in moduleRegistry;
+}
+
+export function preloadModule(moduleId: ModuleId): void {
+  const entry = moduleRegistry[moduleId];
+  if (entry?.preload) {
+    entry.preload();
+  }
+}
+
+export function preloadModules(moduleIds: ModuleId[]): void {
+  moduleIds.forEach(preloadModule);
+}
+
+export function renderModule(moduleId: string): React.ReactNode {
+  if (!isModuleRegistered(moduleId)) {
+    return (
+      <div className="h-full w-full flex items-center justify-center text-text-secondary text-sm">
+        Unknown module: {moduleId}
+      </div>
+    );
+  }
+
+  const Component = getModule(moduleId);
+  if (!Component) {
+    return (
+      <div className="h-full w-full flex items-center justify-center text-text-secondary text-sm">
+        Module not implemented: {moduleId}
+      </div>
+    );
+  }
+
+  return <Component />;
+}
