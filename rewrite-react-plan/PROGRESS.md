@@ -192,7 +192,7 @@
 | Task | Status | Parallelizable |
 |------|--------|----------------|
 | Bloc unit tests | [x] Done | Agent A |
-| Integration testing | [ ] TODO | Agent B |
+| Integration testing | [x] Done | Agent B |
 | Bug fixes | [ ] TODO | All |
 
 ---
@@ -243,10 +243,10 @@
 | Phase 2: Library View | 18 | 18 | 0 |
 | Phase 3: Editor View | 21 | 21 | 0 |
 | Phase 4: Advanced Features | 16 | 16 | 0 |
-| Phase 5: Polish | 13 | 11 | 2 |
-| **TOTAL** | **87** | **85** | **2** |
+| Phase 5: Polish | 13 | 12 | 1 |
+| **TOTAL** | **87** | **86** | **1** |
 
-**Progress: ~98% complete**
+**Progress: ~99% complete**
 
 ---
 
@@ -265,6 +265,7 @@
 | Session 9 | Phase 4 complete: Created ModalBloc (modal visibility registry with confirm promise API), Modal primitive (with ConfirmModal and InputModal variants, portal rendering, keyboard handling). Added all metadata widgets: RatingControl (5-star rating with hover, keyboard shortcuts), ColorLabelPicker (swatches, dropdown variant), TagEditor (autocomplete, keyboard navigation, tag chips). Note: Metadata widgets are standalone prop-based components, not layout modules. ~85% complete. |
 | Session 10 | Phase 5 mostly complete: Added KeyboardService (centralized shortcuts with modifier keys, category grouping, formatShortcut helper). Created ContextMenuService + ContextMenu component (nested submenus, keyboard close, click outside). Added ClipboardService (copy/paste adjustments by category, file paths for cut/copy). Built FullscreenViewer (image display, navigation, auto-hide UI). Created ErrorMessage component (variants, retry/dismiss actions). Implemented full CommunityView with CommunityBloc (preset browsing, search, categories, grid/list views, download/like actions). Added modal implementations: KeyboardShortcutsModal, AboutModal, ExportProgressModal. ~95% complete. |
 | Session 11 | Phase 5 nearly complete: Added @tanstack/react-virtual for virtualization. Implemented virtualized GalleryGrid (row-based with dynamic column count), Filmstrip (horizontal), and CommunityView (grid/list modes). All virtualizers use useFlushSync: false for React 19 compatibility. Added LRU cache utility for memory management. Updated ThumbnailBloc to use LRU cache (500 item limit, auto blob URL revocation). Updated PreviewBloc with blob URL cleanup on clear/change. Added comprehensive unit tests: SelectionBloc, HistoryBloc, AdjustmentsBloc, LRUCache. ~98% complete. |
+| Session 12 | Integration testing complete: Created comprehensive integration test suite (src/integration.test.ts) covering bloc instantiation (all 26 blocs), default state verification, inter-bloc communication patterns (navigation, selection, history), module registry validation (all 28 modules), type safety/bounds checking, state immutability, reset/clear operations, and computed properties. Only bug fixes remaining. ~99% complete. |
 
 ---
 
