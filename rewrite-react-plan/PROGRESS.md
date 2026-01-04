@@ -129,22 +129,22 @@
 ### 4.1 Panel Blocs
 | Task | Status | Parallelizable |
 |------|--------|----------------|
-| `CropBloc` - Crop, rotate, straighten | [ ] TODO | Agent A |
-| `MasksBloc` - Mask editing state | [ ] TODO | Agent B |
-| `PresetsBloc` - Preset management | [ ] TODO | Agent C |
+| `CropBloc` - Crop, rotate, straighten | [x] Done | Agent A |
+| `MasksBloc` - Mask editing state | [x] Done | Agent B |
+| `PresetsBloc` - Preset management | [x] Done | Agent C |
 | `ExportBloc` - Export settings, progress | [x] Done | Agent A |
-| `AIBloc` - AI features state | [ ] TODO | Agent B |
+| `AIBloc` - AI features state | [x] Done | Agent B |
 | `MetadataBloc` - EXIF/metadata display | [x] Done | Agent C |
 
 ### 4.2 Panel Modules
 | Task | Status | Parallelizable |
 |------|--------|----------------|
-| `CropPanel` - Crop controls | [ ] TODO | Agent A |
-| `MasksPanel` - Mask editing UI | [ ] TODO | Agent B |
-| `PresetsPanel` - Preset browser | [ ] TODO | Agent C |
+| `CropPanel` - Crop controls | [x] Done | Agent A |
+| `MasksPanel` - Mask editing UI | [x] Done | Agent B |
+| `PresetsPanel` - Preset browser | [x] Done | Agent C |
 | `ExportPanel` - Export settings | [x] Done | Agent A |
 | `MetadataPanel` - EXIF display | [x] Done | Agent B |
-| `AIPanel` - AI tools | [ ] TODO | Agent C |
+| `AIPanel` - AI tools | [x] Done | Agent C |
 
 ### 4.3 Modal System
 | Task | Status | Parallelizable |
@@ -218,12 +218,12 @@
 | `hsl-controls` | HSLControls | [x] Done |
 | `lens-corrections` | LensCorrections | [x] Done |
 | `adjustments-panel` | AdjustmentsPanel | [x] Done |
-| `crop-panel` | CropPanel | [ ] TODO |
-| `masks-panel` | MasksPanel | [ ] TODO |
-| `presets-panel` | PresetsPanel | [ ] TODO |
+| `crop-panel` | CropPanel | [x] Done |
+| `masks-panel` | MasksPanel | [x] Done |
+| `presets-panel` | PresetsPanel | [x] Done |
 | `export-panel` | ExportPanel | [x] Done |
 | `metadata-panel` | MetadataPanel | [x] Done |
-| `ai-panel` | AIPanel | [ ] TODO |
+| `ai-panel` | AIPanel | [x] Done |
 | `panel-switcher` | PanelSwitcher | [x] Done |
 | `rating-control` | RatingControl | [ ] TODO |
 | `color-label` | ColorLabel | [ ] TODO |
@@ -241,11 +241,11 @@
 | Phase 1: Foundation | 19 | 19 | 0 |
 | Phase 2: Library View | 18 | 18 | 0 |
 | Phase 3: Editor View | 21 | 21 | 0 |
-| Phase 4: Advanced Features | 16 | 4 | 12 |
+| Phase 4: Advanced Features | 16 | 12 | 4 |
 | Phase 5: Polish | 13 | 0 | 13 |
-| **TOTAL** | **87** | **62** | **25** |
+| **TOTAL** | **87** | **70** | **17** |
 
-**Progress: ~71% complete**
+**Progress: ~80% complete**
 
 ---
 
@@ -260,6 +260,7 @@
 | Session 5 | Phase 2 complete + Phase 3 blocs done: Created SearchBloc (completing Phase 2). Added all Phase 3 editor blocs: EditorBloc, AdjustmentsBloc, HistoryBloc, PreviewBloc, ZoomBloc, FullscreenBloc. Added editor modules: ImagePreview, EditorToolbar, ZoomControls, ImageHistogram. Updated module registry. ~55% complete. |
 | Session 6 | Phase 3 nearly complete: Added all adjustment modules (ExposureControls, ColorControls, DetailControls, EffectsControls, HSLControls, ToneCurves with full Bezier interpolation and performance-optimized RAF updates, LensCorrections). Added CollapsibleSection primitive. Created AdjustmentsPanel container, PanelBloc, and PanelSwitcher with tab navigation. Only ImageWaveform remains for Phase 3. ~66% complete. |
 | Session 7 | Phase 3 complete + Phase 4 started: Added ImageWaveform with canvas-based rendering for RGB/Luma/individual channel display modes. Updated WaveformData type to support separate channel arrays. Created MetadataBloc, MetadataPanel (with GPS map, collapsible sections), ExportBloc (with full export settings state), and ExportPanel (with format selection, resize, metadata, color space options). Updated PanelSwitcher to route to new panels. ~71% complete. |
+| Session 8 | Phase 4 mostly complete: Added CropBloc (aspect ratios, rotation, flip, straighten), CropPanel (grid presets, custom ratio, rotation slider, transform tools). Created MasksBloc (mask containers, sub-masks, brush settings), MasksPanel (creation grid, editing view, adjustments per mask). Added PresetsBloc (folders, presets, import/export), PresetsPanel (folder tree, apply presets). Created AIBloc (patches, ComfyUI status, generative fill), AIPanel (tool grid, brush settings, prompt input). Updated registry and PanelSwitcher to enable all panel tabs. ~80% complete. |
 
 ---
 
@@ -270,19 +271,22 @@ Copy and paste this prompt to continue work in the next session:
 ```
 Continue work on the RapidRAW React frontend rewrite. Read the plan at @rewrite-react-plan/PROGRESS.md for current status.
 
-**Current State (Session 7 completed):**
+**Current State (Session 8 completed):**
 - Phase 1, 2 & 3: 100% complete
-- Phase 4: 25% complete (4/16 tasks)
-- Overall: ~71% complete (62/87 tasks)
+- Phase 4: 75% complete (12/16 tasks)
+- Overall: ~80% complete (70/87 tasks)
 
 **Completed this session:**
-- ImageWaveform module (canvas-based, RGB/Luma/channel modes)
-- Updated WaveformData type for separate channel arrays
-- MetadataBloc with EXIF parsing, GPS extraction, key camera settings
-- MetadataPanel with GPS map, collapsible sections, file properties
-- ExportBloc with full export state (format, quality, resize, metadata, color space)
-- ExportPanel with complete export UI (format selection, resize options, metadata handling)
-- Updated PanelSwitcher to route Metadata and Export tabs
+- CropBloc with aspect ratio presets, rotation (-45 to 45), orientation steps, flip H/V, straighten mode
+- CropPanel with preset grid (Free, Original, 1:1, 5:4, 4:3, 3:2, 16:9, 21:9, 65:24), custom ratio inputs, rotation slider, transform tools (rotate left/right, flip H/V, straighten)
+- MasksBloc with mask containers, sub-masks (brush, gradient, radial, luminosity, color, AI), brush settings, AI mask generation status
+- MasksPanel with mask creation grid, mask list, editing view with sub-mask settings, per-mask adjustments (exposure, color, effects)
+- PresetsBloc with folder/preset tree, add/rename/delete/duplicate, sort alphabetically, preview URLs
+- PresetsPanel with folder tree, preset items with thumbnails, inline add preset/folder forms, community navigation
+- AIBloc with AI patches, ComfyUI connection status, generative fill prompt/loading state
+- AIPanel with connection status indicator, tool grid (Quick Erase, AI Select, Radial), brush settings, generative fill prompt input
+- Updated module registry with all new panels
+- Updated PanelSwitcher to route all panel tabs (all marked implemented: true)
 
 **Key files to reference:**
 - Module registry: `src/modules/registry.tsx`
@@ -291,12 +295,17 @@ Continue work on the RapidRAW React frontend rewrite. Read the plan at @rewrite-
 - Legacy reference: `src_legacy_deprecated_reference/` (DO NOT import, only reference)
 
 **Next tasks (Phase 4 remaining):**
-1. CropBloc + CropPanel - Crop, rotate, straighten functionality
-2. MasksBloc + MasksPanel - Mask editing state and UI
-3. PresetsBloc + PresetsPanel - Preset management
-4. AIBloc + AIPanel - AI features state and UI
-5. Modal system (ModalBloc + Modal primitive)
-6. Metadata widgets: RatingControl, ColorLabel, TagEditor
+1. Modal system (ModalBloc + Modal primitive)
+2. Metadata widgets: RatingControl, ColorLabel, TagEditor
+
+**Phase 5 tasks (Polish):**
+1. Community presets view (full implementation)
+2. Fullscreen viewer
+3. Keyboard shortcuts system (KeyboardService)
+4. Context menus (ContextMenuService)
+5. ClipboardService
+6. Performance optimizations
+7. Bloc unit tests
 
 **Technical preferences established:**
 - No animations - focus on functionality and performance

@@ -148,6 +148,26 @@ const moduleRegistry: Partial<Record<ModuleId, ModuleEntry>> = {
       import('./panels/ExportPanel.js').then((m) => ({ default: m.ExportPanel }))
     ),
   },
+  'crop-panel': {
+    component: lazy(() =>
+      import('./panels/CropPanel.js').then((m) => ({ default: m.CropPanel }))
+    ),
+  },
+  'masks-panel': {
+    component: lazy(() =>
+      import('./panels/MasksPanel.js').then((m) => ({ default: m.MasksPanel }))
+    ),
+  },
+  'presets-panel': {
+    component: lazy(() =>
+      import('./panels/PresetsPanel.js').then((m) => ({ default: m.PresetsPanel }))
+    ),
+  },
+  'ai-panel': {
+    component: lazy(() =>
+      import('./panels/AIPanel.js').then((m) => ({ default: m.AIPanel }))
+    ),
+  },
 };
 
 export function getModule(moduleId: ModuleId): ComponentType | null {

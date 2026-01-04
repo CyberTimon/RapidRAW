@@ -20,12 +20,12 @@ interface PanelTabConfig {
 
 const PANEL_TABS: PanelTabConfig[] = [
   { id: 'adjustments', label: 'Adjustments', icon: Sliders, implemented: true },
-  { id: 'crop', label: 'Crop', icon: Crop, implemented: false },
-  { id: 'masks', label: 'Masks', icon: Layers, implemented: false },
-  { id: 'presets', label: 'Presets', icon: Bookmark, implemented: false },
+  { id: 'crop', label: 'Crop', icon: Crop, implemented: true },
+  { id: 'masks', label: 'Masks', icon: Layers, implemented: true },
+  { id: 'presets', label: 'Presets', icon: Bookmark, implemented: true },
   { id: 'export', label: 'Export', icon: Download, implemented: true },
   { id: 'metadata', label: 'Metadata', icon: Info, implemented: true },
-  { id: 'ai', label: 'AI', icon: Sparkles, implemented: false },
+  { id: 'ai', label: 'AI', icon: Sparkles, implemented: true },
 ];
 
 const AdjustmentsPanel = lazy(() =>
@@ -38,6 +38,22 @@ const MetadataPanel = lazy(() =>
 
 const ExportPanel = lazy(() =>
   import('./ExportPanel.js').then((m) => ({ default: m.ExportPanel }))
+);
+
+const CropPanel = lazy(() =>
+  import('./CropPanel.js').then((m) => ({ default: m.CropPanel }))
+);
+
+const MasksPanel = lazy(() =>
+  import('./MasksPanel.js').then((m) => ({ default: m.MasksPanel }))
+);
+
+const PresetsPanel = lazy(() =>
+  import('./PresetsPanel.js').then((m) => ({ default: m.PresetsPanel }))
+);
+
+const AIPanel = lazy(() =>
+  import('./AIPanel.js').then((m) => ({ default: m.AIPanel }))
 );
 
 function LoadingFallback() {
@@ -95,10 +111,18 @@ export function PanelSwitcher() {
     switch (activePanel) {
       case 'adjustments':
         return <AdjustmentsPanel />;
+      case 'crop':
+        return <CropPanel />;
+      case 'masks':
+        return <MasksPanel />;
+      case 'presets':
+        return <PresetsPanel />;
       case 'metadata':
         return <MetadataPanel />;
       case 'export':
         return <ExportPanel />;
+      case 'ai':
+        return <AIPanel />;
       default:
         return <PlaceholderPanel panelId={activePanel} />;
     }
