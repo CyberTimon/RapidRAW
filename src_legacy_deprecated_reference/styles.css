@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    background-color: transparent;
+  }
+  body {
+    background-color: rgba(27, 27, 27, 0.5);
+    @apply text-text-primary font-sans;
+  }
+
+  .enable-color-transitions *,
+  .enable-color-transitions *::before,
+  .enable-color-transitions *::after {
+    transition-property: color, background-color, border-color, fill, stroke;
+    transition-duration: 0.4s;
+    transition-timing-function: ease-in-out;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: theme('colors.text-secondary');
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: theme('colors.hover-color');
+  }
+}
+
+@layer components {
+  .slider-input::-webkit-slider-thumb {
+    @apply h-4 w-4 appearance-none rounded-full bg-accent;
+    transition: transform 150ms ease-in-out, background-color 400ms ease-in-out;
+    margin-top: -5px;
+  }
+
+  .slider-input::-moz-range-thumb {
+    @apply h-4 w-4 rounded-full bg-accent border-none;
+    transition: transform 150ms ease-in-out, background-color 400ms ease-in-out;
+  }
+
+  .slider-input.slider-thumb-active::-webkit-slider-thumb {
+    @apply scale-110;
+  }
+  
+  .slider-input.slider-thumb-active::-moz-range-thumb {
+    @apply scale-110;
+  }
+}
+
+@layer utilities {
+  .text-shadow-shiny {
+    text-shadow: 0 0 18px rgba(255, 255, 255, 0.35);
+  }
+}
