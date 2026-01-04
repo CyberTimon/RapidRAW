@@ -14,6 +14,12 @@ interface PreviewState {
   error: string | null;
 }
 
+function revokeBlobUrl(url: string | null): void {
+  if (url && url.startsWith('blob:')) {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export class PreviewBloc extends Cubit<PreviewState> {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private debounceMs = 100;
@@ -34,10 +40,12 @@ export class PreviewBloc extends Cubit<PreviewState> {
   }
 
   setPreviewUrl = (url: string | null) => {
+    revokeBlobUrl(this.state.previewUrl);
     this.patch({ previewUrl: url });
   };
 
   setOriginalUrl = (url: string | null) => {
+    revokeBlobUrl(this.state.originalUrl);
     this.patch({ originalUrl: url });
   };
 
@@ -185,6 +193,9 @@ export class PreviewBloc extends Cubit<PreviewState> {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
+
+    revokeBlobUrl(this.state.previewUrl);
+    revokeBlobUrl(this.state.originalUrl);
 
     this.emit({
       previewUrl: null,

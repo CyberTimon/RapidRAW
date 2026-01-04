@@ -184,14 +184,14 @@
 ### 5.3 Performance
 | Task | Status | Parallelizable |
 |------|--------|----------------|
-| Virtualization optimization | [ ] TODO | Agent A |
+| Virtualization optimization | [x] Done | Agent A |
 | Lazy loading for modules | [x] Done | Agent B |
-| Memory management for previews | [ ] TODO | Agent C |
+| Memory management for previews | [x] Done | Agent C |
 
 ### 5.4 Testing & QA
 | Task | Status | Parallelizable |
 |------|--------|----------------|
-| Bloc unit tests | [ ] TODO | Agent A |
+| Bloc unit tests | [x] Done | Agent A |
 | Integration testing | [ ] TODO | Agent B |
 | Bug fixes | [ ] TODO | All |
 
@@ -243,10 +243,10 @@
 | Phase 2: Library View | 18 | 18 | 0 |
 | Phase 3: Editor View | 21 | 21 | 0 |
 | Phase 4: Advanced Features | 16 | 16 | 0 |
-| Phase 5: Polish | 13 | 9 | 4 |
-| **TOTAL** | **87** | **83** | **4** |
+| Phase 5: Polish | 13 | 11 | 2 |
+| **TOTAL** | **87** | **85** | **2** |
 
-**Progress: ~95% complete**
+**Progress: ~98% complete**
 
 ---
 
@@ -264,6 +264,7 @@
 | Session 8 | Phase 4 mostly complete: Added CropBloc (aspect ratios, rotation, flip, straighten), CropPanel (grid presets, custom ratio, rotation slider, transform tools). Created MasksBloc (mask containers, sub-masks, brush settings), MasksPanel (creation grid, editing view, adjustments per mask). Added PresetsBloc (folders, presets, import/export), PresetsPanel (folder tree, apply presets). Created AIBloc (patches, ComfyUI status, generative fill), AIPanel (tool grid, brush settings, prompt input). Updated registry and PanelSwitcher to enable all panel tabs. ~80% complete. |
 | Session 9 | Phase 4 complete: Created ModalBloc (modal visibility registry with confirm promise API), Modal primitive (with ConfirmModal and InputModal variants, portal rendering, keyboard handling). Added all metadata widgets: RatingControl (5-star rating with hover, keyboard shortcuts), ColorLabelPicker (swatches, dropdown variant), TagEditor (autocomplete, keyboard navigation, tag chips). Note: Metadata widgets are standalone prop-based components, not layout modules. ~85% complete. |
 | Session 10 | Phase 5 mostly complete: Added KeyboardService (centralized shortcuts with modifier keys, category grouping, formatShortcut helper). Created ContextMenuService + ContextMenu component (nested submenus, keyboard close, click outside). Added ClipboardService (copy/paste adjustments by category, file paths for cut/copy). Built FullscreenViewer (image display, navigation, auto-hide UI). Created ErrorMessage component (variants, retry/dismiss actions). Implemented full CommunityView with CommunityBloc (preset browsing, search, categories, grid/list views, download/like actions). Added modal implementations: KeyboardShortcutsModal, AboutModal, ExportProgressModal. ~95% complete. |
+| Session 11 | Phase 5 nearly complete: Added @tanstack/react-virtual for virtualization. Implemented virtualized GalleryGrid (row-based with dynamic column count), Filmstrip (horizontal), and CommunityView (grid/list modes). All virtualizers use useFlushSync: false for React 19 compatibility. Added LRU cache utility for memory management. Updated ThumbnailBloc to use LRU cache (500 item limit, auto blob URL revocation). Updated PreviewBloc with blob URL cleanup on clear/change. Added comprehensive unit tests: SelectionBloc, HistoryBloc, AdjustmentsBloc, LRUCache. ~98% complete. |
 
 ---
 
@@ -274,41 +275,34 @@ Copy and paste this prompt to continue work in the next session:
 ```
 Continue work on the RapidRAW React frontend rewrite. Read the plan at @rewrite-react-plan/PROGRESS.md for current status.
 
-**Current State (Session 10 completed):**
+**Current State (Session 11 completed):**
 - Phase 1, 2, 3 & 4: 100% complete
-- Phase 5 (Polish): 9/13 complete
-- Overall: ~95% complete (83/87 tasks)
+- Phase 5 (Polish): 11/13 complete
+- Overall: ~98% complete (85/87 tasks)
 
 **Completed this session:**
-- KeyboardService - centralized keyboard shortcuts with modifiers, categories, formatShortcut()
-- ContextMenuService + ContextMenu component - nested submenus, position adjustment, keyboard/click handling
-- ClipboardService - copy/paste adjustments by category, file paths for cut/copy operations
-- FullscreenViewer - portal-based fullscreen with navigation arrows, auto-hide UI, cursor hiding
-- ErrorMessage component - error/warning/info variants, InlineError, FullPageError helpers
-- CommunityBloc + CommunityView - full preset browsing with search, categories, grid/list, download/like
-- KeyboardShortcutsModal - organized shortcuts by category with visual keys
-- AboutModal - app info, version, GitHub/docs links
-- ExportProgressModal - progress bar, file count, completion state
+- Virtualization with @tanstack/react-virtual for GalleryGrid, Filmstrip, CommunityView
+- All virtualizers configured with useFlushSync: false for React 19 compatibility
+- LRU cache utility (src/utils/LRUCache.ts) with eviction callbacks
+- ThumbnailBloc updated to use LRU cache with 500 item limit and blob URL cleanup
+- PreviewBloc updated with proper blob URL revocation on clear/change
+- Unit tests for: SelectionBloc, HistoryBloc, AdjustmentsBloc, LRUCache
 
-**Key files created:**
-- Services: `src/blocs/services/KeyboardService.ts`, `ContextMenuService.ts`, `ClipboardService.ts`
-- ContextMenu: `src/modules/common/ContextMenu.tsx`
-- Community: `src/blocs/community/CommunityBloc.ts`, `src/views/CommunityView/CommunityView.tsx`
-- Modals: `src/modules/modals/KeyboardShortcutsModal.tsx`, `AboutModal.tsx`, `ExportProgressModal.tsx`
-- Error display: `src/modules/common/ErrorMessage.tsx`
-- Fullscreen: `src/modules/editor/FullscreenViewer.tsx`
+**Key files created/modified:**
+- Virtualization: Updated `src/modules/library/GalleryGrid.tsx`, `Filmstrip.tsx`, `src/views/CommunityView/CommunityView.tsx`
+- LRU Cache: `src/utils/LRUCache.ts`, `src/utils/LRUCache.test.ts`
+- Bloc tests: `src/blocs/library/SelectionBloc.test.ts`, `src/blocs/editor/HistoryBloc.test.ts`, `src/blocs/editor/AdjustmentsBloc.test.ts`
 
 **Key files to reference:**
 - Module registry: `src/modules/registry.tsx`
 - Panel modules: `src/modules/panels/*.tsx`
 - Editor blocs: `src/blocs/editor/*.ts`
+- Existing tests: `src/blocs/app/AppBloc.test.ts`
 - Legacy reference: `src_legacy_deprecated_reference/` (DO NOT import, only reference)
 
-**Phase 5 tasks remaining (4 tasks):**
-1. Virtualization optimization for GalleryGrid (large image collections)
-2. Memory management for previews (blob URL cleanup)
-3. Bloc unit tests
-4. Integration testing / bug fixes
+**Phase 5 tasks remaining (2 tasks):**
+1. Integration testing
+2. Bug fixes
 
 **Technical preferences established:**
 - No animations - focus on functionality and performance
@@ -319,6 +313,8 @@ Continue work on the RapidRAW React frontend rewrite. Read the plan at @rewrite-
 - CollapsibleSection uses `defaultOpen` prop (not `defaultExpanded`)
 - Metadata widgets are standalone prop-based components (not layout modules)
 - Services are Cubits that manage global application state
+- Virtualizers use useFlushSync: false for React 19 compatibility
+- ThumbnailBloc uses LRU cache with 500 item limit
 
 **IMPORTANT:** When you finish your session, update this `## Next Session Prompt` section with current progress, completed items, and next tasks so the next session can start quickly.
 ```

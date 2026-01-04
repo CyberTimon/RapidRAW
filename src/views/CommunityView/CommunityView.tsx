@@ -1,10 +1,16 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, useMemo, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useBloc } from '@blac/react';
 import { CommunityBloc, type CommunityPreset, type PresetCategory, type SortOption } from '../../blocs/community/CommunityBloc';
 import { PresetsBloc } from '../../blocs/editor/PresetsBloc';
 import { Button } from '../../primitives/Button';
 import { Input } from '../../primitives/Input';
 import { Dropdown } from '../../primitives/Dropdown';
+
+const GRID_CARD_WIDTH = 240;
+const GRID_CARD_HEIGHT = 280;
+const LIST_ITEM_HEIGHT = 80;
+const GAP = 16;
 
 const CATEGORIES: { value: PresetCategory; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -91,6 +97,184 @@ function PresetCard({ preset, onSelect, onDownload }: {
             {preset.downloads}
           </span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function useContainerWidth(containerRef: React.RefObject<HTMLDivElement | null>) {
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setWidth(entry.contentRect.width);
+      }
+    });
+
+    observer.observe(container);
+    setWidth(container.clientWidth);
+
+    return () => observer.disconnect();
+  }, [containerRef]);
+
+  return width;
+}
+
+function VirtualizedPresetList({
+  presets,
+  viewMode,
+  isLoading,
+  onSelect,
+  onDownload,
+}: {
+  presets: CommunityPreset[];
+  viewMode: 'grid' | 'list';
+  isLoading: boolean;
+  onSelect: (preset: CommunityPreset) => void;
+  onDownload: (preset: CommunityPreset) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const containerWidth = useContainerWidth(containerRef);
+  const padding = 16;
+
+  const columnCount = useMemo(() => {
+    if (viewMode === 'list') return 1;
+    if (containerWidth === 0) return 1;
+    const availableWidth = containerWidth - padding * 2;
+    return Math.max(1, Math.floor((availableWidth + GAP) / (GRID_CARD_WIDTH + GAP)));
+  }, [containerWidth, viewMode]);
+
+  const rowCount = useMemo(
+    () => Math.ceil(presets.length / columnCount),
+    [presets.length, columnCount]
+  );
+
+  const rowHeight = viewMode === 'grid' ? GRID_CARD_HEIGHT + GAP : LIST_ITEM_HEIGHT + GAP;
+
+  const rowVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => rowHeight,
+    overscan: 3,
+    useFlushSync: false,
+  });
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (presets.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-text-secondary">
+        <svg width={48} height={48} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-4">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+        <p>No presets found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-auto"
+      style={{ padding }}
+    >
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {virtualItems.map((virtualRow) => {
+          const startIndex = virtualRow.index * columnCount;
+          const rowPresets = presets.slice(startIndex, startIndex + columnCount);
+
+          return (
+            <div
+              key={virtualRow.key}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              {viewMode === 'grid' ? (
+                <div style={{ display: 'flex', gap: `${GAP}px` }}>
+                  {rowPresets.map((preset) => (
+                    <div key={preset.id} style={{ width: GRID_CARD_WIDTH }}>
+                      <PresetCard
+                        preset={preset}
+                        onSelect={onSelect}
+                        onDownload={onDownload}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                rowPresets.map((preset) => (
+                  <div
+                    key={preset.id}
+                    className="flex items-center gap-4 p-3 bg-surface rounded-lg border border-border-color hover:border-accent cursor-pointer"
+                    onClick={() => onSelect(preset)}
+                  >
+                    <div className="w-20 h-14 rounded overflow-hidden bg-bg-primary flex-shrink-0">
+                      {preset.thumbnailUrl && (
+                        <img src={preset.thumbnailUrl} alt={preset.name} className="w-full h-full object-cover" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-text-primary truncate">{preset.name}</h3>
+                      <p className="text-sm text-text-secondary truncate">{preset.author}</p>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-text-secondary">
+                      <span className="flex items-center gap-1">
+                        <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        </svg>
+                        {preset.likes}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" />
+                          <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        {preset.downloads}
+                      </span>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDownload(preset);
+                      }}
+                    >
+                      Download
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -287,78 +471,13 @@ export function CommunityView() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent" />
-          </div>
-        ) : filteredPresets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-text-secondary">
-            <svg width={48} height={48} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-4">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-            <p>No presets found</p>
-          </div>
-        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {filteredPresets.map((preset) => (
-              <PresetCard
-                key={preset.id}
-                preset={preset}
-                onSelect={communityBloc.selectPreset}
-                onDownload={handleDownload}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {filteredPresets.map((preset) => (
-              <div
-                key={preset.id}
-                className="flex items-center gap-4 p-3 bg-surface rounded-lg border border-border-color hover:border-accent cursor-pointer"
-                onClick={() => communityBloc.selectPreset(preset)}
-              >
-                <div className="w-20 h-14 rounded overflow-hidden bg-bg-primary flex-shrink-0">
-                  {preset.thumbnailUrl && (
-                    <img src={preset.thumbnailUrl} alt={preset.name} className="w-full h-full object-cover" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-text-primary truncate">{preset.name}</h3>
-                  <p className="text-sm text-text-secondary truncate">{preset.author}</p>
-                </div>
-                <div className="flex items-center gap-4 text-sm text-text-secondary">
-                  <span className="flex items-center gap-1">
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                    </svg>
-                    {preset.likes}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    {preset.downloads}
-                  </span>
-                </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownload(preset);
-                  }}
-                >
-                  Download
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <VirtualizedPresetList
+        presets={filteredPresets}
+        viewMode={viewMode}
+        isLoading={isLoading}
+        onSelect={communityBloc.selectPreset}
+        onDownload={handleDownload}
+      />
 
       {selectedPreset && (
         <PresetDetail

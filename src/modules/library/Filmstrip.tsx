@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useMemo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useBloc } from '@blac/react';
 import { LibraryBloc } from '../../blocs/library/LibraryBloc';
 import { SelectionBloc } from '../../blocs/library/SelectionBloc';
@@ -7,6 +8,7 @@ import { RatingsBloc } from '../../blocs/library/RatingsBloc';
 import type { ImageFile } from '../../types/library';
 
 const FILMSTRIP_THUMBNAIL_SIZE = 80;
+const FILMSTRIP_GAP = 8;
 
 interface FilmstripItemProps {
   image: ImageFile;
@@ -101,24 +103,36 @@ export function Filmstrip() {
   const [ratings] = useBloc(RatingsBloc);
 
   const images = library.images;
-  const allPaths = images.map((img) => img.path);
+  const allPaths = useMemo(() => images.map((img) => img.path), [images]);
+
+  const virtualizer = useVirtualizer({
+    count: images.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => FILMSTRIP_THUMBNAIL_SIZE + FILMSTRIP_GAP,
+    horizontal: true,
+    overscan: 5,
+    useFlushSync: false,
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
+  const visiblePaths = useMemo(() => {
+    return virtualItems.map((item) => images[item.index].path);
+  }, [virtualItems, images]);
 
   useEffect(() => {
-    if (images.length > 0) {
-      const paths = images.map((img) => img.path);
-      thumbnailBloc.requestThumbnails(paths);
+    if (visiblePaths.length > 0) {
+      thumbnailBloc.requestThumbnails(visiblePaths);
     }
-  }, [images, thumbnailBloc]);
+  }, [visiblePaths, thumbnailBloc]);
 
   useEffect(() => {
-    if (selection.activePath && containerRef.current) {
+    if (selection.activePath) {
       const activeIndex = allPaths.indexOf(selection.activePath);
       if (activeIndex !== -1) {
-        const scrollLeft = activeIndex * (FILMSTRIP_THUMBNAIL_SIZE + 8) - containerRef.current.clientWidth / 2 + FILMSTRIP_THUMBNAIL_SIZE / 2;
-        containerRef.current.scrollTo({ left: Math.max(0, scrollLeft), behavior: 'smooth' });
+        virtualizer.scrollToIndex(activeIndex, { align: 'center', behavior: 'smooth' });
       }
     }
-  }, [selection.activePath, allPaths]);
+  }, [selection.activePath, allPaths, virtualizer]);
 
   const handleClick = useCallback(
     (path: string, e: React.MouseEvent) => {
@@ -184,19 +198,35 @@ export function Filmstrip() {
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
-      <div className="flex gap-2 h-full items-center">
-        {images.map((image) => (
-          <FilmstripItem
-            key={image.path}
-            image={image}
-            isSelected={selection.selectedPaths.includes(image.path)}
-            isActive={selection.activePath === image.path}
-            thumbnailUrl={thumbnail.thumbnails[image.path]}
-            isPending={thumbnail.pending.includes(image.path)}
-            rating={ratings.ratings[image.path] || 0}
-            onClick={(e) => handleClick(image.path, e)}
-          />
-        ))}
+      <div
+        className="relative h-full flex items-center"
+        style={{ width: `${virtualizer.getTotalSize()}px` }}
+      >
+        {virtualItems.map((virtualItem) => {
+          const image = images[virtualItem.index];
+          return (
+            <div
+              key={image.path}
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: 0,
+                width: `${FILMSTRIP_THUMBNAIL_SIZE}px`,
+                transform: `translateX(${virtualItem.start}px) translateY(-50%)`,
+              }}
+            >
+              <FilmstripItem
+                image={image}
+                isSelected={selection.selectedPaths.includes(image.path)}
+                isActive={selection.activePath === image.path}
+                thumbnailUrl={thumbnail.thumbnails[image.path]}
+                isPending={thumbnail.pending.includes(image.path)}
+                rating={ratings.ratings[image.path] || 0}
+                onClick={(e) => handleClick(image.path, e)}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useMemo, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useBloc } from '@blac/react';
 import { LibraryBloc } from '../../blocs/library/LibraryBloc';
 import { SelectionBloc } from '../../blocs/library/SelectionBloc';
@@ -71,6 +72,29 @@ function useFilteredAndSortedImages(
   }, [images, minRating, colors, rawStatus, sortKey, sortDirection, ratings, colorLabels]);
 }
 
+function useContainerWidth(containerRef: React.RefObject<HTMLDivElement | null>) {
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setWidth(entry.contentRect.width);
+      }
+    });
+
+    observer.observe(container);
+    setWidth(container.clientWidth);
+
+    return () => observer.disconnect();
+  }, [containerRef]);
+
+  return width;
+}
+
 export function GalleryGrid() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [library] = useBloc(LibraryBloc);
@@ -84,7 +108,12 @@ export function GalleryGrid() {
 
   const thumbnailSize = THUMBNAIL_SIZES[settings.settings.thumbnailSize];
   const aspectRatio = settings.settings.thumbnailAspectRatio;
+  const showFilename = true;
+  const itemHeight = thumbnailSize + (showFilename ? 24 : 0);
   const gap = 12;
+  const padding = 16;
+
+  const containerWidth = useContainerWidth(containerRef);
 
   const filteredImages = useFilteredAndSortedImages(
     library.images,
@@ -102,12 +131,45 @@ export function GalleryGrid() {
     [filteredImages]
   );
 
-  useEffect(() => {
-    if (filteredImages.length > 0) {
-      const paths = filteredImages.slice(0, 50).map((img) => img.path);
-      thumbnailBloc.requestThumbnails(paths);
+  const columnCount = useMemo(() => {
+    if (containerWidth === 0) return 1;
+    const availableWidth = containerWidth - padding * 2;
+    return Math.max(1, Math.floor((availableWidth + gap) / (thumbnailSize + gap)));
+  }, [containerWidth, thumbnailSize]);
+
+  const rowCount = useMemo(
+    () => Math.ceil(filteredImages.length / columnCount),
+    [filteredImages.length, columnCount]
+  );
+
+  const rowVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => itemHeight + gap,
+    overscan: 3,
+    useFlushSync: false,
+  });
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+  const visiblePaths = useMemo(() => {
+    const paths: string[] = [];
+    for (const virtualRow of virtualItems) {
+      const startIndex = virtualRow.index * columnCount;
+      for (let col = 0; col < columnCount; col++) {
+        const imageIndex = startIndex + col;
+        if (imageIndex < filteredImages.length) {
+          paths.push(filteredImages[imageIndex].path);
+        }
+      }
     }
-  }, [filteredImages, thumbnailBloc]);
+    return paths;
+  }, [virtualItems, columnCount, filteredImages]);
+
+  useEffect(() => {
+    if (visiblePaths.length > 0) {
+      thumbnailBloc.requestThumbnails(visiblePaths);
+    }
+  }, [visiblePaths, thumbnailBloc]);
 
   const handleImageDoubleClick = useCallback(
     (path: string) => {
@@ -115,6 +177,14 @@ export function GalleryGrid() {
       appBloc.navigateToEditor();
     },
     [selectionBloc, appBloc]
+  );
+
+  const scrollToIndex = useCallback(
+    (index: number) => {
+      const rowIndex = Math.floor(index / columnCount);
+      rowVirtualizer.scrollToIndex(rowIndex, { align: 'auto' });
+    },
+    [columnCount, rowVirtualizer]
   );
 
   const handleKeyDown = useCallback(
@@ -133,20 +203,12 @@ export function GalleryGrid() {
         case 'ArrowLeft':
           newIndex = Math.max(currentIndex - 1, 0);
           break;
-        case 'ArrowDown': {
-          const container = containerRef.current;
-          if (!container) break;
-          const cols = Math.floor((container.clientWidth + gap) / (thumbnailSize + gap));
-          newIndex = Math.min(currentIndex + cols, allPaths.length - 1);
+        case 'ArrowDown':
+          newIndex = Math.min(currentIndex + columnCount, allPaths.length - 1);
           break;
-        }
-        case 'ArrowUp': {
-          const container = containerRef.current;
-          if (!container) break;
-          const cols = Math.floor((container.clientWidth + gap) / (thumbnailSize + gap));
-          newIndex = Math.max(currentIndex - cols, 0);
+        case 'ArrowUp':
+          newIndex = Math.max(currentIndex - columnCount, 0);
           break;
-        }
         case 'a':
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault();
@@ -173,9 +235,10 @@ export function GalleryGrid() {
           { ctrlKey: false, metaKey: false, shiftKey: e.shiftKey },
           allPaths
         );
+        scrollToIndex(newIndex);
       }
     },
-    [selection.activePath, allPaths, thumbnailSize, selectionBloc, handleImageDoubleClick]
+    [selection.activePath, allPaths, columnCount, selectionBloc, handleImageDoubleClick, scrollToIndex]
   );
 
   if (library.isLoading) {
@@ -239,30 +302,60 @@ export function GalleryGrid() {
     );
   }
 
+  const gridWidth = columnCount * thumbnailSize + (columnCount - 1) * gap;
+
   return (
     <div
       ref={containerRef}
-      className="h-full w-full overflow-auto p-4 focus:outline-none"
+      className="h-full w-full overflow-auto focus:outline-none"
+      style={{ padding }}
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
       <div
-        className="grid"
         style={{
-          gridTemplateColumns: `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`,
-          gap: `${gap}px`,
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative',
         }}
       >
-        {filteredImages.map((image) => (
-          <ImageCard
-            key={image.path}
-            image={image}
-            size={thumbnailSize}
-            aspectRatio={aspectRatio}
-            allPaths={allPaths}
-            onDoubleClick={handleImageDoubleClick}
-          />
-        ))}
+        {virtualItems.map((virtualRow) => {
+          const startIndex = virtualRow.index * columnCount;
+          const rowImages = filteredImages.slice(startIndex, startIndex + columnCount);
+
+          return (
+            <div
+              key={virtualRow.key}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  gap: `${gap}px`,
+                  justifyContent: 'flex-start',
+                }}
+              >
+                {rowImages.map((image) => (
+                  <ImageCard
+                    key={image.path}
+                    image={image}
+                    size={thumbnailSize}
+                    aspectRatio={aspectRatio}
+                    allPaths={allPaths}
+                    onDoubleClick={handleImageDoubleClick}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="mt-4 pb-4 text-center text-xs text-text-secondary">
