@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useBloc } from '@blac/react';
 import { PreviewBloc } from '../../blocs/editor/PreviewBloc.js';
-import type { HistogramChannel } from '../../types/editor.js';
 
 interface HistogramChannelProps {
   data: number[];

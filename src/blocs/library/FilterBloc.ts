@@ -1,5 +1,5 @@
 import { Cubit } from '@blac/core';
-import type { ImageFile, RawStatusFilter, RAW_EXTENSIONS } from '../../types/library';
+import type { ImageFile, RawStatusFilter } from '../../types/library';
 
 interface FilterState {
   minRating: number;

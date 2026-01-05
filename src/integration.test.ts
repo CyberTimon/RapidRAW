@@ -137,16 +137,12 @@ describe('Integration Tests', () => {
 
   describe('Inter-Bloc Communication Patterns', () => {
     let appBloc: AppBloc;
-    let libraryBloc: LibraryBloc;
-    let editorBloc: EditorBloc;
     let selectionBloc: SelectionBloc;
     let adjustmentsBloc: AdjustmentsBloc;
     let historyBloc: HistoryBloc;
 
     beforeEach(() => {
       appBloc = new AppBloc();
-      libraryBloc = new LibraryBloc();
-      editorBloc = new EditorBloc();
       selectionBloc = new SelectionBloc();
       adjustmentsBloc = new AdjustmentsBloc();
       historyBloc = new HistoryBloc();

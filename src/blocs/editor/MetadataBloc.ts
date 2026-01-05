@@ -59,7 +59,7 @@ const GPS_KEYS = [
   'GPSAltitudeRef',
 ];
 
-function parseDmsString(dmsString: string): number | null {
+function _parseDmsString(dmsString: string): number | null {
   if (!dmsString) return null;
   const parts = dmsString.match(/(\d+\.?\d*)\s+deg\s+(\d+\.?\d*)\s+min\s+(\d+\.?\d*)\s+sec/);
   if (!parts) return null;

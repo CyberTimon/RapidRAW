@@ -48,11 +48,12 @@ export class SortBloc extends Cubit<SortState> {
         case 'rating':
           comparison = (ratings[a.path] || 0) - (ratings[b.path] || 0);
           break;
-        case 'date_taken':
+        case 'date_taken': {
           const aDate = a.exif?.DateTimeOriginal || '';
           const bDate = b.exif?.DateTimeOriginal || '';
           comparison = aDate.localeCompare(bDate);
           break;
+        }
         case 'iso':
           comparison = (a.exif?.ISO || 0) - (b.exif?.ISO || 0);
           break;

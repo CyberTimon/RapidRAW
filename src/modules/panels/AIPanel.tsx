@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useBloc } from '@blac/react';
 import {
   ArrowLeft,
-  Brush,
   Circle,
   Eye,
   EyeOff,
@@ -362,7 +361,7 @@ function PromptSection({ patchId, prompt }: { patchId: string; prompt: string })
 }
 
 function PatchEditingView() {
-  const [state, aiBloc] = useBloc(AIBloc);
+  const [, aiBloc] = useBloc(AIBloc);
   const patch = aiBloc.getActivePatch();
   const activeSubMask = aiBloc.getActiveSubMask();
 

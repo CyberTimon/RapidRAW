@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { useBloc } from '@blac/react';
 import { PreviewBloc } from '../../blocs/editor/PreviewBloc.js';
-import type { WaveformData, WaveformDisplayMode } from '../../types/editor.js';
+import type { WaveformDisplayMode } from '../../types/editor.js';
 
 interface LumaWaveformProps {
   data: number[];

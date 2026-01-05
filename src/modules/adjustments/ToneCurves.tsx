@@ -175,7 +175,8 @@ export function ToneCurves() {
     const handleMouseMove = (e: MouseEvent) => {
       if (draggingIndex === null || !localPoints) return;
 
-      let { x, y } = getMousePos(e);
+      const { x: rawX, y } = getMousePos(e);
+      let x = rawX;
       const newPoints = [...localPoints];
       const isEndPoint = draggingIndex === 0 || draggingIndex === localPoints.length - 1;
 

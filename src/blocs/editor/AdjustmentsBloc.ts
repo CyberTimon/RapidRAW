@@ -18,8 +18,6 @@ import {
   DEFAULT_HSL,
   DEFAULT_VIGNETTE,
   DEFAULT_GRAIN,
-  DEFAULT_SPLIT_TONING,
-  DEFAULT_LENS_CORRECTIONS,
 } from '../../types/adjustments.js';
 
 interface AdjustmentsState {

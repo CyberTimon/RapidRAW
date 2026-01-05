@@ -15,7 +15,7 @@ import { AdjustmentsBloc } from '../../blocs/editor/AdjustmentsBloc.js';
 import { Slider } from '../../primitives/Slider.js';
 
 function AspectRatioGrid() {
-  const [state, cropBloc] = useBloc(CropBloc);
+  const [, cropBloc] = useBloc(CropBloc);
   const activePreset = cropBloc.getActivePreset();
 
   return (

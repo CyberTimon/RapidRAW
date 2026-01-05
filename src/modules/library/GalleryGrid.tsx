@@ -302,7 +302,7 @@ export function GalleryGrid() {
     );
   }
 
-  const gridWidth = columnCount * thumbnailSize + (columnCount - 1) * gap;
+  const _gridWidth = columnCount * thumbnailSize + (columnCount - 1) * gap;
 
   return (
     <div

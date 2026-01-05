@@ -63,7 +63,7 @@ export class RatingsBloc extends Cubit<RatingsState> {
   };
 
   clearColorLabel = (path: string) => {
-    const { [path]: _, ...rest } = this.state.colorLabels;
+    const { [path]: _removed, ...rest } = this.state.colorLabels;
     this.emit({
       ...this.state,
       colorLabels: rest,

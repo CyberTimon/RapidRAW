@@ -9,7 +9,6 @@ import {
   Loader2,
   Plus,
   SortAsc,
-  Trash2,
   Users,
 } from 'lucide-react';
 import {

@@ -7,7 +7,6 @@ import {
   Eye,
   EyeOff,
   Layers,
-  MoreHorizontal,
   PlusSquare,
   RotateCcw,
   Sparkles,
@@ -465,7 +464,7 @@ function SubMaskSettings({ subMask }: { subMask: SubMask }) {
 }
 
 function MaskEditingView() {
-  const [state, masksBloc] = useBloc(MasksBloc);
+  const [, masksBloc] = useBloc(MasksBloc);
   const [editorState] = useBloc(EditorBloc);
 
   const container = masksBloc.getActiveContainer();

@@ -6,7 +6,6 @@ import type {
   BrushStroke,
 } from '../../types/editor.js';
 import type { Adjustments } from '../../types/adjustments.js';
-import { INITIAL_ADJUSTMENTS } from '../../types/adjustments.js';
 
 export interface BrushSettings {
   size: number;

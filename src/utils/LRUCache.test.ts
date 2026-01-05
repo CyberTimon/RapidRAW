@@ -180,10 +180,7 @@ describe('LRUCache', () => {
 });
 
 describe('revokeBlobUrl', () => {
-  let originalRevokeObjectURL: typeof URL.revokeObjectURL;
-
   beforeEach(() => {
-    originalRevokeObjectURL = URL.revokeObjectURL;
     URL.revokeObjectURL = vi.fn();
   });
 

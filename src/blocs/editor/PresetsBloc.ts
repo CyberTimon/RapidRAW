@@ -1,6 +1,5 @@
 import { Cubit } from '@blac/core';
 import type { Adjustments } from '../../types/adjustments.js';
-import { INITIAL_ADJUSTMENTS } from '../../types/adjustments.js';
 
 export interface Preset {
   id: string;

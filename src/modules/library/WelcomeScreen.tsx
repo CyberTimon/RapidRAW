@@ -16,7 +16,7 @@ export function WelcomeScreen() {
     // }
   };
 
-  const handleOpenRecent = (path: string) => {
+  const handleOpenRecent = (_path: string) => {
     // TODO: Wire up with LibraryBloc
     // borrow(LibraryBloc).openFolder(path, true);
   };

@@ -9,7 +9,7 @@ import { FullscreenBloc } from '../../blocs/editor/FullscreenBloc.js';
 export function EditorToolbar() {
   const [, appBloc] = useBloc(AppBloc);
   const [editor, editorBloc] = useBloc(EditorBloc);
-  const [history, historyBloc] = useBloc(HistoryBloc);
+  const [, historyBloc] = useBloc(HistoryBloc);
   const [adjustments, adjustmentsBloc] = useBloc(AdjustmentsBloc);
   const [fullscreen, fullscreenBloc] = useBloc(FullscreenBloc);
 
