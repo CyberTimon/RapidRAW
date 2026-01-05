@@ -9,6 +9,8 @@ export type ModuleId =
   | 'image-card'
   | 'loading-spinner'
   | 'context-menu'
+  | 'bottom-bar'
+  | 'library-export-panel'
   | 'fullscreen-viewer'
   | 'image-preview'
   | 'image-histogram'
@@ -70,6 +72,16 @@ const moduleRegistry: Partial<Record<ModuleId, ModuleEntry>> = {
   'context-menu': {
     component: lazy(() =>
       import('./common/ContextMenu.js').then((m) => ({ default: m.ContextMenu }))
+    ),
+  },
+  'bottom-bar': {
+    component: lazy(() =>
+      import('./common/BottomBar.js').then((m) => ({ default: m.BottomBar }))
+    ),
+  },
+  'library-export-panel': {
+    component: lazy(() =>
+      import('./library/LibraryExportPanel.js').then((m) => ({ default: m.LibraryExportPanel }))
     ),
   },
   'fullscreen-viewer': {

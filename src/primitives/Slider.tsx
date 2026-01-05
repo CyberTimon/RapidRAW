@@ -1,126 +1,213 @@
-import { useRef, useCallback, useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface SliderProps {
   value: number;
-  min?: number;
-  max?: number;
-  step?: number;
-  label?: string;
-  showValue?: boolean;
+  min: number;
+  max: number;
+  step: number;
+  label?: React.ReactNode;
+  defaultValue?: number;
   disabled?: boolean;
-  className?: string;
   trackClassName?: string;
   onChange: (value: number) => void;
-  onChangeEnd?: (value: number) => void;
+  onDragStateChange?: (isDragging: boolean) => void;
 }
 
 export function Slider({
   value,
-  min = 0,
-  max = 100,
-  step = 1,
+  min,
+  max,
+  step,
   label,
-  showValue = true,
+  defaultValue = 0,
   disabled = false,
-  className = '',
-  trackClassName = '',
+  trackClassName,
   onChange,
-  onChangeEnd,
+  onDragStateChange,
 }: SliderProps) {
-  const trackRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState<string>(String(value));
+  const [isLabelHovered, setIsLabelHovered] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const percentage = ((value - min) / (max - min)) * 100;
+  useEffect(() => {
+    onDragStateChange?.(isDragging);
+  }, [isDragging, onDragStateChange]);
 
-  const calculateValue = useCallback(
-    (clientX: number) => {
-      if (!trackRef.current) return value;
+  useEffect(() => {
+    const sliderElement = containerRef.current;
+    if (!sliderElement) return;
 
-      const rect = trackRef.current.getBoundingClientRect();
-      const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      const rawValue = min + percent * (max - min);
-      const steppedValue = Math.round(rawValue / step) * step;
-      return Math.max(min, Math.min(max, steppedValue));
-    },
-    [min, max, step, value]
-  );
+    const handleWheel = (event: WheelEvent) => {
+      if (!event.shiftKey) return;
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (disabled) return;
-      e.preventDefault();
-      setIsDragging(true);
+      event.preventDefault();
+      const direction = -Math.sign(event.deltaY);
+      const newValue = value + direction * step * 2;
+      const stepStr = String(step);
+      const decimalPlaces = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;
+      const roundedNewValue = parseFloat(newValue.toFixed(decimalPlaces));
+      const clampedValue = Math.max(min, Math.min(max, roundedNewValue));
 
-      const newValue = calculateValue(e.clientX);
-      onChange(newValue);
+      if (clampedValue !== value && !isNaN(clampedValue)) {
+        onChange(clampedValue);
+      }
+    };
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        const newVal = calculateValue(moveEvent.clientX);
-        onChange(newVal);
-      };
+    sliderElement.addEventListener('wheel', handleWheel, { passive: false });
+    return () => sliderElement.removeEventListener('wheel', handleWheel);
+  }, [value, min, max, step, onChange]);
 
-      const handleMouseUp = (upEvent: MouseEvent) => {
-        setIsDragging(false);
-        const finalValue = calculateValue(upEvent.clientX);
-        onChangeEnd?.(finalValue);
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-      };
+  useEffect(() => {
+    const handleDragEndGlobal = () => setIsDragging(false);
 
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    },
-    [disabled, calculateValue, onChange, onChangeEnd]
-  );
-
-  const handleDoubleClick = useCallback(() => {
-    if (disabled) return;
-    const defaultValue = min < 0 && max > 0 ? 0 : min;
-    onChange(defaultValue);
-    onChangeEnd?.(defaultValue);
-  }, [disabled, min, max, onChange, onChangeEnd]);
-
-  const formatValue = (val: number): string => {
-    if (step < 1) {
-      return val.toFixed(2);
+    if (isDragging) {
+      window.addEventListener('mouseup', handleDragEndGlobal);
+      window.addEventListener('touchend', handleDragEndGlobal);
     }
-    return val.toString();
+
+    return () => {
+      window.removeEventListener('mouseup', handleDragEndGlobal);
+      window.removeEventListener('touchend', handleDragEndGlobal);
+    };
+  }, [isDragging]);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setInputValue(String(value));
+    }
+  }, [value, isEditing]);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleReset = () => {
+    onChange(defaultValue);
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(Number(e.target.value));
+  };
+
+  const handleDragStart = () => setIsDragging(true);
+  const handleDragEnd = () => setIsDragging(false);
+
+  const handleValueClick = () => setIsEditing(true);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+  };
+
+  const handleInputCommit = () => {
+    let newValue = parseFloat(inputValue);
+    if (isNaN(newValue)) {
+      newValue = value;
+    } else {
+      newValue = Math.max(min, Math.min(max, newValue));
+    }
+    onChange(newValue);
+    setIsEditing(false);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleInputCommit();
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape') {
+      setInputValue(String(value));
+      setIsEditing(false);
+      e.currentTarget.blur();
+    }
+  };
+
+  const stepStr = String(step);
+  const decimalPlaces = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;
+  const numericValue = isNaN(Number(value)) ? 0 : Number(value);
+
   return (
-    <div className={`space-y-1 ${className}`}>
-      {(label || showValue) && (
-        <div className="flex justify-between items-center text-sm">
-          {label && <span className="text-text-secondary">{label}</span>}
-          {showValue && (
-            <span className="text-text-primary font-mono text-xs">{formatValue(value)}</span>
+    <div className={`mb-2 group ${disabled ? 'opacity-50 pointer-events-none' : ''}`} ref={containerRef}>
+      <div className="flex justify-between items-center mb-1">
+        <div
+          className={`grid ${typeof label === 'string' ? 'cursor-pointer' : ''}`}
+          onClick={typeof label === 'string' ? handleReset : undefined}
+          onDoubleClick={typeof label === 'string' ? handleReset : undefined}
+          onMouseEnter={typeof label === 'string' ? () => setIsLabelHovered(true) : undefined}
+          onMouseLeave={typeof label === 'string' ? () => setIsLabelHovered(false) : undefined}
+          title={
+            typeof label === 'string' && label
+              ? `Click or double-click to reset ${label.toLowerCase()} to ${defaultValue}`
+              : ''
+          }
+        >
+          <span
+            aria-hidden={isLabelHovered && typeof label === 'string'}
+            className={`col-start-1 row-start-1 text-sm font-medium text-text-secondary select-none ${
+              isLabelHovered && typeof label === 'string' ? 'opacity-0' : 'opacity-100'
+            }`}
+          >
+            {label}
+          </span>
+
+          {typeof label === 'string' && (
+            <span
+              aria-hidden={!isLabelHovered}
+              className={`col-start-1 row-start-1 text-sm font-medium text-text-primary select-none pointer-events-none ${
+                isLabelHovered ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              Reset
+            </span>
           )}
         </div>
-      )}
-      <div
-        ref={trackRef}
-        className={`
-          relative h-2 rounded-full cursor-pointer
-          ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-          ${trackClassName || 'bg-surface'}
-        `}
-        onMouseDown={handleMouseDown}
-        onDoubleClick={handleDoubleClick}
-      >
-        <div
-          className="absolute h-full rounded-full bg-accent transition-all duration-75"
-          style={{ width: `${percentage}%` }}
-        />
-        <div
-          className={`
-            absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full
-            bg-white border-2 border-accent shadow-md
-            transition-transform duration-75
-            ${isDragging ? 'scale-110' : 'hover:scale-105'}
-          `}
-          style={{ left: `calc(${percentage}% - 8px)` }}
-        />
+        <div className="w-12 text-right">
+          {isEditing ? (
+            <input
+              className="w-full text-sm text-right bg-card-active border border-gray-500 rounded px-1 py-0 outline-none focus:ring-1 focus:ring-blue-500 text-text-primary"
+              max={max}
+              min={min}
+              onBlur={handleInputCommit}
+              onChange={handleInputChange}
+              onKeyDown={handleInputKeyDown}
+              ref={inputRef}
+              step={step}
+              type="number"
+              value={inputValue}
+            />
+          ) : (
+            <span
+              className="text-sm text-text-primary w-full text-right select-none cursor-text"
+              onClick={handleValueClick}
+              onDoubleClick={handleReset}
+              title={`Click to edit, double-click to reset to ${defaultValue}`}
+            >
+              {decimalPlaces > 0 && numericValue === 0 ? '0' : numericValue.toFixed(decimalPlaces)}
+            </span>
+          )}
+        </div>
       </div>
+      <input
+        className={`w-full h-1.5 ${trackClassName || 'bg-card-active'} rounded-full appearance-none cursor-pointer slider-input ${isDragging ? 'slider-thumb-active' : ''}`}
+        max={String(max)}
+        min={String(min)}
+        onChange={handleChange}
+        onDoubleClick={handleReset}
+        onMouseDown={handleDragStart}
+        onMouseUp={handleDragEnd}
+        onTouchEnd={handleDragEnd}
+        onTouchStart={handleDragStart}
+        step={String(step)}
+        type="range"
+        value={value}
+        disabled={disabled}
+      />
     </div>
   );
 }
+
+export default Slider;

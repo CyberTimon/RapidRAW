@@ -90,15 +90,13 @@ function PanelTabButton({ config, isActive, onClick }: PanelTabButtonProps) {
       onClick={onClick}
       disabled={!config.implemented}
       className={`
-        flex-1 flex flex-col items-center justify-center py-2 px-1
-        transition-colors duration-150
-        ${isActive ? 'text-accent bg-surface' : 'text-text-secondary hover:text-text-primary'}
+        p-2 rounded-md
+        ${isActive ? 'bg-surface text-text-primary' : 'text-text-secondary hover:bg-surface hover:text-text-primary'}
         ${!config.implemented ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
       `}
       title={config.label}
     >
-      <Icon size={18} />
-      <span className="text-[10px] mt-1 truncate w-full text-center">{config.label}</span>
+      <Icon size={20} />
     </button>
   );
 }
@@ -129,8 +127,11 @@ export function PanelSwitcher() {
   }, [activePanel]);
 
   return (
-    <div className="h-full flex flex-col bg-bg-secondary">
-      <div className="flex border-b border-border shrink-0">
+    <div className="h-full flex bg-bg-secondary">
+      <div className="flex-1 overflow-hidden">
+        <Suspense fallback={<LoadingFallback />}>{panelContent}</Suspense>
+      </div>
+      <div className="flex flex-col p-1 gap-1 border-l border-border-color">
         {PANEL_TABS.map((tab) => (
           <PanelTabButton
             key={tab.id}
@@ -139,10 +140,6 @@ export function PanelSwitcher() {
             onClick={() => bloc.setActivePanel(tab.id)}
           />
         ))}
-      </div>
-
-      <div className="flex-1 overflow-hidden">
-        <Suspense fallback={<LoadingFallback />}>{panelContent}</Suspense>
       </div>
     </div>
   );

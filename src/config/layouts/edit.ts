@@ -1,9 +1,26 @@
 import type { LayoutConfig } from '../../types/layout';
 
+/**
+ * Edit View Layout
+ * 
+ * Legacy pixel values:
+ * - Left Panel (FolderTree): 256px default, 200-500px range, 32px collapsed
+ * - Right Panel: 368px default (320px content + 48px tabs), 280-600px range
+ * - Bottom Panel (Filmstrip): 144px default, 100-400px range
+ * - Bottom Toolbar: 40px fixed height
+ */
 export const editLayout: LayoutConfig = {
   type: 'split',
   direction: 'horizontal',
   panels: [
+    {
+      id: 'left-sidebar',
+      size: 256,
+      minSize: 200,
+      maxSize: 500,
+      collapsible: true,
+      modules: ['folder-tree'],
+    },
     {
       id: 'editor-main',
       flex: 1,
@@ -17,44 +34,38 @@ export const editLayout: LayoutConfig = {
             modules: ['image-preview'],
           },
           {
-            id: 'filmstrip',
-            size: 120,
-            minSize: 80,
-            maxSize: 200,
+            id: 'filmstrip-area',
+            size: 144,
+            minSize: 100,
+            maxSize: 400,
             collapsible: true,
-            modules: ['filmstrip'],
+            layout: {
+              type: 'stack',
+              direction: 'vertical',
+              children: [
+                {
+                  id: 'filmstrip',
+                  flex: 1,
+                  modules: ['filmstrip'],
+                },
+                {
+                  id: 'bottom-bar',
+                  size: 40,
+                  modules: ['bottom-bar'],
+                },
+              ],
+            },
           },
         ],
       },
     },
     {
       id: 'right-panel',
-      size: 340,
-      minSize: 300,
-      maxSize: 500,
+      size: 368,
+      minSize: 280,
+      maxSize: 600,
       collapsible: true,
-      layout: {
-        type: 'stack',
-        direction: 'vertical',
-        children: [
-          {
-            id: 'panel-tabs',
-            size: 48,
-            modules: ['panel-switcher'],
-          },
-          {
-            id: 'active-panel',
-            flex: 1,
-            modules: ['adjustments-panel'],
-          },
-          {
-            id: 'metadata-bar',
-            size: 60,
-            collapsible: true,
-            modules: ['rating-control'],
-          },
-        ],
-      },
+      modules: ['panel-switcher'],
     },
   ],
 };

@@ -2,150 +2,126 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Dark theme (default) */
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #242424;
-  --surface: #2d2d2d;
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --accent: #3b82f6;
-  --border-color: #3d3d3d;
-  --hover-color: #4d4d4d;
-  --button-text: #ffffff;
+@layer base {
+  html {
+    background-color: transparent;
+  }
   
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  body {
+    background-color: rgba(27, 27, 27, 0.5);
+    @apply text-text-primary font-sans;
+  }
 
-  color-scheme: dark;
-  color: var(--text-primary);
-  background-color: var(--bg-primary);
+  :root {
+    /* Dark theme (default) - using RGB triplets for Tailwind alpha support */
+    --color-bg-primary-rgb: 45, 45, 45;
+    --opacity-bg-primary: 0.6;
+    --color-bg-secondary-rgb: 34, 34, 34;
+    --opacity-bg-secondary: 0.75;
+    --color-surface: 30 30 30;
+    --color-card-active: 43 43 43;
+    --color-button-text: 0 0 0;
+    --color-text-primary: 232 234 237;
+    --color-text-secondary: 158 158 158;
+    --color-accent: 255 255 255;
+    --color-border-color: 74 74 74;
+    --color-hover-color: 255 255 255;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+  }
+
+  /* Scrollbar styles */
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: theme('colors.text-secondary');
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: theme('colors.hover-color');
+  }
+
+  /* Focus styles */
+  :focus-visible {
+    outline: 2px solid rgb(var(--color-accent));
+    outline-offset: 2px;
+  }
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@layer components {
+  /* Slider thumb styles */
+  .slider-input::-webkit-slider-thumb {
+    @apply h-4 w-4 appearance-none rounded-full bg-accent;
+    margin-top: -5px;
+  }
+
+  .slider-input::-moz-range-thumb {
+    @apply h-4 w-4 rounded-full bg-accent border-none;
+  }
+
+  .slider-input::-webkit-slider-runnable-track {
+    @apply h-1.5 bg-card-active rounded-full;
+  }
+
+  .slider-input::-moz-range-track {
+    @apply h-1.5 bg-card-active rounded-full;
+  }
 }
 
-html,
-body,
-#root {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
+@layer utilities {
+  .text-shadow-shiny {
+    text-shadow: 0 0 18px rgba(255, 255, 255, 0.35);
+  }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-}
+  /* Custom scrollbar utilities */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
 
-/* Scrollbar styles */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: theme('colors.border-color');
+    border-radius: 3px;
+  }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
 
-::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--hover-color);
-}
-
-/* Custom scrollbar utility */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 3px;
-}
-
-.scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-
-/* Disable text selection on UI elements */
-.no-select {
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-/* Focus styles */
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* Transitions */
-.transition-colors {
-  transition-property: color, background-color, border-color;
-  transition-timing-function: ease-in-out;
-  transition-duration: 150ms;
-}
-
-/* Utility classes for theme colors */
-.bg-bg-primary {
-  background-color: var(--bg-primary);
-}
-
-.bg-bg-secondary {
-  background-color: var(--bg-secondary);
-}
-
-.bg-surface {
-  background-color: var(--surface);
-}
-
-.text-text-primary {
-  color: var(--text-primary);
-}
-
-.text-text-secondary {
-  color: var(--text-secondary);
-}
-
-.text-accent {
-  color: var(--accent);
-}
-
-.bg-accent {
-  background-color: var(--accent);
-}
-
-.border-border-color {
-  border-color: var(--border-color);
-}
-
-.hover\:bg-hover-color:hover {
-  background-color: var(--hover-color);
-}
-
-.text-button-text {
-  color: var(--button-text);
-}
-
-.ring-accent {
-  --tw-ring-color: var(--accent);
-}
-
-.ring-hover-color {
-  --tw-ring-color: var(--hover-color);
+  /* Disable text selection on UI elements */
+  .no-select {
+    user-select: none;
+    -webkit-user-select: none;
+  }
 }
