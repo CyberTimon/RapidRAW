@@ -1,28 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 
-export interface DropdownOption {
-  value: string;
+export interface DropdownOption<T extends string = string> {
+  value: T;
   label: string;
 }
 
-interface DropdownProps {
-  value: string;
-  options: DropdownOption[];
-  onChange: (value: string) => void;
+interface DropdownProps<T extends string = string> {
+  value: T;
+  options: DropdownOption<T>[];
+  onChange: (value: T) => void;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
 }
 
-export function Dropdown({
+export function Dropdown<T extends string = string>({
   value,
   options,
   onChange,
   placeholder = 'Select an option',
   disabled = false,
   className = '',
-}: DropdownProps) {
+}: DropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const selectedOption = options.find((opt) => opt.value === value) || null;
@@ -37,7 +37,7 @@ export function Dropdown({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = (option: DropdownOption) => {
+  const handleSelect = (option: DropdownOption<T>) => {
     onChange(option.value);
     setIsOpen(false);
   };

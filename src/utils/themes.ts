@@ -1,0 +1,218 @@
+export enum Theme {
+  Dark = 'dark',
+  Light = 'light',
+  Grey = 'grey',
+  MutedGreen = 'muted-green',
+  Blue = 'blue',
+  Sepia = 'sepia',
+  Snow = 'snow',
+  Arctic = 'arctic',
+}
+
+export interface ThemeCSSVariables {
+  '--color-bg-primary-rgb': string;
+  '--opacity-bg-primary': string;
+  '--color-bg-secondary-rgb': string;
+  '--opacity-bg-secondary': string;
+  '--color-surface': string;
+  '--color-card-active': string;
+  '--color-button-text': string;
+  '--color-text-primary': string;
+  '--color-text-secondary': string;
+  '--color-accent': string;
+  '--color-border-color': string;
+  '--color-hover-color': string;
+}
+
+export interface ThemeDefinition {
+  id: Theme;
+  name: string;
+  splashImage: string;
+  cssVariables: ThemeCSSVariables;
+}
+
+export const THEMES: ThemeDefinition[] = [
+  {
+    id: Theme.Dark,
+    name: 'Dark',
+    splashImage: '/splash-dark.jpg',
+    cssVariables: {
+      '--color-bg-primary-rgb': '45, 45, 45',
+      '--opacity-bg-primary': '0.6',
+      '--color-bg-secondary-rgb': '34, 34, 34',
+      '--opacity-bg-secondary': '0.75',
+      '--color-surface': '30 30 30',
+      '--color-card-active': '43 43 43',
+      '--color-button-text': '0 0 0',
+      '--color-text-primary': '232 234 237',
+      '--color-text-secondary': '158 158 158',
+      '--color-accent': '255 255 255',
+      '--color-border-color': '74 74 74',
+      '--color-hover-color': '255 255 255',
+    },
+  },
+  {
+    id: Theme.Light,
+    name: 'Light',
+    splashImage: '/splash-light.jpg',
+    cssVariables: {
+      '--color-bg-primary-rgb': '250, 250, 250',
+      '--opacity-bg-primary': '0.8',
+      '--color-bg-secondary-rgb': '255, 255, 255',
+      '--opacity-bg-secondary': '0.9',
+      '--color-surface': '240 240 240',
+      '--color-card-active': '235 235 235',
+      '--color-button-text': '255 255 255',
+      '--color-text-primary': '20 20 20',
+      '--color-text-secondary': '108 108 108',
+      '--color-accent': '181 141 98',
+      '--color-border-color': '224 224 224',
+      '--color-hover-color': '181 141 98',
+    },
+  },
+  {
+    id: Theme.Grey,
+    name: 'Grey',
+    splashImage: '/splash-grey.jpg',
+    cssVariables: {
+      '--color-bg-primary-rgb': '88, 88, 88',
+      '--opacity-bg-primary': '0.7',
+      '--color-bg-secondary-rgb': '90, 90, 90',
+      '--opacity-bg-secondary': '0.8',
+      '--color-surface': '80 80 80',
+      '--color-card-active': '105 105 105',
+      '--color-button-text': '80 80 80',
+      '--color-text-primary': '225 225 225',
+      '--color-text-secondary': '160 160 160',
+      '--color-accent': '210 210 210',
+      '--color-border-color': '110 110 110',
+      '--color-hover-color': '210 210 210',
+    },
+  },
+  {
+    id: Theme.MutedGreen,
+    name: 'Muted Green',
+    splashImage: '/splash-green.jpg',
+    cssVariables: {
+      '--color-bg-primary-rgb': '55, 60, 50',
+      '--opacity-bg-primary': '0.7',
+      '--color-bg-secondary-rgb': '65, 70, 60',
+      '--opacity-bg-secondary': '0.8',
+      '--color-surface': '45 50 40',
+      '--color-card-active': '75 80 70',
+      '--color-button-text': '45 50 40',
+      '--color-text-primary': '227 225 220',
+      '--color-text-secondary': '155 160 150',
+      '--color-accent': '219 212 173',
+      '--color-border-color': '85 90 80',
+      '--color-hover-color': '219 212 173',
+    },
+  },
+  {
+    id: Theme.Blue,
+    name: 'Blue',
+    splashImage: '/splash-blue.jpg',
+    cssVariables: {
+      '--color-bg-primary-rgb': '32, 36, 37',
+      '--opacity-bg-primary': '0.7',
+      '--color-bg-secondary-rgb': '42, 46, 50',
+      '--opacity-bg-secondary': '0.85',
+      '--color-surface': '35 38 41',
+      '--color-card-active': '52 57 62',
+      '--color-button-text': '35 38 41',
+      '--color-text-primary': '220 225 230',
+      '--color-text-secondary': '145 155 165',
+      '--color-accent': '152 187 199',
+      '--color-border-color': '60 65 70',
+      '--color-hover-color': '152 187 199',
+    },
+  },
+  {
+    id: Theme.Sepia,
+    name: 'Sepia',
+    splashImage: '/splash-sepia.jpg',
+    cssVariables: {
+      '--color-bg-primary-rgb': '50, 45, 40',
+      '--opacity-bg-primary': '0.7',
+      '--color-bg-secondary-rgb': '65, 60, 55',
+      '--opacity-bg-secondary': '0.8',
+      '--color-surface': '50 45 40',
+      '--color-card-active': '80 75 70',
+      '--color-button-text': '50 45 40',
+      '--color-text-primary': '225 215 205',
+      '--color-text-secondary': '160 150 140',
+      '--color-accent': '255 226 182',
+      '--color-border-color': '90 85 80',
+      '--color-hover-color': '255 226 182',
+    },
+  },
+  {
+    id: Theme.Snow,
+    name: 'Snow',
+    splashImage: '/splash-snow.jpg',
+    cssVariables: {
+      '--color-bg-primary-rgb': '248, 249, 250',
+      '--opacity-bg-primary': '0.8',
+      '--color-bg-secondary-rgb': '255, 255, 255',
+      '--opacity-bg-secondary': '0.9',
+      '--color-surface': '243 236 233',
+      '--color-card-active': '233 236 239',
+      '--color-button-text': '255 255 255',
+      '--color-text-primary': '33 37 41',
+      '--color-text-secondary': '108 117 125',
+      '--color-accent': '215 123 107',
+      '--color-border-color': '222 226 230',
+      '--color-hover-color': '215 123 107',
+    },
+  },
+  {
+    id: Theme.Arctic,
+    name: 'Arctic',
+    splashImage: '/splash-arctic.jpg',
+    cssVariables: {
+      '--color-bg-primary-rgb': '248, 249, 250',
+      '--opacity-bg-primary': '0.8',
+      '--color-bg-secondary-rgb': '255, 255, 255',
+      '--opacity-bg-secondary': '0.9',
+      '--color-surface': '240 245 249',
+      '--color-card-active': '233 236 239',
+      '--color-button-text': '255 255 255',
+      '--color-text-primary': '33 37 41',
+      '--color-text-secondary': '108 117 125',
+      '--color-accent': '100 120 140',
+      '--color-border-color': '222 226 230',
+      '--color-hover-color': '100 120 140',
+    },
+  },
+];
+
+export const DEFAULT_THEME_ID = Theme.Dark;
+
+export function getThemeById(themeId: string): ThemeDefinition | undefined {
+  return THEMES.find((theme) => theme.id === themeId);
+}
+
+export function getThemeByIdOrDefault(themeId: string): ThemeDefinition {
+  return getThemeById(themeId) ?? THEMES[0];
+}
+
+export function applyTheme(themeId: string): void {
+  const theme = getThemeByIdOrDefault(themeId);
+  const root = document.documentElement;
+  
+  Object.entries(theme.cssVariables).forEach(([property, value]) => {
+    root.style.setProperty(property, value);
+  });
+}
+
+export function getThemeOptions(): Array<{ value: string; label: string }> {
+  return THEMES.map((theme) => ({
+    value: theme.id,
+    label: theme.name,
+  }));
+}
+
+export function getSplashImage(themeId: string): string {
+  const theme = getThemeByIdOrDefault(themeId);
+  return theme.splashImage;
+}

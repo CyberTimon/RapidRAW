@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'surface' | 'ghost' | 'destructive';
+  variant?: 'primary' | 'secondary' | 'surface' | 'ghost' | 'destructive';
   size?: 'sm' | 'md' | 'lg' | 'icon' | 'icon-sm';
 }
 
@@ -15,6 +15,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variantClasses = {
       primary: 'bg-accent text-button-text shadow-shiny',
+      secondary: 'bg-surface text-text-primary border border-border-color hover:bg-bg-tertiary',
       surface: 'bg-surface text-text-primary',
       ghost: 'bg-transparent text-text-primary hover:bg-surface',
       destructive: 'bg-red-600 text-white',

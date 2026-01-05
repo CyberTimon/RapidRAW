@@ -6,6 +6,8 @@ import { LibraryBloc } from '../../blocs/library/LibraryBloc';
 import { FilterBloc } from '../../blocs/library/FilterBloc';
 import { SortBloc } from '../../blocs/library/SortBloc';
 import { SettingsBloc } from '../../blocs/app/SettingsBloc';
+import { FolderBloc } from '../../blocs/library/FolderBloc';
+import { openFolderDialog } from '../../services/fileDialogs';
 import type { SortKey, ThumbnailSize } from '../../types/library';
 
 const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
@@ -23,19 +25,26 @@ const THUMBNAIL_SIZE_OPTIONS: Array<{ value: ThumbnailSize; label: string }> = [
 ];
 
 export function GalleryControls() {
-  const [library] = useBloc(LibraryBloc);
+  const [library, libraryBloc] = useBloc(LibraryBloc);
   const [filter, filterBloc] = useBloc(FilterBloc);
   const [sort, sortBloc] = useBloc(SortBloc);
   const [settings, settingsBloc] = useBloc(SettingsBloc);
+  const [, folderBloc] = useBloc(FolderBloc);
 
   const imageCount = library.images.length;
 
   const handleOpenFolder = async () => {
-    // TODO: Wire up with TauriService
+    const path = await openFolderDialog();
+    if (path) {
+      libraryBloc.openFolder(path, true);
+      folderBloc.loadTree(path);
+      settingsBloc.updateSettings({ lastRootPath: path });
+    }
   };
 
   const handleGoHome = () => {
-    // TODO: Wire up with LibraryBloc
+    libraryBloc.goHome();
+    folderBloc.clear();
   };
 
   return (

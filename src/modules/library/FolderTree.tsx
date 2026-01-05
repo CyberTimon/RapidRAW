@@ -1,6 +1,8 @@
 import { useBloc } from '@blac/react';
 import { FolderBloc } from '../../blocs/library/FolderBloc';
 import { LibraryBloc } from '../../blocs/library/LibraryBloc';
+import { SettingsBloc } from '../../blocs/app/SettingsBloc';
+import { openFolderDialog } from '../../services/fileDialogs';
 import type { FolderNode } from '../../types/library';
 
 interface FolderNodeItemProps {
@@ -105,6 +107,7 @@ function FolderNodeItem({
 export function FolderTree() {
   const [folder, folderBloc] = useBloc(FolderBloc);
   const [library, libraryBloc] = useBloc(LibraryBloc);
+  const [, settingsBloc] = useBloc(SettingsBloc);
 
   const handleSelectFolder = (path: string) => {
     libraryBloc.openFolder(path);
@@ -115,13 +118,12 @@ export function FolderTree() {
   };
 
   const handleOpenFolder = async () => {
-    // TODO: Wire up with TauriService
-    // const tauri = borrow(TauriService);
-    // const path = await tauri.openFolderDialog();
-    // if (path) {
-    //   libraryBloc.openFolder(path, true);
-    //   folderBloc.loadTree(path);
-    // }
+    const path = await openFolderDialog();
+    if (path) {
+      libraryBloc.openFolder(path, true);
+      folderBloc.loadTree(path);
+      settingsBloc.updateSettings({ lastRootPath: path });
+    }
   };
 
   if (folder.isLoading) {

@@ -3,6 +3,10 @@ import { useBloc } from '@blac/react';
 import { Folder, RefreshCw, Settings } from 'lucide-react';
 import { Button } from '../../primitives/Button';
 import { SettingsBloc } from '../../blocs/app/SettingsBloc';
+import { LibraryBloc } from '../../blocs/library/LibraryBloc';
+import { FolderBloc } from '../../blocs/library/FolderBloc';
+import { SettingsPanel } from '../settings/SettingsPanel';
+import { openFolderDialog } from '../../services/fileDialogs';
 
 const SPLASH_IMAGES: Record<string, string> = {
   dark: '/splash-dark.jpg',
@@ -16,7 +20,9 @@ const SPLASH_IMAGES: Record<string, string> = {
 };
 
 export function WelcomeScreen() {
-  const [settings] = useBloc(SettingsBloc);
+  const [settings, settingsBloc] = useBloc(SettingsBloc);
+  const [, libraryBloc] = useBloc(LibraryBloc);
+  const [, folderBloc] = useBloc(FolderBloc);
   const [showSettings, setShowSettings] = useState(false);
 
   const lastRootPath = settings.settings.lastRootPath;
@@ -25,18 +31,18 @@ export function WelcomeScreen() {
   const splashImage = SPLASH_IMAGES[theme] || SPLASH_IMAGES.dark;
 
   const handleOpenFolder = async () => {
-    // TODO: Wire up with TauriService
-    // const tauri = borrow(TauriService);
-    // const path = await tauri.openFolderDialog();
-    // if (path) {
-    //   borrow(LibraryBloc).openFolder(path, true);
-    // }
+    const path = await openFolderDialog();
+    if (path) {
+      libraryBloc.openFolder(path, true);
+      folderBloc.loadTree(path);
+      settingsBloc.updateSettings({ lastRootPath: path });
+    }
   };
 
   const handleContinueSession = () => {
     if (lastRootPath) {
-      // TODO: Wire up with LibraryBloc
-      // borrow(LibraryBloc).openFolder(lastRootPath, true);
+      libraryBloc.openFolder(lastRootPath, true);
+      folderBloc.loadTree(lastRootPath);
     }
   };
 
@@ -50,33 +56,8 @@ export function WelcomeScreen() {
             className="absolute inset-0 w-full h-full object-cover"
           />
         </div>
-        <div className="w-full md:w-1/2 flex flex-col p-8 lg:p-16">
-          <div className="flex items-center gap-4 mb-8">
-            <button
-              onClick={() => setShowSettings(false)}
-              className="p-2 rounded-md hover:bg-surface text-text-secondary hover:text-text-primary"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
-            <h2 className="text-2xl font-bold text-text-primary">Settings</h2>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <p className="text-text-secondary">
-              Settings panel coming soon...
-            </p>
-          </div>
+        <div className="w-full md:w-1/2 flex flex-col overflow-hidden">
+          <SettingsPanel onBack={() => setShowSettings(false)} />
         </div>
       </div>
     );

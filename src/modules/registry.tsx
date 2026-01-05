@@ -31,7 +31,8 @@ export type ModuleId =
   | 'export-panel'
   | 'metadata-panel'
   | 'ai-panel'
-  | 'panel-switcher';
+  | 'panel-switcher'
+  | 'settings-panel';
 
 interface ModuleEntry {
   component: ComponentType;
@@ -187,6 +188,11 @@ const moduleRegistry: Partial<Record<ModuleId, ModuleEntry>> = {
   'ai-panel': {
     component: lazy(() =>
       import('./panels/AIPanel.js').then((m) => ({ default: m.AIPanel }))
+    ),
+  },
+  'settings-panel': {
+    component: lazy(() =>
+      import('./settings/SettingsPanel.js').then((m) => ({ default: m.SettingsPanel }))
     ),
   },
 };
