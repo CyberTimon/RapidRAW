@@ -1,18 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useBloc, useBlocActions } from '@blac/react';
 import { Folder, RefreshCw, Settings } from 'lucide-react';
-import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
-import { open as tauriShellOpen } from '@tauri-apps/plugin-shell';
 import { Button } from '../../primitives/Button';
 import { SettingsBloc } from '../../blocs/app/SettingsBloc';
 import { LibraryBloc } from '../../blocs/library/LibraryBloc';
 import { FolderBloc } from '../../blocs/library/FolderBloc';
+import { TauriService } from '../../blocs/services/TauriService';
 import { SettingsPanel } from '../settings/SettingsPanel';
 import { openFolderDialog } from '../../services/fileDialogs';
-import { isTauri, mockGetVersion, mockShellOpen } from '../../utils/tauriMock';
-
-const getVersion = isTauri() ? tauriGetVersion : mockGetVersion;
-const shellOpen = isTauri() ? tauriShellOpen : mockShellOpen;
 
 const SPLASH_IMAGES: Record<string, string> = {
   dark: '/splash-dark.jpg',
@@ -27,6 +22,7 @@ const SPLASH_IMAGES: Record<string, string> = {
 
 export function WelcomeScreen() {
   const [settings, settingsBloc] = useBloc(SettingsBloc);
+  const [, tauriService] = useBloc(TauriService);
   const libraryBloc = useBlocActions(LibraryBloc);
   const folderBloc = useBlocActions(FolderBloc);
 
@@ -56,7 +52,7 @@ export function WelcomeScreen() {
 
     const checkVersion = async () => {
       try {
-        const currentVersion = await getVersion();
+        const currentVersion = await tauriService.getAppVersion();
         setAppVersion(currentVersion);
 
         const response = await fetch(
@@ -76,7 +72,7 @@ export function WelcomeScreen() {
     };
 
     checkVersion();
-  }, []);
+  }, [tauriService]);
 
   const handleOpenFolder = async () => {
     const path = await openFolderDialog();
@@ -181,7 +177,7 @@ export function WelcomeScreen() {
               rel="noopener noreferrer"
               onClick={(e) => {
                 e.preventDefault();
-                shellOpen('https://instagram.com/timonkaech.photography');
+                tauriService.openUrl('https://instagram.com/timonkaech.photography');
               }}
             >
               Timon Käch
@@ -198,7 +194,7 @@ export function WelcomeScreen() {
                   }`}
                   onClick={() => {
                     if (isUpdateAvailable) {
-                      shellOpen('https://github.com/CyberTimon/RapidRAW/releases/latest');
+                      tauriService.openUrl('https://github.com/CyberTimon/RapidRAW/releases/latest');
                     }
                   }}
                   title={
@@ -226,7 +222,7 @@ export function WelcomeScreen() {
                   rel="noopener noreferrer"
                   onClick={(e) => {
                     e.preventDefault();
-                    shellOpen('https://ko-fi.com/cybertimon');
+                    tauriService.openUrl('https://ko-fi.com/cybertimon');
                   }}
                 >
                   Donate on Ko-Fi
@@ -239,7 +235,7 @@ export function WelcomeScreen() {
                   rel="noopener noreferrer"
                   onClick={(e) => {
                     e.preventDefault();
-                    shellOpen('https://github.com/CyberTimon/RapidRAW');
+                    tauriService.openUrl('https://github.com/CyberTimon/RapidRAW');
                   }}
                 >
                   Contribute on GitHub

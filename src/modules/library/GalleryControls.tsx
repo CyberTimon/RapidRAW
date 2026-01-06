@@ -52,13 +52,9 @@ export function GalleryControls() {
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
           <h2 className="text-xl font-bold text-text-primary truncate">
-            {library.currentFolderPath
-              ? library.currentFolderPath.split(/[\\/]/).pop()
-              : 'Library'}
+            {library.currentFolderPath ? library.currentFolderPath.split(/[\\/]/).pop() : 'Library'}
           </h2>
-          {library.currentFolderPath && (
-            <p className="text-xs text-text-secondary truncate">{imageCount} images</p>
-          )}
+          {library.currentFolderPath && <p className="text-xs text-text-secondary truncate">{imageCount} images</p>}
         </div>
 
         <div className="flex items-center gap-2">
@@ -77,17 +73,12 @@ export function GalleryControls() {
             }
           />
 
-          <Dropdown
-            value={sort.key}
-            options={SORT_OPTIONS}
-            onChange={(key) => sortBloc.setKey(key)}
-            className="w-36"
-          />
+          <Dropdown value={sort.key} options={SORT_OPTIONS} onChange={(key) => sortBloc.setKey(key)} className="w-36" />
 
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => sortBloc.toggleDirection()}
+            onPress={() => sortBloc.toggleDirection()}
             title={sort.direction === 'asc' ? 'Ascending' : 'Descending'}
           >
             {sort.direction === 'asc' ? (
@@ -108,9 +99,7 @@ export function GalleryControls() {
               <button
                 key={rating}
                 className={`p-1 rounded transition-colors ${
-                  filter.minRating >= rating
-                    ? 'text-accent'
-                    : 'text-text-secondary hover:text-text-primary'
+                  filter.minRating >= rating ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
                 }`}
                 onClick={() => filterBloc.setMinRating(filter.minRating === rating ? 0 : rating)}
                 title={`Filter ${rating}+ stars`}
@@ -159,9 +148,7 @@ export function GalleryControls() {
         <div className="mt-3 flex items-center gap-2">
           <span className="text-xs text-text-secondary">Active filters:</span>
           {filter.minRating > 0 && (
-            <span className="px-2 py-0.5 text-xs bg-accent/20 text-accent rounded-full">
-              {filter.minRating}+ stars
-            </span>
+            <span className="px-2 py-0.5 text-xs bg-accent/20 text-accent rounded-full">{filter.minRating}+ stars</span>
           )}
           {filter.colors.length > 0 && (
             <span className="px-2 py-0.5 text-xs bg-accent/20 text-accent rounded-full">

@@ -1,4 +1,4 @@
-import { useBloc } from '@blac/react';
+import { useBloc, useBlocActions } from '@blac/react';
 import { useEffect } from 'react';
 import { AppBloc } from './blocs/app/AppBloc';
 import { KeyboardService } from './blocs/services/KeyboardService';
@@ -51,8 +51,8 @@ function AppContent() {
 }
 
 export default function App() {
-  const [, keyboardService] = useBloc(KeyboardService);
-  const [, tauriService] = useBloc(TauriService);
+  const keyboardService = useBlocActions(KeyboardService);
+  const tauriService = useBlocActions(TauriService);
 
   useTauriEvents();
 

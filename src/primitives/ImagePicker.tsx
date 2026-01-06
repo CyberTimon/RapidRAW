@@ -1,5 +1,6 @@
-import { open } from '@tauri-apps/plugin-dialog';
+import { useBloc } from '@blac/react';
 import { X } from 'lucide-react';
+import { TauriService } from '../blocs/services/TauriService';
 
 interface ImagePickerProps {
   label: string;
@@ -16,12 +17,12 @@ export function ImagePicker({
   extensions = ['png', 'jpg', 'jpeg', 'webp'],
   className = '',
 }: ImagePickerProps) {
+  const [, tauriService] = useBloc(TauriService);
   const imageName = value ? value.split(/[\\/]/).pop() : null;
 
   const handleSelectFile = async () => {
     try {
-      const selected = await open({
-        multiple: false,
+      const selected = await tauriService.openFileDialog({
         filters: [
           {
             name: 'Image Files',
@@ -29,7 +30,7 @@ export function ImagePicker({
           },
         ],
       });
-      if (typeof selected === 'string') {
+      if (selected) {
         onChange(selected);
       }
     } catch (err) {

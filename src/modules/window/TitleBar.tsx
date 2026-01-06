@@ -1,7 +1,7 @@
+import { useBloc } from '@blac/react';
 import { useEffect, useState } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, Square, X, Maximize2 } from 'lucide-react';
-import { isTauri } from '../../utils/tauriMock';
+import { TauriService } from '../../blocs/services/TauriService';
 
 interface TitleBarProps {
   title?: string;
@@ -9,70 +9,41 @@ interface TitleBarProps {
 }
 
 export function TitleBar({ title = 'RapidRAW', showControls = true }: TitleBarProps) {
+  const [, tauriService] = useBloc(TauriService);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMac, setIsMac] = useState(false);
+  console.log('TitleBar rendered with title:', title);
 
   useEffect(() => {
+    console.log('Determining OS platform...');
     setIsMac(navigator.platform.toLowerCase().includes('mac'));
 
-    if (!isTauri()) {
-      return;
-    }
-
     const checkMaximized = async () => {
-      try {
-        const window = getCurrentWindow();
-        setIsMaximized(await window.isMaximized());
-      } catch (e) {
-        console.error('Failed to check maximized state:', e);
-      }
+      console.log('Checking if window is maximized...');
+      const maximized = await tauriService.isWindowMaximized();
+      setIsMaximized(maximized);
     };
 
     checkMaximized();
 
-    const unlisten = getCurrentWindow().onResized(async () => {
-      try {
-        const window = getCurrentWindow();
-        setIsMaximized(await window.isMaximized());
-      } catch (e) {
-        console.error('Failed to update maximized state:', e);
-      }
-    });
+    let unlistenFn: (() => void) | null = null;
+    tauriService
+      .onWindowResized(async () => {
+        const maximized = await tauriService.isWindowMaximized();
+        setIsMaximized(maximized);
+      })
+      .then((unlisten) => {
+        unlistenFn = unlisten;
+      });
 
     return () => {
-      unlisten.then((fn) => fn());
+      unlistenFn?.();
     };
-  }, []);
+  }, [tauriService]);
 
-  const handleMinimize = async () => {
-    if (!isTauri()) return;
-    try {
-      const window = getCurrentWindow();
-      await window.minimize();
-    } catch (e) {
-      console.error('Failed to minimize:', e);
-    }
-  };
-
-  const handleMaximize = async () => {
-    if (!isTauri()) return;
-    try {
-      const window = getCurrentWindow();
-      await window.toggleMaximize();
-    } catch (e) {
-      console.error('Failed to toggle maximize:', e);
-    }
-  };
-
-  const handleClose = async () => {
-    if (!isTauri()) return;
-    try {
-      const window = getCurrentWindow();
-      await window.close();
-    } catch (e) {
-      console.error('Failed to close:', e);
-    }
-  };
+  const handleMinimize = () => tauriService.minimizeWindow();
+  const handleMaximize = () => tauriService.toggleMaximizeWindow();
+  const handleClose = () => tauriService.closeWindow();
 
   return (
     <div
@@ -81,10 +52,7 @@ export function TitleBar({ title = 'RapidRAW', showControls = true }: TitleBarPr
     >
       {isMac && <div className="w-20" />}
 
-      <div
-        data-tauri-drag-region
-        className="flex-1 text-center text-sm text-text-secondary font-medium"
-      >
+      <div data-tauri-drag-region className="flex-1 text-center text-sm text-text-secondary font-medium">
         {title}
       </div>
 

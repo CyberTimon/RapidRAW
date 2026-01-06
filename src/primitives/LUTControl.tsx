@@ -1,5 +1,6 @@
-import { open } from '@tauri-apps/plugin-dialog';
+import { useBloc } from '@blac/react';
 import { X, FileImage } from 'lucide-react';
+import { TauriService } from '../blocs/services/TauriService';
 
 interface LUTControlProps {
   label: string;
@@ -9,12 +10,12 @@ interface LUTControlProps {
 }
 
 export function LUTControl({ label, value, onChange, className = '' }: LUTControlProps) {
+  const [, tauriService] = useBloc(TauriService);
   const lutName = value ? value.split(/[\\/]/).pop() : null;
 
   const handleSelectFile = async () => {
     try {
-      const selected = await open({
-        multiple: false,
+      const selected = await tauriService.openFileDialog({
         filters: [
           {
             name: 'LUT Files',
@@ -22,7 +23,7 @@ export function LUTControl({ label, value, onChange, className = '' }: LUTContro
           },
         ],
       });
-      if (typeof selected === 'string') {
+      if (selected) {
         onChange(selected);
       }
     } catch (err) {
