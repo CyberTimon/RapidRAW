@@ -47,6 +47,11 @@
     overflow: hidden;
   }
 
+  /* Prevent click-through on macOS transparent windows with vibrancy */
+  #root {
+    -webkit-app-region: no-drag;
+  }
+
   body {
     min-width: 320px;
     min-height: 100vh;

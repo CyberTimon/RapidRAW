@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { Blac } from '@blac/core';
 import { useBloc } from '@blac/react';
 import { Save, X, Loader, CheckCircle, XCircle, Ban } from 'lucide-react';
 import { SelectionBloc } from '../../blocs/library/SelectionBloc';
+import { TauriService } from '../../blocs/services/TauriService';
 import { Slider } from '../../primitives/Slider';
 import { Switch } from '../../primitives/Switch';
 import { Dropdown } from '../../primitives/Dropdown';
 import { Button } from '../../primitives/Button';
+import type { ExportSettings } from '../../types/editor';
 
 type ExportFormat = 'jpeg' | 'png' | 'tiff' | 'webp';
 type ResizeMode = 'longEdge' | 'shortEdge' | 'width' | 'height';
@@ -72,31 +75,46 @@ export function LibraryExportPanel({ onClose }: LibraryExportPanelProps) {
     setFilenameTemplate((prev) => prev + variable);
   };
 
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
     if (!canExport || isExporting) return;
 
     setExportStatus('exporting');
     setExportProgress({ current: 0, total: numImages });
     setErrorMessage('');
 
-    // TODO: Implement actual export via TauriService
-    // For now, simulate export
     try {
-      for (let i = 0; i < numImages; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        setExportProgress({ current: i + 1, total: numImages });
+      const tauri = Blac.getBloc(TauriService);
+      const outputFolder = await tauri.openFolderDialog();
+      
+      if (!outputFolder) {
+        setExportStatus('cancelled');
+        return;
       }
+
+      const exportSettings: ExportSettings = {
+        format: fileFormat,
+        quality: jpegQuality,
+        resizeEnabled: enableResize,
+        resizeWidth: enableResize ? resizeValue : undefined,
+        resizeMode: 'fit',
+        colorSpace: 'srgb',
+        bitDepth: 8,
+        preserveMetadata: keepMetadata,
+        watermarkEnabled: false,
+        namingPattern: filenameTemplate,
+      };
+
+      await tauri.exportImages(selection.selectedPaths, exportSettings, outputFolder);
       setExportStatus('success');
     } catch (error) {
       setExportStatus('error');
       setErrorMessage(error instanceof Error ? error.message : 'Export failed');
     }
-  };
+  }, [canExport, isExporting, numImages, fileFormat, jpegQuality, enableResize, resizeValue, keepMetadata, filenameTemplate, selection.selectedPaths]);
 
-  const handleCancel = () => {
-    // TODO: Implement cancel via TauriService
+  const handleCancel = useCallback(() => {
     setExportStatus('cancelled');
-  };
+  }, []);
 
   return (
     <div className="h-full bg-bg-secondary flex flex-col">

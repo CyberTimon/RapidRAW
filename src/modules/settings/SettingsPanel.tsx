@@ -160,8 +160,7 @@ export function SettingsPanel({ onBack }: SettingsPanelProps) {
         setIsClearingSidecars(true);
         setSidecarsClearMessage('Deleting sidecar files...');
         try {
-          // TODO: Implement via TauriService
-          setSidecarsClearMessage('Sidecar files deleted successfully.');
+          setSidecarsClearMessage('Sidecar deletion not yet implemented in backend.');
         } catch (err) {
           setSidecarsClearMessage(`Error: ${err}`);
         } finally {
@@ -185,8 +184,7 @@ export function SettingsPanel({ onBack }: SettingsPanelProps) {
         setIsClearingCache(true);
         setCacheClearMessage('Clearing thumbnail cache...');
         try {
-          // TODO: Implement via TauriService
-          setCacheClearMessage('Thumbnail cache cleared successfully.');
+          setCacheClearMessage('Cache clearing not yet implemented in backend.');
         } catch (err) {
           setCacheClearMessage(`Error: ${err}`);
         } finally {

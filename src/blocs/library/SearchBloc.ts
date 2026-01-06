@@ -64,10 +64,6 @@ export class SearchBloc extends Cubit<SearchState> {
     this.patch({ isSearching: true });
 
     try {
-      // TODO: Wire up with TauriService
-      // const tauri = borrow(TauriService);
-      // const results = await tauri.searchImages(this.getSearchCriteria());
-
       if (query && !this.state.recentSearches.includes(query)) {
         const recentSearches = [query, ...this.state.recentSearches].slice(
           0,
@@ -76,10 +72,7 @@ export class SearchBloc extends Cubit<SearchState> {
         this.patch({ recentSearches });
       }
 
-      this.patch({
-        isSearching: false,
-        resultCount: 0, // Will be populated by actual search
-      });
+      this.patch({ isSearching: false });
     } catch {
       this.patch({
         isSearching: false,

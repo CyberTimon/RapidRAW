@@ -29,9 +29,11 @@ export function WelcomeScreen() {
   const hasLastPath = !!lastRootPath;
   const theme = settings.settings.theme || 'dark';
   const splashImage = SPLASH_IMAGES[theme] || SPLASH_IMAGES.dark;
+  debugger;
 
   const handleOpenFolder = async () => {
     const path = await openFolderDialog();
+    debugger;
     if (path) {
       libraryBloc.openFolder(path, true);
       folderBloc.loadTree(path);
@@ -40,6 +42,7 @@ export function WelcomeScreen() {
   };
 
   const handleContinueSession = () => {
+    debugger
     if (lastRootPath) {
       libraryBloc.openFolder(lastRootPath, true);
       folderBloc.loadTree(lastRootPath);

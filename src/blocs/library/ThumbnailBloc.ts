@@ -1,5 +1,6 @@
-import { Cubit } from '@blac/core';
+import { Blac, Cubit } from '@blac/core';
 import { LRUCache, revokeBlobUrl } from '../../utils/LRUCache';
+import { TauriService } from '../services/TauriService';
 
 const DEFAULT_MAX_THUMBNAILS = 500;
 
@@ -26,7 +27,7 @@ export class ThumbnailBloc extends Cubit<ThumbnailState> {
     this.cache = new LRUCache<string, string>(maxCacheSize, revokeBlobUrl);
   }
 
-  requestThumbnails = (paths: string[]) => {
+  requestThumbnails = async (paths: string[]) => {
     const newPaths = paths.filter((path) => !this.cache.has(path));
     if (newPaths.length === 0) return;
 
@@ -36,9 +37,8 @@ export class ThumbnailBloc extends Cubit<ThumbnailState> {
       isGenerating: true,
     });
 
-    // TODO: Wire up with TauriService
-    // const tauri = borrow(TauriService);
-    // await tauri.generateThumbnailsProgressive(newPaths);
+    const tauri = Blac.getBloc(TauriService);
+    await tauri.generateThumbnailsProgressive(newPaths);
   };
 
   setThumbnail = (path: string, data: string) => {

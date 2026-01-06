@@ -1,6 +1,7 @@
-import { Cubit } from '@blac/core';
+import { Blac, Cubit } from '@blac/core';
 import type { SelectedImage, LoadImageResult } from '../../types/editor.js';
 import type { ExifData } from '../../types/library.js';
+import { TauriService } from '../services/TauriService';
 
 interface EditorState {
   selectedImage: SelectedImage | null;
@@ -27,33 +28,23 @@ export class EditorBloc extends Cubit<EditorState> {
     this.patch({ isLoading: true, error: null });
 
     try {
-      // TODO: Wire up with TauriService
-      // const tauri = borrow(TauriService);
-      // const result: LoadImageResult = await tauri.loadImage(path);
-
-      const mockResult: LoadImageResult = {
-        width: 0,
-        height: 0,
-        is_raw: path.toLowerCase().match(/\.(cr2|cr3|nef|arw|raf|dng)$/) !== null,
-        original_image_bytes: new Uint8Array(),
-      };
+      const tauri = Blac.getBloc(TauriService);
+      const result: LoadImageResult = await tauri.loadImage(path);
 
       const selectedImage: SelectedImage = {
         path,
-        width: mockResult.width,
-        height: mockResult.height,
-        isRaw: mockResult.is_raw,
+        width: result.width,
+        height: result.height,
+        isRaw: result.is_raw,
         isReady: false,
-        exif: mockResult.exif,
-        metadata: mockResult.metadata,
+        exif: result.exif,
+        metadata: result.metadata,
       };
 
       this.patch({
         selectedImage,
         isLoading: false,
       });
-
-      // Image will be marked ready when preview is generated
     } catch (error) {
       this.patch({
         error: `Failed to load image: ${error}`,

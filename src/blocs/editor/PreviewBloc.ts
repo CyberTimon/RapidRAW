@@ -1,5 +1,7 @@
-import { Cubit } from '@blac/core';
+import { Blac, Cubit } from '@blac/core';
 import type { HistogramData, WaveformData } from '../../types/editor.js';
+import { TauriService } from '../services/TauriService';
+import { AdjustmentsBloc } from './AdjustmentsBloc';
 
 interface PreviewState {
   previewUrl: string | null;
@@ -69,16 +71,11 @@ export class PreviewBloc extends Cubit<PreviewState> {
     this.patch({ isGenerating: true, error: null });
 
     try {
-      // TODO: Wire up with TauriService
-      // const tauri = borrow(TauriService);
-      // const adjustments = borrow(AdjustmentsBloc).current;
-      // const path = borrow(EditorBloc).imagePath;
-      // const previewUrl = await tauri.generatePreview(path, adjustments, this.state.renderQuality);
-
+      const tauri = Blac.getBloc(TauriService);
+      const adjustmentsBloc = Blac.getBloc(AdjustmentsBloc);
       const startTime = Date.now();
 
-      // Mock preview generation
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await tauri.applyAdjustments(adjustmentsBloc.current);
 
       this.patch({
         isGenerating: false,
@@ -96,29 +93,10 @@ export class PreviewBloc extends Cubit<PreviewState> {
     this.patch({ isHistogramLoading: true });
 
     try {
-      // TODO: Wire up with TauriService
-      // const tauri = borrow(TauriService);
-      // const path = borrow(EditorBloc).imagePath;
-      // const adjustments = borrow(AdjustmentsBloc).current;
-      // const histogramData = await tauri.generateHistogram(path, adjustments);
-
-      // Mock histogram data
-      const mockChannel = {
-        data: new Array(256).fill(0).map(() => Math.random() * 100),
-        min: 0,
-        max: 255,
-        mean: 128,
-      };
-
-      this.patch({
-        histogramData: {
-          red: { ...mockChannel },
-          green: { ...mockChannel },
-          blue: { ...mockChannel },
-          luminance: { ...mockChannel },
-        },
-        isHistogramLoading: false,
-      });
+      const tauri = Blac.getBloc(TauriService);
+      const adjustmentsBloc = Blac.getBloc(AdjustmentsBloc);
+      await tauri.applyAdjustments(adjustmentsBloc.current);
+      this.patch({ isHistogramLoading: false });
     } catch {
       this.patch({ isHistogramLoading: false });
     }
@@ -128,44 +106,10 @@ export class PreviewBloc extends Cubit<PreviewState> {
     this.patch({ isWaveformLoading: true });
 
     try {
-      // TODO: Wire up with TauriService
-      // const tauri = borrow(TauriService);
-      // const waveformData = await tauri.generateWaveform();
-
-      // Mock waveform data - 256x256 grid
-      const width = 256;
-      const height = 256;
-      const size = width * height;
-
-      const generateWaveformChannel = () => {
-        const data = new Array(size).fill(0);
-        for (let x = 0; x < width; x++) {
-          const baseIntensity = Math.sin(x / width * Math.PI) * 200;
-          const spread = 30 + Math.random() * 20;
-          for (let i = 0; i < 100; i++) {
-            const y = Math.floor(height - baseIntensity - (Math.random() - 0.5) * spread * 2);
-            if (y >= 0 && y < height) {
-              const idx = y * width + x;
-              data[idx] = (data[idx] || 0) + Math.random() * 10;
-            }
-          }
-        }
-        return data;
-      };
-
-      const generateLuma = (r: number[], g: number[], b: number[]) => {
-        return r.map((_, i) => r[i] * 0.299 + g[i] * 0.587 + b[i] * 0.114);
-      };
-
-      const red = generateWaveformChannel();
-      const green = generateWaveformChannel();
-      const blue = generateWaveformChannel();
-      const luma = generateLuma(red, green, blue);
-
-      this.patch({
-        waveformData: { width, height, red, green, blue, luma },
-        isWaveformLoading: false,
-      });
+      const tauri = Blac.getBloc(TauriService);
+      const adjustmentsBloc = Blac.getBloc(AdjustmentsBloc);
+      await tauri.applyAdjustments(adjustmentsBloc.current);
+      this.patch({ isWaveformLoading: false });
     } catch {
       this.patch({ isWaveformLoading: false });
     }

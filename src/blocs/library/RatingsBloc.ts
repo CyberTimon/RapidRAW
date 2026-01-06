@@ -1,4 +1,5 @@
-import { Cubit } from '@blac/core';
+import { Blac, Cubit } from '@blac/core';
+import { TauriService } from '../services/TauriService';
 
 interface RatingsState {
   ratings: Record<string, number>;
@@ -20,9 +21,10 @@ export class RatingsBloc extends Cubit<RatingsState> {
       ratings: { ...this.state.ratings, [path]: clampedRating },
     });
 
-    // TODO: Wire up with TauriService to persist
-    // const tauri = borrow(TauriService);
-    // tauri.setRating(path, clampedRating);
+    const tauri = Blac.getBloc(TauriService);
+    tauri.setRating(path, clampedRating).catch((error) => {
+      console.error('Failed to persist rating:', error);
+    });
   };
 
   getRating = (path: string): number => {
@@ -53,9 +55,10 @@ export class RatingsBloc extends Cubit<RatingsState> {
       colorLabels: { ...this.state.colorLabels, [path]: color },
     });
 
-    // TODO: Wire up with TauriService to persist
-    // const tauri = borrow(TauriService);
-    // tauri.setColorLabel(path, color);
+    const tauri = Blac.getBloc(TauriService);
+    tauri.setColorLabel(path, color).catch((error) => {
+      console.error('Failed to persist color label:', error);
+    });
   };
 
   getColorLabel = (path: string): string | undefined => {

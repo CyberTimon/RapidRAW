@@ -6,6 +6,7 @@ import { ClipboardService } from '../../blocs/services/ClipboardService';
 import { UIBloc } from '../../blocs/app/UIBloc';
 import { AppBloc } from '../../blocs/app/AppBloc';
 import { ZoomBloc } from '../../blocs/editor/ZoomBloc';
+import { PanelBloc } from '../../blocs/editor/PanelBloc';
 
 interface StarRatingProps {
   rating: number;
@@ -48,6 +49,7 @@ export function BottomBar() {
   const [clipboardState, clipboardService] = useBloc(ClipboardService);
   const [uiState, uiBloc] = useBloc(UIBloc);
   const [zoomState, zoomBloc] = useBloc(ZoomBloc);
+  const [, panelBloc] = useBloc(PanelBloc);
 
   const isLibraryView = appState.activeView === 'explore';
   const isEditView = appState.activeView === 'edit';
@@ -80,7 +82,7 @@ export function BottomBar() {
   };
 
   const handleExport = () => {
-    // TODO: Open export modal
+    panelBloc.setActivePanel('export');
   };
 
   const handleToggleFilmstrip = () => {

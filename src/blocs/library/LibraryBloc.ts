@@ -1,5 +1,6 @@
-import { Cubit } from '@blac/core';
+import { Blac, Cubit } from '@blac/core';
 import type { ImageFile } from '../../types/library';
+import { TauriService } from '../services/TauriService';
 
 interface LibraryState {
   rootPath: string | null;
@@ -26,14 +27,15 @@ export class LibraryBloc extends Cubit<LibraryState> {
     this.patch({ isLoading: true, error: null });
 
     try {
-      // TODO: Wire up with TauriService and other blocs
-      // const tauri = borrow(TauriService);
-      // const images = await tauri.listImagesInDir(path);
+      const tauri = Blac.getBloc(TauriService);
+      const images = this.state.viewMode === 'recursive'
+        ? await tauri.listImagesRecursive(path)
+        : await tauri.listImagesInDir(path);
 
       this.patch({
         currentFolderPath: path,
         rootPath: isNewRoot ? path : this.state.rootPath,
-        images: [], // Will be populated by Tauri
+        images,
         isLoading: false,
       });
     } catch (error) {

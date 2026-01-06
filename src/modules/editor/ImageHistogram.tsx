@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useBloc } from '@blac/react';
 import { PreviewBloc } from '../../blocs/editor/PreviewBloc.js';
 
@@ -39,9 +39,7 @@ type DisplayMode = 'rgb' | 'luminance' | 'all';
 export function ImageHistogram() {
   const [preview, previewBloc] = useBloc(PreviewBloc);
   const { histogramData, isHistogramLoading } = preview;
-
-  // TODO: Make this configurable via state
-  const displayMode = 'rgb' as DisplayMode;
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('rgb');
 
   if (isHistogramLoading) {
     return (
@@ -138,19 +136,31 @@ export function ImageHistogram() {
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-3 mt-2">
-        <div className="flex items-center gap-1">
+      <div className="flex items-center justify-center gap-2 mt-2">
+        <button
+          onClick={() => setDisplayMode('rgb')}
+          className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${displayMode === 'rgb' ? 'bg-surface' : ''}`}
+          title="RGB channels"
+        >
           <div className="w-2 h-2 rounded-full bg-red-500" />
-          <span className="text-[10px] text-text-secondary">R</span>
-        </div>
-        <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-green-500" />
-          <span className="text-[10px] text-text-secondary">G</span>
-        </div>
-        <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-blue-500" />
-          <span className="text-[10px] text-text-secondary">B</span>
-        </div>
+        </button>
+        <button
+          onClick={() => setDisplayMode('luminance')}
+          className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${displayMode === 'luminance' ? 'bg-surface' : ''}`}
+          title="Luminance"
+        >
+          <div className="w-2 h-2 rounded-full bg-white" />
+          <span className="text-[10px] text-text-secondary">L</span>
+        </button>
+        <button
+          onClick={() => setDisplayMode('all')}
+          className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${displayMode === 'all' ? 'bg-surface' : ''}`}
+          title="All channels"
+        >
+          <span className="text-[10px] text-text-secondary">All</span>
+        </button>
       </div>
     </div>
   );

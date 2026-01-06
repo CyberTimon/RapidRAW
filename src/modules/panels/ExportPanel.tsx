@@ -1,8 +1,11 @@
 import { useCallback, useRef } from 'react';
+import { Blac } from '@blac/core';
 import { useBloc } from '@blac/react';
 import { EditorBloc } from '../../blocs/editor/EditorBloc.js';
+import { AdjustmentsBloc } from '../../blocs/editor/AdjustmentsBloc.js';
 import { ExportBloc, FILE_FORMATS, FILENAME_VARIABLES, RESIZE_MODE_OPTIONS } from '../../blocs/editor/ExportBloc.js';
 import { SelectionBloc } from '../../blocs/library/SelectionBloc.js';
+import { TauriService } from '../../blocs/services/TauriService.js';
 import { CollapsibleSection } from '../../primitives/CollapsibleSection.js';
 import { Slider } from '../../primitives/Slider.js';
 import { Dropdown } from '../../primitives/Dropdown.js';
@@ -83,15 +86,24 @@ export function ExportPanel() {
   const handleExport = useCallback(async () => {
     if (!canExport || isExporting) return;
     exportBlocRef.startExport(numImages);
-    // TODO: Wire up with TauriService for actual export
-    setTimeout(() => {
+
+    try {
+      const tauri = Blac.getBloc(TauriService);
+      const adjustmentsBloc = Blac.getBloc(AdjustmentsBloc);
+
+      if (numImages === 1 && selectedImage) {
+        await tauri.exportImage(selectedImage.path, settings, adjustmentsBloc.current);
+      } else if (settings.outputFolder) {
+        await tauri.exportImages(pathsToExport, settings, settings.outputFolder);
+      }
       exportBlocRef.completeExport();
-    }, 2000);
-  }, [canExport, isExporting, numImages, exportBlocRef]);
+    } catch (error) {
+      exportBlocRef.setError(error instanceof Error ? error.message : String(error));
+    }
+  }, [canExport, isExporting, numImages, selectedImage, pathsToExport, settings, exportBlocRef]);
 
   const handleCancel = useCallback(() => {
     exportBlocRef.cancelExport();
-    // TODO: Wire up with TauriService for actual cancel
   }, [exportBlocRef]);
 
   const resizeModeOptions = RESIZE_MODE_OPTIONS.map((opt) => ({
