@@ -1,8 +1,8 @@
 # Next Steps - AI Agent Context Prompt
 
-**Last Updated:** 2026-01-06 (Session 2)
+**Last Updated:** 2026-01-06 (Session 3)
 **Current Phase:** Phase 2 - Core Primitives Migration
-**Next Task:** Migrate Button component
+**Next Task:** Migrate Select/Dropdown component
 
 ---
 
@@ -43,22 +43,23 @@ You are continuing work on migrating RapidRAW's UI primitives from custom implem
 
 ## Your Task for This Session
 
-### Phase 1 Complete!
-- Dependencies installed: `react-aria-components@1.14.0`, `@react-aria/optimize-locales-plugin@1.1.5`, `tailwind-variants@3.2.2`
-- Vite configured with locale optimization (en-US)
-- `src/primitives/aria-utils.ts` created with shared utilities
+### Button Migration Complete!
+- Button component migrated to React Aria Components + tailwind-variants
+- Backward compatible: `onClick`, `disabled`, `title` still work
+- Pressed state via `data-[pressed]:` Tailwind selectors
+- Focus ring via `focusRing` utility
 
-### Phase 2 Tasks:
-Start with **Button** component - it's the simplest and most foundational.
+### Phase 2 Next Task: Select/Dropdown
+Migrate the Dropdown component to React Aria Select.
 
-1. Create new `Button.tsx` using React Aria + tailwind-variants
-2. Preserve all existing variants (primary, secondary, surface, ghost, destructive)
-3. Preserve all existing sizes (sm, md, lg, icon, icon-sm)
-4. Add `isPressed` visual feedback
-5. Add `isFocusVisible` focus ring
-6. Test keyboard activation (Space/Enter)
-7. Update all Button imports across codebase
-8. Delete old Button implementation
+1. Read current `src/primitives/Dropdown.tsx` implementation
+2. Create new implementation using React Aria `Select`, `ListBox`, `Popover`
+3. Preserve existing API: `value`, `options`, `onChange`, `placeholder`, `disabled`
+4. Add keyboard navigation (arrows, typeahead)
+5. Add `Check` icon for selected item
+6. Export alias `Dropdown` for backward compatibility
+7. Test with keyboard navigation
+8. Update all Dropdown imports if needed
 
 ---
 
@@ -84,10 +85,15 @@ npm run build && ls -la dist/assets/*.js
 ## Session Checklist
 
 At the end of this session:
-- [ ] Update `tasks.md` with completed items
-- [ ] Update `log.md` with session summary
-- [ ] Update this file (`next-steps.md`) with new context for next session
-- [ ] Note any blockers or decisions made
+- [x] Update `tasks.md` with completed items
+- [x] Update `log.md` with session summary
+- [x] Update this file (`next-steps.md`) with new context for next session
+- [x] Note any blockers or decisions made
+
+### Session 3 Notes
+- `tailwindcss-react-aria-components` plugin requires Tailwind v4, project uses v3.4
+- Using `data-[pressed]:` selectors instead (works with any Tailwind version)
+- Button migration was seamless, no breaking changes to existing usage
 
 ---
 
