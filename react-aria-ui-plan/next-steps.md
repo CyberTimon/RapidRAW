@@ -1,8 +1,8 @@
 # Next Steps - AI Agent Context Prompt
 
-**Last Updated:** 2026-01-06 (Session 1)
-**Current Phase:** Phase 1 - Foundation Setup
-**Next Task:** Install dependencies and configure Vite
+**Last Updated:** 2026-01-06 (Session 2)
+**Current Phase:** Phase 2 - Core Primitives Migration
+**Next Task:** Migrate Button component
 
 ---
 
@@ -43,28 +43,29 @@ You are continuing work on migrating RapidRAW's UI primitives from custom implem
 
 ## Your Task for This Session
 
-### Phase 1 Tasks (if not complete):
-1. Install `react-aria-components` and `@react-aria/optimize-locales-plugin`
-2. Update `vite.config.ts` with locale optimization
-3. Create `src/primitives/aria-utils.ts` with shared utilities
-4. Verify build works
+### Phase 1 Complete!
+- Dependencies installed: `react-aria-components@1.14.0`, `@react-aria/optimize-locales-plugin@1.1.5`, `tailwind-variants@3.2.2`
+- Vite configured with locale optimization (en-US)
+- `src/primitives/aria-utils.ts` created with shared utilities
 
-### Phase 2 Tasks (after Phase 1):
+### Phase 2 Tasks:
 Start with **Button** component - it's the simplest and most foundational.
+
+1. Create new `Button.tsx` using React Aria + tailwind-variants
+2. Preserve all existing variants (primary, secondary, surface, ghost, destructive)
+3. Preserve all existing sizes (sm, md, lg, icon, icon-sm)
+4. Add `isPressed` visual feedback
+5. Add `isFocusVisible` focus ring
+6. Test keyboard activation (Space/Enter)
+7. Update all Button imports across codebase
+8. Delete old Button implementation
 
 ---
 
 ## Commands to Run
 
 ```bash
-# Install dependencies
-npm install react-aria-components
-npm install @react-aria/optimize-locales-plugin --save-dev
-
-# Optional: better variant management
-npm install tailwind-variants
-
-# Check bundle size before migration
+# Check bundle size (baseline captured: index-BH6DpnUy.js 369.61 kB gzip: 109.62 kB)
 npm run build && ls -la dist/assets/*.js
 ```
 
