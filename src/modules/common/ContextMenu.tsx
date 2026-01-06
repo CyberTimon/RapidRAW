@@ -1,181 +1,185 @@
-import { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useBloc } from '@blac/react';
-import { ContextMenuService, type MenuItem, type MenuItemDefinition, type MenuSeparator } from '../../blocs/services/ContextMenuService';
+import {
+  Menu as AriaMenu,
+  MenuItem as AriaMenuItem,
+  SubmenuTrigger,
+  Popover,
+  Separator,
+  composeRenderProps,
+  type MenuItemProps,
+} from 'react-aria-components';
+import { ChevronRight } from 'lucide-react';
+import { tv } from 'tailwind-variants';
+import {
+  ContextMenuService,
+  type MenuItem,
+  type MenuItemDefinition,
+} from '../../blocs/services/ContextMenuService';
 
-function isSeparator(item: MenuItemDefinition): item is MenuSeparator {
+const menuStyles = tv({
+  base: [
+    'bg-surface/95 backdrop-blur-sm rounded-lg shadow-xl',
+    'p-1.5 min-w-[14rem] max-h-[calc(100vh-32px)] overflow-auto',
+    'outline-none',
+  ],
+});
+
+const menuItemStyles = tv({
+  base: [
+    'w-full text-left px-3 py-2 text-sm rounded',
+    'flex items-center gap-3 justify-between',
+    'cursor-default outline-none',
+    'transition-colors',
+  ],
+  variants: {
+    isFocused: {
+      true: 'bg-surface-hover',
+    },
+    isDisabled: {
+      true: 'text-text-secondary/50 cursor-not-allowed',
+      false: 'text-text-primary',
+    },
+    isDestructive: {
+      true: '',
+    },
+  },
+  compoundVariants: [
+    {
+      isDestructive: true,
+      isDisabled: false,
+      className: 'text-red-400',
+    },
+    {
+      isDestructive: true,
+      isFocused: true,
+      isDisabled: false,
+      className: 'bg-red-500/20',
+    },
+  ],
+});
+
+function isSeparator(item: MenuItemDefinition): item is { type: 'separator'; id: string } {
   return item.type === 'separator';
 }
 
-interface SubMenuProps {
-  items: MenuItemDefinition[];
-  parentRef: React.RefObject<HTMLElement>;
-  parentPath: number[];
+interface ContextMenuItemProps extends Omit<MenuItemProps, 'children'> {
+  item: MenuItem;
   onClose: () => void;
 }
 
-function SubMenu({ items, parentRef, parentPath, onClose }: SubMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<React.CSSProperties>({ opacity: 0 });
-  const [, contextMenuBloc] = useBloc(ContextMenuService);
+function ContextMenuItem({ item, onClose, ...props }: ContextMenuItemProps) {
+  const Icon = item.icon;
 
-  useLayoutEffect(() => {
-    if (!parentRef.current || !menuRef.current) return;
-
-    const parentRect = parentRef.current.getBoundingClientRect();
-    const menuEl = menuRef.current;
-    const subMenuWidth = menuEl.offsetWidth || 224;
-    const subMenuHeight = menuEl.offsetHeight || 100;
-
-    let top = parentRect.top;
-    let left = parentRect.right - 4;
-
-    if (left + subMenuWidth > window.innerWidth) {
-      left = parentRect.left - subMenuWidth + 4;
+  const handleAction = useCallback(() => {
+    if (item.onClick) {
+      item.onClick();
     }
-    if (left < 0) left = 5;
+    onClose();
+  }, [item, onClose]);
 
-    if (top + subMenuHeight > window.innerHeight) {
-      top = window.innerHeight - subMenuHeight - 5;
-    }
-    if (top < 0) top = 5;
-
-    setStyle({ top, left, opacity: 1 });
-  }, [parentRef, items]);
-
-  const firstItem = items[0];
-  const customItem = items.length === 1 && firstItem && !isSeparator(firstItem) ? firstItem : null;
-
-  return createPortal(
-    <div
-      ref={menuRef}
-      className="fixed z-[51]"
-      style={style}
-      onContextMenu={(e) => e.preventDefault()}
-      onMouseEnter={() => contextMenuBloc.cancelSubmenuClose()}
-      onMouseLeave={() => contextMenuBloc.closeSubmenu(parentPath)}
-    >
-      <div className="bg-surface/95 backdrop-blur-sm rounded-lg shadow-xl p-1.5 min-w-[14rem]" role="menu">
-        {customItem && !isSeparator(customItem) ? (
-          <MenuItemComponent
-            item={customItem as MenuItem}
-            path={[...parentPath, 0]}
-            onClose={onClose}
-          />
-        ) : (
-          items.map((item, index) => (
-            <MenuItemComponent
-              key={item.id}
-              item={item}
-              path={[...parentPath, index]}
-              onClose={onClose}
-            />
-          ))
-        )}
-      </div>
-    </div>,
-    document.body
-  );
-}
-
-interface MenuItemComponentProps {
-  item: MenuItemDefinition;
-  path: number[];
-  onClose: () => void;
-}
-
-function MenuItemComponent({ item, path, onClose }: MenuItemComponentProps) {
-  const itemRef = useRef<HTMLButtonElement>(null);
-  const [, contextMenuBloc] = useBloc(ContextMenuService);
-
-  if (item.type === 'separator') {
-    return <div className="h-px bg-border-color/50 my-1 mx-2" />;
+  if (item.submenu && item.submenu.length > 0) {
+    return (
+      <SubmenuTrigger>
+        <AriaMenuItem
+          {...props}
+          id={item.id}
+          textValue={item.label}
+          isDisabled={item.disabled}
+          className={composeRenderProps(props.className, (className, { isFocused, isDisabled }) =>
+            menuItemStyles({
+              isFocused,
+              isDisabled,
+              isDestructive: item.destructive,
+              className,
+            })
+          )}
+        >
+          <div className="flex items-center gap-3">
+            {item.color && (
+              <div
+                className="w-3 h-3 rounded-full flex-shrink-0"
+                style={{ backgroundColor: item.color }}
+              />
+            )}
+            {Icon && <Icon size={16} />}
+            <span>{item.label}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {item.shortcut && (
+              <span className="text-xs text-text-secondary">{item.shortcut}</span>
+            )}
+            <ChevronRight size={16} />
+          </div>
+        </AriaMenuItem>
+        <Popover offset={-4} crossOffset={0} className={menuStyles()}>
+          <AriaMenu
+            aria-label={`${item.label} submenu`}
+            className="outline-none"
+            onAction={(key) => {
+              const subItem = findItemById(item.submenu!, String(key));
+              if (subItem && !isSeparator(subItem) && subItem.onClick) {
+                subItem.onClick();
+              }
+              onClose();
+            }}
+          >
+            {item.submenu.map((subItem) =>
+              isSeparator(subItem) ? (
+                <Separator key={subItem.id} className="h-px bg-border-color/50 my-1 mx-2" />
+              ) : (
+                <ContextMenuItem key={subItem.id} item={subItem} onClose={onClose} />
+              )
+            )}
+          </AriaMenu>
+        </Popover>
+      </SubmenuTrigger>
+    );
   }
 
-  const menuItem = item as MenuItem;
-  const isSubmenuOpen = menuItem.submenu && contextMenuBloc.isSubmenuOpen(path);
-
-  const handleMouseEnter = () => {
-    contextMenuBloc.cancelSubmenuClose();
-    if (menuItem.disabled) {
-      const parentPath = path.slice(0, -1);
-      contextMenuBloc.openSubmenu(parentPath.length > 0 ? parentPath : []);
-      return;
-    }
-    if (menuItem.submenu) {
-      contextMenuBloc.openSubmenu(path);
-    } else {
-      const parentPath = path.slice(0, -1);
-      contextMenuBloc.openSubmenu(parentPath.length > 0 ? parentPath : []);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (menuItem.submenu && !menuItem.disabled) {
-      contextMenuBloc.closeSubmenu(path);
-    }
-  };
-
-  const handleClick = () => {
-    if (menuItem.disabled || menuItem.submenu) return;
-    menuItem.onClick?.();
-    onClose();
-  };
-
-  const Icon = menuItem.icon;
-
   return (
-    <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className="relative">
-      <button
-        ref={itemRef}
-        className={`
-          w-full text-left px-3 py-2 text-sm rounded flex items-center gap-3 justify-between
-          ${menuItem.destructive ? 'text-red-400 hover:bg-red-500/20' : 'text-text-primary hover:bg-surface-hover'}
-          ${menuItem.disabled ? 'text-text-secondary/50 cursor-not-allowed hover:bg-transparent' : ''}
-        `}
-        disabled={menuItem.disabled}
-        onClick={handleClick}
-        role="menuitem"
-      >
-        <div className="flex items-center gap-3">
-          {menuItem.color && (
-            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: menuItem.color }} />
-          )}
-          {Icon && <Icon size={16} />}
-          <span>{menuItem.label}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {menuItem.shortcut && (
-            <span className="text-xs text-text-secondary">{menuItem.shortcut}</span>
-          )}
-          {menuItem.submenu && (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          )}
-        </div>
-      </button>
-
-      {isSubmenuOpen && menuItem.submenu && (
-        <SubMenu
-          items={menuItem.submenu}
-          parentRef={itemRef as React.RefObject<HTMLElement>}
-          parentPath={path}
-          onClose={onClose}
-        />
+    <AriaMenuItem
+      {...props}
+      id={item.id}
+      textValue={item.label}
+      isDisabled={item.disabled}
+      onAction={handleAction}
+      className={composeRenderProps(props.className, (className, { isFocused, isDisabled }) =>
+        menuItemStyles({
+          isFocused,
+          isDisabled,
+          isDestructive: item.destructive,
+          className,
+        })
       )}
-    </div>
+    >
+      <div className="flex items-center gap-3">
+        {item.color && (
+          <div
+            className="w-3 h-3 rounded-full flex-shrink-0"
+            style={{ backgroundColor: item.color }}
+          />
+        )}
+        {Icon && <Icon size={16} />}
+        <span>{item.label}</span>
+      </div>
+      {item.shortcut && (
+        <span className="text-xs text-text-secondary">{item.shortcut}</span>
+      )}
+    </AriaMenuItem>
   );
+}
+
+function findItemById(items: MenuItemDefinition[], id: string): MenuItemDefinition | undefined {
+  for (const item of items) {
+    if (item.id === id) return item;
+    if (!isSeparator(item) && item.submenu) {
+      const found = findItemById(item.submenu, id);
+      if (found) return found;
+    }
+  }
+  return undefined;
 }
 
 export function ContextMenu() {
@@ -191,7 +195,7 @@ export function ContextMenu() {
     if (!isVisible) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      const menuElements = document.querySelectorAll('[role="menu"]');
+      const menuElements = document.querySelectorAll('[data-context-menu]');
       let isClickInside = false;
       menuElements.forEach((menuEl) => {
         if (menuEl.contains(event.target as Node)) {
@@ -203,23 +207,15 @@ export function ContextMenu() {
       }
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        handleClose();
-      }
-    };
-
     const handleScroll = () => {
       handleClose();
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
     window.addEventListener('scroll', handleScroll, true);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('scroll', handleScroll, true);
     };
   }, [isVisible, handleClose]);
@@ -230,20 +226,32 @@ export function ContextMenu() {
     <div
       key={menuId}
       ref={menuRef}
+      data-context-menu
       className="fixed z-50"
       style={{ top: position.y, left: position.x }}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="bg-surface/95 backdrop-blur-sm rounded-lg shadow-xl p-1.5 min-w-[16rem]" role="menu">
-        {items.map((item, index) => (
-          <MenuItemComponent
-            key={item.id}
-            item={item}
-            path={[index]}
-            onClose={handleClose}
-          />
-        ))}
-      </div>
+      <AriaMenu
+        aria-label="Context menu"
+        className={menuStyles()}
+        autoFocus="first"
+        onClose={handleClose}
+        onAction={(key) => {
+          const item = findItemById(items, String(key));
+          if (item && !isSeparator(item) && item.onClick) {
+            item.onClick();
+          }
+          handleClose();
+        }}
+      >
+        {items.map((item) =>
+          isSeparator(item) ? (
+            <Separator key={item.id} className="h-px bg-border-color/50 my-1 mx-2" />
+          ) : (
+            <ContextMenuItem key={item.id} item={item} onClose={handleClose} />
+          )
+        )}
+      </AriaMenu>
     </div>,
     document.body
   );

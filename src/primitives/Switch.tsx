@@ -1,6 +1,7 @@
 import { Switch as AriaSwitch } from 'react-aria-components';
 import { tv } from 'tailwind-variants';
 import { focusRing } from './aria-utils';
+import { Tooltip, TooltipTrigger } from './Tooltip';
 
 interface SwitchProps {
   checked: boolean;
@@ -45,24 +46,22 @@ const thumbStyles = tv({
   },
 });
 
-export function Switch({
+function SwitchInner({
   checked,
   label,
   onChange,
   disabled = false,
   className = '',
   trackClassName,
-  tooltip,
-}: SwitchProps) {
+}: Omit<SwitchProps, 'tooltip'>) {
   return (
     <AriaSwitch
       isSelected={checked}
       onChange={onChange}
       isDisabled={disabled}
       className={({ isDisabled }) => switchStyles({ isDisabled, className })}
-      {...(tooltip ? { title: tooltip } : {})}
     >
-      {({ isSelected, isFocusVisible }) => (
+      {({ isSelected }) => (
         <>
           <span className="text-sm text-text-secondary select-none">{label}</span>
           <div className={`relative ${trackStyles()} ${trackClassName || ''}`}>
@@ -72,6 +71,18 @@ export function Switch({
       )}
     </AriaSwitch>
   );
+}
+
+export function Switch({ tooltip, ...props }: SwitchProps) {
+  if (tooltip) {
+    return (
+      <TooltipTrigger>
+        <SwitchInner {...props} />
+        <Tooltip>{tooltip}</Tooltip>
+      </TooltipTrigger>
+    );
+  }
+  return <SwitchInner {...props} />;
 }
 
 export default Switch;

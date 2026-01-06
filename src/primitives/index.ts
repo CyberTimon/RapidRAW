@@ -9,3 +9,4 @@ export { Modal } from './Modal';
 export { Resizer } from './Resizer';
 export { Slider } from './Slider';
 export { Switch } from './Switch';
+export { Tooltip, TooltipTrigger } from './Tooltip';

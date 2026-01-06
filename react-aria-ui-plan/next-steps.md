@@ -1,8 +1,8 @@
 # Next Steps - AI Agent Context Prompt
 
-**Last Updated:** 2026-01-06 (Session 8)
-**Current Phase:** Phase 3 - Advanced Components
-**Next Task:** Evaluate Context Menu / Tooltip / Slider
+**Last Updated:** 2026-01-06 (Session 9)
+**Current Phase:** Phase 4 - Specialized Components
+**Next Task:** ColorWheel evaluation, then Phase 5 Cleanup
 
 ---
 
@@ -24,49 +24,64 @@ You are continuing work on migrating RapidRAW's UI primitives from custom implem
 - `react-aria-ui-plan/log.md` - Session history
 - `src/primitives/` - Current component implementations
 
-### Current Primitives Being Migrated
-1. Button - Custom with variants
-2. Dropdown (→ Select) - Custom select menu
-3. Modal - Custom dialog with focus trap
-4. Switch - Custom toggle
-5. Input - Custom text field
-6. CollapsibleSection (→ Disclosure)
-7. Slider - Complex custom (may stay hybrid)
+### Migration Status
 
-### What NOT to Migrate
-- Resizer - Too specialized
-- ImagePicker - Domain-specific
-- LUTControl - Domain-specific
-- ColorWheel - Evaluate separately
+#### Completed (Phases 1-3)
+- **Button** - React Aria Button + tailwind-variants
+- **Dropdown** - React Aria Select/ListBox/Popover
+- **Modal** - React Aria Dialog/ModalOverlay (includes ConfirmModal, InputModal)
+- **Switch** - React Aria Switch (now uses Tooltip)
+- **Input** - React Aria Input
+- **CollapsibleSection** - React Aria Disclosure
+- **Tooltip** - React Aria Tooltip (NEW in Session 9)
+- **ContextMenu** - React Aria Menu (UI refactor, keeps BLoC state)
+
+#### Kept Custom
+- **Slider** - Too many domain-specific features (inline edit, wheel scroll, reset)
+- **Resizer** - Too specialized
+- **ImagePicker** - Domain-specific
+- **LUTControl** - Domain-specific
+
+#### Needs Evaluation
+- **ColorWheel** - Currently uses `@uiw/react-color-wheel`, evaluate React Aria alternative
 
 ---
 
 ## Your Task for This Session
 
-### CollapsibleSection Migration Complete!
-- CollapsibleSection migrated to React Aria Disclosure
-- Backward compatible: all existing props preserved
-- Smooth height animation preserved
-- Keyboard activation (Space/Enter) handled by React Aria
+### Phase 4: ColorWheel Evaluation
 
-### Phase 3 Remaining Tasks
-Evaluate and migrate remaining advanced components:
+1. **Research** React Aria ColorWheel from `@react-spectrum/color`
+2. **Compare** features with current `@uiw/react-color-wheel`
+3. **Decision:** migrate or keep current
+4. **If migrate:** implement new ColorWheel
+5. **If keep:** document decision
 
-1. **Context Menu** - Check if project uses context menus that need migration
-2. **Tooltip** - Check if project needs tooltips
-3. **Slider** (Phase 4) - Evaluate if custom slider should stay or use React Aria hooks
+### Phase 5: Cleanup & Documentation
 
-For each:
-1. Search codebase for existing usage
-2. Decide: migrate to React Aria, keep custom, or skip
-3. If migrating, follow same pattern as previous components
+If ColorWheel evaluation is complete:
+
+1. **Code Cleanup**
+   - Remove any unused imports
+   - Clean up `src/primitives/index.ts` exports
+   - Verify no deprecated code remains
+
+2. **Testing**
+   - Manual testing of all migrated components
+   - Verify keyboard navigation works
+   - Check focus management
+
+3. **Final Validation**
+   - Run build: `npm run build`
+   - Compare bundle size to baseline (109.62 kB gzip)
+   - Target: <50KB increase overall
 
 ---
 
 ## Commands to Run
 
 ```bash
-# Check bundle size (baseline captured: index-BH6DpnUy.js 369.61 kB gzip: 109.62 kB)
+# Check bundle size (baseline: index-BH6DpnUy.js 369.61 kB gzip: 109.62 kB)
 npm run build && ls -la dist/assets/*.js
 ```
 
@@ -74,29 +89,30 @@ npm run build && ls -la dist/assets/*.js
 
 ## Important Notes
 
-1. **Preserve APIs** - Keep existing prop interfaces where possible for easier migration
-2. **Tailwind States** - Use React Aria's render props with Tailwind: `pressed:bg-...`, `selected:bg-...`
-3. **Test Accessibility** - After each component, test with keyboard and screen reader
-4. **Update tasks.md** - Check off completed items after each task
-5. **Update log.md** - Add a succinct entry at end of session
+1. **Preserve APIs** - Keep existing prop interfaces where possible
+2. **Tailwind States** - Use React Aria's render props with Tailwind
+3. **Test Accessibility** - Keyboard and screen reader testing
+4. **Update tasks.md** - Check off completed items
+5. **Update log.md** - Add succinct entry at end of session
 
 ---
 
 ## Session Checklist
 
 At the end of this session:
-- [x] Update `tasks.md` with completed items
-- [x] Update `log.md` with session summary
-- [x] Update this file (`next-steps.md`) with new context for next session
-- [x] Note any blockers or decisions made
+- [ ] Update `tasks.md` with completed items
+- [ ] Update `log.md` with session summary
+- [ ] Update this file (`next-steps.md`) with new context
+- [ ] Note any blockers or decisions made
 - [ ] Commit changes with descriptive message
 
-### Session 8 Notes
-- CollapsibleSection migration completed using React Aria Disclosure
-- Complex component with controlled/uncontrolled modes, visibility toggle, reset button
-- Kept max-height animation using MutationObserver to watch data-expanded attribute
-- Removed internal hover state, using CSS group-hover instead
-- No changes needed to consuming components (25 usages)
+### Session 9 Notes
+- Created Tooltip component with React Aria (fast 200ms delay, animations)
+- Updated Switch to use Tooltip instead of native title attribute
+- Refactored ContextMenu UI to use React Aria Menu components
+- Kept ContextMenuService BLoC for state management
+- Decided to keep Slider as custom (too many domain-specific features)
+- Phase 3 complete, Phase 4 in progress
 
 ---
 
@@ -105,4 +121,4 @@ At the end of this session:
 - [React Aria Components](https://react-aria.adobe.com/)
 - [Getting Started Guide](https://react-aria.adobe.com/getting-started)
 - [Tailwind Starter Examples](https://react-aria.adobe.com/getting-started#tailwind-example)
-- [Component List](https://react-aria.adobe.com/react-aria/getting-started.html)
+- [ColorArea/ColorWheel](https://react-spectrum.adobe.com/react-spectrum/ColorWheel.html)
