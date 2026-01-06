@@ -1,4 +1,4 @@
-import { Blac, Cubit } from '@blac/core';
+import { Cubit, borrow } from '@blac/core';
 import type { FolderState, ThumbnailSize, ThumbnailAspectRatio } from '../../types/library';
 import { TauriService } from '../services/TauriService';
 
@@ -62,7 +62,7 @@ export class SettingsBloc extends Cubit<SettingsState> {
   load = async () => {
     this.patch({ isLoading: true });
     try {
-      const tauri = Blac.getBloc(TauriService);
+      const tauri = borrow(TauriService);
       const settings = await tauri.loadSettings();
       this.patch({ settings: { ...DEFAULT_SETTINGS, ...settings }, isLoading: false });
     } catch (error) {
@@ -74,7 +74,7 @@ export class SettingsBloc extends Cubit<SettingsState> {
   save = async () => {
     this.patch({ isSaving: true });
     try {
-      const tauri = Blac.getBloc(TauriService);
+      const tauri = borrow(TauriService);
       await tauri.saveSettings(this.state.settings);
     } catch (error) {
       console.error('Failed to save settings:', error);

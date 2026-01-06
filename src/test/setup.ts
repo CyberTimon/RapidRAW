@@ -1,9 +1,9 @@
 import '@testing-library/jest-dom/vitest';
 import { vi, beforeEach, afterEach } from 'vitest';
-import { Blac } from '@blac/core';
+import { clearAll } from '@blac/core';
 
 beforeEach(() => {
-  Blac.resetInstance();
+  clearAll();
 });
 
 afterEach(() => {

@@ -9,17 +9,20 @@ importers:
   .:
     dependencies:
       '@blac/core':
-        specifier: ^2.0.0-rc-16
-        version: 2.0.0
+        specifier: 2.0.0-rc.17
+        version: 2.0.0-rc.17
       '@blac/devtools-connect':
         specifier: 2.0.0-rc.17
-        version: 2.0.0-rc.17(@blac/core@2.0.0)
+        version: 2.0.0-rc.17(@blac/core@2.0.0-rc.17)
       '@blac/devtools-ui':
         specifier: 2.0.0-rc.17
-        version: 2.0.0-rc.17(@babel/runtime@7.28.4)(@blac/core@2.0.0)(@blac/react@2.0.0(@blac/core@2.0.0)(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        version: 2.0.0-rc.17(@babel/runtime@7.28.4)(@blac/core@2.0.0-rc.17)(@blac/react@2.0.0-rc.17(@blac/core@2.0.0-rc.17)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@blac/logging-plugin':
+        specifier: ^2.0.0
+        version: 2.0.0(@blac/core@2.0.0-rc.17)
       '@blac/react':
-        specifier: ^2.0.0-rc-16
-        version: 2.0.0(@blac/core@2.0.0)(react@19.2.3)
+        specifier: 2.0.0-rc.17
+        version: 2.0.0-rc.17(@blac/core@2.0.0-rc.17)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react@19.2.3)
       '@clerk/clerk-react':
         specifier: ^5.59.2
         version: 5.59.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -272,8 +275,8 @@ packages:
     resolution: {integrity: sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA==}
     engines: {node: '>=18'}
 
-  '@blac/core@2.0.0':
-    resolution: {integrity: sha512-HPHQW3SICk965IIXEfciHAlX9TEgbeCLJWwxsqVVCJXII9mkFx46imsWPvie1/195C1K42gf1oijpS2YhcmZFQ==}
+  '@blac/core@2.0.0-rc.17':
+    resolution: {integrity: sha512-ptSqM/tAfseU6exJtiX/CHgFDxEt5fFuZ6MrbjE+LTtJiIot2CUiMFnXzxpeuUy/ABNK1MZjdQXQcvUYDWlEpA==}
 
   '@blac/devtools-connect@2.0.0-rc.17':
     resolution: {integrity: sha512-WnoMGiBByydSeMDtjJmW48FZwsmYph/DINEcnRKRLibGJimY0sZYAQiynvga4SvxP/li3D4LAjX0o7F++dD+Vg==}
@@ -288,11 +291,23 @@ packages:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
 
-  '@blac/react@2.0.0':
-    resolution: {integrity: sha512-UNLTrvHi9s7Y9gLbV/Xn7FBbWmQks9AIceaS+PcNyjFwDI6YqlF/lVH2JKBkWd/0xATYUrNNK0j//vH+7sBufA==}
+  '@blac/logging-plugin@2.0.0':
+    resolution: {integrity: sha512-egLKLULThWoLQ2xirZzHau7FQg2P15sUGHjrX7P+G8MXFrfC2LajVfhHEKvDK2G2vfupRek/AABDovrx++NUnw==}
     peerDependencies:
       '@blac/core': 2.0.0
-      react: ^18.0.0
+
+  '@blac/react@2.0.0-rc.17':
+    resolution: {integrity: sha512-akNhE3WwOiA97QZOcPP120fXTaPxrNOSq9zdYm8TzpTt+CtmtU1ngSQSbvS80IIfcNnWFYVF4ax+ifA+JDzLsQ==}
+    peerDependencies:
+      '@blac/core': 2.0.0-rc.17
+      '@types/react': ^18.0.0 || ^19.0.0
+      '@types/react-dom': '*'
+      react: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
 
   '@clerk/clerk-react@5.59.2':
     resolution: {integrity: sha512-vFZ4LWPenbNnui4GqGGkicH/3SL7KhS9egTMv/m0Dj/sS7mUgmLqAFpqWkhbzN8s8/rybuvJsMyIU7M0kx8+Cw==}
@@ -3038,16 +3053,16 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
-  '@blac/core@2.0.0': {}
+  '@blac/core@2.0.0-rc.17': {}
 
-  '@blac/devtools-connect@2.0.0-rc.17(@blac/core@2.0.0)':
+  '@blac/devtools-connect@2.0.0-rc.17(@blac/core@2.0.0-rc.17)':
     dependencies:
-      '@blac/core': 2.0.0
+      '@blac/core': 2.0.0-rc.17
 
-  '@blac/devtools-ui@2.0.0-rc.17(@babel/runtime@7.28.4)(@blac/core@2.0.0)(@blac/react@2.0.0(@blac/core@2.0.0)(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@blac/devtools-ui@2.0.0-rc.17(@babel/runtime@7.28.4)(@blac/core@2.0.0-rc.17)(@blac/react@2.0.0-rc.17(@blac/core@2.0.0-rc.17)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
-      '@blac/core': 2.0.0
-      '@blac/react': 2.0.0(@blac/core@2.0.0)(react@19.2.3)
+      '@blac/core': 2.0.0-rc.17
+      '@blac/react': 2.0.0-rc.17(@blac/core@2.0.0-rc.17)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react@19.2.3)
       '@uiw/react-json-view': 2.0.0-alpha.39(@babel/runtime@7.28.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       json-diff-kit: 1.0.34
       react: 19.2.3
@@ -3055,10 +3070,17 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/runtime'
 
-  '@blac/react@2.0.0(@blac/core@2.0.0)(react@19.2.3)':
+  '@blac/logging-plugin@2.0.0(@blac/core@2.0.0-rc.17)':
     dependencies:
-      '@blac/core': 2.0.0
+      '@blac/core': 2.0.0-rc.17
+
+  '@blac/react@2.0.0-rc.17(@blac/core@2.0.0-rc.17)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react@19.2.3)':
+    dependencies:
+      '@blac/core': 2.0.0-rc.17
       react: 19.2.3
+    optionalDependencies:
+      '@types/react': 19.2.7
+      '@types/react-dom': 19.2.3(@types/react@19.2.7)
 
   '@clerk/clerk-react@5.59.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:

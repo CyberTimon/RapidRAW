@@ -1,4 +1,4 @@
-import { Blac, Cubit } from '@blac/core';
+import { Cubit, borrow } from '@blac/core';
 import type { FolderNode } from '../../types/library';
 import { TauriService } from '../services/TauriService';
 
@@ -21,7 +21,7 @@ export class FolderBloc extends Cubit<FolderState> {
     this.patch({ isLoading: true, error: null });
 
     try {
-      const tauri = Blac.getBloc(TauriService);
+      const tauri = borrow(TauriService);
       const treeData = await tauri.getFolderTree(rootPath);
       const tree = treeData as FolderNode;
 

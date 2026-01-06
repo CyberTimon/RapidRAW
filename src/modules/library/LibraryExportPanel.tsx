@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Blac } from '@blac/core';
+import { borrow } from '@blac/core';
 import { useBloc } from '@blac/react';
 import { Save, X, Loader, CheckCircle, XCircle, Ban } from 'lucide-react';
 import { SelectionBloc } from '../../blocs/library/SelectionBloc';
@@ -83,7 +83,7 @@ export function LibraryExportPanel({ onClose }: LibraryExportPanelProps) {
     setErrorMessage('');
 
     try {
-      const tauri = Blac.getBloc(TauriService);
+      const tauri = borrow(TauriService);
       const outputFolder = await tauri.openFolderDialog();
       
       if (!outputFolder) {

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useBloc } from '@blac/react';
+import { useState, useEffect, useRef } from 'react';
+import { useBloc, useBlocActions } from '@blac/react';
 import { Folder, RefreshCw, Settings } from 'lucide-react';
 import { getVersion } from '@tauri-apps/api/app';
 import { open } from '@tauri-apps/plugin-shell';
@@ -22,9 +22,20 @@ const SPLASH_IMAGES: Record<string, string> = {
 };
 
 export function WelcomeScreen() {
+  const renderCount = useRef(0);
+  renderCount.current++;
+  console.log(`[WelcomeScreen] render #${renderCount.current}`);
+
   const [settings, settingsBloc] = useBloc(SettingsBloc);
-  const [, libraryBloc] = useBloc(LibraryBloc);
-  const [, folderBloc] = useBloc(FolderBloc);
+  const libraryBloc = useBlocActions(LibraryBloc);
+  const folderBloc = useBlocActions(FolderBloc);
+
+  console.log('[WelcomeScreen] settings state:', {
+    isLoading: settings.isLoading,
+    isSaving: settings.isSaving,
+    lastRootPath: settings.settings.lastRootPath,
+    theme: settings.settings.theme,
+  });
   const [showSettings, setShowSettings] = useState(false);
 
   const [appVersion, setAppVersion] = useState('');
@@ -74,8 +85,9 @@ export function WelcomeScreen() {
   }, []);
 
   const handleOpenFolder = async () => {
+    console.log('[WelcomeScreen] handleOpenFolder called');
     const path = await openFolderDialog();
-    debugger;
+    console.log('[WelcomeScreen] folder selected:', path);
     if (path) {
       libraryBloc.openFolder(path, true);
       folderBloc.loadTree(path);
@@ -84,7 +96,7 @@ export function WelcomeScreen() {
   };
 
   const handleContinueSession = () => {
-    debugger
+    console.log('[WelcomeScreen] handleContinueSession called, lastRootPath:', lastRootPath);
     if (lastRootPath) {
       libraryBloc.openFolder(lastRootPath, true);
       folderBloc.loadTree(lastRootPath);

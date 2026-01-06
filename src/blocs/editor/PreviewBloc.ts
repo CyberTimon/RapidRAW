@@ -1,4 +1,4 @@
-import { Blac, Cubit } from '@blac/core';
+import { Cubit, borrow } from '@blac/core';
 import type { HistogramData, WaveformData } from '../../types/editor.js';
 import { TauriService } from '../services/TauriService';
 import { AdjustmentsBloc } from './AdjustmentsBloc';
@@ -71,8 +71,8 @@ export class PreviewBloc extends Cubit<PreviewState> {
     this.patch({ isGenerating: true, error: null });
 
     try {
-      const tauri = Blac.getBloc(TauriService);
-      const adjustmentsBloc = Blac.getBloc(AdjustmentsBloc);
+      const tauri = borrow(TauriService);
+      const adjustmentsBloc = borrow(AdjustmentsBloc);
       const startTime = Date.now();
 
       await tauri.applyAdjustments(adjustmentsBloc.current);
@@ -93,8 +93,8 @@ export class PreviewBloc extends Cubit<PreviewState> {
     this.patch({ isHistogramLoading: true });
 
     try {
-      const tauri = Blac.getBloc(TauriService);
-      const adjustmentsBloc = Blac.getBloc(AdjustmentsBloc);
+      const tauri = borrow(TauriService);
+      const adjustmentsBloc = borrow(AdjustmentsBloc);
       await tauri.applyAdjustments(adjustmentsBloc.current);
       this.patch({ isHistogramLoading: false });
     } catch {
@@ -106,8 +106,8 @@ export class PreviewBloc extends Cubit<PreviewState> {
     this.patch({ isWaveformLoading: true });
 
     try {
-      const tauri = Blac.getBloc(TauriService);
-      const adjustmentsBloc = Blac.getBloc(AdjustmentsBloc);
+      const tauri = borrow(TauriService);
+      const adjustmentsBloc = borrow(AdjustmentsBloc);
       await tauri.applyAdjustments(adjustmentsBloc.current);
       this.patch({ isWaveformLoading: false });
     } catch {

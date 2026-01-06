@@ -1,4 +1,4 @@
-import { Blac, Cubit } from '@blac/core';
+import { Cubit, borrow } from '@blac/core';
 import type { SelectedImage, LoadImageResult } from '../../types/editor.js';
 import type { ExifData } from '../../types/library.js';
 import { TauriService } from '../services/TauriService';
@@ -28,7 +28,7 @@ export class EditorBloc extends Cubit<EditorState> {
     this.patch({ isLoading: true, error: null });
 
     try {
-      const tauri = Blac.getBloc(TauriService);
+      const tauri = borrow(TauriService);
       const result: LoadImageResult = await tauri.loadImage(path);
 
       const selectedImage: SelectedImage = {

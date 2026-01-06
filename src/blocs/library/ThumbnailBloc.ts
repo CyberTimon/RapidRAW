@@ -1,4 +1,4 @@
-import { Blac, Cubit } from '@blac/core';
+import { Cubit, borrow } from '@blac/core';
 import { LRUCache, revokeBlobUrl } from '../../utils/LRUCache';
 import { TauriService } from '../services/TauriService';
 
@@ -37,7 +37,7 @@ export class ThumbnailBloc extends Cubit<ThumbnailState> {
       isGenerating: true,
     });
 
-    const tauri = Blac.getBloc(TauriService);
+    const tauri = borrow(TauriService);
     await tauri.generateThumbnailsProgressive(newPaths);
   };
 

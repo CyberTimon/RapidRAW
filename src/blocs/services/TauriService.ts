@@ -28,7 +28,7 @@ interface TauriServiceState {
 }
 
 export class TauriService extends Cubit<TauriServiceState> {
-  private listeners: UnlistenFn[] = [];
+  private tauriListeners: UnlistenFn[] = [];
 
   constructor() {
     super({ isConnected: true });
@@ -143,7 +143,7 @@ export class TauriService extends Cubit<TauriServiceState> {
     const unlisten = await listen<Uint8Array>('preview-update-final', (e) =>
       callback(e.payload)
     );
-    this.listeners.push(unlisten);
+    this.tauriListeners.push(unlisten);
     return unlisten;
   };
 
@@ -153,7 +153,7 @@ export class TauriService extends Cubit<TauriServiceState> {
     const unlisten = await listen<Uint8Array>('preview-uncropped', (e) =>
       callback(e.payload)
     );
-    this.listeners.push(unlisten);
+    this.tauriListeners.push(unlisten);
     return unlisten;
   };
 
@@ -163,7 +163,7 @@ export class TauriService extends Cubit<TauriServiceState> {
     const unlisten = await listen<HistogramData>('histogram-update', (e) =>
       callback(e.payload)
     );
-    this.listeners.push(unlisten);
+    this.tauriListeners.push(unlisten);
     return unlisten;
   };
 
@@ -173,7 +173,7 @@ export class TauriService extends Cubit<TauriServiceState> {
     const unlisten = await listen<ThumbnailEvent>('thumbnail-generated', (e) =>
       callback(e.payload)
     );
-    this.listeners.push(unlisten);
+    this.tauriListeners.push(unlisten);
     return unlisten;
   };
 
@@ -183,7 +183,7 @@ export class TauriService extends Cubit<TauriServiceState> {
     const unlisten = await listen<ExportProgressEvent>('export-progress', (e) =>
       callback(e.payload)
     );
-    this.listeners.push(unlisten);
+    this.tauriListeners.push(unlisten);
     return unlisten;
   };
 
@@ -194,12 +194,12 @@ export class TauriService extends Cubit<TauriServiceState> {
       'indexing-progress',
       (e) => callback(e.payload)
     );
-    this.listeners.push(unlisten);
+    this.tauriListeners.push(unlisten);
     return unlisten;
   };
 
   cleanup = () => {
-    this.listeners.forEach((unlisten) => unlisten());
-    this.listeners = [];
+    this.tauriListeners.forEach((unlisten) => unlisten());
+    this.tauriListeners = [];
   };
 }

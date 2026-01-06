@@ -5,7 +5,7 @@ TypeScript state management library with React integration. Uses proxy-based dep
 ## Installation
 
 ```bash
-pnpm add @blac/core @blac/react
+pnpm add @blac/core@rc @blac/react@rc
 ```
 
 ## Core Package (@blac/core)
@@ -229,9 +229,7 @@ Cubits can have getter methods that are automatically tracked by React hooks:
 class TodoCubit extends Cubit<TodoState> {
   // Computed getter - automatically tracked by useBloc
   get visibleTodos() {
-    return this.state.filter === 'active'
-      ? this.state.todos.filter((t) => !t.done)
-      : this.state.todos;
+    return this.state.filter === 'active' ? this.state.todos.filter((t) => !t.done) : this.state.todos;
   }
 
   get activeTodoCount() {
@@ -256,9 +254,7 @@ For event-driven architectures with explicit state transitions.
 import { Vertex } from '@blac/core';
 
 // Define events as discriminated union
-type CounterEvent =
-  | { type: 'increment'; amount: number }
-  | { type: 'decrement'; amount: number };
+type CounterEvent = { type: 'increment'; amount: number } | { type: 'decrement'; amount: number };
 
 // Create Vertex with event handlers
 class CounterVertex extends Vertex<{ count: number }, CounterEvent> {
@@ -286,9 +282,7 @@ class CounterVertex extends Vertex<{ count: number }, CounterEvent> {
 Events are defined as TypeScript discriminated unions for type safety and autocomplete:
 
 ```typescript
-type MyEvent =
-  | { type: 'eventA'; payload: string }
-  | { type: 'eventB'; data: number };
+type MyEvent = { type: 'eventA'; payload: string } | { type: 'eventB'; data: number };
 ```
 
 **Methods:**
@@ -366,8 +360,7 @@ class LoggingVertex extends StatelessVertex<LogEvent> {
   }
 
   info = (message: string) => this.add({ type: 'info', message });
-  error = (message: string, error: Error) =>
-    this.add({ type: 'error', message, error });
+  error = (message: string, error: Error) => this.add({ type: 'error', message, error });
   warn = (message: string) => this.add({ type: 'warn', message });
 }
 ```
@@ -1119,9 +1112,7 @@ Access other blocs in event handlers using `borrow()` or `borrowSafe()`. This is
 ```typescript
 import { borrow, borrowSafe } from '@blac/core';
 
-type ChannelEvent =
-  | { type: 'receiveMessage'; message: Message }
-  | { type: 'markAsRead' };
+type ChannelEvent = { type: 'receiveMessage'; message: Message } | { type: 'markAsRead' };
 
 class ChannelBloc extends Vertex<ChannelState, ChannelEvent> {
   constructor(props: { channelId: string }) {
@@ -1151,8 +1142,7 @@ class ChannelBloc extends Vertex<ChannelState, ChannelEvent> {
   }
 
   // Convenience methods
-  receiveMessage = (message: Message) =>
-    this.add({ type: 'receiveMessage', message });
+  receiveMessage = (message: Message) => this.add({ type: 'receiveMessage', message });
   markAsRead = () => this.add({ type: 'markAsRead' });
 }
 ```
@@ -1559,13 +1549,10 @@ const unsubscribe = globalRegistry.on('created', (container) => {
 });
 
 // Listen to state changes
-globalRegistry.on(
-  'stateChanged',
-  (container, prevState, newState, callstack) => {
-    console.log('State changed:', container.name, prevState, newState);
-    if (callstack) console.log('Callstack:', callstack);
-  },
-);
+globalRegistry.on('stateChanged', (container, prevState, newState, callstack) => {
+  console.log('State changed:', container.name, prevState, newState);
+  if (callstack) console.log('Callstack:', callstack);
+});
 
 // Listen to events (Vertex only)
 globalRegistry.on('eventAdded', (vertex, event) => {
@@ -1655,10 +1642,7 @@ Wait for a bloc's state to meet a condition. Returns a Promise that resolves whe
 import { waitUntil } from '@blac/core';
 
 // Wait for condition on bloc, returns bloc instance
-const userBloc = await waitUntil(
-  UserBloc,
-  (bloc) => bloc.state.isAuthenticated,
-);
+const userBloc = await waitUntil(UserBloc, (bloc) => bloc.state.isAuthenticated);
 
 // Wait with selector, returns selected value
 const layout = await waitUntil(
@@ -1724,12 +1708,9 @@ unwatch(); // Stop watching
 **Multiple Blocs:**
 
 ```typescript
-const unwatch = watch(
-  [UserBloc, SettingsBloc] as const,
-  ([userBloc, settingsBloc]) => {
-    console.log(userBloc.state.name, settingsBloc.state.theme);
-  },
-);
+const unwatch = watch([UserBloc, SettingsBloc] as const, ([userBloc, settingsBloc]) => {
+  console.log(userBloc.state.name, settingsBloc.state.theme);
+});
 ```
 
 **Specific Instance:**
@@ -1737,9 +1718,7 @@ const unwatch = watch(
 ```typescript
 import { watch, instance } from '@blac/core';
 
-const unwatch = watch(instance(UserBloc, 'user-123'), (userBloc) =>
-  console.log(userBloc.state.name),
-);
+const unwatch = watch(instance(UserBloc, 'user-123'), (userBloc) => console.log(userBloc.state.name));
 ```
 
 **Stop from Callback:**
@@ -2097,9 +2076,7 @@ function UserProfile({ userId }: { userId: string }) {
 
 ```typescript
 // Define events as discriminated union
-type AuthEvent =
-  | { type: 'login'; email: string; password: string }
-  | { type: 'logout' };
+type AuthEvent = { type: 'login'; email: string; password: string } | { type: 'logout' };
 
 // State
 interface AuthState {
@@ -2125,10 +2102,7 @@ class AuthVertex extends Vertex<AuthState, AuthEvent> {
         emit({ ...this.state, isLoading: true, error: null });
 
         // Simulate sync auth (in real app, async work would be done before dispatching event)
-        if (
-          event.email === 'user@example.com' &&
-          event.password === 'password'
-        ) {
+        if (event.email === 'user@example.com' && event.password === 'password') {
           emit({
             user: { id: '123', name: 'Test User', email: 'user@example.com' },
             isAuthenticated: true,
@@ -2154,8 +2128,7 @@ class AuthVertex extends Vertex<AuthState, AuthEvent> {
     });
   }
 
-  login = (email: string, password: string) =>
-    this.add({ type: 'login', email, password });
+  login = (email: string, password: string) => this.add({ type: 'login', email, password });
   logout = () => this.add({ type: 'logout' });
 }
 ```
@@ -2232,9 +2205,7 @@ type CounterState = ExtractState<CounterCubit>; // number
 type UserProps = ExtractProps<UserCubit>; // { userId: string }
 
 // BlocConstructor type for generic constraints
-function createBloc<TBloc extends StateContainer<any>>(
-  Class: BlocConstructor<TBloc>,
-): TBloc {
+function createBloc<TBloc extends StateContainer<any>>(Class: BlocConstructor<TBloc>): TBloc {
   return acquire(Class);
 }
 ```
@@ -2406,9 +2377,7 @@ await waitUntil(Bloc, predicate, {
 const unwatch = watch(UserBloc, (bloc) => console.log(bloc.state));
 
 // Multiple blocs
-const unwatch = watch([A, B] as const, ([a, b]) =>
-  console.log(a.state, b.state),
-);
+const unwatch = watch([A, B] as const, ([a, b]) => console.log(a.state, b.state));
 
 // Specific instance
 const unwatch = watch(instance(Bloc, 'id'), (bloc) => {});
@@ -2876,4 +2845,3 @@ const allSessions = getAll(UserSessionBloc); // Creates array copy
 ## License
 
 MIT
-

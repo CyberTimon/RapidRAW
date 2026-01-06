@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { Blac } from '@blac/core';
+import { borrow } from '@blac/core';
 import { useBloc } from '@blac/react';
 import { EditorBloc } from '../../blocs/editor/EditorBloc.js';
 import { AdjustmentsBloc } from '../../blocs/editor/AdjustmentsBloc.js';
@@ -88,8 +88,8 @@ export function ExportPanel() {
     exportBlocRef.startExport(numImages);
 
     try {
-      const tauri = Blac.getBloc(TauriService);
-      const adjustmentsBloc = Blac.getBloc(AdjustmentsBloc);
+      const tauri = borrow(TauriService);
+      const adjustmentsBloc = borrow(AdjustmentsBloc);
 
       if (numImages === 1 && selectedImage) {
         await tauri.exportImage(selectedImage.path, settings, adjustmentsBloc.current);

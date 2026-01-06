@@ -1,4 +1,4 @@
-import { Blac, Cubit } from '@blac/core';
+import { Cubit, borrow } from '@blac/core';
 import { SettingsBloc } from './SettingsBloc';
 
 export type ViewId = 'explore' | 'edit' | 'community';
@@ -34,7 +34,7 @@ export class AppBloc extends Cubit<AppState> {
 
   initialize = async () => {
     try {
-      const settingsBloc = Blac.getBloc(SettingsBloc);
+      const settingsBloc = borrow(SettingsBloc);
       await settingsBloc.load();
       this.patch({ isInitialized: true });
     } catch (error) {
