@@ -16,7 +16,7 @@ if (!container) {
 
 getPluginManager().install(
   new LoggingPlugin({
-    level: 'verbose',
+    level: 'warn',
   }),
 );
 

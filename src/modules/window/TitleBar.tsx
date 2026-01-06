@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, Square, X, Maximize2 } from 'lucide-react';
+import { isTauri } from '../../utils/tauriMock';
 
 interface TitleBarProps {
   title?: string;
@@ -13,6 +14,10 @@ export function TitleBar({ title = 'RapidRAW', showControls = true }: TitleBarPr
 
   useEffect(() => {
     setIsMac(navigator.platform.toLowerCase().includes('mac'));
+
+    if (!isTauri()) {
+      return;
+    }
 
     const checkMaximized = async () => {
       try {
@@ -40,6 +45,7 @@ export function TitleBar({ title = 'RapidRAW', showControls = true }: TitleBarPr
   }, []);
 
   const handleMinimize = async () => {
+    if (!isTauri()) return;
     try {
       const window = getCurrentWindow();
       await window.minimize();
@@ -49,6 +55,7 @@ export function TitleBar({ title = 'RapidRAW', showControls = true }: TitleBarPr
   };
 
   const handleMaximize = async () => {
+    if (!isTauri()) return;
     try {
       const window = getCurrentWindow();
       await window.toggleMaximize();
@@ -58,6 +65,7 @@ export function TitleBar({ title = 'RapidRAW', showControls = true }: TitleBarPr
   };
 
   const handleClose = async () => {
+    if (!isTauri()) return;
     try {
       const window = getCurrentWindow();
       await window.close();

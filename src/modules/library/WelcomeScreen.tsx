@@ -1,14 +1,18 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useBloc, useBlocActions } from '@blac/react';
 import { Folder, RefreshCw, Settings } from 'lucide-react';
-import { getVersion } from '@tauri-apps/api/app';
-import { open } from '@tauri-apps/plugin-shell';
+import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
+import { open as tauriShellOpen } from '@tauri-apps/plugin-shell';
 import { Button } from '../../primitives/Button';
 import { SettingsBloc } from '../../blocs/app/SettingsBloc';
 import { LibraryBloc } from '../../blocs/library/LibraryBloc';
 import { FolderBloc } from '../../blocs/library/FolderBloc';
 import { SettingsPanel } from '../settings/SettingsPanel';
 import { openFolderDialog } from '../../services/fileDialogs';
+import { isTauri, mockGetVersion, mockShellOpen } from '../../utils/tauriMock';
+
+const getVersion = isTauri() ? tauriGetVersion : mockGetVersion;
+const shellOpen = isTauri() ? tauriShellOpen : mockShellOpen;
 
 const SPLASH_IMAGES: Record<string, string> = {
   dark: '/splash-dark.jpg',
@@ -22,20 +26,10 @@ const SPLASH_IMAGES: Record<string, string> = {
 };
 
 export function WelcomeScreen() {
-  const renderCount = useRef(0);
-  renderCount.current++;
-  console.log(`[WelcomeScreen] render #${renderCount.current}`);
-
   const [settings, settingsBloc] = useBloc(SettingsBloc);
   const libraryBloc = useBlocActions(LibraryBloc);
   const folderBloc = useBlocActions(FolderBloc);
 
-  console.log('[WelcomeScreen] settings state:', {
-    isLoading: settings.isLoading,
-    isSaving: settings.isSaving,
-    lastRootPath: settings.settings.lastRootPath,
-    theme: settings.settings.theme,
-  });
   const [showSettings, setShowSettings] = useState(false);
 
   const [appVersion, setAppVersion] = useState('');
@@ -85,9 +79,7 @@ export function WelcomeScreen() {
   }, []);
 
   const handleOpenFolder = async () => {
-    console.log('[WelcomeScreen] handleOpenFolder called');
     const path = await openFolderDialog();
-    console.log('[WelcomeScreen] folder selected:', path);
     if (path) {
       libraryBloc.openFolder(path, true);
       folderBloc.loadTree(path);
@@ -96,7 +88,6 @@ export function WelcomeScreen() {
   };
 
   const handleContinueSession = () => {
-    console.log('[WelcomeScreen] handleContinueSession called, lastRootPath:', lastRootPath);
     if (lastRootPath) {
       libraryBloc.openFolder(lastRootPath, true);
       folderBloc.loadTree(lastRootPath);
@@ -190,7 +181,7 @@ export function WelcomeScreen() {
               rel="noopener noreferrer"
               onClick={(e) => {
                 e.preventDefault();
-                open('https://instagram.com/timonkaech.photography');
+                shellOpen('https://instagram.com/timonkaech.photography');
               }}
             >
               Timon Käch
@@ -207,7 +198,7 @@ export function WelcomeScreen() {
                   }`}
                   onClick={() => {
                     if (isUpdateAvailable) {
-                      open('https://github.com/CyberTimon/RapidRAW/releases/latest');
+                      shellOpen('https://github.com/CyberTimon/RapidRAW/releases/latest');
                     }
                   }}
                   title={
@@ -235,7 +226,7 @@ export function WelcomeScreen() {
                   rel="noopener noreferrer"
                   onClick={(e) => {
                     e.preventDefault();
-                    open('https://ko-fi.com/cybertimon');
+                    shellOpen('https://ko-fi.com/cybertimon');
                   }}
                 >
                   Donate on Ko-Fi
@@ -248,7 +239,7 @@ export function WelcomeScreen() {
                   rel="noopener noreferrer"
                   onClick={(e) => {
                     e.preventDefault();
-                    open('https://github.com/CyberTimon/RapidRAW');
+                    shellOpen('https://github.com/CyberTimon/RapidRAW');
                   }}
                 >
                   Contribute on GitHub

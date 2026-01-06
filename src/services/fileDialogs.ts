@@ -1,5 +1,6 @@
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { IMAGE_EXTENSIONS, RAW_EXTENSIONS } from '../types/library';
+import { isTauri } from '../utils/tauriMock';
 
 export interface FileDialogOptions {
   title?: string;
@@ -14,6 +15,10 @@ export interface SaveDialogOptions {
 }
 
 export async function openImageDialog(options: FileDialogOptions = {}): Promise<string | string[] | null> {
+  if (!isTauri()) {
+    console.log('[FileDialogs] Mock: openImageDialog called');
+    return null;
+  }
   try {
     const result = await open({
       multiple: options.multiple ?? false,
@@ -42,6 +47,10 @@ export async function openImageDialog(options: FileDialogOptions = {}): Promise<
 }
 
 export async function openFolderDialog(options: FileDialogOptions = {}): Promise<string | null> {
+  if (!isTauri()) {
+    console.log('[FileDialogs] Mock: openFolderDialog called');
+    return null;
+  }
   try {
     const result = await open({
       directory: true,
@@ -57,6 +66,10 @@ export async function openFolderDialog(options: FileDialogOptions = {}): Promise
 }
 
 export async function saveFileDialog(options: SaveDialogOptions = {}): Promise<string | null> {
+  if (!isTauri()) {
+    console.log('[FileDialogs] Mock: saveFileDialog called');
+    return null;
+  }
   try {
     const result = await save({
       title: options.title ?? 'Save File',
@@ -75,6 +88,10 @@ export async function saveFileDialog(options: SaveDialogOptions = {}): Promise<s
 }
 
 export async function openPresetDialog(): Promise<string | null> {
+  if (!isTauri()) {
+    console.log('[FileDialogs] Mock: openPresetDialog called');
+    return null;
+  }
   try {
     const result = await open({
       multiple: false,
@@ -94,6 +111,10 @@ export async function openPresetDialog(): Promise<string | null> {
 }
 
 export async function openLUTDialog(): Promise<string | null> {
+  if (!isTauri()) {
+    console.log('[FileDialogs] Mock: openLUTDialog called');
+    return null;
+  }
   try {
     const result = await open({
       multiple: false,
