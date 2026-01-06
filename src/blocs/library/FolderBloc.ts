@@ -1,4 +1,4 @@
-import { Cubit, borrow } from '@blac/core';
+import { Cubit, blac, borrow } from '@blac/core';
 import type { FolderNode } from '../../types/library';
 import { TauriService } from '../services/TauriService';
 
@@ -8,6 +8,9 @@ interface FolderState {
   error: string | null;
 }
 
+@blac({
+  keepAlive: true,
+})
 export class FolderBloc extends Cubit<FolderState> {
   constructor() {
     super({

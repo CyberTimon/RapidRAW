@@ -105,7 +105,7 @@ export class TauriService extends Cubit<TauriServiceState> {
     loggedInvoke<string[]>('rename_files', { paths, nameTemplate });
 
   // Folder Operations
-  getFolderTree = (rootPath: string): Promise<unknown> => loggedInvoke('get_folder_tree', { rootPath });
+  getFolderTree = (rootPath: string): Promise<unknown> => loggedInvoke('get_folder_tree', { path: rootPath });
 
   getPinnedFolderTrees = (paths: string[]): Promise<unknown[]> =>
     loggedInvoke<unknown[]>('get_pinned_folder_trees', { paths });
