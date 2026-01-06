@@ -1,8 +1,8 @@
 # Next Steps - AI Agent Context Prompt
 
-**Last Updated:** 2026-01-06 (Session 4)
-**Current Phase:** Phase 2 - Core Primitives Migration
-**Next Task:** Migrate Modal/Dialog component
+**Last Updated:** 2026-01-06 (Session 8)
+**Current Phase:** Phase 3 - Advanced Components
+**Next Task:** Evaluate Context Menu / Tooltip / Slider
 
 ---
 
@@ -43,24 +43,23 @@ You are continuing work on migrating RapidRAW's UI primitives from custom implem
 
 ## Your Task for This Session
 
-### Dropdown Migration Complete!
-- Dropdown component migrated to React Aria Select/ListBox/Popover + tailwind-variants
-- Backward compatible: `value`, `options`, `onChange`, `placeholder`, `disabled` all preserved
-- Keyboard navigation (arrows, typeahead, escape) handled by React Aria
-- Check icon for selected items
+### CollapsibleSection Migration Complete!
+- CollapsibleSection migrated to React Aria Disclosure
+- Backward compatible: all existing props preserved
+- Smooth height animation preserved
+- Keyboard activation (Space/Enter) handled by React Aria
 
-### Phase 2 Next Task: Modal/Dialog
-Migrate the Modal component to React Aria Dialog.
+### Phase 3 Remaining Tasks
+Evaluate and migrate remaining advanced components:
 
-1. Read current `src/primitives/Modal.tsx` implementation
-2. Create new implementation using React Aria `Modal`, `ModalOverlay`, `Dialog`
-3. Preserve existing API: `isOpen`, `onClose`, `title`, `size`, `isDismissable`
-4. Implement focus trap (React Aria handles this)
-5. Preserve size variants (sm, md, lg, xl, full)
-6. Add entry/exit animations
-7. Migrate ConfirmModal and InputModal variants if they exist
-8. Test with keyboard (Escape to close, Tab trapped)
-9. Update all Modal imports if needed
+1. **Context Menu** - Check if project uses context menus that need migration
+2. **Tooltip** - Check if project needs tooltips
+3. **Slider** (Phase 4) - Evaluate if custom slider should stay or use React Aria hooks
+
+For each:
+1. Search codebase for existing usage
+2. Decide: migrate to React Aria, keep custom, or skip
+3. If migrating, follow same pattern as previous components
 
 ---
 
@@ -90,12 +89,14 @@ At the end of this session:
 - [x] Update `log.md` with session summary
 - [x] Update this file (`next-steps.md`) with new context for next session
 - [x] Note any blockers or decisions made
+- [ ] Commit changes with descriptive message
 
-### Session 4 Notes
-- Dropdown migration completed using React Aria Select pattern
-- Used `w-[--trigger-width]` CSS variable for popover width matching
-- ChevronDown rotation via `[[data-open]_&]:rotate-180` parent selector
-- No changes needed to consuming components (7 files)
+### Session 8 Notes
+- CollapsibleSection migration completed using React Aria Disclosure
+- Complex component with controlled/uncontrolled modes, visibility toggle, reset button
+- Kept max-height animation using MutationObserver to watch data-expanded attribute
+- Removed internal hover state, using CSS group-hover instead
+- No changes needed to consuming components (25 usages)
 
 ---
 

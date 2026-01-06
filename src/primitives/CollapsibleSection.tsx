@@ -1,5 +1,12 @@
-import { useRef, useEffect, useState, ReactNode } from 'react';
+import { useRef, useEffect, ReactNode } from 'react';
+import {
+  Disclosure,
+  DisclosurePanel,
+  Button,
+} from 'react-aria-components';
 import { ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { tv } from 'tailwind-variants';
+import { focusRing } from './aria-utils';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -14,6 +21,29 @@ interface CollapsibleSectionProps {
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
+const headerStyles = tv({
+  base: [
+    'w-full px-4 py-3 flex items-center justify-between text-left',
+    'hover:bg-card-active cursor-pointer',
+    'rounded-t-lg',
+    focusRing,
+  ],
+});
+
+const visibilityButtonStyles = tv({
+  base: [
+    'p-1 rounded-full text-text-secondary hover:bg-bg-primary z-10',
+    'transition-opacity duration-150',
+    focusRing,
+  ],
+  variants: {
+    isVisible: {
+      true: 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto',
+      false: 'opacity-100',
+    },
+  },
+});
+
 export function CollapsibleSection({
   title,
   children,
@@ -26,14 +56,10 @@ export function CollapsibleSection({
   onReset,
   onContextMenu,
 }: CollapsibleSectionProps) {
-  const [internalIsOpen, setInternalIsOpen] = useState(defaultOpen);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const [isHovering, setIsHovering] = useState(false);
-  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isControlled = controlledIsOpen !== undefined;
-  const isOpen = isControlled ? controlledIsOpen : internalIsOpen;
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -41,7 +67,8 @@ export function CollapsibleSection({
     if (!wrapper || !content) return;
 
     const updateMaxHeight = () => {
-      if (isOpen) {
+      const isExpanded = wrapper.closest('[data-expanded="true"]') !== null;
+      if (isExpanded) {
         const contentHeight = content.scrollHeight;
         wrapper.style.maxHeight = `${contentHeight}px`;
       } else {
@@ -54,31 +81,17 @@ export function CollapsibleSection({
     const resizeObserver = new ResizeObserver(updateMaxHeight);
     resizeObserver.observe(content);
 
-    return () => resizeObserver.disconnect();
-  }, [isOpen]);
-
-  const handleToggle = () => {
-    if (isControlled) {
-      onToggle?.();
-    } else {
-      setInternalIsOpen((prev) => !prev);
+    const mutationObserver = new MutationObserver(updateMaxHeight);
+    const disclosure = wrapper.closest('[data-expanded]');
+    if (disclosure) {
+      mutationObserver.observe(disclosure, { attributes: true, attributeFilter: ['data-expanded'] });
     }
-  };
 
-  const handleMouseEnter = () => {
-    if (!canToggleVisibility) return;
-    hoverTimeoutRef.current = setTimeout(() => {
-      setIsHovering(true);
-    }, 250);
-  };
-
-  const handleMouseLeave = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-    setIsHovering(false);
-  };
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, []);
 
   const handleVisibilityClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -91,50 +104,62 @@ export function CollapsibleSection({
   };
 
   return (
-    <div className="bg-surface rounded-lg overflow-hidden flex-shrink-0" onContextMenu={onContextMenu}>
-      <div
-        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-card-active cursor-pointer"
-        onClick={handleToggle}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-normal text-text-primary text-shadow-shiny">{title}</h3>
-          {canToggleVisibility && onToggleVisibility && (
-            <div className="w-6 h-6 flex items-center justify-center">
-              <button
-                className={`
-                  p-1 rounded-full text-text-secondary hover:bg-bg-primary z-10
-                  ${isHovering || !isContentVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}
-                `}
-                onClick={handleVisibilityClick}
-                title={isContentVisible ? 'Preview disabled section' : 'Enable section'}
-              >
-                {isContentVisible ? <Eye size={16} /> : <EyeOff size={16} />}
-              </button>
-            </div>
-          )}
-          {onReset && (
-            <button
-              className="text-xs text-text-secondary hover:text-text-primary px-1"
-              onClick={handleResetClick}
-              title={`Reset ${title}`}
-            >
-              Reset
-            </button>
-          )}
-        </div>
-        <ChevronDown className={`text-accent ${isOpen ? 'rotate-180' : ''}`} size={20} />
-      </div>
-      <div ref={wrapperRef} className="overflow-hidden">
+    <Disclosure
+      isExpanded={isControlled ? controlledIsOpen : undefined}
+      defaultExpanded={!isControlled ? defaultOpen : undefined}
+      onExpandedChange={isControlled ? () => onToggle?.() : undefined}
+    >
+      {({ isExpanded }) => (
         <div
-          className={`px-4 pb-4 ${!isContentVisible ? 'opacity-30 pointer-events-none' : ''}`}
-          ref={contentRef}
+          className="bg-surface rounded-lg overflow-hidden flex-shrink-0"
+          onContextMenu={onContextMenu}
+          data-expanded={isExpanded}
         >
-          {children}
+          <Button slot="trigger" className={headerStyles()}>
+            <div className="group flex items-center gap-2">
+              <h3 className="text-lg font-normal text-text-primary text-shadow-shiny">{title}</h3>
+              {canToggleVisibility && onToggleVisibility && (
+                <div className="w-6 h-6 flex items-center justify-center">
+                  <button
+                    className={visibilityButtonStyles({ isVisible: isContentVisible })}
+                    onClick={handleVisibilityClick}
+                    title={isContentVisible ? 'Preview disabled section' : 'Enable section'}
+                  >
+                    {isContentVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+                </div>
+              )}
+              {onReset && (
+                <button
+                  className="text-xs text-text-secondary hover:text-text-primary px-1"
+                  onClick={handleResetClick}
+                  title={`Reset ${title}`}
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+            <ChevronDown
+              className={`text-accent transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+              size={20}
+            />
+          </Button>
+          <DisclosurePanel>
+            <div
+              ref={wrapperRef}
+              className="overflow-hidden transition-[max-height] duration-200 ease-in-out"
+            >
+              <div
+                className={`px-4 pb-4 ${!isContentVisible ? 'opacity-30 pointer-events-none' : ''}`}
+                ref={contentRef}
+              >
+                {children}
+              </div>
+            </div>
+          </DisclosurePanel>
         </div>
-      </div>
-    </div>
+      )}
+    </Disclosure>
   );
 }
 

@@ -1,3 +1,7 @@
+import { Switch as AriaSwitch } from 'react-aria-components';
+import { tv } from 'tailwind-variants';
+import { focusRing } from './aria-utils';
+
 interface SwitchProps {
   checked: boolean;
   label: string;
@@ -8,6 +12,39 @@ interface SwitchProps {
   tooltip?: string;
 }
 
+const switchStyles = tv({
+  base: [
+    'group flex items-center justify-between',
+    'cursor-pointer',
+  ],
+  variants: {
+    isDisabled: {
+      true: 'cursor-not-allowed opacity-50',
+    },
+  },
+});
+
+const trackStyles = tv({
+  base: [
+    'w-10 h-5 bg-bg-primary rounded-full shadow-inner',
+    'transition-colors duration-200',
+    focusRing,
+  ],
+});
+
+const thumbStyles = tv({
+  base: [
+    'absolute top-0.5 w-4 h-4 rounded-full',
+    'transition-all duration-200',
+  ],
+  variants: {
+    isSelected: {
+      true: 'bg-accent left-[22px]',
+      false: 'bg-text-secondary left-0.5',
+    },
+  },
+});
+
 export function Switch({
   checked,
   label,
@@ -17,39 +54,23 @@ export function Switch({
   trackClassName,
   tooltip,
 }: SwitchProps) {
-  const uniqueId = `switch-${label.replace(/\s+/g, '-').toLowerCase()}`;
-
   return (
-    <label
-      className={`
-        flex items-center justify-between
-        ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
-        ${className}
-      `}
-      htmlFor={uniqueId}
-      title={tooltip}
+    <AriaSwitch
+      isSelected={checked}
+      onChange={onChange}
+      isDisabled={disabled}
+      className={({ isDisabled }) => switchStyles({ isDisabled, className })}
+      {...(tooltip ? { title: tooltip } : {})}
     >
-      <span className="text-sm text-text-secondary select-none">{label}</span>
-      <div className="relative w-10 h-5">
-        <input
-          checked={checked}
-          className="sr-only"
-          disabled={disabled}
-          id={uniqueId}
-          onChange={(e) => !disabled && onChange(e.target.checked)}
-          type="checkbox"
-        />
-        <div
-          className={`w-full h-full bg-bg-primary rounded-full shadow-inner ${trackClassName || ''}`}
-        />
-        <div
-          className={`
-            absolute top-0.5 w-4 h-4 rounded-full
-            ${checked ? 'bg-accent left-[22px]' : 'bg-text-secondary left-0.5'}
-          `}
-        />
-      </div>
-    </label>
+      {({ isSelected, isFocusVisible }) => (
+        <>
+          <span className="text-sm text-text-secondary select-none">{label}</span>
+          <div className={`relative ${trackStyles()} ${trackClassName || ''}`}>
+            <div className={thumbStyles({ isSelected })} />
+          </div>
+        </>
+      )}
+    </AriaSwitch>
   );
 }
 
