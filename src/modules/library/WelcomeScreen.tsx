@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useBloc } from '@blac/react';
 import { Folder, RefreshCw, Settings } from 'lucide-react';
+import { getVersion } from '@tauri-apps/api/app';
+import { open } from '@tauri-apps/plugin-shell';
 import { Button } from '../../primitives/Button';
 import { SettingsBloc } from '../../blocs/app/SettingsBloc';
 import { LibraryBloc } from '../../blocs/library/LibraryBloc';
@@ -25,11 +27,51 @@ export function WelcomeScreen() {
   const [, folderBloc] = useBloc(FolderBloc);
   const [showSettings, setShowSettings] = useState(false);
 
+  const [appVersion, setAppVersion] = useState('');
+  const [latestVersion, setLatestVersion] = useState('');
+  const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
+
   const lastRootPath = settings.settings.lastRootPath;
   const hasLastPath = !!lastRootPath;
   const theme = settings.settings.theme || 'dark';
   const splashImage = SPLASH_IMAGES[theme] || SPLASH_IMAGES.dark;
-  debugger;
+
+  useEffect(() => {
+    const compareVersions = (v1: string, v2: string) => {
+      const parts1 = v1.split('.').map(Number);
+      const parts2 = v2.split('.').map(Number);
+      for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+        const p1 = parts1[i] || 0;
+        const p2 = parts2[i] || 0;
+        if (p1 < p2) return -1;
+        if (p1 > p2) return 1;
+      }
+      return 0;
+    };
+
+    const checkVersion = async () => {
+      try {
+        const currentVersion = await getVersion();
+        setAppVersion(currentVersion);
+
+        const response = await fetch(
+          'https://api.github.com/repos/CyberTimon/RapidRAW/releases/latest'
+        );
+        const data = await response.json();
+        const latestTag = data.tag_name;
+        const latestVersionStr = latestTag.startsWith('v') ? latestTag.substring(1) : latestTag;
+        setLatestVersion(latestVersionStr);
+
+        if (compareVersions(currentVersion, latestVersionStr) < 0) {
+          setIsUpdateAvailable(true);
+        }
+      } catch (error) {
+        console.error('Failed to check version:', error);
+      }
+    };
+
+    checkVersion();
+  }, []);
 
   const handleOpenFolder = async () => {
     const path = await openFolderDialog();
@@ -126,14 +168,82 @@ export function WelcomeScreen() {
           </div>
         </div>
 
-        <div className="absolute bottom-8 left-8 lg:left-16 right-8 lg:right-16">
-          <p className="text-xs text-text-secondary">
-            Tip: Press{' '}
-            <kbd className="px-1.5 py-0.5 bg-surface rounded text-text-primary">
-              Cmd+O
-            </kbd>{' '}
-            to quickly open a folder
+        <div className="absolute bottom-8 left-8 lg:left-16 text-xs text-text-secondary space-y-1">
+          <p>
+            Images by{' '}
+            <a
+              href="https://instagram.com/timonkaech.photography"
+              className="hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.preventDefault();
+                open('https://instagram.com/timonkaech.photography');
+              }}
+            >
+              Timon Käch
+            </a>
           </p>
+          {appVersion && (
+            <div className="flex items-center space-x-2">
+              <p>
+                <span
+                  className={`group transition-all duration-300 ease-in-out rounded-md py-1 ${
+                    isUpdateAvailable
+                      ? 'cursor-pointer border border-yellow-500 px-2 hover:bg-yellow-500/20'
+                      : ''
+                  }`}
+                  onClick={() => {
+                    if (isUpdateAvailable) {
+                      open('https://github.com/CyberTimon/RapidRAW/releases/latest');
+                    }
+                  }}
+                  title={
+                    isUpdateAvailable
+                      ? `Click to download version ${latestVersion}`
+                      : `You are on the latest version`
+                  }
+                >
+                  <span className={isUpdateAvailable ? 'group-hover:hidden' : ''}>
+                    Version {appVersion}
+                  </span>
+                  {isUpdateAvailable && (
+                    <span className="hidden group-hover:inline text-yellow-400">
+                      New version available!
+                    </span>
+                  )}
+                </span>
+              </p>
+              <span>-</span>
+              <p>
+                <a
+                  href="https://ko-fi.com/cybertimon"
+                  className="hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    open('https://ko-fi.com/cybertimon');
+                  }}
+                >
+                  Donate on Ko-Fi
+                </a>
+                <span className="mx-1">or</span>
+                <a
+                  href="https://github.com/CyberTimon/RapidRAW"
+                  className="hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    open('https://github.com/CyberTimon/RapidRAW');
+                  }}
+                >
+                  Contribute on GitHub
+                </a>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
