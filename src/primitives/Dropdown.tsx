@@ -1,5 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import {
+  Select,
+  SelectValue,
+  Button,
+  Popover,
+  ListBox,
+  ListBoxItem,
+  type Key,
+} from 'react-aria-components';
 import { Check, ChevronDown } from 'lucide-react';
+import { tv } from 'tailwind-variants';
+import { focusRing } from './aria-utils';
 
 export interface DropdownOption<T extends string = string> {
   value: T;
@@ -15,6 +25,35 @@ interface DropdownProps<T extends string = string> {
   className?: string;
 }
 
+const triggerStyles = tv({
+  base: [
+    'w-full bg-bg-primary border border-border-color rounded-md px-3 py-2',
+    'flex justify-between items-center text-left',
+    'transition-colors',
+    focusRing,
+  ],
+  variants: {
+    isDisabled: {
+      true: 'opacity-50 cursor-not-allowed',
+    },
+  },
+});
+
+const listBoxItemStyles = tv({
+  base: [
+    'w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between cursor-default',
+    'text-text-primary outline-none',
+  ],
+  variants: {
+    isFocused: {
+      true: 'bg-bg-primary',
+    },
+    isSelected: {
+      true: 'bg-bg-primary font-semibold',
+    },
+  },
+});
+
 export function Dropdown<T extends string = string>({
   value,
   options,
@@ -23,82 +62,52 @@ export function Dropdown<T extends string = string>({
   disabled = false,
   className = '',
 }: DropdownProps<T>) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const selectedOption = options.find((opt) => opt.value === value) || null;
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleSelect = (option: DropdownOption<T>) => {
-    onChange(option.value);
-    setIsOpen(false);
+  const handleSelectionChange = (key: Key | null) => {
+    if (key !== null) {
+      onChange(key as T);
+    }
   };
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
-      <button
-        aria-expanded={isOpen}
-        aria-haspopup="listbox"
-        className={`
-          w-full bg-bg-primary border border-border-color rounded-md px-3 py-2 
-          focus:ring-accent focus:border-accent focus:outline-none focus:ring-2 
-          flex justify-between items-center text-left
-          ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-        `}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        type="button"
-        disabled={disabled}
-      >
-        <span className="text-text-primary">
-          {selectedOption ? selectedOption.label : placeholder}
-        </span>
+    <Select
+      selectedKey={value}
+      onSelectionChange={handleSelectionChange}
+      isDisabled={disabled}
+      className={`relative ${className}`}
+    >
+      <Button className={({ isDisabled }) => triggerStyles({ isDisabled })}>
+        <SelectValue className="text-text-primary">
+          {({ selectedText }) => selectedText || placeholder}
+        </SelectValue>
         <ChevronDown
-          className={`text-text-secondary ${isOpen ? 'rotate-180' : ''}`}
+          className="text-text-secondary transition-transform [[data-open]_&]:rotate-180"
           size={20}
         />
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-full origin-top-right z-20">
-          <div
-            aria-orientation="vertical"
-            className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 max-h-80 overflow-y-auto"
-            role="listbox"
-          >
-            {options.map((option) => {
-              const isSelected = value === option.value;
-              return (
-                <button
-                  key={option.value}
-                  onClick={() => handleSelect(option)}
-                  className={`
-                    w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between
-                    ${
-                      isSelected
-                        ? 'bg-bg-primary text-text-primary font-semibold'
-                        : 'text-text-primary hover:bg-bg-primary'
-                    }
-                  `}
-                  role="option"
-                  aria-selected={isSelected}
-                >
-                  <span>{option.label}</span>
+      </Button>
+      <Popover
+        className="w-[--trigger-width] bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 max-h-80 overflow-y-auto"
+        offset={8}
+      >
+        <ListBox items={options.map((opt) => ({ id: opt.value, ...opt }))}>
+          {(item) => (
+            <ListBoxItem
+              id={item.value}
+              textValue={item.label}
+              className={({ isFocused, isSelected }) =>
+                listBoxItemStyles({ isFocused, isSelected })
+              }
+            >
+              {({ isSelected }) => (
+                <>
+                  <span>{item.label}</span>
                   {isSelected && <Check size={16} />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
+                </>
+              )}
+            </ListBoxItem>
+          )}
+        </ListBox>
+      </Popover>
+    </Select>
   );
 }
 

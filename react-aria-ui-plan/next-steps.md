@@ -1,8 +1,8 @@
 # Next Steps - AI Agent Context Prompt
 
-**Last Updated:** 2026-01-06 (Session 3)
+**Last Updated:** 2026-01-06 (Session 4)
 **Current Phase:** Phase 2 - Core Primitives Migration
-**Next Task:** Migrate Select/Dropdown component
+**Next Task:** Migrate Modal/Dialog component
 
 ---
 
@@ -43,23 +43,24 @@ You are continuing work on migrating RapidRAW's UI primitives from custom implem
 
 ## Your Task for This Session
 
-### Button Migration Complete!
-- Button component migrated to React Aria Components + tailwind-variants
-- Backward compatible: `onClick`, `disabled`, `title` still work
-- Pressed state via `data-[pressed]:` Tailwind selectors
-- Focus ring via `focusRing` utility
+### Dropdown Migration Complete!
+- Dropdown component migrated to React Aria Select/ListBox/Popover + tailwind-variants
+- Backward compatible: `value`, `options`, `onChange`, `placeholder`, `disabled` all preserved
+- Keyboard navigation (arrows, typeahead, escape) handled by React Aria
+- Check icon for selected items
 
-### Phase 2 Next Task: Select/Dropdown
-Migrate the Dropdown component to React Aria Select.
+### Phase 2 Next Task: Modal/Dialog
+Migrate the Modal component to React Aria Dialog.
 
-1. Read current `src/primitives/Dropdown.tsx` implementation
-2. Create new implementation using React Aria `Select`, `ListBox`, `Popover`
-3. Preserve existing API: `value`, `options`, `onChange`, `placeholder`, `disabled`
-4. Add keyboard navigation (arrows, typeahead)
-5. Add `Check` icon for selected item
-6. Export alias `Dropdown` for backward compatibility
-7. Test with keyboard navigation
-8. Update all Dropdown imports if needed
+1. Read current `src/primitives/Modal.tsx` implementation
+2. Create new implementation using React Aria `Modal`, `ModalOverlay`, `Dialog`
+3. Preserve existing API: `isOpen`, `onClose`, `title`, `size`, `isDismissable`
+4. Implement focus trap (React Aria handles this)
+5. Preserve size variants (sm, md, lg, xl, full)
+6. Add entry/exit animations
+7. Migrate ConfirmModal and InputModal variants if they exist
+8. Test with keyboard (Escape to close, Tab trapped)
+9. Update all Modal imports if needed
 
 ---
 
@@ -90,10 +91,11 @@ At the end of this session:
 - [x] Update this file (`next-steps.md`) with new context for next session
 - [x] Note any blockers or decisions made
 
-### Session 3 Notes
-- `tailwindcss-react-aria-components` plugin requires Tailwind v4, project uses v3.4
-- Using `data-[pressed]:` selectors instead (works with any Tailwind version)
-- Button migration was seamless, no breaking changes to existing usage
+### Session 4 Notes
+- Dropdown migration completed using React Aria Select pattern
+- Used `w-[--trigger-width]` CSS variable for popover width matching
+- ChevronDown rotation via `[[data-open]_&]:rotate-180` parent selector
+- No changes needed to consuming components (7 files)
 
 ---
 

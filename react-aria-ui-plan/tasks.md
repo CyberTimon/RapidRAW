@@ -46,17 +46,17 @@
 - [x] Delete old Button implementation (replaced in place)
 
 ### 2.2 Select/Dropdown Component
-- [ ] Create new `Select.tsx` using React Aria
-- [ ] Implement `ListBox` with options
-- [ ] Implement `Popover` for dropdown menu
-- [ ] Add keyboard navigation (arrows, typeahead)
-- [ ] Add `Check` icon for selected item
-- [ ] Preserve existing API (`value`, `options`, `onChange`)
-- [ ] Export alias `Dropdown` for backward compatibility
+- [x] Create new `Select.tsx` using React Aria
+- [x] Implement `ListBox` with options
+- [x] Implement `Popover` for dropdown menu
+- [x] Add keyboard navigation (arrows, typeahead) - React Aria handles this
+- [x] Add `Check` icon for selected item
+- [x] Preserve existing API (`value`, `options`, `onChange`)
+- [x] Export alias `Dropdown` for backward compatibility (kept same name)
 - [ ] Test with screen reader (VoiceOver)
 - [ ] Test keyboard-only navigation
-- [ ] Update all Dropdown imports across codebase
-- [ ] Delete old Dropdown implementation
+- [x] Update all Dropdown imports across codebase (no changes needed - API preserved)
+- [x] Delete old Dropdown implementation (replaced in place)
 
 ### 2.3 Modal/Dialog Component
 - [ ] Create new `Modal.tsx` using React Aria
@@ -209,11 +209,11 @@
 | Phase | Status | Completion |
 |-------|--------|------------|
 | Phase 1: Foundation | Complete | 90% |
-| Phase 2: Core Primitives | In Progress | 20% |
+| Phase 2: Core Primitives | In Progress | 40% |
 | Phase 3: Advanced Components | Not Started | 0% |
 | Phase 4: Specialized | Not Started | 0% |
 | Phase 5: Cleanup | Not Started | 0% |
-| **Overall** | **In Progress** | **25%** |
+| **Overall** | **In Progress** | **30%** |
 
 ---
 
@@ -226,3 +226,4 @@ _Updated after each work session_
 | 2026-01-06 | Session 1 | Planning complete | Created migration plan and task list |
 | 2026-01-06 | Session 2 | Phase 1 foundation | Dependencies installed, Vite configured, aria-utils.ts created |
 | 2026-01-06 | Session 3 | Button migration | Migrated Button to React Aria + tailwind-variants |
+| 2026-01-06 | Session 4 | Dropdown migration | Migrated Dropdown to React Aria Select |
