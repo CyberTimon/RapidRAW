@@ -24,8 +24,7 @@
     "@tauri-apps/plugin-os": "^2.3.2",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-shell": "^2.3.3",
-    "@uiw/color-convert": "^2.9.2",
-    "@uiw/react-color-wheel": "^2.9.2",
+
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.26",
     "konva": "^10.0.12",

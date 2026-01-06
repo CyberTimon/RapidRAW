@@ -129,6 +129,9 @@ export function Slider({
   const stepStr = String(step);
   const decimalPlaces = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;
   const numericValue = isNaN(Number(value)) ? 0 : Number(value);
+  const displayValue = decimalPlaces > 0 && numericValue === 0 ? '0' : numericValue.toFixed(decimalPlaces);
+  const labelText = typeof label === 'string' ? label : undefined;
+  const ariaValueText = labelText ? `${labelText}: ${displayValue}` : displayValue;
 
   return (
     <div className={`mb-2 group ${disabled ? 'opacity-50 pointer-events-none' : ''}`} ref={containerRef}>
@@ -186,12 +189,14 @@ export function Slider({
               onDoubleClick={handleReset}
               title={`Click to edit, double-click to reset to ${defaultValue}`}
             >
-              {decimalPlaces > 0 && numericValue === 0 ? '0' : numericValue.toFixed(decimalPlaces)}
+              {displayValue}
             </span>
           )}
         </div>
       </div>
       <input
+        aria-label={labelText}
+        aria-valuetext={ariaValueText}
         className={`w-full h-1.5 ${trackClassName || 'bg-card-active'} rounded-full appearance-none cursor-pointer slider-input ${isDragging ? 'slider-thumb-active' : ''}`}
         max={String(max)}
         min={String(min)}
