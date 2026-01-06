@@ -40,6 +40,7 @@
     "react-virtualized-auto-sizer": "^1.0.26",
     "react-window": "^1.8.11",
     "react-zoom-pan-pinch": "^3.7.0",
+    "tailwind-merge": "^3.4.0",
     "tailwind-variants": "^3.2.2",
     "uuid": "^13.0.0"
   },
