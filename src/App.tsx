@@ -2,13 +2,16 @@ import { useBloc } from '@blac/react';
 import { useEffect } from 'react';
 import { AppBloc } from './blocs/app/AppBloc';
 import { KeyboardService } from './blocs/services/KeyboardService';
+import { TauriService } from './blocs/services/TauriService';
 import { ExploreView } from './views/ExploreView/ExploreView';
 import { EditView } from './views/EditView/EditView';
 import { CommunityView } from './views/CommunityView/CommunityView';
 import { ContextMenuProvider } from './context/ContextMenuContext';
 import { TitleBar } from './modules/window/TitleBar';
+
 import { ModalRenderer } from './modules/modals/ModalRenderer';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
+import { useTauriEvents } from './hooks/useTauriEvents';
 
 function AppContent() {
   const [appState, appBloc] = useBloc(AppBloc);
@@ -49,11 +52,18 @@ function AppContent() {
 
 export default function App() {
   const [, keyboardService] = useBloc(KeyboardService);
+  const [, tauriService] = useBloc(TauriService);
+
+  useTauriEvents();
 
   useEffect(() => {
     keyboardService.initialize();
     return () => keyboardService.cleanup();
   }, [keyboardService]);
+
+  useEffect(() => {
+    return () => tauriService.cleanup();
+  }, [tauriService]);
 
   return (
     <ContextMenuProvider>

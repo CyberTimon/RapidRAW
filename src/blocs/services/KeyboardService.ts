@@ -51,7 +51,8 @@ function createShortcutId(key: string, modifiers: ModifierKey[] = []): string {
 }
 
 export class KeyboardService extends Cubit<KeyboardServiceState> {
-  private boundHandler: ((e: KeyboardEvent) => void) | null = null;
+  private boundKeyDownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private boundKeyUpHandler: ((e: KeyboardEvent) => void) | null = null;
 
   constructor() {
     super({
@@ -62,17 +63,22 @@ export class KeyboardService extends Cubit<KeyboardServiceState> {
   }
 
   initialize = () => {
-    if (this.boundHandler) return;
+    if (this.boundKeyDownHandler) return;
 
-    this.boundHandler = this.handleKeyDown.bind(this);
-    window.addEventListener('keydown', this.boundHandler);
-    window.addEventListener('keyup', this.handleKeyUp.bind(this));
+    this.boundKeyDownHandler = this.handleKeyDown.bind(this);
+    this.boundKeyUpHandler = this.handleKeyUp.bind(this);
+    window.addEventListener('keydown', this.boundKeyDownHandler);
+    window.addEventListener('keyup', this.boundKeyUpHandler);
   };
 
   cleanup = () => {
-    if (this.boundHandler) {
-      window.removeEventListener('keydown', this.boundHandler);
-      this.boundHandler = null;
+    if (this.boundKeyDownHandler) {
+      window.removeEventListener('keydown', this.boundKeyDownHandler);
+      this.boundKeyDownHandler = null;
+    }
+    if (this.boundKeyUpHandler) {
+      window.removeEventListener('keyup', this.boundKeyUpHandler);
+      this.boundKeyUpHandler = null;
     }
   };
 

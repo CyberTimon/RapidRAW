@@ -14,17 +14,19 @@ export class RatingsBloc extends Cubit<RatingsState> {
     });
   }
 
-  setRating = (path: string, rating: number) => {
+  setRating = (path: string, rating: number, persist = false) => {
     const clampedRating = Math.max(0, Math.min(5, rating));
     this.emit({
       ...this.state,
       ratings: { ...this.state.ratings, [path]: clampedRating },
     });
 
-    const tauri = borrow(TauriService);
-    tauri.setRating(path, clampedRating).catch((error) => {
-      console.error('Failed to persist rating:', error);
-    });
+    if (persist) {
+      const tauri = borrow(TauriService);
+      tauri.saveMetadataAndUpdateThumbnail(path, { rating: clampedRating } as never).catch((error) => {
+        console.error('Failed to persist rating:', error);
+      });
+    }
   };
 
   getRating = (path: string): number => {
@@ -49,16 +51,18 @@ export class RatingsBloc extends Cubit<RatingsState> {
     this.setRating(path, 0);
   };
 
-  setColorLabel = (path: string, color: string) => {
+  setColorLabel = (path: string, color: string, persist = false) => {
     this.emit({
       ...this.state,
       colorLabels: { ...this.state.colorLabels, [path]: color },
     });
 
-    const tauri = borrow(TauriService);
-    tauri.setColorLabel(path, color).catch((error) => {
-      console.error('Failed to persist color label:', error);
-    });
+    if (persist) {
+      const tauri = borrow(TauriService);
+      tauri.setColorLabelForPaths([path], color).catch((error: unknown) => {
+        console.error('Failed to persist color label:', error);
+      });
+    }
   };
 
   getColorLabel = (path: string): string | undefined => {

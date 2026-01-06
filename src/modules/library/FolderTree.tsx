@@ -13,13 +13,7 @@ interface FolderNodeItemProps {
   onToggle: (path: string) => void;
 }
 
-function FolderNodeItem({
-  node,
-  currentPath,
-  depth,
-  onSelect,
-  onToggle,
-}: FolderNodeItemProps) {
+function FolderNodeItem({ node, currentPath, depth, onSelect, onToggle }: FolderNodeItemProps) {
   const isSelected = node.path === currentPath;
   const hasChildren = node.children.length > 0;
 
@@ -28,10 +22,7 @@ function FolderNodeItem({
       <button
         className={`
           w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md transition-colors
-          ${isSelected
-            ? 'bg-accent/20 text-accent'
-            : 'text-text-primary hover:bg-surface'
-          }
+          ${isSelected ? 'bg-accent/20 text-accent' : 'text-text-primary hover:bg-surface'}
         `}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
         onClick={() => onSelect(node.path)}
@@ -45,28 +36,19 @@ function FolderNodeItem({
             }}
           >
             <svg
-              className={`w-3 h-3 text-text-secondary transition-transform ${
-                node.isExpanded ? 'rotate-90' : ''
-              }`}
+              className={`w-3 h-3 text-text-secondary transition-transform ${node.isExpanded ? 'rotate-90' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
         )}
         {!hasChildren && <span className="w-4" />}
 
         <svg
-          className={`w-4 h-4 flex-shrink-0 ${
-            isSelected ? 'text-accent' : 'text-text-secondary'
-          }`}
+          className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-accent' : 'text-text-secondary'}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -105,6 +87,7 @@ function FolderNodeItem({
 }
 
 export function FolderTree() {
+  console.log('Rendering FolderTree');
   const [folder, folderBloc] = useBloc(FolderBloc);
   const [library, libraryBloc] = useBloc(LibraryBloc);
   const [, settingsBloc] = useBloc(SettingsBloc);
@@ -137,12 +120,7 @@ export function FolderTree() {
   if (folder.error) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-4 text-center">
-        <svg
-          className="w-12 h-12 text-red-500 mb-3"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-12 h-12 text-red-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -162,12 +140,7 @@ export function FolderTree() {
           className="flex flex-col items-center gap-3 p-6 rounded-lg hover:bg-surface transition-colors"
           onClick={handleOpenFolder}
         >
-          <svg
-            className="w-12 h-12 text-text-secondary"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-12 h-12 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -184,27 +157,15 @@ export function FolderTree() {
   return (
     <div className="h-full flex flex-col bg-bg-secondary">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-color">
-        <span className="text-xs font-medium text-text-secondary uppercase tracking-wide">
-          Folders
-        </span>
+        <span className="text-xs font-medium text-text-secondary uppercase tracking-wide">Folders</span>
         <div className="flex items-center gap-1">
           <button
             className="p-1 rounded hover:bg-surface transition-colors"
             onClick={() => folderBloc.collapseAll()}
             title="Collapse All"
           >
-            <svg
-              className="w-4 h-4 text-text-secondary"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M20 12H4"
-              />
+            <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
             </svg>
           </button>
           <button
@@ -212,18 +173,8 @@ export function FolderTree() {
             onClick={handleOpenFolder}
             title="Open Folder"
           >
-            <svg
-              className="w-4 h-4 text-text-secondary"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-              />
+            <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
           </button>
         </div>

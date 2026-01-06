@@ -4,3 +4,4 @@ export { useContextMenuTrigger } from './useContextMenuTrigger';
 export { useImageRenderSize } from './useImageRenderSize';
 export { useDragAndDrop } from './useDragAndDrop';
 export { useGlobalShortcuts } from './useGlobalShortcuts';
+export { useTauriEvents } from './useTauriEvents';
