@@ -1,6 +1,7 @@
 import { useBloc } from '@blac/react';
 import { AdjustmentsBloc } from '../../blocs/editor/AdjustmentsBloc.js';
 import { Slider } from '../../primitives/Slider.js';
+import { usePreviewRequest } from '../../hooks/usePreviewRequest.js';
 
 interface SectionProps {
   title: string;
@@ -32,6 +33,7 @@ export function EffectsControls() {
   const [state, bloc] = useBloc(AdjustmentsBloc);
   const { adjustments } = state;
   const { vignette, grain } = adjustments;
+  const { requestPreview } = usePreviewRequest();
 
   const handleResetVignette = () => {
     bloc.setVignette({
@@ -40,6 +42,7 @@ export function EffectsControls() {
       roundness: 0,
       feather: 50,
     });
+    requestPreview();
   };
 
   const handleResetGrain = () => {
@@ -48,6 +51,7 @@ export function EffectsControls() {
       size: 25,
       roughness: 50,
     });
+    requestPreview();
   };
 
   return (
@@ -60,6 +64,7 @@ export function EffectsControls() {
           max={100}
           step={1}
           onChange={(value) => bloc.setVignette({ amount: value })}
+          onChangeEnd={requestPreview}
         />
         <Slider
           label="Midpoint"
@@ -68,6 +73,7 @@ export function EffectsControls() {
           max={100}
           step={1}
           onChange={(value) => bloc.setVignette({ midpoint: value })}
+          onChangeEnd={requestPreview}
         />
         <Slider
           label="Roundness"
@@ -76,6 +82,7 @@ export function EffectsControls() {
           max={100}
           step={1}
           onChange={(value) => bloc.setVignette({ roundness: value })}
+          onChangeEnd={requestPreview}
         />
         <Slider
           label="Feather"
@@ -84,6 +91,7 @@ export function EffectsControls() {
           max={100}
           step={1}
           onChange={(value) => bloc.setVignette({ feather: value })}
+          onChangeEnd={requestPreview}
         />
       </Section>
 
@@ -95,6 +103,7 @@ export function EffectsControls() {
           max={100}
           step={1}
           onChange={(value) => bloc.setGrain({ amount: value })}
+          onChangeEnd={requestPreview}
         />
         <Slider
           label="Size"
@@ -103,6 +112,7 @@ export function EffectsControls() {
           max={100}
           step={1}
           onChange={(value) => bloc.setGrain({ size: value })}
+          onChangeEnd={requestPreview}
         />
         <Slider
           label="Roughness"
@@ -111,6 +121,7 @@ export function EffectsControls() {
           max={100}
           step={1}
           onChange={(value) => bloc.setGrain({ roughness: value })}
+          onChangeEnd={requestPreview}
         />
       </Section>
     </div>

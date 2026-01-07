@@ -28,11 +28,20 @@ function FolderNodeItem({ node, currentPath, depth, onSelect, onToggle }: Folder
         onClick={() => onSelect(node.path)}
       >
         {hasChildren && (
-          <button
+          <span
+            role="button"
+            tabIndex={0}
             className="p-0.5 hover:bg-surface/50 rounded"
             onClick={(e) => {
               e.stopPropagation();
               onToggle(node.path);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggle(node.path);
+              }
             }}
           >
             <svg
@@ -43,7 +52,7 @@ function FolderNodeItem({ node, currentPath, depth, onSelect, onToggle }: Folder
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-          </button>
+          </span>
         )}
         {!hasChildren && <span className="w-4" />}
 

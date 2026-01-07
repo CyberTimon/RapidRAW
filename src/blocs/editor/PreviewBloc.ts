@@ -25,6 +25,8 @@ function revokeBlobUrl(url: string | null): void {
 export class PreviewBloc extends Cubit<PreviewState> {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private debounceMs = 100;
+  private abortController: AbortController | null = null;
+  private requestId = 0;
 
   constructor() {
     super({
@@ -67,7 +69,24 @@ export class PreviewBloc extends Cubit<PreviewState> {
     }
   };
 
+  cancelPending = () => {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+    this.requestId++;
+  };
+
   private generatePreview = async () => {
+    this.cancelPending();
+
+    const currentRequestId = ++this.requestId;
+    this.abortController = new AbortController();
+
     this.patch({ isGenerating: true, error: null });
 
     try {
@@ -77,11 +96,18 @@ export class PreviewBloc extends Cubit<PreviewState> {
 
       await tauri.applyAdjustments(adjustmentsBloc.current);
 
+      if (currentRequestId !== this.requestId) {
+        return;
+      }
+
       this.patch({
         isGenerating: false,
         lastRenderTime: Date.now() - startTime,
       });
     } catch (error) {
+      if (currentRequestId !== this.requestId) {
+        return;
+      }
       this.patch({
         isGenerating: false,
         error: `Preview generation failed: ${error}`,

@@ -1,7 +1,10 @@
-import { Cubit, borrow } from '@blac/core';
+import { Cubit, borrow, borrowSafe } from '@blac/core';
 import type { SelectedImage, LoadImageResult } from '../../types/editor.js';
 import type { ExifData } from '../../types/library.js';
 import { TauriService } from '../services/TauriService';
+import { SelectionBloc } from '../library/SelectionBloc';
+import { AdjustmentsBloc } from './AdjustmentsBloc';
+import { PreviewBloc } from './PreviewBloc';
 
 interface EditorState {
   selectedImage: SelectedImage | null;
@@ -23,6 +26,36 @@ export class EditorBloc extends Cubit<EditorState> {
       splitPosition: 50,
     });
   }
+
+  get activeImagePath(): string | null {
+    const selectionResult = borrowSafe(SelectionBloc);
+    if (selectionResult.error) return null;
+    return selectionResult.instance.state.activePath;
+  }
+
+  get needsSync(): boolean {
+    const activePath = this.activeImagePath;
+    return activePath !== null && activePath !== this.state.selectedImage?.path;
+  }
+
+  loadFromSelection = () => {
+    const activePath = this.activeImagePath;
+    if (!activePath || activePath === this.state.selectedImage?.path) {
+      return;
+    }
+
+    const adjustmentsResult = borrowSafe(AdjustmentsBloc);
+    const previewResult = borrowSafe(PreviewBloc);
+
+    if (!adjustmentsResult.error) {
+      adjustmentsResult.instance.resetAll();
+    }
+    if (!previewResult.error) {
+      previewResult.instance.clearPreview();
+    }
+
+    this.loadImage(activePath);
+  };
 
   loadImage = async (path: string) => {
     this.patch({ isLoading: true, error: null });

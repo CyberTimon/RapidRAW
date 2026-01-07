@@ -120,23 +120,39 @@ export function CollapsibleSection({
               <h3 className="text-lg font-normal text-text-primary text-shadow-shiny">{title}</h3>
               {canToggleVisibility && onToggleVisibility && (
                 <div className="w-6 h-6 flex items-center justify-center">
-                  <button
+                  <span
+                    role="button"
+                    tabIndex={0}
                     className={visibilityButtonStyles({ isVisible: isContentVisible })}
                     onClick={handleVisibilityClick}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleVisibilityClick(e as unknown as React.MouseEvent);
+                      }
+                    }}
                     title={isContentVisible ? 'Preview disabled section' : 'Enable section'}
                   >
                     {isContentVisible ? <Eye size={16} /> : <EyeOff size={16} />}
-                  </button>
+                  </span>
                 </div>
               )}
               {onReset && (
-                <button
-                  className="text-xs text-text-secondary hover:text-text-primary px-1"
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className="text-xs text-text-secondary hover:text-text-primary px-1 cursor-pointer"
                   onClick={handleResetClick}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleResetClick(e as unknown as React.MouseEvent);
+                    }
+                  }}
                   title={`Reset ${title}`}
                 >
                   Reset
-                </button>
+                </span>
               )}
             </div>
             <ChevronDown

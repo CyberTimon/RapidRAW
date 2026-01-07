@@ -10,6 +10,7 @@ interface SliderProps {
   disabled?: boolean;
   trackClassName?: string;
   onChange: (value: number) => void;
+  onChangeEnd?: (value: number) => void;
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
@@ -23,6 +24,7 @@ export function Slider({
   disabled = false,
   trackClassName,
   onChange,
+  onChangeEnd,
   onDragStateChange,
 }: SliderProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -40,6 +42,8 @@ export function Slider({
     const sliderElement = containerRef.current;
     if (!sliderElement) return;
 
+    let wheelEndTimer: ReturnType<typeof setTimeout> | null = null;
+
     const handleWheel = (event: WheelEvent) => {
       if (!event.shiftKey) return;
 
@@ -53,12 +57,20 @@ export function Slider({
 
       if (clampedValue !== value && !isNaN(clampedValue)) {
         onChange(clampedValue);
+
+        if (wheelEndTimer) clearTimeout(wheelEndTimer);
+        wheelEndTimer = setTimeout(() => {
+          onChangeEnd?.(clampedValue);
+        }, 150);
       }
     };
 
     sliderElement.addEventListener('wheel', handleWheel, { passive: false });
-    return () => sliderElement.removeEventListener('wheel', handleWheel);
-  }, [value, min, max, step, onChange]);
+    return () => {
+      sliderElement.removeEventListener('wheel', handleWheel);
+      if (wheelEndTimer) clearTimeout(wheelEndTimer);
+    };
+  }, [value, min, max, step, onChange, onChangeEnd]);
 
   useEffect(() => {
     const handleDragEndGlobal = () => setIsDragging(false);
@@ -89,6 +101,7 @@ export function Slider({
 
   const handleReset = () => {
     onChange(defaultValue);
+    onChangeEnd?.(defaultValue);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,7 +109,10 @@ export function Slider({
   };
 
   const handleDragStart = () => setIsDragging(true);
-  const handleDragEnd = () => setIsDragging(false);
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    onChangeEnd?.(value);
+  };
 
   const handleValueClick = () => setIsEditing(true);
 
@@ -112,6 +128,7 @@ export function Slider({
       newValue = Math.max(min, Math.min(max, newValue));
     }
     onChange(newValue);
+    onChangeEnd?.(newValue);
     setIsEditing(false);
   };
 
