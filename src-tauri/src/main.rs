@@ -222,8 +222,9 @@ fn apply_all_transformations(
     (cropped_image, unscaled_crop_offset)
 }
 
-fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
+fn calculate_transform_hash(adjustments: &serde_json::Value, preview_resolution: u32) -> u64 {
     let mut hasher = DefaultHasher::new();
+    preview_resolution.hash(&mut hasher);
 
     let orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0);
     orientation_steps.hash(&mut hasher);
@@ -307,7 +308,7 @@ fn calculate_full_job_hash(path: &str, adjustments: &serde_json::Value) -> u64 {
 fn generate_transformed_preview(
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
-    app_handle: &tauri::AppHandle,
+    preview_resolution: u32,
 ) -> Result<(DynamicImage, f32, (f32, f32)), String> {
     let patched_original_image = composite_patches_on_image(&loaded_image.image, adjustments)
         .map_err(|e| format!("Failed to composite AI patches: {}", e))?;
@@ -315,8 +316,7 @@ fn generate_transformed_preview(
     let (transformed_full_res, unscaled_crop_offset) =
         apply_all_transformations(&patched_original_image, adjustments);
 
-    let settings = load_settings(app_handle.clone()).unwrap_or_default();
-    let final_preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
+    let final_preview_dim = preview_resolution;
 
     let (full_res_w, full_res_h) = transformed_full_res.dimensions();
 
@@ -527,9 +527,10 @@ fn apply_watermark(
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 fn apply_adjustments(
     js_adjustments: serde_json::Value,
+    viewport_width: Option<u32>,
     state: tauri::State<AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
@@ -541,7 +542,20 @@ fn apply_adjustments(
         .unwrap()
         .clone()
         .ok_or("No original image loaded")?;
-    let new_transform_hash = calculate_transform_hash(&adjustments_clone);
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let max_resolution = settings.editor_preview_resolution.unwrap_or(1920);
+    let dpr = 2u32;
+    let preview_resolution = viewport_width
+        .map(|w| (w * dpr).min(max_resolution))
+        .unwrap_or(max_resolution);
+    log::info!(
+        "apply_adjustments: preview_resolution={} (viewport={:?}, max={}, dpr={})",
+        preview_resolution,
+        viewport_width,
+        max_resolution,
+        dpr
+    );
+    let new_transform_hash = calculate_transform_hash(&adjustments_clone, preview_resolution);
 
     let mut cached_preview_lock = state.cached_preview.lock().unwrap();
 
@@ -556,7 +570,7 @@ fn apply_adjustments(
             } else {
                 *state.gpu_image_cache.lock().unwrap() = None;
                 let (base, scale, offset) =
-                    generate_transformed_preview(&loaded_image, &adjustments_clone, &app_handle)?;
+                    generate_transformed_preview(&loaded_image, &adjustments_clone, preview_resolution)?;
                 *cached_preview_lock = Some(CachedPreview {
                     image: base.clone(),
                     transform_hash: new_transform_hash,
@@ -568,7 +582,7 @@ fn apply_adjustments(
         } else {
             *state.gpu_image_cache.lock().unwrap() = None;
             let (base, scale, offset) =
-                generate_transformed_preview(&loaded_image, &adjustments_clone, &app_handle)?;
+                generate_transformed_preview(&loaded_image, &adjustments_clone, preview_resolution)?;
             *cached_preview_lock = Some(CachedPreview {
                 image: base.clone(),
                 transform_hash: new_transform_hash,
@@ -1319,8 +1333,9 @@ async fn estimate_export_size(
         .clone()
         .ok_or("No original image loaded")?;
     let is_raw = loaded_image.is_raw;
-
-    let new_transform_hash = calculate_transform_hash(&js_adjustments);
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let preview_resolution = settings.editor_preview_resolution.unwrap_or(1920);
+    let new_transform_hash = calculate_transform_hash(&js_adjustments, preview_resolution);
     let cached_preview_lock = state.cached_preview.lock().unwrap();
 
     let (preview_image, scale, unscaled_crop_offset) = if let Some(cached) = &*cached_preview_lock {
@@ -1333,13 +1348,13 @@ async fn estimate_export_size(
         } else {
             drop(cached_preview_lock);
             let (base, scale, offset) =
-                generate_transformed_preview(&loaded_image, &js_adjustments, &app_handle)?;
+                generate_transformed_preview(&loaded_image, &js_adjustments, preview_resolution)?;
             (base, scale, offset)
         }
     } else {
         drop(cached_preview_lock);
         let (base, scale, offset) =
-            generate_transformed_preview(&loaded_image, &js_adjustments, &app_handle)?;
+            generate_transformed_preview(&loaded_image, &js_adjustments, preview_resolution)?;
         (base, scale, offset)
     };
 

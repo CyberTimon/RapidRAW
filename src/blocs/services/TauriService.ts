@@ -81,8 +81,8 @@ export class TauriService extends Cubit<TauriServiceState> {
   // Image Operations
   loadImage = (path: string): Promise<LoadImageResult> => loggedInvoke<LoadImageResult>('load_image', { path });
 
-  applyAdjustments = (adjustments: Adjustments): Promise<void> =>
-    loggedInvoke('apply_adjustments', { jsAdjustments: adjustments });
+  applyAdjustments = (adjustments: Adjustments, viewportWidth: number): Promise<void> =>
+    loggedInvoke('apply_adjustments', { jsAdjustments: adjustments, viewportWidth });
 
   generateFullscreenPreview = (adjustments: Adjustments): Promise<Uint8Array> =>
     loggedInvoke<Uint8Array>('generate_fullscreen_preview', { jsAdjustments: adjustments });

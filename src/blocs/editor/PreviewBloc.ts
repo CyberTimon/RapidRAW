@@ -15,6 +15,8 @@ interface PreviewState {
   renderQuality: 'preview' | 'full';
   lastRenderTime: number | null;
   error: string | null;
+  viewportWidth: number | null;
+  isViewportReady: boolean;
 }
 
 function revokeBlobUrl(url: string | null): void {
@@ -40,6 +42,8 @@ export class PreviewBloc extends Cubit<PreviewState> {
       renderQuality: 'preview',
       lastRenderTime: null,
       error: null,
+      viewportWidth: null,
+      isViewportReady: false,
     });
 
     globalRegistry.on('stateChanged', (container) => {
@@ -89,11 +93,28 @@ export class PreviewBloc extends Cubit<PreviewState> {
     this.patch({ originalUrl: url });
   };
 
+  setViewportWidth = (width: number) => {
+    const wasReady = this.state.isViewportReady;
+    this.patch({ viewportWidth: width, isViewportReady: true });
+    if (!wasReady) {
+      this.schedulePreview();
+    }
+  };
+
   requestPreview = () => {
     this.schedulePreview();
   };
 
   private generatePreview = async () => {
+    if (!this.state.isViewportReady || this.state.viewportWidth === null) {
+      return;
+    }
+
+    const editorResult = borrowSafe(EditorBloc);
+    if (editorResult.error || !editorResult.instance.state.selectedImage) {
+      return;
+    }
+
     this.patch({ isGenerating: true, error: null });
 
     try {
@@ -105,7 +126,7 @@ export class PreviewBloc extends Cubit<PreviewState> {
         this.previewResolver = resolve;
       });
 
-      await tauri.applyAdjustments(adjustmentsBloc.current);
+      await tauri.applyAdjustments(adjustmentsBloc.current, this.state.viewportWidth);
       await previewPromise;
 
       this.patch({
@@ -163,6 +184,8 @@ export class PreviewBloc extends Cubit<PreviewState> {
       renderQuality: 'preview',
       lastRenderTime: null,
       error: null,
+      viewportWidth: this.state.viewportWidth,
+      isViewportReady: this.state.isViewportReady,
     });
   };
 

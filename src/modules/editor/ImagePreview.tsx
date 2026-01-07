@@ -7,7 +7,7 @@ import { ZoomBloc } from '../../blocs/editor/ZoomBloc.js';
 export function ImagePreview() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [editor, editorBloc] = useBloc(EditorBloc);
-  const [preview] = useBloc(PreviewBloc);
+  const [preview, previewBloc] = useBloc(PreviewBloc);
   const [zoom, zoomBloc] = useBloc(ZoomBloc);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -30,6 +30,23 @@ export function ImagePreview() {
     zoomBloc.setFitScale(rect.width, rect.height, width, height);
     zoomBloc.zoomToFit();
   }, [editor.selectedImage, zoomBloc]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateViewportWidth = () => {
+      const rect = container.getBoundingClientRect();
+      previewBloc.setViewportWidth(Math.ceil(rect.width));
+    };
+
+    updateViewportWidth();
+
+    const resizeObserver = new ResizeObserver(updateViewportWidth);
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
+  }, [previewBloc]);
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
