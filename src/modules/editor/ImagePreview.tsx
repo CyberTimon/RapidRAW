@@ -7,7 +7,7 @@ import { ZoomBloc } from '../../blocs/editor/ZoomBloc.js';
 export function ImagePreview() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [editor, editorBloc] = useBloc(EditorBloc);
-  const [preview, previewBloc] = useBloc(PreviewBloc);
+  const [preview] = useBloc(PreviewBloc);
   const [zoom, zoomBloc] = useBloc(ZoomBloc);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -18,12 +18,6 @@ export function ImagePreview() {
       editorBloc.loadFromSelection();
     }
   }, [editorBloc, editorBloc.needsSync]);
-
-  useEffect(() => {
-    if (editor.selectedImage && !preview.previewUrl && !preview.isGenerating) {
-      previewBloc.requestPreview(true);
-    }
-  }, [editor.selectedImage, preview.previewUrl, preview.isGenerating, previewBloc]);
 
   useEffect(() => {
     const container = containerRef.current;

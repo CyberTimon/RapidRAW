@@ -1,7 +1,6 @@
 import { useBloc } from '@blac/react';
 import { AdjustmentsBloc } from '../../blocs/editor/AdjustmentsBloc.js';
 import { Slider } from '../../primitives/Slider.js';
-import { usePreviewRequest } from '../../hooks/usePreviewRequest.js';
 
 interface SectionProps {
   title: string;
@@ -32,18 +31,15 @@ function Section({ title, children, onReset }: SectionProps) {
 export function ColorControls() {
   const [state, bloc] = useBloc(AdjustmentsBloc);
   const { adjustments } = state;
-  const { requestPreview } = usePreviewRequest();
 
   const handleResetWhiteBalance = () => {
     bloc.setTemperature(0);
     bloc.setTint(0);
-    requestPreview();
   };
 
   const handleResetPresence = () => {
     bloc.setVibrance(0);
     bloc.setSaturation(0);
-    requestPreview();
   };
 
   return (
@@ -56,7 +52,6 @@ export function ColorControls() {
           max={100}
           step={1}
           onChange={bloc.setTemperature}
-          onChangeEnd={requestPreview}
         />
         <Slider
           label="Tint"
@@ -65,7 +60,6 @@ export function ColorControls() {
           max={100}
           step={1}
           onChange={bloc.setTint}
-          onChangeEnd={requestPreview}
         />
       </Section>
 
@@ -77,7 +71,6 @@ export function ColorControls() {
           max={100}
           step={1}
           onChange={bloc.setVibrance}
-          onChangeEnd={requestPreview}
         />
         <Slider
           label="Saturation"
@@ -86,7 +79,6 @@ export function ColorControls() {
           max={100}
           step={1}
           onChange={bloc.setSaturation}
-          onChangeEnd={requestPreview}
         />
       </Section>
     </div>

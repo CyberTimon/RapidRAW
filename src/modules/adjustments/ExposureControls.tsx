@@ -1,7 +1,6 @@
 import { useBloc } from '@blac/react';
 import { AdjustmentsBloc } from '../../blocs/editor/AdjustmentsBloc.js';
 import { Slider } from '../../primitives/Slider.js';
-import { usePreviewRequest } from '../../hooks/usePreviewRequest.js';
 import type { ToneMapper } from '../../types/adjustments.js';
 
 const TONE_MAPPER_OPTIONS: { id: ToneMapper; label: string }[] = [
@@ -14,7 +13,6 @@ interface ToneMapperSwitchProps {
   onMapperChange: (mapper: ToneMapper) => void;
   exposureValue: number;
   onExposureChange: (value: number) => void;
-  onExposureChangeEnd?: () => void;
   onReset: () => void;
 }
 
@@ -23,7 +21,6 @@ function ToneMapperSwitch({
   onMapperChange,
   exposureValue,
   onExposureChange,
-  onExposureChangeEnd,
   onReset,
 }: ToneMapperSwitchProps) {
   return (
@@ -67,7 +64,6 @@ function ToneMapperSwitch({
             max={5}
             step={0.01}
             onChange={onExposureChange}
-            onChangeEnd={onExposureChangeEnd}
             trackClassName="bg-surface-secondary"
           />
         </div>
@@ -79,17 +75,10 @@ function ToneMapperSwitch({
 export function ExposureControls() {
   const [state, bloc] = useBloc(AdjustmentsBloc);
   const { adjustments } = state;
-  const { requestPreview } = usePreviewRequest();
-
-  const handleToneMapperChange = (mapper: ToneMapper) => {
-    bloc.setToneMapper(mapper);
-    requestPreview();
-  };
 
   const handleToneMapperReset = () => {
     bloc.setToneMapper('none');
     bloc.setExposure(0);
-    requestPreview();
   };
 
   return (
@@ -101,7 +90,6 @@ export function ExposureControls() {
         max={5}
         step={0.01}
         onChange={bloc.setBrightness}
-        onChangeEnd={requestPreview}
       />
       <Slider
         label="Contrast"
@@ -110,7 +98,6 @@ export function ExposureControls() {
         max={100}
         step={1}
         onChange={bloc.setContrast}
-        onChangeEnd={requestPreview}
       />
       <Slider
         label="Highlights"
@@ -119,7 +106,6 @@ export function ExposureControls() {
         max={100}
         step={1}
         onChange={bloc.setHighlights}
-        onChangeEnd={requestPreview}
       />
       <Slider
         label="Shadows"
@@ -128,7 +114,6 @@ export function ExposureControls() {
         max={100}
         step={1}
         onChange={bloc.setShadows}
-        onChangeEnd={requestPreview}
       />
       <Slider
         label="Whites"
@@ -137,7 +122,6 @@ export function ExposureControls() {
         max={100}
         step={1}
         onChange={bloc.setWhites}
-        onChangeEnd={requestPreview}
       />
       <Slider
         label="Blacks"
@@ -146,15 +130,13 @@ export function ExposureControls() {
         max={100}
         step={1}
         onChange={bloc.setBlacks}
-        onChangeEnd={requestPreview}
       />
 
       <ToneMapperSwitch
         selectedMapper={adjustments.toneMapper}
-        onMapperChange={handleToneMapperChange}
+        onMapperChange={bloc.setToneMapper}
         exposureValue={adjustments.exposure}
         onExposureChange={bloc.setExposure}
-        onExposureChangeEnd={requestPreview}
         onReset={handleToneMapperReset}
       />
     </div>

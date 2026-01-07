@@ -1,7 +1,8 @@
-import { Cubit, borrow } from '@blac/core';
+import { Cubit, borrow, borrowSafe, globalRegistry } from '@blac/core';
 import type { HistogramData, WaveformData } from '../../types/editor.js';
 import { TauriService } from '../services/TauriService';
 import { AdjustmentsBloc } from './AdjustmentsBloc';
+import { EditorBloc } from './EditorBloc';
 
 interface PreviewState {
   previewUrl: string | null;
@@ -23,10 +24,9 @@ function revokeBlobUrl(url: string | null): void {
 }
 
 export class PreviewBloc extends Cubit<PreviewState> {
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private debounceMs = 100;
-  private abortController: AbortController | null = null;
-  private requestId = 0;
+  private isRunning = false;
+  private hasPending = false;
+  private previewResolver: (() => void) | null = null;
 
   constructor() {
     super({
@@ -41,11 +41,47 @@ export class PreviewBloc extends Cubit<PreviewState> {
       lastRenderTime: null,
       error: null,
     });
+
+    globalRegistry.on('stateChanged', (container) => {
+      if (container instanceof AdjustmentsBloc || container instanceof EditorBloc) {
+        const editorResult = borrowSafe(EditorBloc);
+        if (!editorResult.error && editorResult.instance.state.selectedImage) {
+          this.schedulePreview();
+        }
+      }
+    });
   }
+
+  private schedulePreview = () => {
+    if (this.isRunning) {
+      this.hasPending = true;
+      return;
+    }
+    this.runPreview();
+  };
+
+  private runPreview = async () => {
+    this.isRunning = true;
+    this.hasPending = false;
+
+    await this.generatePreview();
+
+    this.isRunning = false;
+
+    if (this.hasPending) {
+      this.hasPending = false;
+      this.runPreview();
+    }
+  };
 
   setPreviewUrl = (url: string | null) => {
     revokeBlobUrl(this.state.previewUrl);
     this.patch({ previewUrl: url });
+
+    if (this.previewResolver) {
+      this.previewResolver();
+      this.previewResolver = null;
+    }
   };
 
   setOriginalUrl = (url: string | null) => {
@@ -53,40 +89,11 @@ export class PreviewBloc extends Cubit<PreviewState> {
     this.patch({ originalUrl: url });
   };
 
-  requestPreview = (immediate = false) => {
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
-
-    if (immediate) {
-      this.generatePreview();
-    } else {
-      this.debounceTimer = setTimeout(() => {
-        this.generatePreview();
-        this.debounceTimer = null;
-      }, this.debounceMs);
-    }
-  };
-
-  cancelPending = () => {
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
-    if (this.abortController) {
-      this.abortController.abort();
-      this.abortController = null;
-    }
-    this.requestId++;
+  requestPreview = () => {
+    this.schedulePreview();
   };
 
   private generatePreview = async () => {
-    this.cancelPending();
-
-    const currentRequestId = ++this.requestId;
-    this.abortController = new AbortController();
-
     this.patch({ isGenerating: true, error: null });
 
     try {
@@ -94,51 +101,38 @@ export class PreviewBloc extends Cubit<PreviewState> {
       const adjustmentsBloc = borrow(AdjustmentsBloc);
       const startTime = Date.now();
 
-      await tauri.applyAdjustments(adjustmentsBloc.current);
+      const previewPromise = new Promise<void>((resolve) => {
+        this.previewResolver = resolve;
+      });
 
-      if (currentRequestId !== this.requestId) {
-        return;
-      }
+      await tauri.applyAdjustments(adjustmentsBloc.current);
+      await previewPromise;
 
       this.patch({
         isGenerating: false,
+        isHistogramLoading: false,
+        isWaveformLoading: false,
         lastRenderTime: Date.now() - startTime,
       });
     } catch (error) {
-      if (currentRequestId !== this.requestId) {
-        return;
-      }
+      this.previewResolver = null;
       this.patch({
         isGenerating: false,
+        isHistogramLoading: false,
+        isWaveformLoading: false,
         error: `Preview generation failed: ${error}`,
       });
     }
   };
 
-  requestHistogram = async () => {
+  requestHistogram = () => {
     this.patch({ isHistogramLoading: true });
-
-    try {
-      const tauri = borrow(TauriService);
-      const adjustmentsBloc = borrow(AdjustmentsBloc);
-      await tauri.applyAdjustments(adjustmentsBloc.current);
-      this.patch({ isHistogramLoading: false });
-    } catch {
-      this.patch({ isHistogramLoading: false });
-    }
+    this.schedulePreview();
   };
 
-  requestWaveform = async () => {
+  requestWaveform = () => {
     this.patch({ isWaveformLoading: true });
-
-    try {
-      const tauri = borrow(TauriService);
-      const adjustmentsBloc = borrow(AdjustmentsBloc);
-      await tauri.applyAdjustments(adjustmentsBloc.current);
-      this.patch({ isWaveformLoading: false });
-    } catch {
-      this.patch({ isWaveformLoading: false });
-    }
+    this.schedulePreview();
   };
 
   setHistogram = (data: HistogramData) => {
@@ -151,19 +145,10 @@ export class PreviewBloc extends Cubit<PreviewState> {
 
   setRenderQuality = (quality: 'preview' | 'full') => {
     this.patch({ renderQuality: quality });
-    this.requestPreview(true);
-  };
-
-  setDebounceMs = (ms: number) => {
-    this.debounceMs = Math.max(0, ms);
+    this.schedulePreview();
   };
 
   clearPreview = () => {
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
-
     revokeBlobUrl(this.state.previewUrl);
     revokeBlobUrl(this.state.originalUrl);
 
@@ -198,10 +183,6 @@ export class PreviewBloc extends Cubit<PreviewState> {
   }
 
   get isLoading(): boolean {
-    return (
-      this.state.isGenerating ||
-      this.state.isHistogramLoading ||
-      this.state.isWaveformLoading
-    );
+    return this.state.isGenerating || this.state.isHistogramLoading || this.state.isWaveformLoading;
   }
 }

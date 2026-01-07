@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { useBloc } from '@blac/react';
 import { AdjustmentsBloc } from '../../blocs/editor/AdjustmentsBloc.js';
 import { Slider } from '../../primitives/Slider.js';
-import { usePreviewRequest } from '../../hooks/usePreviewRequest.js';
 import type { HSLData } from '../../types/adjustments.js';
 
 type HSLColorKey = keyof HSLData;
@@ -49,7 +48,6 @@ function ColorSwatch({ color, name, isActive, onClick }: ColorSwatchProps) {
 export function HSLControls() {
   const [state, bloc] = useBloc(AdjustmentsBloc);
   const [activeColor, setActiveColor] = useState<HSLColorKey>('red');
-  const { requestPreview } = usePreviewRequest();
 
   const { hsl } = state.adjustments;
   const currentHsl = hsl[activeColor];
@@ -77,13 +75,11 @@ export function HSLControls() {
 
   const handleReset = useCallback(() => {
     bloc.resetHSL();
-    requestPreview();
-  }, [bloc, requestPreview]);
+  }, [bloc]);
 
   const handleResetChannel = useCallback(() => {
     bloc.setHSLChannel(activeColor, { hue: 0, saturation: 0, luminance: 0 });
-    requestPreview();
-  }, [bloc, activeColor, requestPreview]);
+  }, [bloc, activeColor]);
 
   const activeColorConfig = HSL_COLORS.find((c) => c.key === activeColor);
 
@@ -131,7 +127,6 @@ export function HSLControls() {
           max={100}
           step={1}
           onChange={handleHueChange}
-          onChangeEnd={requestPreview}
         />
         <Slider
           label="Saturation"
@@ -140,7 +135,6 @@ export function HSLControls() {
           max={100}
           step={1}
           onChange={handleSaturationChange}
-          onChangeEnd={requestPreview}
         />
         <Slider
           label="Luminance"
@@ -149,7 +143,6 @@ export function HSLControls() {
           max={100}
           step={1}
           onChange={handleLuminanceChange}
-          onChangeEnd={requestPreview}
         />
       </div>
     </div>

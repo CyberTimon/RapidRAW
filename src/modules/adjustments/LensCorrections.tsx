@@ -1,12 +1,10 @@
 import { useBloc } from '@blac/react';
 import { AdjustmentsBloc } from '../../blocs/editor/AdjustmentsBloc.js';
 import { Slider } from '../../primitives/Slider.js';
-import { usePreviewRequest } from '../../hooks/usePreviewRequest.js';
 
 export function LensCorrections() {
   const [state, bloc] = useBloc(AdjustmentsBloc);
   const { lensCorrections } = state.adjustments;
-  const { requestPreview } = usePreviewRequest();
 
   const handleReset = () => {
     bloc.setLensCorrections({
@@ -14,7 +12,6 @@ export function LensCorrections() {
       chromaticAberration: 0,
       vignetting: 0,
     });
-    requestPreview();
   };
 
   return (
@@ -37,7 +34,6 @@ export function LensCorrections() {
           max={100}
           step={1}
           onChange={(value) => bloc.setLensCorrections({ distortion: value })}
-          onChangeEnd={requestPreview}
         />
         <Slider
           label="Chromatic Aberration"
@@ -46,7 +42,6 @@ export function LensCorrections() {
           max={100}
           step={1}
           onChange={(value) => bloc.setLensCorrections({ chromaticAberration: value })}
-          onChangeEnd={requestPreview}
         />
         <Slider
           label="Vignetting"
@@ -55,7 +50,6 @@ export function LensCorrections() {
           max={100}
           step={1}
           onChange={(value) => bloc.setLensCorrections({ vignetting: value })}
-          onChangeEnd={requestPreview}
         />
       </div>
     </div>

@@ -1,7 +1,6 @@
 import { useBloc } from '@blac/react';
 import { AdjustmentsBloc } from '../../blocs/editor/AdjustmentsBloc.js';
 import { Slider } from '../../primitives/Slider.js';
-import { usePreviewRequest } from '../../hooks/usePreviewRequest.js';
 
 interface SectionProps {
   title: string;
@@ -32,24 +31,20 @@ function Section({ title, children, onReset }: SectionProps) {
 export function DetailControls() {
   const [state, bloc] = useBloc(AdjustmentsBloc);
   const { adjustments } = state;
-  const { requestPreview } = usePreviewRequest();
 
   const handleResetSharpening = () => {
     bloc.setSharpness(0);
-    requestPreview();
   };
 
   const handleResetPresence = () => {
     bloc.setClarity(0);
     bloc.setDehaze(0);
     bloc.setTexture(0);
-    requestPreview();
   };
 
   const handleResetNoiseReduction = () => {
     bloc.setNoiseReduction(0);
     bloc.setColorNoiseReduction(0);
-    requestPreview();
   };
 
   return (
@@ -62,7 +57,6 @@ export function DetailControls() {
           max={100}
           step={1}
           onChange={bloc.setSharpness}
-          onChangeEnd={requestPreview}
         />
       </Section>
 
@@ -74,7 +68,6 @@ export function DetailControls() {
           max={100}
           step={1}
           onChange={bloc.setClarity}
-          onChangeEnd={requestPreview}
         />
         <Slider
           label="Dehaze"
@@ -83,7 +76,6 @@ export function DetailControls() {
           max={100}
           step={1}
           onChange={bloc.setDehaze}
-          onChangeEnd={requestPreview}
         />
         <Slider
           label="Texture"
@@ -92,7 +84,6 @@ export function DetailControls() {
           max={100}
           step={1}
           onChange={bloc.setTexture}
-          onChangeEnd={requestPreview}
         />
       </Section>
 
@@ -104,7 +95,6 @@ export function DetailControls() {
           max={100}
           step={1}
           onChange={bloc.setNoiseReduction}
-          onChangeEnd={requestPreview}
         />
         <Slider
           label="Color"
@@ -113,7 +103,6 @@ export function DetailControls() {
           max={100}
           step={1}
           onChange={bloc.setColorNoiseReduction}
-          onChangeEnd={requestPreview}
         />
       </Section>
     </div>

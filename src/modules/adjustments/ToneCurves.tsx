@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useBloc } from '@blac/react';
 import { AdjustmentsBloc } from '../../blocs/editor/AdjustmentsBloc.js';
-import { usePreviewRequest } from '../../hooks/usePreviewRequest.js';
 import type { CurvePoint, CurvesData } from '../../types/adjustments.js';
 
 type CurveChannel = keyof CurvesData;
@@ -117,7 +116,6 @@ export function ToneCurves() {
   const [localPoints, setLocalPoints] = useState<CurvePoint[] | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const rafRef = useRef<number | null>(null);
-  const { requestPreview } = usePreviewRequest();
 
   const { curves } = state.adjustments;
   const channelConfig = CHANNELS.find((c) => c.id === activeChannel)!;
@@ -197,7 +195,6 @@ export function ToneCurves() {
 
     const handleMouseUp = () => {
       setDraggingIndex(null);
-      requestPreview();
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -233,13 +230,11 @@ export function ToneCurves() {
     ];
     setLocalPoints(defaultPoints);
     bloc.setCurveChannel(activeChannel, defaultPoints);
-    requestPreview();
-  }, [bloc, activeChannel, requestPreview]);
+  }, [bloc, activeChannel]);
 
   const handleReset = useCallback(() => {
     bloc.resetCurves();
-    requestPreview();
-  }, [bloc, requestPreview]);
+  }, [bloc]);
 
   const curvePath = useMemo(() => getCurvePath(points), [points]);
 
