@@ -1,19 +1,20 @@
 {
-  "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
+  "description": "Default permissions for the main window",
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "shell:default",
     "dialog:default",
-    "core:window:default",
-    "core:window:allow-start-dragging",
-    "core:window:allow-minimize",
-    "core:window:allow-close",
-    "core:window:allow-toggle-maximize",
-    "process:default",
-    "os:allow-os-type",
-    "core:window:allow-set-fullscreen",
-    "shell:default"
+    "fs:default",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    "os:default",
+    {
+      "identifier": "fs:scope",
+      "allow": ["$HOME/**", "$DOWNLOADS/**", "$PICTURES/**", "$DESKTOP/**", "**"]
+    }
   ]
 }
