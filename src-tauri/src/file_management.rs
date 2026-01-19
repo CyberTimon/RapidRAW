@@ -45,6 +45,34 @@ use crate::calculate_geometry_hash;
 
 const THUMBNAIL_WIDTH: u32 = 640;
 
+#[cfg(not(target_os = "android"))]
+fn trash_delete(path: impl AsRef<Path>) -> Result<(), String> {
+    trash::delete(path.as_ref()).map_err(|e| e.to_string())
+}
+
+#[cfg(target_os = "android")]
+fn trash_delete(path: impl AsRef<Path>) -> Result<(), String> {
+    let path = path.as_ref();
+    if path.is_dir() {
+        fs::remove_dir_all(path).map_err(|e| e.to_string())
+    } else {
+        fs::remove_file(path).map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+fn trash_delete_all(paths: &[PathBuf]) -> Result<(), String> {
+    trash::delete_all(paths).map_err(|e| e.to_string())
+}
+
+#[cfg(target_os = "android")]
+fn trash_delete_all(paths: &[PathBuf]) -> Result<(), String> {
+    for path in paths {
+        trash_delete(path)?;
+    }
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Preset {
     pub id: String,
@@ -1126,7 +1154,7 @@ pub fn rename_folder(path: String, new_name: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn delete_folder(path: String) -> Result<(), String> {
-    if let Err(trash_error) = trash::delete(&path) {
+    if let Err(trash_error) = trash_delete(&path) {
         log::warn!("Failed to move folder to trash: {}. Falling back to permanent delete.", trash_error);
         fs::remove_dir_all(&path).map_err(|e| e.to_string())
     } else {
@@ -1301,7 +1329,7 @@ pub fn move_files(source_paths: Vec<String>, destination_folder: String) -> Resu
     }
 
     if !all_files_to_trash.is_empty() {
-        if let Err(trash_error) = trash::delete_all(&all_files_to_trash) {
+        if let Err(trash_error) = trash_delete_all(&all_files_to_trash) {
             log::warn!("Failed to move source files to trash: {}. Falling back to permanent delete.", trash_error);
             for path in all_files_to_trash {
                 if path.is_file() {
@@ -2056,7 +2084,7 @@ pub fn delete_files_from_disk(paths: Vec<String>) -> Result<(), String> {
     }
 
     let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
-    if let Err(trash_error) = trash::delete_all(&final_paths_to_delete) {
+    if let Err(trash_error) = trash_delete_all(&final_paths_to_delete) {
         log::warn!("Failed to move files to trash: {}. Falling back to permanent delete.", trash_error);
         for path in final_paths_to_delete {
             if path.is_file() {
@@ -2125,7 +2153,7 @@ pub fn delete_files_with_associated(paths: Vec<String>) -> Result<(), String> {
     }
 
     let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
-    if let Err(trash_error) = trash::delete_all(&final_paths_to_delete) {
+    if let Err(trash_error) = trash_delete_all(&final_paths_to_delete) {
         log::warn!("Failed to move files to trash: {}. Falling back to permanent delete.", trash_error);
         for path in final_paths_to_delete {
             if path.is_file() {
@@ -2302,12 +2330,12 @@ pub async fn import_files(
                 }
 
                 if settings.delete_after_import {
-                    if let Err(trash_error) = trash::delete(&source_path) {
+                    if let Err(trash_error) = trash_delete(&source_path) {
                         log::warn!("Failed to trash source file {}: {}. Deleting permanently.", source_path.display(), trash_error);
                         fs::remove_file(&source_path).map_err(|e| e.to_string())?;
                     }
                     if source_sidecar.exists() {
-                        if let Err(trash_error) = trash::delete(&source_sidecar) {
+                        if let Err(trash_error) = trash_delete(&source_sidecar) {
                             log::warn!("Failed to trash source sidecar {}: {}. Deleting permanently.", source_sidecar.display(), trash_error);
                             fs::remove_file(&source_sidecar).map_err(|e| e.to_string())?;
                         }

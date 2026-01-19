@@ -66,6 +66,13 @@ fn main() {
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
 
+    if target_os == "android" {
+        println!("cargo:warning=Skipping ONNX Runtime download for Android builds.");
+        println!("cargo:rerun-if-changed=build.rs");
+        tauri_build::build();
+        return;
+    }
+
     let (download_filename, lib_name, expected_hash) =
         match (target_os.as_str(), target_arch.as_str()) {
             ("windows", "x86_64") => (
