@@ -7,6 +7,7 @@ use std::hash::{Hash, Hasher};
 use std::io::BufReader;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::process::Command;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -332,6 +333,27 @@ pub struct ImportSettings {
     pub delete_after_import: bool,
 }
 
+static APP_DATA_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+pub fn set_app_data_dir(path: PathBuf) {
+    let _ = APP_DATA_DIR.set(path);
+}
+
+#[cfg(target_os = "android")]
+fn android_sidecar_path(source_path: &Path, copy_id: Option<&str>) -> Option<PathBuf> {
+    let base_dir = APP_DATA_DIR.get()?;
+    let sidecar_dir = base_dir.join("sidecars");
+    let _ = std::fs::create_dir_all(&sidecar_dir);
+
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(source_path.to_string_lossy().as_bytes());
+    if let Some(id) = copy_id {
+        hasher.update(id.as_bytes());
+    }
+    let hash = hasher.finalize().to_hex().to_string();
+    Some(sidecar_dir.join(format!("{}.rrdata", hash)))
+}
+
 pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
     let (source_path_str, copy_id) =
         if let Some((base, id)) = virtual_path.rsplit_once("?vc=") {
@@ -341,6 +363,11 @@ pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
         };
 
     let source_path = PathBuf::from(source_path_str);
+
+    #[cfg(target_os = "android")]
+    if let Some(sidecar_path) = android_sidecar_path(&source_path, copy_id.as_deref()) {
+        return (source_path, sidecar_path);
+    }
 
     let sidecar_filename = if let Some(id) = copy_id {
         format!(

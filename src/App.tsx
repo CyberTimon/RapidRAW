@@ -2922,6 +2922,19 @@ function App() {
     return () => debouncedGenerateUncroppedPreview.cancel();
   }, [adjustments, activeRightPanel, selectedImage?.isReady, debouncedGenerateUncroppedPreview]);
 
+  const mapAndroidContentUriToPath = (uri: string): string | null => {
+    const prefix = 'content://com.android.externalstorage.documents/document/';
+    if (!uri.startsWith(prefix)) return null;
+
+    const docId = decodeURIComponent(uri.slice(prefix.length));
+    if (!docId) return null;
+
+    const [volume, ...rest] = docId.split(':');
+    const relPath = rest.join(':');
+    const base = volume === 'primary' ? '/storage/emulated/0' : `/storage/${volume}`;
+    return relPath ? `${base}/${relPath}` : base;
+  };
+
   const handleOpenFolder = async () => {
     try {
       const osPlatform = (() => {
@@ -2943,6 +2956,17 @@ function App() {
           : { directory: true, multiple: false, defaultPath: await homeDir() },
       );
       if (typeof selected === 'string') {
+        if (osPlatform === 'android' && selected.startsWith('content://')) {
+          const mappedPath = mapAndroidContentUriToPath(selected);
+          if (!mappedPath) {
+            throw new Error(`Unsupported Android content URI: ${selected}`);
+          }
+          const folderPath = await dirname(mappedPath);
+          setRootPath(folderPath);
+          await handleSelectSubfolder(folderPath, true);
+          return;
+        }
+
         const folderPath =
           osPlatform === 'android' ? await dirname(selected) : selected;
         setRootPath(folderPath);

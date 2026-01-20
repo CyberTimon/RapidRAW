@@ -3353,6 +3353,11 @@ pub fn run() {
             {
                 let app_handle = app.handle().clone();
                 setup_logging(&app_handle);
+                if let Ok(app_data_dir) = app_handle.path().app_data_dir() {
+                    crate::file_management::set_app_data_dir(app_data_dir);
+                } else {
+                    log::warn!("Failed to resolve app data dir for Android sidecars.");
+                }
                 start_preview_worker(app_handle.clone());
                 let window_cfg = app.config().app.windows.get(0).unwrap().clone();
                 let _window = tauri::WebviewWindowBuilder::from_config(app.handle(), &window_cfg)
@@ -3374,7 +3379,11 @@ pub fn run() {
                 }
 
                 let app_handle = app.handle().clone();
-                let settings: AppSettings = load_settings(app_handle.clone()).unwrap_or_default();
+            let settings: AppSettings = load_settings(app_handle.clone()).unwrap_or_default();
+
+            if let Ok(app_data_dir) = app_handle.path().app_data_dir() {
+                crate::file_management::set_app_data_dir(app_data_dir);
+            }
 
                 unsafe {
                     if let Some(backend) = &settings.processing_backend {
