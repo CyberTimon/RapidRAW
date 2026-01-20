@@ -65,15 +65,16 @@ qoi = "0.4.1"
 glam = "0.30.9"
 tauri-plugin-single-instance = "2.3.6"
 
+[target.'cfg(not(target_os = "android"))'.dependencies]
+ort = { version = "2.0.0-rc.10", features = ["ndarray", "load-dynamic"] }
+trash = "5.2.5"
+
 [build-dependencies]
 tauri-build = { version = "2.5", features = [] }
 sha2 = "0.10"
 reqwest = { version = "0.12", features = ["blocking"] }
 hex = "0.4"
 
-[target.'cfg(not(target_os = "android"))'.dependencies]
-ort = { version = "2.0.0-rc.10", features = ["ndarray", "load-dynamic"] }
-trash = "5.2.5"
 
 [profile.dev]
 opt-level = 3

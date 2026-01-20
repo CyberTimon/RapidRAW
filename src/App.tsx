@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
-import { homeDir } from '@tauri-apps/api/path';
+import { platform } from '@tauri-apps/plugin-os';
+import { dirname, homeDir } from '@tauri-apps/api/path';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import debounce from 'lodash.debounce';
 import throttle from 'lodash.throttle';
@@ -2923,10 +2924,29 @@ function App() {
 
   const handleOpenFolder = async () => {
     try {
-      const selected = await open({ directory: true, multiple: false, defaultPath: await homeDir() });
+      const osPlatform = (() => {
+        try {
+          return platform();
+        } catch (error) {
+          console.error('Failed to detect platform:', error);
+          return '';
+        }
+      })();
+
+      const selected = await open(
+        osPlatform === 'android'
+          ? {
+              multiple: false,
+              title: 'Select a file in the folder',
+              pickerMode: 'document',
+            }
+          : { directory: true, multiple: false, defaultPath: await homeDir() },
+      );
       if (typeof selected === 'string') {
-        setRootPath(selected);
-        await handleSelectSubfolder(selected, true);
+        const folderPath =
+          osPlatform === 'android' ? await dirname(selected) : selected;
+        setRootPath(folderPath);
+        await handleSelectSubfolder(folderPath, true);
       }
     } catch (err) {
       console.error('Failed to open directory dialog:', err);
