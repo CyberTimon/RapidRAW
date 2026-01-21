@@ -12,6 +12,9 @@ node_modules
 dist
 dist-ssr
 *.local
+build
+tauri
+vite
 
 # Editor directories and files
 .vscode/*
