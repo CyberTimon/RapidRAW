@@ -34,7 +34,7 @@ tokio = { version = "1", features = ["full"] }
 uuid = { version = "1.19", features = ["v4", "serde"] }
 walkdir = "2.5.0"
 imageproc = "0.25.0"
-ndarray = "0.16"
+ndarray = "0.17"
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
 tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 futures-util = "0.3"

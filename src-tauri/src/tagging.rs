@@ -16,10 +16,10 @@ use tokio::task::JoinHandle;
 use walkdir::WalkDir;
 
 use crate::AppState;
-use crate::candidates::TAG_CANDIDATES;
+use crate::tagging_utils::candidates::TAG_CANDIDATES;
 use crate::file_management::{self, parse_virtual_path};
 use crate::formats::is_supported_image_file;
-use crate::hierarchy::TAG_HIERARCHY;
+use crate::tagging_utils::hierarchy::TAG_HIERARCHY;
 use crate::image_processing::ImageMetadata;
 
 pub const COLOR_TAG_PREFIX: &str = "color:";
@@ -229,8 +229,8 @@ pub fn generate_tags_with_clip(
 
     for tag in &initial_tags {
         if let Some(parents) = TAG_HIERARCHY.get(tag.as_str()) {
-            for &parent in parents {
-                final_tags_set.insert(parent.to_string());
+            for parent in parents {
+                final_tags_set.insert((*parent).to_owned());
             }
         }
     }
