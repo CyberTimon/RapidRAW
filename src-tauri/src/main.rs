@@ -1945,7 +1945,7 @@ async fn estimate_batch_export_size(
     const ESTIMATE_DIM: u32 = 1280;
 
     let original_image = match read_file_mapped(Path::new(&source_path_str)) {
-        Ok(mmap) => load_base_image_from_bytes(&mmap, &source_path_str, true, highlight_compression, None)
+        Ok(mmap) => load_base_image_from_bytes(&mmap, &source_path_str, false, highlight_compression, None)
             .map_err(|e| e.to_string())?,
         Err(e) => {
             log::warn!(
@@ -1954,7 +1954,7 @@ async fn estimate_batch_export_size(
                 e
             );
             let bytes = fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
-            load_base_image_from_bytes(&bytes, &source_path_str, true, highlight_compression, None)
+            load_base_image_from_bytes(&bytes, &source_path_str, false, highlight_compression, None)
                 .map_err(|e| e.to_string())?
         }
     };
