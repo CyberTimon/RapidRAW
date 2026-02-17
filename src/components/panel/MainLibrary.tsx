@@ -1166,6 +1166,14 @@ export default function MainLibrary({
     folder: null as string | null,
   });
 
+  const handleRefresh = async () => {
+    try {
+      await onLibraryRefresh?.();
+    } catch (err) {
+      console.error("Failed to refresh library:", err);
+    }
+  };
+
   const groups = useMemo(() => {
     if (libraryViewMode === LibraryViewMode.Flat) return null;
     return groupImagesByFolder(imageList, currentFolderPath);
@@ -1578,6 +1586,13 @@ export default function MainLibrary({
               <span>Import Failed!</span>
             </div>
           )}
+          <Button
+            className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
+            onClick={handleRefresh}
+            data-tooltip="Refresh Library"
+          >
+            <RefreshCw className="w-8 h-8" />
+          </Button>
           <SearchInput
             indexingProgress={indexingProgress}
             isIndexing={isIndexing}
