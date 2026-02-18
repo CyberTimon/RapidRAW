@@ -894,6 +894,7 @@ pub struct GlobalAdjustments {
     pub vibrance: f32,
 
     pub sharpness: f32,
+    pub sharpening_mask: f32,
     pub luma_noise_reduction: f32,
     pub color_noise_reduction: f32,
     pub clarity: f32,
@@ -924,7 +925,6 @@ pub struct GlobalAdjustments {
 
     _pad_agx1: f32,
     _pad_agx2: f32,
-    _pad_agx3: f32,
     pub agx_pipe_to_rendering_matrix: GpuMat3,
     pub agx_rendering_to_pipe_matrix: GpuMat3,
 
@@ -1373,6 +1373,7 @@ fn get_global_adjustments_from_json(
         vibrance: get_val("color", "vibrance", SCALES.vibrance, None),
 
         sharpness: get_val("details", "sharpness", SCALES.sharpness, None),
+        sharpening_mask: get_val("details", "sharpeningMask", 100.0, None),
         luma_noise_reduction: get_val(
             "details",
             "lumaNoiseReduction",
@@ -1452,7 +1453,6 @@ fn get_global_adjustments_from_json(
 
         _pad_agx1: 0.0,
         _pad_agx2: 0.0,
-        _pad_agx3: 0.0,
         agx_pipe_to_rendering_matrix: pipe_to_rendering,
         agx_rendering_to_pipe_matrix: rendering_to_pipe,
 
