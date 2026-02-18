@@ -338,7 +338,6 @@ function App() {
   });
   const [isSliderDragging, setIsSliderDragging] = useState(false);
   const dragIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isAltHeldRef = useRef(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isFullScreenLoading, setIsFullScreenLoading] = useState(false);
   const [fullScreenUrl, setFullScreenUrl] = useState<string | null>(null);
@@ -1318,7 +1317,7 @@ function App() {
 
       // Only include lastChanged when Alt is held during interactive dragging
       // This triggers the B&W sharpening mask preview in the backend
-      if (!dragging || !isAltHeldRef.current) {
+      if (!dragging) {
         delete payload.lastChanged;
       }
 
@@ -3116,7 +3115,7 @@ function App() {
       }
 
       dragIdleTimer.current = setTimeout(() => {
-        applyAdjustments(adjustments, isAltHeldRef.current);
+        applyAdjustments(adjustments, false);
       }, idleTimeoutDuration);
 
     } else {
