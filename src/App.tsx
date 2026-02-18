@@ -1317,7 +1317,7 @@ function App() {
 
       // Only include lastChanged when Alt is held during interactive dragging
       // This triggers the B&W sharpening mask preview in the backend
-      if (!dragging) {
+      if (!dragging || payload.lastChanged !== 'sharpeningMask') {
         delete payload.lastChanged;
       }
 
@@ -1386,21 +1386,6 @@ function App() {
     window.addEventListener('mousemove', doDrag);
     window.addEventListener('mouseup', stopDrag);
   };
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') isAltHeldRef.current = true;
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') isAltHeldRef.current = false;
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
 
   useEffect(() => {
     const appWindow = getCurrentWindow();
@@ -3116,6 +3101,15 @@ function App() {
 
       dragIdleTimer.current = setTimeout(() => {
         applyAdjustments(adjustments, false);
+        // Clear stale lastChanged so it doesn't trigger mask preview
+        // when dragging unrelated controls afterwards
+        setAdjustments((prev: any) => {
+          if (prev.lastChanged) {
+            const { lastChanged, ...rest } = prev;
+            return rest;
+          }
+          return prev;
+        });
       }, idleTimeoutDuration);
 
     } else {
