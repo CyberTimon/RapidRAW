@@ -1315,6 +1315,7 @@ function App() {
           }
         });
       }
+
       // Only include lastChanged when Alt is held during interactive dragging
       // This triggers the B&W sharpening mask preview in the backend
       if (!dragging || !isAltHeldRef.current) {

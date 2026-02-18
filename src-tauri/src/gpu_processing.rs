@@ -39,14 +39,16 @@ pub fn get_or_init_gpu_context(state: &tauri::State<AppState>) -> Result<GpuCont
 
     let limits = adapter.limits();
 
-    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-        label: Some("Processing Device"),
-        required_features,
-        required_limits: limits.clone(),
-        experimental_features: wgpu::ExperimentalFeatures::default(),
-        memory_hints: wgpu::MemoryHints::Performance,
-        trace: wgpu::Trace::Off,
-    }))
+    let (device, queue) = pollster::block_on(adapter.request_device(
+        &wgpu::DeviceDescriptor {
+            label: Some("Processing Device"),
+            required_features,
+            required_limits: limits.clone(),
+            experimental_features: wgpu::ExperimentalFeatures::default(),
+            memory_hints: wgpu::MemoryHints::Performance,
+            trace: wgpu::Trace::Off,
+        },
+    ))
     .map_err(|e| e.to_string())?;
 
     let new_context = GpuContext {
@@ -126,7 +128,11 @@ fn read_texture_data(
 
 fn to_rgba_f16(img: &DynamicImage) -> Vec<f16> {
     let rgba_f32 = img.to_rgba32f();
-    rgba_f32.into_raw().into_iter().map(f16::from_f32).collect()
+    rgba_f32
+        .into_raw()
+        .into_iter()
+        .map(f16::from_f32)
+        .collect()
 }
 
 #[repr(C)]
@@ -161,7 +167,7 @@ pub struct GpuProcessor {
     h_blur_pipeline: wgpu::ComputePipeline,
     v_blur_pipeline: wgpu::ComputePipeline,
     blur_params_buffer: wgpu::Buffer,
-
+    
     flare_bgl_0: wgpu::BindGroupLayout,
     flare_bgl_1: wgpu::BindGroupLayout,
     flare_threshold_pipeline: wgpu::ComputePipeline,
@@ -171,7 +177,7 @@ pub struct GpuProcessor {
     flare_ghosts_view: wgpu::TextureView,
     flare_final_view: wgpu::TextureView,
     flare_sampler: wgpu::Sampler,
-
+    
     main_bgl: wgpu::BindGroupLayout,
     main_pipeline: wgpu::ComputePipeline,
     adjustments_buffer: wgpu::Buffer,
@@ -202,36 +208,9 @@ impl GpuProcessor {
         let blur_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Blur BGL"),
             entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rgba16Float,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
+                wgpu::BindGroupLayoutEntry { binding: 0, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: false }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::StorageTexture { access: wgpu::StorageTextureAccess::WriteOnly, format: wgpu::TextureFormat::Rgba16Float, view_dimension: wgpu::TextureViewDimension::D2 }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 2, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None }, count: None },
             ],
         });
 
@@ -274,77 +253,26 @@ impl GpuProcessor {
         let flare_bgl_0 = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Flare BGL 0"),
             entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rgba16Float,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
+                wgpu::BindGroupLayoutEntry { binding: 0, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::StorageTexture { access: wgpu::StorageTextureAccess::WriteOnly, format: wgpu::TextureFormat::Rgba16Float, view_dimension: wgpu::TextureViewDimension::D2 }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 2, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 3, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
             ],
         });
 
         let flare_bgl_1 = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Flare BGL 1"),
             entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rgba16Float,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
+                wgpu::BindGroupLayoutEntry { binding: 0, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: false }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::StorageTexture { access: wgpu::StorageTextureAccess::WriteOnly, format: wgpu::TextureFormat::Rgba16Float, view_dimension: wgpu::TextureViewDimension::D2 }, count: None },
             ],
         });
 
-        let flare_threshold_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Flare Threshold Layout"),
-                bind_group_layouts: &[&flare_bgl_0],
-                immediate_size: 0,
-            });
+        let flare_threshold_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Flare Threshold Layout"),
+            bind_group_layouts: &[&flare_bgl_0],
+            immediate_size: 0,
+        });
 
         let flare_ghosts_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Flare Ghosts Layout"),
@@ -352,25 +280,23 @@ impl GpuProcessor {
             immediate_size: 0,
         });
 
-        let flare_threshold_pipeline =
-            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Flare Threshold Pipeline"),
-                layout: Some(&flare_threshold_layout),
-                module: &flare_shader,
-                entry_point: Some("threshold_main"),
-                compilation_options: Default::default(),
-                cache: None,
-            });
+        let flare_threshold_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Flare Threshold Pipeline"),
+            layout: Some(&flare_threshold_layout),
+            module: &flare_shader,
+            entry_point: Some("threshold_main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
 
-        let flare_ghosts_pipeline =
-            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Flare Ghosts Pipeline"),
-                layout: Some(&flare_ghosts_layout),
-                module: &flare_shader,
-                entry_point: Some("ghosts_main"),
-                compilation_options: Default::default(),
-                cache: None,
-            });
+        let flare_ghosts_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Flare Ghosts Pipeline"),
+            layout: Some(&flare_ghosts_layout),
+            module: &flare_shader,
+            entry_point: Some("ghosts_main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
 
         let flare_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Flare Params Buffer"),
@@ -381,11 +307,7 @@ impl GpuProcessor {
 
         let flare_tex_desc = wgpu::TextureDescriptor {
             label: Some("Flare Tex"),
-            size: wgpu::Extent3d {
-                width: FLARE_MAP_SIZE,
-                height: FLARE_MAP_SIZE,
-                depth_or_array_layers: 1,
-            },
+            size: wgpu::Extent3d { width: FLARE_MAP_SIZE, height: FLARE_MAP_SIZE, depth_or_array_layers: 1 },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -416,115 +338,24 @@ impl GpuProcessor {
         });
 
         let mut bind_group_layout_entries = vec![
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::StorageTexture {
-                    access: wgpu::StorageTextureAccess::WriteOnly,
-                    format: wgpu::TextureFormat::Rgba8Unorm,
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 2,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
+            wgpu::BindGroupLayoutEntry { binding: 0, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: false }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
+            wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::StorageTexture { access: wgpu::StorageTextureAccess::WriteOnly, format: wgpu::TextureFormat::Rgba8Unorm, view_dimension: wgpu::TextureViewDimension::D2 }, count: None },
+            wgpu::BindGroupLayoutEntry { binding: 2, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None }, count: None },
         ];
-
+        
         for i in 0..MAX_MASKS {
-            bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-                binding: 3 + i,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            });
+            bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry { binding: 3 + i, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: false }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None });
         }
+        
+        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry { binding: 3 + MAX_MASKS, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: false }, view_dimension: wgpu::TextureViewDimension::D3, multisampled: false }, count: None });
+        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry { binding: 4 + MAX_MASKS, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering), count: None });
+        
+        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry { binding: 5 + MAX_MASKS, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: false }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None });
+        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry { binding: 6 + MAX_MASKS, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: false }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None });
+        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry { binding: 7 + MAX_MASKS, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: false }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None });
 
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 3 + MAX_MASKS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                view_dimension: wgpu::TextureViewDimension::D3,
-                multisampled: false,
-            },
-            count: None,
-        });
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 4 + MAX_MASKS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
-            count: None,
-        });
-
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 5 + MAX_MASKS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        });
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 6 + MAX_MASKS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        });
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 7 + MAX_MASKS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        });
-
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 8 + MAX_MASKS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        });
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 9 + MAX_MASKS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-            count: None,
-        });
+        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry { binding: 8 + MAX_MASKS, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None });
+        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry { binding: 9 + MAX_MASKS, visibility: wgpu::ShaderStages::COMPUTE, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None });
 
         let main_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Main BGL"),
@@ -555,11 +386,7 @@ impl GpuProcessor {
 
         let dummy_texture_desc = wgpu::TextureDescriptor {
             label: Some("Dummy Texture"),
-            size: wgpu::Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
+            size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -570,24 +397,14 @@ impl GpuProcessor {
         let dummy_blur_texture = device.create_texture(&dummy_texture_desc);
         let dummy_blur_view = dummy_blur_texture.create_view(&Default::default());
 
-        let dummy_mask_texture = device.create_texture(&wgpu::TextureDescriptor {
-            format: wgpu::TextureFormat::R8Unorm,
-            ..dummy_texture_desc
-        });
+        let dummy_mask_texture = device.create_texture(&wgpu::TextureDescriptor { format: wgpu::TextureFormat::R8Unorm, ..dummy_texture_desc });
         let dummy_mask_view = dummy_mask_texture.create_view(&Default::default());
 
-        let dummy_lut_texture = device.create_texture(&wgpu::TextureDescriptor {
-            dimension: wgpu::TextureDimension::D3,
-            ..dummy_texture_desc
-        });
+        let dummy_lut_texture = device.create_texture(&wgpu::TextureDescriptor { dimension: wgpu::TextureDimension::D3, ..dummy_texture_desc });
         let dummy_lut_view = dummy_lut_texture.create_view(&Default::default());
         let dummy_lut_sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
 
-        let max_tile_size = wgpu::Extent3d {
-            width: max_width,
-            height: max_height,
-            depth_or_array_layers: 1,
-        };
+        let max_tile_size = wgpu::Extent3d { width: max_width, height: max_height, depth_or_array_layers: 1 };
 
         let reusable_texture_desc = wgpu::TextureDescriptor {
             label: None,
@@ -600,28 +417,16 @@ impl GpuProcessor {
             view_formats: &[],
         };
 
-        let ping_pong_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Ping Pong Texture"),
-            ..reusable_texture_desc
-        });
+        let ping_pong_texture = device.create_texture(&wgpu::TextureDescriptor { label: Some("Ping Pong Texture"), ..reusable_texture_desc });
         let ping_pong_view = ping_pong_texture.create_view(&Default::default());
 
-        let sharpness_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Sharpness Blur Texture"),
-            ..reusable_texture_desc
-        });
+        let sharpness_blur_texture = device.create_texture(&wgpu::TextureDescriptor { label: Some("Sharpness Blur Texture"), ..reusable_texture_desc });
         let sharpness_blur_view = sharpness_blur_texture.create_view(&Default::default());
 
-        let clarity_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Clarity Blur Texture"),
-            ..reusable_texture_desc
-        });
+        let clarity_blur_texture = device.create_texture(&wgpu::TextureDescriptor { label: Some("Clarity Blur Texture"), ..reusable_texture_desc });
         let clarity_blur_view = clarity_blur_texture.create_view(&Default::default());
 
-        let structure_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Structure Blur Texture"),
-            ..reusable_texture_desc
-        });
+        let structure_blur_texture = device.create_texture(&wgpu::TextureDescriptor { label: Some("Structure Blur Texture"), ..reusable_texture_desc });
         let structure_blur_view = structure_blur_texture.create_view(&Default::default());
 
         let output_texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -755,11 +560,7 @@ impl GpuProcessor {
         if adjustments.global.flare_amount > 0.0 {
             let mut encoder = device.create_command_encoder(&Default::default());
 
-            let aspect_ratio = if height > 0 {
-                width as f32 / height as f32
-            } else {
-                1.0
-            };
+            let aspect_ratio = if height > 0 { width as f32 / height as f32 } else { 1.0 };
             let f_params = FlareParams {
                 amount: adjustments.global.flare_amount,
                 is_raw: adjustments.global.is_raw_image,
@@ -776,22 +577,10 @@ impl GpuProcessor {
                 label: Some("Flare BG0"),
                 layout: &self.flare_bgl_0,
                 entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(input_texture_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&self.flare_threshold_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: self.flare_params_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 3,
-                        resource: wgpu::BindingResource::Sampler(&self.flare_sampler),
-                    },
+                    wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(input_texture_view) },
+                    wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&self.flare_threshold_view) },
+                    wgpu::BindGroupEntry { binding: 2, resource: self.flare_params_buffer.as_entire_binding() },
+                    wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&self.flare_sampler) },
                 ],
             });
 
@@ -806,22 +595,10 @@ impl GpuProcessor {
                 label: Some("Flare BG0 Ghosts"),
                 layout: &self.flare_bgl_0,
                 entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(input_texture_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&self.flare_final_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: self.flare_params_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 3,
-                        resource: wgpu::BindingResource::Sampler(&self.flare_sampler),
-                    },
+                    wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(input_texture_view) },
+                    wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&self.flare_final_view) }, 
+                    wgpu::BindGroupEntry { binding: 2, resource: self.flare_params_buffer.as_entire_binding() },
+                    wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&self.flare_sampler) },
                 ],
             });
 
@@ -829,38 +606,28 @@ impl GpuProcessor {
                 label: Some("Flare BG1"),
                 layout: &self.flare_bgl_1,
                 entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&self.flare_threshold_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&self.flare_ghosts_view),
-                    },
+                    wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&self.flare_threshold_view) },
+                    wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&self.flare_ghosts_view) },
                 ],
             });
 
             {
                 let mut cpass = encoder.begin_compute_pass(&Default::default());
                 cpass.set_pipeline(&self.flare_ghosts_pipeline);
-                cpass.set_bind_group(0, &bg0_ghosts, &[]);
+                cpass.set_bind_group(0, &bg0_ghosts, &[]); 
                 cpass.set_bind_group(1, &bg1, &[]);
                 cpass.dispatch_workgroups(FLARE_MAP_SIZE / 16, FLARE_MAP_SIZE / 16, 1);
             }
-
+            
             queue.submit(Some(encoder.finish()));
 
             let mut blur_encoder = device.create_command_encoder(&Default::default());
-
+            
             let b_params = BlurParams {
-                radius: 12,
-                tile_offset_x: 0,
-                tile_offset_y: 0,
-                input_width: FLARE_MAP_SIZE,
-                input_height: FLARE_MAP_SIZE,
-                _pad1: 0,
-                _pad2: 0,
-                _pad3: 0,
+                radius: 12, 
+                tile_offset_x: 0, tile_offset_y: 0, 
+                input_width: FLARE_MAP_SIZE, input_height: FLARE_MAP_SIZE,
+                _pad1: 0, _pad2: 0, _pad3: 0,
             };
             queue.write_buffer(&self.blur_params_buffer, 0, bytemuck::bytes_of(&b_params));
 
@@ -868,37 +635,19 @@ impl GpuProcessor {
                 label: Some("Flare Blur H"),
                 layout: &self.blur_bgl,
                 entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&self.flare_ghosts_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&self.flare_threshold_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: self.blur_params_buffer.as_entire_binding(),
-                    },
+                    wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&self.flare_ghosts_view) },
+                    wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&self.flare_threshold_view) },
+                    wgpu::BindGroupEntry { binding: 2, resource: self.blur_params_buffer.as_entire_binding() },
                 ],
             });
-
+            
             let v_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Flare Blur V"),
                 layout: &self.blur_bgl,
                 entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&self.flare_threshold_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&self.flare_final_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: self.blur_params_buffer.as_entire_binding(),
-                    },
+                    wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&self.flare_threshold_view) },
+                    wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&self.flare_final_view) },
+                    wgpu::BindGroupEntry { binding: 2, resource: self.blur_params_buffer.as_entire_binding() },
                 ],
             });
 
@@ -958,9 +707,7 @@ impl GpuProcessor {
                         tile_offset_y: input_y_start,
                         input_width: input_width,
                         input_height: input_height,
-                        _pad1: 0,
-                        _pad2: 0,
-                        _pad3: 0,
+                        _pad1: 0, _pad2: 0, _pad3: 0,
                     };
                     queue.write_buffer(&self.blur_params_buffer, 0, bytemuck::bytes_of(&params));
 
@@ -970,18 +717,9 @@ impl GpuProcessor {
                         label: Some("H-Blur BG"),
                         layout: &self.blur_bgl,
                         entries: &[
-                            wgpu::BindGroupEntry {
-                                binding: 0,
-                                resource: wgpu::BindingResource::TextureView(input_texture_view),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 1,
-                                resource: wgpu::BindingResource::TextureView(&self.ping_pong_view),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 2,
-                                resource: self.blur_params_buffer.as_entire_binding(),
-                            },
+                            wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(input_texture_view) },
+                            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&self.ping_pong_view) },
+                            wgpu::BindGroupEntry { binding: 2, resource: self.blur_params_buffer.as_entire_binding() },
                         ],
                     });
 
@@ -996,18 +734,9 @@ impl GpuProcessor {
                         label: Some("V-Blur BG"),
                         layout: &self.blur_bgl,
                         entries: &[
-                            wgpu::BindGroupEntry {
-                                binding: 0,
-                                resource: wgpu::BindingResource::TextureView(&self.ping_pong_view),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 1,
-                                resource: wgpu::BindingResource::TextureView(output_view),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 2,
-                                resource: self.blur_params_buffer.as_entire_binding(),
-                            },
+                            wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&self.ping_pong_view) },
+                            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(output_view) },
+                            wgpu::BindGroupEntry { binding: 2, resource: self.blur_params_buffer.as_entire_binding() },
                         ],
                     });
 
@@ -1038,73 +767,24 @@ impl GpuProcessor {
                 );
 
                 let mut bind_group_entries = vec![
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(input_texture_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&self.output_texture_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: self.adjustments_buffer.as_entire_binding(),
-                    },
+                    wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(input_texture_view) },
+                    wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&self.output_texture_view) },
+                    wgpu::BindGroupEntry { binding: 2, resource: self.adjustments_buffer.as_entire_binding() },
                 ];
                 for i in 0..MAX_MASKS as usize {
                     let view = mask_views.get(i).unwrap_or(&self.dummy_mask_view);
-                    bind_group_entries.push(wgpu::BindGroupEntry {
-                        binding: 3 + i as u32,
-                        resource: wgpu::BindingResource::TextureView(view),
-                    });
+                    bind_group_entries.push(wgpu::BindGroupEntry { binding: 3 + i as u32, resource: wgpu::BindingResource::TextureView(view) });
                 }
-                bind_group_entries.push(wgpu::BindGroupEntry {
-                    binding: 3 + MAX_MASKS,
-                    resource: wgpu::BindingResource::TextureView(&lut_texture_view),
-                });
-                bind_group_entries.push(wgpu::BindGroupEntry {
-                    binding: 4 + MAX_MASKS,
-                    resource: wgpu::BindingResource::Sampler(&lut_sampler),
-                });
-
-                bind_group_entries.push(wgpu::BindGroupEntry {
-                    binding: 5 + MAX_MASKS,
-                    resource: wgpu::BindingResource::TextureView(if did_create_sharpness_blur {
-                        &self.sharpness_blur_view
-                    } else {
-                        &self.dummy_blur_view
-                    }),
-                });
-                bind_group_entries.push(wgpu::BindGroupEntry {
-                    binding: 6 + MAX_MASKS,
-                    resource: wgpu::BindingResource::TextureView(if did_create_clarity_blur {
-                        &self.clarity_blur_view
-                    } else {
-                        &self.dummy_blur_view
-                    }),
-                });
-                bind_group_entries.push(wgpu::BindGroupEntry {
-                    binding: 7 + MAX_MASKS,
-                    resource: wgpu::BindingResource::TextureView(if did_create_structure_blur {
-                        &self.structure_blur_view
-                    } else {
-                        &self.dummy_blur_view
-                    }),
-                });
-
+                bind_group_entries.push(wgpu::BindGroupEntry { binding: 3 + MAX_MASKS, resource: wgpu::BindingResource::TextureView(&lut_texture_view) });
+                bind_group_entries.push(wgpu::BindGroupEntry { binding: 4 + MAX_MASKS, resource: wgpu::BindingResource::Sampler(&lut_sampler) });
+                
+                bind_group_entries.push(wgpu::BindGroupEntry { binding: 5 + MAX_MASKS, resource: wgpu::BindingResource::TextureView(if did_create_sharpness_blur { &self.sharpness_blur_view } else { &self.dummy_blur_view }) });
+                bind_group_entries.push(wgpu::BindGroupEntry { binding: 6 + MAX_MASKS, resource: wgpu::BindingResource::TextureView(if did_create_clarity_blur { &self.clarity_blur_view } else { &self.dummy_blur_view }) });
+                bind_group_entries.push(wgpu::BindGroupEntry { binding: 7 + MAX_MASKS, resource: wgpu::BindingResource::TextureView(if did_create_structure_blur { &self.structure_blur_view } else { &self.dummy_blur_view }) });
+                
                 let use_flare = adjustments.global.flare_amount > 0.0;
-                bind_group_entries.push(wgpu::BindGroupEntry {
-                    binding: 8 + MAX_MASKS,
-                    resource: wgpu::BindingResource::TextureView(if use_flare {
-                        &self.flare_final_view
-                    } else {
-                        &self.dummy_blur_view
-                    }),
-                });
-                bind_group_entries.push(wgpu::BindGroupEntry {
-                    binding: 9 + MAX_MASKS,
-                    resource: wgpu::BindingResource::Sampler(&self.flare_sampler),
-                });
+                bind_group_entries.push(wgpu::BindGroupEntry { binding: 8 + MAX_MASKS, resource: wgpu::BindingResource::TextureView(if use_flare { &self.flare_final_view } else { &self.dummy_blur_view }) });
+                bind_group_entries.push(wgpu::BindGroupEntry { binding: 9 + MAX_MASKS, resource: wgpu::BindingResource::Sampler(&self.flare_sampler) });
 
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Tile Bind Group"),
