@@ -817,6 +817,23 @@ fn process_preview_job(
 
     drop(cached_preview_lock);
 
+    let is_mask_dragging = job.is_interactive &&
+            adjustments_clone.get("lastChanged").and_then(|v| v.as_str()) == Some("sharpeningMask");
+
+    if is_mask_dragging {
+        let threshold = adjustments_clone.get("sharpeningMask").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+        let edge_mask = crate::image_processing::generate_edge_mask_from_image(&small_preview_base, threshold);
+
+        let (w, h) = small_preview_base.dimensions();
+        if let Some(mask_img) = GrayImage::from_raw(w, h, edge_mask) {
+             let mut buf = Cursor::new(Vec::new());
+             if mask_img.write_to(&mut buf, ImageFormat::Jpeg).is_ok() {
+                 let _ = app_handle.emit("preview-update-final", buf.get_ref());
+             }
+        }
+        return Ok(());
+    }
+
     let (processing_image, effective_scale, jpeg_quality) = if job.is_interactive {
         let orig_w = final_preview_base.width() as f32;
         let small_w = small_preview_base.width() as f32;

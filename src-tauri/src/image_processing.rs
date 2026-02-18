@@ -1,6 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat3, Vec2, Vec3};
-use image::{DynamicImage, GenericImageView, Rgba, Rgb32FImage};
+use image::{DynamicImage, GenericImageView, Rgb32FImage, Rgba};
+use image::{GrayImage, Luma};
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
 use nalgebra::{Matrix3 as NaMatrix3, Vector3 as NaVector3};
 use rawler::decoders::Orientation;
@@ -100,7 +101,9 @@ impl Default for GeometryParams {
 }
 
 pub fn get_geometry_params_from_json(adjustments: &serde_json::Value) -> GeometryParams {
-    let lens_params = adjustments.get("lensDistortionParams").and_then(|v| v.as_object());
+    let lens_params = adjustments
+        .get("lensDistortionParams")
+        .and_then(|v| v.as_object());
 
     GeometryParams {
         distortion: adjustments["transformDistortion"].as_f64().unwrap_or(0.0) as f32,
@@ -111,23 +114,47 @@ pub fn get_geometry_params_from_json(adjustments: &serde_json::Value) -> Geometr
         scale: adjustments["transformScale"].as_f64().unwrap_or(100.0) as f32,
         x_offset: adjustments["transformXOffset"].as_f64().unwrap_or(0.0) as f32,
         y_offset: adjustments["transformYOffset"].as_f64().unwrap_or(0.0) as f32,
-        
-        lens_distortion_amount: adjustments["lensDistortionAmount"].as_f64().unwrap_or(100.0) as f32 / 100.0,
-        lens_vignette_amount: adjustments["lensVignetteAmount"].as_f64().unwrap_or(100.0) as f32 / 100.0,
+
+        lens_distortion_amount: adjustments["lensDistortionAmount"]
+            .as_f64()
+            .unwrap_or(100.0) as f32
+            / 100.0,
+        lens_vignette_amount: adjustments["lensVignetteAmount"].as_f64().unwrap_or(100.0) as f32
+            / 100.0,
         lens_tca_amount: adjustments["lensTcaAmount"].as_f64().unwrap_or(100.0) as f32 / 100.0,
-        lens_distortion_enabled: adjustments["lensDistortionEnabled"].as_bool().unwrap_or(true),
+        lens_distortion_enabled: adjustments["lensDistortionEnabled"]
+            .as_bool()
+            .unwrap_or(true),
         lens_tca_enabled: adjustments["lensTcaEnabled"].as_bool().unwrap_or(true),
         lens_vignette_enabled: adjustments["lensVignetteEnabled"].as_bool().unwrap_or(true),
 
-        lens_dist_k1: lens_params.and_then(|p| p.get("k1").and_then(|k| k.as_f64())).unwrap_or(0.0) as f32,
-        lens_dist_k2: lens_params.and_then(|p| p.get("k2").and_then(|k| k.as_f64())).unwrap_or(0.0) as f32,
-        lens_dist_k3: lens_params.and_then(|p| p.get("k3").and_then(|k| k.as_f64())).unwrap_or(0.0) as f32,
-        lens_model: lens_params.and_then(|p| p.get("model").and_then(|m| m.as_u64())).unwrap_or(0) as u32,
-        tca_vr: lens_params.and_then(|p| p.get("tca_vr").and_then(|k| k.as_f64())).unwrap_or(1.0) as f32,
-        tca_vb: lens_params.and_then(|p| p.get("tca_vb").and_then(|k| k.as_f64())).unwrap_or(1.0) as f32,
-        vig_k1: lens_params.and_then(|p| p.get("vig_k1").and_then(|k| k.as_f64())).unwrap_or(0.0) as f32,
-        vig_k2: lens_params.and_then(|p| p.get("vig_k2").and_then(|k| k.as_f64())).unwrap_or(0.0) as f32,
-        vig_k3: lens_params.and_then(|p| p.get("vig_k3").and_then(|k| k.as_f64())).unwrap_or(0.0) as f32,
+        lens_dist_k1: lens_params
+            .and_then(|p| p.get("k1").and_then(|k| k.as_f64()))
+            .unwrap_or(0.0) as f32,
+        lens_dist_k2: lens_params
+            .and_then(|p| p.get("k2").and_then(|k| k.as_f64()))
+            .unwrap_or(0.0) as f32,
+        lens_dist_k3: lens_params
+            .and_then(|p| p.get("k3").and_then(|k| k.as_f64()))
+            .unwrap_or(0.0) as f32,
+        lens_model: lens_params
+            .and_then(|p| p.get("model").and_then(|m| m.as_u64()))
+            .unwrap_or(0) as u32,
+        tca_vr: lens_params
+            .and_then(|p| p.get("tca_vr").and_then(|k| k.as_f64()))
+            .unwrap_or(1.0) as f32,
+        tca_vb: lens_params
+            .and_then(|p| p.get("tca_vb").and_then(|k| k.as_f64()))
+            .unwrap_or(1.0) as f32,
+        vig_k1: lens_params
+            .and_then(|p| p.get("vig_k1").and_then(|k| k.as_f64()))
+            .unwrap_or(0.0) as f32,
+        vig_k2: lens_params
+            .and_then(|p| p.get("vig_k2").and_then(|k| k.as_f64()))
+            .unwrap_or(0.0) as f32,
+        vig_k3: lens_params
+            .and_then(|p| p.get("vig_k3").and_then(|k| k.as_f64()))
+            .unwrap_or(0.0) as f32,
     }
 }
 
@@ -197,7 +224,13 @@ fn interpolate_pixel(
     y: f32,
     pixel_out: &mut [f32],
 ) {
-    if x.is_nan() || y.is_nan() || x < 0.0 || y < 0.0 || x >= (src_width as f32 - 1.0) || y >= (src_height as f32 - 1.0) {
+    if x.is_nan()
+        || y.is_nan()
+        || x < 0.0
+        || y < 0.0
+        || x >= (src_width as f32 - 1.0)
+        || y >= (src_height as f32 - 1.0)
+    {
         return;
     }
 
@@ -234,21 +267,25 @@ fn interpolate_pixel(
     }
 }
 
-fn build_transform_matrices(params: &GeometryParams, width: f32, height: f32) -> (NaMatrix3<f32>, f32, f32, f64) {
+fn build_transform_matrices(
+    params: &GeometryParams,
+    width: f32,
+    height: f32,
+) -> (NaMatrix3<f32>, f32, f32, f64) {
     let cx = width / 2.0;
     let cy = height / 2.0;
     let ref_dim = 2000.0;
-    
+
     let p_vert = (params.vertical / 100000.0) * (ref_dim / height);
     let p_horiz = (-params.horizontal / 100000.0) * (ref_dim / width);
     let theta = params.rotate.to_radians();
-    
+
     let aspect_factor = if params.aspect >= 0.0 {
         1.0 + params.aspect / 100.0
     } else {
         1.0 / (1.0 + params.aspect.abs() / 100.0)
     };
-    
+
     let scale_factor = params.scale / 100.0;
     let off_x = (params.x_offset / 100.0) * width;
     let off_y = (params.y_offset / 100.0) * height;
@@ -256,14 +293,25 @@ fn build_transform_matrices(params: &GeometryParams, width: f32, height: f32) ->
     let t_center = NaMatrix3::new(1.0, 0.0, cx, 0.0, 1.0, cy, 0.0, 0.0, 1.0);
     let t_uncenter = NaMatrix3::new(1.0, 0.0, -cx, 0.0, 1.0, -cy, 0.0, 0.0, 1.0);
     let m_perspective = NaMatrix3::new(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, p_horiz, p_vert, 1.0);
-    
+
     let (sin_t, cos_t) = theta.sin_cos();
     let m_rotate = NaMatrix3::new(cos_t, -sin_t, 0.0, sin_t, cos_t, 0.0, 0.0, 0.0, 1.0);
-    let m_scale = NaMatrix3::new(scale_factor * aspect_factor, 0.0, 0.0, 0.0, scale_factor, 0.0, 0.0, 0.0, 1.0);
+    let m_scale = NaMatrix3::new(
+        scale_factor * aspect_factor,
+        0.0,
+        0.0,
+        0.0,
+        scale_factor,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+    );
     let m_offset = NaMatrix3::new(1.0, 0.0, off_x, 0.0, 1.0, off_y, 0.0, 0.0, 1.0);
 
     let forward = t_center * m_offset * m_perspective * m_rotate * m_scale * t_uncenter;
-    let half_diagonal = ((width as f64 * width as f64 + height as f64 * height as f64).sqrt()) / 2.0;
+    let half_diagonal =
+        ((width as f64 * width as f64 + height as f64 * height as f64).sqrt()) / 2.0;
 
     (forward, cx, cy, half_diagonal)
 }
@@ -341,8 +389,11 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
     let (width, height) = src_img.dimensions();
     let mut out_buffer = vec![0.0f32; (width * height * 3) as usize];
 
-    let (forward_transform, cx, cy, half_diagonal) = build_transform_matrices(&params, width as f32, height as f32);
-    let inv = forward_transform.try_inverse().unwrap_or(NaMatrix3::identity());
+    let (forward_transform, cx, cy, half_diagonal) =
+        build_transform_matrices(&params, width as f32, height as f32);
+    let inv = forward_transform
+        .try_inverse()
+        .unwrap_or(NaMatrix3::identity());
 
     let step_vec_x = NaVector3::new(inv[(0, 0)], inv[(1, 0)], inv[(2, 0)]);
     let step_vec_y = NaVector3::new(inv[(0, 1)], inv[(1, 1)], inv[(2, 1)]);
@@ -356,11 +407,20 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
     let lk3 = params.lens_dist_k3 as f64;
     let lens_dist_amt = (params.lens_distortion_amount as f64) * 2.5; // hack to align it
 
-    let has_lens_correction = params.lens_distortion_enabled && (lk1.abs() > 1e-6 || lk2.abs() > 1e-6 || lk3.abs() > 1e-6);
+    let has_lens_correction = params.lens_distortion_enabled
+        && (lk1.abs() > 1e-6 || lk2.abs() > 1e-6 || lk3.abs() > 1e-6);
     let is_ptlens = params.lens_model == 1;
 
-    let vr = if (params.tca_vr - 1.0).abs() > 1e-5 { params.tca_vr + (1.0 - params.tca_vr) * (1.0 - params.lens_tca_amount) } else { 1.0 };
-    let vb = if (params.tca_vb - 1.0).abs() > 1e-5 { params.tca_vb + (1.0 - params.tca_vb) * (1.0 - params.lens_tca_amount) } else { 1.0 };
+    let vr = if (params.tca_vr - 1.0).abs() > 1e-5 {
+        params.tca_vr + (1.0 - params.tca_vr) * (1.0 - params.lens_tca_amount)
+    } else {
+        1.0
+    };
+    let vb = if (params.tca_vb - 1.0).abs() > 1e-5 {
+        params.tca_vb + (1.0 - params.tca_vb) * (1.0 - params.lens_tca_amount)
+    } else {
+        1.0
+    };
 
     let has_tca = params.lens_tca_enabled && ((vr - 1.0).abs() > 1e-5 || (vb - 1.0).abs() > 1e-5);
 
@@ -369,7 +429,9 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
     let vk3 = params.vig_k3 as f64;
     let lens_vig_amt = (params.lens_vignette_amount as f64) * 0.8; // hack to align it
 
-    let has_vignetting = params.lens_vignette_enabled && (vk1.abs() > 1e-6 || vk2.abs() > 1e-6 || vk3.abs() > 1e-6) && lens_vig_amt > 0.01;
+    let has_vignetting = params.lens_vignette_enabled
+        && (vk1.abs() > 1e-6 || vk2.abs() > 1e-6 || vk3.abs() > 1e-6)
+        && lens_vig_amt > 0.01;
 
     let src_raw = src_img.as_raw();
     let width_usize = width as usize;
@@ -398,14 +460,17 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
                             let ru_norm2 = ru_norm * ru_norm;
 
                             let rd_norm = if is_ptlens {
-                                let a = lk1; let b = lk2; let c = lk3;
+                                let a = lk1;
+                                let b = lk2;
+                                let c = lk3;
                                 let d = 1.0 - a - b - c;
                                 let poly = a * ru_norm2 * ru_norm + b * ru_norm2 + c * ru_norm + d;
                                 ru_norm * poly
                             } else {
-                                let poly = 1.0 + lk1 * ru_norm2 
-                                         + lk2 * (ru_norm2 * ru_norm2) 
-                                         + lk3 * (ru_norm2 * ru_norm2 * ru_norm2);
+                                let poly = 1.0
+                                    + lk1 * ru_norm2
+                                    + lk2 * (ru_norm2 * ru_norm2)
+                                    + lk3 * (ru_norm2 * ru_norm2 * ru_norm2);
                                 ru_norm * poly
                             };
 
@@ -427,7 +492,18 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
                     }
 
                     if has_tca {
-                        interpolate_pixel_with_tca(src_raw, width_usize, height_usize, cx, cy, src_x, src_y, vr, vb, pixel);
+                        interpolate_pixel_with_tca(
+                            src_raw,
+                            width_usize,
+                            height_usize,
+                            cx,
+                            cy,
+                            src_x,
+                            src_y,
+                            vr,
+                            vb,
+                            pixel,
+                        );
                     } else {
                         interpolate_pixel(src_raw, width_usize, height_usize, src_x, src_y, pixel);
                     }
@@ -438,15 +514,16 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
                         let ru = ((dx * dx + dy * dy) as f64).sqrt();
                         let ru_norm = ru / half_diagonal;
                         let ru_norm2 = ru_norm * ru_norm;
-                        
-                        let v_factor = 1.0 + vk1 * ru_norm2 
-                                     + vk2 * (ru_norm2 * ru_norm2) 
-                                     + vk3 * (ru_norm2 * ru_norm2 * ru_norm2);
-                        
+
+                        let v_factor = 1.0
+                            + vk1 * ru_norm2
+                            + vk2 * (ru_norm2 * ru_norm2)
+                            + vk3 * (ru_norm2 * ru_norm2 * ru_norm2);
+
                         if v_factor > 1e-6 {
                             let correction_gain = 1.0 / v_factor;
                             let final_gain = 1.0 + (correction_gain - 1.0) * lens_vig_amt;
-                            
+
                             pixel[0] *= final_gain as f32;
                             pixel[1] *= final_gain as f32;
                             pixel[2] *= final_gain as f32;
@@ -466,7 +543,8 @@ pub fn unwarp_image_geometry(warped_image: &DynamicImage, params: GeometryParams
     let (width, height) = src_img.dimensions();
     let mut out_buffer = vec![0.0f32; (width * height * 3) as usize];
 
-    let (forward_transform, cx, cy, half_diagonal) = build_transform_matrices(&params, width as f32, height as f32);
+    let (forward_transform, cx, cy, half_diagonal) =
+        build_transform_matrices(&params, width as f32, height as f32);
 
     let max_radius_sq_inv = 1.0 / (cx * cx + cy * cy);
     let k_distortion = params.distortion / 100.0;
@@ -476,7 +554,8 @@ pub fn unwarp_image_geometry(warped_image: &DynamicImage, params: GeometryParams
     let lk3 = params.lens_dist_k3 as f64;
     let lens_dist_amt = (params.lens_distortion_amount as f64) * 2.0;
 
-    let has_lens_correction = params.lens_distortion_enabled && (lk1.abs() > 1e-6 || lk2.abs() > 1e-6 || lk3.abs() > 1e-6);
+    let has_lens_correction = params.lens_distortion_enabled
+        && (lk1.abs() > 1e-6 || lk2.abs() > 1e-6 || lk3.abs() > 1e-6);
     let is_ptlens = params.lens_model == 1;
 
     let src_raw = src_img.as_raw();
@@ -488,7 +567,7 @@ pub fn unwarp_image_geometry(warped_image: &DynamicImage, params: GeometryParams
         .enumerate()
         .for_each(|(y, row_pixel_data)| {
             let y_f = y as f32;
-            
+
             for (x, pixel) in row_pixel_data.chunks_exact_mut(3).enumerate() {
                 let x_f = x as f32;
                 let mut current_x = x_f;
@@ -507,33 +586,42 @@ pub fn unwarp_image_geometry(warped_image: &DynamicImage, params: GeometryParams
                             let ru_norm2 = ru_norm * ru_norm;
 
                             let (f_val, f_prime) = if is_ptlens {
-                                let a = lk1; let b = lk2; let c = lk3;
+                                let a = lk1;
+                                let b = lk2;
+                                let c = lk3;
                                 let d = 1.0 - a - b - c;
                                 let poly = a * ru_norm2 * ru_norm + b * ru_norm2 + c * ru_norm + d;
-                                
+
                                 let val = ru * poly;
-                                let prime = 4.0 * a * ru_norm2 * ru_norm 
-                                          + 3.0 * b * ru_norm2 
-                                          + 2.0 * c * ru_norm 
-                                          + d;
+                                let prime = 4.0 * a * ru_norm2 * ru_norm
+                                    + 3.0 * b * ru_norm2
+                                    + 2.0 * c * ru_norm
+                                    + d;
                                 (val, prime)
                             } else {
-                                let poly = 1.0 + lk1 * ru_norm2 + lk2 * ru_norm2 * ru_norm2 + lk3 * ru_norm2 * ru_norm2 * ru_norm2;
+                                let poly = 1.0
+                                    + lk1 * ru_norm2
+                                    + lk2 * ru_norm2 * ru_norm2
+                                    + lk3 * ru_norm2 * ru_norm2 * ru_norm2;
                                 let val = ru * poly;
-                                let poly_prime = 2.0 * lk1 * ru_norm 
-                                               + 4.0 * lk2 * ru_norm2 * ru_norm 
-                                               + 6.0 * lk3 * ru_norm2 * ru_norm2 * ru_norm;
-                                let prime = poly + ru_norm * poly_prime; 
+                                let poly_prime = 2.0 * lk1 * ru_norm
+                                    + 4.0 * lk2 * ru_norm2 * ru_norm
+                                    + 6.0 * lk3 * ru_norm2 * ru_norm2 * ru_norm;
+                                let prime = poly + ru_norm * poly_prime;
                                 (val, prime)
                             };
 
                             let g_val = ru + (f_val - ru) * lens_dist_amt - rd;
                             let g_prime = 1.0 + (f_prime - 1.0) * lens_dist_amt;
 
-                            if g_prime.abs() < 1e-7 { break; }
+                            if g_prime.abs() < 1e-7 {
+                                break;
+                            }
                             let delta = g_val / g_prime;
                             ru -= delta;
-                            if delta.abs() < 1e-4 { break; }
+                            if delta.abs() < 1e-4 {
+                                break;
+                            }
                         }
 
                         let scale = ru / rd;
@@ -655,25 +743,22 @@ pub fn apply_crop(mut image: DynamicImage, crop_value: &Value) -> DynamicImage {
 }
 
 pub fn is_geometry_identity(params: &GeometryParams) -> bool {
-    let dist_identity = !params.lens_distortion_enabled || (
-        (params.lens_distortion_amount - 1.0).abs() < 1e-4 &&
-        params.lens_dist_k1.abs() < 1e-6 && 
-        params.lens_dist_k2.abs() < 1e-6 && 
-        params.lens_dist_k3.abs() < 1e-6
-    );
+    let dist_identity = !params.lens_distortion_enabled
+        || ((params.lens_distortion_amount - 1.0).abs() < 1e-4
+            && params.lens_dist_k1.abs() < 1e-6
+            && params.lens_dist_k2.abs() < 1e-6
+            && params.lens_dist_k3.abs() < 1e-6);
 
-    let tca_identity = !params.lens_tca_enabled || (
-        (params.lens_tca_amount - 1.0).abs() < 1e-4 &&
-        (params.tca_vr - 1.0).abs() < 1e-6 &&
-        (params.tca_vb - 1.0).abs() < 1e-6
-    );
+    let tca_identity = !params.lens_tca_enabled
+        || ((params.lens_tca_amount - 1.0).abs() < 1e-4
+            && (params.tca_vr - 1.0).abs() < 1e-6
+            && (params.tca_vb - 1.0).abs() < 1e-6);
 
-    let vig_identity = !params.lens_vignette_enabled || (
-        (params.lens_vignette_amount - 1.0).abs() < 1e-4 &&
-        params.vig_k1.abs() < 1e-6 && 
-        params.vig_k2.abs() < 1e-6 && 
-        params.vig_k3.abs() < 1e-6
-    );
+    let vig_identity = !params.lens_vignette_enabled
+        || ((params.lens_vignette_amount - 1.0).abs() < 1e-4
+            && params.vig_k1.abs() < 1e-6
+            && params.vig_k2.abs() < 1e-6
+            && params.vig_k3.abs() < 1e-6);
 
     params.distortion == 0.0
         && params.vertical == 0.0
@@ -688,10 +773,7 @@ pub fn is_geometry_identity(params: &GeometryParams) -> bool {
         && vig_identity
 }
 
-pub fn apply_geometry_warp(
-    image: &DynamicImage,
-    adjustments: &serde_json::Value,
-) -> DynamicImage {
+pub fn apply_geometry_warp(image: &DynamicImage, adjustments: &serde_json::Value) -> DynamicImage {
     let params = get_geometry_params_from_json(adjustments);
     if !is_geometry_identity(&params) {
         warp_image_geometry(image, params)
@@ -705,7 +787,7 @@ pub fn apply_unwarp_geometry(
     adjustments: &serde_json::Value,
 ) -> DynamicImage {
     let params = get_geometry_params_from_json(adjustments);
-    
+
     if !is_geometry_identity(&params) {
         unwarp_image_geometry(image, params)
     } else {
@@ -813,6 +895,7 @@ pub struct GlobalAdjustments {
     pub vibrance: f32,
 
     pub sharpness: f32,
+    pub sharpening_mask: f32,
     pub luma_noise_reduction: f32,
     pub color_noise_reduction: f32,
     pub clarity: f32,
@@ -831,7 +914,7 @@ pub struct GlobalAdjustments {
     pub chromatic_aberration_blue_yellow: f32,
     pub show_clipping: u32,
     pub is_raw_image: u32,
-    _pad_ca1: f32, 
+    _pad_ca1: f32,
 
     pub has_lut: u32,
     pub lut_intensity: f32,
@@ -843,7 +926,6 @@ pub struct GlobalAdjustments {
 
     _pad_agx1: f32,
     _pad_agx2: f32,
-    _pad_agx3: f32,
     pub agx_pipe_to_rendering_matrix: GpuMat3,
     pub agx_rendering_to_pipe_matrix: GpuMat3,
 
@@ -1197,7 +1279,6 @@ fn get_global_adjustments_from_json(
     js_adjustments: &serde_json::Value,
     is_raw: bool,
 ) -> GlobalAdjustments {
-
     let visibility = js_adjustments.get("sectionVisibility");
     let is_visible = |section: &str| -> bool {
         visibility
@@ -1255,13 +1336,20 @@ fn get_global_adjustments_from_json(
 
     let color_cal_settings = if is_visible("color") {
         ColorCalibrationSettings {
-            shadows_tint: cal_obj["shadowsTint"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_hue,
-            red_hue: cal_obj["redHue"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_hue,
-            red_saturation: cal_obj["redSaturation"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_saturation,
-            green_hue: cal_obj["greenHue"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_hue,
-            green_saturation: cal_obj["greenSaturation"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_saturation,
-            blue_hue: cal_obj["blueHue"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_hue,
-            blue_saturation: cal_obj["blueSaturation"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_calibration_saturation,
+            shadows_tint: cal_obj["shadowsTint"].as_f64().unwrap_or(0.0) as f32
+                / SCALES.color_calibration_hue,
+            red_hue: cal_obj["redHue"].as_f64().unwrap_or(0.0) as f32
+                / SCALES.color_calibration_hue,
+            red_saturation: cal_obj["redSaturation"].as_f64().unwrap_or(0.0) as f32
+                / SCALES.color_calibration_saturation,
+            green_hue: cal_obj["greenHue"].as_f64().unwrap_or(0.0) as f32
+                / SCALES.color_calibration_hue,
+            green_saturation: cal_obj["greenSaturation"].as_f64().unwrap_or(0.0) as f32
+                / SCALES.color_calibration_saturation,
+            blue_hue: cal_obj["blueHue"].as_f64().unwrap_or(0.0) as f32
+                / SCALES.color_calibration_hue,
+            blue_saturation: cal_obj["blueSaturation"].as_f64().unwrap_or(0.0) as f32
+                / SCALES.color_calibration_saturation,
             _pad1: 0.0,
         }
     } else {
@@ -1286,6 +1374,7 @@ fn get_global_adjustments_from_json(
         vibrance: get_val("color", "vibrance", SCALES.vibrance, None),
 
         sharpness: get_val("details", "sharpness", SCALES.sharpness, None),
+        sharpening_mask: get_val("details", "sharpeningMask", 100.0, None),
         luma_noise_reduction: get_val(
             "details",
             "lumaNoiseReduction",
@@ -1365,7 +1454,6 @@ fn get_global_adjustments_from_json(
 
         _pad_agx1: 0.0,
         _pad_agx2: 0.0,
-        _pad_agx3: 0.0,
         agx_pipe_to_rendering_matrix: pipe_to_rendering,
         agx_rendering_to_pipe_matrix: rendering_to_pipe,
 
@@ -1597,7 +1685,7 @@ pub struct GpuContext {
 
 #[inline(always)]
 fn rgb_to_yc_only(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
-    let y  = 0.299 * r + 0.587 * g + 0.114 * b;
+    let y = 0.299 * r + 0.587 * g + 0.114 * b;
     let cb = -0.168736 * r - 0.331264 * g + 0.5 * b;
     let cr = 0.5 * r - 0.418688 * g - 0.081312 * b;
     (y, cb, cr)
@@ -1620,7 +1708,8 @@ pub fn remove_raw_artifacts_and_enhance(image: &mut DynamicImage) {
 
     let src = buffer.as_raw();
 
-    ycbcr_buffer.par_chunks_mut(3)
+    ycbcr_buffer
+        .par_chunks_mut(3)
         .zip(src.par_chunks(3))
         .for_each(|(dest, pixel)| {
             let (y, cb, cr) = rgb_to_yc_only(pixel[0], pixel[1], pixel[2]);
@@ -1633,7 +1722,8 @@ pub fn remove_raw_artifacts_and_enhance(image: &mut DynamicImage) {
     const OFFSETS: [isize; 3] = [-5, -1, 3];
     const OFFSET_SQUARES: [f32; 3] = [25.0, 1.0, 9.0];
 
-    buffer.par_chunks_mut(w * 3)
+    buffer
+        .par_chunks_mut(w * 3)
         .enumerate()
         .for_each(|(y, row)| {
             let row_offset = y * w;
@@ -1644,28 +1734,32 @@ pub fn remove_raw_artifacts_and_enhance(image: &mut DynamicImage) {
             for x in 0..w {
                 let center_idx = (row_offset + x) * 3;
 
-                let cy  = ycbcr_buffer[center_idx];
+                let cy = ycbcr_buffer[center_idx];
                 let ccb = ycbcr_buffer[center_idx + 1];
                 let ccr = ycbcr_buffer[center_idx + 2];
 
                 let mut cb_sum = 0.0;
                 let mut cr_sum = 0.0;
-                let mut w_sum  = 0.0;
+                let mut w_sum = 0.0;
 
                 for (ki, &ky) in OFFSETS.iter().enumerate() {
                     let sy = y_isize + ky as isize;
-                    if sy < 0 || sy >= h_isize { continue; }
+                    if sy < 0 || sy >= h_isize {
+                        continue;
+                    }
 
                     let neighbor_row_idx = (sy as usize) * w;
                     let ky_sq_div_50 = OFFSET_SQUARES[ki] * 0.02;
 
                     for (kj, &kx) in OFFSETS.iter().enumerate() {
                         let sx = (x as isize) + kx as isize;
-                        if sx < 0 || sx >= w_isize { continue; }
+                        if sx < 0 || sx >= w_isize {
+                            continue;
+                        }
 
                         let neighbor_idx = (neighbor_row_idx + sx as usize) * 3;
 
-                        let neighbor_y = ycbcr_buffer[neighbor_idx]; 
+                        let neighbor_y = ycbcr_buffer[neighbor_idx];
                         let y_diff = (cy - neighbor_y).abs();
 
                         let val = y_diff * BASE_INV_SIGMA;
@@ -1675,7 +1769,7 @@ pub fn remove_raw_artifacts_and_enhance(image: &mut DynamicImage) {
 
                         cb_sum += ycbcr_buffer[neighbor_idx + 1] * weight;
                         cr_sum += ycbcr_buffer[neighbor_idx + 2] * weight;
-                        w_sum  += weight;
+                        w_sum += weight;
                     }
                 }
 
@@ -1698,9 +1792,9 @@ pub fn remove_raw_artifacts_and_enhance(image: &mut DynamicImage) {
                 };
 
                 let (r, g, b) = yc_to_rgb(cy, out_cb, out_cr);
-                
+
                 let o = x * 3;
-                row[o]     = r.clamp(0.0, 1.0);
+                row[o] = r.clamp(0.0, 1.0);
                 row[o + 1] = g.clamp(0.0, 1.0);
                 row[o + 2] = b.clamp(0.0, 1.0);
             }
@@ -1712,9 +1806,9 @@ pub fn remove_raw_artifacts_and_enhance(image: &mut DynamicImage) {
 }
 
 fn apply_gentle_detail_enhance(
-    buffer: &mut image::ImageBuffer<image::Rgb<f32>, Vec<f32>>, 
-    ycbcr_source: &[f32], 
-    amount: f32
+    buffer: &mut image::ImageBuffer<image::Rgb<f32>, Vec<f32>>,
+    ycbcr_source: &[f32],
+    amount: f32,
 ) {
     let w = buffer.width() as usize;
     let h = buffer.height() as usize;
@@ -1722,7 +1816,8 @@ fn apply_gentle_detail_enhance(
     let mut temp_blur = vec![0.0; w * h];
     let radius = 2i32;
 
-    temp_blur.par_chunks_mut(w)
+    temp_blur
+        .par_chunks_mut(w)
         .enumerate()
         .for_each(|(y, row)| {
             let row_offset = y * w;
@@ -1740,7 +1835,8 @@ fn apply_gentle_detail_enhance(
 
     let output = buffer.as_mut();
 
-    output.par_chunks_mut(w * 3)
+    output
+        .par_chunks_mut(w * 3)
         .enumerate()
         .for_each(|(y, rgb_row)| {
             for x in 0..w {
@@ -1781,7 +1877,7 @@ fn apply_gentle_detail_enhance(
                 let min_val = new_r.min(new_g).min(new_b);
 
                 let scale = if max_val > 1.0 || min_val < 0.0 {
-                     if max_val > 1.0 && min_val < 0.0 {
+                    if max_val > 1.0 && min_val < 0.0 {
                         0.0
                     } else if max_val > 1.0 {
                         (1.0 - r.max(g).max(b)) / boost.max(0.001)
@@ -2167,7 +2263,8 @@ pub fn perform_auto_analysis(image: &DynamicImage) -> AutoAdjustmentResults {
     let mut edge_pixel_count = 0;
 
     for (x, y, pixel) in rgb_image.enumerate_pixels() {
-        let luma = (0.2126 * pixel[0] as f32 + 0.7152 * pixel[1] as f32 + 0.0722 * pixel[2] as f32) / 255.0;
+        let luma = (0.2126 * pixel[0] as f32 + 0.7152 * pixel[1] as f32 + 0.0722 * pixel[2] as f32)
+            / 255.0;
         if x >= center_x_start && x < center_x_end && y >= center_y_start && y < center_y_end {
             center_luma_sum += luma;
             center_pixel_count += 1;
@@ -2245,4 +2342,32 @@ pub fn calculate_auto_adjustments(
     let results = perform_auto_analysis(&original_image);
 
     Ok(auto_results_to_json(&results))
+}
+
+pub fn generate_edge_mask_from_image(image: &DynamicImage, threshold: f32) -> Vec<u8> {
+    let luma = image.to_luma8();
+    let (w, h) = luma.dimensions();
+    let mut mask = vec![0u8; (w * h) as usize];
+    let t_val = (threshold * 2.55) as i16;
+
+    mask.par_chunks_mut(w as usize)
+        .enumerate()
+        .for_each(|(y, row)| {
+            if y == 0 || y == (h as usize) - 1 {
+                return;
+            }
+
+            for x in 1..(w as usize) - 1 {
+                let val = luma.get_pixel(x as u32, y as u32)[0] as i16;
+                let val_right = luma.get_pixel(x as u32 + 1, y as u32)[0] as i16;
+                let val_down = luma.get_pixel(x as u32, y as u32 + 1)[0] as i16;
+
+                let edge = (val - val_right).abs() + (val - val_down).abs();
+
+                if edge > t_val {
+                    row[x] = 255;
+                }
+            }
+        });
+    mask
 }

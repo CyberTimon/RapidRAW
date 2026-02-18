@@ -44,6 +44,7 @@ struct GlobalAdjustments {
     vibrance: f32,
     
     sharpness: f32,
+    sharpening_mask: f32,
     luma_noise_reduction: f32,
     color_noise_reduction: f32,
     clarity: f32,
@@ -74,7 +75,6 @@ struct GlobalAdjustments {
 
     _pad_agx1: f32,
     _pad_agx2: f32,
-    _pad_agx3: f32,
     agx_pipe_to_rendering_matrix: mat3x3<f32>,
     agx_rendering_to_pipe_matrix: mat3x3<f32>,
 
@@ -1257,7 +1257,22 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let structure_blurred = textureLoad(structure_blur_texture, id.xy, 0).rgb;
     
     var locally_contrasted_rgb = initial_linear_rgb;
-    locally_contrasted_rgb = apply_local_contrast(locally_contrasted_rgb, sharpness_blurred, adjustments.global.sharpness, adjustments.global.is_raw_image, 0u);
+
+    var masked_sharpness = adjustments.global.sharpness;
+    if (adjustments.global.sharpening_mask > 0.0 && masked_sharpness != 0.0) {
+        let center_luma_for_mask = get_luma(color_from_texture);
+        let dims = vec2<i32>(textureDimensions(input_texture));
+        let right_coord = vec2<i32>(min(absolute_coord_i.x + 1, dims.x - 1), absolute_coord_i.y);
+        let down_coord = vec2<i32>(absolute_coord_i.x, min(absolute_coord_i.y + 1, dims.y - 1));
+        let right_luma = get_luma(textureLoad(input_texture, right_coord, 0).rgb);
+        let down_luma = get_luma(textureLoad(input_texture, down_coord, 0).rgb);
+        let edge = abs(center_luma_for_mask - right_luma) + abs(center_luma_for_mask - down_luma);
+        let threshold = adjustments.global.sharpening_mask;
+        let edge_factor = smoothstep(0.0, threshold * 0.5, edge);
+        masked_sharpness = masked_sharpness * edge_factor;
+    }
+
+    locally_contrasted_rgb = apply_local_contrast(locally_contrasted_rgb, sharpness_blurred, masked_sharpness, adjustments.global.is_raw_image, 0u);
     locally_contrasted_rgb = apply_local_contrast(locally_contrasted_rgb, clarity_blurred, adjustments.global.clarity, adjustments.global.is_raw_image, 1u);
     locally_contrasted_rgb = apply_local_contrast(locally_contrasted_rgb, structure_blurred, adjustments.global.structure, adjustments.global.is_raw_image, 1u);
     locally_contrasted_rgb = apply_centre_local_contrast(locally_contrasted_rgb, adjustments.global.centre, absolute_coord_i, clarity_blurred, adjustments.global.is_raw_image);
@@ -1317,6 +1332,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let mask_adj = adjustments.mask_adjustments[i];
 
             var mask_base_linear = composite_rgb_linear;
+
             mask_base_linear = apply_local_contrast(mask_base_linear, sharpness_blurred, mask_adj.sharpness, adjustments.global.is_raw_image, 0u);
             mask_base_linear = apply_local_contrast(mask_base_linear, clarity_blurred, mask_adj.clarity, adjustments.global.is_raw_image, 1u);
             mask_base_linear = apply_local_contrast(mask_base_linear, structure_blurred, mask_adj.structure, adjustments.global.is_raw_image, 1u);

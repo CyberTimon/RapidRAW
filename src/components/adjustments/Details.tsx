@@ -18,8 +18,8 @@ export default function DetailsPanel({
   onDragStateChange,
 }: DetailsPanelProps) {
   const handleAdjustmentChange = (key: string, value: string) => {
-    const numericValue = parseInt(value, 10);
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
+    const numericValue = parseFloat(value);
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue, lastChanged: key }));
   };
 
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
@@ -36,6 +36,15 @@ export default function DetailsPanel({
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Sharpness, e.target.value)}
             step={1}
             value={adjustments.sharpness}
+            onDragStateChange={onDragStateChange}
+          />
+          <Slider
+            label="Masking"
+            max={20}
+            min={0}
+            step={0.1}
+            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.SharpeningMask, e.target.value)}
+            value={adjustments.sharpeningMask || 0}
             onDragStateChange={onDragStateChange}
           />
         </div>
