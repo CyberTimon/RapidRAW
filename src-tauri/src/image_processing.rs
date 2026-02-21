@@ -1268,7 +1268,9 @@ fn get_global_adjustments_from_json(
         ColorCalibrationSettings::default()
     };
 
-    let tone_mapper = js_adjustments["toneMapper"].as_str().unwrap_or("basic");
+    let tone_mapper = js_adjustments["toneMapper"]
+        .as_str()
+        .unwrap_or(if is_raw { "agx" } else { "basic" });
     let (pipe_to_rendering, rendering_to_pipe) = calculate_agx_matrices();
 
     GlobalAdjustments {

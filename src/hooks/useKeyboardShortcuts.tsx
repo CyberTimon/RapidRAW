@@ -38,6 +38,7 @@ interface KeyboardShortcutsProps {
   setActiveMaskId(id: string | null): void;
   setCopiedFilePaths(paths: Array<string>): void;
   setIsStraightenActive(active: any): void;
+  setIsHistogramVisible(visible: any): void;
   setIsWaveformVisible(visible: any): void;
   setLibraryActivePath(path: string): void;
   setMultiSelectedPaths(paths: Array<string>): void;
@@ -87,6 +88,7 @@ export const useKeyboardShortcuts = ({
   setActiveMaskId,
   setCopiedFilePaths,
   setIsStraightenActive,
+  setIsHistogramVisible,
   setIsWaveformVisible,
   setLibraryActivePath,
   setMultiSelectedPaths,
@@ -221,6 +223,10 @@ export const useKeyboardShortcuts = ({
         if (key === 'w' && !isCtrl) {
           event.preventDefault();
           setIsWaveformVisible((prev: boolean) => !prev);
+        }
+        if (key === 'h' && !isCtrl) {
+          event.preventDefault();
+          setIsHistogramVisible((prev: boolean) => !prev);
         }
       } else {
         if ((key === 'enter' || key === ' ') && !isCtrl) {
@@ -435,6 +441,7 @@ export const useKeyboardShortcuts = ({
     setActiveMaskId,
     setCopiedFilePaths,
     setIsStraightenActive,
+    setIsHistogramVisible,
     setIsWaveformVisible,
     setLibraryActivePath,
     setMultiSelectedPaths,

@@ -38,7 +38,7 @@ const ToneMapperSwitch = ({
   const [isLabelHovered, setIsLabelHovered] = useState(false);
 
   const handleReset = () => {
-    onMapperChange('basic');
+    onMapperChange('agx');
     onExposureChange(0);
   };
 

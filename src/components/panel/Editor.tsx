@@ -11,9 +11,11 @@ import { Adjustments, AiPatch, Coord, MaskContainer } from '../../utils/adjustme
 import FullScreenViewer from './editor/FullScreenViewer';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
+import Histogram from './editor/Histogram';
 import Waveform from './editor/Waveform';
 import { Mask, SubMask } from './right/Masks';
 import { BrushSettings, Invokes, Panel, SelectedImage, TransformState, WaveformData } from '../ui/AppProperties';
+import type { ChannelConfig } from '../adjustments/Curves';
 import type { OverlayMode } from './right/CropPanel';
 
 interface EditorProps {
@@ -34,8 +36,10 @@ interface EditorProps {
   isMaskControlHovered: boolean;
   isStraightenActive: boolean;
   isRotationActive?: boolean;
+  isHistogramVisible: boolean;
   isWaveformVisible: boolean;
   onBackToLibrary(): void;
+  onCloseHistogram(): void;
   onCloseWaveform(): void;
   onContextMenu(event: any): void;
   onGenerateAiMask(subMaskId: string, startPoint: Coord, endPoint: Coord): void;
@@ -45,6 +49,7 @@ interface EditorProps {
   onSelectMask(id: string): void;
   onStraighten(val: number): void;
   onToggleFullScreen(): void;
+  onToggleHistogram(): void;
   onToggleWaveform(): void;
   onUndo(): void;
   onZoomed(state: TransformState): void;
@@ -59,6 +64,7 @@ interface EditorProps {
   transformedOriginalUrl: string | null;
   uncroppedAdjustedPreviewUrl: string | null;
   updateSubMask(id: string | null, subMask: Partial<SubMask>): void;
+  histogram: ChannelConfig | null;
   waveform: WaveformData | null;
   onDisplaySizeChange?(size: any): void;
   onInitialFitScale?(scale: number): void;
@@ -93,8 +99,10 @@ export default function Editor({
   isMaskControlHovered,
   isStraightenActive,
   isRotationActive,
+  isHistogramVisible,
   isWaveformVisible,
   onBackToLibrary,
+  onCloseHistogram,
   onCloseWaveform,
   onContextMenu,
   onGenerateAiMask,
@@ -104,6 +112,7 @@ export default function Editor({
   onSelectMask,
   onStraighten,
   onToggleFullScreen,
+  onToggleHistogram,
   onToggleWaveform,
   onUndo,
   onZoomed,
@@ -117,6 +126,7 @@ export default function Editor({
   transformedOriginalUrl,
   uncroppedAdjustedPreviewUrl,
   updateSubMask,
+  histogram,
   waveform,
   onDisplaySizeChange,
   onInitialFitScale,
@@ -509,6 +519,7 @@ export default function Editor({
 
       <div className="flex-1 bg-bg-secondary rounded-lg flex flex-col relative overflow-hidden p-2 gap-2 min-h-0">
         <AnimatePresence>
+          {isHistogramVisible && histogram && <Histogram histogramData={histogram} onClose={onCloseHistogram} />}
           {isWaveformVisible && <Waveform waveformData={waveFormData} onClose={onCloseWaveform} />}
         </AnimatePresence>
         <EditorToolbar
@@ -516,10 +527,12 @@ export default function Editor({
           canUndo={canUndo}
           isFullScreenLoading={isFullScreenLoading}
           isLoading={isLoading}
+          isHistogramVisible={isHistogramVisible}
           isWaveformVisible={isWaveformVisible}
           onBackToLibrary={onBackToLibrary}
           onRedo={onRedo}
           onToggleFullScreen={onToggleFullScreen}
+          onToggleHistogram={onToggleHistogram}
           onToggleShowOriginal={toggleShowOriginal}
           onToggleWaveform={onToggleWaveform}
           onUndo={onUndo}

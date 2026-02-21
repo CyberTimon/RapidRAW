@@ -498,7 +498,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   structure: 0,
   temperature: 0,
   tint: 0,
-  toneMapper: 'basic',
+  toneMapper: 'agx',
   transformDistortion: 0,
   transformVertical: 0,
   transformHorizontal: 0,

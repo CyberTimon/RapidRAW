@@ -344,6 +344,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [histogram, setHistogram] = useState<ChannelConfig | null>(null);
   const [waveform, setWaveform] = useState<WaveformData | null>(null);
+  const [isHistogramVisible, setIsHistogramVisible] = useState(false);
   const [isWaveformVisible, setIsWaveformVisible] = useState(false);
   const [uiVisibility, setUiVisibility] = useState<UiVisibility>({
     folderTree: true,
@@ -1582,6 +1583,9 @@ function App() {
   const handleToggleWaveform = useCallback(() => {
     setIsWaveformVisible((prev: boolean) => !prev);
   }, []);
+  const handleToggleHistogram = useCallback(() => {
+    setIsHistogramVisible((prev: boolean) => !prev);
+  }, []);
 
   useEffect(() => {
     if (isInitialMount.current || !appSettings) {
@@ -1977,6 +1981,7 @@ function App() {
     setUncroppedAdjustedPreviewUrl(null);
     setHistogram(null);
     setWaveform(null);
+    setIsHistogramVisible(false);
     setIsWaveformVisible(false);
     setActiveMaskId(null);
     setActiveMaskContainerId(null);
@@ -2649,6 +2654,7 @@ function App() {
     setActiveMaskId,
     setCopiedFilePaths,
     setIsStraightenActive,
+    setIsHistogramVisible,
     setIsWaveformVisible,
     setLibraryActivePath,
     setMultiSelectedPaths,
@@ -4593,8 +4599,10 @@ function App() {
               isLoading={isViewLoading}
               isMaskControlHovered={isMaskControlHovered}
               isStraightenActive={isStraightenActive}
+              isHistogramVisible={isHistogramVisible}
               isWaveformVisible={isWaveformVisible}
               onBackToLibrary={handleBackToLibrary}
+              onCloseHistogram={() => setIsHistogramVisible(false)}
               onCloseWaveform={() => setIsWaveformVisible(false)}
               onContextMenu={handleEditorContextMenu}
               onGenerateAiMask={handleGenerateAiMask}
@@ -4604,6 +4612,7 @@ function App() {
               onSelectMask={setActiveMaskId}
               onStraighten={handleStraighten}
               onToggleFullScreen={handleToggleFullScreen}
+              onToggleHistogram={handleToggleHistogram}
               onToggleWaveform={handleToggleWaveform}
               onUndo={undo}
               onZoomed={handleUserTransform}
@@ -4620,6 +4629,7 @@ function App() {
               transformedOriginalUrl={transformedOriginalUrl}
               uncroppedAdjustedPreviewUrl={uncroppedAdjustedPreviewUrl}
               updateSubMask={updateSubMask}
+              histogram={histogram}
               waveform={waveform}
               onDisplaySizeChange={handleDisplaySizeChange}
               onInitialFitScale={setInitialFitScale}

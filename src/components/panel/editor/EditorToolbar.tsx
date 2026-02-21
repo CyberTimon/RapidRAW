@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useRef, useMemo } from 'react';
-import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo, Waves } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo, Waves, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { SelectedImage } from '../../ui/AppProperties';
@@ -9,12 +9,14 @@ interface EditorToolbarProps {
   canRedo: boolean;
   canUndo: boolean;
   isFullScreenLoading: boolean;
+  isHistogramVisible: boolean;
   isWaveformVisible: boolean;
   isLoading: boolean;
   isLoadingFullRes?: boolean;
   onBackToLibrary(): void;
   onRedo(): void;
   onToggleFullScreen(): void;
+  onToggleHistogram(): void;
   onToggleShowOriginal(): void;
   onToggleWaveform(): void;
   onUndo(): void;
@@ -32,12 +34,14 @@ const EditorToolbar = memo(
     canRedo,
     canUndo,
     isFullScreenLoading,
+    isHistogramVisible,
     isLoading,
     isLoadingFullRes,
     isWaveformVisible,
     onBackToLibrary,
     onRedo,
     onToggleFullScreen,
+    onToggleHistogram,
     onToggleShowOriginal,
     onToggleWaveform,
     onUndo,
@@ -535,6 +539,18 @@ const EditorToolbar = memo(
             data-tooltip="Toggle Waveform (W)"
           >
             <Waves size={20} />
+          </button>
+          <button
+            className={clsx(
+              'p-2 rounded-full transition-colors',
+              isHistogramVisible
+                ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
+                : 'bg-surface hover:bg-card-active text-text-primary',
+            )}
+            onClick={onToggleHistogram}
+            data-tooltip="Toggle Histogram (h)"
+          >
+            <BarChart3 size={20} />
           </button>
 
           <button
