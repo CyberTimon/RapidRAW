@@ -176,18 +176,11 @@ export const DEFAULT_CROP_ASPECT_RATIO_OPTIONS: Array<{ label: string; value: De
   { label: '65:24', value: DefaultCropAspectRatio.SixtyFiveTwentyFour },
 ];
 
-const LEGACY_DEFAULT_CROP_ASPECT_RATIO_ALIASES: Record<string, DefaultCropAspectRatio> = {
-  // Backward-compat for previously persisted typo values.
-  '16:0': DefaultCropAspectRatio.SixteenNine,
-  // Backward-compat: removed preset, map to safe default.
-  '2:1': DefaultCropAspectRatio.Original,
-};
-
 export const getDefaultCropAspectRatioValue = (
   setting: DefaultCropAspectRatio | string | undefined,
   originalAspectRatio: number | null,
 ): number | null => {
-  const selectedSetting = (setting && LEGACY_DEFAULT_CROP_ASPECT_RATIO_ALIASES[setting]) || setting || DEFAULT_CROP_ASPECT_RATIO;
+  const selectedSetting = setting || DEFAULT_CROP_ASPECT_RATIO;
 
   if (selectedSetting === DefaultCropAspectRatio.Original) {
     return originalAspectRatio;

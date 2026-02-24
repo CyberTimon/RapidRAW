@@ -124,7 +124,7 @@ import {
 import { ChannelConfig } from './components/adjustments/Curves';
 import HdrModal from './components/modals/HdrModal';
 
-const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
+const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA';
 
 interface CollapsibleSectionsState {
   basic: boolean;
@@ -552,7 +552,6 @@ function App() {
   }, []);
 
   const handleWbPicked = useCallback(() => {
-    //setIsWbPickerActive(false); // lets keep it active
   }, []);
 
   useEffect(() => {
@@ -3389,7 +3388,6 @@ function App() {
             return currentSelected;
           });
 
-          // Only update aspect ratio if it wasn't loaded from metadata
           setLiveAdjustments((prev: Adjustments) => {
             if (!prev.aspectRatio && !prev.crop) {
               const originalAspectRatio = loadImageResult.width / loadImageResult.height;
