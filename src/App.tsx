@@ -8,7 +8,6 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import debounce from 'lodash.debounce';
 import throttle from 'lodash.throttle';
 import { ClerkProvider } from '@clerk/clerk-react';
-import { ToastContainer, toast, Slide } from 'react-toastify';
 import clsx from 'clsx';
 import {
   Aperture,
@@ -49,7 +48,7 @@ import { useThumbnails } from './hooks/useThumbnails';
 import { ImageDimensions } from './hooks/useImageRenderSize';
 import RightPanelSwitcher from './components/panel/right/RightPanelSwitcher';
 import MetadataPanel from './components/panel/right/MetadataPanel';
-import CropPanel, { type OverlayMode } from './components/panel/right/CropPanel';
+import CropPanel from './components/panel/right/CropPanel';
 import PresetsPanel from './components/panel/right/PresetsPanel';
 import AIPanel from './components/panel/right/AIPanel';
 import ExportPanel from './components/panel/right/ExportPanel';
@@ -120,6 +119,7 @@ import {
   ThumbnailSize,
   ThumbnailAspectRatio,
   CullingSuggestions,
+  getDefaultCropAspectRatioValue,
 } from './components/ui/AppProperties';
 import { ChannelConfig } from './components/adjustments/Curves';
 import HdrModal from './components/modals/HdrModal';
@@ -209,16 +209,6 @@ interface SearchCriteria {
   text: string;
   mode: 'AND' | 'OR';
 }
-
-const RIGHT_PANEL_ORDER = [
-  Panel.Metadata,
-  Panel.Adjustments,
-  Panel.Crop,
-  Panel.Masks,
-  Panel.Ai,
-  Panel.Presets,
-  Panel.Export,
-];
 
 const DEBUG = false;
 const REVOCATION_DELAY = 5000;
@@ -332,9 +322,6 @@ function App() {
     canUndo,
     canRedo,
     resetHistory: resetAdjustmentsHistory,
-    history: adjustmentsHistory,
-    historyIndex: adjustmentsHistoryIndex,
-    goToIndex: goToAdjustmentsHistoryIndex,
   } = useHistoryState(INITIAL_ADJUSTMENTS);
   const [adjustments, setLiveAdjustments] = useState<Adjustments>(INITIAL_ADJUSTMENTS);
   const [showOriginal, setShowOriginal] = useState(false);
@@ -359,7 +346,6 @@ function App() {
   const [theme, setTheme] = useState(DEFAULT_THEME_ID);
   const [adaptivePalette, setAdaptivePalette] = useState<any>(null);
   const [activeRightPanel, setActiveRightPanel] = useState<Panel | null>(Panel.Adjustments);
-  const [slideDirection, setSlideDirection] = useState(1);
   const [activeMaskContainerId, setActiveMaskContainerId] = useState<string | null>(null);
   const [activeMaskId, setActiveMaskId] = useState<string | null>(null);
   const [activeAiPatchContainerId, setActiveAiPatchContainerId] = useState<string | null>(null);
@@ -373,8 +359,6 @@ function App() {
   const [fullResolutionUrl, setFullResolutionUrl] = useState<string | null>(null);
   const [isLoadingFullRes, setIsLoadingFullRes] = useState(false);
   const [isRotationActive, setIsRotationActive] = useState(false);
-  const [overlayMode, setOverlayMode] = useState<OverlayMode>('thirds');
-  const [overlayRotation, setOverlayRotation] = useState(0);
   const [transformedOriginalUrl, setTransformedOriginalUrl] = useState<string | null>(null);
   const fullResRequestRef = useRef<any>(null);
   const fullResCacheKeyRef = useRef<string | null>(null);
@@ -503,26 +487,6 @@ function App() {
     currentPath?: string;
   }>({});
 
-  useEffect(() => {
-    if (currentFolderPath) {
-      preloadedDataRef.current = {
-        ...preloadedDataRef.current,
-        currentPath: currentFolderPath,
-        images: Promise.resolve(imageList),
-      };
-    }
-  }, [currentFolderPath, imageList]);
-
-  useEffect(() => {
-    if (rootPath && folderTree) {
-      preloadedDataRef.current = {
-        ...preloadedDataRef.current,
-        rootPath: rootPath,
-        tree: Promise.resolve(folderTree),
-      };
-    }
-  }, [rootPath, folderTree]);
-
   const [exportState, setExportState] = useState<ExportState>({
     errorMessage: '',
     progress: { current: 0, total: 0 },
@@ -547,7 +511,6 @@ function App() {
     const timer = setTimeout(() => setIsCopied(false), 1000);
     return () => clearTimeout(timer);
   }, [isCopied]);
-
   useEffect(() => {
     if (!isPasted) {
       return;
@@ -555,17 +518,6 @@ function App() {
     const timer = setTimeout(() => setIsPasted(false), 1000);
     return () => clearTimeout(timer);
   }, [isPasted]);
-
-  const isLightTheme = useMemo(() =>
-    [Theme.Light, Theme.Snow, Theme.Arctic].includes(theme as Theme),
-  [theme]);
-
-  useEffect(() => {
-    if (error) {
-      toast.error(error);
-      setError(null);
-    }
-  }, [error]);
 
   const debouncedSetHistory = useMemo(
     () => debounce((newAdjustments) => setHistoryAdjustments(newAdjustments), 300),
@@ -1458,9 +1410,6 @@ function App() {
       if (panelId === activeRightPanel) {
         setActiveRightPanel(null);
       } else {
-        const currentIndex = activeRightPanel ? RIGHT_PANEL_ORDER.indexOf(activeRightPanel) : -1;
-        const newIndex = RIGHT_PANEL_ORDER.indexOf(panelId);
-        setSlideDirection(newIndex > currentIndex ? 1 : -1);
         setActiveRightPanel(panelId);
         setRenderedRightPanel(panelId);
       }
@@ -1984,7 +1933,6 @@ function App() {
     setIsWbPickerActive(false);
     setActiveAiSubMaskId(null);
     setLibraryActivePath(lastActivePath);
-    setSlideDirection(1);
     setLiveAdjustments(INITIAL_ADJUSTMENTS);
     resetAdjustmentsHistory(INITIAL_ADJUSTMENTS);
   }, [selectedImage?.path]);
@@ -1997,6 +1945,11 @@ function App() {
       applyAdjustments.cancel();
       debouncedSave.cancel();
       patchesSentToBackend.current.clear();
+      const initialAspectRatio = getDefaultCropAspectRatioValue(appSettings?.defaultCropAspectRatio, null);
+      const initialAdjustments = { ...INITIAL_ADJUSTMENTS, aspectRatio: initialAspectRatio };
+
+      setLiveAdjustments(initialAdjustments);
+      resetAdjustmentsHistory(initialAdjustments);
 
       setSelectedImage({
         exif: null,
@@ -2035,7 +1988,14 @@ function App() {
       setZoom(1);
       setIsLibraryExportPanelVisible(false);
     },
-    [selectedImage?.path, applyAdjustments, debouncedSave, thumbnails],
+    [
+      selectedImage?.path,
+      appSettings?.defaultCropAspectRatio,
+      applyAdjustments,
+      debouncedSave,
+      thumbnails,
+      resetAdjustmentsHistory,
+    ],
   );
 
   const executeDelete = useCallback(
@@ -3366,7 +3326,8 @@ function App() {
           if (metadata.adjustments && !metadata.adjustments.is_null) {
             initialAdjusts = normalizeLoadedAdjustments(metadata.adjustments);
           } else {
-            initialAdjusts = { ...INITIAL_ADJUSTMENTS };
+            const initialAspectRatio = getDefaultCropAspectRatioValue(appSettings?.defaultCropAspectRatio, null);
+            initialAdjusts = { ...INITIAL_ADJUSTMENTS, aspectRatio: initialAspectRatio };
           }
           
           setLiveAdjustments(initialAdjusts);
@@ -3431,7 +3392,12 @@ function App() {
           // Only update aspect ratio if it wasn't loaded from metadata
           setLiveAdjustments((prev: Adjustments) => {
             if (!prev.aspectRatio && !prev.crop) {
-              return { ...prev, aspectRatio: loadImageResult.width / loadImageResult.height };
+              const originalAspectRatio = loadImageResult.width / loadImageResult.height;
+              const defaultAspectRatio = getDefaultCropAspectRatioValue(
+                appSettings?.defaultCropAspectRatio,
+                originalAspectRatio,
+              );
+              return { ...prev, aspectRatio: defaultAspectRatio };
             }
             return prev;
           });
@@ -3452,7 +3418,13 @@ function App() {
         isEffectActive = false;
       };
     }
-  }, [selectedImage?.path, selectedImage?.isReady, resetAdjustmentsHistory, appSettings?.editorPreviewResolution]);
+  }, [
+    selectedImage?.path,
+    selectedImage?.isReady,
+    resetAdjustmentsHistory,
+    appSettings?.editorPreviewResolution,
+    appSettings?.defaultCropAspectRatio,
+  ]);
 
   const handleClearSelection = () => {
     if (selectedImage) {
@@ -3544,10 +3516,14 @@ function App() {
 
             const originalAspectRatio =
               selectedImage.width && selectedImage.height ? selectedImage.width / selectedImage.height : null;
+            const defaultAspectRatio = getDefaultCropAspectRatioValue(
+              appSettings?.defaultCropAspectRatio,
+              originalAspectRatio,
+            );
 
             resetAdjustmentsHistory({
                 ...INITIAL_ADJUSTMENTS,
-                aspectRatio: originalAspectRatio,
+                aspectRatio: defaultAspectRatio,
                 rating: currentRating,
                 aiPatches: []
             });
@@ -3558,7 +3534,15 @@ function App() {
           setError(`Failed to reset adjustments: ${err}`);
         });
     },
-    [multiSelectedPaths, libraryActivePath, selectedImage, adjustments.rating, resetAdjustmentsHistory, debouncedSetHistory],
+    [
+      multiSelectedPaths,
+      libraryActivePath,
+      selectedImage,
+      adjustments.rating,
+      appSettings?.defaultCropAspectRatio,
+      resetAdjustmentsHistory,
+      debouncedSetHistory,
+    ],
   );
 
   const handleImportClick = useCallback(
@@ -3762,10 +3746,14 @@ function App() {
             selectedImage.width && selectedImage.height
               ? selectedImage.width / selectedImage.height
               : null;
+          const defaultAspectRatio = getDefaultCropAspectRatioValue(
+            appSettings?.defaultCropAspectRatio,
+            originalAspectRatio,
+          );
 
           resetAdjustmentsHistory({
             ...INITIAL_ADJUSTMENTS,
-            aspectRatio: originalAspectRatio,
+            aspectRatio: defaultAspectRatio,
             rating: currentRating,
             aiPatches: [],
           });
@@ -4410,7 +4398,6 @@ function App() {
           pinnedFolders={pinnedFolders}
           activeSection={activeTreeSection}
           onActiveSectionChange={handleActiveTreeSectionChange}
-          showImageCounts={appSettings?.enableFolderImageCounts ?? false}
         />
         <Resizer
           direction={Orientation.Vertical}
@@ -4508,7 +4495,6 @@ function App() {
             onReset={() => handleResetAdjustments()}
             rating={libraryActiveAdjustments.rating || 0}
             thumbnailAspectRatio={thumbnailAspectRatio}
-            totalImages={imageList.length}
           />
         )}
       </div>
@@ -4548,20 +4534,9 @@ function App() {
 
   const renderMainView = () => {
     const panelVariants: any = {
-      animate: (direction: number) => ({
-        opacity: 1,
-        y: 0,
-        transition: { duration: direction === 0 ? 0 : 0.2, ease: 'circOut' }
-      }),
-      exit: (direction: number) => ({
-        opacity: direction === 0 ? 1 : 0.2,
-        y: direction === 0 ? 0 : (direction > 0 ? -20 : 20),
-        transition: { duration: direction === 0 ? 0 : 0.1, ease: 'circIn' }
-      }),
-      initial: (direction: number) => ({
-        opacity: direction === 0 ? 1 : 0.2,
-        y: direction === 0 ? 0 : (direction > 0 ? 20 : -20),
-      }),
+      animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'circOut' } },
+      exit: { opacity: 0.4, y: -20, transition: { duration: 0.1, ease: 'circIn' } },
+      initial: { opacity: 0.4, y: 20 },
     };
 
     if (selectedImage) {
@@ -4622,11 +4597,6 @@ function App() {
               fullResolutionUrl={fullResolutionUrl}
               isLoadingFullRes={isLoadingFullRes}
               isRotationActive={isRotationActive}
-              overlayMode={overlayMode}
-              overlayRotation={overlayRotation}
-              adjustmentsHistory={adjustmentsHistory}
-              adjustmentsHistoryIndex={adjustmentsHistoryIndex}
-              goToAdjustmentsHistoryIndex={goToAdjustmentsHistoryIndex}
             />
             <Resizer
               direction={Orientation.Horizontal}
@@ -4664,7 +4634,6 @@ function App() {
               thumbnailAspectRatio={thumbnailAspectRatio}
               thumbnails={thumbnails}
               zoom={zoom}
-              totalImages={sortedImageList.length}
             />
           </div>
 
@@ -4678,12 +4647,11 @@ function App() {
               style={{ width: activeRightPanel ? `${rightPanelWidth}px` : '0px' }}
             >
               <div style={{ width: `${rightPanelWidth}px` }} className="h-full">
-                <AnimatePresence mode="wait" custom={slideDirection}>
+                <AnimatePresence mode="wait">
                   {activeRightPanel && (
                     <motion.div
                       animate="animate"
                       className="h-full w-full"
-                      custom={slideDirection}
                       exit="exit"
                       initial="initial"
                       key={renderedRightPanel}
@@ -4708,29 +4676,16 @@ function App() {
                           onDragStateChange={setIsSliderDragging}
                         />
                       )}
-                      {renderedRightPanel === Panel.Metadata && (
-                        <MetadataPanel
-                          selectedImage={selectedImage}
-                          rating={adjustments.rating || 0}
-                          tags={imageList.find(img => img.path === selectedImage.path)?.tags || []}
-                          onRate={handleRate}
-                          onSetColorLabel={handleSetColorLabel}
-                          onTagsChanged={handleTagsChanged}
-                          appSettings={appSettings}
-                        />
-                      )}
+                      {renderedRightPanel === Panel.Metadata && <MetadataPanel selectedImage={selectedImage} />}
                       {renderedRightPanel === Panel.Crop && (
                         <CropPanel
                           adjustments={adjustments}
+                          defaultAspectRatioSetting={appSettings?.defaultCropAspectRatio}
                           isStraightenActive={isStraightenActive}
                           selectedImage={selectedImage}
                           setAdjustments={setAdjustments}
                           setIsStraightenActive={setIsStraightenActive}
                           setIsRotationActive={setIsRotationActive}
-                          overlayMode={overlayMode}
-                          overlayRotation={overlayRotation}
-                          setOverlayRotation={setOverlayRotation}
-                          setOverlayMode={setOverlayMode}
                         />
                       )}
                       {renderedRightPanel === Panel.Masks && (
@@ -4840,6 +4795,14 @@ function App() {
           !appSettings?.decorations && rootPath && !isWindowFullScreen && 'pt-12',
         ])}
       >
+        {error && (
+          <div className="absolute top-12 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg z-50">
+            {error}
+            <button onClick={() => setError(null)} className="ml-4 font-bold hover:text-gray-200">
+              ×
+            </button>
+          </div>
+        )}
         <div className="flex flex-row flex-grow h-full min-h-0">
           {memoizedFolderTree}
           <div className="flex-1 flex flex-col min-w-0">{renderContent()}</div>
@@ -4986,23 +4949,6 @@ function App() {
         onSave={handleSaveCollage}
         sourceImages={collageModalState.sourceImages}
         thumbnails={thumbnails}
-      />
-      <ToastContainer
-        position="bottom-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable={false}
-        pauseOnHover
-        theme={isLightTheme ? "light" : "dark"}
-        transition={Slide}
-        toastClassName={() => clsx(
-            "relative flex min-h-16 p-4 rounded-lg justify-between overflow-hidden cursor-pointer mb-4",
-            "!bg-surface !text-text-primary !border !border-border-color !shadow-2xl !max-w-[420px]"
-        )}
       />
     </div>
   );

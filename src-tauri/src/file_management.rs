@@ -316,6 +316,7 @@ pub struct AppSettings {
     pub enable_folder_image_counts: Option<bool>,
     #[serde(default = "default_linear_raw_mode")]
     pub linear_raw_mode: String,
+    pub default_crop_aspect_ratio: Option<String>,
 }
 
 fn default_adjustment_visibility() -> HashMap<String, bool> {
@@ -372,6 +373,7 @@ impl Default for AppSettings {
             my_lenses: Some(Vec::new()),
             enable_folder_image_counts: Some(false),
             linear_raw_mode: default_linear_raw_mode(),
+            default_crop_aspect_ratio: None,
         }
     }
 }

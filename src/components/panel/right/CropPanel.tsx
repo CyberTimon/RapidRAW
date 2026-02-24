@@ -1,20 +1,24 @@
-import { type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Aperture,
   FlipHorizontal,
   FlipVertical,
-  Grid3x3,
   RectangleHorizontal,
   RectangleVertical,
   RotateCcw,
   RotateCw,
   Ruler,
   Scan,
-  X
+  X,
+  Aperture,
 } from 'lucide-react';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import clsx from 'clsx';
-import { Orientation, SelectedImage } from '../../ui/AppProperties';
+import {
+  Orientation,
+  SelectedImage,
+  DefaultCropAspectRatio,
+  getDefaultCropAspectRatioValue,
+} from '../../ui/AppProperties';
 import TransformModal from '../../modals/TransformModal';
 import LensCorrectionModal from '../../modals/LensCorrectionModal';
 
@@ -22,19 +26,14 @@ const BASE_RATIO = 1.618;
 const ORIGINAL_RATIO = 0;
 const RATIO_TOLERANCE = 0.01;
 
-export type OverlayMode = 'none' | 'thirds' | 'goldenTriangle' | 'goldenSpiral' | 'phiGrid' | 'armature' | 'diagonal';
-
 interface CropPanelProps {
   adjustments: Adjustments;
+  defaultAspectRatioSetting?: DefaultCropAspectRatio;
   isStraightenActive: boolean;
   selectedImage: SelectedImage;
   setAdjustments(adjustments: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)): void;
   setIsStraightenActive(active: any): void;
   setIsRotationActive?(active: boolean): void;
-  overlayMode?: OverlayMode;
-  setOverlayMode?(mode: OverlayMode): void;
-  overlayRotation?: number;
-  setOverlayRotation?(rotation: SetStateAction<number>): void;
 }
 
 interface CropPreset {
@@ -43,46 +42,32 @@ interface CropPreset {
   tooltip: string;
 }
 
-interface OverlayOption {
-  id: OverlayMode;
-  name: string;
-  tooltip: string;
-}
-
-
 const PRESETS: Array<CropPreset> = [
   { name: 'Free', value: null, tooltip: 'Freeform crop' },
   { name: 'Original', value: ORIGINAL_RATIO, tooltip: 'Original image aspect ratio' },
   { name: '1:1', value: 1, tooltip: 'Square - Instagram, profile pictures' },
+  { name: '4:5', value: 4 / 5, tooltip: '4:5 - Instagram portrait feed, prints' },
   { name: '5:4', value: 5 / 4, tooltip: '5:4 - Instagram landscape, 8x10 prints' },
+  { name: '3:4', value: 3 / 4, tooltip: '3:4 - Portrait framing, mobile-friendly' },
   { name: '4:3', value: 4 / 3, tooltip: '4:3 - Traditional monitors, tablets' },
+  { name: '2:3', value: 2 / 3, tooltip: '2:3 - Portrait DSLR/35mm framing' },
   { name: '3:2', value: 3 / 2, tooltip: '3:2 - 35mm film, DSLR cameras' },
+  { name: '5:7', value: 5 / 7, tooltip: '5:7 - Popular print format' },
   { name: '16:9', value: 16 / 9, tooltip: '16:9 - Widescreen, desktop wallpapers, YouTube' },
+  { name: '9:16', value: 9 / 16, tooltip: '9:16 - Vertical stories, reels, shorts' },
   { name: '21:9', value: 21 / 9, tooltip: '21:9 - Ultrawide monitors, cinematic' },
+  { name: '2.39:1', value: 2.39 / 1, tooltip: '2.39:1 - Cinemascope cinematic framing' },
   { name: '65:24', value: 65 / 24, tooltip: '65:24 - Panoramic 35mm wide format' },
-];
-
-const OVERLAYS: Array<OverlayOption> = [
-  { id: 'none', name: 'None', tooltip: 'No overlay' },
-  { id: 'thirds', name: 'Thirds', tooltip: 'Rule of Thirds' },
-  { id: 'diagonal', name: 'Diagonal Lines', tooltip: 'Diagonal Lines' },
-  { id: 'goldenTriangle', name: 'Triangle', tooltip: 'Golden Triangle' },
-  { id: 'goldenSpiral', name: 'Spiral', tooltip: 'Golden Spiral (Fibonacci)' },
-  { id: 'phiGrid', name: 'Phi Grid', tooltip: 'Phi Grid (Golden Ratio)' },
-  { id: 'armature', name: 'Armature', tooltip: 'Armature' },
 ];
 
 export default function CropPanel({
   adjustments,
+  defaultAspectRatioSetting,
   isStraightenActive,
   selectedImage,
   setAdjustments,
   setIsStraightenActive,
   setIsRotationActive: setGlobalRotationActive,
-  overlayMode: propOverlayMode,
-  setOverlayMode: setPropOverlayMode,
-  overlayRotation: propOverlayRotation,
-  setOverlayRotation: propSetOverlayRotation,
 }: CropPanelProps) {
   const [customW, setCustomW] = useState('');
   const [customH, setCustomH] = useState('');
@@ -91,41 +76,9 @@ export default function CropPanel({
   const [isRotationActive, setIsRotationActive] = useState(false);
   const [preferPortrait, setPreferPortrait] = useState(false);
   const [isEditingCustom, setIsEditingCustom] = useState(false);
-
-  const [internalOverlayMode, setInternalOverlayMode] = useState<OverlayMode>('thirds');
-  const [_internalOverlayRotation, setInternalOverlayRotation] = useState(0);
-
-  const activeOverlay = propOverlayMode ?? internalOverlayMode;
-  const setOverlay = setPropOverlayMode ?? setInternalOverlayMode;
-  const setOverlayRotation = propSetOverlayRotation ?? setInternalOverlayRotation;
-
   const lastSyncedRatio = useRef<number | null>(null);
 
   const { aspectRatio, rotation = 0, flipHorizontal = false, flipVertical = false, orientationSteps = 0 } = adjustments;
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const activeTag = document.activeElement?.tagName.toLowerCase();
-      if (activeTag === 'input' || activeTag === 'textarea') return;
-
-      if (e.ctrlKey || e.metaKey) return;
-
-      if (e.key.toLowerCase() === 'o') {
-        e.preventDefault();
-
-        if (e.shiftKey) {
-          setOverlayRotation((prev) => (prev + 1) % 4);
-        } else {
-          const currentIndex = OVERLAYS.findIndex((o) => o.id === activeOverlay);
-          const nextIndex = (currentIndex + 1) % OVERLAYS.length;
-          setOverlay(OVERLAYS[nextIndex].id);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeOverlay, setOverlay, setOverlayRotation]);
 
   useEffect(() => {
     const handleDragEndGlobal = () => {
@@ -161,16 +114,26 @@ export default function CropPanel({
       return PRESETS.find((p: CropPreset) => p.value === null);
     }
 
-    const numericPresetMatch = PRESETS.find(
+    const exactPresetMatch = PRESETS.find(
       (p: CropPreset) =>
         p.value &&
         p.value !== ORIGINAL_RATIO &&
-        (Math.abs(aspectRatio - p.value) < RATIO_TOLERANCE ||
-          Math.abs(aspectRatio - 1 / p.value) < RATIO_TOLERANCE),
+        Math.abs(aspectRatio - p.value) < RATIO_TOLERANCE,
     );
 
-    if (numericPresetMatch) {
-      return numericPresetMatch;
+    if (exactPresetMatch) {
+      return exactPresetMatch;
+    }
+
+    const reciprocalPresetMatch = PRESETS.find(
+      (p: CropPreset) =>
+        p.value &&
+        p.value !== ORIGINAL_RATIO &&
+        Math.abs(aspectRatio - 1 / p.value) < RATIO_TOLERANCE,
+    );
+
+    if (reciprocalPresetMatch) {
+      return reciprocalPresetMatch;
     }
 
     const originalRatio = getEffectiveOriginalRatio();
@@ -181,16 +144,8 @@ export default function CropPanel({
     return null;
   }, [aspectRatio, getEffectiveOriginalRatio]);
 
-  let orientation = Orientation.Horizontal;
-  if (activePreset && activePreset.value && activePreset.value !== 1) {
-    let baseRatio: number | null = activePreset.value;
-    if (activePreset.value === ORIGINAL_RATIO) {
-      baseRatio = getEffectiveOriginalRatio();
-    }
-    if (baseRatio && aspectRatio && Math.abs(aspectRatio - baseRatio) > RATIO_TOLERANCE) {
-      orientation = Orientation.Vertical;
-    }
-  }
+  const orientation =
+    aspectRatio && aspectRatio !== 1 && aspectRatio < 1 ? Orientation.Vertical : Orientation.Horizontal;
 
   const isCustomActive = aspectRatio !== null && !activePreset;
 
@@ -286,28 +241,9 @@ export default function CropPanel({
       return;
     }
 
-    let targetRatio = preset.value;
-    if (activePreset === preset && targetRatio && targetRatio !== 1) {
-      const newRatio = 1 / (adjustments.aspectRatio ? adjustments.aspectRatio : 1);
-      setPreferPortrait(newRatio < 1);
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        aspectRatio: newRatio,
-        crop: null,
-      }));
-      return;
-    }
-
-    let newAspectRatio = targetRatio;
-    if (targetRatio && targetRatio !== 1) {
-      if (preferPortrait) {
-        newAspectRatio = targetRatio > 1 ? 1 / targetRatio : targetRatio;
-      } else {
-        newAspectRatio = targetRatio > 1 ? targetRatio : targetRatio;
-      }
-    }
-
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aspectRatio: newAspectRatio, crop: null }));
+    const targetRatio = preset.value;
+    setPreferPortrait(!!targetRatio && targetRatio < 1);
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aspectRatio: targetRatio, crop: null }));
   };
 
   const handleOrientationToggle = useCallback(() => {
@@ -325,16 +261,14 @@ export default function CropPanel({
   const handleReset = () => {
     const originalAspectRatio =
       selectedImage?.width && selectedImage?.height ? selectedImage.width / selectedImage.height : null;
+    const defaultAspectRatio = getDefaultCropAspectRatioValue(defaultAspectRatioSetting, originalAspectRatio);
 
     setPreferPortrait(false);
     setIsEditingCustom(false);
     lastSyncedRatio.current = null;
-
-    setOverlay('thirds');
-
     setAdjustments((prev: Adjustments) => ({
       ...prev,
-      aspectRatio: originalAspectRatio,
+      aspectRatio: defaultAspectRatio,
       crop: INITIAL_ADJUSTMENTS.crop,
       flipHorizontal: INITIAL_ADJUSTMENTS.flipHorizontal ?? false,
       flipVertical: INITIAL_ADJUSTMENTS.flipVertical ?? false,
@@ -400,19 +334,6 @@ export default function CropPanel({
     setGlobalRotationActive?.(false);
   };
 
-  const handleOverlayCycle = () => {
-    const currentIndex = OVERLAYS.findIndex((o) => o.id === activeOverlay);
-    const nextIndex = (currentIndex + 1) % OVERLAYS.length;
-    setOverlay(OVERLAYS[nextIndex].id);
-  };
-
-  const getOverlayTooltip = () => {
-    const current = OVERLAYS.find((o) => o.id === activeOverlay);
-    if (!current) return 'Composition Overlay';
-    const isRotatable = ['goldenSpiral', 'goldenTriangle'].includes(activeOverlay);
-    return `Overlay: ${current.name}${isRotatable ? ' (Shift+O to rotate)' : ''}`;
-  };
-
   const getOrientationTooltip = () => {
     if (isOrientationToggleDisabled) {
       return 'Switch orientation';
@@ -435,27 +356,18 @@ export default function CropPanel({
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-3">
                 <p className="text-sm font-semibold text-text-primary">Aspect Ratio</p>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-surface transition-colors"
-                    onClick={handleOverlayCycle}
-                    data-tooltip={getOverlayTooltip()}
-                  >
-                    <Grid3x3 size={16} />
-                  </button>
-                  <button
-                    className="p-1.5 rounded-md hover:bg-surface disabled:text-text-tertiary disabled:cursor-not-allowed"
-                    disabled={isOrientationToggleDisabled}
-                    onClick={handleOrientationToggle}
-                    data-tooltip={getOrientationTooltip()}
-                  >
-                    {orientation === Orientation.Vertical ? (
-                      <RectangleVertical size={16} />
-                    ) : (
-                      <RectangleHorizontal size={16} />
-                    )}
-                  </button>
-                </div>
+                <button
+                  className="p-1.5 rounded-md hover:bg-surface disabled:text-text-tertiary disabled:cursor-not-allowed"
+                  disabled={isOrientationToggleDisabled}
+                  onClick={handleOrientationToggle}
+                  data-tooltip={getOrientationTooltip()}
+                >
+                  {orientation === Orientation.Vertical ? (
+                    <RectangleVertical size={16} />
+                  ) : (
+                    <RectangleHorizontal size={16} />
+                  )}
+                </button>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {PRESETS.map((preset: CropPreset) => (

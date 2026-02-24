@@ -28,7 +28,12 @@ import Switch from '../ui/Switch';
 import Input from '../ui/Input';
 import Slider from '../ui/Slider';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
-import { Invokes } from '../ui/AppProperties';
+import {
+  Invokes,
+  DefaultCropAspectRatio,
+  DEFAULT_CROP_ASPECT_RATIO,
+  DEFAULT_CROP_ASPECT_RATIO_OPTIONS,
+} from '../ui/AppProperties';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -106,13 +111,6 @@ const backendOptions: OptionItem[] = [
   { value: 'dx12', label: 'DirectX 12' },
   { value: 'metal', label: 'Metal' },
   { value: 'gl', label: 'OpenGL' },
-];
-
-const linearRawOptions: OptionItem[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'gamma', label: 'Apply Gamma' },
-  { value: 'skip_calib', label: 'Skip Calibrate' },
-  { value: 'gamma_skip_calib', label: 'Apply Gamma & Skip Calibrate' },
 ];
 
 const settingCategories = [
@@ -636,6 +634,19 @@ export default function SettingsPanel({
                     </SettingItem>
 
                     <SettingItem
+                      description="Choose the default aspect ratio used by the Crop tool for new images and crop resets."
+                      label="Default Crop Aspect Ratio"
+                    >
+                      <Dropdown
+                        onChange={(value: DefaultCropAspectRatio) =>
+                          onSettingsChange({ ...appSettings, defaultCropAspectRatio: value })
+                        }
+                        options={DEFAULT_CROP_ASPECT_RATIO_OPTIONS}
+                        value={appSettings?.defaultCropAspectRatio || DEFAULT_CROP_ASPECT_RATIO}
+                      />
+                    </SettingItem>
+
+                    <SettingItem
                       description="Dynamically changes editor colors based on the current image."
                       label="Editor Theme"
                     >
@@ -656,18 +667,6 @@ export default function SettingsPanel({
                         id="exif-reading-toggle"
                         label="EXIF Reading"
                         onChange={(checked) => onSettingsChange({ ...appSettings, enableExifReading: checked })}
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      label="Folder Image Counts"
-                      description="Show the number of images inside folders when hovering over the folder tree."
-                    >
-                      <Switch
-                        checked={appSettings?.enableFolderImageCounts ?? false}
-                        id="folder-image-counts-toggle"
-                        label="Show Image Counts"
-                        onChange={(checked) => onSettingsChange({ ...appSettings, enableFolderImageCounts: checked })}
                       />
                     </SettingItem>
 
@@ -877,7 +876,7 @@ export default function SettingsPanel({
                           icon={<Trash2 size={16} className="mr-2" />}
                           isProcessing={isClearingAiTags}
                           message={aiTagsClearMessage}
-                          title="Clear AI Tags"
+                          data-tooltip="Clear AI Tags"
                         />
                         <DataActionItem
                           buttonAction={handleClearTags}
@@ -887,7 +886,7 @@ export default function SettingsPanel({
                           icon={<Trash2 size={16} className="mr-2" />}
                           isProcessing={isClearingTags}
                           message={tagsClearMessage}
-                          title="Clear All Tags"
+                          data-tooltip="Clear All Tags"
                         />
                       </div>
                     </div>
@@ -990,17 +989,6 @@ export default function SettingsPanel({
                         onChange={(e: any) =>
                           handleProcessingSettingChange('rawHighlightCompression', parseFloat(e.target.value))
                         }
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      label="Linear RAW Processing"
-                      description="Fixes color casts or pink tint in some DNG files. Controls how already processed LinearRAW data is interpreted."
-                    >
-                      <Dropdown
-                        onChange={(value: any) => onSettingsChange({ ...appSettings, linearRawMode: value })}
-                        options={linearRawOptions}
-                        value={appSettings?.linearRawMode || 'auto'}
                       />
                     </SettingItem>
 
@@ -1185,7 +1173,7 @@ export default function SettingsPanel({
                       icon={<Trash2 size={16} className="mr-2" />}
                       isProcessing={isClearing}
                       message={clearMessage}
-                      title="Clear All Sidecar Files"
+                      data-tooltip="Clear All Sidecar Files"
                     />
 
                     <DataActionItem
@@ -1195,7 +1183,7 @@ export default function SettingsPanel({
                       icon={<Trash2 size={16} className="mr-2" />}
                       isProcessing={isClearingCache}
                       message={cacheClearMessage}
-                      title="Clear Thumbnail Cache"
+                      data-tooltip="Clear Thumbnail Cache"
                     />
 
                     <DataActionItem
@@ -1217,7 +1205,7 @@ export default function SettingsPanel({
                       icon={<ExternalLinkIcon size={16} className="mr-2" />}
                       isProcessing={false}
                       message=""
-                      title="View Application Logs"
+                      data-tooltip="View Application Logs"
                     />
                   </div>
                 </div>

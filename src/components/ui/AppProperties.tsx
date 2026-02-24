@@ -120,6 +120,99 @@ export enum ThumbnailAspectRatio {
   Contain = 'contain',
 }
 
+export enum DefaultCropAspectRatio {
+  Free = 'free',
+  Original = 'original',
+  OneOne = '1:1',
+  FourFive = '4:5',
+  FiveFour = '5:4',
+  ThreeFour = '3:4',
+  FourThree = '4:3',
+  TwoThree = '2:3',
+  ThreeTwo = '3:2',
+  FiveSeven = '5:7',
+  SixteenNine = '16:9',
+  NineSixteen = '9:16',
+  TwentyOneNine = '21:9',
+  TwoThirtyNineOne = '2.39:1',
+  SixtyFiveTwentyFour = '65:24',
+}
+
+const DEFAULT_CROP_ASPECT_RATIO_VALUES: Record<DefaultCropAspectRatio, number | null> = {
+  [DefaultCropAspectRatio.Free]: null,
+  [DefaultCropAspectRatio.Original]: null,
+  [DefaultCropAspectRatio.OneOne]: 1,
+  [DefaultCropAspectRatio.FourFive]: 4 / 5,
+  [DefaultCropAspectRatio.FiveFour]: 5 / 4,
+  [DefaultCropAspectRatio.ThreeFour]: 3 / 4,
+  [DefaultCropAspectRatio.FourThree]: 4 / 3,
+  [DefaultCropAspectRatio.TwoThree]: 2 / 3,
+  [DefaultCropAspectRatio.ThreeTwo]: 3 / 2,
+  [DefaultCropAspectRatio.FiveSeven]: 5 / 7,
+  [DefaultCropAspectRatio.SixteenNine]: 16 / 9,
+  [DefaultCropAspectRatio.NineSixteen]: 9 / 16,
+  [DefaultCropAspectRatio.TwentyOneNine]: 21 / 9,
+  [DefaultCropAspectRatio.TwoThirtyNineOne]: 2.39 / 1,
+  [DefaultCropAspectRatio.SixtyFiveTwentyFour]: 65 / 24,
+};
+
+export const DEFAULT_CROP_ASPECT_RATIO = DefaultCropAspectRatio.Original;
+
+export const DEFAULT_CROP_ASPECT_RATIO_OPTIONS: Array<{ label: string; value: DefaultCropAspectRatio }> = [
+  { label: 'Original', value: DefaultCropAspectRatio.Original },
+  { label: 'Free', value: DefaultCropAspectRatio.Free },
+  { label: '1:1', value: DefaultCropAspectRatio.OneOne },
+  { label: '4:5', value: DefaultCropAspectRatio.FourFive },
+  { label: '5:4', value: DefaultCropAspectRatio.FiveFour },
+  { label: '3:4', value: DefaultCropAspectRatio.ThreeFour },
+  { label: '4:3', value: DefaultCropAspectRatio.FourThree },
+  { label: '2:3', value: DefaultCropAspectRatio.TwoThree },
+  { label: '3:2', value: DefaultCropAspectRatio.ThreeTwo },
+  { label: '5:7', value: DefaultCropAspectRatio.FiveSeven },
+  { label: '16:9', value: DefaultCropAspectRatio.SixteenNine },
+  { label: '9:16', value: DefaultCropAspectRatio.NineSixteen },
+  { label: '21:9', value: DefaultCropAspectRatio.TwentyOneNine },
+  { label: '2.39:1', value: DefaultCropAspectRatio.TwoThirtyNineOne },
+  { label: '65:24', value: DefaultCropAspectRatio.SixtyFiveTwentyFour },
+];
+
+const LEGACY_DEFAULT_CROP_ASPECT_RATIO_ALIASES: Record<string, DefaultCropAspectRatio> = {
+  // Backward-compat for previously persisted typo values.
+  '16:0': DefaultCropAspectRatio.SixteenNine,
+  // Backward-compat: removed preset, map to safe default.
+  '2:1': DefaultCropAspectRatio.Original,
+};
+
+export const getDefaultCropAspectRatioValue = (
+  setting: DefaultCropAspectRatio | string | undefined,
+  originalAspectRatio: number | null,
+): number | null => {
+  const selectedSetting = (setting && LEGACY_DEFAULT_CROP_ASPECT_RATIO_ALIASES[setting]) || setting || DEFAULT_CROP_ASPECT_RATIO;
+
+  if (selectedSetting === DefaultCropAspectRatio.Original) {
+    return originalAspectRatio;
+  }
+  if (selectedSetting === DefaultCropAspectRatio.Free) {
+    return null;
+  }
+
+  const mappedValue = DEFAULT_CROP_ASPECT_RATIO_VALUES[selectedSetting as DefaultCropAspectRatio];
+  if (typeof mappedValue === 'number' || mappedValue === null) {
+    return mappedValue;
+  }
+
+  const ratioMatch = /^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/.exec(selectedSetting);
+  if (ratioMatch) {
+    const width = parseFloat(ratioMatch[1]);
+    const height = parseFloat(ratioMatch[2]);
+    if (width > 0 && height > 0) {
+      return width / height;
+    }
+  }
+
+  return originalAspectRatio;
+};
+
 export interface AppSettings {
   adaptiveEditorTheme?: Theme;
   aiConnectorAddress?: string;
@@ -139,6 +232,7 @@ export interface AppSettings {
   theme: Theme;
   thumbnailSize?: ThumbnailSize;
   thumbnailAspectRatio?: ThumbnailAspectRatio;
+  defaultCropAspectRatio?: DefaultCropAspectRatio;
   uiVisibility?: UiVisibility;
   adjustmentVisibility?: { [key: string]: boolean };
   activeTreeSection?: string | null;
@@ -147,8 +241,6 @@ export interface AppSettings {
   linuxGpuOptimization?: boolean;
   exportPresets?: ExportPreset[];
   myLenses?: any;
-  enableFolderImageCounts?: boolean;
-  linearRawMode?: string;
 }
 
 export interface BrushSettings {
@@ -172,7 +264,6 @@ export interface Folder {
   children: any;
   id?: string | undefined;
   name?: string | undefined;
-  imageCount?: number;
 }
 
 export interface ImageFile {
