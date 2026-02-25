@@ -27,6 +27,7 @@ interface FolderTreeProps {
   pinnedFolders: string[];
   activeSection: string | null;
   onActiveSectionChange(section: string | null): void;
+  showImageCounts: boolean;
 }
 
 interface TreeNodeProps {
@@ -266,6 +267,7 @@ export default function FolderTree({
   pinnedFolders,
   activeSection,
   onActiveSectionChange,
+  showImageCounts,
 }: FolderTreeProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isHovering, setIsHovering] = useState(false);
@@ -401,7 +403,7 @@ export default function FolderTree({
                             onToggle={onToggleFolder}
                             selectedPath={selectedPath}
                             pinnedFolders={pinnedFolders}
-                            showImageCounts={isHovering}
+                            showImageCounts={showImageCounts && isHovering}
                           />
                         ))}
                       </div>
@@ -439,7 +441,7 @@ export default function FolderTree({
                           onToggle={onToggleFolder}
                           selectedPath={selectedPath}
                           pinnedFolders={pinnedFolders}
-                          showImageCounts={isHovering}
+                          showImageCounts={showImageCounts && isHovering}
                         />
                       </div>
                     </motion.div>

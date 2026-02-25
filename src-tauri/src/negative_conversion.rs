@@ -197,13 +197,14 @@ pub async fn preview_negative_conversion(
                         drop(original_lock);
                         let settings = load_settings(app_handle.clone()).unwrap_or_default();
                         let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
+                        let linear_mode = settings.linear_raw_mode;
                         
                         match read_file_mapped(Path::new(&source_path_str)) {
-                            Ok(mmap) => load_base_image_from_bytes(&mmap, &source_path_str, false, highlight_compression, None)
+                            Ok(mmap) => load_base_image_from_bytes(&mmap, &source_path_str, false, highlight_compression, linear_mode.clone(), None)
                                 .map_err(|e| e.to_string())?,
                             Err(_e) => {
                                 let bytes = fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
-                                load_base_image_from_bytes(&bytes, &source_path_str, false, highlight_compression, None)
+                                load_base_image_from_bytes(&bytes, &source_path_str, false, highlight_compression, linear_mode.clone(), None)
                                     .map_err(|e| e.to_string())?
                             }
                         }
@@ -212,13 +213,14 @@ pub async fn preview_negative_conversion(
                     drop(original_lock);
                     let settings = load_settings(app_handle.clone()).unwrap_or_default();
                     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
-                    
+                    let linear_mode = settings.linear_raw_mode;
+
                     match read_file_mapped(Path::new(&source_path_str)) {
-                        Ok(mmap) => load_base_image_from_bytes(&mmap, &source_path_str, false, highlight_compression, None)
+                        Ok(mmap) => load_base_image_from_bytes(&mmap, &source_path_str, false, highlight_compression, linear_mode.clone(), None)
                             .map_err(|e| e.to_string())?,
                         Err(_e) => {
                             let bytes = fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
-                            load_base_image_from_bytes(&bytes, &source_path_str, false, highlight_compression, None)
+                            load_base_image_from_bytes(&bytes, &source_path_str, false, highlight_compression, linear_mode.clone(), None)
                                 .map_err(|e| e.to_string())?
                         }
                     }
@@ -262,13 +264,14 @@ pub async fn convert_negative_full(
                 drop(original_lock);
                 let settings = load_settings(app_handle.clone()).unwrap_or_default();
                 let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
-                
+                let linear_mode = settings.linear_raw_mode;
+
                 match read_file_mapped(Path::new(&source_path_str)) {
-                    Ok(mmap) => load_base_image_from_bytes(&mmap, &source_path_str, false, highlight_compression, None)
+                    Ok(mmap) => load_base_image_from_bytes(&mmap, &source_path_str, false, highlight_compression, linear_mode.clone(), None)
                         .map_err(|e| e.to_string())?,
                     Err(_e) => {
                         let bytes = fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
-                        load_base_image_from_bytes(&bytes, &source_path_str, false, highlight_compression, None)
+                        load_base_image_from_bytes(&bytes, &source_path_str, false, highlight_compression, linear_mode.clone(), None)
                             .map_err(|e| e.to_string())?
                     }
                 }
@@ -277,13 +280,14 @@ pub async fn convert_negative_full(
             drop(original_lock);
             let settings = load_settings(app_handle.clone()).unwrap_or_default();
             let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
+            let linear_mode = settings.linear_raw_mode;
 
             match read_file_mapped(Path::new(&source_path_str)) {
-                Ok(mmap) => load_base_image_from_bytes(&mmap, &source_path_str, false, highlight_compression, None)
+                Ok(mmap) => load_base_image_from_bytes(&mmap, &source_path_str, false, highlight_compression, linear_mode.clone(), None)
                     .map_err(|e| e.to_string())?,
                 Err(_e) => {
                     let bytes = fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
-                    load_base_image_from_bytes(&bytes, &source_path_str, false, highlight_compression, None)
+                    load_base_image_from_bytes(&bytes, &source_path_str, false, highlight_compression, linear_mode.clone(), None)
                         .map_err(|e| e.to_string())?
                 }
             }

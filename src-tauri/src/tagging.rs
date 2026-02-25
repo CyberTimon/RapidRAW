@@ -148,10 +148,18 @@ pub fn generate_tags_with_clip(
     image: &DynamicImage,
     clip_session_mutex: &Mutex<Session>,
     tokenizer: &Tokenizer,
+    custom_tags: Option<Vec<String>>,
+    max_tags: usize,
 ) -> Result<Vec<String>> {
     let image_input = preprocess_clip_image(image);
 
-    let text_inputs = TAG_CANDIDATES.to_vec();
+    let is_custom = custom_tags.as_ref().map(|t| !t.is_empty()).unwrap_or(false);
+    let text_inputs: Vec<String> = if is_custom {
+        custom_tags.as_ref().unwrap().clone()
+    } else {
+        TAG_CANDIDATES.iter().map(|&s| s.to_string()).collect()
+    };
+
     let encodings = tokenizer
         .encode_batch(text_inputs.clone(), true)
         .map_err(|e| anyhow::anyhow!(e.to_string()))?;
@@ -209,28 +217,30 @@ pub fn generate_tags_with_clip(
     let prob_row = probs.row(0);
     for (i, &prob) in prob_row.iter().enumerate() {
         if prob > confidence_threshold {
-            scored_tags.push((TAG_CANDIDATES[i].to_string(), prob));
+            scored_tags.push((text_inputs[i].clone(), prob));
         }
     }
 
     scored_tags.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
     let initial_tags: Vec<String> = scored_tags
         .into_iter()
-        .take(10)
+        .take(max_tags)
         .map(|(tag, _)| tag)
         .collect();
 
     let mut final_tags_set: HashSet<String> = initial_tags.iter().cloned().collect();
 
-    let color_tags = extract_color_tags(image);
-    for color_tag in color_tags {
-        final_tags_set.insert(color_tag);
-    }
+    if !is_custom {
+        let color_tags = extract_color_tags(image);
+        for color_tag in color_tags {
+            final_tags_set.insert(color_tag);
+        }
 
-    for tag in &initial_tags {
-        if let Some(parents) = TAG_HIERARCHY.get(tag.as_str()) {
-            for &parent in parents {
-                final_tags_set.insert(parent.to_string());
+        for tag in &initial_tags {
+            if let Some(parents) = TAG_HIERARCHY.get(tag.as_str()) {
+                for &parent in parents {
+                    final_tags_set.insert(parent.to_string());
+                }
             }
         }
     }
@@ -257,6 +267,8 @@ pub async fn start_background_indexing(
     }
 
     let max_concurrent_tasks = settings.tagging_thread_count.unwrap_or(3).max(1) as usize;
+    let custom_ai_tags = settings.custom_ai_tags.clone();
+    let ai_tag_count = settings.ai_tag_count.unwrap_or(10) as usize;
 
     let models = crate::ai_processing::get_or_init_ai_models(
         &app_handle,
@@ -305,6 +317,7 @@ pub async fn start_background_indexing(
         );
         let total_images = image_paths.len();
         let processed_count = Arc::new(Mutex::new(0));
+        let custom_ai_tags_shared = Arc::new(custom_ai_tags);
 
         stream::iter(image_paths)
             .for_each_concurrent(max_concurrent_tasks, |path| {
@@ -312,6 +325,7 @@ pub async fn start_background_indexing(
                 let models_inner = models.clone();
                 let gpu_context_inner = gpu_context.clone();
                 let processed_count_inner = Arc::clone(&processed_count);
+                let tags_inner = Arc::clone(&custom_ai_tags_shared);
 
                 async move {
                     let path_str = path.to_string_lossy().to_string();
@@ -346,7 +360,13 @@ pub async fn start_background_indexing(
                                     (&models_inner.clip_model, &models_inner.clip_tokenizer)
                                 {
                                     if let Ok(ai_tags) =
-                                        generate_tags_with_clip(&image, clip_model, clip_tokenizer)
+                                        generate_tags_with_clip(
+                                            &image, 
+                                            clip_model, 
+                                            clip_tokenizer, 
+                                            (*tags_inner).clone(), 
+                                            ai_tag_count
+                                        )
                                     {
                                         println!("Found AI tags for {}: {:?}", path_str, ai_tags);
 

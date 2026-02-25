@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Supported raw files
+    url: https://github.com/dnglab/dnglab?tab=readme-ov-file#supported-cameras-and-file-formats
+    about: Click this link to check if your camera's raw files are supported by the dnglab library used by RapidRAW.
+  - name: Supported lenses
+    url: https://lensfun.github.io/lenslist/
+    about: Click this link to check if your lenses are supported by the lensfun library used by RapidRAW.

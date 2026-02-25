@@ -108,6 +108,13 @@ const backendOptions: OptionItem[] = [
   { value: 'gl', label: 'OpenGL' },
 ];
 
+const linearRawOptions: OptionItem[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'gamma', label: 'Apply Gamma' },
+  { value: 'skip_calib', label: 'Skip Calibrate' },
+  { value: 'gamma_skip_calib', label: 'Apply Gamma & Skip Calibrate' },
+];
+
 const settingCategories = [
   { id: 'general', label: 'General', icon: SlidersHorizontal },
   { id: 'processing', label: 'Processing', icon: Cpu },
@@ -256,6 +263,7 @@ export default function SettingsPanel({
   const [aiProvider, setAiProvider] = useState(appSettings?.aiProvider || 'cpu');
   const [aiConnectorAddress, setAiConnectorAddress] = useState<string>(appSettings?.aiConnectorAddress || '');
   const [newShortcut, setNewShortcut] = useState('');
+  const [newAiTag, setNewAiTag] = useState('');
 
   const [lensMakers, setLensMakers] = useState<string[]>([]);
   const [lensModels, setLensModels] = useState<string[]>([]);
@@ -271,6 +279,9 @@ export default function SettingsPanel({
   const [restartRequired, setRestartRequired] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
   const [logPath, setLogPath] = useState('');
+
+  const customAiTags = Array.from(new Set<string>(appSettings?.customAiTags || []));
+  const taggingShortcuts = Array.from(new Set<string>(appSettings?.taggingShortcuts || []));
 
   useEffect(() => {
     if (appSettings?.aiConnectorAddress !== aiConnectorAddress) {
@@ -476,9 +487,9 @@ export default function SettingsPanel({
       confirmText: 'Toggle Transparency',
       confirmVariant: 'primary',
       isOpen: true,
-      message: `Are you sure you want to ${transparent ? 'enable' : 'disable'} window transparency effects?\n\n${
+      message: `Are you sure you want to ${transparent ? 'enable' : 'disable'} window transparency effects?\n${
         transparent ? 'These effects may reduce application performance.' : ''
-      }\n\nThe application will relaunch to make this change.`,
+      }\nThe application will relaunch to make this change.`,
       onConfirm: () => executeSetTransparent(transparent),
       title: 'Confirm Window Transparency',
     });
@@ -535,25 +546,52 @@ export default function SettingsPanel({
   };
 
   const handleAddShortcut = () => {
-    const shortcuts = appSettings?.taggingShortcuts || [];
-    const newTag = newShortcut.trim().toLowerCase();
-    if (newTag && !shortcuts.includes(newTag)) {
-      const newShortcuts = [...shortcuts, newTag].sort();
-      onSettingsChange({ ...appSettings, taggingShortcuts: newShortcuts });
-      setNewShortcut('');
+    const parsedTags = newShortcut
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length > 0);
+
+    if (parsedTags.length > 0) {
+      const uniqueShortcuts = Array.from(new Set([...taggingShortcuts, ...parsedTags])).sort();
+      onSettingsChange({ ...appSettings, taggingShortcuts: uniqueShortcuts });
     }
+    setNewShortcut('');
   };
 
   const handleRemoveShortcut = (shortcutToRemove: string) => {
-    const shortcuts = appSettings?.taggingShortcuts || [];
-    const newShortcuts = shortcuts.filter((s: string) => s !== shortcutToRemove);
-    onSettingsChange({ ...appSettings, taggingShortcuts: newShortcuts });
+    const uniqueShortcuts = taggingShortcuts.filter((s) => s !== shortcutToRemove);
+    onSettingsChange({ ...appSettings, taggingShortcuts: uniqueShortcuts });
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleAddShortcut();
+    }
+  };
+
+  const handleAddAiTag = () => {
+    const parsedTags = newAiTag
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length > 0);
+
+    if (parsedTags.length > 0) {
+      const uniqueTags = Array.from(new Set([...customAiTags, ...parsedTags])).sort();
+      onSettingsChange({ ...appSettings, customAiTags: uniqueTags });
+    }
+    setNewAiTag('');
+  };
+
+  const handleRemoveAiTag = (tagToRemove: string) => {
+    const uniqueTags = customAiTags.filter((t) => t !== tagToRemove);
+    onSettingsChange({ ...appSettings, customAiTags: uniqueTags });
+  };
+
+  const handleAiTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddAiTag();
     }
   };
 
@@ -649,6 +687,49 @@ export default function SettingsPanel({
                         id="exif-reading-toggle"
                         label="EXIF Reading"
                         onChange={(checked) => onSettingsChange({ ...appSettings, enableExifReading: checked })}
+                      />
+                    </SettingItem>
+
+                    <SettingItem
+                      label="XMP Metadata Sync"
+                      description="Sync ratings, color labels and tags to standard XMP sidecar files for compatibility with other photo editors."
+                    >
+                      <Switch
+                        checked={appSettings?.enableXmpSync ?? true}
+                        id="enable-xmp-sync-toggle"
+                        label="Enable XMP Sync"
+                        onChange={(checked) => {
+                          const newSettings = { ...appSettings, enableXmpSync: checked };
+                          if (!checked) {
+                            newSettings.createXmpIfMissing = false;
+                          }
+                          onSettingsChange(newSettings);
+                        }}
+                      />
+                    </SettingItem>
+
+                    <SettingItem
+                      label="Create Missing XMP Files"
+                      description="Automatically create a new XMP sidecar file if one does not exist for an image. (Requires XMP Sync)"
+                    >
+                      <Switch
+                        disabled={!appSettings?.enableXmpSync}
+                        checked={appSettings?.createXmpIfMissing ?? false}
+                        id="create-xmp-missing-toggle"
+                        label="Create XMP if missing"
+                        onChange={(checked) => onSettingsChange({ ...appSettings, createXmpIfMissing: checked })}
+                      />
+                    </SettingItem>
+
+                    <SettingItem
+                      label="Folder Image Counts"
+                      description="Show the number of images inside folders when hovering over the folder tree."
+                    >
+                      <Switch
+                        checked={appSettings?.enableFolderImageCounts ?? false}
+                        id="folder-image-counts-toggle"
+                        label="Show Image Counts"
+                        onChange={(checked) => onSettingsChange({ ...appSettings, enableFolderImageCounts: checked })}
                       />
                     </SettingItem>
 
@@ -788,6 +869,108 @@ export default function SettingsPanel({
                         onChange={(checked) => onSettingsChange({ ...appSettings, enableAiTagging: checked })}
                       />
                     </SettingItem>
+
+                    <AnimatePresence>
+                      {(appSettings?.enableAiTagging ?? false) && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: 'easeInOut' }}
+                          className="overflow-hidden"
+                        >
+                          <div className="pl-4 border-l-2 border-border-color ml-1 mt-4 space-y-6">
+                            <SettingItem 
+                              label="Maximum AI Tags" 
+                              description="The maximum number of tags to generate per image."
+                            >
+                              <Slider
+                                label="Amount"
+                                min={1}
+                                max={20}
+                                step={1}
+                                value={appSettings?.aiTagCount ?? 10}
+                                defaultValue={10}
+                                onChange={(e: any) =>
+                                  onSettingsChange({ ...appSettings, aiTagCount: parseInt(e.target.value) })
+                                }
+                              />
+                            </SettingItem>
+
+                            <SettingItem
+                              label="Custom AI Tag List"
+                              description="If provided, the AI will ONLY use tags from this list, overriding RapidRAW’s built-in list. Tagging works only in English."
+                            >
+                              <div>
+                                <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-[40px] border border-border-color mb-2 items-center">
+                                  <AnimatePresence>
+                                    {customAiTags.length > 0 ? (
+                                      customAiTags.map((tag: string) => (
+                                        <motion.div
+                                          key={tag}
+                                          layout
+                                          variants={shortcutTagVariants}
+                                          initial={false}
+                                          animate="visible"
+                                          exit="exit"
+                                          onClick={() => handleRemoveAiTag(tag)}
+                                          data-tooltip={`Remove tag "${tag}"`}
+                                          className="flex items-center gap-1 bg-surface text-text-primary text-sm font-medium px-2 py-1 rounded group cursor-pointer"
+                                        >
+                                          <span>{tag}</span>
+                                          <span className="rounded-full group-hover:bg-black/20 p-0.5 transition-colors">
+                                            <X size={14} />
+                                          </span>
+                                        </motion.div>
+                                      ))
+                                    ) : (
+                                      <motion.span
+                                        key="no-ai-tags-placeholder"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="text-sm text-text-secondary italic px-1 select-none"
+                                      >
+                                        No custom AI tags (Using built-in list)
+                                      </motion.span>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="relative flex-1">
+                                    <Input
+                                      type="text"
+                                      value={newAiTag}
+                                      onChange={(e) => setNewAiTag(e.target.value)}
+                                      onKeyDown={handleAiTagInputKeyDown}
+                                      placeholder="Add custom AI tags (comma separated)..."
+                                      className="pr-10"
+                                    />
+                                    <button
+                                      onClick={handleAddAiTag}
+                                      className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-text-secondary hover:text-text-primary hover:bg-surface"
+                                      data-tooltip="Add AI tag"
+                                    >
+                                      <Plus size={18} />
+                                    </button>
+                                  </div>
+                                  <button
+                                    onClick={() => onSettingsChange({ ...appSettings, customAiTags: [] })}
+                                    disabled={customAiTags.length === 0}
+                                    className="p-2 text-text-secondary hover:text-red-400 hover:bg-surface rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-secondary disabled:hover:bg-transparent"
+                                    data-tooltip="Clear AI Tag List"
+                                  >
+                                    <Trash2 size={18} />
+                                  </button>
+                                </div>
+                              </div>
+                            </SettingItem>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                     <SettingItem
                       label="Tagging Shortcuts"
                       description="A list of tags that will appear as shortcuts in the tagging context menu."
@@ -795,8 +978,8 @@ export default function SettingsPanel({
                       <div>
                         <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-[40px] border border-border-color mb-2 items-center">
                           <AnimatePresence>
-                            {(appSettings?.taggingShortcuts || []).length > 0 ? (
-                              (appSettings?.taggingShortcuts || []).map((shortcut: string) => (
+                            {taggingShortcuts.length > 0 ? (
+                              taggingShortcuts.map((shortcut: string) => (
                                 <motion.div
                                   key={shortcut}
                                   layout
@@ -828,21 +1011,31 @@ export default function SettingsPanel({
                             )}
                           </AnimatePresence>
                         </div>
-                        <div className="relative">
-                          <Input
-                            type="text"
-                            value={newShortcut}
-                            onChange={(e) => setNewShortcut(e.target.value)}
-                            onKeyDown={handleInputKeyDown}
-                            placeholder="Add a new shortcut..."
-                            className="pr-10"
-                          />
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <Input
+                              type="text"
+                              value={newShortcut}
+                              onChange={(e) => setNewShortcut(e.target.value)}
+                              onKeyDown={handleInputKeyDown}
+                              placeholder="Add shortcuts (comma separated)..."
+                              className="pr-10"
+                            />
+                            <button
+                              onClick={handleAddShortcut}
+                              className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-text-secondary hover:text-text-primary hover:bg-surface"
+                              data-tooltip="Add Shortcut"
+                            >
+                              <Plus size={18} />
+                            </button>
+                          </div>
                           <button
-                            onClick={handleAddShortcut}
-                            className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-text-secondary hover:text-text-primary hover:bg-surface"
-                            data-tooltip="Add shortcut"
+                            onClick={() => onSettingsChange({ ...appSettings, taggingShortcuts: [] })}
+                            disabled={taggingShortcuts.length === 0}
+                            className="p-2 text-text-secondary hover:text-red-400 hover:bg-surface rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-secondary disabled:hover:bg-transparent"
+                            data-tooltip="Clear Shortcuts Tag List"
                           >
-                            <Plus size={18} />
+                            <Trash2 size={18} />
                           </button>
                         </div>
                       </div>
@@ -858,7 +1051,7 @@ export default function SettingsPanel({
                           icon={<Trash2 size={16} className="mr-2" />}
                           isProcessing={isClearingAiTags}
                           message={aiTagsClearMessage}
-                          data-tooltip="Clear AI Tags"
+                          title="Clear AI Tags"
                         />
                         <DataActionItem
                           buttonAction={handleClearTags}
@@ -868,7 +1061,7 @@ export default function SettingsPanel({
                           icon={<Trash2 size={16} className="mr-2" />}
                           isProcessing={isClearingTags}
                           message={tagsClearMessage}
-                          data-tooltip="Clear All Tags"
+                          title="Clear All Tags"
                         />
                       </div>
                     </div>
@@ -971,6 +1164,17 @@ export default function SettingsPanel({
                         onChange={(e: any) =>
                           handleProcessingSettingChange('rawHighlightCompression', parseFloat(e.target.value))
                         }
+                      />
+                    </SettingItem>
+
+                    <SettingItem
+                      label="Linear RAW Processing"
+                      description="Fixes color casts or pink tint in some DNG files. Controls how already processed LinearRAW data is interpreted."
+                    >
+                      <Dropdown
+                        onChange={(value: any) => onSettingsChange({ ...appSettings, linearRawMode: value })}
+                        options={linearRawOptions}
+                        value={appSettings?.linearRawMode || 'auto'}
                       />
                     </SettingItem>
 
@@ -1155,7 +1359,7 @@ export default function SettingsPanel({
                       icon={<Trash2 size={16} className="mr-2" />}
                       isProcessing={isClearing}
                       message={clearMessage}
-                      data-tooltip="Clear All Sidecar Files"
+                      title="Clear All Sidecar Files"
                     />
 
                     <DataActionItem
@@ -1165,7 +1369,7 @@ export default function SettingsPanel({
                       icon={<Trash2 size={16} className="mr-2" />}
                       isProcessing={isClearingCache}
                       message={cacheClearMessage}
-                      data-tooltip="Clear Thumbnail Cache"
+                      title="Clear Thumbnail Cache"
                     />
 
                     <DataActionItem
@@ -1187,7 +1391,7 @@ export default function SettingsPanel({
                       icon={<ExternalLinkIcon size={16} className="mr-2" />}
                       isProcessing={false}
                       message=""
-                      data-tooltip="View Application Logs"
+                      title="View Application Logs"
                     />
                   </div>
                 </div>

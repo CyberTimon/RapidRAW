@@ -24,17 +24,26 @@ export const useHistoryState = (initialState: any) => {
       setIndex(index - 1);
     }
   }, [index]);
+
   const redo = useCallback(() => {
     if (index < history.length - 1) {
       setIndex(index + 1);
     }
   }, [index, history.length]);
+
   const resetHistory = useCallback((newInitialState: any) => {
     setHistory([newInitialState]);
     setIndex(0);
   }, []);
+
+  const goToIndex = useCallback((newIndex: number) => {
+    if (newIndex >= 0 && newIndex < history.length) {
+      setIndex(newIndex);
+    }
+  }, [history.length]);
+
   const canUndo = index > 0;
   const canRedo = index < history.length - 1;
 
-  return { state, setState, undo, redo, canUndo, canRedo, resetHistory };
+  return { state, setState, undo, redo, canUndo, canRedo, resetHistory, history, historyIndex: index, goToIndex };
 };

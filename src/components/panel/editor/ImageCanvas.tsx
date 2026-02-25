@@ -62,6 +62,7 @@ interface ImageCanvasProps {
   setAdjustments(fn: (prev: Adjustments) => Adjustments): void;
   overlayMode?: OverlayMode;
   overlayRotation?: number;
+  cursorStyle: string;
 }
 
 interface ImageLayer {
@@ -72,6 +73,8 @@ interface ImageLayer {
 
 interface MaskOverlay {
   adjustments: Adjustments;
+  imageHeight: number;
+  imageWidth: number;
   isToolActive: boolean;
   isSelected: boolean;
   onMaskMouseEnter(): void;
@@ -82,11 +85,11 @@ interface MaskOverlay {
   subMask: SubMask;
 }
 
-const ORIGINAL_LAYER = 'original';
-
 const MaskOverlay = memo(
   ({
      adjustments,
+     imageHeight,
+     imageWidth,
      isToolActive,
      isSelected,
      onMaskMouseEnter,
@@ -100,8 +103,12 @@ const MaskOverlay = memo(
     const trRef = useRef<any>(null);
 
     const crop = adjustments.crop;
-    const cropX = crop ? crop.x : 0;
-    const cropY = crop ? crop.y : 0;
+    const isPercent = crop?.unit === '%';
+    const cropX = crop ? (isPercent ? (crop.x / 100) * imageWidth : crop.x) : 0;
+    const cropY = crop ? (isPercent ? (crop.y / 100) * imageHeight : crop.y) : 0;
+    const cropW = crop ? (isPercent ? (crop.width / 100) * imageWidth : crop.width) : imageWidth;
+    const cropH = crop ? (isPercent ? (crop.height / 100) * imageHeight : crop.height) : imageHeight;
+
     const handleSelect = isToolActive ? undefined : onSelect;
 
     useEffect(() => {
@@ -308,7 +315,9 @@ const MaskOverlay = memo(
     }
 
     if (subMask.type === Mask.Linear) {
-      const { startX, startY, endX, endY, range = 50 } = subMask.parameters;
+      const defaultRange = Math.min(cropW, cropH) * 0.1;
+
+      const { startX, startY, endX, endY, range = defaultRange } = subMask.parameters;
       const dx = endX - startX;
       const dy = endY - startY;
       const len = Math.sqrt(dx * dx + dy * dy);
@@ -376,7 +385,7 @@ const MaskOverlay = memo(
             }}
             onMouseLeave={(e: any) => {
               e.target.getStage().container().style.cursor = 'move';
-              onMaskMouseLeave();
+              onMaskMouseEnter();
             }}
             points={[-scaledLen / 2, 0, scaledLen / 2, 0]}
             y={-r}
@@ -396,7 +405,7 @@ const MaskOverlay = memo(
             }}
             onMouseLeave={(e: any) => {
               e.target.getStage().container().style.cursor = 'move';
-              onMaskMouseLeave();
+              onMaskMouseEnter();
             }}
             points={[-scaledLen / 2, 0, scaledLen / 2, 0]}
             y={r}
@@ -417,7 +426,7 @@ const MaskOverlay = memo(
                 }}
                 onMouseLeave={(e: any) => {
                   e.target.getStage().container().style.cursor = 'move';
-                  onMaskMouseLeave();
+                  onMaskMouseEnter();
                 }}
                 radius={8}
                 stroke="white"
@@ -439,7 +448,7 @@ const MaskOverlay = memo(
                 }}
                 onMouseLeave={(e: any) => {
                   e.target.getStage().container().style.cursor = 'move';
-                  onMaskMouseLeave();
+                  onMaskMouseEnter();
                 }}
                 radius={8}
                 stroke="white"
@@ -494,7 +503,8 @@ const ImageCanvas = memo(
     onWbPicked,
     setAdjustments,
     overlayRotation,
-    overlayMode
+    overlayMode,
+    cursorStyle
   }: ImageCanvasProps) => {
     const [isCropViewVisible, setIsCropViewVisible] = useState(false);
     const [layers, setLayers] = useState<Array<ImageLayer>>([]);
@@ -542,6 +552,16 @@ const ImageCanvas = memo(
       }
       return null;
     }, [activeContainer, activeMaskId, activeAiSubMaskId, isMasking, isAiEditing]);
+
+    const effectiveImageDimensions = useMemo(() => {
+      const steps = adjustments.orientationSteps || 0;
+      const w = selectedImage.width || 0;
+      const h = selectedImage.height || 0;
+      if (steps === 1 || steps === 3) {
+        return { width: h, height: w };
+      }
+      return { width: w, height: h };
+    }, [selectedImage.width, selectedImage.height, adjustments.orientationSteps]);
 
     const isBrushActive = (isMasking || isAiEditing) && activeSubMask?.type === Mask.Brush;
     const isAiSubjectActive =
@@ -787,8 +807,10 @@ const ImageCanvas = memo(
 
           if (isShiftClick) {
             const { scale } = imageRenderSize;
-            const cropX = adjustments.crop?.x || 0;
-            const cropY = adjustments.crop?.y || 0;
+            const crop = adjustments.crop;
+            const isPercent = crop?.unit === '%';
+            const cropX = crop ? (isPercent ? (crop.x / 100) * effectiveImageDimensions.width : crop.x) : 0;
+            const cropY = crop ? (isPercent ? (crop.y / 100) * effectiveImageDimensions.height : crop.y) : 0;
 
             const startImageSpace = lastBrushPoint.current!;
             const endImageSpace = {
@@ -866,7 +888,7 @@ const ImageCanvas = memo(
           }
         }
       },
-      [isWbPickerActive, handleWbClick, isBrushActive, isAiSubjectActive, brushSettings, onSelectMask, onSelectAiSubMask, isMasking, isAiEditing, imageRenderSize, adjustments.crop, activeMaskId, activeAiSubMaskId, activeSubMask, updateSubMask],
+      [isWbPickerActive, handleWbClick, isBrushActive, isAiSubjectActive, brushSettings, onSelectMask, onSelectAiSubMask, isMasking, isAiEditing, imageRenderSize, adjustments.crop, activeMaskId, activeAiSubMaskId, activeSubMask, updateSubMask, effectiveImageDimensions],
     );
 
     const handleMouseMove = useCallback(
@@ -932,8 +954,10 @@ const ImageCanvas = memo(
       }
 
       const { scale } = imageRenderSize;
-      const cropX = adjustments.crop?.x || 0;
-      const cropY = adjustments.crop?.y || 0;
+      const crop = adjustments.crop;
+      const isPercent = crop?.unit === '%';
+      const cropX = crop ? (isPercent ? (crop.x / 100) * effectiveImageDimensions.width : crop.x) : 0;
+      const cropY = crop ? (isPercent ? (crop.y / 100) * effectiveImageDimensions.height : crop.y) : 0;
 
       const activeId = isMasking ? activeMaskId : activeAiSubMaskId;
 
@@ -997,6 +1021,7 @@ const ImageCanvas = memo(
       onGenerateAiMask,
       onQuickErase,
       updateSubMask,
+      effectiveImageDimensions
     ]);
 
     const handleMouseEnter = useCallback(() => {
@@ -1008,6 +1033,12 @@ const ImageCanvas = memo(
     const handleMouseLeave = useCallback(() => {
       setCursorPreview((p: CursorPreview) => ({ ...p, visible: false }));
     }, []);
+
+    useEffect(() => {
+      if (isToolActive) {
+        setCursorPreview((p: CursorPreview) => ({ ...p, visible: false }));
+      }
+    }, [isToolActive]);
 
     useEffect(() => {
       if (!isToolActive) return;
@@ -1154,7 +1185,7 @@ const ImageCanvas = memo(
     const cropImageTransforms = useMemo(() => {
       const transforms = [`rotate(${adjustments.rotation || 0}deg)`];
       return transforms.join(' ');
-    }, [adjustments.rotation, adjustments.flipHorizontal, adjustments.flipVertical]);
+    }, [adjustments.rotation]);
 
     const getCropDimensions = () => {
       if (!crop || !uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) {
@@ -1171,6 +1202,13 @@ const ImageCanvas = memo(
 
       return { width, height };
     };
+
+    const effectiveCursor = useMemo(() => {
+      if (isWbPickerActive) return 'crosshair';
+      if (isBrushActive) return 'none';
+      if (isAiSubjectActive) return 'crosshair';
+      return cursorStyle;
+    }, [isWbPickerActive, isBrushActive, isAiSubjectActive, cursorStyle]);
 
     return (
       <div className="relative" style={{ width: '100%', height: '100%' }}>
@@ -1194,7 +1232,7 @@ const ImageCanvas = memo(
               {layers.map((layer: ImageLayer) =>
                 layer.url ? (
                   <img
-                    alt={layer.id === ORIGINAL_LAYER ? ' ' : ' '}
+                    alt=" "
                     className="absolute inset-0 w-full h-full object-contain"
                     key={layer.id}
                     onTransitionEnd={() => handleTransitionEnd(layer.id)}
@@ -1238,7 +1276,7 @@ const ImageCanvas = memo(
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             style={{
-              cursor: isWbPickerActive ? 'crosshair' : isToolActive ? 'crosshair' : 'default',
+              cursor: effectiveCursor,
               left: `${imageRenderSize.offsetX}px`,
               opacity: showOriginal ? 0 : 1,
               pointerEvents: showOriginal ? 'none' : 'auto',
@@ -1256,6 +1294,8 @@ const ImageCanvas = memo(
                 sortedSubMasks.map((subMask: SubMask) => (
                   <MaskOverlay
                     adjustments={adjustments}
+                    imageHeight={effectiveImageDimensions.height}
+                    imageWidth={effectiveImageDimensions.width}
                     isSelected={subMask.id === (isMasking ? activeMaskId : activeAiSubMaskId)}
                     isToolActive={isToolActive}
                     key={subMask.id}

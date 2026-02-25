@@ -10,7 +10,7 @@ interface InputProps {
   onChange(e: any): void;
   onKeyDown?(e: any): void;
   placeholder?: string;
-  type: string;
+  type?: string;
   value?: string;
 }
 

@@ -1,3 +1,4 @@
+use crate::file_management::load_settings;
 use image::{GenericImageView, GrayImage, imageops};
 use image_hasher::{HashAlg, HasherConfig};
 use rayon::prelude::*;
@@ -120,12 +121,23 @@ fn calculate_exposure_metric(image: &GrayImage) -> f64 {
     (1.0f64 - penalty).max(0.0)
 }
 
-fn analyze_image(path: &str, hasher: &image_hasher::Hasher) -> Result<ImageAnalysisData, String> {
+fn analyze_image(
+    path: &str, 
+    hasher: &image_hasher::Hasher, 
+    highlight_compression: f32, 
+    linear_mode: String
+) -> Result<ImageAnalysisData, String> {
     const ANALYSIS_DIM: u32 = 512;
     let file_bytes = std::fs::read(path).map_err(|e| e.to_string())?;
 
-    let img = image_loader::load_base_image_from_bytes(&file_bytes, path, false, 2.5, None)
-        .map_err(|e| e.to_string())?;
+    let img = image_loader::load_base_image_from_bytes(
+        &file_bytes, 
+        path, 
+        false, 
+        highlight_compression, 
+        linear_mode, 
+        None
+    ).map_err(|e| e.to_string())?;
 
     let (width, height) = img.dimensions();
     let thumbnail = img.thumbnail(ANALYSIS_DIM, ANALYSIS_DIM);
@@ -178,6 +190,10 @@ pub async fn cull_images(
         return Ok(CullingSuggestions::default());
     }
 
+    let app_settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let hc = app_settings.raw_highlight_compression.unwrap_or(2.5);
+    let lrm = app_settings.linear_raw_mode;
+
     let total_count = paths.len();
     let completed_count = Arc::new(AtomicUsize::new(0));
     let _ = app_handle.emit("culling-start", total_count);
@@ -199,7 +215,9 @@ pub async fn cull_images(
                     stage: "Analyzing images...".to_string(),
                 },
             );
-            analyze_image(path, &hasher).map_err(|e| (path.to_string(), e))
+
+            analyze_image(path, &hasher, hc, lrm.clone())
+                .map_err(|e| (path.to_string(), e))
         })
         .collect();
 

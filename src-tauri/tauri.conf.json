@@ -13,8 +13,8 @@
         "label": "main",
         "create": false,
         "title": "RapidRAW",
-        "width": 1200,
-        "height": 800,
+        "width": 1280,
+        "height": 720,
         "transparent": true,
         "decorations": false
       }
@@ -60,5 +60,5 @@
       }
     }
   },
-  "version": "1.4.12"
+  "version": "1.5.0"
 }

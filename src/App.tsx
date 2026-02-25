@@ -210,6 +210,16 @@ interface SearchCriteria {
   mode: 'AND' | 'OR';
 }
 
+const RIGHT_PANEL_ORDER = [
+  Panel.Metadata,
+  Panel.Adjustments,
+  Panel.Crop,
+  Panel.Masks,
+  Panel.Ai,
+  Panel.Presets,
+  Panel.Export,
+];
+
 const DEBUG = false;
 const REVOCATION_DELAY = 5000;
 
@@ -322,6 +332,9 @@ function App() {
     canUndo,
     canRedo,
     resetHistory: resetAdjustmentsHistory,
+    history: adjustmentsHistory,
+    historyIndex: adjustmentsHistoryIndex,
+    goToIndex: goToAdjustmentsHistoryIndex,
   } = useHistoryState(INITIAL_ADJUSTMENTS);
   const [adjustments, setLiveAdjustments] = useState<Adjustments>(INITIAL_ADJUSTMENTS);
   const [showOriginal, setShowOriginal] = useState(false);
@@ -346,6 +359,7 @@ function App() {
   const [theme, setTheme] = useState(DEFAULT_THEME_ID);
   const [adaptivePalette, setAdaptivePalette] = useState<any>(null);
   const [activeRightPanel, setActiveRightPanel] = useState<Panel | null>(Panel.Adjustments);
+  const [slideDirection, setSlideDirection] = useState(1);
   const [activeMaskContainerId, setActiveMaskContainerId] = useState<string | null>(null);
   const [activeMaskId, setActiveMaskId] = useState<string | null>(null);
   const [activeAiPatchContainerId, setActiveAiPatchContainerId] = useState<string | null>(null);
@@ -488,6 +502,26 @@ function App() {
     rootPath?: string;
     currentPath?: string;
   }>({});
+
+  useEffect(() => {
+    if (currentFolderPath) {
+      preloadedDataRef.current = {
+        ...preloadedDataRef.current,
+        currentPath: currentFolderPath,
+        images: Promise.resolve(imageList),
+      };
+    }
+  }, [currentFolderPath, imageList]);
+
+  useEffect(() => {
+    if (rootPath && folderTree) {
+      preloadedDataRef.current = {
+        ...preloadedDataRef.current,
+        rootPath: rootPath,
+        tree: Promise.resolve(folderTree),
+      };
+    }
+  }, [rootPath, folderTree]);
 
   const [exportState, setExportState] = useState<ExportState>({
     errorMessage: '',
@@ -1430,6 +1464,9 @@ function App() {
       if (panelId === activeRightPanel) {
         setActiveRightPanel(null);
       } else {
+        const currentIndex = activeRightPanel ? RIGHT_PANEL_ORDER.indexOf(activeRightPanel) : -1;
+        const newIndex = RIGHT_PANEL_ORDER.indexOf(panelId);
+        setSlideDirection(newIndex > currentIndex ? 1 : -1);
         setActiveRightPanel(panelId);
         setRenderedRightPanel(panelId);
       }
@@ -1953,6 +1990,7 @@ function App() {
     setIsWbPickerActive(false);
     setActiveAiSubMaskId(null);
     setLibraryActivePath(lastActivePath);
+    setSlideDirection(1);
     setLiveAdjustments(INITIAL_ADJUSTMENTS);
     resetAdjustmentsHistory(INITIAL_ADJUSTMENTS);
   }, [selectedImage?.path]);
@@ -1965,6 +2003,15 @@ function App() {
       applyAdjustments.cancel();
       debouncedSave.cancel();
       patchesSentToBackend.current.clear();
+
+      const knownRating = imageRatings[path] ?? 0;
+      const placeholderAdjustments = {
+        ...INITIAL_ADJUSTMENTS,
+        rating: knownRating,
+      };
+
+      setLiveAdjustments(placeholderAdjustments);
+      resetAdjustmentsHistory(placeholderAdjustments);
 
       setSelectedImage({
         exif: null,
@@ -2003,7 +2050,7 @@ function App() {
       setZoom(1);
       setIsLibraryExportPanelVisible(false);
     },
-    [selectedImage?.path, applyAdjustments, debouncedSave, thumbnails],
+    [selectedImage?.path, applyAdjustments, debouncedSave, thumbnails, imageRatings, resetAdjustmentsHistory],
   );
 
   const executeDelete = useCallback(
@@ -3405,7 +3452,6 @@ function App() {
             return currentSelected;
           });
 
-          // Only update aspect ratio if it wasn't loaded from metadata
           setLiveAdjustments((prev: Adjustments) => {
             if (!prev.aspectRatio && !prev.crop) {
               return { ...prev, aspectRatio: loadImageResult.width / loadImageResult.height };
@@ -4387,6 +4433,7 @@ function App() {
           pinnedFolders={pinnedFolders}
           activeSection={activeTreeSection}
           onActiveSectionChange={handleActiveTreeSectionChange}
+          showImageCounts={appSettings?.enableFolderImageCounts ?? false}
         />
         <Resizer
           direction={Orientation.Vertical}
@@ -4484,6 +4531,7 @@ function App() {
             onReset={() => handleResetAdjustments()}
             rating={libraryActiveAdjustments.rating || 0}
             thumbnailAspectRatio={thumbnailAspectRatio}
+            totalImages={imageList.length}
           />
         )}
       </div>
@@ -4523,9 +4571,20 @@ function App() {
 
   const renderMainView = () => {
     const panelVariants: any = {
-      animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'circOut' } },
-      exit: { opacity: 0.4, y: -20, transition: { duration: 0.1, ease: 'circIn' } },
-      initial: { opacity: 0.4, y: 20 },
+      animate: (direction: number) => ({
+        opacity: 1,
+        y: 0,
+        transition: { duration: direction === 0 ? 0 : 0.2, ease: 'circOut' }
+      }),
+      exit: (direction: number) => ({
+        opacity: direction === 0 ? 1 : 0.2,
+        y: direction === 0 ? 0 : (direction > 0 ? -20 : 20),
+        transition: { duration: direction === 0 ? 0 : 0.1, ease: 'circIn' }
+      }),
+      initial: (direction: number) => ({
+        opacity: direction === 0 ? 1 : 0.2,
+        y: direction === 0 ? 0 : (direction > 0 ? 20 : -20),
+      }),
     };
 
     if (selectedImage) {
@@ -4588,6 +4647,9 @@ function App() {
               isRotationActive={isRotationActive}
               overlayMode={overlayMode}
               overlayRotation={overlayRotation}
+              adjustmentsHistory={adjustmentsHistory}
+              adjustmentsHistoryIndex={adjustmentsHistoryIndex}
+              goToAdjustmentsHistoryIndex={goToAdjustmentsHistoryIndex}
             />
             <Resizer
               direction={Orientation.Horizontal}
@@ -4625,6 +4687,7 @@ function App() {
               thumbnailAspectRatio={thumbnailAspectRatio}
               thumbnails={thumbnails}
               zoom={zoom}
+              totalImages={sortedImageList.length}
             />
           </div>
 
@@ -4638,11 +4701,12 @@ function App() {
               style={{ width: activeRightPanel ? `${rightPanelWidth}px` : '0px' }}
             >
               <div style={{ width: `${rightPanelWidth}px` }} className="h-full">
-                <AnimatePresence mode="wait">
+                <AnimatePresence mode="wait" custom={slideDirection}>
                   {activeRightPanel && (
                     <motion.div
                       animate="animate"
                       className="h-full w-full"
+                      custom={slideDirection}
                       exit="exit"
                       initial="initial"
                       key={renderedRightPanel}
@@ -4667,7 +4731,17 @@ function App() {
                           onDragStateChange={setIsSliderDragging}
                         />
                       )}
-                      {renderedRightPanel === Panel.Metadata && <MetadataPanel selectedImage={selectedImage} />}
+                      {renderedRightPanel === Panel.Metadata && (
+                        <MetadataPanel
+                          selectedImage={selectedImage}
+                          rating={adjustments.rating || 0}
+                          tags={imageList.find(img => img.path === selectedImage.path)?.tags || []}
+                          onRate={handleRate}
+                          onSetColorLabel={handleSetColorLabel}
+                          onTagsChanged={handleTagsChanged}
+                          appSettings={appSettings}
+                        />
+                      )}
                       {renderedRightPanel === Panel.Crop && (
                         <CropPanel
                           adjustments={adjustments}

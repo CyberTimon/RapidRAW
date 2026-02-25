@@ -320,12 +320,31 @@ export default function CurveGraph({
     e.preventDefault();
     e.stopPropagation();
     
+    if (e.button === 2) return;
+
     onDragStateChange?.(true);
 
     setLocalPoints(points);
     localPointsRef.current = points;
     setDraggingPointIndex(index);
     draggingIndexRef.current = index;
+  };
+
+  const handlePointContextMenu = (e: React.MouseEvent, index: number) => {
+    if (index > 0 && index < points.length - 1) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const newPoints = points.filter((_, i) => i !== index);
+
+      setLocalPoints(newPoints);
+      localPointsRef.current = newPoints;
+
+      setAdjustments((prev: Adjustments) => ({
+        ...prev,
+        curves: { ...prev.curves, [activeChannel]: newPoints },
+      }));
+    }
   };
 
   const handleContainerMouseDown = (e: any) => {
@@ -556,6 +575,7 @@ export default function CurveGraph({
               fill={color}
               key={i}
               onMouseDown={(e: any) => handlePointMouseDown(e, i)}
+              onContextMenu={(e: React.MouseEvent) => handlePointContextMenu(e, i)}
               r="6"
               stroke="#1e1e1e"
               strokeWidth="2"

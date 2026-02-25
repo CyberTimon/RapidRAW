@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, ChevronDown } from 'lucide-react';
+import Input from './Input';
 
 interface DropdownProps {
   className?: string;
   onChange: any;
   options: Array<any>;
   placeholder?: string;
+  searchPlaceholder?: string;
   value: string;
 }
 
@@ -20,10 +22,14 @@ export default function Dropdown({
   onChange,
   options,
   placeholder = 'Select an option',
+  searchPlaceholder = 'Filter options...',
   value,
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<any>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   const selectedOption = options.find((opt: OptionItem) => opt.value === value) || null;
 
   useEffect(() => {
@@ -38,13 +44,58 @@ export default function Dropdown({
     };
   }, []);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchTerm('');
+      setShowSearch(false);
+    }
+  }, [isOpen]);
+
   const handleSelect = (option: OptionItem) => {
     onChange(option.value);
     setIsOpen(false);
   };
 
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm) return options;
+    return options.filter((opt: OptionItem) => String(opt.label).toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [options, searchTerm]);
+
+  const isPrintableKey = (e: React.KeyboardEvent<Element>): boolean => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return false;
+    return e.key.length === 1;
+  };
+
+  const handleContainerKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      setIsOpen(false);
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      if (isOpen && filteredOptions.length === 1) {
+        e.stopPropagation();
+        e.preventDefault();
+        handleSelect(filteredOptions[0]);
+      }
+      return;
+    }
+
+    if (e.target === searchInputRef.current) return;
+
+    if (isPrintableKey(e)) {
+      e.stopPropagation();
+      e.preventDefault();
+
+      setIsOpen(true);
+      setShowSearch(true);
+      setSearchTerm((prev) => prev + e.key);
+    }
+  };
+
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
+    <div className={`relative ${className}`} ref={dropdownRef} onKeyDown={handleContainerKeyDown}>
       <button
         aria-expanded={isOpen}
         aria-haspopup="listbox"
@@ -73,7 +124,18 @@ export default function Dropdown({
               className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 max-h-80 overflow-y-auto"
               role="listbox"
             >
-              {options.map((option: OptionItem) => {
+              {showSearch && (
+                <Input
+                  ref={searchInputRef}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={searchPlaceholder}
+                  autoFocus={true}
+                  className="mb-2"
+                />
+              )}
+
+              {filteredOptions.map((option: OptionItem) => {
                 const isSelected = value === option.value;
                 return (
                   <button

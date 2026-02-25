@@ -38,6 +38,30 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.5.0" date="2026-02-24">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.0</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Automatic Negative Conversion: A new tool to accurately invert film scans (negatives) to positive images with a single click.</li>
+                <li>HDR Merge: Merge multiple exposure-bracketed images into a single High Dynamic Range image.</li>
+                <li>Detail-Aware Tonal Adjustments: Overhauled the Shadows and Highlights engine to accurately target luminance while protecting local contrast and textures.</li>
+                <li>Custom AI Tagging: You can now define your own list of keywords for the AI to analyze and automatically sort your library.</li>
+                <li>XMP Metadata Sync: Full support for reading and writing XMP sidecar files, allowing synchronization of Ratings, Color Labels, and Tags.</li>
+                <li>Composition Guides: Added new overlays (Golden Ratio, Diagonals, etc.) to the crop tool.</li>
+                <li>History Dropdown: Right-click the Undo/Redo buttons to jump to specific points in your edit history.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Improved Image Canvas: Implemented smoother exponential zooming and state memory.</li>
+                <li>Faster fullscreen previews and metadata loading.</li>
+                <li>The main window now remembers its size and position between sessions.</li>
+                <li>Added support for drawing straight mask lines by holding Shift + Click.</li>
+                <li>Added the ability to export masks as separate image files.</li>
+                <li>Significant stability improvements and bug fixes.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.4.12" date="2026-02-04">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.4.12</url>
         <description translate="no">

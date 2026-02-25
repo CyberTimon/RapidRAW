@@ -1,3 +1,4 @@
+use crate::file_management::load_settings;
 use image::{DynamicImage, GrayImage, Rgb32FImage};
 use nalgebra::Matrix3;
 use rayon::prelude::*;
@@ -60,6 +61,10 @@ pub fn stitch_images(
         image_paths.len()
     );
 
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
+    let linear_mode = settings.linear_raw_mode;
+
     let start_time = Instant::now();
     let _ = app_handle.emit("panorama-progress", "Loading and preparing images...");
     println!("Loading and preparing images (in parallel)...");
@@ -84,9 +89,15 @@ pub fn stitch_images(
             let file_bytes = fs::read(filename)
                 .map_err(|e| format!("Failed to read image {}: {}", filename, e))?;
 
-            let mut dynamic_image =
-                crate::image_loader::load_base_image_from_bytes(&file_bytes, filename, false, 2.5, None)
-                    .map_err(|e| format!("Failed to load image {}: {}", filename, e))?;
+            let mut dynamic_image = crate::image_loader::load_base_image_from_bytes(
+                &file_bytes,
+                filename,
+                false,
+                highlight_compression,
+                linear_mode.clone(),
+                None,
+            )
+            .map_err(|e| format!("Failed to load image {}: {}", filename, e))?;
 
             if is_raw_file(filename) {
                 apply_cpu_default_raw_processing(&mut dynamic_image);

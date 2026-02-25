@@ -39,6 +39,7 @@ interface BottomBarProps {
   displaySize?: { width: number; height: number };
   originalSize?: { width: number; height: number };
   baseRenderSize?: { width: number; height: number };
+  totalImages?: number;
 }
 
 interface StarRatingProps {
@@ -113,6 +114,7 @@ export default function BottomBar({
   displaySize,
   originalSize,
   baseRenderSize,
+  totalImages,
 }: BottomBarProps) {
   const [isEditingPercent, setIsEditingPercent] = useState(false);
   const [percentInputValue, setPercentInputValue] = useState('');
@@ -129,7 +131,9 @@ export default function BottomBar({
   const [latchedDisplayPercent, setLatchedDisplayPercent] = useState(100);
 
   const numSelected = multiSelectedPaths.length;
+  const total = totalImages ?? 0;
   const showSelectionCounter = numSelected > 1;
+
 
   useEffect(() => {
     if (isZoomReady && !isDraggingSlider.current) {
@@ -246,6 +250,7 @@ export default function BottomBar({
               selectedImage={selectedImage}
               thumbnails={thumbnails}
               thumbnailAspectRatio={thumbnailAspectRatio}
+              totalImages={imageList.length}
             />
           </div>
         </div>
@@ -293,7 +298,7 @@ export default function BottomBar({
             )}
           >
             <div className="h-5 w-px bg-surface mr-4"></div>
-            <span className="text-sm text-text-secondary whitespace-nowrap">{numSelected} images selected</span>
+            <span className="text-sm text-text-secondary whitespace-nowrap">{numSelected} of {total} images selected</span>
           </div>
         </div>
         <div className="flex-grow" />

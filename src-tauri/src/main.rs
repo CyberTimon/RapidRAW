@@ -34,12 +34,12 @@ use std::io::Cursor;
 use std::io::Write;
 use std::panic;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
+
 use std::time::Duration;
+use std::sync::{Arc, Mutex};
 
 use base64::{Engine as _, engine::general_purpose};
 use image::codecs::jpeg::JpegEncoder;
@@ -84,6 +84,16 @@ use crate::lut_processing::Lut;
 use crate::mask_generation::{AiPatchDefinition, MaskDefinition, generate_mask_bitmap};
 use tagging_utils::{candidates, hierarchy};
 
+#[derive(serde::Serialize, serde::Deserialize)]
+struct WindowState {
+    width: u32,
+    height: u32,
+    x: i32,
+    y: i32,
+    maximized: bool,
+    fullscreen: bool,
+}
+
 #[derive(Clone)]
 pub struct LoadedImage {
     path: String,
@@ -120,6 +130,7 @@ struct PreviewJob {
 }
 
 pub struct AppState {
+    window_setup_complete: AtomicBool,
     original_image: Mutex<Option<LoadedImage>>,
     cached_preview: Mutex<Option<CachedPreview>>,
     gpu_context: Mutex<Option<GpuContext>>,
@@ -530,6 +541,7 @@ async fn load_image(
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
+    let linear_mode = settings.linear_raw_mode;
 
     let path_clone = source_path_str.clone();
 
@@ -546,7 +558,14 @@ async fn load_image(
                     }
 
                     let img =
-                        load_base_image_from_bytes(&mmap, &path_clone, false, highlight_compression, cancel_token.clone())
+                        load_base_image_from_bytes(
+                            &mmap, 
+                            &path_clone, 
+                            false, 
+                            highlight_compression, 
+                            linear_mode.clone(), 
+                            cancel_token.clone()
+                        )
                             .map_err(|e| e.to_string())?;
                     let exif = exif_processing::read_exif_data(&path_clone, &mmap);
                     Ok((img, exif))
@@ -570,6 +589,7 @@ async fn load_image(
                         &path_clone,
                         false,
                         highlight_compression,
+                        linear_mode.clone(),
                         cancel_token.clone()
                     )
                     .map_err(|e| e.to_string())?;
@@ -1081,9 +1101,9 @@ fn generate_original_transformed_preview(
     let mut adjustments_clone = js_adjustments.clone();
     hydrate_adjustments(&state, &mut adjustments_clone);
 
-    let image_for_preview = loaded_image.image.clone();
+    let mut image_for_preview = loaded_image.image.as_ref().clone();
     if loaded_image.is_raw {
-        apply_cpu_default_raw_processing(&mut image_for_preview.as_ref().clone());
+        apply_cpu_default_raw_processing(&mut image_for_preview);
     }
 
     let (transformed_full_res, _unscaled_crop_offset) =
@@ -1304,64 +1324,73 @@ fn get_full_image_for_processing(
 }
 
 #[tauri::command]
-fn generate_fullscreen_preview(
+async fn generate_fullscreen_preview(
     js_adjustments: serde_json::Value,
-    state: tauri::State<AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<Response, String> {
-    let context = get_or_init_gpu_context(&state)?;
+    let app_handle_clone = app_handle.clone();
+    tokio::task::spawn_blocking(move || {
+        let state = app_handle_clone.state::<AppState>();
+        
+        let context = get_or_init_gpu_context(&state)?;
 
-    let mut adjustments_clone = js_adjustments.clone();
-    hydrate_adjustments(&state, &mut adjustments_clone);
+        let mut adjustments_clone = js_adjustments.clone();
+        hydrate_adjustments(&state, &mut adjustments_clone);
 
-    let (original_image, is_raw) = get_full_image_for_processing(&state)?;
-    let path = state
-        .original_image
-        .lock()
-        .unwrap()
-        .as_ref()
-        .ok_or("Original image path not found")?
-        .path
-        .clone();
-    let unique_hash = calculate_full_job_hash(&path, &adjustments_clone);
-    let base_image = composite_patches_on_image(&original_image, &adjustments_clone)
-        .map_err(|e| format!("Failed to composite AI patches for fullscreen: {}", e))?;
+        let (original_image, is_raw) = get_full_image_for_processing(&state)?;
 
-    let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(&base_image, &adjustments_clone);
-    let (img_w, img_h) = transformed_image.dimensions();
+        let path = state
+            .original_image
+            .lock()
+            .unwrap()
+            .as_ref()
+            .ok_or("Original image path not found")?
+            .path
+            .clone();
 
-    let mask_definitions: Vec<MaskDefinition> = adjustments_clone
-        .get("masks")
-        .and_then(|m| serde_json::from_value(m.clone()).ok())
-        .unwrap_or_else(Vec::new);
+        let unique_hash = calculate_full_job_hash(&path, &adjustments_clone);
+        let base_image = composite_patches_on_image(&original_image, &adjustments_clone)
+            .map_err(|e| format!("Failed to composite AI patches for fullscreen: {}", e))?;
 
-    let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-        .iter()
-        .filter_map(|def| generate_mask_bitmap(def, img_w, img_h, 1.0, unscaled_crop_offset))
-        .collect();
+        let (transformed_image, unscaled_crop_offset) =
+            apply_all_transformations(&base_image, &adjustments_clone);
+        let (img_w, img_h) = transformed_image.dimensions();
 
-    let all_adjustments = get_all_adjustments_from_json(&adjustments_clone, is_raw);
-    let lut_path = adjustments_clone["lutPath"].as_str();
-    let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
+        let mask_definitions: Vec<MaskDefinition> = adjustments_clone
+            .get("masks")
+            .and_then(|m| serde_json::from_value(m.clone()).ok())
+            .unwrap_or_else(Vec::new);
 
-    let final_image = process_and_get_dynamic_image(
-        &context,
-        &state,
-        &transformed_image,
-        unique_hash,
-        all_adjustments,
-        &mask_bitmaps,
-        lut,
-        "generate_fullscreen_preview",
-    )?;
+        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
+            .iter()
+            .filter_map(|def| generate_mask_bitmap(def, img_w, img_h, 1.0, unscaled_crop_offset))
+            .collect();
 
-    let mut buf = Cursor::new(Vec::new());
-    final_image
-        .to_rgb8()
-        .write_with_encoder(JpegEncoder::new_with_quality(&mut buf, 92))
-        .map_err(|e| e.to_string())?;
+        let all_adjustments = get_all_adjustments_from_json(&adjustments_clone, is_raw);
+        let lut_path = adjustments_clone["lutPath"].as_str();
+        let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
 
-    Ok(Response::new(buf.into_inner()))
+        let final_image = process_and_get_dynamic_image(
+            &context,
+            &state,
+            &transformed_image,
+            unique_hash,
+            all_adjustments,
+            &mask_bitmaps,
+            lut,
+            "generate_fullscreen_preview",
+        )?;
+
+        let mut buf = Cursor::new(Vec::new());
+        final_image
+            .to_rgb8()
+            .write_with_encoder(JpegEncoder::new_with_quality(&mut buf, 92))
+            .map_err(|e| e.to_string())?;
+
+        Ok(Response::new(buf.into_inner()))
+    })
+    .await
+    .map_err(|e| format!("Task failed: {}", e))?
 }
 
 fn calculate_resize_target(
@@ -1750,6 +1779,7 @@ async fn batch_export_images(
         let total_paths = paths.len();
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
         let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
+        let linear_mode = settings.linear_raw_mode;
 
         let pool_result = rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)
@@ -1809,6 +1839,7 @@ async fn batch_export_images(
                                 &js_adjustments,
                                 false,
                                 highlight_compression,
+                                linear_mode.clone(),
                                 None,
                             )
                             .map_err(|e| format!("Failed to load image from mmap: {}", e))?,
@@ -1827,6 +1858,7 @@ async fn batch_export_images(
                                     &js_adjustments,
                                     false,
                                     highlight_compression,
+                                    linear_mode.clone(),
                                     None,
                                 )
                                 .map_err(|e| format!("Failed to load image from bytes: {}", e))?
@@ -2068,12 +2100,18 @@ async fn estimate_batch_export_size(
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
+    let linear_mode = settings.linear_raw_mode;
 
     const ESTIMATE_DIM: u32 = 1280;
 
-    let original_image = match read_file_mapped(Path::new(&source_path_str)) {
-        Ok(mmap) => load_base_image_from_bytes(&mmap, &source_path_str, true, highlight_compression, None)
-            .map_err(|e| e.to_string())?,
+    let mmap_guard; 
+    let vec_guard; 
+
+    let file_slice: &[u8] = match read_file_mapped(Path::new(&source_path_str)) {
+        Ok(mmap) => {
+            mmap_guard = Some(mmap);
+            mmap_guard.as_ref().unwrap()
+        }
         Err(e) => {
             log::warn!(
                 "Failed to memory-map file '{}': {}. Falling back to standard read.",
@@ -2081,20 +2119,87 @@ async fn estimate_batch_export_size(
                 e
             );
             let bytes = fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
-            load_base_image_from_bytes(&bytes, &source_path_str, true, highlight_compression, None)
-                .map_err(|e| e.to_string())?
+            vec_guard = Some(bytes);
+            vec_guard.as_ref().unwrap()
         }
     };
 
-    let base_image_preview = downscale_f32_image(&original_image, ESTIMATE_DIM, ESTIMATE_DIM);
+    let original_image = load_base_image_from_bytes(
+        file_slice, 
+        &source_path_str, 
+        true,
+        highlight_compression, 
+        linear_mode.clone(),
+        None
+    ).map_err(|e| e.to_string())?;
 
-    let processed_preview = process_image_for_export_pipeline(
-        &source_path_str,
-        &base_image_preview,
-        &js_adjustments,
+    let raw_scale_factor = if is_raw {
+        crate::raw_processing::get_fast_demosaic_scale_factor(
+            file_slice, 
+            original_image.width(), 
+            original_image.height()
+        )
+    } else {
+        1.0
+    };
+
+    let mut scaled_adjustments = js_adjustments.clone();
+    if let Some(crop_val) = scaled_adjustments.get_mut("crop") {
+        if let Ok(c) = serde_json::from_value::<Crop>(crop_val.clone()) {
+            *crop_val = serde_json::to_value(Crop {
+                x: c.x * raw_scale_factor as f64,
+                y: c.y * raw_scale_factor as f64,
+                width: c.width * raw_scale_factor as f64,
+                height: c.height * raw_scale_factor as f64,
+            }).unwrap_or(serde_json::Value::Null);
+        }
+    }
+
+    let (transformed_shrunk_res, unscaled_crop_offset) =
+        apply_all_transformations(&original_image, &scaled_adjustments);
+    let (shrunk_w, shrunk_h) = transformed_shrunk_res.dimensions();
+
+    let preview_base = if shrunk_w > ESTIMATE_DIM || shrunk_h > ESTIMATE_DIM {
+        downscale_f32_image(&transformed_shrunk_res, ESTIMATE_DIM, ESTIMATE_DIM)
+    } else {
+        transformed_shrunk_res.clone()
+    };
+
+    let (preview_w, preview_h) = preview_base.dimensions();
+    let gpu_scale = if shrunk_w > 0 { preview_w as f32 / shrunk_w as f32 } else { 1.0 };
+
+    let total_scale = gpu_scale * raw_scale_factor;
+
+    let mask_definitions: Vec<MaskDefinition> = scaled_adjustments
+        .get("masks")
+        .and_then(|m| serde_json::from_value(m.clone()).ok())
+        .unwrap_or_else(Vec::new);
+
+    let scaled_crop_offset = (
+        unscaled_crop_offset.0 * gpu_scale,
+        unscaled_crop_offset.1 * gpu_scale,
+    );
+
+    let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
+        .iter()
+        .filter_map(|def| generate_mask_bitmap(def, preview_w, preview_h, total_scale, scaled_crop_offset))
+        .collect();
+
+    let mut all_adjustments = get_all_adjustments_from_json(&scaled_adjustments, is_raw);
+    all_adjustments.global.show_clipping = 0;
+
+    let lut_path = scaled_adjustments["lutPath"].as_str();
+    let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
+    let unique_hash = calculate_full_job_hash(&source_path_str, &scaled_adjustments).wrapping_add(1);
+
+    let processed_preview = process_and_get_dynamic_image(
         &context,
         &state,
-        is_raw,
+        &preview_base,
+        unique_hash,
+        all_adjustments,
+        &mask_bitmaps,
+        lut,
         "estimate_batch_export_size",
     )?;
 
@@ -2105,9 +2210,8 @@ async fn estimate_batch_export_size(
     )?;
     let single_image_estimated_size = preview_bytes.len();
 
-    let (transformed_full_res, _) =
-        apply_all_transformations(&original_image, &js_adjustments);
-    let (full_w, full_h) = transformed_full_res.dimensions();
+    let full_w = (shrunk_w as f32 / raw_scale_factor).round() as u32;
+    let full_h = (shrunk_h as f32 / raw_scale_factor).round() as u32;
 
     let (final_full_w, final_full_h) = if let Some(resize_opts) = &export_settings.resize {
         calculate_resize_target(full_w, full_h, resize_opts)
@@ -2178,7 +2282,12 @@ async fn generate_ai_foreground_mask(
         .await
         .map_err(|e| e.to_string())?;
 
-    let (full_image, _) = get_full_image_for_processing(&state)?;
+    let (mut full_image, is_raw) = get_full_image_for_processing(&state)?;
+
+    if is_raw {
+        apply_cpu_default_raw_processing(&mut full_image);
+    }
+
     let warped_image = apply_geometry_warp(&full_image, &js_adjustments);
     let full_mask_image =
         run_u2netp_model(&warped_image, &models.u2netp).map_err(|e| e.to_string())?;
@@ -2207,7 +2316,11 @@ async fn generate_ai_sky_mask(
         .await
         .map_err(|e| e.to_string())?;
 
-    let (full_image, _) = get_full_image_for_processing(&state)?;
+    let (mut full_image, is_raw) = get_full_image_for_processing(&state)?;
+
+    if is_raw {
+        apply_cpu_default_raw_processing(&mut full_image);
+    }
     let warped_image = apply_geometry_warp(&full_image, &js_adjustments);
     let full_mask_image =
         run_sky_seg_model(&warped_image, &models.sky_seg).map_err(|e| e.to_string())?;
@@ -2239,7 +2352,11 @@ async fn generate_ai_subject_mask(
         .await
         .map_err(|e| e.to_string())?;
 
-    let (full_image, _) = get_full_image_for_processing(&state)?;
+    let (mut full_image, is_raw) = get_full_image_for_processing(&state)?;
+
+    if is_raw {
+        apply_cpu_default_raw_processing(&mut full_image);
+    }
     let warped_image = apply_geometry_warp(&full_image, &js_adjustments);
 
     let embeddings = {
@@ -2689,6 +2806,7 @@ async fn generate_all_community_previews(
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
+    let linear_mode = settings.linear_raw_mode;
 
     let mut base_thumbnails: Vec<(DynamicImage, bool)> = Vec::new();
     for image_path in image_paths.iter() {
@@ -2696,7 +2814,7 @@ async fn generate_all_community_previews(
         let source_path_str = source_path.to_string_lossy().to_string();
         let image_bytes = fs::read(&source_path).map_err(|e| e.to_string())?;
         let original_image =
-            crate::image_loader::load_base_image_from_bytes(&image_bytes, &source_path_str, true, highlight_compression, None)
+            crate::image_loader::load_base_image_from_bytes(&image_bytes, &source_path_str, true, highlight_compression, linear_mode.clone(), None)
                 .map_err(|e| e.to_string())?;
         let is_raw = is_raw_file(&source_path_str);
         base_thumbnails.push((
@@ -2937,8 +3055,11 @@ async fn merge_hdr(
     }
 
     let hdr_result_handle = state.hdr_result.clone();
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
+    let linear_mode = settings.linear_raw_mode;
 
-    let images: Vec<HDRInput> = paths
+    let loaded_items: Vec<(String, DynamicImage, Duration, f32)> = paths
         .iter()
         .map(|path| {
             let _ = app_handle.emit(
@@ -2954,32 +3075,51 @@ async fn merge_hdr(
 
             let file_bytes =
                 fs::read(path).map_err(|e| format!("Failed to read image {}: {}", path, e))?;
-            let dynamic_image = load_base_image_from_bytes(&file_bytes, path, false, 2.5, None)
-                .map_err(|e| format!("Failed to load image {}: {}", path, e))?;
+            let dynamic_image = load_base_image_from_bytes(
+                &file_bytes, 
+                path, 
+                false, 
+                highlight_compression, 
+                linear_mode.clone(),
+                None
+            )
+            .map_err(|e| format!("Failed to load image {}: {}", path, e))?;
 
             let gains = match read_iso(&path, &file_bytes) {
-                None => {
-                    return Err(format!(
-                        "Image {} is missing 'PhotographicSensitivity' in EXIF data",
-                        path
-                    ));
-                }
+                None => return Err(format!("Image {} is missing ISO/Sensitivity data", path)),
                 Some(gains) => gains as f32,
             };
-            log::info!("Read image {} with gains: {}", path, gains);
-            let exposure = match read_exposure_time_secs(&path, &file_bytes) {
-                None => {
-                    return Err(format!(
-                        "Image {} is missing 'ExposureTime' in EXIF data",
-                        path
-                    ));
-                }
-                Some(exposure) => exposure,
-            };
-            log::info!("Read image {} with exposure: {}", path, exposure);
 
-            HDRInput::with_image(&dynamic_image, Duration::from_secs_f32(exposure), gains)
-                .map_err(|e| format!("Failed to prepare HDR input for image {}: {}", path, e))
+            let exposure = match read_exposure_time_secs(&path, &file_bytes) {
+                None => return Err(format!("Image {} is missing ExposureTime data", path)),
+                Some(exp) => Duration::from_secs_f32(exp),
+            };
+
+            Ok((path.clone(), dynamic_image, exposure, gains))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+
+    if let Some((first_path, first_img, _, _)) = loaded_items.first() {
+        let (width, height) = (first_img.width(), first_img.height());
+
+        for (path, img, _, _) in loaded_items.iter().skip(1) {
+            if img.width() != width || img.height() != height {
+                return Err(format!(
+                    "Dimension mismatch detected.\n\nBase image ({}): {}x{}\nTarget image ({}): {}x{}\n\nHDR merge requires all images to be exactly the same size.",
+                    Path::new(first_path).file_name().unwrap_or_default().to_string_lossy(),
+                    width, height,
+                    Path::new(path).file_name().unwrap_or_default().to_string_lossy(),
+                    img.width(), img.height()
+                ));
+            }
+        }
+    }
+
+    let images: Vec<HDRInput> = loaded_items
+        .iter()
+        .map(|(path, img, exposure, gains)| {
+            HDRInput::with_image(img, *exposure, *gains)
+                .map_err(|e| format!("Failed to prepare HDR input for {}: {}", path, e))
         })
         .collect::<Result<Vec<HDRInput>, String>>()?;
 
@@ -2988,7 +3128,6 @@ async fn merge_hdr(
     log::info!("HDR merge completed");
 
     let mut buf = Cursor::new(Vec::new());
-
     if let Err(e) = hdr_merged.to_rgb8().write_to(&mut buf, ImageFormat::Png) {
         return Err(format!("Failed to encode hdr preview: {}", e));
     }
@@ -3163,6 +3302,7 @@ fn generate_preview_for_path(
     let is_raw = is_raw_file(&source_path_str);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
+    let linear_mode = settings.linear_raw_mode;
 
     let base_image = match read_file_mapped(&source_path) {
         Ok(mmap) => load_and_composite(
@@ -3171,6 +3311,7 @@ fn generate_preview_for_path(
             &js_adjustments,
             false,
             highlight_compression,
+            linear_mode.clone(),
             None,
         )
         .map_err(|e| e.to_string())?,
@@ -3187,6 +3328,7 @@ fn generate_preview_for_path(
                 &js_adjustments,
                 false,
                 highlight_compression,
+                linear_mode.clone(),
                 None,
             )
             .map_err(|e| e.to_string())?
@@ -3258,11 +3400,13 @@ fn apply_window_effect(theme: String, window: impl raw_window_handle::HasWindowH
         };
 
         if is_win11_or_newer {
-            window_vibrancy::apply_acrylic(&window, color)
-                .expect("Failed to apply acrylic effect on Windows 11");
+            if let Err(e) = window_vibrancy::apply_acrylic(&window, color) {
+                log::warn!("Failed to apply acrylic effect on Windows 11: {}", e);
+            }
         } else {
-            window_vibrancy::apply_blur(&window, color)
-                .expect("Failed to apply blur effect on Windows 10 or older");
+            if let Err(e) = window_vibrancy::apply_blur(&window, color) {
+                log::warn!("Failed to apply blur effect on Windows 10 or older: {}", e);
+            }
         }
     }
 
@@ -3272,8 +3416,9 @@ fn apply_window_effect(theme: String, window: impl raw_window_handle::HasWindowH
             "light" => window_vibrancy::NSVisualEffectMaterial::ContentBackground,
             _ => window_vibrancy::NSVisualEffectMaterial::HudWindow,
         };
-        window_vibrancy::apply_vibrancy(&window, material, None, None)
-            .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
+        if let Err(e) = window_vibrancy::apply_vibrancy(&window, material, None, None) {
+            log::warn!("Failed to apply macOS vibrancy effect: {}", e);
+        }
     }
 
     #[cfg(target_os = "linux")]
@@ -3369,7 +3514,58 @@ fn handle_file_open(app_handle: &tauri::AppHandle, path: PathBuf) {
 }
 
 #[tauri::command]
-fn frontend_ready(app_handle: tauri::AppHandle, state: tauri::State<AppState>) -> Result<(), String> {
+fn frontend_ready(
+    app_handle: tauri::AppHandle,
+    window: tauri::Window,
+    state: tauri::State<AppState>
+) -> Result<(), String> {
+    let is_first_run = !state.window_setup_complete.swap(true, std::sync::atomic::Ordering::Relaxed);
+    if is_first_run {
+        if let Ok(config_dir) = app_handle.path().app_config_dir() {
+            let path = config_dir.join("window_state.json");
+            let mut should_maximize = false;
+            let mut should_fullscreen = false;
+
+            if let Ok(contents) = std::fs::read_to_string(&path) {
+                if let Ok(saved_state) = serde_json::from_str::<WindowState>(&contents) {
+                    #[cfg(any(windows, target_os = "linux"))]
+                    {
+                        should_maximize = saved_state.maximized;
+                        should_fullscreen = saved_state.fullscreen;
+                    }
+
+                    if should_maximize || should_fullscreen {
+                        if let Some(monitor) = window.current_monitor().ok().flatten()
+                            .or_else(|| window.primary_monitor().ok().flatten())
+                            .or_else(|| window.available_monitors().ok().and_then(|m| m.into_iter().next()))
+                        {
+                            let monitor_size = monitor.size();
+                            let monitor_pos = monitor.position();
+                            let default_width = 1280i32;
+                            let default_height = 720i32;
+                            let center_x = monitor_pos.x + (monitor_size.width as i32 - default_width) / 2;
+                            let center_y = monitor_pos.y + (monitor_size.height as i32 - default_height) / 2;
+
+                            let _ = window.set_size(tauri::PhysicalSize::new(default_width as u32, default_height as u32));
+                            let _ = window.set_position(tauri::PhysicalPosition::new(center_x, center_y));
+                        }
+                    }
+                }
+            }
+            if should_maximize {
+                let _ = window.maximize();
+            }
+            if should_fullscreen {
+                let _ = window.set_fullscreen(true);
+            }
+        }
+    }
+    if let Err(e) = window.show() {
+        log::error!("Failed to show window: {}", e);
+    }
+    if let Err(e) = window.set_focus() {
+        log::error!("Failed to focus window: {}", e);
+    }
     if let Some(path) = state.initial_file_path.lock().unwrap().take() {
         log::info!("Frontend is ready, emitting open-with-file for initial path: {}", &path);
         handle_file_open(&app_handle, PathBuf::from(path));
@@ -3470,21 +3666,133 @@ fn main() {
             let transparent = settings.transparent.unwrap_or(window_cfg.transparent);
             let decorations = settings.decorations.unwrap_or(window_cfg.decorations);
 
-            let window = tauri::WebviewWindowBuilder::from_config(app.handle(), &window_cfg)
+            let main_window_cfg = app.config().app.windows.iter()
+                .find(|w| w.label == "main")
+                .expect("Main window config not found")
+                .clone();
+
+            let mut window_builder = tauri::WebviewWindowBuilder::from_config(app.handle(), &main_window_cfg)
                 .unwrap()
                 .transparent(transparent)
                 .decorations(decorations)
-                .build()
-                .expect("Failed to build window");
+                .visible(false);
+
+            if !transparent {
+                window_builder = window_builder.background_color(tauri::window::Color(100, 100, 100, 255));
+            } else {
+                window_builder = window_builder.background_color(tauri::window::Color(0, 0, 0, 0));
+            }
+
+            let window = window_builder.build().expect("Failed to build window");
 
             if transparent {
                 let theme = settings.theme.unwrap_or("dark".to_string());
                 apply_window_effect(theme, &window);
             }
 
+            if let Ok(config_dir) = app.path().app_config_dir() {
+                let path = config_dir.join("window_state.json");
+                if let Ok(contents) = std::fs::read_to_string(&path) {
+                    if let Ok(state) = serde_json::from_str::<WindowState>(&contents) {
+                        if state.width >= 200 && state.height >= 150 {
+                            let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(state.width, state.height)));
+                            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(state.x, state.y)));
+                        } else {
+                            log::warn!("Saved window state had unreasonable dimensions ({}x{}), centering instead.", state.width, state.height);
+                            let _ = window.center();
+                        }
+                    } else { let _ = window.center(); }
+                } else { let _ = window.center(); }
+            } else { let _ = window.center(); }
+
+            let window_failsafe = window.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+                if let Ok(false) = window_failsafe.is_visible() {
+                    log::warn!("Frontend failed to report ready within timeout. Forcing window visibility.");
+                    let _ = window_failsafe.show();
+                    let _ = window_failsafe.set_focus();
+                }
+            });
+
+            let pending_window_state = Arc::new(Mutex::new(None::<WindowState>));
+            let pending_state_for_saver = pending_window_state.clone();
+            let app_handle_for_saver = app.handle().clone();
+
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+
+                    let state_to_save = {
+                        let mut lock = pending_state_for_saver.lock().unwrap();
+                        lock.take()
+                    };
+
+                    if let Some(state) = state_to_save {
+                        if let Ok(config_dir) = app_handle_for_saver.path().app_config_dir() {
+                            let path = config_dir.join("window_state.json");
+                            let _ = std::fs::create_dir_all(&config_dir);
+                            if let Ok(json) = serde_json::to_string(&state) {
+                                let _ = std::fs::write(&path, json); 
+                            }
+                        }
+                    }
+                }
+            });
+
+            let window_for_handler = window.clone();
+            let pending_state_for_handler = pending_window_state.clone();
+
+            window.on_window_event(move |event| {
+                match event {
+                    tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_) => {
+
+                        #[cfg(any(windows, target_os = "linux"))]
+                        let maximized = window_for_handler.is_maximized().unwrap_or(false);
+                        #[cfg(not(any(windows, target_os = "linux")))]
+                        let maximized = false;
+
+                        #[cfg(any(windows, target_os = "linux"))]
+                        let fullscreen = window_for_handler.is_fullscreen().unwrap_or(false);
+                        #[cfg(not(any(windows, target_os = "linux")))]
+                        let fullscreen = false;
+
+                        if window_for_handler.is_minimized().unwrap_or(false) {
+                            return;
+                        }
+
+                        let mut state = WindowState {
+                            width: 1280,
+                            height: 720,
+                            x: 0,
+                            y: 0,
+                            maximized,
+                            fullscreen,
+                        };
+
+                        if let Ok(position) = window_for_handler.outer_position() {
+                            state.x = position.x;
+                            state.y = position.y;
+                        }
+
+                        if !maximized && !fullscreen {
+                            if let Ok(size) = window_for_handler.outer_size() {
+                                if size.width >= 200 && size.height >= 150 {
+                                    state.width = size.width;
+                                    state.height = size.height;
+                                }
+                            }
+                        }
+
+                        *pending_state_for_handler.lock().unwrap() = Some(state);
+                    }
+                    _ => {}
+                }
+            });
             Ok(())
         })
         .manage(AppState {
+            window_setup_complete: AtomicBool::new(false),
             original_image: Mutex::new(None),
             cached_preview: Mutex::new(None),
             gpu_context: Mutex::new(None),

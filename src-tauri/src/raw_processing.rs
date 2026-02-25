@@ -3,9 +3,8 @@ use anyhow::{anyhow, Result};
 use image::{DynamicImage, ImageBuffer, Rgba};
 use rawler::{
     decoders::{Orientation, RawDecodeParams},
-    formats::tiff::Value,
     imgop::develop::{DemosaicAlgorithm, Intermediate, ProcessingStep, RawDevelop},
-    rawimage::{RawImage, RawImageData, RawPhotometricInterpretation},
+    rawimage::{RawImage, RawPhotometricInterpretation},
     rawsource::RawSource,
 };
 use std::sync::{
@@ -17,12 +16,14 @@ pub fn develop_raw_image(
     file_bytes: &[u8],
     fast_demosaic: bool,
     highlight_compression: f32,
+    linear_mode: String,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
     let (developed_image, orientation) = develop_internal(
         file_bytes,
         fast_demosaic,
         highlight_compression,
+        linear_mode,
         cancel_token,
     )?;
     Ok(apply_orientation(developed_image, orientation))
@@ -30,79 +31,6 @@ pub fn develop_raw_image(
 
 fn is_linear_raw_format(raw_image: &RawImage) -> bool {
     matches!(raw_image.photometric, RawPhotometricInterpretation::LinearRaw)
-}
-
-fn log_dng_info(raw_image: &RawImage) {
-    log::info!("--- DNG Debug Information ---");
-    log::info!("  Make: {}, Model: {}", raw_image.make, raw_image.model);
-    log::info!("  Photometric Interpretation: {:?}", raw_image.photometric);
-    log::info!(
-        "  Data Type: {}",
-        match raw_image.data {
-            RawImageData::Integer(_) => "Integer",
-            RawImageData::Float(_) => "Float",
-        }
-    );
-    log::info!("  Bits Per Sample: {}", raw_image.bps);
-    log::info!("  Black Level: {:?}", raw_image.blacklevel);
-    log::info!("  White Level: {:?}", raw_image.whitelevel);
-
-    log::info!("--- Relevant DNG Tags ---");
-    let tags_to_check = [
-        (50879, "ColorimetricReference"),
-        (50940, "ProfileToneCurve"),
-        (50712, "LinearizationTable"),
-        (50706, "DNGVersion"),
-    ];
-
-    for (id, name) in tags_to_check {
-        if let Some(val) = raw_image.dng_tags.get(&id) {
-            log::info!("  - {}({}): {:?}", name, id, val);
-        } else {
-            log::info!("  - {}({}): Not present", name, id);
-        }
-    }
-    log::info!("-----------------------------");
-}
-
-fn needs_srgb_ungamma(raw_image: &RawImage) -> bool {
-    if !is_linear_raw_format(raw_image) {
-        return false;
-    }
-
-    if let Some(value) = raw_image.dng_tags.get(&50879) {
-        let reference = match value {
-            Value::Short(v) if !v.is_empty() => Some(v[0] as u32),
-            Value::Long(v) if !v.is_empty() => Some(v[0]),
-            _ => None,
-        };
-
-        if let Some(1) = reference {
-            log::debug!("Heuristic: ColorimetricReference is Scene-Referred. Data is linear. NO un-gamma.");
-            return false;
-        } else if let Some(0) = reference {
-            log::debug!("Heuristic: ColorimetricReference is Output-Referred. Applying un-gamma.");
-            return true;
-        }
-    }
-
-    if matches!(raw_image.data, RawImageData::Float(_)) {
-        log::debug!("Heuristic: Data is Float32. Assuming linear data. NO un-gamma.");
-        return false;
-    }
-
-    if raw_image.dng_tags.contains_key(&50940) {
-        log::debug!("Heuristic: ProfileToneCurve found. Assuming linear base data. NO un-gamma.");
-        return false;
-    }
-
-    if raw_image.bps >= 16 {
-        log::debug!("Heuristic: 16-bit (or higher) Integer data with no explicit Gamma tag. Assuming linear. NO un-gamma.");
-        return false;
-    }
-
-    log::debug!("Heuristic: Fallback. Low-bit-depth Integer LinearRaw with no markers. Assuming sRGB. Applying un-gamma.");
-    true
 }
 
 #[inline]
@@ -118,6 +46,7 @@ fn develop_internal(
     file_bytes: &[u8],
     fast_demosaic: bool,
     highlight_compression: f32,
+    linear_mode: String,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<(DynamicImage, Orientation)> {
     let check_cancel = || -> Result<()> {
@@ -146,19 +75,12 @@ fn develop_internal(
 
     let is_linear_format = is_linear_raw_format(&raw_image);
 
-    if is_linear_format {
-        log_dng_info(&raw_image);
-    }
-
-    let should_ungamma = needs_srgb_ungamma(&raw_image);
-
-    if is_linear_format {
-        if should_ungamma {
-            log::info!("Detected Linear Raw DNG (sRGB) - will apply degamma");
-        } else {
-            log::info!("Detected Linear Raw DNG (Linear) - skipping degamma");
-        }
-    }
+    let (apply_ungamma, apply_calibration) = match linear_mode.as_str() {
+        "gamma" => (true, true),
+        "skip_calib" => (false, false),
+        "gamma_skip_calib" => (true, false),
+        _ => (false, true),
+    };
 
     let original_white_level = raw_image
         .whitelevel
@@ -183,7 +105,7 @@ fn develop_internal(
         developer.steps.retain(|&step| {
             step != ProcessingStep::SRgb
                 && step != ProcessingStep::Demosaic
-                && step != ProcessingStep::Calibrate
+                && (apply_calibration || step != ProcessingStep::Calibrate)
         });
     } else if fast_demosaic {
         developer.demosaic_algorithm = DemosaicAlgorithm::Speed;
@@ -207,7 +129,7 @@ fn develop_internal(
         Intermediate::Monochrome(pixels) => {
             pixels.data.iter_mut().for_each(|p| {
                 let mut linear_val = *p * rescale_factor;
-                if should_ungamma {
+                if is_linear_format && apply_ungamma {
                     linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
                 }
                 *p = linear_val;
@@ -219,14 +141,10 @@ fn develop_internal(
                 let mut g = (p[1] * rescale_factor).max(0.0);
                 let mut b = (p[2] * rescale_factor).max(0.0);
 
-                if should_ungamma {
+                if is_linear_format && apply_ungamma {
                     r = srgb_to_linear(r.clamp(0.0, 1.0));
                     g = srgb_to_linear(g.clamp(0.0, 1.0));
                     b = srgb_to_linear(b.clamp(0.0, 1.0));
-                    let lum = r * 0.2126 + g * 0.7152 + b * 0.0722;
-                    r = (lum + (r - lum) * 2.0).max(0.0);
-                    g = (lum + (g - lum) * 2.0).max(0.0);
-                    b = (lum + (b - lum) * 2.0).max(0.0);
                 }
 
                 let max_c = r.max(g).max(b);
@@ -265,7 +183,7 @@ fn develop_internal(
             pixels.data.iter_mut().for_each(|p| {
                 p.iter_mut().for_each(|c| {
                     let mut linear_val = *c * rescale_factor;
-                    if should_ungamma {
+                    if is_linear_format && apply_ungamma {
                         linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
                     }
                     *c = linear_val;
@@ -302,4 +220,23 @@ fn develop_internal(
     };
 
     Ok((dynamic_image, orientation))
+}
+
+pub fn get_fast_demosaic_scale_factor(file_bytes: &[u8], decoded_width: u32, decoded_height: u32) -> f32 {
+    let source = RawSource::new_from_slice(file_bytes);
+    if let Ok(decoder) = rawler::get_decoder(&source) {
+        if let Ok(raw_img) = decoder.raw_image(&source, &RawDecodeParams::default(), true) {
+            let max_orig = (raw_img.width as f32).max(raw_img.height as f32);
+            let max_comp = (decoded_width as f32).max(decoded_height as f32);
+            if max_orig > 0.0 {
+                let ratio = max_comp / max_orig;
+                if ratio > 0.1 && ratio < 0.35 {
+                    return 0.25;
+                } else if ratio >= 0.35 && ratio < 0.75 {
+                    return 0.5;
+                }
+            }
+        }
+    }
+    1.0
 }

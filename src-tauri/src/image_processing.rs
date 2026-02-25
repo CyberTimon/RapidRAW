@@ -657,9 +657,9 @@ pub fn unwarp_image_geometry(warped_image: &DynamicImage, params: GeometryParams
 pub fn apply_cpu_default_raw_processing(image: &mut DynamicImage) {
     let mut f32_image = image.to_rgb32f();
 
-    const GAMMA: f32 = 2.2;
+    const GAMMA: f32 = 2.38;
     const INV_GAMMA: f32 = 1.0 / GAMMA;
-    const CONTRAST: f32 = 1.15;
+    const CONTRAST: f32 = 1.28;
 
     f32_image.par_chunks_mut(3).for_each(|pixel_chunk| {
         let r_gamma = pixel_chunk[0].powf(INV_GAMMA);
@@ -1020,7 +1020,7 @@ pub struct MaskAdjustments {
 #[repr(C)]
 pub struct AllAdjustments {
     pub global: GlobalAdjustments,
-    pub mask_adjustments: [MaskAdjustments; 9],
+    pub mask_adjustments: [MaskAdjustments; 8],
     pub mask_count: u32,
     pub tile_offset_x: u32,
     pub tile_offset_y: u32,
@@ -1079,7 +1079,7 @@ const SCALES: AdjustmentScales = AdjustmentScales {
     exposure: 0.8,
     brightness: 0.8,
     contrast: 100.0,
-    highlights: 150.0,
+    highlights: 120.0,
     shadows: 100.0,
     whites: 30.0,
     blacks: 60.0,
@@ -1647,7 +1647,7 @@ pub fn get_all_adjustments_from_json(
     is_raw: bool,
 ) -> AllAdjustments {
     let global = get_global_adjustments_from_json(js_adjustments, is_raw);
-    let mut mask_adjustments = [MaskAdjustments::default(); 9];
+    let mut mask_adjustments = [MaskAdjustments::default(); 8];
     let mut mask_count = 0;
 
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -1799,7 +1799,7 @@ pub fn remove_raw_artifacts_and_enhance(image: &mut DynamicImage) {
             }
         });
 
-    apply_gentle_detail_enhance(&mut buffer, &ycbcr_buffer, 0.4);
+    apply_gentle_detail_enhance(&mut buffer, &ycbcr_buffer, 0.35);
 
     *image = DynamicImage::ImageRgb32F(buffer);
 }

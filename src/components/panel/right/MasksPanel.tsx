@@ -256,15 +256,30 @@ export default function MasksPanel({
 
   const createMaskLogic = (type: Mask) => {
       const subMask = createSubMask(type, selectedImage);
+      
+      const steps = adjustments?.orientationSteps || 0;
+      const isRotated = steps === 1 || steps === 3;
+      const imgW = isRotated ? (selectedImage.height || 1000) : (selectedImage.width || 1000);
+      const imgH = isRotated ? (selectedImage.width || 1000) : (selectedImage.height || 1000);
+
+      if (type === Mask.Linear && subMask.parameters) {
+          subMask.parameters.range = Math.min(imgW, imgH) * 0.1;
+      }
+
       if (adjustments?.crop && subMask.parameters && (type === Mask.Linear || type === Mask.Radial)) {
-        const { x, y, width, height } = adjustments.crop;
-        const { width: imgW, height: imgH } = selectedImage;
+        const { x, y, width, height, unit } = adjustments.crop as any;
+        const isPercent = unit === '%';
+        const cW = isPercent ? (width / 100) * imgW : width;
+        const cH = isPercent ? (height / 100) * imgH : height;
+        const cX = isPercent ? (x / 100) * imgW : x;
+        const cY = isPercent ? (y / 100) * imgH : y;
+
         if (imgW && imgH) {
-           const ratioX = width / imgW; const ratioY = height / imgH;
-           const cx = x + width / 2; const cy = y + height / 2;
+           const ratioX = cW / imgW; const ratioY = cH / imgH;
+           const cx = cX + cW / 2; const cy = cY + cH / 2;
            const ox = imgW / 2; const oy = imgH / 2;
            const p = { ...subMask.parameters };
-           if (type === Mask.Linear) { p.startX = cx + (p.startX - ox) * ratioX; p.endX = cx + (p.endX - ox) * ratioX; p.startY = cy + (p.startY - oy) * ratioY; p.endY = cy + (p.endY - oy) * ratioY; } 
+           if (type === Mask.Linear) { p.startX = cx + (p.startX - ox) * ratioX; p.endX = cx + (p.endX - ox) * ratioX; p.startY = cy + (p.startY - oy) * ratioY; p.endY = cy + (p.endY - oy) * ratioY; p.range = Math.min(cW, cH) * 0.1; } 
            else if (type === Mask.Radial) { p.centerX = cx + (p.centerX - ox) * ratioX; p.centerY = cy + (p.centerY - oy) * ratioY; p.radiusX *= ratioX; p.radiusY *= ratioY; }
            subMask.parameters = p;
         }

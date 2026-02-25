@@ -1385,13 +1385,7 @@ export default function MainLibrary({
 
   if (!rootPath) {
     if (!appSettings) {
-      return (
-        <div className="flex-1 flex flex-col items-center justify-center h-full rounded-lg bg-bg-primary p-8 text-center">
-          <ImageIcon size={80} className="text-accent opacity-20 mb-6 animate-pulse" />
-          <h1 className="text-3xl font-bold text-primary mb-2">RapidRAW</h1>
-          <p className="text-text-secondary mb-8">Loading settings...</p>
-        </div>
-      );
+      return;
     }
     const hasLastPath = !!appSettings.lastRootPath;
     const currentThemeId = theme || DEFAULT_THEME_ID;
@@ -1549,7 +1543,11 @@ export default function MainLibrary({
         <div className="min-w-0">
           <h2 className="text-2xl font-bold text-primary text-shadow-shiny">Library</h2>
           <div className="flex items-center gap-2">
-            <p className="text-sm text-text-secondary truncate">{currentFolderPath}</p>
+            {currentFolderPath ? (
+              <p className="text-sm text-text-secondary truncate">{currentFolderPath}</p>
+            ) : (
+              <p className="text-sm invisible select-none pointer-events-none h-5 overflow-hidden"></p>
+            )}
             <div
               className={`overflow-hidden transition-all duration-300 ${
                 isLoaderVisible ? 'max-w-[1rem] opacity-100' : 'max-w-0 opacity-0'
