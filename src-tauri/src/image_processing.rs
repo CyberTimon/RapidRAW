@@ -2347,7 +2347,10 @@ pub fn generate_edge_mask_from_image(image: &DynamicImage, threshold: f32) -> Ve
     let luma = image.to_luma8();
     let (w, h) = luma.dimensions();
     let mut mask = vec![0u8; (w * h) as usize];
-    let t_val = (threshold * 2.55) as i16;
+
+    let res_scale = (w.max(h) as f32) / 2000.0;
+    let norm_threshold = threshold / res_scale;
+    let upper = norm_threshold * 0.5 * 255.0;
 
     mask.par_chunks_mut(w as usize)
         .enumerate()
@@ -2357,14 +2360,18 @@ pub fn generate_edge_mask_from_image(image: &DynamicImage, threshold: f32) -> Ve
             }
 
             for x in 1..(w as usize) - 1 {
-                let val = luma.get_pixel(x as u32, y as u32)[0] as i16;
-                let val_right = luma.get_pixel(x as u32 + 1, y as u32)[0] as i16;
-                let val_down = luma.get_pixel(x as u32, y as u32 + 1)[0] as i16;
+                let val = luma.get_pixel(x as u32, y as u32)[0] as f32;
+                let val_right = luma.get_pixel(x as u32 + 1, y as u32)[0] as f32;
+                let val_down = luma.get_pixel(x as u32, y as u32 + 1)[0] as f32;
 
                 let edge = (val - val_right).abs() + (val - val_down).abs();
 
-                if edge > t_val {
-                    row[x] = 255;
+                if upper > 0.0 {
+                    let t = (edge / upper).clamp(0.0, 1.0);
+                    let smooth = t * t * (3.0 - 2.0 * t);
+                    row[x] = (smooth * 255.0) as u8;
+                } else {
+                    row[x] = if edge > 0.0 { 255 } else { 0 };
                 }
             }
         });
