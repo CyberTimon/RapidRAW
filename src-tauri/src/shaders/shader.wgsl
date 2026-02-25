@@ -1330,7 +1330,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let right_luma = get_luma(textureLoad(input_texture, right_coord, 0).rgb);
         let down_luma = get_luma(textureLoad(input_texture, down_coord, 0).rgb);
         let edge = abs(center_luma_for_mask - right_luma) + abs(center_luma_for_mask - down_luma);
-        let threshold = adjustments.global.sharpening_mask;
+        let threshold = adjustments.global.sharpening_mask / scale;
         let edge_factor = smoothstep(0.0, threshold * 0.5, edge);
         masked_sharpness = masked_sharpness * edge_factor;
     }
