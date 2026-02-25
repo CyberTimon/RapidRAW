@@ -40,9 +40,9 @@ export default function DetailsPanel({
           />
           <Slider
             label="Masking"
-            max={20}
+            max={1}
             min={0}
-            step={0.1}
+            step={0.01}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.SharpeningMask, e.target.value)}
             value={adjustments.sharpeningMask || 0}
             onDragStateChange={onDragStateChange}
