@@ -82,6 +82,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
+      - name: Run i18n checks
+        run: npm run i18n:ci
+
       - name: rustup install target
         if: ${{ inputs.target != '' }}
         run: rustup target add ${{ inputs.target }}

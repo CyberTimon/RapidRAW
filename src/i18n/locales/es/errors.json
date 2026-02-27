@@ -1,0 +1,7 @@
+{
+  "generic": {
+    "unknown": "Ocurrio un error desconocido.",
+    "operationFailed": "La operacion fallo: {reason}",
+    "initializationFailed": "Fallo la inicializacion: {reason}"
+  }
+}

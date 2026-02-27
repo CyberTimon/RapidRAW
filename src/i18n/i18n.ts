@@ -7,18 +7,21 @@ import enLibrary from './locales/en/library.json';
 import enBackend from './locales/en/backend.json';
 import enModals from './locales/en/modals.json';
 import enSettings from './locales/en/settings.json';
+import enErrors from './locales/en/errors.json';
 
 import frCommon from './locales/fr/common.json';
 import frLibrary from './locales/fr/library.json';
 import frBackend from './locales/fr/backend.json';
 import frModals from './locales/fr/modals.json';
 import frSettings from './locales/fr/settings.json';
+import frErrors from './locales/fr/errors.json';
 
 import esCommon from './locales/es/common.json';
 import esLibrary from './locales/es/library.json';
 import esBackend from './locales/es/backend.json';
 import esModals from './locales/es/modals.json';
 import esSettings from './locales/es/settings.json';
+import esErrors from './locales/es/errors.json';
 
 export const SUPPORTED_LOCALES = ['fr', 'es', 'en'] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
@@ -44,6 +47,7 @@ const resources = {
     backend: enBackend,
     modals: enModals,
     settings: enSettings,
+    errors: enErrors,
   },
   fr: {
     common: frCommon,
@@ -51,6 +55,7 @@ const resources = {
     backend: frBackend,
     modals: frModals,
     settings: frSettings,
+    errors: frErrors,
   },
   es: {
     common: esCommon,
@@ -58,6 +63,7 @@ const resources = {
     backend: esBackend,
     modals: esModals,
     settings: esSettings,
+    errors: esErrors,
   },
 };
 
@@ -72,7 +78,7 @@ if (!i18n.isInitialized) {
     lng: detectedBrowserLocale,
     fallbackLng: 'en',
     supportedLngs: [...SUPPORTED_LOCALES],
-    ns: ['common', 'library', 'backend', 'modals', 'settings'],
+    ns: ['common', 'library', 'backend', 'modals', 'settings', 'errors'],
     defaultNS: 'common',
     interpolation: {
       escapeValue: false,

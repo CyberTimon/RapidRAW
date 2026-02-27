@@ -17,17 +17,27 @@
     "findingMatches": "Buscando coincidencias de imagen...",
     "determiningOrder": "Determinando el orden de union...",
     "stitchingOrder": "Orden de union: {order}",
+    "stitchingImage": "Uniendo imagen {current}/{total}: {filename}",
     "unmatchedWarning": "Advertencia: {count} imagen(es) no se pudieron emparejar y seran excluidas.",
     "warpingBlending": "Deformando y fusionando imagenes...",
     "finalizing": "Finalizando panorama...",
     "creatingPreview": "Creando vista previa...",
     "ready": "Panorama listo",
+    "failedWithReason": "Error de panorama: {reason}",
     "failedToStart": "No se pudo iniciar."
   },
   "hdr": {
     "startingProcess": "Iniciando proceso HDR...",
+    "processingImage": "Procesando '{filename}'",
     "creatingPreview": "Creando vista previa...",
     "ready": "HDR listo",
+    "failedWithReason": "Error de fusion HDR: {reason}",
     "failedToStart": "No se pudo iniciar."
+  },
+  "export": {
+    "failed": "Error de exportacion: {reason}"
+  },
+  "import": {
+    "failed": "Error de importacion: {reason}"
   }
 }

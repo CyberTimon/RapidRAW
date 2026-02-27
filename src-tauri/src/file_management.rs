@@ -2605,7 +2605,15 @@ pub async fn import_files(
 
             if let Err(e) = import_result {
                 eprintln!("Failed to import {}: {}", source_path_str, e);
-                let _ = app_handle.emit("import-error", e);
+                let _ = app_handle.emit(
+                    "import-error",
+                    serde_json::json!({
+                        "key": "backend.import.failed",
+                        "params": {
+                            "reason": e
+                        }
+                    }),
+                );
                 return;
             }
         }

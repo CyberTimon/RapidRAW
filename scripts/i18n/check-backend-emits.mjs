@@ -9,9 +9,14 @@ const TARGET_EVENTS = new Set([
   'hdr-progress',
   'ai-model-download-start',
   'ai-model-download-finish',
+  'export-error',
+  'import-error',
+  'panorama-error',
+  'hdr-error',
 ]);
 
 const violations = [];
+const EMIT_PATTERN = /emit\(\s*"([^"]+)"\s*,([\s\S]*?)\)\s*;/g;
 
 const walk = (dir) => {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -23,16 +28,22 @@ const walk = (dir) => {
     }
     if (!entry.name.endsWith('.rs')) continue;
 
-    const lines = fs.readFileSync(fullPath, 'utf-8').split('\n');
-    lines.forEach((line, index) => {
-      const match = line.match(/emit\(\s*"([^"]+)"\s*,\s*"([^"]*)"\s*\)/);
-      if (!match) return;
-
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    for (const match of content.matchAll(EMIT_PATTERN)) {
       const eventName = match[1];
-      if (!TARGET_EVENTS.has(eventName)) return;
+      if (!TARGET_EVENTS.has(eventName)) continue;
+      const payload = match[2].trim();
+      const hasKeyPayload = /"key"\s*:/.test(payload);
 
-      violations.push(`${path.relative(process.cwd(), fullPath)}:${index + 1} -> raw text emit for '${eventName}'`);
-    });
+      if (hasKeyPayload) continue;
+
+      const startOffset = match.index ?? 0;
+      const lineNumber = content.slice(0, startOffset).split('\n').length;
+      const snippet = payload.replace(/\s+/g, ' ').slice(0, 120);
+      violations.push(
+        `${path.relative(process.cwd(), fullPath)}:${lineNumber} -> '${eventName}' must emit { key, params }, got: ${snippet}`,
+      );
+    }
   }
 };
 

@@ -1738,7 +1738,15 @@ async fn export_image(
         })();
 
         if let Err(e) = processing_result {
-            let _ = app_handle.emit("export-error", e);
+            let _ = app_handle.emit(
+                "export-error",
+                serde_json::json!({
+                    "key": "backend.export.failed",
+                    "params": {
+                        "reason": e
+                    }
+                }),
+            );
         } else {
             let _ = app_handle.emit("export-complete", ());
         }
@@ -1789,7 +1797,15 @@ async fn batch_export_images(
             .build();
 
         if let Err(e) = pool_result {
-            let _ = app_handle.emit("export-error", format!("Failed to initialize worker threads: {}", e));
+            let _ = app_handle.emit(
+                "export-error",
+                serde_json::json!({
+                    "key": "backend.export.failed",
+                    "params": {
+                        "reason": format!("Failed to initialize worker threads: {}", e)
+                    }
+                }),
+            );
             *app_handle.state::<AppState>().export_task_handle.lock().unwrap() = None;
             return;
         }
@@ -1930,7 +1946,15 @@ async fn batch_export_images(
             if let Err(e) = result {
                 error_count += 1;
                 log::error!("Batch export error: {}", e);
-                let _ = app_handle.emit("export-error", e);
+                let _ = app_handle.emit(
+                    "export-error",
+                    serde_json::json!({
+                        "key": "backend.export.failed",
+                        "params": {
+                            "reason": e
+                        }
+                    }),
+                );
             }
         }
 
@@ -2998,7 +3022,15 @@ async fn stitch_panorama(
                 Ok(())
             }
             Err(e) => {
-                let _ = app_handle.emit("panorama-error", e.clone());
+                let _ = app_handle.emit(
+                    "panorama-error",
+                    serde_json::json!({
+                        "key": "backend.panorama.failedWithReason",
+                        "params": {
+                            "reason": e.clone()
+                        }
+                    }),
+                );
                 Err(e)
             }
         }
@@ -3072,13 +3104,16 @@ async fn merge_hdr(
         .map(|path| {
             let _ = app_handle.emit(
                 "hdr-progress",
-                format!(
-                    "Processing '{}'",
-                    Path::new(path)
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                ),
+                serde_json::json!({
+                    "key": "backend.hdr.processingImage",
+                    "params": {
+                        "filename": Path::new(path)
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_string()
+                    }
+                }),
             );
 
             let file_bytes =

@@ -90,40 +90,39 @@ import { generatePaletteFromImage } from './utils/palette';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import GlobalTooltip from './components/ui/GlobalTooltip';
 import { THEMES, DEFAULT_THEME_ID, ThemeProps } from './utils/themes';
-import { SubMask, ToolType } from './components/panel/right/Masks';
+import { type SubMask, ToolType } from './components/panel/right/Masks';
 import {
-  EXPORT_TIMEOUT,
-  ExportState,
+  type ExportState,
   IMPORT_TIMEOUT,
-  ImportState,
+  type ImportState,
   Status,
 } from './components/ui/ExportImportProperties';
 import {
-  AppSettings,
-  BrushSettings,
-  FilterCriteria,
+  type AppSettings,
+  type BrushSettings,
+  type FilterCriteria,
   Invokes,
-  ImageFile,
-  Option,
+  type ImageFile,
+  type Option,
   OPTION_SEPARATOR,
   LibraryViewMode,
   Panel,
-  Progress,
+  type Progress,
   RawStatus,
-  SelectedImage,
-  SortCriteria,
+  type SelectedImage,
+  type SortCriteria,
   SortDirection,
-  SupportedTypes,
+  type SupportedTypes,
   Theme,
-  TransformState,
-  UiVisibility,
-  WaveformData,
+  type TransformState,
+  type UiVisibility,
+  type WaveformData,
   Orientation,
   ThumbnailSize,
   ThumbnailAspectRatio,
-  CullingSuggestions,
+  type CullingSuggestions,
 } from './components/ui/AppProperties';
-import { ChannelConfig } from './components/adjustments/Curves';
+import type { ChannelConfig } from './components/adjustments/Curves';
 import HdrModal from './components/modals/HdrModal';
 import { isI18nEventPayload } from './i18n/payload';
 import { normalizeLocale } from './i18n/i18n';
@@ -490,7 +489,6 @@ function App() {
   const [isMaskControlHovered, setIsMaskControlHovered] = useState(false);
   const [libraryScrollTop, setLibraryScrollTop] = useState<number>(0);
   const { showContextMenu } = useContextMenu();
-  const imagePathList = useMemo(() => imageList.map((f: ImageFile) => f.path), [imageList]);
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const { loading: isThumbnailsLoading } = useThumbnails(imageList, setThumbnails);
   const transformWrapperRef = useRef<any>(null);
@@ -4055,7 +4053,7 @@ function App() {
               invoke(Invokes.StitchPanorama, { paths: finalSelection }).catch((err) => {
                 setPanoramaModalState((prev: PanoramaModalState) => ({
                   ...prev,
-                  error: String(err),
+                  error: t('backend:panorama.failedWithReason', { reason: String(err) }),
                   isOpen: true,
                   progressMessage: t('backend:panorama.failedToStart'),
                 }));
@@ -4077,7 +4075,7 @@ function App() {
               invoke(Invokes.MergeHdr, { paths: finalSelection }).catch((err) => {
                 setHdrModalState((prev: HdrModalState) => ({
                   ...prev,
-                  error: String(err),
+                  error: t('backend:hdr.failedWithReason', { reason: String(err) }),
                   isOpen: true,
                   progressMessage: t('backend:hdr.failedToStart'),
                 }));

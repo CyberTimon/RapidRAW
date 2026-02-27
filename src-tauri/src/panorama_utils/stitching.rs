@@ -94,16 +94,21 @@ pub fn progressive_seam_stitcher(
         });
 
     for (i, &img_to_add_info) in images.iter().skip(1).enumerate() {
-        let progress_msg = format!(
-            "Stitching image {} of {}: {}",
-            i + 2,
-            images.len(),
-            Path::new(&img_to_add_info.filename)
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
+        let _ = app_handle.emit(
+            "panorama-progress",
+            serde_json::json!({
+                "key": "backend.panorama.stitchingImage",
+                "params": {
+                    "current": i + 2,
+                    "total": images.len(),
+                    "filename": Path::new(&img_to_add_info.filename)
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string()
+                }
+            }),
         );
-        let _ = app_handle.emit("panorama-progress", &progress_msg);
         println!("  - Progressively stitching '{}'", img_to_add_info.filename);
 
         let h_add = &global_homographies[&img_to_add_info.id];
