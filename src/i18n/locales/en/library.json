@@ -12,6 +12,88 @@
     "openAnotherFolder": "Open another folder",
     "goHome": "Go to Home"
   },
+  "search": {
+    "tooltip": "Search",
+    "indexingProgress": "Indexing... ({current}/{total})",
+    "indexingImages": "Indexing images...",
+    "addAnotherTag": "Add another tag...",
+    "byTagOrFilename": "Search by tag or filename...",
+    "separateTagsWithComma": "Separate tags with",
+    "matchAllTags": "Match ALL tags",
+    "matchAnyTags": "Match ANY tags",
+    "clearTooltip": "Clear search"
+  },
+  "filters": {
+    "colorLabel": "Filter by Color Label",
+    "noLabel": "No Label",
+    "thumbnailSize": "Thumbnail Size",
+    "thumbnailFit": "Thumbnail Fit",
+    "byRating": "Filter by Rating",
+    "byFileType": "Filter by File Type"
+  },
+  "rating": {
+    "showAll": "Show All",
+    "oneAndUp": "1 & up",
+    "twoAndUp": "2 & up",
+    "threeAndUp": "3 & up",
+    "fourAndUp": "4 & up",
+    "fiveOnly": "5 only"
+  },
+  "fileType": {
+    "all": "All Types",
+    "rawOnly": "RAW Only",
+    "nonRawOnly": "Non-RAW Only",
+    "preferRaw": "Prefer RAW"
+  },
+  "size": {
+    "small": "Small",
+    "medium": "Medium",
+    "large": "Large"
+  },
+  "aspect": {
+    "fillSquare": "Fill Square",
+    "originalRatio": "Original Ratio"
+  },
+  "sort": {
+    "by": "Sort by",
+    "ascending": "Sort Ascending",
+    "descending": "Sort Descending",
+    "enableExifToUse": "Enable EXIF Reading in Settings to use this option.",
+    "fileName": "File Name",
+    "dateModified": "Date Modified",
+    "rating": "Rating",
+    "dateTaken": "Date Taken",
+    "focalLength": "Focal Length",
+    "iso": "ISO",
+    "shutterSpeed": "Shutter Speed",
+    "aperture": "Aperture"
+  },
+  "view": {
+    "displayMode": "Display Mode",
+    "currentFolder": "Current Folder",
+    "recursive": "Recursive"
+  },
+  "thumbnail": {
+    "colorLabel": "Color: {color}",
+    "virtualCopy": "Virtual Copy"
+  },
+  "empty": {
+    "welcomeBack": "Welcome back!",
+    "continueOrStart": "Continue where you left off or start a new session.",
+    "subtitle": "A blazingly fast, GPU-accelerated RAW image editor. Open a folder to begin.",
+    "continueSession": "Continue Session",
+    "changeFolder": "Change Folder",
+    "openFolder": "Open Folder",
+    "goToSettings": "Go to Settings",
+    "imagesBy": "Images by",
+    "clickToDownloadVersion": "Click to download version {version}",
+    "alreadyLatestVersion": "You are on the latest version",
+    "version": "Version {version}",
+    "newVersionAvailable": "New version available!",
+    "donateOnKofi": "Donate on Ko-Fi",
+    "or": "or",
+    "contributeOnGithub": "Contribute on GitHub"
+  },
   "state": {
     "downloadingModel": "Downloading {model}...",
     "indexingImages": "Indexing images... ({current}/{total})",

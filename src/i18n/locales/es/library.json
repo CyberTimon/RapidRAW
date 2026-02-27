@@ -12,6 +12,88 @@
     "openAnotherFolder": "Abrir otra carpeta",
     "goHome": "Ir al inicio"
   },
+  "search": {
+    "tooltip": "Buscar",
+    "indexingProgress": "Indexando... ({current}/{total})",
+    "indexingImages": "Indexando imagenes...",
+    "addAnotherTag": "Agregar otra etiqueta...",
+    "byTagOrFilename": "Buscar por etiqueta o nombre de archivo...",
+    "separateTagsWithComma": "Separa etiquetas con",
+    "matchAllTags": "Coincidir con TODAS las etiquetas",
+    "matchAnyTags": "Coincidir con CUALQUIER etiqueta",
+    "clearTooltip": "Limpiar busqueda"
+  },
+  "filters": {
+    "colorLabel": "Filtrar por etiqueta de color",
+    "noLabel": "Sin etiqueta",
+    "thumbnailSize": "Tamano de miniaturas",
+    "thumbnailFit": "Ajuste de miniaturas",
+    "byRating": "Filtrar por valoracion",
+    "byFileType": "Filtrar por tipo de archivo"
+  },
+  "rating": {
+    "showAll": "Mostrar todo",
+    "oneAndUp": "1 y mas",
+    "twoAndUp": "2 y mas",
+    "threeAndUp": "3 y mas",
+    "fourAndUp": "4 y mas",
+    "fiveOnly": "Solo 5"
+  },
+  "fileType": {
+    "all": "Todos los tipos",
+    "rawOnly": "Solo RAW",
+    "nonRawOnly": "Solo no-RAW",
+    "preferRaw": "Preferir RAW"
+  },
+  "size": {
+    "small": "Pequeno",
+    "medium": "Mediano",
+    "large": "Grande"
+  },
+  "aspect": {
+    "fillSquare": "Rellenar cuadrado",
+    "originalRatio": "Relacion original"
+  },
+  "sort": {
+    "by": "Ordenar por",
+    "ascending": "Orden ascendente",
+    "descending": "Orden descendente",
+    "enableExifToUse": "Activa la lectura EXIF en Configuracion para usar esta opcion.",
+    "fileName": "Nombre de archivo",
+    "dateModified": "Fecha de modificacion",
+    "rating": "Valoracion",
+    "dateTaken": "Fecha de captura",
+    "focalLength": "Distancia focal",
+    "iso": "ISO",
+    "shutterSpeed": "Velocidad de obturacion",
+    "aperture": "Apertura"
+  },
+  "view": {
+    "displayMode": "Modo de visualizacion",
+    "currentFolder": "Carpeta actual",
+    "recursive": "Recursivo"
+  },
+  "thumbnail": {
+    "colorLabel": "Color: {color}",
+    "virtualCopy": "Copia virtual"
+  },
+  "empty": {
+    "welcomeBack": "Bienvenido de nuevo!",
+    "continueOrStart": "Continua donde lo dejaste o inicia una nueva sesion.",
+    "subtitle": "Un editor RAW ultrarrapido acelerado por GPU. Abre una carpeta para comenzar.",
+    "continueSession": "Continuar sesion",
+    "changeFolder": "Cambiar carpeta",
+    "openFolder": "Abrir carpeta",
+    "goToSettings": "Ir a Configuracion",
+    "imagesBy": "Imagenes por",
+    "clickToDownloadVersion": "Haz clic para descargar la version {version}",
+    "alreadyLatestVersion": "Estas en la ultima version",
+    "version": "Version {version}",
+    "newVersionAvailable": "Nueva version disponible!",
+    "donateOnKofi": "Donar en Ko-Fi",
+    "or": "o",
+    "contributeOnGithub": "Contribuir en GitHub"
+  },
   "state": {
     "downloadingModel": "Descargando {model}...",
     "indexingImages": "Indexando imagenes... ({current}/{total})",

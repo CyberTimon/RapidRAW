@@ -180,30 +180,30 @@ interface ViewOptionsProps {
 }
 
 const ratingFilterOptions: Array<KeyValueLabel> = [
-  { value: 0, label: 'Show All' },
-  { value: 1, label: '1 & up' },
-  { value: 2, label: '2 & up' },
-  { value: 3, label: '3 & up' },
-  { value: 4, label: '4 & up' },
-  { value: 5, label: '5 only' },
+  { value: 0, label: 'rating.showAll' },
+  { value: 1, label: 'rating.oneAndUp' },
+  { value: 2, label: 'rating.twoAndUp' },
+  { value: 3, label: 'rating.threeAndUp' },
+  { value: 4, label: 'rating.fourAndUp' },
+  { value: 5, label: 'rating.fiveOnly' },
 ];
 
 const rawStatusOptions: Array<KeyValueLabel> = [
-  { key: RawStatus.All, label: 'All Types' },
-  { key: RawStatus.RawOnly, label: 'RAW Only' },
-  { key: RawStatus.NonRawOnly, label: 'Non-RAW Only' },
-  { key: RawStatus.RawOverNonRaw, label: 'Prefer RAW' },
+  { key: RawStatus.All, label: 'fileType.all' },
+  { key: RawStatus.RawOnly, label: 'fileType.rawOnly' },
+  { key: RawStatus.NonRawOnly, label: 'fileType.nonRawOnly' },
+  { key: RawStatus.RawOverNonRaw, label: 'fileType.preferRaw' },
 ];
 
 const thumbnailSizeOptions: Array<ThumbnailSizeOption> = [
-  { id: ThumbnailSize.Small, label: 'Small', size: 160 },
-  { id: ThumbnailSize.Medium, label: 'Medium', size: 240 },
-  { id: ThumbnailSize.Large, label: 'Large', size: 320 },
+  { id: ThumbnailSize.Small, label: 'size.small', size: 160 },
+  { id: ThumbnailSize.Medium, label: 'size.medium', size: 240 },
+  { id: ThumbnailSize.Large, label: 'size.large', size: 320 },
 ];
 
 const thumbnailAspectRatioOptions: Array<ThumbnailAspectRatioOption> = [
-  { id: ThumbnailAspectRatio.Cover, label: 'Fill Square' },
-  { id: ThumbnailAspectRatio.Contain, label: 'Original Ratio' },
+  { id: ThumbnailAspectRatio.Cover, label: 'aspect.fillSquare' },
+  { id: ThumbnailAspectRatio.Contain, label: 'aspect.originalRatio' },
 ];
 
 const customOuterElement = forwardRef((props: any, ref: any) => (
@@ -251,6 +251,7 @@ const groupImagesByFolder = (images: ImageFile[], rootPath: string | null) => {
 };
 
 function SearchInput({ indexingProgress, isIndexing, searchCriteria, setSearchCriteria }: SearchInputProps) {
+  const { t } = useTranslation();
   const [isSearchActive, setIsSearchActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -334,12 +335,15 @@ function SearchInput({ indexingProgress, isIndexing, searchCriteria, setSearchCr
   const isActive = isSearchActive || tags.length > 0 || !!text;
   const placeholderText =
     isIndexing && indexingProgress.total > 0
-      ? `Indexing... (${indexingProgress.current}/${indexingProgress.total})`
+      ? t('library:search.indexingProgress', {
+          current: indexingProgress.current ?? 0,
+          total: indexingProgress.total,
+        })
       : isIndexing
-      ? 'Indexing Images...'
+      ? t('library:search.indexingImages')
       : tags.length > 0
-      ? 'Add another tag...'
-      : 'Search by tag or filename...';
+      ? t('library:search.addAnotherTag')
+      : t('library:search.byTagOrFilename');
 
   const INACTIVE_WIDTH = 48;
   const PADDING_AND_ICONS_WIDTH = 105;
@@ -366,7 +370,7 @@ function SearchInput({ indexingProgress, isIndexing, searchCriteria, setSearchCr
           }
           inputRef.current?.focus();
         }}
-        data-tooltip="Search"
+        data-tooltip={t('library:search.tooltip')}
       >
         <Search className="w-4 h-4" />
       </button>
@@ -427,7 +431,7 @@ function SearchInput({ indexingProgress, isIndexing, searchCriteria, setSearchCr
               transition={{ duration: 0.15 }}
               className="flex-shrink-0 bg-bg-primary text-text-secondary text-xs px-2 py-1 rounded-md whitespace-nowrap"
             >
-              Separate tags with <kbd className="font-sans font-semibold">,</kbd>
+              {t('library:search.separateTagsWithComma')} <kbd className="font-sans font-semibold">,</kbd>
             </motion.div>
           )}
         </AnimatePresence>
@@ -436,7 +440,11 @@ function SearchInput({ indexingProgress, isIndexing, searchCriteria, setSearchCr
           <button
             onClick={toggleMode}
             className="p-1.5 rounded-md text-xs font-semibold hover:bg-bg-primary w-10 flex-shrink-0"
-            data-tooltip={`Match ${mode === 'AND' ? 'ALL' : 'ANY'} tags`}
+            data-tooltip={
+              mode === 'AND'
+                ? t('library:search.matchAllTags')
+                : t('library:search.matchAnyTags')
+            }
           >
             {mode}
           </button>
@@ -445,7 +453,7 @@ function SearchInput({ indexingProgress, isIndexing, searchCriteria, setSearchCr
           <button
             onClick={clearSearch}
             className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-primary flex-shrink-0"
-            data-tooltip="Clear search"
+            data-tooltip={t('library:search.clearTooltip')}
           >
             <X className="h-5 w-5" />
           </button>
@@ -461,6 +469,7 @@ function SearchInput({ indexingProgress, isIndexing, searchCriteria, setSearchCr
 }
 
 function ColorFilterOptions({ filterCriteria, setFilterCriteria }: FilterOptionProps) {
+  const { t } = useTranslation();
   const [lastClickedColor, setLastClickedColor] = useState<string | null>(null);
   const allColors = useMemo(() => [...COLOR_LABELS, { name: 'none', color: '#9ca3af' }], []);
 
@@ -494,11 +503,13 @@ function ColorFilterOptions({ filterCriteria, setFilterCriteria }: FilterOptionP
 
   return (
     <div>
-      <div className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase">Filter by Color Label</div>
+      <div className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase">
+        {t('library:filters.colorLabel')}
+      </div>
       <div className="flex flex-wrap gap-3 px-3 py-2">
         {allColors.map((color: Color) => {
           const isSelected = (filterCriteria.colors || []).includes(color.name);
-          const title = color.name === 'none' ? 'No Label' : color.name.charAt(0).toUpperCase() + color.name.slice(1);
+          const title = color.name === 'none' ? t('library:filters.noLabel') : color.name.charAt(0).toUpperCase() + color.name.slice(1);
           return (
             <button
               key={color.name}
@@ -572,9 +583,10 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
 }
 
 function ThumbnailSizeOptions({ selectedSize, onSelectSize }: ThumbnailSizeProps) {
+  const { t } = useTranslation();
   return (
     <>
-      <div className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase">Thumbnail Size</div>
+      <div className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase">{t('library:filters.thumbnailSize')}</div>
       {thumbnailSizeOptions.map((option: ThumbnailSizeOption) => {
         const isSelected = selectedSize === option.id;
         return (
@@ -586,7 +598,7 @@ function ThumbnailSizeOptions({ selectedSize, onSelectSize }: ThumbnailSizeProps
             onClick={() => onSelectSize(option.id)}
             role="menuitem"
           >
-            <span>{option.label}</span>
+            <span>{t(`library:${option.label}`)}</span>
             {isSelected && <Check size={16} />}
           </button>
         );
@@ -596,9 +608,10 @@ function ThumbnailSizeOptions({ selectedSize, onSelectSize }: ThumbnailSizeProps
 }
 
 function ThumbnailAspectRatioOptions({ selectedAspectRatio, onSelectAspectRatio }: ThumbnailAspectRatioProps) {
+  const { t } = useTranslation();
   return (
     <>
-      <div className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase">Thumbnail Fit</div>
+      <div className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase">{t('library:filters.thumbnailFit')}</div>
       {thumbnailAspectRatioOptions.map((option: ThumbnailAspectRatioOption) => {
         const isSelected = selectedAspectRatio === option.id;
         return (
@@ -610,7 +623,7 @@ function ThumbnailAspectRatioOptions({ selectedAspectRatio, onSelectAspectRatio 
             onClick={() => onSelectAspectRatio(option.id)}
             role="menuitem"
           >
-            <span>{option.label}</span>
+            <span>{t(`library:${option.label}`)}</span>
             {isSelected && <Check size={16} />}
           </button>
         );
@@ -620,6 +633,7 @@ function ThumbnailAspectRatioOptions({ selectedAspectRatio, onSelectAspectRatio 
 }
 
 function FilterOptions({ filterCriteria, setFilterCriteria }: FilterOptionProps) {
+  const { t } = useTranslation();
   const handleRatingFilterChange = (rating: number | undefined) => {
     setFilterCriteria((prev: Partial<FilterCriteria>) => ({ ...prev, rating }));
   };
@@ -632,7 +646,7 @@ function FilterOptions({ filterCriteria, setFilterCriteria }: FilterOptionProps)
     <>
       <div className="space-y-4">
         <div>
-          <div className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase">Filter by Rating</div>
+          <div className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase">{t('library:filters.byRating')}</div>
           {ratingFilterOptions.map((option: KeyValueLabel) => {
             const isSelected = filterCriteria.rating === option.value;
             return (
@@ -648,7 +662,7 @@ function FilterOptions({ filterCriteria, setFilterCriteria }: FilterOptionProps)
               >
                 <span className="flex items-center gap-2">
                   {option.value && option.value > 0 && <StarIcon size={16} className="text-accent fill-accent" />}
-                  <span>{option.label}</span>
+                  <span>{t(`library:${option.label}`)}</span>
                 </span>
                 {isSelected && <Check size={16} />}
               </button>
@@ -657,7 +671,7 @@ function FilterOptions({ filterCriteria, setFilterCriteria }: FilterOptionProps)
         </div>
 
         <div>
-          <div className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase">Filter by File Type</div>
+          <div className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase">{t('library:filters.byFileType')}</div>
           {rawStatusOptions.map((option: KeyValueLabel) => {
             const isSelected = (filterCriteria.rawStatus || RawStatus.All) === option.key;
             return (
@@ -671,7 +685,7 @@ function FilterOptions({ filterCriteria, setFilterCriteria }: FilterOptionProps)
                 onClick={() => handleRawStatusChange(option.key as RawStatus)}
                 role="menuitem"
               >
-                <span>{option.label}</span>
+                <span>{t(`library:${option.label}`)}</span>
                 {isSelected && <Check size={16} />}
               </button>
             );
@@ -685,6 +699,7 @@ function FilterOptions({ filterCriteria, setFilterCriteria }: FilterOptionProps)
 }
 
 function SortOptions({ sortCriteria, setSortCriteria, sortOptions }: SortOptionsProps) {
+  const { t } = useTranslation();
   const handleKeyChange = (key: string) => {
     setSortCriteria((prev: SortCriteria) => ({ ...prev, key }));
   };
@@ -699,10 +714,14 @@ function SortOptions({ sortCriteria, setSortCriteria, sortOptions }: SortOptions
   return (
     <>
       <div className="px-3 py-2 relative flex items-center">
-        <div className="text-xs font-semibold text-text-secondary uppercase">Sort by</div>
+        <div className="text-xs font-semibold text-text-secondary uppercase">{t('library:sort.by')}</div>
         <button
           onClick={handleOrderToggle}
-          data-tooltip={`Sort ${sortCriteria.order === SortDirection.Ascending ? 'Descending' : 'Ascending'}`}
+          data-tooltip={
+            sortCriteria.order === SortDirection.Ascending
+              ? t('library:sort.descending')
+              : t('library:sort.ascending')
+          }
           className="absolute top-1/2 right-3 -translate-y-1/2 p-1 bg-transparent border-none text-text-secondary hover:text-text-primary focus:outline-none focus:ring-1 focus:ring-accent rounded"
         >
           {sortCriteria.order === SortDirection.Ascending ? (
@@ -747,7 +766,7 @@ function SortOptions({ sortCriteria, setSortCriteria, sortOptions }: SortOptions
             onClick={() => !option.disabled && handleKeyChange(option.key)}
             role="menuitem"
             disabled={option.disabled}
-            data-tooltip={option.disabled ? 'Enable EXIF Reading in Settings to use this option.' : undefined}
+            data-tooltip={option.disabled ? t('library:sort.enableExifToUse') : undefined}
           >
             <span>{option.label}</span>
             {isSelected && <Check size={16} />}
@@ -759,9 +778,10 @@ function SortOptions({ sortCriteria, setSortCriteria, sortOptions }: SortOptions
 }
 
 function ViewModeOptions({ mode, setMode }: { mode: LibraryViewMode; setMode: (m: LibraryViewMode) => void }) {
+  const { t } = useTranslation();
   return (
     <>
-      <div className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase">Display Mode</div>
+      <div className="px-3 py-2 text-xs font-semibold text-text-secondary uppercase">{t('library:view.displayMode')}</div>
       <button
         className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between transition-colors duration-150 ${
           mode === LibraryViewMode.Flat
@@ -771,7 +791,7 @@ function ViewModeOptions({ mode, setMode }: { mode: LibraryViewMode; setMode: (m
         onClick={() => setMode(LibraryViewMode.Flat)}
         role="menuitem"
       >
-        <span>Current Folder</span>
+        <span>{t('library:view.currentFolder')}</span>
         {mode === LibraryViewMode.Flat && <Check size={16} />}
       </button>
       <button
@@ -783,7 +803,7 @@ function ViewModeOptions({ mode, setMode }: { mode: LibraryViewMode; setMode: (m
         onClick={() => setMode(LibraryViewMode.Recursive)}
         role="menuitem"
       >
-        <span>Recursive</span>
+        <span>{t('library:view.recursive')}</span>
         {mode === LibraryViewMode.Recursive && <Check size={16} />}
       </button>
     </>
@@ -856,6 +876,7 @@ function Thumbnail({
   tags,
   aspectRatio: thumbnailAspectRatio,
 }: ThumbnailProps) {
+  const { t } = useTranslation();
   const [showPlaceholder, setShowPlaceholder] = useState(false);
   const [layers, setLayers] = useState<ImageLayer[]>([]);
   const latestThumbDataRef = useRef<string | undefined>(undefined);
@@ -990,7 +1011,7 @@ function Thumbnail({
             <div
               className="w-3 h-3 rounded-full ring-1 ring-black/20"
               style={{ backgroundColor: colorLabel.color }}
-              data-tooltip={`Color: ${colorLabel.name}`}
+              data-tooltip={t('library:thumbnail.colorLabel', { color: colorLabel.name })}
             ></div>
           )}
           {rating > 0 && (
@@ -1006,7 +1027,7 @@ function Thumbnail({
         {isVirtualCopy && (
           <div
             className="flex-shrink-0 bg-bg-primary/50 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm"
-            data-tooltip="Virtual Copy"
+            data-tooltip={t('library:thumbnail.virtualCopy')}
           >
             VC
           </div>
@@ -1189,16 +1210,16 @@ export default function MainLibrary({
   const sortOptions = useMemo(() => {
     const exifEnabled = appSettings?.enableExifReading ?? false;
     return [
-      { key: 'name', label: 'File Name' },
-      { key: 'date', label: 'Date Modified' },
-      { key: 'rating', label: 'Rating' },
-      { key: 'date_taken', label: 'Date Taken', disabled: !exifEnabled },
-      { key: 'focal_length', label: 'Focal Length', disabled: !exifEnabled },
-      { key: 'iso', label: 'ISO', disabled: !exifEnabled },
-      { key: 'shutter_speed', label: 'Shutter Speed', disabled: !exifEnabled },
-      { key: 'aperture', label: 'Aperture', disabled: !exifEnabled },
+      { key: 'name', label: t('library:sort.fileName') },
+      { key: 'date', label: t('library:sort.dateModified') },
+      { key: 'rating', label: t('library:sort.rating') },
+      { key: 'date_taken', label: t('library:sort.dateTaken'), disabled: !exifEnabled },
+      { key: 'focal_length', label: t('library:sort.focalLength'), disabled: !exifEnabled },
+      { key: 'iso', label: t('library:sort.iso'), disabled: !exifEnabled },
+      { key: 'shutter_speed', label: t('library:sort.shutterSpeed'), disabled: !exifEnabled },
+      { key: 'aperture', label: t('library:sort.aperture'), disabled: !exifEnabled },
     ];
-  }, [appSettings?.enableExifReading]);
+  }, [appSettings?.enableExifReading, t]);
 
   useEffect(() => {
     if (!activePath || !libraryContainerRef.current || multiSelectedPaths.length > 1) return;
@@ -1434,12 +1455,12 @@ export default function MainLibrary({
                 <p className="text-text-secondary mb-10 max-w-md">
                   {hasLastPath ? (
                     <>
-                      Welcome back!
+                      {t('library:empty.welcomeBack')}
                       <br />
-                      Continue where you left off or start a new session.
+                      {t('library:empty.continueOrStart')}
                     </>
                   ) : (
-                    'A blazingly fast, GPU-accelerated RAW image editor. Open a folder to begin.'
+                    t('library:empty.subtitle')
                   )}
                 </p>
                 <div className="flex flex-col w-full max-w-xs gap-4">
@@ -1449,7 +1470,7 @@ export default function MainLibrary({
                       onClick={onContinueSession}
                       size="lg"
                     >
-                      <RefreshCw size={20} className="mr-2" /> Continue Session
+                      <RefreshCw size={20} className="mr-2" /> {t('library:empty.continueSession')}
                     </Button>
                   )}
                   <div className="flex items-center gap-2">
@@ -1461,13 +1482,13 @@ export default function MainLibrary({
                       size="lg"
                     >
                       <Folder size={20} className="mr-2" />
-                      {hasLastPath ? 'Change Folder' : 'Open Folder'}
+                      {hasLastPath ? t('library:empty.changeFolder') : t('library:empty.openFolder')}
                     </Button>
                     <Button
                       className="px-3 bg-surface text-text-primary shadow-none h-11"
                       onClick={() => setShowSettings(true)}
                       size="lg"
-                      data-tooltip="Go to Settings"
+                      data-tooltip={t('library:empty.goToSettings')}
                       variant="ghost"
                     >
                       <Settings size={20} />
@@ -1477,7 +1498,7 @@ export default function MainLibrary({
               </div>
               <div className="absolute bottom-8 left-8 lg:left-16 text-xs text-text-secondary space-y-1">
                 <p>
-                  Images by{' '}
+                  {t('library:empty.imagesBy')}{' '}
                   <a
                     href="https://instagram.com/timonkaech.photography"
                     className="hover:underline"
@@ -1503,13 +1524,15 @@ export default function MainLibrary({
                         }}
                         data-tooltip={
                           isUpdateAvailable
-                            ? `Click to download version ${latestVersion}`
-                            : `You are on the latest version`
+                            ? t('library:empty.clickToDownloadVersion', { version: latestVersion })
+                            : t('library:empty.alreadyLatestVersion')
                         }
                       >
-                        <span className={isUpdateAvailable ? 'group-hover:hidden' : ''}>Version {appVersion}</span>
+                        <span className={isUpdateAvailable ? 'group-hover:hidden' : ''}>
+                          {t('library:empty.version', { version: appVersion })}
+                        </span>
                         {isUpdateAvailable && (
-                          <span className="hidden group-hover:inline text-yellow-400">New version available!</span>
+                          <span className="hidden group-hover:inline text-yellow-400">{t('library:empty.newVersionAvailable')}</span>
                         )}
                       </span>
                     </p>
@@ -1521,16 +1544,16 @@ export default function MainLibrary({
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        Donate on Ko-Fi
+                        {t('library:empty.donateOnKofi')}
                       </a>
-                      <span className="mx-1">or</span>
+                      <span className="mx-1">{t('library:empty.or')}</span>
                       <a
                         href="https://github.com/CyberTimon/RapidRAW"
                         className="hover:underline"
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        Contribute on GitHub
+                        {t('library:empty.contributeOnGithub')}
                       </a>
                     </p>
                   </div>
