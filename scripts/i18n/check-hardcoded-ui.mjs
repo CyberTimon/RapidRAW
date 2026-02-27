@@ -34,7 +34,7 @@ const VALUE_ALLOWLIST = new Set([
 const VALUE_ALLOWLIST_REGEX = [
   /^https?:\/\//,
   /^[\w.-]+\/[\w./-]+$/,
-  /^[a-z0-9_.-]+$/i,
+  /^[a-z0-9]+(?:[._-][a-z0-9]+)+$/i,
   /^\{[\w_]+\}$/,
   /^v\d+(\.\d+)*$/i,
 ];

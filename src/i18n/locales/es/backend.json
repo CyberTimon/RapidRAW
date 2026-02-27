@@ -8,7 +8,8 @@
     "processingStepOne": "Procesando (Paso 1/2)...",
     "processingStep": "Paso {step}/{total} - {percent}%",
     "finalizingData": "Finalizando datos...",
-    "generatingPreviews": "Generando vistas previas..."
+    "generatingPreviews": "Generando vistas previas...",
+    "failedWithReason": "Error de denoise: {reason}"
   },
   "panorama": {
     "startingProcess": "Iniciando proceso de panorama...",

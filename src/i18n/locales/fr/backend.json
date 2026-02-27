@@ -1,43 +1,44 @@
 {
   "ai": {
-    "downloadingModel": "Telechargement de {model}..."
+    "downloadingModel": "Téléchargement de {model}..."
   },
   "denoise": {
     "loadingImage": "Chargement de l'image...",
-    "preparingRawData": "Preparation des donnees RAW...",
-    "processingStepOne": "Traitement (Etape 1/2)...",
-    "processingStep": "Etape {step}/{total} - {percent}%",
-    "finalizingData": "Finalisation des donnees...",
-    "generatingPreviews": "Generation des apercus..."
+    "preparingRawData": "Préparation des données RAW...",
+    "processingStepOne": "Traitement (Étape 1/2)...",
+    "processingStep": "Étape {step}/{total} - {percent}%",
+    "finalizingData": "Finalisation des données...",
+    "generatingPreviews": "Génération des aperçus...",
+    "failedWithReason": "Échec du débruitage : {reason}"
   },
   "panorama": {
-    "startingProcess": "Demarrage du panorama...",
-    "loadingPreparingImages": "Chargement et preparation des images...",
+    "startingProcess": "Démarrage du panorama...",
+    "loadingPreparingImages": "Chargement et préparation des images...",
     "processingImage": "Traitement de '{filename}'",
     "findingMatches": "Recherche des correspondances...",
-    "determiningOrder": "Determination de l'ordre d'assemblage...",
+    "determiningOrder": "Détermination de l'ordre d'assemblage...",
     "stitchingOrder": "Ordre d'assemblage : {order}",
     "stitchingImage": "Assemblage de l'image {current}/{total} : {filename}",
-    "unmatchedWarning": "Attention : {count} image(s) non alignee(s) seront exclues.",
-    "warpingBlending": "Deformation et fusion des images...",
+    "unmatchedWarning": "Attention : {count} image(s) non alignée(s) seront exclues.",
+    "warpingBlending": "Déformation et fusion des images...",
     "finalizing": "Finalisation du panorama...",
-    "creatingPreview": "Creation de l'apercu...",
-    "ready": "Panorama pret",
-    "failedWithReason": "Echec du panorama : {reason}",
-    "failedToStart": "Echec du demarrage."
+    "creatingPreview": "Création de l'aperçu...",
+    "ready": "Panorama prêt",
+    "failedWithReason": "Échec du panorama : {reason}",
+    "failedToStart": "Échec du démarrage."
   },
   "hdr": {
-    "startingProcess": "Demarrage du traitement HDR...",
+    "startingProcess": "Démarrage du traitement HDR...",
     "processingImage": "Traitement de '{filename}'",
-    "creatingPreview": "Creation de l'apercu...",
-    "ready": "HDR pret",
-    "failedWithReason": "Echec de la fusion HDR : {reason}",
-    "failedToStart": "Echec du demarrage."
+    "creatingPreview": "Création de l'aperçu...",
+    "ready": "HDR prêt",
+    "failedWithReason": "Échec de la fusion HDR : {reason}",
+    "failedToStart": "Échec du démarrage."
   },
   "export": {
-    "failed": "Echec de l'export : {reason}"
+    "failed": "Échec de l'export : {reason}"
   },
   "import": {
-    "failed": "Echec de l'import : {reason}"
+    "failed": "Échec de l'import : {reason}"
   }
 }

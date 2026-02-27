@@ -2,8 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = path.join(process.cwd(), 'src-tauri', 'src');
-const TARGET_EVENTS = new Set([
+const STRICT_I18N_EVENTS = new Set([
   'denoise-progress',
+  'denoise-error',
   'panorama-progress',
   'panorama-warning',
   'hdr-progress',
@@ -31,7 +32,7 @@ const walk = (dir) => {
     const content = fs.readFileSync(fullPath, 'utf-8');
     for (const match of content.matchAll(EMIT_PATTERN)) {
       const eventName = match[1];
-      if (!TARGET_EVENTS.has(eventName)) continue;
+      if (!STRICT_I18N_EVENTS.has(eventName)) continue;
       const payload = match[2].trim();
       const hasKeyPayload = /"key"\s*:/.test(payload);
 

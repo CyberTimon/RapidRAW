@@ -1479,15 +1479,15 @@ function App() {
         return t(payload.key, payload.params ?? {});
       }
 
-      if (typeof payload === 'string') {
-        return payload;
+      if (payload !== undefined && payload !== null) {
+        console.warn('Received non-i18n payload for localized message channel:', payload);
       }
 
       if (fallbackKey) {
         return t(fallbackKey, fallbackParams ?? {});
       }
 
-      return '';
+      return t('common:status.errorOccurred');
     },
     [t],
   );
@@ -2772,7 +2772,7 @@ function App() {
           setExportState((prev: ExportState) => ({
             ...prev,
             status: Status.Error,
-            errorMessage: typeof event.payload === 'string' ? event.payload : 'An unknown export error occurred.',
+            errorMessage: toLocalizedMessage(event.payload, 'errors:generic.unknown'),
           }));
         }
       }),
@@ -2813,7 +2813,7 @@ function App() {
         if (isEffectActive) {
           setImportState((prev: ImportState) => ({
             ...prev,
-            errorMessage: typeof event.payload === 'string' ? event.payload : 'An unknown import error occurred.',
+            errorMessage: toLocalizedMessage(event.payload, 'errors:generic.unknown'),
             status: Status.Error,
           }));
         }
@@ -2845,7 +2845,7 @@ function App() {
           setDenoiseModalState((prev) => ({
             ...prev,
             isProcessing: false,
-            error: String(event.payload),
+            error: toLocalizedMessage(event.payload, 'errors:generic.unknown'),
             progressMessage: null
           }));
         }
@@ -2929,7 +2929,7 @@ function App() {
       if (isEffectActive) {
         setPanoramaModalState((prev: PanoramaModalState) => ({
           ...prev,
-          error: String(event.payload),
+          error: toLocalizedMessage(event.payload, 'errors:generic.unknown'),
           finalImageBase64: null,
           progressMessage: t('common:status.errorOccurred'),
         }));
@@ -2975,7 +2975,7 @@ function App() {
       if (isEffectActive) {
         setHdrModalState((prev: HdrModalState) => ({
           ...prev,
-          error: String(event.payload),
+          error: toLocalizedMessage(event.payload, 'errors:generic.unknown'),
           finalImageBase64: null,
           progressMessage: t('common:status.errorOccurred'),
         }));

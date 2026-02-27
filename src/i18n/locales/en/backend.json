@@ -8,7 +8,8 @@
     "processingStepOne": "Processing (Step 1/2)...",
     "processingStep": "Step {step}/{total} - {percent}%",
     "finalizingData": "Finalizing data...",
-    "generatingPreviews": "Generating previews..."
+    "generatingPreviews": "Generating previews...",
+    "failedWithReason": "Denoise failed: {reason}"
   },
   "panorama": {
     "startingProcess": "Starting panorama process...",
