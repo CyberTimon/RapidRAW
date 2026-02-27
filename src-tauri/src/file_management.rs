@@ -268,7 +268,7 @@ fn default_linear_raw_mode() -> String {
 }
 
 fn default_locale_option() -> Option<String> {
-    Some("fr".to_string())
+    None
 }
 
 fn default_tagging_shortcuts_option() -> Option<Vec<String>> {
