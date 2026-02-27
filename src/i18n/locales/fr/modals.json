@@ -1,27 +1,27 @@
 {
   "panorama": {
-    "failed": "Echec du panorama",
-    "saved": "Panorama enregistre !",
+    "failed": "Échec du panorama",
+    "saved": "Panorama enregistré !",
     "stitching": "Assemblage du panorama",
     "save": "Enregistrer le panorama"
   },
   "hdr": {
-    "failed": "Echec du HDR",
-    "saved": "HDR enregistre !",
+    "failed": "Échec du HDR",
+    "saved": "HDR enregistré !",
     "merging": "Fusion HDR",
     "save": "Enregistrer le HDR"
   },
   "denoise": {
-    "processingFailed": "Echec du traitement",
-    "imageSaved": "Image enregistree avec succes !",
-    "denoisingImage": "Reduction de bruit",
-    "denoiseImage": "Reduire le bruit",
-    "adjustIntensity": "Ajuste l'intensite ci-dessous puis clique sur Demarrer pour previsualiser.",
-    "strength": "Intensite",
+    "processingFailed": "Échec du traitement",
+    "imageSaved": "Image enregistrée avec succès !",
+    "denoisingImage": "Réduction du bruit",
+    "denoiseImage": "Réduire le bruit",
+    "adjustIntensity": "Ajustez l'intensité ci-dessous puis cliquez sur Démarrer pour prévisualiser.",
+    "strength": "Intensité",
     "saveImage": "Enregistrer l'image",
-    "panZoomEnabled": "Panoramique et zoom actives",
-    "reset": "Reinitialiser",
+    "panZoomEnabled": "Panoramique et zoom activés",
+    "reset": "Réinitialiser",
     "original": "Originale",
-    "denoised": "Reduite"
+    "denoised": "Réduite"
   }
 }

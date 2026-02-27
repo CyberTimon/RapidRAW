@@ -1,16 +1,16 @@
 {
-  "title": "Bibliotheque",
+  "title": "Bibliothèque",
   "currentFolder": "Dossier courant",
   "folderImageCount": "{count, plural, one {# image} other {# images}}",
   "import": {
     "progress": "Import en cours... ({current}/{total})",
-    "complete": "Import termine !",
-    "failed": "Echec de l'import !"
+    "complete": "Import terminé !",
+    "failed": "Échec de l'import !"
   },
   "tooltip": {
-    "communityPresets": "Presets communautaires",
+    "communityPresets": "Préférences communautaires",
     "openAnotherFolder": "Ouvrir un autre dossier",
-    "goHome": "Retour a l'accueil"
+    "goHome": "Retour à l'accueil"
   },
   "search": {
     "tooltip": "Rechercher",
@@ -18,14 +18,14 @@
     "indexingImages": "Indexation des images...",
     "addAnotherTag": "Ajouter un autre tag...",
     "byTagOrFilename": "Rechercher par tag ou nom de fichier...",
-    "separateTagsWithComma": "Separer les tags avec",
-    "matchAllTags": "Correspondre a TOUS les tags",
-    "matchAnyTags": "Correspondre a N'IMPORTE QUEL tag",
+    "separateTagsWithComma": "Séparer les tags avec",
+    "matchAllTags": "Correspondre à TOUS les tags",
+    "matchAnyTags": "Correspondre à N'IMPORTE QUEL tag",
     "clearTooltip": "Effacer la recherche"
   },
   "filters": {
-    "colorLabel": "Filtrer par etiquette couleur",
-    "noLabel": "Sans etiquette",
+    "colorLabel": "Filtrer par étiquette couleur",
+    "noLabel": "Sans étiquette",
     "thumbnailSize": "Taille des miniatures",
     "thumbnailFit": "Ajustement des miniatures",
     "byRating": "Filtrer par note",
@@ -43,7 +43,7 @@
     "all": "Tous les types",
     "rawOnly": "RAW uniquement",
     "nonRawOnly": "Non-RAW uniquement",
-    "preferRaw": "Preferer RAW"
+    "preferRaw": "Préférer RAW"
   },
   "size": {
     "small": "Petit",
@@ -51,14 +51,14 @@
     "large": "Grand"
   },
   "aspect": {
-    "fillSquare": "Remplir le carre",
+    "fillSquare": "Remplir le carré",
     "originalRatio": "Ratio original"
   },
   "sort": {
     "by": "Trier par",
     "ascending": "Tri croissant",
-    "descending": "Tri decroissant",
-    "enableExifToUse": "Activez la lecture EXIF dans les parametres pour utiliser cette option.",
+    "descending": "Tri décroissant",
+    "enableExifToUse": "Activez la lecture EXIF dans les paramètres pour utiliser cette option.",
     "fileName": "Nom du fichier",
     "dateModified": "Date de modification",
     "rating": "Note",
@@ -71,7 +71,7 @@
   "view": {
     "displayMode": "Mode d'affichage",
     "currentFolder": "Dossier courant",
-    "recursive": "Recursif"
+    "recursive": "Récursif"
   },
   "thumbnail": {
     "colorLabel": "Couleur : {color}",
@@ -79,15 +79,15 @@
   },
   "empty": {
     "welcomeBack": "Bon retour !",
-    "continueOrStart": "Reprenez la ou vous vous etiez arrete ou demarrez une nouvelle session.",
-    "subtitle": "Un editeur RAW ultra-rapide accelere par GPU. Ouvrez un dossier pour commencer.",
+    "continueOrStart": "Reprenez là où vous vous étiez arrêté ou démarrez une nouvelle session.",
+    "subtitle": "Un éditeur RAW ultra-rapide accéléré par GPU. Ouvrez un dossier pour commencer.",
     "continueSession": "Continuer la session",
     "changeFolder": "Changer de dossier",
     "openFolder": "Ouvrir un dossier",
-    "goToSettings": "Aller aux parametres",
+    "goToSettings": "Aller aux paramètres",
     "imagesBy": "Images par",
-    "clickToDownloadVersion": "Cliquer pour telecharger la version {version}",
-    "alreadyLatestVersion": "Vous etes sur la derniere version",
+    "clickToDownloadVersion": "Cliquer pour télécharger la version {version}",
+    "alreadyLatestVersion": "Vous êtes sur la dernière version",
     "version": "Version {version}",
     "newVersionAvailable": "Nouvelle version disponible !",
     "donateOnKofi": "Faire un don sur Ko-Fi",
@@ -95,14 +95,14 @@
     "contributeOnGithub": "Contribuer sur GitHub"
   },
   "state": {
-    "downloadingModel": "Telechargement de {model}...",
+    "downloadingModel": "Téléchargement de {model}...",
     "indexingImages": "Indexation des images... ({current}/{total})",
     "importingImages": "Import des images... ({current}/{total})",
     "processingImages": "Traitement des images...",
     "thisMayTakeMoment": "Cela peut prendre un moment.",
-    "noResultsTitle": "Aucun resultat",
-    "noResultsBody": "Aucune image trouvee via le nom de fichier ou les tags.",
-    "noResultsEnableTagging": "Pour une recherche plus complete, active le tagging automatique dans les parametres.",
+    "noResultsTitle": "Aucun résultat",
+    "noResultsBody": "Aucune image trouvée via le nom de fichier ou les tags.",
+    "noResultsEnableTagging": "Pour une recherche plus complète, active le tagging automatique dans les paramètres.",
     "noFilteredImages": "Aucune image ne correspond au filtre."
   }
 }

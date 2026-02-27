@@ -1,7 +1,7 @@
 {
   "generic": {
     "unknown": "Une erreur inconnue est survenue.",
-    "operationFailed": "Echec de l'operation : {reason}",
-    "initializationFailed": "Echec de l'initialisation : {reason}"
+    "operationFailed": "Échec de l'opération : {reason}",
+    "initializationFailed": "Échec de l'initialisation : {reason}"
   }
 }

@@ -1,18 +1,18 @@
 {
   "language": {
     "label": "Langue",
-    "fr": "Francais",
+    "fr": "Français",
     "es": "Espagnol",
     "en": "Anglais"
   },
   "actions": {
     "close": "Fermer",
     "cancel": "Annuler",
-    "openInEditor": "Ouvrir dans l'editeur",
+    "openInEditor": "Ouvrir dans l'éditeur",
     "save": "Enregistrer",
     "saving": "Enregistrement...",
     "retry": "Relancer",
-    "start": "Demarrer"
+    "start": "Démarrer"
   },
   "status": {
     "processing": "Traitement...",
