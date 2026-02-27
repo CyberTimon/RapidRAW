@@ -1,0 +1,27 @@
+{
+  "panorama": {
+    "failed": "Panorama fallido",
+    "saved": "Panorama guardado!",
+    "stitching": "Uniendo panorama",
+    "save": "Guardar panorama"
+  },
+  "hdr": {
+    "failed": "HDR fallido",
+    "saved": "HDR guardado!",
+    "merging": "Fusionando HDR",
+    "save": "Guardar HDR"
+  },
+  "denoise": {
+    "processingFailed": "Error de procesamiento",
+    "imageSaved": "Imagen guardada correctamente!",
+    "denoisingImage": "Reduciendo ruido",
+    "denoiseImage": "Reducir ruido",
+    "adjustIntensity": "Ajusta la intensidad y pulsa Iniciar para previsualizar el resultado.",
+    "strength": "Intensidad",
+    "saveImage": "Guardar imagen",
+    "panZoomEnabled": "Paneo y zoom activados",
+    "reset": "Restablecer",
+    "original": "Original",
+    "denoised": "Sin ruido"
+  }
+}

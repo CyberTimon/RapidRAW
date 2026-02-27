@@ -2956,7 +2956,12 @@ async fn stitch_panorama(
 
         match panorama_result {
             Ok(panorama_image) => {
-                let _ = app_handle.emit("panorama-progress", "Creating preview...");
+                let _ = app_handle.emit(
+                    "panorama-progress",
+                    serde_json::json!({
+                        "key": "backend.panorama.creatingPreview"
+                    }),
+                );
 
                 let (w, h) = panorama_image.dimensions();
                 let (new_w, new_h) = if w > h {
@@ -3138,7 +3143,12 @@ async fn merge_hdr(
     let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
     let final_base64 = format!("data:image/png;base64,{}", base64_str);
 
-    let _ = app_handle.emit("hdr-progress", "Creating preview...");
+    let _ = app_handle.emit(
+        "hdr-progress",
+        serde_json::json!({
+            "key": "backend.hdr.creatingPreview"
+        }),
+    );
 
     *hdr_result_handle.lock().unwrap() = Some(hdr_merged);
 

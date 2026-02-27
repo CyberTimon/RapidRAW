@@ -1,0 +1,26 @@
+{
+  "title": "Bibliotheque",
+  "currentFolder": "Dossier courant",
+  "folderImageCount": "{count, plural, one {# image} other {# images}}",
+  "import": {
+    "progress": "Import en cours... ({current}/{total})",
+    "complete": "Import termine !",
+    "failed": "Echec de l'import !"
+  },
+  "tooltip": {
+    "communityPresets": "Presets communautaires",
+    "openAnotherFolder": "Ouvrir un autre dossier",
+    "goHome": "Retour a l'accueil"
+  },
+  "state": {
+    "downloadingModel": "Telechargement de {model}...",
+    "indexingImages": "Indexation des images... ({current}/{total})",
+    "importingImages": "Import des images... ({current}/{total})",
+    "processingImages": "Traitement des images...",
+    "thisMayTakeMoment": "Cela peut prendre un moment.",
+    "noResultsTitle": "Aucun resultat",
+    "noResultsBody": "Aucune image trouvee via le nom de fichier ou les tags.",
+    "noResultsEnableTagging": "Pour une recherche plus complete, active le tagging automatique dans les parametres.",
+    "noFilteredImages": "Aucune image ne correspond au filtre."
+  }
+}

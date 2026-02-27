@@ -6,7 +6,11 @@
     "dev": "vite",
     "build": "vite build",
     "tauri": "tauri",
-    "start": "tauri dev"
+    "start": "tauri dev",
+    "i18n:check:translations": "node scripts/i18n/check-translations.mjs",
+    "i18n:check:backend": "node scripts/i18n/check-backend-emits.mjs",
+    "i18n:check:hardcoded": "node scripts/i18n/check-hardcoded-ui.mjs",
+    "i18n:ci": "npm run i18n:check:translations && npm run i18n:check:backend && npm run i18n:check:hardcoded"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.59.2",
@@ -20,6 +24,8 @@
     "@uiw/react-color-wheel": "^2.9.2",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.26",
+    "i18next": "^25.6.3",
+    "i18next-icu": "^2.4.1",
     "konva": "^10.0.12",
     "lodash.debounce": "^4.0.8",
     "lodash.throttle": "^4.1.1",
@@ -28,6 +34,7 @@
     "react-dom": "^19.2.3",
     "react-draggable": "^4.5.0",
     "react-image-crop": "^11.0.10",
+    "react-i18next": "^16.2.0",
     "react-konva": "^19.2.1",
     "react-toastify": "^11.0.5",
     "react-virtualized-auto-sizer": "^1.0.26",

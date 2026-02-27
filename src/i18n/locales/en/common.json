@@ -1,0 +1,22 @@
+{
+  "language": {
+    "label": "Language",
+    "fr": "French",
+    "es": "Spanish",
+    "en": "English"
+  },
+  "actions": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "openInEditor": "Open in Editor",
+    "save": "Save",
+    "saving": "Saving...",
+    "retry": "Retry",
+    "start": "Start"
+  },
+  "status": {
+    "processing": "Processing...",
+    "errorOccurred": "An error occurred.",
+    "initializing": "Initializing..."
+  }
+}

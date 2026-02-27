@@ -22,6 +22,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { VariableSizeList as List } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
+import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import SettingsPanel from './SettingsPanel';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
@@ -1031,6 +1032,7 @@ const Row = ({ index, style, data }: any) => {
     itemWidth,
     outerPadding,
     gap,
+    t,
   } = data;
 
   const row = rows[index];
@@ -1044,7 +1046,7 @@ const Row = ({ index, style, data }: any) => {
         displayPath = displayPath.substring(1);
       }
     }
-    if (!displayPath) displayPath = 'Current Folder';
+    if (!displayPath) displayPath = t('library:currentFolder');
 
     return (
       <div
@@ -1064,7 +1066,9 @@ const Row = ({ index, style, data }: any) => {
           <span className="text-sm font-semibold text-text-secondary truncate" data-tooltip={row.path}>
             {displayPath}
           </span>
-          <span className="text-xs text-text-secondary opacity-60 ml-auto">{row.count} images</span>
+          <span className="text-xs text-text-secondary opacity-60 ml-auto">
+            {t('library:folderImageCount', { count: row.count })}
+          </span>
         </div>
       </div>
     );
@@ -1151,6 +1155,7 @@ export default function MainLibrary({
   thumbnailSize,
   onNavigateToCommunity,
 }: MainLibraryProps) {
+  const { t } = useTranslation();
   const [showSettings, setShowSettings] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [supportedTypes, setSupportedTypes] = useState<SupportedTypes | null>(null);
@@ -1545,7 +1550,7 @@ export default function MainLibrary({
     >
       <header className="p-4 flex-shrink-0 flex justify-between items-center border-b border-border-color gap-4">
         <div className="min-w-0">
-          <h2 className="text-2xl font-bold text-primary text-shadow-shiny">Library</h2>
+          <h2 className="text-2xl font-bold text-primary text-shadow-shiny">{t('library:title')}</h2>
           <div className="flex items-center gap-2">
             {currentFolderPath ? (
               <p className="text-sm text-text-secondary truncate">{currentFolderPath}</p>
@@ -1566,20 +1571,23 @@ export default function MainLibrary({
             <div className="flex items-center gap-2 text-sm text-accent animate-pulse">
               <FolderInput size={16} />
               <span>
-                Importing... ({importState.progress?.current}/{importState.progress?.total})
+                {t('library:import.progress', {
+                  current: importState.progress?.current ?? 0,
+                  total: importState.progress?.total ?? 0,
+                })}
               </span>
             </div>
           )}
           {importState.status === Status.Success && (
             <div className="flex items-center gap-2 text-sm text-green-400">
               <Check size={16} />
-              <span>Import Complete!</span>
+              <span>{t('library:import.complete')}</span>
             </div>
           )}
           {importState.status === Status.Error && (
             <div className="flex items-center gap-2 text-sm text-red-400">
               <AlertTriangle size={16} />
-              <span>Import Failed!</span>
+              <span>{t('library:import.failed')}</span>
             </div>
           )}
           <SearchInput
@@ -1604,21 +1612,21 @@ export default function MainLibrary({
           <Button
             className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
             onClick={onNavigateToCommunity}
-            data-tooltip="Community Presets"
+            data-tooltip={t('library:tooltip.communityPresets')}
           >
             <Users className="w-8 h-8" />
           </Button>
           <Button
             className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
             onClick={onOpenFolder}
-            data-tooltip="Open another folder"
+            data-tooltip={t('library:tooltip.openAnotherFolder')}
           >
             <Folder className="w-8 h-8" />
           </Button>
           <Button
             className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
             onClick={onGoHome}
-            data-tooltip="Go to Home"
+            data-tooltip={t('library:tooltip.goHome')}
           >
             <Home className="w-8 h-8" />
           </Button>
@@ -1696,6 +1704,7 @@ export default function MainLibrary({
                     itemWidth,
                     outerPadding: OUTER_PADDING,
                     gap: ITEM_GAP,
+                    t,
                   }}
                 >
                   {Row}
@@ -1712,16 +1721,22 @@ export default function MainLibrary({
           <Loader2 className="h-12 w-12 text-secondary animate-spin mb-4" />
           <p className="text-lg font-semibold">
             {aiModelDownloadStatus
-              ? `Downloading ${aiModelDownloadStatus}...`
+              ? aiModelDownloadStatus
               : isIndexing && indexingProgress.total > 0
-              ? `Indexing images... (${indexingProgress.current}/${indexingProgress.total})`
+              ? t('library:state.indexingImages', {
+                  current: indexingProgress.current ?? 0,
+                  total: indexingProgress.total,
+                })
               : importState.status === Status.Importing &&
                 importState?.progress?.total &&
                 importState.progress.total > 0
-              ? `Importing images... (${importState.progress?.current}/${importState.progress?.total})`
-              : 'Processing images...'}
+              ? t('library:state.importingImages', {
+                  current: importState.progress?.current ?? 0,
+                  total: importState.progress?.total ?? 0,
+                })
+              : t('library:state.processingImages')}
           </p>
-          <p className="text-sm mt-2">This may take a moment.</p>
+          <p className="text-sm mt-2">{t('library:state.thisMayTakeMoment')}</p>
         </div>
       ) : searchCriteria.tags.length > 0 || searchCriteria.text ? (
         <div
@@ -1729,11 +1744,10 @@ export default function MainLibrary({
           onContextMenu={onEmptyAreaContextMenu}
         >
           <Search className="h-12 w-12 text-secondary mb-4" />
-          <p className="text-lg font-semibold">No Results Found</p>
+          <p className="text-lg font-semibold">{t('library:state.noResultsTitle')}</p>
           <p className="text-sm mt-2 max-w-sm">
-            Could not find an image based on filename or tags.
-            {!appSettings?.enableAiTagging &&
-              ' For a more comprehensive search, enable automatic tagging in Settings.'}
+            {t('library:state.noResultsBody')}
+            {!appSettings?.enableAiTagging && ` ${t('library:state.noResultsEnableTagging')}`}
           </p>
         </div>
       ) : (
@@ -1742,7 +1756,7 @@ export default function MainLibrary({
           onContextMenu={onEmptyAreaContextMenu}
         >
           <SlidersHorizontal className="h-12 w-12 text-secondary mb-4 text-text-secondary" />
-          <p className="text-text-secondary">No images found that match your filter.</p>
+          <p className="text-text-secondary">{t('library:state.noFilteredImages')}</p>
         </div>
       )}
     </div>

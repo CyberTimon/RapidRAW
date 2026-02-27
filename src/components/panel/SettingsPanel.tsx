@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   Cloud,
@@ -21,6 +21,7 @@ import { open as openLink } from '@tauri-apps/plugin-shell';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useUser } from '@clerk/clerk-react';
+import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import ConfirmModal from '../modals/ConfirmModal';
 import Dropdown, { OptionItem } from '../ui/Dropdown';
@@ -240,6 +241,7 @@ export default function SettingsPanel({
   onSettingsChange,
   rootPath,
 }: SettingsPanelProps) {
+  const { t } = useTranslation();
   const { user } = useUser();
   const [isClearing, setIsClearing] = useState(false);
   const [clearMessage, setClearMessage] = useState('');
@@ -282,6 +284,14 @@ export default function SettingsPanel({
 
   const customAiTags = Array.from(new Set<string>(appSettings?.customAiTags || []));
   const taggingShortcuts = Array.from(new Set<string>(appSettings?.taggingShortcuts || []));
+  const languageOptions = useMemo<Array<OptionItem>>(
+    () => [
+      { value: 'fr', label: t('common:language.fr') },
+      { value: 'es', label: t('common:language.es') },
+      { value: 'en', label: t('common:language.en') },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     if (appSettings?.aiConnectorAddress !== aiConnectorAddress) {
@@ -663,6 +673,17 @@ export default function SettingsPanel({
                         onChange={(value: any) => onSettingsChange({ ...appSettings, theme: value })}
                         options={THEMES.map((theme: ThemeProps) => ({ value: theme.id, label: theme.name }))}
                         value={appSettings?.theme || DEFAULT_THEME_ID}
+                      />
+                    </SettingItem>
+
+                    <SettingItem
+                      label={t('settings:general.languageLabel')}
+                      description={t('settings:general.languageDescription')}
+                    >
+                      <Dropdown
+                        onChange={(value: any) => onSettingsChange({ ...appSettings, locale: value })}
+                        options={languageOptions}
+                        value={appSettings?.locale || 'fr'}
                       />
                     </SettingItem>
 

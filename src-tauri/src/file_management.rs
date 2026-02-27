@@ -267,6 +267,10 @@ fn default_linear_raw_mode() -> String {
     "auto".to_string()
 }
 
+fn default_locale_option() -> Option<String> {
+    Some("fr".to_string())
+}
+
 fn default_tagging_shortcuts_option() -> Option<Vec<String>> {
     Some(vec![
         "portrait".to_string(),
@@ -296,6 +300,8 @@ pub struct AppSettings {
     pub sort_criteria: Option<SortCriteria>,
     pub filter_criteria: Option<FilterCriteria>,
     pub theme: Option<String>,
+    #[serde(default = "default_locale_option")]
+    pub locale: Option<String>,
     pub transparent: Option<bool>,
     pub decorations: Option<bool>,
     #[serde(alias = "comfyuiAddress")]
@@ -367,6 +373,7 @@ impl Default for AppSettings {
             sort_criteria: None,
             filter_criteria: None,
             theme: Some("dark".to_string()),
+            locale: default_locale_option(),
             transparent: Some(true),
             #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
             decorations: Some(true),

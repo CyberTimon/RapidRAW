@@ -1,0 +1,26 @@
+{
+  "title": "Biblioteca",
+  "currentFolder": "Carpeta actual",
+  "folderImageCount": "{count, plural, one {# imagen} other {# imagenes}}",
+  "import": {
+    "progress": "Importando... ({current}/{total})",
+    "complete": "Importacion completada!",
+    "failed": "Importacion fallida!"
+  },
+  "tooltip": {
+    "communityPresets": "Presets de la comunidad",
+    "openAnotherFolder": "Abrir otra carpeta",
+    "goHome": "Ir al inicio"
+  },
+  "state": {
+    "downloadingModel": "Descargando {model}...",
+    "indexingImages": "Indexando imagenes... ({current}/{total})",
+    "importingImages": "Importando imagenes... ({current}/{total})",
+    "processingImages": "Procesando imagenes...",
+    "thisMayTakeMoment": "Esto puede tardar un momento.",
+    "noResultsTitle": "No se encontraron resultados",
+    "noResultsBody": "No se encontro ninguna imagen por nombre de archivo o etiquetas.",
+    "noResultsEnableTagging": "Para una busqueda mas completa, activa el etiquetado automatico en Configuracion.",
+    "noFilteredImages": "No se encontraron imagenes que coincidan con el filtro."
+  }
+}

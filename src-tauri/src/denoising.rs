@@ -58,7 +58,12 @@ pub fn denoise_image(
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
     let linear_mode = settings.linear_raw_mode;
 
-    let _ = app_handle.emit("denoise-progress", "Loading image...");
+    let _ = app_handle.emit(
+        "denoise-progress",
+        serde_json::json!({
+            "key": "backend.denoise.loadingImage"
+        }),
+    );
 
     let file_bytes = fs::read(path).map_err(|e| e.to_string())?;
 
@@ -72,7 +77,12 @@ pub fn denoise_image(
     ).map_err(|e| e.to_string())?;
 
     if is_raw {
-        let _ = app_handle.emit("denoise-progress", "Preparing RAW data...");
+        let _ = app_handle.emit(
+            "denoise-progress",
+            serde_json::json!({
+                "key": "backend.denoise.preparingRawData"
+            }),
+        );
         apply_cpu_default_raw_processing(&mut dynamic_img);
     }
 
@@ -90,7 +100,12 @@ pub fn denoise_image(
     let total_work_units = (patches_x * patches_y) * 2;
     let progress_counter = Arc::new(AtomicUsize::new(0));
 
-    let _ = app_handle.emit("denoise-progress", "Processing (Step 1/2)...");
+    let _ = app_handle.emit(
+        "denoise-progress",
+        serde_json::json!({
+            "key": "backend.denoise.processingStepOne"
+        }),
+    );
 
     let denoised_channels = bm3d_process_joint(
         &channels,
@@ -103,11 +118,21 @@ pub fn denoise_image(
         &app_handle,
     );
 
-    let _ = app_handle.emit("denoise-progress", "Finalizing data...");
+    let _ = app_handle.emit(
+        "denoise-progress",
+        serde_json::json!({
+            "key": "backend.denoise.finalizingData"
+        }),
+    );
     let out_img_buffer = merge_channels(&denoised_channels, width, height);
     let out_dynamic = DynamicImage::ImageRgb32F(out_img_buffer);
 
-    let _ = app_handle.emit("denoise-progress", "Generating previews...");
+    let _ = app_handle.emit(
+        "denoise-progress",
+        serde_json::json!({
+            "key": "backend.denoise.generatingPreviews"
+        }),
+    );
 
     let (w, h) = out_dynamic.dimensions();
     let (new_w, new_h) = if w > h {
@@ -235,9 +260,18 @@ fn run_bm3d_step_joint(
         let c = counter.fetch_add(1, AtomicOrdering::Relaxed);
         if c % 200 == 0 {
              let pct = (c as f32 / total_work as f32) * 100.0;
-             let step_str = if is_step_1 { "Step 1/2" } else { "Step 2/2" };
-             let msg = format!("{} - {:.0}%", step_str, pct);
-             let _ = app_handle.emit("denoise-progress", msg);
+             let step = if is_step_1 { 1 } else { 2 };
+             let _ = app_handle.emit(
+                 "denoise-progress",
+                 serde_json::json!({
+                     "key": "backend.denoise.processingStep",
+                     "params": {
+                         "step": step,
+                         "total": 2,
+                         "percent": pct.round() as u32
+                     }
+                 }),
+             );
         }
 
         let mut group_locs_buf = [(0, 0); MAX_GROUP_SIZE];

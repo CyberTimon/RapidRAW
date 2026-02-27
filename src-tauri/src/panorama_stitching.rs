@@ -55,7 +55,12 @@ pub fn stitch_images(
         return Err("At least two images are required for a panorama.".to_string());
     }
 
-    let _ = app_handle.emit("panorama-progress", "Starting panorama process...");
+    let _ = app_handle.emit(
+        "panorama-progress",
+        serde_json::json!({
+            "key": "backend.panorama.startingProcess"
+        }),
+    );
     println!(
         "Starting panorama stitching process for {} images...",
         image_paths.len()
@@ -66,7 +71,12 @@ pub fn stitch_images(
     let linear_mode = settings.linear_raw_mode;
 
     let start_time = Instant::now();
-    let _ = app_handle.emit("panorama-progress", "Loading and preparing images...");
+    let _ = app_handle.emit(
+        "panorama-progress",
+        serde_json::json!({
+            "key": "backend.panorama.loadingPreparingImages"
+        }),
+    );
     println!("Loading and preparing images (in parallel)...");
     let brief_pairs = processing::generate_brief_pairs();
 
@@ -76,13 +86,16 @@ pub fn stitch_images(
         .map(|(i, filename)| {
             let _ = app_handle.emit(
                 "panorama-progress",
-                format!(
-                    "Processing '{}'",
-                    Path::new(filename)
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                ),
+                serde_json::json!({
+                    "key": "backend.panorama.processingImage",
+                    "params": {
+                        "filename": Path::new(filename)
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_string()
+                    }
+                }),
             );
             println!("  - Processing '{}'", filename);
 
@@ -148,7 +161,12 @@ pub fn stitch_images(
     );
 
     let start_time = Instant::now();
-    let _ = app_handle.emit("panorama-progress", "Finding image matches...");
+    let _ = app_handle.emit(
+        "panorama-progress",
+        serde_json::json!({
+            "key": "backend.panorama.findingMatches"
+        }),
+    );
     println!("Finding all pairwise matches (in parallel)...");
     let mut pairwise_matches: HashMap<(usize, usize), MatchInfo> = HashMap::new();
 
@@ -236,7 +254,12 @@ pub fn stitch_images(
     }
 
     let start_time = Instant::now();
-    let _ = app_handle.emit("panorama-progress", "Determining stitching order...");
+    let _ = app_handle.emit(
+        "panorama-progress",
+        serde_json::json!({
+            "key": "backend.panorama.determiningOrder"
+        }),
+    );
     println!("Determining stitching order...");
     let (ordered_indices, global_homographies) =
         build_stitching_order(&image_data, &pairwise_matches);
@@ -258,7 +281,12 @@ pub fn stitch_images(
     println!("Stitching order determined: {:?}", ordered_filenames);
     let _ = app_handle.emit(
         "panorama-progress",
-        format!("Stitching order: {}", ordered_filenames.join(" -> ")),
+        serde_json::json!({
+            "key": "backend.panorama.stitchingOrder",
+            "params": {
+                "order": ordered_filenames.join(" -> ")
+            }
+        }),
     );
 
     let stitched_images_info: Vec<&ImageInfo> =
@@ -270,7 +298,15 @@ pub fn stitch_images(
             unstitched_count
         );
         println!("{}", warning_msg);
-        let _ = app_handle.emit("panorama-warning", warning_msg);
+        let _ = app_handle.emit(
+            "panorama-warning",
+            serde_json::json!({
+                "key": "backend.panorama.unmatchedWarning",
+                "params": {
+                    "count": unstitched_count
+                }
+            }),
+        );
     }
     println!(
         "Global homography calculation completed in {:.2?}\n",
@@ -278,7 +314,12 @@ pub fn stitch_images(
     );
 
     let start_time = Instant::now();
-    let _ = app_handle.emit("panorama-progress", "Warping and blending images...");
+    let _ = app_handle.emit(
+        "panorama-progress",
+        serde_json::json!({
+            "key": "backend.panorama.warpingBlending"
+        }),
+    );
     println!("Warping and blending full-resolution images with progressive optimal seams...");
 
     let panorama = stitching::progressive_seam_stitcher(
@@ -289,7 +330,12 @@ pub fn stitch_images(
 
     println!("Stitching completed in {:.2?}\n", start_time.elapsed());
 
-    let _ = app_handle.emit("panorama-progress", "Finalizing panorama...");
+    let _ = app_handle.emit(
+        "panorama-progress",
+        serde_json::json!({
+            "key": "backend.panorama.finalizing"
+        }),
+    );
 
     Ok(DynamicImage::ImageRgb32F(panorama))
 }

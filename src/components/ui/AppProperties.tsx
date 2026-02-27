@@ -135,6 +135,7 @@ export interface AppSettings {
   pinnedFolders?: any;
   lastRootPath: string | null;
   libraryViewMode?: LibraryViewMode;
+  locale?: string;
   sortCriteria?: SortCriteria;
   theme: Theme;
   thumbnailSize?: ThumbnailSize;

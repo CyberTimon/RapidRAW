@@ -1,0 +1,26 @@
+{
+  "title": "Library",
+  "currentFolder": "Current Folder",
+  "folderImageCount": "{count, plural, one {# image} other {# images}}",
+  "import": {
+    "progress": "Importing... ({current}/{total})",
+    "complete": "Import Complete!",
+    "failed": "Import Failed!"
+  },
+  "tooltip": {
+    "communityPresets": "Community Presets",
+    "openAnotherFolder": "Open another folder",
+    "goHome": "Go to Home"
+  },
+  "state": {
+    "downloadingModel": "Downloading {model}...",
+    "indexingImages": "Indexing images... ({current}/{total})",
+    "importingImages": "Importing images... ({current}/{total})",
+    "processingImages": "Processing images...",
+    "thisMayTakeMoment": "This may take a moment.",
+    "noResultsTitle": "No Results Found",
+    "noResultsBody": "Could not find an image based on filename or tags.",
+    "noResultsEnableTagging": "For a more comprehensive search, enable automatic tagging in Settings.",
+    "noFilteredImages": "No images found that match your filter."
+  }
+}

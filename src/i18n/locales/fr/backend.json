@@ -1,0 +1,33 @@
+{
+  "ai": {
+    "downloadingModel": "Telechargement de {model}..."
+  },
+  "denoise": {
+    "loadingImage": "Chargement de l'image...",
+    "preparingRawData": "Preparation des donnees RAW...",
+    "processingStepOne": "Traitement (Etape 1/2)...",
+    "processingStep": "Etape {step}/{total} - {percent}%",
+    "finalizingData": "Finalisation des donnees...",
+    "generatingPreviews": "Generation des apercus..."
+  },
+  "panorama": {
+    "startingProcess": "Demarrage du panorama...",
+    "loadingPreparingImages": "Chargement et preparation des images...",
+    "processingImage": "Traitement de '{filename}'",
+    "findingMatches": "Recherche des correspondances...",
+    "determiningOrder": "Determination de l'ordre d'assemblage...",
+    "stitchingOrder": "Ordre d'assemblage : {order}",
+    "unmatchedWarning": "Attention : {count} image(s) non alignee(s) seront exclues.",
+    "warpingBlending": "Deformation et fusion des images...",
+    "finalizing": "Finalisation du panorama...",
+    "creatingPreview": "Creation de l'apercu...",
+    "ready": "Panorama pret",
+    "failedToStart": "Echec du demarrage."
+  },
+  "hdr": {
+    "startingProcess": "Demarrage du traitement HDR...",
+    "creatingPreview": "Creation de l'apercu...",
+    "ready": "HDR pret",
+    "failedToStart": "Echec du demarrage."
+  }
+}

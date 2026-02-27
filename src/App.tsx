@@ -10,6 +10,7 @@ import throttle from 'lodash.throttle';
 import { ClerkProvider } from '@clerk/clerk-react';
 import { ToastContainer, toast, Slide } from 'react-toastify';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import {
   Aperture,
   Check,
@@ -124,6 +125,8 @@ import {
 } from './components/ui/AppProperties';
 import { ChannelConfig } from './components/adjustments/Curves';
 import HdrModal from './components/modals/HdrModal';
+import { isI18nEventPayload } from './i18n/payload';
+import { normalizeLocale } from './i18n/i18n';
 
 const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
 
@@ -230,7 +233,7 @@ const useDelayedRevokeBlobUrl = (url: string | null | undefined) => {
   useEffect(() => {
     if (previousUrlRef.current && previousUrlRef.current !== url) {
       const urlToRevoke = previousUrlRef.current;
-      if (urlToRevoke && urlToRevoke.startsWith('blob:')) {
+      if (urlToRevoke?.startsWith('blob:')) {
         setTimeout(() => {
           URL.revokeObjectURL(urlToRevoke);
         }, REVOCATION_DELAY);
@@ -242,7 +245,7 @@ const useDelayedRevokeBlobUrl = (url: string | null | undefined) => {
   useEffect(() => {
     return () => {
       const finalUrl = previousUrlRef.current;
-      if (finalUrl && finalUrl.startsWith('blob:')) {
+      if (finalUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(finalUrl);
       }
     };
@@ -302,6 +305,7 @@ const useAsyncThrottle = <T extends unknown[]>(
 };
 
 function App() {
+  const { i18n, t } = useTranslation();
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
   const [activeView, setActiveView] = useState('library');
@@ -1467,31 +1471,70 @@ function App() {
     [activeRightPanel],
   );
 
+  useEffect(() => {
+    invoke('frontend_ready').catch((e) => console.error('Failed to notify backend of readiness:', e));
+  }, []);
+
+  const toLocalizedMessage = useCallback(
+    (payload: any, fallbackKey?: string, fallbackParams?: Record<string, any>) => {
+      if (isI18nEventPayload(payload)) {
+        return t(payload.key, payload.params ?? {});
+      }
+
+      if (typeof payload === 'string') {
+        return payload;
+      }
+
+      if (fallbackKey) {
+        return t(fallbackKey, fallbackParams ?? {});
+      }
+
+      return '';
+    },
+    [t],
+  );
+
   const handleSettingsChange = useCallback(
     (newSettings: AppSettings) => {
       if (!newSettings) {
         console.error('handleSettingsChange was called with null settings. Aborting save operation.');
         return;
       }
-      if (newSettings.theme && newSettings.theme !== theme) {
-        setTheme(newSettings.theme);
+
+      const normalizedLocale = normalizeLocale(newSettings.locale || appSettings?.locale || i18n.language);
+      const settingsWithLocale: AppSettings = {
+        ...newSettings,
+        locale: normalizedLocale,
+      };
+
+      if (settingsWithLocale.theme && settingsWithLocale.theme !== theme) {
+        setTheme(settingsWithLocale.theme);
+      }
+
+      if (i18n.language !== normalizedLocale) {
+        i18n.changeLanguage(normalizedLocale).catch((err) => {
+          console.error('Failed to change locale:', err);
+        });
       }
 
       const {
         searchCriteria,
         ...settingsToSave
-      } = newSettings as any;
-      setAppSettings(newSettings);
+      } = settingsWithLocale as any;
+      setAppSettings(settingsWithLocale);
       invoke(Invokes.SaveSettings, { settings: settingsToSave }).catch((err) => {
         console.error('Failed to save settings:', err);
       });
     },
-    [theme],
+    [appSettings?.locale, i18n, theme],
   );
 
   useEffect(() => {
     invoke(Invokes.LoadSettings)
       .then(async (settings: any) => {
+        const normalizedLocale = normalizeLocale(settings?.locale || i18n.language);
+        settings.locale = normalizedLocale;
+
         if (
           !settings.copyPasteSettings ||
           !settings.copyPasteSettings.includedAdjustments ||
@@ -1503,6 +1546,9 @@ function App() {
           };
         }
         setAppSettings(settings);
+        if (i18n.language !== normalizedLocale) {
+          await i18n.changeLanguage(normalizedLocale);
+        }
         if (settings?.sortCriteria) setSortCriteria(settings.sortCriteria);
         if (settings?.filterCriteria) {
           setFilterCriteria((prev: FilterCriteria) => ({
@@ -1556,11 +1602,11 @@ function App() {
           };
         }
 
-        invoke('frontend_ready').catch(e => console.error("Failed to notify backend of readiness:", e));
       })
       .catch((err) => {
         console.error('Failed to load settings:', err);
-        setAppSettings({ lastRootPath: null, theme: DEFAULT_THEME_ID });
+        const fallbackLocale = normalizeLocale(i18n.language);
+        setAppSettings({ lastRootPath: null, locale: fallbackLocale, theme: DEFAULT_THEME_ID });
       })
       .finally(() => {
         isInitialMount.current = false;
@@ -2039,7 +2085,7 @@ function App() {
 
       setZoom(1);
       setIsLibraryExportPanelVisible(false);
-      
+
       fullResCacheKeyRef.current = null;
       if (fullResRequestRef.current) {
         fullResRequestRef.current.cancelled = true;
@@ -2472,7 +2518,7 @@ function App() {
       const highResThreshold = Math.max(initialFitScale * 2, 0.5);
       const needsFullRes = targetZoomPercent > highResThreshold;
       const previewIsAlreadyFullRes = previewSize.width >= originalSize.width;
-      
+
       if (needsFullRes && !previewIsAlreadyFullRes) {
         setIsHighResNeeded(true);
       } else {
@@ -2668,7 +2714,14 @@ function App() {
       }),
       listen('ai-model-download-start', (event: any) => {
         if (isEffectActive) {
-          setAiModelDownloadStatus(event.payload);
+          const payload = event.payload;
+          const model =
+            typeof payload === 'string'
+              ? payload
+              : typeof payload === 'object' && payload !== null
+              ? String(payload.model || '')
+              : '';
+          setAiModelDownloadStatus(toLocalizedMessage(payload, 'backend:ai.downloadingModel', { model }));
         }
       }),
       listen('ai-model-download-finish', () => {
@@ -2769,7 +2822,10 @@ function App() {
       }),
       listen('denoise-progress', (event: any) => {
         if (isEffectActive) {
-          setDenoiseModalState((prev) => ({ ...prev, progressMessage: event.payload as string }));
+          setDenoiseModalState((prev) => ({
+            ...prev,
+            progressMessage: toLocalizedMessage(event.payload),
+          }));
         }
       }),
       listen('denoise-complete', (event: any) => {
@@ -2801,7 +2857,7 @@ function App() {
       isEffectActive = false;
       listeners.forEach((p) => p.then((unlisten) => unlisten()));
     };
-  }, [refreshAllFolderTrees, handleSelectSubfolder]);
+  }, [refreshAllFolderTrees, handleSelectSubfolder, toLocalizedMessage]);
 
   useEffect(() => {
     if ([Status.Success, Status.Error, Status.Cancelled].includes(exportState.status)) {
@@ -2854,7 +2910,7 @@ function App() {
           error: null,
           finalImageBase64: null,
           isOpen: true,
-          progressMessage: event.payload,
+          progressMessage: toLocalizedMessage(event.payload),
         }));
       }
     });
@@ -2866,7 +2922,7 @@ function App() {
           ...prev,
           error: null,
           finalImageBase64: base64,
-          progressMessage: 'Panorama Ready',
+          progressMessage: t('backend:panorama.ready'),
         }));
       }
     });
@@ -2877,7 +2933,7 @@ function App() {
           ...prev,
           error: String(event.payload),
           finalImageBase64: null,
-          progressMessage: 'An error occurred.',
+          progressMessage: t('common:status.errorOccurred'),
         }));
       }
     });
@@ -2888,7 +2944,7 @@ function App() {
       unlistenComplete.then((f: any) => f());
       unlistenError.then((f: any) => f());
     };
-  }, []);
+  }, [t, toLocalizedMessage]);
 
   useEffect(() => {
     let isEffectActive = true;
@@ -2900,7 +2956,7 @@ function App() {
           error: null,
           finalImageBase64: null,
           isOpen: true,
-          progressMessage: event.payload,
+          progressMessage: toLocalizedMessage(event.payload),
         }));
       }
     });
@@ -2912,7 +2968,7 @@ function App() {
           ...prev,
           error: null,
           finalImageBase64: base64,
-          progressMessage: 'Hdr Ready',
+          progressMessage: t('backend:hdr.ready'),
         }));
       }
     });
@@ -2923,7 +2979,7 @@ function App() {
           ...prev,
           error: String(event.payload),
           finalImageBase64: null,
-          progressMessage: 'An error occurred.',
+          progressMessage: t('common:status.errorOccurred'),
         }));
       }
     });
@@ -2934,7 +2990,7 @@ function App() {
       unlistenComplete.then((f: any) => f());
       unlistenError.then((f: any) => f());
     };
-  }, []);
+  }, [t, toLocalizedMessage]);
 
   useEffect(() => {
     let isEffectActive = true;
@@ -3024,7 +3080,7 @@ function App() {
       ...prev,
       isProcessing: true,
       error: null,
-      progressMessage: "Starting engine..."
+      progressMessage: t('backend:denoise.loadingImage')
     }));
 
     try {
@@ -3039,7 +3095,7 @@ function App() {
             error: String(err)
         }));
     }
-  }, [denoiseModalState.targetPath]);
+  }, [denoiseModalState.targetPath, t]);
 
   const handleSaveDenoisedImage = async (): Promise<string> => {
     if (!denoiseModalState.targetPath) throw new Error("No target path");
@@ -3337,7 +3393,7 @@ function App() {
           } else {
             initialAdjusts = { ...INITIAL_ADJUSTMENTS };
           }
-          
+
           setLiveAdjustments(initialAdjusts);
           resetAdjustmentsHistory(initialAdjusts);
         } catch (err) {
@@ -3993,7 +4049,7 @@ function App() {
                 error: null,
                 finalImageBase64: null,
                 isOpen: true,
-                progressMessage: 'Starting panorama process...',
+                progressMessage: t('backend:panorama.startingProcess'),
                 stitchingSourcePaths: finalSelection,
               });
               invoke(Invokes.StitchPanorama, { paths: finalSelection }).catch((err) => {
@@ -4001,7 +4057,7 @@ function App() {
                   ...prev,
                   error: String(err),
                   isOpen: true,
-                  progressMessage: 'Failed to start.',
+                  progressMessage: t('backend:panorama.failedToStart'),
                 }));
               });
             },
@@ -4015,7 +4071,7 @@ function App() {
                 error: null,
                 finalImageBase64: null,
                 isOpen: true,
-                progressMessage: 'Starting hdr process...',
+                progressMessage: t('backend:hdr.startingProcess'),
                 stitchingSourcePaths: finalSelection,
               });
               invoke(Invokes.MergeHdr, { paths: finalSelection }).catch((err) => {
@@ -4023,7 +4079,7 @@ function App() {
                   ...prev,
                   error: String(err),
                   isOpen: true,
-                  progressMessage: 'Failed to start.',
+                  progressMessage: t('backend:hdr.failedToStart'),
                 }));
               });
             },

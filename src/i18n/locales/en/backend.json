@@ -1,0 +1,33 @@
+{
+  "ai": {
+    "downloadingModel": "Downloading {model}..."
+  },
+  "denoise": {
+    "loadingImage": "Loading image...",
+    "preparingRawData": "Preparing RAW data...",
+    "processingStepOne": "Processing (Step 1/2)...",
+    "processingStep": "Step {step}/{total} - {percent}%",
+    "finalizingData": "Finalizing data...",
+    "generatingPreviews": "Generating previews..."
+  },
+  "panorama": {
+    "startingProcess": "Starting panorama process...",
+    "loadingPreparingImages": "Loading and preparing images...",
+    "processingImage": "Processing '{filename}'",
+    "findingMatches": "Finding image matches...",
+    "determiningOrder": "Determining stitching order...",
+    "stitchingOrder": "Stitching order: {order}",
+    "unmatchedWarning": "Warning: {count} image(s) could not be matched and will be excluded.",
+    "warpingBlending": "Warping and blending images...",
+    "finalizing": "Finalizing panorama...",
+    "creatingPreview": "Creating preview...",
+    "ready": "Panorama Ready",
+    "failedToStart": "Failed to start."
+  },
+  "hdr": {
+    "startingProcess": "Starting HDR process...",
+    "creatingPreview": "Creating preview...",
+    "ready": "HDR Ready",
+    "failedToStart": "Failed to start."
+  }
+}

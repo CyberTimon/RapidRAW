@@ -1,0 +1,22 @@
+{
+  "language": {
+    "label": "Langue",
+    "fr": "Francais",
+    "es": "Espagnol",
+    "en": "Anglais"
+  },
+  "actions": {
+    "close": "Fermer",
+    "cancel": "Annuler",
+    "openInEditor": "Ouvrir dans l'editeur",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "retry": "Relancer",
+    "start": "Demarrer"
+  },
+  "status": {
+    "processing": "Traitement...",
+    "errorOccurred": "Une erreur est survenue.",
+    "initializing": "Initialisation..."
+  }
+}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, XCircle, Loader2, Save } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 
 interface PanoramaModalProps {
@@ -21,6 +22,7 @@ export default function PanoramaModal({
   onSave,
   progressMessage,
 }: PanoramaModalProps) {
+  const { t } = useTranslation();
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -82,7 +84,7 @@ export default function PanoramaModal({
       return (
         <>
           <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-text-primary mb-2 text-center">Panorama Failed</h3>
+          <h3 className="text-lg font-semibold text-text-primary mb-2 text-center">{t('modals:panorama.failed')}</h3>
           <p className="text-sm text-text-secondary text-center p-2 rounded-md max-h-40 overflow-y-auto">
             {String(error)}
           </p>
@@ -96,11 +98,11 @@ export default function PanoramaModal({
           {savedPath && (
             <>
               <CheckCircle className="w-16 h-16 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-text-primary mb-4 text-center">Panorama Saved!</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-4 text-center">{t('modals:panorama.saved')}</h3>
             </>
           )}
           <div className="w-full bg-bg-primary rounded-md overflow-hidden border border-surface">
-            <img src={finalImageBase64} alt="Stitched Panorama" className="w-full h-full object-contain" />
+            <img src={finalImageBase64} alt={t('modals:panorama.stitching')} className="w-full h-full object-contain" />
           </div>
         </>
       );
@@ -111,7 +113,7 @@ export default function PanoramaModal({
         <div className="w-16 h-16 mx-auto mb-4">
           <Loader2 className="w-16 h-16 text-accent animate-spin" />
         </div>
-        <h3 className="text-lg font-semibold text-text-primary mb-2 text-center">Stitching Panorama</h3>
+        <h3 className="text-lg font-semibold text-text-primary mb-2 text-center">{t('modals:panorama.stitching')}</h3>
         <p className="text-sm text-text-secondary text-center min-h-[1.25rem]">{progressMessage}</p>
       </>
     );
@@ -121,7 +123,7 @@ export default function PanoramaModal({
     if (error) {
       return (
         <Button onClick={handleClose} className="w-full">
-          Close
+          {t('common:actions.close')}
         </Button>
       );
     }
@@ -132,9 +134,9 @@ export default function PanoramaModal({
             onClick={handleClose}
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors"
           >
-            Close
+            {t('common:actions.close')}
           </button>
-          <Button onClick={handleOpen}>Open in Editor</Button>
+          <Button onClick={handleOpen}>{t('common:actions.openInEditor')}</Button>
         </>
       );
     }
@@ -145,11 +147,11 @@ export default function PanoramaModal({
             onClick={handleClose}
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors"
           >
-            Cancel
+            {t('common:actions.cancel')}
           </button>
           <Button onClick={handleSave} disabled={isSaving}>
             {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save size={16} className="mr-2" />}
-            {isSaving ? 'Saving...' : 'Save Panorama'}
+            {isSaving ? t('common:actions.saving') : t('modals:panorama.save')}
           </Button>
         </>
       );
