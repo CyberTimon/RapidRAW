@@ -289,6 +289,7 @@ export default function SettingsPanel({
       { value: 'fr', label: t('common:language.fr') },
       { value: 'es', label: t('common:language.es') },
       { value: 'en', label: t('common:language.en') },
+      { value: 'zh', label: t('common:language.zh') },
     ],
     [t],
   );

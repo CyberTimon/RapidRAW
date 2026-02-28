@@ -2,6 +2,7 @@ import { Folder, FolderOpen, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, 
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useMemo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface FolderTree {
   children: FolderTree[];
@@ -78,11 +79,16 @@ const getAutoExpandedPaths = (node: FolderTree, paths: Set<string>) => {
 };
 
 function SectionHeader({ title, isOpen, onToggle }: { title: string; isOpen: boolean; onToggle: () => void }) {
+  const { t } = useTranslation();
   return (
     <div
       className="flex items-center w-full text-left px-1 py-1.5 cursor-pointer group"
       onClick={onToggle}
-      data-tooltip={isOpen ? `Collapse ${title}` : `Expand ${title}`}
+      data-tooltip={
+        isOpen
+          ? t('app:folderTree.collapseSection', { title })
+          : t('app:folderTree.expandSection', { title })
+      }
     >
       <div className="p-0.5 rounded-md transition-colors">
         {isOpen ? (
@@ -269,6 +275,7 @@ export default function FolderTree({
   onActiveSectionChange,
   showImageCounts,
 }: FolderTreeProps) {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [isHovering, setIsHovering] = useState(false);
 
@@ -343,7 +350,7 @@ export default function FolderTree({
       <button
         className="absolute top-1/2 -translate-y-1/2 right-1 w-6 h-10 hover:bg-card-active rounded-md flex items-center justify-center z-30"
         onClick={() => setIsVisible(!isVisible)}
-        data-tooltip={isVisible ? 'Collapse Folder Tree' : 'Expand Folder Tree'}
+        data-tooltip={isVisible ? t('app:folderTree.collapseTree') : t('app:folderTree.expandTree')}
       >
         {isVisible ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
       </button>
@@ -355,7 +362,7 @@ export default function FolderTree({
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
               <input
                 type="text"
-                placeholder="Search folders..."
+                placeholder={t('app:folderTree.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-surface border border-transparent rounded-md pl-9 pr-8 py-2 text-sm focus:outline-none"
@@ -364,7 +371,7 @@ export default function FolderTree({
                 <button
                   onClick={() => setSearchQuery('')}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-card-active"
-                  data-tooltip="Clear search"
+                  data-tooltip={t('app:folderTree.clearSearch')}
                 >
                   <X size={16} className="text-text-secondary" />
                 </button>
@@ -377,7 +384,7 @@ export default function FolderTree({
               <>
                 <div>
                   <SectionHeader
-                    title="Pinned"
+                    title={t('app:folderTree.pinned')}
                     isOpen={isPinnedOpen}
                     onToggle={() => onActiveSectionChange(isPinnedOpen ? null : 'pinned')}
                   />
@@ -417,7 +424,7 @@ export default function FolderTree({
               <>
                 <div>
                   <SectionHeader
-                    title="Base Folder"
+                    title={t('app:folderTree.baseFolder')}
                     isOpen={isCurrentOpen}
                     onToggle={() => onActiveSectionChange(isCurrentOpen ? null : 'current')}
                   />
@@ -451,15 +458,15 @@ export default function FolderTree({
             )}
 
             {!filteredTree && !hasVisiblePinnedTrees && isSearching && (
-              <p className="text-text-secondary text-sm p-2 text-center">No folders found.</p>
+              <p className="text-text-secondary text-sm p-2 text-center">{t('app:folderTree.noFoldersFound')}</p>
             )}
 
             {!tree && pinnedFolderTrees.length === 0 && !isSearching && (
               <div className="pt-1">
                 {isLoading ? (
-                  <p className="text-text-secondary text-sm animate-pulse p-2">Loading folder structure...</p>
+                  <p className="text-text-secondary text-sm animate-pulse p-2">{t('app:folderTree.loadingStructure')}</p>
                 ) : (
-                  <p className="text-text-secondary text-sm p-2">Open a folder to see its structure.</p>
+                  <p className="text-text-secondary text-sm p-2">{t('app:folderTree.openToSeeStructure')}</p>
                 )}
               </div>
             )}

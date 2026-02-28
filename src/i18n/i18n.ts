@@ -8,6 +8,7 @@ import enBackend from './locales/en/backend.json';
 import enModals from './locales/en/modals.json';
 import enSettings from './locales/en/settings.json';
 import enErrors from './locales/en/errors.json';
+import enApp from './locales/en/app.json';
 
 import frCommon from './locales/fr/common.json';
 import frLibrary from './locales/fr/library.json';
@@ -15,6 +16,7 @@ import frBackend from './locales/fr/backend.json';
 import frModals from './locales/fr/modals.json';
 import frSettings from './locales/fr/settings.json';
 import frErrors from './locales/fr/errors.json';
+import frApp from './locales/fr/app.json';
 
 import esCommon from './locales/es/common.json';
 import esLibrary from './locales/es/library.json';
@@ -22,8 +24,17 @@ import esBackend from './locales/es/backend.json';
 import esModals from './locales/es/modals.json';
 import esSettings from './locales/es/settings.json';
 import esErrors from './locales/es/errors.json';
+import esApp from './locales/es/app.json';
 
-export const SUPPORTED_LOCALES = ['fr', 'es', 'en'] as const;
+import zhCommon from './locales/zh/common.json';
+import zhLibrary from './locales/zh/library.json';
+import zhBackend from './locales/zh/backend.json';
+import zhModals from './locales/zh/modals.json';
+import zhSettings from './locales/zh/settings.json';
+import zhErrors from './locales/zh/errors.json';
+import zhApp from './locales/zh/app.json';
+
+export const SUPPORTED_LOCALES = ['fr', 'es', 'en', 'zh'] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 export const normalizeLocale = (candidate?: string | null): SupportedLocale => {
@@ -48,6 +59,7 @@ const resources = {
     modals: enModals,
     settings: enSettings,
     errors: enErrors,
+    app: enApp,
   },
   fr: {
     common: frCommon,
@@ -56,6 +68,7 @@ const resources = {
     modals: frModals,
     settings: frSettings,
     errors: frErrors,
+    app: frApp,
   },
   es: {
     common: esCommon,
@@ -64,6 +77,16 @@ const resources = {
     modals: esModals,
     settings: esSettings,
     errors: esErrors,
+    app: esApp,
+  },
+  zh: {
+    common: zhCommon,
+    library: zhLibrary,
+    backend: zhBackend,
+    modals: zhModals,
+    settings: zhSettings,
+    errors: zhErrors,
+    app: zhApp,
   },
 };
 
@@ -78,7 +101,7 @@ if (!i18n.isInitialized) {
     lng: detectedBrowserLocale,
     fallbackLng: 'en',
     supportedLngs: [...SUPPORTED_LOCALES],
-    ns: ['common', 'library', 'backend', 'modals', 'settings', 'errors'],
+    ns: ['common', 'library', 'backend', 'modals', 'settings', 'errors', 'app'],
     defaultNS: 'common',
     interpolation: {
       escapeValue: false,

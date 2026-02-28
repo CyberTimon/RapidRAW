@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { Crop, PercentCrop } from 'react-image-crop';
 import { Loader2 } from 'lucide-react';
@@ -123,6 +124,7 @@ export default function Editor({
   adjustmentsHistoryIndex,
   goToAdjustmentsHistoryIndex,
 }: EditorProps) {
+  const { t } = useTranslation();
   const [crop, setCrop] = useState<Crop | null>(null);
   const prevCropParams = useRef<any>(null);
   const [isMaskHovered, setIsMaskHovered] = useState(false);
@@ -583,7 +585,7 @@ export default function Editor({
   if (!selectedImage) {
     return (
       <div className="flex-1 bg-bg-secondary rounded-lg flex items-center justify-center text-text-secondary">
-        <p>Select an image from the library to begin editing.</p>
+        <p>{t('app:editor.selectImageToBegin')}</p>
       </div>
     );
   }

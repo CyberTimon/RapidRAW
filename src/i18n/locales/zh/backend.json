@@ -1,0 +1,44 @@
+{
+  "ai": {
+    "downloadingModel": "正在下载 {model}..."
+  },
+  "denoise": {
+    "loadingImage": "正在加载图片...",
+    "preparingRawData": "准备 RAW 数据...",
+    "processingStepOne": "处理中（步骤 1/2）...",
+    "processingStep": "步骤 {step}/{total} - {percent}%",
+    "finalizingData": "正在完成处理...",
+    "generatingPreviews": "正在生成预览...",
+    "failedWithReason": "降噪失败：{reason}"
+  },
+  "panorama": {
+    "startingProcess": "正在开始全景处理...",
+    "loadingPreparingImages": "正在加载并准备图片...",
+    "processingImage": "正在处理“{filename}”",
+    "findingMatches": "正在查找匹配...",
+    "determiningOrder": "正在确定拼接顺序...",
+    "stitchingOrder": "拼接顺序：{order}",
+    "stitchingImage": "正在拼接第 {current}/{total} 张：{filename}",
+    "unmatchedWarning": "警告：{count} 张图片无法匹配，将被排除。",
+    "warpingBlending": "正在变形并融合图片...",
+    "finalizing": "正在完成全景...",
+    "creatingPreview": "正在创建预览...",
+    "ready": "全景就绪",
+    "failedWithReason": "全景失败：{reason}",
+    "failedToStart": "启动失败。"
+  },
+  "hdr": {
+    "startingProcess": "正在开始 HDR 处理...",
+    "processingImage": "正在处理“{filename}”",
+    "creatingPreview": "正在创建预览...",
+    "ready": "HDR 就绪",
+    "failedWithReason": "HDR 合并失败：{reason}",
+    "failedToStart": "启动失败。"
+  },
+  "export": {
+    "failed": "导出失败：{reason}"
+  },
+  "import": {
+    "failed": "导入失败：{reason}"
+  }
+}

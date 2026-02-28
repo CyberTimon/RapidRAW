@@ -1,0 +1,7 @@
+{
+  "generic": {
+    "unknown": "发生未知错误。",
+    "operationFailed": "操作失败：{reason}",
+    "initializationFailed": "初始化失败：{reason}"
+  }
+}

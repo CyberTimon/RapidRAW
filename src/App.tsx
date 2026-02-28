@@ -668,7 +668,7 @@ function App() {
         } catch (e) {
           if (isEffectActive) {
             console.error('Failed to generate original preview:', e);
-            setError('Failed to show original image.');
+            setError(t('app:errors.failedToShowOriginalImage'));
             setShowOriginal(false);
           }
         }
@@ -762,7 +762,7 @@ function App() {
         setActiveAiSubMaskId(null);
       } catch (err) {
         console.error('Generative replace failed:', err);
-        setError(`AI Replace Failed: ${err}`);
+        setError(t('app:errors.aiReplaceFailed', { reason: String(err) }));
         setAdjustments((prev: Adjustments) => ({
           ...prev,
           aiPatches: prev.aiPatches.map((p: AiPatch) => (p.id === patchId ? { ...p, isLoading: false } : p)),
@@ -884,7 +884,7 @@ function App() {
         setActiveAiSubMaskId(null);
       } catch (err: any) {
         console.error('Quick Erase failed:', err);
-        setError(`Quick Erase Failed: ${err.message || String(err)}`);
+        setError(t('app:errors.quickEraseFailed', { reason: String(err.message || err) }));
         setAdjustments((prev: Partial<Adjustments>) => ({
           ...prev,
           aiPatches: prev.aiPatches?.map((p: AiPatch) => (p.id === patchId ? { ...p, isLoading: false } : p)),
@@ -987,7 +987,7 @@ function App() {
       updateSubMask(subMaskId, { parameters: mergedParameters });
     } catch (error) {
       console.error('Failed to generate AI subject mask:', error);
-      setError(`AI Mask Failed: ${error}`);
+      setError(t('app:errors.aiMaskFailed', { reason: String(error) }));
     } finally {
       setIsGeneratingAiMask(false);
     }
@@ -1036,7 +1036,7 @@ function App() {
       updateSubMask(subMaskId, { parameters: mergedParameters });
     } catch (error) {
       console.error('Failed to generate AI foreground mask:', error);
-      setError(`AI Mask Failed: ${error}`);
+      setError(t('app:errors.aiMaskFailed', { reason: String(error) }));
     } finally {
       setIsGeneratingAiMask(false);
     }
@@ -1085,7 +1085,7 @@ function App() {
       updateSubMask(subMaskId, { parameters: mergedParameters });
     } catch (error) {
       console.error('Failed to generate AI sky mask:', error);
-      setError(`AI Mask Failed: ${error}`);
+      setError(t('app:errors.aiMaskFailed', { reason: String(error) }));
     } finally {
       setIsGeneratingAiMask(false);
     }
@@ -1383,7 +1383,7 @@ function App() {
     debounce((path, adjustmentsToSave) => {
       invoke(Invokes.SaveMetadataAndUpdateThumbnail, { path, adjustments: adjustmentsToSave }).catch((err) => {
         console.error('Auto-save failed:', err);
-        setError(`Failed to save changes: ${err}`);
+        setError(t('app:errors.failedToSaveChanges', { reason: String(err) }));
       });
     }, 300),
     [],
@@ -1446,7 +1446,7 @@ function App() {
         }));
       } catch (err) {
         console.error('Failed to load or parse LUT:', err);
-        setError(`Failed to load LUT: ${err}`);
+        setError(t('app:errors.failedToLoadLut', { reason: String(err) }));
       }
     },
     [setAdjustments],
@@ -1733,7 +1733,7 @@ function App() {
         setFolderTree(treeData);
       } catch (err) {
         console.error('Failed to refresh main folder tree:', err);
-        setError(`Failed to refresh folder tree: ${err}.`);
+        setError(t('app:errors.failedToRefreshFolderTree', { reason: String(err) }));
       }
     }
 
@@ -1830,7 +1830,7 @@ function App() {
             setFolderTree(treeData);
           } catch (err) {
             console.error('Failed to load folder tree:', err);
-            setError(`Failed to load folder tree: ${err}. Some sub-folders might be inaccessible.`);
+            setError(t('app:errors.failedToLoadFolderTree', { reason: String(err) }));
           } finally {
             setIsTreeLoading(false);
           }
@@ -1895,7 +1895,7 @@ function App() {
         });
       } catch (err) {
         console.error('Failed to load folder contents:', err);
-        setError('Failed to load images from the selected folder.');
+        setError(t('app:errors.failedToLoadImagesFromSelectedFolder'));
         setIsTreeLoading(false);
       } finally {
         setIsViewLoading(false);
@@ -1970,7 +1970,7 @@ function App() {
       }
     } catch (err) {
       console.error('Failed to refresh image list:', err);
-      setError('Failed to refresh image list.');
+      setError(t('app:errors.failedToRefreshImageList'));
     }
   }, [currentFolderPath, sortCriteria.key, appSettings?.enableExifReading, libraryViewMode]);
 
@@ -2162,7 +2162,7 @@ function App() {
         }
       } catch (err) {
         console.error('Failed to delete files:', err);
-        setError(`Failed to delete files: ${err}`);
+        setError(t('app:errors.failedToDeleteFiles', { reason: String(err) }));
       }
     },
     [refreshImageList, selectedImage, handleBackToLibrary, libraryActivePath, sortedImageList, handleImageSelect],
@@ -2181,20 +2181,20 @@ function App() {
       !pathsToDelete[0].includes('?vc=') &&
       imageList.some((image) => image.path.startsWith(`${pathsToDelete[0]}?vc=`));
 
-    let modalTitle = 'Confirm Delete';
+    let modalTitle = t('app:confirmDelete.title');
     let modalMessage = '';
-    let confirmText = 'Delete';
+    let confirmText = t('app:confirmDelete.delete');
 
     if (selectionHasVirtualCopies) {
-      modalTitle = 'Delete Image and All Virtual Copies?';
-      modalMessage = `Are you sure you want to permanently delete this image and all of its virtual copies? This action cannot be undone.`;
-      confirmText = 'Delete All';
+      modalTitle = t('app:confirmDelete.virtualCopiesTitle');
+      modalMessage = t('app:confirmDelete.virtualCopiesMessage');
+      confirmText = t('app:confirmDelete.deleteAll');
     } else if (isSingle) {
-      modalMessage = `Are you sure you want to permanently delete this image? This action cannot be undone. Right-click for more options (e.g., deleting associated files).`;
-      confirmText = 'Delete Selected Only';
+      modalMessage = t('app:confirmDelete.singleMessage');
+      confirmText = t('app:confirmDelete.deleteSelectedOnly');
     } else {
-      modalMessage = `Are you sure you want to permanently delete these ${pathsToDelete.length} images? This action cannot be undone. Right-click for more options (e.g., deleting associated files).`;
-      confirmText = 'Delete Selected Only';
+      modalMessage = t('app:confirmDelete.multiMessage', { count: pathsToDelete.length });
+      confirmText = t('app:confirmDelete.deleteSelectedOnly');
     }
 
     setConfirmModalState({
@@ -2205,7 +2205,7 @@ function App() {
       onConfirm: () => executeDelete(pathsToDelete, { includeAssociated: false }),
       title: modalTitle,
     });
-  }, [multiSelectedPaths, executeDelete, imageList]);
+  }, [multiSelectedPaths, executeDelete, imageList, t]);
 
   const handleToggleFullScreen = useCallback(() => {
     if (isFullScreen) {
@@ -2272,7 +2272,7 @@ function App() {
       invoke(Invokes.ApplyAdjustmentsToPaths, { paths: pathsToUpdate, adjustments: adjustmentsToApply }).catch(
         (err) => {
           console.error('Failed to paste adjustments to multiple images:', err);
-          setError(`Failed to paste adjustments: ${err}`);
+          setError(t('app:errors.failedToPasteAdjustments', { reason: String(err) }));
         },
       );
       setIsPasted(true);
@@ -2297,7 +2297,7 @@ function App() {
       });
     } catch (err) {
       console.error('Failed to calculate auto adjustments:', err);
-      setError(`Failed to apply auto adjustments: ${err}`);
+      setError(t('app:errors.failedToApplyAutoAdjustments', { reason: String(err) }));
     }
   };
 
@@ -2337,7 +2337,7 @@ function App() {
       invoke(Invokes.ApplyAdjustmentsToPaths, { paths: pathsToRate, adjustments: { rating: finalRating } }).catch(
         (err) => {
           console.error('Failed to apply rating to paths:', err);
-          setError(`Failed to apply rating: ${err}`);
+          setError(t('app:errors.failedToApplyRating', { reason: String(err) }));
         },
       );
     },
@@ -2383,7 +2383,7 @@ function App() {
         );
       } catch (err) {
         console.error('Failed to set color label:', err);
-        setError(`Failed to set color label: ${err}`);
+        setError(t('app:errors.failedToSetColorLabel', { reason: String(err) }));
       }
     },
     [multiSelectedPaths, selectedImage, libraryActivePath, imageList],
@@ -2443,10 +2443,14 @@ function App() {
         }
         await refreshImageList();
       } catch (err) {
-        setError(`Failed to ${mode} files: ${err}`);
+        setError(
+          mode === 'copy'
+            ? t('app:errors.failedToCopyFiles', { reason: String(err) })
+            : t('app:errors.failedToMoveFiles', { reason: String(err) }),
+        );
       }
     },
-    [copiedFilePaths, currentFolderPath, refreshImageList],
+    [copiedFilePaths, currentFolderPath, refreshImageList, t],
   );
 
   const requestFullResolution = useCallback(
@@ -2997,7 +3001,7 @@ function App() {
       if (isEffectActive) {
         setCullingModalState({
           isOpen: true,
-          progress: { current: 0, total: event.payload, stage: 'Initializing...' },
+          progress: { current: 0, total: event.payload, stage: t('common:status.initializing') },
           suggestions: null,
           error: null,
         });
@@ -3033,7 +3037,7 @@ function App() {
 
   const handleSavePanorama = async (): Promise<string> => {
     if (panoramaModalState.stitchingSourcePaths.length === 0) {
-      const err = 'Source paths for panorama not found.';
+      const err = t('app:errors.panoramaMissingSourcePaths');
       setPanoramaModalState((prev: PanoramaModalState) => ({ ...prev, error: err }));
       throw new Error(err);
     }
@@ -3053,7 +3057,7 @@ function App() {
 
   const handleSaveHdr = async (): Promise<string> => {
     if (hdrModalState.stitchingSourcePaths.length === 0) {
-      const err = 'Source paths for HDR not found.';
+      const err = t('app:errors.hdrMissingSourcePaths');
       setHdrModalState((prev: HdrModalState) => ({ ...prev, error: err }));
       throw new Error(err);
     }
@@ -3096,7 +3100,7 @@ function App() {
   }, [denoiseModalState.targetPath, t]);
 
   const handleSaveDenoisedImage = async (): Promise<string> => {
-    if (!denoiseModalState.targetPath) throw new Error("No target path");
+    if (!denoiseModalState.targetPath) throw new Error(t('app:errors.noTargetPath'));
     const savedPath = await invoke<string>(Invokes.SaveDenoisedImage, {
         originalPathStr: denoiseModalState.targetPath
     });
@@ -3114,7 +3118,7 @@ function App() {
       return savedPath;
     } catch (err) {
       console.error('Failed to save collage:', err);
-      setError(`Failed to save collage: ${err}`);
+      setError(t('app:errors.failedToSaveCollage', { reason: String(err) }));
       throw err;
     }
   };
@@ -3197,7 +3201,7 @@ function App() {
       }
     } catch (err) {
       console.error('Failed to open directory dialog:', err);
-      setError('Failed to open folder selection dialog.');
+      setError(t('app:errors.failedToOpenFolderSelectionDialog'));
     }
   };
 
@@ -3254,7 +3258,7 @@ function App() {
     };
     restore().catch((err) => {
       console.error('Failed to restore session, folder might be missing:', err);
-      setError('Failed to restore session. The last used folder may have been moved or deleted.');
+      setError(t('app:errors.failedToRestoreSession'));
       if (appSettings) {
         handleSettingsChange({ ...appSettings, lastRootPath: null, lastFolderState: null });
       }
@@ -3458,7 +3462,7 @@ function App() {
         } catch (err) {
           if (isEffectActive) {
             console.error('Failed to load image:', err);
-            setError(`Failed to load image: ${err}`);
+            setError(t('app:errors.failedToLoadImage', { reason: String(err) }));
             setSelectedImage(null);
           }
         } finally {
@@ -3523,7 +3527,7 @@ function App() {
 
           setMultiSelectedPaths(newPaths);
         } catch (err) {
-          setError(`Failed to rename files: ${err}`);
+          setError(t('app:errors.failedToRenameFiles', { reason: String(err) }));
         }
       }
 
@@ -3540,7 +3544,10 @@ function App() {
         sourcePaths: importSourcePaths,
       }).catch((err) => {
         console.error('Failed to start import:', err);
-        setImportState({ status: Status.Error, errorMessage: `Failed to start import: ${err}` });
+        setImportState({
+          status: Status.Error,
+          errorMessage: t('app:errors.failedToStartImport', { reason: String(err) }),
+        });
       });
     }
   };
@@ -3575,10 +3582,10 @@ function App() {
         })
         .catch((err) => {
           console.error('Failed to reset adjustments:', err);
-          setError(`Failed to reset adjustments: ${err}`);
+          setError(t('app:errors.failedToResetAdjustments', { reason: String(err) }));
         });
     },
-    [multiSelectedPaths, libraryActivePath, selectedImage, adjustments.rating, resetAdjustmentsHistory, debouncedSetHistory],
+    [multiSelectedPaths, libraryActivePath, selectedImage, adjustments.rating, resetAdjustmentsHistory, debouncedSetHistory, t],
   );
 
   const handleImportClick = useCallback(
@@ -3598,24 +3605,24 @@ function App() {
         const selected = await open({
           filters: [
             {
-              name: 'All Supported Images',
+              name: t('app:dialog.filters.allSupported'),
               extensions: allImageExtensions,
             },
             {
-              name: 'RAW Images',
+              name: t('app:dialog.filters.raw'),
               extensions: processedRaw,
             },
             {
-              name: 'Standard Images (JPEG, PNG, etc.)',
+              name: t('app:dialog.filters.standard'),
               extensions: processedNonRaw,
             },
             {
-              name: 'All Files',
+              name: t('app:dialog.filters.allFiles'),
               extensions: ['*'],
             },
           ],
           multiple: true,
-          title: 'Select files to import',
+          title: t('app:dialog.importTitle'),
         });
 
         if (Array.isArray(selected) && selected.length > 0) {
@@ -3625,9 +3632,10 @@ function App() {
         }
       } catch (err) {
         console.error('Failed to open file dialog for import:', err);
+        setError(t('app:errors.failedToOpenImportDialog', { reason: String(err) }));
       }
     },
-    [supportedTypes],
+    [supportedTypes, t],
   );
 
   const handleEditorContextMenu = (event: any) => {
@@ -3641,7 +3649,7 @@ function App() {
         await refreshImageList();
       } catch (err) {
         console.error('Failed to create virtual copy:', err);
-        setError(`Failed to create virtual copy: ${err}`);
+        setError(t('app:errors.failedToCreateVirtualCopy', { reason: String(err) }));
       }
     };
 
@@ -3649,7 +3657,7 @@ function App() {
 
     const options: Array<Option> = [
       {
-        label: 'Export Image',
+        label: t('app:actions.exportImage', { count: 1 }),
         icon: Save,
         onClick: () => {
           setRenderedRightPanel(Panel.Export);
@@ -3657,32 +3665,32 @@ function App() {
         },
       },
       { type: OPTION_SEPARATOR },
-      { label: 'Undo', icon: Undo, onClick: undo, disabled: !canUndo },
-      { label: 'Redo', icon: Redo, onClick: redo, disabled: !canRedo },
+      { label: t('app:actions.undo'), icon: Undo, onClick: undo, disabled: !canUndo },
+      { label: t('app:actions.redo'), icon: Redo, onClick: redo, disabled: !canRedo },
       { type: OPTION_SEPARATOR },
-      { label: 'Copy Adjustments', icon: Copy, onClick: handleCopyAdjustments },
+      { label: t('app:actions.copyAdjustments'), icon: Copy, onClick: handleCopyAdjustments },
       {
-        label: 'Paste Adjustments',
+        label: t('app:actions.pasteAdjustments', { count: 1 }),
         icon: ClipboardPaste,
         onClick: handlePasteAdjustments,
         disabled: copiedAdjustments === null,
       },
       {
-        label: 'Productivity',
+        label: t('app:menu.productivity'),
         icon: Gauge,
         submenu: [
           {
-            label: 'Auto Adjust Image',
+            label: t('app:actions.autoAdjust', { count: 1 }),
             icon: Aperture,
             onClick: handleAutoAdjustments,
           },
           {
             icon: CopyPlus,
-            label: 'Create Virtual Copy',
+            label: t('app:actions.createVirtualCopy'),
             onClick: () => handleCreateVirtualCopy(selectedImage.path),
           },
           {
-            label: 'Denoise',
+            label: t('app:actions.denoise'),
             icon: Grip,
             onClick: () => {
               setDenoiseModalState({
@@ -3696,7 +3704,7 @@ function App() {
             },
           },
           {
-            label: 'Convert Negative',
+            label: t('app:actions.convertNegative'),
             icon: Film,
             onClick: () => {
               if (selectedImage) {
@@ -3710,16 +3718,16 @@ function App() {
           {
             disabled: true,
             icon: SquaresUnite,
-            label: 'Stitch Panorama',
+            label: t('app:actions.stitchPanorama'),
           },
           {
             disabled: true,
             icon: Images,
-            label: 'Merge to HDR',
+            label: t('app:actions.mergeHdr'),
           },
           {
             icon: LayoutTemplate,
-            label: 'Frame Image',
+            label: t('app:actions.frameImage', { count: 1 }),
             onClick: () => {
               setCollageModalState({
                 isOpen: true,
@@ -3728,7 +3736,7 @@ function App() {
             },
           },
           {
-            label: 'Cull Image',
+            label: t('app:actions.cullImage', { count: 1 }),
             icon: Users,
             disabled: true,
           },
@@ -3736,18 +3744,18 @@ function App() {
       },
       { type: OPTION_SEPARATOR },
       {
-        label: 'Rating',
+        label: t('app:menu.rating'),
         icon: Star,
         submenu: [0, 1, 2, 3, 4, 5].map((rating: number) => ({
-          label: rating === 0 ? 'No Rating' : `${rating} Star${rating !== 1 ? 's' : ''}`,
+          label: rating === 0 ? t('app:rating.none') : t('app:rating.stars', { count: rating }),
           onClick: () => handleRate(rating),
         })),
       },
       {
-        label: 'Color Label',
+        label: t('app:menu.colorLabel'),
         icon: Palette,
         submenu: [
-          { label: 'No Label', onClick: () => handleSetColorLabel(null) },
+          { label: t('app:labels.noLabel'), onClick: () => handleSetColorLabel(null) },
           ...COLOR_LABELS.map((label: Color) => ({
             label: label.name.charAt(0).toUpperCase() + label.name.slice(1),
             color: label.color,
@@ -3756,7 +3764,7 @@ function App() {
         ],
       },
       {
-        label: 'Tagging',
+        label: t('app:menu.tagging'),
         icon: Tag,
         submenu: [
           {
@@ -3772,7 +3780,7 @@ function App() {
       },
       { type: OPTION_SEPARATOR },
       {
-        label: 'Reset Adjustments',
+        label: t('app:actions.resetAdjustments', { count: 1 }),
         icon: RotateCcw,
         onClick: () => {
           debouncedSetHistory.cancel();
@@ -3817,8 +3825,8 @@ function App() {
     const selectionCount = finalSelection.length;
     const isSingleSelection = selectionCount === 1;
     const isEditingThisImage = selectedImage?.path === path;
-    const deleteLabel = isSingleSelection ? 'Delete Image' : `Delete ${selectionCount} Images`;
-    const exportLabel = isSingleSelection ? 'Export Image' : `Export ${selectionCount} Images`;
+    const deleteLabel = t('app:actions.deleteImage', { count: selectionCount });
+    const exportLabel = t('app:actions.exportImage', { count: selectionCount });
 
     const selectionHasVirtualCopies =
       isSingleSelection &&
@@ -3837,9 +3845,9 @@ function App() {
     let deleteSubmenu;
     if (selectionHasVirtualCopies) {
       deleteSubmenu = [
-        { label: 'Cancel', icon: X, onClick: () => {} },
+        { label: t('app:actions.cancel'), icon: X, onClick: () => {} },
         {
-          label: 'Confirm Delete + Virtual Copies',
+          label: t('app:actions.confirmDeleteVirtualCopies'),
           icon: Check,
           isDestructive: true,
           onClick: () => executeDelete(finalSelection, { includeAssociated: false }),
@@ -3847,15 +3855,15 @@ function App() {
       ];
     } else if (hasAssociatedFiles) {
       deleteSubmenu = [
-        { label: 'Cancel', icon: X, onClick: () => {} },
+        { label: t('app:actions.cancel'), icon: X, onClick: () => {} },
         {
-          label: 'Delete Selected Only',
+          label: t('app:actions.deleteSelectedOnly'),
           icon: Check,
           isDestructive: true,
           onClick: () => executeDelete(finalSelection, { includeAssociated: false }),
         },
         {
-          label: 'Delete + Associated',
+          label: t('app:actions.deleteAssociated'),
           icon: Check,
           isDestructive: true,
           onClick: () => executeDelete(finalSelection, { includeAssociated: true }),
@@ -3863,9 +3871,9 @@ function App() {
       ];
     } else {
       deleteSubmenu = [
-        { label: 'Cancel', icon: X, onClick: () => {} },
+        { label: t('app:actions.cancel'), icon: X, onClick: () => {} },
         {
-          label: 'Confirm',
+          label: t('app:actions.confirm'),
           icon: Check,
           isDestructive: true,
           onClick: () => executeDelete(finalSelection, { includeAssociated: false }),
@@ -3880,15 +3888,15 @@ function App() {
       submenu: deleteSubmenu,
     };
 
-    const pasteLabel = isSingleSelection ? 'Paste Adjustments' : `Paste Adjustments to ${selectionCount} Images`;
-    const resetLabel = isSingleSelection ? 'Reset Adjustments' : `Reset Adjustments on ${selectionCount} Images`;
-    const copyLabel = isSingleSelection ? 'Copy Image' : `Copy ${selectionCount} Images`;
-    const autoAdjustLabel = isSingleSelection ? 'Auto Adjust Image' : `Auto Adjust Images`;
-    const renameLabel = isSingleSelection ? 'Rename Image' : `Rename ${selectionCount} Images`;
-    const cullLabel = isSingleSelection ? 'Cull Image' : `Cull Images`;
-    const collageLabel = isSingleSelection ? 'Frame Image' : 'Create Collage';
-    const stitchLabel = `Stitch Panorama`;
-    const mergeLabel = `Merge to HDR`;
+    const pasteLabel = t('app:actions.pasteAdjustments', { count: selectionCount });
+    const resetLabel = t('app:actions.resetAdjustments', { count: selectionCount });
+    const copyLabel = t('app:actions.copyImage', { count: selectionCount });
+    const autoAdjustLabel = t('app:actions.autoAdjust', { count: selectionCount });
+    const renameLabel = t('app:actions.renameImage', { count: selectionCount });
+    const cullLabel = t('app:actions.cullImage', { count: selectionCount });
+    const collageLabel = t('app:actions.frameImage', { count: selectionCount });
+    const stitchLabel = t('app:actions.stitchPanorama');
+    const mergeLabel = t('app:actions.mergeHdr');
 
     const handleCreateVirtualCopy = async (sourcePath: string) => {
       try {
@@ -3896,7 +3904,7 @@ function App() {
         await refreshImageList();
       } catch (err) {
         console.error('Failed to create virtual copy:', err);
-        setError(`Failed to create virtual copy: ${err}`);
+        setError(t('app:errors.failedToCreateVirtualCopy', { reason: String(err) }));
       }
     };
 
@@ -3927,7 +3935,7 @@ function App() {
         })
         .catch((err) => {
           console.error('Failed to apply auto adjustments to paths:', err);
-          setError(`Failed to apply auto adjustments: ${err}`);
+          setError(t('app:errors.failedToApplyAutoAdjustments', { reason: String(err) }));
         });
     };
 
@@ -3949,7 +3957,7 @@ function App() {
             {
               disabled: !isSingleSelection,
               icon: Edit,
-              label: 'Edit Image',
+              label: t('app:actions.editImage'),
               onClick: () => handleImageSelect(finalSelection[0]),
             },
             {
@@ -3970,7 +3978,7 @@ function App() {
       {
         disabled: !isSingleSelection,
         icon: Copy,
-        label: 'Copy Adjustments',
+        label: t('app:actions.copyAdjustments'),
         onClick: async () => {
           try {
             const metadata: any = await invoke(Invokes.LoadMetadata, { path: finalSelection[0] });
@@ -3987,7 +3995,7 @@ function App() {
             setIsCopied(true);
           } catch (err) {
             console.error('Failed to load metadata for copy:', err);
-            setError(`Failed to copy adjustments: ${err}`);
+            setError(t('app:errors.failedToCopyAdjustments', { reason: String(err) }));
           }
         },
       },
@@ -3998,7 +4006,7 @@ function App() {
         onClick: handlePasteAdjustments,
       },
       {
-        label: 'Productivity',
+        label: t('app:menu.productivity'),
         icon: Gauge,
         submenu: [
           {
@@ -4009,11 +4017,11 @@ function App() {
           {
             disabled: !isSingleSelection,
             icon: CopyPlus,
-            label: 'Create Virtual Copy',
+            label: t('app:actions.createVirtualCopy'),
             onClick: () => handleCreateVirtualCopy(finalSelection[0]),
           },
           {
-            label: 'Denoise',
+            label: t('app:actions.denoise'),
             icon: Grip,
             disabled: !isSingleSelection,
             onClick: () => {
@@ -4028,7 +4036,7 @@ function App() {
             },
           },
           {
-            label: 'Convert Negative',
+            label: t('app:actions.convertNegative'),
             icon: Film,
             disabled: !isSingleSelection,
             onClick: () => {
@@ -4123,14 +4131,14 @@ function App() {
       {
         disabled: !isSingleSelection,
         icon: CopyPlus,
-        label: 'Duplicate Image',
+        label: t('app:actions.duplicateImage'),
         onClick: async () => {
           try {
             await invoke(Invokes.DuplicateFile, { path: finalSelection[0] });
             await refreshImageList();
           } catch (err) {
             console.error('Failed to duplicate file:', err);
-            setError(`Failed to duplicate file: ${err}`);
+            setError(t('app:errors.failedToDuplicateFile', { reason: String(err) }));
           }
         },
       },
@@ -4138,17 +4146,17 @@ function App() {
       { type: OPTION_SEPARATOR },
       {
         icon: Star,
-        label: 'Rating',
+        label: t('app:menu.rating'),
         submenu: [0, 1, 2, 3, 4, 5].map((rating: number) => ({
-          label: rating === 0 ? 'No Rating' : `${rating} Star${rating !== 1 ? 's' : ''}`,
+          label: rating === 0 ? t('app:rating.none') : t('app:rating.stars', { count: rating }),
           onClick: () => handleRate(rating, finalSelection),
         })),
       },
       {
-        label: 'Color Label',
+        label: t('app:menu.colorLabel'),
         icon: Palette,
         submenu: [
-          { label: 'No Label', onClick: () => handleSetColorLabel(null, finalSelection) },
+          { label: t('app:labels.noLabel'), onClick: () => handleSetColorLabel(null, finalSelection) },
           ...COLOR_LABELS.map((label: Color) => ({
             label: label.name.charAt(0).toUpperCase() + label.name.slice(1),
             color: label.color,
@@ -4157,7 +4165,7 @@ function App() {
         ],
       },
       {
-        label: 'Tagging',
+        label: t('app:menu.tagging'),
         icon: Tag,
         submenu: [
           {
@@ -4175,10 +4183,10 @@ function App() {
       {
         disabled: !isSingleSelection,
         icon: Folder,
-        label: 'Show in File Explorer',
+        label: t('app:actions.showInExplorer'),
         onClick: () => {
           invoke(Invokes.ShowInFinder, { path: finalSelection[0] }).catch((err) =>
-            setError(`Could not show file in explorer: ${err}`),
+            setError(t('app:errors.failedToShowInExplorer', { reason: String(err) })),
           );
         },
       },
@@ -4194,7 +4202,7 @@ function App() {
         await invoke(Invokes.CreateFolder, { path: `${folderActionTarget}/${folderName.trim()}` });
         refreshAllFolderTrees();
       } catch (err) {
-        setError(`Failed to create folder: ${err}`);
+        setError(t('app:errors.failedToCreateFolder', { reason: String(err) }));
       }
     }
   };
@@ -4238,7 +4246,7 @@ function App() {
         await refreshAllFolderTrees();
 
       } catch (err) {
-        setError(`Failed to rename folder: ${err}`);
+        setError(t('app:errors.failedToRenameFolder', { reason: String(err) }));
       }
     }
   };
@@ -4252,18 +4260,18 @@ function App() {
     }
     const isRoot = targetPath === rootPath;
     const numCopied = copiedFilePaths.length;
-    const copyPastedLabel = numCopied === 1 ? 'Copy image here' : `Copy ${numCopied} images here`;
-    const movePastedLabel = numCopied === 1 ? 'Move image here' : `Move ${numCopied} images here`;
+    const copyPastedLabel = t('app:actions.copyImageHere', { count: numCopied });
+    const movePastedLabel = t('app:actions.moveImageHere', { count: numCopied });
 
     const pinOption = isCurrentlyPinned
       ? {
           icon: PinOff,
-          label: 'Unpin Folder',
+          label: t('app:actions.unpinFolder'),
           onClick: () => handleTogglePinFolder(targetPath),
         }
       : {
           icon: Pin,
-          label: 'Pin Folder',
+          label: t('app:actions.pinFolder'),
           onClick: () => handleTogglePinFolder(targetPath),
         };
 
@@ -4272,7 +4280,7 @@ function App() {
       { type: OPTION_SEPARATOR },
       {
         icon: FolderPlus,
-        label: 'New Folder',
+        label: t('app:actions.newFolder'),
         onClick: () => {
           setFolderActionTarget(targetPath);
           setIsCreateFolderModalOpen(true);
@@ -4281,7 +4289,7 @@ function App() {
       {
         disabled: isRoot,
         icon: FileEdit,
-        label: 'Rename Folder',
+        label: t('app:actions.renameFolder'),
         onClick: () => {
           setFolderActionTarget(targetPath);
           setIsRenameFolderModalOpen(true);
@@ -4291,7 +4299,7 @@ function App() {
       {
         disabled: copiedFilePaths.length === 0,
         icon: ClipboardPaste,
-        label: 'Paste',
+        label: t('app:actions.paste'),
         submenu: [
           {
             label: copyPastedLabel,
@@ -4300,7 +4308,7 @@ function App() {
                 await invoke(Invokes.CopyFiles, { sourcePaths: copiedFilePaths, destinationFolder: targetPath });
                 if (targetPath === currentFolderPath) handleLibraryRefresh();
               } catch (err) {
-                setError(`Failed to copy files: ${err}`);
+                setError(t('app:errors.failedToCopyFiles', { reason: String(err) }));
               }
             },
           },
@@ -4314,19 +4322,21 @@ function App() {
                 refreshAllFolderTrees();
                 handleLibraryRefresh();
               } catch (err) {
-                setError(`Failed to move files: ${err}`);
+                setError(t('app:errors.failedToMoveFiles', { reason: String(err) }));
               }
             },
           },
         ],
       },
-      { icon: FolderInput, label: 'Import Images', onClick: () => handleImportClick(targetPath) },
+      { icon: FolderInput, label: t('app:actions.importImages'), onClick: () => handleImportClick(targetPath) },
       { type: OPTION_SEPARATOR },
       {
         icon: Folder,
-        label: 'Show in File Explorer',
+        label: t('app:actions.showInExplorer'),
         onClick: () =>
-          invoke(Invokes.ShowInFinder, { path: targetPath }).catch((err) => setError(`Could not show folder: ${err}`)),
+          invoke(Invokes.ShowInFinder, { path: targetPath }).catch((err) =>
+            setError(t('app:errors.failedToShowFolder', { reason: String(err) })),
+          ),
       },
       ...(path
         ? [
@@ -4334,11 +4344,11 @@ function App() {
               disabled: isRoot,
               icon: Trash2,
               isDestructive: true,
-              label: 'Delete Folder',
+              label: t('app:actions.deleteFolder'),
               submenu: [
-                { label: 'Cancel', icon: X, onClick: () => {} },
+                { label: t('app:actions.cancel'), icon: X, onClick: () => {} },
                 {
-                  label: 'Confirm',
+                  label: t('app:actions.confirm'),
                   icon: Check,
                   isDestructive: true,
                   onClick: async () => {
@@ -4347,7 +4357,7 @@ function App() {
                       if (currentFolderPath?.startsWith(targetPath)) await handleSelectSubfolder(rootPath);
                       refreshAllFolderTrees();
                     } catch (err) {
-                      setError(`Failed to delete folder: ${err}`);
+                      setError(t('app:errors.failedToDeleteFolder', { reason: String(err) }));
                     }
                   },
                 },
@@ -4363,12 +4373,12 @@ function App() {
     event.preventDefault();
     event.stopPropagation();
     const numCopied = copiedFilePaths.length;
-    const copyPastedLabel = numCopied === 1 ? 'Copy image here' : `Copy ${numCopied} images here`;
-    const movePastedLabel = numCopied === 1 ? 'Move image here' : `Move ${numCopied} images here`;
+    const copyPastedLabel = t('app:actions.copyImageHere', { count: numCopied });
+    const movePastedLabel = t('app:actions.moveImageHere', { count: numCopied });
 
     const options = [
       {
-        label: 'Paste',
+        label: t('app:actions.paste'),
         icon: ClipboardPaste,
         disabled: copiedFilePaths.length === 0,
         submenu: [
@@ -4379,7 +4389,7 @@ function App() {
                 await invoke(Invokes.CopyFiles, { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
                 handleLibraryRefresh();
               } catch (err) {
-                setError(`Failed to copy files: ${err}`);
+                setError(t('app:errors.failedToCopyFiles', { reason: String(err) }));
               }
             },
           },
@@ -4393,7 +4403,7 @@ function App() {
                 refreshAllFolderTrees();
                 handleLibraryRefresh();
               } catch (err) {
-                setError(`Failed to move files: ${err}`);
+                setError(t('app:errors.failedToMoveFiles', { reason: String(err) }));
               }
             },
           },
@@ -4401,7 +4411,7 @@ function App() {
       },
       {
         icon: FolderInput,
-        label: 'Import Images',
+        label: t('app:actions.importImages'),
         onClick: () => handleImportClick(currentFolderPath as string),
         disabled: !currentFolderPath,
       },

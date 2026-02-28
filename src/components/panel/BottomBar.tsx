@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Star, Copy, ClipboardPaste, RotateCcw, ChevronUp, ChevronDown, Check, Save, Loader2, Settings } from 'lucide-react';
 import clsx from 'clsx';
 import Filmstrip from './Filmstrip';
@@ -49,6 +50,7 @@ interface StarRatingProps {
 }
 
 const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
+  const { t } = useTranslation();
   return (
     <div className={clsx('flex items-center gap-1', disabled && 'cursor-not-allowed')}>
       {[...Array(5)].map((_, index: number) => {
@@ -59,7 +61,11 @@ const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
             disabled={disabled}
             key={starValue}
             onClick={() => !disabled && onRate(starValue === rating ? 0 : starValue)}
-            data-tooltip={disabled ? 'Select an image to rate' : `Rate ${starValue} star${starValue > 1 ? 's' : ''}`}
+            data-tooltip={
+              disabled
+                ? t('app:bottomBar.selectImageToRate')
+                : t('app:bottomBar.rateStars', { count: starValue })
+            }
           >
             <Star
               size={18}
@@ -116,6 +122,7 @@ export default function BottomBar({
   baseRenderSize,
   totalImages,
 }: BottomBarProps) {
+  const { t } = useTranslation();
   const [isEditingPercent, setIsEditingPercent] = useState(false);
   const [percentInputValue, setPercentInputValue] = useState('');
   const isDraggingSlider = useRef(false);
@@ -271,7 +278,7 @@ export default function BottomBar({
               className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               disabled={isCopyDisabled}
               onClick={onCopy}
-              data-tooltip="Copy Settings"
+              data-tooltip={t('app:bottomBar.copySettings')}
             >
               {isCopied ? <Check size={18} className="text-green-500 animate-pop-in" /> : <Copy size={18} />}
             </button>
@@ -279,14 +286,14 @@ export default function BottomBar({
               className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               disabled={isPasteDisabled}
               onClick={onPaste}
-              data-tooltip="Paste Settings"
+              data-tooltip={t('app:bottomBar.pasteSettings')}
             >
               {isPasted ? <Check size={18} className="text-green-500 animate-pop-in" /> : <ClipboardPaste size={18} />}
             </button>
             <button
               className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
               onClick={onOpenCopyPasteSettings}
-              data-tooltip="Copy & Paste Settings"
+              data-tooltip={t('app:bottomBar.copyPasteSettings')}
             >
               <Settings size={18} />
             </button>
@@ -298,7 +305,9 @@ export default function BottomBar({
             )}
           >
             <div className="h-5 w-px bg-surface mr-4"></div>
-            <span className="text-sm text-text-secondary whitespace-nowrap">{numSelected} of {total} images selected</span>
+            <span className="text-sm text-text-secondary whitespace-nowrap">
+              {t('app:bottomBar.selectionCount', { selected: numSelected, total })}
+            </span>
           </div>
         </div>
         <div className="flex-grow" />
@@ -308,7 +317,7 @@ export default function BottomBar({
               className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               disabled={isResetDisabled}
               onClick={onReset}
-              data-tooltip="Reset All Adjustments"
+              data-tooltip={t('app:bottomBar.resetAllAdjustments')}
             >
               <RotateCcw size={18} />
             </button>
@@ -316,7 +325,7 @@ export default function BottomBar({
               className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               disabled={isExportDisabled}
               onClick={onExportClick}
-              data-tooltip="Export"
+              data-tooltip={t('app:bottomBar.export')}
             >
               <Save size={18} />
             </button>
@@ -329,7 +338,7 @@ export default function BottomBar({
                 onClick={handleResetZoom}
                 onMouseEnter={() => setIsZoomLabelHovered(true)}
                 onMouseLeave={() => setIsZoomLabelHovered(false)}
-                data-tooltip="Reset Zoom to Fit Window"
+                data-tooltip={t('app:bottomBar.resetZoomToFitWindow')}
               >
                 <span className="absolute right-0 text-xs text-text-secondary select-none text-right w-max transition-colors hover:text-text-primary">
                   {isZoomLabelHovered ? 'Reset Zoom' : 'Zoom'}
@@ -373,7 +382,7 @@ export default function BottomBar({
                   <span
                     onClick={handlePercentClick}
                     className="cursor-pointer hover:text-text-primary transition-colors select-none"
-                    data-tooltip="Click to enter custom zoom percentage"
+                    data-tooltip={t('app:bottomBar.enterCustomZoom')}
                   >
                     {latchedDisplayPercent}%
                   </span>
@@ -384,7 +393,11 @@ export default function BottomBar({
             <button
               className="p-1.5 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
               onClick={() => setIsFilmstripVisible?.(!isFilmstripVisible)}
-              data-tooltip={isFilmstripVisible ? 'Collapse Filmstrip' : 'Expand Filmstrip'}
+              data-tooltip={
+                isFilmstripVisible
+                  ? t('app:bottomBar.collapseFilmstrip')
+                  : t('app:bottomBar.expandFilmstrip')
+              }
             >
               {isFilmstripVisible ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
             </button>

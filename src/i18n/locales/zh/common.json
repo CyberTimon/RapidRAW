@@ -1,0 +1,23 @@
+{
+  "language": {
+    "label": "语言",
+    "fr": "法语",
+    "es": "西班牙语",
+    "en": "英语",
+    "zh": "中文"
+  },
+  "actions": {
+    "close": "关闭",
+    "cancel": "取消",
+    "openInEditor": "在编辑器中打开",
+    "save": "保存",
+    "saving": "正在保存...",
+    "retry": "重试",
+    "start": "开始"
+  },
+  "status": {
+    "processing": "处理中...",
+    "errorOccurred": "发生错误。",
+    "initializing": "初始化中..."
+  }
+}

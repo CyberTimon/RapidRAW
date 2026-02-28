@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const LOCALES_ROOT = path.join(process.cwd(), 'src', 'i18n', 'locales');
 const SOURCE_LOCALE = 'en';
-const TARGET_LOCALES = ['fr', 'es'];
+const TARGET_LOCALES = ['fr', 'es', 'zh'];
 
 const PLACEHOLDER_PATTERN = /\{([a-zA-Z_][\w]*)\s*(?:,|\})/g;
 const BLOCKED_EMPTY_MARKERS = /^(TODO|TBD|__MISSING__)$/i;

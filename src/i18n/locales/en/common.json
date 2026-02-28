@@ -3,7 +3,8 @@
     "label": "Language",
     "fr": "French",
     "es": "Spanish",
-    "en": "English"
+    "en": "English",
+    "zh": "Chinese"
   },
   "actions": {
     "close": "Close",

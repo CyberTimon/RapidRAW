@@ -1,0 +1,27 @@
+{
+  "panorama": {
+    "failed": "全景失败",
+    "saved": "全景已保存！",
+    "stitching": "全景拼接",
+    "save": "保存全景"
+  },
+  "hdr": {
+    "failed": "HDR 失败",
+    "saved": "HDR 已保存！",
+    "merging": "HDR 合并",
+    "save": "保存 HDR"
+  },
+  "denoise": {
+    "processingFailed": "处理失败",
+    "imageSaved": "图片已成功保存！",
+    "denoisingImage": "正在降噪",
+    "denoiseImage": "降噪",
+    "adjustIntensity": "调整下方强度，然后点击开始进行预览。",
+    "strength": "强度",
+    "saveImage": "保存图片",
+    "panZoomEnabled": "已启用平移和缩放",
+    "reset": "重置",
+    "original": "原图",
+    "denoised": "已降噪"
+  }
+}
