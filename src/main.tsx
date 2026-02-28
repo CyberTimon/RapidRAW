@@ -3,7 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
 import App from './App';
 import i18n from './i18n/i18n';
+import { installFrontendLogBridge } from './utils/frontendLogBridge';
 import './styles.css';
+
+installFrontendLogBridge();
 
 const root = createRoot(document.getElementById('root')!);
 root.render(
