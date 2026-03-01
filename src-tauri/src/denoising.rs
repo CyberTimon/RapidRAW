@@ -31,21 +31,16 @@ struct Bm3dParams {
 }
 
 impl Bm3dParams {
-    fn from_intensity(i: f32, use_cbm3d: bool) -> Self {
+    fn from_intensity(i: f32) -> Self {
         let val = i.clamp(0.001, 1.0);
-        let sigma = val * 80.0;
-        let lambda = 2.0 + (val * 2.5);
-        let dist = 3000.0 + (val * 20000.0);
-        // In CBM3D mode, chroma channels receive ~1.8x more smoothing than luma.
-        // This targets the coarser colour blobs typical of small-sensor chroma noise
-        // without further eroding luminance micro-detail.
-        let chroma_sigma_scale = if use_cbm3d { 1.8 } else { 1.0 };
-
         Self {
-            sigma,
-            hard_th_lambda: lambda,
-            max_dist_hard: dist,
-            chroma_sigma_scale,
+            sigma: val * 80.0,
+            hard_th_lambda: 2.0 + (val * 2.5),
+            max_dist_hard: 3000.0 + (val * 20000.0),
+            // Chroma channels (Cb, Cr) receive 1.8x stronger smoothing than luma (Y),
+            // suppressing the coarse colour blobs typical of small-sensor chroma noise
+            // without eroding luminance micro-detail.
+            chroma_sigma_scale: 1.8,
         }
     }
 }
@@ -87,7 +82,6 @@ fn ycbcr_to_rgb(y: &[f32], cb: &[f32], cr: &[f32]) -> (Vec<f32>, Vec<f32>, Vec<f
 pub fn denoise_image(
     path_str: String,
     intensity: f32,
-    use_cbm3d: bool,
     app_handle: AppHandle,
 ) -> Result<(DynamicImage, String), String> {
     let path = Path::new(&path_str);
@@ -123,19 +117,14 @@ pub fn denoise_image(
 
     let (width, height) = rgb_img_for_denoiser.dimensions();
 
-    let params = Bm3dParams::from_intensity(intensity, use_cbm3d);
+    let params = Bm3dParams::from_intensity(intensity);
     let dct_tables = Arc::new(DctTables::new());
 
+    // Convert to YCbCr so the denoiser applies stronger smoothing to the
+    // chrominance channels (Cb, Cr) independently of luminance (Y).
     let rgb_channels = split_channels(&rgb_img_for_denoiser);
-
-    // In CBM3D mode, convert to YCbCr so the denoiser can apply stronger smoothing
-    // to the chrominance channels (Cb, Cr) independently of luminance (Y).
-    let channels = if use_cbm3d {
-        let (y, cb, cr) = rgb_to_ycbcr(&rgb_channels[0], &rgb_channels[1], &rgb_channels[2]);
-        vec![y, cb, cr]
-    } else {
-        rgb_channels
-    };
+    let (y, cb, cr) = rgb_to_ycbcr(&rgb_channels[0], &rgb_channels[1], &rgb_channels[2]);
+    let channels = vec![y, cb, cr];
 
     let patches_x = (width as usize).saturating_sub(BLOCK_SIZE) / STRIDE + 1;
     let patches_y = (height as usize).saturating_sub(BLOCK_SIZE) / STRIDE + 1;
@@ -156,15 +145,10 @@ pub fn denoise_image(
     );
 
     // Convert denoised YCbCr back to RGB before building the output image.
-    let final_channels = if use_cbm3d {
-        let (r, g, b) = ycbcr_to_rgb(&denoised_channels[0], &denoised_channels[1], &denoised_channels[2]);
-        vec![r, g, b]
-    } else {
-        denoised_channels
-    };
+    let (r, g, b) = ycbcr_to_rgb(&denoised_channels[0], &denoised_channels[1], &denoised_channels[2]);
 
     let _ = app_handle.emit("denoise-progress", "Finalizing data...");
-    let out_img_buffer = merge_channels(&final_channels, width, height);
+    let out_img_buffer = merge_channels(&vec![r, g, b], width, height);
     let out_dynamic = DynamicImage::ImageRgb32F(out_img_buffer);
 
     let _ = app_handle.emit("denoise-progress", "Generating previews...");
@@ -377,10 +361,14 @@ fn run_bm3d_step_joint(
     for ch in 0..num_channels {
         let num_vec = numerators[ch].to_vec();
         let den_vec = denominators[ch].to_vec();
+        // For pixels not covered by any block (right/bottom edge remainder),
+        // fall back to the original noisy value. Falling back to zero produces a
+        // visible green fringe after YCbCr→RGB conversion: (Y=0,Cb=0,Cr=0) → ~(0,135,0).
         let final_ch = num_vec
             .iter()
             .zip(den_vec.iter())
-            .map(|(&n, &d)| if d > 1e-6 { n / d } else { n })
+            .zip(noisy[ch].iter())
+            .map(|((&n, &d), &orig)| if d > 1e-6 { n / d } else { orig })
             .collect();
         results.push(final_ch);
     }
