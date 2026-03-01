@@ -346,6 +346,10 @@ pub struct AppSettings {
     pub enable_xmp_sync: Option<bool>,
     #[serde(default)]
     pub create_xmp_if_missing: Option<bool>,
+    /// When true, denoising operates in CBM3D mode (separate luma/chroma sigma).
+    /// Defaults to true — better chroma noise handling for small sensors.
+    #[serde(default)]
+    pub cbm3d_denoising: Option<bool>,
 }
 
 fn default_adjustment_visibility() -> HashMap<String, bool> {
@@ -406,6 +410,7 @@ impl Default for AppSettings {
             linear_raw_mode: default_linear_raw_mode(),
             enable_xmp_sync: Some(true),
             create_xmp_if_missing: Some(false),
+            cbm3d_denoising: Some(true),
         }
     }
 }

@@ -3210,6 +3210,7 @@ async fn save_hdr(
 async fn apply_denoising(
     path: String,
     intensity: f32,
+    use_cbm3d: bool,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -3219,7 +3220,7 @@ async fn apply_denoising(
     let denoise_result_handle = state.denoise_result.clone();
 
     tokio::task::spawn_blocking(move || {
-        match denoising::denoise_image(path_str, intensity, app_handle.clone()) {
+        match denoising::denoise_image(path_str, intensity, use_cbm3d, app_handle.clone()) {
             Ok((image, _base64_ignored_in_this_handler_logic)) => {
                 *denoise_result_handle.lock().unwrap() = Some(image);
             }

@@ -25,26 +25,69 @@ struct Bm3dParams {
     sigma: f32,
     hard_th_lambda: f32,
     max_dist_hard: f32,
+    /// Multiplier applied to sigma for chrominance channels (Cb, Cr) in CBM3D mode.
+    /// Set to 1.0 for standard BM3D (all channels equal).
+    chroma_sigma_scale: f32,
 }
 
 impl Bm3dParams {
-    fn from_intensity(i: f32) -> Self {
+    fn from_intensity(i: f32, use_cbm3d: bool) -> Self {
         let val = i.clamp(0.001, 1.0);
         let sigma = val * 80.0;
         let lambda = 2.0 + (val * 2.5);
         let dist = 3000.0 + (val * 20000.0);
+        // In CBM3D mode, chroma channels receive ~1.8x more smoothing than luma.
+        // This targets the coarser colour blobs typical of small-sensor chroma noise
+        // without further eroding luminance micro-detail.
+        let chroma_sigma_scale = if use_cbm3d { 1.8 } else { 1.0 };
 
         Self {
             sigma,
             hard_th_lambda: lambda,
             max_dist_hard: dist,
+            chroma_sigma_scale,
         }
     }
+}
+
+/// Convert planar RGB channels (0-255 range) to YCbCr using ITU-R BT.601 coefficients.
+/// Y  carries luminance; Cb and Cr carry blue-difference and red-difference chrominance.
+/// Cb/Cr are offset by 128 so they sit in the same 0-255 range as Y.
+fn rgb_to_ycbcr(r: &[f32], g: &[f32], b: &[f32]) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+    let n = r.len();
+    let mut y  = vec![0.0f32; n];
+    let mut cb = vec![0.0f32; n];
+    let mut cr = vec![0.0f32; n];
+    for i in 0..n {
+        let rv = r[i]; let gv = g[i]; let bv = b[i];
+        y[i]  =  0.299    * rv + 0.587    * gv + 0.114    * bv;
+        cb[i] = -0.168736 * rv - 0.331264 * gv + 0.5      * bv + 128.0;
+        cr[i] =  0.5      * rv - 0.418688 * gv - 0.081312 * bv + 128.0;
+    }
+    (y, cb, cr)
+}
+
+/// Inverse of `rgb_to_ycbcr`. Converts Y, Cb, Cr (all 0-255, Cb/Cr offset by 128) back to RGB.
+fn ycbcr_to_rgb(y: &[f32], cb: &[f32], cr: &[f32]) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+    let n = y.len();
+    let mut r = vec![0.0f32; n];
+    let mut g = vec![0.0f32; n];
+    let mut b = vec![0.0f32; n];
+    for i in 0..n {
+        let yv  = y[i];
+        let cbv = cb[i] - 128.0;
+        let crv = cr[i] - 128.0;
+        r[i] = yv + 1.402    * crv;
+        g[i] = yv - 0.344136 * cbv - 0.714136 * crv;
+        b[i] = yv + 1.772    * cbv;
+    }
+    (r, g, b)
 }
 
 pub fn denoise_image(
     path_str: String,
     intensity: f32,
+    use_cbm3d: bool,
     app_handle: AppHandle,
 ) -> Result<(DynamicImage, String), String> {
     let path = Path::new(&path_str);
@@ -80,10 +123,19 @@ pub fn denoise_image(
 
     let (width, height) = rgb_img_for_denoiser.dimensions();
 
-    let params = Bm3dParams::from_intensity(intensity);
+    let params = Bm3dParams::from_intensity(intensity, use_cbm3d);
     let dct_tables = Arc::new(DctTables::new());
 
-    let channels = split_channels(&rgb_img_for_denoiser);
+    let rgb_channels = split_channels(&rgb_img_for_denoiser);
+
+    // In CBM3D mode, convert to YCbCr so the denoiser can apply stronger smoothing
+    // to the chrominance channels (Cb, Cr) independently of luminance (Y).
+    let channels = if use_cbm3d {
+        let (y, cb, cr) = rgb_to_ycbcr(&rgb_channels[0], &rgb_channels[1], &rgb_channels[2]);
+        vec![y, cb, cr]
+    } else {
+        rgb_channels
+    };
 
     let patches_x = (width as usize).saturating_sub(BLOCK_SIZE) / STRIDE + 1;
     let patches_y = (height as usize).saturating_sub(BLOCK_SIZE) / STRIDE + 1;
@@ -103,8 +155,16 @@ pub fn denoise_image(
         &app_handle,
     );
 
+    // Convert denoised YCbCr back to RGB before building the output image.
+    let final_channels = if use_cbm3d {
+        let (r, g, b) = ycbcr_to_rgb(&denoised_channels[0], &denoised_channels[1], &denoised_channels[2]);
+        vec![r, g, b]
+    } else {
+        denoised_channels
+    };
+
     let _ = app_handle.emit("denoise-progress", "Finalizing data...");
-    let out_img_buffer = merge_channels(&denoised_channels, width, height);
+    let out_img_buffer = merge_channels(&final_channels, width, height);
     let out_dynamic = DynamicImage::ImageRgb32F(out_img_buffer);
 
     let _ = app_handle.emit("denoise-progress", "Generating previews...");
@@ -257,6 +317,14 @@ fn run_bm3d_step_joint(
             let guide_ch = &guide[ch];
             let noisy_ch = &noisy[ch];
 
+            // Channel 0 = luma (Y) or red; channels 1-2 = chroma (Cb/Cr) or green/blue.
+            // chroma_sigma_scale is 1.0 in standard BM3D and ~1.8 in CBM3D mode.
+            let ch_sigma = if ch == 0 {
+                params.sigma
+            } else {
+                params.sigma * params.chroma_sigma_scale
+            };
+
             let mut guide_stack = build_3d_group(guide_ch, w, group_locs);
             let mut noisy_stack = if is_step_1 {
                 guide_stack.clone()
@@ -271,7 +339,7 @@ fn run_bm3d_step_joint(
 
             let weight;
             if is_step_1 {
-                let threshold = params.hard_th_lambda * params.sigma;
+                let threshold = params.hard_th_lambda * ch_sigma;
                 let nonzero = hard_threshold(&mut guide_stack, threshold);
                 weight = if nonzero > 0 {
                     1.0 / (nonzero as f32)
@@ -280,7 +348,7 @@ fn run_bm3d_step_joint(
                 };
                 noisy_stack = guide_stack;
             } else {
-                weight = wiener_filter(&mut noisy_stack, &guide_stack, params.sigma);
+                weight = wiener_filter(&mut noisy_stack, &guide_stack, ch_sigma);
             }
 
             inverse_transform_3d(&mut noisy_stack, group_size, tables);

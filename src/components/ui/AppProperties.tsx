@@ -151,6 +151,7 @@ export interface AppSettings {
   linearRawMode?: string;
   enableXmpSync?: boolean;
   createXmpIfMissing?: boolean;
+  cbm3dDenoising?: boolean;
 }
 
 export interface BrushSettings {

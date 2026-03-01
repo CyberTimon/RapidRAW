@@ -6,14 +6,16 @@ import Slider from '../ui/Slider';
 interface DenoiseModalProps {
   isOpen: boolean;
   onClose(): void;
-  onDenoise(intensity: number): void;
+  onDenoise(intensity: number, useCbm3d: boolean): void;
   onSave(): Promise<string>;
   onOpenFile(path: string): void;
+  onModeChange(useCbm3d: boolean): void;
   error: string | null;
   previewBase64: string | null;
   originalBase64: string | null;
   isProcessing: boolean;
   progressMessage: string | null;
+  defaultUseCbm3d: boolean;
 }
 
 const ImageCompare = ({ original, denoised }: { original: string; denoised: string }) => {
@@ -173,16 +175,20 @@ export default function DenoiseModal({
   onDenoise,
   onSave,
   onOpenFile,
+  onModeChange,
   error,
   previewBase64,
   originalBase64,
   isProcessing,
   progressMessage,
+  defaultUseCbm3d,
 }: DenoiseModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
-  // Initializing at 50 (0-100 range) instead of 0.5 so the Slider displays integer percentages
-  const [intensity, setIntensity] = useState<number>(50);
+  // Default at 35 — empirically the sweet spot for chroma noise on small sensors
+  // without muddying luminance detail (50 was found to be too aggressive).
+  const [intensity, setIntensity] = useState<number>(35);
+  const [useCbm3d, setUseCbm3d] = useState<boolean>(defaultUseCbm3d);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
   
@@ -223,7 +229,13 @@ export default function DenoiseModal({
   const handleRunDenoise = () => {
     setSavedPath(null);
     // Convert 0-100 back to 0-1 for the processing function
-    onDenoise(intensity / 100);
+    onDenoise(intensity / 100, useCbm3d);
+  };
+
+  const handleToggleMode = () => {
+    const next = !useCbm3d;
+    setUseCbm3d(next);
+    onModeChange(next);
   };
 
   const handleSave = async () => {
@@ -325,12 +337,26 @@ export default function DenoiseModal({
                 min={0}
                 max={100}
                 step={1}
-                defaultValue={50}
+                defaultValue={35}
                 onChange={(e) => setIntensity(Number(e.target.value))}
                 trackClassName="bg-bg-secondary"
             />
         </div>
-        
+
+        <button
+          onClick={handleToggleMode}
+          disabled={disabled}
+          className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md text-xs transition-colors border ${
+            useCbm3d
+              ? 'border-accent bg-accent/10 text-accent'
+              : 'border-border-color text-text-secondary hover:bg-card-active'
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+          data-tooltip={useCbm3d ? 'CBM3D: separate luma/chroma denoising (recommended for colour noise)' : 'BM3D: uniform denoising across all channels'}
+        >
+          <span className="font-bold leading-none">{useCbm3d ? 'CBM3D' : 'BM3D'}</span>
+          <span className="text-[10px] leading-none opacity-70">{useCbm3d ? 'chroma split' : 'uniform'}</span>
+        </button>
+
         <div className="h-8 w-px bg-surface mx-2" />
 
         <div className="flex gap-2">
