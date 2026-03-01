@@ -152,7 +152,7 @@ function TreeNode({
     <div className="text-sm">
       <div
         className={clsx('flex items-center gap-2 p-1.5 rounded-md transition-colors', {
-          'bg-surface': isSelected,
+          'bg-accent/20': isSelected,
           'hover:bg-card-active': !isSelected,
         })}
         onClick={handleNameClick}
