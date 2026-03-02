@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::image_processing::downscale_f32_image;
 use crate::AppState;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, specta::Type)]
 pub struct NegativeConversionParams {
     pub red_weight: f32,
     pub green_weight: f32,
@@ -168,6 +168,7 @@ fn run_pipeline(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn preview_negative_conversion(
     path: String,
     params: NegativeConversionParams,
@@ -246,6 +247,7 @@ pub async fn preview_negative_conversion(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn convert_negative_full(
     path: String,
     params: NegativeConversionParams,
@@ -311,6 +313,7 @@ pub async fn convert_negative_full(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn save_converted_negative(
     original_path_str: String,
     state: tauri::State<'_, AppState>,

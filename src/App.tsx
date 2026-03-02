@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { homeDir } from '@tauri-apps/api/path';
@@ -95,7 +94,6 @@ import {
   AppSettings,
   BrushSettings,
   FilterCriteria,
-  Invokes,
   ImageFile,
   Option,
   OPTION_SEPARATOR,
@@ -118,8 +116,65 @@ import {
 } from './components/ui/AppProperties';
 import { ChannelConfig } from './components/adjustments/Curves';
 import HdrModal from './components/modals/HdrModal';
+import { commands, events } from './bindings';
 
 const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
+
+type InvokeArgs = Record<string, any>;
+
+function invoke<T = unknown>(command: string, args: InvokeArgs = {}): Promise<T> {
+  switch (command) {
+    case 'apply_adjustments': return commands.applyAdjustments(args.jsAdjustments, args.isInteractive) as Promise<T>;
+    case 'apply_adjustments_to_paths': return commands.applyAdjustmentsToPaths(args.paths, args.adjustments) as Promise<T>;
+    case 'apply_auto_adjustments_to_paths': return commands.applyAutoAdjustmentsToPaths(args.paths) as Promise<T>;
+    case 'apply_denoising': return commands.applyDenoising(args.path, args.intensity) as Promise<T>;
+    case 'calculate_auto_adjustments': return commands.calculateAutoAdjustments() as Promise<T>;
+    case 'cancel_thumbnail_generation': return commands.cancelThumbnailGeneration() as Promise<T>;
+    case 'copy_files': return commands.copyFiles(args.sourcePaths, args.destinationFolder) as Promise<T>;
+    case 'create_folder': return commands.createFolder(args.path) as Promise<T>;
+    case 'create_virtual_copy': return commands.createVirtualCopy(args.sourceVirtualPath) as Promise<T>;
+    case 'delete_files_from_disk': return commands.deleteFilesFromDisk(args.paths) as Promise<T>;
+    case 'delete_files_with_associated': return commands.deleteFilesWithAssociated(args.paths) as Promise<T>;
+    case 'delete_folder': return commands.deleteFolder(args.path) as Promise<T>;
+    case 'duplicate_file': return commands.duplicateFile(args.path) as Promise<T>;
+    case 'frontend_ready': return commands.frontendReady() as Promise<T>;
+    case 'generate_ai_foreground_mask': return commands.generateAiForegroundMask(args.jsAdjustments, args.rotation, args.flipHorizontal, args.flipVertical, args.orientationSteps) as Promise<T>;
+    case 'generate_ai_sky_mask': return commands.generateAiSkyMask(args.jsAdjustments, args.rotation, args.flipHorizontal, args.flipVertical, args.orientationSteps) as Promise<T>;
+    case 'generate_ai_subject_mask': return commands.generateAiSubjectMask(args.jsAdjustments, args.path, args.startPoint, args.endPoint, args.rotation, args.flipHorizontal, args.flipVertical, args.orientationSteps) as Promise<T>;
+    case 'generate_fullscreen_preview': return commands.generateFullscreenPreview(args.jsAdjustments) as Promise<T>;
+    case 'generate_original_transformed_preview': return commands.generateOriginalTransformedPreview(args.jsAdjustments) as Promise<T>;
+    case 'generate_uncropped_preview': return commands.generateUncroppedPreview(args.jsAdjustments) as Promise<T>;
+    case 'generate_waveform': return commands.generateWaveform() as Promise<T>;
+    case 'get_folder_tree': return commands.getFolderTree(args.path) as Promise<T>;
+    case 'get_pinned_folder_trees': return commands.getPinnedFolderTrees(args.paths) as Promise<T>;
+    case 'get_supported_file_types': return commands.getSupportedFileTypes() as Promise<T>;
+    case 'import_files': return commands.importFiles(args.sourcePaths, args.destinationFolder, args.settings) as Promise<T>;
+    case 'invoke_generative_replace_with_mask_def': return commands.invokeGenerativeReplaceWithMaskDef(args.path, args.patchDefinition, args.currentAdjustments, args.useFastInpaint, args.token) as Promise<T>;
+    case 'list_images_in_dir': return commands.listImagesInDir(args.path) as Promise<T>;
+    case 'list_images_recursive': return commands.listImagesRecursive(args.path) as Promise<T>;
+    case 'load_and_parse_lut': return commands.loadAndParseLut(args.path) as Promise<T>;
+    case 'load_image': return commands.loadImage(args.path) as Promise<T>;
+    case 'load_metadata': return commands.loadMetadata(args.path) as Promise<T>;
+    case 'load_settings': return commands.loadSettings() as Promise<T>;
+    case 'merge_hdr': return commands.mergeHdr(args.paths) as Promise<T>;
+    case 'move_files': return commands.moveFiles(args.sourcePaths, args.destinationFolder) as Promise<T>;
+    case 'read_exif_for_paths': return commands.readExifForPaths(args.paths) as Promise<T>;
+    case 'rename_files': return commands.renameFiles(args.paths, args.nameTemplate) as Promise<T>;
+    case 'rename_folder': return commands.renameFolder(args.path, args.newName) as Promise<T>;
+    case 'reset_adjustments_for_paths': return commands.resetAdjustmentsForPaths(args.paths) as Promise<T>;
+    case 'save_collage': return commands.saveCollage(args.base64Data, args.firstPathStr) as Promise<T>;
+    case 'save_hdr': return commands.saveHdr(args.firstPathStr) as Promise<T>;
+    case 'save_metadata_and_update_thumbnail': return commands.saveMetadataAndUpdateThumbnail(args.path, args.adjustments) as Promise<T>;
+    case 'save_panorama': return commands.savePanorama(args.firstPathStr) as Promise<T>;
+    case 'save_settings': return commands.saveSettings(args.settings) as Promise<T>;
+    case 'set_color_label_for_paths': return commands.setColorLabelForPaths(args.paths, args.color) as Promise<T>;
+    case 'show_in_finder': return commands.showInFinder(args.path) as Promise<T>;
+    case 'start_background_indexing': return commands.startBackgroundIndexing(args.folderPath) as Promise<T>;
+    case 'stitch_panorama': return commands.stitchPanorama(args.paths) as Promise<T>;
+    case 'update_window_effect': return commands.updateWindowEffect(args.theme) as Promise<T>;
+    default: return Promise.reject(new Error(`Unsupported invoke command: ${command}`));
+  }
+}
 
 interface CollapsibleSectionsState {
   basic: boolean;
@@ -682,14 +737,14 @@ function App() {
   }, [libraryViewMode]);
 
   useEffect(() => {
-    const unlisten = listen('ai-connector-status-update', (event: any) => {
+    const unlisten = events.aiConnectorStatusUpdate.listen((event) => {
       setisAIConnectorConnected(event.payload.connected);
     });
-    invoke(Invokes.CheckAIConnectorStatus);
-    const interval = setInterval(() => invoke(Invokes.CheckAIConnectorStatus), 10000);
+    void commands.checkAiConnectorStatus();
+    const interval = setInterval(() => void commands.checkAiConnectorStatus(), 10000);
     return () => {
       clearInterval(interval);
-      unlisten.then((f) => f());
+      unlisten.then((f) => void f());
     };
   }, []);
 
@@ -729,7 +784,7 @@ function App() {
       setIsGeneratingAi(true);
 
       try {
-        const newPatchDataJson: any = await invoke(Invokes.InvokeGenerativeReplaseWithMaskDef, {
+        const newPatchDataJson: any = await invoke('invoke_generative_replace_with_mask_def', {
           currentAdjustments: adjustments,
           patchDefinition: patchDefinition,
           path: selectedImage.path,
@@ -815,7 +870,7 @@ function App() {
           lensVignetteEnabled: adjustments.lensVignetteEnabled,
         };
 
-        const newMaskParams: any = await invoke(Invokes.GenerateAiSubjectMask, {
+        const newMaskParams: any = await invoke('generate_ai_subject_mask', {
           jsAdjustments: transformAdjustments,
           endPoint: [endPoint.x, endPoint.y],
           flipHorizontal: adjustments.flipHorizontal,
@@ -845,7 +900,7 @@ function App() {
         };
 
         const patchDefinitionForBackend = updatedAdjustmentsForBackend.aiPatches.find((p: AiPatch) => p.id === patchId);
-        const newPatchDataJson: any = await invoke(Invokes.InvokeGenerativeReplaseWithMaskDef, {
+        const newPatchDataJson: any = await invoke('invoke_generative_replace_with_mask_def', {
           currentAdjustments: updatedAdjustmentsForBackend,
           patchDefinition: { ...patchDefinitionForBackend, prompt: '' },
           path: selectedImage.path,
@@ -960,7 +1015,7 @@ function App() {
         lensTcaEnabled: adjustments.lensTcaEnabled,
         lensVignetteEnabled: adjustments.lensVignetteEnabled,
       };
-      const newParameters = await invoke(Invokes.GenerateAiSubjectMask, {
+      const newParameters = await invoke('generate_ai_subject_mask', {
         jsAdjustments: transformAdjustments,
         endPoint: [endPoint.x, endPoint.y],
         flipHorizontal: adjustments.flipHorizontal,
@@ -1012,7 +1067,7 @@ function App() {
         lensTcaEnabled: adjustments.lensTcaEnabled,
         lensVignetteEnabled: adjustments.lensVignetteEnabled,
       };
-      const newParameters = await invoke(Invokes.GenerateAiForegroundMask, {
+      const newParameters = await invoke('generate_ai_foreground_mask', {
         jsAdjustments: transformAdjustments,
         flipHorizontal: adjustments.flipHorizontal,
         flipVertical: adjustments.flipVertical,
@@ -1061,7 +1116,7 @@ function App() {
         lensTcaEnabled: adjustments.lensTcaEnabled,
         lensVignetteEnabled: adjustments.lensVignetteEnabled,
       };
-      const newParameters = await invoke(Invokes.GenerateAiSkyMask, {
+      const newParameters = await invoke('generate_ai_sky_mask', {
         jsAdjustments: transformAdjustments,
         flipHorizontal: adjustments.flipHorizontal,
         flipVertical: adjustments.flipVertical,
@@ -1342,7 +1397,7 @@ function App() {
       }
 
       try {
-        await invoke(Invokes.ApplyAdjustments, {
+        await invoke('apply_adjustments', {
           jsAdjustments: payload,
           isInteractive: dragging
         });
@@ -1365,7 +1420,7 @@ function App() {
       if (!selectedImage?.isReady) {
         return;
       }
-      invoke(Invokes.GenerateUncroppedPreview, { jsAdjustments: currentAdjustments }).catch((err) =>
+      invoke('generate_uncropped_preview', { jsAdjustments: currentAdjustments }).catch((err) =>
         console.error('Failed to generate uncropped preview:', err),
       );
     }, 50),
@@ -1374,7 +1429,7 @@ function App() {
 
   const debouncedSave = useCallback(
     debounce((path, adjustmentsToSave) => {
-      invoke(Invokes.SaveMetadataAndUpdateThumbnail, { path, adjustments: adjustmentsToSave }).catch((err) => {
+      invoke('save_metadata_and_update_thumbnail', { path, adjustments: adjustmentsToSave }).catch((err) => {
         console.error('Auto-save failed:', err);
         setError(`Failed to save changes: ${err}`);
       });
@@ -1474,7 +1529,7 @@ function App() {
 
       const { searchCriteria: _searchCriteria, ...settingsToSave } = newSettings as any;
       setAppSettings(newSettings);
-      invoke(Invokes.SaveSettings, { settings: settingsToSave }).catch((err) => {
+      invoke('save_settings', { settings: settingsToSave }).catch((err) => {
         console.error('Failed to save settings:', err);
       });
     },
@@ -1482,7 +1537,7 @@ function App() {
   );
 
   useEffect(() => {
-    invoke(Invokes.LoadSettings)
+    invoke('load_settings')
       .then(async (settings: any) => {
         if (
           !settings.copyPasteSettings ||
@@ -1524,7 +1579,7 @@ function App() {
         }
         if (settings?.pinnedFolders && settings.pinnedFolders.length > 0) {
           try {
-            const trees = await invoke(Invokes.GetPinnedFolderTrees, { paths: settings.pinnedFolders });
+            const trees = await invoke('get_pinned_folder_trees', { paths: settings.pinnedFolders });
             setPinnedFolderTrees(trees);
           } catch (err) {
             console.error('Failed to load pinned folder trees:', err);
@@ -1537,13 +1592,13 @@ function App() {
 
           const command =
             settings.libraryViewMode === LibraryViewMode.Recursive
-              ? Invokes.ListImagesRecursive
-              : Invokes.ListImagesInDir;
+              ? 'list_images_recursive'
+              : 'list_images_in_dir';
 
           preloadedDataRef.current = {
             rootPath: root,
             currentPath: currentPath,
-            tree: invoke(Invokes.GetFolderTree, { path: root }),
+            tree: invoke('get_folder_tree', { path: root }),
             images: invoke(command, { path: currentPath })
           };
         }
@@ -1600,7 +1655,7 @@ function App() {
   }, [libraryViewMode, appSettings, handleSettingsChange]);
 
   useEffect(() => {
-    invoke(Invokes.GetSupportedFileTypes)
+    invoke('get_supported_file_types')
       .then((types: any) => setSupportedTypes(types))
       .catch((err) => console.error('Failed to load supported file types:', err));
   }, []);
@@ -1659,7 +1714,7 @@ function App() {
     });
 
     const isLight = [Theme.Light, Theme.Snow, Theme.Arctic].includes(effectThemeForWindow);
-    invoke(Invokes.UpdateWindowEffect, { theme: isLight ? Theme.Light : Theme.Dark });
+    invoke('update_window_effect', { theme: isLight ? Theme.Light : Theme.Dark });
   }, [theme, adaptivePalette]);
 
   useEffect(() => {
@@ -1677,7 +1732,7 @@ function App() {
   const refreshAllFolderTrees = useCallback(async () => {
     if (rootPath) {
       try {
-        const treeData = await invoke(Invokes.GetFolderTree, { path: rootPath });
+        const treeData = await invoke('get_folder_tree', { path: rootPath });
         setFolderTree(treeData);
       } catch (err) {
         console.error('Failed to refresh main folder tree:', err);
@@ -1688,7 +1743,7 @@ function App() {
     const currentPins = appSettings?.pinnedFolders || [];
     if (currentPins.length > 0) {
       try {
-        const trees = await invoke(Invokes.GetPinnedFolderTrees, { paths: currentPins });
+        const trees = await invoke('get_pinned_folder_trees', { paths: currentPins });
         setPinnedFolderTrees(trees);
       } catch (err) {
         console.error('Failed to refresh pinned folder trees:', err);
@@ -1713,7 +1768,7 @@ function App() {
     handleSettingsChange({ ...appSettings, pinnedFolders: newPins });
 
     try {
-      const trees = await invoke(Invokes.GetPinnedFolderTrees, { paths: newPins });
+      const trees = await invoke('get_pinned_folder_trees', { paths: newPins });
       setPinnedFolderTrees(trees);
     } catch (err) {
       console.error('Failed to refresh pinned folders:', err);
@@ -1774,7 +1829,7 @@ function App() {
           setIsTreeLoading(true);
           handleSettingsChange({ ...appSettings, lastRootPath: path } as AppSettings);
           try {
-            const treeData = await invoke(Invokes.GetFolderTree, { path });
+            const treeData = await invoke('get_folder_tree', { path });
             setFolderTree(treeData);
           } catch (err) {
             console.error('Failed to load folder tree:', err);
@@ -1796,7 +1851,7 @@ function App() {
         }
 
         const command =
-          libraryViewMode === LibraryViewMode.Recursive ? Invokes.ListImagesRecursive : Invokes.ListImagesInDir;
+          libraryViewMode === LibraryViewMode.Recursive ? 'list_images_recursive' : 'list_images_in_dir';
 
         let files: ImageFile[];
         if (preloadedImages) {
@@ -1813,7 +1868,7 @@ function App() {
           const paths = files.map((f: ImageFile) => f.path);
 
           if (isExifSortActive) {
-            const exifDataMap: Record<string, any> = await invoke(Invokes.ReadExifForPaths, { paths });
+            const exifDataMap: Record<string, any> = await invoke('read_exif_for_paths', { paths });
             const finalImageList = files.map((image) => ({
               ...image,
               exif: exifDataMap[image.path] || image.exif || null,
@@ -1821,7 +1876,7 @@ function App() {
             setImageList(finalImageList);
           } else {
             setImageList(files);
-            invoke(Invokes.ReadExifForPaths, { paths })
+            invoke('read_exif_for_paths', { paths })
               .then((exifDataMap: any) => {
                 setImageList((currentImageList) =>
                   currentImageList.map((image) => ({
@@ -1838,7 +1893,7 @@ function App() {
           setImageList(files);
         }
 
-        invoke(Invokes.StartBackgroundIndexing, { folderPath: path }).catch((err) => {
+        invoke('start_background_indexing', { folderPath: path }).catch((err) => {
           console.error('Failed to start background indexing:', err);
         });
       } catch (err) {
@@ -1868,7 +1923,7 @@ function App() {
     if (!currentFolderPath) return;
     try {
       const command =
-        libraryViewMode === LibraryViewMode.Recursive ? Invokes.ListImagesRecursive : Invokes.ListImagesInDir;
+        libraryViewMode === LibraryViewMode.Recursive ? 'list_images_recursive' : 'list_images_in_dir';
 
       const files: ImageFile[] = await invoke(command, { path: currentFolderPath });
       const exifSortKeys = ['date_taken', 'iso', 'shutter_speed', 'aperture', 'focal_length'];
@@ -1879,7 +1934,7 @@ function App() {
 
       if (shouldReadExif && files.length > 0 && isExifSortActive) {
         const paths = files.map((f: ImageFile) => f.path);
-        freshExifData = await invoke(Invokes.ReadExifForPaths, { paths });
+        freshExifData = await invoke('read_exif_for_paths', { paths });
       }
 
       setImageList((prevList) => {
@@ -1901,7 +1956,7 @@ function App() {
 
       if (shouldReadExif && files.length > 0 && !isExifSortActive) {
         const paths = files.map((f: ImageFile) => f.path);
-        invoke(Invokes.ReadExifForPaths, { paths })
+        invoke('read_exif_for_paths', { paths })
           .then((exifDataMap: any) => {
             setImageList((currentImageList) =>
               currentImageList.map((image) => {
@@ -2219,7 +2274,7 @@ function App() {
         setAdjustments(newAdjustments);
       }
 
-      invoke(Invokes.ApplyAdjustmentsToPaths, { paths: pathsToUpdate, adjustments: adjustmentsToApply }).catch(
+      invoke('apply_adjustments_to_paths', { paths: pathsToUpdate, adjustments: adjustmentsToApply }).catch(
         (err) => {
           console.error('Failed to paste adjustments to multiple images:', err);
           setError(`Failed to paste adjustments: ${err}`);
@@ -2235,7 +2290,7 @@ function App() {
       return;
     }
     try {
-      const autoAdjustments: Adjustments = await invoke(Invokes.CalculateAutoAdjustments);
+      const autoAdjustments: Adjustments = await invoke('calculate_auto_adjustments');
       setAdjustments((prev: Adjustments) => {
         const newAdjustments = { ...prev, ...autoAdjustments };
         newAdjustments.sectionVisibility = {
@@ -2284,7 +2339,7 @@ function App() {
         setLibraryActiveAdjustments((prev) => ({ ...prev, rating: finalRating }));
       }
 
-      invoke(Invokes.ApplyAdjustmentsToPaths, { paths: pathsToRate, adjustments: { rating: finalRating } }).catch(
+      invoke('apply_adjustments_to_paths', { paths: pathsToRate, adjustments: { rating: finalRating } }).catch(
         (err) => {
           console.error('Failed to apply rating to paths:', err);
           setError(`Failed to apply rating: ${err}`);
@@ -2319,7 +2374,7 @@ function App() {
       }
       const finalColor = color !== null && color === currentColor ? null : color;
       try {
-        await invoke(Invokes.SetColorLabelForPaths, { paths: pathsToUpdate, color: finalColor });
+        await invoke('set_color_label_for_paths', { paths: pathsToUpdate, color: finalColor });
 
         setImageList((prevList: Array<ImageFile>) =>
           prevList.map((image: ImageFile) => {
@@ -2386,9 +2441,9 @@ function App() {
       }
       try {
         if (mode === 'copy')
-          await invoke(Invokes.CopyFiles, { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
+          await invoke('copy_files', { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
         else {
-          await invoke(Invokes.MoveFiles, { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
+          await invoke('move_files', { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
           setCopiedFilePaths([]);
         }
         await refreshImageList();
@@ -2410,7 +2465,7 @@ function App() {
       const request = { cancelled: false };
       fullResRequestRef.current = request;
 
-      invoke(Invokes.GenerateFullscreenPreview, {
+      invoke('generate_fullscreen_preview', {
         jsAdjustments: currentAdjustments,
       })
         .then(() => {
@@ -2681,6 +2736,13 @@ function App() {
           setIndexingProgress(event.payload);
         }
       }),
+      listen('indexing-error', (event: any) => {
+        if (isEffectActive) {
+          setIsIndexing(false);
+          setIndexingProgress({ current: 0, total: 0 });
+          setError(typeof event.payload === 'string' ? event.payload : 'Indexing error');
+        }
+      }),
       listen('indexing-finished', () => {
         if (isEffectActive) {
           setIsIndexing(false);
@@ -2688,7 +2750,7 @@ function App() {
           if (currentFolderPathRef.current) {
             const refreshImageList = async () => {
               try {
-                const list: ImageFile[] = await invoke(Invokes.ListImagesInDir, { path: currentFolderPathRef.current });
+                const list: ImageFile[] = await invoke('list_images_in_dir', { path: currentFolderPathRef.current });
                 if (Array.isArray(list)) {
                   setImageList(list);
                 }
@@ -2708,6 +2770,17 @@ function App() {
       listen('export-complete', () => {
         if (isEffectActive) {
           setExportState((prev: ExportState) => ({ ...prev, status: Status.Success }));
+        }
+      }),
+      listen('export-complete-with-errors', (event: any) => {
+        if (isEffectActive) {
+          const errors = event.payload?.errors ?? 0;
+          const total = event.payload?.total ?? 0;
+          setExportState((prev: ExportState) => ({
+            ...prev,
+            status: Status.Error,
+            errorMessage: `Export completed with errors (${errors}/${total}).`,
+          }));
         }
       }),
       listen('export-error', (event) => {
@@ -2759,6 +2832,14 @@ function App() {
             errorMessage: typeof event.payload === 'string' ? event.payload : 'An unknown import error occurred.',
             status: Status.Error,
           }));
+        }
+      }),
+      listen('thumbnail-generation-error', (event: any) => {
+        if (isEffectActive) {
+          const payload = event.payload;
+          if (payload?.reason) {
+            setError(`Thumbnail generation error: ${payload.reason}`);
+          }
         }
       }),
       listen('denoise-progress', (event: any) => {
@@ -2820,7 +2901,7 @@ function App() {
 
   useEffect(() => {
     if (libraryActivePath) {
-      invoke(Invokes.LoadMetadata, { path: libraryActivePath })
+      invoke('load_metadata', { path: libraryActivePath })
         .then((metadata: any) => {
           if (metadata.adjustments && !metadata.adjustments.is_null) {
             const normalized: Adjustments = normalizeLoadedAdjustments(metadata.adjustments);
@@ -2876,11 +2957,22 @@ function App() {
       }
     });
 
+    const unlistenWarning = listen('panorama-warning', (event: any) => {
+      if (isEffectActive) {
+        const warning = String(event.payload);
+        setPanoramaModalState((prev: PanoramaModalState) => ({
+          ...prev,
+          progressMessage: warning,
+        }));
+      }
+    });
+
     return () => {
       isEffectActive = false;
       unlistenProgress.then((f: any) => f());
       unlistenComplete.then((f: any) => f());
       unlistenError.then((f: any) => f());
+      unlistenWarning.then((f: any) => f());
     };
   }, []);
 
@@ -2956,18 +3048,11 @@ function App() {
       }
     });
 
-    const unlistenError = listen('culling-error', (event: any) => {
-      if (isEffectActive) {
-        setCullingModalState((prev) => ({ ...prev, progress: null, error: String(event.payload) }));
-      }
-    });
-
     return () => {
       isEffectActive = false;
       unlistenStart.then((f) => f());
       unlistenProgress.then((f) => f());
       unlistenComplete.then((f) => f());
-      unlistenError.then((f) => f());
     };
   }, []);
 
@@ -2979,7 +3064,7 @@ function App() {
     }
 
     try {
-      const savedPath: string = await invoke(Invokes.SavePanorama, {
+      const savedPath: string = await invoke('save_panorama', {
         firstPathStr: panoramaModalState.stitchingSourcePaths[0],
       });
       await refreshImageList();
@@ -2999,7 +3084,7 @@ function App() {
     }
 
     try {
-      const savedPath: string = await invoke(Invokes.SaveHdr, {
+      const savedPath: string = await invoke('save_hdr', {
         firstPathStr: hdrModalState.stitchingSourcePaths[0],
       });
       await refreshImageList();
@@ -3022,7 +3107,7 @@ function App() {
     }));
 
     try {
-        await invoke(Invokes.ApplyDenoising, {
+        await invoke('apply_denoising', {
             path: denoiseModalState.targetPath,
             intensity: intensity
         });
@@ -3037,7 +3122,7 @@ function App() {
 
   const handleSaveDenoisedImage = async (): Promise<string> => {
     if (!denoiseModalState.targetPath) throw new Error("No target path");
-    const savedPath = await invoke<string>(Invokes.SaveDenoisedImage, {
+    const savedPath = await invoke<string>('save_denoised_image', {
         originalPathStr: denoiseModalState.targetPath
     });
     await refreshImageList();
@@ -3046,7 +3131,7 @@ function App() {
 
   const handleSaveCollage = async (base64Data: string, firstPath: string): Promise<string> => {
     try {
-      const savedPath: string = await invoke(Invokes.SaveCollage, {
+      const savedPath: string = await invoke('save_collage', {
         base64Data,
         firstPathStr: firstPath,
       });
@@ -3168,7 +3253,7 @@ function App() {
            treeData = await preloadedDataRef.current.tree;
            console.log('Preload cache hit for folder tree.');
         } else {
-           treeData = await invoke(Invokes.GetFolderTree, { path: root });
+           treeData = await invoke('get_folder_tree', { path: root });
         }
         setFolderTree(treeData);
       } catch (err) {
@@ -3303,7 +3388,7 @@ function App() {
 
   useEffect(() => {
     const invokeWaveForm = async () => {
-      const waveForm: any = await invoke(Invokes.GenerateWaveform).catch((err) =>
+      const waveForm: any = await invoke('generate_waveform').catch((err) =>
         console.error('Failed to generate waveform:', err),
       );
       if (waveForm) {
@@ -3322,7 +3407,7 @@ function App() {
 
       const loadMetadataEarly = async () => {
         try {
-          const metadata: any = await invoke(Invokes.LoadMetadata, { path: selectedImage.path });
+          const metadata: any = await invoke('load_metadata', { path: selectedImage.path });
           if (!isEffectActive) return;
 
           let initialAdjusts;
@@ -3343,7 +3428,7 @@ function App() {
 
       const loadFullImageData = async () => {
         try {
-          const loadImageResult: any = await invoke(Invokes.LoadImage, { path: selectedImage.path });
+          const loadImageResult: any = await invoke('load_image', { path: selectedImage.path });
           if (!isEffectActive) {
             return;
           }
@@ -3434,7 +3519,7 @@ function App() {
     async (nameTemplate: string) => {
       if (renameTargetPaths.length > 0 && nameTemplate) {
         try {
-          const newPaths: Array<string> = await invoke(Invokes.RenameFiles, {
+          const newPaths: Array<string> = await invoke('rename_files', {
             nameTemplate,
             paths: renameTargetPaths,
           });
@@ -3474,7 +3559,7 @@ function App() {
 
   const handleStartImport = async (settings: AppSettings) => {
     if (importSourcePaths.length > 0 && importTargetFolder) {
-      invoke(Invokes.ImportFiles, {
+      invoke('import_files', {
         destinationFolder: importTargetFolder,
         settings: settings,
         sourcePaths: importSourcePaths,
@@ -3494,7 +3579,7 @@ function App() {
 
       debouncedSetHistory.cancel();
 
-      invoke(Invokes.ResetAdjustmentsForPaths, { paths: pathsToReset })
+      invoke('reset_adjustments_for_paths', { paths: pathsToReset })
         .then(() => {
           if (libraryActivePath && pathsToReset.includes(libraryActivePath)) {
             setLibraryActiveAdjustments((prev: Adjustments) => ({ ...INITIAL_ADJUSTMENTS, rating: prev.rating }));
@@ -3577,7 +3662,7 @@ function App() {
 
     const handleCreateVirtualCopy = async (sourcePath: string) => {
       try {
-        await invoke(Invokes.CreateVirtualCopy, { sourceVirtualPath: sourcePath });
+        await invoke('create_virtual_copy', { sourceVirtualPath: sourcePath });
         await refreshImageList();
       } catch (err) {
         console.error('Failed to create virtual copy:', err);
@@ -3832,7 +3917,7 @@ function App() {
 
     const handleCreateVirtualCopy = async (sourcePath: string) => {
       try {
-        await invoke(Invokes.CreateVirtualCopy, { sourceVirtualPath: sourcePath });
+        await invoke('create_virtual_copy', { sourceVirtualPath: sourcePath });
         await refreshImageList();
       } catch (err) {
         console.error('Failed to create virtual copy:', err);
@@ -3843,10 +3928,10 @@ function App() {
     const handleApplyAutoAdjustmentsToSelection = () => {
       if (finalSelection.length === 0) return;
 
-      invoke(Invokes.ApplyAutoAdjustmentsToPaths, { paths: finalSelection })
+      invoke('apply_auto_adjustments_to_paths', { paths: finalSelection })
         .then(async () => {
           if (selectedImage && finalSelection.includes(selectedImage.path)) {
-            const metadata: Metadata = await invoke(Invokes.LoadMetadata, {
+            const metadata: Metadata = await invoke('load_metadata', {
               path: selectedImage.path,
             });
             if (metadata.adjustments && !metadata.adjustments.is_null) {
@@ -3856,7 +3941,7 @@ function App() {
             }
           }
           if (libraryActivePath && finalSelection.includes(libraryActivePath)) {
-            const metadata: Metadata = await invoke(Invokes.LoadMetadata, {
+            const metadata: Metadata = await invoke('load_metadata', {
               path: libraryActivePath,
             });
             if (metadata.adjustments && !metadata.adjustments.is_null) {
@@ -3913,7 +3998,7 @@ function App() {
         label: 'Copy Adjustments',
         onClick: async () => {
           try {
-            const metadata: any = await invoke(Invokes.LoadMetadata, { path: finalSelection[0] });
+            const metadata: any = await invoke('load_metadata', { path: finalSelection[0] });
             const sourceAdjustments =
               metadata.adjustments && !metadata.adjustments.is_null
                 ? { ...INITIAL_ADJUSTMENTS, ...metadata.adjustments }
@@ -3991,7 +4076,7 @@ function App() {
                 progressMessage: 'Starting panorama process...',
                 stitchingSourcePaths: finalSelection,
               });
-              invoke(Invokes.StitchPanorama, { paths: finalSelection }).catch((err) => {
+              invoke('stitch_panorama', { paths: finalSelection }).catch((err) => {
                 setPanoramaModalState((prev: PanoramaModalState) => ({
                   ...prev,
                   error: String(err),
@@ -4013,7 +4098,7 @@ function App() {
                 progressMessage: 'Starting hdr process...',
                 stitchingSourcePaths: finalSelection,
               });
-              invoke(Invokes.MergeHdr, { paths: finalSelection }).catch((err) => {
+              invoke('merge_hdr', { paths: finalSelection }).catch((err) => {
                 setHdrModalState((prev: HdrModalState) => ({
                   ...prev,
                   error: String(err),
@@ -4067,7 +4152,7 @@ function App() {
         label: 'Duplicate Image',
         onClick: async () => {
           try {
-            await invoke(Invokes.DuplicateFile, { path: finalSelection[0] });
+            await invoke('duplicate_file', { path: finalSelection[0] });
             await refreshImageList();
           } catch (err) {
             console.error('Failed to duplicate file:', err);
@@ -4118,7 +4203,7 @@ function App() {
         icon: Folder,
         label: 'Show in File Explorer',
         onClick: () => {
-          invoke(Invokes.ShowInFinder, { path: finalSelection[0] }).catch((err) =>
+          invoke('show_in_finder', { path: finalSelection[0] }).catch((err) =>
             setError(`Could not show file in explorer: ${err}`),
           );
         },
@@ -4132,7 +4217,7 @@ function App() {
   const handleCreateFolder = async (folderName: string) => {
     if (folderName && folderName.trim() !== '' && folderActionTarget) {
       try {
-        await invoke(Invokes.CreateFolder, { path: `${folderActionTarget}/${folderName.trim()}` });
+        await invoke('create_folder', { path: `${folderActionTarget}/${folderName.trim()}` });
         refreshAllFolderTrees();
       } catch (err) {
         setError(`Failed to create folder: ${err}`);
@@ -4146,7 +4231,7 @@ function App() {
         const oldPath = folderActionTarget;
         const trimmedNewName = newName.trim();
 
-        await invoke(Invokes.RenameFolder, { path: oldPath, newName: trimmedNewName });
+        await invoke('rename_folder', { path: oldPath, newName: trimmedNewName });
 
         const parentDir = getParentDir(oldPath);
         const separator = oldPath.includes('/') ? '/' : '\\';
@@ -4238,7 +4323,7 @@ function App() {
             label: copyPastedLabel,
             onClick: async () => {
               try {
-                await invoke(Invokes.CopyFiles, { sourcePaths: copiedFilePaths, destinationFolder: targetPath });
+                await invoke('copy_files', { sourcePaths: copiedFilePaths, destinationFolder: targetPath });
                 if (targetPath === currentFolderPath) handleLibraryRefresh();
               } catch (err) {
                 setError(`Failed to copy files: ${err}`);
@@ -4249,7 +4334,7 @@ function App() {
             label: movePastedLabel,
             onClick: async () => {
               try {
-                await invoke(Invokes.MoveFiles, { sourcePaths: copiedFilePaths, destinationFolder: targetPath });
+                await invoke('move_files', { sourcePaths: copiedFilePaths, destinationFolder: targetPath });
                 setCopiedFilePaths([]);
                 setMultiSelectedPaths([]);
                 refreshAllFolderTrees();
@@ -4267,7 +4352,7 @@ function App() {
         icon: Folder,
         label: 'Show in File Explorer',
         onClick: () =>
-          invoke(Invokes.ShowInFinder, { path: targetPath }).catch((err) => setError(`Could not show folder: ${err}`)),
+          invoke('show_in_finder', { path: targetPath }).catch((err) => setError(`Could not show folder: ${err}`)),
       },
       ...(path
         ? [
@@ -4284,7 +4369,7 @@ function App() {
                   isDestructive: true,
                   onClick: async () => {
                     try {
-                      await invoke(Invokes.DeleteFolder, { path: targetPath });
+                      await invoke('delete_folder', { path: targetPath });
                       if (currentFolderPath?.startsWith(targetPath)) await handleSelectSubfolder(rootPath);
                       refreshAllFolderTrees();
                     } catch (err) {
@@ -4317,7 +4402,7 @@ function App() {
             label: copyPastedLabel,
             onClick: async () => {
               try {
-                await invoke(Invokes.CopyFiles, { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
+                await invoke('copy_files', { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
                 handleLibraryRefresh();
               } catch (err) {
                 setError(`Failed to copy files: ${err}`);
@@ -4328,7 +4413,7 @@ function App() {
             label: movePastedLabel,
             onClick: async () => {
               try {
-                await invoke(Invokes.MoveFiles, { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
+                await invoke('move_files', { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
                 setCopiedFilePaths([]);
                 setMultiSelectedPaths([]);
                 refreshAllFolderTrees();

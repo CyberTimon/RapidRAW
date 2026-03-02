@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, forwardRef, useMemo, useCallback } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../../bindings';
 import { open } from '@tauri-apps/plugin-shell';
 import {
   AlertTriangle,
@@ -29,7 +29,6 @@ import {
   AppSettings,
   FilterCriteria,
   ImageFile,
-  Invokes,
   LibraryViewMode,
   Progress,
   RawStatus,
@@ -1348,7 +1347,7 @@ export default function MainLibrary({
   }, []);
 
   useEffect(() => {
-    invoke(Invokes.GetSupportedFileTypes)
+    commands.getSupportedFileTypes()
       .then((types: any) => setSupportedTypes(types))
       .catch((err) => console.error('Failed to load supported file types:', err));
   }, []);

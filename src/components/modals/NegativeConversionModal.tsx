@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../../bindings';
 import {
   RotateCcw,
   ZoomIn,
@@ -109,10 +109,7 @@ export default function NegativeConversionModal({
     throttle(async (currentParams: NegativeParams, isInitialLoad: boolean = false) => {
       if (!selectedImagePath) return;
       try {
-        const result: string = await invoke('preview_negative_conversion', { 
-            path: selectedImagePath, 
-            params: currentParams 
-        });
+        const result: string = await commands.previewNegativeConversion(selectedImagePath, currentParams);
         setPreviewUrl(result);
         if (isInitialLoad) {
           setIsLoading(false);
@@ -133,10 +130,7 @@ export default function NegativeConversionModal({
       setIsLoading(true);
       setTimeout(() => setShow(true), 10);
       updatePreview(DEFAULT_PARAMS, true);
-      invoke('generate_preview_for_path', { 
-          path: selectedImagePath, 
-          jsAdjustments: {} 
-      }).then((res: any) => {
+      commands.generatePreviewForPath(selectedImagePath || '', {}).then((res: any) => {
           const blob = new Blob([new Uint8Array(res)], { type: 'image/jpeg' });
           setOriginalUrl(URL.createObjectURL(blob));
       }).catch(console.error);
@@ -164,10 +158,8 @@ export default function NegativeConversionModal({
     if (!selectedImagePath) return;
     setIsSaving(true);
     try {
-      await invoke('convert_negative_full', { path: selectedImagePath, params });
-      const savedPath: string = await invoke('save_converted_negative', {
-        originalPathStr: selectedImagePath
-      });
+      await commands.convertNegativeFull(selectedImagePath, params);
+      const savedPath: string = await commands.saveConvertedNegative(selectedImagePath);
       onSave(savedPath);
       onClose();
     } catch (e) {

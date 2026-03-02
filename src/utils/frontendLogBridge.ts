@@ -1,5 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
-import { Invokes } from '../components/ui/AppProperties';
+import { commands } from '../bindings';
 
 type FrontendLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -242,10 +241,10 @@ function sendToBackend(level: FrontendLogLevel, args: unknown[]): void {
     return;
   }
 
-  void invoke(Invokes.FrontendLog, {
+  void commands.frontendLog(
     level,
     message,
-  }).catch(() => {
+  ).catch(() => {
     // Prevent recursion if backend logging channel is unavailable.
   });
 }

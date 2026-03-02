@@ -10,7 +10,7 @@ use tauri::{AppHandle, Emitter};
 
 use crate::image_loader;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CullingSettings {
     pub similarity_threshold: u32,
@@ -19,7 +19,7 @@ pub struct CullingSettings {
     pub filter_blurry: bool,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageAnalysisResult {
     pub path: String,
@@ -31,14 +31,14 @@ pub struct ImageAnalysisResult {
     pub height: u32,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CullGroup {
     pub representative: ImageAnalysisResult,
     pub duplicates: Vec<ImageAnalysisResult>,
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CullingSuggestions {
     pub similar_groups: Vec<CullGroup>,
@@ -181,6 +181,7 @@ fn analyze_image(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn cull_images(
     paths: Vec<String>,
     settings: CullingSettings,

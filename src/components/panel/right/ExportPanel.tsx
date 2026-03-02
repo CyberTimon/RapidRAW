@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../../../bindings';
 import { Save, CheckCircle, XCircle, Loader, Ban } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import Switch from '../../ui/Switch';
@@ -18,7 +18,7 @@ import {
   FileFormats,
   WatermarkAnchor,
 } from '../../ui/ExportImportProperties';
-import { Invokes, SelectedImage, AppSettings } from '../../ui/AppProperties';
+import { SelectedImage, AppSettings } from '../../ui/AppProperties';
 import ExportPresetsList from '../../ui/ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
 
@@ -236,9 +236,7 @@ export default function ExportPanel({
     const fetchWatermarkDimensions = async () => {
       if (watermarkPath) {
         try {
-          const dimensions: { width: number; height: number } = await invoke('get_image_dimensions', {
-            path: watermarkPath,
-          });
+          const dimensions: { width: number; height: number } = await commands.getImageDimensions(watermarkPath);
           if (dimensions.height > 0) {
             setWatermarkImageAspectRatio(dimensions.width / dimensions.height);
           } else {
@@ -276,11 +274,7 @@ export default function ExportPanel({
         }
         setIsEstimating(true);
         try {
-          const size: number = await invoke(Invokes.EstimateExportSize, {
-            jsAdjustments: currentAdjustments,
-            exportSettings,
-            outputFormat: format,
-          });
+          const size: number = await commands.estimateExportSize(currentAdjustments, exportSettings, format);
           setEstimatedSize(size);
         } catch (err) {
           console.error('Failed to estimate export size:', err);
@@ -392,12 +386,12 @@ export default function ExportPanel({
       if (isBatchMode || !isEditorContext) {
         const outputFolder = await open({ title: `Select Folder to Export ${numImages} Image(s)`, directory: true });
         if (outputFolder) {
-          await invoke(Invokes.BatchExportImages, {
-            exportSettings,
+          await commands.batchExportImages(
             outputFolder,
-            outputFormat: FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0],
-            paths: pathsToExport,
-          });
+            pathsToExport,
+            exportSettings,
+            FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0] || 'jpeg',
+          );
         } else {
           setExportState((prev: ExportState) => ({ ...prev, status: Status.Idle }));
         }
@@ -413,12 +407,7 @@ export default function ExportPanel({
           filters: FILE_FORMATS.map((f: FileFormat) => ({ name: f.name, extensions: f.extensions })),
         });
         if (filePath) {
-          await invoke(Invokes.ExportImage, {
-            exportSettings,
-            jsAdjustments: adjustments,
-            originalPath: selectedImage.path,
-            outputPath: filePath,
-          });
+          await commands.exportImage(selectedImage.path, filePath, adjustments, exportSettings);
         } else {
           setExportState((prev: ExportState) => ({ ...prev, status: Status.Idle }));
         }
@@ -435,7 +424,7 @@ export default function ExportPanel({
 
   const handleCancel = async () => {
     try {
-      await invoke(Invokes.CancelExport);
+      await commands.cancelExport();
     } catch (error) {
       console.error('Failed to send cancel request:', error);
     }

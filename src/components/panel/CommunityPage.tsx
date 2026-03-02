@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../../bindings';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -12,7 +12,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import { Invokes, SupportedTypes, ImageFile } from '../ui/AppProperties';
+import { SupportedTypes, ImageFile } from '../ui/AppProperties';
 import { INITIAL_ADJUSTMENTS } from '../../utils/adjustments';
 
 const DEFAULT_PREVIEW_IMAGE_URL = 'https://raw.githubusercontent.com/CyberTimon/RapidRAW-Presets/main/sample-image.jpg';
@@ -75,7 +75,7 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
     try {
       const response = await fetch(DEFAULT_PREVIEW_IMAGE_URL);
       const blob = await response.blob();
-      const tempPath: string = await invoke(Invokes.SaveTempFile, { bytes: Array.from(new Uint8Array(await blob.arrayBuffer())) });
+      const tempPath: string = await commands.saveTempFile(Array.from(new Uint8Array(await blob.arrayBuffer())));
       return tempPath;
     } catch (error) {
       console.error("Failed to fetch default preview image:", error);
@@ -87,7 +87,7 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
     const fetchPresets = async () => {
       setIsLoading(true);
       try {
-        const communityPresets: CommunityPreset[] = await invoke(Invokes.FetchCommunityPresets);
+        const communityPresets: CommunityPreset[] = await commands.fetchCommunityPresets();
         setPresets(communityPresets);
       } catch (error) {
         console.error("Failed to fetch community presets:", error);
@@ -141,13 +141,13 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
     const generateAllPreviews = async () => {
       setAllPreviewsLoaded(false);
       try {
-        const previewDataMap: Record<string, number[]> = await invoke(Invokes.GenerateAllCommunityPreviews, {
-          imagePaths: previewImagePaths,
-          presets: presets.map(p => ({
+        const previewDataMap: Record<string, number[]> = await commands.generateAllCommunityPreviews(
+          previewImagePaths,
+          presets.map((p) => ({
             ...p,
             adjustments: { ...INITIAL_ADJUSTMENTS, ...p.adjustments }
           })),
-        });
+        );
 
         const newPreviews: Record<string, string | null> = {};
         for (const [presetName, imageData] of Object.entries(previewDataMap)) {
@@ -178,10 +178,7 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
           throw new Error("Preset adjustments are missing.");
       }
 
-      await invoke(Invokes.SaveCommunityPreset, {
-        name: preset.name,
-        adjustments: preset.adjustments,
-      });
+      await commands.saveCommunityPreset(preset.name, preset.adjustments);
       setDownloadStatus(prev => ({ ...prev, [preset.name]: 'success' }));
     } catch (error) {
       console.error(`Failed to download preset ${preset.name}:`, error);

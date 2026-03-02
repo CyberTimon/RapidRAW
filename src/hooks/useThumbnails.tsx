@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { ImageFile, Invokes, Progress } from '../components/ui/AppProperties';
+import { commands } from '../bindings';
+import { ImageFile, Progress } from '../components/ui/AppProperties';
 
 export function useThumbnails(imageList: Array<ImageFile>, setThumbnails: any) {
   const [loading, setLoading] = useState(false);
@@ -61,7 +61,7 @@ export function useThumbnails(imageList: Array<ImageFile>, setThumbnails: any) {
       });
 
       try {
-        await invoke(Invokes.GenerateThumbnailsProgressive, { paths: imagePaths });
+        await commands.generateThumbnailsProgressive(imagePaths);
       } catch (error) {
         console.error('Failed to invoke thumbnail generation:', error);
         setLoading(false);

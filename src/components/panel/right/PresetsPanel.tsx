@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../../../bindings';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
 import {
   DndContext,
@@ -34,7 +34,7 @@ import CreateFolderModal from '../../modals/CreateFolderModal';
 import RenameFolderModal from '../../modals/RenameFolderModal';
 import Button from '../../ui/Button';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
-import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
+import { OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -393,9 +393,7 @@ export default function PresetsPanel({
 
       try {
         const fullPresetAdjustments = { ...INITIAL_ADJUSTMENTS, ...preset.adjustments };
-        const imageData: Uint8Array = await invoke(Invokes.GeneratePresetPreview, {
-          jsAdjustments: fullPresetAdjustments,
-        });
+        const imageData: Uint8Array = await commands.generatePresetPreview(fullPresetAdjustments);
         const blob = new Blob([imageData], { type: 'image/jpeg' });
         const url = URL.createObjectURL(blob);
         setPreviews((prev: Record<string, string | null>) => {
@@ -453,9 +451,7 @@ export default function PresetsPanel({
       setIsGeneratingPreviews(true);
       try {
         const fullPresetAdjustments: any = { ...INITIAL_ADJUSTMENTS, ...preset.adjustments };
-        const imageData: Uint8Array = await invoke(Invokes.GeneratePresetPreview, {
-          jsAdjustments: fullPresetAdjustments,
-        });
+        const imageData: Uint8Array = await commands.generatePresetPreview(fullPresetAdjustments);
         const blob = new Blob([imageData], { type: 'image/jpeg' });
         const url = URL.createObjectURL(blob);
 

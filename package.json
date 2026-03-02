@@ -7,6 +7,8 @@
     "build": "vite build",
     "tauri": "tauri",
     "start": "tauri dev",
+    "bindings:gen": "cd src-tauri && RAPIDRAW_EXPORT_BINDINGS_ONLY=1 cargo run --quiet",
+    "check:ipc": "./scripts/check-ipc-contract.sh",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../../bindings';
 import {
   Check,
   RotateCcw,
@@ -238,11 +238,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
           lens_auto_crop: currentAdjustments.lensAutoCropEnabled ?? true,
         };
 
-        const result: string = await invoke('preview_geometry_transform', {
-          params: fullParams,
-          jsAdjustments: currentAdjustments,
-          showLines: linesEnabled,
-        });
+        const result: string = await commands.previewGeometryTransform(fullParams, currentAdjustments, linesEnabled);
         setPreviewUrl(result);
       } catch (e) {
         console.error('Preview transform failed', e);
@@ -331,11 +327,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
         lens_vignette_enabled: currentAdjustments.lensVignetteEnabled ?? true,
         lens_auto_crop: currentAdjustments.lensAutoCropEnabled ?? true,
       };
-      const result: string = await invoke('preview_geometry_transform', {
-        params: fullParams,
-        jsAdjustments: currentAdjustments,
-        showLines: false,
-      });
+      const result: string = await commands.previewGeometryTransform(fullParams, currentAdjustments, false);
       setPreviewUrl(result);
     } else {
       updatePreview(params, showLines);

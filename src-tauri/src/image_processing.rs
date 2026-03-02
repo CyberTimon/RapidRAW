@@ -14,7 +14,7 @@ use std::sync::Arc;
 pub use crate::gpu_processing::{get_or_init_gpu_context, process_and_get_dynamic_image};
 use crate::{load_settings, mask_generation::MaskDefinition, AppState};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub struct ImageMetadata {
     pub version: u32,
     pub rating: u8,
@@ -34,7 +34,7 @@ impl Default for ImageMetadata {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, specta::Type)]
 pub struct Crop {
     pub x: f64,
     pub y: f64,
@@ -42,7 +42,7 @@ pub struct Crop {
     pub height: f64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, specta::Type)]
 pub struct GeometryParams {
     pub distortion: f32,
     pub vertical: f32,
@@ -1887,7 +1887,7 @@ fn apply_gentle_detail_enhance(
         });
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, specta::Type)]
 pub struct HistogramData {
     red: Vec<f32>,
     green: Vec<f32>,
@@ -1896,6 +1896,7 @@ pub struct HistogramData {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn generate_histogram(
     state: tauri::State<AppState>,
     app_handle: tauri::AppHandle,
@@ -2029,7 +2030,7 @@ fn normalize_histogram_range(histogram: &mut Vec<f32>, percentile_clip: f32) {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, specta::Type)]
 pub struct WaveformData {
     red: Vec<u32>,
     green: Vec<u32>,
@@ -2040,6 +2041,7 @@ pub struct WaveformData {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn generate_waveform(
     state: tauri::State<AppState>,
     app_handle: tauri::AppHandle,
@@ -2316,6 +2318,7 @@ pub fn auto_results_to_json(results: &AutoAdjustmentResults) -> serde_json::Valu
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn calculate_auto_adjustments(
     state: tauri::State<AppState>,
 ) -> Result<serde_json::Value, String> {

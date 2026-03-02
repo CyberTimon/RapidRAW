@@ -8,7 +8,7 @@ rust-version = "1.92"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tauri = { version = "2.9", features = [ "macos-private-api", "rustls-tls" ] }
+tauri = { version = "2.9", features = [ "macos-private-api", "rustls-tls", "specta" ] }
 tauri-plugin-dialog = "2.4.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -66,6 +66,9 @@ quick-xml = { version = "0.36", features = ["serialize"] }
 fuzzy-matcher = "0.3.7"
 image-hdr = { version = "0.6.0", default-features = false }
 mozjpeg-rs = "0.8.0"
+tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
+specta = { version = "=2.0.0-rc.22", features = ["derive", "function", "serde_json", "tokio"] }
+specta-typescript = "0.0.9"
 
 [build-dependencies]
 tauri-build = { version = "2.5", features = [] }

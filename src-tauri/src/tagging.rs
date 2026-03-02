@@ -251,6 +251,7 @@ pub fn generate_tags_with_clip(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn start_background_indexing(
     folder_path: String,
     app_handle: AppHandle,
@@ -459,6 +460,7 @@ fn modify_tags_for_path(path_str: &str, modify_fn: impl Fn(&mut Vec<String>)) ->
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn add_tag_for_paths(paths: Vec<String>, tag: String) -> Result<(), String> {
     paths.par_iter().for_each(|path| {
         let tag_clone = tag.clone();
@@ -474,6 +476,7 @@ pub fn add_tag_for_paths(paths: Vec<String>, tag: String) -> Result<(), String> 
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn remove_tag_for_paths(paths: Vec<String>, tag: String) -> Result<(), String> {
     paths.par_iter().for_each(|path| {
         let tag_clone = tag.clone();
@@ -487,6 +490,7 @@ pub fn remove_tag_for_paths(paths: Vec<String>, tag: String) -> Result<(), Strin
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn clear_ai_tags(root_path: String) -> Result<usize, String> {
     if !Path::new(&root_path).exists() {
         return Err(format!("Root path does not exist: {}", root_path));
@@ -526,6 +530,7 @@ pub fn clear_ai_tags(root_path: String) -> Result<usize, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn clear_all_tags(root_path: String) -> Result<usize, String> {
     if !Path::new(&root_path).exists() {
         return Err(format!("Root path does not exist: {}", root_path));

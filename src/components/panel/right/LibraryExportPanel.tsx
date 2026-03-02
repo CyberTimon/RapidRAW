@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../../../bindings';
 import { Save, CheckCircle, XCircle, Loader, X, Ban } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import Switch from '../../ui/Switch';
@@ -17,7 +17,7 @@ import {
   FileFormats,
   WatermarkAnchor,
 } from '../../ui/ExportImportProperties';
-import { Invokes, ImageFile, AppSettings } from '../../ui/AppProperties';
+import { ImageFile, AppSettings } from '../../ui/AppProperties';
 import ExportPresetsList from '../../ui/ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
 
@@ -223,9 +223,7 @@ export default function LibraryExportPanel({
       if (multiSelectedPaths.length > 0) {
         try {
           const firstPath = multiSelectedPaths[0];
-          const dimensions: { width: number; height: number } = await invoke('get_image_dimensions', {
-            path: firstPath,
-          });
+          const dimensions: { width: number; height: number } = await commands.getImageDimensions(firstPath);
           if (dimensions.width > 0 && dimensions.height > 0) {
             setImageAspectRatio(dimensions.width / dimensions.height);
           } else {
@@ -249,9 +247,7 @@ export default function LibraryExportPanel({
     const fetchWatermarkDimensions = async () => {
       if (watermarkPath) {
         try {
-          const dimensions: { width: number; height: number } = await invoke('get_image_dimensions', {
-            path: watermarkPath,
-          });
+          const dimensions: { width: number; height: number } = await commands.getImageDimensions(watermarkPath);
           if (dimensions.height > 0) {
             setWatermarkImageAspectRatio(dimensions.width / dimensions.height);
           } else {
@@ -285,11 +281,7 @@ export default function LibraryExportPanel({
       debounce(async (paths, exportSettings, format) => {
         setIsEstimating(true);
         try {
-          const size: number = await invoke(Invokes.EstimateBatchExportSize, {
-            paths,
-            exportSettings,
-            outputFormat: format,
-          });
+          const size: number = await commands.estimateBatchExportSize(paths, exportSettings, format);
           setEstimatedSize(size);
         } catch (err) {
           console.error('Failed to estimate batch export size:', err);
@@ -411,12 +403,12 @@ export default function LibraryExportPanel({
       });
 
       if (outputFolder) {
-        await invoke(Invokes.BatchExportImages, {
-          exportSettings,
+        await commands.batchExportImages(
           outputFolder,
-          outputFormat: FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0],
-          paths: multiSelectedPaths,
-        });
+          multiSelectedPaths,
+          exportSettings,
+          FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0] || 'jpeg',
+        );
       } else {
         setExportState((prev: ExportState) => ({ ...prev, status: Status.Idle }));
       }
@@ -432,7 +424,7 @@ export default function LibraryExportPanel({
 
   const handleCancel = async () => {
     try {
-      await invoke(Invokes.CancelExport);
+      await commands.cancelExport();
     } catch (error) {
       console.error('Failed to send cancel request:', error);
     }
