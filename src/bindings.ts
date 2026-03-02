@@ -278,9 +278,83 @@ async saveConvertedNegative(originalPathStr: string) : Promise<string> {
 
 
 export const events = __makeEvents__<{
-aiConnectorStatusUpdate: AiConnectorStatusUpdate
+aiConnectorStatusUpdate: AiConnectorStatusUpdate,
+aiModelDownloadFinish: AiModelDownloadFinish,
+aiModelDownloadStart: AiModelDownloadStart,
+batchExportProgress: BatchExportProgress,
+cullingComplete: CullingComplete,
+cullingProgress: CullingProgress,
+cullingStart: CullingStart,
+denoiseComplete: DenoiseComplete,
+denoiseError: DenoiseError,
+denoiseProgress: DenoiseProgress,
+exportCancelled: ExportCancelled,
+exportComplete: ExportComplete,
+exportCompleteWithErrors: ExportCompleteWithErrors,
+exportError: ExportError,
+hdrComplete: HdrComplete,
+hdrError: HdrError,
+hdrProgress: HdrProgress,
+histogramUpdate: HistogramUpdate,
+importComplete: ImportComplete,
+importError: ImportError,
+importProgress: ImportProgress,
+importStart: ImportStart,
+indexingError: IndexingError,
+indexingFinished: IndexingFinished,
+indexingProgress: IndexingProgress,
+indexingStarted: IndexingStarted,
+openWithFile: OpenWithFile,
+panoramaComplete: PanoramaComplete,
+panoramaError: PanoramaError,
+panoramaProgress: PanoramaProgress,
+panoramaWarning: PanoramaWarning,
+previewUpdateFinal: PreviewUpdateFinal,
+previewUpdateUncropped: PreviewUpdateUncropped,
+thumbnailGenerated: ThumbnailGenerated,
+thumbnailGenerationComplete: ThumbnailGenerationComplete,
+thumbnailGenerationError: ThumbnailGenerationError,
+thumbnailProgress: ThumbnailProgress,
+waveformUpdate: WaveformUpdate
 }>({
-aiConnectorStatusUpdate: "ai-connector-status-update"
+aiConnectorStatusUpdate: "ai-connector-status-update",
+aiModelDownloadFinish: "ai-model-download-finish",
+aiModelDownloadStart: "ai-model-download-start",
+batchExportProgress: "batch-export-progress",
+cullingComplete: "culling-complete",
+cullingProgress: "culling-progress",
+cullingStart: "culling-start",
+denoiseComplete: "denoise-complete",
+denoiseError: "denoise-error",
+denoiseProgress: "denoise-progress",
+exportCancelled: "export-cancelled",
+exportComplete: "export-complete",
+exportCompleteWithErrors: "export-complete-with-errors",
+exportError: "export-error",
+hdrComplete: "hdr-complete",
+hdrError: "hdr-error",
+hdrProgress: "hdr-progress",
+histogramUpdate: "histogram-update",
+importComplete: "import-complete",
+importError: "import-error",
+importProgress: "import-progress",
+importStart: "import-start",
+indexingError: "indexing-error",
+indexingFinished: "indexing-finished",
+indexingProgress: "indexing-progress",
+indexingStarted: "indexing-started",
+openWithFile: "open-with-file",
+panoramaComplete: "panorama-complete",
+panoramaError: "panorama-error",
+panoramaProgress: "panorama-progress",
+panoramaWarning: "panorama-warning",
+previewUpdateFinal: "preview-update-final",
+previewUpdateUncropped: "preview-update-uncropped",
+thumbnailGenerated: "thumbnail-generated",
+thumbnailGenerationComplete: "thumbnail-generation-complete",
+thumbnailGenerationError: "thumbnail-generation-error",
+thumbnailProgress: "thumbnail-progress",
+waveformUpdate: "waveform-update"
 })
 
 /** user-defined constants **/
@@ -291,26 +365,51 @@ aiConnectorStatusUpdate: "ai-connector-status-update"
 
 export type AiConnectorStatusUpdate = { connected: boolean }
 export type AiForegroundMaskParameters = { maskDataBase64?: string | null; rotation?: number | null; flipHorizontal?: boolean | null; flipVertical?: boolean | null; orientationSteps?: number | null }
+export type AiModelDownloadFinish = JsonValue
+export type AiModelDownloadStart = JsonValue
 export type AiPatchDefinition = { id: string; name: string; visible: boolean; invert: boolean; prompt: string; patchData?: PatchData | null; opacity?: number; subMasks: SubMask[] }
 export type AiSkyMaskParameters = { maskDataBase64?: string | null; rotation?: number | null; flipHorizontal?: boolean | null; flipVertical?: boolean | null; orientationSteps?: number | null }
 export type AiSubjectMaskParameters = { startX: number; startY: number; endX: number; endY: number; maskDataBase64?: string | null; rotation?: number | null; flipHorizontal?: boolean | null; flipVertical?: boolean | null; orientationSteps?: number | null }
 export type AppSettings = { lastRootPath: string | null; pinnedFolders?: string[]; editorPreviewResolution: number | null; enableZoomHifi?: boolean | null; enableLivePreviews?: boolean | null; enableHighQualityLivePreviews?: boolean | null; sortCriteria: SortCriteria | null; filterCriteria: FilterCriteria | null; theme: string | null; transparent: boolean | null; decorations: boolean | null; aiConnectorAddress: string | null; lastFolderState: LastFolderState | null; adaptiveEditorTheme: boolean | null; uiVisibility: JsonValue | null; enableAiTagging: boolean | null; taggingThreadCount: number | null; taggingShortcuts?: string[] | null; customAiTags?: string[] | null; aiTagCount?: number | null; thumbnailSize: string | null; thumbnailAspectRatio: string | null; aiProvider: string | null; adjustmentVisibility?: Partial<{ [key in string]: boolean }>; enableExifReading: boolean | null; activeTreeSection?: string | null; copyPasteSettings?: CopyPasteSettings; rawHighlightCompression?: number | null; processingBackend?: string | null; linuxGpuOptimization?: boolean | null; libraryViewMode?: string | null; exportPresets?: ExportPreset[]; myLenses?: MyLens[] | null; enableFolderImageCounts?: boolean | null; linearRawMode?: string; enableXmpSync?: boolean | null; createXmpIfMissing?: boolean | null }
+export type BatchExportProgress = JsonValue
 export type CommunityPreset = { name: string; creator: string; adjustments: JsonValue }
 export type CopyPasteSettings = { mode: PasteMode; includedAdjustments?: string[]; knownAdjustments?: string[] }
 export type CullGroup = { representative: ImageAnalysisResult; duplicates: ImageAnalysisResult[] }
+export type CullingComplete = JsonValue
+export type CullingProgress = JsonValue
 export type CullingSettings = { similarityThreshold: number; blurThreshold: number; groupSimilar: boolean; filterBlurry: boolean }
+export type CullingStart = JsonValue
 export type CullingSuggestions = { similarGroups: CullGroup[]; blurryImages: ImageAnalysisResult[]; failedPaths: string[] }
+export type DenoiseComplete = JsonValue
+export type DenoiseError = JsonValue
+export type DenoiseProgress = JsonValue
+export type ExportCancelled = JsonValue
+export type ExportComplete = JsonValue
+export type ExportCompleteWithErrors = JsonValue
+export type ExportError = JsonValue
 export type ExportPreset = { id: string; name: string; fileFormat: string; jpegQuality: number; enableResize: boolean; resizeMode: string; resizeValue: number; dontEnlarge: boolean; keepMetadata: boolean; stripGps: boolean; filenameTemplate: string; enableWatermark: boolean; watermarkPath: string | null; watermarkAnchor: string | null; watermarkScale: number; watermarkSpacing: number; watermarkOpacity: number; exportMasks?: boolean | null }
 export type ExportSettings = { jpegQuality: number; resize: ResizeOptions | null; keepMetadata: boolean; stripGps: boolean; filenameTemplate: string | null; watermark: WatermarkSettings | null; exportMasks?: boolean }
 export type FilterCriteria = { rating: number; rawStatus: string; colors?: string[] }
 export type FolderNode = { name: string; path: string; children: FolderNode[]; isDir: boolean; imageCount: number }
 export type GeometryParams = { distortion: number; vertical: number; horizontal: number; rotate: number; aspect: number; scale: number; x_offset: number; y_offset: number; lens_distortion_amount: number; lens_vignette_amount: number; lens_tca_amount: number; lens_distortion_enabled: boolean; lens_tca_enabled: boolean; lens_vignette_enabled: boolean; lens_auto_crop: boolean; lens_dist_k1: number; lens_dist_k2: number; lens_dist_k3: number; lens_model: number; tca_vr: number; tca_vb: number; vig_k1: number; vig_k2: number; vig_k3: number }
+export type HdrComplete = JsonValue
+export type HdrError = JsonValue
+export type HdrProgress = JsonValue
 export type HistogramData = { red: number[]; green: number[]; blue: number[]; luma: number[] }
+export type HistogramUpdate = JsonValue
 export type ImageAnalysisResult = { path: string; qualityScore: number; sharpnessMetric: number; centerFocusMetric: number; exposureMetric: number; width: number; height: number }
 export type ImageDimensions = { width: number; height: number }
 export type ImageFile = { path: string; modified: number; is_edited: boolean; tags: string[] | null; exif: Partial<{ [key in string]: string }> | null; is_virtual_copy: boolean }
 export type ImageMetadata = { version: number; rating: number; adjustments: JsonValue; tags?: string[] | null }
+export type ImportComplete = JsonValue
+export type ImportError = JsonValue
+export type ImportProgress = JsonValue
 export type ImportSettings = { filenameTemplate: string; organizeByDate: boolean; dateFolderFormat: string; deleteAfterImport: boolean }
+export type ImportStart = JsonValue
+export type IndexingError = JsonValue
+export type IndexingFinished = JsonValue
+export type IndexingProgress = JsonValue
+export type IndexingStarted = JsonValue
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type LastFolderState = { currentFolderPath: string; expandedFolders: string[] }
 export type LensDistortionParams = { k1: number; k2: number; k3: number; model: number; tca_vr: number; tca_vb: number; vig_k1: number; vig_k2: number; vig_k3: number }
@@ -319,19 +418,31 @@ export type LutParseResult = { size: number }
 export type MaskDefinition = { id: string; name: string; visible: boolean; invert: boolean; opacity?: number; adjustments: JsonValue; subMasks: SubMask[] }
 export type MyLens = { maker: string; model: string }
 export type NegativeConversionParams = { red_weight: number; green_weight: number; blue_weight: number; exposure: number; contrast: number }
+export type OpenWithFile = JsonValue
+export type PanoramaComplete = JsonValue
+export type PanoramaError = JsonValue
+export type PanoramaProgress = JsonValue
+export type PanoramaWarning = JsonValue
 export type PasteMode = "merge" | "replace"
 export type PatchData = { color: string; mask: string }
 export type Preset = { id: string; name: string; adjustments: JsonValue }
 export type PresetFolder = { id: string; name: string; children: Preset[] }
 export type PresetItem = { preset: Preset } | { folder: PresetFolder }
+export type PreviewUpdateFinal = JsonValue
+export type PreviewUpdateUncropped = JsonValue
 export type ResizeMode = "longEdge" | "shortEdge" | "width" | "height"
 export type ResizeOptions = { mode: ResizeMode; value: number; dontEnlarge: boolean }
 export type SortCriteria = { key: string; order: string }
 export type SubMask = { id: string; type: string; visible: boolean; invert?: boolean; opacity?: number; mode: SubMaskMode; parameters: JsonValue }
 export type SubMaskMode = "additive" | "subtractive"
+export type ThumbnailGenerated = JsonValue
+export type ThumbnailGenerationComplete = JsonValue
+export type ThumbnailGenerationError = JsonValue
+export type ThumbnailProgress = JsonValue
 export type WatermarkAnchor = "topLeft" | "topCenter" | "topRight" | "centerLeft" | "center" | "centerRight" | "bottomLeft" | "bottomCenter" | "bottomRight"
 export type WatermarkSettings = { path: string; anchor: WatermarkAnchor; scale: number; spacing: number; opacity: number }
 export type WaveformData = { red: number[]; green: number[]; blue: number[]; luma: number[]; width: number; height: number }
+export type WaveformUpdate = JsonValue
 
 /** tauri-specta globals **/
 

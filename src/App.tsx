@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { homeDir } from '@tauri-apps/api/path';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -119,62 +118,6 @@ import HdrModal from './components/modals/HdrModal';
 import { commands, events } from './bindings';
 
 const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
-
-type InvokeArgs = Record<string, any>;
-
-function invoke<T = unknown>(command: string, args: InvokeArgs = {}): Promise<T> {
-  switch (command) {
-    case 'apply_adjustments': return commands.applyAdjustments(args.jsAdjustments, args.isInteractive) as Promise<T>;
-    case 'apply_adjustments_to_paths': return commands.applyAdjustmentsToPaths(args.paths, args.adjustments) as Promise<T>;
-    case 'apply_auto_adjustments_to_paths': return commands.applyAutoAdjustmentsToPaths(args.paths) as Promise<T>;
-    case 'apply_denoising': return commands.applyDenoising(args.path, args.intensity) as Promise<T>;
-    case 'calculate_auto_adjustments': return commands.calculateAutoAdjustments() as Promise<T>;
-    case 'cancel_thumbnail_generation': return commands.cancelThumbnailGeneration() as Promise<T>;
-    case 'copy_files': return commands.copyFiles(args.sourcePaths, args.destinationFolder) as Promise<T>;
-    case 'create_folder': return commands.createFolder(args.path) as Promise<T>;
-    case 'create_virtual_copy': return commands.createVirtualCopy(args.sourceVirtualPath) as Promise<T>;
-    case 'delete_files_from_disk': return commands.deleteFilesFromDisk(args.paths) as Promise<T>;
-    case 'delete_files_with_associated': return commands.deleteFilesWithAssociated(args.paths) as Promise<T>;
-    case 'delete_folder': return commands.deleteFolder(args.path) as Promise<T>;
-    case 'duplicate_file': return commands.duplicateFile(args.path) as Promise<T>;
-    case 'frontend_ready': return commands.frontendReady() as Promise<T>;
-    case 'generate_ai_foreground_mask': return commands.generateAiForegroundMask(args.jsAdjustments, args.rotation, args.flipHorizontal, args.flipVertical, args.orientationSteps) as Promise<T>;
-    case 'generate_ai_sky_mask': return commands.generateAiSkyMask(args.jsAdjustments, args.rotation, args.flipHorizontal, args.flipVertical, args.orientationSteps) as Promise<T>;
-    case 'generate_ai_subject_mask': return commands.generateAiSubjectMask(args.jsAdjustments, args.path, args.startPoint, args.endPoint, args.rotation, args.flipHorizontal, args.flipVertical, args.orientationSteps) as Promise<T>;
-    case 'generate_fullscreen_preview': return commands.generateFullscreenPreview(args.jsAdjustments) as Promise<T>;
-    case 'generate_original_transformed_preview': return commands.generateOriginalTransformedPreview(args.jsAdjustments) as Promise<T>;
-    case 'generate_uncropped_preview': return commands.generateUncroppedPreview(args.jsAdjustments) as Promise<T>;
-    case 'generate_waveform': return commands.generateWaveform() as Promise<T>;
-    case 'get_folder_tree': return commands.getFolderTree(args.path) as Promise<T>;
-    case 'get_pinned_folder_trees': return commands.getPinnedFolderTrees(args.paths) as Promise<T>;
-    case 'get_supported_file_types': return commands.getSupportedFileTypes() as Promise<T>;
-    case 'import_files': return commands.importFiles(args.sourcePaths, args.destinationFolder, args.settings) as Promise<T>;
-    case 'invoke_generative_replace_with_mask_def': return commands.invokeGenerativeReplaceWithMaskDef(args.path, args.patchDefinition, args.currentAdjustments, args.useFastInpaint, args.token) as Promise<T>;
-    case 'list_images_in_dir': return commands.listImagesInDir(args.path) as Promise<T>;
-    case 'list_images_recursive': return commands.listImagesRecursive(args.path) as Promise<T>;
-    case 'load_and_parse_lut': return commands.loadAndParseLut(args.path) as Promise<T>;
-    case 'load_image': return commands.loadImage(args.path) as Promise<T>;
-    case 'load_metadata': return commands.loadMetadata(args.path) as Promise<T>;
-    case 'load_settings': return commands.loadSettings() as Promise<T>;
-    case 'merge_hdr': return commands.mergeHdr(args.paths) as Promise<T>;
-    case 'move_files': return commands.moveFiles(args.sourcePaths, args.destinationFolder) as Promise<T>;
-    case 'read_exif_for_paths': return commands.readExifForPaths(args.paths) as Promise<T>;
-    case 'rename_files': return commands.renameFiles(args.paths, args.nameTemplate) as Promise<T>;
-    case 'rename_folder': return commands.renameFolder(args.path, args.newName) as Promise<T>;
-    case 'reset_adjustments_for_paths': return commands.resetAdjustmentsForPaths(args.paths) as Promise<T>;
-    case 'save_collage': return commands.saveCollage(args.base64Data, args.firstPathStr) as Promise<T>;
-    case 'save_hdr': return commands.saveHdr(args.firstPathStr) as Promise<T>;
-    case 'save_metadata_and_update_thumbnail': return commands.saveMetadataAndUpdateThumbnail(args.path, args.adjustments) as Promise<T>;
-    case 'save_panorama': return commands.savePanorama(args.firstPathStr) as Promise<T>;
-    case 'save_settings': return commands.saveSettings(args.settings) as Promise<T>;
-    case 'set_color_label_for_paths': return commands.setColorLabelForPaths(args.paths, args.color) as Promise<T>;
-    case 'show_in_finder': return commands.showInFinder(args.path) as Promise<T>;
-    case 'start_background_indexing': return commands.startBackgroundIndexing(args.folderPath) as Promise<T>;
-    case 'stitch_panorama': return commands.stitchPanorama(args.paths) as Promise<T>;
-    case 'update_window_effect': return commands.updateWindowEffect(args.theme) as Promise<T>;
-    default: return Promise.reject(new Error(`Unsupported invoke command: ${command}`));
-  }
-}
 
 interface CollapsibleSectionsState {
   basic: boolean;
@@ -705,9 +648,7 @@ function App() {
     const generate = async () => {
       if (showOriginal && selectedImage?.path && !transformedOriginalUrl) {
         try {
-          const imageData: Uint8Array = await invoke('generate_original_transformed_preview', {
-            jsAdjustments: adjustments,
-          });
+          const imageData: Uint8Array = await commands.generateOriginalTransformedPreview(adjustments,);
           if (isEffectActive) {
             const blob = new Blob([imageData], { type: 'image/jpeg' });
             objectUrl = URL.createObjectURL(blob);
@@ -784,12 +725,13 @@ function App() {
       setIsGeneratingAi(true);
 
       try {
-        const newPatchDataJson: any = await invoke('invoke_generative_replace_with_mask_def', {
-          currentAdjustments: adjustments,
-          patchDefinition: patchDefinition,
-          path: selectedImage.path,
-          useFastInpaint: useFastInpaint,
-        });
+        const newPatchDataJson: any = await commands.invokeGenerativeReplaceWithMaskDef(
+          selectedImage.path,
+          patchDefinition,
+          adjustments,
+          useFastInpaint,
+          null,
+        );
 
         const newPatchData = JSON.parse(newPatchDataJson);
         patchesSentToBackend.current.delete(patchId);
@@ -870,16 +812,16 @@ function App() {
           lensVignetteEnabled: adjustments.lensVignetteEnabled,
         };
 
-        const newMaskParams: any = await invoke('generate_ai_subject_mask', {
-          jsAdjustments: transformAdjustments,
-          endPoint: [endPoint.x, endPoint.y],
-          flipHorizontal: adjustments.flipHorizontal,
-          flipVertical: adjustments.flipVertical,
-          orientationSteps: adjustments.orientationSteps,
-          path: selectedImage.path,
-          rotation: adjustments.rotation,
-          startPoint: [startPoint.x, startPoint.y],
-        });
+        const newMaskParams: any = await commands.generateAiSubjectMask(
+          transformAdjustments,
+          selectedImage.path,
+          [startPoint.x, startPoint.y],
+          [endPoint.x, endPoint.y],
+          adjustments.rotation,
+          adjustments.flipHorizontal,
+          adjustments.flipVertical,
+          adjustments.orientationSteps,
+        );
 
         const subMaskToUpdate = adjustments.aiPatches
           ?.find((p: AiPatch) => p.id === patchId)
@@ -900,12 +842,13 @@ function App() {
         };
 
         const patchDefinitionForBackend = updatedAdjustmentsForBackend.aiPatches.find((p: AiPatch) => p.id === patchId);
-        const newPatchDataJson: any = await invoke('invoke_generative_replace_with_mask_def', {
-          currentAdjustments: updatedAdjustmentsForBackend,
-          patchDefinition: { ...patchDefinitionForBackend, prompt: '' },
-          path: selectedImage.path,
-          useFastInpaint: true,
-        });
+        const newPatchDataJson: any = await commands.invokeGenerativeReplaceWithMaskDef(
+          selectedImage.path,
+          { ...patchDefinitionForBackend, prompt: '' },
+          updatedAdjustmentsForBackend,
+          true,
+          null,
+        );
 
         const newPatchData = JSON.parse(newPatchDataJson);
         if (!newPatchData?.color || !newPatchData?.mask) {
@@ -1015,16 +958,16 @@ function App() {
         lensTcaEnabled: adjustments.lensTcaEnabled,
         lensVignetteEnabled: adjustments.lensVignetteEnabled,
       };
-      const newParameters = await invoke('generate_ai_subject_mask', {
-        jsAdjustments: transformAdjustments,
-        endPoint: [endPoint.x, endPoint.y],
-        flipHorizontal: adjustments.flipHorizontal,
-        flipVertical: adjustments.flipVertical,
-        orientationSteps: adjustments.orientationSteps,
-        path: selectedImage.path,
-        rotation: adjustments.rotation,
-        startPoint: [startPoint.x, startPoint.y],
-      });
+      const newParameters = await commands.generateAiSubjectMask(
+        transformAdjustments,
+        selectedImage.path,
+        [startPoint.x, startPoint.y],
+        [endPoint.x, endPoint.y],
+        adjustments.rotation,
+        adjustments.flipHorizontal,
+        adjustments.flipVertical,
+        adjustments.orientationSteps,
+      );
 
       const subMask = adjustments.aiPatches
         ?.flatMap((p: AiPatch) => p.subMasks)
@@ -1067,13 +1010,13 @@ function App() {
         lensTcaEnabled: adjustments.lensTcaEnabled,
         lensVignetteEnabled: adjustments.lensVignetteEnabled,
       };
-      const newParameters = await invoke('generate_ai_foreground_mask', {
-        jsAdjustments: transformAdjustments,
-        flipHorizontal: adjustments.flipHorizontal,
-        flipVertical: adjustments.flipVertical,
-        orientationSteps: adjustments.orientationSteps,
-        rotation: adjustments.rotation,
-      });
+      const newParameters = await commands.generateAiForegroundMask(
+        transformAdjustments,
+        adjustments.rotation,
+        adjustments.flipHorizontal,
+        adjustments.flipVertical,
+        adjustments.orientationSteps,
+      );
 
       const subMask = adjustments.aiPatches
         ?.flatMap((p: AiPatch) => p.subMasks)
@@ -1116,13 +1059,13 @@ function App() {
         lensTcaEnabled: adjustments.lensTcaEnabled,
         lensVignetteEnabled: adjustments.lensVignetteEnabled,
       };
-      const newParameters = await invoke('generate_ai_sky_mask', {
-        jsAdjustments: transformAdjustments,
-        flipHorizontal: adjustments.flipHorizontal,
-        flipVertical: adjustments.flipVertical,
-        orientationSteps: adjustments.orientationSteps,
-        rotation: adjustments.rotation,
-      });
+      const newParameters = await commands.generateAiSkyMask(
+        transformAdjustments,
+        adjustments.rotation,
+        adjustments.flipHorizontal,
+        adjustments.flipVertical,
+        adjustments.orientationSteps,
+      );
 
       const subMask = adjustments.aiPatches
         ?.flatMap((p: AiPatch) => p.subMasks)
@@ -1397,10 +1340,7 @@ function App() {
       }
 
       try {
-        await invoke('apply_adjustments', {
-          jsAdjustments: payload,
-          isInteractive: dragging
-        });
+        await commands.applyAdjustments(payload, dragging);
       } catch (err) {
         console.error('Failed to invoke apply_adjustments:', err);
       }
@@ -1420,7 +1360,7 @@ function App() {
       if (!selectedImage?.isReady) {
         return;
       }
-      invoke('generate_uncropped_preview', { jsAdjustments: currentAdjustments }).catch((err) =>
+      commands.generateUncroppedPreview(currentAdjustments).catch((err) =>
         console.error('Failed to generate uncropped preview:', err),
       );
     }, 50),
@@ -1429,7 +1369,7 @@ function App() {
 
   const debouncedSave = useCallback(
     debounce((path, adjustmentsToSave) => {
-      invoke('save_metadata_and_update_thumbnail', { path, adjustments: adjustmentsToSave }).catch((err) => {
+      commands.saveMetadataAndUpdateThumbnail(path, adjustmentsToSave).catch((err) => {
         console.error('Auto-save failed:', err);
         setError(`Failed to save changes: ${err}`);
       });
@@ -1479,7 +1419,7 @@ function App() {
   const handleLutSelect = useCallback(
     async (path: string) => {
       try {
-        const result: LutData = await invoke('load_and_parse_lut', { path });
+        const result: LutData = await commands.loadAndParseLut(path);
         const name = path.split(/[\\/]/).pop() || 'LUT';
         setAdjustments((prev: Partial<Adjustments>) => ({
           ...prev,
@@ -1529,7 +1469,7 @@ function App() {
 
       const { searchCriteria: _searchCriteria, ...settingsToSave } = newSettings as any;
       setAppSettings(newSettings);
-      invoke('save_settings', { settings: settingsToSave }).catch((err) => {
+      commands.saveSettings(settingsToSave).catch((err) => {
         console.error('Failed to save settings:', err);
       });
     },
@@ -1537,7 +1477,7 @@ function App() {
   );
 
   useEffect(() => {
-    invoke('load_settings')
+    commands.loadSettings()
       .then(async (settings: any) => {
         if (
           !settings.copyPasteSettings ||
@@ -1579,7 +1519,7 @@ function App() {
         }
         if (settings?.pinnedFolders && settings.pinnedFolders.length > 0) {
           try {
-            const trees = await invoke('get_pinned_folder_trees', { paths: settings.pinnedFolders });
+            const trees = await commands.getPinnedFolderTrees(settings.pinnedFolders);
             setPinnedFolderTrees(trees);
           } catch (err) {
             console.error('Failed to load pinned folder trees:', err);
@@ -1598,12 +1538,15 @@ function App() {
           preloadedDataRef.current = {
             rootPath: root,
             currentPath: currentPath,
-            tree: invoke('get_folder_tree', { path: root }),
-            images: invoke(command, { path: currentPath })
+            tree: commands.getFolderTree(root),
+            images:
+              command === 'list_images_recursive'
+                ? commands.listImagesRecursive(currentPath)
+                : commands.listImagesInDir(currentPath),
           };
         }
 
-        invoke('frontend_ready').catch(e => console.error("Failed to notify backend of readiness:", e));
+        commands.frontendReady().catch(e => console.error("Failed to notify backend of readiness:", e));
       })
       .catch((err) => {
         console.error('Failed to load settings:', err);
@@ -1655,7 +1598,7 @@ function App() {
   }, [libraryViewMode, appSettings, handleSettingsChange]);
 
   useEffect(() => {
-    invoke('get_supported_file_types')
+    commands.getSupportedFileTypes()
       .then((types: any) => setSupportedTypes(types))
       .catch((err) => console.error('Failed to load supported file types:', err));
   }, []);
@@ -1714,7 +1657,7 @@ function App() {
     });
 
     const isLight = [Theme.Light, Theme.Snow, Theme.Arctic].includes(effectThemeForWindow);
-    invoke('update_window_effect', { theme: isLight ? Theme.Light : Theme.Dark });
+    commands.updateWindowEffect(isLight ? Theme.Light : Theme.Dark);
   }, [theme, adaptivePalette]);
 
   useEffect(() => {
@@ -1732,7 +1675,7 @@ function App() {
   const refreshAllFolderTrees = useCallback(async () => {
     if (rootPath) {
       try {
-        const treeData = await invoke('get_folder_tree', { path: rootPath });
+        const treeData = await commands.getFolderTree(rootPath);
         setFolderTree(treeData);
       } catch (err) {
         console.error('Failed to refresh main folder tree:', err);
@@ -1743,7 +1686,7 @@ function App() {
     const currentPins = appSettings?.pinnedFolders || [];
     if (currentPins.length > 0) {
       try {
-        const trees = await invoke('get_pinned_folder_trees', { paths: currentPins });
+        const trees = await commands.getPinnedFolderTrees(currentPins);
         setPinnedFolderTrees(trees);
       } catch (err) {
         console.error('Failed to refresh pinned folder trees:', err);
@@ -1768,7 +1711,7 @@ function App() {
     handleSettingsChange({ ...appSettings, pinnedFolders: newPins });
 
     try {
-      const trees = await invoke('get_pinned_folder_trees', { paths: newPins });
+      const trees = await commands.getPinnedFolderTrees(newPins);
       setPinnedFolderTrees(trees);
     } catch (err) {
       console.error('Failed to refresh pinned folders:', err);
@@ -1784,7 +1727,7 @@ function App() {
 
   const handleSelectSubfolder = useCallback(
     async (path: string | null, isNewRoot = false, preloadedImages?: ImageFile[]) => {
-      await invoke('cancel_thumbnail_generation');
+      await commands.cancelThumbnailGeneration();
       setIsViewLoading(true);
       setSearchCriteria({ tags: [], text: '', mode: 'OR' });
       setLibraryScrollTop(0);
@@ -1829,7 +1772,7 @@ function App() {
           setIsTreeLoading(true);
           handleSettingsChange({ ...appSettings, lastRootPath: path } as AppSettings);
           try {
-            const treeData = await invoke('get_folder_tree', { path });
+            const treeData = await commands.getFolderTree(path);
             setFolderTree(treeData);
           } catch (err) {
             console.error('Failed to load folder tree:', err);
@@ -1857,7 +1800,10 @@ function App() {
         if (preloadedImages) {
           files = preloadedImages;
         } else {
-          files = await invoke(command, { path });
+          files =
+            command === 'list_images_recursive'
+              ? await commands.listImagesRecursive(path)
+              : await commands.listImagesInDir(path);
         }
 
         const exifSortKeys = ['date_taken', 'iso', 'shutter_speed', 'aperture', 'focal_length'];
@@ -1868,7 +1814,7 @@ function App() {
           const paths = files.map((f: ImageFile) => f.path);
 
           if (isExifSortActive) {
-            const exifDataMap: Record<string, any> = await invoke('read_exif_for_paths', { paths });
+            const exifDataMap: Record<string, any> = await commands.readExifForPaths(paths);
             const finalImageList = files.map((image) => ({
               ...image,
               exif: exifDataMap[image.path] || image.exif || null,
@@ -1876,7 +1822,7 @@ function App() {
             setImageList(finalImageList);
           } else {
             setImageList(files);
-            invoke('read_exif_for_paths', { paths })
+            commands.readExifForPaths(paths)
               .then((exifDataMap: any) => {
                 setImageList((currentImageList) =>
                   currentImageList.map((image) => ({
@@ -1893,7 +1839,7 @@ function App() {
           setImageList(files);
         }
 
-        invoke('start_background_indexing', { folderPath: path }).catch((err) => {
+        commands.startBackgroundIndexing(path).catch((err) => {
           console.error('Failed to start background indexing:', err);
         });
       } catch (err) {
@@ -1925,7 +1871,10 @@ function App() {
       const command =
         libraryViewMode === LibraryViewMode.Recursive ? 'list_images_recursive' : 'list_images_in_dir';
 
-      const files: ImageFile[] = await invoke(command, { path: currentFolderPath });
+      const files: ImageFile[] =
+        command === 'list_images_recursive'
+          ? await commands.listImagesRecursive(currentFolderPath)
+          : await commands.listImagesInDir(currentFolderPath);
       const exifSortKeys = ['date_taken', 'iso', 'shutter_speed', 'aperture', 'focal_length'];
       const isExifSortActive = exifSortKeys.includes(sortCriteria.key);
       const shouldReadExif = appSettings?.enableExifReading ?? false;
@@ -1934,7 +1883,7 @@ function App() {
 
       if (shouldReadExif && files.length > 0 && isExifSortActive) {
         const paths = files.map((f: ImageFile) => f.path);
-        freshExifData = await invoke('read_exif_for_paths', { paths });
+        freshExifData = await commands.readExifForPaths(paths);
       }
 
       setImageList((prevList) => {
@@ -1956,7 +1905,7 @@ function App() {
 
       if (shouldReadExif && files.length > 0 && !isExifSortActive) {
         const paths = files.map((f: ImageFile) => f.path);
-        invoke('read_exif_for_paths', { paths })
+        commands.readExifForPaths(paths)
           .then((exifDataMap: any) => {
             setImageList((currentImageList) =>
               currentImageList.map((image) => {
@@ -2137,7 +2086,11 @@ function App() {
 
       try {
         const command = options.includeAssociated ? 'delete_files_with_associated' : 'delete_files_from_disk';
-        await invoke(command, { paths: pathsToDelete });
+        if (command === 'delete_files_with_associated') {
+          await commands.deleteFilesWithAssociated(pathsToDelete);
+        } else {
+          await commands.deleteFilesFromDisk(pathsToDelete);
+        }
 
         await refreshImageList();
 
@@ -2274,7 +2227,7 @@ function App() {
         setAdjustments(newAdjustments);
       }
 
-      invoke('apply_adjustments_to_paths', { paths: pathsToUpdate, adjustments: adjustmentsToApply }).catch(
+      commands.applyAdjustmentsToPaths(pathsToUpdate, adjustmentsToApply).catch(
         (err) => {
           console.error('Failed to paste adjustments to multiple images:', err);
           setError(`Failed to paste adjustments: ${err}`);
@@ -2290,7 +2243,7 @@ function App() {
       return;
     }
     try {
-      const autoAdjustments: Adjustments = await invoke('calculate_auto_adjustments');
+      const autoAdjustments: Adjustments = await commands.calculateAutoAdjustments();
       setAdjustments((prev: Adjustments) => {
         const newAdjustments = { ...prev, ...autoAdjustments };
         newAdjustments.sectionVisibility = {
@@ -2339,7 +2292,7 @@ function App() {
         setLibraryActiveAdjustments((prev) => ({ ...prev, rating: finalRating }));
       }
 
-      invoke('apply_adjustments_to_paths', { paths: pathsToRate, adjustments: { rating: finalRating } }).catch(
+      commands.applyAdjustmentsToPaths(pathsToRate, { rating: finalRating }).catch(
         (err) => {
           console.error('Failed to apply rating to paths:', err);
           setError(`Failed to apply rating: ${err}`);
@@ -2374,7 +2327,7 @@ function App() {
       }
       const finalColor = color !== null && color === currentColor ? null : color;
       try {
-        await invoke('set_color_label_for_paths', { paths: pathsToUpdate, color: finalColor });
+        await commands.setColorLabelForPaths(pathsToUpdate, finalColor);
 
         setImageList((prevList: Array<ImageFile>) =>
           prevList.map((image: ImageFile) => {
@@ -2441,9 +2394,9 @@ function App() {
       }
       try {
         if (mode === 'copy')
-          await invoke('copy_files', { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
+          await commands.copyFiles(copiedFilePaths, currentFolderPath);
         else {
-          await invoke('move_files', { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
+          await commands.moveFiles(copiedFilePaths, currentFolderPath);
           setCopiedFilePaths([]);
         }
         await refreshImageList();
@@ -2465,9 +2418,7 @@ function App() {
       const request = { cancelled: false };
       fullResRequestRef.current = request;
 
-      invoke('generate_fullscreen_preview', {
-        jsAdjustments: currentAdjustments,
-      })
+      commands.generateFullscreenPreview(currentAdjustments,)
         .then(() => {
           fullResCacheKeyRef.current = key;
           if (!request.cancelled) {
@@ -2671,7 +2622,7 @@ function App() {
   useEffect(() => {
     let isEffectActive = true;
     const listeners = [
-      listen('preview-update-final', (event: any) => {
+      events.previewUpdateFinal.listen( (event: any) => {
         if (isEffectActive) {
           const { path, data } = event.payload;
           if (path !== selectedImagePathRef.current) return;
@@ -2681,7 +2632,7 @@ function App() {
           setFinalPreviewUrl(url);
         }
       }),
-      listen('preview-update-uncropped', (event: any) => {
+      events.previewUpdateUncropped.listen( (event: any) => {
         if (isEffectActive) {
           const imageData = new Uint8Array(event.payload);
           const blob = new Blob([imageData], { type: 'image/jpeg' });
@@ -2689,22 +2640,22 @@ function App() {
           setUncroppedAdjustedPreviewUrl(url);
         }
       }),
-      listen('histogram-update', (event: any) => {
+      events.histogramUpdate.listen( (event: any) => {
         if (isEffectActive) {
           setHistogram(event.payload);
         }
       }),
-      listen('open-with-file', (event: any) => {
+      events.openWithFile.listen( (event: any) => {
         if (isEffectActive) {
           setInitialFileToOpen(event.payload as string);
         }
       }),
-      listen('waveform-update', (event: any) => {
+      events.waveformUpdate.listen( (event: any) => {
         if (isEffectActive) {
           setWaveform(event.payload);
         }
       }),
-      listen('thumbnail-generated', (event: any) => {
+      events.thumbnailGenerated.listen( (event: any) => {
         if (isEffectActive) {
           const { path, data, rating } = event.payload;
           if (data) {
@@ -2715,42 +2666,42 @@ function App() {
           }
         }
       }),
-      listen('ai-model-download-start', (event: any) => {
+      events.aiModelDownloadStart.listen( (event: any) => {
         if (isEffectActive) {
           setAiModelDownloadStatus(event.payload);
         }
       }),
-      listen('ai-model-download-finish', () => {
+      events.aiModelDownloadFinish.listen( () => {
         if (isEffectActive) {
           setAiModelDownloadStatus(null);
         }
       }),
-      listen('indexing-started', () => {
+      events.indexingStarted.listen( () => {
         if (isEffectActive) {
           setIsIndexing(true);
           setIndexingProgress({ current: 0, total: 0 });
         }
       }),
-      listen('indexing-progress', (event: any) => {
+      events.indexingProgress.listen( (event: any) => {
         if (isEffectActive) {
           setIndexingProgress(event.payload);
         }
       }),
-      listen('indexing-error', (event: any) => {
+      events.indexingError.listen( (event: any) => {
         if (isEffectActive) {
           setIsIndexing(false);
           setIndexingProgress({ current: 0, total: 0 });
           setError(typeof event.payload === 'string' ? event.payload : 'Indexing error');
         }
       }),
-      listen('indexing-finished', () => {
+      events.indexingFinished.listen( () => {
         if (isEffectActive) {
           setIsIndexing(false);
           setIndexingProgress({ current: 0, total: 0 });
           if (currentFolderPathRef.current) {
             const refreshImageList = async () => {
               try {
-                const list: ImageFile[] = await invoke('list_images_in_dir', { path: currentFolderPathRef.current });
+                const list: ImageFile[] = await commands.listImagesInDir(currentFolderPathRef.current);
                 if (Array.isArray(list)) {
                   setImageList(list);
                 }
@@ -2762,17 +2713,17 @@ function App() {
           }
         }
       }),
-      listen('batch-export-progress', (event: any) => {
+      events.batchExportProgress.listen( (event: any) => {
         if (isEffectActive) {
           setExportState((prev: ExportState) => ({ ...prev, progress: event.payload }));
         }
       }),
-      listen('export-complete', () => {
+      events.exportComplete.listen( () => {
         if (isEffectActive) {
           setExportState((prev: ExportState) => ({ ...prev, status: Status.Success }));
         }
       }),
-      listen('export-complete-with-errors', (event: any) => {
+      events.exportCompleteWithErrors.listen( (event: any) => {
         if (isEffectActive) {
           const errors = event.payload?.errors ?? 0;
           const total = event.payload?.total ?? 0;
@@ -2783,7 +2734,7 @@ function App() {
           }));
         }
       }),
-      listen('export-error', (event) => {
+      events.exportError.listen( (event) => {
         if (isEffectActive) {
           setExportState((prev: ExportState) => ({
             ...prev,
@@ -2792,12 +2743,12 @@ function App() {
           }));
         }
       }),
-      listen('export-cancelled', () => {
+      events.exportCancelled.listen( () => {
         if (isEffectActive) {
           setExportState((prev: ExportState) => ({ ...prev, status: Status.Cancelled }));
         }
       }),
-      listen('import-start', (event: any) => {
+      events.importStart.listen( (event: any) => {
         if (isEffectActive) {
           setImportState({
             errorMessage: '',
@@ -2807,7 +2758,7 @@ function App() {
           });
         }
       }),
-      listen('import-progress', (event: any) => {
+      events.importProgress.listen( (event: any) => {
         if (isEffectActive) {
           setImportState((prev: ImportState) => ({
             ...prev,
@@ -2816,7 +2767,7 @@ function App() {
           }));
         }
       }),
-      listen('import-complete', () => {
+      events.importComplete.listen( () => {
         if (isEffectActive) {
           setImportState((prev: ImportState) => ({ ...prev, status: Status.Success }));
           refreshAllFolderTrees();
@@ -2825,7 +2776,7 @@ function App() {
           }
         }
       }),
-      listen('import-error', (event) => {
+      events.importError.listen( (event) => {
         if (isEffectActive) {
           setImportState((prev: ImportState) => ({
             ...prev,
@@ -2834,7 +2785,7 @@ function App() {
           }));
         }
       }),
-      listen('thumbnail-generation-error', (event: any) => {
+      events.thumbnailGenerationError.listen( (event: any) => {
         if (isEffectActive) {
           const payload = event.payload;
           if (payload?.reason) {
@@ -2842,12 +2793,12 @@ function App() {
           }
         }
       }),
-      listen('denoise-progress', (event: any) => {
+      events.denoiseProgress.listen( (event: any) => {
         if (isEffectActive) {
           setDenoiseModalState((prev) => ({ ...prev, progressMessage: event.payload as string }));
         }
       }),
-      listen('denoise-complete', (event: any) => {
+      events.denoiseComplete.listen( (event: any) => {
         if (isEffectActive) {
           const payload = event.payload;
           const isObject = typeof payload === 'object' && payload !== null;
@@ -2861,7 +2812,7 @@ function App() {
           }));
         }
       }),
-      listen('denoise-error', (event: any) => {
+      events.denoiseError.listen( (event: any) => {
         if (isEffectActive) {
           setDenoiseModalState((prev) => ({
             ...prev,
@@ -2901,7 +2852,7 @@ function App() {
 
   useEffect(() => {
     if (libraryActivePath) {
-      invoke('load_metadata', { path: libraryActivePath })
+      commands.loadMetadata(libraryActivePath)
         .then((metadata: any) => {
           if (metadata.adjustments && !metadata.adjustments.is_null) {
             const normalized: Adjustments = normalizeLoadedAdjustments(metadata.adjustments);
@@ -2922,7 +2873,7 @@ function App() {
   useEffect(() => {
     let isEffectActive = true;
 
-    const unlistenProgress = listen('panorama-progress', (event: any) => {
+    const unlistenProgress = events.panoramaProgress.listen( (event: any) => {
       if (isEffectActive) {
         setPanoramaModalState((prev: PanoramaModalState) => ({
           ...prev,
@@ -2934,7 +2885,7 @@ function App() {
       }
     });
 
-    const unlistenComplete = listen('panorama-complete', (event: any) => {
+    const unlistenComplete = events.panoramaComplete.listen( (event: any) => {
       if (isEffectActive) {
         const { base64 } = event.payload;
         setPanoramaModalState((prev: PanoramaModalState) => ({
@@ -2946,7 +2897,7 @@ function App() {
       }
     });
 
-    const unlistenError = listen('panorama-error', (event: any) => {
+    const unlistenError = events.panoramaError.listen( (event: any) => {
       if (isEffectActive) {
         setPanoramaModalState((prev: PanoramaModalState) => ({
           ...prev,
@@ -2957,7 +2908,7 @@ function App() {
       }
     });
 
-    const unlistenWarning = listen('panorama-warning', (event: any) => {
+    const unlistenWarning = events.panoramaWarning.listen( (event: any) => {
       if (isEffectActive) {
         const warning = String(event.payload);
         setPanoramaModalState((prev: PanoramaModalState) => ({
@@ -2979,7 +2930,7 @@ function App() {
   useEffect(() => {
     let isEffectActive = true;
 
-    const unlistenProgress = listen('hdr-progress', (event: any) => {
+    const unlistenProgress = events.hdrProgress.listen( (event: any) => {
       if (isEffectActive) {
         setHdrModalState((prev: HdrModalState) => ({
           ...prev,
@@ -2991,7 +2942,7 @@ function App() {
       }
     });
 
-    const unlistenComplete = listen('hdr-complete', (event: any) => {
+    const unlistenComplete = events.hdrComplete.listen( (event: any) => {
       if (isEffectActive) {
         const { base64 } = event.payload;
         setHdrModalState((prev: HdrModalState) => ({
@@ -3003,7 +2954,7 @@ function App() {
       }
     });
 
-    const unlistenError = listen('hdr-error', (event: any) => {
+    const unlistenError = events.hdrError.listen( (event: any) => {
       if (isEffectActive) {
         setHdrModalState((prev: HdrModalState) => ({
           ...prev,
@@ -3025,7 +2976,7 @@ function App() {
   useEffect(() => {
     let isEffectActive = true;
 
-    const unlistenStart = listen('culling-start', (event: any) => {
+    const unlistenStart = events.cullingStart.listen( (event: any) => {
       if (isEffectActive) {
         setCullingModalState({
           isOpen: true,
@@ -3036,13 +2987,13 @@ function App() {
       }
     });
 
-    const unlistenProgress = listen('culling-progress', (event: any) => {
+    const unlistenProgress = events.cullingProgress.listen( (event: any) => {
       if (isEffectActive) {
         setCullingModalState((prev) => ({ ...prev, progress: event.payload }));
       }
     });
 
-    const unlistenComplete = listen('culling-complete', (event: any) => {
+    const unlistenComplete = events.cullingComplete.listen( (event: any) => {
       if (isEffectActive) {
         setCullingModalState((prev) => ({ ...prev, progress: null, suggestions: event.payload }));
       }
@@ -3064,9 +3015,7 @@ function App() {
     }
 
     try {
-      const savedPath: string = await invoke('save_panorama', {
-        firstPathStr: panoramaModalState.stitchingSourcePaths[0],
-      });
+      const savedPath: string = await commands.savePanorama(panoramaModalState.stitchingSourcePaths[0],);
       await refreshImageList();
       return savedPath;
     } catch (err) {
@@ -3084,9 +3033,7 @@ function App() {
     }
 
     try {
-      const savedPath: string = await invoke('save_hdr', {
-        firstPathStr: hdrModalState.stitchingSourcePaths[0],
-      });
+      const savedPath: string = await commands.saveHdr(hdrModalState.stitchingSourcePaths[0],);
       await refreshImageList();
       return savedPath;
     } catch (err) {
@@ -3107,10 +3054,7 @@ function App() {
     }));
 
     try {
-        await invoke('apply_denoising', {
-            path: denoiseModalState.targetPath,
-            intensity: intensity
-        });
+        await commands.applyDenoising(denoiseModalState.targetPath, intensity);
     } catch (err) {
         setDenoiseModalState(prev => ({
             ...prev,
@@ -3122,19 +3066,14 @@ function App() {
 
   const handleSaveDenoisedImage = async (): Promise<string> => {
     if (!denoiseModalState.targetPath) throw new Error("No target path");
-    const savedPath = await invoke<string>('save_denoised_image', {
-        originalPathStr: denoiseModalState.targetPath
-    });
+    const savedPath = await commands.saveDenoisedImage(denoiseModalState.targetPath);
     await refreshImageList();
     return savedPath;
   };
 
   const handleSaveCollage = async (base64Data: string, firstPath: string): Promise<string> => {
     try {
-      const savedPath: string = await invoke('save_collage', {
-        base64Data,
-        firstPathStr: firstPath,
-      });
+      const savedPath: string = await commands.saveCollage(base64Data, firstPath);
       await refreshImageList();
       return savedPath;
     } catch (err) {
@@ -3253,7 +3192,7 @@ function App() {
            treeData = await preloadedDataRef.current.tree;
            console.log('Preload cache hit for folder tree.');
         } else {
-           treeData = await invoke('get_folder_tree', { path: root });
+           treeData = await commands.getFolderTree(root);
         }
         setFolderTree(treeData);
       } catch (err) {
@@ -3388,7 +3327,7 @@ function App() {
 
   useEffect(() => {
     const invokeWaveForm = async () => {
-      const waveForm: any = await invoke('generate_waveform').catch((err) =>
+      const waveForm: any = await commands.generateWaveform().catch((err) =>
         console.error('Failed to generate waveform:', err),
       );
       if (waveForm) {
@@ -3407,7 +3346,7 @@ function App() {
 
       const loadMetadataEarly = async () => {
         try {
-          const metadata: any = await invoke('load_metadata', { path: selectedImage.path });
+          const metadata: any = await commands.loadMetadata(selectedImage.path);
           if (!isEffectActive) return;
 
           let initialAdjusts;
@@ -3428,7 +3367,7 @@ function App() {
 
       const loadFullImageData = async () => {
         try {
-          const loadImageResult: any = await invoke('load_image', { path: selectedImage.path });
+          const loadImageResult: any = await commands.loadImage(selectedImage.path);
           if (!isEffectActive) {
             return;
           }
@@ -3519,10 +3458,7 @@ function App() {
     async (nameTemplate: string) => {
       if (renameTargetPaths.length > 0 && nameTemplate) {
         try {
-          const newPaths: Array<string> = await invoke('rename_files', {
-            nameTemplate,
-            paths: renameTargetPaths,
-          });
+          const newPaths: Array<string> = await commands.renameFiles(renameTargetPaths, nameTemplate);
 
           await refreshImageList();
 
@@ -3559,11 +3495,7 @@ function App() {
 
   const handleStartImport = async (settings: AppSettings) => {
     if (importSourcePaths.length > 0 && importTargetFolder) {
-      invoke('import_files', {
-        destinationFolder: importTargetFolder,
-        settings: settings,
-        sourcePaths: importSourcePaths,
-      }).catch((err) => {
+      commands.importFiles(importSourcePaths, importTargetFolder, settings).catch((err) => {
         console.error('Failed to start import:', err);
         setImportState({ status: Status.Error, errorMessage: `Failed to start import: ${err}` });
       });
@@ -3579,7 +3511,7 @@ function App() {
 
       debouncedSetHistory.cancel();
 
-      invoke('reset_adjustments_for_paths', { paths: pathsToReset })
+      commands.resetAdjustmentsForPaths(pathsToReset)
         .then(() => {
           if (libraryActivePath && pathsToReset.includes(libraryActivePath)) {
             setLibraryActiveAdjustments((prev: Adjustments) => ({ ...INITIAL_ADJUSTMENTS, rating: prev.rating }));
@@ -3662,7 +3594,7 @@ function App() {
 
     const handleCreateVirtualCopy = async (sourcePath: string) => {
       try {
-        await invoke('create_virtual_copy', { sourceVirtualPath: sourcePath });
+        await commands.createVirtualCopy(sourcePath);
         await refreshImageList();
       } catch (err) {
         console.error('Failed to create virtual copy:', err);
@@ -3917,7 +3849,7 @@ function App() {
 
     const handleCreateVirtualCopy = async (sourcePath: string) => {
       try {
-        await invoke('create_virtual_copy', { sourceVirtualPath: sourcePath });
+        await commands.createVirtualCopy(sourcePath);
         await refreshImageList();
       } catch (err) {
         console.error('Failed to create virtual copy:', err);
@@ -3928,12 +3860,10 @@ function App() {
     const handleApplyAutoAdjustmentsToSelection = () => {
       if (finalSelection.length === 0) return;
 
-      invoke('apply_auto_adjustments_to_paths', { paths: finalSelection })
+      commands.applyAutoAdjustmentsToPaths(finalSelection)
         .then(async () => {
           if (selectedImage && finalSelection.includes(selectedImage.path)) {
-            const metadata: Metadata = await invoke('load_metadata', {
-              path: selectedImage.path,
-            });
+            const metadata: Metadata = await commands.loadMetadata(selectedImage.path,);
             if (metadata.adjustments && !metadata.adjustments.is_null) {
               const normalized = normalizeLoadedAdjustments(metadata.adjustments);
               setLiveAdjustments(normalized);
@@ -3941,9 +3871,7 @@ function App() {
             }
           }
           if (libraryActivePath && finalSelection.includes(libraryActivePath)) {
-            const metadata: Metadata = await invoke('load_metadata', {
-              path: libraryActivePath,
-            });
+            const metadata: Metadata = await commands.loadMetadata(libraryActivePath,);
             if (metadata.adjustments && !metadata.adjustments.is_null) {
               const normalized = normalizeLoadedAdjustments(metadata.adjustments);
               setLibraryActiveAdjustments(normalized);
@@ -3998,7 +3926,7 @@ function App() {
         label: 'Copy Adjustments',
         onClick: async () => {
           try {
-            const metadata: any = await invoke('load_metadata', { path: finalSelection[0] });
+            const metadata: any = await commands.loadMetadata(finalSelection[0]);
             const sourceAdjustments =
               metadata.adjustments && !metadata.adjustments.is_null
                 ? { ...INITIAL_ADJUSTMENTS, ...metadata.adjustments }
@@ -4076,7 +4004,7 @@ function App() {
                 progressMessage: 'Starting panorama process...',
                 stitchingSourcePaths: finalSelection,
               });
-              invoke('stitch_panorama', { paths: finalSelection }).catch((err) => {
+              commands.stitchPanorama(finalSelection).catch((err) => {
                 setPanoramaModalState((prev: PanoramaModalState) => ({
                   ...prev,
                   error: String(err),
@@ -4098,7 +4026,7 @@ function App() {
                 progressMessage: 'Starting hdr process...',
                 stitchingSourcePaths: finalSelection,
               });
-              invoke('merge_hdr', { paths: finalSelection }).catch((err) => {
+              commands.mergeHdr(finalSelection).catch((err) => {
                 setHdrModalState((prev: HdrModalState) => ({
                   ...prev,
                   error: String(err),
@@ -4152,7 +4080,7 @@ function App() {
         label: 'Duplicate Image',
         onClick: async () => {
           try {
-            await invoke('duplicate_file', { path: finalSelection[0] });
+            await commands.duplicateFile(finalSelection[0]);
             await refreshImageList();
           } catch (err) {
             console.error('Failed to duplicate file:', err);
@@ -4203,7 +4131,7 @@ function App() {
         icon: Folder,
         label: 'Show in File Explorer',
         onClick: () => {
-          invoke('show_in_finder', { path: finalSelection[0] }).catch((err) =>
+          commands.showInFinder(finalSelection[0]).catch((err) =>
             setError(`Could not show file in explorer: ${err}`),
           );
         },
@@ -4217,7 +4145,7 @@ function App() {
   const handleCreateFolder = async (folderName: string) => {
     if (folderName && folderName.trim() !== '' && folderActionTarget) {
       try {
-        await invoke('create_folder', { path: `${folderActionTarget}/${folderName.trim()}` });
+        await commands.createFolder(`${folderActionTarget}/${folderName.trim()}`);
         refreshAllFolderTrees();
       } catch (err) {
         setError(`Failed to create folder: ${err}`);
@@ -4231,7 +4159,7 @@ function App() {
         const oldPath = folderActionTarget;
         const trimmedNewName = newName.trim();
 
-        await invoke('rename_folder', { path: oldPath, newName: trimmedNewName });
+        await commands.renameFolder(oldPath, trimmedNewName);
 
         const parentDir = getParentDir(oldPath);
         const separator = oldPath.includes('/') ? '/' : '\\';
@@ -4323,7 +4251,7 @@ function App() {
             label: copyPastedLabel,
             onClick: async () => {
               try {
-                await invoke('copy_files', { sourcePaths: copiedFilePaths, destinationFolder: targetPath });
+                await commands.copyFiles(copiedFilePaths, targetPath);
                 if (targetPath === currentFolderPath) handleLibraryRefresh();
               } catch (err) {
                 setError(`Failed to copy files: ${err}`);
@@ -4334,7 +4262,7 @@ function App() {
             label: movePastedLabel,
             onClick: async () => {
               try {
-                await invoke('move_files', { sourcePaths: copiedFilePaths, destinationFolder: targetPath });
+                await commands.moveFiles(copiedFilePaths, targetPath);
                 setCopiedFilePaths([]);
                 setMultiSelectedPaths([]);
                 refreshAllFolderTrees();
@@ -4352,7 +4280,7 @@ function App() {
         icon: Folder,
         label: 'Show in File Explorer',
         onClick: () =>
-          invoke('show_in_finder', { path: targetPath }).catch((err) => setError(`Could not show folder: ${err}`)),
+          commands.showInFinder(targetPath).catch((err) => setError(`Could not show folder: ${err}`)),
       },
       ...(path
         ? [
@@ -4369,7 +4297,7 @@ function App() {
                   isDestructive: true,
                   onClick: async () => {
                     try {
-                      await invoke('delete_folder', { path: targetPath });
+                      await commands.deleteFolder(targetPath);
                       if (currentFolderPath?.startsWith(targetPath)) await handleSelectSubfolder(rootPath);
                       refreshAllFolderTrees();
                     } catch (err) {
@@ -4402,7 +4330,7 @@ function App() {
             label: copyPastedLabel,
             onClick: async () => {
               try {
-                await invoke('copy_files', { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
+                await commands.copyFiles(copiedFilePaths, currentFolderPath);
                 handleLibraryRefresh();
               } catch (err) {
                 setError(`Failed to copy files: ${err}`);
@@ -4413,7 +4341,7 @@ function App() {
             label: movePastedLabel,
             onClick: async () => {
               try {
-                await invoke('move_files', { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
+                await commands.moveFiles(copiedFilePaths, currentFolderPath);
                 setCopiedFilePaths([]);
                 setMultiSelectedPaths([]);
                 refreshAllFolderTrees();

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { listen } from '@tauri-apps/api/event';
-import { commands } from '../bindings';
+import { commands, events } from '../bindings';
 import { ImageFile, Progress } from '../components/ui/AppProperties';
 
 export function useThumbnails(imageList: Array<ImageFile>, setThumbnails: any) {
@@ -51,12 +50,12 @@ export function useThumbnails(imageList: Array<ImageFile>, setThumbnails: any) {
       setLoading(true);
       setProgress({ completed: 0, total: imagePaths.length });
 
-      unlistenProgress = await listen('thumbnail-progress', (event: any) => {
+      unlistenProgress = await events.thumbnailProgress.listen((event: any) => {
         const { completed, total } = event.payload;
         setProgress({ completed, total });
       });
 
-      unlistenComplete = await listen('thumbnail-generation-complete', () => {
+      unlistenComplete = await events.thumbnailGenerationComplete.listen(() => {
         setLoading(false);
       });
 

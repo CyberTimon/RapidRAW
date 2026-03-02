@@ -143,6 +143,118 @@ struct AiConnectorStatusUpdate {
     connected: bool,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct PreviewUpdateFinal(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct PreviewUpdateUncropped(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct HistogramUpdate(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct OpenWithFile(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct WaveformUpdate(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ThumbnailGenerated(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct AiModelDownloadStart(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct AiModelDownloadFinish(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct IndexingStarted(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct IndexingProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct IndexingError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct IndexingFinished(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct BatchExportProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ExportComplete(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ExportCompleteWithErrors(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ExportError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ExportCancelled(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ImportStart(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ImportProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ImportComplete(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ImportError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ThumbnailGenerationError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ThumbnailProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ThumbnailGenerationComplete(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct DenoiseProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct DenoiseComplete(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct DenoiseError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct PanoramaProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct PanoramaComplete(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct PanoramaError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct PanoramaWarning(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct HdrProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct HdrComplete(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct HdrError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct CullingStart(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct CullingProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct CullingComplete(serde_json::Value);
+
 pub struct AppState {
     window_setup_complete: AtomicBool,
     original_image: Mutex<Option<LoadedImage>>,
@@ -3781,7 +3893,46 @@ fn main() {
             negative_conversion::convert_negative_full,
             negative_conversion::save_converted_negative,
         ])
-        .events(collect_events![AiConnectorStatusUpdate])
+        .events(collect_events![
+            AiConnectorStatusUpdate,
+            PreviewUpdateFinal,
+            PreviewUpdateUncropped,
+            HistogramUpdate,
+            OpenWithFile,
+            WaveformUpdate,
+            ThumbnailGenerated,
+            AiModelDownloadStart,
+            AiModelDownloadFinish,
+            IndexingStarted,
+            IndexingProgress,
+            IndexingError,
+            IndexingFinished,
+            BatchExportProgress,
+            ExportComplete,
+            ExportCompleteWithErrors,
+            ExportError,
+            ExportCancelled,
+            ImportStart,
+            ImportProgress,
+            ImportComplete,
+            ImportError,
+            ThumbnailGenerationError,
+            ThumbnailProgress,
+            ThumbnailGenerationComplete,
+            DenoiseProgress,
+            DenoiseComplete,
+            DenoiseError,
+            PanoramaProgress,
+            PanoramaComplete,
+            PanoramaError,
+            PanoramaWarning,
+            HdrProgress,
+            HdrComplete,
+            HdrError,
+            CullingStart,
+            CullingProgress,
+            CullingComplete
+        ])
         .error_handling(ErrorHandlingMode::Throw);
 
     #[cfg(debug_assertions)]
