@@ -597,7 +597,7 @@ export default function Editor({
 
   const waveFormData: WaveformData = waveform || { blue: [], green: [], height: 0, luma: [], red: [], width: 0 };
   const isZoomActionActive = !isCropping && !isMasking && !isAiEditing && !isWbPickerActive;
-  const isMaxZoom = transformState.scale >= transformConfig.maxScale - 0.02;
+  const isMaxZoom = transformState.scale >= transformConfig.maxScale - 0.5;
 
   let cursorStyle = 'default';
   if (isZoomActionActive) {

@@ -106,4 +106,5 @@ export interface ExportPreset {
   watermarkScale: number;
   watermarkSpacing: number;
   watermarkOpacity: number;
+  lastExportPath?: string;
 }

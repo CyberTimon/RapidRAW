@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { commands } from '../../../bindings';
 import { Save, CheckCircle, XCircle, Loader, X, Ban } from 'lucide-react';
@@ -8,6 +8,7 @@ import Dropdown from '../../ui/Dropdown';
 import Slider from '../../ui/Slider';
 import ImagePicker from '../../ui/ImagePicker';
 import {
+  ExportPreset,
   FileFormat,
   FILE_FORMATS,
   FILENAME_VARIABLES,
@@ -207,6 +208,41 @@ export default function LibraryExportPanel({
     currentSettingsObject,
   } = useExportSettings();
 
+  const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
+
+  useEffect(() => {
+    if (!isVisible) {
+      setHasLoadedSettings(false);
+      return;
+    }
+
+    if (appSettings && !hasLoadedSettings) {
+      const lastUsed = appSettings.exportPresets?.find((p) => p.id === '__last_used__');
+      if (lastUsed) {
+        handleApplyPreset(lastUsed);
+      }
+      setHasLoadedSettings(true);
+    }
+  }, [isVisible, appSettings, hasLoadedSettings, handleApplyPreset]);
+
+  const saveLastUsedPreset = useCallback(
+    (exportPath: string) => {
+      if (!appSettings) return;
+      const lastUsedPreset: ExportPreset = {
+        ...currentSettingsObject,
+        id: '__last_used__',
+        name: '__last_used__',
+        lastExportPath: exportPath,
+      };
+      const updatedPresets = [
+        ...(appSettings.exportPresets ?? []).filter((p) => p.id !== '__last_used__'),
+        lastUsedPreset,
+      ];
+      onSettingsChange({ ...appSettings, exportPresets: updatedPresets });
+    },
+    [appSettings, currentSettingsObject, onSettingsChange],
+  );
+
   const [estimatedSize, setEstimatedSize] = useState<number | null>(null);
   const [isEstimating, setIsEstimating] = useState<boolean>(false);
   const [watermarkImageAspectRatio, setWatermarkImageAspectRatio] = useState(1);
@@ -290,7 +326,7 @@ export default function LibraryExportPanel({
           setIsEstimating(false);
         }
       }, 500),
-    []
+    [],
   );
 
   useEffect(() => {
@@ -316,7 +352,7 @@ export default function LibraryExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
-      exportMasks
+      exportMasks,
     };
     const format = FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0] || 'jpeg';
     debouncedEstimateSize(multiSelectedPaths, exportSettings, format);
@@ -369,10 +405,12 @@ export default function LibraryExportPanel({
       return;
     }
 
-    setExportState({ status: Status.Exporting, progress: { current: 0, total: numImages }, errorMessage: '' });
-
     let finalFilenameTemplate = filenameTemplate;
-    if (numImages > 1 && !filenameTemplate.includes('{sequence}') && !filenameTemplate.includes('{original_filename}')) {
+    if (
+      numImages > 1 &&
+      !filenameTemplate.includes('{sequence}') &&
+      !filenameTemplate.includes('{original_filename}')
+    ) {
       finalFilenameTemplate = `${filenameTemplate}_{sequence}`;
       setFilenameTemplate(finalFilenameTemplate);
     }
@@ -396,13 +434,17 @@ export default function LibraryExportPanel({
           : null,
     };
 
+    const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
+
     try {
       const outputFolder = await open({
         directory: true,
         title: `Select Folder to Export ${numImages} Image(s)`,
+        defaultPath: lastExportPath ?? undefined,
       });
 
       if (outputFolder) {
+<<<<<<< refactor/tauri-specta
         await commands.batchExportImages(
           outputFolder,
           multiSelectedPaths,
@@ -411,6 +453,16 @@ export default function LibraryExportPanel({
         );
       } else {
         setExportState((prev: ExportState) => ({ ...prev, status: Status.Idle }));
+=======
+        saveLastUsedPreset(outputFolder as string);
+        setExportState({ status: Status.Exporting, progress: { current: 0, total: numImages }, errorMessage: '' });
+        await invoke(Invokes.BatchExportImages, {
+          exportSettings,
+          outputFolder,
+          outputFormat: FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0],
+          paths: multiSelectedPaths,
+        });
+>>>>>>> main
       }
     } catch (error) {
       console.error('Error exporting images:', error);
@@ -435,9 +487,7 @@ export default function LibraryExportPanel({
   return (
     <div className="h-full bg-bg-secondary rounded-lg flex flex-col">
       <div className="p-4 flex justify-between items-center flex-shrink-0 border-b border-surface">
-        <h2 className="text-xl font-bold text-primary text-shadow-shiny">
-          Export
-        </h2>
+        <h2 className="text-xl font-bold text-primary text-shadow-shiny">Export</h2>
         <button
           onClick={onClose}
           className="p-1 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary"

@@ -85,10 +85,12 @@ export default function ExportPresetsList({
     setSelectedPresetId('');
   };
 
-  const dropdownOptions = presets.map((preset) => ({
-    label: preset.name,
-    value: preset.id,
-  }));
+  const dropdownOptions = presets
+    .filter((preset) => preset.id !== '__last_used__')
+    .map((preset) => ({
+      label: preset.name,
+      value: preset.id,
+    }));
 
   return (
     <div className="mb-6">
