@@ -3,7 +3,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { Crop, PercentCrop } from 'react-image-crop';
 import { Loader2 } from 'lucide-react';
 import clsx from 'clsx';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../../bindings';
 import debounce from 'lodash.debounce';
 import { AnimatePresence } from 'framer-motion';
 import { ImageDimensions, useImageRenderSize } from '../../hooks/useImageRenderSize';
@@ -12,7 +12,7 @@ import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
 import Waveform from './editor/Waveform';
 import { Mask, SubMask } from './right/Masks';
-import { BrushSettings, Invokes, Panel, SelectedImage, TransformState, WaveformData } from '../ui/AppProperties';
+import { BrushSettings, Panel, SelectedImage, TransformState, WaveformData } from '../ui/AppProperties';
 import type { OverlayMode } from './right/CropPanel';
 
 interface EditorProps {
@@ -311,13 +311,13 @@ export default function Editor({
       }
       try {
         const cropOffset = [adjustments.crop?.x || 0, adjustments.crop?.y || 0];
-        const dataUrl: string = await invoke(Invokes.GenerateMaskOverlay, {
-          cropOffset,
-          height: Math.round(renderSize.height),
+        const dataUrl: string = await commands.generateMaskOverlay(
           maskDef,
-          scale: renderSize.scale,
-          width: Math.round(renderSize.width),
-        });
+          Math.round(renderSize.width),
+          Math.round(renderSize.height),
+          renderSize.scale,
+          cropOffset,
+        );
         if (dataUrl) {
           setMaskOverlayUrl(dataUrl);
         } else {

@@ -145,7 +145,7 @@ pub struct MultiName {
     value: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct LensDistortionParams {
     k1: f64,
     k2: f64,
@@ -509,6 +509,7 @@ pub fn load_lensfun_db(app_handle: &tauri::AppHandle) -> LensDatabase {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_lensfun_makers(state: State<AppState>) -> Result<Vec<String>, String> {
     let db_guard = state.lens_db.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
     if let Some(db) = &*db_guard {
@@ -526,6 +527,7 @@ pub fn get_lensfun_makers(state: State<AppState>) -> Result<Vec<String>, String>
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_lensfun_lenses_for_maker(maker: String, state: State<AppState>) -> Result<Vec<String>, String> {
     let db_guard = state.lens_db.lock().map_err(|e| format!("Lock poisoned: {}", e))?;
     if let Some(db) = &*db_guard {
@@ -544,6 +546,7 @@ pub fn get_lensfun_lenses_for_maker(maker: String, state: State<AppState>) -> Re
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn autodetect_lens(maker: String, model: String, state: State<AppState>) -> Result<Option<(String, String)>, String> {
     let clean_maker = maker.trim().trim_matches('"').to_string();
     let clean_model = model.trim().trim_matches('"').to_string();
@@ -628,6 +631,7 @@ pub fn autodetect_lens(maker: String, model: String, state: State<AppState>) -> 
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_lens_distortion_params(
     maker: String, 
     model: String, 

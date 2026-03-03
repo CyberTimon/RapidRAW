@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
+import { commands } from '../bindings';
 import { Adjustments, COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
-import { Folder, Invokes, Preset } from '../components/ui/AppProperties';
+import { Folder, Preset } from '../components/ui/AppProperties';
 
 export enum PresetListType {
   Folder = 'folder',
@@ -30,7 +30,7 @@ export function usePresets(currentAdjustments: Adjustments) {
   const loadPresets = useCallback(async () => {
     setIsLoading(true);
     try {
-      const loadedPresets: Array<UserPreset> = await invoke(Invokes.LoadPresets);
+      const loadedPresets: Array<UserPreset> = await commands.loadPresets();
       console.log(loadedPresets);
       setPresets(loadedPresets);
     } catch (error) {
@@ -44,7 +44,7 @@ export function usePresets(currentAdjustments: Adjustments) {
   const savePresetsToBackend = useCallback(
     debounce((presetsToSave: Array<UserPreset>) => {
       console.log(presetsToSave);
-      invoke(Invokes.SavePresets, { presets: presetsToSave }).catch((err) =>
+      commands.savePresets(presetsToSave).catch((err) =>
         console.error('Failed to save presets:', err),
       );
     }, 500),
@@ -392,7 +392,7 @@ export function usePresets(currentAdjustments: Adjustments) {
     async (filePath: string) => {
       setIsLoading(true);
       try {
-        const updatedPresetList: Array<any> = await invoke(Invokes.HandleImportPresetsFromFile, { filePath });
+        const updatedPresetList: Array<any> = await commands.handleImportPresetsFromFile(filePath);
         setPresets(updatedPresetList);
       } catch (error) {
         console.error('Failed to import presets from file:', error);
@@ -408,9 +408,7 @@ export function usePresets(currentAdjustments: Adjustments) {
     async (filePath: string) => {
       setIsLoading(true);
       try {
-        const updatedPresetList: Array<UserPreset> = await invoke(Invokes.HandleImportLegacyPresetsFromFile, {
-          filePath,
-        });
+        const updatedPresetList: Array<UserPreset> = await commands.handleImportLegacyPresetsFromFile(filePath);
         setPresets(updatedPresetList);
       } catch (error) {
         console.error('Failed to import legacy presets from file:', error);
@@ -424,7 +422,7 @@ export function usePresets(currentAdjustments: Adjustments) {
 
   const exportPresetsToFile = useCallback(async (presetsToExport: Array<any>, filePath: string) => {
     try {
-      await invoke(Invokes.HandleExportPresetsToFile, { presetsToExport, filePath });
+      await commands.handleExportPresetsToFile(presetsToExport, filePath);
     } catch (error) {
       console.error('Failed to export presets to file:', error);
       throw error;

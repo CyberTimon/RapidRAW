@@ -56,7 +56,9 @@ use rayon::prelude::*;
 use reqwest;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::{Emitter, Manager, ipc::Response};
+use specta_typescript::{BigIntExportBehavior, Typescript};
+use tauri::{Emitter, Manager};
+use tauri_specta::{Builder as SpectaBuilder, ErrorHandlingMode, Event, collect_commands, collect_events};
 use tempfile::NamedTempFile;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::task::JoinHandle;
@@ -135,6 +137,124 @@ struct PreviewUpdatePayload {
     data: Vec<u8>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+struct AiConnectorStatusUpdate {
+    connected: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct PreviewUpdateFinal(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct PreviewUpdateUncropped(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct HistogramUpdate(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct OpenWithFile(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct WaveformUpdate(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ThumbnailGenerated(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct AiModelDownloadStart(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct AiModelDownloadFinish(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct IndexingStarted(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct IndexingProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct IndexingError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct IndexingFinished(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct BatchExportProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ExportComplete(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ExportCompleteWithErrors(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ExportError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ExportCancelled(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ImportStart(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ImportProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ImportComplete(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ImportError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ThumbnailGenerationError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ThumbnailProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct ThumbnailGenerationComplete(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct DenoiseProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct DenoiseComplete(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct DenoiseError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct PanoramaProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct PanoramaComplete(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct PanoramaError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct PanoramaWarning(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct HdrProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct HdrComplete(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct HdrError(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct CullingStart(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct CullingProgress(serde_json::Value);
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type, tauri_specta::Event)]
+#[serde(transparent)]
+struct CullingComplete(serde_json::Value);
+
 pub struct AppState {
     window_setup_complete: AtomicBool,
     original_image: Mutex<Option<LoadedImage>>,
@@ -162,7 +282,7 @@ pub struct AppState {
     pub load_image_generation: Arc<AtomicUsize>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, specta::Type)]
 struct LoadImageResult {
     width: u32,
     height: u32,
@@ -171,7 +291,7 @@ struct LoadImageResult {
     is_raw: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 enum ResizeMode {
     LongEdge,
@@ -180,7 +300,7 @@ enum ResizeMode {
     Height,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct ResizeOptions {
     mode: ResizeMode,
@@ -188,7 +308,7 @@ struct ResizeOptions {
     dont_enlarge: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct ExportSettings {
     jpeg_quality: u8,
@@ -201,19 +321,19 @@ struct ExportSettings {
     export_masks: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub struct CommunityPreset {
     pub name: String,
     pub creator: String,
     pub adjustments: Value,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 struct LutParseResult {
     size: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum WatermarkAnchor {
     TopLeft,
@@ -227,7 +347,7 @@ pub enum WatermarkAnchor {
     BottomRight,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct WatermarkSettings {
     path: String,
@@ -237,7 +357,7 @@ pub struct WatermarkSettings {
     opacity: f32,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, specta::Type)]
 struct ImageDimensions {
     width: u32,
     height: u32,
@@ -511,6 +631,7 @@ fn get_or_load_lut(state: &tauri::State<AppState>, path: &str) -> Result<Arc<Lut
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn load_image(
     path: String,
     state: tauri::State<'_, AppState>,
@@ -637,6 +758,7 @@ async fn load_image(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn get_image_dimensions(path: String) -> Result<ImageDimensions, String> {
     let (source_path, _) = parse_virtual_path(&path);
     image::image_dimensions(&source_path)
@@ -645,6 +767,7 @@ fn get_image_dimensions(path: String) -> Result<ImageDimensions, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn cancel_thumbnail_generation(state: tauri::State<AppState>) -> Result<(), String> {
     state
         .thumbnail_cancellation_token
@@ -953,6 +1076,7 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn apply_adjustments(
     js_adjustments: serde_json::Value,
     is_interactive: bool,
@@ -970,6 +1094,7 @@ fn apply_adjustments(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn generate_uncropped_preview(
     js_adjustments: serde_json::Value,
     state: tauri::State<AppState>,
@@ -1083,11 +1208,12 @@ fn generate_uncropped_preview(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn generate_original_transformed_preview(
     js_adjustments: serde_json::Value,
     state: tauri::State<AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<Response, String> {
+) -> Result<Vec<u8>, String> {
     let loaded_image = state
         .original_image
         .lock()
@@ -1124,10 +1250,11 @@ fn generate_original_transformed_preview(
         .encode_rgb(&rgb_pixels, width as u32, height as u32)
         .map_err(|e| format!("Failed to encode with mozjpeg-rs: {}", e))?;
 
-    Ok(Response::new(bytes))
+    Ok(bytes)
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn preview_geometry_transform(
     params: GeometryParams,
     js_adjustments: serde_json::Value,
@@ -1327,6 +1454,7 @@ fn get_full_image_for_processing(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn generate_fullscreen_preview(
     js_adjustments: serde_json::Value,
     app_handle: tauri::AppHandle,
@@ -1688,6 +1816,7 @@ fn export_masks_for_image(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn export_image(
     original_path: String,
     output_path: String,
@@ -1767,6 +1896,7 @@ async fn export_image(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn batch_export_images(
     output_folder: String,
     paths: Vec<String>,
@@ -1971,11 +2101,13 @@ async fn batch_export_images(
 }
 
 #[tauri::command]
-fn cancel_export(state: tauri::State<AppState>) -> Result<(), String> {
+#[specta::specta]
+fn cancel_export(state: tauri::State<AppState>, app_handle: tauri::AppHandle) -> Result<(), String> {
     match state.export_task_handle.lock().unwrap().take() {
         Some(handle) => {
             handle.abort();
             println!("Export task cancellation requested.");
+            let _ = app_handle.emit("export-cancelled", ());
         }
         _ => {
             return Err("No export task is currently running.".to_string());
@@ -1985,6 +2117,7 @@ fn cancel_export(state: tauri::State<AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn estimate_export_size(
     js_adjustments: Value,
     export_settings: ExportSettings,
@@ -2089,6 +2222,7 @@ async fn estimate_export_size(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn estimate_batch_export_size(
     paths: Vec<String>,
     export_settings: ExportSettings,
@@ -2250,6 +2384,7 @@ async fn estimate_batch_export_size(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn generate_mask_overlay(
     mask_def: MaskDefinition,
     width: u32,
@@ -2284,6 +2419,7 @@ fn generate_mask_overlay(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn generate_ai_foreground_mask(
     js_adjustments: serde_json::Value,
     rotation: f32,
@@ -2318,6 +2454,7 @@ async fn generate_ai_foreground_mask(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn generate_ai_sky_mask(
     js_adjustments: serde_json::Value,
     rotation: f32,
@@ -2351,6 +2488,7 @@ async fn generate_ai_sky_mask(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn generate_ai_subject_mask(
     js_adjustments: serde_json::Value,
     path: String,
@@ -2507,10 +2645,11 @@ async fn generate_ai_subject_mask(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn generate_preset_preview(
     js_adjustments: serde_json::Value,
     state: tauri::State<AppState>,
-) -> Result<Response, String> {
+) -> Result<Vec<u8>, String> {
     let context = get_or_init_gpu_context(&state)?;
 
     let loaded_image = state
@@ -2562,15 +2701,17 @@ fn generate_preset_preview(
         .write_with_encoder(JpegEncoder::new_with_quality(&mut buf, 50))
         .map_err(|e| e.to_string())?;
 
-    Ok(Response::new(buf.into_inner()))
+    Ok(buf.into_inner())
 }
 
 #[tauri::command]
+#[specta::specta]
 fn update_window_effect(theme: String, window: tauri::Window) {
     apply_window_effect(theme, window);
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn check_ai_connector_status(app_handle: tauri::AppHandle) {
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let is_connected = if let Some(address) = settings.ai_connector_address {
@@ -2578,13 +2719,14 @@ async fn check_ai_connector_status(app_handle: tauri::AppHandle) {
     } else {
         false
     };
-    let _ = app_handle.emit(
-        "ai-connector-status-update",
-        serde_json::json!({ "connected": is_connected }),
-    );
+    let _ = AiConnectorStatusUpdate {
+        connected: is_connected,
+    }
+    .emit(&app_handle);
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn test_ai_connector_connection(address: String) -> Result<(), String> {
     match ai_connector::check_status(&address).await {
         Ok(true) => Ok(()),
@@ -2604,6 +2746,7 @@ fn calculate_dynamic_patch_radius(width: u32, height: u32) -> u32 {
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn invoke_generative_replace_with_mask_def(
     path: String,
     patch_definition: AiPatchDefinition,
@@ -2769,6 +2912,7 @@ async fn invoke_generative_replace_with_mask_def(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn get_supported_file_types() -> Result<serde_json::Value, String> {
     let raw_extensions: Vec<&str> = crate::formats::RAW_EXTENSIONS
         .iter()
@@ -2783,6 +2927,7 @@ fn get_supported_file_types() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn fetch_community_presets() -> Result<Vec<CommunityPreset>, String> {
     let client = reqwest::Client::new();
     let url = "https://raw.githubusercontent.com/CyberTimon/RapidRAW-Presets/main/manifest.json";
@@ -2807,6 +2952,7 @@ async fn fetch_community_presets() -> Result<Vec<CommunityPreset>, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn generate_all_community_previews(
     image_paths: Vec<String>,
     presets: Vec<CommunityPreset>,
@@ -2939,6 +3085,7 @@ async fn generate_all_community_previews(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn save_temp_file(bytes: Vec<u8>) -> Result<String, String> {
     let mut temp_file = NamedTempFile::new().map_err(|e| e.to_string())?;
     temp_file.write_all(&bytes).map_err(|e| e.to_string())?;
@@ -2947,6 +3094,7 @@ async fn save_temp_file(bytes: Vec<u8>) -> Result<String, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn stitch_panorama(
     paths: Vec<String>,
     app_handle: tauri::AppHandle,
@@ -3019,6 +3167,7 @@ async fn stitch_panorama(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn save_panorama(
     first_path_str: String,
     state: tauri::State<'_, AppState>,
@@ -3060,13 +3209,20 @@ async fn save_panorama(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn merge_hdr(
     paths: Vec<String>,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    let emit_hdr_error = |message: &str| {
+        let _ = app_handle.emit("hdr-error", message.to_string());
+    };
+
     if paths.len() < 2 {
-        return Err("Please select at least two images to merge.".to_string());
+        let msg = "Please select at least two images to merge.".to_string();
+        emit_hdr_error(&msg);
+        return Err(msg);
     }
 
     let hdr_result_handle = state.hdr_result.clone();
@@ -3112,20 +3268,26 @@ async fn merge_hdr(
 
             Ok((path.clone(), dynamic_image, exposure, gains))
         })
-        .collect::<Result<Vec<_>, String>>()?;
+        .collect::<Result<Vec<_>, String>>()
+        .map_err(|e| {
+            emit_hdr_error(&e);
+            e
+        })?;
 
     if let Some((first_path, first_img, _, _)) = loaded_items.first() {
         let (width, height) = (first_img.width(), first_img.height());
 
         for (path, img, _, _) in loaded_items.iter().skip(1) {
             if img.width() != width || img.height() != height {
-                return Err(format!(
+                let msg = format!(
                     "Dimension mismatch detected.\n\nBase image ({}): {}x{}\nTarget image ({}): {}x{}\n\nHDR merge requires all images to be exactly the same size.",
                     Path::new(first_path).file_name().unwrap_or_default().to_string_lossy(),
                     width, height,
                     Path::new(path).file_name().unwrap_or_default().to_string_lossy(),
                     img.width(), img.height()
-                ));
+                );
+                emit_hdr_error(&msg);
+                return Err(msg);
             }
         }
     }
@@ -3136,15 +3298,25 @@ async fn merge_hdr(
             HDRInput::with_image(img, *exposure, *gains)
                 .map_err(|e| format!("Failed to prepare HDR input for {}: {}", path, e))
         })
-        .collect::<Result<Vec<HDRInput>, String>>()?;
+        .collect::<Result<Vec<HDRInput>, String>>()
+        .map_err(|e| {
+            emit_hdr_error(&e);
+            e
+        })?;
 
     log::info!("Starting HDR merge of {} images", images.len());
-    let hdr_merged = hdr_merge_images(&mut images.into()).map_err(|e| e.to_string())?;
+    let hdr_merged = hdr_merge_images(&mut images.into()).map_err(|e| {
+        let msg = e.to_string();
+        emit_hdr_error(&msg);
+        msg
+    })?;
     log::info!("HDR merge completed");
 
     let mut buf = Cursor::new(Vec::new());
     if let Err(e) = hdr_merged.to_rgb8().write_to(&mut buf, ImageFormat::Png) {
-        return Err(format!("Failed to encode hdr preview: {}", e));
+        let msg = format!("Failed to encode hdr preview: {}", e);
+        emit_hdr_error(&msg);
+        return Err(msg);
     }
 
     let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
@@ -3164,6 +3336,7 @@ async fn merge_hdr(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn save_hdr(
     first_path_str: String,
     state: tauri::State<'_, AppState>,
@@ -3206,6 +3379,7 @@ async fn save_hdr(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn apply_denoising(
     path: String,
     intensity: f32,
@@ -3232,6 +3406,7 @@ async fn apply_denoising(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn save_denoised_image(
     original_path_str: String,
     state: tauri::State<'_, AppState>,
@@ -3275,6 +3450,7 @@ async fn save_denoised_image(
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn save_collage(base64_data: String, first_path_str: String) -> Result<String, String> {
     let data_url_prefix = "data:image/png;base64,";
     if !base64_data.starts_with(data_url_prefix) {
@@ -3305,12 +3481,13 @@ async fn save_collage(base64_data: String, first_path_str: String) -> Result<Str
 }
 
 #[tauri::command]
+#[specta::specta]
 fn generate_preview_for_path(
     path: String,
     js_adjustments: Value,
     state: tauri::State<AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<Response, String> {
+) -> Result<Vec<u8>, String> {
     let context = get_or_init_gpu_context(&state)?;
     let (source_path, _) = parse_virtual_path(&path);
     let source_path_str = source_path.to_string_lossy().to_string();
@@ -3383,10 +3560,11 @@ fn generate_preview_for_path(
         .encode_rgb(&rgb_pixels, width as u32, height as u32)
         .map_err(|e| format!("Failed to encode with mozjpeg-rs: {}", e))?;
 
-    Ok(Response::new(bytes))
+    Ok(bytes)
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn load_and_parse_lut(
     path: String,
     state: tauri::State<'_, AppState>,
@@ -3516,6 +3694,7 @@ fn setup_logging(app_handle: &tauri::AppHandle) {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn get_log_file_path(app_handle: tauri::AppHandle) -> Result<String, String> {
     let log_dir = app_handle.path().app_log_dir().map_err(|e| e.to_string())?;
     let log_file_path = log_dir.join("app.log");
@@ -3523,6 +3702,7 @@ fn get_log_file_path(app_handle: tauri::AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn frontend_log(level: String, message: String) -> Result<(), String> {
     let trimmed = message.trim();
     if trimmed.is_empty() {
@@ -3553,6 +3733,7 @@ fn handle_file_open(app_handle: &tauri::AppHandle, path: PathBuf) {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn frontend_ready(
     app_handle: tauri::AppHandle,
     window: tauri::Window,
@@ -3618,6 +3799,162 @@ fn frontend_ready(
 }
 
 fn main() {
+    let specta_builder = SpectaBuilder::<tauri::Wry>::new()
+        .commands(collect_commands![
+            load_image,
+            apply_adjustments,
+            export_image,
+            batch_export_images,
+            cancel_export,
+            estimate_export_size,
+            estimate_batch_export_size,
+            generate_fullscreen_preview,
+            generate_preview_for_path,
+            generate_original_transformed_preview,
+            generate_preset_preview,
+            generate_uncropped_preview,
+            preview_geometry_transform,
+            generate_mask_overlay,
+            generate_ai_subject_mask,
+            generate_ai_foreground_mask,
+            generate_ai_sky_mask,
+            update_window_effect,
+            check_ai_connector_status,
+            test_ai_connector_connection,
+            invoke_generative_replace_with_mask_def,
+            get_supported_file_types,
+            get_log_file_path,
+            frontend_log,
+            save_collage,
+            stitch_panorama,
+            save_panorama,
+            merge_hdr,
+            save_hdr,
+            apply_denoising,
+            save_denoised_image,
+            load_and_parse_lut,
+            fetch_community_presets,
+            generate_all_community_previews,
+            save_temp_file,
+            get_image_dimensions,
+            frontend_ready,
+            cancel_thumbnail_generation,
+            image_processing::generate_histogram,
+            image_processing::generate_waveform,
+            image_processing::calculate_auto_adjustments,
+            file_management::read_exif_for_paths,
+            file_management::list_images_in_dir,
+            file_management::list_images_recursive,
+            file_management::get_folder_tree,
+            file_management::get_pinned_folder_trees,
+            file_management::generate_thumbnails,
+            file_management::generate_thumbnails_progressive,
+            file_management::create_folder,
+            file_management::delete_folder,
+            file_management::copy_files,
+            file_management::move_files,
+            file_management::rename_folder,
+            file_management::rename_files,
+            file_management::duplicate_file,
+            file_management::show_in_finder,
+            file_management::delete_files_from_disk,
+            file_management::delete_files_with_associated,
+            file_management::save_metadata_and_update_thumbnail,
+            file_management::apply_adjustments_to_paths,
+            file_management::load_metadata,
+            file_management::load_presets,
+            file_management::save_presets,
+            file_management::load_settings,
+            file_management::save_settings,
+            file_management::reset_adjustments_for_paths,
+            file_management::apply_auto_adjustments_to_paths,
+            file_management::handle_import_presets_from_file,
+            file_management::handle_import_legacy_presets_from_file,
+            file_management::handle_export_presets_to_file,
+            file_management::save_community_preset,
+            file_management::clear_all_sidecars,
+            file_management::clear_thumbnail_cache,
+            file_management::set_color_label_for_paths,
+            file_management::import_files,
+            file_management::create_virtual_copy,
+            tagging::start_background_indexing,
+            tagging::clear_ai_tags,
+            tagging::clear_all_tags,
+            tagging::add_tag_for_paths,
+            tagging::remove_tag_for_paths,
+            culling::cull_images,
+            lens_correction::get_lensfun_makers,
+            lens_correction::get_lensfun_lenses_for_maker,
+            lens_correction::autodetect_lens,
+            lens_correction::get_lens_distortion_params,
+            negative_conversion::preview_negative_conversion,
+            negative_conversion::convert_negative_full,
+            negative_conversion::save_converted_negative,
+        ])
+        .events(collect_events![
+            AiConnectorStatusUpdate,
+            PreviewUpdateFinal,
+            PreviewUpdateUncropped,
+            HistogramUpdate,
+            OpenWithFile,
+            WaveformUpdate,
+            ThumbnailGenerated,
+            AiModelDownloadStart,
+            AiModelDownloadFinish,
+            IndexingStarted,
+            IndexingProgress,
+            IndexingError,
+            IndexingFinished,
+            BatchExportProgress,
+            ExportComplete,
+            ExportCompleteWithErrors,
+            ExportError,
+            ExportCancelled,
+            ImportStart,
+            ImportProgress,
+            ImportComplete,
+            ImportError,
+            ThumbnailGenerationError,
+            ThumbnailProgress,
+            ThumbnailGenerationComplete,
+            DenoiseProgress,
+            DenoiseComplete,
+            DenoiseError,
+            PanoramaProgress,
+            PanoramaComplete,
+            PanoramaError,
+            PanoramaWarning,
+            HdrProgress,
+            HdrComplete,
+            HdrError,
+            CullingStart,
+            CullingProgress,
+            CullingComplete
+        ])
+        .error_handling(ErrorHandlingMode::Throw);
+
+    #[cfg(debug_assertions)]
+    {
+        specta_builder
+            .export(
+                Typescript::default().bigint(BigIntExportBehavior::Number),
+                "../src/bindings.ts",
+            )
+            .expect("Failed to export TypeScript bindings");
+    }
+
+    if std::env::var("RAPIDRAW_EXPORT_BINDINGS_ONLY").as_deref() == Ok("1") {
+        specta_builder
+            .export(
+                Typescript::default().bigint(BigIntExportBehavior::Number),
+                "../src/bindings.ts",
+            )
+            .expect("Failed to export TypeScript bindings");
+        return;
+    }
+
+    let specta_invoke_handler = specta_builder.invoke_handler();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             log::info!("New instance launched with args: {:?}. Focusing main window.", argv);
@@ -3642,7 +3979,10 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_shell::init())
-        .setup(|app| {
+        .invoke_handler(specta_invoke_handler)
+        .setup(move |app| {
+            specta_builder.mount_events(app);
+
             #[cfg(any(windows, target_os = "linux"))]
             {
                 if let Some(arg) = std::env::args().nth(1) {
@@ -3861,97 +4201,6 @@ fn main() {
             lens_db: Mutex::new(None),
             load_image_generation: Arc::new(AtomicUsize::new(0)),
         })
-        .invoke_handler(tauri::generate_handler![
-            load_image,
-            apply_adjustments,
-            export_image,
-            batch_export_images,
-            cancel_export,
-            estimate_export_size,
-            estimate_batch_export_size,
-            generate_fullscreen_preview,
-            generate_preview_for_path,
-            generate_original_transformed_preview,
-            generate_preset_preview,
-            generate_uncropped_preview,
-            preview_geometry_transform,
-            generate_mask_overlay,
-            generate_ai_subject_mask,
-            generate_ai_foreground_mask,
-            generate_ai_sky_mask,
-            update_window_effect,
-            check_ai_connector_status,
-            test_ai_connector_connection,
-            invoke_generative_replace_with_mask_def,
-            get_supported_file_types,
-            get_log_file_path,
-            frontend_log,
-            save_collage,
-            stitch_panorama,
-            save_panorama,
-            merge_hdr,
-            save_hdr,
-            apply_denoising,
-            save_denoised_image,
-            load_and_parse_lut,
-            fetch_community_presets,
-            generate_all_community_previews,
-            save_temp_file,
-            get_image_dimensions,
-            frontend_ready,
-            cancel_thumbnail_generation,
-            image_processing::generate_histogram,
-            image_processing::generate_waveform,
-            image_processing::calculate_auto_adjustments,
-            file_management::read_exif_for_paths,
-            file_management::list_images_in_dir,
-            file_management::list_images_recursive,
-            file_management::get_folder_tree,
-            file_management::get_pinned_folder_trees,
-            file_management::generate_thumbnails,
-            file_management::generate_thumbnails_progressive,
-            file_management::create_folder,
-            file_management::delete_folder,
-            file_management::copy_files,
-            file_management::move_files,
-            file_management::rename_folder,
-            file_management::rename_files,
-            file_management::duplicate_file,
-            file_management::show_in_finder,
-            file_management::delete_files_from_disk,
-            file_management::delete_files_with_associated,
-            file_management::save_metadata_and_update_thumbnail,
-            file_management::apply_adjustments_to_paths,
-            file_management::load_metadata,
-            file_management::load_presets,
-            file_management::save_presets,
-            file_management::load_settings,
-            file_management::save_settings,
-            file_management::reset_adjustments_for_paths,
-            file_management::apply_auto_adjustments_to_paths,
-            file_management::handle_import_presets_from_file,
-            file_management::handle_import_legacy_presets_from_file,
-            file_management::handle_export_presets_to_file,
-            file_management::save_community_preset,
-            file_management::clear_all_sidecars,
-            file_management::clear_thumbnail_cache,
-            file_management::set_color_label_for_paths,
-            file_management::import_files,
-            file_management::create_virtual_copy,
-            tagging::start_background_indexing,
-            tagging::clear_ai_tags,
-            tagging::clear_all_tags,
-            tagging::add_tag_for_paths,
-            tagging::remove_tag_for_paths,
-            culling::cull_images,
-            lens_correction::get_lensfun_makers,
-            lens_correction::get_lensfun_lenses_for_maker,
-            lens_correction::autodetect_lens,
-            lens_correction::get_lens_distortion_params,
-            negative_conversion::preview_negative_conversion,
-            negative_conversion::convert_negative_full,
-            negative_conversion::save_converted_negative,
-        ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(#[allow(unused_variables)] |app_handle, event| {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../../bindings';
 import {
   RotateCcw,
   Search,
@@ -207,6 +207,9 @@ export default function LensCorrectionModal({
 
   const fetchDistortionParams = async (maker: string, model: string) => {
     try {
+<<<<<<< refactor/tauri-specta
+      const distParams: any = await commands.getLensDistortionParams(maker, model, focalLength ?? 50, aperture, distance);
+=======
       const distParams: any = await invoke('get_lens_distortion_params', {
         maker,
         model,
@@ -214,6 +217,7 @@ export default function LensCorrectionModal({
         aperture: aperture,
         distance: distance,
       });
+>>>>>>> main
       return distParams;
     } catch (error) {
       console.error('Failed to fetch lens params', error);
@@ -253,11 +257,7 @@ export default function LensCorrectionModal({
           vig_k3: currentParams.lensDistortionParams?.vig_k3 ?? 0,
         };
 
-        const result: string = await invoke('preview_geometry_transform', {
-          params: fullParams,
-          jsAdjustments: currentAdjustments,
-          showLines: false,
-        });
+        const result: string = await commands.previewGeometryTransform(fullParams, currentAdjustments, false);
         setPreviewUrl(result);
       } catch (e) {
         console.error('Lens correction preview failed', e);
@@ -271,7 +271,7 @@ export default function LensCorrectionModal({
       setIsMounted(true);
       const timer = setTimeout(() => setShow(true), 10);
 
-      invoke('load_settings').then((settings: any) => {
+      commands.loadSettings().then((settings: any) => {
         if (settings?.myLenses) {
           setMyLenses(settings.myLenses);
         }
@@ -294,12 +294,12 @@ export default function LensCorrectionModal({
       handleResetZoom();
       updatePreview(initParams);
 
-      invoke('get_lensfun_makers')
+      commands.getLensfunMakers()
         .then((m: any) => setMakers(m))
         .catch(console.error);
 
       if (initParams.lensMaker) {
-        invoke('get_lensfun_lenses_for_maker', { maker: initParams.lensMaker })
+        commands.getLensfunLensesForMaker(initParams.lensMaker)
           .then((l: any) => setLenses(l))
           .catch(console.error);
       }
@@ -326,8 +326,13 @@ export default function LensCorrectionModal({
     setParams(newParams);
     setLenses([]);
     setDetectionStatus('idle');
+<<<<<<< refactor/tauri-specta
+    
+    commands.getLensfunLensesForMaker(maker)
+=======
 
     invoke('get_lensfun_lenses_for_maker', { maker })
+>>>>>>> main
       .then((l: any) => setLenses(l))
       .catch(console.error);
 
@@ -357,7 +362,7 @@ export default function LensCorrectionModal({
     setParams(tempParams);
     setDetectionStatus('idle');
 
-    invoke('get_lensfun_lenses_for_maker', { maker: selected.maker })
+    commands.getLensfunLensesForMaker(selected.maker)
       .then((l: any) => setLenses(l))
       .catch(console.error);
 
@@ -395,13 +400,18 @@ export default function LensCorrectionModal({
     setDetectionStatus('detecting');
 
     try {
+<<<<<<< refactor/tauri-specta
+      const result: [string, string] | null = await commands.autodetectLens(exifMaker, exifModel);
+      
+=======
       const result: [string, string] | null = await invoke('autodetect_lens', { maker: exifMaker, model: exifModel });
 
+>>>>>>> main
       if (result) {
         const [detectedMaker, detectedModel] = result;
 
         if (detectedMaker !== params.lensMaker) {
-          await invoke('get_lensfun_lenses_for_maker', { maker: detectedMaker }).then((l: any) => setLenses(l));
+          await commands.getLensfunLensesForMaker(detectedMaker).then((l: any) => setLenses(l));
         }
 
         const distortionParams = await fetchDistortionParams(detectedMaker, detectedModel);
@@ -480,11 +490,7 @@ export default function LensCorrectionModal({
         vig_k3: currentAdjustments.lensDistortionParams?.vig_k3 ?? 0,
       };
 
-      invoke('preview_geometry_transform', {
-        params: fullParams,
-        jsAdjustments: currentAdjustments,
-        showLines: false,
-      }).then((result: any) => setPreviewUrl(result));
+      commands.previewGeometryTransform(fullParams, currentAdjustments, false).then((result: any) => setPreviewUrl(result));
     } else {
       updatePreview(params);
     }

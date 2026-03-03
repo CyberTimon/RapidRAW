@@ -60,7 +60,7 @@ fn emit_thumbnail_cache_setup_error(app_handle: &AppHandle, path: &str, reason: 
     );
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub struct Preset {
     pub id: String,
     pub name: String,
@@ -73,14 +73,14 @@ struct ExportPresetFile<'a> {
     presets: &'a [PresetItem],
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub struct PresetFolder {
     pub id: String,
     pub name: String,
     pub children: Vec<Preset>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum PresetItem {
     Preset(Preset),
@@ -92,14 +92,14 @@ pub struct PresetFile {
     pub presets: Vec<PresetItem>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SortCriteria {
     pub key: String,
     pub order: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct FilterCriteria {
     pub rating: u8,
@@ -139,20 +139,20 @@ impl fmt::Display for ReadFileError {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LastFolderState {
     pub current_folder_path: String,
     pub expanded_folders: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, specta::Type)]
 pub struct MyLens {
     pub maker: String,
     pub model: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum PasteMode {
     Merge,
@@ -174,7 +174,7 @@ fn default_included_adjustments() -> HashSet<String> {
     .collect()
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CopyPasteSettings {
     pub mode: PasteMode,
@@ -194,7 +194,7 @@ impl Default for CopyPasteSettings {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportPreset {
     pub id: String,
@@ -285,7 +285,7 @@ fn default_tagging_shortcuts_option() -> Option<Vec<String>> {
         "event".to_string(),
     ])
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     pub last_root_path: Option<String>,
@@ -410,7 +410,7 @@ impl Default for AppSettings {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub struct ImageFile {
     path: String,
     modified: u64,
@@ -420,7 +420,7 @@ pub struct ImageFile {
     is_virtual_copy: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportSettings {
     pub filename_template: String,
@@ -463,6 +463,7 @@ pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn read_exif_for_paths(
     paths: Vec<String>,
 ) -> Result<HashMap<String, HashMap<String, String>>, String> {
@@ -486,6 +487,7 @@ pub async fn read_exif_for_paths(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<ImageFile>, String> {
     let settings = load_settings(app_handle).unwrap_or_default();
     let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
@@ -585,6 +587,7 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn list_images_recursive(path: String, app_handle: AppHandle) -> Result<Vec<ImageFile>, String> {
     let settings = load_settings(app_handle).unwrap_or_default();
     let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
@@ -691,7 +694,7 @@ pub fn list_images_recursive(path: String, app_handle: AppHandle) -> Result<Vec<
     Ok(result_list)
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct FolderNode {
     pub name: String,
@@ -778,6 +781,7 @@ fn get_folder_tree_sync(path: String) -> Result<FolderNode, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_folder_tree(path: String) -> Result<FolderNode, String> {
     match tauri::async_runtime::spawn_blocking(move || get_folder_tree_sync(path)).await {
         Ok(Ok(folder_node)) => Ok(folder_node),
@@ -787,6 +791,7 @@ pub async fn get_folder_tree(path: String) -> Result<FolderNode, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_pinned_folder_trees(paths: Vec<String>) -> Result<Vec<FolderNode>, String> {
     let result = tauri::async_runtime::spawn_blocking(move || {
         let results: Vec<Result<FolderNode, String>> = paths
@@ -1152,6 +1157,7 @@ fn generate_single_thumbnail_and_cache(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn generate_thumbnails(
     paths: Vec<String>,
     app_handle: tauri::AppHandle,
@@ -1192,6 +1198,7 @@ pub async fn generate_thumbnails(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn generate_thumbnails_progressive(
     paths: Vec<String>,
     app_handle: tauri::AppHandle,
@@ -1272,6 +1279,7 @@ pub fn generate_thumbnails_progressive(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn create_folder(path: String) -> Result<(), String> {
     let path_obj = Path::new(&path);
     if let (Some(parent), Some(new_folder_name_os)) = (path_obj.parent(), path_obj.file_name()) {
@@ -1293,6 +1301,7 @@ pub fn create_folder(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn rename_folder(path: String, new_name: String) -> Result<(), String> {
     let p = Path::new(&path);
     if !p.is_dir() {
@@ -1316,6 +1325,7 @@ pub fn rename_folder(path: String, new_name: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_folder(path: String) -> Result<(), String> {
     if let Err(trash_error) = trash::delete(&path) {
         log::warn!("Failed to move folder to trash: {}. Falling back to permanent delete.", trash_error);
@@ -1326,6 +1336,7 @@ pub fn delete_folder(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn duplicate_file(path: String) -> Result<(), String> {
     let (source_path, source_sidecar_path) = parse_virtual_path(&path);
     if !source_path.is_file() {
@@ -1401,6 +1412,7 @@ fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, S
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn copy_files(source_paths: Vec<String>, destination_folder: String) -> Result<(), String> {
     let dest_path = Path::new(&destination_folder);
     if !dest_path.is_dir() {
@@ -1452,6 +1464,7 @@ pub fn copy_files(source_paths: Vec<String>, destination_folder: String) -> Resu
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn move_files(source_paths: Vec<String>, destination_folder: String) -> Result<(), String> {
     let dest_path = Path::new(&destination_folder);
     if !dest_path.is_dir() {
@@ -1506,6 +1519,7 @@ pub fn move_files(source_paths: Vec<String>, destination_folder: String) -> Resu
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn save_metadata_and_update_thumbnail(
     path: String,
     adjustments: Value,
@@ -1604,6 +1618,7 @@ pub fn save_metadata_and_update_thumbnail(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn apply_adjustments_to_paths(
     paths: Vec<String>,
     adjustments: Value,
@@ -1700,6 +1715,7 @@ pub fn apply_adjustments_to_paths(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn reset_adjustments_for_paths(
     paths: Vec<String>,
     app_handle: AppHandle,
@@ -1785,6 +1801,7 @@ pub fn reset_adjustments_for_paths(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn apply_auto_adjustments_to_paths(
     paths: Vec<String>,
     app_handle: AppHandle,
@@ -1917,6 +1934,7 @@ pub fn apply_auto_adjustments_to_paths(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn set_color_label_for_paths(paths: Vec<String>, color: Option<String>, app_handle: AppHandle) -> Result<(), String> {
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
@@ -1963,6 +1981,7 @@ pub fn set_color_label_for_paths(paths: Vec<String>, color: Option<String>, app_
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadata, String> {
     let settings = load_settings(app_handle).unwrap_or_default();
     let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
@@ -2001,6 +2020,7 @@ fn get_presets_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, String
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn load_presets(app_handle: AppHandle) -> Result<Vec<PresetItem>, String> {
     let path = get_presets_path(&app_handle)?;
     if !path.exists() {
@@ -2011,6 +2031,7 @@ pub fn load_presets(app_handle: AppHandle) -> Result<Vec<PresetItem>, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn save_presets(presets: Vec<PresetItem>, app_handle: AppHandle) -> Result<(), String> {
     let path = get_presets_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&presets).map_err(|e| e.to_string())?;
@@ -2031,6 +2052,7 @@ fn get_settings_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, Strin
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
     let path = get_settings_path(&app_handle)?;
 
@@ -2073,6 +2095,7 @@ pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(), String> {
     let path = get_settings_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
@@ -2080,6 +2103,7 @@ pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(),
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn handle_import_presets_from_file(
     file_path: String,
     app_handle: AppHandle,
@@ -2135,6 +2159,7 @@ pub fn handle_import_presets_from_file(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn handle_import_legacy_presets_from_file(
     file_path: String,
     app_handle: AppHandle,
@@ -2188,6 +2213,7 @@ pub fn handle_import_legacy_presets_from_file(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn handle_export_presets_to_file(
     presets_to_export: Vec<PresetItem>,
     file_path: String,
@@ -2203,6 +2229,7 @@ pub fn handle_export_presets_to_file(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn save_community_preset(
     name: String,
     adjustments: Value,
@@ -2252,6 +2279,7 @@ pub fn save_community_preset(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn clear_all_sidecars(root_path: String) -> Result<usize, String> {
     if !Path::new(&root_path).exists() {
         return Err(format!("Root path does not exist: {}", root_path));
@@ -2279,6 +2307,7 @@ pub fn clear_all_sidecars(root_path: String) -> Result<usize, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn clear_thumbnail_cache(app_handle: AppHandle) -> Result<(), String> {
     let cache_dir = app_handle
         .path()
@@ -2298,6 +2327,7 @@ pub fn clear_thumbnail_cache(app_handle: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn show_in_finder(path: String) -> Result<(), String> {
     let (source_path, _) = parse_virtual_path(&path);
     let source_path_str = source_path.to_string_lossy().to_string();
@@ -2334,6 +2364,7 @@ pub fn show_in_finder(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_files_from_disk(paths: Vec<String>) -> Result<(), String> {
     let mut files_to_trash = HashSet::new();
 
@@ -2379,6 +2410,7 @@ pub fn delete_files_from_disk(paths: Vec<String>) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_files_with_associated(paths: Vec<String>) -> Result<(), String> {
     if paths.is_empty() {
         return Ok(());
@@ -2518,6 +2550,7 @@ pub fn get_cached_or_generate_thumbnail_image(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn import_files(
     source_paths: Vec<String>,
     destination_folder: String,
@@ -2649,6 +2682,7 @@ pub fn generate_filename_from_template(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn rename_files(paths: Vec<String>, name_template: String) -> Result<Vec<String>, String> {
     if paths.is_empty() {
         return Ok(Vec::new());
@@ -2724,6 +2758,7 @@ pub fn rename_files(paths: Vec<String>, name_template: String) -> Result<Vec<Str
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn create_virtual_copy(source_virtual_path: String) -> Result<String, String> {
     let (source_path, source_sidecar_path) = parse_virtual_path(&source_virtual_path);
 

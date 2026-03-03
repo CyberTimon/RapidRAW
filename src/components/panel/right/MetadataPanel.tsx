@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { Check, ChevronDown, ChevronRight, Plus, Star, Tag, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { SelectedImage, AppSettings, Invokes } from '../../ui/AppProperties';
+import { commands } from '../../../bindings';
+import { SelectedImage, AppSettings } from '../../ui/AppProperties';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 
 interface CameraSetting {
@@ -176,7 +176,7 @@ export default function MetadataPanel({
     if (newTagValue && !currentTags.some((t) => t.tag === newTagValue)) {
       try {
         const prefixedTag = `${USER_TAG_PREFIX}${newTagValue}`;
-        await invoke(Invokes.AddTagForPaths, { paths: [selectedImage.path], tag: prefixedTag });
+        await commands.addTagForPaths([selectedImage.path], prefixedTag);
 
         const newTags = [...currentTags, { tag: newTagValue, isUser: true }];
         onTagsChanged([selectedImage.path], newTags);
@@ -190,7 +190,7 @@ export default function MetadataPanel({
   const handleRemoveTag = async (tagToRemove: { tag: string; isUser: boolean }) => {
     try {
       const prefixedTag = tagToRemove.isUser ? `${USER_TAG_PREFIX}${tagToRemove.tag}` : tagToRemove.tag;
-      await invoke(Invokes.RemoveTagForPaths, { paths: [selectedImage.path], tag: prefixedTag });
+      await commands.removeTagForPaths([selectedImage.path], prefixedTag);
       
       const newTags = currentTags.filter((t) => t.tag !== tagToRemove.tag);
       onTagsChanged([selectedImage.path], newTags);

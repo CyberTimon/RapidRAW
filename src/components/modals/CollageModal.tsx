@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle, XCircle, Loader2, Save, Crop, Proportions, LayoutTemplate, Shuffle, RectangleHorizontal, RectangleVertical, Palette } from 'lucide-react';
-import { ImageFile, Invokes } from '../ui/AppProperties';
+import { commands } from '../../bindings';
+import { ImageFile } from '../ui/AppProperties';
 import Button from '../ui/Button';
 import Slider from '../ui/Slider';
 import Switch from '../ui/Switch';
@@ -122,10 +122,10 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
       setError(null);
       try {
         const imagePromises = sourceImages.map(async (imageFile) => {
-          const metadata: any = await invoke(Invokes.LoadMetadata, { path: imageFile.path });
+          const metadata: any = await commands.loadMetadata(imageFile.path);
           const adjustments = metadata.adjustments && !metadata.adjustments.is_null ? metadata.adjustments : {};
           
-          const imageData: Uint8Array = await invoke(Invokes.GeneratePreviewForPath, { path: imageFile.path, jsAdjustments: adjustments });
+          const imageData: Uint8Array = await commands.generatePreviewForPath(imageFile.path, adjustments);
           const blob = new Blob([imageData], { type: 'image/jpeg' });
           const url = URL.createObjectURL(blob);
           

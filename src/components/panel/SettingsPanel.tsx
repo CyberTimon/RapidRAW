@@ -15,7 +15,7 @@ import {
   Keyboard,
   Bookmark,
 } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../../bindings';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -27,7 +27,7 @@ import Switch from '../ui/Switch';
 import Input from '../ui/Input';
 import Slider from '../ui/Slider';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
-import { Invokes } from '../ui/AppProperties';
+
 
 interface ConfirmModalState {
   confirmText: string;
@@ -279,7 +279,7 @@ export default function SettingsPanel({
   useEffect(() => {
     const fetchLogPath = async () => {
       try {
-        const path: string = await invoke(Invokes.GetLogFilePath);
+        const path: string = await commands.getLogFilePath();
         setLogPath(path);
       } catch (error) {
         console.error('Failed to get log file path:', error);
@@ -288,7 +288,7 @@ export default function SettingsPanel({
     };
     fetchLogPath();
 
-    invoke('get_lensfun_makers')
+    commands.getLensfunMakers()
       .then((m: any) => setLensMakers(m))
       .catch(console.error);
   }, []);
@@ -321,7 +321,7 @@ export default function SettingsPanel({
     setTempLensModel('');
     setLensModels([]);
     if (maker) {
-      invoke('get_lensfun_lenses_for_maker', { maker })
+      commands.getLensfunLensesForMaker(maker)
         .then((l: any) => setLensModels(l))
         .catch(console.error);
     }
@@ -363,7 +363,7 @@ export default function SettingsPanel({
     setIsClearing(true);
     setClearMessage('Deleting sidecar files, please wait...');
     try {
-      const count: number = await invoke(Invokes.ClearAllSidecars, { rootPath: effectiveRootPath });
+      const count: number = await commands.clearAllSidecars(effectiveRootPath);
       setClearMessage(`${count} sidecar files deleted successfully.`);
       onLibraryRefresh();
     } catch (err: any) {
@@ -393,7 +393,7 @@ export default function SettingsPanel({
     setIsClearingAiTags(true);
     setAiTagsClearMessage('Clearing AI tags from all sidecar files...');
     try {
-      const count: number = await invoke(Invokes.ClearAiTags, { rootPath: effectiveRootPath });
+      const count: number = await commands.clearAiTags(effectiveRootPath);
       setAiTagsClearMessage(`${count} files updated. AI tags removed.`);
       onLibraryRefresh();
     } catch (err: any) {
@@ -423,7 +423,7 @@ export default function SettingsPanel({
     setIsClearingTags(true);
     setTagsClearMessage('Clearing all tags from sidecar files...');
     try {
-      const count: number = await invoke(Invokes.ClearAllTags, { rootPath: effectiveRootPath });
+      const count: number = await commands.clearAllTags(effectiveRootPath);
       setTagsClearMessage(`${count} files updated. All non-color tags removed.`);
       onLibraryRefresh();
     } catch (err: any) {
@@ -476,7 +476,7 @@ export default function SettingsPanel({
     setIsClearingCache(true);
     setCacheClearMessage('Clearing thumbnail cache...');
     try {
-      await invoke(Invokes.ClearThumbnailCache);
+      await commands.clearThumbnailCache();
       setCacheClearMessage('Thumbnail cache cleared successfully.');
       onLibraryRefresh();
     } catch (err: any) {
@@ -508,7 +508,7 @@ export default function SettingsPanel({
     }
     setTestStatus({ testing: true, message: 'Testing...', success: null });
     try {
-      await invoke(Invokes.TestAIConnectorConnection, { address: aiConnectorAddress });
+      await commands.testAiConnectorConnection(aiConnectorAddress);
       setTestStatus({ testing: false, message: 'Connection successful!', success: true });
     } catch (err) {
       setTestStatus({ testing: false, message: `Connection failed.`, success: false });
@@ -1352,7 +1352,7 @@ export default function SettingsPanel({
                     <DataActionItem
                       buttonAction={async () => {
                         if (logPath && !logPath.startsWith('Could not')) {
-                          await invoke(Invokes.ShowInFinder, { path: logPath });
+                          await commands.showInFinder(logPath);
                         }
                       }}
                       buttonText="Open Log File"

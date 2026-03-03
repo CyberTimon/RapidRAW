@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../../../bindings';
 import { Save, CheckCircle, XCircle, Loader, Ban } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import Switch from '../../ui/Switch';
@@ -19,7 +19,7 @@ import {
   FileFormats,
   WatermarkAnchor,
 } from '../../ui/ExportImportProperties';
-import { Invokes, SelectedImage, AppSettings } from '../../ui/AppProperties';
+import { SelectedImage, AppSettings } from '../../ui/AppProperties';
 import ExportPresetsList from '../../ui/ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
 
@@ -262,9 +262,7 @@ export default function ExportPanel({
     const fetchWatermarkDimensions = async () => {
       if (watermarkPath) {
         try {
-          const dimensions: { width: number; height: number } = await invoke('get_image_dimensions', {
-            path: watermarkPath,
-          });
+          const dimensions: { width: number; height: number } = await commands.getImageDimensions(watermarkPath);
           if (dimensions.height > 0) {
             setWatermarkImageAspectRatio(dimensions.width / dimensions.height);
           } else {
@@ -302,11 +300,7 @@ export default function ExportPanel({
         }
         setIsEstimating(true);
         try {
-          const size: number = await invoke(Invokes.EstimateExportSize, {
-            jsAdjustments: currentAdjustments,
-            exportSettings,
-            outputFormat: format,
-          });
+          const size: number = await commands.estimateExportSize(currentAdjustments, exportSettings, format);
           setEstimatedSize(size);
         } catch (err) {
           console.error('Failed to estimate export size:', err);
@@ -422,6 +416,16 @@ export default function ExportPanel({
           defaultPath: lastExportPath ?? undefined,
         });
         if (outputFolder) {
+<<<<<<< refactor/tauri-specta
+          await commands.batchExportImages(
+            outputFolder,
+            pathsToExport,
+            exportSettings,
+            FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0] || 'jpeg',
+          );
+        } else {
+          setExportState((prev: ExportState) => ({ ...prev, status: Status.Idle }));
+=======
           saveLastUsedPreset(outputFolder as string);
           setExportState({ status: Status.Exporting, progress: { current: 0, total: numImages }, errorMessage: '' });
           await invoke(Invokes.BatchExportImages, {
@@ -430,6 +434,7 @@ export default function ExportPanel({
             outputFormat: FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0],
             paths: pathsToExport,
           });
+>>>>>>> main
         }
       } else {
         const selectedFormat: any = FILE_FORMATS.find((f) => f.id === fileFormat);
@@ -449,6 +454,11 @@ export default function ExportPanel({
           ],
         });
         if (filePath) {
+<<<<<<< refactor/tauri-specta
+          await commands.exportImage(selectedImage.path, filePath, adjustments, exportSettings);
+        } else {
+          setExportState((prev: ExportState) => ({ ...prev, status: Status.Idle }));
+=======
           const dir = filePath.substring(0, Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\')));
           if (dir) saveLastUsedPreset(dir);
           setExportState({ status: Status.Exporting, progress: { current: 0, total: numImages }, errorMessage: '' });
@@ -458,6 +468,7 @@ export default function ExportPanel({
             originalPath: selectedImage.path,
             outputPath: filePath,
           });
+>>>>>>> main
         }
       }
     } catch (error) {
@@ -472,7 +483,7 @@ export default function ExportPanel({
 
   const handleCancel = async () => {
     try {
-      await invoke(Invokes.CancelExport);
+      await commands.cancelExport();
     } catch (error) {
       console.error('Failed to send cancel request:', error);
     }

@@ -1,6 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+<<<<<<< refactor/tauri-specta
+import { commands } from '../../bindings';
+import {
+  Check,
+  RotateCcw,
+  Grid3X3,
+  Eye,
+  EyeOff,
+  Info,
+  LineChart,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+} from 'lucide-react';
+=======
 import { invoke } from '@tauri-apps/api/core';
 import { Check, RotateCcw, Grid3X3, Eye, EyeOff, Info, LineChart, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+>>>>>>> main
 import { AnimatePresence, motion } from 'framer-motion';
 import Button from '../ui/Button';
 import Slider from '../ui/Slider';
@@ -218,11 +234,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
           lens_vignette_enabled: currentAdjustments.lensVignetteEnabled ?? true,
         };
 
-        const result: string = await invoke('preview_geometry_transform', {
-          params: fullParams,
-          jsAdjustments: currentAdjustments,
-          showLines: linesEnabled,
-        });
+        const result: string = await commands.previewGeometryTransform(fullParams, currentAdjustments, linesEnabled);
         setPreviewUrl(result);
       } catch (e) {
         console.error('Preview transform failed', e);
@@ -310,11 +322,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
         lens_tca_enabled: currentAdjustments.lensTcaEnabled ?? true,
         lens_vignette_enabled: currentAdjustments.lensVignetteEnabled ?? true,
       };
-      const result: string = await invoke('preview_geometry_transform', {
-        params: fullParams,
-        jsAdjustments: currentAdjustments,
-        showLines: false,
-      });
+      const result: string = await commands.previewGeometryTransform(fullParams, currentAdjustments, false);
       setPreviewUrl(result);
     } else {
       updatePreview(params, showLines);

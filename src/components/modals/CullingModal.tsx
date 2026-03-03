@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { CheckCircle, XCircle, Loader2, Users, Trash2, Star, Tag } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CullingSettings, CullingSuggestions, Invokes, Progress } from '../ui/AppProperties';
+import { commands } from '../../bindings';
+import { CullingSettings, CullingSuggestions, Progress } from '../ui/AppProperties';
 import Button from '../ui/Button';
 import Switch from '../ui/Switch';
 import Slider from '../ui/Slider';
@@ -124,7 +124,7 @@ export default function CullingModal({
 
   const handleStartCulling = useCallback(async () => {
     try {
-      await invoke(Invokes.CullImages, { paths: imagePaths, settings });
+      await commands.cullImages(imagePaths, settings);
     } catch (err) {
       console.error('Culling failed to start:', err);
       onError(String(err));

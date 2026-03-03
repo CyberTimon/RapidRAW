@@ -509,7 +509,7 @@ pub fn run_u2netp_model(image: &DynamicImage, u2netp_session: &Mutex<Session>) -
     Ok(final_mask)
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AiSubjectMaskParameters {
     pub start_x: f64,
@@ -528,7 +528,7 @@ pub struct AiSubjectMaskParameters {
     pub orientation_steps: Option<u8>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AiSkyMaskParameters {
     #[serde(default)]
@@ -543,7 +543,7 @@ pub struct AiSkyMaskParameters {
     pub orientation_steps: Option<u8>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AiForegroundMaskParameters {
     #[serde(default)]
