@@ -43,6 +43,7 @@ import { Color, COLOR_LABELS } from '../../utils/adjustments';
 import { ImportState, Status } from '../ui/ExportImportProperties';
 import { useAppState } from '../../context/ContextProviders';
 import { useThumbnails } from '../../hooks/useThumbnails';
+import { useSortedImageList } from '../../hooks/useSortedImageList';
 
 interface DropdownMenuProps {
   buttonContent: any;
@@ -107,6 +108,7 @@ interface ThumbnailProps {
   data: string | undefined;
   isActive: boolean;
   isSelected: boolean;
+  imageFile: ImageFile;
   onContextMenu(e: any): void;
   onImageClick(path: string, event: any): void;
   onImageDoubleClick(path: string): void;
@@ -139,17 +141,9 @@ interface ThumbnailAspectRatioProps {
 }
 
 interface ViewOptionsProps {
-  filterCriteria: FilterCriteria;
-  libraryViewMode: LibraryViewMode;
   onSelectSize(size: ThumbnailSize): any;
   onSelectAspectRatio(aspectRatio: ThumbnailAspectRatio): any;
-  setFilterCriteria(criteria: Partial<FilterCriteria>): void;
-  setLibraryViewMode(mode: LibraryViewMode): void;
-  setSortCriteria(criteria: SortCriteria): void;
-  sortCriteria: SortCriteria;
   sortOptions: Array<Omit<SortCriteria, 'order'> & { label?: string; disabled?: boolean }>;
-  thumbnailSize: ThumbnailSize;
-  thumbnailAspectRatio: ThumbnailAspectRatio;
 }
 
 const ratingFilterOptions: Array<KeyValueLabel> = [
@@ -763,19 +757,18 @@ function ViewModeOptions({ mode, setMode }: { mode: LibraryViewMode; setMode: (m
   );
 }
 
-function ViewOptionsDropdown({
-  filterCriteria,
-  libraryViewMode,
-  onSelectSize,
-  onSelectAspectRatio,
-  setFilterCriteria,
-  setLibraryViewMode,
-  setSortCriteria,
-  sortCriteria,
-  sortOptions,
-  thumbnailSize,
-  thumbnailAspectRatio,
-}: ViewOptionsProps) {
+function ViewOptionsDropdown({ onSelectSize, onSelectAspectRatio, sortOptions }: ViewOptionsProps) {
+  const {
+    filterCriteria,
+    libraryViewMode,
+    setFilterCriteria,
+    setLibraryViewMode,
+    setSortCriteria,
+    sortCriteria,
+    thumbnailSize,
+    thumbnailAspectRatio,
+  } = useAppState();
+
   const isFilterActive =
     filterCriteria.rating > 0 ||
     (filterCriteria.rawStatus && filterCriteria.rawStatus !== RawStatus.All) ||
@@ -992,22 +985,17 @@ function Thumbnail({
 }
 
 const Row = ({ index, style, data }: any) => {
+  const { rows, onContextMenu, onImageClick, onImageDoubleClick, loadedThumbnails, itemWidth, outerPadding, gap } =
+    data;
+
   const {
-    rows,
-    activePath,
+    libraryActivePath: activePath,
     multiSelectedPaths,
-    onContextMenu,
-    onImageClick,
-    onImageDoubleClick,
     thumbnails,
     thumbnailAspectRatio,
-    loadedThumbnails,
     imageRatings,
-    rootPath,
-    itemWidth,
-    outerPadding,
-    gap,
-  } = data;
+    currentFolderPath: rootPath,
+  } = useAppState();
 
   const row = rows[index];
   const top = parseFloat(style.top) + outerPadding;
@@ -1103,7 +1091,6 @@ export default function MainLibrary({
     appSettings,
     rootPath,
     currentFolderPath,
-    imageList,
     imageRatings,
     sortCriteria,
     setSortCriteria,
@@ -1129,6 +1116,8 @@ export default function MainLibrary({
     setThumbnails,
     importState,
   } = useAppState();
+
+  const { sortedImageList: imageList } = useSortedImageList();
 
   const { loading: isThumbnailsLoading } = useThumbnails(imageList, setThumbnails);
   const [showSettings, setShowSettings] = useState(false);
@@ -1653,16 +1642,10 @@ export default function MainLibrary({
                   key={`${width}-${thumbnailSize}-${libraryViewMode}`}
                   itemData={{
                     rows,
-                    activePath,
-                    multiSelectedPaths,
                     onContextMenu,
                     onImageClick,
                     onImageDoubleClick,
-                    thumbnails,
-                    thumbnailAspectRatio,
                     loadedThumbnails: loadedThumbnailsRef.current,
-                    imageRatings,
-                    rootPath: currentFolderPath,
                     itemWidth,
                     outerPadding: OUTER_PADDING,
                     gap: ITEM_GAP,
