@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -6,8 +6,6 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { homeDir } from '@tauri-apps/api/path';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import debounce from 'lodash.debounce';
-import throttle from 'lodash.throttle';
-import { ClerkProvider } from '@clerk/clerk-react';
 import { ToastContainer, toast, Slide } from 'react-toastify';
 import clsx from 'clsx';
 import {
@@ -50,14 +48,14 @@ import { useThumbnails } from './hooks/useThumbnails';
 import { ImageDimensions } from './hooks/useImageRenderSize';
 import RightPanelSwitcher from './components/panel/right/RightPanelSwitcher';
 import MetadataPanel from './components/panel/right/MetadataPanel';
-import CropPanel, { type OverlayMode } from './components/panel/right/CropPanel';
+import CropPanel from './components/panel/right/CropPanel';
 import PresetsPanel from './components/panel/right/PresetsPanel';
 import AIPanel from './components/panel/right/AIPanel';
 import ExportPanel from './components/panel/right/ExportPanel';
 import LibraryExportPanel from './components/panel/right/LibraryExportPanel';
 import MasksPanel from './components/panel/right/MasksPanel';
 import BottomBar from './components/panel/BottomBar';
-import { ContextMenuProvider, useContextMenu } from './context/ContextMenuContext';
+import { useContextMenu } from './context/ContextMenuContext';
 import TaggingSubMenu from './context/TaggingSubMenu';
 import CreateFolderModal from './components/modals/CreateFolderModal';
 import RenameFolderModal from './components/modals/RenameFolderModal';
@@ -70,7 +68,6 @@ import DenoiseModal from './components/modals/DenoiseModal';
 import CollageModal from './components/modals/CollageModal';
 import CopyPasteSettingsModal from './components/modals/CopyPasteSettingsModal';
 import CullingModal from './components/modals/CullingModal';
-import { useHistoryState } from './hooks/useHistoryState';
 import Resizer from './components/ui/Resizer';
 import {
   Adjustments,
@@ -89,10 +86,9 @@ import { generatePaletteFromImage } from './utils/palette';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import GlobalTooltip from './components/ui/GlobalTooltip';
 import { THEMES, DEFAULT_THEME_ID, ThemeProps } from './utils/themes';
-import { SubMask, ToolType } from './components/panel/right/Masks';
+import { SubMask } from './components/panel/right/Masks';
 import { ExportState, IMPORT_TIMEOUT, ImportState, Status } from './components/ui/ExportImportProperties';
 import {
-  BrushSettings,
   FilterCriteria,
   Invokes,
   ImageFile,
@@ -100,23 +96,16 @@ import {
   OPTION_SEPARATOR,
   LibraryViewMode,
   Panel,
-  Progress,
   RawStatus,
   SelectedImage,
-  SortCriteria,
   SortDirection,
-  SupportedTypes,
   Theme,
   TransformState,
   UiVisibility,
-  WaveformData,
   Orientation,
-  ThumbnailSize,
-  ThumbnailAspectRatio,
   CullingSuggestions,
   AppSettings,
 } from './components/ui/AppProperties';
-import { ChannelConfig } from './components/adjustments/Curves';
 import HdrModal from './components/modals/HdrModal';
 import { ContextProviders, useAppState } from './context/ContextProviders';
 
@@ -439,6 +428,7 @@ function App() {
     preloadedDataRef,
     previewJobIdRef,
     latestRenderedJobIdRef,
+    history,
   } = useAppState();
 
   const {
@@ -452,7 +442,7 @@ function App() {
     history: adjustmentsHistory,
     historyIndex: adjustmentsHistoryIndex,
     goToIndex: goToAdjustmentsHistoryIndex,
-  } = useHistoryState(INITIAL_ADJUSTMENTS);
+  } = history;
 
   const handleDisplaySizeChange = useCallback((size: ImageDimensions & { scale?: number }) => {
     setDisplaySize({ width: size.width, height: size.height });

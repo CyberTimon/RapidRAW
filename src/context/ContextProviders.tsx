@@ -1,14 +1,4 @@
-import {
-  Context,
-  createContext,
-  PropsWithChildren,
-  RefObject,
-  SetStateAction,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { createContext, PropsWithChildren, useContext, useRef, useState } from 'react';
 import { ContextMenuProvider } from './ContextMenuContext';
 import { ClerkProvider } from '@clerk/clerk-react';
 import { CLERK_PUBLISHABLE_KEY } from '../utils/constants';
@@ -48,6 +38,7 @@ import {
   SearchCriteria,
 } from '../App';
 import { ToolType } from '../components/panel/right/Masks';
+import { useHistoryState } from '../hooks/useHistoryState';
 
 export function ContextProviders({ children }: PropsWithChildren) {
   return (
@@ -96,6 +87,7 @@ function createAppStateContext() {
 
   const state = {
     ...useSelectedImage(),
+    history: useHistoryState(INITIAL_ADJUSTMENTS),
     ...useContextState<AppSettings>()('appSettings'),
     ...useContextState<string | null>()('rootPath'),
     ...useContextState<string>()('activeView', 'library'),
