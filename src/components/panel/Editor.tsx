@@ -596,24 +596,14 @@ export default function Editor({
         )}
       >
         <EditorToolbar
-          canRedo={canRedo}
-          canUndo={canUndo}
-          isFullScreenLoading={isLoadingFullRes ?? false}
-          isLoading={isLoading}
-          isWaveformVisible={isWaveformVisible}
           onBackToLibrary={onBackToLibrary}
           onRedo={onRedo}
           onToggleFullScreen={onToggleFullScreen}
           onToggleShowOriginal={toggleShowOriginal}
           onToggleWaveform={onToggleWaveform}
           onUndo={onUndo}
-          selectedImage={selectedImage}
-          showOriginal={showOriginal}
-          isLoadingFullRes={isLoadingFullRes}
           showDateView={showExifDateView}
           onToggleDateView={() => setShowExifDateView((prev) => !prev)}
-          adjustmentsHistory={adjustmentsHistory}
-          adjustmentsHistoryIndex={adjustmentsHistoryIndex}
           goToAdjustmentsHistoryIndex={goToAdjustmentsHistoryIndex}
         />
       </div>
