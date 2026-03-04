@@ -118,11 +118,9 @@ import {
 } from './components/ui/AppProperties';
 import { ChannelConfig } from './components/adjustments/Curves';
 import HdrModal from './components/modals/HdrModal';
-import { useSelectedImage } from './context/state/SelectedImageContext';
-import { ContextProviders } from './context/ContextProviders';
-import { useAppSettings } from './context/state/AppSettingsContext';
+import { ContextProviders, useAppState } from './context/ContextProviders';
 
-interface CollapsibleSectionsState {
+export interface CollapsibleSectionsState {
   basic: boolean;
   color: boolean;
   curves: boolean;
@@ -130,7 +128,7 @@ interface CollapsibleSectionsState {
   effects: boolean;
 }
 
-interface ConfirmModalState {
+export interface ConfirmModalState {
   confirmText?: string;
   confirmVariant?: string;
   isOpen: boolean;
@@ -146,18 +144,18 @@ interface Metadata {
   version: number;
 }
 
-interface MultiSelectOptions {
+export interface MultiSelectOptions {
   onSimpleClick(p: any): void;
   updateLibraryActivePath: boolean;
   shiftAnchor: string | null;
 }
 
-interface CollageModalState {
+export interface CollageModalState {
   isOpen: boolean;
   sourceImages: ImageFile[];
 }
 
-interface PanoramaModalState {
+export interface PanoramaModalState {
   error: string | null;
   finalImageBase64: string | null;
   isOpen: boolean;
@@ -165,7 +163,7 @@ interface PanoramaModalState {
   stitchingSourcePaths: Array<string>;
 }
 
-interface HdrModalState {
+export interface HdrModalState {
   error: string | null;
   finalImageBase64: string | null;
   isOpen: boolean;
@@ -173,7 +171,7 @@ interface HdrModalState {
   stitchingSourcePaths: Array<string>;
 }
 
-interface DenoiseModalState {
+export interface DenoiseModalState {
   isOpen: boolean;
   isProcessing: boolean;
   previewBase64: string | null;
@@ -183,12 +181,12 @@ interface DenoiseModalState {
   progressMessage: string | null;
 }
 
-interface NegativeConversionModalState {
+export interface NegativeConversionModalState {
   isOpen: boolean;
   targetPath: string | null;
 }
 
-interface CullingModalState {
+export interface CullingModalState {
   isOpen: boolean;
   suggestions: CullingSuggestions | null;
   progress: { current: number; total: number; stage: string } | null;
@@ -200,7 +198,7 @@ interface LutData {
   size: number;
 }
 
-interface SearchCriteria {
+export interface SearchCriteria {
   tags: string[];
   text: string;
   mode: 'AND' | 'OR';
@@ -228,30 +226,221 @@ const getParentDir = (filePath: string): string => {
 };
 
 function App() {
-  const [rootPath, setRootPath] = useState<string | null>(null);
-  const { appSettings, setAppSettings } = useAppSettings();
-  const [activeView, setActiveView] = useState('library');
-  const [isWindowFullScreen, setIsWindowFullScreen] = useState(false);
-  const [isLayoutReady, setIsLayoutReady] = useState(false);
-  const [currentFolderPath, setCurrentFolderPath] = useState<string | null>(null);
-  const [expandedFolders, setExpandedFolders] = useState(new Set<string>());
-  const [folderTree, setFolderTree] = useState<any>(null);
-  const [pinnedFolderTrees, setPinnedFolderTrees] = useState<any[]>([]);
-  const [imageList, setImageList] = useState<Array<ImageFile>>([]);
-  const [imageRatings, setImageRatings] = useState<Record<string, number>>({});
-  const [sortCriteria, setSortCriteria] = useState<SortCriteria>({ key: 'name', order: SortDirection.Ascending });
-  const [filterCriteria, setFilterCriteria] = useState<FilterCriteria>({
-    colors: [],
-    rating: 0,
-    rawStatus: RawStatus.All,
-  });
-  const [supportedTypes, setSupportedTypes] = useState<SupportedTypes | null>(null);
-  const { selectedImage, selectedImagePathRef, setSelectedImage } = useSelectedImage();
-  const [multiSelectedPaths, setMultiSelectedPaths] = useState<Array<string>>([]);
-  const [libraryActivePath, setLibraryActivePath] = useState<string | null>(null);
-  const [libraryActiveAdjustments, setLibraryActiveAdjustments] = useState<Adjustments>(INITIAL_ADJUSTMENTS);
-  const [finalPreviewUrl, setFinalPreviewUrl] = useState<string | null>(null);
-  const [uncroppedAdjustedPreviewUrl, setUncroppedAdjustedPreviewUrl] = useState<string | null>(null);
+  const {
+    selectedImage,
+    selectedImagePathRef,
+    setSelectedImage,
+    appSettings,
+    setAppSettings,
+    rootPath,
+    setRootPath,
+    activeView,
+    setActiveView,
+    isWindowFullScreen,
+    setIsWindowFullScreen,
+    isLayoutReady,
+    setIsLayoutReady,
+    currentFolderPath,
+    setCurrentFolderPath,
+    expandedFolders,
+    setExpandedFolders,
+    folderTree,
+    setFolderTree,
+    pinnedFolderTrees,
+    setPinnedFolderTrees,
+    imageList,
+    setImageList,
+    imageRatings,
+    setImageRatings,
+    sortCriteria,
+    setSortCriteria,
+    filterCriteria,
+    setFilterCriteria,
+    supportedTypes,
+    setSupportedTypes,
+    multiSelectedPaths,
+    setMultiSelectedPaths,
+    libraryActivePath,
+    setLibraryActivePath,
+    libraryActiveAdjustments,
+    setLibraryActiveAdjustments,
+    finalPreviewUrl,
+    setFinalPreviewUrl,
+    uncroppedAdjustedPreviewUrl,
+    setUncroppedAdjustedPreviewUrl,
+    showOriginal,
+    setShowOriginal,
+    adjustments,
+    setAdjustments: setLiveAdjustments,
+    isTreeLoading,
+    setIsTreeLoading,
+    isViewLoading,
+    setIsViewLoading,
+    initialFileToOpen,
+    setInitialFileToOpen,
+    error,
+    setError,
+    histogram,
+    setHistogram,
+    waveform,
+    setWaveform,
+    isWaveformVisible,
+    setIsWaveformVisible,
+    uiVisibility,
+    setUiVisibility,
+    isSliderDragging,
+    setIsSliderDragging,
+    isFullScreen,
+    setIsFullScreen,
+    isHighResNeeded,
+    setIsHighResNeeded,
+    isAnimatingTheme,
+    setIsAnimatingTheme,
+    theme,
+    setTheme,
+    dragIdleTimer,
+    isInitialThemeMount,
+    adaptivePalette,
+    setAdaptivePalette,
+    activeRightPanel,
+    setActiveRightPanel,
+    slideDirection,
+    setSlideDirection,
+    activeMaskContainerId,
+    setActiveMaskContainerId,
+    activeMaskId,
+    setActiveMaskId,
+    activeAiPatchContainerId,
+    setActiveAiPatchContainerId,
+    activeAiSubMaskId,
+    setActiveAiSubMaskId,
+    zoom,
+    setZoom,
+    displaySize,
+    setDisplaySize,
+    previewSize,
+    setPreviewSize,
+    baseRenderSize,
+    setBaseRenderSize,
+    originalSize,
+    setOriginalSize,
+    isLoadingFullRes,
+    setIsLoadingFullRes,
+    isRotationActive,
+    setIsRotationActive,
+    overlayMode,
+    setOverlayMode,
+    overlayRotation,
+    setOverlayRotation,
+    transformedOriginalUrl,
+    setTransformedOriginalUrl,
+    fullResCacheKeyRef,
+    patchesSentToBackend,
+    initialFitScale,
+    setInitialFitScale,
+    renderedRightPanel,
+    setRenderedRightPanel,
+    collapsibleSectionsState,
+    setCollapsibleSectionsState,
+    isLibraryExportPanelVisible,
+    setIsLibraryExportPanelVisible,
+    libraryViewMode,
+    setLibraryViewMode,
+    leftPanelWidth,
+    setLeftPanelWidth,
+    rightPanelWidth,
+    setRightPanelWidth,
+    bottomPanelHeight,
+    setBottomPanelHeight,
+    activeTreeSection,
+    setActiveTreeSection,
+    isResizing,
+    setIsResizing,
+    thumbnailSize,
+    setThumbnailSize,
+    thumbnailAspectRatio,
+    setThumbnailAspectRatio,
+    copiedAdjustments,
+    setCopiedAdjustments,
+    isStraightenActive,
+    setIsStraightenActive,
+    isWbPickerActive,
+    setIsWbPickerActive,
+    copiedFilePaths,
+    setCopiedFilePaths,
+    aiModelDownloadStatus,
+    setAiModelDownloadStatus,
+    copiedSectionAdjustments,
+    setCopiedSectionAdjustments,
+    copiedMask,
+    setCopiedMask,
+    isCopied,
+    setIsCopied,
+    isPasted,
+    setIsPasted,
+    isIndexing,
+    setIsIndexing,
+    indexingProgress,
+    setIndexingProgress,
+    searchCriteria,
+    setSearchCriteria,
+    brushSettings,
+    setBrushSettings,
+    isCreateFolderModalOpen,
+    setIsCreateFolderModalOpen,
+    isRenameFolderModalOpen,
+    setIsRenameFolderModalOpen,
+    isRenameFileModalOpen,
+    setIsRenameFileModalOpen,
+    renameTargetPaths,
+    setRenameTargetPaths,
+    isImportModalOpen,
+    setIsImportModalOpen,
+    isCopyPasteSettingsModalOpen,
+    setIsCopyPasteSettingsModalOpen,
+    importTargetFolder,
+    setImportTargetFolder,
+    importSourcePaths,
+    setImportSourcePaths,
+    folderActionTarget,
+    setFolderActionTarget,
+    confirmModalState,
+    setConfirmModalState,
+    panoramaModalState,
+    setPanoramaModalState,
+    hdrModalState,
+    setHdrModalState,
+    negativeModalState,
+    setNegativeModalState,
+    denoiseModalState,
+    setDenoiseModalState,
+    collageModalState,
+    setCullingModalState,
+    cullingModalState,
+    setCollageModalState,
+    customEscapeHandler,
+    setCustomEscapeHandler,
+    isGeneratingAiMask,
+    setIsGeneratingAiMask,
+    isAIConnectorConnected,
+    setIsAIConnectorConnected,
+    isGeneratingAi,
+    setIsGeneratingAi,
+    isMaskControlHovered,
+    setIsMaskControlHovered,
+    libraryScrollTop,
+    setLibraryScrollTop,
+    thumbnails,
+    setThumbnails,
+    transformWrapperRef,
+    isInitialMount,
+    isProgrammaticZoom,
+    currentFolderPathRef,
+    preloadedDataRef,
+    previewJobIdRef,
+    latestRenderedJobIdRef,
+  } = useAppState();
+
   const {
     state: historyAdjustments,
     setState: setHistoryAdjustments,
@@ -264,45 +453,6 @@ function App() {
     historyIndex: adjustmentsHistoryIndex,
     goToIndex: goToAdjustmentsHistoryIndex,
   } = useHistoryState(INITIAL_ADJUSTMENTS);
-  const [adjustments, setLiveAdjustments] = useState<Adjustments>(INITIAL_ADJUSTMENTS);
-  const [showOriginal, setShowOriginal] = useState(false);
-  const [isTreeLoading, setIsTreeLoading] = useState(false);
-  const [isViewLoading, setIsViewLoading] = useState(false);
-  const [initialFileToOpen, setInitialFileToOpen] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [histogram, setHistogram] = useState<ChannelConfig | null>(null);
-  const [waveform, setWaveform] = useState<WaveformData | null>(null);
-  const [isWaveformVisible, setIsWaveformVisible] = useState(false);
-  const [uiVisibility, setUiVisibility] = useState<UiVisibility>({
-    folderTree: true,
-    filmstrip: true,
-  });
-  const [isSliderDragging, setIsSliderDragging] = useState(false);
-  const dragIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isFullScreen, setIsFullScreen] = useState(false);
-  const [isHighResNeeded, setIsHighResNeeded] = useState(false);
-  const [isAnimatingTheme, setIsAnimatingTheme] = useState(false);
-  const isInitialThemeMount = useRef(true);
-  const [theme, setTheme] = useState(DEFAULT_THEME_ID);
-  const [adaptivePalette, setAdaptivePalette] = useState<any>(null);
-  const [activeRightPanel, setActiveRightPanel] = useState<Panel | null>(Panel.Adjustments);
-  const [slideDirection, setSlideDirection] = useState(1);
-  const [activeMaskContainerId, setActiveMaskContainerId] = useState<string | null>(null);
-  const [activeMaskId, setActiveMaskId] = useState<string | null>(null);
-  const [activeAiPatchContainerId, setActiveAiPatchContainerId] = useState<string | null>(null);
-  const [activeAiSubMaskId, setActiveAiSubMaskId] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [displaySize, setDisplaySize] = useState<ImageDimensions>({ width: 0, height: 0 });
-  const [previewSize, setPreviewSize] = useState<ImageDimensions>({ width: 0, height: 0 });
-  const [baseRenderSize, setBaseRenderSize] = useState<ImageDimensions>({ width: 0, height: 0 });
-  const [originalSize, setOriginalSize] = useState<ImageDimensions>({ width: 0, height: 0 });
-  const [isLoadingFullRes, setIsLoadingFullRes] = useState(false);
-  const [isRotationActive, setIsRotationActive] = useState(false);
-  const [overlayMode, setOverlayMode] = useState<OverlayMode>('thirds');
-  const [overlayRotation, setOverlayRotation] = useState(0);
-  const [transformedOriginalUrl, setTransformedOriginalUrl] = useState<string | null>(null);
-  const fullResCacheKeyRef = useRef<string | null>(null);
-  const patchesSentToBackend = useRef<Set<string>>(new Set());
 
   const handleDisplaySizeChange = useCallback((size: ImageDimensions & { scale?: number }) => {
     setDisplaySize({ width: size.width, height: size.height });
@@ -314,113 +464,8 @@ function App() {
     }
   }, []);
 
-  const [initialFitScale, setInitialFitScale] = useState<number | null>(null);
-  const [renderedRightPanel, setRenderedRightPanel] = useState<Panel | null>(activeRightPanel);
-  const [collapsibleSectionsState, setCollapsibleSectionsState] = useState<CollapsibleSectionsState>({
-    basic: true,
-    color: false,
-    curves: true,
-    details: false,
-    effects: false,
-  });
-  const [isLibraryExportPanelVisible, setIsLibraryExportPanelVisible] = useState(false);
-  const [libraryViewMode, setLibraryViewMode] = useState<LibraryViewMode>(LibraryViewMode.Flat);
-  const [leftPanelWidth, setLeftPanelWidth] = useState<number>(256);
-  const [rightPanelWidth, setRightPanelWidth] = useState<number>(320);
-  const [bottomPanelHeight, setBottomPanelHeight] = useState<number>(144);
-  const [activeTreeSection, setActiveTreeSection] = useState<string | null>('current');
-  const [isResizing, setIsResizing] = useState(false);
-  const [thumbnailSize, setThumbnailSize] = useState(ThumbnailSize.Medium);
-  const [thumbnailAspectRatio, setThumbnailAspectRatio] = useState(ThumbnailAspectRatio.Cover);
-  const [copiedAdjustments, setCopiedAdjustments] = useState<Adjustments | null>(null);
-  const [isStraightenActive, setIsStraightenActive] = useState(false);
-  const [isWbPickerActive, setIsWbPickerActive] = useState(false);
-  const [copiedFilePaths, setCopiedFilePaths] = useState<Array<string>>([]);
-  const [aiModelDownloadStatus, setAiModelDownloadStatus] = useState<string | null>(null);
-  const [copiedSectionAdjustments, setCopiedSectionAdjustments] = useState(null);
-  const [copiedMask, setCopiedMask] = useState<MaskContainer | null>(null);
-  const [isCopied, setIsCopied] = useState(false);
-  const [isPasted, setIsPasted] = useState(false);
-  const [isIndexing, setIsIndexing] = useState(false);
-  const [indexingProgress, setIndexingProgress] = useState<Progress>({ current: 0, total: 0 });
-  const [searchCriteria, setSearchCriteria] = useState<SearchCriteria>({
-    tags: [],
-    text: '',
-    mode: 'OR',
-  });
-  const [brushSettings, setBrushSettings] = useState<BrushSettings | null>({
-    size: 50,
-    feather: 50,
-    tool: ToolType.Brush,
-  });
-  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
-  const [isRenameFolderModalOpen, setIsRenameFolderModalOpen] = useState(false);
-  const [isRenameFileModalOpen, setIsRenameFileModalOpen] = useState(false);
-  const [renameTargetPaths, setRenameTargetPaths] = useState<Array<string>>([]);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [isCopyPasteSettingsModalOpen, setIsCopyPasteSettingsModalOpen] = useState(false);
-  const [importTargetFolder, setImportTargetFolder] = useState<string | null>(null);
-  const [importSourcePaths, setImportSourcePaths] = useState<Array<string>>([]);
-  const [folderActionTarget, setFolderActionTarget] = useState<string | null>(null);
-  const [confirmModalState, setConfirmModalState] = useState<ConfirmModalState>({ isOpen: false });
-  const [panoramaModalState, setPanoramaModalState] = useState<PanoramaModalState>({
-    error: null,
-    finalImageBase64: null,
-    isOpen: false,
-    progressMessage: '',
-    stitchingSourcePaths: [],
-  });
-  const [hdrModalState, setHdrModalState] = useState<HdrModalState>({
-    error: null,
-    finalImageBase64: null,
-    isOpen: false,
-    progressMessage: '',
-    stitchingSourcePaths: [],
-  });
-  const [negativeModalState, setNegativeModalState] = useState<NegativeConversionModalState>({
-    isOpen: false,
-    targetPath: null,
-  });
-  const [denoiseModalState, setDenoiseModalState] = useState<DenoiseModalState>({
-    isOpen: false,
-    isProcessing: false,
-    previewBase64: null,
-    error: null,
-    targetPath: null,
-    progressMessage: null,
-  });
-  const [cullingModalState, setCullingModalState] = useState<CullingModalState>({
-    isOpen: false,
-    suggestions: null,
-    progress: null,
-    error: null,
-    pathsToCull: [],
-  });
-  const [collageModalState, setCollageModalState] = useState<CollageModalState>({
-    isOpen: false,
-    sourceImages: [],
-  });
-  const [customEscapeHandler, setCustomEscapeHandler] = useState(null);
-  const [isGeneratingAiMask, setIsGeneratingAiMask] = useState(false);
-  const [isAIConnectorConnected, setisAIConnectorConnected] = useState(false);
-  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
-  const [isMaskControlHovered, setIsMaskControlHovered] = useState(false);
-  const [libraryScrollTop, setLibraryScrollTop] = useState<number>(0);
   const { showContextMenu } = useContextMenu();
-  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const { loading: isThumbnailsLoading } = useThumbnails(imageList, setThumbnails);
-  const transformWrapperRef = useRef<any>(null);
-  const isProgrammaticZoom = useRef(false);
-  const isInitialMount = useRef(true);
-  const currentFolderPathRef = useRef<string>(currentFolderPath);
-  const preloadedDataRef = useRef<{
-    tree?: Promise<any>;
-    images?: Promise<ImageFile[]>;
-    rootPath?: string;
-    currentPath?: string;
-  }>({});
-  const previewJobIdRef = useRef<number>(0);
-  const latestRenderedJobIdRef = useRef<number>(0);
 
   useEffect(() => {
     if (currentFolderPath) {
@@ -605,7 +650,7 @@ function App() {
 
   useEffect(() => {
     const unlisten = listen('ai-connector-status-update', (event: any) => {
-      setisAIConnectorConnected(event.payload.connected);
+      setIsAIConnectorConnected(event.payload.connected);
     });
     invoke(Invokes.CheckAIConnectorStatus);
     const interval = setInterval(() => invoke(Invokes.CheckAIConnectorStatus), 10000);
