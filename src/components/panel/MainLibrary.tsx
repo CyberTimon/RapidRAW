@@ -1548,17 +1548,9 @@ export default function MainLibrary({
             setSearchCriteria={setSearchCriteria}
           />
           <ViewOptionsDropdown
-            filterCriteria={filterCriteria}
-            libraryViewMode={libraryViewMode}
             onSelectSize={onThumbnailSizeChange}
             onSelectAspectRatio={onThumbnailAspectRatioChange}
-            setFilterCriteria={setFilterCriteria}
-            setLibraryViewMode={setLibraryViewMode}
-            setSortCriteria={handleSortChange}
-            sortCriteria={sortCriteria}
             sortOptions={sortOptions}
-            thumbnailSize={thumbnailSize}
-            thumbnailAspectRatio={thumbnailAspectRatio}
           />
           <Button
             className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"

@@ -35,6 +35,7 @@ import RenameFolderModal from '../../modals/RenameFolderModal';
 import Button from '../../ui/Button';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
+import { useAppState } from '../../../context/ContextProviders';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -73,10 +74,6 @@ interface PresetItemDisplayProps {
 }
 
 interface PresetsPanelProps {
-  activePanel: Panel | null;
-  adjustments: Adjustments;
-  selectedImage: SelectedImage;
-  setAdjustments(adjustments: Partial<Adjustments>): void;
   onNavigateToCommunity(): void;
 }
 
@@ -251,13 +248,10 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
   );
 }
 
-export default function PresetsPanel({
-  activePanel,
-  adjustments,
-  selectedImage,
-  setAdjustments,
-  onNavigateToCommunity,
-}: PresetsPanelProps) {
+export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProps) {
+  const { activeRightPanel: activePanel, adjustments, selectedImage, setAdjustments } = useAppState();
+  if (!selectedImage) return <></>;
+
   const {
     addFolder,
     addPreset,
@@ -654,7 +648,8 @@ export default function PresetsPanel({
       });
 
       if (typeof selectedPath === 'string') {
-        const isLegacy = selectedPath.toLowerCase().endsWith('.xmp') || selectedPath.toLowerCase().endsWith('.lrtemplate');
+        const isLegacy =
+          selectedPath.toLowerCase().endsWith('.xmp') || selectedPath.toLowerCase().endsWith('.lrtemplate');
 
         if (isLegacy) {
           await importLegacyPresetsFromFile(selectedPath);
@@ -952,11 +947,7 @@ export default function PresetsPanel({
           onClose={() => setIsAddModalOpen(false)}
           onSave={handleSaveCurrentSettingsAsPreset}
         />
-        <CreateFolderModal
-          isOpen={isAddFolderModalOpen}
-          onClose={() => setIsAddFolderModalOpen(false)}
-          onSave={handleAddFolder}
-        />
+        <CreateFolderModal onClose={() => setIsAddFolderModalOpen(false)} onSave={handleAddFolder} />
         <RenamePresetModal
           currentName={renamePresetState.preset?.name}
           isOpen={renamePresetState.isOpen}
@@ -965,7 +956,6 @@ export default function PresetsPanel({
         />
         <RenameFolderModal
           currentName={renameFolderState.folder?.name}
-          isOpen={renameFolderState.isOpen}
           onClose={() => setRenameFolderState({ isOpen: false, folder: null })}
           onSave={handleRenameFolderSave}
         />

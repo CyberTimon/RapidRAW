@@ -19,17 +19,12 @@ import {
   FileFormats,
   WatermarkAnchor,
 } from '../../ui/ExportImportProperties';
-import { Invokes, SelectedImage, AppSettings } from '../../ui/AppProperties';
+import { Invokes, AppSettings } from '../../ui/AppProperties';
 import ExportPresetsList from '../../ui/ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
+import { useAppState } from '../../../context/ContextProviders';
 
 interface ExportPanelProps {
-  adjustments: Adjustments;
-  exportState: ExportState;
-  multiSelectedPaths: Array<string>;
-  selectedImage: SelectedImage;
-  setExportState(state: any): void;
-  appSettings: AppSettings | null;
   onSettingsChange: (settings: AppSettings) => void;
 }
 
@@ -161,15 +156,9 @@ const resizeModeOptions = [
   { label: 'Height', value: 'height' },
 ];
 
-export default function ExportPanel({
-  adjustments,
-  exportState,
-  multiSelectedPaths,
-  selectedImage,
-  setExportState,
-  appSettings,
-  onSettingsChange,
-}: ExportPanelProps) {
+export default function ExportPanel({ onSettingsChange }: ExportPanelProps) {
+  const { adjustments, exportState, multiSelectedPaths, selectedImage, setExportState, appSettings } = useAppState();
+
   const {
     fileFormat,
     setFileFormat,
@@ -211,26 +200,29 @@ export default function ExportPanel({
   useEffect(() => {
     if (initDone.current || appSettings === null) return;
     initDone.current = true;
-    const lastUsed = appSettings.exportPresets?.find(p => p.id === '__last_used__');
+    const lastUsed = appSettings.exportPresets?.find((p) => p.id === '__last_used__');
     if (lastUsed) {
       handleApplyPreset(lastUsed);
     }
   }, [appSettings, handleApplyPreset]);
 
-  const saveLastUsedPreset = useCallback((exportPath: string) => {
-    if (!appSettings) return;
-    const lastUsedPreset: ExportPreset = {
-      ...currentSettingsObject,
-      id: '__last_used__',
-      name: '__last_used__',
-      lastExportPath: exportPath,
-    };
-    const updatedPresets = [
-      ...(appSettings.exportPresets ?? []).filter(p => p.id !== '__last_used__'),
-      lastUsedPreset,
-    ];
-    onSettingsChange({ ...appSettings, exportPresets: updatedPresets });
-  }, [appSettings, currentSettingsObject, onSettingsChange]);
+  const saveLastUsedPreset = useCallback(
+    (exportPath: string) => {
+      if (!appSettings) return;
+      const lastUsedPreset: ExportPreset = {
+        ...currentSettingsObject,
+        id: '__last_used__',
+        name: '__last_used__',
+        lastExportPath: exportPath,
+      };
+      const updatedPresets = [
+        ...(appSettings.exportPresets ?? []).filter((p) => p.id !== '__last_used__'),
+        lastUsedPreset,
+      ];
+      onSettingsChange({ ...appSettings, exportPresets: updatedPresets });
+    },
+    [appSettings, currentSettingsObject, onSettingsChange],
+  );
 
   const [estimatedSize, setEstimatedSize] = useState<number | null>(null);
   const [isEstimating, setIsEstimating] = useState<boolean>(false);
@@ -245,8 +237,8 @@ export default function ExportPanel({
     ? multiSelectedPaths.length > 0
       ? multiSelectedPaths
       : selectedImage
-      ? [selectedImage.path]
-      : []
+        ? [selectedImage.path]
+        : []
     : multiSelectedPaths;
   const numImages = pathsToExport.length;
   const isBatchMode = numImages > 1;
@@ -315,7 +307,7 @@ export default function ExportPanel({
           setIsEstimating(false);
         }
       }, 500),
-    [selectedImage?.path]
+    [selectedImage?.path],
   );
 
   useEffect(() => {
@@ -412,7 +404,7 @@ export default function ExportPanel({
           : null,
     };
 
-    const lastExportPath = appSettings?.exportPresets?.find(p => p.id === '__last_used__')?.lastExportPath;
+    const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
 
     try {
       if (isBatchMode || !isEditorContext) {
@@ -444,8 +436,10 @@ export default function ExportPanel({
           defaultPath,
           filters: [
             { name: selectedFormat.name, extensions: selectedFormat.extensions },
-            ...FILE_FORMATS.filter((f: FileFormat) => f.id !== fileFormat)
-              .map((f: FileFormat) => ({ name: f.name, extensions: f.extensions })),
+            ...FILE_FORMATS.filter((f: FileFormat) => f.id !== fileFormat).map((f: FileFormat) => ({
+              name: f.name,
+              extensions: f.extensions,
+            })),
           ],
         });
         if (filePath) {
@@ -483,9 +477,7 @@ export default function ExportPanel({
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 flex justify-between items-center flex-shrink-0 border-b border-surface">
-        <h2 className="text-xl font-bold text-primary text-shadow-shiny">
-          Export
-        </h2>
+        <h2 className="text-xl font-bold text-primary text-shadow-shiny">Export</h2>
       </div>
       <div className="flex-grow overflow-y-auto p-4 text-text-secondary space-y-6">
         {canExport ? (

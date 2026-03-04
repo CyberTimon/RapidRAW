@@ -48,26 +48,15 @@ import {
 import { Adjustments, AiPatch } from '../../../utils/adjustments';
 import { BrushSettings, SelectedImage } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
+import { useAppState } from '../../../context/ContextProviders';
 
 interface AiPanelProps {
-  adjustments: Adjustments;
-  activePatchContainerId: string | null;
-  activeSubMaskId: string | null;
-  aiModelDownloadStatus: string | null;
-  brushSettings: BrushSettings | null;
-  isAIConnectorConnected: boolean;
-  isGeneratingAi: boolean;
-  isGeneratingAiMask: boolean;
   onDeletePatch(id: string): void;
   onGenerateAiForegroundMask(id: string): void;
   onGenerativeReplace(patchId: string, prompt: any, useFastInpaint: boolean): void;
   onSelectPatchContainer(id: string | null): void;
   onSelectSubMask(id: string | null): void;
   onTogglePatchVisibility(id: string): void;
-  selectedImage: SelectedImage;
-  setAdjustments(updater: any): void;
-  setBrushSettings(brushSettings: BrushSettings | null): void;
-  setCustomEscapeHandler(handler: any): void;
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
@@ -216,26 +205,31 @@ const ConnectionStatus = ({ isConnected }: ConnectionStatusProps) => {
 };
 
 export default function AIPanel({
-  adjustments,
-  setAdjustments,
-  selectedImage,
-  isAIConnectorConnected,
-  isGeneratingAi,
   onGenerativeReplace,
   onDeletePatch,
   onTogglePatchVisibility: _onTogglePatchVisibility,
-  activePatchContainerId,
   onSelectPatchContainer,
-  activeSubMaskId,
   onSelectSubMask,
-  brushSettings,
-  setBrushSettings,
-  isGeneratingAiMask,
-  aiModelDownloadStatus,
   onGenerateAiForegroundMask,
-  setCustomEscapeHandler,
   onDragStateChange,
 }: AiPanelProps) {
+  const {
+    adjustments,
+    setAdjustments,
+    selectedImage,
+    isAIConnectorConnected,
+    isGeneratingAi,
+    activeAiPatchContainerId: activePatchContainerId,
+    activeAiSubMaskId: activeSubMaskId,
+    brushSettings,
+    setBrushSettings,
+    isGeneratingAiMask,
+    aiModelDownloadStatus,
+    setCustomEscapeHandler,
+  } = useAppState();
+
+  if (!selectedImage) return <></>;
+
   const [expandedContainers, setExpandedContainers] = useState<Set<string>>(new Set());
   const [activeDragItem, setActiveDragItem] = useState<DragData | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -256,25 +250,26 @@ export default function AIPanel({
 
   const activeContainer = (adjustments.aiPatches || []).find((p) => p.id === activePatchContainerId);
   const activeSubMaskData = activeContainer?.subMasks.find((sm) => sm.id === activeSubMaskId);
-  const isAiMask = activeSubMaskData && [Mask.AiSubject, Mask.AiForeground, Mask.AiSky].includes(activeSubMaskData.type);
+  const isAiMask =
+    activeSubMaskData && [Mask.AiSubject, Mask.AiForeground, Mask.AiSky].includes(activeSubMaskData.type);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     if (isGeneratingAiMask && isAiMask) {
-        timer = setTimeout(() => {
-            setAnalyzingSubMaskId(activeSubMaskId);
-        }, 200);
+      timer = setTimeout(() => {
+        setAnalyzingSubMaskId(activeSubMaskId);
+      }, 200);
     } else {
-        setAnalyzingSubMaskId(null);
+      setAnalyzingSubMaskId(null);
     }
     return () => {
-        if (timer) clearTimeout(timer);
+      if (timer) clearTimeout(timer);
     };
   }, [isGeneratingAiMask, isAiMask, activeSubMaskId]);
 
   useEffect(() => {
     if (activePatchContainerId) {
-      const patchExists = adjustments.aiPatches?.some(p => p.id === activePatchContainerId);
+      const patchExists = adjustments.aiPatches?.some((p) => p.id === activePatchContainerId);
       if (!patchExists) {
         onSelectPatchContainer(null);
         onSelectSubMask(null);
@@ -348,8 +343,8 @@ export default function AIPanel({
 
     const steps = adjustments?.orientationSteps || 0;
     const isRotated = steps === 1 || steps === 3;
-    const imgW = isRotated ? (selectedImage.height || 1000) : (selectedImage.width || 1000);
-    const imgH = isRotated ? (selectedImage.width || 1000) : (selectedImage.height || 1000);
+    const imgW = isRotated ? selectedImage.height || 1000 : selectedImage.width || 1000;
+    const imgH = isRotated ? selectedImage.width || 1000 : selectedImage.height || 1000;
 
     const config = SUB_MASK_CONFIG[type];
     if (config && config.parameters) {
@@ -528,8 +523,7 @@ export default function AIPanel({
 
         if (overId === 'ai-list-root') newIndex = prev.aiPatches.length - 1;
         else if (overData?.type === 'Container') newIndex = prev.aiPatches.findIndex((p) => p.id === overId);
-        else if (overData?.type === 'SubMask')
-          newIndex = prev.aiPatches.findIndex((p) => p.id === overData.parentId);
+        else if (overData?.type === 'SubMask') newIndex = prev.aiPatches.findIndex((p) => p.id === overData.parentId);
 
         if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
           const newPatches = [...prev.aiPatches];
@@ -738,9 +732,7 @@ export default function AIPanel({
                     }
                   }}
                 >
-                  {activeDragItem?.type === 'Creation' && !isPatchListEmpty && (
-                    <NewMaskDropZone isOver={isRootOver} />
-                  )}
+                  {activeDragItem?.type === 'Creation' && !isPatchListEmpty && <NewMaskDropZone isOver={isRootOver} />}
                 </AnimatePresence>
               </motion.div>
             )}
@@ -856,7 +848,13 @@ function DraggableGridItem({ maskType, isGenerating, onClick, activePatchContain
       className={`bg-surface text-text-primary rounded-lg p-2 flex flex-col items-center justify-center gap-1.5 aspect-square transition-colors
               ${maskType.disabled || isGenerating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-card-active active:bg-accent/20'}
               ${isDragging ? 'opacity-50' : ''}`}
-      data-tooltip={maskType.disabled ? 'Coming Soon' : activePatchContainerId ? `Add ${maskType.name} to Current Edit` : `Create New ${maskType.name} Edit`}
+      data-tooltip={
+        maskType.disabled
+          ? 'Coming Soon'
+          : activePatchContainerId
+            ? `Add ${maskType.name} to Current Edit`
+            : `Create New ${maskType.name} Edit`
+      }
     >
       <maskType.icon size={24} /> <span className="text-xs">{maskType.name}</span>
     </button>
@@ -1010,7 +1008,7 @@ function ContainerRow({
         <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             className="p-1 hover:text-text-primary text-text-secondary"
-            data-tooltip={container.visible ? "Hide Edit" : "Show Edit"}
+            data-tooltip={container.visible ? 'Hide Edit' : 'Show Edit'}
             onClick={(e) => {
               e.stopPropagation();
               updateContainer(container.id, { visible: !container.visible });
@@ -1205,13 +1203,11 @@ function SubMaskRow({
           )}
         </AnimatePresence>
       </div>
-      <span className="text-sm text-text-primary flex-1 truncate select-none">
-        {formatMaskTypeName(subMask.type)}
-      </span>
+      <span className="text-sm text-text-primary flex-1 truncate select-none">{formatMaskTypeName(subMask.type)}</span>
       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           className="p-1 hover:bg-bg-primary rounded text-text-secondary"
-          data-tooltip={subMask.mode === SubMaskMode.Additive ? "Switch to Subtract" : "Switch to Add"}
+          data-tooltip={subMask.mode === SubMaskMode.Additive ? 'Switch to Subtract' : 'Switch to Add'}
           onClick={(e) => {
             e.stopPropagation();
             updateSubMask(subMask.id, {
@@ -1305,8 +1301,8 @@ function SettingsPanel({
             {isQuickErasePatch
               ? 'Fill selection to remove the object.'
               : useFastInpaint
-              ? 'Fill selection based on surrounding pixels.'
-              : 'Describe what you want to generate in the selected area.'}
+                ? 'Fill selection based on surrounding pixels.'
+                : 'Describe what you want to generate in the selected area.'}
           </p>
 
           <Switch
@@ -1318,8 +1314,8 @@ function SettingsPanel({
               isQuickErasePatch
                 ? 'Quick Erase always uses fast inpainting.'
                 : !isAIConnectorConnected
-                ? 'AI Connector not connected, fast inpainting is required.'
-                : 'Fast inpainting is quicker but not generative. Uncheck to use AI Connector with a text prompt.'
+                  ? 'AI Connector not connected, fast inpainting is required.'
+                  : 'Fast inpainting is quicker but not generative. Uncheck to use AI Connector with a text prompt.'
             }
           />
 
@@ -1366,8 +1362,8 @@ function SettingsPanel({
               {isGeneratingAi || displayContainer.isLoading
                 ? 'Generating...'
                 : useFastInpaint
-                ? 'Inpaint Selection'
-                : 'Generate with AI'}
+                  ? 'Inpaint Selection'
+                  : 'Generate with AI'}
             </span>
           </Button>
         </div>

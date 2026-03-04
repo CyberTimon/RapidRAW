@@ -228,7 +228,6 @@ function App() {
     setExpandedFolders,
     folderTree,
     setFolderTree,
-    pinnedFolderTrees,
     setPinnedFolderTrees,
     imageList,
     setImageList,
@@ -306,11 +305,6 @@ function App() {
     originalSize,
     setOriginalSize,
     setIsLoadingFullRes,
-    setIsRotationActive,
-    overlayMode,
-    setOverlayMode,
-    overlayRotation,
-    setOverlayRotation,
     transformedOriginalUrl,
     setTransformedOriginalUrl,
     fullResCacheKeyRef,
@@ -319,8 +313,6 @@ function App() {
     setInitialFitScale,
     renderedRightPanel,
     setRenderedRightPanel,
-    collapsibleSectionsState,
-    setCollapsibleSectionsState,
     isLibraryExportPanelVisible,
     setIsLibraryExportPanelVisible,
     libraryViewMode,
@@ -331,7 +323,6 @@ function App() {
     setRightPanelWidth,
     bottomPanelHeight,
     setBottomPanelHeight,
-    activeTreeSection,
     setActiveTreeSection,
     isResizing,
     setIsResizing,
@@ -343,14 +334,11 @@ function App() {
     setCopiedAdjustments,
     isStraightenActive,
     setIsStraightenActive,
-    isWbPickerActive,
     setIsWbPickerActive,
     copiedFilePaths,
     setCopiedFilePaths,
     aiModelDownloadStatus,
     setAiModelDownloadStatus,
-    copiedSectionAdjustments,
-    setCopiedSectionAdjustments,
     copiedMask,
     setCopiedMask,
     isCopied,
@@ -4275,115 +4263,47 @@ function App() {
                       >
                         {renderedRightPanel === Panel.Adjustments && (
                           <Controls
-                            adjustments={adjustments}
-                            collapsibleState={collapsibleSectionsState}
-                            copiedSectionAdjustments={copiedSectionAdjustments}
                             handleAutoAdjustments={handleAutoAdjustments}
-                            histogram={histogram}
-                            selectedImage={selectedImage}
-                            setAdjustments={setAdjustments}
-                            setCollapsibleState={setCollapsibleSectionsState}
-                            setCopiedSectionAdjustments={setCopiedSectionAdjustments}
-                            theme={theme}
                             handleLutSelect={handleLutSelect}
-                            appSettings={appSettings}
-                            isWbPickerActive={isWbPickerActive}
                             toggleWbPicker={toggleWbPicker}
                             onDragStateChange={setIsSliderDragging}
                           />
                         )}
                         {renderedRightPanel === Panel.Metadata && (
                           <MetadataPanel
-                            selectedImage={selectedImage}
-                            rating={adjustments.rating || 0}
                             tags={imageList.find((img) => img.path === selectedImage.path)?.tags || []}
                             onRate={handleRate}
                             onSetColorLabel={handleSetColorLabel}
                             onTagsChanged={handleTagsChanged}
-                            appSettings={appSettings}
                           />
                         )}
-                        {renderedRightPanel === Panel.Crop && (
-                          <CropPanel
-                            adjustments={adjustments}
-                            isStraightenActive={isStraightenActive}
-                            selectedImage={selectedImage}
-                            setAdjustments={setAdjustments}
-                            setIsStraightenActive={setIsStraightenActive}
-                            setIsRotationActive={setIsRotationActive}
-                            overlayMode={overlayMode}
-                            overlayRotation={overlayRotation}
-                            setOverlayRotation={setOverlayRotation}
-                            setOverlayMode={setOverlayMode}
-                          />
-                        )}
+                        {renderedRightPanel === Panel.Crop && <CropPanel />}
                         {renderedRightPanel === Panel.Masks && (
                           <MasksPanel
-                            activeMaskContainerId={activeMaskContainerId}
-                            activeMaskId={activeMaskId}
-                            adjustments={adjustments}
-                            aiModelDownloadStatus={aiModelDownloadStatus}
-                            appSettings={appSettings}
-                            brushSettings={brushSettings}
-                            copiedMask={copiedMask}
-                            histogram={histogram}
-                            isGeneratingAiMask={isGeneratingAiMask}
                             onGenerateAiForegroundMask={handleGenerateAiForegroundMask}
                             onGenerateAiSkyMask={handleGenerateAiSkyMask}
                             onSelectContainer={setActiveMaskContainerId}
                             onSelectMask={setActiveMaskId}
-                            selectedImage={selectedImage}
-                            setAdjustments={setAdjustments}
-                            setBrushSettings={setBrushSettings}
-                            setCopiedMask={setCopiedMask}
-                            setCustomEscapeHandler={setCustomEscapeHandler}
                             onDragStateChange={setIsSliderDragging}
-                            setIsMaskControlHovered={setIsMaskControlHovered}
                           />
                         )}
                         {renderedRightPanel === Panel.Presets && (
                           <PresetsPanel
-                            activePanel={activeRightPanel}
-                            adjustments={adjustments}
-                            selectedImage={selectedImage}
                             onNavigateToCommunity={() => {
                               handleBackToLibrary();
                               setActiveView('community');
                             }}
-                            setAdjustments={setAdjustments}
                           />
                         )}
-                        {renderedRightPanel === Panel.Export && (
-                          <ExportPanel
-                            adjustments={adjustments}
-                            exportState={exportState}
-                            multiSelectedPaths={multiSelectedPaths}
-                            selectedImage={selectedImage}
-                            setExportState={setExportState}
-                            appSettings={appSettings}
-                            onSettingsChange={handleSettingsChange}
-                          />
-                        )}
+                        {renderedRightPanel === Panel.Export && <ExportPanel onSettingsChange={handleSettingsChange} />}
                         {renderedRightPanel === Panel.Ai && (
                           <AIPanel
-                            activePatchContainerId={activeAiPatchContainerId}
-                            activeSubMaskId={activeAiSubMaskId}
-                            adjustments={adjustments}
-                            aiModelDownloadStatus={aiModelDownloadStatus}
-                            brushSettings={brushSettings}
-                            isAIConnectorConnected={isAIConnectorConnected}
-                            isGeneratingAi={isGeneratingAi}
-                            isGeneratingAiMask={isGeneratingAiMask}
                             onDeletePatch={handleDeleteAiPatch}
                             onGenerateAiForegroundMask={handleGenerateAiForegroundMask}
                             onGenerativeReplace={handleGenerativeReplace}
                             onSelectPatchContainer={setActiveAiPatchContainerId}
                             onSelectSubMask={setActiveAiSubMaskId}
                             onTogglePatchVisibility={handleToggleAiPatchVisibility}
-                            selectedImage={selectedImage}
-                            setAdjustments={setAdjustments}
-                            setBrushSettings={setBrushSettings}
-                            setCustomEscapeHandler={setCustomEscapeHandler}
                           />
                         )}
                       </motion.div>

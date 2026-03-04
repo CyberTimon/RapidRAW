@@ -25,18 +25,6 @@ const RATIO_TOLERANCE = 0.01;
 
 export type OverlayMode = 'none' | 'thirds' | 'goldenTriangle' | 'goldenSpiral' | 'phiGrid' | 'armature' | 'diagonal';
 
-interface CropPanelProps {
-  adjustments: Adjustments;
-  isStraightenActive: boolean;
-  setAdjustments(adjustments: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)): void;
-  setIsStraightenActive(active: any): void;
-  setIsRotationActive?(active: boolean): void;
-  overlayMode?: OverlayMode;
-  setOverlayMode?(mode: OverlayMode): void;
-  overlayRotation?: number;
-  setOverlayRotation?(rotation: SetStateAction<number>): void;
-}
-
 interface CropPreset {
   name: string;
   value: number | null;
@@ -71,18 +59,19 @@ const OVERLAYS: Array<OverlayOption> = [
   { id: 'armature', name: 'Armature', tooltip: 'Armature' },
 ];
 
-export default function CropPanel({
-  adjustments,
-  isStraightenActive,
-  setAdjustments,
-  setIsStraightenActive,
-  setIsRotationActive: setGlobalRotationActive,
-  overlayMode: propOverlayMode,
-  setOverlayMode: setPropOverlayMode,
-  overlayRotation: _propOverlayRotation,
-  setOverlayRotation: propSetOverlayRotation,
-}: CropPanelProps) {
-  const { selectedImage } = useAppState();
+export default function CropPanel() {
+  const {
+    selectedImage,
+    adjustments,
+    isStraightenActive,
+    overlayMode: propOverlayMode,
+    overlayRotation: _propOverlayRotation,
+    setAdjustments,
+    setIsStraightenActive,
+    setIsRotationActive: setGlobalRotationActive,
+    setOverlayMode: setPropOverlayMode,
+    setOverlayRotation: propSetOverlayRotation,
+  } = useAppState();
 
   const [customW, setCustomW] = useState('');
   const [customH, setCustomH] = useState('');
