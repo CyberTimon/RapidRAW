@@ -4293,22 +4293,11 @@ function App() {
           }}
         >
           <FolderTree
-            expandedFolders={expandedFolders}
-            isLoading={isTreeLoading}
-            isResizing={isResizing}
-            isVisible={uiVisibility.folderTree}
             onContextMenu={handleFolderTreeContextMenu}
             onFolderSelect={(path) => handleSelectSubfolder(path, false)}
             onToggleFolder={handleToggleFolder}
-            selectedPath={currentFolderPath}
             setIsVisible={(value: boolean) => setUiVisibility((prev: UiVisibility) => ({ ...prev, folderTree: value }))}
-            style={{ width: uiVisibility.folderTree ? `${leftPanelWidth}px` : '32px' }}
-            tree={folderTree}
-            pinnedFolderTrees={pinnedFolderTrees}
-            pinnedFolders={pinnedFolders}
-            activeSection={activeTreeSection}
             onActiveSectionChange={handleActiveTreeSectionChange}
-            showImageCounts={appSettings?.enableFolderImageCounts ?? false}
           />
           <Resizer
             direction={Orientation.Vertical}
