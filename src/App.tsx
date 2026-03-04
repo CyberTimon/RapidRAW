@@ -92,7 +92,6 @@ import { THEMES, DEFAULT_THEME_ID, ThemeProps } from './utils/themes';
 import { SubMask, ToolType } from './components/panel/right/Masks';
 import { ExportState, IMPORT_TIMEOUT, ImportState, Status } from './components/ui/ExportImportProperties';
 import {
-  AppSettings,
   BrushSettings,
   FilterCriteria,
   Invokes,
@@ -115,11 +114,13 @@ import {
   ThumbnailSize,
   ThumbnailAspectRatio,
   CullingSuggestions,
+  AppSettings,
 } from './components/ui/AppProperties';
 import { ChannelConfig } from './components/adjustments/Curves';
 import HdrModal from './components/modals/HdrModal';
-
-const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
+import { useSelectedImage } from './context/state/SelectedImageContext';
+import { ContextProviders } from './context/ContextProviders';
+import { useAppSettings } from './context/state/AppSettingsContext';
 
 interface CollapsibleSectionsState {
   basic: boolean;
@@ -228,7 +229,7 @@ const getParentDir = (filePath: string): string => {
 
 function App() {
   const [rootPath, setRootPath] = useState<string | null>(null);
-  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+  const { appSettings, setAppSettings } = useAppSettings();
   const [activeView, setActiveView] = useState('library');
   const [isWindowFullScreen, setIsWindowFullScreen] = useState(false);
   const [isLayoutReady, setIsLayoutReady] = useState(false);
@@ -245,11 +246,7 @@ function App() {
     rawStatus: RawStatus.All,
   });
   const [supportedTypes, setSupportedTypes] = useState<SupportedTypes | null>(null);
-  const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
-  const selectedImagePathRef = useRef<string | null>(null);
-  useEffect(() => {
-    selectedImagePathRef.current = selectedImage?.path ?? null;
-  }, [selectedImage?.path]);
+  const { selectedImage, selectedImagePathRef, setSelectedImage } = useSelectedImage();
   const [multiSelectedPaths, setMultiSelectedPaths] = useState<Array<string>>([]);
   const [libraryActivePath, setLibraryActivePath] = useState<string | null>(null);
   const [libraryActiveAdjustments, setLibraryActiveAdjustments] = useState<Adjustments>(INITIAL_ADJUSTMENTS);
@@ -4915,12 +4912,10 @@ function App() {
 }
 
 const AppWrapper = () => (
-  <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
-    <ContextMenuProvider>
-      <App />
-      <GlobalTooltip />
-    </ContextMenuProvider>
-  </ClerkProvider>
+  <ContextProviders>
+    <App />
+    <GlobalTooltip />
+  </ContextProviders>
 );
 
 export default AppWrapper;
