@@ -4678,13 +4678,7 @@ function App() {
             style={{ width: isLibraryExportPanelVisible && !isFullScreen ? `${rightPanelWidth}px` : '0px' }}
           >
             <LibraryExportPanel
-              exportState={exportState}
-              imageList={sortedImageList}
-              isVisible={isLibraryExportPanelVisible}
-              multiSelectedPaths={multiSelectedPaths}
               onClose={() => setIsLibraryExportPanelVisible(false)}
-              setExportState={setExportState}
-              appSettings={appSettings}
               onSettingsChange={handleSettingsChange}
             />
           </div>
