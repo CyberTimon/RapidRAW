@@ -41,6 +41,8 @@ import {
 } from '../ui/AppProperties';
 import { Color, COLOR_LABELS } from '../../utils/adjustments';
 import { ImportState, Status } from '../ui/ExportImportProperties';
+import { useAppState } from '../../context/ContextProviders';
+import { useThumbnails } from '../../hooks/useThumbnails';
 
 interface DropdownMenuProps {
   buttonContent: any;
@@ -67,22 +69,6 @@ interface SearchCriteria {
 }
 
 interface MainLibraryProps {
-  activePath: string | null;
-  aiModelDownloadStatus: string | null;
-  appSettings: AppSettings | null;
-  currentFolderPath: string | null;
-  filterCriteria: FilterCriteria;
-  imageList: Array<ImageFile>;
-  imageRatings: Record<string, number>;
-  importState: ImportState;
-  indexingProgress: Progress;
-  isLoading: boolean;
-  isThumbnailsLoading?: boolean;
-  isIndexing: boolean;
-  isTreeLoading: boolean;
-  libraryScrollTop: number;
-  libraryViewMode: LibraryViewMode;
-  multiSelectedPaths: Array<string>;
   onClearSelection(): void;
   onContextMenu(event: any, path: string): void;
   onContinueSession(): void;
@@ -95,18 +81,6 @@ interface MainLibraryProps {
   onSettingsChange(settings: AppSettings): void;
   onThumbnailAspectRatioChange(aspectRatio: ThumbnailAspectRatio): void;
   onThumbnailSizeChange(size: ThumbnailSize): void;
-  rootPath: string | null;
-  searchCriteria: SearchCriteria;
-  setFilterCriteria(criteria: FilterCriteria): void;
-  setLibraryScrollTop(scrollTop: number): void;
-  setLibraryViewMode(mode: LibraryViewMode): void;
-  setSearchCriteria(criteria: SearchCriteria | ((prev: SearchCriteria) => SearchCriteria)): void;
-  setSortCriteria(criteria: SortCriteria | ((prev: SortCriteria) => SortCriteria)): void;
-  sortCriteria: SortCriteria;
-  theme: string;
-  thumbnailAspectRatio: ThumbnailAspectRatio;
-  thumbnails: Record<string, string>;
-  thumbnailSize: ThumbnailSize;
   onNavigateToCommunity(): void;
 }
 
@@ -335,10 +309,10 @@ function SearchInput({ indexingProgress, isIndexing, searchCriteria, setSearchCr
     isIndexing && indexingProgress.total > 0
       ? `Indexing... (${indexingProgress.current}/${indexingProgress.total})`
       : isIndexing
-      ? 'Indexing Images...'
-      : tags.length > 0
-      ? 'Add another tag...'
-      : 'Search by tag or filename...';
+        ? 'Indexing Images...'
+        : tags.length > 0
+          ? 'Add another tag...'
+          : 'Search by tag or filename...';
 
   const INACTIVE_WIDTH = 48;
   const PADDING_AND_ICONS_WIDTH = 105;
@@ -923,8 +897,8 @@ function Thumbnail({
   const ringClass = isActive
     ? 'ring-2 ring-accent'
     : isSelected
-    ? 'ring-2 ring-gray-400'
-    : 'hover:ring-2 hover:ring-hover-color';
+      ? 'ring-2 ring-gray-400'
+      : 'hover:ring-2 hover:ring-hover-color';
   const colorTag = tags?.find((t: string) => t.startsWith('color:'))?.substring(6);
   const colorLabel = COLOR_LABELS.find((c: Color) => c.name === colorTag);
 
@@ -951,14 +925,16 @@ function Thumbnail({
               onTransitionEnd={() => handleTransitionEnd(layer.id)}
             >
               {thumbnailAspectRatio === ThumbnailAspectRatio.Contain && (
-                <img alt="" className="absolute inset-0 w-full h-full object-cover blur-md scale-110 brightness-[0.4]" src={layer.url} />
+                <img
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover blur-md scale-110 brightness-[0.4]"
+                  src={layer.url}
+                />
               )}
               <img
                 alt={path.split(/[\\/]/).pop()}
                 className={`w-full h-full group-hover:scale-[1.02] transition-transform duration-300 ${
-                  thumbnailAspectRatio === ThumbnailAspectRatio.Contain
-                    ? 'object-contain'
-                    : 'object-cover'
+                  thumbnailAspectRatio === ThumbnailAspectRatio.Contain ? 'object-contain' : 'object-cover'
                 } relative`}
                 decoding="async"
                 loading="lazy"
@@ -1109,22 +1085,6 @@ const Row = ({ index, style, data }: any) => {
 };
 
 export default function MainLibrary({
-  activePath,
-  aiModelDownloadStatus,
-  appSettings,
-  currentFolderPath,
-  filterCriteria,
-  imageList,
-  imageRatings,
-  importState,
-  indexingProgress,
-  isIndexing,
-  isLoading,
-  isThumbnailsLoading,
-  isTreeLoading: _isTreeLoading,
-  libraryScrollTop,
-  libraryViewMode,
-  multiSelectedPaths,
   onClearSelection,
   onContextMenu,
   onContinueSession,
@@ -1137,23 +1097,42 @@ export default function MainLibrary({
   onSettingsChange,
   onThumbnailAspectRatioChange,
   onThumbnailSizeChange,
-  rootPath,
-  searchCriteria,
-  setFilterCriteria,
-  setLibraryScrollTop,
-  setLibraryViewMode,
-  setSearchCriteria,
-  setSortCriteria,
-  sortCriteria,
-  theme,
-  thumbnailAspectRatio,
-  thumbnails,
-  thumbnailSize,
   onNavigateToCommunity,
 }: MainLibraryProps) {
+  const {
+    appSettings,
+    rootPath,
+    currentFolderPath,
+    imageList,
+    imageRatings,
+    sortCriteria,
+    setSortCriteria,
+    filterCriteria,
+    setFilterCriteria,
+    setSupportedTypes,
+    multiSelectedPaths,
+    libraryActivePath: activePath,
+    isViewLoading: isLoading,
+    theme,
+    libraryViewMode,
+    setLibraryViewMode,
+    thumbnailSize,
+    thumbnailAspectRatio,
+    aiModelDownloadStatus,
+    isIndexing,
+    indexingProgress,
+    searchCriteria,
+    setSearchCriteria,
+    libraryScrollTop,
+    setLibraryScrollTop,
+    thumbnails,
+    setThumbnails,
+    importState,
+  } = useAppState();
+
+  const { loading: isThumbnailsLoading } = useThumbnails(imageList, setThumbnails);
   const [showSettings, setShowSettings] = useState(false);
   const [appVersion, setAppVersion] = useState('');
-  const [, setSupportedTypes] = useState<SupportedTypes | null>(null);
   const libraryContainerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<List>(null);
   const outerRef = useRef<HTMLDivElement>(null);
@@ -1242,10 +1221,8 @@ export default function MainLibrary({
     if (found && outerRef.current) {
       const prev = prevScrollState.current;
 
-      const shouldScroll = 
-        activePath !== prev.path || 
-        Math.abs(targetTop - prev.top) > 1 || 
-        currentFolderPath !== prev.folder;
+      const shouldScroll =
+        activePath !== prev.path || Math.abs(targetTop - prev.top) > 1 || currentFolderPath !== prev.folder;
 
       if (shouldScroll) {
         const element = outerRef.current;
@@ -1259,8 +1236,7 @@ export default function MainLibrary({
             top: itemBottom - clientHeight + SCROLL_OFFSET,
             behavior: 'smooth',
           });
-        }
-        else if (targetTop < scrollTop) {
+        } else if (targetTop < scrollTop) {
           element.scrollTo({
             top: targetTop - SCROLL_OFFSET,
             behavior: 'smooth',
@@ -1270,7 +1246,7 @@ export default function MainLibrary({
         prevScrollState.current = {
           path: activePath,
           top: targetTop,
-          folder: currentFolderPath
+          folder: currentFolderPath,
         };
       }
     }
@@ -1394,9 +1370,7 @@ export default function MainLibrary({
       THEMES.find((t: ThemeProps) => t.id === DEFAULT_THEME_ID);
     const splashImage = selectedTheme?.splashImage;
     return (
-      <div
-        className={`flex-1 flex h-full bg-bg-secondary overflow-hidden shadow-lg`}
-      >
+      <div className={`flex-1 flex h-full bg-bg-secondary overflow-hidden shadow-lg`}>
         <div className="w-1/2 hidden md:block relative">
           <AnimatePresence>
             <motion.img
@@ -1485,9 +1459,7 @@ export default function MainLibrary({
                     <p>
                       <span
                         className={`group transition-all duration-300 ease-in-out rounded-md py-1 ${
-                          isUpdateAvailable
-                            ? 'cursor-pointer border border-yellow-500 px-2 hover:bg-yellow-500/20'
-                            : ''
+                          isUpdateAvailable ? 'cursor-pointer border border-yellow-500 px-2 hover:bg-yellow-500/20' : ''
                         }`}
                         onClick={() => {
                           if (isUpdateAvailable) {
@@ -1712,12 +1684,12 @@ export default function MainLibrary({
             {aiModelDownloadStatus
               ? `Downloading ${aiModelDownloadStatus}...`
               : isIndexing && indexingProgress.total > 0
-              ? `Indexing images... (${indexingProgress.current}/${indexingProgress.total})`
-              : importState.status === Status.Importing &&
-                importState?.progress?.total &&
-                importState.progress.total > 0
-              ? `Importing images... (${importState.progress?.current}/${importState.progress?.total})`
-              : 'Processing images...'}
+                ? `Indexing images... (${indexingProgress.current}/${indexingProgress.total})`
+                : importState.status === Status.Importing &&
+                    importState?.progress?.total &&
+                    importState.progress.total > 0
+                  ? `Importing images... (${importState.progress?.current}/${importState.progress?.total})`
+                  : 'Processing images...'}
           </p>
           <p className="text-sm mt-2">This may take a moment.</p>
         </div>
@@ -1730,8 +1702,7 @@ export default function MainLibrary({
           <p className="text-lg font-semibold">No Results Found</p>
           <p className="text-sm mt-2 max-w-sm">
             Could not find an image based on filename or tags.
-            {!appSettings?.enableAiTagging &&
-              ' For a more comprehensive search, enable automatic tagging in Settings.'}
+            {!appSettings?.enableAiTagging && ' For a more comprehensive search, enable automatic tagging in Settings.'}
           </p>
         </div>
       ) : (

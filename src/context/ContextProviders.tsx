@@ -39,6 +39,7 @@ import {
 } from '../App';
 import { ToolType } from '../components/panel/right/Masks';
 import { useHistoryState } from '../hooks/useHistoryState';
+import { ExportState, ImportState, Status } from '../components/ui/ExportImportProperties';
 
 export function ContextProviders({ children }: PropsWithChildren) {
   return (
@@ -238,6 +239,17 @@ function createAppStateContext() {
     ...useContextState<boolean>()('isMaskControlHovered', false),
     ...useContextState<number>()('libraryScrollTop', 0),
     ...useContextState<Record<string, string>>()('thumbnails', {}),
+    ...useContextState<ExportState>()('exportState', {
+      errorMessage: '',
+      progress: { current: 0, total: 0 },
+      status: Status.Idle,
+    }),
+    ...useContextState<ImportState>()('importState', {
+      errorMessage: '',
+      path: '',
+      progress: { current: 0, total: 0 },
+      status: Status.Idle,
+    }),
   };
 
   const dependants = {

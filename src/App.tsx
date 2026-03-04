@@ -255,7 +255,6 @@ function App() {
     setLibraryActiveAdjustments,
     finalPreviewUrl,
     setFinalPreviewUrl,
-    uncroppedAdjustedPreviewUrl,
     setUncroppedAdjustedPreviewUrl,
     showOriginal,
     setShowOriginal,
@@ -313,9 +312,7 @@ function App() {
     setBaseRenderSize,
     originalSize,
     setOriginalSize,
-    isLoadingFullRes,
     setIsLoadingFullRes,
-    isRotationActive,
     setIsRotationActive,
     overlayMode,
     setOverlayMode,
@@ -415,7 +412,6 @@ function App() {
     setIsAIConnectorConnected,
     isGeneratingAi,
     setIsGeneratingAi,
-    isMaskControlHovered,
     setIsMaskControlHovered,
     libraryScrollTop,
     setLibraryScrollTop,
@@ -429,6 +425,10 @@ function App() {
     previewJobIdRef,
     latestRenderedJobIdRef,
     history,
+    exportState,
+    setExportState,
+    importState,
+    setImportState,
   } = useAppState();
 
   const {
@@ -439,8 +439,6 @@ function App() {
     canUndo,
     canRedo,
     resetHistory: resetAdjustmentsHistory,
-    history: adjustmentsHistory,
-    historyIndex: adjustmentsHistoryIndex,
     goToIndex: goToAdjustmentsHistoryIndex,
   } = history;
 
@@ -476,19 +474,6 @@ function App() {
       };
     }
   }, [rootPath, folderTree]);
-
-  const [exportState, setExportState] = useState<ExportState>({
-    errorMessage: '',
-    progress: { current: 0, total: 0 },
-    status: Status.Idle,
-  });
-
-  const [importState, setImportState] = useState<ImportState>({
-    errorMessage: '',
-    path: '',
-    progress: { current: 0, total: 0 },
-    status: Status.Idle,
-  });
 
   useEffect(() => {
     currentFolderPathRef.current = currentFolderPath;
@@ -4305,22 +4290,7 @@ function App() {
           />
         </div>
       ),
-    [
-      rootPath,
-      expandedFolders,
-      isTreeLoading,
-      isResizing,
-      handleSelectSubfolder,
-      uiVisibility.folderTree,
-      currentFolderPath,
-      leftPanelWidth,
-      folderTree,
-      pinnedFolderTrees,
-      pinnedFolders,
-      activeTreeSection,
-      copiedFilePaths,
-      isFullScreen,
-    ],
+    [rootPath, isResizing, handleSelectSubfolder, leftPanelWidth, folderTree, isFullScreen],
   );
 
   const memoizedLibraryView = useMemo(
@@ -4328,30 +4298,9 @@ function App() {
       <div className="flex flex-row flex-grow h-full min-h-0">
         <div className="flex-1 flex flex-col min-w-0 gap-2">
           {activeView === 'community' ? (
-            <CommunityPage
-              onBackToLibrary={() => setActiveView('library')}
-              supportedTypes={supportedTypes}
-              imageList={sortedImageList}
-              currentFolderPath={currentFolderPath}
-            />
+            <CommunityPage onBackToLibrary={() => setActiveView('library')} />
           ) : (
             <MainLibrary
-              activePath={libraryActivePath}
-              aiModelDownloadStatus={aiModelDownloadStatus}
-              appSettings={appSettings}
-              currentFolderPath={currentFolderPath}
-              filterCriteria={filterCriteria}
-              imageList={sortedImageList}
-              imageRatings={imageRatings}
-              importState={importState}
-              indexingProgress={indexingProgress}
-              isIndexing={isIndexing}
-              isThumbnailsLoading={isThumbnailsLoading}
-              isLoading={isViewLoading}
-              isTreeLoading={isTreeLoading}
-              libraryScrollTop={libraryScrollTop}
-              libraryViewMode={libraryViewMode}
-              multiSelectedPaths={multiSelectedPaths}
               onClearSelection={handleClearSelection}
               onContextMenu={handleThumbnailContextMenu}
               onContinueSession={handleContinueSession}
@@ -4364,18 +4313,6 @@ function App() {
               onSettingsChange={handleSettingsChange}
               onThumbnailAspectRatioChange={setThumbnailAspectRatio}
               onThumbnailSizeChange={setThumbnailSize}
-              rootPath={rootPath}
-              searchCriteria={searchCriteria}
-              setFilterCriteria={setFilterCriteria}
-              setLibraryScrollTop={setLibraryScrollTop}
-              setLibraryViewMode={setLibraryViewMode}
-              setSearchCriteria={setSearchCriteria}
-              setSortCriteria={setSortCriteria}
-              sortCriteria={sortCriteria}
-              theme={theme}
-              thumbnailAspectRatio={thumbnailAspectRatio}
-              thumbnails={thumbnails}
-              thumbnailSize={thumbnailSize}
               onNavigateToCommunity={() => setActiveView('community')}
             />
           )}
