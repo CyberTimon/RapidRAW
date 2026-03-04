@@ -12,26 +12,10 @@ import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
 import Waveform from './editor/Waveform';
 import { Mask, SubMask } from './right/Masks';
-import { BrushSettings, Invokes, Panel, SelectedImage, TransformState, WaveformData } from '../ui/AppProperties';
-import type { OverlayMode } from './right/CropPanel';
+import { Invokes, Panel, TransformState, WaveformData } from '../ui/AppProperties';
+import { useAppState } from '../../context/ContextProviders';
 
 interface EditorProps {
-  activeAiPatchContainerId: string | null;
-  activeAiSubMaskId: string | null;
-  activeMaskContainerId: string | null;
-  activeMaskId: string | null;
-  activeRightPanel: Panel | null;
-  adjustments: Adjustments;
-  brushSettings: BrushSettings | null;
-  canRedo: boolean;
-  canUndo: boolean;
-  finalPreviewUrl: string | null;
-  isFullScreen: boolean;
-  isLoading: boolean;
-  isMaskControlHovered: boolean;
-  isStraightenActive: boolean;
-  isRotationActive?: boolean;
-  isWaveformVisible: boolean;
   onBackToLibrary(): void;
   onCloseWaveform(): void;
   onContextMenu(event: any): void;
@@ -45,49 +29,16 @@ interface EditorProps {
   onToggleWaveform(): void;
   onUndo(): void;
   onZoomed(state: TransformState): void;
-  renderedRightPanel: Panel | null;
-  selectedImage: SelectedImage;
   setAdjustments(adjustments: Partial<Adjustments>): void;
   setShowOriginal(show: any): void;
-  showOriginal: boolean;
-  targetZoom: number;
-  thumbnails: Record<string, string>;
-  transformWrapperRef: any;
-  transformedOriginalUrl: string | null;
-  uncroppedAdjustedPreviewUrl: string | null;
   updateSubMask(id: string | null, subMask: Partial<SubMask>): void;
-  waveform: WaveformData | null;
   onDisplaySizeChange?(size: any): void;
   onInitialFitScale?(scale: number): void;
-  originalSize?: ImageDimensions;
-  isLoadingFullRes?: boolean;
-  isWbPickerActive?: boolean;
   onWbPicked?: () => void;
-  overlayMode?: OverlayMode;
-  overlayRotation?: number;
-  adjustmentsHistory: any[];
-  adjustmentsHistoryIndex: number;
   goToAdjustmentsHistoryIndex(index: number): void;
 }
 
 export default function Editor({
-  activeAiPatchContainerId,
-  activeAiSubMaskId,
-  activeMaskContainerId,
-  activeMaskId,
-  activeRightPanel,
-  adjustments,
-  brushSettings,
-  canRedo,
-  canUndo,
-  finalPreviewUrl,
-  isFullScreen,
-  isLoading,
-  isMaskControlHovered,
-  isStraightenActive,
-  isRotationActive,
-  isWaveformVisible,
-  onBackToLibrary,
   onCloseWaveform,
   onContextMenu,
   onGenerateAiMask,
@@ -100,29 +51,52 @@ export default function Editor({
   onToggleWaveform,
   onUndo,
   onZoomed,
-  selectedImage,
   setAdjustments,
   setShowOriginal,
-  showOriginal,
-  targetZoom,
-  thumbnails: _thumbnails,
-  transformWrapperRef,
-  transformedOriginalUrl,
-  uncroppedAdjustedPreviewUrl,
   updateSubMask,
-  waveform,
   onDisplaySizeChange,
   onInitialFitScale,
-  originalSize,
-  isLoadingFullRes,
-  isWbPickerActive = false,
   onWbPicked,
-  overlayMode = 'none',
-  overlayRotation = 0,
-  adjustmentsHistory,
-  adjustmentsHistoryIndex,
-  goToAdjustmentsHistoryIndex,
+  onBackToLibrary,
 }: EditorProps) {
+  const {
+    activeAiPatchContainerId,
+    activeAiSubMaskId,
+    activeMaskContainerId,
+    activeMaskId,
+    activeRightPanel,
+    adjustments,
+    brushSettings,
+    finalPreviewUrl,
+    isFullScreen,
+    isMaskControlHovered,
+    isStraightenActive,
+    isRotationActive,
+    isWaveformVisible,
+    selectedImage,
+    showOriginal,
+    transformWrapperRef,
+    transformedOriginalUrl,
+    uncroppedAdjustedPreviewUrl,
+    waveform,
+    originalSize,
+    isLoadingFullRes,
+    isWbPickerActive,
+    overlayMode,
+    overlayRotation,
+    isViewLoading: isLoading,
+    zoom: targetZoom,
+    history,
+  } = useAppState();
+
+  const {
+    canUndo,
+    canRedo,
+    history: adjustmentsHistory,
+    historyIndex: adjustmentsHistoryIndex,
+    goToIndex: goToAdjustmentsHistoryIndex,
+  } = history;
+
   const [crop, setCrop] = useState<Crop | null>(null);
   const prevCropParams = useRef<any>(null);
   const [isMaskHovered, setIsMaskHovered] = useState(false);
@@ -149,6 +123,8 @@ export default function Editor({
   const isTransitioningRef = useRef(false);
 
   const [toolbarOverflowVisible, setToolbarOverflowVisible] = useState(!isFullScreen);
+
+  if (!selectedImage) return <></>;
 
   useEffect(() => {
     if (isFullScreen) {

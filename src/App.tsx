@@ -4472,21 +4472,6 @@ function App() {
         <div className="flex flex-row flex-grow h-full min-h-0">
           <div className="flex-1 flex flex-col min-w-0">
             <Editor
-              activeAiPatchContainerId={activeAiPatchContainerId}
-              activeAiSubMaskId={activeAiSubMaskId}
-              activeMaskContainerId={activeMaskContainerId}
-              activeMaskId={activeMaskId}
-              activeRightPanel={activeRightPanel}
-              adjustments={adjustments}
-              brushSettings={brushSettings}
-              canRedo={canRedo}
-              canUndo={canUndo}
-              finalPreviewUrl={finalPreviewUrl}
-              isFullScreen={isFullScreen}
-              isLoading={isViewLoading}
-              isMaskControlHovered={isMaskControlHovered}
-              isStraightenActive={isStraightenActive}
-              isWaveformVisible={isWaveformVisible}
               onBackToLibrary={handleBackToLibrary}
               onCloseWaveform={() => setIsWaveformVisible(false)}
               onContextMenu={handleEditorContextMenu}
@@ -4500,31 +4485,12 @@ function App() {
               onToggleWaveform={handleToggleWaveform}
               onUndo={undo}
               onZoomed={handleUserTransform}
-              renderedRightPanel={renderedRightPanel}
-              selectedImage={selectedImage}
-              isWbPickerActive={isWbPickerActive}
               onWbPicked={handleWbPicked}
               setAdjustments={setAdjustments}
               setShowOriginal={setShowOriginal}
-              showOriginal={showOriginal}
-              targetZoom={zoom}
-              thumbnails={thumbnails}
-              transformWrapperRef={transformWrapperRef}
-              transformedOriginalUrl={transformedOriginalUrl}
-              uncroppedAdjustedPreviewUrl={uncroppedAdjustedPreviewUrl}
               updateSubMask={updateSubMask}
-              waveform={waveform}
               onDisplaySizeChange={handleDisplaySizeChange}
               onInitialFitScale={setInitialFitScale}
-              onZoomChange={handleZoomChange}
-              originalSize={originalSize}
-              baseRenderSize={baseRenderSize}
-              isLoadingFullRes={isLoadingFullRes}
-              isRotationActive={isRotationActive}
-              overlayMode={overlayMode}
-              overlayRotation={overlayRotation}
-              adjustmentsHistory={adjustmentsHistory}
-              adjustmentsHistoryIndex={adjustmentsHistoryIndex}
               goToAdjustmentsHistoryIndex={goToAdjustmentsHistoryIndex}
             />
             <div
