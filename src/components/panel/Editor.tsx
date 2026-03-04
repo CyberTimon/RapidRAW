@@ -89,13 +89,9 @@ export default function Editor({
     history,
   } = useAppState();
 
-  const {
-    canUndo,
-    canRedo,
-    history: adjustmentsHistory,
-    historyIndex: adjustmentsHistoryIndex,
-    goToIndex: goToAdjustmentsHistoryIndex,
-  } = history;
+  if (!selectedImage) return <></>;
+
+  const { goToIndex: goToAdjustmentsHistoryIndex } = history;
 
   const [crop, setCrop] = useState<Crop | null>(null);
   const prevCropParams = useRef<any>(null);
@@ -123,8 +119,6 @@ export default function Editor({
   const isTransitioningRef = useRef(false);
 
   const [toolbarOverflowVisible, setToolbarOverflowVisible] = useState(!isFullScreen);
-
-  if (!selectedImage) return <></>;
 
   useEffect(() => {
     if (isFullScreen) {
@@ -655,40 +649,23 @@ export default function Editor({
             }}
           >
             <ImageCanvas
-              activeAiPatchContainerId={activeAiPatchContainerId}
-              activeAiSubMaskId={activeAiSubMaskId}
-              activeMaskContainerId={activeMaskContainerId}
-              activeMaskId={activeMaskId}
-              adjustments={adjustments}
-              brushSettings={brushSettings}
               crop={crop}
-              finalPreviewUrl={finalPreviewUrl}
               handleCropComplete={handleCropComplete}
               imageRenderSize={imageRenderSize}
               isAiEditing={isAiEditing}
               isCropping={isCropping}
-              isMaskControlHovered={isMaskControlHovered}
               isMasking={isMasking}
-              isStraightenActive={isStraightenActive}
-              isRotationActive={isRotationActive}
               maskOverlayUrl={maskOverlayUrl}
               onGenerateAiMask={onGenerateAiMask}
               onQuickErase={onQuickErase}
               onSelectAiSubMask={onSelectAiSubMask}
               onSelectMask={onSelectMask}
               onStraighten={onStraighten}
-              selectedImage={selectedImage}
               setCrop={handleCropChange}
               setIsMaskHovered={setIsMaskHovered}
-              showOriginal={showOriginal}
-              transformedOriginalUrl={transformedOriginalUrl}
-              uncroppedAdjustedPreviewUrl={uncroppedAdjustedPreviewUrl}
               updateSubMask={updateSubMask}
-              isWbPickerActive={isWbPickerActive}
               onWbPicked={onWbPicked}
               setAdjustments={setAdjustments}
-              overlayRotation={overlayRotation}
-              overlayMode={overlayMode}
               cursorStyle={cursorStyle}
               isMaxZoom={isMaxZoom}
             />
