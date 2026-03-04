@@ -124,6 +124,8 @@ pub fn denoise_image(
     // chrominance channels (Cb, Cr) independently of luminance (Y).
     let rgb_channels = split_channels(&rgb_img_for_denoiser);
     let (y, cb, cr) = rgb_to_ycbcr(&rgb_channels[0], &rgb_channels[1], &rgb_channels[2]);
+    // Save original luma before denoising for frequency blending below.
+    let original_y = y.clone();
     let channels = vec![y, cb, cr];
 
     let patches_x = (width as usize).saturating_sub(BLOCK_SIZE) / STRIDE + 1;
@@ -133,7 +135,7 @@ pub fn denoise_image(
 
     let _ = app_handle.emit("denoise-progress", "Processing (Step 1/2)...");
 
-    let denoised_channels = bm3d_process_joint(
+    let mut denoised_channels = bm3d_process_joint(
         &channels,
         width,
         height,
@@ -143,6 +145,24 @@ pub fn denoise_image(
         total_work_units,
         &app_handle,
     );
+
+    // Frequency blending: restore high-frequency luma detail from the original.
+    // A Gaussian blur of the original isolates its low-frequency content; the
+    // residual (original − blur) is fine texture plus noise.  Adding a fraction
+    // of this residual back to the denoised luma recovers bark, hair, and similar
+    // micro-detail that BM3D tends to smooth away, at the cost of reintroducing a
+    // small amount of the original noise.  The strength scales with intensity so
+    // that more aggressive denoising gets proportionally more detail restored.
+    {
+        let _ = app_handle.emit("denoise-progress", "Blending detail...");
+        let blurred_y = gaussian_blur_1ch(&original_y, width as usize, height as usize, 3.0);
+        let detail_strength = (intensity * 0.5_f32).clamp(0.0_f32, 0.5_f32);
+        let y_ch = &mut denoised_channels[0];
+        for i in 0..y_ch.len() {
+            let hf = original_y[i] - blurred_y[i];
+            y_ch[i] = (y_ch[i] + detail_strength * hf).clamp(0.0, 255.0);
+        }
+    }
 
     // Convert denoised YCbCr back to RGB before building the output image.
     let (r, g, b) = ycbcr_to_rgb(&denoised_channels[0], &denoised_channels[1], &denoised_channels[2]);
@@ -769,3 +789,64 @@ fn prev_power_of_two(x: usize) -> usize {
     }
     p
 }
+
+/// Separable Gaussian blur of a single-channel float image (values in any range).
+/// `sigma` controls the blur radius; kernel half-width = ceil(3 * sigma).
+fn gaussian_blur_1ch(data: &[f32], width: usize, height: usize, sigma: f32) -> Vec<f32> {
+    let radius = (3.0 * sigma).ceil() as usize;
+    let klen = 2 * radius + 1;
+    let mut kernel = vec![0.0f32; klen];
+    let two_s2 = 2.0 * sigma * sigma;
+    for i in 0..klen {
+        let k = i as f32 - radius as f32;
+        kernel[i] = (-k * k / two_s2).exp();
+    }
+    let ksum: f32 = kernel.iter().sum();
+    for k in &mut kernel {
+        *k /= ksum;
+    }
+
+    // Horizontal pass (each row is independent).
+    let mut tmp = vec![0.0f32; width * height];
+    tmp.par_chunks_mut(width)
+        .enumerate()
+        .for_each(|(y, row_out)| {
+            let row_in = &data[y * width..(y + 1) * width];
+            for x in 0..width {
+                let mut val = 0.0f32;
+                let mut wsum = 0.0f32;
+                let x0 = x as isize - radius as isize;
+                for ki in 0..klen {
+                    let kx = x0 + ki as isize;
+                    if kx >= 0 && kx < width as isize {
+                        val += row_in[kx as usize] * kernel[ki];
+                        wsum += kernel[ki];
+                    }
+                }
+                row_out[x] = val / wsum;
+            }
+        });
+
+    // Vertical pass (each column is independent; iterate row-major for cache).
+    let mut out = vec![0.0f32; width * height];
+    out.par_chunks_mut(width)
+        .enumerate()
+        .for_each(|(y, row_out)| {
+            let y0 = y as isize - radius as isize;
+            for x in 0..width {
+                let mut val = 0.0f32;
+                let mut wsum = 0.0f32;
+                for ki in 0..klen {
+                    let ky = y0 + ki as isize;
+                    if ky >= 0 && ky < height as isize {
+                        val += tmp[ky as usize * width + x] * kernel[ki];
+                        wsum += kernel[ki];
+                    }
+                }
+                row_out[x] = val / wsum;
+            }
+        });
+
+    out
+}
+

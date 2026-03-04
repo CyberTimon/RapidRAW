@@ -181,12 +181,10 @@ export default function DenoiseModal({
 }: DenoiseModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
-  // Default at 35 — empirically the sweet spot for chroma noise on small sensors
-  // without muddying luminance detail (50 was found to be too aggressive).
-  const [intensity, setIntensity] = useState<number>(35);
+  const [intensity, setIntensity] = useState<number>(15);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
-  
+
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
   useEffect(() => {
@@ -326,7 +324,7 @@ export default function DenoiseModal({
                 min={0}
                 max={100}
                 step={1}
-                defaultValue={35}
+                defaultValue={15}
                 onChange={(e) => setIntensity(Number(e.target.value))}
                 trackClassName="bg-bg-secondary"
             />
