@@ -259,16 +259,13 @@ type ContextStateObj<ValueName extends string, T> = {
 };
 
 function useContextState<T>() {
-  function inner<ValueName extends string>(valueName: ValueName, defaultValue: T): ContextStateObj<ValueName, T>;
-  function inner<ValueName extends string>(valueName: ValueName): ContextStateObj<ValueName, T | null>;
-
-  function inner<ValueName extends string>(valueName: ValueName, defaultValue?: T) {
+  function create<ValueName extends string>(valueName: ValueName, defaultValue?: T) {
     const [value, setter] = useState<T | null>(defaultValue === undefined ? null : defaultValue);
 
     const setterName = 'set' + valueName.charAt(0).toUpperCase() + valueName.slice(1);
 
-    return { [valueName]: value, [setterName]: setter } as ContextStateObj<ValueName, typeof value>;
+    return { [valueName]: value, [setterName]: setter } as ContextStateObj<ValueName, T>;
   }
 
-  return inner;
+  return create;
 }
