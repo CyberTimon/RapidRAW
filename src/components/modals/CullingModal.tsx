@@ -7,15 +7,10 @@ import Button from '../ui/Button';
 import Switch from '../ui/Switch';
 import Slider from '../ui/Slider';
 import Dropdown from '../ui/Dropdown';
+import { useAppState } from '../../context/ContextProviders';
 
 interface CullingModalProps {
-  isOpen: boolean;
   onClose(): void;
-  progress: Progress | null;
-  suggestions: CullingSuggestions | null;
-  error: string | null;
-  imagePaths: string[];
-  thumbnails: Record<string, string>;
   onApply(action: 'reject' | 'rate_zero' | 'delete', paths: string[]): void;
   onError(error: string): void;
 }
@@ -54,22 +49,17 @@ function ImageThumbnail({ path, thumbnails, isSelected, onToggle, children }: an
       <div className="absolute top-2 right-2 w-5 h-5 bg-bg-primary rounded-sm border border-surface flex items-center justify-center">
         {isSelected && <CheckCircle size={16} className="text-accent" />}
       </div>
-      {children && <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/60 text-white text-xs">{children}</div>}
+      {children && (
+        <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/60 text-white text-xs">{children}</div>
+      )}
     </div>
   );
 }
 
-export default function CullingModal({
-  isOpen,
-  onClose,
-  progress,
-  suggestions,
-  error,
-  imagePaths,
-  thumbnails,
-  onApply,
-  onError,
-}: CullingModalProps) {
+export default function CullingModal({ onClose, onApply, onError }: CullingModalProps) {
+  const { cullingModalState, thumbnails } = useAppState();
+  const { isOpen, progress, suggestions, error, pathsToCull: imagePaths } = cullingModalState;
+
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [stage, setStage] = useState<'settings' | 'progress' | 'results'>('settings');
@@ -158,7 +148,11 @@ export default function CullingModal({
       <h3 className="text-lg font-semibold text-text-primary mb-6 text-center">Cull Images</h3>
       <div className="space-y-6 text-sm">
         <div>
-          <Switch label="Group Similar Images" checked={settings.groupSimilar} onChange={(v) => setSettings((s) => ({ ...s, groupSimilar: v }))} />
+          <Switch
+            label="Group Similar Images"
+            checked={settings.groupSimilar}
+            onChange={(v) => setSettings((s) => ({ ...s, groupSimilar: v }))}
+          />
           {settings.groupSimilar && (
             <div className="mt-3 pl-6">
               <Slider
@@ -168,18 +162,21 @@ export default function CullingModal({
                 step={1}
                 value={settings.similarityThreshold}
                 defaultValue={28}
-                onChange={(e) =>
-                  setSettings((s) => ({ ...s, similarityThreshold: Number(e.target.value) }))
-                }
+                onChange={(e) => setSettings((s) => ({ ...s, similarityThreshold: Number(e.target.value) }))}
               />
               <p className="text-xs text-text-secondary mt-1">
-                Lower is stricter (exact duplicates). Higher is looser (near duplicates). A value of 24-32 is recommended.
+                Lower is stricter (exact duplicates). Higher is looser (near duplicates). A value of 24-32 is
+                recommended.
               </p>
             </div>
           )}
         </div>
         <div>
-          <Switch label="Filter Blurry Images" checked={settings.filterBlurry} onChange={(v) => setSettings((s) => ({ ...s, filterBlurry: v }))} />
+          <Switch
+            label="Filter Blurry Images"
+            checked={settings.filterBlurry}
+            onChange={(v) => setSettings((s) => ({ ...s, filterBlurry: v }))}
+          />
           {settings.filterBlurry && (
             <div className="mt-3 pl-6">
               <Slider
@@ -189,9 +186,7 @@ export default function CullingModal({
                 step={25}
                 value={settings.blurThreshold}
                 defaultValue={100.0}
-                onChange={(e) =>
-                  setSettings((s) => ({ ...s, blurThreshold: Number(e.target.value) }))
-                }
+                onChange={(e) => setSettings((s) => ({ ...s, blurThreshold: Number(e.target.value) }))}
               />
               <p className="text-xs text-text-secondary mt-1">
                 Images with a sharpness score below this value are flagged. Higher is stricter.
@@ -201,7 +196,12 @@ export default function CullingModal({
         </div>
       </div>
       <div className="flex justify-end gap-3 mt-8">
-        <button className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors" onClick={onClose}>Cancel</button>
+        <button
+          className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors"
+          onClick={onClose}
+        >
+          Cancel
+        </button>
         <Button onClick={handleStartCulling}>Start Culling</Button>
       </div>
     </>
@@ -213,7 +213,10 @@ export default function CullingModal({
       <p className="mt-4 text-text-primary">{progress?.stage || 'Starting...'}</p>
       {progress && progress.total > 0 && (
         <div className="w-full bg-surface rounded-full h-2.5 mt-2">
-          <div className="bg-accent h-2.5 rounded-full" style={{ width: `${(progress.current / progress.total) * 100}%` }} />
+          <div
+            className="bg-accent h-2.5 rounded-full"
+            style={{ width: `${(progress.current / progress.total) * 100}%` }}
+          />
         </div>
       )}
     </div>
@@ -263,7 +266,8 @@ export default function CullingModal({
                     : 'border-transparent text-text-secondary hover:text-text-primary hover:border-gray-300'
                 } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm`}
               >
-                Similar Groups <span className="bg-surface text-text-secondary rounded-full px-2 py-0.5 text-xs">{numSimilar}</span>
+                Similar Groups{' '}
+                <span className="bg-surface text-text-secondary rounded-full px-2 py-0.5 text-xs">{numSimilar}</span>
               </button>
             )}
             {numBlurry > 0 && (
@@ -275,7 +279,8 @@ export default function CullingModal({
                     : 'border-transparent text-text-secondary hover:text-text-primary hover:border-gray-300'
                 } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm`}
               >
-                Blurry Images <span className="bg-surface text-text-secondary rounded-full px-2 py-0.5 text-xs">{numBlurry}</span>
+                Blurry Images{' '}
+                <span className="bg-surface text-text-secondary rounded-full px-2 py-0.5 text-xs">{numBlurry}</span>
               </button>
             )}
           </nav>
@@ -299,7 +304,11 @@ export default function CullingModal({
                         <div>
                           <p className="text-xs text-text-secondary mb-1 text-center">Best Image</p>
                           <div className="relative rounded-md overflow-hidden border-2 border-green-500">
-                            <img src={thumbnails[group.representative.path]} alt="Representative" className="w-full h-full object-cover" />
+                            <img
+                              src={thumbnails[group.representative.path]}
+                              alt="Representative"
+                              className="w-full h-full object-cover"
+                            />
                             <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/60 text-white text-xs">
                               Score: {group.representative.qualityScore.toFixed(2)}
                             </div>
@@ -355,7 +364,12 @@ export default function CullingModal({
             />
           </div>
           <div className="flex gap-3">
-            <button className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors" onClick={onClose}>Cancel</button>
+            <button
+              className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
             <Button onClick={handleApply} disabled={selectedRejects.size === 0}>
               Apply to {selectedRejects.size} image{selectedRejects.size !== 1 && 's'}
             </Button>
@@ -367,10 +381,14 @@ export default function CullingModal({
 
   const renderContent = () => {
     switch (stage) {
-      case 'settings': return renderSettings();
-      case 'progress': return renderProgress();
-      case 'results': return renderResults();
-      default: return null;
+      case 'settings':
+        return renderSettings();
+      case 'progress':
+        return renderProgress();
+      case 'results':
+        return renderResults();
+      default:
+        return null;
     }
   };
 

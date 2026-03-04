@@ -4685,7 +4685,6 @@ function App() {
         </div>
       </div>
       <CopyPasteSettingsModal
-        isOpen={isCopyPasteSettingsModalOpen}
         onClose={() => setIsCopyPasteSettingsModalOpen(false)}
         settings={appSettings?.copyPasteSettings as CopyPasteSettings}
         onSave={(newSettings) =>
@@ -4693,9 +4692,6 @@ function App() {
         }
       />
       <PanoramaModal
-        error={panoramaModalState.error}
-        finalImageBase64={panoramaModalState.finalImageBase64}
-        isOpen={panoramaModalState.isOpen}
         onClose={() =>
           setPanoramaModalState({
             isOpen: false,
@@ -4709,12 +4705,8 @@ function App() {
           handleImageSelect(path);
         }}
         onSave={handleSavePanorama}
-        progressMessage={panoramaModalState.progressMessage}
       />
       <HdrModal
-        error={hdrModalState.error}
-        finalImageBase64={hdrModalState.finalImageBase64}
-        isOpen={hdrModalState.isOpen}
         onClose={() =>
           setHdrModalState({
             isOpen: false,
@@ -4728,12 +4720,9 @@ function App() {
           handleImageSelect(path);
         }}
         onSave={handleSaveHdr}
-        progressMessage={hdrModalState.progressMessage}
       />
       <NegativeConversionModal
-        isOpen={negativeModalState.isOpen}
         onClose={() => setNegativeModalState((prev) => ({ ...prev, isOpen: false }))}
-        selectedImagePath={negativeModalState.targetPath}
         onSave={(savedPath) => {
           refreshImageList().then(() => {
             if (selectedImage?.path === negativeModalState.targetPath) {
@@ -4743,51 +4732,28 @@ function App() {
         }}
       />
       <DenoiseModal
-        isOpen={denoiseModalState.isOpen}
         onClose={() => setDenoiseModalState((prev) => ({ ...prev, isOpen: false }))}
         onDenoise={handleApplyDenoise}
         onSave={handleSaveDenoisedImage}
         onOpenFile={handleImageSelect}
-        previewBase64={denoiseModalState.previewBase64}
-        originalBase64={denoiseModalState.originalBase64 || null}
-        isProcessing={denoiseModalState.isProcessing}
-        error={denoiseModalState.error}
-        progressMessage={denoiseModalState.progressMessage}
       />
-      <CreateFolderModal
-        isOpen={isCreateFolderModalOpen}
-        onClose={() => setIsCreateFolderModalOpen(false)}
-        onSave={handleCreateFolder}
-      />
+      <CreateFolderModal onClose={() => setIsCreateFolderModalOpen(false)} onSave={handleCreateFolder} />
       <RenameFolderModal
         currentName={folderActionTarget ? folderActionTarget.split(/[\\/]/).pop() : ''}
-        isOpen={isRenameFolderModalOpen}
         onClose={() => setIsRenameFolderModalOpen(false)}
         onSave={handleRenameFolder}
       />
-      <RenameFileModal
-        filesToRename={renameTargetPaths}
-        isOpen={isRenameFileModalOpen}
-        onClose={() => setIsRenameFileModalOpen(false)}
-        onSave={handleSaveRename}
-      />
+      <RenameFileModal onClose={() => setIsRenameFileModalOpen(false)} onSave={handleSaveRename} />
       <ConfirmModal {...confirmModalState} onClose={closeConfirmModal} />
       <ImportSettingsModal
         fileCount={importSourcePaths.length}
-        isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onSave={handleStartImport}
       />
       <CullingModal
-        isOpen={cullingModalState.isOpen}
         onClose={() =>
           setCullingModalState({ isOpen: false, progress: null, suggestions: null, error: null, pathsToCull: [] })
         }
-        progress={cullingModalState.progress}
-        suggestions={cullingModalState.suggestions}
-        error={cullingModalState.error}
-        imagePaths={cullingModalState.pathsToCull}
-        thumbnails={thumbnails}
         onApply={(action, paths) => {
           if (action === 'reject') {
             handleSetColorLabel('red', paths);
@@ -4803,11 +4769,8 @@ function App() {
         }}
       />
       <CollageModal
-        isOpen={collageModalState.isOpen}
         onClose={() => setCollageModalState({ isOpen: false, sourceImages: [] })}
         onSave={handleSaveCollage}
-        sourceImages={collageModalState.sourceImages}
-        thumbnails={thumbnails}
       />
       <ToastContainer
         position="bottom-right"

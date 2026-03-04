@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAppState } from '../../context/ContextProviders';
 
 interface FolderModalProps {
-  isOpen: boolean;
   onClose(): void;
   onSave(name: string): void;
 }
 
-export default function CreateFolderModal({ isOpen, onClose, onSave }: FolderModalProps) {
+export default function CreateFolderModal({ onClose, onSave }: FolderModalProps) {
+  const { isCreateFolderModalOpen: isOpen } = useAppState();
   const [name, setName] = useState('');
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
