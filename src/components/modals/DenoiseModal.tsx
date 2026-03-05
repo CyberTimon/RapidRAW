@@ -14,6 +14,7 @@ interface DenoiseModalProps {
   originalBase64: string | null;
   isProcessing: boolean;
   progressMessage: string | null;
+  suggestedIntensity: number | null;
 }
 
 const ImageCompare = ({ original, denoised }: { original: string; denoised: string }) => {
@@ -178,17 +179,20 @@ export default function DenoiseModal({
   originalBase64,
   isProcessing,
   progressMessage,
+  suggestedIntensity,
 }: DenoiseModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [intensity, setIntensity] = useState<number>(15);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
+  const hasUserAdjusted = useRef(false);
 
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
   useEffect(() => {
     if (isOpen) {
+      hasUserAdjusted.current = false;
       setIsMounted(true);
       const timer = setTimeout(() => setShow(true), 10);
       return () => clearTimeout(timer);
@@ -202,6 +206,12 @@ export default function DenoiseModal({
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (suggestedIntensity !== null && !hasUserAdjusted.current) {
+      setIntensity(suggestedIntensity);
+    }
+  }, [suggestedIntensity]);
 
   const handleClose = useCallback(() => {
     if (isSaving) return;
@@ -325,7 +335,7 @@ export default function DenoiseModal({
                 max={100}
                 step={1}
                 defaultValue={15}
-                onChange={(e) => setIntensity(Number(e.target.value))}
+                onChange={(e) => { hasUserAdjusted.current = true; setIntensity(Number(e.target.value)); }}
                 trackClassName="bg-bg-secondary"
             />
         </div>
