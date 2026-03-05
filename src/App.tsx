@@ -110,6 +110,14 @@ import HdrModal from './components/modals/HdrModal';
 import { ContextProviders, useAppState } from './context/ContextProviders';
 import { getParentDir } from './utils/helpers';
 import { useSortedImageList } from './hooks/useSortedImageList';
+import { useHandleBackToLibrary } from './hooks/handlers/useHandleBackToLibrary';
+import { useDebouncedSave } from './hooks/handlers/useDebounce';
+import { useApplyAdjustments } from './hooks/handlers/useApplyAdjustments';
+import { useHandleImageSelect } from './hooks/handlers/useHandleImageSelect';
+import { useRefreshImageList } from './hooks/handlers/useRefreshImageList';
+import { useExecuteDelete } from './hooks/handlers/useExecuteDelete';
+import { useHandlers } from './hooks/useHandlers';
+import { useGlobalEffects } from './hooks/useGlobalEffects';
 
 export interface CollapsibleSectionsState {
   basic: boolean;
@@ -185,41 +193,22 @@ export interface CullingModalState {
   pathsToCull: Array<string>;
 }
 
-interface LutData {
-  size: number;
-}
-
 export interface SearchCriteria {
   tags: string[];
   text: string;
   mode: 'AND' | 'OR';
 }
 
-const RIGHT_PANEL_ORDER = [
-  Panel.Metadata,
-  Panel.Adjustments,
-  Panel.Crop,
-  Panel.Masks,
-  Panel.Ai,
-  Panel.Presets,
-  Panel.Export,
-];
-
-const DEBUG = false;
-
 function App() {
   const {
     selectedImage,
-    selectedImagePathRef,
     setSelectedImage,
     appSettings,
-    setAppSettings,
     rootPath,
     setRootPath,
     activeView,
     setActiveView,
     isWindowFullScreen,
-    setIsWindowFullScreen,
     isLayoutReady,
     setIsLayoutReady,
     currentFolderPath,
@@ -234,21 +223,16 @@ function App() {
     imageRatings,
     setImageRatings,
     sortCriteria,
-    setSortCriteria,
     filterCriteria,
-    setFilterCriteria,
     supportedTypes,
-    setSupportedTypes,
     multiSelectedPaths,
     setMultiSelectedPaths,
     libraryActivePath,
     setLibraryActivePath,
     libraryActiveAdjustments,
     setLibraryActiveAdjustments,
-    finalPreviewUrl,
     setFinalPreviewUrl,
     setUncroppedAdjustedPreviewUrl,
-    showOriginal,
     setShowOriginal,
     adjustments,
     setAdjustments: setLiveAdjustments,
@@ -258,9 +242,7 @@ function App() {
     setIsViewLoading,
     initialFileToOpen,
     setInitialFileToOpen,
-    error,
     setError,
-    histogram,
     setHistogram,
     waveform,
     setWaveform,
@@ -275,17 +257,11 @@ function App() {
     isHighResNeeded,
     setIsHighResNeeded,
     isAnimatingTheme,
-    setIsAnimatingTheme,
     theme,
-    setTheme,
     dragIdleTimer,
-    isInitialThemeMount,
-    adaptivePalette,
-    setAdaptivePalette,
     activeRightPanel,
     setActiveRightPanel,
     slideDirection,
-    setSlideDirection,
     activeMaskContainerId,
     setActiveMaskContainerId,
     activeMaskId,
@@ -297,18 +273,13 @@ function App() {
     zoom,
     setZoom,
     displaySize,
-    setDisplaySize,
     previewSize,
     setPreviewSize,
     baseRenderSize,
-    setBaseRenderSize,
     originalSize,
     setOriginalSize,
     setIsLoadingFullRes,
-    transformedOriginalUrl,
-    setTransformedOriginalUrl,
     fullResCacheKeyRef,
-    patchesSentToBackend,
     initialFitScale,
     setInitialFitScale,
     renderedRightPanel,
@@ -316,7 +287,6 @@ function App() {
     isLibraryExportPanelVisible,
     setIsLibraryExportPanelVisible,
     libraryViewMode,
-    setLibraryViewMode,
     leftPanelWidth,
     setLeftPanelWidth,
     rightPanelWidth,
@@ -325,7 +295,6 @@ function App() {
     setBottomPanelHeight,
     setActiveTreeSection,
     isResizing,
-    setIsResizing,
     thumbnailSize,
     setThumbnailSize,
     thumbnailAspectRatio,
@@ -334,13 +303,10 @@ function App() {
     setCopiedAdjustments,
     isStraightenActive,
     setIsStraightenActive,
-    setIsWbPickerActive,
     copiedFilePaths,
     setCopiedFilePaths,
     aiModelDownloadStatus,
     setAiModelDownloadStatus,
-    copiedMask,
-    setCopiedMask,
     isCopied,
     setIsCopied,
     isPasted,
@@ -351,8 +317,6 @@ function App() {
     setIndexingProgress,
     searchCriteria,
     setSearchCriteria,
-    brushSettings,
-    setBrushSettings,
     isCreateFolderModalOpen,
     setIsCreateFolderModalOpen,
     isRenameFolderModalOpen,
@@ -386,19 +350,10 @@ function App() {
     cullingModalState,
     setCollageModalState,
     customEscapeHandler,
-    setCustomEscapeHandler,
-    isGeneratingAiMask,
-    setIsGeneratingAiMask,
-    isAIConnectorConnected,
-    setIsAIConnectorConnected,
-    isGeneratingAi,
-    setIsGeneratingAi,
-    setIsMaskControlHovered,
     libraryScrollTop,
     setLibraryScrollTop,
     thumbnails,
     setThumbnails,
-    transformWrapperRef,
     isInitialMount,
     isProgrammaticZoom,
     currentFolderPathRef,
@@ -410,1460 +365,57 @@ function App() {
     setExportState,
     importState,
     setImportState,
+    isLightTheme,
+    visualAdjustmentsKey,
+    pinnedFolders,
   } = useAppState();
 
   const { sortedImageList } = useSortedImageList();
 
+  const { canUndo, canRedo, resetHistory: resetAdjustmentsHistory, goToIndex: goToAdjustmentsHistoryIndex } = history;
+
   const {
-    state: historyAdjustments,
-    setState: setHistoryAdjustments,
-    undo: undoAdjustments,
-    redo: redoAdjustments,
-    canUndo,
-    canRedo,
-    resetHistory: resetAdjustmentsHistory,
-    goToIndex: goToAdjustmentsHistoryIndex,
-  } = history;
+    handleBackToLibrary,
+    handleImageSelect,
+    executeDelete,
+    handleDeleteSelected,
+    refreshImageList,
+    applyAdjustments,
+    debouncedSave,
+    handleDisplaySizeChange,
+    debouncedSetHistory,
+    setAdjustments,
+    handleStraighten,
+    toggleWbPicker,
+    handleWbPicked,
+    undo,
+    redo,
+    updateSubMask,
+    handleGenerativeReplace,
+    handleQuickErase,
+    handleDeleteMaskContainer,
+    handleDeleteAiPatch,
+    handleToggleAiPatchVisibility,
+    handleGenerateAiMask,
+    handleGenerateAiForegroundMask,
+    handleGenerateAiSkyMask,
+    createResizeHandler,
+    handleLutSelect,
+    handleRightPanelSelect,
+    handleSettingsChange,
+    handleToggleWaveform,
+    refreshAllFolderTrees,
+    handleActiveTreeSectionChange,
+    handleTogglePinFolder,
+    handleSelectSubfolder,
+    handleLibraryRefresh,
+    handleToggleFolder,
+  } = useHandlers();
 
-  const handleDisplaySizeChange = useCallback((size: ImageDimensions & { scale?: number }) => {
-    setDisplaySize({ width: size.width, height: size.height });
-
-    if (size.scale) {
-      const baseWidth = size.width / size.scale;
-      const baseHeight = size.height / size.scale;
-      setBaseRenderSize({ width: baseWidth, height: baseHeight });
-    }
-  }, []);
+  useGlobalEffects();
 
   const { showContextMenu } = useContextMenu();
   const { loading: isThumbnailsLoading } = useThumbnails(imageList, setThumbnails);
-
-  useEffect(() => {
-    if (currentFolderPath) {
-      preloadedDataRef.current = {
-        ...preloadedDataRef.current,
-        currentPath: currentFolderPath,
-        images: Promise.resolve(imageList),
-      };
-    }
-  }, [currentFolderPath, imageList]);
-
-  useEffect(() => {
-    if (rootPath && folderTree) {
-      preloadedDataRef.current = {
-        ...preloadedDataRef.current,
-        rootPath: rootPath,
-        tree: Promise.resolve(folderTree),
-      };
-    }
-  }, [rootPath, folderTree]);
-
-  useEffect(() => {
-    currentFolderPathRef.current = currentFolderPath;
-  }, [currentFolderPath]);
-
-  useEffect(() => {
-    if (!isCopied) {
-      return;
-    }
-    const timer = setTimeout(() => setIsCopied(false), 1000);
-    return () => clearTimeout(timer);
-  }, [isCopied]);
-
-  useEffect(() => {
-    if (!isPasted) {
-      return;
-    }
-    const timer = setTimeout(() => setIsPasted(false), 1000);
-    return () => clearTimeout(timer);
-  }, [isPasted]);
-
-  const isLightTheme = useMemo(() => [Theme.Light, Theme.Snow, Theme.Arctic].includes(theme as Theme), [theme]);
-
-  useEffect(() => {
-    if (error) {
-      toast.error(error);
-      setError(null);
-    }
-  }, [error]);
-
-  const debouncedSetHistory = useMemo(
-    () => debounce((newAdjustments) => setHistoryAdjustments(newAdjustments), 300),
-    [setHistoryAdjustments],
-  );
-
-  const setAdjustments = useCallback(
-    (value: any) => {
-      setLiveAdjustments((prevAdjustments: Adjustments) => {
-        const newAdjustments = typeof value === 'function' ? value(prevAdjustments) : value;
-        debouncedSetHistory(newAdjustments);
-        return newAdjustments;
-      });
-    },
-    [debouncedSetHistory],
-  );
-
-  const handleStraighten = useCallback(
-    (angleCorrection: number) => {
-      setAdjustments((prev: Partial<Adjustments>) => {
-        const newRotation = (prev.rotation || 0) + angleCorrection;
-        return { ...prev, rotation: newRotation, crop: null };
-      });
-
-      setIsStraightenActive(false);
-    },
-    [setAdjustments],
-  );
-
-  const toggleWbPicker = useCallback(() => {
-    setIsWbPickerActive((prev) => !prev);
-  }, []);
-
-  const handleWbPicked = useCallback(() => {
-    //setIsWbPickerActive(false); // lets keep it active
-  }, []);
-
-  useEffect(() => {
-    setLiveAdjustments(historyAdjustments);
-  }, [historyAdjustments]);
-
-  useEffect(() => {
-    if (
-      (activeRightPanel !== Panel.Masks || !activeMaskContainerId) &&
-      (activeRightPanel !== Panel.Ai || !activeAiPatchContainerId)
-    ) {
-      setIsMaskControlHovered(false);
-    }
-  }, [activeRightPanel, activeMaskContainerId, activeAiPatchContainerId]);
-
-  const geometricAdjustmentsKey = useMemo(() => {
-    if (!adjustments) return '';
-    const { crop, rotation, flipHorizontal, flipVertical, orientationSteps } = adjustments;
-    return JSON.stringify({ crop, rotation, flipHorizontal, flipVertical, orientationSteps });
-  }, [
-    adjustments?.crop,
-    adjustments?.rotation,
-    adjustments?.flipHorizontal,
-    adjustments?.flipVertical,
-    adjustments?.orientationSteps,
-  ]);
-
-  const visualAdjustmentsKey = useMemo(() => {
-    if (!adjustments) return '';
-    const { rating: _rating, sectionVisibility: _sectionVisibility, ...visualAdjustments } = adjustments;
-    return JSON.stringify(visualAdjustments);
-  }, [adjustments]);
-
-  const undo = useCallback(() => {
-    if (canUndo) {
-      undoAdjustments();
-      debouncedSetHistory.cancel();
-    }
-  }, [canUndo, undoAdjustments, debouncedSetHistory]);
-  const redo = useCallback(() => {
-    if (canRedo) {
-      redoAdjustments();
-      debouncedSetHistory.cancel();
-    }
-  }, [canRedo, redoAdjustments, debouncedSetHistory]);
-
-  useEffect(() => {
-    setTransformedOriginalUrl(null);
-  }, [geometricAdjustmentsKey, selectedImage?.path]);
-
-  useEffect(() => {
-    let isEffectActive = true;
-
-    const generate = async () => {
-      if (showOriginal && selectedImage?.path && !transformedOriginalUrl) {
-        try {
-          const base64Data: string = await invoke('generate_original_transformed_preview', {
-            jsAdjustments: adjustments,
-          });
-          if (isEffectActive) {
-            setTransformedOriginalUrl(base64Data);
-          }
-        } catch (e) {
-          if (isEffectActive) {
-            console.error('Failed to generate original preview:', e);
-            setError('Failed to show original image.');
-            setShowOriginal(false);
-          }
-        }
-      }
-    };
-
-    generate();
-
-    return () => {
-      isEffectActive = false;
-    };
-  }, [showOriginal, selectedImage?.path, adjustments, transformedOriginalUrl]);
-
-  useEffect(() => {
-    if (currentFolderPath) {
-      refreshImageList();
-    }
-  }, [libraryViewMode]);
-
-  useEffect(() => {
-    const unlisten = listen('ai-connector-status-update', (event: any) => {
-      setIsAIConnectorConnected(event.payload.connected);
-    });
-    invoke(Invokes.CheckAIConnectorStatus);
-    const interval = setInterval(() => invoke(Invokes.CheckAIConnectorStatus), 10000);
-    return () => {
-      clearInterval(interval);
-      unlisten.then((f) => f());
-    };
-  }, []);
-
-  const updateSubMask = (subMaskId: string, updatedData: any) => {
-    setAdjustments((prev: Adjustments) => ({
-      ...prev,
-      masks: prev.masks.map((c: MaskContainer) => ({
-        ...c,
-        subMasks: c.subMasks.map((sm: SubMask) => (sm.id === subMaskId ? { ...sm, ...updatedData } : sm)),
-      })),
-      aiPatches: (prev.aiPatches || []).map((p: AiPatch) => ({
-        ...p,
-        subMasks: p.subMasks.map((sm: SubMask) => (sm.id === subMaskId ? { ...sm, ...updatedData } : sm)),
-      })),
-    }));
-  };
-
-  const handleGenerativeReplace = useCallback(
-    async (patchId: string, prompt: string, useFastInpaint: boolean) => {
-      if (!selectedImage?.path || isGeneratingAi) {
-        return;
-      }
-
-      const patch: AiPatch | undefined = adjustments.aiPatches.find((p: AiPatch) => p.id === patchId);
-      if (!patch) {
-        console.error('Could not find AI patch to generate for:', patchId);
-        return;
-      }
-
-      const patchDefinition = { ...patch, prompt };
-
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        aiPatches: prev.aiPatches.map((p: AiPatch) => (p.id === patchId ? { ...p, isLoading: true, prompt } : p)),
-      }));
-
-      setIsGeneratingAi(true);
-
-      try {
-        const newPatchDataJson: any = await invoke(Invokes.InvokeGenerativeReplaseWithMaskDef, {
-          currentAdjustments: adjustments,
-          patchDefinition: patchDefinition,
-          path: selectedImage.path,
-          useFastInpaint: useFastInpaint,
-        });
-
-        const newPatchData = JSON.parse(newPatchDataJson);
-        patchesSentToBackend.current.delete(patchId);
-        setAdjustments((prev: Adjustments) => ({
-          ...prev,
-          aiPatches: prev.aiPatches.map((p: AiPatch) =>
-            p.id === patchId
-              ? {
-                  ...p,
-                  patchData: newPatchData,
-                  isLoading: false,
-                  name: useFastInpaint ? 'Inpaint' : prompt && prompt.trim() ? prompt.trim() : p.name,
-                }
-              : p,
-          ),
-        }));
-        setActiveAiPatchContainerId(null);
-        setActiveAiSubMaskId(null);
-      } catch (err) {
-        console.error('Generative replace failed:', err);
-        setError(`AI Replace Failed: ${err}`);
-        setAdjustments((prev: Adjustments) => ({
-          ...prev,
-          aiPatches: prev.aiPatches.map((p: AiPatch) => (p.id === patchId ? { ...p, isLoading: false } : p)),
-        }));
-      } finally {
-        setIsGeneratingAi(false);
-      }
-    },
-    [
-      selectedImage?.path,
-      isGeneratingAi,
-      adjustments,
-      setAdjustments,
-      setActiveAiPatchContainerId,
-      setActiveAiSubMaskId,
-    ],
-  );
-
-  const handleQuickErase = useCallback(
-    async (subMaskId: string | null, startPoint: Coord, endPoint: Coord) => {
-      if (!selectedImage?.path || isGeneratingAi) {
-        return;
-      }
-
-      const patchId = adjustments.aiPatches.find((p: AiPatch) =>
-        p.subMasks.some((sm: SubMask) => sm.id === subMaskId),
-      )?.id;
-      if (!patchId) {
-        console.error('Could not find AI patch container for Quick Erase.');
-        return;
-      }
-
-      setIsGeneratingAi(true);
-      setAdjustments((prev: Partial<Adjustments>) => ({
-        ...prev,
-        aiPatches: prev.aiPatches?.map((p: AiPatch) => (p.id === patchId ? { ...p, isLoading: true } : p)),
-      }));
-
-      try {
-        const transformAdjustments = {
-          transformDistortion: adjustments.transformDistortion,
-          transformVertical: adjustments.transformVertical,
-          transformHorizontal: adjustments.transformHorizontal,
-          transformRotate: adjustments.transformRotate,
-          transformAspect: adjustments.transformAspect,
-          transformScale: adjustments.transformScale,
-          transformXOffset: adjustments.transformXOffset,
-          transformYOffset: adjustments.transformYOffset,
-          lensDistortionAmount: adjustments.lensDistortionAmount,
-          lensVignetteAmount: adjustments.lensVignetteAmount,
-          lensTcaAmount: adjustments.lensTcaAmount,
-          lensDistortionParams: adjustments.lensDistortionParams,
-          lensMaker: adjustments.lensMaker,
-          lensModel: adjustments.lensModel,
-          lensDistortionEnabled: adjustments.lensDistortionEnabled,
-          lensTcaEnabled: adjustments.lensTcaEnabled,
-          lensVignetteEnabled: adjustments.lensVignetteEnabled,
-        };
-
-        const newMaskParams: any = await invoke(Invokes.GenerateAiSubjectMask, {
-          jsAdjustments: transformAdjustments,
-          endPoint: [endPoint.x, endPoint.y],
-          flipHorizontal: adjustments.flipHorizontal,
-          flipVertical: adjustments.flipVertical,
-          orientationSteps: adjustments.orientationSteps,
-          path: selectedImage.path,
-          rotation: adjustments.rotation,
-          startPoint: [startPoint.x, startPoint.y],
-        });
-
-        const subMaskToUpdate = adjustments.aiPatches
-          ?.find((p: AiPatch) => p.id === patchId)
-          ?.subMasks.find((sm: SubMask) => sm.id === subMaskId);
-        const finalSubMaskParams: any = { ...subMaskToUpdate?.parameters, ...newMaskParams };
-        const updatedAdjustmentsForBackend = {
-          ...adjustments,
-          aiPatches: adjustments.aiPatches.map((p: AiPatch) =>
-            p.id === patchId
-              ? {
-                  ...p,
-                  subMasks: p.subMasks.map((sm: SubMask) =>
-                    sm.id === subMaskId ? { ...sm, parameters: finalSubMaskParams } : sm,
-                  ),
-                }
-              : p,
-          ),
-        };
-
-        const patchDefinitionForBackend = updatedAdjustmentsForBackend.aiPatches.find((p: AiPatch) => p.id === patchId);
-        const newPatchDataJson: any = await invoke(Invokes.InvokeGenerativeReplaseWithMaskDef, {
-          currentAdjustments: updatedAdjustmentsForBackend,
-          patchDefinition: { ...patchDefinitionForBackend, prompt: '' },
-          path: selectedImage.path,
-          useFastInpaint: true,
-        });
-
-        const newPatchData = JSON.parse(newPatchDataJson);
-        if (!newPatchData?.color || !newPatchData?.mask) {
-          throw new Error('Inpainting failed to return a valid result.');
-        }
-        patchesSentToBackend.current.delete(patchId);
-
-        setAdjustments((prev: Partial<Adjustments>) => ({
-          ...prev,
-          aiPatches: prev.aiPatches?.map((p: AiPatch) =>
-            p.id === patchId
-              ? {
-                  ...p,
-                  patchData: newPatchData,
-                  isLoading: false,
-                  subMasks: p.subMasks.map((sm: SubMask) =>
-                    sm.id === subMaskId ? { ...sm, parameters: finalSubMaskParams } : sm,
-                  ),
-                }
-              : p,
-          ),
-        }));
-        setActiveAiPatchContainerId(null);
-        setActiveAiSubMaskId(null);
-      } catch (err: any) {
-        console.error('Quick Erase failed:', err);
-        setError(`Quick Erase Failed: ${err.message || String(err)}`);
-        setAdjustments((prev: Partial<Adjustments>) => ({
-          ...prev,
-          aiPatches: prev.aiPatches?.map((p: AiPatch) => (p.id === patchId ? { ...p, isLoading: false } : p)),
-        }));
-      } finally {
-        setIsGeneratingAi(false);
-      }
-    },
-    [
-      selectedImage?.path,
-      isGeneratingAi,
-      adjustments,
-      setAdjustments,
-      setActiveAiPatchContainerId,
-      setActiveAiSubMaskId,
-    ],
-  );
-
-  const handleDeleteMaskContainer = useCallback(
-    (containerId: string) => {
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        masks: (prev.masks || []).filter((c) => c.id !== containerId),
-      }));
-      if (activeMaskContainerId === containerId) {
-        setActiveMaskContainerId(null);
-        setActiveMaskId(null);
-      }
-    },
-    [setAdjustments, activeMaskContainerId],
-  );
-
-  const handleDeleteAiPatch = useCallback(
-    (patchId: string) => {
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        aiPatches: (prev.aiPatches || []).filter((p) => p.id !== patchId),
-      }));
-      if (activeAiPatchContainerId === patchId) {
-        setActiveAiPatchContainerId(null);
-        setActiveAiSubMaskId(null);
-      }
-    },
-    [setAdjustments, activeAiPatchContainerId],
-  );
-
-  const handleToggleAiPatchVisibility = useCallback(
-    (patchId: string) => {
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        aiPatches: (prev.aiPatches || []).map((p: AiPatch) => (p.id === patchId ? { ...p, visible: !p.visible } : p)),
-      }));
-    },
-    [setAdjustments],
-  );
-
-  const handleGenerateAiMask = async (subMaskId: string, startPoint: Coord, endPoint: Coord) => {
-    if (!selectedImage?.path) {
-      console.error('Cannot generate AI mask: No image selected.');
-      return;
-    }
-    setIsGeneratingAiMask(true);
-    try {
-      const transformAdjustments = {
-        transformDistortion: adjustments.transformDistortion,
-        transformVertical: adjustments.transformVertical,
-        transformHorizontal: adjustments.transformHorizontal,
-        transformRotate: adjustments.transformRotate,
-        transformAspect: adjustments.transformAspect,
-        transformScale: adjustments.transformScale,
-        transformXOffset: adjustments.transformXOffset,
-        transformYOffset: adjustments.transformYOffset,
-        lensDistortionAmount: adjustments.lensDistortionAmount,
-        lensVignetteAmount: adjustments.lensVignetteAmount,
-        lensTcaAmount: adjustments.lensTcaAmount,
-        lensDistortionParams: adjustments.lensDistortionParams,
-        lensMaker: adjustments.lensMaker,
-        lensModel: adjustments.lensModel,
-        lensDistortionEnabled: adjustments.lensDistortionEnabled,
-        lensTcaEnabled: adjustments.lensTcaEnabled,
-        lensVignetteEnabled: adjustments.lensVignetteEnabled,
-      };
-      const newParameters = await invoke(Invokes.GenerateAiSubjectMask, {
-        jsAdjustments: transformAdjustments,
-        endPoint: [endPoint.x, endPoint.y],
-        flipHorizontal: adjustments.flipHorizontal,
-        flipVertical: adjustments.flipVertical,
-        orientationSteps: adjustments.orientationSteps,
-        path: selectedImage.path,
-        rotation: adjustments.rotation,
-        startPoint: [startPoint.x, startPoint.y],
-      });
-
-      const subMask = adjustments.aiPatches
-        ?.flatMap((p: AiPatch) => p.subMasks)
-        .find((sm: SubMask) => sm.id === subMaskId);
-
-      const mergedParameters = { ...(subMask?.parameters || {}), ...newParameters };
-      patchesSentToBackend.current.delete(subMaskId);
-      updateSubMask(subMaskId, { parameters: mergedParameters });
-    } catch (error) {
-      console.error('Failed to generate AI subject mask:', error);
-      setError(`AI Mask Failed: ${error}`);
-    } finally {
-      setIsGeneratingAiMask(false);
-    }
-  };
-
-  const handleGenerateAiForegroundMask = async (subMaskId: string) => {
-    if (!selectedImage?.path) {
-      console.error('Cannot generate AI mask: No image selected.');
-      return;
-    }
-    setIsGeneratingAiMask(true);
-    try {
-      const transformAdjustments = {
-        transformDistortion: adjustments.transformDistortion,
-        transformVertical: adjustments.transformVertical,
-        transformHorizontal: adjustments.transformHorizontal,
-        transformRotate: adjustments.transformRotate,
-        transformAspect: adjustments.transformAspect,
-        transformScale: adjustments.transformScale,
-        transformXOffset: adjustments.transformXOffset,
-        transformYOffset: adjustments.transformYOffset,
-        lensDistortionAmount: adjustments.lensDistortionAmount,
-        lensVignetteAmount: adjustments.lensVignetteAmount,
-        lensTcaAmount: adjustments.lensTcaAmount,
-        lensDistortionParams: adjustments.lensDistortionParams,
-        lensMaker: adjustments.lensMaker,
-        lensModel: adjustments.lensModel,
-        lensDistortionEnabled: adjustments.lensDistortionEnabled,
-        lensTcaEnabled: adjustments.lensTcaEnabled,
-        lensVignetteEnabled: adjustments.lensVignetteEnabled,
-      };
-      const newParameters = await invoke(Invokes.GenerateAiForegroundMask, {
-        jsAdjustments: transformAdjustments,
-        flipHorizontal: adjustments.flipHorizontal,
-        flipVertical: adjustments.flipVertical,
-        orientationSteps: adjustments.orientationSteps,
-        rotation: adjustments.rotation,
-      });
-
-      const subMask = adjustments.aiPatches
-        ?.flatMap((p: AiPatch) => p.subMasks)
-        .find((sm: SubMask) => sm.id === subMaskId);
-
-      const mergedParameters = { ...(subMask?.parameters || {}), ...newParameters };
-      patchesSentToBackend.current.delete(subMaskId);
-      updateSubMask(subMaskId, { parameters: mergedParameters });
-    } catch (error) {
-      console.error('Failed to generate AI foreground mask:', error);
-      setError(`AI Mask Failed: ${error}`);
-    } finally {
-      setIsGeneratingAiMask(false);
-    }
-  };
-
-  const handleGenerateAiSkyMask = async (subMaskId: string) => {
-    if (!selectedImage?.path) {
-      console.error('Cannot generate AI mask: No image selected.');
-      return;
-    }
-    setIsGeneratingAiMask(true);
-    try {
-      const transformAdjustments = {
-        transformDistortion: adjustments.transformDistortion,
-        transformVertical: adjustments.transformVertical,
-        transformHorizontal: adjustments.transformHorizontal,
-        transformRotate: adjustments.transformRotate,
-        transformAspect: adjustments.transformAspect,
-        transformScale: adjustments.transformScale,
-        transformXOffset: adjustments.transformXOffset,
-        transformYOffset: adjustments.transformYOffset,
-        lensDistortionAmount: adjustments.lensDistortionAmount,
-        lensVignetteAmount: adjustments.lensVignetteAmount,
-        lensTcaAmount: adjustments.lensTcaAmount,
-        lensDistortionParams: adjustments.lensDistortionParams,
-        lensMaker: adjustments.lensMaker,
-        lensModel: adjustments.lensModel,
-        lensDistortionEnabled: adjustments.lensDistortionEnabled,
-        lensTcaEnabled: adjustments.lensTcaEnabled,
-        lensVignetteEnabled: adjustments.lensVignetteEnabled,
-      };
-      const newParameters = await invoke(Invokes.GenerateAiSkyMask, {
-        jsAdjustments: transformAdjustments,
-        flipHorizontal: adjustments.flipHorizontal,
-        flipVertical: adjustments.flipVertical,
-        orientationSteps: adjustments.orientationSteps,
-        rotation: adjustments.rotation,
-      });
-
-      const subMask = adjustments.aiPatches
-        ?.flatMap((p: AiPatch) => p.subMasks)
-        .find((sm: SubMask) => sm.id === subMaskId);
-
-      const mergedParameters = { ...(subMask?.parameters || {}), ...newParameters };
-      patchesSentToBackend.current.delete(subMaskId);
-      updateSubMask(subMaskId, { parameters: mergedParameters });
-    } catch (error) {
-      console.error('Failed to generate AI sky mask:', error);
-      setError(`AI Mask Failed: ${error}`);
-    } finally {
-      setIsGeneratingAiMask(false);
-    }
-  };
-
-  const applyAdjustments = useCallback(
-    async (currentAdjustments: Adjustments, dragging: boolean = false) => {
-      if (!selectedImage?.isReady) return;
-      const currentPath = selectedImage.path;
-
-      const payload = JSON.parse(JSON.stringify(currentAdjustments));
-
-      if (payload.aiPatches && Array.isArray(payload.aiPatches)) {
-        payload.aiPatches.forEach((p: any) => {
-          if (p.id && p.patchData && !p.isLoading) {
-            if (patchesSentToBackend.current.has(p.id)) {
-              p.patchData = null;
-            } else {
-              patchesSentToBackend.current.add(p.id);
-            }
-          }
-        });
-      }
-
-      if (payload.masks && Array.isArray(payload.masks)) {
-        payload.masks.forEach((container: any) => {
-          if (container.subMasks && Array.isArray(container.subMasks)) {
-            container.subMasks.forEach((sm: any) => {
-              if (sm.id && sm.parameters && sm.parameters.mask_data_base64) {
-                if (patchesSentToBackend.current.has(sm.id)) {
-                  sm.parameters.mask_data_base64 = null;
-                } else {
-                  patchesSentToBackend.current.add(sm.id);
-                }
-              }
-            });
-          }
-        });
-      }
-
-      const jobId = ++previewJobIdRef.current;
-
-      try {
-        const buffer: ArrayBuffer = await invoke(Invokes.ApplyAdjustments, {
-          jsAdjustments: payload,
-          isInteractive: dragging,
-        });
-
-        if (currentPath !== selectedImagePathRef.current) return;
-
-        if (buffer && buffer.byteLength > 0 && jobId >= latestRenderedJobIdRef.current) {
-          latestRenderedJobIdRef.current = jobId;
-          const blob = new Blob([buffer], { type: 'image/jpeg' });
-          const url = URL.createObjectURL(blob);
-
-          setFinalPreviewUrl((prevUrl) => {
-            if (prevUrl && prevUrl.startsWith('blob:')) URL.revokeObjectURL(prevUrl);
-            return url;
-          });
-        }
-      } catch (err) {
-        if (err !== 'Superseded or worker failed') {
-          console.error('Failed to apply adjustments:', err);
-        }
-      }
-    },
-    [selectedImage?.isReady, selectedImage?.path],
-  );
-
-  const generateUncroppedPreview = useCallback(
-    (currentAdjustments: Adjustments) => {
-      if (!selectedImage?.isReady) {
-        return;
-      }
-      invoke(Invokes.GenerateUncroppedPreview, { jsAdjustments: currentAdjustments }).catch((err) =>
-        console.error('Failed to generate uncropped preview:', err),
-      );
-    },
-    [selectedImage?.isReady],
-  );
-
-  useEffect(() => {
-    if (activeRightPanel === Panel.Crop && selectedImage?.isReady) {
-      generateUncroppedPreview(adjustments);
-    }
-  }, [adjustments, activeRightPanel, selectedImage?.isReady, generateUncroppedPreview]);
-
-  const debouncedSave = useCallback(
-    debounce((path, adjustmentsToSave) => {
-      invoke(Invokes.SaveMetadataAndUpdateThumbnail, { path, adjustments: adjustmentsToSave }).catch((err) => {
-        console.error('Auto-save failed:', err);
-        setError(`Failed to save changes: ${err}`);
-      });
-    }, 300),
-    [],
-  );
-
-  const createResizeHandler = (setter: any, startSize: number) => (e: any) => {
-    e.preventDefault();
-    setIsResizing(true);
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const doDrag = (moveEvent: any) => {
-      if (setter === setLeftPanelWidth) {
-        setter(Math.max(200, Math.min(startSize + (moveEvent.clientX - startX), 500)));
-      } else if (setter === setRightPanelWidth) {
-        setter(Math.max(280, Math.min(startSize - (moveEvent.clientX - startX), 600)));
-      } else if (setter === setBottomPanelHeight) {
-        setter(Math.max(100, Math.min(startSize - (moveEvent.clientY - startY), 400)));
-      }
-    };
-    const stopDrag = () => {
-      document.documentElement.style.cursor = '';
-      window.removeEventListener('mousemove', doDrag);
-      window.removeEventListener('mouseup', stopDrag);
-      setIsResizing(false);
-    };
-    document.documentElement.style.cursor = setter === setBottomPanelHeight ? 'row-resize' : 'col-resize';
-    window.addEventListener('mousemove', doDrag);
-    window.addEventListener('mouseup', stopDrag);
-  };
-
-  useEffect(() => {
-    const appWindow = getCurrentWindow();
-    const checkFullscreen = async () => {
-      setIsWindowFullScreen(await appWindow.isFullscreen());
-    };
-    checkFullscreen();
-
-    const unlistenPromise = appWindow.onResized(checkFullscreen);
-
-    return () => {
-      unlistenPromise.then((unlisten: any) => unlisten());
-    };
-  }, []);
-
-  const handleLutSelect = useCallback(
-    async (path: string) => {
-      try {
-        const result: LutData = await invoke('load_and_parse_lut', { path });
-        const name = path.split(/[\\/]/).pop() || 'LUT';
-        setAdjustments((prev: Partial<Adjustments>) => ({
-          ...prev,
-          lutPath: path,
-          lutName: name,
-          lutSize: result.size,
-          lutIntensity: 100,
-          sectionVisibility: {
-            ...(prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility),
-            effects: true,
-          },
-        }));
-      } catch (err) {
-        console.error('Failed to load or parse LUT:', err);
-        setError(`Failed to load LUT: ${err}`);
-      }
-    },
-    [setAdjustments],
-  );
-
-  const handleRightPanelSelect = useCallback(
-    (panelId: Panel) => {
-      if (panelId === activeRightPanel) {
-        setActiveRightPanel(null);
-      } else {
-        const currentIndex = activeRightPanel ? RIGHT_PANEL_ORDER.indexOf(activeRightPanel) : -1;
-        const newIndex = RIGHT_PANEL_ORDER.indexOf(panelId);
-        setSlideDirection(newIndex > currentIndex ? 1 : -1);
-        setActiveRightPanel(panelId);
-        setRenderedRightPanel(panelId);
-      }
-      setActiveMaskId(null);
-      setActiveAiSubMaskId(null);
-    },
-    [activeRightPanel],
-  );
-
-  const handleSettingsChange = useCallback(
-    (newSettings: AppSettings) => {
-      if (!newSettings) {
-        console.error('handleSettingsChange was called with null settings. Aborting save operation.');
-        return;
-      }
-      if (newSettings.theme && newSettings.theme !== theme) {
-        setTheme(newSettings.theme);
-      }
-
-      const { searchCriteria: _searchCriteria, ...settingsToSave } = newSettings as any;
-      setAppSettings(newSettings);
-      invoke(Invokes.SaveSettings, { settings: settingsToSave }).catch((err) => {
-        console.error('Failed to save settings:', err);
-      });
-    },
-    [theme],
-  );
-
-  useEffect(() => {
-    invoke(Invokes.LoadSettings)
-      .then(async (settings: any) => {
-        if (
-          !settings.copyPasteSettings ||
-          !settings.copyPasteSettings.includedAdjustments ||
-          settings.copyPasteSettings.includedAdjustments.length === 0
-        ) {
-          settings.copyPasteSettings = {
-            mode: 'merge',
-            includedAdjustments: COPYABLE_ADJUSTMENT_KEYS,
-          };
-        }
-        setAppSettings(settings);
-        if (settings?.sortCriteria) setSortCriteria(settings.sortCriteria);
-        if (settings?.filterCriteria) {
-          setFilterCriteria((prev: FilterCriteria) => ({
-            ...prev,
-            ...settings.filterCriteria,
-            rawStatus: settings.filterCriteria.rawStatus || RawStatus.All,
-            colors: settings.filterCriteria.colors || [],
-          }));
-        }
-        if (settings?.theme) {
-          setTheme(settings.theme);
-        }
-        if (settings?.uiVisibility) {
-          setUiVisibility((prev) => ({ ...prev, ...settings.uiVisibility }));
-        }
-        if (settings?.libraryViewMode) {
-          setLibraryViewMode(settings.libraryViewMode);
-        }
-        if (settings?.thumbnailSize) {
-          setThumbnailSize(settings.thumbnailSize);
-        }
-        if (settings?.thumbnailAspectRatio) {
-          setThumbnailAspectRatio(settings.thumbnailAspectRatio);
-        }
-        if (settings?.activeTreeSection) {
-          setActiveTreeSection(settings.activeTreeSection);
-        }
-        if (settings?.pinnedFolders && settings.pinnedFolders.length > 0) {
-          try {
-            const trees = await invoke(Invokes.GetPinnedFolderTrees, { paths: settings.pinnedFolders });
-            setPinnedFolderTrees(trees);
-          } catch (err) {
-            console.error('Failed to load pinned folder trees:', err);
-          }
-        }
-
-        if (settings.lastRootPath) {
-          const root = settings.lastRootPath;
-          const currentPath = settings.lastFolderState?.currentFolderPath || root;
-
-          const command =
-            settings.libraryViewMode === LibraryViewMode.Recursive
-              ? Invokes.ListImagesRecursive
-              : Invokes.ListImagesInDir;
-
-          preloadedDataRef.current = {
-            rootPath: root,
-            currentPath: currentPath,
-            tree: invoke(Invokes.GetFolderTree, { path: root }),
-            images: invoke(command, { path: currentPath }),
-          };
-        }
-
-        invoke('frontend_ready').catch((e) => console.error('Failed to notify backend of readiness:', e));
-      })
-      .catch((err) => {
-        console.error('Failed to load settings:', err);
-        setAppSettings({ lastRootPath: null, theme: DEFAULT_THEME_ID });
-      })
-      .finally(() => {
-        isInitialMount.current = false;
-      });
-  }, []);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings) {
-      return;
-    }
-    if (JSON.stringify(appSettings.uiVisibility) !== JSON.stringify(uiVisibility)) {
-      handleSettingsChange({ ...appSettings, uiVisibility });
-    }
-  }, [uiVisibility, appSettings, handleSettingsChange]);
-
-  const handleToggleWaveform = useCallback(() => {
-    setIsWaveformVisible((prev: boolean) => !prev);
-  }, []);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings) {
-      return;
-    }
-    if (appSettings.thumbnailSize !== thumbnailSize) {
-      handleSettingsChange({ ...appSettings, thumbnailSize });
-    }
-  }, [thumbnailSize, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings) {
-      return;
-    }
-    if (appSettings.thumbnailAspectRatio !== thumbnailAspectRatio) {
-      handleSettingsChange({ ...appSettings, thumbnailAspectRatio });
-    }
-  }, [thumbnailAspectRatio, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings) {
-      return;
-    }
-    if (appSettings.libraryViewMode !== libraryViewMode) {
-      handleSettingsChange({ ...appSettings, libraryViewMode });
-    }
-  }, [libraryViewMode, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    invoke(Invokes.GetSupportedFileTypes)
-      .then((types: any) => setSupportedTypes(types))
-      .catch((err) => console.error('Failed to load supported file types:', err));
-  }, []);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings) {
-      return;
-    }
-    if (JSON.stringify(appSettings.sortCriteria) !== JSON.stringify(sortCriteria)) {
-      handleSettingsChange({ ...appSettings, sortCriteria });
-    }
-  }, [sortCriteria, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings) {
-      return;
-    }
-    if (JSON.stringify(appSettings.filterCriteria) !== JSON.stringify(filterCriteria)) {
-      handleSettingsChange({ ...appSettings, filterCriteria });
-    }
-  }, [filterCriteria, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    if (appSettings?.adaptiveEditorTheme && selectedImage && finalPreviewUrl) {
-      generatePaletteFromImage(finalPreviewUrl)
-        .then(setAdaptivePalette)
-        .catch((_err) => {
-          const darkTheme = THEMES.find((t) => t.id === Theme.Dark);
-          setAdaptivePalette(darkTheme ? darkTheme.cssVariables : null);
-        });
-    } else if (!appSettings?.adaptiveEditorTheme || !selectedImage) {
-      setAdaptivePalette(null);
-    }
-  }, [appSettings?.adaptiveEditorTheme, selectedImage, finalPreviewUrl]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const currentThemeId = theme || DEFAULT_THEME_ID;
-
-    const baseTheme =
-      THEMES.find((t: ThemeProps) => t.id === currentThemeId) ||
-      THEMES.find((t: ThemeProps) => t.id === DEFAULT_THEME_ID);
-    if (!baseTheme) {
-      return;
-    }
-
-    let finalCssVariables: any = { ...baseTheme.cssVariables };
-    const effectThemeForWindow = baseTheme.id;
-
-    if (adaptivePalette) {
-      finalCssVariables = { ...finalCssVariables, ...adaptivePalette };
-    }
-
-    Object.entries(finalCssVariables).forEach(([key, value]) => {
-      root.style.setProperty(key, value as string);
-    });
-
-    const isLight = [Theme.Light, Theme.Snow, Theme.Arctic].includes(effectThemeForWindow);
-    invoke(Invokes.UpdateWindowEffect, { theme: isLight ? Theme.Light : Theme.Dark });
-  }, [theme, adaptivePalette]);
-
-  useEffect(() => {
-    if (isInitialThemeMount.current) {
-      isInitialThemeMount.current = false;
-      return;
-    }
-
-    setIsAnimatingTheme(true);
-    const timer = setTimeout(() => setIsAnimatingTheme(false), 500);
-
-    return () => clearTimeout(timer);
-  }, [theme]);
-
-  const refreshAllFolderTrees = useCallback(async () => {
-    if (rootPath) {
-      try {
-        const treeData = await invoke(Invokes.GetFolderTree, { path: rootPath });
-        setFolderTree(treeData);
-      } catch (err) {
-        console.error('Failed to refresh main folder tree:', err);
-        setError(`Failed to refresh folder tree: ${err}.`);
-      }
-    }
-
-    const currentPins = appSettings?.pinnedFolders || [];
-    if (currentPins.length > 0) {
-      try {
-        const trees = await invoke(Invokes.GetPinnedFolderTrees, { paths: currentPins });
-        setPinnedFolderTrees(trees);
-      } catch (err) {
-        console.error('Failed to refresh pinned folder trees:', err);
-      }
-    }
-  }, [rootPath, appSettings?.pinnedFolders]);
-
-  const pinnedFolders = useMemo(() => appSettings?.pinnedFolders || [], [appSettings]);
-
-  const handleTogglePinFolder = useCallback(
-    async (path: string) => {
-      if (!appSettings) return;
-      const currentPins = appSettings.pinnedFolders || [];
-      const isPinned = currentPins.includes(path);
-      const newPins = isPinned
-        ? currentPins.filter((p) => p !== path)
-        : [...currentPins, path].sort((a, b) => a.localeCompare(b));
-
-      if (!isPinned && path === currentFolderPath) {
-        handleActiveTreeSectionChange('pinned');
-      }
-
-      handleSettingsChange({ ...appSettings, pinnedFolders: newPins });
-
-      try {
-        const trees = await invoke(Invokes.GetPinnedFolderTrees, { paths: newPins });
-        setPinnedFolderTrees(trees);
-      } catch (err) {
-        console.error('Failed to refresh pinned folders:', err);
-      }
-    },
-    [appSettings, handleSettingsChange],
-  );
-
-  const handleActiveTreeSectionChange = (section: string | null) => {
-    setActiveTreeSection(section);
-    if (appSettings) {
-      handleSettingsChange({ ...appSettings, activeTreeSection: section });
-    }
-  };
-
-  const handleSelectSubfolder = useCallback(
-    async (path: string | null, isNewRoot = false, preloadedImages?: ImageFile[]) => {
-      await invoke('cancel_thumbnail_generation');
-      setIsViewLoading(true);
-      setSearchCriteria({ tags: [], text: '', mode: 'OR' });
-      setLibraryScrollTop(0);
-      setThumbnails({});
-      try {
-        setCurrentFolderPath(path);
-        setActiveView('library');
-
-        if (isNewRoot) {
-          setExpandedFolders(new Set([path]));
-        } else if (path) {
-          setExpandedFolders((prev) => {
-            const newSet = new Set(prev);
-            const allRoots = [rootPath, ...pinnedFolders].filter(Boolean) as string[];
-            const relevantRoot = allRoots.find((r) => path.startsWith(r));
-
-            if (relevantRoot) {
-              const separator = path.includes('/') ? '/' : '\\';
-              const parentSeparatorIndex = path.lastIndexOf(separator);
-
-              if (parentSeparatorIndex > -1 && path.length > relevantRoot.length) {
-                let current = path.substring(0, parentSeparatorIndex);
-                while (current && current.length >= relevantRoot.length) {
-                  newSet.add(current);
-                  const nextParentIndex = current.lastIndexOf(separator);
-                  if (nextParentIndex === -1 || current === relevantRoot) {
-                    break;
-                  }
-                  current = current.substring(0, nextParentIndex);
-                }
-              }
-              newSet.add(relevantRoot);
-            }
-            return newSet;
-          });
-        }
-
-        if (isNewRoot) {
-          if (path && !pinnedFolders.includes(path)) {
-            handleActiveTreeSectionChange('current');
-          }
-          setIsTreeLoading(true);
-          handleSettingsChange({ ...appSettings, lastRootPath: path } as AppSettings);
-          try {
-            const treeData = await invoke(Invokes.GetFolderTree, { path });
-            setFolderTree(treeData);
-          } catch (err) {
-            console.error('Failed to load folder tree:', err);
-            setError(`Failed to load folder tree: ${err}. Some sub-folders might be inaccessible.`);
-          } finally {
-            setIsTreeLoading(false);
-          }
-        }
-
-        setImageList([]);
-        setImageRatings({});
-        setMultiSelectedPaths([]);
-        setLibraryActivePath(null);
-        if (selectedImage) {
-          setSelectedImage(null);
-          setFinalPreviewUrl(null);
-          setUncroppedAdjustedPreviewUrl(null);
-          setHistogram(null);
-        }
-
-        const command =
-          libraryViewMode === LibraryViewMode.Recursive ? Invokes.ListImagesRecursive : Invokes.ListImagesInDir;
-
-        let files: ImageFile[];
-        if (preloadedImages) {
-          files = preloadedImages;
-        } else {
-          files = await invoke(command, { path });
-        }
-
-        const exifSortKeys = ['date_taken', 'iso', 'shutter_speed', 'aperture', 'focal_length'];
-        const isExifSortActive = exifSortKeys.includes(sortCriteria.key);
-        const shouldReadExif = appSettings?.enableExifReading ?? false;
-
-        if (shouldReadExif && files.length > 0) {
-          const paths = files.map((f: ImageFile) => f.path);
-
-          if (isExifSortActive) {
-            const exifDataMap: Record<string, any> = await invoke(Invokes.ReadExifForPaths, { paths });
-            const finalImageList = files.map((image) => ({
-              ...image,
-              exif: exifDataMap[image.path] || image.exif || null,
-            }));
-            setImageList(finalImageList);
-          } else {
-            setImageList(files);
-            invoke(Invokes.ReadExifForPaths, { paths })
-              .then((exifDataMap: any) => {
-                setImageList((currentImageList) =>
-                  currentImageList.map((image) => ({
-                    ...image,
-                    exif: exifDataMap[image.path] || image.exif || null,
-                  })),
-                );
-              })
-              .catch((err) => {
-                console.error('Failed to read EXIF data in background:', err);
-              });
-          }
-        } else {
-          setImageList(files);
-        }
-
-        invoke(Invokes.StartBackgroundIndexing, { folderPath: path }).catch((err) => {
-          console.error('Failed to start background indexing:', err);
-        });
-      } catch (err) {
-        console.error('Failed to load folder contents:', err);
-        setError('Failed to load images from the selected folder.');
-        setIsTreeLoading(false);
-      } finally {
-        setIsViewLoading(false);
-      }
-    },
-    [appSettings, handleSettingsChange, selectedImage, rootPath, sortCriteria.key, pinnedFolders, libraryViewMode],
-  );
-
-  const handleLibraryRefresh = useCallback(() => {
-    if (currentFolderPath) handleSelectSubfolder(currentFolderPath, false);
-  }, [currentFolderPath, handleSelectSubfolder]);
-
-  const refreshImageList = useCallback(async () => {
-    if (!currentFolderPath) return;
-    try {
-      const command =
-        libraryViewMode === LibraryViewMode.Recursive ? Invokes.ListImagesRecursive : Invokes.ListImagesInDir;
-
-      const files: ImageFile[] = await invoke(command, { path: currentFolderPath });
-      const exifSortKeys = ['date_taken', 'iso', 'shutter_speed', 'aperture', 'focal_length'];
-      const isExifSortActive = exifSortKeys.includes(sortCriteria.key);
-      const shouldReadExif = appSettings?.enableExifReading ?? false;
-
-      let freshExifData: Record<string, any> | null = null;
-
-      if (shouldReadExif && files.length > 0 && isExifSortActive) {
-        const paths = files.map((f: ImageFile) => f.path);
-        freshExifData = await invoke(Invokes.ReadExifForPaths, { paths });
-      }
-
-      setImageList((prevList) => {
-        const prevMap = new Map(prevList.map((img) => [img.path, img]));
-
-        return files.map((newFile) => {
-          if (freshExifData && freshExifData[newFile.path]) {
-            newFile.exif = freshExifData[newFile.path];
-            return newFile;
-          }
-          const existing = prevMap.get(newFile.path);
-          if (existing && existing.modified === newFile.modified) {
-            return existing;
-          }
-
-          return newFile;
-        });
-      });
-
-      if (shouldReadExif && files.length > 0 && !isExifSortActive) {
-        const paths = files.map((f: ImageFile) => f.path);
-        invoke(Invokes.ReadExifForPaths, { paths })
-          .then((exifDataMap: any) => {
-            setImageList((currentImageList) =>
-              currentImageList.map((image) => {
-                if (exifDataMap[image.path] && !image.exif) {
-                  return { ...image, exif: exifDataMap[image.path] };
-                }
-                return image;
-              }),
-            );
-          })
-          .catch((err) => {
-            console.error('Failed to read EXIF data in background:', err);
-          });
-      }
-    } catch (err) {
-      console.error('Failed to refresh image list:', err);
-      setError('Failed to refresh image list.');
-    }
-  }, [currentFolderPath, sortCriteria.key, appSettings?.enableExifReading, libraryViewMode]);
-
-  const handleToggleFolder = useCallback((path: string) => {
-    setExpandedFolders((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(path)) {
-        newSet.delete(path);
-      } else {
-        newSet.add(path);
-      }
-      return newSet;
-    });
-  }, []);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings || !rootPath) {
-      return;
-    }
-
-    const newFolderState = {
-      currentFolderPath,
-      expandedFolders: Array.from(expandedFolders),
-    };
-
-    if (JSON.stringify(appSettings.lastFolderState) === JSON.stringify(newFolderState)) {
-      return;
-    }
-
-    handleSettingsChange({ ...appSettings, lastFolderState: newFolderState });
-  }, [currentFolderPath, expandedFolders, rootPath, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    const handleGlobalContextMenu = (event: any) => {
-      if (!DEBUG) event.preventDefault();
-    };
-    window.addEventListener('contextmenu', handleGlobalContextMenu);
-    return () => window.removeEventListener('contextmenu', handleGlobalContextMenu);
-  }, []);
-
-  const handleBackToLibrary = useCallback(() => {
-    const lastActivePath = selectedImage?.path ?? null;
-    setSelectedImage(null);
-    setFinalPreviewUrl(null);
-    setUncroppedAdjustedPreviewUrl(null);
-    setHistogram(null);
-    setWaveform(null);
-    setIsWaveformVisible(false);
-    setActiveMaskId(null);
-    setActiveMaskContainerId(null);
-    setActiveAiPatchContainerId(null);
-    setIsWbPickerActive(false);
-    setActiveAiSubMaskId(null);
-    setLibraryActivePath(lastActivePath);
-    setSlideDirection(1);
-    setLiveAdjustments(INITIAL_ADJUSTMENTS);
-    resetAdjustmentsHistory(INITIAL_ADJUSTMENTS);
-  }, [selectedImage?.path]);
-
-  const handleImageSelect = useCallback(
-    (path: string) => {
-      if (selectedImage?.path === path) {
-        return;
-      }
-      debouncedSave.cancel();
-      patchesSentToBackend.current.clear();
-
-      const knownRating = imageRatings[path] ?? 0;
-      const placeholderAdjustments = {
-        ...INITIAL_ADJUSTMENTS,
-        rating: knownRating,
-      };
-
-      setLiveAdjustments(placeholderAdjustments);
-      resetAdjustmentsHistory(placeholderAdjustments);
-
-      setSelectedImage({
-        exif: null,
-        height: 0,
-        isRaw: false,
-        isReady: false,
-        metadata: null,
-        originalUrl: null,
-        path,
-        thumbnailUrl: thumbnails[path],
-        width: 0,
-      });
-      setOriginalSize({ width: 0, height: 0 });
-      setPreviewSize({ width: 0, height: 0 });
-      setMultiSelectedPaths([path]);
-      setLibraryActivePath(null);
-      setIsViewLoading(true);
-      setError(null);
-      setHistogram(null);
-      setFinalPreviewUrl(null);
-      setUncroppedAdjustedPreviewUrl(null);
-      setTransformedOriginalUrl(null);
-      setShowOriginal(false);
-      setActiveMaskId(null);
-      setActiveMaskContainerId(null);
-      setActiveAiPatchContainerId(null);
-      setActiveAiSubMaskId(null);
-      setIsWbPickerActive(false);
-      setIsHighResNeeded(false);
-
-      if (transformWrapperRef.current) {
-        transformWrapperRef.current.resetTransform(0);
-      }
-
-      setZoom(1);
-      setIsLibraryExportPanelVisible(false);
-
-      fullResCacheKeyRef.current = null;
-      setFinalPreviewUrl((prev) => {
-        if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
-        return null;
-      });
-    },
-    [selectedImage?.path, applyAdjustments, debouncedSave, thumbnails, imageRatings, resetAdjustmentsHistory],
-  );
-
-  const executeDelete = useCallback(
-    async (pathsToDelete: Array<string>, options = { includeAssociated: false }) => {
-      if (!pathsToDelete || pathsToDelete.length === 0) {
-        return;
-      }
-
-      const activePath = selectedImage ? selectedImage.path : libraryActivePath;
-      let nextImagePath: string | null = null;
-
-      if (activePath) {
-        const physicalPath = activePath.split('?vc=')[0];
-        const isActiveImageDeleted = pathsToDelete.some((p) => p === activePath || p === physicalPath);
-
-        if (isActiveImageDeleted) {
-          const currentIndex = sortedImageList.findIndex((img) => img.path === activePath);
-          if (currentIndex !== -1) {
-            const nextCandidate = sortedImageList
-              .slice(currentIndex + 1)
-              .find((img) => !pathsToDelete.includes(img.path));
-
-            if (nextCandidate) {
-              nextImagePath = nextCandidate.path;
-            } else {
-              const prevCandidate = sortedImageList
-                .slice(0, currentIndex)
-                .reverse()
-                .find((img) => !pathsToDelete.includes(img.path));
-
-              if (prevCandidate) {
-                nextImagePath = prevCandidate.path;
-              }
-            }
-          }
-        } else {
-          nextImagePath = activePath;
-        }
-      }
-
-      try {
-        const command = options.includeAssociated ? 'delete_files_with_associated' : 'delete_files_from_disk';
-        await invoke(command, { paths: pathsToDelete });
-
-        await refreshImageList();
-
-        if (selectedImage) {
-          const physicalPath = selectedImage.path.split('?vc=')[0];
-          const isFileBeingEditedDeleted = pathsToDelete.some((p) => p === selectedImage.path || p === physicalPath);
-
-          if (isFileBeingEditedDeleted) {
-            if (nextImagePath) {
-              handleImageSelect(nextImagePath);
-            } else {
-              handleBackToLibrary();
-            }
-          }
-        } else {
-          if (nextImagePath) {
-            setMultiSelectedPaths([nextImagePath]);
-            setLibraryActivePath(nextImagePath);
-          } else {
-            setMultiSelectedPaths([]);
-            setLibraryActivePath(null);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to delete files:', err);
-        setError(`Failed to delete files: ${err}`);
-      }
-    },
-    [refreshImageList, selectedImage, handleBackToLibrary, libraryActivePath, sortedImageList, handleImageSelect],
-  );
-
-  const handleDeleteSelected = useCallback(() => {
-    const pathsToDelete = multiSelectedPaths;
-    if (pathsToDelete.length === 0) {
-      return;
-    }
-
-    const isSingle = pathsToDelete.length === 1;
-
-    const selectionHasVirtualCopies =
-      isSingle &&
-      !pathsToDelete[0].includes('?vc=') &&
-      imageList.some((image) => image.path.startsWith(`${pathsToDelete[0]}?vc=`));
-
-    let modalTitle = 'Confirm Delete';
-    let modalMessage = '';
-    let confirmText = 'Delete';
-
-    if (selectionHasVirtualCopies) {
-      modalTitle = 'Delete Image and All Virtual Copies?';
-      modalMessage = `Are you sure you want to permanently delete this image and all of its virtual copies? This action cannot be undone.`;
-      confirmText = 'Delete All';
-    } else if (isSingle) {
-      modalMessage = `Are you sure you want to permanently delete this image? This action cannot be undone. Right-click for more options (e.g., deleting associated files).`;
-      confirmText = 'Delete Selected Only';
-    } else {
-      modalMessage = `Are you sure you want to permanently delete these ${pathsToDelete.length} images? This action cannot be undone. Right-click for more options (e.g., deleting associated files).`;
-      confirmText = 'Delete Selected Only';
-    }
-
-    setConfirmModalState({
-      confirmText,
-      confirmVariant: 'destructive',
-      isOpen: true,
-      message: modalMessage,
-      onConfirm: () => executeDelete(pathsToDelete, { includeAssociated: false }),
-      title: modalTitle,
-    });
-  }, [multiSelectedPaths, executeDelete, imageList]);
 
   const handleToggleFullScreen = useCallback(() => {
     if (isFullScreen) {
