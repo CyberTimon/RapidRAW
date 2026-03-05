@@ -252,27 +252,57 @@ function createAppStateContext() {
     }),
   };
 
+  const {
+    activeRightPanel,
+    theme,
+    adjustments,
+    appSettings,
+    isCreateFolderModalOpen,
+    isRenameFolderModalOpen,
+    isRenameFileModalOpen,
+    isImportModalOpen,
+    isCopyPasteSettingsModalOpen,
+    confirmModalState,
+    panoramaModalState,
+    cullingModalState,
+    collageModalState,
+    denoiseModalState,
+    negativeModalState,
+  } = state;
+
   const dependants = {
-    ...useContextState<Panel | null>()('renderedRightPanel', state.activeRightPanel),
+    ...useContextState<Panel | null>()('renderedRightPanel', activeRightPanel),
     currentFolderPathRef: useRef<string>(state.currentFolderPath),
-    isLightTheme: useMemo(() => [Theme.Light, Theme.Snow, Theme.Arctic].includes(state.theme as Theme), [state.theme]),
+    isLightTheme: useMemo(() => [Theme.Light, Theme.Snow, Theme.Arctic].includes(theme as Theme), [theme]),
     geometricAdjustmentsKey: useMemo(() => {
-      if (!state.adjustments) return '';
-      const { crop, rotation, flipHorizontal, flipVertical, orientationSteps } = state.adjustments;
+      if (!adjustments) return '';
+      const { crop, rotation, flipHorizontal, flipVertical, orientationSteps } = adjustments;
       return JSON.stringify({ crop, rotation, flipHorizontal, flipVertical, orientationSteps });
     }, [
-      state.adjustments?.crop,
-      state.adjustments?.rotation,
-      state.adjustments?.flipHorizontal,
-      state.adjustments?.flipVertical,
-      state.adjustments?.orientationSteps,
+      adjustments?.crop,
+      adjustments?.rotation,
+      adjustments?.flipHorizontal,
+      adjustments?.flipVertical,
+      adjustments?.orientationSteps,
     ]),
     visualAdjustmentsKey: useMemo(() => {
-      if (!state.adjustments) return '';
-      const { rating: _rating, sectionVisibility: _sectionVisibility, ...visualAdjustments } = state.adjustments;
+      if (!adjustments) return '';
+      const { rating: _rating, sectionVisibility: _sectionVisibility, ...visualAdjustments } = adjustments;
       return JSON.stringify(visualAdjustments);
-    }, [state.adjustments]),
-    pinnedFolders: useMemo(() => state.appSettings?.pinnedFolders || [], [state.appSettings]),
+    }, [adjustments]),
+    pinnedFolders: useMemo(() => appSettings?.pinnedFolders || [], [appSettings]),
+    isAnyModalOpen:
+      isCreateFolderModalOpen ||
+      isRenameFolderModalOpen ||
+      isRenameFileModalOpen ||
+      isImportModalOpen ||
+      isCopyPasteSettingsModalOpen ||
+      confirmModalState.isOpen ||
+      panoramaModalState.isOpen ||
+      cullingModalState.isOpen ||
+      collageModalState.isOpen ||
+      denoiseModalState.isOpen ||
+      negativeModalState.isOpen,
   };
 
   return {
