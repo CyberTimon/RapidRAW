@@ -348,7 +348,13 @@ function App() {
 
   const { sortedImageList } = useSortedImageList();
 
-  const { canUndo, canRedo, goToIndex: goToAdjustmentsHistoryIndex } = history;
+  const {
+    canUndo,
+    canRedo,
+    goToIndex: goToAdjustmentsHistoryIndex,
+    history: adjustmentsHistory,
+    historyIndex: adjustmentsHistoryIndex,
+  } = history;
 
   const {
     handleBackToLibrary,
