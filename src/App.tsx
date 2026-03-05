@@ -216,6 +216,134 @@ function App() {
     importState,
     isLightTheme,
     isAnyModalOpen,
+    collageModalState,
+    cullingModalState,
+    isImportModalOpen,
+    renameTargetPaths,
+    denoiseModalState,
+    isRenameFileModalOpen,
+    isRenameFolderModalOpen,
+    isCreateFolderModalOpen,
+    hdrModalState,
+    panoramaModalState,
+    activeTreeSection,
+    adaptivePalette,
+    brushSettings,
+    collapsibleSectionsState,
+    copiedMask,
+    copiedSectionAdjustments,
+    currentFolderPathRef,
+    dragIdleTimer,
+    error,
+    expandedFolders,
+    exportState,
+    finalPreviewUrl,
+    fullResCacheKeyRef,
+    geometricAdjustmentsKey,
+    histogram,
+    importTargetFolder,
+    initialFileToOpen,
+    initialFitScale,
+    isAIConnectorConnected,
+    isCopyPasteSettingsModalOpen,
+    isGeneratingAi,
+    isGeneratingAiMask,
+    isHighResNeeded,
+    isInitialMount,
+    isInitialThemeMount,
+    isLoadingFullRes,
+    isMaskControlHovered,
+    isProgrammaticZoom,
+    isRotationActive,
+    isSliderDragging,
+    isWaveformVisible,
+    isWbPickerActive,
+    latestRenderedJobIdRef,
+    overlayMode,
+    overlayRotation,
+    patchesSentToBackend,
+    pinnedFolderTrees,
+    pinnedFolders,
+    preloadedDataRef,
+    previewJobIdRef,
+    previewSize,
+    selectedImagePathRef,
+    setActiveRightPanel,
+    setActiveTreeSection,
+    setAdaptivePalette,
+    setAiModelDownloadStatus,
+    setAdjustments: setLiveAdjustments,
+    setAppSettings,
+    setBaseRenderSize,
+    setBrushSettings,
+    setCollapsibleSectionsState,
+    setConfirmModalState,
+    setCopiedAdjustments,
+    setCopiedMask,
+    setCopiedSectionAdjustments,
+    setCurrentFolderPath,
+    setCustomEscapeHandler,
+    setDisplaySize,
+    setError,
+    setExpandedFolders,
+    setExportState,
+    setFilterCriteria,
+    setFinalPreviewUrl,
+    setFolderActionTarget,
+    setFolderTree,
+    setHistogram,
+    setImageList,
+    setImageRatings,
+    setImportSourcePaths,
+    setImportState,
+    setImportTargetFolder,
+    setIndexingProgress,
+    setInitialFileToOpen,
+    setIsAIConnectorConnected,
+    setIsAnimatingTheme,
+    setIsCopied,
+    setIsFullScreen,
+    setIsGeneratingAi,
+    setIsGeneratingAiMask,
+    setIsHighResNeeded,
+    setIsIndexing,
+    setIsLayoutReady,
+    setIsLoadingFullRes,
+    setIsMaskControlHovered,
+    setIsPasted,
+    setIsResizing,
+    setIsRotationActive,
+    setIsTreeLoading,
+    setIsViewLoading,
+    setIsWbPickerActive,
+    setIsWindowFullScreen,
+    setLibraryActiveAdjustments,
+    setLibraryScrollTop,
+    setLibraryViewMode,
+    setOriginalSize,
+    setOverlayMode,
+    setOverlayRotation,
+    setPinnedFolderTrees,
+    setPreviewSize,
+    setRenameTargetPaths,
+    setRenderedRightPanel,
+    setRootPath,
+    setSearchCriteria,
+    setSelectedImage,
+    setSlideDirection,
+    setSortCriteria,
+    setSupportedTypes,
+    setTheme,
+    setTransformedOriginalUrl,
+    setUncroppedAdjustedPreviewUrl,
+    setWaveform,
+    setZoom,
+    showOriginal,
+    transformWrapperRef,
+    transformedOriginalUrl,
+    uncroppedAdjustedPreviewUrl,
+    visualAdjustmentsKey,
+    waveform,
   } = useAppState();
 
   const { sortedImageList } = useSortedImageList();
@@ -352,11 +480,22 @@ function App() {
           }}
         >
           <FolderTree
+            expandedFolders={expandedFolders}
+            isLoading={isTreeLoading}
+            isResizing={isResizing}
+            isVisible={uiVisibility.folderTree}
             onContextMenu={handleFolderTreeContextMenu}
             onFolderSelect={(path) => handleSelectSubfolder(path, false)}
             onToggleFolder={handleToggleFolder}
+            selectedPath={currentFolderPath}
             setIsVisible={(value: boolean) => setUiVisibility((prev: UiVisibility) => ({ ...prev, folderTree: value }))}
+            style={{ width: uiVisibility.folderTree ? `${leftPanelWidth}px` : '32px' }}
+            tree={folderTree}
+            pinnedFolderTrees={pinnedFolderTrees}
+            pinnedFolders={pinnedFolders}
+            activeSection={activeTreeSection}
             onActiveSectionChange={handleActiveTreeSectionChange}
+            showImageCounts={appSettings?.enableFolderImageCounts ?? false}
           />
           <Resizer
             direction={Orientation.Vertical}
@@ -364,7 +503,22 @@ function App() {
           />
         </div>
       ),
-    [rootPath, isResizing, handleSelectSubfolder, leftPanelWidth, folderTree, isFullScreen],
+    [
+      rootPath,
+      expandedFolders,
+      isTreeLoading,
+      isResizing,
+      handleSelectSubfolder,
+      uiVisibility.folderTree,
+      currentFolderPath,
+      leftPanelWidth,
+      folderTree,
+      pinnedFolderTrees,
+      pinnedFolders,
+      activeTreeSection,
+      copiedFilePaths,
+      isFullScreen,
+    ],
   );
 
   const memoizedLibraryView = useMemo(
@@ -372,9 +526,30 @@ function App() {
       <div className="flex flex-row flex-grow h-full min-h-0">
         <div className="flex-1 flex flex-col min-w-0 gap-2">
           {activeView === 'community' ? (
-            <CommunityPage onBackToLibrary={() => setActiveView('library')} />
+            <CommunityPage
+              onBackToLibrary={() => setActiveView('library')}
+              supportedTypes={supportedTypes}
+              imageList={sortedImageList}
+              currentFolderPath={currentFolderPath}
+            />
           ) : (
             <MainLibrary
+              activePath={libraryActivePath}
+              aiModelDownloadStatus={aiModelDownloadStatus}
+              appSettings={appSettings}
+              currentFolderPath={currentFolderPath}
+              filterCriteria={filterCriteria}
+              imageList={sortedImageList}
+              imageRatings={imageRatings}
+              importState={importState}
+              indexingProgress={indexingProgress}
+              isIndexing={isIndexing}
+              isThumbnailsLoading={isThumbnailsLoading}
+              isLoading={isViewLoading}
+              isTreeLoading={isTreeLoading}
+              libraryScrollTop={libraryScrollTop}
+              libraryViewMode={libraryViewMode}
+              multiSelectedPaths={multiSelectedPaths}
               onClearSelection={handleClearSelection}
               onContextMenu={handleThumbnailContextMenu}
               onContinueSession={handleContinueSession}
@@ -387,6 +562,18 @@ function App() {
               onSettingsChange={handleSettingsChange}
               onThumbnailAspectRatioChange={setThumbnailAspectRatio}
               onThumbnailSizeChange={setThumbnailSize}
+              rootPath={rootPath}
+              searchCriteria={searchCriteria}
+              setFilterCriteria={setFilterCriteria}
+              setLibraryScrollTop={setLibraryScrollTop}
+              setLibraryViewMode={setLibraryViewMode}
+              setSearchCriteria={setSearchCriteria}
+              setSortCriteria={setSortCriteria}
+              sortCriteria={sortCriteria}
+              theme={theme}
+              thumbnailAspectRatio={thumbnailAspectRatio}
+              thumbnails={thumbnails}
+              thumbnailSize={thumbnailSize}
               onNavigateToCommunity={() => setActiveView('community')}
             />
           )}
@@ -472,6 +659,22 @@ function App() {
         <div className="flex flex-row flex-grow h-full min-h-0">
           <div className="flex-1 flex flex-col min-w-0">
             <Editor
+              activeAiPatchContainerId={activeAiPatchContainerId}
+              activeAiSubMaskId={activeAiSubMaskId}
+              activeMaskContainerId={activeMaskContainerId}
+              activeMaskId={activeMaskId}
+              activeRightPanel={activeRightPanel}
+              adjustments={adjustments}
+              brushSettings={brushSettings}
+              canRedo={canRedo}
+              canUndo={canUndo}
+              finalPreviewUrl={finalPreviewUrl}
+              isFullScreen={isFullScreen}
+              isLoading={isViewLoading}
+              isSliderDragging={isSliderDragging}
+              isMaskControlHovered={isMaskControlHovered}
+              isStraightenActive={isStraightenActive}
+              isWaveformVisible={isWaveformVisible}
               onBackToLibrary={handleBackToLibrary}
               onCloseWaveform={() => setIsWaveformVisible(false)}
               onContextMenu={handleEditorContextMenu}
@@ -485,12 +688,31 @@ function App() {
               onToggleWaveform={handleToggleWaveform}
               onUndo={undo}
               onZoomed={handleUserTransform}
+              renderedRightPanel={renderedRightPanel}
+              selectedImage={selectedImage}
+              isWbPickerActive={isWbPickerActive}
               onWbPicked={handleWbPicked}
               setAdjustments={setAdjustments}
               setShowOriginal={setShowOriginal}
+              showOriginal={showOriginal}
+              targetZoom={zoom}
+              thumbnails={thumbnails}
+              transformWrapperRef={transformWrapperRef}
+              transformedOriginalUrl={transformedOriginalUrl}
+              uncroppedAdjustedPreviewUrl={uncroppedAdjustedPreviewUrl}
               updateSubMask={updateSubMask}
+              waveform={waveform}
               onDisplaySizeChange={handleDisplaySizeChange}
               onInitialFitScale={setInitialFitScale}
+              onZoomChange={handleZoomChange}
+              originalSize={originalSize}
+              baseRenderSize={baseRenderSize}
+              isLoadingFullRes={isLoadingFullRes}
+              isRotationActive={isRotationActive}
+              overlayMode={overlayMode}
+              overlayRotation={overlayRotation}
+              adjustmentsHistory={adjustmentsHistory}
+              adjustmentsHistoryIndex={adjustmentsHistoryIndex}
               goToAdjustmentsHistoryIndex={goToAdjustmentsHistoryIndex}
             />
             <div
@@ -577,47 +799,115 @@ function App() {
                       >
                         {renderedRightPanel === Panel.Adjustments && (
                           <Controls
+                            adjustments={adjustments}
+                            collapsibleState={collapsibleSectionsState}
+                            copiedSectionAdjustments={copiedSectionAdjustments}
                             handleAutoAdjustments={handleAutoAdjustments}
+                            histogram={histogram}
+                            selectedImage={selectedImage}
+                            setAdjustments={setAdjustments}
+                            setCollapsibleState={setCollapsibleSectionsState}
+                            setCopiedSectionAdjustments={setCopiedSectionAdjustments}
+                            theme={theme}
                             handleLutSelect={handleLutSelect}
+                            appSettings={appSettings}
+                            isWbPickerActive={isWbPickerActive}
                             toggleWbPicker={toggleWbPicker}
                             onDragStateChange={setIsSliderDragging}
                           />
                         )}
                         {renderedRightPanel === Panel.Metadata && (
                           <MetadataPanel
+                            selectedImage={selectedImage}
+                            rating={adjustments.rating || 0}
                             tags={imageList.find((img) => img.path === selectedImage.path)?.tags || []}
                             onRate={handleRate}
                             onSetColorLabel={handleSetColorLabel}
                             onTagsChanged={handleTagsChanged}
+                            appSettings={appSettings}
                           />
                         )}
-                        {renderedRightPanel === Panel.Crop && <CropPanel />}
+                        {renderedRightPanel === Panel.Crop && (
+                          <CropPanel
+                            adjustments={adjustments}
+                            isStraightenActive={isStraightenActive}
+                            selectedImage={selectedImage}
+                            setAdjustments={setAdjustments}
+                            setIsStraightenActive={setIsStraightenActive}
+                            setIsRotationActive={setIsRotationActive}
+                            overlayMode={overlayMode}
+                            overlayRotation={overlayRotation}
+                            setOverlayRotation={setOverlayRotation}
+                            setOverlayMode={setOverlayMode}
+                          />
+                        )}
                         {renderedRightPanel === Panel.Masks && (
                           <MasksPanel
+                            activeMaskContainerId={activeMaskContainerId}
+                            activeMaskId={activeMaskId}
+                            adjustments={adjustments}
+                            aiModelDownloadStatus={aiModelDownloadStatus}
+                            appSettings={appSettings}
+                            brushSettings={brushSettings}
+                            copiedMask={copiedMask}
+                            histogram={histogram}
+                            isGeneratingAiMask={isGeneratingAiMask}
                             onGenerateAiForegroundMask={handleGenerateAiForegroundMask}
                             onGenerateAiSkyMask={handleGenerateAiSkyMask}
                             onSelectContainer={setActiveMaskContainerId}
                             onSelectMask={setActiveMaskId}
+                            selectedImage={selectedImage}
+                            setAdjustments={setAdjustments}
+                            setBrushSettings={setBrushSettings}
+                            setCopiedMask={setCopiedMask}
+                            setCustomEscapeHandler={setCustomEscapeHandler}
                             onDragStateChange={setIsSliderDragging}
+                            setIsMaskControlHovered={setIsMaskControlHovered}
                           />
                         )}
                         {renderedRightPanel === Panel.Presets && (
                           <PresetsPanel
+                            activePanel={activeRightPanel}
+                            adjustments={adjustments}
+                            selectedImage={selectedImage}
                             onNavigateToCommunity={() => {
                               handleBackToLibrary();
                               setActiveView('community');
                             }}
+                            setAdjustments={setAdjustments}
                           />
                         )}
-                        {renderedRightPanel === Panel.Export && <ExportPanel onSettingsChange={handleSettingsChange} />}
+                        {renderedRightPanel === Panel.Export && (
+                          <ExportPanel
+                            adjustments={adjustments}
+                            exportState={exportState}
+                            multiSelectedPaths={multiSelectedPaths}
+                            selectedImage={selectedImage}
+                            setExportState={setExportState}
+                            appSettings={appSettings}
+                            onSettingsChange={handleSettingsChange}
+                          />
+                        )}
                         {renderedRightPanel === Panel.Ai && (
                           <AIPanel
+                            activePatchContainerId={activeAiPatchContainerId}
+                            activeSubMaskId={activeAiSubMaskId}
+                            adjustments={adjustments}
+                            aiModelDownloadStatus={aiModelDownloadStatus}
+                            brushSettings={brushSettings}
+                            isAIConnectorConnected={isAIConnectorConnected}
+                            isGeneratingAi={isGeneratingAi}
+                            isGeneratingAiMask={isGeneratingAiMask}
                             onDeletePatch={handleDeleteAiPatch}
                             onGenerateAiForegroundMask={handleGenerateAiForegroundMask}
                             onGenerativeReplace={handleGenerativeReplace}
                             onSelectPatchContainer={setActiveAiPatchContainerId}
                             onSelectSubMask={setActiveAiSubMaskId}
                             onTogglePatchVisibility={handleToggleAiPatchVisibility}
+                            selectedImage={selectedImage}
+                            setAdjustments={setAdjustments}
+                            setBrushSettings={setBrushSettings}
+                            setCustomEscapeHandler={setCustomEscapeHandler}
                           />
                         )}
                       </motion.div>
@@ -684,13 +974,20 @@ function App() {
             style={{ width: isLibraryExportPanelVisible && !isFullScreen ? `${rightPanelWidth}px` : '0px' }}
           >
             <LibraryExportPanel
+              exportState={exportState}
+              imageList={sortedImageList}
+              isVisible={isLibraryExportPanelVisible}
+              multiSelectedPaths={multiSelectedPaths}
               onClose={() => setIsLibraryExportPanelVisible(false)}
+              setExportState={setExportState}
+              appSettings={appSettings}
               onSettingsChange={handleSettingsChange}
             />
           </div>
         </div>
       </div>
       <CopyPasteSettingsModal
+        isOpen={isCopyPasteSettingsModalOpen}
         onClose={() => setIsCopyPasteSettingsModalOpen(false)}
         settings={appSettings?.copyPasteSettings as CopyPasteSettings}
         onSave={(newSettings) =>
@@ -698,6 +995,9 @@ function App() {
         }
       />
       <PanoramaModal
+        error={panoramaModalState.error}
+        finalImageBase64={panoramaModalState.finalImageBase64}
+        isOpen={panoramaModalState.isOpen}
         onClose={() =>
           setPanoramaModalState({
             isOpen: false,
@@ -711,8 +1011,12 @@ function App() {
           handleImageSelect(path);
         }}
         onSave={handleSavePanorama}
+        progressMessage={panoramaModalState.progressMessage}
       />
       <HdrModal
+        error={hdrModalState.error}
+        finalImageBase64={hdrModalState.finalImageBase64}
+        isOpen={hdrModalState.isOpen}
         onClose={() =>
           setHdrModalState({
             isOpen: false,
@@ -726,9 +1030,12 @@ function App() {
           handleImageSelect(path);
         }}
         onSave={handleSaveHdr}
+        progressMessage={hdrModalState.progressMessage}
       />
       <NegativeConversionModal
+        isOpen={negativeModalState.isOpen}
         onClose={() => setNegativeModalState((prev) => ({ ...prev, isOpen: false }))}
+        selectedImagePath={negativeModalState.targetPath}
         onSave={(savedPath) => {
           refreshImageList().then(() => {
             if (selectedImage?.path === negativeModalState.targetPath) {
@@ -738,28 +1045,51 @@ function App() {
         }}
       />
       <DenoiseModal
+        isOpen={denoiseModalState.isOpen}
         onClose={() => setDenoiseModalState((prev) => ({ ...prev, isOpen: false }))}
         onDenoise={handleApplyDenoise}
         onSave={handleSaveDenoisedImage}
         onOpenFile={handleImageSelect}
+        previewBase64={denoiseModalState.previewBase64}
+        originalBase64={denoiseModalState.originalBase64 || null}
+        isProcessing={denoiseModalState.isProcessing}
+        error={denoiseModalState.error}
+        progressMessage={denoiseModalState.progressMessage}
       />
-      <CreateFolderModal onClose={() => setIsCreateFolderModalOpen(false)} onSave={handleCreateFolder} />
+      <CreateFolderModal
+        isOpen={isCreateFolderModalOpen}
+        onClose={() => setIsCreateFolderModalOpen(false)}
+        onSave={handleCreateFolder}
+      />
       <RenameFolderModal
         currentName={folderActionTarget ? folderActionTarget.split(/[\\/]/).pop() : ''}
+        isOpen={isRenameFolderModalOpen}
         onClose={() => setIsRenameFolderModalOpen(false)}
         onSave={handleRenameFolder}
       />
-      <RenameFileModal onClose={() => setIsRenameFileModalOpen(false)} onSave={handleSaveRename} />
+      <RenameFileModal
+        filesToRename={renameTargetPaths}
+        isOpen={isRenameFileModalOpen}
+        onClose={() => setIsRenameFileModalOpen(false)}
+        onSave={handleSaveRename}
+      />
       <ConfirmModal {...confirmModalState} onClose={closeConfirmModal} />
       <ImportSettingsModal
         fileCount={importSourcePaths.length}
+        isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onSave={handleStartImport}
       />
       <CullingModal
+        isOpen={cullingModalState.isOpen}
         onClose={() =>
           setCullingModalState({ isOpen: false, progress: null, suggestions: null, error: null, pathsToCull: [] })
         }
+        progress={cullingModalState.progress}
+        suggestions={cullingModalState.suggestions}
+        error={cullingModalState.error}
+        imagePaths={cullingModalState.pathsToCull}
+        thumbnails={thumbnails}
         onApply={(action, paths) => {
           if (action === 'reject') {
             handleSetColorLabel('red', paths);
@@ -775,8 +1105,11 @@ function App() {
         }}
       />
       <CollageModal
+        isOpen={collageModalState.isOpen}
         onClose={() => setCollageModalState({ isOpen: false, sourceImages: [] })}
         onSave={handleSaveCollage}
+        sourceImages={collageModalState.sourceImages}
+        thumbnails={thumbnails}
       />
       <ToastContainer
         position="bottom-right"
