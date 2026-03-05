@@ -21,10 +21,15 @@ import {
 import { Invokes, ImageFile, AppSettings } from '../../ui/AppProperties';
 import ExportPresetsList from '../../ui/ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
-import { useAppState } from '../../../context/ContextProviders';
 
 interface LibraryExportPanelProps {
+  exportState: ExportState;
+  isVisible: boolean;
+  multiSelectedPaths: Array<string>;
   onClose(): void;
+  setExportState(state: any): void;
+  imageList: ImageFile[];
+  appSettings: AppSettings | null;
   onSettingsChange: (settings: AppSettings) => void;
 }
 
@@ -156,15 +161,16 @@ const resizeModeOptions = [
   { label: 'Height', value: 'height' },
 ];
 
-export default function LibraryExportPanel({ onClose, onSettingsChange }: LibraryExportPanelProps) {
-  const {
-    exportState,
-    setExportState,
-    appSettings,
-    isLibraryExportPanelVisible: isVisible,
-    multiSelectedPaths,
-  } = useAppState();
-
+export default function LibraryExportPanel({
+  exportState,
+  isVisible,
+  multiSelectedPaths,
+  onClose,
+  setExportState,
+  imageList: _imageList,
+  appSettings,
+  onSettingsChange,
+}: LibraryExportPanelProps) {
   const {
     fileFormat,
     setFileFormat,

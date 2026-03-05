@@ -4,9 +4,9 @@ import clsx from 'clsx';
 import { ADJUSTMENT_SECTIONS, COPYABLE_ADJUSTMENT_KEYS, CopyPasteSettings, PasteMode } from '../../utils/adjustments';
 import Button from '../ui/Button';
 import Switch from '../ui/Switch';
-import { useAppState } from '../../context/ContextProviders';
 
 interface CopyPasteSettingsModalProps {
+  isOpen: boolean;
   onClose(): void;
   onSave(settings: CopyPasteSettings): void;
   settings: CopyPasteSettings;
@@ -111,8 +111,7 @@ const PasteModeSwitch = ({ selectedMode, onModeChange, isVisible }: PasteModeSwi
   );
 };
 
-export default function CopyPasteSettingsModal({ onClose, onSave, settings }: CopyPasteSettingsModalProps) {
-  const { isCopyPasteSettingsModalOpen: isOpen } = useAppState();
+export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settings }: CopyPasteSettingsModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [localSettings, setLocalSettings] = useState<CopyPasteSettings>(settings || DEFAULT_SETTINGS);

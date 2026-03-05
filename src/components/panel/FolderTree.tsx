@@ -2,7 +2,6 @@ import { Folder, FolderOpen, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, 
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useMemo, useEffect } from 'react';
-import { useAppState } from '../../context/ContextProviders';
 
 export interface FolderTree {
   children: FolderTree[];
@@ -13,20 +12,34 @@ export interface FolderTree {
 }
 
 interface FolderTreeProps {
+  expandedFolders: Set<string>;
+  isLoading: boolean;
+  isResizing: boolean;
+  isVisible: boolean;
   onContextMenu(event: any, path: string | null, isPinned?: boolean): void;
   onFolderSelect(folder: string): void;
   onToggleFolder(folder: string): void;
+  selectedPath: string | null;
   setIsVisible(visible: boolean): void;
+  style: any;
+  tree: FolderTree | null;
+  pinnedFolderTrees: FolderTree[];
+  pinnedFolders: string[];
+  activeSection: string | null;
   onActiveSectionChange(section: string | null): void;
+  showImageCounts: boolean;
 }
 
 interface TreeNodeProps {
+  expandedFolders: Set<string>;
   isExpanded: boolean;
   node: FolderTree;
   onContextMenu(event: any, path: string, isPinned?: boolean): void;
   onFolderSelect(folder: string): void;
   onToggle(path: string): void;
+  selectedPath: string | null;
   pinnedFolders: string[];
+  showImageCounts: boolean;
 }
 
 interface VisibleProps {
@@ -78,15 +91,24 @@ function SectionHeader({ title, isOpen, onToggle }: { title: string; isOpen: boo
           <ChevronRight size={14} className="text-text-secondary" />
         )}
       </div>
-      <span className="ml-1 text-xs font-bold uppercase text-text-secondary tracking-wider select-none">{title}</span>
+      <span className="ml-1 text-xs font-bold uppercase text-text-secondary tracking-wider select-none">
+        {title}
+      </span>
     </div>
   );
 }
 
-function TreeNode({ isExpanded, node, onContextMenu, onFolderSelect, onToggle, pinnedFolders }: TreeNodeProps) {
-  const { appSettings, currentFolderPath: selectedPath, expandedFolders } = useAppState();
-
-  const showImageCounts = appSettings?.enableFolderImageCounts ?? false;
+function TreeNode({
+  expandedFolders,
+  isExpanded,
+  node,
+  onContextMenu,
+  onFolderSelect,
+  onToggle,
+  selectedPath,
+  pinnedFolders,
+  showImageCounts,
+}: TreeNodeProps) {
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = node.path === selectedPath;
   const isPinned = pinnedFolders.includes(node.path);
@@ -139,9 +161,9 @@ function TreeNode({ isExpanded, node, onContextMenu, onFolderSelect, onToggle, p
         <div
           className={clsx('cursor-pointer p-0.5 rounded transition-colors', {
             'cursor-default': !hasChildren,
-            'text-primary': isSelected && isExpanded,
+            'text-primary': isSelected && isExpanded, 
             'text-text-secondary': !isSelected || !isExpanded,
-            'hover:bg-surface-hover': !isSelected && hasChildren,
+            'hover:bg-surface-hover': !isSelected && hasChildren
           })}
           onClick={handleFolderIconClick}
         >
@@ -151,25 +173,27 @@ function TreeNode({ isExpanded, node, onContextMenu, onFolderSelect, onToggle, p
             <Folder size={16} className={isSelected ? 'text-primary' : 'text-text-secondary'} />
           )}
         </div>
-
-        <span
-          onDoubleClick={handleNameDoubleClick}
+        
+        <span 
+          onDoubleClick={handleNameDoubleClick} 
           className={clsx('truncate select-none cursor-pointer flex-1 font-medium', {
             'text-primary': isSelected,
-            'text-text-primary': !isSelected,
+            'text-text-primary': !isSelected
           })}
         >
           <span className="truncate">{node.name}</span>
-          {typeof node.imageCount === 'number' && (
-            <span
-              className={clsx(
-                'inline-block text-text-secondary text-xs ml-1 transition-all ease-in-out duration-300',
-                showImageCounts ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2',
-              )}
-            >
-              ({node.imageCount})
-            </span>
-          )}
+           {typeof node.imageCount === "number" && (
+             <span 
+               className={clsx(
+                 "inline-block text-text-secondary text-xs ml-1 transition-all ease-in-out duration-300",
+                 showImageCounts 
+                   ? "opacity-100 translate-x-0" 
+                   : "opacity-0 -translate-x-2"
+               )}
+             >
+                ({node.imageCount})
+             </span>
+           )}
         </span>
 
         {hasChildren && (
@@ -206,12 +230,15 @@ function TreeNode({ isExpanded, node, onContextMenu, onFolderSelect, onToggle, p
                     variants={itemVariants}
                   >
                     <TreeNode
+                      expandedFolders={expandedFolders}
                       isExpanded={expandedFolders.has(childNode.path)}
                       node={childNode}
                       onContextMenu={onContextMenu}
                       onFolderSelect={onFolderSelect}
                       onToggle={onToggle}
+                      selectedPath={selectedPath}
                       pinnedFolders={pinnedFolders}
+                      showImageCounts={showImageCounts}
                     />
                   </motion.div>
                 ))}
@@ -225,30 +252,23 @@ function TreeNode({ isExpanded, node, onContextMenu, onFolderSelect, onToggle, p
 }
 
 export default function FolderTree({
+  expandedFolders,
+  isLoading,
+  isResizing,
+  isVisible,
   onContextMenu,
   onFolderSelect,
   onToggleFolder,
+  selectedPath,
   setIsVisible,
+  style,
+  tree,
+  pinnedFolderTrees,
+  pinnedFolders,
+  activeSection,
   onActiveSectionChange,
+  showImageCounts,
 }: FolderTreeProps) {
-  const {
-    appSettings,
-    currentFolderPath: selectedPath,
-    expandedFolders,
-    folderTree: tree,
-    pinnedFolderTrees,
-    isTreeLoading: isLoading,
-    uiVisibility,
-    leftPanelWidth,
-    activeTreeSection: activeSection,
-    isResizing,
-  } = useAppState();
-
-  const isVisible = uiVisibility.folderTree;
-  const pinnedFolders = appSettings.pinnedFolders;
-  const showImageCounts = appSettings?.enableFolderImageCounts ?? false;
-  const style = { width: uiVisibility.folderTree ? `${leftPanelWidth}px` : '32px' };
-
   const [searchQuery, setSearchQuery] = useState('');
   const [isHovering, setIsHovering] = useState(false);
 
@@ -298,7 +318,8 @@ export default function FolderTree({
 
       if (hasPinnedResults && activeSection !== 'pinned') {
         onActiveSectionChange('pinned');
-      } else if (!hasPinnedResults && hasBaseResults && activeSection !== 'current') {
+      }
+      else if (!hasPinnedResults && hasBaseResults && activeSection !== 'current') {
         onActiveSectionChange('current');
       }
     }
@@ -374,12 +395,15 @@ export default function FolderTree({
                         {filteredPinnedTrees.map((pinnedTree) => (
                           <TreeNode
                             key={pinnedTree.path}
+                            expandedFolders={effectiveExpandedFolders}
                             isExpanded={effectiveExpandedFolders.has(pinnedTree.path)}
                             node={pinnedTree}
                             onContextMenu={onContextMenu}
                             onFolderSelect={onFolderSelect}
                             onToggle={onToggleFolder}
+                            selectedPath={selectedPath}
                             pinnedFolders={pinnedFolders}
+                            showImageCounts={showImageCounts && isHovering}
                           />
                         ))}
                       </div>
@@ -409,12 +433,15 @@ export default function FolderTree({
                     >
                       <div className="pt-1">
                         <TreeNode
+                          expandedFolders={effectiveExpandedFolders}
                           isExpanded={effectiveExpandedFolders.has(filteredTree.path)}
                           node={filteredTree}
                           onContextMenu={onContextMenu}
                           onFolderSelect={onFolderSelect}
                           onToggle={onToggleFolder}
+                          selectedPath={selectedPath}
                           pinnedFolders={pinnedFolders}
+                          showImageCounts={showImageCounts && isHovering}
                         />
                       </div>
                     </motion.div>

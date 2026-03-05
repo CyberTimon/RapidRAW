@@ -1,18 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, XCircle, Loader2, Save } from 'lucide-react';
 import Button from '../ui/Button';
-import { useAppState } from '../../context/ContextProviders';
 
 interface HdrModalProps {
+  error: string | null;
+  finalImageBase64: string | null;
+  isOpen: boolean;
   onClose(): void;
   onOpenFile(path: string): void;
   onSave(): Promise<string>;
+  progressMessage: string | null;
 }
 
-export default function HdrModal({ onClose, onOpenFile, onSave }: HdrModalProps) {
-  const { hdrModalState } = useAppState();
-  const { error, finalImageBase64, isOpen, progressMessage } = hdrModalState;
-
+export default function HdrModal({
+                                        error,
+                                        finalImageBase64,
+                                        isOpen,
+                                        onClose,
+                                        onOpenFile,
+                                        onSave,
+                                        progressMessage,
+                                      }: HdrModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);

@@ -1,15 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAppState } from '../../context/ContextProviders';
 
 interface RenameFolderProps {
   currentName?: string;
+  isOpen: boolean;
   onClose(): void;
   onSave(name: string): void;
 }
 
-export default function RenameFolderModal({ onClose, onSave, currentName }: RenameFolderProps) {
-  const { isRenameFolderModalOpen: isOpen } = useAppState();
-
+export default function RenameFolderModal({ isOpen, onClose, onSave, currentName }: RenameFolderProps) {
   const [name, setName] = useState('');
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);

@@ -2,23 +2,28 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { CheckCircle, XCircle, Loader2, Save, Grip, RefreshCw, ZoomIn, ZoomOut, Move } from 'lucide-react';
 import Button from '../ui/Button';
 import Slider from '../ui/Slider';
-import { useAppState } from '../../context/ContextProviders';
 
 interface DenoiseModalProps {
+  isOpen: boolean;
   onClose(): void;
   onDenoise(intensity: number): void;
   onSave(): Promise<string>;
   onOpenFile(path: string): void;
+  error: string | null;
+  previewBase64: string | null;
+  originalBase64: string | null;
+  isProcessing: boolean;
+  progressMessage: string | null;
 }
 
 const ImageCompare = ({ original, denoised }: { original: string; denoised: string }) => {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-
+  
   const [isDragging, setIsDragging] = useState(false);
   const [isResizingSlider, setIsResizingSlider] = useState(false);
-
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const lastMousePos = useRef({ x: 0, y: 0 });
 
@@ -73,19 +78,19 @@ const ImageCompare = ({ original, denoised }: { original: string; denoised: stri
     if (!containerRef.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
-
+    
     const mouseX = e.clientX - rect.left - rect.width / 2;
     const mouseY = e.clientY - rect.top - rect.height / 2;
 
     const delta = -e.deltaY * 0.001;
     const newZoom = Math.min(Math.max(0.5, zoom + delta), 4);
-
+    
     const scaleRatio = newZoom / zoom;
     const mouseFromCenterX = mouseX - pan.x;
     const mouseFromCenterY = mouseY - pan.y;
 
-    const newPanX = mouseX - mouseFromCenterX * scaleRatio;
-    const newPanY = mouseY - mouseFromCenterY * scaleRatio;
+    const newPanX = mouseX - (mouseFromCenterX * scaleRatio);
+    const newPanY = mouseY - (mouseFromCenterY * scaleRatio);
 
     setZoom(newZoom);
     setPan({ x: newPanX, y: newPanY });
@@ -94,7 +99,7 @@ const ImageCompare = ({ original, denoised }: { original: string; denoised: stri
   const imageTransformStyle = {
     transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
     transition: isDragging || isResizingSlider ? 'none' : 'transform 0.1s ease-out',
-    transformOrigin: 'center center',
+    transformOrigin: 'center center'
   };
 
   return (
@@ -104,29 +109,10 @@ const ImageCompare = ({ original, denoised }: { original: string; denoised: stri
           <Move size={14} /> <span>Pan & Zoom enabled</span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setZoom((z) => Math.max(0.5, z - 0.5))}
-            className="hover:text-text-primary text-text-secondary"
-          >
-            <ZoomOut size={16} />
-          </button>
-          <span className="text-xs w-10 text-center text-text-secondary">{(zoom * 100).toFixed(0)}%</span>
-          <button
-            onClick={() => setZoom((z) => Math.min(4, z + 0.5))}
-            className="hover:text-text-primary text-text-secondary"
-          >
-            <ZoomIn size={16} />
-          </button>
-          <button
-            onClick={() => {
-              setZoom(1);
-              setPan({ x: 0, y: 0 });
-              setSliderPosition(50);
-            }}
-            className="text-xs ml-2 text-accent hover:underline"
-          >
-            Reset
-          </button>
+           <button onClick={() => setZoom(z => Math.max(0.5, z - 0.5))} className="hover:text-text-primary text-text-secondary"><ZoomOut size={16}/></button>
+           <span className="text-xs w-10 text-center text-text-secondary">{(zoom * 100).toFixed(0)}%</span>
+           <button onClick={() => setZoom(z => Math.min(4, z + 0.5))} className="hover:text-text-primary text-text-secondary"><ZoomIn size={16}/></button>
+           <button onClick={() => { setZoom(1); setPan({x:0, y:0}); setSliderPosition(50); }} className="text-xs ml-2 text-accent hover:underline">Reset</button>
         </div>
       </div>
 
@@ -137,65 +123,69 @@ const ImageCompare = ({ original, denoised }: { original: string; denoised: stri
         onWheel={handleWheel}
       >
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none">
-          <div className="origin-center" style={imageTransformStyle}>
-            <img
-              src={denoised}
-              alt="Denoised"
-              className="max-w-none shadow-xl"
-              style={{ height: 'auto' }}
-              draggable={false}
-            />
-          </div>
+            <div className="origin-center" style={imageTransformStyle}>
+                <img
+                    src={denoised}
+                    alt="Denoised"
+                    className="max-w-none shadow-xl"
+                    style={{ height: 'auto' }}
+                    draggable={false}
+                />
+            </div>
+        </div>
+
+        <div 
+            className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none"
+            style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+        >
+            <div className="origin-center" style={imageTransformStyle}>
+                <img
+                    src={original}
+                    alt="Original"
+                    className="max-w-none shadow-xl"
+                    style={{ height: 'auto' }}
+                    draggable={false}
+                />
+            </div>
         </div>
 
         <div
-          className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none"
-          style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+            className="absolute top-0 bottom-0 w-0.5 bg-white cursor-col-resize z-10 shadow-[0_0_8px_rgba(0,0,0,0.8)]"
+            style={{ left: `${sliderPosition}%` }}
+            onMouseDown={handleSliderMouseDown}
         >
-          <div className="origin-center" style={imageTransformStyle}>
-            <img
-              src={original}
-              alt="Original"
-              className="max-w-none shadow-xl"
-              style={{ height: 'auto' }}
-              draggable={false}
-            />
-          </div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full shadow-md flex items-center justify-center">
+                <div className="w-0.5 h-3 bg-black/50 mx-0.5"></div>
+                <div className="w-0.5 h-3 bg-black/50 mx-0.5"></div>
+            </div>
         </div>
 
-        <div
-          className="absolute top-0 bottom-0 w-0.5 bg-white cursor-col-resize z-10 shadow-[0_0_8px_rgba(0,0,0,0.8)]"
-          style={{ left: `${sliderPosition}%` }}
-          onMouseDown={handleSliderMouseDown}
-        >
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full shadow-md flex items-center justify-center">
-            <div className="w-0.5 h-3 bg-black/50 mx-0.5"></div>
-            <div className="w-0.5 h-3 bg-black/50 mx-0.5"></div>
-          </div>
-        </div>
-
-        <div className="absolute top-3 left-3 bg-black/70 text-white text-[10px] px-2 py-1 rounded font-medium pointer-events-none z-0">
-          Original
-        </div>
-        <div className="absolute top-3 right-3 bg-accent/90 text-button-text text-[10px] px-2 py-1 rounded font-medium pointer-events-none z-0">
-          Denoised
-        </div>
+        <div className="absolute top-3 left-3 bg-black/70 text-white text-[10px] px-2 py-1 rounded font-medium pointer-events-none z-0">Original</div>
+        <div className="absolute top-3 right-3 bg-accent/90 text-button-text text-[10px] px-2 py-1 rounded font-medium pointer-events-none z-0">Denoised</div>
       </div>
     </div>
   );
 };
 
-export default function DenoiseModal({ onClose, onDenoise, onSave, onOpenFile }: DenoiseModalProps) {
-  const { denoiseModalState } = useAppState();
-  const { isOpen, error, previewBase64, originalBase64, isProcessing, progressMessage } = denoiseModalState;
-
+export default function DenoiseModal({
+  isOpen,
+  onClose,
+  onDenoise,
+  onSave,
+  onOpenFile,
+  error,
+  previewBase64,
+  originalBase64,
+  isProcessing,
+  progressMessage,
+}: DenoiseModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   // Initializing at 50 (0-100 range) instead of 0.5 so the Slider displays integer percentages
   const [intensity, setIntensity] = useState<number>(50);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
-
+  
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
   useEffect(() => {
@@ -225,7 +215,7 @@ export default function DenoiseModal({ onClose, onDenoise, onSave, onOpenFile }:
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget && mouseDownTarget.current === e.currentTarget) {
-      handleClose();
+        handleClose();
     }
     mouseDownTarget.current = null;
   };
@@ -261,7 +251,9 @@ export default function DenoiseModal({ onClose, onDenoise, onSave, onOpenFile }:
         <div className="flex flex-col items-center justify-center py-10 h-[400px]">
           <XCircle className="w-16 h-16 text-red-500 mb-4" />
           <h3 className="text-lg font-semibold text-text-primary mb-2 text-center">Processing Failed</h3>
-          <p className="text-sm text-text-secondary text-center p-2 rounded-md max-w-md">{String(error)}</p>
+          <p className="text-sm text-text-secondary text-center p-2 rounded-md max-w-md">
+            {String(error)}
+          </p>
         </div>
       );
     }
@@ -305,11 +297,7 @@ export default function DenoiseModal({ onClose, onDenoise, onSave, onOpenFile }:
 
   const renderButtons = () => {
     if (error) {
-      return (
-        <Button onClick={handleClose} className="w-full">
-          Close
-        </Button>
-      );
+        return <Button onClick={handleClose} className="w-full">Close</Button>;
     }
 
     if (savedPath) {
@@ -331,45 +319,43 @@ export default function DenoiseModal({ onClose, onDenoise, onSave, onOpenFile }:
     return (
       <div className="w-full flex items-center gap-4">
         <div className={`flex-1 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-          <Slider
-            label="Strength"
-            value={intensity}
-            min={0}
-            max={100}
-            step={1}
-            defaultValue={50}
-            onChange={(e) => setIntensity(Number(e.target.value))}
-            trackClassName="bg-bg-secondary"
-          />
+            <Slider
+                label="Strength"
+                value={intensity}
+                min={0}
+                max={100}
+                step={1}
+                defaultValue={50}
+                onChange={(e) => setIntensity(Number(e.target.value))}
+                trackClassName="bg-bg-secondary"
+            />
         </div>
-
+        
         <div className="h-8 w-px bg-surface mx-2" />
 
         <div className="flex gap-2">
-          <button
+            <button
             onClick={handleClose}
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm"
-          >
+            >
             {previewBase64 ? 'Close' : 'Cancel'}
-          </button>
-
-          <Button onClick={handleRunDenoise} disabled={isProcessing} variant={previewBase64 ? 'secondary' : 'primary'}>
-            {isProcessing ? (
-              <Loader2 className="animate-spin mr-2" size={16} />
-            ) : previewBase64 ? (
-              <RefreshCw className="mr-2" size={16} />
-            ) : (
-              <Grip className="mr-2" size={16} />
-            )}
-            {previewBase64 ? 'Retry' : 'Start'}
-          </Button>
-
-          {previewBase64 && (
-            <Button onClick={handleSave} disabled={isSaving || isProcessing}>
-              {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
-              Save Image
+            </button>
+            
+            <Button 
+                onClick={handleRunDenoise} 
+                disabled={isProcessing} 
+                variant={previewBase64 ? 'secondary' : 'primary'}
+            >
+                {isProcessing ? <Loader2 className="animate-spin mr-2" size={16} /> : previewBase64 ? <RefreshCw className="mr-2" size={16} /> : <Grip className="mr-2" size={16} />}
+                {previewBase64 ? 'Retry' : 'Start'}
             </Button>
-          )}
+
+            {previewBase64 && (
+                <Button onClick={handleSave} disabled={isSaving || isProcessing}>
+                    {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
+                    Save Image
+                </Button>
+            )}
         </div>
       </div>
     );
@@ -390,11 +376,11 @@ export default function DenoiseModal({ onClose, onDenoise, onSave, onOpenFile }:
           show ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 -translate-y-4'
         }`}
         onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()} 
       >
         <div className="flex flex-col">
           {renderContent()}
-
+          
           {!savedPath && <div className="mt-4 pt-4 flex justify-end gap-3">{renderButtons()}</div>}
           {savedPath && <div className="mt-4 flex justify-end gap-3">{renderButtons()}</div>}
         </div>

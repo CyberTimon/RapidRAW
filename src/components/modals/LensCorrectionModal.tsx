@@ -25,7 +25,6 @@ import throttle from 'lodash.throttle';
 import { Adjustments } from '../../utils/adjustments';
 import { SelectedImage } from '../ui/AppProperties';
 import clsx from 'clsx';
-import { useAppState } from '../../context/ContextProviders';
 
 interface GeometryParams {
   distortion: number;
@@ -85,6 +84,7 @@ interface LensCorrectionModalProps {
   onClose(): void;
   onApply(newParams: LensParams): void;
   currentAdjustments: Adjustments;
+  selectedImage: SelectedImage | null;
 }
 
 const DEFAULT_PARAMS: LensParams = {
@@ -124,8 +124,8 @@ export default function LensCorrectionModal({
   onClose,
   onApply,
   currentAdjustments,
+  selectedImage,
 }: LensCorrectionModalProps) {
-  const { selectedImage } = useAppState();
   const [params, setParams] = useState<LensParams>(DEFAULT_PARAMS);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);

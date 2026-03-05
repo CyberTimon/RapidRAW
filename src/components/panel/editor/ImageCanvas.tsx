@@ -9,7 +9,6 @@ import { BrushSettings, SelectedImage } from '../../ui/AppProperties';
 import { RenderSize } from '../../../hooks/useImageRenderSize';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
-import { useAppState } from '../../../context/ContextProviders';
 
 interface CursorPreview {
   visible: boolean;
@@ -25,23 +24,40 @@ interface DrawnLine {
 }
 
 interface ImageCanvasProps {
+  activeAiPatchContainerId: string | null;
+  activeAiSubMaskId: string | null;
+  activeMaskContainerId: string | null;
+  activeMaskId: string | null;
+  adjustments: Adjustments;
+  brushSettings: BrushSettings | null;
   crop: Crop | null;
+  finalPreviewUrl: string | null;
   handleCropComplete(c: Crop, cp: PercentCrop): void;
   imageRenderSize: RenderSize;
   isAiEditing: boolean;
   isCropping: boolean;
+  isMaskControlHovered: boolean;
   isMasking: boolean;
+  isStraightenActive: boolean;
+  isRotationActive?: boolean;
   maskOverlayUrl: string | null;
   onGenerateAiMask(id: string | null, start: Coord, end: Coord): void;
   onQuickErase(subMaskId: string | null, startPoint: Coord, endpoint: Coord): void;
   onSelectAiSubMask(id: string | null): void;
   onSelectMask(id: string | null): void;
   onStraighten(val: number): void;
+  selectedImage: SelectedImage;
   setCrop(crop: Crop, perfentCrop: PercentCrop): void;
   setIsMaskHovered(isHovered: boolean): void;
+  showOriginal: boolean;
+  transformedOriginalUrl: string | null;
+  uncroppedAdjustedPreviewUrl: string | null;
   updateSubMask(id: string | null, subMask: Partial<SubMask>): void;
+  isWbPickerActive?: boolean;
   onWbPicked?: () => void;
   setAdjustments(fn: (prev: Adjustments) => Adjustments): void;
+  overlayMode?: OverlayMode;
+  overlayRotation?: number;
   cursorStyle: string;
   isMaxZoom?: boolean;
 }
@@ -454,48 +470,43 @@ const MaskOverlay = memo(
 
 const ImageCanvas = memo(
   ({
+    activeAiPatchContainerId,
+    activeAiSubMaskId,
+    activeMaskContainerId,
+    activeMaskId,
+    adjustments,
+    brushSettings,
     crop,
+    finalPreviewUrl,
     handleCropComplete,
     imageRenderSize,
     isAiEditing,
     isCropping,
+    isMaskControlHovered,
     isMasking,
+    isStraightenActive,
+    isRotationActive,
     maskOverlayUrl,
     onGenerateAiMask,
     onQuickErase,
     onSelectAiSubMask,
     onSelectMask,
     onStraighten,
+    selectedImage,
     setCrop,
     setIsMaskHovered,
+    showOriginal,
+    transformedOriginalUrl,
+    uncroppedAdjustedPreviewUrl,
     updateSubMask,
+    isWbPickerActive = false,
     onWbPicked,
+    setAdjustments,
+    overlayRotation,
+    overlayMode,
     cursorStyle,
     isMaxZoom,
   }: ImageCanvasProps) => {
-    const {
-      selectedImage,
-      finalPreviewUrl,
-      uncroppedAdjustedPreviewUrl,
-      showOriginal,
-      adjustments,
-      setAdjustments,
-      activeMaskContainerId,
-      activeMaskId,
-      activeAiPatchContainerId,
-      activeAiSubMaskId,
-      isRotationActive,
-      overlayMode,
-      overlayRotation,
-      transformedOriginalUrl,
-      isStraightenActive,
-      isWbPickerActive,
-      brushSettings,
-      isMaskControlHovered,
-    } = useAppState();
-
-    if (!selectedImage) return <></>;
-
     const [isCropViewVisible, setIsCropViewVisible] = useState(false);
     const cropImageRef = useRef<HTMLImageElement>(null);
     const [displayedMaskUrl, setDisplayedMaskUrl] = useState<string | null>(null);

@@ -9,7 +9,6 @@ import { Adjustments, SectionVisibility, INITIAL_ADJUSTMENTS, ADJUSTMENT_SECTION
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { OPTION_SEPARATOR, SelectedImage, AppSettings } from '../../ui/AppProperties';
 import { ChannelConfig } from '../../adjustments/Curves';
-import { useAppState } from '../../../context/ContextProviders';
 
 interface ControlsPanelOption {
   disabled?: boolean;
@@ -20,32 +19,41 @@ interface ControlsPanelOption {
 }
 
 interface ControlsProps {
+  adjustments: Adjustments;
+  collapsibleState: any;
+  copiedSectionAdjustments: Adjustments | null;
   handleAutoAdjustments(): void;
   handleLutSelect(path: string): void;
+  histogram: ChannelConfig | null;
+  selectedImage: SelectedImage;
+  setAdjustments(updater: (prev: Adjustments) => Adjustments): void;
+  setCollapsibleState(state: any): void;
+  setCopiedSectionAdjustments(adjustments: any): void;
+  theme: string;
+  appSettings: AppSettings | null;
+  isWbPickerActive?: boolean;
   toggleWbPicker?: () => void;
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
 export default function Controls({
+  adjustments,
+  collapsibleState,
+  copiedSectionAdjustments,
   handleAutoAdjustments,
   handleLutSelect,
+  histogram,
+  selectedImage,
+  setAdjustments,
+  setCollapsibleState,
+  setCopiedSectionAdjustments,
+  theme,
+  appSettings,
+  isWbPickerActive,
   toggleWbPicker,
   onDragStateChange,
 }: ControlsProps) {
   const { showContextMenu } = useContextMenu();
-  const {
-    selectedImage,
-    appSettings,
-    adjustments,
-    histogram,
-    theme,
-    isWbPickerActive,
-    copiedSectionAdjustments,
-    setCopiedSectionAdjustments,
-    collapsibleSectionsState: collapsibleState,
-    setCollapsibleSectionsState: setCollapsibleState,
-    setAdjustments,
-  } = useAppState();
 
   const handleToggleVisibility = (sectionName: string) => {
     setAdjustments((prev: Adjustments) => {

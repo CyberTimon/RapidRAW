@@ -1,16 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Switch from '../ui/Switch';
 import { FILENAME_VARIABLES } from '../ui/ExportImportProperties';
-import { useAppState } from '../../context/ContextProviders';
 
 interface ImportSettingsModalProps {
   fileCount: number;
+  isOpen: boolean;
   onClose(): void;
   onSave(settings: any): void;
 }
 
-export default function ImportSettingsModal({ fileCount, onClose, onSave }: ImportSettingsModalProps) {
-  const { isImportModalOpen: isOpen } = useAppState();
+export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave }: ImportSettingsModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
 

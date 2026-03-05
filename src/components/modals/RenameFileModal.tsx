@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FILENAME_VARIABLES } from '../ui/ExportImportProperties';
-import { useAppState } from '../../context/ContextProviders';
 
 interface RenameFileModalProps {
+  filesToRename: Array<string>;
+  isOpen: boolean;
   onClose(): void;
   onSave(template: any): void;
 }
 
-export default function RenameFileModal({ onClose, onSave }: RenameFileModalProps) {
-  const { isRenameFileModalOpen: isOpen, renameTargetPaths: filesToRename } = useAppState();
+export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave }: RenameFileModalProps) {
   const [nameTemplate, setNameTemplate] = useState('');
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
