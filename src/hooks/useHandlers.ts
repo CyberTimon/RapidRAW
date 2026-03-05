@@ -13,10 +13,13 @@ import { useHandleBackToLibrary } from './handlers/useHandleBackToLibrary';
 import { useHandleClearSelection } from './handlers/useHandleClearSelection';
 import { useHandleContinueSession } from './handlers/useHandleContinueSession';
 import { useHandleCopyAdjustments } from './handlers/useHandleCopyAdjustments';
+import { useHandleCreateFolder } from './handlers/useHandleCreateFolder';
 import { useHandleDeleteAiPatch } from './handlers/useHandleDeleteAiPatch';
 import { useHandleDeleteMaskContainer } from './handlers/useHandleDeleteMaskContainer';
 import { useHandleDeleteSelected } from './handlers/useHandleDeleteSelected';
 import { useHandleDisplaySizeChange } from './handlers/useHandleDisplaySizeChange';
+import { useHandleEditorContextMenu } from './handlers/useHandleEditorContextMenu';
+import { useHandleFolderTreeContextMenu } from './handlers/useHandleFolderTreeContextMenu';
 import { useHandleFullResolutionLogic } from './handlers/useHandleFullResolutionLogic';
 import { useHandleGenerateAiForegroundMask } from './handlers/useHandleGenerateAiForegroundMask';
 import { useHandleGenerateAiMask } from './handlers/useHandleGenerateAiMask';
@@ -29,6 +32,7 @@ import { useHandleImportClick } from './handlers/useHandleImportClick';
 import { useHandleLibraryImageSingleClick } from './handlers/useHandleLibraryImageSingleClick';
 import { useHandleLibraryRefresh } from './handlers/useHandleLibraryRefresh';
 import { useHandleLutSelect } from './handlers/useHandleLutSelect';
+import { useHandleMainLibraryContextMenu } from './handlers/useHandleMainLibraryContextMenu';
 import { useHandleMultiselectClick } from './handlers/useHandleMultiSelectClick';
 import { useHandleOpenFolder } from './handlers/useHandleOpenFolder';
 import { useHandlePasteAdjustments } from './handlers/useHandlePasteAdjustments';
@@ -36,6 +40,7 @@ import { useHandlePasteFiles } from './handlers/useHandlePasteFiles';
 import { useHandleQuickErase } from './handlers/useHandleQuickErase';
 import { useHandleRate } from './handlers/useHandleRate';
 import { useHandleRenameFiles } from './handlers/useHandleRenameFiles';
+import { useHandleRenameFolder } from './handlers/useHandleRenameFolder';
 import { useHandleResetAdjustments } from './handlers/useHandleResetAdjustments';
 import { useHandleRightPanelSelect } from './handlers/useHandleRightPanelSelect';
 import { useHandleSaveCollage } from './handlers/useHandleSaveCollage';
@@ -49,6 +54,7 @@ import { useHandleSettingsChange } from './handlers/useHandleSettingsChange';
 import { useHandleStartImport } from './handlers/useHandleStartImport';
 import { useHandleStraighten } from './handlers/useHandleStraighten';
 import { useHandleTagsChanged } from './handlers/useHandleTagsChanged';
+import { useHandleThumbnailContextMenu } from './handlers/useHandleThumbnailContextmenu';
 import { useHandleToggleAiPatchVisibility } from './handlers/useHandleToggleAiPatchVisibility';
 import { useHandleToggleFolder } from './handlers/useHandleToggleFolder';
 import { useHandleToggleFullScreen } from './handlers/useHandleToggleFullScreen';
@@ -134,5 +140,11 @@ export function useHandlers() {
     handleStartImport: useHandleStartImport(),
     handleResetAdjustments: useHandleResetAdjustments(),
     handleImportClick: useHandleImportClick(),
+    handleEditorContextMenu: useHandleEditorContextMenu(),
+    handleThumbnailContextMenu: useHandleThumbnailContextMenu(),
+    handleCreateFolder: useHandleCreateFolder(),
+    handleRenameFolder: useHandleRenameFolder(),
+    handleFolderTreeContextMenu: useHandleFolderTreeContextMenu(),
+    handleMainLibraryContextMenu: useHandleMainLibraryContextMenu(),
   };
 }
