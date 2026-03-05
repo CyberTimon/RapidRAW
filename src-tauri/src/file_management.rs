@@ -180,7 +180,7 @@ pub struct CopyPasteSettings {
     pub mode: PasteMode,
     #[serde(default = "default_included_adjustments")]
     pub included_adjustments: HashSet<String>,
-    #[serde(default)] 
+    #[serde(default)]
     pub known_adjustments: HashSet<String>,
 }
 
@@ -189,7 +189,7 @@ impl Default for CopyPasteSettings {
         Self {
             mode: PasteMode::Merge,
             included_adjustments: default_included_adjustments(),
-            known_adjustments: default_included_adjustments(), 
+            known_adjustments: default_included_adjustments(),
         }
     }
 }
@@ -432,10 +432,10 @@ pub struct ImportSettings {
 pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
     let (source_path_str, copy_id) =
         if let Some((base, id)) = virtual_path.rsplit_once("?vc=") {
-            (base.to_string(), Some(id.to_string()))
-        } else {
-            (virtual_path.to_string(), None)
-        };
+        (base.to_string(), Some(id.to_string()))
+    } else {
+        (virtual_path.to_string(), None)
+    };
 
     let source_path = PathBuf::from(source_path_str);
 
@@ -554,7 +554,7 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                         serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
                     } else { ImageMetadata::default() }
                 } else { ImageMetadata::default() };
-    
+
                 let source_path_buf = PathBuf::from(&path_str);
                 if enable_xmp_sync {
                     if sync_metadata_from_xmp(&source_path_buf, &mut metadata) {
@@ -563,13 +563,13 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                         }
                     }
                 }
-    
+
                 let edited = metadata.adjustments.as_object().map_or(false, |a| {
                     a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
                 });
                 (edited, metadata.tags)
             };
-    
+
             result_list.push(ImageFile {
                 path: virtual_path,
                 modified,
@@ -601,7 +601,7 @@ pub fn list_images_recursive(path: String, app_handle: AppHandle) -> Result<Vec<
         if !entry_path.is_file() {
             continue;
         }
-        
+
         let file_name = entry_path.file_name().unwrap_or_default().to_string_lossy();
 
         if is_supported_image_file(&entry_path.to_string_lossy().as_ref()) {
@@ -661,7 +661,7 @@ pub fn list_images_recursive(path: String, app_handle: AppHandle) -> Result<Vec<
                         serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
                     } else { ImageMetadata::default() }
                 } else { ImageMetadata::default() };
-    
+
                 let source_path_buf = PathBuf::from(&path_str);
                 if enable_xmp_sync {
                     if sync_metadata_from_xmp(&source_path_buf, &mut metadata) {
@@ -670,13 +670,13 @@ pub fn list_images_recursive(path: String, app_handle: AppHandle) -> Result<Vec<
                         }
                     }
                 }
-    
+
                 let edited = metadata.adjustments.as_object().map_or(false, |a| {
                     a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
                 });
                 (edited, metadata.tags)
             };
-    
+
             result_list.push(ImageFile {
                 path: virtual_path,
                 modified,
@@ -882,8 +882,8 @@ pub fn generate_thumbnail_data(
                 let composite_image = if let Some(img) = preloaded_image {
                     image_loader::composite_patches_on_image(img, &adjustments)?
                 } else {
-                    let mmap_guard; 
-                    let vec_guard; 
+                    let mmap_guard;
+                    let vec_guard;
 
                     let file_slice: &[u8] = match read_file_mapped(&source_path) {
                         Ok(mmap) => {
@@ -914,8 +914,8 @@ pub fn generate_thumbnail_data(
 
                     if is_raw {
                         raw_scale_factor = crate::raw_processing::get_fast_demosaic_scale_factor(
-                            file_slice, 
-                            img.width(), 
+                            file_slice,
+                            img.width(),
                             img.height()
                         );
                     }
@@ -925,24 +925,24 @@ pub fn generate_thumbnail_data(
                 let warped_image = apply_geometry_warp(&composite_image, &meta.adjustments);
                 let orientation_steps = meta.adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
                 let coarse_rotated_image = apply_coarse_rotation(warped_image, orientation_steps);
-                
+
                 let (full_w, full_h) = coarse_rotated_image.dimensions();
 
                 let (base, gpu_scale) = if full_w > THUMBNAIL_PROCESSING_DIM || full_h > THUMBNAIL_PROCESSING_DIM {
-                    let base = crate::image_processing::downscale_f32_image(
-                        &coarse_rotated_image,
-                        THUMBNAIL_PROCESSING_DIM,
-                        THUMBNAIL_PROCESSING_DIM,
-                    );
-                    let scale = if full_w > 0 {
-                        base.width() as f32 / full_w as f32
+                        let base = crate::image_processing::downscale_f32_image(
+                            &coarse_rotated_image,
+                            THUMBNAIL_PROCESSING_DIM,
+                            THUMBNAIL_PROCESSING_DIM,
+                        );
+                        let scale = if full_w > 0 {
+                            base.width() as f32 / full_w as f32
+                        } else {
+                            1.0
+                        };
+                        (base, scale)
                     } else {
-                        1.0
+                        (coarse_rotated_image.clone(), 1.0)
                     };
-                    (base, scale)
-                } else {
-                    (coarse_rotated_image.clone(), 1.0)
-                };
 
                 let total_scale = gpu_scale * raw_scale_factor;
 
@@ -1044,7 +1044,7 @@ pub fn generate_thumbnail_data(
     let mut final_image = if let Some(img) = preloaded_image {
         image_loader::composite_patches_on_image(img, &adjustments)?
     } else {
-         match read_file_mapped(&source_path) {
+        match read_file_mapped(&source_path) {
             Ok(mmap) => image_loader::load_and_composite(
                 &mmap,
                 &source_path_str,
@@ -1857,7 +1857,7 @@ pub fn apply_auto_adjustments_to_paths(
             if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
                 let _ = std::fs::write(&sidecar_path, json_string);
             }
-            
+
             if enable_xmp_sync {
                 sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
             }
@@ -1974,7 +1974,7 @@ pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadat
     } else {
         ImageMetadata::default()
     };
-    
+
     if enable_xmp_sync {
         if sync_metadata_from_xmp(&source_path, &mut metadata) {
             if let Ok(json) = serde_json::to_string_pretty(&metadata) {
@@ -1982,7 +1982,7 @@ pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadat
             }
         }
     }
-    
+
     Ok(metadata)
 }
 
@@ -2023,11 +2023,41 @@ fn get_settings_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, Strin
         .app_data_dir()
         .map_err(|e| e.to_string())?;
 
-    if !settings_dir.exists() {
-        fs::create_dir_all(&settings_dir).map_err(|e| e.to_string())?;
+    let settings_filename = "settings.json";
+    let settings_path = settings_dir.join(settings_filename);
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    {
+        let home_dir = match std::env::var_os("HOME") {
+            Some(path) => path,
+            None => todo!(),
+        };
+        let mut config_dir = std::path::PathBuf::new();
+        config_dir.push(home_dir);
+        config_dir.push(".config");
+        config_dir.push("RapidRaw");
+
+        if !config_dir.exists() {
+            fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+        }
+
+        let config_path = config_dir.join(settings_filename);
+
+        if !config_path.exists() && settings_path.exists() {
+            let _ = std::fs::copy(&settings_path, &config_path);
+        }
+
+        Ok(config_path)
     }
 
-    Ok(settings_dir.join("settings.json"))
+    #[cfg(target_os = "windows")]
+    {
+        if !settings_dir.exists() {
+            fs::create_dir_all(&settings_dir).map_err(|e| e.to_string())?;
+        }
+
+        Ok(settings_path)
+    }
 }
 
 #[tauri::command]
@@ -2705,8 +2735,8 @@ pub fn rename_files(paths: Vec<String>, name_template: String) -> Result<Vec<Str
                     let new_sidecar_path = parent.join(new_sidecar_filename);
                     sidecar_operations.insert(entry_path, new_sidecar_path);
                 } else if entry_filename == format!("{}.rrdata", original_filename_str) {
-                     let new_sidecar_path = new_path.with_extension("rrdata");
-                     sidecar_operations.insert(entry_path, new_sidecar_path);
+                    let new_sidecar_path = new_path.with_extension("rrdata");
+                    sidecar_operations.insert(entry_path, new_sidecar_path);
                 }
             }
         }
@@ -2716,7 +2746,7 @@ pub fn rename_files(paths: Vec<String>, name_template: String) -> Result<Vec<Str
     for (old_path, new_path) in operations {
         fs::rename(&old_path, &new_path).map_err(|e| format!("Failed to rename {} to {}: {}", old_path.display(), new_path.display(), e))?;
         if is_supported_image_file(&new_path.to_string_lossy().as_ref()) {
-             final_new_paths.push(new_path.to_string_lossy().into_owned());
+            final_new_paths.push(new_path.to_string_lossy().into_owned());
         }
     }
 
@@ -2821,7 +2851,7 @@ pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) 
 
             let xmp_label = extract_xmp_label(&content);
             let xmp_tags = extract_xmp_tags(&content);
-            
+
             let mut current_tags = metadata.tags.clone().unwrap_or_default();
             let original_len = current_tags.len();
             let had_no_tags = metadata.tags.is_none();
@@ -2852,7 +2882,7 @@ pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) 
 pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create_if_missing: bool) {
     let xmp_path = source_path.with_extension("xmp");
     let xmp_path_upper = source_path.with_extension("XMP");
-    
+
     let mut actual_xmp = if xmp_path.exists() {
         Some(xmp_path.clone())
     } else if xmp_path_upper.exists() {
@@ -2942,7 +2972,7 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
                     bag.push_str(&format!("     <rdf:li>{}</rdf:li>\n", t));
                 }
                 bag.push_str("    </rdf:Bag>\n   </dc:subject>");
-                
+
                 if re_subject.is_match(&content) {
                     content = re_subject.replace(&content, bag).to_string();
                 } else if let Some(last_index) = content.rfind("</rdf:Description>") {
