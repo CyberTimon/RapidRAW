@@ -806,46 +806,43 @@ fn gaussian_blur_1ch(data: &[f32], width: usize, height: usize, sigma: f32) -> V
         *k /= ksum;
     }
 
-    // Horizontal pass (each row is independent).
+    // Horizontal pass.
     let mut tmp = vec![0.0f32; width * height];
-    tmp.par_chunks_mut(width)
-        .enumerate()
-        .for_each(|(y, row_out)| {
-            let row_in = &data[y * width..(y + 1) * width];
-            for x in 0..width {
-                let mut val = 0.0f32;
-                let mut wsum = 0.0f32;
-                let x0 = x as isize - radius as isize;
-                for ki in 0..klen {
-                    let kx = x0 + ki as isize;
-                    if kx >= 0 && kx < width as isize {
-                        val += row_in[kx as usize] * kernel[ki];
-                        wsum += kernel[ki];
-                    }
+    for y in 0..height {
+        let row_in = &data[y * width..(y + 1) * width];
+        let row_out = &mut tmp[y * width..(y + 1) * width];
+        for x in 0..width {
+            let mut val = 0.0f32;
+            let mut wsum = 0.0f32;
+            let x0 = x as isize - radius as isize;
+            for ki in 0..klen {
+                let kx = x0 + ki as isize;
+                if kx >= 0 && kx < width as isize {
+                    val += row_in[kx as usize] * kernel[ki];
+                    wsum += kernel[ki];
                 }
-                row_out[x] = val / wsum;
             }
-        });
+            row_out[x] = val / wsum;
+        }
+    }
 
-    // Vertical pass (each column is independent; iterate row-major for cache).
+    // Vertical pass.
     let mut out = vec![0.0f32; width * height];
-    out.par_chunks_mut(width)
-        .enumerate()
-        .for_each(|(y, row_out)| {
-            let y0 = y as isize - radius as isize;
-            for x in 0..width {
-                let mut val = 0.0f32;
-                let mut wsum = 0.0f32;
-                for ki in 0..klen {
-                    let ky = y0 + ki as isize;
-                    if ky >= 0 && ky < height as isize {
-                        val += tmp[ky as usize * width + x] * kernel[ki];
-                        wsum += kernel[ki];
-                    }
+    for y in 0..height {
+        let y0 = y as isize - radius as isize;
+        for x in 0..width {
+            let mut val = 0.0f32;
+            let mut wsum = 0.0f32;
+            for ki in 0..klen {
+                let ky = y0 + ki as isize;
+                if ky >= 0 && ky < height as isize {
+                    val += tmp[ky as usize * width + x] * kernel[ki];
+                    wsum += kernel[ki];
                 }
-                row_out[x] = val / wsum;
             }
-        });
+            out[y * width + x] = val / wsum;
+        }
+    }
 
     out
 }
