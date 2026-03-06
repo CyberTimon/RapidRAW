@@ -790,7 +790,7 @@ export default function Editor({
       </div>
 
       <div
-        className={clsx('flex-1 relative overflow-hidden', isFullScreen ? 'rounded-none' : 'rounded-lg')}
+        className={clsx('flex-1 relative', isFullScreen ? 'rounded-none' : 'rounded-lg')}
         onContextMenu={onContextMenu}
         ref={imageContainerRef}
       >
