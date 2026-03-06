@@ -186,13 +186,11 @@ export default function DenoiseModal({
   const [intensity, setIntensity] = useState<number>(15);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
-  const hasUserAdjusted = useRef(false);
 
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      hasUserAdjusted.current = false;
       setIsMounted(true);
       const timer = setTimeout(() => setShow(true), 10);
       return () => clearTimeout(timer);
@@ -206,12 +204,6 @@ export default function DenoiseModal({
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    if (suggestedIntensity !== null && !hasUserAdjusted.current) {
-      setIntensity(suggestedIntensity);
-    }
-  }, [suggestedIntensity]);
 
   const handleClose = useCallback(() => {
     if (isSaving) return;
@@ -335,9 +327,20 @@ export default function DenoiseModal({
                 max={100}
                 step={1}
                 defaultValue={15}
-                onChange={(e) => { hasUserAdjusted.current = true; setIntensity(Number(e.target.value)); }}
+                onChange={(e) => setIntensity(Number(e.target.value))}
                 trackClassName="bg-bg-secondary"
             />
+            {suggestedIntensity !== null && (
+              <div className="flex items-center gap-1.5 mt-1 text-xs text-text-secondary">
+                <span>ISO estimate: {suggestedIntensity}</span>
+                <button
+                  onClick={() => setIntensity(suggestedIntensity)}
+                  className="text-accent hover:underline"
+                >
+                  Apply
+                </button>
+              </div>
+            )}
         </div>
 
         <div className="h-8 w-px bg-surface mx-2" />
