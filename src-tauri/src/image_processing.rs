@@ -992,10 +992,12 @@ pub struct GlobalAdjustments {
     pub red_curve_count: u32,
     pub green_curve_count: u32,
     pub blue_curve_count: u32,
-    _pad_end1: f32,
-    _pad_end2: f32,
-    _pad_end3: f32,
-    _pad_end4: f32,
+    pub lab_curve_l: [Point; 16],
+    pub lab_curve_a: [Point; 16],
+    pub lab_curve_b: [Point; 16],
+    pub lab_curve_l_count: u32,
+    pub lab_curve_a_count: u32,
+    pub lab_curve_b_count: u32,
 
     pub glow_amount: f32,
     pub halation_amount: f32,
@@ -1051,10 +1053,13 @@ pub struct MaskAdjustments {
     pub red_curve_count: u32,
     pub green_curve_count: u32,
     pub blue_curve_count: u32,
-    _pad_end4: f32,
-    _pad_end5: f32,
-    _pad_end6: f32,
-    _pad_end7: f32,
+    pub lab_curve_l: [Point; 16],
+    pub lab_curve_a: [Point; 16],
+    pub lab_curve_b: [Point; 16],
+    pub lab_curve_l_count: u32,
+    pub lab_curve_a_count: u32,
+    pub lab_curve_b_count: u32,
+    pub _pad_end: f32,
 }
 
 #[derive(Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -1066,6 +1071,7 @@ pub struct AllAdjustments {
     pub tile_offset_x: u32,
     pub tile_offset_y: u32,
     pub mask_atlas_cols: u32,
+    pub _pad_tail: [[f32; 4]; 3],
 }
 
 struct AdjustmentScales {
@@ -1364,6 +1370,21 @@ fn get_global_adjustments_from_json(
     } else {
         Vec::new()
     };
+    let lab_l_points: Vec<serde_json::Value> = if is_visible("curves") {
+        curves_obj["labL"].as_array().cloned().unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let lab_a_points: Vec<serde_json::Value> = if is_visible("curves") {
+        curves_obj["labA"].as_array().cloned().unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let lab_b_points: Vec<serde_json::Value> = if is_visible("curves") {
+        curves_obj["labB"].as_array().cloned().unwrap_or_default()
+    } else {
+        Vec::new()
+    };
 
     let cg_obj = js_adjustments
         .get("colorGrading")
@@ -1538,10 +1559,12 @@ fn get_global_adjustments_from_json(
         red_curve_count: red_points.len() as u32,
         green_curve_count: green_points.len() as u32,
         blue_curve_count: blue_points.len() as u32,
-        _pad_end1: 0.0,
-        _pad_end2: 0.0,
-        _pad_end3: 0.0,
-        _pad_end4: 0.0,
+        lab_curve_l: convert_points_to_aligned(lab_l_points.clone()),
+        lab_curve_a: convert_points_to_aligned(lab_a_points.clone()),
+        lab_curve_b: convert_points_to_aligned(lab_b_points.clone()),
+        lab_curve_l_count: lab_l_points.len() as u32,
+        lab_curve_a_count: lab_a_points.len() as u32,
+        lab_curve_b_count: lab_b_points.len() as u32,
 
         glow_amount: get_val("effects", "glowAmount", SCALES.glow, None),
         halation_amount: get_val("effects", "halationAmount", SCALES.halation, None),
@@ -1590,6 +1613,21 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
     };
     let blue_points: Vec<serde_json::Value> = if is_visible("curves") {
         curves_obj["blue"].as_array().cloned().unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let lab_l_points: Vec<serde_json::Value> = if is_visible("curves") {
+        curves_obj["labL"].as_array().cloned().unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let lab_a_points: Vec<serde_json::Value> = if is_visible("curves") {
+        curves_obj["labA"].as_array().cloned().unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let lab_b_points: Vec<serde_json::Value> = if is_visible("curves") {
+        curves_obj["labB"].as_array().cloned().unwrap_or_default()
     } else {
         Vec::new()
     };
@@ -1670,10 +1708,13 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
         red_curve_count: red_points.len() as u32,
         green_curve_count: green_points.len() as u32,
         blue_curve_count: blue_points.len() as u32,
-        _pad_end4: 0.0,
-        _pad_end5: 0.0,
-        _pad_end6: 0.0,
-        _pad_end7: 0.0,
+        lab_curve_l: convert_points_to_aligned(lab_l_points.clone()),
+        lab_curve_a: convert_points_to_aligned(lab_a_points.clone()),
+        lab_curve_b: convert_points_to_aligned(lab_b_points.clone()),
+        lab_curve_l_count: lab_l_points.len() as u32,
+        lab_curve_a_count: lab_a_points.len() as u32,
+        lab_curve_b_count: lab_b_points.len() as u32,
+        _pad_end: 0.0,
     }
 }
 
@@ -1707,6 +1748,7 @@ pub fn get_all_adjustments_from_json(
         tile_offset_x: 0,
         tile_offset_y: 0,
         mask_atlas_cols: 1,
+        _pad_tail: [[0.0; 4]; 3],
     }
 }
 

@@ -14,6 +14,9 @@ export interface ChannelConfig {
   [ActiveChannel.Red]: ColorData;
   [ActiveChannel.Green]: ColorData;
   [ActiveChannel.Blue]: ColorData;
+  [ActiveChannel.LabL]: ColorData;
+  [ActiveChannel.LabA]: ColorData;
+  [ActiveChannel.LabB]: ColorData;
 }
 
 interface ColorData {
@@ -284,6 +287,9 @@ export default function CurveGraph({
     red: { color: '#FF6B6B', data: histogram?.red },
     green: { color: '#6BCB77', data: histogram?.green },
     blue: { color: '#4D96FF', data: histogram?.blue },
+    labL: { color: '#E8E8E8', data: histogram?.luma },
+    labA: { color: '#E86B6B', data: histogram?.red },
+    labB: { color: '#4D96FF', data: histogram?.blue },
   };
 
   const propPoints = adjustments?.curves?.[activeChannel];
@@ -434,6 +440,9 @@ export default function CurveGraph({
           [ActiveChannel.Red]: defaultPoints,
           [ActiveChannel.Green]: defaultPoints,
           [ActiveChannel.Blue]: defaultPoints,
+          [ActiveChannel.LabL]: defaultPoints,
+          [ActiveChannel.LabA]: defaultPoints,
+          [ActiveChannel.LabB]: defaultPoints,
         },
       }));
     };
@@ -442,7 +451,10 @@ export default function CurveGraph({
       ActiveChannel.Luma,
       ActiveChannel.Red,
       ActiveChannel.Green,
-      ActiveChannel.Blue
+      ActiveChannel.Blue,
+      ActiveChannel.LabL,
+      ActiveChannel.LabA,
+      ActiveChannel.LabB,
     ].some(channel => {
       if (channel === activeChannel) return false;
       return !isDefaultCurve(adjustments.curves?.[channel]);

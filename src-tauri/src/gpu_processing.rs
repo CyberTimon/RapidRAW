@@ -382,9 +382,12 @@ impl GpuProcessor {
             cache: None,
         });
 
+        // WGSL uniform layout may require a larger size than repr(C); round up to multiple of 16
+        // so the bound buffer size satisfies the shader (see "buffer bound with size X where shader expects Y").
+        let adjustments_size = std::mem::size_of::<AllAdjustments>() as u64;
         let adjustments_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Adjustments Buffer"),
-            size: std::mem::size_of::<AllAdjustments>() as u64,
+            size: ((adjustments_size + 15) / 16) * 16,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });

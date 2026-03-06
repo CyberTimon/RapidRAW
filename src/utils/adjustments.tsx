@@ -5,6 +5,9 @@ import { SubMask, SubMaskMode } from '../components/panel/right/Masks';
 export enum ActiveChannel {
   Blue = 'blue',
   Green = 'green',
+  LabA = 'labA',
+  LabB = 'labB',
+  LabL = 'labL',
   Luma = 'luma',
   Red = 'red',
 }
@@ -239,6 +242,9 @@ export interface Curves {
   [index: string]: Array<Coord>;
   blue: Array<Coord>;
   green: Array<Coord>;
+  labA: Array<Coord>;
+  labB: Array<Coord>;
+  labL: Array<Coord>;
   luma: Array<Coord>;
   red: Array<Coord>;
 }
@@ -360,6 +366,18 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
       { x: 0, y: 0 },
       { x: 255, y: 255 },
     ],
+    labA: [
+      { x: 0, y: 0 },
+      { x: 255, y: 255 },
+    ],
+    labB: [
+      { x: 0, y: 0 },
+      { x: 255, y: 255 },
+    ],
+    labL: [
+      { x: 0, y: 0 },
+      { x: 255, y: 255 },
+    ],
     luma: [
       { x: 0, y: 0 },
       { x: 255, y: 255 },
@@ -432,6 +450,18 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
       { x: 255, y: 255 },
     ],
     green: [
+      { x: 0, y: 0 },
+      { x: 255, y: 255 },
+    ],
+    labA: [
+      { x: 0, y: 0 },
+      { x: 255, y: 255 },
+    ],
+    labB: [
+      { x: 0, y: 0 },
+      { x: 255, y: 255 },
+    ],
+    labL: [
       { x: 0, y: 0 },
       { x: 255, y: 255 },
     ],

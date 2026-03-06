@@ -101,10 +101,12 @@ struct GlobalAdjustments {
     red_curve_count: u32,
     green_curve_count: u32,
     blue_curve_count: u32,
-    _pad_end1: f32,
-    _pad_end2: f32,
-    _pad_end3: f32,
-    _pad_end4: f32,
+    lab_curve_l: array<Point, 16>,
+    lab_curve_a: array<Point, 16>,
+    lab_curve_b: array<Point, 16>,
+    lab_curve_l_count: u32,
+    lab_curve_a_count: u32,
+    lab_curve_b_count: u32,
 
     glow_amount: f32,
     halation_amount: f32,
@@ -158,10 +160,13 @@ struct MaskAdjustments {
     red_curve_count: u32,
     green_curve_count: u32,
     blue_curve_count: u32,
-    _pad_end4: f32,
-    _pad_end5: f32,
-    _pad_end6: f32,
-    _pad_end7: f32,
+    lab_curve_l: array<Point, 16>,
+    lab_curve_a: array<Point, 16>,
+    lab_curve_b: array<Point, 16>,
+    lab_curve_l_count: u32,
+    lab_curve_a_count: u32,
+    lab_curve_b_count: u32,
+    _pad_end: f32,
 }
 
 struct AllAdjustments {
@@ -171,6 +176,7 @@ struct AllAdjustments {
     tile_offset_x: u32,
     tile_offset_y: u32,
     mask_atlas_cols: u32,
+    _pad_tail: array<vec4<f32>, 3>,
 }
 
 struct HslRange {
@@ -234,6 +240,47 @@ fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
     let higher = (1.0 + a) * pow(c_clamped, vec3<f32>(1.0 / 2.4)) - a;
     let lower = c_clamped * 12.92;
     return select(higher, lower, c_clamped <= cutoff);
+}
+
+fn lab_f(t: f32) -> f32 {
+    return select(7.787 * t + 0.137931034, pow(max(t, 0.0), 0.33333334), t > 0.008856);
+}
+
+fn lab_inv_f(t: f32) -> f32 {
+    return select((t - 0.137931034) / 7.787, t * t * t, t > 0.20689655);
+}
+
+fn srgb_to_lab(c: vec3<f32>) -> vec3<f32> {
+    let lin = srgb_to_linear(c);
+    let x = lin.r * 0.4124564 + lin.g * 0.3575761 + lin.b * 0.1804375;
+    let y = lin.r * 0.2126729 + lin.g * 0.7151522 + lin.b * 0.0721750;
+    let z = lin.r * 0.0193339 + lin.g * 0.1191920 + lin.b * 0.9503041;
+    let xn = 0.95047;
+    let yn = 1.0;
+    let zn = 1.08883;
+    let fx = lab_f(x / xn);
+    let fy = lab_f(y / yn);
+    let fz = lab_f(z / zn);
+    let L = 116.0 * fy - 16.0;
+    let a = 500.0 * (fx - fy);
+    let b = 200.0 * (fy - fz);
+    return vec3<f32>(L, a, b);
+}
+
+fn lab_to_srgb(lab: vec3<f32>) -> vec3<f32> {
+    let xn = 0.95047;
+    let yn = 1.0;
+    let zn = 1.08883;
+    let fy = (lab.x + 16.0) / 116.0;
+    let fx = lab.y / 500.0 + fy;
+    let fz = fy - lab.z / 200.0;
+    let x = xn * lab_inv_f(fx);
+    let y = yn * lab_inv_f(fy);
+    let z = zn * lab_inv_f(fz);
+    let r = x * 3.2404542 + y * (-1.5371385) + z * (-0.4985314);
+    let g = x * (-0.9692660) + y * 1.8760108 + z * 0.0415560;
+    let b = x * 0.0556434 + y * (-0.2040259) + z * 1.0572252;
+    return linear_to_srgb(vec3<f32>(r, g, b));
 }
 
 fn rgb_to_hsv(c: vec3<f32>) -> vec3<f32> {
@@ -1025,6 +1072,24 @@ fn apply_all_curves(color: vec3<f32>, luma_curve: array<Point, 16>, luma_curve_c
     }
 }
 
+fn apply_lab_curves(color: vec3<f32>, lab_curve_l: array<Point, 16>, lab_curve_l_count: u32, lab_curve_a: array<Point, 16>, lab_curve_a_count: u32, lab_curve_b: array<Point, 16>, lab_curve_b_count: u32) -> vec3<f32> {
+    let l_def = is_default_curve(lab_curve_l, lab_curve_l_count);
+    let a_def = is_default_curve(lab_curve_a, lab_curve_a_count);
+    let b_def = is_default_curve(lab_curve_b, lab_curve_b_count);
+    if (l_def && a_def && b_def) { return color; }
+    let lab = srgb_to_lab(color);
+    let L_in = clamp(lab.x, 0.0, 100.0);
+    let a_in = clamp(lab.y, -128.0, 127.0);
+    let b_in = clamp(lab.z, -128.0, 127.0);
+    let L_norm = L_in / 100.0;
+    let a_norm = (a_in + 128.0) / 256.0;
+    let b_norm = (b_in + 128.0) / 256.0;
+    let L_out = clamp(apply_curve(L_norm, lab_curve_l, lab_curve_l_count) * 100.0, 0.0, 100.0);
+    let a_out = clamp(apply_curve(a_norm, lab_curve_a, lab_curve_a_count) * 256.0 - 128.0, -128.0, 127.0);
+    let b_out = clamp(apply_curve(b_norm, lab_curve_b, lab_curve_b_count) * 256.0 - 128.0, -128.0, 127.0);
+    return lab_to_srgb(vec3<f32>(L_out, a_out, b_out));
+}
+
 fn apply_all_adjustments(
     initial_rgb: vec3<f32>, 
     adj: GlobalAdjustments, 
@@ -1462,15 +1527,18 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         adjustments.global.blue_curve, adjustments.global.blue_curve_count
     );
 
+    final_rgb = apply_lab_curves(final_rgb, adjustments.global.lab_curve_l, adjustments.global.lab_curve_l_count, adjustments.global.lab_curve_a, adjustments.global.lab_curve_a_count, adjustments.global.lab_curve_b, adjustments.global.lab_curve_b_count);
+
     for (var i = 0u; i < adjustments.mask_count; i = i + 1u) {
         let influence = get_mask_influence(i, absolute_coord);
         if (influence > 0.001) {
-            let mask_curved_srgb = apply_all_curves(final_rgb,
+            var mask_curved_srgb = apply_all_curves(final_rgb,
                 adjustments.mask_adjustments[i].luma_curve, adjustments.mask_adjustments[i].luma_curve_count,
                 adjustments.mask_adjustments[i].red_curve, adjustments.mask_adjustments[i].red_curve_count,
                 adjustments.mask_adjustments[i].green_curve, adjustments.mask_adjustments[i].green_curve_count,
                 adjustments.mask_adjustments[i].blue_curve, adjustments.mask_adjustments[i].blue_curve_count
             );
+            mask_curved_srgb = apply_lab_curves(mask_curved_srgb, adjustments.mask_adjustments[i].lab_curve_l, adjustments.mask_adjustments[i].lab_curve_l_count, adjustments.mask_adjustments[i].lab_curve_a, adjustments.mask_adjustments[i].lab_curve_a_count, adjustments.mask_adjustments[i].lab_curve_b, adjustments.mask_adjustments[i].lab_curve_b_count);
             final_rgb = mix(final_rgb, mask_curved_srgb, influence);
         }
     }
