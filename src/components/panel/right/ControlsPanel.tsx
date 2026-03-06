@@ -165,7 +165,7 @@ export default function Controls({
         <div className="flex items-center gap-1">
           <button
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            disabled={!selectedImage}
+            disabled={!selectedImage?.isReady}
             onClick={handleAutoAdjustments}
             data-tooltip="Auto Adjust Image"
           >

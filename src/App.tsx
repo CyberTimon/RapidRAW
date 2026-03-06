@@ -2166,7 +2166,7 @@ function App() {
   );
 
   const handleAutoAdjustments = async () => {
-    if (!selectedImage) {
+    if (!selectedImage?.isReady) {
       return;
     }
     try {
@@ -3541,6 +3541,7 @@ function App() {
             label: 'Auto Adjust Image',
             icon: Aperture,
             onClick: handleAutoAdjustments,
+            disabled: !selectedImage?.isReady,
           },
           {
             icon: CopyPlus,
