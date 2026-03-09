@@ -1,9 +1,6 @@
 import { motion } from 'framer-motion';
 import { SlidersHorizontal, Info, Scaling, BrushCleaning, Bookmark, Save, Layers, LucideIcon } from 'lucide-react';
 import { PanelType } from '../../ui/AppProperties';
-import { createContext, PropsWithChildren, useState } from 'react';
-import { useSafeContext } from '../../../context/useSafeContext';
-import { PanelContextProps } from './Panel';
 
 interface PanelOptions {
   icon: LucideIcon;

@@ -74,6 +74,25 @@ export function PanelGroup({ children }: PropsWithChildren) {
   return <PanelGroupContext value={{ id }}>{children}</PanelGroupContext>;
 }
 
+function PanelDisplay({ isResizing, panelWidth }: { isResizing: boolean; panelWidth: number }) {
+  const { activePanel, panels } = useSafeContext(PanelSwitcherContext);
+
+  return (
+    <div
+      className={clsx('h-full overflow-hidden', !isResizing && 'transition-all duration-300 ease-in-out')}
+      style={{ width: activePanel ? `${panelWidth}px` : '0px' }}
+    >
+      <AnimatePresence mode="wait">
+        {activePanel && (
+          <motion.div animate="animate" className="h-full w-full" exit="exit" initial="initial" key={activePanel}>
+            {panels.find(({ type }) => type === activePanel)?.render()}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 interface PanelSwitcherContext {
   activePanel: PanelType | null;
   panels: (PanelContextProps & { render: () => ReactNode })[];
@@ -109,9 +128,8 @@ export function PanelSwitcher({
 
   return (
     <PanelSwitcherContext.Provider value={{ activePanel, register, unregister, panels }}>
-      <div className="flex bg-bg-secondary rounded-lg h-full">
+      <div className="flex bg-bg-primary rounded-lg h-full">
         <PanelDisplay isResizing={isResizing} panelWidth={panelWidth} />
-
         <div className="flex flex-col p-1 gap-1 h-full">
           {panels.map(({ icon: Icon, tooltip: title, type, group }, index) => (
             <>
@@ -140,24 +158,5 @@ export function PanelSwitcher({
       </div>
       {children}
     </PanelSwitcherContext.Provider>
-  );
-}
-
-function PanelDisplay({ isResizing, panelWidth }: { isResizing: boolean; panelWidth: number }) {
-  const { activePanel, panels } = useSafeContext(PanelSwitcherContext);
-
-  return (
-    <div
-      className={clsx('h-full overflow-hidden', !isResizing && 'transition-all duration-300 ease-in-out')}
-      style={{ width: activePanel ? `${panelWidth}px` : '0px' }}
-    >
-      <AnimatePresence mode="wait">
-        {activePanel && (
-          <motion.div animate="animate" className="h-full w-full" exit="exit" initial="initial" key={activePanel}>
-            {panels.find(({ type }) => type === activePanel)?.render()}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
   );
 }
