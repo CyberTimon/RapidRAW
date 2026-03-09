@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
-import { ImageFile, Panel, SelectedImage } from '../components/ui/AppProperties';
+import { ImageFile, PanelType, SelectedImage } from '../components/ui/AppProperties';
 
 interface KeyboardShortcutsProps {
   activeAiPatchContainerId?: string | null;
   activeAiSubMaskId: string | null;
   activeMaskContainerId: string | null;
   activeMaskId: string | null;
-  activeRightPanel: Panel | null;
+  activeRightPanel: PanelType | null;
   canRedo: boolean;
   canUndo: boolean;
   copiedFilePaths: Array<string>;
@@ -20,7 +20,7 @@ interface KeyboardShortcutsProps {
   handlePasteAdjustments(): void;
   handlePasteFiles(str: string): void;
   handleRate(rate: number): void;
-  handleRightPanelSelect(panel: Panel): void;
+  handleRightPanelSelect(panel: PanelType): void;
   handleSetColorLabel(label: string | null): void;
   handleToggleFullScreen(): void;
   handleZoomChange(zoomValue: number, fitToWindow?: boolean): void;
@@ -129,8 +129,8 @@ export const useKeyboardShortcuts = ({
             setActiveMaskId(null);
           } else if (activeMaskContainerId) {
             setActiveMaskContainerId(null);
-          } else if (activeRightPanel === Panel.Crop) {
-            handleRightPanelSelect(Panel.Adjustments);
+          } else if (activeRightPanel === PanelType.Crop) {
+            handleRightPanelSelect(PanelType.Adjustments);
           } else if (isFullScreen) {
             handleToggleFullScreen();
           } else {
@@ -192,31 +192,31 @@ export const useKeyboardShortcuts = ({
         }
         if (key === 'd' && !isCtrl) {
           event.preventDefault();
-          handleRightPanelSelect(Panel.Adjustments);
+          handleRightPanelSelect(PanelType.Adjustments);
         }
         if (key === 'r' && !isCtrl) {
           event.preventDefault();
-          handleRightPanelSelect(Panel.Crop);
+          handleRightPanelSelect(PanelType.Crop);
         }
         if (key === 'm' && !isCtrl) {
           event.preventDefault();
-          handleRightPanelSelect(Panel.Masks);
+          handleRightPanelSelect(PanelType.Masks);
         }
         if (key === 'k' && !isCtrl) {
           event.preventDefault();
-          handleRightPanelSelect(Panel.Ai);
+          handleRightPanelSelect(PanelType.Ai);
         }
         if (key === 'p' && !isCtrl) {
           event.preventDefault();
-          handleRightPanelSelect(Panel.Presets);
+          handleRightPanelSelect(PanelType.Presets);
         }
         if (key === 'i' && !isCtrl) {
           event.preventDefault();
-          handleRightPanelSelect(Panel.Metadata);
+          handleRightPanelSelect(PanelType.Metadata);
         }
         if (key === 'e' && !isCtrl) {
           event.preventDefault();
-          handleRightPanelSelect(Panel.Export);
+          handleRightPanelSelect(PanelType.Export);
         }
         if (key === 'w' && !isCtrl) {
           event.preventDefault();

@@ -1,31 +1,32 @@
 import { motion } from 'framer-motion';
-import { SlidersHorizontal, Info, Scaling, BrushCleaning, Bookmark, Save, Layers } from 'lucide-react';
-import { Panel } from '../../ui/AppProperties';
+import { SlidersHorizontal, Info, Scaling, BrushCleaning, Bookmark, Save, Layers, LucideIcon } from 'lucide-react';
+import { PanelType } from '../../ui/AppProperties';
+import { createContext, PropsWithChildren, useState } from 'react';
+import { useSafeContext } from '../../../context/useSafeContext';
+import { PanelContextProps } from './Panel';
 
 interface PanelOptions {
-  icon: any;
-  id: Panel;
+  icon: LucideIcon;
+  id: PanelType;
   title: string;
 }
 
 interface RightPanelSwitcherProps {
-  activePanel: Panel | null;
-  onPanelSelect(id: Panel): void;
+  activePanel: PanelType | null;
+  onPanelSelect(id: PanelType): void;
 }
 
 const panelGroups: Array<Array<PanelOptions>> = [
+  [{ id: PanelType.Metadata, icon: Info, title: 'Info' }],
   [
-    { id: Panel.Metadata, icon: Info, title: 'Info' },
+    { id: PanelType.Adjustments, icon: SlidersHorizontal, title: 'Adjust' },
+    { id: PanelType.Crop, icon: Scaling, title: 'Crop' },
+    { id: PanelType.Masks, icon: Layers, title: 'Masks' },
+    { id: PanelType.Ai, icon: BrushCleaning, title: 'Inpaint' },
   ],
   [
-    { id: Panel.Adjustments, icon: SlidersHorizontal, title: 'Adjust' },
-    { id: Panel.Crop, icon: Scaling, title: 'Crop' },
-    { id: Panel.Masks, icon: Layers, title: 'Masks' },
-    { id: Panel.Ai, icon: BrushCleaning, title: 'Inpaint' },
-  ],
-  [
-    { id: Panel.Presets, icon: Bookmark, title: 'Presets' },
-    { id: Panel.Export, icon: Save, title: 'Export' },
+    { id: PanelType.Presets, icon: Bookmark, title: 'Presets' },
+    { id: PanelType.Export, icon: Save, title: 'Export' },
   ],
 ];
 

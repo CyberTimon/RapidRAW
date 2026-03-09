@@ -6,7 +6,6 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { homeDir } from '@tauri-apps/api/path';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import debounce from 'lodash.debounce';
-import throttle from 'lodash.throttle';
 import { ClerkProvider } from '@clerk/clerk-react';
 import { ToastContainer, toast, Slide } from 'react-toastify';
 import clsx from 'clsx';
@@ -39,6 +38,14 @@ import {
   Gauge,
   Grip,
   Film,
+  Loader,
+  LocateFixed,
+  Info,
+  SlidersHorizontal,
+  Scaling,
+  Layers,
+  BrushCleaning,
+  Bookmark,
 } from 'lucide-react';
 import TitleBar from './window/TitleBar';
 import CommunityPage from './components/panel/CommunityPage';
@@ -84,6 +91,7 @@ import {
   normalizeLoadedAdjustments,
   PasteMode,
   CopyPasteSettings,
+  ADJUSTMENT_SECTIONS,
 } from './utils/adjustments';
 import { generatePaletteFromImage } from './utils/palette';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -100,7 +108,7 @@ import {
   Option,
   OPTION_SEPARATOR,
   LibraryViewMode,
-  Panel,
+  PanelType,
   Progress,
   RawStatus,
   SelectedImage,
@@ -118,6 +126,7 @@ import {
 } from './components/ui/AppProperties';
 import { ChannelConfig } from './components/adjustments/Curves';
 import HdrModal from './components/modals/HdrModal';
+import { Panel, PanelGroup, PanelHeader, PanelSwitcher } from './components/panel/right/Panel';
 
 const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
 
@@ -206,13 +215,13 @@ interface SearchCriteria {
 }
 
 const RIGHT_PANEL_ORDER = [
-  Panel.Metadata,
-  Panel.Adjustments,
-  Panel.Crop,
-  Panel.Masks,
-  Panel.Ai,
-  Panel.Presets,
-  Panel.Export,
+  PanelType.Metadata,
+  PanelType.Adjustments,
+  PanelType.Crop,
+  PanelType.Masks,
+  PanelType.Ai,
+  PanelType.Presets,
+  PanelType.Export,
 ];
 
 const DEBUG = false;
@@ -288,7 +297,7 @@ function App() {
   const isInitialThemeMount = useRef(true);
   const [theme, setTheme] = useState(DEFAULT_THEME_ID);
   const [adaptivePalette, setAdaptivePalette] = useState<any>(null);
-  const [activeRightPanel, setActiveRightPanel] = useState<Panel | null>(Panel.Adjustments);
+  const [activeRightPanel, setActiveRightPanel] = useState<PanelType | null>(PanelType.Adjustments);
   const [slideDirection, setSlideDirection] = useState(1);
   const [activeMaskContainerId, setActiveMaskContainerId] = useState<string | null>(null);
   const [activeMaskId, setActiveMaskId] = useState<string | null>(null);
@@ -318,7 +327,7 @@ function App() {
   }, []);
 
   const [initialFitScale, setInitialFitScale] = useState<number | null>(null);
-  const [renderedRightPanel, setRenderedRightPanel] = useState<Panel | null>(activeRightPanel);
+  const [renderedRightPanel, setRenderedRightPanel] = useState<PanelType | null>(activeRightPanel);
   const [collapsibleSectionsState, setCollapsibleSectionsState] = useState<CollapsibleSectionsState>({
     basic: true,
     color: false,
@@ -529,8 +538,8 @@ function App() {
 
   useEffect(() => {
     if (
-      (activeRightPanel !== Panel.Masks || !activeMaskContainerId) &&
-      (activeRightPanel !== Panel.Ai || !activeAiPatchContainerId)
+      (activeRightPanel !== PanelType.Masks || !activeMaskContainerId) &&
+      (activeRightPanel !== PanelType.Ai || !activeAiPatchContainerId)
     ) {
       setIsMaskControlHovered(false);
     }
@@ -1309,7 +1318,7 @@ function App() {
   );
 
   useEffect(() => {
-    if (activeRightPanel === Panel.Crop && selectedImage?.isReady) {
+    if (activeRightPanel === PanelType.Crop && selectedImage?.isReady) {
       generateUncroppedPreview(adjustments);
     }
   }, [adjustments, activeRightPanel, selectedImage?.isReady, generateUncroppedPreview]);
@@ -1388,7 +1397,7 @@ function App() {
   );
 
   const handleRightPanelSelect = useCallback(
-    (panelId: Panel) => {
+    (panelId: PanelType) => {
       if (panelId === activeRightPanel) {
         setActiveRightPanel(null);
       } else {
@@ -3496,8 +3505,8 @@ function App() {
         label: 'Export Image',
         icon: Save,
         onClick: () => {
-          setRenderedRightPanel(Panel.Export);
-          setActiveRightPanel(Panel.Export);
+          setRenderedRightPanel(PanelType.Export);
+          setActiveRightPanel(PanelType.Export);
         },
       },
       { type: OPTION_SEPARATOR },
@@ -3776,8 +3785,8 @@ function App() {
         if (selectedImage.path !== path) {
           handleImageSelect(path);
         }
-        setRenderedRightPanel(Panel.Export);
-        setActiveRightPanel(Panel.Export);
+        setRenderedRightPanel(PanelType.Export);
+        setActiveRightPanel(PanelType.Export);
       } else {
         setIsLibraryExportPanelVisible(true);
       }
@@ -4577,7 +4586,7 @@ function App() {
                         key={renderedRightPanel}
                         variants={panelVariants}
                       >
-                        {renderedRightPanel === Panel.Adjustments && (
+                        {renderedRightPanel === PanelType.Adjustments && (
                           <Controls
                             adjustments={adjustments}
                             collapsibleState={collapsibleSectionsState}
@@ -4596,7 +4605,7 @@ function App() {
                             onDragStateChange={setIsSliderDragging}
                           />
                         )}
-                        {renderedRightPanel === Panel.Metadata && (
+                        {renderedRightPanel === PanelType.Metadata && (
                           <MetadataPanel
                             selectedImage={selectedImage}
                             rating={adjustments.rating || 0}
@@ -4607,7 +4616,7 @@ function App() {
                             appSettings={appSettings}
                           />
                         )}
-                        {renderedRightPanel === Panel.Crop && (
+                        {renderedRightPanel === PanelType.Crop && (
                           <CropPanel
                             adjustments={adjustments}
                             isStraightenActive={isStraightenActive}
@@ -4621,7 +4630,7 @@ function App() {
                             setOverlayMode={setOverlayMode}
                           />
                         )}
-                        {renderedRightPanel === Panel.Masks && (
+                        {renderedRightPanel === PanelType.Masks && (
                           <MasksPanel
                             activeMaskContainerId={activeMaskContainerId}
                             activeMaskId={activeMaskId}
@@ -4645,7 +4654,7 @@ function App() {
                             setIsMaskControlHovered={setIsMaskControlHovered}
                           />
                         )}
-                        {renderedRightPanel === Panel.Presets && (
+                        {renderedRightPanel === PanelType.Presets && (
                           <PresetsPanel
                             activePanel={activeRightPanel}
                             adjustments={adjustments}
@@ -4657,7 +4666,7 @@ function App() {
                             setAdjustments={setAdjustments}
                           />
                         )}
-                        {renderedRightPanel === Panel.Export && (
+                        {renderedRightPanel === PanelType.Export && (
                           <ExportPanel
                             adjustments={adjustments}
                             exportState={exportState}
@@ -4668,7 +4677,7 @@ function App() {
                             onSettingsChange={handleSettingsChange}
                           />
                         )}
-                        {renderedRightPanel === Panel.Ai && (
+                        {renderedRightPanel === PanelType.Ai && (
                           <AIPanel
                             activePatchContainerId={activeAiPatchContainerId}
                             activeSubMaskId={activeAiSubMaskId}
@@ -4695,6 +4704,7 @@ function App() {
                   </AnimatePresence>
                 </div>
               </div>
+
               <div
                 className={clsx(
                   'h-full border-l transition-colors',
@@ -4703,6 +4713,35 @@ function App() {
               >
                 <RightPanelSwitcher activePanel={activeRightPanel} onPanelSelect={handleRightPanelSelect} />
               </div>
+              <PanelSwitcher isResizing={isResizing} panelWidth={rightPanelWidth}>
+                <PanelGroup>
+                  <Panel tooltip="Info" icon={Info} type={PanelType.Metadata}>
+                    <PanelHeader title="Metadata" />
+                  </Panel>
+                </PanelGroup>
+                <PanelGroup>
+                  <Panel tooltip="Adjust" icon={SlidersHorizontal} type={PanelType.Adjustments}>
+                    <PanelHeader title="Adjustments"></PanelHeader>
+                  </Panel>
+                  <Panel tooltip="Crop" icon={Scaling} type={PanelType.Crop}>
+                    <PanelHeader title="Crop & Transform"></PanelHeader>
+                  </Panel>
+                  <Panel tooltip="Masks" icon={Layers} type={PanelType.Masks}>
+                    <PanelHeader title="Masking"></PanelHeader>
+                  </Panel>
+                  <Panel tooltip="Inpaint" icon={BrushCleaning} type={PanelType.Ai}>
+                    <PanelHeader title="Inpainting"></PanelHeader>
+                  </Panel>
+                </PanelGroup>
+                <PanelGroup>
+                  <Panel tooltip="Presets" icon={Bookmark} type={PanelType.Presets}>
+                    <PanelHeader></PanelHeader>
+                  </Panel>
+                  <Panel tooltip="Export" icon={Save} type={PanelType.Export}>
+                    <PanelHeader></PanelHeader>
+                  </Panel>
+                </PanelGroup>
+              </PanelSwitcher>
             </div>
           </div>
         </div>

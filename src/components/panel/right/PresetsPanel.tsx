@@ -34,7 +34,7 @@ import CreateFolderModal from '../../modals/CreateFolderModal';
 import RenameFolderModal from '../../modals/RenameFolderModal';
 import Button from '../../ui/Button';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
-import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
+import { Invokes, OPTION_SEPARATOR, PanelType, Preset, SelectedImage } from '../../ui/AppProperties';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -73,7 +73,7 @@ interface PresetItemDisplayProps {
 }
 
 interface PresetsPanelProps {
-  activePanel: Panel | null;
+  activePanel: PanelType | null;
   adjustments: Adjustments;
   selectedImage: SelectedImage;
   setAdjustments(adjustments: Partial<Adjustments>): void;
@@ -511,7 +511,7 @@ export default function PresetsPanel({
   }, [selectedImage?.isReady, presets, enqueuePreviews]);
 
   useEffect(() => {
-    if (activePanel === Panel.Presets && selectedImage?.isReady && presets.length > 0) {
+    if (activePanel === PanelType.Presets && selectedImage?.isReady && presets.length > 0) {
       generateRootPreviews();
       expandedFolders.forEach((folderId: string) => {
         generateFolderPreviews(folderId);
@@ -654,7 +654,8 @@ export default function PresetsPanel({
       });
 
       if (typeof selectedPath === 'string') {
-        const isLegacy = selectedPath.toLowerCase().endsWith('.xmp') || selectedPath.toLowerCase().endsWith('.lrtemplate');
+        const isLegacy =
+          selectedPath.toLowerCase().endsWith('.xmp') || selectedPath.toLowerCase().endsWith('.lrtemplate');
 
         if (isLegacy) {
           await importLegacyPresetsFromFile(selectedPath);
