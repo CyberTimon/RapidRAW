@@ -176,7 +176,7 @@ export function PanelSwitcher({
 
   return (
     <PanelSwitcherContext value={{ activePanel, register, unregister, panels, panelWidth, slideDirection }}>
-      <div className="flex bg-bg-primary rounded-lg h-full">
+      <div className="flex bg-bg-secondary rounded-lg h-full">
         <PanelDisplay isResizing={isResizing} />
         <div
           className={clsx(

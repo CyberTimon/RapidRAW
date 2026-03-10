@@ -127,6 +127,13 @@ import {
 import { ChannelConfig } from './components/adjustments/Curves';
 import HdrModal from './components/modals/HdrModal';
 import { Panel, PanelGroup, PanelHeader, PanelSwitcher } from './components/panel/right/Panel';
+import GenericAIPanel from './components/panel/right/GenericAIPanel';
+import GenericControls from './components/panel/right/GenericControlsPanel';
+import GenericCropPanel from './components/panel/right/GenericCropPanel';
+import GenericExportPanel from './components/panel/right/GenericExportPanel';
+import GenericMetadataPanel from './components/panel/right/GenericMetadataPanel';
+import GenericMasksPanel from './components/panel/right/GenericMasksPanel';
+import GenericPresetsPanel from './components/panel/right/GenericPresetsPanel';
 
 const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
 
@@ -4569,8 +4576,8 @@ function App() {
               onMouseDown={createResizeHandler(setRightPanelWidth, rightPanelWidth)}
               direction={Orientation.Vertical}
             />
-            <div className="flex bg-bg-secondary rounded-lg h-full">
-              <div
+
+            {/* <div
                 className={clsx('h-full overflow-hidden', !isResizing && 'transition-all duration-300 ease-in-out')}
                 style={{ width: activeRightPanel ? `${rightPanelWidth}px` : '0px' }}
               >
@@ -4712,37 +4719,114 @@ function App() {
                 )}
               >
                 <RightPanelSwitcher activePanel={activeRightPanel} onPanelSelect={handleRightPanelSelect} />
-              </div>
-              <PanelSwitcher isResizing={isResizing} panelWidth={rightPanelWidth}>
-                <PanelGroup>
-                  <Panel tooltip="Info" icon={Info} type={PanelType.Metadata}>
-                    <PanelHeader title="Metadata" />
-                  </Panel>
-                </PanelGroup>
-                <PanelGroup>
-                  <Panel tooltip="Adjust" icon={SlidersHorizontal} type={PanelType.Adjustments}>
-                    <PanelHeader title="Adjustments"></PanelHeader>
-                  </Panel>
-                  <Panel tooltip="Crop" icon={Scaling} type={PanelType.Crop}>
-                    <PanelHeader title="Crop & Transform"></PanelHeader>
-                  </Panel>
-                  <Panel tooltip="Masks" icon={Layers} type={PanelType.Masks}>
-                    <PanelHeader title="Masking"></PanelHeader>
-                  </Panel>
-                  <Panel tooltip="Inpaint" icon={BrushCleaning} type={PanelType.Ai}>
-                    <PanelHeader title="Inpainting"></PanelHeader>
-                  </Panel>
-                </PanelGroup>
-                <PanelGroup>
-                  <Panel tooltip="Presets" icon={Bookmark} type={PanelType.Presets}>
-                    <PanelHeader></PanelHeader>
-                  </Panel>
-                  <Panel tooltip="Export" icon={Save} type={PanelType.Export}>
-                    <PanelHeader></PanelHeader>
-                  </Panel>
-                </PanelGroup>
-              </PanelSwitcher>
-            </div>
+              </div> */}
+            <PanelSwitcher isResizing={isResizing} panelWidth={rightPanelWidth}>
+              <PanelGroup>
+                <GenericMetadataPanel
+                  selectedImage={selectedImage}
+                  rating={adjustments.rating || 0}
+                  tags={imageList.find((img) => img.path === selectedImage.path)?.tags || []}
+                  onRate={handleRate}
+                  onSetColorLabel={handleSetColorLabel}
+                  onTagsChanged={handleTagsChanged}
+                  appSettings={appSettings}
+                />
+              </PanelGroup>
+              <PanelGroup>
+                <GenericControls
+                  adjustments={adjustments}
+                  collapsibleState={collapsibleSectionsState}
+                  copiedSectionAdjustments={copiedSectionAdjustments}
+                  handleAutoAdjustments={handleAutoAdjustments}
+                  histogram={histogram}
+                  selectedImage={selectedImage}
+                  setAdjustments={setAdjustments}
+                  setCollapsibleState={setCollapsibleSectionsState}
+                  setCopiedSectionAdjustments={setCopiedSectionAdjustments}
+                  theme={theme}
+                  handleLutSelect={handleLutSelect}
+                  appSettings={appSettings}
+                  isWbPickerActive={isWbPickerActive}
+                  toggleWbPicker={toggleWbPicker}
+                  onDragStateChange={setIsSliderDragging}
+                />
+                <GenericCropPanel
+                  adjustments={adjustments}
+                  isStraightenActive={isStraightenActive}
+                  selectedImage={selectedImage}
+                  setAdjustments={setAdjustments}
+                  setIsStraightenActive={setIsStraightenActive}
+                  setIsRotationActive={setIsRotationActive}
+                  overlayMode={overlayMode}
+                  overlayRotation={overlayRotation}
+                  setOverlayRotation={setOverlayRotation}
+                  setOverlayMode={setOverlayMode}
+                />
+                <GenericMasksPanel
+                  activeMaskContainerId={activeMaskContainerId}
+                  activeMaskId={activeMaskId}
+                  adjustments={adjustments}
+                  aiModelDownloadStatus={aiModelDownloadStatus}
+                  appSettings={appSettings}
+                  brushSettings={brushSettings}
+                  copiedMask={copiedMask}
+                  histogram={histogram}
+                  isGeneratingAiMask={isGeneratingAiMask}
+                  onGenerateAiForegroundMask={handleGenerateAiForegroundMask}
+                  onGenerateAiSkyMask={handleGenerateAiSkyMask}
+                  onSelectContainer={setActiveMaskContainerId}
+                  onSelectMask={setActiveMaskId}
+                  selectedImage={selectedImage}
+                  setAdjustments={setAdjustments}
+                  setBrushSettings={setBrushSettings}
+                  setCopiedMask={setCopiedMask}
+                  setCustomEscapeHandler={setCustomEscapeHandler}
+                  onDragStateChange={setIsSliderDragging}
+                  setIsMaskControlHovered={setIsMaskControlHovered}
+                />
+                <GenericAIPanel
+                  activePatchContainerId={activeAiPatchContainerId}
+                  activeSubMaskId={activeAiSubMaskId}
+                  adjustments={adjustments}
+                  aiModelDownloadStatus={aiModelDownloadStatus}
+                  brushSettings={brushSettings}
+                  isAIConnectorConnected={isAIConnectorConnected}
+                  isGeneratingAi={isGeneratingAi}
+                  isGeneratingAiMask={isGeneratingAiMask}
+                  onDeletePatch={handleDeleteAiPatch}
+                  onGenerateAiForegroundMask={handleGenerateAiForegroundMask}
+                  onGenerativeReplace={handleGenerativeReplace}
+                  onSelectPatchContainer={setActiveAiPatchContainerId}
+                  onSelectSubMask={setActiveAiSubMaskId}
+                  onTogglePatchVisibility={handleToggleAiPatchVisibility}
+                  selectedImage={selectedImage}
+                  setAdjustments={setAdjustments}
+                  setBrushSettings={setBrushSettings}
+                  setCustomEscapeHandler={setCustomEscapeHandler}
+                />
+              </PanelGroup>
+              <PanelGroup>
+                <GenericPresetsPanel
+                  activePanel={activeRightPanel}
+                  adjustments={adjustments}
+                  selectedImage={selectedImage}
+                  onNavigateToCommunity={() => {
+                    handleBackToLibrary();
+                    setActiveView('community');
+                  }}
+                  setAdjustments={setAdjustments}
+                />
+                <GenericExportPanel
+                  adjustments={adjustments}
+                  exportState={exportState}
+                  multiSelectedPaths={multiSelectedPaths}
+                  selectedImage={selectedImage}
+                  setExportState={setExportState}
+                  appSettings={appSettings}
+                  onSettingsChange={handleSettingsChange}
+                />
+              </PanelGroup>
+            </PanelSwitcher>
           </div>
         </div>
       );
