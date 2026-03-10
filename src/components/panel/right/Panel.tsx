@@ -1,18 +1,19 @@
 import { LucideIcon } from 'lucide-react';
 import { createContext, PropsWithChildren, ReactNode, useEffect, useId, useState } from 'react';
-import { PanelType } from '../../ui/AppProperties';
+import { PanelType as string } from '../../ui/AppProperties';
 import { useSafeContext } from '../../../context/useSafeContext';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, Variants } from 'framer-motion';
 import clsx from 'clsx';
 
 export interface PanelProps {
   icon: LucideIcon;
-  type: PanelType;
+  type: string;
   tooltip: string;
 }
 
 export type PanelContextProps = PanelProps & {
   group: string;
+  id: string;
 };
 
 const PanelContext = createContext<PanelContextProps | null>(null);
@@ -20,6 +21,7 @@ const PanelContext = createContext<PanelContextProps | null>(null);
 export function Panel({ icon, type, tooltip, children }: PropsWithChildren<PanelProps>) {
   const { register, unregister } = useSafeContext(PanelSwitcherContext);
   const { id: group } = useSafeContext(PanelGroupContext);
+  const id = useId();
 
   useEffect(() => {
     register({
@@ -27,8 +29,9 @@ export function Panel({ icon, type, tooltip, children }: PropsWithChildren<Panel
       tooltip,
       type,
       group,
+      id,
       render: () => (
-        <PanelContext value={{ icon, tooltip, type, group }}>
+        <PanelContext value={{ icon, tooltip, type, group, id }}>
           <PanelBody>{children}</PanelBody>
         </PanelContext>
       ),
@@ -37,7 +40,7 @@ export function Panel({ icon, type, tooltip, children }: PropsWithChildren<Panel
     return () => {
       unregister(type);
     };
-  }, [icon, type, tooltip, children]);
+  }, [icon, type, tooltip, children, group]);
 
   return null;
 }
@@ -55,9 +58,9 @@ export function PanelHeader({ children, title }: PropsWithChildren<{ title?: str
 
 export function PanelBody({ children }: PropsWithChildren) {
   const { activePanel } = useSafeContext(PanelSwitcherContext);
-  const { type } = useSafeContext(PanelContext);
+  const { id } = useSafeContext(PanelContext);
 
-  if (type !== activePanel) return null;
+  if (id !== activePanel) return null;
 
   return <div className="flex flex-col h-full">{children}</div>;
 }
@@ -70,22 +73,46 @@ const PanelGroupContext = createContext<PanelGroupContext | null>(null);
 
 export function PanelGroup({ children }: PropsWithChildren) {
   const id = useId();
-
   return <PanelGroupContext value={{ id }}>{children}</PanelGroupContext>;
 }
 
-function PanelDisplay({ isResizing, panelWidth }: { isResizing: boolean; panelWidth: number }) {
-  const { activePanel, panels } = useSafeContext(PanelSwitcherContext);
+function PanelDisplay({ isResizing }: { isResizing: boolean }) {
+  const { activePanel, panels, panelWidth, slideDirection } = useSafeContext(PanelSwitcherContext);
+
+  const panelVariants: Variants = {
+    animate: (direction: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: { duration: direction === 0 ? 0 : 0.2, ease: 'circOut' },
+    }),
+    exit: (direction: number) => ({
+      opacity: direction === 0 ? 1 : 0.2,
+      y: direction === 0 ? 0 : direction > 0 ? -20 : 20,
+      transition: { duration: direction === 0 ? 0 : 0.1, ease: 'circIn' },
+    }),
+    initial: (direction: number) => ({
+      opacity: direction === 0 ? 1 : 0.2,
+      y: direction === 0 ? 0 : direction > 0 ? 20 : -20,
+    }),
+  };
 
   return (
     <div
       className={clsx('h-full overflow-hidden', !isResizing && 'transition-all duration-300 ease-in-out')}
       style={{ width: activePanel ? `${panelWidth}px` : '0px' }}
     >
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" custom={slideDirection}>
         {activePanel && (
-          <motion.div animate="animate" className="h-full w-full" exit="exit" initial="initial" key={activePanel}>
-            {panels.find(({ type }) => type === activePanel)?.render()}
+          <motion.div
+            animate="animate"
+            className="h-full w-full"
+            exit="exit"
+            initial="initial"
+            key={activePanel}
+            custom={slideDirection}
+            variants={panelVariants}
+          >
+            {panels.find(({ id }) => id === activePanel)?.render()}
           </motion.div>
         )}
       </AnimatePresence>
@@ -93,11 +120,18 @@ function PanelDisplay({ isResizing, panelWidth }: { isResizing: boolean; panelWi
   );
 }
 
+enum SlideDirection {
+  Down = 1,
+  Up = -1,
+}
+
 interface PanelSwitcherContext {
-  activePanel: PanelType | null;
+  activePanel: string | null;
   panels: (PanelContextProps & { render: () => ReactNode })[];
+  panelWidth: number;
+  slideDirection: SlideDirection;
   register: (panel: PanelContextProps & { render: () => ReactNode }) => void;
-  unregister: (panelType: PanelType) => void;
+  unregister: (panelType: string) => void;
 }
 
 export const PanelSwitcherContext = createContext<PanelSwitcherContext | null>(null);
@@ -107,43 +141,62 @@ export function PanelSwitcher({
   isResizing,
   panelWidth,
 }: PropsWithChildren<{ isResizing: boolean; panelWidth: number }>) {
-  const [activePanel, setActivePanel] = useState<PanelType | null>(null);
+  const [activePanel, setActivePanel] = useState<string | null>(null);
   const [panels, setPanels] = useState<(PanelContextProps & { render: () => ReactNode })[]>([]);
+  const [slideDirection, setSlideDirection] = useState(SlideDirection.Down);
 
   const register = (panel: PanelContextProps & { render: () => ReactNode }) => {
     setPanels((current) => [...current, panel]);
   };
 
-  const unregister = (panelType: PanelType) => {
+  const unregister = (panelType: string) => {
     setPanels((current) => current.filter((panel) => panel.type !== panelType));
   };
 
-  const handleClick = (type: PanelType) => {
-    if (activePanel === type) {
+  const checkSlideDirection = (fromId: string, toId: string): SlideDirection => {
+    const fromIndex = panels.findIndex((p) => p.id === fromId);
+    const toIndex = panels.findIndex((p) => p.id === toId);
+
+    if (fromIndex < toIndex) {
+      return SlideDirection.Down;
+    }
+
+    return SlideDirection.Up;
+  };
+
+  const handleClick = (panelId: string) => {
+    setSlideDirection(activePanel !== null ? checkSlideDirection(activePanel, panelId) : SlideDirection.Down);
+
+    if (activePanel === panelId) {
       setActivePanel(null);
     } else {
-      setActivePanel(type);
+      setActivePanel(panelId);
     }
   };
 
   return (
-    <PanelSwitcherContext.Provider value={{ activePanel, register, unregister, panels }}>
+    <PanelSwitcherContext value={{ activePanel, register, unregister, panels, panelWidth, slideDirection }}>
       <div className="flex bg-bg-primary rounded-lg h-full">
-        <PanelDisplay isResizing={isResizing} panelWidth={panelWidth} />
-        <div className="flex flex-col p-1 gap-1 h-full">
-          {panels.map(({ icon: Icon, tooltip: title, type, group }, index) => (
+        <PanelDisplay isResizing={isResizing} />
+        <div
+          className={clsx(
+            'flex flex-col p-1 gap-1 h-full border-l transition-colors',
+            activePanel ? 'border-surface' : 'border-transparent',
+          )}
+        >
+          {panels.map(({ icon: Icon, tooltip, group, id }, index) => (
             <>
               {index > 0 && group !== panels[index - 1].group && <div className="w-6 h-px bg-surface self-center" />}
               <button
                 className={`relative p-2 rounded-md transition-colors duration-200 ${
-                  activePanel === type
+                  activePanel === id
                     ? 'text-text-primary'
                     : 'text-text-secondary hover:bg-surface hover:text-text-primary'
                 }`}
-                data-tooltip={title}
-                onClick={() => handleClick(type)}
+                data-tooltip={tooltip}
+                onClick={() => handleClick(id)}
               >
-                {activePanel === type && (
+                {activePanel === id && (
                   <motion.div
                     layoutId="active-panel-indicator"
                     className="absolute inset-0 bg-surface rounded-md"
@@ -157,6 +210,6 @@ export function PanelSwitcher({
         </div>
       </div>
       {children}
-    </PanelSwitcherContext.Provider>
+    </PanelSwitcherContext>
   );
 }
