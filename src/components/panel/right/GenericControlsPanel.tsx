@@ -7,7 +7,7 @@ import EffectsPanel from '../../adjustments/Effects';
 import CollapsibleSection from '../../ui/CollapsibleSection';
 import { Adjustments, SectionVisibility, INITIAL_ADJUSTMENTS, ADJUSTMENT_SECTIONS } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
-import { OPTION_SEPARATOR, SelectedImage, AppSettings, PanelType } from '../../ui/AppProperties';
+import { OPTION_SEPARATOR, SelectedImage, AppSettings } from '../../ui/AppProperties';
 import { ChannelConfig } from '../../adjustments/Curves';
 import { Panel, PanelHeader } from './Panel';
 
@@ -160,7 +160,7 @@ export default function GenericControls({
   };
 
   return (
-    <Panel icon={SlidersHorizontal} type={PanelType.Adjustments} tooltip="Adjust">
+    <Panel icon={SlidersHorizontal} tooltip="Adjust">
       <PanelHeader title="Adjustments">
         <div className="flex items-center gap-1">
           <button

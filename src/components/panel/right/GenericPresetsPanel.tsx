@@ -819,7 +819,7 @@ export default function GenericPresetsPanel({
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <Panel tooltip="Presets" icon={Bookmark} type={PanelType.Presets}>
+      <Panel tooltip="Presets" icon={Bookmark}>
         <PanelHeader>
           <div className="flex items-center gap-1">
             <button

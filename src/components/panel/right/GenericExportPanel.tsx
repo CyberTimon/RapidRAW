@@ -19,7 +19,7 @@ import {
   FileFormats,
   WatermarkAnchor,
 } from '../../ui/ExportImportProperties';
-import { Invokes, SelectedImage, AppSettings, PanelType } from '../../ui/AppProperties';
+import { Invokes, SelectedImage, AppSettings } from '../../ui/AppProperties';
 import ExportPresetsList from '../../ui/ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
 import { Panel, PanelHeader } from './Panel';
@@ -487,7 +487,7 @@ export default function ExportPanel({
   const canExport = numImages > 0;
 
   return (
-    <Panel tooltip="Export" icon={Save} type={PanelType.Export}>
+    <Panel tooltip="Export" icon={Save}>
       <PanelHeader />
       <div className="flex-grow overflow-y-auto p-4 text-text-secondary space-y-6">
         {canExport ? (

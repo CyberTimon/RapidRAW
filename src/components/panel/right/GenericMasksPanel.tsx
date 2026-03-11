@@ -59,7 +59,7 @@ import {
   ADJUSTMENT_SECTIONS,
 } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
-import { AppSettings, BrushSettings, OPTION_SEPARATOR, PanelType, SelectedImage } from '../../ui/AppProperties';
+import { AppSettings, BrushSettings, OPTION_SEPARATOR, SelectedImage } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
 import { usePresets } from '../../../hooks/usePresets';
 import { Panel, PanelHeader } from './Panel';
@@ -628,7 +628,7 @@ export default function GenericMasksPanel({
       onDragEnd={handleDragEnd}
       collisionDetection={pointerWithin}
     >
-      <Panel tooltip="Masks" icon={Layers} type={PanelType.Masks}>
+      <Panel tooltip="Masks" icon={Layers}>
         <div
           className="flex flex-col h-full select-none overflow-hidden"
           onClick={handleDeselect}

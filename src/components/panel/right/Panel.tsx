@@ -1,6 +1,6 @@
 import { LucideIcon } from 'lucide-react';
 import { createContext, PropsWithChildren, ReactNode, useEffect, useId, useState } from 'react';
-import { Direction, Orientation, PanelType as string } from '../../ui/AppProperties';
+import { Direction, Orientation } from '../../ui/AppProperties';
 import { useSafeContext } from '../../../context/useSafeContext';
 import { AnimatePresence, motion, Variants } from 'framer-motion';
 import clsx from 'clsx';
@@ -8,7 +8,6 @@ import { useResizer } from '../../../hooks/useResizer';
 
 export interface PanelProps {
   icon: LucideIcon;
-  type: string;
   tooltip: string;
 }
 
@@ -19,7 +18,7 @@ export type PanelContextProps = PanelProps & {
 
 const PanelContext = createContext<PanelContextProps | null>(null);
 
-export function Panel({ icon, type, tooltip, children }: PropsWithChildren<PanelProps>) {
+export function Panel({ icon, tooltip, children }: PropsWithChildren<PanelProps>) {
   const { register, unregister } = useSafeContext(PanelSwitcherContext);
   const { id: group } = useSafeContext(PanelGroupContext);
   const id = useId();
@@ -28,20 +27,19 @@ export function Panel({ icon, type, tooltip, children }: PropsWithChildren<Panel
     register({
       icon,
       tooltip,
-      type,
       group,
       id,
       render: () => (
-        <PanelContext value={{ icon, tooltip, type, group, id }}>
+        <PanelContext value={{ icon, tooltip, group, id }}>
           <PanelBody>{children}</PanelBody>
         </PanelContext>
       ),
     });
 
     return () => {
-      unregister(type);
+      unregister(id);
     };
-  }, [icon, type, tooltip, children, group]);
+  }, [icon, tooltip, children, group]);
 
   return null;
 }
@@ -58,11 +56,6 @@ export function PanelHeader({ children, title }: PropsWithChildren<{ title?: str
 }
 
 export function PanelBody({ children }: PropsWithChildren) {
-  const { activePanel } = useSafeContext(PanelSwitcherContext);
-  const { id } = useSafeContext(PanelContext);
-
-  if (id !== activePanel) return null;
-
   return <div className="flex flex-col h-full">{children}</div>;
 }
 
@@ -132,7 +125,7 @@ interface PanelSwitcherContext {
   panelWidth: number;
   slideDirection: SlideDirection;
   register: (panel: PanelContextProps & { render: () => ReactNode }) => void;
-  unregister: (panelType: string) => void;
+  unregister: (panelId: string) => void;
 }
 
 export const PanelSwitcherContext = createContext<PanelSwitcherContext | null>(null);
@@ -158,8 +151,8 @@ export function PanelSwitcher({ children }: PropsWithChildren) {
     setPanels((current) => [...current, panel]);
   };
 
-  const unregister = (panelType: string) => {
-    setPanels((current) => current.filter((panel) => panel.type !== panelType));
+  const unregister = (panelId: string) => {
+    setPanels((current) => current.filter((panel) => panel.id !== panelId));
   };
 
   const checkSlideDirection = (fromId: string, toId: string): SlideDirection => {

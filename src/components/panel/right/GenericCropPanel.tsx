@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import clsx from 'clsx';
-import { Orientation, PanelType, SelectedImage } from '../../ui/AppProperties';
+import { Orientation, SelectedImage } from '../../ui/AppProperties';
 import TransformModal from '../../modals/TransformModal';
 import LensCorrectionModal from '../../modals/LensCorrectionModal';
 import { Panel, PanelHeader } from './Panel';
@@ -414,7 +414,7 @@ export default function GenericCropPanel({
   };
 
   return (
-    <Panel icon={Scaling} type={PanelType.Crop} tooltip="Crop">
+    <Panel icon={Scaling} tooltip="Crop">
       <PanelHeader title="Crop & Transform">
         <button
           className="p-2 rounded-full hover:bg-surface transition-colors"

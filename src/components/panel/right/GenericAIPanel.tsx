@@ -47,7 +47,7 @@ import {
   AI_SUB_MASK_COMPONENT_TYPES,
 } from './Masks';
 import { Adjustments, AiPatch } from '../../../utils/adjustments';
-import { BrushSettings, PanelType, SelectedImage } from '../../ui/AppProperties';
+import { BrushSettings, SelectedImage } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
 import { Panel, PanelHeader } from './Panel';
 
@@ -621,7 +621,7 @@ export default function GenericAIPanel({
   };
 
   return (
-    <Panel icon={BrushCleaning} type={PanelType.Ai} tooltip="Inpaint">
+    <Panel icon={BrushCleaning} tooltip="Inpaint">
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}

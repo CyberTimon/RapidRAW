@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Check, ChevronDown, ChevronRight, Info, Plus, Star, Tag, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { SelectedImage, AppSettings, Invokes, PanelType } from '../../ui/AppProperties';
+import { SelectedImage, AppSettings, Invokes } from '../../ui/AppProperties';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import { Panel, PanelHeader } from './Panel';
 
@@ -209,7 +209,7 @@ export default function GenericMetadataPanel({
   };
 
   return (
-    <Panel tooltip="Info" icon={Info} type={PanelType.Metadata}>
+    <Panel tooltip="Info" icon={Info}>
       <PanelHeader title="Metadata" />
       <div className="flex-grow overflow-y-auto p-4 text-text-secondary custom-scrollbar">
         {selectedImage ? (
