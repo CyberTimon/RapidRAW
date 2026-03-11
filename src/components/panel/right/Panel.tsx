@@ -1,9 +1,10 @@
 import { LucideIcon } from 'lucide-react';
 import { createContext, PropsWithChildren, ReactNode, useEffect, useId, useState } from 'react';
-import { PanelType as string } from '../../ui/AppProperties';
+import { Direction, Orientation, PanelType as string } from '../../ui/AppProperties';
 import { useSafeContext } from '../../../context/useSafeContext';
 import { AnimatePresence, motion, Variants } from 'framer-motion';
 import clsx from 'clsx';
+import { useResizer } from '../../../hooks/useResizer';
 
 export interface PanelProps {
   icon: LucideIcon;
@@ -136,14 +137,22 @@ interface PanelSwitcherContext {
 
 export const PanelSwitcherContext = createContext<PanelSwitcherContext | null>(null);
 
-export function PanelSwitcher({
-  children,
-  isResizing,
-  panelWidth,
-}: PropsWithChildren<{ isResizing: boolean; panelWidth: number }>) {
+export function PanelSwitcher({ children }: PropsWithChildren) {
   const [activePanel, setActivePanel] = useState<string | null>(null);
   const [panels, setPanels] = useState<(PanelContextProps & { render: () => ReactNode })[]>([]);
   const [slideDirection, setSlideDirection] = useState(SlideDirection.Down);
+
+  const {
+    size: panelWidth,
+    Resizer,
+    isResizing,
+  } = useResizer({
+    defaultSize: 320,
+    maxSize: 600,
+    minSize: 280,
+    orientation: Orientation.Vertical,
+    direction: Direction.Left,
+  });
 
   const register = (panel: PanelContextProps & { render: () => ReactNode }) => {
     setPanels((current) => [...current, panel]);
@@ -176,6 +185,7 @@ export function PanelSwitcher({
 
   return (
     <PanelSwitcherContext value={{ activePanel, register, unregister, panels, panelWidth, slideDirection }}>
+      <Resizer />
       <div className="flex bg-bg-secondary rounded-lg h-full">
         <PanelDisplay isResizing={isResizing} />
         <div

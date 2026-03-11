@@ -202,6 +202,13 @@ export enum Orientation {
   Vertical = 'vertical',
 }
 
+export enum Direction {
+  Up = 'up',
+  Down = 'down',
+  Left = 'left',
+  Right = 'right',
+}
+
 export interface Preset {
   adjustments: Partial<Adjustments>;
   folder?: Folder;
