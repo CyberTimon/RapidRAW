@@ -13,6 +13,7 @@ import {
 import { PresetListType, usePresets, UserPreset } from '../../../hooks/usePresets';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import {
+  Bookmark,
   CopyPlus,
   Edit,
   FileDown,
@@ -35,6 +36,7 @@ import RenameFolderModal from '../../modals/RenameFolderModal';
 import Button from '../../ui/Button';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import { Invokes, OPTION_SEPARATOR, PanelType, Preset, SelectedImage } from '../../ui/AppProperties';
+import { Panel, PanelHeader } from './Panel';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -251,7 +253,7 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
   );
 }
 
-export default function PresetsPanel({
+export default function GenericPresetsPanel({
   activePanel,
   adjustments,
   selectedImage,
@@ -817,9 +819,8 @@ export default function PresetsPanel({
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex flex-col h-full">
-        <div className="p-4 flex justify-between items-center flex-shrink-0 border-b border-surface">
-          <h2 className="text-xl font-bold text-primary text-shadow-shiny">Presets</h2>
+      <Panel tooltip="Presets" icon={Bookmark} type={PanelType.Presets}>
+        <PanelHeader>
           <div className="flex items-center gap-1">
             <button
               className="p-2 rounded-full hover:bg-surface transition-colors"
@@ -853,7 +854,7 @@ export default function PresetsPanel({
               <Plus size={18} />
             </button>
           </div>
-        </div>
+        </PanelHeader>
 
         <div
           className={`flex-grow overflow-y-auto p-4 space-y-2 rounded-lg transition-colors ${
@@ -970,7 +971,7 @@ export default function PresetsPanel({
           onClose={() => setRenameFolderState({ isOpen: false, folder: null })}
           onSave={handleRenameFolderSave}
         />
-      </div>
+      </Panel>
       <DragOverlay>
         {activeItem ? (
           activeItem.type === 'preset' ? (

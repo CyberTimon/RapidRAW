@@ -82,7 +82,7 @@ export enum Invokes {
   SaveTempFile = 'save_temp_file',
 }
 
-export enum Panel {
+export enum PanelType {
   Adjustments = 'adjustments',
   Ai = 'ai',
   Crop = 'crop',

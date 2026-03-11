@@ -12,7 +12,7 @@ import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
 import Waveform from './editor/Waveform';
 import { Mask, SubMask } from './right/Masks';
-import { BrushSettings, Invokes, Panel, SelectedImage, TransformState, WaveformData } from '../ui/AppProperties';
+import { BrushSettings, Invokes, PanelType, SelectedImage, TransformState, WaveformData } from '../ui/AppProperties';
 import type { OverlayMode } from './right/CropPanel';
 
 interface EditorProps {
@@ -20,7 +20,7 @@ interface EditorProps {
   activeAiSubMaskId: string | null;
   activeMaskContainerId: string | null;
   activeMaskId: string | null;
-  activeRightPanel: Panel | null;
+  activeRightPanel: PanelType | null;
   adjustments: Adjustments;
   brushSettings: BrushSettings | null;
   canRedo: boolean;
@@ -46,7 +46,7 @@ interface EditorProps {
   onToggleWaveform(): void;
   onUndo(): void;
   onZoomed(state: TransformState): void;
-  renderedRightPanel: Panel | null;
+  renderedRightPanel: PanelType | null;
   selectedImage: SelectedImage;
   setAdjustments(adjustments: Partial<Adjustments>): void;
   setShowOriginal(show: any): void;
@@ -237,9 +237,9 @@ export default function Editor({
     }
   }, [adjustments, setShowOriginal]);
 
-  const isCropping = activeRightPanel === Panel.Crop;
-  const isMasking = activeRightPanel === Panel.Masks;
-  const isAiEditing = activeRightPanel === Panel.Ai;
+  const isCropping = activeRightPanel === PanelType.Crop;
+  const isMasking = activeRightPanel === PanelType.Masks;
+  const isAiEditing = activeRightPanel === PanelType.Ai;
 
   const hasDisplayableImage = finalPreviewUrl || selectedImage.thumbnailUrl;
   const showSpinner = isLoading && !hasDisplayableImage;
@@ -381,9 +381,9 @@ export default function Editor({
   useEffect(() => {
     let maskDefForOverlay = null;
 
-    if (activeRightPanel === Panel.Masks && activeMaskContainerId) {
+    if (activeRightPanel === PanelType.Masks && activeMaskContainerId) {
       maskDefForOverlay = adjustments.masks.find((c: MaskContainer) => c.id === activeMaskContainerId);
-    } else if (activeRightPanel === Panel.Ai && activeAiPatchContainerId) {
+    } else if (activeRightPanel === PanelType.Ai && activeAiPatchContainerId) {
       const activePatch = adjustments.aiPatches.find((p: AiPatch) => p.id === activeAiPatchContainerId);
       if (activePatch) {
         maskDefForOverlay = {

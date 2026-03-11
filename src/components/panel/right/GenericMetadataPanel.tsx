@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Check, ChevronDown, ChevronRight, Plus, Star, Tag, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Info, Plus, Star, Tag, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { SelectedImage, AppSettings, Invokes } from '../../ui/AppProperties';
+import { SelectedImage, AppSettings, Invokes, PanelType } from '../../ui/AppProperties';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
+import { Panel, PanelHeader } from './Panel';
 
 interface CameraSetting {
   format?(value: number): void;
@@ -105,7 +106,7 @@ const KEY_SETTINGS_ORDER: Array<string> = [
   'LensModel',
 ];
 
-export default function MetadataPanel({
+export default function GenericMetadataPanel({
   selectedImage,
   rating,
   tags,
@@ -208,10 +209,8 @@ export default function MetadataPanel({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 flex justify-between items-center flex-shrink-0 border-b border-surface">
-        <h2 className="text-xl font-bold text-primary text-shadow-shiny">Metadata</h2>
-      </div>
+    <Panel tooltip="Info" icon={Info} type={PanelType.Metadata}>
+      <PanelHeader title="Metadata" />
       <div className="flex-grow overflow-y-auto p-4 text-text-secondary custom-scrollbar">
         {selectedImage ? (
           <div className="flex flex-col gap-6">
@@ -450,6 +449,6 @@ export default function MetadataPanel({
           <p className="text-center">No image selected.</p>
         )}
       </div>
-    </div>
+    </Panel>
   );
 }

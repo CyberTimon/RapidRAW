@@ -6,7 +6,6 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { homeDir } from '@tauri-apps/api/path';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import debounce from 'lodash.debounce';
-import throttle from 'lodash.throttle';
 import { ClerkProvider } from '@clerk/clerk-react';
 import { ToastContainer, toast, Slide } from 'react-toastify';
 import clsx from 'clsx';
@@ -39,6 +38,14 @@ import {
   Gauge,
   Grip,
   Film,
+  Loader,
+  LocateFixed,
+  Info,
+  SlidersHorizontal,
+  Scaling,
+  Layers,
+  BrushCleaning,
+  Bookmark,
 } from 'lucide-react';
 import TitleBar from './window/TitleBar';
 import CommunityPage from './components/panel/CommunityPage';
@@ -84,6 +91,7 @@ import {
   normalizeLoadedAdjustments,
   PasteMode,
   CopyPasteSettings,
+  ADJUSTMENT_SECTIONS,
 } from './utils/adjustments';
 import { generatePaletteFromImage } from './utils/palette';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -100,7 +108,7 @@ import {
   Option,
   OPTION_SEPARATOR,
   LibraryViewMode,
-  Panel,
+  PanelType,
   Progress,
   RawStatus,
   SelectedImage,
@@ -118,6 +126,14 @@ import {
 } from './components/ui/AppProperties';
 import { ChannelConfig } from './components/adjustments/Curves';
 import HdrModal from './components/modals/HdrModal';
+import { Panel, PanelGroup, PanelHeader, PanelSwitcher } from './components/panel/right/Panel';
+import GenericAIPanel from './components/panel/right/GenericAIPanel';
+import GenericControls from './components/panel/right/GenericControlsPanel';
+import GenericCropPanel from './components/panel/right/GenericCropPanel';
+import GenericExportPanel from './components/panel/right/GenericExportPanel';
+import GenericMetadataPanel from './components/panel/right/GenericMetadataPanel';
+import GenericMasksPanel from './components/panel/right/GenericMasksPanel';
+import GenericPresetsPanel from './components/panel/right/GenericPresetsPanel';
 
 const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
 
@@ -206,13 +222,13 @@ interface SearchCriteria {
 }
 
 const RIGHT_PANEL_ORDER = [
-  Panel.Metadata,
-  Panel.Adjustments,
-  Panel.Crop,
-  Panel.Masks,
-  Panel.Ai,
-  Panel.Presets,
-  Panel.Export,
+  PanelType.Metadata,
+  PanelType.Adjustments,
+  PanelType.Crop,
+  PanelType.Masks,
+  PanelType.Ai,
+  PanelType.Presets,
+  PanelType.Export,
 ];
 
 const DEBUG = false;
@@ -288,7 +304,7 @@ function App() {
   const isInitialThemeMount = useRef(true);
   const [theme, setTheme] = useState(DEFAULT_THEME_ID);
   const [adaptivePalette, setAdaptivePalette] = useState<any>(null);
-  const [activeRightPanel, setActiveRightPanel] = useState<Panel | null>(Panel.Adjustments);
+  const [activeRightPanel, setActiveRightPanel] = useState<PanelType | null>(PanelType.Adjustments);
   const [slideDirection, setSlideDirection] = useState(1);
   const [activeMaskContainerId, setActiveMaskContainerId] = useState<string | null>(null);
   const [activeMaskId, setActiveMaskId] = useState<string | null>(null);
@@ -335,7 +351,7 @@ function App() {
   );
 
   const [initialFitScale, setInitialFitScale] = useState<number | null>(null);
-  const [renderedRightPanel, setRenderedRightPanel] = useState<Panel | null>(activeRightPanel);
+  const [renderedRightPanel, setRenderedRightPanel] = useState<PanelType | null>(activeRightPanel);
   const [collapsibleSectionsState, setCollapsibleSectionsState] = useState<CollapsibleSectionsState>({
     basic: true,
     color: false,
@@ -549,8 +565,8 @@ function App() {
 
   useEffect(() => {
     if (
-      (activeRightPanel !== Panel.Masks || !activeMaskContainerId) &&
-      (activeRightPanel !== Panel.Ai || !activeAiPatchContainerId)
+      (activeRightPanel !== PanelType.Masks || !activeMaskContainerId) &&
+      (activeRightPanel !== PanelType.Ai || !activeAiPatchContainerId)
     ) {
       setIsMaskControlHovered(false);
     }
@@ -1350,7 +1366,7 @@ function App() {
   );
 
   useEffect(() => {
-    if (activeRightPanel === Panel.Crop && selectedImage?.isReady) {
+    if (activeRightPanel === PanelType.Crop && selectedImage?.isReady) {
       generateUncroppedPreview(adjustments);
     }
   }, [adjustments, activeRightPanel, selectedImage?.isReady, generateUncroppedPreview]);
@@ -1429,7 +1445,7 @@ function App() {
   );
 
   const handleRightPanelSelect = useCallback(
-    (panelId: Panel) => {
+    (panelId: PanelType) => {
       if (panelId === activeRightPanel) {
         setActiveRightPanel(null);
       } else {
@@ -3646,8 +3662,8 @@ function App() {
         label: 'Export Image',
         icon: Save,
         onClick: () => {
-          setRenderedRightPanel(Panel.Export);
-          setActiveRightPanel(Panel.Export);
+          setRenderedRightPanel(PanelType.Export);
+          setActiveRightPanel(PanelType.Export);
         },
       },
       { type: OPTION_SEPARATOR },
@@ -3928,8 +3944,8 @@ function App() {
         if (selectedImage.path !== path) {
           handleImageSelect(path);
         }
-        setRenderedRightPanel(Panel.Export);
-        setActiveRightPanel(Panel.Export);
+        setRenderedRightPanel(PanelType.Export);
+        setActiveRightPanel(PanelType.Export);
       } else {
         setIsLibraryExportPanelVisible(true);
       }
@@ -4714,8 +4730,8 @@ function App() {
               onMouseDown={createResizeHandler(setRightPanelWidth, rightPanelWidth)}
               direction={Orientation.Vertical}
             />
-            <div className="flex bg-bg-secondary rounded-lg h-full">
-              <div
+
+            {/* <div
                 className={clsx('h-full overflow-hidden', !isResizing && 'transition-all duration-300 ease-in-out')}
                 style={{ width: activeRightPanel ? `${rightPanelWidth}px` : '0px' }}
               >
@@ -4731,7 +4747,7 @@ function App() {
                         key={renderedRightPanel}
                         variants={panelVariants}
                       >
-                        {renderedRightPanel === Panel.Adjustments && (
+                        {renderedRightPanel === PanelType.Adjustments && (
                           <Controls
                             adjustments={adjustments}
                             collapsibleState={collapsibleSectionsState}
@@ -4750,7 +4766,7 @@ function App() {
                             onDragStateChange={setIsSliderDragging}
                           />
                         )}
-                        {renderedRightPanel === Panel.Metadata && (
+                        {renderedRightPanel === PanelType.Metadata && (
                           <MetadataPanel
                             selectedImage={selectedImage}
                             rating={adjustments.rating || 0}
@@ -4761,7 +4777,7 @@ function App() {
                             appSettings={appSettings}
                           />
                         )}
-                        {renderedRightPanel === Panel.Crop && (
+                        {renderedRightPanel === PanelType.Crop && (
                           <CropPanel
                             adjustments={adjustments}
                             isStraightenActive={isStraightenActive}
@@ -4776,7 +4792,7 @@ function App() {
                             onLiveRotationChange={setLiveRotation}
                           />
                         )}
-                        {renderedRightPanel === Panel.Masks && (
+                        {renderedRightPanel === PanelType.Masks && (
                           <MasksPanel
                             activeMaskContainerId={activeMaskContainerId}
                             activeMaskId={activeMaskId}
@@ -4800,7 +4816,7 @@ function App() {
                             setIsMaskControlHovered={setIsMaskControlHovered}
                           />
                         )}
-                        {renderedRightPanel === Panel.Presets && (
+                        {renderedRightPanel === PanelType.Presets && (
                           <PresetsPanel
                             activePanel={activeRightPanel}
                             adjustments={adjustments}
@@ -4812,7 +4828,7 @@ function App() {
                             setAdjustments={setAdjustments}
                           />
                         )}
-                        {renderedRightPanel === Panel.Export && (
+                        {renderedRightPanel === PanelType.Export && (
                           <ExportPanel
                             adjustments={adjustments}
                             exportState={exportState}
@@ -4823,7 +4839,7 @@ function App() {
                             onSettingsChange={handleSettingsChange}
                           />
                         )}
-                        {renderedRightPanel === Panel.Ai && (
+                        {renderedRightPanel === PanelType.Ai && (
                           <AIPanel
                             activePatchContainerId={activeAiPatchContainerId}
                             activeSubMaskId={activeAiSubMaskId}
@@ -4850,6 +4866,7 @@ function App() {
                   </AnimatePresence>
                 </div>
               </div>
+
               <div
                 className={clsx(
                   'h-full border-l transition-colors',
@@ -4857,8 +4874,114 @@ function App() {
                 )}
               >
                 <RightPanelSwitcher activePanel={activeRightPanel} onPanelSelect={handleRightPanelSelect} />
-              </div>
-            </div>
+              </div> */}
+            <PanelSwitcher isResizing={isResizing} panelWidth={rightPanelWidth}>
+              <PanelGroup>
+                <GenericMetadataPanel
+                  selectedImage={selectedImage}
+                  rating={adjustments.rating || 0}
+                  tags={imageList.find((img) => img.path === selectedImage.path)?.tags || []}
+                  onRate={handleRate}
+                  onSetColorLabel={handleSetColorLabel}
+                  onTagsChanged={handleTagsChanged}
+                  appSettings={appSettings}
+                />
+              </PanelGroup>
+              <PanelGroup>
+                <GenericControls
+                  adjustments={adjustments}
+                  collapsibleState={collapsibleSectionsState}
+                  copiedSectionAdjustments={copiedSectionAdjustments}
+                  handleAutoAdjustments={handleAutoAdjustments}
+                  histogram={histogram}
+                  selectedImage={selectedImage}
+                  setAdjustments={setAdjustments}
+                  setCollapsibleState={setCollapsibleSectionsState}
+                  setCopiedSectionAdjustments={setCopiedSectionAdjustments}
+                  theme={theme}
+                  handleLutSelect={handleLutSelect}
+                  appSettings={appSettings}
+                  isWbPickerActive={isWbPickerActive}
+                  toggleWbPicker={toggleWbPicker}
+                  onDragStateChange={setIsSliderDragging}
+                />
+                <GenericCropPanel
+                  adjustments={adjustments}
+                  isStraightenActive={isStraightenActive}
+                  selectedImage={selectedImage}
+                  setAdjustments={setAdjustments}
+                  setIsStraightenActive={setIsStraightenActive}
+                  setIsRotationActive={setIsRotationActive}
+                  overlayMode={overlayMode}
+                  overlayRotation={overlayRotation}
+                  setOverlayRotation={setOverlayRotation}
+                  setOverlayMode={setOverlayMode}
+                />
+                <GenericMasksPanel
+                  activeMaskContainerId={activeMaskContainerId}
+                  activeMaskId={activeMaskId}
+                  adjustments={adjustments}
+                  aiModelDownloadStatus={aiModelDownloadStatus}
+                  appSettings={appSettings}
+                  brushSettings={brushSettings}
+                  copiedMask={copiedMask}
+                  histogram={histogram}
+                  isGeneratingAiMask={isGeneratingAiMask}
+                  onGenerateAiForegroundMask={handleGenerateAiForegroundMask}
+                  onGenerateAiSkyMask={handleGenerateAiSkyMask}
+                  onSelectContainer={setActiveMaskContainerId}
+                  onSelectMask={setActiveMaskId}
+                  selectedImage={selectedImage}
+                  setAdjustments={setAdjustments}
+                  setBrushSettings={setBrushSettings}
+                  setCopiedMask={setCopiedMask}
+                  setCustomEscapeHandler={setCustomEscapeHandler}
+                  onDragStateChange={setIsSliderDragging}
+                  setIsMaskControlHovered={setIsMaskControlHovered}
+                />
+                <GenericAIPanel
+                  activePatchContainerId={activeAiPatchContainerId}
+                  activeSubMaskId={activeAiSubMaskId}
+                  adjustments={adjustments}
+                  aiModelDownloadStatus={aiModelDownloadStatus}
+                  brushSettings={brushSettings}
+                  isAIConnectorConnected={isAIConnectorConnected}
+                  isGeneratingAi={isGeneratingAi}
+                  isGeneratingAiMask={isGeneratingAiMask}
+                  onDeletePatch={handleDeleteAiPatch}
+                  onGenerateAiForegroundMask={handleGenerateAiForegroundMask}
+                  onGenerativeReplace={handleGenerativeReplace}
+                  onSelectPatchContainer={setActiveAiPatchContainerId}
+                  onSelectSubMask={setActiveAiSubMaskId}
+                  onTogglePatchVisibility={handleToggleAiPatchVisibility}
+                  selectedImage={selectedImage}
+                  setAdjustments={setAdjustments}
+                  setBrushSettings={setBrushSettings}
+                  setCustomEscapeHandler={setCustomEscapeHandler}
+                />
+              </PanelGroup>
+              <PanelGroup>
+                <GenericPresetsPanel
+                  activePanel={activeRightPanel}
+                  adjustments={adjustments}
+                  selectedImage={selectedImage}
+                  onNavigateToCommunity={() => {
+                    handleBackToLibrary();
+                    setActiveView('community');
+                  }}
+                  setAdjustments={setAdjustments}
+                />
+                <GenericExportPanel
+                  adjustments={adjustments}
+                  exportState={exportState}
+                  multiSelectedPaths={multiSelectedPaths}
+                  selectedImage={selectedImage}
+                  setExportState={setExportState}
+                  appSettings={appSettings}
+                  onSettingsChange={handleSettingsChange}
+                />
+              </PanelGroup>
+            </PanelSwitcher>
           </div>
         </div>
       );
