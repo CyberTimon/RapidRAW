@@ -3256,6 +3256,15 @@ async fn save_hdr(
 }
 
 #[tauri::command]
+async fn estimate_noise_level(path: String) -> Result<u32, String> {
+    let (source_path, _) = parse_virtual_path(&path);
+    let path_str = source_path.to_string_lossy().to_string();
+    tokio::task::spawn_blocking(move || denoising::suggest_intensity_from_iso(path_str))
+        .await
+        .map_err(|e| format!("ISO read failed: {}", e))?
+}
+
+#[tauri::command]
 async fn apply_denoising(
     path: String,
     intensity: f32,
@@ -3955,6 +3964,7 @@ fn main() {
             save_panorama,
             merge_hdr,
             save_hdr,
+            estimate_noise_level,
             apply_denoising,
             save_denoised_image,
             load_and_parse_lut,

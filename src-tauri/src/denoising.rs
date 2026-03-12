@@ -827,3 +827,33 @@ fn gaussian_blur_1ch(data: &[f32], width: usize, height: usize, sigma: f32) -> V
     out
 }
 
+/// Read the ISO from a RAW file and map it to a suggested denoising intensity
+/// (0–100 slider scale).  Sensor noise roughly doubles every stop, so a
+/// logarithmic mapping is appropriate:
+///   intensity = 4 × log₂(ISO / 100), clamped to [2, 28]
+///
+/// Upper bound of 28 reflects empirical testing showing values above ~28
+/// produce no additional visible noise reduction.
+///
+/// | ISO   | intensity |
+/// |-------|-----------|
+/// |   100 |     2     |
+/// |   200 |     4     |
+/// |   400 |     8     |
+/// |   800 |    12     |
+/// |  1600 |    16     |
+/// |  3200 |    20     |
+/// |  6400 |    24     |
+/// | 12800 |    28     |
+pub fn suggest_intensity_from_iso(path_str: String) -> Result<u32, String> {
+    let path = Path::new(&path_str);
+    if !path.exists() {
+        return Err("File not found".to_string());
+    }
+    let file_bytes = fs::read(path).map_err(|e| e.to_string())?;
+    let iso = crate::exif_processing::read_iso(&path_str, &file_bytes).unwrap_or(100);
+    let intensity = (4.0 * (iso as f32 / 100.0).log2())
+        .clamp(2.0, 28.0)
+        .round() as u32;
+    Ok(intensity)
+}

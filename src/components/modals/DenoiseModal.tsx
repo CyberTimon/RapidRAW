@@ -16,6 +16,7 @@ interface DenoiseModalProps {
   originalBase64: string | null;
   isProcessing: boolean;
   progressMessage: string | null;
+  suggestedIntensity: number | null;
 }
 
 const ImageCompare = ({ original, denoised }: { original: string; denoised: string }) => {
@@ -209,6 +210,7 @@ export default function DenoiseModal({
   originalBase64,
   isProcessing,
   progressMessage,
+  suggestedIntensity,
 }: DenoiseModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
@@ -372,6 +374,17 @@ export default function DenoiseModal({
                 onChange={(e) => setIntensity(Number(e.target.value))}
                 trackClassName="bg-bg-secondary"
             />
+            {suggestedIntensity !== null && (
+              <div className="flex items-center gap-1.5 mt-1 text-xs text-text-secondary">
+                <span>ISO estimate: {suggestedIntensity}</span>
+                <button
+                  onClick={() => setIntensity(suggestedIntensity)}
+                  className="text-accent hover:underline"
+                >
+                  Apply
+                </button>
+              </div>
+            )}
         </div>
 
         <div className="h-8 w-px bg-surface mx-2" />

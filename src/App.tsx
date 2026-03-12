@@ -180,6 +180,7 @@ interface DenoiseModalState {
   error: string | null;
   targetPath: string | null;
   progressMessage: string | null;
+  suggestedIntensity: number | null;
 }
 
 interface NegativeConversionModalState {
@@ -413,6 +414,7 @@ function App() {
     error: null,
     targetPath: null,
     progressMessage: null,
+    suggestedIntensity: null,
   });
   const [cullingModalState, setCullingModalState] = useState<CullingModalState>({
     isOpen: false,
@@ -2710,6 +2712,7 @@ function App() {
     handleSetColorLabel,
     handleToggleFullScreen,
     handleZoomChange,
+    refreshFolderTree: refreshAllFolderTrees,
     isFullScreen,
     isStraightenActive,
     isViewLoading,
@@ -3145,6 +3148,15 @@ function App() {
     },
     [denoiseModalState.targetPath],
   );
+
+  const estimateDenoiseIntensity = useCallback(async (path: string) => {
+    try {
+      const suggested = await invoke<number>(Invokes.EstimateNoiseLevel, { path });
+      setDenoiseModalState((prev) => ({ ...prev, suggestedIntensity: suggested }));
+    } catch {
+      // Non-fatal; user can set intensity manually.
+    }
+  }, []);
 
   const handleSaveDenoisedImage = async (): Promise<string> => {
     if (!denoiseModalState.targetPath) throw new Error('No target path');
@@ -3702,7 +3714,9 @@ function App() {
                 error: null,
                 targetPath: selectedImage.path,
                 progressMessage: null,
+                suggestedIntensity: null,
               });
+              estimateDenoiseIntensity(selectedImage.path);
             },
           },
           {
@@ -4032,7 +4046,9 @@ function App() {
                 error: null,
                 targetPath: finalSelection[0],
                 progressMessage: null,
+                suggestedIntensity: null,
               });
+              estimateDenoiseIntensity(finalSelection[0]);
             },
           },
           {
@@ -4434,6 +4450,7 @@ function App() {
             isVisible={uiVisibility.folderTree}
             onContextMenu={handleFolderTreeContextMenu}
             onFolderSelect={(path) => handleSelectSubfolder(path, false)}
+            onRefresh={refreshAllFolderTrees}
             onToggleFolder={handleToggleFolder}
             selectedPath={currentFolderPath}
             setIsVisible={(value: boolean) => setUiVisibility((prev: UiVisibility) => ({ ...prev, folderTree: value }))}
@@ -4465,6 +4482,7 @@ function App() {
       pinnedFolderTrees,
       pinnedFolders,
       activeTreeSection,
+      refreshAllFolderTrees,
       copiedFilePaths,
       isFullScreen,
       isInstantTransition,
@@ -5019,6 +5037,7 @@ function App() {
         isProcessing={denoiseModalState.isProcessing}
         error={denoiseModalState.error}
         progressMessage={denoiseModalState.progressMessage}
+        suggestedIntensity={denoiseModalState.suggestedIntensity}
       />
       <CreateFolderModal
         isOpen={isCreateFolderModalOpen}

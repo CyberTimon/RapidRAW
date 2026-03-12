@@ -27,6 +27,7 @@ export enum Invokes {
   DuplicateFile = 'duplicate_file',
   EstimateBatchExportSize = 'estimate_batch_export_size',
   EstimateExportSize = 'estimate_export_size',
+  EstimateNoiseLevel = 'estimate_noise_level',
   ExportImage = 'export_image',
   FrontendLog = 'frontend_log',
   GenerateAiForegroundMask = 'generate_ai_foreground_mask',
