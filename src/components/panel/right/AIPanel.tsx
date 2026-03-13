@@ -139,7 +139,7 @@ const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsC
       label="Brush Size"
       max={200}
       min={1}
-      onChange={(e: any) => onSettingsChange((s: any) => ({ ...s, size: Number(e.target.value) }))}
+      onChange={(value) => onSettingsChange((s: any) => ({ ...s, size: value }))}
       step={1}
       value={settings.size}
     />
@@ -148,7 +148,7 @@ const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsC
       label="Brush Feather"
       max={100}
       min={0}
-      onChange={(e: any) => onSettingsChange((s: any) => ({ ...s, feather: Number(e.target.value) }))}
+      onChange={(value) => onSettingsChange((s: any) => ({ ...s, feather: value }))}
       step={1}
       value={settings.feather}
     />
@@ -1411,11 +1411,11 @@ function SettingsPanel({
                   step={param.step}
                   defaultValue={param.defaultValue}
                   value={(activeSubMask.parameters[param.key] || 0) * (param.multiplier || 1)}
-                  onChange={(e: any) =>
+                  onChange={(value) =>
                     updateSubMask(activeSubMask.id, {
                       parameters: {
                         ...activeSubMask.parameters,
-                        [param.key]: parseFloat(e.target.value) / (param.multiplier || 1),
+                        [param.key]: value / (param.multiplier || 1),
                       },
                     })
                   }

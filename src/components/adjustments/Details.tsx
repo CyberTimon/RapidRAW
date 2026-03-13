@@ -19,9 +19,8 @@ export default function DetailsPanel({
   isForMask = false,
   onDragStateChange,
 }: DetailsPanelProps) {
-  const handleAdjustmentChange = (key: string, value: string) => {
-    const numericValue = parseInt(value, 10);
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
+  const handleAdjustmentChange = (key: string, value: number) => {
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: Math.trunc(value) }));
   };
 
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
@@ -37,7 +36,7 @@ export default function DetailsPanel({
             label="Sharpness"
             max={100}
             min={-100}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Sharpness, e.target.value)}
+            onChange={(value) => handleAdjustmentChange(DetailsAdjustment.Sharpness, value)}
             step={1}
             value={adjustments.sharpness}
             onDragStateChange={onDragStateChange}
@@ -54,7 +53,7 @@ export default function DetailsPanel({
             label="Clarity"
             max={100}
             min={-100}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Clarity, e.target.value)}
+            onChange={(value) => handleAdjustmentChange(DetailsAdjustment.Clarity, value)}
             step={1}
             value={adjustments.clarity}
             onDragStateChange={onDragStateChange}
@@ -63,7 +62,7 @@ export default function DetailsPanel({
             label="Dehaze"
             max={100}
             min={-100}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Dehaze, e.target.value)}
+            onChange={(value) => handleAdjustmentChange(DetailsAdjustment.Dehaze, value)}
             step={1}
             value={adjustments.dehaze}
             onDragStateChange={onDragStateChange}
@@ -72,7 +71,7 @@ export default function DetailsPanel({
             label="Structure"
             max={100}
             min={-100}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Structure, e.target.value)}
+            onChange={(value) => handleAdjustmentChange(DetailsAdjustment.Structure, value)}
             step={1}
             value={adjustments.structure}
             onDragStateChange={onDragStateChange}
@@ -82,7 +81,7 @@ export default function DetailsPanel({
               label="Centré"
               max={100}
               min={-100}
-              onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Centré, e.target.value)}
+              onChange={(value) => handleAdjustmentChange(DetailsAdjustment.Centré, value)}
               step={1}
               value={adjustments.centré}
               onDragStateChange={onDragStateChange}
@@ -99,7 +98,7 @@ export default function DetailsPanel({
             label="Luminance"
             max={100}
             min={0}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.LumaNoiseReduction, e.target.value)}
+            onChange={(value) => handleAdjustmentChange(DetailsAdjustment.LumaNoiseReduction, value)}
             step={1}
             value={adjustments.lumaNoiseReduction}
           />
@@ -107,7 +106,7 @@ export default function DetailsPanel({
             label="Color"
             max={100}
             min={0}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.ColorNoiseReduction, e.target.value)}
+            onChange={(value) => handleAdjustmentChange(DetailsAdjustment.ColorNoiseReduction, value)}
             step={1}
             value={adjustments.colorNoiseReduction}
           />
@@ -124,7 +123,7 @@ export default function DetailsPanel({
             label="Red/Cyan"
             max={100}
             min={-100}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.ChromaticAberrationRedCyan, e.target.value)}
+            onChange={(value) => handleAdjustmentChange(DetailsAdjustment.ChromaticAberrationRedCyan, value)}
             step={1}
             value={adjustments.chromaticAberrationRedCyan}
             onDragStateChange={onDragStateChange}
@@ -133,9 +132,7 @@ export default function DetailsPanel({
             label="Blue/Yellow"
             max={100}
             min={-100}
-            onChange={(e: any) =>
-              handleAdjustmentChange(DetailsAdjustment.ChromaticAberrationBlueYellow, e.target.value)
-            }
+            onChange={(value) => handleAdjustmentChange(DetailsAdjustment.ChromaticAberrationBlueYellow, value)}
             step={1}
             value={adjustments.chromaticAberrationBlueYellow}
             onDragStateChange={onDragStateChange}

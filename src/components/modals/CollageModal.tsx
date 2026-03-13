@@ -688,7 +688,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
           step={1}
           defaultValue={INITIAL_SPACING}
           value={spacing}
-          onChange={(e) => setSpacing(Number(e.target.value))}
+          onChange={(value) => setSpacing(value)}
         />
         <Slider
           label="Border Radius"
@@ -697,7 +697,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
           step={1}
           defaultValue={INITIAL_BORDER_RADIUS}
           value={borderRadius}
-          onChange={(e) => setBorderRadius(Number(e.target.value))}
+          onChange={(value) => setBorderRadius(value)}
         />
       </div>
 

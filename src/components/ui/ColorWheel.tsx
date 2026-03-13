@@ -76,8 +76,8 @@ const ColorWheel = ({
     onChange({ ...effectiveValue, hue: color.hsva.h, saturation: color.hsva.s });
   };
 
-  const handleLumChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...effectiveValue, luminance: parseFloat(e.target.value) });
+  const handleLumChange = (value: number) => {
+    onChange({ ...effectiveValue, luminance: value });
   };
 
   const handleReset = () => {
@@ -172,18 +172,17 @@ const ColorWheel = ({
         )}
       </div>
 
-      <div className="w-full">
-        <Slider
-          defaultValue={defaultValue.luminance}
-          label={<Sun size={16} className="text-text-secondary" />}
-          max={100}
-          min={-100}
-          onChange={handleLumChange}
-          onDragStateChange={setIsSliderDragging}
-          step={1}
-          value={luminance}
-        />
-      </div>
+      <Slider
+        defaultValue={defaultValue.luminance}
+        label={<Sun size={16} className="text-text-secondary" />}
+        max={100}
+        min={-100}
+        onChange={handleLumChange}
+        onDragStateChange={setIsSliderDragging}
+        step={1}
+        value={luminance}
+        className="w-full"
+      />
     </div>
   );
 };

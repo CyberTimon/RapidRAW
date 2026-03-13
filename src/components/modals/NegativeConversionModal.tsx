@@ -227,7 +227,7 @@ export default function NegativeConversionModal({
               max={2.0}
               step={0.01}
               defaultValue={1}
-              onChange={(e) => handleParamChange('red_weight', Number(e.target.value))}
+              onChange={(value) => handleParamChange('red_weight', value)}
             />
             <Slider
               label="Green (Magenta)"
@@ -236,7 +236,7 @@ export default function NegativeConversionModal({
               max={2.0}
               step={0.01}
               defaultValue={1}
-              onChange={(e) => handleParamChange('green_weight', Number(e.target.value))}
+              onChange={(value) => handleParamChange('green_weight', value)}
             />
             <Slider
               label="Blue (Yellow)"
@@ -245,7 +245,7 @@ export default function NegativeConversionModal({
               max={2.0}
               step={0.01}
               defaultValue={1}
-              onChange={(e) => handleParamChange('blue_weight', Number(e.target.value))}
+              onChange={(value) => handleParamChange('blue_weight', value)}
             />
           </div>
         </div>
@@ -264,7 +264,7 @@ export default function NegativeConversionModal({
               max={2.0}
               step={0.05}
               defaultValue={0}
-              onChange={(e) => handleParamChange('exposure', Number(e.target.value))}
+              onChange={(value) => handleParamChange('exposure', value)}
             />
             <Slider
               label="Contrast (Grade)"
@@ -273,7 +273,7 @@ export default function NegativeConversionModal({
               max={2.5}
               step={0.05}
               defaultValue={1}
-              onChange={(e) => handleParamChange('contrast', Number(e.target.value))}
+              onChange={(value) => handleParamChange('contrast', value)}
             />
           </div>
         </div>

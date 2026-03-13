@@ -348,7 +348,8 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
               min={-100}
               max={100}
               defaultValue={0}
-              onChange={(e) => handleChange('distortion', Number(e.target.value))}
+              step={1}
+              onChange={(value) => handleChange('distortion', value)}
             />
           </div>
         </div>
@@ -365,7 +366,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
               max={100}
               defaultValue={0}
               step={1}
-              onChange={(e) => handleChange('vertical', Number(e.target.value))}
+              onChange={(value) => handleChange('vertical', value)}
             />
             <Slider
               label="Horizontal"
@@ -374,7 +375,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
               max={100}
               defaultValue={0}
               step={1}
-              onChange={(e) => handleChange('horizontal', Number(e.target.value))}
+              onChange={(value) => handleChange('horizontal', value)}
             />
           </div>
         </div>
@@ -391,7 +392,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
               max={45}
               step={0.1}
               defaultValue={0}
-              onChange={(e) => handleChange('rotate', Number(e.target.value))}
+              onChange={(value) => handleChange('rotate', value)}
             />
             <Slider
               label="Aspect"
@@ -400,7 +401,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
               max={100}
               defaultValue={0}
               step={1}
-              onChange={(e) => handleChange('aspect', Number(e.target.value))}
+              onChange={(value) => handleChange('aspect', value)}
             />
             <Slider
               label="Scale"
@@ -409,7 +410,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
               max={150}
               defaultValue={100}
               step={1}
-              onChange={(e) => handleChange('scale', Number(e.target.value))}
+              onChange={(value) => handleChange('scale', value)}
             />
           </div>
         </div>
@@ -426,7 +427,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
               max={100}
               defaultValue={0}
               step={1}
-              onChange={(e) => handleChange('x_offset', Number(e.target.value))}
+              onChange={(value) => handleChange('x_offset', value)}
             />
             <Slider
               label="Y Axis"
@@ -435,7 +436,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
               max={100}
               defaultValue={0}
               step={1}
-              onChange={(e) => handleChange('y_offset', Number(e.target.value))}
+              onChange={(value) => handleChange('y_offset', value)}
             />
           </div>
         </div>

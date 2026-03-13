@@ -22,9 +22,8 @@ export default function EffectsPanel({
   appSettings,
   onDragStateChange,
 }: EffectsPanelProps) {
-  const handleAdjustmentChange = (key: string, value: string) => {
-    const numericValue = parseInt(value, 10);
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
+  const handleAdjustmentChange = (key: string, value: number) => {
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: Math.trunc(value) }));
   };
 
   const handleLutIntensityChange = (intensity: number) => {
@@ -55,7 +54,7 @@ export default function EffectsPanel({
           label="Glow"
           max={100}
           min={0}
-          onChange={(e: any) => handleAdjustmentChange(CreativeAdjustment.GlowAmount, e.target.value)}
+          onChange={(value) => handleAdjustmentChange(CreativeAdjustment.GlowAmount, value)}
           step={1}
           value={adjustments.glowAmount}
           onDragStateChange={onDragStateChange}
@@ -65,7 +64,7 @@ export default function EffectsPanel({
           label="Halation"
           max={100}
           min={0}
-          onChange={(e: any) => handleAdjustmentChange(CreativeAdjustment.HalationAmount, e.target.value)}
+          onChange={(value) => handleAdjustmentChange(CreativeAdjustment.HalationAmount, value)}
           step={1}
           value={adjustments.halationAmount}
           onDragStateChange={onDragStateChange}
@@ -76,7 +75,7 @@ export default function EffectsPanel({
             label="Light Flares"
             max={100}
             min={0}
-            onChange={(e: any) => handleAdjustmentChange(CreativeAdjustment.FlareAmount, e.target.value)}
+            onChange={(value) => handleAdjustmentChange(CreativeAdjustment.FlareAmount, value)}
             step={1}
             value={adjustments.flareAmount}
             onDragStateChange={onDragStateChange}
@@ -109,7 +108,7 @@ export default function EffectsPanel({
                 label="Amount"
                 max={100}
                 min={-100}
-                onChange={(e: any) => handleAdjustmentChange(Effect.VignetteAmount, e.target.value)}
+                onChange={(value) => handleAdjustmentChange(Effect.VignetteAmount, value)}
                 step={1}
                 value={adjustments.vignetteAmount}
                 onDragStateChange={onDragStateChange}
@@ -119,7 +118,7 @@ export default function EffectsPanel({
                 label="Midpoint"
                 max={100}
                 min={0}
-                onChange={(e: any) => handleAdjustmentChange(Effect.VignetteMidpoint, e.target.value)}
+                onChange={(value) => handleAdjustmentChange(Effect.VignetteMidpoint, value)}
                 step={1}
                 value={adjustments.vignetteMidpoint}
                 onDragStateChange={onDragStateChange}
@@ -128,7 +127,7 @@ export default function EffectsPanel({
                 label="Roundness"
                 max={100}
                 min={-100}
-                onChange={(e: any) => handleAdjustmentChange(Effect.VignetteRoundness, e.target.value)}
+                onChange={(value) => handleAdjustmentChange(Effect.VignetteRoundness, value)}
                 step={1}
                 value={adjustments.vignetteRoundness}
                 onDragStateChange={onDragStateChange}
@@ -138,7 +137,7 @@ export default function EffectsPanel({
                 label="Feather"
                 max={100}
                 min={0}
-                onChange={(e: any) => handleAdjustmentChange(Effect.VignetteFeather, e.target.value)}
+                onChange={(value) => handleAdjustmentChange(Effect.VignetteFeather, value)}
                 step={1}
                 value={adjustments.vignetteFeather}
                 onDragStateChange={onDragStateChange}
@@ -155,7 +154,7 @@ export default function EffectsPanel({
                 label="Amount"
                 max={100}
                 min={0}
-                onChange={(e: any) => handleAdjustmentChange(Effect.GrainAmount, e.target.value)}
+                onChange={(value) => handleAdjustmentChange(Effect.GrainAmount, value)}
                 step={1}
                 value={adjustments.grainAmount}
                 onDragStateChange={onDragStateChange}
@@ -165,7 +164,7 @@ export default function EffectsPanel({
                 label="Size"
                 max={100}
                 min={0}
-                onChange={(e: any) => handleAdjustmentChange(Effect.GrainSize, e.target.value)}
+                onChange={(value) => handleAdjustmentChange(Effect.GrainSize, value)}
                 step={1}
                 value={adjustments.grainSize}
                 onDragStateChange={onDragStateChange}
@@ -175,7 +174,7 @@ export default function EffectsPanel({
                 label="Roughness"
                 max={100}
                 min={0}
-                onChange={(e: any) => handleAdjustmentChange(Effect.GrainRoughness, e.target.value)}
+                onChange={(value) => handleAdjustmentChange(Effect.GrainRoughness, value)}
                 step={1}
                 value={adjustments.grainRoughness}
                 onDragStateChange={onDragStateChange}

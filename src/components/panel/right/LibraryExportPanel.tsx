@@ -518,17 +518,16 @@ export default function LibraryExportPanel({
                 ))}
               </div>
               {fileFormat === FileFormats.Jpeg && (
-                <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
-                  <Slider
-                    defaultValue={90}
-                    label="Quality"
-                    max={100}
-                    min={1}
-                    onChange={(e) => setJpegQuality(parseInt(e.target.value))}
-                    step={1}
-                    value={jpegQuality}
-                  />
-                </div>
+                <Slider
+                  defaultValue={90}
+                  label="Quality"
+                  max={100}
+                  min={1}
+                  onChange={(value) => setJpegQuality(Math.trunc(value))}
+                  step={1}
+                  value={jpegQuality}
+                  disabled={isExporting}
+                />
               )}
             </Section>
 
@@ -640,7 +639,7 @@ export default function LibraryExportPanel({
                         max={50}
                         step={1}
                         value={watermarkScale}
-                        onChange={(e) => setWatermarkScale(parseInt(e.target.value))}
+                        onChange={(value) => setWatermarkScale(Math.trunc(value))}
                         disabled={isExporting}
                         defaultValue={10}
                       />
@@ -650,7 +649,7 @@ export default function LibraryExportPanel({
                         max={25}
                         step={1}
                         value={watermarkSpacing}
-                        onChange={(e) => setWatermarkSpacing(parseInt(e.target.value))}
+                        onChange={(value) => setWatermarkSpacing(Math.trunc(value))}
                         disabled={isExporting}
                         defaultValue={5}
                       />
@@ -660,7 +659,7 @@ export default function LibraryExportPanel({
                         max={100}
                         step={1}
                         value={watermarkOpacity}
-                        onChange={(e) => setWatermarkOpacity(parseInt(e.target.value))}
+                        onChange={(value) => setWatermarkOpacity(Math.trunc(value))}
                         disabled={isExporting}
                         defaultValue={75}
                       />

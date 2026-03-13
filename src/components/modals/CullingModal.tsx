@@ -183,7 +183,7 @@ export default function CullingModal({
                 step={1}
                 value={settings.similarityThreshold}
                 defaultValue={28}
-                onChange={(e) => setSettings((s) => ({ ...s, similarityThreshold: Number(e.target.value) }))}
+                onChange={(value) => setSettings((s) => ({ ...s, similarityThreshold: value }))}
               />
               <Text variant={TextVariants.small} className="mt-1">
                 Lower is stricter (exact duplicates). Higher is looser (near duplicates). A value of 24-32 is
@@ -207,7 +207,7 @@ export default function CullingModal({
                 step={25}
                 value={settings.blurThreshold}
                 defaultValue={100.0}
-                onChange={(e) => setSettings((s) => ({ ...s, blurThreshold: Number(e.target.value) }))}
+                onChange={(value) => setSettings((s) => ({ ...s, blurThreshold: value }))}
               />
               <Text variant={TextVariants.small} className="mt-1">
                 Images with a sharpness score below this value are flagged. Higher is stricter.

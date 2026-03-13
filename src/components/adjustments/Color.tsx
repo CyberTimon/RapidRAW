@@ -126,12 +126,12 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
     }));
   };
 
-  const handleGlobalChange = (grading: ColorGrading, value: string) => {
+  const handleGlobalChange = (grading: ColorGrading, value: number) => {
     setAdjustments((prev: Partial<Adjustments>) => ({
       ...prev,
       colorGrading: {
         ...(prev.colorGrading || INITIAL_ADJUSTMENTS.colorGrading),
-        [grading]: parseFloat(value),
+        [grading]: value,
       },
     }));
   };
@@ -175,7 +175,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
           label="Blending"
           max={100}
           min={0}
-          onChange={(e: any) => handleGlobalChange(ColorGrading.Blending, e.target.value)}
+          onChange={(value) => handleGlobalChange(ColorGrading.Blending, value)}
           step={1}
           value={colorGrading.blending}
           onDragStateChange={onDragStateChange}
@@ -185,7 +185,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
           label="Balance"
           max={100}
           min={-100}
-          onChange={(e: any) => handleGlobalChange(ColorGrading.Balance, e.target.value)}
+          onChange={(value) => handleGlobalChange(ColorGrading.Balance, value)}
           step={1}
           value={colorGrading.balance}
           onDragStateChange={onDragStateChange}
@@ -205,23 +205,23 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
     { name: 'blue', color: '#60a5fa' },
   ];
 
-  const handleShadowsChange = (value: string) => {
+  const handleShadowsChange = (value: number) => {
     setAdjustments((prev: Partial<Adjustments>) => ({
       ...prev,
       colorCalibration: {
         ...(prev.colorCalibration || INITIAL_ADJUSTMENTS.colorCalibration),
-        shadowsTint: parseFloat(value),
+        shadowsTint: value,
       },
     }));
   };
 
-  const handlePrimaryChange = (key: 'Hue' | 'Saturation', value: string) => {
+  const handlePrimaryChange = (key: 'Hue' | 'Saturation', value: number) => {
     const fullKey = `${activePrimary}${key}` as keyof ColorCalibration;
     setAdjustments((prev: Partial<Adjustments>) => ({
       ...prev,
       colorCalibration: {
         ...(prev.colorCalibration || INITIAL_ADJUSTMENTS.colorCalibration),
-        [fullKey]: parseFloat(value),
+        [fullKey]: value,
       },
     }));
   };
@@ -247,7 +247,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
           step={1}
           defaultValue={0}
           value={colorCalibration.shadowsTint}
-          onChange={(e: any) => handleShadowsChange(e.target.value)}
+          onChange={(value) => handleShadowsChange(value)}
           onDragStateChange={onDragStateChange}
         />
       </div>
@@ -273,7 +273,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
           step={1}
           defaultValue={0}
           value={currentValues.hue}
-          onChange={(e: any) => handlePrimaryChange('Hue', e.target.value)}
+          onChange={(value) => handlePrimaryChange('Hue', value)}
           onDragStateChange={onDragStateChange}
         />
         <Slider
@@ -283,7 +283,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
           step={1}
           defaultValue={0}
           value={currentValues.saturation}
-          onChange={(e: any) => handlePrimaryChange('Saturation', e.target.value)}
+          onChange={(value) => handlePrimaryChange('Saturation', value)}
           onDragStateChange={onDragStateChange}
         />
       </div>
@@ -303,18 +303,18 @@ export default function ColorPanel({
   const [activeColor, setActiveColor] = useState('reds');
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
 
-  const handleGlobalChange = (key: ColorAdjustment, value: string) => {
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: parseFloat(value) }));
+  const handleGlobalChange = (key: ColorAdjustment, value: number) => {
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: value }));
   };
 
-  const handleHslChange = (key: ColorAdjustment, value: string) => {
+  const handleHslChange = (key: ColorAdjustment, value: number) => {
     setAdjustments((prev: Partial<Adjustments>) => ({
       ...prev,
       hsl: {
         ...(prev.hsl || {}),
         [activeColor]: {
           ...(prev.hsl?.[activeColor] || {}),
-          [key]: parseFloat(value),
+          [key]: value,
         },
       },
     }));
@@ -343,18 +343,18 @@ export default function ColorPanel({
           label="Temperature"
           max={100}
           min={-100}
-          onChange={(e: any) => handleGlobalChange(ColorAdjustment.Temperature, e.target.value)}
+          onChange={(value) => handleGlobalChange(ColorAdjustment.Temperature, value)}
           step={1}
-          value={adjustments.temperature || 0}
+          value={adjustments.temperature}
           onDragStateChange={onDragStateChange}
         />
         <Slider
           label="Tint"
           max={100}
           min={-100}
-          onChange={(e: any) => handleGlobalChange(ColorAdjustment.Tint, e.target.value)}
+          onChange={(value) => handleGlobalChange(ColorAdjustment.Tint, value)}
           step={1}
-          value={adjustments.tint || 0}
+          value={adjustments.tint}
           onDragStateChange={onDragStateChange}
         />
       </div>
@@ -367,18 +367,18 @@ export default function ColorPanel({
           label="Vibrance"
           max={100}
           min={-100}
-          onChange={(e: any) => handleGlobalChange(ColorAdjustment.Vibrance, e.target.value)}
+          onChange={(value) => handleGlobalChange(ColorAdjustment.Vibrance, value)}
           step={1}
-          value={adjustments.vibrance || 0}
+          value={adjustments.vibrance}
           onDragStateChange={onDragStateChange}
         />
         <Slider
           label="Saturation"
           max={100}
           min={-100}
-          onChange={(e: any) => handleGlobalChange(ColorAdjustment.Saturation, e.target.value)}
+          onChange={(value) => handleGlobalChange(ColorAdjustment.Saturation, value)}
           step={1}
-          value={adjustments.saturation || 0}
+          value={adjustments.saturation}
           onDragStateChange={onDragStateChange}
         />
       </div>
@@ -414,7 +414,7 @@ export default function ColorPanel({
           label="Hue"
           max={100}
           min={-100}
-          onChange={(e: any) => handleHslChange(ColorAdjustment.Hue, e.target.value)}
+          onChange={(value) => handleHslChange(ColorAdjustment.Hue, value)}
           step={1}
           value={currentHsl.hue}
           onDragStateChange={onDragStateChange}
@@ -423,7 +423,7 @@ export default function ColorPanel({
           label="Saturation"
           max={100}
           min={-100}
-          onChange={(e: any) => handleHslChange(ColorAdjustment.Saturation, e.target.value)}
+          onChange={(value) => handleHslChange(ColorAdjustment.Saturation, value)}
           step={1}
           value={currentHsl.saturation}
           onDragStateChange={onDragStateChange}
@@ -432,7 +432,7 @@ export default function ColorPanel({
           label="Luminance"
           max={100}
           min={-100}
-          onChange={(e: any) => handleHslChange(ColorAdjustment.Luminance, e.target.value)}
+          onChange={(value) => handleHslChange(ColorAdjustment.Luminance, value)}
           step={1}
           value={currentHsl.luminance}
           onDragStateChange={onDragStateChange}

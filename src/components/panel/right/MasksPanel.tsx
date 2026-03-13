@@ -149,7 +149,7 @@ const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsC
       label="Brush Size"
       max={200}
       min={1}
-      onChange={(e: any) => onSettingsChange((s: any) => ({ ...s, size: Number(e.target.value) }))}
+      onChange={(value) => onSettingsChange((s: any) => ({ ...s, size: value }))}
       step={1}
       value={settings.size}
     />
@@ -158,7 +158,7 @@ const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsC
       label="Brush Feather"
       max={100}
       min={0}
-      onChange={(e: any) => onSettingsChange((s: any) => ({ ...s, feather: Number(e.target.value) }))}
+      onChange={(value) => onSettingsChange((s: any) => ({ ...s, feather: value }))}
       step={1}
       value={settings.feather}
     />
@@ -1536,10 +1536,10 @@ function SettingsPanel({
             max={100}
             min={0}
             value={(isComponentMode ? activeSubMask.opacity : displayContainer.opacity) ?? 100}
-            onChange={(e: any) =>
+            onChange={(value) =>
               isComponentMode
-                ? updateSubMask(activeSubMask.id, { opacity: Number(e.target.value) })
-                : handleMaskPropertyChange('opacity', Number(e.target.value))
+                ? updateSubMask(activeSubMask.id, { opacity: value })
+                : handleMaskPropertyChange('opacity', value)
             }
             step={1}
           />
@@ -1563,9 +1563,7 @@ function SettingsPanel({
                   step={param.step}
                   defaultValue={param.defaultValue}
                   value={(activeSubMask.parameters[param.key] || 0) * (param.multiplier || 1)}
-                  onChange={(e: any) =>
-                    handleSubMaskParameterChange(param.key, parseFloat(e.target.value) / (param.multiplier || 1))
-                  }
+                  onChange={(value) => handleSubMaskParameterChange(param.key, value / (param.multiplier || 1))}
                 />
               ))}
               {subMaskConfig.showBrushTools && brushSettings && (

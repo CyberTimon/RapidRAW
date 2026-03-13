@@ -265,6 +265,8 @@ export interface MaskAdjustments {
   [index: string]: any;
   blacks: number;
   brightness: number;
+  chromaticAberrationBlueYellow: number,
+  chromaticAberrationRedCyan: number,
   clarity: number;
   colorGrading: ColorGradingProps;
   colorNoiseReduction: number;
@@ -347,6 +349,8 @@ const INITIAL_COLOR_CALIBRATION: ColorCalibration = {
 export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
   blacks: 0,
   brightness: 0,
+  chromaticAberrationBlueYellow: 0,
+  chromaticAberrationRedCyan: 0,
   clarity: 0,
   colorGrading: { ...INITIAL_COLOR_GRADING },
   colorNoiseReduction: 0,

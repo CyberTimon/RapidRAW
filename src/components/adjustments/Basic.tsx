@@ -138,7 +138,7 @@ const ToneMapperSwitch = ({
             label="Exposure"
             max={5}
             min={-5}
-            onChange={(e: any) => onExposureChange(parseFloat(e.target.value))}
+            onChange={(value) => onExposureChange(value)}
             step={0.01}
             value={exposureValue}
             trackClassName="bg-surface"
@@ -156,9 +156,8 @@ export default function BasicAdjustments({
   isForMask = false,
   onDragStateChange,
 }: BasicAdjustmentsProps) {
-  const handleAdjustmentChange = (key: BasicAdjustment, value: any) => {
-    const numericValue = parseFloat(value);
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
+  const handleAdjustmentChange = (key: BasicAdjustment, value: number) => {
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: value }));
   };
 
   const handleToneMapperChange = (mapper: string) => {
@@ -174,7 +173,7 @@ export default function BasicAdjustments({
         label="Brightness"
         max={5}
         min={-5}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Brightness, e.target.value)}
+        onChange={(value) => handleAdjustmentChange(BasicAdjustment.Brightness, value)}
         step={0.01}
         value={adjustments.brightness}
         onDragStateChange={onDragStateChange}
@@ -183,7 +182,7 @@ export default function BasicAdjustments({
         label="Contrast"
         max={100}
         min={-100}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Contrast, e.target.value)}
+        onChange={(value) => handleAdjustmentChange(BasicAdjustment.Contrast, value)}
         step={1}
         value={adjustments.contrast}
         onDragStateChange={onDragStateChange}
@@ -192,7 +191,7 @@ export default function BasicAdjustments({
         label="Highlights"
         max={100}
         min={-100}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Highlights, e.target.value)}
+        onChange={(value) => handleAdjustmentChange(BasicAdjustment.Highlights, value)}
         step={1}
         value={adjustments.highlights}
         onDragStateChange={onDragStateChange}
@@ -201,7 +200,7 @@ export default function BasicAdjustments({
         label="Shadows"
         max={100}
         min={-100}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Shadows, e.target.value)}
+        onChange={(value) => handleAdjustmentChange(BasicAdjustment.Shadows, value)}
         step={1}
         value={adjustments.shadows}
         onDragStateChange={onDragStateChange}
@@ -210,7 +209,7 @@ export default function BasicAdjustments({
         label="Whites"
         max={100}
         min={-100}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Whites, e.target.value)}
+        onChange={(value) => handleAdjustmentChange(BasicAdjustment.Whites, value)}
         step={1}
         value={adjustments.whites}
         onDragStateChange={onDragStateChange}
@@ -219,7 +218,7 @@ export default function BasicAdjustments({
         label="Blacks"
         max={100}
         min={-100}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Blacks, e.target.value)}
+        onChange={(value) => handleAdjustmentChange(BasicAdjustment.Blacks, value)}
         step={1}
         value={adjustments.blacks}
         onDragStateChange={onDragStateChange}
@@ -230,7 +229,7 @@ export default function BasicAdjustments({
           label="Exposure"
           max={5}
           min={-5}
-          onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Exposure, e.target.value)}
+          onChange={(value) => handleAdjustmentChange(BasicAdjustment.Exposure, value)}
           step={0.01}
           value={adjustments.exposure}
           onDragStateChange={onDragStateChange}

@@ -1016,8 +1016,8 @@ export default function SettingsPanel({
                                   step={1}
                                   value={appSettings?.aiTagCount ?? 10}
                                   defaultValue={10}
-                                  onChange={(e: any) =>
-                                    onSettingsChange({ ...appSettings, aiTagCount: parseInt(e.target.value) })
+                                  onChange={(value) =>
+                                    onSettingsChange({ ...appSettings, aiTagCount: Math.trunc(value) })
                                   }
                                 />
                               </SettingItem>
@@ -1375,9 +1375,7 @@ export default function SettingsPanel({
                         step={0.1}
                         value={processingSettings.rawHighlightCompression}
                         defaultValue={2.5}
-                        onChange={(e: any) =>
-                          handleProcessingSettingChange('rawHighlightCompression', parseFloat(e.target.value))
-                        }
+                        onChange={(value) => handleProcessingSettingChange('rawHighlightCompression', value)}
                       />
                     </SettingItem>
 

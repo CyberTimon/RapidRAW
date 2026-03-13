@@ -361,19 +361,19 @@ export default function DenoiseModal({
 
     return (
       <div className="w-full flex items-center gap-4">
-        <div className={`flex-1 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-            <Slider
-                label="Strength"
-                value={intensity}
-                min={0}
-                max={100}
-                step={1}
-                defaultValue={15}
-                onChange={(e) => setIntensity(Number(e.target.value))}
-                trackClassName="bg-bg-secondary"
-            />
-        </div>
-
+        <Slider
+          label="Strength"
+          value={intensity}
+          min={0}
+          max={100}
+          step={1}
+          defaultValue={15}
+          onChange={(value) => setIntensity(value)}
+          className="w-full"
+          trackClassName="bg-bg-secondary"
+          disabled={disabled}
+        />
+        
         <div className="h-8 w-px bg-surface mx-2" />
 
         <div className="flex gap-2">
