@@ -2149,11 +2149,54 @@ fn get_settings_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, Strin
         .app_data_dir()
         .map_err(|e| e.to_string())?;
 
-    if !settings_dir.exists() {
-        fs::create_dir_all(&settings_dir).map_err(|e| e.to_string())?;
+    let settings_filename = "settings.json";
+    let settings_path = settings_dir.join(settings_filename);
+
+    #[cfg(target_os = "linux")]
+    {
+        let home_path = std::env::var_os("HOME");
+
+        match home_path {
+            Some(path) => {
+                let mut config_dir = std::path::PathBuf::new();
+                config_dir.push(path);
+                config_dir.push(".config");
+                config_dir.push("RapidRaw");
+
+                if !config_dir.exists() {
+                    fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+                }
+                let config_path = config_dir.join(settings_filename);
+
+                let mut result_path: PathBuf = config_path.clone();
+
+                if !config_path.exists() && settings_path.exists() {
+                    result_path = match std::fs::copy(&settings_path, &config_path) {
+                        Ok(_) => config_path,
+                        Err(_) => settings_path,
+                    }
+                }
+
+                Ok(result_path)
+            }
+            None => {
+                if !settings_dir.exists() {
+                    fs::create_dir_all(&settings_dir).map_err(|e| e.to_string())?;
+                }
+
+                Ok(settings_path)
+            }
+        }
     }
 
-    Ok(settings_dir.join("settings.json"))
+    #[cfg(not(target_os = "linux"))]
+    {
+        if !settings_dir.exists() {
+            fs::create_dir_all(&settings_dir).map_err(|e| e.to_string())?;
+        }
+
+        Ok(settings_path)
+    }
 }
 
 #[tauri::command]
