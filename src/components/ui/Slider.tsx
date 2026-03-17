@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GLOBAL_KEYS } from './AppProperties';
 
 interface SliderProps {
@@ -14,6 +14,7 @@ interface SliderProps {
 }
 
 const DOUBLE_CLICK_THRESHOLD_MS = 300;
+const FINE_MODE_FACTOR = 0.2;
 
 const Slider = ({
   defaultValue = 0,
@@ -35,8 +36,29 @@ const Slider = ({
   const [isLabelHovered, setIsLabelHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastUpTime = useRef(0);
+  const fineDragStateRef = useRef<{ startValue: number; startX: number; trackWidth: number } | null>(null);
   const fillPercentage = max !== min ? ((displayValue - min) / (max - min)) * 100 : 0;
   const defaultPercentage = max !== min ? ((defaultValue - min) / (max - min)) * 100 : 0;
+
+  const stepStr = String(step);
+  const decimalPlaces = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;
+  const numericValue = isNaN(Number(value)) ? 0 : Number(value);
+
+  const emitValueChange = useCallback((nextValue: number) => {
+    const clampedValue = Math.max(min, Math.min(max, nextValue));
+    const roundedValue = parseFloat(clampedValue.toFixed(decimalPlaces));
+
+    if (roundedValue === value || isNaN(roundedValue)) {
+      return;
+    }
+
+    setDisplayValue(roundedValue);
+    onChange({
+      target: {
+        value: roundedValue,
+      },
+    });
+  }, [decimalPlaces, max, min, onChange, value]);
 
   useEffect(() => {
     onDragStateChange(isDragging);
@@ -53,21 +75,8 @@ const Slider = ({
 
       event.preventDefault();
       const direction = -Math.sign(event.deltaY);
-      const newValue = value + direction * step * 2;
-      const stepStr = String(step);
-      const decimalPlaces = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;
-      const roundedNewValue = parseFloat(newValue.toFixed(decimalPlaces));
-
-      const clampedValue = Math.max(min, Math.min(max, roundedNewValue));
-
-      if (clampedValue !== value && !isNaN(clampedValue)) {
-        const syntheticEvent = {
-          target: {
-            value: clampedValue,
-          },
-        };
-        onChange(syntheticEvent);
-      }
+      const fineStep = step * 2 * FINE_MODE_FACTOR;
+      emitValueChange(value + direction * fineStep);
     };
 
     sliderElement.addEventListener('wheel', handleWheel, { passive: false });
@@ -75,23 +84,44 @@ const Slider = ({
     return () => {
       sliderElement.removeEventListener('wheel', handleWheel);
     };
-  }, [value, min, max, step, onChange]);
+  }, [value, step, emitValueChange]);
 
   useEffect(() => {
+    const handleFineDragMove = (event: MouseEvent) => {
+      const fineDragState = fineDragStateRef.current;
+      if (!fineDragState) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (fineDragState.trackWidth <= 0) {
+        return;
+      }
+
+      const deltaX = event.clientX - fineDragState.startX;
+      const range = max - min;
+      const nextValue = fineDragState.startValue + (deltaX / fineDragState.trackWidth) * range * FINE_MODE_FACTOR;
+      emitValueChange(nextValue);
+    };
+
     const handleDragEndGlobal = () => {
+      fineDragStateRef.current = null;
       setIsDragging(false);
     };
 
     if (isDragging) {
+      window.addEventListener('mousemove', handleFineDragMove, { passive: false });
       window.addEventListener('mouseup', handleDragEndGlobal);
       window.addEventListener('touchend', handleDragEndGlobal);
     }
 
     return () => {
+      window.removeEventListener('mousemove', handleFineDragMove);
       window.removeEventListener('mouseup', handleDragEndGlobal);
       window.removeEventListener('touchend', handleDragEndGlobal);
     };
-  }, [isDragging]);
+  }, [emitValueChange, isDragging, max, min]);
 
   useEffect(() => {
     if (isDragging) {
@@ -147,12 +177,7 @@ const Slider = ({
   }, [isEditing]);
 
   const handleReset = () => {
-    const syntheticEvent = {
-      target: {
-        value: defaultValue,
-      },
-    };
-    onChange(syntheticEvent);
+    emitValueChange(defaultValue);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,11 +190,23 @@ const Slider = ({
       e.preventDefault();
       return;
     }
+
+    if (e.shiftKey || e.altKey) {
+      const trackWidth = e.currentTarget.getBoundingClientRect().width;
+      fineDragStateRef.current = {
+        startValue: value,
+        startX: e.clientX,
+        trackWidth,
+      };
+      e.preventDefault();
+    }
+
     setIsDragging(true);
   };
 
   const handleDragEnd = () => {
     lastUpTime.current = Date.now();
+    fineDragStateRef.current = null;
     setIsDragging(false);
   };
 
@@ -189,12 +226,7 @@ const Slider = ({
       newValue = Math.max(min, Math.min(max, newValue));
     }
 
-    const syntheticEvent = {
-      target: {
-        value: newValue,
-      },
-    };
-    onChange(syntheticEvent);
+    emitValueChange(newValue);
     setIsEditing(false);
   };
 
@@ -215,14 +247,17 @@ const Slider = ({
       return;
     }
 
+    if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      const direction = e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : 1;
+      emitValueChange(value + direction * step * FINE_MODE_FACTOR);
+      return;
+    }
+
     if (GLOBAL_KEYS.includes(e.key)) {
       e.currentTarget.blur();
     }
   };
-
-  const stepStr = String(step);
-  const decimalPlaces = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;
-  const numericValue = isNaN(Number(value)) ? 0 : Number(value);
 
   return (
     <div className="mb-2 group" ref={containerRef}>
@@ -273,7 +308,7 @@ const Slider = ({
               className="text-sm text-text-primary w-full text-right select-none cursor-text"
               onClick={handleValueClick}
               onDoubleClick={handleReset}
-              data-tooltip={`Click to edit`}
+              data-tooltip={`Click to edit. Hold Shift or Alt for fine adjustments.`}
             >
               {decimalPlaces > 0 && numericValue === 0 ? '0' : numericValue.toFixed(decimalPlaces)}
             </span>
