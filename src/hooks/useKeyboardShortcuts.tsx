@@ -14,6 +14,7 @@ interface KeyboardShortcutsProps {
   customEscapeHandler: any;
   handleBackToLibrary(): void;
   handleCopyAdjustments(): void;
+  handleCycleEditorBackground(): void;
   handleDeleteAiPatch(patchId: string): void;
   handleDeleteMaskContainer(containerId: string): void;
   handleDeleteSelected(): void;
@@ -65,6 +66,7 @@ export const useKeyboardShortcuts = ({
   customEscapeHandler,
   handleBackToLibrary,
   handleCopyAdjustments,
+  handleCycleEditorBackground,
   handleDeleteAiPatch,
   handleDeleteMaskContainer,
   handleDeleteSelected,
@@ -190,7 +192,13 @@ export const useKeyboardShortcuts = ({
           event.preventDefault();
           handleToggleFullScreen();
         }
-        if (key === 'b' && !isCtrl) {
+        const isCycleEditorBackgroundShortcut =
+          code === 'KeyB' && event.altKey && (event.metaKey || event.ctrlKey);
+
+        if (isCycleEditorBackgroundShortcut) {
+          event.preventDefault();
+          handleCycleEditorBackground();
+        } else if (code === 'KeyB' && !event.ctrlKey && !event.metaKey && !event.altKey) {
           event.preventDefault();
           setShowOriginal((prev: boolean) => !prev);
         }
@@ -443,6 +451,7 @@ export const useKeyboardShortcuts = ({
     customEscapeHandler,
     handleBackToLibrary,
     handleCopyAdjustments,
+    handleCycleEditorBackground,
     handleDeleteAiPatch,
     handleDeleteMaskContainer,
     handleDeleteSelected,

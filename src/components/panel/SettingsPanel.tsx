@@ -1809,6 +1809,7 @@ export default function SettingsPanel({
                         <KeybindItem keys={[']']} description="Rotate 90° clockwise" />
                         <KeybindItem keys={['F']} description="Toggle fullscreen" />
                         <KeybindItem keys={['B']} description="Show original (before/after)" />
+                        <KeybindItem keys={['Cmd/Ctrl', '+', 'Option/Alt', '+', 'B']} description="Cycle editor background color" />
                         <KeybindItem keys={['S']} description="Straighten Image" />
                         <KeybindItem keys={['D']} description="Toggle Adjustments panel" />
                         <KeybindItem keys={['R']} description="Toggle Crop panel" />

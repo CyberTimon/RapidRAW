@@ -1588,6 +1588,19 @@ function App() {
     [theme],
   );
 
+  const handleCycleEditorBackground = useCallback(() => {
+    if (!appSettings) {
+      return;
+    }
+
+    const backgroundOrder = [EditorBackgroundColor.Black, EditorBackgroundColor.Grey, EditorBackgroundColor.White];
+    const currentBackground = appSettings.editorBackgroundColor || EditorBackgroundColor.Grey;
+    const currentIndex = backgroundOrder.indexOf(currentBackground);
+    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % backgroundOrder.length : 0;
+
+    handleSettingsChange({ ...appSettings, editorBackgroundColor: backgroundOrder[nextIndex] });
+  }, [appSettings, handleSettingsChange]);
+
   useEffect(() => {
     try {
       setOsPlatform(platform());
@@ -2926,6 +2939,7 @@ function App() {
     customEscapeHandler,
     handleBackToLibrary,
     handleCopyAdjustments,
+    handleCycleEditorBackground,
     handleDeleteAiPatch,
     handleDeleteMaskContainer,
     handleDeleteSelected,
