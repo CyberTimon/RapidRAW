@@ -961,6 +961,13 @@ pub fn generate_thumbnail_data(
     let adjustments = metadata
         .as_ref()
         .map_or(serde_json::Value::Null, |m| m.adjustments.clone());
+    let has_visual_adjustments = match adjustments.as_object() {
+        Some(adjustment_obj) => {
+            adjustment_obj.len() > 1
+                || (adjustment_obj.len() == 1 && !adjustment_obj.contains_key("rating"))
+        }
+        None => !adjustments.is_null(),
+    };
     let is_unedited_raw_thumbnail = match adjustments.as_object() {
         Some(adjustment_obj) => {
             adjustment_obj.is_empty()
@@ -989,7 +996,7 @@ pub fn generate_thumbnail_data(
     }
 
     if let (Some(context), Some(meta)) = (gpu_context, metadata)
-        && !meta.adjustments.is_null()
+        && has_visual_adjustments
     {
         let state = app_handle.state::<AppState>();
         const THUMBNAIL_PROCESSING_DIM: u32 = 1280;
@@ -1260,20 +1267,28 @@ fn generate_single_thumbnail_and_cache(
         .ok()?
         .as_secs();
 
-    let (sidecar_mod_time, rating) = if let Ok(content) = fs::read_to_string(&sidecar_path) {
+    let (sidecar_mod_time, rating, has_visual_adjustments) = if let Ok(content) = fs::read_to_string(&sidecar_path) {
         let mod_time = fs::metadata(&sidecar_path)
             .ok()
             .and_then(|m| m.modified().ok())
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|d| d.as_secs())
             .unwrap_or(0);
-        let rating_val = serde_json::from_str::<ImageMetadata>(&content)
-            .ok()
-            .map(|m| m.rating)
-            .unwrap_or(0);
-        (mod_time, rating_val)
+        let metadata = serde_json::from_str::<ImageMetadata>(&content).ok();
+        let rating_val = metadata.as_ref().map(|m| m.rating).unwrap_or(0);
+        let has_visual_adjustments = metadata
+            .as_ref()
+            .map(|m| match m.adjustments.as_object() {
+                Some(adjustment_obj) => {
+                    adjustment_obj.len() > 1
+                        || (adjustment_obj.len() == 1 && !adjustment_obj.contains_key("rating"))
+                }
+                None => !m.adjustments.is_null(),
+            })
+            .unwrap_or(false);
+        (mod_time, rating_val, has_visual_adjustments)
     } else {
-        (0, 0)
+        (0, 0, false)
     };
 
     let mut hasher = blake3::Hasher::new();
@@ -1290,8 +1305,18 @@ fn generate_single_thumbnail_and_cache(
         return Some((cache_path.to_string_lossy().into_owned(), rating));
     }
 
+    let lazy_gpu_context = if gpu_context.is_none()
+        && has_visual_adjustments
+    {
+        let state = app_handle.state::<AppState>();
+        gpu_processing::get_or_init_gpu_context(&state).ok()
+    } else {
+        None
+    };
+    let active_gpu_context = gpu_context.or(lazy_gpu_context.as_ref());
+
     if let Ok(thumb_image) =
-        generate_thumbnail_data(path_str, gpu_context, preloaded_image, app_handle)
+        generate_thumbnail_data(path_str, active_gpu_context, preloaded_image, app_handle)
         && let Ok(thumb_data) = encode_thumbnail(&thumb_image)
     {
         let _ = fs::write(&cache_path, &thumb_data);
@@ -1316,16 +1341,13 @@ pub async fn generate_thumbnails(
             fs::create_dir_all(&thumb_cache_dir).map_err(|e| e.to_string())?;
         }
 
-        let state = app_handle_clone.state::<AppState>();
-        let gpu_context = gpu_processing::get_or_init_gpu_context(&state).ok();
-
         let thumbnails: HashMap<String, String> = paths
             .par_iter()
             .filter_map(|path_str| {
                 generate_single_thumbnail_and_cache(
                     path_str,
                     &thumb_cache_dir,
-                    gpu_context.as_ref(),
+                    None,
                     None,
                     false,
                     &app_handle_clone,
@@ -1372,9 +1394,6 @@ pub fn generate_thumbnails_progressive(
     let completed_count = Arc::new(AtomicUsize::new(0));
 
     pool.spawn(move || {
-        let state = app_handle_clone.state::<AppState>();
-        let gpu_context = gpu_processing::get_or_init_gpu_context(&state).ok();
-
         let _ = paths.par_iter().try_for_each(|path_str| -> Result<(), ()> {
             if cancellation_token.load(Ordering::Relaxed) {
                 return Err(());
@@ -1383,7 +1402,7 @@ pub fn generate_thumbnails_progressive(
             let result = generate_single_thumbnail_and_cache(
                 path_str,
                 &thumb_cache_dir,
-                gpu_context.as_ref(),
+                None,
                 None,
                 false,
                 &app_handle_clone,
