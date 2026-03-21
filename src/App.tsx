@@ -99,6 +99,7 @@ import {
   FilterCriteria,
   Invokes,
   ImageFile,
+  EditorBackgroundColor,
   Option,
   OPTION_SEPARATOR,
   LibraryViewMode,
@@ -3907,6 +3908,7 @@ function App() {
     };
 
     const commonTags = getCommonTags([selectedImage.path]);
+    const selectedEditorBackground = appSettings?.editorBackgroundColor || EditorBackgroundColor.Grey;
 
     const options: Array<Option> = [
       {
@@ -3989,6 +3991,32 @@ function App() {
             label: 'Cull Image',
             icon: Users,
             disabled: true,
+          },
+        ],
+      },
+      { type: OPTION_SEPARATOR },
+      {
+        label: 'Editor Background',
+        icon: Palette,
+        disabled: !appSettings,
+        submenu: [
+          {
+            label: selectedEditorBackground === EditorBackgroundColor.Black ? 'Black (Current)' : 'Black',
+            onClick: () =>
+              appSettings &&
+              handleSettingsChange({ ...appSettings, editorBackgroundColor: EditorBackgroundColor.Black }),
+          },
+          {
+            label: selectedEditorBackground === EditorBackgroundColor.Grey ? 'Grey (Current)' : 'Grey',
+            onClick: () =>
+              appSettings &&
+              handleSettingsChange({ ...appSettings, editorBackgroundColor: EditorBackgroundColor.Grey }),
+          },
+          {
+            label: selectedEditorBackground === EditorBackgroundColor.White ? 'White (Current)' : 'White',
+            onClick: () =>
+              appSettings &&
+              handleSettingsChange({ ...appSettings, editorBackgroundColor: EditorBackgroundColor.White }),
           },
         ],
       },
@@ -4901,6 +4929,7 @@ function App() {
               goToAdjustmentsHistoryIndex={goToAdjustmentsHistoryIndex}
               liveRotation={liveRotation}
               isInstantTransition={isInstantTransition}
+              editorBackgroundColor={appSettings?.editorBackgroundColor}
             />
             <div
               className={clsx(

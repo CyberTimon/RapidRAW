@@ -10,7 +10,14 @@ import { calculateCenteredCrop, getOrientedDimensions } from '../../utils/cropUt
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
 import { Mask, SubMask } from './right/Masks';
-import { BrushSettings, Invokes, Panel, SelectedImage, TransformState } from '../ui/AppProperties';
+import {
+  BrushSettings,
+  EditorBackgroundColor,
+  Invokes,
+  Panel,
+  SelectedImage,
+  TransformState,
+} from '../ui/AppProperties';
 import type { OverlayMode } from './right/CropPanel';
 
 interface EditorProps {
@@ -63,6 +70,7 @@ interface EditorProps {
   goToAdjustmentsHistoryIndex(index: number): void;
   liveRotation?: number | null;
   isInstantTransition: boolean;
+  editorBackgroundColor?: EditorBackgroundColor;
 }
 
 export default function Editor({
@@ -114,6 +122,7 @@ export default function Editor({
   goToAdjustmentsHistoryIndex,
   liveRotation,
   isInstantTransition,
+  editorBackgroundColor = EditorBackgroundColor.Grey,
 }: EditorProps) {
   const [crop, setCrop] = useState<Crop | null>(null);
   const prevCropParams = useRef<any>(null);
@@ -713,6 +722,18 @@ export default function Editor({
 
   const isZoomActionActive = !isCropping && !isMasking && !isAiEditing && !isWbPickerActive;
   const isMaxZoom = transformState.scale >= transformConfig.maxScale - 0.5;
+  const editorBackgroundClass =
+    editorBackgroundColor === EditorBackgroundColor.Black
+      ? 'bg-black'
+      : editorBackgroundColor === EditorBackgroundColor.White
+        ? 'bg-white'
+        : 'bg-bg-secondary';
+  const loadingOverlayBackgroundClass =
+    editorBackgroundColor === EditorBackgroundColor.Black
+      ? 'bg-black/80'
+      : editorBackgroundColor === EditorBackgroundColor.White
+        ? 'bg-white/80'
+        : 'bg-bg-secondary/80';
 
   let cursorStyle = 'default';
   if (isZoomActionActive) {
@@ -730,7 +751,8 @@ export default function Editor({
       className={clsx(
         'flex-1 flex flex-col relative overflow-hidden min-h-0',
         !isInstantTransition && 'transition-all duration-300 ease-in-out',
-        isFullScreen ? 'bg-black rounded-none p-0 gap-0' : 'bg-bg-secondary rounded-lg p-2 gap-2',
+        editorBackgroundClass,
+        isFullScreen ? 'rounded-none p-0 gap-0' : 'rounded-lg p-2 gap-2',
       )}
     >
       <div
@@ -768,7 +790,8 @@ export default function Editor({
         {showSpinner && (
           <div
             className={clsx(
-              'absolute inset-0 bg-bg-secondary/80 flex items-center justify-center z-50 transition-opacity duration-300',
+              'absolute inset-0 flex items-center justify-center z-50 transition-opacity duration-300',
+              loadingOverlayBackgroundClass,
               isLoaderVisible ? 'opacity-100' : 'opacity-0 pointer-events-none',
             )}
           >

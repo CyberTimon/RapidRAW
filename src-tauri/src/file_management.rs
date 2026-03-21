@@ -350,6 +350,8 @@ pub struct AppSettings {
     pub ai_connector_address: Option<String>,
     pub last_folder_state: Option<LastFolderState>,
     pub adaptive_editor_theme: Option<bool>,
+    #[serde(default)]
+    pub editor_background_color: Option<String>,
     pub ui_visibility: Option<Value>,
     pub enable_ai_tagging: Option<bool>,
     pub tagging_thread_count: Option<u32>,
@@ -431,6 +433,7 @@ impl Default for AppSettings {
             ai_connector_address: None,
             last_folder_state: None,
             adaptive_editor_theme: Some(false),
+            editor_background_color: Some("grey".to_string()),
             ui_visibility: None,
             enable_ai_tagging: Some(false),
             tagging_thread_count: Some(3),
