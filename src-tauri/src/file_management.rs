@@ -787,7 +787,10 @@ pub struct FolderNode {
     pub image_count: usize,
 }
 
-fn scan_dir_and_count(path: &Path) -> Result<(Vec<FolderNode>, usize), std::io::Error> {
+fn scan_dir_and_count(
+    path: &Path,
+    include_image_counts: bool,
+) -> Result<(Vec<FolderNode>, usize), std::io::Error> {
     let mut children_folders = Vec::new();
     let mut current_dir_image_count = 0;
 
@@ -817,10 +820,15 @@ fn scan_dir_and_count(path: &Path) -> Result<(Vec<FolderNode>, usize), std::io::
                 continue;
             }
 
-            let (grand_children, sub_dir_own_images) = scan_dir_and_count(&current_path)?;
+            let (grand_children, sub_dir_own_images) =
+                scan_dir_and_count(&current_path, include_image_counts)?;
 
-            let grand_children_sum: usize = grand_children.iter().map(|c| c.image_count).sum();
-            let total_child_count = sub_dir_own_images + grand_children_sum;
+            let total_child_count = if include_image_counts {
+                let grand_children_sum: usize = grand_children.iter().map(|c| c.image_count).sum();
+                sub_dir_own_images + grand_children_sum
+            } else {
+                0
+            };
 
             children_folders.push(FolderNode {
                 name: name_str.into_owned(),
@@ -829,7 +837,10 @@ fn scan_dir_and_count(path: &Path) -> Result<(Vec<FolderNode>, usize), std::io::
                 is_dir: true,
                 image_count: total_child_count,
             });
-        } else if file_type.is_file() && is_supported_image_file(&current_path) {
+        } else if include_image_counts
+            && file_type.is_file()
+            && is_supported_image_file(&current_path)
+        {
             current_dir_image_count += 1;
         }
     }
@@ -837,15 +848,20 @@ fn scan_dir_and_count(path: &Path) -> Result<(Vec<FolderNode>, usize), std::io::
     Ok((children_folders, current_dir_image_count))
 }
 
-fn get_folder_tree_sync(path: String) -> Result<FolderNode, String> {
+fn get_folder_tree_sync(path: String, include_image_counts: bool) -> Result<FolderNode, String> {
     let root_path = Path::new(&path);
     if !root_path.is_dir() {
         return Err(format!("Directory does not exist: {}", path));
     }
 
-    let (children, own_count) = scan_dir_and_count(root_path).map_err(|e| e.to_string())?;
+    let (children, own_count) =
+        scan_dir_and_count(root_path, include_image_counts).map_err(|e| e.to_string())?;
 
-    let children_sum: usize = children.iter().map(|c| c.image_count).sum();
+    let children_sum: usize = if include_image_counts {
+        children.iter().map(|c| c.image_count).sum()
+    } else {
+        0
+    };
 
     Ok(FolderNode {
         name: root_path
@@ -861,8 +877,14 @@ fn get_folder_tree_sync(path: String) -> Result<FolderNode, String> {
 }
 
 #[tauri::command]
-pub async fn get_folder_tree(path: String) -> Result<FolderNode, String> {
-    match tauri::async_runtime::spawn_blocking(move || get_folder_tree_sync(path)).await {
+pub async fn get_folder_tree(path: String, app_handle: AppHandle) -> Result<FolderNode, String> {
+    let settings = load_settings(app_handle).unwrap_or_default();
+    let include_image_counts = settings.enable_folder_image_counts.unwrap_or(false);
+    match tauri::async_runtime::spawn_blocking(move || {
+        get_folder_tree_sync(path, include_image_counts)
+    })
+    .await
+    {
         Ok(Ok(folder_node)) => Ok(folder_node),
         Ok(Err(e)) => Err(e),
         Err(e) => Err(format!("Failed to execute folder tree task: {}", e)),
@@ -870,11 +892,16 @@ pub async fn get_folder_tree(path: String) -> Result<FolderNode, String> {
 }
 
 #[tauri::command]
-pub async fn get_pinned_folder_trees(paths: Vec<String>) -> Result<Vec<FolderNode>, String> {
+pub async fn get_pinned_folder_trees(
+    paths: Vec<String>,
+    app_handle: AppHandle,
+) -> Result<Vec<FolderNode>, String> {
+    let settings = load_settings(app_handle).unwrap_or_default();
+    let include_image_counts = settings.enable_folder_image_counts.unwrap_or(false);
     let result = tauri::async_runtime::spawn_blocking(move || {
         let results: Vec<Result<FolderNode, String>> = paths
             .par_iter()
-            .map(|path| get_folder_tree_sync(path.clone()))
+            .map(|path| get_folder_tree_sync(path.clone(), include_image_counts))
             .collect();
 
         let mut folder_nodes = Vec::new();
