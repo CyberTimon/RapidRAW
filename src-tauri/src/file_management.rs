@@ -12,7 +12,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 
 use anyhow::Result;
-use base64::{Engine as _, engine::general_purpose};
 use chrono::{DateTime, Utc};
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma};
@@ -1214,10 +1213,8 @@ fn generate_single_thumbnail_and_cache(
 
     if !force_regenerate
         && cache_path.exists()
-        && let Ok(data) = fs::read(&cache_path)
     {
-        let base64_str = general_purpose::STANDARD.encode(&data);
-        return Some((format!("data:image/jpeg;base64,{}", base64_str), rating));
+        return Some((cache_path.to_string_lossy().into_owned(), rating));
     }
 
     if let Ok(thumb_image) =
@@ -1225,8 +1222,7 @@ fn generate_single_thumbnail_and_cache(
         && let Ok(thumb_data) = encode_thumbnail(&thumb_image)
     {
         let _ = fs::write(&cache_path, &thumb_data);
-        let base64_str = general_purpose::STANDARD.encode(&thumb_data);
-        return Some((format!("data:image/jpeg;base64,{}", base64_str), rating));
+        return Some((cache_path.to_string_lossy().into_owned(), rating));
     }
     None
 }

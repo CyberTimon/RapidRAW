@@ -30,6 +30,7 @@ interface BottomBarProps {
   onPaste(): void;
   onRate(rate: number): void;
   onReset?(): void;
+  onVisibleThumbnailPathsChange?(paths: Array<string>): void;
   onZoomChange?(zoomValue: number, fitToWindow?: boolean): void;
   rating: number;
   selectedImage?: SelectedImage;
@@ -105,6 +106,7 @@ export default function BottomBar({
   onPaste,
   onRate,
   onReset,
+  onVisibleThumbnailPathsChange,
   onZoomChange = () => {},
   rating,
   selectedImage,
@@ -244,6 +246,7 @@ export default function BottomBar({
               onClearSelection={onClearSelection}
               onContextMenu={onContextMenu}
               onImageSelect={onImageSelect}
+              onVisibleThumbnailPathsChange={onVisibleThumbnailPathsChange}
               selectedImage={selectedImage}
               thumbnails={thumbnails}
               thumbnailAspectRatio={thumbnailAspectRatio}

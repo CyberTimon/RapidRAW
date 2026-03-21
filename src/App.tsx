@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { platform } from '@tauri-apps/plugin-os';
@@ -3013,7 +3013,7 @@ function App() {
         if (isEffectActive) {
           const { path, data, rating } = event.payload;
           if (data) {
-            pendingThumbnailUpdatesRef.current[path] = data;
+            pendingThumbnailUpdatesRef.current[path] = data.startsWith('data:') ? data : convertFileSrc(data);
           }
           if (rating !== undefined) {
             pendingRatingUpdatesRef.current[path] = rating;
@@ -4977,6 +4977,7 @@ function App() {
                 onPaste={() => handlePasteAdjustments()}
                 onRate={handleRate}
                 onZoomChange={handleZoomChange}
+                onVisibleThumbnailPathsChange={setVisibleThumbnailPaths}
                 rating={adjustments.rating || 0}
                 selectedImage={selectedImage}
                 setIsFilmstripVisible={(value: boolean) =>

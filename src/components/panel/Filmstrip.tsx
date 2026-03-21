@@ -26,6 +26,7 @@ interface ItemData {
   thumbnailAspectRatio: ThumbnailAspectRatio;
   onContextMenu?: (event: any, path: string) => void;
   onImageSelect?: (path: string, event: any) => void;
+  onVisibleThumbnailPathsChange?: (paths: Array<string>) => void;
   itemHeight: number;
   setSize: (index: number, width: number) => void;
 }
@@ -309,6 +310,7 @@ const FilmstripList = ({
   const resizeEndTimer = useRef<number | null>(null);
   const currentDataRef = useRef(data);
   currentDataRef.current = data;
+  const visiblePathsKeyRef = useRef('');
   const pendingResizeRef = useRef<number | null>(null);
   const lowestPendingIndexRef = useRef<number>(Infinity);
   const isAnimatingScroll = useRef(false);
@@ -383,6 +385,14 @@ const FilmstripList = ({
       start: visibleCells.columnStartIndex,
       stop: visibleCells.columnStopIndex,
     };
+    const nextPaths = currentDataRef.current.imageList
+      .slice(visibleCells.columnStartIndex, visibleCells.columnStopIndex + 1)
+      .map((imageFile) => imageFile.path);
+    const nextKey = nextPaths.join('|');
+    if (nextKey !== visiblePathsKeyRef.current) {
+      visiblePathsKeyRef.current = nextKey;
+      currentDataRef.current.onVisibleThumbnailPathsChange?.(nextPaths);
+    }
   }, []);
 
   const isItemVisible = useCallback((index: number) => {
@@ -529,6 +539,7 @@ interface FilmStripProps {
   onClearSelection?(): void;
   onContextMenu?(event: any, path: string): void;
   onImageSelect?(path: string, event: any): void;
+  onVisibleThumbnailPathsChange?(paths: Array<string>): void;
   selectedImage?: SelectedImage;
   thumbnails: Record<string, string> | undefined;
   thumbnailAspectRatio: ThumbnailAspectRatio;
@@ -542,6 +553,7 @@ export default function Filmstrip({
   onClearSelection,
   onContextMenu,
   onImageSelect,
+  onVisibleThumbnailPathsChange,
   selectedImage,
   thumbnails,
   thumbnailAspectRatio,
@@ -571,6 +583,7 @@ export default function Filmstrip({
               thumbnailAspectRatio,
               onContextMenu,
               onImageSelect: handleImageSelect,
+              onVisibleThumbnailPathsChange,
               clickTriggeredScroll,
             }}
           />
