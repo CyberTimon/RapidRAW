@@ -3,6 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { ImageFile, Invokes, Progress } from '../components/ui/AppProperties';
 
+const THUMBNAIL_REQUEST_BATCH_SIZE = 16;
+
 export function useThumbnails(
   imageList: Array<ImageFile>,
   thumbnails: Record<string, string>,
@@ -66,17 +68,50 @@ export function useThumbnails(
     }
 
     let unlistenComplete: any;
+    let isCancelled = false;
+    let nextBatchStartIndex = 0;
 
     const setupListenersAndInvoke = async () => {
       setLoading(true);
       setProgress({ completed: 0, total: pathsToRequest.length });
 
       unlistenComplete = await listen('thumbnail-generation-complete', () => {
-        setLoading(false);
+        if (isCancelled) {
+          return;
+        }
+        const completed = Math.min(nextBatchStartIndex, pathsToRequest.length);
+        setProgress({ completed, total: pathsToRequest.length });
+        if (completed >= pathsToRequest.length) {
+          setLoading(false);
+          return;
+        }
+        invokeNextBatch();
       });
 
+      const invokeNextBatch = async () => {
+        if (isCancelled) {
+          return;
+        }
+        const batchPaths = pathsToRequest.slice(
+          nextBatchStartIndex,
+          nextBatchStartIndex + THUMBNAIL_REQUEST_BATCH_SIZE,
+        );
+        if (batchPaths.length === 0) {
+          setLoading(false);
+          return;
+        }
+        nextBatchStartIndex += batchPaths.length;
+
+        try {
+          await invoke(Invokes.GenerateThumbnailsProgressive, { paths: batchPaths });
+        } catch (error) {
+          console.error('Failed to invoke thumbnail generation:', error);
+          setLoading(false);
+        }
+      };
+
       try {
-        await invoke(Invokes.GenerateThumbnailsProgressive, { paths: pathsToRequest });
+        await invokeNextBatch();
       } catch (error) {
         console.error('Failed to invoke thumbnail generation:', error);
         setLoading(false);
@@ -86,6 +121,8 @@ export function useThumbnails(
     setupListenersAndInvoke();
 
     return () => {
+      isCancelled = true;
+      invoke('cancel_thumbnail_generation').catch(() => {});
       if (unlistenComplete) {
         unlistenComplete();
       }

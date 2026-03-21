@@ -1745,7 +1745,7 @@ export default function MainLibrary({
                     listRef={setListHandle}
                     rowCount={rows.length}
                     rowHeight={getItemSize}
-                    overscanCount={4}
+                    overscanCount={2}
                     onScroll={(e: React.UIEvent<HTMLElement>) => setLibraryScrollTop(e.currentTarget.scrollTop)}
                     onRowsRendered={(_: { startIndex: number; stopIndex: number }, allRows: { startIndex: number; stopIndex: number }) => {
                       const nextPaths: string[] = [];

@@ -41,6 +41,7 @@ use crate::preset_converter;
 use crate::tagging::COLOR_TAG_PREFIX;
 
 const THUMBNAIL_WIDTH: u32 = 384;
+const MAX_XMP_SYNC_LISTING_IMAGES: usize = 200;
 
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
     let cache_dir = app_handle
@@ -577,6 +578,8 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
         }
     }
 
+    let should_sync_xmp_on_list = enable_xmp_sync && image_files.len() <= MAX_XMP_SYNC_LISTING_IMAGES;
+
     let mut result_list = Vec::new();
     for (path_str, path_buf) in image_files {
         let modified = fs::metadata(&path_buf)
@@ -615,7 +618,7 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                 };
 
                 let source_path_buf = PathBuf::from(&path_str);
-                if enable_xmp_sync
+                if should_sync_xmp_on_list
                     && sync_metadata_from_xmp(&source_path_buf, &mut metadata)
                     && let Ok(json) = serde_json::to_string_pretty(&metadata)
                 {
@@ -692,6 +695,8 @@ pub fn list_images_recursive(
         }
     }
 
+    let should_sync_xmp_on_list = enable_xmp_sync && image_files.len() <= MAX_XMP_SYNC_LISTING_IMAGES;
+
     let mut result_list = Vec::new();
     for (path_str, path_buf) in image_files {
         let modified = fs::metadata(&path_buf)
@@ -730,7 +735,7 @@ pub fn list_images_recursive(
                 };
 
                 let source_path_buf = PathBuf::from(&path_str);
-                if enable_xmp_sync
+                if should_sync_xmp_on_list
                     && sync_metadata_from_xmp(&source_path_buf, &mut metadata)
                     && let Ok(json) = serde_json::to_string_pretty(&metadata)
                 {
