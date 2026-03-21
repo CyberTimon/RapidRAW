@@ -1684,7 +1684,6 @@ function App() {
           preloadedDataRef.current = {
             rootPath: root,
             currentPath: currentPath,
-            tree: invoke(Invokes.GetFolderTree, { path: root }),
             images: invoke(command, { path: currentPath }),
           };
         }
@@ -3518,22 +3517,6 @@ function App() {
         setExpandedFolders(new Set([root]));
       }
 
-      setIsTreeLoading(true);
-      try {
-        let treeData;
-        if (preloadedDataRef.current.rootPath === root && preloadedDataRef.current.tree) {
-          treeData = await preloadedDataRef.current.tree;
-          console.log('Preload cache hit for folder tree.');
-        } else {
-          treeData = await invoke(Invokes.GetFolderTree, { path: root });
-        }
-        setFolderTree(treeData);
-      } catch (err) {
-        console.error('Failed to restore folder tree:', err);
-      } finally {
-        setIsTreeLoading(false);
-      }
-
       let preloadedImages: ImageFile[] | undefined = undefined;
       if (preloadedDataRef.current.currentPath === pathToSelect && preloadedDataRef.current.images) {
         try {
@@ -3545,6 +3528,28 @@ function App() {
       }
 
       await handleSelectSubfolder(pathToSelect, false, preloadedImages);
+
+      setIsTreeLoading(true);
+      const usePreloadedTree = preloadedDataRef.current.rootPath === root && preloadedDataRef.current.tree;
+      const treePromise = usePreloadedTree ? preloadedDataRef.current.tree : invoke(Invokes.GetFolderTree, { path: root });
+
+      treePromise
+        ?.then((treeData) => {
+          if (usePreloadedTree) {
+            console.log('Preload cache hit for folder tree.');
+          }
+          if (preloadedDataRef.current.rootPath === root) {
+            setFolderTree(treeData);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to restore folder tree:', err);
+        })
+        .finally(() => {
+          if (preloadedDataRef.current.rootPath === root) {
+            setIsTreeLoading(false);
+          }
+        });
     };
     restore().catch((err) => {
       console.error('Failed to restore session, folder might be missing:', err);

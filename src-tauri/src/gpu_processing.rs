@@ -22,6 +22,7 @@ pub fn get_or_init_gpu_context(state: &tauri::State<AppState>) -> Result<GpuCont
     if let Some(context) = &*context_lock {
         return Ok(context.clone());
     }
+    let init_start = Instant::now();
     #[allow(unused_mut)]
     let mut instance_desc = wgpu::InstanceDescriptor::from_env_or_default();
 
@@ -31,11 +32,21 @@ pub fn get_or_init_gpu_context(state: &tauri::State<AppState>) -> Result<GpuCont
     }
 
     let instance = wgpu::Instance::new(&instance_desc);
+    let adapter_request_start = Instant::now();
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::HighPerformance,
         ..Default::default()
     }))
     .map_err(|e| format!("Failed to find a wgpu adapter: {}", e))?;
+    let adapter_info = adapter.get_info();
+    log::info!(
+        "GPU adapter selected: name='{}', backend={:?}, device={}, vendor={} in {:?}",
+        adapter_info.name,
+        adapter_info.backend,
+        adapter_info.device,
+        adapter_info.vendor,
+        adapter_request_start.elapsed()
+    );
 
     let mut required_features = wgpu::Features::empty();
     if adapter
@@ -47,6 +58,7 @@ pub fn get_or_init_gpu_context(state: &tauri::State<AppState>) -> Result<GpuCont
 
     let limits = adapter.limits();
 
+    let device_request_start = Instant::now();
     let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         label: Some("Processing Device"),
         required_features,
@@ -56,6 +68,10 @@ pub fn get_or_init_gpu_context(state: &tauri::State<AppState>) -> Result<GpuCont
         trace: wgpu::Trace::Off,
     }))
     .map_err(|e| e.to_string())?;
+    log::info!(
+        "GPU device initialized in {:?}",
+        device_request_start.elapsed()
+    );
 
     let new_context = GpuContext {
         device: Arc::new(device),
@@ -63,6 +79,7 @@ pub fn get_or_init_gpu_context(state: &tauri::State<AppState>) -> Result<GpuCont
         limits,
     };
     *context_lock = Some(new_context.clone());
+    log::info!("GPU context initialized in {:?}", init_start.elapsed());
     Ok(new_context)
 }
 
@@ -1248,7 +1265,13 @@ pub fn process_and_get_dynamic_image(
             new_width,
             new_height
         );
+        let processor_create_start = Instant::now();
         let processor = GpuProcessor::new(context.clone(), new_width, new_height)?;
+        log::info!(
+            "[{}] GPU processor created in {:?}",
+            caller_id,
+            processor_create_start.elapsed()
+        );
         *processor_lock = Some(crate::GpuProcessorState {
             processor,
             width: new_width,
@@ -1268,6 +1291,7 @@ pub fn process_and_get_dynamic_image(
     }
 
     if cache_lock.is_none() {
+        let texture_upload_start = Instant::now();
         let img_rgba_f16 = to_rgba_f16(base_image);
         let texture_size = wgpu::Extent3d {
             width,
@@ -1298,10 +1322,18 @@ pub fn process_and_get_dynamic_image(
             height,
             transform_hash,
         });
+        log::info!(
+            "[{}] Uploaded {}x{} source texture in {:?}",
+            caller_id,
+            width,
+            height,
+            texture_upload_start.elapsed()
+        );
     }
 
     let cache = cache_lock.as_ref().unwrap();
 
+    let run_start = Instant::now();
     let (processed_pixels, out_w, out_h) = processor.run(
         &cache.texture_view,
         cache.width,
@@ -1311,6 +1343,7 @@ pub fn process_and_get_dynamic_image(
         mask_bitmaps,
         lut,
     )?;
+    log::info!("[{}] GPU run stage took {:?}", caller_id, run_start.elapsed());
 
     let duration = start_time.elapsed();
     let fps = 1.0 / duration.as_secs_f64();

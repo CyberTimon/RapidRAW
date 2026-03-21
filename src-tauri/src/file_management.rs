@@ -46,6 +46,177 @@ const MAX_SIDECAR_METADATA_LISTING_IMAGES: usize = 500;
 const EMBEDDED_RAW_THUMBNAIL_EXTENSIONS: &[&str] =
     &["arw", "cr2", "cr3", "dng", "nef", "pef", "raf", "rw2", "tfr"];
 
+fn is_identity_curve_channel(value: &Value) -> bool {
+    value.as_array().is_some_and(|points| {
+        points.len() == 2
+            && points[0]["x"].as_i64() == Some(0)
+            && points[0]["y"].as_i64() == Some(0)
+            && points[1]["x"].as_i64() == Some(255)
+            && points[1]["y"].as_i64() == Some(255)
+    })
+}
+
+fn has_material_ai_patch(value: &Value) -> bool {
+    if value.get("patchData").is_some_and(|patch_data| !patch_data.is_null()) {
+        return true;
+    }
+    if value
+        .get("patchDataBase64")
+        .and_then(|patch_data| patch_data.as_str())
+        .is_some_and(|patch_data| !patch_data.is_empty())
+    {
+        return true;
+    }
+    value
+        .get("subMasks")
+        .and_then(|sub_masks| sub_masks.as_array())
+        .is_some_and(|sub_masks| {
+            sub_masks.iter().any(|sub_mask| {
+                sub_mask
+                    .get("parameters")
+                    .and_then(|params| {
+                        params
+                            .get("maskDataBase64")
+                            .or_else(|| params.get("mask_data_base64"))
+                    })
+                    .and_then(|mask_data| mask_data.as_str())
+                    .is_some_and(|mask_data| !mask_data.is_empty())
+            })
+        })
+}
+
+fn has_meaningful_thumbnail_adjustments(adjustments: &Value) -> bool {
+    let Some(adjustment_obj) = adjustments.as_object() else {
+        return !adjustments.is_null();
+    };
+
+    for (key, value) in adjustment_obj {
+        match key.as_str() {
+            "rating" | "sectionVisibility" | "aspectRatio" | "showClipping" | "filmBaseColor" => {}
+            "aiPatches" => {
+                if value
+                    .as_array()
+                    .is_some_and(|patches| patches.iter().any(has_material_ai_patch))
+                {
+                    return true;
+                }
+            }
+            "masks" => {
+                if value.as_array().is_some_and(|masks| !masks.is_empty()) {
+                    return true;
+                }
+            }
+            "crop" | "lutData" | "lensDistortionParams" => {
+                if !value.is_null() {
+                    return true;
+                }
+            }
+            "flipHorizontal"
+            | "flipVertical"
+            | "enableNegativeConversion"
+            | "lensDistortionEnabled"
+            | "lensTcaEnabled"
+            | "lensVignetteEnabled" => {
+                if value.as_bool().unwrap_or(false) != (key.starts_with("lens")) {
+                    return true;
+                }
+            }
+            "grainRoughness" | "vignetteFeather" | "vignetteMidpoint" => {
+                if value.as_i64().unwrap_or(50) != 50 {
+                    return true;
+                }
+            }
+            "grainSize" => {
+                if value.as_i64().unwrap_or(25) != 25 {
+                    return true;
+                }
+            }
+            "lutIntensity"
+            | "lensDistortionAmount"
+            | "lensVignetteAmount"
+            | "lensTcaAmount"
+            | "transformScale" => {
+                if value.as_i64().unwrap_or(100) != 100 {
+                    return true;
+                }
+            }
+            "lutSize" => {
+                if value.as_i64().unwrap_or(0) != 0 {
+                    return true;
+                }
+            }
+            "toneMapper" => {
+                if value.as_str().unwrap_or("basic") != "basic" {
+                    return true;
+                }
+            }
+            "lutName" | "lutPath" | "lensMaker" | "lensModel" => {
+                if value.as_str().is_some_and(|text| !text.is_empty()) {
+                    return true;
+                }
+            }
+            "curves" => {
+                if !is_identity_curve_channel(&value["luma"])
+                    || !is_identity_curve_channel(&value["red"])
+                    || !is_identity_curve_channel(&value["green"])
+                    || !is_identity_curve_channel(&value["blue"])
+                {
+                    return true;
+                }
+            }
+            "colorCalibration" => {
+                if value["redHue"].as_i64().unwrap_or(0) != 0
+                    || value["redSaturation"].as_i64().unwrap_or(0) != 0
+                    || value["greenHue"].as_i64().unwrap_or(0) != 0
+                    || value["greenSaturation"].as_i64().unwrap_or(0) != 0
+                    || value["blueHue"].as_i64().unwrap_or(0) != 0
+                    || value["blueSaturation"].as_i64().unwrap_or(0) != 0
+                    || value["shadowsTint"].as_i64().unwrap_or(0) != 0
+                {
+                    return true;
+                }
+            }
+            "colorGrading" => {
+                if value["balance"].as_i64().unwrap_or(0) != 0
+                    || value["blending"].as_i64().unwrap_or(50) != 50
+                    || value["highlights"]["hue"].as_i64().unwrap_or(0) != 0
+                    || value["highlights"]["luminance"].as_i64().unwrap_or(0) != 0
+                    || value["highlights"]["saturation"].as_i64().unwrap_or(0) != 0
+                    || value["midtones"]["hue"].as_i64().unwrap_or(0) != 0
+                    || value["midtones"]["luminance"].as_i64().unwrap_or(0) != 0
+                    || value["midtones"]["saturation"].as_i64().unwrap_or(0) != 0
+                    || value["shadows"]["hue"].as_i64().unwrap_or(0) != 0
+                    || value["shadows"]["luminance"].as_i64().unwrap_or(0) != 0
+                    || value["shadows"]["saturation"].as_i64().unwrap_or(0) != 0
+                {
+                    return true;
+                }
+            }
+            "hsl" => {
+                if value.to_string().contains(":1")
+                    || value.to_string().contains(":2")
+                    || value.to_string().contains(":3")
+                    || value.to_string().contains(":4")
+                    || value.to_string().contains(":5")
+                    || value.to_string().contains(":6")
+                    || value.to_string().contains(":7")
+                    || value.to_string().contains(":8")
+                    || value.to_string().contains(":9")
+                {
+                    return true;
+                }
+            }
+            _ => {
+                if value.as_f64().is_some_and(|number| number != 0.0) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
     let cache_dir = app_handle
         .path()
@@ -961,20 +1132,8 @@ pub fn generate_thumbnail_data(
     let adjustments = metadata
         .as_ref()
         .map_or(serde_json::Value::Null, |m| m.adjustments.clone());
-    let has_visual_adjustments = match adjustments.as_object() {
-        Some(adjustment_obj) => {
-            adjustment_obj.len() > 1
-                || (adjustment_obj.len() == 1 && !adjustment_obj.contains_key("rating"))
-        }
-        None => !adjustments.is_null(),
-    };
-    let is_unedited_raw_thumbnail = match adjustments.as_object() {
-        Some(adjustment_obj) => {
-            adjustment_obj.is_empty()
-                || (adjustment_obj.len() == 1 && adjustment_obj.contains_key("rating"))
-        }
-        None => adjustments.is_null(),
-    };
+    let has_visual_adjustments = has_meaningful_thumbnail_adjustments(&adjustments);
+    let is_unedited_raw_thumbnail = !has_visual_adjustments;
 
     if preloaded_image.is_none()
         && is_raw
@@ -993,6 +1152,24 @@ pub fn generate_thumbnail_data(
         )
     {
         return Ok(preview_image);
+    }
+
+    if preloaded_image.is_none()
+        && !is_raw
+        && !has_visual_adjustments
+        && source_path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("jpg") || ext.eq_ignore_ascii_case("jpeg"))
+    {
+        return match read_file_mapped(&source_path) {
+            Ok(mmap) => image_loader::load_image_with_orientation_native(&mmap, None),
+            Err(e) => {
+                log::warn!("Fallback read for {}: {}", source_path_str, e);
+                let bytes = fs::read(&source_path)?;
+                image_loader::load_image_with_orientation_native(&bytes, None)
+            }
+        };
     }
 
     if let (Some(context), Some(meta)) = (gpu_context, metadata)
@@ -1241,8 +1418,12 @@ pub fn generate_thumbnail_data(
 }
 
 fn encode_thumbnail(image: &DynamicImage) -> Result<Vec<u8>> {
-    let thumbnail =
-        crate::image_processing::downscale_f32_image(image, THUMBNAIL_WIDTH, THUMBNAIL_WIDTH);
+    let thumbnail = match image {
+        DynamicImage::ImageRgb32F(_) | DynamicImage::ImageRgba32F(_) => {
+            crate::image_processing::downscale_f32_image(image, THUMBNAIL_WIDTH, THUMBNAIL_WIDTH)
+        }
+        _ => image.thumbnail(THUMBNAIL_WIDTH, THUMBNAIL_WIDTH),
+    };
     let mut buf = Cursor::new(Vec::new());
     let mut encoder = JpegEncoder::new_with_quality(&mut buf, 75);
     encoder.encode_image(&thumbnail.to_rgb8())?;
@@ -1278,13 +1459,7 @@ fn generate_single_thumbnail_and_cache(
         let rating_val = metadata.as_ref().map(|m| m.rating).unwrap_or(0);
         let has_visual_adjustments = metadata
             .as_ref()
-            .map(|m| match m.adjustments.as_object() {
-                Some(adjustment_obj) => {
-                    adjustment_obj.len() > 1
-                        || (adjustment_obj.len() == 1 && !adjustment_obj.contains_key("rating"))
-                }
-                None => !m.adjustments.is_null(),
-            })
+            .map(|m| has_meaningful_thumbnail_adjustments(&m.adjustments))
             .unwrap_or(false);
         (mod_time, rating_val, has_visual_adjustments)
     } else {

@@ -123,6 +123,15 @@ pub fn load_image_with_orientation(
     bytes: &[u8],
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
+    Ok(DynamicImage::ImageRgb32F(
+        load_image_with_orientation_native(bytes, cancel_token)?.to_rgb32f(),
+    ))
+}
+
+pub fn load_image_with_orientation_native(
+    bytes: &[u8],
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<DynamicImage> {
     let check_cancel = || -> Result<()> {
         if let Some((tracker, generation)) = &cancel_token
             && tracker.load(Ordering::SeqCst) != *generation
@@ -161,7 +170,7 @@ pub fn load_image_with_orientation(
         }
     };
 
-    Ok(DynamicImage::ImageRgb32F(oriented_image.to_rgb32f()))
+    Ok(oriented_image)
 }
 
 pub fn composite_patches_on_image(
