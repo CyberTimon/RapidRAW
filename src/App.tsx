@@ -416,7 +416,8 @@ function App() {
   const [libraryScrollTop, setLibraryScrollTop] = useState<number>(0);
   const { showContextMenu } = useContextMenu();
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
-  const { loading: isThumbnailsLoading } = useThumbnails(imageList, setThumbnails);
+  const [visibleThumbnailPaths, setVisibleThumbnailPaths] = useState<Array<string>>([]);
+  const { loading: isThumbnailsLoading } = useThumbnails(imageList, thumbnails, setThumbnails, visibleThumbnailPaths);
   const pendingThumbnailUpdatesRef = useRef<Record<string, string>>({});
   const pendingRatingUpdatesRef = useRef<Record<string, number>>({});
   const thumbnailFlushFrameRef = useRef<number | null>(null);
@@ -1904,6 +1905,7 @@ function App() {
       setIsViewLoading(true);
       setSearchCriteria({ tags: [], text: '', mode: 'OR' });
       setLibraryScrollTop(0);
+      setVisibleThumbnailPaths([]);
       pendingThumbnailUpdatesRef.current = {};
       pendingRatingUpdatesRef.current = {};
       if (thumbnailFlushFrameRef.current !== null) {
@@ -4801,6 +4803,7 @@ function App() {
               thumbnailAspectRatio={thumbnailAspectRatio}
               thumbnails={thumbnails}
               thumbnailSize={thumbnailSize}
+              onVisibleThumbnailPathsChange={setVisibleThumbnailPaths}
               onNavigateToCommunity={() => setActiveView('community')}
             />
           )}
