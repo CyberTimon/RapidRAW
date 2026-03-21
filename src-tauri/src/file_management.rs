@@ -42,6 +42,9 @@ use crate::tagging::COLOR_TAG_PREFIX;
 
 const THUMBNAIL_WIDTH: u32 = 384;
 const MAX_XMP_SYNC_LISTING_IMAGES: usize = 200;
+const MAX_SIDECAR_METADATA_LISTING_IMAGES: usize = 500;
+const EMBEDDED_RAW_THUMBNAIL_EXTENSIONS: &[&str] =
+    &["arw", "cr2", "cr3", "dng", "nef", "pef", "raf", "rw2", "tfr"];
 
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
     let cache_dir = app_handle
@@ -579,6 +582,8 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
     }
 
     let should_sync_xmp_on_list = enable_xmp_sync && image_files.len() <= MAX_XMP_SYNC_LISTING_IMAGES;
+    let should_read_sidecar_metadata_on_list =
+        image_files.len() <= MAX_SIDECAR_METADATA_LISTING_IMAGES;
 
     let mut result_list = Vec::new();
     for (path_str, path_buf) in image_files {
@@ -607,28 +612,32 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
             };
 
             let (is_edited, tags) = {
-                let mut metadata = if sidecar_path.exists() {
-                    if let Ok(content) = fs::read_to_string(&sidecar_path) {
-                        serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
+                if should_read_sidecar_metadata_on_list {
+                    let mut metadata = if sidecar_path.exists() {
+                        if let Ok(content) = fs::read_to_string(&sidecar_path) {
+                            serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
+                        } else {
+                            ImageMetadata::default()
+                        }
                     } else {
                         ImageMetadata::default()
+                    };
+
+                    let source_path_buf = PathBuf::from(&path_str);
+                    if should_sync_xmp_on_list
+                        && sync_metadata_from_xmp(&source_path_buf, &mut metadata)
+                        && let Ok(json) = serde_json::to_string_pretty(&metadata)
+                    {
+                        let _ = fs::write(&sidecar_path, json);
                     }
+
+                    let edited = metadata.adjustments.as_object().is_some_and(|a| {
+                        a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
+                    });
+                    (edited, metadata.tags)
                 } else {
-                    ImageMetadata::default()
-                };
-
-                let source_path_buf = PathBuf::from(&path_str);
-                if should_sync_xmp_on_list
-                    && sync_metadata_from_xmp(&source_path_buf, &mut metadata)
-                    && let Ok(json) = serde_json::to_string_pretty(&metadata)
-                {
-                    let _ = fs::write(&sidecar_path, json);
+                    (false, None)
                 }
-
-                let edited = metadata.adjustments.as_object().is_some_and(|a| {
-                    a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
-                });
-                (edited, metadata.tags)
             };
 
             result_list.push(ImageFile {
@@ -696,6 +705,8 @@ pub fn list_images_recursive(
     }
 
     let should_sync_xmp_on_list = enable_xmp_sync && image_files.len() <= MAX_XMP_SYNC_LISTING_IMAGES;
+    let should_read_sidecar_metadata_on_list =
+        image_files.len() <= MAX_SIDECAR_METADATA_LISTING_IMAGES;
 
     let mut result_list = Vec::new();
     for (path_str, path_buf) in image_files {
@@ -724,28 +735,32 @@ pub fn list_images_recursive(
             };
 
             let (is_edited, tags) = {
-                let mut metadata = if sidecar_path.exists() {
-                    if let Ok(content) = fs::read_to_string(&sidecar_path) {
-                        serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
+                if should_read_sidecar_metadata_on_list {
+                    let mut metadata = if sidecar_path.exists() {
+                        if let Ok(content) = fs::read_to_string(&sidecar_path) {
+                            serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
+                        } else {
+                            ImageMetadata::default()
+                        }
                     } else {
                         ImageMetadata::default()
+                    };
+
+                    let source_path_buf = PathBuf::from(&path_str);
+                    if should_sync_xmp_on_list
+                        && sync_metadata_from_xmp(&source_path_buf, &mut metadata)
+                        && let Ok(json) = serde_json::to_string_pretty(&metadata)
+                    {
+                        let _ = fs::write(&sidecar_path, json);
                     }
+
+                    let edited = metadata.adjustments.as_object().is_some_and(|a| {
+                        a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
+                    });
+                    (edited, metadata.tags)
                 } else {
-                    ImageMetadata::default()
-                };
-
-                let source_path_buf = PathBuf::from(&path_str);
-                if should_sync_xmp_on_list
-                    && sync_metadata_from_xmp(&source_path_buf, &mut metadata)
-                    && let Ok(json) = serde_json::to_string_pretty(&metadata)
-                {
-                    let _ = fs::write(&sidecar_path, json);
+                    (false, None)
                 }
-
-                let edited = metadata.adjustments.as_object().is_some_and(|a| {
-                    a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
-                });
-                (edited, metadata.tags)
             };
 
             result_list.push(ImageFile {
@@ -919,6 +934,32 @@ pub fn generate_thumbnail_data(
     let adjustments = metadata
         .as_ref()
         .map_or(serde_json::Value::Null, |m| m.adjustments.clone());
+    let is_unedited_raw_thumbnail = match adjustments.as_object() {
+        Some(adjustment_obj) => {
+            adjustment_obj.is_empty()
+                || (adjustment_obj.len() == 1 && adjustment_obj.contains_key("rating"))
+        }
+        None => adjustments.is_null(),
+    };
+
+    if preloaded_image.is_none()
+        && is_raw
+        && is_unedited_raw_thumbnail
+        && source_path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| {
+                EMBEDDED_RAW_THUMBNAIL_EXTENSIONS
+                    .iter()
+                    .any(|supported_ext| supported_ext.eq_ignore_ascii_case(ext))
+            })
+        && let Ok(preview_image) = rawler::analyze::extract_thumbnail_pixels(
+            &source_path,
+            &rawler::decoders::RawDecodeParams::default(),
+        )
+    {
+        return Ok(preview_image);
+    }
 
     if let (Some(context), Some(meta)) = (gpu_context, metadata)
         && !meta.adjustments.is_null()
