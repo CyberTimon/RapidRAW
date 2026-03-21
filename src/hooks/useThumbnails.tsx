@@ -45,16 +45,10 @@ export function useThumbnails(imageList: Array<ImageFile>, setThumbnails: any) {
     });
 
     let unlistenComplete: any;
-    let unlistenProgress: any;
 
     const setupListenersAndInvoke = async () => {
       setLoading(true);
       setProgress({ completed: 0, total: imagePaths.length });
-
-      unlistenProgress = await listen('thumbnail-progress', (event: any) => {
-        const { completed, total } = event.payload;
-        setProgress({ completed, total });
-      });
 
       unlistenComplete = await listen('thumbnail-generation-complete', () => {
         setLoading(false);
@@ -73,9 +67,6 @@ export function useThumbnails(imageList: Array<ImageFile>, setThumbnails: any) {
     return () => {
       if (unlistenComplete) {
         unlistenComplete();
-      }
-      if (unlistenProgress) {
-        unlistenProgress();
       }
     };
   }, [imageList, setThumbnails]);

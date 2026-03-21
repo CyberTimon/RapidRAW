@@ -417,6 +417,9 @@ function App() {
   const { showContextMenu } = useContextMenu();
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const { loading: isThumbnailsLoading } = useThumbnails(imageList, setThumbnails);
+  const pendingThumbnailUpdatesRef = useRef<Record<string, string>>({});
+  const pendingRatingUpdatesRef = useRef<Record<string, number>>({});
+  const thumbnailFlushFrameRef = useRef<number | null>(null);
   const transformWrapperRef = useRef<any>(null);
   const isProgrammaticZoom = useRef(false);
   const currentResRef = useRef<number>(1280);
@@ -431,6 +434,20 @@ function App() {
   }>({});
   const previewJobIdRef = useRef<number>(0);
   const latestRenderedJobIdRef = useRef<number>(0);
+
+  const flushThumbnailUpdates = useCallback(() => {
+    thumbnailFlushFrameRef.current = null;
+    const thumbnailUpdates = pendingThumbnailUpdatesRef.current;
+    const ratingUpdates = pendingRatingUpdatesRef.current;
+    pendingThumbnailUpdatesRef.current = {};
+    pendingRatingUpdatesRef.current = {};
+    if (Object.keys(thumbnailUpdates).length > 0) {
+      setThumbnails((prev) => ({ ...prev, ...thumbnailUpdates }));
+    }
+    if (Object.keys(ratingUpdates).length > 0) {
+      setImageRatings((prev) => ({ ...prev, ...ratingUpdates }));
+    }
+  }, []);
 
   useEffect(() => {
     if (currentFolderPath) {
@@ -1887,6 +1904,12 @@ function App() {
       setIsViewLoading(true);
       setSearchCriteria({ tags: [], text: '', mode: 'OR' });
       setLibraryScrollTop(0);
+      pendingThumbnailUpdatesRef.current = {};
+      pendingRatingUpdatesRef.current = {};
+      if (thumbnailFlushFrameRef.current !== null) {
+        cancelAnimationFrame(thumbnailFlushFrameRef.current);
+        thumbnailFlushFrameRef.current = null;
+      }
       setThumbnails({});
       imageCacheRef.current.clear();
       try {
@@ -2988,10 +3011,13 @@ function App() {
         if (isEffectActive) {
           const { path, data, rating } = event.payload;
           if (data) {
-            setThumbnails((prev) => ({ ...prev, [path]: data }));
+            pendingThumbnailUpdatesRef.current[path] = data;
           }
           if (rating !== undefined) {
-            setImageRatings((prev) => ({ ...prev, [path]: rating }));
+            pendingRatingUpdatesRef.current[path] = rating;
+          }
+          if ((data || rating !== undefined) && thumbnailFlushFrameRef.current === null) {
+            thumbnailFlushFrameRef.current = requestAnimationFrame(flushThumbnailUpdates);
           }
         }
       }),
@@ -3130,7 +3156,15 @@ function App() {
       isEffectActive = false;
       listeners.forEach((p) => p.then((unlisten) => unlisten()));
     };
-  }, [refreshAllFolderTrees, handleSelectSubfolder]);
+  }, [flushThumbnailUpdates, refreshAllFolderTrees, handleSelectSubfolder]);
+
+  useEffect(() => {
+    return () => {
+      if (thumbnailFlushFrameRef.current !== null) {
+        cancelAnimationFrame(thumbnailFlushFrameRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if ([Status.Success, Status.Error, Status.Cancelled].includes(exportState.status)) {

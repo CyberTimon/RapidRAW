@@ -41,7 +41,7 @@ use crate::mask_generation::MaskDefinition;
 use crate::preset_converter;
 use crate::tagging::COLOR_TAG_PREFIX;
 
-const THUMBNAIL_WIDTH: u32 = 640;
+const THUMBNAIL_WIDTH: u32 = 384;
 
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
     let cache_dir = app_handle
@@ -1282,7 +1282,7 @@ pub fn generate_thumbnails_progressive(
         .store(false, Ordering::SeqCst);
     let cancellation_token = state.thumbnail_cancellation_token.clone();
 
-    const MAX_THUMBNAIL_THREADS: usize = 6;
+    const MAX_THUMBNAIL_THREADS: usize = 2;
     let num_threads = (num_cpus::get_physical().saturating_sub(1)).clamp(1, MAX_THUMBNAIL_THREADS);
 
     let pool = ThreadPoolBuilder::new()
@@ -1334,10 +1334,12 @@ pub fn generate_thumbnails_progressive(
             if cancellation_token.load(Ordering::Relaxed) {
                 return Err(());
             }
-            let _ = app_handle_clone.emit(
-                "thumbnail-progress",
-                serde_json::json!({ "completed": completed, "total": total_count }),
-            );
+            if completed == total_count || completed % 8 == 0 {
+                let _ = app_handle_clone.emit(
+                    "thumbnail-progress",
+                    serde_json::json!({ "completed": completed, "total": total_count }),
+                );
+            }
             Ok(())
         });
 
