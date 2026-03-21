@@ -137,6 +137,7 @@
     <camera>
         <maker>Panasonic</maker>
         <model>DC-G9M2</model>
+        <model lang="en">DC-G9 II</model>
         <mount>Micro 4/3 System</mount>
         <cropfactor>2</cropfactor>
     </camera>
