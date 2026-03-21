@@ -109,6 +109,7 @@ interface MainLibraryProps {
   thumbnailAspectRatio: ThumbnailAspectRatio;
   thumbnails: Record<string, string>;
   thumbnailSize: ThumbnailSize;
+  onVisibleThumbnailPathsChange(paths: Array<string>): void;
   onNavigateToCommunity(): void;
 }
 
@@ -1206,6 +1207,7 @@ export default function MainLibrary({
   thumbnailAspectRatio,
   thumbnails,
   thumbnailSize,
+  onVisibleThumbnailPathsChange,
   onNavigateToCommunity,
 }: MainLibraryProps) {
   const [showSettings, setShowSettings] = useState(false);
@@ -1217,6 +1219,7 @@ export default function MainLibrary({
   const [latestVersion, setLatestVersion] = useState('');
   const [isLoaderVisible, setIsLoaderVisible] = useState(false);
   const loadedThumbnailsRef = useRef(new Set<string>());
+  const visibleThumbnailPathsKeyRef = useRef('');
 
   const prevScrollState = useRef({
     path: null as string | null,
@@ -1344,6 +1347,13 @@ export default function MainLibrary({
       setSortCriteria({ key: 'name', order: SortDirection.Ascending });
     }
   }, [appSettings?.enableExifReading, sortCriteria.key, setSortCriteria]);
+
+  useEffect(() => {
+    if (imageList.length === 0 && visibleThumbnailPathsKeyRef.current !== '') {
+      visibleThumbnailPathsKeyRef.current = '';
+      onVisibleThumbnailPathsChange([]);
+    }
+  }, [imageList.length, onVisibleThumbnailPathsChange]);
 
   useEffect(() => {
     let showTimer: number | undefined;
@@ -1735,7 +1745,24 @@ export default function MainLibrary({
                     listRef={setListHandle}
                     rowCount={rows.length}
                     rowHeight={getItemSize}
+                    overscanCount={2}
                     onScroll={(e: React.UIEvent<HTMLElement>) => setLibraryScrollTop(e.currentTarget.scrollTop)}
+                    onRowsRendered={(_: { startIndex: number; stopIndex: number }, allRows: { startIndex: number; stopIndex: number }) => {
+                      const nextPaths: string[] = [];
+
+                      for (let i = allRows.startIndex; i <= allRows.stopIndex; i++) {
+                        const row = rows[i];
+                        if (row?.type === 'images') {
+                          nextPaths.push(...row.images.map((imageFile: ImageFile) => imageFile.path));
+                        }
+                      }
+
+                      const nextKey = nextPaths.join('|');
+                      if (nextKey !== visibleThumbnailPathsKeyRef.current) {
+                        visibleThumbnailPathsKeyRef.current = nextKey;
+                        onVisibleThumbnailPathsChange(nextPaths);
+                      }
+                    }}
                     className="custom-scrollbar"
                     rowComponent={Row}
                     rowProps={{

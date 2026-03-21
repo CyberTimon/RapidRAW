@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { platform } from '@tauri-apps/plugin-os';
@@ -416,7 +416,11 @@ function App() {
   const [libraryScrollTop, setLibraryScrollTop] = useState<number>(0);
   const { showContextMenu } = useContextMenu();
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
-  const { loading: isThumbnailsLoading } = useThumbnails(imageList, setThumbnails);
+  const [visibleThumbnailPaths, setVisibleThumbnailPaths] = useState<Array<string>>([]);
+  const { loading: isThumbnailsLoading } = useThumbnails(imageList, thumbnails, setThumbnails, visibleThumbnailPaths);
+  const pendingThumbnailUpdatesRef = useRef<Record<string, string>>({});
+  const pendingRatingUpdatesRef = useRef<Record<string, number>>({});
+  const thumbnailFlushFrameRef = useRef<number | null>(null);
   const transformWrapperRef = useRef<any>(null);
   const isProgrammaticZoom = useRef(false);
   const currentResRef = useRef<number>(1280);
@@ -431,6 +435,20 @@ function App() {
   }>({});
   const previewJobIdRef = useRef<number>(0);
   const latestRenderedJobIdRef = useRef<number>(0);
+
+  const flushThumbnailUpdates = useCallback(() => {
+    thumbnailFlushFrameRef.current = null;
+    const thumbnailUpdates = pendingThumbnailUpdatesRef.current;
+    const ratingUpdates = pendingRatingUpdatesRef.current;
+    pendingThumbnailUpdatesRef.current = {};
+    pendingRatingUpdatesRef.current = {};
+    if (Object.keys(thumbnailUpdates).length > 0) {
+      setThumbnails((prev) => ({ ...prev, ...thumbnailUpdates }));
+    }
+    if (Object.keys(ratingUpdates).length > 0) {
+      setImageRatings((prev) => ({ ...prev, ...ratingUpdates }));
+    }
+  }, []);
 
   useEffect(() => {
     if (currentFolderPath) {
@@ -1666,7 +1684,6 @@ function App() {
           preloadedDataRef.current = {
             rootPath: root,
             currentPath: currentPath,
-            tree: invoke(Invokes.GetFolderTree, { path: root }),
             images: invoke(command, { path: currentPath }),
           };
         }
@@ -1887,6 +1904,13 @@ function App() {
       setIsViewLoading(true);
       setSearchCriteria({ tags: [], text: '', mode: 'OR' });
       setLibraryScrollTop(0);
+      setVisibleThumbnailPaths([]);
+      pendingThumbnailUpdatesRef.current = {};
+      pendingRatingUpdatesRef.current = {};
+      if (thumbnailFlushFrameRef.current !== null) {
+        cancelAnimationFrame(thumbnailFlushFrameRef.current);
+        thumbnailFlushFrameRef.current = null;
+      }
       setThumbnails({});
       imageCacheRef.current.clear();
       try {
@@ -2988,10 +3012,13 @@ function App() {
         if (isEffectActive) {
           const { path, data, rating } = event.payload;
           if (data) {
-            setThumbnails((prev) => ({ ...prev, [path]: data }));
+            pendingThumbnailUpdatesRef.current[path] = data.startsWith('data:') ? data : convertFileSrc(data);
           }
           if (rating !== undefined) {
-            setImageRatings((prev) => ({ ...prev, [path]: rating }));
+            pendingRatingUpdatesRef.current[path] = rating;
+          }
+          if ((data || rating !== undefined) && thumbnailFlushFrameRef.current === null) {
+            thumbnailFlushFrameRef.current = requestAnimationFrame(flushThumbnailUpdates);
           }
         }
       }),
@@ -3130,7 +3157,15 @@ function App() {
       isEffectActive = false;
       listeners.forEach((p) => p.then((unlisten) => unlisten()));
     };
-  }, [refreshAllFolderTrees, handleSelectSubfolder]);
+  }, [flushThumbnailUpdates, refreshAllFolderTrees, handleSelectSubfolder]);
+
+  useEffect(() => {
+    return () => {
+      if (thumbnailFlushFrameRef.current !== null) {
+        cancelAnimationFrame(thumbnailFlushFrameRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if ([Status.Success, Status.Error, Status.Cancelled].includes(exportState.status)) {
@@ -3482,22 +3517,6 @@ function App() {
         setExpandedFolders(new Set([root]));
       }
 
-      setIsTreeLoading(true);
-      try {
-        let treeData;
-        if (preloadedDataRef.current.rootPath === root && preloadedDataRef.current.tree) {
-          treeData = await preloadedDataRef.current.tree;
-          console.log('Preload cache hit for folder tree.');
-        } else {
-          treeData = await invoke(Invokes.GetFolderTree, { path: root });
-        }
-        setFolderTree(treeData);
-      } catch (err) {
-        console.error('Failed to restore folder tree:', err);
-      } finally {
-        setIsTreeLoading(false);
-      }
-
       let preloadedImages: ImageFile[] | undefined = undefined;
       if (preloadedDataRef.current.currentPath === pathToSelect && preloadedDataRef.current.images) {
         try {
@@ -3509,6 +3528,28 @@ function App() {
       }
 
       await handleSelectSubfolder(pathToSelect, false, preloadedImages);
+
+      setIsTreeLoading(true);
+      const usePreloadedTree = preloadedDataRef.current.rootPath === root && preloadedDataRef.current.tree;
+      const treePromise = usePreloadedTree ? preloadedDataRef.current.tree : invoke(Invokes.GetFolderTree, { path: root });
+
+      treePromise
+        ?.then((treeData) => {
+          if (usePreloadedTree) {
+            console.log('Preload cache hit for folder tree.');
+          }
+          if (preloadedDataRef.current.rootPath === root) {
+            setFolderTree(treeData);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to restore folder tree:', err);
+        })
+        .finally(() => {
+          if (preloadedDataRef.current.rootPath === root) {
+            setIsTreeLoading(false);
+          }
+        });
     };
     restore().catch((err) => {
       console.error('Failed to restore session, folder might be missing:', err);
@@ -4767,6 +4808,7 @@ function App() {
               thumbnailAspectRatio={thumbnailAspectRatio}
               thumbnails={thumbnails}
               thumbnailSize={thumbnailSize}
+              onVisibleThumbnailPathsChange={setVisibleThumbnailPaths}
               onNavigateToCommunity={() => setActiveView('community')}
             />
           )}
@@ -4940,6 +4982,7 @@ function App() {
                 onPaste={() => handlePasteAdjustments()}
                 onRate={handleRate}
                 onZoomChange={handleZoomChange}
+                onVisibleThumbnailPathsChange={setVisibleThumbnailPaths}
                 rating={adjustments.rating || 0}
                 selectedImage={selectedImage}
                 setIsFilmstripVisible={(value: boolean) =>
