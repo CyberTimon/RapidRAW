@@ -927,7 +927,7 @@ fn process_preview_job(
             && c.interactive_divisor == interactive_divisor
     });
 
-    let (final_preview_base, small_preview_base, scale_for_gpu, unscaled_crop_offset) =
+    let (final_preview_base, _small_preview_base, scale_for_gpu, unscaled_crop_offset) =
         if cache_valid {
             let cached = cached_preview_lock.as_ref().unwrap();
             (
@@ -974,20 +974,14 @@ fn process_preview_job(
 
     drop(cached_preview_lock);
 
-    let (processing_image, effective_scale, jpeg_quality) = if is_interactive {
-        let orig_w = final_preview_base.width() as f32;
-        let small_w = small_preview_base.width() as f32;
-        let scale_factor = if orig_w > 0.0 { small_w / orig_w } else { 1.0 };
-        let new_scale = scale_for_gpu * scale_factor;
-        let img = Arc::try_unwrap(small_preview_base).unwrap_or_else(|arc| (*arc).clone());
-        (img, new_scale, interactive_quality)
-    } else {
-        let img = Arc::try_unwrap(final_preview_base).unwrap_or_else(|arc| (*arc).clone());
-        (img, scale_for_gpu, 95)
-    };
+    // Always use full resolution for GPU processing to ensure consistent histogram calculation
+    let processing_image = Arc::try_unwrap(final_preview_base).unwrap_or_else(|arc| (*arc).clone());
+    let effective_scale = scale_for_gpu;
+    let jpeg_quality = if is_interactive { interactive_quality } else { 95 };
 
     let (preview_width, preview_height) = processing_image.dimensions();
 
+    // ROI is calculated at full resolution for consistent histogram metrics
     let pixel_roi = if is_interactive {
         roi.map(|(nx, ny, nw, nh)| crate::gpu_processing::Roi {
             x: (nx * preview_width as f32).round() as u32,
