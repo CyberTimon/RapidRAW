@@ -507,7 +507,7 @@ export default function Waveform({
 
   return (
     <div
-      className="relative w-full h-full bg-surface rounded-lg overflow-hidden border-border-color shadow-inner"
+      className="relative w-full h-full bg-surface rounded-none overflow-hidden border-border-color shadow-inner"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
