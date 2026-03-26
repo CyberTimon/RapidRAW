@@ -313,6 +313,7 @@ const FilmstripList = ({
   const isAnimatingScroll = useRef(false);
   const scrollAnimationTimeout = useRef<any>(null);
   const pendingScrollTarget = useRef<number | null>(null);
+  const hasCompletedInitialScroll = useRef(false);
   const itemHeight = Math.max(20, height - VERTICAL_PADDING);
 
   const getColumnWidth = useCallback(
@@ -473,9 +474,10 @@ const FilmstripList = ({
           }
           prevSelectedPath.current = currentPath;
         } else {
-          if (!isItemVisible(index)) {
+          if (!hasCompletedInitialScroll.current && !isItemVisible(index)) {
             performSafeScroll(index, true);
           }
+          hasCompletedInitialScroll.current = true;
         }
       }
     }

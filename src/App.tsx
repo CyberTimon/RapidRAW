@@ -231,6 +231,31 @@ const getParentDir = (filePath: string): string => {
   return filePath.substring(0, lastSeparatorIndex);
 };
 
+const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[]): any => {
+  if (!node) return null;
+
+  if (node.path === targetPath) {
+    const mergedChildren = newChildren.map((newChild: any) => {
+      const existingChild = node.children?.find((c: any) => c.path === newChild.path);
+      if (existingChild && existingChild.children && existingChild.children.length > 0) {
+        return { ...newChild, children: existingChild.children };
+      }
+      return newChild;
+    });
+
+    return { ...node, children: mergedChildren };
+  }
+
+  if (node.children && node.children.length > 0) {
+    return {
+      ...node,
+      children: node.children.map((child: any) => insertChildrenIntoTree(child, targetPath, newChildren)),
+    };
+  }
+
+  return node;
+};
+
 function App() {
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
@@ -1647,7 +1672,11 @@ function App() {
         }
         if (settings?.pinnedFolders && settings.pinnedFolders.length > 0) {
           try {
-            const trees = await invoke(Invokes.GetPinnedFolderTrees, { paths: settings.pinnedFolders });
+            const trees = await invoke(Invokes.GetPinnedFolderTrees, {
+              paths: settings.pinnedFolders,
+              expandedFolders: settings.lastFolderState?.expandedFolders || [],
+              showImageCounts: settings.enableFolderImageCounts ?? false,
+            });
             setPinnedFolderTrees(trees);
           } catch (err) {
             console.error('Failed to load pinned folder trees:', err);
@@ -1666,7 +1695,11 @@ function App() {
           preloadedDataRef.current = {
             rootPath: root,
             currentPath: currentPath,
-            tree: invoke(Invokes.GetFolderTree, { path: root }),
+            tree: invoke(Invokes.GetFolderTree, {
+              path: root,
+              expandedFolders: settings.lastFolderState?.expandedFolders || [root],
+              showImageCounts: settings.enableFolderImageCounts ?? false,
+            }),
             images: invoke(command, { path: currentPath }),
           };
         }
@@ -1825,27 +1858,42 @@ function App() {
     return () => clearTimeout(timer);
   }, [theme]);
 
-  const refreshAllFolderTrees = useCallback(async () => {
-    if (rootPath) {
-      try {
-        const treeData = await invoke(Invokes.GetFolderTree, { path: rootPath });
-        setFolderTree(treeData);
-      } catch (err) {
-        console.error('Failed to refresh main folder tree:', err);
-        setError(`Failed to refresh folder tree: ${err}.`);
-      }
-    }
+  const refreshAllFolderTrees = useCallback(
+    async (currentExpanded?: Set<string>) => {
+      const activeExpanded = currentExpanded || expandedFolders;
+      const expandedArr = Array.from(activeExpanded);
+      const showCounts = appSettings?.enableFolderImageCounts ?? false;
 
-    const currentPins = appSettings?.pinnedFolders || [];
-    if (currentPins.length > 0) {
-      try {
-        const trees = await invoke(Invokes.GetPinnedFolderTrees, { paths: currentPins });
-        setPinnedFolderTrees(trees);
-      } catch (err) {
-        console.error('Failed to refresh pinned folder trees:', err);
+      if (rootPath) {
+        try {
+          const treeData = await invoke(Invokes.GetFolderTree, {
+            path: rootPath,
+            expandedFolders: expandedArr,
+            showImageCounts: showCounts,
+          });
+          setFolderTree(treeData);
+        } catch (err) {
+          console.error('Failed to refresh main folder tree:', err);
+          setError(`Failed to refresh folder tree: ${err}.`);
+        }
       }
-    }
-  }, [rootPath, appSettings?.pinnedFolders]);
+
+      const currentPins = appSettings?.pinnedFolders || [];
+      if (currentPins.length > 0) {
+        try {
+          const trees = await invoke(Invokes.GetPinnedFolderTrees, {
+            paths: currentPins,
+            expandedFolders: expandedArr,
+            showImageCounts: showCounts,
+          });
+          setPinnedFolderTrees(trees);
+        } catch (err) {
+          console.error('Failed to refresh pinned folder trees:', err);
+        }
+      }
+    },
+    [rootPath, appSettings?.pinnedFolders, appSettings?.enableFolderImageCounts, expandedFolders],
+  );
 
   const pinnedFolders = useMemo(() => appSettings?.pinnedFolders || [], [appSettings]);
 
@@ -1930,7 +1978,11 @@ function App() {
           setIsTreeLoading(true);
           handleSettingsChange({ ...appSettings, lastRootPath: path } as AppSettings);
           try {
-            const treeData = await invoke(Invokes.GetFolderTree, { path });
+            const treeData = await invoke(Invokes.GetFolderTree, {
+              path,
+              expandedFolders: [path],
+              showImageCounts: appSettings?.enableFolderImageCounts ?? false,
+            });
             setFolderTree(treeData);
           } catch (err) {
             console.error('Failed to load folder tree:', err);
@@ -2070,17 +2122,36 @@ function App() {
     }
   }, [currentFolderPath, sortCriteria.key, appSettings?.enableExifReading, libraryViewMode]);
 
-  const handleToggleFolder = useCallback((path: string) => {
-    setExpandedFolders((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(path)) {
-        newSet.delete(path);
-      } else {
-        newSet.add(path);
+  const handleToggleFolder = useCallback(
+    async (path: string) => {
+      const isExpanding = !expandedFolders.has(path);
+      setExpandedFolders((prev) => {
+        const newSet = new Set(prev);
+        if (isExpanding) {
+          newSet.add(path);
+        } else {
+          newSet.delete(path);
+        }
+        return newSet;
+      });
+      if (!isExpanding) return;
+      try {
+        const showCounts = appSettings?.enableFolderImageCounts ?? false;
+        const newChildren: any[] = await invoke(Invokes.GetFolderChildren, {
+          path,
+          showImageCounts: showCounts,
+        });
+        setFolderTree((prevTree: any) => insertChildrenIntoTree(prevTree, path, newChildren));
+        setPinnedFolderTrees((prevTrees: any[]) =>
+          prevTrees.map((tree) => insertChildrenIntoTree(tree, path, newChildren)),
+        );
+      } catch (err) {
+        console.error('Failed to fetch folder children:', err);
+        setError(`Failed to load folder: ${err}`);
       }
-      return newSet;
-    });
-  }, []);
+    },
+    [expandedFolders, appSettings?.enableFolderImageCounts],
+  );
 
   useEffect(() => {
     if (isInitialMount.current || !appSettings || !rootPath) {
@@ -3490,7 +3561,14 @@ function App() {
           treeData = await preloadedDataRef.current.tree;
           console.log('Preload cache hit for folder tree.');
         } else {
-          treeData = await invoke(Invokes.GetFolderTree, { path: root });
+          const expandedArr = folderState?.expandedFolders
+            ? Array.from(new Set([...folderState.expandedFolders, root]))
+            : [root];
+          treeData = await invoke(Invokes.GetFolderTree, {
+            path: root,
+            expandedFolders: expandedArr,
+            showImageCounts: appSettings?.enableFolderImageCounts ?? false,
+          });
         }
         setFolderTree(treeData);
       } catch (err) {
