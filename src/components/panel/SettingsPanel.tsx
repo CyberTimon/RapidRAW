@@ -29,7 +29,7 @@ import Switch from '../ui/Switch';
 import Input from '../ui/Input';
 import Slider from '../ui/Slider';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
-import { Invokes } from '../ui/AppProperties';
+import { EditorBackgroundColor, Invokes } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { platform } from '@tauri-apps/plugin-os';
@@ -124,6 +124,12 @@ const linearRawOptions: OptionItem<string>[] = [
   { value: 'gamma', label: 'Apply Gamma' },
   { value: 'skip_calib', label: 'Skip Calibrate' },
   { value: 'gamma_skip_calib', label: 'Apply Gamma & Skip Calibrate' },
+];
+
+const editorBackgroundOptions: OptionItem<EditorBackgroundColor>[] = [
+  { value: EditorBackgroundColor.Black, label: 'Black' },
+  { value: EditorBackgroundColor.Grey, label: 'Grey' },
+  { value: EditorBackgroundColor.White, label: 'White' },
 ];
 
 const settingCategories = [
@@ -770,6 +776,19 @@ export default function SettingsPanel({
                         id="adaptive-theme-toggle"
                         label="Adaptive Editor Theme"
                         onChange={(checked) => onSettingsChange({ ...appSettings, adaptiveEditorTheme: checked })}
+                      />
+                    </SettingItem>
+
+                    <SettingItem
+                      label="Editor Background"
+                      description="Choose the background shown behind the image while editing."
+                    >
+                      <Dropdown
+                        onChange={(value: EditorBackgroundColor) =>
+                          onSettingsChange({ ...appSettings, editorBackgroundColor: value })
+                        }
+                        options={editorBackgroundOptions}
+                        value={appSettings?.editorBackgroundColor || EditorBackgroundColor.Grey}
                       />
                     </SettingItem>
 
@@ -1790,6 +1809,7 @@ export default function SettingsPanel({
                         <KeybindItem keys={[']']} description="Rotate 90° clockwise" />
                         <KeybindItem keys={['F']} description="Toggle fullscreen" />
                         <KeybindItem keys={['B']} description="Show original (before/after)" />
+                        <KeybindItem keys={['Cmd/Ctrl', '+', 'Option/Alt', '+', 'B']} description="Cycle editor background color" />
                         <KeybindItem keys={['S']} description="Straighten Image" />
                         <KeybindItem keys={['D']} description="Toggle Adjustments panel" />
                         <KeybindItem keys={['R']} description="Toggle Crop panel" />

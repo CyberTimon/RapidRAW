@@ -138,6 +138,12 @@ export enum Theme {
   Snow = 'snow',
 }
 
+export enum EditorBackgroundColor {
+  Black = 'black',
+  Grey = 'grey',
+  White = 'white',
+}
+
 export enum ThumbnailAspectRatio {
   Cover = 'cover',
   Contain = 'contain',
@@ -145,11 +151,14 @@ export enum ThumbnailAspectRatio {
 
 export interface AppSettings {
   adaptiveEditorTheme?: Theme;
+  editorBackgroundColor?: EditorBackgroundColor;
   aiConnectorAddress?: string;
+  copyPasteSettings?: any;
   decorations?: any;
   editorPreviewResolution?: number;
   enableZoomHifi?: boolean;
   useFullDpiRendering?: boolean;
+  fontFamily?: string;
   highResZoomMultiplier?: number;
   enableLivePreviews?: boolean;
   enableHighQualityLivePreviews?: boolean;
@@ -162,6 +171,7 @@ export interface AppSettings {
   libraryViewMode?: LibraryViewMode;
   sortCriteria?: SortCriteria;
   theme: Theme;
+  transparent?: boolean;
   thumbnailSize?: ThumbnailSize;
   thumbnailAspectRatio?: ThumbnailAspectRatio;
   uiVisibility?: UiVisibility;

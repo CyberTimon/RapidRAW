@@ -99,6 +99,7 @@ import {
   FilterCriteria,
   Invokes,
   ImageFile,
+  EditorBackgroundColor,
   Option,
   OPTION_SEPARATOR,
   LibraryViewMode,
@@ -1619,6 +1620,19 @@ function App() {
     [theme],
   );
 
+  const handleCycleEditorBackground = useCallback(() => {
+    if (!appSettings) {
+      return;
+    }
+
+    const backgroundOrder = [EditorBackgroundColor.Black, EditorBackgroundColor.Grey, EditorBackgroundColor.White];
+    const currentBackground = appSettings.editorBackgroundColor || EditorBackgroundColor.Grey;
+    const currentIndex = backgroundOrder.indexOf(currentBackground);
+    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % backgroundOrder.length : 0;
+
+    handleSettingsChange({ ...appSettings, editorBackgroundColor: backgroundOrder[nextIndex] });
+  }, [appSettings, handleSettingsChange]);
+
   useEffect(() => {
     try {
       setOsPlatform(platform());
@@ -3004,6 +3018,7 @@ function App() {
     customEscapeHandler,
     handleBackToLibrary,
     handleCopyAdjustments,
+    handleCycleEditorBackground,
     handleDeleteAiPatch,
     handleDeleteMaskContainer,
     handleDeleteSelected,
@@ -3993,6 +4008,7 @@ function App() {
     };
 
     const commonTags = getCommonTags([selectedImage.path]);
+    const selectedEditorBackground = appSettings?.editorBackgroundColor || EditorBackgroundColor.Grey;
 
     const options: Array<Option> = [
       {
@@ -4075,6 +4091,32 @@ function App() {
             label: 'Cull Image',
             icon: Users,
             disabled: true,
+          },
+        ],
+      },
+      { type: OPTION_SEPARATOR },
+      {
+        label: 'Editor Background',
+        icon: Palette,
+        disabled: !appSettings,
+        submenu: [
+          {
+            label: selectedEditorBackground === EditorBackgroundColor.Black ? 'Black (Current)' : 'Black',
+            onClick: () =>
+              appSettings &&
+              handleSettingsChange({ ...appSettings, editorBackgroundColor: EditorBackgroundColor.Black }),
+          },
+          {
+            label: selectedEditorBackground === EditorBackgroundColor.Grey ? 'Grey (Current)' : 'Grey',
+            onClick: () =>
+              appSettings &&
+              handleSettingsChange({ ...appSettings, editorBackgroundColor: EditorBackgroundColor.Grey }),
+          },
+          {
+            label: selectedEditorBackground === EditorBackgroundColor.White ? 'White (Current)' : 'White',
+            onClick: () =>
+              appSettings &&
+              handleSettingsChange({ ...appSettings, editorBackgroundColor: EditorBackgroundColor.White }),
           },
         ],
       },
@@ -4992,6 +5034,7 @@ function App() {
               goToAdjustmentsHistoryIndex={goToAdjustmentsHistoryIndex}
               liveRotation={liveRotation}
               isInstantTransition={isInstantTransition}
+              editorBackgroundColor={appSettings?.editorBackgroundColor}
             />
             <div
               className={clsx(
