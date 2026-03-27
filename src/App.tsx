@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { platform } from '@tauri-apps/plugin-os';
@@ -418,9 +418,6 @@ function App() {
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [visibleThumbnailPaths, setVisibleThumbnailPaths] = useState<Array<string>>([]);
   const { loading: isThumbnailsLoading } = useThumbnails(imageList, thumbnails, setThumbnails, visibleThumbnailPaths);
-  const pendingThumbnailUpdatesRef = useRef<Record<string, string>>({});
-  const pendingRatingUpdatesRef = useRef<Record<string, number>>({});
-  const thumbnailFlushFrameRef = useRef<number | null>(null);
   const transformWrapperRef = useRef<any>(null);
   const isProgrammaticZoom = useRef(false);
   const currentResRef = useRef<number>(1280);
@@ -435,20 +432,6 @@ function App() {
   }>({});
   const previewJobIdRef = useRef<number>(0);
   const latestRenderedJobIdRef = useRef<number>(0);
-
-  const flushThumbnailUpdates = useCallback(() => {
-    thumbnailFlushFrameRef.current = null;
-    const thumbnailUpdates = pendingThumbnailUpdatesRef.current;
-    const ratingUpdates = pendingRatingUpdatesRef.current;
-    pendingThumbnailUpdatesRef.current = {};
-    pendingRatingUpdatesRef.current = {};
-    if (Object.keys(thumbnailUpdates).length > 0) {
-      setThumbnails((prev) => ({ ...prev, ...thumbnailUpdates }));
-    }
-    if (Object.keys(ratingUpdates).length > 0) {
-      setImageRatings((prev) => ({ ...prev, ...ratingUpdates }));
-    }
-  }, []);
 
   useEffect(() => {
     if (currentFolderPath) {
@@ -1905,12 +1888,6 @@ function App() {
       setSearchCriteria({ tags: [], text: '', mode: 'OR' });
       setLibraryScrollTop(0);
       setVisibleThumbnailPaths([]);
-      pendingThumbnailUpdatesRef.current = {};
-      pendingRatingUpdatesRef.current = {};
-      if (thumbnailFlushFrameRef.current !== null) {
-        cancelAnimationFrame(thumbnailFlushFrameRef.current);
-        thumbnailFlushFrameRef.current = null;
-      }
       setThumbnails({});
       imageCacheRef.current.clear();
       try {
@@ -3012,13 +2989,10 @@ function App() {
         if (isEffectActive) {
           const { path, data, rating } = event.payload;
           if (data) {
-            pendingThumbnailUpdatesRef.current[path] = data.startsWith('data:') ? data : convertFileSrc(data);
+            setThumbnails((prev) => ({ ...prev, [path]: data }));
           }
           if (rating !== undefined) {
-            pendingRatingUpdatesRef.current[path] = rating;
-          }
-          if ((data || rating !== undefined) && thumbnailFlushFrameRef.current === null) {
-            thumbnailFlushFrameRef.current = requestAnimationFrame(flushThumbnailUpdates);
+            setImageRatings((prev) => ({ ...prev, [path]: rating }));
           }
         }
       }),
@@ -3157,15 +3131,7 @@ function App() {
       isEffectActive = false;
       listeners.forEach((p) => p.then((unlisten) => unlisten()));
     };
-  }, [flushThumbnailUpdates, refreshAllFolderTrees, handleSelectSubfolder]);
-
-  useEffect(() => {
-    return () => {
-      if (thumbnailFlushFrameRef.current !== null) {
-        cancelAnimationFrame(thumbnailFlushFrameRef.current);
-      }
-    };
-  }, []);
+  }, [refreshAllFolderTrees, handleSelectSubfolder]);
 
   useEffect(() => {
     if ([Status.Success, Status.Error, Status.Cancelled].includes(exportState.status)) {

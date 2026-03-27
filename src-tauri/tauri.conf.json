@@ -21,11 +21,7 @@
     ],
     "security": {
       "csp": null,
-      "capabilities": ["default"],
-      "assetProtocol": {
-        "enable": true,
-        "scope": ["$APPCACHE/thumbnails/**"]
-      }
+      "capabilities": ["default"]
     },
     "macOSPrivateApi": true
   },

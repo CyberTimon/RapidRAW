@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 
 use anyhow::Result;
+use base64::{Engine as _, engine::general_purpose};
 use chrono::{DateTime, Utc};
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma};
@@ -40,182 +41,8 @@ use crate::mask_generation::MaskDefinition;
 use crate::preset_converter;
 use crate::tagging::COLOR_TAG_PREFIX;
 
-const THUMBNAIL_WIDTH: u32 = 384;
+const THUMBNAIL_WIDTH: u32 = 640;
 const MAX_XMP_SYNC_LISTING_IMAGES: usize = 200;
-const MAX_SIDECAR_METADATA_LISTING_IMAGES: usize = 500;
-const EMBEDDED_RAW_THUMBNAIL_EXTENSIONS: &[&str] =
-    &["arw", "cr2", "cr3", "dng", "nef", "pef", "raf", "rw2", "tfr"];
-
-fn is_identity_curve_channel(value: &Value) -> bool {
-    value.as_array().is_some_and(|points| {
-        points.len() == 2
-            && points[0]["x"].as_i64() == Some(0)
-            && points[0]["y"].as_i64() == Some(0)
-            && points[1]["x"].as_i64() == Some(255)
-            && points[1]["y"].as_i64() == Some(255)
-    })
-}
-
-fn has_material_ai_patch(value: &Value) -> bool {
-    if value.get("patchData").is_some_and(|patch_data| !patch_data.is_null()) {
-        return true;
-    }
-    if value
-        .get("patchDataBase64")
-        .and_then(|patch_data| patch_data.as_str())
-        .is_some_and(|patch_data| !patch_data.is_empty())
-    {
-        return true;
-    }
-    value
-        .get("subMasks")
-        .and_then(|sub_masks| sub_masks.as_array())
-        .is_some_and(|sub_masks| {
-            sub_masks.iter().any(|sub_mask| {
-                sub_mask
-                    .get("parameters")
-                    .and_then(|params| {
-                        params
-                            .get("maskDataBase64")
-                            .or_else(|| params.get("mask_data_base64"))
-                    })
-                    .and_then(|mask_data| mask_data.as_str())
-                    .is_some_and(|mask_data| !mask_data.is_empty())
-            })
-        })
-}
-
-fn has_meaningful_thumbnail_adjustments(adjustments: &Value) -> bool {
-    let Some(adjustment_obj) = adjustments.as_object() else {
-        return !adjustments.is_null();
-    };
-
-    for (key, value) in adjustment_obj {
-        match key.as_str() {
-            "rating" | "sectionVisibility" | "aspectRatio" | "showClipping" | "filmBaseColor" => {}
-            "aiPatches" => {
-                if value
-                    .as_array()
-                    .is_some_and(|patches| patches.iter().any(has_material_ai_patch))
-                {
-                    return true;
-                }
-            }
-            "masks" => {
-                if value.as_array().is_some_and(|masks| !masks.is_empty()) {
-                    return true;
-                }
-            }
-            "crop" | "lutData" | "lensDistortionParams" => {
-                if !value.is_null() {
-                    return true;
-                }
-            }
-            "flipHorizontal"
-            | "flipVertical"
-            | "enableNegativeConversion"
-            | "lensDistortionEnabled"
-            | "lensTcaEnabled"
-            | "lensVignetteEnabled" => {
-                if value.as_bool().unwrap_or(false) != (key.starts_with("lens")) {
-                    return true;
-                }
-            }
-            "grainRoughness" | "vignetteFeather" | "vignetteMidpoint" => {
-                if value.as_i64().unwrap_or(50) != 50 {
-                    return true;
-                }
-            }
-            "grainSize" => {
-                if value.as_i64().unwrap_or(25) != 25 {
-                    return true;
-                }
-            }
-            "lutIntensity"
-            | "lensDistortionAmount"
-            | "lensVignetteAmount"
-            | "lensTcaAmount"
-            | "transformScale" => {
-                if value.as_i64().unwrap_or(100) != 100 {
-                    return true;
-                }
-            }
-            "lutSize" => {
-                if value.as_i64().unwrap_or(0) != 0 {
-                    return true;
-                }
-            }
-            "toneMapper" => {
-                if value.as_str().unwrap_or("basic") != "basic" {
-                    return true;
-                }
-            }
-            "lutName" | "lutPath" | "lensMaker" | "lensModel" => {
-                if value.as_str().is_some_and(|text| !text.is_empty()) {
-                    return true;
-                }
-            }
-            "curves" => {
-                if !is_identity_curve_channel(&value["luma"])
-                    || !is_identity_curve_channel(&value["red"])
-                    || !is_identity_curve_channel(&value["green"])
-                    || !is_identity_curve_channel(&value["blue"])
-                {
-                    return true;
-                }
-            }
-            "colorCalibration" => {
-                if value["redHue"].as_i64().unwrap_or(0) != 0
-                    || value["redSaturation"].as_i64().unwrap_or(0) != 0
-                    || value["greenHue"].as_i64().unwrap_or(0) != 0
-                    || value["greenSaturation"].as_i64().unwrap_or(0) != 0
-                    || value["blueHue"].as_i64().unwrap_or(0) != 0
-                    || value["blueSaturation"].as_i64().unwrap_or(0) != 0
-                    || value["shadowsTint"].as_i64().unwrap_or(0) != 0
-                {
-                    return true;
-                }
-            }
-            "colorGrading" => {
-                if value["balance"].as_i64().unwrap_or(0) != 0
-                    || value["blending"].as_i64().unwrap_or(50) != 50
-                    || value["highlights"]["hue"].as_i64().unwrap_or(0) != 0
-                    || value["highlights"]["luminance"].as_i64().unwrap_or(0) != 0
-                    || value["highlights"]["saturation"].as_i64().unwrap_or(0) != 0
-                    || value["midtones"]["hue"].as_i64().unwrap_or(0) != 0
-                    || value["midtones"]["luminance"].as_i64().unwrap_or(0) != 0
-                    || value["midtones"]["saturation"].as_i64().unwrap_or(0) != 0
-                    || value["shadows"]["hue"].as_i64().unwrap_or(0) != 0
-                    || value["shadows"]["luminance"].as_i64().unwrap_or(0) != 0
-                    || value["shadows"]["saturation"].as_i64().unwrap_or(0) != 0
-                {
-                    return true;
-                }
-            }
-            "hsl" => {
-                if value.to_string().contains(":1")
-                    || value.to_string().contains(":2")
-                    || value.to_string().contains(":3")
-                    || value.to_string().contains(":4")
-                    || value.to_string().contains(":5")
-                    || value.to_string().contains(":6")
-                    || value.to_string().contains(":7")
-                    || value.to_string().contains(":8")
-                    || value.to_string().contains(":9")
-                {
-                    return true;
-                }
-            }
-            _ => {
-                if value.as_f64().is_some_and(|number| number != 0.0) {
-                    return true;
-                }
-            }
-        }
-    }
-
-    false
-}
 
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
     let cache_dir = app_handle
@@ -227,6 +54,23 @@ fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<Pa
         fs::create_dir_all(&thumb_cache_dir).map_err(|e| e.to_string())?;
     }
     Ok(thumb_cache_dir)
+}
+
+fn try_extract_embedded_raw_thumbnail(source_path: &Path) -> anyhow::Result<DynamicImage> {
+    let params = rawler::decoders::RawDecodeParams::default();
+    let rawfile = rawler::rawsource::RawSource::new(source_path)?;
+    let decoder = rawler::get_decoder(&rawfile)?;
+    let preview = rawler::analyze::extract_thumbnail_pixels(source_path, &params)?;
+    let orientation = decoder
+        .raw_metadata(&rawfile, &params)?
+        .exif
+        .orientation
+        .map(rawler::decoders::Orientation::from_u16)
+        .unwrap_or(rawler::decoders::Orientation::Normal);
+    Ok(crate::image_processing::apply_orientation(
+        preview,
+        orientation,
+    ))
 }
 
 fn emit_thumbnail_cache_setup_error(app_handle: &AppHandle, path: &str, reason: &str) {
@@ -752,9 +596,8 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
         }
     }
 
-    let should_sync_xmp_on_list = enable_xmp_sync && image_files.len() <= MAX_XMP_SYNC_LISTING_IMAGES;
-    let should_read_sidecar_metadata_on_list =
-        image_files.len() <= MAX_SIDECAR_METADATA_LISTING_IMAGES;
+    let should_sync_xmp_on_list =
+        enable_xmp_sync && image_files.len() <= MAX_XMP_SYNC_LISTING_IMAGES;
 
     let mut result_list = Vec::new();
     for (path_str, path_buf) in image_files {
@@ -783,32 +626,28 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
             };
 
             let (is_edited, tags) = {
-                if should_read_sidecar_metadata_on_list {
-                    let mut metadata = if sidecar_path.exists() {
-                        if let Ok(content) = fs::read_to_string(&sidecar_path) {
-                            serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
-                        } else {
-                            ImageMetadata::default()
-                        }
+                let mut metadata = if sidecar_path.exists() {
+                    if let Ok(content) = fs::read_to_string(&sidecar_path) {
+                        serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
                     } else {
                         ImageMetadata::default()
-                    };
-
-                    let source_path_buf = PathBuf::from(&path_str);
-                    if should_sync_xmp_on_list
-                        && sync_metadata_from_xmp(&source_path_buf, &mut metadata)
-                        && let Ok(json) = serde_json::to_string_pretty(&metadata)
-                    {
-                        let _ = fs::write(&sidecar_path, json);
                     }
-
-                    let edited = metadata.adjustments.as_object().is_some_and(|a| {
-                        a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
-                    });
-                    (edited, metadata.tags)
                 } else {
-                    (false, None)
+                    ImageMetadata::default()
+                };
+
+                let source_path_buf = PathBuf::from(&path_str);
+                if should_sync_xmp_on_list
+                    && sync_metadata_from_xmp(&source_path_buf, &mut metadata)
+                    && let Ok(json) = serde_json::to_string_pretty(&metadata)
+                {
+                    let _ = fs::write(&sidecar_path, json);
                 }
+
+                let edited = metadata.adjustments.as_object().is_some_and(|a| {
+                    a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
+                });
+                (edited, metadata.tags)
             };
 
             result_list.push(ImageFile {
@@ -875,9 +714,8 @@ pub fn list_images_recursive(
         }
     }
 
-    let should_sync_xmp_on_list = enable_xmp_sync && image_files.len() <= MAX_XMP_SYNC_LISTING_IMAGES;
-    let should_read_sidecar_metadata_on_list =
-        image_files.len() <= MAX_SIDECAR_METADATA_LISTING_IMAGES;
+    let should_sync_xmp_on_list =
+        enable_xmp_sync && image_files.len() <= MAX_XMP_SYNC_LISTING_IMAGES;
 
     let mut result_list = Vec::new();
     for (path_str, path_buf) in image_files {
@@ -906,32 +744,28 @@ pub fn list_images_recursive(
             };
 
             let (is_edited, tags) = {
-                if should_read_sidecar_metadata_on_list {
-                    let mut metadata = if sidecar_path.exists() {
-                        if let Ok(content) = fs::read_to_string(&sidecar_path) {
-                            serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
-                        } else {
-                            ImageMetadata::default()
-                        }
+                let mut metadata = if sidecar_path.exists() {
+                    if let Ok(content) = fs::read_to_string(&sidecar_path) {
+                        serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
                     } else {
                         ImageMetadata::default()
-                    };
-
-                    let source_path_buf = PathBuf::from(&path_str);
-                    if should_sync_xmp_on_list
-                        && sync_metadata_from_xmp(&source_path_buf, &mut metadata)
-                        && let Ok(json) = serde_json::to_string_pretty(&metadata)
-                    {
-                        let _ = fs::write(&sidecar_path, json);
                     }
-
-                    let edited = metadata.adjustments.as_object().is_some_and(|a| {
-                        a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
-                    });
-                    (edited, metadata.tags)
                 } else {
-                    (false, None)
+                    ImageMetadata::default()
+                };
+
+                let source_path_buf = PathBuf::from(&path_str);
+                if should_sync_xmp_on_list
+                    && sync_metadata_from_xmp(&source_path_buf, &mut metadata)
+                    && let Ok(json) = serde_json::to_string_pretty(&metadata)
+                {
+                    let _ = fs::write(&sidecar_path, json);
                 }
+
+                let edited = metadata.adjustments.as_object().is_some_and(|a| {
+                    a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
+                });
+                (edited, metadata.tags)
             };
 
             result_list.push(ImageFile {
@@ -1132,48 +966,18 @@ pub fn generate_thumbnail_data(
     let adjustments = metadata
         .as_ref()
         .map_or(serde_json::Value::Null, |m| m.adjustments.clone());
-    let has_visual_adjustments = has_meaningful_thumbnail_adjustments(&adjustments);
-    let is_unedited_raw_thumbnail = !has_visual_adjustments;
+    let has_adjustments = !adjustments.is_null();
 
     if preloaded_image.is_none()
         && is_raw
-        && is_unedited_raw_thumbnail
-        && source_path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .is_some_and(|ext| {
-                EMBEDDED_RAW_THUMBNAIL_EXTENSIONS
-                    .iter()
-                    .any(|supported_ext| supported_ext.eq_ignore_ascii_case(ext))
-            })
-        && let Ok(preview_image) = rawler::analyze::extract_thumbnail_pixels(
-            &source_path,
-            &rawler::decoders::RawDecodeParams::default(),
-        )
+        && !has_adjustments
+        && let Ok(preview_image) = try_extract_embedded_raw_thumbnail(&source_path)
     {
         return Ok(preview_image);
     }
 
-    if preloaded_image.is_none()
-        && !is_raw
-        && !has_visual_adjustments
-        && source_path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("jpg") || ext.eq_ignore_ascii_case("jpeg"))
-    {
-        return match read_file_mapped(&source_path) {
-            Ok(mmap) => image_loader::load_image_with_orientation_native(&mmap, None),
-            Err(e) => {
-                log::warn!("Fallback read for {}: {}", source_path_str, e);
-                let bytes = fs::read(&source_path)?;
-                image_loader::load_image_with_orientation_native(&bytes, None)
-            }
-        };
-    }
-
     if let (Some(context), Some(meta)) = (gpu_context, metadata)
-        && has_visual_adjustments
+        && has_adjustments
     {
         let state = app_handle.state::<AppState>();
         const THUMBNAIL_PROCESSING_DIM: u32 = 1280;
@@ -1418,12 +1222,8 @@ pub fn generate_thumbnail_data(
 }
 
 fn encode_thumbnail(image: &DynamicImage) -> Result<Vec<u8>> {
-    let thumbnail = match image {
-        DynamicImage::ImageRgb32F(_) | DynamicImage::ImageRgba32F(_) => {
-            crate::image_processing::downscale_f32_image(image, THUMBNAIL_WIDTH, THUMBNAIL_WIDTH)
-        }
-        _ => image.thumbnail(THUMBNAIL_WIDTH, THUMBNAIL_WIDTH),
-    };
+    let thumbnail =
+        crate::image_processing::downscale_f32_image(image, THUMBNAIL_WIDTH, THUMBNAIL_WIDTH);
     let mut buf = Cursor::new(Vec::new());
     let mut encoder = JpegEncoder::new_with_quality(&mut buf, 75);
     encoder.encode_image(&thumbnail.to_rgb8())?;
@@ -1448,7 +1248,7 @@ fn generate_single_thumbnail_and_cache(
         .ok()?
         .as_secs();
 
-    let (sidecar_mod_time, rating, has_visual_adjustments) = if let Ok(content) = fs::read_to_string(&sidecar_path) {
+    let (sidecar_mod_time, rating, has_adjustments) = if let Ok(content) = fs::read_to_string(&sidecar_path) {
         let mod_time = fs::metadata(&sidecar_path)
             .ok()
             .and_then(|m| m.modified().ok())
@@ -1457,11 +1257,11 @@ fn generate_single_thumbnail_and_cache(
             .unwrap_or(0);
         let metadata = serde_json::from_str::<ImageMetadata>(&content).ok();
         let rating_val = metadata.as_ref().map(|m| m.rating).unwrap_or(0);
-        let has_visual_adjustments = metadata
+        let has_adjustments = metadata
             .as_ref()
-            .map(|m| has_meaningful_thumbnail_adjustments(&m.adjustments))
+            .map(|m| !m.adjustments.is_null())
             .unwrap_or(false);
-        (mod_time, rating_val, has_visual_adjustments)
+        (mod_time, rating_val, has_adjustments)
     } else {
         (0, 0, false)
     };
@@ -1476,12 +1276,14 @@ fn generate_single_thumbnail_and_cache(
 
     if !force_regenerate
         && cache_path.exists()
+        && let Ok(data) = fs::read(&cache_path)
     {
-        return Some((cache_path.to_string_lossy().into_owned(), rating));
+        let base64_str = general_purpose::STANDARD.encode(&data);
+        return Some((format!("data:image/jpeg;base64,{}", base64_str), rating));
     }
 
     let lazy_gpu_context = if gpu_context.is_none()
-        && has_visual_adjustments
+        && has_adjustments
     {
         let state = app_handle.state::<AppState>();
         gpu_processing::get_or_init_gpu_context(&state).ok()
@@ -1495,7 +1297,8 @@ fn generate_single_thumbnail_and_cache(
         && let Ok(thumb_data) = encode_thumbnail(&thumb_image)
     {
         let _ = fs::write(&cache_path, &thumb_data);
-        return Some((cache_path.to_string_lossy().into_owned(), rating));
+        let base64_str = general_purpose::STANDARD.encode(&thumb_data);
+        return Some((format!("data:image/jpeg;base64,{}", base64_str), rating));
     }
     None
 }
@@ -1548,7 +1351,7 @@ pub fn generate_thumbnails_progressive(
         .store(false, Ordering::SeqCst);
     let cancellation_token = state.thumbnail_cancellation_token.clone();
 
-    const MAX_THUMBNAIL_THREADS: usize = 2;
+    const MAX_THUMBNAIL_THREADS: usize = 6;
     let num_threads = (num_cpus::get_physical().saturating_sub(1)).clamp(1, MAX_THUMBNAIL_THREADS);
 
     let pool = ThreadPoolBuilder::new()
@@ -1597,12 +1400,10 @@ pub fn generate_thumbnails_progressive(
             if cancellation_token.load(Ordering::Relaxed) {
                 return Err(());
             }
-            if completed == total_count || completed % 8 == 0 {
-                let _ = app_handle_clone.emit(
-                    "thumbnail-progress",
-                    serde_json::json!({ "completed": completed, "total": total_count }),
-                );
-            }
+            let _ = app_handle_clone.emit(
+                "thumbnail-progress",
+                serde_json::json!({ "completed": completed, "total": total_count }),
+            );
             Ok(())
         });
 
