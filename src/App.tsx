@@ -330,6 +330,7 @@ function App() {
   const [activeMaskId, setActiveMaskId] = useState<string | null>(null);
   const [activeAiPatchContainerId, setActiveAiPatchContainerId] = useState<string | null>(null);
   const [activeAiSubMaskId, setActiveAiSubMaskId] = useState<string | null>(null);
+  const [maskHierarchyOverlayHost, setMaskHierarchyOverlayHost] = useState<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [displaySize, setDisplaySize] = useState<ImageDimensions>({ width: 0, height: 0 });
   const [previewSize, setPreviewSize] = useState<ImageDimensions>({ width: 0, height: 0 });
@@ -4983,6 +4984,7 @@ function App() {
               uncroppedAdjustedPreviewUrl={uncroppedAdjustedPreviewUrl}
               updateSubMask={updateSubMask}
               onDisplaySizeChange={handleDisplaySizeChange}
+              onMaskHierarchyHostChange={setMaskHierarchyOverlayHost}
               originalSize={originalSize}
               isRotationActive={isRotationActive}
               overlayMode={overlayMode}
@@ -5151,6 +5153,7 @@ function App() {
                             setBrushSettings={setBrushSettings}
                             setCopiedMask={setCopiedMask}
                             setCustomEscapeHandler={setCustomEscapeHandler}
+                            maskHierarchyOverlayHost={maskHierarchyOverlayHost}
                             onDragStateChange={setIsSliderDragging}
                             isWaveformVisible={isWaveformVisible}
                             onToggleWaveform={handleToggleWaveform}

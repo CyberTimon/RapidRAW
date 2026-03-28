@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import clsx from 'clsx';
-import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import {
   DndContext,
   DragOverlay,
@@ -24,6 +25,7 @@ import {
   FileEdit,
   FolderOpen,
   Folder as FolderIcon,
+  GripHorizontal,
   Loader2,
   Minus,
   Plus,
@@ -95,6 +97,7 @@ interface MasksPanelProps {
   setCopiedMask(mask: MaskContainer): void;
   setCustomEscapeHandler(handler: any): void;
   setIsMaskControlHovered(hovered: boolean): void;
+  maskHierarchyOverlayHost?: HTMLDivElement | null;
   onDragStateChange?: (isDragging: boolean) => void;
   isWaveformVisible?: boolean;
   onToggleWaveform?: () => void;
@@ -211,6 +214,7 @@ export default function MasksPanel({
   setCopiedMask,
   setCustomEscapeHandler,
   setIsMaskControlHovered,
+  maskHierarchyOverlayHost,
   onDragStateChange,
   isWaveformVisible,
   onToggleWaveform,
@@ -773,6 +777,103 @@ export default function MasksPanel({
     ]);
   };
 
+  const hierarchyList = isSettingsPanelEverOpened ? (
+    <div
+      ref={setRootDroppableRef}
+      className={clsx(
+        'flex h-full min-h-0 flex-col transition-colors',
+        isRootOver ? 'bg-bg-tertiary/65' : 'bg-transparent',
+      )}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
+        <AnimatePresence
+          initial={false}
+          mode="popLayout"
+          onExitComplete={() => {
+            if (adjustments.masks.length === 0) {
+              setIsMaskListEmpty(true);
+            }
+          }}
+        >
+          {isMaskListEmpty ? (
+            <motion.div
+              key="empty-masks-placeholder"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="py-4 text-center text-sm text-text-secondary opacity-70"
+            >
+              No masks created.
+            </motion.div>
+          ) : (
+            adjustments.masks.map((container) => (
+              <ContainerRow
+                key={container.id}
+                container={container}
+                isSelected={activeMaskContainerId === container.id && activeMaskId === null}
+                hasActiveChild={activeMaskContainerId === container.id && activeMaskId !== null}
+                isExpanded={expandedContainers.has(container.id)}
+                onToggle={() => handleToggleExpand(container.id)}
+                onSelect={() => {
+                  onSelectContainer(container.id);
+                  onSelectMask(null);
+                }}
+                renamingId={renamingId}
+                setRenamingId={setRenamingId}
+                tempName={tempName}
+                setTempName={setTempName}
+                updateContainer={updateContainer}
+                handleDelete={handleDeleteContainer}
+                handleDuplicate={handleDuplicateContainer}
+                handleDuplicateAndInvert={handleDuplicateAndInvertContainer}
+                handlePasteMask={handlePasteMask}
+                copyMaskToClipboard={copyMaskToClipboard}
+                copiedMask={copiedMask}
+                presets={presets}
+                setAdjustments={setAdjustments}
+                activeDragItem={activeDragItem}
+                activeMaskId={activeMaskId}
+                onSelectContainer={onSelectContainer}
+                onSelectMask={onSelectMask}
+                updateSubMask={updateSubMask}
+                handleDeleteSubMask={handleDeleteSubMask}
+                handleDuplicateSubMask={handleDuplicateSubMask}
+                handleDuplicateAndInvertSubMask={handleDuplicateAndInvertSubMask}
+                handlePasteSubMask={handlePasteSubMask}
+                copySubMaskToClipboard={copySubMaskToClipboard}
+                copiedSubMask={copiedSubMask}
+                analyzingSubMaskId={analyzingSubMaskId}
+                setIsMaskControlHovered={setIsMaskControlHovered}
+              />
+            ))
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence
+          onExitComplete={() => {
+            if (pendingAction) {
+              pendingAction();
+              setPendingAction(null);
+            }
+          }}
+        >
+          {activeDragItem?.type === 'Creation' && !isMaskListEmpty && <NewMaskDropZone isOver={isRootOver} />}
+        </AnimatePresence>
+      </div>
+    </div>
+  ) : null;
+
+  const hierarchyOverlay =
+    hierarchyList && maskHierarchyOverlayHost
+      ? createPortal(
+          <FloatingMaskHierarchyWindow setIsMaskControlHovered={setIsMaskControlHovered}>
+            {hierarchyList}
+          </FloatingMaskHierarchyWindow>,
+          maskHierarchyOverlayHost,
+        )
+      : null;
+
   return (
     <DndContext
       sensors={sensors}
@@ -856,96 +957,12 @@ export default function MasksPanel({
                 />
               ))}
             </div>
-          </div>
-
-          <AnimatePresence>
             {isSettingsPanelEverOpened && (
-              <motion.div
-                ref={setRootDroppableRef}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className={`flex-col px-4 pb-2 space-y-1 transition-colors ${isRootOver ? 'bg-surface' : ''}`}
-              >
-                <p className="text-sm my-3 font-semibold text-text-primary">Masks</p>
-
-                <AnimatePresence
-                  initial={false}
-                  mode="popLayout"
-                  onExitComplete={() => {
-                    if (adjustments.masks.length === 0) {
-                      setIsMaskListEmpty(true);
-                    }
-                  }}
-                >
-                  {isMaskListEmpty ? (
-                    <motion.div
-                      key="empty-masks-placeholder"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="text-center text-text-secondary text-sm py-4 opacity-70"
-                    >
-                      No masks created.
-                    </motion.div>
-                  ) : (
-                    adjustments.masks.map((container) => (
-                      <ContainerRow
-                        key={container.id}
-                        container={container}
-                        isSelected={activeMaskContainerId === container.id && activeMaskId === null}
-                        hasActiveChild={activeMaskContainerId === container.id && activeMaskId !== null}
-                        isExpanded={expandedContainers.has(container.id)}
-                        onToggle={() => handleToggleExpand(container.id)}
-                        onSelect={() => {
-                          onSelectContainer(container.id);
-                          onSelectMask(null);
-                        }}
-                        renamingId={renamingId}
-                        setRenamingId={setRenamingId}
-                        tempName={tempName}
-                        setTempName={setTempName}
-                        updateContainer={updateContainer}
-                        handleDelete={handleDeleteContainer}
-                        handleDuplicate={handleDuplicateContainer}
-                        handleDuplicateAndInvert={handleDuplicateAndInvertContainer}
-                        handlePasteMask={handlePasteMask}
-                        copyMaskToClipboard={copyMaskToClipboard}
-                        copiedMask={copiedMask}
-                        presets={presets}
-                        setAdjustments={setAdjustments}
-                        activeDragItem={activeDragItem}
-                        activeMaskId={activeMaskId}
-                        onSelectContainer={onSelectContainer}
-                        onSelectMask={onSelectMask}
-                        updateSubMask={updateSubMask}
-                        handleDeleteSubMask={handleDeleteSubMask}
-                        handleDuplicateSubMask={handleDuplicateSubMask}
-                        handleDuplicateAndInvertSubMask={handleDuplicateAndInvertSubMask}
-                        handlePasteSubMask={handlePasteSubMask}
-                        copySubMaskToClipboard={copySubMaskToClipboard}
-                        copiedSubMask={copiedSubMask}
-                        analyzingSubMaskId={analyzingSubMaskId}
-                        setIsMaskControlHovered={setIsMaskControlHovered}
-                      />
-                    ))
-                  )}
-                </AnimatePresence>
-
-                <AnimatePresence
-                  onExitComplete={() => {
-                    if (pendingAction) {
-                      pendingAction();
-                      setPendingAction(null);
-                    }
-                  }}
-                >
-                  {activeDragItem?.type === 'Creation' && !isMaskListEmpty && <NewMaskDropZone isOver={isRootOver} />}
-                </AnimatePresence>
-              </motion.div>
+              <p className="mt-3 text-xs leading-relaxed text-text-secondary">
+                The mask hierarchy now floats above the preview. Drag its header to snap it to a different corner.
+              </p>
             )}
-          </AnimatePresence>
+          </div>
 
           <AnimatePresence>
             {isSettingsPanelEverOpened && (
@@ -984,6 +1001,8 @@ export default function MasksPanel({
           </AnimatePresence>
         </div>
       </div>
+
+      {hierarchyOverlay}
 
       <DragOverlay dropAnimation={{ duration: 150, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
         {activeDragItem ? (
@@ -1058,6 +1077,199 @@ function NewMaskDropZone({ isOver }: { isOver: boolean }) {
     >
       <p className="text-sm font-medium text-text-secondary">Drop here to create a new mask</p>
     </motion.div>
+  );
+}
+
+type FloatingHierarchyCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+const FLOATING_HIERARCHY_MARGIN = 16;
+
+function FloatingMaskHierarchyWindow({
+  children,
+  setIsMaskControlHovered,
+}: {
+  children: any;
+  setIsMaskControlHovered(hovered: boolean): void;
+}) {
+  const boundsRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const dragControls = useDragControls();
+  const [corner, setCorner] = useState<FloatingHierarchyCorner>('top-right');
+  const [targetPosition, setTargetPosition] = useState({ x: FLOATING_HIERARCHY_MARGIN, y: FLOATING_HIERARCHY_MARGIN });
+  const [isReady, setIsReady] = useState(false);
+  const [isWindowDragging, setIsWindowDragging] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      setIsMaskControlHovered(false);
+    };
+  }, [setIsMaskControlHovered]);
+
+  const getCornerPosition = useCallback((targetCorner: FloatingHierarchyCorner) => {
+    const bounds = boundsRef.current;
+    const panel = panelRef.current;
+    if (!bounds || !panel) {
+      return null;
+    }
+
+    const maxX = Math.max(FLOATING_HIERARCHY_MARGIN, bounds.clientWidth - panel.offsetWidth - FLOATING_HIERARCHY_MARGIN);
+    const maxY = Math.max(
+      FLOATING_HIERARCHY_MARGIN,
+      bounds.clientHeight - panel.offsetHeight - FLOATING_HIERARCHY_MARGIN,
+    );
+
+    return {
+      x: targetCorner.endsWith('right') ? maxX : FLOATING_HIERARCHY_MARGIN,
+      y: targetCorner.startsWith('bottom') ? maxY : FLOATING_HIERARCHY_MARGIN,
+    };
+  }, []);
+
+  const syncToCorner = useCallback(
+    (targetCorner: FloatingHierarchyCorner) => {
+      if (isWindowDragging) {
+        return;
+      }
+
+      const nextPosition = getCornerPosition(targetCorner);
+      if (!nextPosition) {
+        return;
+      }
+
+      setTargetPosition(nextPosition);
+      setIsReady(true);
+    },
+    [getCornerPosition, isWindowDragging],
+  );
+
+  useLayoutEffect(() => {
+    const frame = window.requestAnimationFrame(() => syncToCorner(corner));
+
+    if (typeof ResizeObserver === 'undefined') {
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    const observer = new ResizeObserver(() => syncToCorner(corner));
+
+    if (boundsRef.current) {
+      observer.observe(boundsRef.current);
+    }
+
+    if (panelRef.current) {
+      observer.observe(panelRef.current);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [corner, syncToCorner]);
+
+  const handleDragEnd = useCallback(() => {
+    setIsWindowDragging(false);
+
+    const bounds = boundsRef.current;
+    const panel = panelRef.current;
+    if (!bounds || !panel) {
+      return;
+    }
+
+    const boundsRect = bounds.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const currentCenter = {
+      x: panelRect.left - boundsRect.left + panelRect.width / 2,
+      y: panelRect.top - boundsRect.top + panelRect.height / 2,
+    };
+
+    const corners: FloatingHierarchyCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+
+    const nearestCorner = corners.reduce((closest, candidate) => {
+      const candidatePosition = getCornerPosition(candidate);
+      if (!candidatePosition) {
+        return closest;
+      }
+
+      const candidateCenter = {
+        x: candidatePosition.x + panelRect.width / 2,
+        y: candidatePosition.y + panelRect.height / 2,
+      };
+      const distance = Math.hypot(candidateCenter.x - currentCenter.x, candidateCenter.y - currentCenter.y);
+
+      if (!closest || distance < closest.distance) {
+        return { corner: candidate, distance };
+      }
+
+      return closest;
+    }, null as { corner: FloatingHierarchyCorner; distance: number } | null);
+
+    if (!nearestCorner) {
+      return;
+    }
+
+    setCorner(nearestCorner.corner);
+
+    const snappedPosition = getCornerPosition(nearestCorner.corner);
+    if (snappedPosition) {
+      setTargetPosition(snappedPosition);
+      setIsReady(true);
+    }
+  }, [getCornerPosition]);
+
+  const cornerLabel = corner
+    .split('-')
+    .map((value) => value.charAt(0).toUpperCase() + value.slice(1))
+    .join(' ');
+
+  return (
+    <div ref={boundsRef} className="absolute inset-0 pointer-events-none">
+      <motion.div
+        ref={panelRef}
+        drag
+        dragControls={dragControls}
+        dragListener={false}
+        dragMomentum={false}
+        dragElastic={0.08}
+        dragConstraints={boundsRef}
+        onDragStart={() => setIsWindowDragging(true)}
+        onDragEnd={handleDragEnd}
+        animate={isReady ? { x: targetPosition.x, y: targetPosition.y, opacity: 1, scale: 1 } : { opacity: 0 }}
+        transition={
+          isWindowDragging
+            ? { duration: 0 }
+            : {
+                type: 'spring',
+                stiffness: 420,
+                damping: 34,
+                mass: 0.8,
+              }
+        }
+        className="absolute left-0 top-0 pointer-events-auto"
+        style={{
+          width: 'min(340px, calc(100% - 32px))',
+          maxHeight: 'min(520px, calc(100% - 32px))',
+        }}
+        onMouseEnter={() => setIsMaskControlHovered(true)}
+        onMouseLeave={() => setIsMaskControlHovered(false)}
+        onClick={(event) => event.stopPropagation()}
+        onContextMenu={(event) => event.stopPropagation()}
+      >
+        <div className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-xl border border-surface bg-bg-secondary/92 shadow-2xl backdrop-blur-md">
+          <div
+            className="flex cursor-grab items-center justify-between gap-3 border-b border-surface px-3 py-2 active:cursor-grabbing"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              dragControls.start(event);
+            }}
+          >
+            <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+              <GripHorizontal size={14} className="text-text-secondary" />
+              <span>Mask Hierarchy</span>
+            </div>
+            <span className="text-[10px] uppercase tracking-[0.18em] text-text-secondary">{cornerLabel}</span>
+          </div>
+          <div className="min-h-0 flex-1">{children}</div>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
