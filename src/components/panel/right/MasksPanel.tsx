@@ -16,12 +16,14 @@ import {
   pointerWithin,
 } from '@dnd-kit/core';
 import {
+  ArrowRight,
   ChartArea,
   Circle,
   ClipboardPaste,
   Copy,
   Eye,
   EyeOff,
+  ExternalLink,
   FileEdit,
   FolderOpen,
   Folder as FolderIcon,
@@ -114,6 +116,18 @@ interface DragData {
   maskType?: Mask;
   parentId?: string;
 }
+
+type FloatingHierarchyAnchor = 'top-left' | 'top-right' | 'center-left' | 'center-right' | 'bottom-left' | 'bottom-right';
+
+const FLOATING_HIERARCHY_MARGIN = 16;
+const FLOATING_HIERARCHY_ANCHORS: FloatingHierarchyAnchor[] = [
+  'top-left',
+  'top-right',
+  'center-left',
+  'center-right',
+  'bottom-left',
+  'bottom-right',
+];
 
 const SUB_MASK_CONFIG: Record<Mask, any> = {
   [Mask.Radial]: {
@@ -239,6 +253,8 @@ export default function MasksPanel({
   const [copiedSectionAdjustments, setCopiedSectionAdjustments] = useState<any | null>(null);
   const [isSettingsSectionOpen, setSettingsSectionOpen] = useState(true);
   const [isSettingsPanelEverOpened, setIsSettingsPanelEverOpened] = useState(false);
+  const [isHierarchyFloating, setIsHierarchyFloating] = useState(false);
+  const [floatingHierarchyAnchor, setFloatingHierarchyAnchor] = useState<FloatingHierarchyAnchor>('top-right');
   const hasPerformedInitialSelection = useRef(false);
   const [isMaskListEmpty, setIsMaskListEmpty] = useState(adjustments.masks.length === 0);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
@@ -777,6 +793,14 @@ export default function MasksPanel({
     ]);
   };
 
+  const showFloatingHierarchy = isHierarchyFloating && !!maskHierarchyOverlayHost;
+  const showInlineHierarchy = isSettingsPanelEverOpened && !showFloatingHierarchy;
+
+  const toggleHierarchyLayout = useCallback((event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setIsHierarchyFloating((prev) => !prev);
+  }, []);
+
   const hierarchyList = isSettingsPanelEverOpened ? (
     <div
       ref={setRootDroppableRef}
@@ -864,13 +888,43 @@ export default function MasksPanel({
     </div>
   ) : null;
 
+  const hierarchyInlineSection = showInlineHierarchy ? (
+    <motion.div
+      layout
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="shrink-0 px-4 pb-2"
+    >
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-text-primary">Masks</p>
+        <button
+          className="rounded-full p-2 text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
+          data-tooltip="Open Hierarchy in Preview"
+          onClick={toggleHierarchyLayout}
+        >
+          <ExternalLink size={16} />
+        </button>
+      </div>
+      <div className="h-[clamp(124px,32vh,320px)] overflow-hidden rounded-xl border border-surface bg-bg-primary/15">
+        {hierarchyList}
+      </div>
+    </motion.div>
+  ) : null;
+
   const hierarchyOverlay =
-    hierarchyList && maskHierarchyOverlayHost
+    hierarchyList && showFloatingHierarchy
       ? createPortal(
-          <FloatingMaskHierarchyWindow setIsMaskControlHovered={setIsMaskControlHovered}>
+          <FloatingMaskHierarchyWindow
+            anchor={floatingHierarchyAnchor}
+            onAnchorChange={setFloatingHierarchyAnchor}
+            onDockToSidebar={() => setIsHierarchyFloating(false)}
+            setIsMaskControlHovered={setIsMaskControlHovered}
+          >
             {hierarchyList}
           </FloatingMaskHierarchyWindow>,
-          maskHierarchyOverlayHost,
+          maskHierarchyOverlayHost!,
         )
       : null;
 
@@ -957,12 +1011,9 @@ export default function MasksPanel({
                 />
               ))}
             </div>
-            {isSettingsPanelEverOpened && (
-              <p className="mt-3 text-xs leading-relaxed text-text-secondary">
-                The mask hierarchy now floats above the preview. Drag its header to snap it to a different corner.
-              </p>
-            )}
           </div>
+
+          {hierarchyInlineSection}
 
           <AnimatePresence>
             {isSettingsPanelEverOpened && (
@@ -1080,21 +1131,22 @@ function NewMaskDropZone({ isOver }: { isOver: boolean }) {
   );
 }
 
-type FloatingHierarchyCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
-
-const FLOATING_HIERARCHY_MARGIN = 16;
-
 function FloatingMaskHierarchyWindow({
+  anchor,
   children,
+  onAnchorChange,
+  onDockToSidebar,
   setIsMaskControlHovered,
 }: {
+  anchor: FloatingHierarchyAnchor;
   children: any;
+  onAnchorChange(anchor: FloatingHierarchyAnchor): void;
+  onDockToSidebar(): void;
   setIsMaskControlHovered(hovered: boolean): void;
 }) {
   const boundsRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragControls = useDragControls();
-  const [corner, setCorner] = useState<FloatingHierarchyCorner>('top-right');
   const [targetPosition, setTargetPosition] = useState({ x: FLOATING_HIERARCHY_MARGIN, y: FLOATING_HIERARCHY_MARGIN });
   const [isReady, setIsReady] = useState(false);
   const [isWindowDragging, setIsWindowDragging] = useState(false);
@@ -1105,7 +1157,7 @@ function FloatingMaskHierarchyWindow({
     };
   }, [setIsMaskControlHovered]);
 
-  const getCornerPosition = useCallback((targetCorner: FloatingHierarchyCorner) => {
+  const getAnchorPosition = useCallback((targetAnchor: FloatingHierarchyAnchor) => {
     const bounds = boundsRef.current;
     const panel = panelRef.current;
     if (!bounds || !panel) {
@@ -1117,20 +1169,32 @@ function FloatingMaskHierarchyWindow({
       FLOATING_HIERARCHY_MARGIN,
       bounds.clientHeight - panel.offsetHeight - FLOATING_HIERARCHY_MARGIN,
     );
+    const centerY = Math.min(maxY, Math.max(FLOATING_HIERARCHY_MARGIN, (bounds.clientHeight - panel.offsetHeight) / 2));
 
-    return {
-      x: targetCorner.endsWith('right') ? maxX : FLOATING_HIERARCHY_MARGIN,
-      y: targetCorner.startsWith('bottom') ? maxY : FLOATING_HIERARCHY_MARGIN,
-    };
+    switch (targetAnchor) {
+      case 'top-left':
+        return { x: FLOATING_HIERARCHY_MARGIN, y: FLOATING_HIERARCHY_MARGIN };
+      case 'top-right':
+        return { x: maxX, y: FLOATING_HIERARCHY_MARGIN };
+      case 'center-left':
+        return { x: FLOATING_HIERARCHY_MARGIN, y: centerY };
+      case 'center-right':
+        return { x: maxX, y: centerY };
+      case 'bottom-left':
+        return { x: FLOATING_HIERARCHY_MARGIN, y: maxY };
+      case 'bottom-right':
+      default:
+        return { x: maxX, y: maxY };
+    }
   }, []);
 
   const syncToCorner = useCallback(
-    (targetCorner: FloatingHierarchyCorner) => {
+    (targetAnchor: FloatingHierarchyAnchor) => {
       if (isWindowDragging) {
         return;
       }
 
-      const nextPosition = getCornerPosition(targetCorner);
+      const nextPosition = getAnchorPosition(targetAnchor);
       if (!nextPosition) {
         return;
       }
@@ -1138,17 +1202,17 @@ function FloatingMaskHierarchyWindow({
       setTargetPosition(nextPosition);
       setIsReady(true);
     },
-    [getCornerPosition, isWindowDragging],
+    [getAnchorPosition, isWindowDragging],
   );
 
   useLayoutEffect(() => {
-    const frame = window.requestAnimationFrame(() => syncToCorner(corner));
+    const frame = window.requestAnimationFrame(() => syncToCorner(anchor));
 
     if (typeof ResizeObserver === 'undefined') {
       return () => window.cancelAnimationFrame(frame);
     }
 
-    const observer = new ResizeObserver(() => syncToCorner(corner));
+    const observer = new ResizeObserver(() => syncToCorner(anchor));
 
     if (boundsRef.current) {
       observer.observe(boundsRef.current);
@@ -1162,7 +1226,7 @@ function FloatingMaskHierarchyWindow({
       window.cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [corner, syncToCorner]);
+  }, [anchor, syncToCorner]);
 
   const handleDragEnd = useCallback(() => {
     setIsWindowDragging(false);
@@ -1180,10 +1244,8 @@ function FloatingMaskHierarchyWindow({
       y: panelRect.top - boundsRect.top + panelRect.height / 2,
     };
 
-    const corners: FloatingHierarchyCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
-
-    const nearestCorner = corners.reduce((closest, candidate) => {
-      const candidatePosition = getCornerPosition(candidate);
+    const nearestAnchor = FLOATING_HIERARCHY_ANCHORS.reduce((closest, candidate) => {
+      const candidatePosition = getAnchorPosition(candidate);
       if (!candidatePosition) {
         return closest;
       }
@@ -1195,29 +1257,24 @@ function FloatingMaskHierarchyWindow({
       const distance = Math.hypot(candidateCenter.x - currentCenter.x, candidateCenter.y - currentCenter.y);
 
       if (!closest || distance < closest.distance) {
-        return { corner: candidate, distance };
+        return { anchor: candidate, distance };
       }
 
       return closest;
-    }, null as { corner: FloatingHierarchyCorner; distance: number } | null);
+    }, null as { anchor: FloatingHierarchyAnchor; distance: number } | null);
 
-    if (!nearestCorner) {
+    if (!nearestAnchor) {
       return;
     }
 
-    setCorner(nearestCorner.corner);
+    onAnchorChange(nearestAnchor.anchor);
 
-    const snappedPosition = getCornerPosition(nearestCorner.corner);
+    const snappedPosition = getAnchorPosition(nearestAnchor.anchor);
     if (snappedPosition) {
       setTargetPosition(snappedPosition);
       setIsReady(true);
     }
-  }, [getCornerPosition]);
-
-  const cornerLabel = corner
-    .split('-')
-    .map((value) => value.charAt(0).toUpperCase() + value.slice(1))
-    .join(' ');
+  }, [getAnchorPosition, onAnchorChange]);
 
   return (
     <div ref={boundsRef} className="absolute inset-0 pointer-events-none">
@@ -1264,7 +1321,17 @@ function FloatingMaskHierarchyWindow({
               <GripHorizontal size={14} className="text-text-secondary" />
               <span>Mask Hierarchy</span>
             </div>
-            <span className="text-[10px] uppercase tracking-[0.18em] text-text-secondary">{cornerLabel}</span>
+            <button
+              className="rounded-full p-2 text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
+              data-tooltip="Dock Hierarchy in Sidebar"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDockToSidebar();
+              }}
+            >
+              <ArrowRight size={16} />
+            </button>
           </div>
           <div className="min-h-0 flex-1">{children}</div>
         </div>
