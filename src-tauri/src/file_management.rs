@@ -545,100 +545,112 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
     let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
 
     let entries = fs::read_dir(&path).map_err(|e| e.to_string())?;
-    let mut image_files = HashMap::new();
-    let mut sidecars_by_source = HashMap::new();
-
-    let sidecar_re = Regex::new(r"^(.*)\.([a-f0-9]{6})\.rrdata$").unwrap();
-    let original_sidecar_re = Regex::new(r"^(.*)\.rrdata$").unwrap();
+    let mut images = Vec::new();
+    let mut sidecars_by_filename: HashMap<String, Vec<Option<String>>> = HashMap::new();
 
     for entry in entries.filter_map(Result::ok) {
         let entry_path = entry.path();
-        let file_name = entry_path.file_name().unwrap_or_default().to_string_lossy();
+        let file_name = entry
+            .file_name()
+            .into_string()
+            .unwrap_or_else(|os| os.to_string_lossy().into_owned());
 
-        if is_supported_image_file(entry_path.to_string_lossy().as_ref()) {
-            let path_str = entry_path.to_string_lossy().into_owned();
-            image_files.insert(path_str, entry_path.clone());
-        } else if file_name.ends_with(".rrdata") {
-            if let Some(caps) = sidecar_re.captures(&file_name) {
-                let source_filename = caps.get(1).map_or("", |m| m.as_str());
-                let copy_id = caps.get(2).map_or("", |m| m.as_str());
-                let source_path = Path::new(&path).join(source_filename);
-                sidecars_by_source
-                    .entry(source_path.to_string_lossy().into_owned())
-                    .or_insert_with(Vec::new)
-                    .push(Some(copy_id.to_string()));
-            } else if let Some(caps) = original_sidecar_re.captures(&file_name) {
-                let source_filename = caps.get(1).map_or("", |m| m.as_str());
-                let source_path = Path::new(&path).join(source_filename);
-                sidecars_by_source
-                    .entry(source_path.to_string_lossy().into_owned())
-                    .or_insert_with(Vec::new)
-                    .push(None);
-            }
-        }
-    }
+        if file_name.ends_with(".rrdata") {
+            let base = &file_name[..file_name.len() - 7];
 
-    let mut result_list = Vec::new();
-    for (path_str, path_buf) in image_files {
-        let modified = fs::metadata(&path_buf)
-            .ok()
-            .and_then(|m| m.modified().ok())
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-
-        let sidecar_versions = sidecars_by_source
-            .entry(path_str.clone())
-            .or_insert_with(|| vec![None]);
-
-        for copy_id_opt in sidecar_versions {
-            let (virtual_path, sidecar_path, is_virtual_copy) = match copy_id_opt {
-                Some(id) => {
-                    let new_virtual_path = format!("{}?vc={}", path_str, id);
-                    (
-                        new_virtual_path.clone(),
-                        parse_virtual_path(&new_virtual_path).1,
-                        true,
-                    )
-                }
-                None => (path_str.clone(), parse_virtual_path(&path_str).1, false),
-            };
-
-            let (is_edited, tags) = {
-                let mut metadata = if sidecar_path.exists() {
-                    if let Ok(content) = fs::read_to_string(&sidecar_path) {
-                        serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
+            let (source_filename, copy_id) =
+                if base.len() >= 7 && base.as_bytes()[base.len() - 7] == b'.' {
+                    let id = &base[base.len() - 6..];
+                    if id.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f')) {
+                        (&base[..base.len() - 7], Some(id.to_string()))
                     } else {
-                        ImageMetadata::default()
+                        (base, None)
                     }
                 } else {
-                    ImageMetadata::default()
+                    (base, None)
                 };
 
-                let source_path_buf = PathBuf::from(&path_str);
-                if enable_xmp_sync
-                    && sync_metadata_from_xmp(&source_path_buf, &mut metadata)
-                    && let Ok(json) = serde_json::to_string_pretty(&metadata)
-                {
-                    let _ = fs::write(&sidecar_path, json);
-                }
-
-                let edited = metadata.adjustments.as_object().is_some_and(|a| {
-                    a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
-                });
-                (edited, metadata.tags)
-            };
-
-            result_list.push(ImageFile {
-                path: virtual_path,
-                modified,
-                is_edited,
-                tags,
-                exif: None,
-                is_virtual_copy,
-            });
+            sidecars_by_filename
+                .entry(source_filename.to_string())
+                .or_default()
+                .push(copy_id);
+        } else if is_supported_image_file(&file_name) {
+            images.push((file_name, entry_path));
         }
     }
+
+    let tasks: Vec<_> = images
+        .into_iter()
+        .map(|(file_name, path_buf)| {
+            let sidecars = sidecars_by_filename
+                .remove(&file_name)
+                .unwrap_or_else(|| vec![None]);
+            let path_str = path_buf.to_string_lossy().into_owned();
+            (path_str, file_name, path_buf, sidecars)
+        })
+        .collect();
+
+    let result_list: Vec<ImageFile> = tasks
+        .into_par_iter()
+        .flat_map(|(path_str, file_name, path_buf, sidecars)| {
+            let modified = fs::metadata(&path_buf)
+                .ok()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+
+            let mut file_results = Vec::with_capacity(sidecars.len());
+
+            for copy_id_opt in sidecars {
+                let (virtual_path, is_virtual_copy, sidecar_filename) = match copy_id_opt {
+                    Some(id) => (
+                        format!("{}?vc={}", path_str, id),
+                        true,
+                        format!("{}.{}.rrdata", file_name, id),
+                    ),
+                    None => (path_str.clone(), false, format!("{}.rrdata", file_name)),
+                };
+
+                let sidecar_path = path_buf.with_file_name(sidecar_filename);
+
+                let (is_edited, tags) = {
+                    let mut metadata = if sidecar_path.exists() {
+                        if let Ok(content) = fs::read_to_string(&sidecar_path) {
+                            serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
+                        } else {
+                            ImageMetadata::default()
+                        }
+                    } else {
+                        ImageMetadata::default()
+                    };
+
+                    if enable_xmp_sync
+                        && sync_metadata_from_xmp(&path_buf, &mut metadata)
+                        && let Ok(json) = serde_json::to_string_pretty(&metadata)
+                    {
+                        let _ = fs::write(&sidecar_path, json);
+                    }
+
+                    let edited = metadata.adjustments.as_object().is_some_and(|a| {
+                        a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
+                    });
+                    (edited, metadata.tags)
+                };
+
+                file_results.push(ImageFile {
+                    path: virtual_path,
+                    modified,
+                    is_edited,
+                    tags,
+                    exif: None,
+                    is_virtual_copy,
+                });
+            }
+
+            file_results
+        })
+        .collect();
 
     Ok(result_list)
 }
@@ -652,11 +664,9 @@ pub fn list_images_recursive(
     let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
 
     let root_path = Path::new(&path);
-    let mut image_files = HashMap::new();
-    let mut sidecars_by_source = HashMap::new();
+    let mut images = Vec::new();
 
-    let sidecar_re = Regex::new(r"^(.*)\.([a-f0-9]{6})\.rrdata$").unwrap();
-    let original_sidecar_re = Regex::new(r"^(.*)\.rrdata$").unwrap();
+    let mut sidecars_by_path: HashMap<PathBuf, Vec<Option<String>>> = HashMap::new();
 
     for entry in WalkDir::new(root_path).into_iter().filter_map(Result::ok) {
         let entry_path = entry.path();
@@ -665,95 +675,108 @@ pub fn list_images_recursive(
         }
 
         let file_name = entry_path.file_name().unwrap_or_default().to_string_lossy();
-
-        if is_supported_image_file(entry_path.to_string_lossy().as_ref()) {
-            let path_str = entry_path.to_string_lossy().into_owned();
-            image_files.insert(path_str, entry_path.to_path_buf());
-        } else if file_name.ends_with(".rrdata") {
-            if let Some(caps) = sidecar_re.captures(&file_name) {
-                let source_filename = caps.get(1).map_or("", |m| m.as_str());
-                let copy_id = caps.get(2).map_or("", |m| m.as_str());
-                if let Some(parent) = entry_path.parent() {
-                    let source_path = parent.join(source_filename);
-                    sidecars_by_source
-                        .entry(source_path.to_string_lossy().into_owned())
-                        .or_insert_with(Vec::new)
-                        .push(Some(copy_id.to_string()));
-                }
-            } else if let Some(caps) = original_sidecar_re.captures(&file_name) {
-                let source_filename = caps.get(1).map_or("", |m| m.as_str());
-                if let Some(parent) = entry_path.parent() {
-                    let source_path = parent.join(source_filename);
-                    sidecars_by_source
-                        .entry(source_path.to_string_lossy().into_owned())
-                        .or_insert_with(Vec::new)
-                        .push(None);
-                }
-            }
-        }
-    }
-
-    let mut result_list = Vec::new();
-    for (path_str, path_buf) in image_files {
-        let modified = fs::metadata(&path_buf)
-            .ok()
-            .and_then(|m| m.modified().ok())
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-
-        let sidecar_versions = sidecars_by_source
-            .entry(path_str.clone())
-            .or_insert_with(|| vec![None]);
-
-        for copy_id_opt in sidecar_versions {
-            let (virtual_path, sidecar_path, is_virtual_copy) = match copy_id_opt {
-                Some(id) => {
-                    let new_virtual_path = format!("{}?vc={}", path_str, id);
-                    (
-                        new_virtual_path.clone(),
-                        parse_virtual_path(&new_virtual_path).1,
-                        true,
-                    )
-                }
-                None => (path_str.clone(), parse_virtual_path(&path_str).1, false),
-            };
-
-            let (is_edited, tags) = {
-                let mut metadata = if sidecar_path.exists() {
-                    if let Ok(content) = fs::read_to_string(&sidecar_path) {
-                        serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
+        if file_name.ends_with(".rrdata") {
+            let base = &file_name[..file_name.len() - 7];
+            let (source_filename, copy_id) =
+                if base.len() >= 7 && base.as_bytes()[base.len() - 7] == b'.' {
+                    let id = &base[base.len() - 6..];
+                    if id.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f')) {
+                        (&base[..base.len() - 7], Some(id.to_string()))
                     } else {
-                        ImageMetadata::default()
+                        (base, None)
                     }
                 } else {
-                    ImageMetadata::default()
+                    (base, None)
                 };
 
-                let source_path_buf = PathBuf::from(&path_str);
-                if enable_xmp_sync
-                    && sync_metadata_from_xmp(&source_path_buf, &mut metadata)
-                    && let Ok(json) = serde_json::to_string_pretty(&metadata)
-                {
-                    let _ = fs::write(&sidecar_path, json);
-                }
-
-                let edited = metadata.adjustments.as_object().is_some_and(|a| {
-                    a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
-                });
-                (edited, metadata.tags)
-            };
-
-            result_list.push(ImageFile {
-                path: virtual_path,
-                modified,
-                is_edited,
-                tags,
-                exif: None,
-                is_virtual_copy,
-            });
+            if let Some(parent) = entry_path.parent() {
+                sidecars_by_path
+                    .entry(parent.join(source_filename))
+                    .or_default()
+                    .push(copy_id);
+            }
+        } else if is_supported_image_file(entry_path.to_string_lossy().as_ref()) {
+            images.push(entry_path.to_path_buf());
         }
     }
+
+    let tasks: Vec<_> = images
+        .into_iter()
+        .map(|path_buf| {
+            let sidecars = sidecars_by_path
+                .remove(&path_buf)
+                .unwrap_or_else(|| vec![None]);
+            let path_str = path_buf.to_string_lossy().into_owned();
+            let file_name = path_buf
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
+            (path_str, file_name, path_buf, sidecars)
+        })
+        .collect();
+
+    let result_list: Vec<ImageFile> = tasks
+        .into_par_iter()
+        .flat_map(|(path_str, file_name, path_buf, sidecars)| {
+            let modified = fs::metadata(&path_buf)
+                .ok()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+
+            let mut file_results = Vec::with_capacity(sidecars.len());
+
+            for copy_id_opt in sidecars {
+                let (virtual_path, is_virtual_copy, sidecar_filename) = match copy_id_opt {
+                    Some(id) => (
+                        format!("{}?vc={}", path_str, id),
+                        true,
+                        format!("{}.{}.rrdata", file_name, id),
+                    ),
+                    None => (path_str.clone(), false, format!("{}.rrdata", file_name)),
+                };
+
+                let sidecar_path = path_buf.with_file_name(sidecar_filename);
+
+                let (is_edited, tags) = {
+                    let mut metadata = if sidecar_path.exists() {
+                        if let Ok(content) = fs::read_to_string(&sidecar_path) {
+                            serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default()
+                        } else {
+                            ImageMetadata::default()
+                        }
+                    } else {
+                        ImageMetadata::default()
+                    };
+
+                    if enable_xmp_sync
+                        && sync_metadata_from_xmp(&path_buf, &mut metadata)
+                        && let Ok(json) = serde_json::to_string_pretty(&metadata)
+                    {
+                        let _ = fs::write(&sidecar_path, json);
+                    }
+
+                    let edited = metadata.adjustments.as_object().is_some_and(|a| {
+                        a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
+                    });
+                    (edited, metadata.tags)
+                };
+
+                file_results.push(ImageFile {
+                    path: virtual_path,
+                    modified,
+                    is_edited,
+                    tags,
+                    exif: None,
+                    is_virtual_copy,
+                });
+            }
+
+            file_results
+        })
+        .collect();
 
     Ok(result_list)
 }
@@ -801,8 +824,6 @@ fn scan_dir_lazy(
             return Ok((Vec::new(), 0));
         }
     };
-
-    log::info!("scanning!");
 
     for entry in entries.filter_map(Result::ok) {
         let current_path = entry.path();

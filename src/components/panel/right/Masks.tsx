@@ -50,10 +50,23 @@ export interface SubMask {
   id: string;
   invert: boolean;
   mode: SubMaskMode;
+  name?: string;
   opacity: number;
   parameters?: any;
   type: Mask;
   visible: boolean;
+}
+
+export function formatMaskTypeName(type: string) {
+  if (type === Mask.AiSubject) return 'AI Subject';
+  if (type === Mask.AiForeground) return 'AI Foreground';
+  if (type === Mask.AiSky) return 'AI Sky';
+  if (type === Mask.All) return 'Whole Image';
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+export function getSubMaskName(subMask: Pick<SubMask, 'name' | 'type'>) {
+  return subMask.name?.trim() || formatMaskTypeName(subMask.type);
 }
 
 export const MASK_ICON_MAP: Record<Mask, any> = {

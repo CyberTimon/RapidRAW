@@ -272,6 +272,7 @@ export enum ThumbnailSize {
   Large = 'large',
   Medium = 'medium',
   Small = 'small',
+  List = 'list',
 }
 
 export interface TransformState {

@@ -60,6 +60,7 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-03-26:** Performance improvements & new flat list mode for library
 - **2026-03-25:** Optimize folder loading & tree fetching
 - **2026-03-23:** Generate thumbnails only for visible viewport items
 - **2026-03-22:** Dependency migrations and other bug fixes
@@ -69,11 +70,11 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - **2026-03-15:** Improved high quality subject mask models, various UI improvements and shader improvements
 - **2026-03-14:** New image analytics panel which can display vectorscopes, waveforms, parades & histograms
 - **2026-03-13:** JPEG XL, WebP, and additional format support, including the ability to export LUTs.
-- **2026-03-12:** Added parametric color & luminance masks
 
 <details>
 <summary><strong>Expand further</strong></summary>
 
+- **2026-03-12:** Added parametric color & luminance masks
 - **2026-03-10:** Implement region of interest rendering to improve performance when zooming in
 - **2026-03-07:** Batch negative conversion & various shader improvements
 - **2026-03-06:** Performance optimizations and UI cleanup

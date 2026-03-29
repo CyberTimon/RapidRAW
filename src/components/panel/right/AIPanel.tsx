@@ -15,12 +15,15 @@ import {
 } from '@dnd-kit/core';
 import {
   Circle,
+  ClipboardPaste,
+  Copy,
   Eye,
   EyeOff,
   FileEdit,
   Loader2,
   Minus,
   Plus,
+  PlusSquare,
   RotateCcw,
   Trash2,
   Wand2,
@@ -44,9 +47,11 @@ import {
   MASK_ICON_MAP,
   AI_PANEL_CREATION_TYPES,
   AI_SUB_MASK_COMPONENT_TYPES,
+  formatMaskTypeName,
+  getSubMaskName,
 } from './Masks';
 import { Adjustments, AiPatch } from '../../../utils/adjustments';
-import { BrushSettings, SelectedImage } from '../../ui/AppProperties';
+import { BrushSettings, OPTION_SEPARATOR, SelectedImage } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
 
 interface AiPanelProps {
@@ -80,13 +85,6 @@ interface DragData {
   item?: AiPatch | SubMask;
   maskType?: Mask;
   parentId?: string;
-}
-
-function formatMaskTypeName(type: string) {
-  if (type === Mask.AiSubject) return 'AI Subject';
-  if (type === Mask.AiForeground) return 'AI Foreground';
-  if (type === Mask.AiSky) return 'AI Sky';
-  return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
 const PLACEHOLDER_PATCH: AiPatch = {
@@ -245,12 +243,15 @@ export default function AIPanel({
   const [isSettingsPanelEverOpened, setIsSettingsPanelEverOpened] = useState(false);
   const hasPerformedInitialSelection = useRef(false);
   const [analyzingSubMaskId, setAnalyzingSubMaskId] = useState<string | null>(null);
+  const [copiedPatch, setCopiedPatch] = useState<AiPatch | null>(null);
+  const [copiedSubMask, setCopiedSubMask] = useState<SubMask | null>(null);
 
   const [collapsibleState, setCollapsibleState] = useState({
     generative: true,
     properties: true,
   });
 
+  const { showContextMenu } = useContextMenu();
   const { setNodeRef: setRootDroppableRef, isOver: isRootOver } = useDroppable({ id: 'ai-list-root' });
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -497,6 +498,141 @@ export default function AIPanel({
     }));
   };
 
+  const clonePatchData = (container: AiPatch, options: { invert?: boolean; rename?: boolean } = {}): AiPatch => {
+    const clonedContainer = JSON.parse(JSON.stringify(container));
+
+    clonedContainer.id = uuidv4();
+    clonedContainer.invert = options.invert ? !clonedContainer.invert : clonedContainer.invert;
+    clonedContainer.isLoading = false;
+    clonedContainer.name = options.rename === false ? clonedContainer.name : `${container.name} Copy`;
+    clonedContainer.patchData = null;
+    clonedContainer.subMasks = clonedContainer.subMasks.map((subMask: SubMask) => ({
+      ...subMask,
+      id: uuidv4(),
+    }));
+
+    return clonedContainer;
+  };
+
+  const cloneSubMaskData = (subMask: SubMask, options: { invert?: boolean; rename?: boolean } = {}): SubMask => {
+    const clonedSubMask = JSON.parse(JSON.stringify(subMask));
+
+    clonedSubMask.id = uuidv4();
+    clonedSubMask.invert = options.invert ? !clonedSubMask.invert : clonedSubMask.invert;
+    clonedSubMask.name = options.rename === false ? clonedSubMask.name : `${getSubMaskName(subMask)} Copy`;
+
+    return clonedSubMask;
+  };
+
+  const copyPatchToClipboard = (container: AiPatch) => {
+    setCopiedPatch(JSON.parse(JSON.stringify(container)));
+  };
+
+  const copySubMaskToClipboard = (subMask: SubMask) => {
+    setCopiedSubMask(JSON.parse(JSON.stringify(subMask)));
+  };
+
+  const insertPatchContainer = (container: AiPatch, insertIndex?: number) => {
+    if ((adjustments.aiPatches || []).length === 0) setIsPatchListEmpty(false);
+
+    setAdjustments((prev: Adjustments) => {
+      const newPatches = [...(prev.aiPatches || [])];
+      const targetIndex = Math.max(0, Math.min(insertIndex ?? newPatches.length, newPatches.length));
+
+      newPatches.splice(targetIndex, 0, container);
+      return { ...prev, aiPatches: newPatches };
+    });
+
+    onSelectPatchContainer(container.id);
+    onSelectSubMask(null);
+    setExpandedContainers((prev) => new Set(prev).add(container.id));
+  };
+
+  const insertSubMaskIntoContainer = (containerId: string, subMask: SubMask, insertIndex?: number) => {
+    setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      aiPatches: (prev.aiPatches || []).map((container) => {
+        if (container.id !== containerId) {
+          return container;
+        }
+
+        const newSubMasks = [...container.subMasks];
+        const targetIndex = Math.max(0, Math.min(insertIndex ?? newSubMasks.length, newSubMasks.length));
+
+        newSubMasks.splice(targetIndex, 0, subMask);
+        return { ...container, subMasks: newSubMasks };
+      }),
+    }));
+
+    onSelectPatchContainer(containerId);
+    onSelectSubMask(subMask.id);
+    setExpandedContainers((prev) => new Set(prev).add(containerId));
+  };
+
+  const handleDuplicatePatchContainer = (container: AiPatch) => {
+    const patchIndex = (adjustments.aiPatches || []).findIndex((patch) => patch.id === container.id);
+    const duplicatedContainer = clonePatchData(container, { rename: true });
+
+    insertPatchContainer(duplicatedContainer, patchIndex >= 0 ? patchIndex + 1 : undefined);
+  };
+
+  const handleDuplicateAndInvertPatchContainer = (container: AiPatch) => {
+    const patchIndex = (adjustments.aiPatches || []).findIndex((patch) => patch.id === container.id);
+    const duplicatedContainer = clonePatchData(container, { invert: true, rename: true });
+
+    insertPatchContainer(duplicatedContainer, patchIndex >= 0 ? patchIndex + 1 : undefined);
+  };
+
+  const handlePastePatch = (insertAfterContainerId?: string) => {
+    if (!copiedPatch) {
+      return;
+    }
+
+    const pastedContainer = clonePatchData(copiedPatch, { rename: false });
+    const patchIndex = insertAfterContainerId
+      ? (adjustments.aiPatches || []).findIndex((patch) => patch.id === insertAfterContainerId)
+      : -1;
+
+    insertPatchContainer(pastedContainer, patchIndex >= 0 ? patchIndex + 1 : undefined);
+  };
+
+  const handleDuplicateSubMask = (containerId: string, subMask: SubMask, insertIndex?: number) => {
+    const duplicatedSubMask = cloneSubMaskData(subMask, { rename: true });
+    insertSubMaskIntoContainer(containerId, duplicatedSubMask, insertIndex);
+  };
+
+  const handleDuplicateAndInvertSubMask = (containerId: string, subMask: SubMask, insertIndex?: number) => {
+    const duplicatedSubMask = cloneSubMaskData(subMask, { invert: true, rename: true });
+    insertSubMaskIntoContainer(containerId, duplicatedSubMask, insertIndex);
+  };
+
+  const handlePasteSubMask = (containerId: string, insertIndex?: number) => {
+    if (!copiedSubMask) {
+      return;
+    }
+
+    const pastedSubMask = cloneSubMaskData(copiedSubMask, { rename: false });
+    insertSubMaskIntoContainer(containerId, pastedSubMask, insertIndex);
+  };
+
+  const handlePanelContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!selectedImage) {
+      return;
+    }
+
+    const newEditSubMenu = AI_PANEL_CREATION_TYPES.filter((maskType) => !maskType.disabled).map((maskType) => ({
+      label: maskType.name,
+      icon: maskType.icon,
+      onClick: () => handleAddAiPatchContainer(maskType.type),
+    }));
+
+    showContextMenu(e.clientX, e.clientY, [
+      { label: 'Paste Edit', icon: ClipboardPaste, disabled: !copiedPatch, onClick: () => handlePastePatch() },
+      { label: 'Add New Edit', icon: Plus, submenu: newEditSubMenu },
+    ]);
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveDragItem(event.active.data.current as DragData);
     if (onDragStateChange) onDragStateChange(true);
@@ -636,8 +772,12 @@ export default function AIPanel({
       onDragEnd={handleDragEnd}
       collisionDetection={pointerWithin}
     >
-      <div className="flex flex-col h-full select-none overflow-hidden" onClick={handleDeselect}>
-        <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
+      <div
+        className="flex flex-col h-full select-none overflow-hidden"
+        onClick={handleDeselect}
+        onContextMenu={handlePanelContextMenu}
+      >
+        <div className="p-4 flex justify-between items-center flex-shrink-0 border-b border-surface">
           <h2 className="text-xl font-bold text-primary text-shadow-shiny">Inpainting</h2>
           <button
             className="p-2 rounded-full hover:bg-surface transition-colors"
@@ -726,6 +866,11 @@ export default function AIPanel({
                       setTempName={setTempName}
                       updateContainer={updatePatch}
                       handleDelete={handleDeleteContainer}
+                      handleDuplicate={handleDuplicatePatchContainer}
+                      handleDuplicateAndInvert={handleDuplicateAndInvertPatchContainer}
+                      handlePastePatch={handlePastePatch}
+                      copyPatchToClipboard={copyPatchToClipboard}
+                      copiedPatch={copiedPatch}
                       setAdjustments={setAdjustments}
                       activeDragItem={activeDragItem}
                       activeSubMaskId={activeSubMaskId}
@@ -733,6 +878,11 @@ export default function AIPanel({
                       onSelectSubMask={onSelectSubMask}
                       updateSubMask={updateSubMask}
                       handleDeleteSubMask={handleDeleteSubMask}
+                      handleDuplicateSubMask={handleDuplicateSubMask}
+                      handleDuplicateAndInvertSubMask={handleDuplicateAndInvertSubMask}
+                      handlePasteSubMask={handlePasteSubMask}
+                      copySubMaskToClipboard={copySubMaskToClipboard}
+                      copiedSubMask={copiedSubMask}
                       analyzingSubMaskId={analyzingSubMaskId}
                     />
                   ))}
@@ -804,7 +954,7 @@ export default function AIPanel({
                   return <Icon size={16} className="text-text-secondary shrink-0 ml-1" />;
                 })()}
                 <span className="text-sm text-text-primary flex-1 truncate">
-                  {formatMaskTypeName((activeDragItem.item as SubMask).type)}
+                  {getSubMaskName(activeDragItem.item as SubMask)}
                 </span>
               </div>
             )}
@@ -896,12 +1046,22 @@ function ContainerRow({
   setTempName,
   updateContainer,
   handleDelete,
+  handleDuplicate,
+  handleDuplicateAndInvert,
+  handlePastePatch,
+  copyPatchToClipboard,
+  copiedPatch,
   activeDragItem,
   activeSubMaskId,
   onSelectContainer,
   onSelectSubMask,
   updateSubMask,
   handleDeleteSubMask,
+  handleDuplicateSubMask,
+  handleDuplicateAndInvertSubMask,
+  handlePasteSubMask,
+  copySubMaskToClipboard,
+  copiedSubMask,
   analyzingSubMaskId,
 }: any) {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
@@ -945,6 +1105,16 @@ function ContainerRow({
           setTempName(container.name);
         },
       },
+      { label: 'Duplicate Edit', icon: PlusSquare, onClick: () => handleDuplicate(container) },
+      { label: 'Duplicate and Invert Edit', icon: RotateCcw, onClick: () => handleDuplicateAndInvert(container) },
+      { label: 'Copy Edit', icon: Copy, onClick: () => copyPatchToClipboard(container) },
+      {
+        label: 'Paste Edit',
+        icon: ClipboardPaste,
+        disabled: !copiedPatch,
+        onClick: () => handlePastePatch(container.id),
+      },
+      { type: OPTION_SEPARATOR },
       {
         label: 'Reset Selection',
         icon: RotateCcw,
@@ -1083,7 +1253,16 @@ function ContainerRow({
                   }}
                   updateSubMask={updateSubMask}
                   handleDelete={() => handleDeleteSubMask(container.id, subMask.id)}
+                  handleDuplicate={() => handleDuplicateSubMask(container.id, subMask, index + 1)}
+                  handleDuplicateAndInvert={() => handleDuplicateAndInvertSubMask(container.id, subMask, index + 1)}
+                  handlePaste={() => handlePasteSubMask(container.id, index + 1)}
+                  handleCopy={() => copySubMaskToClipboard(subMask)}
+                  hasCopiedSubMask={!!copiedSubMask}
                   analyzingSubMaskId={analyzingSubMaskId}
+                  renamingId={renamingId}
+                  setRenamingId={setRenamingId}
+                  tempName={tempName}
+                  setTempName={setTempName}
                   isParentLoading={container.isLoading}
                 />
               ))}
@@ -1115,8 +1294,17 @@ function SubMaskRow({
   onSelect,
   updateSubMask,
   handleDelete,
+  handleDuplicate,
+  handleDuplicateAndInvert,
+  handlePaste,
+  handleCopy,
+  hasCopiedSubMask,
   activeDragItem,
   analyzingSubMaskId,
+  renamingId,
+  setRenamingId,
+  tempName,
+  setTempName,
   isParentLoading,
 }: any) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -1154,10 +1342,31 @@ function SubMaskRow({
     };
   }, []);
 
+  const handleRenameSubmit = () => {
+    if (tempName.trim()) {
+      const newName = tempName.trim();
+      updateSubMask(subMask.id, { name: newName });
+    }
+    setRenamingId(null);
+  };
+
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     showContextMenu(e.clientX, e.clientY, [
+      {
+        label: 'Rename',
+        icon: FileEdit,
+        onClick: () => {
+          setRenamingId(subMask.id);
+          setTempName(getSubMaskName(subMask));
+        },
+      },
+      { label: 'Duplicate Component', icon: PlusSquare, onClick: handleDuplicate },
+      { label: 'Duplicate and Invert Component', icon: RotateCcw, onClick: handleDuplicateAndInvert },
+      { label: 'Copy Component', icon: Copy, onClick: handleCopy },
+      { label: 'Paste Component', icon: ClipboardPaste, disabled: !hasCopiedSubMask, onClick: handlePaste },
+      { type: OPTION_SEPARATOR },
       { label: 'Delete Component', icon: Trash2, isDestructive: true, onClick: handleDelete },
     ]);
   };
@@ -1225,7 +1434,19 @@ function SubMaskRow({
           )}
         </AnimatePresence>
       </div>
-      <span className="text-sm text-text-primary flex-1 truncate select-none">{formatMaskTypeName(subMask.type)}</span>
+      {renamingId === subMask.id ? (
+        <input
+          autoFocus
+          className="bg-bg-primary text-sm w-full rounded px-1 outline-none border border-accent"
+          value={tempName}
+          onChange={(e) => setTempName(e.target.value)}
+          onBlur={handleRenameSubmit}
+          onKeyDown={(e) => e.key === 'Enter' && handleRenameSubmit()}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span className="text-sm text-text-primary flex-1 truncate select-none">{getSubMaskName(subMask)}</span>
+      )}
       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           className="p-1 hover:bg-bg-primary rounded-sm text-text-secondary"
@@ -1392,7 +1613,7 @@ function SettingsPanel({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title={isComponentMode ? `${formatMaskTypeName(activeSubMask.type)} Properties` : 'Selection Properties'}
+        title={isComponentMode ? `${getSubMaskName(activeSubMask)} Properties` : 'Selection Properties'}
         isOpen={collapsibleState.properties}
         onToggle={() => handleToggleSection('properties')}
         canToggleVisibility={false}

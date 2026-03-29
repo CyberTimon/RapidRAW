@@ -43,7 +43,7 @@ import {
 } from 'lucide-react';
 import TitleBar from './window/TitleBar';
 import CommunityPage from './components/panel/CommunityPage';
-import MainLibrary from './components/panel/MainLibrary';
+import MainLibrary, { ColumnWidths } from './components/panel/MainLibrary';
 import FolderTree from './components/panel/FolderTree';
 import Editor from './components/panel/Editor';
 import Controls from './components/panel/right/ControlsPanel';
@@ -439,6 +439,13 @@ function App() {
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [isMaskControlHovered, setIsMaskControlHovered] = useState(false);
   const [libraryScrollTop, setLibraryScrollTop] = useState<number>(0);
+  const [listColumnWidths, setListColumnWidths] = useState<ColumnWidths>({
+    thumbnail: 4,
+    name: 32,
+    date: 30,
+    rating: 15,
+    color: 15,
+  });
   const { showContextMenu } = useContextMenu();
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const { loading: isThumbnailsLoading, requestThumbnails, clearThumbnailQueue } = useThumbnails();
@@ -4790,6 +4797,7 @@ function App() {
       copiedFilePaths,
       isFullScreen,
       isInstantTransition,
+      appSettings?.enableFolderImageCounts,
     ],
   );
 
@@ -4848,6 +4856,8 @@ function App() {
               thumbnails={thumbnails}
               thumbnailSize={thumbnailSize}
               onNavigateToCommunity={() => setActiveView('community')}
+              listColumnWidths={listColumnWidths}
+              setListColumnWidths={setListColumnWidths}
             />
           )}
           {rootPath && (
@@ -4906,6 +4916,7 @@ function App() {
       libraryActiveAdjustments,
       supportedTypes,
       copiedFilePaths,
+      listColumnWidths,
     ],
   );
 
