@@ -50,14 +50,12 @@ import Resizer from '../../ui/Resizer';
 
 import {
   Mask,
-  MaskType,
   SubMask,
   MASK_PANEL_CREATION_TYPES,
   OTHERS_MASK_TYPES,
   MASK_ICON_MAP,
   SubMaskMode,
   ToolType,
-  formatMaskTypeName,
   getSubMaskName,
 } from './Masks';
 import {
@@ -111,9 +109,8 @@ interface MasksPanelProps {
 }
 
 interface DragData {
-  type: 'Container' | 'SubMask' | 'Creation';
+  type: 'Container' | 'SubMask';
   item?: MaskContainer | SubMask;
-  maskType?: Mask;
   parentId?: string;
 }
 
@@ -127,6 +124,10 @@ const FLOATING_HIERARCHY_ANCHORS: FloatingHierarchyAnchor[] = [
   'center-right',
   'bottom-left',
   'bottom-right',
+];
+const HIERARCHY_CREATION_TYPES = [
+  ...MASK_PANEL_CREATION_TYPES.filter((maskType) => maskType.id !== 'others'),
+  ...OTHERS_MASK_TYPES,
 ];
 
 const SUB_MASK_CONFIG: Record<Mask, any> = {
@@ -256,8 +257,6 @@ export default function MasksPanel({
   const [isHierarchyFloating, setIsHierarchyFloating] = useState(false);
   const [floatingHierarchyAnchor, setFloatingHierarchyAnchor] = useState<FloatingHierarchyAnchor>('top-right');
   const hasPerformedInitialSelection = useRef(false);
-  const [isMaskListEmpty, setIsMaskListEmpty] = useState(adjustments.masks.length === 0);
-  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [analyzingSubMaskId, setAnalyzingSubMaskId] = useState<string | null>(null);
   const [isResizingWaveform, setIsResizingWaveform] = useState<boolean>(false);
 
@@ -296,10 +295,6 @@ export default function MasksPanel({
   }, [adjustments.masks, activeMaskContainerId, onSelectContainer, onSelectMask]);
 
   useEffect(() => {
-    if (adjustments.masks.length > 0) {
-      setIsMaskListEmpty(false);
-    }
-
     if (!hasPerformedInitialSelection.current && !activeMaskContainerId && adjustments.masks.length > 0) {
       const lastMask = adjustments.masks[adjustments.masks.length - 1];
       if (lastMask) {
@@ -416,9 +411,6 @@ export default function MasksPanel({
   };
 
   const handleAddMaskContainer = (type: Mask) => {
-    if (adjustments.masks.length === 0) {
-      setIsMaskListEmpty(false);
-    }
     const subMask = createMaskLogic(type);
     const newContainer = {
       ...INITIAL_MASK_CONTAINER,
@@ -458,29 +450,18 @@ export default function MasksPanel({
     else if (type === Mask.AiSky) onGenerateAiSkyMask(subMask.id);
   };
 
-  const handleGridClick = (type: Mask, forceNewMaskContainer: boolean = false) => {
-    if (!forceNewMaskContainer && activeMaskContainerId) handleAddSubMask(activeMaskContainerId, type);
-    else handleAddMaskContainer(type);
-  };
-
-  const handleGridRightClick = (event: React.MouseEvent, type: Mask | null) => {
-    if (event.button !== 2) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (!type) return;
-    handleGridClick(type, true);
-  };
-
-  const handleAddOthersMask = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const options = OTHERS_MASK_TYPES.map((maskType) => ({
-      label: maskType.name,
-      icon: maskType.icon,
-      onClick: () => handleGridClick(maskType.type),
-      onRightClick: () => handleGridClick(maskType.type, true),
-    }));
-    showContextMenu(rect.left, rect.bottom + 5, options);
+  const openMaskCreationMenu = (target: HTMLElement, onSelect: (type: Mask) => void) => {
+    const rect = target.getBoundingClientRect();
+    showContextMenu(
+      rect.left,
+      rect.bottom + 5,
+      HIERARCHY_CREATION_TYPES.map((maskType) => ({
+        label: maskType.name,
+        icon: maskType.icon,
+        disabled: maskType.disabled,
+        onClick: () => onSelect(maskType.type),
+      })),
+    );
   };
 
   const updateContainer = (id: string, data: any) =>
@@ -548,10 +529,6 @@ export default function MasksPanel({
   };
 
   const insertMaskContainer = (container: MaskContainer, insertIndex?: number) => {
-    if (adjustments.masks.length === 0) {
-      setIsMaskListEmpty(false);
-    }
-
     setAdjustments((prev: Adjustments) => {
       const newMasks = [...(prev.masks || [])];
       const targetIndex = Math.max(0, Math.min(insertIndex ?? newMasks.length, newMasks.length));
@@ -649,32 +626,6 @@ export default function MasksPanel({
     const dragData = active.data.current as DragData;
     const overData = over?.data.current as DragData;
 
-    if (dragData.type === 'Creation' && dragData.maskType) {
-      const creationFn = () => {
-        if (overData?.type === 'Container') {
-          handleAddSubMask(overData.item!.id, dragData.maskType);
-        } else if (overData?.type === 'SubMask') {
-          const container = adjustments.masks.find((m) => m.id === overData.parentId);
-          if (container) {
-            const targetIndex = container.subMasks.findIndex((sm) => sm.id === over.id);
-            handleAddSubMask(overData.parentId!, dragData.maskType, targetIndex);
-          }
-        } else {
-          handleAddMaskContainer(dragData.maskType);
-        }
-      };
-
-      if (!isMaskListEmpty) {
-        setPendingAction(() => creationFn);
-      } else {
-        creationFn();
-      }
-
-      setActiveDragItem(null);
-      if (onDragStateChange) onDragStateChange(false);
-      return;
-    }
-
     setActiveDragItem(null);
     if (onDragStateChange) onDragStateChange(false);
 
@@ -717,9 +668,6 @@ export default function MasksPanel({
           const subMaskIndex = sourceContainer.subMasks.findIndex((sm: SubMask) => sm.id === dragData.item!.id);
           if (subMaskIndex === -1) return prev;
           const [movedSubMask] = sourceContainer.subMasks.splice(subMaskIndex, 1);
-          if (adjustments.masks.length === 0) {
-            setIsMaskListEmpty(false);
-          }
           const newContainer = {
             ...INITIAL_MASK_CONTAINER,
             id: uuidv4(),
@@ -781,10 +729,10 @@ export default function MasksPanel({
 
   const handlePanelContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    const allTypes = [...MASK_PANEL_CREATION_TYPES.filter((m) => m.id !== 'others'), ...OTHERS_MASK_TYPES];
-    const newMaskSubMenu = allTypes.map((m) => ({
+    const newMaskSubMenu = HIERARCHY_CREATION_TYPES.map((m) => ({
       label: m.name,
       icon: m.icon,
+      disabled: m.disabled,
       onClick: () => handleAddMaskContainer(m.type),
     }));
     showContextMenu(e.clientX, e.clientY, [
@@ -794,14 +742,14 @@ export default function MasksPanel({
   };
 
   const showFloatingHierarchy = isHierarchyFloating && !!maskHierarchyOverlayHost;
-  const showInlineHierarchy = isSettingsPanelEverOpened && !showFloatingHierarchy;
+  const showInlineHierarchy = !showFloatingHierarchy;
 
   const toggleHierarchyLayout = useCallback((event?: React.MouseEvent) => {
     event?.stopPropagation();
     setIsHierarchyFloating((prev) => !prev);
   }, []);
 
-  const hierarchyList = isSettingsPanelEverOpened ? (
+  const hierarchyList = (
     <div
       ref={setRootDroppableRef}
       className={clsx(
@@ -811,82 +759,59 @@ export default function MasksPanel({
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
-        <AnimatePresence
-          initial={false}
-          mode="popLayout"
-          onExitComplete={() => {
-            if (adjustments.masks.length === 0) {
-              setIsMaskListEmpty(true);
-            }
-          }}
-        >
-          {isMaskListEmpty ? (
-            <motion.div
-              key="empty-masks-placeholder"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="py-4 text-center text-sm text-text-secondary opacity-70"
-            >
-              No masks created.
-            </motion.div>
-          ) : (
-            adjustments.masks.map((container) => (
-              <ContainerRow
-                key={container.id}
-                container={container}
-                isSelected={activeMaskContainerId === container.id && activeMaskId === null}
-                hasActiveChild={activeMaskContainerId === container.id && activeMaskId !== null}
-                isExpanded={expandedContainers.has(container.id)}
-                onToggle={() => handleToggleExpand(container.id)}
-                onSelect={() => {
-                  onSelectContainer(container.id);
-                  onSelectMask(null);
-                }}
-                renamingId={renamingId}
-                setRenamingId={setRenamingId}
-                tempName={tempName}
-                setTempName={setTempName}
-                updateContainer={updateContainer}
-                handleDelete={handleDeleteContainer}
-                handleDuplicate={handleDuplicateContainer}
-                handleDuplicateAndInvert={handleDuplicateAndInvertContainer}
-                handlePasteMask={handlePasteMask}
-                copyMaskToClipboard={copyMaskToClipboard}
-                copiedMask={copiedMask}
-                presets={presets}
-                setAdjustments={setAdjustments}
-                activeDragItem={activeDragItem}
-                activeMaskId={activeMaskId}
-                onSelectContainer={onSelectContainer}
-                onSelectMask={onSelectMask}
-                updateSubMask={updateSubMask}
-                handleDeleteSubMask={handleDeleteSubMask}
-                handleDuplicateSubMask={handleDuplicateSubMask}
-                handleDuplicateAndInvertSubMask={handleDuplicateAndInvertSubMask}
-                handlePasteSubMask={handlePasteSubMask}
-                copySubMaskToClipboard={copySubMaskToClipboard}
-                copiedSubMask={copiedSubMask}
-                analyzingSubMaskId={analyzingSubMaskId}
-                setIsMaskControlHovered={setIsMaskControlHovered}
-              />
-            ))
-          )}
+        <AnimatePresence initial={false} mode="popLayout">
+          {adjustments.masks.map((container) => (
+            <ContainerRow
+              key={container.id}
+              container={container}
+              isSelected={activeMaskContainerId === container.id && activeMaskId === null}
+              hasActiveChild={activeMaskContainerId === container.id && activeMaskId !== null}
+              isExpanded={expandedContainers.has(container.id)}
+              onToggle={() => handleToggleExpand(container.id)}
+              onSelect={() => {
+                onSelectContainer(container.id);
+                onSelectMask(null);
+              }}
+              renamingId={renamingId}
+              setRenamingId={setRenamingId}
+              tempName={tempName}
+              setTempName={setTempName}
+              updateContainer={updateContainer}
+              handleDelete={handleDeleteContainer}
+              handleDuplicate={handleDuplicateContainer}
+              handleDuplicateAndInvert={handleDuplicateAndInvertContainer}
+              handlePasteMask={handlePasteMask}
+              copyMaskToClipboard={copyMaskToClipboard}
+              copiedMask={copiedMask}
+              presets={presets}
+              setAdjustments={setAdjustments}
+              activeDragItem={activeDragItem}
+              activeMaskId={activeMaskId}
+              onSelectContainer={onSelectContainer}
+              onSelectMask={onSelectMask}
+              updateSubMask={updateSubMask}
+              handleDeleteSubMask={handleDeleteSubMask}
+              handleDuplicateSubMask={handleDuplicateSubMask}
+              handleDuplicateAndInvertSubMask={handleDuplicateAndInvertSubMask}
+              handlePasteSubMask={handlePasteSubMask}
+              copySubMaskToClipboard={copySubMaskToClipboard}
+              copiedSubMask={copiedSubMask}
+              analyzingSubMaskId={analyzingSubMaskId}
+              setIsMaskControlHovered={setIsMaskControlHovered}
+              onOpenCreateSubMaskMenu={(containerId: string, target: HTMLElement) =>
+                openMaskCreationMenu(target, (type) => handleAddSubMask(containerId, type))
+              }
+            />
+          ))}
         </AnimatePresence>
-
-        <AnimatePresence
-          onExitComplete={() => {
-            if (pendingAction) {
-              pendingAction();
-              setPendingAction(null);
-            }
-          }}
-        >
-          {activeDragItem?.type === 'Creation' && !isMaskListEmpty && <NewMaskDropZone isOver={isRootOver} />}
-        </AnimatePresence>
+        <HierarchyActionRow
+          label="Add New Mask"
+          onOpenMenu={(target) => openMaskCreationMenu(target, handleAddMaskContainer)}
+          className="mt-2"
+        />
       </div>
     </div>
-  ) : null;
+  );
 
   const hierarchyInlineSection = showInlineHierarchy ? (
     <motion.div
@@ -913,20 +838,19 @@ export default function MasksPanel({
     </motion.div>
   ) : null;
 
-  const hierarchyOverlay =
-    hierarchyList && showFloatingHierarchy
-      ? createPortal(
-          <FloatingMaskHierarchyWindow
-            anchor={floatingHierarchyAnchor}
-            onAnchorChange={setFloatingHierarchyAnchor}
-            onDockToSidebar={() => setIsHierarchyFloating(false)}
-            setIsMaskControlHovered={setIsMaskControlHovered}
-          >
-            {hierarchyList}
-          </FloatingMaskHierarchyWindow>,
-          maskHierarchyOverlayHost!,
-        )
-      : null;
+  const hierarchyOverlay = showFloatingHierarchy
+    ? createPortal(
+        <FloatingMaskHierarchyWindow
+          anchor={floatingHierarchyAnchor}
+          onAnchorChange={setFloatingHierarchyAnchor}
+          onDockToSidebar={() => setIsHierarchyFloating(false)}
+          setIsMaskControlHovered={setIsMaskControlHovered}
+        >
+          {hierarchyList}
+        </FloatingMaskHierarchyWindow>,
+        maskHierarchyOverlayHost!,
+      )
+    : null;
 
   return (
     <DndContext
@@ -993,26 +917,6 @@ export default function MasksPanel({
         </AnimatePresence>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0">
-          <div className="p-4 pb-2 z-10 shrink-0">
-            <p className="text-sm mb-3 font-semibold text-text-primary">
-              {activeMaskContainerId ? 'Add to Mask' : 'Create New Mask'}
-            </p>
-            <div className="grid grid-cols-3 gap-2" onClick={(e) => e.stopPropagation()}>
-              {MASK_PANEL_CREATION_TYPES.map((maskType: MaskType) => (
-                <DraggableGridItem
-                  key={maskType.type || maskType.id}
-                  maskType={maskType}
-                  onClick={(e: any) =>
-                    maskType.id === 'others' ? handleAddOthersMask(e) : handleGridClick(maskType.type)
-                  }
-                  onRightClick={(e: React.MouseEvent) => handleGridRightClick(e, maskType.type)}
-                  isDraggable={maskType.id !== 'others'}
-                  activeMaskContainerId={activeMaskContainerId}
-                />
-              ))}
-            </div>
-          </div>
-
           {hierarchyInlineSection}
 
           <AnimatePresence>
@@ -1090,25 +994,6 @@ export default function MasksPanel({
                 </div>
               </div>
             )}
-
-            {activeDragItem.type === 'Creation' && (
-              <div className="bg-surface text-text-primary rounded-lg p-2 flex flex-col items-center justify-center gap-1.5 aspect-square w-20 shadow-xl opacity-90">
-                {(() => {
-                  const maskType =
-                    MASK_PANEL_CREATION_TYPES.find((m) => m.type === activeDragItem.maskType) ||
-                    OTHERS_MASK_TYPES.find((m) => m.type === activeDragItem.maskType);
-                  const Icon = maskType?.icon || Circle;
-                  return (
-                    <>
-                      <Icon size={24} />
-                      <span className="text-xs text-center">
-                        {activeDragItem.maskType ? formatMaskTypeName(activeDragItem.maskType) : 'Mask'}
-                      </span>
-                    </>
-                  );
-                })()}
-              </div>
-            )}
           </div>
         ) : null}
       </DragOverlay>
@@ -1116,18 +1001,34 @@ export default function MasksPanel({
   );
 }
 
-function NewMaskDropZone({ isOver }: { isOver: boolean }) {
+function HierarchyActionRow({
+  label,
+  onOpenMenu,
+  className,
+}: {
+  label: string;
+  onOpenMenu(target: HTMLElement): void;
+  className?: string;
+}) {
+  const handleOpenMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onOpenMenu(event.currentTarget);
+  };
+
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, height: 0, marginTop: 0 }}
-      animate={{ opacity: 1, height: 'auto', marginTop: '4px' }}
-      exit={{ opacity: 0, height: 0, marginTop: 0 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-      className={`p-4 rounded-lg text-center ${isOver ? 'border border-accent/80 bg-bg-tertiary/50' : ''}`}
+    <button
+      type="button"
+      className={clsx(
+        'flex w-full items-center gap-2 rounded-md p-2 text-sm text-text-secondary transition-colors hover:bg-card-active hover:text-text-primary',
+        className,
+      )}
+      onClick={handleOpenMenu}
+      onContextMenu={handleOpenMenu}
     >
-      <p className="text-sm font-medium text-text-secondary">Drop here to create a new mask</p>
-    </motion.div>
+      <Plus size={16} className="shrink-0" />
+      <span>{label}</span>
+    </button>
   );
 }
 
@@ -1340,45 +1241,6 @@ function FloatingMaskHierarchyWindow({
   );
 }
 
-function DraggableGridItem({ maskType, onClick, onRightClick, isDraggable, activeMaskContainerId }: any) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `create-${maskType.id || maskType.type}`,
-    data: { type: 'Creation', maskType: maskType.type },
-    disabled: !isDraggable,
-  });
-
-  const tooltip = maskType.disabled
-    ? 'Coming Soon'
-    : maskType.id === 'others'
-      ? 'Show More Mask Types'
-      : activeMaskContainerId
-        ? `Add ${maskType.name} to Current Mask or Create New (Right-click)`
-        : `Create New ${maskType.name} Mask`;
-
-  return (
-    <button
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      disabled={maskType.disabled}
-      onClick={onClick}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-      onMouseDown={(event) => {
-        if (event.button !== 2) return;
-        onRightClick(event);
-      }}
-      className={`bg-surface text-text-primary rounded-lg p-2 flex flex-col items-center justify-center gap-1.5 aspect-square transition-colors
-                ${maskType.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-card-active active:bg-accent/20'} ${isDragging ? 'opacity-50' : ''}`}
-      data-tooltip={tooltip}
-    >
-      <maskType.icon size={24} /> <span className="text-xs">{maskType.name}</span>
-    </button>
-  );
-}
-
 function ContainerRow({
   container,
   isSelected,
@@ -1412,6 +1274,7 @@ function ContainerRow({
   copiedSubMask,
   analyzingSubMaskId,
   setIsMaskControlHovered,
+  onOpenCreateSubMaskMenu,
 }: any) {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: container.id,
@@ -1423,14 +1286,7 @@ function ContainerRow({
     setNodeRef: setDraggableRef,
     isDragging,
   } = useDraggable({ id: container.id, data: { type: 'Container', item: container } });
-  const [isSubMaskListEmpty, setIsSubMaskListEmpty] = useState(container.subMasks.length === 0);
   const { showContextMenu } = useContextMenu();
-
-  useEffect(() => {
-    if (container.subMasks.length > 0 && isSubMaskListEmpty) {
-      setIsSubMaskListEmpty(false);
-    }
-  }, [container.subMasks.length, isSubMaskListEmpty]);
 
   const setCombinedRef = (node: HTMLElement | null) => {
     setDroppableRef(node);
@@ -1520,10 +1376,7 @@ function ContainerRow({
   if (isOver) {
     if (isDraggingContainer) {
       borderClass = 'border-t-2 border-accent';
-    } else if (
-      (activeDragItem?.type === 'SubMask' && activeDragItem?.parentId !== container.id) ||
-      activeDragItem?.type === 'Creation'
-    ) {
+    } else if (activeDragItem?.type === 'SubMask' && activeDragItem?.parentId !== container.id) {
       borderClass = 'bg-card-active border border-accent/50';
     }
   }
@@ -1616,15 +1469,7 @@ function ContainerRow({
             className="overflow-hidden pl-2 border-l border-border-color/20 ml-[15px]"
             layout
           >
-            <AnimatePresence
-              mode="popLayout"
-              initial={false}
-              onExitComplete={() => {
-                if (container.subMasks.length === 0) {
-                  setIsSubMaskListEmpty(true);
-                }
-              }}
-            >
+            <AnimatePresence mode="popLayout" initial={false}>
               {container.subMasks.map((subMask: SubMask, index: number) => (
                 <SubMaskRow
                   key={subMask.id}
@@ -1655,16 +1500,11 @@ function ContainerRow({
                 />
               ))}
             </AnimatePresence>
-            {isSubMaskListEmpty && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="p-3 text-xs text-text-secondary text-center italic"
-              >
-                No mask components.
-              </motion.div>
-            )}
+            <HierarchyActionRow
+              label="Add New Component"
+              onOpenMenu={(target) => onOpenCreateSubMaskMenu(container.id, target)}
+              className="mt-1"
+            />
           </motion.div>
         )}
       </AnimatePresence>
