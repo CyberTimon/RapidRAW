@@ -1216,7 +1216,7 @@ function FloatingMaskHierarchyWindow({
         onClick={(event) => event.stopPropagation()}
         onContextMenu={(event) => event.stopPropagation()}
       >
-        <div className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-xl border border-surface bg-bg-secondary/92 shadow-2xl backdrop-blur-md">
+        <div className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-xl border border-surface bg-bg-secondary shadow-2xl">
           <div
             className="flex cursor-grab items-center justify-between gap-3 border-b border-surface px-3 py-2 active:cursor-grabbing"
             onPointerDown={(event) => {
