@@ -594,13 +594,6 @@ export default function Editor({
 
   const doubleClickProps = useMemo(() => ({ disabled: true }), []);
 
-  const handleMaskHierarchyHostRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      onMaskHierarchyHostChange?.(node);
-    },
-    [onMaskHierarchyHostChange],
-  );
-
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
   }, []);
@@ -859,7 +852,7 @@ export default function Editor({
           </TransformComponent>
         </TransformWrapper>
 
-        <div ref={handleMaskHierarchyHostRef} className="absolute inset-0 z-30 pointer-events-none" />
+        <div ref={onMaskHierarchyHostChange} className="absolute inset-0 z-30 pointer-events-none" />
       </div>
     </div>
   );

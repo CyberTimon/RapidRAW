@@ -117,6 +117,9 @@ interface DragData {
 type FloatingHierarchyAnchor = 'top-left' | 'top-right' | 'center-left' | 'center-right' | 'bottom-left' | 'bottom-right';
 
 const FLOATING_HIERARCHY_MARGIN = 16;
+const FLOATING_HIERARCHY_DEFAULT_WIDTH = 340;
+const FLOATING_HIERARCHY_MIN_WIDTH = 260;
+const FLOATING_HIERARCHY_MAX_WIDTH = 640;
 const FLOATING_HIERARCHY_ANCHORS: FloatingHierarchyAnchor[] = [
   'top-left',
   'top-right',
@@ -1055,8 +1058,11 @@ function FloatingMaskHierarchyWindow({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragControls = useDragControls();
   const [targetPosition, setTargetPosition] = useState({ x: FLOATING_HIERARCHY_MARGIN, y: FLOATING_HIERARCHY_MARGIN });
+  const [floatingWidth, setFloatingWidth] = useState(FLOATING_HIERARCHY_DEFAULT_WIDTH);
   const [isReady, setIsReady] = useState(false);
   const [isWindowDragging, setIsWindowDragging] = useState(false);
+  const [isWindowResizing, setIsWindowResizing] = useState(false);
+  const isRightAnchored = anchor.endsWith('right');
 
   useEffect(() => {
     return () => {
@@ -1183,6 +1189,47 @@ function FloatingMaskHierarchyWindow({
     }
   }, [getAnchorPosition, onAnchorChange]);
 
+  const handleResizeStart = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const panel = panelRef.current;
+      const bounds = boundsRef.current;
+      if (!panel || !bounds) {
+        return;
+      }
+
+      const startX = event.clientX;
+      const startWidth = panel.offsetWidth;
+      const maxAllowedWidth = Math.max(
+        FLOATING_HIERARCHY_MIN_WIDTH,
+        Math.min(FLOATING_HIERARCHY_MAX_WIDTH, bounds.clientWidth - FLOATING_HIERARCHY_MARGIN * 2),
+      );
+      const resizeDirection = isRightAnchored ? -1 : 1;
+
+      setIsWindowResizing(true);
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const nextWidth = Math.max(
+          FLOATING_HIERARCHY_MIN_WIDTH,
+          Math.min(maxAllowedWidth, startWidth + (moveEvent.clientX - startX) * resizeDirection),
+        );
+        setFloatingWidth(nextWidth);
+      };
+
+      const handleMouseUp = () => {
+        setIsWindowResizing(false);
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    },
+    [isRightAnchored],
+  );
+
   return (
     <div ref={boundsRef} className="absolute inset-0 pointer-events-none">
       <motion.div
@@ -1197,7 +1244,7 @@ function FloatingMaskHierarchyWindow({
         onDragEnd={handleDragEnd}
         animate={isReady ? { x: targetPosition.x, y: targetPosition.y, opacity: 1, scale: 1 } : { opacity: 0 }}
         transition={
-          isWindowDragging
+          isWindowDragging || isWindowResizing
             ? { duration: 0 }
             : {
                 type: 'spring',
@@ -1208,7 +1255,9 @@ function FloatingMaskHierarchyWindow({
         }
         className="absolute left-0 top-0 pointer-events-auto"
         style={{
-          width: 'min(340px, calc(100% - 32px))',
+          width: floatingWidth,
+          minWidth: FLOATING_HIERARCHY_MIN_WIDTH,
+          maxWidth: 'calc(100% - 32px)',
           maxHeight: 'min(520px, calc(100% - 32px))',
         }}
         onMouseEnter={() => setIsMaskControlHovered(true)}
@@ -1217,6 +1266,13 @@ function FloatingMaskHierarchyWindow({
         onContextMenu={(event) => event.stopPropagation()}
       >
         <div className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-xl border border-surface bg-bg-secondary shadow-2xl">
+          <div
+            className={clsx(
+              'absolute bottom-0 top-0 z-10 w-2 cursor-col-resize transition-colors hover:bg-surface/80',
+              isRightAnchored ? 'left-0' : 'right-0',
+            )}
+            onMouseDown={handleResizeStart}
+          />
           <div
             className="flex cursor-grab items-center justify-between gap-3 border-b border-surface px-3 py-2 active:cursor-grabbing"
             onPointerDown={(event) => {
