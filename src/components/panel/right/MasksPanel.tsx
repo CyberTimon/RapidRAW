@@ -753,12 +753,18 @@ export default function MasksPanel({
     <div
       ref={setRootDroppableRef}
       className={clsx(
-        'flex h-full min-h-0 flex-col transition-colors',
+        'flex flex-col transition-colors',
+        showFloatingHierarchy && 'h-full min-h-0',
         isRootOver ? 'bg-bg-tertiary/65' : 'bg-transparent',
       )}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
+      <div
+        className={clsx(
+          'px-3 py-3',
+          showFloatingHierarchy && 'flex-1 overflow-y-auto overflow-x-hidden',
+        )}
+      >
         <AnimatePresence initial={false} mode="popLayout">
           {adjustments.masks.map((container) => (
             <ContainerRow
@@ -832,7 +838,7 @@ export default function MasksPanel({
           <ExternalLink size={16} />
         </button>
       </div>
-      <div className="h-[clamp(124px,32vh,320px)] overflow-hidden rounded-xl border border-surface bg-bg-primary/15">
+      <div className="rounded-xl border border-surface bg-bg-primary/15">
         {hierarchyList}
       </div>
     </motion.div>
