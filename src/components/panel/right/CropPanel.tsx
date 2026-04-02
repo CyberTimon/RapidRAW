@@ -251,7 +251,7 @@ export default function CropPanel({
     if (activePreset?.value === ORIGINAL_RATIO) {
       const newOriginalRatio = getEffectiveOriginalRatio();
       if (newOriginalRatio !== null && aspectRatio && Math.abs(aspectRatio - newOriginalRatio) > RATIO_TOLERANCE) {
-        setAdjustments((prev: Adjustments) => ({ ...prev, aspectRatio: newOriginalRatio, crop: null }));
+        setAdjustments((prev: Adjustments) => ({ ...prev, aspectRatio: newOriginalRatio }));
       }
     }
   }, [orientationSteps, activePreset, aspectRatio, getEffectiveOriginalRatio, setAdjustments]);
@@ -305,7 +305,6 @@ export default function CropPanel({
       setAdjustments((prev: Adjustments) => ({
         ...prev,
         aspectRatio: getEffectiveOriginalRatio(),
-        crop: null,
       }));
       return;
     }
@@ -317,7 +316,6 @@ export default function CropPanel({
       setAdjustments((prev: Adjustments) => ({
         ...prev,
         aspectRatio: newRatio,
-        crop: null,
       }));
       return;
     }
@@ -331,7 +329,12 @@ export default function CropPanel({
       }
     }
 
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aspectRatio: newAspectRatio, crop: null }));
+    // When switching to free mode, keep crop unchanged.
+    if (newAspectRatio === null) {
+      setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aspectRatio: newAspectRatio }));
+    } else {
+      setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aspectRatio: newAspectRatio, crop: null }));
+    }
   };
 
   const handleOrientationToggle = useCallback(() => {
@@ -341,7 +344,6 @@ export default function CropPanel({
       setAdjustments((prev: Partial<Adjustments>) => ({
         ...prev,
         aspectRatio: newRatio,
-        crop: null,
       }));
     }
   }, [aspectRatio, setAdjustments]);
@@ -408,7 +410,6 @@ export default function CropPanel({
         aspectRatio: newAspectRatio,
         orientationSteps: ((prev.orientationSteps || 0) + increment) % 4,
         rotation: 0,
-        crop: null,
       };
     });
   };
@@ -527,7 +528,6 @@ export default function CropPanel({
                     setAdjustments((prev: Partial<Adjustments>) => ({
                       ...prev,
                       aspectRatio: newAspectRatio,
-                      crop: null,
                     }));
                   }}
                   data-tooltip="Enter custom aspect ratio"

@@ -561,17 +561,11 @@ function App() {
         const newAspectRatio = prev.aspectRatio && prev.aspectRatio !== 0 ? 1 / prev.aspectRatio : null;
         const newOrientationSteps = ((prev.orientationSteps || 0) + increment) % 4;
 
-        const newCrop =
-          selectedImage?.width && selectedImage?.height
-            ? calculateCenteredCrop(selectedImage.width, selectedImage.height, newOrientationSteps, newAspectRatio)
-            : null;
-
         return {
           ...prev,
           aspectRatio: newAspectRatio,
           orientationSteps: newOrientationSteps,
           rotation: 0,
-          crop: newCrop,
         };
       });
     },

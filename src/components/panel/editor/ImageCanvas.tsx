@@ -1764,11 +1764,41 @@ const ImageCanvas = memo(
       return { width: renderWidth, height: renderHeight };
     }, [selectedImage?.width, selectedImage?.height, imageRenderSize, adjustments.orientationSteps]);
 
+    const [rotationPivot, setRotationPivot] = useState<{ x: number; y: number } | null>(null);
+
+    const isRotateInProgress = isRotationActive || liveRotation !== null && liveRotation !== undefined;
+
+    useEffect(() => {
+      if (!isRotateInProgress) {
+        setRotationPivot(null);
+        return;
+      }
+
+      if (rotationPivot || !crop || !uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) {
+        return;
+      }
+
+      const cropX = crop.unit === '%' ? (crop.x / 100) * uncroppedImageRenderSize.width : crop.x;
+      const cropY = crop.unit === '%' ? (crop.y / 100) * uncroppedImageRenderSize.height : crop.y;
+      const cropW = crop.unit === '%' ? (crop.width / 100) * uncroppedImageRenderSize.width : crop.width;
+      const cropH = crop.unit === '%' ? (crop.height / 100) * uncroppedImageRenderSize.height : crop.height;
+
+      setRotationPivot({ x: cropX + cropW / 2, y: cropY + cropH / 2 });
+    }, [isRotateInProgress, rotationPivot, crop, uncroppedImageRenderSize]);
+
     const cropImageTransforms = useMemo(() => {
       const rotation = liveRotation !== null && liveRotation !== undefined ? liveRotation : adjustments.rotation || 0;
-      const transforms = [`rotate(${rotation}deg)`];
-      return transforms.join(' ');
-    }, [adjustments.rotation, liveRotation]);
+      if (!uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) {
+        return `rotate(${rotation}deg)`;
+      }
+
+      const pivot = rotationPivot ?? {
+        x: uncroppedImageRenderSize.width / 2,
+        y: uncroppedImageRenderSize.height / 2,
+      };
+
+      return `translate(${pivot.x}px, ${pivot.y}px) rotate(${rotation}deg) translate(${-pivot.x}px, ${-pivot.y}px)`;
+    }, [adjustments.rotation, liveRotation, rotationPivot, uncroppedImageRenderSize]);
 
     const getCropDimensions = () => {
       if (!crop || !uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) {
@@ -2064,6 +2094,7 @@ const ImageCanvas = memo(
                     height: `${uncroppedImageRenderSize.height}px`,
                     objectFit: 'contain',
                     transform: cropImageTransforms,
+                    transformOrigin: '0 0',
                     imageRendering: isMaxZoom ? 'pixelated' : 'auto',
                   }}
                 />

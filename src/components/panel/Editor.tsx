@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
 import { ImageDimensions, useImageRenderSize } from '../../hooks/useImageRenderSize';
 import { Adjustments, AiPatch, Coord, MaskContainer } from '../../utils/adjustments';
-import { calculateCenteredCrop, getOrientedDimensions } from '../../utils/cropUtils';
+import { applyAspectRatioToCrop, calculateCenteredCrop, clampCropInside, clampCropToRotation, getOrientedDimensions, transformCropForOrientation } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
 import { Mask, SubMask } from './right/Masks';
@@ -461,10 +461,9 @@ export default function Editor({
     const { aspectRatio, orientationSteps = 0, crop: currentAdjCrop, rotation = 0 } = adjustments;
     const effectiveRotation = liveRotation !== null && liveRotation !== undefined ? liveRotation : rotation;
 
-    const geometryChanged =
-      prevCropParams.current?.rotation !== rotation ||
-      prevCropParams.current?.aspectRatio !== aspectRatio ||
-      prevCropParams.current?.orientationSteps !== orientationSteps;
+    const orientationChanged = prevCropParams.current?.orientationSteps !== orientationSteps;
+    const aspectRatioChanged = prevCropParams.current?.aspectRatio !== aspectRatio;
+    const geometryChanged = orientationChanged || aspectRatioChanged;
 
     const isDraggingRotation = liveRotation !== null && liveRotation !== undefined;
 
@@ -491,13 +490,38 @@ export default function Editor({
       );
       if (!maxPixelCrop) return;
 
+      let targetCrop: Crop;
+      if (currentAdjCrop && orientationChanged && prevCropParams.current) {
+        // Orientation changed: transform the existing crop into new orientation space.
+        targetCrop = transformCropForOrientation(
+          currentAdjCrop,
+          prevCropParams.current.orientationSteps,
+          orientationSteps,
+          selectedImage.width,
+          selectedImage.height,
+        );
+      } else if (currentAdjCrop) {
+        // Keep existing crop when only rotation value changed or aspect/other geometry changed.
+        targetCrop = currentAdjCrop;
+      } else {
+        // Fallback to centered crop when there is no existing crop.
+        targetCrop = maxPixelCrop;
+      }
+
+      if (aspectRatioChanged && targetCrop) {
+        // Apply new aspect ratio to the existing crop to avoid max reset.
+        targetCrop = applyAspectRatioToCrop(targetCrop, A, W, H);
+      }
+
+      targetCrop = clampCropToRotation(targetCrop, W, H, effectiveRotation, orientationSteps);
+
       if (isDraggingRotation) {
         setCrop({
           unit: '%',
-          x: (maxPixelCrop.x / W) * 100,
-          y: (maxPixelCrop.y / H) * 100,
-          width: (maxPixelCrop.width / W) * 100,
-          height: (maxPixelCrop.height / H) * 100,
+          x: (targetCrop.x / W) * 100,
+          y: (targetCrop.y / H) * 100,
+          width: (targetCrop.width / W) * 100,
+          height: (targetCrop.height / H) * 100,
         });
       } else {
         if (currentAdjCrop === null || geometryChanged) {
@@ -505,13 +529,13 @@ export default function Editor({
 
           const isDifferent =
             !currentAdjCrop ||
-            currentAdjCrop.x !== maxPixelCrop.x ||
-            currentAdjCrop.y !== maxPixelCrop.y ||
-            currentAdjCrop.width !== maxPixelCrop.width ||
-            currentAdjCrop.height !== maxPixelCrop.height;
+            currentAdjCrop.x !== targetCrop.x ||
+            currentAdjCrop.y !== targetCrop.y ||
+            currentAdjCrop.width !== targetCrop.width ||
+            currentAdjCrop.height !== targetCrop.height;
 
           if (isDifferent) {
-            setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, crop: maxPixelCrop }));
+            setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, crop: targetCrop }));
           }
         }
       }
