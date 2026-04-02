@@ -4841,32 +4841,34 @@ function App() {
     };
 
     if (isCompactPortrait && !isFullScreen) {
+      if (!uiVisibility.folderTree) {
+        return null;
+      }
+
       return (
         <>
           <AnimatePresence>
-            {uiVisibility.folderTree && (
-              <motion.button
-                animate={{ opacity: 1 }}
-                className="absolute inset-0 z-30 bg-black/45"
-                exit={{ opacity: 0 }}
-                initial={{ opacity: 0 }}
-                onClick={() => setFolderTreeVisible(false)}
-              />
-            )}
+            <motion.button
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 z-30 bg-black/45"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              onClick={() => setFolderTreeVisible(false)}
+            />
           </AnimatePresence>
           <div className="absolute left-0 top-0 bottom-0 z-40 p-2 pr-0 pointer-events-auto">
             <FolderTree
               expandedFolders={expandedFolders}
               isLoading={isTreeLoading}
-              isOverlayMode={uiVisibility.folderTree}
+              isOverlayMode={true}
               isResizing={isResizing}
-              isVisible={uiVisibility.folderTree}
+              isVisible={true}
               onContextMenu={handleFolderTreeContextMenu}
               onFolderSelect={handleFolderSelect}
               onToggleFolder={handleToggleFolder}
               selectedPath={currentFolderPath}
               setIsVisible={setFolderTreeVisible}
-              style={{ width: uiVisibility.folderTree ? `${compactFolderTreeWidth}px` : '32px', height: '100%' }}
+              style={{ width: `${compactFolderTreeWidth}px`, height: '100%' }}
               tree={folderTree}
               pinnedFolderTrees={pinnedFolderTrees}
               pinnedFolders={pinnedFolders}
@@ -4956,6 +4958,11 @@ function App() {
             onImageClick={handleLibraryImageSingleClick}
             onImageDoubleClick={handleImageSelect}
             onLibraryRefresh={handleLibraryRefresh}
+            onOpenSidebar={
+              isCompactPortrait
+                ? () => setUiVisibility((prev: UiVisibility) => ({ ...prev, folderTree: true }))
+                : undefined
+            }
             onOpenFolder={handleOpenFolder}
             onSettingsChange={handleSettingsChange}
             onThumbnailAspectRatioChange={setThumbnailAspectRatio}
