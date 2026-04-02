@@ -1,5 +1,3 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 use mimalloc::MiMalloc;
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -14,7 +12,6 @@ mod formats;
 mod gpu_processing;
 mod image_loader;
 mod image_processing;
-mod inpainting;
 mod lens_correction;
 mod lut_processing;
 mod mask_generation;
@@ -63,9 +60,9 @@ use tokio::task::JoinHandle;
 use wgpu::{Texture, TextureView};
 
 use crate::ai_processing::{
-    AiForegroundMaskParameters, AiSkyMaskParameters, AiState, AiSubjectMaskParameters,
-    generate_image_embeddings, get_or_init_ai_models, run_sam_decoder, run_sky_seg_model,
-    run_u2netp_model,
+    AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters, AiState,
+    AiSubjectMaskParameters, CachedDepthMap, generate_image_embeddings, get_or_init_ai_models,
+    run_depth_anything_model, run_sam_decoder, run_sky_seg_model, run_u2netp_model,
 };
 use crate::exif_processing::{read_exposure_time_secs, read_iso};
 use crate::file_management::{
@@ -163,6 +160,11 @@ struct AnalyticsJob {
     active_waveform_channel: Option<String>,
 }
 
+pub struct ThumbnailProgressTracker {
+    pub total: usize,
+    pub completed: usize,
+}
+
 pub struct AppState {
     window_setup_complete: AtomicBool,
     pub gpu_crash_flag_path: Mutex<Option<PathBuf>>,
@@ -180,7 +182,8 @@ pub struct AppState {
     indexing_task_handle: Mutex<Option<JoinHandle<()>>>,
     pub lut_cache: Mutex<HashMap<String, Arc<Lut>>>,
     initial_file_path: Mutex<Option<String>>,
-    thumbnail_cancellation_token: Arc<AtomicBool>,
+    pub thumbnail_cancellation_token: Arc<AtomicBool>,
+    pub thumbnail_progress: Mutex<ThumbnailProgressTracker>,
     preview_worker_tx: Mutex<Option<Sender<PreviewJob>>>,
     analytics_worker_tx: Mutex<Option<Sender<AnalyticsJob>>>,
     pub mask_cache: Mutex<HashMap<u64, GrayImage>>,
@@ -701,10 +704,23 @@ fn get_image_dimensions(path: String) -> Result<ImageDimensions, String> {
 }
 
 #[tauri::command]
-fn cancel_thumbnail_generation(state: tauri::State<AppState>) -> Result<(), String> {
+fn cancel_thumbnail_generation(
+    state: tauri::State<AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
     state
         .thumbnail_cancellation_token
         .store(true, Ordering::SeqCst);
+
+    let mut tracker = state.thumbnail_progress.lock().unwrap();
+    tracker.total = 0;
+    tracker.completed = 0;
+    drop(tracker);
+
+    let _ = app_handle.emit(
+        "thumbnail-progress",
+        serde_json::json!({ "current": 0, "total": 0 }),
+    );
     Ok(())
 }
 
@@ -888,36 +904,16 @@ fn process_preview_job(
 
     let new_transform_hash = calculate_transform_hash(&adjustments_clone);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
-    let hq_live = settings.enable_high_quality_live_previews.unwrap_or(false);
+    let live_quality = settings.live_preview_quality.as_deref().unwrap_or("high");
 
     let default_preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
     let preview_dim = target_resolution.unwrap_or(default_preview_dim);
 
-    let preview_dim_f = preview_dim as f32;
-    let image_max_dim = loaded_image.image.width().max(loaded_image.image.height()) as f32;
-    let max_interactive_dim: f32 = if hq_live { image_max_dim } else { 3072.0 };
-
-    let mut interactive_divisor = if preview_dim_f <= 1536.0 || max_interactive_dim <= 1536.0 {
-        if hq_live { 1.0 } else { 1.5 }
-    } else {
-        let transition_start = 1536.0;
-        let transition_end = max_interactive_dim;
-
-        let (start_div, end_div) = if hq_live { (1.0, 1.5) } else { (1.5, 2.0) };
-
-        if preview_dim_f >= transition_end {
-            end_div
-        } else {
-            let t = (preview_dim_f - transition_start) / (transition_end - transition_start);
-            start_div + t * (end_div - start_div)
-        }
+    let (interactive_divisor, interactive_quality) = match live_quality {
+        "full" => (1.0_f32, 85_u8),
+        "performance" => (1.8_f32, 65_u8),
+        _ => (1.2_f32, 80_u8),
     };
-
-    if (preview_dim_f / interactive_divisor) > max_interactive_dim {
-        interactive_divisor = preview_dim_f / max_interactive_dim;
-    }
-
-    let interactive_quality: u8 = if hq_live { 72 } else { 60 };
 
     let mut cached_preview_lock = state.cached_preview.lock().unwrap();
 
@@ -927,7 +923,7 @@ fn process_preview_job(
             && c.interactive_divisor == interactive_divisor
     });
 
-    let (final_preview_base, _small_preview_base, scale_for_gpu, unscaled_crop_offset) =
+    let (final_preview_base, small_preview_base, scale_for_gpu, unscaled_crop_offset) =
         if cache_valid {
             let cached = cached_preview_lock.as_ref().unwrap();
             (
@@ -974,14 +970,20 @@ fn process_preview_job(
 
     drop(cached_preview_lock);
 
-    // Always use full resolution for GPU processing to ensure consistent histogram calculation
-    let processing_image = Arc::try_unwrap(final_preview_base).unwrap_or_else(|arc| (*arc).clone());
-    let effective_scale = scale_for_gpu;
-    let jpeg_quality = if is_interactive { interactive_quality } else { 95 };
+    let (processing_image, effective_scale, jpeg_quality) = if is_interactive {
+        let orig_w = final_preview_base.width() as f32;
+        let small_w = small_preview_base.width() as f32;
+        let scale_factor = if orig_w > 0.0 { small_w / orig_w } else { 1.0 };
+        let new_scale = scale_for_gpu * scale_factor;
+        let img = Arc::try_unwrap(small_preview_base).unwrap_or_else(|arc| (*arc).clone());
+        (img, new_scale, interactive_quality)
+    } else {
+        let img = Arc::try_unwrap(final_preview_base).unwrap_or_else(|arc| (*arc).clone());
+        (img, scale_for_gpu, 95)
+    };
 
     let (preview_width, preview_height) = processing_image.dimensions();
 
-    // ROI is calculated at full resolution for consistent histogram metrics
     let pixel_roi = if is_interactive {
         roi.map(|(nx, ny, nw, nh)| crate::gpu_processing::Roi {
             x: (nx * preview_width as f32).round() as u32,
@@ -1059,39 +1061,60 @@ fn process_preview_job(
             }
         }
 
-        if let Some(r) = pixel_roi.filter(|_| is_interactive) {
+        if is_interactive {
             let step_start = std::time::Instant::now();
+
             let roi_rgb = final_processed_image.to_rgb8();
+            let (roi_w, roi_h) = roi_rgb.dimensions();
 
-            let full_w = preview_width as usize;
-            let full_h = preview_height as usize;
-            let mut full_rgb = vec![0u8; full_w * full_h * 3];
-
-            let roi_w = roi_rgb.width() as usize;
-            let roi_h = roi_rgb.height() as usize;
-            let rx = r.x as usize;
-            let ry = r.y as usize;
-            let roi_pixels = roi_rgb.as_raw();
-
-            for row in 0..roi_h {
-                let src_start = row * roi_w * 3;
-                let src_end = src_start + roi_w * 3;
-                let dst_start = ((ry + row) * full_w + rx) * 3;
-                let dst_end = dst_start + roi_w * 3;
-                if dst_end <= full_rgb.len() && src_end <= roi_pixels.len() {
-                    full_rgb[dst_start..dst_end].copy_from_slice(&roi_pixels[src_start..src_end]);
-                }
-            }
+            let (rx, ry) = if let Some(r) = pixel_roi {
+                (r.x, r.y)
+            } else {
+                (0, 0)
+            };
 
             match Encoder::new(Preset::BaselineFastest)
                 .quality(jpeg_quality)
-                .encode_rgb(&full_rgb, preview_width, preview_height)
+                .encode_rgb(&roi_rgb.into_raw(), roi_w, roi_h)
             {
-                Ok(bytes) => {
+                Ok(jpeg_bytes) => {
+                    let mut response = Vec::with_capacity(24 + jpeg_bytes.len());
+                    response.extend_from_slice(&rx.to_le_bytes());
+                    response.extend_from_slice(&ry.to_le_bytes());
+                    response.extend_from_slice(&roi_w.to_le_bytes());
+                    response.extend_from_slice(&roi_h.to_le_bytes());
+                    response.extend_from_slice(&preview_width.to_le_bytes());
+                    response.extend_from_slice(&preview_height.to_le_bytes());
+                    response.extend_from_slice(&jpeg_bytes);
+
                     log::info!(
                         "[process_preview_job] interactive ROI {}x{} in {:?}, total {:?}",
                         roi_w,
                         roi_h,
+                        step_start.elapsed(),
+                        fn_start.elapsed()
+                    );
+                    return Ok(response);
+                }
+                Err(e) => {
+                    return Err(format!("Failed to encode preview: {}", e));
+                }
+            }
+        } else {
+            let step_start = std::time::Instant::now();
+            let (width, height) = final_processed_image.dimensions();
+            let rgb_pixels = final_processed_image.to_rgb8().into_vec();
+
+            match Encoder::new(Preset::BaselineFastest)
+                .quality(jpeg_quality)
+                .encode_rgb(&rgb_pixels, width, height)
+            {
+                Ok(bytes) => {
+                    log::info!(
+                        "[process_preview_job] full {}x{} q={} in {:?}, total {:?}",
+                        width,
+                        height,
+                        jpeg_quality,
                         step_start.elapsed(),
                         fn_start.elapsed()
                     );
@@ -1100,30 +1123,6 @@ fn process_preview_job(
                 Err(e) => {
                     return Err(format!("Failed to encode preview: {}", e));
                 }
-            }
-        }
-
-        let step_start = std::time::Instant::now();
-        let (width, height) = final_processed_image.dimensions();
-        let rgb_pixels = final_processed_image.to_rgb8().into_vec();
-
-        match Encoder::new(Preset::BaselineFastest)
-            .quality(jpeg_quality)
-            .encode_rgb(&rgb_pixels, width, height)
-        {
-            Ok(bytes) => {
-                log::info!(
-                    "[process_preview_job] full {}x{} q={} in {:?}, total {:?}",
-                    width,
-                    height,
-                    jpeg_quality,
-                    step_start.elapsed(),
-                    fn_start.elapsed()
-                );
-                return Ok(bytes);
-            }
-            Err(e) => {
-                return Err(format!("Failed to encode preview: {}", e));
             }
         }
     }
@@ -2823,6 +2822,98 @@ async fn generate_ai_sky_mask(
 
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
+async fn generate_ai_depth_mask(
+    js_adjustments: serde_json::Value,
+    path: String,
+    min_depth: f32,
+    max_depth: f32,
+    min_fade: f32,
+    max_fade: f32,
+    feather: f32,
+    rotation: f32,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+    orientation_steps: u8,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<AiDepthMaskParameters, String> {
+    let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let path_hash = {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(path.as_bytes());
+        let mut geo_hasher = DefaultHasher::new();
+        for key in GEOMETRY_KEYS {
+            if let Some(val) = js_adjustments.get(key) {
+                key.hash(&mut geo_hasher);
+                val.to_string().hash(&mut geo_hasher);
+            }
+        }
+        hasher.update(&geo_hasher.finish().to_le_bytes());
+        hasher.finalize().to_hex().to_string()
+    };
+
+    let cached_depth = {
+        let mut ai_state_lock = state.ai_state.lock().unwrap();
+        let ai_state = ai_state_lock.as_mut().unwrap();
+
+        if let Some(cached) = &ai_state.depth_map {
+            if cached.path_hash == path_hash {
+                cached.clone()
+            } else {
+                let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+                let depth_img =
+                    run_depth_anything_model(warped_image.as_ref(), &models.depth_anything)
+                        .map_err(|e| e.to_string())?;
+                let new_cache = CachedDepthMap {
+                    path_hash: path_hash.clone(),
+                    depth_image: depth_img,
+                    original_size: (warped_image.width(), warped_image.height()),
+                };
+                ai_state.depth_map = Some(new_cache.clone());
+                new_cache
+            }
+        } else {
+            let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+            let depth_img = run_depth_anything_model(warped_image.as_ref(), &models.depth_anything)
+                .map_err(|e| e.to_string())?;
+            let new_cache = CachedDepthMap {
+                path_hash: path_hash.clone(),
+                depth_image: depth_img,
+                original_size: (warped_image.width(), warped_image.height()),
+            };
+            ai_state.depth_map = Some(new_cache.clone());
+            new_cache
+        }
+    };
+
+    let raw_depth_fullres = image::imageops::resize(
+        &cached_depth.depth_image,
+        cached_depth.original_size.0,
+        cached_depth.original_size.1,
+        image::imageops::FilterType::Triangle,
+    );
+
+    let base64_data = encode_to_base64_png(&raw_depth_fullres)?;
+
+    Ok(AiDepthMaskParameters {
+        min_depth,
+        max_depth,
+        min_fade,
+        max_fade,
+        feather,
+        mask_data_base64: Some(base64_data),
+        rotation: Some(rotation),
+        flip_horizontal: Some(flip_horizontal),
+        flip_vertical: Some(flip_vertical),
+        orientation_steps: Some(orientation_steps),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
 async fn generate_ai_subject_mask(
     js_adjustments: serde_json::Value,
     path: String,
@@ -3118,16 +3209,6 @@ async fn test_ai_connector_connection(address: String) -> Result<(), String> {
     }
 }
 
-fn calculate_dynamic_patch_radius(width: u32, height: u32) -> u32 {
-    const MIN_RADIUS: u32 = 2;
-    const MAX_RADIUS: u32 = 32;
-    const BASE_DIMENSION: f32 = 192.0;
-
-    let min_dim = width.min(height) as f32;
-    let scaled_radius = (min_dim / BASE_DIMENSION).round() as u32;
-    scaled_radius.clamp(MIN_RADIUS, MAX_RADIUS)
-}
-
 #[tauri::command]
 async fn invoke_generative_replace_with_mask_def(
     path: String,
@@ -3184,9 +3265,17 @@ async fn invoke_generative_replace_with_mask_def(
     let mask_bitmap = unwarped_dynamic.to_luma8();
 
     let patch_rgba = if use_fast_inpaint {
-        // cpu based inpainting, low quality but no setup required
-        let patch_radius = calculate_dynamic_patch_radius(img_w, img_h);
-        inpainting::perform_fast_inpaint(&source_image, &mask_bitmap, patch_radius)?
+        // simple local ai inpainting
+        let lama_model = ai_processing::get_or_init_lama_model(
+            &app_handle,
+            &state.ai_state,
+            &state.ai_init_lock,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
+        ai_processing::run_lama_inpainting(&source_image, &mask_bitmap, &lama_model)
+            .map_err(|e| e.to_string())?
     } else if let Some(address) = settings.ai_connector_address {
         // self hosted generative ai service
         let mut rgba_mask = RgbaImage::new(img_w, img_h);
@@ -4240,8 +4329,390 @@ fn frontend_ready(
     Ok(())
 }
 
-=======
->>>>>>> upstream/main
-fn main() {
-    rapidraw_lib::run();
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            log::info!("New instance launched with args: {:?}. Focusing main window.", argv);
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(e) = window.unminimize() {
+                    log::error!("Failed to unminimize window: {}", e);
+                }
+                if let Err(e) = window.set_focus() {
+                    log::error!("Failed to set focus on window: {}", e);
+                }
+            }
+
+            if argv.len() > 1 {
+                let path_str = &argv[1];
+                if let Err(e) = app.emit("open-with-file", path_str) {
+                    log::error!("Failed to emit open-with-file from single-instance handler: {}", e);
+                }
+            }
+        }))
+        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_shell::init())
+        .setup(|app| {
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                if let Some(arg) = std::env::args().nth(1) {
+                     let state = app.state::<AppState>();
+                     log::info!("Windows/Linux initial open: Storing path {} for later.", &arg);
+                     *state.initial_file_path.lock().unwrap() = Some(arg);
+                }
+            }
+
+            let app_handle = app.handle().clone();
+            let config_dir = app_handle.path().app_config_dir().expect("Failed to get config dir");
+            let crash_flag_path = config_dir.join(".gpu_init_crash_flag");
+
+            {
+                let state = app.state::<AppState>();
+                *state.gpu_crash_flag_path.lock().unwrap() = Some(crash_flag_path.clone());
+            }
+
+            let mut settings: AppSettings = load_settings(app_handle.clone()).unwrap_or_default();
+
+            if crash_flag_path.exists() {
+                log::warn!("GPU Driver crash detected on last run! Falling back to OpenGL backend.");
+                settings.processing_backend = Some("gl".to_string());
+                let _ = crate::file_management::save_settings(settings.clone(), app_handle.clone());
+                let _ = std::fs::remove_file(&crash_flag_path);
+            }
+
+            let lens_db = lens_correction::load_lensfun_db(&app_handle);
+            let state = app.state::<AppState>();
+            *state.lens_db.lock().unwrap() = Some(lens_db);
+
+            unsafe {
+                if let Some(backend) = &settings.processing_backend
+                    && backend != "auto" {
+                        std::env::set_var("WGPU_BACKEND", backend);
+                    }
+
+                if settings.linux_gpu_optimization.unwrap_or(true) {
+                    #[cfg(target_os = "linux")]
+                    {
+                        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+                        std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+                        std::env::set_var("NODEVICE_SELECT", "1");
+                    }
+                }
+
+                let resource_path = app_handle
+                    .path()
+                    .resolve("resources", tauri::path::BaseDirectory::Resource)
+                    .expect("failed to resolve resource directory");
+
+                let ort_library_name = {
+                    #[cfg(target_os = "windows")] { "onnxruntime.dll" }
+                    #[cfg(target_os = "linux")] { "libonnxruntime.so" }
+                    #[cfg(target_os = "macos")] { "libonnxruntime.dylib" }
+                };
+                let ort_library_path = resource_path.join(ort_library_name);
+                std::env::set_var("ORT_DYLIB_PATH", &ort_library_path);
+                println!("Set ORT_DYLIB_PATH to: {}", ort_library_path.display());
+            }
+
+            setup_logging(&app_handle);
+
+            if let Some(backend) = &settings.processing_backend
+                && backend != "auto" {
+                    log::info!("Applied processing backend setting: {}", backend);
+                }
+            if settings.linux_gpu_optimization.unwrap_or(false) {
+                #[cfg(target_os = "linux")]
+                {
+                    log::info!("Applied Linux GPU optimizations.");
+                }
+            }
+
+            start_preview_worker(app_handle.clone());
+            start_analytics_worker(app_handle.clone());
+            jxl_oxide::integration::register_image_decoding_hook();
+
+            let window_cfg = app.config().app.windows.first().unwrap().clone();
+            let transparent = settings.transparent.unwrap_or(window_cfg.transparent);
+            let decorations = settings.decorations.unwrap_or(window_cfg.decorations);
+
+            let main_window_cfg = app.config().app.windows.iter()
+                .find(|w| w.label == "main")
+                .expect("Main window config not found")
+                .clone();
+
+            let mut window_builder = tauri::WebviewWindowBuilder::from_config(app.handle(), &main_window_cfg)
+                .unwrap()
+                .transparent(transparent)
+                .decorations(decorations)
+                .visible(false);
+
+            if !transparent {
+                window_builder = window_builder.background_color(tauri::window::Color(100, 100, 100, 255));
+            } else {
+                window_builder = window_builder.background_color(tauri::window::Color(0, 0, 0, 0));
+            }
+
+            let window = window_builder.build().expect("Failed to build window");
+
+            if transparent {
+                let theme = settings.theme.unwrap_or("dark".to_string());
+                apply_window_effect(theme, &window);
+            }
+
+            if let Ok(config_dir) = app.path().app_config_dir() {
+                let path = config_dir.join("window_state.json");
+                if let Ok(contents) = std::fs::read_to_string(&path) {
+                    if let Ok(state) = serde_json::from_str::<WindowState>(&contents) {
+                        if state.width >= 200 && state.height >= 150 {
+                            let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(state.width, state.height)));
+                            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(state.x, state.y)));
+                        } else {
+                            log::warn!("Saved window state had unreasonable dimensions ({}x{}), centering instead.", state.width, state.height);
+                            let _ = window.center();
+                        }
+                    } else { let _ = window.center(); }
+                } else { let _ = window.center(); }
+            } else { let _ = window.center(); }
+
+            let window_failsafe = window.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+                if let Ok(false) = window_failsafe.is_visible() {
+                    log::warn!("Frontend failed to report ready within timeout. Forcing window visibility.");
+                    let _ = window_failsafe.show();
+                    let _ = window_failsafe.set_focus();
+                }
+            });
+
+            let pending_window_state = Arc::new(Mutex::new(None::<WindowState>));
+            let pending_state_for_saver = pending_window_state.clone();
+            let app_handle_for_saver = app.handle().clone();
+
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+
+                    let state_to_save = {
+                        let mut lock = pending_state_for_saver.lock().unwrap();
+                        lock.take()
+                    };
+
+                    if let Some(state) = state_to_save
+                        && let Ok(config_dir) = app_handle_for_saver.path().app_config_dir() {
+                            let path = config_dir.join("window_state.json");
+                            let _ = std::fs::create_dir_all(&config_dir);
+                            if let Ok(json) = serde_json::to_string(&state) {
+                                let _ = std::fs::write(&path, json);
+                            }
+                        }
+                }
+            });
+
+            let window_for_handler = window.clone();
+            let pending_state_for_handler = pending_window_state.clone();
+
+            window.on_window_event(move |event| {
+                match event {
+                    tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_) => {
+
+                        #[cfg(any(windows, target_os = "linux"))]
+                        let maximized = window_for_handler.is_maximized().unwrap_or(false);
+                        #[cfg(not(any(windows, target_os = "linux")))]
+                        let maximized = false;
+
+                        #[cfg(any(windows, target_os = "linux"))]
+                        let fullscreen = window_for_handler.is_fullscreen().unwrap_or(false);
+                        #[cfg(not(any(windows, target_os = "linux")))]
+                        let fullscreen = false;
+
+                        if window_for_handler.is_minimized().unwrap_or(false) {
+                            return;
+                        }
+
+                        let mut state = WindowState {
+                            width: 1280,
+                            height: 720,
+                            x: 0,
+                            y: 0,
+                            maximized,
+                            fullscreen,
+                        };
+
+                        if let Ok(position) = window_for_handler.outer_position() {
+                            state.x = position.x;
+                            state.y = position.y;
+                        }
+
+                        if !maximized && !fullscreen
+                            && let Ok(size) = window_for_handler.outer_size()
+                                && size.width >= 200 && size.height >= 150 {
+                                    state.width = size.width;
+                                    state.height = size.height;
+                                }
+
+                        *pending_state_for_handler.lock().unwrap() = Some(state);
+                    }
+                    _ => {}
+                }
+            });
+            crate::register_exit_handler();
+            Ok(())
+        })
+        .manage(AppState {
+            window_setup_complete: AtomicBool::new(false),
+            gpu_crash_flag_path: Mutex::new(None),
+            original_image: Mutex::new(None),
+            cached_preview: Mutex::new(None),
+            gpu_context: Mutex::new(None),
+            gpu_image_cache: Mutex::new(None),
+            gpu_processor: Mutex::new(None),
+            ai_state: Mutex::new(None),
+            ai_init_lock: TokioMutex::new(()),
+            export_task_handle: Mutex::new(None),
+            hdr_result: Arc::new(Mutex::new(None)),
+            panorama_result: Arc::new(Mutex::new(None)),
+            denoise_result: Arc::new(Mutex::new(None)),
+            indexing_task_handle: Mutex::new(None),
+            lut_cache: Mutex::new(HashMap::new()),
+            initial_file_path: Mutex::new(None),
+            thumbnail_cancellation_token: Arc::new(AtomicBool::new(false)),
+            thumbnail_progress: Mutex::new(ThumbnailProgressTracker { total: 0, completed: 0 }),
+            preview_worker_tx: Mutex::new(None),
+            analytics_worker_tx: Mutex::new(None),
+            mask_cache: Mutex::new(HashMap::new()),
+            patch_cache: Mutex::new(HashMap::new()),
+            geometry_cache: Mutex::new(HashMap::new()),
+            thumbnail_geometry_cache: Mutex::new(HashMap::new()),
+            lens_db: Mutex::new(None),
+            load_image_generation: Arc::new(AtomicUsize::new(0)),
+            full_warped_cache: Mutex::new(None),
+        })
+        .invoke_handler(tauri::generate_handler![
+            load_image,
+            apply_adjustments,
+            export_image,
+            batch_export_images,
+            cancel_export,
+            estimate_export_size,
+            estimate_batch_export_size,
+            generate_preview_for_path,
+            generate_original_transformed_preview,
+            generate_preset_preview,
+            generate_uncropped_preview,
+            preview_geometry_transform,
+            generate_mask_overlay,
+            generate_ai_subject_mask,
+            precompute_ai_subject_mask,
+            generate_ai_foreground_mask,
+            generate_ai_sky_mask,
+            generate_ai_depth_mask,
+            update_window_effect,
+            check_ai_connector_status,
+            test_ai_connector_connection,
+            invoke_generative_replace_with_mask_def,
+            get_supported_file_types,
+            get_log_file_path,
+            frontend_log,
+            save_collage,
+            stitch_panorama,
+            save_panorama,
+            merge_hdr,
+            save_hdr,
+            apply_denoising,
+            save_denoised_image,
+            load_and_parse_lut,
+            fetch_community_presets,
+            generate_all_community_previews,
+            save_temp_file,
+            get_image_dimensions,
+            frontend_ready,
+            cancel_thumbnail_generation,
+            image_processing::calculate_auto_adjustments,
+            file_management::read_exif_for_paths,
+            file_management::list_images_in_dir,
+            file_management::list_images_recursive,
+            file_management::get_folder_tree,
+            file_management::get_folder_children,
+            file_management::get_pinned_folder_trees,
+            file_management::generate_thumbnails,
+            file_management::generate_thumbnails_progressive,
+            file_management::create_folder,
+            file_management::delete_folder,
+            file_management::copy_files,
+            file_management::move_files,
+            file_management::rename_folder,
+            file_management::rename_files,
+            file_management::duplicate_file,
+            file_management::show_in_finder,
+            file_management::delete_files_from_disk,
+            file_management::delete_files_with_associated,
+            file_management::save_metadata_and_update_thumbnail,
+            file_management::apply_adjustments_to_paths,
+            file_management::load_metadata,
+            file_management::load_presets,
+            file_management::save_presets,
+            file_management::load_settings,
+            file_management::save_settings,
+            file_management::reset_adjustments_for_paths,
+            file_management::apply_auto_adjustments_to_paths,
+            file_management::handle_import_presets_from_file,
+            file_management::handle_import_legacy_presets_from_file,
+            file_management::handle_export_presets_to_file,
+            file_management::save_community_preset,
+            file_management::clear_all_sidecars,
+            file_management::clear_thumbnail_cache,
+            file_management::set_color_label_for_paths,
+            file_management::import_files,
+            file_management::create_virtual_copy,
+            tagging::start_background_indexing,
+            tagging::clear_ai_tags,
+            tagging::clear_all_tags,
+            tagging::add_tag_for_paths,
+            tagging::remove_tag_for_paths,
+            culling::cull_images,
+            lens_correction::get_lensfun_makers,
+            lens_correction::get_lensfun_lenses_for_maker,
+            lens_correction::autodetect_lens,
+            lens_correction::get_lens_distortion_params,
+            negative_conversion::preview_negative_conversion,
+            negative_conversion::convert_negatives,
+        ])
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(#[allow(unused_variables)] |app_handle, event| {
+            match event {
+                #[cfg(target_os = "macos")]
+                tauri::RunEvent::Opened { urls } => {
+                    if let Some(url) = urls.first() {
+                        if let Ok(path) = url.to_file_path() {
+                            if let Some(path_str) = path.to_str() {
+                                let state = app_handle.state::<AppState>();
+                                *state.initial_file_path.lock().unwrap() = Some(path_str.to_string());
+                                log::info!("macOS initial open: Stored path {} for later.", path_str);
+                            }
+                        }
+                    }
+                }
+                tauri::RunEvent::ExitRequested { api, .. } => {
+                    api.prevent_exit();
+
+                    #[cfg(target_os = "macos")]
+                    unsafe { libc::_exit(0); }
+
+                    #[cfg(not(target_os = "macos"))]
+                    std::process::exit(0);
+                }
+                tauri::RunEvent::Exit => {
+                    #[cfg(target_os = "macos")]
+                    unsafe { libc::_exit(0); }
+
+                    #[cfg(not(target_os = "macos"))]
+                    std::process::exit(0);
+                }
+                _ => {}
+            }
+        });
 }

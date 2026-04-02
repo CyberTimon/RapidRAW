@@ -38,6 +38,25 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.5.3" date="2026-04-01">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.3</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Depth Masking: Create masks based on how far objects are from the camera. Useful for faking background blur, adding lights that blend naturally into the scene, or isolating subjects at a certain distance.</li>
+                <li>Quick Inpainting: A new local inpainting model that does a much better job at removing unwanted objects. Runs on device and does not require the RapidRAW-AI-Connector.</li>
+                <li>Library Performance: Rewrote large parts of the library loading code. Thumbnails are now only rendered when visible on screen, making large libraries feel much snappier. Also added a flat list view as a new thumbnail mode.</li>
+                <li>ROI Rendering Improvements: Smoother rendering while zoomed in, plus a new dropdown to pick your preferred quality level for live previews.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Updated keyboard shortcuts for masking, especially for the brush tool.</li>
+                <li>Color gradient for the temperature and tint slider track.</li>
+                <li>Improved loading spinner to show actual progress when applying batch adjustments.</li>
+                <li>Various bug fixes under the hood.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.5.2" date="2026-03-19">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.2</url>
         <description translate="no">

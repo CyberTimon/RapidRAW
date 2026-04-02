@@ -18,6 +18,7 @@ interface DenoiseModalProps {
   originalBase64: string | null;
   isProcessing: boolean;
   progressMessage: string | null;
+  aiModelDownloadStatus: string | null;
   isRaw: boolean;
   loadingImageUrl?: string | null;
 }
@@ -217,6 +218,7 @@ export default function DenoiseModal({
   originalBase64,
   isProcessing,
   progressMessage,
+  aiModelDownloadStatus,
   isRaw,
   loadingImageUrl,
 }: DenoiseModalProps) {
@@ -228,6 +230,10 @@ export default function DenoiseModal({
   const [savedPath, setSavedPath] = useState<string | null>(null);
 
   const mouseDownTarget = useRef<EventTarget | null>(null);
+
+  const currentStatusText = aiModelDownloadStatus?.includes('NIND')
+    ? `Downloading ${aiModelDownloadStatus}...`
+    : progressMessage || 'Initializing...';
 
   useEffect(() => {
     if (isOpen) {
@@ -345,9 +351,7 @@ export default function DenoiseModal({
               <Text variant={TextVariants.title} className="mb-2 text-center">
                 Denoising in Progress
               </Text>
-              <Text className="text-center font-mono h-6 flex justify-center items-center">
-                {progressMessage || 'Initializing...'}
-              </Text>
+              <Text className="text-center font-mono h-6 flex justify-center items-center">{currentStatusText}</Text>
 
               <div className="mt-8 w-64 relative">
                 <div className="h-1 bg-surface rounded-full overflow-hidden relative w-full shadow-xs">

@@ -88,7 +88,6 @@ interface MainLibraryProps {
   importState: ImportState;
   indexingProgress: Progress;
   isLoading: boolean;
-  isThumbnailsLoading?: boolean;
   isIndexing: boolean;
   isTreeLoading: boolean;
   libraryScrollTop: number;
@@ -118,6 +117,7 @@ interface MainLibraryProps {
   theme: string;
   thumbnailAspectRatio: ThumbnailAspectRatio;
   thumbnails: Record<string, string>;
+  thumbnailProgress: Progress;
   thumbnailSize: ThumbnailSize;
   onNavigateToCommunity(): void;
   listColumnWidths: ColumnWidths;
@@ -322,37 +322,44 @@ function ListHeader({
     return (
       <div
         style={{ width: `${widths[widthKey]}%` }}
-        className={`relative flex items-center px-3 h-full border-r border-border-color last:border-r-0 transition-colors select-none ${
-          sortKey ? 'cursor-pointer hover:bg-bg-primary' : ''
+        className={`relative flex items-center px-3 h-full select-none ${
+          sortKey ? 'cursor-pointer hover:bg-bg-primary/50 transition-colors' : ''
         }`}
         onClick={() => sortKey && onSortChange(sortKey)}
       >
-        <Text variant={TextVariants.small} weight={TextWeights.semibold} color={TextColors.secondary}>
+        <Text
+          variant={TextVariants.small}
+          weight={TextWeights.semibold}
+          color={isSorted ? TextColors.primary : TextColors.secondary}
+          className="uppercase tracking-wider text-[11px]"
+        >
           {title}
         </Text>
         {isSorted && (
-          <span className="ml-1 flex items-center text-text-secondary">
-            {isAsc ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          <span className="ml-1 flex items-center text-accent">
+            {isAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           </span>
         )}
         {nextKey && (
           <div
-            className="absolute right-[-3px] top-0 bottom-0 w-[6px] cursor-col-resize z-10 hover:bg-accent/50 transition-colors"
+            className="absolute right-[-3px] top-1.5 bottom-1.5 w-[6px] cursor-col-resize z-10 group flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => handleResize(e, widthKey, nextKey)}
-          />
+          >
+            <div className="w-px h-full bg-border-color/40 group-hover:bg-accent transition-colors" />
+          </div>
         )}
       </div>
     );
   };
 
   return (
-    <div className="flex items-center w-full h-8 bg-surface border-b border-border-color shrink-0">
+    <div className="flex items-center w-full h-9 bg-bg-secondary/80 backdrop-blur-sm border-b border-border-color/50 shrink-0">
       <Column title="" widthKey="thumbnail" nextKey="name" />
       <Column title="Name" widthKey="name" nextKey="date" sortKey="name" />
-      <Column title="Date Modified" widthKey="date" nextKey="rating" sortKey="date" />
+      <Column title="Modified" widthKey="date" nextKey="rating" sortKey="date" />
       <Column title="Rating" widthKey="rating" nextKey="color" sortKey="rating" />
-      <Column title="Color" widthKey="color" />
+      <Column title="Label" widthKey="color" />
     </div>
   );
 }
@@ -1083,17 +1090,19 @@ function ListItem({
 
   const dateObj = new Date(modified > 1e11 ? modified : modified * 1000);
   const dateStr =
-    dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+    ' ' +
+    dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  const bgClass = isSelected
-    ? 'bg-accent/20'
-    : isActive
-      ? 'bg-accent/10 ring-1 ring-inset ring-accent'
-      : 'hover:bg-bg-primary';
+  const stateClass = isActive
+    ? 'ring-1 ring-inset ring-accent bg-accent/10'
+    : isSelected
+      ? 'ring-1 ring-inset ring-accent/50 bg-accent/5'
+      : 'hover:bg-surface/80';
 
   return (
     <div
-      className={`flex items-center w-full h-full border-b border-border-color cursor-pointer transition-none ${bgClass}`}
+      className={`flex items-center w-full h-full border-b border-border-color/30 cursor-pointer transition-colors duration-150 ${stateClass}`}
       onClick={(e: any) => {
         e.stopPropagation();
         onImageClick(path, e);
@@ -1103,9 +1112,9 @@ function ListItem({
     >
       <div
         style={{ width: `${columnWidths.thumbnail}%` }}
-        className="flex items-center justify-center p-1 h-full overflow-hidden border-r border-transparent hover:border-border-color transition-colors"
+        className="flex items-center justify-center p-1.5 h-full overflow-hidden"
       >
-        <div className="w-full h-full relative overflow-hidden bg-transparent flex items-center justify-center">
+        <div className="w-full h-full relative overflow-hidden rounded-sm bg-surface flex items-center justify-center">
           {layers.length > 0 && (
             <div className="absolute inset-0 w-full h-full flex items-center justify-center">
               {layers.map((layer) => (
@@ -1115,9 +1124,16 @@ function ListItem({
                   style={{ opacity: layer.opacity, transition: 'opacity 300ms ease-in-out' }}
                   onTransitionEnd={() => handleTransitionEnd(layer.id)}
                 >
+                  {thumbnailAspectRatio === ThumbnailAspectRatio.Contain && (
+                    <img
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover blur-md scale-110 brightness-[0.4]"
+                      src={layer.url}
+                    />
+                  )}
                   <img
                     alt={baseName}
-                    className={`w-full h-full ${
+                    className={`w-full h-full relative ${
                       thumbnailAspectRatio === ThumbnailAspectRatio.Contain ? 'object-contain' : 'object-cover'
                     }`}
                     decoding="async"
@@ -1145,11 +1161,9 @@ function ListItem({
         </div>
       </div>
 
-      <div
-        style={{ width: `${columnWidths.name}%` }}
-        className="flex items-center gap-2 px-3 h-full overflow-hidden border-r border-transparent hover:border-border-color transition-colors"
-      >
-        <Text variant={TextVariants.small} className="truncate" weight={TextWeights.medium}>
+      {/* Name */}
+      <div style={{ width: `${columnWidths.name}%` }} className="flex items-center gap-2 px-3 h-full overflow-hidden">
+        <Text variant={TextVariants.small} className="truncate" weight={TextWeights.medium} color={TextColors.primary}>
           {baseName}
         </Text>
         {isVirtualCopy && (
@@ -1174,22 +1188,26 @@ function ListItem({
 
       <div style={{ width: `${columnWidths.rating}%` }} className="flex items-center px-3 h-full overflow-hidden">
         {rating > 0 && (
-          <div className="flex items-center gap-1 bg-bg-primary/50 rounded-full px-1.5 py-0.5 backdrop-blur-xs border border-border-color/20">
-            <Text variant={TextVariants.small} color={TextColors.primary}>
+          <div className="flex items-center gap-1">
+            <StarIcon size={12} className="text-accent fill-accent" />
+            <Text variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
               {rating}
             </Text>
-            <StarIcon size={12} className="text-accent fill-accent" />
           </div>
         )}
       </div>
 
       <div style={{ width: `${columnWidths.color}%` }} className="flex items-center px-3 h-full overflow-hidden">
         {colorLabel && (
-          <div
-            className="w-2.5 h-2.5 rounded-full ring-1 ring-black/20"
-            style={{ backgroundColor: colorLabel.color }}
-            data-tooltip={`Color: ${colorLabel.name}`}
-          ></div>
+          <div className="flex items-center gap-1.5">
+            <div
+              className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/20"
+              style={{ backgroundColor: colorLabel.color }}
+            />
+            <Text variant={TextVariants.small} color={TextColors.secondary} className="capitalize truncate">
+              {colorLabel.name}
+            </Text>
+          </div>
         )}
       </div>
     </div>
@@ -1432,12 +1450,12 @@ const Row = ({
         }}
         className="flex items-end pb-2 pt-2"
       >
-        <div className="flex items-center gap-2 w-full border-b border-border-color pb-1">
+        <div className="flex items-center gap-2 w-full border-b border-border-color/50 pb-1">
           <FolderOpen size={16} className="text-text-secondary" />
           <Text variant={TextVariants.label} weight={TextWeights.semibold} className="truncate" data-tooltip={row.path}>
             {displayPath}
           </Text>
-          <Text variant={TextVariants.small} className="opacity-60 ml-auto">
+          <Text variant={TextVariants.small} color={TextColors.secondary} className="ml-auto">
             {row.count} images
           </Text>
         </div>
@@ -1513,7 +1531,6 @@ export default function MainLibrary({
   indexingProgress,
   isIndexing,
   isLoading,
-  isThumbnailsLoading,
   isTreeLoading: _isTreeLoading,
   libraryScrollTop,
   libraryViewMode,
@@ -1542,6 +1559,7 @@ export default function MainLibrary({
   theme,
   thumbnailAspectRatio,
   thumbnails,
+  thumbnailProgress,
   thumbnailSize,
   onNavigateToCommunity,
   listColumnWidths,
@@ -1573,7 +1591,8 @@ export default function MainLibrary({
   const [listHandle, setListHandle] = useListCallbackRef();
   const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
   const [latestVersion, setLatestVersion] = useState('');
-  const [isLoaderVisible, setIsLoaderVisible] = useState(false);
+  const [isBusyDelayed, setIsBusyDelayed] = useState(false);
+  const [isProgressHovered, setIsProgressHovered] = useState(false);
   const loadedThumbnailsRef = useRef(new Set<string>());
 
   const handleHeaderSort = useCallback(
@@ -1625,6 +1644,78 @@ export default function MainLibrary({
       { key: 'aperture', label: 'Aperture', disabled: !exifEnabled },
     ];
   }, [appSettings?.enableExifReading]);
+
+  useEffect(() => {
+    if (!listHandle?.element) return;
+
+    const element = listHandle.element;
+    const clientHeight = element.clientHeight;
+
+    if (activePath && libraryContainerRef.current) {
+      const width = libraryContainerRef.current.clientWidth;
+      if (width > 0 && clientHeight > 0) {
+        const isListView = thumbnailSize === ThumbnailSize.List;
+        const OUTER_PADDING = isListView ? 0 : 12;
+        const ITEM_GAP = isListView ? 0 : 12;
+        const minThumbWidth = thumbnailSizeOptions.find((o) => o.id === thumbnailSize)?.size || 240;
+        const availableWidth = width - OUTER_PADDING * 2;
+        const columnCount = isListView
+          ? 1
+          : Math.max(1, Math.floor((availableWidth + ITEM_GAP) / (minThumbWidth + ITEM_GAP)));
+        const itemWidth = isListView ? availableWidth : (availableWidth - ITEM_GAP * (columnCount - 1)) / columnCount;
+        const listRowHeight = Math.max(36, Math.min(300, (availableWidth * listColumnWidths.thumbnail) / 100));
+        const rowHeight = isListView ? listRowHeight : itemWidth + ITEM_GAP;
+        const headerHeight = 40;
+
+        let targetTop = 0;
+        let found = false;
+
+        if (libraryViewMode === LibraryViewMode.Recursive) {
+          const grps = groupImagesByFolder(imageList, currentFolderPath);
+          for (const group of grps) {
+            if (group.images.length === 0) continue;
+            targetTop += headerHeight;
+            const idx = group.images.findIndex((img) => img.path === activePath);
+            if (idx !== -1) {
+              targetTop += Math.floor(idx / columnCount) * rowHeight;
+              found = true;
+              break;
+            }
+            targetTop += Math.ceil(group.images.length / columnCount) * rowHeight;
+          }
+        } else {
+          const idx = imageList.findIndex((img) => img.path === activePath);
+          if (idx !== -1) {
+            targetTop = Math.floor(idx / columnCount) * rowHeight;
+            found = true;
+          }
+        }
+
+        if (found) {
+          const itemBottom = targetTop + rowHeight;
+          const savedTop = Math.max(0, libraryScrollTop);
+          const isVisibleAtSaved = targetTop < savedTop + clientHeight && itemBottom > savedTop;
+
+          if (isVisibleAtSaved && libraryScrollTop > 0) {
+            element.scrollTop = libraryScrollTop;
+          } else {
+            element.scrollTop = Math.max(0, targetTop - clientHeight / 2 + rowHeight / 2);
+          }
+
+          prevScrollState.current = {
+            path: activePath,
+            top: targetTop,
+            folder: currentFolderPath,
+          };
+          return;
+        }
+      }
+    }
+
+    if (libraryScrollTop > 0) {
+      element.scrollTop = libraryScrollTop;
+    }
+  }, [listHandle]);
 
   useEffect(() => {
     if (!activePath || !libraryContainerRef.current || multiSelectedPaths.length > 1) return;
@@ -1720,12 +1811,6 @@ export default function MainLibrary({
   ]);
 
   useEffect(() => {
-    if (listHandle?.element && libraryScrollTop > 0) {
-      listHandle.element.scrollTop = libraryScrollTop;
-    }
-  }, [listHandle]);
-
-  useEffect(() => {
     const exifEnabled = appSettings?.enableExifReading ?? true;
     const exifSortKeys = ['date_taken', 'iso', 'shutter_speed', 'aperture', 'focal_length'];
     const isCurrentSortExif = exifSortKeys.includes(sortCriteria.key);
@@ -1735,24 +1820,21 @@ export default function MainLibrary({
     }
   }, [appSettings?.enableExifReading, sortCriteria.key, setSortCriteria]);
 
-  useEffect(() => {
-    let showTimer: number | undefined;
-    let hideTimer: number | undefined;
+  const isBusy =
+    isLoading ||
+    ((thumbnailProgress?.total ?? 0) > 0 && (thumbnailProgress?.current ?? 0) < (thumbnailProgress?.total ?? 0));
 
-    if (isThumbnailsLoading || isLoading) {
-      showTimer = window.setTimeout(() => {
-        setIsLoaderVisible(true);
-      }, 1000);
+  useEffect(() => {
+    let timer: number | undefined;
+
+    if (isBusy) {
+      timer = window.setTimeout(() => setIsBusyDelayed(true), 1000);
     } else {
-      hideTimer = window.setTimeout(() => {
-        setIsLoaderVisible(false);
-      }, 500);
+      timer = window.setTimeout(() => setIsBusyDelayed(false), 500);
     }
-    return () => {
-      clearTimeout(showTimer);
-      clearTimeout(hideTimer);
-    };
-  }, [isThumbnailsLoading, isLoading]);
+
+    return () => clearTimeout(timer);
+  }, [isBusy]);
 
   useEffect(() => {
     const compareVersions = (v1: string, v2: string) => {
@@ -1991,7 +2073,11 @@ export default function MainLibrary({
       className="flex-1 flex flex-col h-full min-w-0 bg-bg-secondary rounded-lg overflow-hidden"
       ref={libraryContainerRef}
     >
-      <header className="p-4 shrink-0 flex justify-between items-center border-b border-border-color gap-4">
+      <header
+        className="p-4 shrink-0 flex justify-between items-center border-b border-border-color gap-4"
+        onMouseEnter={() => setIsProgressHovered(true)}
+        onMouseLeave={() => setIsProgressHovered(false)}
+      >
         <div className="min-w-0">
           <Text variant={TextVariants.headline}>Library</Text>
           <div className="flex items-center gap-2">
@@ -2001,11 +2087,22 @@ export default function MainLibrary({
               <p className="text-sm invisible select-none pointer-events-none h-5 overflow-hidden"></p>
             )}
             <div
-              className={`overflow-hidden transition-all duration-300 ${
-                isLoaderVisible ? 'max-w-4 opacity-100' : 'max-w-0 opacity-0'
+              className={`flex items-center gap-2 overflow-hidden transition-all duration-300 whitespace-nowrap ${
+                isBusyDelayed ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'
               }`}
             >
-              <Loader2 size={14} className="animate-spin text-text-secondary" />
+              <Loader2 size={14} className="animate-spin text-text-secondary shrink-0" />
+              <div
+                className={`flex items-center transition-all duration-300 ease-out overflow-hidden ${
+                  isProgressHovered && isBusyDelayed && (thumbnailProgress?.total ?? 0) > 0
+                    ? 'max-w-xs opacity-100'
+                    : 'max-w-0 opacity-0'
+                }`}
+              >
+                <Text variant={TextVariants.small} color={TextColors.secondary} className="whitespace-nowrap">
+                  ({thumbnailProgress?.current ?? 0}/{thumbnailProgress?.total ?? 0})
+                </Text>
+              </div>
             </div>
           </div>
         </div>
@@ -2128,7 +2225,7 @@ export default function MainLibrary({
               rows.push({ type: 'footer' });
 
               const getItemSize = (index: number) => {
-                if (rows[index].type === 'footer') return isListView ? 100 : OUTER_PADDING;
+                if (rows[index].type === 'footer') return isListView ? 24 : OUTER_PADDING;
                 return rows[index].type === 'header' ? headerHeight : rowHeight;
               };
 
@@ -2146,7 +2243,7 @@ export default function MainLibrary({
                   <div
                     key={`${gridSize.width}-${thumbnailSize}-${libraryViewMode}`}
                     style={{
-                      height: isListView ? gridSize.height - 32 : gridSize.height,
+                      height: isListView ? gridSize.height - 36 : gridSize.height,
                       width: gridSize.width,
                     }}
                   >

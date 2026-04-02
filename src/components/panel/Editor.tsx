@@ -24,6 +24,7 @@ interface EditorProps {
   canRedo: boolean;
   canUndo: boolean;
   finalPreviewUrl: string | null;
+  interactivePatch?: { url: string; normX: number; normY: number; normW: number; normH: number } | null;
   isFullScreen: boolean;
   isLoading: boolean;
   isSliderDragging: boolean;
@@ -76,6 +77,7 @@ export default function Editor({
   canRedo,
   canUndo,
   finalPreviewUrl,
+  interactivePatch,
   isFullScreen,
   isLoading,
   isSliderDragging,
@@ -326,10 +328,11 @@ export default function Editor({
       return { minScale: 0.1, maxScale: 20 };
     }
 
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
     const scaleFor100Percent = 1 / imageRenderSize.scale;
 
-    const minScale = 0.1 * scaleFor100Percent;
-    const maxScale = 2.0 * scaleFor100Percent;
+    const minScale = (0.1 / dpr) * scaleFor100Percent;
+    const maxScale = (2.0 / dpr) * scaleFor100Percent;
 
     return {
       minScale: Math.max(0.1, minScale),
@@ -737,7 +740,7 @@ export default function Editor({
         className={clsx(
           'shrink-0',
           !isInstantTransition && 'transition-all duration-300 ease-in-out',
-          isFullScreen ? 'max-h-0 opacity-0 m-0' : 'max-h-[100px] opacity-100',
+          isFullScreen ? 'max-h-0 opacity-0 m-0' : 'max-h-25 opacity-100',
           toolbarOverflowVisible ? 'overflow-visible' : 'overflow-hidden',
         )}
       >
@@ -817,6 +820,7 @@ export default function Editor({
               finalPreviewUrl={finalPreviewUrl}
               handleCropComplete={handleCropComplete}
               imageRenderSize={imageRenderSize}
+              interactivePatch={interactivePatch}
               isAiEditing={isAiEditing}
               isCropping={isCropping}
               isMaskControlHovered={isMaskControlHovered}
@@ -846,6 +850,7 @@ export default function Editor({
               cursorStyle={cursorStyle}
               isMaxZoom={isMaxZoom}
               liveRotation={liveRotation}
+              zoomScale={transformState.scale}
             />
           </TransformComponent>
         </TransformWrapper>

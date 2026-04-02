@@ -214,7 +214,7 @@ export default function BottomBar({
     const value = parseFloat(percentInputValue);
     if (!isNaN(value)) {
       const originalPercent = value / 100;
-      const clampedPercent = Math.max(0.05, Math.min(4.0, originalPercent));
+      const clampedPercent = Math.max(0.1, Math.min(2.0, originalPercent));
       onZoomChange(clampedPercent);
     }
     setIsEditingPercent(false);

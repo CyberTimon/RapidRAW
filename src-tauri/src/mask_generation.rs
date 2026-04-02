@@ -1,5 +1,5 @@
 use crate::ai_processing::{
-    AiForegroundMaskParameters, AiSkyMaskParameters, AiSubjectMaskParameters,
+    AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters, AiSubjectMaskParameters,
 };
 use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, GenericImageView, GrayImage, Luma};
@@ -612,6 +612,70 @@ fn generate_ai_sky_bitmap(
     Some(mask)
 }
 
+fn generate_ai_depth_bitmap(
+    params_value: &Value,
+    width: u32,
+    height: u32,
+    scale: f32,
+    crop_offset: (f32, f32),
+) -> Option<GrayImage> {
+    let params: AiDepthMaskParameters = serde_json::from_value(params_value.clone()).ok()?;
+    let grow_feather: GrowFeatherParameters =
+        serde_json::from_value(params_value.clone()).unwrap_or_default();
+    let data_url = params.mask_data_base64?;
+
+    let tf = TransformParams {
+        rotation: params.rotation.unwrap_or(0.0),
+        flip_horizontal: params.flip_horizontal.unwrap_or(false),
+        flip_vertical: params.flip_vertical.unwrap_or(false),
+        orientation_steps: params.orientation_steps.unwrap_or(0),
+        width,
+        height,
+        scale,
+        crop_offset,
+    };
+
+    let depth_map = generate_ai_bitmap_from_base64(&data_url, &tf)?;
+
+    let (w, h) = depth_map.dimensions();
+    let mut mask = GrayImage::new(w, h);
+
+    fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
+        let t = ((x - edge0) / (edge1 - edge0).max(0.0001)).clamp(0.0, 1.0);
+        t * t * (3.0 - 2.0 * t)
+    }
+
+    let min_fade = params.min_fade;
+    let max_fade = params.max_fade;
+
+    for (x, y, p) in depth_map.enumerate_pixels() {
+        let val_pct = (p[0] as f32 / 255.0) * 100.0;
+
+        let lower_bound = smoothstep(params.min_depth - min_fade, params.min_depth, val_pct);
+        let upper_bound = 1.0 - smoothstep(params.max_depth, params.max_depth + max_fade, val_pct);
+        let bandpass_weight = lower_bound * upper_bound;
+
+        let depth_intensity = val_pct / 100.0;
+        let final_intensity = bandpass_weight * depth_intensity;
+
+        mask.put_pixel(x, y, Luma([(final_intensity * 255.0) as u8]));
+    }
+
+    if params.feather > 0.0 {
+        mask = image::imageops::blur(&mask, params.feather * 0.1);
+    }
+
+    apply_grow_and_feather(
+        &mut mask,
+        grow_feather.grow,
+        grow_feather.feather,
+        width,
+        height,
+    );
+
+    Some(mask)
+}
+
 fn generate_ai_foreground_bitmap(
     params_value: &Value,
     width: u32,
@@ -944,6 +1008,9 @@ fn generate_sub_mask_bitmap(
             generate_ai_foreground_bitmap(&sub_mask.parameters, width, height, scale, crop_offset)
         }
         "ai-sky" => generate_ai_sky_bitmap(&sub_mask.parameters, width, height, scale, crop_offset),
+        "ai-depth" => {
+            generate_ai_depth_bitmap(&sub_mask.parameters, width, height, scale, crop_offset)
+        }
         "quick-eraser" => {
             generate_ai_subject_bitmap(&sub_mask.parameters, width, height, scale, crop_offset)
         }

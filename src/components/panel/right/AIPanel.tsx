@@ -124,8 +124,8 @@ const SUB_MASK_CONFIG: any = {
   },
   [Mask.QuickEraser]: {
     parameters: [
-      { key: 'grow', label: 'Grow', min: -100, max: 100, step: 1, defaultValue: 50 },
-      { key: 'feather', label: 'Feather', min: 0, max: 100, step: 1, defaultValue: 50 },
+      { key: 'grow', label: 'Grow', min: -100, max: 100, step: 1, defaultValue: 75 },
+      { key: 'feather', label: 'Feather', min: 0, max: 100, step: 1, defaultValue: 75 },
     ],
   },
 };
@@ -205,7 +205,7 @@ const ConnectionStatus = ({ isConnected }: ConnectionStatusProps) => {
           transition={{ duration: 0.2, ease: 'easeInOut' }}
         >
           <p className="text-xs text-text-secondary">
-            Only simple inpainting available. Connect backend for generative features.
+            Only basic inpainting available. Connect backend for generative features.
           </p>
         </motion.div>
       </div>
@@ -777,7 +777,7 @@ export default function AIPanel({
         onClick={handleDeselect}
         onContextMenu={handlePanelContextMenu}
       >
-        <div className="p-4 flex justify-between items-center flex-shrink-0 border-b border-surface">
+        <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
           <h2 className="text-xl font-bold text-primary text-shadow-shiny">Inpainting</h2>
           <button
             className="p-2 rounded-full hover:bg-surface transition-colors"
@@ -947,7 +947,7 @@ export default function AIPanel({
               </div>
             )}
             {activeDragItem.type === 'SubMask' && activeDragItem.item && (
-              <div className="flex items-center gap-2 p-2 rounded-md bg-surface shadow-2xl opacity-90 ring-1 ring-black/10 ml-[15px]">
+              <div className="flex items-center gap-2 p-2 rounded-md bg-surface shadow-2xl opacity-90 ring-1 ring-black/10 ml-3.75">
                 {(() => {
                   const sm = activeDragItem.item as SubMask;
                   const Icon = MASK_ICON_MAP[sm.type] || Circle;
@@ -1227,7 +1227,7 @@ function ContainerRow({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden pl-2 border-l border-border-color/20 ml-[15px]"
+            className="overflow-hidden pl-2 border-l border-border-color/20 ml-3.75"
             layout
           >
             <AnimatePresence
@@ -1498,14 +1498,24 @@ function SettingsPanel({
   const [prompt, setPrompt] = useState(displayContainer.prompt || '');
   const [useFastInpaint, setUseFastInpaint] = useState(!isAIConnectorConnected);
 
+  const prevContainerId = useRef<string | null>(null);
+
   useEffect(() => {
     if (container) setPrompt(container.prompt || '');
   }, [container?.id]);
 
   const isQuickErasePatch = displayContainer.subMasks?.some((sm: SubMask) => sm.type === Mask.QuickEraser);
+
   useEffect(() => {
     if (container) {
-      setUseFastInpaint(isQuickErasePatch || !isAIConnectorConnected);
+      if (!isAIConnectorConnected) {
+        setUseFastInpaint(true);
+      } else if (container.id !== prevContainerId.current) {
+        setUseFastInpaint(isQuickErasePatch);
+        prevContainerId.current = container.id;
+      }
+    } else {
+      prevContainerId.current = null;
     }
   }, [isAIConnectorConnected, container, isQuickErasePatch]);
 
@@ -1540,6 +1550,15 @@ function SettingsPanel({
         isContentVisible={true}
       >
         <div className="space-y-3 pt-2">
+          {aiModelDownloadStatus && aiModelDownloadStatus.includes('Inpainting') && (
+            <div className="p-3 mb-2 bg-card-active rounded-md border border-surface flex items-center gap-3">
+              <Loader2 size={16} className="text-accent animate-spin shrink-0" />
+              <div className="text-xs text-text-secondary leading-relaxed">
+                Downloading: <span className="text-accent font-medium">{aiModelDownloadStatus}</span>
+              </div>
+            </div>
+          )}
+
           <p className="text-xs text-text-secondary">
             {isQuickErasePatch
               ? 'Fill selection to remove the object.'
@@ -1550,15 +1569,13 @@ function SettingsPanel({
 
           <Switch
             checked={useFastInpaint}
-            disabled={isQuickErasePatch || !isAIConnectorConnected}
-            label="Use fast inpainting"
+            disabled={!isAIConnectorConnected}
+            label="Use basic inpainting"
             onChange={setUseFastInpaint}
             tooltip={
-              isQuickErasePatch
-                ? 'Quick Erase always uses fast inpainting.'
-                : !isAIConnectorConnected
-                  ? 'AI Connector not connected, fast inpainting is required.'
-                  : 'Fast inpainting is quicker but not generative. Uncheck to use AI Connector with a text prompt.'
+              !isAIConnectorConnected
+                ? 'AI Connector not connected, basic inpainting is required.'
+                : 'Basic inpainting is quicker but not generative. Uncheck to use AI Connector with a text prompt.'
             }
           />
 

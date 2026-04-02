@@ -1,70 +1,54 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 import { Invokes } from '../components/ui/AppProperties';
 
 export function useThumbnails() {
-  const [loading, setLoading] = useState(false);
   const requestedPathsRef = useRef<Set<string>>(new Set());
-  const queueTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingQueueRef = useRef<Set<string>>(new Set());
-  const loadingCountRef = useRef(0);
-
-  useEffect(() => {
-    let unlistenComplete: any;
-    const setupListener = async () => {
-      unlistenComplete = await listen('thumbnail-generation-complete', () => {
-        loadingCountRef.current = Math.max(0, loadingCountRef.current - 1);
-        if (loadingCountRef.current === 0) {
-          setLoading(false);
-        }
-      });
-    };
-    setupListener();
-    return () => {
-      if (unlistenComplete) unlistenComplete();
-    };
-  }, []);
-
-  const clearThumbnailQueue = useCallback(() => {
-    requestedPathsRef.current.clear();
-    pendingQueueRef.current.clear();
-    if (queueTimeoutRef.current) {
-      clearTimeout(queueTimeoutRef.current);
-    }
-    loadingCountRef.current = 0;
-    setLoading(false);
-  }, []);
+  const visiblePathsRef = useRef<Set<string>>(new Set());
+  const processorRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const requestThumbnails = useCallback((paths: string[]) => {
-    let added = false;
-    paths.forEach((p) => {
-      if (!requestedPathsRef.current.has(p)) {
-        requestedPathsRef.current.add(p);
-        pendingQueueRef.current.add(p);
-        added = true;
-      }
-    });
+    visiblePathsRef.current = new Set(paths);
 
-    if (added) {
-      if (queueTimeoutRef.current) clearTimeout(queueTimeoutRef.current);
-      queueTimeoutRef.current = setTimeout(() => {
-        const pathsToRequest = Array.from(pendingQueueRef.current);
-        pendingQueueRef.current.clear();
+    if (!processorRef.current) {
+      processorRef.current = setInterval(() => {
+        const pathsToRequest = Array.from(visiblePathsRef.current).filter((p) => !requestedPathsRef.current.has(p));
 
         if (pathsToRequest.length > 0) {
-          loadingCountRef.current += 1;
-          setLoading(true);
+          pathsToRequest.forEach((p) => requestedPathsRef.current.add(p));
+
+          for (let i = pathsToRequest.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [pathsToRequest[i], pathsToRequest[j]] = [pathsToRequest[j], pathsToRequest[i]];
+          }
+
           invoke(Invokes.GenerateThumbnailsProgressive, { paths: pathsToRequest }).catch((err) => {
             console.error('Failed to request thumbnails:', err);
-            pathsToRequest.forEach((p) => requestedPathsRef.current.delete(p));
-            loadingCountRef.current = Math.max(0, loadingCountRef.current - 1);
-            if (loadingCountRef.current === 0) setLoading(false);
           });
+        } else {
+          if (processorRef.current) {
+            clearInterval(processorRef.current);
+            processorRef.current = null;
+          }
         }
       }, 150);
     }
   }, []);
 
-  return { loading, requestThumbnails, clearThumbnailQueue };
+  const clearThumbnailQueue = useCallback(() => {
+    requestedPathsRef.current.clear();
+    visiblePathsRef.current.clear();
+    if (processorRef.current) {
+      clearInterval(processorRef.current);
+      processorRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (processorRef.current) clearInterval(processorRef.current);
+    };
+  }, []);
+
+  return { requestThumbnails, clearThumbnailQueue };
 }

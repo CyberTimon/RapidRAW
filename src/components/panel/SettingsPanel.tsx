@@ -104,11 +104,24 @@ const resolutions: OptionItem<number>[] = [
   { value: 3840, label: '3840px' },
 ];
 
+const thumbnailResolutions: OptionItem<number>[] = [
+  { value: 640, label: '640px' },
+  { value: 720, label: '720px' },
+  { value: 960, label: '960px' },
+  { value: 1080, label: '1080px' },
+];
+
 const zoomMultiplierOptions: OptionItem<number>[] = [
   { value: 1.0, label: '1.0x (Native)' },
   { value: 0.75, label: '0.75x' },
   { value: 0.5, label: '0.50x (Half)' },
   { value: 0.25, label: '0.25x' },
+];
+
+const livePreviewQualityOptions: OptionItem<string>[] = [
+  { value: 'full', label: 'Full Resolution' },
+  { value: 'high', label: 'High Quality' },
+  { value: 'performance', label: 'Performance' },
 ];
 
 const backendOptions: OptionItem<string>[] = [
@@ -323,6 +336,7 @@ export default function SettingsPanel({
 
   const [processingSettings, setProcessingSettings] = useState({
     editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
+    thumbnailResolution: appSettings?.thumbnailResolution || 720,
     rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
     processingBackend: appSettings?.processingBackend || 'auto',
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
@@ -377,6 +391,7 @@ export default function SettingsPanel({
     }
     setProcessingSettings({
       editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
+      thumbnailResolution: appSettings?.thumbnailResolution || 720,
       rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
       processingBackend: appSettings?.processingBackend || 'auto',
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
@@ -706,7 +721,7 @@ export default function SettingsPanel({
             </Text>
           </div>
 
-          <div className="relative flex w-full min-[1200px]:w-[450px] p-2 bg-surface rounded-md">
+          <div className="relative flex w-full min-[1200px]:w-112.5 p-2 bg-surface rounded-md">
             {settingCategories.map((category) => (
               <button
                 key={category.id}
@@ -1026,7 +1041,7 @@ export default function SettingsPanel({
                                 description="If provided, the AI will ONLY use tags from this list, overriding RapidRAW’s built-in list. Tagging works only in English."
                               >
                                 <div>
-                                  <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-[40px] border border-border-color mb-2 items-center">
+                                  <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-10 border border-border-color mb-2 items-center">
                                     <AnimatePresence>
                                       {customAiTags.length > 0 ? (
                                         customAiTags.map((tag: string) => (
@@ -1104,7 +1119,7 @@ export default function SettingsPanel({
                       description="A list of tags that will appear as shortcuts in the tagging context menu."
                     >
                       <div>
-                        <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-[40px] border border-border-color mb-2 items-center">
+                        <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-10 border border-border-color mb-2 items-center">
                           <AnimatePresence>
                             {taggingShortcuts.length > 0 ? (
                               taggingShortcuts.map((shortcut: string) => (
@@ -1242,6 +1257,18 @@ export default function SettingsPanel({
                     </li>
                     <li>
                       <a
+                        href="https://github.com/advimman/lama"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-accent hover:underline"
+                      >
+                        LaMa
+                      </a>
+                      : For the powerful & simple image inpainting model, which enables content-aware fill and object
+                      removal.
+                    </li>
+                    <li>
+                      <a
                         href="https://github.com/facebookresearch/sam2"
                         target="_blank"
                         rel="noopener noreferrer"
@@ -1261,6 +1288,18 @@ export default function SettingsPanel({
                         U-2-Net
                       </a>
                       : For providing the robust architecture used for the AI sky and foreground detection capabilities.
+                    </li>
+                    <li>
+                      <a
+                        href="https://github.com/DepthAnything/Depth-Anything-V2"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-accent hover:underline"
+                      >
+                        Depth Anything V2
+                      </a>
+                      : For the powerful monocular depth estimation model that enables the AI depth masking
+                      capabilities.
                     </li>
                     <li>
                       <a
@@ -1434,20 +1473,18 @@ export default function SettingsPanel({
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.3, ease: 'easeInOut' }}
-                            className="overflow-hidden"
                           >
                             <div className="pl-4 border-l-2 border-border-color ml-1">
                               <SettingItem
-                                label="High Quality Live Preview"
-                                description="Uses higher resolution and less compression during interaction."
+                                label="Live Preview Quality"
+                                description="Controls the resolution and compression of the image while dragging sliders. Lower quality significantly improves responsiveness."
                               >
-                                <Switch
-                                  checked={appSettings?.enableHighQualityLivePreviews ?? false}
-                                  id="hq-live-previews-toggle"
-                                  label="Enable High Quality"
-                                  onChange={(checked) =>
-                                    onSettingsChange({ ...appSettings, enableHighQualityLivePreviews: checked })
+                                <Dropdown
+                                  onChange={(value: any) =>
+                                    onSettingsChange({ ...appSettings, livePreviewQuality: value })
                                   }
+                                  options={livePreviewQualityOptions}
+                                  value={appSettings?.livePreviewQuality || 'high'}
                                 />
                               </SettingItem>
                             </div>
@@ -1455,6 +1492,17 @@ export default function SettingsPanel({
                         )}
                       </AnimatePresence>
                     </div>
+
+                    <SettingItem
+                      description="Determines the resolution of generated library thumbnails. Higher values produce sharper images during loading."
+                      label="Thumbnail Resolution"
+                    >
+                      <Dropdown
+                        onChange={(value: any) => handleProcessingSettingChange('thumbnailResolution', value)}
+                        options={thumbnailResolutions}
+                        value={processingSettings.thumbnailResolution}
+                      />
+                    </SettingItem>
 
                     <SettingItem
                       label="RAW Highlight Recovery"

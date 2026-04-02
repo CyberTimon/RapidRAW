@@ -124,7 +124,14 @@ fn develop_internal(
 
     let denominator = (original_white_level - original_black_level).max(1.0);
     let rescale_factor = (u32::MAX as f32 - original_black_level) / denominator;
+
     let safe_highlight_compression = highlight_compression.max(1.01);
+
+    let clamp_limit = if fast_demosaic {
+        1.0
+    } else {
+        safe_highlight_compression
+    };
 
     check_cancel()?;
 
@@ -135,7 +142,7 @@ fn develop_internal(
                 if is_linear_format && apply_ungamma {
                     linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
                 }
-                *p = linear_val;
+                *p = linear_val.clamp(0.0, clamp_limit);
             });
         }
         Intermediate::ThreeColor(pixels) => {
@@ -175,9 +182,9 @@ fn develop_internal(
                     (r, g, b)
                 };
 
-                p[0] = final_r;
-                p[1] = final_g;
-                p[2] = final_b;
+                p[0] = final_r.clamp(0.0, clamp_limit);
+                p[1] = final_g.clamp(0.0, clamp_limit);
+                p[2] = final_b.clamp(0.0, clamp_limit);
             });
         }
         Intermediate::FourColor(pixels) => {
@@ -187,7 +194,7 @@ fn develop_internal(
                     if is_linear_format && apply_ungamma {
                         linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
                     }
-                    *c = linear_val;
+                    *c = linear_val.clamp(0.0, clamp_limit);
                 });
             });
         }

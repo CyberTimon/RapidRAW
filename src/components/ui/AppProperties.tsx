@@ -152,7 +152,7 @@ export interface AppSettings {
   useFullDpiRendering?: boolean;
   highResZoomMultiplier?: number;
   enableLivePreviews?: boolean;
-  enableHighQualityLivePreviews?: boolean;
+  livePreviewQuality?: string;
   enableAiTagging?: boolean;
   enableExifReading?: boolean;
   filterCriteria?: FilterCriteria;
@@ -209,6 +209,7 @@ export interface ImageFile {
   is_edited: boolean;
   modified: number;
   path: string;
+  rating: number;
   tags: Array<string> | null;
   exif: { [key: string]: string } | null;
   is_virtual_copy: boolean;
