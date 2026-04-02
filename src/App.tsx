@@ -480,7 +480,7 @@ function App() {
   const compactFolderTreeWidth =
     viewportSize.width > 0 ? Math.min(360, Math.max(260, Math.round(viewportSize.width * 0.84))) : 320;
   const compactEditorPanelHeight =
-    viewportSize.height > 0 ? Math.max(220, Math.min(Math.round(viewportSize.height * 0.36), 360)) : 280;
+    viewportSize.height > 0 ? Math.max(300, Math.min(Math.round(viewportSize.height * 0.46), 520)) : 340;
   const compactFilmstripHeight = Math.min(bottomPanelHeight, 104);
 
   useEffect(() => {
@@ -5133,6 +5133,7 @@ function App() {
               setUiVisibility((prev: UiVisibility) => ({ ...prev, filmstrip: value }))
             }
             showFilmstrip={!isCompactPortrait}
+            showZoomControls={!isCompactPortrait}
             thumbnailAspectRatio={thumbnailAspectRatio}
             thumbnails={thumbnails}
             zoom={zoom}

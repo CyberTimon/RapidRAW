@@ -59,6 +59,7 @@ interface DropdownMenuProps {
   buttonTitle: string;
   children: any;
   contentClassName: string;
+  isCompactLayout?: boolean;
 }
 
 interface FilterOptionProps {
@@ -271,7 +272,11 @@ const getGridMetrics = (
   const baseThumbWidth = thumbnailSizeOptions.find((option) => option.id === thumbnailSize)?.size || 240;
   const minThumbWidth = isCompactGrid ? Math.max(112, Math.round(baseThumbWidth * 0.78)) : baseThumbWidth;
   const availableWidth = Math.max(containerWidth - outerPadding * 2, minThumbWidth);
-  const columnCount = isListView ? 1 : Math.max(1, Math.floor((availableWidth + gap) / (minThumbWidth + gap)));
+  const columnCount = isListView
+    ? 1
+    : isCompactGrid
+      ? 2
+      : Math.max(1, Math.floor((availableWidth + gap) / (minThumbWidth + gap)));
   const itemWidth = isListView ? availableWidth : (availableWidth - gap * (columnCount - 1)) / columnCount;
   const listRowHeight = Math.max(36, Math.min(300, (availableWidth * listColumnWidths.thumbnail) / 100));
   const rowHeight = isListView ? listRowHeight : itemWidth + gap;
@@ -701,7 +706,13 @@ function ColorFilterOptions({ filterCriteria, setFilterCriteria }: FilterOptionP
   );
 }
 
-function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName = 'w-56' }: DropdownMenuProps) {
+function DropdownMenu({
+  buttonContent,
+  buttonTitle,
+  children,
+  contentClassName = 'w-56',
+  isCompactLayout = false,
+}: DropdownMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<any>(null);
 
@@ -720,7 +731,10 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
       <Button
         aria-expanded={isOpen}
         aria-haspopup="true"
-        className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
+        className={clsx(
+          'bg-surface text-text-primary shadow-none p-0 flex items-center justify-center',
+          isCompactLayout ? 'h-10 w-10' : 'h-12 w-12',
+        )}
         onClick={() => setIsOpen(!isOpen)}
         data-tooltip={buttonTitle}
       >
@@ -728,21 +742,40 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
       </Button>
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            className={`absolute right-0 mt-2 ${contentClassName} origin-top-right z-20`}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.1, ease: 'easeOut' }}
-          >
-            <div
-              className="bg-surface/90 backdrop-blur-md rounded-lg shadow-xl"
-              role="menu"
-              aria-orientation="vertical"
+          <>
+            {isCompactLayout && (
+              <motion.button
+                className="fixed inset-0 z-20 bg-black/35"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsOpen(false)}
+              />
+            )}
+            <motion.div
+              className={clsx(
+                isCompactLayout
+                  ? 'fixed left-2 right-2 top-[4.5rem] z-30 origin-top max-h-[calc(100vh-5.5rem)]'
+                  : `absolute right-0 mt-2 ${contentClassName} origin-top-right z-20`,
+                isCompactLayout && 'max-w-[calc(100vw-1rem)]',
+              )}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.1, ease: 'easeOut' }}
             >
-              {children}
-            </div>
-          </motion.div>
+              <div
+                className={clsx(
+                  'bg-surface/90 backdrop-blur-md rounded-lg shadow-xl',
+                  isCompactLayout && 'max-h-[calc(100vh-5.5rem)] overflow-y-auto',
+                )}
+                role="menu"
+                aria-orientation="vertical"
+              >
+                {children}
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>
@@ -1037,12 +1070,20 @@ function ViewOptionsDropdown({
     <DropdownMenu
       buttonContent={
         <>
-          <SlidersHorizontal className="w-8 h-8" />
-          {isFilterActive && <div className="absolute -top-1 -right-1 bg-accent rounded-full w-3 h-3" />}
+          <SlidersHorizontal className={isCompactLayout ? 'w-5 h-5' : 'w-8 h-8'} />
+          {isFilterActive && (
+            <div
+              className={clsx(
+                'absolute bg-accent rounded-full',
+                isCompactLayout ? '-top-0.5 -right-0.5 w-2.5 h-2.5' : '-top-1 -right-1 w-3 h-3',
+              )}
+            />
+          )}
         </>
       }
       buttonTitle="View Options"
-      contentClassName="w-[min(92vw,720px)] max-w-[92vw]"
+      contentClassName={isCompactLayout ? 'w-[calc(100vw-1rem)]' : 'w-[min(92vw,720px)] max-w-[92vw]'}
+      isCompactLayout={isCompactLayout}
     >
       <div className={clsx(isCompactLayout ? 'flex flex-col max-h-[70vh] overflow-y-auto' : 'flex')}>
         <div
