@@ -4239,9 +4239,6 @@ fn frontend_ready(
     }
     Ok(())
 }
-
-=======
->>>>>>> upstream/main
 fn main() {
     rapidraw_lib::run();
 }
