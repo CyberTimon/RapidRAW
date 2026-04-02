@@ -7,6 +7,7 @@ import { Adjustments, AiPatch, Coord, MaskContainer } from '../../../utils/adjus
 import { Mask, SubMask, SubMaskMode, ToolType } from '../right/Masks';
 import { BrushSettings, SelectedImage } from '../../ui/AppProperties';
 import { RenderSize } from '../../../hooks/useImageRenderSize';
+import { isAndroidClient } from '../../../utils/platform';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
 
@@ -79,6 +80,10 @@ interface MaskOverlay {
   onUpdate(id: string, subMask: Partial<SubMask>): void;
   scale: number;
   subMask: SubMask;
+}
+
+function hasClientPointerEvent(e: any) {
+  return e && (e.clientX != null || e.touches?.length || e.changedTouches?.length);
 }
 
 const MaskOverlay = memo(
@@ -449,6 +454,10 @@ const MaskOverlay = memo(
                 e.cancelBubble = true;
                 e.evt.preventDefault();
               }}
+              onTouchStart={(e) => {
+                e.cancelBubble = true;
+                e.evt.preventDefault();
+              }}
               boundBoxFunc={(oldBox, newBox) => {
                 if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
                   return oldBox;
@@ -751,6 +760,7 @@ const ImageCanvas = memo(
     const [cursorPreview, setCursorPreview] = useState<CursorPreview>({ x: 0, y: 0, visible: false });
     const [straightenLine, setStraightenLine] = useState<any>(null);
     const isStraightening = useRef(false);
+    const isAndroid = useMemo(() => isAndroidClient(), []);
 
     const [displayState, setDisplayState] = useState({
       base: finalPreviewUrl || selectedImage.thumbnailUrl,
@@ -991,7 +1001,9 @@ const ImageCanvas = memo(
 
     const handleMouseDown = useCallback(
       (e: any) => {
-        e.evt.preventDefault();
+        if (e.evt.cancelable) {
+          e.evt.preventDefault();
+        }
 
         if (isWbPickerActive) {
           handleWbClick(e);
@@ -1191,11 +1203,15 @@ const ImageCanvas = memo(
           return;
         }
 
+        if (isAndroid && e?.evt?.cancelable && (e.evt.type === 'touchmove' || e.evt.type === 'touchstart')) {
+          e.evt.preventDefault();
+        }
+
         let pos;
         if (e && typeof e.target?.getStage === 'function') {
           const stage = e.target.getStage();
           pos = stage.getPointerPosition();
-        } else if (e && e.clientX != null && e.clientY != null) {
+        } else if (hasClientPointerEvent(e)) {
           const stage = drawingStageRef.current;
           if (stage) {
             stage.setPointersPositions(e);
@@ -1531,6 +1547,16 @@ const ImageCanvas = memo(
         handleMouseMove(e);
       }
 
+      function onTouchMove(e: TouchEvent) {
+        if (!isDrawing.current) {
+          return;
+        }
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        handleMouseMove(e);
+      }
+
       function onUp() {
         if (!isDrawing.current) {
           return;
@@ -1540,15 +1566,27 @@ const ImageCanvas = memo(
 
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
+      if (isAndroid) {
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', onUp);
+        window.addEventListener('touchcancel', onUp);
+      }
       return () => {
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
+        window.removeEventListener('touchmove', onTouchMove);
+        window.removeEventListener('touchend', onUp);
+        window.removeEventListener('touchcancel', onUp);
       };
-    }, [isToolActive, handleMouseMove, handleMouseUp]);
+    }, [isAndroid, isToolActive, handleMouseMove, handleMouseUp]);
 
     const handleStraightenMouseDown = (e: any) => {
-      if (e.evt.button !== 0) {
+      if (e.evt.button !== undefined && e.evt.button !== 0) {
         return;
+      }
+
+      if (isAndroid && e.evt.cancelable) {
+        e.evt.preventDefault();
       }
 
       isStraightening.current = true;
@@ -1559,6 +1597,10 @@ const ImageCanvas = memo(
     const handleStraightenMouseMove = (e: any) => {
       if (!isStraightening.current) {
         return;
+      }
+
+      if (isAndroid && e.evt.cancelable) {
+        e.evt.preventDefault();
       }
 
       const pos = e.target.getStage().getPointerPosition();
@@ -1859,6 +1901,10 @@ const ImageCanvas = memo(
               onMouseLeave={handleMouseLeave}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
+              onTouchCancel={isAndroid ? handleMouseUp : undefined}
+              onTouchEnd={isAndroid ? handleMouseUp : undefined}
+              onTouchMove={isAndroid ? handleMouseMove : undefined}
+              onTouchStart={isAndroid ? handleMouseDown : undefined}
               style={{
                 cursor: effectiveCursor,
                 left: `${imageRenderSize.offsetX}px`,
@@ -1993,7 +2039,18 @@ const ImageCanvas = memo(
                   onMouseLeave={handleStraightenMouseLeave}
                   onMouseMove={handleStraightenMouseMove}
                   onMouseUp={handleStraightenMouseUp}
-                  style={{ position: 'absolute', top: 0, left: 0, zIndex: 10, cursor: 'crosshair' }}
+                  onTouchCancel={isAndroid ? handleStraightenMouseUp : undefined}
+                  onTouchEnd={isAndroid ? handleStraightenMouseUp : undefined}
+                  onTouchMove={isAndroid ? handleStraightenMouseMove : undefined}
+                  onTouchStart={isAndroid ? handleStraightenMouseDown : undefined}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    zIndex: 10,
+                    cursor: 'crosshair',
+                    touchAction: isAndroid ? 'none' : undefined,
+                  }}
                   width={uncroppedImageRenderSize.width}
                 >
                   <Layer>

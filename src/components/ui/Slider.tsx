@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GLOBAL_KEYS } from './AppProperties';
+import { isAndroidClient } from '../../utils/platform';
 
 interface SliderProps {
   defaultValue?: number;
@@ -15,6 +16,7 @@ interface SliderProps {
 
 const DOUBLE_CLICK_THRESHOLD_MS = 300;
 const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
+const TOUCH_DRAG_THRESHOLD_PX = 10;
 
 const Slider = ({
   defaultValue = 0,
@@ -40,6 +42,15 @@ const Slider = ({
 
   const lastPointerXRef = useRef<number>(0);
   const accumulatedValueRef = useRef<number>(0);
+  const activeTouchIdRef = useRef<number | null>(null);
+  const pendingTouchRef = useRef<{
+    identifier: number;
+    startX: number;
+    startY: number;
+    target: HTMLInputElement;
+  } | null>(null);
+  const suppressAndroidTouchChangeRef = useRef(false);
+  const isAndroid = useMemo(() => isAndroidClient(), []);
 
   const fillPercentage = max !== min ? ((displayValue - min) / (max - min)) * 100 : 0;
   const defaultPercentage = max !== min ? ((defaultValue - min) / (max - min)) * 100 : 0;
@@ -107,13 +118,37 @@ const Slider = ({
     if (!inputEl) return;
     const sliderWidth = inputEl.getBoundingClientRect().width || 1;
 
+    const getTrackedTouch = (event: TouchEvent) => {
+      const trackedTouchId = activeTouchIdRef.current;
+      const touches = [...Array.from(event.touches ?? []), ...Array.from(event.changedTouches ?? [])];
+
+      if (trackedTouchId === null) {
+        return touches[0] ?? null;
+      }
+
+      return touches.find((touch) => touch.identifier === trackedTouchId) ?? null;
+    };
+
+    const isTrackedTouchStillActive = (event: TouchEvent) => {
+      const trackedTouchId = activeTouchIdRef.current;
+      if (trackedTouchId === null) {
+        return false;
+      }
+
+      return Array.from(event.touches ?? []).some((touch) => touch.identifier === trackedTouchId);
+    };
+
     const handlePointerMove = (e: MouseEvent | TouchEvent) => {
       let clientX: number;
       let shiftKey: boolean;
 
-      if ('touches' in e) {
-        if (e.touches.length === 0) return;
-        clientX = e.touches[0].clientX;
+      if ('touches' in e || 'changedTouches' in e) {
+        const touch = getTrackedTouch(e);
+        if (!touch) return;
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        clientX = touch.clientX;
         shiftKey = e.shiftKey || e.altKey;
       } else {
         clientX = e.clientX;
@@ -140,23 +175,124 @@ const Slider = ({
       onChangeRef.current({ target: { value: snappedValue } });
     };
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (e?: MouseEvent | TouchEvent) => {
+      if (e && ('touches' in e || 'changedTouches' in e)) {
+        if (isTrackedTouchStillActive(e)) {
+          return;
+        }
+      }
+
       lastUpTime.current = Date.now();
+      activeTouchIdRef.current = null;
+      pendingTouchRef.current = null;
+      suppressAndroidTouchChangeRef.current = false;
       setIsDragging(false);
     };
 
     window.addEventListener('mousemove', handlePointerMove);
     window.addEventListener('mouseup', handlePointerUp);
-    window.addEventListener('touchmove', handlePointerMove);
+    window.addEventListener('touchmove', handlePointerMove, { passive: false });
     window.addEventListener('touchend', handlePointerUp);
+    window.addEventListener('touchcancel', handlePointerUp);
 
     return () => {
       window.removeEventListener('mousemove', handlePointerMove);
       window.removeEventListener('mouseup', handlePointerUp);
       window.removeEventListener('touchmove', handlePointerMove);
       window.removeEventListener('touchend', handlePointerUp);
+      window.removeEventListener('touchcancel', handlePointerUp);
     };
   }, [isDragging]);
+
+  const beginTouchDrag = useCallback(
+    (touch: Touch, target: HTMLInputElement) => {
+      const rect = target.getBoundingClientRect();
+      const fraction = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+      const rawValue = min + fraction * (max - min);
+      const snappedValue = snapToStep(rawValue);
+
+      accumulatedValueRef.current = snappedValue;
+      lastPointerXRef.current = touch.clientX;
+      activeTouchIdRef.current = touch.identifier;
+
+      setIsDragging(true);
+      setDisplayValue(snappedValue);
+      onChange({ target: { value: snappedValue } });
+    },
+    [min, max, onChange, snapToStep],
+  );
+
+  useEffect(() => {
+    if (!isAndroid) return;
+
+    const getTrackedTouch = (event: TouchEvent) => {
+      const pendingTouch = pendingTouchRef.current;
+      if (!pendingTouch) {
+        return null;
+      }
+
+      const touches = [...Array.from(event.touches ?? []), ...Array.from(event.changedTouches ?? [])];
+      return touches.find((touch) => touch.identifier === pendingTouch.identifier) ?? null;
+    };
+
+    const clearPendingTouch = () => {
+      pendingTouchRef.current = null;
+      activeTouchIdRef.current = null;
+      suppressAndroidTouchChangeRef.current = false;
+    };
+
+    const handlePendingTouchMove = (e: TouchEvent) => {
+      const pendingTouch = pendingTouchRef.current;
+      if (!pendingTouch || isDragging) {
+        return;
+      }
+
+      const touch = getTrackedTouch(e);
+      if (!touch) {
+        return;
+      }
+
+      const deltaX = touch.clientX - pendingTouch.startX;
+      const deltaY = touch.clientY - pendingTouch.startY;
+      const absDeltaX = Math.abs(deltaX);
+      const absDeltaY = Math.abs(deltaY);
+
+      if (absDeltaY > TOUCH_DRAG_THRESHOLD_PX && absDeltaY > absDeltaX) {
+        pendingTouchRef.current = null;
+        return;
+      }
+
+      if (absDeltaX > TOUCH_DRAG_THRESHOLD_PX && absDeltaX >= absDeltaY) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        beginTouchDrag(touch, pendingTouch.target);
+        pendingTouchRef.current = null;
+      }
+    };
+
+    const handlePendingTouchEnd = (e: TouchEvent) => {
+      const trackedTouchId = activeTouchIdRef.current;
+      if (trackedTouchId === null || isDragging) {
+        return;
+      }
+
+      const hasTrackedTouch = Array.from(e.touches ?? []).some((touch) => touch.identifier === trackedTouchId);
+      if (!hasTrackedTouch) {
+        clearPendingTouch();
+      }
+    };
+
+    window.addEventListener('touchmove', handlePendingTouchMove, { passive: false });
+    window.addEventListener('touchend', handlePendingTouchEnd);
+    window.addEventListener('touchcancel', handlePendingTouchEnd);
+
+    return () => {
+      window.removeEventListener('touchmove', handlePendingTouchMove);
+      window.removeEventListener('touchend', handlePendingTouchEnd);
+      window.removeEventListener('touchcancel', handlePendingTouchEnd);
+    };
+  }, [beginTouchDrag, isAndroid, isDragging]);
 
   useEffect(() => {
     if (isDragging) {
@@ -222,6 +358,9 @@ const Slider = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isDragging) {
+      if (isAndroid && suppressAndroidTouchChangeRef.current) {
+        return;
+      }
       setDisplayValue(Number(e.target.value));
       onChange(e);
     }
@@ -252,17 +391,24 @@ const Slider = ({
     if (e.touches.length === 0) return;
 
     const touch = e.touches[0];
-    const rect = e.currentTarget.getBoundingClientRect();
-    const fraction = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
-    const rawValue = min + fraction * (max - min);
-    const snappedValue = snapToStep(rawValue);
+    suppressAndroidTouchChangeRef.current = isAndroid;
 
-    accumulatedValueRef.current = snappedValue;
-    lastPointerXRef.current = touch.clientX;
+    if (isAndroid) {
+      activeTouchIdRef.current = touch.identifier;
+      pendingTouchRef.current = {
+        identifier: touch.identifier,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        target: e.currentTarget,
+      };
+      return;
+    }
 
-    setIsDragging(true);
-    setDisplayValue(snappedValue);
-    onChange({ target: { value: snappedValue } });
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+
+    beginTouchDrag(touch, e.currentTarget);
   };
 
   const handleValueClick = () => {
@@ -389,7 +535,7 @@ const Slider = ({
           className={`absolute top-1/2 left-0 w-full h-1.5 appearance-none bg-transparent cursor-pointer m-0 p-0 slider-input z-10 ${
             isDragging ? 'slider-thumb-active' : ''
           }`}
-          style={{ margin: 0 }}
+          style={{ margin: 0, touchAction: isAndroid ? 'pan-y' : undefined }}
           max={String(max)}
           min={String(min)}
           onChange={handleChange}

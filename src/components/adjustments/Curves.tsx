@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, Copy, ClipboardPaste } from 'lucide-react';
 import { ActiveChannel, Adjustments, Coord } from '../../utils/adjustments';
+import { isAndroidClient } from '../../utils/platform';
 import { Theme, OPTION_SEPARATOR } from '../ui/AppProperties';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import Text from '../ui/Text';
@@ -149,6 +150,27 @@ function isDefaultCurve(points: Array<Coord> | undefined) {
   return p1.x === 0 && p1.y === 0 && p2.x === 255 && p2.y === 255;
 }
 
+function getClientPosition(e: any) {
+  if (e.touches?.length) {
+    return {
+      clientX: e.touches[0].clientX,
+      clientY: e.touches[0].clientY,
+    };
+  }
+
+  if (e.changedTouches?.length) {
+    return {
+      clientX: e.changedTouches[0].clientX,
+      clientY: e.changedTouches[0].clientY,
+    };
+  }
+
+  return {
+    clientX: e.clientX,
+    clientY: e.clientY,
+  };
+}
+
 export default function CurveGraph({
   adjustments,
   setAdjustments,
@@ -162,6 +184,7 @@ export default function CurveGraph({
   const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
   const [localPoints, setLocalPoints] = useState<Array<Coord> | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const isAndroid = useMemo(() => isAndroidClient(), []);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -224,12 +247,17 @@ export default function CurveGraph({
       const currentPoints = localPointsRef.current || propPointsRef.current;
       if (!currentPoints) return;
 
+      if (isAndroid && ('touches' in e || 'changedTouches' in e) && e.cancelable) {
+        e.preventDefault();
+      }
+
       const svg = svgRef.current;
       if (!svg) return;
 
       const rect = svg.getBoundingClientRect();
-      let x = Math.max(0, Math.min(255, ((e.clientX - rect.left) / rect.width) * 255));
-      const y = Math.max(0, Math.min(255, 255 - ((e.clientY - rect.top) / rect.height) * 255));
+      const { clientX, clientY } = getClientPosition(e);
+      let x = Math.max(0, Math.min(255, ((clientX - rect.left) / rect.width) * 255));
+      const y = Math.max(0, Math.min(255, 255 - ((clientY - rect.top) / rect.height) * 255));
 
       const newPoints = [...currentPoints];
 
@@ -266,13 +294,21 @@ export default function CurveGraph({
     if (draggingPointIndex !== null) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
+      if (isAndroid) {
+        window.addEventListener('touchmove', handleMouseMove, { passive: false });
+        window.addEventListener('touchend', handleMouseUp);
+        window.addEventListener('touchcancel', handleMouseUp);
+      }
     }
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('touchend', handleMouseUp);
+      window.removeEventListener('touchcancel', handleMouseUp);
     };
-  }, [draggingPointIndex, setAdjustments, onDragStateChange]);
+  }, [draggingPointIndex, isAndroid, setAdjustments, onDragStateChange]);
 
   const isLightTheme = theme === Theme.Light || theme === Theme.Arctic;
   const histogramOpacity = isLightTheme ? 0.6 : 0.15;
@@ -306,8 +342,9 @@ export default function CurveGraph({
       return { x: 0, y: 0 };
     }
     const rect = svg.getBoundingClientRect();
-    const x = Math.max(0, Math.min(255, ((e.clientX - rect.left) / rect.width) * 255));
-    const y = Math.max(0, Math.min(255, 255 - ((e.clientY - rect.top) / rect.height) * 255));
+    const { clientX, clientY } = getClientPosition(e);
+    const x = Math.max(0, Math.min(255, ((clientX - rect.left) / rect.width) * 255));
+    const y = Math.max(0, Math.min(255, 255 - ((clientY - rect.top) / rect.height) * 255));
     return { x, y };
   };
 
@@ -315,7 +352,7 @@ export default function CurveGraph({
     e.preventDefault();
     e.stopPropagation();
 
-    if (e.button === 2) return;
+    if (typeof e.button === 'number' && e.button === 2) return;
 
     onDragStateChange?.(true);
 
@@ -343,10 +380,11 @@ export default function CurveGraph({
   };
 
   const handleContainerMouseDown = (e: any) => {
-    if (e.button !== 0 || e.target.tagName === 'circle') {
+    if ((typeof e.button === 'number' && e.button !== 0) || e.target.tagName?.toLowerCase() === 'circle') {
       return;
     }
 
+    e.preventDefault();
     onDragStateChange?.(true);
 
     const { x, y } = getMousePos(e);
@@ -504,8 +542,10 @@ export default function CurveGraph({
       <div
         className="w-full aspect-square bg-surface-secondary p-1 rounded-md relative"
         onMouseDown={handleContainerMouseDown}
+        onTouchStart={isAndroid ? handleContainerMouseDown : undefined}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
+        style={{ touchAction: isAndroid ? 'none' : undefined }}
       >
         <svg ref={svgRef} viewBox="0 0 255 255" className="w-full h-full overflow-visible">
           <path
@@ -546,6 +586,7 @@ export default function CurveGraph({
               fill={color}
               key={i}
               onMouseDown={(e: any) => handlePointMouseDown(e, i)}
+              onTouchStart={isAndroid ? (e: any) => handlePointMouseDown(e, i) : undefined}
               onContextMenu={(e: React.MouseEvent) => handlePointContextMenu(e, i)}
               r="6"
               stroke="#1e1e1e"
