@@ -15,6 +15,7 @@ export interface FolderTree {
 interface FolderTreeProps {
   expandedFolders: Set<string>;
   isLoading: boolean;
+  isOverlayMode?: boolean;
   isResizing: boolean;
   isVisible: boolean;
   onContextMenu(event: any, path: string | null, isPinned?: boolean): void;
@@ -256,6 +257,7 @@ function TreeNode({
 export default function FolderTree({
   expandedFolders,
   isLoading,
+  isOverlayMode = false,
   isResizing,
   isVisible,
   onContextMenu,
@@ -274,6 +276,7 @@ export default function FolderTree({
 }: FolderTreeProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isHovering, setIsHovering] = useState(false);
+  const showCollapseButton = isOverlayMode || isHovering;
 
   const handleEmptyAreaContextMenu = (e: any) => {
     if (e.target === e.currentTarget) {
@@ -336,6 +339,7 @@ export default function FolderTree({
     <div
       className={clsx(
         'relative bg-bg-secondary rounded-lg shrink-0',
+        isOverlayMode && 'shadow-2xl ring-1 ring-black/20',
         !isResizing && 'transition-[width] duration-300 ease-in-out',
       )}
       style={style}
@@ -357,7 +361,7 @@ export default function FolderTree({
           <div className="pt-1 pb-2">
             <div className="flex items-center">
               <AnimatePresence>
-                {isHovering && (
+                {showCollapseButton && (
                   <motion.button
                     initial={{ width: 0, padding: 0, marginRight: 0, opacity: 0 }}
                     animate={{ width: 36, padding: 10, marginRight: 6, opacity: 1 }}

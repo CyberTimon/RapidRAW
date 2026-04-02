@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { List, useListCallbackRef } from 'react-window';
+import clsx from 'clsx';
 import Button from '../ui/Button';
 import SettingsPanel from './SettingsPanel';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
@@ -87,6 +88,7 @@ interface MainLibraryProps {
   imageRatings: Record<string, number>;
   importState: ImportState;
   indexingProgress: Progress;
+  isCompactPortrait: boolean;
   isLoading: boolean;
   isIndexing: boolean;
   isAndroid: boolean;
@@ -127,6 +129,7 @@ interface MainLibraryProps {
 
 interface SearchInputProps {
   indexingProgress: Progress;
+  isCompactLayout?: boolean;
   isIndexing: boolean;
   searchCriteria: SearchCriteria;
   setSearchCriteria(criteria: SearchCriteria | ((prev: SearchCriteria) => SearchCriteria)): void;
@@ -186,6 +189,7 @@ interface ThumbnailAspectRatioProps {
 
 interface ViewOptionsProps {
   filterCriteria: FilterCriteria;
+  isCompactLayout?: boolean;
   libraryViewMode: LibraryViewMode;
   onSelectSize(size: ThumbnailSize): any;
   onSelectAspectRatio(aspectRatio: ThumbnailAspectRatio): any;
@@ -251,6 +255,35 @@ const groupImagesByFolder = (images: ImageFile[], rootPath: string | null) => {
     path: dir,
     images: groups[dir],
   }));
+};
+
+const getGridMetrics = (
+  containerWidth: number,
+  thumbnailSize: ThumbnailSize,
+  listColumnWidths: ColumnWidths,
+  isCompactPortrait: boolean,
+) => {
+  const isListView = thumbnailSize === ThumbnailSize.List;
+  const isCompactGrid = isCompactPortrait && !isListView;
+  const outerPadding = isListView ? 0 : isCompactGrid ? 8 : 12;
+  const gap = isListView ? 0 : isCompactGrid ? 8 : 12;
+  const baseThumbWidth = thumbnailSizeOptions.find((option) => option.id === thumbnailSize)?.size || 240;
+  const minThumbWidth = isCompactGrid ? Math.max(112, Math.round(baseThumbWidth * 0.78)) : baseThumbWidth;
+  const availableWidth = Math.max(containerWidth - outerPadding * 2, minThumbWidth);
+  const columnCount = isListView ? 1 : Math.max(1, Math.floor((availableWidth + gap) / (minThumbWidth + gap)));
+  const itemWidth = isListView ? availableWidth : (availableWidth - gap * (columnCount - 1)) / columnCount;
+  const listRowHeight = Math.max(36, Math.min(300, (availableWidth * listColumnWidths.thumbnail) / 100));
+  const rowHeight = isListView ? listRowHeight : itemWidth + gap;
+
+  return {
+    availableWidth,
+    columnCount,
+    gap,
+    isListView,
+    itemWidth,
+    outerPadding,
+    rowHeight,
+  };
 };
 
 function ListHeader({
@@ -365,7 +398,13 @@ function ListHeader({
   );
 }
 
-function SearchInput({ indexingProgress, isIndexing, searchCriteria, setSearchCriteria }: SearchInputProps) {
+function SearchInput({
+  indexingProgress,
+  isCompactLayout = false,
+  isIndexing,
+  searchCriteria,
+  setSearchCriteria,
+}: SearchInputProps) {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -458,14 +497,20 @@ function SearchInput({ indexingProgress, isIndexing, searchCriteria, setSearchCr
 
   const INACTIVE_WIDTH = 48;
   const PADDING_AND_ICONS_WIDTH = 105;
-  const MAX_WIDTH = 640;
+  const MAX_WIDTH = isCompactLayout
+    ? Math.max(260, (typeof window !== 'undefined' ? window.innerWidth : 360) - 48)
+    : 640;
 
   const calculatedWidth = Math.min(MAX_WIDTH, contentWidth + PADDING_AND_ICONS_WIDTH);
+  const activeWidth = isCompactLayout ? '100%' : calculatedWidth;
 
   return (
     <motion.div
-      animate={{ width: isActive ? calculatedWidth : INACTIVE_WIDTH }}
-      className="relative flex items-center bg-surface rounded-md h-12"
+      animate={{ width: isActive ? activeWidth : INACTIVE_WIDTH }}
+      className={clsx(
+        'relative flex items-center bg-surface rounded-md max-w-full',
+        isCompactLayout ? 'h-10 flex-1 min-w-[240px]' : 'h-12',
+      )}
       initial={false}
       layout
       ref={containerRef}
@@ -473,7 +518,10 @@ function SearchInput({ indexingProgress, isIndexing, searchCriteria, setSearchCr
       onClick={() => inputRef.current?.focus()}
     >
       <button
-        className="absolute left-0 top-0 h-12 w-12 flex items-center justify-center text-text-primary z-10 shrink-0"
+        className={clsx(
+          'absolute left-0 top-0 flex items-center justify-center text-text-primary z-10 shrink-0',
+          isCompactLayout ? 'h-10 w-10' : 'h-12 w-12',
+        )}
         onClick={(e) => {
           e.stopPropagation();
           if (!isActive) {
@@ -487,10 +535,16 @@ function SearchInput({ indexingProgress, isIndexing, searchCriteria, setSearchCr
       </button>
 
       <div
-        className="flex items-center gap-1 pl-12 pr-16 w-full h-full overflow-x-hidden"
+        className={clsx(
+          'flex items-center gap-1 w-full h-full overflow-x-hidden',
+          isCompactLayout ? 'pl-10 pr-12' : 'pl-12 pr-16',
+        )}
         style={{ opacity: isActive ? 1 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 0.2s' }}
       >
-        <div ref={contentRef} className="flex items-center gap-2 h-full flex-nowrap min-w-[300px]">
+        <div
+          ref={contentRef}
+          className={clsx('flex items-center gap-2 h-full flex-nowrap', isCompactLayout ? 'min-w-0' : 'min-w-[300px]')}
+        >
           {tags.map((tag) => (
             <motion.div
               key={tag}
@@ -961,6 +1015,7 @@ function ViewModeOptions({ mode, setMode }: { mode: LibraryViewMode; setMode: (m
 
 function ViewOptionsDropdown({
   filterCriteria,
+  isCompactLayout = false,
   libraryViewMode,
   onSelectSize,
   onSelectAspectRatio,
@@ -986,10 +1041,15 @@ function ViewOptionsDropdown({
         </>
       }
       buttonTitle="View Options"
-      contentClassName="w-[720px]"
+      contentClassName="w-[min(92vw,720px)] max-w-[92vw]"
     >
-      <div className="flex">
-        <div className="w-1/4 p-2 border-r border-border-color">
+      <div className={clsx(isCompactLayout ? 'flex flex-col max-h-[70vh] overflow-y-auto' : 'flex')}>
+        <div
+          className={clsx(
+            'p-2',
+            isCompactLayout ? 'border-b border-border-color' : 'w-1/4 border-r border-border-color',
+          )}
+        >
           <ThumbnailSizeOptions selectedSize={thumbnailSize} onSelectSize={onSelectSize} />
           <div className="pt-2">
             <ThumbnailAspectRatioOptions
@@ -1001,10 +1061,15 @@ function ViewOptionsDropdown({
             <ViewModeOptions mode={libraryViewMode} setMode={setLibraryViewMode} />
           </div>
         </div>
-        <div className="w-2/4 p-2 border-r border-border-color">
+        <div
+          className={clsx(
+            'p-2',
+            isCompactLayout ? 'border-b border-border-color' : 'w-2/4 border-r border-border-color',
+          )}
+        >
           <FilterOptions filterCriteria={filterCriteria} setFilterCriteria={setFilterCriteria} />
         </div>
-        <div className="w-1/4 p-2">
+        <div className={clsx('p-2', !isCompactLayout && 'w-1/4')}>
           <SortOptions sortCriteria={sortCriteria} setSortCriteria={setSortCriteria} sortOptions={sortOptions} />
         </div>
       </div>
@@ -1530,6 +1595,7 @@ export default function MainLibrary({
   imageRatings,
   importState,
   indexingProgress,
+  isCompactPortrait,
   isIndexing,
   isAndroid,
   isLoading,
@@ -1656,17 +1722,7 @@ export default function MainLibrary({
     if (activePath && libraryContainerRef.current) {
       const width = libraryContainerRef.current.clientWidth;
       if (width > 0 && clientHeight > 0) {
-        const isListView = thumbnailSize === ThumbnailSize.List;
-        const OUTER_PADDING = isListView ? 0 : 12;
-        const ITEM_GAP = isListView ? 0 : 12;
-        const minThumbWidth = thumbnailSizeOptions.find((o) => o.id === thumbnailSize)?.size || 240;
-        const availableWidth = width - OUTER_PADDING * 2;
-        const columnCount = isListView
-          ? 1
-          : Math.max(1, Math.floor((availableWidth + ITEM_GAP) / (minThumbWidth + ITEM_GAP)));
-        const itemWidth = isListView ? availableWidth : (availableWidth - ITEM_GAP * (columnCount - 1)) / columnCount;
-        const listRowHeight = Math.max(36, Math.min(300, (availableWidth * listColumnWidths.thumbnail) / 100));
-        const rowHeight = isListView ? listRowHeight : itemWidth + ITEM_GAP;
+        const { columnCount, rowHeight } = getGridMetrics(width, thumbnailSize, listColumnWidths, isCompactPortrait);
         const headerHeight = 40;
 
         let targetTop = 0;
@@ -1717,26 +1773,24 @@ export default function MainLibrary({
     if (libraryScrollTop > 0) {
       element.scrollTop = libraryScrollTop;
     }
-  }, [listHandle]);
+  }, [
+    isCompactPortrait,
+    listColumnWidths,
+    thumbnailSize,
+    activePath,
+    imageList,
+    currentFolderPath,
+    libraryScrollTop,
+    libraryViewMode,
+    listHandle,
+  ]);
 
   useEffect(() => {
     if (!activePath || !libraryContainerRef.current || multiSelectedPaths.length > 1) return;
 
     const container = libraryContainerRef.current;
     const width = container.clientWidth;
-    const isListView = thumbnailSize === ThumbnailSize.List;
-    const OUTER_PADDING = isListView ? 0 : 12;
-    const ITEM_GAP = isListView ? 0 : 12;
-    const minThumbWidth = thumbnailSizeOptions.find((o) => o.id === thumbnailSize)?.size || 240;
-
-    const availableWidth = width - OUTER_PADDING * 2;
-    const columnCount = isListView
-      ? 1
-      : Math.max(1, Math.floor((availableWidth + ITEM_GAP) / (minThumbWidth + ITEM_GAP)));
-    const itemWidth = isListView ? availableWidth : (availableWidth - ITEM_GAP * (columnCount - 1)) / columnCount;
-
-    const listRowHeight = Math.max(36, Math.min(300, (availableWidth * listColumnWidths.thumbnail) / 100));
-    const rowHeight = isListView ? listRowHeight : itemWidth + ITEM_GAP;
+    const { columnCount, rowHeight } = getGridMetrics(width, thumbnailSize, listColumnWidths, isCompactPortrait);
     const headerHeight = 40;
 
     let targetTop = 0;
@@ -1807,6 +1861,7 @@ export default function MainLibrary({
     libraryViewMode,
     thumbnailSize,
     currentFolderPath,
+    isCompactPortrait,
     multiSelectedPaths.length,
     listHandle,
     listColumnWidths.thumbnail,
@@ -2078,11 +2133,14 @@ export default function MainLibrary({
       ref={libraryContainerRef}
     >
       <header
-        className="p-4 shrink-0 flex justify-between items-center border-b border-border-color gap-4"
+        className={clsx(
+          'p-4 shrink-0 border-b border-border-color gap-4',
+          isCompactPortrait ? 'flex flex-col items-stretch' : 'flex justify-between items-center',
+        )}
         onMouseEnter={() => setIsProgressHovered(true)}
         onMouseLeave={() => setIsProgressHovered(false)}
       >
-        <div className="min-w-0">
+        <div className={clsx('min-w-0', isCompactPortrait && 'w-full')}>
           <Text variant={TextVariants.headline}>Library</Text>
           <div className="flex items-center gap-2">
             {currentFolderPath ? (
@@ -2110,7 +2168,7 @@ export default function MainLibrary({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className={clsx('flex items-center shrink-0', isCompactPortrait ? 'w-full flex-wrap gap-2' : 'gap-3')}>
           {importState.status === Status.Importing && (
             <Text as="div" color={TextColors.accent} className="flex items-center gap-2 animate-pulse">
               <FolderInput size={16} />
@@ -2131,14 +2189,18 @@ export default function MainLibrary({
               <span>Import Failed!</span>
             </Text>
           )}
-          <SearchInput
-            indexingProgress={indexingProgress}
-            isIndexing={isIndexing}
-            searchCriteria={searchCriteria}
-            setSearchCriteria={setSearchCriteria}
-          />
+          <div className={clsx(isCompactPortrait && 'order-last w-full')}>
+            <SearchInput
+              indexingProgress={indexingProgress}
+              isCompactLayout={isCompactPortrait}
+              isIndexing={isIndexing}
+              searchCriteria={searchCriteria}
+              setSearchCriteria={setSearchCriteria}
+            />
+          </div>
           <ViewOptionsDropdown
             filterCriteria={filterCriteria}
+            isCompactLayout={isCompactPortrait}
             libraryViewMode={libraryViewMode}
             onSelectSize={onThumbnailSizeChange}
             onSelectAspectRatio={onThumbnailAspectRatioChange}
@@ -2151,25 +2213,34 @@ export default function MainLibrary({
             thumbnailAspectRatio={thumbnailAspectRatio}
           />
           <Button
-            className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
+            className={clsx(
+              'bg-surface text-text-primary shadow-none p-0 flex items-center justify-center',
+              isCompactPortrait ? 'h-10 w-10' : 'h-12 w-12',
+            )}
             onClick={onNavigateToCommunity}
             data-tooltip="Community Presets"
           >
-            <Users className="w-8 h-8" />
+            <Users className={isCompactPortrait ? 'w-5 h-5' : 'w-8 h-8'} />
           </Button>
           <Button
-            className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
+            className={clsx(
+              'bg-surface text-text-primary shadow-none p-0 flex items-center justify-center',
+              isCompactPortrait ? 'h-10 w-10' : 'h-12 w-12',
+            )}
             onClick={onOpenFolder}
             data-tooltip="Open another folder"
           >
-            <Folder className="w-8 h-8" />
+            <Folder className={isCompactPortrait ? 'w-5 h-5' : 'w-8 h-8'} />
           </Button>
           <Button
-            className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
+            className={clsx(
+              'bg-surface text-text-primary shadow-none p-0 flex items-center justify-center',
+              isCompactPortrait ? 'h-10 w-10' : 'h-12 w-12',
+            )}
             onClick={onGoHome}
             data-tooltip="Go to Home"
           >
-            <Home className="w-8 h-8" />
+            <Home className={isCompactPortrait ? 'w-5 h-5' : 'w-8 h-8'} />
           </Button>
         </div>
       </header>
@@ -2183,21 +2254,12 @@ export default function MainLibrary({
           {gridSize.height > 0 &&
             gridSize.width > 0 &&
             (() => {
-              const isListView = thumbnailSize === ThumbnailSize.List;
-              const OUTER_PADDING = isListView ? 0 : 12;
-              const ITEM_GAP = isListView ? 0 : 12;
-              const minThumbWidth = thumbnailSizeOptions.find((o) => o.id === thumbnailSize)?.size || 240;
-
-              const availableWidth = gridSize.width - OUTER_PADDING * 2;
-              const columnCount = isListView
-                ? 1
-                : Math.max(1, Math.floor((availableWidth + ITEM_GAP) / (minThumbWidth + ITEM_GAP)));
-              const itemWidth = isListView
-                ? availableWidth
-                : (availableWidth - ITEM_GAP * (columnCount - 1)) / columnCount;
-
-              const listRowHeight = Math.max(36, Math.min(300, (availableWidth * listColumnWidths.thumbnail) / 100));
-              const rowHeight = isListView ? listRowHeight : itemWidth + ITEM_GAP;
+              const { columnCount, gap, isListView, itemWidth, outerPadding, rowHeight } = getGridMetrics(
+                gridSize.width,
+                thumbnailSize,
+                listColumnWidths,
+                isCompactPortrait,
+              );
               const headerHeight = 40;
 
               const rows: any[] = [];
@@ -2229,7 +2291,7 @@ export default function MainLibrary({
               rows.push({ type: 'footer' });
 
               const getItemSize = (index: number) => {
-                if (rows[index].type === 'footer') return isListView ? 24 : OUTER_PADDING;
+                if (rows[index].type === 'footer') return isListView ? 24 : outerPadding;
                 return rows[index].type === 'header' ? headerHeight : rowHeight;
               };
 
@@ -2290,9 +2352,9 @@ export default function MainLibrary({
                         imageRatings,
                         rootPath: currentFolderPath,
                         itemWidth,
-                        itemHeight: isListView ? listRowHeight : itemWidth,
-                        outerPadding: OUTER_PADDING,
-                        gap: ITEM_GAP,
+                        itemHeight: isListView ? rowHeight : itemWidth,
+                        outerPadding,
+                        gap,
                         isListView,
                         columnWidths: listColumnWidths,
                       }}
