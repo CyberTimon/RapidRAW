@@ -36,6 +36,7 @@ interface BottomBarProps {
   selectedImage?: SelectedImage;
   setIsFilmstripVisible?(isVisible: boolean): void;
   showFilmstrip?: boolean;
+  showZoomControls?: boolean;
   thumbnails?: Record<string, string>;
   thumbnailAspectRatio: ThumbnailAspectRatio;
   zoom?: number;
@@ -113,6 +114,7 @@ export default function BottomBar({
   selectedImage,
   setIsFilmstripVisible,
   showFilmstrip = true,
+  showZoomControls = true,
   thumbnails,
   thumbnailAspectRatio,
   displaySize,
@@ -377,73 +379,77 @@ export default function BottomBar({
           </div>
         ) : (
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 w-56">
-              <div
-                className="relative w-12 h-full flex items-center justify-end cursor-pointer"
-                onClick={handleResetZoom}
-                onMouseEnter={() => setIsZoomLabelHovered(true)}
-                onMouseLeave={() => setIsZoomLabelHovered(false)}
-                data-tooltip="Reset Zoom to Fit Window"
-              >
-                <span className="absolute right-0 text-xs text-text-secondary select-none text-right w-max transition-colors hover:text-text-primary">
-                  {isZoomLabelHovered ? 'Reset Zoom' : 'Zoom'}
-                </span>
-              </div>
-
-              <div className="relative flex-1 h-5">
-                <div className="absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 bg-surface rounded-full pointer-events-none" />
-                <input
-                  type="range"
-                  min={0.1}
-                  max={2.0}
-                  step="0.05"
-                  value={latchedSliderValue}
-                  onChange={handleSliderChange}
-                  onKeyDown={handleZoomKeyDown}
-                  onMouseDown={handleMouseDown}
-                  onMouseUp={handleMouseUp}
-                  onTouchStart={handleMouseDown}
-                  onTouchEnd={handleMouseUp}
-                  onDoubleClick={handleResetZoom}
-                  className={`absolute top-1/2 left-0 w-full h-1.5 -mt-[1.5px] appearance-none bg-transparent cursor-pointer p-0 slider-input z-10 ${
-                    isZoomActive ? 'slider-thumb-active' : ''
-                  }`}
-                />
-              </div>
-
-              <div className="relative text-xs text-text-secondary w-6 text-right flex items-center justify-end h-5 gap-1">
-                {isEditingPercent ? (
-                  <input
-                    ref={percentInputRef}
-                    type="text"
-                    value={percentInputValue}
-                    onChange={(e) => setPercentInputValue(e.target.value)}
-                    onKeyDown={handlePercentKeyDown}
-                    onBlur={handlePercentSubmit}
-                    className="w-full text-xs text-text-primary bg-bg-primary border border-border-color rounded-sm px-1 text-right"
-                    style={{ fontSize: '12px', height: '18px' }}
-                  />
-                ) : (
-                  <span
-                    onClick={handlePercentClick}
-                    className="cursor-pointer hover:text-text-primary transition-colors select-none"
-                    data-tooltip="Click to enter custom zoom percentage"
-                  >
-                    {latchedDisplayPercent}%
-                  </span>
-                )}
-              </div>
-            </div>
-            {showFilmstrip && (
+            {showZoomControls && (
               <>
-                <div className="h-5 w-px bg-surface"></div>
-                <button
-                  className="p-1.5 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
-                  onClick={() => setIsFilmstripVisible?.(!isFilmstripVisible)}
-                  data-tooltip={isFilmstripVisible ? 'Collapse Filmstrip' : 'Expand Filmstrip'}
-                >
-                  {isFilmstripVisible ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-                </button>
+                <div className="flex items-center gap-2 w-56">
+                  <div
+                    className="relative w-12 h-full flex items-center justify-end cursor-pointer"
+                    onClick={handleResetZoom}
+                    onMouseEnter={() => setIsZoomLabelHovered(true)}
+                    onMouseLeave={() => setIsZoomLabelHovered(false)}
+                    data-tooltip="Reset Zoom to Fit Window"
+                  >
+                    <span className="absolute right-0 text-xs text-text-secondary select-none text-right w-max transition-colors hover:text-text-primary">
+                      {isZoomLabelHovered ? 'Reset Zoom' : 'Zoom'}
+                    </span>
+                  </div>
+
+                  <div className="relative flex-1 h-5">
+                    <div className="absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 bg-surface rounded-full pointer-events-none" />
+                    <input
+                      type="range"
+                      min={0.1}
+                      max={2.0}
+                      step="0.05"
+                      value={latchedSliderValue}
+                      onChange={handleSliderChange}
+                      onKeyDown={handleZoomKeyDown}
+                      onMouseDown={handleMouseDown}
+                      onMouseUp={handleMouseUp}
+                      onTouchStart={handleMouseDown}
+                      onTouchEnd={handleMouseUp}
+                      onDoubleClick={handleResetZoom}
+                      className={`absolute top-1/2 left-0 w-full h-1.5 -mt-[1.5px] appearance-none bg-transparent cursor-pointer p-0 slider-input z-10 ${
+                        isZoomActive ? 'slider-thumb-active' : ''
+                      }`}
+                    />
+                  </div>
+
+                  <div className="relative text-xs text-text-secondary w-6 text-right flex items-center justify-end h-5 gap-1">
+                    {isEditingPercent ? (
+                      <input
+                        ref={percentInputRef}
+                        type="text"
+                        value={percentInputValue}
+                        onChange={(e) => setPercentInputValue(e.target.value)}
+                        onKeyDown={handlePercentKeyDown}
+                        onBlur={handlePercentSubmit}
+                        className="w-full text-xs text-text-primary bg-bg-primary border border-border-color rounded-sm px-1 text-right"
+                        style={{ fontSize: '12px', height: '18px' }}
+                      />
+                    ) : (
+                      <span
+                        onClick={handlePercentClick}
+                        className="cursor-pointer hover:text-text-primary transition-colors select-none"
+                        data-tooltip="Click to enter custom zoom percentage"
+                      >
+                        {latchedDisplayPercent}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {showFilmstrip && (
+                  <>
+                    <div className="h-5 w-px bg-surface"></div>
+                    <button
+                      className="p-1.5 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
+                      onClick={() => setIsFilmstripVisible?.(!isFilmstripVisible)}
+                      data-tooltip={isFilmstripVisible ? 'Collapse Filmstrip' : 'Expand Filmstrip'}
+                    >
+                      {isFilmstripVisible ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>
