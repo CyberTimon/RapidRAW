@@ -104,6 +104,7 @@ interface MainLibraryProps {
   onImageClick(path: string, event: any): void;
   onImageDoubleClick(path: string): void;
   onLibraryRefresh(): void;
+  onOpenSidebar?(): void;
   onOpenFolder(): void;
   onSettingsChange(settings: AppSettings): Promise<void>;
   onThumbnailAspectRatioChange(aspectRatio: ThumbnailAspectRatio): void;
@@ -1611,6 +1612,7 @@ export default function MainLibrary({
   onImageClick,
   onImageDoubleClick,
   onLibraryRefresh,
+  onOpenSidebar,
   onOpenFolder,
   onSettingsChange,
   onThumbnailAspectRatioChange,
@@ -2141,7 +2143,20 @@ export default function MainLibrary({
         onMouseLeave={() => setIsProgressHovered(false)}
       >
         <div className={clsx('min-w-0', isCompactPortrait && 'w-full')}>
-          <Text variant={TextVariants.headline}>Library</Text>
+          <div className="flex items-center gap-2 min-w-0">
+            {isCompactPortrait && onOpenSidebar && (
+              <Button
+                className="h-10 w-10 shrink-0 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
+                onClick={onOpenSidebar}
+                data-tooltip="Show folders"
+              >
+                <FolderOpen className="w-5 h-5" />
+              </Button>
+            )}
+            <Text variant={TextVariants.headline} className="truncate">
+              Library
+            </Text>
+          </div>
           <div className="flex items-center gap-2">
             {currentFolderPath ? (
               <Text className="truncate">{currentFolderPath}</Text>
