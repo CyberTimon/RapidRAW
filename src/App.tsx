@@ -5458,9 +5458,10 @@ function App() {
                 opacity: isFullScreen ? 0 : 1,
               }}
             >
+              <div className="min-h-0 flex-1 overflow-hidden">{editorRightPanelContent}</div>
               <div
                 className={clsx(
-                  'shrink-0 border-b transition-colors',
+                  'shrink-0 border-t transition-colors',
                   activeRightPanel ? 'border-surface' : 'border-transparent',
                 )}
               >
@@ -5471,7 +5472,6 @@ function App() {
                   layout="horizontal"
                 />
               </div>
-              <div className="min-h-0 flex-1 overflow-hidden">{editorRightPanelContent}</div>
             </div>
             {editorBottomBar}
           </div>
