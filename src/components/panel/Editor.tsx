@@ -7,6 +7,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { ImageDimensions, useImageRenderSize } from '../../hooks/useImageRenderSize';
 import { Adjustments, AiPatch, Coord, MaskContainer } from '../../utils/adjustments';
 import { calculateCenteredCrop, getOrientedDimensions } from '../../utils/cropUtils';
+import { isAndroidClient } from '../../utils/platform';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
 import { Mask, SubMask } from './right/Masks';
@@ -124,6 +125,7 @@ export default function Editor({
   const [showExifDateView, setShowExifDateView] = useState(false);
   const [maskOverlayUrl, setMaskOverlayUrl] = useState<string | null>(null);
   const [transformState, setTransformState] = useState<TransformState>({ scale: 1, positionX: 0, positionY: 0 });
+  const isAndroid = useMemo(() => isAndroidClient(), []);
   const imageContainerRef = useRef<HTMLImageElement>(null);
   const isInitialMount = useRef(true);
   const transformStateRef = useRef<TransformState>(transformState);
@@ -714,6 +716,13 @@ export default function Editor({
         activeSubMask?.type === Mask.Luminance ||
         activeSubMask?.parameters?.isInitialDraw));
 
+  const isAndroidMaskTransformMode =
+    isAndroid &&
+    !!activeSubMask &&
+    !activeSubMask.parameters?.isInitialDraw &&
+    ((isMasking && (activeSubMask.type === Mask.Radial || activeSubMask.type === Mask.Linear)) ||
+      (isAiEditing && (activeSubMask.type === Mask.Radial || activeSubMask.type === Mask.Linear)));
+
   const isZoomActionActive = !isCropping && !isMasking && !isAiEditing && !isWbPickerActive;
   const isMaxZoom = transformState.scale >= transformConfig.maxScale - 0.5;
 
@@ -786,7 +795,7 @@ export default function Editor({
           limitToBounds={true}
           centerZoomedOut={true}
           doubleClick={doubleClickProps}
-          panning={{ disabled: isPanningDisabled || isWbPickerActive }}
+          panning={{ disabled: isPanningDisabled || isWbPickerActive || isAndroidMaskTransformMode }}
           onTransformed={handleTransform}
           onPanning={() => setIsPanningState(true)}
           onPanningStop={() => setIsPanningState(false)}
