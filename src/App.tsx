@@ -5286,6 +5286,7 @@ function App() {
             setIsFilmstripVisible={(value: boolean) =>
               setUiVisibility((prev: UiVisibility) => ({ ...prev, filmstrip: value }))
             }
+            showFilmstrip={!isCompactPortrait}
             thumbnailAspectRatio={thumbnailAspectRatio}
             thumbnails={thumbnails}
             zoom={zoom}
