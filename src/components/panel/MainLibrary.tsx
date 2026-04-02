@@ -1705,6 +1705,11 @@ export default function MainLibrary({
   const [isBusyDelayed, setIsBusyDelayed] = useState(false);
   const [isProgressHovered, setIsProgressHovered] = useState(false);
   const loadedThumbnailsRef = useRef(new Set<string>());
+  const libraryScrollTopRef = useRef(libraryScrollTop);
+
+  useEffect(() => {
+    libraryScrollTopRef.current = libraryScrollTop;
+  }, [libraryScrollTop]);
 
   const handleHeaderSort = useCallback(
     (key: string) => {
@@ -1794,11 +1799,11 @@ export default function MainLibrary({
 
         if (found) {
           const itemBottom = targetTop + rowHeight;
-          const savedTop = Math.max(0, libraryScrollTop);
+          const savedTop = Math.max(0, libraryScrollTopRef.current);
           const isVisibleAtSaved = targetTop < savedTop + clientHeight && itemBottom > savedTop;
 
-          if (isVisibleAtSaved && libraryScrollTop > 0) {
-            element.scrollTop = libraryScrollTop;
+          if (isVisibleAtSaved && savedTop > 0) {
+            element.scrollTop = savedTop;
           } else {
             element.scrollTop = Math.max(0, targetTop - clientHeight / 2 + rowHeight / 2);
           }
@@ -1813,8 +1818,8 @@ export default function MainLibrary({
       }
     }
 
-    if (libraryScrollTop > 0) {
-      element.scrollTop = libraryScrollTop;
+    if (libraryScrollTopRef.current > 0) {
+      element.scrollTop = libraryScrollTopRef.current;
     }
   }, [
     isCompactPortrait,
@@ -1823,7 +1828,6 @@ export default function MainLibrary({
     activePath,
     imageList,
     currentFolderPath,
-    libraryScrollTop,
     libraryViewMode,
     listHandle,
   ]);
@@ -2199,7 +2203,7 @@ export default function MainLibrary({
             </Text>
           </div>
           <div className="flex items-center gap-2">
-            {currentFolderPath ? (
+            {!isAndroid && currentFolderPath ? (
               <Text className="truncate">{currentFolderPath}</Text>
             ) : (
               <p className="text-sm invisible select-none pointer-events-none h-5 overflow-hidden"></p>
