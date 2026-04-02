@@ -35,6 +35,7 @@ interface BottomBarProps {
   rating: number;
   selectedImage?: SelectedImage;
   setIsFilmstripVisible?(isVisible: boolean): void;
+  showFilmstrip?: boolean;
   thumbnails?: Record<string, string>;
   thumbnailAspectRatio: ThumbnailAspectRatio;
   zoom?: number;
@@ -111,6 +112,7 @@ export default function BottomBar({
   rating,
   selectedImage,
   setIsFilmstripVisible,
+  showFilmstrip = true,
   thumbnails,
   thumbnailAspectRatio,
   displaySize,
@@ -232,7 +234,7 @@ export default function BottomBar({
 
   return (
     <div className="shrink-0 bg-bg-secondary rounded-lg flex flex-col">
-      {!isLibraryView && (
+      {!isLibraryView && showFilmstrip && (
         <div
           className={clsx('overflow-hidden', !isResizing && 'transition-all duration-300 ease-in-out')}
           style={{ height: isFilmstripVisible ? `${filmstripHeight}px` : '0px' }}
@@ -260,7 +262,7 @@ export default function BottomBar({
         className={clsx(
           'shrink-0 h-10 flex items-center justify-between px-3',
           !isLibraryView && 'border-t',
-          !isLibraryView && isFilmstripVisible ? 'border-surface' : 'border-transparent',
+          !isLibraryView && showFilmstrip && isFilmstripVisible ? 'border-surface' : 'border-transparent',
         )}
       >
         <div className="flex items-center gap-4">
@@ -432,14 +434,18 @@ export default function BottomBar({
                 )}
               </div>
             </div>
-            <div className="h-5 w-px bg-surface"></div>
-            <button
-              className="p-1.5 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
-              onClick={() => setIsFilmstripVisible?.(!isFilmstripVisible)}
-              data-tooltip={isFilmstripVisible ? 'Collapse Filmstrip' : 'Expand Filmstrip'}
-            >
-              {isFilmstripVisible ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-            </button>
+            {showFilmstrip && (
+              <>
+                <div className="h-5 w-px bg-surface"></div>
+                <button
+                  className="p-1.5 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
+                  onClick={() => setIsFilmstripVisible?.(!isFilmstripVisible)}
+                  data-tooltip={isFilmstripVisible ? 'Collapse Filmstrip' : 'Expand Filmstrip'}
+                >
+                  {isFilmstripVisible ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
