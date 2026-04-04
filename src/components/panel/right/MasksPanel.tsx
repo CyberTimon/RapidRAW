@@ -1189,6 +1189,24 @@ function FloatingMaskHierarchyWindow({
     };
   }, [anchor, syncToCorner]);
 
+  useEffect(() => {
+    if (!isReady) {
+      return;
+    }
+
+    let settleFrame = 0;
+    const frame = window.requestAnimationFrame(() => {
+      settleFrame = window.requestAnimationFrame(() => {
+        skipInitialPositionAnimationRef.current = false;
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(settleFrame);
+    };
+  }, [isReady]);
+
   useLayoutEffect(() => {
     if (!isReady) {
       animationControls.set({ opacity: 0 });
@@ -1204,7 +1222,6 @@ function FloatingMaskHierarchyWindow({
 
     if (skipInitialPositionAnimationRef.current) {
       animationControls.set(nextAnimation);
-      skipInitialPositionAnimationRef.current = false;
       return;
     }
 
