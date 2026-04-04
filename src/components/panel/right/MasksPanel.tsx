@@ -816,7 +816,7 @@ export default function MasksPanel({
         <HierarchyActionRow
           label="Add New Mask"
           onOpenMenu={(target) => openMaskCreationMenu(target, handleAddMaskContainer)}
-          className="mt-2"
+          className={adjustments.masks.length > 0 ? 'mt-2' : undefined}
         />
       </div>
     </div>
@@ -829,7 +829,7 @@ export default function MasksPanel({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="shrink-0 px-4 pb-2"
+      className="shrink-0 p-4 pb-2"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-text-primary">Masks</p>
@@ -1056,6 +1056,7 @@ function FloatingMaskHierarchyWindow({
 }) {
   const boundsRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const skipInitialPositionAnimationRef = useRef(true);
   const dragControls = useDragControls();
   const [targetPosition, setTargetPosition] = useState({ x: FLOATING_HIERARCHY_MARGIN, y: FLOATING_HIERARCHY_MARGIN });
   const [floatingWidth, setFloatingWidth] = useState(FLOATING_HIERARCHY_DEFAULT_WIDTH);
@@ -1112,17 +1113,21 @@ function FloatingMaskHierarchyWindow({
         return;
       }
 
+      if (!isReady) {
+        skipInitialPositionAnimationRef.current = true;
+      }
+
       setTargetPosition(nextPosition);
       setIsReady(true);
     },
-    [getAnchorPosition, isWindowDragging],
+    [getAnchorPosition, isReady, isWindowDragging],
   );
 
   useLayoutEffect(() => {
-    const frame = window.requestAnimationFrame(() => syncToCorner(anchor));
+    syncToCorner(anchor);
 
     if (typeof ResizeObserver === 'undefined') {
-      return () => window.cancelAnimationFrame(frame);
+      return;
     }
 
     const observer = new ResizeObserver(() => syncToCorner(anchor));
@@ -1136,10 +1141,17 @@ function FloatingMaskHierarchyWindow({
     }
 
     return () => {
-      window.cancelAnimationFrame(frame);
       observer.disconnect();
     };
   }, [anchor, syncToCorner]);
+
+  useEffect(() => {
+    if (!isReady || !skipInitialPositionAnimationRef.current) {
+      return;
+    }
+
+    skipInitialPositionAnimationRef.current = false;
+  }, [isReady, targetPosition.x, targetPosition.y]);
 
   const handleDragEnd = useCallback(() => {
     setIsWindowDragging(false);
@@ -1244,7 +1256,7 @@ function FloatingMaskHierarchyWindow({
         onDragEnd={handleDragEnd}
         animate={isReady ? { x: targetPosition.x, y: targetPosition.y, opacity: 1, scale: 1 } : { opacity: 0 }}
         transition={
-          isWindowDragging || isWindowResizing
+          isWindowDragging || isWindowResizing || skipInitialPositionAnimationRef.current
             ? { duration: 0 }
             : {
                 type: 'spring',
