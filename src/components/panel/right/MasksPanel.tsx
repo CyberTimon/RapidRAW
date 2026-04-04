@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react
 import { v4 as uuidv4 } from 'uuid';
 import clsx from 'clsx';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls, useAnimation } from 'framer-motion';
 import {
   DndContext,
   DragOverlay,
@@ -1058,6 +1058,7 @@ function FloatingMaskHierarchyWindow({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const skipInitialPositionAnimationRef = useRef(true);
   const dragControls = useDragControls();
+  const animationControls = useAnimation();
   const [targetPosition, setTargetPosition] = useState({ x: FLOATING_HIERARCHY_MARGIN, y: FLOATING_HIERARCHY_MARGIN });
   const [floatingWidth, setFloatingWidth] = useState(FLOATING_HIERARCHY_DEFAULT_WIDTH);
   const [isReady, setIsReady] = useState(false);
@@ -1117,7 +1118,7 @@ function FloatingMaskHierarchyWindow({
         skipInitialPositionAnimationRef.current = true;
       }
 
-      setTargetPosition(nextPosition);
+      setTargetPosition((prev) => (prev.x === nextPosition.x && prev.y === nextPosition.y ? prev : nextPosition));
       setIsReady(true);
     },
     [getAnchorPosition, isReady, isWindowDragging],
@@ -1145,13 +1146,41 @@ function FloatingMaskHierarchyWindow({
     };
   }, [anchor, syncToCorner]);
 
-  useEffect(() => {
-    if (!isReady || !skipInitialPositionAnimationRef.current) {
+  useLayoutEffect(() => {
+    if (!isReady) {
+      animationControls.set({ opacity: 0 });
       return;
     }
 
-    skipInitialPositionAnimationRef.current = false;
-  }, [isReady, targetPosition.x, targetPosition.y]);
+    const nextAnimation = {
+      x: targetPosition.x,
+      y: targetPosition.y,
+      opacity: 1,
+      scale: 1,
+    };
+
+    if (skipInitialPositionAnimationRef.current) {
+      animationControls.set(nextAnimation);
+      skipInitialPositionAnimationRef.current = false;
+      return;
+    }
+
+    if (isWindowDragging) {
+      return;
+    }
+
+    void animationControls.start({
+      ...nextAnimation,
+      transition: isWindowResizing
+        ? { duration: 0 }
+        : {
+            type: 'spring',
+            stiffness: 420,
+            damping: 34,
+            mass: 0.8,
+          },
+    });
+  }, [animationControls, isReady, isWindowDragging, isWindowResizing, targetPosition.x, targetPosition.y]);
 
   const handleDragEnd = useCallback(() => {
     setIsWindowDragging(false);
@@ -1196,7 +1225,7 @@ function FloatingMaskHierarchyWindow({
 
     const snappedPosition = getAnchorPosition(nearestAnchor.anchor);
     if (snappedPosition) {
-      setTargetPosition(snappedPosition);
+      setTargetPosition((prev) => (prev.x === snappedPosition.x && prev.y === snappedPosition.y ? prev : snappedPosition));
       setIsReady(true);
     }
   }, [getAnchorPosition, onAnchorChange]);
@@ -1247,6 +1276,7 @@ function FloatingMaskHierarchyWindow({
       <motion.div
         ref={panelRef}
         drag
+        initial={{ opacity: 0 }}
         dragControls={dragControls}
         dragListener={false}
         dragMomentum={false}
@@ -1254,17 +1284,7 @@ function FloatingMaskHierarchyWindow({
         dragConstraints={boundsRef}
         onDragStart={() => setIsWindowDragging(true)}
         onDragEnd={handleDragEnd}
-        animate={isReady ? { x: targetPosition.x, y: targetPosition.y, opacity: 1, scale: 1 } : { opacity: 0 }}
-        transition={
-          isWindowDragging || isWindowResizing || skipInitialPositionAnimationRef.current
-            ? { duration: 0 }
-            : {
-                type: 'spring',
-                stiffness: 420,
-                damping: 34,
-                mass: 0.8,
-              }
-        }
+        animate={animationControls}
         className="absolute left-0 top-0 pointer-events-auto"
         style={{
           width: floatingWidth,
