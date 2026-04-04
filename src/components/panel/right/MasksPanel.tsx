@@ -871,6 +871,7 @@ export default function MasksPanel({
               copiedSubMask={copiedSubMask}
               analyzingSubMaskId={analyzingSubMaskId}
               setIsMaskControlHovered={setIsMaskControlHovered}
+              isFloatingHierarchy={isFloating}
               onOpenCreateSubMaskMenu={(containerId: string, target: HTMLElement) =>
                 openMaskCreationMenu(target, (type) => handleAddSubMask(containerId, type))
               }
@@ -1383,7 +1384,7 @@ function FloatingMaskHierarchyWindow({
         onClick={(event) => event.stopPropagation()}
         onContextMenu={(event) => event.stopPropagation()}
       >
-        <div className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-xl border border-surface bg-surface">
+        <div className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border-color/70 bg-surface">
           <div
             className={clsx(
               'absolute bottom-0 top-0 z-10 w-2 cursor-col-resize transition-colors hover:bg-surface/80',
@@ -1392,7 +1393,7 @@ function FloatingMaskHierarchyWindow({
             onMouseDown={handleResizeStart}
           />
           <div
-            className="flex cursor-grab items-center justify-between gap-3 border-b border-surface px-3 py-2 active:cursor-grabbing"
+            className="flex cursor-grab items-center justify-between gap-3 border-b border-border-color/70 px-3 py-2 active:cursor-grabbing"
             onPointerDown={(event) => {
               event.stopPropagation();
               dragControls.start(event);
@@ -1454,6 +1455,7 @@ function ContainerRow({
   copiedSubMask,
   analyzingSubMaskId,
   setIsMaskControlHovered,
+  isFloatingHierarchy,
   onOpenCreateSubMaskMenu,
 }: any) {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
@@ -1574,7 +1576,15 @@ function ContainerRow({
         {...listeners}
         {...attributes}
         className={`flex items-center gap-2 p-2 rounded-md transition-colors group
-             ${isSelected ? 'bg-card-active ring-1 ring-inset ring-border-color/60' : 'hover:bg-surface'}
+             ${
+               isFloatingHierarchy
+                 ? isSelected
+                   ? 'bg-card-active ring-1 ring-inset ring-border-color/60 hover:bg-bg-secondary'
+                   : 'hover:bg-bg-secondary'
+                 : isSelected
+                   ? 'bg-surface'
+                   : 'hover:bg-card-active'
+             }
              ${borderClass}`}
         onClick={(e) => {
           e.stopPropagation();
@@ -1677,6 +1687,7 @@ function ContainerRow({
                   tempName={tempName}
                   setTempName={setTempName}
                   setIsMaskControlHovered={setIsMaskControlHovered}
+                  isFloatingHierarchy={isFloatingHierarchy}
                 />
               ))}
             </AnimatePresence>
@@ -1714,6 +1725,7 @@ function SubMaskRow({
   tempName,
   setTempName,
   setIsMaskControlHovered,
+  isFloatingHierarchy,
 }: any) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: subMask.id,
@@ -1798,7 +1810,15 @@ function SubMaskRow({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className={`flex items-center gap-2 p-2 rounded-md transition-colors group mt-0.5 cursor-pointer
-            ${isActive ? 'bg-card-active ring-1 ring-inset ring-border-color/60' : 'hover:bg-surface'}
+            ${
+              isFloatingHierarchy
+                ? isActive
+                  ? 'bg-card-active ring-1 ring-inset ring-border-color/60 hover:bg-bg-secondary'
+                  : 'hover:bg-bg-secondary'
+                : isActive
+                  ? 'bg-surface'
+                  : 'hover:bg-card-active'
+            }
             ${isOver && !isDraggingContainer ? 'border-t-2 border-accent' : ''}
             ${isDragging ? 'opacity-40 z-50' : ''}
             ${parentVisible === false ? 'opacity-50' : ''}
