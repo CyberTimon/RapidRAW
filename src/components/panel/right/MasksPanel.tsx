@@ -1574,7 +1574,7 @@ function ContainerRow({
         {...listeners}
         {...attributes}
         className={`flex items-center gap-2 p-2 rounded-md transition-colors group
-             ${isSelected ? 'bg-surface' : 'hover:bg-card-active'}
+             ${isSelected ? 'bg-card-active ring-1 ring-inset ring-border-color/60' : 'hover:bg-surface'}
              ${borderClass}`}
         onClick={(e) => {
           e.stopPropagation();
@@ -1798,7 +1798,7 @@ function SubMaskRow({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className={`flex items-center gap-2 p-2 rounded-md transition-colors group mt-0.5 cursor-pointer
-            ${isActive ? 'bg-surface' : 'hover:bg-card-active'}
+            ${isActive ? 'bg-card-active ring-1 ring-inset ring-border-color/60' : 'hover:bg-surface'}
             ${isOver && !isDraggingContainer ? 'border-t-2 border-accent' : ''}
             ${isDragging ? 'opacity-40 z-50' : ''}
             ${parentVisible === false ? 'opacity-50' : ''}
