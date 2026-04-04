@@ -1383,7 +1383,7 @@ function FloatingMaskHierarchyWindow({
         onClick={(event) => event.stopPropagation()}
         onContextMenu={(event) => event.stopPropagation()}
       >
-        <div className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-xl border border-surface bg-bg-secondary shadow-2xl">
+        <div className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-xl border border-surface bg-surface">
           <div
             className={clsx(
               'absolute bottom-0 top-0 z-10 w-2 cursor-col-resize transition-colors hover:bg-surface/80',
