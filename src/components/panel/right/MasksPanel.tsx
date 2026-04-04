@@ -122,6 +122,7 @@ const FLOATING_HIERARCHY_MIN_WIDTH = 260;
 const FLOATING_HIERARCHY_MAX_WIDTH = 640;
 const MASK_HIERARCHY_LAYOUT_STORAGE_KEY = 'rapidraw-mask-hierarchy-layout';
 const MASK_HIERARCHY_ANCHOR_STORAGE_KEY = 'rapidraw-mask-hierarchy-anchor';
+const MASK_HIERARCHY_WIDTH_STORAGE_KEY = 'rapidraw-mask-hierarchy-width';
 const FLOATING_HIERARCHY_ANCHORS: FloatingHierarchyAnchor[] = [
   'top-left',
   'top-right',
@@ -157,6 +158,23 @@ const getStoredHierarchyAnchor = (): FloatingHierarchyAnchor => {
     return storedAnchor && FLOATING_HIERARCHY_ANCHORS.includes(storedAnchor) ? storedAnchor : 'top-right';
   } catch {
     return 'top-right';
+  }
+};
+
+const getStoredHierarchyWidth = () => {
+  if (typeof window === 'undefined') {
+    return FLOATING_HIERARCHY_DEFAULT_WIDTH;
+  }
+
+  try {
+    const storedWidth = Number(window.localStorage.getItem(MASK_HIERARCHY_WIDTH_STORAGE_KEY));
+    if (!Number.isFinite(storedWidth)) {
+      return FLOATING_HIERARCHY_DEFAULT_WIDTH;
+    }
+
+    return Math.max(FLOATING_HIERARCHY_MIN_WIDTH, Math.min(FLOATING_HIERARCHY_MAX_WIDTH, storedWidth));
+  } catch {
+    return FLOATING_HIERARCHY_DEFAULT_WIDTH;
   }
 };
 
@@ -1103,7 +1121,7 @@ function FloatingMaskHierarchyWindow({
   const dragControls = useDragControls();
   const animationControls = useAnimation();
   const [targetPosition, setTargetPosition] = useState({ x: FLOATING_HIERARCHY_MARGIN, y: FLOATING_HIERARCHY_MARGIN });
-  const [floatingWidth, setFloatingWidth] = useState(FLOATING_HIERARCHY_DEFAULT_WIDTH);
+  const [floatingWidth, setFloatingWidth] = useState(getStoredHierarchyWidth);
   const [isReady, setIsReady] = useState(false);
   const [isWindowDragging, setIsWindowDragging] = useState(false);
   const [isWindowResizing, setIsWindowResizing] = useState(false);
@@ -1114,6 +1132,14 @@ function FloatingMaskHierarchyWindow({
       setIsMaskControlHovered(false);
     };
   }, [setIsMaskControlHovered]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(MASK_HIERARCHY_WIDTH_STORAGE_KEY, String(floatingWidth));
+    } catch {
+      // Ignore storage failures and keep the session state in memory.
+    }
+  }, [floatingWidth]);
 
   const getAnchorPosition = useCallback((targetAnchor: FloatingHierarchyAnchor) => {
     const bounds = boundsRef.current;
