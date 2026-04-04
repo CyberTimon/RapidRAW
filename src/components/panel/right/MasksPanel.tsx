@@ -120,6 +120,8 @@ const FLOATING_HIERARCHY_MARGIN = 16;
 const FLOATING_HIERARCHY_DEFAULT_WIDTH = 340;
 const FLOATING_HIERARCHY_MIN_WIDTH = 260;
 const FLOATING_HIERARCHY_MAX_WIDTH = 640;
+const MASK_HIERARCHY_LAYOUT_STORAGE_KEY = 'rapidraw-mask-hierarchy-layout';
+const MASK_HIERARCHY_ANCHOR_STORAGE_KEY = 'rapidraw-mask-hierarchy-anchor';
 const FLOATING_HIERARCHY_ANCHORS: FloatingHierarchyAnchor[] = [
   'top-left',
   'top-right',
@@ -132,6 +134,31 @@ const HIERARCHY_CREATION_TYPES = [
   ...MASK_PANEL_CREATION_TYPES.filter((maskType) => maskType.id !== 'others'),
   ...OTHERS_MASK_TYPES,
 ];
+
+const getStoredHierarchyLayout = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  try {
+    return window.localStorage.getItem(MASK_HIERARCHY_LAYOUT_STORAGE_KEY) === 'floating';
+  } catch {
+    return false;
+  }
+};
+
+const getStoredHierarchyAnchor = (): FloatingHierarchyAnchor => {
+  if (typeof window === 'undefined') {
+    return 'top-right';
+  }
+
+  try {
+    const storedAnchor = window.localStorage.getItem(MASK_HIERARCHY_ANCHOR_STORAGE_KEY) as FloatingHierarchyAnchor | null;
+    return storedAnchor && FLOATING_HIERARCHY_ANCHORS.includes(storedAnchor) ? storedAnchor : 'top-right';
+  } catch {
+    return 'top-right';
+  }
+};
 
 const SUB_MASK_CONFIG: Record<Mask, any> = {
   [Mask.Radial]: {
@@ -257,8 +284,8 @@ export default function MasksPanel({
   const [copiedSectionAdjustments, setCopiedSectionAdjustments] = useState<any | null>(null);
   const [isSettingsSectionOpen, setSettingsSectionOpen] = useState(true);
   const [isSettingsPanelEverOpened, setIsSettingsPanelEverOpened] = useState(false);
-  const [isHierarchyFloating, setIsHierarchyFloating] = useState(false);
-  const [floatingHierarchyAnchor, setFloatingHierarchyAnchor] = useState<FloatingHierarchyAnchor>('top-right');
+  const [isHierarchyFloating, setIsHierarchyFloating] = useState(getStoredHierarchyLayout);
+  const [floatingHierarchyAnchor, setFloatingHierarchyAnchor] = useState<FloatingHierarchyAnchor>(getStoredHierarchyAnchor);
   const hasPerformedInitialSelection = useRef(false);
   const [analyzingSubMaskId, setAnalyzingSubMaskId] = useState<string | null>(null);
   const [isResizingWaveform, setIsResizingWaveform] = useState<boolean>(false);
@@ -338,6 +365,25 @@ export default function MasksPanel({
     else setCustomEscapeHandler(null);
     return () => setCustomEscapeHandler(null);
   }, [activeMaskContainerId, activeMaskId, renamingId, onSelectContainer, onSelectMask, setCustomEscapeHandler]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        MASK_HIERARCHY_LAYOUT_STORAGE_KEY,
+        isHierarchyFloating ? 'floating' : 'docked',
+      );
+    } catch {
+      // Ignore storage failures and keep the session state in memory.
+    }
+  }, [isHierarchyFloating]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(MASK_HIERARCHY_ANCHOR_STORAGE_KEY, floatingHierarchyAnchor);
+    } catch {
+      // Ignore storage failures and keep the session state in memory.
+    }
+  }, [floatingHierarchyAnchor]);
 
   const handleWaveformResize = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -752,20 +798,20 @@ export default function MasksPanel({
     setIsHierarchyFloating((prev) => !prev);
   }, []);
 
-  const hierarchyList = (
+  const hierarchyList = (isFloating: boolean) => (
     <div
       ref={setRootDroppableRef}
       className={clsx(
         'flex flex-col transition-colors',
-        showFloatingHierarchy && 'h-full min-h-0',
-        isRootOver ? 'bg-bg-tertiary/65' : 'bg-transparent',
+        isFloating && 'h-full min-h-0',
+        !isFloating && 'px-4 pb-2',
+        isRootOver && (isFloating ? 'bg-bg-tertiary/65' : 'rounded-lg bg-bg-tertiary/40'),
       )}
       onClick={(e) => e.stopPropagation()}
     >
       <div
         className={clsx(
-          'px-3 py-3',
-          showFloatingHierarchy && 'flex-1 overflow-y-auto overflow-x-hidden',
+          isFloating ? 'flex-1 overflow-y-auto overflow-x-hidden px-3 py-3' : 'flex flex-col',
         )}
       >
         <AnimatePresence initial={false} mode="popLayout">
@@ -824,14 +870,13 @@ export default function MasksPanel({
 
   const hierarchyInlineSection = showInlineHierarchy ? (
     <motion.div
-      layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="shrink-0 p-4 pb-2"
+      className="shrink-0"
     >
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-4">
         <p className="text-sm font-semibold text-text-primary">Masks</p>
         <button
           className="rounded-full p-2 text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
@@ -841,9 +886,7 @@ export default function MasksPanel({
           <ExternalLink size={16} />
         </button>
       </div>
-      <div className="rounded-xl border border-surface bg-bg-primary/15">
-        {hierarchyList}
-      </div>
+      {hierarchyList(false)}
     </motion.div>
   ) : null;
 
@@ -855,7 +898,7 @@ export default function MasksPanel({
           onDockToSidebar={() => setIsHierarchyFloating(false)}
           setIsMaskControlHovered={setIsMaskControlHovered}
         >
-          {hierarchyList}
+          {hierarchyList(true)}
         </FloatingMaskHierarchyWindow>,
         maskHierarchyOverlayHost!,
       )
