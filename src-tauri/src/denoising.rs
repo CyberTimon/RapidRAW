@@ -96,6 +96,56 @@ fn run_bm3d(
     Ok(DynamicImage::ImageRgb32F(out_img_buffer))
 }
 
+pub fn denoise_image_for_batch(
+    path_str: String,
+    intensity: f32,
+    method: String,
+    app_handle: &AppHandle,
+    ai_session: Option<Arc<Mutex<ort::session::Session>>>,
+) -> Result<DynamicImage, String> {
+    let path = Path::new(&path_str);
+    if !path.exists() {
+        return Err("File not found".to_string());
+    }
+
+    let is_raw = is_raw_file(&path_str);
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
+    let linear_mode = settings.linear_raw_mode;
+
+    let file_bytes = fs::read(path).map_err(|e| e.to_string())?;
+    let mut dynamic_img = load_base_image_from_bytes(
+        &file_bytes,
+        &path_str,
+        false,
+        highlight_compression,
+        linear_mode,
+        None,
+    )
+    .map_err(|e| e.to_string())?;
+
+    if is_raw {
+        apply_cpu_default_raw_processing(&mut dynamic_img);
+    }
+
+    let rgb_img_for_denoiser = dynamic_img.to_rgb32f();
+
+    let out_dynamic = if method == "ai" {
+        let session_arc = ai_session.ok_or_else(|| "AI Session not provided".to_string())?;
+        crate::ai_processing::run_ai_denoise(
+            &rgb_img_for_denoiser,
+            intensity,
+            &session_arc,
+            app_handle,
+        )
+        .map_err(|e| e.to_string())?
+    } else {
+        run_bm3d(&rgb_img_for_denoiser, intensity, app_handle)?
+    };
+
+    Ok(out_dynamic)
+}
+
 pub fn denoise_image(
     path_str: String,
     intensity: f32,

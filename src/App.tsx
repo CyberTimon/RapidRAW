@@ -69,6 +69,7 @@ import RenameFileModal from './components/modals/RenameFileModal';
 import PanoramaModal from './components/modals/PanoramaModal';
 import NegativeConversionModal from './components/modals/NegativeConversionModal';
 import DenoiseModal from './components/modals/DenoiseModal';
+import BatchDenoiseModal from './components/modals/BatchDenoiseModal';
 import CollageModal from './components/modals/CollageModal';
 import CopyPasteSettingsModal from './components/modals/CopyPasteSettingsModal';
 import CullingModal from './components/modals/CullingModal';
@@ -189,6 +190,11 @@ interface DenoiseModalState {
 }
 
 interface NegativeConversionModalState {
+  isOpen: boolean;
+  targetPaths: Array<string>;
+}
+
+interface BatchDenoiseModalState {
   isOpen: boolean;
   targetPaths: Array<string>;
 }
@@ -432,6 +438,10 @@ function App() {
     targetPath: null,
     progressMessage: null,
     isRaw: false,
+  });
+  const [batchDenoiseModalState, setBatchDenoiseModalState] = useState<BatchDenoiseModalState>({
+    isOpen: false,
+    targetPaths: [],
   });
   const [cullingModalState, setCullingModalState] = useState<CullingModalState>({
     isOpen: false,
@@ -3137,6 +3147,7 @@ function App() {
     cullingModalState.isOpen ||
     collageModalState.isOpen ||
     denoiseModalState.isOpen ||
+    batchDenoiseModalState.isOpen ||
     negativeModalState.isOpen;
 
   useKeyboardShortcuts({
@@ -3661,10 +3672,11 @@ function App() {
     [denoiseModalState.targetPath],
   );
 
-  const handleSaveDenoisedImage = async (): Promise<string> => {
+  const handleSaveDenoisedImage = async (copyAdjustments: boolean): Promise<string> => {
     if (!denoiseModalState.targetPath) throw new Error('No target path');
     const savedPath = await invoke<string>(Invokes.SaveDenoisedImage, {
       originalPathStr: denoiseModalState.targetPath,
+      copyAdjustments,
     });
     await refreshImageList();
     return savedPath;
@@ -4519,19 +4531,26 @@ function App() {
             onClick: handleApplyAutoAdjustmentsToSelection,
           },
           {
-            label: 'Denoise Image',
+            label: isSingleSelection ? 'Denoise Image' : `Batch Denoise (${selectionCount})`,
             icon: Grip,
-            disabled: !isSingleSelection,
+            disabled: selectionCount === 0,
             onClick: () => {
-              setDenoiseModalState({
-                isOpen: true,
-                isProcessing: false,
-                previewBase64: null,
-                error: null,
-                targetPath: finalSelection[0],
-                progressMessage: null,
-                isRaw: selectedImage?.isRaw || false,
-              });
+              if (isSingleSelection) {
+                setDenoiseModalState({
+                  isOpen: true,
+                  isProcessing: false,
+                  previewBase64: null,
+                  error: null,
+                  targetPath: finalSelection[0],
+                  progressMessage: null,
+                  isRaw: selectedImage?.isRaw || false,
+                });
+              } else {
+                setBatchDenoiseModalState({
+                  isOpen: true,
+                  targetPaths: finalSelection,
+                });
+              }
             },
           },
           {
@@ -5511,6 +5530,13 @@ function App() {
               (selectedImage?.path === denoiseModalState.targetPath ? finalPreviewUrl : null)
             : null
         }
+      />
+      <BatchDenoiseModal
+        isOpen={batchDenoiseModalState.isOpen}
+        onClose={() => setBatchDenoiseModalState((prev) => ({ ...prev, isOpen: false }))}
+        targetPaths={batchDenoiseModalState.targetPaths}
+        aiModelDownloadStatus={aiModelDownloadStatus}
+        onComplete={refreshImageList}
       />
       <CreateFolderModal
         isOpen={isCreateFolderModalOpen}

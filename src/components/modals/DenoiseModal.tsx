@@ -11,7 +11,7 @@ interface DenoiseModalProps {
   isOpen: boolean;
   onClose(): void;
   onDenoise(intensity: number, method: 'ai' | 'bm3d'): void;
-  onSave(): Promise<string>;
+  onSave(copyAdjustments: boolean): Promise<string>;
   onOpenFile(path: string): void;
   error: string | null;
   previewBase64: string | null;
@@ -228,6 +228,7 @@ export default function DenoiseModal({
   const [method, setMethod] = useState<'ai' | 'bm3d'>('ai');
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
+  const [copyAdjustments, setCopyAdjustments] = useState(true);
 
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
@@ -277,7 +278,7 @@ export default function DenoiseModal({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const path = await onSave();
+      const path = await onSave(copyAdjustments);
       setSavedPath(path);
     } catch (e) {
       console.error(e);
@@ -451,6 +452,17 @@ export default function DenoiseModal({
               trackClassName="bg-bg-secondary"
             />
           </div>
+          {previewBase64 && (
+            <label className="flex items-center gap-2 cursor-pointer shrink-0 select-none mt-2">
+              <input
+                type="checkbox"
+                checked={copyAdjustments}
+                onChange={(e) => setCopyAdjustments(e.target.checked)}
+                className="w-4 h-4 accent-accent cursor-pointer"
+              />
+              <Text variant={TextVariants.small}>Copy adjustments</Text>
+            </label>
+          )}
         </div>
 
         <div className="h-10 w-px bg-surface shrink-0" />

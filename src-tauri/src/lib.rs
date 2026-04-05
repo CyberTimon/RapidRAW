@@ -179,6 +179,8 @@ pub struct AppState {
     hdr_result: Arc<Mutex<Option<DynamicImage>>>,
     panorama_result: Arc<Mutex<Option<DynamicImage>>>,
     denoise_result: Arc<Mutex<Option<DynamicImage>>>,
+    batch_denoise_cancel: Arc<AtomicBool>,
+    batch_denoise_task_handle: Mutex<Option<JoinHandle<()>>>,
     indexing_task_handle: Mutex<Option<JoinHandle<()>>>,
     pub lut_cache: Mutex<HashMap<String, Arc<Lut>>>,
     initial_file_path: Mutex<Option<String>>,
@@ -3907,6 +3909,7 @@ async fn apply_denoising(
 #[tauri::command]
 async fn save_denoised_image(
     original_path_str: String,
+    copy_adjustments: bool,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let denoised_image = state.denoise_result.lock().unwrap().take().ok_or_else(|| {
@@ -3916,7 +3919,7 @@ async fn save_denoised_image(
 
     let is_raw = crate::formats::is_raw_file(&original_path_str);
 
-    let (first_path, _) = parse_virtual_path(&original_path_str);
+    let (first_path, source_sidecar) = parse_virtual_path(&original_path_str);
     let parent_dir = first_path
         .parent()
         .ok_or_else(|| "Could not determine parent directory.".to_string())?;
@@ -3936,13 +3939,168 @@ async fn save_denoised_image(
         (filename, DynamicImage::ImageRgb8(denoised_image.to_rgb8()))
     };
 
-    let output_path = parent_dir.join(output_filename);
+    let output_path = parent_dir.join(&output_filename);
 
     image_to_save
         .save(&output_path)
         .map_err(|e| format!("Failed to save image: {}", e))?;
 
+    if copy_adjustments && source_sidecar.exists() {
+        let dest_sidecar = parent_dir.join(format!("{}.rrdata", output_filename));
+        if let Err(e) = fs::copy(&source_sidecar, &dest_sidecar) {
+            log::warn!("Could not copy sidecar: {}", e);
+        }
+    }
+
     Ok(output_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn batch_denoise_images(
+    paths: Vec<String>,
+    intensity: f32,
+    method: String,
+    output_folder: String,
+    suffix: String,
+    copy_adjustments: bool,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
+    {
+        let mut handle_lock = state.batch_denoise_task_handle.lock().unwrap();
+        if let Some(ref handle) = *handle_lock {
+            if !handle.is_finished() {
+                return Err("A batch denoise operation is already in progress.".to_string());
+            }
+        }
+        *handle_lock = None; // Clear any stale finished handle
+    }
+
+    // Initialise AI session once if method == "ai"
+    let mut ai_session = None;
+    if method == "ai" {
+        let session = crate::ai_processing::get_or_init_denoise_model(
+            &app_handle,
+            &state.ai_state,
+            &state.ai_init_lock,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+        ai_session = Some(session);
+    }
+
+    // Reset cancellation flag
+    state.batch_denoise_cancel.store(false, Ordering::SeqCst);
+    let cancel_flag = state.batch_denoise_cancel.clone();
+
+    let total = paths.len();
+    let app_handle_task = app_handle.clone();
+
+    let task = tokio::spawn(async move {
+        let output_folder_path = std::path::Path::new(&output_folder).to_path_buf();
+        let mut errors: Vec<String> = Vec::new();
+
+        for (i, path_str) in paths.into_iter().enumerate() {
+            if cancel_flag.load(Ordering::SeqCst) {
+                let _ = app_handle_task.emit("batch-denoise-cancelled", ());
+                return;
+            }
+
+            let current = i + 1;
+            let display_name = std::path::Path::new(&path_str)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&path_str)
+                .to_string();
+
+            let _ = app_handle_task.emit(
+                "batch-denoise-progress",
+                serde_json::json!({
+                    "current": current,
+                    "total": total,
+                    "currentFile": display_name,
+                }),
+            );
+
+            let (source_path, source_sidecar) = parse_virtual_path(&path_str);
+            let source_path_str = source_path.to_string_lossy().to_string();
+            let is_raw = crate::formats::is_raw_file(&source_path_str);
+
+            let stem = source_path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("denoised")
+                .to_string();
+
+            let output_filename = if is_raw {
+                format!("{}{}.tiff", stem, suffix)
+            } else {
+                format!("{}{}.png", stem, suffix)
+            };
+
+            let output_path = output_folder_path.join(&output_filename);
+
+            let app_handle_clone = app_handle_task.clone();
+            let method_clone = method.clone();
+            let ai_session_clone = ai_session.clone();
+
+            let result = tokio::task::spawn_blocking(move || {
+                denoising::denoise_image_for_batch(
+                    source_path_str,
+                    intensity,
+                    method_clone,
+                    &app_handle_clone,
+                    ai_session_clone,
+                )
+            })
+            .await;
+
+            match result {
+                Ok(Ok(img)) => {
+                    let image_to_save = if is_raw {
+                        DynamicImage::ImageRgb16(img.to_rgb16())
+                    } else {
+                        DynamicImage::ImageRgb8(img.to_rgb8())
+                    };
+                    if let Err(e) = image_to_save.save(&output_path) {
+                        errors.push(format!("{}: Failed to save – {}", display_name, e));
+                    } else if copy_adjustments && source_sidecar.exists() {
+                        let dest_sidecar = output_folder_path.join(
+                            format!("{}.rrdata", output_filename),
+                        );
+                        if let Err(e) = fs::copy(&source_sidecar, &dest_sidecar) {
+                            log::warn!("Could not copy sidecar for {}: {}", display_name, e);
+                        }
+                    }
+                }
+                Ok(Err(e)) => {
+                    errors.push(format!("{}: {}", display_name, e));
+                }
+                Err(e) => {
+                    errors.push(format!("{}: Task panicked – {}", display_name, e));
+                }
+            }
+        }
+
+        let _ = app_handle_task.emit(
+            "batch-denoise-complete",
+            serde_json::json!({
+                "total": total,
+                "errors": errors,
+            }),
+        );
+    });
+
+    *state.batch_denoise_task_handle.lock().unwrap() = Some(task);
+    Ok(())
+}
+
+#[tauri::command]
+async fn cancel_batch_denoise(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.batch_denoise_cancel.store(true, Ordering::SeqCst);
+    Ok(())
 }
 
 #[tauri::command]
@@ -4575,6 +4733,8 @@ pub fn run() {
             hdr_result: Arc::new(Mutex::new(None)),
             panorama_result: Arc::new(Mutex::new(None)),
             denoise_result: Arc::new(Mutex::new(None)),
+            batch_denoise_cancel: Arc::new(AtomicBool::new(false)),
+            batch_denoise_task_handle: Mutex::new(None),
             indexing_task_handle: Mutex::new(None),
             lut_cache: Mutex::new(HashMap::new()),
             initial_file_path: Mutex::new(None),
@@ -4623,6 +4783,8 @@ pub fn run() {
             save_hdr,
             apply_denoising,
             save_denoised_image,
+            batch_denoise_images,
+            cancel_batch_denoise,
             load_and_parse_lut,
             fetch_community_presets,
             generate_all_community_previews,

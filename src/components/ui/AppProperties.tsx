@@ -36,6 +36,8 @@ export enum Invokes {
   ApplyAutoAdjustmentsToPaths = 'apply_auto_adjustments_to_paths',
   ApplyDenoising = 'apply_denoising',
   BatchExportImages = 'batch_export_images',
+  BatchDenoiseImages = 'batch_denoise_images',
+  CancelBatchDenoise = 'cancel_batch_denoise',
   CalculateAutoAdjustments = 'calculate_auto_adjustments',
   CancelExport = 'cancel_export',
   CheckAIConnectorStatus = 'check_ai_connector_status',
