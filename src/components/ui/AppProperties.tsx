@@ -153,7 +153,7 @@ export interface AppSettings {
   useFullDpiRendering?: boolean;
   highResZoomMultiplier?: number;
   enableLivePreviews?: boolean;
-  enableHighQualityLivePreviews?: boolean;
+  livePreviewQuality?: string;
   enableAiTagging?: boolean;
   enableExifReading?: boolean;
   filterCriteria?: FilterCriteria;

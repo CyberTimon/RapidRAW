@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import debounce from 'lodash.debounce';
 import { v4 as uuidv4 } from 'uuid';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -85,6 +86,7 @@ interface MasksPanelProps {
   copiedMask: MaskContainer | null;
   histogram: any;
   isGeneratingAiMask: boolean;
+  onGenerateAiDepthMask(id: string, parameters: any): void;
   onGenerateAiForegroundMask(id: string): void;
   onGenerateAiSkyMask(id: string): void;
   onSelectContainer(id: string | null): void;
@@ -133,6 +135,9 @@ const SUB_MASK_CONFIG: Record<Mask, any> = {
     ],
   },
   [Mask.All]: { parameters: [] },
+  [Mask.AiDepth]: {
+    parameters: [{ key: 'feather', label: 'Global Feather', min: 0, max: 100, step: 1, defaultValue: 15 }],
+  },
   [Mask.AiSubject]: {
     parameters: [
       { key: 'grow', label: 'Grow', min: -100, max: 100, step: 1, defaultValue: 0 },
@@ -191,6 +196,314 @@ const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsC
   </div>
 );
 
+function DepthRangePicker({
+  minDepth,
+  maxDepth,
+  minFade,
+  maxFade,
+  onChange,
+}: {
+  minDepth: number;
+  maxDepth: number;
+  minFade: number;
+  maxFade: number;
+  onChange: (values: { minDepth: number; maxDepth: number; minFade: number; maxFade: number }) => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [activeHandle, setActiveHandle] = useState<string | null>(null);
+  const [dragValues, setDragValues] = useState<{
+    minDepth: number;
+    maxDepth: number;
+    minFade: number;
+    maxFade: number;
+  } | null>(null);
+  const rafRef = useRef<number>(0);
+  const [isLabelHovered, setIsLabelHovered] = useState(false);
+
+  const vals = dragValues ?? { minDepth, maxDepth, minFade, maxFade };
+  const fadeLeftEdge = Math.max(0, vals.minDepth - vals.minFade);
+  const fadeRightEdge = Math.min(100, vals.maxDepth + vals.maxFade);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  const getVal = (e: MouseEvent | React.MouseEvent): number => {
+    if (!trackRef.current) return 0;
+    const rect = trackRef.current.getBoundingClientRect();
+    return Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+  };
+
+  const compute = (
+    handle: string,
+    val: number,
+    init: { minDepth: number; maxDepth: number; minFade: number; maxFade: number; startVal: number },
+  ): { minDepth: number; maxDepth: number; minFade: number; maxFade: number } => {
+    switch (handle) {
+      case 'minDepth': {
+        const v = Math.max(0, Math.min(val, init.maxDepth));
+        return { minDepth: v, maxDepth: init.maxDepth, minFade: Math.min(init.minFade, v), maxFade: init.maxFade };
+      }
+      case 'maxDepth': {
+        const v = Math.max(init.minDepth, Math.min(100, val));
+        return {
+          minDepth: init.minDepth,
+          maxDepth: v,
+          minFade: init.minFade,
+          maxFade: Math.min(init.maxFade, 100 - v),
+        };
+      }
+      case 'fadeLeft': {
+        const edge = Math.max(0, Math.min(val, init.minDepth));
+        return {
+          minDepth: init.minDepth,
+          maxDepth: init.maxDepth,
+          minFade: init.minDepth - edge,
+          maxFade: init.maxFade,
+        };
+      }
+      case 'fadeRight': {
+        const edge = Math.max(init.maxDepth, Math.min(100, val));
+        return {
+          minDepth: init.minDepth,
+          maxDepth: init.maxDepth,
+          minFade: init.minFade,
+          maxFade: edge - init.maxDepth,
+        };
+      }
+      case 'range': {
+        const delta = val - init.startVal;
+        const width = init.maxDepth - init.minDepth;
+        let nMin = Math.round(init.minDepth + delta);
+        let nMax = Math.round(init.maxDepth + delta);
+        if (nMin < 0) {
+          nMin = 0;
+          nMax = width;
+        }
+        if (nMax > 100) {
+          nMax = 100;
+          nMin = 100 - width;
+        }
+        return {
+          minDepth: nMin,
+          maxDepth: nMax,
+          minFade: Math.min(init.minFade, nMin),
+          maxFade: Math.min(init.maxFade, 100 - nMax),
+        };
+      }
+      default:
+        return { minDepth: init.minDepth, maxDepth: init.maxDepth, minFade: init.minFade, maxFade: init.maxFade };
+    }
+  };
+
+  const beginDrag = (handle: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveHandle(handle);
+
+    const init = { ...vals, startVal: getVal(e) };
+    let latest = { ...vals };
+    let pending = false;
+
+    const onMove = (me: MouseEvent) => {
+      latest = compute(handle, getVal(me), init);
+      setDragValues(latest);
+
+      if (!pending) {
+        pending = true;
+        rafRef.current = requestAnimationFrame(() => {
+          onChange(latest);
+          pending = false;
+        });
+      }
+    };
+
+    const onUp = () => {
+      setActiveHandle(null);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      onChange(latest);
+
+      requestAnimationFrame(() => setDragValues(null));
+
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const handleColor = (handle: string, isMain: boolean) =>
+    activeHandle === handle
+      ? 'var(--color-accent, #818cf8)'
+      : isMain
+        ? 'rgba(255,255,255,0.85)'
+        : 'rgba(255,255,255,0.45)';
+
+  const handleReset = () => {
+    onChange({ minDepth: 20, maxDepth: 100, minFade: 15, maxFade: 15 });
+  };
+
+  const isDragging = activeHandle !== null;
+
+  return (
+    <div className="space-y-1">
+      <div
+        className="grid w-fit cursor-pointer"
+        onClick={handleReset}
+        onMouseEnter={() => setIsLabelHovered(true)}
+        onMouseLeave={() => setIsLabelHovered(false)}
+      >
+        <span
+          aria-hidden={isLabelHovered}
+          className={`col-start-1 row-start-1 text-sm font-medium text-text-secondary select-none transition-opacity duration-200 ease-in-out ${
+            isLabelHovered ? 'opacity-0' : 'opacity-100'
+          }`}
+        >
+          Depth Range
+        </span>
+        <span
+          aria-hidden={!isLabelHovered}
+          className={`col-start-1 row-start-1 text-sm font-medium text-text-primary select-none transition-opacity duration-200 ease-in-out pointer-events-none ${
+            isLabelHovered ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          Reset
+        </span>
+      </div>
+      <div
+        ref={trackRef}
+        className="relative rounded-md overflow-hidden mt-2 select-none border border-white/10"
+        style={{ height: 44 }}
+      >
+        {isDragging && (
+          <div
+            className="fixed inset-0 z-[9999]"
+            style={{ cursor: activeHandle === 'range' ? 'grabbing' : 'ew-resize' }}
+          />
+        )}
+
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(to right, #ddd 0%, #bbb 20%, #999 35%, #666 55%, #333 80%, #111 100%)',
+          }}
+        />
+        <div
+          className="absolute inset-y-0 left-0 bg-black/60 pointer-events-none"
+          style={{ width: `${fadeLeftEdge}%` }}
+        />
+        <div
+          className="absolute inset-y-0 right-0 bg-black/60 pointer-events-none"
+          style={{ width: `${100 - fadeRightEdge}%` }}
+        />
+
+        {vals.minFade > 0.5 && (
+          <div
+            className="absolute inset-y-0 pointer-events-none"
+            style={{
+              left: `${fadeLeftEdge}%`,
+              width: `${vals.minFade}%`,
+              background: 'linear-gradient(to right, rgba(0,0,0,0.6), transparent)',
+            }}
+          />
+        )}
+        {vals.maxFade > 0.5 && (
+          <div
+            className="absolute inset-y-0 pointer-events-none"
+            style={{
+              left: `${vals.maxDepth}%`,
+              width: `${vals.maxFade}%`,
+              background: 'linear-gradient(to right, transparent, rgba(0,0,0,0.6))',
+            }}
+          />
+        )}
+
+        {[0, 1].map((i) => (
+          <div
+            key={i}
+            className="absolute h-px pointer-events-none"
+            style={{
+              left: `${vals.minDepth}%`,
+              width: `${Math.max(0, vals.maxDepth - vals.minDepth)}%`,
+              background: 'rgba(255,255,255,0.3)',
+              ...(i === 0 ? { top: 0 } : { bottom: 0 }),
+            }}
+          />
+        ))}
+
+        {[
+          { pos: fadeLeftEdge, key: 'fadeLeft', main: false },
+          { pos: vals.minDepth, key: 'minDepth', main: true },
+          { pos: vals.maxDepth, key: 'maxDepth', main: true },
+          { pos: fadeRightEdge, key: 'fadeRight', main: false },
+        ].map(({ pos, key, main }) => (
+          <div
+            key={`line-${key}`}
+            className="absolute inset-y-0 pointer-events-none"
+            style={{
+              left: `${pos}%`,
+              transform: 'translateX(-50%)',
+              width: main ? 2 : 1,
+              background: handleColor(key, main),
+              transition: activeHandle ? 'none' : 'background 0.15s',
+            }}
+          />
+        ))}
+
+        <div
+          className="absolute inset-y-0"
+          style={{
+            left: `${vals.minDepth}%`,
+            width: `${Math.max(0, vals.maxDepth - vals.minDepth)}%`,
+            cursor: activeHandle === 'range' ? 'grabbing' : 'grab',
+            zIndex: 5,
+          }}
+          onMouseDown={beginDrag('range')}
+        />
+
+        {[
+          { pos: fadeLeftEdge, key: 'fadeLeft' },
+          { pos: fadeRightEdge, key: 'fadeRight' },
+        ].map(({ pos, key }) => (
+          <div
+            key={key}
+            className="absolute flex items-start justify-center cursor-ew-resize"
+            style={{ left: `${pos}%`, transform: 'translateX(-50%)', top: 0, height: '50%', width: 28, zIndex: 15 }}
+            onMouseDown={beginDrag(key)}
+          >
+            <svg width="8" height="5" viewBox="0 0 8 5" style={{ marginTop: 3 }}>
+              <polygon points="4,5 8,0 0,0" fill={handleColor(key, false)} />
+            </svg>
+          </div>
+        ))}
+
+        {[
+          { pos: vals.minDepth, key: 'minDepth' },
+          { pos: vals.maxDepth, key: 'maxDepth' },
+        ].map(({ pos, key }) => (
+          <div
+            key={key}
+            className="absolute flex items-end justify-center cursor-ew-resize"
+            style={{ left: `${pos}%`, transform: 'translateX(-50%)', bottom: 0, height: '50%', width: 28, zIndex: 20 }}
+            onMouseDown={beginDrag(key)}
+          >
+            <svg width="10" height="6" viewBox="0 0 10 6" style={{ marginBottom: 3 }}>
+              <polygon points="5,0 10,6 0,6" fill={handleColor(key, true)} />
+            </svg>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-between text-xs text-text-secondary select-none px-0.5">
+        <span>Near</span>
+        <span>Far</span>
+      </div>
+    </div>
+  );
+}
+
 export default function MasksPanel({
   activeMaskContainerId,
   activeMaskId,
@@ -201,6 +514,7 @@ export default function MasksPanel({
   copiedMask,
   histogram,
   isGeneratingAiMask,
+  onGenerateAiDepthMask,
   onGenerateAiForegroundMask,
   onGenerateAiSkyMask,
   onSelectContainer,
@@ -249,7 +563,7 @@ export default function MasksPanel({
   const activeContainer = adjustments.masks.find((m) => m.id === activeMaskContainerId);
   const activeSubMaskData = activeContainer?.subMasks.find((sm) => sm.id === activeMaskId);
   const isAiMask =
-    activeSubMaskData && [Mask.AiSubject, Mask.AiForeground, Mask.AiSky].includes(activeSubMaskData.type);
+    activeSubMaskData && [Mask.AiSubject, Mask.AiForeground, Mask.AiSky, Mask.AiDepth].includes(activeSubMaskData.type);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -392,6 +706,15 @@ export default function MasksPanel({
         subMask.parameters.feather = 35;
       }
     }
+
+    if (type === Mask.AiDepth) {
+      if (!subMask.parameters) subMask.parameters = {};
+      subMask.parameters.minDepth = 20;
+      subMask.parameters.maxDepth = 100;
+      subMask.parameters.minFade = 15;
+      subMask.parameters.maxFade = 15;
+      subMask.parameters.feather = 10;
+    }
     return subMask;
   };
 
@@ -412,6 +735,7 @@ export default function MasksPanel({
     setExpandedContainers((prev) => new Set(prev).add(newContainer.id));
     if (type === Mask.AiForeground) onGenerateAiForegroundMask(subMask.id);
     else if (type === Mask.AiSky) onGenerateAiSkyMask(subMask.id);
+    else if (type === Mask.AiDepth) onGenerateAiDepthMask(subMask.id, subMask.parameters);
   };
 
   const handleAddSubMask = (containerId: string, type: Mask, insertIndex: number = -1) => {
@@ -436,6 +760,7 @@ export default function MasksPanel({
     setExpandedContainers((prev) => new Set(prev).add(containerId));
     if (type === Mask.AiForeground) onGenerateAiForegroundMask(subMask.id);
     else if (type === Mask.AiSky) onGenerateAiSkyMask(subMask.id);
+    else if (type === Mask.AiDepth) onGenerateAiDepthMask(subMask.id, subMask.parameters);
   };
 
   const handleGridClick = (type: Mask, forceNewMaskContainer: boolean = false) => {
@@ -978,6 +1303,7 @@ export default function MasksPanel({
                   isSettingsSectionOpen={isSettingsSectionOpen}
                   setSettingsSectionOpen={setSettingsSectionOpen}
                   presets={presets}
+                  onGenerateAiDepthMask={onGenerateAiDepthMask}
                 />
               </motion.div>
             )}
@@ -1622,6 +1948,7 @@ function SettingsPanel({
   isSettingsSectionOpen,
   setSettingsSectionOpen,
   presets,
+  onGenerateAiDepthMask,
 }: any) {
   const { showContextMenu } = useContextMenu();
   const isActive = !!container;
@@ -1682,13 +2009,27 @@ function SettingsPanel({
     updateContainer(container.id, { [key]: value });
   };
 
-  const handleSubMaskParameterChange = (key: string, value: number) => {
+  const handleSubMaskParametersChange = (changes: Record<string, number>) => {
     if (!isActive || !activeSubMask) return;
-    updateSubMask(activeSubMask.id, { parameters: { ...activeSubMask.parameters, [key]: value } });
+    const newParams = { ...activeSubMask.parameters, ...changes };
+    updateSubMask(activeSubMask.id, { parameters: newParams });
+  };
+
+  const handleDepthRangeChange = (values: { minDepth: number; maxDepth: number; minFade: number; maxFade: number }) => {
+    if (!isActive || !activeSubMask) return;
+
+    const newParams = {
+      ...activeSubMask.parameters,
+      minDepth: 100 - values.maxDepth,
+      maxDepth: 100 - values.minDepth,
+      minFade: values.maxFade,
+      maxFade: values.minFade,
+    };
+    updateSubMask(activeSubMask.id, { parameters: newParams });
   };
 
   const subMaskConfig = activeSubMask ? SUB_MASK_CONFIG[activeSubMask.type] || {} : {};
-  const isAiMask = activeSubMask && ['ai-subject', 'ai-foreground', 'ai-sky'].includes(activeSubMask.type);
+  const isAiMask = activeSubMask && ['ai-subject', 'ai-foreground', 'ai-sky', 'ai-depth'].includes(activeSubMask.type);
   const isComponentMode = !!activeSubMask;
 
   const setMaskContainerAdjustments = (updater: any) => {
@@ -1843,6 +2184,17 @@ function SettingsPanel({
                   </div>
                 </div>
               )}
+
+              {activeSubMask.type === Mask.AiDepth && (
+                <DepthRangePicker
+                  minDepth={100 - (activeSubMask.parameters?.maxDepth ?? 100)}
+                  maxDepth={100 - (activeSubMask.parameters?.minDepth ?? 0)}
+                  minFade={activeSubMask.parameters?.maxFade ?? 15}
+                  maxFade={activeSubMask.parameters?.minFade ?? 15}
+                  onChange={handleDepthRangeChange}
+                />
+              )}
+
               {subMaskConfig.parameters?.map((param: any) => (
                 <Slider
                   key={param.key}
@@ -1853,10 +2205,11 @@ function SettingsPanel({
                   defaultValue={param.defaultValue}
                   value={(activeSubMask.parameters[param.key] || 0) * (param.multiplier || 1)}
                   onChange={(e: any) =>
-                    handleSubMaskParameterChange(param.key, parseFloat(e.target.value) / (param.multiplier || 1))
+                    handleSubMaskParametersChange({ [param.key]: parseFloat(e.target.value) / (param.multiplier || 1) })
                   }
                 />
               ))}
+
               {subMaskConfig.showBrushTools && brushSettings && (
                 <BrushTools settings={brushSettings} onSettingsChange={setBrushSettings} />
               )}

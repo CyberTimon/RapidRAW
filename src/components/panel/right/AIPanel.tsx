@@ -124,8 +124,8 @@ const SUB_MASK_CONFIG: any = {
   },
   [Mask.QuickEraser]: {
     parameters: [
-      { key: 'grow', label: 'Grow', min: -100, max: 100, step: 1, defaultValue: 50 },
-      { key: 'feather', label: 'Feather', min: 0, max: 100, step: 1, defaultValue: 50 },
+      { key: 'grow', label: 'Grow', min: -100, max: 100, step: 1, defaultValue: 75 },
+      { key: 'feather', label: 'Feather', min: 0, max: 100, step: 1, defaultValue: 75 },
     ],
   },
 };

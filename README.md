@@ -60,7 +60,8 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
-- **2026-03-30:** LaMa inpainting for lightweight local content-aware fill and object removal.
+- **2026-04-01:** Added depth masking with depth anything v2 & improved ROI rendering performance
+- **2026-03-30:** LaMa inpainting for lightweight local content-aware fill and object removal
 - **2026-03-26:** Performance improvements & new flat list mode for library
 - **2026-03-25:** Optimize folder loading & tree fetching
 - **2026-03-23:** Generate thumbnails only for visible viewport items
@@ -69,12 +70,12 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - **2026-03-18:** Implemented AI NIND denoising
 - **2026-03-16:** LRU cache for instant image loading
 - **2026-03-15:** Improved high quality subject mask models, various UI improvements and shader improvements
-- **2026-03-14:** New image analytics panel which can display vectorscopes, waveforms, parades & histograms
 
 <details>
 <summary><strong>Expand further</strong></summary>
 
-- **2026-03-13:** JPEG XL, WebP, and additional format support, including the ability to export LUTs.
+- **2026-03-14:** New image analytics panel which can display vectorscopes, waveforms, parades & histograms
+- **2026-03-13:** JPEG XL, WebP, and additional format support, including the ability to export LUTs
 - **2026-03-12:** Added parametric color & luminance masks
 - **2026-03-10:** Implement region of interest rendering to improve performance when zooming in
 - **2026-03-07:** Batch negative conversion & various shader improvements
@@ -266,7 +267,7 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
       <h4>Core Editing Engine</h4>
       <ul>
         <li><strong>GPU-Accelerated:</strong> Full 32-bit image processing pipeline written in WGSL for instant feedback.</li>
-        <li><strong>Masking:</strong> Layer-based masking with AI subject, sky and foreground detection. Combine with traditional masks for great control.</li>
+        <li><strong>Masking:</strong> Layer-based masking with AI subject, depth, sky, and foreground detection. Combine with traditional masks for great control.</li>
         <li><strong>Generative Edits:</strong> Remove or add elements using text prompts, powered by an optional AI backend.</li>
         <li><strong>Full RAW Support:</strong> Supports a wide range of RAW camera formats through rawler, with JPEG support included.</li>
         <li><strong>Non-Destructive Workflow:</strong> All edits are stored in a <code>.rrdata</code> sidecar file, leaving your original images untouched.</li>
@@ -553,6 +554,10 @@ A huge thank you to the following projects and tools that were very important in
 - **[rawler](https://github.com/dnglab/dnglab/tree/main/rawler):** For the excellent Rust crate that provides the foundation for RAW file processing in this project.
 - **[lensfun](https://lensfun.github.io/):** For its invaluable open-source library and comprehensive database for automatic lens correction.
 - **[LaMa](https://github.com/advimman/lama):** For the powerful & simple image inpainting model, which enables content-aware fill and object removal.
+- **[SAM 2](https://github.com/facebookresearch/sam2):** For providing the foundation model used for the AI subject detection capabilities.
+- **[U-2-Net](https://github.com/xuebinqin/U-2-Net):** For providing the robust architecture used for the AI sky and foreground detection capabilities.
+- **[Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2):** For the powerful monocular depth estimation model that enables the AI depth masking capabilities.
+- **[nind-denoise](https://github.com/trougnouf/nind-denoise):** For providing AI models that power the AI noise reduction capabilities in RapidRAW.
 - **[NegPy](https://github.com/marcinz606/NegPy):** For the inspiration behind the negative conversion logic, particularly the mathematical approach to film inversion using characteristic curves.
 - **[pixls.us](https://discuss.pixls.us/):** For being an incredible community full of knowledgeable people who offered inspiration, advice, and ideas.
 - **[darktable & co.](https://github.com/darktable-org/darktable):** For some reference implementations that guided parts of this work.

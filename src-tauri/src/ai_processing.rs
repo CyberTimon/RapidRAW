@@ -53,11 +53,17 @@ const LAMA_URL: &str =
 const LAMA_FILENAME: &str = "lama_fp16.onnx";
 const LAMA_SHA256: &str = "2d6be6277c400d6f1b91819737f7c3da935e5c63d1b521d393be1196a2bfa82c";
 
+const DEPTH_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/depth_anything_v2_vits.onnx?download=true";
+const DEPTH_FILENAME: &str = "depth_anything_v2_vits.onnx";
+const DEPTH_INPUT_SIZE: u32 = 518;
+const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b526304f2562be";
+
 pub struct AiModels {
     pub sam_encoder: Mutex<Session>,
     pub sam_decoder: Mutex<Session>,
     pub u2netp: Mutex<Session>,
     pub sky_seg: Mutex<Session>,
+    pub depth_anything: Mutex<Session>,
 }
 
 pub struct ClipModels {
@@ -72,12 +78,20 @@ pub struct ImageEmbeddings {
     pub original_size: (u32, u32),
 }
 
+#[derive(Clone)]
+pub struct CachedDepthMap {
+    pub path_hash: String,
+    pub depth_image: GrayImage,
+    pub original_size: (u32, u32),
+}
+
 pub struct AiState {
     pub models: Option<Arc<AiModels>>,
     pub denoise_model: Option<Arc<Mutex<Session>>>,
     pub clip_models: Option<Arc<ClipModels>>,
     pub lama_model: Option<Arc<Mutex<Session>>>,
     pub embeddings: Option<ImageEmbeddings>,
+    pub depth_map: Option<CachedDepthMap>,
 }
 
 fn edt_1d(f: &mut [f32], v: &mut [usize], z: &mut [f32], d: &mut [f32]) {
@@ -269,6 +283,15 @@ pub async fn get_or_init_ai_models(
         "Sky Model",
     )
     .await?;
+    download_and_verify_model(
+        app_handle,
+        &models_dir,
+        DEPTH_FILENAME,
+        DEPTH_URL,
+        DEPTH_SHA256,
+        "Depth Model",
+    )
+    .await?;
 
     let _ = ort::init().with_name("AI").commit();
 
@@ -276,11 +299,13 @@ pub async fn get_or_init_ai_models(
     let decoder_path = models_dir.join(DECODER_FILENAME);
     let u2netp_path = models_dir.join(U2NETP_FILENAME);
     let sky_seg_path = models_dir.join(SKYSEG_FILENAME);
+    let depth_path = models_dir.join(DEPTH_FILENAME);
 
     let sam_encoder = Session::builder()?.commit_from_file(encoder_path)?;
     let sam_decoder = Session::builder()?.commit_from_file(decoder_path)?;
     let u2netp = Session::builder()?.commit_from_file(u2netp_path)?;
     let sky_seg = Session::builder()?.commit_from_file(sky_seg_path)?;
+    let depth_anything = Session::builder()?.commit_from_file(depth_path)?;
 
     crate::register_exit_handler();
 
@@ -289,6 +314,7 @@ pub async fn get_or_init_ai_models(
         sam_decoder: Mutex::new(sam_decoder),
         u2netp: Mutex::new(u2netp),
         sky_seg: Mutex::new(sky_seg),
+        depth_anything: Mutex::new(depth_anything),
     });
 
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
@@ -301,6 +327,7 @@ pub async fn get_or_init_ai_models(
             clip_models: None,
             lama_model: None,
             embeddings: None,
+            depth_map: None,
         });
     }
 
@@ -360,6 +387,7 @@ pub async fn get_or_init_denoise_model(
             clip_models: None,
             lama_model: None,
             embeddings: None,
+            depth_map: None,
         });
     }
 
@@ -430,6 +458,7 @@ pub async fn get_or_init_clip_models(
             clip_models: Some(clip_models.clone()),
             lama_model: None,
             embeddings: None,
+            depth_map: None,
         });
     }
 
@@ -489,6 +518,7 @@ pub async fn get_or_init_lama_model(
             clip_models: None,
             lama_model: Some(lama_model.clone()),
             embeddings: None,
+            depth_map: None,
         });
     }
 
@@ -769,8 +799,8 @@ pub fn run_lama_inpainting(
     let mask_w = max_x - min_x + 1;
     let mask_h = max_y - min_y + 1;
 
-    let pad_x = 64.max((mask_w as f32 * 0.5) as u32);
-    let pad_y = 64.max((mask_h as f32 * 0.5) as u32);
+    let pad_x = 128.max((mask_w as f32 * 1.5) as u32);
+    let pad_y = 128.max((mask_h as f32 * 1.5) as u32);
 
     let x0 = min_x.saturating_sub(pad_x);
     let y0 = min_y.saturating_sub(pad_y);
@@ -785,7 +815,7 @@ pub fn run_lama_inpainting(
     let cropped_img = imageops::crop_imm(&rgba, x0, y0, crop_w, crop_h).to_image();
     let cropped_mask = imageops::crop_imm(mask, x0, y0, crop_w, crop_h).to_image();
 
-    let max_dim_limit: u32 = 1024;
+    let max_dim_limit: u32 = 768;
     let needs_downscale = crop_w > max_dim_limit || crop_h > max_dim_limit;
 
     let (fw, fh, inf_img, inf_mask) = if needs_downscale {
@@ -1315,6 +1345,89 @@ pub fn run_u2netp_model(
     Ok(final_mask)
 }
 
+pub fn run_depth_anything_model(
+    image: &DynamicImage,
+    depth_session: &Mutex<Session>,
+) -> Result<GrayImage> {
+    let resized_image = image.resize(DEPTH_INPUT_SIZE, DEPTH_INPUT_SIZE, FilterType::Triangle);
+    let (resized_w, resized_h) = resized_image.dimensions();
+    let resized_rgb = resized_image.into_rgb8();
+    let raw_pixels = resized_rgb.as_raw();
+
+    let paste_x = ((DEPTH_INPUT_SIZE - resized_w) / 2) as usize;
+    let paste_y = ((DEPTH_INPUT_SIZE - resized_h) / 2) as usize;
+
+    let mut input_tensor: Array<f32, _> =
+        Array::zeros((1, 3, DEPTH_INPUT_SIZE as usize, DEPTH_INPUT_SIZE as usize));
+
+    let mean = [0.485, 0.456, 0.406];
+    let std = [0.229, 0.224, 0.225];
+
+    let rw = resized_w as usize;
+    let rh = resized_h as usize;
+
+    for y in 0..rh {
+        for x in 0..rw {
+            let idx = (y * rw + x) * 3;
+            let dest_y = y + paste_y;
+            let dest_x = x + paste_x;
+
+            input_tensor[[0, 0, dest_y, dest_x]] =
+                (raw_pixels[idx] as f32 / 255.0 - mean[0]) / std[0];
+            input_tensor[[0, 1, dest_y, dest_x]] =
+                (raw_pixels[idx + 1] as f32 / 255.0 - mean[1]) / std[1];
+            input_tensor[[0, 2, dest_y, dest_x]] =
+                (raw_pixels[idx + 2] as f32 / 255.0 - mean[2]) / std[2];
+        }
+    }
+
+    let input_tensor_dyn = input_tensor.into_dyn();
+    let t_input = Tensor::from_array(input_tensor_dyn.as_standard_layout().into_owned())?;
+
+    let mut session = depth_session.lock().unwrap();
+    let outputs = session.run(ort::inputs![t_input])?;
+    let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
+    let out_slice = output_tensor.as_slice().unwrap();
+
+    let usize_size = DEPTH_INPUT_SIZE as usize;
+
+    let mut min_val = f32::MAX;
+    let mut max_val = f32::MIN;
+    for y in 0..rh {
+        let src_y = y + paste_y;
+        for x in 0..rw {
+            let src_x = x + paste_x;
+            let val = out_slice[src_y * usize_size + src_x];
+            min_val = min_val.min(val);
+            max_val = max_val.max(val);
+        }
+    }
+
+    let range = max_val - min_val;
+    let scale = if range > 1e-6 { 255.0 / range } else { 0.0 };
+
+    let mut cropped_depth_data = Vec::with_capacity(rw * rh);
+
+    for y in 0..rh {
+        let src_y = y + paste_y;
+        for x in 0..rw {
+            let src_x = x + paste_x;
+            let val = out_slice[src_y * usize_size + src_x];
+            let pixel = if range > 1e-6 {
+                ((val - min_val) * scale) as u8
+            } else {
+                0
+            };
+            cropped_depth_data.push(pixel);
+        }
+    }
+
+    let depth_map = GrayImage::from_raw(resized_w, resized_h, cropped_depth_data)
+        .ok_or_else(|| anyhow::anyhow!("Failed to create mask from Depth output"))?;
+
+    Ok(depth_map)
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AiSubjectMaskParameters {
@@ -1352,6 +1465,31 @@ pub struct AiSkyMaskParameters {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AiForegroundMaskParameters {
+    #[serde(default)]
+    pub mask_data_base64: Option<String>,
+    #[serde(default)]
+    pub rotation: Option<f32>,
+    #[serde(default)]
+    pub flip_horizontal: Option<bool>,
+    #[serde(default)]
+    pub flip_vertical: Option<bool>,
+    #[serde(default)]
+    pub orientation_steps: Option<u8>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AiDepthMaskParameters {
+    #[serde(default)]
+    pub min_depth: f32,
+    #[serde(default)]
+    pub max_depth: f32,
+    #[serde(default)]
+    pub min_fade: f32,
+    #[serde(default)]
+    pub max_fade: f32,
+    #[serde(default)]
+    pub feather: f32,
     #[serde(default)]
     pub mask_data_base64: Option<String>,
     #[serde(default)]

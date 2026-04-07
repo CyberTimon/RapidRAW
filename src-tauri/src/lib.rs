@@ -60,9 +60,9 @@ use tokio::task::JoinHandle;
 use wgpu::{Texture, TextureView};
 
 use crate::ai_processing::{
-    AiForegroundMaskParameters, AiSkyMaskParameters, AiState, AiSubjectMaskParameters,
-    generate_image_embeddings, get_or_init_ai_models, run_sam_decoder, run_sky_seg_model,
-    run_u2netp_model,
+    AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters, AiState,
+    AiSubjectMaskParameters, CachedDepthMap, generate_image_embeddings, get_or_init_ai_models,
+    run_depth_anything_model, run_sam_decoder, run_sky_seg_model, run_u2netp_model,
 };
 use crate::exif_processing::{read_exposure_time_secs, read_iso};
 use crate::file_management::{
@@ -904,36 +904,16 @@ fn process_preview_job(
 
     let new_transform_hash = calculate_transform_hash(&adjustments_clone);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
-    let hq_live = settings.enable_high_quality_live_previews.unwrap_or(false);
+    let live_quality = settings.live_preview_quality.as_deref().unwrap_or("high");
 
     let default_preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
     let preview_dim = target_resolution.unwrap_or(default_preview_dim);
 
-    let preview_dim_f = preview_dim as f32;
-    let image_max_dim = loaded_image.image.width().max(loaded_image.image.height()) as f32;
-    let max_interactive_dim: f32 = if hq_live { image_max_dim } else { 3072.0 };
-
-    let mut interactive_divisor = if preview_dim_f <= 1536.0 || max_interactive_dim <= 1536.0 {
-        if hq_live { 1.0 } else { 1.5 }
-    } else {
-        let transition_start = 1536.0;
-        let transition_end = max_interactive_dim;
-
-        let (start_div, end_div) = if hq_live { (1.0, 1.5) } else { (1.5, 2.0) };
-
-        if preview_dim_f >= transition_end {
-            end_div
-        } else {
-            let t = (preview_dim_f - transition_start) / (transition_end - transition_start);
-            start_div + t * (end_div - start_div)
-        }
+    let (interactive_divisor, interactive_quality) = match live_quality {
+        "full" => (1.0_f32, 85_u8),
+        "performance" => (1.8_f32, 65_u8),
+        _ => (1.2_f32, 80_u8),
     };
-
-    if (preview_dim_f / interactive_divisor) > max_interactive_dim {
-        interactive_divisor = preview_dim_f / max_interactive_dim;
-    }
-
-    let interactive_quality: u8 = if hq_live { 72 } else { 60 };
 
     let mut cached_preview_lock = state.cached_preview.lock().unwrap();
 
@@ -1081,39 +1061,60 @@ fn process_preview_job(
             }
         }
 
-        if let Some(r) = pixel_roi.filter(|_| is_interactive) {
+        if is_interactive {
             let step_start = std::time::Instant::now();
+
             let roi_rgb = final_processed_image.to_rgb8();
+            let (roi_w, roi_h) = roi_rgb.dimensions();
 
-            let full_w = preview_width as usize;
-            let full_h = preview_height as usize;
-            let mut full_rgb = vec![0u8; full_w * full_h * 3];
-
-            let roi_w = roi_rgb.width() as usize;
-            let roi_h = roi_rgb.height() as usize;
-            let rx = r.x as usize;
-            let ry = r.y as usize;
-            let roi_pixels = roi_rgb.as_raw();
-
-            for row in 0..roi_h {
-                let src_start = row * roi_w * 3;
-                let src_end = src_start + roi_w * 3;
-                let dst_start = ((ry + row) * full_w + rx) * 3;
-                let dst_end = dst_start + roi_w * 3;
-                if dst_end <= full_rgb.len() && src_end <= roi_pixels.len() {
-                    full_rgb[dst_start..dst_end].copy_from_slice(&roi_pixels[src_start..src_end]);
-                }
-            }
+            let (rx, ry) = if let Some(r) = pixel_roi {
+                (r.x, r.y)
+            } else {
+                (0, 0)
+            };
 
             match Encoder::new(Preset::BaselineFastest)
                 .quality(jpeg_quality)
-                .encode_rgb(&full_rgb, preview_width, preview_height)
+                .encode_rgb(&roi_rgb.into_raw(), roi_w, roi_h)
             {
-                Ok(bytes) => {
+                Ok(jpeg_bytes) => {
+                    let mut response = Vec::with_capacity(24 + jpeg_bytes.len());
+                    response.extend_from_slice(&rx.to_le_bytes());
+                    response.extend_from_slice(&ry.to_le_bytes());
+                    response.extend_from_slice(&roi_w.to_le_bytes());
+                    response.extend_from_slice(&roi_h.to_le_bytes());
+                    response.extend_from_slice(&preview_width.to_le_bytes());
+                    response.extend_from_slice(&preview_height.to_le_bytes());
+                    response.extend_from_slice(&jpeg_bytes);
+
                     log::info!(
                         "[process_preview_job] interactive ROI {}x{} in {:?}, total {:?}",
                         roi_w,
                         roi_h,
+                        step_start.elapsed(),
+                        fn_start.elapsed()
+                    );
+                    return Ok(response);
+                }
+                Err(e) => {
+                    return Err(format!("Failed to encode preview: {}", e));
+                }
+            }
+        } else {
+            let step_start = std::time::Instant::now();
+            let (width, height) = final_processed_image.dimensions();
+            let rgb_pixels = final_processed_image.to_rgb8().into_vec();
+
+            match Encoder::new(Preset::BaselineFastest)
+                .quality(jpeg_quality)
+                .encode_rgb(&rgb_pixels, width, height)
+            {
+                Ok(bytes) => {
+                    log::info!(
+                        "[process_preview_job] full {}x{} q={} in {:?}, total {:?}",
+                        width,
+                        height,
+                        jpeg_quality,
                         step_start.elapsed(),
                         fn_start.elapsed()
                     );
@@ -1122,30 +1123,6 @@ fn process_preview_job(
                 Err(e) => {
                     return Err(format!("Failed to encode preview: {}", e));
                 }
-            }
-        }
-
-        let step_start = std::time::Instant::now();
-        let (width, height) = final_processed_image.dimensions();
-        let rgb_pixels = final_processed_image.to_rgb8().into_vec();
-
-        match Encoder::new(Preset::BaselineFastest)
-            .quality(jpeg_quality)
-            .encode_rgb(&rgb_pixels, width, height)
-        {
-            Ok(bytes) => {
-                log::info!(
-                    "[process_preview_job] full {}x{} q={} in {:?}, total {:?}",
-                    width,
-                    height,
-                    jpeg_quality,
-                    step_start.elapsed(),
-                    fn_start.elapsed()
-                );
-                return Ok(bytes);
-            }
-            Err(e) => {
-                return Err(format!("Failed to encode preview: {}", e));
             }
         }
     }
@@ -1921,6 +1898,11 @@ fn encode_image_to_bytes(
         "tiff" => {
             DynamicImage::ImageRgb16(image.to_rgb16())
                 .write_to(&mut cursor, image::ImageFormat::Tiff)
+                .map_err(|e| e.to_string())?;
+        }
+        "avif" => {
+            image
+                .write_to(&mut cursor, image::ImageFormat::Avif)
                 .map_err(|e| e.to_string())?;
         }
         _ => return Err(format!("Unsupported file format: {}", output_format)),
@@ -2906,6 +2888,98 @@ async fn generate_ai_sky_mask(
     let base64_data = encode_to_base64_png(&full_mask_image)?;
 
     Ok(AiSkyMaskParameters {
+        mask_data_base64: Some(base64_data),
+        rotation: Some(rotation),
+        flip_horizontal: Some(flip_horizontal),
+        flip_vertical: Some(flip_vertical),
+        orientation_steps: Some(orientation_steps),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+async fn generate_ai_depth_mask(
+    js_adjustments: serde_json::Value,
+    path: String,
+    min_depth: f32,
+    max_depth: f32,
+    min_fade: f32,
+    max_fade: f32,
+    feather: f32,
+    rotation: f32,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+    orientation_steps: u8,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<AiDepthMaskParameters, String> {
+    let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let path_hash = {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(path.as_bytes());
+        let mut geo_hasher = DefaultHasher::new();
+        for key in GEOMETRY_KEYS {
+            if let Some(val) = js_adjustments.get(key) {
+                key.hash(&mut geo_hasher);
+                val.to_string().hash(&mut geo_hasher);
+            }
+        }
+        hasher.update(&geo_hasher.finish().to_le_bytes());
+        hasher.finalize().to_hex().to_string()
+    };
+
+    let cached_depth = {
+        let mut ai_state_lock = state.ai_state.lock().unwrap();
+        let ai_state = ai_state_lock.as_mut().unwrap();
+
+        if let Some(cached) = &ai_state.depth_map {
+            if cached.path_hash == path_hash {
+                cached.clone()
+            } else {
+                let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+                let depth_img =
+                    run_depth_anything_model(warped_image.as_ref(), &models.depth_anything)
+                        .map_err(|e| e.to_string())?;
+                let new_cache = CachedDepthMap {
+                    path_hash: path_hash.clone(),
+                    depth_image: depth_img,
+                    original_size: (warped_image.width(), warped_image.height()),
+                };
+                ai_state.depth_map = Some(new_cache.clone());
+                new_cache
+            }
+        } else {
+            let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+            let depth_img = run_depth_anything_model(warped_image.as_ref(), &models.depth_anything)
+                .map_err(|e| e.to_string())?;
+            let new_cache = CachedDepthMap {
+                path_hash: path_hash.clone(),
+                depth_image: depth_img,
+                original_size: (warped_image.width(), warped_image.height()),
+            };
+            ai_state.depth_map = Some(new_cache.clone());
+            new_cache
+        }
+    };
+
+    let raw_depth_fullres = image::imageops::resize(
+        &cached_depth.depth_image,
+        cached_depth.original_size.0,
+        cached_depth.original_size.1,
+        image::imageops::FilterType::Triangle,
+    );
+
+    let base64_data = encode_to_base64_png(&raw_depth_fullres)?;
+
+    Ok(AiDepthMaskParameters {
+        min_depth,
+        max_depth,
+        min_fade,
+        max_fade,
+        feather,
         mask_data_base64: Some(base64_data),
         rotation: Some(rotation),
         flip_horizontal: Some(flip_horizontal),
@@ -4299,8 +4373,7 @@ fn frontend_ready(
                     let monitor_pos = monitor.position();
                     let default_width = 1280i32;
                     let default_height = 720i32;
-                    let center_x =
-                        monitor_pos.x + (monitor_size.width as i32 - default_width) / 2;
+                    let center_x = monitor_pos.x + (monitor_size.width as i32 - default_width) / 2;
                     let center_y =
                         monitor_pos.y + (monitor_size.height as i32 - default_height) / 2;
 
@@ -4308,8 +4381,7 @@ fn frontend_ready(
                         default_width as u32,
                         default_height as u32,
                     ));
-                    let _ = window
-                        .set_position(tauri::PhysicalPosition::new(center_x, center_y));
+                    let _ = window.set_position(tauri::PhysicalPosition::new(center_x, center_y));
                 }
             }
         }
@@ -4347,7 +4419,10 @@ pub fn run() {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            log::info!("New instance launched with args: {:?}. Focusing main window.", argv);
+            log::info!(
+                "New instance launched with args: {:?}. Focusing main window.",
+                argv
+            );
             if let Some(window) = app.get_webview_window("main") {
                 if let Err(e) = window.unminimize() {
                     log::error!("Failed to unminimize window: {}", e);
@@ -4360,7 +4435,10 @@ pub fn run() {
             if argv.len() > 1 {
                 let path_str = &argv[1];
                 if let Err(e) = app.emit("open-with-file", path_str) {
-                    log::error!("Failed to emit open-with-file from single-instance handler: {}", e);
+                    log::error!(
+                        "Failed to emit open-with-file from single-instance handler: {}",
+                        e
+                    );
                 }
             }
         }));
@@ -4667,6 +4745,7 @@ pub fn run() {
             precompute_ai_subject_mask,
             generate_ai_foreground_mask,
             generate_ai_sky_mask,
+            generate_ai_depth_mask,
             update_window_effect,
             check_ai_connector_status,
             test_ai_connector_connection,

@@ -118,6 +118,12 @@ const zoomMultiplierOptions: OptionItem<number>[] = [
   { value: 0.25, label: '0.25x' },
 ];
 
+const livePreviewQualityOptions: OptionItem<string>[] = [
+  { value: 'full', label: 'Full Resolution' },
+  { value: 'high', label: 'High Quality' },
+  { value: 'performance', label: 'Performance' },
+];
+
 const backendOptions: OptionItem<string>[] = [
   { value: 'auto', label: 'Auto' },
   { value: 'vulkan', label: 'Vulkan' },
@@ -1285,6 +1291,18 @@ export default function SettingsPanel({
                     </li>
                     <li>
                       <a
+                        href="https://github.com/DepthAnything/Depth-Anything-V2"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-accent hover:underline"
+                      >
+                        Depth Anything V2
+                      </a>
+                      : For the powerful monocular depth estimation model that enables the AI depth masking
+                      capabilities.
+                    </li>
+                    <li>
+                      <a
                         href="https://github.com/trougnouf/nind-denoise"
                         target="_blank"
                         rel="noopener noreferrer"
@@ -1455,20 +1473,18 @@ export default function SettingsPanel({
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.3, ease: 'easeInOut' }}
-                            className="overflow-hidden"
                           >
                             <div className="pl-4 border-l-2 border-border-color ml-1">
                               <SettingItem
-                                label="High Quality Live Preview"
-                                description="Uses higher resolution and less compression during interaction."
+                                label="Live Preview Quality"
+                                description="Controls the resolution and compression of the image while dragging sliders. Lower quality significantly improves responsiveness."
                               >
-                                <Switch
-                                  checked={appSettings?.enableHighQualityLivePreviews ?? false}
-                                  id="hq-live-previews-toggle"
-                                  label="Enable High Quality"
-                                  onChange={(checked) =>
-                                    onSettingsChange({ ...appSettings, enableHighQualityLivePreviews: checked })
+                                <Dropdown
+                                  onChange={(value: any) =>
+                                    onSettingsChange({ ...appSettings, livePreviewQuality: value })
                                   }
+                                  options={livePreviewQualityOptions}
+                                  value={appSettings?.livePreviewQuality || 'high'}
                                 />
                               </SettingItem>
                             </div>
