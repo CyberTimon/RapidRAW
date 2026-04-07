@@ -49,6 +49,9 @@ use crate::mask_generation::MaskDefinition;
 use crate::preset_converter;
 use crate::tagging::COLOR_TAG_PREFIX;
 
+#[cfg(target_os = "android")]
+const ANDROID_APP_FOLDER: &str = "RapidRaw";
+
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
     let cache_dir = app_handle
         .path()
@@ -2782,10 +2785,11 @@ pub fn save_image_bytes_to_android_gallery(
     mime_type: &str,
     bytes: &[u8],
 ) -> Result<(), String> {
+    let relative_path = format!("Pictures/{}", ANDROID_APP_FOLDER);
     save_bytes_to_android_media_store(
         file_name,
         mime_type,
-        "Pictures/RapidRaw",
+        &relative_path,
         "android/provider/MediaStore$Images$Media",
         bytes,
     )
@@ -2797,10 +2801,11 @@ pub fn save_file_bytes_to_android_downloads(
     mime_type: &str,
     bytes: &[u8],
 ) -> Result<(), String> {
+    let relative_path = format!("Download/{}", ANDROID_APP_FOLDER);
     save_bytes_to_android_media_store(
         file_name,
         mime_type,
-        "Download/RapidRaw",
+        &relative_path,
         "android/provider/MediaStore$Downloads",
         bytes,
     )
