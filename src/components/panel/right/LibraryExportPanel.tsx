@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { platform } from '@tauri-apps/plugin-os';
 import { Save, CheckCircle, XCircle, Loader, X, Ban } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import Switch from '../../ui/Switch';
@@ -23,20 +21,21 @@ import {
 import { Invokes, ImageFile, AppSettings } from '../../ui/AppProperties';
 import ExportPresetsList from '../../ui/ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
+import { pickExportFolder } from '../../../utils/platformExport';
 
 interface LibraryExportPanelProps {
   exportState: ExportState;
   isVisible: boolean;
   multiSelectedPaths: Array<string>;
   onClose(): void;
-  setExportState(state: any): void;
+  setExportState(state: ExportState): void;
   imageList: ImageFile[];
   appSettings: AppSettings | null;
   onSettingsChange: (settings: AppSettings) => void;
 }
 
 interface SectionProps {
-  children: any;
+  children: React.ReactNode;
   title: string;
 }
 
@@ -249,14 +248,6 @@ export default function LibraryExportPanel({
   const [isEstimating, setIsEstimating] = useState<boolean>(false);
   const [watermarkImageAspectRatio, setWatermarkImageAspectRatio] = useState(1);
   const filenameInputRef = useRef<HTMLInputElement>(null);
-  const isAndroid = useMemo(() => {
-    try {
-      return platform() === 'android';
-    } catch (_error) {
-      return false;
-    }
-  }, []);
-  const androidExportRoot = 'RapidRaw';
 
   const { status, progress, errorMessage } = exportState;
   const isExporting = status === Status.Exporting;
@@ -455,20 +446,17 @@ export default function LibraryExportPanel({
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
 
     try {
-      const outputFolder = isAndroid
-        ? androidExportRoot
-        : await open({
-            directory: true,
-            title: `Select Folder to Export ${numImages} Image(s)`,
-            defaultPath: lastExportPath ?? undefined,
-          });
+      const outputFolder = await pickExportFolder({
+        title: `Select Folder to Export ${numImages} Image(s)`,
+        defaultPath: lastExportPath ?? undefined,
+      });
 
       if (outputFolder) {
-        saveLastUsedPreset(outputFolder as string);
+        saveLastUsedPreset(outputFolder);
         setExportState({ status: Status.Exporting, progress: { current: 0, total: numImages }, errorMessage: '' });
         await invoke(Invokes.BatchExportImages, {
           exportSettings,
-          outputFolder: outputFolder as string,
+          outputFolder,
           outputFormat: FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0],
           paths: multiSelectedPaths,
         });
