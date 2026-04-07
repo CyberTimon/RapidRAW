@@ -5536,6 +5536,19 @@ function App() {
     return renderMainView();
   };
 
+  const libraryExportPanelNode = (
+    <LibraryExportPanel
+      exportState={exportState}
+      imageList={sortedImageList}
+      isVisible={isLibraryExportPanelVisible}
+      multiSelectedPaths={multiSelectedPaths}
+      onClose={() => setIsLibraryExportPanelVisible(false)}
+      setExportState={setExportState}
+      appSettings={appSettings}
+      onSettingsChange={handleSettingsChange}
+    />
+  );
+
   return (
     <div
       className={clsx(
@@ -5578,16 +5591,7 @@ function App() {
                 onClick={() => setIsLibraryExportPanelVisible(false)}
               />
               <div className="absolute right-0 top-0 bottom-0 z-40 w-[min(92vw,420px)] max-w-full p-2 pl-0">
-                <LibraryExportPanel
-                  exportState={exportState}
-                  imageList={sortedImageList}
-                  isVisible={isLibraryExportPanelVisible}
-                  multiSelectedPaths={multiSelectedPaths}
-                  onClose={() => setIsLibraryExportPanelVisible(false)}
-                  setExportState={setExportState}
-                  appSettings={appSettings}
-                  onSettingsChange={handleSettingsChange}
-                />
+                {libraryExportPanelNode}
               </div>
             </>
           ) : (
@@ -5598,16 +5602,7 @@ function App() {
               )}
               style={{ width: isLibraryExportPanelVisible && !isFullScreen ? `${rightPanelWidth}px` : '0px' }}
             >
-              <LibraryExportPanel
-                exportState={exportState}
-                imageList={sortedImageList}
-                isVisible={isLibraryExportPanelVisible}
-                multiSelectedPaths={multiSelectedPaths}
-                onClose={() => setIsLibraryExportPanelVisible(false)}
-                setExportState={setExportState}
-                appSettings={appSettings}
-                onSettingsChange={handleSettingsChange}
-              />
+              {libraryExportPanelNode}
             </div>
           )}
         </div>
