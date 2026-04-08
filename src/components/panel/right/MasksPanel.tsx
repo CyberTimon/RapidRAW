@@ -50,6 +50,7 @@ import Resizer from '../../ui/Resizer';
 
 import {
   Mask,
+  MaskType,
   SubMask,
   MASK_PANEL_CREATION_TYPES,
   OTHERS_MASK_TYPES,
@@ -808,8 +809,36 @@ export default function MasksPanel({
     ]);
   };
 
-  const showFloatingHierarchy = isHierarchyFloating && !!maskHierarchyOverlayHost;
-  const showInlineHierarchy = !showFloatingHierarchy;
+  const handleGridClick = useCallback(
+    (type: Mask | null) => {
+      if (!type) {
+        return;
+      }
+
+      handleAddMaskContainer(type);
+    },
+    [handleAddMaskContainer],
+  );
+
+  const handleAddOthersMask = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+
+      const rect = event.currentTarget.getBoundingClientRect();
+      const options = OTHERS_MASK_TYPES.map((maskType) => ({
+        label: maskType.name,
+        icon: maskType.icon,
+        onClick: () => handleAddMaskContainer(maskType.type),
+      }));
+
+      showContextMenu(rect.left, rect.bottom + 5, options);
+    },
+    [handleAddMaskContainer, showContextMenu],
+  );
+
+  const hasMasks = adjustments.masks.length > 0;
+  const showFloatingHierarchy = hasMasks && isHierarchyFloating && !!maskHierarchyOverlayHost;
+  const showInlineHierarchy = hasMasks && !showFloatingHierarchy;
 
   const toggleHierarchyLayout = useCallback((event?: React.MouseEvent) => {
     event?.stopPropagation();
@@ -923,6 +952,34 @@ export default function MasksPanel({
       )
     : null;
 
+  const emptyMaskCreationSection = !hasMasks ? (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="shrink-0 px-4 pb-2 pt-4"
+    >
+      <p className="mb-3 text-sm font-semibold text-text-primary">Create New Mask</p>
+      <div className="grid grid-cols-3 gap-2" onClick={(event) => event.stopPropagation()}>
+        {MASK_PANEL_CREATION_TYPES.map((maskType: MaskType) => (
+          <MaskCreationGridItem
+            key={maskType.type || maskType.id}
+            maskType={maskType}
+            onClick={(event) => {
+              if (maskType.id === 'others') {
+                handleAddOthersMask(event);
+                return;
+              }
+
+              handleGridClick(maskType.type);
+            }}
+          />
+        ))}
+      </div>
+    </motion.div>
+  ) : null;
+
   return (
     <DndContext
       sensors={sensors}
@@ -988,6 +1045,7 @@ export default function MasksPanel({
         </AnimatePresence>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0">
+          {emptyMaskCreationSection}
           {hierarchyInlineSection}
 
           <AnimatePresence>
@@ -1069,6 +1127,37 @@ export default function MasksPanel({
         ) : null}
       </DragOverlay>
     </DndContext>
+  );
+}
+
+function MaskCreationGridItem({
+  maskType,
+  onClick,
+}: {
+  maskType: MaskType;
+  onClick(event: React.MouseEvent<HTMLButtonElement>): void;
+}) {
+  const tooltip = maskType.disabled
+    ? 'Coming Soon'
+    : maskType.id === 'others'
+      ? 'Show More Mask Types'
+      : `Create New ${maskType.name} Mask`;
+
+  return (
+    <button
+      type="button"
+      disabled={maskType.disabled}
+      onClick={onClick}
+      className={clsx(
+        'aspect-square rounded-lg bg-surface p-2 text-text-primary transition-colors',
+        'flex flex-col items-center justify-center gap-1.5',
+        maskType.disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-card-active active:bg-accent/20',
+      )}
+      data-tooltip={tooltip}
+    >
+      <maskType.icon size={24} />
+      <span className="text-xs">{maskType.name}</span>
+    </button>
   );
 }
 
