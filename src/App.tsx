@@ -331,7 +331,7 @@ function App() {
   const [activeAiPatchContainerId, setActiveAiPatchContainerId] = useState<string | null>(null);
   const [activeAiSubMaskId, setActiveAiSubMaskId] = useState<string | null>(null);
   const [maskHierarchyOverlayHost, setMaskHierarchyOverlayHost] = useState<HTMLDivElement | null>(null);
-  const [isMaskOverlayEnabled, setIsMaskOverlayEnabled] = useState(true);
+  const [isMaskOverlayEnabled, setIsMaskOverlayEnabled] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [displaySize, setDisplaySize] = useState<ImageDimensions>({ width: 0, height: 0 });
   const [previewSize, setPreviewSize] = useState<ImageDimensions>({ width: 0, height: 0 });
