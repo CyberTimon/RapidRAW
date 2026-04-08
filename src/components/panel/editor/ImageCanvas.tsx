@@ -37,6 +37,7 @@ interface ImageCanvasProps {
   isAiEditing: boolean;
   isCropping: boolean;
   isMaskControlHovered: boolean;
+  isMaskOverlayEnabled: boolean;
   isMasking: boolean;
   isSliderDragging: boolean;
   isStraightenActive: boolean;
@@ -706,6 +707,7 @@ const ImageCanvas = memo(
     isAiEditing,
     isCropping,
     isMaskControlHovered,
+    isMaskOverlayEnabled,
     isMasking,
     isSliderDragging,
     isStraightenActive,
@@ -1828,7 +1830,10 @@ const ImageCanvas = memo(
                   style={{
                     height: `${imageRenderSize.height}px`,
                     left: `${imageRenderSize.offsetX}px`,
-                    opacity: isShowingOriginal || isMaskControlHovered ? 0 : 1,
+                    opacity:
+                      isShowingOriginal || ((isAiEditing || (isMasking && !isMaskOverlayEnabled)) && isMaskControlHovered)
+                        ? 0
+                        : 1,
                     top: `${imageRenderSize.offsetY}px`,
                     transition: 'opacity 300ms ease-in-out',
                     width: `${imageRenderSize.width}px`,

@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
 import { ImageDimensions, useImageRenderSize } from '../../hooks/useImageRenderSize';
-import { Adjustments, AiPatch, Coord, MaskContainer } from '../../utils/adjustments';
+import { Adjustments, AiPatch, Coord, INITIAL_MASK_ADJUSTMENTS, MaskContainer } from '../../utils/adjustments';
 import { calculateCenteredCrop, getOrientedDimensions } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
@@ -28,6 +28,7 @@ interface EditorProps {
   isLoading: boolean;
   isSliderDragging: boolean;
   isMaskControlHovered: boolean;
+  isMaskOverlayEnabled: boolean;
   isStraightenActive: boolean;
   isRotationActive?: boolean;
   onBackToLibrary(): void;
@@ -81,6 +82,7 @@ export default function Editor({
   isLoading,
   isSliderDragging,
   isMaskControlHovered,
+  isMaskOverlayEnabled,
   isStraightenActive,
   isRotationActive,
   onBackToLibrary,
@@ -400,8 +402,41 @@ export default function Editor({
     [processOverlayQueue],
   );
 
+  const activeMaskContainer = useMemo(() => {
+    if (activeRightPanel !== Panel.Masks || !activeMaskContainerId) {
+      return null;
+    }
+
+    return adjustments.masks.find((container: MaskContainer) => container.id === activeMaskContainerId) || null;
+  }, [activeMaskContainerId, activeRightPanel, adjustments.masks]);
+
+  const activeMaskHasNoAdjustments = useMemo(() => {
+    if (!activeMaskContainer) {
+      return false;
+    }
+
+    const { sectionVisibility: _currentSectionVisibility, ...currentAdjustments } =
+      activeMaskContainer.adjustments || INITIAL_MASK_ADJUSTMENTS;
+    const { sectionVisibility: _initialSectionVisibility, ...initialAdjustments } = INITIAL_MASK_ADJUSTMENTS;
+
+    return JSON.stringify(currentAdjustments) === JSON.stringify(initialAdjustments);
+  }, [activeMaskContainer]);
+
+  const shouldShowMaskOverlay = useMemo(() => {
+    if (activeRightPanel !== Panel.Masks || !activeMaskContainer) {
+      return false;
+    }
+
+    return isMaskOverlayEnabled || activeMaskHasNoAdjustments;
+  }, [activeMaskContainer, activeMaskHasNoAdjustments, activeRightPanel, isMaskOverlayEnabled]);
+
   const handleLiveMaskPreview = useCallback(
     (maskDef: any) => {
+      if (activeRightPanel === Panel.Masks && !shouldShowMaskOverlay) {
+        setMaskOverlayUrl(null);
+        return;
+      }
+
       let normalizedDef = maskDef;
       if (maskDef && !maskDef.adjustments) {
         normalizedDef = {
@@ -413,14 +448,14 @@ export default function Editor({
 
       requestMaskOverlay(normalizedDef, imageRenderSize, adjustments);
     },
-    [imageRenderSize, adjustments, requestMaskOverlay],
+    [activeRightPanel, adjustments, imageRenderSize, requestMaskOverlay, shouldShowMaskOverlay],
   );
 
   useEffect(() => {
     let maskDefForOverlay = null;
 
-    if (activeRightPanel === Panel.Masks && activeMaskContainerId) {
-      maskDefForOverlay = adjustments.masks.find((c: MaskContainer) => c.id === activeMaskContainerId);
+    if (activeRightPanel === Panel.Masks && shouldShowMaskOverlay) {
+      maskDefForOverlay = activeMaskContainer;
     } else if (activeRightPanel === Panel.Ai && activeAiPatchContainerId) {
       const activePatch = adjustments.aiPatches.find((p: AiPatch) => p.id === activeAiPatchContainerId);
       if (activePatch) {
@@ -435,11 +470,12 @@ export default function Editor({
     requestMaskOverlay(maskDefForOverlay, imageRenderSize, adjustments);
   }, [
     activeRightPanel,
-    activeMaskContainerId,
     activeAiPatchContainerId,
+    activeMaskContainer,
     adjustments,
     imageRenderSize,
     requestMaskOverlay,
+    shouldShowMaskOverlay,
   ]);
 
   useEffect(() => {
@@ -822,6 +858,7 @@ export default function Editor({
               isAiEditing={isAiEditing}
               isCropping={isCropping}
               isMaskControlHovered={isMaskControlHovered}
+              isMaskOverlayEnabled={shouldShowMaskOverlay}
               isMasking={isMasking}
               isStraightenActive={isStraightenActive}
               isRotationActive={isRotationActive}

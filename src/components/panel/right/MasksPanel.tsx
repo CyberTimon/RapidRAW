@@ -98,6 +98,8 @@ interface MasksPanelProps {
   setCopiedMask(mask: MaskContainer): void;
   setCustomEscapeHandler(handler: any): void;
   setIsMaskControlHovered(hovered: boolean): void;
+  isMaskOverlayEnabled: boolean;
+  setIsMaskOverlayEnabled(enabled: boolean): void;
   maskHierarchyOverlayHost?: HTMLDivElement | null;
   onDragStateChange?: (isDragging: boolean) => void;
   isWaveformVisible?: boolean;
@@ -278,6 +280,8 @@ export default function MasksPanel({
   setCopiedMask,
   setCustomEscapeHandler,
   setIsMaskControlHovered,
+  isMaskOverlayEnabled,
+  setIsMaskOverlayEnabled,
   maskHierarchyOverlayHost,
   onDragStateChange,
   isWaveformVisible,
@@ -845,6 +849,14 @@ export default function MasksPanel({
     setIsHierarchyFloating((prev) => !prev);
   }, []);
 
+  const toggleMaskOverlay = useCallback(
+    (event?: React.MouseEvent) => {
+      event?.stopPropagation();
+      setIsMaskOverlayEnabled(!isMaskOverlayEnabled);
+    },
+    [isMaskOverlayEnabled, setIsMaskOverlayEnabled],
+  );
+
   const hierarchyList = (isFloating: boolean) => (
     <div
       ref={setRootDroppableRef}
@@ -926,13 +938,25 @@ export default function MasksPanel({
     >
       <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-4">
         <p className="text-sm font-semibold text-text-primary">Masks</p>
-        <button
-          className="rounded-full p-2 text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
-          data-tooltip="Open Hierarchy in Preview"
-          onClick={toggleHierarchyLayout}
-        >
-          <ExternalLink size={16} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            className={clsx(
+              'rounded-full p-2 text-text-secondary transition-colors hover:bg-surface hover:text-text-primary',
+              isMaskOverlayEnabled && 'bg-surface text-text-primary',
+            )}
+            data-tooltip={isMaskOverlayEnabled ? 'Hide Mask Overlay' : 'Show Mask Overlay'}
+            onClick={toggleMaskOverlay}
+          >
+            {isMaskOverlayEnabled ? <Eye size={16} /> : <EyeOff size={16} />}
+          </button>
+          <button
+            className="rounded-full p-2 text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
+            data-tooltip="Open Hierarchy in Preview"
+            onClick={toggleHierarchyLayout}
+          >
+            <ExternalLink size={16} />
+          </button>
+        </div>
       </div>
       {hierarchyList(false)}
     </motion.div>
@@ -942,8 +966,10 @@ export default function MasksPanel({
     ? createPortal(
         <FloatingMaskHierarchyWindow
           anchor={floatingHierarchyAnchor}
+          isMaskOverlayEnabled={isMaskOverlayEnabled}
           onAnchorChange={setFloatingHierarchyAnchor}
           onDockToSidebar={() => setIsHierarchyFloating(false)}
+          onToggleMaskOverlay={toggleMaskOverlay}
           setIsMaskControlHovered={setIsMaskControlHovered}
         >
           {hierarchyList(true)}
@@ -1195,14 +1221,18 @@ function HierarchyActionRow({
 function FloatingMaskHierarchyWindow({
   anchor,
   children,
+  isMaskOverlayEnabled,
   onAnchorChange,
   onDockToSidebar,
+  onToggleMaskOverlay,
   setIsMaskControlHovered,
 }: {
   anchor: FloatingHierarchyAnchor;
   children: any;
+  isMaskOverlayEnabled: boolean;
   onAnchorChange(anchor: FloatingHierarchyAnchor): void;
   onDockToSidebar(): void;
+  onToggleMaskOverlay(event?: React.MouseEvent): void;
   setIsMaskControlHovered(hovered: boolean): void;
 }) {
   const boundsRef = useRef<HTMLDivElement | null>(null);
@@ -1492,17 +1522,33 @@ function FloatingMaskHierarchyWindow({
               <GripHorizontal size={14} className="text-text-secondary" />
               <span>Mask Hierarchy</span>
             </div>
-            <button
-              className="rounded-full p-2 text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
-              data-tooltip="Dock Hierarchy in Sidebar"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                onDockToSidebar();
-              }}
-            >
-              <ArrowRight size={16} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                className={clsx(
+                  'rounded-full p-2 text-text-secondary transition-colors hover:bg-surface hover:text-text-primary',
+                  isMaskOverlayEnabled && 'bg-surface text-text-primary',
+                )}
+                data-tooltip={isMaskOverlayEnabled ? 'Hide Mask Overlay' : 'Show Mask Overlay'}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleMaskOverlay(event);
+                }}
+              >
+                {isMaskOverlayEnabled ? <Eye size={16} /> : <EyeOff size={16} />}
+              </button>
+              <button
+                className="rounded-full p-2 text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
+                data-tooltip="Dock Hierarchy in Sidebar"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDockToSidebar();
+                }}
+              >
+                <ArrowRight size={16} />
+              </button>
+            </div>
           </div>
           <div className="min-h-0 flex-1">{children}</div>
         </div>

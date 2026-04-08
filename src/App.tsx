@@ -331,6 +331,7 @@ function App() {
   const [activeAiPatchContainerId, setActiveAiPatchContainerId] = useState<string | null>(null);
   const [activeAiSubMaskId, setActiveAiSubMaskId] = useState<string | null>(null);
   const [maskHierarchyOverlayHost, setMaskHierarchyOverlayHost] = useState<HTMLDivElement | null>(null);
+  const [isMaskOverlayEnabled, setIsMaskOverlayEnabled] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [displaySize, setDisplaySize] = useState<ImageDimensions>({ width: 0, height: 0 });
   const [previewSize, setPreviewSize] = useState<ImageDimensions>({ width: 0, height: 0 });
@@ -4958,6 +4959,7 @@ function App() {
               isLoading={isViewLoading}
               isSliderDragging={isSliderDragging}
               isMaskControlHovered={isMaskControlHovered}
+              isMaskOverlayEnabled={isMaskOverlayEnabled}
               isStraightenActive={isStraightenActive}
               onBackToLibrary={handleBackToLibrary}
               onContextMenu={handleEditorContextMenu}
@@ -5163,6 +5165,8 @@ function App() {
                             waveformHeight={waveformHeight}
                             setWaveformHeight={setWaveformHeight}
                             setIsMaskControlHovered={setIsMaskControlHovered}
+                            isMaskOverlayEnabled={isMaskOverlayEnabled}
+                            setIsMaskOverlayEnabled={setIsMaskOverlayEnabled}
                           />
                         )}
                         {renderedRightPanel === Panel.Presets && (
