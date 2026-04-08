@@ -1085,6 +1085,7 @@ pub struct GlobalAdjustments {
     pub color_grading_shadows: ColorGradeSettings,
     pub color_grading_midtones: ColorGradeSettings,
     pub color_grading_highlights: ColorGradeSettings,
+    pub color_grading_global: ColorGradeSettings,
     pub color_grading_blending: f32,
     pub color_grading_balance: f32,
     _pad2: f32,
@@ -1146,6 +1147,7 @@ pub struct MaskAdjustments {
     pub color_grading_shadows: ColorGradeSettings,
     pub color_grading_midtones: ColorGradeSettings,
     pub color_grading_highlights: ColorGradeSettings,
+    pub color_grading_global: ColorGradeSettings,
     pub color_grading_blending: f32,
     pub color_grading_balance: f32,
     _pad5: f32,
@@ -1625,6 +1627,11 @@ fn get_global_adjustments_from_json(
         } else {
             ColorGradeSettings::default()
         },
+        color_grading_global: if is_visible("color") {
+            parse_color_grade_settings(&cg_obj["global"])
+        } else {
+            ColorGradeSettings::default()
+        },
         color_grading_blending: if is_visible("color") {
             cg_obj["blending"].as_f64().unwrap_or(50.0) as f32 / SCALES.color_grading_blending
         } else {
@@ -1756,6 +1763,11 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
         },
         color_grading_highlights: if is_visible("color") {
             parse_color_grade_settings(&cg_obj["highlights"])
+        } else {
+            ColorGradeSettings::default()
+        },
+        color_grading_global: if is_visible("color") {
+            parse_color_grade_settings(&cg_obj["global"])
         } else {
             ColorGradeSettings::default()
         },

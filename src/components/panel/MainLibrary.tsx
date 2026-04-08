@@ -89,6 +89,7 @@ interface MainLibraryProps {
   indexingProgress: Progress;
   isLoading: boolean;
   isIndexing: boolean;
+  isAndroid: boolean;
   isTreeLoading: boolean;
   libraryScrollTop: number;
   libraryViewMode: LibraryViewMode;
@@ -1530,6 +1531,7 @@ export default function MainLibrary({
   importState,
   indexingProgress,
   isIndexing,
+  isAndroid,
   isLoading,
   isTreeLoading: _isTreeLoading,
   libraryScrollTop,
@@ -1966,7 +1968,9 @@ export default function MainLibrary({
                       Continue where you left off or start a new session.
                     </>
                   ) : (
-                    'A blazingly fast, GPU-accelerated RAW image editor. Open a folder to begin.'
+                    `A blazingly fast, GPU-accelerated RAW image editor. ${
+                      isAndroid ? 'Open the library to begin.' : 'Open a folder to begin.'
+                    }`
                   )}
                 </Text>
                 <div className="flex flex-col w-full max-w-xs gap-4">
@@ -1988,7 +1992,7 @@ export default function MainLibrary({
                       size="lg"
                     >
                       <Folder size={20} className="mr-2" />
-                      {hasLastPath ? 'Change Folder' : 'Open Folder'}
+                      {isAndroid ? 'Open Library' : hasLastPath ? 'Change Folder' : 'Open Folder'}
                     </Button>
                     <Button
                       className="px-3 bg-surface text-text-primary shadow-none h-11"

@@ -23,6 +23,7 @@ import {
 import { Invokes, SelectedImage, AppSettings } from '../../ui/AppProperties';
 import ExportPresetsList from '../../ui/ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
+import { useOsPlatform } from '../../../hooks/useOsPlatform';
 
 interface ExportPanelProps {
   adjustments: Adjustments;
@@ -240,6 +241,8 @@ export default function ExportPanel({
   const [isEstimating, setIsEstimating] = useState<boolean>(false);
   const [watermarkImageAspectRatio, setWatermarkImageAspectRatio] = useState(1);
   const filenameInputRef = useRef<HTMLInputElement>(null);
+  const osPlatform = useOsPlatform();
+  const isAndroid = osPlatform === 'android';
 
   const { status, progress, errorMessage } = exportState;
   const isExporting = status === Status.Exporting;
@@ -420,17 +423,22 @@ export default function ExportPanel({
 
     try {
       if (isBatchMode || !isEditorContext) {
-        const outputFolder = await open({
-          title: `Select Folder to Export ${numImages} Image(s)`,
-          directory: true,
-          defaultPath: lastExportPath ?? undefined,
-        });
+        const outputFolder = isAndroid
+          ? ''
+          : await open({
+              title: `Select Folder to Export ${numImages} Image(s)`,
+              directory: true,
+              defaultPath: lastExportPath ?? undefined,
+            });
+
         if (outputFolder) {
-          saveLastUsedPreset(outputFolder as string);
+          if (!isAndroid) {
+            saveLastUsedPreset(outputFolder as string);
+          }
           setExportState({ status: Status.Exporting, progress: { current: 0, total: numImages }, errorMessage: '' });
           await invoke(Invokes.BatchExportImages, {
             exportSettings,
-            outputFolder,
+            outputFolder: outputFolder as string,
             outputFormat: FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0],
             paths: pathsToExport,
           });
@@ -440,23 +448,26 @@ export default function ExportPanel({
         const originalFilename = selectedImage.path.split(/[\\/]/).pop() || '';
         const stem = originalFilename.substring(0, originalFilename.lastIndexOf('.')) || originalFilename;
         const suggestedName = finalFilenameTemplate.replace('{original_filename}', stem);
-        const defaultPath = lastExportPath
-          ? `${lastExportPath}/${suggestedName}.${selectedFormat.extensions[0]}`
-          : `${suggestedName}.${selectedFormat.extensions[0]}`;
-        const filePath = await save({
-          title: 'Save Edited Image',
-          defaultPath,
-          filters: [
-            { name: selectedFormat.name, extensions: selectedFormat.extensions },
-            ...FILE_FORMATS.filter((f: FileFormat) => f.id !== fileFormat).map((f: FileFormat) => ({
-              name: f.name,
-              extensions: f.extensions,
-            })),
-          ],
-        });
+        const outputFileName = `${suggestedName}.${selectedFormat.extensions[0]}`;
+        const filePath = isAndroid
+          ? outputFileName
+          : await save({
+              title: 'Save Edited Image',
+              defaultPath: lastExportPath ? `${lastExportPath}/${outputFileName}` : outputFileName,
+              filters: [
+                { name: selectedFormat.name, extensions: selectedFormat.extensions },
+                ...FILE_FORMATS.filter((f: FileFormat) => f.id !== fileFormat).map((f: FileFormat) => ({
+                  name: f.name,
+                  extensions: f.extensions,
+                })),
+              ],
+            });
+
         if (filePath) {
-          const dir = filePath.substring(0, Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\')));
-          if (dir) saveLastUsedPreset(dir);
+          if (!isAndroid) {
+            const dir = filePath.substring(0, Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\')));
+            if (dir) saveLastUsedPreset(dir);
+          }
           setExportState({ status: Status.Exporting, progress: { current: 0, total: numImages }, errorMessage: '' });
           await invoke(Invokes.ExportImage, {
             exportSettings,

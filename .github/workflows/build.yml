@@ -31,6 +31,10 @@ on:
         required: false
         type: string
         default: ${{ github.ref }}
+      mobile:
+        required: false
+        type: string
+        default: ''
 
 jobs:
   build:
@@ -54,7 +58,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          key: ${{ inputs.platform }}
+          key: ${{ inputs.mobile == '' && inputs.platform || format('{0}-{1}', inputs.platform, inputs.mobile) }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -63,7 +67,7 @@ jobs:
           cache: 'npm'
 
       - name: Install additional system dependencies (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && inputs.mobile == ''
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -77,8 +81,47 @@ jobs:
             librsvg2-dev \
             patchelf
 
+      # ------------- Android Setup -------------
+      - name: Set up JDK
+        if: inputs.mobile == 'android'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        if: inputs.mobile == 'android'
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Android NDK
+        if: inputs.mobile == 'android'
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r26d
+          link-to-sdk: true
+
+      # ----------------------------------------------------------------------
+      # - name: Setup Android signing
+      #   if: inputs.mobile == 'android'
+      #   run: |
+      #     cd src-tauri/gen/android
+      #     echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > keystore.properties
+      #     echo "password=${{ secrets.ANDROID_KEY_PASSWORD }}" >> keystore.properties
+      #     base64 -d <<< "${{ secrets.ANDROID_KEY_BASE64 }}" > $RUNNER_TEMP/keystore.jks
+      #     echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
+      # ----------------------------------------------------------------------
+
       - name: Install frontend dependencies
         run: npm install
+
+      - name: Initialize Android project
+        if: inputs.mobile == 'android'
+        shell: bash
+        run: |
+          if [ ! -d "src-tauri/gen/android" ]; then
+            npx tauri android init
+          fi
 
       - name: rustup install target
         if: ${{ inputs.target != '' }}
@@ -89,7 +132,11 @@ jobs:
         if: ${{ inputs.release-id != '' }}
         run: |
           platform="${{ inputs.platform }}"
-          replacement="$(echo ${platform} | sed -E 's/-latest//')"
+          if [[ "${{ inputs.mobile }}" == "android" ]]; then
+            replacement="android"
+          else
+            replacement="$(echo ${platform} | sed -E 's/-latest//')"
+          fi
           patched_platform=$(echo '${{ inputs.asset-name-pattern }}' | sed -E "s/\[platform\]/${replacement}/")
           if [[ -n "${{ inputs.asset-prefix }}" ]]; then
             patched_platform="${{ inputs.asset-prefix }}_${patched_platform}"
@@ -98,6 +145,7 @@ jobs:
 
       - id: tauri-build
         name: Build with tauri-action
+        if: ${{ inputs.mobile == '' }}
         # FIXME set this back to a release major version, ex. v0 . This is a commit from the `dev` branch which includes PR
         # https://github.com/tauri-apps/tauri-action/pull/1099 , adding the assetNamePattern feature.
         uses: tauri-apps/tauri-action@cf3eb9b18add8548a40584695215c80ab7274f31
@@ -110,8 +158,67 @@ jobs:
           releaseId: ${{ inputs.release-id }}
           retryAttempts: 3
 
+      - name: Build Android
+        if: ${{ inputs.mobile == 'android' }}
+        shell: bash
+        env:
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ORT_SKIP_DOWNLOAD: '1'
+          ORT_LIB_LOCATION: ${{ format('{0}/src-tauri/libs/arm64-v8a', github.workspace) }}
+          ORT_STRATEGY: manual
+        run: |
+          npx tauri android build --verbose ${{ inputs.build-args }}
+
+      - name: Prepare Android Release Assets
+        if: ${{ inputs.mobile == 'android' && inputs.release-id != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          stage_dir="$RUNNER_TEMP/android-release-assets"
+          mkdir -p "$stage_dir"
+
+          app_name="$(sed -n 's/^name = \"\\([^\"]*\\)\"/\\1/p' src-tauri/Cargo.toml | head -n 1)"
+          version="$(node -e "const fs=require('fs'); const conf=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8')); process.stdout.write(conf.version || '')")"
+          arch="${{ inputs.target }}"
+          arch="${arch%%-*}"
+          template='${{ steps.patch-release-name.outputs.platform }}'
+
+          find src-tauri/gen/android/app/build/outputs -type f \( -name '*.apk' -o -name '*.aab' \) | while read -r file; do
+            ext=".${file##*.}"
+            asset_name="${template//\[name\]/$app_name}"
+            asset_name="${asset_name//\[version\]/$version}"
+            asset_name="${asset_name//\[arch\]/$arch}"
+            asset_name="${asset_name//\[ext\]/$ext}"
+            cp "$file" "$stage_dir/$asset_name"
+          done
+
+      - name: Upload Android Release Assets
+        if: ${{ inputs.mobile == 'android' && inputs.release-id != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          tag_ref="${{ inputs.ref }}"
+          tag_name="${tag_ref#refs/tags/}"
+          gh release upload "$tag_name" "$RUNNER_TEMP"/android-release-assets/* --clobber
+
+      - name: Upload Android Artifacts
+        if: ${{ inputs.mobile == 'android' && inputs.release-id == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.asset-prefix }}_android${{ inputs.target && format('_{0}', inputs.target) || '' }}_artifacts
+          path: |
+            src-tauri/gen/android/app/build/outputs/**/*.apk
+            src-tauri/gen/android/app/build/outputs/**/*.aab
+          retention-days: 7
+          compression-level: 6
+          if-no-files-found: warn
+
       - name: Upload Windows Artifacts
-        if: ${{ startsWith(inputs.platform, 'windows') && inputs.release-id == '' }}
+        if: ${{ startsWith(inputs.platform, 'windows') && inputs.release-id == '' && inputs.mobile == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.asset-prefix }}_${{ inputs.platform }}${{ inputs.target && format('_{0}', inputs.target) || '' }}_artifacts
@@ -123,7 +230,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload Linux/macOS Artifacts
-        if: ${{ !startsWith(inputs.platform, 'windows') && inputs.release-id == '' }}
+        if: ${{ !startsWith(inputs.platform, 'windows') && inputs.release-id == '' && inputs.mobile == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.asset-prefix }}_${{ inputs.platform }}${{ inputs.target && format('_{0}', inputs.target) || '' }}_artifacts

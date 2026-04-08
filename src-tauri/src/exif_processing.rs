@@ -4,7 +4,7 @@ use std::io::{BufReader, Cursor};
 use std::path::Path;
 
 use crate::formats::is_raw_file;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use exif::{Exif, In, Value};
 use little_exif::exif_tag::ExifTag;
 use little_exif::filetype::FileExtension;
@@ -26,12 +26,53 @@ fn to_ir64(val: &exif::SRational) -> iR64 {
     }
 }
 
+fn clean_creation_datetime_str(s: &str) -> &str {
+    s.trim().trim_matches('"').trim_matches('\'').trim()
+}
+
 fn fmt_date_str(s: String) -> String {
-    let clean = s.replace("\"", "").trim().to_string();
-    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&clean, "%Y:%m:%d %H:%M:%S") {
+    if let Some(dt) = parse_creation_datetime(&s) {
         return dt.format("%Y-%m-%d %H:%M:%S").to_string();
     }
-    clean
+    clean_creation_datetime_str(&s).to_string()
+}
+
+fn normalize_creation_datetime(s: &str) -> Option<String> {
+    let normalized = s.replace('T', " ");
+    let (date, time) = normalized.split_once(' ')?;
+    Some(format!("{} {}", date.replace(':', "-"), time))
+}
+
+fn parse_creation_datetime(s: &str) -> Option<NaiveDateTime> {
+    let clean = clean_creation_datetime_str(s);
+    if clean.is_empty() {
+        return None;
+    }
+
+    let normalized = normalize_creation_datetime(clean);
+    for candidate in std::iter::once(clean).chain(normalized.as_deref()) {
+        for format in [
+            "%Y:%m:%d %H:%M:%S",
+            "%Y:%m:%d %H:%M:%S%.f",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d %H:%M:%S%.f",
+        ] {
+            if let Ok(dt) = NaiveDateTime::parse_from_str(candidate, format) {
+                return Some(dt);
+            }
+        }
+    }
+
+    None
+}
+
+fn parse_creation_field(field: &exif::Field) -> Option<DateTime<Utc>> {
+    parse_creation_datetime(&field.display_value().to_string())
+        .map(|dt| DateTime::from_naive_utc_and_offset(dt, Utc))
+}
+
+fn parse_raw_creation_date(date_str: Option<&str>) -> Option<DateTime<Utc>> {
+    parse_creation_datetime(date_str?).map(|dt| DateTime::from_naive_utc_and_offset(dt, Utc))
 }
 
 pub fn read_exif(file_bytes: &[u8]) -> Option<Exif> {
@@ -494,16 +535,13 @@ pub fn get_creation_date_from_path(path: &Path) -> DateTime<Utc> {
         let mut bufreader = BufReader::new(&file);
         let exifreader = exif::Reader::new();
 
-        if let Ok(exif_obj) = exifreader.read_from_container(&mut bufreader)
-            && let Some(field) = exif_obj.get_field(exif::Tag::DateTimeOriginal, exif::In::PRIMARY)
-        {
-            let dt_str = field.display_value().to_string();
-            let clean_str = dt_str.replace("\"", "").trim().to_string();
-            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&clean_str, "%Y-%m-%d %H:%M:%S") {
-                return DateTime::from_naive_utc_and_offset(dt, Utc);
-            }
-            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&clean_str, "%Y:%m:%d %H:%M:%S") {
-                return DateTime::from_naive_utc_and_offset(dt, Utc);
+        if let Ok(exif_obj) = exifreader.read_from_container(&mut bufreader) {
+            for tag in [exif::Tag::DateTimeOriginal, exif::Tag::DateTime] {
+                if let Some(field) = exif_obj.get_field(tag, exif::In::PRIMARY)
+                    && let Some(dt) = parse_creation_field(field)
+                {
+                    return dt;
+                }
             }
         }
     }
@@ -513,10 +551,13 @@ pub fn get_creation_date_from_path(path: &Path) -> DateTime<Utc> {
         if let Ok(raw_source) = rawler::rawsource::RawSource::new(path)
             && let Ok(decoder) = loader.get_decoder(&raw_source)
             && let Ok(metadata) = decoder.raw_metadata(&raw_source, &Default::default())
-            && let Some(date_str) = metadata.exif.date_time_original
-            && let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&date_str, "%Y:%m:%d %H:%M:%S")
         {
-            return DateTime::from_naive_utc_and_offset(dt, Utc);
+            if let Some(dt) = parse_raw_creation_date(metadata.exif.date_time_original.as_deref()) {
+                return dt;
+            }
+            if let Some(dt) = parse_raw_creation_date(metadata.exif.create_date.as_deref()) {
+                return dt;
+            }
         }
     }
 
@@ -525,6 +566,31 @@ pub fn get_creation_date_from_path(path: &Path) -> DateTime<Utc> {
         .and_then(|m| m.created().ok())
         .map(DateTime::<Utc>::from)
         .unwrap_or_else(Utc::now)
+}
+
+pub fn get_creation_date_from_bytes(path_hint: &str, file_bytes: &[u8]) -> DateTime<Utc> {
+    if let Some(exif_obj) = read_exif(file_bytes) {
+        for tag in [exif::Tag::DateTimeOriginal, exif::Tag::DateTime] {
+            if let Some(field) = exif_obj.get_field(tag, exif::In::PRIMARY)
+                && let Some(dt) = parse_creation_field(field)
+            {
+                return dt;
+            }
+        }
+    }
+
+    if is_raw_file(path_hint)
+        && let Some(metadata) = read_raw_metadata(file_bytes)
+    {
+        if let Some(dt) = parse_raw_creation_date(metadata.exif.date_time_original.as_deref()) {
+            return dt;
+        }
+        if let Some(dt) = parse_raw_creation_date(metadata.exif.create_date.as_deref()) {
+            return dt;
+        }
+    }
+
+    Utc::now()
 }
 
 pub fn write_image_with_metadata(

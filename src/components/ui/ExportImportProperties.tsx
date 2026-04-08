@@ -9,6 +9,7 @@ export enum FileFormats {
   Tiff = 'tiff',
   Webp = 'webp',
   Jxl = 'jxl',
+  Avif = 'avif',
   Cube = 'cube',
 }
 
@@ -18,6 +19,7 @@ export const FILE_FORMATS: Array<FileFormat> = [
   { id: FileFormats.Tiff, name: 'TIFF', extensions: ['tiff'] },
   { id: FileFormats.Webp, name: 'WebP', extensions: ['webp'] },
   { id: FileFormats.Jxl, name: 'JPEG XL', extensions: ['jxl'] },
+  { id: FileFormats.Avif, name: 'AVIF', extensions: ['avif'] },
   { id: FileFormats.Cube, name: 'CUBE LUT', extensions: ['cube'] },
 ];
 

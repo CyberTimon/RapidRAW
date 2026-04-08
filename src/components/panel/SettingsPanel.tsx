@@ -32,7 +32,7 @@ import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
 import { Invokes } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
-import { platform } from '@tauri-apps/plugin-os';
+import { useOsPlatform } from '../../hooks/useOsPlatform';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -347,15 +347,7 @@ export default function SettingsPanel({
   const [activeCategory, setActiveCategory] = useState('general');
   const [logPath, setLogPath] = useState('');
   const [dpr, setDpr] = useState(() => (typeof window !== 'undefined' ? window.devicePixelRatio : 1));
-  const [osPlatform, setOsPlatform] = useState('');
-
-  useEffect(() => {
-    try {
-      setOsPlatform(platform());
-    } catch (e) {
-      console.error('Failed to get platform:', e);
-    }
-  }, []);
+  const osPlatform = useOsPlatform();
 
   const filteredBackendOptions = backendOptions.filter((opt) => {
     if (opt.value === 'metal' && osPlatform !== 'macos') return false;

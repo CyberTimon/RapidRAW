@@ -22,6 +22,7 @@ import {
 import { Invokes, ImageFile, AppSettings } from '../../ui/AppProperties';
 import ExportPresetsList from '../../ui/ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
+import { useOsPlatform } from '../../../hooks/useOsPlatform';
 
 interface LibraryExportPanelProps {
   exportState: ExportState;
@@ -248,6 +249,8 @@ export default function LibraryExportPanel({
   const [isEstimating, setIsEstimating] = useState<boolean>(false);
   const [watermarkImageAspectRatio, setWatermarkImageAspectRatio] = useState(1);
   const filenameInputRef = useRef<HTMLInputElement>(null);
+  const osPlatform = useOsPlatform();
+  const isAndroid = osPlatform === 'android';
 
   const { status, progress, errorMessage } = exportState;
   const isExporting = status === Status.Exporting;
@@ -446,18 +449,22 @@ export default function LibraryExportPanel({
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
 
     try {
-      const outputFolder = await open({
-        directory: true,
-        title: `Select Folder to Export ${numImages} Image(s)`,
-        defaultPath: lastExportPath ?? undefined,
-      });
+      const outputFolder = isAndroid
+        ? ''
+        : await open({
+            directory: true,
+            title: `Select Folder to Export ${numImages} Image(s)`,
+            defaultPath: lastExportPath ?? undefined,
+          });
 
       if (outputFolder) {
-        saveLastUsedPreset(outputFolder as string);
+        if (!isAndroid) {
+          saveLastUsedPreset(outputFolder as string);
+        }
         setExportState({ status: Status.Exporting, progress: { current: 0, total: numImages }, errorMessage: '' });
         await invoke(Invokes.BatchExportImages, {
           exportSettings,
-          outputFolder,
+          outputFolder: outputFolder as string,
           outputFormat: FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0],
           paths: multiSelectedPaths,
         });

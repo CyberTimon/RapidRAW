@@ -65,6 +65,8 @@ fn main() {
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
 
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+
     let (download_filename, lib_name, expected_hash) =
         match (target_os.as_str(), target_arch.as_str()) {
             ("windows", "x86_64") => (
@@ -97,12 +99,22 @@ fn main() {
                 "libonnxruntime.dylib",
                 "2b885992d3d6fa4130d39ec84a80d7504ff52750027c547bb22c86165f19406a",
             ),
+            ("android", "aarch64") => (
+                "libonnxruntime-android-arm64-v8a.so",
+                "libonnxruntime.so",
+                "999ecfdb5b5a13e4097487773b6d71ce8a075408a237daab072e8f5e817bd78e",
+            ),
             _ => panic!("Unsupported target: {}-{}", target_os, target_arch),
         };
 
-    let resources_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("resources");
-    fs::create_dir_all(&resources_dir).unwrap();
-    let dest_path = resources_dir.join(lib_name);
+    let dest_dir = if target_os == "android" {
+        manifest_dir.join("libs").join("arm64-v8a")
+    } else {
+        manifest_dir.join("resources")
+    };
+
+    fs::create_dir_all(&dest_dir).unwrap();
+    let dest_path = dest_dir.join(lib_name);
 
     let mut is_valid = false;
     if dest_path.exists() {
@@ -142,6 +154,16 @@ fn main() {
         if let Err(e) = download_and_verify(&download_url, &dest_path, expected_hash) {
             panic!("Failed to download and verify ONNX Runtime library: {}", e);
         }
+    }
+
+    if target_os == "android" {
+        let jni_libs_dir = manifest_dir.join("gen/android/app/src/main/jniLibs/arm64-v8a");
+        fs::create_dir_all(&jni_libs_dir).unwrap();
+        fs::copy(&dest_path, jni_libs_dir.join(lib_name)).unwrap();
+
+        println!("cargo:rustc-env=ORT_LIB_LOCATION={}", dest_dir.display());
+        println!("cargo:rustc-env=ORT_STRATEGY=manual");
+        println!("cargo:rustc-link-search=native={}", dest_dir.display());
     }
 
     println!("cargo:rerun-if-changed=build.rs");

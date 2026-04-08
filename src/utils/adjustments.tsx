@@ -52,6 +52,7 @@ export enum ColorAdjustment {
 export enum ColorGrading {
   Balance = 'balance',
   Blending = 'blending',
+  Global = 'global',
   Highlights = 'highlights',
   Midtones = 'midtones',
   Shadows = 'shadows',
@@ -225,6 +226,7 @@ interface ColorGradingProps {
   [index: string]: number | HueSatLum;
   balance: number;
   blending: number;
+  global: HueSatLum;
   highlights: HueSatLum;
   midtones: HueSatLum;
   shadows: HueSatLum;
@@ -329,6 +331,7 @@ export const COLOR_LABELS: Array<Color> = [
 const INITIAL_COLOR_GRADING: ColorGradingProps = {
   balance: 0,
   blending: 50,
+  global: { hue: 0, saturation: 0, luminance: 0 },
   highlights: { hue: 0, saturation: 0, luminance: 0 },
   midtones: { hue: 0, saturation: 0, luminance: 0 },
   shadows: { hue: 0, saturation: 0, luminance: 0 },

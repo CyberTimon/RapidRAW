@@ -24,6 +24,14 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 use walkdir::WalkDir;
+#[cfg(target_os = "android")]
+use jni::objects::{JObject, JString, JValue};
+#[cfg(target_os = "android")]
+use jni::{JNIEnv, JavaVM};
+#[cfg(target_os = "android")]
+use ndk_context::android_context;
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+use trash;
 
 use crate::AppState;
 use crate::calculate_geometry_hash;
@@ -516,6 +524,241 @@ pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
 
     let sidecar_path = source_path.with_file_name(sidecar_filename);
     (source_path, sidecar_path)
+}
+
+fn is_android_content_uri(path: &str) -> bool {
+    path.starts_with("content://")
+}
+
+#[cfg(target_os = "android")]
+fn clear_pending_android_exception(env: &mut JNIEnv<'_>) {
+    if env.exception_check().unwrap_or(false) {
+        let _ = env.exception_describe();
+        let _ = env.exception_clear();
+    }
+}
+
+#[cfg(target_os = "android")]
+fn map_android_jni_error(env: &mut JNIEnv<'_>, err: jni::errors::Error) -> String {
+    clear_pending_android_exception(env);
+    format!("Android JNI error: {}", err)
+}
+
+#[cfg(target_os = "android")]
+fn close_android_closeable(env: &mut JNIEnv<'_>, closeable: &JObject<'_>) {
+    if closeable.is_null() {
+        return;
+    }
+
+    if let Err(err) = env.call_method(closeable, "close", "()V", &[]) {
+        clear_pending_android_exception(env);
+        log::warn!("Failed to close Android Closeable: {}", err);
+    }
+}
+
+#[cfg(target_os = "android")]
+fn get_android_content_resolver<'local>(env: &mut JNIEnv<'local>) -> Result<JObject<'local>, String> {
+    let context = env
+        .new_local_ref(unsafe { JObject::from_raw(android_context().context().cast()) })
+        .map_err(|e| map_android_jni_error(env, e))?;
+
+    let resolver = env
+        .call_method(
+            &context,
+            "getContentResolver",
+            "()Landroid/content/ContentResolver;",
+            &[],
+        )
+        .and_then(|value| value.l())
+        .map_err(|e| map_android_jni_error(env, e))?;
+
+    if resolver.is_null() {
+        return Err("Android ContentResolver was null.".into());
+    }
+
+    Ok(resolver)
+}
+
+#[cfg(target_os = "android")]
+fn parse_android_uri<'local>(env: &mut JNIEnv<'local>, uri_str: &str) -> Result<JObject<'local>, String> {
+    let uri_string = env
+        .new_string(uri_str)
+        .map_err(|e| map_android_jni_error(env, e))?;
+
+    let uri = env
+        .call_static_method(
+            "android/net/Uri",
+            "parse",
+            "(Ljava/lang/String;)Landroid/net/Uri;",
+            &[(&uri_string).into()],
+        )
+        .and_then(|value| value.l())
+        .map_err(|e| map_android_jni_error(env, e))?;
+
+    if uri.is_null() {
+        return Err(format!("Failed to parse Android content URI: {}", uri_str));
+    }
+
+    Ok(uri)
+}
+
+#[cfg(target_os = "android")]
+fn resolve_android_content_uri_name(uri_str: &str) -> Result<String, String> {
+    let vm = unsafe { JavaVM::from_raw(android_context().vm().cast()) }
+        .map_err(|e| format!("Failed to access Android JVM: {}", e))?;
+    let mut env = vm
+        .attach_current_thread()
+        .map_err(|e| format!("Failed to attach current thread to Android JVM: {}", e))?;
+
+    let resolver = get_android_content_resolver(&mut env)?;
+    let uri = parse_android_uri(&mut env, uri_str)?;
+    let null_obj = JObject::null();
+
+    let cursor = env
+        .call_method(
+            &resolver,
+            "query",
+            "(Landroid/net/Uri;[Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;Ljava/lang/String;)Landroid/database/Cursor;",
+            &[
+                (&uri).into(),
+                (&null_obj).into(),
+                (&null_obj).into(),
+                (&null_obj).into(),
+                (&null_obj).into(),
+            ],
+        )
+        .and_then(|value| value.l())
+        .map_err(|e| map_android_jni_error(&mut env, e))?;
+
+    if cursor.is_null() {
+        return Err(format!(
+            "ContentResolver query returned no cursor for URI: {}",
+            uri_str
+        ));
+    }
+
+    let result = (|| -> Result<String, String> {
+        let moved = env
+            .call_method(&cursor, "moveToFirst", "()Z", &[])
+            .and_then(|value| value.z())
+            .map_err(|e| map_android_jni_error(&mut env, e))?;
+
+        if !moved {
+            return Err(format!("No metadata rows found for content URI: {}", uri_str));
+        }
+
+        let display_name_column = env
+            .get_static_field(
+                "android/provider/OpenableColumns",
+                "DISPLAY_NAME",
+                "Ljava/lang/String;",
+            )
+            .and_then(|value| value.l())
+            .map_err(|e| map_android_jni_error(&mut env, e))?;
+        let column_index = env
+            .call_method(
+                &cursor,
+                "getColumnIndex",
+                "(Ljava/lang/String;)I",
+                &[(&display_name_column).into()],
+            )
+            .and_then(|value| value.i())
+            .map_err(|e| map_android_jni_error(&mut env, e))?;
+
+        if column_index < 0 {
+            return Err(format!(
+                "DISPLAY_NAME column was unavailable for content URI: {}",
+                uri_str
+            ));
+        }
+
+        let display_name_obj = env
+            .call_method(
+                &cursor,
+                "getString",
+                "(I)Ljava/lang/String;",
+                &[JValue::from(column_index)],
+            )
+            .and_then(|value| value.l())
+            .map_err(|e| map_android_jni_error(&mut env, e))?;
+
+        if display_name_obj.is_null() {
+            return Err(format!("Display name was null for content URI: {}", uri_str));
+        }
+
+        let display_name_java = JString::from(display_name_obj);
+        let display_name = env
+            .get_string(&display_name_java)
+            .map_err(|e| map_android_jni_error(&mut env, e))?;
+
+        Ok(display_name.into())
+    })();
+
+    close_android_closeable(&mut env, &cursor);
+    result
+}
+
+#[cfg(target_os = "android")]
+fn read_android_content_uri(uri_str: &str) -> Result<Vec<u8>, String> {
+    let vm = unsafe { JavaVM::from_raw(android_context().vm().cast()) }
+        .map_err(|e| format!("Failed to access Android JVM: {}", e))?;
+    let mut env = vm
+        .attach_current_thread()
+        .map_err(|e| format!("Failed to attach current thread to Android JVM: {}", e))?;
+
+    let resolver = get_android_content_resolver(&mut env)?;
+    let uri = parse_android_uri(&mut env, uri_str)?;
+    let input_stream = env
+        .call_method(
+            &resolver,
+            "openInputStream",
+            "(Landroid/net/Uri;)Ljava/io/InputStream;",
+            &[(&uri).into()],
+        )
+        .and_then(|value| value.l())
+        .map_err(|e| map_android_jni_error(&mut env, e))?;
+
+    if input_stream.is_null() {
+        return Err(format!(
+            "Failed to open InputStream for Android content URI: {}",
+            uri_str
+        ));
+    }
+
+    let result = (|| -> Result<Vec<u8>, String> {
+        const BUFFER_SIZE: i32 = 8192;
+
+        let java_buffer = env
+            .new_byte_array(BUFFER_SIZE)
+            .map_err(|e| map_android_jni_error(&mut env, e))?;
+        let mut rust_buffer = vec![0i8; BUFFER_SIZE as usize];
+        let mut bytes = Vec::new();
+
+        loop {
+            let read_count = env
+                .call_method(&input_stream, "read", "([B)I", &[(&java_buffer).into()])
+                .and_then(|value| value.i())
+                .map_err(|e| map_android_jni_error(&mut env, e))?;
+
+            if read_count < 0 {
+                break;
+            }
+
+            if read_count == 0 {
+                continue;
+            }
+
+            let read_len = read_count as usize;
+            env.get_byte_array_region(&java_buffer, 0, &mut rust_buffer[..read_len])
+                .map_err(|e| map_android_jni_error(&mut env, e))?;
+            bytes.extend(rust_buffer[..read_len].iter().map(|byte| *byte as u8));
+        }
+
+        Ok(bytes)
+    })();
+
+    close_android_closeable(&mut env, &input_stream);
+    result
 }
 
 #[tauri::command]
@@ -1587,14 +1830,22 @@ pub fn rename_folder(path: String, new_name: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn delete_folder(path: String) -> Result<(), String> {
-    if let Err(trash_error) = trash::delete(&path) {
-        log::warn!(
-            "Failed to move folder to trash: {}. Falling back to permanent delete.",
-            trash_error
-        );
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        if let Err(trash_error) = trash::delete(&path) {
+            log::warn!(
+                "Failed to move folder to trash: {}. Falling back to permanent delete.",
+                trash_error
+            );
+            fs::remove_dir_all(&path).map_err(|e| e.to_string())
+        } else {
+            Ok(())
+        }
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
         fs::remove_dir_all(&path).map_err(|e| e.to_string())
-    } else {
-        Ok(())
     }
 }
 
@@ -1791,6 +2042,7 @@ pub fn move_files(source_paths: Vec<String>, destination_folder: String) -> Resu
         all_files_to_trash.extend(files_to_move);
     }
 
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     if !all_files_to_trash.is_empty()
         && let Err(trash_error) = trash::delete_all(&all_files_to_trash)
     {
@@ -1804,6 +2056,14 @@ pub fn move_files(source_paths: Vec<String>, destination_folder: String) -> Resu
                     format!("Failed to delete source file {}: {}", path.display(), e)
                 })?;
             }
+        }
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    for path in all_files_to_trash {
+        if path.is_file() {
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to delete source file {}: {}", path.display(), e))?;
         }
     }
 
@@ -2319,6 +2579,233 @@ fn get_settings_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, Strin
     Ok(settings_dir.join("settings.json"))
 }
 
+fn get_internal_library_root_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let library_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("library");
+
+    if !library_dir.exists() {
+        fs::create_dir_all(&library_dir).map_err(|e| e.to_string())?;
+    }
+
+    Ok(library_dir)
+}
+
+#[tauri::command]
+pub fn get_or_create_internal_library_root(app_handle: AppHandle) -> Result<String, String> {
+    let library_root = get_internal_library_root_path(&app_handle)?;
+
+    Ok(library_root.to_string_lossy().to_string())
+}
+
+#[cfg(target_os = "android")]
+fn put_android_content_value_string<'local>(
+    env: &mut JNIEnv<'local>,
+    content_values: &JObject<'local>,
+    key: &str,
+    value: &str,
+) -> Result<(), String> {
+    let key_java = env
+        .new_string(key)
+        .map_err(|e| map_android_jni_error(env, e))?;
+    let value_java = env
+        .new_string(value)
+        .map_err(|e| map_android_jni_error(env, e))?;
+
+    env.call_method(
+        content_values,
+        "put",
+        "(Ljava/lang/String;Ljava/lang/String;)V",
+        &[(&key_java).into(), (&value_java).into()],
+    )
+    .map_err(|e| map_android_jni_error(env, e))?;
+
+    Ok(())
+}
+
+#[cfg(target_os = "android")]
+fn put_android_content_value_int<'local>(
+    env: &mut JNIEnv<'local>,
+    content_values: &JObject<'local>,
+    key: &str,
+    value: i32,
+) -> Result<(), String> {
+    let key_java = env
+        .new_string(key)
+        .map_err(|e| map_android_jni_error(env, e))?;
+    let value_java = env
+        .new_object("java/lang/Integer", "(I)V", &[JValue::from(value)])
+        .map_err(|e| map_android_jni_error(env, e))?;
+
+    env.call_method(
+        content_values,
+        "put",
+        "(Ljava/lang/String;Ljava/lang/Integer;)V",
+        &[(&key_java).into(), (&value_java).into()],
+    )
+    .map_err(|e| map_android_jni_error(env, e))?;
+
+    Ok(())
+}
+
+#[cfg(target_os = "android")]
+fn delete_android_media_store_item(
+    env: &mut JNIEnv<'_>,
+    resolver: &JObject<'_>,
+    item_uri: &JObject<'_>,
+) {
+    let null_string = JObject::null();
+    let null_args = JObject::null();
+    if let Err(err) = env.call_method(
+        resolver,
+        "delete",
+        "(Landroid/net/Uri;Ljava/lang/String;[Ljava/lang/String;)I",
+        &[
+            item_uri.into(),
+            (&null_string).into(),
+            (&null_args).into(),
+        ],
+    ) {
+        clear_pending_android_exception(env);
+        log::warn!("Failed to delete Android MediaStore item after write error: {}", err);
+    }
+}
+
+#[cfg(target_os = "android")]
+fn save_bytes_to_android_media_store(
+    file_name: &str,
+    mime_type: &str,
+    relative_path: &str,
+    collection_class: &str,
+    bytes: &[u8],
+) -> Result<(), String> {
+    let vm = unsafe { JavaVM::from_raw(android_context().vm().cast()) }
+        .map_err(|e| format!("Failed to access Android JVM: {}", e))?;
+    let mut env = vm
+        .attach_current_thread()
+        .map_err(|e| format!("Failed to attach current thread to Android JVM: {}", e))?;
+    let resolver = get_android_content_resolver(&mut env)?;
+    let content_values = env
+        .new_object("android/content/ContentValues", "()V", &[])
+        .map_err(|e| map_android_jni_error(&mut env, e))?;
+
+    put_android_content_value_string(&mut env, &content_values, "_display_name", file_name)?;
+    put_android_content_value_string(&mut env, &content_values, "mime_type", mime_type)?;
+    put_android_content_value_string(&mut env, &content_values, "relative_path", relative_path)?;
+    put_android_content_value_int(&mut env, &content_values, "is_pending", 1)?;
+
+    let collection_uri = env
+        .get_static_field(collection_class, "EXTERNAL_CONTENT_URI", "Landroid/net/Uri;")
+        .and_then(|value| value.l())
+        .map_err(|e| map_android_jni_error(&mut env, e))?;
+    let item_uri = env
+        .call_method(
+            &resolver,
+            "insert",
+            "(Landroid/net/Uri;Landroid/content/ContentValues;)Landroid/net/Uri;",
+            &[(&collection_uri).into(), (&content_values).into()],
+        )
+        .and_then(|value| value.l())
+        .map_err(|e| map_android_jni_error(&mut env, e))?;
+
+    if item_uri.is_null() {
+        return Err(format!(
+            "Failed to create Android MediaStore item for {}",
+            file_name
+        ));
+    }
+
+    let output_stream = env
+        .call_method(
+            &resolver,
+            "openOutputStream",
+            "(Landroid/net/Uri;)Ljava/io/OutputStream;",
+            &[(&item_uri).into()],
+        )
+        .and_then(|value| value.l())
+        .map_err(|e| map_android_jni_error(&mut env, e))?;
+
+    if output_stream.is_null() {
+        delete_android_media_store_item(&mut env, &resolver, &item_uri);
+        return Err(format!(
+            "Failed to open Android MediaStore output stream for {}",
+            file_name
+        ));
+    }
+
+    let write_result = (|| -> Result<(), String> {
+        let byte_array = env
+            .byte_array_from_slice(bytes)
+            .map_err(|e| map_android_jni_error(&mut env, e))?;
+        env.call_method(&output_stream, "write", "([B)V", &[(&byte_array).into()])
+            .map_err(|e| map_android_jni_error(&mut env, e))?;
+        env.call_method(&output_stream, "flush", "()V", &[])
+            .map_err(|e| map_android_jni_error(&mut env, e))?;
+        Ok(())
+    })();
+
+    close_android_closeable(&mut env, &output_stream);
+
+    if let Err(err) = write_result {
+        delete_android_media_store_item(&mut env, &resolver, &item_uri);
+        return Err(err);
+    }
+
+    let finalized_values = env
+        .new_object("android/content/ContentValues", "()V", &[])
+        .map_err(|e| map_android_jni_error(&mut env, e))?;
+    put_android_content_value_int(&mut env, &finalized_values, "is_pending", 0)?;
+
+    let null_string = JObject::null();
+    let null_args = JObject::null();
+    env.call_method(
+        &resolver,
+        "update",
+        "(Landroid/net/Uri;Landroid/content/ContentValues;Ljava/lang/String;[Ljava/lang/String;)I",
+        &[
+            (&item_uri).into(),
+            (&finalized_values).into(),
+            (&null_string).into(),
+            (&null_args).into(),
+        ],
+    )
+    .map_err(|e| map_android_jni_error(&mut env, e))?;
+
+    Ok(())
+}
+
+#[cfg(target_os = "android")]
+pub fn save_image_bytes_to_android_gallery(
+    file_name: &str,
+    mime_type: &str,
+    bytes: &[u8],
+) -> Result<(), String> {
+    save_bytes_to_android_media_store(
+        file_name,
+        mime_type,
+        "Pictures/RapidRaw",
+        "android/provider/MediaStore$Images$Media",
+        bytes,
+    )
+}
+
+#[cfg(target_os = "android")]
+pub fn save_file_bytes_to_android_downloads(
+    file_name: &str,
+    mime_type: &str,
+    bytes: &[u8],
+) -> Result<(), String> {
+    save_bytes_to_android_media_store(
+        file_name,
+        mime_type,
+        "Download/RapidRaw",
+        "android/provider/MediaStore$Downloads",
+        bytes,
+    )
+}
+
 #[tauri::command]
 pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
     let path = get_settings_path(&app_handle)?;
@@ -2589,10 +3076,10 @@ pub fn clear_thumbnail_cache(app_handle: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn show_in_finder(path: String) -> Result<(), String> {
     let (source_path, _) = parse_virtual_path(&path);
-    let source_path_str = source_path.to_string_lossy().to_string();
 
     #[cfg(target_os = "windows")]
     {
+        let source_path_str = source_path.to_string_lossy().to_string();
         Command::new("explorer")
             .args(["/select,", &source_path_str])
             .spawn()
@@ -2601,15 +3088,16 @@ pub fn show_in_finder(path: String) -> Result<(), String> {
 
     #[cfg(target_os = "macos")]
     {
+        let source_path_str = source_path.to_string_lossy().to_string();
         Command::new("open")
             .args(["-R", &source_path_str])
             .spawn()
             .map_err(|e| e.to_string())?;
     }
 
-    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    #[cfg(target_os = "linux")]
     {
-        if let Some(parent) = Path::new(&source_path_str).parent() {
+        if let Some(parent) = source_path.parent() {
             Command::new("xdg-open")
                 .arg(parent)
                 .spawn()
@@ -2617,6 +3105,16 @@ pub fn show_in_finder(path: String) -> Result<(), String> {
         } else {
             return Err("Could not get parent directory".into());
         }
+    }
+
+    #[cfg(target_os = "android")]
+    {
+        return Err("Show in File Manager is not natively supported via CLI on Android.".into());
+    }
+
+    #[cfg(target_os = "ios")]
+    {
+        return Err("Show in File Manager is not supported on iOS.".into());
     }
 
     Ok(())
@@ -2658,6 +3156,7 @@ pub fn delete_files_from_disk(paths: Vec<String>) -> Result<(), String> {
     }
 
     let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     if let Err(trash_error) = trash::delete_all(&final_paths_to_delete) {
         log::warn!(
             "Failed to move files to trash: {}. Falling back to permanent delete.",
@@ -2673,6 +3172,18 @@ pub fn delete_files_from_disk(paths: Vec<String>) -> Result<(), String> {
             }
         }
     }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    for path in final_paths_to_delete {
+        if path.is_file() {
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to delete file {}: {}", path.display(), e))?;
+        } else if path.is_dir() {
+            fs::remove_dir_all(&path)
+                .map_err(|e| format!("Failed to delete directory {}: {}", path.display(), e))?;
+        }
+    }
+
     Ok(())
 }
 
@@ -2730,6 +3241,7 @@ pub fn delete_files_with_associated(paths: Vec<String>) -> Result<(), String> {
     }
 
     let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     if let Err(trash_error) = trash::delete_all(&final_paths_to_delete) {
         log::warn!(
             "Failed to move files to trash: {}. Falling back to permanent delete.",
@@ -2742,6 +3254,15 @@ pub fn delete_files_with_associated(paths: Vec<String>) -> Result<(), String> {
             }
         }
     }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    for path in final_paths_to_delete {
+        if path.is_file() {
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to delete file {}: {}", path.display(), e))?;
+        }
+    }
+
     Ok(())
 }
 
@@ -2837,6 +3358,61 @@ pub async fn import_files(
             );
 
             let import_result: Result<(), String> = (|| {
+                #[cfg(target_os = "android")]
+                if is_android_content_uri(source_path_str) {
+                    let resolved_name = resolve_android_content_uri_name(source_path_str)?;
+                    let source_bytes = read_android_content_uri(source_path_str)?;
+                    let source_name_path = Path::new(&resolved_name);
+                    let file_date =
+                        exif_processing::get_creation_date_from_bytes(&resolved_name, &source_bytes);
+
+                    let mut final_dest_folder = PathBuf::from(&destination_folder);
+                    if settings.organize_by_date {
+                        let date_format_str = settings
+                            .date_folder_format
+                            .replace("YYYY", "%Y")
+                            .replace("MM", "%m")
+                            .replace("DD", "%d");
+                        let subfolder = file_date.format(&date_format_str).to_string();
+                        final_dest_folder.push(subfolder);
+                    }
+
+                    fs::create_dir_all(&final_dest_folder)
+                        .map_err(|e| format!("Failed to create destination folder: {}", e))?;
+
+                    let new_stem = generate_filename_from_template(
+                        &settings.filename_template,
+                        source_name_path,
+                        i + 1,
+                        total_files,
+                        &file_date,
+                    );
+                    let extension = source_name_path
+                        .extension()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("");
+                    let new_filename = format!("{}.{}", new_stem, extension);
+                    let dest_file_path = final_dest_folder.join(new_filename);
+
+                    if dest_file_path.exists() {
+                        return Err(format!(
+                            "File already exists at destination: {}",
+                            dest_file_path.display()
+                        ));
+                    }
+
+                    fs::write(&dest_file_path, source_bytes).map_err(|e| e.to_string())?;
+
+                    if settings.delete_after_import {
+                        log::info!(
+                            "Skipping delete_after_import for Android content URI source: {}",
+                            source_path_str
+                        );
+                    }
+
+                    return Ok(());
+                }
+
                 let (source_path, source_sidecar) = parse_virtual_path(source_path_str);
                 if !source_path.exists() {
                     return Err(format!("Source file not found: {}", source_path_str));
@@ -2888,23 +3464,38 @@ pub async fn import_files(
                 }
 
                 if settings.delete_after_import {
-                    if let Err(trash_error) = trash::delete(&source_path) {
-                        log::warn!(
-                            "Failed to trash source file {}: {}. Deleting permanently.",
-                            source_path.display(),
-                            trash_error
-                        );
-                        fs::remove_file(&source_path).map_err(|e| e.to_string())?;
-                    }
-                    if source_sidecar.exists()
-                        && let Err(trash_error) = trash::delete(&source_sidecar)
+                    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
                     {
-                        log::warn!(
-                            "Failed to trash source sidecar {}: {}. Deleting permanently.",
-                            source_sidecar.display(),
-                            trash_error
-                        );
-                        fs::remove_file(&source_sidecar).map_err(|e| e.to_string())?;
+                        if let Err(trash_error) = trash::delete(&source_path) {
+                            log::warn!(
+                                "Failed to trash source file {}: {}. Deleting permanently.",
+                                source_path.display(),
+                                trash_error
+                            );
+                            fs::remove_file(&source_path).map_err(|e| e.to_string())?;
+                        }
+                        if source_sidecar.exists()
+                            && let Err(trash_error) = trash::delete(&source_sidecar)
+                        {
+                            log::warn!(
+                                "Failed to trash source sidecar {}: {}. Deleting permanently.",
+                                source_sidecar.display(),
+                                trash_error
+                            );
+                            fs::remove_file(&source_sidecar).map_err(|e| e.to_string())?;
+                        }
+                    }
+
+                    #[cfg(not(any(
+                        target_os = "windows",
+                        target_os = "macos",
+                        target_os = "linux"
+                    )))]
+                    {
+                        fs::remove_file(&source_path).map_err(|e| e.to_string())?;
+                        if source_sidecar.exists() {
+                            fs::remove_file(&source_sidecar).map_err(|e| e.to_string())?;
+                        }
                     }
                 }
 

@@ -4,6 +4,7 @@ import Wheel from '@uiw/react-color-wheel';
 import { ColorResult, HsvaColor, hsvaToHex } from '@uiw/color-convert';
 import { Sun } from 'lucide-react';
 import { HueSatLum } from '../../utils/adjustments';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ColorWheelProps {
   defaultValue: HueSatLum;
@@ -11,6 +12,7 @@ interface ColorWheelProps {
   onChange(hsl: HueSatLum): void;
   value: HueSatLum;
   onDragStateChange?: (isDragging: boolean) => void;
+  isExpanded?: boolean;
 }
 
 const ColorWheel = ({
@@ -19,6 +21,7 @@ const ColorWheel = ({
   onChange,
   value,
   onDragStateChange,
+  isExpanded = false,
 }: ColorWheelProps) => {
   const effectiveValue = value || defaultValue;
   const { hue, saturation, luminance } = effectiveValue;
@@ -74,6 +77,14 @@ const ColorWheel = ({
 
   const handleWheelChange = (color: ColorResult) => {
     onChange({ ...effectiveValue, hue: color.hsva.h, saturation: color.hsva.s });
+  };
+
+  const handleHueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({ ...effectiveValue, hue: parseFloat(e.target.value) });
+  };
+
+  const handleSaturationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({ ...effectiveValue, saturation: parseFloat(e.target.value) });
   };
 
   const handleLumChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,10 +183,52 @@ const ColorWheel = ({
         )}
       </div>
 
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{
+              height: 'auto',
+              opacity: 1,
+              transitionEnd: { overflow: 'visible' },
+            }}
+            exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
+            transition={{ duration: 0.2 }}
+            className="w-full flex flex-col gap-2"
+          >
+            <div className="w-full">
+              <Slider
+                defaultValue={defaultValue.hue}
+                label="Hue"
+                max={360}
+                min={0}
+                onChange={handleHueChange}
+                onDragStateChange={setIsSliderDragging}
+                step={1}
+                value={hue}
+              />
+            </div>
+
+            <div className="w-full">
+              <Slider
+                defaultValue={defaultValue.saturation}
+                label="Saturation"
+                max={100}
+                min={0}
+                onChange={handleSaturationChange}
+                onDragStateChange={setIsSliderDragging}
+                step={1}
+                value={saturation}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="w-full">
         <Slider
           defaultValue={defaultValue.luminance}
-          label={<Sun size={16} className="text-text-secondary" />}
+          label={isExpanded ? 'Luminance' : <Sun size={16} className="text-text-secondary" />}
           max={100}
           min={-100}
           onChange={handleLumChange}

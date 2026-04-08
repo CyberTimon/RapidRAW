@@ -227,6 +227,7 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     let mut shadows_map = Map::new();
     let mut midtones_map = Map::new();
     let mut highlights_map = Map::new();
+    let mut global_map = Map::new();
     if let Some(raw) = attrs.get("SplitToningShadowHue")
         && let Some(num) = parse_num(raw)
         && let Some(json_val) = num_to_json(num)
@@ -281,6 +282,24 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     {
         highlights_map.insert("luminance".to_string(), json_val);
     }
+    if let Some(raw) = attrs.get("ColorGradeGlobalHue")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        global_map.insert("hue".to_string(), json_val);
+    }
+    if let Some(raw) = attrs.get("ColorGradeGlobalSat")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        global_map.insert("saturation".to_string(), json_val);
+    }
+    if let Some(raw) = attrs.get("ColorGradeGlobalLum")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        global_map.insert("luminance".to_string(), json_val);
+    }
     if let Some(raw) = attrs.get("SplitToningBalance")
         && let Some(num) = parse_num(raw)
         && let Some(json_val) = num_to_json(num)
@@ -295,6 +314,9 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     }
     if !highlights_map.is_empty() {
         color_grading_map.insert("highlights".to_string(), Value::Object(highlights_map));
+    }
+    if !global_map.is_empty() {
+        color_grading_map.insert("global".to_string(), Value::Object(global_map));
     }
     if !color_grading_map.is_empty() {
         adjustments.insert("colorGrading".to_string(), Value::Object(color_grading_map));
