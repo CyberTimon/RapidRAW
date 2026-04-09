@@ -2185,13 +2185,13 @@ export default function MainLibrary({
       <header
         className={clsx(
           'p-4 shrink-0 border-b border-border-color gap-4',
-          isAndroid ? 'flex flex-col items-center' : isCompactPortrait ? 'flex flex-col items-stretch' : 'flex justify-between items-center',
+          isCompactPortrait ? 'flex flex-col items-stretch' : 'flex justify-between items-center',
         )}
         onMouseEnter={() => setIsProgressHovered(true)}
         onMouseLeave={() => setIsProgressHovered(false)}
       >
-        <div className={clsx('min-w-0', isCompactPortrait && !isAndroid && 'w-full', isAndroid && 'flex flex-col items-center text-center')}>
-          <div className={clsx('flex items-center gap-2 min-w-0', isAndroid && 'justify-center')}>
+        <div className={clsx('min-w-0', isCompactPortrait && 'w-full', isAndroid && 'flex flex-col justify-center min-h-11')}>
+          <div className="flex items-center gap-2 min-w-0">
             {isCompactPortrait && onOpenSidebar && (
               <Button
                 className="h-11 w-11 shrink-0 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
@@ -2205,36 +2205,38 @@ export default function MainLibrary({
               Library
             </Text>
           </div>
-          <div className={clsx('flex items-center gap-2', isAndroid && 'justify-center')}>
-            {!isAndroid && currentFolderPath ? (
-              <Text className="truncate">{currentFolderPath}</Text>
-            ) : (
-              <p className="text-sm invisible select-none pointer-events-none h-5 overflow-hidden"></p>
-            )}
-            <div
-              className={`flex items-center gap-2 overflow-hidden transition-all duration-300 whitespace-nowrap ${
-                isBusyDelayed ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'
-              }`}
-            >
-              <Loader2 size={14} className="animate-spin text-text-secondary shrink-0" />
+          {!isAndroid && (
+            <div className="flex items-center gap-2">
+              {currentFolderPath ? (
+                <Text className="truncate">{currentFolderPath}</Text>
+              ) : (
+                <p className="text-sm invisible select-none pointer-events-none h-5 overflow-hidden"></p>
+              )}
               <div
-                className={`flex items-center transition-all duration-300 ease-out overflow-hidden ${
-                  isProgressHovered && isBusyDelayed && (thumbnailProgress?.total ?? 0) > 0
-                    ? 'max-w-xs opacity-100'
-                    : 'max-w-0 opacity-0'
+                className={`flex items-center gap-2 overflow-hidden transition-all duration-300 whitespace-nowrap ${
+                  isBusyDelayed ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'
                 }`}
               >
-                <Text variant={TextVariants.small} color={TextColors.secondary} className="whitespace-nowrap">
-                  ({thumbnailProgress?.current ?? 0}/{thumbnailProgress?.total ?? 0})
-                </Text>
+                <Loader2 size={14} className="animate-spin text-text-secondary shrink-0" />
+                <div
+                  className={`flex items-center transition-all duration-300 ease-out overflow-hidden ${
+                    isProgressHovered && isBusyDelayed && (thumbnailProgress?.total ?? 0) > 0
+                      ? 'max-w-xs opacity-100'
+                      : 'max-w-0 opacity-0'
+                  }`}
+                >
+                  <Text variant={TextVariants.small} color={TextColors.secondary} className="whitespace-nowrap">
+                    ({thumbnailProgress?.current ?? 0}/{thumbnailProgress?.total ?? 0})
+                  </Text>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
         <div
           className={clsx(
             'flex items-center shrink-0',
-            isAndroid ? 'w-full flex-wrap justify-center gap-3' : isCompactPortrait ? 'w-full flex-wrap gap-2' : 'gap-3',
+            isCompactPortrait ? 'w-full flex-wrap gap-2' : 'gap-3',
           )}
         >
           {importState.status === Status.Importing && (
