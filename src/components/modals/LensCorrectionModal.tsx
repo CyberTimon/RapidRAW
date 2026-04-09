@@ -137,6 +137,7 @@ export default function LensCorrectionModal({
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [detectionStatus, setDetectionStatus] = useState<'idle' | 'detecting' | 'not_found' | 'success'>('idle');
+  const [isCompactPortraitLayout, setIsCompactPortraitLayout] = useState(false);
 
   const [isCompareActive, setIsCompareActive] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -158,6 +159,22 @@ export default function LensCorrectionModal({
       vignetting: Math.abs(p.vig_k1) > 1e-6 || Math.abs(p.vig_k2) > 1e-6 || Math.abs(p.vig_k3) > 1e-6,
     };
   }, [params.lensDistortionParams]);
+
+  useEffect(() => {
+    const updateLayoutMode = () => {
+      if (typeof window === 'undefined') return;
+
+      const { innerHeight, innerWidth } = window;
+      setIsCompactPortraitLayout(innerWidth <= 768 && innerHeight > innerWidth);
+    };
+
+    updateLayoutMode();
+    window.addEventListener('resize', updateLayoutMode);
+
+    return () => {
+      window.removeEventListener('resize', updateLayoutMode);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isDragging) return;
@@ -536,7 +553,14 @@ export default function LensCorrectionModal({
   };
 
   const renderControls = () => (
-    <div className="w-80 shrink-0 bg-bg-secondary flex flex-col border-l border-surface h-full z-10">
+    <div
+      className={clsx(
+        'bg-bg-secondary flex flex-col z-10',
+        isCompactPortraitLayout
+          ? 'w-full shrink min-h-0 max-h-[42vh] border-t border-surface'
+          : 'w-80 shrink-0 h-full border-l border-surface',
+      )}
+    >
       <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
         <Text variant={TextVariants.title}>Lens Correction</Text>
         <button
@@ -547,7 +571,7 @@ export default function LensCorrectionModal({
           <RotateCcw size={18} />
         </button>
       </div>
-      <div className="grow overflow-y-auto p-4 flex flex-col gap-8 text-text-secondary">
+      <div className="grow min-h-0 overflow-y-auto p-4 flex flex-col gap-8 text-text-secondary">
         <div>
           <Text variant={TextVariants.heading} className="mb-2">
             Auto Detection
@@ -797,8 +821,13 @@ export default function LensCorrectionModal({
   );
 
   const renderContent = () => (
-    <div className="flex flex-row h-full w-full overflow-hidden">
-      <div className="grow flex flex-col relative min-h-0 bg-[#0f0f0f] overflow-hidden">
+    <div className={clsx('h-full w-full overflow-hidden', isCompactPortraitLayout ? 'flex flex-col' : 'flex flex-row')}>
+      <div
+        className={clsx(
+          'flex flex-col relative min-h-0 bg-[#0f0f0f] overflow-hidden',
+          isCompactPortraitLayout ? 'grow w-full' : 'grow',
+        )}
+      >
         <div
           ref={containerRef}
           className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing select-none"
@@ -837,7 +866,10 @@ export default function LensCorrectionModal({
           )}
 
           <div
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/70 backdrop-blur-md p-1.5 rounded-full border border-white/10 shadow-xl z-20 pointer-events-auto"
+            className={clsx(
+              'absolute left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/70 backdrop-blur-md p-1.5 rounded-full border border-white/10 shadow-xl z-20 pointer-events-auto',
+              isCompactPortraitLayout ? 'bottom-3' : 'bottom-6',
+            )}
             onMouseDown={(e) => e.stopPropagation()}
           >
             <button
@@ -904,7 +936,10 @@ export default function LensCorrectionModal({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="bg-surface rounded-lg shadow-xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden"
+            className={clsx(
+              'bg-surface rounded-lg shadow-xl w-full flex flex-col overflow-hidden',
+              isCompactPortraitLayout ? 'max-w-[calc(100vw-1rem)] h-[92vh]' : 'max-w-6xl h-[90vh]',
+            )}
           >
             <div className="grow min-h-0 overflow-hidden">{renderContent()}</div>
             <div className="shrink-0 p-4 flex justify-end gap-3 border-t border-surface bg-bg-secondary z-20">
