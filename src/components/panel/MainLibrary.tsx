@@ -2185,13 +2185,13 @@ export default function MainLibrary({
       <header
         className={clsx(
           'p-4 shrink-0 border-b border-border-color gap-4',
-          isCompactPortrait ? 'flex flex-col items-stretch' : 'flex justify-between items-center',
+          isAndroid ? 'flex flex-col items-center' : isCompactPortrait ? 'flex flex-col items-stretch' : 'flex justify-between items-center',
         )}
         onMouseEnter={() => setIsProgressHovered(true)}
         onMouseLeave={() => setIsProgressHovered(false)}
       >
-        <div className={clsx('min-w-0', isCompactPortrait && 'w-full')}>
-          <div className="flex items-center gap-2 min-w-0">
+        <div className={clsx('min-w-0', isCompactPortrait && !isAndroid && 'w-full', isAndroid && 'flex flex-col items-center text-center')}>
+          <div className={clsx('flex items-center gap-2 min-w-0', isAndroid && 'justify-center')}>
             {isCompactPortrait && onOpenSidebar && (
               <Button
                 className="h-11 w-11 shrink-0 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
@@ -2205,7 +2205,7 @@ export default function MainLibrary({
               Library
             </Text>
           </div>
-          <div className="flex items-center gap-2">
+          <div className={clsx('flex items-center gap-2', isAndroid && 'justify-center')}>
             {!isAndroid && currentFolderPath ? (
               <Text className="truncate">{currentFolderPath}</Text>
             ) : (
@@ -2231,7 +2231,12 @@ export default function MainLibrary({
             </div>
           </div>
         </div>
-        <div className={clsx('flex items-center shrink-0', isCompactPortrait ? 'w-full flex-wrap gap-2' : 'gap-3')}>
+        <div
+          className={clsx(
+            'flex items-center shrink-0',
+            isAndroid ? 'w-full flex-wrap justify-center gap-3' : isCompactPortrait ? 'w-full flex-wrap gap-2' : 'gap-3',
+          )}
+        >
           {importState.status === Status.Importing && (
             <Text as="div" color={TextColors.accent} className="flex items-center gap-2 animate-pulse">
               <FolderInput size={16} />
