@@ -527,7 +527,7 @@ function SearchInput({
       <button
         className={clsx(
           'absolute left-0 top-0 flex items-center justify-center text-text-primary z-10 shrink-0',
-          isCompactLayout ? 'h-10 w-10' : 'h-12 w-12',
+          isCompactLayout ? 'h-11 w-11' : 'h-12 w-12',
         )}
         onClick={(e) => {
           e.stopPropagation();
@@ -1071,7 +1071,7 @@ function ViewOptionsDropdown({
     <DropdownMenu
       buttonContent={
         <>
-          <SlidersHorizontal className={isCompactLayout ? 'h-6 w-6' : 'h-8 w-8'} />
+          <SlidersHorizontal className={isCompactLayout ? 'h-7 w-7' : 'h-8 w-8'} />
           {isFilterActive && (
             <div
               className={clsx(
@@ -1708,7 +1708,7 @@ export default function MainLibrary({
   const [isProgressHovered, setIsProgressHovered] = useState(false);
   const loadedThumbnailsRef = useRef(new Set<string>());
   const libraryScrollTopRef = useRef(libraryScrollTop);
-  const topActionIconClass = isCompactPortrait ? 'h-6 w-6' : 'h-8 w-8';
+  const topActionIconClass = isCompactPortrait ? 'h-7 w-7' : 'h-8 w-8';
 
   useEffect(() => {
     libraryScrollTopRef.current = libraryScrollTop;
@@ -2194,7 +2194,7 @@ export default function MainLibrary({
           <div className="flex items-center gap-2 min-w-0">
             {isCompactPortrait && onOpenSidebar && (
               <Button
-                className="h-10 w-10 shrink-0 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
+                className="h-11 w-11 shrink-0 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
                 onClick={onOpenSidebar}
                 data-tooltip="Show folders"
               >
@@ -2278,7 +2278,7 @@ export default function MainLibrary({
           <Button
             className={clsx(
               'bg-surface text-text-primary shadow-none p-0 flex items-center justify-center',
-              isCompactPortrait ? 'h-10 w-10' : 'h-12 w-12',
+              isCompactPortrait ? 'h-11 w-11' : 'h-12 w-12',
             )}
             onClick={onNavigateToCommunity}
             data-tooltip="Community Presets"
@@ -2288,7 +2288,7 @@ export default function MainLibrary({
           <Button
             className={clsx(
               'bg-surface text-text-primary shadow-none p-0 flex items-center justify-center',
-              isCompactPortrait ? 'h-10 w-10' : 'h-12 w-12',
+              isCompactPortrait ? 'h-11 w-11' : 'h-12 w-12',
             )}
             onClick={onOpenFolder}
             data-tooltip="Open another folder"
@@ -2298,7 +2298,7 @@ export default function MainLibrary({
           <Button
             className={clsx(
               'bg-surface text-text-primary shadow-none p-0 flex items-center justify-center',
-              isCompactPortrait ? 'h-10 w-10' : 'h-12 w-12',
+              isCompactPortrait ? 'h-11 w-11' : 'h-12 w-12',
             )}
             onClick={onGoHome}
             data-tooltip="Go to Home"
