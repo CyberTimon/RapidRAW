@@ -568,6 +568,7 @@ pub fn get_creation_date_from_path(path: &Path) -> DateTime<Utc> {
         .unwrap_or_else(Utc::now)
 }
 
+#[cfg(target_os = "android")]
 pub fn get_creation_date_from_bytes(path_hint: &str, file_bytes: &[u8]) -> DateTime<Utc> {
     if let Some(exif_obj) = read_exif(file_bytes) {
         for tag in [exif::Tag::DateTimeOriginal, exif::Tag::DateTime] {

@@ -83,8 +83,8 @@ use crate::image_processing::{
 };
 use crate::lut_processing::{Lut, convert_image_to_cube_lut, generate_identity_lut_image};
 use crate::mask_generation::{AiPatchDefinition, MaskDefinition, generate_mask_bitmap};
-use tagging_utils::{candidates, hierarchy};
 use crate::window_customizer::PinchZoomDisablePlugin;
+use tagging_utils::{candidates, hierarchy};
 
 #[cfg(target_os = "macos")]
 extern "C" fn force_exit(_signal: libc::c_int) {
@@ -1769,6 +1769,7 @@ fn save_image_with_metadata(
     Ok(())
 }
 
+#[cfg(target_os = "android")]
 fn mime_type_for_extension(extension: &str) -> &'static str {
     match extension {
         "jpg" | "jpeg" => "image/jpeg",

@@ -550,7 +550,6 @@ export default function MasksPanel({
   const [isSettingsSectionOpen, setSettingsSectionOpen] = useState(true);
   const [isSettingsPanelEverOpened, setIsSettingsPanelEverOpened] = useState(false);
   const hasPerformedInitialSelection = useRef(false);
-  const [isMaskListEmpty, setIsMaskListEmpty] = useState(adjustments.masks.length === 0);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [analyzingSubMaskId, setAnalyzingSubMaskId] = useState<string | null>(null);
   const [isResizingWaveform, setIsResizingWaveform] = useState<boolean>(false);
@@ -590,10 +589,6 @@ export default function MasksPanel({
   }, [adjustments.masks, activeMaskContainerId, onSelectContainer, onSelectMask]);
 
   useEffect(() => {
-    if (adjustments.masks.length > 0) {
-      setIsMaskListEmpty(false);
-    }
-
     if (!hasPerformedInitialSelection.current && !activeMaskContainerId && adjustments.masks.length > 0) {
       const lastMask = adjustments.masks[adjustments.masks.length - 1];
       if (lastMask) {
@@ -719,9 +714,6 @@ export default function MasksPanel({
   };
 
   const handleAddMaskContainer = (type: Mask) => {
-    if (adjustments.masks.length === 0) {
-      setIsMaskListEmpty(false);
-    }
     const subMask = createMaskLogic(type);
     const newContainer = {
       ...INITIAL_MASK_CONTAINER,
@@ -785,6 +777,50 @@ export default function MasksPanel({
       onClick: () => handleGridClick(maskType.type),
       onRightClick: () => handleGridClick(maskType.type, true),
     }));
+    showContextMenu(rect.left, rect.bottom + 5, options);
+  };
+
+  const handleAddMaskContextMenu = (event: React.MouseEvent, targetContainerId?: string | null) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+
+    const buildMenu = (types: MaskType[]) =>
+      types.map((maskType: MaskType) => ({
+        label: maskType.name,
+        icon: maskType.icon,
+        disabled: maskType.disabled,
+        onClick: () => {
+          if (targetContainerId) {
+            handleAddSubMask(targetContainerId, maskType.type);
+          } else {
+            handleAddMaskContainer(maskType.type);
+          }
+        },
+      }));
+
+    const options = MASK_PANEL_CREATION_TYPES.map((maskType: MaskType) => {
+      if (maskType.id === 'others') {
+        return {
+          label: maskType.name,
+          icon: maskType.icon,
+          submenu: buildMenu(OTHERS_MASK_TYPES),
+        };
+      }
+      return {
+        label: maskType.name,
+        icon: maskType.icon,
+        disabled: maskType.disabled,
+        onClick: () => {
+          if (targetContainerId) {
+            handleAddSubMask(targetContainerId, maskType.type);
+          } else {
+            handleAddMaskContainer(maskType.type);
+          }
+        },
+      };
+    });
+
     showContextMenu(rect.left, rect.bottom + 5, options);
   };
 
@@ -853,10 +889,6 @@ export default function MasksPanel({
   };
 
   const insertMaskContainer = (container: MaskContainer, insertIndex?: number) => {
-    if (adjustments.masks.length === 0) {
-      setIsMaskListEmpty(false);
-    }
-
     setAdjustments((prev: Adjustments) => {
       const newMasks = [...(prev.masks || [])];
       const targetIndex = Math.max(0, Math.min(insertIndex ?? newMasks.length, newMasks.length));
@@ -969,7 +1001,7 @@ export default function MasksPanel({
         }
       };
 
-      if (!isMaskListEmpty) {
+      if (adjustments.masks.length > 0) {
         setPendingAction(() => creationFn);
       } else {
         creationFn();
@@ -1022,9 +1054,7 @@ export default function MasksPanel({
           const subMaskIndex = sourceContainer.subMasks.findIndex((sm: SubMask) => sm.id === dragData.item!.id);
           if (subMaskIndex === -1) return prev;
           const [movedSubMask] = sourceContainer.subMasks.splice(subMaskIndex, 1);
-          if (adjustments.masks.length === 0) {
-            setIsMaskListEmpty(false);
-          }
+
           const newContainer = {
             ...INITIAL_MASK_CONTAINER,
             id: uuidv4(),
@@ -1163,102 +1193,47 @@ export default function MasksPanel({
         </AnimatePresence>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0">
-          <div className="p-4 pb-2 z-10 shrink-0">
-            <p className="text-sm mb-3 font-semibold text-text-primary">
-              {activeMaskContainerId ? 'Add to Mask' : 'Create New Mask'}
-            </p>
-            <div className="grid grid-cols-3 gap-2" onClick={(e) => e.stopPropagation()}>
-              {MASK_PANEL_CREATION_TYPES.map((maskType: MaskType) => (
-                <DraggableGridItem
-                  key={maskType.type || maskType.id}
-                  maskType={maskType}
-                  onClick={(e: any) =>
-                    maskType.id === 'others' ? handleAddOthersMask(e) : handleGridClick(maskType.type)
-                  }
-                  onRightClick={(e: React.MouseEvent) => handleGridRightClick(e, maskType.type)}
-                  isDraggable={maskType.id !== 'others'}
-                  activeMaskContainerId={activeMaskContainerId}
-                />
-              ))}
-            </div>
-          </div>
-
-          <AnimatePresence>
-            {isSettingsPanelEverOpened && (
+          <AnimatePresence mode="wait">
+            {adjustments.masks.length === 0 ? (
               <motion.div
+                key="empty-masks-grid"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="p-4 pb-2 z-10 shrink-0"
+              >
+                <p className="text-sm mb-3 font-semibold text-text-primary">Create New Mask</p>
+                <div className="grid grid-cols-3 gap-2" onClick={(e) => e.stopPropagation()}>
+                  {MASK_PANEL_CREATION_TYPES.map((maskType: MaskType) => (
+                    <DraggableGridItem
+                      key={maskType.type || maskType.id}
+                      maskType={maskType}
+                      onClick={(e: any) =>
+                        maskType.id === 'others' ? handleAddOthersMask(e) : handleGridClick(maskType.type)
+                      }
+                      onRightClick={(e: React.MouseEvent) => handleGridRightClick(e, maskType.type)}
+                      isDraggable={maskType.id !== 'others'}
+                      activeMaskContainerId={activeMaskContainerId}
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="masks-list-container"
                 ref={setRootDroppableRef}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className={`flex-col px-4 pb-2 space-y-1 transition-colors ${isRootOver ? 'bg-surface' : ''}`}
+                className={`flex-col px-4 pt-4 pb-2 space-y-1 transition-colors ${isRootOver ? 'bg-surface' : ''}`}
               >
-                <p className="text-sm my-3 font-semibold text-text-primary">Masks</p>
+                <p className="text-sm mb-3 font-semibold text-text-primary">Masks</p>
 
                 <AnimatePresence
                   initial={false}
                   mode="popLayout"
-                  onExitComplete={() => {
-                    if (adjustments.masks.length === 0) {
-                      setIsMaskListEmpty(true);
-                    }
-                  }}
-                >
-                  {isMaskListEmpty ? (
-                    <motion.div
-                      key="empty-masks-placeholder"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="text-center text-text-secondary text-sm py-4 opacity-70"
-                    >
-                      No masks created.
-                    </motion.div>
-                  ) : (
-                    adjustments.masks.map((container) => (
-                      <ContainerRow
-                        key={container.id}
-                        container={container}
-                        isSelected={activeMaskContainerId === container.id && activeMaskId === null}
-                        hasActiveChild={activeMaskContainerId === container.id && activeMaskId !== null}
-                        isExpanded={expandedContainers.has(container.id)}
-                        onToggle={() => handleToggleExpand(container.id)}
-                        onSelect={() => {
-                          onSelectContainer(container.id);
-                          onSelectMask(null);
-                        }}
-                        renamingId={renamingId}
-                        setRenamingId={setRenamingId}
-                        tempName={tempName}
-                        setTempName={setTempName}
-                        updateContainer={updateContainer}
-                        handleDelete={handleDeleteContainer}
-                        handleDuplicate={handleDuplicateContainer}
-                        handleDuplicateAndInvert={handleDuplicateAndInvertContainer}
-                        handlePasteMask={handlePasteMask}
-                        copyMaskToClipboard={copyMaskToClipboard}
-                        copiedMask={copiedMask}
-                        presets={presets}
-                        setAdjustments={setAdjustments}
-                        activeDragItem={activeDragItem}
-                        activeMaskId={activeMaskId}
-                        onSelectContainer={onSelectContainer}
-                        onSelectMask={onSelectMask}
-                        updateSubMask={updateSubMask}
-                        handleDeleteSubMask={handleDeleteSubMask}
-                        handleDuplicateSubMask={handleDuplicateSubMask}
-                        handleDuplicateAndInvertSubMask={handleDuplicateAndInvertSubMask}
-                        handlePasteSubMask={handlePasteSubMask}
-                        copySubMaskToClipboard={copySubMaskToClipboard}
-                        copiedSubMask={copiedSubMask}
-                        analyzingSubMaskId={analyzingSubMaskId}
-                        setIsMaskControlHovered={setIsMaskControlHovered}
-                      />
-                    ))
-                  )}
-                </AnimatePresence>
-
-                <AnimatePresence
                   onExitComplete={() => {
                     if (pendingAction) {
                       pendingAction();
@@ -1266,8 +1241,66 @@ export default function MasksPanel({
                     }
                   }}
                 >
-                  {activeDragItem?.type === 'Creation' && !isMaskListEmpty && <NewMaskDropZone isOver={isRootOver} />}
+                  {adjustments.masks.map((container) => (
+                    <ContainerRow
+                      key={container.id}
+                      container={container}
+                      isSelected={activeMaskContainerId === container.id && activeMaskId === null}
+                      hasActiveChild={activeMaskContainerId === container.id && activeMaskId !== null}
+                      isExpanded={expandedContainers.has(container.id)}
+                      onToggle={() => handleToggleExpand(container.id)}
+                      onSelect={() => {
+                        onSelectContainer(container.id);
+                        onSelectMask(null);
+                      }}
+                      renamingId={renamingId}
+                      setRenamingId={setRenamingId}
+                      tempName={tempName}
+                      setTempName={setTempName}
+                      updateContainer={updateContainer}
+                      handleDelete={handleDeleteContainer}
+                      handleDuplicate={handleDuplicateContainer}
+                      handleDuplicateAndInvert={handleDuplicateAndInvertContainer}
+                      handlePasteMask={handlePasteMask}
+                      copyMaskToClipboard={copyMaskToClipboard}
+                      copiedMask={copiedMask}
+                      presets={presets}
+                      setAdjustments={setAdjustments}
+                      activeDragItem={activeDragItem}
+                      activeMaskId={activeMaskId}
+                      onSelectContainer={onSelectContainer}
+                      onSelectMask={onSelectMask}
+                      updateSubMask={updateSubMask}
+                      handleDeleteSubMask={handleDeleteSubMask}
+                      handleDuplicateSubMask={handleDuplicateSubMask}
+                      handleDuplicateAndInvertSubMask={handleDuplicateAndInvertSubMask}
+                      handlePasteSubMask={handlePasteSubMask}
+                      copySubMaskToClipboard={copySubMaskToClipboard}
+                      copiedSubMask={copiedSubMask}
+                      analyzingSubMaskId={analyzingSubMaskId}
+                      setIsMaskControlHovered={setIsMaskControlHovered}
+                      onAddComponent={(e: React.MouseEvent) => handleAddMaskContextMenu(e, container.id)}
+                    />
+                  ))}
                 </AnimatePresence>
+
+                <AnimatePresence>
+                  {activeDragItem?.type === 'Creation' && adjustments.masks.length > 0 && (
+                    <NewMaskDropZone isOver={isRootOver} />
+                  )}
+                </AnimatePresence>
+
+                <div
+                  className="flex items-center gap-2 p-2 rounded-md transition-colors hover:bg-card-active cursor-pointer mt-1 text-text-secondary hover:text-text-primary group"
+                  onClick={(e) => handleAddMaskContextMenu(e, null)}
+                >
+                  <div className="p-0.5 opacity-70 group-hover:opacity-100">
+                    <Plus size={18} />
+                  </div>
+                  <span className="text-sm font-medium opacity-70 group-hover:opacity-100 transition-opacity">
+                    Add New Mask
+                  </span>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -1459,6 +1492,7 @@ function ContainerRow({
   copiedSubMask,
   analyzingSubMaskId,
   setIsMaskControlHovered,
+  onAddComponent,
 }: any) {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: container.id,
@@ -1470,14 +1504,7 @@ function ContainerRow({
     setNodeRef: setDraggableRef,
     isDragging,
   } = useDraggable({ id: container.id, data: { type: 'Container', item: container } });
-  const [isSubMaskListEmpty, setIsSubMaskListEmpty] = useState(container.subMasks.length === 0);
   const { showContextMenu } = useContextMenu();
-
-  useEffect(() => {
-    if (container.subMasks.length > 0 && isSubMaskListEmpty) {
-      setIsSubMaskListEmpty(false);
-    }
-  }, [container.subMasks.length, isSubMaskListEmpty]);
 
   const setCombinedRef = (node: HTMLElement | null) => {
     setDroppableRef(node);
@@ -1663,15 +1690,7 @@ function ContainerRow({
             className="overflow-hidden pl-2 border-l border-border-color/20 ml-[15px]"
             layout
           >
-            <AnimatePresence
-              mode="popLayout"
-              initial={false}
-              onExitComplete={() => {
-                if (container.subMasks.length === 0) {
-                  setIsSubMaskListEmpty(true);
-                }
-              }}
-            >
+            <AnimatePresence mode="popLayout" initial={false}>
               {container.subMasks.map((subMask: SubMask, index: number) => (
                 <SubMaskRow
                   key={subMask.id}
@@ -1702,16 +1721,34 @@ function ContainerRow({
                 />
               ))}
             </AnimatePresence>
-            {isSubMaskListEmpty && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="p-3 text-xs text-text-secondary text-center italic"
-              >
-                No mask components.
-              </motion.div>
-            )}
+
+            <AnimatePresence initial={false}>
+              {(isSelected || hasActiveChild || container.subMasks.length === 0) && (
+                <motion.div
+                  key="add-component-btn"
+                  layout="position"
+                  initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                  animate={{ opacity: 1, height: 'auto', overflow: 'hidden' }}
+                  exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div
+                    className="flex items-center gap-2 p-2 rounded-md transition-colors hover:bg-card-active cursor-pointer mt-0.5 text-text-secondary hover:text-text-primary group"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddComponent(e);
+                    }}
+                  >
+                    <div className="relative w-4 h-4 ml-1 shrink-0 flex items-center justify-center opacity-70 group-hover:opacity-100">
+                      <Plus size={16} />
+                    </div>
+                    <span className="text-sm opacity-70 group-hover:opacity-100 transition-opacity select-none">
+                      Add New Component
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>

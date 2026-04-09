@@ -16,22 +16,21 @@ use base64::{Engine as _, engine::general_purpose};
 use chrono::{DateTime, Utc};
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma};
-use rayon::ThreadPoolBuilder;
-use rayon::prelude::*;
-use regex::Regex;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use tauri::{AppHandle, Emitter, Manager};
-use uuid::Uuid;
-use walkdir::WalkDir;
 #[cfg(target_os = "android")]
 use jni::objects::{JObject, JString, JValue};
 #[cfg(target_os = "android")]
 use jni::{JNIEnv, JavaVM};
 #[cfg(target_os = "android")]
 use ndk_context::android_context;
+use rayon::ThreadPoolBuilder;
+use rayon::prelude::*;
+use regex::Regex;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use tauri::{AppHandle, Emitter, Manager};
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-use trash;
+use uuid::Uuid;
+use walkdir::WalkDir;
 
 use crate::AppState;
 use crate::calculate_geometry_hash;
@@ -526,6 +525,7 @@ pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
     (source_path, sidecar_path)
 }
 
+#[cfg(target_os = "android")]
 fn is_android_content_uri(path: &str) -> bool {
     path.starts_with("content://")
 }
@@ -557,7 +557,9 @@ fn close_android_closeable(env: &mut JNIEnv<'_>, closeable: &JObject<'_>) {
 }
 
 #[cfg(target_os = "android")]
-fn get_android_content_resolver<'local>(env: &mut JNIEnv<'local>) -> Result<JObject<'local>, String> {
+fn get_android_content_resolver<'local>(
+    env: &mut JNIEnv<'local>,
+) -> Result<JObject<'local>, String> {
     let context = env
         .new_local_ref(unsafe { JObject::from_raw(android_context().context().cast()) })
         .map_err(|e| map_android_jni_error(env, e))?;
@@ -580,7 +582,10 @@ fn get_android_content_resolver<'local>(env: &mut JNIEnv<'local>) -> Result<JObj
 }
 
 #[cfg(target_os = "android")]
-fn parse_android_uri<'local>(env: &mut JNIEnv<'local>, uri_str: &str) -> Result<JObject<'local>, String> {
+fn parse_android_uri<'local>(
+    env: &mut JNIEnv<'local>,
+    uri_str: &str,
+) -> Result<JObject<'local>, String> {
     let uri_string = env
         .new_string(uri_str)
         .map_err(|e| map_android_jni_error(env, e))?;
@@ -644,7 +649,10 @@ fn resolve_android_content_uri_name(uri_str: &str) -> Result<String, String> {
             .map_err(|e| map_android_jni_error(&mut env, e))?;
 
         if !moved {
-            return Err(format!("No metadata rows found for content URI: {}", uri_str));
+            return Err(format!(
+                "No metadata rows found for content URI: {}",
+                uri_str
+            ));
         }
 
         let display_name_column = env
@@ -683,7 +691,10 @@ fn resolve_android_content_uri_name(uri_str: &str) -> Result<String, String> {
             .map_err(|e| map_android_jni_error(&mut env, e))?;
 
         if display_name_obj.is_null() {
-            return Err(format!("Display name was null for content URI: {}", uri_str));
+            return Err(format!(
+                "Display name was null for content URI: {}",
+                uri_str
+            ));
         }
 
         let display_name_java = JString::from(display_name_obj);
@@ -2662,14 +2673,13 @@ fn delete_android_media_store_item(
         resolver,
         "delete",
         "(Landroid/net/Uri;Ljava/lang/String;[Ljava/lang/String;)I",
-        &[
-            item_uri.into(),
-            (&null_string).into(),
-            (&null_args).into(),
-        ],
+        &[item_uri.into(), (&null_string).into(), (&null_args).into()],
     ) {
         clear_pending_android_exception(env);
-        log::warn!("Failed to delete Android MediaStore item after write error: {}", err);
+        log::warn!(
+            "Failed to delete Android MediaStore item after write error: {}",
+            err
+        );
     }
 }
 
@@ -2697,7 +2707,11 @@ fn save_bytes_to_android_media_store(
     put_android_content_value_int(&mut env, &content_values, "is_pending", 1)?;
 
     let collection_uri = env
-        .get_static_field(collection_class, "EXTERNAL_CONTENT_URI", "Landroid/net/Uri;")
+        .get_static_field(
+            collection_class,
+            "EXTERNAL_CONTENT_URI",
+            "Landroid/net/Uri;",
+        )
         .and_then(|value| value.l())
         .map_err(|e| map_android_jni_error(&mut env, e))?;
     let item_uri = env
@@ -3363,8 +3377,10 @@ pub async fn import_files(
                     let resolved_name = resolve_android_content_uri_name(source_path_str)?;
                     let source_bytes = read_android_content_uri(source_path_str)?;
                     let source_name_path = Path::new(&resolved_name);
-                    let file_date =
-                        exif_processing::get_creation_date_from_bytes(&resolved_name, &source_bytes);
+                    let file_date = exif_processing::get_creation_date_from_bytes(
+                        &resolved_name,
+                        &source_bytes,
+                    );
 
                     let mut final_dest_folder = PathBuf::from(&destination_folder);
                     if settings.organize_by_date {
