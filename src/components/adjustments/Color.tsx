@@ -414,6 +414,10 @@ export default function ColorPanel({
     }));
   };
 
+  const hue_slider = `hue-slider-${activeColor}`;
+  const saturation_slider = `sat-slider-${activeColor}`;
+  const luminance_slider = `lum-slider-${activeColor}`;
+
   const currentHsl = adjustments?.hsl?.[activeColor] || { hue: 0, saturation: 0, luminance: 0 };
 
   return (
@@ -513,6 +517,7 @@ export default function ColorPanel({
           onChange={(e: any) => handleHslChange(ColorAdjustment.Hue, e.target.value)}
           step={1}
           value={currentHsl.hue}
+          trackClassName={hue_slider}
           onDragStateChange={onDragStateChange}
         />
         <Slider
@@ -522,6 +527,7 @@ export default function ColorPanel({
           onChange={(e: any) => handleHslChange(ColorAdjustment.Saturation, e.target.value)}
           step={1}
           value={currentHsl.saturation}
+          trackClassName={saturation_slider}
           onDragStateChange={onDragStateChange}
         />
         <Slider
@@ -531,6 +537,7 @@ export default function ColorPanel({
           onChange={(e: any) => handleHslChange(ColorAdjustment.Luminance, e.target.value)}
           step={1}
           value={currentHsl.luminance}
+          trackClassName={luminance_slider}
           onDragStateChange={onDragStateChange}
         />
       </div>

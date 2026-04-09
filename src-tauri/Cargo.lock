@@ -16,6 +16,7 @@ dependencies = [
  "futures-util",
  "fuzzy-matcher",
  "glam 0.32.1",
+ "gtk",
  "half",
  "hex",
  "image",
@@ -65,6 +66,7 @@ dependencies = [
  "trash",
  "uuid",
  "walkdir",
+ "webkit2gtk",
  "webp",
  "wgpu",
 ]

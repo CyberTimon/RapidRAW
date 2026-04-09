@@ -22,6 +22,7 @@ mod preset_converter;
 mod raw_processing;
 mod tagging;
 mod tagging_utils;
+mod window_customizer;
 
 use std::collections::{HashMap, hash_map::DefaultHasher};
 use std::fs;
@@ -83,6 +84,7 @@ use crate::image_processing::{
 use crate::lut_processing::{Lut, convert_image_to_cube_lut, generate_identity_lut_image};
 use crate::mask_generation::{AiPatchDefinition, MaskDefinition, generate_mask_bitmap};
 use tagging_utils::{candidates, hierarchy};
+use crate::window_customizer::PinchZoomDisablePlugin;
 
 #[cfg(target_os = "macos")]
 extern "C" fn force_exit(_signal: libc::c_int) {
@@ -4450,6 +4452,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(PinchZoomDisablePlugin)
         .setup(|app| {
             #[cfg(any(windows, target_os = "linux"))]
             {
