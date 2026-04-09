@@ -104,6 +104,7 @@ interface MainLibraryProps {
   onGoHome(): void;
   onImageClick(path: string, event: any): void;
   onImageDoubleClick(path: string): void;
+  onImportImages(): void;
   onLibraryRefresh(): void;
   onOpenSidebar?(): void;
   onOpenFolder(): void;
@@ -1070,7 +1071,7 @@ function ViewOptionsDropdown({
     <DropdownMenu
       buttonContent={
         <>
-          <SlidersHorizontal className={isCompactLayout ? 'w-5 h-5' : 'w-8 h-8'} />
+          <SlidersHorizontal className={isCompactLayout ? 'h-6 w-6' : 'h-8 w-8'} />
           {isFilterActive && (
             <div
               className={clsx(
@@ -1652,6 +1653,7 @@ export default function MainLibrary({
   onGoHome,
   onImageClick,
   onImageDoubleClick,
+  onImportImages,
   onLibraryRefresh,
   onOpenSidebar,
   onOpenFolder,
@@ -1706,6 +1708,7 @@ export default function MainLibrary({
   const [isProgressHovered, setIsProgressHovered] = useState(false);
   const loadedThumbnailsRef = useRef(new Set<string>());
   const libraryScrollTopRef = useRef(libraryScrollTop);
+  const topActionIconClass = isCompactPortrait ? 'h-6 w-6' : 'h-8 w-8';
 
   useEffect(() => {
     libraryScrollTopRef.current = libraryScrollTop;
@@ -2176,7 +2179,7 @@ export default function MainLibrary({
 
   return (
     <div
-      className="flex-1 flex flex-col h-full min-w-0 bg-bg-secondary rounded-lg overflow-hidden"
+      className="relative flex-1 flex flex-col h-full min-w-0 bg-bg-secondary rounded-lg overflow-hidden"
       ref={libraryContainerRef}
     >
       <header
@@ -2195,7 +2198,7 @@ export default function MainLibrary({
                 onClick={onOpenSidebar}
                 data-tooltip="Show folders"
               >
-                <FolderOpen className="w-5 h-5" />
+                <FolderOpen className={topActionIconClass} />
               </Button>
             )}
             <Text variant={TextVariants.headline} className="truncate">
@@ -2280,7 +2283,7 @@ export default function MainLibrary({
             onClick={onNavigateToCommunity}
             data-tooltip="Community Presets"
           >
-            <Users className={isCompactPortrait ? 'w-5 h-5' : 'w-8 h-8'} />
+            <Users className={topActionIconClass} />
           </Button>
           <Button
             className={clsx(
@@ -2290,7 +2293,7 @@ export default function MainLibrary({
             onClick={onOpenFolder}
             data-tooltip="Open another folder"
           >
-            <Folder className={isCompactPortrait ? 'w-5 h-5' : 'w-8 h-8'} />
+            <Folder className={topActionIconClass} />
           </Button>
           <Button
             className={clsx(
@@ -2300,7 +2303,7 @@ export default function MainLibrary({
             onClick={onGoHome}
             data-tooltip="Go to Home"
           >
-            <Home className={isCompactPortrait ? 'w-5 h-5' : 'w-8 h-8'} />
+            <Home className={topActionIconClass} />
           </Button>
         </div>
       </header>
@@ -2458,6 +2461,24 @@ export default function MainLibrary({
         <div className="flex-1 flex flex-col items-center justify-center" onContextMenu={onEmptyAreaContextMenu}>
           <SlidersHorizontal className="h-12 w-12 mb-4 text-text-secondary" />
           <Text>No images found that match your filter.</Text>
+        </div>
+      )}
+      {isAndroid && (
+        <div
+          className="absolute z-20 bottom-4 right-4 md:bottom-6 md:right-6"
+          style={{
+            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
+            right: 'calc(env(safe-area-inset-right, 0px) + 1rem)',
+          }}
+        >
+          <Button
+            className="h-14 w-14 rounded-full p-0"
+            data-tooltip="Import Images"
+            disabled={importState.status === Status.Importing}
+            onClick={onImportImages}
+          >
+            <FolderInput className="h-7 w-7" />
+          </Button>
         </div>
       )}
     </div>

@@ -4981,7 +4981,7 @@ function App() {
   };
 
   const renderFolderTree = () => {
-    if (!rootPath) return null;
+    if (!rootPath || isAndroid) return null;
 
     const setFolderTreeVisible = (value: boolean) =>
       setUiVisibility((prev: UiVisibility) => ({ ...prev, folderTree: value }));
@@ -5110,9 +5110,10 @@ function App() {
             onGoHome={handleGoHome}
             onImageClick={handleLibraryImageSingleClick}
             onImageDoubleClick={handleImageSelect}
+            onImportImages={() => handleImportClick((currentFolderPath || rootPath) as string)}
             onLibraryRefresh={handleLibraryRefresh}
             onOpenSidebar={
-              isCompactPortrait
+              isCompactPortrait && !isAndroid
                 ? () => setUiVisibility((prev: UiVisibility) => ({ ...prev, folderTree: true }))
                 : undefined
             }
