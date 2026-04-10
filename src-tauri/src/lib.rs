@@ -4540,6 +4540,7 @@ pub fn run() {
             start_preview_worker(app_handle.clone());
             start_analytics_worker(app_handle.clone());
             jxl_oxide::integration::register_image_decoding_hook();
+            heic::register_decoding_hook();
 
             let window_cfg = app.config().app.windows.first().unwrap().clone();
             let transparent = settings.transparent.unwrap_or(window_cfg.transparent);
