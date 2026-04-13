@@ -1553,11 +1553,6 @@ function App() {
             const blob = new Blob([buffer], { type: 'image/jpeg' });
             const url = URL.createObjectURL(blob);
 
-            try {
-              const img = new Image();
-              img.src = url;
-              await img.decode();
-            } catch (_) {}
             if (currentPath !== selectedImagePathRef.current || jobId < latestRenderedJobIdRef.current) {
               URL.revokeObjectURL(url);
               return;
@@ -2908,14 +2903,13 @@ function App() {
         baseRes = Math.max(originalSize.width, originalSize.height);
       }
 
-      let zoomedRes = baseRes * zoom;
       if (originalSize.width > 0 && originalSize.height > 0) {
         const maxRes = Math.max(originalSize.width, originalSize.height);
-        if (zoomedRes > maxRes) {
-          zoomedRes = maxRes;
+        if (baseRes > maxRes) {
+          baseRes = maxRes;
         }
       }
-      const finalRes = Math.round(zoomedRes);
+      const finalRes = Math.round(baseRes);
 
       if (finalRes > currentResRef.current) {
         requestHiFiZoom(adjustments, finalRes);
@@ -2935,7 +2929,6 @@ function App() {
     requestHiFiZoom,
     isFullScreen,
     originalSize,
-    zoom,
     applyAdjustments,
   ]);
 

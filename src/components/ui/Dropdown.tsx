@@ -105,7 +105,7 @@ const Dropdown = <T extends React.Key>({
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         disabled={disabled}
-        className="w-full bg-bg-primary border border-border-color rounded-md px-3 py-2 focus:ring-accent focus:border-accent focus:outline-hidden focus:ring-2 flex justify-between items-center text-left disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full bg-bg-primary border border-border-color rounded-md px-3 mr-4 py-2 focus:ring-accent focus:border-accent focus:outline-hidden focus:ring-2 flex justify-between items-center text-left disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={() => setIsOpen(!isOpen)}
         type="button"
       >

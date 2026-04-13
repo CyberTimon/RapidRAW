@@ -53,6 +53,8 @@ import {
 import { Adjustments, AiPatch } from '../../../utils/adjustments';
 import { BrushSettings, OPTION_SEPARATOR, SelectedImage } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
+import Text from '../../ui/Text';
+import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 
 interface AiPanelProps {
   adjustments: Adjustments;
@@ -131,7 +133,7 @@ const SUB_MASK_CONFIG: any = {
 };
 
 const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsChange: any }) => (
-  <div className="space-y-4 pt-4 border-t border-surface mt-4">
+  <div>
     <Slider
       defaultValue={100}
       label="Brush Size"
@@ -179,23 +181,27 @@ const ConnectionStatus = ({ isConnected }: ConnectionStatusProps) => {
   const [isHovered, setIsHovered] = useState(false);
   if (isConnected) {
     return (
-      <div className="flex items-center gap-2 px-4 py-2 bg-surface rounded-lg mb-4">
+      <div className="flex items-center gap-2 px-4 py-2 bg-surface rounded-lg">
         <div className={'w-2.5 h-2.5 rounded-full bg-green-500'} />
-        <span className="text-sm font-medium text-text-secondary">AI Connector:</span>
-        <span className={'text-sm font-bold text-green-400'}>Ready</span>
+        <Text variant={TextVariants.label}>AI Connector:</Text>
+        <Text variant={TextVariants.label} weight={TextWeights.bold} color={TextColors.success}>
+          Ready
+        </Text>
       </div>
     );
   }
   return (
     <div
-      className="bg-surface rounded-lg mb-4"
+      className="bg-surface rounded-lg"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="flex items-center gap-2 px-4 pt-2">
         <div className={'w-2.5 h-2.5 rounded-full bg-red-500'} />
-        <span className="text-sm font-medium text-text-secondary">AI Connector:</span>
-        <span className={'text-sm font-bold text-red-400'}>Not Detected</span>
+        <Text variant={TextVariants.label}>AI Connector:</Text>
+        <Text variant={TextVariants.label} weight={TextWeights.bold} color={TextColors.error}>
+          Not Detected
+        </Text>
       </div>
       <div className="px-4 pb-2">
         <motion.div
@@ -204,9 +210,9 @@ const ConnectionStatus = ({ isConnected }: ConnectionStatusProps) => {
           initial={{ height: 0, opacity: 0, marginTop: 0 }}
           transition={{ duration: 0.2, ease: 'easeInOut' }}
         >
-          <p className="text-xs text-text-secondary">
-            Only basic inpainting available. Connect backend for generative features.
-          </p>
+          <Text variant={TextVariants.small}>
+            Only simple inpainting available. Connect backend for generative features.
+          </Text>
         </motion.div>
       </div>
     </div>
@@ -238,7 +244,6 @@ export default function AIPanel({
   const [activeDragItem, setActiveDragItem] = useState<DragData | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [tempName, setTempName] = useState('');
-  const [isPatchListEmpty, setIsPatchListEmpty] = useState((adjustments.aiPatches || []).length === 0);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [isSettingsPanelEverOpened, setIsSettingsPanelEverOpened] = useState(false);
   const hasPerformedInitialSelection = useRef(false);
@@ -289,7 +294,6 @@ export default function AIPanel({
 
     if (hasPatches) {
       setIsSettingsPanelEverOpened(true);
-      setIsPatchListEmpty(false);
     }
 
     if (activePatchContainerId) {
@@ -377,32 +381,11 @@ export default function AIPanel({
       subMask.parameters.centerY = -10000;
       subMask.parameters.radiusX = 0;
       subMask.parameters.radiusY = 0;
-    } else if (adjustments?.crop && subMask.parameters) {
-      const { x, y, width, height, unit } = adjustments.crop as any;
-      const isPercent = unit === '%';
-
-      const cW = isPercent ? (width / 100) * imgW : width;
-      const cH = isPercent ? (height / 100) * imgH : height;
-      const cX = isPercent ? (x / 100) * imgW : x;
-      const cY = isPercent ? (y / 100) * imgH : y;
-
-      if (imgW && imgH) {
-        const ratioX = cW / imgW;
-        const ratioY = cH / imgH;
-        const cx = cX + cW / 2;
-        const cy = cY + cH / 2;
-        const ox = imgW / 2;
-        const oy = imgH / 2;
-
-        const p = { ...subMask.parameters };
-        subMask.parameters = p;
-      }
     }
     return subMask;
   };
 
   const handleAddAiPatchContainer = (type: Mask) => {
-    if ((adjustments.aiPatches || []).length === 0) setIsPatchListEmpty(false);
     const subMask = createMaskLogic(type);
 
     let name: string;
@@ -455,17 +438,28 @@ export default function AIPanel({
     if (type === Mask.AiForeground) onGenerateAiForegroundMask(subMask.id);
   };
 
-  const handleGridClick = (type: Mask, forceNewPatchContainer: boolean = false) => {
-    if (!forceNewPatchContainer && activePatchContainerId) handleAddSubMask(activePatchContainerId, type);
-    else handleAddAiPatchContainer(type);
-  };
-
-  const handleGridRightClick = (event: React.MouseEvent, type: Mask | null) => {
-    if (event.button !== 2) return;
+  const handleAddAiContextMenu = (event: React.MouseEvent, targetContainerId?: string | null) => {
     event.preventDefault();
     event.stopPropagation();
-    if (!type) return;
-    handleGridClick(type, true);
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+
+    const types = targetContainerId ? AI_SUB_MASK_COMPONENT_TYPES : AI_PANEL_CREATION_TYPES;
+
+    const options = types
+      .filter((mt) => !mt.disabled)
+      .map((maskType: MaskType) => ({
+        label: maskType.name,
+        icon: maskType.icon,
+        onClick: () => {
+          if (targetContainerId) {
+            handleAddSubMask(targetContainerId, maskType.type);
+          } else {
+            handleAddAiPatchContainer(maskType.type);
+          }
+        },
+      }));
+
+    showContextMenu(rect.left, rect.bottom + 5, options);
   };
 
   const updatePatch = (id: string, data: any) =>
@@ -533,8 +527,6 @@ export default function AIPanel({
   };
 
   const insertPatchContainer = (container: AiPatch, insertIndex?: number) => {
-    if ((adjustments.aiPatches || []).length === 0) setIsPatchListEmpty(false);
-
     setAdjustments((prev: Adjustments) => {
       const newPatches = [...(prev.aiPatches || [])];
       const targetIndex = Math.max(0, Math.min(insertIndex ?? newPatches.length, newPatches.length));
@@ -661,7 +653,7 @@ export default function AIPanel({
         }
       };
 
-      if (!isPatchListEmpty) setPendingAction(() => creationFn);
+      if ((adjustments.aiPatches || []).length > 0) setPendingAction(() => creationFn);
       else creationFn();
       return;
     }
@@ -702,7 +694,6 @@ export default function AIPanel({
           if (subMaskIndex === -1) return prev;
 
           const [movedSubMask] = sourceContainer.subMasks.splice(subMaskIndex, 1);
-          if ((adjustments.aiPatches || []).length === 0) setIsPatchListEmpty(false);
 
           const newContainer: AiPatch = {
             id: uuidv4(),
@@ -778,7 +769,7 @@ export default function AIPanel({
         onContextMenu={handlePanelContextMenu}
       >
         <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-          <h2 className="text-xl font-bold text-primary text-shadow-shiny">Inpainting</h2>
+          <Text variant={TextVariants.title}>Inpainting</Text>
           <button
             className="p-2 rounded-full hover:bg-surface transition-colors"
             onClick={handleResetAllAiEdits}
@@ -788,64 +779,67 @@ export default function AIPanel({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0">
-          <div className="p-4 pb-2 z-10 shrink-0">
-            {!selectedImage && <p className="text-center text-text-tertiary mt-4">No image selected.</p>}
-
-            {selectedImage && (
-              <>
-                <ConnectionStatus isConnected={isAIConnectorConnected} />
-                <p className="text-sm mb-3 font-semibold text-text-primary">
-                  {activePatchContainerId ? 'Add to Selection' : 'Create New Generative Edit'}
-                </p>
-                <div className="grid grid-cols-3 gap-2" onClick={(e) => e.stopPropagation()}>
-                  {AI_PANEL_CREATION_TYPES.map((maskType: MaskType) => {
-                    const isComponentMode = !!activePatchContainerId;
-                    const typeToRender = isComponentMode
-                      ? AI_SUB_MASK_COMPONENT_TYPES.find((t) => t.type === maskType.type)
-                      : maskType;
-
-                    if (!typeToRender) return null;
-
-                    return (
-                      <DraggableGridItem
-                        key={typeToRender.type}
-                        maskType={typeToRender}
-                        isGenerating={isGeneratingAi}
-                        activePatchContainerId={activePatchContainerId}
-                        onClick={() => handleGridClick(typeToRender.type)}
-                        onRightClick={(e) => handleGridRightClick(e, typeToRender.type)}
-                      />
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-
-          <AnimatePresence>
-            {isSettingsPanelEverOpened && selectedImage && (
+        <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0 p-4 gap-8">
+          <AnimatePresence mode="wait">
+            {(adjustments.aiPatches || []).length === 0 ? (
               <motion.div
+                key="ai-grid"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="z-10 shrink-0"
+              >
+                {!selectedImage ? (
+                  <Text
+                    variant={TextVariants.heading}
+                    color={TextColors.secondary}
+                    weight={TextWeights.normal}
+                    className="text-center mt-4"
+                  >
+                    No image selected.
+                  </Text>
+                ) : (
+                  <>
+                    <ConnectionStatus isConnected={isAIConnectorConnected} />
+                    <Text variant={TextVariants.heading} className="mb-2 mt-8">
+                      Create New Generative Edit
+                    </Text>
+                    <div className="grid grid-cols-3 gap-2" onClick={(e) => e.stopPropagation()}>
+                      {AI_PANEL_CREATION_TYPES.map((maskType: MaskType) => (
+                        <DraggableGridItem
+                          key={maskType.type}
+                          maskType={maskType}
+                          isGenerating={isGeneratingAi}
+                          onClick={() => handleAddAiPatchContainer(maskType.type)}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="ai-list"
                 ref={setRootDroppableRef}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className={`flex flex-col px-4 pb-2 space-y-1 transition-colors ${isRootOver ? 'bg-surface' : ''}`}
+                className={`flex flex-col transition-colors ${isRootOver ? 'bg-surface' : ''}`}
               >
-                <p className="text-sm my-3 font-semibold text-text-primary">Edits</p>
-
-                {isPatchListEmpty && (adjustments.aiPatches || []).length === 0 && (
-                  <div className="text-center text-text-secondary text-sm py-4 opacity-70">
-                    No generative edits created.
-                  </div>
-                )}
+                <Text variant={TextVariants.heading} className="mb-2">
+                  Edits
+                </Text>
 
                 <AnimatePresence
                   initial={false}
                   mode="popLayout"
                   onExitComplete={() => {
-                    if ((adjustments.aiPatches || []).length === 0) setIsPatchListEmpty(true);
+                    if (pendingAction) {
+                      pendingAction();
+                      setPendingAction(null);
+                    }
                   }}
                 >
                   {(adjustments.aiPatches || []).map((container) => (
@@ -884,20 +878,28 @@ export default function AIPanel({
                       copySubMaskToClipboard={copySubMaskToClipboard}
                       copiedSubMask={copiedSubMask}
                       analyzingSubMaskId={analyzingSubMaskId}
+                      onAddComponent={(e: React.MouseEvent) => handleAddAiContextMenu(e, container.id)}
                     />
                   ))}
                 </AnimatePresence>
 
-                <AnimatePresence
-                  onExitComplete={() => {
-                    if (pendingAction) {
-                      pendingAction();
-                      setPendingAction(null);
-                    }
-                  }}
-                >
-                  {activeDragItem?.type === 'Creation' && !isPatchListEmpty && <NewMaskDropZone isOver={isRootOver} />}
+                <AnimatePresence>
+                  {activeDragItem?.type === 'Creation' && (adjustments.aiPatches || []).length > 0 && (
+                    <NewMaskDropZone isOver={isRootOver} />
+                  )}
                 </AnimatePresence>
+
+                <Text
+                  as="div"
+                  weight={TextWeights.medium}
+                  className="flex items-center gap-2 p-2 rounded-md transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
+                  onClick={(e) => handleAddAiContextMenu(e, null)}
+                >
+                  <div className="p-0.5">
+                    <Plus size={18} />
+                  </div>
+                  <span>Add New Edit</span>
+                </Text>
               </motion.div>
             )}
           </AnimatePresence>
@@ -911,7 +913,9 @@ export default function AIPanel({
                 transition={{ duration: 0.2, ease: 'easeOut' }}
                 className="flex-1 min-h-0"
               >
-                <p className="text-sm my-3 font-semibold text-text-primary px-4">Edit Settings</p>
+                <Text variant={TextVariants.heading} className="mb-2">
+                  Edit Settings
+                </Text>
                 <SettingsPanel
                   container={activeContainer || null}
                   activeSubMask={activeSubMaskData || null}
@@ -937,42 +941,51 @@ export default function AIPanel({
         {activeDragItem ? (
           <div className="w-(--sidebar-width,280px) pointer-events-none">
             {activeDragItem.type === 'Container' && activeDragItem.item && (
-              <div className="flex items-center gap-2 p-2 rounded-md bg-surface shadow-2xl opacity-90 ring-1 ring-black/10">
-                <div className="text-text-secondary">
-                  <Wand2 size={18} />
-                </div>
-                <span className="text-sm font-medium text-text-primary flex-1 truncate">
-                  {(activeDragItem.item as AiPatch).name}
-                </span>
-              </div>
+              <Text
+                as="div"
+                color={TextColors.primary}
+                weight={TextWeights.medium}
+                className="flex items-center gap-2 p-2 rounded-md bg-surface shadow-2xl opacity-90 ring-1 ring-black/10"
+              >
+                <Wand2 size={18} className={TEXT_COLOR_KEYS[TextColors.secondary]} />
+                <span className="flex-1 truncate">{(activeDragItem.item as AiPatch).name}</span>
+              </Text>
             )}
             {activeDragItem.type === 'SubMask' && activeDragItem.item && (
-              <div className="flex items-center gap-2 p-2 rounded-md bg-surface shadow-2xl opacity-90 ring-1 ring-black/10 ml-3.75">
+              <Text
+                as="div"
+                color={TextColors.primary}
+                weight={TextWeights.medium}
+                className="flex items-center gap-2 p-2 rounded-md bg-surface shadow-2xl opacity-90 ring-1 ring-black/10 ml-3.75"
+              >
                 {(() => {
                   const sm = activeDragItem.item as SubMask;
                   const Icon = MASK_ICON_MAP[sm.type] || Circle;
-                  return <Icon size={16} className="text-text-secondary shrink-0 ml-1" />;
+                  return <Icon size={16} className={`shrink-0 ml-1 ${TEXT_COLOR_KEYS[TextColors.secondary]}`} />;
                 })()}
-                <span className="text-sm text-text-primary flex-1 truncate">
-                  {getSubMaskName(activeDragItem.item as SubMask)}
-                </span>
-              </div>
+                <span className="flex-1 truncate">{getSubMaskName(activeDragItem.item as SubMask)}</span>
+              </Text>
             )}
             {activeDragItem.type === 'Creation' && (
-              <div className="bg-surface text-text-primary rounded-lg p-2 flex flex-col items-center justify-center gap-1.5 aspect-square w-20 shadow-xl opacity-90">
+              <Text
+                as="div"
+                variant={TextVariants.small}
+                color={TextColors.primary}
+                className="bg-surface rounded-lg gap-2 p-2 flex flex-col items-center justify-center aspect-square w-20 shadow-xl opacity-90"
+              >
                 {(() => {
                   const maskType = AI_PANEL_CREATION_TYPES.find((m) => m.type === activeDragItem.maskType);
                   const Icon = maskType?.icon || Circle;
                   return (
                     <>
                       <Icon size={24} />
-                      <span className="text-xs text-center">
+                      <span className="text-center">
                         {activeDragItem.maskType ? formatMaskTypeName(activeDragItem.maskType) : 'Mask'}
                       </span>
                     </>
                   );
                 })()}
-              </div>
+              </Text>
             )}
           </div>
         ) : null}
@@ -991,12 +1004,12 @@ function NewMaskDropZone({ isOver }: { isOver: boolean }) {
       transition={{ duration: 0.2, ease: 'easeOut' }}
       className={`p-4 rounded-lg text-center ${isOver ? 'border border-accent/80 bg-bg-tertiary/50' : ''}`}
     >
-      <p className="text-sm font-medium text-text-secondary">Drop here to create a new edit</p>
+      <Text weight={TextWeights.medium}>Drop here to create a new edit</Text>
     </motion.div>
   );
 }
 
-function DraggableGridItem({ maskType, isGenerating, onClick, onRightClick, activePatchContainerId }: any) {
+function DraggableGridItem({ maskType, isGenerating, onClick }: any) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `create-ai-${maskType.type}`,
     data: { type: 'Creation', maskType: maskType.type },
@@ -1009,26 +1022,19 @@ function DraggableGridItem({ maskType, isGenerating, onClick, onRightClick, acti
       {...attributes}
       disabled={maskType.disabled || isGenerating}
       onClick={onClick}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-      onMouseDown={(event) => {
-        if (event.button !== 2) return;
-        onRightClick(event);
-      }}
-      className={`bg-surface text-text-primary rounded-lg p-2 flex flex-col items-center justify-center gap-1.5 aspect-square transition-colors
-              ${maskType.disabled || isGenerating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-card-active active:bg-accent/20'}
-              ${isDragging ? 'opacity-50' : ''}`}
-      data-tooltip={
-        maskType.disabled
-          ? 'Coming Soon'
-          : activePatchContainerId
-            ? `Add ${maskType.name} to Current Edit or Create New (Right-click)`
-            : `Create New ${maskType.name} Edit`
-      }
+      className={`bg-surface text-text-primary rounded-lg p-2 flex flex-col items-center justify-center gap-2 aspect-square transition-colors
+            ${
+              maskType.disabled || isGenerating
+                ? 'opacity-50 cursor-not-allowed'
+                : 'hover:bg-card-active active:bg-accent/20'
+            }
+            ${isDragging ? 'opacity-50' : ''}`}
+      data-tooltip={maskType.disabled ? 'Coming Soon' : `Create New ${maskType.name} Edit`}
     >
-      <maskType.icon size={24} /> <span className="text-xs">{maskType.name}</span>
+      <maskType.icon size={24} />{' '}
+      <Text as="span" variant={TextVariants.small} color={TextColors.primary}>
+        {maskType.name}
+      </Text>
     </button>
   );
 }
@@ -1063,6 +1069,7 @@ function ContainerRow({
   copySubMaskToClipboard,
   copiedSubMask,
   analyzingSubMaskId,
+  onAddComponent,
 }: any) {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: container.id,
@@ -1074,12 +1081,7 @@ function ContainerRow({
     setNodeRef: setDraggableRef,
     isDragging,
   } = useDraggable({ id: container.id, data: { type: 'Container', item: container } });
-  const [isSubMaskListEmpty, setIsSubMaskListEmpty] = useState(container.subMasks.length === 0);
   const { showContextMenu } = useContextMenu();
-
-  useEffect(() => {
-    if (container.subMasks.length > 0 && isSubMaskListEmpty) setIsSubMaskListEmpty(false);
-  }, [container.subMasks.length, isSubMaskListEmpty]);
 
   const setCombinedRef = (node: HTMLElement | null) => {
     setDroppableRef(node);
@@ -1145,31 +1147,31 @@ function ContainerRow({
       animate={{ opacity: isDragging ? 0.4 : 1, height: 'auto' }}
       exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
       ref={setCombinedRef}
-      className="mb-0.5 overflow-hidden"
+      className="overflow-hidden"
     >
       <div
         {...listeners}
         {...attributes}
         className={`flex items-center gap-2 p-2 rounded-md transition-colors group
-             ${isSelected ? 'bg-surface' : 'hover:bg-card-active'}
-             ${borderClass}`}
+                ${isSelected ? 'bg-surface' : 'hover:bg-card-active'}
+                ${borderClass}`}
         onClick={(e) => {
           e.stopPropagation();
           onSelect();
         }}
         onContextMenu={onContextMenu}
       >
-        <div
+        <Text
+          as="div"
+          color={hasActiveChild || isExpanded ? TextColors.primary : TextColors.secondary}
           onClick={(e) => {
             e.stopPropagation();
             onToggle();
           }}
-          className={`p-0.5 rounded transition-colors cursor-pointer ${
-            hasActiveChild ? 'text-text-primary' : isExpanded ? 'text-primary' : 'text-text-secondary'
-          }`}
+          className="p-0.5 rounded transition-colors cursor-pointer"
         >
           {isExpanded ? <FolderOpen size={18} /> : <Wand2 size={18} />}
-        </div>
+        </Text>
         <div
           className="flex-1 min-w-0 cursor-pointer"
           onDoubleClick={(e) => {
@@ -1188,16 +1190,12 @@ function ContainerRow({
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <span
-              className={`text-sm font-medium truncate select-none ${
-                isSelected ? 'text-primary' : 'text-text-primary'
-              } ${hasActiveChild ? 'text-text-primary font-bold' : ''}`}
-            >
+            <Text color={TextColors.primary} weight={TextWeights.medium} className="truncate select-none">
               {container.name}
-            </span>
+            </Text>
           )}
         </div>
-        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             className="p-1 hover:text-text-primary text-text-secondary"
             data-tooltip={container.visible ? 'Hide Edit' : 'Show Edit'}
@@ -1230,13 +1228,7 @@ function ContainerRow({
             className="overflow-hidden pl-2 border-l border-border-color/20 ml-3.75"
             layout
           >
-            <AnimatePresence
-              mode="popLayout"
-              initial={false}
-              onExitComplete={() => {
-                if (container.subMasks.length === 0) setIsSubMaskListEmpty(true);
-              }}
-            >
+            <AnimatePresence mode="popLayout" initial={false}>
               {container.subMasks.map((subMask: SubMask, index: number) => (
                 <SubMaskRow
                   key={subMask.id}
@@ -1267,16 +1259,34 @@ function ContainerRow({
                 />
               ))}
             </AnimatePresence>
-            {isSubMaskListEmpty && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="p-3 text-xs text-text-secondary text-center italic"
-              >
-                No selection components.
-              </motion.div>
-            )}
+
+            <AnimatePresence initial={false}>
+              {(isSelected || hasActiveChild || container.subMasks.length === 0) && (
+                <motion.div
+                  key="add-component-btn"
+                  layout="position"
+                  initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                  animate={{ opacity: 1, height: 'auto', overflow: 'hidden' }}
+                  exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Text
+                    as="div"
+                    weight={TextWeights.medium}
+                    className="flex items-center gap-2 p-2 rounded-md transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddComponent(e);
+                    }}
+                  >
+                    <div className="relative w-4 h-4 ml-1 shrink-0 flex items-center justify-center">
+                      <Plus size={16} />
+                    </div>
+                    <span className="select-none">Add New Component</span>
+                  </Text>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1383,7 +1393,7 @@ function SubMaskRow({
       {...listeners}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`flex items-center gap-2 p-2 rounded-md transition-colors group mt-0.5 cursor-pointer
+      className={`flex items-center gap-2 p-2 rounded-md transition-colors group cursor-pointer
             ${isActive ? 'bg-surface' : 'hover:bg-card-active'}
             ${isOver && !isDraggingContainer ? 'border-t-2 border-accent' : ''}
             ${isDragging ? 'opacity-40 z-50' : ''}
@@ -1396,7 +1406,12 @@ function SubMaskRow({
       }}
       onContextMenu={onContextMenu}
     >
-      <div className="relative w-4 h-4 ml-1 shrink-0 flex items-center justify-center">
+      <Text
+        as="div"
+        variant={TextVariants.small}
+        weight={TextWeights.bold}
+        className="relative w-4 h-4 ml-1 shrink-0 flex items-center justify-center"
+      >
         <AnimatePresence mode="wait" initial={false}>
           {isAnalyzing ? (
             <motion.div
@@ -1407,7 +1422,7 @@ function SubMaskRow({
               transition={{ duration: 0.15 }}
               className="absolute"
             >
-              <Loader2 size={16} className="text-text-secondary animate-spin" />
+              <Loader2 size={16} className="animate-spin" />
             </motion.div>
           ) : showNumber ? (
             <motion.span
@@ -1416,7 +1431,7 @@ function SubMaskRow({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.5 }}
               transition={{ duration: 0.15 }}
-              className="text-xs font-bold text-text-secondary absolute"
+              className="absolute"
             >
               {index}
             </motion.span>
@@ -1429,11 +1444,11 @@ function SubMaskRow({
               transition={{ duration: 0.15 }}
               className="absolute"
             >
-              <MaskIcon size={16} className="text-text-secondary" />
+              <MaskIcon size={16} />
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </Text>
       {renamingId === subMask.id ? (
         <input
           autoFocus
@@ -1445,11 +1460,13 @@ function SubMaskRow({
           onClick={(e) => e.stopPropagation()}
         />
       ) : (
-        <span className="text-sm text-text-primary flex-1 truncate select-none">{getSubMaskName(subMask)}</span>
+        <Text color={TextColors.primary} className="flex-1 truncate select-none">
+          {getSubMaskName(subMask)}
+        </Text>
       )}
-      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
         <button
-          className="p-1 hover:bg-bg-primary rounded-sm text-text-secondary"
+          className="p-1 hover:text-text-primary text-text-secondary"
           data-tooltip={subMask.mode === SubMaskMode.Additive ? 'Switch to Subtract' : 'Switch to Add'}
           onClick={(e) => {
             e.stopPropagation();
@@ -1458,7 +1475,7 @@ function SubMaskRow({
             });
           }}
         >
-          {subMask.mode === SubMaskMode.Additive ? <Plus size={14} /> : <Minus size={14} />}
+          {subMask.mode === SubMaskMode.Additive ? <Plus size={16} /> : <Minus size={16} />}
         </button>
         <button
           className="p-1 hover:text-red-500 text-text-secondary"
@@ -1468,7 +1485,7 @@ function SubMaskRow({
             handleDelete();
           }}
         >
-          <Trash2 size={14} />
+          <Trash2 size={16} />
         </button>
       </div>
     </motion.div>
@@ -1537,9 +1554,7 @@ function SettingsPanel({
 
   return (
     <div
-      className={`px-4 pb-4 space-y-2 transition-opacity duration-300 ${
-        !isActive ? 'opacity-50 pointer-events-none' : ''
-      }`}
+      className={`space-y-2 transition-opacity duration-300 ${!isActive ? 'opacity-50 pointer-events-none' : ''}`}
       onClick={(e) => e.stopPropagation()}
     >
       <CollapsibleSection
@@ -1549,64 +1564,73 @@ function SettingsPanel({
         canToggleVisibility={false}
         isContentVisible={true}
       >
-        <div className="space-y-3 pt-2">
+        <div className="space-y-4 pt-2">
           {aiModelDownloadStatus && aiModelDownloadStatus.includes('Inpainting') && (
-            <div className="p-3 mb-2 bg-card-active rounded-md border border-surface flex items-center gap-3">
-              <Loader2 size={16} className="text-accent animate-spin shrink-0" />
-              <div className="text-xs text-text-secondary leading-relaxed">
-                Downloading: <span className="text-accent font-medium">{aiModelDownloadStatus}</span>
+            <Text
+              as="div"
+              variant={TextVariants.small}
+              color={TextColors.accent}
+              weight={TextWeights.medium}
+              className="p-3 bg-card-active rounded-md border border-surface flex items-center gap-3"
+            >
+              <Loader2 size={16} className="animate-spin shrink-0" />
+              <div className="leading-relaxed">
+                <Text variant={TextVariants.small}>Downloading: </Text>
+                <span>{aiModelDownloadStatus}</span>
               </div>
-            </div>
+            </Text>
           )}
 
-          <p className="text-xs text-text-secondary">
+          <Text variant={TextVariants.small}>
             {isQuickErasePatch
               ? 'Fill selection to remove the object.'
               : useFastInpaint
                 ? 'Fill selection based on surrounding pixels.'
                 : 'Describe what you want to generate in the selected area.'}
-          </p>
+          </Text>
 
-          <Switch
-            checked={useFastInpaint}
-            disabled={!isAIConnectorConnected}
-            label="Use basic inpainting"
-            onChange={setUseFastInpaint}
-            tooltip={
-              !isAIConnectorConnected
-                ? 'AI Connector not connected, basic inpainting is required.'
-                : 'Basic inpainting is quicker but not generative. Uncheck to use AI Connector with a text prompt.'
-            }
-          />
+          <div>
+            <Switch
+              checked={useFastInpaint}
+              disabled={!isAIConnectorConnected}
+              label="Use basic inpainting"
+              onChange={setUseFastInpaint}
+              tooltip={
+                !isAIConnectorConnected
+                  ? 'AI Connector not connected, basic inpainting is required.'
+                  : 'Basic inpainting is quicker but not generative. Uncheck to use AI Connector with a text prompt.'
+              }
+            />
 
-          <AnimatePresence>
-            {!useFastInpaint && (
-              <motion.div
-                animate={{ opacity: 1, height: 'auto', marginTop: '0.75rem' }}
-                className="overflow-hidden"
-                exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="flex items-center gap-2">
-                  <Input
-                    className="grow"
-                    disabled={isGeneratingAi || displayContainer.isLoading}
-                    onChange={(e: any) => {
-                      setPrompt(e.target.value);
-                    }}
-                    onBlur={() => isActive && updateContainer(container.id, { prompt })}
-                    onKeyDown={(e: any) => {
-                      if (e.key === 'Enter') handleGenerateClick();
-                    }}
-                    placeholder="e.g., a field of flowers"
-                    type="text"
-                    value={prompt}
-                  />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            <AnimatePresence>
+              {!useFastInpaint && (
+                <motion.div
+                  animate={{ opacity: 1, height: 'auto', marginTop: '0.75rem' }}
+                  className="overflow-hidden"
+                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Input
+                      className="grow"
+                      disabled={isGeneratingAi || displayContainer.isLoading}
+                      onChange={(e: any) => {
+                        setPrompt(e.target.value);
+                      }}
+                      onBlur={() => isActive && updateContainer(container.id, { prompt })}
+                      onKeyDown={(e: any) => {
+                        if (e.key === 'Enter') handleGenerateClick();
+                      }}
+                      placeholder="e.g., a field of flowers"
+                      type="text"
+                      value={prompt}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           <Button
             className="w-full"
@@ -1650,12 +1674,19 @@ function SettingsPanel({
           {isComponentMode && (
             <>
               {isAiMask && aiModelDownloadStatus && (
-                <div className="p-3 mb-4 bg-card-active rounded-md border border-surface flex items-center gap-3">
-                  <Loader2 size={16} className="text-accent animate-spin shrink-0" />
-                  <div className="text-xs text-text-secondary leading-relaxed">
-                    AI Model Downloading: <span className="text-accent font-medium">{aiModelDownloadStatus}</span>
+                <Text
+                  as="div"
+                  variant={TextVariants.small}
+                  color={TextColors.accent}
+                  weight={TextWeights.medium}
+                  className="p-3 bg-card-active rounded-md border border-surface flex items-center gap-3"
+                >
+                  <Loader2 size={16} className="animate-spin shrink-0" />
+                  <div className="leading-relaxed">
+                    <Text variant={TextVariants.small}>AI Model Downloading: </Text>
+                    <span>{aiModelDownloadStatus}</span>
                   </div>
-                </div>
+                </Text>
               )}
 
               {subMaskConfig.parameters?.map((param: any) => (

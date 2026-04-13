@@ -1,10 +1,12 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import Slider from './Slider';
 import Wheel from '@uiw/react-color-wheel';
 import { ColorResult, HsvaColor, hsvaToHex } from '@uiw/color-convert';
 import { Sun } from 'lucide-react';
 import { HueSatLum } from '../../utils/adjustments';
 import { motion, AnimatePresence } from 'framer-motion';
+import Text from './Text';
+import { TextColors, TextVariants } from '../../types/typography';
 
 interface ColorWheelProps {
   defaultValue: HueSatLum;
@@ -31,8 +33,14 @@ const ColorWheel = ({
   const [isWheelDragging, setIsWheelDragging] = useState(false);
   const [isSliderDragging, setIsSliderDragging] = useState(false);
   const [isLabelHovered, setIsLabelHovered] = useState(false);
+  const instanceId = useId().replace(/:/g, '');
 
   const isDragging = isWheelDragging || isSliderDragging;
+
+  useEffect(() => {
+    document.documentElement.style.setProperty(`--cg-hue-${instanceId}`, hue.toString());
+    document.documentElement.style.setProperty(`--cg-sat-${instanceId}`, `${saturation}%`);
+  }, [hue, saturation, instanceId]);
 
   useEffect(() => {
     const observer = new ResizeObserver((entries) => {
@@ -106,6 +114,12 @@ const ColorWheel = ({
   const pointerSize = isWheelDragging ? 14 : 12;
   const pointerOffset = pointerSize / 2;
 
+  const satWrapperStyle = { '--cg-hue': `var(--cg-hue-${instanceId})` } as React.CSSProperties;
+  const lumWrapperStyle = { 
+    '--cg-hue': `var(--cg-hue-${instanceId})`,
+    '--cg-sat': `var(--cg-sat-${instanceId})`
+  } as React.CSSProperties;
+
   return (
     <div className="relative flex flex-col items-center gap-2" ref={containerRef}>
       <div
@@ -115,24 +129,29 @@ const ColorWheel = ({
         onMouseEnter={() => setIsLabelHovered(true)}
         onMouseLeave={() => setIsLabelHovered(false)}
       >
-        <span
-          className={`absolute inset-0 flex items-center justify-center text-sm font-medium text-text-secondary whitespace-nowrap select-none transition-opacity duration-200 ease-in-out ${
+        <Text
+          variant={TextVariants.label}
+          className={`absolute inset-0 flex items-center justify-center whitespace-nowrap select-none transition-opacity duration-200 ease-in-out ${
             !isDragging && !isLabelHovered ? 'opacity-100' : 'opacity-0'
           }`}
         >
           {label}
-        </span>
+        </Text>
 
-        <span
-          className={`absolute inset-0 flex items-center justify-center text-sm font-medium text-text-primary whitespace-nowrap select-none transition-opacity duration-200 ease-in-out ${
+        <Text
+          variant={TextVariants.label}
+          color={TextColors.primary}
+          className={`absolute inset-0 flex items-center justify-center whitespace-nowrap select-none transition-opacity duration-200 ease-in-out ${
             !isDragging && isLabelHovered ? 'opacity-100' : 'opacity-0'
           }`}
         >
           Reset
-        </span>
+        </Text>
 
-        <div
-          className={`absolute inset-0 flex items-center justify-center gap-2 text-sm font-medium text-text-secondary whitespace-nowrap select-none transition-opacity duration-200 ease-in-out ${
+        <Text
+          as="div"
+          variant={TextVariants.label}
+          className={`absolute inset-0 flex items-center justify-center gap-2 whitespace-nowrap select-none transition-opacity duration-200 ease-in-out ${
             isDragging ? 'opacity-100' : 'opacity-0'
           }`}
         >
@@ -145,7 +164,7 @@ const ColorWheel = ({
             <span className="font-bold">S:</span>
             <span className="w-6 text-right">{Math.round(saturation)}</span>
           </div>
-        </div>
+        </Text>
       </div>
 
       <div ref={sizerRef} className="relative w-full aspect-square">
@@ -206,10 +225,11 @@ const ColorWheel = ({
                 onDragStateChange={setIsSliderDragging}
                 step={1}
                 value={hue}
+                trackClassName="cg-hue-gradient"
               />
             </div>
 
-            <div className="w-full">
+            <div className="w-full" style={satWrapperStyle}>
               <Slider
                 defaultValue={defaultValue.saturation}
                 label="Saturation"
@@ -219,13 +239,14 @@ const ColorWheel = ({
                 onDragStateChange={setIsSliderDragging}
                 step={1}
                 value={saturation}
+                trackClassName="cg-sat-gradient"
               />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="w-full">
+      <div className="w-full" style={lumWrapperStyle}>
         <Slider
           defaultValue={defaultValue.luminance}
           label={isExpanded ? 'Luminance' : <Sun size={16} className="text-text-secondary" />}
@@ -235,6 +256,7 @@ const ColorWheel = ({
           onDragStateChange={setIsSliderDragging}
           step={1}
           value={luminance}
+          trackClassName="cg-lum-gradient"
         />
       </div>
     </div>

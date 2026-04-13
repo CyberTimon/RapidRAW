@@ -14,6 +14,8 @@ import { Adjustments, SectionVisibility, INITIAL_ADJUSTMENTS, ADJUSTMENT_SECTION
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { OPTION_SEPARATOR, SelectedImage, AppSettings, WaveformData, Orientation } from '../../ui/AppProperties';
 import { ChannelConfig } from '../../adjustments/Curves';
+import Text from '../../ui/Text';
+import { TextVariants } from '../../../types/typography';
 
 interface ControlsPanelOption {
   disabled?: boolean;
@@ -202,7 +204,7 @@ export default function Controls({
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-        <h2 className="text-xl font-bold text-primary text-shadow-shiny">Adjustments</h2>
+        <Text variant={TextVariants.title}>Adjustments</Text>
         <div className="flex items-center gap-1">
           <button
             className="p-2 rounded-full hover:bg-surface disabled:cursor-not-allowed transition-colors"

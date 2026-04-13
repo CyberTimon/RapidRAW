@@ -19,6 +19,7 @@ interface CursorPreview {
 interface DrawnLine {
   brushSize: number;
   feather?: number;
+  flow?: number;
   points: Array<Coord>;
   tool: ToolType;
 }
@@ -389,7 +390,7 @@ const MaskOverlay = memo(
       return null;
     }
 
-    if (subMask.type === Mask.Brush) {
+    if (subMask.type === Mask.Brush || subMask.type === Mask.Flow) {
       const { lines = [] } = p;
       return (
         <Group onClick={handleSelect} onTap={handleSelect}>
@@ -885,7 +886,9 @@ const ImageCanvas = memo(
     const brushStageSize = (brushSettings?.size ?? 0) / effectiveZoomScale;
     const brushImageSpaceSize = brushStageSize / (imageRenderSize.scale || 1);
 
-    const isBrushActive = (isMasking || isAiEditing) && activeSubMask?.type === Mask.Brush;
+    const isBrushActive =
+      (isMasking || isAiEditing) && (activeSubMask?.type === Mask.Brush || activeSubMask?.type === Mask.Flow);
+    const activeLineFlow = activeSubMask?.type === Mask.Flow ? activeSubMask?.parameters?.flow ?? 10 : undefined;
     const isAiSubjectActive =
       (isMasking || isAiEditing) &&
       (activeSubMask?.type === Mask.AiSubject || activeSubMask?.type === Mask.QuickEraser);
@@ -1166,6 +1169,7 @@ const ImageCanvas = memo(
             const imageSpaceLine: DrawnLine = {
               brushSize: brushImageSpaceSize,
               feather: brushSettings?.feather ? brushSettings?.feather / 100 : 0,
+              flow: activeLineFlow,
               points: interpolatedPoints,
               tool: effectiveTool,
             };
@@ -1211,6 +1215,7 @@ const ImageCanvas = memo(
         handleWbClick,
         isInitialDrawing,
         isBrushActive,
+        activeLineFlow,
         isAiSubjectActive,
         isParametricActive,
         brushSettings,
@@ -1362,6 +1367,7 @@ const ImageCanvas = memo(
             const imageSpaceLine: DrawnLine = {
               brushSize: brushImageSpaceSize,
               feather: brushSettings?.feather ? brushSettings?.feather / 100 : 0,
+              flow: activeLineFlow,
               points: updatedLine.points.map((p: Coord) => ({
                 x: p.x / scale + cropX,
                 y: p.y / scale + cropY,
@@ -1400,6 +1406,7 @@ const ImageCanvas = memo(
         activeContainer,
         activeSubMask,
         isBrushActive,
+        activeLineFlow,
         isAiSubjectActive,
         imageRenderSize,
         adjustments.crop,
@@ -1522,6 +1529,7 @@ const ImageCanvas = memo(
         const imageSpaceLine: DrawnLine = {
           brushSize: brushImageSpaceSize,
           feather: brushSettings?.feather ? brushSettings?.feather / 100 : 0,
+          flow: activeLineFlow,
           points: line.points.map((p: Coord) => ({
             x: p.x / scale + cropX,
             y: p.y / scale + cropY,
@@ -1556,6 +1564,7 @@ const ImageCanvas = memo(
       imageRenderSize.scale,
       isAiEditing,
       isBrushActive,
+      activeLineFlow,
       isMasking,
       onGenerateAiMask,
       onQuickErase,

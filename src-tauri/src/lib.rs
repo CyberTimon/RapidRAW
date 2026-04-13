@@ -22,6 +22,7 @@ mod preset_converter;
 mod raw_processing;
 mod tagging;
 mod tagging_utils;
+mod window_customizer;
 
 use std::collections::{HashMap, hash_map::DefaultHasher};
 use std::fs;
@@ -34,6 +35,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 
+use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -48,9 +50,12 @@ use image_hdr::input::HDRInput;
 use imageproc::drawing::draw_line_segment_mut;
 use imageproc::edges::canny;
 use imageproc::hough::{LineDetectionOptions, detect_lines};
+use imgref::ImgRef;
 use jxl_encoder::{LosslessConfig, LossyConfig, PixelLayout};
 use mozjpeg_rs::{Encoder, Preset};
 use rayon::prelude::*;
+use rgb::{FromSlice, RGBA8};
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{Emitter, Manager, ipc::Response};
@@ -74,7 +79,7 @@ use crate::image_loader::{
     composite_patches_on_image, load_and_composite, load_base_image_from_bytes,
 };
 use crate::image_processing::{
-    AllAdjustments, Crop, GeometryParams, GpuContext, ImageMetadata, RenderRequest,
+    AllAdjustments, Crop, GeometryParams, GpuContext, ImageMetadata, IntoCowImage, RenderRequest,
     apply_coarse_rotation, apply_cpu_default_raw_processing, apply_crop, apply_flip,
     apply_geometry_warp, apply_rotation, apply_unwarp_geometry, downscale_f32_image,
     get_all_adjustments_from_json, get_or_init_gpu_context, process_and_get_dynamic_image,
@@ -82,6 +87,7 @@ use crate::image_processing::{
 };
 use crate::lut_processing::{Lut, convert_image_to_cube_lut, generate_identity_lut_image};
 use crate::mask_generation::{AiPatchDefinition, MaskDefinition, generate_mask_bitmap};
+use crate::window_customizer::PinchZoomDisablePlugin;
 use tagging_utils::{candidates, hierarchy};
 
 #[cfg(target_os = "macos")]
@@ -165,6 +171,7 @@ pub struct ThumbnailProgressTracker {
     pub completed: usize,
 }
 
+pub type TransformedImageCache = (u64, Arc<DynamicImage>, (f32, f32));
 pub struct AppState {
     window_setup_complete: AtomicBool,
     pub gpu_crash_flag_path: Mutex<Option<PathBuf>>,
@@ -193,6 +200,7 @@ pub struct AppState {
     pub lens_db: Mutex<Option<lens_correction::LensDatabase>>,
     pub load_image_generation: Arc<AtomicUsize>,
     pub full_warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    pub full_transformed_cache: Mutex<Option<TransformedImageCache>>,
 }
 
 #[derive(serde::Serialize)]
@@ -276,12 +284,12 @@ struct ImageDimensions {
     height: u32,
 }
 
-fn apply_all_transformations(
-    image: &DynamicImage,
+fn apply_all_transformations<'a, I: IntoCowImage<'a>>(
+    image: I,
     adjustments: &serde_json::Value,
-) -> (DynamicImage, (f32, f32)) {
+) -> (Cow<'a, DynamicImage>, (f32, f32)) {
     let start_time = std::time::Instant::now();
-
+    let image = image.into_cow();
     let warped_image = apply_geometry_warp(image, adjustments);
 
     let orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
@@ -291,7 +299,7 @@ fn apply_all_transformations(
 
     let coarse_rotated_image = apply_coarse_rotation(warped_image, orientation_steps);
     let flipped_image = apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical);
-    let rotated_image = apply_rotation(&flipped_image, rotation_degrees);
+    let rotated_image = apply_rotation(flipped_image, rotation_degrees);
 
     let crop_data: Option<Crop> = serde_json::from_value(adjustments["crop"].clone()).ok();
     let crop_json = serde_json::to_value(crop_data).unwrap_or(serde_json::Value::Null);
@@ -299,8 +307,9 @@ fn apply_all_transformations(
 
     let unscaled_crop_offset = crop_data.map_or((0.0, 0.0), |c| (c.x as f32, c.y as f32));
 
-    let duration = start_time.elapsed();
-    log::info!("apply_all_transformations took: {:?}", duration);
+    let total_duration = start_time.elapsed();
+    log::info!("apply_all_transformations took {:.2?}", total_duration);
+
     (cropped_image, unscaled_crop_offset)
 }
 
@@ -523,22 +532,36 @@ fn hydrate_adjustments(state: &tauri::State<AppState>, adjustments: &mut serde_j
 }
 
 fn generate_transformed_preview(
+    state: &tauri::State<AppState>,
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
     preview_dim: u32,
 ) -> Result<(DynamicImage, f32, (f32, f32)), String> {
-    let patched_original_image = composite_patches_on_image(&loaded_image.image, adjustments)
-        .map_err(|e| format!("Failed to composite AI patches: {}", e))?;
+    let transform_hash = calculate_transform_hash(adjustments);
 
-    let (transformed_full_res, unscaled_crop_offset) =
-        apply_all_transformations(&patched_original_image, adjustments);
+    let (transformed_full_res, unscaled_crop_offset) = {
+        let mut cache_lock = state.full_transformed_cache.lock().unwrap();
+        if let Some((hash, img, offset)) = cache_lock.as_ref() {
+            if *hash == transform_hash {
+                (Arc::clone(img), *offset)
+            } else {
+                let (arc_img, offset) = compute_full_transformed_res(loaded_image, adjustments)?;
+                *cache_lock = Some((transform_hash, Arc::clone(&arc_img), offset));
+                (arc_img, offset)
+            }
+        } else {
+            let (arc_img, offset) = compute_full_transformed_res(loaded_image, adjustments)?;
+            *cache_lock = Some((transform_hash, Arc::clone(&arc_img), offset));
+            (arc_img, offset)
+        }
+    };
 
     let (full_res_w, full_res_h) = transformed_full_res.dimensions();
 
     let final_preview_base = if full_res_w > preview_dim || full_res_h > preview_dim {
         downscale_f32_image(&transformed_full_res, preview_dim, preview_dim)
     } else {
-        transformed_full_res
+        (*transformed_full_res).clone()
     };
 
     let scale_for_gpu = if full_res_w > 0 {
@@ -548,6 +571,27 @@ fn generate_transformed_preview(
     };
 
     Ok((final_preview_base, scale_for_gpu, unscaled_crop_offset))
+}
+
+fn compute_full_transformed_res(
+    loaded_image: &LoadedImage,
+    adjustments: &serde_json::Value,
+) -> Result<(Arc<DynamicImage>, (f32, f32)), String> {
+    let has_patches = adjustments
+        .get("aiPatches")
+        .and_then(|v| v.as_array())
+        .is_some_and(|a| !a.is_empty());
+    let patched_original_image = if has_patches {
+        Cow::Owned(
+            composite_patches_on_image(&loaded_image.image, adjustments)
+                .map_err(|e| format!("Failed to composite AI patches: {}", e))?,
+        )
+    } else {
+        Cow::Borrowed(loaded_image.image.as_ref())
+    };
+
+    let (transformed_img, offset) = apply_all_transformations(patched_original_image, adjustments);
+    Ok((Arc::new(transformed_img.into_owned()), offset))
 }
 
 fn encode_to_base64_png(image: &GrayImage) -> Result<String, String> {
@@ -586,6 +630,7 @@ async fn load_image(
         *state.cached_preview.lock().unwrap() = None;
         *state.gpu_image_cache.lock().unwrap() = None;
         *state.full_warped_cache.lock().unwrap() = None;
+        *state.full_transformed_cache.lock().unwrap() = None;
 
         state.mask_cache.lock().unwrap().clear();
         state.patch_cache.lock().unwrap().clear();
@@ -804,7 +849,7 @@ fn get_cached_full_warped_image(
     if is_raw {
         apply_cpu_default_raw_processing(&mut full_image);
     }
-    let warped_image = apply_geometry_warp(&full_image, js_adjustments);
+    let warped_image = apply_geometry_warp(Cow::Borrowed(&full_image), js_adjustments).into_owned();
     let warped_arc = Arc::new(warped_image);
 
     {
@@ -912,7 +957,7 @@ fn process_preview_job(
     let (interactive_divisor, interactive_quality) = match live_quality {
         "full" => (1.0_f32, 85_u8),
         "performance" => (1.8_f32, 65_u8),
-        _ => (1.2_f32, 80_u8),
+        _ => (1.2_f32, 72_u8),
     };
 
     let mut cached_preview_lock = state.cached_preview.lock().unwrap();
@@ -935,8 +980,12 @@ fn process_preview_job(
         } else {
             *state.gpu_image_cache.lock().unwrap() = None;
 
-            let (base, scale, offset) =
-                generate_transformed_preview(&loaded_image, &adjustments_clone, preview_dim)?;
+            let (base, scale, offset) = generate_transformed_preview(
+                &state,
+                &loaded_image,
+                &adjustments_clone,
+                preview_dim,
+            )?;
 
             let small_base = if interactive_divisor > 1.0 {
                 let target_size = (preview_dim as f32 / interactive_divisor) as u32;
@@ -1061,23 +1110,37 @@ fn process_preview_job(
             }
         }
 
-        if is_interactive {
-            let step_start = std::time::Instant::now();
+        let final_rgba_image = match &*final_processed_image {
+            DynamicImage::ImageRgba8(img) => img,
+            _ => return Err("Expected Rgba8 image from GPU for encoding".to_string()),
+        };
 
-            let roi_rgb = final_processed_image.to_rgb8();
-            let (roi_w, roi_h) = roi_rgb.dimensions();
+        let raw_bytes: &[u8] = final_rgba_image.as_raw();
+        let rgba8_pixels: &[RGBA8] = raw_bytes.as_rgba();
 
-            let (rx, ry) = if let Some(r) = pixel_roi {
-                (r.x, r.y)
-            } else {
-                (0, 0)
-            };
+        let img_ref = ImgRef::new(
+            rgba8_pixels,
+            final_rgba_image.width() as usize,
+            final_rgba_image.height() as usize,
+        );
 
-            match Encoder::new(Preset::BaselineFastest)
-                .quality(jpeg_quality)
-                .encode_rgb(&roi_rgb.into_raw(), roi_w, roi_h)
-            {
-                Ok(jpeg_bytes) => {
+        let step_start = std::time::Instant::now();
+
+        let encode_result = Encoder::new(Preset::BaselineFastest)
+            .quality(jpeg_quality)
+            .fast_color(true)
+            .encode_imgref(img_ref);
+
+        match encode_result {
+            Ok(jpeg_bytes) => {
+                if is_interactive {
+                    let (roi_w, roi_h) = final_rgba_image.dimensions();
+                    let (rx, ry) = if let Some(r) = pixel_roi {
+                        (r.x, r.y)
+                    } else {
+                        (0, 0)
+                    };
+
                     let mut response = Vec::with_capacity(24 + jpeg_bytes.len());
                     response.extend_from_slice(&rx.to_le_bytes());
                     response.extend_from_slice(&ry.to_le_bytes());
@@ -1088,50 +1151,35 @@ fn process_preview_job(
                     response.extend_from_slice(&jpeg_bytes);
 
                     log::info!(
-                        "[process_preview_job] interactive ROI {}x{} in {:?}, total {:?}",
+                        "[process_preview_job] interactive ROI {}x{} encode in {:.2?}, total {:.2?}",
                         roi_w,
                         roi_h,
                         step_start.elapsed(),
                         fn_start.elapsed()
                     );
-                    return Ok(response);
-                }
-                Err(e) => {
-                    return Err(format!("Failed to encode preview: {}", e));
-                }
-            }
-        } else {
-            let step_start = std::time::Instant::now();
-            let (width, height) = final_processed_image.dimensions();
-            let rgb_pixels = final_processed_image.to_rgb8().into_vec();
-
-            match Encoder::new(Preset::BaselineFastest)
-                .quality(jpeg_quality)
-                .encode_rgb(&rgb_pixels, width, height)
-            {
-                Ok(bytes) => {
+                    Ok(response)
+                } else {
+                    let (width, height) = final_rgba_image.dimensions();
                     log::info!(
-                        "[process_preview_job] full {}x{} q={} in {:?}, total {:?}",
+                        "[process_preview_job] full {}x{} q={} encode in {:.2?}, total {:.2?}",
                         width,
                         height,
                         jpeg_quality,
                         step_start.elapsed(),
                         fn_start.elapsed()
                     );
-                    return Ok(bytes);
-                }
-                Err(e) => {
-                    return Err(format!("Failed to encode preview: {}", e));
+                    Ok(jpeg_bytes)
                 }
             }
+            Err(e) => Err(format!("Failed to encode preview: {}", e)),
         }
+    } else {
+        log::error!(
+            "[process_preview_job] processing failed after {:.2?}",
+            fn_start.elapsed()
+        );
+        Err("Processing failed".to_string())
     }
-
-    log::error!(
-        "[process_preview_job] processing failed after {:?}",
-        fn_start.elapsed()
-    );
-    Err("Processing failed".to_string())
 }
 
 fn start_analytics_worker(app_handle: tauri::AppHandle) {
@@ -1263,16 +1311,24 @@ fn generate_uncropped_preview(
         let path = loaded_image.path.clone();
         let is_raw = loaded_image.is_raw;
         let unique_hash = calculate_full_job_hash(&path, &adjustments_clone);
-        let patched_image =
-            match composite_patches_on_image(&loaded_image.image, &adjustments_clone) {
-                Ok(img) => img,
-                Err(e) => {
-                    eprintln!("Failed to composite patches for uncropped preview: {}", e);
-                    loaded_image.image.as_ref().clone()
-                }
-            };
+        let has_patches = adjustments_clone
+            .get("aiPatches")
+            .and_then(|v| v.as_array())
+            .is_some_and(|a| !a.is_empty());
+        let patched_image = if has_patches {
+            Cow::Owned(
+                composite_patches_on_image(&loaded_image.image, &adjustments_clone).unwrap_or_else(
+                    |e| {
+                        eprintln!("Failed to composite patches for uncropped preview: {}", e);
+                        loaded_image.image.as_ref().clone()
+                    },
+                ),
+            )
+        } else {
+            Cow::Borrowed(loaded_image.image.as_ref())
+        };
 
-        let warped_image = apply_geometry_warp(&patched_image, &adjustments_clone);
+        let warped_image = apply_geometry_warp(patched_image, &adjustments_clone);
 
         let orientation_steps = adjustments_clone["orientationSteps"].as_u64().unwrap_or(0) as u8;
         let coarse_rotated_image = apply_coarse_rotation(warped_image, orientation_steps);
@@ -1282,7 +1338,8 @@ fn generate_uncropped_preview(
             .unwrap_or(false);
         let flip_vertical = adjustments_clone["flipVertical"].as_bool().unwrap_or(false);
 
-        let flipped_image = apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical);
+        let flipped_image =
+            apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical).into_owned();
 
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
         let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
@@ -1385,7 +1442,7 @@ fn generate_original_transformed_preview(
     }
 
     let (transformed_full_res, _unscaled_crop_offset) =
-        apply_all_transformations(&image_for_preview, &adjustments_clone);
+        apply_all_transformations(Cow::Borrowed(&image_for_preview), &adjustments_clone);
 
     let settings = load_settings(app_handle).unwrap_or_default();
     let default_dim = settings.editor_preview_resolution.unwrap_or(1920);
@@ -1393,9 +1450,9 @@ fn generate_original_transformed_preview(
 
     let (w, h) = transformed_full_res.dimensions();
     let transformed_image = if w > preview_dim || h > preview_dim {
-        downscale_f32_image(&transformed_full_res, preview_dim, preview_dim)
+        downscale_f32_image(transformed_full_res.as_ref(), preview_dim, preview_dim)
     } else {
-        transformed_full_res
+        transformed_full_res.into_owned()
     };
 
     let (width, height) = transformed_image.dimensions();
@@ -1530,8 +1587,10 @@ async fn preview_geometry_transform(
         let flip_horizontal = js_adjustments["flipHorizontal"].as_bool().unwrap_or(false);
         let flip_vertical = js_adjustments["flipVertical"].as_bool().unwrap_or(false);
 
-        let coarse_rotated_image = apply_coarse_rotation(warped_image, orientation_steps);
-        let flipped_image = apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical);
+        let coarse_rotated_image =
+            apply_coarse_rotation(Cow::Owned(warped_image), orientation_steps);
+        let flipped_image =
+            apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical).into_owned();
 
         if show_lines {
             let gray_image = flipped_image.to_luma8();
@@ -1680,7 +1739,7 @@ fn process_image_for_export_pipeline(
     debug_tag: &str,
 ) -> Result<DynamicImage, String> {
     let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(base_image, js_adjustments);
+        apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
     let (img_w, img_h) = transformed_image.dimensions();
 
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -1714,7 +1773,7 @@ fn process_image_for_export_pipeline(
     process_and_get_dynamic_image(
         context,
         state,
-        &transformed_image,
+        transformed_image.as_ref(),
         unique_hash,
         RenderRequest {
             adjustments: all_adjustments,
@@ -1767,6 +1826,7 @@ fn save_image_with_metadata(
     Ok(())
 }
 
+#[cfg(target_os = "android")]
 fn mime_type_for_extension(extension: &str) -> &'static str {
     match extension {
         "jpg" | "jpeg" => "image/jpeg",
@@ -1922,7 +1982,7 @@ fn export_masks_for_image(
     is_raw: bool,
 ) -> Result<(), String> {
     let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(base_image, js_adjustments);
+        apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
     let (img_w, img_h) = transformed_image.dimensions();
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
         .get("masks")
@@ -1967,7 +2027,7 @@ fn export_masks_for_image(
             let processed = process_and_get_dynamic_image(
                 context,
                 state,
-                &transformed_image,
+                transformed_image.as_ref(),
                 unique_hash,
                 RenderRequest {
                     adjustments: single_adjustments,
@@ -2522,11 +2582,11 @@ async fn estimate_export_size(
             (owned_img, s, offset)
         } else {
             drop(cached_preview_lock);
-            generate_transformed_preview(&loaded_image, &adjustments_clone, preview_dim)?
+            generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?
         }
     } else {
         drop(cached_preview_lock);
-        generate_transformed_preview(&loaded_image, &adjustments_clone, preview_dim)?
+        generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?
     };
 
     let (img_w, img_h) = preview_image.dimensions();
@@ -2697,13 +2757,13 @@ async fn estimate_batch_export_size(
     }
 
     let (transformed_shrunk_res, unscaled_crop_offset) =
-        apply_all_transformations(&original_image, &scaled_adjustments);
+        apply_all_transformations(Cow::Borrowed(&original_image), &scaled_adjustments);
     let (shrunk_w, shrunk_h) = transformed_shrunk_res.dimensions();
 
     let preview_base = if shrunk_w > ESTIMATE_DIM || shrunk_h > ESTIMATE_DIM {
-        downscale_f32_image(&transformed_shrunk_res, ESTIMATE_DIM, ESTIMATE_DIM)
+        downscale_f32_image(transformed_shrunk_res.as_ref(), ESTIMATE_DIM, ESTIMATE_DIM)
     } else {
-        transformed_shrunk_res.clone()
+        transformed_shrunk_res.into_owned()
     };
 
     let (preview_w, preview_h) = preview_base.dimensions();
@@ -3207,7 +3267,7 @@ fn generate_preset_preview(
     let preview_base = downscale_f32_image(&original_image, PRESET_PREVIEW_DIM, PRESET_PREVIEW_DIM);
 
     let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(&preview_base, &js_adjustments);
+        apply_all_transformations(Cow::Borrowed(&preview_base), &js_adjustments);
     let (img_w, img_h) = transformed_image.dimensions();
 
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -3237,7 +3297,7 @@ fn generate_preset_preview(
     let processed_image = process_and_get_dynamic_image(
         &context,
         &state,
-        &transformed_image,
+        transformed_image.as_ref(),
         unique_hash,
         RenderRequest {
             adjustments: all_adjustments,
@@ -3337,7 +3397,8 @@ async fn invoke_generative_replace_with_mask_def(
     .ok_or("Failed to generate mask bitmap for AI replace")?;
 
     let mask_dynamic = DynamicImage::ImageLuma8(mask_bitmap);
-    let unwarped_dynamic = apply_unwarp_geometry(&mask_dynamic, &current_adjustments);
+    let unwarped_dynamic =
+        apply_unwarp_geometry(Cow::Borrowed(&mask_dynamic), &current_adjustments).into_owned();
     let mask_bitmap = unwarped_dynamic.to_luma8();
 
     let patch_rgba = if use_fast_inpaint {
@@ -3559,7 +3620,7 @@ async fn generate_all_community_previews(
 
         for (i, (base_image, is_raw)) in base_thumbnails.iter().enumerate() {
             let (transformed_image, unscaled_crop_offset) =
-                crate::apply_all_transformations(base_image, js_adjustments);
+                crate::apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
             let (img_w, img_h) = transformed_image.dimensions();
 
             let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -3592,7 +3653,7 @@ async fn generate_all_community_previews(
             let processed_image_dynamic = crate::image_processing::process_and_get_dynamic_image(
                 &context,
                 &state,
-                &transformed_image,
+                transformed_image.as_ref(),
                 unique_hash,
                 RenderRequest {
                     adjustments: all_adjustments,
@@ -4098,7 +4159,7 @@ fn generate_preview_for_path(
     };
 
     let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(&base_image, &js_adjustments);
+        apply_all_transformations(Cow::Borrowed(&base_image), &js_adjustments);
     let (img_w, img_h) = transformed_image.dimensions();
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
         .get("masks")
@@ -4127,7 +4188,7 @@ fn generate_preview_for_path(
     let final_image = process_and_get_dynamic_image(
         &context,
         &state,
-        &transformed_image,
+        transformed_image.as_ref(),
         unique_hash,
         RenderRequest {
             adjustments: all_adjustments,
@@ -4450,6 +4511,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(PinchZoomDisablePlugin)
         .setup(|app| {
             #[cfg(any(windows, target_os = "linux"))]
             {
@@ -4726,6 +4788,7 @@ pub fn run() {
             lens_db: Mutex::new(None),
             load_image_generation: Arc::new(AtomicUsize::new(0)),
             full_warped_cache: Mutex::new(None),
+            full_transformed_cache: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             load_image,

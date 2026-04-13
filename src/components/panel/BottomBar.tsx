@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import Filmstrip from './Filmstrip';
 import { GLOBAL_KEYS, ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
+import Text from '../ui/Text';
 
 interface BottomBarProps {
   filmstripHeight?: number;
@@ -348,9 +349,9 @@ export default function BottomBar({
             )}
           >
             <div className="h-5 w-px bg-surface mr-4"></div>
-            <span className="text-sm text-text-secondary whitespace-nowrap">
+            <Text as="span" className="whitespace-nowrap">
               {numSelected} of {total} images selected
-            </span>
+            </Text>
           </div>
         </div>
         <div className="grow" />

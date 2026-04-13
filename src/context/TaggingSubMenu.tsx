@@ -3,6 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { X, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Invokes } from '../components/ui/AppProperties';
+import Text from '../components/ui/Text';
+import { TextVariants } from '../types/typography';
 
 interface TaggingSubMenuProps {
   paths: string[];
@@ -113,9 +115,11 @@ export default function TaggingSubMenu({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="text-xs text-text-secondary italic p-1 select-none"
+                className="p-1 select-none"
               >
-                No tags added
+                <Text variant={TextVariants.small} className="italic">
+                  No tags added
+                </Text>
               </motion.span>
             )}
           </AnimatePresence>

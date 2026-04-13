@@ -2,6 +2,8 @@ import { Folder, FolderOpen, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, 
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useMemo, useEffect } from 'react';
+import Text from '../ui/Text';
+import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../types/typography';
 
 export interface FolderTree {
   children: FolderTree[];
@@ -82,20 +84,19 @@ const getAutoExpandedPaths = (node: FolderTree, paths: Set<string>) => {
 
 function SectionHeader({ title, isOpen, onToggle }: { title: string; isOpen: boolean; onToggle: () => void }) {
   return (
-    <div
-      className="flex items-center w-full text-left px-1 py-1.5 cursor-pointer group"
+    <Text
+      as="div"
+      variant={TextVariants.small}
+      weight={TextWeights.bold}
+      className="flex items-center w-full px-1 py-1.5 cursor-pointer group"
       onClick={onToggle}
       data-tooltip={isOpen ? `Collapse ${title}` : `Expand ${title}`}
     >
       <div className="p-0.5 rounded-md transition-colors">
-        {isOpen ? (
-          <ChevronDown size={14} className="text-text-secondary" />
-        ) : (
-          <ChevronRight size={14} className="text-text-secondary" />
-        )}
+        {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
       </div>
-      <span className="ml-1 text-xs font-bold uppercase text-text-secondary tracking-wider select-none">{title}</span>
-    </div>
+      <span className="ml-1 uppercase tracking-wider select-none">{title}</span>
+    </Text>
   );
 }
 
@@ -152,9 +153,9 @@ function TreeNode({
   };
 
   return (
-    <div className="text-sm">
+    <Text as="div" color={TextColors.primary} weight={TextWeights.medium}>
       <div
-        className={clsx('flex items-center gap-2 p-1.5 rounded-md transition-colors', {
+        className={clsx('flex items-center gap-2 p-1.5 rounded-md transition-colors cursor-pointer', {
           'bg-surface': isSelected,
           'hover:bg-card-active': !isSelected,
         })}
@@ -162,49 +163,41 @@ function TreeNode({
         onContextMenu={(e: any) => onContextMenu(e, node.path, isPinned)}
       >
         <div
-          className={clsx('cursor-pointer p-0.5 rounded-sm transition-colors', {
-            'cursor-default': !hasChildren,
-            'text-primary': isSelected && isExpanded,
-            'text-text-secondary': !isSelected || !isExpanded,
+          className={clsx('p-0.5 rounded-sm transition-colors', {
+            [TEXT_COLOR_KEYS[TextColors.secondary]]: !isExpanded,
             'hover:bg-surface-hover': !isSelected && hasChildren,
           })}
           onClick={handleFolderIconClick}
         >
-          {isExpanded ? (
-            <FolderOpen size={16} className={isSelected ? 'text-primary' : 'text-hover-color'} />
-          ) : (
-            <Folder size={16} className={isSelected ? 'text-primary' : 'text-text-secondary'} />
-          )}
+          {isExpanded ? <FolderOpen size={16} /> : <Folder size={16} />}
         </div>
 
-        <span
-          onDoubleClick={handleNameDoubleClick}
-          className={clsx('truncate select-none cursor-pointer flex-1 font-medium', {
-            'text-primary': isSelected,
-            'text-text-primary': !isSelected,
-          })}
-        >
+        <span onDoubleClick={handleNameDoubleClick} className="truncate select-none flex-1">
           <span className="truncate">{node.name}</span>
           {typeof node.imageCount === 'number' && node.imageCount > 0 && (
-            <span
+            <Text
+              as="span"
+              variant={TextVariants.small}
+              color={TextColors.secondary}
               className={clsx(
-                'inline-block text-text-secondary text-xs ml-1 transition-all ease-in-out duration-300',
-                showImageCounts ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2',
+                'inline-block ml-1 transition-all ease-in-out duration-300',
+                showImageCounts ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2',
               )}
             >
               ({node.imageCount})
-            </span>
+            </Text>
           )}
         </span>
 
         {hasChildren && (
-          <div className="p-0.5 rounded-sm hover:bg-surface/50 cursor-pointer" onClick={handleFolderIconClick}>
-            {isExpanded ? (
-              <ChevronUp size={16} className="text-text-secondary shrink-0" />
-            ) : (
-              <ChevronDown size={16} className="text-text-secondary shrink-0" />
-            )}
-          </div>
+          <Text
+            as="div"
+            color={TextColors.secondary}
+            className="p-0.5 rounded-sm hover:bg-surface/50"
+            onClick={handleFolderIconClick}
+          >
+            {isExpanded ? <ChevronUp size={16} className="shrink-0" /> : <ChevronDown size={16} className="shrink-0" />}
+          </Text>
         )}
       </div>
 
@@ -249,7 +242,7 @@ function TreeNode({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </Text>
   );
 }
 
@@ -474,15 +467,15 @@ export default function FolderTree({
             )}
 
             {!filteredTree && !hasVisiblePinnedTrees && isSearching && (
-              <p className="text-text-secondary text-sm p-2 text-center">No folders found.</p>
+              <Text className="p-2 text-center">No folders found.</Text>
             )}
 
             {!tree && pinnedFolderTrees.length === 0 && !isSearching && (
               <div className="pt-1">
                 {isLoading ? (
-                  <p className="text-text-secondary text-sm animate-pulse p-2">Loading folder structure...</p>
+                  <Text className="animate-pulse p-2">Loading folder structure...</Text>
                 ) : (
-                  <p className="text-text-secondary text-sm p-2">Open a folder to see its structure.</p>
+                  <Text className="p-2">Open a folder to see its structure.</Text>
                 )}
               </div>
             )}

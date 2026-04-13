@@ -33,6 +33,8 @@ import RenamePresetModal from '../../modals/RenamePresetModal';
 import CreateFolderModal from '../../modals/CreateFolderModal';
 import RenameFolderModal from '../../modals/RenameFolderModal';
 import Button from '../../ui/Button';
+import Text from '../../ui/Text';
+import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
 
@@ -106,7 +108,9 @@ function PresetItemDisplay({ preset, previewUrl, isGeneratingPreviews }: PresetI
         )}
       </div>
       <div className="grow min-w-0">
-        <p className="font-medium truncate">{preset.name}</p>
+        <Text color={TextColors.primary} weight={TextWeights.medium} className="truncate">
+          {preset.name}
+        </Text>
       </div>
     </div>
   );
@@ -118,8 +122,12 @@ function FolderItemDisplay({ folder }: FolderProps) {
       <div className="p-1">
         <FolderIcon size={18} />
       </div>
-      <p className="font-normal grow truncate select-none">{folder.name}</p>
-      <span className="text-text-secondary text-sm ml-auto pr-1">{folder.children?.length || 0}</span>
+      <Text color={TextColors.primary} weight={TextWeights.medium} className="grow truncate select-none">
+        {folder.name}
+      </Text>
+      <Text as="span" weight={TextWeights.medium} className="ml-auto pr-1">
+        {folder.children?.length || 0}
+      </Text>
     </div>
   );
 }
@@ -230,10 +238,17 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
             />
           )}
         </div>
-        <p className="font-normal grow truncate select-none" onClick={() => onToggle(folder.id)}>
+        <Text
+          color={TextColors.primary}
+          weight={TextWeights.medium}
+          className="grow truncate select-none"
+          onClick={() => onToggle(folder.id)}
+        >
           {folder.name}
-        </p>
-        <span className="text-text-secondary text-sm ml-auto pr-1">{folder.children?.length || 0}</span>
+        </Text>
+        <Text as="span" variant={TextVariants.small} color={TextColors.secondary} className="ml-auto pr-1">
+          {folder.children?.length || 0}
+        </Text>
       </div>
       <AnimatePresence>
         {isExpanded && hasChildren && (
@@ -654,7 +669,8 @@ export default function PresetsPanel({
       });
 
       if (typeof selectedPath === 'string') {
-        const isLegacy = selectedPath.toLowerCase().endsWith('.xmp') || selectedPath.toLowerCase().endsWith('.lrtemplate');
+        const isLegacy =
+          selectedPath.toLowerCase().endsWith('.xmp') || selectedPath.toLowerCase().endsWith('.lrtemplate');
 
         if (isLegacy) {
           await importLegacyPresetsFromFile(selectedPath);
@@ -818,7 +834,7 @@ export default function PresetsPanel({
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-full">
         <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-          <h2 className="text-xl font-bold text-primary text-shadow-shiny">Presets</h2>
+          <Text variant={TextVariants.title}>Presets</Text>
           <div className="flex items-center gap-1">
             <button
               className="p-2 rounded-full hover:bg-surface transition-colors"
@@ -862,15 +878,21 @@ export default function PresetsPanel({
           ref={setRootNodeRef}
         >
           {isLoading && presets.length === 0 && (
-            <div className="text-center text-text-secondary py-2">
-              <Loader2 size={16} className="animate-spin inline-block mr-2" /> Loading Presets...
-            </div>
+            <Text
+              as="div"
+              variant={TextVariants.heading}
+              color={TextColors.secondary}
+              weight={TextWeights.normal}
+              className="text-center mt-4"
+            >
+              <Loader2 size={14} className="animate-spin inline-block mr-2" /> Loading Presets...
+            </Text>
           )}
           {!isLoading && presets.length === 0 ? (
-            <div className="text-center text-text-secondary py-8 flex flex-col items-center gap-4">
-              <p className="max-w-xs">
+            <div className="text-center text-text-secondary flex flex-col items-center gap-4 pt-4">
+              <Text className="max-w-xs">
                 No presets saved yet. Create your own, import from a file, or explore community presets.
-              </p>
+              </Text>
               <Button variant="secondary" onClick={onNavigateToCommunity}>
                 <Users size={16} className="mr-2" />
                 Get Community Presets

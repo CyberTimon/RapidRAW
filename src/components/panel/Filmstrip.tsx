@@ -5,6 +5,8 @@ import clsx from 'clsx';
 import { Grid, useGridCallbackRef } from 'react-window';
 import { ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
 import { Color, COLOR_LABELS } from '../../utils/adjustments';
+import Text from '../ui/Text';
+import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 
 const VERTICAL_PADDING = 24;
 const HORIZONTAL_PADDING = 4;
@@ -228,12 +230,16 @@ const FilmstripThumbnail = memo(
         )}
         {isVirtualCopy && (
           <div className="absolute bottom-1 right-1 z-10">
-            <div
+            <Text
+              as="div"
+              variant={TextVariants.small}
+              color={TextColors.white}
+              weight={TextWeights.bold}
+              className="bg-bg-primary/70 text-[10px] px-1 py-0.5 rounded-full backdrop-blur-xs"
               data-tooltip="Virtual Copy"
-              className="bg-bg-primary/70 text-white text-[10px] font-bold px-1 py-0.5 rounded-full backdrop-blur-xs"
             >
               VC
-            </div>
+            </Text>
           </div>
         )}
       </motion.div>
