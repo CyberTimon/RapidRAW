@@ -49,7 +49,7 @@ import {
 import { Adjustments, AiPatch } from '../../../utils/adjustments';
 import { BrushSettings, SelectedImage } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
-import { Panel, PanelHeader } from './Panel';
+import { Panel, PanelHeader } from '../../ui/GenericPanel';
 
 interface AiPanelProps {
   adjustments: Adjustments;

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { SelectedImage, AppSettings, Invokes } from '../../ui/AppProperties';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
-import { Panel, PanelHeader } from './Panel';
+import { Panel, PanelHeader } from '../../ui/GenericPanel';
 
 interface CameraSetting {
   format?(value: number): void;
@@ -209,246 +209,239 @@ export default function GenericMetadataPanel({
   };
 
   return (
-    <Panel tooltip="Info" icon={Info}>
-      <PanelHeader title="Metadata" />
-      <div className="flex-grow overflow-y-auto p-4 text-text-secondary custom-scrollbar">
-        {selectedImage ? (
-          <div className="flex flex-col gap-6">
-            <div>
-              <h3 className="text-base font-bold text-text-primary mb-2 border-b border-surface pb-1">
-                Image Properties
-              </h3>
-              <div className="flex flex-col gap-1">
-                <MetadataItem label="Filename" value={selectedImage.path.split(/[\\/]/).pop()} />
-                <MetadataItem label="Dimensions" value={`${selectedImage.width} x ${selectedImage.height}`} />
-                <MetadataItem label="Capture Date" value={selectedImage.exif?.DateTimeOriginal || '-'} />
-              </div>
-
-              <div className="mt-3 bg-surface rounded-md border border-bg-primary overflow-hidden">
-                <button
-                  onClick={() => setIsOrganizationExpanded(!isOrganizationExpanded)}
-                  className="w-full flex items-center justify-between p-3 text-xs font-semibold text-text-primary hover:bg-surface/50 transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <Tag size={14} /> Organization
-                  </span>
-                  {isOrganizationExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </button>
-
-                <AnimatePresence initial={false}>
-                  {isOrganizationExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                      className="overflow-hidden"
-                    >
-                      <div className="p-3 pt-0 border-t border-surface/50 flex flex-col gap-3">
-                        <div className="mt-3">
-                          <span className="text-xs text-text-tertiary uppercase tracking-wider font-bold mb-1 block">
-                            Rating
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <button
-                                key={star}
-                                onClick={() => onRate(star, [selectedImage.path])}
-                                className="focus:outline-none transition-transform active:scale-95 hover:scale-110"
-                              >
-                                <Star
-                                  size={20}
-                                  className={clsx(
-                                    'transition-colors duration-200',
-                                    star <= rating
-                                      ? 'fill-accent text-accent'
-                                      : 'fill-transparent text-text-tertiary hover:text-text-secondary',
-                                  )}
-                                />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-xs text-text-tertiary uppercase tracking-wider font-bold mb-2 mt-1 block">
-                            Color Label
-                          </span>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => onSetColorLabel(null, [selectedImage.path])}
-                              className={clsx(
-                                'w-5 h-5 rounded-full border border-text-tertiary/30 flex items-center justify-center transition-all hover:scale-110',
-                                currentColor === null
-                                  ? 'ring-2 ring-text-secondary ring-offset-1 ring-offset-bg-primary'
-                                  : 'opacity-50 hover:opacity-100',
-                              )}
-                              data-tooltip="None"
-                            >
-                              <X size={12} className="text-text-tertiary" />
-                            </button>
-                            {COLOR_LABELS.map((color: Color) => (
-                              <button
-                                key={color.name}
-                                onClick={() => onSetColorLabel(color.name, [selectedImage.path])}
-                                className={clsx(
-                                  'w-5 h-5 rounded-full transition-all hover:scale-110',
-                                  currentColor === color.name
-                                    ? 'ring-2 ring-white ring-offset-1 ring-offset-bg-primary'
-                                    : 'hover:ring-2 hover:ring-white/20',
-                                )}
-                                style={{ backgroundColor: color.color }}
-                                data-tooltip={color.name}
-                              >
-                                {currentColor === color.name && <Check size={12} className="text-black/50 mx-auto" />}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-xs text-text-tertiary uppercase tracking-wider font-bold mb-2 mt-1  block">
-                            Tags
-                          </span>
-                          <div className="flex flex-wrap gap-1.5 mb-2">
-                            <AnimatePresence>
-                              {currentTags.length > 0 ? (
-                                currentTags.map((tagItem) => (
-                                  <motion.div
-                                    key={tagItem.tag}
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.8 }}
-                                    className="flex items-center gap-1 bg-bg-primary text-text-primary text-xs font-medium px-2 py-1 rounded-md group cursor-pointer border border-surface hover:border-text-tertiary/50 transition-colors"
-                                    onClick={() => handleRemoveTag(tagItem)}
-                                  >
-                                    <span>{tagItem.tag}</span>
-                                    <X size={10} className="opacity-50 group-hover:opacity-100" />
-                                  </motion.div>
-                                ))
-                              ) : (
-                                <span className="text-xs text-text-tertiary italic">No tags</span>
-                              )}
-                            </AnimatePresence>
-                          </div>
-
-                          <div
-                            className={clsx(
-                              'flex items-center bg-surface border rounded-md px-2 py-1 transition-colors',
-                              isTagInputFocused ? 'border-accent' : 'border-border-color',
-                            )}
-                          >
-                            <input
-                              type="text"
-                              value={tagInputValue}
-                              onChange={(e) => setTagInputValue(e.target.value)}
-                              onKeyDown={handleTagInputKeyDown}
-                              onFocus={() => setIsTagInputFocused(true)}
-                              onBlur={() => setIsTagInputFocused(false)}
-                              placeholder="Add tag..."
-                              className="bg-transparent border-none outline-none text-xs w-full text-text-primary placeholder-text-tertiary"
-                            />
-                            <button
-                              onClick={() => handleAddTag(tagInputValue)}
-                              disabled={!tagInputValue.trim()}
-                              className="text-text-secondary hover:text-accent disabled:opacity-30 transition-colors"
-                            >
-                              <Plus size={14} />
-                            </button>
-                          </div>
-                          {appSettings?.taggingShortcuts && appSettings.taggingShortcuts.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {appSettings.taggingShortcuts.map((shortcut) => (
-                                <button
-                                  key={shortcut}
-                                  onClick={() => handleAddTag(shortcut)}
-                                  className="text-xs font-medium bg-bg-secondary hover:bg-card-active text-text-secondary px-1.5 py-0.5 rounded border border-transparent hover:border-border-color transition-all"
-                                >
-                                  {shortcut}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+    <div className="flex-grow overflow-y-auto p-4 text-text-secondary custom-scrollbar">
+      {selectedImage ? (
+        <div className="flex flex-col gap-6">
+          <div>
+            <h3 className="text-base font-bold text-text-primary mb-2 border-b border-surface pb-1">
+              Image Properties
+            </h3>
+            <div className="flex flex-col gap-1">
+              <MetadataItem label="Filename" value={selectedImage.path.split(/[\\/]/).pop()} />
+              <MetadataItem label="Dimensions" value={`${selectedImage.width} x ${selectedImage.height}`} />
+              <MetadataItem label="Capture Date" value={selectedImage.exif?.DateTimeOriginal || '-'} />
             </div>
 
-            {keyCameraSettings.length > 0 && (
-              <div>
-                <h3 className="text-base font-bold text-text-primary mb-2 border-b border-surface pb-1">
-                  Key Camera Settings
-                </h3>
-                <div className="flex flex-col gap-1">
-                  {keyCameraSettings.map((item: any) => (
-                    <MetadataItem key={item.key} label={item.label} value={item.value} />
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="mt-3 bg-surface rounded-md border border-bg-primary overflow-hidden">
+              <button
+                onClick={() => setIsOrganizationExpanded(!isOrganizationExpanded)}
+                className="w-full flex items-center justify-between p-3 text-xs font-semibold text-text-primary hover:bg-surface/50 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <Tag size={14} /> Organization
+                </span>
+                {isOrganizationExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </button>
 
-            {hasGps && gpsData?.lat && gpsData?.lon && (
-              <div>
-                <h3 className="text-base font-bold text-text-primary mb-2 border-b border-surface pb-1">
-                  GPS Location
-                </h3>
-                <div className="flex flex-col gap-2">
-                  <div className="relative rounded-md overflow-hidden border border-surface">
-                    <iframe
-                      className="pointer-events-none"
-                      frameBorder="0"
-                      height="180"
-                      loading="lazy"
-                      marginHeight={0}
-                      marginWidth={0}
-                      scrolling="no"
-                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${gpsData.lon - 0.01}%2C${
-                        gpsData.lat - 0.01
-                      }%2C${gpsData.lon + 0.01}%2C${gpsData.lat + 0.01}&layer=mapnik&marker=${gpsData.lat}%2C${
-                        gpsData.lon
-                      }`}
-                      width="100%"
-                    ></iframe>
-                    <a
-                      className="absolute inset-0 cursor-pointer"
-                      href={`https://www.openstreetmap.org/?mlat=${gpsData.lat}&mlon=${gpsData.lon}#map=15/${gpsData.lat}/${gpsData.lon}`}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                      data-tooltip="Click to open map in a new tab"
-                    ></a>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <MetadataItem label="Latitude" value={gpsData.lat?.toFixed(6)} />
-                    <MetadataItem label="Longitude" value={gpsData.lon?.toFixed(6)} />
-                    {gpsData.altitude && <MetadataItem label="Altitude" value={gpsData.altitude} />}
-                  </div>
-                </div>
-              </div>
-            )}
+              <AnimatePresence initial={false}>
+                {isOrganizationExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-3 pt-0 border-t border-surface/50 flex flex-col gap-3">
+                      <div className="mt-3">
+                        <span className="text-xs text-text-tertiary uppercase tracking-wider font-bold mb-1 block">
+                          Rating
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              onClick={() => onRate(star, [selectedImage.path])}
+                              className="focus:outline-none transition-transform active:scale-95 hover:scale-110"
+                            >
+                              <Star
+                                size={20}
+                                className={clsx(
+                                  'transition-colors duration-200',
+                                  star <= rating
+                                    ? 'fill-accent text-accent'
+                                    : 'fill-transparent text-text-tertiary hover:text-text-secondary',
+                                )}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-xs text-text-tertiary uppercase tracking-wider font-bold mb-2 mt-1 block">
+                          Color Label
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => onSetColorLabel(null, [selectedImage.path])}
+                            className={clsx(
+                              'w-5 h-5 rounded-full border border-text-tertiary/30 flex items-center justify-center transition-all hover:scale-110',
+                              currentColor === null
+                                ? 'ring-2 ring-text-secondary ring-offset-1 ring-offset-bg-primary'
+                                : 'opacity-50 hover:opacity-100',
+                            )}
+                            data-tooltip="None"
+                          >
+                            <X size={12} className="text-text-tertiary" />
+                          </button>
+                          {COLOR_LABELS.map((color: Color) => (
+                            <button
+                              key={color.name}
+                              onClick={() => onSetColorLabel(color.name, [selectedImage.path])}
+                              className={clsx(
+                                'w-5 h-5 rounded-full transition-all hover:scale-110',
+                                currentColor === color.name
+                                  ? 'ring-2 ring-white ring-offset-1 ring-offset-bg-primary'
+                                  : 'hover:ring-2 hover:ring-white/20',
+                              )}
+                              style={{ backgroundColor: color.color }}
+                              data-tooltip={color.name}
+                            >
+                              {currentColor === color.name && <Check size={12} className="text-black/50 mx-auto" />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-xs text-text-tertiary uppercase tracking-wider font-bold mb-2 mt-1  block">
+                          Tags
+                        </span>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          <AnimatePresence>
+                            {currentTags.length > 0 ? (
+                              currentTags.map((tagItem) => (
+                                <motion.div
+                                  key={tagItem.tag}
+                                  layout
+                                  initial={{ opacity: 0, scale: 0.8 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  exit={{ opacity: 0, scale: 0.8 }}
+                                  className="flex items-center gap-1 bg-bg-primary text-text-primary text-xs font-medium px-2 py-1 rounded-md group cursor-pointer border border-surface hover:border-text-tertiary/50 transition-colors"
+                                  onClick={() => handleRemoveTag(tagItem)}
+                                >
+                                  <span>{tagItem.tag}</span>
+                                  <X size={10} className="opacity-50 group-hover:opacity-100" />
+                                </motion.div>
+                              ))
+                            ) : (
+                              <span className="text-xs text-text-tertiary italic">No tags</span>
+                            )}
+                          </AnimatePresence>
+                        </div>
 
-            {otherExifEntries.length > 0 && (
-              <div>
-                <h3 className="text-base font-bold text-text-primary mb-2 border-b border-surface pb-1">
-                  All EXIF Data
-                </h3>
-                <div className="flex flex-col gap-1">
-                  {otherExifEntries.map(([tag, value]) => (
-                    <MetadataItem key={tag} label={formatExifTag(tag)} value={value} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {Object.keys(selectedImage.exif || {}).length === 0 && (
-              <p className="text-xs text-center text-text-secondary mt-4">No EXIF data found in this file.</p>
-            )}
+                        <div
+                          className={clsx(
+                            'flex items-center bg-surface border rounded-md px-2 py-1 transition-colors',
+                            isTagInputFocused ? 'border-accent' : 'border-border-color',
+                          )}
+                        >
+                          <input
+                            type="text"
+                            value={tagInputValue}
+                            onChange={(e) => setTagInputValue(e.target.value)}
+                            onKeyDown={handleTagInputKeyDown}
+                            onFocus={() => setIsTagInputFocused(true)}
+                            onBlur={() => setIsTagInputFocused(false)}
+                            placeholder="Add tag..."
+                            className="bg-transparent border-none outline-none text-xs w-full text-text-primary placeholder-text-tertiary"
+                          />
+                          <button
+                            onClick={() => handleAddTag(tagInputValue)}
+                            disabled={!tagInputValue.trim()}
+                            className="text-text-secondary hover:text-accent disabled:opacity-30 transition-colors"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                        {appSettings?.taggingShortcuts && appSettings.taggingShortcuts.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {appSettings.taggingShortcuts.map((shortcut) => (
+                              <button
+                                key={shortcut}
+                                onClick={() => handleAddTag(shortcut)}
+                                className="text-xs font-medium bg-bg-secondary hover:bg-card-active text-text-secondary px-1.5 py-0.5 rounded border border-transparent hover:border-border-color transition-all"
+                              >
+                                {shortcut}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
-        ) : (
-          <p className="text-center">No image selected.</p>
-        )}
-      </div>
-    </Panel>
+
+          {keyCameraSettings.length > 0 && (
+            <div>
+              <h3 className="text-base font-bold text-text-primary mb-2 border-b border-surface pb-1">
+                Key Camera Settings
+              </h3>
+              <div className="flex flex-col gap-1">
+                {keyCameraSettings.map((item: any) => (
+                  <MetadataItem key={item.key} label={item.label} value={item.value} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hasGps && gpsData?.lat && gpsData?.lon && (
+            <div>
+              <h3 className="text-base font-bold text-text-primary mb-2 border-b border-surface pb-1">GPS Location</h3>
+              <div className="flex flex-col gap-2">
+                <div className="relative rounded-md overflow-hidden border border-surface">
+                  <iframe
+                    className="pointer-events-none"
+                    frameBorder="0"
+                    height="180"
+                    loading="lazy"
+                    marginHeight={0}
+                    marginWidth={0}
+                    scrolling="no"
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${gpsData.lon - 0.01}%2C${
+                      gpsData.lat - 0.01
+                    }%2C${gpsData.lon + 0.01}%2C${gpsData.lat + 0.01}&layer=mapnik&marker=${gpsData.lat}%2C${
+                      gpsData.lon
+                    }`}
+                    width="100%"
+                  ></iframe>
+                  <a
+                    className="absolute inset-0 cursor-pointer"
+                    href={`https://www.openstreetmap.org/?mlat=${gpsData.lat}&mlon=${gpsData.lon}#map=15/${gpsData.lat}/${gpsData.lon}`}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                    data-tooltip="Click to open map in a new tab"
+                  ></a>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <MetadataItem label="Latitude" value={gpsData.lat?.toFixed(6)} />
+                  <MetadataItem label="Longitude" value={gpsData.lon?.toFixed(6)} />
+                  {gpsData.altitude && <MetadataItem label="Altitude" value={gpsData.altitude} />}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {otherExifEntries.length > 0 && (
+            <div>
+              <h3 className="text-base font-bold text-text-primary mb-2 border-b border-surface pb-1">All EXIF Data</h3>
+              <div className="flex flex-col gap-1">
+                {otherExifEntries.map(([tag, value]) => (
+                  <MetadataItem key={tag} label={formatExifTag(tag)} value={value} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {Object.keys(selectedImage.exif || {}).length === 0 && (
+            <p className="text-xs text-center text-text-secondary mt-4">No EXIF data found in this file.</p>
+          )}
+        </div>
+      ) : (
+        <p className="text-center">No image selected.</p>
+      )}
+    </div>
   );
 }

@@ -62,7 +62,7 @@ import { useContextMenu } from '../../../context/ContextMenuContext';
 import { AppSettings, BrushSettings, OPTION_SEPARATOR, SelectedImage } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
 import { usePresets } from '../../../hooks/usePresets';
-import { Panel, PanelHeader } from './Panel';
+import { Panel, PanelHeader } from '../../ui/GenericPanel';
 
 interface MasksPanelProps {
   activeMaskContainerId: string | null;

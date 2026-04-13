@@ -36,7 +36,7 @@ import RenameFolderModal from '../../modals/RenameFolderModal';
 import Button from '../../ui/Button';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import { Invokes, OPTION_SEPARATOR, PanelType, Preset, SelectedImage } from '../../ui/AppProperties';
-import { Panel, PanelHeader } from './Panel';
+import { Panel, PanelHeader } from '../../ui/GenericPanel';
 
 interface DroppableFolderItemProps {
   children: any;

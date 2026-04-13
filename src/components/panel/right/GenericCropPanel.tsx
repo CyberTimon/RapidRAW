@@ -18,7 +18,7 @@ import clsx from 'clsx';
 import { Orientation, SelectedImage } from '../../ui/AppProperties';
 import TransformModal from '../../modals/TransformModal';
 import LensCorrectionModal from '../../modals/LensCorrectionModal';
-import { Panel, PanelHeader } from './Panel';
+import { Panel, PanelHeader } from '../../ui/GenericPanel';
 
 const BASE_RATIO = 1.618;
 const ORIGINAL_RATIO = 0;

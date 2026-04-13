@@ -126,7 +126,6 @@ import {
 } from './components/ui/AppProperties';
 import { ChannelConfig } from './components/adjustments/Curves';
 import HdrModal from './components/modals/HdrModal';
-import { Panel, PanelGroup, PanelHeader, PanelSwitcher } from './components/panel/right/Panel';
 import GenericAIPanel from './components/panel/right/GenericAIPanel';
 import GenericControls from './components/panel/right/GenericControlsPanel';
 import GenericCropPanel from './components/panel/right/GenericCropPanel';
@@ -134,6 +133,8 @@ import GenericExportPanel from './components/panel/right/GenericExportPanel';
 import GenericMetadataPanel from './components/panel/right/GenericMetadataPanel';
 import GenericMasksPanel from './components/panel/right/GenericMasksPanel';
 import GenericPresetsPanel from './components/panel/right/GenericPresetsPanel';
+import { PanelRoot, PanelGroup } from './components/ui/GenericPanel';
+import { Panel } from './components/panel/right/Panel';
 
 const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
 
@@ -4555,19 +4556,21 @@ function App() {
               opacity: isFullScreen ? 0 : 1,
             }}
           >
-            <PanelSwitcher>
+            <PanelRoot>
               <PanelGroup>
-                <GenericMetadataPanel
-                  selectedImage={selectedImage}
-                  rating={adjustments.rating || 0}
-                  tags={imageList.find((img) => img.path === selectedImage.path)?.tags || []}
-                  onRate={handleRate}
-                  onSetColorLabel={handleSetColorLabel}
-                  onTagsChanged={handleTagsChanged}
-                  appSettings={appSettings}
-                />
+                <Panel tooltip="Info" icon={Info}>
+                  <GenericMetadataPanel
+                    selectedImage={selectedImage}
+                    rating={adjustments.rating || 0}
+                    tags={imageList.find((img) => img.path === selectedImage.path)?.tags || []}
+                    onRate={handleRate}
+                    onSetColorLabel={handleSetColorLabel}
+                    onTagsChanged={handleTagsChanged}
+                    appSettings={appSettings}
+                  />
+                </Panel>
               </PanelGroup>
-              <PanelGroup>
+              {/*       <PanelGroup>
                 <GenericControls
                   adjustments={adjustments}
                   collapsibleState={collapsibleSectionsState}
@@ -4660,8 +4663,8 @@ function App() {
                   appSettings={appSettings}
                   onSettingsChange={handleSettingsChange}
                 />
-              </PanelGroup>
-            </PanelSwitcher>
+              </PanelGroup> */}
+            </PanelRoot>
           </div>
         </div>
       );

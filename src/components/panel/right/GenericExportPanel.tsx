@@ -22,7 +22,7 @@ import {
 import { Invokes, SelectedImage, AppSettings } from '../../ui/AppProperties';
 import ExportPresetsList from '../../ui/ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
-import { Panel, PanelHeader } from './Panel';
+import { Panel, PanelHeader } from '../../ui/GenericPanel';
 
 interface ExportPanelProps {
   adjustments: Adjustments;

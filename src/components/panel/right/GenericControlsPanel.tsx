@@ -9,7 +9,7 @@ import { Adjustments, SectionVisibility, INITIAL_ADJUSTMENTS, ADJUSTMENT_SECTION
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { OPTION_SEPARATOR, SelectedImage, AppSettings } from '../../ui/AppProperties';
 import { ChannelConfig } from '../../adjustments/Curves';
-import { Panel, PanelHeader } from './Panel';
+import { Panel, PanelHeader } from '../../ui/GenericPanel';
 
 interface ControlsPanelOption {
   disabled?: boolean;
