@@ -98,6 +98,7 @@ incremental = true
 opt-level = 3
 
 [profile.release]
+opt-level = 3
 codegen-units = 1
 lto = true
 strip = true
