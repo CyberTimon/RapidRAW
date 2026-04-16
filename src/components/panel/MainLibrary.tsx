@@ -1331,7 +1331,7 @@ function Thumbnail({
       </AnimatePresence>
 
       {(colorLabel || rating > 0) && (
-        <div className="absolute top-1.5 right-1.5 bg-bg-primary/50 rounded-full px-1.5 py-0.5 flex items-center gap-1 backdrop-blur-xs">
+        <div className="absolute top-1.5 right-1.5 bg-surface rounded-full px-1.5 py-0.5 flex items-center gap-1">
           {colorLabel && (
             <div
               className="w-3 h-3 rounded-full ring-1 ring-black/20"
