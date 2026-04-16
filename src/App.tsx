@@ -2735,12 +2735,8 @@ function App() {
         return;
       }
 
-      let currentRating = 0;
-      if (selectedImage && pathsToRate.includes(selectedImage.path)) {
-        currentRating = adjustments.rating;
-      } else if (libraryActivePath && pathsToRate.includes(libraryActivePath)) {
-        currentRating = libraryActiveAdjustments.rating;
-      }
+      const activePath = selectedImage?.path || libraryActivePath;
+      const currentRating = activePath ? imageRatings[activePath] || 0 : 0;
 
       const finalRating = newRating === currentRating ? 0 : newRating;
 
@@ -2771,8 +2767,7 @@ function App() {
       multiSelectedPaths,
       selectedImage,
       libraryActivePath,
-      adjustments.rating,
-      libraryActiveAdjustments.rating,
+      imageRatings,
       setAdjustments,
     ],
   );
