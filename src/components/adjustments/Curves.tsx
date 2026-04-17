@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { memo, useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, Copy, ClipboardPaste } from 'lucide-react';
 import { ActiveChannel, Adjustments, Coord } from '../../utils/adjustments';
@@ -149,7 +149,7 @@ function isDefaultCurve(points: Array<Coord> | undefined) {
   return p1.x === 0 && p1.y === 0 && p2.x === 255 && p2.y === 255;
 }
 
-export default function CurveGraph({
+function CurveGraph({
   adjustments,
   setAdjustments,
   histogram,
@@ -287,6 +287,8 @@ export default function CurveGraph({
   const propPoints = adjustments?.curves?.[activeChannel];
   const points = localPoints ?? propPoints;
   const { color, data: histogramData } = channelConfig[activeChannel];
+
+  const curvePath = useMemo(() => (points ? getCurvePath(points) : ''), [points]);
 
   if (!propPoints || !points) {
     return (
@@ -536,7 +538,7 @@ export default function CurveGraph({
 
           <line x1="0" y1="255" x2="255" y2="0" stroke="rgba(255,255,255,0.2)" strokeWidth="1" strokeDasharray="2 2" />
 
-          <path d={getCurvePath(points)} fill="none" stroke={color} strokeWidth="2.5" />
+          <path d={curvePath} fill="none" stroke={color} strokeWidth="2.5" />
 
           {points.map((p: Coord, i: number) => (
             <circle
@@ -557,3 +559,6 @@ export default function CurveGraph({
     </div>
   );
 }
+
+export default memo(CurveGraph);
+

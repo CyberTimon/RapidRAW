@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { AlertOctagon } from 'lucide-react';
 import { WaveformData } from '../../ui/AppProperties';
@@ -46,28 +46,48 @@ const modeButtons = [
   },
 ];
 
-const HistogramView = ({ histogram }: { histogram: any }) => {
-  if (!histogram || !histogram.red || !histogram.green || !histogram.blue) return null;
+const HistogramView = memo(({ histogram }: { histogram: any }) => {
+  const channels = useMemo(() => {
+    if (!histogram?.red || !histogram?.green || !histogram?.blue) return null;
 
-  const redMax = Math.max(...(histogram.red || [0]));
-  const greenMax = Math.max(...(histogram.green || [0]));
-  const blueMax = Math.max(...(histogram.blue || [0]));
-  const globalMax = Math.max(redMax, greenMax, blueMax, 1);
+    const getSafeMax = (arr: number[]) => {
+      let max = 0;
+      for (let i = 0; i < arr.length; i++) {
+        if (arr[i] > max) max = arr[i];
+      }
+      return max || 1;
+    };
 
-  const getFill = (data: number[]) => {
-    const pathData = data.map((val, i) => `${(i / 255) * 255},${255 - (val / globalMax) * 255}`).join(' L');
-    return `M0,255 L${pathData} L255,255 Z`;
-  };
+    const redMax = getSafeMax(histogram.red);
+    const greenMax = getSafeMax(histogram.green);
+    const blueMax = getSafeMax(histogram.blue);
+    const globalMax = Math.max(redMax, greenMax, blueMax);
 
-  const getLine = (data: number[]) => {
-    return 'M' + data.map((val, i) => `${(i / 255) * 255},${255 - (val / globalMax) * 255}`).join(' L');
-  };
+    const generatePaths = (data: number[]) => {
+      if (!data.length) return { fill: '', line: '' };
 
-  const channels = [
-    { key: 'red', color: '#FF6B6B', data: histogram.red },
-    { key: 'green', color: '#6BCB77', data: histogram.green },
-    { key: 'blue', color: '#4D96FF', data: histogram.blue },
-  ];
+      let pathPoints = '';
+      const len = data.length;
+      for (let i = 0; i < len; i++) {
+        const x = (i / (len - 1)) * 255;
+        const y = 255 - (data[i] / globalMax) * 255;
+        pathPoints += (i === 0 ? '' : ' L') + `${x},${y}`;
+      }
+
+      return {
+        fill: `M0,255 L${pathPoints} L255,255 Z`,
+        line: `M${pathPoints}`,
+      };
+    };
+
+    return [
+      { key: 'red', color: '#FF6B6B', ...generatePaths(histogram.red) },
+      { key: 'green', color: '#6BCB77', ...generatePaths(histogram.green) },
+      { key: 'blue', color: '#4D96FF', ...generatePaths(histogram.blue) },
+    ];
+  }, [histogram]);
+
+  if (!channels) return null;
 
   return (
     <svg
@@ -75,26 +95,23 @@ const HistogramView = ({ histogram }: { histogram: any }) => {
       className="w-full h-full overflow-visible pointer-events-none"
       preserveAspectRatio="none"
     >
-      {channels.map((ch) => {
-        if (!ch.data || ch.data.length === 0) return null;
-        return (
-          <g key={ch.key} style={{ mixBlendMode: 'lighten' }}>
-            <path d={getFill(ch.data)} fill={ch.color} fillOpacity={0.4} />
-            <path
-              d={getLine(ch.data)}
-              fill="none"
-              stroke={ch.color}
-              strokeWidth={1.5}
-              strokeOpacity={1.8}
-              vectorEffect="non-scaling-stroke"
-              strokeLinejoin="round"
-            />
-          </g>
-        );
-      })}
+      {channels.map((ch) => (
+        <g key={ch.key} style={{ mixBlendMode: 'lighten' }}>
+          <path d={ch.fill} fill={ch.color} fillOpacity={0.4} />
+          <path
+            d={ch.line}
+            fill="none"
+            stroke={ch.color}
+            strokeWidth={1.5}
+            strokeOpacity={0.8}
+            vectorEffect="non-scaling-stroke"
+            strokeLinejoin="round"
+          />
+        </g>
+      ))}
     </svg>
   );
-};
+});
 
 const FakeHistogramLoader = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);

@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider from '../ui/Slider';
 import { Adjustments, BasicAdjustment } from '../../utils/adjustments';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 
 interface BasicAdjustmentsProps {
   adjustments: Adjustments;
@@ -140,7 +140,7 @@ const ToneMapperSwitch = ({
   );
 };
 
-export default function BasicAdjustments({
+function BasicAdjustments({
   adjustments,
   setAdjustments,
   isForMask = false,
@@ -237,3 +237,6 @@ export default function BasicAdjustments({
     </div>
   );
 }
+
+export default memo(BasicAdjustments);
+

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Pipette, Sliders } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Slider from '../ui/Slider';
@@ -385,7 +385,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
   );
 };
 
-export default function ColorPanel({
+function ColorPanel({
   adjustments,
   setAdjustments,
   appSettings,
@@ -553,3 +553,6 @@ export default function ColorPanel({
     </div>
   );
 }
+
+export default memo(ColorPanel);
+

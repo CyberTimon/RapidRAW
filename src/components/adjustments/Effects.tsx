@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import Slider from '../ui/Slider';
 import { Adjustments, Effect, CreativeAdjustment } from '../../utils/adjustments';
 import LUTControl from '../ui/LUTControl';
@@ -14,7 +15,7 @@ interface EffectsPanelProps {
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
-export default function EffectsPanel({
+function EffectsPanel({
   adjustments,
   setAdjustments,
   isForMask = false,
@@ -191,3 +192,6 @@ export default function EffectsPanel({
     </div>
   );
 }
+
+export default memo(EffectsPanel);
+

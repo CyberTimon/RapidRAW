@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import Slider from '../ui/Slider';
 import { Adjustments, DetailsAdjustment } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
@@ -12,7 +13,7 @@ interface DetailsPanelProps {
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
-export default function DetailsPanel({
+function DetailsPanel({
   adjustments,
   setAdjustments,
   appSettings,
@@ -145,3 +146,6 @@ export default function DetailsPanel({
     </div>
   );
 }
+
+export default memo(DetailsPanel);
+

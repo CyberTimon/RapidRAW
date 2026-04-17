@@ -73,6 +73,9 @@ const Slider = ({
   snapToStepRef.current = snapToStep;
   rangeRef.current = { min, max };
 
+  const pendingDispatchRef = useRef<number | null>(null);
+  const dispatchRafRef = useRef<number | null>(null);
+
   useEffect(() => {
     onDragStateChange(isDragging);
   }, [isDragging, onDragStateChange]);
@@ -147,10 +150,27 @@ const Slider = ({
       const snappedValue = snapToStepRef.current(accumulatedValueRef.current);
 
       setDisplayValue(snappedValue);
-      onChangeRef.current({ target: { value: snappedValue } });
+      pendingDispatchRef.current = snappedValue;
+      if (dispatchRafRef.current === null) {
+        dispatchRafRef.current = requestAnimationFrame(() => {
+          if (pendingDispatchRef.current !== null) {
+            onChangeRef.current({ target: { value: pendingDispatchRef.current } });
+          }
+          dispatchRafRef.current = null;
+        });
+      }
     };
 
     const handlePointerUp = () => {
+      // Flush any pending dispatch immediately on release
+      if (dispatchRafRef.current !== null) {
+        cancelAnimationFrame(dispatchRafRef.current);
+        dispatchRafRef.current = null;
+      }
+      if (pendingDispatchRef.current !== null) {
+        onChangeRef.current({ target: { value: pendingDispatchRef.current } });
+        pendingDispatchRef.current = null;
+      }
       lastUpTime.current = Date.now();
       setIsDragging(false);
     };
@@ -165,6 +185,10 @@ const Slider = ({
       window.removeEventListener('mouseup', handlePointerUp);
       window.removeEventListener('touchmove', handlePointerMove);
       window.removeEventListener('touchend', handlePointerUp);
+      if (dispatchRafRef.current !== null) {
+        cancelAnimationFrame(dispatchRafRef.current);
+        dispatchRafRef.current = null;
+      }
     };
   }, [isDragging]);
 

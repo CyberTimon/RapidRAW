@@ -1,5 +1,14 @@
 import { useState, useMemo, useCallback } from 'react';
 
+function shallowEqual(a: any, b: any): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every((k) => a[k] === b[k]);
+}
+
 export const useHistoryState = (initialState: any) => {
   const [history, setHistory] = useState([initialState]);
   const [index, setIndex] = useState(0);
@@ -8,7 +17,7 @@ export const useHistoryState = (initialState: any) => {
   const setState = useCallback(
     (newState: any) => {
       const resolvedState = typeof newState === 'function' ? newState(history[index]) : newState;
-      if (JSON.stringify(resolvedState) === JSON.stringify(history[index])) {
+      if (shallowEqual(resolvedState, history[index])) {
         return;
       }
       const newHistory = history.slice(0, index + 1);

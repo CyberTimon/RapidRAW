@@ -12,6 +12,12 @@ export function useThumbnails() {
 
     if (!processorRef.current) {
       processorRef.current = setInterval(() => {
+        if (visiblePathsRef.current.size === 0) {
+          clearInterval(processorRef.current!);
+          processorRef.current = null;
+          return;
+        }
+
         const pathsToRequest = Array.from(visiblePathsRef.current).filter((p) => !requestedPathsRef.current.has(p));
 
         if (pathsToRequest.length > 0) {
