@@ -4946,8 +4946,8 @@ pub fn run() {
                 let window_for_handler = window.clone();
                 let pending_state_for_handler = pending_window_state.clone();
 
-                window.on_window_event(move |event| match event {
-                    tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_) => {
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_) = event {
                         #[cfg(any(windows, target_os = "linux"))]
                         let maximized = window_for_handler.is_maximized().unwrap_or(false);
                         #[cfg(not(any(windows, target_os = "linux")))]
@@ -4988,7 +4988,6 @@ pub fn run() {
 
                         *pending_state_for_handler.lock().unwrap() = Some(state);
                     }
-                    _ => {}
                 });
             }
 

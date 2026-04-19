@@ -230,6 +230,7 @@ const RIGHT_PANEL_ORDER = [
 ];
 
 const DEBUG = false;
+const LOCAL_RATING_GUARD_MS = 1200;
 
 const getParentDir = (filePath: string): string => {
   const separator = filePath.includes('/') ? '/' : '\\';
@@ -285,6 +286,7 @@ function App() {
   const [pinnedFolderTrees, setPinnedFolderTrees] = useState<any[]>([]);
   const [imageList, setImageList] = useState<Array<ImageFile>>([]);
   const [imageRatings, setImageRatings] = useState<Record<string, number>>({});
+  const recentLocalRatingRef = useRef<Record<string, { rating: number; updatedAt: number }>>({});
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>({ key: 'name', order: SortDirection.Ascending });
   const [filterCriteria, setFilterCriteria] = useState<FilterCriteria>({
     colors: [],
@@ -2746,6 +2748,11 @@ function App() {
       }
       
       const finalRating = newRating === currentRating ? 0 : newRating;
+      const now = Date.now();
+
+      pathsToRate.forEach((path: string) => {
+        recentLocalRatingRef.current[path] = { rating: finalRating, updatedAt: now };
+      });
 
       setImageRatings((prev: Record<string, number>) => {
         const newRatings = { ...prev };
@@ -3275,6 +3282,18 @@ function App() {
             setThumbnails((prev) => ({ ...prev, [path]: data }));
           }
           if (rating !== undefined) {
+            const localRating = recentLocalRatingRef.current[path];
+            if (localRating) {
+              const isStillFresh = Date.now() - localRating.updatedAt < LOCAL_RATING_GUARD_MS;
+
+              if (isStillFresh && rating !== localRating.rating) {
+                return;
+              }
+
+              if (!isStillFresh || rating === localRating.rating) {
+                delete recentLocalRatingRef.current[path];
+              }
+            }
             setImageRatings((prev) => ({ ...prev, [path]: rating }));
           }
         }
