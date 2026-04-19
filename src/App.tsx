@@ -2735,7 +2735,6 @@ function App() {
         return;
       }
 
-      const activePath = selectedImage?.path || libraryActivePath;
       let currentRating = 0;
       
       if (selectedImage && pathsToRate.includes(selectedImage.path)) {

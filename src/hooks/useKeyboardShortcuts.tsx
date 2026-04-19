@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ImageFile, Panel, SelectedImage } from '../components/ui/AppProperties';
 import { BrushSettings } from '../components/ui/AppProperties';
 
@@ -107,6 +107,8 @@ export const useKeyboardShortcuts = ({
   brushSettings,  
   setBrushSettings,  
 }: KeyboardShortcutsProps) => {
+  const pressedRatingKeysRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     const handleKeyDown = (event: any) => {
       if (isModalOpen) {
@@ -314,7 +316,12 @@ export const useKeyboardShortcuts = ({
         }
       }
 
-      if (code.startsWith('Digit') && !isCtrl) {
+      if (code.startsWith('Digit') && !isCtrl && !event.repeat) {
+        if (pressedRatingKeysRef.current.has(code)) {
+          return;
+        }
+        pressedRatingKeysRef.current.add(code);
+
         event.preventDefault();
         const keyNum = parseInt(code.replace('Digit', ''), 10);
 
@@ -330,7 +337,13 @@ export const useKeyboardShortcuts = ({
             handleRate(keyNum);
           }
         }
-      } else if (['0', '1', '2', '3', '4', '5'].includes(key) && !isCtrl) {
+      } else if (['0', '1', '2', '3', '4', '5'].includes(key) && !isCtrl && !event.repeat) {
+        const ratingKeyId = code || key;
+        if (pressedRatingKeysRef.current.has(ratingKeyId)) {
+          return;
+        }
+        pressedRatingKeysRef.current.add(ratingKeyId);
+
         event.preventDefault();
         handleRate(parseInt(key, 10));
       }
@@ -450,9 +463,28 @@ export const useKeyboardShortcuts = ({
         }
       }
     };
+    const handleKeyUp = (event: any) => {
+      const key = event.key.toLowerCase();
+      const code = event.code;
+      const ratingKeyId = code || key;
+
+      if (code.startsWith('Digit') || ['0', '1', '2', '3', '4', '5'].includes(key)) {
+        pressedRatingKeysRef.current.delete(ratingKeyId);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      pressedRatingKeysRef.current.clear();
+    };
+
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleWindowBlur);
+      pressedRatingKeysRef.current.clear();
     };
   }, [
     activeAiPatchContainerId,
