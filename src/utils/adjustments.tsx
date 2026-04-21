@@ -292,6 +292,8 @@ export interface MaskAdjustments {
   colorNoiseReduction: number;
   contrast: number;
   curves: Curves;
+  parametricCurve?: ParametricCurve;
+  curveMode?: 'point' | 'parametric';
   dehaze: number;
   exposure: number;
   flareAmount: number;
@@ -392,6 +394,13 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
       { x: 255, y: 255 },
     ],
   },
+  parametricCurve: {
+    luma: { darks: 0, shadows: 0, highlights: 0, lights: 0, split1: 25, split2: 50, split3: 75 },
+    red: { darks: 0, shadows: 0, highlights: 0, lights: 0, split1: 25, split2: 50, split3: 75 },
+    green: { darks: 0, shadows: 0, highlights: 0, lights: 0, split1: 25, split2: 50, split3: 75 },
+    blue: { darks: 0, shadows: 0, highlights: 0, lights: 0, split1: 25, split2: 50, split3: 75 },
+  },
+  curveMode: 'point', 
   dehaze: 0,
   exposure: 0,
   flareAmount: 0,

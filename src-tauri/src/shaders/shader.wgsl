@@ -184,6 +184,15 @@ struct MaskAdjustments {
     _pad_end5: f32,
     _pad_end6: f32,
     _pad_end7: f32,
+
+    parametric_luma_curve: ParametricCurveSettings,
+    parametric_red_curve: ParametricCurveSettings,
+    parametric_green_curve: ParametricCurveSettings,
+    parametric_blue_curve: ParametricCurveSettings,
+    parametric_curve_enabled: u32,
+    _pad_param1: f32,
+    _pad_param2: f32,
+    _pad_param3: f32,
 }
 
 struct AllAdjustments {
@@ -1737,11 +1746,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 adjustments.mask_adjustments[i].red_curve, adjustments.mask_adjustments[i].red_curve_count,
                 adjustments.mask_adjustments[i].green_curve, adjustments.mask_adjustments[i].green_curve_count,
                 adjustments.mask_adjustments[i].blue_curve, adjustments.mask_adjustments[i].blue_curve_count,
-                adjustments.global.parametric_luma_curve,
-                adjustments.global.parametric_red_curve,
-                adjustments.global.parametric_green_curve,
-                adjustments.global.parametric_blue_curve,
-                adjustments.global.parametric_curve_enabled
+                adjustments.mask_adjustments[i].parametric_luma_curve,
+                adjustments.mask_adjustments[i].parametric_red_curve,
+                adjustments.mask_adjustments[i].parametric_green_curve,
+                adjustments.mask_adjustments[i].parametric_blue_curve,
+                adjustments.mask_adjustments[i].parametric_curve_enabled
             );
             final_rgb = mix(final_rgb, mask_curved_srgb, influence);
         }

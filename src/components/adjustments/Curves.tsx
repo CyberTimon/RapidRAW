@@ -616,20 +616,35 @@ export default function CurveGraph({
   };
 
   const updateParametricValue = (key: keyof ParametricCurveSettings, value: number) => {
-    setAdjustments((prev: Adjustments) => {
-      const parametricChannels = prev.parametricCurve || getDefaultParametricCurveChannels();
-
-      return {
-        ...prev,
-        parametricCurve: {
-          ...parametricChannels,
-          [activeParametricChannel]: {
-            ...(parametricChannels[activeParametricChannel] || getDefaultParametricCurve()),
-            [key]: value,
+    if (isForMask) {
+      setAdjustments((prev: any) => {
+        const currentParametricCurve = prev.parametricCurve || getDefaultParametricCurveChannels();
+        return {
+          ...prev,
+          parametricCurve: {
+            ...currentParametricCurve,
+            [activeParametricChannel]: {
+              ...(currentParametricCurve[activeParametricChannel] || getDefaultParametricCurve()),
+              [key]: value,
+            },
           },
-        },
-      };
-    });
+        };
+      });
+    } else {
+      setAdjustments((prev: Adjustments) => {
+        const parametricChannels = prev.parametricCurve || getDefaultParametricCurveChannels();
+        return {
+          ...prev,
+          parametricCurve: {
+            ...parametricChannels,
+            [activeParametricChannel]: {
+              ...(parametricChannels[activeParametricChannel] || getDefaultParametricCurve()),
+              [key]: value,
+            },
+          },
+        };
+      });
+    }
   };
 
   const handlePointStart = (e: any, index: number) => {
@@ -734,21 +749,37 @@ export default function CurveGraph({
       { x: 255, y: 255 },
     ];
 
-    setAdjustments((prev: Adjustments) => {
-      const parametricChannels = prev.parametricCurve || getDefaultParametricCurveChannels();
-
-      return {
-        ...prev,
-        parametricCurve: {
-          ...parametricChannels,
-          [activeParametricChannel]: getDefaultParametricCurve(),
-        },
-        curves: {
-          ...prev.curves,
-          [activeParametricChannel]: defaultCurvePoints,
-        },
-      };
-    });
+    if (isForMask) {
+      setAdjustments((prev: any) => {
+        const parametricChannels = prev.parametricCurve || getDefaultParametricCurveChannels();
+        return {
+          ...prev,
+          parametricCurve: {
+            ...parametricChannels,
+            [activeParametricChannel]: getDefaultParametricCurve(),
+          },
+          curves: {
+            ...prev.curves,
+            [activeParametricChannel]: defaultCurvePoints,
+          },
+        };
+      });
+    } else {
+      setAdjustments((prev: Adjustments) => {
+        const parametricChannels = prev.parametricCurve || getDefaultParametricCurveChannels();
+        return {
+          ...prev,
+          parametricCurve: {
+            ...parametricChannels,
+            [activeParametricChannel]: getDefaultParametricCurve(),
+          },
+          curves: {
+            ...prev.curves,
+            [activeParametricChannel]: defaultCurvePoints,
+          },
+        };
+      });
+    }
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -1112,7 +1143,7 @@ export default function CurveGraph({
         )}
       </div>
 
-      {isParametricMode && !isForMask && (
+      {isParametricMode && (
         <div 
           className="mt-14 flex flex-col gap-2"
           onContextMenu={(e) => {

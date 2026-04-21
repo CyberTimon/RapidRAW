@@ -1343,6 +1343,15 @@ pub struct MaskAdjustments {
     _pad_end5: f32,
     _pad_end6: f32,
     _pad_end7: f32,
+
+    pub parametric_luma_curve: ParametricCurveSettings,
+    pub parametric_red_curve: ParametricCurveSettings,
+    pub parametric_green_curve: ParametricCurveSettings,
+    pub parametric_blue_curve: ParametricCurveSettings,
+    pub parametric_curve_enabled: u32,
+    _pad_param1: f32,
+    _pad_param2: f32,
+    _pad_param3: f32,
 }
 
 pub const MAX_MASKS: usize = 32;
@@ -1941,6 +1950,29 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
     } else {
         Vec::new()
     };
+
+    let parametric_curves_obj = adj.get("parametricCurve").cloned().unwrap_or_default();
+    let parametric_luma = if is_visible("curves") {
+        parse_parametric_curve_settings(&parametric_curves_obj["luma"])
+    } else {
+        ParametricCurveSettings::default()
+    };
+    let parametric_red = if is_visible("curves") {
+        parse_parametric_curve_settings(&parametric_curves_obj["red"])
+    } else {
+        ParametricCurveSettings::default()
+    };
+    let parametric_green = if is_visible("curves") {
+        parse_parametric_curve_settings(&parametric_curves_obj["green"])
+    } else {
+        ParametricCurveSettings::default()
+    };
+    let parametric_blue = if is_visible("curves") {
+        parse_parametric_curve_settings(&parametric_curves_obj["blue"])
+    } else {
+        ParametricCurveSettings::default()
+    };
+
     let cg_obj = adj.get("colorGrading").cloned().unwrap_or_default();
 
     MaskAdjustments {
@@ -2027,6 +2059,15 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
         _pad_end5: 0.0,
         _pad_end6: 0.0,
         _pad_end7: 0.0,
+
+        parametric_luma_curve: parametric_luma,
+        parametric_red_curve: parametric_red,
+        parametric_green_curve: parametric_green,
+        parametric_blue_curve: parametric_blue,
+        parametric_curve_enabled: if is_visible("curves") && adj.get("curveMode").and_then(|m| m.as_str()).map(|m| m == "parametric").unwrap_or(false) { 1 } else { 0 },
+        _pad_param1: 0.0,
+        _pad_param2: 0.0,
+        _pad_param3: 0.0,
     }
 }
 
