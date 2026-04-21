@@ -30,6 +30,17 @@ struct ColorCalibrationSettings {
     _pad1: f32,
 }
 
+struct ParametricCurveSettings {
+    darks: f32,
+    shadows: f32,
+    highlights: f32,
+    lights: f32,
+    split1: f32,
+    split2: f32,
+    split3: f32,
+    _pad: f32,
+}
+
 struct GlobalAdjustments {
     exposure: f32,
     brightness: f32,
@@ -112,6 +123,15 @@ struct GlobalAdjustments {
     flare_amount: f32,
 
     _pad_creative_1: f32,
+
+    parametric_luma_curve: ParametricCurveSettings,
+    parametric_red_curve: ParametricCurveSettings,
+    parametric_green_curve: ParametricCurveSettings,
+    parametric_blue_curve: ParametricCurveSettings,
+    parametric_curve_enabled: u32,
+    _pad_param1: f32,
+    _pad_param2: f32,
+    _pad_param3: f32,
 }
 
 struct MaskAdjustments {
@@ -1022,6 +1042,153 @@ fn no_tonemap(c: vec3<f32>) -> vec3<f32> {
     return c;
 }
 
+fn get_parametric_influence(slider: f32, split_point: f32, region_start: f32, region_end: f32) -> f32 {
+    if (split_point < region_start || split_point > region_end) {
+        return 0.0;
+    }
+    let t = (split_point - region_start) / (region_end - region_start);
+    let influence = sin(t * 3.14159265);
+    return influence;
+}
+
+fn compute_parametric_control_points(settings: ParametricCurveSettings) -> vec3<f32> {
+    let split1 = settings.split1 / 100.0;
+    let split2 = settings.split2 / 100.0;
+    let split3 = settings.split3 / 100.0;
+
+    let shadows_val = settings.shadows / 100.0;
+    let darks_val = settings.darks / 100.0;
+    let lights_val = settings.lights / 100.0;
+    let highlights_val = settings.highlights / 100.0;
+
+    const MAX_OFFSET = 0.25;
+
+    let shadow_weight1 = get_parametric_influence(settings.shadows, split1, 0.0, 0.35);
+    let darks_weight1 = get_parametric_influence(settings.darks, split1, 0.15, 0.55);
+    let lights_weight1 = get_parametric_influence(settings.lights, split1, 0.40, 0.75);
+    let highlights_weight1 = get_parametric_influence(settings.highlights, split1, 0.65, 1.0);
+
+    let shadow_weight2 = get_parametric_influence(settings.shadows, split2, 0.0, 0.35);
+    let darks_weight2 = get_parametric_influence(settings.darks, split2, 0.15, 0.55);
+    let lights_weight2 = get_parametric_influence(settings.lights, split2, 0.40, 0.75);
+    let highlights_weight2 = get_parametric_influence(settings.highlights, split2, 0.65, 1.0);
+
+    let shadow_weight3 = get_parametric_influence(settings.shadows, split3, 0.0, 0.35);
+    let darks_weight3 = get_parametric_influence(settings.darks, split3, 0.15, 0.55);
+    let lights_weight3 = get_parametric_influence(settings.lights, split3, 0.40, 0.75);
+    let highlights_weight3 = get_parametric_influence(settings.highlights, split3, 0.65, 1.0);
+
+    let offset1 = (shadows_val * shadow_weight1 + darks_val * darks_weight1 + lights_val * lights_weight1 + highlights_val * highlights_weight1) * MAX_OFFSET;
+    let offset2 = (shadows_val * shadow_weight2 + darks_val * darks_weight2 + lights_val * lights_weight2 + highlights_val * highlights_weight2) * MAX_OFFSET;
+    let offset3 = (shadows_val * shadow_weight3 + darks_val * darks_weight3 + lights_val * lights_weight3 + highlights_val * highlights_weight3) * MAX_OFFSET;
+
+    var y1 = split1 + offset1;
+    var y2 = split2 + offset2;
+    var y3 = split3 + offset3;
+
+    y1 = clamp(y1, 0.02, min(y2 - 0.01, 0.98));
+    y2 = clamp(y2, y1 + 0.01, min(y3 - 0.01, 0.95));
+    y3 = clamp(y3, y2 + 0.01, 0.98);
+
+    return vec3<f32>(y1, y2, y3);
+}
+
+fn create_monotonic_spline_point(t: f32, x_points: array<f32, 5>, y_points: array<f32, 5>) -> f32 {
+    if (t <= x_points[0]) { return y_points[0]; }
+    if (t >= x_points[4]) { return y_points[4]; }
+
+    var idx = 0u;
+    for (var i = 0u; i < 4u; i = i + 1u) {
+        if (t >= x_points[i] && t <= x_points[i + 1u]) {
+            idx = i;
+            break;
+        }
+    }
+
+    let x0 = x_points[idx];
+    let x1 = x_points[idx + 1u];
+    let y0 = y_points[idx];
+    let y1 = y_points[idx + 1u];
+
+    var delta: array<f32, 4>;
+    for (var i = 0u; i < 4u; i = i + 1u) {
+        delta[i] = (y_points[i + 1u] - y_points[i]) / (x_points[i + 1u] - x_points[i]);
+    }
+
+    var m: array<f32, 5>;
+    for (var i = 0u; i < 5u; i = i + 1u) {
+        if (i == 0u) {
+            m[i] = delta[0];
+        } else if (i == 4u) {
+            m[i] = delta[3];
+        } else {
+            if (delta[i - 1u] * delta[i] <= 0.0) {
+                m[i] = 0.0;
+            } else {
+                let w1 = x_points[i + 1u] - x_points[i];
+                let w2 = x_points[i] - x_points[i - 1u];
+                m[i] = (w1 * delta[i - 1u] + w2 * delta[i]) / (w1 + w2);
+            }
+        }
+    }
+
+    for (var i = 0u; i < 4u; i = i + 1u) {
+        if (delta[i] == 0.0) {
+            m[i] = 0.0;
+            m[i + 1u] = 0.0;
+        } else {
+            let alpha = m[i] / delta[i];
+            let beta = m[i + 1u] / delta[i];
+            if (alpha * alpha + beta * beta > 9.0) {
+                let tau = 3.0 / sqrt(alpha * alpha + beta * beta);
+                m[i] = tau * alpha * delta[i];
+                m[i + 1u] = tau * beta * delta[i];
+            }
+        }
+    }
+
+    let m0 = m[idx];
+    let m1 = m[idx + 1u];
+    let h = x1 - x0;
+    let t_norm = (t - x0) / h;
+    let t2 = t_norm * t_norm;
+    let t3 = t2 * t_norm;
+
+    let h00 = 2.0 * t3 - 3.0 * t2 + 1.0;
+    let h10 = t3 - 2.0 * t2 + t_norm;
+    let h01 = -2.0 * t3 + 3.0 * t2;
+    let h11 = t3 - t2;
+
+    return h00 * y0 + h10 * m0 * h + h01 * y1 + h11 * m1 * h;
+}
+
+fn apply_parametric_curve(val: f32, settings: ParametricCurveSettings) -> f32 {
+    let split1 = settings.split1 / 100.0;
+    let split2 = settings.split2 / 100.0;
+    let split3 = settings.split3 / 100.0;
+
+    let control_points = compute_parametric_control_points(settings);
+    let y1 = control_points.x;
+    let y2 = control_points.y;
+    let y3 = control_points.z;
+
+    var x_points: array<f32, 5>;
+    var y_points: array<f32, 5>;
+    x_points[0] = 0.0;
+    x_points[1] = split1;
+    x_points[2] = split2;
+    x_points[3] = split3;
+    x_points[4] = 1.0;
+    y_points[0] = 0.0;
+    y_points[1] = y1;
+    y_points[2] = y2;
+    y_points[3] = y3;
+    y_points[4] = 1.0;
+
+    let result = create_monotonic_spline_point(val, x_points, y_points);
+    return clamp(result, 0.0, 1.0);
+}
+
 fn is_default_curve(points: array<Point, 16>, count: u32) -> bool {
     if (count != 2u) {
         return false;
@@ -1035,7 +1202,22 @@ fn is_default_curve(points: array<Point, 16>, count: u32) -> bool {
     return p0_is_origin && p1_is_end;
 }
 
-fn apply_all_curves(color: vec3<f32>, luma_curve: array<Point, 16>, luma_curve_count: u32, red_curve: array<Point, 16>, red_curve_count: u32, green_curve: array<Point, 16>, green_curve_count: u32, blue_curve: array<Point, 16>, blue_curve_count: u32) -> vec3<f32> {
+fn apply_all_curves(color: vec3<f32>, luma_curve: array<Point, 16>, luma_curve_count: u32, red_curve: array<Point, 16>, red_curve_count: u32, green_curve: array<Point, 16>, green_curve_count: u32, blue_curve: array<Point, 16>, blue_curve_count: u32, parametric_luma: ParametricCurveSettings, parametric_red: ParametricCurveSettings, parametric_green: ParametricCurveSettings, parametric_blue: ParametricCurveSettings, parametric_enabled: u32) -> vec3<f32> {
+    if (parametric_enabled == 1u) {
+        let luma = get_luma(color);
+        let adjusted_luma = apply_parametric_curve(luma, parametric_luma);
+        let adjusted_r = apply_parametric_curve(color.r, parametric_red);
+        let adjusted_g = apply_parametric_curve(color.g, parametric_green);
+        let adjusted_b = apply_parametric_curve(color.b, parametric_blue);
+        let color_graded = vec3<f32>(adjusted_r, adjusted_g, adjusted_b);
+        let luma_graded = get_luma(color_graded);
+        if (luma_graded > 0.001) {
+            return color_graded * (adjusted_luma / luma_graded);
+        } else {
+            return vec3<f32>(adjusted_luma);
+        }
+    }
+
     let red_is_default = is_default_curve(red_curve, red_curve_count);
     let green_is_default = is_default_curve(green_curve, green_curve_count);
     let blue_is_default = is_default_curve(blue_curve, blue_curve_count);
@@ -1556,7 +1738,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         adjustments.global.luma_curve, adjustments.global.luma_curve_count,
         adjustments.global.red_curve, adjustments.global.red_curve_count,
         adjustments.global.green_curve, adjustments.global.green_curve_count,
-        adjustments.global.blue_curve, adjustments.global.blue_curve_count
+        adjustments.global.blue_curve, adjustments.global.blue_curve_count,
+        adjustments.global.parametric_luma_curve,
+        adjustments.global.parametric_red_curve,
+        adjustments.global.parametric_green_curve,
+        adjustments.global.parametric_blue_curve,
+        adjustments.global.parametric_curve_enabled
     );
 
     for (var i = 0u; i < adjustments.mask_count; i = i + 1u) {
@@ -1566,7 +1753,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 adjustments.mask_adjustments[i].luma_curve, adjustments.mask_adjustments[i].luma_curve_count,
                 adjustments.mask_adjustments[i].red_curve, adjustments.mask_adjustments[i].red_curve_count,
                 adjustments.mask_adjustments[i].green_curve, adjustments.mask_adjustments[i].green_curve_count,
-                adjustments.mask_adjustments[i].blue_curve, adjustments.mask_adjustments[i].blue_curve_count
+                adjustments.mask_adjustments[i].blue_curve, adjustments.mask_adjustments[i].blue_curve_count,
+                adjustments.global.parametric_luma_curve,
+                adjustments.global.parametric_red_curve,
+                adjustments.global.parametric_green_curve,
+                adjustments.global.parametric_blue_curve,
+                adjustments.global.parametric_curve_enabled
             );
             final_rgb = mix(final_rgb, mask_curved_srgb, influence);
         }

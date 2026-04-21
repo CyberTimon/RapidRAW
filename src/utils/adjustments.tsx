@@ -140,6 +140,7 @@ export interface Adjustments {
   contrast: number;
   curves: Curves;
   parametricCurve?: ParametricCurve;
+  curveMode?: 'point' | 'parametric';
   crop: Crop | null;
   dehaze: number;
   exposure: number;
@@ -466,6 +467,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
       { x: 255, y: 255 },
     ],
   },
+  curveMode: 'point',
   dehaze: 0,
   exposure: 0,
   flipHorizontal: false,

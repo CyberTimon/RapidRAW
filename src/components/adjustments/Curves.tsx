@@ -73,7 +73,7 @@ function getInfluence(slider: string, splitPointValue: number): number {
   if (slider === 'shadows') {
     if (splitPointValue < 0 || splitPointValue > 0.30) return 0;
     const t = splitPointValue / 0.30;
-    const influence = Math.sin(t * Math.PI);n
+    const influence = Math.sin(t * Math.PI);
     return influence;
   } 
   else if (slider === 'darks') {
@@ -447,6 +447,13 @@ export default function CurveGraph({
       window.removeEventListener('mousemove', handleGlobalMouseMove);
     };
   }, []);
+
+  useEffect(() => {
+    setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      curveMode: curveMode,
+    }));
+  }, [curveMode, setAdjustments]);
 
   useEffect(() => {
     const handleMouseMove = (e: any) => {

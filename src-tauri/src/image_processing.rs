@@ -1132,6 +1132,18 @@ pub struct Point {
     _pad1: f32,
     _pad2: f32,
 }
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
+#[repr(C)]
+pub struct ParametricCurveSettings {
+    pub darks: f32,
+    pub shadows: f32,
+    pub highlights: f32,
+    pub lights: f32,
+    pub split1: f32,
+    pub split2: f32,
+    pub split3: f32,
+    _pad: f32,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
@@ -1266,6 +1278,15 @@ pub struct GlobalAdjustments {
     pub flare_amount: f32,
 
     _pad_creative_1: f32,
+
+    pub parametric_luma_curve: ParametricCurveSettings,
+    pub parametric_red_curve: ParametricCurveSettings,
+    pub parametric_green_curve: ParametricCurveSettings,
+    pub parametric_blue_curve: ParametricCurveSettings,
+    pub parametric_curve_enabled: u32,
+    _pad_param1: f32,
+    _pad_param2: f32,
+    _pad_param3: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -1473,6 +1494,22 @@ fn parse_color_grade_settings(js_cg: &serde_json::Value) -> ColorGradeSettings {
     }
 }
 
+fn parse_parametric_curve_settings(js_curve: &serde_json::Value) -> ParametricCurveSettings {
+    if js_curve.is_null() {
+        return ParametricCurveSettings::default();
+    }
+    ParametricCurveSettings {
+        darks: js_curve["darks"].as_f64().unwrap_or(0.0) as f32,
+        shadows: js_curve["shadows"].as_f64().unwrap_or(0.0) as f32,
+        highlights: js_curve["highlights"].as_f64().unwrap_or(0.0) as f32,
+        lights: js_curve["lights"].as_f64().unwrap_or(0.0) as f32,
+        split1: js_curve["split1"].as_f64().unwrap_or(25.0) as f32,
+        split2: js_curve["split2"].as_f64().unwrap_or(50.0) as f32,
+        split3: js_curve["split3"].as_f64().unwrap_or(75.0) as f32,
+        _pad: 0.0,
+    }
+}
+
 fn convert_points_to_aligned(frontend_points: Vec<serde_json::Value>) -> [Point; 16] {
     let mut aligned_points = [Point::default(); 16];
     for (i, point) in frontend_points.iter().enumerate().take(16) {
@@ -1627,6 +1664,28 @@ fn get_global_adjustments_from_json(
         curves_obj["blue"].as_array().cloned().unwrap_or_default()
     } else {
         Vec::new()
+    };
+
+    let parametric_curves_obj = js_adjustments.get("parametricCurve").cloned().unwrap_or_default();
+    let parametric_luma = if is_visible("curves") {
+        parse_parametric_curve_settings(&parametric_curves_obj["luma"])
+    } else {
+        ParametricCurveSettings::default()
+    };
+    let parametric_red = if is_visible("curves") {
+        parse_parametric_curve_settings(&parametric_curves_obj["red"])
+    } else {
+        ParametricCurveSettings::default()
+    };
+    let parametric_green = if is_visible("curves") {
+        parse_parametric_curve_settings(&parametric_curves_obj["green"])
+    } else {
+        ParametricCurveSettings::default()
+    };
+    let parametric_blue = if is_visible("curves") {
+        parse_parametric_curve_settings(&parametric_curves_obj["blue"])
+    } else {
+        ParametricCurveSettings::default()
     };
 
     let cg_obj = js_adjustments
@@ -1824,6 +1883,15 @@ fn get_global_adjustments_from_json(
         flare_amount: get_val("effects", "flareAmount", SCALES.flares, None),
 
         _pad_creative_1: 0.0,
+
+        parametric_luma_curve: parametric_luma,
+        parametric_red_curve: parametric_red,
+        parametric_green_curve: parametric_green,
+        parametric_blue_curve: parametric_blue,
+        parametric_curve_enabled: if is_visible("curves") && js_adjustments.get("curveMode").and_then(|m| m.as_str()).map(|m| m == "parametric").unwrap_or(false) { 1 } else { 0 },
+        _pad_param1: 0.0,
+        _pad_param2: 0.0,
+        _pad_param3: 0.0,
     }
 }
 
