@@ -449,11 +449,13 @@ export default function CurveGraph({
   }, []);
 
   useEffect(() => {
-    setAdjustments((prev: Adjustments) => ({
-      ...prev,
-      curveMode: curveMode,
-    }));
-  }, [curveMode, setAdjustments]);
+    if (adjustments.curveMode !== curveMode) {
+      setAdjustments((prev: Adjustments) => ({
+        ...prev,
+        curveMode: curveMode,
+      }));
+    }
+  }, [curveMode, adjustments.curveMode, setAdjustments]);
 
   useEffect(() => {
     const handleMove = (e: any) => {
@@ -772,14 +774,47 @@ export default function CurveGraph({
         });
       };
 
-      showContextMenu(e.clientX, e.clientY, [
+      const handleResetAllParametric = () => {
+        const defaultCurvePoints = [
+          { x: 0, y: 0 },
+          { x: 255, y: 255 },
+        ];
+
+        setAdjustments((prev: Adjustments) => {
+          return {
+            ...prev,
+            parametricCurve: {
+              [ActiveChannel.Luma]: getDefaultParametricCurve(),
+              [ActiveChannel.Red]: getDefaultParametricCurve(),
+              [ActiveChannel.Green]: getDefaultParametricCurve(),
+              [ActiveChannel.Blue]: getDefaultParametricCurve(),
+            },
+            curves: {
+              ...prev.curves,
+              [ActiveChannel.Luma]: defaultCurvePoints,
+              [ActiveChannel.Red]: defaultCurvePoints,
+              [ActiveChannel.Green]: defaultCurvePoints,
+              [ActiveChannel.Blue]: defaultCurvePoints,
+            },
+          };
+        });
+      };
+
+      const areOtherParametricChannelsDirty = [ActiveChannel.Luma, ActiveChannel.Red, ActiveChannel.Green, ActiveChannel.Blue].some(
+        (channel) => {
+          if (channel === activeParametricChannel) return false;
+          return !isDefaultParametricCurve(parametricCurves[channel]);
+        },
+      );
+
+      const parametricOptions = [
         {
-          label: `Copy ${activeParametricChannel.charAt(0).toUpperCase() + activeParametricChannel.slice(1)} Settings`,
+          label: 'Copy Parametric Curve',
           icon: Copy,
           onClick: handleCopyParametric,
         },
         {
-          label: 'Paste Settings',
+          label: 'Paste Parametric Curve',
           icon: ClipboardPaste,
           onClick: handlePasteParametric,
           disabled: !parametricClipboard,
@@ -790,7 +825,17 @@ export default function CurveGraph({
           icon: RotateCcw,
           onClick: handleResetParametric,
         },
-      ]);
+      ];
+
+      if (areOtherParametricChannelsDirty) {
+        parametricOptions.push({
+          label: 'Reset All Parametric Curves',
+          icon: RotateCcw,
+          onClick: handleResetAllParametric,
+        });
+      }
+
+      showContextMenu(e.clientX, e.clientY, parametricOptions);
       return;
     }
 
@@ -854,19 +899,19 @@ export default function CurveGraph({
 
     const options = [
       {
-        label: `Copy ${activeChannel.charAt(0).toUpperCase() + activeChannel.slice(1)} Curve`,
+        label: 'Copy Point Curve',
         icon: Copy,
         onClick: handleCopy,
       },
       {
-        label: 'Paste Curve',
+        label: 'Paste Point Curve',
         icon: ClipboardPaste,
         onClick: handlePaste,
         disabled: !curveClipboard,
       },
       { type: OPTION_SEPARATOR },
       {
-        label: `Reset ${activeChannel.charAt(0).toUpperCase() + activeChannel.slice(1)} Curve`,
+        label: `Reset ${activeChannel.charAt(0).toUpperCase() + activeChannel.slice(1)} Point Curve`,
         icon: RotateCcw,
         onClick: handleReset,
       },
@@ -874,7 +919,7 @@ export default function CurveGraph({
 
     if (areOtherChannelsDirty) {
       options.push({
-        label: 'Reset All Curves',
+        label: 'Reset All Point Curves',
         icon: RotateCcw,
         onClick: handleResetAll,
       });
@@ -1066,8 +1111,16 @@ export default function CurveGraph({
           </div>
         )}
       </div>
+
       {isParametricMode && !isForMask && (
-        <div className="mt-14 flex flex-col gap-2">
+        <div 
+          className="mt-14 flex flex-col gap-2"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleContextMenu(e);
+          }}
+        >
           <Text
             as="div"
             variant={TextVariants.small}
@@ -1076,42 +1129,50 @@ export default function CurveGraph({
           >
             Parametric Channel: {activeParametricChannel.charAt(0).toUpperCase() + activeParametricChannel.slice(1)}
           </Text>
-          <Slider
-            label="Highlights"
-            min={-100}
-            max={100}
-            step={1}
-            defaultValue={0}
-            value={parametricCurve.highlights}
-            onChange={(e: any) => updateParametricValue('highlights', parseFloat(e.target.value))}
-          />
-          <Slider
-            label="Lights"
-            min={-100}
-            max={100}
-            step={1}
-            defaultValue={0}
-            value={parametricCurve.lights}
-            onChange={(e: any) => updateParametricValue('lights', parseFloat(e.target.value))}
-          />
-          <Slider
-            label="Darks"
-            min={-100}
-            max={100}
-            step={1}
-            defaultValue={0}
-            value={parametricCurve.darks}
-            onChange={(e: any) => updateParametricValue('darks', parseFloat(e.target.value))}
-          />
-          <Slider
-            label="Shadows"
-            min={-100}
-            max={100}
-            step={1}
-            defaultValue={0}
-            value={parametricCurve.shadows}
-            onChange={(e: any) => updateParametricValue('shadows', parseFloat(e.target.value))}
-          />
+          <div onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); handleContextMenu(e); }}>
+            <Slider
+              label="Highlights"
+              min={-100}
+              max={100}
+              step={1}
+              defaultValue={0}
+              value={parametricCurve.highlights}
+              onChange={(e: any) => updateParametricValue('highlights', parseFloat(e.target.value))}
+            />
+          </div>
+          <div onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); handleContextMenu(e); }}>
+            <Slider
+              label="Lights"
+              min={-100}
+              max={100}
+              step={1}
+              defaultValue={0}
+              value={parametricCurve.lights}
+              onChange={(e: any) => updateParametricValue('lights', parseFloat(e.target.value))}
+            />
+          </div>
+          <div onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); handleContextMenu(e); }}>
+            <Slider
+              label="Darks"
+              min={-100}
+              max={100}
+              step={1}
+              defaultValue={0}
+              value={parametricCurve.darks}
+              onChange={(e: any) => updateParametricValue('darks', parseFloat(e.target.value))}
+            />
+          </div>
+          <div onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); handleContextMenu(e); }}>
+            <Slider
+              label="Shadows"
+              min={-100}
+              max={100}
+              step={1}
+              defaultValue={0}
+              value={parametricCurve.shadows}
+              onChange={(e: any) => updateParametricValue('shadows', parseFloat(e.target.value))}
+            />
+          </div>
         </div>
       )}
     </div>
