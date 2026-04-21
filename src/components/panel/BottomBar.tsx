@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Copy, ClipboardPaste, RotateCcw, ChevronUp, ChevronDown, Check, Save, Settings } from 'lucide-react';
+import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import Filmstrip from './Filmstrip';
@@ -359,19 +359,11 @@ export default function BottomBar({
           <div className="flex items-center gap-2">
             <button
               className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-              disabled={isResetDisabled}
-              onClick={onReset}
-              data-tooltip="Reset All Adjustments"
-            >
-              <RotateCcw size={18} />
-            </button>
-            <button
-              className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               disabled={isExportDisabled}
               onClick={onExportClick}
               data-tooltip="Export"
             >
-              <Save size={18} />
+              <FileInput size={18} />
             </button>
           </div>
         ) : (

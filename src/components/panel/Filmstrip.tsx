@@ -212,35 +212,43 @@ const FilmstripThumbnail = memo(
         )}
 
         {(colorLabel || rating > 0) && (
-          <div className="absolute top-1 right-1 bg-primary rounded-full px-1.5 py-0.5 text-xs text-white flex items-center gap-1 backdrop-blur-xs shadow-xs z-10">
-            {colorLabel && (
-              <div
-                className="w-3 h-3 rounded-full ring-1 ring-black/20"
-                style={{ backgroundColor: colorLabel.color }}
-                data-tooltip={`Color: ${colorLabel.name}`}
-              />
-            )}
-            {rating > 0 && (
-              <>
-                <span>{rating}</span>
-                <Star size={10} className="fill-white text-white" />
-              </>
-            )}
-          </div>
+          <>
+            <div className="absolute top-0 right-0 w-3/4 h-3/4 bg-linear-to-bl from-black/25 via-black/0 to-transparent pointer-events-none z-0" />
+
+            <div className="absolute top-1 right-1 bg-primary rounded-full px-1.5 py-0.5 text-xs text-white flex items-center gap-1 backdrop-blur-xs shadow-md z-10 pointer-events-none">
+              {colorLabel && (
+                <div
+                  className="w-3 h-3 rounded-full ring-1 ring-black/20 pointer-events-auto"
+                  style={{ backgroundColor: colorLabel.color }}
+                  data-tooltip={`Color: ${colorLabel.name}`}
+                />
+              )}
+              {rating > 0 && (
+                <>
+                  <span>{rating}</span>
+                  <Star size={12} className="fill-white text-white" />
+                </>
+              )}
+            </div>
+          </>
         )}
         {isVirtualCopy && (
-          <div className="absolute bottom-1 right-1 z-10">
-            <Text
-              as="div"
-              variant={TextVariants.small}
-              color={TextColors.white}
-              weight={TextWeights.bold}
-              className="bg-bg-primary/70 text-[10px] px-1 py-0.5 rounded-full backdrop-blur-xs"
-              data-tooltip="Virtual Copy"
-            >
-              VC
-            </Text>
-          </div>
+          <>
+            <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-linear-to-tl from-black/30 via-black/0 to-transparent pointer-events-none z-0" />
+
+            <div className="absolute bottom-1 right-1 z-10">
+              <Text
+                as="div"
+                variant={TextVariants.small}
+                color={TextColors.white}
+                weight={TextWeights.bold}
+                className="shadow-md text-[10px] px-1 py-0.5 rounded-full backdrop-blur-xs"
+                data-tooltip="Virtual Copy"
+              >
+                VC
+              </Text>
+            </div>
+          </>
         )}
       </motion.div>
     );

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { Save, CheckCircle, XCircle, Loader, X, Ban } from 'lucide-react';
+import { FileInput, CheckCircle, XCircle, Loader, X, Ban } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import Switch from '../../ui/Switch';
 import Button from '../../ui/Button';
@@ -35,6 +35,7 @@ interface LibraryExportPanelProps {
   imageList: ImageFile[];
   appSettings: AppSettings | null;
   onSettingsChange: (settings: AppSettings) => void;
+  rootPath: string | null;
 }
 
 interface SectionProps {
@@ -176,6 +177,7 @@ export default function LibraryExportPanel({
   imageList: _imageList,
   appSettings,
   onSettingsChange,
+  rootPath,
 }: LibraryExportPanelProps) {
   const {
     fileFormat,
@@ -192,6 +194,8 @@ export default function LibraryExportPanel({
     setDontEnlarge,
     keepMetadata,
     setKeepMetadata,
+    preserveTimestamps,
+    setPreserveTimestamps,
     stripGps,
     setStripGps,
     exportMasks,
@@ -212,6 +216,8 @@ export default function LibraryExportPanel({
     setWatermarkOpacity,
     handleApplyPreset,
     currentSettingsObject,
+    preserveFolders,
+    setPreserveFolders,
   } = useExportSettings();
 
   const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
@@ -356,6 +362,7 @@ export default function LibraryExportPanel({
       filenameTemplate,
       jpegQuality,
       keepMetadata,
+      preserveTimestamps,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       stripGps,
       watermark:
@@ -384,6 +391,7 @@ export default function LibraryExportPanel({
     resizeValue,
     dontEnlarge,
     keepMetadata,
+    preserveTimestamps,
     stripGps,
     filenameTemplate,
     enableWatermark,
@@ -435,6 +443,7 @@ export default function LibraryExportPanel({
       filenameTemplate: finalFilenameTemplate,
       jpegQuality: jpegQuality,
       keepMetadata,
+      preserveTimestamps,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       stripGps,
       exportMasks,
@@ -448,6 +457,7 @@ export default function LibraryExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
+      preserveFolders,
     };
 
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
@@ -471,6 +481,7 @@ export default function LibraryExportPanel({
           outputFolder: outputFolder as string,
           outputFormat: FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0],
           paths: multiSelectedPaths,
+          baseOriginFolder: rootPath,
         });
       }
     } catch (error) {
@@ -542,6 +553,7 @@ export default function LibraryExportPanel({
                     onChange={(e) => setJpegQuality(parseInt(e.target.value))}
                     step={1}
                     value={jpegQuality}
+                    fillOrigin="min"
                   />
                 </div>
               )}
@@ -567,6 +579,14 @@ export default function LibraryExportPanel({
                     {variable}
                   </button>
                 ))}
+              </div>
+              <div className="mt-4">
+                <Switch
+                  label="Preserve Folder Structure"
+                  checked={preserveFolders}
+                  onChange={setPreserveFolders}
+                  disabled={isExporting}
+                />
               </div>
             </Section>
 
@@ -633,6 +653,15 @@ export default function LibraryExportPanel({
                     </Section>
                   </>
                 )}
+
+                <Section title="File Timestamps">
+                  <Switch
+                    checked={preserveTimestamps}
+                    disabled={isExporting}
+                    label="Set File Timestamps from EXIF Capture Date"
+                    onChange={setPreserveTimestamps}
+                  />
+                </Section>
 
                 <Section title="Masks">
                   <Switch
@@ -780,7 +809,7 @@ export default function LibraryExportPanel({
             </>
           ) : (
             <>
-              <Save size={18} className="mr-2" /> Export {numImages > 1 ? `${numImages} ${itemLabel}s` : itemLabel}
+              <FileInput size={18} className="mr-2" /> Export {numImages > 1 ? `${numImages} ${itemLabel}s` : itemLabel}
             </>
           )}
         </Button>

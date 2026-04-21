@@ -80,18 +80,18 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
 
       if (isRightSide) {
         path = `
-          M ${parentRect.right} ${parentRect.top} 
-          L ${left} ${top} 
-          L ${left} ${top + subMenuHeight} 
-          L ${parentRect.right} ${parentRect.bottom} 
+          M ${parentRect.right} ${parentRect.top}
+          L ${left} ${top}
+          L ${left} ${top + subMenuHeight}
+          L ${parentRect.right} ${parentRect.bottom}
           Z
         `;
       } else {
         path = `
-          M ${parentRect.left} ${parentRect.top} 
-          L ${left + subMenuWidth} ${top} 
-          L ${left + subMenuWidth} ${top + subMenuHeight} 
-          L ${parentRect.left} ${parentRect.bottom} 
+          M ${parentRect.left} ${parentRect.top}
+          L ${left + subMenuWidth} ${top}
+          L ${left + subMenuWidth} ${top + subMenuHeight}
+          L ${parentRect.left} ${parentRect.bottom}
           Z
         `;
       }
@@ -132,7 +132,7 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
         transition={{ duration: 0.1, ease: 'easeOut' }}
       >
         <div
-          className={clsx('backdrop-blur-md rounded-lg shadow-xl', !CustomComponent && 'bg-surface/90 p-2 w-56')}
+          className={clsx('backdrop-blur-md rounded-lg shadow-xl', !CustomComponent && 'bg-surface/95 p-2 w-56')}
           role="menu"
         >
           {CustomComponent && customOption ? (
@@ -266,14 +266,9 @@ function ContextMenu() {
           style={{ top: y, left: x }}
           transition={{ duration: 0.1, ease: 'easeOut' }}
         >
-          <div className="bg-surface/90 backdrop-blur-md rounded-lg shadow-xl p-2 w-64" role="menu">
+          <div className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 w-64" role="menu">
             {options.map((option: any, index: number) => (
-              <MenuItem
-                hideContextMenu={hideContextMenu}
-                key={index}
-                option={option}
-                path={[index]}
-              />
+              <MenuItem hideContextMenu={hideContextMenu} key={index} option={option} path={[index]} />
             ))}
           </div>
         </motion.div>

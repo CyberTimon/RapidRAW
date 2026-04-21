@@ -1,7 +1,7 @@
 use crate::ai_processing::{
     AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters, AiSubjectMaskParameters,
 };
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, GenericImageView, GrayImage, Luma};
 use imageproc::distance_transform::Norm as DilationNorm;
 use imageproc::morphology::{dilate, erode};
@@ -9,14 +9,17 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::f32::consts::PI;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(crate = "serde")]
 #[serde(rename_all = "camelCase")]
 pub enum SubMaskMode {
     Additive,
     Subtractive,
+    Intersect,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(crate = "serde")]
 #[serde(rename_all = "camelCase")]
 pub struct SubMask {
     pub id: String,
@@ -35,7 +38,8 @@ fn default_opacity() -> f32 {
     100.0
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(crate = "serde")]
 #[serde(rename_all = "camelCase")]
 pub struct MaskDefinition {
     pub id: String,
@@ -56,14 +60,16 @@ impl MaskDefinition {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(crate = "serde")]
 #[serde(rename_all = "camelCase")]
 pub struct PatchData {
     pub color: String,
     pub mask: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(crate = "serde")]
 #[serde(rename_all = "camelCase")]
 pub struct AiPatchDefinition {
     pub id: String,
@@ -1213,6 +1219,12 @@ pub fn generate_mask_bitmap(
                     for (x, y, pixel) in final_mask.enumerate_pixels_mut() {
                         let sub_pixel = sub_bitmap.get_pixel(x, y);
                         pixel[0] = pixel[0].saturating_sub(sub_pixel[0]);
+                    }
+                }
+                SubMaskMode::Intersect => {
+                    for (x, y, pixel) in final_mask.enumerate_pixels_mut() {
+                        let sub_pixel = sub_bitmap.get_pixel(x, y);
+                        pixel[0] = pixel[0].min(sub_pixel[0]);
                     }
                 }
             }

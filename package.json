@@ -35,7 +35,6 @@
     "react-konva": "^19.2.3",
     "react-toastify": "^11.0.5",
     "react-window": "^2.2.7",
-    "react-zoom-pan-pinch": "^3.7.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

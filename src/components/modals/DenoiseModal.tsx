@@ -6,11 +6,13 @@ import Dropdown from '../ui/Dropdown';
 import Slider from '../ui/Slider';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import { listen } from '@tauri-apps/api/event';
 
 interface DenoiseModalProps {
   isOpen: boolean;
   onClose(): void;
   onDenoise(intensity: number, method: 'ai' | 'bm3d'): void;
+  onBatchDenoise(intensity: number, method: 'ai' | 'bm3d', paths: string[]): Promise<string[]>;
   onSave(): Promise<string>;
   onOpenFile(path: string): void;
   error: string | null;
@@ -21,6 +23,7 @@ interface DenoiseModalProps {
   aiModelDownloadStatus: string | null;
   isRaw: boolean;
   loadingImageUrl?: string | null;
+  targetPaths: string[];
 }
 
 const methodOptions: Array<{ label: string; value: 'ai' | 'bm3d' }> = [
@@ -211,6 +214,7 @@ export default function DenoiseModal({
   isOpen,
   onClose,
   onDenoise,
+  onBatchDenoise,
   onSave,
   onOpenFile,
   error,
@@ -221,6 +225,7 @@ export default function DenoiseModal({
   aiModelDownloadStatus,
   isRaw,
   loadingImageUrl,
+  targetPaths,
 }: DenoiseModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
@@ -228,12 +233,25 @@ export default function DenoiseModal({
   const [method, setMethod] = useState<'ai' | 'bm3d'>('ai');
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
-
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; path: string } | null>(null);
+  const isBatch = targetPaths.length > 1;
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
-  const currentStatusText = aiModelDownloadStatus?.includes('NIND')
-    ? `Downloading ${aiModelDownloadStatus}...`
-    : progressMessage || 'Initializing...';
+  useEffect(() => {
+    const unlisten = listen('denoise-batch-progress', (e: any) => {
+      setBatchProgress(e.payload);
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
+
+  const currentStatusText =
+    isBatch && batchProgress
+      ? `Denoising ${batchProgress.current} of ${batchProgress.total}...`
+      : aiModelDownloadStatus?.includes('NIND')
+        ? `Downloading ${aiModelDownloadStatus}...`
+        : progressMessage || 'Initializing...';
 
   useEffect(() => {
     if (isOpen) {
@@ -248,6 +266,7 @@ export default function DenoiseModal({
         setIsMounted(false);
         setSavedPath(null);
         setIsSaving(false);
+        setBatchProgress(null);
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -269,9 +288,22 @@ export default function DenoiseModal({
     mouseDownTarget.current = null;
   };
 
-  const handleRunDenoise = () => {
+  const handleRunDenoise = async () => {
     setSavedPath(null);
-    onDenoise(intensity / 100, method);
+    if (isBatch) {
+      setIsSaving(true);
+      try {
+        await onBatchDenoise(intensity / 100, method, targetPaths);
+        onClose();
+      } catch (e) {
+        console.error('Batch denoise failed:', e);
+      } finally {
+        setIsSaving(false);
+        setBatchProgress(null);
+      }
+    } else {
+      onDenoise(intensity / 100, method);
+    }
   };
 
   const handleSave = async () => {
@@ -310,7 +342,7 @@ export default function DenoiseModal({
       );
     }
 
-    if (previewBase64 && originalBase64 && !isProcessing) {
+    if (previewBase64 && originalBase64 && !isProcessing && !isBatch) {
       return (
         <div className="w-full h-[500px]">
           <ImageCompare original={originalBase64} denoised={previewBase64} />
@@ -331,7 +363,7 @@ export default function DenoiseModal({
       );
     }
 
-    if (isProcessing) {
+    if (isProcessing || (isBatch && isSaving)) {
       return (
         <div className="flex h-[460px] overflow-hidden rounded-lg border border-surface">
           <div className="w-2/5 relative overflow-hidden shrink-0 bg-[#0a0a0a] flex items-center justify-center">
@@ -389,9 +421,9 @@ export default function DenoiseModal({
           <Grip className="w-12 h-12 text-accent" />
         </div>
         <Text variant={TextVariants.title} className="mb-3 text-center">
-          Denoise Image
+          {isBatch ? 'Denoise Images' : 'Denoise Image'}
         </Text>
-        <Text className="text-center max-w-md leading-relaxed text-text-secondary">
+        <Text className="text-center max-w-md leading-relaxed">
           Remove noise from your image using AI-powered or traditional denoising.
         </Text>
       </div>
@@ -449,6 +481,7 @@ export default function DenoiseModal({
               defaultValue={method === 'ai' ? 50 : 15}
               onChange={(e) => setIntensity(Number(e.target.value))}
               trackClassName="bg-bg-secondary"
+              fillOrigin="min"
             />
           </div>
         </div>
@@ -463,18 +496,22 @@ export default function DenoiseModal({
             {previewBase64 ? 'Close' : 'Cancel'}
           </button>
 
-          <Button onClick={handleRunDenoise} disabled={isProcessing} variant={previewBase64 ? 'secondary' : 'primary'}>
-            {isProcessing ? (
+          <Button
+            onClick={handleRunDenoise}
+            disabled={isProcessing || isSaving}
+            variant={previewBase64 && !isBatch ? 'secondary' : 'primary'}
+          >
+            {isProcessing || (isBatch && isSaving) ? (
               <Loader2 className="animate-spin mr-2" size={16} />
-            ) : previewBase64 ? (
+            ) : previewBase64 && !isBatch ? (
               <RefreshCw className="mr-2" size={16} />
             ) : (
               <Grip className="mr-2" size={16} />
             )}
-            {previewBase64 ? 'Retry' : 'Start'}
+            {isBatch ? 'Batch Denoise & Save' : previewBase64 ? 'Retry' : 'Start'}
           </Button>
 
-          {previewBase64 && (
+          {previewBase64 && !isBatch && (
             <Button onClick={handleSave} disabled={isSaving || isProcessing}>
               {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
               Save

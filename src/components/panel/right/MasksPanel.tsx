@@ -31,7 +31,8 @@ import {
   PlusSquare,
   RotateCcw,
   Trash2,
-  Bookmark,
+  SwatchBook,
+  SquaresIntersect,
 } from 'lucide-react';
 
 import CollapsibleSection from '../../ui/CollapsibleSection';
@@ -172,6 +173,7 @@ const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsC
       onChange={(e: any) => onSettingsChange((s: any) => ({ ...s, size: Number(e.target.value) }))}
       step={1}
       value={settings.size}
+      fillOrigin="min"
     />
     <Slider
       defaultValue={50}
@@ -181,6 +183,7 @@ const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsC
       onChange={(e: any) => onSettingsChange((s: any) => ({ ...s, feather: Number(e.target.value) }))}
       step={1}
       value={settings.feather}
+      fillOrigin="min"
     />
     <div className="grid grid-cols-2 gap-2 pt-2">
       <button
@@ -219,6 +222,7 @@ const FlowBrushTool = ({
       onChange={(e: ChangeEvent<HTMLInputElement>) => onFlowChange(Number(e.target.value))}
       step={1}
       value={flow}
+      fillOrigin="min"
     />
     <BrushTools settings={settings} onSettingsChange={onSettingsChange} />
   </div>
@@ -700,8 +704,8 @@ export default function MasksPanel({
     setAdjustments((prev: any) => ({ ...prev, masks: [] }));
   };
 
-  const createMaskLogic = (type: Mask) => {
-    const subMask = createSubMask(type, selectedImage);
+  const createMaskLogic = (type: Mask, mode: SubMaskMode = SubMaskMode.Additive) => {
+    const subMask = createSubMask(type, selectedImage, mode);
 
     const steps = adjustments?.orientationSteps || 0;
     const isRotated = steps === 1 || steps === 3;
@@ -760,8 +764,13 @@ export default function MasksPanel({
     else if (type === Mask.AiDepth) onGenerateAiDepthMask(subMask.id, subMask.parameters);
   };
 
-  const handleAddSubMask = (containerId: string, type: Mask, insertIndex: number = -1) => {
-    const subMask = createMaskLogic(type);
+  const handleAddSubMask = (
+    containerId: string,
+    type: Mask,
+    mode: SubMaskMode = SubMaskMode.Additive,
+    insertIndex: number = -1,
+  ) => {
+    const subMask = createMaskLogic(type, mode);
     setAdjustments((prev: Adjustments) => ({
       ...prev,
       masks: prev.masks?.map((c: MaskContainer) => {
@@ -815,41 +824,63 @@ export default function MasksPanel({
     event.stopPropagation();
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
 
-    const buildMenu = (types: MaskType[]) =>
+    const buildMenu = (types: MaskType[], mode: SubMaskMode = SubMaskMode.Additive) =>
       types.map((maskType: MaskType) => ({
         label: maskType.name,
         icon: maskType.icon,
         disabled: maskType.disabled,
         onClick: () => {
           if (targetContainerId) {
-            handleAddSubMask(targetContainerId, maskType.type);
+            handleAddSubMask(targetContainerId, maskType.type, mode);
           } else {
             handleAddMaskContainer(maskType.type);
           }
         },
       }));
 
-    const options = MASK_PANEL_CREATION_TYPES.map((maskType: MaskType) => {
-      if (maskType.id === 'others') {
+    const container = targetContainerId ? adjustments.masks.find((m) => m.id === targetContainerId) : null;
+    const hasComponents = container && container.subMasks.length > 0;
+
+    const buildModeSubmenu = (label: string, icon: any, mode: SubMaskMode) => ({
+      label,
+      icon,
+      submenu: MASK_PANEL_CREATION_TYPES.map((maskType) => {
+        if (maskType.id === 'others') {
+          return {
+            label: maskType.name,
+            icon: maskType.icon,
+            submenu: buildMenu(OTHERS_MASK_TYPES, mode),
+          };
+        }
         return {
           label: maskType.name,
           icon: maskType.icon,
-          submenu: buildMenu(OTHERS_MASK_TYPES),
+          disabled: maskType.disabled,
+          onClick: () => handleAddSubMask(targetContainerId!, maskType.type, mode),
         };
-      }
-      return {
-        label: maskType.name,
-        icon: maskType.icon,
-        disabled: maskType.disabled,
-        onClick: () => {
-          if (targetContainerId) {
-            handleAddSubMask(targetContainerId, maskType.type);
-          } else {
-            handleAddMaskContainer(maskType.type);
-          }
-        },
-      };
+      }),
     });
+
+    const options: any[] = buildMenu(
+      MASK_PANEL_CREATION_TYPES.filter((m) => m.id !== 'others'),
+      SubMaskMode.Additive,
+    );
+    const others = MASK_PANEL_CREATION_TYPES.find((m) => m.id === 'others');
+    if (others) {
+      options.push({
+        label: others.name,
+        icon: others.icon,
+        submenu: buildMenu(OTHERS_MASK_TYPES, SubMaskMode.Additive),
+      });
+    }
+
+    if (targetContainerId && hasComponents) {
+      options.push(
+        { type: OPTION_SEPARATOR },
+        buildModeSubmenu('Subtract from Mask', Minus, SubMaskMode.Subtractive),
+        buildModeSubmenu('Intersect Mask with', SquaresIntersect, SubMaskMode.Intersect),
+      );
+    }
 
     showContextMenu(rect.left, rect.bottom + 5, options);
   };
@@ -964,7 +995,8 @@ export default function MasksPanel({
 
   const handleDuplicateAndInvertContainer = (container: MaskContainer) => {
     const containerIndex = adjustments.masks.findIndex((mask) => mask.id === container.id);
-    const duplicatedContainer = cloneMaskContainerData(container, { invert: true, rename: true });
+    const duplicatedContainer = cloneMaskContainerData(container, { invert: true, rename: false });
+    duplicatedContainer.name = `${container.name} Inverted`;
 
     insertMaskContainer(duplicatedContainer, containerIndex >= 0 ? containerIndex + 1 : undefined);
   };
@@ -988,10 +1020,19 @@ export default function MasksPanel({
     insertSubMaskIntoContainer(containerId, duplicatedSubMask, insertIndex);
   };
 
-  const handleDuplicateAndInvertSubMask = (containerId: string, subMask: SubMask, insertIndex?: number) => {
-    const duplicatedSubMask = cloneSubMaskData(subMask, { invert: true, rename: true });
+  const handleDuplicateAndInvertSubMask = (containerId: string, subMask: SubMask) => {
+    const parentContainer = adjustments.masks.find((m) => m.id === containerId);
+    if (!parentContainer) return;
 
-    insertSubMaskIntoContainer(containerId, duplicatedSubMask, insertIndex);
+    const duplicatedSubMask = cloneSubMaskData(subMask, { invert: true, rename: false });
+    const newContainer = cloneMaskContainerData(parentContainer, { rename: false });
+
+    newContainer.name = `${getSubMaskName(subMask)} Inverted`;
+    newContainer.subMasks = [duplicatedSubMask];
+    newContainer.invert = false;
+
+    const parentIndex = adjustments.masks.findIndex((m) => m.id === containerId);
+    insertMaskContainer(newContainer, parentIndex >= 0 ? parentIndex + 1 : undefined);
   };
 
   const handlePasteSubMask = (containerId: string, insertIndex?: number) => {
@@ -1472,11 +1513,10 @@ function DraggableGridItem({ maskType, onClick, onRightClick, isDraggable, activ
         : `Create New ${maskType.name} Mask`;
 
   return (
-    <button
+    <motion.div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      disabled={maskType.disabled}
       onClick={onClick}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -1489,12 +1529,14 @@ function DraggableGridItem({ maskType, onClick, onRightClick, isDraggable, activ
       className={`bg-surface text-text-primary rounded-lg p-2 flex flex-col items-center justify-center gap-2 aspect-square transition-colors
                 ${maskType.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-card-active active:bg-accent/20'} ${isDragging ? 'opacity-50' : ''}`}
       data-tooltip={tooltip}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
     >
       <maskType.icon size={24} />{' '}
       <Text as="span" variant={TextVariants.small} color={TextColors.primary}>
         {maskType.name}
       </Text>
-    </button>
+    </motion.div>
   );
 }
 
@@ -1611,7 +1653,7 @@ function ContainerRow({
       },
       {
         label: 'Apply Preset',
-        icon: Bookmark,
+        icon: SwatchBook,
         submenu: generatePresetSubmenu(presets).length
           ? generatePresetSubmenu(presets)
           : [{ label: 'No presets', disabled: true }],
@@ -1747,7 +1789,7 @@ function ContainerRow({
                   updateSubMask={updateSubMask}
                   handleDelete={() => handleDeleteSubMask(container.id, subMask.id)}
                   handleDuplicate={() => handleDuplicateSubMask(container.id, subMask, index + 1)}
-                  handleDuplicateAndInvert={() => handleDuplicateAndInvertSubMask(container.id, subMask, index + 1)}
+                  handleDuplicateAndInvert={() => handleDuplicateAndInvertSubMask(container.id, subMask)}
                   handlePaste={() => handlePasteSubMask(container.id, index + 1)}
                   handleCopy={() => copySubMaskToClipboard(subMask)}
                   hasCopiedSubMask={!!copiedSubMask}
@@ -1972,18 +2014,37 @@ function SubMaskRow({
         </Text>
       )}
       <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          className="p-1 hover:text-text-primary text-text-secondary"
-          data-tooltip={subMask.mode === SubMaskMode.Additive ? 'Switch to Subtract' : 'Switch to Add'}
-          onClick={(e) => {
-            e.stopPropagation();
-            updateSubMask(subMask.id, {
-              mode: subMask.mode === SubMaskMode.Additive ? SubMaskMode.Subtractive : SubMaskMode.Additive,
-            });
-          }}
-        >
-          {subMask.mode === SubMaskMode.Additive ? <Plus size={16} /> : <Minus size={16} />}
-        </button>
+        {index > 1 && (
+          <button
+            className="p-1 hover:text-text-primary text-text-secondary"
+            data-tooltip={
+              subMask.mode === SubMaskMode.Additive
+                ? 'Switch to Subtract'
+                : subMask.mode === SubMaskMode.Subtractive
+                  ? 'Switch to Intersect'
+                  : 'Switch to Add'
+            }
+            onClick={(e) => {
+              e.stopPropagation();
+              updateSubMask(subMask.id, {
+                mode:
+                  subMask.mode === SubMaskMode.Additive
+                    ? SubMaskMode.Subtractive
+                    : subMask.mode === SubMaskMode.Subtractive
+                      ? SubMaskMode.Intersect
+                      : SubMaskMode.Additive,
+              });
+            }}
+          >
+            {subMask.mode === SubMaskMode.Additive ? (
+              <Plus size={16} />
+            ) : subMask.mode === SubMaskMode.Subtractive ? (
+              <Minus size={16} />
+            ) : (
+              <SquaresIntersect size={16} />
+            )}
+          </button>
+        )}
         <button
           className="p-1 hover:text-text-primary text-text-secondary"
           data-tooltip={subMask.visible ? 'Hide Component' : 'Show Component'}
@@ -2257,6 +2318,7 @@ function SettingsPanel({
                 : handleMaskPropertyChange('opacity', Number(e.target.value))
             }
             step={1}
+            fillOrigin="min"
           />
 
           {isComponentMode && (
@@ -2299,11 +2361,13 @@ function SettingsPanel({
                   onChange={(e: any) =>
                     handleSubMaskParametersChange({ [param.key]: parseFloat(e.target.value) / (param.multiplier || 1) })
                   }
+                  {...(param.key !== 'grow' && { fillOrigin: 'min' })}
                 />
               ))}
 
-              {subMaskConfig.showBrushTools && brushSettings && (
-                activeSubMask.type === Mask.Flow ? (
+              {subMaskConfig.showBrushTools &&
+                brushSettings &&
+                (activeSubMask.type === Mask.Flow ? (
                   <FlowBrushTool
                     flow={activeSubMask.parameters?.flow ?? 10}
                     onFlowChange={(flow: number) => handleSubMaskParametersChange({ flow })}
@@ -2312,8 +2376,7 @@ function SettingsPanel({
                   />
                 ) : (
                   <BrushTools settings={brushSettings} onSettingsChange={setBrushSettings} />
-                )
-              )}
+                ))}
             </>
           )}
         </div>

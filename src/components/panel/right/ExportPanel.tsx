@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { Save, CheckCircle, XCircle, Loader, Ban } from 'lucide-react';
+import { FileInput, CheckCircle, XCircle, Loader, Ban } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import Switch from '../../ui/Switch';
 import Button from '../../ui/Button';
@@ -35,6 +35,7 @@ interface ExportPanelProps {
   setExportState(state: any): void;
   appSettings: AppSettings | null;
   onSettingsChange: (settings: AppSettings) => void;
+  rootPath: string | null;
 }
 
 interface SectionProps {
@@ -175,6 +176,7 @@ export default function ExportPanel({
   setExportState,
   appSettings,
   onSettingsChange,
+  rootPath,
 }: ExportPanelProps) {
   const {
     fileFormat,
@@ -191,6 +193,8 @@ export default function ExportPanel({
     setDontEnlarge,
     keepMetadata,
     setKeepMetadata,
+    preserveTimestamps,
+    setPreserveTimestamps,
     stripGps,
     setStripGps,
     exportMasks,
@@ -209,6 +213,8 @@ export default function ExportPanel({
     setWatermarkSpacing,
     watermarkOpacity,
     setWatermarkOpacity,
+    preserveFolders,
+    setPreserveFolders,
     handleApplyPreset,
     currentSettingsObject,
   } = useExportSettings();
@@ -334,6 +340,7 @@ export default function ExportPanel({
       filenameTemplate,
       jpegQuality,
       keepMetadata,
+      preserveTimestamps,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       stripGps,
       watermark:
@@ -361,6 +368,7 @@ export default function ExportPanel({
     resizeValue,
     dontEnlarge,
     keepMetadata,
+    preserveTimestamps,
     stripGps,
     filenameTemplate,
     enableWatermark,
@@ -408,6 +416,7 @@ export default function ExportPanel({
       filenameTemplate: finalFilenameTemplate,
       jpegQuality: jpegQuality,
       keepMetadata,
+      preserveTimestamps,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       stripGps,
       exportMasks: isEditorContext ? exportMasks : undefined,
@@ -421,6 +430,7 @@ export default function ExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
+      preserveFolders,
     };
 
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
@@ -445,6 +455,7 @@ export default function ExportPanel({
             outputFolder: outputFolder as string,
             outputFormat: FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0],
             paths: pathsToExport,
+            baseOriginFolder: rootPath,
           });
         }
       } else {
@@ -545,35 +556,47 @@ export default function ExportPanel({
                     onChange={(e) => setJpegQuality(parseInt(e.target.value))}
                     step={1}
                     value={jpegQuality}
+                    fillOrigin="min"
                   />
                 </div>
               )}
             </Section>
 
-            {isBatchMode && (
-              <Section title="File Naming">
-                <input
-                  className="w-full bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
+            <Section title="File Naming">
+              {isBatchMode && (
+                <>
+                  <input
+                    className="w-full bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
+                    disabled={isExporting}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilenameTemplate(e.target.value)}
+                    ref={filenameInputRef}
+                    type="text"
+                    value={filenameTemplate}
+                  />
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {FILENAME_VARIABLES.map((variable: string) => (
+                      <button
+                        className="px-2 py-1 bg-surface text-text-secondary text-xs rounded-md hover:bg-card-active transition-colors disabled:opacity-50"
+                        disabled={isExporting}
+                        key={variable}
+                        onClick={() => handleVariableClick(variable)}
+                      >
+                        {variable}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div className={isBatchMode ? 'mt-4' : ''}>
+                <Switch
+                  label="Preserve Folder Structure"
+                  checked={preserveFolders}
+                  onChange={setPreserveFolders}
                   disabled={isExporting}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilenameTemplate(e.target.value)}
-                  ref={filenameInputRef}
-                  type="text"
-                  value={filenameTemplate}
                 />
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {FILENAME_VARIABLES.map((variable: string) => (
-                    <button
-                      className="px-2 py-1 bg-surface text-text-secondary text-xs rounded-md hover:bg-card-active transition-colors disabled:opacity-50"
-                      disabled={isExporting}
-                      key={variable}
-                      onClick={() => handleVariableClick(variable)}
-                    >
-                      {variable}
-                    </button>
-                  ))}
-                </div>
-              </Section>
-            )}
+              </div>
+            </Section>
 
             {fileFormat !== FileFormats.Cube && (
               <>
@@ -638,6 +661,15 @@ export default function ExportPanel({
                     </Section>
                   </>
                 )}
+
+                <Section title="File Timestamps">
+                  <Switch
+                    checked={preserveTimestamps}
+                    disabled={isExporting}
+                    label="Set File Timestamps from EXIF Capture Date"
+                    onChange={setPreserveTimestamps}
+                  />
+                </Section>
 
                 {isEditorContext && (
                   <Section title="Masks">
@@ -784,7 +816,7 @@ export default function ExportPanel({
             </>
           ) : (
             <>
-              <Save size={18} className="mr-2" /> Export {numImages > 1 ? `${numImages} ${itemLabel}s` : itemLabel}
+              <FileInput size={18} className="mr-2" /> Export {numImages > 1 ? `${numImages} ${itemLabel}s` : itemLabel}
             </>
           )}
         </Button>

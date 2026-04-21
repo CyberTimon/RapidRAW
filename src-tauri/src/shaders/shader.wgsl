@@ -188,7 +188,7 @@ struct MaskAdjustments {
 
 struct AllAdjustments {
     global: GlobalAdjustments,
-    mask_adjustments: array<MaskAdjustments, 8>,
+    mask_adjustments: array<MaskAdjustments, 32>,
     mask_count: u32,
     tile_offset_x: u32,
     tile_offset_y: u32,
@@ -215,25 +215,18 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 @group(0) @binding(1) var output_texture: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(2) var<uniform> adjustments: AllAdjustments;
 
-@group(0) @binding(3) var mask0: texture_2d<f32>;
-@group(0) @binding(4) var mask1: texture_2d<f32>;
-@group(0) @binding(5) var mask2: texture_2d<f32>;
-@group(0) @binding(6) var mask3: texture_2d<f32>;
-@group(0) @binding(7) var mask4: texture_2d<f32>;
-@group(0) @binding(8) var mask5: texture_2d<f32>;
-@group(0) @binding(9) var mask6: texture_2d<f32>;
-@group(0) @binding(10) var mask7: texture_2d<f32>;
+@group(0) @binding(3) var mask_textures: texture_2d_array<f32>;
 
-@group(0) @binding(11) var lut_texture: texture_3d<f32>;
-@group(0) @binding(12) var lut_sampler: sampler;
+@group(0) @binding(4) var lut_texture: texture_3d<f32>;
+@group(0) @binding(5) var lut_sampler: sampler;
 
-@group(0) @binding(13) var sharpness_blur_texture: texture_2d<f32>;
-@group(0) @binding(14) var tonal_blur_texture: texture_2d<f32>;
-@group(0) @binding(15) var clarity_blur_texture: texture_2d<f32>;
-@group(0) @binding(16) var structure_blur_texture: texture_2d<f32>;
+@group(0) @binding(6) var sharpness_blur_texture: texture_2d<f32>;
+@group(0) @binding(7) var tonal_blur_texture: texture_2d<f32>;
+@group(0) @binding(8) var clarity_blur_texture: texture_2d<f32>;
+@group(0) @binding(9) var structure_blur_texture: texture_2d<f32>;
 
-@group(0) @binding(17) var flare_texture: texture_2d<f32>;
-@group(0) @binding(18) var flare_sampler: sampler;
+@group(0) @binding(10) var flare_texture: texture_2d<f32>;
+@group(0) @binding(11) var flare_sampler: sampler;
 
 const LUMA_COEFF = vec3<f32>(0.2126, 0.7152, 0.0722);
 
@@ -1292,17 +1285,7 @@ fn apply_all_mask_adjustments(
 }
 
 fn get_mask_influence(mask_index: u32, coords: vec2<u32>) -> f32 {
-    switch (mask_index) {
-        case 0u: { return textureLoad(mask0, coords, 0).r; }
-        case 1u: { return textureLoad(mask1, coords, 0).r; }
-        case 2u: { return textureLoad(mask2, coords, 0).r; }
-        case 3u: { return textureLoad(mask3, coords, 0).r; }
-        case 4u: { return textureLoad(mask4, coords, 0).r; }
-        case 5u: { return textureLoad(mask5, coords, 0).r; }
-        case 6u: { return textureLoad(mask6, coords, 0).r; }
-        case 7u: { return textureLoad(mask7, coords, 0).r; }
-        default: { return 0.0; }
-    }
+    return textureLoad(mask_textures, vec2<i32>(coords), i32(mask_index), 0).r;
 }
 
 fn sample_lut_tetrahedral(uv: vec3<f32>) -> vec3<f32> {

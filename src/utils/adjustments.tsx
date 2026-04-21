@@ -622,49 +622,93 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
   };
 };
 
-export const COPYABLE_ADJUSTMENT_KEYS: Array<string> = [
-  BasicAdjustment.Blacks,
-  BasicAdjustment.Brightness,
-  DetailsAdjustment.Clarity,
-  DetailsAdjustment.Centré,
-  DetailsAdjustment.ChromaticAberrationBlueYellow,
-  DetailsAdjustment.ChromaticAberrationRedCyan,
-  'colorCalibration',
-  ColorAdjustment.ColorGrading,
-  DetailsAdjustment.ColorNoiseReduction,
-  BasicAdjustment.Contrast,
-  'curves',
-  DetailsAdjustment.Dehaze,
-  BasicAdjustment.Exposure,
-  CreativeAdjustment.FlareAmount,
-  CreativeAdjustment.GlowAmount,
-  Effect.GrainAmount,
-  Effect.GrainRoughness,
-  Effect.GrainSize,
-  CreativeAdjustment.HalationAmount,
-  BasicAdjustment.Highlights,
-  ColorAdjustment.Hsl,
-  'lutIntensity',
-  'lutName',
-  'lutPath',
-  'lutSize',
-  DetailsAdjustment.LumaNoiseReduction,
-  ColorAdjustment.Saturation,
-  'sectionVisibility',
-  BasicAdjustment.Shadows,
-  DetailsAdjustment.Sharpness,
-  'showClipping',
-  DetailsAdjustment.Structure,
-  ColorAdjustment.Temperature,
-  ColorAdjustment.Tint,
-  'toneMapper',
-  ColorAdjustment.Vibrance,
-  Effect.VignetteAmount,
-  Effect.VignetteFeather,
-  Effect.VignetteMidpoint,
-  Effect.VignetteRoundness,
-  BasicAdjustment.Whites,
-];
+export interface AdjustmentGroup {
+  label: string;
+  keys: string[];
+}
+
+export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
+  basic: [
+    {
+      label: 'Tone Mapper',
+      keys: [BasicAdjustment.Exposure, 'toneMapper'],
+    },
+    {
+      label: 'Tone',
+      keys: [
+        BasicAdjustment.Brightness,
+        BasicAdjustment.Contrast,
+        BasicAdjustment.Highlights,
+        BasicAdjustment.Shadows,
+        BasicAdjustment.Whites,
+        BasicAdjustment.Blacks,
+      ],
+    },
+    {
+      label: 'Curves',
+      keys: ['curves'],
+    },
+  ],
+  color: [
+    { label: 'White Balance', keys: [ColorAdjustment.Temperature, ColorAdjustment.Tint] },
+    { label: 'Presence', keys: [ColorAdjustment.Saturation, ColorAdjustment.Vibrance] },
+    { label: 'Color Grading', keys: [ColorAdjustment.ColorGrading] },
+    { label: 'Color Mixer', keys: [ColorAdjustment.Hsl] },
+    { label: 'Color Calibration', keys: ['colorCalibration'] },
+  ],
+  details: [
+    {
+      label: 'Clarity & Dehaze',
+      keys: [DetailsAdjustment.Clarity, DetailsAdjustment.Structure, DetailsAdjustment.Dehaze],
+    },
+    { label: 'Sharpness', keys: [DetailsAdjustment.Sharpness, DetailsAdjustment.Centré] },
+    { label: 'Noise Reduction', keys: [DetailsAdjustment.LumaNoiseReduction, DetailsAdjustment.ColorNoiseReduction] },
+    {
+      label: 'Chromatic Aberration',
+      keys: [DetailsAdjustment.ChromaticAberrationRedCyan, DetailsAdjustment.ChromaticAberrationBlueYellow],
+    },
+  ],
+  effects: [
+    {
+      label: 'Vignette',
+      keys: [Effect.VignetteAmount, Effect.VignetteFeather, Effect.VignetteMidpoint, Effect.VignetteRoundness],
+    },
+    { label: 'Film Grain', keys: [Effect.GrainAmount, Effect.GrainRoughness, Effect.GrainSize] },
+    {
+      label: 'Halation & Glow',
+      keys: [CreativeAdjustment.GlowAmount, CreativeAdjustment.HalationAmount, CreativeAdjustment.FlareAmount],
+    },
+    {
+      label: 'LUT Configuration',
+      keys: [Effect.LutIntensity, Effect.LutName, Effect.LutPath, Effect.LutSize, Effect.LutData],
+    },
+  ],
+  geometry: [
+    { label: 'Crop & Aspect Ratio', keys: ['crop', 'aspectRatio'] },
+    {
+      label: 'Transform & Rotation',
+      keys: [
+        'rotation',
+        'flipHorizontal',
+        'flipVertical',
+        'orientationSteps',
+        TransformAdjustment.TransformDistortion,
+        TransformAdjustment.TransformVertical,
+        TransformAdjustment.TransformHorizontal,
+        TransformAdjustment.TransformRotate,
+        TransformAdjustment.TransformAspect,
+        TransformAdjustment.TransformScale,
+        TransformAdjustment.TransformXOffset,
+        TransformAdjustment.TransformYOffset,
+      ],
+    },
+  ],
+  masks: [{ label: 'Masks', keys: ['masks'] }],
+};
+
+export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUPS)
+  .flat()
+  .flatMap((group) => group.keys);
 
 export const ADJUSTMENT_SECTIONS: Sections = {
   basic: [

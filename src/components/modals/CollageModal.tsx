@@ -58,8 +58,8 @@ const ASPECT_RATIO_PRESETS: AspectRatioPreset[] = [
 ];
 
 const DEFAULT_EXPORT_WIDTH = 3000;
-const INITIAL_SPACING = 10;
-const INITIAL_BORDER_RADIUS = 8;
+const INITIAL_SPACING = 15;
+const INITIAL_BORDER_RADIUS = 0;
 
 export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: CollageModalProps) {
   const [isMounted, setIsMounted] = useState(false);
@@ -689,6 +689,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
           defaultValue={INITIAL_SPACING}
           value={spacing}
           onChange={(e) => setSpacing(Number(e.target.value))}
+          fillOrigin="min"
         />
         <Slider
           label="Border Radius"
@@ -698,6 +699,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
           defaultValue={INITIAL_BORDER_RADIUS}
           value={borderRadius}
           onChange={(e) => setBorderRadius(Number(e.target.value))}
+          fillOrigin="min"
         />
       </div>
 

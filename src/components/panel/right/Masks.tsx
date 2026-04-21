@@ -6,7 +6,7 @@ import {
   Droplet,
   Droplets,
   Eraser,
-  Layers,
+  MoreHorizontal,
   RectangleHorizontal,
   Sparkles,
   TriangleRight,
@@ -32,6 +32,7 @@ export enum Mask {
 export enum SubMaskMode {
   Additive = 'additive',
   Subtractive = 'subtractive',
+  Intersect = 'intersect',
 }
 
 export enum ToolType {
@@ -123,7 +124,7 @@ export const MASK_PANEL_CREATION_TYPES: Array<MaskType> = [
   },
   {
     disabled: false,
-    icon: Layers,
+    icon: MoreHorizontal,
     id: 'others',
     name: 'Others',
     type: null,
@@ -202,7 +203,7 @@ export const SUB_MASK_COMPONENT_TYPES: Array<MaskType> = [
   },
   {
     disabled: false,
-    icon: Layers,
+    icon: MoreHorizontal,
     id: 'others',
     name: 'Others',
     type: null,

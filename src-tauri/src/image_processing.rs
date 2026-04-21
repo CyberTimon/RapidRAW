@@ -1,3 +1,4 @@
+use crate::gpu_processing::WgpuDisplay;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat3, Vec2, Vec3};
 use image::{DynamicImage, GenericImageView, Rgb32FImage, Rgba};
@@ -14,6 +15,7 @@ use std::sync::Arc;
 
 pub use crate::gpu_processing::{
     RenderRequest, get_or_init_gpu_context, process_and_get_dynamic_image,
+    process_and_get_dynamic_image_with_analytics,
 };
 use crate::{AppState, mask_generation::MaskDefinition};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
@@ -1343,11 +1345,13 @@ pub struct MaskAdjustments {
     _pad_end7: f32,
 }
 
+pub const MAX_MASKS: usize = 32;
+
 #[derive(Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct AllAdjustments {
     pub global: GlobalAdjustments,
-    pub mask_adjustments: [MaskAdjustments; 8],
+    pub mask_adjustments: [MaskAdjustments; MAX_MASKS],
     pub mask_count: u32,
     pub tile_offset_x: u32,
     pub tile_offset_y: u32,
@@ -2031,7 +2035,7 @@ pub fn get_all_adjustments_from_json(
     is_raw: bool,
 ) -> AllAdjustments {
     let global = get_global_adjustments_from_json(js_adjustments, is_raw);
-    let mut mask_adjustments = [MaskAdjustments::default(); 8];
+    let mut mask_adjustments = [MaskAdjustments::default(); MAX_MASKS];
     let mut mask_count = 0;
 
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -2043,7 +2047,7 @@ pub fn get_all_adjustments_from_json(
         .iter()
         .filter(|m| m.visible)
         .enumerate()
-        .take(8)
+        .take(MAX_MASKS)
     {
         mask_adjustments[i] = get_mask_adjustments_from_json(&mask_def.adjustments);
         mask_count += 1;
@@ -2064,6 +2068,7 @@ pub struct GpuContext {
     pub device: Arc<wgpu::Device>,
     pub queue: Arc<wgpu::Queue>,
     pub limits: wgpu::Limits,
+    pub display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
 }
 
 #[inline(always)]

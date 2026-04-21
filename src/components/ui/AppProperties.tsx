@@ -100,6 +100,7 @@ export enum Invokes {
   MergeHdr = 'merge_hdr',
   TestAIConnectorConnection = 'test_ai_connector_connection',
   UpdateWindowEffect = 'update_window_effect',
+  UpdateWgpuTransform = 'update_wgpu_transform',
   FetchCommunityPresets = 'fetch_community_presets',
   GenerateAllCommunityPreviews = 'generate_all_community_previews',
   SaveCommunityPreset = 'save_community_preset',
@@ -145,7 +146,6 @@ export enum ThumbnailAspectRatio {
 }
 
 export interface AppSettings {
-  adaptiveEditorTheme?: Theme;
   aiConnectorAddress?: string;
   decorations?: any;
   editorPreviewResolution?: number;
@@ -180,6 +180,7 @@ export interface AppSettings {
   isWaveformVisible?: boolean;
   waveformHeight?: number;
   activeWaveformChannel?: string;
+  useWgpuRenderer?: boolean;
 }
 
 export interface BrushSettings {
@@ -238,6 +239,9 @@ export interface Preset {
   folder?: Folder;
   id: string;
   name: string;
+  includeMasks?: boolean;
+  includeCropTransform?: boolean;
+  presetType?: 'tool' | 'style';
 }
 
 export interface Progress {

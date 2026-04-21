@@ -21,14 +21,6 @@
   --radius-lg: 15px;
 }
 
-/*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
 @layer base {
   *,
   ::after,
@@ -95,7 +87,7 @@
     background-color: transparent;
   }
   body {
-    background-color: rgba(27, 27, 27, 0.5);
+    background-color: transparent;
     @apply text-text-primary font-sans;
   }
 
@@ -153,19 +145,12 @@
     @apply scale-110;
   }
 
-  /*
-    Color gradients for the temperature and tint slider
-  */
   .temperature-gradient-track {
     background: linear-gradient(to right, #2d4a74, #4993b1, #8a8a8a, #c7c549, #c7863c) !important;
   }
   .tint-gradient-track {
     background: linear-gradient(to right, #458d43, #57ce57, #8a8a8a, #9c548a, #be409f) !important;
   }
-
-  /*
-    Color mixer sliders
-  */
 
   .hue-slider-reds {
     background: linear-gradient(to right, hsl(260, 60%, 45%), hsl(0, 60%, 45%), hsl(100, 60%, 45%)) !important;
@@ -248,27 +233,40 @@
   }
 }
 
-  /*
-    Color grading sliders
-  */
-
 .cg-hue-gradient {
-  background: linear-gradient(to right, hsl(0, 100%, 50%) 0%, hsl(30, 100%, 50%) 8.33%, hsl(60, 100%, 50%) 16.66%, hsl(90, 100%, 50%) 25%, hsl(120, 100%, 50%) 33.33%, hsl(150, 100%, 50%) 41.66%, hsl(180, 100%, 50%) 50%, hsl(210, 100%, 50%) 58.33%, hsl(240, 100%, 50%) 66.66%, hsl(270, 100%, 50%) 75%, hsl(300, 100%, 50%) 83.33%, hsl(330, 100%, 50%) 91.66%, hsl(360, 100%, 50%) 100%) !important;
+  background: linear-gradient(
+    to right,
+    hsl(0, 100%, 50%) 0%,
+    hsl(30, 100%, 50%) 8.33%,
+    hsl(60, 100%, 50%) 16.66%,
+    hsl(90, 100%, 50%) 25%,
+    hsl(120, 100%, 50%) 33.33%,
+    hsl(150, 100%, 50%) 41.66%,
+    hsl(180, 100%, 50%) 50%,
+    hsl(210, 100%, 50%) 58.33%,
+    hsl(240, 100%, 50%) 66.66%,
+    hsl(270, 100%, 50%) 75%,
+    hsl(300, 100%, 50%) 83.33%,
+    hsl(330, 100%, 50%) 91.66%,
+    hsl(360, 100%, 50%) 100%
+  ) !important;
 }
 
 .cg-sat-gradient {
-  background: linear-gradient(to right, 
-    hsl(var(--cg-hue), 0%, 50%) 0%, hsl(var(--cg-hue), 100%, 50%) 100%) !important;
+  background: linear-gradient(to right, hsl(var(--cg-hue), 0%, 50%) 0%, hsl(var(--cg-hue), 100%, 50%) 100%) !important;
 }
 
 .cg-lum-gradient {
-  background: linear-gradient(to right, 
-    hsl(var(--cg-hue), var(--cg-sat), 0%) 0%, hsl(var(--cg-hue), var(--cg-sat), 50%) 50%, hsl(var(--cg-hue), var(--cg-sat), 100%) 100%) !important;
+  background: linear-gradient(
+    to right,
+    hsl(var(--cg-hue), var(--cg-sat), 0%) 0%,
+    hsl(var(--cg-hue), var(--cg-sat), 50%) 50%,
+    hsl(var(--cg-hue), var(--cg-sat), 100%) 100%
+  ) !important;
 }
 
 @layer utilities {
   .text-shadow-shiny {
-    text-shadow: 0 0 18px rgba(255, 255, 255, 0.35);
+    text-shadow: 0 0 18px rgba(255, 255, 255, 0.3);
   }
-
 }

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
+import Text from './Text';
+import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 
 const TOOLTIP_DELAY = 500;
 const OFFSET = 8;
@@ -151,16 +153,18 @@ export default function GlobalTooltip() {
           style={{ top: tooltip.y, left: tooltip.x }}
           className={clsx(
             'fixed z-100 pointer-events-none',
-            'bg-surface/80 backdrop-blur-xs text-text-primary',
+            'bg-surface/80 backdrop-blur-xs',
             'border border-text-secondary/10 shadow-xl rounded-md',
-            'px-2.5 py-1.5 text-xs font-medium whitespace-nowrap',
-            tooltip.isAbove && '-translate-y-full'
+            'px-2.5 py-1.5 whitespace-nowrap',
+            tooltip.isAbove && '-translate-y-full',
           )}
         >
-          {tooltip.content}
+          <Text variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
+            {tooltip.content}
+          </Text>
         </motion.div>
       )}
     </AnimatePresence>,
-    document.body
+    document.body,
   );
 }

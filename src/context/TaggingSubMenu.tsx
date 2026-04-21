@@ -82,7 +82,7 @@ export default function TaggingSubMenu({
 
   return (
     <div
-      className="bg-surface/90 p-2 w-64 text-text-primary rounded-lg"
+      className="bg-surface/95 p-2 w-64 text-text-primary rounded-lg"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >

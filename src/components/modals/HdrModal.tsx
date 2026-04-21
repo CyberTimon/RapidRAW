@@ -188,7 +188,7 @@ export default function HdrModal({
         <Text variant={TextVariants.title} className="mb-3 text-center">
           Merge to HDR
         </Text>
-        <Text className="text-center max-w-md leading-relaxed text-text-secondary">
+        <Text className="text-center max-w-md leading-relaxed">
           Combine {imageCount ? `${imageCount} bracketed exposures` : 'your bracketed exposures'} into a single High
           Dynamic Range image.
         </Text>

@@ -72,6 +72,15 @@ pub struct Preset {
     pub id: String,
     pub name: String,
     pub adjustments: Value,
+    #[serde(rename = "includeMasks", skip_serializing_if = "Option::is_none")]
+    pub include_masks: Option<bool>,
+    #[serde(
+        rename = "includeCropTransform",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub include_crop_transform: Option<bool>,
+    #[serde(rename = "presetType", skip_serializing_if = "Option::is_none")]
+    pub preset_type: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -166,53 +175,95 @@ pub enum PasteMode {
     Replace,
 }
 
-fn default_included_adjustments() -> HashSet<String> {
+fn all_available_adjustments() -> HashSet<String> {
     [
-        "blacks",
+        "exposure",
         "brightness",
-        "clarity",
-        "centré",
-        "chromaticAberrationBlueYellow",
-        "chromaticAberrationRedCyan",
-        "colorCalibration",
-        "colorGrading",
-        "colorNoiseReduction",
         "contrast",
         "curves",
+        "highlights",
+        "shadows",
+        "whites",
+        "blacks",
+        "toneMapper",
+        "temperature",
+        "tint",
+        "saturation",
+        "vibrance",
+        "hsl",
+        "colorGrading",
+        "colorCalibration",
+        "clarity",
+        "structure",
         "dehaze",
-        "exposure",
+        "sharpness",
+        "centré",
+        "lumaNoiseReduction",
+        "colorNoiseReduction",
+        "chromaticAberrationRedCyan",
+        "chromaticAberrationBlueYellow",
+        "vignetteAmount",
+        "vignetteFeather",
+        "vignetteMidpoint",
+        "vignetteRoundness",
         "grainAmount",
         "grainRoughness",
         "grainSize",
-        "highlights",
-        "hsl",
         "lutIntensity",
         "lutName",
         "lutPath",
         "lutSize",
-        "lumaNoiseReduction",
-        "saturation",
-        "sectionVisibility",
-        "shadows",
-        "sharpness",
-        "showClipping",
-        "structure",
-        "temperature",
-        "tint",
-        "toneMapper",
-        "vibrance",
-        "vignetteAmount",
-        "vignetteFeather",
-        "vignetteMidpoint",
-        "flareAmount",
+        "lutData",
         "glowAmount",
         "halationAmount",
-        "vignetteRoundness",
-        "whites",
+        "flareAmount",
+        "crop",
+        "aspectRatio",
+        "rotation",
+        "flipHorizontal",
+        "flipVertical",
+        "orientationSteps",
+        "transformDistortion",
+        "transformVertical",
+        "transformHorizontal",
+        "transformRotate",
+        "transformAspect",
+        "transformScale",
+        "transformXOffset",
+        "transformYOffset",
+        "masks",
     ]
     .iter()
     .map(|s| s.to_string())
     .collect()
+}
+
+fn default_included_adjustments() -> HashSet<String> {
+    let mut defaults = all_available_adjustments();
+
+    let off_by_default = [
+        "crop",
+        "aspectRatio",
+        "rotation",
+        "flipHorizontal",
+        "flipVertical",
+        "orientationSteps",
+        "transformDistortion",
+        "transformVertical",
+        "transformHorizontal",
+        "transformRotate",
+        "transformAspect",
+        "transformScale",
+        "transformXOffset",
+        "transformYOffset",
+        "masks",
+    ];
+
+    for item in off_by_default.iter() {
+        defaults.remove(*item);
+    }
+
+    defaults
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -230,7 +281,7 @@ impl Default for CopyPasteSettings {
         Self {
             mode: PasteMode::Merge,
             included_adjustments: default_included_adjustments(),
-            known_adjustments: default_included_adjustments(),
+            known_adjustments: all_available_adjustments(),
         }
     }
 }
@@ -257,7 +308,8 @@ pub struct ExportPreset {
     pub watermark_opacity: u32,
     #[serde(default)]
     pub export_masks: Option<bool>,
-    /// Last export destination path, stored on the __last_used__ preset only.
+    #[serde(default)]
+    pub preserve_folders: Option<bool>,
     #[serde(default)]
     pub last_export_path: Option<String>,
 }
@@ -283,6 +335,7 @@ fn default_export_presets() -> Vec<ExportPreset> {
             watermark_spacing: 5,
             watermark_opacity: 75,
             export_masks: Some(false),
+            preserve_folders: Some(false),
             last_export_path: None,
         },
         ExportPreset {
@@ -304,6 +357,7 @@ fn default_export_presets() -> Vec<ExportPreset> {
             watermark_spacing: 5,
             watermark_opacity: 75,
             export_masks: Some(false),
+            preserve_folders: Some(false),
             last_export_path: None,
         },
     ]
@@ -351,12 +405,10 @@ pub struct AppSettings {
     pub theme: Option<String>,
     #[serde(default)]
     pub font_family: Option<String>,
-    pub transparent: Option<bool>,
     pub decorations: Option<bool>,
     #[serde(alias = "comfyuiAddress")]
     pub ai_connector_address: Option<String>,
     pub last_folder_state: Option<LastFolderState>,
-    pub adaptive_editor_theme: Option<bool>,
     pub ui_visibility: Option<Value>,
     pub enable_ai_tagging: Option<bool>,
     pub tagging_thread_count: Option<u32>,
@@ -402,6 +454,8 @@ pub struct AppSettings {
     pub waveform_height: Option<u32>,
     #[serde(default)]
     pub active_waveform_channel: Option<String>,
+    #[serde(default)]
+    pub use_wgpu_renderer: Option<bool>,
 }
 
 fn default_adjustment_visibility() -> HashMap<String, bool> {
@@ -431,14 +485,12 @@ impl Default for AppSettings {
             filter_criteria: None,
             theme: Some("dark".to_string()),
             font_family: None,
-            transparent: Some(true),
             #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
             decorations: Some(true),
             #[cfg(any(target_os = "windows", target_os = "macos"))]
             decorations: Some(false),
             ai_connector_address: None,
             last_folder_state: None,
-            adaptive_editor_theme: Some(false),
             ui_visibility: None,
             enable_ai_tagging: Some(false),
             tagging_thread_count: Some(3),
@@ -469,6 +521,10 @@ impl Default for AppSettings {
             is_waveform_visible: Some(false),
             waveform_height: Some(220),
             active_waveform_channel: Some("luma".to_string()),
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            use_wgpu_renderer: Some(false),
+            #[cfg(not(any(target_os = "linux", target_os = "android")))]
+            use_wgpu_renderer: Some(true),
         }
     }
 }
@@ -780,15 +836,25 @@ pub async fn read_exif_for_paths(
         .par_iter()
         .filter_map(|virtual_path| {
             let (source_path, _) = parse_virtual_path(virtual_path);
+            let source_path_str = source_path.to_string_lossy().to_string();
 
-            let exif_map = if let Ok(mmap) = read_file_mapped(&source_path) {
-                exif_processing::extract_metadata(&mmap)
+            let map = if let Some(sidecar_exif) =
+                crate::exif_processing::read_rrexif_sidecar(&source_path)
+            {
+                sidecar_exif
+            } else if let Ok(mmap) = read_file_mapped(&source_path) {
+                crate::exif_processing::read_exif_data(&source_path_str, &mmap)
+            } else if let Ok(bytes) = fs::read(&source_path) {
+                crate::exif_processing::read_exif_data(&source_path_str, &bytes)
             } else {
-                let bytes = fs::read(&source_path).ok()?;
-                exif_processing::extract_metadata(&bytes)
+                HashMap::new()
             };
 
-            exif_map.map(|map| (virtual_path.clone(), map))
+            if map.is_empty() {
+                None
+            } else {
+                Some((virtual_path.clone(), map))
+            }
         })
         .collect();
 
@@ -1664,7 +1730,7 @@ pub async fn generate_thumbnails(
         }
 
         let state = app_handle_clone.state::<AppState>();
-        let gpu_context = gpu_processing::get_or_init_gpu_context(&state).ok();
+        let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
 
         let thumbnails: HashMap<String, String> = paths
             .par_iter()
@@ -1721,7 +1787,7 @@ pub fn generate_thumbnails_progressive(
 
     pool.spawn(move || {
         let state = app_handle_clone.state::<AppState>();
-        let gpu_context = gpu_processing::get_or_init_gpu_context(&state).ok();
+        let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
 
         let _ = paths.par_iter().try_for_each(|path_str| -> Result<(), ()> {
             if cancellation_token.load(Ordering::Relaxed) {
@@ -1901,11 +1967,33 @@ pub fn duplicate_file(path: String) -> Result<(), String> {
         fs::copy(&source_sidecar_path, &dest_sidecar_path).map_err(|e| e.to_string())?;
     }
 
+    let mut source_rrexif_name = source_path.file_name().unwrap().to_os_string();
+    source_rrexif_name.push(".rrexif");
+    let source_rrexif = source_path.with_file_name(source_rrexif_name);
+
+    if source_rrexif.exists() {
+        let mut dest_rrexif_name = dest_path.file_name().unwrap().to_os_string();
+        dest_rrexif_name.push(".rrexif");
+        let dest_rrexif = dest_path.with_file_name(dest_rrexif_name);
+        let _ = fs::copy(&source_rrexif, &dest_rrexif);
+    }
+
     Ok(())
 }
 
 fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, String> {
     let mut associated_files = vec![source_image_path.to_path_buf()];
+
+    let mut rrexif_name = source_image_path
+        .file_name()
+        .unwrap_or_default()
+        .to_os_string();
+    rrexif_name.push(".rrexif");
+    let rrexif_path = source_image_path.with_file_name(rrexif_name);
+
+    if rrexif_path.exists() {
+        associated_files.push(rrexif_path);
+    }
 
     let parent_dir = source_image_path
         .parent()
@@ -2122,7 +2210,7 @@ pub fn save_metadata_and_update_thumbnail(
     };
     drop(loaded_image_lock);
 
-    let gpu_context = gpu_processing::get_or_init_gpu_context(&state).ok();
+    let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
     let app_handle_clone = app_handle.clone();
     let path_clone = path.clone();
 
@@ -2234,7 +2322,7 @@ pub async fn apply_adjustments_to_paths(
             }
         };
 
-        let gpu_context = gpu_processing::get_or_init_gpu_context(&state).ok();
+        let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
 
         paths.par_iter().for_each(|path_str| {
             let result = generate_single_thumbnail_and_cache(
@@ -2316,7 +2404,7 @@ pub async fn reset_adjustments_for_paths(
             }
         };
 
-        let gpu_context = gpu_processing::get_or_init_gpu_context(&state).ok();
+        let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
 
         paths.par_iter().for_each(|path_str| {
             let result = generate_single_thumbnail_and_cache(
@@ -2445,7 +2533,7 @@ pub async fn apply_auto_adjustments_to_paths(
             }
         };
 
-        let gpu_context = gpu_processing::get_or_init_gpu_context(&state).ok();
+        let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
 
         paths.par_iter().for_each(|path_str| {
             let result = generate_single_thumbnail_and_cache(
@@ -2829,14 +2917,15 @@ pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
         AppSettings::default()
     };
 
-    let all_current_keys = default_included_adjustments();
+    let all_current_keys = all_available_adjustments();
+    let default_included = default_included_adjustments();
     let mut settings_modified = false;
 
     let is_first_migration = settings.copy_paste_settings.known_adjustments.is_empty();
 
     if is_first_migration {
-        settings.copy_paste_settings.included_adjustments = all_current_keys.clone();
-        settings.copy_paste_settings.known_adjustments = all_current_keys;
+        settings.copy_paste_settings.included_adjustments = default_included;
+        settings.copy_paste_settings.known_adjustments = all_current_keys.clone();
         settings_modified = true;
     } else {
         let new_features: Vec<String> = all_current_keys
@@ -2845,11 +2934,18 @@ pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
             .collect();
 
         if !new_features.is_empty() {
-            settings
-                .copy_paste_settings
-                .included_adjustments
-                .extend(new_features);
-            settings.copy_paste_settings.known_adjustments = all_current_keys;
+            for feature in new_features {
+                if default_included.contains(&feature) {
+                    settings
+                        .copy_paste_settings
+                        .included_adjustments
+                        .insert(feature.clone());
+                }
+                settings
+                    .copy_paste_settings
+                    .known_adjustments
+                    .insert(feature);
+            }
             settings_modified = true;
         }
     }
@@ -2996,6 +3092,9 @@ pub fn save_community_preset(
     name: String,
     adjustments: Value,
     app_handle: AppHandle,
+    include_masks: Option<bool>,
+    include_crop_transform: Option<bool>,
+    preset_type: Option<String>,
 ) -> Result<(), String> {
     let mut current_presets = load_presets(app_handle.clone())?;
 
@@ -3024,6 +3123,9 @@ pub fn save_community_preset(
         id: Uuid::new_v4().to_string(),
         name,
         adjustments,
+        include_masks,
+        include_crop_transform,
+        preset_type: preset_type.or(Some("style".to_string())),
     };
 
     if let Some(PresetItem::Folder(folder)) = current_presets.iter_mut().find(|item| {
@@ -3053,7 +3155,7 @@ pub fn clear_all_sidecars(root_path: String) -> Result<usize, String> {
         let path = entry.path();
         if path.is_file()
             && let Some(extension) = path.extension()
-            && extension == "rrdata"
+            && (extension == "rrdata" || extension == "rrexif")
         {
             if fs::remove_file(path).is_ok() {
                 deleted_count += 1;
@@ -3240,7 +3342,8 @@ pub fn delete_files_with_associated(paths: Vec<String>) -> Result<(), String> {
                 if let Some(base_stem) = entry_filename_str.split('.').next()
                     && stems_to_delete.contains(base_stem)
                     && (is_supported_image_file(entry_filename_str.as_ref())
-                        || entry_filename_str.ends_with(".rrdata"))
+                        || entry_filename_str.ends_with(".rrdata")
+                        || entry_filename_str.ends_with(".rrexif"))
                 {
                     files_to_trash.insert(entry_path);
                 }
@@ -3477,6 +3580,17 @@ pub async fn import_files(
                     fs::copy(&source_sidecar, &dest_sidecar).map_err(|e| e.to_string())?;
                 }
 
+                let mut source_rrexif_name = source_path.file_name().unwrap().to_os_string();
+                source_rrexif_name.push(".rrexif");
+                let source_rrexif = source_path.with_file_name(source_rrexif_name);
+
+                if source_rrexif.exists() {
+                    let mut dest_rrexif_name = dest_file_path.file_name().unwrap().to_os_string();
+                    dest_rrexif_name.push(".rrexif");
+                    let dest_rrexif = dest_file_path.with_file_name(dest_rrexif_name);
+                    let _ = fs::copy(&source_rrexif, &dest_rrexif);
+                }
+
                 if settings.delete_after_import {
                     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
                     {
@@ -3509,6 +3623,9 @@ pub async fn import_files(
                         fs::remove_file(&source_path).map_err(|e| e.to_string())?;
                         if source_sidecar.exists() {
                             fs::remove_file(&source_sidecar).map_err(|e| e.to_string())?;
+                        }
+                        if source_rrexif.exists() {
+                            let _ = fs::remove_file(&source_rrexif);
                         }
                     }
                 }
@@ -3630,10 +3747,24 @@ pub fn rename_files(paths: Vec<String>, name_template: String) -> Result<Vec<Str
                     let new_sidecar_path = parent.join(new_sidecar_filename);
                     sidecar_operations.insert(entry_path, new_sidecar_path);
                 } else if entry_filename == format!("{}.rrdata", original_filename_str) {
-                    let new_sidecar_path = new_path.with_extension("rrdata");
+                    let mut new_sidecar_name = new_path.file_name().unwrap().to_os_string();
+                    new_sidecar_name.push(".rrdata");
+                    let new_sidecar_path = new_path.with_file_name(new_sidecar_name);
+
                     sidecar_operations.insert(entry_path, new_sidecar_path);
                 }
             }
+        }
+
+        let mut old_rrexif_name = original_path.file_name().unwrap().to_os_string();
+        old_rrexif_name.push(".rrexif");
+        let old_rrexif = original_path.with_file_name(old_rrexif_name);
+
+        if old_rrexif.exists() {
+            let mut new_rrexif_name = new_path.file_name().unwrap().to_os_string();
+            new_rrexif_name.push(".rrexif");
+            let new_rrexif = new_path.with_file_name(new_rrexif_name);
+            sidecar_operations.insert(old_rrexif, new_rrexif);
         }
     }
     operations.extend(sidecar_operations);

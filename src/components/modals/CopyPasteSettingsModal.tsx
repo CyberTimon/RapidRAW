@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
-import { ADJUSTMENT_SECTIONS, COPYABLE_ADJUSTMENT_KEYS, CopyPasteSettings, PasteMode } from '../../utils/adjustments';
+import { ADJUSTMENT_GROUPS, COPYABLE_ADJUSTMENT_KEYS, CopyPasteSettings, PasteMode } from '../../utils/adjustments';
 import Button from '../ui/Button';
 import Switch from '../ui/Switch';
 import Text from '../ui/Text';
@@ -172,6 +172,17 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
     setLocalSettings((prev) => ({ ...prev, includedAdjustments: [] }));
   };
 
+  const handleGroupToggle = (keys: string[], checked: boolean) => {
+    setLocalSettings((prev) => {
+      const newSet = new Set(prev.includedAdjustments);
+      keys.forEach((key) => {
+        if (checked) newSet.add(key);
+        else newSet.delete(key);
+      });
+      return { ...prev, includedAdjustments: Array.from(newSet) };
+    });
+  };
+
   if (!isMounted) return null;
 
   return (
@@ -230,21 +241,25 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
             </div>
             <div className="bg-bg-primary p-4 rounded-md max-h-64 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
-                {Object.entries(ADJUSTMENT_SECTIONS).map(([section, keys]) => (
+                {Object.entries(ADJUSTMENT_GROUPS).map(([section, groups]) => (
                   <div key={section}>
                     <Text variant={TextVariants.heading} className="mb-2">
                       {capitalize(section)}
                     </Text>
-                    {keys.map((key) => (
-                      <div key={key} className="mb-1.5 last:mb-0">
-                        <Switch
-                          label={formatLabel(key)}
-                          checked={localSettings.includedAdjustments.includes(key)}
-                          onChange={(checked) => handleCheckboxChange(key, checked)}
-                          trackClassName="bg-surface"
-                        />
-                      </div>
-                    ))}
+                    {groups.map((group) => {
+                      const isFullyChecked = group.keys.every((key) => localSettings.includedAdjustments.includes(key));
+
+                      return (
+                        <div key={group.label} className="mb-1.5 last:mb-0">
+                          <Switch
+                            label={group.label}
+                            checked={isFullyChecked}
+                            onChange={(checked) => handleGroupToggle(group.keys, checked)}
+                            trackClassName="bg-surface"
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
               </div>

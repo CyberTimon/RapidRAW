@@ -630,9 +630,9 @@ export default function LensCorrectionModal({
                   availability.distortion ? 'bg-surface' : 'bg-surface/30 opacity-60',
                 )}
               >
-                <div className="p-1.5 bg-bg-primary rounded-sm text-text-secondary">
+                <Text as="div" className="p-1.5 bg-bg-primary rounded-sm">
                   <SquareDashed size={16} />
-                </div>
+                </Text>
                 <Switch
                   className="grow"
                   label="Distortion"
@@ -671,9 +671,9 @@ export default function LensCorrectionModal({
                   availability.tca ? 'bg-surface' : 'bg-surface/30 opacity-60',
                 )}
               >
-                <div className="p-1.5 bg-bg-primary rounded-sm text-text-secondary">
+                <Text as="div" className="p-1.5 bg-bg-primary rounded-sm">
                   <Activity size={16} />
-                </div>
+                </Text>
                 <Switch
                   className="grow"
                   label="Chromatic Aberration"
@@ -712,9 +712,9 @@ export default function LensCorrectionModal({
                   availability.vignetting ? 'bg-surface' : 'bg-surface/30 opacity-60',
                 )}
               >
-                <div className="p-1.5 bg-bg-primary rounded-sm text-text-secondary">
+                <Text as="div" className="p-1.5 bg-bg-primary rounded-sm">
                   <CircleDashed size={16} />
-                </div>
+                </Text>
                 <Switch
                   className="grow"
                   label="Vignetting"

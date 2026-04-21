@@ -34,7 +34,6 @@ walkdir = "2.5.0"
 imageproc = "0.26.1"
 ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic"] }
 ndarray = "0.16"
-reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "rustls"] }
 tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 futures-util = "0.3"
 tauri-plugin-process = "2.3.1"
@@ -66,6 +65,7 @@ mozjpeg-rs = "0.9.0"
 webp = "0.3"
 jxl-oxide = { version = "0.12.5", features = ["image"] }
 jxl-encoder = "0.1.3"
+filetime = "0.2"
 libc = "0.2.183"
 rgb = "0.8.53"
 imgref = "1.12.0"
@@ -73,10 +73,12 @@ imgref = "1.12.0"
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "5.2.5"
 tauri-plugin-single-instance = "2.4.0"
+reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "rustls"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-context = "0.1"
 jni = "0.21"
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls-webpki-roots"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18.2"

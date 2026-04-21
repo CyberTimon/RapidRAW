@@ -25,7 +25,7 @@ const ColorWheel = ({
   onDragStateChange,
   isExpanded = false,
 }: ColorWheelProps) => {
-  const effectiveValue = value || defaultValue;
+  const effectiveValue = { ...defaultValue, ...value };
   const { hue, saturation, luminance } = effectiveValue;
   const sizerRef = useRef<HTMLDivElement>(null);
   const [wheelSize, setWheelSize] = useState(0);
@@ -115,9 +115,9 @@ const ColorWheel = ({
   const pointerOffset = pointerSize / 2;
 
   const satWrapperStyle = { '--cg-hue': `var(--cg-hue-${instanceId})` } as React.CSSProperties;
-  const lumWrapperStyle = { 
+  const lumWrapperStyle = {
     '--cg-hue': `var(--cg-hue-${instanceId})`,
-    '--cg-sat': `var(--cg-sat-${instanceId})`
+    '--cg-sat': `var(--cg-sat-${instanceId})`,
   } as React.CSSProperties;
 
   return (

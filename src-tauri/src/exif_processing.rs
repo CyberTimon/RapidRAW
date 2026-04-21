@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufReader, Cursor};
-use std::path::Path;
 
 use crate::formats::is_raw_file;
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -90,12 +89,29 @@ pub fn read_raw_metadata(file_bytes: &[u8]) -> Option<RawMetadata> {
 }
 
 pub fn read_exposure_time_secs(path: &str, file_bytes: &[u8]) -> Option<f32> {
+    if let Some(map) = read_rrexif_sidecar(std::path::Path::new(path))
+        && let Some(val_str) = map.get("ExposureTime").or(map.get("ShutterSpeedValue"))
+    {
+        let cleaned = val_str.replace(" s", "");
+        if cleaned.contains('/') {
+            let parts: Vec<&str> = cleaned.split('/').collect();
+            if parts.len() == 2
+                && let (Ok(num), Ok(den)) = (parts[0].parse::<f32>(), parts[1].parse::<f32>())
+                && den != 0.0
+            {
+                return Some(num / den);
+            }
+        } else if let Ok(val) = cleaned.parse::<f32>() {
+            return Some(val);
+        }
+    }
+
     if is_raw_file(path)
         && let Some(meta) = read_raw_metadata(file_bytes)
     {
         if let Some(r) = meta.exif.exposure_time {
             return if r.d == 0 {
-                return None;
+                None
             } else {
                 Some(r.n as f32 / r.d as f32)
             };
@@ -144,6 +160,16 @@ pub fn read_exposure_time_secs(path: &str, file_bytes: &[u8]) -> Option<f32> {
 }
 
 pub fn read_iso(path: &str, file_bytes: &[u8]) -> Option<u32> {
+    if let Some(map) = read_rrexif_sidecar(std::path::Path::new(path))
+        && let Some(val_str) = map
+            .get("ISOSpeed")
+            .or(map.get("PhotographicSensitivity"))
+            .or(map.get("ISOSpeedRatings"))
+        && let Ok(val) = val_str.parse::<u32>()
+    {
+        return Some(val);
+    }
+
     if is_raw_file(path)
         && let Some(meta) = read_raw_metadata(file_bytes)
     {
@@ -165,6 +191,10 @@ pub fn read_iso(path: &str, file_bytes: &[u8]) -> Option<u32> {
 }
 
 pub fn read_exif_data(path: &str, file_bytes: &[u8]) -> HashMap<String, String> {
+    if let Some(sidecar_exif) = read_rrexif_sidecar(std::path::Path::new(path)) {
+        return sidecar_exif;
+    }
+
     if is_raw_file(path)
         && let Some(map) = extract_metadata(file_bytes)
     {
@@ -530,7 +560,14 @@ pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
     Some(map)
 }
 
-pub fn get_creation_date_from_path(path: &Path) -> DateTime<Utc> {
+pub fn get_creation_date_from_path(path: &std::path::Path) -> DateTime<Utc> {
+    if let Some(map) = read_rrexif_sidecar(path)
+        && let Some(dt_str) = map.get("DateTimeOriginal").or(map.get("CreateDate"))
+        && let Some(dt) = parse_creation_datetime(dt_str)
+    {
+        return DateTime::from_naive_utc_and_offset(dt, Utc);
+    }
+
     if let Ok(file) = std::fs::File::open(path) {
         let mut bufreader = BufReader::new(&file);
         let exifreader = exif::Reader::new();
@@ -633,7 +670,92 @@ pub fn write_image_with_metadata(
     let mut metadata = Metadata::new();
     let mut source_read_success = false;
 
-    if let Ok(file) = std::fs::File::open(original_path) {
+    if let Some(map) = read_rrexif_sidecar(original_path) {
+        source_read_success = true;
+
+        let clean_s = |s: &String| s.replace('"', "").trim().to_string();
+
+        let parse_ur64 = |s: &str| -> Option<uR64> {
+            let cleaned_string = s
+                .replace("f/", "")
+                .replace(" s", "")
+                .replace(" mm", "")
+                .replace("\"", "");
+
+            let val = cleaned_string.trim();
+
+            if val.contains('/') {
+                let parts: Vec<&str> = val.split('/').collect();
+                if parts.len() == 2
+                    && let (Ok(n), Ok(d)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>())
+                {
+                    return Some(uR64 {
+                        nominator: n,
+                        denominator: d,
+                    });
+                }
+            } else if let Ok(f) = val.parse::<f32>() {
+                return Some(uR64 {
+                    nominator: (f * 1000.0) as u32,
+                    denominator: 1000,
+                });
+            }
+            None
+        };
+        if let Some(val) = map.get("Make") {
+            metadata.set_tag(ExifTag::Make(clean_s(val)));
+        }
+        if let Some(val) = map.get("Model") {
+            metadata.set_tag(ExifTag::Model(clean_s(val)));
+        }
+        if let Some(val) = map.get("LensMake") {
+            metadata.set_tag(ExifTag::LensMake(clean_s(val)));
+        }
+        if let Some(val) = map.get("LensModel") {
+            metadata.set_tag(ExifTag::LensModel(clean_s(val)));
+        }
+        if let Some(val) = map.get("Artist") {
+            metadata.set_tag(ExifTag::Artist(clean_s(val)));
+        }
+        if let Some(val) = map.get("Copyright") {
+            metadata.set_tag(ExifTag::Copyright(clean_s(val)));
+        }
+        if let Some(val) = map.get("DateTimeOriginal") {
+            metadata.set_tag(ExifTag::DateTimeOriginal(clean_s(val)));
+        }
+        if let Some(val) = map.get("CreateDate") {
+            metadata.set_tag(ExifTag::CreateDate(clean_s(val)));
+        }
+        if let Some(val) = map.get("FNumber")
+            && let Some(ur) = parse_ur64(val)
+        {
+            metadata.set_tag(ExifTag::FNumber(vec![ur]));
+        }
+        if let Some(val) = map.get("ExposureTime")
+            && let Some(ur) = parse_ur64(val)
+        {
+            metadata.set_tag(ExifTag::ExposureTime(vec![ur]));
+        }
+        if let Some(val) = map.get("FocalLength")
+            && let Some(ur) = parse_ur64(val)
+        {
+            metadata.set_tag(ExifTag::FocalLength(vec![ur]));
+        }
+        if let Some(val) = map.get("FocalLengthIn35mmFilm") {
+            let cleaned = val.replace(" mm", "").replace("\"", "");
+            let trimmed = cleaned.trim();
+            if let Ok(f_val) = trimmed.parse::<f32>() {
+                metadata.set_tag(ExifTag::FocalLengthIn35mmFormat(vec![f_val.round() as u16]));
+            }
+        }
+        if let Some(val) = map.get("ISOSpeed").or(map.get("PhotographicSensitivity"))
+            && let Ok(iso) = val.replace('"', "").trim().parse::<u16>()
+        {
+            metadata.set_tag(ExifTag::ISO(vec![iso]));
+        }
+    }
+
+    if !source_read_success && let Ok(file) = std::fs::File::open(original_path) {
         let mut bufreader = std::io::BufReader::new(&file);
         let exifreader = exif::Reader::new();
 
@@ -684,7 +806,6 @@ pub fn write_image_with_metadata(
             if let Some(f) = exif_obj.get_field(exif::Tag::DateTime, exif::In::PRIMARY) {
                 metadata.set_tag(ExifTag::CreateDate(get_string_val(f)));
             }
-
             if let Some(f) = exif_obj.get_field(exif::Tag::FNumber, exif::In::PRIMARY)
                 && let exif::Value::Rational(v) = &f.value
                 && !v.is_empty()
@@ -703,7 +824,6 @@ pub fn write_image_with_metadata(
             {
                 metadata.set_tag(ExifTag::FocalLength(vec![to_ur64(&v[0])]));
             }
-
             if let Some(f) = exif_obj.get_field(exif::Tag::ExposureBiasValue, exif::In::PRIMARY) {
                 match &f.value {
                     exif::Value::SRational(v) if !v.is_empty() => {
@@ -718,7 +838,6 @@ pub fn write_image_with_metadata(
                     _ => {}
                 }
             }
-
             if let Some(f) =
                 exif_obj.get_field(exif::Tag::PhotographicSensitivity, exif::In::PRIMARY)
             {
@@ -730,13 +849,11 @@ pub fn write_image_with_metadata(
             {
                 metadata.set_tag(ExifTag::ISO(vec![val as u16]));
             }
-
             if let Some(f) = exif_obj.get_field(exif::Tag::FocalLengthIn35mmFilm, exif::In::PRIMARY)
                 && let Some(val) = f.value.get_uint(0)
             {
                 metadata.set_tag(ExifTag::FocalLengthIn35mmFormat(vec![val as u16]));
             }
-
             if !strip_gps {
                 if let Some(f) = exif_obj.get_field(exif::Tag::GPSLatitude, exif::In::PRIMARY)
                     && let exif::Value::Rational(v) = &f.value
@@ -787,9 +904,7 @@ pub fn write_image_with_metadata(
             if !meta.model.is_empty() {
                 metadata.set_tag(ExifTag::Model(meta.model.clone()));
             }
-
             let exif = meta.exif;
-
             if let Some(artist) = exif.artist {
                 metadata.set_tag(ExifTag::Artist(artist));
             }
@@ -808,7 +923,6 @@ pub fn write_image_with_metadata(
             if let Some(lens_model) = exif.lens_model {
                 metadata.set_tag(ExifTag::LensModel(lens_model));
             }
-
             if let Some(f) = exif.fnumber {
                 metadata.set_tag(ExifTag::FNumber(vec![uR64 {
                     nominator: f.n,
@@ -827,20 +941,17 @@ pub fn write_image_with_metadata(
                     denominator: fl.d,
                 }]));
             }
-
             if let Some(iso) = exif.iso_speed {
                 metadata.set_tag(ExifTag::ISO(vec![iso as u16]));
             } else if let Some(iso) = exif.iso_speed_ratings {
                 metadata.set_tag(ExifTag::ISO(vec![iso]));
             }
-
             if let Some(ev) = exif.exposure_bias {
                 metadata.set_tag(ExifTag::ExposureCompensation(vec![iR64 {
                     nominator: ev.n,
                     denominator: ev.d,
                 }]));
             }
-
             if let Some(flash) = exif.flash {
                 metadata.set_tag(ExifTag::Flash(vec![flash]));
             }
@@ -853,7 +964,6 @@ pub fn write_image_with_metadata(
             if let Some(prog) = exif.exposure_program {
                 metadata.set_tag(ExifTag::ExposureProgram(vec![prog]));
             }
-
             if !strip_gps && let Some(gps) = exif.gps {
                 if let Some(lat) = gps.gps_latitude {
                     metadata.set_tag(ExifTag::GPSLatitude(vec![
@@ -914,5 +1024,46 @@ pub fn write_image_with_metadata(
         log::warn!("Failed to write metadata: {}", e);
     }
 
+    Ok(())
+}
+
+pub fn get_rrexif_path(image_path: &std::path::Path) -> std::path::PathBuf {
+    let mut filename = image_path.file_name().unwrap_or_default().to_os_string();
+    filename.push(".rrexif");
+    image_path.with_file_name(filename)
+}
+
+pub fn read_rrexif_sidecar(image_path: &std::path::Path) -> Option<HashMap<String, String>> {
+    let rrexif_path = get_rrexif_path(image_path);
+    if rrexif_path.exists()
+        && let Ok(content) = std::fs::read_to_string(&rrexif_path)
+        && let Ok(map) = serde_json::from_str(&content)
+    {
+        return Some(map);
+    }
+    None
+}
+
+pub fn write_rrexif_sidecar(
+    original_path_str: &str,
+    output_image_path: &std::path::Path,
+) -> Result<(), String> {
+    let original_path = std::path::Path::new(original_path_str);
+    let original_rrexif = get_rrexif_path(original_path);
+    let dest_rrexif = get_rrexif_path(output_image_path);
+
+    if original_rrexif.exists() {
+        let _ = std::fs::copy(&original_rrexif, &dest_rrexif);
+        return Ok(());
+    }
+
+    if let Ok(bytes) = std::fs::read(original_path) {
+        let exif_data = read_exif_data(original_path_str, &bytes);
+        if !exif_data.is_empty()
+            && let Ok(json) = serde_json::to_string_pretty(&exif_data)
+        {
+            let _ = std::fs::write(&dest_rrexif, json);
+        }
+    }
     Ok(())
 }

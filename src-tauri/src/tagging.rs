@@ -287,7 +287,8 @@ pub async fn start_background_indexing(
         );
 
         let state_clone = app_handle_clone.state::<AppState>();
-        let gpu_context = crate::gpu_processing::get_or_init_gpu_context(&state_clone).ok();
+        let gpu_context =
+            crate::gpu_processing::get_or_init_gpu_context(&state_clone, &app_handle).ok();
 
         let image_paths: Vec<PathBuf> = match fs::read_dir(&folder_path) {
             Ok(entries) => entries

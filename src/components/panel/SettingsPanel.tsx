@@ -342,6 +342,7 @@ export default function SettingsPanel({
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
     highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
     useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
+    useWgpuRenderer: appSettings?.useWgpuRenderer ?? true,
   });
   const [restartRequired, setRestartRequired] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
@@ -389,6 +390,7 @@ export default function SettingsPanel({
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
       highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
       useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
+      useWgpuRenderer: appSettings?.useWgpuRenderer ?? true,
     });
     setRestartRequired(false);
   }, [appSettings]);
@@ -575,24 +577,6 @@ export default function SettingsPanel({
     exit: { opacity: 0, scale: 0.8, transition: { duration: 0.15 } },
   };
 
-  const executeSetTransparent = async (transparent: boolean) => {
-    onSettingsChange({ ...appSettings, transparent });
-    await relaunch();
-  };
-
-  const handleSetTransparent = (transparent: boolean) => {
-    setConfirmModalState({
-      confirmText: 'Toggle Transparency',
-      confirmVariant: 'primary',
-      isOpen: true,
-      message: `Are you sure you want to ${transparent ? 'enable' : 'disable'} window transparency effects?\n${
-        transparent ? 'These effects may reduce application performance.' : ''
-      }\nThe application will relaunch to make this change.`,
-      onConfirm: () => executeSetTransparent(transparent),
-      title: 'Confirm Window Transparency',
-    });
-  };
-
   const executeClearCache = async () => {
     setIsClearingCache(true);
     setCacheClearMessage('Clearing thumbnail cache...');
@@ -769,18 +753,6 @@ export default function SettingsPanel({
                     </SettingItem>
 
                     <SettingItem
-                      description="Dynamically changes editor colors based on the current image."
-                      label="Editor Theme"
-                    >
-                      <Switch
-                        checked={appSettings?.adaptiveEditorTheme ?? false}
-                        id="adaptive-theme-toggle"
-                        label="Adaptive Editor Theme"
-                        onChange={(checked) => onSettingsChange({ ...appSettings, adaptiveEditorTheme: checked })}
-                      />
-                    </SettingItem>
-
-                    <SettingItem
                       label="EXIF Library Sorting"
                       description="Read EXIF data (ISO, aperture, etc.) on folder load at the cost of slower folder loading when using EXIF sorting."
                     >
@@ -832,18 +804,6 @@ export default function SettingsPanel({
                         id="folder-image-counts-toggle"
                         label="Show Image Counts"
                         onChange={(checked) => onSettingsChange({ ...appSettings, enableFolderImageCounts: checked })}
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      description="Enables or disables transparency effects for the application window. Relaunch required."
-                      label="Window Effects"
-                    >
-                      <Switch
-                        checked={appSettings?.transparent ?? true}
-                        id="window-effects-toggle"
-                        label="Transparency"
-                        onChange={handleSetTransparent}
                       />
                     </SettingItem>
 
@@ -1510,6 +1470,7 @@ export default function SettingsPanel({
                         onChange={(e: any) =>
                           handleProcessingSettingChange('rawHighlightCompression', parseFloat(e.target.value))
                         }
+                        fillOrigin="min"
                       />
                     </SettingItem>
 
@@ -1521,6 +1482,18 @@ export default function SettingsPanel({
                         onChange={(value: any) => onSettingsChange({ ...appSettings, linearRawMode: value })}
                         options={linearRawOptions}
                         value={appSettings?.linearRawMode || 'auto'}
+                      />
+                    </SettingItem>
+
+                    <SettingItem
+                      label="WGPU Direct Rendering"
+                      description="Bypasses browser encoding for instantly responsive live previews. Highly recommended for performance."
+                    >
+                      <Switch
+                        checked={processingSettings.useWgpuRenderer}
+                        id="wgpu-renderer-toggle"
+                        label="Enable Direct WGPU Render"
+                        onChange={(checked) => handleProcessingSettingChange('useWgpuRenderer', checked)}
                       />
                     </SettingItem>
 
