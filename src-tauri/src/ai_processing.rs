@@ -10,6 +10,9 @@ use image::{
 };
 use ndarray::{Array, Array4, IxDyn};
 use ort::session::Session;
+use ort::session::builder::SessionBuilder;
+#[cfg(target_os = "android")]
+use ort::execution_providers::NNAPIExecutionProvider;
 use ort::value::Tensor;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -93,6 +96,20 @@ pub struct AiState {
     pub lama_model: Option<Arc<Mutex<Session>>>,
     pub embeddings: Option<ImageEmbeddings>,
     pub depth_map: Option<CachedDepthMap>,
+}
+
+fn add_platform_optimization(builder: SessionBuilder) -> Result<SessionBuilder> {
+    #[cfg(target_os = "android")]
+    {
+        return Ok(builder.with_execution_providers([
+            NNAPIExecutionProvider::default().build()
+        ])?);
+    }
+
+    #[cfg(not(target_os = "android"))]
+    {
+        Ok(builder)
+    }
 }
 
 fn edt_1d(f: &mut [f32], v: &mut [usize], z: &mut [f32], d: &mut [f32]) {
@@ -382,11 +399,11 @@ pub async fn get_or_init_ai_models(
     let sky_seg_path = models_dir.join(SKYSEG_FILENAME);
     let depth_path = models_dir.join(DEPTH_FILENAME);
 
-    let sam_encoder = Session::builder()?.commit_from_file(encoder_path)?;
-    let sam_decoder = Session::builder()?.commit_from_file(decoder_path)?;
-    let u2netp = Session::builder()?.commit_from_file(u2netp_path)?;
-    let sky_seg = Session::builder()?.commit_from_file(sky_seg_path)?;
-    let depth_anything = Session::builder()?.commit_from_file(depth_path)?;
+    let sam_encoder = add_platform_optimization(Session::builder()?)?.commit_from_file(encoder_path)?;
+    let sam_decoder = add_platform_optimization(Session::builder()?)?.commit_from_file(decoder_path)?;
+    let u2netp = add_platform_optimization(Session::builder()?)?.commit_from_file(u2netp_path)?;
+    let sky_seg = add_platform_optimization(Session::builder()?)?.commit_from_file(sky_seg_path)?;
+    let depth_anything = add_platform_optimization(Session::builder()?)?.commit_from_file(depth_path)?;
 
     crate::register_exit_handler();
 
@@ -453,7 +470,7 @@ pub async fn get_or_init_denoise_model(
 
     let _ = ort::init().with_name("AI-Denoise").commit();
     let model_path = models_dir.join(DENOISE_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let session = add_platform_optimization(Session::builder()?)?.commit_from_file(model_path)?;
     let denoise_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -585,7 +602,7 @@ pub async fn get_or_init_lama_model(
 
     let _ = ort::init().with_name("AI-Inpainting").commit();
     let model_path = models_dir.join(LAMA_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let session = add_platform_optimization(Session::builder()?)?.commit_from_file(model_path)?;
     let lama_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
