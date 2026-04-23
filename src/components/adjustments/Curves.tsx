@@ -1,7 +1,14 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, Copy, ClipboardPaste, Spline, SlidersHorizontal } from 'lucide-react';
-import { ActiveChannel, Adjustments, Coord, ParametricCurveSettings } from '../../utils/adjustments';
+import { 
+  ActiveChannel, 
+  Adjustments, 
+  Coord, 
+  ParametricCurveSettings,
+  DEFAULT_PARAMETRIC_CURVE_SETTINGS,
+  DEFAULT_PARAMETRIC_CURVE
+} from '../../utils/adjustments';
 import { Theme, OPTION_SEPARATOR } from '../ui/AppProperties';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import Text from '../ui/Text';
@@ -33,62 +40,36 @@ interface CurveGraphProps {
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
-function getDefaultParametricCurve(): ParametricCurveSettings {
-  return {
-    darks: 0,
-    shadows: 0,
-    highlights: 0,
-    lights: 0,
-    split1: 25,
-    split2: 50,
-    split3: 75,
-  };
-}
-
-function getDefaultParametricCurveChannels() {
-  return {
-    [ActiveChannel.Luma]: getDefaultParametricCurve(),
-    [ActiveChannel.Red]: getDefaultParametricCurve(),
-    [ActiveChannel.Green]: getDefaultParametricCurve(),
-    [ActiveChannel.Blue]: getDefaultParametricCurve(),
-  };
-}
-
 function isDefaultParametricCurve(settings: ParametricCurveSettings | undefined) {
   if (!settings) return true;
-  const defaults = getDefaultParametricCurve();
   return (
-    settings.darks === defaults.darks &&
-    settings.shadows === defaults.shadows &&
-    settings.highlights === defaults.highlights &&
-    settings.lights === defaults.lights &&
-    settings.split1 === defaults.split1 &&
-    settings.split2 === defaults.split2 &&
-    settings.split3 === defaults.split3
+    settings.darks === DEFAULT_PARAMETRIC_CURVE_SETTINGS.darks &&
+    settings.shadows === DEFAULT_PARAMETRIC_CURVE_SETTINGS.shadows &&
+    settings.highlights === DEFAULT_PARAMETRIC_CURVE_SETTINGS.highlights &&
+    settings.lights === DEFAULT_PARAMETRIC_CURVE_SETTINGS.lights &&
+    settings.split1 === DEFAULT_PARAMETRIC_CURVE_SETTINGS.split1 &&
+    settings.split2 === DEFAULT_PARAMETRIC_CURVE_SETTINGS.split2 &&
+    settings.split3 === DEFAULT_PARAMETRIC_CURVE_SETTINGS.split3
   );
 }
 
 function getInfluence(slider: string, splitPointValue: number): number {
-  
   if (slider === 'shadows') {
     if (splitPointValue < 0 || splitPointValue > 0.30) return 0;
     const t = splitPointValue / 0.30;
     const influence = Math.sin(t * Math.PI);
     return influence;
-  } 
-  else if (slider === 'darks') {
+  } else if (slider === 'darks') {
     if (splitPointValue < 0.20 || splitPointValue > 0.55) return 0;
     const t = (splitPointValue - 0.20) / 0.35;
     const influence = Math.sin(t * Math.PI);
     return influence;
-  } 
-  else if (slider === 'lights') {
+  } else if (slider === 'lights') {
     if (splitPointValue < 0.45 || splitPointValue > 0.80) return 0;
     const t = (splitPointValue - 0.45) / 0.35;
     const influence = Math.sin(t * Math.PI);
     return influence;
-  } 
-  else if (slider === 'highlights') {
+  } else if (slider === 'highlights') {
     if (splitPointValue < 0.70 || splitPointValue > 1.0) return 0;
     const t = (splitPointValue - 0.70) / 0.30;
     const influence = Math.sin(t * Math.PI);
@@ -391,8 +372,8 @@ export default function CurveGraph({
   const propPointsRef = useRef<Array<Coord> | undefined>(undefined);
   const isHoveredRef = useRef(false);
 
-  const parametricCurves = adjustments?.parametricCurve || getDefaultParametricCurveChannels();
-  const parametricCurve = parametricCurves[activeParametricChannel] || getDefaultParametricCurve();
+  const parametricCurves = adjustments?.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
+  const parametricCurve = parametricCurves[activeParametricChannel] || DEFAULT_PARAMETRIC_CURVE[activeParametricChannel];
   const isParametricMode = curveMode === 'parametric';
 
   const parametricPreviewPoints = useMemo(() => buildParametricCurvePreview(parametricCurve), [parametricCurve]);
@@ -527,13 +508,13 @@ export default function CurveGraph({
       }
 
       setAdjustments((prev: Adjustments) => {
-        const parametricChannels = prev.parametricCurve || getDefaultParametricCurveChannels();
+        const parametricChannels = prev.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
         return {
           ...prev,
           parametricCurve: {
             ...parametricChannels,
             [activeParametricChannel]: {
-              ...(parametricChannels[activeParametricChannel] || getDefaultParametricCurve()),
+              ...(parametricChannels[activeParametricChannel] || DEFAULT_PARAMETRIC_CURVE[activeParametricChannel]),
               [draggingSplitKey]: nextValue,
             },
           },
@@ -618,13 +599,13 @@ export default function CurveGraph({
   const updateParametricValue = (key: keyof ParametricCurveSettings, value: number) => {
     if (isForMask) {
       setAdjustments((prev: any) => {
-        const currentParametricCurve = prev.parametricCurve || getDefaultParametricCurveChannels();
+        const currentParametricCurve = prev.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
         return {
           ...prev,
           parametricCurve: {
             ...currentParametricCurve,
             [activeParametricChannel]: {
-              ...(currentParametricCurve[activeParametricChannel] || getDefaultParametricCurve()),
+              ...(currentParametricCurve[activeParametricChannel] || DEFAULT_PARAMETRIC_CURVE[activeParametricChannel]),
               [key]: value,
             },
           },
@@ -632,13 +613,13 @@ export default function CurveGraph({
       });
     } else {
       setAdjustments((prev: Adjustments) => {
-        const parametricChannels = prev.parametricCurve || getDefaultParametricCurveChannels();
+        const parametricChannels = prev.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
         return {
           ...prev,
           parametricCurve: {
             ...parametricChannels,
             [activeParametricChannel]: {
-              ...(parametricChannels[activeParametricChannel] || getDefaultParametricCurve()),
+              ...(parametricChannels[activeParametricChannel] || DEFAULT_PARAMETRIC_CURVE[activeParametricChannel]),
               [key]: value,
             },
           },
@@ -714,13 +695,13 @@ export default function CurveGraph({
       ];
 
       setAdjustments((prev: Adjustments) => {
-        const parametricChannels = prev.parametricCurve || getDefaultParametricCurveChannels();
+        const parametricChannels = prev.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
 
         return {
           ...prev,
           parametricCurve: {
             ...parametricChannels,
-            [activeParametricChannel]: getDefaultParametricCurve(),
+            [activeParametricChannel]: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
           },
           curves: {
             ...prev.curves,
@@ -751,12 +732,12 @@ export default function CurveGraph({
 
     if (isForMask) {
       setAdjustments((prev: any) => {
-        const parametricChannels = prev.parametricCurve || getDefaultParametricCurveChannels();
+        const parametricChannels = prev.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
         return {
           ...prev,
           parametricCurve: {
             ...parametricChannels,
-            [activeParametricChannel]: getDefaultParametricCurve(),
+            [activeParametricChannel]: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
           },
           curves: {
             ...prev.curves,
@@ -766,12 +747,12 @@ export default function CurveGraph({
       });
     } else {
       setAdjustments((prev: Adjustments) => {
-        const parametricChannels = prev.parametricCurve || getDefaultParametricCurveChannels();
+        const parametricChannels = prev.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
         return {
           ...prev,
           parametricCurve: {
             ...parametricChannels,
-            [activeParametricChannel]: getDefaultParametricCurve(),
+            [activeParametricChannel]: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
           },
           curves: {
             ...prev.curves,
@@ -794,7 +775,7 @@ export default function CurveGraph({
       const handlePasteParametric = () => {
         if (!parametricClipboard) return;
         setAdjustments((prev: Adjustments) => {
-          const parametricChannels = prev.parametricCurve || getDefaultParametricCurveChannels();
+          const parametricChannels = prev.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
           return {
             ...prev,
             parametricCurve: {
@@ -815,10 +796,10 @@ export default function CurveGraph({
           return {
             ...prev,
             parametricCurve: {
-              [ActiveChannel.Luma]: getDefaultParametricCurve(),
-              [ActiveChannel.Red]: getDefaultParametricCurve(),
-              [ActiveChannel.Green]: getDefaultParametricCurve(),
-              [ActiveChannel.Blue]: getDefaultParametricCurve(),
+              [ActiveChannel.Luma]: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
+              [ActiveChannel.Red]: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
+              [ActiveChannel.Green]: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
+              [ActiveChannel.Blue]: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
             },
             curves: {
               ...prev.curves,
@@ -1127,8 +1108,7 @@ export default function CurveGraph({
                     onDoubleClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      const defaults = getDefaultParametricCurve();
-                      updateParametricValue(key, defaults[key]);
+                      updateParametricValue(key, DEFAULT_PARAMETRIC_CURVE_SETTINGS[key]);
                     }}
                     style={{ left: `${value}%` }}
                     type="button"
