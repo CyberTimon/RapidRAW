@@ -255,7 +255,6 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
                             label={group.label}
                             checked={isFullyChecked}
                             onChange={(checked) => handleGroupToggle(group.keys, checked)}
-                            trackClassName="bg-surface"
                           />
                         </div>
                       );

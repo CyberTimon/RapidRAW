@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { flushSync } from 'react-dom';
+import { useState, useLayoutEffect } from 'react';
 
 export interface ImageDimensions {
   height: number;
@@ -14,16 +13,21 @@ export interface RenderSize {
   width: number;
 }
 
-export const useImageRenderSize = (containerRef: any, imageDimensions: ImageDimensions | null) => {
-  const [renderSize, setRenderSize] = useState<RenderSize>({ width: 0, height: 0, scale: 1, offsetX: 0, offsetY: 0 });
+const DEFAULT_SIZE: RenderSize = { width: 0, height: 0, scale: 1, offsetX: 0, offsetY: 0 };
 
-  useEffect(() => {
-    const container: HTMLDivElement = containerRef.current;
-    const { width: imgWidth, height: imgHeight } = imageDimensions || {};
+export const useImageRenderSize = (
+  containerRef: React.RefObject<HTMLElement>,
+  imageDimensions: ImageDimensions | null,
+) => {
+  const [renderSize, setRenderSize] = useState<RenderSize>(DEFAULT_SIZE);
+  const imgWidth = imageDimensions?.width;
+  const imgHeight = imageDimensions?.height;
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+
     if (!container || !imgWidth || !imgHeight) {
-      if (renderSize.width !== 0 || renderSize.height !== 0) {
-        setRenderSize({ width: 0, height: 0, scale: 1, offsetX: 0, offsetY: 0 });
-      }
+      setRenderSize(DEFAULT_SIZE);
       return;
     }
 
@@ -48,12 +52,15 @@ export const useImageRenderSize = (containerRef: any, imageDimensions: ImageDime
     };
 
     updateSize();
+
     const resizeObserver = new ResizeObserver(() => {
-      flushSync(updateSize);
+      updateSize();
     });
+
     resizeObserver.observe(container);
+
     return () => resizeObserver.disconnect();
-  }, [containerRef, imageDimensions]);
+  }, [containerRef, imgWidth, imgHeight]);
 
   return renderSize;
 };

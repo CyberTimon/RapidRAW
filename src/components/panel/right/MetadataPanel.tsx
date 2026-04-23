@@ -68,7 +68,7 @@ function parseDms(dmsString: string) {
 
 function MetadataItem({ label, value }: MetaDataItemProps) {
   return (
-    <div className="grid grid-cols-3 gap-2 py-1.5 px-2 rounded-sm odd:bg-bg-primary">
+    <div className="grid grid-cols-3 gap-2 py-2 px-2.5 rounded-sm odd:bg-surface">
       <Text
         variant={TextVariants.small}
         color={TextColors.primary}

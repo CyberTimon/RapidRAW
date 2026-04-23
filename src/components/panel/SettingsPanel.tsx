@@ -334,6 +334,7 @@ export default function SettingsPanel({
   const [tempLensMaker, setTempLensMaker] = useState<string>('');
   const [tempLensModel, setTempLensModel] = useState<string>('');
 
+  const osPlatform = useOsPlatform();
   const [processingSettings, setProcessingSettings] = useState({
     editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
     thumbnailResolution: appSettings?.thumbnailResolution || 720,
@@ -342,13 +343,13 @@ export default function SettingsPanel({
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
     highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
     useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
-    useWgpuRenderer: appSettings?.useWgpuRenderer ?? true,
+    useWgpuRenderer:
+      appSettings?.useWgpuRenderer ?? (osPlatform === 'linux' || osPlatform === 'android' ? false : true),
   });
   const [restartRequired, setRestartRequired] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
   const [logPath, setLogPath] = useState('');
   const [dpr, setDpr] = useState(() => (typeof window !== 'undefined' ? window.devicePixelRatio : 1));
-  const osPlatform = useOsPlatform();
 
   const filteredBackendOptions = backendOptions.filter((opt) => {
     if (opt.value === 'metal' && osPlatform !== 'macos') return false;
@@ -414,7 +415,7 @@ export default function SettingsPanel({
 
   const handleProcessingSettingChange = (key: string, value: any) => {
     setProcessingSettings((prev) => ({ ...prev, [key]: value }));
-    if (key === 'processingBackend' || key === 'linuxGpuOptimization') {
+    if (key === 'processingBackend' || key === 'linuxGpuOptimization' || key === 'useWgpuRenderer') {
       setRestartRequired(true);
     } else {
       onSettingsChange({ ...appSettings, [key]: value });
@@ -749,6 +750,7 @@ export default function SettingsPanel({
                         onChange={(value: any) => onSettingsChange({ ...appSettings, theme: value })}
                         options={THEMES.map((theme: ThemeProps) => ({ value: theme.id, label: theme.name }))}
                         value={appSettings?.theme || DEFAULT_THEME_ID}
+                        triggerClassName="bg-bg-primary"
                       />
                     </SettingItem>
 
@@ -815,6 +817,7 @@ export default function SettingsPanel({
                           { value: 'system', label: 'System Default' },
                         ]}
                         value={appSettings?.fontFamily || 'poppins'}
+                        triggerClassName="bg-bg-primary"
                       />
                     </SettingItem>
                   </div>
@@ -1040,6 +1043,7 @@ export default function SettingsPanel({
                                         onKeyDown={handleAiTagInputKeyDown}
                                         placeholder="Add custom AI tags (comma separated)..."
                                         className="pr-10"
+                                        bgClassName="bg-bg-primary"
                                       />
                                       <button
                                         onClick={handleAddAiTag}
@@ -1117,6 +1121,7 @@ export default function SettingsPanel({
                               onKeyDown={handleInputKeyDown}
                               placeholder="Add shortcuts (comma separated)..."
                               className="pr-10"
+                              bgClassName="bg-bg-primary"
                             />
                             <button
                               onClick={handleAddShortcut}
@@ -1333,6 +1338,7 @@ export default function SettingsPanel({
                                     }
                                     options={resolutions}
                                     value={processingSettings.editorPreviewResolution}
+                                    triggerClassName="bg-bg-primary"
                                   />
                                 </SettingItem>
                               </div>
@@ -1361,6 +1367,7 @@ export default function SettingsPanel({
                                     }
                                     options={resolutions}
                                     value={processingSettings.editorPreviewResolution}
+                                    triggerClassName="bg-bg-primary"
                                   />
                                 </SettingItem>
 
@@ -1374,6 +1381,7 @@ export default function SettingsPanel({
                                     }
                                     options={zoomMultiplierOptions}
                                     value={processingSettings.highResZoomMultiplier}
+                                    triggerClassName="bg-bg-primary"
                                   />
                                 </SettingItem>
 
@@ -1437,6 +1445,7 @@ export default function SettingsPanel({
                                   }
                                   options={livePreviewQualityOptions}
                                   value={appSettings?.livePreviewQuality || 'high'}
+                                  triggerClassName="bg-bg-primary"
                                 />
                               </SettingItem>
                             </div>
@@ -1453,6 +1462,7 @@ export default function SettingsPanel({
                         onChange={(value: any) => handleProcessingSettingChange('thumbnailResolution', value)}
                         options={thumbnailResolutions}
                         value={processingSettings.thumbnailResolution}
+                        triggerClassName="bg-bg-primary"
                       />
                     </SettingItem>
 
@@ -1482,15 +1492,23 @@ export default function SettingsPanel({
                         onChange={(value: any) => onSettingsChange({ ...appSettings, linearRawMode: value })}
                         options={linearRawOptions}
                         value={appSettings?.linearRawMode || 'auto'}
+                        triggerClassName="bg-bg-primary"
                       />
                     </SettingItem>
 
                     <SettingItem
                       label="WGPU Direct Rendering"
-                      description="Bypasses browser encoding for instantly responsive live previews. Highly recommended for performance."
+                      description={
+                        osPlatform === 'linux'
+                          ? 'Bypasses browser encoding for instantly responsive live previews. (Disabled on Linux: Tauri uses GTK for webviews, which conflicts with WGPU on the same X11 surface and causes flickering.)'
+                          : osPlatform === 'android'
+                            ? 'Bypasses browser encoding for instantly responsive live previews. (Disabled on Android: Native WGPU surface creation is currently not supported alongside the mobile webview.)'
+                            : 'Bypasses browser encoding for instantly responsive live previews. Highly recommended for performance.'
+                      }
                     >
                       <Switch
                         checked={processingSettings.useWgpuRenderer}
+                        disabled={osPlatform === 'linux' || osPlatform === 'android'}
                         id="wgpu-renderer-toggle"
                         label="Enable Direct WGPU Render"
                         onChange={(checked) => handleProcessingSettingChange('useWgpuRenderer', checked)}
@@ -1509,6 +1527,7 @@ export default function SettingsPanel({
                             ? processingSettings.processingBackend
                             : 'auto'
                         }
+                        triggerClassName="bg-bg-primary"
                       />
                     </SettingItem>
 
@@ -1615,6 +1634,7 @@ export default function SettingsPanel({
                                   placeholder="127.0.0.1:8188"
                                   type="text"
                                   value={aiConnectorAddress}
+                                  bgClassName="bg-bg-primary"
                                 />
                                 <Button
                                   className="w-32"
@@ -1812,6 +1832,28 @@ export default function SettingsPanel({
                         <KeybindItem keys={['I']} description="Toggle Metadata panel" />
                         <KeybindItem keys={['A']} description="Toggle Analytics display" />
                         <KeybindItem keys={['E']} description="Toggle Export panel" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Text variant={TextVariants.heading}>Mouse Controls</Text>
+                      <div className="divide-y divide-border-color">
+                        <KeybindItem keys={['Scroll Wheel']} description="Zoom In / Out" />
+                        <KeybindItem keys={['Shift', '+', 'Scroll']} description="Pan Horizontally" />
+                        <KeybindItem keys={['Alt/Option', '+', 'Scroll']} description="Pan Vertically" />
+                        <KeybindItem keys={['Alt/Option', '+', 'Shift', '+', 'Scroll']} description="Pan Diagonally" />
+                        <KeybindItem keys={['Left Click', '+', 'Drag']} description="Pan Freely" />
+                        <KeybindItem keys={['Left Click']} description="Quick Zoom (Toggle Fit/2x)" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Text variant={TextVariants.heading}>Trackpad Controls</Text>
+                      <div className="divide-y divide-border-color">
+                        <KeybindItem keys={['Pinch']} description="Zoom In / Out" />
+                        <KeybindItem keys={['Ctrl', '+', 'Two-Finger Swipe']} description="Alternative Zoom In / Out" />
+                        <KeybindItem keys={['Two-Finger Swipe']} description="Pan Freely" />
+                        <KeybindItem keys={['Click']} description="Quick Zoom (Toggle Fit/2x)" />
                       </div>
                     </div>
                   </div>

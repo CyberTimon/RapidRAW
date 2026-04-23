@@ -38,6 +38,31 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.5.4" date="2026-04-22">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.4</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Reworked Presets System: Create "Style" presets that overwrite settings or "Tool" presets that act additively. You can now also save masks and crops directly into presets.</li>
+                <li>Intersecting Masks: Easily intersect masks to make complex masking workflows simpler and more precise.</li>
+                <li>Flow Masks: A new mask type that works like an additive brush, perfect for dodge and burn adjustments.</li>
+                <li>Copy/Paste Upgrades: You can now copy and paste masks and crops between images.</li>
+                <li>Fluid Canvas Navigation: Completely rewritten engine for zooming, panning, and pinching on the canvas.</li>
+                <li>Retaining EXIF Data: Denoised and stitched images now keep their original EXIF data, preserving lens correction profiles and capture dates.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Better Auto-Adjust: The auto-adjustment algorithm has been greatly improved to deliver faster, more accurate results.</li>
+                <li>Redesigned Color Wheels: Clean, consistent look with new dynamic sliders.</li>
+                <li>Batch Processing Upgrades: Added batch denoising and a new option to preserve exact folder structure when exporting in batches.</li>
+                <li>AVIF Export: Added support for AVIF export.</li>
+                <li>Removed mask limits.</li>
+                <li>Improved the downscaling algorithm so you feel less of a difference when dragging sliders.</li>
+                <li>Fixed bugs that occurred when rapidly switching between images.</li>
+                <li>General UI polish, bug fixes &amp; usability improvements.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.5.3" date="2026-04-01">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.3</url>
         <description translate="no">

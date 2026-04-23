@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Pipette, Sliders } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Slider from '../ui/Slider';
@@ -325,6 +325,8 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
     saturation: colorCalibration[`${activePrimary}Saturation` as keyof ColorCalibration] || 0,
   };
 
+  const trackSuffix = `${activePrimary}s`;
+
   return (
     <div className="p-2 bg-bg-tertiary rounded-md mt-4">
       <Text variant={TextVariants.heading} className="mb-2">
@@ -343,6 +345,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
           value={colorCalibration.shadowsTint}
           onChange={(e: any) => handleShadowsChange(e.target.value)}
           onDragStateChange={onDragStateChange}
+          trackClassName="tint-gradient-track"
         />
       </div>
       <div className="mt-3">
@@ -369,6 +372,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
           value={currentValues.hue}
           onChange={(e: any) => handlePrimaryChange('Hue', e.target.value)}
           onDragStateChange={onDragStateChange}
+          trackClassName={`hue-slider-${trackSuffix}`}
         />
         <Slider
           label="Saturation"
@@ -379,6 +383,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
           value={currentValues.saturation}
           onChange={(e: any) => handlePrimaryChange('Saturation', e.target.value)}
           onDragStateChange={onDragStateChange}
+          trackClassName={`sat-slider-${trackSuffix}`}
         />
       </div>
     </div>
@@ -396,6 +401,29 @@ export default function ColorPanel({
 }: ColorPanelProps) {
   const [activeColor, setActiveColor] = useState('reds');
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
+
+  const colorHueMap: Record<string, number> = {
+    reds: 0,
+    oranges: 30,
+    yellows: 60,
+    greens: 120,
+    aquas: 180,
+    blues: 240,
+    purples: 300,
+    magentas: 340,
+  };
+
+  const currentHsl = adjustments?.hsl?.[activeColor] || { hue: 0, saturation: 0, luminance: 0 };
+  const baseHue = colorHueMap[activeColor] || 0;
+  const effectiveHue = baseHue + (currentHsl.hue || 0);
+
+  useEffect(() => {
+    const normalizedHue = ((effectiveHue % 360) + 360) % 360;
+    const effectiveSaturation = (currentHsl.saturation + 100) / 2;
+
+    document.documentElement.style.setProperty(`--hsl-mixer-hue-${activeColor}`, normalizedHue.toString());
+    document.documentElement.style.setProperty(`--hsl-mixer-sat-${activeColor}`, `${effectiveSaturation}%`);
+  }, [effectiveHue, currentHsl.saturation, activeColor]);
 
   const handleGlobalChange = (key: ColorAdjustment, value: string) => {
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: parseFloat(value) }));
@@ -417,8 +445,6 @@ export default function ColorPanel({
   const hue_slider = `hue-slider-${activeColor}`;
   const saturation_slider = `sat-slider-${activeColor}`;
   const luminance_slider = `lum-slider-${activeColor}`;
-
-  const currentHsl = adjustments?.hsl?.[activeColor] || { hue: 0, saturation: 0, luminance: 0 };
 
   return (
     <div className="space-y-4">

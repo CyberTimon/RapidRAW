@@ -101,6 +101,7 @@ interface MainLibraryProps {
   onGoHome(): void;
   onImageClick(path: string, event: any): void;
   onImageDoubleClick(path: string): void;
+  onImportClick(): void;
   onLibraryRefresh(): void;
   onOpenFolder(): void;
   onSettingsChange(settings: AppSettings): Promise<void>;
@@ -1097,13 +1098,6 @@ function ListItem({
                   style={{ opacity: layer.opacity, transition: 'opacity 300ms ease-in-out' }}
                   onTransitionEnd={() => handleTransitionEnd(layer.id)}
                 >
-                  {thumbnailAspectRatio === ThumbnailAspectRatio.Contain && (
-                    <img
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover blur-md scale-110 brightness-[0.4]"
-                      src={layer.url}
-                    />
-                  )}
                   <img
                     alt={baseName}
                     className={`w-full h-full relative ${
@@ -1295,13 +1289,6 @@ function Thumbnail({
               }}
               onTransitionEnd={() => handleTransitionEnd(layer.id)}
             >
-              {thumbnailAspectRatio === ThumbnailAspectRatio.Contain && (
-                <img
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover blur-md scale-110 brightness-[0.4]"
-                  src={layer.url}
-                />
-              )}
               <img
                 alt={path.split(/[\\/]/).pop()}
                 className={`w-full h-full group-hover:scale-[1.02] transition-transform duration-300 ${
@@ -1519,6 +1506,7 @@ export default function MainLibrary({
   onGoHome,
   onImageClick,
   onImageDoubleClick,
+  onImportClick,
   onLibraryRefresh,
   onOpenFolder,
   onSettingsChange,
@@ -2312,6 +2300,18 @@ export default function MainLibrary({
           <SlidersHorizontal className="h-12 w-12 mb-4 text-text-secondary" />
           <Text>No images found that match your filter.</Text>
         </div>
+      )}
+      {isAndroid && (
+        <Button
+          className="absolute bottom-18 right-8 h-12 w-12 bg-accent text-button-text shadow-lg p-0 flex items-center justify-center z-50 border border-border-color/50"
+          onClick={(e) => {
+            e.stopPropagation();
+            onImportClick();
+          }}
+          data-tooltip="Import Images"
+        >
+          <FolderInput className="w-6 h-6" />
+        </Button>
       )}
     </div>
   );

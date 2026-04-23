@@ -19,6 +19,7 @@ interface DropdownProps<T extends React.Key> {
   searchPlaceholder?: string;
   value: T | null;
   disabled?: boolean;
+  triggerClassName?: string;
 }
 
 const Dropdown = <T extends React.Key>({
@@ -29,6 +30,7 @@ const Dropdown = <T extends React.Key>({
   searchPlaceholder = 'Filter options...',
   value,
   disabled = false,
+  triggerClassName = '',
 }: DropdownProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -105,7 +107,11 @@ const Dropdown = <T extends React.Key>({
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         disabled={disabled}
-        className="w-full bg-bg-primary border border-border-color rounded-md px-3 mr-4 py-2 focus:ring-accent focus:border-accent focus:outline-hidden focus:ring-2 flex justify-between items-center text-left disabled:opacity-50 disabled:cursor-not-allowed"
+        className={clsx(
+          'w-full border border-border-color rounded-md px-3 mr-4 py-2 flex justify-between items-center text-left disabled:opacity-50 disabled:cursor-not-allowed transition-all',
+          'focus:ring-accent focus:border-accent focus:outline-hidden focus:ring-2',
+          triggerClassName || 'bg-surface',
+        )}
         onClick={() => setIsOpen(!isOpen)}
         type="button"
       >
