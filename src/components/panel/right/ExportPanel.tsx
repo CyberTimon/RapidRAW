@@ -132,7 +132,7 @@ function WatermarkPreview({
 
   return (
     <div
-      className="w-full bg-bg-primary rounded-md relative overflow-hidden border border-surface"
+      className="w-full bg-surface rounded-md relative overflow-hidden border border-surface"
       style={{ aspectRatio: imageAspectRatio }}
     >
       <div className="absolute inset-0 flex items-center justify-center">
@@ -566,7 +566,7 @@ export default function ExportPanel({
               {isBatchMode && (
                 <>
                   <input
-                    className="w-full bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
+                    className="w-full bg-surface border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
                     disabled={isExporting}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilenameTemplate(e.target.value)}
                     ref={filenameInputRef}
@@ -594,6 +594,7 @@ export default function ExportPanel({
                   checked={preserveFolders}
                   onChange={setPreserveFolders}
                   disabled={isExporting}
+                  trackClassName="bg-surface"
                 />
               </div>
             </Section>
@@ -606,6 +607,7 @@ export default function ExportPanel({
                     checked={enableResize}
                     onChange={setEnableResize}
                     disabled={isExporting}
+                    trackClassName="bg-surface"
                   />
                   {enableResize && (
                     <div className="space-y-4 pl-2 border-l-2 border-surface">
@@ -618,7 +620,7 @@ export default function ExportPanel({
                           className="w-full"
                         />
                         <input
-                          className="w-24 bg-bg-primary text-center rounded-md p-2 border border-surface focus:border-accent focus:ring-accent text-text-secondary focus:text-text-primary"
+                          className="w-24 bg-surface text-center rounded-md p-2 border border-surface focus:border-accent focus:ring-accent text-text-secondary focus:text-text-primary"
                           disabled={isExporting}
                           min="1"
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -634,6 +636,7 @@ export default function ExportPanel({
                         disabled={isExporting}
                         label="Don't Enlarge"
                         onChange={setDontEnlarge}
+                        trackClassName="bg-surface"
                       />
                     </div>
                   )}
@@ -647,6 +650,7 @@ export default function ExportPanel({
                         disabled={isExporting}
                         label="Keep Original Metadata"
                         onChange={setKeepMetadata}
+                        trackClassName="bg-surface"
                       />
                       {keepMetadata && (
                         <div className="pl-2 border-l-2 border-surface">
@@ -655,6 +659,7 @@ export default function ExportPanel({
                             checked={stripGps}
                             onChange={setStripGps}
                             disabled={isExporting}
+                            trackClassName="bg-surface"
                           />
                         </div>
                       )}
@@ -668,6 +673,7 @@ export default function ExportPanel({
                     disabled={isExporting}
                     label="Set File Timestamps from EXIF Capture Date"
                     onChange={setPreserveTimestamps}
+                    trackClassName="bg-surface"
                   />
                 </Section>
 
@@ -678,6 +684,7 @@ export default function ExportPanel({
                       checked={exportMasks}
                       onChange={setExportMasks}
                       disabled={isExporting}
+                      trackClassName="bg-surface"
                     />
                   </Section>
                 )}
@@ -688,6 +695,7 @@ export default function ExportPanel({
                     checked={enableWatermark}
                     onChange={setEnableWatermark}
                     disabled={isExporting}
+                    trackClassName="bg-surface"
                   />
                   {enableWatermark && (
                     <div className="space-y-4 pl-2 border-l-2 border-surface">

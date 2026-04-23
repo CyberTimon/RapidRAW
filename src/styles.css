@@ -153,83 +153,83 @@
   }
 
   .hue-slider-reds {
-    background: linear-gradient(to right, hsl(260, 60%, 45%), hsl(0, 60%, 45%), hsl(100, 60%, 45%)) !important;
+    background: linear-gradient(to right, hsl(260, 50%, 50%), hsl(0, 50%, 50%), hsl(100, 50%, 50%)) !important;
   }
   .sat-slider-reds {
-    background: linear-gradient(to right, hsl(0, 0%, 45%), hsl(0, 60%, 45%), hsl(0, 90%, 45%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-reds, 0), 0%, 50%), hsl(var(--hsl-mixer-hue-reds, 0), 100%, 50%)) !important;
   }
   .lum-slider-reds {
-    background: linear-gradient(to right, hsl(0, 60%, 0%), hsl(0, 60%, 45%), hsl(0, 60%, 80%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-reds, 0), var(--hsl-mixer-sat-reds, 0%), 0%), hsl(var(--hsl-mixer-hue-reds, 0), var(--hsl-mixer-sat-reds, 0%), 50%), hsl(var(--hsl-mixer-hue-reds, 0), var(--hsl-mixer-sat-reds, 0%), 100%)) !important;
   }
 
   .hue-slider-oranges {
-    background: linear-gradient(to right, hsl(290, 60%, 45%), hsl(30, 60%, 45%), hsl(130, 60%, 45%)) !important;
+    background: linear-gradient(to right, hsl(290, 50%, 50%), hsl(30, 50%, 50%), hsl(130, 50%, 50%)) !important;
   }
   .sat-slider-oranges {
-    background: linear-gradient(to right, hsl(30, 0%, 45%), hsl(30, 60%, 45%), hsl(30, 90%, 45%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-oranges, 30), 0%, 50%), hsl(var(--hsl-mixer-hue-oranges, 30), 100%, 50%)) !important;
   }
   .lum-slider-oranges {
-    background: linear-gradient(to right, hsl(30, 60%, 0%), hsl(30, 60%, 45%), hsl(30, 60%, 80%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-oranges, 30), var(--hsl-mixer-sat-oranges, 0%), 0%), hsl(var(--hsl-mixer-hue-oranges, 30), var(--hsl-mixer-sat-oranges, 0%), 50%), hsl(var(--hsl-mixer-hue-oranges, 30), var(--hsl-mixer-sat-oranges, 0%), 100%)) !important;
   }
 
   .hue-slider-yellows {
-    background: linear-gradient(to right, hsl(320, 60%, 50%), hsl(60, 60%, 50%), hsl(160, 60%, 50%)) !important;
+    background: linear-gradient(to right, hsl(320, 50%, 50%), hsl(60, 50%, 50%), hsl(160, 50%, 50%)) !important;
   }
   .sat-slider-yellows {
-    background: linear-gradient(to right, hsl(60, 0%, 45%), hsl(60, 60%, 45%), hsl(60, 90%, 45%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-yellows, 60), 0%, 50%), hsl(var(--hsl-mixer-hue-yellows, 60), 100%, 50%)) !important;
   }
   .lum-slider-yellows {
-    background: linear-gradient(to right, hsl(60, 60%, 0%), hsl(60, 60%, 45%), hsl(60, 60%, 80%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-yellows, 60), var(--hsl-mixer-sat-yellows, 0%), 0%), hsl(var(--hsl-mixer-hue-yellows, 60), var(--hsl-mixer-sat-yellows, 0%), 50%), hsl(var(--hsl-mixer-hue-yellows, 60), var(--hsl-mixer-sat-yellows, 0%), 100%)) !important;
   }
 
   .hue-slider-greens {
-    background: linear-gradient(to right, hsl(20, 60%, 45%), hsl(120, 60%, 45%), hsl(220, 60%, 45%)) !important;
+    background: linear-gradient(to right, hsl(20, 50%, 50%), hsl(120, 50%, 50%), hsl(220, 50%, 50%)) !important;
   }
   .sat-slider-greens {
-    background: linear-gradient(to right, hsl(120, 0%, 45%), hsl(120, 60%, 45%), hsl(120, 90%, 45%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-greens, 120), 0%, 50%), hsl(var(--hsl-mixer-hue-greens, 120), 100%, 50%)) !important;
   }
   .lum-slider-greens {
-    background: linear-gradient(to right, hsl(120, 60%, 0%), hsl(120, 60%, 45%), hsl(120, 60%, 80%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-greens, 120), var(--hsl-mixer-sat-greens, 0%), 0%), hsl(var(--hsl-mixer-hue-greens, 120), var(--hsl-mixer-sat-greens, 0%), 50%), hsl(var(--hsl-mixer-hue-greens, 120), var(--hsl-mixer-sat-greens, 0%), 100%)) !important;
   }
 
   .hue-slider-aquas {
-    background: linear-gradient(to right, hsl(80, 60%, 45%), hsl(180, 60%, 45%), hsl(280, 60%, 45%)) !important;
+    background: linear-gradient(to right, hsl(80, 50%, 50%), hsl(180, 50%, 50%), hsl(280, 50%, 50%)) !important;
   }
   .sat-slider-aquas {
-    background: linear-gradient(to right, hsl(180, 0%, 45%), hsl(180, 60%, 45%), hsl(180, 90%, 45%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-aquas, 180), 0%, 50%), hsl(var(--hsl-mixer-hue-aquas, 180), 100%, 50%)) !important;
   }
   .lum-slider-aquas {
-    background: linear-gradient(to right, hsl(180, 60%, 0%), hsl(180, 60%, 45%), hsl(180, 60%, 80%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-aquas, 180), var(--hsl-mixer-sat-aquas, 0%), 0%), hsl(var(--hsl-mixer-hue-aquas, 180), var(--hsl-mixer-sat-aquas, 0%), 50%), hsl(var(--hsl-mixer-hue-aquas, 180), var(--hsl-mixer-sat-aquas, 0%), 100%)) !important;
   }
 
   .hue-slider-blues {
-    background: linear-gradient(to right, hsl(140, 60%, 45%), hsl(240, 60%, 45%), hsl(340, 60%, 45%)) !important;
+    background: linear-gradient(to right, hsl(140, 50%, 50%), hsl(240, 50%, 50%), hsl(340, 50%, 50%)) !important;
   }
   .sat-slider-blues {
-    background: linear-gradient(to right, hsl(240, 0%, 45%), hsl(240, 60%, 45%), hsl(240, 90%, 45%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-blues, 240), 0%, 50%), hsl(var(--hsl-mixer-hue-blues, 240), 100%, 50%)) !important;
   }
   .lum-slider-blues {
-    background: linear-gradient(to right, hsl(240, 60%, 0%), hsl(240, 60%, 45%), hsl(240, 60%, 80%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-blues, 240), var(--hsl-mixer-sat-blues, 0%), 0%), hsl(var(--hsl-mixer-hue-blues, 240), var(--hsl-mixer-sat-blues, 0%), 50%), hsl(var(--hsl-mixer-hue-blues, 240), var(--hsl-mixer-sat-blues, 0%), 100%)) !important;
   }
 
   .hue-slider-purples {
-    background: linear-gradient(to right, hsl(200, 60%, 45%), hsl(300, 60%, 45%), hsl(40, 60%, 45%)) !important;
+    background: linear-gradient(to right, hsl(200, 50%, 50%), hsl(300, 50%, 50%), hsl(40, 50%, 50%)) !important;
   }
   .sat-slider-purples {
-    background: linear-gradient(to right, hsl(300, 0%, 45%), hsl(300, 60%, 45%), hsl(300, 90%, 45%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-purples, 300), 0%, 50%), hsl(var(--hsl-mixer-hue-purples, 300), 100%, 50%)) !important;
   }
   .lum-slider-purples {
-    background: linear-gradient(to right, hsl(300, 60%, 0%), hsl(300, 60%, 45%), hsl(300, 60%, 80%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-purples, 300), var(--hsl-mixer-sat-purples, 0%), 0%), hsl(var(--hsl-mixer-hue-purples, 300), var(--hsl-mixer-sat-purples, 0%), 50%), hsl(var(--hsl-mixer-hue-purples, 300), var(--hsl-mixer-sat-purples, 0%), 100%)) !important;
   }
 
   .hue-slider-magentas {
-    background: linear-gradient(to right, hsl(240, 60%, 45%), hsl(340, 60%, 45%), hsl(80, 60%, 45%)) !important;
+    background: linear-gradient(to right, hsl(240, 50%, 50%), hsl(340, 50%, 50%), hsl(80, 50%, 50%)) !important;
   }
   .sat-slider-magentas {
-    background: linear-gradient(to right, hsl(340, 0%, 45%), hsl(340, 60%, 45%), hsl(340, 90%, 45%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-magentas, 340), 0%, 50%), hsl(var(--hsl-mixer-hue-magentas, 340), 100%, 50%)) !important;
   }
   .lum-slider-magentas {
-    background: linear-gradient(to right, hsl(340, 60%, 0%), hsl(340, 60%, 45%), hsl(340, 60%, 80%)) !important;
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-magentas, 340), var(--hsl-mixer-sat-magentas, 0%), 0%), hsl(var(--hsl-mixer-hue-magentas, 340), var(--hsl-mixer-sat-magentas, 0%), 50%), hsl(var(--hsl-mixer-hue-magentas, 340), var(--hsl-mixer-sat-magentas, 0%), 100%)) !important;
   }
 }
 

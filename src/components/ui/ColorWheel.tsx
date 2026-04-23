@@ -33,9 +33,34 @@ const ColorWheel = ({
   const [isWheelDragging, setIsWheelDragging] = useState(false);
   const [isSliderDragging, setIsSliderDragging] = useState(false);
   const [isLabelHovered, setIsLabelHovered] = useState(false);
+  const modifierState = useRef({ ctrl: false, shift: false });
   const instanceId = useId().replace(/:/g, '');
 
   const isDragging = isWheelDragging || isSliderDragging;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      modifierState.current = {
+        ctrl: e.ctrlKey,
+        shift: e.shiftKey,
+      };
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      modifierState.current = {
+        ctrl: e.ctrlKey,
+        shift: e.shiftKey,
+      };
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
 
   useEffect(() => {
     document.documentElement.style.setProperty(`--cg-hue-${instanceId}`, hue.toString());
@@ -84,7 +109,31 @@ const ColorWheel = ({
   }, [isDragging, onDragStateChange]);
 
   const handleWheelChange = (color: ColorResult) => {
-    onChange({ ...effectiveValue, hue: color.hsva.h, saturation: color.hsva.s });
+    const { ctrl, shift } = modifierState.current;
+    const newValues = { ...effectiveValue };
+
+    if (ctrl && !shift) {
+      newValues.hue = color.hsva.h;
+      newValues.saturation = saturation;
+    } else if (shift && !ctrl) {
+      let newSaturation = color.hsva.s;
+
+      const hueDelta = Math.abs(color.hsva.h - hue);
+
+      if (hueDelta > 30) {
+        newSaturation = 0;
+      }
+
+      newSaturation = Math.max(0, Math.min(100, newSaturation));
+
+      newValues.saturation = newSaturation;
+      newValues.hue = hue;
+    } else {
+      newValues.hue = color.hsva.h;
+      newValues.saturation = color.hsva.s;
+    }
+
+    onChange(newValues);
   };
 
   const handleHueChange = (e: React.ChangeEvent<HTMLInputElement>) => {

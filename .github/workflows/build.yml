@@ -101,27 +101,17 @@ jobs:
           ndk-version: r26d
           link-to-sdk: true
 
-      # ----------------------------------------------------------------------
-      # - name: Setup Android signing
-      #   if: inputs.mobile == 'android'
-      #   run: |
-      #     cd src-tauri/gen/android
-      #     echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > keystore.properties
-      #     echo "password=${{ secrets.ANDROID_KEY_PASSWORD }}" >> keystore.properties
-      #     base64 -d <<< "${{ secrets.ANDROID_KEY_BASE64 }}" > $RUNNER_TEMP/keystore.jks
-      #     echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
-      # ----------------------------------------------------------------------
-
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Initialize Android project
+      - name: Setup Android signing
         if: inputs.mobile == 'android'
-        shell: bash
         run: |
-          if [ ! -d "src-tauri/gen/android" ]; then
-            npx tauri android init
-          fi
+          cd src-tauri/gen/android
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > keystore.properties
+          echo "password=${{ secrets.ANDROID_KEY_PASSWORD }}" >> keystore.properties
+          echo "${{ secrets.ANDROID_KEY_BASE64 }}" | base64 -d > $RUNNER_TEMP/keystore.jks
+          echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
 
       - name: rustup install target
         if: ${{ inputs.target != '' }}

@@ -1989,7 +1989,6 @@ function App() {
     }
 
     let finalCssVariables: any = { ...baseTheme.cssVariables };
-    const effectThemeForWindow = baseTheme.id;
 
     Object.entries(finalCssVariables).forEach(([key, value]) => {
       root.style.setProperty(key, value as string);
@@ -2001,9 +2000,6 @@ function App() {
         ? '-apple-system, BlinkMacSystemFont, system-ui, sans-serif'
         : "'Poppins', system-ui, sans-serif";
     root.style.setProperty('--font-family', fontStack);
-
-    const isLight = [Theme.Light, Theme.Snow, Theme.Arctic].includes(effectThemeForWindow);
-    invoke(Invokes.UpdateWindowEffect, { theme: isLight ? Theme.Light : Theme.Dark });
   }, [theme, appSettings?.fontFamily]);
 
   const refreshAllFolderTrees = useCallback(
@@ -2379,6 +2375,7 @@ function App() {
 
     const lastActivePath = selectedImage?.path ?? null;
     setHasRenderedFirstFrame(false);
+    selectedImagePathRef.current = null;
     setSelectedImage(null);
     setFinalPreviewUrl(null);
     setUncroppedAdjustedPreviewUrl(null);
@@ -2414,6 +2411,7 @@ function App() {
       patchesSentToBackend.current.clear();
 
       setHasRenderedFirstFrame(false);
+      selectedImagePathRef.current = path;
       setMultiSelectedPaths([path]);
       setLibraryActivePath(null);
       setSelectionAnchorPath(path);
@@ -2752,13 +2750,7 @@ function App() {
         return;
       }
 
-      let currentRating = 0;
-      if (selectedImage && pathsToRate.includes(selectedImage.path)) {
-        currentRating = adjustments.rating;
-      } else if (libraryActivePath && pathsToRate.includes(libraryActivePath)) {
-        currentRating = libraryActiveAdjustments.rating;
-      }
-
+      const currentRating = imageRatings[pathsToRate[0]] || 0;
       const finalRating = newRating === currentRating ? 0 : newRating;
 
       setImageRatings((prev: Record<string, number>) => {
@@ -2769,29 +2761,12 @@ function App() {
         return newRatings;
       });
 
-      if (selectedImage && pathsToRate.includes(selectedImage.path)) {
-        setAdjustments((prev: Adjustments) => ({ ...prev, rating: finalRating }));
-      }
-
-      if (libraryActivePath && pathsToRate.includes(libraryActivePath)) {
-        setLibraryActiveAdjustments((prev) => ({ ...prev, rating: finalRating }));
-      }
-
-      invoke(Invokes.ApplyAdjustmentsToPaths, { paths: pathsToRate, adjustments: { rating: finalRating } }).catch(
-        (err) => {
-          console.error('Failed to apply rating to paths:', err);
-          setError(`Failed to apply rating: ${err}`);
-        },
-      );
+      invoke(Invokes.SetRatingForPaths, { paths: pathsToRate, rating: finalRating }).catch((err) => {
+        console.error('Failed to apply rating to paths:', err);
+        setError(`Failed to apply rating: ${err}`);
+      });
     },
-    [
-      multiSelectedPaths,
-      selectedImage,
-      libraryActivePath,
-      adjustments.rating,
-      libraryActiveAdjustments.rating,
-      setAdjustments,
-    ],
+    [multiSelectedPaths, selectedImage, imageRatings],
   );
 
   const handleSetColorLabel = useCallback(
@@ -3425,8 +3400,8 @@ function App() {
           }));
         }
       }),
-      listen('wgpu-frame-ready', () => {
-        if (isEffectActive) {
+      listen('wgpu-frame-ready', (event: any) => {
+        if (isEffectActive && event.payload?.path === selectedImagePathRef.current) {
           setHasRenderedFirstFrame(true);
         }
       }),
@@ -4155,18 +4130,15 @@ function App() {
       invoke(Invokes.ResetAdjustmentsForPaths, { paths: pathsToReset })
         .then(() => {
           if (libraryActivePath && pathsToReset.includes(libraryActivePath)) {
-            setLibraryActiveAdjustments((prev: Adjustments) => ({ ...INITIAL_ADJUSTMENTS, rating: prev.rating }));
+            setLibraryActiveAdjustments({ ...INITIAL_ADJUSTMENTS });
           }
           if (selectedImage && pathsToReset.includes(selectedImage.path)) {
-            const currentRating = adjustments.rating;
-
             const originalAspectRatio =
               selectedImage.width && selectedImage.height ? selectedImage.width / selectedImage.height : null;
 
             resetAdjustmentsHistory({
               ...INITIAL_ADJUSTMENTS,
               aspectRatio: originalAspectRatio,
-              rating: currentRating,
               aiPatches: [],
             });
           }
@@ -4384,13 +4356,11 @@ function App() {
             isDestructive: true,
             onClick: () => {
               debouncedSetHistory.cancel();
-              const currentRating = adjustments.rating;
               const originalAspectRatio =
                 selectedImage.width && selectedImage.height ? selectedImage.width / selectedImage.height : null;
               resetAdjustmentsHistory({
                 ...INITIAL_ADJUSTMENTS,
                 aspectRatio: originalAspectRatio,
-                rating: currentRating,
                 aiPatches: [],
               });
             },
@@ -5102,6 +5072,7 @@ function App() {
             onGoHome={handleGoHome}
             onImageClick={handleLibraryImageSingleClick}
             onImageDoubleClick={handleImageSelect}
+            onImportClick={() => handleImportClick(currentFolderPath as string)}
             onLibraryRefresh={handleLibraryRefresh}
             onOpenFolder={handleOpenFolder}
             onSettingsChange={handleSettingsChange}
@@ -5143,7 +5114,7 @@ function App() {
             onPaste={() => handlePasteAdjustments()}
             onRate={handleRate}
             onReset={() => handleResetAdjustments()}
-            rating={libraryActiveAdjustments.rating || 0}
+            rating={imageRatings[libraryActivePath || ''] || 0}
             thumbnailAspectRatio={thumbnailAspectRatio}
             totalImages={imageList.length}
           />
@@ -5267,7 +5238,7 @@ function App() {
                 onRate={handleRate}
                 onRequestThumbnails={requestThumbnails}
                 onZoomChange={handleZoomChange}
-                rating={adjustments.rating || 0}
+                rating={imageRatings[selectedImage?.path || ''] || 0}
                 selectedImage={selectedImage}
                 setIsFilmstripVisible={(value: boolean) =>
                   setUiVisibility((prev: UiVisibility) => ({ ...prev, filmstrip: value }))
@@ -5343,7 +5314,7 @@ function App() {
                         {renderedRightPanel === Panel.Metadata && (
                           <MetadataPanel
                             selectedImage={selectedImage}
-                            rating={adjustments.rating || 0}
+                            rating={imageRatings[selectedImage.path] || 0}
                             tags={imageList.find((img) => img.path === selectedImage.path)?.tags || []}
                             onRate={handleRate}
                             onSetColorLabel={handleSetColorLabel}

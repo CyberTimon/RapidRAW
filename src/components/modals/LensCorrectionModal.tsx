@@ -627,7 +627,7 @@ export default function LensCorrectionModal({
               <div
                 className={clsx(
                   'flex items-center gap-3 p-2 rounded-md transition-colors',
-                  availability.distortion ? 'bg-surface' : 'bg-surface/30 opacity-60',
+                  availability.distortion ? 'bg-surface' : 'bg-surface/30',
                 )}
               >
                 <Text as="div" className="p-1.5 bg-bg-primary rounded-sm">
@@ -668,7 +668,7 @@ export default function LensCorrectionModal({
               <div
                 className={clsx(
                   'flex items-center gap-3 p-2 rounded-md transition-colors',
-                  availability.tca ? 'bg-surface' : 'bg-surface/30 opacity-60',
+                  availability.tca ? 'bg-surface' : 'bg-surface/30',
                 )}
               >
                 <Text as="div" className="p-1.5 bg-bg-primary rounded-sm">
@@ -709,7 +709,7 @@ export default function LensCorrectionModal({
               <div
                 className={clsx(
                   'flex items-center gap-3 p-2 rounded-md transition-colors',
-                  availability.vignetting ? 'bg-surface' : 'bg-surface/30 opacity-60',
+                  availability.vignetting ? 'bg-surface' : 'bg-surface/30',
                 )}
               >
                 <Text as="div" className="p-1.5 bg-bg-primary rounded-sm">

@@ -60,7 +60,28 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-04-21:** Signed Android APKs, added canvas shortcuts to keybinds, added reset adjustments confirm submenu, and fixed WGPU renderer bugs
+- **2026-04-20:** Added style/tool preset mode, improved auto-adjustments via thumbnail caching, and optimized WGPU renderer with custom transform wrapper
+- **2026-04-19:** Added brightness to auto-adjust and replicated pixelated rendering logic in WGPU display
+- **2026-04-18:** Implemented direct WGPU renderer and fixed macOS GPU context initialization
+- **2026-04-17:** Added comprehensive touch support for masks, curves, sliders, and scrolling
+- **2026-04-16:** Presets and copy/paste settings now support masks and crops; added mask intersect mode
+- **2026-04-15:** Native rotation slider, mask duplication improvements, and Android AI mask fixes
+- **2026-04-14:** Implemented `.rrexif` format to keep EXIF when denoising/stitching and added batch denoising
+- **2026-04-13:** Added option to preserve folder structure when batch exporting and removed mask limit
+- **2026-04-12:** Implemented option to keep export file timestamps from EXIF capture date
+- **2026-04-11:** Added flow mask controls/rasterization and dynamic gradient sliders for color grading wheels
+- **2026-04-10:** Improved downscaling algorithm, optimized zoom handling, and implemented global UI text layout upgrades
+- **2026-04-09:** Fixed Linux touchpad pinch zoom scaling and optimized Masks/AI panel space efficiency
+- **2026-04-08:** Redesigned color grading wheels for a minimalistic, consistent look
+- **2026-04-07:** Added AVIF export support and fixed adjustment race conditions on fast image switching
+- **2026-04-04:** Fixed filmstrip additive multi-range selection
+- **2026-04-02:** Added Android URI support and Android file management integration
 - **2026-04-01:** Added depth masking with depth anything v2 & improved ROI rendering performance
+
+<details>
+<summary><strong>Expand further</strong></summary>
+
 - **2026-03-30:** LaMa inpainting for lightweight local content-aware fill and object removal
 - **2026-03-26:** Performance improvements & new flat list mode for library
 - **2026-03-25:** Optimize folder loading & tree fetching
@@ -70,10 +91,6 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - **2026-03-18:** Implemented AI NIND denoising
 - **2026-03-16:** LRU cache for instant image loading
 - **2026-03-15:** Improved high quality subject mask models, various UI improvements and shader improvements
-
-<details>
-<summary><strong>Expand further</strong></summary>
-
 - **2026-03-14:** New image analytics panel which can display vectorscopes, waveforms, parades & histograms
 - **2026-03-13:** JPEG XL, WebP, and additional format support, including the ability to export LUTs
 - **2026-03-12:** Added parametric color & luminance masks

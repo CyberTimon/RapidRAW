@@ -4,6 +4,8 @@ use std::time::Instant;
 use half::f16;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Rgba};
 use std::num::NonZero;
+
+#[cfg(not(any(target_os = "android", target_os = "linux")))]
 use tauri::Manager;
 use wgpu::util::{DeviceExt, TextureDataOrder};
 
@@ -128,8 +130,11 @@ impl WgpuDisplay {
 
 pub fn get_or_init_gpu_context(
     state: &tauri::State<AppState>,
-    app_handle: &tauri::AppHandle,
+    _app_handle: &tauri::AppHandle,
 ) -> Result<GpuContext, String> {
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    let app_handle = _app_handle;
+
     let mut context_lock = state.gpu_context.lock().unwrap();
     if let Some(context) = &*context_lock {
         return Ok(context.clone());
@@ -153,19 +158,36 @@ pub fn get_or_init_gpu_context(
 
     let instance = wgpu::Instance::new(&instance_desc);
 
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
     let surface_opt = {
-        let window = app_handle
-            .get_webview_window("main")
-            .ok_or("Failed to get main window")?;
-        Some(
-            instance
-                .create_surface(window.clone())
-                .map_err(|e| e.to_string())?,
-        )
+        let settings =
+            crate::file_management::load_settings(app_handle.clone()).unwrap_or_default();
+        let use_wgpu_renderer = settings.use_wgpu_renderer.unwrap_or(true);
+
+        if use_wgpu_renderer {
+            if let Some(window) = app_handle.get_webview_window("main") {
+                match instance.create_surface(window) {
+                    Ok(surface) => Some(surface),
+                    Err(e) => {
+                        log::warn!(
+                            "Failed to create surface, falling back to compute-only: {}",
+                            e
+                        );
+                        if let Some(p) = &flag_path {
+                            let _ = std::fs::remove_file(p);
+                        }
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     };
 
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "linux"))]
     let surface_opt: Option<wgpu::Surface> = None;
 
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -209,9 +231,8 @@ pub fn get_or_init_gpu_context(
         let _ = std::fs::remove_file(p);
     }
 
-    #[cfg(not(target_os = "android"))]
-    let display_opt = {
-        let surface = surface_opt.unwrap();
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    let display_opt = if let Some(surface) = surface_opt {
         let window = app_handle
             .get_webview_window("main")
             .ok_or("Failed to get main window")?;
@@ -441,9 +462,11 @@ pub fn get_or_init_gpu_context(
             sampler,
             current_bind_group: None,
         })
+    } else {
+        None
     };
 
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "linux"))]
     let display_opt = None;
 
     let new_context = GpuContext {
@@ -847,7 +870,7 @@ impl GpuProcessor {
                 binding: 2,
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },
@@ -964,7 +987,7 @@ impl GpuProcessor {
         let adjustments_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Adjustments Buffer"),
             size: std::mem::size_of::<AllAdjustments>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
@@ -1524,7 +1547,7 @@ impl GpuProcessor {
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 9 + MAX_MASK_BINDINGS,
                     resource: wgpu::BindingResource::TextureView(if use_flare {
-                        &self.flare_final_view
+                        &self.flare_ghosts_view
                     } else {
                         &self.dummy_blur_view
                     }),

@@ -181,7 +181,6 @@ export interface Adjustments {
   lutSize?: number;
   masks: Array<MaskContainer>;
   orientationSteps: number;
-  rating: number;
   rotation: number;
   saturation: number;
   sectionVisibility: SectionVisibility;
@@ -515,7 +514,6 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   lutSize: 0,
   masks: [],
   orientationSteps: 0,
-  rating: 0,
   rotation: 0,
   saturation: 0,
   sectionVisibility: {
@@ -639,7 +637,7 @@ export interface AdjustmentGroup {
 export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
   basic: [
     {
-      label: 'Tone Mapper',
+      label: 'Exposure & Tone Mapper',
       keys: [BasicAdjustment.Exposure, 'toneMapper'],
     },
     {
@@ -671,7 +669,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
       keys: [DetailsAdjustment.Clarity, DetailsAdjustment.Structure, DetailsAdjustment.Dehaze],
     },
     { label: 'Sharpness', keys: [DetailsAdjustment.Sharpness, DetailsAdjustment.Centré] },
-    { label: 'Noise Reduction', keys: [DetailsAdjustment.LumaNoiseReduction, DetailsAdjustment.ColorNoiseReduction] },
+    //{ label: 'Noise Reduction', keys: [DetailsAdjustment.LumaNoiseReduction, DetailsAdjustment.ColorNoiseReduction] },
     {
       label: 'Chromatic Aberration',
       keys: [DetailsAdjustment.ChromaticAberrationRedCyan, DetailsAdjustment.ChromaticAberrationBlueYellow],
@@ -682,13 +680,13 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
       label: 'Vignette',
       keys: [Effect.VignetteAmount, Effect.VignetteFeather, Effect.VignetteMidpoint, Effect.VignetteRoundness],
     },
-    { label: 'Film Grain', keys: [Effect.GrainAmount, Effect.GrainRoughness, Effect.GrainSize] },
+    { label: 'Grain', keys: [Effect.GrainAmount, Effect.GrainRoughness, Effect.GrainSize] },
     {
       label: 'Halation & Glow',
       keys: [CreativeAdjustment.GlowAmount, CreativeAdjustment.HalationAmount, CreativeAdjustment.FlareAmount],
     },
     {
-      label: 'LUT Configuration',
+      label: 'LUT',
       keys: [Effect.LutIntensity, Effect.LutName, Effect.LutPath, Effect.LutSize, Effect.LutData],
     },
   ],

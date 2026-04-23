@@ -40,7 +40,7 @@ jobs:
           - platform: 'ubuntu-latest'
             mobile: 'android'
             target: 'aarch64-linux-android'
-            args: '--debug --target aarch64'
+            args: '--target aarch64'
             asset-prefix: '04'
     uses: ./.github/workflows/build.yml
     with:

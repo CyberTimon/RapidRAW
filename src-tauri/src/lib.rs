@@ -208,6 +208,7 @@ pub struct AppState {
     pub load_image_generation: Arc<AtomicUsize>,
     pub full_warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
     pub full_transformed_cache: Mutex<Option<TransformedImageCache>>,
+    pub decoded_image_cache: Mutex<DecodedImageCache>,
 }
 
 #[derive(serde::Serialize)]
@@ -315,6 +316,45 @@ pub struct WgpuTransformPayload {
     pub bg_primary: [f32; 4],
     pub bg_secondary: [f32; 4],
     pub pixelated: bool,
+}
+
+pub struct DecodedImageCache {
+    capacity: usize,
+    items: Vec<(String, Arc<DynamicImage>, HashMap<String, String>)>,
+}
+
+impl DecodedImageCache {
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            capacity,
+            items: Vec::with_capacity(capacity),
+        }
+    }
+
+    pub fn get(&mut self, path: &str) -> Option<(Arc<DynamicImage>, HashMap<String, String>)> {
+        if let Some(pos) = self.items.iter().position(|(p, _, _)| p == path) {
+            let item = self.items.remove(pos);
+            let result = (item.1.clone(), item.2.clone());
+            self.items.push(item);
+            Some(result)
+        } else {
+            None
+        }
+    }
+
+    pub fn insert(
+        &mut self,
+        path: String,
+        image: Arc<DynamicImage>,
+        exif: HashMap<String, String>,
+    ) {
+        if let Some(pos) = self.items.iter().position(|(p, _, _)| *p == path) {
+            self.items.remove(pos);
+        } else if self.items.len() >= self.capacity {
+            self.items.remove(0);
+        }
+        self.items.push((path, image, exif));
+    }
 }
 
 fn apply_all_transformations<'a, I: IntoCowImage<'a>>(
@@ -705,61 +745,81 @@ async fn load_image(
 
     let path_clone = source_path_str.clone();
 
-    let (pristine_img, exif_data) = tokio::task::spawn_blocking(move || {
-        if generation_tracker.load(Ordering::SeqCst) != my_generation {
-            return Err("Load cancelled".to_string());
-        }
+    let cached_data = state
+        .decoded_image_cache
+        .lock()
+        .unwrap()
+        .get(&source_path_str);
 
-        let result: Result<(DynamicImage, HashMap<String, String>), String> =
-            (|| match read_file_mapped(Path::new(&path_clone)) {
-                Ok(mmap) => {
-                    if generation_tracker.load(Ordering::SeqCst) != my_generation {
-                        return Err("Load cancelled".to_string());
+    let (pristine_arc, exif_data) = if let Some((cached_img, cached_exif)) = cached_data {
+        (cached_img, cached_exif)
+    } else {
+        let (pristine_img, exif_data_loaded) = tokio::task::spawn_blocking(move || {
+            if generation_tracker.load(Ordering::SeqCst) != my_generation {
+                return Err("Load cancelled".to_string());
+            }
+
+            let result: Result<(DynamicImage, HashMap<String, String>), String> =
+                (|| match read_file_mapped(Path::new(&path_clone)) {
+                    Ok(mmap) => {
+                        if generation_tracker.load(Ordering::SeqCst) != my_generation {
+                            return Err("Load cancelled".to_string());
+                        }
+
+                        let img = load_base_image_from_bytes(
+                            &mmap,
+                            &path_clone,
+                            false,
+                            highlight_compression,
+                            linear_mode.clone(),
+                            cancel_token.clone(),
+                        )
+                        .map_err(|e| e.to_string())?;
+                        let exif = exif_processing::read_exif_data(&path_clone, &mmap);
+                        Ok((img, exif))
                     }
+                    Err(e) => {
+                        log::warn!(
+                            "Failed to memory-map file '{}': {}. Falling back to standard read.",
+                            path_clone,
+                            e
+                        );
+                        let bytes = fs::read(&path_clone).map_err(|io_err| {
+                            format!("Fallback read failed for {}: {}", path_clone, io_err)
+                        })?;
 
-                    let img = load_base_image_from_bytes(
-                        &mmap,
-                        &path_clone,
-                        false,
-                        highlight_compression,
-                        linear_mode.clone(),
-                        cancel_token.clone(),
-                    )
-                    .map_err(|e| e.to_string())?;
-                    let exif = exif_processing::read_exif_data(&path_clone, &mmap);
-                    Ok((img, exif))
-                }
-                Err(e) => {
-                    log::warn!(
-                        "Failed to memory-map file '{}': {}. Falling back to standard read.",
-                        path_clone,
-                        e
-                    );
-                    let bytes = fs::read(&path_clone).map_err(|io_err| {
-                        format!("Fallback read failed for {}: {}", path_clone, io_err)
-                    })?;
+                        if generation_tracker.load(Ordering::SeqCst) != my_generation {
+                            return Err("Load cancelled".to_string());
+                        }
 
-                    if generation_tracker.load(Ordering::SeqCst) != my_generation {
-                        return Err("Load cancelled".to_string());
+                        let img = load_base_image_from_bytes(
+                            &bytes,
+                            &path_clone,
+                            false,
+                            highlight_compression,
+                            linear_mode.clone(),
+                            cancel_token.clone(),
+                        )
+                        .map_err(|e| e.to_string())?;
+                        let exif = exif_processing::read_exif_data(&path_clone, &bytes);
+                        Ok((img, exif))
                     }
+                })();
+            result
+        })
+        .await
+        .map_err(|e| e.to_string())??;
 
-                    let img = load_base_image_from_bytes(
-                        &bytes,
-                        &path_clone,
-                        false,
-                        highlight_compression,
-                        linear_mode.clone(),
-                        cancel_token.clone(),
-                    )
-                    .map_err(|e| e.to_string())?;
-                    let exif = exif_processing::read_exif_data(&path_clone, &bytes);
-                    Ok((img, exif))
-                }
-            })();
-        result
-    })
-    .await
-    .map_err(|e| e.to_string())??;
+        let arc_img = Arc::new(pristine_img);
+
+        state.decoded_image_cache.lock().unwrap().insert(
+            source_path_str.clone(),
+            arc_img.clone(),
+            exif_data_loaded.clone(),
+        );
+
+        (arc_img, exif_data_loaded)
+    };
 
     if state.load_image_generation.load(Ordering::SeqCst) != my_generation {
         return Err("Load cancelled".to_string());
@@ -771,11 +831,11 @@ async fn load_image(
         return Err("Load cancelled".to_string());
     }
 
-    let (orig_width, orig_height) = pristine_img.dimensions();
+    let (orig_width, orig_height) = pristine_arc.dimensions();
 
     *state.original_image.lock().unwrap() = Some(LoadedImage {
         path,
-        image: Arc::new(pristine_img),
+        image: pristine_arc,
         is_raw,
     });
 
@@ -1042,9 +1102,9 @@ fn process_preview_job(
 
     let default_preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
     let preview_dim = target_resolution.unwrap_or(default_preview_dim);
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
     let use_wgpu_renderer = settings.use_wgpu_renderer.unwrap_or(true);
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     let use_wgpu_renderer = false;
 
     let (interactive_divisor, interactive_quality) = match live_quality {
@@ -1211,12 +1271,16 @@ fn process_preview_job(
         if use_wgpu_renderer {
             let app_clone = app_handle.clone();
             let device = context.device.clone();
+            let image_path = loaded_image.path.clone();
             std::thread::spawn(move || {
                 let _ = device.poll(wgpu::PollType::Wait {
                     submission_index: None,
                     timeout: Some(std::time::Duration::from_millis(500)),
                 });
-                let _ = app_clone.emit("wgpu-frame-ready", ());
+                let _ = app_clone.emit(
+                    "wgpu-frame-ready",
+                    serde_json::json!({ "path": image_path }),
+                );
             });
             return Ok(b"WGPU_RENDER".to_vec());
         }
@@ -4360,7 +4424,7 @@ async fn save_denoised_image(
     let is_raw = crate::formats::is_raw_file(&original_path_str);
 
     let (first_path, source_sidecar_path) =
-        crate::file_management::parse_virtual_path(&original_path_str); // <-- CHANGE
+        crate::file_management::parse_virtual_path(&original_path_str);
     let parent_dir = first_path
         .parent()
         .ok_or_else(|| "Could not determine parent directory.".to_string())?;
@@ -5060,6 +5124,7 @@ pub fn run() {
             load_image_generation: Arc::new(AtomicUsize::new(0)),
             full_warped_cache: Mutex::new(None),
             full_transformed_cache: Mutex::new(None),
+            decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
         })
         .invoke_handler(tauri::generate_handler![
             load_image,
@@ -5138,6 +5203,7 @@ pub fn run() {
             file_management::clear_all_sidecars,
             file_management::clear_thumbnail_cache,
             file_management::set_color_label_for_paths,
+            file_management::set_rating_for_paths,
             file_management::import_files,
             file_management::create_virtual_copy,
             tagging::start_background_indexing,
