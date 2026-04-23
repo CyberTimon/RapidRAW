@@ -21,13 +21,28 @@ use tauri::Manager;
 use tokenizers::Tokenizer;
 use tokio::sync::Mutex as TokioMutex;
 
-const ENCODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_encoder.onnx?download=true";
-const DECODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_decoder.onnx?download=true";
-const ENCODER_FILENAME: &str = "sam_vit_b_01ec64_encoder.onnx";
-const DECODER_FILENAME: &str = "sam_vit_b_01ec64_decoder.onnx";
+#[cfg(target_os = "android")]
+mod sam_cfg {
+    pub const ENCODER_URL: &str = "https://huggingface.co/Acly/MobileSAM/resolve/main/mobile_sam_image_encoder.onnx?download=true";
+    pub const DECODER_URL: &str = "https://huggingface.co/Acly/MobileSAM/resolve/main/sam_mask_decoder_single.onnx?download=true";
+    pub const ENCODER_FILENAME: &str = "mobile_sam_image_encoder.onnx";
+    pub const DECODER_FILENAME: &str = "sam_mask_decoder_single.onnx";
+    pub const ENCODER_SHA256: &str = "580f5fb648ea1062c0aabc26217aed56921985f03f0cbbd852bba81d760cc749";
+    pub const DECODER_SHA256: &str = "93915fc7c993ab9d59ab8c9ccd3bce37f7509c81ab4150a74abd4d2abbd8570d";
+}
+
+#[cfg(not(target_os = "android"))]
+mod sam_cfg {
+    pub const ENCODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_encoder.onnx?download=true";
+    pub const DECODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_decoder.onnx?download=true";
+    pub const ENCODER_FILENAME: &str = "sam_vit_b_01ec64_encoder.onnx";
+    pub const DECODER_FILENAME: &str = "sam_vit_b_01ec64_decoder.onnx";
+    pub const ENCODER_SHA256: &str = "16ab73d9c824886f0de2938c19df22fb9ec3deebfd0de58e65177e479213d7d1";
+    pub const DECODER_SHA256: &str = "85d0d672cf5b7fe763edcde429e5533e62f674af4b15c7d688b7673b0ef00bf7";
+}
+
+use sam_cfg::*;
 const SAM_INPUT_SIZE: u32 = 1024;
-const ENCODER_SHA256: &str = "16ab73d9c824886f0de2938c19df22fb9ec3deebfd0de58e65177e479213d7d1";
-const DECODER_SHA256: &str = "85d0d672cf5b7fe763edcde429e5533e62f674af4b15c7d688b7673b0ef00bf7";
 
 const U2NETP_URL: &str =
     "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/u2net.onnx?download=true";
@@ -1023,32 +1038,70 @@ pub fn generate_image_embeddings(
     let (actual_width, actual_height) = rgb_image.dimensions();
     let raw_pixels = rgb_image.as_raw();
 
-    let mut input_tensor: Array<u8, _> =
-        Array::zeros((1, 3, SAM_INPUT_SIZE as usize, SAM_INPUT_SIZE as usize));
+    #[cfg(target_os = "android")]
+    {
+        let mut input_tensor = Array::<f32, ndarray::Ix3>::zeros((
+            SAM_INPUT_SIZE as usize, 
+            SAM_INPUT_SIZE as usize, 
+            3
+        ));
 
-    let w_usize = actual_width as usize;
-    for y in 0..(actual_height as usize) {
-        for x in 0..w_usize {
-            let idx = (y * w_usize + x) * 3;
-            input_tensor[[0, 0, y, x]] = raw_pixels[idx];
-            input_tensor[[0, 1, y, x]] = raw_pixels[idx + 1];
-            input_tensor[[0, 2, y, x]] = raw_pixels[idx + 2];
+        let w_usize = actual_width as usize;
+        for y in 0..actual_height {
+            let y_idx = y as usize;
+            let y_offset = y_idx * w_usize;
+            for x in 0..actual_width {
+                let x_idx = x as usize;
+                let idx = (y_offset + x_idx) * 3;
+                
+                input_tensor[[y_idx, x_idx, 0]] = raw_pixels[idx] as f32;
+                input_tensor[[y_idx, x_idx, 1]] = raw_pixels[idx + 1] as f32;
+                input_tensor[[y_idx, x_idx, 2]] = raw_pixels[idx + 2] as f32;
+            }
         }
+
+        let input_tensor_dyn = input_tensor.into_dyn().as_standard_layout().into_owned();
+        let input_tensor_ort = Tensor::from_array(input_tensor_dyn)?;
+        let mut session = encoder.lock().unwrap();
+        
+        let outputs = session.run(ort::inputs!["input_image" => input_tensor_ort])?;
+        let embeddings = outputs[0].try_extract_array::<f32>()?.to_owned();
+
+        Ok(ImageEmbeddings {
+            path_hash: "".to_string(),
+            embeddings: embeddings.into_dyn(),
+            original_size: (orig_width, orig_height),
+        })
     }
+    #[cfg(not(target_os = "android"))]
+    {
+        let mut input_tensor: Array<u8, _> =
+            Array::zeros((1, 3, SAM_INPUT_SIZE as usize, SAM_INPUT_SIZE as usize));
 
-    let input_tensor_dyn = input_tensor.into_dyn();
-    let input_values = input_tensor_dyn.as_standard_layout();
-    let input_tensor_ort = Tensor::from_array(input_values.into_owned())?;
-    let mut session = encoder.lock().unwrap();
-    let outputs = session.run(ort::inputs![input_tensor_ort])?;
+        let w_usize = actual_width as usize;
+        for y in 0..(actual_height as usize) {
+            for x in 0..w_usize {
+                let idx = (y * w_usize + x) * 3;
+                input_tensor[[0, 0, y, x]] = raw_pixels[idx];
+                input_tensor[[0, 1, y, x]] = raw_pixels[idx + 1];
+                input_tensor[[0, 2, y, x]] = raw_pixels[idx + 2];
+            }
+        }
 
-    let embeddings = outputs[0].try_extract_array::<f32>()?.to_owned();
+        let input_tensor_dyn = input_tensor.into_dyn();
+        let input_values = input_tensor_dyn.as_standard_layout();
+        let input_tensor_ort = Tensor::from_array(input_values.into_owned())?;
+        let mut session = encoder.lock().unwrap();
+        let outputs = session.run(ort::inputs![input_tensor_ort])?;
 
-    Ok(ImageEmbeddings {
-        path_hash: "".to_string(),
-        embeddings: embeddings.into_dyn(),
-        original_size: (orig_width, orig_height),
-    })
+        let embeddings = outputs[0].try_extract_array::<f32>()?.to_owned();
+
+        Ok(ImageEmbeddings {
+            path_hash: "".to_string(),
+            embeddings: embeddings.into_dyn(),
+            original_size: (orig_width, orig_height),
+        })
+    }
 }
 
 pub fn run_sam_decoder(
