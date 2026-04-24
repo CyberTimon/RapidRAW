@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { ImageFile, Panel, SelectedImage } from '../components/ui/AppProperties';
+import { ImageFile, Panel, SelectedImage, NumpadSettings } from '../components/ui/AppProperties';
 import { BrushSettings } from '../components/ui/AppProperties';
+import { Adjustments, INITIAL_FILM_OFFSETS } from '../utils/adjustments';
 
 interface KeyboardShortcutsProps {
   activeAiPatchContainerId?: string | null;
@@ -51,8 +52,14 @@ interface KeyboardShortcutsProps {
   displaySize?: { width: number; height: number };
   baseRenderSize?: { width: number; height: number };
   originalSize?: { width: number; height: number };
-  brushSettings: BrushSettings | null;  
-  setBrushSettings: (settings: BrushSettings) => void;  
+  brushSettings: BrushSettings | null;
+  setBrushSettings: (settings: BrushSettings) => void;
+  numpadSettings?: NumpadSettings;
+  setNumpadSettings?: (settings: NumpadSettings) => void;
+  handleExportCurrent?: () => void;
+  handleInstantExport?: () => Promise<boolean>;
+  adjustments: Adjustments;
+  setAdjustments: (adjustments: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)) => void;
 }
 
 export const useKeyboardShortcuts = ({
@@ -104,8 +111,14 @@ export const useKeyboardShortcuts = ({
   displaySize,
   baseRenderSize,
   originalSize,
-  brushSettings,  
-  setBrushSettings,  
+  brushSettings,
+  setBrushSettings,
+  numpadSettings,
+  setNumpadSettings,
+  handleExportCurrent,
+  handleInstantExport,
+  adjustments,
+  setAdjustments,
 }: KeyboardShortcutsProps) => {
   useEffect(() => {
     const handleKeyDown = (event: any) => {
@@ -242,7 +255,7 @@ export const useKeyboardShortcuts = ({
           }
         }
       } else {
-        if ((key === 'enter' || key === ' ') && !isCtrl) {
+        if ((key === 'enter' || key === ' ') && !isCtrl && code !== 'NumpadEnter') {
           event.preventDefault();
           if (libraryActivePath) {
             handleImageSelect(libraryActivePath);
@@ -314,7 +327,7 @@ export const useKeyboardShortcuts = ({
         }
       }
 
-      if (code.startsWith('Digit') && !isCtrl) {
+      if (code.startsWith('Digit') && !isCtrl && !code.startsWith('Numpad')) {
         event.preventDefault();
         const keyNum = parseInt(code.replace('Digit', ''), 10);
 
@@ -330,7 +343,7 @@ export const useKeyboardShortcuts = ({
             handleRate(keyNum);
           }
         }
-      } else if (['0', '1', '2', '3', '4', '5'].includes(key) && !isCtrl) {
+      } else if (['0', '1', '2', '3', '4', '5'].includes(key) && !isCtrl && !code.startsWith('Numpad')) {
         event.preventDefault();
         handleRate(parseInt(key, 10));
       }
@@ -361,6 +374,234 @@ export const useKeyboardShortcuts = ({
           // macOS: Cmd modifier required for (destructive) file deletion
           // Other platforms: plain Delete triggers file deletion
           handleDeleteSelected();
+        }
+      }
+
+      // Numpad shortcuts for film-style adjustments
+      if (numpadSettings?.enabled && selectedImage) {
+        const stepSizes = numpadSettings.stepSizes;
+        const mode = numpadSettings.mode;
+
+        // Handle numpad keys
+        if (code.startsWith('Numpad') && !isCtrl) {
+          event.preventDefault();
+
+          switch (code) {
+            case 'Numpad7':
+              // - Yellow / + Blue
+              if (mode === 'digital') {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  temperature: (prev.temperature || 0) - stepSizes.rgbCmy,
+                }));
+              } else {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  filmColorOffsets: {
+                    ...(prev.filmColorOffsets || INITIAL_FILM_OFFSETS),
+                    yellowBlue: (prev.filmColorOffsets?.yellowBlue || 0) - stepSizes.rgbCmy,
+                  },
+                }));
+              }
+              break;
+            case 'Numpad4':
+              // + Yellow / - Blue
+              if (mode === 'digital') {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  temperature: (prev.temperature || 0) + stepSizes.rgbCmy,
+                }));
+              } else {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  filmColorOffsets: {
+                    ...(prev.filmColorOffsets || INITIAL_FILM_OFFSETS),
+                    yellowBlue: (prev.filmColorOffsets?.yellowBlue || 0) + stepSizes.rgbCmy,
+                  },
+                }));
+              }
+              break;
+            case 'Numpad8':
+              // - Magenta / + Green
+              if (mode === 'digital') {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  tint: (prev.tint || 0) - stepSizes.rgbCmy,
+                }));
+              } else {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  filmColorOffsets: {
+                    ...(prev.filmColorOffsets || INITIAL_FILM_OFFSETS),
+                    magentaGreen: (prev.filmColorOffsets?.magentaGreen || 0) - stepSizes.rgbCmy,
+                  },
+                }));
+              }
+              break;
+            case 'Numpad5':
+              // + Magenta / - Green
+              if (mode === 'digital') {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  tint: (prev.tint || 0) + stepSizes.rgbCmy,
+                }));
+              } else {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  filmColorOffsets: {
+                    ...(prev.filmColorOffsets || INITIAL_FILM_OFFSETS),
+                    magentaGreen: (prev.filmColorOffsets?.magentaGreen || 0) + stepSizes.rgbCmy,
+                  },
+                }));
+              }
+              break;
+            case 'Numpad9':
+              // - Cyan / + Red (Film mode only)
+              if (mode === 'film') {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  filmColorOffsets: {
+                    ...(prev.filmColorOffsets || INITIAL_FILM_OFFSETS),
+                    cyanRed: (prev.filmColorOffsets?.cyanRed || 0) - stepSizes.rgbCmy,
+                  },
+                }));
+              }
+              break;
+            case 'Numpad6':
+              // + Cyan / - Red (Film mode only)
+              if (mode === 'film') {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  filmColorOffsets: {
+                    ...(prev.filmColorOffsets || INITIAL_FILM_OFFSETS),
+                    cyanRed: (prev.filmColorOffsets?.cyanRed || 0) + stepSizes.rgbCmy,
+                  },
+                }));
+              }
+              break;
+            case 'Numpad1':
+              // - Density (brighten)
+              if (mode === 'digital') {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  exposure: Math.max(-5, Math.min(5, (prev.exposure || 0) + stepSizes.exposure)),
+                }));
+              } else {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  exposure: Math.max(-5, Math.min(5, (prev.exposure || 0) + stepSizes.exposure)),
+                  blacks: (prev.blacks || 0) + 2,
+                }));
+              }
+              break;
+            case 'NumpadDecimal':
+              // + Density (darken)
+              if (mode === 'digital') {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  exposure: Math.max(-5, Math.min(5, (prev.exposure || 0) - stepSizes.exposure)),
+                }));
+              } else {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  exposure: Math.max(-5, Math.min(5, (prev.exposure || 0) - stepSizes.exposure)),
+                  blacks: (prev.blacks || 0) - 2,
+                }));
+              }
+              break;
+            case 'Numpad2':
+              // - Contrast (soften)
+              setAdjustments((prev: Adjustments) => ({
+                ...prev,
+                contrast: Math.max(-100, Math.min(100, (prev.contrast || 0) - stepSizes.contrast)),
+              }));
+              break;
+            case 'Numpad3':
+              // + Contrast (harden)
+              setAdjustments((prev: Adjustments) => ({
+                ...prev,
+                contrast: Math.max(-100, Math.min(100, (prev.contrast || 0) + stepSizes.contrast)),
+              }));
+              break;
+            case 'Numpad0':
+              // Reset color adjustments
+              if (mode === 'digital') {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  temperature: 0,
+                  tint: 0,
+                }));
+              } else {
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  filmColorOffsets: { ...INITIAL_FILM_OFFSETS },
+                }));
+              }
+              break;
+            case 'NumpadEnter':
+              // Handle based on enterKeyMode
+              switch (numpadSettings.enterKeyMode) {
+                case 'next':
+                  // Move to next image
+                  const nextIndex = sortedImageList.findIndex(
+                    (img: ImageFile) => img.path === selectedImage.path
+                  );
+                  if (nextIndex !== -1) {
+                    let newIndex = nextIndex + 1;
+                    if (newIndex >= sortedImageList.length) {
+                      newIndex = 0;
+                    }
+                    const nextImage = sortedImageList[newIndex];
+                    if (nextImage) {
+                      handleImageSelect(nextImage.path);
+                    }
+                  }
+                  break;
+                case 'instant-export':
+                  // Export and move to next after completion
+                  if (handleInstantExport) {
+                    (async () => {
+                      const exportSuccess = await handleInstantExport();
+                      if (exportSuccess) {
+                        const currentIndex = sortedImageList.findIndex(
+                          (img: ImageFile) => img.path === selectedImage.path
+                        );
+                        if (currentIndex !== -1) {
+                          let newIndex = currentIndex + 1;
+                          if (newIndex >= sortedImageList.length) {
+                            newIndex = 0;
+                          }
+                          const nextImage = sortedImageList[newIndex];
+                          if (nextImage) {
+                            handleImageSelect(nextImage.path);
+                          }
+                        }
+                      }
+                      // If export failed, stay on current image (error shown in handleInstantExport)
+                    })();
+                  }
+                  break;
+                case 'skip-move':
+                  // Just move to next (revert metadata changes)
+                  const skipIndex = sortedImageList.findIndex(
+                    (img: ImageFile) => img.path === selectedImage.path
+                  );
+                  if (skipIndex !== -1) {
+                    let newIndex = skipIndex + 1;
+                    if (newIndex >= sortedImageList.length) {
+                      newIndex = 0;
+                    }
+                    const nextImage = sortedImageList[newIndex];
+                    if (nextImage) {
+                      handleImageSelect(nextImage.path);
+                    }
+                  }
+                  break;
+              }
+              break;
+            default:
+              break;
+          }
         }
       }
 
@@ -502,7 +743,12 @@ export const useKeyboardShortcuts = ({
     displaySize,
     baseRenderSize,
     originalSize,
-    brushSettings,  
-    setBrushSettings,  
+    brushSettings,
+    setBrushSettings,
+    numpadSettings,
+    setNumpadSettings,
+    handleExportCurrent,
+    adjustments,
+    setAdjustments,
   ]);
 };

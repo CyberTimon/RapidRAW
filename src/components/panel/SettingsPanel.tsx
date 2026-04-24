@@ -29,7 +29,8 @@ import Switch from '../ui/Switch';
 import Input from '../ui/Input';
 import Slider from '../ui/Slider';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
-import { Invokes } from '../ui/AppProperties';
+import { Invokes, NumpadSettings } from '../ui/AppProperties';
+import { ExportPreset } from '../ui/ExportImportProperties';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
@@ -333,6 +334,19 @@ export default function SettingsPanel({
   const [lensModels, setLensModels] = useState<string[]>([]);
   const [tempLensMaker, setTempLensMaker] = useState<string>('');
   const [tempLensModel, setTempLensModel] = useState<string>('');
+
+  const [numpadSettings, setNumpadSettings] = useState<NumpadSettings>(
+    appSettings?.numpadSettings || {
+      enabled: false,
+      mode: 'digital',
+      enterKeyMode: 'next',
+      stepSizes: {
+        exposure: 0.1,
+        contrast: 2,
+        rgbCmy: 1,
+      },
+    }
+  );
 
   const osPlatform = useOsPlatform();
   const [processingSettings, setProcessingSettings] = useState({
@@ -1856,6 +1870,285 @@ export default function SettingsPanel({
                         <KeybindItem keys={['Click']} description="Quick Zoom (Toggle Fit/2x)" />
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                <div className="p-6 bg-surface rounded-xl shadow-md">
+                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                    Numpad
+                  </Text>
+                  <Text className="mb-6">
+                    Enable numpad shortcuts for rapid color and density adjustments, inspired by the Fuji Frontier SP-3000 scanner workflow.
+                    {numpadSettings.mode === 'film' && ' Film mode provides RGB/CMY color control similar to traditional film scanners.'}
+                  </Text>
+
+                  <div className="space-y-6">
+                    <SettingItem
+                      label="Enable Numpad Shortcuts"
+                      description="Enable numpad keys for rapid adjustments"
+                    >
+                      <Switch
+                        checked={numpadSettings.enabled}
+                        id="numpad-enabled-toggle"
+                        label="Enable Numpad"
+                        onChange={(checked) => {
+                          const newSettings = { ...numpadSettings, enabled: checked };
+                          setNumpadSettings(newSettings);
+                          onSettingsChange({ ...appSettings, numpadSettings: newSettings });
+                        }}
+                      />
+                    </SettingItem>
+
+                    {numpadSettings.enabled && (
+                      <>
+                        <SettingItem
+                          label="Adjustment Mode"
+                          description={numpadSettings.mode === 'digital' ? 'Digital: Temperature/Tint adjustments' : 'Film: Full RGB/CMY control with density-rich shadows'}
+                        >
+                          <div className="relative flex w-full p-1 bg-bg-primary rounded-md border border-border-color">
+                            {[
+                              { id: 'digital', label: 'Digital' },
+                              { id: 'film', label: 'Film' },
+                            ].map((mode) => (
+                              <button
+                                key={mode.id}
+                                onClick={() => {
+                                  const newSettings = { ...numpadSettings, mode: mode.id as 'digital' | 'film' };
+                                  setNumpadSettings(newSettings);
+                                  onSettingsChange({ ...appSettings, numpadSettings: newSettings });
+                                }}
+                                className={clsx(
+                                  'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                                  {
+                                    'text-text-primary hover:bg-surface': numpadSettings.mode !== mode.id,
+                                    'text-button-text': numpadSettings.mode === mode.id,
+                                  },
+                                )}
+                                style={{ WebkitTapHighlightColor: 'transparent' }}
+                              >
+                                {numpadSettings.mode === mode.id && (
+                                  <motion.span
+                                    layoutId="numpad-mode-switch-bubble"
+                                    className="absolute inset-0 z-0 bg-accent"
+                                    style={{ borderRadius: 6 }}
+                                    transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                                  />
+                                )}
+                                <span className="relative z-10">{mode.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </SettingItem>
+
+                        {numpadSettings.mode === 'film' && (
+                          <div className="mt-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-md">
+                            <Text variant={TextVariants.body} className="text-yellow-500">
+                              ⚠️ Film mode is experimental. RGB/CMY color offsets are not yet applied to image rendering. Use Digital mode for full functionality.
+                            </Text>
+                          </div>
+                        )}
+
+                        <SettingItem
+                          label="Enter Key Behavior"
+                          description="Action when pressing Enter on numpad"
+                        >
+                          <div className="relative flex w-full p-1 bg-bg-primary rounded-md border border-border-color">
+                            {[
+                              { id: 'next', label: 'Next Image' },
+                              { id: 'instant-export', label: 'Instant Export' },
+                              { id: 'skip-move', label: 'Skip & Move' },
+                            ].map((enterMode) => (
+                              <button
+                                key={enterMode.id}
+                                onClick={() => {
+                                  const newSettings = {
+                                    ...numpadSettings,
+                                    enterKeyMode: enterMode.id as 'next' | 'instant-export' | 'skip-move',
+                                  };
+                                  setNumpadSettings(newSettings);
+                                  onSettingsChange({ ...appSettings, numpadSettings: newSettings });
+                                }}
+                                className={clsx(
+                                  'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                                  {
+                                    'text-text-primary hover:bg-surface': numpadSettings.enterKeyMode !== enterMode.id,
+                                    'text-button-text': numpadSettings.enterKeyMode === enterMode.id,
+                                  },
+                                )}
+                                style={{ WebkitTapHighlightColor: 'transparent' }}
+                              >
+                                {numpadSettings.enterKeyMode === enterMode.id && (
+                                  <motion.span
+                                    layoutId="numpad-enter-mode-switch-bubble"
+                                    className="absolute inset-0 z-0 bg-accent"
+                                    style={{ borderRadius: 6 }}
+                                    transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                                  />
+                                )}
+                                <span className="relative z-10">{enterMode.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </SettingItem>
+
+                        {numpadSettings.enterKeyMode === 'instant-export' && (
+                          <>
+                            <SettingItem
+                              label="Default Export Preset"
+                              description="Export preset to use for instant export"
+                            >
+                              <div className="relative flex w-full p-1 bg-bg-primary rounded-md border border-border-color">
+                                <select
+                                  value={numpadSettings.defaultExportPresetId || ''}
+                                  onChange={(e) => {
+                                    const newSettings = {
+                                      ...numpadSettings,
+                                      defaultExportPresetId: e.target.value || undefined,
+                                    };
+                                    setNumpadSettings(newSettings);
+                                    onSettingsChange({ ...appSettings, numpadSettings: newSettings });
+                                  }}
+                                  className="w-full bg-bg-primary text-text-primary text-sm outline-none px-2 py-1"
+                                >
+                                  <option value="" className="bg-bg-primary text-text-primary">None</option>
+                                  {(appSettings?.exportPresets || [])
+                                    .filter((p: ExportPreset) => p.id !== '__last_used__')
+                                    .map((preset: ExportPreset) => (
+                                      <option key={preset.id} value={preset.id} className="bg-bg-primary text-text-primary">
+                                        {preset.name}
+                                      </option>
+                                    ))}
+                                </select>
+                              </div>
+                            </SettingItem>
+
+                            <SettingItem
+                              label="Default Export Path"
+                              description="Folder where instant exports will be saved"
+                            >
+                              <div className="flex gap-2">
+                                <div className="flex-1 text-sm text-text-primary truncate">
+                                  {numpadSettings.defaultExportPath || 'Not set'}
+                                </div>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={async () => {
+                                    const { open } = await import('@tauri-apps/plugin-dialog');
+                                    const selected = await open({
+                                      directory: true,
+                                      title: 'Select Default Export Folder',
+                                    });
+                                    if (selected) {
+                                      const newSettings = {
+                                        ...numpadSettings,
+                                        defaultExportPath: selected as string,
+                                      };
+                                      setNumpadSettings(newSettings);
+                                      onSettingsChange({ ...appSettings, numpadSettings: newSettings });
+                                    }
+                                  }}
+                                >
+                                  Browse
+                                </Button>
+                              </div>
+                            </SettingItem>
+                          </>
+                        )}
+
+                        <div className="space-y-4 pt-4">
+                          <Text variant={TextVariants.heading}>Step Sizes</Text>
+
+                          <SettingItem
+                            label={numpadSettings.mode === 'digital' ? 'Exposure' : 'Exposure (Density)'}
+                            description="Adjustment amount per key press (stops)"
+                          >
+                            <Slider
+                              defaultValue={0.1}
+                              label=""
+                              max={0.5}
+                              min={0.01}
+                              onChange={(e: any) => {
+                                const newSettings = {
+                                  ...numpadSettings,
+                                  stepSizes: { ...numpadSettings.stepSizes, exposure: parseFloat(e.target.value) },
+                                };
+                                setNumpadSettings(newSettings);
+                                onSettingsChange({ ...appSettings, numpadSettings: newSettings });
+                              }}
+                              step={0.01}
+                              value={numpadSettings.stepSizes.exposure}
+                            />
+                          </SettingItem>
+
+                          <SettingItem
+                            label="Contrast"
+                            description="Adjustment amount per key press (units)"
+                          >
+                            <Slider
+                              defaultValue={2}
+                              label=""
+                              max={10}
+                              min={0.5}
+                              onChange={(e: any) => {
+                                const newSettings = {
+                                  ...numpadSettings,
+                                  stepSizes: { ...numpadSettings.stepSizes, contrast: parseFloat(e.target.value) },
+                                };
+                                setNumpadSettings(newSettings);
+                                onSettingsChange({ ...appSettings, numpadSettings: newSettings });
+                              }}
+                              step={0.5}
+                              value={numpadSettings.stepSizes.contrast}
+                            />
+                          </SettingItem>
+
+                          {numpadSettings.mode === 'film' && (
+                            <SettingItem
+                              label="RGB / CMY"
+                              description="Color adjustment amount per key press (units)"
+                            >
+                              <Slider
+                                defaultValue={1}
+                                label=""
+                                max={5}
+                                min={0.1}
+                                onChange={(e: any) => {
+                                  const newSettings = {
+                                    ...numpadSettings,
+                                    stepSizes: { ...numpadSettings.stepSizes, rgbCmy: parseFloat(e.target.value) },
+                                  };
+                                  setNumpadSettings(newSettings);
+                                  onSettingsChange({ ...appSettings, numpadSettings: newSettings });
+                                }}
+                                step={0.1}
+                                value={numpadSettings.stepSizes.rgbCmy}
+                              />
+                            </SettingItem>
+                          )}
+                        </div>
+
+                        <div className="pt-4">
+                          <Text variant={TextVariants.heading} className="mb-3">
+                            Key Mapping
+                          </Text>
+                          <div className="divide-y divide-border-color">
+                            {numpadSettings.mode === 'film' && <KeybindItem keys={['7', '4']} description="Yellow / Blue balance" />}
+                            {numpadSettings.mode === 'film' && <KeybindItem keys={['8', '5']} description="Magenta / Green balance" />}
+                            {numpadSettings.mode === 'film' && (
+                              <KeybindItem
+                                keys={['9', '6']}
+                                description="Cyan / Red balance (Film mode only - Experimental)"
+                              />
+                            )}
+                            <KeybindItem keys={['1', '.']} description={numpadSettings.mode === 'digital' ? 'Density (Exposure)' : 'Density (Exposure ± Blacks)'} />
+                            <KeybindItem keys={['2', '3']} description="Contrast (Soften / Harden)" />
+                            <KeybindItem keys={['0']} description={numpadSettings.mode === 'digital' ? 'Reset color adjustments' : 'Reset Film offsets'} />
+                            <KeybindItem keys={['Enter']} description="Next / Export / Skip (based on mode)" />
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </motion.div>

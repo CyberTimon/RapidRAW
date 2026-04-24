@@ -92,7 +92,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import GlobalTooltip from './components/ui/GlobalTooltip';
 import { THEMES, DEFAULT_THEME_ID, ThemeProps } from './utils/themes';
 import { SubMask, ToolType } from './components/panel/right/Masks';
-import { ExportState, IMPORT_TIMEOUT, ImportState, Status } from './components/ui/ExportImportProperties';
+import { ExportState, IMPORT_TIMEOUT, ImportState, Status, ExportSettings, FILE_FORMATS } from './components/ui/ExportImportProperties';
 import {
   AppSettings,
   BrushSettings,
@@ -3165,6 +3165,67 @@ function App() {
     denoiseModalState.isOpen ||
     negativeModalState.isOpen;
 
+  const handleNumpadExport = useCallback(() => {
+    if (selectedImage) {
+      setMultiSelectedPaths([selectedImage.path]);
+      setIsLibraryExportPanelVisible(true);
+    }
+  }, [selectedImage]);
+
+  const handleInstantExport = useCallback(async (): Promise<boolean> => {
+    if (!selectedImage) return false;
+
+    const numpadSettings = appSettings?.numpadSettings;
+    if (!numpadSettings?.defaultExportPresetId || !numpadSettings?.defaultExportPath) {
+      toast.error('Please configure default export preset and path in settings');
+      return false;
+    }
+
+    const preset = appSettings?.exportPresets?.find((p) => p.id === numpadSettings.defaultExportPresetId);
+    if (!preset) {
+      toast.error('Selected export preset not found');
+      return false;
+    }
+
+    try {
+      const exportSettings: ExportSettings = {
+        filenameTemplate: preset.filenameTemplate,
+        jpegQuality: preset.jpegQuality,
+        keepMetadata: preset.keepMetadata,
+        preserveTimestamps: preset.preserveTimestamps,
+        resize: preset.enableResize ? { mode: preset.resizeMode, value: preset.resizeValue, dontEnlarge: preset.dontEnlarge } : null,
+        stripGps: preset.stripGps,
+        exportMasks: preset.exportMasks ?? false,
+        watermark:
+          preset.enableWatermark && preset.watermarkPath
+            ? {
+                path: preset.watermarkPath,
+                anchor: preset.watermarkAnchor as any,
+                scale: preset.watermarkScale,
+                spacing: preset.watermarkSpacing,
+                opacity: preset.watermarkOpacity,
+              }
+            : null,
+        preserveFolders: preset.preserveFolders ?? false,
+      };
+
+      await invoke(Invokes.BatchExportImages, {
+        exportSettings,
+        outputFolder: numpadSettings.defaultExportPath,
+        outputFormat: FILE_FORMATS.find((f: any) => f.id === preset.fileFormat)?.extensions[0],
+        paths: [selectedImage.path],
+        baseOriginFolder: rootPath,
+      });
+
+      toast.success('Export successful');
+      return true;
+    } catch (error) {
+      console.error('Error exporting image:', error);
+      toast.error(typeof error === 'string' ? error : 'Export failed');
+      return false;
+    }
+  }, [selectedImage, appSettings, rootPath]);
+
   useKeyboardShortcuts({
     isModalOpen: isAnyModalOpen,
     osPlatform,
@@ -3215,6 +3276,12 @@ function App() {
     originalSize,
     brushSettings: brushSettings,
     setBrushSettings: setBrushSettings,
+    numpadSettings: appSettings?.numpadSettings,
+    setNumpadSettings: (settings) => handleSettingsChange({ ...appSettings, numpadSettings: settings }),
+    handleExportCurrent: handleNumpadExport,
+    handleInstantExport,
+    adjustments,
+    setAdjustments,
   });
 
   useEffect(() => {
