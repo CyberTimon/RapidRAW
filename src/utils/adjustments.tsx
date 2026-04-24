@@ -741,7 +741,10 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     BasicAdjustment.Exposure,
     'toneMapper',
   ],
-  curves: ['curves'],
+  curves: [
+    'curves',
+    'parametricCurve',
+    'curveMode'],
   color: [
     ColorAdjustment.Saturation,
     ColorAdjustment.Temperature,
