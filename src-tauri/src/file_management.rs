@@ -2170,7 +2170,7 @@ pub fn move_files(source_paths: Vec<String>, destination_folder: String) -> Resu
 #[tauri::command]
 pub fn save_metadata_and_update_thumbnail(
     path: String,
-    adjustments: Value,
+    mut adjustments: Value,
     app_handle: AppHandle,
     state: tauri::State<AppState>,
 ) -> Result<(), String> {
@@ -2184,6 +2184,10 @@ pub fn save_metadata_and_update_thumbnail(
     } else {
         ImageMetadata::default()
     };
+
+    if let Some(obj) = adjustments.as_object_mut() {
+        obj.remove("sharpeningMaskShowBw");
+    }
 
     metadata.adjustments = adjustments;
 

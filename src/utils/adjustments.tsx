@@ -186,6 +186,8 @@ export interface Adjustments {
   shadows: number;
   sharpness: number;
   sharpeningMask: number;
+  sharpeningMaskDebug: boolean;
+  sharpeningMaskShowBw: boolean;
   showClipping: boolean;
   structure: number;
   temperature: number;
@@ -498,6 +500,8 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   shadows: 0,
   sharpness: 0,
   sharpeningMask: 0,
+  sharpeningMaskDebug: false,
+  sharpeningMaskShowBw: false,
   showClipping: false,
   structure: 0,
   temperature: 0,

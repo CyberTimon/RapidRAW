@@ -1,4 +1,6 @@
+import { useCallback } from 'react';
 import Slider from '../ui/Slider';
+import Switch from '../ui/Switch';
 import { Adjustments, DetailsAdjustment } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
@@ -23,6 +25,26 @@ export default function DetailsPanel({
     const numericValue = parseFloat(value);
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue, lastChanged: key }));
   };
+
+  const handleMaskDragStateChange = useCallback(
+    (isDragging: boolean) => {
+      onDragStateChange?.(isDragging);
+      if (!isForMask) {
+        setAdjustments((prev: Partial<Adjustments>) => ({
+          ...prev,
+          sharpeningMaskShowBw: isDragging,
+        }));
+      }
+    },
+    [onDragStateChange, isForMask, setAdjustments],
+  );
+
+  const handleMaskDebugChange = useCallback(
+    (val: boolean) => {
+      setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, sharpeningMaskDebug: val }));
+    },
+    [setAdjustments],
+  );
 
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
 
@@ -49,8 +71,18 @@ export default function DetailsPanel({
             step={0.01}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.SharpeningMask, e.target.value)}
             value={adjustments.sharpeningMask || 0}
-            onDragStateChange={onDragStateChange}
+            onDragStateChange={handleMaskDragStateChange}
           />
+          {!isForMask && (
+            <div className="mt-2">
+              <Switch
+                label="Show Mask Overlay"
+                checked={adjustments.sharpeningMaskDebug || false}
+                onChange={handleMaskDebugChange}
+                tooltip="Display the areas receiving sharpening as a red overlay"
+              />
+            </div>
+          )}
         </div>
       )}
 

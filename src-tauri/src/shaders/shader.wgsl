@@ -105,13 +105,13 @@ struct GlobalAdjustments {
     _pad_end1: f32,
     _pad_end2: f32,
     _pad_end3: f32,
-    _pad_end4: f32,
+    sharpening_mask_show_bw: u32,
 
     glow_amount: f32,
     halation_amount: f32,
     flare_amount: f32,
 
-    _pad_creative_1: f32,
+    sharpening_mask_debug: u32,
 }
 
 struct MaskAdjustments {
@@ -1384,19 +1384,38 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     var locally_contrasted_rgb = initial_linear_rgb;
 
-    var masked_sharpness = adjustments.global.sharpness;
-    if (adjustments.global.sharpening_mask > 0.0 && masked_sharpness != 0.0) {
-        let center_luma_for_mask = get_luma(color_from_texture);
+    var sharpen_edge_factor: f32 = 1.0;
+    if (adjustments.global.sharpening_mask > 0.0) {
         let dims = vec2<i32>(textureDimensions(input_texture));
-        let right_coord = vec2<i32>(min(absolute_coord_i.x + 1, dims.x - 1), absolute_coord_i.y);
-        let down_coord = vec2<i32>(absolute_coord_i.x, min(absolute_coord_i.y + 1, dims.y - 1));
+        let sample_radius = max(1, i32(round(scale)));
+        let right_coord = vec2<i32>(
+            min(absolute_coord_i.x + sample_radius, dims.x - 1),
+            absolute_coord_i.y,
+        );
+        let left_coord = vec2<i32>(
+            max(absolute_coord_i.x - sample_radius, 0),
+            absolute_coord_i.y,
+        );
+        let down_coord = vec2<i32>(
+            absolute_coord_i.x,
+            min(absolute_coord_i.y + sample_radius, dims.y - 1),
+        );
+        let up_coord = vec2<i32>(
+            absolute_coord_i.x,
+            max(absolute_coord_i.y - sample_radius, 0),
+        );
         let right_luma = get_luma(textureLoad(input_texture, right_coord, 0).rgb);
+        let left_luma = get_luma(textureLoad(input_texture, left_coord, 0).rgb);
         let down_luma = get_luma(textureLoad(input_texture, down_coord, 0).rgb);
-        let edge = abs(center_luma_for_mask - right_luma) + abs(center_luma_for_mask - down_luma);
-        let threshold = adjustments.global.sharpening_mask / scale;
-        let edge_factor = smoothstep(0.0, threshold * 0.5, edge);
-        masked_sharpness = masked_sharpness * edge_factor;
+        let up_luma = get_luma(textureLoad(input_texture, up_coord, 0).rgb);
+        let grad_x = (right_luma - left_luma) * 0.5;
+        let grad_y = (down_luma - up_luma) * 0.5;
+        let edge = sqrt(grad_x * grad_x + grad_y * grad_y);
+        let threshold_hi = adjustments.global.sharpening_mask * 0.25;
+        let threshold_lo = threshold_hi * 0.3;
+        sharpen_edge_factor = smoothstep(threshold_lo, threshold_hi, edge);
     }
+    var masked_sharpness = adjustments.global.sharpness * sharpen_edge_factor;
 
     locally_contrasted_rgb = apply_local_contrast(locally_contrasted_rgb, sharpness_blurred, masked_sharpness, adjustments.global.is_raw_image, 0u);
     locally_contrasted_rgb = apply_local_contrast(locally_contrasted_rgb, clarity_blurred, adjustments.global.clarity, adjustments.global.is_raw_image, 1u);
@@ -1601,6 +1620,15 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         } else if (any(final_rgb < vec3<f32>(SHADOW_CLIP_THRESHOLD))) {
             final_rgb = SHADOW_WARNING_COLOR;
         }
+    }
+
+    if (adjustments.global.sharpening_mask_debug == 1u) {
+        let SHARPEN_MASK_OVERLAY_COLOR = vec3<f32>(1.0, 0.0, 0.0);
+        final_rgb = mix(final_rgb, SHARPEN_MASK_OVERLAY_COLOR, clamp(sharpen_edge_factor, 0.0, 1.0) * 0.7);
+    }
+
+    if (adjustments.global.sharpening_mask_show_bw == 1u) {
+        final_rgb = vec3<f32>(clamp(sharpen_edge_factor, 0.0, 1.0));
     }
 
     let dither_amount = 1.0 / 255.0;

@@ -1264,13 +1264,13 @@ pub struct GlobalAdjustments {
     _pad_end1: f32,
     _pad_end2: f32,
     _pad_end3: f32,
-    _pad_end4: f32,
+    pub sharpening_mask_show_bw: u32,
 
     pub glow_amount: f32,
     pub halation_amount: f32,
     pub flare_amount: f32,
 
-    _pad_creative_1: f32,
+    pub sharpening_mask_debug: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -1686,7 +1686,7 @@ fn get_global_adjustments_from_json(
         vibrance: get_val("color", "vibrance", SCALES.vibrance, None),
 
         sharpness: get_val("details", "sharpness", SCALES.sharpness, None),
-        sharpening_mask: get_val("details", "sharpeningMask", 100.0, None),
+        sharpening_mask: get_val("details", "sharpeningMask", 1.0, None),
         luma_noise_reduction: get_val(
             "details",
             "lumaNoiseReduction",
@@ -1824,13 +1824,24 @@ fn get_global_adjustments_from_json(
         _pad_end1: 0.0,
         _pad_end2: 0.0,
         _pad_end3: 0.0,
-        _pad_end4: 0.0,
+        sharpening_mask_show_bw: if js_adjustments["sharpeningMaskShowBw"]
+            .as_bool()
+            .unwrap_or(false)
+        {
+            1
+        } else {
+            0
+        },
 
         glow_amount: get_val("effects", "glowAmount", SCALES.glow, None),
         halation_amount: get_val("effects", "halationAmount", SCALES.halation, None),
         flare_amount: get_val("effects", "flareAmount", SCALES.flares, None),
 
-        _pad_creative_1: 0.0,
+        sharpening_mask_debug: if js_adjustments["sharpeningMaskDebug"].as_bool().unwrap_or(false) {
+            1
+        } else {
+            0
+        },
     }
 }
 
