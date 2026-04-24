@@ -113,6 +113,17 @@ pub struct AiState {
     pub depth_map: Option<CachedDepthMap>,
 }
 
+pub fn clear_all_models(ai_state_lock: &mut Option<AiState>) {
+    if let Some(state) = ai_state_lock.as_mut() {
+        state.models = None;
+        state.denoise_model = None;
+        state.clip_models = None;
+        state.lama_model = None;
+        state.embeddings = None;
+        state.depth_map = None;
+    }
+}
+
 fn add_platform_optimization(builder: SessionBuilder) -> Result<SessionBuilder> {
     #[cfg(target_os = "android")]
     {
@@ -348,6 +359,13 @@ pub async fn get_or_init_ai_models(
     }
 
     let _guard = ai_init_lock.lock().await;
+    #[cfg(target_os = "android")]
+    {
+        let mut ai_state_lock = ai_state_mutex.lock().unwrap();
+        if ai_state_lock.as_ref().and_then(|s| s.models.as_ref()).is_none() {
+            clear_all_models(&mut ai_state_lock);
+        }
+    }
 
     if let Some(models) = ai_state_mutex
         .lock()
@@ -462,6 +480,13 @@ pub async fn get_or_init_denoise_model(
     }
 
     let _guard = ai_init_lock.lock().await;
+    #[cfg(target_os = "android")]
+    {
+        let mut ai_state_lock = ai_state_mutex.lock().unwrap();
+        if ai_state_lock.as_ref().and_then(|s| s.denoise_model.as_ref()).is_none() {
+            clear_all_models(&mut ai_state_lock);
+        }
+    }
 
     if let Some(denoise_model) = ai_state_mutex
         .lock()
@@ -594,6 +619,13 @@ pub async fn get_or_init_lama_model(
     }
 
     let _guard = ai_init_lock.lock().await;
+    #[cfg(target_os = "android")]
+    {
+        let mut ai_state_lock = ai_state_mutex.lock().unwrap();
+        if ai_state_lock.as_ref().and_then(|s| s.lama_model.as_ref()).is_none() {
+            clear_all_models(&mut ai_state_lock);
+        }
+    }
 
     if let Some(lama_model) = ai_state_mutex
         .lock()
