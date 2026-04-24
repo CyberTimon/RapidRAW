@@ -550,14 +550,10 @@ export default function Editor({
       if (physicsFrameId.current) cancelAnimationFrame(physicsFrameId.current);
 
       const isPinch = e.ctrlKey;
-      const hasFractions = e.deltaY % 1 !== 0 || e.deltaX % 1 !== 0;
 
-      const isTypicalMouseWheel =
-        !hasFractions &&
-        ((e.deltaY !== 0 && Math.abs(e.deltaY) >= 25 && e.deltaY % 25 === 0) ||
-          (e.deltaX !== 0 && Math.abs(e.deltaX) >= 25 && e.deltaX % 25 === 0));
+      const isTrackpad = appSettings?.canvasInputMode === 'trackpad';
+      const zoomSpeedMult = appSettings?.zoomSpeedMultiplier ?? 1.0;
 
-      const isTrackpad = hasFractions || !isTypicalMouseWheel;
       const isZoomIntent = isPinch || (!isTrackpad && !e.shiftKey && !e.altKey);
 
       if (isZoomIntent) {
@@ -566,7 +562,7 @@ export default function Editor({
         const mouseY = e.clientY - rect.top;
 
         const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-        const zoomSensitivity = isPinch ? 0.015 : 0.002;
+        const zoomSensitivity = 0.002 * zoomSpeedMult;
         const exponent = delta * zoomSensitivity;
 
         let newScale = transformStateRef.current.scale * Math.exp(-exponent);
@@ -622,7 +618,14 @@ export default function Editor({
 
     container.addEventListener('wheel', handleNativeWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleNativeWheel);
-  }, [applyTransform, clampToBounds, getTransformBounds, startPhysicsLoop]);
+  }, [
+    applyTransform,
+    clampToBounds,
+    getTransformBounds,
+    startPhysicsLoop,
+    appSettings?.canvasInputMode,
+    appSettings?.zoomSpeedMultiplier,
+  ]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {

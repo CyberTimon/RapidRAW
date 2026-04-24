@@ -16,6 +16,8 @@ import {
   Bookmark,
   Scaling,
   Image as ImageIcon,
+  Mouse,
+  Touchpad,
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { relaunch } from '@tauri-apps/plugin-process';
@@ -246,6 +248,50 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
           <span className="relative z-10 flex items-center">
             <provider.icon size={16} className="mr-2" />
             {provider.label}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+};
+
+const canvasInputModes = [
+  { id: 'mouse', label: 'Mouse', icon: Mouse },
+  { id: 'trackpad', label: 'Touchpad', icon: Touchpad },
+];
+
+interface CanvasInputModeSwitchProps {
+  mode: 'mouse' | 'trackpad';
+  onModeChange: (mode: 'mouse' | 'trackpad') => void;
+}
+
+const CanvasInputModeSwitch = ({ mode, onModeChange }: CanvasInputModeSwitchProps) => {
+  return (
+    <div className="relative flex w-full p-1 bg-bg-primary rounded-md border border-border-color">
+      {canvasInputModes.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => onModeChange(item.id as 'mouse' | 'trackpad')}
+          className={clsx(
+            'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+            {
+              'text-text-primary hover:bg-surface': mode !== item.id,
+              'text-button-text': mode === item.id,
+            },
+          )}
+          style={{ WebkitTapHighlightColor: 'transparent' }}
+        >
+          {mode === item.id && (
+            <motion.span
+              layoutId="canvas-input-mode-switch-bubble"
+              className="absolute inset-0 z-0 bg-accent"
+              style={{ borderRadius: 6 }}
+              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+            />
+          )}
+          <span className="relative z-10 flex items-center">
+            <item.icon size={16} className="mr-2" />
+            {item.label}
           </span>
         </button>
       ))}
@@ -818,6 +864,44 @@ export default function SettingsPanel({
                         ]}
                         value={appSettings?.fontFamily || 'poppins'}
                         triggerClassName="bg-bg-primary"
+                      />
+                    </SettingItem>
+                  </div>
+                </div>
+
+                <div className="p-6 bg-surface rounded-xl shadow-md">
+                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                    Canvas Interaction
+                  </Text>
+                  <div className="space-y-8">
+                    <div>
+                      <Text variant={TextVariants.heading} className="mb-2">
+                        Input Device Optimization
+                      </Text>
+                      <Text variant={TextVariants.small} className="mb-4">
+                        Choose the primary input device you use to pan and zoom the canvas.
+                      </Text>
+                      <CanvasInputModeSwitch
+                        mode={(appSettings?.canvasInputMode as 'mouse' | 'trackpad') || 'mouse'}
+                        onModeChange={(value) => onSettingsChange({ ...appSettings, canvasInputMode: value })}
+                      />
+                    </div>
+
+                    <SettingItem
+                      label="Zoom Speed Multiplier"
+                      description="Adjust how fast the canvas zooms in and out when using the scroll wheel or pinch gesture."
+                    >
+                      <Slider
+                        label="Speed"
+                        min={0.1}
+                        max={3.0}
+                        step={0.1}
+                        value={appSettings?.zoomSpeedMultiplier ?? 1.0}
+                        defaultValue={1.0}
+                        onChange={(e: any) =>
+                          onSettingsChange({ ...appSettings, zoomSpeedMultiplier: parseFloat(e.target.value) })
+                        }
+                        fillOrigin="min"
                       />
                     </SettingItem>
                   </div>

@@ -1163,20 +1163,22 @@ impl GpuProcessor {
         });
         let out_width = bounds.width;
         let out_height = bounds.height;
-
-        let mask_layer_count = request.mask_bitmaps.len().clamp(1, MAX_MASKS) as u32;
+        let mask_layer_count = request.mask_bitmaps.len().clamp(2, MAX_MASKS) as u32;
         let full_texture_size = wgpu::Extent3d {
             width,
             height,
             depth_or_array_layers: mask_layer_count,
         };
-        let mut mask_texture_data =
-            Vec::with_capacity((width as usize) * (height as usize) * (mask_layer_count as usize));
+        let buffer_size = (width as usize) * (height as usize) * (mask_layer_count as usize);
+        let mut mask_texture_data = Vec::with_capacity(buffer_size);
         if request.mask_bitmaps.is_empty() {
-            mask_texture_data.resize((width as usize) * (height as usize), 0);
+            mask_texture_data.resize(buffer_size, 0);
         } else {
             for mask_bitmap in request.mask_bitmaps.iter().take(MAX_MASKS) {
                 mask_texture_data.extend_from_slice(mask_bitmap.as_raw());
+            }
+            if mask_texture_data.len() < buffer_size {
+                mask_texture_data.resize(buffer_size, 0);
             }
         }
         let mask_texture = device.create_texture_with_data(

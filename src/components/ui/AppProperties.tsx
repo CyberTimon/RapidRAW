@@ -181,6 +181,8 @@ export interface AppSettings {
   waveformHeight?: number;
   activeWaveformChannel?: string;
   useWgpuRenderer?: boolean;
+  canvasInputMode?: 'mouse' | 'trackpad';
+  zoomSpeedMultiplier?: number;
 }
 
 export interface BrushSettings {

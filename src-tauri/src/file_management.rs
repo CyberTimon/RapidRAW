@@ -456,6 +456,10 @@ pub struct AppSettings {
     pub active_waveform_channel: Option<String>,
     #[serde(default)]
     pub use_wgpu_renderer: Option<bool>,
+    #[serde(default)]
+    pub canvas_input_mode: Option<String>,
+    #[serde(default)]
+    pub zoom_speed_multiplier: Option<f32>,
 }
 
 fn default_adjustment_visibility() -> HashMap<String, bool> {
@@ -525,6 +529,8 @@ impl Default for AppSettings {
             use_wgpu_renderer: Some(false),
             #[cfg(not(any(target_os = "linux", target_os = "android")))]
             use_wgpu_renderer: Some(true),
+            canvas_input_mode: Some("mouse".to_string()),
+            zoom_speed_multiplier: Some(1.0),
         }
     }
 }
