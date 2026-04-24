@@ -10,11 +10,11 @@ export enum ActiveChannel {
 }
 
 export enum DisplayMode {
-  Blue = 'blue',
-  Green = 'green',
   Luma = 'luma',
-  Red = 'red',
   Rgb = 'rgb',
+  Parade = 'parade',
+  Vectorscope = 'vectorscope',
+  Histogram = 'histogram',
 }
 
 export enum PasteMode {
@@ -52,6 +52,7 @@ export enum ColorAdjustment {
 export enum ColorGrading {
   Balance = 'balance',
   Blending = 'blending',
+  Global = 'global',
   Highlights = 'highlights',
   Midtones = 'midtones',
   Shadows = 'shadows',
@@ -179,7 +180,6 @@ export interface Adjustments {
   lutSize?: number;
   masks: Array<MaskContainer>;
   orientationSteps: number;
-  rating: number;
   rotation: number;
   saturation: number;
   sectionVisibility: SectionVisibility;
@@ -227,6 +227,7 @@ interface ColorGradingProps {
   [index: string]: number | HueSatLum;
   balance: number;
   blending: number;
+  global: HueSatLum;
   highlights: HueSatLum;
   midtones: HueSatLum;
   shadows: HueSatLum;
@@ -331,6 +332,7 @@ export const COLOR_LABELS: Array<Color> = [
 const INITIAL_COLOR_GRADING: ColorGradingProps = {
   balance: 0,
   blending: 50,
+  global: { hue: 0, saturation: 0, luminance: 0 },
   highlights: { hue: 0, saturation: 0, luminance: 0 },
   midtones: { hue: 0, saturation: 0, luminance: 0 },
   shadows: { hue: 0, saturation: 0, luminance: 0 },
@@ -484,7 +486,6 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   lutSize: 0,
   masks: [],
   orientationSteps: 0,
-  rating: 0,
   rotation: 0,
   saturation: 0,
   sectionVisibility: {
@@ -579,8 +580,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     lensDistortionEnabled: loadedAdjustments.lensDistortionEnabled ?? INITIAL_ADJUSTMENTS.lensDistortionEnabled,
     lensTcaEnabled: loadedAdjustments.lensTcaEnabled ?? INITIAL_ADJUSTMENTS.lensTcaEnabled,
     lensVignetteEnabled: loadedAdjustments.lensVignetteEnabled ?? INITIAL_ADJUSTMENTS.lensVignetteEnabled,
-    lensDistortionParams:
-      loadedAdjustments.lensDistortionParams ?? INITIAL_ADJUSTMENTS.lensDistortionParams,
+    lensDistortionParams: loadedAdjustments.lensDistortionParams ?? INITIAL_ADJUSTMENTS.lensDistortionParams,
     transformDistortion: loadedAdjustments.transformDistortion ?? INITIAL_ADJUSTMENTS.transformDistortion,
     transformVertical: loadedAdjustments.transformVertical ?? INITIAL_ADJUSTMENTS.transformVertical,
     transformHorizontal: loadedAdjustments.transformHorizontal ?? INITIAL_ADJUSTMENTS.transformHorizontal,
@@ -602,50 +602,93 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
   };
 };
 
-export const COPYABLE_ADJUSTMENT_KEYS: Array<string> = [
-  BasicAdjustment.Blacks,
-  BasicAdjustment.Brightness,
-  DetailsAdjustment.Clarity,
-  DetailsAdjustment.Centré,
-  DetailsAdjustment.ChromaticAberrationBlueYellow,
-  DetailsAdjustment.ChromaticAberrationRedCyan,
-  'colorCalibration',
-  ColorAdjustment.ColorGrading,
-  DetailsAdjustment.ColorNoiseReduction,
-  BasicAdjustment.Contrast,
-  'curves',
-  DetailsAdjustment.Dehaze,
-  BasicAdjustment.Exposure,
-  CreativeAdjustment.FlareAmount,
-  CreativeAdjustment.GlowAmount,
-  Effect.GrainAmount,
-  Effect.GrainRoughness,
-  Effect.GrainSize,
-  CreativeAdjustment.HalationAmount,
-  BasicAdjustment.Highlights,
-  ColorAdjustment.Hsl,
-  'lutIntensity',
-  'lutName',
-  'lutPath',
-  'lutSize',
-  DetailsAdjustment.LumaNoiseReduction,
-  ColorAdjustment.Saturation,
-  'sectionVisibility',
-  BasicAdjustment.Shadows,
-  DetailsAdjustment.Sharpness,
-  DetailsAdjustment.SharpeningMask,
-  'showClipping',
-  DetailsAdjustment.Structure,
-  ColorAdjustment.Temperature,
-  ColorAdjustment.Tint,
-  'toneMapper',
-  ColorAdjustment.Vibrance,
-  Effect.VignetteAmount,
-  Effect.VignetteFeather,
-  Effect.VignetteMidpoint,
-  Effect.VignetteRoundness,
-  BasicAdjustment.Whites,
-];
+export interface AdjustmentGroup {
+  label: string;
+  keys: string[];
+}
+
+export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
+  basic: [
+    {
+      label: 'Exposure & Tone Mapper',
+      keys: [BasicAdjustment.Exposure, 'toneMapper'],
+    },
+    {
+      label: 'Tone',
+      keys: [
+        BasicAdjustment.Brightness,
+        BasicAdjustment.Contrast,
+        BasicAdjustment.Highlights,
+        BasicAdjustment.Shadows,
+        BasicAdjustment.Whites,
+        BasicAdjustment.Blacks,
+      ],
+    },
+    {
+      label: 'Curves',
+      keys: ['curves'],
+    },
+  ],
+  color: [
+    { label: 'White Balance', keys: [ColorAdjustment.Temperature, ColorAdjustment.Tint] },
+    { label: 'Presence', keys: [ColorAdjustment.Saturation, ColorAdjustment.Vibrance] },
+    { label: 'Color Grading', keys: [ColorAdjustment.ColorGrading] },
+    { label: 'Color Mixer', keys: [ColorAdjustment.Hsl] },
+    { label: 'Color Calibration', keys: ['colorCalibration'] },
+  ],
+  details: [
+    {
+      label: 'Clarity & Dehaze',
+      keys: [DetailsAdjustment.Clarity, DetailsAdjustment.Structure, DetailsAdjustment.Dehaze],
+    },
+    { label: 'Sharpness', keys: [DetailsAdjustment.Sharpness, DetailsAdjustment.Centré] },
+    //{ label: 'Noise Reduction', keys: [DetailsAdjustment.LumaNoiseReduction, DetailsAdjustment.ColorNoiseReduction] },
+    {
+      label: 'Chromatic Aberration',
+      keys: [DetailsAdjustment.ChromaticAberrationRedCyan, DetailsAdjustment.ChromaticAberrationBlueYellow],
+    },
+  ],
+  effects: [
+    {
+      label: 'Vignette',
+      keys: [Effect.VignetteAmount, Effect.VignetteFeather, Effect.VignetteMidpoint, Effect.VignetteRoundness],
+    },
+    { label: 'Grain', keys: [Effect.GrainAmount, Effect.GrainRoughness, Effect.GrainSize] },
+    {
+      label: 'Halation & Glow',
+      keys: [CreativeAdjustment.GlowAmount, CreativeAdjustment.HalationAmount, CreativeAdjustment.FlareAmount],
+    },
+    {
+      label: 'LUT',
+      keys: [Effect.LutIntensity, Effect.LutName, Effect.LutPath, Effect.LutSize, Effect.LutData],
+    },
+  ],
+  geometry: [
+    { label: 'Crop & Aspect Ratio', keys: ['crop', 'aspectRatio'] },
+    {
+      label: 'Transform & Rotation',
+      keys: [
+        'rotation',
+        'flipHorizontal',
+        'flipVertical',
+        'orientationSteps',
+        TransformAdjustment.TransformDistortion,
+        TransformAdjustment.TransformVertical,
+        TransformAdjustment.TransformHorizontal,
+        TransformAdjustment.TransformRotate,
+        TransformAdjustment.TransformAspect,
+        TransformAdjustment.TransformScale,
+        TransformAdjustment.TransformXOffset,
+        TransformAdjustment.TransformYOffset,
+      ],
+    },
+  ],
+  masks: [{ label: 'Masks', keys: ['masks'] }],
+};
+
+export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUPS)
+  .flat()
+  .flatMap((group) => group.keys);
 
 export const ADJUSTMENT_SECTIONS: Sections = {
   basic: [

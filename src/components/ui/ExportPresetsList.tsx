@@ -4,6 +4,8 @@ import { Plus, Trash2, Save, X, Check } from 'lucide-react';
 import { ExportPreset } from './ExportImportProperties';
 import { AppSettings } from './AppProperties';
 import Dropdown from './Dropdown';
+import Text from './Text';
+import { TextVariants } from '../../types/typography';
 
 interface ExportPresetsListProps {
   appSettings: AppSettings | null;
@@ -85,25 +87,28 @@ export default function ExportPresetsList({
     setSelectedPresetId('');
   };
 
-  const dropdownOptions = presets.map((preset) => ({
-    label: preset.name,
-    value: preset.id,
-  }));
+  const dropdownOptions = presets
+    .filter((preset) => preset.id !== '__last_used__')
+    .map((preset) => ({
+      label: preset.name,
+      value: preset.id,
+    }));
 
   return (
-    <div className="mb-6">
-      <h3 className="text-sm font-semibold text-text-primary mb-3 border-surface pb-2">Export Presets</h3>
+    <div className="mb-8">
+      <Text variant={TextVariants.heading} className="mb-2">
+        Export Presets
+      </Text>
 
       {!isCreating ? (
         <div className="flex gap-2">
-          <div className="flex-grow">
-            <Dropdown
-              value={selectedPresetId}
-              onChange={handleSelect}
-              options={dropdownOptions}
-              placeholder="Select a preset..."
-            />
-          </div>
+          <Dropdown
+            value={selectedPresetId}
+            onChange={handleSelect}
+            options={dropdownOptions}
+            placeholder="Select a preset..."
+            className="w-full"
+          />
 
           <button
             onClick={() => setIsCreating(true)}
@@ -121,7 +126,7 @@ export default function ExportPresetsList({
                 className={`p-2 bg-surface hover:bg-card-active rounded-md transition-colors ${
                   isSaved ? 'text-green-500' : 'text-text-secondary'
                 }`}
-                data-tooltip={isSaved ? "Saved!" : "Overwrite selected preset"}
+                data-tooltip={isSaved ? 'Saved!' : 'Overwrite selected preset'}
               >
                 {isSaved ? <Check size={18} /> : <Save size={18} />}
               </button>
@@ -143,7 +148,7 @@ export default function ExportPresetsList({
             placeholder="Preset Name"
             value={newPresetName}
             onChange={(e) => setNewPresetName(e.target.value)}
-            className="flex-grow bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
+            className="grow bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
             onKeyDown={(e) => e.key === 'Enter' && handleSavePreset()}
           />
           <button
@@ -153,7 +158,10 @@ export default function ExportPresetsList({
           >
             <Save size={18} />
           </button>
-          <button onClick={() => setIsCreating(false)} className="p-2 bg-surface text-text-secondary rounded-md hover:bg-card-active">
+          <button
+            onClick={() => setIsCreating(false)}
+            className="p-2 bg-surface text-text-secondary rounded-md hover:bg-card-active"
+          >
             <X size={18} />
           </button>
         </div>

@@ -8,6 +8,17 @@ use tauri::{AppHandle, Emitter};
 
 const FEATHER_WIDTH: f64 = 100.0;
 
+struct SeamContext<'a> {
+    pano: &'a Rgb32FImage,
+    pano_mask: &'a GrayImage,
+    img_to_add: &'a Rgb32FImage,
+    h_add: &'a Matrix3<f64>,
+    offset_x: f64,
+    offset_y: f64,
+    out_width: u32,
+    out_height: u32,
+}
+
 enum SeamOrientation {
     Vertical,
     Horizontal,
@@ -110,16 +121,17 @@ pub fn progressive_seam_stitcher(
         let h_add_inv = h_add.try_inverse().unwrap();
         let img_to_add = &img_to_add_info.image;
 
-        let seam_info = find_adaptive_seam(
-            &panorama,
-            &panorama_mask,
+        let ctx = SeamContext {
+            pano: &panorama,
+            pano_mask: &panorama_mask,
             img_to_add,
             h_add,
             offset_x,
             offset_y,
             out_width,
             out_height,
-        );
+        };
+        let seam_info = find_adaptive_seam(&ctx);
 
         let use_seam = if let Some(ref info) = seam_info {
             !info.coords.is_empty()
@@ -352,18 +364,9 @@ pub fn progressive_seam_stitcher(
     panorama
 }
 
-fn find_adaptive_seam(
-    pano: &Rgb32FImage,
-    pano_mask: &GrayImage,
-    img_to_add: &Rgb32FImage,
-    h_add: &Matrix3<f64>,
-    offset_x: f64,
-    offset_y: f64,
-    out_width: u32,
-    out_height: u32,
-) -> Option<SeamInfo> {
-    let h_add_inv = h_add.try_inverse().unwrap();
-    let (w_add, h_add_img) = img_to_add.dimensions();
+fn find_adaptive_seam(ctx: &SeamContext) -> Option<SeamInfo> {
+    let h_add_inv = ctx.h_add.try_inverse().unwrap();
+    let (w_add, h_add_img) = ctx.img_to_add.dimensions();
 
     let mut min_ox = u32::MAX;
     let mut max_ox = 0;
@@ -371,10 +374,10 @@ fn find_adaptive_seam(
     let mut max_oy = 0;
     let mut has_overlap = false;
 
-    for y in 0..out_height {
-        for x in 0..out_width {
-            if pano_mask.get_pixel(x, y)[0] > 0 {
-                let target_p = Point3::new(x as f64 - offset_x, y as f64 - offset_y, 1.0);
+    for y in 0..ctx.out_height {
+        for x in 0..ctx.out_width {
+            if ctx.pano_mask.get_pixel(x, y)[0] > 0 {
+                let target_p = Point3::new(x as f64 - ctx.offset_x, y as f64 - ctx.offset_y, 1.0);
                 let source_p = h_add_inv * target_p;
                 let sx = source_p.x / source_p.z;
                 let sy = source_p.y / source_p.z;
@@ -394,9 +397,9 @@ fn find_adaptive_seam(
     }
 
     let center_p_source = Point3::new(w_add as f64 / 2.0, h_add_img as f64 / 2.0, 1.0);
-    let center_p_target = h_add * center_p_source;
-    let center_add_x = (center_p_target.x / center_p_target.z) + offset_x;
-    let center_add_y = (center_p_target.y / center_p_target.z) + offset_y;
+    let center_p_target = ctx.h_add * center_p_source;
+    let center_add_x = (center_p_target.x / center_p_target.z) + ctx.offset_x;
+    let center_add_y = (center_p_target.y / center_p_target.z) + ctx.offset_y;
 
     let center_overlap_x = (min_ox + max_ox) as f64 / 2.0;
     let center_overlap_y = (min_oy + max_oy) as f64 / 2.0;
@@ -406,9 +409,7 @@ fn find_adaptive_seam(
 
     if dx.abs() > dy.abs() {
         println!("    - Overlap is vertical. Finding vertical seam...");
-        let seam = find_pairwise_seam_dp_vertical(
-            pano, pano_mask, img_to_add, h_add, offset_x, offset_y, out_width, out_height,
-        );
+        let seam = find_pairwise_seam_dp_vertical(ctx);
         Some(SeamInfo {
             orientation: SeamOrientation::Vertical,
             coords: seam,
@@ -417,9 +418,7 @@ fn find_adaptive_seam(
         })
     } else {
         println!("    - Overlap is horizontal. Finding horizontal seam...");
-        let seam = find_pairwise_seam_dp_horizontal(
-            pano, pano_mask, img_to_add, h_add, offset_x, offset_y, out_width, out_height,
-        );
+        let seam = find_pairwise_seam_dp_horizontal(ctx);
         Some(SeamInfo {
             orientation: SeamOrientation::Horizontal,
             coords: seam,
@@ -429,41 +428,38 @@ fn find_adaptive_seam(
     }
 }
 
-fn find_pairwise_seam_dp_vertical(
-    pano: &Rgb32FImage,
-    pano_mask: &GrayImage,
-    img_to_add: &Rgb32FImage,
-    h_add: &Matrix3<f64>,
-    offset_x: f64,
-    offset_y: f64,
-    out_width: u32,
-    out_height: u32,
-) -> Vec<i32> {
-    let h_add_inv = h_add.try_inverse().unwrap();
-    let (w_add, h_add_img) = img_to_add.dimensions();
+fn find_pairwise_seam_dp_vertical(ctx: &SeamContext) -> Vec<i32> {
+    let h_add_inv = ctx.h_add.try_inverse().unwrap();
+    let (w_add, h_add_img) = ctx.img_to_add.dimensions();
+    let out_width = ctx.out_width;
+    let out_height = ctx.out_height;
     let mut cost_matrix = vec![vec![f64::INFINITY; out_width as usize]; out_height as usize];
     let mut path_matrix = vec![vec![0i32; out_width as usize]; out_height as usize];
     let mut first_overlap_row = usize::MAX;
     let mut last_overlap_row = 0;
 
-    for y_out in 0..out_height as usize {
+    for (y_out, cost_row) in cost_matrix.iter_mut().enumerate() {
         let mut row_has_overlap = false;
-        for x_out in 0..out_width as usize {
-            if pano_mask.get_pixel(x_out as u32, y_out as u32)[0] == 0 {
+        for (x_out, cost_val) in cost_row.iter_mut().enumerate() {
+            if ctx.pano_mask.get_pixel(x_out as u32, y_out as u32)[0] == 0 {
                 continue;
             }
-            let target_p = Point3::new(x_out as f64 - offset_x, y_out as f64 - offset_y, 1.0);
+            let target_p = Point3::new(
+                x_out as f64 - ctx.offset_x,
+                y_out as f64 - ctx.offset_y,
+                1.0,
+            );
             let source_p = h_add_inv * target_p;
             let sx = source_p.x / source_p.z;
             let sy = source_p.y / source_p.z;
             if sx >= 0.0 && sx < w_add as f64 - 1.0 && sy >= 0.0 && sy < h_add_img as f64 - 1.0 {
-                let p_pano = pano.get_pixel(x_out as u32, y_out as u32);
-                let p_add = get_interpolated_pixel(img_to_add, sx, sy);
+                let p_pano = ctx.pano.get_pixel(x_out as u32, y_out as u32);
+                let p_add = get_interpolated_pixel(ctx.img_to_add, sx, sy);
                 let energy = ((p_pano[0] as f64 - p_add[0] as f64).powi(2)
                     + (p_pano[1] as f64 - p_add[1] as f64).powi(2)
                     + (p_pano[2] as f64 - p_add[2] as f64).powi(2))
                 .sqrt();
-                cost_matrix[y_out][x_out] = energy;
+                *cost_val = energy;
                 row_has_overlap = true;
             }
         }
@@ -510,9 +506,9 @@ fn find_pairwise_seam_dp_vertical(
 
     let mut seam = vec![0i32; out_height as usize];
     let (mut min_cost, mut current_x) = (f64::INFINITY, 0);
-    for x in 0..out_width as usize {
-        if cost_matrix[last_overlap_row][x] < min_cost {
-            min_cost = cost_matrix[last_overlap_row][x];
+    for (x, &cost) in cost_matrix[last_overlap_row].iter().enumerate() {
+        if cost < min_cost {
+            min_cost = cost;
             current_x = x as i32;
         }
     }
@@ -535,40 +531,37 @@ fn find_pairwise_seam_dp_vertical(
     seam
 }
 
-fn find_pairwise_seam_dp_horizontal(
-    pano: &Rgb32FImage,
-    pano_mask: &GrayImage,
-    img_to_add: &Rgb32FImage,
-    h_add: &Matrix3<f64>,
-    offset_x: f64,
-    offset_y: f64,
-    out_width: u32,
-    out_height: u32,
-) -> Vec<i32> {
-    let h_add_inv = h_add.try_inverse().unwrap();
-    let (w_add, h_add_img) = img_to_add.dimensions();
+fn find_pairwise_seam_dp_horizontal(ctx: &SeamContext) -> Vec<i32> {
+    let h_add_inv = ctx.h_add.try_inverse().unwrap();
+    let (w_add, h_add_img) = ctx.img_to_add.dimensions();
+    let out_width = ctx.out_width;
+    let out_height = ctx.out_height;
     let mut cost_matrix = vec![vec![f64::INFINITY; out_width as usize]; out_height as usize];
     let mut path_matrix = vec![vec![0i32; out_width as usize]; out_height as usize];
     let mut first_overlap_col = usize::MAX;
     let mut last_overlap_col = 0;
 
-    for y_out in 0..out_height as usize {
-        for x_out in 0..out_width as usize {
-            if pano_mask.get_pixel(x_out as u32, y_out as u32)[0] == 0 {
+    for (y_out, cost_row) in cost_matrix.iter_mut().enumerate() {
+        for (x_out, cost_val) in cost_row.iter_mut().enumerate() {
+            if ctx.pano_mask.get_pixel(x_out as u32, y_out as u32)[0] == 0 {
                 continue;
             }
-            let target_p = Point3::new(x_out as f64 - offset_x, y_out as f64 - offset_y, 1.0);
+            let target_p = Point3::new(
+                x_out as f64 - ctx.offset_x,
+                y_out as f64 - ctx.offset_y,
+                1.0,
+            );
             let source_p = h_add_inv * target_p;
             let sx = source_p.x / source_p.z;
             let sy = source_p.y / source_p.z;
             if sx >= 0.0 && sx < w_add as f64 - 1.0 && sy >= 0.0 && sy < h_add_img as f64 - 1.0 {
-                let p_pano = pano.get_pixel(x_out as u32, y_out as u32);
-                let p_add = get_interpolated_pixel(img_to_add, sx, sy);
+                let p_pano = ctx.pano.get_pixel(x_out as u32, y_out as u32);
+                let p_add = get_interpolated_pixel(ctx.img_to_add, sx, sy);
                 let energy = ((p_pano[0] as f64 - p_add[0] as f64).powi(2)
                     + (p_pano[1] as f64 - p_add[1] as f64).powi(2)
                     + (p_pano[2] as f64 - p_add[2] as f64).powi(2))
                 .sqrt();
-                cost_matrix[y_out][x_out] = energy;
+                *cost_val = energy;
                 first_overlap_col = first_overlap_col.min(x_out);
                 last_overlap_col = last_overlap_col.max(x_out);
             }
@@ -610,9 +603,9 @@ fn find_pairwise_seam_dp_horizontal(
 
     let mut seam = vec![0i32; out_width as usize];
     let (mut min_cost, mut current_y) = (f64::INFINITY, 0);
-    for y in 0..out_height as usize {
-        if cost_matrix[y][last_overlap_col] < min_cost {
-            min_cost = cost_matrix[y][last_overlap_col];
+    for (y, cost_row) in cost_matrix.iter().enumerate() {
+        if cost_row[last_overlap_col] < min_cost {
+            min_cost = cost_row[last_overlap_col];
             current_y = y as i32;
         }
     }

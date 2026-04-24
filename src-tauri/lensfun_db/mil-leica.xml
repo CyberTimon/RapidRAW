@@ -210,4 +210,25 @@
         </calibration>
     </lens>
 
+    <lens>
+        <maker>Leica Camera AG</maker>
+        <maker lang="en">Leica</maker>
+        <model>Vario-Elmarit-SL 1:2.8-4/24-90 ASPH.</model>
+        <mount>Leica L</mount>
+        <cropfactor>1.0</cropfactor>
+        <calibration>
+            <!-- Taken with Leica SL3 -->
+            <distortion model="ptlens" focal="24" a="0.0223894" b="-0.0769833" c="0.0186856"/>
+            <distortion model="ptlens" focal="40" a="-0.00257" b="0.0051353" c="-0.0060059"/>
+            <distortion model="ptlens" focal="58" a="-0.0081097" b="0.0244946" c="-0.0091683"/>
+            <distortion model="ptlens" focal="72" a="-0.0024285" b="0.0149597" c="-0.0112844"/>
+            <distortion model="ptlens" focal="90" a="0.0071279" b="-0.021412" c="0.0278327"/>
+            <tca model="poly3" focal="24" br="-0.0000611" vr="1.0002747" bb="-0.0000026" vb="1.0001465"/>
+            <tca model="poly3" focal="40" br="-0.0000650" vr="1.0002398" bb="0.0000001" vb="0.9999879"/>
+            <tca model="poly3" focal="58" br="-0.0000056" vr="0.9999608" bb="-0.0000534" vb="1.0001035"/>
+            <tca model="poly3" focal="72" br="0.0000344" vr="0.9998093" bb="-0.0000704" vb="1.0001272"/>
+            <tca model="poly3" focal="90" br="0.0001020" vr="0.9996356" bb="-0.0000724" vb="1.0001234"/>
+        </calibration>
+    </lens>
+
 </lensdatabase>

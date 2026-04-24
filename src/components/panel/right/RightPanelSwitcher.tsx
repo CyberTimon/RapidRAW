@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { SlidersHorizontal, Info, Scaling, BrushCleaning, Bookmark, Save, Layers } from 'lucide-react';
+import { SlidersHorizontal, Info, Crop, Layers, Paintbrush, SwatchBook, FileInput } from 'lucide-react';
 import { Panel } from '../../ui/AppProperties';
 
 interface PanelOptions {
@@ -11,25 +11,28 @@ interface PanelOptions {
 interface RightPanelSwitcherProps {
   activePanel: Panel | null;
   onPanelSelect(id: Panel): void;
+  isInstantTransition: boolean;
 }
 
 const panelGroups: Array<Array<PanelOptions>> = [
-  [
-    { id: Panel.Metadata, icon: Info, title: 'Info' },
-  ],
+  [{ id: Panel.Metadata, icon: Info, title: 'Info' }],
   [
     { id: Panel.Adjustments, icon: SlidersHorizontal, title: 'Adjust' },
-    { id: Panel.Crop, icon: Scaling, title: 'Crop' },
+    { id: Panel.Crop, icon: Crop, title: 'Crop' },
     { id: Panel.Masks, icon: Layers, title: 'Masks' },
-    { id: Panel.Ai, icon: BrushCleaning, title: 'Inpaint' },
+    { id: Panel.Ai, icon: Paintbrush, title: 'Inpaint' },
   ],
   [
-    { id: Panel.Presets, icon: Bookmark, title: 'Presets' },
-    { id: Panel.Export, icon: Save, title: 'Export' },
+    { id: Panel.Presets, icon: SwatchBook, title: 'Presets' },
+    { id: Panel.Export, icon: FileInput, title: 'Export' },
   ],
 ];
 
-export default function RightPanelSwitcher({ activePanel, onPanelSelect }: RightPanelSwitcherProps) {
+export default function RightPanelSwitcher({
+  activePanel,
+  onPanelSelect,
+  isInstantTransition,
+}: RightPanelSwitcherProps) {
   return (
     <div className="flex flex-col p-1 gap-1 h-full">
       {panelGroups.map((group, groupIndex) => (
@@ -50,7 +53,7 @@ export default function RightPanelSwitcher({ activePanel, onPanelSelect }: Right
                 <motion.div
                   layoutId="active-panel-indicator"
                   className="absolute inset-0 bg-surface rounded-md"
-                  transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                  transition={isInstantTransition ? { duration: 0 } : { type: 'spring', bounce: 0.2, duration: 0.4 }}
                 />
               )}
               <Icon size={20} className="relative z-10" />

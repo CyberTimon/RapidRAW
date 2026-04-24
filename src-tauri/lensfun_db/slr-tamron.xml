@@ -838,6 +838,14 @@
         <cropfactor>1.0</cropfactor>
         <calibration>
             <!-- Taken with Pentax K-1 -->
+			<distortion model="ptlens" focal="70" a="0.0020066" b="-0.0128988" c="0.0090158"/>
+            <distortion model="ptlens" focal="83" a="0.0010233" b="-0.0020233" c="-0.0004676"/>
+            <distortion model="ptlens" focal="100" a="0.0002719" b="0.0096467" c="-0.0058446"/>
+            <distortion model="ptlens" focal="133" a="0.0014701" b="0.0103159" c="-0.0012899"/>
+            <distortion model="ptlens" focal="160" a="0.001051" b="0.0107163" c="0.0012891"/>
+            <distortion model="ptlens" focal="200" a="0.0028044" b="0.005373" c="0.0061185"/>
+            <distortion model="ptlens" focal="240" a="0.0007314" b="0.0092072" c="0.0018617"/>
+            <distortion model="ptlens" focal="300" a="8.38e-05" b="0.0106032" c="-0.0008884"/>
             <tca model="poly3" focal="70" vr="1.0001184" vb="1.0000055"/>
             <tca model="poly3" focal="100" vr="1.0000337" vb="0.9999270"/>
             <tca model="poly3" focal="133" vr="0.9999252" vb="0.9997182"/>
@@ -1215,6 +1223,7 @@
         <cropfactor>1.0</cropfactor>
         <calibration>
 			<!-- Taken with Pentax K-1 -->
+			<distortion model="ptlens" focal="90" a="-0.0104456" b="0.036081" c="-0.0377206"/>
 			<tca model="poly3" focal="90" vr="1.0000582" vb="0.9997952"/>
 			<vignetting model="pa" focal="90" aperture="2.8" distance="0.29" k1="0.1359" k2="-0.8212" k3="0.2673"/>
             <vignetting model="pa" focal="90" aperture="2.8" distance="0.5" k1="-0.2835" k2="-0.2935" k3="0.1846"/>

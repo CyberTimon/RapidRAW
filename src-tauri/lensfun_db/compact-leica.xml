@@ -158,6 +158,16 @@
         <calibration>
             <distortion model="ptlens" focal="28" a="0.018761658297732145" b="-0.09453770602458175" c="0.061490311379948114"/>
             <tca model="poly3" focal="28" vr="1.0001119" vb="1.0001816"/>
+            <vignetting model="pa" focal="28" aperture="1.7" distance="10" k1="-1.4900" k2="3.0969" k3="-2.2663"/>
+            <vignetting model="pa" focal="28" aperture="1.7" distance="1000" k1="-1.4900" k2="3.0969" k3="-2.2663"/>
+            <vignetting model="pa" focal="28" aperture="2.8" distance="10" k1="-1.3599" k2="2.8068" k3="-2.1253"/>
+            <vignetting model="pa" focal="28" aperture="2.8" distance="1000" k1="-1.3599" k2="2.8068" k3="-2.1253"/>
+            <vignetting model="pa" focal="28" aperture="4" distance="10" k1="-1.5639" k2="3.5956" k3="-2.7479"/>
+            <vignetting model="pa" focal="28" aperture="4" distance="1000" k1="-1.5639" k2="3.5956" k3="-2.7479"/>
+            <vignetting model="pa" focal="28" aperture="5.6" distance="10" k1="-1.5223" k2="3.4693" k3="-2.7102"/>
+            <vignetting model="pa" focal="28" aperture="5.6" distance="1000" k1="-1.5223" k2="3.4693" k3="-2.7102"/>
+            <vignetting model="pa" focal="28" aperture="16" distance="10" k1="-1.7381" k2="4.3277" k3="-3.4751"/>
+            <vignetting model="pa" focal="28" aperture="16" distance="1000" k1="-1.7381" k2="4.3277" k3="-3.4751"/>
         </calibration>
     </lens>
 

@@ -1,23 +1,20 @@
 use crate::Cursor;
 use crate::formats::is_raw_file;
 use crate::image_processing::{apply_orientation, remove_raw_artifacts_and_enhance};
-use crate::mask_generation::{generate_mask_bitmap, MaskDefinition, SubMask};
+use crate::mask_generation::{MaskDefinition, SubMask, generate_mask_bitmap};
 use crate::raw_processing::develop_raw_image;
-use anyhow::{anyhow, Context, Result};
-use base64::{engine::general_purpose, Engine as _};
+use anyhow::{Context, Result, anyhow};
+use base64::{Engine as _, engine::general_purpose};
 use exif::{Reader as ExifReader, Tag};
-use exr::image::pixel_vec::PixelVec;
-use exr::prelude::*;
-use image::{imageops, DynamicImage, GenericImageView, ImageReader};
-use qoi::Channels;
+use image::{DynamicImage, GenericImageView, ImageReader, imageops};
 use rawler::Orientation;
 use rayon::prelude::*;
 use serde::Deserialize;
-use serde_json::{from_value, Value};
+use serde_json::{Value, from_value};
 use std::panic;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 use std::time::Instant;
 
@@ -52,60 +49,6 @@ pub fn load_and_composite(
     composite_patches_on_image(&base_image, adjustments)
 }
 
-fn load_exr_from_bytes(bytes: &[u8]) -> Result<DynamicImage> {
-    let cursor = Cursor::new(bytes);
-    let buffered_reader = std::io::BufReader::new(cursor);
-
-    let exr_image_result = read()
-        .no_deep_data()
-        .largest_resolution_level()
-        .rgba_channels(
-            PixelVec::<(f32, f32, f32, f32)>::constructor,
-            PixelVec::set_pixel,
-        )
-        .first_valid_layer()
-        .all_attributes()
-        .from_buffered(buffered_reader);
-
-    let exr_image = exr_image_result.context("Failed to read EXR image data")?;
-
-    let layer = exr_image.layer_data;
-    let resolution = layer.size;
-    let width = resolution.x() as u32;
-    let height = resolution.y() as u32;
-    let pixels = layer.channel_data.pixels;
-
-    let mut rgb_image = image::Rgb32FImage::new(width, height);
-
-    for (index, (r, g, b, _a)) in pixels.pixels.into_iter().enumerate() {
-        let x = (index % width as usize) as u32;
-        let y = (index / width as usize) as u32;
-        rgb_image.put_pixel(x, y, image::Rgb([r, g, b]));
-    }
-
-    Ok(DynamicImage::ImageRgb32F(rgb_image))
-}
-
-pub fn load_qoi_from_bytes(bytes: &[u8]) -> Result<DynamicImage> {
-    let (qoi_header, qoi_image) =
-        qoi::decode_to_vec(bytes).context("Failed to decode QOI image")?;
-
-    match qoi_header.channels {
-        Channels::Rgb => {
-            let img_buffer =
-                image::RgbImage::from_raw(qoi_header.width, qoi_header.height, qoi_image)
-                    .context("Failed to create RGB image from QOI data")?;
-            Ok(DynamicImage::ImageRgb8(img_buffer))
-        }
-        Channels::Rgba => {
-            let img_buffer =
-                image::RgbaImage::from_raw(qoi_header.width, qoi_header.height, qoi_image)
-                    .context("Failed to create RGBA image from QOI data")?;
-            Ok(DynamicImage::ImageRgba8(img_buffer))
-        }
-    }
-}
-
 pub fn load_base_image_from_bytes(
     bytes: &[u8],
     path_for_ext_check: &str,
@@ -114,26 +57,15 @@ pub fn load_base_image_from_bytes(
     linear_mode: String,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
-    let path = std::path::Path::new(path_for_ext_check);
-    if path
-        .extension()
-        .and_then(|s| s.to_str())
-        .map_or(false, |s| s.eq_ignore_ascii_case("exr"))
-    {
-        return load_exr_from_bytes(bytes);
-    }
-
-    if path
-        .extension()
-        .and_then(|s| s.to_str())
-        .map_or(false, |s| s.eq_ignore_ascii_case("qoi"))
-    {
-        return load_qoi_from_bytes(bytes);
-    }
-
     if is_raw_file(path_for_ext_check) {
         match panic::catch_unwind(move || {
-            develop_raw_image(bytes, use_fast_raw_dev, highlight_compression, linear_mode, cancel_token)
+            develop_raw_image(
+                bytes,
+                use_fast_raw_dev,
+                highlight_compression,
+                linear_mode,
+                cancel_token,
+            )
         }) {
             Ok(Ok(mut image)) => {
                 if !use_fast_raw_dev {
@@ -158,10 +90,7 @@ pub fn load_base_image_from_bytes(
                 Err(classified)
             }
             Err(_) => {
-                log::error!(
-                    "Panic while processing RAW file: {}",
-                    path_for_ext_check
-                );
+                log::error!("Panic while processing RAW file: {}", path_for_ext_check);
                 Err(anyhow!(
                     "Failed to process RAW file: {}",
                     path_for_ext_check
@@ -195,10 +124,10 @@ pub fn load_image_with_orientation(
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
     let check_cancel = || -> Result<()> {
-        if let Some((tracker, generation)) = &cancel_token {
-            if tracker.load(Ordering::SeqCst) != *generation {
-                return Err(anyhow!("Load cancelled"));
-            }
+        if let Some((tracker, generation)) = &cancel_token
+            && tracker.load(Ordering::SeqCst) != *generation
+        {
+            return Err(anyhow!("Load cancelled"));
         }
         Ok(())
     };
@@ -263,7 +192,7 @@ pub fn composite_patches_on_image(
                 .get("patchData")
                 .and_then(|data| data.get("color"))
                 .and_then(|color| color.as_str())
-                .map_or(false, |s| !s.is_empty())
+                .is_some_and(|s| !s.is_empty())
         })
         .collect();
 
@@ -303,7 +232,7 @@ pub fn composite_patches_on_image(
                 sub_masks: patch_info.sub_masks,
             };
 
-            generate_mask_bitmap(&mask_def, base_w, base_h, 1.0, (0.0, 0.0))
+            generate_mask_bitmap(&mask_def, base_w, base_h, 1.0, (0.0, 0.0), None)
                 .context("Failed to generate mask from sub_masks for compositing")?
         };
 
@@ -316,8 +245,12 @@ pub fn composite_patches_on_image(
 
         let (patch_w, patch_h) = color_image_u8.dimensions();
         let color_image_f32 = if base_w != patch_w || base_h != patch_h {
-            let resized =
-                imageops::resize(&color_image_u8, base_w, base_h, imageops::FilterType::Lanczos3);
+            let resized = imageops::resize(
+                &color_image_u8,
+                base_w,
+                base_h,
+                imageops::FilterType::Lanczos3,
+            );
             DynamicImage::ImageRgb8(resized).to_rgb32f()
         } else {
             DynamicImage::ImageRgb8(color_image_u8).to_rgb32f()
@@ -336,11 +269,11 @@ pub fn composite_patches_on_image(
                         let alpha = mask_value as f32 / 255.0;
                         let one_minus_alpha = 1.0 - alpha;
 
-                        let base_r = row[x * 4 + 0];
+                        let base_r = row[x * 4];
                         let base_g = row[x * 4 + 1];
                         let base_b = row[x * 4 + 2];
 
-                        row[x * 4 + 0] = patch_pixel[0] * alpha + base_r * one_minus_alpha;
+                        row[x * 4] = patch_pixel[0] * alpha + base_r * one_minus_alpha;
                         row[x * 4 + 1] = patch_pixel[1] * alpha + base_g * one_minus_alpha;
                         row[x * 4 + 2] = patch_pixel[2] * alpha + base_b * one_minus_alpha;
                     }

@@ -42,6 +42,7 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
 
   const customOption = options.length === 1 && options[0].customComponent ? options[0] : null;
   const CustomComponent = customOption?.customComponent;
+  const isInteractiveSubmenu = Boolean(customOption);
 
   useLayoutEffect(() => {
     if (parentRef?.current && menuRef?.current) {
@@ -79,18 +80,18 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
 
       if (isRightSide) {
         path = `
-          M ${parentRect.right} ${parentRect.top} 
-          L ${left} ${top} 
-          L ${left} ${top + subMenuHeight} 
-          L ${parentRect.right} ${parentRect.bottom} 
+          M ${parentRect.right} ${parentRect.top}
+          L ${left} ${top}
+          L ${left} ${top + subMenuHeight}
+          L ${parentRect.right} ${parentRect.bottom}
           Z
         `;
       } else {
         path = `
-          M ${parentRect.left} ${parentRect.top} 
-          L ${left + subMenuWidth} ${top} 
-          L ${left + subMenuWidth} ${top + subMenuHeight} 
-          L ${parentRect.left} ${parentRect.bottom} 
+          M ${parentRect.left} ${parentRect.top}
+          L ${left + subMenuWidth} ${top}
+          L ${left + subMenuWidth} ${top + subMenuHeight}
+          L ${parentRect.left} ${parentRect.bottom}
           Z
         `;
       }
@@ -102,7 +103,7 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
     <>
       {safeAreaPath && (
         <svg
-          className="fixed top-0 left-0 w-full h-full pointer-events-none z-[100]"
+          className="fixed top-0 left-0 w-full h-full pointer-events-none z-100"
           style={{ width: '100vw', height: '100vh' }}
         >
           <path
@@ -116,18 +117,22 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
 
       <motion.div
         animate={{ opacity: 1, scale: 1 }}
-        className="fixed z-[101]"
+        className="fixed z-101"
         exit={{ opacity: 0, scale: 0.95 }}
         initial={{ opacity: 0, scale: 0.95 }}
         onContextMenu={(e: any) => e.preventDefault()}
         onMouseEnter={cancelCloseSubmenu}
-        onMouseLeave={() => closeSubmenu(parentPath)}
+        onMouseLeave={() => {
+          if (!isInteractiveSubmenu) {
+            closeSubmenu(parentPath);
+          }
+        }}
         ref={menuRef}
         style={style}
         transition={{ duration: 0.1, ease: 'easeOut' }}
       >
         <div
-          className={clsx('backdrop-blur-md rounded-lg shadow-xl', !CustomComponent && 'bg-surface/90 p-2 w-56')}
+          className={clsx('backdrop-blur-md rounded-lg shadow-xl', !CustomComponent && 'bg-surface/95 p-2 w-56')}
           role="menu"
         >
           {CustomComponent && customOption ? (
@@ -149,6 +154,7 @@ function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
   const { activeSubmenu, openSubmenu, closeSubmenu, cancelCloseSubmenu } = useContextMenu();
   const itemRef = useRef(null);
   const hoverTimeoutRef = useRef<any>(null);
+  const hasInteractiveSubmenu = Boolean(option.submenu?.length === 1 && option.submenu[0].customComponent);
 
   const isSubmenuOpen =
     option.submenu &&
@@ -178,7 +184,7 @@ function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
       clearTimeout(hoverTimeoutRef.current);
     }
 
-    if (option.submenu && !option.disabled) {
+    if (option.submenu && !option.disabled && !hasInteractiveSubmenu) {
       closeSubmenu(path);
     }
   };
@@ -200,6 +206,18 @@ function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
         onClick={() => {
           if (!option.disabled && !option.submenu && option.onClick) {
             option.onClick();
+            hideContextMenu();
+          }
+          if (!option.disabled && option.submenu && hasInteractiveSubmenu) {
+            openSubmenu(path);
+          }
+        }}
+        onMouseDown={(event) => {
+          if (event.button !== 2) return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (!option.disabled && !option.submenu && option.onRightClick) {
+            option.onRightClick();
             hideContextMenu();
           }
         }}
@@ -248,14 +266,9 @@ function ContextMenu() {
           style={{ top: y, left: x }}
           transition={{ duration: 0.1, ease: 'easeOut' }}
         >
-          <div className="bg-surface/90 backdrop-blur-md rounded-lg shadow-xl p-2 w-64" role="menu">
+          <div className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 w-64" role="menu">
             {options.map((option: any, index: number) => (
-              <MenuItem
-                hideContextMenu={hideContextMenu}
-                key={index}
-                option={option}
-                path={[index]}
-              />
+              <MenuItem hideContextMenu={hideContextMenu} key={index} option={option} path={[index]} />
             ))}
           </div>
         </motion.div>

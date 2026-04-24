@@ -1,4 +1,3 @@
-import React from 'react';
 import { Progress } from './AppProperties';
 
 export const EXPORT_TIMEOUT = 4000;
@@ -8,12 +7,20 @@ export enum FileFormats {
   Jpeg = 'jpeg',
   Png = 'png',
   Tiff = 'tiff',
+  Webp = 'webp',
+  Jxl = 'jxl',
+  Avif = 'avif',
+  Cube = 'cube',
 }
 
 export const FILE_FORMATS: Array<FileFormat> = [
   { id: FileFormats.Jpeg, name: 'JPEG', extensions: ['jpg', 'jpeg'] },
   { id: FileFormats.Png, name: 'PNG', extensions: ['png'] },
   { id: FileFormats.Tiff, name: 'TIFF', extensions: ['tiff'] },
+  { id: FileFormats.Webp, name: 'WebP', extensions: ['webp'] },
+  { id: FileFormats.Jxl, name: 'JPEG XL', extensions: ['jxl'] },
+  { id: FileFormats.Avif, name: 'AVIF', extensions: ['avif'] },
+  { id: FileFormats.Cube, name: 'CUBE LUT', extensions: ['cube'] },
 ];
 
 export const FILENAME_VARIABLES: Array<string> = [
@@ -30,6 +37,7 @@ export interface ExportSettings {
   filenameTemplate: string | null;
   jpegQuality: number;
   keepMetadata: boolean;
+  preserveTimestamps: boolean;
   resize: {
     mode: string;
     value: number;
@@ -38,6 +46,7 @@ export interface ExportSettings {
   stripGps: boolean;
   watermark: WatermarkSettings | null;
   exportMasks?: boolean;
+  preserveFolders?: boolean;
 }
 
 export enum WatermarkAnchor {
@@ -98,8 +107,10 @@ export interface ExportPreset {
   resizeValue: number;
   dontEnlarge: boolean;
   keepMetadata: boolean;
+  preserveTimestamps: boolean;
   stripGps: boolean;
   exportMasks?: boolean;
+  preserveFolders?: boolean;
   filenameTemplate: string;
   enableWatermark: boolean;
   watermarkPath: string | null;
@@ -107,4 +118,5 @@ export interface ExportPreset {
   watermarkScale: number;
   watermarkSpacing: number;
   watermarkOpacity: number;
+  lastExportPath?: string;
 }

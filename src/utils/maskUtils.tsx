@@ -1,10 +1,22 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Mask, SubMaskMode } from '../components/panel/right/Masks';
+import { Mask, SubMaskMode, formatMaskTypeName } from '../components/panel/right/Masks';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
 
-export const createSubMask = (type: Mask, imageDimensions: ImageDimensions) => {
+export const createSubMask = (
+  type: Mask,
+  imageDimensions: ImageDimensions,
+  mode: SubMaskMode = SubMaskMode.Additive
+) => {
   const { width, height } = imageDimensions || { width: 1000, height: 1000 };
-  const common = { id: uuidv4(), visible: true, invert: false, opacity: 100, mode: SubMaskMode.Additive, type };
+  const common = {
+    id: uuidv4(),
+    visible: true,
+    invert: false,
+    opacity: 100,
+    mode,
+    name: formatMaskTypeName(type),
+    type,
+  };
 
   switch (type) {
     case Mask.Radial:
@@ -26,6 +38,8 @@ export const createSubMask = (type: Mask, imageDimensions: ImageDimensions) => {
       };
     case Mask.Brush:
       return { ...common, parameters: { lines: [] } };
+    case Mask.Flow:
+      return { ...common, parameters: { lines: [], flow: 10 } };
     case Mask.AiSubject:
       return { ...common, parameters: { maskDataBase64: null, grow: 0, feather: 0 } };
     case Mask.AiForeground:

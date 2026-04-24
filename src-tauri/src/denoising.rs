@@ -2,7 +2,7 @@ use crate::file_management::load_settings;
 use crate::formats::is_raw_file;
 use crate::image_loader::load_base_image_from_bytes;
 use crate::image_processing::apply_cpu_default_raw_processing;
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, GenericImageView, ImageFormat, Rgb, Rgb32FImage};
 use rayon::prelude::*;
 use std::cmp::Ordering;
@@ -10,8 +10,14 @@ use std::fs;
 use std::io::Cursor;
 use std::path::Path;
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering as AtomicOrdering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
+
+struct ProgressReporter<'a> {
+    counter: &'a Arc<AtomicUsize>,
+    total_work: usize,
+    app_handle: &'a AppHandle,
+}
 
 const BLOCK_SIZE: usize = 8;
 const BLOCK_AREA: usize = 64;
@@ -25,65 +31,34 @@ struct Bm3dParams {
     sigma: f32,
     hard_th_lambda: f32,
     max_dist_hard: f32,
+    chroma_sigma_scale: f32,
 }
 
 impl Bm3dParams {
     fn from_intensity(i: f32) -> Self {
         let val = i.clamp(0.001, 1.0);
-        let sigma = val * 80.0;
-        let lambda = 2.0 + (val * 2.5);
-        let dist = 3000.0 + (val * 20000.0);
-
         Self {
-            sigma,
-            hard_th_lambda: lambda,
-            max_dist_hard: dist,
+            sigma: val * 80.0,
+            hard_th_lambda: 2.0 + (val * 2.5),
+            max_dist_hard: 3000.0 + (val * 20000.0),
+            chroma_sigma_scale: 1.8,
         }
     }
 }
 
-pub fn denoise_image(
-    path_str: String,
+fn run_bm3d(
+    rgb_img: &Rgb32FImage,
     intensity: f32,
-    app_handle: AppHandle,
-) -> Result<(DynamicImage, String), String> {
-    let path = Path::new(&path_str);
-    if !path.exists() {
-        return Err("File not found".to_string());
-    }
-
-    let is_raw = is_raw_file(&path_str);
-
-    let settings = load_settings(app_handle.clone()).unwrap_or_default();
-    let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
-    let linear_mode = settings.linear_raw_mode;
-
-    let _ = app_handle.emit("denoise-progress", "Loading image...");
-
-    let file_bytes = fs::read(path).map_err(|e| e.to_string())?;
-
-    let mut dynamic_img = load_base_image_from_bytes(
-        &file_bytes, 
-        &path_str, 
-        false, 
-        highlight_compression, 
-        linear_mode, 
-        None
-    ).map_err(|e| e.to_string())?;
-
-    if is_raw {
-        let _ = app_handle.emit("denoise-progress", "Preparing RAW data...");
-        apply_cpu_default_raw_processing(&mut dynamic_img);
-    }
-
-    let rgb_img_for_denoiser = dynamic_img.to_rgb32f();
-
-    let (width, height) = rgb_img_for_denoiser.dimensions();
-
+    app_handle: &AppHandle,
+) -> Result<DynamicImage, String> {
+    let (width, height) = rgb_img.dimensions();
     let params = Bm3dParams::from_intensity(intensity);
     let dct_tables = Arc::new(DctTables::new());
 
-    let channels = split_channels(&rgb_img_for_denoiser);
+    let rgb_channels = split_channels(rgb_img);
+    let (y, cb, cr) = rgb_to_ycbcr(&rgb_channels[0], &rgb_channels[1], &rgb_channels[2]);
+    let original_y = y.clone();
+    let channels = vec![y, cb, cr];
 
     let patches_x = (width as usize).saturating_sub(BLOCK_SIZE) / STRIDE + 1;
     let patches_y = (height as usize).saturating_sub(BLOCK_SIZE) / STRIDE + 1;
@@ -92,21 +67,86 @@ pub fn denoise_image(
 
     let _ = app_handle.emit("denoise-progress", "Processing (Step 1/2)...");
 
-    let denoised_channels = bm3d_process_joint(
-        &channels,
-        width,
-        height,
-        &params,
-        &dct_tables,
-        &progress_counter,
-        total_work_units,
-        &app_handle,
+    let progress = ProgressReporter {
+        counter: &progress_counter,
+        total_work: total_work_units,
+        app_handle,
+    };
+    let mut denoised_channels =
+        bm3d_process_joint(&channels, width, height, &params, &dct_tables, &progress);
+
+    {
+        let _ = app_handle.emit("denoise-progress", "Blending detail...");
+        let blurred_y = gaussian_blur_1ch(&original_y, width as usize, height as usize, 3.0);
+        let detail_strength = (intensity * 0.5_f32).clamp(0.0_f32, 0.5_f32);
+        let y_ch = &mut denoised_channels[0];
+        for i in 0..y_ch.len() {
+            let hf = original_y[i] - blurred_y[i];
+            y_ch[i] = (y_ch[i] + detail_strength * hf).clamp(0.0, 255.0);
+        }
+    }
+
+    let (r, g, b) = ycbcr_to_rgb(
+        &denoised_channels[0],
+        &denoised_channels[1],
+        &denoised_channels[2],
     );
 
-    let _ = app_handle.emit("denoise-progress", "Finalizing data...");
-    let out_img_buffer = merge_channels(&denoised_channels, width, height);
-    let out_dynamic = DynamicImage::ImageRgb32F(out_img_buffer);
+    let out_img_buffer = merge_channels(&[r, g, b], width, height);
+    Ok(DynamicImage::ImageRgb32F(out_img_buffer))
+}
 
+pub fn denoise_image(
+    path_str: String,
+    intensity: f32,
+    method: String,
+    app_handle: AppHandle,
+    ai_session: Option<Arc<Mutex<ort::session::Session>>>,
+) -> Result<(DynamicImage, String), String> {
+    let path = Path::new(&path_str);
+    if !path.exists() {
+        return Err("File not found".to_string());
+    }
+
+    let is_raw = is_raw_file(&path_str);
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
+    let linear_mode = settings.linear_raw_mode;
+
+    let _ = app_handle.emit("denoise-progress", "Loading image...");
+
+    let file_bytes = fs::read(path).map_err(|e| e.to_string())?;
+    let mut dynamic_img = load_base_image_from_bytes(
+        &file_bytes,
+        &path_str,
+        false,
+        highlight_compression,
+        linear_mode,
+        None,
+    )
+    .map_err(|e| e.to_string())?;
+
+    if is_raw {
+        let _ = app_handle.emit("denoise-progress", "Preparing RAW data...");
+        apply_cpu_default_raw_processing(&mut dynamic_img);
+    }
+
+    let rgb_img_for_denoiser = dynamic_img.to_rgb32f();
+
+    let out_dynamic = if method == "ai" {
+        let session_arc = ai_session.ok_or_else(|| "AI Session not provided".to_string())?;
+        crate::ai_processing::run_ai_denoise(
+            &rgb_img_for_denoiser,
+            intensity,
+            &session_arc,
+            &app_handle,
+        )
+        .map_err(|e| e.to_string())?
+    } else {
+        run_bm3d(&rgb_img_for_denoiser, intensity, &app_handle)?
+    };
+
+    let _ = app_handle.emit("denoise-progress", "Finalizing data...");
     let _ = app_handle.emit("denoise-progress", "Generating previews...");
 
     let (w, h) = out_dynamic.dimensions();
@@ -163,15 +203,45 @@ pub fn denoise_image(
     Ok((out_dynamic, data_url_denoised))
 }
 
+fn rgb_to_ycbcr(r: &[f32], g: &[f32], b: &[f32]) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+    let n = r.len();
+    let mut y = vec![0.0f32; n];
+    let mut cb = vec![0.0f32; n];
+    let mut cr = vec![0.0f32; n];
+    for i in 0..n {
+        let rv = r[i];
+        let gv = g[i];
+        let bv = b[i];
+        y[i] = 0.299 * rv + 0.587 * gv + 0.114 * bv;
+        cb[i] = -0.168736 * rv - 0.331264 * gv + 0.5 * bv + 128.0;
+        cr[i] = 0.5 * rv - 0.418688 * gv - 0.081312 * bv + 128.0;
+    }
+    (y, cb, cr)
+}
+
+fn ycbcr_to_rgb(y: &[f32], cb: &[f32], cr: &[f32]) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+    let n = y.len();
+    let mut r = vec![0.0f32; n];
+    let mut g = vec![0.0f32; n];
+    let mut b = vec![0.0f32; n];
+    for i in 0..n {
+        let yv = y[i];
+        let cbv = cb[i] - 128.0;
+        let crv = cr[i] - 128.0;
+        r[i] = yv + 1.402 * crv;
+        g[i] = yv - 0.344136 * cbv - 0.714136 * crv;
+        b[i] = yv + 1.772 * cbv;
+    }
+    (r, g, b)
+}
+
 fn bm3d_process_joint(
     noisy_channels: &[Vec<f32>],
     width: u32,
     height: u32,
     params: &Bm3dParams,
     tables: &DctTables,
-    counter: &Arc<AtomicUsize>,
-    total_work: usize,
-    app_handle: &AppHandle,
+    progress: &ProgressReporter,
 ) -> Vec<Vec<f32>> {
     let basic_estimate = run_bm3d_step_joint(
         noisy_channels,
@@ -181,9 +251,7 @@ fn bm3d_process_joint(
         params,
         true,
         tables,
-        counter,
-        total_work,
-        app_handle,
+        progress,
     );
 
     run_bm3d_step_joint(
@@ -194,12 +262,11 @@ fn bm3d_process_joint(
         params,
         false,
         tables,
-        counter,
-        total_work,
-        app_handle,
+        progress,
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_bm3d_step_joint(
     noisy: &[Vec<f32>],
     guide: &[Vec<f32>],
@@ -208,9 +275,7 @@ fn run_bm3d_step_joint(
     params: &Bm3dParams,
     is_step_1: bool,
     tables: &DctTables,
-    counter: &Arc<AtomicUsize>,
-    total_work: usize,
-    app_handle: &AppHandle,
+    progress: &ProgressReporter,
 ) -> Vec<Vec<f32>> {
     let w = width as usize;
     let h = height as usize;
@@ -232,30 +297,28 @@ fn run_bm3d_step_joint(
     }
 
     ref_patches.par_iter().for_each(|&(rx, ry)| {
-        let c = counter.fetch_add(1, AtomicOrdering::Relaxed);
-        if c % 200 == 0 {
-             let pct = (c as f32 / total_work as f32) * 100.0;
-             let step_str = if is_step_1 { "Step 1/2" } else { "Step 2/2" };
-             let msg = format!("{} - {:.0}%", step_str, pct);
-             let _ = app_handle.emit("denoise-progress", msg);
+        let c = progress.counter.fetch_add(1, AtomicOrdering::Relaxed);
+        if c.is_multiple_of(200) {
+            let pct = (c as f32 / progress.total_work as f32) * 100.0;
+            let step_str = if is_step_1 { "Step 1/2" } else { "Step 2/2" };
+            let msg = format!("{} - {:.0}%", step_str, pct);
+            let _ = progress.app_handle.emit("denoise-progress", msg);
         }
 
         let mut group_locs_buf = [(0, 0); MAX_GROUP_SIZE];
-        let group_size = block_matching_joint(
-            guide,
-            w,
-            h,
-            rx,
-            ry,
-            is_step_1,
-            params,
-            &mut group_locs_buf,
-        );
+        let group_size =
+            block_matching_joint(guide, w, h, rx, ry, is_step_1, params, &mut group_locs_buf);
         let group_locs = &group_locs_buf[0..group_size];
 
         for ch in 0..num_channels {
             let guide_ch = &guide[ch];
             let noisy_ch = &noisy[ch];
+
+            let ch_sigma = if ch == 0 {
+                params.sigma
+            } else {
+                params.sigma * params.chroma_sigma_scale
+            };
 
             let mut guide_stack = build_3d_group(guide_ch, w, group_locs);
             let mut noisy_stack = if is_step_1 {
@@ -271,7 +334,7 @@ fn run_bm3d_step_joint(
 
             let weight;
             if is_step_1 {
-                let threshold = params.hard_th_lambda * params.sigma;
+                let threshold = params.hard_th_lambda * ch_sigma;
                 let nonzero = hard_threshold(&mut guide_stack, threshold);
                 weight = if nonzero > 0 {
                     1.0 / (nonzero as f32)
@@ -280,7 +343,7 @@ fn run_bm3d_step_joint(
                 };
                 noisy_stack = guide_stack;
             } else {
-                weight = wiener_filter(&mut noisy_stack, &guide_stack, params.sigma);
+                weight = wiener_filter(&mut noisy_stack, &guide_stack, ch_sigma);
             }
 
             inverse_transform_3d(&mut noisy_stack, group_size, tables);
@@ -312,7 +375,8 @@ fn run_bm3d_step_joint(
         let final_ch = num_vec
             .iter()
             .zip(den_vec.iter())
-            .map(|(&n, &d)| if d > 1e-6 { n / d } else { n })
+            .zip(noisy[ch].iter())
+            .map(|((&n, &d), &orig)| if d > 1e-6 { n / d } else { orig })
             .collect();
         results.push(final_ch);
     }
@@ -350,11 +414,7 @@ fn wiener_filter(noisy: &mut [f32], guide: &[f32], sigma: f32) -> f32 {
         *n *= coef;
         sum += coef * coef;
     }
-    if sum > 0.0 {
-        1.0 / sum
-    } else {
-        1.0
-    }
+    if sum > 0.0 { 1.0 / sum } else { 1.0 }
 }
 
 #[derive(Clone, Copy)]
@@ -364,6 +424,7 @@ struct Match {
     y: u16,
 }
 
+#[allow(clippy::too_many_arguments)]
 #[inline(always)]
 fn block_matching_joint(
     channels: &[Vec<f32>],
@@ -376,8 +437,11 @@ fn block_matching_joint(
     out_buf: &mut [(usize, usize)],
 ) -> usize {
     const MAX_CANDIDATES: usize = 1024;
-    let mut candidates: [Match; MAX_CANDIDATES] =
-        [Match { dist: f32::MAX, x: 0, y: 0 }; MAX_CANDIDATES];
+    let mut candidates: [Match; MAX_CANDIDATES] = [Match {
+        dist: f32::MAX,
+        x: 0,
+        y: 0,
+    }; MAX_CANDIDATES];
     let mut cand_count = 0;
 
     let threshold = if is_step_1 {
@@ -411,29 +475,24 @@ fn block_matching_joint(
             if x == rx && y == ry {
                 continue;
             }
-
             let d_r = compute_ssd_flat(&channels[0], w, x, y, &ref_r, threshold);
             if d_r > threshold {
                 continue;
             }
-
             let d_g = compute_ssd_flat(&channels[1], w, x, y, &ref_g, threshold - d_r);
             if d_r + d_g > threshold {
                 continue;
             }
-
             let d_b = compute_ssd_flat(&channels[2], w, x, y, &ref_b, threshold - (d_r + d_g));
             let total_dist = d_r + d_g + d_b;
 
-            if total_dist < threshold {
-                if cand_count < MAX_CANDIDATES {
-                    candidates[cand_count] = Match {
-                        dist: total_dist,
-                        x: x as u16,
-                        y: y as u16,
-                    };
-                    cand_count += 1;
-                }
+            if total_dist < threshold && cand_count < MAX_CANDIDATES {
+                candidates[cand_count] = Match {
+                    dist: total_dist,
+                    x: x as u16,
+                    y: y as u16,
+                };
+                cand_count += 1;
             }
         }
     }
@@ -624,13 +683,13 @@ fn idct_2d_8x8(block: &mut [f32], coeffs: &[f32; 64]) {
 fn dct_1d_8(x: &mut [f32], coeffs: &[f32; 64]) {
     let mut tmp = [0.0; 8];
     tmp.copy_from_slice(x);
-    for k in 0..8 {
+    for (k, x_k) in x[..8].iter_mut().enumerate() {
         let mut s = 0.0;
         let row_start = k * 8;
-        for n in 0..8 {
-            s += tmp[n] * coeffs[row_start + n];
+        for (n, &tmp_n) in tmp.iter().enumerate() {
+            s += tmp_n * coeffs[row_start + n];
         }
-        x[k] = s;
+        *x_k = s;
     }
 }
 
@@ -638,13 +697,13 @@ fn dct_1d_8(x: &mut [f32], coeffs: &[f32; 64]) {
 fn idct_1d_8(x: &mut [f32], coeffs: &[f32; 64]) {
     let mut tmp = [0.0; 8];
     tmp.copy_from_slice(x);
-    for n in 0..8 {
+    for (n, x_n) in x[..8].iter_mut().enumerate() {
         let mut s = 0.0;
         let row_start = n * 8;
-        for k in 0..8 {
-            s += tmp[k] * coeffs[row_start + k];
+        for (k, &tmp_k) in tmp.iter().enumerate() {
+            s += tmp_k * coeffs[row_start + k];
         }
-        x[n] = s;
+        *x_n = s;
     }
 }
 
@@ -712,4 +771,57 @@ fn prev_power_of_two(x: usize) -> usize {
         p *= 2;
     }
     p
+}
+
+fn gaussian_blur_1ch(data: &[f32], width: usize, height: usize, sigma: f32) -> Vec<f32> {
+    let radius = (3.0 * sigma).ceil() as usize;
+    let klen = 2 * radius + 1;
+    let mut kernel = vec![0.0f32; klen];
+    let two_s2 = 2.0 * sigma * sigma;
+    for (i, kernel_val) in kernel.iter_mut().enumerate() {
+        let k = i as f32 - radius as f32;
+        *kernel_val = (-k * k / two_s2).exp();
+    }
+    let ksum: f32 = kernel.iter().sum();
+    for k in &mut kernel {
+        *k /= ksum;
+    }
+
+    let mut tmp = vec![0.0f32; width * height];
+    for y in 0..height {
+        let row_in = &data[y * width..(y + 1) * width];
+        let row_out = &mut tmp[y * width..(y + 1) * width];
+        for (x, out_val) in row_out.iter_mut().enumerate() {
+            let mut val = 0.0f32;
+            let mut wsum = 0.0f32;
+            let x0 = x as isize - radius as isize;
+            for (ki, &kernel_val) in kernel.iter().enumerate() {
+                let kx = x0 + ki as isize;
+                if kx >= 0 && kx < width as isize {
+                    val += row_in[kx as usize] * kernel_val;
+                    wsum += kernel_val;
+                }
+            }
+            *out_val = val / wsum;
+        }
+    }
+
+    let mut out = vec![0.0f32; width * height];
+    for y in 0..height {
+        let y0 = y as isize - radius as isize;
+        for x in 0..width {
+            let mut val = 0.0f32;
+            let mut wsum = 0.0f32;
+            for (ki, &kernel_val) in kernel.iter().enumerate() {
+                let ky = y0 + ki as isize;
+                if ky >= 0 && ky < height as isize {
+                    val += tmp[ky as usize * width + x] * kernel_val;
+                    wsum += kernel_val;
+                }
+            }
+            out[y * width + x] = val / wsum;
+        }
+    }
+
+    out
 }

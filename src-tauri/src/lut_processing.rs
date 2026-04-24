@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow};
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, Rgb, Rgb32FImage};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -199,4 +199,49 @@ pub fn parse_lut_file(path_str: &str) -> Result<Lut> {
         }
         _ => Err(anyhow!("Unsupported LUT file format: {}", extension)),
     }
+}
+
+pub fn generate_identity_lut_image(size: u32) -> DynamicImage {
+    let width = size;
+    let height = size * size;
+    let mut img = Rgb32FImage::new(width, height);
+
+    for z in 0..size {
+        for y in 0..size {
+            for x in 0..size {
+                let r = x as f32 / (size - 1) as f32;
+                let g = y as f32 / (size - 1) as f32;
+                let b = z as f32 / (size - 1) as f32;
+
+                img.put_pixel(x, z * size + y, Rgb([r, g, b]));
+            }
+        }
+    }
+
+    DynamicImage::ImageRgb32F(img)
+}
+
+pub fn convert_image_to_cube_lut(image: &DynamicImage, size: u32) -> Result<Vec<u8>, String> {
+    let f32_image = image.to_rgb32f();
+    let mut out = String::new();
+
+    out.push_str(&format!("LUT_3D_SIZE {}\n", size));
+    out.push_str("DOMAIN_MIN 0.0 0.0 0.0\n");
+    out.push_str("DOMAIN_MAX 1.0 1.0 1.0\n");
+
+    for z in 0..size {
+        for y in 0..size {
+            for x in 0..size {
+                let pixel = f32_image.get_pixel(x, z * size + y);
+                out.push_str(&format!(
+                    "{:.6} {:.6} {:.6}\n",
+                    pixel[0].clamp(0.0, 1.0),
+                    pixel[1].clamp(0.0, 1.0),
+                    pixel[2].clamp(0.0, 1.0)
+                ));
+            }
+        }
+    }
+
+    Ok(out.into_bytes())
 }

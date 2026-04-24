@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Button from '../ui/Button';
+import Text from '../ui/Text';
+import { TextVariants } from '../../types/typography';
 
 interface ConfirmModalProps {
   cancelText?: string;
@@ -75,7 +77,7 @@ export default function ConfirmModal({
       aria-modal="true"
       className={`
         fixed inset-0 flex items-center justify-center z-50 
-        bg-black/30 backdrop-blur-sm 
+        bg-black/30 backdrop-blur-xs 
         transition-opacity duration-300 ease-in-out
         ${show ? 'opacity-100' : 'opacity-0'}
       `}
@@ -91,24 +93,24 @@ export default function ConfirmModal({
         onClick={(e: any) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        <h3 id="confirm-modal-title" className="text-lg font-semibold text-text-primary mb-4">
+        <Text variant={TextVariants.title} id="confirm-modal-title" className="mb-4">
           {title}
-        </h3>
-        <p className="text-sm text-text-secondary mb-6 whitespace-pre-wrap">{message}</p>
+        </Text>
+        <Text className="mb-6 whitespace-pre-wrap">{message}</Text>
         <div className="flex justify-end gap-3 mt-5">
           <Button
-            className="bg-bg-primary shadow-transparent hover:bg-bg-primary text-white shadow-none focus:outline-none focus:ring-0"
+            className="bg-bg-primary shadow-transparent hover:bg-bg-primary text-white shadow-none focus:outline-hidden focus:ring-0"
             onClick={onClose}
             variant="ghost"
             tabIndex={0}
           >
             {cancelText}
           </Button>
-          <Button 
-            onClick={handleConfirm} 
-            variant={confirmVariant} 
+          <Button
+            onClick={handleConfirm}
+            variant={confirmVariant}
             autoFocus={true}
-            className="focus:outline-none focus:ring-0 focus:ring-offset-0"
+            className="focus:outline-hidden focus:ring-0 focus:ring-offset-0"
           >
             {confirmText}
           </Button>

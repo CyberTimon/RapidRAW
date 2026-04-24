@@ -172,48 +172,46 @@ pub fn stitch_images(
 
             if let Some((_h_small, inliers)) =
                 processing::find_homography_ransac(&initial_matches, &keypoints1, &keypoints2)
+                && inliers.len() >= processing::MIN_INLIERS_FOR_CONNECTION
             {
-                if inliers.len() >= processing::MIN_INLIERS_FOR_CONNECTION {
-                    println!(
-                        "  - Good match found: '{}' <-> '{}' ({} inliers)",
-                        Path::new(&image_data[i].filename)
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy(),
-                        Path::new(&image_data[j].filename)
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy(),
-                        inliers.len()
-                    );
+                println!(
+                    "  - Good match found: '{}' <-> '{}' ({} inliers)",
+                    Path::new(&image_data[i].filename)
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy(),
+                    Path::new(&image_data[j].filename)
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy(),
+                    inliers.len()
+                );
 
-                    let inlier_points: Vec<(nalgebra::Point2<f64>, nalgebra::Point2<f64>)> =
-                        inliers
-                            .iter()
-                            .map(|m| {
-                                let p1 = keypoints1[m.index1];
-                                let p2 = keypoints2[m.index2];
-                                (
-                                    nalgebra::Point2::new(p1.x as f64, p1.y as f64),
-                                    nalgebra::Point2::new(p2.x as f64, p2.y as f64),
-                                )
-                            })
-                            .collect();
+                let inlier_points: Vec<(nalgebra::Point2<f64>, nalgebra::Point2<f64>)> = inliers
+                    .iter()
+                    .map(|m| {
+                        let p1 = keypoints1[m.index1];
+                        let p2 = keypoints2[m.index2];
+                        (
+                            nalgebra::Point2::new(p1.x as f64, p1.y as f64),
+                            nalgebra::Point2::new(p2.x as f64, p2.y as f64),
+                        )
+                    })
+                    .collect();
 
-                    if let Some(h_refined) = processing::compute_homography(&inlier_points) {
-                        let s1 = image_data[i].scale_factor;
-                        let s2 = image_data[j].scale_factor;
-                        let scale_mat_i_inv =
-                            Matrix3::new(1.0 / s1, 0.0, 0.0, 0.0, 1.0 / s1, 0.0, 0.0, 0.0, 1.0);
-                        let scale_mat_j = Matrix3::new(s2, 0.0, 0.0, 0.0, s2, 0.0, 0.0, 0.0, 1.0);
-                        let h_full = scale_mat_j * h_refined * scale_mat_i_inv;
+                if let Some(h_refined) = processing::compute_homography(&inlier_points) {
+                    let s1 = image_data[i].scale_factor;
+                    let s2 = image_data[j].scale_factor;
+                    let scale_mat_i_inv =
+                        Matrix3::new(1.0 / s1, 0.0, 0.0, 0.0, 1.0 / s1, 0.0, 0.0, 0.0, 1.0);
+                    let scale_mat_j = Matrix3::new(s2, 0.0, 0.0, 0.0, s2, 0.0, 0.0, 0.0, 1.0);
+                    let h_full = scale_mat_j * h_refined * scale_mat_i_inv;
 
-                        let match_info = MatchInfo {
-                            homography: h_full,
-                            inliers: inliers.len(),
-                        };
-                        return Some(((i, j), match_info));
-                    }
+                    let match_info = MatchInfo {
+                        homography: h_full,
+                        inliers: inliers.len(),
+                    };
+                    return Some(((i, j), match_info));
                 }
             }
             None
@@ -294,13 +292,13 @@ pub fn stitch_images(
     Ok(DynamicImage::ImageRgb32F(panorama))
 }
 
-struct DSU {
+struct Dsu {
     parent: Vec<usize>,
 }
 
-impl DSU {
+impl Dsu {
     fn new(n: usize) -> Self {
-        DSU {
+        Dsu {
             parent: (0..n).collect(),
         }
     }
@@ -346,7 +344,7 @@ fn build_stitching_order(
     edges.sort_by_key(|&(inliers, _, _)| std::cmp::Reverse(inliers));
 
     let mut mst_adj: HashMap<usize, Vec<usize>> = HashMap::new();
-    let mut dsu = DSU::new(n);
+    let mut dsu = Dsu::new(n);
     let mut num_edges = 0;
 
     for &(_, i, j) in &edges {

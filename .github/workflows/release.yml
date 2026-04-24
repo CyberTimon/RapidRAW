@@ -36,14 +36,20 @@ jobs:
           - platform: 'ubuntu-24.04-arm'
             target: ''
             asset-prefix: '03'
+          - platform: 'ubuntu-latest'
+            mobile: 'android'
+            target: 'aarch64-linux-android'
+            args: '--target aarch64'
+            asset-prefix: '04'
     uses: ./.github/workflows/build.yml
     with:
       release-id: ${{ github.event.release.id }}
       platform: ${{ matrix.platform }}
       target: ${{ matrix.target }}
       build-args: ${{ matrix.args }}
-      asset-name-pattern: "[name]_v[version]_[platform]_[arch][ext]"
+      asset-name-pattern: '[name]_v[version]_[platform]_[arch][ext]'
       asset-prefix: ${{ matrix.asset-prefix }}
+      mobile: ${{ matrix.mobile }}
     secrets: inherit
     permissions:
       contents: write

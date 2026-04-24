@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Copy, ClipboardPaste, RotateCcw, ChevronUp, ChevronDown, Check, Save, Loader2, Settings } from 'lucide-react';
+import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings } from 'lucide-react';
 import clsx from 'clsx';
+import { motion, AnimatePresence } from 'framer-motion';
 import Filmstrip from './Filmstrip';
 import { GLOBAL_KEYS, ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
+import Text from '../ui/Text';
 
 interface BottomBarProps {
   filmstripHeight?: number;
@@ -26,6 +28,7 @@ interface BottomBarProps {
   onExportClick?(): void;
   onImageSelect?(path: string, event: any): void;
   onOpenCopyPasteSettings?(): void;
+  onRequestThumbnails?(paths: string[]): void;
   onPaste(): void;
   onRate(rate: number): void;
   onReset?(): void;
@@ -68,8 +71,8 @@ const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
                 disabled
                   ? 'text-text-secondary opacity-40'
                   : starValue <= rating
-                  ? 'fill-accent text-accent'
-                  : 'text-text-secondary hover:text-accent',
+                    ? 'fill-accent text-accent'
+                    : 'text-text-secondary hover:text-accent',
               )}
             />
           </button>
@@ -101,6 +104,7 @@ export default function BottomBar({
   onExportClick,
   onImageSelect,
   onOpenCopyPasteSettings,
+  onRequestThumbnails,
   onPaste,
   onRate,
   onReset,
@@ -110,10 +114,8 @@ export default function BottomBar({
   setIsFilmstripVisible,
   thumbnails,
   thumbnailAspectRatio,
-  zoom = 0,
   displaySize,
   originalSize,
-  baseRenderSize,
   totalImages,
 }: BottomBarProps) {
   const [isEditingPercent, setIsEditingPercent] = useState(false);
@@ -123,9 +125,11 @@ export default function BottomBar({
 
   const percentInputRef = useRef<HTMLInputElement>(null);
   const [isZoomLabelHovered, setIsZoomLabelHovered] = useState(false);
-
   const isZoomReady = !isLoading && originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0;
-  const currentOriginalPercent = isZoomReady ? displaySize.width / originalSize.width : 1.0;
+
+  const currentOriginalPercent = isZoomReady
+    ? (displaySize!.width * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)) / originalSize!.width
+    : 1.0;
 
   const [latchedSliderValue, setLatchedSliderValue] = useState(1.0);
   const [latchedDisplayPercent, setLatchedDisplayPercent] = useState(100);
@@ -133,7 +137,6 @@ export default function BottomBar({
   const numSelected = multiSelectedPaths.length;
   const total = totalImages ?? 0;
   const showSelectionCounter = numSelected > 1;
-
 
   useEffect(() => {
     if (isZoomReady && !isDraggingSlider.current) {
@@ -229,13 +232,10 @@ export default function BottomBar({
   };
 
   return (
-    <div className="flex-shrink-0 bg-bg-secondary rounded-lg flex flex-col">
+    <div className="shrink-0 bg-bg-secondary rounded-lg flex flex-col">
       {!isLibraryView && (
         <div
-          className={clsx(
-            'overflow-hidden',
-            !isResizing && 'transition-all duration-300 ease-in-out',
-          )}
+          className={clsx('overflow-hidden', !isResizing && 'transition-all duration-300 ease-in-out')}
           style={{ height: isFilmstripVisible ? `${filmstripHeight}px` : '0px' }}
         >
           <div className="w-full p-2" style={{ height: `${filmstripHeight}px` }}>
@@ -247,6 +247,7 @@ export default function BottomBar({
               onClearSelection={onClearSelection}
               onContextMenu={onContextMenu}
               onImageSelect={onImageSelect}
+              onRequestThumbnails={onRequestThumbnails}
               selectedImage={selectedImage}
               thumbnails={thumbnails}
               thumbnailAspectRatio={thumbnailAspectRatio}
@@ -258,9 +259,9 @@ export default function BottomBar({
 
       <div
         className={clsx(
-          'flex-shrink-0 h-10 flex items-center justify-between px-3',
-          !isLibraryView && 'border-t', 
-          (!isLibraryView && isFilmstripVisible) ? 'border-surface' : 'border-transparent'
+          'shrink-0 h-10 flex items-center justify-between px-3',
+          !isLibraryView && 'border-t',
+          !isLibraryView && isFilmstripVisible ? 'border-surface' : 'border-transparent',
         )}
       >
         <div className="flex items-center gap-4">
@@ -268,21 +269,71 @@ export default function BottomBar({
           <div className="h-5 w-px bg-surface"></div>
           <div className="flex items-center gap-2">
             <button
-              className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+              className="relative w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               disabled={isCopyDisabled}
               onClick={onCopy}
               data-tooltip="Copy Settings"
             >
-              {isCopied ? <Check size={18} className="text-green-500 animate-pop-in" /> : <Copy size={18} />}
+              <AnimatePresence mode="wait" initial={false}>
+                {isCopied ? (
+                  <motion.div
+                    key="copied"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute"
+                  >
+                    <Check size={18} className="text-green-500" />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="copy"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute"
+                  >
+                    <Copy size={18} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </button>
+
             <button
-              className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+              className="relative w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               disabled={isPasteDisabled}
               onClick={onPaste}
               data-tooltip="Paste Settings"
             >
-              {isPasted ? <Check size={18} className="text-green-500 animate-pop-in" /> : <ClipboardPaste size={18} />}
+              <AnimatePresence mode="wait" initial={false}>
+                {isPasted ? (
+                  <motion.div
+                    key="pasted"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute"
+                  >
+                    <Check size={18} className="text-green-500" />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="paste"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute"
+                  >
+                    <ClipboardPaste size={18} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </button>
+
             <button
               className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
               onClick={onOpenCopyPasteSettings}
@@ -298,27 +349,21 @@ export default function BottomBar({
             )}
           >
             <div className="h-5 w-px bg-surface mr-4"></div>
-            <span className="text-sm text-text-secondary whitespace-nowrap">{numSelected} of {total} images selected</span>
+            <Text as="span" className="whitespace-nowrap">
+              {numSelected} of {total} images selected
+            </Text>
           </div>
         </div>
-        <div className="flex-grow" />
+        <div className="grow" />
         {isLibraryView ? (
           <div className="flex items-center gap-2">
-            <button
-              className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-              disabled={isResetDisabled}
-              onClick={onReset}
-              data-tooltip="Reset All Adjustments"
-            >
-              <RotateCcw size={18} />
-            </button>
             <button
               className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               disabled={isExportDisabled}
               onClick={onExportClick}
               data-tooltip="Export"
             >
-              <Save size={18} />
+              <FileInput size={18} />
             </button>
           </div>
         ) : (
@@ -335,7 +380,7 @@ export default function BottomBar({
                   {isZoomLabelHovered ? 'Reset Zoom' : 'Zoom'}
                 </span>
               </div>
-              
+
               <div className="relative flex-1 h-5">
                 <div className="absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 bg-surface rounded-full pointer-events-none" />
                 <input
@@ -366,7 +411,7 @@ export default function BottomBar({
                     onChange={(e) => setPercentInputValue(e.target.value)}
                     onKeyDown={handlePercentKeyDown}
                     onBlur={handlePercentSubmit}
-                    className="w-full text-xs text-text-primary bg-bg-primary border border-border-color rounded px-1 text-right"
+                    className="w-full text-xs text-text-primary bg-bg-primary border border-border-color rounded-sm px-1 text-right"
                     style={{ fontSize: '12px', height: '18px' }}
                   />
                 ) : (

@@ -73,6 +73,15 @@
         <cropfactor>1.53</cropfactor>
     </camera>
 
+    <camera>
+        <maker>Ricoh Imaging Company, Ltd.</maker>
+        <maker lang="en">Ricoh</maker>
+        <model>Ricoh GR IV</model>
+        <model lang="en">GR IV</model>
+        <mount>ricohGRIV</mount>
+        <cropfactor>1.53</cropfactor>
+    </camera>
+
     <lens>
         <maker>Ricoh</maker>
         <model>GR Digital &amp; compatibles (Standard)</model>
@@ -257,6 +266,19 @@
             <vignetting model="pa" focal="26.0" aperture="11.0" distance="1000" k1="-0.3130358" k2="-0.1422932" k3="0.0695211" />
             <vignetting model="pa" focal="26.0" aperture="16.0" distance="10" k1="-0.3077264" k2="-0.1596489" k3="0.0808960" />
             <vignetting model="pa" focal="26.0" aperture="16.0" distance="1000" k1="-0.3077264" k2="-0.1596489" k3="0.0808960" />
+        </calibration>
+    </lens>
+    
+    <lens>
+        <maker>Ricoh</maker>
+        <model>Ricoh GR IV &amp; compatibles</model>
+        <model lang="en">fixed lens</model>
+        <model lang="de">festes Objektiv</model>
+        <mount>ricohGRIV</mount>
+        <cropfactor>1.53</cropfactor>
+        <calibration>
+            <distortion model="ptlens" focal="18.3" a="0.0085872" b="-0.023271" c="0.0076726"/>
+            <tca model="poly3" focal="18.3" vr="1.0000575" vb="0.9999930"/>
         </calibration>
     </lens>
 

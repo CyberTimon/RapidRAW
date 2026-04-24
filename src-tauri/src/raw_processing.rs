@@ -1,5 +1,5 @@
 use crate::image_processing::apply_orientation;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use image::{DynamicImage, ImageBuffer, Rgba};
 use rawler::{
     decoders::{Orientation, RawDecodeParams},
@@ -8,8 +8,8 @@ use rawler::{
     rawsource::RawSource,
 };
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 
 pub fn develop_raw_image(
@@ -30,7 +30,10 @@ pub fn develop_raw_image(
 }
 
 fn is_linear_raw_format(raw_image: &RawImage) -> bool {
-    matches!(raw_image.photometric, RawPhotometricInterpretation::LinearRaw)
+    matches!(
+        raw_image.photometric,
+        RawPhotometricInterpretation::LinearRaw
+    )
 }
 
 #[inline]
@@ -50,10 +53,10 @@ fn develop_internal(
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<(DynamicImage, Orientation)> {
     let check_cancel = || -> Result<()> {
-        if let Some((tracker, generation)) = &cancel_token {
-            if tracker.load(Ordering::SeqCst) != *generation {
-                return Err(anyhow!("Load cancelled"));
-            }
+        if let Some((tracker, generation)) = &cancel_token
+            && tracker.load(Ordering::SeqCst) != *generation
+        {
+            return Err(anyhow!("Load cancelled"));
         }
         Ok(())
     };
@@ -85,13 +88,13 @@ fn develop_internal(
     let original_white_level = raw_image
         .whitelevel
         .0
-        .get(0)
+        .first()
         .cloned()
         .unwrap_or(u16::MAX as u32) as f32;
     let original_black_level = raw_image
         .blacklevel
         .levels
-        .get(0)
+        .first()
         .map(|r| r.as_f32())
         .unwrap_or(0.0);
 
@@ -121,7 +124,14 @@ fn develop_internal(
 
     let denominator = (original_white_level - original_black_level).max(1.0);
     let rescale_factor = (u32::MAX as f32 - original_black_level) / denominator;
+
     let safe_highlight_compression = highlight_compression.max(1.01);
+
+    let clamp_limit = if fast_demosaic {
+        1.0
+    } else {
+        safe_highlight_compression
+    };
 
     check_cancel()?;
 
@@ -132,7 +142,7 @@ fn develop_internal(
                 if is_linear_format && apply_ungamma {
                     linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
                 }
-                *p = linear_val;
+                *p = linear_val.clamp(0.0, clamp_limit);
             });
         }
         Intermediate::ThreeColor(pixels) => {
@@ -151,10 +161,8 @@ fn develop_internal(
 
                 let (final_r, final_g, final_b) = if max_c > 1.0 {
                     let min_c = r.min(g).min(b);
-                    let compression_factor = (1.0
-                        - (max_c - 1.0) / (safe_highlight_compression - 1.0))
-                        .max(0.0)
-                        .min(1.0);
+                    let compression_factor =
+                        (1.0 - (max_c - 1.0) / (safe_highlight_compression - 1.0)).clamp(0.0, 1.0);
                     let compressed_r = min_c + (r - min_c) * compression_factor;
                     let compressed_g = min_c + (g - min_c) * compression_factor;
                     let compressed_b = min_c + (b - min_c) * compression_factor;
@@ -174,9 +182,9 @@ fn develop_internal(
                     (r, g, b)
                 };
 
-                p[0] = final_r;
-                p[1] = final_g;
-                p[2] = final_b;
+                p[0] = final_r.clamp(0.0, clamp_limit);
+                p[1] = final_g.clamp(0.0, clamp_limit);
+                p[2] = final_b.clamp(0.0, clamp_limit);
             });
         }
         Intermediate::FourColor(pixels) => {
@@ -186,7 +194,7 @@ fn develop_internal(
                     if is_linear_format && apply_ungamma {
                         linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
                     }
-                    *c = linear_val;
+                    *c = linear_val.clamp(0.0, clamp_limit);
                 });
             });
         }
@@ -222,19 +230,23 @@ fn develop_internal(
     Ok((dynamic_image, orientation))
 }
 
-pub fn get_fast_demosaic_scale_factor(file_bytes: &[u8], decoded_width: u32, decoded_height: u32) -> f32 {
+pub fn get_fast_demosaic_scale_factor(
+    file_bytes: &[u8],
+    decoded_width: u32,
+    decoded_height: u32,
+) -> f32 {
     let source = RawSource::new_from_slice(file_bytes);
-    if let Ok(decoder) = rawler::get_decoder(&source) {
-        if let Ok(raw_img) = decoder.raw_image(&source, &RawDecodeParams::default(), true) {
-            let max_orig = (raw_img.width as f32).max(raw_img.height as f32);
-            let max_comp = (decoded_width as f32).max(decoded_height as f32);
-            if max_orig > 0.0 {
-                let ratio = max_comp / max_orig;
-                if ratio > 0.1 && ratio < 0.35 {
-                    return 0.25;
-                } else if ratio >= 0.35 && ratio < 0.75 {
-                    return 0.5;
-                }
+    if let Ok(decoder) = rawler::get_decoder(&source)
+        && let Ok(raw_img) = decoder.raw_image(&source, &RawDecodeParams::default(), true)
+    {
+        let max_orig = (raw_img.width as f32).max(raw_img.height as f32);
+        let max_comp = (decoded_width as f32).max(decoded_height as f32);
+        if max_orig > 0.0 {
+            let ratio = max_comp / max_orig;
+            if ratio > 0.1 && ratio < 0.35 {
+                return 0.25;
+            } else if (0.35..0.75).contains(&ratio) {
+                return 0.5;
             }
         }
     }

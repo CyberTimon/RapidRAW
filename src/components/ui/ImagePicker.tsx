@@ -1,5 +1,7 @@
 import { open } from '@tauri-apps/plugin-dialog';
 import { X } from 'lucide-react';
+import Text from './Text';
+import { TextVariants } from '../../types/typography';
 
 interface ImagePickerProps {
   imageName: string | null;
@@ -8,12 +10,7 @@ interface ImagePickerProps {
   label: string;
 }
 
-export default function ImagePicker({
-  imageName,
-  onImageSelect,
-  onClear,
-  label,
-}: ImagePickerProps) {
+export default function ImagePicker({ imageName, onImageSelect, onClear, label }: ImagePickerProps) {
   const handleSelectFile = async () => {
     try {
       const selected = await open({
@@ -36,7 +33,9 @@ export default function ImagePicker({
   return (
     <div className="mb-2">
       <div className="flex justify-between items-center mb-1">
-        <span className="text-sm font-medium text-text-secondary select-none">{label}</span>
+        <Text variant={TextVariants.label} className="select-none">
+          {label}
+        </Text>
         <div className="group flex items-center">
           <button
             onClick={handleSelectFile}
@@ -45,7 +44,7 @@ export default function ImagePicker({
           >
             {imageName || 'Select'}
           </button>
-          
+
           {imageName && (
             <button
               onClick={onClear}

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Switch from '../ui/Switch';
 import { FILENAME_VARIABLES } from '../ui/ExportImportProperties';
+import Text from '../ui/Text';
+import { TextVariants } from '../../types/typography';
 
 interface ImportSettingsModalProps {
   fileCount: number;
@@ -87,7 +89,7 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
   return (
     <div
       aria-modal="true"
-      className={`fixed inset-0 flex items-center justify-center z-50 bg-black/30 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
+      className={`fixed inset-0 flex items-center justify-center z-50 bg-black/30 backdrop-blur-xs transition-opacity duration-300 ease-in-out ${
         show ? 'opacity-100' : 'opacity-0'
       }`}
       onClick={onClose}
@@ -100,11 +102,15 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
         onClick={(e: any) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        <h3 className="text-lg font-semibold text-text-primary mb-6">Import Settings</h3>
+        <Text variant={TextVariants.title} className="mb-4">
+          Import Settings
+        </Text>
 
-        <div className="space-y-6 text-sm">
+        <div className="space-y-8 text-sm">
           <div>
-            <label className="font-semibold text-text-primary block mb-2">File Naming</label>
+            <Text variant={TextVariants.heading} className="block mb-2">
+              File Naming
+            </Text>
             <input
               autoFocus
               className="w-full bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
@@ -127,13 +133,17 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
           </div>
 
           <div>
-            <label className="font-semibold text-text-primary block mb-2">Folder Organization</label>
+            <Text variant={TextVariants.heading} className="block mb-2">
+              Folder Organization
+            </Text>
             <Switch label="Organize into subfolders by date" checked={organizeByDate} onChange={setOrganizeByDate} />
             {organizeByDate && (
-              <div className="mt-3">
-                <label className="text-xs text-text-secondary block mb-1">Date Format</label>
+              <div className="mt-2">
+                <Text variant={TextVariants.label} className="block mb-1">
+                  Date Format
+                </Text>
                 <input
-                  className="w-full bg-bg-primary border border-surface rounded-md p-2 text-xs text-text-primary focus:ring-accent focus:border-accent"
+                  className="w-full bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
                   onChange={(e: any) => setDateFolderFormat(e.target.value)}
                   placeholder="e.g., YYYY/MM-DD"
                   type="text"
@@ -144,14 +154,18 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
           </div>
 
           <div>
-            <label className="font-semibold text-text-primary block mb-2">Source Files</label>
+            <Text variant={TextVariants.heading} className="block mb-2">
+              Source Files
+            </Text>
             <Switch
               checked={deleteAfterImport}
               label="Delete originals after successful import"
               onChange={setDeleteAfterImport}
             />
             {deleteAfterImport && (
-              <p className="text-xs text-text-secondary mt-1">Files will be moved to the system trash.</p>
+              <Text variant={TextVariants.small} className="mt-1">
+                Files will be moved to the system trash.
+              </Text>
             )}
           </div>
         </div>

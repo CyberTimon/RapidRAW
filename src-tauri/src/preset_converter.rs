@@ -140,15 +140,14 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     ];
 
     for (xmp_key, rr_key) in mappings {
-        if let Some(raw_val) = attrs.get(xmp_key) {
-            if let Some(num) = parse_num(raw_val.trim_start_matches('+')) {
-                if let Some(json_val) = num_to_json(num) {
-                    if rr_key == "blending" {
-                        color_grading_map.insert(rr_key.to_string(), json_val);
-                    } else {
-                        adjustments.insert(rr_key.to_string(), json_val);
-                    }
-                }
+        if let Some(raw_val) = attrs.get(xmp_key)
+            && let Some(num) = parse_num(raw_val.trim_start_matches('+'))
+            && let Some(json_val) = num_to_json(num)
+        {
+            if rr_key == "blending" {
+                color_grading_map.insert(rr_key.to_string(), json_val);
+            } else {
+                adjustments.insert(rr_key.to_string(), json_val);
             }
         }
     }
@@ -197,29 +196,25 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     ];
     for (src, dst) in colors {
         let mut color_map = Map::new();
-        if let Some(raw) = attrs.get(&format!("HueAdjustment{}", src)) {
-            if let Some(num) = parse_num(raw.trim_start_matches('+')) {
-                if let Some(Value::Number(n)) = num_to_json(num) {
-                    if let Some(val_f64) = n.as_f64() {
-                        let adjusted_hue = val_f64 * 0.75;
-                        color_map.insert("hue".to_string(), json!(adjusted_hue));
-                    }
-                }
-            }
+        if let Some(raw) = attrs.get(&format!("HueAdjustment{}", src))
+            && let Some(num) = parse_num(raw.trim_start_matches('+'))
+            && let Some(Value::Number(n)) = num_to_json(num)
+            && let Some(val_f64) = n.as_f64()
+        {
+            let adjusted_hue = val_f64 * 0.75;
+            color_map.insert("hue".to_string(), json!(adjusted_hue));
         }
-        if let Some(raw) = attrs.get(&format!("SaturationAdjustment{}", src)) {
-            if let Some(num) = parse_num(raw.trim_start_matches('+')) {
-                if let Some(json_val) = num_to_json(num) {
-                    color_map.insert("saturation".to_string(), json_val);
-                }
-            }
+        if let Some(raw) = attrs.get(&format!("SaturationAdjustment{}", src))
+            && let Some(num) = parse_num(raw.trim_start_matches('+'))
+            && let Some(json_val) = num_to_json(num)
+        {
+            color_map.insert("saturation".to_string(), json_val);
         }
-        if let Some(raw) = attrs.get(&format!("LuminanceAdjustment{}", src)) {
-            if let Some(num) = parse_num(raw.trim_start_matches('+')) {
-                if let Some(json_val) = num_to_json(num) {
-                    color_map.insert("luminance".to_string(), json_val);
-                }
-            }
+        if let Some(raw) = attrs.get(&format!("LuminanceAdjustment{}", src))
+            && let Some(num) = parse_num(raw.trim_start_matches('+'))
+            && let Some(json_val) = num_to_json(num)
+        {
+            color_map.insert("luminance".to_string(), json_val);
         }
         if !color_map.is_empty() {
             hsl_map.insert(dst.to_string(), Value::Object(color_map));
@@ -232,75 +227,84 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     let mut shadows_map = Map::new();
     let mut midtones_map = Map::new();
     let mut highlights_map = Map::new();
-    if let Some(raw) = attrs.get("SplitToningShadowHue") {
-        if let Some(num) = parse_num(raw) {
-            if let Some(json_val) = num_to_json(num) {
-                shadows_map.insert("hue".to_string(), json_val);
-            }
-        }
+    let mut global_map = Map::new();
+    if let Some(raw) = attrs.get("SplitToningShadowHue")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        shadows_map.insert("hue".to_string(), json_val);
     }
-    if let Some(raw) = attrs.get("ColorGradeMidtoneHue") {
-        if let Some(num) = parse_num(raw) {
-            if let Some(json_val) = num_to_json(num) {
-                midtones_map.insert("hue".to_string(), json_val);
-            }
-        }
+    if let Some(raw) = attrs.get("ColorGradeMidtoneHue")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        midtones_map.insert("hue".to_string(), json_val);
     }
-    if let Some(raw) = attrs.get("SplitToningHighlightHue") {
-        if let Some(num) = parse_num(raw) {
-            if let Some(json_val) = num_to_json(num) {
-                highlights_map.insert("hue".to_string(), json_val);
-            }
-        }
+    if let Some(raw) = attrs.get("SplitToningHighlightHue")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        highlights_map.insert("hue".to_string(), json_val);
     }
-    if let Some(raw) = attrs.get("SplitToningShadowSaturation") {
-        if let Some(num) = parse_num(raw) {
-            if let Some(json_val) = num_to_json(num) {
-                shadows_map.insert("saturation".to_string(), json_val);
-            }
-        }
+    if let Some(raw) = attrs.get("SplitToningShadowSaturation")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        shadows_map.insert("saturation".to_string(), json_val);
     }
-    if let Some(raw) = attrs.get("ColorGradeMidtoneSat") {
-        if let Some(num) = parse_num(raw) {
-            if let Some(json_val) = num_to_json(num) {
-                midtones_map.insert("saturation".to_string(), json_val);
-            }
-        }
+    if let Some(raw) = attrs.get("ColorGradeMidtoneSat")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        midtones_map.insert("saturation".to_string(), json_val);
     }
-    if let Some(raw) = attrs.get("SplitToningHighlightSaturation") {
-        if let Some(num) = parse_num(raw) {
-            if let Some(json_val) = num_to_json(num) {
-                highlights_map.insert("saturation".to_string(), json_val);
-            }
-        }
+    if let Some(raw) = attrs.get("SplitToningHighlightSaturation")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        highlights_map.insert("saturation".to_string(), json_val);
     }
-    if let Some(raw) = attrs.get("ColorGradeShadowLum") {
-        if let Some(num) = parse_num(raw) {
-            if let Some(json_val) = num_to_json(num) {
-                shadows_map.insert("luminance".to_string(), json_val);
-            }
-        }
+    if let Some(raw) = attrs.get("ColorGradeShadowLum")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        shadows_map.insert("luminance".to_string(), json_val);
     }
-    if let Some(raw) = attrs.get("ColorGradeMidtoneLum") {
-        if let Some(num) = parse_num(raw) {
-            if let Some(json_val) = num_to_json(num) {
-                midtones_map.insert("luminance".to_string(), json_val);
-            }
-        }
+    if let Some(raw) = attrs.get("ColorGradeMidtoneLum")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        midtones_map.insert("luminance".to_string(), json_val);
     }
-    if let Some(raw) = attrs.get("ColorGradeHighlightLum") {
-        if let Some(num) = parse_num(raw) {
-            if let Some(json_val) = num_to_json(num) {
-                highlights_map.insert("luminance".to_string(), json_val);
-            }
-        }
+    if let Some(raw) = attrs.get("ColorGradeHighlightLum")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        highlights_map.insert("luminance".to_string(), json_val);
     }
-    if let Some(raw) = attrs.get("SplitToningBalance") {
-        if let Some(num) = parse_num(raw) {
-            if let Some(json_val) = num_to_json(num) {
-                color_grading_map.insert("balance".to_string(), json_val);
-            }
-        }
+    if let Some(raw) = attrs.get("ColorGradeGlobalHue")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        global_map.insert("hue".to_string(), json_val);
+    }
+    if let Some(raw) = attrs.get("ColorGradeGlobalSat")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        global_map.insert("saturation".to_string(), json_val);
+    }
+    if let Some(raw) = attrs.get("ColorGradeGlobalLum")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        global_map.insert("luminance".to_string(), json_val);
+    }
+    if let Some(raw) = attrs.get("SplitToningBalance")
+        && let Some(num) = parse_num(raw)
+        && let Some(json_val) = num_to_json(num)
+    {
+        color_grading_map.insert("balance".to_string(), json_val);
     }
     if !shadows_map.is_empty() {
         color_grading_map.insert("shadows".to_string(), Value::Object(shadows_map));
@@ -310,6 +314,9 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     }
     if !highlights_map.is_empty() {
         color_grading_map.insert("highlights".to_string(), Value::Object(highlights_map));
+    }
+    if !global_map.is_empty() {
+        color_grading_map.insert("global".to_string(), Value::Object(global_map));
     }
     if !color_grading_map.is_empty() {
         adjustments.insert("colorGrading".to_string(), Value::Object(color_grading_map));
@@ -337,5 +344,8 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
         id: Uuid::new_v4().to_string(),
         name: preset_name,
         adjustments: Value::Object(adjustments),
+        include_masks: Some(false),
+        include_crop_transform: Some(false),
+        preset_type: Some("style".to_string()),
     })
 }

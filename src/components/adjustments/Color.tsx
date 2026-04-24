@@ -1,15 +1,13 @@
-import { useState } from 'react';
-import { Pipette } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Pipette, Sliders } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Slider from '../ui/Slider';
 import ColorWheel from '../ui/ColorWheel';
-import {
-  ColorAdjustment,
-  ColorCalibration,
-  HueSatLum,
-  INITIAL_ADJUSTMENTS,
-} from '../../utils/adjustments';
+import { ColorAdjustment, ColorCalibration, HueSatLum, INITIAL_ADJUSTMENTS } from '../../utils/adjustments';
 import { Adjustments, ColorGrading } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
+import Text from '../ui/Text';
+import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 
 interface ColorProps {
   color: string;
@@ -79,7 +77,7 @@ const ColorSwatch = ({ color, name, isActive, onClick }: ColorSwatchProps) => {
   return (
     <button
       aria-label={`Select ${name} color`}
-      className="relative w-6 h-6 focus:outline-none group"
+      className="relative w-6 h-6 focus:outline-hidden group"
       onClick={handleClick}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -117,6 +115,8 @@ const ColorSwatch = ({ color, name, isActive, onClick }: ColorSwatchProps) => {
 };
 
 const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: ColorPanelProps) => {
+  const [activeTab, setActiveTab] = useState<'3way' | 'global'>('3way');
+  const [isExpanded, setIsExpanded] = useState(false);
   const colorGrading = adjustments.colorGrading || INITIAL_ADJUSTMENTS.colorGrading;
 
   const handleChange = (grading: ColorGrading, newValue: HueSatLum) => {
@@ -139,39 +139,130 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
     }));
   };
 
+  const tabs = [
+    {
+      id: '3way',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="6" r="4.5" />
+          <circle cx="5" cy="18" r="4.5" />
+          <circle cx="19" cy="18" r="4.5" />
+        </svg>
+      ),
+    },
+    {
+      id: 'global',
+      icon: <div className="w-3.5 h-3.5 rounded-full" style={{ background: 'linear-gradient(to top, #666, #fff)' }} />,
+    },
+  ];
+
   return (
     <div>
-      <div className="flex justify-center mb-4">
-        <div className="w-[calc(50%-0.5rem)]">
-          <ColorWheel
-            defaultValue={INITIAL_ADJUSTMENTS.colorGrading.midtones}
-            label="Midtones"
-            onChange={(val: HueSatLum) => handleChange(ColorGrading.Midtones, val)}
-            value={colorGrading.midtones}
-            onDragStateChange={onDragStateChange}
-          />
-        </div>
+      <div className="flex items-center justify-start gap-2 mb-4 mt-2">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as '3way' | 'global')}
+              className={`w-7 h-7 rounded-full flex items-center justify-center transition-all focus:outline-none
+                ${
+                  isActive
+                    ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent text-text-primary'
+                    : 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-secondary/80'
+                }`}
+            >
+              {tab.icon}
+            </button>
+          );
+        })}
+
+        <div className="w-px h-5 bg-text-secondary/20 mx-1" />
+
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all focus:outline-none
+            ${
+              isExpanded
+                ? 'bg-accent text-button-text'
+                : 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-secondary/80'
+            }`}
+          data-tooltip="Toggle Sliders"
+        >
+          <Sliders size={14} />
+        </button>
       </div>
-      <div className="flex justify-between mb-2 gap-4">
-        <div className="w-full">
-          <ColorWheel
-            defaultValue={INITIAL_ADJUSTMENTS.colorGrading.shadows}
-            label="Shadows"
-            onChange={(val: HueSatLum) => handleChange(ColorGrading.Shadows, val)}
-            value={colorGrading.shadows}
-            onDragStateChange={onDragStateChange}
-          />
-        </div>
-        <div className="w-full">
-          <ColorWheel
-            defaultValue={INITIAL_ADJUSTMENTS.colorGrading.highlights}
-            label="Highlights"
-            onChange={(val: HueSatLum) => handleChange(ColorGrading.Highlights, val)}
-            value={colorGrading.highlights}
-            onDragStateChange={onDragStateChange}
-          />
-        </div>
+
+      <div className="relative w-full mb-4">
+        <AnimatePresence mode="wait">
+          {activeTab === '3way' ? (
+            <motion.div
+              key="3way"
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -15 }}
+              transition={{ duration: 0.2 }}
+              className="w-full"
+            >
+              <div className="flex justify-center mb-4">
+                <div className="w-[calc(50%-0.5rem)]">
+                  <ColorWheel
+                    defaultValue={INITIAL_ADJUSTMENTS.colorGrading.midtones}
+                    label="Midtones"
+                    onChange={(val: HueSatLum) => handleChange(ColorGrading.Midtones, val)}
+                    value={colorGrading.midtones}
+                    onDragStateChange={onDragStateChange}
+                    isExpanded={isExpanded}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-between mb-2 gap-4">
+                <div className="w-full flex-1 min-w-0">
+                  <ColorWheel
+                    defaultValue={INITIAL_ADJUSTMENTS.colorGrading.shadows}
+                    label="Shadows"
+                    onChange={(val: HueSatLum) => handleChange(ColorGrading.Shadows, val)}
+                    value={colorGrading.shadows}
+                    onDragStateChange={onDragStateChange}
+                    isExpanded={isExpanded}
+                  />
+                </div>
+                <div className="w-full flex-1 min-w-0">
+                  <ColorWheel
+                    defaultValue={INITIAL_ADJUSTMENTS.colorGrading.highlights}
+                    label="Highlights"
+                    onChange={(val: HueSatLum) => handleChange(ColorGrading.Highlights, val)}
+                    value={colorGrading.highlights}
+                    onDragStateChange={onDragStateChange}
+                    isExpanded={isExpanded}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="global"
+              initial={{ opacity: 0, x: 15 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 15 }}
+              transition={{ duration: 0.2 }}
+              className="w-full flex justify-center pb-2"
+            >
+              <div className="w-full max-w-70">
+                <ColorWheel
+                  defaultValue={INITIAL_ADJUSTMENTS.colorGrading.global}
+                  label="Global"
+                  onChange={(val: HueSatLum) => handleChange(ColorGrading.Global, val)}
+                  value={colorGrading.global || INITIAL_ADJUSTMENTS.colorGrading.global}
+                  onDragStateChange={onDragStateChange}
+                  isExpanded={isExpanded}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
       <div>
         <Slider
           defaultValue={50}
@@ -234,11 +325,17 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
     saturation: colorCalibration[`${activePrimary}Saturation` as keyof ColorCalibration] || 0,
   };
 
+  const trackSuffix = `${activePrimary}s`;
+
   return (
     <div className="p-2 bg-bg-tertiary rounded-md mt-4">
-      <p className="text-md font-semibold mb-3 text-primary">Color Calibration</p>
+      <Text variant={TextVariants.heading} className="mb-2">
+        Color Calibration
+      </Text>
       <div>
-        <p className="text-sm font-medium mb-1 text-secondary">Shadows</p>
+        <Text color={TextColors.primary} weight={TextWeights.medium} className="mb-1">
+          Shadows
+        </Text>
         <Slider
           label="Tint"
           min={-100}
@@ -248,10 +345,13 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
           value={colorCalibration.shadowsTint}
           onChange={(e: any) => handleShadowsChange(e.target.value)}
           onDragStateChange={onDragStateChange}
+          trackClassName="tint-gradient-track"
         />
       </div>
       <div className="mt-3">
-        <p className="text-sm font-medium mb-3 text-secondary">Primaries</p>
+        <Text color={TextColors.primary} weight={TextWeights.medium} className="mb-3">
+          Primaries
+        </Text>
         <div className="flex justify-center gap-6 mb-4 px-1">
           {PRIMARY_COLORS.map(({ name, color }) => (
             <ColorSwatch
@@ -272,6 +372,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
           value={currentValues.hue}
           onChange={(e: any) => handlePrimaryChange('Hue', e.target.value)}
           onDragStateChange={onDragStateChange}
+          trackClassName={`hue-slider-${trackSuffix}`}
         />
         <Slider
           label="Saturation"
@@ -282,6 +383,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
           value={currentValues.saturation}
           onChange={(e: any) => handlePrimaryChange('Saturation', e.target.value)}
           onDragStateChange={onDragStateChange}
+          trackClassName={`sat-slider-${trackSuffix}`}
         />
       </div>
     </div>
@@ -300,6 +402,29 @@ export default function ColorPanel({
   const [activeColor, setActiveColor] = useState('reds');
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
 
+  const colorHueMap: Record<string, number> = {
+    reds: 0,
+    oranges: 30,
+    yellows: 60,
+    greens: 120,
+    aquas: 180,
+    blues: 240,
+    purples: 300,
+    magentas: 340,
+  };
+
+  const currentHsl = adjustments?.hsl?.[activeColor] || { hue: 0, saturation: 0, luminance: 0 };
+  const baseHue = colorHueMap[activeColor] || 0;
+  const effectiveHue = baseHue + (currentHsl.hue || 0);
+
+  useEffect(() => {
+    const normalizedHue = ((effectiveHue % 360) + 360) % 360;
+    const effectiveSaturation = (currentHsl.saturation + 100) / 2;
+
+    document.documentElement.style.setProperty(`--hsl-mixer-hue-${activeColor}`, normalizedHue.toString());
+    document.documentElement.style.setProperty(`--hsl-mixer-sat-${activeColor}`, `${effectiveSaturation}%`);
+  }, [effectiveHue, currentHsl.saturation, activeColor]);
+
   const handleGlobalChange = (key: ColorAdjustment, value: string) => {
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: parseFloat(value) }));
   };
@@ -317,20 +442,20 @@ export default function ColorPanel({
     }));
   };
 
-  const currentHsl = adjustments?.hsl?.[activeColor] || { hue: 0, saturation: 0, luminance: 0 };
+  const hue_slider = `hue-slider-${activeColor}`;
+  const saturation_slider = `sat-slider-${activeColor}`;
+  const luminance_slider = `lum-slider-${activeColor}`;
 
   return (
-    <div>
-      <div className="mb-4 p-2 bg-bg-tertiary rounded-md">
+    <div className="space-y-4">
+      <div className="p-2 bg-bg-tertiary rounded-md">
         <div className="flex justify-between items-center mb-2">
-          <p className="text-md font-semibold text-primary">White Balance</p>
+          <Text variant={TextVariants.heading}>White Balance</Text>
           {!isForMask && toggleWbPicker && (
             <button
               onClick={toggleWbPicker}
               className={`p-1.5 rounded-md transition-colors ${
-                isWbPickerActive
-                  ? 'bg-accent text-button-text'
-                  : 'hover:bg-bg-secondary text-text-secondary'
+                isWbPickerActive ? 'bg-accent text-button-text' : 'hover:bg-bg-secondary text-text-secondary'
               }`}
               data-tooltip="White Balance Picker"
             >
@@ -345,6 +470,7 @@ export default function ColorPanel({
           onChange={(e: any) => handleGlobalChange(ColorAdjustment.Temperature, e.target.value)}
           step={1}
           value={adjustments.temperature || 0}
+          trackClassName="temperature-gradient-track"
           onDragStateChange={onDragStateChange}
         />
         <Slider
@@ -354,12 +480,15 @@ export default function ColorPanel({
           onChange={(e: any) => handleGlobalChange(ColorAdjustment.Tint, e.target.value)}
           step={1}
           value={adjustments.tint || 0}
+          trackClassName="tint-gradient-track"
           onDragStateChange={onDragStateChange}
         />
       </div>
 
-      <div className="mb-4 p-2 bg-bg-tertiary rounded-md">
-        <p className="text-md font-semibold mb-2 text-primary">Presence</p>
+      <div className="p-2 bg-bg-tertiary rounded-md">
+        <Text variant={TextVariants.heading} className="mb-2">
+          Presence
+        </Text>
         <Slider
           label="Vibrance"
           max={100}
@@ -380,8 +509,10 @@ export default function ColorPanel({
         />
       </div>
 
-      <div className="p-2 bg-bg-tertiary rounded-md mt-4">
-        <p className="text-md font-semibold mb-3 text-primary">Color Grading</p>
+      <div className="p-2 bg-bg-tertiary rounded-md">
+        <Text variant={TextVariants.heading} className="mb-3">
+          Color Grading
+        </Text>
         <ColorGradingPanel
           adjustments={adjustments}
           setAdjustments={setAdjustments}
@@ -390,8 +521,10 @@ export default function ColorPanel({
         />
       </div>
 
-      <div className="p-2 bg-bg-tertiary rounded-md mt-4">
-        <p className="text-md font-semibold mb-3 text-primary">Color Mixer</p>
+      <div className="p-2 bg-bg-tertiary rounded-md">
+        <Text variant={TextVariants.heading} className="mb-3">
+          Color Mixer
+        </Text>
         <div className="flex justify-between mb-4 px-1">
           {HSL_COLORS.map(({ name, color }) => (
             <ColorSwatch
@@ -410,6 +543,7 @@ export default function ColorPanel({
           onChange={(e: any) => handleHslChange(ColorAdjustment.Hue, e.target.value)}
           step={1}
           value={currentHsl.hue}
+          trackClassName={hue_slider}
           onDragStateChange={onDragStateChange}
         />
         <Slider
@@ -419,6 +553,7 @@ export default function ColorPanel({
           onChange={(e: any) => handleHslChange(ColorAdjustment.Saturation, e.target.value)}
           step={1}
           value={currentHsl.saturation}
+          trackClassName={saturation_slider}
           onDragStateChange={onDragStateChange}
         />
         <Slider
@@ -428,6 +563,7 @@ export default function ColorPanel({
           onChange={(e: any) => handleHslChange(ColorAdjustment.Luminance, e.target.value)}
           step={1}
           value={currentHsl.luminance}
+          trackClassName={luminance_slider}
           onDragStateChange={onDragStateChange}
         />
       </div>

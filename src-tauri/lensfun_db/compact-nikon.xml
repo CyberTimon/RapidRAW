@@ -731,7 +731,9 @@
     <lens>
         <maker>NIKON CORPORATION</maker>
         <maker lang="en">Nikon</maker>
-        <model>Coolpix P1000</model>
+        <model>Coolpix P1000 &amp; compatibles</model>
+        <model lang="en">fixed lens</model>
+        <model lang="de">festes Objektiv</model>
         <mount>nikonP1000</mount>
         <cropfactor>5.56</cropfactor>
         <aspect-ratio>4:3</aspect-ratio>

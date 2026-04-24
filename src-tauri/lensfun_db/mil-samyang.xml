@@ -143,10 +143,28 @@
         <model>Samyang AF 14mm f/2.8</model>
         <model lang="en">Samyang AF 14mm f/2.8</model>
         <mount>Sony E</mount>
+        <mount>Canon EF</mount>
+        <mount>Nikon F AF</mount>
         <cropfactor>1</cropfactor>
         <calibration>
             <!-- Taken with ILCE-7M2 -->
             <distortion model="ptlens" focal="14" a="0.04751" b="-0.16492" c="0.1496"/>
+            <!-- Taken with Canon EOS 6D -->
+            <tca model="poly3" focal="14" vr="1.00020" vb="0.99997" />
+            <vignetting model="pa" focal="14" aperture="2.8" distance="10" k1="-1.4629" k2="0.8387" k3="-0.1602"/>
+            <vignetting model="pa" focal="14" aperture="2.8" distance="1000" k1="-1.4629" k2="0.8387" k3="-0.1602"/>
+            <vignetting model="pa" focal="14" aperture="4" distance="10" k1="-0.1962" k2="-1.1149" k3="0.6809"/>
+            <vignetting model="pa" focal="14" aperture="4" distance="1000" k1="-0.1962" k2="-1.1149" k3="0.6809"/>
+            <vignetting model="pa" focal="14" aperture="5.6" distance="10" k1="-0.4221" k2="-0.0757" k3="-0.0141"/>
+            <vignetting model="pa" focal="14" aperture="5.6" distance="1000" k1="-0.4221" k2="-0.0757" k3="-0.0141"/>
+            <vignetting model="pa" focal="14" aperture="8" distance="10" k1="-0.4533" k2="-0.0511" k3="0.0424"/>
+            <vignetting model="pa" focal="14" aperture="8" distance="1000" k1="-0.4533" k2="-0.0511" k3="0.0424"/>
+            <vignetting model="pa" focal="14" aperture="11" distance="10" k1="-0.4449" k2="-0.0856" k3="0.0980"/>
+            <vignetting model="pa" focal="14" aperture="11" distance="1000" k1="-0.4449" k2="-0.0856" k3="0.0980"/>
+            <vignetting model="pa" focal="14" aperture="16" distance="10" k1="-0.4344" k2="-0.1759" k3="0.1632"/>
+            <vignetting model="pa" focal="14" aperture="16" distance="1000" k1="-0.4344" k2="-0.1759" k3="0.1632"/>
+            <vignetting model="pa" focal="14" aperture="22" distance="10" k1="-0.5781" k2="0.1274" k3="-0.0226"/>
+            <vignetting model="pa" focal="14" aperture="22" distance="1000" k1="-0.5781" k2="0.1274" k3="-0.0226"/>
         </calibration>
     </lens>
 

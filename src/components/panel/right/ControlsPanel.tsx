@@ -1,14 +1,21 @@
-import { RotateCcw, Copy, ClipboardPaste, Aperture } from 'lucide-react';
+import React, { useState } from 'react';
+import { RotateCcw, Copy, ClipboardPaste, Aperture, ChartArea } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import clsx from 'clsx';
 import BasicAdjustments from '../../adjustments/Basic';
 import CurveGraph from '../../adjustments/Curves';
 import ColorPanel from '../../adjustments/Color';
 import DetailsPanel from '../../adjustments/Details';
 import EffectsPanel from '../../adjustments/Effects';
 import CollapsibleSection from '../../ui/CollapsibleSection';
+import Waveform from '../editor/Waveform';
+import Resizer from '../../ui/Resizer';
 import { Adjustments, SectionVisibility, INITIAL_ADJUSTMENTS, ADJUSTMENT_SECTIONS } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
-import { OPTION_SEPARATOR, SelectedImage, AppSettings } from '../../ui/AppProperties';
+import { OPTION_SEPARATOR, SelectedImage, AppSettings, WaveformData, Orientation } from '../../ui/AppProperties';
 import { ChannelConfig } from '../../adjustments/Curves';
+import Text from '../../ui/Text';
+import { TextVariants } from '../../../types/typography';
 
 interface ControlsPanelOption {
   disabled?: boolean;
@@ -34,6 +41,13 @@ interface ControlsProps {
   isWbPickerActive?: boolean;
   toggleWbPicker?: () => void;
   onDragStateChange?: (isDragging: boolean) => void;
+  isWaveformVisible?: boolean;
+  onToggleWaveform?: () => void;
+  waveform?: WaveformData | null;
+  activeWaveformChannel?: string;
+  setActiveWaveformChannel?: (mode: string) => void;
+  waveformHeight?: number;
+  setWaveformHeight?: (height: number) => void;
 }
 
 export default function Controls({
@@ -52,8 +66,37 @@ export default function Controls({
   isWbPickerActive,
   toggleWbPicker,
   onDragStateChange,
+  isWaveformVisible,
+  onToggleWaveform,
+  waveform,
+  activeWaveformChannel,
+  setActiveWaveformChannel,
+  waveformHeight,
+  setWaveformHeight,
 }: ControlsProps) {
   const { showContextMenu } = useContextMenu();
+  const [isResizingWaveform, setIsResizingWaveform] = useState<boolean>(false);
+
+  const handleWaveformResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = waveformHeight || 256;
+    setIsResizingWaveform(true);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientY - startY;
+      if (setWaveformHeight) setWaveformHeight(Math.max(150, Math.min(450, startHeight + delta)));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingWaveform(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
 
   const handleToggleVisibility = (sectionName: string) => {
     setAdjustments((prev: Adjustments) => {
@@ -97,7 +140,7 @@ export default function Controls({
     const handleCopy = () => {
       const adjustmentsToCopy: any = {};
       for (const key of sectionKeys) {
-        if (adjustments.hasOwnProperty(key)) {
+        if (Object.prototype.hasOwnProperty.call(adjustments, key)) {
           adjustmentsToCopy[key] = JSON.parse(JSON.stringify(adjustments[key]));
         }
       }
@@ -160,16 +203,26 @@ export default function Controls({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 flex justify-between items-center flex-shrink-0 border-b border-surface">
-        <h2 className="text-xl font-bold text-primary text-shadow-shiny">Adjustments</h2>
+      <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
+        <Text variant={TextVariants.title}>Adjustments</Text>
         <div className="flex items-center gap-1">
           <button
-            className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            disabled={!selectedImage}
+            className="p-2 rounded-full hover:bg-surface disabled:cursor-not-allowed transition-colors"
+            disabled={!selectedImage?.isReady}
             onClick={handleAutoAdjustments}
             data-tooltip="Auto Adjust Image"
           >
             <Aperture size={18} />
+          </button>
+          <button
+            className={clsx(
+              'p-2 rounded-full transition-colors',
+              isWaveformVisible ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
+            )}
+            onClick={onToggleWaveform}
+            data-tooltip="Toggle Analytics Display"
+          >
+            <ChartArea size={18} />
           </button>
           <button
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -181,7 +234,38 @@ export default function Controls({
           </button>
         </div>
       </div>
-      <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-2">
+
+      <AnimatePresence initial={false}>
+        {isWaveformVisible && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: waveformHeight || 256, opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: isResizingWaveform ? 0 : 0.2, ease: 'easeOut' }}
+            className="shrink-0 flex flex-col relative border-b border-surface overflow-hidden"
+          >
+            <div className="grow w-full h-full p-4 pb-2 min-h-0">
+              <Waveform
+                waveformData={waveform || null}
+                histogram={histogram}
+                displayMode={activeWaveformChannel || 'luma'}
+                setDisplayMode={setActiveWaveformChannel || (() => {})}
+                showClipping={adjustments.showClipping || false}
+                onToggleClipping={() => {
+                  setAdjustments((prev: Adjustments) => ({
+                    ...prev,
+                    showClipping: !prev.showClipping,
+                  }));
+                }}
+                theme={theme}
+              />
+            </div>
+            <Resizer direction={Orientation.Horizontal} onMouseDown={handleWaveformResize} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="grow overflow-y-auto p-4 flex flex-col gap-2">
         {Object.keys(ADJUSTMENT_SECTIONS).map((sectionName: string) => {
           const SectionComponent: any = {
             basic: BasicAdjustments,
@@ -195,7 +279,7 @@ export default function Controls({
           const sectionVisibility = adjustments.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility;
 
           return (
-            <div className="flex-shrink-0 group" key={sectionName}>
+            <div className="shrink-0 group" key={sectionName}>
               <CollapsibleSection
                 isContentVisible={sectionVisibility[sectionName]}
                 isOpen={collapsibleState[sectionName]}

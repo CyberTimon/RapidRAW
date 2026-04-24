@@ -10,13 +10,17 @@ import {
   RotateCw,
   Ruler,
   Scan,
-  X
+  X,
 } from 'lucide-react';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import clsx from 'clsx';
 import { Orientation, SelectedImage } from '../../ui/AppProperties';
 import TransformModal from '../../modals/TransformModal';
 import LensCorrectionModal from '../../modals/LensCorrectionModal';
+import { motion, AnimatePresence } from 'framer-motion';
+import Text from '../../ui/Text';
+import Slider from '../../ui/Slider';
+import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 
 const BASE_RATIO = 1.618;
 const ORIGINAL_RATIO = 0;
@@ -35,6 +39,7 @@ interface CropPanelProps {
   setOverlayMode?(mode: OverlayMode): void;
   overlayRotation?: number;
   setOverlayRotation?(rotation: SetStateAction<number>): void;
+  onLiveRotationChange?(rotation: number | null): void;
 }
 
 interface CropPreset {
@@ -48,7 +53,6 @@ interface OverlayOption {
   name: string;
   tooltip: string;
 }
-
 
 const PRESETS: Array<CropPreset> = [
   { name: 'Free', value: null, tooltip: 'Freeform crop' },
@@ -81,8 +85,9 @@ export default function CropPanel({
   setIsRotationActive: setGlobalRotationActive,
   overlayMode: propOverlayMode,
   setOverlayMode: setPropOverlayMode,
-  overlayRotation: propOverlayRotation,
+  overlayRotation: _propOverlayRotation,
   setOverlayRotation: propSetOverlayRotation,
+  onLiveRotationChange,
 }: CropPanelProps) {
   const [customW, setCustomW] = useState('');
   const [customH, setCustomH] = useState('');
@@ -95,6 +100,18 @@ export default function CropPanel({
   const [internalOverlayMode, setInternalOverlayMode] = useState<OverlayMode>('thirds');
   const [_internalOverlayRotation, setInternalOverlayRotation] = useState(0);
 
+  const [localRotation, setLocalRotation] = useState<number | null>(null);
+  const localRotationRef = useRef<number | null>(null);
+
+  const updateLocalRotation = useCallback(
+    (val: number | null) => {
+      setLocalRotation(val);
+      localRotationRef.current = val;
+      onLiveRotationChange?.(val);
+    },
+    [onLiveRotationChange],
+  );
+
   const activeOverlay = propOverlayMode ?? internalOverlayMode;
   const setOverlay = setPropOverlayMode ?? setInternalOverlayMode;
   const setOverlayRotation = propSetOverlayRotation ?? setInternalOverlayRotation;
@@ -102,6 +119,13 @@ export default function CropPanel({
   const lastSyncedRatio = useRef<number | null>(null);
 
   const { aspectRatio, rotation = 0, flipHorizontal = false, flipVertical = false, orientationSteps = 0 } = adjustments;
+
+  useEffect(() => {
+    if (isStraightenActive) {
+      updateLocalRotation(null);
+      setAdjustments((prev: Adjustments) => ({ ...prev, rotation: 0 }));
+    }
+  }, [isStraightenActive]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -128,23 +152,10 @@ export default function CropPanel({
   }, [activeOverlay, setOverlay, setOverlayRotation]);
 
   useEffect(() => {
-    const handleDragEndGlobal = () => {
-      if (isRotationActive) {
-        setIsRotationActive(false);
-        setGlobalRotationActive?.(false);
-      }
-    };
-
-    if (isRotationActive) {
-      window.addEventListener('mouseup', handleDragEndGlobal);
-      window.addEventListener('touchend', handleDragEndGlobal);
-    }
-
     return () => {
-      window.removeEventListener('mouseup', handleDragEndGlobal);
-      window.removeEventListener('touchend', handleDragEndGlobal);
+      onLiveRotationChange?.(null);
     };
-  }, [isRotationActive, setGlobalRotationActive]);
+  }, [onLiveRotationChange]);
 
   const getEffectiveOriginalRatio = useCallback(() => {
     if (!selectedImage?.width || !selectedImage?.height) {
@@ -165,8 +176,7 @@ export default function CropPanel({
       (p: CropPreset) =>
         p.value &&
         p.value !== ORIGINAL_RATIO &&
-        (Math.abs(aspectRatio - p.value) < RATIO_TOLERANCE ||
-          Math.abs(aspectRatio - 1 / p.value) < RATIO_TOLERANCE),
+        (Math.abs(aspectRatio - p.value) < RATIO_TOLERANCE || Math.abs(aspectRatio - 1 / p.value) < RATIO_TOLERANCE),
     );
 
     if (numericPresetMatch) {
@@ -219,11 +229,7 @@ export default function CropPanel({
   useEffect(() => {
     if (activePreset?.value === ORIGINAL_RATIO) {
       const newOriginalRatio = getEffectiveOriginalRatio();
-      if (
-        newOriginalRatio !== null &&
-        aspectRatio &&
-        Math.abs(aspectRatio - newOriginalRatio) > RATIO_TOLERANCE
-      ) {
+      if (newOriginalRatio !== null && aspectRatio && Math.abs(aspectRatio - newOriginalRatio) > RATIO_TOLERANCE) {
         setAdjustments((prev: Adjustments) => ({ ...prev, aspectRatio: newOriginalRatio, crop: null }));
       }
     }
@@ -250,10 +256,7 @@ export default function CropPanel({
     if (numW > 0 && numH > 0) {
       const newAspectRatio = numW / numH;
       lastSyncedRatio.current = newAspectRatio;
-      if (
-        !adjustments?.aspectRatio ||
-        Math.abs(adjustments.aspectRatio - newAspectRatio) > RATIO_TOLERANCE
-      ) {
+      if (!adjustments?.aspectRatio || Math.abs(adjustments.aspectRatio - newAspectRatio) > RATIO_TOLERANCE) {
         setAdjustments((prev: Adjustments) => ({ ...prev, aspectRatio: newAspectRatio, crop: null }));
       }
     }
@@ -286,7 +289,7 @@ export default function CropPanel({
       return;
     }
 
-    let targetRatio = preset.value;
+    const targetRatio = preset.value;
     if (activePreset === preset && targetRatio && targetRatio !== 1) {
       const newRatio = 1 / (adjustments.aspectRatio ? adjustments.aspectRatio : 1);
       setPreferPortrait(newRatio < 1);
@@ -329,6 +332,7 @@ export default function CropPanel({
     setPreferPortrait(false);
     setIsEditingCustom(false);
     lastSyncedRatio.current = null;
+    updateLocalRotation(null);
 
     setOverlay('thirds');
 
@@ -367,9 +371,15 @@ export default function CropPanel({
     return rotation || 0;
   }, [rotation]);
 
-  const handleFineRotationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const displayRotation = localRotation !== null ? localRotation : fineRotation;
+
+  const handleFineRotationChange = (e: any) => {
     const newFineRotation = parseFloat(e.target.value);
-    setAdjustments((prev: Adjustments) => ({ ...prev, rotation: newFineRotation }));
+    if (isRotationActive) {
+      updateLocalRotation(newFineRotation);
+    } else {
+      setAdjustments((prev: Adjustments) => ({ ...prev, rotation: newFineRotation }));
+    }
   };
 
   const handleStepRotate = (degrees: number) => {
@@ -387,17 +397,8 @@ export default function CropPanel({
   };
 
   const resetFineRotation = () => {
+    updateLocalRotation(null);
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, rotation: 0 }));
-  };
-
-  const handleRotationMouseDown = () => {
-    setIsRotationActive(true);
-    setGlobalRotationActive?.(true);
-  };
-
-  const handleRotationMouseUp = () => {
-    setIsRotationActive(false);
-    setGlobalRotationActive?.(false);
   };
 
   const handleOverlayCycle = () => {
@@ -422,29 +423,33 @@ export default function CropPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 flex justify-between items-center flex-shrink-0 border-b border-surface">
-        <h2 className="text-xl font-bold text-primary text-shadow-shiny">Crop & Transform</h2>
-        <button className="p-2 rounded-full hover:bg-surface transition-colors" onClick={handleReset} data-tooltip="Reset Crop & Transform">
+      <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
+        <Text variant={TextVariants.title}>Crop & Transform</Text>
+        <button
+          className="p-2 rounded-full hover:bg-surface transition-colors"
+          onClick={handleReset}
+          data-tooltip="Reset Crop & Transform"
+        >
           <RotateCcw size={18} />
         </button>
       </div>
 
-      <div className="flex-grow overflow-y-auto p-4 text-text-secondary space-y-6">
+      <div className="grow overflow-y-auto p-4 space-y-8">
         {selectedImage ? (
           <>
             <div className="space-y-4">
-              <div className="flex justify-between items-center mb-3">
-                <p className="text-sm font-semibold text-text-primary">Aspect Ratio</p>
+              <Text variant={TextVariants.heading} className="mb-2 flex items-center justify-between">
+                Aspect Ratio
                 <div className="flex items-center gap-2">
                   <button
-                    className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-surface transition-colors"
+                    className="p-1.5 rounded-md hover:bg-surface transition-colors"
                     onClick={handleOverlayCycle}
                     data-tooltip={getOverlayTooltip()}
                   >
                     <Grid3x3 size={16} />
                   </button>
                   <button
-                    className="p-1.5 rounded-md hover:bg-surface disabled:text-text-tertiary disabled:cursor-not-allowed"
+                    className="p-1.5 rounded-md hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isOrientationToggleDisabled}
                     onClick={handleOrientationToggle}
                     data-tooltip={getOrientationTooltip()}
@@ -456,27 +461,29 @@ export default function CropPanel({
                     )}
                   </button>
                 </div>
-              </div>
+              </Text>
               <div className="grid grid-cols-3 gap-2">
                 {PRESETS.map((preset: CropPreset) => (
-                  <button
+                  <motion.div
                     className={clsx(
-                      'px-2 py-1.5 text-sm rounded-md transition-colors',
-                      isPresetActive(preset) ? 'bg-accent text-button-text' : 'bg-surface hover:bg-card-active',
+                      'px-2 py-1.5 rounded-md transition-colors text-center cursor-pointer',
+                      isPresetActive(preset) ? 'bg-accent' : 'bg-surface hover:bg-card-active',
                     )}
                     key={preset.name}
                     onClick={() => handlePresetClick(preset)}
                     data-tooltip={preset.tooltip}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                   >
-                    {preset.name}
-                  </button>
+                    <Text color={isPresetActive(preset) ? TextColors.button : TextColors.secondary}>{preset.name}</Text>
+                  </motion.div>
                 ))}
               </div>
-              <div className="mt-3">
-                <button
+              <div>
+                <motion.div
                   className={clsx(
-                    'w-full px-2 py-1.5 text-sm rounded-md transition-colors',
-                    isCustomActive ? 'bg-accent text-button-text' : 'bg-surface hover:bg-card-active',
+                    'w-full px-2 py-1.5 rounded-md transition-colors cursor-pointer text-center',
+                    isCustomActive ? 'bg-accent' : 'bg-surface hover:bg-card-active',
                   )}
                   onClick={() => {
                     const imageRatio = getEffectiveOriginalRatio();
@@ -491,9 +498,11 @@ export default function CropPanel({
                     }));
                   }}
                   data-tooltip="Enter custom aspect ratio"
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
-                  Custom
-                </button>
+                  <Text color={isCustomActive ? TextColors.button : TextColors.secondary}>Custom</Text>
+                </motion.div>
                 <div
                   className={clsx(
                     'mt-2 bg-surface p-2 rounded-md transition-opacity',
@@ -502,7 +511,7 @@ export default function CropPanel({
                 >
                   <div className="flex items-center justify-center gap-2">
                     <input
-                      className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
+                      className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent text-text-secondary focus:text-text-primary"
                       min="0"
                       name="customW"
                       onBlur={handleApplyCustomRatio}
@@ -514,9 +523,9 @@ export default function CropPanel({
                       type="number"
                       value={customW}
                     />
-                    <X size={16} className="text-text-tertiary flex-shrink-0" />
+                    <X size={16} className={`shrink-0 ${TEXT_COLOR_KEYS[TextColors.secondary]}`} />
                     <input
-                      className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
+                      className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent text-text-secondary focus:text-text-primary"
                       min="0"
                       name="customH"
                       onBlur={handleApplyCustomRatio}
@@ -534,87 +543,97 @@ export default function CropPanel({
             </div>
 
             <div className="space-y-4">
-              <p className="text-sm mb-3 font-semibold text-text-primary">Rotation</p>
-              <div className="bg-surface px-4 py-3 pb-4 rounded-lg">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="font-mono text-lg text-text-primary">{rotation.toFixed(1)}°</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setIsStraightenActive((isActive: boolean) => {
-                          const willBeActive = !isActive;
-                          if (willBeActive) {
-                            setAdjustments((prev: Adjustments) => ({ ...prev, rotation: 0 }));
-                          }
-                          return willBeActive;
-                        });
-                      }}
-                      className={clsx(
-                        'p-1.5 rounded-md transition-colors',
-                        isStraightenActive
-                          ? 'bg-accent text-button-text'
-                          : 'text-text-secondary hover:bg-card-active hover:text-text-primary',
-                      )}
-                      data-tooltip="Straighten Tool"
-                    >
-                      <Ruler size={16} />
-                    </button>
-                    <button
-                      className="p-1.5 rounded-md text-text-secondary transition-colors cursor-pointer hover:bg-card-active hover:text-text-primary"
-                      onClick={resetFineRotation}
-                      data-tooltip="Reset Fine Rotation"
-                      disabled={rotation === 0}
-                    >
-                      <RotateCcw size={14} />
-                    </button>
-                  </div>
-                </div>
-                <div className="relative w-full h-5">
-                  <div className="absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/4 bg-card-active rounded-full pointer-events-none" />
-                  <input
-                    className={clsx(
-                      'absolute top-1/2 left-0 w-full h-1.5 appearance-none bg-transparent cursor-pointer m-0 p-0 slider-input z-10',
-                      isRotationActive && 'slider-thumb-active',
-                    )}
-                    style={{ margin: 0 }}
-                    max="45"
-                    min="-45"
-                    onChange={handleFineRotationChange}
-                    onDoubleClick={resetFineRotation}
-                    onMouseDown={handleRotationMouseDown}
-                    onMouseUp={handleRotationMouseUp}
-                    onTouchStart={handleRotationMouseDown}
-                    onTouchEnd={handleRotationMouseUp}
-                    step="0.1"
-                    type="range"
-                    value={fineRotation}
-                  />
-                </div>
+              <Text variant={TextVariants.heading} className="mb-2">
+                Rotation
+              </Text>
+              <div className="bg-surface px-4 pt-3 pb-4 rounded-lg">
+                <Slider
+                  label={
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setIsStraightenActive((isActive: boolean) => {
+                            const willBeActive = !isActive;
+                            if (willBeActive) {
+                              updateLocalRotation(null);
+                              setAdjustments((prev: Adjustments) => ({ ...prev, rotation: 0 }));
+                            }
+                            return willBeActive;
+                          });
+                        }}
+                        className={clsx(
+                          'p-1.5 rounded-md transition-colors',
+                          isStraightenActive
+                            ? 'bg-accent text-button-text'
+                            : 'text-text-secondary hover:bg-card-active hover:text-text-primary',
+                        )}
+                        data-tooltip="Straighten Tool (S)"
+                      >
+                        <Ruler size={14} />
+                      </button>
+                      <button
+                        className="p-1.5 rounded-md text-text-secondary transition-colors cursor-pointer hover:bg-card-active hover:text-text-primary"
+                        onClick={resetFineRotation}
+                        data-tooltip="Reset Fine Rotation"
+                        disabled={displayRotation === 0}
+                      >
+                        <RotateCcw size={14} />
+                      </button>
+                    </div>
+                  }
+                  min={-45}
+                  max={45}
+                  step={0.1}
+                  value={displayRotation}
+                  defaultValue={0}
+                  suffix="°"
+                  onChange={handleFineRotationChange}
+                  onDragStateChange={(isDragging) => {
+                    if (isDragging) {
+                      setIsRotationActive(true);
+                      setGlobalRotationActive?.(true);
+                    } else {
+                      setIsRotationActive(false);
+                      setGlobalRotationActive?.(false);
+                      if (localRotationRef.current !== null) {
+                        const finalRot = localRotationRef.current;
+                        updateLocalRotation(null);
+                        setAdjustments((prev: Adjustments) => ({ ...prev, rotation: finalRot }));
+                      }
+                    }
+                  }}
+                />
               </div>
             </div>
 
             <div className="space-y-4">
-              <p className="text-sm mb-3 font-semibold text-text-primary">Orientation</p>
+              <Text variant={TextVariants.heading} className="mb-2">
+                Orientation
+              </Text>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  className="flex flex-col items-center justify-center p-3 rounded-lg transition-colors bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary"
+                <motion.div
+                  className="flex flex-col items-center justify-center p-3 cursor-pointer rounded-lg transition-colors bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary"
                   onClick={() => handleStepRotate(-90)}
                   data-tooltip="Rotate 90° counter-clockwise"
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
                   <RotateCcw size={20} className="transition-none" />
-                  <span className="text-xs mt-1.5 transition-none">Rotate Left</span>
-                </button>
-                <button
-                  className="flex flex-col items-center justify-center p-3 rounded-lg transition-colors bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary"
+                  <span className="text-xs mt-2 transition-none">Rotate Left</span>
+                </motion.div>
+                <motion.div
+                  className="flex flex-col items-center justify-center p-3 cursor-pointer rounded-lg transition-colors bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary"
                   onClick={() => handleStepRotate(90)}
                   data-tooltip="Rotate 90° clockwise"
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
                   <RotateCw size={20} className="transition-none" />
-                  <span className="text-xs mt-1.5 transition-none">Rotate Right</span>
-                </button>
-                <button
+                  <span className="text-xs mt-2 transition-none">Rotate Right</span>
+                </motion.div>
+                <motion.div
                   className={clsx(
-                    'flex flex-col items-center justify-center p-3 rounded-lg transition-colors',
+                    'flex flex-col items-center justify-center p-3 cursor-pointer rounded-lg transition-colors',
                     flipHorizontal
                       ? 'bg-accent text-button-text'
                       : 'bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary',
@@ -626,52 +645,67 @@ export default function CropPanel({
                     }))
                   }
                   data-tooltip="Flip image horizontally"
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
                   <FlipHorizontal size={20} className="transition-none" />
-                  <span className="text-xs mt-1.5 transition-none">Flip Horiz</span>
-                </button>
-                <button
+                  <span className="text-xs mt-2 transition-none">Flip Horiz</span>
+                </motion.div>
+                <motion.div
                   className={clsx(
-                    'flex flex-col items-center justify-center p-3 rounded-lg transition-colors',
+                    'flex flex-col items-center justify-center p-3 cursor-pointer rounded-lg transition-colors',
                     flipVertical
                       ? 'bg-accent text-button-text'
                       : 'bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary',
                   )}
-                  onClick={() =>
-                    setAdjustments((prev: Adjustments) => ({ ...prev, flipVertical: !prev.flipVertical }))
-                  }
+                  onClick={() => setAdjustments((prev: Adjustments) => ({ ...prev, flipVertical: !prev.flipVertical }))}
                   data-tooltip="Flip image vertically"
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
                   <FlipVertical size={20} className="transition-none" />
-                  <span className="text-xs mt-1.5 transition-none">Flip Vert</span>
-                </button>
+                  <span className="text-xs mt-2 transition-none">Flip Vert</span>
+                </motion.div>
               </div>
             </div>
 
             <div className="space-y-4">
-              <p className="text-sm mb-3 font-semibold text-text-primary">Geometry</p>
+              <Text variant={TextVariants.heading} className="mb-2">
+                Geometry
+              </Text>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  className="flex flex-col items-center justify-center p-3 rounded-lg transition-colors bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary group"
+                <motion.div
+                  className="flex flex-col items-center justify-center p-3 cursor-pointer rounded-lg transition-colors bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary group"
                   onClick={() => setIsTransformModalOpen(true)}
                   data-tooltip="Perspective and keystone correction"
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
                   <Scan size={20} className="transition-none" />
-                  <span className="text-xs mt-1.5 transition-none">Transform</span>
-                </button>
-                <button
-                  className="flex flex-col items-center justify-center p-3 rounded-lg transition-colors bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary group"
+                  <span className="text-xs mt-2 transition-none">Transform</span>
+                </motion.div>
+                <motion.div
+                  className="flex flex-col items-center justify-center p-3  cursor-pointer rounded-lg transition-colors bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary group"
                   onClick={() => setIsLensModalOpen(true)}
                   data-tooltip="Lens distortion correction"
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
                   <Aperture size={20} className="transition-none" />
-                  <span className="text-xs mt-1.5 transition-none">Lens</span>
-                </button>
+                  <span className="text-xs mt-2 transition-none">Lens</span>
+                </motion.div>
               </div>
             </div>
           </>
         ) : (
-          <p className="text-center text-text-tertiary mt-4">No image selected.</p>
+          <Text
+            variant={TextVariants.heading}
+            color={TextColors.secondary}
+            weight={TextWeights.normal}
+            className="text-center mt-4"
+          >
+            No image selected.
+          </Text>
         )}
       </div>
 

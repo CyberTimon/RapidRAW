@@ -1,14 +1,98 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@source not "../src-tauri";
+
+@theme {
+  --color-bg-primary: var(--app-bg-primary);
+  --color-bg-secondary: var(--app-bg-secondary);
+  --color-surface: var(--app-surface);
+  --color-card-active: var(--app-card-active);
+  --color-button-text: var(--app-button-text);
+  --color-text-primary: var(--app-text-primary);
+  --color-text-secondary: var(--app-text-secondary);
+  --color-accent: var(--app-accent);
+  --color-border-color: var(--app-border-color);
+  --color-hover-color: var(--app-hover-color);
+
+  --font-sans: var(--font-family);
+
+  --shadow-shiny: 0 0 24px rgba(255, 255, 255, 0.12);
+
+  --radius-md: 8px;
+  --radius-lg: 15px;
+}
 
 @layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility slider-input {
+  &::-webkit-slider-thumb {
+    @apply h-4 w-4 appearance-none rounded-full bg-accent;
+    transition:
+      transform 150ms ease-in-out,
+      background-color 400ms ease-in-out;
+    margin-top: -5px;
+  }
+
+  &::-moz-range-thumb {
+    @apply h-4 w-4 rounded-full bg-accent border-none;
+    transition:
+      transform 150ms ease-in-out,
+      background-color 400ms ease-in-out;
+  }
+
+  &.slider-thumb-active::-webkit-slider-thumb {
+    @apply scale-110;
+  }
+
+  &.slider-thumb-active::-moz-range-thumb {
+    @apply scale-110;
+  }
+}
+
+@utility slider-thumb-active {
+  &.slider-input::-webkit-slider-thumb {
+    @apply scale-110;
+  }
+
+  &.slider-input::-moz-range-thumb {
+    @apply scale-110;
+  }
+}
+
+@utility temperature-gradient-track {
+  background: linear-gradient(to right, #2d4a74, #3f94b6, #8a8a8a, #c7c549, #c7863c) !important;
+}
+
+@utility tint-gradient-track {
+  background: linear-gradient(to right, #448d41, #59d459, #8a8a8a, #9c548a, #be409f) !important;
+}
+
+@utility text-shadow-shiny {
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.35);
+}
+
+@layer base {
+  :where(button, [role='button']):not([disabled]) {
+    cursor: pointer;
+  }
+
   html {
     background-color: transparent;
   }
   body {
-    background-color: rgba(27, 27, 27, 0.5);
+    background-color: transparent;
     @apply text-text-primary font-sans;
+  }
+
+  *:focus {
+    outline: none !important;
   }
 
   .enable-color-transitions *,
@@ -21,12 +105,13 @@
 
   ::-webkit-scrollbar {
     width: 10px;
+    height: 10px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background-color: theme('colors.text-secondary');
+    background-color: var(--color-text-secondary);
     border-radius: 10px;
     border: 2px solid transparent;
     background-clip: padding-box;
@@ -39,26 +124,149 @@
 @layer components {
   .slider-input::-webkit-slider-thumb {
     @apply h-4 w-4 appearance-none rounded-full bg-accent;
-    transition: transform 150ms ease-in-out, background-color 400ms ease-in-out;
+    transition:
+      transform 150ms ease-in-out,
+      background-color 400ms ease-in-out;
     margin-top: -5px;
   }
 
   .slider-input::-moz-range-thumb {
     @apply h-4 w-4 rounded-full bg-accent border-none;
-    transition: transform 150ms ease-in-out, background-color 400ms ease-in-out;
+    transition:
+      transform 150ms ease-in-out,
+      background-color 400ms ease-in-out;
   }
 
   .slider-input.slider-thumb-active::-webkit-slider-thumb {
     @apply scale-110;
   }
-  
+
   .slider-input.slider-thumb-active::-moz-range-thumb {
     @apply scale-110;
   }
+
+  .temperature-gradient-track {
+    background: linear-gradient(to right, #2d4a74, #4993b1, #8a8a8a, #c7c549, #c7863c) !important;
+  }
+  .tint-gradient-track {
+    background: linear-gradient(to right, #458d43, #57ce57, #8a8a8a, #9c548a, #be409f) !important;
+  }
+
+  .hue-slider-reds {
+    background: linear-gradient(to right, hsl(260, 50%, 50%), hsl(0, 50%, 50%), hsl(100, 50%, 50%)) !important;
+  }
+  .sat-slider-reds {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-reds, 0), 0%, 50%), hsl(var(--hsl-mixer-hue-reds, 0), 100%, 50%)) !important;
+  }
+  .lum-slider-reds {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-reds, 0), var(--hsl-mixer-sat-reds, 0%), 0%), hsl(var(--hsl-mixer-hue-reds, 0), var(--hsl-mixer-sat-reds, 0%), 50%), hsl(var(--hsl-mixer-hue-reds, 0), var(--hsl-mixer-sat-reds, 0%), 100%)) !important;
+  }
+
+  .hue-slider-oranges {
+    background: linear-gradient(to right, hsl(290, 50%, 50%), hsl(30, 50%, 50%), hsl(130, 50%, 50%)) !important;
+  }
+  .sat-slider-oranges {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-oranges, 30), 0%, 50%), hsl(var(--hsl-mixer-hue-oranges, 30), 100%, 50%)) !important;
+  }
+  .lum-slider-oranges {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-oranges, 30), var(--hsl-mixer-sat-oranges, 0%), 0%), hsl(var(--hsl-mixer-hue-oranges, 30), var(--hsl-mixer-sat-oranges, 0%), 50%), hsl(var(--hsl-mixer-hue-oranges, 30), var(--hsl-mixer-sat-oranges, 0%), 100%)) !important;
+  }
+
+  .hue-slider-yellows {
+    background: linear-gradient(to right, hsl(320, 50%, 50%), hsl(60, 50%, 50%), hsl(160, 50%, 50%)) !important;
+  }
+  .sat-slider-yellows {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-yellows, 60), 0%, 50%), hsl(var(--hsl-mixer-hue-yellows, 60), 100%, 50%)) !important;
+  }
+  .lum-slider-yellows {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-yellows, 60), var(--hsl-mixer-sat-yellows, 0%), 0%), hsl(var(--hsl-mixer-hue-yellows, 60), var(--hsl-mixer-sat-yellows, 0%), 50%), hsl(var(--hsl-mixer-hue-yellows, 60), var(--hsl-mixer-sat-yellows, 0%), 100%)) !important;
+  }
+
+  .hue-slider-greens {
+    background: linear-gradient(to right, hsl(20, 50%, 50%), hsl(120, 50%, 50%), hsl(220, 50%, 50%)) !important;
+  }
+  .sat-slider-greens {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-greens, 120), 0%, 50%), hsl(var(--hsl-mixer-hue-greens, 120), 100%, 50%)) !important;
+  }
+  .lum-slider-greens {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-greens, 120), var(--hsl-mixer-sat-greens, 0%), 0%), hsl(var(--hsl-mixer-hue-greens, 120), var(--hsl-mixer-sat-greens, 0%), 50%), hsl(var(--hsl-mixer-hue-greens, 120), var(--hsl-mixer-sat-greens, 0%), 100%)) !important;
+  }
+
+  .hue-slider-aquas {
+    background: linear-gradient(to right, hsl(80, 50%, 50%), hsl(180, 50%, 50%), hsl(280, 50%, 50%)) !important;
+  }
+  .sat-slider-aquas {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-aquas, 180), 0%, 50%), hsl(var(--hsl-mixer-hue-aquas, 180), 100%, 50%)) !important;
+  }
+  .lum-slider-aquas {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-aquas, 180), var(--hsl-mixer-sat-aquas, 0%), 0%), hsl(var(--hsl-mixer-hue-aquas, 180), var(--hsl-mixer-sat-aquas, 0%), 50%), hsl(var(--hsl-mixer-hue-aquas, 180), var(--hsl-mixer-sat-aquas, 0%), 100%)) !important;
+  }
+
+  .hue-slider-blues {
+    background: linear-gradient(to right, hsl(140, 50%, 50%), hsl(240, 50%, 50%), hsl(340, 50%, 50%)) !important;
+  }
+  .sat-slider-blues {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-blues, 240), 0%, 50%), hsl(var(--hsl-mixer-hue-blues, 240), 100%, 50%)) !important;
+  }
+  .lum-slider-blues {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-blues, 240), var(--hsl-mixer-sat-blues, 0%), 0%), hsl(var(--hsl-mixer-hue-blues, 240), var(--hsl-mixer-sat-blues, 0%), 50%), hsl(var(--hsl-mixer-hue-blues, 240), var(--hsl-mixer-sat-blues, 0%), 100%)) !important;
+  }
+
+  .hue-slider-purples {
+    background: linear-gradient(to right, hsl(200, 50%, 50%), hsl(300, 50%, 50%), hsl(40, 50%, 50%)) !important;
+  }
+  .sat-slider-purples {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-purples, 300), 0%, 50%), hsl(var(--hsl-mixer-hue-purples, 300), 100%, 50%)) !important;
+  }
+  .lum-slider-purples {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-purples, 300), var(--hsl-mixer-sat-purples, 0%), 0%), hsl(var(--hsl-mixer-hue-purples, 300), var(--hsl-mixer-sat-purples, 0%), 50%), hsl(var(--hsl-mixer-hue-purples, 300), var(--hsl-mixer-sat-purples, 0%), 100%)) !important;
+  }
+
+  .hue-slider-magentas {
+    background: linear-gradient(to right, hsl(240, 50%, 50%), hsl(340, 50%, 50%), hsl(80, 50%, 50%)) !important;
+  }
+  .sat-slider-magentas {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-magentas, 340), 0%, 50%), hsl(var(--hsl-mixer-hue-magentas, 340), 100%, 50%)) !important;
+  }
+  .lum-slider-magentas {
+    background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-magentas, 340), var(--hsl-mixer-sat-magentas, 0%), 0%), hsl(var(--hsl-mixer-hue-magentas, 340), var(--hsl-mixer-sat-magentas, 0%), 50%), hsl(var(--hsl-mixer-hue-magentas, 340), var(--hsl-mixer-sat-magentas, 0%), 100%)) !important;
+  }
+}
+
+.cg-hue-gradient {
+  background: linear-gradient(
+    to right,
+    hsl(0, 100%, 50%) 0%,
+    hsl(30, 100%, 50%) 8.33%,
+    hsl(60, 100%, 50%) 16.66%,
+    hsl(90, 100%, 50%) 25%,
+    hsl(120, 100%, 50%) 33.33%,
+    hsl(150, 100%, 50%) 41.66%,
+    hsl(180, 100%, 50%) 50%,
+    hsl(210, 100%, 50%) 58.33%,
+    hsl(240, 100%, 50%) 66.66%,
+    hsl(270, 100%, 50%) 75%,
+    hsl(300, 100%, 50%) 83.33%,
+    hsl(330, 100%, 50%) 91.66%,
+    hsl(360, 100%, 50%) 100%
+  ) !important;
+}
+
+.cg-sat-gradient {
+  background: linear-gradient(to right, hsl(var(--cg-hue), 0%, 50%) 0%, hsl(var(--cg-hue), 100%, 50%) 100%) !important;
+}
+
+.cg-lum-gradient {
+  background: linear-gradient(
+    to right,
+    hsl(var(--cg-hue), var(--cg-sat), 0%) 0%,
+    hsl(var(--cg-hue), var(--cg-sat), 50%) 50%,
+    hsl(var(--cg-hue), var(--cg-sat), 100%) 100%
+  ) !important;
 }
 
 @layer utilities {
   .text-shadow-shiny {
-    text-shadow: 0 0 18px rgba(255, 255, 255, 0.35);
+    text-shadow: 0 0 18px rgba(255, 255, 255, 0.3);
   }
 }

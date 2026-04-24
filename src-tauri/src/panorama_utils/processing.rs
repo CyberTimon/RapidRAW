@@ -200,7 +200,7 @@ pub fn find_homography_ransac(
     for _ in 0..RANSAC_ITERATIONS {
         let sample_indices: Vec<usize> = (0..points.len()).collect();
         let sample_indices = sample_indices
-            .choose_multiple(&mut rng, 4)
+            .sample(&mut rng, 4)
             .cloned()
             .collect::<Vec<_>>();
         if sample_indices.len() < 4 {

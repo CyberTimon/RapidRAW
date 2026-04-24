@@ -6604,6 +6604,12 @@
         <cropfactor>1.523</cropfactor>
         <calibration>
 			<!-- Taken with Nikon D90 -->
+            <distortion model="ptlens" focal="55.0" a="0.006958" b="-0.03165" c="0.025076" /><!-- 13 lines across 4 photos -->
+            <distortion model="ptlens" focal="72.0" a="-0.00419" b="0.017144" c="-0.023715" /><!-- 9 lines across 2 photos -->
+            <distortion model="ptlens" focal="102.0" a="0.001448" b="0.000889" c="0.001214" /><!-- 6 lines across 2 photos -->
+            <distortion model="ptlens" focal="130.0" a="-0.002887" b="0.016505" c="-0.015651" /><!-- 14 lines across 4 photos -->
+            <distortion model="ptlens" focal="170.0" a="-0.007665" b="0.03225" c="-0.033995" /><!-- 6 lines across 1 photo -->
+            <distortion model="ptlens" focal="200.0" a="-0.001473" b="0.013414" c="-0.016094" /><!-- 10 lines across 7 photos -->
             <tca model="poly3" focal="55.0"  vr="1.00017" vb="1.00011" />
             <tca model="poly3" focal="70.0"  vr="1.00002" vb="1.00008" />
             <tca model="poly3" focal="85.0"  vr="0.99989" vb="1.00005" />

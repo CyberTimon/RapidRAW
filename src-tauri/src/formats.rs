@@ -71,7 +71,11 @@ pub const RAW_EXTENSIONS: &[(&str, &str)] = &[
 ]; // Tell me if your's is missing.
 
 pub const NON_RAW_EXTENSIONS: &[&str] = &[
-    "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "exr", "qoi",
+    "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "jxl", // Standard formats
+    "exr", "hdr", // High Dynamic Range / Wide Gamut
+    "tga", "ico", "dds", // Graphics & Icons
+    "qoi", "ff", // Simple/Specialist formats
+    "pnm", "pbm", "pgm", "ppm", "pam", // Netpbm family
 ];
 
 pub fn is_raw_file<P: AsRef<Path>>(path: P) -> bool {

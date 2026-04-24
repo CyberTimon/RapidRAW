@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertOctagon, RotateCcw, Copy, ClipboardPaste } from 'lucide-react';
-import clsx from 'clsx';
+import { RotateCcw, Copy, ClipboardPaste } from 'lucide-react';
 import { ActiveChannel, Adjustments, Coord } from '../../utils/adjustments';
 import { Theme, OPTION_SEPARATOR } from '../ui/AppProperties';
 import { useContextMenu } from '../../context/ContextMenuContext';
+import Text from '../ui/Text';
+import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 
 let curveClipboard: Array<Coord> | null = null;
 
@@ -161,7 +162,7 @@ export default function CurveGraph({
   const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
   const [localPoints, setLocalPoints] = useState<Array<Coord> | null>(null);
   const [isHovered, setIsHovered] = useState(false);
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const activeChannelRef = useRef(activeChannel);
@@ -196,14 +197,11 @@ export default function CurveGraph({
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
-      
+
       const rect = containerRef.current.getBoundingClientRect();
-      
+
       const isInside =
-        e.clientX >= rect.left &&
-        e.clientX <= rect.right &&
-        e.clientY >= rect.top &&
-        e.clientY <= rect.bottom;
+        e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
 
       if (isInside !== isHoveredRef.current) {
         isHoveredRef.current = isInside;
@@ -212,14 +210,14 @@ export default function CurveGraph({
     };
 
     window.addEventListener('mousemove', handleGlobalMouseMove, { passive: true });
-    
+
     return () => {
       window.removeEventListener('mousemove', handleGlobalMouseMove);
     };
   }, []);
 
   useEffect(() => {
-    const handleMouseMove = (e: any) => {
+    const handleMove = (e: any) => {
       const index = draggingIndexRef.current;
       if (index === null) return;
 
@@ -228,10 +226,13 @@ export default function CurveGraph({
 
       const svg = svgRef.current;
       if (!svg) return;
-      
+
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
       const rect = svg.getBoundingClientRect();
-      let x = Math.max(0, Math.min(255, ((e.clientX - rect.left) / rect.width) * 255));
-      const y = Math.max(0, Math.min(255, 255 - ((e.clientY - rect.top) / rect.height) * 255));
+      let x = Math.max(0, Math.min(255, ((clientX - rect.left) / rect.width) * 255));
+      const y = Math.max(0, Math.min(255, 255 - ((clientY - rect.top) / rect.height) * 255));
 
       const newPoints = [...currentPoints];
 
@@ -256,9 +257,11 @@ export default function CurveGraph({
         ...prev,
         curves: { ...prev.curves, [activeChannelRef.current]: newPoints },
       }));
+
+      if (e.cancelable) e.preventDefault();
     };
 
-    const handleMouseUp = () => {
+    const handleUp = () => {
       setDraggingPointIndex(null);
       draggingIndexRef.current = null;
       localPointsRef.current = null;
@@ -266,13 +269,19 @@ export default function CurveGraph({
     };
 
     if (draggingPointIndex !== null) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('mousemove', handleMove, { passive: false });
+      window.addEventListener('mouseup', handleUp);
+      window.addEventListener('touchmove', handleMove, { passive: false });
+      window.addEventListener('touchend', handleUp);
+      window.addEventListener('touchcancel', handleUp);
     }
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleUp);
+      window.removeEventListener('touchcancel', handleUp);
     };
   }, [draggingPointIndex, setAdjustments, onDragStateChange]);
 
@@ -280,7 +289,7 @@ export default function CurveGraph({
   const histogramOpacity = isLightTheme ? 0.6 : 0.15;
 
   const channelConfig: ChannelConfig = {
-    luma: { color: 'rgb(var(--color-accent))', data: histogram?.luma },
+    luma: { color: 'var(--color-accent)', data: histogram?.luma },
     red: { color: '#FF6B6B', data: histogram?.red },
     green: { color: '#6BCB77', data: histogram?.green },
     blue: { color: '#4D96FF', data: histogram?.blue },
@@ -292,35 +301,34 @@ export default function CurveGraph({
 
   if (!propPoints || !points) {
     return (
-      <div className="w-full aspect-square bg-surface-secondary p-1 rounded-md flex items-center justify-center text-text-secondary text-xs">
+      <Text
+        as="div"
+        variant={TextVariants.small}
+        className="w-full aspect-square bg-surface-secondary p-1 rounded-md flex items-center justify-center"
+      >
         Curve data not available.
-      </div>
+      </Text>
     );
   }
 
-  const handleToggleClipping = () => {
-    setAdjustments((prev: Adjustments) => ({
-      ...prev,
-      showClipping: !prev.showClipping,
-    }));
-  };
-
-  const getMousePos = (e: any) => {
+  const getPointerPos = (e: any) => {
     const svg = svgRef.current;
     if (!svg) {
       return { x: 0, y: 0 };
     }
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const rect = svg.getBoundingClientRect();
-    const x = Math.max(0, Math.min(255, ((e.clientX - rect.left) / rect.width) * 255));
-    const y = Math.max(0, Math.min(255, 255 - ((e.clientY - rect.top) / rect.height) * 255));
+    const x = Math.max(0, Math.min(255, ((clientX - rect.left) / rect.width) * 255));
+    const y = Math.max(0, Math.min(255, 255 - ((clientY - rect.top) / rect.height) * 255));
     return { x, y };
   };
 
-  const handlePointMouseDown = (e: any, index: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
+  const handlePointStart = (e: any, index: number) => {
     if (e.button === 2) return;
+    
+    if (!e.touches) e.preventDefault();
+    e.stopPropagation();
 
     onDragStateChange?.(true);
 
@@ -347,14 +355,14 @@ export default function CurveGraph({
     }
   };
 
-  const handleContainerMouseDown = (e: any) => {
-    if (e.button !== 0 || e.target.tagName === 'circle') {
+  const handleContainerStart = (e: any) => {
+    if ((!e.touches && e.button !== 0) || e.target.tagName === 'circle') {
       return;
     }
 
     onDragStateChange?.(true);
 
-    const { x, y } = getMousePos(e);
+    const { x, y } = getPointerPos(e);
     const newPoints = [...points, { x, y }].sort((a: Coord, b: Coord) => a.x - b.x);
     const newPointIndex = newPoints.findIndex((p: Coord) => p.x === x && p.y === y);
 
@@ -388,12 +396,12 @@ export default function CurveGraph({
     e.stopPropagation();
 
     const handleCopy = () => {
-      curveClipboard = points.map(p => ({ ...p }));
+      curveClipboard = points.map((p) => ({ ...p }));
     };
 
     const handlePaste = () => {
       if (!curveClipboard) return;
-      const newPoints = curveClipboard.map(p => ({ ...p }));
+      const newPoints = curveClipboard.map((p) => ({ ...p }));
 
       setLocalPoints(newPoints);
       localPointsRef.current = newPoints;
@@ -438,15 +446,12 @@ export default function CurveGraph({
       }));
     };
 
-    const areOtherChannelsDirty = [
-      ActiveChannel.Luma,
-      ActiveChannel.Red,
-      ActiveChannel.Green,
-      ActiveChannel.Blue
-    ].some(channel => {
-      if (channel === activeChannel) return false;
-      return !isDefaultCurve(adjustments.curves?.[channel]);
-    });
+    const areOtherChannelsDirty = [ActiveChannel.Luma, ActiveChannel.Red, ActiveChannel.Green, ActiveChannel.Blue].some(
+      (channel) => {
+        if (channel === activeChannel) return false;
+        return !isDefaultCurve(adjustments.curves?.[channel]);
+      },
+    );
 
     const options = [
       {
@@ -479,18 +484,13 @@ export default function CurveGraph({
     showContextMenu(e.clientX, e.clientY, options);
   };
 
-  const shouldShowControls = adjustments.showClipping || isHovered || draggingPointIndex !== null;
-
   return (
-    <div 
-      className="select-none" 
-      ref={containerRef}
-    >
+    <div className="select-none touch-none" ref={containerRef}>
       <div className="flex items-center justify-between gap-1 mb-2 mt-2">
         <div className="flex items-center gap-1">
           {Object.keys(channelConfig).map((channel: any) => (
             <button
-              className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center transition-all
+              className={`w-7 h-7 rounded-full flex items-center justify-center transition-all
               ${
                 activeChannel === channel
                   ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent'
@@ -506,33 +506,18 @@ export default function CurveGraph({
                     : undefined,
               }}
             >
-              {channel.charAt(0).toUpperCase()}
+              <Text variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.bold}>
+                {channel.charAt(0).toUpperCase()}
+              </Text>
             </button>
           ))}
         </div>
-        {!isForMask && (
-          <button
-            className={clsx(
-              'w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center transition-all',
-              {
-                'opacity-100 ring-2 ring-offset-2 ring-offset-surface ring-accent bg-accent text-button-text':
-                  adjustments.showClipping,
-                'opacity-100 bg-surface-secondary text-text-primary': !adjustments.showClipping && shouldShowControls,
-                'opacity-0': !adjustments.showClipping && !shouldShowControls,
-              },
-            )}
-            key="clipping"
-            onClick={handleToggleClipping}
-            data-tooltip="Toggle Clipping Warnings"
-          >
-            <AlertOctagon size={14} />
-          </button>
-        )}
       </div>
 
       <div
-        className="w-full aspect-square bg-surface-secondary p-1 rounded-md relative"
-        onMouseDown={handleContainerMouseDown}
+        className="w-full aspect-square bg-surface-secondary p-1 rounded-md relative touch-none"
+        onMouseDown={handleContainerStart}
+        onTouchStart={handleContainerStart}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
       >
@@ -574,7 +559,8 @@ export default function CurveGraph({
               cy={255 - p.y}
               fill={color}
               key={i}
-              onMouseDown={(e: any) => handlePointMouseDown(e, i)}
+              onMouseDown={(e: any) => handlePointStart(e, i)}
+              onTouchStart={(e: any) => handlePointStart(e, i)}
               onContextMenu={(e: React.MouseEvent) => handlePointContextMenu(e, i)}
               r="6"
               stroke="#1e1e1e"

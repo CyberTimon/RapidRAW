@@ -1,9 +1,32 @@
-import React from 'react';
 import { ExportPreset } from './ExportImportProperties';
-import { Adjustments, Color } from '../../utils/adjustments';
+import { Adjustments } from '../../utils/adjustments';
 import { ToolType } from '../panel/right/Masks';
 
-export const GLOBAL_KEYS = [' ', 'ArrowUp', 'ArrowDown', 'f', 'b', 'w'];
+export const GLOBAL_KEYS = [
+  ' ',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'f',
+  'b',
+  'a',
+  's',
+  'd',
+  'r',
+  'm',
+  'k',
+  'p',
+  'i',
+  'e',
+  '0',
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  'Enter',
+];
 export const OPTION_SEPARATOR = 'separator';
 
 export enum Invokes {
@@ -29,19 +52,20 @@ export enum Invokes {
   EstimateBatchExportSize = 'estimate_batch_export_size',
   EstimateExportSize = 'estimate_export_size',
   ExportImage = 'export_image',
+  FrontendLog = 'frontend_log',
   GenerateAiForegroundMask = 'generate_ai_foreground_mask',
   GenerateAiSkyMask = 'generate_ai_sky_mask',
   GenerateAiSubjectMask = 'generate_ai_subject_mask',
   GenerateFullscreenPreview = 'generate_fullscreen_preview',
   GeneratePreviewForPath = 'generate_preview_for_path',
-  GenerateHistogram = 'generate_histogram',
   GenerateMaskOverlay = 'generate_mask_overlay',
   GeneratePresetPreview = 'generate_preset_preview',
   GenerateThumbnailsProgressive = 'generate_thumbnails_progressive',
   GenerateUncroppedPreview = 'generate_uncropped_preview',
-  GenerateWaveform = 'image_processing::generate_waveform',
   GetFolderTree = 'get_folder_tree',
+  GetFolderChildren = 'get_folder_children',
   GetLogFilePath = 'get_log_file_path',
+  GetOrCreateInternalLibraryRoot = 'get_or_create_internal_library_root',
   GetPinnedFolderTrees = 'get_pinned_folder_trees',
   GetSupportedFileTypes = 'get_supported_file_types',
   HandleExportPresetsToFile = 'handle_export_presets_to_file',
@@ -70,12 +94,13 @@ export enum Invokes {
   SavePresets = 'save_presets',
   SaveSettings = 'save_settings',
   SetColorLabelForPaths = 'set_color_label_for_paths',
+  SetRatingForPaths = 'set_rating_for_paths',
   ShowInFinder = 'show_in_finder',
   StartBackgroundIndexing = 'start_background_indexing',
   StitchPanorama = 'stitch_panorama',
   MergeHdr = 'merge_hdr',
   TestAIConnectorConnection = 'test_ai_connector_connection',
-  UpdateWindowEffect = 'update_window_effect',
+  UpdateWgpuTransform = 'update_wgpu_transform',
   FetchCommunityPresets = 'fetch_community_presets',
   GenerateAllCommunityPreviews = 'generate_all_community_previews',
   SaveCommunityPreset = 'save_community_preset',
@@ -121,13 +146,14 @@ export enum ThumbnailAspectRatio {
 }
 
 export interface AppSettings {
-  adaptiveEditorTheme?: Theme;
   aiConnectorAddress?: string;
   decorations?: any;
   editorPreviewResolution?: number;
   enableZoomHifi?: boolean;
+  useFullDpiRendering?: boolean;
+  highResZoomMultiplier?: number;
   enableLivePreviews?: boolean;
-  enableHighQualityLivePreviews?: boolean;
+  livePreviewQuality?: string;
   enableAiTagging?: boolean;
   enableExifReading?: boolean;
   filterCriteria?: FilterCriteria;
@@ -151,6 +177,10 @@ export interface AppSettings {
   linearRawMode?: string;
   enableXmpSync?: boolean;
   createXmpIfMissing?: boolean;
+  isWaveformVisible?: boolean;
+  waveformHeight?: number;
+  activeWaveformChannel?: string;
+  useWgpuRenderer?: boolean;
 }
 
 export interface BrushSettings {
@@ -181,6 +211,7 @@ export interface ImageFile {
   is_edited: boolean;
   modified: number;
   path: string;
+  rating: number;
   tags: Array<string> | null;
   exif: { [key: string]: string } | null;
   is_virtual_copy: boolean;
@@ -193,6 +224,7 @@ export interface Option {
   isDestructive?: boolean;
   label?: string;
   onClick?(): void;
+  onRightClick?(): void;
   submenu?: any;
   type?: string;
 }
@@ -207,6 +239,9 @@ export interface Preset {
   folder?: Folder;
   id: string;
   name: string;
+  includeMasks?: boolean;
+  includeCropTransform?: boolean;
+  presetType?: 'tool' | 'style';
 }
 
 export interface Progress {
@@ -243,6 +278,7 @@ export enum ThumbnailSize {
   Large = 'large',
   Medium = 'medium',
   Small = 'small',
+  List = 'list',
 }
 
 export interface TransformState {
@@ -257,12 +293,14 @@ export interface UiVisibility {
 }
 
 export interface WaveformData {
-  [index: string]: Array<number> | number;
-  blue: Array<number>;
-  green: Array<number>;
+  blue: string;
+  green: string;
   height: number;
-  luma: Array<number>;
-  red: Array<number>;
+  luma: string;
+  red: string;
+  rgb: string;
+  parade: string;
+  vectorscope: string;
   width: number;
 }
 

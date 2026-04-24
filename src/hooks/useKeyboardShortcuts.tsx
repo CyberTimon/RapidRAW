@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { ImageFile, Panel, SelectedImage } from '../components/ui/AppProperties';
+import { BrushSettings } from '../components/ui/AppProperties';
 
 interface KeyboardShortcutsProps {
   activeAiPatchContainerId?: string | null;
   activeAiSubMaskId: string | null;
+  osPlatform: string;
   activeMaskContainerId: string | null;
   activeMaskId: string | null;
   activeRightPanel: Panel | null;
@@ -21,6 +23,7 @@ interface KeyboardShortcutsProps {
   handlePasteFiles(str: string): void;
   handleRate(rate: number): void;
   handleRightPanelSelect(panel: Panel): void;
+  handleRotate(degrees: number): void;
   handleSetColorLabel(label: string | null): void;
   handleToggleFullScreen(): void;
   handleZoomChange(zoomValue: number, fitToWindow?: boolean): void;
@@ -48,6 +51,8 @@ interface KeyboardShortcutsProps {
   displaySize?: { width: number; height: number };
   baseRenderSize?: { width: number; height: number };
   originalSize?: { width: number; height: number };
+  brushSettings: BrushSettings | null;  
+  setBrushSettings: (settings: BrushSettings) => void;  
 }
 
 export const useKeyboardShortcuts = ({
@@ -56,6 +61,7 @@ export const useKeyboardShortcuts = ({
   activeMaskContainerId,
   activeMaskId,
   activeRightPanel,
+  osPlatform,
   canRedo,
   canUndo,
   copiedFilePaths,
@@ -70,6 +76,7 @@ export const useKeyboardShortcuts = ({
   handlePasteFiles,
   handleRate,
   handleRightPanelSelect,
+  handleRotate,
   handleSetColorLabel,
   handleToggleFullScreen,
   handleZoomChange,
@@ -97,6 +104,8 @@ export const useKeyboardShortcuts = ({
   displaySize,
   baseRenderSize,
   originalSize,
+  brushSettings,  
+  setBrushSettings,  
 }: KeyboardShortcutsProps) => {
   useEffect(() => {
     const handleKeyDown = (event: any) => {
@@ -142,9 +151,10 @@ export const useKeyboardShortcuts = ({
           event.preventDefault();
 
           // Calculate current zoom percentage relative to original
+          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
           const currentPercent =
             originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
-              ? Math.round((displaySize.width / originalSize.width) * 100)
+              ? Math.round(((displaySize.width * dpr) / originalSize.width) * 100)
               : 100;
 
           // Toggle between fit-to-window, 2x fit-to-window (if < 100%), and 100%
@@ -162,10 +172,10 @@ export const useKeyboardShortcuts = ({
 
             if (originalAspect > baseAspect) {
               // Width is limiting (landscape)
-              fitPercent = Math.round((baseRenderSize.width / originalSize.width) * 100);
+              fitPercent = Math.round(((baseRenderSize.width * dpr) / originalSize.width) * 100);
             } else {
               // Height is limiting (portrait)
-              fitPercent = Math.round((baseRenderSize.height / originalSize.height) * 100);
+              fitPercent = Math.round(((baseRenderSize.height * dpr) / originalSize.height) * 100);
             }
           }
 
@@ -218,9 +228,18 @@ export const useKeyboardShortcuts = ({
           event.preventDefault();
           handleRightPanelSelect(Panel.Export);
         }
-        if (key === 'w' && !isCtrl) {
+        if (key === 'a' && !isCtrl) {
           event.preventDefault();
           setIsWaveformVisible((prev: boolean) => !prev);
+        }
+        if (key === 's' && !isCtrl) {
+          event.preventDefault();
+          if (activeRightPanel === Panel.Crop) {
+            setIsStraightenActive((prev: boolean) => !prev);
+          } else {
+            handleRightPanelSelect(Panel.Crop);
+            setIsStraightenActive(true);
+          }
         }
       } else {
         if ((key === 'enter' || key === ' ') && !isCtrl) {
@@ -235,23 +254,47 @@ export const useKeyboardShortcuts = ({
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
         event.preventDefault();
 
-        if (selectedImage) {
-          if (key === 'arrowup' || key === 'arrowdown') {
-            // Calculate current zoom percentage relative to original
-            const currentPercent =
-              originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
-                ? displaySize.width / originalSize.width
-                : 1.0;
+        if (!isCtrl) {
+          if (selectedImage) {
+            if (key === 'arrowup' || key === 'arrowdown') {
+              const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+              // Calculate current zoom percentage relative to original
+              const currentPercent =
+                originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
+                  ? (displaySize.width * dpr) / originalSize.width
+                  : 1.0;
 
-            const step = 0.1; // 10% steps
-            const newPercent = key === 'arrowup' ? currentPercent + step : currentPercent - step;
+              const step = 0.1; // 10% steps
+              const newPercent = key === 'arrowup' ? currentPercent + step : currentPercent - step;
 
-            // Clamp to 10%-200% of original size
-            const clampedPercent = Math.max(0.1, Math.min(newPercent, 2.0));
-            handleZoomChange(clampedPercent);
+              // Clamp to 10%-200% of original size
+              const clampedPercent = Math.max(0.1, Math.min(newPercent, 2.0));
+              handleZoomChange(clampedPercent);
+            } else {
+              const isNext = key === 'arrowright';
+              const currentIndex = sortedImageList.findIndex((img: ImageFile) => img.path === selectedImage.path);
+              if (currentIndex === -1) {
+                return;
+              }
+              let nextIndex = isNext ? currentIndex + 1 : currentIndex - 1;
+              if (nextIndex >= sortedImageList.length) {
+                nextIndex = 0;
+              }
+              if (nextIndex < 0) {
+                nextIndex = sortedImageList.length - 1;
+              }
+              const nextImage = sortedImageList[nextIndex];
+              if (nextImage) {
+                handleImageSelect(nextImage.path);
+              }
+            }
           } else {
-            const isNext = key === 'arrowright';
-            const currentIndex = sortedImageList.findIndex((img: ImageFile) => img.path === selectedImage.path);
+            const isNext = key === 'arrowright' || key === 'arrowdown';
+            const activePath = libraryActivePath;
+            if (!activePath || sortedImageList.length === 0) {
+              return;
+            }
+            const currentIndex = sortedImageList.findIndex((img: ImageFile) => img.path === activePath);
             if (currentIndex === -1) {
               return;
             }
@@ -264,30 +307,9 @@ export const useKeyboardShortcuts = ({
             }
             const nextImage = sortedImageList[nextIndex];
             if (nextImage) {
-              handleImageSelect(nextImage.path);
+              setLibraryActivePath(nextImage.path);
+              setMultiSelectedPaths([nextImage.path]);
             }
-          }
-        } else {
-          const isNext = key === 'arrowright' || key === 'arrowdown';
-          const activePath = libraryActivePath;
-          if (!activePath || sortedImageList.length === 0) {
-            return;
-          }
-          const currentIndex = sortedImageList.findIndex((img: ImageFile) => img.path === activePath);
-          if (currentIndex === -1) {
-            return;
-          }
-          let nextIndex = isNext ? currentIndex + 1 : currentIndex - 1;
-          if (nextIndex >= sortedImageList.length) {
-            nextIndex = 0;
-          }
-          if (nextIndex < 0) {
-            nextIndex = sortedImageList.length - 1;
-          }
-          const nextImage = sortedImageList[nextIndex];
-          if (nextImage) {
-            setLibraryActivePath(nextImage.path);
-            setMultiSelectedPaths([nextImage.path]);
           }
         }
       }
@@ -313,21 +335,40 @@ export const useKeyboardShortcuts = ({
         handleRate(parseInt(key, 10));
       }
 
-      if (key === 'delete') {
+      if (key === '[' && !isCtrl && selectedImage) {
+        event.preventDefault();
+        handleRotate(-90);
+      }
+      if (key === ']' && !isCtrl && selectedImage) {
+        event.preventDefault();
+        handleRotate(90);
+      }
+
+      // On macOS the physical ⌫ key sends Backspace, not Delete.
+      // File deletion follows macOS convention: Cmd + Delete (i.e. Cmd + Backspace).
+      // Non-destructive mask/patch deletion uses plain Backspace on macOS.
+      // On all other platforms the existing plain Delete behaviour is preserved.
+      const isMacOS = osPlatform === 'macos';
+      const isDeletePressed = isMacOS ? key === 'backspace' : key === 'delete';
+
+      if (isDeletePressed) {
         event.preventDefault();
         if (activeMaskContainerId) {
           handleDeleteMaskContainer(activeMaskContainerId);
         } else if (activeAiPatchContainerId) {
           handleDeleteAiPatch(activeAiPatchContainerId);
-        } else {
+        } else if (!isMacOS || isCtrl) {
+          // macOS: Cmd modifier required for (destructive) file deletion
+          // Other platforms: plain Delete triggers file deletion
           handleDeleteSelected();
         }
       }
 
       if (isCtrl) {
+        const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
         const currentPercent =
           originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
-            ? displaySize.width / originalSize.width
+            ? (displaySize.width * dpr) / originalSize.width
             : 1.0;
 
         switch (key) {
@@ -390,6 +431,20 @@ export const useKeyboardShortcuts = ({
             event.preventDefault();
             handleZoomChange(Math.max(currentPercent / 1.2, 0.1));
             break;
+          case 'arrowup':
+            event.preventDefault();
+            if (brushSettings && activeRightPanel === Panel.Masks) {
+              const newSize = Math.min((brushSettings.size || 50) + 10, 200);
+              setBrushSettings({ ...brushSettings, size: newSize });
+            }
+            break;
+          case 'arrowdown':
+            event.preventDefault();
+            if (brushSettings && activeRightPanel === Panel.Masks) {
+              const newSize = Math.max((brushSettings.size || 50) - 10, 1);
+              setBrushSettings({ ...brushSettings, size: newSize });
+            }
+            break;
           default:
             break;
         }
@@ -405,6 +460,7 @@ export const useKeyboardShortcuts = ({
     activeMaskContainerId,
     activeMaskId,
     activeRightPanel,
+    osPlatform,
     canRedo,
     canUndo,
     copiedFilePaths,
@@ -419,6 +475,7 @@ export const useKeyboardShortcuts = ({
     handlePasteFiles,
     handleRate,
     handleRightPanelSelect,
+    handleRotate,
     handleSetColorLabel,
     handleToggleFullScreen,
     handleZoomChange,
@@ -445,5 +502,7 @@ export const useKeyboardShortcuts = ({
     displaySize,
     baseRenderSize,
     originalSize,
+    brushSettings,  
+    setBrushSettings,  
   ]);
 };

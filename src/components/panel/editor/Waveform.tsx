@@ -1,257 +1,638 @@
 import { useState, useEffect, useRef } from 'react';
-import Draggable from 'react-draggable';
-import { X, Waves } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { AlertOctagon } from 'lucide-react';
 import { WaveformData } from '../../ui/AppProperties';
 import { DisplayMode } from '../../../utils/adjustments';
 
-interface LumaWaveformProps {
-  color: Array<number>;
-  data: Array<number>;
-  height: number;
-  maxVal: number;
-  width: number;
-}
-
-interface MaxValues {
-  blue: number;
-  green: number;
-  height: number;
-  luma: number;
-  red: number;
-  width: number;
-}
-
-interface RgbWaveformProps {
-  blueData: Array<number>;
-  greenData: Array<number>;
-  height: number;
-  maxVals: MaxValues;
-  redData: Array<number>;
-  width: number;
-}
-
 interface WaveformProps {
-  onClose(): void;
-  waveformData: WaveformData;
+  waveformData: WaveformData | null;
+  histogram?: any;
+  displayMode: string;
+  setDisplayMode: (mode: string) => void;
+  showClipping?: boolean;
+  onToggleClipping?: () => void;
+  theme?: string;
 }
 
-const LumaWaveformDisplay = ({ data, width, height, maxVal, color }: LumaWaveformProps) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+const modeButtons = [
+  { mode: DisplayMode.Luma, label: 'L', tooltip: 'Luma', bgClass: 'bg-accent', textActiveClass: 'text-button-text' },
+  {
+    mode: DisplayMode.Rgb,
+    label: 'RGB',
+    tooltip: 'RGB Overlay',
+    bgClass: 'bg-accent',
+    textActiveClass: 'text-button-text',
+  },
+  {
+    mode: DisplayMode.Parade,
+    label: 'P',
+    tooltip: 'Parade',
+    bgClass: 'bg-accent',
+    textActiveClass: 'text-button-text',
+  },
+  {
+    mode: DisplayMode.Vectorscope,
+    label: 'V',
+    tooltip: 'Vectorscope',
+    bgClass: 'bg-accent',
+    textActiveClass: 'text-button-text',
+  },
+  {
+    mode: DisplayMode.Histogram,
+    label: 'H',
+    tooltip: 'Histogram',
+    bgClass: 'bg-accent',
+    textActiveClass: 'text-button-text',
+  },
+];
 
-  useEffect(() => {
-    if (!data || !canvasRef.current || !width || !height) {
-      return;
-    }
+const HistogramView = ({ histogram }: { histogram: any }) => {
+  if (!histogram || !histogram.red || !histogram.green || !histogram.blue) return null;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      return;
-    }
-    ctx.clearRect(0, 0, width, height);
+  const redMax = Math.max(...(histogram.red || [0]));
+  const greenMax = Math.max(...(histogram.green || [0]));
+  const blueMax = Math.max(...(histogram.blue || [0]));
+  const globalMax = Math.max(redMax, greenMax, blueMax, 1);
 
-    const imageData = ctx.createImageData(width, height);
-    const pixels = imageData.data;
+  const getFill = (data: number[]) => {
+    const pathData = data.map((val, i) => `${(i / 255) * 255},${255 - (val / globalMax) * 255}`).join(' L');
+    return `M0,255 L${pathData} L255,255 Z`;
+  };
 
-    const scale = maxVal > 0 ? 255 / Math.log(1 + maxVal) : 0;
+  const getLine = (data: number[]) => {
+    return 'M' + data.map((val, i) => `${(i / 255) * 255},${255 - (val / globalMax) * 255}`).join(' L');
+  };
 
-    for (let i = 0; i < data.length; i++) {
-      if (data[i] > 0) {
-        const intensity = Math.log(1 + data[i]) * scale;
-        const pixelIndex = i * 4;
-
-        pixels[pixelIndex] = color[0];
-        pixels[pixelIndex + 1] = color[1];
-        pixels[pixelIndex + 2] = color[2];
-        pixels[pixelIndex + 3] = intensity;
-      }
-    }
-    ctx.putImageData(imageData, 0, 0);
-  }, [data, width, height, maxVal, color]);
-
-  return <canvas ref={canvasRef} width={width} height={height} className="absolute inset-0" />;
-};
-
-const RgbWaveformDisplay = ({ redData, greenData, blueData, width, height, maxVals }: RgbWaveformProps) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    if (!redData || !canvasRef.current || !width || !height) {
-      return;
-    }
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      return;
-    }
-    ctx.clearRect(0, 0, width, height);
-
-    const imageData = ctx.createImageData(width, height);
-    const pixels = imageData.data;
-
-    const scaleR = maxVals.red > 0 ? 255 / Math.log(1 + maxVals.red) : 0;
-    const scaleG = maxVals.green > 0 ? 255 / Math.log(1 + maxVals.green) : 0;
-    const scaleB = maxVals.blue > 0 ? 255 / Math.log(1 + maxVals.blue) : 0;
-
-    for (let i = 0; i < redData.length; i++) {
-      const pixelIndex = i * 4;
-      const r = redData[i] > 0 ? Math.log(1 + redData[i]) * scaleR : 0;
-      const g = greenData[i] > 0 ? Math.log(1 + greenData[i]) * scaleG : 0;
-      const b = blueData[i] > 0 ? Math.log(1 + blueData[i]) * scaleB : 0;
-
-      pixels[pixelIndex] = r;
-      pixels[pixelIndex + 1] = g;
-      pixels[pixelIndex + 2] = b;
-      pixels[pixelIndex + 3] = Math.max(r, g, b);
-    }
-    ctx.putImageData(imageData, 0, 0);
-  }, [redData, greenData, blueData, width, height, maxVals]);
-
-  return <canvas ref={canvasRef} width={width} height={height} className="absolute inset-0" />;
-};
-
-export default function Waveform({ waveformData, onClose }: WaveformProps) {
-  const [displayMode, setDisplayMode] = useState<DisplayMode>(DisplayMode.Rgb);
-  const nodeRef = useRef<any>(null);
-
-  const { red, green, blue, luma, width, height } = waveformData || {};
-
-  const maxVals: any = waveformData
-    ? {
-        luma: Math.max(...(luma || [])),
-        red: Math.max(...(red || [])),
-        green: Math.max(...(green || [])),
-        blue: Math.max(...(blue || [])),
-      }
-    : {};
-
-  const baseButtonClass = 'flex-grow text-center px-2 py-1 text-xs rounded font-medium transition-colors duration-150';
-  const inactiveButtonClass = 'text-text-secondary hover:bg-bg-tertiary';
+  const channels = [
+    { key: 'red', color: '#FF6B6B', data: histogram.red },
+    { key: 'green', color: '#6BCB77', data: histogram.green },
+    { key: 'blue', color: '#4D96FF', data: histogram.blue },
+  ];
 
   return (
-    <Draggable nodeRef={nodeRef} handle=".handle" bounds="parent">
-      <div ref={nodeRef} className="absolute top-20 left-20 w-[280px] z-50">
-        <motion.div
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-bg-secondary/80 backdrop-blur-sm rounded-lg shadow-lg text-text-secondary border border-surface/40 overflow-hidden"
-          exit={{ opacity: 0, scale: 0.95 }}
-          initial={{ opacity: 0, scale: 0.95 }}
-          key="waveform-content"
-          style={{ transformOrigin: 'top left' }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-        >
-          <div className="handle flex items-center justify-between p-2 cursor-move">
-            <div className="flex items-center gap-2">
-              <Waves size={16} className="text-text-secondary" />
-              <h3 className="text-sm font-semibold text-text-primary [text-shadow:0_1px_3px_rgba(0,0,0,0.4)]">
-                Waveform
-              </h3>
-            </div>
-            <button
-              className="p-1 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
-              onClick={onClose}
+    <svg
+      viewBox="0 0 255 255"
+      className="w-full h-full overflow-visible pointer-events-none"
+      preserveAspectRatio="none"
+    >
+      {channels.map((ch) => {
+        if (!ch.data || ch.data.length === 0) return null;
+        return (
+          <g key={ch.key} style={{ mixBlendMode: 'lighten' }}>
+            <path d={getFill(ch.data)} fill={ch.color} fillOpacity={0.4} />
+            <path
+              d={getLine(ch.data)}
+              fill="none"
+              stroke={ch.color}
+              strokeWidth={1.5}
+              strokeOpacity={1.8}
+              vectorEffect="non-scaling-stroke"
+              strokeLinejoin="round"
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
+
+const FakeHistogramLoader = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let time = 0;
+    let lastTime = 0;
+
+    const ANIMATION_SPEED = 1.0;
+
+    const render = (currentTime: number) => {
+      if (lastTime === 0) lastTime = currentTime;
+
+      let dt = (currentTime - lastTime) / 1000;
+      lastTime = currentTime;
+
+      if (dt > 0.05) dt = 0.05;
+
+      time += dt * ANIMATION_SPEED;
+
+      ctx.clearRect(0, 0, 256, 256);
+      ctx.globalCompositeOperation = 'screen';
+
+      const drawChannel = (
+        color: string,
+        strokeColor: string,
+        offset: number,
+        amplitude: number,
+        phaseSpeed: number,
+      ) => {
+        ctx.beginPath();
+        ctx.moveTo(0, 256);
+        for (let x = 0; x <= 256; x += 4) {
+          const noise = Math.sin(x * 0.2 + time * phaseSpeed * 2) * 0.5;
+          const wave = Math.sin(x * 0.03 + time * phaseSpeed + offset) * amplitude;
+
+          const baseHeight = 1;
+
+          const y = 256 - baseHeight - Math.max(0, wave + noise);
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(256, 256);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      };
+
+      drawChannel('rgba(255, 107, 107, 0.55)', 'rgba(255, 107, 107, 0.3)', 0, 5, 0.8);
+      drawChannel('rgba(107, 203, 119, 0.55)', 'rgba(107, 203, 119, 0.3)', 2, 4, -1.0);
+      drawChannel('rgba(77, 150, 255, 0.55)', 'rgba(77, 150, 255, 0.3)', 4, 6, 0.6);
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    animationFrameId = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, []);
+
+  return <canvas ref={canvasRef} width={256} height={256} className="w-full h-full opacity-60" />;
+};
+
+const useRawRgbaCanvas = (
+  canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  base64Data: string,
+  width: number,
+  height: number,
+) => {
+  useEffect(() => {
+    if (!base64Data || !canvasRef.current || !width || !height) return;
+
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+
+    ctx.imageSmoothingEnabled = false;
+
+    const binary = atob(base64Data);
+    const bytes = new Uint8ClampedArray(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    const imageData = new ImageData(bytes, width, height);
+    ctx.putImageData(imageData, 0, 0);
+  }, [base64Data, width, height, canvasRef]);
+};
+
+const WaveformCanvas = ({
+  base64Data,
+  width,
+  height,
+  isVectorscope,
+}: {
+  base64Data: string;
+  width: number;
+  height: number;
+  isVectorscope: boolean;
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useRawRgbaCanvas(canvasRef, base64Data, width, height);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={width}
+      height={height}
+      className={`w-full h-full ${isVectorscope ? 'object-contain' : ''}`}
+    />
+  );
+};
+
+const FakeWaveformLoader = ({ mode }: { mode: string }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lastTimeRef = useRef<number>(0);
+  const spawnAccumulatorRef = useRef<number>(0);
+
+  const MAX_PARTICLES = 10000;
+  const particles = useRef(
+    Array.from({ length: MAX_PARTICLES }, () => ({
+      x: 0,
+      y: 0,
+      targetX: 0,
+      targetY: 0,
+      life: 0,
+      maxLife: 1,
+      r: 255,
+      g: 255,
+      b: 255,
+      active: false,
+    })),
+  ).current;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx) return;
+
+    const WIDTH = 256;
+    const HEIGHT = 256;
+    canvas.width = WIDTH;
+    canvas.height = HEIGHT;
+
+    particles.forEach((p) => (p.active = false));
+    lastTimeRef.current = 0;
+    spawnAccumulatorRef.current = 0;
+    let isPrewarmed = false;
+
+    const imgData = ctx.createImageData(WIDTH, HEIGHT);
+    const data = imgData.data;
+
+    const gridBuffer = new Uint8ClampedArray(WIDTH * HEIGHT * 4);
+    if (mode === DisplayMode.Vectorscope) {
+      for (let py = 0; py < HEIGHT; py++) {
+        for (let px = 0; px < WIDTH; px++) {
+          const dx = px - 128.0;
+          const dy = 128.0 - py;
+          const min_d = Math.min(Math.abs(dx), Math.abs(dy));
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const off = (py * WIDTH + px) * 4;
+
+          if (min_d <= 1.0) {
+            const alpha = Math.max(0, 40.0 - min_d * 30.0);
+            gridBuffer[off] = 255;
+            gridBuffer[off + 1] = 255;
+            gridBuffer[off + 2] = 255;
+            gridBuffer[off + 3] = alpha;
+          } else if (Math.abs(dist - 127.0) < 0.8 || Math.abs(dist - 64.0) < 0.8) {
+            gridBuffer[off] = 255;
+            gridBuffer[off + 1] = 255;
+            gridBuffer[off + 2] = 255;
+            gridBuffer[off + 3] = 15;
+          } else if (dx < 0.0 && dy > 0.0 && Math.abs(dy + 1.53 * dx) < 1.0) {
+            gridBuffer[off] = 255;
+            gridBuffer[off + 1] = 200;
+            gridBuffer[off + 2] = 150;
+            gridBuffer[off + 3] = 120;
+          }
+        }
+      }
+    }
+
+    let animationFrameId: number;
+
+    const render = (time: number) => {
+      if (lastTimeRef.current === 0) lastTimeRef.current = time;
+      let dt = (time - lastTimeRef.current) / 1000;
+      lastTimeRef.current = time;
+
+      if (dt > 0.05) dt = 0.05;
+
+      let frameDt = dt;
+
+      if (!isPrewarmed) {
+        frameDt = 0.5;
+        isPrewarmed = true;
+      }
+
+      data.set(gridBuffer);
+
+      const SPAWN_RATE = 1000;
+      spawnAccumulatorRef.current += SPAWN_RATE * frameDt;
+
+      const dotsToSpawn = Math.floor(spawnAccumulatorRef.current);
+      if (dotsToSpawn > 0) {
+        spawnAccumulatorRef.current -= dotsToSpawn;
+        let spawnedCount = 0;
+
+        for (let i = 0; i < MAX_PARTICLES && spawnedCount < dotsToSpawn; i++) {
+          const p = particles[i];
+          if (!p.active) {
+            p.active = true;
+
+            if (mode !== DisplayMode.Vectorscope) {
+              p.x = Math.random() * WIDTH;
+              p.targetX = p.x;
+
+              p.y = HEIGHT - Math.random() * 2;
+
+              const isPot = Math.random() < 0.4;
+
+              if (isPot) {
+                p.targetY = HEIGHT - Math.random() * 6;
+              } else {
+                const randomCurve = Math.pow(Math.random(), 1.2);
+                p.targetY = HEIGHT - randomCurve * HEIGHT;
+              }
+
+              if (mode === DisplayMode.Parade) {
+                const section = Math.floor((p.x / WIDTH) * 3);
+                if (section === 0) {
+                  p.r = 255;
+                  p.g = 70;
+                  p.b = 70;
+                } else if (section === 1) {
+                  p.r = 70;
+                  p.g = 255;
+                  p.b = 70;
+                } else {
+                  p.r = 70;
+                  p.g = 150;
+                  p.b = 255;
+                }
+              } else if (mode === DisplayMode.Rgb) {
+                const rand = Math.random();
+                if (rand > 0.85) {
+                  p.r = 255;
+                  p.g = 80;
+                  p.b = 80;
+                } else if (rand > 0.7) {
+                  p.r = 80;
+                  p.g = 255;
+                  p.b = 80;
+                } else if (rand > 0.55) {
+                  p.r = 80;
+                  p.g = 150;
+                  p.b = 255;
+                } else {
+                  p.r = 255;
+                  p.g = 255;
+                  p.b = 255;
+                }
+              } else {
+                p.r = 255;
+                p.g = 255;
+                p.b = 255;
+              }
+            }
+
+            const life = Math.random() * 5.0 + 8.0;
+            p.life = life;
+            p.maxLife = life;
+
+            spawnedCount++;
+          }
+        }
+      }
+
+      const speedMultiplier = 1;
+      const interpolation = 1 - Math.exp(-speedMultiplier * frameDt);
+
+      for (let i = 0; i < MAX_PARTICLES; i++) {
+        const p = particles[i];
+        if (p.active) {
+          p.life -= frameDt;
+
+          if (p.life <= 0) {
+            p.active = false;
+            continue;
+          }
+
+          p.x += (p.targetX - p.x) * interpolation;
+          p.y += (p.targetY - p.y) * interpolation;
+
+          const lifeRatio = p.life / p.maxLife;
+
+          let opacity = 1.0;
+          if (lifeRatio > 0.8) {
+            opacity = (1 - lifeRatio) / 0.12;
+          } else if (lifeRatio < 0.2) {
+            opacity = lifeRatio / 0.2;
+          }
+
+          const alpha = opacity * 0.18;
+
+          const px = Math.floor(p.x);
+          const py = Math.floor(p.y);
+
+          for (let dy = 0; dy < 3; dy++) {
+            for (let dx = 0; dx < 1.5; dx++) {
+              const cx = px + dx;
+              const cy = py + dy;
+
+              if (cx >= 0 && cx < WIDTH && cy >= 0 && cy < HEIGHT) {
+                const idx = (cy * WIDTH + cx) * 4;
+                data[idx] = Math.min(255, data[idx] + p.r * alpha);
+                data[idx + 1] = Math.min(255, data[idx + 1] + p.g * alpha);
+                data[idx + 2] = Math.min(255, data[idx + 2] + p.b * alpha);
+                data[idx + 3] = Math.min(255, data[idx + 3] + alpha * 255);
+              }
+            }
+          }
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    animationFrameId = requestAnimationFrame(render);
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [mode, particles]);
+
+  return (
+    <canvas ref={canvasRef} className={`w-full h-full ${mode === DisplayMode.Vectorscope ? 'object-contain' : ''}`} />
+  );
+};
+
+export default function Waveform({
+  waveformData,
+  histogram,
+  displayMode,
+  setDisplayMode,
+  showClipping,
+  onToggleClipping,
+  theme,
+}: WaveformProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isLightTheme = theme ? ['light', 'snow', 'arctic'].includes(theme) : false;
+  const isHistogram = displayMode === DisplayMode.Histogram;
+  const isVectorscope = displayMode === DisplayMode.Vectorscope;
+  const isReady = isHistogram ? !!(histogram && histogram.red) : !!waveformData;
+  const hadDataOnMount = useRef(isReady);
+  const width = waveformData?.width || 256;
+  const height = waveformData?.height || 256;
+
+  const activeData = waveformData
+    ? {
+        [DisplayMode.Rgb]: waveformData.rgb,
+        [DisplayMode.Luma]: waveformData.luma,
+        [DisplayMode.Parade]: waveformData.parade,
+        [DisplayMode.Vectorscope]: waveformData.vectorscope,
+        [DisplayMode.Histogram]: undefined,
+      }[displayMode as DisplayMode]
+    : '';
+
+  const handleMouseEnter = () => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsHovered(true);
+    }, 250);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setIsHovered(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const baseButtonClass =
+    'relative grow text-center px-1.5 py-1 text-xs rounded-lg font-medium transition-colors duration-150';
+  const inactiveButtonClass = 'text-text-primary hover:bg-bg-tertiary';
+
+  const isLoaderMode = [
+    DisplayMode.Luma,
+    DisplayMode.Rgb,
+    DisplayMode.Parade,
+    DisplayMode.Vectorscope,
+    DisplayMode.Histogram,
+  ].includes(displayMode as DisplayMode);
+
+  return (
+    <div
+      className="relative w-full h-full bg-surface rounded-lg overflow-hidden border-border-color shadow-inner"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div
+        className="absolute inset-0 z-0 pointer-events-none"
+        style={{
+          isolation: 'isolate',
+          filter: isLightTheme ? 'invert(1) hue-rotate(180deg)' : 'none',
+          transition: 'filter 0.3s ease',
+        }}
+      >
+        <AnimatePresence initial={!hadDataOnMount.current} mode="sync">
+          {isReady ? (
+            isHistogram ? (
+              <motion.div
+                key="waveform-histogram"
+                initial={{ opacity: 0, scaleY: 0 }}
+                animate={{ opacity: 1, scaleY: 1 }}
+                exit={{ opacity: 0, scaleY: 0 }}
+                transition={{
+                  duration: 0.5,
+                  ease: [0.22, 1, 0.36, 1],
+                  opacity: { duration: 0.4 },
+                }}
+                style={{ transformOrigin: 'bottom' }}
+                className="absolute inset-0 z-10"
+              >
+                <HistogramView histogram={histogram} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key={`waveform-canvas-${displayMode}`}
+                initial={{ opacity: 0, ...(isVectorscope ? {} : { scaleY: 0 }) }}
+                animate={{ opacity: 1, ...(isVectorscope ? {} : { scaleY: 1 }) }}
+                exit={{ opacity: 0, ...(isVectorscope ? {} : { scaleY: 0 }) }}
+                transition={{
+                  duration: 0.5,
+                  ease: [0.22, 1, 0.36, 1],
+                  opacity: { duration: 0.4 },
+                }}
+                style={{ transformOrigin: 'bottom' }}
+                className="absolute inset-0 z-10"
+              >
+                <WaveformCanvas
+                  base64Data={activeData || ''}
+                  width={width}
+                  height={height}
+                  isVectorscope={isVectorscope}
+                />
+              </motion.div>
+            )
+          ) : isLoaderMode ? (
+            <motion.div
+              key={`waveform-loader-${displayMode}`}
+              initial={{ opacity: 0 }}
+              animate={{
+                opacity: 1,
+                transition: { duration: 0.6, ease: 'easeOut' },
+              }}
+              exit={{
+                opacity: 0,
+                transition: { duration: 0.2, ease: 'easeIn' },
+              }}
+              className="absolute inset-0 pointer-events-none z-0"
             >
-              <X size={16} />
-            </button>
-          </div>
-          {waveformData && (
-            <div className="p-2 pt-0">
-              <div className="relative w-[256px] h-[256px] bg-black/50 rounded">
-                {displayMode === DisplayMode.Rgb && (
-                  <RgbWaveformDisplay
-                    blueData={blue}
-                    greenData={green}
-                    height={height}
-                    maxVals={maxVals}
-                    redData={red}
-                    width={width}
-                  />
-                )}
-                {displayMode === DisplayMode.Luma && (
-                  <LumaWaveformDisplay
-                    color={[255, 255, 255]}
-                    data={luma}
-                    height={height}
-                    maxVal={maxVals.luma}
-                    width={width}
-                  />
-                )}
-                {displayMode === DisplayMode.Red && (
-                  <LumaWaveformDisplay
-                    color={[255, 0, 0]}
-                    data={red}
-                    height={height}
-                    maxVal={maxVals.red}
-                    width={width}
-                  />
-                )}
-                {displayMode === DisplayMode.Green && (
-                  <LumaWaveformDisplay
-                    color={[0, 255, 0]}
-                    data={green}
-                    height={height}
-                    maxVal={maxVals.green}
-                    width={width}
-                  />
-                )}
-                {displayMode === DisplayMode.Blue && (
-                  <LumaWaveformDisplay
-                    color={[0, 0, 255]}
-                    data={blue}
-                    height={height}
-                    maxVal={maxVals.blue}
-                    width={width}
-                  />
-                )}
-              </div>
-              <div className="flex justify-center gap-1 mt-2 p-1 bg-surface rounded-lg">
-                <button
-                  onClick={() => setDisplayMode(DisplayMode.Luma)}
-                  className={`${baseButtonClass} ${
-                    displayMode === DisplayMode.Luma ? 'bg-accent text-black' : inactiveButtonClass
-                  }`}
-                >
-                  Luma
-                </button>
-                <button
-                  onClick={() => setDisplayMode(DisplayMode.Rgb)}
-                  className={`${baseButtonClass} ${
-                    displayMode === DisplayMode.Rgb ? 'bg-accent text-black' : inactiveButtonClass
-                  }`}
-                >
-                  RGB
-                </button>
-                <button
-                  onClick={() => setDisplayMode(DisplayMode.Red)}
-                  className={`${baseButtonClass} ${
-                    displayMode === DisplayMode.Red ? 'bg-red-500 text-white' : inactiveButtonClass
-                  }`}
-                >
-                  R
-                </button>
-                <button
-                  onClick={() => setDisplayMode(DisplayMode.Green)}
-                  className={`${baseButtonClass} ${
-                    displayMode === DisplayMode.Green ? 'bg-green-500 text-white' : inactiveButtonClass
-                  }`}
-                >
-                  G
-                </button>
-                <button
-                  onClick={() => setDisplayMode(DisplayMode.Blue)}
-                  className={`${baseButtonClass} ${
-                    displayMode === DisplayMode.Blue ? 'bg-blue-500 text-white' : inactiveButtonClass
-                  }`}
-                >
-                  B
-                </button>
-              </div>
-            </div>
-          )}
-        </motion.div>
+              {isHistogram ? <FakeHistogramLoader /> : <FakeWaveformLoader mode={displayMode} />}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </div>
-    </Draggable>
+
+      <AnimatePresence>
+        {isHovered && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="absolute inset-x-0 bottom-0 p-2 pt-6 bg-linear-to-t from-black/80 to-transparent flex justify-center z-20"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.1, ease: 'easeOut', delay: 0.05 }}
+              className="flex items-center justify-center gap-1 p-1 bg-surface/90 backdrop-blur-md rounded-lg w-full shadow-lg border border-white/5"
+            >
+              {onToggleClipping && (
+                <>
+                  <button
+                    onClick={onToggleClipping}
+                    data-tooltip={showClipping ? 'Hide Clipping Warnings' : 'Show Clipping Warnings'}
+                    className={`relative flex items-center justify-center w-7 h-7 shrink-0 rounded-lg transition-colors duration-150 ${
+                      showClipping ? 'bg-accent text-button-text' : 'text-text-primary hover:bg-bg-tertiary'
+                    }`}
+                  >
+                    <AlertOctagon size={14} />
+                  </button>
+                  <div className="w-px h-5 bg-white/20 mx-1 shrink-0"></div>
+                </>
+              )}
+
+              <LayoutGroup>
+                {modeButtons.map(({ mode, label, tooltip, bgClass, textActiveClass }) => (
+                  <button
+                    key={mode}
+                    onClick={() => setDisplayMode(mode)}
+                    data-tooltip={tooltip}
+                    className={`${baseButtonClass} ${displayMode === mode ? textActiveClass : inactiveButtonClass}`}
+                  >
+                    {displayMode === mode && (
+                      <motion.div
+                        layoutId="waveform-mode-indicator"
+                        className={`absolute inset-0 ${bgClass} rounded-lg`}
+                        transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                      />
+                    )}
+                    <span className="relative z-10">{label}</span>
+                  </button>
+                ))}
+              </LayoutGroup>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

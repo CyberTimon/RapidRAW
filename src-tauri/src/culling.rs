@@ -88,12 +88,12 @@ fn calculate_laplacian_variance(image: &GrayImage) -> f64 {
         return 0.0;
     }
     let mean = sum / laplacian_values.len() as f64;
-    let variance = laplacian_values
+
+    laplacian_values
         .iter()
         .map(|v| (v - mean).powi(2))
         .sum::<f64>()
-        / laplacian_values.len() as f64;
-    variance
+        / laplacian_values.len() as f64
 }
 
 fn calculate_exposure_metric(image: &GrayImage) -> f64 {
@@ -122,22 +122,23 @@ fn calculate_exposure_metric(image: &GrayImage) -> f64 {
 }
 
 fn analyze_image(
-    path: &str, 
-    hasher: &image_hasher::Hasher, 
-    highlight_compression: f32, 
-    linear_mode: String
+    path: &str,
+    hasher: &image_hasher::Hasher,
+    highlight_compression: f32,
+    linear_mode: String,
 ) -> Result<ImageAnalysisData, String> {
-    const ANALYSIS_DIM: u32 = 512;
+    const ANALYSIS_DIM: u32 = 720; // FIXME: How should we calculate good focus if it's downscaled?!?
     let file_bytes = std::fs::read(path).map_err(|e| e.to_string())?;
 
     let img = image_loader::load_base_image_from_bytes(
-        &file_bytes, 
-        path, 
-        false, 
-        highlight_compression, 
-        linear_mode, 
-        None
-    ).map_err(|e| e.to_string())?;
+        &file_bytes,
+        path,
+        true,
+        highlight_compression,
+        linear_mode,
+        None,
+    )
+    .map_err(|e| e.to_string())?;
 
     let (width, height) = img.dimensions();
     let thumbnail = img.thumbnail(ANALYSIS_DIM, ANALYSIS_DIM);
@@ -216,8 +217,7 @@ pub async fn cull_images(
                 },
             );
 
-            analyze_image(path, &hasher, hc, lrm.clone())
-                .map_err(|e| (path.to_string(), e))
+            analyze_image(path, &hasher, hc, lrm.clone()).map_err(|e| (path.to_string(), e))
         })
         .collect();
 

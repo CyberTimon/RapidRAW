@@ -1,13 +1,15 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { Save, CheckCircle, XCircle, Loader, X, Ban } from 'lucide-react';
+import { FileInput, CheckCircle, XCircle, Loader, X, Ban } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import Switch from '../../ui/Switch';
+import Button from '../../ui/Button';
 import Dropdown from '../../ui/Dropdown';
 import Slider from '../../ui/Slider';
 import ImagePicker from '../../ui/ImagePicker';
 import {
+  ExportPreset,
   FileFormat,
   FILE_FORMATS,
   FILENAME_VARIABLES,
@@ -20,6 +22,9 @@ import {
 import { Invokes, ImageFile, AppSettings } from '../../ui/AppProperties';
 import ExportPresetsList from '../../ui/ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
+import { useOsPlatform } from '../../../hooks/useOsPlatform';
+import Text from '../../ui/Text';
+import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 
 interface LibraryExportPanelProps {
   exportState: ExportState;
@@ -30,6 +35,7 @@ interface LibraryExportPanelProps {
   imageList: ImageFile[];
   appSettings: AppSettings | null;
   onSettingsChange: (settings: AppSettings) => void;
+  rootPath: string | null;
 }
 
 interface SectionProps {
@@ -40,8 +46,10 @@ interface SectionProps {
 function Section({ title, children }: SectionProps) {
   return (
     <div>
-      <h3 className="text-sm font-semibold text-text-primary mb-3 border-surface pb-2">{title}</h3>
-      <div className="space-y-4">{children}</div>
+      <Text variant={TextVariants.heading} className="mb-2">
+        {title}
+      </Text>
+      <div className="space-y-2">{children}</div>
     </div>
   );
 }
@@ -124,16 +132,16 @@ function WatermarkPreview({
 
   return (
     <div
-      className="w-full bg-bg-primary rounded-md relative overflow-hidden border border-surface"
+      className="w-full bg-surface rounded-md relative overflow-hidden border border-surface"
       style={{ aspectRatio: imageAspectRatio }}
     >
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-text-tertiary text-sm">Preview</span>
+        <Text variant={TextVariants.label}>Preview</Text>
       </div>
       {watermarkPath && (
         <div style={getPositionStyles()}>
           <div
-            className="w-full bg-accent/50 border-2 border-dashed border-accent rounded-sm flex items-center justify-center"
+            className="w-full bg-accent/50 border-2 border-dashed border-accent rounded-xs flex items-center justify-center"
             style={{ aspectRatio: watermarkImageAspectRatio }}
           >
             <span className="text-white text-[8px] font-bold">Logo</span>
@@ -166,9 +174,10 @@ export default function LibraryExportPanel({
   multiSelectedPaths,
   onClose,
   setExportState,
-  imageList,
+  imageList: _imageList,
   appSettings,
   onSettingsChange,
+  rootPath,
 }: LibraryExportPanelProps) {
   const {
     fileFormat,
@@ -185,6 +194,8 @@ export default function LibraryExportPanel({
     setDontEnlarge,
     keepMetadata,
     setKeepMetadata,
+    preserveTimestamps,
+    setPreserveTimestamps,
     stripGps,
     setStripGps,
     exportMasks,
@@ -205,12 +216,51 @@ export default function LibraryExportPanel({
     setWatermarkOpacity,
     handleApplyPreset,
     currentSettingsObject,
+    preserveFolders,
+    setPreserveFolders,
   } = useExportSettings();
+
+  const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
+
+  useEffect(() => {
+    if (!isVisible) {
+      setHasLoadedSettings(false);
+      return;
+    }
+
+    if (appSettings && !hasLoadedSettings) {
+      const lastUsed = appSettings.exportPresets?.find((p) => p.id === '__last_used__');
+      if (lastUsed) {
+        handleApplyPreset(lastUsed);
+      }
+      setHasLoadedSettings(true);
+    }
+  }, [isVisible, appSettings, hasLoadedSettings, handleApplyPreset]);
+
+  const saveLastUsedPreset = useCallback(
+    (exportPath: string) => {
+      if (!appSettings) return;
+      const lastUsedPreset: ExportPreset = {
+        ...currentSettingsObject,
+        id: '__last_used__',
+        name: '__last_used__',
+        lastExportPath: exportPath,
+      };
+      const updatedPresets = [
+        ...(appSettings.exportPresets ?? []).filter((p) => p.id !== '__last_used__'),
+        lastUsedPreset,
+      ];
+      onSettingsChange({ ...appSettings, exportPresets: updatedPresets });
+    },
+    [appSettings, currentSettingsObject, onSettingsChange],
+  );
 
   const [estimatedSize, setEstimatedSize] = useState<number | null>(null);
   const [isEstimating, setIsEstimating] = useState<boolean>(false);
   const [watermarkImageAspectRatio, setWatermarkImageAspectRatio] = useState(1);
   const filenameInputRef = useRef<HTMLInputElement>(null);
+  const osPlatform = useOsPlatform();
+  const isAndroid = osPlatform === 'android';
 
   const { status, progress, errorMessage } = exportState;
   const isExporting = status === Status.Exporting;
@@ -231,7 +281,7 @@ export default function LibraryExportPanel({
           } else {
             setImageAspectRatio(3 / 2);
           }
-        } catch (error) {
+        } catch (_error) {
           console.warn(`Could not get dimensions for preview, using default aspect ratio.`);
           setImageAspectRatio(3 / 2);
         }
@@ -298,7 +348,7 @@ export default function LibraryExportPanel({
           setIsEstimating(false);
         }
       }, 500),
-    []
+    [],
   );
 
   useEffect(() => {
@@ -312,6 +362,7 @@ export default function LibraryExportPanel({
       filenameTemplate,
       jpegQuality,
       keepMetadata,
+      preserveTimestamps,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       stripGps,
       watermark:
@@ -324,7 +375,7 @@ export default function LibraryExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
-      exportMasks
+      exportMasks,
     };
     const format = FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0] || 'jpeg';
     debouncedEstimateSize(multiSelectedPaths, exportSettings, format);
@@ -340,6 +391,7 @@ export default function LibraryExportPanel({
     resizeValue,
     dontEnlarge,
     keepMetadata,
+    preserveTimestamps,
     stripGps,
     filenameTemplate,
     enableWatermark,
@@ -377,10 +429,12 @@ export default function LibraryExportPanel({
       return;
     }
 
-    setExportState({ status: Status.Exporting, progress: { current: 0, total: numImages }, errorMessage: '' });
-
     let finalFilenameTemplate = filenameTemplate;
-    if (numImages > 1 && !filenameTemplate.includes('{sequence}') && !filenameTemplate.includes('{original_filename}')) {
+    if (
+      numImages > 1 &&
+      !filenameTemplate.includes('{sequence}') &&
+      !filenameTemplate.includes('{original_filename}')
+    ) {
       finalFilenameTemplate = `${filenameTemplate}_{sequence}`;
       setFilenameTemplate(finalFilenameTemplate);
     }
@@ -389,6 +443,7 @@ export default function LibraryExportPanel({
       filenameTemplate: finalFilenameTemplate,
       jpegQuality: jpegQuality,
       keepMetadata,
+      preserveTimestamps,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       stripGps,
       exportMasks,
@@ -402,23 +457,32 @@ export default function LibraryExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
+      preserveFolders,
     };
 
+    const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
+
     try {
-      const outputFolder = await open({
-        directory: true,
-        title: `Select Folder to Export ${numImages} Image(s)`,
-      });
+      const outputFolder = isAndroid
+        ? ''
+        : await open({
+            directory: true,
+            title: `Select Folder to Export ${numImages} Image(s)`,
+            defaultPath: lastExportPath ?? undefined,
+          });
 
       if (outputFolder) {
+        if (!isAndroid) {
+          saveLastUsedPreset(outputFolder as string);
+        }
+        setExportState({ status: Status.Exporting, progress: { current: 0, total: numImages }, errorMessage: '' });
         await invoke(Invokes.BatchExportImages, {
           exportSettings,
-          outputFolder,
+          outputFolder: outputFolder as string,
           outputFormat: FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0],
           paths: multiSelectedPaths,
+          baseOriginFolder: rootPath,
         });
-      } else {
-        setExportState((prev: ExportState) => ({ ...prev, status: Status.Idle }));
       }
     } catch (error) {
       console.error('Error exporting images:', error);
@@ -439,13 +503,13 @@ export default function LibraryExportPanel({
   };
 
   const canExport = numImages > 0;
+  const isLut = fileFormat === FileFormats.Cube;
+  const itemLabel = isLut ? 'LUT' : 'Image';
 
   return (
     <div className="h-full bg-bg-secondary rounded-lg flex flex-col">
-      <div className="p-4 flex justify-between items-center flex-shrink-0 border-b border-surface">
-        <h2 className="text-xl font-bold text-primary text-shadow-shiny">
-          Export
-        </h2>
+      <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
+        <Text variant={TextVariants.title}>Export</Text>
         <button
           onClick={onClose}
           className="p-1 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary"
@@ -453,7 +517,7 @@ export default function LibraryExportPanel({
           <X size={20} />
         </button>
       </div>
-      <div className="flex-grow overflow-y-auto p-4 text-text-secondary space-y-6">
+      <div className="grow overflow-y-auto p-4 space-y-8">
         {canExport ? (
           <>
             <ExportPresetsList
@@ -466,27 +530,30 @@ export default function LibraryExportPanel({
               <div className="grid grid-cols-3 gap-2">
                 {FILE_FORMATS.map((format: FileFormat) => (
                   <button
-                    className={`px-2 py-1.5 text-sm rounded-md transition-colors ${
-                      fileFormat === format.id ? 'bg-accent text-button-text' : 'bg-surface hover:bg-card-active'
+                    className={`px-2 py-1.5 rounded-md transition-colors ${
+                      fileFormat === format.id ? 'bg-accent' : 'bg-surface hover:bg-card-active'
                     } disabled:opacity-50`}
                     disabled={isExporting}
                     key={format.id}
                     onClick={() => setFileFormat(format.id)}
                   >
-                    {format.name}
+                    <Text color={fileFormat === format.id ? TextColors.button : TextColors.secondary}>
+                      {format.name}
+                    </Text>
                   </button>
                 ))}
               </div>
-              {fileFormat === FileFormats.Jpeg && (
+              {[FileFormats.Jpeg, FileFormats.Webp, FileFormats.Jxl].includes(fileFormat as FileFormats) && (
                 <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
                   <Slider
                     defaultValue={90}
-                    label="Quality"
+                    label={fileFormat === FileFormats.Jxl && jpegQuality === 100 ? 'Quality (Lossless)' : 'Quality'}
                     max={100}
                     min={1}
                     onChange={(e) => setJpegQuality(parseInt(e.target.value))}
                     step={1}
                     value={jpegQuality}
+                    fillOrigin="min"
                   />
                 </div>
               )}
@@ -494,7 +561,7 @@ export default function LibraryExportPanel({
 
             <Section title="File Naming">
               <input
-                className="w-full bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
+                className="w-full bg-surface border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
                 disabled={isExporting}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilenameTemplate(e.target.value)}
                 ref={filenameInputRef}
@@ -513,135 +580,185 @@ export default function LibraryExportPanel({
                   </button>
                 ))}
               </div>
+              <div className="mt-4">
+                <Switch
+                  label="Preserve Folder Structure"
+                  checked={preserveFolders}
+                  onChange={setPreserveFolders}
+                  disabled={isExporting}
+                />
+              </div>
             </Section>
 
-            <Section title="Image Sizing">
-              <Switch label="Resize to Fit" checked={enableResize} onChange={setEnableResize} disabled={isExporting} />
-              {enableResize && (
-                <div className="space-y-4 pl-2 border-l-2 border-surface">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-full ${isExporting ? 'opacity-50 pointer-events-none' : ''}`}>
-                      <Dropdown options={resizeModeOptions} value={resizeMode} onChange={setResizeMode} />
-                    </div>
-                    <input
-                      className="w-24 bg-bg-primary text-center rounded-md p-2 border border-surface focus:border-accent focus:ring-accent"
-                      disabled={isExporting}
-                      min="1"
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResizeValue(parseInt(e?.target?.value))}
-                      type="number"
-                      value={resizeValue}
-                    />
-                    <span className="text-sm">pixels</span>
-                  </div>
+            {fileFormat !== FileFormats.Cube && (
+              <>
+                <Section title="Image Sizing">
                   <Switch
-                    checked={dontEnlarge}
+                    label="Resize to Fit"
+                    checked={enableResize}
+                    onChange={setEnableResize}
                     disabled={isExporting}
-                    label="Don't Enlarge"
-                    onChange={setDontEnlarge}
                   />
-                </div>
-              )}
-            </Section>
-
-            <Section title="Metadata">
-              <Switch
-                checked={keepMetadata}
-                disabled={isExporting}
-                label="Keep Original Metadata"
-                onChange={setKeepMetadata}
-              />
-              {keepMetadata && (
-                <div className="pl-2 border-l-2 border-surface">
-                  <Switch label="Remove GPS Data" checked={stripGps} onChange={setStripGps} disabled={isExporting} />
-                </div>
-              )}
-            </Section>
-
-            <Section title="Masks">
-              <Switch
-                label="Export masks as separate files"
-                checked={exportMasks}
-                onChange={setExportMasks}
-                disabled={isExporting}
-              />
-            </Section>
-
-            <Section title="Watermark">
-              <Switch
-                label="Add Watermark"
-                checked={enableWatermark}
-                onChange={setEnableWatermark}
-                disabled={isExporting}
-              />
-              {enableWatermark && (
-                <div className="space-y-4 pl-2 border-l-2 border-surface">
-                  <ImagePicker
-                    label="Watermark Image"
-                    imageName={watermarkPath ? watermarkPath.split(/[\\/]/).pop() || null : null}
-                    onImageSelect={setWatermarkPath}
-                    onClear={() => setWatermarkPath(null)}
-                  />
-                  {watermarkPath && (
-                    <>
-                      <div className={`w-full ${isExporting ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {enableResize && (
+                    <div className="space-y-4 pl-2 border-l-2 border-surface">
+                      <div className="flex items-center gap-2">
                         <Dropdown
-                          options={anchorOptions}
-                          value={watermarkAnchor}
-                          onChange={(val) => setWatermarkAnchor(val as WatermarkAnchor)}
+                          options={resizeModeOptions}
+                          value={resizeMode}
+                          onChange={setResizeMode}
+                          disabled={isExporting}
+                          className="w-full"
                         />
+                        <input
+                          className="w-24 bg-surface text-center rounded-md p-2 border border-surface focus:border-accent focus:ring-accent text-text-secondary focus:text-text-primary"
+                          disabled={isExporting}
+                          min="1"
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            setResizeValue(parseInt(e?.target?.value))
+                          }
+                          type="number"
+                          value={resizeValue}
+                        />
+                        <Text variant={TextVariants.label}>pixels</Text>
                       </div>
-                      <Slider
-                        label="Scale"
-                        min={1}
-                        max={50}
-                        step={1}
-                        value={watermarkScale}
-                        onChange={(e) => setWatermarkScale(parseInt(e.target.value))}
+                      <Switch
+                        checked={dontEnlarge}
                         disabled={isExporting}
-                        defaultValue={10}
+                        label="Don't Enlarge"
+                        onChange={setDontEnlarge}
                       />
-                      <Slider
-                        label="Spacing"
-                        min={0}
-                        max={25}
-                        step={1}
-                        value={watermarkSpacing}
-                        onChange={(e) => setWatermarkSpacing(parseInt(e.target.value))}
-                        disabled={isExporting}
-                        defaultValue={5}
-                      />
-                      <Slider
-                        label="Opacity"
-                        min={0}
-                        max={100}
-                        step={1}
-                        value={watermarkOpacity}
-                        onChange={(e) => setWatermarkOpacity(parseInt(e.target.value))}
-                        disabled={isExporting}
-                        defaultValue={75}
-                      />
-                      <WatermarkPreview
-                        imageAspectRatio={imageAspectRatio}
-                        watermarkImageAspectRatio={watermarkImageAspectRatio}
-                        watermarkPath={watermarkPath}
-                        anchor={watermarkAnchor}
-                        scale={watermarkScale}
-                        spacing={watermarkSpacing}
-                        opacity={watermarkOpacity}
-                      />
-                    </>
+                    </div>
                   )}
-                </div>
-              )}
-            </Section>
+                </Section>
+
+                {fileFormat == FileFormats.Jpeg && (
+                  <>
+                    <Section title="Metadata">
+                      <Switch
+                        checked={keepMetadata}
+                        disabled={isExporting}
+                        label="Keep Original Metadata"
+                        onChange={setKeepMetadata}
+                      />
+                      {keepMetadata && (
+                        <div className="pl-2 border-l-2 border-surface">
+                          <Switch
+                            label="Remove GPS Data"
+                            checked={stripGps}
+                            onChange={setStripGps}
+                            disabled={isExporting}
+                          />
+                        </div>
+                      )}
+                    </Section>
+                  </>
+                )}
+
+                <Section title="File Timestamps">
+                  <Switch
+                    checked={preserveTimestamps}
+                    disabled={isExporting}
+                    label="Set File Timestamps from EXIF Capture Date"
+                    onChange={setPreserveTimestamps}
+                  />
+                </Section>
+
+                <Section title="Masks">
+                  <Switch
+                    label="Export masks as separate files"
+                    checked={exportMasks}
+                    onChange={setExportMasks}
+                    disabled={isExporting}
+                  />
+                </Section>
+
+                <Section title="Watermark">
+                  <Switch
+                    label="Add Watermark"
+                    checked={enableWatermark}
+                    onChange={setEnableWatermark}
+                    disabled={isExporting}
+                  />
+                  {enableWatermark && (
+                    <div className="space-y-4 pl-2 border-l-2 border-surface">
+                      <ImagePicker
+                        label="Watermark Image"
+                        imageName={watermarkPath ? watermarkPath.split(/[\\/]/).pop() || null : null}
+                        onImageSelect={setWatermarkPath}
+                        onClear={() => setWatermarkPath(null)}
+                      />
+                      {watermarkPath && (
+                        <>
+                          <Dropdown
+                            options={anchorOptions}
+                            value={watermarkAnchor}
+                            onChange={(val) => setWatermarkAnchor(val)}
+                            disabled={isExporting}
+                            className="w-full"
+                          />
+                          <div>
+                            <Slider
+                              label="Scale"
+                              min={1}
+                              max={50}
+                              step={1}
+                              value={watermarkScale}
+                              onChange={(e) => setWatermarkScale(parseInt(e.target.value))}
+                              disabled={isExporting}
+                              defaultValue={10}
+                            />
+                            <Slider
+                              label="Spacing"
+                              min={0}
+                              max={25}
+                              step={1}
+                              value={watermarkSpacing}
+                              onChange={(e) => setWatermarkSpacing(parseInt(e.target.value))}
+                              disabled={isExporting}
+                              defaultValue={5}
+                            />
+                            <Slider
+                              label="Opacity"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={watermarkOpacity}
+                              onChange={(e) => setWatermarkOpacity(parseInt(e.target.value))}
+                              disabled={isExporting}
+                              defaultValue={75}
+                            />
+                          </div>
+                          <WatermarkPreview
+                            imageAspectRatio={imageAspectRatio}
+                            watermarkImageAspectRatio={watermarkImageAspectRatio}
+                            watermarkPath={watermarkPath}
+                            anchor={watermarkAnchor}
+                            scale={watermarkScale}
+                            spacing={watermarkSpacing}
+                            opacity={watermarkOpacity}
+                          />
+                        </>
+                      )}
+                    </div>
+                  )}
+                </Section>
+              </>
+            )}
           </>
         ) : (
-          <p className="text-center text-text-tertiary mt-4">No images selected.</p>
+          <Text
+            variant={TextVariants.heading}
+            color={TextColors.secondary}
+            weight={TextWeights.normal}
+            className="text-center mt-4"
+          >
+            No images selected.
+          </Text>
         )}
       </div>
 
-      <div className="p-4 border-t border-surface flex-shrink-0 space-y-3">
-        <div className="text-center text-xs text-text-tertiary h-4">
+      <div className="p-4 border-t border-surface shrink-0 space-y-2">
+        <Text as="div" variant={TextVariants.small} color={TextColors.primary} className="text-center">
           {isEstimating ? (
             <span className="italic">Estimating size...</span>
           ) : estimatedSize !== null ? (
@@ -650,50 +767,52 @@ export default function LibraryExportPanel({
               {numImages > 1 && ` (${formatBytes(estimatedSize / numImages)} avg)`}
             </span>
           ) : null}
-        </div>
-        {isExporting ? (
-          <button
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600/80 text-white font-bold rounded-lg hover:bg-red-600 transition-all"
-            onClick={handleCancel}
-          >
-            <Ban size={18} />
-            Cancel Export
-          </button>
-        ) : (
-          <button
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-accent text-button-text font-bold rounded-lg hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            disabled={!canExport || isExporting}
-            onClick={handleExport}
-          >
-            <Save size={18} />
-            Export {numImages > 1 ? `${numImages} Images` : 'Image'}
-          </button>
-        )}
-
-        {status === Status.Exporting && (
-          <div className="flex items-center gap-2 text-accent mt-3 text-sm justify-center">
-            <Loader size={16} className="animate-spin" />
-            <span>{`Exporting... (${progress.current}/${progress.total})`}</span>
-          </div>
-        )}
-        {status === Status.Success && (
-          <div className="flex items-center gap-2 text-green-400 mt-3 text-sm justify-center">
-            <CheckCircle size={16} />
-            <span>Export successful!</span>
-          </div>
-        )}
-        {status === Status.Error && (
-          <div className="flex items-center gap-2 text-red-400 mt-3 text-sm justify-center text-center">
-            <XCircle size={16} />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-        {status === Status.Cancelled && (
-          <div className="flex items-center gap-2 text-yellow-400 mt-3 text-sm justify-center">
-            <Ban size={16} />
-            <span>Export cancelled.</span>
-          </div>
-        )}
+        </Text>
+        <Button
+          className={`group rounded-md h-11 w-full flex items-center text-md font-bold! justify-center ${
+            status === Status.Exporting
+              ? 'bg-red-600/80 hover:bg-red-600 text-white'
+              : status === Status.Success
+                ? 'bg-green-500/70 text-white shadow-none'
+                : status === Status.Error
+                  ? 'bg-red-500/20 text-red-400 shadow-none'
+                  : status === Status.Cancelled
+                    ? 'bg-yellow-500/20 text-yellow-400 shadow-none'
+                    : ''
+          }`}
+          disabled={status === Status.Exporting ? false : !canExport}
+          onClick={status === Status.Exporting ? handleCancel : handleExport}
+          size="lg"
+        >
+          {status === Status.Exporting ? (
+            <>
+              <span className="flex items-center group-hover:hidden">
+                <Loader size={18} className="animate-spin mr-2" />
+                Exporting…{progress.total > 1 && ` (${progress.current}/${progress.total})`}
+              </span>
+              <span className="hidden items-center group-hover:flex">
+                <Ban size={18} className="mr-2" />
+                Cancel Export
+              </span>
+            </>
+          ) : status === Status.Success ? (
+            <>
+              <CheckCircle size={18} className="mr-2" /> Export successful!
+            </>
+          ) : status === Status.Error ? (
+            <>
+              <XCircle size={18} className="mr-2" /> {errorMessage || 'Export failed'}
+            </>
+          ) : status === Status.Cancelled ? (
+            <>
+              <Ban size={18} className="mr-2" /> Export cancelled
+            </>
+          ) : (
+            <>
+              <FileInput size={18} className="mr-2" /> Export {numImages > 1 ? `${numImages} ${itemLabel}s` : itemLabel}
+            </>
+          )}
+        </Button>
       </div>
     </div>
   );

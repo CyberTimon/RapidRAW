@@ -31,9 +31,7 @@ const ToneMapperSwitch = ({
   onExposureChange,
   onDragStateChange,
 }: ToneMapperSwitchProps) => {
-  const [buttonRefs, setButtonRefs] = useState<Map<string, HTMLButtonElement>>(new Map());
   const [bubbleStyle, setBubbleStyle] = useState({});
-  const containerRef = useRef<HTMLDivElement>(null);
   const isInitialAnimation = useRef(true);
   const [isLabelHovered, setIsLabelHovered] = useState(false);
 
@@ -43,32 +41,33 @@ const ToneMapperSwitch = ({
   };
 
   useEffect(() => {
-    const selectedButton = buttonRefs.get(selectedMapper);
+    const selectedIndex = toneMapperOptions.findIndex((m) => m.id === selectedMapper);
+    const safeIndex = selectedIndex >= 0 ? selectedIndex : 0;
 
-    if (selectedButton && containerRef.current) {
-      const targetStyle = {
-        x: selectedButton.offsetLeft,
-        width: selectedButton.offsetWidth,
-      };
+    const widthPercent = 100 / toneMapperOptions.length;
+    const targetX = `${safeIndex * 100}%`;
+    const targetWidth = `${widthPercent}%`;
 
-      if (isInitialAnimation.current && containerRef.current.offsetWidth > 0) {
-        let initialX;
-        if (selectedMapper === 'agx') {
-          initialX = containerRef.current.offsetWidth;
-        } else {
-          initialX = -targetStyle.width;
-        }
-
-        setBubbleStyle({
-          x: [initialX, targetStyle.x],
-          width: targetStyle.width,
-        });
-        isInitialAnimation.current = false;
+    if (isInitialAnimation.current) {
+      let initialX;
+      if (selectedMapper === 'agx') {
+        initialX = `${toneMapperOptions.length * 100}%`;
       } else {
-        setBubbleStyle(targetStyle);
+        initialX = '-25%';
       }
+
+      setBubbleStyle({
+        x: [initialX, targetX],
+        width: targetWidth,
+      });
+      isInitialAnimation.current = false;
+    } else {
+      setBubbleStyle({
+        x: targetX,
+        width: targetWidth,
+      });
     }
-  }, [selectedMapper, buttonRefs]);
+  }, [selectedMapper]);
 
   return (
     <div className="group">
@@ -99,7 +98,7 @@ const ToneMapperSwitch = ({
         </div>
       </div>
       <div className="w-full p-2 pb-1 bg-card-active rounded-md">
-        <div ref={containerRef} className="relative flex w-full">
+        <div className="relative flex w-full">
           <motion.div
             className="absolute top-0 bottom-0 z-0 bg-accent"
             style={{ borderRadius: 6 }}
@@ -110,15 +109,6 @@ const ToneMapperSwitch = ({
             <button
               key={mapper.id}
               data-tooltip={mapper.title}
-              ref={(el) => {
-                if (el) {
-                  const newRefs = new Map(buttonRefs);
-                  if (newRefs.get(mapper.id) !== el) {
-                    newRefs.set(mapper.id, el);
-                    setButtonRefs(newRefs);
-                  }
-                }
-              }}
               onClick={() => onMapperChange(mapper.id)}
               className={clsx(
                 'relative flex-1 flex items-center justify-center gap-2 px-3 p-1.5 text-sm font-medium rounded-md transition-colors',

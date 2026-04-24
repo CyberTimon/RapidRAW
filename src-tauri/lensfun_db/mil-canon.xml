@@ -2639,6 +2639,16 @@
         <calibration>
             <!-- Taken with Canon EOS R6m2 -->
             <distortion model="ptlens" focal="45" a="-0.010537" b="0.0279611" c="-0.0682094"/>
+			<vignetting model="pa" focal="45" aperture="1.2" distance="10" k1="-0.8827" k2="-0.4408" k3="0.4338"/>
+            <vignetting model="pa" focal="45" aperture="1.2" distance="1000" k1="-0.8827" k2="-0.4408" k3="0.4338"/>
+            <vignetting model="pa" focal="45" aperture="1.8" distance="10" k1="0.1917" k2="-1.5528" k3="0.5385"/>
+            <vignetting model="pa" focal="45" aperture="1.8" distance="1000" k1="0.1917" k2="-1.5528" k3="0.5385"/>
+            <vignetting model="pa" focal="45" aperture="2.5" distance="10" k1="-0.0471" k2="0.4226" k3="-1.0238"/>
+            <vignetting model="pa" focal="45" aperture="2.5" distance="1000" k1="-0.0471" k2="0.4226" k3="-1.0238"/>
+            <vignetting model="pa" focal="45" aperture="4" distance="10" k1="-0.5196" k2="1.2567" k3="-1.1432"/>
+            <vignetting model="pa" focal="45" aperture="4" distance="1000" k1="-0.5196" k2="1.2567" k3="-1.1432"/>
+            <vignetting model="pa" focal="45" aperture="16" distance="10" k1="0.0883" k2="-0.3813" k3="0.0777"/>
+            <vignetting model="pa" focal="45" aperture="16" distance="1000" k1="0.0883" k2="-0.3813" k3="0.0777"/>
         </calibration>
     </lens>
 

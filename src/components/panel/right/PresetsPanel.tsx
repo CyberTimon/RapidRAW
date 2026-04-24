@@ -22,18 +22,24 @@ import {
   FolderPlus,
   Loader2,
   Plus,
-  RefreshCw,
   SortAsc,
   Trash2,
   Users,
+  Layers,
+  Crop,
+  Save,
+  Wrench,
+  Palette,
+  Settings2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import AddPresetModal from '../../modals/AddPresetModal';
-import RenamePresetModal from '../../modals/RenamePresetModal';
+import ConfigurePresetModal from '../../modals/ConfigurePresetModal';
 import CreateFolderModal from '../../modals/CreateFolderModal';
 import RenameFolderModal from '../../modals/RenameFolderModal';
 import Button from '../../ui/Button';
-import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
+import Text from '../../ui/Text';
+import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
+import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS } from '../../../utils/adjustments';
 import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
 
 interface DroppableFolderItemProps {
@@ -63,12 +69,12 @@ interface FolderState {
 
 interface ModalState {
   isOpen: boolean;
-  preset: UserPreset | null;
+  preset: Preset | null;
 }
 
 interface PresetItemDisplayProps {
   isGeneratingPreviews: boolean;
-  preset: any;
+  preset: Preset;
   previewUrl: string;
 }
 
@@ -94,19 +100,69 @@ const itemVariants = {
 };
 
 function PresetItemDisplay({ preset, previewUrl, isGeneratingPreviews }: PresetItemDisplayProps) {
+  const geometryKeys = ADJUSTMENT_GROUPS.geometry.flatMap((g) => g.keys);
+
+  const supportsMasks = preset.includeMasks ?? (preset.adjustments?.masks && preset.adjustments.masks.length > 0);
+  const supportsGeometry =
+    preset.includeCropTransform ?? geometryKeys.some((key) => preset.adjustments?.[key] !== undefined);
+  const isTool = preset.presetType === 'tool';
+  const tooltipContent = useMemo(() => {
+    const features = [];
+    if (supportsMasks) features.push('Masks');
+    if (supportsGeometry) features.push('Crop & Transform');
+
+    if (features.length === 0) return undefined;
+    return `Supports ${features.join(' + ')}`;
+  }, [supportsMasks, supportsGeometry]);
+
   return (
-    <div className="flex items-center gap-2 p-2 rounded-lg bg-surface cursor-grabbing">
-      <div className="w-20 h-14 bg-bg-tertiary rounded-md flex items-center justify-center flex-shrink-0">
+    <div className="flex items-center gap-3 p-2 rounded-lg bg-surface cursor-grabbing">
+      <div
+        className="w-20 h-14 bg-bg-tertiary rounded-md flex items-center justify-center shrink-0 relative overflow-hidden"
+        data-tooltip={tooltipContent}
+      >
         {isGeneratingPreviews && !previewUrl ? (
           <Loader2 size={20} className="animate-spin text-text-secondary" />
         ) : previewUrl ? (
-          <img src={previewUrl} alt={`${preset.name} preview`} className="w-full h-full object-cover rounded-md" />
+          <img
+            src={previewUrl}
+            alt={`${preset.name} preview`}
+            className="w-full h-full object-cover rounded-md pointer-events-none"
+          />
         ) : (
           <Loader2 size={20} className="animate-spin text-text-secondary" />
         )}
+
+        {(supportsMasks || supportsGeometry) && (
+          <>
+            <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-linear-to-bl from-black/30 via-black/0 to-transparent pointer-events-none z-0" />
+
+            <div className="absolute top-1 right-1 bg-primary rounded-full px-1.5 py-0.5 flex items-center gap-1.5 backdrop-blur-xs shadow-xs z-10 pointer-events-none">
+              {supportsMasks && <Layers size={11} className="text-white" />}
+              {supportsGeometry && <Crop size={11} className="text-white" />}
+            </div>
+          </>
+        )}
       </div>
-      <div className="flex-grow min-w-0">
-        <p className="font-medium truncate">{preset.name}</p>
+
+      <div className="grow min-w-0 flex flex-col justify-center">
+        <Text color={TextColors.primary} weight={TextWeights.medium} className="truncate">
+          {preset.name}
+        </Text>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          {isTool ? (
+            <Wrench size={12} className="text-text-secondary" />
+          ) : (
+            <Palette size={12} className="text-text-secondary" />
+          )}
+          <Text
+            variant={TextVariants.small}
+            color={TextColors.secondary}
+            className="text-[10px] uppercase tracking-wider"
+          >
+            {isTool ? 'Tool' : 'Style'}
+          </Text>
+        </div>
       </div>
     </div>
   );
@@ -118,8 +174,12 @@ function FolderItemDisplay({ folder }: FolderProps) {
       <div className="p-1">
         <FolderIcon size={18} />
       </div>
-      <p className="font-normal flex-grow truncate select-none">{folder.name}</p>
-      <span className="text-text-secondary text-sm ml-auto pr-1">{folder.children?.length || 0}</span>
+      <Text color={TextColors.primary} weight={TextWeights.medium} className="grow truncate select-none">
+        {folder.name}
+      </Text>
+      <Text as="span" weight={TextWeights.medium} className="ml-auto pr-1">
+        {folder.children?.length || 0}
+      </Text>
     </div>
   );
 }
@@ -169,9 +229,15 @@ function DraggablePresetItem({
       ref={setCombinedRef}
       style={style}
     >
-      <div {...listeners} {...attributes} className="cursor-grab">
+      <motion.div
+        {...listeners}
+        {...attributes}
+        className="cursor-grab"
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+      >
         <PresetItemDisplay preset={preset} previewUrl={previewUrl} isGeneratingPreviews={isGeneratingPreviews} />
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -209,7 +275,7 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
         className="flex items-center gap-2 p-2 rounded-lg bg-surface cursor-pointer"
         onContextMenu={(e: any) => onContextMenu(e, { folder })}
       >
-        <div className="p-1 cursor-grab" {...listeners} {...attributes}>
+        <div className="p-1 cursor-grab" ref={setDraggableNodeRef} {...listeners} {...attributes}>
           {isExpanded ? (
             <FolderOpen
               className="text-primary"
@@ -230,10 +296,17 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
             />
           )}
         </div>
-        <p className="font-normal flex-grow truncate select-none" onClick={() => onToggle(folder.id)}>
+        <Text
+          color={TextColors.primary}
+          weight={TextWeights.medium}
+          className="grow truncate select-none"
+          onClick={() => onToggle(folder.id)}
+        >
           {folder.name}
-        </p>
-        <span className="text-text-secondary text-sm ml-auto pr-1">{folder.children?.length || 0}</span>
+        </Text>
+        <Text as="span" variant={TextVariants.small} color={TextColors.secondary} className="ml-auto pr-1">
+          {folder.children?.length || 0}
+        </Text>
       </div>
       <AnimatePresence>
         {isExpanded && hasChildren && (
@@ -261,6 +334,7 @@ export default function PresetsPanel({
   const {
     addFolder,
     addPreset,
+    configurePreset,
     deleteItem,
     duplicatePreset,
     exportPresetsToFile,
@@ -268,18 +342,17 @@ export default function PresetsPanel({
     importLegacyPresetsFromFile,
     isLoading,
     movePreset,
+    overwritePreset,
     presets,
     renameItem,
     reorderItems,
     sortAllPresetsAlphabetically,
-    updatePreset,
   } = usePresets(adjustments);
   const { showContextMenu } = useContextMenu();
   const [previews, setPreviews] = useState<Record<string, string | null>>({});
   const [isGeneratingPreviews, setIsGeneratingPreviews] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [configureModalState, setConfigureModalState] = useState<ModalState>({ isOpen: false, preset: null });
   const [isAddFolderModalOpen, setIsAddFolderModalOpen] = useState(false);
-  const [renamePresetState, setRenamePresetState] = useState<ModalState>({ isOpen: false, preset: null });
   const [renameFolderState, setRenameFolderState] = useState<FolderState>({ isOpen: false, folder: null });
   const [expandedFolders, setExpandedFolders] = useState(new Set<string>());
   const [activeItem, setActiveItem] = useState<any>(null);
@@ -291,6 +364,7 @@ export default function PresetsPanel({
   expandedFoldersRef.current = expandedFolders;
   const previewQueue = useRef<Array<any>>([]);
   const isProcessingQueue = useRef(false);
+  const currentImagePathRef = useRef<string | null>(selectedImage?.path || null);
 
   useEffect(() => {
     const allPresetIds = new Set();
@@ -381,8 +455,18 @@ export default function PresetsPanel({
     isProcessingQueue.current = true;
     setIsGeneratingPreviews(true);
 
+    const pathAtStart = currentImagePathRef.current;
+
     while (previewQueue.current.length > 0) {
-      const { preset, folderId } = previewQueue.current.shift();
+      if (pathAtStart !== currentImagePathRef.current) {
+        previewQueue.current = [];
+        break;
+      }
+
+      const item = previewQueue.current.shift();
+      if (!item) break;
+      const { preset, folderId } = item;
+
       if (folderId && !expandedFoldersRef.current.has(folderId)) {
         continue;
       }
@@ -396,6 +480,12 @@ export default function PresetsPanel({
         const imageData: Uint8Array = await invoke(Invokes.GeneratePresetPreview, {
           jsAdjustments: fullPresetAdjustments,
         });
+
+        if (pathAtStart !== currentImagePathRef.current) {
+          previewQueue.current = [];
+          break;
+        }
+
         const blob = new Blob([imageData], { type: 'image/jpeg' });
         const url = URL.createObjectURL(blob);
         setPreviews((prev: Record<string, string | null>) => {
@@ -407,12 +497,13 @@ export default function PresetsPanel({
         });
       } catch (error) {
         console.error(`Failed to generate preview for preset ${preset.name}:`, error);
-        setPreviews((prev: Record<string, string | null>) => ({ ...prev, [preset.id]: null }));
+        if (pathAtStart === currentImagePathRef.current) {
+          setPreviews((prev: Record<string, string | null>) => ({ ...prev, [preset.id]: null }));
+        }
       }
     }
 
     isProcessingQueue.current = false;
-
     setIsGeneratingPreviews(false);
   }, []);
 
@@ -451,11 +542,16 @@ export default function PresetsPanel({
       }
 
       setIsGeneratingPreviews(true);
+      const pathAtStart = currentImagePathRef.current;
+
       try {
         const fullPresetAdjustments: any = { ...INITIAL_ADJUSTMENTS, ...preset.adjustments };
         const imageData: Uint8Array = await invoke(Invokes.GeneratePresetPreview, {
           jsAdjustments: fullPresetAdjustments,
         });
+
+        if (pathAtStart !== currentImagePathRef.current) return;
+
         const blob = new Blob([imageData], { type: 'image/jpeg' });
         const url = URL.createObjectURL(blob);
 
@@ -468,9 +564,13 @@ export default function PresetsPanel({
         });
       } catch (error) {
         console.error(`Failed to generate preview for preset ${preset.name}:`, error);
-        setPreviews((prev: Record<string, string | null>) => ({ ...prev, [preset.id]: null }));
+        if (pathAtStart === currentImagePathRef.current) {
+          setPreviews((prev: Record<string, string | null>) => ({ ...prev, [preset.id]: null }));
+        }
       } finally {
-        setIsGeneratingPreviews(false);
+        if (pathAtStart === currentImagePathRef.current) {
+          setIsGeneratingPreviews(false);
+        }
       }
     },
     [selectedImage?.isReady],
@@ -503,7 +603,6 @@ export default function PresetsPanel({
 
     const rootPresets = presets.filter((item: UserPreset) => item.preset).map((item) => item.preset);
     const presetsToGenerate: any = rootPresets.filter((p: any) => !previewsRef.current[p.id]);
-    console.log(presetsToGenerate);
 
     if (presetsToGenerate.length > 0) {
       enqueuePreviews(presetsToGenerate);
@@ -511,19 +610,36 @@ export default function PresetsPanel({
   }, [selectedImage?.isReady, presets, enqueuePreviews]);
 
   useEffect(() => {
+    const isPathChanged = selectedImage?.path !== currentImagePathRef.current;
+
+    if (isPathChanged || !selectedImage?.isReady) {
+      Object.values(previewsRef.current).forEach((url) => {
+        if (url && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+
+      previewsRef.current = {};
+      previewQueue.current = [];
+
+      setPreviews({});
+      setFolderPreviewsGenerated(new Set<string>());
+
+      if (isPathChanged && selectedImage?.path) {
+        currentImagePathRef.current = selectedImage.path;
+      }
+    }
+
     if (activePanel === Panel.Presets && selectedImage?.isReady && presets.length > 0) {
       generateRootPreviews();
       expandedFolders.forEach((folderId: string) => {
         generateFolderPreviews(folderId);
       });
-    } else if (!selectedImage?.isReady) {
-      setPreviews({});
-      setFolderPreviewsGenerated(new Set<string>());
-      previewQueue.current = [];
     }
   }, [
     activePanel,
     selectedImage?.isReady,
+    selectedImage?.path,
     presets.length,
     generateRootPreviews,
     generateFolderPreviews,
@@ -537,24 +653,35 @@ export default function PresetsPanel({
     }));
   };
 
-  const handleSaveCurrentSettingsAsPreset = async (name: string) => {
-    const newPreset = addPreset(name);
-    setIsAddModalOpen(false);
-    if (newPreset) {
-      await generateSinglePreview(newPreset);
+  const handleSaveConfiguredPreset = async (
+    name: string,
+    includeMasks: boolean,
+    includeCropTransform: boolean,
+    presetType: 'tool' | 'style',
+  ) => {
+    if (configureModalState.preset) {
+      const updated = configurePreset(
+        configureModalState.preset.id,
+        name,
+        includeMasks,
+        includeCropTransform,
+        presetType,
+      );
+      if (updated) {
+        await generateSinglePreview(updated);
+      }
+    } else {
+      const newPreset = addPreset(name, null, includeMasks, includeCropTransform, presetType);
+      if (newPreset) {
+        await generateSinglePreview(newPreset);
+      }
     }
+    setConfigureModalState({ isOpen: false, preset: null });
   };
 
   const handleAddFolder = (name: string) => {
     addFolder(name);
     setIsAddFolderModalOpen(false);
-  };
-
-  const handleRenamePresetSave = (newName: string) => {
-    if (renamePresetState.preset) {
-      renameItem(renamePresetState.preset.id ?? null, newName);
-    }
-    setRenamePresetState({ isOpen: false, preset: null });
   };
 
   const handleRenameFolderSave = (newName: string) => {
@@ -598,7 +725,6 @@ export default function PresetsPanel({
     const activeId = active.id;
     const activeParentId = itemParentMap.get(activeId);
     const activeType = active.data.current?.type;
-    console.log('Activetype: ', activeType);
 
     if (!over) {
       if (activeParentId !== null) {
@@ -654,7 +780,8 @@ export default function PresetsPanel({
       });
 
       if (typeof selectedPath === 'string') {
-        const isLegacy = selectedPath.toLowerCase().endsWith('.xmp') || selectedPath.toLowerCase().endsWith('.lrtemplate');
+        const isLegacy =
+          selectedPath.toLowerCase().endsWith('.xmp') || selectedPath.toLowerCase().endsWith('.lrtemplate');
 
         if (isLegacy) {
           await importLegacyPresetsFromFile(selectedPath);
@@ -740,22 +867,21 @@ export default function PresetsPanel({
     } else {
       options = [
         {
-          icon: RefreshCw,
-          label: 'Overwrite Preset',
-
+          icon: Save,
+          label: 'Overwrite',
           onClick: async () => {
-            const updated = updatePreset(data?.id ?? null);
+            const updated = overwritePreset(data?.id ?? null);
             if (updated) {
               await generateSinglePreview(updated);
             }
           },
         },
-        { type: OPTION_SEPARATOR },
         {
-          icon: Edit,
-          label: 'Rename Preset',
-          onClick: () => setRenamePresetState({ isOpen: true, preset: data ?? null }),
+          icon: Settings2,
+          label: 'Configure Preset',
+          onClick: () => setConfigureModalState({ isOpen: true, preset: data as Preset }),
         },
+        { type: OPTION_SEPARATOR },
         {
           icon: CopyPlus,
           label: 'Duplicate Preset',
@@ -793,7 +919,7 @@ export default function PresetsPanel({
       {
         icon: Plus,
         label: 'New Preset',
-        onClick: () => setIsAddModalOpen(true),
+        onClick: () => setConfigureModalState({ isOpen: true, preset: null }),
       },
       {
         icon: FolderPlus,
@@ -817,8 +943,8 @@ export default function PresetsPanel({
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-full">
-        <div className="p-4 flex justify-between items-center flex-shrink-0 border-b border-surface">
-          <h2 className="text-xl font-bold text-primary text-shadow-shiny">Presets</h2>
+        <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
+          <Text variant={TextVariants.title}>Presets</Text>
           <div className="flex items-center gap-1">
             <button
               className="p-2 rounded-full hover:bg-surface transition-colors"
@@ -846,7 +972,7 @@ export default function PresetsPanel({
             <button
               className="p-2 rounded-full hover:bg-surface transition-colors"
               disabled={isLoading}
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={() => setConfigureModalState({ isOpen: true, preset: null })}
               data-tooltip="Save as new preset"
             >
               <Plus size={18} />
@@ -855,22 +981,28 @@ export default function PresetsPanel({
         </div>
 
         <div
-          className={`flex-grow overflow-y-auto p-4 space-y-2 rounded-lg transition-colors ${
+          className={`grow overflow-y-auto p-4 space-y-2 rounded-lg transition-colors ${
             isRootOver ? 'bg-surface-hover' : ''
           }`}
           onContextMenu={handleBackgroundContextMenu}
           ref={setRootNodeRef}
         >
           {isLoading && presets.length === 0 && (
-            <div className="text-center text-text-secondary py-2">
-              <Loader2 size={16} className="animate-spin inline-block mr-2" /> Loading Presets...
-            </div>
+            <Text
+              as="div"
+              variant={TextVariants.heading}
+              color={TextColors.secondary}
+              weight={TextWeights.normal}
+              className="text-center mt-4"
+            >
+              <Loader2 size={14} className="animate-spin inline-block mr-2" /> Loading Presets...
+            </Text>
           )}
           {!isLoading && presets.length === 0 ? (
-            <div className="text-center text-text-secondary py-8 flex flex-col items-center gap-4">
-              <p className="max-w-xs">
+            <div className="text-center text-text-secondary flex flex-col items-center gap-4 pt-4">
+              <Text className="max-w-xs">
                 No presets saved yet. Create your own, import from a file, or explore community presets.
-              </p>
+              </Text>
               <Button variant="secondary" onClick={onNavigateToCommunity}>
                 <Users size={16} className="mr-2" />
                 Get Community Presets
@@ -947,21 +1079,16 @@ export default function PresetsPanel({
           )}
         </div>
 
-        <AddPresetModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onSave={handleSaveCurrentSettingsAsPreset}
+        <ConfigurePresetModal
+          isOpen={configureModalState.isOpen}
+          initialPreset={configureModalState.preset}
+          onClose={() => setConfigureModalState({ isOpen: false, preset: null })}
+          onSave={handleSaveConfiguredPreset}
         />
         <CreateFolderModal
           isOpen={isAddFolderModalOpen}
           onClose={() => setIsAddFolderModalOpen(false)}
           onSave={handleAddFolder}
-        />
-        <RenamePresetModal
-          currentName={renamePresetState.preset?.name}
-          isOpen={renamePresetState.isOpen}
-          onClose={() => setRenamePresetState({ isOpen: false, preset: null })}
-          onSave={handleRenamePresetSave}
         />
         <RenameFolderModal
           currentName={renameFolderState.folder?.name}

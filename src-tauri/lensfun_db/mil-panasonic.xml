@@ -355,6 +355,27 @@
 
     <camera>
         <maker>Panasonic</maker>
+        <model>DC-G95D</model>
+        <mount>Micro 4/3 System</mount>
+        <cropfactor>2</cropfactor>
+    </camera>
+
+    <camera>
+        <maker>Panasonic</maker>
+        <model>DC-G99D</model>
+        <mount>Micro 4/3 System</mount>
+        <cropfactor>2</cropfactor>
+    </camera>
+
+    <camera>
+        <maker>Panasonic</maker>
+        <model>DC-G97</model>
+        <mount>Micro 4/3 System</mount>
+        <cropfactor>2</cropfactor>
+    </camera>
+
+    <camera>
+        <maker>Panasonic</maker>
         <model>DC-S1</model>
         <mount>Leica L</mount>
         <cropfactor>1</cropfactor>

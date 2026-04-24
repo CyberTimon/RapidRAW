@@ -163,7 +163,7 @@
 
     <camera>
         <maker>Canon</maker>
-        <model>Canon Powershot G9 X</model>
+        <model>Canon PowerShot G9 X</model>
         <model lang="en">PowerShot G9 X</model>
         <mount>canonG9X</mount>
         <cropfactor>2.72</cropfactor>
@@ -172,7 +172,7 @@
     <camera>
         <maker>Canon</maker>
         <model>Canon PowerShot G9 X Mark II</model>
-        <model lang="en">Canon PowerShot G9 X Mark II</model>
+        <model lang="en">PowerShot G9 X Mark II</model>
         <mount>canonG9X</mount>
         <cropfactor>2.72</cropfactor>
     </camera>
@@ -602,7 +602,7 @@
     <camera>
         <maker>Canon</maker>
         <model>Canon PowerShot A1200</model>
-        <model lang="en">Powershot A1200</model>
+        <model lang="en">PowerShot A1200</model>
         <mount>canonA1200</mount>
         <cropfactor>5.61</cropfactor>
     </camera>
@@ -906,7 +906,7 @@
     <camera>
         <maker>Canon</maker>
         <model>Canon PowerShot ELPH 110 HS</model>
-        <model lang="en">Powershot ELPH 110 HS</model>
+        <model lang="en">PowerShot ELPH 110 HS</model>
         <mount>canonIxus125HS</mount>
         <cropfactor>5.58</cropfactor>
     </camera>
@@ -978,7 +978,7 @@
     <camera>
         <maker>Canon</maker>
         <model>Canon PowerShot SX50 HS</model>
-        <model lang="en">Powershot SX50 HS</model>
+        <model lang="en">PowerShot SX50 HS</model>
         <mount>canonSX50HS</mount>
         <cropfactor>5.61</cropfactor>
     </camera>
@@ -986,7 +986,7 @@
     <camera>
         <maker>Canon</maker>
         <model>Canon PowerShot SX60 HS</model>
-        <model lang="en">Powershot SX60 HS</model>
+        <model lang="en">PowerShot SX60 HS</model>
         <mount>canonSX60HS</mount>
         <cropfactor>5.61</cropfactor>
     </camera>
@@ -3062,7 +3062,7 @@
 
     <lens>
         <maker>Canon</maker>
-        <model>Canon Powershot G9 X &amp; compatibles</model>
+        <model>Canon PowerShot G9 X &amp; compatibles</model>
         <model lang="en">fixed lens</model>
         <model lang="de">festes Objektiv</model>
         <mount>canonG9X</mount>
@@ -3365,7 +3365,7 @@
 
     <lens>
         <maker>Canon</maker>
-        <model>Canon Powershot A495 &amp; compatibles, with CHDK's DNG</model>
+        <model>Canon PowerShot A495 &amp; compatibles, with CHDK's DNG</model>
         <model lang="en">fixed lens, with CHDK's DNG</model>
         <model lang="de">festes Objektiv, mit CHDK-DNG</model>
         <mount>canonA495</mount>
@@ -3570,6 +3570,8 @@
     <lens>
         <maker>Canon</maker>
         <model>Canon PowerShot SX60 HS &amp; compatibles</model>
+        <model lang="en">fixed lens</model>
+        <model lang="de">festes Objektiv</model>
         <mount>canonSX60HS</mount>
         <cropfactor>5.61</cropfactor>
         <aspect-ratio>4:3</aspect-ratio>

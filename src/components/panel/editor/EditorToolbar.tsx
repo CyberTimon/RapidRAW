@@ -4,19 +4,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { SelectedImage } from '../../ui/AppProperties';
 import { IconAperture, IconCalendar, IconClock, IconFocalLength, IconIso, IconShutter } from './ExifIcons';
+import Text from '../../ui/Text';
+import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 
 interface EditorToolbarProps {
   canRedo: boolean;
   canUndo: boolean;
-  isFullScreenLoading: boolean;
-  isWaveformVisible: boolean;
   isLoading: boolean;
-  isLoadingFullRes?: boolean;
   onBackToLibrary(): void;
   onRedo(): void;
   onToggleFullScreen(): void;
   onToggleShowOriginal(): void;
-  onToggleWaveform(): void;
   onUndo(): void;
   selectedImage: SelectedImage;
   showOriginal: boolean;
@@ -31,15 +29,11 @@ const EditorToolbar = memo(
   ({
     canRedo,
     canUndo,
-    isFullScreenLoading,
     isLoading,
-    isLoadingFullRes,
-    isWaveformVisible,
     onBackToLibrary,
     onRedo,
     onToggleFullScreen,
     onToggleShowOriginal,
-    onToggleWaveform,
     onUndo,
     selectedImage,
     showOriginal,
@@ -49,7 +43,7 @@ const EditorToolbar = memo(
     adjustmentsHistoryIndex,
     goToAdjustmentsHistoryIndex,
   }: EditorToolbarProps) => {
-    const isAnyLoading = isLoading || !!isLoadingFullRes || isFullScreenLoading;
+    const isAnyLoading = isLoading;
     const [isLoaderVisible, setIsLoaderVisible] = useState(false);
     const [disableLoaderTransition, setDisableLoaderTransition] = useState(false);
     const hideTimeoutRef = useRef<number | null>(null);
@@ -66,7 +60,7 @@ const EditorToolbar = memo(
     const { baseName, isVirtualCopy, vcId, exifData, hasExif } = useMemo(() => {
       const path = selectedImage.path;
       const parts = path.split('?vc=');
-      const fullFileName = parts[0].split(/[\/\\]/).pop() || '';
+      const fullFileName = parts[0].split(/[\\/]/).pop() || '';
 
       const exif = selectedImage.exif || {};
 
@@ -160,45 +154,85 @@ const EditorToolbar = memo(
 
     const historyNames = useMemo(() => {
       if (!adjustmentsHistory || adjustmentsHistory.length === 0) return [];
-      
+
       const formatKey = (k: string) => {
         const special: Record<string, string> = {
-          aiPatches: 'AI Patches', aspectRatio: 'Aspect Ratio', flipHorizontal: 'Flip Horizontal',
-          flipVertical: 'Flip Vertical', orientationSteps: 'Rotation', lutPath: 'LUT',
-          lutIntensity: 'LUT Intensity', lutData: 'LUT Data', lutName: 'LUT Name',
-          lutSize: 'LUT Size', chromaticAberrationBlueYellow: 'Chromatic Aberration Blue/Yellow',
-          chromaticAberrationRedCyan: 'Chromatic Aberration Red/Cyan', centré: 'Centré',
-          lumaNoiseReduction: 'Luma Noise Reduction', colorNoiseReduction: 'Color Noise Reduction',
-          lensMaker: 'Lens Maker', lensModel: 'Lens Model', lensDistortionAmount: 'Lens Distortion',
-          lensVignetteAmount: 'Lens Vignette', lensTcaAmount: 'Lens TCA',
-          lensDistortionEnabled: 'Enable Lens Distortion', lensTcaEnabled: 'Enable Lens TCA',
-          lensVignetteEnabled: 'Enable Lens Vignette', transformDistortion: 'Transform Distortion',
-          transformVertical: 'Transform Vertical', transformHorizontal: 'Transform Horizontal',
-          transformRotate: 'Transform Rotate', transformAspect: 'Transform Aspect',
-          transformScale: 'Transform Scale', transformXOffset: 'Transform X Offset',
-          transformYOffset: 'Transform Y Offset', colorGrading: 'Color Grading',
-          colorCalibration: 'Color Calibration', toneMapper: 'Tone Mapper',
-          showClipping: 'Show Clipping', sectionVisibility: 'Section Visibility',
-          flareAmount: 'Flare Amount', glowAmount: 'Glow Amount', halationAmount: 'Halation Amount',
-          grainAmount: 'Grain Amount', grainRoughness: 'Grain Roughness', grainSize: 'Grain Size',
-          vignetteAmount: 'Vignette Amount', vignetteFeather: 'Vignette Feather',
-          vignetteMidpoint: 'Vignette Midpoint', vignetteRoundness: 'Vignette Roundness',
-          dehaze: 'Dehaze', exposure: 'Exposure', blacks: 'Blacks', whites: 'Whites',
-          shadows: 'Shadows', highlights: 'Highlights', contrast: 'Contrast',
-          brightness: 'Brightness', clarity: 'Clarity', structure: 'Structure',
-          sharpness: 'Sharpness', saturation: 'Saturation', temperature: 'Temperature',
-          tint: 'Tint', vibrance: 'Vibrance', hsl: 'HSL', curves: 'Curves',
-          crop: 'Crop', masks: 'Masks', rating: 'Rating'
+          aiPatches: 'AI Patches',
+          aspectRatio: 'Aspect Ratio',
+          flipHorizontal: 'Flip Horizontal',
+          flipVertical: 'Flip Vertical',
+          orientationSteps: 'Rotation',
+          lutPath: 'LUT',
+          lutIntensity: 'LUT Intensity',
+          lutData: 'LUT Data',
+          lutName: 'LUT Name',
+          lutSize: 'LUT Size',
+          chromaticAberrationBlueYellow: 'Chromatic Aberration Blue/Yellow',
+          chromaticAberrationRedCyan: 'Chromatic Aberration Red/Cyan',
+          centré: 'Centré',
+          lumaNoiseReduction: 'Luma Noise Reduction',
+          colorNoiseReduction: 'Color Noise Reduction',
+          lensMaker: 'Lens Maker',
+          lensModel: 'Lens Model',
+          lensDistortionAmount: 'Lens Distortion',
+          lensVignetteAmount: 'Lens Vignette',
+          lensTcaAmount: 'Lens TCA',
+          lensDistortionEnabled: 'Enable Lens Distortion',
+          lensTcaEnabled: 'Enable Lens TCA',
+          lensVignetteEnabled: 'Enable Lens Vignette',
+          transformDistortion: 'Transform Distortion',
+          transformVertical: 'Transform Vertical',
+          transformHorizontal: 'Transform Horizontal',
+          transformRotate: 'Transform Rotate',
+          transformAspect: 'Transform Aspect',
+          transformScale: 'Transform Scale',
+          transformXOffset: 'Transform X Offset',
+          transformYOffset: 'Transform Y Offset',
+          colorGrading: 'Color Grading',
+          colorCalibration: 'Color Calibration',
+          toneMapper: 'Tone Mapper',
+          showClipping: 'Show Clipping',
+          sectionVisibility: 'Section Visibility',
+          flareAmount: 'Flare Amount',
+          glowAmount: 'Glow Amount',
+          halationAmount: 'Halation Amount',
+          grainAmount: 'Grain Amount',
+          grainRoughness: 'Grain Roughness',
+          grainSize: 'Grain Size',
+          vignetteAmount: 'Vignette Amount',
+          vignetteFeather: 'Vignette Feather',
+          vignetteMidpoint: 'Vignette Midpoint',
+          vignetteRoundness: 'Vignette Roundness',
+          dehaze: 'Dehaze',
+          exposure: 'Exposure',
+          blacks: 'Blacks',
+          whites: 'Whites',
+          shadows: 'Shadows',
+          highlights: 'Highlights',
+          contrast: 'Contrast',
+          brightness: 'Brightness',
+          clarity: 'Clarity',
+          structure: 'Structure',
+          sharpness: 'Sharpness',
+          saturation: 'Saturation',
+          temperature: 'Temperature',
+          tint: 'Tint',
+          vibrance: 'Vibrance',
+          hsl: 'HSL',
+          curves: 'Curves',
+          crop: 'Crop',
+          masks: 'Masks',
+          rating: 'Rating',
         };
         if (special[k]) return special[k];
-        return k.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+        return k.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase());
       };
 
       const cachedNames = prevNamesRef.current;
       const newNames = [...cachedNames];
 
       if (newNames.length > adjustmentsHistory.length) {
-         newNames.length = adjustmentsHistory.length; 
+        newNames.length = adjustmentsHistory.length;
       }
 
       for (let i = newNames.length; i < adjustmentsHistory.length; i++) {
@@ -217,7 +251,7 @@ const EditorToolbar = memo(
           if (key === 'masks') {
             const prevMasks = prev.masks || [];
             const currMasks = curr.masks || [];
-            
+
             if (currMasks.length > prevMasks.length) changed.push('Added Mask');
             else if (currMasks.length < prevMasks.length) changed.push('Deleted Mask');
             else {
@@ -228,7 +262,7 @@ const EditorToolbar = memo(
                   if (pMask.invert !== cMask.invert) changed.push('Mask Invert');
                   if (pMask.visible !== cMask.visible) changed.push('Mask Visibility');
                   if (pMask.subMasks !== cMask.subMasks) changed.push('Mask Area / Brush');
-                  
+
                   if (pMask.adjustments !== cMask.adjustments) {
                     for (const adjKey of Object.keys(cMask.adjustments || {})) {
                       if (pMask.adjustments[adjKey] !== cMask.adjustments[adjKey]) {
@@ -239,11 +273,10 @@ const EditorToolbar = memo(
                 }
               });
             }
-          } 
-          else if (key === 'aiPatches') {
+          } else if (key === 'aiPatches') {
             const prevPatches = prev.aiPatches || [];
             const currPatches = curr.aiPatches || [];
-            
+
             if (currPatches.length > prevPatches.length) changed.push('Added AI Patch');
             else if (currPatches.length < prevPatches.length) changed.push('Deleted AI Patch');
             else {
@@ -253,13 +286,12 @@ const EditorToolbar = memo(
                   if (pPatch.visible !== cPatch.visible) changed.push('AI Patch Visibility');
                   if (pPatch.subMasks !== cPatch.subMasks) changed.push('AI Patch Area');
                   if (pPatch.patchData !== cPatch.patchData || pPatch.prompt !== cPatch.prompt) {
-                     changed.push('AI Generation');
+                    changed.push('AI Generation');
                   }
                 }
               });
             }
-          } 
-          else {
+          } else {
             changed.push(formatKey(key));
           }
         }
@@ -287,14 +319,20 @@ const EditorToolbar = memo(
       }
     }, [isHistoryVisible, adjustmentsHistoryIndex]);
 
+    const handleButtonKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+      if (e.key === 'Tab') return;
+      e.currentTarget.blur();
+    };
+
     const isExpanded = isInfoHovered && (hasExif || isLoading);
 
     return (
-      <div className="relative flex-shrink-0 flex items-center justify-between px-4 h-14 gap-4 z-40">
-        <div className="flex items-center gap-2 flex-shrink-0 z-40">
+      <div className="relative shrink-0 flex items-center justify-between px-4 h-14 gap-4 z-40">
+        <div className="flex items-center gap-2 shrink-0 z-40">
           <button
-            className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors flex-shrink-0"
+            className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors shrink-0"
             onClick={onBackToLibrary}
+            onKeyDown={handleButtonKeyDown}
             data-tooltip="Back to Library"
           >
             <ArrowLeft size={20} />
@@ -319,9 +357,9 @@ const EditorToolbar = memo(
         <div className="flex-1 flex justify-center min-w-0 relative h-full">
           <div
             className={clsx(
-              'bg-surface text-text-secondary flex flex-col items-center overflow-hidden transition-all duration-200 ease-out pt-2',
+              'bg-surface flex flex-col items-center overflow-hidden transition-all duration-200 ease-out pt-2',
               isExpanded
-                ? 'h-[4.5rem] px-8 rounded-2xl absolute min-w-[340px] whitespace-nowrap shadow-2xl shadow-black/50'
+                ? 'h-18 px-8 rounded-2xl absolute min-w-[340px] whitespace-nowrap shadow-2xl shadow-black/50'
                 : 'h-9 px-4 rounded-[18px] absolute min-w-0 w-auto max-w-full shadow-none',
             )}
             onMouseEnter={() => setIsInfoHovered(true)}
@@ -334,11 +372,23 @@ const EditorToolbar = memo(
             }}
           >
             <div className="flex items-center justify-center max-w-full h-5 shrink-0">
-              <span className="font-medium text-text-primary truncate min-w-0 shrink text-xs">{baseName}</span>
+              <Text
+                as="span"
+                variant={TextVariants.small}
+                color={TextColors.primary}
+                weight={TextWeights.medium}
+                className="truncate min-w-0 shrink"
+              >
+                {baseName}
+              </Text>
 
               {isVirtualCopy && (
-                <div
-                  className="ml-2 flex-shrink-0 bg-accent/20 text-accent text-xs font-bold px-2 py-0.5 rounded-full flex items-center overflow-hidden cursor-default"
+                <Text
+                  as="div"
+                  variant={TextVariants.small}
+                  color={TextColors.accent}
+                  weight={TextWeights.bold}
+                  className="ml-2 shrink-0 bg-accent/20 px-2 py-0.5 rounded-full flex items-center overflow-hidden cursor-default"
                   onMouseEnter={() => setIsVcHovered(true)}
                   onMouseLeave={() => setIsVcHovered(false)}
                 >
@@ -351,39 +401,41 @@ const EditorToolbar = memo(
                   >
                     <span>-{vcId}</span>
                   </div>
-                </div>
+                </Text>
               )}
 
               <div
                 className={clsx(
-                  'transition-all duration-300 ease-out overflow-hidden whitespace-nowrap flex-shrink-0',
-                  showResolution ? 'max-w-[10rem] opacity-100 ml-2' : 'max-w-0 opacity-0 ml-0',
+                  'transition-all duration-300 ease-out overflow-hidden whitespace-nowrap shrink-0',
+                  showResolution ? 'max-w-40 opacity-100 ml-2' : 'max-w-0 opacity-0 ml-0',
                 )}
               >
-                <span
+                <Text
+                  as="span"
+                  variant={TextVariants.small}
                   className={clsx(
-                    'block transition-transform duration-200 delay-100 text-xs',
+                    'block transition-transform duration-200 delay-100',
                     showResolution ? 'scale-100' : 'scale-95',
                   )}
                 >
                   {displayedResolution}
-                </span>
+                </Text>
               </div>
 
               <div
                 className={clsx(
-                  'overflow-hidden flex-shrink-0',
-                  isLoaderVisible ? 'max-w-[1rem] opacity-100 ml-2' : 'max-w-0 opacity-0 ml-0',
+                  'overflow-hidden shrink-0',
+                  isLoaderVisible ? 'max-w-4 opacity-100 ml-2' : 'max-w-0 opacity-0 ml-0',
                   disableLoaderTransition ? 'transition-none' : 'transition-all duration-300',
                 )}
               >
-                <Loader2 size={12} className="animate-spin" />
+                <Loader2 size={12} className="text-text-secondary animate-spin" />
               </div>
             </div>
 
             <div
               className={clsx(
-                'relative mt-2 w-full flex-grow justify-center border-t border-text-secondary/10 pt-2 transition-opacity duration-200',
+                'relative mt-2 w-full grow justify-center border-t border-text-secondary/10 pt-2 transition-opacity duration-200',
                 isExpanded ? 'opacity-100 delay-75' : 'opacity-0 hidden',
                 hasExif && 'cursor-pointer',
               )}
@@ -391,66 +443,76 @@ const EditorToolbar = memo(
             >
               <div
                 className={clsx(
-                  'absolute inset-0 flex items-center justify-center gap-6 text-xs font-medium transition-opacity duration-200',
+                  'absolute inset-0 flex items-center justify-center gap-6 transition-opacity duration-200',
                   showDateView ? 'opacity-0 pointer-events-none' : 'opacity-100',
                 )}
               >
                 {exifData.shutter && (
                   <div className="flex items-center gap-1.5" data-tooltip="Shutter Speed">
-                    <span className="text-text-secondary">
+                    <Text as="span">
                       <IconShutter />
-                    </span>
-                    <span className="text-text-primary">{exifData.shutter}</span>
+                    </Text>
+                    <Text as="span" variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
+                      {exifData.shutter}
+                    </Text>
                   </div>
                 )}
                 {exifData.fNumber && (
                   <div className="flex items-center gap-1.5" data-tooltip="Aperture">
-                    <span className="text-text-secondary">
+                    <Text as="span">
                       <IconAperture />
-                    </span>
-                    <span className="text-text-primary">{exifData.fNumber}</span>
+                    </Text>
+                    <Text as="span" variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
+                      {exifData.fNumber}
+                    </Text>
                   </div>
                 )}
                 {exifData.iso && (
                   <div className="flex items-center gap-1.5" data-tooltip="ISO">
-                    <span className="text-text-secondary">
+                    <Text as="span">
                       <IconIso />
-                    </span>
-                    <span className="text-text-primary">{exifData.iso}</span>
+                    </Text>
+                    <Text as="span" variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
+                      {exifData.iso}
+                    </Text>
                   </div>
                 )}
                 {exifData.focal && (
                   <div className="flex items-center gap-1.5" data-tooltip="Focal Length">
-                    <span className="text-text-secondary">
+                    <Text as="span">
                       <IconFocalLength />
-                    </span>
-                    <span className="text-text-primary">
+                    </Text>
+                    <Text as="span" variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
                       {String(exifData.focal).endsWith('mm') ? exifData.focal : `${exifData.focal}mm`}
-                    </span>
+                    </Text>
                   </div>
                 )}
               </div>
 
               <div
                 className={clsx(
-                  'absolute inset-0 flex items-center justify-center gap-6 text-xs font-medium transition-opacity duration-200',
+                  'absolute inset-0 flex items-center justify-center gap-6 transition-opacity duration-200',
                   showDateView ? 'opacity-100' : 'opacity-0 pointer-events-none',
                 )}
               >
                 {exifData.captureDate && (
                   <div className="flex items-center gap-2">
-                    <span className="text-text-secondary">
+                    <Text as="span">
                       <IconCalendar />
-                    </span>
-                    <span className="text-text-primary">{exifData.captureDate}</span>
+                    </Text>
+                    <Text as="span" variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
+                      {exifData.captureDate}
+                    </Text>
                   </div>
                 )}
                 {exifData.captureTime && (
                   <div className="flex items-center gap-2">
-                    <span className="text-text-secondary">
+                    <Text as="span">
                       <IconClock />
-                    </span>
-                    <span className="text-text-primary">{exifData.captureTime}</span>
+                    </Text>
+                    <Text as="span" variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
+                      {exifData.captureTime}
+                    </Text>
                   </div>
                 )}
               </div>
@@ -458,12 +520,13 @@ const EditorToolbar = memo(
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0 z-40">
+        <div className="flex items-center gap-2 shrink-0 z-40">
           <div className="relative flex items-center gap-2" ref={historyButtonRef}>
             <button
               className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!canUndo}
               onClick={onUndo}
+              onKeyDown={handleButtonKeyDown}
               onContextMenu={(e) => {
                 e.preventDefault();
                 setIsHistoryVisible((prev) => !prev);
@@ -476,6 +539,7 @@ const EditorToolbar = memo(
               className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!canRedo}
               onClick={onRedo}
+              onKeyDown={handleButtonKeyDown}
               onContextMenu={(e) => {
                 e.preventDefault();
                 setIsHistoryVisible((prev) => !prev);
@@ -498,23 +562,42 @@ const EditorToolbar = memo(
                   {historyNames.map((name, i) => {
                     const isCurrent = i === adjustmentsHistoryIndex;
                     const isFuture = i > adjustmentsHistoryIndex;
+
+                    const textColor = isCurrent
+                      ? TextColors.button
+                      : isFuture
+                        ? TextColors.secondary
+                        : TextColors.primary;
+                    const textWeight = isCurrent ? TextWeights.medium : TextWeights.normal;
+
                     return (
                       <button
                         key={i}
                         data-active={isCurrent}
                         onClick={() => goToAdjustmentsHistoryIndex(i)}
+                        onKeyDown={handleButtonKeyDown}
                         className={clsx(
-                          "text-left px-3 py-2 text-sm transition-colors mx-1 my-0.5 rounded-md",
+                          'text-left px-3 py-2 transition-colors mx-1 my-0.5 rounded-md',
                           isCurrent
-                            ? "bg-accent text-button-text font-medium"
+                            ? 'bg-accent'
                             : isFuture
-                            ? "text-text-secondary opacity-50 hover:bg-bg-primary hover:opacity-100"
-                            : "text-text-primary hover:bg-bg-primary"
+                              ? 'opacity-50 hover:bg-bg-primary hover:opacity-100'
+                              : 'hover:bg-bg-primary',
                         )}
                       >
                         <div className="flex justify-between items-center gap-2">
-                          <span className="truncate">{name}</span>
-                          <span className="text-[10px] opacity-50 flex-shrink-0">{i === 0 ? '' : i}</span>
+                          <Text as="span" color={textColor} weight={textWeight} className="truncate">
+                            {name}
+                          </Text>
+                          <Text
+                            as="span"
+                            variant={TextVariants.small}
+                            color={textColor}
+                            weight={textWeight}
+                            className="opacity-50 shrink-0"
+                          >
+                            {i === 0 ? '' : i}
+                          </Text>
                         </div>
                       </button>
                     );
@@ -527,60 +610,24 @@ const EditorToolbar = memo(
           <button
             className={clsx(
               'p-2 rounded-full transition-colors',
-              isWaveformVisible
-                ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
-                : 'bg-surface hover:bg-card-active text-text-primary',
-            )}
-            onClick={onToggleWaveform}
-            data-tooltip="Toggle Waveform (W)"
-          >
-            <Waves size={20} />
-          </button>
-
-          <button
-            className={clsx(
-              'p-2 rounded-full transition-colors',
               showOriginal
                 ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
                 : 'bg-surface hover:bg-card-active text-text-primary',
             )}
             onClick={onToggleShowOriginal}
-            data-tooltip={showOriginal ? 'Show Edited (.)' : 'Show Original (.)'}
+            onKeyDown={handleButtonKeyDown}
+            data-tooltip={showOriginal ? 'Show Edited (B)' : 'Show Original (B)'}
           >
             {showOriginal ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
           <button
             className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative"
-            disabled={isFullScreenLoading}
             onClick={onToggleFullScreen}
+            onKeyDown={handleButtonKeyDown}
             data-tooltip="Toggle Fullscreen (F)"
           >
             <div className="relative w-5 h-5 flex items-center justify-center">
-              <AnimatePresence mode="wait" initial={false}>
-                {isFullScreenLoading ? (
-                  <motion.div
-                    key="loader"
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute"
-                  >
-                    <Loader2 size={20} className="animate-spin text-accent" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="maximize"
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute"
-                  >
-                    <Maximize size={20} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <Maximize size={20} />
             </div>
           </button>
         </div>
