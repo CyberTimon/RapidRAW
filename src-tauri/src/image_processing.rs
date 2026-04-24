@@ -1837,7 +1837,10 @@ fn get_global_adjustments_from_json(
         halation_amount: get_val("effects", "halationAmount", SCALES.halation, None),
         flare_amount: get_val("effects", "flareAmount", SCALES.flares, None),
 
-        sharpening_mask_debug: if js_adjustments["sharpeningMaskDebug"].as_bool().unwrap_or(false) {
+        sharpening_mask_debug: if js_adjustments["sharpeningMaskDebug"]
+            .as_bool()
+            .unwrap_or(false)
+        {
             1
         } else {
             0
