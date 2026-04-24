@@ -29,6 +29,10 @@ mod sam_cfg {
     pub const DECODER_FILENAME: &str = "sam_mask_decoder_single.onnx";
     pub const ENCODER_SHA256: &str = "580f5fb648ea1062c0aabc26217aed56921985f03f0cbbd852bba81d760cc749";
     pub const DECODER_SHA256: &str = "93915fc7c993ab9d59ab8c9ccd3bce37f7509c81ab4150a74abd4d2abbd8570d";
+
+    pub const LAMA_URL: &str = "https://huggingface.co/qualcomm/LaMa-Dilated/resolve/ab898502c9bd764a50eb2719a309694b43eae658/LaMa-Dilated.onnx?download=true";
+    pub const LAMA_FILENAME: &str = "LaMa-Dilated.onnx";
+    pub const LAMA_SHA256: &str = "6f9e1d401eb67a63fb1be6c0cf3283d800bf4c20656028f96b044fedc382d762";
 }
 
 #[cfg(not(target_os = "android"))]
@@ -39,6 +43,10 @@ mod sam_cfg {
     pub const DECODER_FILENAME: &str = "sam_vit_b_01ec64_decoder.onnx";
     pub const ENCODER_SHA256: &str = "16ab73d9c824886f0de2938c19df22fb9ec3deebfd0de58e65177e479213d7d1";
     pub const DECODER_SHA256: &str = "85d0d672cf5b7fe763edcde429e5533e62f674af4b15c7d688b7673b0ef00bf7";
+
+    pub const LAMA_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/lama_fp16.onnx?download=true";
+    pub const LAMA_FILENAME: &str = "lama_fp16.onnx";
+    pub const LAMA_SHA256: &str = "2d6be6277c400d6f1b91819737f7c3da935e5c63d1b521d393be1196a2bfa82c";
 }
 
 use sam_cfg::*;
@@ -66,11 +74,6 @@ const CLIP_MODEL_SHA256: &str = "57879bb1c23cdeb350d23569dd251ed4b740a96d747c529
 const DENOISE_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/nind_denoise_utnet_684.onnx?download=true";
 const DENOISE_FILENAME: &str = "nind_denoise_utnet_684.onnx";
 const DENOISE_SHA256: &str = "ee3586279d514df557ff3f7dec6df37fafc51ba5d3a3435b2cc9ac2d9017e7fe";
-
-const LAMA_URL: &str =
-    "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/lama_fp16.onnx?download=true";
-const LAMA_FILENAME: &str = "lama_fp16.onnx";
-const LAMA_SHA256: &str = "2d6be6277c400d6f1b91819737f7c3da935e5c63d1b521d393be1196a2bfa82c";
 
 const DEPTH_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/depth_anything_v2_vits.onnx?download=true";
 const DEPTH_FILENAME: &str = "depth_anything_v2_vits.onnx";
@@ -649,7 +652,7 @@ pub async fn get_or_init_lama_model(
 
     let _ = ort::init().with_name("AI-Inpainting").commit();
     let model_path = models_dir.join(LAMA_FILENAME);
-    let session = add_platform_optimization(Session::builder()?)?.commit_from_file(model_path)?;
+    let session = Session::builder()?.commit_from_file(model_path)?;
     let lama_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -961,6 +964,9 @@ pub fn run_lama_inpainting(
     let cropped_img = imageops::crop_imm(&rgba, x0, y0, crop_w, crop_h).to_image();
     let cropped_mask = imageops::crop_imm(mask, x0, y0, crop_w, crop_h).to_image();
 
+    #[cfg(target_os = "android")]
+    let max_dim_limit: u32 = 512;
+    #[cfg(not(target_os = "android"))]
     let max_dim_limit: u32 = 768;
     let needs_downscale = crop_w > max_dim_limit || crop_h > max_dim_limit;
 
@@ -1017,9 +1023,14 @@ pub fn run_lama_inpainting(
     let mut result_inf = RgbaImage::new(fw, fh);
     for y in 0..fh {
         for x in 0..fw {
-            let r = output_tensor[[0, 0, y as usize, x as usize]].clamp(0.0, 255.0) as u8;
-            let g = output_tensor[[0, 1, y as usize, x as usize]].clamp(0.0, 255.0) as u8;
-            let b = output_tensor[[0, 2, y as usize, x as usize]].clamp(0.0, 255.0) as u8;
+            #[cfg(target_os = "android")]
+            let multiplier = 255.0; 
+            #[cfg(not(target_os = "android"))]
+            let multiplier = 1.0;   
+
+            let r = (output_tensor[[0, 0, y as usize, x as usize]] * multiplier).clamp(0.0, 255.0) as u8;
+            let g = (output_tensor[[0, 1, y as usize, x as usize]] * multiplier).clamp(0.0, 255.0) as u8;
+            let b = (output_tensor[[0, 2, y as usize, x as usize]] * multiplier).clamp(0.0, 255.0) as u8;
             result_inf.put_pixel(x, y, Rgba([r, g, b, 255]));
         }
     }
