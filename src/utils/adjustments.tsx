@@ -368,7 +368,7 @@ const INITIAL_COLOR_CALIBRATION: ColorCalibration = {
   blueSaturation: 0,
 };
 
-export const DEFAULT_PARAMETRIC_CURVE_SETTINGS = {
+export const INITIAL_PARAMETRIC_CURVE_SETTINGS = {
   darks: 0,
   shadows: 0,
   highlights: 0,
@@ -378,11 +378,11 @@ export const DEFAULT_PARAMETRIC_CURVE_SETTINGS = {
   split3: 75,
 };
 
-export const DEFAULT_PARAMETRIC_CURVE: ParametricCurve = {
-  luma: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
-  red: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
-  green: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
-  blue: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
+export const INITIAL_PARAMETRIC_CURVE: ParametricCurve = {
+  luma: { ...INITIAL_PARAMETRIC_CURVE_SETTINGS },
+  red: { ...INITIAL_PARAMETRIC_CURVE_SETTINGS },
+  green: { ...INITIAL_PARAMETRIC_CURVE_SETTINGS },
+  blue: { ...INITIAL_PARAMETRIC_CURVE_SETTINGS },
 };
 
 export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
@@ -410,7 +410,7 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
       { x: 255, y: 255 },
     ],
   },
-  parametricCurve: DEFAULT_PARAMETRIC_CURVE,
+  parametricCurve: INITIAL_PARAMETRIC_CURVE,
   curveMode: 'point',
   dehaze: 0,
   exposure: 0,
@@ -487,7 +487,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
       { x: 255, y: 255 },
     ],
   },
-  parametricCurve: DEFAULT_PARAMETRIC_CURVE,
+  parametricCurve: INITIAL_PARAMETRIC_CURVE,
   curveMode: 'point',
   dehaze: 0,
   exposure: 0,
