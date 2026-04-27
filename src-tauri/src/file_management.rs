@@ -460,6 +460,8 @@ pub struct AppSettings {
     pub canvas_input_mode: Option<String>,
     #[serde(default)]
     pub zoom_speed_multiplier: Option<f32>,
+    #[serde(default)]
+    pub keybinds: HashMap<String, Vec<String>>,
 }
 
 fn default_adjustment_visibility() -> HashMap<String, bool> {
@@ -531,6 +533,7 @@ impl Default for AppSettings {
             use_wgpu_renderer: Some(true),
             canvas_input_mode: Some("mouse".to_string()),
             zoom_speed_multiplier: Some(1.0),
+            keybinds: HashMap::new(),
         }
     }
 }

@@ -245,7 +245,13 @@ pub fn get_or_init_gpu_context(
             .find(|f| !f.is_srgb())
             .unwrap_or(swapchain_caps.formats[0]);
 
-        let alpha_mode = if swapchain_caps
+        let alpha_mode = if cfg!(target_os = "windows")
+            && swapchain_caps
+                .alpha_modes
+                .contains(&wgpu::CompositeAlphaMode::Opaque)
+        {
+            wgpu::CompositeAlphaMode::Opaque
+        } else if swapchain_caps
             .alpha_modes
             .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
         {
