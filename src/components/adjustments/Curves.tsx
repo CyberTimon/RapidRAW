@@ -1,14 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, Copy, ClipboardPaste, Spline, SlidersHorizontal } from 'lucide-react';
-import { 
-  ActiveChannel, 
-  Adjustments, 
-  Coord, 
-  ParametricCurveSettings,
-  INITIAL_PARAMETRIC_CURVE_SETTINGS,
-  INITIAL_PARAMETRIC_CURVE
-} from '../../utils/adjustments';
+import { ActiveChannel, Adjustments, Coord, ParametricCurveSettings, INITIAL_PARAMETRIC_CURVE_SETTINGS, INITIAL_PARAMETRIC_CURVE } from '../../utils/adjustments';
 import { Theme, OPTION_SEPARATOR } from '../ui/AppProperties';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import Text from '../ui/Text';
@@ -364,6 +357,9 @@ export default function CurveGraph({
   const [curveMode, setCurveMode] = useState<'point' | 'parametric'>('point');
   const [activeParametricChannel, setActiveParametricChannel] = useState<ActiveChannel>(ActiveChannel.Luma);
 
+  const [lastPointChannel, setLastPointChannel] = useState<ActiveChannel>(ActiveChannel.Luma);
+  const [lastParametricChannel, setLastParametricChannel] = useState<ActiveChannel>(ActiveChannel.Luma);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const activeChannelRef = useRef(activeChannel);
@@ -378,17 +374,22 @@ export default function CurveGraph({
 
   const parametricPreviewPoints = useMemo(() => buildParametricCurvePreview(parametricCurve), [parametricCurve]);
 
+  const handleCurveModeChange = (mode: 'point' | 'parametric') => {
+    if (mode === 'parametric') {
+      setLastPointChannel(activeChannel);
+      setActiveParametricChannel(lastParametricChannel);
+    } else {
+      setLastParametricChannel(activeParametricChannel);
+      setActiveChannel(lastPointChannel);
+    }
+    setCurveMode(mode);
+  };
+
   useEffect(() => {
     activeChannelRef.current = activeChannel;
     setLocalPoints(null);
     setDraggingPointIndex(null);
   }, [activeChannel]);
-
-  useEffect(() => {
-    if (curveMode === 'parametric') {
-      setActiveParametricChannel(ActiveChannel.Luma);
-    }
-  }, [curveMode]);
 
   useEffect(() => {
     propPointsRef.current = adjustments?.curves?.[activeChannel];
@@ -947,7 +948,7 @@ export default function CurveGraph({
             className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${
               !isParametricMode ? 'bg-surface text-text-primary' : 'text-text-secondary hover:text-text-primary'
             }`}
-            onClick={() => setCurveMode('point')}
+            onClick={() => handleCurveModeChange('point')}
             title="Point Curve"
             type="button"
           >
@@ -957,7 +958,7 @@ export default function CurveGraph({
             className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${
               isParametricMode ? 'bg-surface text-text-primary' : 'text-text-secondary hover:text-text-primary'
             }`}
-            onClick={() => setCurveMode('parametric')}
+            onClick={() => handleCurveModeChange('parametric')}
             title="Parametric Curve"
             type="button"
           >
@@ -1045,6 +1046,27 @@ export default function CurveGraph({
             })}
 
           <path d={getCurvePath(points)} fill="none" stroke={color} strokeWidth="2.5" />
+
+          {isParametricMode && (
+            <>
+              <circle
+                cx={0}
+                cy={255}
+                fill={color}
+                r="6"
+                stroke="#1e1e1e"
+                strokeWidth="2"
+              />
+              <circle
+                cx={255}
+                cy={0}
+                fill={color}
+                r="6"
+                stroke="#1e1e1e"
+                strokeWidth="2"
+              />
+            </>
+          )}
 
           {!isParametricMode &&
             points.map((p: Coord, i: number) => (
