@@ -664,9 +664,15 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
         BasicAdjustment.Blacks,
       ],
     },
+  ],
+  curves: [
     {
-      label: 'Curves',
+      label: 'Point Curve',
       keys: ['curves'],
+    },
+    {
+      label: 'Parametric Curve',
+      keys: ['parametricCurve', 'curveMode'],
     },
   ],
   color: [
