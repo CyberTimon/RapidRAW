@@ -26,6 +26,7 @@ interface SliderProps {
 const DOUBLE_CLICK_THRESHOLD_MS = 300;
 const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const TOUCH_DRAG_THRESHOLD_PX = 10;
+const TOUCH_NATIVE_CHANGE_SUPPRESSION_MS = 500;
 
 const Slider = ({
   defaultValue = 0,
@@ -57,6 +58,8 @@ const Slider = ({
     startY: number;
     latestX: number;
   } | null>(null);
+  const touchDragActiveRef = useRef(false);
+  const ignoreNativeChangeUntilRef = useRef(0);
 
   const fillPercentage = max !== min ? ((displayValue - min) / (max - min)) * 100 : 0;
   const originPercentage = useMemo(() => {
@@ -168,6 +171,7 @@ const Slider = ({
 
     const handlePointerUp = () => {
       lastUpTime.current = Date.now();
+      touchDragActiveRef.current = false;
       setIsDragging(false);
     };
 
@@ -249,6 +253,11 @@ const Slider = ({
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (pendingTouchRef.current || Date.now() < ignoreNativeChangeUntilRef.current) {
+      setDisplayValue(value);
+      return;
+    }
+
     if (!isDragging) {
       setDisplayValue(Number(e.target.value));
       onChange(e);
@@ -284,6 +293,8 @@ const Slider = ({
       startY: touch.clientY,
       latestX: touch.clientX,
     };
+    touchDragActiveRef.current = false;
+    ignoreNativeChangeUntilRef.current = Date.now() + TOUCH_NATIVE_CHANGE_SUPPRESSION_MS;
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLInputElement>) => {
@@ -292,22 +303,19 @@ const Slider = ({
     const touch = e.touches[0];
     const pendingTouch = pendingTouchRef.current;
     pendingTouch.latestX = touch.clientX;
+    ignoreNativeChangeUntilRef.current = Date.now() + TOUCH_NATIVE_CHANGE_SUPPRESSION_MS;
 
     const deltaX = touch.clientX - pendingTouch.startX;
     const deltaY = touch.clientY - pendingTouch.startY;
 
-    if (
-      Math.abs(deltaY) > TOUCH_DRAG_THRESHOLD_PX &&
-      Math.abs(deltaY) > Math.abs(deltaX)
-    ) {
+    if (Math.abs(deltaY) > TOUCH_DRAG_THRESHOLD_PX && Math.abs(deltaY) > Math.abs(deltaX)) {
       pendingTouchRef.current = null;
+      ignoreNativeChangeUntilRef.current = Date.now() + TOUCH_NATIVE_CHANGE_SUPPRESSION_MS;
+      setDisplayValue(value);
       return;
     }
 
-    if (
-      Math.abs(deltaX) < TOUCH_DRAG_THRESHOLD_PX ||
-      Math.abs(deltaX) < Math.abs(deltaY)
-    ) {
+    if (Math.abs(deltaX) < TOUCH_DRAG_THRESHOLD_PX || Math.abs(deltaX) < Math.abs(deltaY)) {
       return;
     }
 
@@ -322,6 +330,8 @@ const Slider = ({
     accumulatedValueRef.current = rawValue;
     lastPointerXRef.current = touch.clientX;
     pendingTouchRef.current = null;
+    touchDragActiveRef.current = true;
+    ignoreNativeChangeUntilRef.current = Date.now() + TOUCH_NATIVE_CHANGE_SUPPRESSION_MS;
 
     if (e.cancelable) {
       e.preventDefault();
@@ -333,6 +343,10 @@ const Slider = ({
   };
 
   const handleTouchEnd = () => {
+    if (!touchDragActiveRef.current) {
+      ignoreNativeChangeUntilRef.current = Date.now() + TOUCH_NATIVE_CHANGE_SUPPRESSION_MS;
+      setDisplayValue(value);
+    }
     pendingTouchRef.current = null;
   };
 
