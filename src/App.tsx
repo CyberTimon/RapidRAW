@@ -273,11 +273,11 @@ const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[
 
 function App() {
   const COMPACT_EDITOR_MAX_WIDTH = 900;
-  const COMPACT_EDITOR_PANEL_MIN_RATIO = 0.4;
+  const COMPACT_EDITOR_PANEL_MIN_RATIO = 0.52;
   const COMPACT_EDITOR_PANEL_MANUAL_MIN_HEIGHT = 220;
   const COMPACT_EDITOR_PREVIEW_MIN_HEIGHT = 220;
-  const COMPACT_EDITOR_PREVIEW_CHROME_HEIGHT = 64;
-  const COMPACT_EDITOR_HORIZONTAL_INSET = 32;
+  const COMPACT_EDITOR_PREVIEW_CHROME_HEIGHT = 80;
+  const COMPACT_EDITOR_HORIZONTAL_INSET = 16;
   const COMPACT_EDITOR_STACK_GAP = 8;
   const DEFAULT_IMPORT_SETTINGS: ImportSettings = {
     filenameTemplate: '{original_filename}',
@@ -406,6 +406,8 @@ function App() {
   const [rightPanelWidth, setRightPanelWidth] = useState<number>(320);
   const [bottomPanelHeight, setBottomPanelHeight] = useState<number>(144);
   const [compactEditorPanelHeightOverride, setCompactEditorPanelHeightOverride] = useState<number | null>(null);
+  const compactEditorStackRef = useRef<HTMLDivElement>(null);
+  const [compactEditorStackSize, setCompactEditorStackSize] = useState<ImageDimensions>({ width: 0, height: 0 });
   const [activeTreeSection, setActiveTreeSection] = useState<string | null>('current');
   const [isResizing, setIsResizing] = useState(false);
   const [thumbnailSize, setThumbnailSize] = useState(defaultThumbnailSize);
@@ -517,6 +519,8 @@ function App() {
   const isPortraitViewport = viewportSize.width > 0 && viewportSize.height > viewportSize.width;
   const isCompactPortrait =
     viewportSize.width > 0 && viewportSize.width <= COMPACT_EDITOR_MAX_WIDTH && isPortraitViewport;
+  const compactEditorStackWidth = compactEditorStackSize.width || viewportSize.width;
+  const compactEditorStackHeight = compactEditorStackSize.height || viewportSize.height;
 
   const compactEditorImageDimensions = useMemo(() => {
     if (!selectedImage?.width || !selectedImage?.height) {
@@ -537,42 +541,41 @@ function App() {
   }, [adjustments.crop, adjustments.orientationSteps, selectedImage?.height, selectedImage?.width]);
 
   const compactEditorPanelAutoMinHeight =
-    viewportSize.height > 0 ? Math.max(320, Math.round(viewportSize.height * COMPACT_EDITOR_PANEL_MIN_RATIO)) : 340;
+    compactEditorStackHeight > 0
+      ? Math.max(
+          COMPACT_EDITOR_PANEL_MANUAL_MIN_HEIGHT,
+          Math.round(compactEditorStackHeight * COMPACT_EDITOR_PANEL_MIN_RATIO),
+        )
+      : 340;
   const compactEditorPanelManualMinHeight = COMPACT_EDITOR_PANEL_MANUAL_MIN_HEIGHT;
   const compactEditorPreviewMaxHeight =
-    viewportSize.height > 0
-      ? Math.max(
-          COMPACT_EDITOR_PREVIEW_MIN_HEIGHT,
-          viewportSize.height - compactEditorPanelAutoMinHeight - COMPACT_EDITOR_STACK_GAP,
-        )
+    compactEditorStackHeight > 0
+      ? Math.max(0, compactEditorStackHeight - compactEditorPanelAutoMinHeight - COMPACT_EDITOR_STACK_GAP)
       : COMPACT_EDITOR_PREVIEW_MIN_HEIGHT;
   const compactEditorPreviewFitHeight =
-    compactEditorImageDimensions && viewportSize.width > 0
-      ? Math.round(
-          Math.max(
-            COMPACT_EDITOR_PREVIEW_MIN_HEIGHT,
-            Math.min(
-              (Math.max(0, viewportSize.width - COMPACT_EDITOR_HORIZONTAL_INSET) *
-                compactEditorImageDimensions.height) /
-                compactEditorImageDimensions.width +
-                COMPACT_EDITOR_PREVIEW_CHROME_HEIGHT,
-              compactEditorPreviewMaxHeight,
-            ),
+    compactEditorImageDimensions && compactEditorStackWidth > 0
+      ? Math.min(
+          Math.ceil(
+            (Math.max(0, compactEditorStackWidth - COMPACT_EDITOR_HORIZONTAL_INSET) *
+              compactEditorImageDimensions.height) /
+              compactEditorImageDimensions.width +
+              COMPACT_EDITOR_PREVIEW_CHROME_HEIGHT,
           ),
+          compactEditorPreviewMaxHeight,
         )
       : compactEditorPreviewMaxHeight;
   const compactEditorPanelDefaultHeight =
-    viewportSize.height > 0
+    compactEditorStackHeight > 0
       ? Math.max(
           compactEditorPanelAutoMinHeight,
-          viewportSize.height - compactEditorPreviewFitHeight - COMPACT_EDITOR_STACK_GAP,
+          compactEditorStackHeight - compactEditorPreviewFitHeight - COMPACT_EDITOR_STACK_GAP,
         )
       : compactEditorPanelAutoMinHeight;
   const compactEditorPanelMaxHeight =
-    viewportSize.height > 0
+    compactEditorStackHeight > 0
       ? Math.max(
           compactEditorPanelManualMinHeight,
-          viewportSize.height - COMPACT_EDITOR_PREVIEW_MIN_HEIGHT - COMPACT_EDITOR_STACK_GAP,
+          compactEditorStackHeight - COMPACT_EDITOR_PREVIEW_MIN_HEIGHT - COMPACT_EDITOR_STACK_GAP,
         )
       : 520;
   const compactEditorPanelResolvedMinHeight =
@@ -586,6 +589,37 @@ function App() {
 
   useEffect(() => {
     setCompactEditorPanelHeightOverride(null);
+  }, [isCompactPortrait, selectedImage?.path]);
+
+  useEffect(() => {
+    const node = compactEditorStackRef.current;
+    if (!isCompactPortrait || !node) {
+      setCompactEditorStackSize((prev) => (prev.width === 0 && prev.height === 0 ? prev : { width: 0, height: 0 }));
+      return;
+    }
+
+    const updateCompactEditorStackSize = () => {
+      const rect = node.getBoundingClientRect();
+      const nextSize = {
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      };
+
+      setCompactEditorStackSize((prev) =>
+        prev.width === nextSize.width && prev.height === nextSize.height ? prev : nextSize,
+      );
+    };
+
+    updateCompactEditorStackSize();
+
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new ResizeObserver(updateCompactEditorStackSize);
+    observer.observe(node);
+
+    return () => observer.disconnect();
   }, [isCompactPortrait, selectedImage?.path]);
 
   useEffect(() => {
@@ -5582,7 +5616,10 @@ function App() {
       );
 
       return (
-        <div className={clsx('flex grow h-full min-h-0', isCompactPortrait ? 'flex-col gap-2' : 'flex-row')}>
+        <div
+          ref={isCompactPortrait ? compactEditorStackRef : undefined}
+          className={clsx('flex grow h-full min-h-0', isCompactPortrait ? 'flex-col gap-2' : 'flex-row')}
+        >
           <div className={clsx('flex-1 flex flex-col min-w-0', isCompactPortrait && 'min-h-0')}>
             {editorNode}
             {!isCompactPortrait && editorBottomBarNode}
