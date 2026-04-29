@@ -273,7 +273,8 @@ const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[
 
 function App() {
   const COMPACT_EDITOR_MAX_WIDTH = 900;
-  const COMPACT_EDITOR_PANEL_MIN_RATIO = 0.6;
+  const COMPACT_EDITOR_PANEL_MIN_RATIO = 0.4;
+  const COMPACT_EDITOR_PANEL_MANUAL_MIN_HEIGHT = 220;
   const COMPACT_EDITOR_PREVIEW_MIN_HEIGHT = 220;
   const COMPACT_EDITOR_PREVIEW_CHROME_HEIGHT = 64;
   const COMPACT_EDITOR_HORIZONTAL_INSET = 32;
@@ -535,13 +536,14 @@ function App() {
     };
   }, [adjustments.crop, adjustments.orientationSteps, selectedImage?.height, selectedImage?.width]);
 
-  const compactEditorPanelMinHeight =
+  const compactEditorPanelAutoMinHeight =
     viewportSize.height > 0 ? Math.max(320, Math.round(viewportSize.height * COMPACT_EDITOR_PANEL_MIN_RATIO)) : 340;
+  const compactEditorPanelManualMinHeight = COMPACT_EDITOR_PANEL_MANUAL_MIN_HEIGHT;
   const compactEditorPreviewMaxHeight =
     viewportSize.height > 0
       ? Math.max(
           COMPACT_EDITOR_PREVIEW_MIN_HEIGHT,
-          viewportSize.height - compactEditorPanelMinHeight - COMPACT_EDITOR_STACK_GAP,
+          viewportSize.height - compactEditorPanelAutoMinHeight - COMPACT_EDITOR_STACK_GAP,
         )
       : COMPACT_EDITOR_PREVIEW_MIN_HEIGHT;
   const compactEditorPreviewFitHeight =
@@ -562,19 +564,21 @@ function App() {
   const compactEditorPanelDefaultHeight =
     viewportSize.height > 0
       ? Math.max(
-          compactEditorPanelMinHeight,
+          compactEditorPanelAutoMinHeight,
           viewportSize.height - compactEditorPreviewFitHeight - COMPACT_EDITOR_STACK_GAP,
         )
-      : compactEditorPanelMinHeight;
+      : compactEditorPanelAutoMinHeight;
   const compactEditorPanelMaxHeight =
     viewportSize.height > 0
       ? Math.max(
-          compactEditorPanelMinHeight,
+          compactEditorPanelManualMinHeight,
           viewportSize.height - COMPACT_EDITOR_PREVIEW_MIN_HEIGHT - COMPACT_EDITOR_STACK_GAP,
         )
       : 520;
+  const compactEditorPanelResolvedMinHeight =
+    compactEditorPanelHeightOverride === null ? compactEditorPanelAutoMinHeight : compactEditorPanelManualMinHeight;
   const compactEditorPanelHeight = Math.max(
-    compactEditorPanelMinHeight,
+    compactEditorPanelResolvedMinHeight,
     Math.min(compactEditorPanelHeightOverride ?? compactEditorPanelDefaultHeight, compactEditorPanelMaxHeight),
   );
   const compactEditorPanelCollapsedHeight = 96;
@@ -1826,7 +1830,7 @@ function App() {
         setter(
           Math.round(
             Math.max(
-              compactEditorPanelMinHeight,
+              compactEditorPanelManualMinHeight,
               Math.min(startSize - (moveEvent.clientY - startY), compactEditorPanelMaxHeight),
             ),
           ),
