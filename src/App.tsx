@@ -484,7 +484,7 @@ function App() {
     isOpen: false,
     sourceImages: [],
   });
-  const [customEscapeHandler, setCustomEscapeHandler] = useState(null);
+  const [customEscapeHandler, setCustomEscapeHandler] = useState<(() => void) | null>(null);
   const [isGeneratingAiMask, setIsGeneratingAiMask] = useState(false);
   const [isAIConnectorConnected, setisAIConnectorConnected] = useState(false);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
@@ -3350,6 +3350,51 @@ function App() {
     collageModalState.isOpen ||
     denoiseModalState.isOpen ||
     negativeModalState.isOpen;
+
+  const handleAndroidBackNavigation = useCallback(() => {
+    if (isAnyModalOpen) return false;
+
+    if (isFullScreen) {
+      handleToggleFullScreen();
+      return true;
+    }
+
+    if (selectedImage) {
+      handleBackToLibrary();
+      return true;
+    }
+
+    if (activeView !== 'library') {
+      setActiveView('library');
+      return true;
+    }
+
+    if (isLibraryExportPanelVisible) {
+      setIsLibraryExportPanelVisible(false);
+      return true;
+    }
+
+    return false;
+  }, [
+    activeView,
+    handleBackToLibrary,
+    handleToggleFullScreen,
+    isAnyModalOpen,
+    isFullScreen,
+    isLibraryExportPanelVisible,
+    selectedImage,
+  ]);
+
+  useEffect(() => {
+    const handleAndroidBack = (event: Event) => {
+      if (handleAndroidBackNavigation()) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('rapidraw:android-back', handleAndroidBack);
+    return () => window.removeEventListener('rapidraw:android-back', handleAndroidBack);
+  }, [handleAndroidBackNavigation]);
 
   useKeyboardShortcuts({
     isModalOpen: isAnyModalOpen,
