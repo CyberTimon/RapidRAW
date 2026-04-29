@@ -149,6 +149,9 @@ export interface AppSettings {
   aiConnectorAddress?: string;
   decorations?: any;
   editorPreviewResolution?: number;
+  thumbnailResolution?: number;
+  thumbnailWorkerThreads?: number;
+  imageCacheSize?: number;
   enableZoomHifi?: boolean;
   useFullDpiRendering?: boolean;
   highResZoomMultiplier?: number;

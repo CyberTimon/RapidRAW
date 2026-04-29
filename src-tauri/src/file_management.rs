@@ -46,6 +46,16 @@ use crate::mask_generation::MaskDefinition;
 use crate::preset_converter;
 use crate::tagging::COLOR_TAG_PREFIX;
 
+#[cfg(target_os = "android")]
+pub const DEFAULT_THUMBNAIL_WORKER_THREADS: u32 = 2;
+#[cfg(not(target_os = "android"))]
+pub const DEFAULT_THUMBNAIL_WORKER_THREADS: u32 = 4;
+
+#[cfg(target_os = "android")]
+pub const DEFAULT_IMAGE_CACHE_SIZE: u32 = 2;
+#[cfg(not(target_os = "android"))]
+pub const DEFAULT_IMAGE_CACHE_SIZE: u32 = 5;
+
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
     let cache_dir = app_handle
         .path()
@@ -379,6 +389,14 @@ fn default_tagging_shortcuts_option() -> Option<Vec<String>> {
     ])
 }
 
+fn default_thumbnail_worker_threads() -> Option<u32> {
+    Some(DEFAULT_THUMBNAIL_WORKER_THREADS)
+}
+
+fn default_image_cache_size() -> Option<u32> {
+    Some(DEFAULT_IMAGE_CACHE_SIZE)
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -460,9 +478,9 @@ pub struct AppSettings {
     pub zoom_speed_multiplier: Option<f32>,
     #[serde(default)]
     pub keybinds: HashMap<String, Vec<String>>,
-    #[serde(default)]
+    #[serde(default = "default_thumbnail_worker_threads")]
     pub thumbnail_worker_threads: Option<u32>,
-    #[serde(default)]
+    #[serde(default = "default_image_cache_size")]
     pub image_cache_size: Option<u32>,
 }
 
@@ -539,8 +557,8 @@ impl Default for AppSettings {
             canvas_input_mode: Some("mouse".to_string()),
             zoom_speed_multiplier: Some(1.0),
             keybinds: HashMap::new(),
-            thumbnail_worker_threads: Some(4),
-            image_cache_size: Some(5),
+            thumbnail_worker_threads: Some(DEFAULT_THUMBNAIL_WORKER_THREADS),
+            image_cache_size: Some(DEFAULT_IMAGE_CACHE_SIZE),
         }
     }
 }
@@ -1731,7 +1749,10 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
     let state = app_handle.state::<crate::AppState>();
     let manager = state.thumbnail_manager.clone();
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
-    let thread_count = settings.thumbnail_worker_threads.unwrap_or(4).clamp(1, 16);
+    let thread_count = settings
+        .thumbnail_worker_threads
+        .unwrap_or(DEFAULT_THUMBNAIL_WORKER_THREADS)
+        .clamp(1, 16);
 
     for _ in 0..thread_count {
         let app_clone = app_handle.clone();
@@ -2998,7 +3019,9 @@ pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(),
     let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     fs::write(path, json_string).map_err(|e| e.to_string())?;
     let state = app_handle.state::<AppState>();
-    let cache_size = settings.image_cache_size.unwrap_or(5) as usize;
+    let cache_size = settings
+        .image_cache_size
+        .unwrap_or(DEFAULT_IMAGE_CACHE_SIZE) as usize;
     state
         .decoded_image_cache
         .lock()

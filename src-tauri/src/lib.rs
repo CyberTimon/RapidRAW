@@ -75,8 +75,8 @@ use crate::ai_processing::{
 };
 use crate::exif_processing::{read_exposure_time_secs, read_iso};
 use crate::file_management::{
-    AppSettings, generate_filename_from_template, load_settings, parse_virtual_path,
-    read_file_mapped,
+    AppSettings, DEFAULT_IMAGE_CACHE_SIZE, generate_filename_from_template, load_settings,
+    parse_virtual_path, read_file_mapped,
 };
 use crate::formats::is_raw_file;
 use crate::image_loader::{
@@ -4926,7 +4926,7 @@ pub fn run() {
 
             {
                 let state = app.state::<AppState>();
-                let cache_size = settings.image_cache_size.unwrap_or(5) as usize;
+                let cache_size = settings.image_cache_size.unwrap_or(DEFAULT_IMAGE_CACHE_SIZE) as usize;
                 state.decoded_image_cache.lock().unwrap().set_capacity(cache_size);
             }
 
@@ -5180,7 +5180,7 @@ pub fn run() {
             load_image_generation: Arc::new(AtomicUsize::new(0)),
             full_warped_cache: Mutex::new(None),
             full_transformed_cache: Mutex::new(None),
-            decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
+            decoded_image_cache: Mutex::new(DecodedImageCache::new(DEFAULT_IMAGE_CACHE_SIZE as usize)),
             thumbnail_manager: ThumbnailManager::new(),
         })
         .invoke_handler(tauri::generate_handler![

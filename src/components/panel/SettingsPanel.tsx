@@ -140,6 +140,17 @@ const livePreviewQualityOptions: OptionItem<string>[] = [
   { value: 'performance', label: 'Performance' },
 ];
 
+const MIN_THUMBNAIL_WORKER_THREADS = 2;
+const MIN_DECODED_IMAGE_CACHE_SIZE = 2;
+const DEFAULT_THUMBNAIL_WORKER_THREADS = 4;
+const DEFAULT_DECODED_IMAGE_CACHE_SIZE = 5;
+
+const getDefaultThumbnailWorkerThreads = (osPlatform: string) =>
+  osPlatform === 'android' ? MIN_THUMBNAIL_WORKER_THREADS : DEFAULT_THUMBNAIL_WORKER_THREADS;
+
+const getDefaultDecodedImageCacheSize = (osPlatform: string) =>
+  osPlatform === 'android' ? MIN_DECODED_IMAGE_CACHE_SIZE : DEFAULT_DECODED_IMAGE_CACHE_SIZE;
+
 const backendOptions: OptionItem<string>[] = [
   { value: 'auto', label: 'Auto' },
   { value: 'vulkan', label: 'Vulkan' },
@@ -445,6 +456,8 @@ export default function SettingsPanel({
   const [tempLensModel, setTempLensModel] = useState<string>('');
 
   const osPlatform = useOsPlatform();
+  const defaultThumbnailWorkerThreads = getDefaultThumbnailWorkerThreads(osPlatform);
+  const defaultDecodedImageCacheSize = getDefaultDecodedImageCacheSize(osPlatform);
   const [processingSettings, setProcessingSettings] = useState({
     editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
     thumbnailResolution: appSettings?.thumbnailResolution || 720,
@@ -455,8 +468,8 @@ export default function SettingsPanel({
     useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
     useWgpuRenderer:
       appSettings?.useWgpuRenderer ?? (osPlatform === 'linux' || osPlatform === 'android' ? false : true),
-    thumbnailWorkerThreads: appSettings?.thumbnailWorkerThreads ?? 4,
-    imageCacheSize: appSettings?.imageCacheSize ?? 5,
+    thumbnailWorkerThreads: appSettings?.thumbnailWorkerThreads ?? defaultThumbnailWorkerThreads,
+    imageCacheSize: appSettings?.imageCacheSize ?? defaultDecodedImageCacheSize,
   });
   const [restartRequired, setRestartRequired] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
@@ -504,11 +517,11 @@ export default function SettingsPanel({
       highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
       useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
       useWgpuRenderer: appSettings?.useWgpuRenderer ?? true,
-      thumbnailWorkerThreads: appSettings?.thumbnailWorkerThreads ?? 4,
-      imageCacheSize: appSettings?.imageCacheSize ?? 5,
+      thumbnailWorkerThreads: appSettings?.thumbnailWorkerThreads ?? defaultThumbnailWorkerThreads,
+      imageCacheSize: appSettings?.imageCacheSize ?? defaultDecodedImageCacheSize,
     });
     setRestartRequired(false);
-  }, [appSettings]);
+  }, [appSettings, defaultDecodedImageCacheSize, defaultThumbnailWorkerThreads]);
 
   useEffect(() => {
     const fetchLogPath = async () => {
@@ -1632,11 +1645,11 @@ export default function SettingsPanel({
                     >
                       <Slider
                         label="Threads"
-                        min={2}
+                        min={MIN_THUMBNAIL_WORKER_THREADS}
                         max={10}
                         step={1}
                         value={processingSettings.thumbnailWorkerThreads}
-                        defaultValue={4}
+                        defaultValue={defaultThumbnailWorkerThreads}
                         onChange={(e: any) =>
                           handleProcessingSettingChange('thumbnailWorkerThreads', parseInt(e.target.value))
                         }
@@ -1650,11 +1663,11 @@ export default function SettingsPanel({
                     >
                       <Slider
                         label="Images"
-                        min={2}
+                        min={MIN_DECODED_IMAGE_CACHE_SIZE}
                         max={10}
                         step={1}
                         value={processingSettings.imageCacheSize}
-                        defaultValue={5}
+                        defaultValue={defaultDecodedImageCacheSize}
                         onChange={(e: any) => handleProcessingSettingChange('imageCacheSize', parseInt(e.target.value))}
                         fillOrigin="min"
                       />
