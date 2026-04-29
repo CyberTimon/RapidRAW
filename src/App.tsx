@@ -273,6 +273,11 @@ const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[
 
 function App() {
   const COMPACT_EDITOR_MAX_WIDTH = 900;
+  const COMPACT_EDITOR_PANEL_MIN_RATIO = 0.6;
+  const COMPACT_EDITOR_PREVIEW_MIN_HEIGHT = 220;
+  const COMPACT_EDITOR_PREVIEW_CHROME_HEIGHT = 64;
+  const COMPACT_EDITOR_HORIZONTAL_INSET = 32;
+  const COMPACT_EDITOR_STACK_GAP = 8;
   const DEFAULT_IMPORT_SETTINGS: ImportSettings = {
     filenameTemplate: '{original_filename}',
     organizeByDate: false,
@@ -511,12 +516,62 @@ function App() {
   const isPortraitViewport = viewportSize.width > 0 && viewportSize.height > viewportSize.width;
   const isCompactPortrait =
     viewportSize.width > 0 && viewportSize.width <= COMPACT_EDITOR_MAX_WIDTH && isPortraitViewport;
+
+  const compactEditorImageDimensions = useMemo(() => {
+    if (!selectedImage?.width || !selectedImage?.height) {
+      return null;
+    }
+
+    const crop = adjustments.crop;
+    if (crop?.width && crop?.height) {
+      return { width: crop.width, height: crop.height };
+    }
+
+    const orientationSteps = adjustments.orientationSteps || 0;
+    const isSwapped = orientationSteps === 1 || orientationSteps === 3;
+    return {
+      width: isSwapped ? selectedImage.height : selectedImage.width,
+      height: isSwapped ? selectedImage.width : selectedImage.height,
+    };
+  }, [adjustments.crop, adjustments.orientationSteps, selectedImage?.height, selectedImage?.width]);
+
+  const compactEditorPanelMinHeight =
+    viewportSize.height > 0 ? Math.max(320, Math.round(viewportSize.height * COMPACT_EDITOR_PANEL_MIN_RATIO)) : 340;
+  const compactEditorPreviewMaxHeight =
+    viewportSize.height > 0
+      ? Math.max(
+          COMPACT_EDITOR_PREVIEW_MIN_HEIGHT,
+          viewportSize.height - compactEditorPanelMinHeight - COMPACT_EDITOR_STACK_GAP,
+        )
+      : COMPACT_EDITOR_PREVIEW_MIN_HEIGHT;
+  const compactEditorPreviewFitHeight =
+    compactEditorImageDimensions && viewportSize.width > 0
+      ? Math.round(
+          Math.max(
+            COMPACT_EDITOR_PREVIEW_MIN_HEIGHT,
+            Math.min(
+              (Math.max(0, viewportSize.width - COMPACT_EDITOR_HORIZONTAL_INSET) *
+                compactEditorImageDimensions.height) /
+                compactEditorImageDimensions.width +
+                COMPACT_EDITOR_PREVIEW_CHROME_HEIGHT,
+              compactEditorPreviewMaxHeight,
+            ),
+          ),
+        )
+      : compactEditorPreviewMaxHeight;
   const compactEditorPanelDefaultHeight =
-    viewportSize.height > 0 ? Math.max(300, Math.min(Math.round(viewportSize.height * 0.46), 520)) : 340;
-  const compactEditorPanelMinHeight = 220;
+    viewportSize.height > 0
+      ? Math.max(
+          compactEditorPanelMinHeight,
+          viewportSize.height - compactEditorPreviewFitHeight - COMPACT_EDITOR_STACK_GAP,
+        )
+      : compactEditorPanelMinHeight;
   const compactEditorPanelMaxHeight =
     viewportSize.height > 0
-      ? Math.max(compactEditorPanelMinHeight, Math.min(Math.round(viewportSize.height * 0.72), 620))
+      ? Math.max(
+          compactEditorPanelMinHeight,
+          viewportSize.height - COMPACT_EDITOR_PREVIEW_MIN_HEIGHT - COMPACT_EDITOR_STACK_GAP,
+        )
       : 520;
   const compactEditorPanelHeight = Math.max(
     compactEditorPanelMinHeight,
@@ -524,6 +579,10 @@ function App() {
   );
   const compactEditorPanelCollapsedHeight = 96;
   const [hasRenderedFirstFrame, setHasRenderedFirstFrame] = useState(false);
+
+  useEffect(() => {
+    setCompactEditorPanelHeightOverride(null);
+  }, [isCompactPortrait, selectedImage?.path]);
 
   useEffect(() => {
     if (currentFolderPath) {
