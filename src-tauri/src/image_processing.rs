@@ -1263,6 +1263,7 @@ pub struct GlobalAdjustments {
     pub vibrance: f32,
 
     pub sharpness: f32,
+    pub sharpening_mask: f32,
     pub luma_noise_reduction: f32,
     pub color_noise_reduction: f32,
     pub clarity: f32,
@@ -1293,7 +1294,6 @@ pub struct GlobalAdjustments {
 
     _pad_agx1: f32,
     _pad_agx2: f32,
-    _pad_agx3: f32,
     pub agx_pipe_to_rendering_matrix: GpuMat3,
     pub agx_rendering_to_pipe_matrix: GpuMat3,
 
@@ -1324,13 +1324,13 @@ pub struct GlobalAdjustments {
     _pad_end1: f32,
     _pad_end2: f32,
     _pad_end3: f32,
-    _pad_end4: f32,
+    pub sharpening_mask_show_bw: u32,
 
     pub glow_amount: f32,
     pub halation_amount: f32,
     pub flare_amount: f32,
 
-    _pad_creative_1: f32,
+    pub sharpening_mask_debug: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -1889,6 +1889,7 @@ fn get_global_adjustments_from_json(
         vibrance: get_val("color", "vibrance", SCALES.vibrance, None),
 
         sharpness: get_val("details", "sharpness", SCALES.sharpness, None),
+        sharpening_mask: get_val("details", "sharpeningMask", 1.0, None),
         luma_noise_reduction: get_val(
             "details",
             "lumaNoiseReduction",
@@ -1969,7 +1970,6 @@ fn get_global_adjustments_from_json(
 
         _pad_agx1: 0.0,
         _pad_agx2: 0.0,
-        _pad_agx3: 0.0,
         agx_pipe_to_rendering_matrix: pipe_to_rendering,
         agx_rendering_to_pipe_matrix: rendering_to_pipe,
 
@@ -2028,13 +2028,27 @@ fn get_global_adjustments_from_json(
         _pad_end1: 0.0,
         _pad_end2: 0.0,
         _pad_end3: 0.0,
-        _pad_end4: 0.0,
+        sharpening_mask_show_bw: if js_adjustments["sharpeningMaskShowBw"]
+            .as_bool()
+            .unwrap_or(false)
+        {
+            1
+        } else {
+            0
+        },
 
         glow_amount: get_val("effects", "glowAmount", SCALES.glow, None),
         halation_amount: get_val("effects", "halationAmount", SCALES.halation, None),
         flare_amount: get_val("effects", "flareAmount", SCALES.flares, None),
 
-        _pad_creative_1: 0.0,
+        sharpening_mask_debug: if js_adjustments["sharpeningMaskDebug"]
+            .as_bool()
+            .unwrap_or(false)
+        {
+            1
+        } else {
+            0
+        },
     }
 }
 

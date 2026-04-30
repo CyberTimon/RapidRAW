@@ -68,6 +68,7 @@ export enum DetailsAdjustment {
   Sharpness = 'sharpness',
   ChromaticAberrationRedCyan = 'chromaticAberrationRedCyan',
   ChromaticAberrationBlueYellow = 'chromaticAberrationBlueYellow',
+  SharpeningMask = 'sharpeningMask'
 }
 
 export enum Effect {
@@ -205,6 +206,9 @@ export interface Adjustments {
   sectionVisibility: SectionVisibility;
   shadows: number;
   sharpness: number;
+  sharpeningMask: number;
+  sharpeningMaskDebug: boolean;
+  sharpeningMaskShowBw: boolean;
   showClipping: boolean;
   structure: number;
   temperature: number;
@@ -529,6 +533,9 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   },
   shadows: 0,
   sharpness: 0,
+  sharpeningMask: 0,
+  sharpeningMaskDebug: false,
+  sharpeningMaskShowBw: false,
   showClipping: false,
   structure: 0,
   temperature: 0,
@@ -786,6 +793,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     DetailsAdjustment.Structure,
     DetailsAdjustment.Centré,
     DetailsAdjustment.Sharpness,
+    DetailsAdjustment.SharpeningMask,
     DetailsAdjustment.LumaNoiseReduction,
     DetailsAdjustment.ColorNoiseReduction,
     DetailsAdjustment.ChromaticAberrationRedCyan,

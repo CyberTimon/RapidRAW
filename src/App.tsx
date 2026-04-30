@@ -821,11 +821,11 @@ function App() {
           aiPatches: prev.aiPatches.map((p: AiPatch) =>
             p.id === patchId
               ? {
-                  ...p,
-                  patchData: newPatchData,
-                  isLoading: false,
-                  name: useFastInpaint ? 'Inpaint' : prompt && prompt.trim() ? prompt.trim() : p.name,
-                }
+                ...p,
+                patchData: newPatchData,
+                isLoading: false,
+                name: useFastInpaint ? 'Inpaint' : prompt && prompt.trim() ? prompt.trim() : p.name,
+              }
               : p,
           ),
         }));
@@ -913,11 +913,11 @@ function App() {
           aiPatches: adjustments.aiPatches.map((p: AiPatch) =>
             p.id === patchId
               ? {
-                  ...p,
-                  subMasks: p.subMasks.map((sm: SubMask) =>
-                    sm.id === subMaskId ? { ...sm, parameters: finalSubMaskParams } : sm,
-                  ),
-                }
+                ...p,
+                subMasks: p.subMasks.map((sm: SubMask) =>
+                  sm.id === subMaskId ? { ...sm, parameters: finalSubMaskParams } : sm,
+                ),
+              }
               : p,
           ),
         };
@@ -941,13 +941,13 @@ function App() {
           aiPatches: prev.aiPatches?.map((p: AiPatch) =>
             p.id === patchId
               ? {
-                  ...p,
-                  patchData: newPatchData,
-                  isLoading: false,
-                  subMasks: p.subMasks.map((sm: SubMask) =>
-                    sm.id === subMaskId ? { ...sm, parameters: finalSubMaskParams } : sm,
-                  ),
-                }
+                ...p,
+                patchData: newPatchData,
+                isLoading: false,
+                subMasks: p.subMasks.map((sm: SubMask) =>
+                  sm.id === subMaskId ? { ...sm, parameters: finalSubMaskParams } : sm,
+                ),
+              }
               : p,
           ),
         }));
@@ -1309,32 +1309,32 @@ function App() {
       searchTags.length === 0 && lowerCaseSearchText === ''
         ? filteredList
         : filteredList.filter((image: ImageFile) => {
-            const lowerCaseImageTags = (image.tags || []).map((t) => t.toLowerCase().replace('user:', ''));
-            const filename = image?.path?.split(/[\\/]/)?.pop()?.toLowerCase() || '';
+          const lowerCaseImageTags = (image.tags || []).map((t) => t.toLowerCase().replace('user:', ''));
+          const filename = image?.path?.split(/[\\/]/)?.pop()?.toLowerCase() || '';
 
-            let tagsMatch = true;
-            if (searchTags.length > 0) {
-              const lowerCaseSearchTags = searchTags.map((t) => t.toLowerCase());
-              if (searchMode === 'OR') {
-                tagsMatch = lowerCaseSearchTags.some((searchTag) =>
-                  lowerCaseImageTags.some((imgTag) => imgTag.includes(searchTag)),
-                );
-              } else {
-                tagsMatch = lowerCaseSearchTags.every((searchTag) =>
-                  lowerCaseImageTags.some((imgTag) => imgTag.includes(searchTag)),
-                );
-              }
+          let tagsMatch = true;
+          if (searchTags.length > 0) {
+            const lowerCaseSearchTags = searchTags.map((t) => t.toLowerCase());
+            if (searchMode === 'OR') {
+              tagsMatch = lowerCaseSearchTags.some((searchTag) =>
+                lowerCaseImageTags.some((imgTag) => imgTag.includes(searchTag)),
+              );
+            } else {
+              tagsMatch = lowerCaseSearchTags.every((searchTag) =>
+                lowerCaseImageTags.some((imgTag) => imgTag.includes(searchTag)),
+              );
             }
+          }
 
-            let textMatch = true;
-            if (lowerCaseSearchText !== '') {
-              textMatch =
-                filename.includes(lowerCaseSearchText) ||
-                lowerCaseImageTags.some((t) => t.includes(lowerCaseSearchText));
-            }
+          let textMatch = true;
+          if (lowerCaseSearchText !== '') {
+            textMatch =
+              filename.includes(lowerCaseSearchText) ||
+              lowerCaseImageTags.some((t) => t.includes(lowerCaseSearchText));
+          }
 
-            return tagsMatch && textMatch;
-          });
+          return tagsMatch && textMatch;
+        });
 
     const list = [...filteredBySearch];
 
@@ -4580,7 +4580,7 @@ function App() {
     let deleteSubmenu;
     if (selectionHasVirtualCopies) {
       deleteSubmenu = [
-        { label: 'Cancel', icon: X, onClick: () => {} },
+        { label: 'Cancel', icon: X, onClick: () => { } },
         {
           label: 'Confirm Delete + Virtual Copies',
           icon: Check,
@@ -4590,7 +4590,7 @@ function App() {
       ];
     } else if (hasAssociatedFiles) {
       deleteSubmenu = [
-        { label: 'Cancel', icon: X, onClick: () => {} },
+        { label: 'Cancel', icon: X, onClick: () => { } },
         {
           label: 'Delete Selected Only',
           icon: Check,
@@ -4606,7 +4606,7 @@ function App() {
       ];
     } else {
       deleteSubmenu = [
-        { label: 'Cancel', icon: X, onClick: () => {} },
+        { label: 'Cancel', icon: X, onClick: () => { } },
         {
           label: 'Confirm Delete',
           icon: Check,
@@ -5007,15 +5007,15 @@ function App() {
 
     const pinOption = isCurrentlyPinned
       ? {
-          icon: PinOff,
-          label: 'Unpin Folder',
-          onClick: () => handleTogglePinFolder(targetPath),
-        }
+        icon: PinOff,
+        label: 'Unpin Folder',
+        onClick: () => handleTogglePinFolder(targetPath),
+      }
       : {
-          icon: Pin,
-          label: 'Pin Folder',
-          onClick: () => handleTogglePinFolder(targetPath),
-        };
+        icon: Pin,
+        label: 'Pin Folder',
+        onClick: () => handleTogglePinFolder(targetPath),
+      };
 
     const options = [
       pinOption,
@@ -5080,30 +5080,30 @@ function App() {
       },
       ...(path
         ? [
-            {
-              disabled: isRoot,
-              icon: Trash2,
-              isDestructive: true,
-              label: 'Delete Folder',
-              submenu: [
-                { label: 'Cancel', icon: X, onClick: () => {} },
-                {
-                  label: 'Confirm',
-                  icon: Check,
-                  isDestructive: true,
-                  onClick: async () => {
-                    try {
-                      await invoke(Invokes.DeleteFolder, { path: targetPath });
-                      if (currentFolderPath?.startsWith(targetPath)) await handleSelectSubfolder(rootPath);
-                      refreshAllFolderTrees();
-                    } catch (err) {
-                      setError(`Failed to delete folder: ${err}`);
-                    }
-                  },
+          {
+            disabled: isRoot,
+            icon: Trash2,
+            isDestructive: true,
+            label: 'Delete Folder',
+            submenu: [
+              { label: 'Cancel', icon: X, onClick: () => { } },
+              {
+                label: 'Confirm',
+                icon: Check,
+                isDestructive: true,
+                onClick: async () => {
+                  try {
+                    await invoke(Invokes.DeleteFolder, { path: targetPath });
+                    if (currentFolderPath?.startsWith(targetPath)) await handleSelectSubfolder(rootPath);
+                    refreshAllFolderTrees();
+                  } catch (err) {
+                    setError(`Failed to delete folder: ${err}`);
+                  }
                 },
-              ],
-            },
-          ]
+              },
+            ],
+          },
+        ]
         : []),
     ];
     showContextMenu(event.clientX, event.clientY, options);
