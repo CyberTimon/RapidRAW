@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GLOBAL_KEYS } from './AppProperties';
-import { useOsPlatform } from '../../hooks/useOsPlatform';
 
 type SliderChangeEvent =
   | React.ChangeEvent<HTMLInputElement>
@@ -42,7 +41,6 @@ const Slider = ({
   fillOrigin = 'default',
   suffix = '',
 }: SliderProps) => {
-  const isAndroid = useOsPlatform() === 'android';
   const [displayValue, setDisplayValue] = useState<number>(value);
   const [isDragging, setIsDragging] = useState(false);
   const animationFrameRef = useRef<number | undefined>(undefined);
@@ -267,11 +265,6 @@ const Slider = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLInputElement>) => {
-    if (isAndroid && e.button !== 0) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
     if (Date.now() - lastUpTime.current < DOUBLE_CLICK_THRESHOLD_MS) {
       e.preventDefault();
       return;
@@ -484,7 +477,6 @@ const Slider = ({
           max={String(max)}
           min={String(min)}
           onChange={handleChange}
-          onContextMenu={isAndroid ? (e) => e.preventDefault() : undefined}
           onDoubleClick={handleReset}
           onKeyDown={handleRangeKeyDown}
           onMouseDown={handleMouseDown}
