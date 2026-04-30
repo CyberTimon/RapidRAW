@@ -1,54 +1,53 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useMemo, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Invokes } from '../components/ui/AppProperties';
+import debounce from 'lodash.debounce';
 
 export function useThumbnails() {
-  const requestedPathsRef = useRef<Set<string>>(new Set());
-  const visiblePathsRef = useRef<Set<string>>(new Set());
-  const processorRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const generatedRef = useRef<Set<string>>(new Set());
 
-  const requestThumbnails = useCallback((paths: string[]) => {
-    visiblePathsRef.current = new Set(paths);
-
-    if (!processorRef.current) {
-      processorRef.current = setInterval(() => {
-        const pathsToRequest = Array.from(visiblePathsRef.current).filter((p) => !requestedPathsRef.current.has(p));
-
-        if (pathsToRequest.length > 0) {
-          pathsToRequest.forEach((p) => requestedPathsRef.current.add(p));
-
-          for (let i = pathsToRequest.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [pathsToRequest[i], pathsToRequest[j]] = [pathsToRequest[j], pathsToRequest[i]];
-          }
-
-          invoke(Invokes.GenerateThumbnailsProgressive, { paths: pathsToRequest }).catch((err) => {
-            console.error('Failed to request thumbnails:', err);
+  const sendQueueToBackend = useMemo(
+    () =>
+      debounce(
+        (paths: string[]) => {
+          invoke('update_thumbnail_queue', { paths }).catch((err) => {
+            console.error('Failed to update thumbnail queue:', err);
           });
-        } else {
-          if (processorRef.current) {
-            clearInterval(processorRef.current);
-            processorRef.current = null;
-          }
+        },
+        150,
+        { maxWait: 300 },
+      ),
+    [],
+  );
+
+  const requestThumbnails = useCallback(
+    (visiblePaths: string[]) => {
+      const neededPaths = visiblePaths.filter((p) => !generatedRef.current.has(p));
+
+      if (neededPaths.length > 0) {
+        for (let i = neededPaths.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [neededPaths[i], neededPaths[j]] = [neededPaths[j], neededPaths[i]];
         }
-      }, 150);
-    }
+
+        sendQueueToBackend(neededPaths);
+      }
+    },
+    [sendQueueToBackend],
+  );
+
+  const markGenerated = useCallback((path: string) => {
+    generatedRef.current.add(path);
   }, []);
 
   const clearThumbnailQueue = useCallback(() => {
-    requestedPathsRef.current.clear();
-    visiblePathsRef.current.clear();
-    if (processorRef.current) {
-      clearInterval(processorRef.current);
-      processorRef.current = null;
-    }
-  }, []);
+    generatedRef.current.clear();
+    sendQueueToBackend.cancel();
+    invoke('update_thumbnail_queue', { paths: [] }).catch(console.error);
+  }, [sendQueueToBackend]);
 
   useEffect(() => {
-    return () => {
-      if (processorRef.current) clearInterval(processorRef.current);
-    };
-  }, []);
+    return () => sendQueueToBackend.cancel();
+  }, [sendQueueToBackend]);
 
-  return { requestThumbnails, clearThumbnailQueue };
+  return { requestThumbnails, clearThumbnailQueue, markGenerated };
 }

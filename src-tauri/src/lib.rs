@@ -1,4 +1,7 @@
+#[cfg(not(all(target_os = "windows", target_arch = "aarch64")))]
 use mimalloc::MiMalloc;
+
+#[cfg(not(all(target_os = "windows", target_arch = "aarch64")))]
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
@@ -24,13 +27,14 @@ mod tagging;
 mod tagging_utils;
 mod window_customizer;
 
-use std::collections::{HashMap, hash_map::DefaultHasher};
+use std::collections::{HashMap, HashSet, VecDeque, hash_map::DefaultHasher};
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 use std::io::Write;
 use std::panic;
 use std::path::{Path, PathBuf};
+use std::sync::Condvar;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
@@ -81,9 +85,10 @@ use crate::image_loader::{
 use crate::image_processing::{
     AllAdjustments, Crop, GeometryParams, GpuContext, ImageMetadata, IntoCowImage, RenderRequest,
     apply_coarse_rotation, apply_cpu_default_raw_processing, apply_crop, apply_flip,
-    apply_geometry_warp, apply_rotation, apply_unwarp_geometry, downscale_f32_image,
-    get_all_adjustments_from_json, get_or_init_gpu_context, process_and_get_dynamic_image,
-    warp_image_geometry,
+    apply_geometry_warp, apply_linear_to_srgb, apply_rotation, apply_srgb_to_linear,
+    apply_unwarp_geometry, downscale_f32_image, get_all_adjustments_from_json,
+    get_or_init_gpu_context, process_and_get_dynamic_image, resolve_tonemapper_override,
+    resolve_tonemapper_override_from_handle, warp_image_geometry,
 };
 use crate::lut_processing::{Lut, convert_image_to_cube_lut, generate_identity_lut_image};
 use crate::mask_generation::{AiPatchDefinition, MaskDefinition, generate_mask_bitmap};
@@ -178,6 +183,22 @@ pub struct ThumbnailProgressTracker {
     pub completed: usize,
 }
 
+pub struct ThumbnailManager {
+    pub queue: Mutex<VecDeque<String>>,
+    pub cvar: Condvar,
+    pub processing_now: Mutex<HashSet<String>>,
+}
+
+impl ThumbnailManager {
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self {
+            queue: Mutex::new(VecDeque::new()),
+            cvar: Condvar::new(),
+            processing_now: Mutex::new(HashSet::new()),
+        })
+    }
+}
+
 pub type TransformedImageCache = (u64, Arc<DynamicImage>, (f32, f32));
 pub struct AppState {
     window_setup_complete: AtomicBool,
@@ -209,6 +230,7 @@ pub struct AppState {
     pub full_warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
     pub full_transformed_cache: Mutex<Option<TransformedImageCache>>,
     pub decoded_image_cache: Mutex<DecodedImageCache>,
+    pub thumbnail_manager: Arc<ThumbnailManager>,
 }
 
 #[derive(serde::Serialize)]
@@ -328,6 +350,13 @@ impl DecodedImageCache {
         Self {
             capacity,
             items: Vec::with_capacity(capacity),
+        }
+    }
+
+    pub fn set_capacity(&mut self, capacity: usize) {
+        self.capacity = capacity;
+        while self.items.len() > self.capacity {
+            self.items.remove(0);
         }
     }
 
@@ -576,6 +605,10 @@ fn hydrate_sub_masks(
 fn hydrate_adjustments(state: &tauri::State<AppState>, adjustments: &mut serde_json::Value) {
     let mut cache = state.patch_cache.lock().unwrap();
 
+    if cache.len() > 20 {
+        cache.clear();
+    }
+
     if let Some(patches) = adjustments
         .get_mut("aiPatches")
         .and_then(|v| v.as_array_mut())
@@ -701,6 +734,18 @@ fn get_or_load_lut(state: &tauri::State<AppState>, path: &str) -> Result<Arc<Lut
     let arc_lut = Arc::new(lut);
     cache.insert(path.to_string(), arc_lut.clone());
     Ok(arc_lut)
+}
+
+#[tauri::command]
+fn is_image_cached(path: String, state: tauri::State<'_, AppState>) -> bool {
+    let (source_path, _) = parse_virtual_path(&path);
+    let source_path_str = source_path.to_string_lossy().to_string();
+    state
+        .decoded_image_cache
+        .lock()
+        .unwrap()
+        .get(&source_path_str)
+        .is_some()
 }
 
 #[tauri::command]
@@ -1223,7 +1268,8 @@ fn process_preview_job(
         .collect();
 
     let is_raw = loaded_image.is_raw;
-    let final_adjustments = get_all_adjustments_from_json(&adjustments_clone, is_raw);
+    let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
+    let final_adjustments = get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
     let lut_path = adjustments_clone["lutPath"].as_str();
     let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
 
@@ -1557,7 +1603,9 @@ fn generate_uncropped_preview(
             })
             .collect();
 
-        let uncropped_adjustments = get_all_adjustments_from_json(&adjustments_clone, is_raw);
+        let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
+        let uncropped_adjustments =
+            get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
         let lut_path = adjustments_clone["lutPath"].as_str();
         let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
 
@@ -1719,7 +1767,9 @@ async fn preview_geometry_transform(
                 }
             }
 
-            let all_adjustments = get_all_adjustments_from_json(&temp_adjustments, is_raw);
+            let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
+            let all_adjustments =
+                get_all_adjustments_from_json(&temp_adjustments, is_raw, tm_override);
             let lut_path = temp_adjustments["lutPath"].as_str();
             let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
             let mask_bitmaps = Vec::new();
@@ -1913,6 +1963,7 @@ fn process_image_for_export_pipeline(
     state: &tauri::State<AppState>,
     is_raw: bool,
     debug_tag: &str,
+    app_handle: &tauri::AppHandle,
 ) -> Result<DynamicImage, String> {
     let (transformed_image, unscaled_crop_offset) =
         apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
@@ -1938,7 +1989,8 @@ fn process_image_for_export_pipeline(
         })
         .collect();
 
-    let mut all_adjustments = get_all_adjustments_from_json(js_adjustments, is_raw);
+    let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
+    let mut all_adjustments = get_all_adjustments_from_json(js_adjustments, is_raw, tm_override);
     all_adjustments.global.show_clipping = 0;
     all_adjustments.global.sharpening_mask_debug = 0;
     all_adjustments.global.sharpening_mask_show_bw = 0;
@@ -2037,6 +2089,7 @@ fn process_image_for_export(
     context: &GpuContext,
     state: &tauri::State<AppState>,
     is_raw: bool,
+    app_handle: &tauri::AppHandle,
 ) -> Result<DynamicImage, String> {
     let processed_image = process_image_for_export_pipeline(
         path,
@@ -2046,6 +2099,7 @@ fn process_image_for_export(
         state,
         is_raw,
         "process_image_for_export",
+        app_handle,
     )?;
 
     apply_export_resize_and_watermark(processed_image, export_settings)
@@ -2169,6 +2223,7 @@ fn export_masks_for_image(
     context: &Arc<GpuContext>,
     state: &tauri::State<AppState>,
     is_raw: bool,
+    app_handle: &tauri::AppHandle,
 ) -> Result<(), String> {
     let (transformed_image, unscaled_crop_offset) =
         apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
@@ -2194,7 +2249,8 @@ fn export_masks_for_image(
         .collect();
 
     if !mask_bitmaps.is_empty() {
-        let all_adjustments = get_all_adjustments_from_json(js_adjustments, is_raw);
+        let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
+        let all_adjustments = get_all_adjustments_from_json(js_adjustments, is_raw, tm_override);
         let lut_path = js_adjustments["lutPath"].as_str();
         let lut = lut_path.and_then(|p| get_or_load_lut(state, p).ok());
         let unique_hash = calculate_full_job_hash(source_path_str, js_adjustments);
@@ -2278,11 +2334,13 @@ fn export_adjustments_as_lut(
     source_path_str: &str,
     context: &Arc<GpuContext>,
     state: &tauri::State<AppState>,
+    app_handle: &tauri::AppHandle,
 ) -> Result<Vec<u8>, String> {
     let lut_size = 33;
     let identity_image = generate_identity_lut_image(lut_size);
 
-    let mut all_adjustments = get_all_adjustments_from_json(js_adjustments, false);
+    let tm_override = resolve_tonemapper_override_from_handle(app_handle, false);
+    let mut all_adjustments = get_all_adjustments_from_json(js_adjustments, false, tm_override);
 
     all_adjustments.global.show_clipping = 0;
     all_adjustments.global.vignette_amount = 0.0;
@@ -2353,8 +2411,13 @@ async fn export_image(
                 .to_lowercase();
 
             if extension == "cube" {
-                let cube_bytes =
-                    export_adjustments_as_lut(&js_adjustments, &source_path_str, &context, &state)?;
+                let cube_bytes = export_adjustments_as_lut(
+                    &js_adjustments,
+                    &source_path_str,
+                    &context,
+                    &state,
+                    &app_handle,
+                )?;
                 #[cfg(target_os = "android")]
                 {
                     let file_name = output_path_obj
@@ -2392,6 +2455,7 @@ async fn export_image(
                 &context,
                 &state,
                 is_raw,
+                &app_handle,
             )?;
 
             save_image_with_metadata(
@@ -2415,6 +2479,7 @@ async fn export_image(
                     &context,
                     &state,
                     is_raw,
+                    &app_handle,
                 )?;
             }
 
@@ -2633,6 +2698,7 @@ async fn batch_export_images(
                                 &source_path_str,
                                 &context,
                                 &state,
+                                &app_handle,
                             )?;
                             #[cfg(target_os = "android")]
                             {
@@ -2700,6 +2766,7 @@ async fn batch_export_images(
                             &context,
                             &state,
                             is_raw,
+                            &app_handle,
                         )?;
 
                         save_image_with_metadata(&final_image, &output_path, &source_path_str, &export_settings)?;
@@ -2717,7 +2784,8 @@ async fn batch_export_images(
                                 &source_path_str,
                                 &context,
                                 &state,
-                                is_raw
+                                is_raw,
+                                &app_handle,
                             )?;
                         }
 
@@ -2851,7 +2919,9 @@ async fn estimate_export_size(
         })
         .collect();
 
-    let mut all_adjustments = get_all_adjustments_from_json(&adjustments_clone, is_raw);
+    let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
+    let mut all_adjustments =
+        get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
     all_adjustments.global.show_clipping = 0;
 
     let lut_path = adjustments_clone["lutPath"].as_str();
@@ -3036,7 +3106,9 @@ async fn estimate_batch_export_size(
         })
         .collect();
 
-    let mut all_adjustments = get_all_adjustments_from_json(&scaled_adjustments, is_raw);
+    let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
+    let mut all_adjustments =
+        get_all_adjustments_from_json(&scaled_adjustments, is_raw, tm_override);
     all_adjustments.global.show_clipping = 0;
 
     let lut_path = scaled_adjustments["lutPath"].as_str();
@@ -3530,7 +3602,8 @@ fn generate_preset_preview(
         })
         .collect();
 
-    let all_adjustments = get_all_adjustments_from_json(&js_adjustments, is_raw);
+    let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
+    let all_adjustments = get_all_adjustments_from_json(&js_adjustments, is_raw, tm_override);
     let lut_path = js_adjustments["lutPath"].as_str();
     let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
 
@@ -3906,7 +3979,9 @@ async fn generate_all_community_previews(
                 })
                 .collect();
 
-            let all_adjustments = get_all_adjustments_from_json(&scaled_adjustments, *is_raw);
+            let tm_override = resolve_tonemapper_override_from_handle(&app_handle, *is_raw);
+            let all_adjustments =
+                get_all_adjustments_from_json(&scaled_adjustments, *is_raw, tm_override);
             let lut_path = js_adjustments["lutPath"].as_str();
             let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
 
@@ -4144,7 +4219,7 @@ async fn merge_hdr(
 
             let file_bytes =
                 fs::read(path).map_err(|e| format!("Failed to read image {}: {}", path, e))?;
-            let dynamic_image = load_base_image_from_bytes(
+            let mut dynamic_image = load_base_image_from_bytes(
                 &file_bytes,
                 path,
                 false,
@@ -4153,6 +4228,10 @@ async fn merge_hdr(
                 None,
             )
             .map_err(|e| format!("Failed to load image {}: {}", path, e))?;
+
+            if !crate::formats::is_raw_file(path) {
+                dynamic_image = apply_srgb_to_linear(dynamic_image);
+            }
 
             let gains = match read_iso(path, &file_bytes) {
                 None => return Err(format!("Image {} is missing ISO/Sensitivity data", path)),
@@ -4201,7 +4280,8 @@ async fn merge_hdr(
         .collect::<Result<Vec<HDRInput>, String>>()?;
 
     log::info!("Starting HDR merge of {} images", images.len());
-    let hdr_merged = hdr_merge_images(&mut images.into()).map_err(|e| e.to_string())?;
+    let mut hdr_merged = hdr_merge_images(&mut images.into()).map_err(|e| e.to_string())?;
+    hdr_merged = apply_linear_to_srgb(hdr_merged);
     log::info!("HDR merge completed");
 
     let mut buf = Cursor::new(Vec::new());
@@ -4511,7 +4591,7 @@ fn generate_preview_for_path(
     let is_raw = is_raw_file(&source_path_str);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
-    let linear_mode = settings.linear_raw_mode;
+    let linear_mode = settings.linear_raw_mode.clone();
 
     let base_image = match read_file_mapped(&source_path) {
         Ok(mmap) => load_and_composite(
@@ -4567,7 +4647,8 @@ fn generate_preview_for_path(
         })
         .collect();
 
-    let all_adjustments = get_all_adjustments_from_json(&js_adjustments, is_raw);
+    let tm_override = resolve_tonemapper_override(&settings, is_raw);
+    let all_adjustments = get_all_adjustments_from_json(&js_adjustments, is_raw, tm_override);
     let lut_path = js_adjustments["lutPath"].as_str();
     let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
     let unique_hash = calculate_full_job_hash(&source_path_str, &js_adjustments);
@@ -4877,6 +4958,12 @@ pub fn run() {
 
             let mut settings: AppSettings = load_settings(app_handle.clone()).unwrap_or_default();
 
+            {
+                let state = app.state::<AppState>();
+                let cache_size = settings.image_cache_size.unwrap_or(5) as usize;
+                state.decoded_image_cache.lock().unwrap().set_capacity(cache_size);
+            }
+
             if crash_flag_path.exists() {
                 log::warn!("GPU Driver crash detected on last run! Falling back to OpenGL backend.");
                 settings.processing_backend = Some("gl".to_string());
@@ -4941,6 +5028,7 @@ pub fn run() {
 
             start_preview_worker(app_handle.clone());
             start_analytics_worker(app_handle.clone());
+            file_management::start_thumbnail_workers(app_handle.clone());
             jxl_oxide::integration::register_image_decoding_hook();
 
             let window_cfg = app.config().app.windows.first().unwrap().clone();
@@ -5127,6 +5215,7 @@ pub fn run() {
             full_warped_cache: Mutex::new(None),
             full_transformed_cache: Mutex::new(None),
             decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
+            thumbnail_manager: ThumbnailManager::new(),
         })
         .invoke_handler(tauri::generate_handler![
             load_image,
@@ -5142,6 +5231,7 @@ pub fn run() {
             generate_uncropped_preview,
             preview_geometry_transform,
             generate_mask_overlay,
+            is_image_cached,
             generate_ai_subject_mask,
             precompute_ai_subject_mask,
             generate_ai_foreground_mask,
@@ -5176,8 +5266,7 @@ pub fn run() {
             file_management::get_folder_tree,
             file_management::get_folder_children,
             file_management::get_pinned_folder_trees,
-            file_management::generate_thumbnails,
-            file_management::generate_thumbnails_progressive,
+            file_management::update_thumbnail_queue,
             file_management::create_folder,
             file_management::delete_folder,
             file_management::copy_files,
@@ -5208,6 +5297,7 @@ pub fn run() {
             file_management::set_rating_for_paths,
             file_management::import_files,
             file_management::create_virtual_copy,
+            file_management::resolve_android_content_uri_name,
             tagging::start_background_indexing,
             tagging::clear_ai_tags,
             tagging::clear_all_tags,

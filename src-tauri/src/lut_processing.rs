@@ -1,7 +1,14 @@
+use crate::file_management::is_android_content_uri;
+#[cfg(target_os = "android")]
+use crate::file_management::{
+    get_android_cached_lut_path, read_android_content_uri, resolve_android_content_uri_name,
+};
 use anyhow::{Result, anyhow};
 use image::{DynamicImage, GenericImageView, Rgb, Rgb32FImage};
+#[cfg(target_os = "android")]
+use std::fs;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Cursor};
 use std::path::Path;
 
 #[derive(Debug, Clone)]
@@ -10,10 +17,7 @@ pub struct Lut {
     pub data: Vec<f32>,
 }
 
-fn parse_cube(path: &Path) -> Result<Lut> {
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-
+fn parse_cube(reader: impl BufRead) -> Result<Lut> {
     let mut size: Option<u32> = None;
     let mut data: Vec<f32> = Vec::new();
     let mut line_num = 0;
@@ -111,9 +115,7 @@ fn parse_cube(path: &Path) -> Result<Lut> {
     })
 }
 
-fn parse_3dl(path: &Path) -> Result<Lut> {
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
+fn parse_3dl(reader: impl BufRead) -> Result<Lut> {
     let mut data: Vec<f32> = Vec::new();
 
     for line in reader.lines() {
@@ -183,18 +185,95 @@ fn parse_hald(image: DynamicImage) -> Result<Lut> {
 }
 
 pub fn parse_lut_file(path_str: &str) -> Result<Lut> {
-    let path = Path::new(path_str);
-    let extension = path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
+    let (extension, bytes): (String, Option<Vec<u8>>) = if cfg!(target_os = "android")
+        && is_android_content_uri(path_str)
+    {
+        #[cfg(target_os = "android")]
+        {
+            match resolve_android_content_uri_name(path_str) {
+                Ok(resolved_name) => {
+                    let ext = Path::new(&resolved_name)
+                        .extension()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("cube")
+                        .to_lowercase();
+
+                    let uri_bytes = read_android_content_uri(path_str).map_err(|e| anyhow!(e))?;
+
+                    if let Ok(cache_path) = get_android_cached_lut_path(path_str, &ext) {
+                        let _ = fs::write(cache_path, &uri_bytes);
+                    }
+
+                    (ext, Some(uri_bytes))
+                }
+                Err(_) => {
+                    let hash_prefix =
+                        format!("{}.", &blake3::hash(path_str.as_bytes()).to_hex()[..16]);
+
+                    let cache_dir = get_android_cached_lut_path(path_str, "tmp")?
+                        .parent()
+                        .ok_or_else(|| anyhow!("Invalid cache path"))?
+                        .to_path_buf();
+
+                    let mut found = None;
+                    if let Ok(entries) = fs::read_dir(cache_dir) {
+                        for entry in entries.flatten() {
+                            let fname = entry.file_name().to_string_lossy().into_owned();
+                            if fname.starts_with(&hash_prefix) {
+                                let ext = Path::new(&fname)
+                                    .extension()
+                                    .and_then(|s| s.to_str())
+                                    .unwrap_or("cube")
+                                    .to_string();
+                                if let Ok(bytes) = fs::read(entry.path()) {
+                                    found = Some((ext, Some(bytes)));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    found.ok_or_else(|| {
+                        anyhow!("LUT not found in cache and permission denied for URI")
+                    })?
+                }
+            }
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            (String::new(), None)
+        }
+    } else {
+        let ext = Path::new(path_str)
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        (ext, None)
+    };
 
     match extension.as_str() {
-        "cube" => parse_cube(path),
-        "3dl" => parse_3dl(path),
+        "cube" => {
+            if let Some(b) = bytes {
+                parse_cube(BufReader::new(Cursor::new(b)))
+            } else {
+                let file = File::open(path_str)?;
+                parse_cube(BufReader::new(file))
+            }
+        }
+        "3dl" => {
+            if let Some(b) = bytes {
+                parse_3dl(BufReader::new(Cursor::new(b)))
+            } else {
+                let file = File::open(path_str)?;
+                parse_3dl(BufReader::new(file))
+            }
+        }
         "png" | "jpg" | "jpeg" | "tiff" => {
-            let img = image::open(path)?;
+            let img = if let Some(b) = bytes {
+                image::load_from_memory(&b)?
+            } else {
+                image::open(path_str)?
+            };
             parse_hald(img)
         }
         _ => Err(anyhow!("Unsupported LUT file format: {}", extension)),

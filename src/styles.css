@@ -86,6 +86,13 @@
   html {
     background-color: transparent;
   }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
   body {
     background-color: transparent;
     @apply text-text-primary font-sans;
@@ -118,6 +125,11 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     background-color: theme('colors.hover-color');
+  }
+
+  .macos-window-shell {
+    border-radius: 14px;
+    overflow: hidden;
   }
 }
 
@@ -230,6 +242,54 @@
   }
   .lum-slider-magentas {
     background: linear-gradient(to right, hsl(var(--hsl-mixer-hue-magentas, 340), var(--hsl-mixer-sat-magentas, 0%), 0%), hsl(var(--hsl-mixer-hue-magentas, 340), var(--hsl-mixer-sat-magentas, 0%), 50%), hsl(var(--hsl-mixer-hue-magentas, 340), var(--hsl-mixer-sat-magentas, 0%), 100%)) !important;
+  }
+}
+
+@media (orientation: portrait) {
+  .modal-preview-adjustments {
+    flex-direction: column;
+  }
+
+  .modal-preview-adjustments > .modal-preview-pane {
+    flex: 1 1 58%;
+    width: 100%;
+    min-height: 0;
+  }
+
+  .modal-preview-adjustments > .modal-adjustments-pane {
+    width: 100%;
+    max-width: none;
+    height: auto;
+    flex: 0 1 42%;
+    min-height: 14rem;
+    max-height: 46%;
+    border-left-width: 0;
+    border-top-width: 1px;
+  }
+
+  .library-view-options-menu {
+    position: fixed;
+    top: 5rem;
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+    max-height: calc(100dvh - 6rem);
+    overflow-y: auto;
+    transform-origin: top right;
+  }
+
+  .library-view-options-content {
+    flex-direction: column;
+  }
+
+  .library-view-options-content > .library-view-options-section {
+    width: 100%;
+    border-right-width: 0;
+    border-bottom-width: 1px;
+  }
+
+  .library-view-options-content > .library-view-options-section:last-child {
+    border-bottom-width: 0;
   }
 }
 

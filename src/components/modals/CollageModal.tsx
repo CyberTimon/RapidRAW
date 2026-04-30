@@ -594,7 +594,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
   }, [panningImage, thumbnailDrag, activeLayout, previewSize, spacing, loadedImages, imageStates, hoveredCellIndex]);
 
   const renderControls = () => (
-    <div className="w-80 shrink-0 bg-bg-secondary p-4 flex flex-col gap-8 overflow-y-auto border-l border-surface h-full">
+    <div className="modal-adjustments-pane w-80 shrink-0 bg-bg-secondary p-4 flex flex-col gap-8 overflow-y-auto border-l border-surface h-full">
       {loadedImages.length > 1 && (
         <div>
           <Text variant={TextVariants.heading} className="mb-2 flex items-center justify-between">
@@ -772,7 +772,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
     }
 
     return (
-      <div className="flex flex-row h-full w-full">
+      <div className="modal-preview-adjustments flex flex-row h-full w-full">
         <AnimatePresence>
           {thumbnailDrag && (
             <motion.div
@@ -794,7 +794,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
           )}
         </AnimatePresence>
 
-        <div className="grow flex flex-col min-w-0 h-full bg-bg-secondary">
+        <div className="modal-preview-pane grow flex flex-col min-w-0 h-full bg-bg-secondary">
           <div ref={previewContainerRef} className="grow flex items-center justify-center p-4 relative min-h-0">
             {isLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10">

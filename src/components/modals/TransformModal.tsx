@@ -324,7 +324,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
   };
 
   const renderControls = () => (
-    <div className="w-80 shrink-0 bg-bg-secondary flex flex-col border-l border-surface h-full z-10">
+    <div className="modal-adjustments-pane w-80 shrink-0 bg-bg-secondary flex flex-col border-l border-surface h-full z-10">
       <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
         <Text variant={TextVariants.title}>Transform</Text>
         <button
@@ -466,8 +466,8 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
   };
 
   const renderContent = () => (
-    <div className="flex flex-row h-full w-full overflow-hidden">
-      <div className="grow flex flex-col relative min-h-0 bg-[#0f0f0f] overflow-hidden">
+    <div className="modal-preview-adjustments flex flex-row h-full w-full overflow-hidden">
+      <div className="modal-preview-pane grow flex flex-col relative min-h-0 bg-[#0f0f0f] overflow-hidden">
         <div
           ref={containerRef}
           className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing select-none"

@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion';
-import { SlidersHorizontal, Info, Crop, Layers, Paintbrush, SwatchBook, FileInput } from 'lucide-react';
+import { SlidersHorizontal, Info, Crop, Layers, Paintbrush, SwatchBook, FileInput, type LucideIcon } from 'lucide-react';
 import { Panel } from '../../ui/AppProperties';
 
 interface PanelOptions {
-  icon: any;
+  icon: LucideIcon;
   id: Panel;
   title: string;
 }
@@ -12,6 +12,7 @@ interface RightPanelSwitcherProps {
   activePanel: Panel | null;
   onPanelSelect(id: Panel): void;
   isInstantTransition: boolean;
+  layout?: 'horizontal' | 'vertical';
 }
 
 const panelGroups: Array<Array<PanelOptions>> = [
@@ -32,15 +33,22 @@ export default function RightPanelSwitcher({
   activePanel,
   onPanelSelect,
   isInstantTransition,
+  layout = 'vertical',
 }: RightPanelSwitcherProps) {
+  const isHorizontal = layout === 'horizontal';
+
   return (
-    <div className="flex flex-col p-1 gap-1 h-full">
+    <div className={isHorizontal ? 'flex items-center overflow-x-auto p-1 gap-1' : 'flex flex-col p-1 gap-1 h-full'}>
       {panelGroups.map((group, groupIndex) => (
-        <div key={groupIndex} className="flex flex-col gap-1">
-          {groupIndex > 0 && <div className="w-6 h-px bg-surface self-center" />}
+        <div key={groupIndex} className={isHorizontal ? 'flex items-center gap-1' : 'flex flex-col gap-1'}>
+          {groupIndex > 0 && (
+            <div className={isHorizontal ? 'w-px h-6 bg-surface self-stretch my-auto' : 'w-6 h-px bg-surface self-center'} />
+          )}
           {group.map(({ id, icon: Icon, title }) => (
             <button
-              className={`relative p-2 rounded-md transition-colors duration-200 ${
+              className={`relative rounded-md transition-colors duration-200 ${
+                isHorizontal ? 'p-2 shrink-0' : 'p-2'
+              } ${
                 activePanel === id
                   ? 'text-text-primary'
                   : 'text-text-secondary hover:bg-surface hover:text-text-primary'

@@ -401,6 +401,7 @@ export default function ColorPanel({
 }: ColorPanelProps) {
   const [activeColor, setActiveColor] = useState('reds');
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
+  const isWgpuEnabled = appSettings?.useWgpuRenderer !== false;
 
   const colorHueMap: Record<string, number> = {
     reds: 0,
@@ -454,10 +455,15 @@ export default function ColorPanel({
           {!isForMask && toggleWbPicker && (
             <button
               onClick={toggleWbPicker}
+              disabled={isWgpuEnabled}
               className={`p-1.5 rounded-md transition-colors ${
-                isWbPickerActive ? 'bg-accent text-button-text' : 'hover:bg-bg-secondary text-text-secondary'
+                isWgpuEnabled
+                  ? 'cursor-not-allowed text-text-secondary hover:bg-transparent'
+                  : isWbPickerActive
+                    ? 'bg-accent text-button-text'
+                    : 'hover:bg-bg-secondary text-text-secondary'
               }`}
-              data-tooltip="White Balance Picker"
+              data-tooltip={isWgpuEnabled ? 'WB Picker: Disable WGPU in Settings.' : 'White Balance Picker'}
             >
               <Pipette size={16} />
             </button>

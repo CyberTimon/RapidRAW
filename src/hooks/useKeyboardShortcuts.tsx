@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
-import { ImageFile, Panel, SelectedImage } from '../components/ui/AppProperties';
+import { useEffect, useMemo } from 'react';
+import { KeybindHandler, ImageFile, Panel, SelectedImage } from '../components/ui/AppProperties';
 import { BrushSettings } from '../components/ui/AppProperties';
+import { KeybindDefinition, KEYBIND_DEFINITIONS, normalizeCombo } from '../utils/keyboardUtils';
 
 interface KeyboardShortcutsProps {
   activeAiPatchContainerId?: string | null;
@@ -30,7 +31,7 @@ interface KeyboardShortcutsProps {
   isFullScreen: boolean;
   isModalOpen: boolean;
   isStraightenActive: boolean;
-  isViewLoading: boolean;
+  keybinds?: { [action: string]: string[] };
   libraryActivePath: string | null;
   multiSelectedPaths: Array<string>;
   onSelectPatchContainer?(container: string | null): void;
@@ -51,8 +52,8 @@ interface KeyboardShortcutsProps {
   displaySize?: { width: number; height: number };
   baseRenderSize?: { width: number; height: number };
   originalSize?: { width: number; height: number };
-  brushSettings: BrushSettings | null;  
-  setBrushSettings: (settings: BrushSettings) => void;  
+  brushSettings: BrushSettings | null;
+  setBrushSettings: (settings: BrushSettings) => void;
 }
 
 export const useKeyboardShortcuts = ({
@@ -83,7 +84,7 @@ export const useKeyboardShortcuts = ({
   isFullScreen,
   isModalOpen,
   isStraightenActive,
-  isViewLoading,
+  keybinds,
   libraryActivePath,
   multiSelectedPaths,
   onSelectPatchContainer,
@@ -104,135 +105,233 @@ export const useKeyboardShortcuts = ({
   displaySize,
   baseRenderSize,
   originalSize,
-  brushSettings,  
-  setBrushSettings,  
+  brushSettings,
+  setBrushSettings,
 }: KeyboardShortcutsProps) => {
+  function getEffectiveCombo(def: KeybindDefinition): string[] | null {
+    const userCombo = keybinds?.[def.action];
+    if (userCombo !== undefined) {
+      return userCombo.length > 0 ? userCombo : null;
+    }
+    return def.defaultCombo;
+  }
+
+  const comboMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const def of KEYBIND_DEFINITIONS) {
+      const effective = getEffectiveCombo(def);
+      if (effective) {
+        map.set(effective.join('+'), def.action);
+      }
+    }
+    return map;
+  }, [keybinds]);
+
   useEffect(() => {
-    const handleKeyDown = (event: any) => {
-      if (isModalOpen) {
-        return;
-      }
-
-      const isInputFocused =
-        document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
-      if (isInputFocused) {
-        return;
-      }
-      const isCtrl = event.ctrlKey || event.metaKey;
-      const isShift = event.shiftKey;
-      const key = event.key.toLowerCase();
-      const code = event.code;
-
-      if (selectedImage) {
-        if (key === 'escape') {
+    const actions: Record<string, KeybindHandler> = {
+      open_image: {
+        shouldFire: () => !selectedImage && libraryActivePath !== null,
+        execute: (event) => { event.preventDefault(); handleImageSelect(libraryActivePath!); },
+      },
+      copy_adjustments: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleCopyAdjustments(); },
+      },
+      paste_adjustments: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handlePasteAdjustments(); },
+      },
+      copy_files: {
+        shouldFire: () => multiSelectedPaths.length > 0,
+        execute: (event) => { event.preventDefault(); setCopiedFilePaths(multiSelectedPaths); },
+      },
+      paste_files: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handlePasteFiles('copy'); },
+      },
+      select_all: {
+        shouldFire: () => sortedImageList.length > 0,
+        execute: (event) => {
           event.preventDefault();
-          if (isStraightenActive) {
-            setIsStraightenActive(false);
-          } else if (customEscapeHandler) {
-            customEscapeHandler();
-          } else if (activeAiSubMaskId) {
-            setActiveAiSubMaskId(null);
-          } else if (activeAiPatchContainerId && onSelectPatchContainer) {
-            onSelectPatchContainer(null);
-          } else if (activeMaskId) {
-            setActiveMaskId(null);
-          } else if (activeMaskContainerId) {
-            setActiveMaskContainerId(null);
-          } else if (activeRightPanel === Panel.Crop) {
-            handleRightPanelSelect(Panel.Adjustments);
-          } else if (isFullScreen) {
-            handleToggleFullScreen();
-          } else {
-            handleBackToLibrary();
+          setMultiSelectedPaths(sortedImageList.map((f: ImageFile) => f.path));
+          if (!selectedImage) {
+            setLibraryActivePath(sortedImageList[sortedImageList.length - 1].path);
           }
-          return;
-        }
-        if (key === ' ' && !isCtrl) {
+        },
+      },
+      delete_selected: {
+        shouldFire: () => {
+          if (activeMaskContainerId || activeAiPatchContainerId) return false;
+          return true;
+        },
+        execute: (event) => { event.preventDefault(); handleDeleteSelected(); },
+      },
+      preview_prev: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => {
           event.preventDefault();
-
-          // Calculate current zoom percentage relative to original
+          const currentIndex = sortedImageList.findIndex((img: ImageFile) => img.path === selectedImage!.path);
+          if (currentIndex === -1) return;
+          let nextIndex = currentIndex - 1;
+          if (nextIndex < 0) nextIndex = sortedImageList.length - 1;
+          handleImageSelect(sortedImageList[nextIndex].path);
+        },
+      },
+      preview_next: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => {
+          event.preventDefault();
+          const currentIndex = sortedImageList.findIndex((img: ImageFile) => img.path === selectedImage!.path);
+          if (currentIndex === -1) return;
+          let nextIndex = currentIndex + 1;
+          if (nextIndex >= sortedImageList.length) nextIndex = 0;
+          handleImageSelect(sortedImageList[nextIndex].path);
+        },
+      },
+      zoom_in_step: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => {
+          event.preventDefault();
+          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const currentPercent =
+            originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
+              ? (displaySize.width * dpr) / originalSize.width
+              : 1.0;
+          handleZoomChange(Math.min(currentPercent + 0.1, 2.0));
+        },
+      },
+      zoom_out_step: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => {
+          event.preventDefault();
+          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const currentPercent =
+            originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
+              ? (displaySize.width * dpr) / originalSize.width
+              : 1.0;
+          handleZoomChange(Math.max(currentPercent - 0.1, 0.1));
+        },
+      },
+      cycle_zoom: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => {
+          event.preventDefault();
           const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
           const currentPercent =
             originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
               ? Math.round(((displaySize.width * dpr) / originalSize.width) * 100)
               : 100;
-
-          // Toggle between fit-to-window, 2x fit-to-window (if < 100%), and 100%
           let fitPercent = 100;
-          if (
-            originalSize &&
-            originalSize.width > 0 &&
-            originalSize.height > 0 &&
-            baseRenderSize &&
-            baseRenderSize.width > 0 &&
-            baseRenderSize.height > 0
-          ) {
+          if (originalSize && originalSize.width > 0 && originalSize.height > 0 && baseRenderSize && baseRenderSize.width > 0 && baseRenderSize.height > 0) {
             const originalAspect = originalSize.width / originalSize.height;
             const baseAspect = baseRenderSize.width / baseRenderSize.height;
-
             if (originalAspect > baseAspect) {
-              // Width is limiting (landscape)
               fitPercent = Math.round(((baseRenderSize.width * dpr) / originalSize.width) * 100);
             } else {
-              // Height is limiting (portrait)
               fitPercent = Math.round(((baseRenderSize.height * dpr) / originalSize.height) * 100);
             }
           }
-
           const doubleFitPercent = fitPercent * 2;
           if (Math.abs(currentPercent - fitPercent) < 5) {
-            // Zoom 2x FitToWindows
             handleZoomChange(doubleFitPercent < 100 ? doubleFitPercent / 100 : 1.0);
           } else if (Math.abs(currentPercent - doubleFitPercent) < 5 && doubleFitPercent < 100) {
-            // Zoom 100%
             handleZoomChange(1.0);
           } else {
-            // Zoom FitToWindows
             handleZoomChange(0, true);
           }
-          return;
-        }
-        if (key === 'f' && !isCtrl) {
+        },
+      },
+      zoom_in: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => {
           event.preventDefault();
-          handleToggleFullScreen();
-        }
-        if (key === 'b' && !isCtrl) {
+          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const currentPercent =
+            originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
+              ? (displaySize.width * dpr) / originalSize.width
+              : 1.0;
+          handleZoomChange(Math.min(currentPercent * 1.2, 2.0));
+        },
+      },
+      zoom_out: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => {
           event.preventDefault();
-          setShowOriginal((prev: boolean) => !prev);
-        }
-        if (key === 'd' && !isCtrl) {
-          event.preventDefault();
-          handleRightPanelSelect(Panel.Adjustments);
-        }
-        if (key === 'r' && !isCtrl) {
-          event.preventDefault();
-          handleRightPanelSelect(Panel.Crop);
-        }
-        if (key === 'm' && !isCtrl) {
-          event.preventDefault();
-          handleRightPanelSelect(Panel.Masks);
-        }
-        if (key === 'k' && !isCtrl) {
-          event.preventDefault();
-          handleRightPanelSelect(Panel.Ai);
-        }
-        if (key === 'p' && !isCtrl) {
-          event.preventDefault();
-          handleRightPanelSelect(Panel.Presets);
-        }
-        if (key === 'i' && !isCtrl) {
-          event.preventDefault();
-          handleRightPanelSelect(Panel.Metadata);
-        }
-        if (key === 'e' && !isCtrl) {
-          event.preventDefault();
-          handleRightPanelSelect(Panel.Export);
-        }
-        if (key === 'a' && !isCtrl) {
-          event.preventDefault();
-          setIsWaveformVisible((prev: boolean) => !prev);
-        }
-        if (key === 's' && !isCtrl) {
+          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const currentPercent =
+            originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
+              ? (displaySize.width * dpr) / originalSize.width
+              : 1.0;
+          handleZoomChange(Math.max(currentPercent / 1.2, 0.1));
+        },
+      },
+      zoom_fit: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); handleZoomChange(0, true); },
+      },
+      zoom_100: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); handleZoomChange(1.0); },
+      },
+      rotate_left: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); handleRotate(-90); },
+      },
+      rotate_right: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); handleRotate(90); },
+      },
+      undo: {
+        shouldFire: () => !!selectedImage && canUndo,
+        execute: (event) => { event.preventDefault(); undo(); },
+      },
+      redo: {
+        shouldFire: () => !!selectedImage && canRedo,
+        execute: (event) => { event.preventDefault(); redo(); },
+      },
+      toggle_fullscreen: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); handleToggleFullScreen(); },
+      },
+      show_original: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); setShowOriginal((prev: boolean) => !prev); },
+      },
+      toggle_adjustments: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Adjustments); },
+      },
+      toggle_crop_panel: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Crop); },
+      },
+      toggle_masks: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Masks); },
+      },
+      toggle_ai: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Ai); },
+      },
+      toggle_presets: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Presets); },
+      },
+      toggle_metadata: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Metadata); },
+      },
+      toggle_analytics: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); setIsWaveformVisible((prev: boolean) => !prev); },
+      },
+      toggle_export: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Export); },
+      },
+      toggle_crop: {
+        shouldFire: () => !!selectedImage,
+        execute: (event) => {
           event.preventDefault();
           if (activeRightPanel === Panel.Crop) {
             setIsStraightenActive((prev: boolean) => !prev);
@@ -240,213 +339,148 @@ export const useKeyboardShortcuts = ({
             handleRightPanelSelect(Panel.Crop);
             setIsStraightenActive(true);
           }
-        }
-      } else {
-        if ((key === 'enter' || key === ' ') && !isCtrl) {
+        },
+      },
+      rate_0: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleRate(0); },
+      },
+      rate_1: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleRate(1); },
+      },
+      rate_2: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleRate(2); },
+      },
+      rate_3: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleRate(3); },
+      },
+      rate_4: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleRate(4); },
+      },
+      rate_5: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleRate(5); },
+      },
+      color_label_none: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleSetColorLabel(null); },
+      },
+      color_label_red: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleSetColorLabel('red'); },
+      },
+      color_label_yellow: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleSetColorLabel('yellow'); },
+      },
+      color_label_green: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleSetColorLabel('green'); },
+      },
+      color_label_blue: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleSetColorLabel('blue'); },
+      },
+      color_label_purple: {
+        shouldFire: () => true,
+        execute: (event) => { event.preventDefault(); handleSetColorLabel('purple'); },
+      },
+      brush_size_up: {
+        shouldFire: () => !!selectedImage && !!brushSettings && activeRightPanel === Panel.Masks,
+        execute: (event) => {
           event.preventDefault();
-          if (libraryActivePath) {
-            handleImageSelect(libraryActivePath);
+          if (!brushSettings) return;
+          const newSize = Math.min((brushSettings.size || 50) + 10, 200);
+          setBrushSettings({ feather: brushSettings.feather, size: newSize, tool: brushSettings.tool });
+        },
+      },
+      brush_size_down: {
+        shouldFire: () => !!selectedImage && !!brushSettings && activeRightPanel === Panel.Masks,
+        execute: (event) => {
+          event.preventDefault();
+          if (!brushSettings) return;
+          const newSize = Math.max((brushSettings.size || 50) - 10, 1);
+          setBrushSettings({ feather: brushSettings.feather, size: newSize, tool: brushSettings.tool });
+        },
+      },
+    };
+
+    type BuiltInMatch = (e: KeyboardEvent) => boolean;
+    type BuiltInExec = (e: KeyboardEvent) => void;
+
+    const builtinShortcuts: Array<{ match: BuiltInMatch; execute: BuiltInExec }> = [
+      {
+        match: (e) => e.code === 'Escape',
+        execute: (e) => {
+          e.preventDefault();
+          if (isStraightenActive) setIsStraightenActive(false);
+          else if (customEscapeHandler) customEscapeHandler();
+          else if (activeAiSubMaskId) setActiveAiSubMaskId(null);
+          else if (activeAiPatchContainerId && onSelectPatchContainer) onSelectPatchContainer(null);
+          else if (activeMaskId) setActiveMaskId(null);
+          else if (activeMaskContainerId) setActiveMaskContainerId(null);
+          else if (activeRightPanel === Panel.Crop) handleRightPanelSelect(Panel.Adjustments);
+          else if (isFullScreen) handleToggleFullScreen();
+          else if (selectedImage) handleBackToLibrary();
+        },
+      },
+      {
+        match: (e) => {
+          if (osPlatform === 'macos') return e.code === 'Backspace';
+          return e.code === 'Delete';
+        },
+        execute: (e) => {
+          e.preventDefault();
+          if (activeMaskContainerId) handleDeleteMaskContainer(activeMaskContainerId);
+          else if (activeAiPatchContainerId) handleDeleteAiPatch(activeAiPatchContainerId);
+        },
+      },
+      {
+        match: (e) => !selectedImage && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code),
+        execute: (e) => {
+          e.preventDefault();
+          const isNext = e.code === 'ArrowRight' || e.code === 'ArrowDown';
+          const activePath = libraryActivePath;
+          if (!activePath || sortedImageList.length === 0) return;
+          const currentIndex = sortedImageList.findIndex((img: ImageFile) => img.path === activePath);
+          if (currentIndex === -1) return;
+          let nextIndex = isNext ? currentIndex + 1 : currentIndex - 1;
+          if (nextIndex >= sortedImageList.length) nextIndex = 0;
+          if (nextIndex < 0) nextIndex = sortedImageList.length - 1;
+          const nextImage = sortedImageList[nextIndex];
+          if (nextImage) {
+            setLibraryActivePath(nextImage.path);
+            setMultiSelectedPaths([nextImage.path]);
           }
+        },
+      },
+    ];
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isModalOpen) return;
+
+      const isInputFocused =
+        document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
+      if (isInputFocused) return;
+
+      for (const builtin of builtinShortcuts) {
+        if (builtin.match(event)) {
+          builtin.execute(event);
           return;
         }
       }
 
-      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
-        event.preventDefault();
-
-        if (!isCtrl) {
-          if (selectedImage) {
-            if (key === 'arrowup' || key === 'arrowdown') {
-              const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-              // Calculate current zoom percentage relative to original
-              const currentPercent =
-                originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
-                  ? (displaySize.width * dpr) / originalSize.width
-                  : 1.0;
-
-              const step = 0.1; // 10% steps
-              const newPercent = key === 'arrowup' ? currentPercent + step : currentPercent - step;
-
-              // Clamp to 10%-200% of original size
-              const clampedPercent = Math.max(0.1, Math.min(newPercent, 2.0));
-              handleZoomChange(clampedPercent);
-            } else {
-              const isNext = key === 'arrowright';
-              const currentIndex = sortedImageList.findIndex((img: ImageFile) => img.path === selectedImage.path);
-              if (currentIndex === -1) {
-                return;
-              }
-              let nextIndex = isNext ? currentIndex + 1 : currentIndex - 1;
-              if (nextIndex >= sortedImageList.length) {
-                nextIndex = 0;
-              }
-              if (nextIndex < 0) {
-                nextIndex = sortedImageList.length - 1;
-              }
-              const nextImage = sortedImageList[nextIndex];
-              if (nextImage) {
-                handleImageSelect(nextImage.path);
-              }
-            }
-          } else {
-            const isNext = key === 'arrowright' || key === 'arrowdown';
-            const activePath = libraryActivePath;
-            if (!activePath || sortedImageList.length === 0) {
-              return;
-            }
-            const currentIndex = sortedImageList.findIndex((img: ImageFile) => img.path === activePath);
-            if (currentIndex === -1) {
-              return;
-            }
-            let nextIndex = isNext ? currentIndex + 1 : currentIndex - 1;
-            if (nextIndex >= sortedImageList.length) {
-              nextIndex = 0;
-            }
-            if (nextIndex < 0) {
-              nextIndex = sortedImageList.length - 1;
-            }
-            const nextImage = sortedImageList[nextIndex];
-            if (nextImage) {
-              setLibraryActivePath(nextImage.path);
-              setMultiSelectedPaths([nextImage.path]);
-            }
-          }
-        }
-      }
-
-      if (code.startsWith('Digit') && !isCtrl) {
-        event.preventDefault();
-        const keyNum = parseInt(code.replace('Digit', ''), 10);
-
-        if (isShift) {
-          if (keyNum === 0) {
-            handleSetColorLabel(null);
-          } else if (keyNum >= 1 && keyNum <= 5) {
-            const colors = ['red', 'yellow', 'green', 'blue', 'purple'];
-            handleSetColorLabel(colors[keyNum - 1]);
-          }
-        } else {
-          if (keyNum >= 0 && keyNum <= 5) {
-            handleRate(keyNum);
-          }
-        }
-      } else if (['0', '1', '2', '3', '4', '5'].includes(key) && !isCtrl) {
-        event.preventDefault();
-        handleRate(parseInt(key, 10));
-      }
-
-      if (key === '[' && !isCtrl && selectedImage) {
-        event.preventDefault();
-        handleRotate(-90);
-      }
-      if (key === ']' && !isCtrl && selectedImage) {
-        event.preventDefault();
-        handleRotate(90);
-      }
-
-      // On macOS the physical ⌫ key sends Backspace, not Delete.
-      // File deletion follows macOS convention: Cmd + Delete (i.e. Cmd + Backspace).
-      // Non-destructive mask/patch deletion uses plain Backspace on macOS.
-      // On all other platforms the existing plain Delete behaviour is preserved.
-      const isMacOS = osPlatform === 'macos';
-      const isDeletePressed = isMacOS ? key === 'backspace' : key === 'delete';
-
-      if (isDeletePressed) {
-        event.preventDefault();
-        if (activeMaskContainerId) {
-          handleDeleteMaskContainer(activeMaskContainerId);
-        } else if (activeAiPatchContainerId) {
-          handleDeleteAiPatch(activeAiPatchContainerId);
-        } else if (!isMacOS || isCtrl) {
-          // macOS: Cmd modifier required for (destructive) file deletion
-          // Other platforms: plain Delete triggers file deletion
-          handleDeleteSelected();
-        }
-      }
-
-      if (isCtrl) {
-        const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-        const currentPercent =
-          originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
-            ? (displaySize.width * dpr) / originalSize.width
-            : 1.0;
-
-        switch (key) {
-          case 'c':
-            event.preventDefault();
-            if (event.shiftKey) {
-              if (multiSelectedPaths.length > 0) {
-                setCopiedFilePaths(multiSelectedPaths);
-              }
-            } else {
-              handleCopyAdjustments();
-            }
-            break;
-          case 'v':
-            event.preventDefault();
-            if (event.shiftKey) {
-              handlePasteFiles('copy');
-            } else {
-              handlePasteAdjustments();
-            }
-            break;
-          case 'a':
-            event.preventDefault();
-            if (sortedImageList.length > 0) {
-              setMultiSelectedPaths(sortedImageList.map((f: ImageFile) => f.path));
-              if (!selectedImage) {
-                setLibraryActivePath(sortedImageList[sortedImageList.length - 1].path);
-              }
-            }
-            break;
-          case 'z':
-            if (selectedImage) {
-              event.preventDefault();
-              undo();
-            }
-            break;
-          case 'y':
-            if (selectedImage) {
-              event.preventDefault();
-              redo();
-            }
-            break;
-          case '0':
-          case ')':
-            event.preventDefault();
-            handleZoomChange(0, true); // Fit to window
-            break;
-          case '1':
-          case '!':
-            event.preventDefault();
-            handleZoomChange(1.0); // 100%
-            break;
-          case '=':
-          case '+':
-            event.preventDefault();
-            handleZoomChange(Math.min(currentPercent * 1.2, 2.0));
-            break;
-          case '-':
-          case '_':
-            event.preventDefault();
-            handleZoomChange(Math.max(currentPercent / 1.2, 0.1));
-            break;
-          case 'arrowup':
-            event.preventDefault();
-            if (brushSettings && activeRightPanel === Panel.Masks) {
-              const newSize = Math.min((brushSettings.size || 50) + 10, 200);
-              setBrushSettings({ ...brushSettings, size: newSize });
-            }
-            break;
-          case 'arrowdown':
-            event.preventDefault();
-            if (brushSettings && activeRightPanel === Panel.Masks) {
-              const newSize = Math.max((brushSettings.size || 50) - 10, 1);
-              setBrushSettings({ ...brushSettings, size: newSize });
-            }
-            break;
-          default:
-            break;
+      const normalized = normalizeCombo(event, osPlatform);
+      const action = comboMap.get(normalized.join('+'));
+      if (action) {
+        const handler = actions[action];
+        if (handler && (!handler.shouldFire || handler.shouldFire())) {
+          handler.execute(event);
+          return;
         }
       }
     };
@@ -481,7 +515,7 @@ export const useKeyboardShortcuts = ({
     handleZoomChange,
     isFullScreen,
     isStraightenActive,
-    isViewLoading,
+    keybinds,
     libraryActivePath,
     multiSelectedPaths,
     onSelectPatchContainer,
@@ -502,7 +536,7 @@ export const useKeyboardShortcuts = ({
     displaySize,
     baseRenderSize,
     originalSize,
-    brushSettings,  
-    setBrushSettings,  
+    brushSettings,
+    setBrushSettings,
   ]);
 };

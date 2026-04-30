@@ -1,6 +1,9 @@
 import { open } from '@tauri-apps/plugin-dialog';
 import { X } from 'lucide-react';
 import Slider from './Slider';
+import { useOsPlatform } from '../../hooks/useOsPlatform';
+import { toast } from 'react-toastify';
+import { invoke } from '@tauri-apps/api/core';
 
 interface LUTControlProps {
   lutName: string | null;
@@ -19,18 +22,46 @@ export default function LUTControl({
   onClear,
   onDragStateChange,
 }: LUTControlProps) {
+  const osPlatform = useOsPlatform(); 
+  const isAndroid = osPlatform === 'android';
+
   const handleSelectFile = async () => {
     try {
+      const LutExtensions = ['cube', '3dl', 'png', 'jpg', 'jpeg', 'tiff'];
+      const expandExtensions = (exts: string[]) => {
+          return Array.from(new Set(exts.flatMap((ext) => [ext.toLowerCase(), ext.toUpperCase()])));
+        };
+      const allLutExtensions = expandExtensions(LutExtensions);
+      const typeFilters = isAndroid
+        ? [ ] 
+        : [
+            {
+              name: 'LUT Files',
+              extensions: allLutExtensions,
+            },
+          ];
       const selected = await open({
         multiple: false,
-        filters: [
-          {
-            name: 'LUT Files',
-            extensions: ['cube', '3dl', 'png', 'jpg', 'jpeg', 'tiff'],
-          },
-        ],
+        filters: typeFilters,
       });
       if (typeof selected === 'string') {
+        let fileName = selected;
+        if (isAndroid) {
+          try {
+            fileName = await invoke<string>('resolve_android_content_uri_name', { 
+              uriStr: selected 
+            });
+          } catch (e) {
+            console.error('Failed to resolve Android URI:', e);
+          }
+        }
+        const allowedExtensions = new Set(allLutExtensions.map(e => e.toLowerCase()));
+        const ext = fileName.split('.').pop()?.toLowerCase() || 'unknown';
+        if (!allowedExtensions.has(ext)) {
+          toast.error(`Unsupported file format(s) detected: .${ext}`);
+          return;
+        }
+ 
         onLutSelect(selected);
       }
     } catch (err) {

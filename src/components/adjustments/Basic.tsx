@@ -9,6 +9,7 @@ interface BasicAdjustmentsProps {
   setAdjustments(adjustments: Partial<Adjustments>): any;
   isForMask?: boolean;
   onDragStateChange?: (isDragging: boolean) => void;
+  appSettings?: any;
 }
 
 const toneMapperOptions = [
@@ -19,16 +20,16 @@ const toneMapperOptions = [
 interface ToneMapperSwitchProps {
   selectedMapper: string;
   onMapperChange: (mapper: string) => void;
-  exposureValue: number;
-  onExposureChange: (value: number) => void;
+  evShiftValue: number;
+  onEvShiftChange: (value: number) => void;
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
 const ToneMapperSwitch = ({
   selectedMapper,
   onMapperChange,
-  exposureValue,
-  onExposureChange,
+  evShiftValue,
+  onEvShiftChange,
   onDragStateChange,
 }: ToneMapperSwitchProps) => {
   const [bubbleStyle, setBubbleStyle] = useState({});
@@ -37,7 +38,7 @@ const ToneMapperSwitch = ({
 
   const handleReset = () => {
     onMapperChange('basic');
-    onExposureChange(0);
+    onEvShiftChange(0);
   };
 
   useEffect(() => {
@@ -70,7 +71,7 @@ const ToneMapperSwitch = ({
   }, [selectedMapper]);
 
   return (
-    <div className="group">
+    <div className="group mb-3">
       <div className="flex justify-between items-center mb-2">
         <div
           className="grid cursor-pointer"
@@ -125,12 +126,12 @@ const ToneMapperSwitch = ({
         </div>
         <div className="mt-2.5 px-1">
           <Slider
-            label="Exposure"
+            label="EV Shift"
             max={5}
             min={-5}
-            onChange={(e: any) => onExposureChange(parseFloat(e.target.value))}
+            onChange={(e: any) => onEvShiftChange(parseFloat(e.target.value))}
             step={0.01}
-            value={exposureValue}
+            value={evShiftValue}
             trackClassName="bg-surface"
             onDragStateChange={onDragStateChange}
           />
@@ -145,6 +146,7 @@ export default function BasicAdjustments({
   setAdjustments,
   isForMask = false,
   onDragStateChange,
+  appSettings,
 }: BasicAdjustmentsProps) {
   const handleAdjustmentChange = (key: BasicAdjustment, value: any) => {
     const numericValue = parseFloat(value);
@@ -158,10 +160,31 @@ export default function BasicAdjustments({
     }));
   };
 
+  const hideTonemapper = isForMask || appSettings?.tonemapperOverrideEnabled;
+
   return (
     <div>
+      {hideTonemapper ? (
+        <Slider
+          label="EV Shift"
+          max={5}
+          min={-5}
+          onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Exposure, e.target.value)}
+          step={0.01}
+          value={adjustments.exposure}
+          onDragStateChange={onDragStateChange}
+        />
+      ) : (
+        <ToneMapperSwitch
+          selectedMapper={adjustments.toneMapper || 'agx'}
+          onMapperChange={handleToneMapperChange}
+          evShiftValue={adjustments.exposure}
+          onEvShiftChange={(value) => handleAdjustmentChange(BasicAdjustment.Exposure, value)}
+          onDragStateChange={onDragStateChange}
+        />
+      )}
       <Slider
-        label="Brightness"
+        label="Exposure"
         max={5}
         min={-5}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Brightness, e.target.value)}
@@ -214,26 +237,6 @@ export default function BasicAdjustments({
         value={adjustments.blacks}
         onDragStateChange={onDragStateChange}
       />
-
-      {isForMask ? (
-        <Slider
-          label="Exposure"
-          max={5}
-          min={-5}
-          onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Exposure, e.target.value)}
-          step={0.01}
-          value={adjustments.exposure}
-          onDragStateChange={onDragStateChange}
-        />
-      ) : (
-        <ToneMapperSwitch
-          selectedMapper={adjustments.toneMapper || 'agx'}
-          onMapperChange={handleToneMapperChange}
-          exposureValue={adjustments.exposure}
-          onExposureChange={(value) => handleAdjustmentChange(BasicAdjustment.Exposure, value)}
-          onDragStateChange={onDragStateChange}
-        />
-      )}
     </div>
   );
 }

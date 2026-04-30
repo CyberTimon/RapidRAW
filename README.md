@@ -39,12 +39,12 @@ I started developing this project as a personal challenge when I was 18. My goal
     </td>
     <td width="50%" valign="top" align="center">
       <br>
-      <a href="https://github.com/CyberTimon/RapidRAW-Docs">
+      <a href="https://www.getrapidraw.com/docs/">
         <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/main/src-tauri/icons/docs.png" alt="Read the Docs" height="96">
       </a>
       <h3>Read the Docs</h3>
-      <p>Learn how to use RapidRAW with step-by-step tutorials, from adjustments to masking.</p>
-      <strong><a href="https://github.com/CyberTimon/RapidRAW-Docs">View Tutorials & Examples →</a></strong>
+      <p>Learn how RapidRAW works with step-by-step tutorials, from adjustments to masking.</p>
+      <strong><a href="https://www.getrapidraw.com/docs/">View Tutorials & Docs →</a></strong>
       <br><br>
     </td>
   </tr>

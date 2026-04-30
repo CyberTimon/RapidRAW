@@ -1,4 +1,4 @@
-import { type ChangeEvent, useState, useEffect, useRef, useMemo } from 'react';
+import { type ChangeEvent, type PointerEvent as ReactPointerEvent, useState, useEffect, useRef, useMemo } from 'react';
 import debounce from 'lodash.debounce';
 import { v4 as uuidv4 } from 'uuid';
 import clsx from 'clsx';
@@ -163,7 +163,15 @@ const SUB_MASK_CONFIG: Record<Mask, any> = {
   [Mask.QuickEraser]: { parameters: [] },
 };
 
-const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsChange: any }) => (
+const BrushTools = ({
+  settings,
+  onSettingsChange,
+  onDragStateChange,
+}: {
+  settings: any;
+  onSettingsChange: any;
+  onDragStateChange?: (isDragging: boolean) => void;
+}) => (
   <div>
     <Slider
       defaultValue={100}
@@ -174,6 +182,7 @@ const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsC
       step={1}
       value={settings.size}
       fillOrigin="min"
+      onDragStateChange={onDragStateChange}
     />
     <Slider
       defaultValue={50}
@@ -184,6 +193,7 @@ const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsC
       step={1}
       value={settings.feather}
       fillOrigin="min"
+      onDragStateChange={onDragStateChange}
     />
     <div className="grid grid-cols-2 gap-2 pt-2">
       <button
@@ -207,11 +217,13 @@ const FlowBrushTool = ({
   onFlowChange,
   settings,
   onSettingsChange,
+  onDragStateChange,
 }: {
   flow: number;
   onFlowChange: (flow: number) => void;
   settings: any;
   onSettingsChange: any;
+  onDragStateChange?: (isDragging: boolean) => void;
 }) => (
   <div className="space-y-4 border-t border-surface">
     <Slider
@@ -223,8 +235,9 @@ const FlowBrushTool = ({
       step={1}
       value={flow}
       fillOrigin="min"
+      onDragStateChange={onDragStateChange}
     />
-    <BrushTools settings={settings} onSettingsChange={onSettingsChange} />
+    <BrushTools settings={settings} onSettingsChange={onSettingsChange} onDragStateChange={onDragStateChange} />
   </div>
 );
 
@@ -234,12 +247,14 @@ function DepthRangePicker({
   minFade,
   maxFade,
   onChange,
+  onDragStateChange,
 }: {
   minDepth: number;
   maxDepth: number;
   minFade: number;
   maxFade: number;
   onChange: (values: { minDepth: number; maxDepth: number; minFade: number; maxFade: number }) => void;
+  onDragStateChange?: (isDragging: boolean) => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [activeHandle, setActiveHandle] = useState<string | null>(null);
@@ -262,7 +277,7 @@ function DepthRangePicker({
     };
   }, []);
 
-  const getVal = (e: MouseEvent | React.MouseEvent): number => {
+  const getVal = (e: { clientX: number }): number => {
     if (!trackRef.current) return 0;
     const rect = trackRef.current.getBoundingClientRect();
     return Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
@@ -330,16 +345,29 @@ function DepthRangePicker({
     }
   };
 
-  const beginDrag = (handle: string) => (e: React.MouseEvent) => {
+  const beginDrag = (handle: string) => (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
     setActiveHandle(handle);
+    onDragStateChange?.(true);
 
     const init = { ...vals, startVal: getVal(e) };
     let latest = { ...vals };
     let pending = false;
+    const pointerId = e.pointerId;
+    const previousTouchAction = document.documentElement.style.touchAction;
+    const previousUserSelect = document.documentElement.style.userSelect;
 
-    const onMove = (me: MouseEvent) => {
+    const target = e.currentTarget;
+
+    target.setPointerCapture?.(pointerId);
+    document.documentElement.style.touchAction = 'none';
+    document.documentElement.style.userSelect = 'none';
+
+    const onMove = (me: PointerEvent) => {
+      if (me.pointerId !== pointerId) return;
+      if (me.cancelable) me.preventDefault();
       latest = compute(handle, getVal(me), init);
       setDragValues(latest);
 
@@ -352,19 +380,26 @@ function DepthRangePicker({
       }
     };
 
-    const onUp = () => {
+    const onUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) return;
       setActiveHandle(null);
+      if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       onChange(latest);
+      onDragStateChange?.(false);
+      document.documentElement.style.touchAction = previousTouchAction;
+      document.documentElement.style.userSelect = previousUserSelect;
 
       requestAnimationFrame(() => setDragValues(null));
 
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
     };
 
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    document.addEventListener('pointermove', onMove, { passive: false });
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
   };
 
   const handleColor = (handle: string, isMain: boolean) =>
@@ -407,11 +442,7 @@ function DepthRangePicker({
           Reset
         </Text>
       </div>
-      <div
-        ref={trackRef}
-        className="relative rounded-md overflow-hidden mt-2 select-none border border-white/10"
-        style={{ height: 44 }}
-      >
+      <div ref={trackRef} className="relative rounded-md overflow-hidden mt-2 select-none" style={{ height: 44 }}>
         {isDragging && (
           <div
             className="fixed inset-0 z-[9999]"
@@ -495,7 +526,7 @@ function DepthRangePicker({
             cursor: activeHandle === 'range' ? 'grabbing' : 'grab',
             zIndex: 5,
           }}
-          onMouseDown={beginDrag('range')}
+          onPointerDown={beginDrag('range')}
         />
 
         {[
@@ -506,7 +537,7 @@ function DepthRangePicker({
             key={key}
             className="absolute flex items-start justify-center cursor-ew-resize"
             style={{ left: `${pos}%`, transform: 'translateX(-50%)', top: 0, height: '50%', width: 28, zIndex: 15 }}
-            onMouseDown={beginDrag(key)}
+            onPointerDown={beginDrag(key)}
           >
             <svg width="8" height="5" viewBox="0 0 8 5" style={{ marginTop: 3 }}>
               <polygon points="4,5 8,0 0,0" fill={handleColor(key, false)} />
@@ -522,7 +553,7 @@ function DepthRangePicker({
             key={key}
             className="absolute flex items-end justify-center cursor-ew-resize"
             style={{ left: `${pos}%`, transform: 'translateX(-50%)', bottom: 0, height: '50%', width: 28, zIndex: 20 }}
-            onMouseDown={beginDrag(key)}
+            onPointerDown={beginDrag(key)}
           >
             <svg width="10" height="6" viewBox="0 0 10 6" style={{ marginBottom: 3 }}>
               <polygon points="5,0 10,6 0,6" fill={handleColor(key, true)} />
@@ -664,25 +695,44 @@ export default function MasksPanel({
     return () => setCustomEscapeHandler(null);
   }, [activeMaskContainerId, activeMaskId, renamingId, onSelectContainer, onSelectMask, setCustomEscapeHandler]);
 
-  const handleWaveformResize = (e: React.MouseEvent) => {
+  const handleWaveformResize = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
+    e.stopPropagation();
+    const pointerId = e.pointerId;
+    const target = e.currentTarget;
     const startY = e.clientY;
     const startHeight = waveformHeight || 256;
+    const previousTouchAction = document.documentElement.style.touchAction;
+    const previousUserSelect = document.documentElement.style.userSelect;
     setIsResizingWaveform(true);
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    target.setPointerCapture?.(pointerId);
+    document.documentElement.style.touchAction = 'none';
+    document.documentElement.style.userSelect = 'none';
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      moveEvent.preventDefault();
       const delta = moveEvent.clientY - startY;
-      if (setWaveformHeight) setWaveformHeight(Math.max(150, Math.min(450, startHeight + delta)));
+      const newHeight = Math.round(Math.max(150, Math.min(450, startHeight + delta)));
+      if (setWaveformHeight) setWaveformHeight(newHeight);
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) return;
+      if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId);
       setIsResizingWaveform(false);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.documentElement.style.touchAction = previousTouchAction;
+      document.documentElement.style.userSelect = previousUserSelect;
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+      document.removeEventListener('pointercancel', handlePointerUp);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('pointermove', handlePointerMove, { passive: false });
+    document.addEventListener('pointerup', handlePointerUp);
+    document.addEventListener('pointercancel', handlePointerUp);
   };
 
   const handleDeselect = () => {
@@ -2319,6 +2369,7 @@ function SettingsPanel({
             }
             step={1}
             fillOrigin="min"
+            onDragStateChange={onDragStateChange}
           />
 
           {isComponentMode && (
@@ -2346,6 +2397,7 @@ function SettingsPanel({
                   minFade={activeSubMask.parameters?.maxFade ?? 15}
                   maxFade={activeSubMask.parameters?.minFade ?? 15}
                   onChange={handleDepthRangeChange}
+                  onDragStateChange={onDragStateChange}
                 />
               )}
 
@@ -2362,6 +2414,7 @@ function SettingsPanel({
                     handleSubMaskParametersChange({ [param.key]: parseFloat(e.target.value) / (param.multiplier || 1) })
                   }
                   {...(param.key !== 'grow' && { fillOrigin: 'min' })}
+                  onDragStateChange={onDragStateChange}
                 />
               ))}
 
@@ -2373,9 +2426,14 @@ function SettingsPanel({
                     onFlowChange={(flow: number) => handleSubMaskParametersChange({ flow })}
                     settings={brushSettings}
                     onSettingsChange={setBrushSettings}
+                    onDragStateChange={onDragStateChange}
                   />
                 ) : (
-                  <BrushTools settings={brushSettings} onSettingsChange={setBrushSettings} />
+                  <BrushTools
+                    settings={brushSettings}
+                    onSettingsChange={setBrushSettings}
+                    onDragStateChange={onDragStateChange}
+                  />
                 ))}
             </>
           )}

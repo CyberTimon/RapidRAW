@@ -77,25 +77,44 @@ export default function Controls({
   const { showContextMenu } = useContextMenu();
   const [isResizingWaveform, setIsResizingWaveform] = useState<boolean>(false);
 
-  const handleWaveformResize = (e: React.MouseEvent) => {
+  const handleWaveformResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
+    e.stopPropagation();
+    const pointerId = e.pointerId;
+    const target = e.currentTarget;
     const startY = e.clientY;
     const startHeight = waveformHeight || 256;
+    const previousTouchAction = document.documentElement.style.touchAction;
+    const previousUserSelect = document.documentElement.style.userSelect;
     setIsResizingWaveform(true);
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    target.setPointerCapture?.(pointerId);
+    document.documentElement.style.touchAction = 'none';
+    document.documentElement.style.userSelect = 'none';
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      moveEvent.preventDefault();
       const delta = moveEvent.clientY - startY;
-      if (setWaveformHeight) setWaveformHeight(Math.max(150, Math.min(450, startHeight + delta)));
+      const newHeight = Math.round(Math.max(150, Math.min(450, startHeight + delta)));
+      if (setWaveformHeight) setWaveformHeight(newHeight);
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) return;
+      if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId);
       setIsResizingWaveform(false);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.documentElement.style.touchAction = previousTouchAction;
+      document.documentElement.style.userSelect = previousUserSelect;
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+      document.removeEventListener('pointercancel', handlePointerUp);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('pointermove', handlePointerMove, { passive: false });
+    document.addEventListener('pointerup', handlePointerUp);
+    document.addEventListener('pointercancel', handlePointerUp);
   };
 
   const handleToggleVisibility = (sectionName: string) => {

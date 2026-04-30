@@ -825,6 +825,7 @@ const ImageCanvas = memo(
     const [displayedMaskUrl, setDisplayedMaskUrl] = useState<string | null>(null);
     const [originalLoaded, setOriginalLoaded] = useState<boolean>(false);
     const [localInitialDrawParams, setLocalInitialDrawParams] = useState<any>(null);
+    const [isMaskInteractionActive, setIsMaskInteractionActive] = useState(false);
     const isDrawing = useRef(false);
     const drawingStageRef = useRef<any>(null);
     const dragStartPointer = useRef<Coord | null>(null);
@@ -1003,6 +1004,12 @@ const ImageCanvas = memo(
       previewBoxRef.current = null;
       setLocalInitialDrawParams(null);
     }, [isToolActive]);
+
+    useEffect(() => {
+      if (!isMasking && !isAiEditing) {
+        setIsMaskInteractionActive(false);
+      }
+    }, [isMasking, isAiEditing]);
 
     useEffect(() => {
       const clearTouchInteraction = () => {
@@ -1905,6 +1912,7 @@ const ImageCanvas = memo(
 
     const handleMaskInteractionStart = useCallback(
       (e?: any) => {
+        setIsMaskInteractionActive(true);
         const eventType = e?.evt?.type;
         if (eventType === 'touchstart') {
           setIsMaskTouchInteracting(true);
@@ -1914,6 +1922,7 @@ const ImageCanvas = memo(
     );
 
     const handleMaskInteractionEnd = useCallback(() => {
+      setIsMaskInteractionActive(false);
       setIsMaskTouchInteracting(false);
     }, [setIsMaskTouchInteracting]);
 
@@ -2035,7 +2044,8 @@ const ImageCanvas = memo(
                   style={{
                     height: `${imageRenderSize.height}px`,
                     left: `${imageRenderSize.offsetX}px`,
-                    opacity: isShowingOriginal || isMaskControlHovered ? 0 : 1,
+                    opacity:
+                      isShowingOriginal || isMaskControlHovered || isSliderDragging || isMaskInteractionActive ? 0 : 1,
                     top: `${imageRenderSize.offsetY}px`,
                     transition: 'opacity 300ms ease-in-out',
                     width: `${imageRenderSize.width}px`,

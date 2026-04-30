@@ -513,7 +513,11 @@ fn apply_filmic_exposure(color_in: vec3<f32>, brightness_adj: f32) -> vec3<f32> 
     let new_luma = sign(original_luma) * shaped_luma_abs * scale;
     let chroma = color_in - vec3<f32>(original_luma);
     let total_luma_scale = new_luma / original_luma;
-    let chroma_scale = pow(total_luma_scale, 0.8);
+    let luma_weight = clamp(new_luma, 0.0, 2.0) * 0.5;
+    let dynamic_exp = mix(0.95, 0.65, luma_weight);
+    let base_chroma_scale = pow(total_luma_scale, dynamic_exp);
+    let highlight_rolloff = 1.0 / (1.0 + max(0.0, new_luma - 0.9) * 2.0);
+    let chroma_scale = base_chroma_scale * highlight_rolloff;
     return vec3<f32>(new_luma) + chroma * chroma_scale;
 }
 

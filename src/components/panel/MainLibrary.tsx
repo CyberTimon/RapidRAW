@@ -959,10 +959,10 @@ function ViewOptionsDropdown({
         </>
       }
       buttonTitle="View Options"
-      contentClassName="w-[720px]"
+      contentClassName="library-view-options-menu w-[720px]"
     >
-      <div className="flex">
-        <div className="w-1/4 p-2 border-r border-border-color">
+      <div className="library-view-options-content flex">
+        <div className="library-view-options-section w-1/4 p-2 border-r border-border-color">
           <ThumbnailSizeOptions selectedSize={thumbnailSize} onSelectSize={onSelectSize} />
           <div className="pt-2">
             <ThumbnailAspectRatioOptions
@@ -974,10 +974,10 @@ function ViewOptionsDropdown({
             <ViewModeOptions mode={libraryViewMode} setMode={setLibraryViewMode} />
           </div>
         </div>
-        <div className="w-2/4 p-2 border-r border-border-color">
+        <div className="library-view-options-section w-2/4 p-2 border-r border-border-color">
           <FilterOptions filterCriteria={filterCriteria} setFilterCriteria={setFilterCriteria} />
         </div>
-        <div className="w-1/4 p-2">
+        <div className="library-view-options-section w-1/4 p-2">
           <SortOptions sortCriteria={sortCriteria} setSortCriteria={setSortCriteria} sortOptions={sortOptions} />
         </div>
       </div>
@@ -2047,31 +2047,33 @@ export default function MainLibrary({
       >
         <div className="min-w-0">
           <Text variant={TextVariants.headline}>Library</Text>
-          <div className="flex items-center gap-2">
-            {currentFolderPath ? (
-              <Text className="truncate">{currentFolderPath}</Text>
-            ) : (
-              <p className="text-sm invisible select-none pointer-events-none h-5 overflow-hidden"></p>
-            )}
-            <div
-              className={`flex items-center gap-2 overflow-hidden transition-all duration-300 whitespace-nowrap ${
-                isBusyDelayed ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'
-              }`}
-            >
-              <Loader2 size={14} className="animate-spin text-text-secondary shrink-0" />
+          {!isAndroid && (
+            <div className="flex items-center gap-2">
+              {currentFolderPath ? (
+                <Text className="truncate">{currentFolderPath}</Text>
+              ) : (
+                <p className="text-sm invisible select-none pointer-events-none h-5 overflow-hidden"></p>
+              )}
               <div
-                className={`flex items-center transition-all duration-300 ease-out overflow-hidden ${
-                  isProgressHovered && isBusyDelayed && (thumbnailProgress?.total ?? 0) > 0
-                    ? 'max-w-xs opacity-100'
-                    : 'max-w-0 opacity-0'
+                className={`flex items-center gap-2 overflow-hidden transition-all duration-300 whitespace-nowrap ${
+                  isBusyDelayed ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'
                 }`}
               >
-                <Text variant={TextVariants.small} color={TextColors.secondary} className="whitespace-nowrap">
-                  ({thumbnailProgress?.current ?? 0}/{thumbnailProgress?.total ?? 0})
-                </Text>
+                <Loader2 size={14} className="animate-spin text-text-secondary shrink-0" />
+                <div
+                  className={`flex items-center transition-all duration-300 ease-out overflow-hidden ${
+                    isProgressHovered && isBusyDelayed && (thumbnailProgress?.total ?? 0) > 0
+                      ? 'max-w-xs opacity-100'
+                      : 'max-w-0 opacity-0'
+                  }`}
+                >
+                  <Text variant={TextVariants.small} color={TextColors.secondary} className="whitespace-nowrap">
+                    ({thumbnailProgress?.current ?? 0}/{thumbnailProgress?.total ?? 0})
+                  </Text>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {importState.status === Status.Importing && (
@@ -2113,20 +2115,24 @@ export default function MainLibrary({
             thumbnailSize={thumbnailSize}
             thumbnailAspectRatio={thumbnailAspectRatio}
           />
-          <Button
-            className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
-            onClick={onNavigateToCommunity}
-            data-tooltip="Community Presets"
-          >
-            <Users className="w-8 h-8" />
-          </Button>
-          <Button
-            className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
-            onClick={onOpenFolder}
-            data-tooltip="Open another folder"
-          >
-            <Folder className="w-8 h-8" />
-          </Button>
+          {!isAndroid && (
+            <>
+              <Button
+                className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
+                onClick={onNavigateToCommunity}
+                data-tooltip="Community Presets"
+              >
+                <Users className="w-8 h-8" />
+              </Button>
+              <Button
+                className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
+                onClick={onOpenFolder}
+                data-tooltip="Open another folder"
+              >
+                <Folder className="w-8 h-8" />
+              </Button>
+            </>
+          )}
           <Button
             className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
             onClick={onGoHome}
