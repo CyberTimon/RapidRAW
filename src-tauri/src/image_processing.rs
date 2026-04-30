@@ -1730,9 +1730,9 @@ pub fn apply_cpu_agx_tonemap(image: &mut DynamicImage) {
 
     const LUT_SIZE: usize = 4096;
     let mut curve_lut = [0.0f32; LUT_SIZE];
-    for i in 0..LUT_SIZE {
+    for (i, slot) in curve_lut.iter_mut().enumerate() {
         let x = i as f32 / (LUT_SIZE - 1) as f32;
-        curve_lut[i] = agx_curve_channel(x).max(0.0).powf(AGX_GAMMA);
+        *slot = agx_curve_channel(x).max(0.0).powf(AGX_GAMMA);
     }
 
     let (pipe_to_rendering, rendering_to_pipe) = calculate_agx_matrices_glam();

@@ -1955,6 +1955,7 @@ fn apply_export_resize_and_watermark(
     Ok(image)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_image_for_export_pipeline(
     path: &str,
     base_image: &DynamicImage,
@@ -2081,6 +2082,7 @@ fn mime_type_for_extension(extension: &str) -> &'static str {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_image_for_export(
     path: &str,
     base_image: &DynamicImage,
