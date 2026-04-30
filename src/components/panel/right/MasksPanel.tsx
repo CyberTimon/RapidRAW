@@ -266,6 +266,7 @@ function DepthRangePicker({
   } | null>(null);
   const rafRef = useRef<number>(0);
   const [isLabelHovered, setIsLabelHovered] = useState(false);
+  const cleanupDragRef = useRef<(() => void) | null>(null);
 
   const vals = dragValues ?? { minDepth, maxDepth, minFade, maxFade };
   const fadeLeftEdge = Math.max(0, vals.minDepth - vals.minFade);
@@ -273,6 +274,7 @@ function DepthRangePicker({
 
   useEffect(() => {
     return () => {
+      cleanupDragRef.current?.();
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
@@ -360,6 +362,7 @@ function DepthRangePicker({
     const previousUserSelect = document.documentElement.style.userSelect;
 
     const target = e.currentTarget;
+    let didFinish = false;
 
     target.setPointerCapture?.(pointerId);
     document.documentElement.style.touchAction = 'none';
@@ -380,26 +383,47 @@ function DepthRangePicker({
       }
     };
 
-    const onUp = (upEvent: PointerEvent) => {
-      if (upEvent.pointerId !== pointerId) return;
-      setActiveHandle(null);
+    const finishDrag = (options: { updateState: boolean; commit: boolean }) => {
+      if (didFinish) return;
+      didFinish = true;
+
+      if (options.updateState) {
+        setActiveHandle(null);
+      }
       if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      onChange(latest);
+      if (options.commit) onChange(latest);
       onDragStateChange?.(false);
       document.documentElement.style.touchAction = previousTouchAction;
       document.documentElement.style.userSelect = previousUserSelect;
 
-      requestAnimationFrame(() => setDragValues(null));
+      if (options.updateState) {
+        requestAnimationFrame(() => setDragValues(null));
+      }
 
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onUp);
       document.removeEventListener('pointercancel', onUp);
+      target.removeEventListener('lostpointercapture', onLostPointerCapture);
+      cleanupDragRef.current = null;
     };
+
+    const onUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) return;
+      finishDrag({ updateState: true, commit: true });
+    };
+
+    const onLostPointerCapture = (lostEvent: PointerEvent) => {
+      if (lostEvent.pointerId !== pointerId) return;
+      finishDrag({ updateState: true, commit: true });
+    };
+
+    cleanupDragRef.current = () => finishDrag({ updateState: false, commit: false });
 
     document.addEventListener('pointermove', onMove, { passive: false });
     document.addEventListener('pointerup', onUp);
     document.addEventListener('pointercancel', onUp);
+    target.addEventListener('lostpointercapture', onLostPointerCapture);
   };
 
   const handleColor = (handle: string, isMain: boolean) =>
@@ -446,7 +470,7 @@ function DepthRangePicker({
         {isDragging && (
           <div
             className="fixed inset-0 z-[9999]"
-            style={{ cursor: activeHandle === 'range' ? 'grabbing' : 'ew-resize' }}
+            style={{ cursor: activeHandle === 'range' ? 'grabbing' : 'ew-resize', pointerEvents: 'none' }}
           />
         )}
 
@@ -1102,6 +1126,11 @@ export default function MasksPanel({
     if (onDragStateChange) onDragStateChange(true);
   };
 
+  const handleDragCancel = () => {
+    setActiveDragItem(null);
+    if (onDragStateChange) onDragStateChange(false);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     const dragData = active.data.current as DragData;
@@ -1254,6 +1283,7 @@ export default function MasksPanel({
       sensors={sensors}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
       collisionDetection={pointerWithin}
     >
       <div
