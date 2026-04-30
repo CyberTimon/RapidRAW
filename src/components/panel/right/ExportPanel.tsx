@@ -445,7 +445,7 @@ export default function ExportPanel({
               defaultPath: lastExportPath ?? undefined,
             });
 
-        if (outputFolder) {
+        if (isAndroid || outputFolder) {
           if (!isAndroid) {
             saveLastUsedPreset(outputFolder as string);
           }

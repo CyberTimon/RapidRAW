@@ -471,7 +471,7 @@ export default function LibraryExportPanel({
             defaultPath: lastExportPath ?? undefined,
           });
 
-      if (outputFolder) {
+      if (isAndroid || outputFolder) {
         if (!isAndroid) {
           saveLastUsedPreset(outputFolder as string);
         }
