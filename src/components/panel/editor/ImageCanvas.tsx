@@ -3,7 +3,7 @@ import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { Stage, Layer, Ellipse, Line, Transformer, Group, Circle, Rect } from 'react-konva';
 import { PercentCrop, Crop } from 'react-image-crop';
-import { Adjustments, AiPatch, Coord, MaskContainer } from '../../../utils/adjustments';
+import { Adjustments, AiPatch, Coord, INITIAL_MASK_ADJUSTMENTS, MaskContainer } from '../../../utils/adjustments';
 import { Mask, SubMask, SubMaskMode, ToolType } from '../right/Masks';
 import { AppSettings, BrushSettings, SelectedImage } from '../../ui/AppProperties';
 import { RenderSize } from '../../../hooks/useImageRenderSize';
@@ -87,6 +87,16 @@ interface MaskOverlay {
   scale: number;
   subMask: SubMask;
 }
+
+const hasEffectiveMaskAdjustments = (adjustments: any): boolean => {
+  if (!adjustments) return false;
+
+  return Object.keys(INITIAL_MASK_ADJUSTMENTS).some((key) => {
+    if (key === 'sectionVisibility') return false;
+    const defaultValue = (INITIAL_MASK_ADJUSTMENTS as any)[key];
+    return JSON.stringify(adjustments[key] ?? defaultValue) !== JSON.stringify(defaultValue);
+  });
+};
 
 const MaskOverlay = memo(
   ({
@@ -982,6 +992,8 @@ const ImageCanvas = memo(
     const isInitialDrawing = (isMasking || isAiEditing) && activeSubMask?.parameters?.isInitialDraw === true;
 
     const isToolActive = isBrushActive || isAiSubjectActive || isInitialDrawing || isParametricActive;
+    const shouldHideMaskOverlayForSliderDrag =
+      isSliderDragging && (!isMasking || !activeContainer || hasEffectiveMaskAdjustments(activeContainer.adjustments));
 
     useEffect(() => {
       if (maskOverlayUrl && (isMasking || isAiEditing)) {
@@ -2045,7 +2057,12 @@ const ImageCanvas = memo(
                     height: `${imageRenderSize.height}px`,
                     left: `${imageRenderSize.offsetX}px`,
                     opacity:
-                      isShowingOriginal || isMaskControlHovered || isSliderDragging || isMaskInteractionActive ? 0 : 1,
+                      isShowingOriginal ||
+                      isMaskControlHovered ||
+                      shouldHideMaskOverlayForSliderDrag ||
+                      isMaskInteractionActive
+                        ? 0
+                        : 1,
                     top: `${imageRenderSize.offsetY}px`,
                     transition: 'opacity 300ms ease-in-out',
                     width: `${imageRenderSize.width}px`,
