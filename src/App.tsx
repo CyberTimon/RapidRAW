@@ -1911,7 +1911,14 @@ function App() {
     async (path: string) => {
       try {
         const result: LutData = await invoke('load_and_parse_lut', { path });
-        const name = path.split(/[\\/]/).pop() || 'LUT';
+        let name = 'LUT';
+        if (isAndroid) {
+          name = await invoke<string>('resolve_android_content_uri_name', { 
+              uriStr: path
+            });
+        } else {
+          name = path.split(/[\\/]/).pop() || 'LUT';
+        }
         setAdjustments((prev: Partial<Adjustments>) => ({
           ...prev,
           lutPath: path,
@@ -4412,43 +4419,95 @@ function App() {
         const raw = supportedTypes?.raw || [];
 
         const expandExtensions = (exts: string[]) => {
-          return Array.from(new Set(exts.flatMap((ext) => [ext.toLowerCase(), ext.toUpperCase()])));
+          return Array.from(
+            new Set(exts.flatMap((ext) => [ext.toLowerCase(), ext.toUpperCase()]))
+          );
         };
 
         const processedNonRaw = expandExtensions(nonRaw);
         const processedRaw = expandExtensions(raw);
         const allImageExtensions = [...processedNonRaw, ...processedRaw];
 
+        const typeFilters = isAndroid
+          ? []
+          : [
+              {
+                name: 'All Supported Images',
+                extensions: allImageExtensions,
+              },
+              {
+                name: 'RAW Images',
+                extensions: processedRaw,
+              },
+              {
+                name: 'Standard Images (JPEG, PNG, etc.)',
+                extensions: processedNonRaw,
+              },
+              {
+                name: 'All Files',
+                extensions: ['*'],
+              },
+            ];
+
         const selected = await open({
-          filters: [
-            {
-              name: 'All Supported Images',
-              extensions: allImageExtensions,
-            },
-            {
-              name: 'RAW Images',
-              extensions: processedRaw,
-            },
-            {
-              name: 'Standard Images (JPEG, PNG, etc.)',
-              extensions: processedNonRaw,
-            },
-            {
-              name: 'All Files',
-              extensions: ['*'],
-            },
-          ],
+          filters: typeFilters,
           multiple: true,
           title: 'Select files to import',
         });
 
         if (Array.isArray(selected) && selected.length > 0) {
-          if (isAndroid) {
-            await startImportFiles(selected, targetPath, DEFAULT_IMPORT_SETTINGS);
+          const invalidExtensions = new Set<string>();
+          const allowedExtensions = new Set(
+            allImageExtensions.map((e) => e.toLowerCase())
+          );
+
+          const resolvedFiles = await Promise.all(
+            selected.map(async (path) => {
+              if (isAndroid) {
+                try {
+                  return await invoke<string>(
+                    'resolve_android_content_uri_name',
+                    { uriStr: path }
+                  );
+                } catch (e) {
+                  console.error('Failed to resolve URI:', e);
+                  return path;
+                }
+              }
+              return path;
+            })
+          );
+
+          const validFiles = selected.filter((originalPath, index) => {
+            const resolvedName = resolvedFiles[index];
+            const ext =
+              resolvedName.split('.').pop()?.toLowerCase() || 'unknown';
+
+            if (!allowedExtensions.has(ext)) {
+              invalidExtensions.add(`.${ext}`);
+              return false;
+            }
+            return true;
+          });
+
+          if (invalidExtensions.size > 0) {
+            const extList = Array.from(invalidExtensions).join(', ');
+            toast.error(
+              `Unsupported file format(s) detected: ${extList}`
+            );
             return;
           }
 
-          setImportSourcePaths(selected);
+          if (isAndroid) {
+            await startImportFiles(
+              validFiles,
+              targetPath,
+              DEFAULT_IMPORT_SETTINGS
+            );
+            return;
+          }
+
+          setImportSourcePaths(validFiles);
           setImportTargetFolder(targetPath);
           setIsImportModalOpen(true);
         }
@@ -4456,7 +4515,7 @@ function App() {
         console.error('Failed to open file dialog for import:', err);
       }
     },
-    [isAndroid, startImportFiles, supportedTypes],
+    [supportedTypes, isAndroid, startImportFiles]
   );
 
   const handleEditorContextMenu = (event: any) => {

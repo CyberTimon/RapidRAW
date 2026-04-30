@@ -3,8 +3,6 @@ use crate::ai_processing::{
 };
 use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, GenericImageView, GrayImage, Luma};
-use imageproc::distance_transform::Norm as DilationNorm;
-use imageproc::morphology::{dilate, erode};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::f32::consts::PI;
@@ -222,6 +220,88 @@ impl Default for ParametricMaskParameters {
     }
 }
 
+fn grayscale_dilate(image: &GrayImage, k: u8) -> GrayImage {
+    let (width, height) = image.dimensions();
+    if width == 0 || height == 0 {
+        return image.clone();
+    }
+    let w = width as usize;
+    let h = height as usize;
+    let r = k as i32;
+    let src = image.as_raw();
+
+    let mut temp = vec![0u8; w * h];
+    let mut out = vec![0u8; w * h];
+
+    for y in 0..h {
+        let row_offset = y * w;
+        for x in 0..w {
+            let mut max_val = 0;
+            let start = (x as i32 - r).max(0) as usize;
+            let end = (x as i32 + r).min((w - 1) as i32) as usize;
+            for xi in start..=end {
+                max_val = max_val.max(src[row_offset + xi]);
+            }
+            temp[row_offset + x] = max_val;
+        }
+    }
+
+    for x in 0..w {
+        for y in 0..h {
+            let mut max_val = 0;
+            let start = (y as i32 - r).max(0) as usize;
+            let end = (y as i32 + r).min((h - 1) as i32) as usize;
+            for yi in start..=end {
+                max_val = max_val.max(temp[yi * w + x]);
+            }
+            out[y * w + x] = max_val;
+        }
+    }
+
+    GrayImage::from_raw(width, height, out).unwrap()
+}
+
+fn grayscale_erode(image: &GrayImage, k: u8) -> GrayImage {
+    let (width, height) = image.dimensions();
+    if width == 0 || height == 0 {
+        return image.clone();
+    }
+    let w = width as usize;
+    let h = height as usize;
+    let r = k as i32;
+    let src = image.as_raw();
+
+    let mut temp = vec![0u8; w * h];
+    let mut out = vec![0u8; w * h];
+
+    for y in 0..h {
+        let row_offset = y * w;
+        for x in 0..w {
+            let mut min_val = 255;
+            let start = (x as i32 - r).max(0) as usize;
+            let end = (x as i32 + r).min((w - 1) as i32) as usize;
+            for xi in start..=end {
+                min_val = min_val.min(src[row_offset + xi]);
+            }
+            temp[row_offset + x] = min_val;
+        }
+    }
+
+    for x in 0..w {
+        for y in 0..h {
+            let mut min_val = 255;
+            let start = (y as i32 - r).max(0) as usize;
+            let end = (y as i32 + r).min((h - 1) as i32) as usize;
+            for yi in start..=end {
+                min_val = min_val.min(temp[yi * w + x]);
+            }
+            out[y * w + x] = min_val;
+        }
+    }
+
+    GrayImage::from_raw(width, height, out).unwrap()
+}
+
 fn apply_grow_and_feather(mask: &mut GrayImage, grow: f32, feather: f32, width: u32, height: u32) {
     let base_dimension = width.min(height) as f32;
 
@@ -229,23 +309,13 @@ fn apply_grow_and_feather(mask: &mut GrayImage, grow: f32, feather: f32, width: 
         const MAX_GROW_PERCENTAGE: f32 = 0.01;
         let grow_pixels = (grow / 100.0) * base_dimension * MAX_GROW_PERCENTAGE;
 
-        if grow_pixels.abs() >= 1.0 {
-            let mut binary_mask = mask.clone();
-            for p in binary_mask.pixels_mut() {
-                if p[0] > 128 {
-                    p[0] = 255;
-                } else {
-                    p[0] = 0;
-                }
-            }
+        let amount = grow_pixels.abs().round() as u8;
 
-            let amount = grow_pixels.abs().round() as u8;
-            if amount > 0 {
-                if grow_pixels > 0.0 {
-                    *mask = dilate(&binary_mask, DilationNorm::LInf, amount);
-                } else {
-                    *mask = erode(&binary_mask, DilationNorm::LInf, amount);
-                }
+        if amount > 0 {
+            if grow_pixels > 0.0 {
+                *mask = grayscale_dilate(mask, amount);
+            } else {
+                *mask = grayscale_erode(mask, amount);
             }
         }
     }

@@ -1604,7 +1604,7 @@ fn mat3_to_gpu_mat3(m: Mat3) -> GpuMat3 {
     }
 }
 
-fn calculate_agx_matrices() -> (GpuMat3, GpuMat3) {
+fn calculate_agx_matrices_glam() -> (Mat3, Mat3) {
     let pipe_work_profile_to_xyz = primaries_to_xyz_matrix(&PRIMARIES_SRGB, WP_D65);
     let base_profile_to_xyz = primaries_to_xyz_matrix(&PRIMARIES_REC2020, WP_D65);
     let xyz_to_base_profile = base_profile_to_xyz.inverse();
@@ -1641,15 +1641,158 @@ fn calculate_agx_matrices() -> (GpuMat3, GpuMat3) {
     let pipe_to_rendering = base_to_rendering * pipe_to_base;
     let rendering_to_pipe = pipe_to_base.inverse() * rendering_to_base;
 
+    (pipe_to_rendering, rendering_to_pipe)
+}
+
+fn calculate_agx_matrices() -> (GpuMat3, GpuMat3) {
+    let (pipe_to_rendering, rendering_to_pipe) = calculate_agx_matrices_glam();
     (
         mat3_to_gpu_mat3(pipe_to_rendering),
         mat3_to_gpu_mat3(rendering_to_pipe),
     )
 }
 
+pub fn resolve_tonemapper_override(
+    settings: &crate::file_management::AppSettings,
+    is_raw: bool,
+) -> Option<u32> {
+    if !settings.tonemapper_override_enabled.unwrap_or(false) {
+        return None;
+    }
+    let tm = if is_raw {
+        settings.default_raw_tonemapper.as_deref().unwrap_or("agx")
+    } else {
+        settings
+            .default_non_raw_tonemapper
+            .as_deref()
+            .unwrap_or("basic")
+    };
+    Some(if tm == "agx" { 1 } else { 0 })
+}
+
+pub fn resolve_tonemapper_override_from_handle(
+    app_handle: &tauri::AppHandle,
+    is_raw: bool,
+) -> Option<u32> {
+    let settings = crate::file_management::load_settings(app_handle.clone()).unwrap_or_default();
+    resolve_tonemapper_override(&settings, is_raw)
+}
+
+pub fn apply_cpu_agx_tonemap(image: &mut DynamicImage) {
+    const AGX_EPSILON: f32 = 1.0e-6;
+    const AGX_MIN_EV: f32 = -15.2;
+    const AGX_MAX_EV: f32 = 5.0;
+    const AGX_RANGE_EV: f32 = AGX_MAX_EV - AGX_MIN_EV;
+    const AGX_GAMMA: f32 = 2.4;
+    const AGX_SLOPE: f32 = 2.3843;
+    const AGX_TOE_POWER: f32 = 1.5;
+    const AGX_SHOULDER_POWER: f32 = 1.5;
+    const AGX_TOE_TRANSITION_X: f32 = 0.6060606;
+    const AGX_TOE_TRANSITION_Y: f32 = 0.43446;
+    const AGX_SHOULDER_TRANSITION_X: f32 = 0.6060606;
+    const AGX_SHOULDER_TRANSITION_Y: f32 = 0.43446;
+    const AGX_INTERCEPT: f32 = -1.0112;
+    const AGX_TOE_SCALE: f32 = -1.0359;
+    const AGX_SHOULDER_SCALE: f32 = 1.3475;
+
+    fn agx_sigmoid(x: f32, power: f32) -> f32 {
+        x / (1.0 + x.powf(power)).powf(1.0 / power)
+    }
+
+    fn agx_scaled_sigmoid(x: f32, scale: f32, slope: f32, power: f32, tx: f32, ty: f32) -> f32 {
+        scale * agx_sigmoid(slope * (x - tx) / scale, power) + ty
+    }
+
+    fn agx_curve_channel(x: f32) -> f32 {
+        let result = if x < AGX_TOE_TRANSITION_X {
+            agx_scaled_sigmoid(
+                x,
+                AGX_TOE_SCALE,
+                AGX_SLOPE,
+                AGX_TOE_POWER,
+                AGX_TOE_TRANSITION_X,
+                AGX_TOE_TRANSITION_Y,
+            )
+        } else if x <= AGX_SHOULDER_TRANSITION_X {
+            AGX_SLOPE * x + AGX_INTERCEPT
+        } else {
+            agx_scaled_sigmoid(
+                x,
+                AGX_SHOULDER_SCALE,
+                AGX_SLOPE,
+                AGX_SHOULDER_POWER,
+                AGX_SHOULDER_TRANSITION_X,
+                AGX_SHOULDER_TRANSITION_Y,
+            )
+        };
+        result.clamp(0.0, 1.0)
+    }
+
+    const LUT_SIZE: usize = 4096;
+    let mut curve_lut = [0.0f32; LUT_SIZE];
+    for (i, slot) in curve_lut.iter_mut().enumerate() {
+        let x = i as f32 / (LUT_SIZE - 1) as f32;
+        *slot = agx_curve_channel(x).max(0.0).powf(AGX_GAMMA);
+    }
+
+    let (pipe_to_rendering, rendering_to_pipe) = calculate_agx_matrices_glam();
+
+    let mut f32_image = image.to_rgb32f();
+
+    f32_image.par_chunks_mut(3).for_each(|pixel_chunk| {
+        let r = pixel_chunk[0];
+        let g = pixel_chunk[1];
+        let b = pixel_chunk[2];
+
+        let min_c = r.min(g).min(b);
+        let (r, g, b) = if min_c < 0.0 {
+            (r - min_c, g - min_c, b - min_c)
+        } else {
+            (r, g, b)
+        };
+
+        let in_rendering = pipe_to_rendering * Vec3::new(r, g, b);
+
+        let x = Vec3::new(
+            (in_rendering.x / 0.18).max(AGX_EPSILON),
+            (in_rendering.y / 0.18).max(AGX_EPSILON),
+            (in_rendering.z / 0.18).max(AGX_EPSILON),
+        );
+        let log_encoded = Vec3::new(
+            (x.x.log2() - AGX_MIN_EV) / AGX_RANGE_EV,
+            (x.y.log2() - AGX_MIN_EV) / AGX_RANGE_EV,
+            (x.z.log2() - AGX_MIN_EV) / AGX_RANGE_EV,
+        );
+        let mapped = Vec3::new(
+            log_encoded.x.clamp(0.0, 1.0),
+            log_encoded.y.clamp(0.0, 1.0),
+            log_encoded.z.clamp(0.0, 1.0),
+        );
+
+        let lut_lookup = |v: f32| -> f32 {
+            let idx = (v * (LUT_SIZE - 1) as f32) as usize;
+            curve_lut[idx.min(LUT_SIZE - 1)]
+        };
+        let curved = Vec3::new(
+            lut_lookup(mapped.x),
+            lut_lookup(mapped.y),
+            lut_lookup(mapped.z),
+        );
+
+        let final_color = rendering_to_pipe * curved;
+
+        pixel_chunk[0] = final_color.x.clamp(0.0, 1.0);
+        pixel_chunk[1] = final_color.y.clamp(0.0, 1.0);
+        pixel_chunk[2] = final_color.z.clamp(0.0, 1.0);
+    });
+
+    *image = DynamicImage::ImageRgb32F(f32_image);
+}
+
 fn get_global_adjustments_from_json(
     js_adjustments: &serde_json::Value,
     is_raw: bool,
+    tonemapper_override: Option<u32>,
 ) -> GlobalAdjustments {
     let visibility = js_adjustments.get("sectionVisibility");
     let is_visible = |section: &str| -> bool {
@@ -1817,7 +1960,8 @@ fn get_global_adjustments_from_json(
             0
         },
         lut_intensity: js_adjustments["lutIntensity"].as_f64().unwrap_or(100.0) as f32 / 100.0,
-        tonemapper_mode: if tone_mapper == "agx" { 1 } else { 0 },
+        tonemapper_mode: tonemapper_override
+            .unwrap_or_else(|| if tone_mapper == "agx" { 1 } else { 0 }),
         _pad_lut2: 0.0,
         _pad_lut3: 0.0,
         _pad_lut4: 0.0,
@@ -2028,8 +2172,9 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
 pub fn get_all_adjustments_from_json(
     js_adjustments: &serde_json::Value,
     is_raw: bool,
+    tonemapper_override: Option<u32>,
 ) -> AllAdjustments {
-    let global = get_global_adjustments_from_json(js_adjustments, is_raw);
+    let global = get_global_adjustments_from_json(js_adjustments, is_raw, tonemapper_override);
     let mut mask_adjustments = [MaskAdjustments::default(); MAX_MASKS];
     let mut mask_count = 0;
 

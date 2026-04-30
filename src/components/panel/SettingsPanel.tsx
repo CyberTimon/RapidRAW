@@ -166,6 +166,11 @@ const linearRawOptions: OptionItem<string>[] = [
   { value: 'gamma_skip_calib', label: 'Apply Gamma & Skip Calibrate' },
 ];
 
+const tonemapperOptions: OptionItem<string>[] = [
+  { value: 'agx', label: 'AgX' },
+  { value: 'basic', label: 'Basic' },
+];
+
 const settingCategories = [
   { id: 'general', label: 'General', icon: SlidersHorizontal },
   { id: 'processing', label: 'Processing', icon: Cpu },
@@ -1684,6 +1689,63 @@ export default function SettingsPanel({
                         triggerClassName="bg-bg-primary"
                       />
                     </SettingItem>
+
+                    <div className="space-y-4">
+                      <SettingItem
+                        label="Global Tonemapper Override"
+                        description="Force a specific tonemapper globally for all images, hiding the tonemapper switch from the adjustments panel."
+                      >
+                        <Switch
+                          checked={appSettings?.tonemapperOverrideEnabled ?? false}
+                          id="tonemapper-override-toggle"
+                          label="Enable Tonemapper Override"
+                          onChange={(checked) =>
+                            onSettingsChange({ ...appSettings, tonemapperOverrideEnabled: checked })
+                          }
+                        />
+                      </SettingItem>
+
+                      <AnimatePresence>
+                        {(appSettings?.tonemapperOverrideEnabled ?? false) && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3, ease: 'easeInOut' }}
+                          >
+                            <div className="pl-4 border-l-2 border-border-color ml-1 space-y-3">
+                              <SettingItem
+                                label="Default RAW Tonemapper"
+                                description="The tonemapper to apply to RAW images."
+                              >
+                                <Dropdown
+                                  onChange={(value: any) =>
+                                    onSettingsChange({ ...appSettings, defaultRawTonemapper: value })
+                                  }
+                                  options={tonemapperOptions}
+                                  value={appSettings?.defaultRawTonemapper || 'agx'}
+                                  triggerClassName="bg-bg-primary"
+                                />
+                              </SettingItem>
+
+                              <SettingItem
+                                label="Default Non-RAW Tonemapper"
+                                description="The tonemapper to apply to non-RAW images (e.g., JPEG, PNG)."
+                              >
+                                <Dropdown
+                                  onChange={(value: any) =>
+                                    onSettingsChange({ ...appSettings, defaultNonRawTonemapper: value })
+                                  }
+                                  options={tonemapperOptions}
+                                  value={appSettings?.defaultNonRawTonemapper || 'basic'}
+                                  triggerClassName="bg-bg-primary"
+                                />
+                              </SettingItem>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
 
                     <SettingItem
                       label="WGPU Direct Rendering"

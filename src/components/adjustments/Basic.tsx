@@ -9,6 +9,7 @@ interface BasicAdjustmentsProps {
   setAdjustments(adjustments: Partial<Adjustments>): any;
   isForMask?: boolean;
   onDragStateChange?: (isDragging: boolean) => void;
+  appSettings?: any;
 }
 
 const toneMapperOptions = [
@@ -145,6 +146,7 @@ export default function BasicAdjustments({
   setAdjustments,
   isForMask = false,
   onDragStateChange,
+  appSettings,
 }: BasicAdjustmentsProps) {
   const handleAdjustmentChange = (key: BasicAdjustment, value: any) => {
     const numericValue = parseFloat(value);
@@ -158,9 +160,11 @@ export default function BasicAdjustments({
     }));
   };
 
+  const hideTonemapper = isForMask || appSettings?.tonemapperOverrideEnabled;
+
   return (
     <div>
-      {isForMask ? (
+      {hideTonemapper ? (
         <Slider
           label="EV Shift"
           max={5}
@@ -175,7 +179,7 @@ export default function BasicAdjustments({
           selectedMapper={adjustments.toneMapper || 'agx'}
           onMapperChange={handleToneMapperChange}
           evShiftValue={adjustments.exposure}
-          onEvShiftChange={(value) => handleAdjustmentChange(BasicAdjustment.Exposure, value)} // Exposure got renamed to EV Shift in https://github.com/CyberTimon/RapidRAW/issues/1105
+          onEvShiftChange={(value) => handleAdjustmentChange(BasicAdjustment.Exposure, value)}
           onDragStateChange={onDragStateChange}
         />
       )}
