@@ -64,7 +64,6 @@ export default function DetailsPanel({
             value={adjustments.sharpness}
             onDragStateChange={onDragStateChange}
           />
-
           <Slider
             label="Masking"
             max={1}
