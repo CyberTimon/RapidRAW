@@ -151,6 +151,12 @@ const getDefaultThumbnailWorkerThreads = (osPlatform: string) =>
 const getDefaultDecodedImageCacheSize = (osPlatform: string) =>
   osPlatform === 'android' ? MIN_DECODED_IMAGE_CACHE_SIZE : DEFAULT_DECODED_IMAGE_CACHE_SIZE;
 
+const getDefaultEditorPreviewResolution = (osPlatform: string) => (osPlatform === 'android' ? 1280 : 1920);
+const getDefaultThumbnailResolution = (osPlatform: string) => (osPlatform === 'android' ? 640 : 720);
+const getDefaultEnableZoomHifi = (osPlatform: string) => osPlatform !== 'android';
+const getDefaultHighResZoomMultiplier = (osPlatform: string) => (osPlatform === 'android' ? 0.75 : 1.0);
+const getDefaultLivePreviewQuality = (osPlatform: string) => (osPlatform === 'android' ? 'performance' : 'high');
+
 const backendOptions: OptionItem<string>[] = [
   { value: 'auto', label: 'Auto' },
   { value: 'vulkan', label: 'Vulkan' },
@@ -463,13 +469,18 @@ export default function SettingsPanel({
   const osPlatform = useOsPlatform();
   const defaultThumbnailWorkerThreads = getDefaultThumbnailWorkerThreads(osPlatform);
   const defaultDecodedImageCacheSize = getDefaultDecodedImageCacheSize(osPlatform);
+  const defaultEditorPreviewResolution = getDefaultEditorPreviewResolution(osPlatform);
+  const defaultThumbnailResolution = getDefaultThumbnailResolution(osPlatform);
+  const defaultEnableZoomHifi = getDefaultEnableZoomHifi(osPlatform);
+  const defaultHighResZoomMultiplier = getDefaultHighResZoomMultiplier(osPlatform);
+  const defaultLivePreviewQuality = getDefaultLivePreviewQuality(osPlatform);
   const [processingSettings, setProcessingSettings] = useState({
-    editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
-    thumbnailResolution: appSettings?.thumbnailResolution || 720,
+    editorPreviewResolution: appSettings?.editorPreviewResolution || defaultEditorPreviewResolution,
+    thumbnailResolution: appSettings?.thumbnailResolution || defaultThumbnailResolution,
     rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
     processingBackend: appSettings?.processingBackend || 'auto',
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
-    highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
+    highResZoomMultiplier: appSettings?.highResZoomMultiplier || defaultHighResZoomMultiplier,
     useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
     useWgpuRenderer:
       appSettings?.useWgpuRenderer ?? (osPlatform === 'linux' || osPlatform === 'android' ? false : true),
@@ -514,19 +525,28 @@ export default function SettingsPanel({
       setAiProvider(appSettings?.aiProvider || 'cpu');
     }
     setProcessingSettings({
-      editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
-      thumbnailResolution: appSettings?.thumbnailResolution || 720,
+      editorPreviewResolution: appSettings?.editorPreviewResolution || defaultEditorPreviewResolution,
+      thumbnailResolution: appSettings?.thumbnailResolution || defaultThumbnailResolution,
       rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
       processingBackend: appSettings?.processingBackend || 'auto',
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
-      highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
+      highResZoomMultiplier: appSettings?.highResZoomMultiplier || defaultHighResZoomMultiplier,
       useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
-      useWgpuRenderer: appSettings?.useWgpuRenderer ?? true,
+      useWgpuRenderer:
+        appSettings?.useWgpuRenderer ?? (osPlatform === 'linux' || osPlatform === 'android' ? false : true),
       thumbnailWorkerThreads: appSettings?.thumbnailWorkerThreads ?? defaultThumbnailWorkerThreads,
       imageCacheSize: appSettings?.imageCacheSize ?? defaultDecodedImageCacheSize,
     });
     setRestartRequired(false);
-  }, [appSettings, defaultDecodedImageCacheSize, defaultThumbnailWorkerThreads]);
+  }, [
+    appSettings,
+    defaultDecodedImageCacheSize,
+    defaultEditorPreviewResolution,
+    defaultHighResZoomMultiplier,
+    defaultThumbnailResolution,
+    defaultThumbnailWorkerThreads,
+    osPlatform,
+  ]);
 
   useEffect(() => {
     const fetchLogPath = async () => {
@@ -1468,13 +1488,13 @@ export default function SettingsPanel({
                         Preview Rendering Strategy
                       </Text>
                       <PreviewModeSwitch
-                        mode={appSettings?.enableZoomHifi ? 'dynamic' : 'static'}
+                        mode={(appSettings?.enableZoomHifi ?? defaultEnableZoomHifi) ? 'dynamic' : 'static'}
                         onModeChange={handlePreviewModeChange}
                       />
 
                       <div className="mt-3">
                         <AnimatePresence mode="wait">
-                          {!(appSettings?.enableZoomHifi ?? true) ? (
+                          {!(appSettings?.enableZoomHifi ?? defaultEnableZoomHifi) ? (
                             <motion.div
                               key="static-preview"
                               initial={{ opacity: 0, x: 10 }}
@@ -1604,7 +1624,7 @@ export default function SettingsPanel({
                                     onSettingsChange({ ...appSettings, livePreviewQuality: value })
                                   }
                                   options={livePreviewQualityOptions}
-                                  value={appSettings?.livePreviewQuality || 'high'}
+                                  value={appSettings?.livePreviewQuality || defaultLivePreviewQuality}
                                   triggerClassName="bg-bg-primary"
                                 />
                               </SettingItem>

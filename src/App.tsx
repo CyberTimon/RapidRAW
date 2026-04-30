@@ -2071,7 +2071,22 @@ function App() {
       })
       .catch((err) => {
         console.error('Failed to load settings:', err);
-        setAppSettings({ lastRootPath: null, theme: DEFAULT_THEME_ID, thumbnailSize: defaultThumbnailSize });
+        setAppSettings({
+          lastRootPath: null,
+          theme: DEFAULT_THEME_ID,
+          thumbnailSize: defaultThumbnailSize,
+          ...(isAndroid
+            ? {
+                editorPreviewResolution: 1280,
+                enableZoomHifi: false,
+                useFullDpiRendering: false,
+                enableLivePreviews: true,
+                livePreviewQuality: 'performance',
+                highResZoomMultiplier: 0.75,
+                thumbnailResolution: 640,
+              }
+            : {}),
+        });
       })
       .finally(() => {
         isInitialMount.current = false;

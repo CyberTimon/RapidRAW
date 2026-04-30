@@ -56,6 +56,31 @@ pub const DEFAULT_IMAGE_CACHE_SIZE: u32 = 2;
 #[cfg(not(target_os = "android"))]
 pub const DEFAULT_IMAGE_CACHE_SIZE: u32 = 5;
 
+#[cfg(target_os = "android")]
+const DEFAULT_THUMBNAIL_RESOLUTION: u32 = 640;
+#[cfg(not(target_os = "android"))]
+const DEFAULT_THUMBNAIL_RESOLUTION: u32 = 720;
+
+#[cfg(target_os = "android")]
+const DEFAULT_EDITOR_PREVIEW_RESOLUTION: u32 = 1280;
+#[cfg(not(target_os = "android"))]
+const DEFAULT_EDITOR_PREVIEW_RESOLUTION: u32 = 1920;
+
+#[cfg(target_os = "android")]
+const DEFAULT_ENABLE_ZOOM_HIFI: bool = false;
+#[cfg(not(target_os = "android"))]
+const DEFAULT_ENABLE_ZOOM_HIFI: bool = true;
+
+#[cfg(target_os = "android")]
+const DEFAULT_HIGH_RES_ZOOM_MULTIPLIER: f32 = 0.75;
+#[cfg(not(target_os = "android"))]
+const DEFAULT_HIGH_RES_ZOOM_MULTIPLIER: f32 = 1.0;
+
+#[cfg(target_os = "android")]
+const DEFAULT_LIVE_PREVIEW_QUALITY: &str = "performance";
+#[cfg(not(target_os = "android"))]
+const DEFAULT_LIVE_PREVIEW_QUALITY: &str = "high";
+
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
     let cache_dir = app_handle
         .path()
@@ -507,12 +532,12 @@ impl Default for AppSettings {
         Self {
             last_root_path: None,
             pinned_folders: Vec::new(),
-            thumbnail_resolution: Some(720),
-            editor_preview_resolution: Some(1920),
-            enable_zoom_hifi: Some(true),
+            thumbnail_resolution: Some(DEFAULT_THUMBNAIL_RESOLUTION),
+            editor_preview_resolution: Some(DEFAULT_EDITOR_PREVIEW_RESOLUTION),
+            enable_zoom_hifi: Some(DEFAULT_ENABLE_ZOOM_HIFI),
             use_full_dpi_rendering: Some(false),
             enable_live_previews: Some(true),
-            live_preview_quality: Some("high".to_string()),
+            live_preview_quality: Some(DEFAULT_LIVE_PREVIEW_QUALITY.to_string()),
             sort_criteria: None,
             filter_criteria: None,
             theme: Some("dark".to_string()),
@@ -548,7 +573,7 @@ impl Default for AppSettings {
             library_view_mode: Some("flat".to_string()),
             export_presets: default_export_presets(),
             my_lenses: Some(Vec::new()),
-            high_res_zoom_multiplier: Some(1.0),
+            high_res_zoom_multiplier: Some(DEFAULT_HIGH_RES_ZOOM_MULTIPLIER),
             enable_folder_image_counts: Some(false),
             linear_raw_mode: default_linear_raw_mode(),
             enable_xmp_sync: Some(true),
@@ -569,6 +594,43 @@ impl Default for AppSettings {
             default_raw_tonemapper: Some("agx".to_string()),
             default_non_raw_tonemapper: Some("basic".to_string()),
         }
+    }
+}
+
+impl AppSettings {
+    fn apply_missing_platform_defaults(&mut self) -> bool {
+        let mut modified = false;
+
+        if self.thumbnail_resolution.is_none() {
+            self.thumbnail_resolution = Some(DEFAULT_THUMBNAIL_RESOLUTION);
+            modified = true;
+        }
+        if self.editor_preview_resolution.is_none() {
+            self.editor_preview_resolution = Some(DEFAULT_EDITOR_PREVIEW_RESOLUTION);
+            modified = true;
+        }
+        if self.enable_zoom_hifi.is_none() {
+            self.enable_zoom_hifi = Some(DEFAULT_ENABLE_ZOOM_HIFI);
+            modified = true;
+        }
+        if self.use_full_dpi_rendering.is_none() {
+            self.use_full_dpi_rendering = Some(false);
+            modified = true;
+        }
+        if self.high_res_zoom_multiplier.is_none() {
+            self.high_res_zoom_multiplier = Some(DEFAULT_HIGH_RES_ZOOM_MULTIPLIER);
+            modified = true;
+        }
+        if self.enable_live_previews.is_none() {
+            self.enable_live_previews = Some(true);
+            modified = true;
+        }
+        if self.live_preview_quality.is_none() {
+            self.live_preview_quality = Some(DEFAULT_LIVE_PREVIEW_QUALITY.to_string());
+            modified = true;
+        }
+
+        modified
     }
 }
 
@@ -3109,6 +3171,10 @@ pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
     let all_current_keys = all_available_adjustments();
     let default_included = default_included_adjustments();
     let mut settings_modified = false;
+
+    if settings.apply_missing_platform_defaults() {
+        settings_modified = true;
+    }
 
     let is_first_migration = settings.copy_paste_settings.known_adjustments.is_empty();
 
