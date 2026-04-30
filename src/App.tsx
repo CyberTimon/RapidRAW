@@ -401,7 +401,9 @@ function App() {
     effects: false,
   });
   const [isLibraryExportPanelVisible, setIsLibraryExportPanelVisible] = useState(false);
-  const [libraryViewMode, setLibraryViewMode] = useState<LibraryViewMode>(LibraryViewMode.Flat);
+  const [libraryViewMode, setLibraryViewMode] = useState<LibraryViewMode>(
+    osPlatform === 'android' ? LibraryViewMode.Recursive : LibraryViewMode.Flat,
+  );
   const [leftPanelWidth, setLeftPanelWidth] = useState<number>(256);
   const [rightPanelWidth, setRightPanelWidth] = useState<number>(320);
   const [bottomPanelHeight, setBottomPanelHeight] = useState<number>(144);
