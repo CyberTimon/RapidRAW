@@ -956,6 +956,18 @@ export default function SettingsPanel({
                       />
                     </SettingItem>
 
+                    <SettingItem
+                      label="Tooltips"
+                      description="Show helpful tooltips when hovering over complex adjustment sliders and controls."
+                    >
+                      <Switch
+                        checked={appSettings?.enableTooltips ?? false}
+                        id="tooltips-toggle"
+                        label="Enable Tooltips"
+                        onChange={(checked) => onSettingsChange({ ...appSettings, enableTooltips: checked })}
+                      />
+                    </SettingItem>
+
                     <SettingItem label="Font" description="Change the application font.">
                       <Dropdown
                         onChange={(value: any) => onSettingsChange({ ...appSettings, fontFamily: value })}

@@ -21,6 +21,7 @@ interface SliderProps {
   trackClassName?: string;
   fillOrigin?: 'min' | 'default';
   suffix?: string;
+  'data-tooltip'?: string;
 }
 
 const DOUBLE_CLICK_THRESHOLD_MS = 300;
@@ -39,6 +40,7 @@ const Slider = ({
   trackClassName,
   fillOrigin = 'default',
   suffix = '',
+  'data-tooltip': dataTooltip,
 }: SliderProps) => {
   const [displayValue, setDisplayValue] = useState<number>(value);
   const [isDragging, setIsDragging] = useState(false);
@@ -393,6 +395,7 @@ const Slider = ({
           onDoubleClick={typeof label === 'string' ? handleReset : undefined}
           onMouseEnter={typeof label === 'string' ? () => setIsLabelHovered(true) : undefined}
           onMouseLeave={typeof label === 'string' ? () => setIsLabelHovered(false) : undefined}
+          data-tooltip={dataTooltip}
         >
           <span
             aria-hidden={isLabelHovered && typeof label === 'string'}

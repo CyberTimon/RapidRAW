@@ -15,7 +15,11 @@ interface TooltipData {
   isAbove: boolean;
 }
 
-export default function GlobalTooltip() {
+interface GlobalTooltipProps {
+  appSettings: { enableTooltips?: boolean } | null;
+}
+
+export default function GlobalTooltip({ appSettings }: GlobalTooltipProps) {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const targetRef = useRef<HTMLElement | null>(null);
@@ -83,6 +87,9 @@ export default function GlobalTooltip() {
 
       if (!el.getAttribute('data-tooltip')) return;
 
+      // Check if tooltips are enabled
+      if (appSettings?.enableTooltips !== true) return;
+
       targetRef.current = el;
 
       timerRef.current = setTimeout(() => {
@@ -139,7 +146,7 @@ export default function GlobalTooltip() {
       clearTimer();
       stopWatch();
     };
-  }, []);
+  }, [appSettings]);
 
   return createPortal(
     <AnimatePresence mode="wait">

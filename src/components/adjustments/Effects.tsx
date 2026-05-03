@@ -4,6 +4,7 @@ import LUTControl from '../ui/LUTControl';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { TOOLTIP_TEXT } from '../../utils/tooltipText';
 
 interface EffectsPanelProps {
   adjustments: Adjustments;
@@ -59,6 +60,7 @@ export default function EffectsPanel({
           step={1}
           value={adjustments.glowAmount}
           onDragStateChange={onDragStateChange}
+          data-tooltip={TOOLTIP_TEXT.effects.creative.glow}
         />
 
         <Slider
@@ -69,6 +71,7 @@ export default function EffectsPanel({
           step={1}
           value={adjustments.halationAmount}
           onDragStateChange={onDragStateChange}
+          data-tooltip={TOOLTIP_TEXT.effects.creative.halation}
         />
 
         {!isForMask && (
@@ -80,6 +83,7 @@ export default function EffectsPanel({
             step={1}
             value={adjustments.flareAmount}
             onDragStateChange={onDragStateChange}
+            data-tooltip={TOOLTIP_TEXT.effects.creative.lightFlares}
           />
         )}
       </div>
@@ -113,6 +117,7 @@ export default function EffectsPanel({
                 step={1}
                 value={adjustments.vignetteAmount}
                 onDragStateChange={onDragStateChange}
+                data-tooltip={TOOLTIP_TEXT.effects.vignette.amount}
               />
               <Slider
                 defaultValue={50}
@@ -123,6 +128,7 @@ export default function EffectsPanel({
                 step={1}
                 value={adjustments.vignetteMidpoint}
                 onDragStateChange={onDragStateChange}
+                data-tooltip={TOOLTIP_TEXT.effects.vignette.midpoint}
                 fillOrigin="min"
               />
               <Slider
@@ -133,6 +139,7 @@ export default function EffectsPanel({
                 step={1}
                 value={adjustments.vignetteRoundness}
                 onDragStateChange={onDragStateChange}
+                data-tooltip={TOOLTIP_TEXT.effects.vignette.roundness}
               />
               <Slider
                 defaultValue={50}
@@ -143,6 +150,7 @@ export default function EffectsPanel({
                 step={1}
                 value={adjustments.vignetteFeather}
                 onDragStateChange={onDragStateChange}
+                data-tooltip={TOOLTIP_TEXT.effects.vignette.feather}
                 fillOrigin="min"
               />
             </div>
@@ -161,6 +169,7 @@ export default function EffectsPanel({
                 step={1}
                 value={adjustments.grainAmount}
                 onDragStateChange={onDragStateChange}
+                data-tooltip={TOOLTIP_TEXT.effects.grain.amount}
               />
               <Slider
                 defaultValue={25}
@@ -171,6 +180,7 @@ export default function EffectsPanel({
                 step={1}
                 value={adjustments.grainSize}
                 onDragStateChange={onDragStateChange}
+                data-tooltip={TOOLTIP_TEXT.effects.grain.size}
                 fillOrigin="min"
               />
               <Slider
@@ -182,6 +192,7 @@ export default function EffectsPanel({
                 step={1}
                 value={adjustments.grainRoughness}
                 onDragStateChange={onDragStateChange}
+                data-tooltip={TOOLTIP_TEXT.effects.grain.roughness}
                 fillOrigin="min"
               />
             </div>
