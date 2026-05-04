@@ -1657,6 +1657,20 @@ export default function SettingsPanel({
                     </SettingItem>
 
                     <SettingItem
+                      label="Use Embedded JPEG Thumbnails"
+                      description="Extracts embedded JPEG thumbnails from RAW files for quick previews (inaccurate)."
+                    >
+                      <Switch
+                        checked={appSettings?.useEmbeddedJpegThumbnails ?? true}
+                        id="embedded-jpeg-thumbnails-toggle"
+                        label="Enable Embedded JPEG Thumbnails"
+                        onChange={(checked) => {
+                          onSettingsChange({ ...appSettings, useEmbeddedJpegThumbnails: checked });
+                        }}
+                      />
+                    </SettingItem>
+
+                    <SettingItem
                       label="RAW Highlight Recovery"
                       description="Controls how much detail is recovered from clipped highlights in RAW files. Higher values recover more detail but can introduce purple artefacts."
                     >

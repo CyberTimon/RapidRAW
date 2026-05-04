@@ -55,6 +55,36 @@ fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<Pa
     Ok(thumb_cache_dir)
 }
 
+fn resolve_embedded_preview_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
+    let cache_dir = app_handle
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?;
+    let preview_cache_dir = cache_dir.join("embedded-previews");
+    if !preview_cache_dir.exists() {
+        fs::create_dir_all(&preview_cache_dir).map_err(|e| e.to_string())?;
+    }
+    Ok(preview_cache_dir)
+}
+
+fn get_tiny_preview_cache_path(app_handle: &AppHandle, path: &str) -> std::result::Result<PathBuf, String> {
+    let cache_dir = resolve_embedded_preview_cache_dir(app_handle)?;
+    let mut hasher = DefaultHasher::new();
+    path.hash(&mut hasher);
+    hasher.write(b"tiny");
+    let hash = hasher.finish();
+    Ok(cache_dir.join(format!("{:x}.jpg", hash)))
+}
+
+fn get_embedded_preview_cache_path(app_handle: &AppHandle, path: &str) -> std::result::Result<PathBuf, String> {
+    let cache_dir = resolve_embedded_preview_cache_dir(app_handle)?;
+    let mut hasher = DefaultHasher::new();
+    path.hash(&mut hasher);
+    hasher.write(b"embedded");
+    let hash = hasher.finish();
+    Ok(cache_dir.join(format!("{:x}.jpg", hash)))
+}
+
 fn emit_thumbnail_cache_setup_error(app_handle: &AppHandle, path: &str, reason: &str) {
     let _ = app_handle.emit(
         "thumbnail-generation-error",
@@ -1064,13 +1094,20 @@ fn generate_single_thumbnail_and_cache(
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let target_width = settings.thumbnail_resolution.unwrap_or(720);
 
-    if let Ok(thumb_image) =
-        generate_thumbnail_data(path_str, gpu_context, preloaded_image, app_handle)
-        && let Ok(thumb_data) = encode_thumbnail(&thumb_image, target_width)
-    {
-        let _ = fs::write(&cache_path, &thumb_data);
-        let base64_str = general_purpose::STANDARD.encode(&thumb_data);
-        return Some((format!("data:image/jpeg;base64,{}", base64_str), rating));
+    match generate_thumbnail_data(path_str, gpu_context, preloaded_image, app_handle) {
+        Ok(thumb_image) => match encode_thumbnail(&thumb_image, target_width) {
+            Ok(thumb_data) => {
+                let _ = fs::write(&cache_path, &thumb_data);
+                let base64_str = general_purpose::STANDARD.encode(&thumb_data);
+                return Some((format!("data:image/jpeg;base64,{}", base64_str), rating));
+            }
+            Err(e) => {
+                log::error!("[thumbnail] encode failed for {}: {}", path_str, e);
+            }
+        },
+        Err(e) => {
+            log::error!("[thumbnail] generate_thumbnail_data failed for {}: {}", path_str, e);
+        }
     }
     None
 }
@@ -1127,6 +1164,8 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                                 "rating": rating
                             }),
                         );
+                    } else {
+                        log::warn!("[thumbnail] failed for: {}", path_to_process);
                     }
                     increment_thumbnail_progress(&state, &app_clone);
                 }
@@ -1138,6 +1177,110 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
             }
         });
     }
+
+    start_embedded_preview_workers(app_handle);
+}
+
+fn start_embedded_preview_workers(app_handle: tauri::AppHandle) {
+    let state = app_handle.state::<crate::AppState>();
+
+    // tiny-preview worker extracts the smallest embedded preview from RAW and JPEG files by reading
+    // the first 64KB of the file, allowing them to load extremely quickly.
+    {
+        let app_clone = app_handle.clone();
+        let manager = state.tiny_preview_queue.clone();
+        std::thread::spawn(move || loop {
+            let path = {
+                let mut q = manager.queue.lock().unwrap();
+                loop {
+                    if let Some(p) = q.pop_front() {
+                        break p;
+                    }
+                    q = manager.cvar.wait(q).unwrap();
+                }
+            };
+
+            if let Ok(cache_path) = get_tiny_preview_cache_path(&app_clone, &path) {
+                // Check if already cached
+                if let Ok(cached_bytes) = fs::read(&cache_path) {
+                    if let Some(encoded) = encode_embedded_preview(&cached_bytes) {
+                        let _ = app_clone.emit(
+                            "embedded-preview-generated",
+                            serde_json::json!({ "path": path, "data": encoded, "type": "tiny" }),
+                        );
+                    }
+                } else if let Some(bytes) = extract_tiny_preview(&path) {
+                    let _ = fs::write(&cache_path, &bytes);
+                    if let Some(encoded) = encode_embedded_preview(&bytes) {
+                        let _ = app_clone.emit(
+                            "embedded-preview-generated",
+                            serde_json::json!({ "path": path, "data": encoded, "type": "tiny" }),
+                        );
+                    } else {
+                        log::warn!("[tiny-preview] failed to encode: {}", path);
+                    }
+                } else {
+                    log::warn!("[tiny-preview] failed to extract: {}", path);
+                }
+            } else {
+                log::warn!("[tiny-preview] failed to get cache path: {}", path);
+            }
+        });
+    }
+
+    // embedded-preview worker extracts the full embedded preview (largest JPEG) from RAW files,
+    // these can be significantly larger than the tiny previews, on Fuji RAF files for example they
+    // can be ~1MB in size
+    {
+        let app_clone = app_handle.clone();
+        let manager = state.embedded_preview_queue.clone();
+        std::thread::spawn(move || loop {
+            let path = {
+                let mut q = manager.queue.lock().unwrap();
+                loop {
+                    if let Some(p) = q.pop_front() {
+                        break p;
+                    }
+                    q = manager.cvar.wait(q).unwrap();
+                }
+            };
+
+            if let Ok(settings) = crate::app_settings::load_settings(app_clone.clone()) {
+                if !settings.use_embedded_jpeg_thumbnails.unwrap_or(true) {
+                    continue;
+                }
+            }
+
+            if let Ok(cache_path) = get_embedded_preview_cache_path(&app_clone, &path) {
+                // Check if already cached
+                if let Ok(cached_bytes) = fs::read(&cache_path) {
+                    if let Some(encoded) = encode_embedded_preview(&cached_bytes) {
+                        let _ = app_clone.emit(
+                            "embedded-preview-generated",
+                            serde_json::json!({ "path": path, "data": encoded, "type": "embedded" }),
+                        );
+                    }
+                } else if let Some(bytes) = extract_full_embedded_preview(&path) {
+                    let _ = fs::write(&cache_path, &bytes);
+                    if let Some(encoded) = encode_embedded_preview(&bytes) {
+                        let _ = app_clone.emit(
+                            "embedded-preview-generated",
+                            serde_json::json!({ "path": path, "data": encoded, "type": "embedded" }),
+                        );
+                    } else {
+                        log::warn!("[embedded-preview] failed to encode: {}", path);
+                    }
+                }
+            } else {
+                log::warn!("[embedded-preview] failed to get cache path: {}", path);
+            }
+        });
+    }
+}
+
+fn encode_embedded_preview(jpeg_bytes: &[u8]) -> Option<String> {
+    let base64_str = base64::engine::general_purpose::STANDARD.encode(jpeg_bytes);
+    Some(format!("data:image/jpeg;base64,{}", base64_str))
 }
 
 #[tauri::command]
@@ -1155,8 +1298,35 @@ pub fn update_thumbnail_queue(
         }
     }
 
+    {
+        let mut tiny_queue = state.tiny_preview_queue.queue.lock().unwrap();
+        for path in &unique_paths {
+            if !tiny_queue.contains(path) {
+                tiny_queue.push_back(path.clone());
+            }
+        }
+        drop(tiny_queue);
+        state.tiny_preview_queue.cvar.notify_all();
+    }
+    {
+        let should_use_embedded = crate::app_settings::load_settings(app_handle.clone())
+            .ok()
+            .and_then(|s| s.use_embedded_jpeg_thumbnails)
+            .unwrap_or(true);
+
+        if should_use_embedded {
+            let mut embedded_queue = state.embedded_preview_queue.queue.lock().unwrap();
+            for path in &unique_paths {
+                if is_raw_file(&path) && !embedded_queue.contains(path) {
+                    embedded_queue.push_back(path.clone());
+                }
+            }
+            drop(embedded_queue);
+            state.embedded_preview_queue.cvar.notify_all();
+        }
+    }
+
     let mut queue = state.thumbnail_manager.queue.lock().unwrap();
-    queue.clear();
 
     let path_count = unique_paths.len();
     for path in unique_paths {
@@ -2298,14 +2468,23 @@ pub fn clear_thumbnail_cache(app_handle: AppHandle) -> Result<(), String> {
         .app_cache_dir()
         .map_err(|e| e.to_string())?;
     let thumb_cache_dir = cache_dir.join("thumbnails");
+    let embedded_cache_dir = cache_dir.join("embedded-previews");
 
     if thumb_cache_dir.exists() {
         fs::remove_dir_all(&thumb_cache_dir)
             .map_err(|e| format!("Failed to remove thumbnail cache: {}", e))?;
     }
 
+    if embedded_cache_dir.exists() {
+        fs::remove_dir_all(&embedded_cache_dir)
+            .map_err(|e| format!("Failed to remove embedded-previews cache: {}", e))?;
+    }
+
     fs::create_dir_all(&thumb_cache_dir)
         .map_err(|e| format!("Failed to recreate thumbnail cache directory: {}", e))?;
+
+    fs::create_dir_all(&embedded_cache_dir)
+        .map_err(|e| format!("Failed to recreate embedded-previews cache directory: {}", e))?;
 
     Ok(())
 }
@@ -3148,5 +3327,189 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         let _ = fs::write(&xmp_file, content);
+    }
+}
+
+/// Read first 64 KB and extract the smallest embedded JPEG (EXIF thumbnail).
+/// Works for both RAW and JPEG files. Applies EXIF rotation from the header.
+pub fn extract_tiny_preview(path: &str) -> Option<Vec<u8>> {
+    let (source_path, _) = parse_virtual_path(path);
+    let mut f = fs::File::open(&source_path).ok()?;
+    let mut buf = vec![0u8; 65_536];
+    let n = std::io::Read::read(&mut f, &mut buf).ok()?;
+    buf.truncate(n);
+    
+    let mut thumbnail = find_embedded_jpegs(&buf).into_iter().next()?;
+    
+    // Try to read EXIF orientation from the header we already have
+    if let Some(exif) = crate::exif_processing::read_exif(&buf) {
+        if let Some(field) = exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY) {
+            if let exif::Value::Short(vals) = &field.value {
+                if let Some(&orientation) = vals.first() {
+                    if let Some(rotated) = apply_exif_rotation(&thumbnail, orientation) {
+                        thumbnail = rotated;
+                    }
+                }
+            }
+        }
+    }
+    
+    Some(thumbnail)
+}
+
+/// Map entire file and extract the largest embedded JPEG preview.
+/// Returns None for non-RAW files.
+pub fn extract_full_embedded_preview(path: &str) -> Option<Vec<u8>> {
+    let (source_path, _) = parse_virtual_path(path);
+    if !is_raw_file(path) {
+        return None;
+    }
+    let data: Box<dyn std::ops::Deref<Target = [u8]>> = match read_file_mapped(&source_path) {
+        Ok(m) => Box::new(m),
+        Err(_) => Box::new(fs::read(&source_path).ok()?),
+    };
+
+    let jpegs = if data.len() > 16 && &data[..16] == b"FUJIFILMCCD-RAW " {
+        extract_raf_full_preview(&data).into_iter().collect::<Vec<_>>()
+    } else {
+        find_embedded_jpegs(&data)
+    };
+
+    jpegs.into_iter().max_by_key(|b| b.len())
+}
+
+/// Extract full-size embedded JPEG from Fujifilm RAF using header offsets.
+fn extract_raf_full_preview(data: &[u8]) -> Option<Vec<u8>> {
+    if data.len() < 0x60 {
+        return None;
+    }
+    let jpeg_off = u32::from_be_bytes(data[0x54..0x58].try_into().unwrap_or([0; 4])) as usize;
+    let jpeg_len = u32::from_be_bytes(data[0x58..0x5C].try_into().unwrap_or([0; 4])) as usize;
+
+    if jpeg_off == 0 || jpeg_len == 0 || jpeg_off + jpeg_len > data.len() {
+        log::warn!("[embedded] RAF header offsets out of range (off={} len={})", jpeg_off, jpeg_len);
+        return find_embedded_jpegs(data).into_iter().max_by_key(|b| b.len());
+    }
+
+    Some(data[jpeg_off..jpeg_off + jpeg_len].to_vec())
+}
+
+/// Find all valid JPEG blobs in data, sorted smallest-first.
+fn find_embedded_jpegs(data: &[u8]) -> Vec<Vec<u8>> {
+    let mut found: Vec<Vec<u8>> = Vec::new();
+    let mut i = 0;
+
+    while i + 1 < data.len() {
+        if data[i] == 0xFF && data[i + 1] == 0xD8 {
+            let start = i;
+            if let Some(end) = find_jpeg_end(data, start) {
+                let len = end - start;
+                if len > 5_000 {
+                    found.push(data[start..end].to_vec());
+                }
+                i = start + 2;
+            } else {
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+    }
+
+    found.dedup_by_key(|b| b.len());
+    found.sort_by_key(|b| b.len());
+    found
+}
+
+/// Walk JPEG markers properly to find EOI without mistaking entropy data.
+fn find_jpeg_end(data: &[u8], start: usize) -> Option<usize> {
+    let mut i = start + 2;
+
+    loop {
+        while i < data.len() && data[i] != 0xFF {
+            i += 1;
+        }
+        while i < data.len() && data[i] == 0xFF {
+            i += 1;
+        }
+        if i >= data.len() {
+            return None;
+        }
+
+        let marker = data[i];
+        i += 1;
+
+        match marker {
+            0xD9 => return Some(i),
+            0x00 => {}
+            0xD0..=0xD7 | 0x01 => {}
+            0xD8 => {}
+            0xDA => {
+                if i + 2 > data.len() {
+                    return None;
+                }
+                let hdr_len = u16::from_be_bytes([data[i], data[i + 1]]) as usize;
+                if hdr_len < 2 {
+                    return None;
+                }
+                i += hdr_len;
+                while i + 1 < data.len() {
+                    if data[i] == 0xFF {
+                        let b = data[i + 1];
+                        if b == 0x00 || (0xD0..=0xD7).contains(&b) {
+                            i += 2;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        i += 1;
+                    }
+                }
+            }
+            _ => {
+                if i + 2 > data.len() {
+                    return None;
+                }
+                let seg_len = u16::from_be_bytes([data[i], data[i + 1]]) as usize;
+                if seg_len < 2 {
+                    return None;
+                }
+                i += seg_len;
+            }
+        }
+    }
+}
+
+/// Apply EXIF orientation to a JPEG thumbnail.
+/// 1=Normal, 2=Flip H, 3=Rotate 180, 4=Flip V, 5=Transpose, 6=Rotate 90 CW, 7=Transverse, 8=Rotate 270 CW
+fn apply_exif_rotation(jpeg_bytes: &[u8], orientation: u16) -> Option<Vec<u8>> {
+    // Only apply rotations; for simplicity, return original if non-standard
+    match orientation {
+        1 => Some(jpeg_bytes.to_vec()), // Normal
+        6 => {
+            // Rotate 90 CW
+            let img = image::load_from_memory_with_format(jpeg_bytes, image::ImageFormat::Jpeg).ok()?;
+            let rotated = img.rotate90();
+            let mut buf = std::io::Cursor::new(Vec::new());
+            rotated.write_to(&mut buf, image::ImageFormat::Jpeg).ok()?;
+            Some(buf.into_inner())
+        }
+        3 => {
+            // Rotate 180
+            let img = image::load_from_memory_with_format(jpeg_bytes, image::ImageFormat::Jpeg).ok()?;
+            let rotated = img.rotate180();
+            let mut buf = std::io::Cursor::new(Vec::new());
+            rotated.write_to(&mut buf, image::ImageFormat::Jpeg).ok()?;
+            Some(buf.into_inner())
+        }
+        8 => {
+            // Rotate 270 CW (same as 90 CCW)
+            let img = image::load_from_memory_with_format(jpeg_bytes, image::ImageFormat::Jpeg).ok()?;
+            let rotated = img.rotate270();
+            let mut buf = std::io::Cursor::new(Vec::new());
+            rotated.write_to(&mut buf, image::ImageFormat::Jpeg).ok()?;
+            Some(buf.into_inner())
+        }
+        _ => Some(jpeg_bytes.to_vec()), // Return original for flip operations (2,4,5,7)
     }
 }

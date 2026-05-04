@@ -366,6 +366,8 @@ pub struct AppSettings {
     pub default_non_raw_tonemapper: Option<String>,
     #[serde(default)]
     pub enable_focus_mode: Option<bool>,
+    #[serde(default)]
+    pub use_embedded_jpeg_thumbnails: Option<bool>,
 }
 
 impl Default for AppSettings {
@@ -444,6 +446,7 @@ impl Default for AppSettings {
             default_raw_tonemapper: Some("agx".to_string()),
             default_non_raw_tonemapper: Some("basic".to_string()),
             enable_focus_mode: Some(false),
+            use_embedded_jpeg_thumbnails: Some(true),
         }
     }
 }

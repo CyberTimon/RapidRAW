@@ -493,8 +493,21 @@ function App() {
     color: 15,
   });
   const { showContextMenu } = useContextMenu();
-  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
-  const { requestThumbnails, clearThumbnailQueue, markGenerated } = useThumbnails();
+  const { thumbnails, getThumbnailForPath, requestThumbnails, clearThumbnailQueue, markGenerated } = useThumbnails(
+    appSettings,
+    supportedTypes,
+  );
+
+  // Update selectedImage thumbnail URL whenever a better thumbnail becomes available
+  useEffect(() => {
+    if (selectedImage?.path) {
+      const newThumbnailUrl = getThumbnailForPath(selectedImage.path);
+      if (newThumbnailUrl && newThumbnailUrl !== selectedImage.thumbnailUrl) {
+        setSelectedImage((prev) => (prev ? { ...prev, thumbnailUrl: newThumbnailUrl } : null));
+      }
+    }
+  }, [getThumbnailForPath, selectedImage?.path, selectedImage?.thumbnailUrl]);
+
   const [thumbnailProgress, setThumbnailProgress] = useState<Progress>({ current: 0, total: 0 });
   const transformWrapperRef = useRef<any>(null);
   const isProgrammaticZoom = useRef(false);
@@ -2195,7 +2208,6 @@ function App() {
       setIsViewLoading(true);
       setSearchCriteria({ tags: [], text: '', mode: 'OR' });
       setLibraryScrollTop(0);
-      setThumbnails({});
       imageCacheRef.current.clear();
       try {
         setCurrentFolderPath(path);
@@ -2553,7 +2565,7 @@ function App() {
       if (isFrontendCached) {
         setSelectedImage({
           ...cached.selectedImage,
-          thumbnailUrl: thumbnails[path] || cached.selectedImage.thumbnailUrl,
+          thumbnailUrl: getThumbnailForPath(path) || cached.selectedImage.thumbnailUrl,
         });
         setOriginalSize(cached.originalSize);
         setPreviewSize(cached.previewSize);
@@ -2617,7 +2629,7 @@ function App() {
         metadata: null,
         originalUrl: null,
         path,
-        thumbnailUrl: thumbnails[path],
+        thumbnailUrl: getThumbnailForPath(path),
         width: 0,
       });
       setOriginalSize({ width: 0, height: 0 });
@@ -3419,18 +3431,6 @@ function App() {
       listen('thumbnail-generation-complete', () => {
         if (isEffectActive) {
           setThumbnailProgress({ current: 0, total: 0 });
-        }
-      }),
-      listen('thumbnail-generated', (event: any) => {
-        if (isEffectActive) {
-          const { path, data, rating } = event.payload;
-          if (data) {
-            setThumbnails((prev) => ({ ...prev, [path]: data }));
-            markGenerated(path);
-          }
-          if (rating !== undefined) {
-            setImageRatings((prev) => ({ ...prev, [path]: rating }));
-          }
         }
       }),
       listen('ai-model-download-start', (event: any) => {
@@ -5828,9 +5828,9 @@ function App() {
         isProcessing={panoramaModalState.isProcessing}
         loadingImageUrl={
           panoramaModalState.stitchingSourcePaths.length > 0
-            ? thumbnails[
-                panoramaModalState.stitchingSourcePaths[Math.floor(panoramaModalState.stitchingSourcePaths.length / 2)]
-              ] || null
+            ? getThumbnailForPath(
+                panoramaModalState.stitchingSourcePaths[Math.floor(panoramaModalState.stitchingSourcePaths.length / 2)],
+              ) || null
             : null
         }
         onClose={() =>
@@ -5856,9 +5856,9 @@ function App() {
         isProcessing={hdrModalState.isProcessing}
         loadingImageUrl={
           hdrModalState.stitchingSourcePaths.length > 0
-            ? thumbnails[
-                hdrModalState.stitchingSourcePaths[Math.floor(hdrModalState.stitchingSourcePaths.length / 2)]
-              ] || null
+            ? getThumbnailForPath(
+                hdrModalState.stitchingSourcePaths[Math.floor(hdrModalState.stitchingSourcePaths.length / 2)],
+              ) || null
             : null
         }
         onClose={() =>
@@ -5907,7 +5907,7 @@ function App() {
         targetPaths={denoiseModalState.targetPaths}
         loadingImageUrl={
           denoiseModalState.targetPaths.length > 0
-            ? thumbnails[denoiseModalState.targetPaths[0]] ||
+            ? getThumbnailForPath(denoiseModalState.targetPaths[0]) ||
               (selectedImage?.path === denoiseModalState.targetPaths[0] ? finalPreviewUrl : null)
             : null
         }
