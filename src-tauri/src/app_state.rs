@@ -136,5 +136,7 @@ pub struct AppState {
     pub full_warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
     pub full_transformed_cache: Mutex<Option<TransformedImageCache>>,
     pub decoded_image_cache: Mutex<DecodedImageCache>,
+    pub tiny_preview_queue: Arc<ThumbnailManager>,
+    pub embedded_preview_queue: Arc<ThumbnailManager>,
     pub thumbnail_manager: Arc<ThumbnailManager>,
 }

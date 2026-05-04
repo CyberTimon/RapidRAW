@@ -1824,6 +1824,7 @@ fn frontend_ready(
     let is_first_run = !state
         .window_setup_complete
         .swap(true, std::sync::atomic::Ordering::Relaxed);
+
     #[cfg(target_os = "android")]
     let _ = (is_first_run, &window);
 
@@ -2228,6 +2229,8 @@ pub fn run() {
             full_warped_cache: Mutex::new(None),
             full_transformed_cache: Mutex::new(None),
             decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
+            tiny_preview_queue: ThumbnailManager::new(),
+            embedded_preview_queue: ThumbnailManager::new(),
             thumbnail_manager: ThumbnailManager::new(),
         })
         .invoke_handler(tauri::generate_handler![
