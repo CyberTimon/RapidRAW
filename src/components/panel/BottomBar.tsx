@@ -38,7 +38,6 @@ interface BottomBarProps {
   setIsFilmstripVisible?(isVisible: boolean): void;
   showFilmstrip?: boolean;
   showZoomControls?: boolean;
-  thumbnails?: Record<string, string>;
   thumbnailAspectRatio: ThumbnailAspectRatio;
   zoom?: number;
   displaySize?: { width: number; height: number };
@@ -116,7 +115,6 @@ export default function BottomBar({
   setIsFilmstripVisible,
   showFilmstrip = true,
   showZoomControls = true,
-  thumbnails,
   thumbnailAspectRatio,
   displaySize,
   originalSize,
@@ -253,9 +251,7 @@ export default function BottomBar({
               onImageSelect={onImageSelect}
               onRequestThumbnails={onRequestThumbnails}
               selectedImage={selectedImage}
-              thumbnails={thumbnails}
               thumbnailAspectRatio={thumbnailAspectRatio}
-              totalImages={imageList.length}
             />
           </div>
         </div>

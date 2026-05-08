@@ -111,6 +111,8 @@ interface UIState {
   // Actions
   setUI: (updater: Partial<UIState> | ((state: UIState) => Partial<UIState>)) => void;
   setRightPanel: (panel: Panel | null, orderArray: Panel[]) => void;
+  customEscapeHandler: (() => void) | null;
+  setCustomEscapeHandler: (handler: (() => void) | null) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -189,4 +191,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       });
     }
   },
+
+  customEscapeHandler: null,
+  setCustomEscapeHandler: (handler) => set({ customEscapeHandler: handler }),
 }));

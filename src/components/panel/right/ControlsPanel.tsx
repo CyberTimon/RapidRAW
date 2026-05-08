@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { RotateCcw, Copy, ClipboardPaste, Aperture, ChartArea } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -15,33 +15,33 @@ import { useContextMenu } from '../../../context/ContextMenuContext';
 import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
 import { TextVariants } from '../../../types/typography';
-
-// Zustand Stores
+import { useShallow } from 'zustand/react/shallow';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
+import { useEditorActions } from '../../../hooks/useEditorActions';
+import { useWaveformControls } from '../../../hooks/useWaveformControls';
 
-interface ControlsPanelOption {
-  disabled?: boolean;
-  icon?: any;
-  label?: string;
-  onClick?(): void;
-  type?: string;
-}
-
-interface ControlsProps {
-  handleAutoAdjustments(): void;
-  handleLutSelect(path: string): void;
-  setAdjustments(updater: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)): void;
-}
-
-export default function Controls({ handleAutoAdjustments, handleLutSelect, setAdjustments }: ControlsProps) {
+export default function Controls() {
   const { showContextMenu } = useContextMenu();
-  const [isResizingWaveform, setIsResizingWaveform] = useState<boolean>(false);
+  const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, handleWaveformResize } =
+    useWaveformControls();
+  const { setAdjustments, handleAutoAdjustments, handleLutSelect } = useEditorActions();
 
-  // --- Zustand Store Hooks ---
-  const { appSettings, theme } = useSettingsStore();
-  const { collapsibleSectionsState, setUI } = useUIStore();
+  const { appSettings, theme } = useSettingsStore(
+    useShallow((state) => ({
+      appSettings: state.appSettings,
+      theme: state.theme,
+    })),
+  );
+
+  const { collapsibleSectionsState, setUI } = useUIStore(
+    useShallow((state) => ({
+      collapsibleSectionsState: state.collapsibleSectionsState,
+      setUI: state.setUI,
+    })),
+  );
+
   const {
     adjustments,
     copiedSectionAdjustments,
@@ -53,7 +53,20 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
     activeWaveformChannel,
     waveformHeight,
     setEditor,
-  } = useEditorStore();
+  } = useEditorStore(
+    useShallow((state) => ({
+      adjustments: state.adjustments,
+      copiedSectionAdjustments: state.copiedSectionAdjustments,
+      histogram: state.histogram,
+      selectedImage: state.selectedImage,
+      isWbPickerActive: state.isWbPickerActive,
+      isWaveformVisible: state.isWaveformVisible,
+      waveform: state.waveform,
+      activeWaveformChannel: state.activeWaveformChannel,
+      waveformHeight: state.waveformHeight,
+      setEditor: state.setEditor,
+    })),
+  );
 
   const setCopiedSectionAdjustments = useCallback(
     (val: any) => setEditor({ copiedSectionAdjustments: val }),
@@ -70,18 +83,6 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
     [setEditor],
   );
 
-  const onToggleWaveform = useCallback(
-    () => setEditor((state) => ({ isWaveformVisible: !state.isWaveformVisible })),
-    [setEditor],
-  );
-
-  const setActiveWaveformChannel = useCallback(
-    (mode: string) => setEditor({ activeWaveformChannel: mode }),
-    [setEditor],
-  );
-
-  const setWaveformHeight = useCallback((height: number) => setEditor({ waveformHeight: height }), [setEditor]);
-
   const setCollapsibleState = useCallback(
     (updater: any) =>
       setUI((state) => ({
@@ -89,46 +90,6 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
       })),
     [setUI],
   );
-
-  const handleWaveformResize = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const pointerId = e.pointerId;
-    const target = e.currentTarget;
-    const startY = e.clientY;
-    const startHeight = waveformHeight || 256;
-    const previousTouchAction = document.documentElement.style.touchAction;
-    const previousUserSelect = document.documentElement.style.userSelect;
-    setIsResizingWaveform(true);
-
-    target.setPointerCapture?.(pointerId);
-    document.documentElement.style.touchAction = 'none';
-    document.documentElement.style.userSelect = 'none';
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== pointerId) return;
-      moveEvent.preventDefault();
-      const delta = moveEvent.clientY - startY;
-      const newHeight = Math.round(Math.max(150, Math.min(450, startHeight + delta)));
-      setWaveformHeight(newHeight);
-    };
-
-    const handlePointerUp = (upEvent: PointerEvent) => {
-      if (upEvent.pointerId !== pointerId) return;
-      if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId);
-      setIsResizingWaveform(false);
-      document.documentElement.style.touchAction = previousTouchAction;
-      document.documentElement.style.userSelect = previousUserSelect;
-      document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerup', handlePointerUp);
-      document.removeEventListener('pointercancel', handlePointerUp);
-    };
-
-    document.addEventListener('pointermove', handlePointerMove, { passive: false });
-    document.addEventListener('pointerup', handlePointerUp);
-    document.addEventListener('pointercancel', handlePointerUp);
-  };
 
   const handleToggleVisibility = (sectionName: string) => {
     setAdjustments((prev: Adjustments) => {
@@ -226,7 +187,7 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
         } Settings`
       : 'Paste Settings';
 
-    const options: Array<ControlsPanelOption> = [
+    const options: any = [
       {
         label: `Copy ${sectionName.charAt(0).toUpperCase() + sectionName.slice(1)} Settings`,
         icon: Copy,

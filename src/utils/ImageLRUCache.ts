@@ -96,3 +96,5 @@ export class ImageLRUCache {
     revokeIfUnused(old.uncroppedPreviewUrl);
   }
 }
+
+export const globalImageCache = new ImageLRUCache(20);

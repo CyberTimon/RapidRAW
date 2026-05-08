@@ -41,6 +41,9 @@ import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS } from '../../../utils/adjustments';
 import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
+import { useEditorStore } from '../../../store/useEditorStore';
+import { useUIStore } from '../../../store/useUIStore';
+import { useEditorActions } from '../../../hooks/useEditorActions';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -79,10 +82,6 @@ interface PresetItemDisplayProps {
 }
 
 interface PresetsPanelProps {
-  activePanel: Panel | null;
-  adjustments: Adjustments;
-  selectedImage: SelectedImage;
-  setAdjustments(adjustments: Partial<Adjustments>): void;
   onNavigateToCommunity(): void;
 }
 
@@ -324,13 +323,12 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
   );
 }
 
-export default function PresetsPanel({
-  activePanel,
-  adjustments,
-  selectedImage,
-  setAdjustments,
-  onNavigateToCommunity,
-}: PresetsPanelProps) {
+export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProps) {
+  const selectedImage = useEditorStore((s) => s.selectedImage);
+  const adjustments = useEditorStore((s) => s.adjustments);
+  const activePanel = useUIStore((s) => s.activeRightPanel);
+  const { setAdjustments } = useEditorActions();
+
   const {
     addFolder,
     addPreset,

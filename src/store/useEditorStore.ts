@@ -64,10 +64,12 @@ interface EditorState {
   isGeneratingAi: boolean;
   isAIConnectorConnected: boolean;
   hasRenderedFirstFrame: boolean;
+  patchesSentToBackend: Set<string>;
 
   // Clipboard
   copiedSectionAdjustments: any | null;
   copiedMask: MaskContainer | null;
+  copiedAdjustments: Adjustments | null;
 
   // Actions
   setEditor: (updater: Partial<EditorState> | ((state: EditorState) => Partial<EditorState>)) => void;
@@ -117,12 +119,14 @@ export const useEditorStore = create<EditorState>((set) => ({
   copiedSectionAdjustments: null,
   copiedMask: null,
   brushSettings: { size: 50, feather: 50, tool: ToolType.Brush },
+  copiedAdjustments: null,
 
   isGeneratingAiMask: false,
   isAIConnectorConnected: false,
   isGeneratingAi: false,
   isMaskControlHovered: false,
   hasRenderedFirstFrame: false,
+  patchesSentToBackend: new Set<string>(),
 
   setEditor: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
 

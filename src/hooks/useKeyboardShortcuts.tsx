@@ -1,236 +1,179 @@
-import { useEffect, useMemo } from 'react';
-import { KeybindHandler, ImageFile, Panel, SelectedImage } from '../components/ui/AppProperties';
-import { BrushSettings } from '../components/ui/AppProperties';
-import { KeybindDefinition, KEYBIND_DEFINITIONS, normalizeCombo } from '../utils/keyboardUtils';
+import { useEffect, useRef } from 'react';
+import { ImageFile, Panel } from '../components/ui/AppProperties';
+import { KEYBIND_DEFINITIONS, normalizeCombo } from '../utils/keyboardUtils';
+import { useEditorStore } from '../store/useEditorStore';
+import { useLibraryStore } from '../store/useLibraryStore';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { useUIStore } from '../store/useUIStore';
+import { useProcessStore } from '../store/useProcessStore';
+import { useEditorActions } from './useEditorActions';
+import { useLibraryActions } from './useLibraryActions';
 
 interface KeyboardShortcutsProps {
-  activeAiPatchContainerId?: string | null;
-  activeAiSubMaskId: string | null;
-  osPlatform: string;
-  activeMaskContainerId: string | null;
-  activeMaskId: string | null;
-  activeRightPanel: Panel | null;
-  canRedo: boolean;
-  canUndo: boolean;
-  copiedFilePaths: Array<string>;
-  customEscapeHandler: any;
+  sortedImageList: Array<ImageFile>;
   handleBackToLibrary(): void;
-  handleCopyAdjustments(): void;
-  handleDeleteAiPatch(patchId: string): void;
-  handleDeleteMaskContainer(containerId: string): void;
   handleDeleteSelected(): void;
   handleImageSelect(path: string): void;
-  handlePasteAdjustments(): void;
   handlePasteFiles(str: string): void;
-  handleRate(rate: number): void;
-  handleRightPanelSelect(panel: Panel): void;
-  handleRotate(degrees: number): void;
-  handleSetColorLabel(label: string | null): void;
   handleToggleFullScreen(): void;
   handleZoomChange(zoomValue: number, fitToWindow?: boolean): void;
-  isFullScreen: boolean;
-  isModalOpen: boolean;
-  isStraightenActive: boolean;
-  keybinds?: { [action: string]: string[] };
-  libraryActivePath: string | null;
-  multiSelectedPaths: Array<string>;
-  onSelectPatchContainer?(container: string | null): void;
-  redo(): void;
-  selectedImage: SelectedImage | null;
-  setActiveAiSubMaskId(id: string | null): void;
-  setActiveMaskContainerId(id: string | null): void;
-  setActiveMaskId(id: string | null): void;
-  setCopiedFilePaths(paths: Array<string>): void;
-  setIsStraightenActive(active: any): void;
-  setIsWaveformVisible(visible: any): void;
-  setLibraryActivePath(path: string): void;
-  setMultiSelectedPaths(paths: Array<string>): void;
-  setShowOriginal(show: any): void;
-  sortedImageList: Array<ImageFile>;
-  undo(): void;
-  zoom: number;
-  displaySize?: { width: number; height: number };
-  baseRenderSize?: { width: number; height: number };
-  originalSize?: { width: number; height: number };
-  brushSettings: BrushSettings | null;
-  setBrushSettings: (settings: BrushSettings) => void;
 }
 
 export const useKeyboardShortcuts = ({
-  activeAiPatchContainerId,
-  activeAiSubMaskId,
-  activeMaskContainerId,
-  activeMaskId,
-  activeRightPanel,
-  osPlatform,
-  canRedo,
-  canUndo,
-  copiedFilePaths,
-  customEscapeHandler,
+  sortedImageList,
   handleBackToLibrary,
-  handleCopyAdjustments,
-  handleDeleteAiPatch,
-  handleDeleteMaskContainer,
   handleDeleteSelected,
   handleImageSelect,
-  handlePasteAdjustments,
   handlePasteFiles,
-  handleRate,
-  handleRightPanelSelect,
-  handleRotate,
-  handleSetColorLabel,
   handleToggleFullScreen,
   handleZoomChange,
-  isFullScreen,
-  isModalOpen,
-  isStraightenActive,
-  keybinds,
-  libraryActivePath,
-  multiSelectedPaths,
-  onSelectPatchContainer,
-  redo,
-  selectedImage,
-  setActiveAiSubMaskId,
-  setActiveMaskContainerId,
-  setActiveMaskId,
-  setCopiedFilePaths,
-  setIsStraightenActive,
-  setIsWaveformVisible,
-  setLibraryActivePath,
-  setMultiSelectedPaths,
-  setShowOriginal,
-  sortedImageList,
-  undo,
-  zoom,
-  displaySize,
-  baseRenderSize,
-  originalSize,
-  brushSettings,
-  setBrushSettings,
 }: KeyboardShortcutsProps) => {
-  function getEffectiveCombo(def: KeybindDefinition): string[] | null {
-    const userCombo = keybinds?.[def.action];
-    if (userCombo !== undefined) {
-      return userCombo.length > 0 ? userCombo : null;
-    }
-    return def.defaultCombo;
-  }
+  const { handleRotate, handleCopyAdjustments, handlePasteAdjustments } = useEditorActions();
+  const { handleRate, handleSetColorLabel } = useLibraryActions();
 
-  const comboMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const def of KEYBIND_DEFINITIONS) {
-      const effective = getEffectiveCombo(def);
-      if (effective) {
-        map.set(effective.join('+'), def.action);
-      }
-    }
-    return map;
-  }, [keybinds]);
+  const sortedListRef = useRef(sortedImageList);
+  useEffect(() => {
+    sortedListRef.current = sortedImageList;
+  }, [sortedImageList]);
 
   useEffect(() => {
-    const actions: Record<string, KeybindHandler> = {
+    const getStoreState = () => ({
+      editor: useEditorStore.getState(),
+      library: useLibraryStore.getState(),
+      ui: useUIStore.getState(),
+      settings: useSettingsStore.getState(),
+      process: useProcessStore.getState(),
+    });
+
+    const comboMap = new Map<string, string>();
+    const keybinds = useSettingsStore.getState().appSettings?.keybinds;
+
+    for (const def of KEYBIND_DEFINITIONS) {
+      const userCombo = keybinds?.[def.action];
+      const effective = userCombo && userCombo.length > 0 ? userCombo : def.defaultCombo;
+      if (effective) {
+        comboMap.set(effective.join('+'), def.action);
+      }
+    }
+
+    const actions: Record<string, any> = {
       open_image: {
-        shouldFire: () => !selectedImage && libraryActivePath !== null,
-        execute: (event) => { event.preventDefault(); handleImageSelect(libraryActivePath!); },
+        shouldFire: (s: any) => !s.editor.selectedImage && s.library.libraryActivePath !== null,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          handleImageSelect(s.library.libraryActivePath!);
+        },
       },
       copy_adjustments: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleCopyAdjustments(); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleCopyAdjustments();
+        },
       },
       paste_adjustments: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handlePasteAdjustments(); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handlePasteAdjustments();
+        },
       },
       copy_files: {
-        shouldFire: () => multiSelectedPaths.length > 0,
-        execute: (event) => { event.preventDefault(); setCopiedFilePaths(multiSelectedPaths); },
+        shouldFire: (s: any) => s.library.multiSelectedPaths.length > 0,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.process.setProcess({ copiedFilePaths: s.library.multiSelectedPaths });
+        },
       },
       paste_files: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handlePasteFiles('copy'); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handlePasteFiles('copy');
+        },
       },
       select_all: {
-        shouldFire: () => sortedImageList.length > 0,
-        execute: (event) => {
-          event.preventDefault();
-          setMultiSelectedPaths(sortedImageList.map((f: ImageFile) => f.path));
-          if (!selectedImage) {
-            setLibraryActivePath(sortedImageList[sortedImageList.length - 1].path);
+        shouldFire: () => sortedListRef.current.length > 0,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.library.setLibrary({ multiSelectedPaths: sortedListRef.current.map((f: ImageFile) => f.path) });
+          if (!s.editor.selectedImage) {
+            s.library.setLibrary({ libraryActivePath: sortedListRef.current[sortedListRef.current.length - 1].path });
           }
         },
       },
       delete_selected: {
-        shouldFire: () => {
-          if (activeMaskContainerId || activeAiPatchContainerId) return false;
-          return true;
+        shouldFire: (s: any) => !s.editor.activeMaskContainerId && !s.editor.activeAiPatchContainerId,
+        execute: (e: any) => {
+          e.preventDefault();
+          handleDeleteSelected();
         },
-        execute: (event) => { event.preventDefault(); handleDeleteSelected(); },
       },
       preview_prev: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => {
-          event.preventDefault();
-          const currentIndex = sortedImageList.findIndex((img: ImageFile) => img.path === selectedImage!.path);
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          const currentIndex = sortedListRef.current.findIndex((img) => img.path === s.editor.selectedImage!.path);
           if (currentIndex === -1) return;
-          let nextIndex = currentIndex - 1;
-          if (nextIndex < 0) nextIndex = sortedImageList.length - 1;
-          handleImageSelect(sortedImageList[nextIndex].path);
+          let nextIndex = currentIndex - 1 < 0 ? sortedListRef.current.length - 1 : currentIndex - 1;
+          handleImageSelect(sortedListRef.current[nextIndex].path);
         },
       },
       preview_next: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => {
-          event.preventDefault();
-          const currentIndex = sortedImageList.findIndex((img: ImageFile) => img.path === selectedImage!.path);
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          const currentIndex = sortedListRef.current.findIndex((img) => img.path === s.editor.selectedImage!.path);
           if (currentIndex === -1) return;
-          let nextIndex = currentIndex + 1;
-          if (nextIndex >= sortedImageList.length) nextIndex = 0;
-          handleImageSelect(sortedImageList[nextIndex].path);
+          let nextIndex = currentIndex + 1 >= sortedListRef.current.length ? 0 : currentIndex + 1;
+          handleImageSelect(sortedListRef.current[nextIndex].path);
         },
       },
       zoom_in_step: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => {
-          event.preventDefault();
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
           const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
           const currentPercent =
-            originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
-              ? (displaySize.width * dpr) / originalSize.width
+            s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
+              ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
               : 1.0;
           handleZoomChange(Math.min(currentPercent + 0.1, 2.0));
         },
       },
       zoom_out_step: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => {
-          event.preventDefault();
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
           const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
           const currentPercent =
-            originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
-              ? (displaySize.width * dpr) / originalSize.width
+            s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
+              ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
               : 1.0;
           handleZoomChange(Math.max(currentPercent - 0.1, 0.1));
         },
       },
       cycle_zoom: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => {
-          event.preventDefault();
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
           const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const { originalSize, displaySize, baseRenderSize } = s.editor;
           const currentPercent =
-            originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
+            originalSize?.width > 0 && displaySize?.width > 0
               ? Math.round(((displaySize.width * dpr) / originalSize.width) * 100)
               : 100;
           let fitPercent = 100;
-          if (originalSize && originalSize.width > 0 && originalSize.height > 0 && baseRenderSize && baseRenderSize.width > 0 && baseRenderSize.height > 0) {
+
+          if (originalSize?.width > 0 && baseRenderSize?.width > 0) {
             const originalAspect = originalSize.width / originalSize.height;
             const baseAspect = baseRenderSize.width / baseRenderSize.height;
-            if (originalAspect > baseAspect) {
-              fitPercent = Math.round(((baseRenderSize.width * dpr) / originalSize.width) * 100);
-            } else {
-              fitPercent = Math.round(((baseRenderSize.height * dpr) / originalSize.height) * 100);
-            }
+            fitPercent =
+              originalAspect > baseAspect
+                ? Math.round(((baseRenderSize.width * dpr) / originalSize.width) * 100)
+                : Math.round(((baseRenderSize.height * dpr) / originalSize.height) * 100);
           }
+
           const doubleFitPercent = fitPercent * 2;
           if (Math.abs(currentPercent - fitPercent) < 5) {
             handleZoomChange(doubleFitPercent < 100 ? doubleFitPercent / 100 : 1.0);
@@ -242,225 +185,338 @@ export const useKeyboardShortcuts = ({
         },
       },
       zoom_in: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => {
-          event.preventDefault();
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
           const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
           const currentPercent =
-            originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
-              ? (displaySize.width * dpr) / originalSize.width
+            s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
+              ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
               : 1.0;
           handleZoomChange(Math.min(currentPercent * 1.2, 2.0));
         },
       },
       zoom_out: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => {
-          event.preventDefault();
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
           const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
           const currentPercent =
-            originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0
-              ? (displaySize.width * dpr) / originalSize.width
+            s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
+              ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
               : 1.0;
           handleZoomChange(Math.max(currentPercent / 1.2, 0.1));
         },
       },
       zoom_fit: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); handleZoomChange(0, true); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any) => {
+          e.preventDefault();
+          handleZoomChange(0, true);
+        },
       },
       zoom_100: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); handleZoomChange(1.0); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any) => {
+          e.preventDefault();
+          handleZoomChange(1.0);
+        },
       },
       rotate_left: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); handleRotate(-90); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any) => {
+          e.preventDefault();
+          handleRotate(-90);
+        },
       },
       rotate_right: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); handleRotate(90); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any) => {
+          e.preventDefault();
+          handleRotate(90);
+        },
       },
       undo: {
-        shouldFire: () => !!selectedImage && canUndo,
-        execute: (event) => { event.preventDefault(); undo(); },
+        shouldFire: (s: any) => !!s.editor.selectedImage && s.editor.historyIndex > 0,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.editor.undo();
+        },
       },
       redo: {
-        shouldFire: () => !!selectedImage && canRedo,
-        execute: (event) => { event.preventDefault(); redo(); },
+        shouldFire: (s: any) => !!s.editor.selectedImage && s.editor.historyIndex < s.editor.history.length - 1,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.editor.redo();
+        },
       },
       toggle_fullscreen: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); handleToggleFullScreen(); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any) => {
+          e.preventDefault();
+          handleToggleFullScreen();
+        },
       },
       show_original: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); setShowOriginal((prev: boolean) => !prev); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.editor.setEditor({ showOriginal: !s.editor.showOriginal });
+        },
       },
       toggle_adjustments: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Adjustments); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.ui.setRightPanel(Panel.Adjustments);
+        },
       },
       toggle_crop_panel: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Crop); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.ui.setRightPanel(Panel.Crop);
+        },
       },
       toggle_masks: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Masks); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.ui.setRightPanel(Panel.Masks);
+        },
       },
       toggle_ai: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Ai); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.ui.setRightPanel(Panel.Ai);
+        },
       },
       toggle_presets: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Presets); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.ui.setRightPanel(Panel.Presets);
+        },
       },
       toggle_metadata: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Metadata); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.ui.setRightPanel(Panel.Metadata);
+        },
       },
       toggle_analytics: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); setIsWaveformVisible((prev: boolean) => !prev); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.editor.setEditor({ isWaveformVisible: !s.editor.isWaveformVisible });
+        },
       },
       toggle_export: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => { event.preventDefault(); handleRightPanelSelect(Panel.Export); },
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.ui.setRightPanel(Panel.Export);
+        },
       },
       toggle_crop: {
-        shouldFire: () => !!selectedImage,
-        execute: (event) => {
-          event.preventDefault();
-          if (activeRightPanel === Panel.Crop) {
-            setIsStraightenActive((prev: boolean) => !prev);
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          if (s.ui.activeRightPanel === Panel.Crop) {
+            s.editor.setEditor({ isStraightenActive: !s.editor.isStraightenActive });
           } else {
-            handleRightPanelSelect(Panel.Crop);
-            setIsStraightenActive(true);
+            s.ui.setRightPanel(Panel.Crop);
+            s.editor.setEditor({ isStraightenActive: true });
           }
         },
       },
       rate_0: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleRate(0); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleRate(0);
+        },
       },
       rate_1: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleRate(1); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleRate(1);
+        },
       },
       rate_2: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleRate(2); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleRate(2);
+        },
       },
       rate_3: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleRate(3); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleRate(3);
+        },
       },
       rate_4: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleRate(4); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleRate(4);
+        },
       },
       rate_5: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleRate(5); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleRate(5);
+        },
       },
       color_label_none: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleSetColorLabel(null); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleSetColorLabel(null);
+        },
       },
       color_label_red: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleSetColorLabel('red'); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleSetColorLabel('red');
+        },
       },
       color_label_yellow: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleSetColorLabel('yellow'); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleSetColorLabel('yellow');
+        },
       },
       color_label_green: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleSetColorLabel('green'); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleSetColorLabel('green');
+        },
       },
       color_label_blue: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleSetColorLabel('blue'); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleSetColorLabel('blue');
+        },
       },
       color_label_purple: {
         shouldFire: () => true,
-        execute: (event) => { event.preventDefault(); handleSetColorLabel('purple'); },
+        execute: (e: any) => {
+          e.preventDefault();
+          handleSetColorLabel('purple');
+        },
       },
       brush_size_up: {
-        shouldFire: () => !!selectedImage && !!brushSettings && activeRightPanel === Panel.Masks,
-        execute: (event) => {
-          event.preventDefault();
-          if (!brushSettings) return;
-          const newSize = Math.min((brushSettings.size || 50) + 10, 200);
-          setBrushSettings({ feather: brushSettings.feather, size: newSize, tool: brushSettings.tool });
+        shouldFire: (s: any) =>
+          !!s.editor.selectedImage && !!s.editor.brushSettings && s.ui.activeRightPanel === Panel.Masks,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          const newSize = Math.min((s.editor.brushSettings.size || 50) + 10, 200);
+          s.editor.setEditor({ brushSettings: { ...s.editor.brushSettings, size: newSize } });
         },
       },
       brush_size_down: {
-        shouldFire: () => !!selectedImage && !!brushSettings && activeRightPanel === Panel.Masks,
-        execute: (event) => {
-          event.preventDefault();
-          if (!brushSettings) return;
-          const newSize = Math.max((brushSettings.size || 50) - 10, 1);
-          setBrushSettings({ feather: brushSettings.feather, size: newSize, tool: brushSettings.tool });
+        shouldFire: (s: any) =>
+          !!s.editor.selectedImage && !!s.editor.brushSettings && s.ui.activeRightPanel === Panel.Masks,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          const newSize = Math.max((s.editor.brushSettings.size || 50) - 10, 1);
+          s.editor.setEditor({ brushSettings: { ...s.editor.brushSettings, size: newSize } });
         },
       },
     };
 
-    type BuiltInMatch = (e: KeyboardEvent) => boolean;
-    type BuiltInExec = (e: KeyboardEvent) => void;
-
-    const builtinShortcuts: Array<{ match: BuiltInMatch; execute: BuiltInExec }> = [
+    const builtinShortcuts = [
       {
-        match: (e) => e.code === 'Escape',
-        execute: (e) => {
+        match: (e: KeyboardEvent) => e.code === 'Escape',
+        execute: (e: KeyboardEvent, s: any) => {
           e.preventDefault();
-          if (isStraightenActive) setIsStraightenActive(false);
-          else if (customEscapeHandler) customEscapeHandler();
-          else if (activeAiSubMaskId) setActiveAiSubMaskId(null);
-          else if (activeAiPatchContainerId && onSelectPatchContainer) onSelectPatchContainer(null);
-          else if (activeMaskId) setActiveMaskId(null);
-          else if (activeMaskContainerId) setActiveMaskContainerId(null);
-          else if (activeRightPanel === Panel.Crop) handleRightPanelSelect(Panel.Adjustments);
-          else if (isFullScreen) handleToggleFullScreen();
-          else if (selectedImage) handleBackToLibrary();
+          if (s.editor.isStraightenActive) s.editor.setEditor({ isStraightenActive: false });
+          else if (s.ui.customEscapeHandler) s.ui.customEscapeHandler();
+          else if (s.editor.activeAiSubMaskId) s.editor.setEditor({ activeAiSubMaskId: null });
+          else if (s.editor.activeAiPatchContainerId) s.editor.setEditor({ activeAiPatchContainerId: null });
+          else if (s.editor.activeMaskId) s.editor.setEditor({ activeMaskId: null });
+          else if (s.editor.activeMaskContainerId) s.editor.setEditor({ activeMaskContainerId: null });
+          else if (s.ui.activeRightPanel === Panel.Crop) s.ui.setRightPanel(Panel.Adjustments);
+          else if (s.ui.isFullScreen) handleToggleFullScreen();
+          else if (s.editor.selectedImage) handleBackToLibrary();
         },
       },
       {
-        match: (e) => {
-          if (osPlatform === 'macos') return e.code === 'Backspace';
-          return e.code === 'Delete';
+        match: (e: KeyboardEvent, s: any) => {
+          const isDeleteKey = s.settings.osPlatform === 'macos' ? e.code === 'Backspace' : e.code === 'Delete';
+          return isDeleteKey && (!!s.editor.activeMaskContainerId || !!s.editor.activeAiPatchContainerId);
         },
-        execute: (e) => {
+        execute: (e: KeyboardEvent, s: any) => {
           e.preventDefault();
-          if (activeMaskContainerId) handleDeleteMaskContainer(activeMaskContainerId);
-          else if (activeAiPatchContainerId) handleDeleteAiPatch(activeAiPatchContainerId);
+          if (s.editor.activeMaskContainerId) {
+            s.editor.setEditor((state: any) => ({
+              adjustments: {
+                ...state.adjustments,
+                masks: state.adjustments.masks.filter((c: any) => c.id !== s.editor.activeMaskContainerId),
+              },
+              activeMaskContainerId: null,
+              activeMaskId: null,
+            }));
+          } else if (s.editor.activeAiPatchContainerId) {
+            s.editor.setEditor((state: any) => ({
+              adjustments: {
+                ...state.adjustments,
+                aiPatches: state.adjustments.aiPatches.filter((c: any) => c.id !== s.editor.activeAiPatchContainerId),
+              },
+              activeAiPatchContainerId: null,
+              activeAiSubMaskId: null,
+            }));
+          }
         },
       },
       {
-        match: (e) => !selectedImage && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code),
-        execute: (e) => {
+        match: (e: KeyboardEvent, s: any) =>
+          !s.editor.selectedImage && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code),
+        execute: (e: KeyboardEvent, s: any) => {
           e.preventDefault();
           const isNext = e.code === 'ArrowRight' || e.code === 'ArrowDown';
-          const activePath = libraryActivePath;
-          if (!activePath || sortedImageList.length === 0) return;
-          const currentIndex = sortedImageList.findIndex((img: ImageFile) => img.path === activePath);
+          const activePath = s.library.libraryActivePath;
+          if (!activePath || sortedListRef.current.length === 0) return;
+          const currentIndex = sortedListRef.current.findIndex((img) => img.path === activePath);
           if (currentIndex === -1) return;
           let nextIndex = isNext ? currentIndex + 1 : currentIndex - 1;
-          if (nextIndex >= sortedImageList.length) nextIndex = 0;
-          if (nextIndex < 0) nextIndex = sortedImageList.length - 1;
-          const nextImage = sortedImageList[nextIndex];
+          if (nextIndex >= sortedListRef.current.length) nextIndex = 0;
+          if (nextIndex < 0) nextIndex = sortedListRef.current.length - 1;
+          const nextImage = sortedListRef.current[nextIndex];
           if (nextImage) {
-            setLibraryActivePath(nextImage.path);
-            setMultiSelectedPaths([nextImage.path]);
+            s.library.setLibrary({ libraryActivePath: nextImage.path, multiSelectedPaths: [nextImage.path] });
           }
         },
       },
     ];
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      const state = getStoreState();
+
+      const isModalOpen =
+        state.ui.isCreateFolderModalOpen ||
+        state.ui.isRenameFolderModalOpen ||
+        state.ui.isRenameFileModalOpen ||
+        state.ui.isImportModalOpen ||
+        state.ui.isCopyPasteSettingsModalOpen ||
+        state.ui.confirmModalState.isOpen ||
+        state.ui.panoramaModalState.isOpen ||
+        state.ui.cullingModalState.isOpen ||
+        state.ui.collageModalState.isOpen ||
+        state.ui.denoiseModalState.isOpen ||
+        state.ui.negativeModalState.isOpen;
+
       if (isModalOpen) return;
 
       const isInputFocused =
@@ -468,75 +524,39 @@ export const useKeyboardShortcuts = ({
       if (isInputFocused) return;
 
       for (const builtin of builtinShortcuts) {
-        if (builtin.match(event)) {
-          builtin.execute(event);
+        if (builtin.match(event, state)) {
+          builtin.execute(event, state);
           return;
         }
       }
 
-      const normalized = normalizeCombo(event, osPlatform);
+      const normalized = normalizeCombo(event, state.settings.osPlatform);
       const action = comboMap.get(normalized.join('+'));
+
       if (action) {
         const handler = actions[action];
-        if (handler && (!handler.shouldFire || handler.shouldFire())) {
-          handler.execute(event);
+        if (handler && (!handler.shouldFire || handler.shouldFire(state))) {
+          handler.execute(event, state);
           return;
         }
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [
-    activeAiPatchContainerId,
-    activeAiSubMaskId,
-    activeMaskContainerId,
-    activeMaskId,
-    activeRightPanel,
-    osPlatform,
-    canRedo,
-    canUndo,
-    copiedFilePaths,
-    customEscapeHandler,
     handleBackToLibrary,
-    handleCopyAdjustments,
-    handleDeleteAiPatch,
-    handleDeleteMaskContainer,
     handleDeleteSelected,
     handleImageSelect,
-    handlePasteAdjustments,
     handlePasteFiles,
-    handleRate,
-    handleRightPanelSelect,
-    handleRotate,
-    handleSetColorLabel,
     handleToggleFullScreen,
     handleZoomChange,
-    isFullScreen,
-    isStraightenActive,
-    keybinds,
-    libraryActivePath,
-    multiSelectedPaths,
-    onSelectPatchContainer,
-    redo,
-    selectedImage,
-    setActiveAiSubMaskId,
-    setActiveMaskContainerId,
-    setActiveMaskId,
-    setCopiedFilePaths,
-    setIsStraightenActive,
-    setIsWaveformVisible,
-    setLibraryActivePath,
-    setMultiSelectedPaths,
-    setShowOriginal,
-    sortedImageList,
-    undo,
-    zoom,
-    displaySize,
-    baseRenderSize,
-    originalSize,
-    brushSettings,
-    setBrushSettings,
+    handleRotate,
+    handleCopyAdjustments,
+    handlePasteAdjustments,
+    handleRate,
+    handleSetColorLabel,
   ]);
 };

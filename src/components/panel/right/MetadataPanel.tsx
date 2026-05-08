@@ -3,11 +3,16 @@ import { invoke } from '@tauri-apps/api/core';
 import { Check, ChevronDown, ChevronRight, Plus, Star, Tag, X, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { SelectedImage, AppSettings, Invokes } from '../../ui/AppProperties';
+import { Invokes } from '../../ui/AppProperties';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { IconAperture, IconShutter, IconIso, IconFocalLength, IconLens } from '../editor/ExifIcons';
+import { useEditorStore } from '../../../store/useEditorStore';
+import { useLibraryStore } from '../../../store/useLibraryStore';
+import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useProcessStore } from '../../../store/useProcessStore';
+import { useLibraryActions } from '../../../hooks/useLibraryActions';
 
 interface CameraSetting {
   format?(value: number): string | number;
@@ -32,19 +37,6 @@ interface GPSData {
 interface MetaDataItemProps {
   label: string;
   value: any;
-}
-
-interface MetaDataPanelProps {
-  selectedImage: SelectedImage;
-  multiSelectedPaths: string[];
-  rating: number;
-  tags: string[];
-  onRate(rating: number, paths?: string[]): void;
-  onSetColorLabel(color: string | null, paths?: string[]): void;
-  onTagsChanged(changedPaths: string[], newTags: { tag: string; isUser: boolean }[]): void;
-  appSettings: AppSettings | null;
-  onUpdateExif?: (paths: string[] | undefined, updates: Record<string, string>) => void;
-  liveThumbnailUrl?: string;
 }
 
 const USER_TAG_PREFIX = 'user:';
@@ -191,24 +183,25 @@ const KEY_CAMERA_SETTINGS_MAP: CameraSettings = {
   },
 };
 
-export default function MetadataPanel({
-  selectedImage,
-  multiSelectedPaths,
-  rating,
-  tags,
-  onRate,
-  onSetColorLabel,
-  onTagsChanged,
-  appSettings,
-  onUpdateExif,
-  liveThumbnailUrl,
-}: MetaDataPanelProps) {
+export default function MetadataPanel() {
   const [isOrganizationExpanded, setIsOrganizationExpanded] = useState(false);
   const [isAuthorExpanded, setIsAuthorExpanded] = useState(false);
   const [tagInputValue, setTagInputValue] = useState('');
   const [isTagInputFocused, setIsTagInputFocused] = useState(false);
+  const selectedImage = useEditorStore((s) => s.selectedImage);
+  const multiSelectedPaths = useLibraryStore((s) => s.multiSelectedPaths);
+  const imageList = useLibraryStore((s) => s.imageList);
+  const imageRatings = useLibraryStore((s) => s.imageRatings);
+  const appSettings = useSettingsStore((s) => s.appSettings);
+  const thumbnails = useProcessStore((s) => s.thumbnails);
 
-  const targetPaths = multiSelectedPaths?.length > 0 ? multiSelectedPaths : [selectedImage.path];
+  const { handleRate, handleSetColorLabel, handleTagsChanged, handleUpdateExif } = useLibraryActions();
+
+  const rating = selectedImage ? imageRatings[selectedImage.path] || 0 : 0;
+  const tags = selectedImage ? imageList.find((img) => img.path === selectedImage.path)?.tags || [] : [];
+  const liveThumbnailUrl = selectedImage ? thumbnails[selectedImage.path] : undefined;
+
+  const targetPaths = multiSelectedPaths?.length > 0 ? multiSelectedPaths : selectedImage ? [selectedImage.path] : [];
 
   const { cameraGridSettings, lensSetting, gpsData, otherExifEntries } = useMemo(() => {
     const exif = selectedImage?.exif || {};
@@ -295,7 +288,7 @@ export default function MetadataPanel({
         await invoke(Invokes.AddTagForPaths, { paths: targetPaths, tag: prefixedTag });
 
         const newTags = [...currentTags, { tag: newTagValue, isUser: true }];
-        onTagsChanged(targetPaths, newTags);
+        handleTagsChanged(targetPaths, newTags);
         setTagInputValue('');
       } catch (err) {
         console.error(`Failed to add tag: ${err}`);
@@ -309,7 +302,7 @@ export default function MetadataPanel({
       await invoke(Invokes.RemoveTagForPaths, { paths: targetPaths, tag: prefixedTag });
 
       const newTags = currentTags.filter((t) => t.tag !== tagToRemove.tag);
-      onTagsChanged(targetPaths, newTags);
+      handleTagsChanged(targetPaths, newTags);
     } catch (err) {
       console.error(`Failed to remove tag: ${err}`);
     }
@@ -481,9 +474,7 @@ export default function MetadataPanel({
                               label={field.label}
                               value={displayValue}
                               onSave={(newVal) => {
-                                if (onUpdateExif) {
-                                  onUpdateExif(targetPaths, { [field.key]: newVal });
-                                }
+                                handleUpdateExif(targetPaths, { [field.key]: newVal });
                               }}
                             />
                           );
@@ -540,7 +531,7 @@ export default function MetadataPanel({
                             {[1, 2, 3, 4, 5].map((star) => (
                               <button
                                 key={star}
-                                onClick={() => onRate(star, targetPaths)}
+                                onClick={() => handleRate(star, targetPaths)}
                                 className="focus:outline-hidden transition-transform active:scale-95 hover:scale-110"
                               >
                                 <Star
@@ -567,7 +558,7 @@ export default function MetadataPanel({
                           </Text>
                           <div className="flex flex-wrap gap-2">
                             <button
-                              onClick={() => onSetColorLabel(null, targetPaths)}
+                              onClick={() => handleSetColorLabel(null, targetPaths)}
                               className={clsx(
                                 'w-5 h-5 rounded-full flex items-center justify-center transition-all hover:scale-110',
                                 currentColor === null
@@ -581,7 +572,7 @@ export default function MetadataPanel({
                             {COLOR_LABELS.map((color: Color) => (
                               <button
                                 key={color.name}
-                                onClick={() => onSetColorLabel(color.name, targetPaths)}
+                                onClick={() => handleSetColorLabel(color.name, targetPaths)}
                                 className={clsx(
                                   'w-5 h-5 rounded-full transition-all hover:scale-110',
                                   currentColor === color.name

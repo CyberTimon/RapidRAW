@@ -398,10 +398,10 @@ While the core functionality is in place, I'm actively working on improving seve
 | Task                                                                                                       | Priority | Difficulty | Status |
 | ---------------------------------------------------------------------------------------------------------- | -------- | ---------- | ------ |
 | Find a better X-Trans demosaicing algorithm                                                                | Medium   | High       | [ ]    |
-| Refactoring the frontend (reduce prop drilling in React components)                                        | Low      | Medium     | [ ]    |
+| Refactoring the frontend (reduce prop drilling in React components)                                        | Low      | Medium     | [X]    |
 | Write a tutorial on how to connect ComfyUI with RapidRAW                                                   | Medium   | Medium     | [ ]    |
-| Centralize Coordinate Transformation Logic - See [#245](https://github.com/CyberTimon/RapidRAW/issues/245) | Medium   | High       | [ ]    |
-| Improve speed on older systems (e.g. Pascal GPUs)                                                          | Medium   | High       | [ ]    |
+| Centralize Coordinate Transformation Logic - See [#245](https://github.com/CyberTimon/RapidRAW/issues/245) | Medium   | High       | [X]    |
+| Improve speed on older systems (e.g. Pascal GPUs)                                                          | Medium   | High       | [X]    |
 | Implement warping tools                                                                                    | Low      | High       | [X]    |
 
 ## AI Roadmap

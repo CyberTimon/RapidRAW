@@ -7,6 +7,7 @@ import { ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppPropert
 import { Color, COLOR_LABELS } from '../../utils/adjustments';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import { useProcessStore } from '../../store/useProcessStore';
 
 const HORIZONTAL_PADDING = 4;
 const ITEM_GAP = 8;
@@ -22,7 +23,6 @@ interface ItemData {
   imageRatings: any;
   selectedPath: string | undefined;
   multiSelectedPaths: string[];
-  thumbnails: Record<string, string> | undefined;
   thumbnailAspectRatio: ThumbnailAspectRatio;
   onRequestThumbnails?: (paths: string[]) => void;
   onContextMenu?: (event: any, path: string) => void;
@@ -39,7 +39,6 @@ const FilmstripThumbnail = memo(
     isSelected,
     onContextMenu,
     onImageSelect,
-    thumbData,
     thumbnailAspectRatio,
     itemHeight,
     index,
@@ -51,12 +50,13 @@ const FilmstripThumbnail = memo(
     isSelected: boolean;
     onContextMenu?: (event: any, path: string) => void;
     onImageSelect?: (path: string, event: any) => void;
-    thumbData: string | undefined;
     thumbnailAspectRatio: ThumbnailAspectRatio;
     itemHeight: number;
     index: number;
     setRatio: (index: number, ratio: number) => void;
   }) => {
+    const thumbData = useProcessStore((s) => s.thumbnails[imageFile.path]);
+
     const [layers, setLayers] = useState<ImageLayer[]>(() => {
       return thumbData ? [{ id: thumbData, url: thumbData, opacity: 1 }] : [];
     });
@@ -255,7 +255,6 @@ const FilmstripCell = ({
   imageRatings,
   selectedPath,
   multiSelectedPaths,
-  thumbnails,
   thumbnailAspectRatio,
   onContextMenu,
   onImageSelect,
@@ -285,7 +284,6 @@ const FilmstripCell = ({
           isSelected={multiSelectedPaths.includes(imageFile.path)}
           onContextMenu={onContextMenu}
           onImageSelect={onImageSelect}
-          thumbData={thumbnails ? thumbnails[imageFile.path] : undefined}
           thumbnailAspectRatio={thumbnailAspectRatio}
           itemHeight={itemHeight}
           index={columnIndex}
@@ -404,19 +402,20 @@ const FilmstripList = ({
       };
 
       const currentData = currentDataRef.current;
-      if (currentData.onRequestThumbnails) {
-        const pathsToRequest: string[] = [];
+      if (!currentData.onRequestThumbnails) return;
 
-        for (let i = allCells.columnStartIndex; i <= allCells.columnStopIndex; i++) {
-          const img = currentData.imageList[i];
-          if (img && (!currentData.thumbnails || !currentData.thumbnails[img.path])) {
-            pathsToRequest.push(img.path);
-          }
-        }
+      const cached = useProcessStore.getState().thumbnails;
+      const pathsToRequest: string[] = [];
 
-        if (pathsToRequest.length > 0) {
-          currentData.onRequestThumbnails(pathsToRequest);
+      for (let i = allCells.columnStartIndex; i <= allCells.columnStopIndex; i++) {
+        const img = currentData.imageList[i];
+        if (img && !cached[img.path]) {
+          pathsToRequest.push(img.path);
         }
+      }
+
+      if (pathsToRequest.length > 0) {
+        currentData.onRequestThumbnails(pathsToRequest);
       }
     },
     [],
@@ -575,8 +574,8 @@ interface FilmStripProps {
   onImageSelect?(path: string, event: any): void;
   onRequestThumbnails?(paths: string[]): void;
   selectedImage?: SelectedImage;
-  thumbnails: Record<string, string> | undefined;
   thumbnailAspectRatio: ThumbnailAspectRatio;
+  totalImages?: number;
 }
 
 export default function Filmstrip({
@@ -589,7 +588,6 @@ export default function Filmstrip({
   onImageSelect,
   onRequestThumbnails,
   selectedImage,
-  thumbnails,
   thumbnailAspectRatio,
 }: FilmStripProps) {
   const clickTriggeredScroll = useRef(false);
@@ -628,7 +626,6 @@ export default function Filmstrip({
             imageRatings,
             selectedPath: selectedImage?.path,
             multiSelectedPaths,
-            thumbnails,
             thumbnailAspectRatio,
             onContextMenu,
             onRequestThumbnails,

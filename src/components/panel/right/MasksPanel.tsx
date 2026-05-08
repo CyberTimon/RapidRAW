@@ -4,10 +4,9 @@ import {
   useState,
   useEffect,
   useRef,
-  useMemo,
   useCallback,
 } from 'react';
-import debounce from 'lodash.debounce';
+import { useShallow } from 'zustand/react/shallow';
 import { v4 as uuidv4 } from 'uuid';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -82,14 +81,10 @@ import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../..
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useProcessStore } from '../../../store/useProcessStore';
-
-interface MasksPanelProps {
-  onGenerateAiDepthMask(id: string, parameters: any): void;
-  onGenerateAiForegroundMask(id: string): void;
-  onGenerateAiSkyMask(id: string): void;
-  setAdjustments(updater: any): void;
-  setCustomEscapeHandler(handler: any): void;
-}
+import { useAiMasking } from '../../../hooks/useAiMasking';
+import { useEditorActions } from '../../../hooks/useEditorActions';
+import { useUIStore } from '../../../store/useUIStore';
+import { useWaveformControls } from '../../../hooks/useWaveformControls';
 
 interface DragData {
   type: 'Container' | 'SubMask' | 'Creation';
@@ -550,15 +545,22 @@ function DepthRangePicker({
   );
 }
 
-export default function MasksPanel({
-  onGenerateAiDepthMask,
-  onGenerateAiForegroundMask,
-  onGenerateAiSkyMask,
-  setAdjustments,
-  setCustomEscapeHandler,
-}: MasksPanelProps) {
-  const { appSettings } = useSettingsStore();
-  const { aiModelDownloadStatus } = useProcessStore();
+export default function MasksPanel() {
+  const { setAdjustments } = useEditorActions();
+  const { handleGenerateAiDepthMask, handleGenerateAiForegroundMask, handleGenerateAiSkyMask } = useAiMasking();
+  const setCustomEscapeHandler = useUIStore((s) => s.setCustomEscapeHandler);
+  const { appSettings } = useSettingsStore(
+    useShallow((state) => ({
+      appSettings: state.appSettings,
+    })),
+  );
+
+  const { aiModelDownloadStatus } = useProcessStore(
+    useShallow((state) => ({
+      aiModelDownloadStatus: state.aiModelDownloadStatus,
+    })),
+  );
+
   const {
     activeMaskContainerId,
     activeMaskId,
@@ -573,7 +575,26 @@ export default function MasksPanel({
     activeWaveformChannel,
     waveformHeight,
     setEditor,
-  } = useEditorStore();
+  } = useEditorStore(
+    useShallow((state) => ({
+      activeMaskContainerId: state.activeMaskContainerId,
+      activeMaskId: state.activeMaskId,
+      adjustments: state.adjustments,
+      brushSettings: state.brushSettings,
+      copiedMask: state.copiedMask,
+      histogram: state.histogram,
+      isGeneratingAiMask: state.isGeneratingAiMask,
+      selectedImage: state.selectedImage,
+      isWaveformVisible: state.isWaveformVisible,
+      waveform: state.waveform,
+      activeWaveformChannel: state.activeWaveformChannel,
+      waveformHeight: state.waveformHeight,
+      setEditor: state.setEditor,
+    })),
+  );
+
+  const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, setWaveformHeight, handleWaveformResize } =
+    useWaveformControls();
 
   const setBrushSettings = useCallback(
     (updater: any) => {
@@ -591,15 +612,6 @@ export default function MasksPanel({
     (isDragging: boolean) => setEditor({ isSliderDragging: isDragging }),
     [setEditor],
   );
-  const onToggleWaveform = useCallback(
-    () => setEditor((state) => ({ isWaveformVisible: !state.isWaveformVisible })),
-    [setEditor],
-  );
-  const setActiveWaveformChannel = useCallback(
-    (mode: string) => setEditor({ activeWaveformChannel: mode }),
-    [setEditor],
-  );
-  const setWaveformHeight = useCallback((height: number) => setEditor({ waveformHeight: height }), [setEditor]);
   const onSelectContainer = useCallback((id: string | null) => setEditor({ activeMaskContainerId: id }), [setEditor]);
   const onSelectMask = useCallback((id: string | null) => setEditor({ activeMaskId: id }), [setEditor]);
 
@@ -621,7 +633,6 @@ export default function MasksPanel({
   const hasPerformedInitialSelection = useRef(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [analyzingSubMaskId, setAnalyzingSubMaskId] = useState<string | null>(null);
-  const [isResizingWaveform, setIsResizingWaveform] = useState<boolean>(false);
 
   const { showContextMenu } = useContextMenu();
   const { presets } = usePresets(adjustments);
@@ -699,46 +710,6 @@ export default function MasksPanel({
     return () => setCustomEscapeHandler(null);
   }, [activeMaskContainerId, activeMaskId, renamingId, onSelectContainer, onSelectMask, setCustomEscapeHandler]);
 
-  const handleWaveformResize = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const pointerId = e.pointerId;
-    const target = e.currentTarget;
-    const startY = e.clientY;
-    const startHeight = waveformHeight || 256;
-    const previousTouchAction = document.documentElement.style.touchAction;
-    const previousUserSelect = document.documentElement.style.userSelect;
-    setIsResizingWaveform(true);
-
-    target.setPointerCapture?.(pointerId);
-    document.documentElement.style.touchAction = 'none';
-    document.documentElement.style.userSelect = 'none';
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== pointerId) return;
-      moveEvent.preventDefault();
-      const delta = moveEvent.clientY - startY;
-      const newHeight = Math.round(Math.max(150, Math.min(450, startHeight + delta)));
-      if (setWaveformHeight) setWaveformHeight(newHeight);
-    };
-
-    const handlePointerUp = (upEvent: PointerEvent) => {
-      if (upEvent.pointerId !== pointerId) return;
-      if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId);
-      setIsResizingWaveform(false);
-      document.documentElement.style.touchAction = previousTouchAction;
-      document.documentElement.style.userSelect = previousUserSelect;
-      document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerup', handlePointerUp);
-      document.removeEventListener('pointercancel', handlePointerUp);
-    };
-
-    document.addEventListener('pointermove', handlePointerMove, { passive: false });
-    document.addEventListener('pointerup', handlePointerUp);
-    document.addEventListener('pointercancel', handlePointerUp);
-  };
-
   const handleDeselect = () => {
     onSelectContainer(null);
     onSelectMask(null);
@@ -814,9 +785,9 @@ export default function MasksPanel({
     onSelectContainer(newContainer.id);
     onSelectMask(subMask.id);
     setExpandedContainers((prev) => new Set(prev).add(newContainer.id));
-    if (type === Mask.AiForeground) onGenerateAiForegroundMask(subMask.id);
-    else if (type === Mask.AiSky) onGenerateAiSkyMask(subMask.id);
-    else if (type === Mask.AiDepth) onGenerateAiDepthMask(subMask.id, subMask.parameters);
+    if (type === Mask.AiForeground) handleGenerateAiForegroundMask(subMask.id);
+    else if (type === Mask.AiSky) handleGenerateAiSkyMask(subMask.id);
+    else if (type === Mask.AiDepth) handleGenerateAiDepthMask(subMask.id, subMask.parameters);
   };
 
   const handleAddSubMask = (
@@ -844,9 +815,9 @@ export default function MasksPanel({
     onSelectContainer(containerId);
     onSelectMask(subMask.id);
     setExpandedContainers((prev) => new Set(prev).add(containerId));
-    if (type === Mask.AiForeground) onGenerateAiForegroundMask(subMask.id);
-    else if (type === Mask.AiSky) onGenerateAiSkyMask(subMask.id);
-    else if (type === Mask.AiDepth) onGenerateAiDepthMask(subMask.id, subMask.parameters);
+    if (type === Mask.AiForeground) handleGenerateAiForegroundMask(subMask.id);
+    else if (type === Mask.AiSky) handleGenerateAiSkyMask(subMask.id);
+    else if (type === Mask.AiDepth) handleGenerateAiDepthMask(subMask.id, subMask.parameters);
   };
 
   const handleGridClick = (type: Mask, forceNewMaskContainer: boolean = false) => {
@@ -1468,7 +1439,7 @@ export default function MasksPanel({
                   isSettingsSectionOpen={isSettingsSectionOpen}
                   setSettingsSectionOpen={setSettingsSectionOpen}
                   presets={presets}
-                  onGenerateAiDepthMask={onGenerateAiDepthMask}
+                  handleGenerateAiDepthMask={handleGenerateAiDepthMask}
                 />
               </motion.div>
             )}
@@ -2147,7 +2118,7 @@ function SettingsPanel({
   isSettingsSectionOpen,
   setSettingsSectionOpen,
   presets,
-  onGenerateAiDepthMask,
+  handleGenerateAiDepthMask,
 }: any) {
   const { showContextMenu } = useContextMenu();
   const isActive = !!container;

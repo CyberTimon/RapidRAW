@@ -1,4 +1,4 @@
-import { type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Aperture,
   FlipHorizontal,
@@ -14,33 +14,21 @@ import {
 } from 'lucide-react';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import clsx from 'clsx';
-import { Orientation, SelectedImage } from '../../ui/AppProperties';
+import { Orientation } from '../../ui/AppProperties';
 import TransformModal from '../../modals/TransformModal';
 import LensCorrectionModal from '../../modals/LensCorrectionModal';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Text from '../../ui/Text';
 import Slider from '../../ui/Slider';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
+import { useEditorStore } from '../../../store/useEditorStore';
+import { useEditorActions } from '../../../hooks/useEditorActions';
 
 const BASE_RATIO = 1.618;
 const ORIGINAL_RATIO = 0;
 const RATIO_TOLERANCE = 0.01;
 
 export type OverlayMode = 'none' | 'thirds' | 'goldenTriangle' | 'goldenSpiral' | 'phiGrid' | 'armature' | 'diagonal';
-
-interface CropPanelProps {
-  adjustments: Adjustments;
-  isStraightenActive: boolean;
-  selectedImage: SelectedImage;
-  setAdjustments(adjustments: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)): void;
-  setIsStraightenActive(active: any): void;
-  setIsRotationActive?(active: boolean): void;
-  overlayMode?: OverlayMode;
-  setOverlayMode?(mode: OverlayMode): void;
-  overlayRotation?: number;
-  setOverlayRotation?(rotation: SetStateAction<number>): void;
-  onLiveRotationChange?(rotation: number | null): void;
-}
 
 interface CropPreset {
   name: string;
@@ -76,19 +64,13 @@ const OVERLAYS: Array<OverlayOption> = [
   { id: 'armature', name: 'Armature', tooltip: 'Armature' },
 ];
 
-export default function CropPanel({
-  adjustments,
-  isStraightenActive,
-  selectedImage,
-  setAdjustments,
-  setIsStraightenActive,
-  setIsRotationActive: setGlobalRotationActive,
-  overlayMode: propOverlayMode,
-  setOverlayMode: setPropOverlayMode,
-  overlayRotation: _propOverlayRotation,
-  setOverlayRotation: propSetOverlayRotation,
-  onLiveRotationChange,
-}: CropPanelProps) {
+export default function CropPanel() {
+  const selectedImage = useEditorStore((s) => s.selectedImage);
+  const adjustments = useEditorStore((s) => s.adjustments);
+  const isStraightenActive = useEditorStore((s) => s.isStraightenActive);
+  const activeOverlay = useEditorStore((s) => s.overlayMode);
+  const setEditor = useEditorStore((s) => s.setEditor);
+  const { setAdjustments } = useEditorActions();
   const [customW, setCustomW] = useState('');
   const [customH, setCustomH] = useState('');
   const [isTransformModalOpen, setIsTransformModalOpen] = useState(false);
@@ -97,9 +79,6 @@ export default function CropPanel({
   const [preferPortrait, setPreferPortrait] = useState(false);
   const [isEditingCustom, setIsEditingCustom] = useState(false);
 
-  const [internalOverlayMode, setInternalOverlayMode] = useState<OverlayMode>('thirds');
-  const [_internalOverlayRotation, setInternalOverlayRotation] = useState(0);
-
   const [localRotation, setLocalRotation] = useState<number | null>(null);
   const localRotationRef = useRef<number | null>(null);
 
@@ -107,14 +86,21 @@ export default function CropPanel({
     (val: number | null) => {
       setLocalRotation(val);
       localRotationRef.current = val;
-      onLiveRotationChange?.(val);
+      setEditor({ liveRotation: val });
     },
-    [onLiveRotationChange],
+    [setEditor],
   );
 
-  const activeOverlay = propOverlayMode ?? internalOverlayMode;
-  const setOverlay = setPropOverlayMode ?? setInternalOverlayMode;
-  const setOverlayRotation = propSetOverlayRotation ?? setInternalOverlayRotation;
+  const setOverlay = useCallback((mode: OverlayMode) => setEditor({ overlayMode: mode }), [setEditor]);
+
+  const setOverlayRotation = useCallback(
+    (updater: React.SetStateAction<number>) => {
+      setEditor((state) => ({
+        overlayRotation: typeof updater === 'function' ? updater(state.overlayRotation) : updater,
+      }));
+    },
+    [setEditor],
+  );
 
   const lastSyncedRatio = useRef<number | null>(null);
 
@@ -125,7 +111,7 @@ export default function CropPanel({
       updateLocalRotation(null);
       setAdjustments((prev: Adjustments) => ({ ...prev, rotation: 0 }));
     }
-  }, [isStraightenActive]);
+  }, [isStraightenActive, setAdjustments, updateLocalRotation]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -153,9 +139,9 @@ export default function CropPanel({
 
   useEffect(() => {
     return () => {
-      onLiveRotationChange?.(null);
+      setEditor({ liveRotation: null });
     };
-  }, [onLiveRotationChange]);
+  }, [setEditor]);
 
   const getEffectiveOriginalRatio = useCallback(() => {
     if (!selectedImage?.width || !selectedImage?.height) {
@@ -416,14 +402,15 @@ export default function CropPanel({
     }
     return orientation === Orientation.Vertical ? 'Switch to landscape' : 'Switch to portrait';
   };
+
   const handleDragStateChange = useCallback(
     (isDragging: boolean) => {
       if (isDragging) {
         setIsRotationActive(true);
-        setGlobalRotationActive?.(true);
+        setEditor({ isRotationActive: true });
       } else {
         setIsRotationActive(false);
-        setGlobalRotationActive?.(false);
+        setEditor({ isRotationActive: false });
         if (localRotationRef.current !== null) {
           const finalRot = localRotationRef.current;
           updateLocalRotation(null);
@@ -431,7 +418,7 @@ export default function CropPanel({
         }
       }
     },
-    [setGlobalRotationActive, updateLocalRotation, setAdjustments],
+    [setEditor, updateLocalRotation, setAdjustments],
   );
 
   return (
@@ -564,13 +551,13 @@ export default function CropPanel({
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => {
-                          setIsStraightenActive((isActive: boolean) => {
-                            const willBeActive = !isActive;
+                          setEditor((state) => {
+                            const willBeActive = !state.isStraightenActive;
                             if (willBeActive) {
                               updateLocalRotation(null);
                               setAdjustments((prev: Adjustments) => ({ ...prev, rotation: 0 }));
                             }
-                            return willBeActive;
+                            return { isStraightenActive: willBeActive };
                           });
                         }}
                         className={clsx(

@@ -3,8 +3,11 @@ import { Crop, PercentCrop } from 'react-image-crop';
 import { Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'react-toastify';
+import debounce from 'lodash.debounce';
+
 import { ImageDimensions, useImageRenderSize } from '../../hooks/useImageRenderSize';
-import { Adjustments, AiPatch, Coord, MaskContainer } from '../../utils/adjustments';
+import { Adjustments, AiPatch, MaskContainer } from '../../utils/adjustments';
 import { calculateCenteredCrop } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
@@ -16,7 +19,7 @@ import { useEditorStore } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
-import { useShallow } from 'zustand/react/shallow';
+import { useAiMasking } from '../../hooks/useAiMasking';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -69,109 +72,67 @@ interface WgpuRenderState {
 interface EditorProps {
   onBackToLibrary(): void;
   onContextMenu(event: any): void;
-  onGenerateAiMask(subMaskId: string, startPoint: Coord, endPoint: Coord): void;
-  onQuickErase(subMaskId: string | null, startPoint: Coord, endpoint: Coord): void;
-  setAdjustments(adjustments: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)): void;
   transformWrapperRef: any;
 }
 
-export default function Editor({
-  onBackToLibrary,
-  onContextMenu,
-  onGenerateAiMask,
-  onQuickErase,
-  setAdjustments,
-  transformWrapperRef,
-}: EditorProps) {
-  const { appSettings, osPlatform } = useSettingsStore(
-    useShallow((state) => ({
-      appSettings: state.appSettings,
-      osPlatform: state.osPlatform,
-    })),
-  );
-  const isAndroid = osPlatform === 'android';
+export default function Editor({ onBackToLibrary, onContextMenu, transformWrapperRef }: EditorProps) {
+  const appSettings = useSettingsStore((s) => s.appSettings);
+  const osPlatform = useSettingsStore((s) => s.osPlatform);
+  const isFullScreen = useUIStore((s) => s.isFullScreen);
+  const activeRightPanel = useUIStore((s) => s.activeRightPanel);
+  const isInstantTransition = useUIStore((s) => s.isInstantTransition);
+  const setUI = useUIStore((s) => s.setUI);
+  const isLoading = useLibraryStore((s) => s.isViewLoading);
+  const selectedImage = useEditorStore((s) => s.selectedImage);
+  const adjustments = useEditorStore((s) => s.adjustments);
+  const adjustmentsHistory = useEditorStore((s) => s.history);
+  const adjustmentsHistoryIndex = useEditorStore((s) => s.historyIndex);
+  const finalPreviewUrl = useEditorStore((s) => s.finalPreviewUrl);
+  const uncroppedAdjustedPreviewUrl = useEditorStore((s) => s.uncroppedAdjustedPreviewUrl);
+  const transformedOriginalUrl = useEditorStore((s) => s.transformedOriginalUrl);
+  const interactivePatch = useEditorStore((s) => s.interactivePatch);
+  const showOriginal = useEditorStore((s) => s.showOriginal);
+  const isSliderDragging = useEditorStore((s) => s.isSliderDragging);
+  const targetZoom = useEditorStore((s) => s.zoom);
+  const originalSize = useEditorStore((s) => s.originalSize);
+  const isRotationActive = useEditorStore((s) => s.isRotationActive);
+  const overlayMode = useEditorStore((s) => s.overlayMode);
+  const overlayRotation = useEditorStore((s) => s.overlayRotation);
+  const isStraightenActive = useEditorStore((s) => s.isStraightenActive);
+  const isWbPickerActive = useEditorStore((s) => s.isWbPickerActive);
+  const liveRotation = useEditorStore((s) => s.liveRotation);
+  const brushSettings = useEditorStore((s) => s.brushSettings);
+  const activeMaskContainerId = useEditorStore((s) => s.activeMaskContainerId);
+  const activeMaskId = useEditorStore((s) => s.activeMaskId);
+  const activeAiPatchContainerId = useEditorStore((s) => s.activeAiPatchContainerId);
+  const activeAiSubMaskId = useEditorStore((s) => s.activeAiSubMaskId);
+  const isMaskControlHovered = useEditorStore((s) => s.isMaskControlHovered);
+  const hasRenderedFirstFrame = useEditorStore((s) => s.hasRenderedFirstFrame);
 
-  const { isFullScreen, activeRightPanel, isInstantTransition, setUI } = useUIStore(
-    useShallow((state) => ({
-      isFullScreen: state.isFullScreen,
-      activeRightPanel: state.activeRightPanel,
-      isInstantTransition: state.isInstantTransition,
-      setUI: state.setUI,
-    })),
-  );
-
-  const { isViewLoading: isLoading } = useLibraryStore(
-    useShallow((state) => ({
-      isViewLoading: state.isViewLoading,
-    })),
-  );
-
-  const {
-    selectedImage,
-    adjustments,
-    history: adjustmentsHistory,
-    historyIndex: adjustmentsHistoryIndex,
-    finalPreviewUrl,
-    uncroppedAdjustedPreviewUrl,
-    transformedOriginalUrl,
-    interactivePatch,
-    showOriginal,
-    isSliderDragging,
-    zoom: targetZoom,
-    originalSize,
-    isRotationActive,
-    overlayMode,
-    overlayRotation,
-    isStraightenActive,
-    isWbPickerActive,
-    liveRotation,
-    brushSettings,
-    activeMaskContainerId,
-    activeMaskId,
-    activeAiPatchContainerId,
-    activeAiSubMaskId,
-    isMaskControlHovered,
-    hasRenderedFirstFrame,
-    setEditor,
-    undo,
-    redo,
-    goToHistoryIndex,
-  } = useEditorStore(
-    useShallow((state) => ({
-      selectedImage: state.selectedImage,
-      adjustments: state.adjustments,
-      history: state.history,
-      historyIndex: state.historyIndex,
-      finalPreviewUrl: state.finalPreviewUrl,
-      uncroppedAdjustedPreviewUrl: state.uncroppedAdjustedPreviewUrl,
-      transformedOriginalUrl: state.transformedOriginalUrl,
-      interactivePatch: state.interactivePatch,
-      showOriginal: state.showOriginal,
-      isSliderDragging: state.isSliderDragging,
-      zoom: state.zoom,
-      originalSize: state.originalSize,
-      isRotationActive: state.isRotationActive,
-      overlayMode: state.overlayMode,
-      overlayRotation: state.overlayRotation,
-      isStraightenActive: state.isStraightenActive,
-      isWbPickerActive: state.isWbPickerActive,
-      liveRotation: state.liveRotation,
-      brushSettings: state.brushSettings,
-      activeMaskContainerId: state.activeMaskContainerId,
-      activeMaskId: state.activeMaskId,
-      activeAiPatchContainerId: state.activeAiPatchContainerId,
-      activeAiSubMaskId: state.activeAiSubMaskId,
-      isMaskControlHovered: state.isMaskControlHovered,
-      hasRenderedFirstFrame: state.hasRenderedFirstFrame,
-      setEditor: state.setEditor,
-      undo: state.undo,
-      redo: state.redo,
-      goToHistoryIndex: state.goToHistoryIndex,
-    })),
-  );
-
+  const setEditor = useEditorStore((s) => s.setEditor);
+  const undo = useEditorStore((s) => s.undo);
+  const redo = useEditorStore((s) => s.redo);
+  const goToHistoryIndex = useEditorStore((s) => s.goToHistoryIndex);
+  const pushHistory = useEditorStore((s) => s.pushHistory);
   const canUndo = adjustmentsHistoryIndex > 0;
   const canRedo = adjustmentsHistoryIndex < adjustmentsHistory.length - 1;
+
+  const isAndroid = osPlatform === 'android';
+
+  const debouncedSetHistory = useMemo(() => debounce((newAdj: Adjustments) => pushHistory(newAdj), 500), [pushHistory]);
+
+  const setAdjustments = useCallback(
+    (value: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)) => {
+      setEditor((state) => {
+        const prevAdjustments = state.adjustments;
+        const newAdjustments = typeof value === 'function' ? value(prevAdjustments) : { ...prevAdjustments, ...value };
+        debouncedSetHistory(newAdjustments);
+        return { adjustments: newAdjustments };
+      });
+    },
+    [debouncedSetHistory, setEditor],
+  );
+  const { handleGenerateAiMask, handleQuickErase } = useAiMasking();
   const [crop, setCrop] = useState<Crop | null>(null);
   const prevCropParams = useRef<any>(null);
   const lastValidCropRef = useRef<PercentCrop | null>(null);
@@ -272,7 +233,7 @@ export default function Editor({
 
   const handleStraighten = useCallback(
     (angleCorrection: number) => {
-      setAdjustments((prev: Partial<Adjustments>) => {
+      setAdjustments((prev: Adjustments) => {
         const newRotation = (prev.rotation || 0) + angleCorrection;
         return { ...prev, rotation: newRotation };
       });
@@ -298,9 +259,7 @@ export default function Editor({
     [setAdjustments],
   );
 
-  const handleWbPicked = useCallback(() => {
-    // Let's keep it active
-  }, []);
+  const handleWbPicked = useCallback(() => {}, []);
 
   useEffect(() => {
     if (isFullScreen) {
@@ -1553,7 +1512,7 @@ export default function Editor({
             Math.abs(currentAdjCrop.width - nextPixelCrop.width) > 1 ||
             Math.abs(currentAdjCrop.height - nextPixelCrop.height) > 1)
         ) {
-          setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, crop: nextPixelCrop }));
+          setAdjustments((prev: Adjustments) => ({ ...prev, crop: nextPixelCrop }));
         }
       }
     }
@@ -2019,9 +1978,9 @@ export default function Editor({
             isRotationActive={isRotationActive}
             isSliderDragging={isSliderDragging}
             maskOverlayUrl={maskOverlayUrl}
-            onGenerateAiMask={onGenerateAiMask}
+            onGenerateAiMask={handleGenerateAiMask}
             onLiveMaskPreview={handleLiveMaskPreview}
-            onQuickErase={onQuickErase}
+            onQuickErase={handleQuickErase}
             onSelectAiSubMask={(id) => setEditor({ activeAiSubMaskId: id })}
             onSelectMask={(id) => setEditor({ activeMaskId: id })}
             onStraighten={handleStraighten}
