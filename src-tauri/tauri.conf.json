@@ -76,7 +76,10 @@
           "tiff",
           "tif",
           "exr",
-          "qoi"
+          "qoi",
+          "hif",
+          "heic",
+          "heif"
         ],
         "name": "Image",
         "description": "Image file",

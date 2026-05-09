@@ -20,6 +20,7 @@ mod export_processing;
 mod file_management;
 mod formats;
 mod gpu_processing;
+mod heif_processing;
 mod image_loader;
 mod image_processing;
 mod lens_correction;
