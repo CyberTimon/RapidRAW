@@ -12,7 +12,6 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tauri = { version = "2.10", features = [ "macos-private-api", "rustls-tls" ] }
 tauri-plugin-dialog = "2.6.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -34,7 +33,6 @@ walkdir = "2.5.0"
 imageproc = "0.26.1"
 ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic"] }
 ndarray = "0.16"
-tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 futures-util = "0.3"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-os = "2.3.2"
@@ -73,7 +71,9 @@ imgref = "1.12.0"
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "5.2.5"
 tauri-plugin-single-instance = "2.4.0"
-reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "rustls"] }
+tauri = { version = "2.10", features = ["macos-private-api", "native-tls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "native-tls"] }
+tokio-tungstenite = { version = "0.28", features = ["native-tls"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"
@@ -81,7 +81,10 @@ objc = "0.2"
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-context = "0.1"
 jni = "0.21"
+tauri = { version = "2.10", features = ["macos-private-api", "rustls-tls"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls-webpki-roots"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 include_dir = "0.7.3"
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -91,7 +94,7 @@ webkit2gtk = "=2.0.2"
 [build-dependencies]
 tauri-build = { version = "2.5", features = [] }
 sha2 = "0.10"
-reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls"] }
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "native-tls"] }
 hex = "0.4"
 
 [profile.dev]
