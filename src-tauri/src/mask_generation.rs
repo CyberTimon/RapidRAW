@@ -109,7 +109,7 @@ impl SubMask {
             "color" | "luminance" => true,
             "custom-component" => {
                 let params: CustomComponentParameters =
-                    serde_json::from_value(self.parameters.clone()).unwrap_or_default();
+                    CustomComponentParameters::deserialize(&self.parameters).unwrap_or_default();
                 params.sub_masks.iter().any(SubMask::requires_warped_image)
             }
             _ => false,
@@ -1226,7 +1226,7 @@ fn generate_custom_component_bitmap(
     warped_image: Option<&DynamicImage>,
 ) -> Option<GrayImage> {
     let params: CustomComponentParameters =
-        serde_json::from_value(params_value.clone()).unwrap_or_default();
+        CustomComponentParameters::deserialize(params_value).unwrap_or_default();
 
     if params.sub_masks.is_empty() {
         return None;
