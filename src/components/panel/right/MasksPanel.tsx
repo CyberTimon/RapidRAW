@@ -181,6 +181,41 @@ const cloneSubMaskTreeForCustomComponent = (subMasks: Array<SubMask>, customComp
     return [clonedSubMask];
   });
 
+const syncComponentInstancesDeep = (
+  subMasks: Array<SubMask>,
+  targetComponentId: string,
+  updatedData: Partial<CustomMaskComponent>,
+): Array<SubMask> =>
+  subMasks.map((subMask) => {
+    let updatedSubMask = subMask;
+
+    if (
+      updatedSubMask.type === Mask.CustomComponent &&
+      updatedSubMask.parameters?.customComponentId === targetComponentId
+    ) {
+      updatedSubMask = {
+        ...updatedSubMask,
+        name: updatedData.name ?? updatedSubMask.name,
+        parameters: {
+          ...updatedSubMask.parameters,
+          ...(updatedData.subMasks ? { subMasks: cloneSubMaskTree(updatedData.subMasks) } : {}),
+        },
+      };
+    }
+
+    if (Array.isArray(updatedSubMask.parameters?.subMasks)) {
+      updatedSubMask = {
+        ...updatedSubMask,
+        parameters: {
+          ...updatedSubMask.parameters,
+          subMasks: syncComponentInstancesDeep(updatedSubMask.parameters.subMasks, targetComponentId, updatedData),
+        },
+      };
+    }
+
+    return updatedSubMask;
+  });
+
 const createCustomComponentSubMask = (
   component: CustomMaskComponent,
   mode: SubMaskMode = SubMaskMode.Additive,
@@ -1098,15 +1133,26 @@ export default function MasksPanel() {
       return {
         ...prev,
         customMaskComponents: (prev.customMaskComponents || []).map((component) =>
-          component.id === renamedCustomComponentId ? { ...component, name: renamedCustomComponentName } : component,
+          component.id === renamedCustomComponentId
+            ? {
+                ...component,
+                name: renamedCustomComponentName,
+                subMasks: syncComponentInstancesDeep(component.subMasks, renamedCustomComponentId, {
+                  name: renamedCustomComponentName,
+                }),
+              }
+            : {
+                ...component,
+                subMasks: syncComponentInstancesDeep(component.subMasks, renamedCustomComponentId, {
+                  name: renamedCustomComponentName,
+                }),
+              },
         ),
         masks: masks.map((m) => ({
           ...m,
-          subMasks: m.subMasks.map((sm) =>
-            sm.type === Mask.CustomComponent && sm.parameters?.customComponentId === renamedCustomComponentId
-              ? { ...sm, name: renamedCustomComponentName }
-              : sm,
-          ),
+          subMasks: syncComponentInstancesDeep(m.subMasks, renamedCustomComponentId, {
+            name: renamedCustomComponentName,
+          }),
         })),
       };
     });
@@ -1286,7 +1332,12 @@ export default function MasksPanel() {
     setAdjustments((prev: Adjustments) => ({
       ...prev,
       customMaskComponents: (prev.customMaskComponents || []).map((customComponent) =>
-        customComponent.id === component.id ? updatedComponent : customComponent,
+        customComponent.id === component.id
+          ? updatedComponent
+          : {
+              ...customComponent,
+              subMasks: syncComponentInstancesDeep(customComponent.subMasks, component.id, updatedComponent),
+            },
       ),
       masks: prev.masks.map((maskContainer) => {
         if (maskContainer.id === container.id) {
@@ -1295,18 +1346,7 @@ export default function MasksPanel() {
 
         return {
           ...maskContainer,
-          subMasks: maskContainer.subMasks.map((subMask) =>
-            subMask.type === Mask.CustomComponent && subMask.parameters?.customComponentId === component.id
-              ? {
-                  ...subMask,
-                  name: updatedComponent.name,
-                  parameters: {
-                    ...subMask.parameters,
-                    subMasks: cloneSubMaskTree(updatedComponent.subMasks),
-                  },
-                }
-              : subMask,
-          ),
+          subMasks: syncComponentInstancesDeep(maskContainer.subMasks, component.id, updatedComponent),
         };
       }),
     }));
