@@ -695,15 +695,15 @@ export default function MasksPanel() {
   const isAiMask =
     activeSubMaskData && [Mask.AiSubject, Mask.AiForeground, Mask.AiSky, Mask.AiDepth].includes(activeSubMaskData.type);
 
-  const getUniqueCustomComponentName = (baseName: string) => {
-    const normalizedBase = baseName.trim() || 'Custom Component';
+  const getNextCustomComponentName = () => {
+    const normalizedBase = 'Custom Component';
     const usedNames = new Set(customMaskComponents.map((component) => component.name.toLowerCase()));
-    let candidate = normalizedBase;
-    let suffix = 2;
+    let suffix = 1;
+    let candidate = `${normalizedBase} ${suffix}`;
 
     while (usedNames.has(candidate.toLowerCase())) {
-      candidate = `${normalizedBase} ${suffix}`;
       suffix += 1;
+      candidate = `${normalizedBase} ${suffix}`;
     }
 
     return candidate;
@@ -942,20 +942,19 @@ export default function MasksPanel() {
     handleGridClick(type, true);
   };
 
-  const buildCustomComponentSubmenu = (
-    targetContainerId?: string | null,
-    mode: SubMaskMode = SubMaskMode.Additive,
-  ) => ({
-    label: 'Custom',
-    icon: Component,
-    submenu: customMaskComponents.length
-      ? customMaskComponents.map((component) => ({
-          label: component.name,
-          icon: Component,
-          onClick: () => handleAddCustomComponent(component, targetContainerId, mode),
-        }))
-      : [{ label: 'No custom components', disabled: true }],
-  });
+  const buildCustomComponentSubmenu = (targetContainerId?: string | null, mode: SubMaskMode = SubMaskMode.Additive) => {
+    if (!customMaskComponents.length) return null;
+
+    return {
+      label: 'Custom',
+      icon: Component,
+      submenu: customMaskComponents.map((component) => ({
+        label: component.name,
+        icon: Component,
+        onClick: () => handleAddCustomComponent(component, targetContainerId, mode),
+      })),
+    };
+  };
 
   const handleAddOthersMask = (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -1008,7 +1007,10 @@ export default function MasksPanel() {
         };
       });
 
-      submenu.push(buildCustomComponentSubmenu(targetContainerId, mode));
+      const customComponentSubmenu = buildCustomComponentSubmenu(targetContainerId, mode);
+      if (customComponentSubmenu) {
+        submenu.push(customComponentSubmenu);
+      }
 
       return {
         label,
@@ -1029,7 +1031,10 @@ export default function MasksPanel() {
         submenu: buildMenu(OTHERS_MASK_TYPES, SubMaskMode.Additive),
       });
     }
-    options.push(buildCustomComponentSubmenu(targetContainerId, SubMaskMode.Additive));
+    const customComponentSubmenu = buildCustomComponentSubmenu(targetContainerId, SubMaskMode.Additive);
+    if (customComponentSubmenu) {
+      options.push(customComponentSubmenu);
+    }
 
     if (targetContainerId && hasComponents) {
       options.push(
@@ -1048,13 +1053,46 @@ export default function MasksPanel() {
       masks: prev.masks.map((m) => (m.id === id ? { ...m, ...data } : m)),
     }));
   const updateSubMask = (id: string, data: any) =>
-    setAdjustments((prev: Adjustments) => ({
-      ...prev,
-      masks: prev.masks.map((m) => ({
+    setAdjustments((prev: Adjustments) => {
+      const renamedCustomComponentName = typeof data.name === 'string' ? data.name.trim() : '';
+      let renamedCustomComponentId: string | null = null;
+
+      const masks = prev.masks.map((m) => ({
         ...m,
-        subMasks: m.subMasks.map((sm) => (sm.id === id ? { ...sm, ...data } : sm)),
-      })),
-    }));
+        subMasks: m.subMasks.map((sm) => {
+          if (sm.id !== id) return sm;
+
+          if (
+            renamedCustomComponentName &&
+            sm.type === Mask.CustomComponent &&
+            typeof sm.parameters?.customComponentId === 'string'
+          ) {
+            renamedCustomComponentId = sm.parameters.customComponentId;
+          }
+
+          return { ...sm, ...data };
+        }),
+      }));
+
+      if (!renamedCustomComponentId || !renamedCustomComponentName) {
+        return { ...prev, masks };
+      }
+
+      return {
+        ...prev,
+        customMaskComponents: (prev.customMaskComponents || []).map((component) =>
+          component.id === renamedCustomComponentId ? { ...component, name: renamedCustomComponentName } : component,
+        ),
+        masks: masks.map((m) => ({
+          ...m,
+          subMasks: m.subMasks.map((sm) =>
+            sm.type === Mask.CustomComponent && sm.parameters?.customComponentId === renamedCustomComponentId
+              ? { ...sm, name: renamedCustomComponentName }
+              : sm,
+          ),
+        })),
+      };
+    });
 
   const handleDeleteContainer = (id: string) => {
     if (activeMaskContainerId === id) handleDeselect();
@@ -1194,14 +1232,7 @@ export default function MasksPanel() {
       return;
     }
 
-    const defaultName = getUniqueCustomComponentName(`${container.name} Component`);
-    const promptedName = window.prompt('Custom component name', defaultName);
-    const name = promptedName?.trim();
-
-    if (!name) {
-      return;
-    }
-
+    const name = getNextCustomComponentName();
     const customComponent: CustomMaskComponent = {
       id: uuidv4(),
       name,
@@ -1219,6 +1250,8 @@ export default function MasksPanel() {
 
     onSelectContainer(container.id);
     onSelectMask(mergedSubMask.id);
+    setRenamingId(mergedSubMask.id);
+    setTempName(name);
     setExpandedContainers((prev) => new Set(prev).add(container.id));
   };
 
@@ -1370,7 +1403,10 @@ export default function MasksPanel() {
       icon: m.icon,
       onClick: () => handleAddMaskContainer(m.type!),
     }));
-    newMaskSubMenu.push(buildCustomComponentSubmenu(null, SubMaskMode.Additive));
+    const customComponentSubmenu = buildCustomComponentSubmenu(null, SubMaskMode.Additive);
+    if (customComponentSubmenu) {
+      newMaskSubMenu.push(customComponentSubmenu);
+    }
     showContextMenu(e.clientX, e.clientY, [
       { label: 'Paste Mask', icon: ClipboardPaste, disabled: !copiedMask, onClick: () => handlePasteMask() },
       { label: 'Add New Mask', icon: Plus, submenu: newMaskSubMenu },
