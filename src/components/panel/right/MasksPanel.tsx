@@ -164,6 +164,23 @@ const cloneSubMaskData = (subMask: SubMask, options: { invert?: boolean; rename?
 const cloneSubMaskTree = (subMasks: Array<SubMask>): Array<SubMask> =>
   (subMasks || []).map((subMask) => cloneSubMaskData(subMask, { rename: false }));
 
+const cloneSubMaskTreeForCustomComponent = (subMasks: Array<SubMask>, customComponentId: string): Array<SubMask> =>
+  (subMasks || []).flatMap((subMask) => {
+    if (subMask.type === Mask.CustomComponent && subMask.parameters?.customComponentId === customComponentId) {
+      return cloneSubMaskTreeForCustomComponent(subMask.parameters?.subMasks || [], customComponentId);
+    }
+
+    const clonedSubMask = cloneSubMaskData(subMask, { rename: false });
+    if (Array.isArray(clonedSubMask.parameters?.subMasks)) {
+      clonedSubMask.parameters = {
+        ...clonedSubMask.parameters,
+        subMasks: cloneSubMaskTreeForCustomComponent(clonedSubMask.parameters.subMasks, customComponentId),
+      };
+    }
+
+    return [clonedSubMask];
+  });
+
 const createCustomComponentSubMask = (
   component: CustomMaskComponent,
   mode: SubMaskMode = SubMaskMode.Additive,
@@ -1227,7 +1244,7 @@ export default function MasksPanel() {
     insertSubMaskIntoContainer(containerId, pastedSubMask, insertIndex);
   };
 
-  const handleConvertContainerToComponent = (container: MaskContainer) => {
+  const handleConvertContainerToNewComponent = (container: MaskContainer) => {
     if (!container.subMasks.length) {
       return;
     }
@@ -1252,6 +1269,50 @@ export default function MasksPanel() {
     onSelectMask(mergedSubMask.id);
     setRenamingId(mergedSubMask.id);
     setTempName(name);
+    setExpandedContainers((prev) => new Set(prev).add(container.id));
+  };
+
+  const handleConvertContainerToExistingComponent = (container: MaskContainer, component: CustomMaskComponent) => {
+    if (!container.subMasks.length) {
+      return;
+    }
+
+    const updatedComponent = {
+      ...component,
+      subMasks: cloneSubMaskTreeForCustomComponent(container.subMasks, component.id),
+    };
+    const mergedSubMask = createCustomComponentSubMask(updatedComponent);
+
+    setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      customMaskComponents: (prev.customMaskComponents || []).map((customComponent) =>
+        customComponent.id === component.id ? updatedComponent : customComponent,
+      ),
+      masks: prev.masks.map((maskContainer) => {
+        if (maskContainer.id === container.id) {
+          return { ...maskContainer, subMasks: [mergedSubMask] };
+        }
+
+        return {
+          ...maskContainer,
+          subMasks: maskContainer.subMasks.map((subMask) =>
+            subMask.type === Mask.CustomComponent && subMask.parameters?.customComponentId === component.id
+              ? {
+                  ...subMask,
+                  name: updatedComponent.name,
+                  parameters: {
+                    ...subMask.parameters,
+                    subMasks: cloneSubMaskTree(updatedComponent.subMasks),
+                  },
+                }
+              : subMask,
+          ),
+        };
+      }),
+    }));
+
+    onSelectContainer(container.id);
+    onSelectMask(mergedSubMask.id);
     setExpandedContainers((prev) => new Set(prev).add(container.id));
   };
 
@@ -1548,7 +1609,9 @@ export default function MasksPanel() {
                       handleDelete={handleDeleteContainer}
                       handleDuplicate={handleDuplicateContainer}
                       handleDuplicateAndInvert={handleDuplicateAndInvertContainer}
-                      handleConvertToComponent={handleConvertContainerToComponent}
+                      handleConvertToNewComponent={handleConvertContainerToNewComponent}
+                      handleConvertToExistingComponent={handleConvertContainerToExistingComponent}
+                      customMaskComponents={customMaskComponents}
                       handlePasteMask={handlePasteMask}
                       copyMaskToClipboard={copyMaskToClipboard}
                       copiedMask={copiedMask}
@@ -1770,7 +1833,9 @@ function ContainerRow({
   handleDelete,
   handleDuplicate,
   handleDuplicateAndInvert,
-  handleConvertToComponent,
+  handleConvertToNewComponent,
+  handleConvertToExistingComponent,
+  customMaskComponents,
   handlePasteMask,
   copyMaskToClipboard,
   copiedMask,
@@ -1839,6 +1904,24 @@ function ContainerRow({
           return null;
         })
         .filter(Boolean);
+    const convertToComponentSubmenu = [
+      {
+        label: 'New Custom Component',
+        icon: Component,
+        onClick: () => handleConvertToNewComponent(container),
+      },
+      ...(customMaskComponents.length
+        ? [
+            { type: OPTION_SEPARATOR },
+            ...customMaskComponents.map((component: CustomMaskComponent) => ({
+              label: component.name,
+              icon: Component,
+              onClick: () => handleConvertToExistingComponent(container, component),
+            })),
+          ]
+        : []),
+    ];
+
     showContextMenu(e.clientX, e.clientY, [
       {
         label: 'Rename',
@@ -1854,7 +1937,7 @@ function ContainerRow({
         label: 'Convert to Component',
         icon: Component,
         disabled: container.subMasks.length === 0,
-        onClick: () => handleConvertToComponent(container),
+        submenu: convertToComponentSubmenu,
       },
       { label: 'Copy Mask', icon: Copy, onClick: () => copyMaskToClipboard(container) },
       {
