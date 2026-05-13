@@ -143,6 +143,10 @@ export function useImageProcessing(
             if (foundMaskData && !patchesSentToBackend.has(sm.id)) {
               patchesSentToBackend.add(sm.id);
             }
+
+            if (Array.isArray(sm.parameters.subMasks)) {
+              processSubMasks(sm.parameters.subMasks);
+            }
           }
         });
       };
@@ -165,6 +169,8 @@ export function useImageProcessing(
           if (container.subMasks) processSubMasks(container.subMasks);
         });
       }
+
+      delete (payload as any).customMaskComponents;
 
       const jobId = ++previewJobIdRef.current;
       const roi = calculateROI();

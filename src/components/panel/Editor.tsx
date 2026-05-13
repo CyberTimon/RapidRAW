@@ -58,6 +58,20 @@ const checkCropValid = (pixelCrop: Partial<Crop>, imageW: number, imageH: number
   return true;
 };
 
+const cleanSubMasksForOverlayHash = (subMasks: Array<SubMask> = []) =>
+  subMasks.map((sm: any) => {
+    const { parameters, ...rest } = sm;
+    const cleanParams = { ...(parameters || {}) };
+    delete cleanParams.mask_data_base64;
+    delete cleanParams.maskDataBase64;
+
+    if (Array.isArray(cleanParams.subMasks)) {
+      cleanParams.subMasks = cleanSubMasksForOverlayHash(cleanParams.subMasks);
+    }
+
+    return { ...rest, parameters: cleanParams };
+  });
+
 interface WgpuRenderState {
   useWgpuRenderer: boolean | undefined;
   isReady: boolean;
@@ -1266,13 +1280,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
       geometry[k] = (adjustments as any)[k];
     });
 
-    const subMasks = activeMaskDef.subMasks?.map((sm: any) => {
-      const { parameters, ...rest } = sm;
-      const cleanParams = { ...parameters };
-      delete cleanParams.mask_data_base64;
-      delete cleanParams.maskDataBase64;
-      return { ...rest, parameters: cleanParams };
-    });
+    const subMasks = cleanSubMasksForOverlayHash(activeMaskDef.subMasks);
 
     return JSON.stringify({
       id: activeMaskDef.id,

@@ -40,6 +40,10 @@ pub fn hydrate_sub_masks(
                     }
                 }
             }
+
+            if let Some(nested_sub_masks) = params.get_mut("subMasks").and_then(|v| v.as_array_mut()) {
+                hydrate_sub_masks(nested_sub_masks, cache);
+            }
         }
     }
 }

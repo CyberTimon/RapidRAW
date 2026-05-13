@@ -1,6 +1,6 @@
 import { Crop } from 'react-image-crop';
 import { v4 as uuidv4 } from 'uuid';
-import { SubMask, SubMaskMode } from '../components/panel/right/Masks';
+import { Mask, SubMask, SubMaskMode } from '../components/panel/right/Masks';
 
 export enum ActiveChannel {
   Blue = 'blue',
@@ -159,6 +159,7 @@ export interface Adjustments {
   colorGrading: ColorGradingProps;
   colorNoiseReduction: number;
   contrast: number;
+  customMaskComponents: Array<CustomMaskComponent>;
   curves: Curves;
   pointCurves?: Curves;
   parametricCurve?: ParametricCurve;
@@ -239,6 +240,12 @@ export interface AiPatch {
   prompt: string;
   subMasks: Array<SubMask>;
   visible: boolean;
+}
+
+export interface CustomMaskComponent {
+  id: string;
+  name: string;
+  subMasks: Array<SubMask>;
 }
 
 export interface Color {
@@ -483,6 +490,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   colorGrading: { ...INITIAL_COLOR_GRADING },
   colorNoiseReduction: 0,
   contrast: 0,
+  customMaskComponents: [],
   crop: null,
   curves: getDefaultCurves(),
   pointCurves: getDefaultCurves(),
@@ -590,15 +598,33 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     return INITIAL_ADJUSTMENTS;
   }
 
-  const normalizeSubMasks = (subMasks: any[]) => {
-    return (subMasks || []).map((subMask: Partial<SubMask>) => ({
-      visible: true,
-      mode: SubMaskMode.Additive,
-      invert: false,
-      opacity: 100,
-      ...subMask,
-    }));
+  const normalizeSubMasks = (subMasks: any[]): Array<SubMask> => {
+    return (subMasks || []).map((subMask: Partial<SubMask>) => {
+      const normalized = {
+        visible: true,
+        mode: SubMaskMode.Additive,
+        invert: false,
+        opacity: 100,
+        ...subMask,
+      } as SubMask;
+
+      if (normalized.type === Mask.CustomComponent && Array.isArray(normalized.parameters?.subMasks)) {
+        normalized.parameters = {
+          ...normalized.parameters,
+          subMasks: normalizeSubMasks(normalized.parameters.subMasks),
+        };
+      }
+
+      return normalized;
+    });
   };
+
+  const normalizeCustomMaskComponents = (components: any[]): Array<CustomMaskComponent> =>
+    (components || []).map((component: Partial<CustomMaskComponent>) => ({
+      id: component.id || uuidv4(),
+      name: component.name?.trim() || 'Custom Component',
+      subMasks: normalizeSubMasks(component.subMasks || []),
+    }));
 
   const normalizedMasks = (loadedAdjustments.masks || []).map((maskContainer: MaskContainer) => {
     const containerAdjustments = maskContainer.adjustments || {};
@@ -674,6 +700,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     curveMode: loadedAdjustments.curveMode || INITIAL_ADJUSTMENTS.curveMode,
     masks: normalizedMasks,
     aiPatches: normalizedAiPatches,
+    customMaskComponents: normalizeCustomMaskComponents(loadedAdjustments.customMaskComponents),
     sectionVisibility: {
       ...INITIAL_ADJUSTMENTS.sectionVisibility,
       ...(loadedAdjustments.sectionVisibility || {}),

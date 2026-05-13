@@ -3,6 +3,7 @@ import {
   BringToFront,
   Circle,
   Cloud,
+  Component,
   Droplet,
   Droplets,
   Eraser,
@@ -23,6 +24,7 @@ export enum Mask {
   Brush = 'brush',
   Flow = 'flow',
   Color = 'color',
+  CustomComponent = 'custom-component',
   Linear = 'linear',
   Luminance = 'luminance',
   QuickEraser = 'quick-eraser',
@@ -48,7 +50,7 @@ export interface MaskType {
   icon: any;
   id?: string;
   name: string;
-  type: Mask;
+  type: Mask | null;
 }
 
 export interface SubMask {
@@ -68,6 +70,7 @@ export function formatMaskTypeName(type: string) {
   if (type === Mask.AiForeground) return 'Foreground';
   if (type === Mask.AiSky) return 'Sky';
   if (type === Mask.All) return 'Whole Image';
+  if (type === Mask.CustomComponent) return 'Custom Component';
   if (type === Mask.QuickEraser) return 'Quick Eraser';
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
@@ -85,6 +88,7 @@ export const MASK_ICON_MAP: Record<Mask, any> = {
   [Mask.Brush]: Brush,
   [Mask.Flow]: Droplets,
   [Mask.Color]: Droplet,
+  [Mask.CustomComponent]: Component,
   [Mask.Linear]: TriangleRight,
   [Mask.Luminance]: Sparkles,
   [Mask.QuickEraser]: Eraser,

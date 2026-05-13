@@ -59,9 +59,7 @@ pub struct MaskDefinition {
 
 impl MaskDefinition {
     pub fn requires_warped_image(&self) -> bool {
-        self.sub_masks
-            .iter()
-            .any(|sm| sm.mask_type == "color" || sm.mask_type == "luminance")
+        self.sub_masks.iter().any(SubMask::requires_warped_image)
     }
 }
 
@@ -96,6 +94,27 @@ struct GrowFeatherParameters {
     grow: f32,
     #[serde(default)]
     feather: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+struct CustomComponentParameters {
+    #[serde(default)]
+    sub_masks: Vec<SubMask>,
+}
+
+impl SubMask {
+    fn requires_warped_image(&self) -> bool {
+        match self.mask_type.as_str() {
+            "color" | "luminance" => true,
+            "custom-component" => {
+                let params: CustomComponentParameters =
+                    serde_json::from_value(self.parameters.clone()).unwrap_or_default();
+                params.sub_masks.iter().any(SubMask::requires_warped_image)
+            }
+            _ => false,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -1198,6 +1217,31 @@ fn generate_all_bitmap(width: u32, height: u32) -> GrayImage {
     GrayImage::from_pixel(width, height, Luma([255]))
 }
 
+fn generate_custom_component_bitmap(
+    params_value: &Value,
+    width: u32,
+    height: u32,
+    scale: f32,
+    crop_offset: (f32, f32),
+    warped_image: Option<&DynamicImage>,
+) -> Option<GrayImage> {
+    let params: CustomComponentParameters =
+        serde_json::from_value(params_value.clone()).unwrap_or_default();
+
+    if params.sub_masks.is_empty() {
+        return None;
+    }
+
+    Some(compose_sub_masks(
+        &params.sub_masks,
+        width,
+        height,
+        scale,
+        crop_offset,
+        warped_image,
+    ))
+}
+
 fn generate_sub_mask_bitmap(
     sub_mask: &SubMask,
     width: u32,
@@ -1269,25 +1313,29 @@ fn generate_sub_mask_bitmap(
             generate_ai_subject_bitmap(&sub_mask.parameters, width, height, scale, crop_offset)
         }
         "all" => Some(generate_all_bitmap(width, height)),
+        "custom-component" => generate_custom_component_bitmap(
+            &sub_mask.parameters,
+            width,
+            height,
+            scale,
+            crop_offset,
+            warped_image,
+        ),
         _ => None,
     }
 }
 
-pub fn generate_mask_bitmap(
-    mask_def: &MaskDefinition,
+fn compose_sub_masks(
+    sub_masks: &[SubMask],
     width: u32,
     height: u32,
     scale: f32,
     crop_offset: (f32, f32),
     warped_image: Option<&DynamicImage>,
-) -> Option<GrayImage> {
-    if !mask_def.visible || mask_def.sub_masks.is_empty() {
-        return None;
-    }
-
+) -> GrayImage {
     let mut final_mask = GrayImage::new(width, height);
 
-    for sub_mask in &mask_def.sub_masks {
+    for sub_mask in sub_masks {
         if let Some(mut sub_bitmap) =
             generate_sub_mask_bitmap(sub_mask, width, height, scale, crop_offset, warped_image)
         {
@@ -1326,6 +1374,30 @@ pub fn generate_mask_bitmap(
             }
         }
     }
+
+    final_mask
+}
+
+pub fn generate_mask_bitmap(
+    mask_def: &MaskDefinition,
+    width: u32,
+    height: u32,
+    scale: f32,
+    crop_offset: (f32, f32),
+    warped_image: Option<&DynamicImage>,
+) -> Option<GrayImage> {
+    if !mask_def.visible || mask_def.sub_masks.is_empty() {
+        return None;
+    }
+
+    let mut final_mask = compose_sub_masks(
+        &mask_def.sub_masks,
+        width,
+        height,
+        scale,
+        crop_offset,
+        warped_image,
+    );
 
     if mask_def.invert {
         for pixel in final_mask.pixels_mut() {
