@@ -1440,6 +1440,16 @@ export default function MasksPanel() {
         </AnimatePresence>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0 p-4">
+          <div className="mb-8 shrink-0">
+            <ConnectionStatus
+              aiProvider={aiProvider}
+              isAIConnectorConnected={isAIConnectorConnected}
+              isSignedIn={!!isSignedIn}
+              isPro={!!isPro}
+              cloudUsage={cloudUsage}
+            />
+          </div>
+
           <AnimatePresence mode="wait">
             {!adjustments.masks || adjustments.masks.length === 0 ? (
               <motion.div
@@ -1451,17 +1461,6 @@ export default function MasksPanel() {
                 className="z-10 shrink-0"
                 onClick={handleDeselect}
               >
-                {selectedImage && (
-                  <div className="mb-8">
-                    <ConnectionStatus
-                      aiProvider={aiProvider}
-                      isAIConnectorConnected={isAIConnectorConnected}
-                      isSignedIn={!!isSignedIn}
-                      isPro={!!isPro}
-                      cloudUsage={cloudUsage}
-                    />
-                  </div>
-                )}
                 <Text variant={TextVariants.heading} className="mb-2">
                   Create New Mask
                 </Text>
