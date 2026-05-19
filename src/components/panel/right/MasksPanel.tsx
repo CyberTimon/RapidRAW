@@ -280,13 +280,11 @@ const ConnectionStatus = ({
     if (isAIConnectorConnected) {
       statusColor = 'bg-green-500';
       statusText = 'Ready';
-      hoverContent = <Text variant={TextVariants.small}>Connected to local generative backend.</Text>;
+      hoverContent = <Text variant={TextVariants.small}>Connected to local AI mask backend.</Text>;
     } else {
       statusColor = 'bg-red-500';
       statusText = 'Not Detected';
-      hoverContent = (
-        <Text variant={TextVariants.small}>Only simple inpainting available. Start your local backend.</Text>
-      );
+      hoverContent = <Text variant={TextVariants.small}>Only built-in mask generation available. Start your local backend.</Text>;
     }
   } else {
     titleText = 'Built-in AI:';
@@ -294,7 +292,7 @@ const ConnectionStatus = ({
     statusText = 'Ready';
     hoverContent = (
       <Text variant={TextVariants.small}>
-        Using basic local CPU. Select Cloud or AI Connector in settings for generative replace.
+        Using basic local CPU. Select Cloud or AI Connector in settings for AI mask generation.
       </Text>
     );
   }
