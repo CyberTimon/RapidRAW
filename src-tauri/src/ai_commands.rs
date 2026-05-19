@@ -96,11 +96,6 @@ fn transform_subject_box_for_source(
         (new_px, new_py)
     };
 
-    let up1 = unrotate(p1);
-    let up2 = unrotate(p2);
-    let up3 = unrotate(p3);
-    let up4 = unrotate(p4);
-
     let unflip = |p: (f64, f64)| {
         let mut new_px = p.0;
         let mut new_py = p.1;
@@ -113,11 +108,6 @@ fn transform_subject_box_for_source(
         (new_px, new_py)
     };
 
-    let ufp1 = unflip(up1);
-    let ufp2 = unflip(up2);
-    let ufp3 = unflip(up3);
-    let ufp4 = unflip(up4);
-
     let un_coarse_rotate = |p: (f64, f64)| -> (f64, f64) {
         match orientation_steps {
             0 => p,
@@ -128,15 +118,15 @@ fn transform_subject_box_for_source(
         }
     };
 
-    let ucrp1 = un_coarse_rotate(ufp1);
-    let ucrp2 = un_coarse_rotate(ufp2);
-    let ucrp3 = un_coarse_rotate(ufp3);
-    let ucrp4 = un_coarse_rotate(ufp4);
+    let points = [p1, p2, p3, p4]
+        .map(unrotate)
+        .map(unflip)
+        .map(un_coarse_rotate);
 
-    let min_x = ucrp1.0.min(ucrp2.0).min(ucrp3.0).min(ucrp4.0);
-    let min_y = ucrp1.1.min(ucrp2.1).min(ucrp3.1).min(ucrp4.1);
-    let max_x = ucrp1.0.max(ucrp2.0).max(ucrp3.0).max(ucrp4.0);
-    let max_y = ucrp1.1.max(ucrp2.1).max(ucrp3.1).max(ucrp4.1);
+    let min_x = points.iter().map(|p| p.0).fold(f64::INFINITY, f64::min);
+    let min_y = points.iter().map(|p| p.1).fold(f64::INFINITY, f64::min);
+    let max_x = points.iter().map(|p| p.0).fold(f64::NEG_INFINITY, f64::max);
+    let max_y = points.iter().map(|p| p.1).fold(f64::NEG_INFINITY, f64::max);
 
     ((min_x, min_y), (max_x, max_y))
 }
