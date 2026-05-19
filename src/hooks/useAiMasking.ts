@@ -308,6 +308,7 @@ export function useAiMasking() {
       const transformAdjustments = getTransformAdjustments(adjustments);
       const newParameters = await invoke(Invokes.GenerateAiForegroundMask, {
         jsAdjustments: transformAdjustments,
+        path: selectedImage.path,
         flipHorizontal: adjustments.flipHorizontal,
         flipVertical: adjustments.flipVertical,
         orientationSteps: adjustments.orientationSteps,
@@ -336,6 +337,7 @@ export function useAiMasking() {
       const transformAdjustments = getTransformAdjustments(adjustments);
       const newParameters = await invoke(Invokes.GenerateAiSkyMask, {
         jsAdjustments: transformAdjustments,
+        path: selectedImage.path,
         flipHorizontal: adjustments.flipHorizontal,
         flipVertical: adjustments.flipVertical,
         orientationSteps: adjustments.orientationSteps,

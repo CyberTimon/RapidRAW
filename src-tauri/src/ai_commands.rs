@@ -34,9 +34,117 @@ fn encode_to_base64_png(image: &GrayImage) -> Result<String, String> {
     Ok(format!("data:image/png;base64,{}", base64_str))
 }
 
+fn geometry_cache_key(path: &str, js_adjustments: &Value) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(path.as_bytes());
+    let mut geo_hasher = DefaultHasher::new();
+    for key in GEOMETRY_KEYS {
+        if let Some(val) = js_adjustments.get(key) {
+            key.hash(&mut geo_hasher);
+            val.to_string().hash(&mut geo_hasher);
+        }
+    }
+    hasher.update(&geo_hasher.finish().to_le_bytes());
+    hasher.finalize().to_hex().to_string()
+}
+
+async fn connector_address(app_handle: &tauri::AppHandle) -> Option<String> {
+    let settings = load_settings(app_handle.clone()).ok()?;
+    if settings.ai_provider.as_deref() != Some("ai-connector") {
+        return None;
+    }
+    let address = settings.ai_connector_address?;
+    if ai_connector::check_status(&address).await.unwrap_or(false) {
+        Some(address)
+    } else {
+        None
+    }
+}
+
+fn transform_subject_box_for_source(
+    start_point: (f64, f64),
+    end_point: (f64, f64),
+    rotation: f32,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+    orientation_steps: u8,
+    img_w: u32,
+    img_h: u32,
+) -> ((f64, f64), (f64, f64)) {
+    let (coarse_rotated_w, coarse_rotated_h) = if orientation_steps % 2 == 1 {
+        (img_h as f64, img_w as f64)
+    } else {
+        (img_w as f64, img_h as f64)
+    };
+
+    let center = (coarse_rotated_w / 2.0, coarse_rotated_h / 2.0);
+
+    let p1 = start_point;
+    let p2 = (start_point.0, end_point.1);
+    let p3 = end_point;
+    let p4 = (end_point.0, start_point.1);
+
+    let angle_rad = (rotation as f64).to_radians();
+    let cos_a = angle_rad.cos();
+    let sin_a = angle_rad.sin();
+
+    let unrotate = |p: (f64, f64)| {
+        let px = p.0 - center.0;
+        let py = p.1 - center.1;
+        let new_px = px * cos_a + py * sin_a + center.0;
+        let new_py = -px * sin_a + py * cos_a + center.1;
+        (new_px, new_py)
+    };
+
+    let up1 = unrotate(p1);
+    let up2 = unrotate(p2);
+    let up3 = unrotate(p3);
+    let up4 = unrotate(p4);
+
+    let unflip = |p: (f64, f64)| {
+        let mut new_px = p.0;
+        let mut new_py = p.1;
+        if flip_horizontal {
+            new_px = coarse_rotated_w - p.0;
+        }
+        if flip_vertical {
+            new_py = coarse_rotated_h - p.1;
+        }
+        (new_px, new_py)
+    };
+
+    let ufp1 = unflip(up1);
+    let ufp2 = unflip(up2);
+    let ufp3 = unflip(up3);
+    let ufp4 = unflip(up4);
+
+    let un_coarse_rotate = |p: (f64, f64)| -> (f64, f64) {
+        match orientation_steps {
+            0 => p,
+            1 => (p.1, img_h as f64 - p.0),
+            2 => (img_w as f64 - p.0, img_h as f64 - p.1),
+            3 => (img_w as f64 - p.1, p.0),
+            _ => p,
+        }
+    };
+
+    let ucrp1 = un_coarse_rotate(ufp1);
+    let ucrp2 = un_coarse_rotate(ufp2);
+    let ucrp3 = un_coarse_rotate(ufp3);
+    let ucrp4 = un_coarse_rotate(ufp4);
+
+    let min_x = ucrp1.0.min(ucrp2.0).min(ucrp3.0).min(ucrp4.0);
+    let min_y = ucrp1.1.min(ucrp2.1).min(ucrp3.1).min(ucrp4.1);
+    let max_x = ucrp1.0.max(ucrp2.0).max(ucrp3.0).max(ucrp4.0);
+    let max_y = ucrp1.1.max(ucrp2.1).max(ucrp3.1).max(ucrp4.1);
+
+    ((min_x, min_y), (max_x, max_y))
+}
+
 #[tauri::command]
 pub async fn generate_ai_foreground_mask(
     js_adjustments: serde_json::Value,
+    path: String,
     rotation: f32,
     flip_horizontal: bool,
     flip_vertical: bool,
@@ -44,6 +152,31 @@ pub async fn generate_ai_foreground_mask(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<AiForegroundMaskParameters, String> {
+    if let Some(address) = connector_address(&app_handle).await {
+        let cache_key = geometry_cache_key(&path, &js_adjustments);
+        let source_id = ai_connector::generate_source_id_from_key(&path, &cache_key);
+        let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+        let full_mask_image = ai_connector::process_mask(
+            &address,
+            source_id,
+            warped_image.as_ref(),
+            "foreground".to_string(),
+            None,
+            Some("foreground".to_string()),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+        let base64_data = encode_to_base64_png(&full_mask_image)?;
+
+        return Ok(AiForegroundMaskParameters {
+            mask_data_base64: Some(base64_data),
+            rotation: Some(rotation),
+            flip_horizontal: Some(flip_horizontal),
+            flip_vertical: Some(flip_vertical),
+            orientation_steps: Some(orientation_steps),
+        });
+    }
+
     let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
         .await
         .map_err(|e| e.to_string())?;
@@ -66,6 +199,7 @@ pub async fn generate_ai_foreground_mask(
 #[tauri::command]
 pub async fn generate_ai_sky_mask(
     js_adjustments: serde_json::Value,
+    path: String,
     rotation: f32,
     flip_horizontal: bool,
     flip_vertical: bool,
@@ -73,6 +207,31 @@ pub async fn generate_ai_sky_mask(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<AiSkyMaskParameters, String> {
+    if let Some(address) = connector_address(&app_handle).await {
+        let cache_key = geometry_cache_key(&path, &js_adjustments);
+        let source_id = ai_connector::generate_source_id_from_key(&path, &cache_key);
+        let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+        let full_mask_image = ai_connector::process_mask(
+            &address,
+            source_id,
+            warped_image.as_ref(),
+            "sky".to_string(),
+            None,
+            Some("sky".to_string()),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+        let base64_data = encode_to_base64_png(&full_mask_image)?;
+
+        return Ok(AiSkyMaskParameters {
+            mask_data_base64: Some(base64_data),
+            rotation: Some(rotation),
+            flip_horizontal: Some(flip_horizontal),
+            flip_vertical: Some(flip_vertical),
+            orientation_steps: Some(orientation_steps),
+        });
+    }
+
     let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
         .await
         .map_err(|e| e.to_string())?;
@@ -109,23 +268,41 @@ pub async fn generate_ai_depth_mask(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<AiDepthMaskParameters, String> {
+    if let Some(address) = connector_address(&app_handle).await {
+        let cache_key = geometry_cache_key(&path, &js_adjustments);
+        let source_id = ai_connector::generate_source_id_from_key(&path, &cache_key);
+        let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+        let full_mask_image = ai_connector::process_mask(
+            &address,
+            source_id,
+            warped_image.as_ref(),
+            "depth".to_string(),
+            None,
+            Some("depth".to_string()),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+        let base64_data = encode_to_base64_png(&full_mask_image)?;
+
+        return Ok(AiDepthMaskParameters {
+            min_depth,
+            max_depth,
+            min_fade,
+            max_fade,
+            feather,
+            mask_data_base64: Some(base64_data),
+            rotation: Some(rotation),
+            flip_horizontal: Some(flip_horizontal),
+            flip_vertical: Some(flip_vertical),
+            orientation_steps: Some(orientation_steps),
+        });
+    }
+
     let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
         .await
         .map_err(|e| e.to_string())?;
 
-    let path_hash = {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(path.as_bytes());
-        let mut geo_hasher = DefaultHasher::new();
-        for key in GEOMETRY_KEYS {
-            if let Some(val) = js_adjustments.get(key) {
-                key.hash(&mut geo_hasher);
-                val.to_string().hash(&mut geo_hasher);
-            }
-        }
-        hasher.update(&geo_hasher.finish().to_le_bytes());
-        hasher.finalize().to_hex().to_string()
-    };
+    let path_hash = geometry_cache_key(&path, &js_adjustments);
 
     let cached_depth = {
         let mut ai_state_lock = state.ai_state.lock().unwrap();
@@ -198,23 +375,57 @@ pub async fn generate_ai_subject_mask(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<AiSubjectMaskParameters, String> {
+    if let Some(address) = connector_address(&app_handle).await {
+        let cache_key = geometry_cache_key(&path, &js_adjustments);
+        let source_id = ai_connector::generate_source_id_from_key(&path, &cache_key);
+        let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+        let (img_w, img_h) = warped_image.dimensions();
+        let (unrotated_start_point, unrotated_end_point) = transform_subject_box_for_source(
+            start_point,
+            end_point,
+            rotation,
+            flip_horizontal,
+            flip_vertical,
+            orientation_steps,
+            img_w,
+            img_h,
+        );
+        let box_points = vec![
+            unrotated_start_point.0,
+            unrotated_start_point.1,
+            unrotated_end_point.0,
+            unrotated_end_point.1,
+        ];
+        let mask_bitmap = ai_connector::process_mask(
+            &address,
+            source_id,
+            warped_image.as_ref(),
+            "subject".to_string(),
+            Some(box_points),
+            Some("subject".to_string()),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+        let base64_data = encode_to_base64_png(&mask_bitmap)?;
+
+        return Ok(AiSubjectMaskParameters {
+            start_x: start_point.0,
+            start_y: start_point.1,
+            end_x: end_point.0,
+            end_y: end_point.1,
+            mask_data_base64: Some(base64_data),
+            rotation: Some(rotation),
+            flip_horizontal: Some(flip_horizontal),
+            flip_vertical: Some(flip_vertical),
+            orientation_steps: Some(orientation_steps),
+        });
+    }
+
     let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
         .await
         .map_err(|e| e.to_string())?;
 
-    let path_hash = {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(path.as_bytes());
-        let mut geo_hasher = DefaultHasher::new();
-        for key in GEOMETRY_KEYS {
-            if let Some(val) = js_adjustments.get(key) {
-                key.hash(&mut geo_hasher);
-                val.to_string().hash(&mut geo_hasher);
-            }
-        }
-        hasher.update(&geo_hasher.finish().to_le_bytes());
-        hasher.finalize().to_hex().to_string()
-    };
+    let path_hash = geometry_cache_key(&path, &js_adjustments);
 
     let embeddings = {
         let mut ai_state_lock = state.ai_state.lock().unwrap();
@@ -245,75 +456,16 @@ pub async fn generate_ai_subject_mask(
 
     let (img_w, img_h) = embeddings.original_size;
 
-    let (coarse_rotated_w, coarse_rotated_h) = if orientation_steps % 2 == 1 {
-        (img_h as f64, img_w as f64)
-    } else {
-        (img_w as f64, img_h as f64)
-    };
-
-    let center = (coarse_rotated_w / 2.0, coarse_rotated_h / 2.0);
-
-    let p1 = start_point;
-    let p2 = (start_point.0, end_point.1);
-    let p3 = end_point;
-    let p4 = (end_point.0, start_point.1);
-
-    let angle_rad = (rotation as f64).to_radians();
-    let cos_a = angle_rad.cos();
-    let sin_a = angle_rad.sin();
-
-    let unrotate = |p: (f64, f64)| {
-        let px = p.0 - center.0;
-        let py = p.1 - center.1;
-        let new_px = px * cos_a + py * sin_a + center.0;
-        let new_py = -px * sin_a + py * cos_a + center.1;
-        (new_px, new_py)
-    };
-
-    let up1 = unrotate(p1);
-    let up2 = unrotate(p2);
-    let up3 = unrotate(p3);
-    let up4 = unrotate(p4);
-
-    let unflip = |p: (f64, f64)| {
-        let mut new_px = p.0;
-        let mut new_py = p.1;
-        if flip_horizontal {
-            new_px = coarse_rotated_w - p.0;
-        }
-        if flip_vertical {
-            new_py = coarse_rotated_h - p.1;
-        }
-        (new_px, new_py)
-    };
-
-    let ufp1 = unflip(up1);
-    let ufp2 = unflip(up2);
-    let ufp3 = unflip(up3);
-    let ufp4 = unflip(up4);
-
-    let un_coarse_rotate = |p: (f64, f64)| -> (f64, f64) {
-        match orientation_steps {
-            0 => p,
-            1 => (p.1, img_h as f64 - p.0),
-            2 => (img_w as f64 - p.0, img_h as f64 - p.1),
-            3 => (img_w as f64 - p.1, p.0),
-            _ => p,
-        }
-    };
-
-    let ucrp1 = un_coarse_rotate(ufp1);
-    let ucrp2 = un_coarse_rotate(ufp2);
-    let ucrp3 = un_coarse_rotate(ufp3);
-    let ucrp4 = un_coarse_rotate(ufp4);
-
-    let min_x = ucrp1.0.min(ucrp2.0).min(ucrp3.0).min(ucrp4.0);
-    let min_y = ucrp1.1.min(ucrp2.1).min(ucrp3.1).min(ucrp4.1);
-    let max_x = ucrp1.0.max(ucrp2.0).max(ucrp3.0).max(ucrp4.0);
-    let max_y = ucrp1.1.max(ucrp2.1).max(ucrp3.1).max(ucrp4.1);
-
-    let unrotated_start_point = (min_x, min_y);
-    let unrotated_end_point = (max_x, max_y);
+    let (unrotated_start_point, unrotated_end_point) = transform_subject_box_for_source(
+        start_point,
+        end_point,
+        rotation,
+        flip_horizontal,
+        flip_vertical,
+        orientation_steps,
+        img_w,
+        img_h,
+    );
 
     let mask_bitmap = run_sam_decoder(
         &models.sam_decoder,
@@ -344,23 +496,15 @@ pub async fn precompute_ai_subject_mask(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    if connector_address(&app_handle).await.is_some() {
+        return Ok(());
+    }
+
     let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
         .await
         .map_err(|e| e.to_string())?;
 
-    let path_hash = {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(path.as_bytes());
-        let mut geo_hasher = DefaultHasher::new();
-        for key in GEOMETRY_KEYS {
-            if let Some(val) = js_adjustments.get(key) {
-                key.hash(&mut geo_hasher);
-                val.to_string().hash(&mut geo_hasher);
-            }
-        }
-        hasher.update(&geo_hasher.finish().to_le_bytes());
-        hasher.finalize().to_hex().to_string()
-    };
+    let path_hash = geometry_cache_key(&path, &js_adjustments);
 
     let mut ai_state_lock = state.ai_state.lock().unwrap();
     let ai_state = ai_state_lock.as_mut().unwrap();
@@ -499,8 +643,6 @@ pub async fn invoke_generative_replace_with_mask_def(
     } else if settings.ai_provider.as_deref() == Some("ai-connector")
         && let Some(address) = settings.ai_connector_address
     {
-        let base_url = format!("http://{}", address);
-
         let mut rgba_mask = RgbaImage::new(img_w, img_h);
         for (x, y, luma_pixel) in mask_bitmap.enumerate_pixels() {
             let intensity = luma_pixel[0];
@@ -511,7 +653,7 @@ pub async fn invoke_generative_replace_with_mask_def(
         let (real_path_buf, _) = crate::file_management::parse_virtual_path(&path);
 
         ai_connector::process_inpainting(
-            &base_url,
+            &address,
             &real_path_buf.to_string_lossy(),
             &source_image,
             &mask_image_dynamic,
