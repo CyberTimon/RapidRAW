@@ -10,6 +10,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { v4 as uuidv4 } from 'uuid';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useUser, useAuth } from '@clerk/react';
 import {
   DndContext,
   DragOverlay,
@@ -216,6 +217,120 @@ const FlowBrushTool = ({
     <BrushTools settings={settings} onSettingsChange={onSettingsChange} onDragStateChange={onDragStateChange} />
   </div>
 );
+
+interface ConnectionStatusProps {
+  aiProvider: string;
+  isAIConnectorConnected: boolean;
+  isSignedIn: boolean;
+  isPro: boolean;
+  cloudUsage: { requests: number; limit: number; month: string } | null;
+}
+
+const ConnectionStatus = ({
+  aiProvider,
+  isAIConnectorConnected,
+  isSignedIn,
+  isPro,
+  cloudUsage,
+}: ConnectionStatusProps) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  let statusColor = 'bg-green-500';
+  let statusText = 'Ready';
+  let titleText = 'AI Backend:';
+  let hoverContent: React.ReactNode = null;
+
+  if (aiProvider === 'cloud') {
+    titleText = 'Cloud AI:';
+    if (isSignedIn && isPro) {
+      statusColor = 'bg-green-500';
+      statusText = 'Ready';
+
+      const reqs = cloudUsage?.requests ?? 0;
+      const limit = cloudUsage?.limit ?? 500;
+      const percent = Math.min(100, (reqs / limit) * 100);
+
+      hoverContent = (
+        <div className="w-full mt-1">
+          <div className="flex justify-between items-center mb-1.5">
+            <Text variant={TextVariants.small}>Monthly Usage</Text>
+            <Text variant={TextVariants.small}>
+              {reqs} / {limit}
+            </Text>
+          </div>
+          <div className="w-full bg-bg-tertiary rounded-full h-1.5 border border-border-color">
+            <div
+              className="bg-accent h-1.5 rounded-full transition-all duration-500"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        </div>
+      );
+    } else if (isSignedIn && !isPro) {
+      statusColor = 'bg-red-500';
+      statusText = 'Upgrade Required';
+      hoverContent = <Text variant={TextVariants.small}>Pro subscription required. Upgrade in Settings.</Text>;
+    } else {
+      statusColor = 'bg-red-500';
+      statusText = 'Not Logged In';
+      hoverContent = <Text variant={TextVariants.small}>Log in via Settings to use Cloud AI.</Text>;
+    }
+  } else if (aiProvider === 'ai-connector') {
+    titleText = 'AI Connector:';
+    if (isAIConnectorConnected) {
+      statusColor = 'bg-green-500';
+      statusText = 'Ready';
+      hoverContent = <Text variant={TextVariants.small}>Connected to local generative backend.</Text>;
+    } else {
+      statusColor = 'bg-red-500';
+      statusText = 'Not Detected';
+      hoverContent = (
+        <Text variant={TextVariants.small}>Only simple inpainting available. Start your local backend.</Text>
+      );
+    }
+  } else {
+    titleText = 'Built-in AI:';
+    statusColor = 'bg-green-500';
+    statusText = 'Ready';
+    hoverContent = (
+      <Text variant={TextVariants.small}>
+        Using basic local CPU. Select Cloud or AI Connector in settings for generative replace.
+      </Text>
+    );
+  }
+
+  return (
+    <div
+      className="bg-surface rounded-lg"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className={`flex items-center gap-2 px-4 ${hoverContent ? 'pt-2' : 'py-2'}`}>
+        <div className={`w-2.5 h-2.5 rounded-full ${statusColor}`} />
+        <Text variant={TextVariants.label}>{titleText}</Text>
+        <Text
+          variant={TextVariants.label}
+          weight={TextWeights.bold}
+          className={statusColor === 'bg-green-500' ? 'text-green-500' : 'text-red-500'}
+        >
+          {statusText}
+        </Text>
+      </div>
+      {hoverContent && (
+        <div className="px-4 pb-3">
+          <motion.div
+            animate={{ height: isHovered ? 'auto' : 0, opacity: isHovered ? 1 : 0, marginTop: isHovered ? '2px' : 0 }}
+            className="overflow-hidden"
+            initial={{ height: 0, opacity: 0, marginTop: 0 }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+          >
+            {hoverContent}
+          </motion.div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 function DepthRangePicker({
   minDepth,
@@ -568,6 +683,7 @@ export default function MasksPanel() {
     brushSettings,
     copiedMask,
     histogram,
+    isAIConnectorConnected,
     isGeneratingAiMask,
     selectedImage,
     isWaveformVisible,
@@ -583,6 +699,7 @@ export default function MasksPanel() {
       brushSettings: state.brushSettings,
       copiedMask: state.copiedMask,
       histogram: state.histogram,
+      isAIConnectorConnected: state.isAIConnectorConnected,
       isGeneratingAiMask: state.isGeneratingAiMask,
       selectedImage: state.selectedImage,
       isWaveformVisible: state.isWaveformVisible,
@@ -595,6 +712,33 @@ export default function MasksPanel() {
 
   const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, setWaveformHeight, handleWaveformResize } =
     useWaveformControls();
+  const aiProvider = appSettings?.aiProvider || 'cpu';
+  const { user, isSignedIn } = useUser();
+  const { getToken } = useAuth();
+  const isPro = user?.publicMetadata?.plan === 'pro';
+  const [cloudUsage, setCloudUsage] = useState<{ requests: number; limit: number; month: string } | null>(null);
+
+  useEffect(() => {
+    if (aiProvider !== 'cloud' || !isSignedIn || !isPro) return;
+
+    const fetchUsage = async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+
+        const res = await fetch('https://getrapidraw.com/api/usage', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          setCloudUsage(await res.json());
+        }
+      } catch (e) {
+        console.error('Failed to fetch cloud usage', e);
+      }
+    };
+
+    fetchUsage();
+  }, [aiProvider, isSignedIn, isPro, getToken]);
 
   const setBrushSettings = useCallback(
     (updater: any) => {
@@ -1307,6 +1451,17 @@ export default function MasksPanel() {
                 className="z-10 shrink-0"
                 onClick={handleDeselect}
               >
+                {selectedImage && (
+                  <div className="mb-8">
+                    <ConnectionStatus
+                      aiProvider={aiProvider}
+                      isAIConnectorConnected={isAIConnectorConnected}
+                      isSignedIn={!!isSignedIn}
+                      isPro={!!isPro}
+                      cloudUsage={cloudUsage}
+                    />
+                  </div>
+                )}
                 <Text variant={TextVariants.heading} className="mb-2">
                   Create New Mask
                 </Text>
