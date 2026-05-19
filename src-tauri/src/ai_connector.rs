@@ -230,15 +230,19 @@ pub async fn process_mask(
 
         let retry_res = client.post(&url).json(&payload).send().await?;
         if !retry_res.status().is_success() {
+            let status = retry_res.status();
             return Err(anyhow!(
-                "AI mask generation failed after upload: {}",
+                "AI mask generation failed after upload with status {}: {}",
+                status,
                 retry_res.text().await?
             ));
         }
         retry_res.json().await?
     } else if !response.status().is_success() {
+        let status = response.status();
         return Err(anyhow!(
-            "AI mask generation failed: {}",
+            "AI mask generation failed with status {}: {}",
+            status,
             response.text().await?
         ));
     } else {

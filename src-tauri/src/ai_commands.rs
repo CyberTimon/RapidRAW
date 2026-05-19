@@ -61,6 +61,13 @@ async fn connector_address(app_handle: &tauri::AppHandle) -> Option<String> {
     }
 }
 
+fn is_missing_remote_mask_workflow_error(error: &anyhow::Error) -> bool {
+    let message = error.to_string();
+    message.contains("status 501")
+        || message.contains("No workflow configured")
+        || message.contains("Mask workflow JSON file is missing")
+}
+
 fn transform_subject_box_for_source(
     start_point: (f64, f64),
     end_point: (f64, f64),
@@ -146,7 +153,7 @@ pub async fn generate_ai_foreground_mask(
         let cache_key = geometry_cache_key(&path, &js_adjustments);
         let source_id = ai_connector::generate_source_id_from_key(&path, &cache_key);
         let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
-        let full_mask_image = ai_connector::process_mask(
+        match ai_connector::process_mask(
             &address,
             source_id,
             warped_image.as_ref(),
@@ -155,16 +162,21 @@ pub async fn generate_ai_foreground_mask(
             Some("foreground".to_string()),
         )
         .await
-        .map_err(|e| e.to_string())?;
-        let base64_data = encode_to_base64_png(&full_mask_image)?;
+        {
+            Ok(full_mask_image) => {
+                let base64_data = encode_to_base64_png(&full_mask_image)?;
 
-        return Ok(AiForegroundMaskParameters {
-            mask_data_base64: Some(base64_data),
-            rotation: Some(rotation),
-            flip_horizontal: Some(flip_horizontal),
-            flip_vertical: Some(flip_vertical),
-            orientation_steps: Some(orientation_steps),
-        });
+                return Ok(AiForegroundMaskParameters {
+                    mask_data_base64: Some(base64_data),
+                    rotation: Some(rotation),
+                    flip_horizontal: Some(flip_horizontal),
+                    flip_vertical: Some(flip_vertical),
+                    orientation_steps: Some(orientation_steps),
+                });
+            }
+            Err(e) if is_missing_remote_mask_workflow_error(&e) => {}
+            Err(e) => return Err(e.to_string()),
+        }
     }
 
     let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
@@ -201,7 +213,7 @@ pub async fn generate_ai_sky_mask(
         let cache_key = geometry_cache_key(&path, &js_adjustments);
         let source_id = ai_connector::generate_source_id_from_key(&path, &cache_key);
         let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
-        let full_mask_image = ai_connector::process_mask(
+        match ai_connector::process_mask(
             &address,
             source_id,
             warped_image.as_ref(),
@@ -210,16 +222,21 @@ pub async fn generate_ai_sky_mask(
             Some("sky".to_string()),
         )
         .await
-        .map_err(|e| e.to_string())?;
-        let base64_data = encode_to_base64_png(&full_mask_image)?;
+        {
+            Ok(full_mask_image) => {
+                let base64_data = encode_to_base64_png(&full_mask_image)?;
 
-        return Ok(AiSkyMaskParameters {
-            mask_data_base64: Some(base64_data),
-            rotation: Some(rotation),
-            flip_horizontal: Some(flip_horizontal),
-            flip_vertical: Some(flip_vertical),
-            orientation_steps: Some(orientation_steps),
-        });
+                return Ok(AiSkyMaskParameters {
+                    mask_data_base64: Some(base64_data),
+                    rotation: Some(rotation),
+                    flip_horizontal: Some(flip_horizontal),
+                    flip_vertical: Some(flip_vertical),
+                    orientation_steps: Some(orientation_steps),
+                });
+            }
+            Err(e) if is_missing_remote_mask_workflow_error(&e) => {}
+            Err(e) => return Err(e.to_string()),
+        }
     }
 
     let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
@@ -262,7 +279,7 @@ pub async fn generate_ai_depth_mask(
         let cache_key = geometry_cache_key(&path, &js_adjustments);
         let source_id = ai_connector::generate_source_id_from_key(&path, &cache_key);
         let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
-        let full_mask_image = ai_connector::process_mask(
+        match ai_connector::process_mask(
             &address,
             source_id,
             warped_image.as_ref(),
@@ -271,21 +288,26 @@ pub async fn generate_ai_depth_mask(
             Some("depth".to_string()),
         )
         .await
-        .map_err(|e| e.to_string())?;
-        let base64_data = encode_to_base64_png(&full_mask_image)?;
+        {
+            Ok(full_mask_image) => {
+                let base64_data = encode_to_base64_png(&full_mask_image)?;
 
-        return Ok(AiDepthMaskParameters {
-            min_depth,
-            max_depth,
-            min_fade,
-            max_fade,
-            feather,
-            mask_data_base64: Some(base64_data),
-            rotation: Some(rotation),
-            flip_horizontal: Some(flip_horizontal),
-            flip_vertical: Some(flip_vertical),
-            orientation_steps: Some(orientation_steps),
-        });
+                return Ok(AiDepthMaskParameters {
+                    min_depth,
+                    max_depth,
+                    min_fade,
+                    max_fade,
+                    feather,
+                    mask_data_base64: Some(base64_data),
+                    rotation: Some(rotation),
+                    flip_horizontal: Some(flip_horizontal),
+                    flip_vertical: Some(flip_vertical),
+                    orientation_steps: Some(orientation_steps),
+                });
+            }
+            Err(e) if is_missing_remote_mask_workflow_error(&e) => {}
+            Err(e) => return Err(e.to_string()),
+        }
     }
 
     let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
@@ -386,7 +408,7 @@ pub async fn generate_ai_subject_mask(
             unrotated_end_point.0,
             unrotated_end_point.1,
         ];
-        let mask_bitmap = ai_connector::process_mask(
+        match ai_connector::process_mask(
             &address,
             source_id,
             warped_image.as_ref(),
@@ -395,20 +417,25 @@ pub async fn generate_ai_subject_mask(
             Some("subject".to_string()),
         )
         .await
-        .map_err(|e| e.to_string())?;
-        let base64_data = encode_to_base64_png(&mask_bitmap)?;
+        {
+            Ok(mask_bitmap) => {
+                let base64_data = encode_to_base64_png(&mask_bitmap)?;
 
-        return Ok(AiSubjectMaskParameters {
-            start_x: start_point.0,
-            start_y: start_point.1,
-            end_x: end_point.0,
-            end_y: end_point.1,
-            mask_data_base64: Some(base64_data),
-            rotation: Some(rotation),
-            flip_horizontal: Some(flip_horizontal),
-            flip_vertical: Some(flip_vertical),
-            orientation_steps: Some(orientation_steps),
-        });
+                return Ok(AiSubjectMaskParameters {
+                    start_x: start_point.0,
+                    start_y: start_point.1,
+                    end_x: end_point.0,
+                    end_y: end_point.1,
+                    mask_data_base64: Some(base64_data),
+                    rotation: Some(rotation),
+                    flip_horizontal: Some(flip_horizontal),
+                    flip_vertical: Some(flip_vertical),
+                    orientation_steps: Some(orientation_steps),
+                });
+            }
+            Err(e) if is_missing_remote_mask_workflow_error(&e) => {}
+            Err(e) => return Err(e.to_string()),
+        }
     }
 
     let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
