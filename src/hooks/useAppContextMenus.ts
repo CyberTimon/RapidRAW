@@ -922,6 +922,11 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               toast.error(`Could not show folder: ${err}`),
             ),
         },
+        {
+          icon: RefreshCw,
+          label: 'Refresh Folders',
+          onClick: () => props.refreshAllFolderTrees(),
+        },
         ...(path
           ? [
               {

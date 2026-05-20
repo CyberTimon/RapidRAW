@@ -503,7 +503,7 @@ export default function LibraryGrid(props: any) {
           />
         )}
         <div
-          key={`${gridSize.width}-${thumbnailSize}-${libraryViewMode}-${sortCriteria.key}-${sortCriteria.order}`}
+          key={`${gridSize.width}-${thumbnailSize}-${libraryViewMode}-${sortCriteria.key}-${sortCriteria.order}-${thumbnailAspectRatio}`}
           style={{ height: gridData.isListView ? gridSize.height - 36 : gridSize.height, width: gridSize.width }}
         >
           <List

@@ -75,7 +75,8 @@ export function computeSortedLibrary(libraryState: any, settingsState: any): Ima
       filterCriteria.rawStatus !== RawStatus.RawOverNonRaw &&
       supportedTypes
     ) {
-      const extension = image.path.split('.').pop()?.toLowerCase() || '';
+      const pathWithoutVC = image.path.split('?vc=')[0];
+      const extension = pathWithoutVC.split('.').pop()?.toLowerCase() || '';
       const isRaw = supportedTypes.raw?.includes(extension);
 
       if (filterCriteria.rawStatus === RawStatus.RawOnly && !isRaw) {
