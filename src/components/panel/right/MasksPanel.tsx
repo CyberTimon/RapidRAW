@@ -280,11 +280,13 @@ const ConnectionStatus = ({
     if (isAIConnectorConnected) {
       statusColor = 'bg-green-500';
       statusText = 'Ready';
-      hoverContent = <Text variant={TextVariants.small}>Connected to local AI mask backend.</Text>;
+      hoverContent = <Text variant={TextVariants.small}>Connected to AI Connector mask backend.</Text>;
     } else {
       statusColor = 'bg-red-500';
       statusText = 'Not Detected';
-      hoverContent = <Text variant={TextVariants.small}>Only built-in mask generation available. Start your local backend.</Text>;
+      hoverContent = (
+        <Text variant={TextVariants.small}>Only built-in mask generation available. Start or check your AI Connector.</Text>
+      );
     }
   } else {
     titleText = 'Built-in AI:';

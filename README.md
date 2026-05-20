@@ -406,7 +406,7 @@ While the core functionality is in place, I'm actively working on improving seve
 
 ## AI Roadmap
 
-I've designed RapidRAW's AI features with flexibility in mind. You have three ways to use them, giving you the choice between fast local tools, powerful self-hosting, and simple cloud convenience.
+I've designed RapidRAW's AI features with flexibility in mind. You have three ways to use them, giving you the choice between fast built-in tools, powerful self-hosting, and simple cloud convenience.
 
 ### 1. Built-in AI Tools (Local & Free)
 
@@ -416,9 +416,9 @@ These features are integrated directly into RapidRAW and run entirely on your co
 - **Automatic Tagging:** The image library is automatically tagged with keywords using a local CLIP model, making your photos easy to search.
 - **Simple Generative Replace:** A basic, CPU-based inpainting tool for removing small distractions.
 
-### 2. Self-Hosted Integration with ComfyUI (Local & Free)
+### 2. Self-Hosted Integration with ComfyUI (Free)
 
-For users with a capable GPU who want maximum control, RapidRAW can connect to your own local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server. This is managed by the [**RapidRAW-AI-Connector**](https://github.com/CyberTimon/RapidRAW-AI-Connector), a lightweight middleware that bridges RapidRAW and ComfyUI. Its purpose is to manage image caching, workflow injection, and AI coordination.
+For users with access to capable GPU hardware who want maximum control, RapidRAW can connect to your own [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server. This is managed by the [**RapidRAW-AI-Connector**](https://github.com/CyberTimon/RapidRAW-AI-Connector), a lightweight middleware that bridges RapidRAW and ComfyUI. Its purpose is to manage image caching, workflow injection, and AI coordination.
 
 **Why this approach?** This new architecture makes generative edits much more efficient. Instead of sending the entire high-resolution image for every single change, the AI Connector intelligently caches it. The full image is sent only once; for every subsequent edit, only the tiny mask and text are transferred. This makes the process significantly faster and more responsive.
 
@@ -449,7 +449,7 @@ This is purely a **convenience service**. It provides the **same high-quality re
 <p align="center">
   <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/ai.gif" alt="Experimental generative AI features" style="max-width: 100%;">
   <br>
-  <em>Generative Replace, which can be powered by either a local ComfyUI backend or the upcoming optional cloud service.</em>
+  <em>Generative Replace, which can be powered by either an AI Connector / ComfyUI backend or the upcoming optional cloud service.</em>
 </p>
 </details>
 

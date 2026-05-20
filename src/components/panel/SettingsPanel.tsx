@@ -2015,7 +2015,7 @@ export default function SettingsPanel({
                     Generative AI
                   </Text>
                   <Text className="mb-4">
-                    RapidRAW's AI is built for flexibility. Choose your ideal workflow, from fast local tools to
+                    RapidRAW's AI is built for flexibility. Choose your ideal workflow, from fast built-in tools to
                     powerful self-hosting.
                   </Text>
 
@@ -2056,8 +2056,8 @@ export default function SettingsPanel({
                             <div>
                               <Text variant={TextVariants.heading}>Self-Hosted (RapidRAW AI Connector)</Text>
                               <Text className="mt-1">
-                                For users with a capable GPU who want maximum control, connect RapidRAW to your own
-                                Connector server. This gives you full control for technical workflows.
+                                For users with access to capable GPU hardware who want maximum control, connect RapidRAW
+                                to your own Connector server. This gives you full control for technical workflows.
                               </Text>
                               <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
                                 <li>Use your own ComfyUI instance</li>

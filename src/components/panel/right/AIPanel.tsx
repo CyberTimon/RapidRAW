@@ -223,12 +223,12 @@ const ConnectionStatus = ({
     if (isAIConnectorConnected) {
       statusColor = 'bg-green-500';
       statusText = 'Ready';
-      hoverContent = <Text variant={TextVariants.small}>Connected to local generative backend.</Text>;
+      hoverContent = <Text variant={TextVariants.small}>Connected to AI Connector backend.</Text>;
     } else {
       statusColor = 'bg-red-500';
       statusText = 'Not Detected';
       hoverContent = (
-        <Text variant={TextVariants.small}>Only simple inpainting available. Start your local backend.</Text>
+        <Text variant={TextVariants.small}>Only simple inpainting available. Start or check your AI Connector.</Text>
       );
     }
   } else {
