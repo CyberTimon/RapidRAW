@@ -32,7 +32,7 @@ import Switch from '../ui/Switch';
 import Input from '../ui/Input';
 import Slider from '../ui/Slider';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
-import { Invokes } from '../ui/AppProperties';
+import { Invokes, UiMode } from '../ui/AppProperties';
 import {
   formatKeyCode,
   KeybindDefinition,
@@ -158,6 +158,11 @@ const linearRawOptions: OptionItem<string>[] = [
 const tonemapperOptions: OptionItem<string>[] = [
   { value: 'agx', label: 'AgX' },
   { value: 'basic', label: 'Basic' },
+];
+
+const uiModeOptions: OptionItem<UiMode>[] = [
+  { value: UiMode.Modern, label: 'Modern' },
+  { value: UiMode.Compact, label: 'Compact' },
 ];
 
 const settingCategories = [
@@ -1005,6 +1010,18 @@ export default function SettingsPanel({
                         onChange={(value: any) => onSettingsChange({ ...appSettings, theme: value })}
                         options={THEMES.map((theme: ThemeProps) => ({ value: theme.id, label: theme.name }))}
                         value={appSettings?.theme || DEFAULT_THEME_ID}
+                        triggerClassName="bg-bg-primary"
+                      />
+                    </SettingItem>
+
+                    <SettingItem
+                      label="UI Style"
+                      description="Choose a spacious modern interface or a denser compact layout."
+                    >
+                      <Dropdown
+                        onChange={(value: UiMode) => onSettingsChange({ ...appSettings, uiMode: value })}
+                        options={uiModeOptions}
+                        value={appSettings?.uiMode || UiMode.Modern}
                         triggerClassName="bg-bg-primary"
                       />
                     </SettingItem>

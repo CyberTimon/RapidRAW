@@ -151,6 +151,11 @@ export enum Theme {
   Snow = 'snow',
 }
 
+export enum UiMode {
+  Modern = 'modern',
+  Compact = 'compact',
+}
+
 export enum ThumbnailAspectRatio {
   Cover = 'cover',
   Contain = 'contain',
@@ -174,6 +179,7 @@ export interface AppSettings {
   libraryViewMode?: LibraryViewMode;
   sortCriteria?: SortCriteria;
   theme: Theme;
+  uiMode?: UiMode;
   thumbnailSize?: ThumbnailSize;
   thumbnailAspectRatio?: ThumbnailAspectRatio;
   uiVisibility?: UiVisibility;
