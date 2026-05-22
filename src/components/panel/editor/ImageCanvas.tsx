@@ -855,69 +855,10 @@ const ImageCanvas = memo(
     const [straightenLine, setStraightenLine] = useState<any>(null);
     const isStraightening = useRef(false);
 
-    const [displayState, setDisplayState] = useState({
-      base: finalPreviewUrl || selectedImage.thumbnailUrl,
-      fade: null as string | null,
-    });
-    const [isFadingIn, setIsFadingIn] = useState(false);
-    const prevImageIdentityRef = useRef(selectedImage.thumbnailUrl);
-
     const [baseTool, setBaseTool] = useState<ToolType>(brushSettings?.tool ?? ToolType.Brush);
     const [isAltPressed, setIsAltPressed] = useState(false);
-    const retainedPatchRef = useRef<typeof interactivePatch>(null);
 
     const isWgpuActive = appSettings?.useWgpuRenderer !== false && selectedImage?.isReady && hasRenderedFirstFrame;
-
-    useEffect(() => {
-      if (interactivePatch) {
-        retainedPatchRef.current = interactivePatch;
-      }
-    }, [interactivePatch]);
-
-    useEffect(() => {
-      const newSrc = finalPreviewUrl || selectedImage.thumbnailUrl;
-      const isNewImage = prevImageIdentityRef.current !== selectedImage.thumbnailUrl;
-
-      if (isNewImage) {
-        prevImageIdentityRef.current = selectedImage.thumbnailUrl;
-        setDisplayState({ base: newSrc, fade: null });
-        setIsFadingIn(false);
-        return;
-      }
-
-      if (isSliderDragging) {
-        setDisplayState({ base: newSrc, fade: null });
-        setIsFadingIn(false);
-      } else {
-        if (displayState.base !== newSrc && displayState.base) {
-          setDisplayState((prev) => ({ base: prev.base, fade: newSrc }));
-          setIsFadingIn(false);
-
-          let frame1: number;
-          let frame2: number;
-
-          frame1 = requestAnimationFrame(() => {
-            frame2 = requestAnimationFrame(() => {
-              setIsFadingIn(true);
-            });
-          });
-
-          const timer = setTimeout(() => {
-            setDisplayState({ base: newSrc, fade: null });
-            setIsFadingIn(false);
-          }, 150);
-
-          return () => {
-            cancelAnimationFrame(frame1);
-            cancelAnimationFrame(frame2);
-            clearTimeout(timer);
-          };
-        } else {
-          setDisplayState({ base: newSrc, fade: null });
-          setIsFadingIn(false);
-        }
-      }
-    }, [finalPreviewUrl, selectedImage.thumbnailUrl, isSliderDragging]);
 
     useEffect(() => {
       setBaseTool(brushSettings?.tool ?? ToolType.Brush);
@@ -1925,17 +1866,6 @@ const ImageCanvas = memo(
       };
     }, [originalSrc]);
 
-    const currentTarget = finalPreviewUrl || selectedImage.thumbnailUrl;
-    const baseIsReady = displayState.base === currentTarget && !displayState.fade;
-
-    const visiblePatch = interactivePatch ?? (baseIsReady ? null : retainedPatchRef.current);
-
-    useEffect(() => {
-      if (baseIsReady && !interactivePatch) {
-        retainedPatchRef.current = null;
-      }
-    }, [baseIsReady, interactivePatch]);
-
     const uncroppedImageRenderSize = useMemo<Partial<RenderSize> | null>(() => {
       if (!selectedImage?.width || !selectedImage?.height || !imageRenderSize?.width || !imageRenderSize?.height) {
         return null;
@@ -2034,67 +1964,6 @@ const ImageCanvas = memo(
             }}
           >
             <div className="absolute inset-0 w-full h-full">
-              <svg
-                className="pointer-events-none"
-                style={
-                  imageRenderSize.width > 0 && imageRenderSize.height > 0
-                    ? {
-                        position: 'absolute',
-                        left: `${imageRenderSize.offsetX}px`,
-                        top: `${imageRenderSize.offsetY}px`,
-                        width: `${imageRenderSize.width}px`,
-                        height: `${imageRenderSize.height}px`,
-                        overflow: 'visible',
-                      }
-                    : {
-                        position: 'absolute',
-                        inset: '0px',
-                        width: '100%',
-                        height: '100%',
-                        overflow: 'visible',
-                      }
-                }
-                preserveAspectRatio={imageRenderSize.width > 0 && imageRenderSize.height > 0 ? 'none' : 'xMidYMid meet'}
-              >
-                {displayState.base && !isWgpuActive && (
-                  <image
-                    href={displayState.base}
-                    x="0"
-                    y="0"
-                    width="100%"
-                    height="100%"
-                    style={{ imageRendering: isMaxZoom ? 'pixelated' : 'auto' }}
-                  />
-                )}
-
-                {displayState.fade && !isWgpuActive && (
-                  <image
-                    href={displayState.fade}
-                    x="0"
-                    y="0"
-                    width="100%"
-                    height="100%"
-                    style={{
-                      imageRendering: isMaxZoom ? 'pixelated' : 'auto',
-                      opacity: isFadingIn ? 1 : 0,
-                      transition: 'opacity 150ms ease-in-out',
-                    }}
-                  />
-                )}
-
-                {visiblePatch && !isWgpuActive && (
-                  <image
-                    href={visiblePatch.url}
-                    x={`${visiblePatch.normX * 100}%`}
-                    y={`${visiblePatch.normY * 100}%`}
-                    width={`${visiblePatch.normW * 100}%`}
-                    height={`${visiblePatch.normH * 100}%`}
-                    preserveAspectRatio="none"
-                    style={{ imageRendering: isMaxZoom ? 'pixelated' : 'auto' }}
-                  />
-                )}
-              </svg>
-
               {originalSrc && (
                 <img
                   alt="Original"
