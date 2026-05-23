@@ -1346,10 +1346,10 @@ pub struct GlobalAdjustments {
     pub negative_blue_weight: f32,
     pub negative_exposure: f32,
     pub negative_contrast: f32,
-    _pad_neg1: f32,
-    _pad_neg2: f32,
-    _pad_neg3: f32,
-    _pad_neg4: f32,
+    pub negative_toe: f32,
+    pub negative_toe_width: f32,
+    pub negative_shoulder: f32,
+    pub negative_shoulder_width: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -2131,10 +2131,26 @@ fn get_global_adjustments_from_json(
             .and_then(|n| n.get("contrast"))
             .and_then(|v| v.as_f64())
             .unwrap_or(1.0) as f32,
-        _pad_neg1: 0.0,
-        _pad_neg2: 0.0,
-        _pad_neg3: 0.0,
-        _pad_neg4: 0.0,
+        negative_toe: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("toe"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32,
+        negative_toe_width: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("toeWidth"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(2.5) as f32,
+        negative_shoulder: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("shoulder"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32,
+        negative_shoulder_width: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("shoulderWidth"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(2.5) as f32,
     }
 }
 

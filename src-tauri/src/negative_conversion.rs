@@ -283,89 +283,42 @@ pub async fn preview_negative_conversion(
 #[tauri::command]
 pub async fn analyze_negative_bounds(
     path: String,
+    js_adjustments: serde_json::Value,
     state: tauri::State<'_, AppState>,
     app_handle: AppHandle,
 ) -> Result<[f32; 6], String> {
     let (source_path, _) = parse_virtual_path(&path);
     let source_path_str = source_path.to_string_lossy().to_string();
 
-    let mut hasher = DefaultHasher::new();
-    source_path_str.hash(&mut hasher);
-    "negative_preview_base".hash(&mut hasher);
-    let cache_key = hasher.finish();
-
-    let base_image = {
-        let mut cache = state.geometry_cache.lock().unwrap();
-
-        if let Some(cached_img) = cache.get(&cache_key) {
-            cached_img.clone()
+    let full_res_image = {
+        let original_lock = state.original_image.lock().unwrap();
+        if let Some(loaded) = original_lock.as_ref()
+            && loaded.path == source_path_str
+        {
+            loaded.image.clone().as_ref().clone()
         } else {
-            let image_to_downscale = {
-                let original_lock = state.original_image.lock().unwrap();
-                if let Some(loaded) = original_lock.as_ref() {
-                    if loaded.path == source_path_str {
-                        loaded.image.clone().as_ref().clone()
-                    } else {
-                        drop(original_lock);
-                        let settings = load_settings(app_handle.clone()).unwrap_or_default();
-                        match read_file_mapped(Path::new(&source_path_str)) {
-                            Ok(mmap) => load_base_image_from_bytes(
-                                &mmap,
-                                &source_path_str,
-                                false,
-                                &settings,
-                                None,
-                            )
-                            .map_err(|e| e.to_string())?,
-                            Err(_) => {
-                                let bytes = fs::read(&source_path_str)
-                                    .map_err(|io_err| io_err.to_string())?;
-                                load_base_image_from_bytes(
-                                    &bytes,
-                                    &source_path_str,
-                                    false,
-                                    &settings,
-                                    None,
-                                )
-                                .map_err(|e| e.to_string())?
-                            }
-                        }
-                    }
-                } else {
-                    drop(original_lock);
-                    let settings = load_settings(app_handle.clone()).unwrap_or_default();
-                    match read_file_mapped(Path::new(&source_path_str)) {
-                        Ok(mmap) => load_base_image_from_bytes(
-                            &mmap,
-                            &source_path_str,
-                            false,
-                            &settings,
-                            None,
-                        )
-                        .map_err(|e| e.to_string())?,
-                        Err(_) => {
-                            let bytes =
-                                fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
-                            load_base_image_from_bytes(
-                                &bytes,
-                                &source_path_str,
-                                false,
-                                &settings,
-                                None,
-                            )
-                            .map_err(|e| e.to_string())?
-                        }
-                    }
+            drop(original_lock);
+            let settings = load_settings(app_handle.clone()).unwrap_or_default();
+            match read_file_mapped(Path::new(&source_path_str)) {
+                Ok(mmap) => {
+                    load_base_image_from_bytes(&mmap, &source_path_str, false, &settings, None)
+                        .map_err(|e| e.to_string())?
                 }
-            };
-
-            let downscaled = downscale_f32_image(&image_to_downscale, 1080, 1080);
-            cache.insert(cache_key, downscaled.clone());
-            downscaled
+                Err(_) => {
+                    let bytes =
+                        fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
+                    load_base_image_from_bytes(&bytes, &source_path_str, false, &settings, None)
+                        .map_err(|e| e.to_string())?
+                }
+            }
         }
     };
 
-    let rgb = base_image.to_rgb32f();
+    let (transformed, _offset) =
+        crate::adjustment_utils::apply_all_transformations(&full_res_image, &js_adjustments);
+    let analysis_image = downscale_f32_image(transformed.as_ref(), 1080, 1080);
+
+    let rgb = analysis_image.to_rgb32f();
     let (width, height) = rgb.dimensions();
     let log_pixels: Vec<f32> = rgb
         .as_raw()

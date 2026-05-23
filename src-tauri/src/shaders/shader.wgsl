@@ -124,10 +124,10 @@ struct GlobalAdjustments {
     negative_blue_weight: f32,
     negative_exposure: f32,
     negative_contrast: f32,
-    _pad_neg1: f32,
-    _pad_neg2: f32,
-    _pad_neg3: f32,
-    _pad_neg4: f32,
+    negative_toe: f32,
+    negative_toe_width: f32,
+    negative_shoulder: f32,
+    negative_shoulder_width: f32,
 }
 
 struct MaskAdjustments {
@@ -271,15 +271,48 @@ fn apply_negative_inversion(rgb_linear: vec3<f32>) -> vec3<f32> {
 
     let k = 4.0 * max(adjustments.global.negative_contrast, 0.1);
     let x0 = 0.6 - adjustments.global.negative_exposure * 0.25;
+    let eps = 1e-6;
+    let toe_range = max(x0, eps);
+    let shoulder_range = max(1.0 - x0, eps);
+
+    let toe = adjustments.global.negative_toe;
+    let toe_width = adjustments.global.negative_toe_width;
+    let shoulder = adjustments.global.negative_shoulder;
+    let shoulder_width = adjustments.global.negative_shoulder_width;
+
+    let diff = n - vec3<f32>(x0);
+
+    let t_val = toe_width * (-diff / toe_range - 0.5);
+    let toe_mask = vec3<f32>(
+        1.0 / (1.0 + exp(-t_val.r)),
+        1.0 / (1.0 + exp(-t_val.g)),
+        1.0 / (1.0 + exp(-t_val.b)),
+    );
+
+    let s_val = shoulder_width * (diff / shoulder_range - 0.5);
+    let shoulder_mask = vec3<f32>(
+        1.0 / (1.0 + exp(-s_val.r)),
+        1.0 / (1.0 + exp(-s_val.g)),
+        1.0 / (1.0 + exp(-s_val.b)),
+    );
+
+    let toe_offset = toe * toe_mask * 0.25;
+    let shoulder_offset = shoulder * shoulder_mask * 0.25;
+    let diff_adj = diff + toe_offset - shoulder_offset;
+
+    let damp = toe * toe_mask * 0.5 + shoulder * shoulder_mask * 0.5;
+    let k_mod = clamp(vec3<f32>(1.0) - damp, vec3<f32>(0.1), vec3<f32>(2.0));
+
+    let arg = k * diff_adj * k_mod;
+    let s = vec3<f32>(
+        1.0 / (1.0 + exp(-arg.r)),
+        1.0 / (1.0 + exp(-arg.g)),
+        1.0 / (1.0 + exp(-arg.b)),
+    );
+
     let y0 = 1.0 / (1.0 + exp(k * x0));
     let y1 = 1.0 / (1.0 + exp(-k * (1.0 - x0)));
-    let scale = 1.0 / max(y1 - y0, 1e-6);
-
-    let s = vec3<f32>(
-        1.0 / (1.0 + exp(-k * (n.r - x0))),
-        1.0 / (1.0 + exp(-k * (n.g - x0))),
-        1.0 / (1.0 + exp(-k * (n.b - x0))),
-    );
+    let scale = 1.0 / max(y1 - y0, eps);
     return clamp((s - y0) * scale, vec3<f32>(0.0), vec3<f32>(1.0));
 }
 

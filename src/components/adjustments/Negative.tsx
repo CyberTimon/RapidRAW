@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Loader2, Wand2 } from 'lucide-react';
+import { Info, Loader2, Wand2 } from 'lucide-react';
 import Slider from '../ui/Slider';
 import Switch from '../ui/Switch';
 import Text from '../ui/Text';
@@ -44,7 +44,10 @@ export default function NegativePanel({ adjustments, setAdjustments, onDragState
     if (!selectedImage?.path) return;
     setIsAnalyzing(true);
     try {
-      const result: number[] = await invoke('analyze_negative_bounds', { path: selectedImage.path });
+      const result: number[] = await invoke('analyze_negative_bounds', {
+        path: selectedImage.path,
+        jsAdjustments: adjustments,
+      });
       if (Array.isArray(result) && result.length === 6) {
         patchNegative({
           redMin: result[0],
@@ -60,7 +63,7 @@ export default function NegativePanel({ adjustments, setAdjustments, onDragState
     } finally {
       setIsAnalyzing(false);
     }
-  }, [selectedImage?.path, patchNegative]);
+  }, [selectedImage?.path, patchNegative, adjustments]);
 
   // Auto-fire analysis the first time the user enables this for a given image,
   // but only if bounds are still at their identity defaults.
@@ -181,6 +184,88 @@ export default function NegativePanel({ adjustments, setAdjustments, onDragState
           onDragStateChange={onDragStateChange}
         />
       </div>
+
+      <div
+        className={
+          'p-2 bg-bg-tertiary rounded-md transition-opacity duration-150 ' +
+          (negative.enabled ? '' : 'opacity-50 pointer-events-none')
+        }
+      >
+        <Text variant={TextVariants.heading} className="mb-2">
+          Curve Shape
+        </Text>
+        <Slider
+          label="Toe"
+          min={-1}
+          max={1}
+          step={0.01}
+          defaultValue={0}
+          value={negative.toe}
+          onChange={sliderChange('toe')}
+          onDragStateChange={onDragStateChange}
+        />
+        <Slider
+          label="Toe Width"
+          min={0.5}
+          max={5}
+          step={0.1}
+          defaultValue={2.5}
+          value={negative.toeWidth}
+          onChange={sliderChange('toeWidth')}
+          onDragStateChange={onDragStateChange}
+        />
+        <Slider
+          label="Shoulder"
+          min={-1}
+          max={1}
+          step={0.01}
+          defaultValue={0}
+          value={negative.shoulder}
+          onChange={sliderChange('shoulder')}
+          onDragStateChange={onDragStateChange}
+        />
+        <Slider
+          label="Shoulder Width"
+          min={0.5}
+          max={5}
+          step={0.1}
+          defaultValue={2.5}
+          value={negative.shoulderWidth}
+          onChange={sliderChange('shoulderWidth')}
+          onDragStateChange={onDragStateChange}
+        />
+      </div>
+
+      <Text
+        as="div"
+        variant={TextVariants.small}
+        className="p-3 bg-surface rounded-md border border-surface flex items-center gap-3"
+      >
+        <Info size={16} className="shrink-0" />
+        <div className="text-xs text-text-tertiary leading-tight space-y-1">
+          <p>
+            Inversion logic inspired by{' '}
+            <a
+              href="https://github.com/marcinz606/NegPy"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-primary transition-colors"
+            >
+              NegPy
+            </a>{' '}
+            created by marcinz606 (
+            <a
+              href="https://github.com/marcinz606/NegPy/blob/main/LICENSE"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-primary transition-colors"
+            >
+              GPL-3.0
+            </a>
+            ).
+          </p>
+        </div>
+      </Text>
     </div>
   );
 }

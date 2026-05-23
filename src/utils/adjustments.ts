@@ -364,6 +364,10 @@ export interface NegativeAdjustment {
   blueWeight: number;
   exposure: number;
   contrast: number;
+  toe: number;
+  toeWidth: number;
+  shoulder: number;
+  shoulderWidth: number;
 }
 
 export const INITIAL_NEGATIVE: NegativeAdjustment = {
@@ -379,6 +383,10 @@ export const INITIAL_NEGATIVE: NegativeAdjustment = {
   blueWeight: 1,
   exposure: 0,
   contrast: 1,
+  toe: 0,
+  toeWidth: 2.5,
+  shoulder: 0,
+  shoulderWidth: 2.5,
 };
 
 export const COLOR_LABELS: Array<Color> = [
