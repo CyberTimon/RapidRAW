@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
-import { Adjustments, COPYABLE_ADJUSTMENT_KEYS, ADJUSTMENT_GROUPS, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
+import {
+  Adjustments,
+  COPYABLE_ADJUSTMENT_KEYS,
+  ADJUSTMENT_GROUPS,
+  INITIAL_ADJUSTMENTS,
+  stripNegativeBounds,
+  NegativeAdjustment,
+} from '../utils/adjustments';
 import { Folder, Invokes, Preset } from '../components/ui/AppProperties';
 
 export enum PresetListType {
@@ -75,10 +82,12 @@ export function usePresets(currentAdjustments: Adjustments) {
 
         if (presetType === 'tool') {
           if (JSON.stringify(currentValue) !== JSON.stringify(defaultValue)) {
-            presetAdjustments[key] = currentValue;
+            presetAdjustments[key] =
+              key === 'negative' ? stripNegativeBounds(currentValue as NegativeAdjustment) : currentValue;
           }
         } else {
-          presetAdjustments[key] = currentValue;
+          presetAdjustments[key] =
+            key === 'negative' ? stripNegativeBounds(currentValue as NegativeAdjustment) : currentValue;
         }
       }
     }
@@ -319,10 +328,12 @@ export function usePresets(currentAdjustments: Adjustments) {
         if (presetType === 'tool') {
           const defaultValue = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
           if (JSON.stringify(currentValue) !== JSON.stringify(defaultValue)) {
-            presetAdjustments[key] = currentValue;
+            presetAdjustments[key] =
+              key === 'negative' ? stripNegativeBounds(currentValue as NegativeAdjustment) : currentValue;
           }
         } else {
-          presetAdjustments[key] = currentValue;
+          presetAdjustments[key] =
+            key === 'negative' ? stripNegativeBounds(currentValue as NegativeAdjustment) : currentValue;
         }
       }
     }

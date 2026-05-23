@@ -645,10 +645,16 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   ]);
 
   const handleApplyPreset = (preset: Preset) => {
-    setAdjustments((prevAdjustments: Adjustments) => ({
-      ...prevAdjustments,
-      ...preset.adjustments,
-    }));
+    setAdjustments((prevAdjustments: Adjustments) => {
+      const { negative: presetNegative, ...restPreset } = (preset.adjustments || {}) as any;
+      return {
+        ...prevAdjustments,
+        ...restPreset,
+        negative: presetNegative
+          ? { ...prevAdjustments.negative, ...presetNegative }
+          : prevAdjustments.negative,
+      };
+    });
   };
 
   const handleSaveConfiguredPreset = async (

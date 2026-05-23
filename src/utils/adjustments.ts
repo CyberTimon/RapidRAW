@@ -389,6 +389,16 @@ export const INITIAL_NEGATIVE: NegativeAdjustment = {
   shoulderWidth: 2.5,
 };
 
+export const NEGATIVE_BOUND_KEYS: Array<keyof NegativeAdjustment> = [
+  'redMin', 'redMax', 'greenMin', 'greenMax', 'blueMin', 'blueMax',
+];
+
+export const stripNegativeBounds = (neg: NegativeAdjustment): Partial<NegativeAdjustment> => {
+  const result: Partial<NegativeAdjustment> = { ...neg };
+  for (const k of NEGATIVE_BOUND_KEYS) delete result[k];
+  return result;
+};
+
 export const COLOR_LABELS: Array<Color> = [
   { name: 'red', color: '#ef4444' },
   { name: 'yellow', color: '#facc15' },
@@ -814,6 +824,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     },
   ],
   masks: [{ label: 'Masks', keys: ['masks'] }],
+  negative: [{ label: 'Negative Inversion', keys: ['negative'] }],
 };
 
 export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUPS)
