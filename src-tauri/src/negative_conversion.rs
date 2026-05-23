@@ -46,7 +46,7 @@ pub struct ChannelBounds {
     pub max: f32,
 }
 
-fn analyze_bounds(log_data: &[f32], width: usize, height: usize) -> [ChannelBounds; 3] {
+pub fn analyze_bounds(log_data: &[f32], width: usize, height: usize) -> [ChannelBounds; 3] {
     let margin_x = (width as f32 * 0.12) as usize;
     let margin_y = (height as f32 * 0.12) as usize;
 
@@ -278,6 +278,110 @@ pub async fn preview_negative_conversion(
 
     let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
     Ok(format!("data:image/jpeg;base64,{}", base64_str))
+}
+
+#[tauri::command]
+pub async fn analyze_negative_bounds(
+    path: String,
+    state: tauri::State<'_, AppState>,
+    app_handle: AppHandle,
+) -> Result<[f32; 6], String> {
+    let (source_path, _) = parse_virtual_path(&path);
+    let source_path_str = source_path.to_string_lossy().to_string();
+
+    let mut hasher = DefaultHasher::new();
+    source_path_str.hash(&mut hasher);
+    "negative_preview_base".hash(&mut hasher);
+    let cache_key = hasher.finish();
+
+    let base_image = {
+        let mut cache = state.geometry_cache.lock().unwrap();
+
+        if let Some(cached_img) = cache.get(&cache_key) {
+            cached_img.clone()
+        } else {
+            let image_to_downscale = {
+                let original_lock = state.original_image.lock().unwrap();
+                if let Some(loaded) = original_lock.as_ref() {
+                    if loaded.path == source_path_str {
+                        loaded.image.clone().as_ref().clone()
+                    } else {
+                        drop(original_lock);
+                        let settings = load_settings(app_handle.clone()).unwrap_or_default();
+                        match read_file_mapped(Path::new(&source_path_str)) {
+                            Ok(mmap) => load_base_image_from_bytes(
+                                &mmap,
+                                &source_path_str,
+                                false,
+                                &settings,
+                                None,
+                            )
+                            .map_err(|e| e.to_string())?,
+                            Err(_) => {
+                                let bytes = fs::read(&source_path_str)
+                                    .map_err(|io_err| io_err.to_string())?;
+                                load_base_image_from_bytes(
+                                    &bytes,
+                                    &source_path_str,
+                                    false,
+                                    &settings,
+                                    None,
+                                )
+                                .map_err(|e| e.to_string())?
+                            }
+                        }
+                    }
+                } else {
+                    drop(original_lock);
+                    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+                    match read_file_mapped(Path::new(&source_path_str)) {
+                        Ok(mmap) => load_base_image_from_bytes(
+                            &mmap,
+                            &source_path_str,
+                            false,
+                            &settings,
+                            None,
+                        )
+                        .map_err(|e| e.to_string())?,
+                        Err(_) => {
+                            let bytes =
+                                fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
+                            load_base_image_from_bytes(
+                                &bytes,
+                                &source_path_str,
+                                false,
+                                &settings,
+                                None,
+                            )
+                            .map_err(|e| e.to_string())?
+                        }
+                    }
+                }
+            };
+
+            let downscaled = downscale_f32_image(&image_to_downscale, 1080, 1080);
+            cache.insert(cache_key, downscaled.clone());
+            downscaled
+        }
+    };
+
+    let rgb = base_image.to_rgb32f();
+    let (width, height) = rgb.dimensions();
+    let log_pixels: Vec<f32> = rgb
+        .as_raw()
+        .par_iter()
+        .map(|&v| -v.clamp(1e-6, 1.0).log10())
+        .collect();
+
+    let bounds = analyze_bounds(&log_pixels, width as usize, height as usize);
+    Ok([
+        bounds[0].min,
+        bounds[0].max,
+        bounds[1].min,
+        bounds[1].max,
+        bounds[2].min,
+        bounds[2].max,
+    ])
 }
 
 #[tauri::command]

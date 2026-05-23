@@ -111,6 +111,23 @@ struct GlobalAdjustments {
     halation_amount: f32,
     flare_amount: f32,
     sharpness_threshold: f32,
+
+    negative_enabled: u32,
+    negative_red_min: f32,
+    negative_red_max: f32,
+    negative_green_min: f32,
+    negative_green_max: f32,
+    negative_blue_min: f32,
+    negative_blue_max: f32,
+    negative_red_weight: f32,
+    negative_green_weight: f32,
+    negative_blue_weight: f32,
+    negative_exposure: f32,
+    negative_contrast: f32,
+    _pad_neg1: f32,
+    _pad_neg2: f32,
+    _pad_neg3: f32,
+    _pad_neg4: f32,
 }
 
 struct MaskAdjustments {
@@ -228,6 +245,42 @@ fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
     let higher = (1.0 + a) * pow(c_clamped, vec3<f32>(1.0 / 2.4)) - a;
     let lower = c_clamped * 12.92;
     return select(higher, lower, c_clamped <= cutoff);
+}
+
+fn apply_negative_inversion(rgb_linear: vec3<f32>) -> vec3<f32> {
+    let mins = vec3<f32>(
+        adjustments.global.negative_red_min,
+        adjustments.global.negative_green_min,
+        adjustments.global.negative_blue_min,
+    );
+    let maxs = vec3<f32>(
+        adjustments.global.negative_red_max,
+        adjustments.global.negative_green_max,
+        adjustments.global.negative_blue_max,
+    );
+    let weights = vec3<f32>(
+        adjustments.global.negative_red_weight,
+        adjustments.global.negative_green_weight,
+        adjustments.global.negative_blue_weight,
+    );
+
+    let inv_log10 = 1.0 / log(10.0);
+    let log_rgb = -log(max(rgb_linear, vec3<f32>(1e-6))) * inv_log10;
+    let range = max(maxs - mins, vec3<f32>(1e-4));
+    let n = clamp((log_rgb - mins) / range, vec3<f32>(0.0), vec3<f32>(1.0)) * weights;
+
+    let k = 4.0 * max(adjustments.global.negative_contrast, 0.1);
+    let x0 = 0.6 - adjustments.global.negative_exposure * 0.25;
+    let y0 = 1.0 / (1.0 + exp(k * x0));
+    let y1 = 1.0 / (1.0 + exp(-k * (1.0 - x0)));
+    let scale = 1.0 / max(y1 - y0, 1e-6);
+
+    let s = vec3<f32>(
+        1.0 / (1.0 + exp(-k * (n.r - x0))),
+        1.0 / (1.0 + exp(-k * (n.g - x0))),
+        1.0 / (1.0 + exp(-k * (n.b - x0))),
+    );
+    return clamp((s - y0) * scale, vec3<f32>(0.0), vec3<f32>(1.0));
 }
 
 fn rgb_to_hsv(c: vec3<f32>) -> vec3<f32> {
@@ -1437,6 +1490,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         initial_linear_rgb = srgb_to_linear(color_from_texture);
     } else {
         initial_linear_rgb = color_from_texture;
+    }
+
+    if (adjustments.global.negative_enabled == 1u) {
+        initial_linear_rgb = apply_negative_inversion(initial_linear_rgb);
     }
 
     var t_exposure = adjustments.global.exposure;

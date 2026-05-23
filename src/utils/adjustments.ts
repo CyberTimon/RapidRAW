@@ -202,6 +202,7 @@ export interface Adjustments {
   lutPath?: string | null;
   lutSize?: number;
   masks: Array<MaskContainer>;
+  negative: NegativeAdjustment;
   orientationSteps: number;
   rotation: number;
   saturation: number;
@@ -337,6 +338,7 @@ export interface Sections {
   color: Array<string>;
   details: Array<string>;
   effects: Array<string>;
+  negative: Array<string>;
 }
 
 export interface SectionVisibility {
@@ -346,7 +348,38 @@ export interface SectionVisibility {
   color: boolean;
   details: boolean;
   effects: boolean;
+  negative: boolean;
 }
+
+export interface NegativeAdjustment {
+  enabled: boolean;
+  redMin: number;
+  redMax: number;
+  greenMin: number;
+  greenMax: number;
+  blueMin: number;
+  blueMax: number;
+  redWeight: number;
+  greenWeight: number;
+  blueWeight: number;
+  exposure: number;
+  contrast: number;
+}
+
+export const INITIAL_NEGATIVE: NegativeAdjustment = {
+  enabled: false,
+  redMin: 0,
+  redMax: 1,
+  greenMin: 0,
+  greenMax: 1,
+  blueMin: 0,
+  blueMax: 1,
+  redWeight: 1,
+  greenWeight: 1,
+  blueWeight: 1,
+  exposure: 0,
+  contrast: 1,
+};
 
 export const COLOR_LABELS: Array<Color> = [
   { name: 'red', color: '#ef4444' },
@@ -450,6 +483,7 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
     color: true,
     details: true,
     effects: true,
+    negative: true,
   },
   shadows: 0,
   sharpness: 0,
@@ -525,6 +559,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   lutPath: null,
   lutSize: 0,
   masks: [],
+  negative: { ...INITIAL_NEGATIVE },
   orientationSteps: 0,
   rotation: 0,
   saturation: 0,
@@ -534,6 +569,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
     color: true,
     details: true,
     effects: true,
+    negative: true,
   },
   shadows: 0,
   sharpness: 0,
@@ -666,6 +702,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     colorCalibration: { ...INITIAL_ADJUSTMENTS.colorCalibration, ...(loadedAdjustments.colorCalibration || {}) },
     colorGrading: { ...INITIAL_ADJUSTMENTS.colorGrading, ...(loadedAdjustments.colorGrading || {}) },
     hsl: { ...INITIAL_ADJUSTMENTS.hsl, ...(loadedAdjustments.hsl || {}) },
+    negative: { ...INITIAL_NEGATIVE, ...(loadedAdjustments.negative || {}) },
     curves: loadedAdjustments.curves ? deepCloneCurves(loadedAdjustments.curves) : getDefaultCurves(),
     pointCurves: loadedAdjustments.pointCurves ? deepCloneCurves(loadedAdjustments.pointCurves) : getDefaultCurves(),
     parametricCurve: loadedAdjustments.parametricCurve
@@ -824,4 +861,5 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.VignetteMidpoint,
     Effect.VignetteRoundness,
   ],
+  negative: ['negative'],
 };
