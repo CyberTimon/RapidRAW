@@ -116,39 +116,16 @@ export default function NegativePanel({ adjustments, setAdjustments, onDragState
         }
       >
         <Text variant={TextVariants.heading} className="mb-2">
-          Color Timing
+          Dynamic Range
         </Text>
         <Slider
-          label="Red (Cyan)"
-          min={0.5}
-          max={2.0}
+          label="D-Range Clip"
+          min={-0.5}
+          max={0.5}
           step={0.01}
-          defaultValue={1}
-          value={negative.redWeight}
-          onChange={sliderChange('redWeight')}
-          fillOrigin="min"
-          onDragStateChange={onDragStateChange}
-        />
-        <Slider
-          label="Green (Magenta)"
-          min={0.5}
-          max={2.0}
-          step={0.01}
-          defaultValue={1}
-          value={negative.greenWeight}
-          onChange={sliderChange('greenWeight')}
-          fillOrigin="min"
-          onDragStateChange={onDragStateChange}
-        />
-        <Slider
-          label="Blue (Yellow)"
-          min={0.5}
-          max={2.0}
-          step={0.01}
-          defaultValue={1}
-          value={negative.blueWeight}
-          onChange={sliderChange('blueWeight')}
-          fillOrigin="min"
+          defaultValue={0}
+          value={negative.dynamicRangeClip}
+          onChange={sliderChange('dynamicRangeClip')}
           onDragStateChange={onDragStateChange}
         />
       </div>
@@ -236,6 +213,49 @@ export default function NegativePanel({ adjustments, setAdjustments, onDragState
         />
       </div>
 
+      <div
+        className={
+          'p-2 bg-bg-tertiary rounded-md transition-opacity duration-150 ' +
+          (negative.enabled ? '' : 'opacity-50 pointer-events-none')
+        }
+      >
+        <Text variant={TextVariants.heading} className="mb-2">
+          Color Timing
+        </Text>
+        <Slider
+          label="Red (Cyan)"
+          min={0.5}
+          max={2.0}
+          step={0.01}
+          defaultValue={1}
+          value={negative.redWeight}
+          onChange={sliderChange('redWeight')}
+          fillOrigin="min"
+          onDragStateChange={onDragStateChange}
+        />
+        <Slider
+          label="Green (Magenta)"
+          min={0.5}
+          max={2.0}
+          step={0.01}
+          defaultValue={1}
+          value={negative.greenWeight}
+          onChange={sliderChange('greenWeight')}
+          fillOrigin="min"
+          onDragStateChange={onDragStateChange}
+        />
+        <Slider
+          label="Blue (Yellow)"
+          min={0.5}
+          max={2.0}
+          step={0.01}
+          defaultValue={1}
+          value={negative.blueWeight}
+          onChange={sliderChange('blueWeight')}
+          fillOrigin="min"
+          onDragStateChange={onDragStateChange}
+        />
+      </div>
       <Text
         as="div"
         variant={TextVariants.small}
