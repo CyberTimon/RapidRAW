@@ -338,7 +338,6 @@ export interface Sections {
   color: Array<string>;
   details: Array<string>;
   effects: Array<string>;
-  negative: Array<string>;
 }
 
 export interface SectionVisibility {
@@ -348,7 +347,6 @@ export interface SectionVisibility {
   color: boolean;
   details: boolean;
   effects: boolean;
-  negative: boolean;
 }
 
 export interface NegativeAdjustment {
@@ -503,7 +501,6 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
     color: true,
     details: true,
     effects: true,
-    negative: true,
   },
   shadows: 0,
   sharpness: 0,
@@ -589,7 +586,6 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
     color: true,
     details: true,
     effects: true,
-    negative: true,
   },
   shadows: 0,
   sharpness: 0,
@@ -882,5 +878,4 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.VignetteMidpoint,
     Effect.VignetteRoundness,
   ],
-  negative: ['negative'],
 };
