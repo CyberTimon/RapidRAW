@@ -20,6 +20,8 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useAiMasking } from '../../hooks/useAiMasking';
+import { usePreviewCanvas } from './editor/usePreviewCanvas';
+import type { InteractivePatch } from '../../store/useEditorStore';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -297,6 +299,64 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
   const imageRenderSizeRef = useRef(imageRenderSize);
   imageRenderSizeRef.current = imageRenderSize;
 
+  const isWgpuActive = appSettings?.useWgpuRenderer !== false && hasRenderedFirstFrame;
+  const isMaxZoomRef = useRef(false);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [displayState, setDisplayState] = useState<{ base: string | null; fade: string | null }>({
+    base: finalPreviewUrl || selectedImage?.thumbnailUrl || null,
+    fade: null,
+  });
+  const prevImageIdentityRef = useRef(selectedImage?.thumbnailUrl);
+  const retainedPatchRef = useRef<InteractivePatch | null>(null);
+
+  useEffect(() => {
+    if (interactivePatch) retainedPatchRef.current = interactivePatch;
+  }, [interactivePatch]);
+
+  useEffect(() => {
+    const newSrc = finalPreviewUrl || selectedImage?.thumbnailUrl || null;
+    const isNewImage = prevImageIdentityRef.current !== selectedImage?.thumbnailUrl;
+    if (isNewImage) {
+      prevImageIdentityRef.current = selectedImage?.thumbnailUrl;
+      setDisplayState({ base: newSrc, fade: null });
+      return;
+    }
+    if (isSliderDragging) {
+      setDisplayState({ base: newSrc, fade: null });
+    } else {
+      if (displayState.base !== newSrc && displayState.base) {
+        setDisplayState((prev) => ({ base: prev.base, fade: newSrc }));
+        const timer = setTimeout(() => setDisplayState({ base: newSrc, fade: null }), 150);
+        return () => clearTimeout(timer);
+      } else {
+        setDisplayState({ base: newSrc, fade: null });
+      }
+    }
+  }, [finalPreviewUrl, selectedImage?.thumbnailUrl, isSliderDragging]);
+
+  const currentTarget = finalPreviewUrl || selectedImage?.thumbnailUrl || null;
+  const baseIsReady = displayState.base === currentTarget && !displayState.fade;
+  const visiblePatch: InteractivePatch | null = interactivePatch ?? (baseIsReady ? null : retainedPatchRef.current);
+
+  useEffect(() => {
+    if (baseIsReady && !interactivePatch) retainedPatchRef.current = null;
+  }, [baseIsReady, interactivePatch]);
+
+  const { draw: drawPreview } = usePreviewCanvas({
+    canvasRef: previewCanvasRef,
+    containerRef: imageContainerRef,
+    baseUrl: displayState.base,
+    fadeUrl: displayState.fade,
+    patch: visiblePatch,
+    transformRef: transformStateRef,
+    imageRenderSizeRef,
+    isMaxZoomRef,
+    enabled: !isWgpuActive,
+  });
+  const drawPreviewRef = useRef(drawPreview);
+  drawPreviewRef.current = drawPreview;
+
   const transformConfig = useMemo(() => {
     if (!selectedImage || !imageRenderSize.scale || !originalSize) {
       return { minScale: 0.1, maxScale: 20 };
@@ -378,6 +438,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
       if (contentRef.current) {
         contentRef.current.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
       }
+
+      drawPreviewRef.current();
 
       if (!isTransitioningRef.current) {
         if (scale > 1.01) {
@@ -1899,6 +1961,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
 
   const isZoomActionActive = !isCropping && !isMasking && !isAiEditing && !isWbPickerActive;
   const isMaxZoom = transformState.scale >= maxScaleRef.current - 0.5;
+  isMaxZoomRef.current = isMaxZoom;
 
   let cursorStyle = 'default';
   if (isZoomActionActive) {
@@ -1910,8 +1973,6 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
       cursorStyle = 'zoom-in';
     }
   }
-
-  const isWgpuActive = appSettings?.useWgpuRenderer !== false && hasRenderedFirstFrame;
 
   return (
     <div
@@ -1972,12 +2033,18 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
           </div>
         )}
 
+        {!isWgpuActive && (
+          <canvas ref={previewCanvasRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }} />
+        )}
+
         <div
           ref={contentRef}
           className="w-full h-full flex items-center justify-center touch-none origin-top-left"
           style={{
             transform: `translate(${transformState.positionX}px, ${transformState.positionY}px) scale(${transformState.scale})`,
             cursor: cursorStyle,
+            position: 'relative',
+            zIndex: 2,
           }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
