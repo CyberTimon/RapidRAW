@@ -536,6 +536,7 @@ export default function SettingsPanel({
   const [tempLensModel, setTempLensModel] = useState<string>('');
 
   const osPlatform = useOsPlatform();
+  const defaultUiMode = osPlatform === 'android' ? UiMode.Compact : UiMode.Modern;
   const [processingSettings, setProcessingSettings] = useState({
     editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
     thumbnailResolution: appSettings?.thumbnailResolution || 720,
@@ -1021,7 +1022,7 @@ export default function SettingsPanel({
                       <Dropdown
                         onChange={(value: UiMode) => onSettingsChange({ ...appSettings, uiMode: value })}
                         options={uiModeOptions}
-                        value={appSettings?.uiMode || UiMode.Modern}
+                        value={appSettings?.uiMode || defaultUiMode}
                         triggerClassName="bg-bg-primary"
                       />
                     </SettingItem>

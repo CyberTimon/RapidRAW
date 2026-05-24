@@ -284,7 +284,11 @@ pub fn default_open_tree_sections() -> Vec<String> {
 }
 
 pub fn default_ui_mode_option() -> Option<String> {
-    Some("modern".to_string())
+    if cfg!(target_os = "android") {
+        Some("compact".to_string())
+    } else {
+        Some("modern".to_string())
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -413,7 +417,7 @@ impl Default for AppSettings {
             sort_criteria: None,
             filter_criteria: None,
             theme: Some("dark".to_string()),
-            ui_mode: Some("modern".to_string()),
+            ui_mode: default_ui_mode_option(),
             font_family: None,
             decorations: Some(false),
             ai_connector_address: None,
