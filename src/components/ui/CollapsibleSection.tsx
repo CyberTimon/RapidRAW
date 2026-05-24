@@ -92,7 +92,7 @@ export default function CollapsibleSection({
       <div
         className={clsx(
           'w-full flex items-center justify-between text-left transition-colors duration-200',
-          isCompact ? 'px-0 py-2 text-white' : 'px-4 py-3 hover:bg-card-active',
+          isCompact ? 'px-0 py-1 text-white' : 'px-4 py-3 hover:bg-card-active',
         )}
         onClick={onToggle}
         onMouseEnter={handleMouseEnter}
@@ -100,7 +100,7 @@ export default function CollapsibleSection({
       >
         <div className="flex items-center gap-2">
           <Text
-            variant={TextVariants.title}
+            variant={isCompact ? TextVariants.heading : TextVariants.title}
             weight={TextWeights.normal}
             color={isCompact ? TextColors.white : TextColors.primary}
           >
@@ -133,7 +133,7 @@ export default function CollapsibleSection({
         <div
           className={clsx(
             'transition-opacity duration-300',
-            isCompact ? 'px-0 pb-3 text-white' : 'px-4 pb-4',
+            isCompact ? 'px-0 pb-2 text-white' : 'px-4 pb-4',
             !isContentVisible && 'opacity-30 pointer-events-none',
           )}
           ref={contentRef}

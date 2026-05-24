@@ -1735,7 +1735,11 @@ function SettingsPanel({
 
   return (
     <div
-      className={`space-y-2 transition-opacity duration-300 ${!isActive ? 'opacity-50 pointer-events-none' : ''}`}
+      className={clsx(
+        isCompactUi ? 'space-y-0' : 'space-y-2',
+        'transition-opacity duration-300',
+        !isActive && 'opacity-50 pointer-events-none',
+      )}
       onClick={(e) => e.stopPropagation()}
     >
       <CollapsibleSection
@@ -1745,7 +1749,7 @@ function SettingsPanel({
         canToggleVisibility={false}
         isContentVisible={true}
       >
-        <div className="space-y-4 pt-2">
+        <div className={clsx(isCompactUi ? 'space-y-2 pt-1' : 'space-y-4 pt-2')}>
           {aiModelDownloadStatus && aiModelDownloadStatus.includes('Inpainting') && (
             <Text
               as="div"
@@ -1841,7 +1845,7 @@ function SettingsPanel({
         canToggleVisibility={false}
         isContentVisible={true}
       >
-        <div className="space-y-4 pt-2">
+        <div className={clsx(isCompactUi ? 'space-y-2 pt-1' : 'space-y-4 pt-2')}>
           <Switch
             checked={!!(isComponentMode ? activeSubMask.invert : displayContainer.invert)}
             label={isComponentMode ? 'Invert Component' : 'Invert Selection'}

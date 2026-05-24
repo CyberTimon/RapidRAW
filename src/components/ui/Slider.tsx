@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { GLOBAL_KEYS } from './AppProperties';
+import { GLOBAL_KEYS, UiMode } from './AppProperties';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
 type SliderChangeEvent =
   | React.ChangeEvent<HTMLInputElement>
@@ -41,6 +42,7 @@ const Slider = ({
   fillOrigin = 'default',
   suffix = '',
 }: SliderProps) => {
+  const isCompact = useSettingsStore((state) => state.appSettings?.uiMode === UiMode.Compact);
   const [displayValue, setDisplayValue] = useState<number>(value);
   const [isDragging, setIsDragging] = useState(false);
   const animationFrameRef = useRef<number | undefined>(undefined);
@@ -432,8 +434,8 @@ const Slider = ({
   const numericValue = isNaN(Number(value)) ? 0 : Number(value);
 
   return (
-    <div className="mb-2 group" ref={containerRef}>
-      <div className="flex justify-between items-center mb-1">
+    <div className={`${isCompact ? 'mb-1' : 'mb-2'} group`} ref={containerRef}>
+      <div className={`flex justify-between items-center ${isCompact ? 'mb-0' : 'mb-1'}`}>
         <div
           className={`grid ${typeof label === 'string' ? 'cursor-pointer' : ''}`}
           onClick={typeof label === 'string' ? handleReset : undefined}
@@ -488,7 +490,7 @@ const Slider = ({
         </div>
       </div>
 
-      <div className="relative w-full h-5">
+      <div className={`relative w-full ${isCompact ? 'h-4' : 'h-5'}`}>
         <div
           className={`absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/4 rounded-full pointer-events-none ${
             trackClassName || 'bg-card-active'
