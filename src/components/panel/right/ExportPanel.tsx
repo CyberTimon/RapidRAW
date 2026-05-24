@@ -29,6 +29,7 @@ import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useShallow } from 'zustand/react/shallow';
 import { useEditorStore } from '../../../store/useEditorStore';
+import RightPanelHeader from './RightPanelHeader';
 
 interface ExportPanelProps {
   exportState: ExportState;
@@ -524,9 +525,7 @@ export default function ExportPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>Export</Text>
-      </div>
+      <RightPanelHeader title="Export" />
       <div className="grow overflow-y-auto p-4 space-y-8">
         {canExport ? (
           <>

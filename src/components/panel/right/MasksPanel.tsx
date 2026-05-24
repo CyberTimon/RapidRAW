@@ -85,6 +85,7 @@ import { useAiMasking } from '../../../hooks/useAiMasking';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { useUIStore } from '../../../store/useUIStore';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
+import RightPanelHeader, { rightPanelHeaderActionClassName } from './RightPanelHeader';
 
 interface DragData {
   type: 'Container' | 'SubMask' | 'Creation';
@@ -1243,28 +1244,30 @@ export default function MasksPanel() {
       collisionDetection={pointerWithin}
     >
       <div className="flex flex-col h-full select-none overflow-hidden" onContextMenu={handlePanelContextMenu}>
-        <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-          <Text variant={TextVariants.title}>Masking</Text>
-          <div className="flex items-center gap-1">
-            <button
-              className={clsx(
-                'p-2 rounded-full transition-colors',
-                isWaveformVisible ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
-              )}
-              onClick={onToggleWaveform}
-              data-tooltip="Toggle Analytics Display"
-            >
-              <ChartArea size={18} />
-            </button>
-            <button
-              className="p-2 rounded-full hover:bg-surface transition-colors"
-              onClick={handleResetAllMasks}
-              data-tooltip="Reset Masking"
-            >
-              <RotateCcw size={18} />
-            </button>
-          </div>
-        </div>
+        <RightPanelHeader title="Masking">
+          {(isCompact) => (
+            <div className="flex items-center gap-1">
+              <button
+                className={rightPanelHeaderActionClassName(
+                  isCompact,
+                  'rounded-full',
+                  isWaveformVisible ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
+                )}
+                onClick={onToggleWaveform}
+                data-tooltip="Toggle Analytics Display"
+              >
+                <ChartArea size={18} />
+              </button>
+              <button
+                className={rightPanelHeaderActionClassName(isCompact, 'rounded-full hover:bg-surface')}
+                onClick={handleResetAllMasks}
+                data-tooltip="Reset Masking"
+              >
+                <RotateCcw size={18} />
+              </button>
+            </div>
+          )}
+        </RightPanelHeader>
 
         <AnimatePresence initial={false}>
           {isWaveformVisible && (

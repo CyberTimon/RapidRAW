@@ -44,6 +44,7 @@ import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../u
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
+import RightPanelHeader, { rightPanelHeaderActionClassName } from './RightPanelHeader';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -941,42 +942,43 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-full">
-        <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-          <Text variant={TextVariants.title}>Presets</Text>
-          <div className="flex items-center gap-1">
-            <button
-              className="p-2 rounded-full hover:bg-surface transition-colors"
-              onClick={onNavigateToCommunity}
-              data-tooltip="Explore Community Presets"
-            >
-              <Users size={18} />
-            </button>
-            <button
-              className="p-2 rounded-full hover:bg-surface transition-colors"
-              disabled={isLoading}
-              onClick={handleImportPresets}
-              data-tooltip="Import presets from .rrpreset file"
-            >
-              <FileUp size={18} />
-            </button>
-            <button
-              className="p-2 rounded-full hover:bg-surface transition-colors"
-              disabled={presets.length === 0 || isLoading}
-              onClick={handleExportAllPresets}
-              data-tooltip="Export all presets to .rrpreset file"
-            >
-              <FileDown size={18} />
-            </button>
-            <button
-              className="p-2 rounded-full hover:bg-surface transition-colors"
-              disabled={isLoading}
-              onClick={() => setConfigureModalState({ isOpen: true, preset: null })}
-              data-tooltip="Save as new preset"
-            >
-              <Plus size={18} />
-            </button>
-          </div>
-        </div>
+        <RightPanelHeader title="Presets">
+          {(isCompact) => (
+            <div className="flex items-center gap-1">
+              <button
+                className={rightPanelHeaderActionClassName(isCompact, 'rounded-full hover:bg-surface')}
+                onClick={onNavigateToCommunity}
+                data-tooltip="Explore Community Presets"
+              >
+                <Users size={18} />
+              </button>
+              <button
+                className={rightPanelHeaderActionClassName(isCompact, 'rounded-full hover:bg-surface')}
+                disabled={isLoading}
+                onClick={handleImportPresets}
+                data-tooltip="Import presets from .rrpreset file"
+              >
+                <FileUp size={18} />
+              </button>
+              <button
+                className={rightPanelHeaderActionClassName(isCompact, 'rounded-full hover:bg-surface')}
+                disabled={presets.length === 0 || isLoading}
+                onClick={handleExportAllPresets}
+                data-tooltip="Export all presets to .rrpreset file"
+              >
+                <FileDown size={18} />
+              </button>
+              <button
+                className={rightPanelHeaderActionClassName(isCompact, 'rounded-full hover:bg-surface')}
+                disabled={isLoading}
+                onClick={() => setConfigureModalState({ isOpen: true, preset: null })}
+                data-tooltip="Save as new preset"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+          )}
+        </RightPanelHeader>
 
         <div
           className={`grow overflow-y-auto p-4 space-y-2 rounded-lg transition-colors ${

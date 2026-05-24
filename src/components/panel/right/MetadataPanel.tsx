@@ -13,6 +13,7 @@ import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
+import RightPanelHeader from './RightPanelHeader';
 
 interface CameraSetting {
   format?(value: number): string | number;
@@ -320,9 +321,7 @@ export default function MetadataPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>Metadata</Text>
-      </div>
+      <RightPanelHeader title="Metadata" />
       <div className="grow overflow-y-auto p-4 custom-scrollbar">
         {selectedImage ? (
           <div className="flex flex-col gap-6">

@@ -63,6 +63,7 @@ import { useProcessStore } from '../../../store/useProcessStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { useAiMasking } from '../../../hooks/useAiMasking';
+import RightPanelHeader, { rightPanelHeaderActionClassName } from './RightPanelHeader';
 
 interface DragData {
   type: 'Container' | 'SubMask' | 'Creation';
@@ -917,16 +918,17 @@ export default function AIPanel() {
       collisionDetection={pointerWithin}
     >
       <div className="flex flex-col h-full select-none overflow-hidden" onContextMenu={handlePanelContextMenu}>
-        <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-          <Text variant={TextVariants.title}>Inpainting</Text>
-          <button
-            className="p-2 rounded-full hover:bg-surface transition-colors"
-            onClick={handleResetAllAiEdits}
-            data-tooltip="Reset Inpainting"
-          >
-            <RotateCcw size={18} />
-          </button>
-        </div>
+        <RightPanelHeader title="Inpainting">
+          {(isCompact) => (
+            <button
+              className={rightPanelHeaderActionClassName(isCompact, 'rounded-full hover:bg-surface')}
+              onClick={handleResetAllAiEdits}
+              data-tooltip="Reset Inpainting"
+            >
+              <RotateCcw size={18} />
+            </button>
+          )}
+        </RightPanelHeader>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0 p-4">
           <AnimatePresence mode="wait">

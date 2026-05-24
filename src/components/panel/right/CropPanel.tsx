@@ -23,6 +23,7 @@ import Slider from '../../ui/Slider';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
+import RightPanelHeader, { rightPanelHeaderActionClassName } from './RightPanelHeader';
 
 const BASE_RATIO = 1.618;
 const ORIGINAL_RATIO = 0;
@@ -423,16 +424,17 @@ export default function CropPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>Crop & Transform</Text>
-        <button
-          className="p-2 rounded-full hover:bg-surface transition-colors"
-          onClick={handleReset}
-          data-tooltip="Reset Crop & Transform"
-        >
-          <RotateCcw size={18} />
-        </button>
-      </div>
+      <RightPanelHeader title="Crop & Transform">
+        {(isCompact) => (
+          <button
+            className={rightPanelHeaderActionClassName(isCompact, 'rounded-full hover:bg-surface')}
+            onClick={handleReset}
+            data-tooltip="Reset Crop & Transform"
+          >
+            <RotateCcw size={18} />
+          </button>
+        )}
+      </RightPanelHeader>
 
       <div className="grow overflow-y-auto p-4 space-y-8">
         {selectedImage ? (

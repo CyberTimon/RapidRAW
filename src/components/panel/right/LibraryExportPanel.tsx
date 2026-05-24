@@ -26,6 +26,7 @@ import { useExportSettings } from '../../../hooks/useExportSettings';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
+import RightPanelHeader, { rightPanelHeaderActionClassName } from './RightPanelHeader';
 
 interface LibraryExportPanelProps {
   exportState: ExportState;
@@ -510,15 +511,19 @@ export default function LibraryExportPanel({
 
   return (
     <div className="h-full bg-bg-secondary rounded-lg flex flex-col">
-      <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>Export</Text>
-        <button
-          onClick={onClose}
-          className="p-1 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary"
-        >
-          <X size={20} />
-        </button>
-      </div>
+      <RightPanelHeader title="Export">
+        {(isCompact) => (
+          <button
+            onClick={onClose}
+            className={rightPanelHeaderActionClassName(
+              isCompact,
+              'rounded-md text-text-secondary hover:bg-surface hover:text-text-primary',
+            )}
+          >
+            <X size={20} />
+          </button>
+        )}
+      </RightPanelHeader>
       <div className="grow overflow-y-auto p-4 space-y-8">
         {canExport ? (
           <>

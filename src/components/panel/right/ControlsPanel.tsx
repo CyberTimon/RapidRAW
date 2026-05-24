@@ -21,6 +21,7 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
+import RightPanelHeader, { rightPanelHeaderActionClassName } from './RightPanelHeader';
 
 export default function Controls() {
   const { showContextMenu } = useContextMenu();
@@ -207,37 +208,45 @@ export default function Controls() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>Adjustments</Text>
-        <div className="flex items-center gap-1">
-          <button
-            className="p-2 rounded-full hover:bg-surface disabled:cursor-not-allowed transition-colors"
-            disabled={!selectedImage?.isReady}
-            onClick={handleAutoAdjustments}
-            data-tooltip="Auto Adjust Image"
-          >
-            <Aperture size={18} />
-          </button>
-          <button
-            className={clsx(
-              'p-2 rounded-full transition-colors',
-              isWaveformVisible ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
-            )}
-            onClick={onToggleWaveform}
-            data-tooltip="Toggle Analytics Display"
-          >
-            <ChartArea size={18} />
-          </button>
-          <button
-            className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            disabled={!selectedImage}
-            onClick={handleResetAdjustments}
-            data-tooltip="Reset Adjustments"
-          >
-            <RotateCcw size={18} />
-          </button>
-        </div>
-      </div>
+      <RightPanelHeader title="Adjustments">
+        {(isCompact) => (
+          <div className="flex items-center gap-1">
+            <button
+              className={rightPanelHeaderActionClassName(
+                isCompact,
+                'rounded-full hover:bg-surface disabled:cursor-not-allowed',
+              )}
+              disabled={!selectedImage?.isReady}
+              onClick={handleAutoAdjustments}
+              data-tooltip="Auto Adjust Image"
+            >
+              <Aperture size={18} />
+            </button>
+            <button
+              className={rightPanelHeaderActionClassName(
+                isCompact,
+                'rounded-full',
+                isWaveformVisible ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
+              )}
+              onClick={onToggleWaveform}
+              data-tooltip="Toggle Analytics Display"
+            >
+              <ChartArea size={18} />
+            </button>
+            <button
+              className={rightPanelHeaderActionClassName(
+                isCompact,
+                'rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed',
+              )}
+              disabled={!selectedImage}
+              onClick={handleResetAdjustments}
+              data-tooltip="Reset Adjustments"
+            >
+              <RotateCcw size={18} />
+            </button>
+          </div>
+        )}
+      </RightPanelHeader>
 
       <AnimatePresence initial={false}>
         {isWaveformVisible && (
