@@ -641,6 +641,7 @@ export default function MasksPanel() {
   const [isSettingsSectionOpen, setSettingsSectionOpen] = useState(true);
   const [isSettingsPanelEverOpened, setIsSettingsPanelEverOpened] = useState(false);
   const hasPerformedInitialSelection = useRef(false);
+  const hasAppliedCompactOpenDefaults = useRef(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [analyzingSubMaskId, setAnalyzingSubMaskId] = useState<string | null>(null);
 
@@ -648,6 +649,28 @@ export default function MasksPanel() {
   const { presets } = usePresets(adjustments);
 
   const { setNodeRef: setRootDroppableRef, isOver: isRootOver } = useDroppable({ id: 'mask-list-root' });
+
+  useEffect(() => {
+    if (!isCompactUi) {
+      hasAppliedCompactOpenDefaults.current = false;
+      return;
+    }
+
+    if (hasAppliedCompactOpenDefaults.current) {
+      return;
+    }
+
+    setCollapsibleState((prev: any) => ({
+      ...prev,
+      basic: true,
+      color: true,
+      curves: true,
+      details: true,
+      effects: true,
+    }));
+    setSettingsSectionOpen(true);
+    hasAppliedCompactOpenDefaults.current = true;
+  }, [isCompactUi]);
 
   const activeContainer = adjustments.masks?.find((m) => m.id === activeMaskContainerId);
   const activeSubMaskData = activeContainer?.subMasks?.find((sm) => sm.id === activeMaskId);
@@ -2331,7 +2354,7 @@ function SettingsPanel({
     >
       <CollapsibleSection
         title={isComponentMode ? `${getSubMaskName(activeSubMask)} Properties` : 'Mask Properties'}
-        isOpen={isCompactUi || isSettingsSectionOpen}
+        isOpen={isSettingsSectionOpen}
         onToggle={() => {
           const isOpening = !isSettingsSectionOpen;
           setSettingsSectionOpen(isOpening);
@@ -2475,7 +2498,7 @@ function SettingsPanel({
             <CollapsibleSection
               key={sectionName}
               title={title}
-              isOpen={isCompactUi || collapsibleState[sectionName]}
+              isOpen={collapsibleState[sectionName]}
               isContentVisible={sectionVisibility[sectionName]}
               onToggle={() => handleToggleSection(sectionName)}
               onToggleVisibility={() => handleToggleVisibility(sectionName)}

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { RotateCcw, Copy, ClipboardPaste, Aperture, ChartArea } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -92,6 +92,28 @@ export default function Controls() {
       })),
     [setUI],
   );
+  const hasAppliedCompactOpenDefaults = useRef(false);
+
+  useEffect(() => {
+    if (!isCompactUi) {
+      hasAppliedCompactOpenDefaults.current = false;
+      return;
+    }
+
+    if (hasAppliedCompactOpenDefaults.current) {
+      return;
+    }
+
+    setCollapsibleState((prev: any) => ({
+      ...prev,
+      basic: true,
+      color: true,
+      curves: true,
+      details: true,
+      effects: true,
+    }));
+    hasAppliedCompactOpenDefaults.current = true;
+  }, [isCompactUi, setCollapsibleState]);
 
   const handleToggleVisibility = (sectionName: string) => {
     setAdjustments((prev: Adjustments) => {
@@ -296,7 +318,7 @@ export default function Controls() {
             <div className="shrink-0 group" key={sectionName}>
               <CollapsibleSection
                 isContentVisible={sectionVisibility[sectionName as keyof SectionVisibility]}
-                isOpen={isCompactUi || collapsibleSectionsState[sectionName as keyof typeof collapsibleSectionsState]}
+                isOpen={collapsibleSectionsState[sectionName as keyof typeof collapsibleSectionsState]}
                 onContextMenu={(e: any) => handleSectionContextMenu(e, sectionName)}
                 onToggle={() => handleToggleSection(sectionName)}
                 onToggleVisibility={() => handleToggleVisibility(sectionName)}

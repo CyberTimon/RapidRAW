@@ -1740,7 +1740,7 @@ function SettingsPanel({
     >
       <CollapsibleSection
         title="Generative Replace"
-        isOpen={isCompactUi || collapsibleState.generative}
+        isOpen={collapsibleState.generative}
         onToggle={() => handleToggleSection('generative')}
         canToggleVisibility={false}
         isContentVisible={true}
@@ -1836,7 +1836,7 @@ function SettingsPanel({
 
       <CollapsibleSection
         title={isComponentMode ? `${getSubMaskName(activeSubMask)} Properties` : 'Selection Properties'}
-        isOpen={isCompactUi || collapsibleState.properties}
+        isOpen={collapsibleState.properties}
         onToggle={() => handleToggleSection('properties')}
         canToggleVisibility={false}
         isContentVisible={true}
