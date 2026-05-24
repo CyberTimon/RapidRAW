@@ -1015,8 +1015,8 @@ export default function SettingsPanel({
                     </SettingItem>
 
                     <SettingItem
-                      label="UI Style"
-                      description="Choose a spacious modern interface or a denser compact layout."
+                      label="UI Design"
+                      description="Choose between the default Modern layout and a Compact layout."
                     >
                       <Dropdown
                         onChange={(value: UiMode) => onSettingsChange({ ...appSettings, uiMode: value })}
