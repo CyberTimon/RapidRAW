@@ -21,7 +21,7 @@ import { useLibraryStore } from '../../store/useLibraryStore';
 import { useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
-import { ImageFile, Orientation, Panel, ThumbnailAspectRatio } from '../ui/AppProperties';
+import { ImageFile, Orientation, Panel, ThumbnailAspectRatio, UiMode } from '../ui/AppProperties';
 
 const panelVariants: any = {
   animate: (direction: number) => ({
@@ -139,6 +139,7 @@ export default function EditorView({
       handleSettingsChange: state.handleSettingsChange,
     })),
   );
+  const isCompactUi = appSettings?.uiMode === UiMode.Compact;
 
   const editorNode = (
     <Editor
@@ -246,7 +247,7 @@ export default function EditorView({
     <div className={clsx('flex grow h-full min-h-0', isCompactPortrait ? 'flex-col gap-2' : 'flex-row')}>
       <div className={clsx('flex-1 flex flex-col min-w-0', isCompactPortrait && 'min-h-0')}>
         {editorNode}
-        {!isCompactPortrait && editorBottomBarNode}
+        {!isCompactUi && !isCompactPortrait && editorBottomBarNode}
       </div>
       <div
         className={clsx(
@@ -285,7 +286,7 @@ export default function EditorView({
                 layout="horizontal"
               />
             </div>
-            <div className="shrink-0 border-t border-surface">{editorBottomBarComponent}</div>
+            {!isCompactUi && <div className="shrink-0 border-t border-surface">{editorBottomBarComponent}</div>}
           </>
         ) : (
           <>
