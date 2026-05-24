@@ -52,7 +52,7 @@ import {
   getSubMaskName,
 } from './Masks';
 import { Adjustments, AiPatch } from '../../../utils/adjustments';
-import { OPTION_SEPARATOR } from '../../ui/AppProperties';
+import { OPTION_SEPARATOR, UiMode } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
 import Text from '../../ui/Text';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
@@ -293,6 +293,7 @@ export default function AIPanel() {
   const { setAdjustments } = useEditorActions();
   const { handleGenerativeReplace, handleDeleteAiPatch, handleGenerateAiForegroundMask } = useAiMasking();
   const appSettings = useSettingsStore((s) => s.appSettings);
+  const isCompactUi = appSettings?.uiMode === UiMode.Compact;
   const aiProvider = appSettings?.aiProvider || 'cpu';
 
   const { user, isSignedIn } = useUser();
@@ -1090,6 +1091,7 @@ export default function AIPanel() {
                   onGenerativeReplace={handleGenerativeReplace}
                   collapsibleState={collapsibleState}
                   setCollapsibleState={setCollapsibleState}
+                  isCompactUi={isCompactUi}
                   isGenerativeAvailable={isGenerativeAvailable}
                 />
               </motion.div>
@@ -1686,6 +1688,7 @@ function SettingsPanel({
   onGenerativeReplace,
   collapsibleState,
   setCollapsibleState,
+  isCompactUi,
   isGenerativeAvailable,
 }: any) {
   const isActive = !!container;
@@ -1737,7 +1740,7 @@ function SettingsPanel({
     >
       <CollapsibleSection
         title="Generative Replace"
-        isOpen={collapsibleState.generative}
+        isOpen={isCompactUi || collapsibleState.generative}
         onToggle={() => handleToggleSection('generative')}
         canToggleVisibility={false}
         isContentVisible={true}
@@ -1833,7 +1836,7 @@ function SettingsPanel({
 
       <CollapsibleSection
         title={isComponentMode ? `${getSubMaskName(activeSubMask)} Properties` : 'Selection Properties'}
-        isOpen={collapsibleState.properties}
+        isOpen={isCompactUi || collapsibleState.properties}
         onToggle={() => handleToggleSection('properties')}
         canToggleVisibility={false}
         isContentVisible={true}

@@ -12,7 +12,7 @@ import Waveform from '../editor/Waveform';
 import Resizer from '../../ui/Resizer';
 import { Adjustments, SectionVisibility, INITIAL_ADJUSTMENTS, ADJUSTMENT_SECTIONS } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
-import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
+import { OPTION_SEPARATOR, Orientation, UiMode } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
 import { TextVariants } from '../../../types/typography';
 import { useShallow } from 'zustand/react/shallow';
@@ -35,6 +35,7 @@ export default function Controls() {
       theme: state.theme,
     })),
   );
+  const isCompactUi = appSettings?.uiMode === UiMode.Compact;
 
   const { collapsibleSectionsState, setUI } = useUIStore(
     useShallow((state) => ({
@@ -295,7 +296,7 @@ export default function Controls() {
             <div className="shrink-0 group" key={sectionName}>
               <CollapsibleSection
                 isContentVisible={sectionVisibility[sectionName as keyof SectionVisibility]}
-                isOpen={collapsibleSectionsState[sectionName as keyof typeof collapsibleSectionsState]}
+                isOpen={isCompactUi || collapsibleSectionsState[sectionName as keyof typeof collapsibleSectionsState]}
                 onContextMenu={(e: any) => handleSectionContextMenu(e, sectionName)}
                 onToggle={() => handleToggleSection(sectionName)}
                 onToggleVisibility={() => handleToggleVisibility(sectionName)}
