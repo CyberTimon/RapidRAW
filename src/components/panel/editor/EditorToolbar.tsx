@@ -2,10 +2,11 @@ import { memo, useState, useEffect, useRef, useMemo } from 'react';
 import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo, Waves } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { SelectedImage } from '../../ui/AppProperties';
+import { SelectedImage, UiMode } from '../../ui/AppProperties';
 import { IconAperture, IconCalendar, IconClock, IconFocalLength, IconIso, IconShutter } from './ExifIcons';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
+import { useSettingsStore } from '../../../store/useSettingsStore';
 
 interface EditorToolbarProps {
   canRedo: boolean;
@@ -55,6 +56,7 @@ const EditorToolbar = memo(
     const [isHistoryVisible, setIsHistoryVisible] = useState(false);
     const historyContainerRef = useRef<HTMLDivElement>(null);
     const historyButtonRef = useRef<HTMLDivElement>(null);
+    const isCompactUi = useSettingsStore((state) => state.appSettings?.uiMode === UiMode.Compact);
 
     const showResolution = !isAndroid && selectedImage.width > 0 && selectedImage.height > 0;
     const [displayedResolution, setDisplayedResolution] = useState('');
@@ -327,12 +329,21 @@ const EditorToolbar = memo(
     };
 
     const isExpanded = isInfoHovered && (hasExif || isLoading);
+    const toolbarButtonPadding = isCompactUi ? 'p-1.5' : 'p-2';
 
     return (
-      <div className="relative shrink-0 flex items-center justify-between px-4 h-14 gap-4 z-40">
+      <div
+        className={clsx(
+          'relative shrink-0 flex items-center justify-between z-40',
+          isCompactUi ? 'px-3 h-10 gap-3' : 'px-4 h-14 gap-4',
+        )}
+      >
         <div className="flex items-center gap-2 shrink-0 z-40">
           <button
-            className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors shrink-0"
+            className={clsx(
+              'bg-surface text-text-primary rounded-full hover:bg-card-active transition-colors shrink-0',
+              toolbarButtonPadding,
+            )}
             onClick={onBackToLibrary}
             onKeyDown={handleButtonKeyDown}
             data-tooltip="Back to Library"
@@ -341,16 +352,16 @@ const EditorToolbar = memo(
           </button>
 
           <div className="hidden 2xl:flex items-center gap-2" aria-hidden="true">
-            <div className="p-2 invisible pointer-events-none">
+            <div className={clsx(toolbarButtonPadding, 'invisible pointer-events-none')}>
               <Undo size={20} />
             </div>
-            <div className="p-2 invisible pointer-events-none">
+            <div className={clsx(toolbarButtonPadding, 'invisible pointer-events-none')}>
               <Undo size={20} />
             </div>
-            <div className="p-2 invisible pointer-events-none">
+            <div className={clsx(toolbarButtonPadding, 'invisible pointer-events-none')}>
               <Undo size={20} />
             </div>
-            <div className="p-2 invisible pointer-events-none">
+            <div className={clsx(toolbarButtonPadding, 'invisible pointer-events-none')}>
               <Undo size={20} />
             </div>
           </div>
@@ -359,15 +370,22 @@ const EditorToolbar = memo(
         <div className="flex-1 flex justify-center min-w-0 relative h-full">
           <div
             className={clsx(
-              'bg-surface flex flex-col items-center overflow-hidden transition-all duration-200 ease-out pt-2',
+              'bg-surface flex flex-col items-center overflow-hidden transition-all duration-200 ease-out',
+              isCompactUi ? 'pt-1' : 'pt-2',
               isExpanded
-                ? 'h-18 px-8 rounded-2xl absolute min-w-[340px] whitespace-nowrap shadow-2xl shadow-black/50'
-                : 'h-9 px-4 rounded-[18px] absolute min-w-0 w-auto max-w-full shadow-none',
+                ? clsx(
+                    'px-8 rounded-2xl absolute min-w-[340px] whitespace-nowrap shadow-2xl shadow-black/50',
+                    isCompactUi ? 'h-16' : 'h-18',
+                  )
+                : clsx(
+                    'px-4 rounded-[18px] absolute min-w-0 w-auto max-w-full shadow-none',
+                    isCompactUi ? 'h-7' : 'h-9',
+                  ),
             )}
             onMouseEnter={() => setIsInfoHovered(true)}
             onMouseLeave={() => setIsInfoHovered(false)}
             style={{
-              top: '10px',
+              top: isCompactUi ? '6px' : '10px',
               transform: 'translateX(-50%)',
               left: '50%',
               zIndex: isExpanded ? 50 : 0,
@@ -525,7 +543,10 @@ const EditorToolbar = memo(
         <div className="flex items-center gap-2 shrink-0 z-40">
           <div className="relative flex items-center gap-2" ref={historyButtonRef}>
             <button
-              className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className={clsx(
+                'bg-surface text-text-primary rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                toolbarButtonPadding,
+              )}
               disabled={!canUndo}
               onClick={onUndo}
               onKeyDown={handleButtonKeyDown}
@@ -538,7 +559,10 @@ const EditorToolbar = memo(
               <Undo size={20} />
             </button>
             <button
-              className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className={clsx(
+                'bg-surface text-text-primary rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                toolbarButtonPadding,
+              )}
               disabled={!canRedo}
               onClick={onRedo}
               onKeyDown={handleButtonKeyDown}
@@ -611,7 +635,8 @@ const EditorToolbar = memo(
 
           <button
             className={clsx(
-              'p-2 rounded-full transition-colors',
+              'rounded-full transition-colors',
+              toolbarButtonPadding,
               showOriginal
                 ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
                 : 'bg-surface hover:bg-card-active text-text-primary',
@@ -623,7 +648,10 @@ const EditorToolbar = memo(
             {showOriginal ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
           <button
-            className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative"
+            className={clsx(
+              'bg-surface text-text-primary rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative',
+              toolbarButtonPadding,
+            )}
             onClick={onToggleFullScreen}
             onKeyDown={handleButtonKeyDown}
             data-tooltip="Toggle Fullscreen (F)"
