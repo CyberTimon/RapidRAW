@@ -34,6 +34,7 @@ export function useAutoLensCorrection() {
     }
 
     let cancelled = false;
+    const shouldPromptForUnknownLens = appSettings?.promptForUnknownLensProfile ?? true;
 
     const applyDetectedLensCorrection = async () => {
       try {
@@ -44,7 +45,9 @@ export function useAutoLensCorrection() {
         }
 
         if (!detectedParams) {
-          setUI({ isLensCorrectionModalOpen: true });
+          if (shouldPromptForUnknownLens) {
+            setUI({ isLensCorrectionModalOpen: true });
+          }
           return;
         }
 
@@ -60,7 +63,9 @@ export function useAutoLensCorrection() {
         console.error('Automatic lens correction failed:', error);
         if (!cancelled && useEditorStore.getState().selectedImage?.path === currentPath) {
           toast.error(`Automatic lens correction failed: ${error}`);
-          setUI({ isLensCorrectionModalOpen: true });
+          if (shouldPromptForUnknownLens) {
+            setUI({ isLensCorrectionModalOpen: true });
+          }
         }
       }
     };
@@ -76,6 +81,7 @@ export function useAutoLensCorrection() {
     selectedImage?.isRaw,
     selectedImage?.exif,
     appSettings?.autoApplyLensCorrection,
+    appSettings?.promptForUnknownLensProfile,
     setAdjustments,
     setUI,
   ]);

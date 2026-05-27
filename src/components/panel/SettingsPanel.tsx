@@ -1248,6 +1248,34 @@ export default function SettingsPanel({
                       />
                     </SettingItem>
 
+                    <AnimatePresence initial={false}>
+                      {(appSettings?.autoApplyLensCorrection ?? false) && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: 'easeInOut' }}
+                          className="overflow-hidden"
+                        >
+                          <div className="pl-4 border-l-2 border-border-color ml-1">
+                            <SettingItem
+                              label={t('settings.lenses.unknownPrompt')}
+                              description={t('settings.lenses.unknownPromptDesc')}
+                            >
+                              <Switch
+                                checked={appSettings?.promptForUnknownLensProfile ?? true}
+                                id="unknown-lens-prompt-toggle"
+                                label={t('settings.lenses.unknownPromptLabel')}
+                                onChange={(checked) =>
+                                  onSettingsChange({ ...appSettings, promptForUnknownLensProfile: checked })
+                                }
+                              />
+                            </SettingItem>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                     <div className="bg-bg-primary rounded-lg p-4 border border-border-color">
                       <Text variant={TextVariants.heading} className="mb-3">
                         {t('settings.lenses.addNew')}

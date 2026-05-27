@@ -364,6 +364,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub auto_apply_lens_correction: Option<bool>,
     #[serde(default)]
+    pub prompt_for_unknown_lens_profile: Option<bool>,
+    #[serde(default)]
     pub enable_folder_image_counts: Option<bool>,
     #[serde(default = "default_linear_raw_mode")]
     pub linear_raw_mode: String,
@@ -458,6 +460,7 @@ impl Default for AppSettings {
             export_presets: default_export_presets(),
             my_lenses: Some(Vec::new()),
             auto_apply_lens_correction: Some(false),
+            prompt_for_unknown_lens_profile: Some(true),
             #[cfg(target_os = "android")]
             high_res_zoom_multiplier: Some(0.75),
             #[cfg(not(target_os = "android"))]

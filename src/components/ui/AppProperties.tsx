@@ -184,6 +184,7 @@ export interface AppSettings {
   exportPresets?: ExportPreset[];
   myLenses?: any;
   autoApplyLensCorrection?: boolean;
+  promptForUnknownLensProfile?: boolean;
   enableFolderImageCounts?: boolean;
   linearRawMode?: string;
   enableXmpSync?: boolean;
