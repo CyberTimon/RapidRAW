@@ -183,6 +183,7 @@ export interface AppSettings {
   linuxGpuOptimization?: boolean;
   exportPresets?: ExportPreset[];
   myLenses?: any;
+  autoApplyLensCorrection?: boolean;
   enableFolderImageCounts?: boolean;
   linearRawMode?: string;
   enableXmpSync?: boolean;

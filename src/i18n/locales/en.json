@@ -43,6 +43,9 @@
     "lenses": {
       "title": "My Lenses",
       "description": "Create a list of your frequently used lenses to quickly access them in the Lens Correction panel.",
+      "autoApply": "Automatic Lens Correction",
+      "autoApplyDesc": "When opening a RAW file with default lens correction settings, detect and apply the matching Lensfun profile automatically. If no profile is found, the Lens Correction panel opens for manual selection.",
+      "autoApplyLabel": "Auto-apply lens correction to RAW files",
       "addNew": "Add New Lens",
       "manufacturerPlaceholder": "Select Manufacturer",
       "modelPlaceholder": "Select Lens Model",

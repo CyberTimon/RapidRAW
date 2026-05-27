@@ -1236,6 +1236,18 @@ export default function SettingsPanel({
                   <Text className="mb-6">{t('settings.lenses.description')}</Text>
 
                   <div className="space-y-8">
+                    <SettingItem
+                      label={t('settings.lenses.autoApply')}
+                      description={t('settings.lenses.autoApplyDesc')}
+                    >
+                      <Switch
+                        checked={appSettings?.autoApplyLensCorrection ?? false}
+                        id="auto-lens-correction-toggle"
+                        label={t('settings.lenses.autoApplyLabel')}
+                        onChange={(checked) => onSettingsChange({ ...appSettings, autoApplyLensCorrection: checked })}
+                      />
+                    </SettingItem>
+
                     <div className="bg-bg-primary rounded-lg p-4 border border-border-color">
                       <Text variant={TextVariants.heading} className="mb-3">
                         {t('settings.lenses.addNew')}

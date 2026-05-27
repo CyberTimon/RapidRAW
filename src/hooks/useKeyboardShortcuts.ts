@@ -523,6 +523,7 @@ export const useKeyboardShortcuts = ({
         state.ui.isRenameFileModalOpen ||
         state.ui.isImportModalOpen ||
         state.ui.isCopyPasteSettingsModalOpen ||
+        state.ui.isLensCorrectionModalOpen ||
         state.ui.confirmModalState.isOpen ||
         state.ui.panoramaModalState.isOpen ||
         state.ui.cullingModalState.isOpen ||

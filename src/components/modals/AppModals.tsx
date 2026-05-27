@@ -1,6 +1,4 @@
 import { useShallow } from 'zustand/react/shallow';
-import { invoke } from '@tauri-apps/api/core';
-import { toast } from 'react-toastify';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -18,8 +16,10 @@ import ConfirmModal from './ConfirmModal';
 import ImportSettingsModal from './ImportSettingsModal';
 import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
-import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
-import { CopyPasteSettings } from '../../utils/adjustments';
+import LensCorrectionModal from './LensCorrectionModal';
+import { AppSettings, AlbumItem } from '../ui/AppProperties';
+import { Adjustments, CopyPasteSettings } from '../../utils/adjustments';
+import { useEditorActions } from '../../hooks/useEditorActions';
 
 export interface AppModalsProps {
   handleImageSelect: (path: string) => void;
@@ -34,10 +34,10 @@ export interface AppModalsProps {
   handleCreateFolder: (folderName: string) => Promise<void>;
   handleRenameFolder: (newName: string) => Promise<void>;
   handleSaveRename: (nameTemplate: string) => Promise<void>;
-  handleStartImport: (settings: any) => Promise<void>;
+  handleStartImport: (settings: unknown) => Promise<void>;
   handleSetColorLabel: (color: string | null, paths?: string[]) => Promise<void>;
   handleRate: (rating: number, paths?: string[]) => void;
-  executeDelete: (paths: string[], options: any) => Promise<void>;
+  executeDelete: (paths: string[], options: unknown) => Promise<void>;
   handleSaveCollage: (base64Data: string, firstPath: string) => Promise<string>;
   handleCreateAlbumItem: (name: string, type: 'album' | 'group') => Promise<void>;
   handleRenameAlbumItem: (newName: string) => Promise<void>;
@@ -57,6 +57,7 @@ export default function AppModals(props: AppModalsProps) {
     isRenameFileModalOpen,
     isImportModalOpen,
     isCopyPasteSettingsModalOpen,
+    isLensCorrectionModalOpen,
     folderActionTarget,
     renameTargetPaths,
     importSourcePaths,
@@ -79,6 +80,7 @@ export default function AppModals(props: AppModalsProps) {
       isRenameFileModalOpen: state.isRenameFileModalOpen,
       isImportModalOpen: state.isImportModalOpen,
       isCopyPasteSettingsModalOpen: state.isCopyPasteSettingsModalOpen,
+      isLensCorrectionModalOpen: state.isLensCorrectionModalOpen,
       folderActionTarget: state.folderActionTarget,
       renameTargetPaths: state.renameTargetPaths,
       importSourcePaths: state.importSourcePaths,
@@ -104,12 +106,14 @@ export default function AppModals(props: AppModalsProps) {
     })),
   );
 
-  const { selectedImage, finalPreviewUrl } = useEditorStore(
+  const { selectedImage, finalPreviewUrl, adjustments } = useEditorStore(
     useShallow((state) => ({
       selectedImage: state.selectedImage,
       finalPreviewUrl: state.finalPreviewUrl,
+      adjustments: state.adjustments,
     })),
   );
+  const { setAdjustments } = useEditorActions();
 
   const closeConfirmModal = () => {
     setUI((state) => ({ confirmModalState: { ...state.confirmModalState, isOpen: false } }));
@@ -212,6 +216,18 @@ export default function AppModals(props: AppModalsProps) {
             }
           });
         }}
+      />
+      <LensCorrectionModal
+        isOpen={isLensCorrectionModalOpen}
+        onClose={() => setUI({ isLensCorrectionModalOpen: false })}
+        onApply={(newParams) => {
+          setAdjustments((prev: Adjustments) => ({
+            ...prev,
+            ...newParams,
+          }));
+        }}
+        currentAdjustments={adjustments}
+        selectedImage={selectedImage}
       />
       <DenoiseModal
         isOpen={denoiseModalState.isOpen}

@@ -23,6 +23,7 @@ import Dropdown from '../ui/Dropdown';
 import Switch from '../ui/Switch';
 import throttle from 'lodash.throttle';
 import { Adjustments } from '../../utils/adjustments';
+import { detectLensCorrectionParams, fetchLensDistortionParams } from '../../utils/lensCorrection';
 import { SelectedImage } from '../ui/AppProperties';
 import clsx from 'clsx';
 import Text from '../ui/Text';
@@ -103,24 +104,6 @@ const DEFAULT_PARAMS: LensParams = {
   lensDistortionParams: null,
 };
 
-const parseFocalLength = (exif: any): number | null => {
-  if (!exif || !exif.FocalLength) return null;
-  const val = parseFloat(exif.FocalLength);
-  return isNaN(val) ? null : val;
-};
-
-const parseAperture = (exif: any): number | null => {
-  if (!exif || !exif.FNumber) return null;
-  const val = parseFloat(exif.FNumber);
-  return isNaN(val) ? null : val;
-};
-
-const parseDistance = (exif: any): number | null => {
-  if (!exif || !exif.SubjectDistance) return null;
-  const val = parseFloat(exif.SubjectDistance);
-  return isNaN(val) ? null : val;
-};
-
 const SLIDER_DIVISOR = 100.0;
 
 export default function LensCorrectionModal({
@@ -149,10 +132,6 @@ export default function LensCorrectionModal({
 
   const [modeBubbleStyle, setModeBubbleStyle] = useState({});
   const isModeInitialAnimation = useRef(true);
-
-  const focalLength = useMemo(() => parseFocalLength(selectedImage?.exif), [selectedImage?.exif]);
-  const aperture = useMemo(() => parseAperture(selectedImage?.exif), [selectedImage?.exif]);
-  const distance = useMemo(() => parseDistance(selectedImage?.exif), [selectedImage?.exif]);
 
   const availability = useMemo(() => {
     if (!params.lensDistortionParams) return { distortion: false, tca: false, vignetting: false };
@@ -232,21 +211,8 @@ export default function LensCorrectionModal({
     setPan({ x: 0, y: 0 });
   };
 
-  const fetchDistortionParams = async (maker: string, model: string) => {
-    try {
-      const distParams: any = await invoke('get_lens_distortion_params', {
-        maker,
-        model,
-        focalLength: focalLength,
-        aperture: aperture,
-        distance: distance,
-      });
-      return distParams;
-    } catch (error) {
-      console.error('Failed to fetch lens params', error);
-      return null;
-    }
-  };
+  const fetchDistortionParams = (maker: string, model: string) =>
+    fetchLensDistortionParams(maker, model, selectedImage?.exif);
 
   const updatePreview = useCallback(
     throttle(async (currentParams: LensParams) => {
@@ -412,34 +378,22 @@ export default function LensCorrectionModal({
       setDetectionStatus('not_found');
       return;
     }
-    const exifMaker = selectedImage.exif.Make || '';
-    const exifModel = selectedImage.exif.LensModel || '';
-
-    if (!exifModel) {
-      setDetectionStatus('not_found');
-      return;
-    }
-
     setDetectionStatus('detecting');
 
     try {
-      const result: [string, string] | null = await invoke('autodetect_lens', { maker: exifMaker, model: exifModel });
+      const detectedParams = await detectLensCorrectionParams(selectedImage.exif);
 
-      if (result) {
-        const [detectedMaker, detectedModel] = result;
+      if (detectedParams?.lensMaker && detectedParams.lensModel) {
+        const detectedMaker = detectedParams.lensMaker;
 
         invoke('get_lensfun_lenses_for_maker', { maker: detectedMaker })
           .then((l: any) => setLenses(l))
           .catch(console.error);
 
-        const distortionParams = await fetchDistortionParams(detectedMaker, detectedModel);
-
         setParams((prev) => {
           const newParams = {
             ...prev,
-            lensMaker: detectedMaker,
-            lensModel: detectedModel,
-            lensDistortionParams: distortionParams,
+            ...detectedParams,
           };
           updatePreview(newParams);
           return newParams;
