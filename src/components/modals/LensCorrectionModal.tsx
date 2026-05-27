@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
   RotateCcw,
-  Search,
   Check,
   Info,
   Loader,
@@ -14,7 +13,6 @@ import {
   SquareDashed,
   CircleDashed,
   Activity,
-  Scissors,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Button from '../ui/Button';
@@ -24,7 +22,8 @@ import Switch from '../ui/Switch';
 import throttle from 'lodash.throttle';
 import { Adjustments } from '../../utils/adjustments';
 import { detectLensCorrectionParams, fetchLensDistortionParams } from '../../utils/lensCorrection';
-import { SelectedImage } from '../ui/AppProperties';
+import { useEditorStore } from '../../store/useEditorStore';
+import { useEditorActions } from '../../hooks/useEditorActions';
 import clsx from 'clsx';
 import Text from '../ui/Text';
 import { TextColors, TextVariants } from '../../types/typography';
@@ -60,6 +59,10 @@ interface MyLens {
   model: string;
 }
 
+interface LensSettings {
+  myLenses?: MyLens[];
+}
+
 interface LensParams {
   lensCorrectionMode: 'auto' | 'manual';
   lensMaker: string | null;
@@ -86,9 +89,6 @@ interface LensParams {
 interface LensCorrectionModalProps {
   isOpen: boolean;
   onClose(): void;
-  onApply(newParams: LensParams): void;
-  currentAdjustments: Adjustments;
-  selectedImage: SelectedImage | null;
 }
 
 const DEFAULT_PARAMS: LensParams = {
@@ -106,13 +106,11 @@ const DEFAULT_PARAMS: LensParams = {
 
 const SLIDER_DIVISOR = 100.0;
 
-export default function LensCorrectionModal({
-  isOpen,
-  onClose,
-  onApply,
-  currentAdjustments,
-  selectedImage,
-}: LensCorrectionModalProps) {
+export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionModalProps) {
+  const currentAdjustments = useEditorStore((state) => (isOpen ? state.adjustments : null));
+  const selectedImage = useEditorStore((state) => (isOpen ? state.selectedImage : null));
+  const { setAdjustments } = useEditorActions();
+
   const [params, setParams] = useState<LensParams>(DEFAULT_PARAMS);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
@@ -216,6 +214,8 @@ export default function LensCorrectionModal({
 
   const updatePreview = useCallback(
     throttle(async (currentParams: LensParams) => {
+      if (!currentAdjustments) return;
+
       try {
         const fullParams: GeometryParams = {
           distortion: currentAdjustments.transformDistortion ?? 0,
@@ -260,11 +260,11 @@ export default function LensCorrectionModal({
   );
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && currentAdjustments) {
       setIsMounted(true);
       const timer = setTimeout(() => setShow(true), 10);
 
-      invoke('load_settings').then((settings: any) => {
+      invoke<LensSettings>('load_settings').then((settings) => {
         if (settings?.myLenses) {
           setMyLenses(settings.myLenses);
         }
@@ -288,18 +288,18 @@ export default function LensCorrectionModal({
       handleResetZoom();
       updatePreview(initParams);
 
-      invoke('get_lensfun_makers')
-        .then((m: any) => setMakers(m))
+      invoke<string[]>('get_lensfun_makers')
+        .then((m) => setMakers(m))
         .catch(console.error);
 
       if (initParams.lensMaker) {
-        invoke('get_lensfun_lenses_for_maker', { maker: initParams.lensMaker })
-          .then((l: any) => setLenses(l))
+        invoke<string[]>('get_lensfun_lenses_for_maker', { maker: initParams.lensMaker })
+          .then((l) => setLenses(l))
           .catch(console.error);
       }
 
       return () => clearTimeout(timer);
-    } else {
+    } else if (!isOpen) {
       setShow(false);
       const timer = setTimeout(() => {
         setIsMounted(false);
@@ -321,8 +321,8 @@ export default function LensCorrectionModal({
     setLenses([]);
     setDetectionStatus('idle');
 
-    invoke('get_lensfun_lenses_for_maker', { maker })
-      .then((l: any) => setLenses(l))
+    invoke<string[]>('get_lensfun_lenses_for_maker', { maker })
+      .then((l) => setLenses(l))
       .catch(console.error);
 
     updatePreview(newParams);
@@ -351,8 +351,8 @@ export default function LensCorrectionModal({
     setParams(tempParams);
     setDetectionStatus('idle');
 
-    invoke('get_lensfun_lenses_for_maker', { maker: selected.maker })
-      .then((l: any) => setLenses(l))
+    invoke<string[]>('get_lensfun_lenses_for_maker', { maker: selected.maker })
+      .then((l) => setLenses(l))
       .catch(console.error);
 
     const distortionParams = await fetchDistortionParams(selected.maker, selected.model);
@@ -386,8 +386,8 @@ export default function LensCorrectionModal({
       if (detectedParams?.lensMaker && detectedParams.lensModel) {
         const detectedMaker = detectedParams.lensMaker;
 
-        invoke('get_lensfun_lenses_for_maker', { maker: detectedMaker })
-          .then((l: any) => setLenses(l))
+        invoke<string[]>('get_lensfun_lenses_for_maker', { maker: detectedMaker })
+          .then((l) => setLenses(l))
           .catch(console.error);
 
         setParams((prev) => {
@@ -425,7 +425,10 @@ export default function LensCorrectionModal({
 
   const handleApply = () => {
     setIsApplying(true);
-    onApply(params);
+    setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      ...params,
+    }));
     onClose();
   };
 
@@ -445,6 +448,8 @@ export default function LensCorrectionModal({
   const toggleCompare = (active: boolean) => {
     setIsCompareActive(active);
     if (active) {
+      if (!currentAdjustments) return;
+
       const fullParams: GeometryParams = {
         distortion: currentAdjustments.transformDistortion ?? 0,
         vertical: currentAdjustments.transformVertical ?? 0,
@@ -474,11 +479,11 @@ export default function LensCorrectionModal({
         vig_k3: currentAdjustments.lensDistortionParams?.vig_k3 ?? 0,
       };
 
-      invoke('preview_geometry_transform', {
+      invoke<string>('preview_geometry_transform', {
         params: fullParams,
         jsAdjustments: currentAdjustments,
         showLines: false,
-      }).then((result: any) => setPreviewUrl(result));
+      }).then((result) => setPreviewUrl(result));
     } else {
       updatePreview(params);
     }
@@ -501,31 +506,6 @@ export default function LensCorrectionModal({
       value: i.toString(),
     }));
   }, [myLenses]);
-
-  const autoDetectButtonContent = () => {
-    switch (detectionStatus) {
-      case 'detecting':
-        return (
-          <>
-            <Loader size={16} className="animate-spin" /> Detecting...
-          </>
-        );
-      case 'not_found':
-        return 'Not Found';
-      case 'success':
-        return (
-          <>
-            <Check size={16} /> Lens Found
-          </>
-        );
-      default:
-        return (
-          <>
-            <Search size={16} /> Auto-detect Lens
-          </>
-        );
-    }
-  };
 
   const handleModeChange = (mode: 'auto' | 'manual') => {
     const newParams = { ...params, lensCorrectionMode: mode };
@@ -773,7 +753,7 @@ export default function LensCorrectionModal({
         </div>
 
         <div className="mt-auto space-y-2">
-          {currentAdjustments.masks && currentAdjustments.masks.length > 0 && (
+          {currentAdjustments?.masks && currentAdjustments.masks.length > 0 && (
             <Text
               as="div"
               variant={TextVariants.small}

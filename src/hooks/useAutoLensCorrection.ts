@@ -12,26 +12,22 @@ export function useAutoLensCorrection() {
   const appSettings = useSettingsStore((s) => s.appSettings);
   const setUI = useUIStore((s) => s.setUI);
   const { setAdjustments } = useEditorActions();
-  const attemptRef = useRef<{ path: string | null; attempted: boolean }>({ path: null, attempted: false });
+  const attemptedPathsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const currentPath = selectedImage?.path ?? null;
-
-    if (attemptRef.current.path !== currentPath) {
-      attemptRef.current = { path: currentPath, attempted: false };
-    }
 
     if (
       !currentPath ||
       !selectedImage?.isReady ||
       !selectedImage.isRaw ||
       !appSettings?.autoApplyLensCorrection ||
-      attemptRef.current.attempted
+      attemptedPathsRef.current.has(currentPath)
     ) {
       return;
     }
 
-    attemptRef.current.attempted = true;
+    attemptedPathsRef.current.add(currentPath);
 
     if (!isLensCorrectionDefault(useEditorStore.getState().adjustments)) {
       return;

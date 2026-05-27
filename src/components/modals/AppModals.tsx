@@ -18,8 +18,7 @@ import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
 import LensCorrectionModal from './LensCorrectionModal';
 import { AppSettings, AlbumItem } from '../ui/AppProperties';
-import { Adjustments, CopyPasteSettings } from '../../utils/adjustments';
-import { useEditorActions } from '../../hooks/useEditorActions';
+import { CopyPasteSettings } from '../../utils/adjustments';
 
 export interface AppModalsProps {
   handleImageSelect: (path: string) => void;
@@ -106,14 +105,12 @@ export default function AppModals(props: AppModalsProps) {
     })),
   );
 
-  const { selectedImage, finalPreviewUrl, adjustments } = useEditorStore(
+  const { selectedImage, finalPreviewUrl } = useEditorStore(
     useShallow((state) => ({
       selectedImage: state.selectedImage,
       finalPreviewUrl: state.finalPreviewUrl,
-      adjustments: state.adjustments,
     })),
   );
-  const { setAdjustments } = useEditorActions();
 
   const closeConfirmModal = () => {
     setUI((state) => ({ confirmModalState: { ...state.confirmModalState, isOpen: false } }));
@@ -220,14 +217,6 @@ export default function AppModals(props: AppModalsProps) {
       <LensCorrectionModal
         isOpen={isLensCorrectionModalOpen}
         onClose={() => setUI({ isLensCorrectionModalOpen: false })}
-        onApply={(newParams) => {
-          setAdjustments((prev: Adjustments) => ({
-            ...prev,
-            ...newParams,
-          }));
-        }}
-        currentAdjustments={adjustments}
-        selectedImage={selectedImage}
       />
       <DenoiseModal
         isOpen={denoiseModalState.isOpen}
