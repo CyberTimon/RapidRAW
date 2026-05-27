@@ -1232,6 +1232,31 @@ pub struct ColorCalibrationSettings {
     _pad1: f32,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
+#[repr(C)]
+pub struct QualifierRange {
+    pub min: f32,
+    pub max: f32,
+    pub softness: f32,
+    _pad: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
+#[repr(C)]
+pub struct Qualifier {
+    pub enabled: u32,
+    _pad0: u32,
+    _pad1: u32,
+    _pad2: u32,
+    pub hue: QualifierRange,
+    pub saturation: QualifierRange,
+    pub luminance: QualifierRange,
+    pub hue_shift: f32,
+    pub sat_shift: f32,
+    pub lum_shift: f32,
+    _pad3: f32,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable)]
 #[repr(C)]
 pub struct GpuMat3 {
@@ -1333,6 +1358,12 @@ pub struct GlobalAdjustments {
     pub halation_amount: f32,
     pub flare_amount: f32,
     pub sharpness_threshold: f32,
+
+    pub qualifier_count: u32,
+    _pad_qual1: u32,
+    _pad_qual2: u32,
+    _pad_qual3: u32,
+    pub qualifiers: [Qualifier; 8],
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -1361,6 +1392,12 @@ pub struct MaskAdjustments {
     pub halation_amount: f32,
     pub flare_amount: f32,
     pub sharpness_threshold: f32,
+
+    pub qualifier_count: u32,
+    _pad_qual1: u32,
+    _pad_qual2: u32,
+    _pad_qual3: u32,
+    pub qualifiers: [Qualifier; 8],
 
     _pad_cg1: f32,
     _pad_cg2: f32,
@@ -1790,6 +1827,53 @@ pub fn apply_cpu_agx_tonemap(image: &mut DynamicImage) {
     *image = DynamicImage::ImageRgb32F(f32_image);
 }
 
+fn parse_qualifiers(js_qualifiers: &serde_json::Value) -> ([Qualifier; 8], u32) {
+    let mut qualifiers = [Qualifier::default(); 8];
+    let mut count = 0;
+
+    if let Some(qualifiers_array) = js_qualifiers.as_array() {
+        for (i, q) in qualifiers_array.iter().enumerate().take(8) {
+            let enabled = q.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+
+            let hue = q.get("hue").unwrap_or(&serde_json::Value::Null);
+            let sat = q.get("saturation").unwrap_or(&serde_json::Value::Null);
+            let lum = q.get("luminance").unwrap_or(&serde_json::Value::Null);
+
+            qualifiers[i] = Qualifier {
+                enabled: if enabled { 1 } else { 0 },
+                _pad0: 0,
+                _pad1: 0,
+                _pad2: 0,
+                hue: QualifierRange {
+                    min: hue.get("min").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                    max: hue.get("max").and_then(|v| v.as_f64()).unwrap_or(360.0) as f32,
+                    softness: hue.get("softness").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                    _pad: 0.0,
+                },
+                saturation: QualifierRange {
+                    min: sat.get("min").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                    max: sat.get("max").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32,
+                    softness: sat.get("softness").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                    _pad: 0.0,
+                },
+                luminance: QualifierRange {
+                    min: lum.get("min").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                    max: lum.get("max").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32,
+                    softness: lum.get("softness").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                    _pad: 0.0,
+                },
+                hue_shift: q.get("hueShift").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                sat_shift: q.get("satShift").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                lum_shift: q.get("lumShift").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                _pad3: 0.0,
+            };
+            count += 1;
+        }
+    }
+
+    (qualifiers, count)
+}
+
 fn get_global_adjustments_from_json(
     js_adjustments: &serde_json::Value,
     is_raw: bool,
@@ -1887,6 +1971,13 @@ fn get_global_adjustments_from_json(
     } else {
         (0, 1.0)
     };
+
+    let (qualifiers, qualifier_count) = parse_qualifiers(
+        &js_adjustments
+            .get("qualifiers")
+            .cloned()
+            .unwrap_or_default(),
+    );
 
     GlobalAdjustments {
         exposure: get_val("basic", "exposure", SCALES.exposure, None),
@@ -2050,6 +2141,12 @@ fn get_global_adjustments_from_json(
             SCALES.sharpness_threshold,
             Some(10.0),
         ),
+
+        qualifier_count,
+        _pad_qual1: 0,
+        _pad_qual2: 0,
+        _pad_qual3: 0,
+        qualifiers,
     }
 }
 
@@ -2097,6 +2194,9 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
     };
     let cg_obj = adj.get("colorGrading").cloned().unwrap_or_default();
 
+    let (qualifiers, qualifier_count) =
+        parse_qualifiers(&adj.get("qualifiers").cloned().unwrap_or_default());
+
     MaskAdjustments {
         exposure: get_val("basic", "exposure", SCALES.exposure),
         brightness: get_val("basic", "brightness", SCALES.brightness),
@@ -2127,6 +2227,12 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
         halation_amount: get_val("effects", "halationAmount", SCALES.halation),
         flare_amount: get_val("effects", "flareAmount", SCALES.flares),
         sharpness_threshold: get_val("details", "sharpnessThreshold", SCALES.sharpness_threshold),
+
+        qualifier_count,
+        _pad_qual1: 0,
+        _pad_qual2: 0,
+        _pad_qual3: 0,
+        qualifiers,
 
         _pad_cg1: 0.0,
         _pad_cg2: 0.0,

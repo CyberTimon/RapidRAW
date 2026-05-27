@@ -30,6 +30,27 @@ struct ColorCalibrationSettings {
     _pad1: f32,
 }
 
+struct QualifierRange {
+    min: f32,
+    max: f32,
+    softness: f32,
+    _pad: f32,
+}
+
+struct Qualifier {
+    enabled: u32,
+    _pad0: u32,
+    _pad1: u32,
+    _pad2: u32,
+    hue: QualifierRange,
+    saturation: QualifierRange,
+    luminance: QualifierRange,
+    hue_shift: f32,
+    sat_shift: f32,
+    lum_shift: f32,
+    _pad3: f32,
+}
+
 struct GlobalAdjustments {
     exposure: f32,
     brightness: f32,
@@ -111,6 +132,12 @@ struct GlobalAdjustments {
     halation_amount: f32,
     flare_amount: f32,
     sharpness_threshold: f32,
+
+    qualifier_count: u32,
+    _pad_qual1: u32,
+    _pad_qual2: u32,
+    _pad_qual3: u32,
+    qualifiers: array<Qualifier, 8>,
 }
 
 struct MaskAdjustments {
@@ -137,6 +164,12 @@ struct MaskAdjustments {
     halation_amount: f32,
     flare_amount: f32,
     sharpness_threshold: f32,
+
+    qualifier_count: u32,
+    _pad_qual1: u32,
+    _pad_qual2: u32,
+    _pad_qual3: u32,
+    qualifiers: array<Qualifier, 8>,
 
     _pad_cg1: f32,
     _pad_cg2: f32,
@@ -265,6 +298,82 @@ fn get_raw_hsl_influence(hue: f32, center: f32, width: f32) -> f32 {
     const sharpness = 1.5;
     let falloff = dist / (width * 0.5);
     return exp(-sharpness * falloff * falloff);
+}
+
+fn get_qualifier_influence(hue: f32, sat: f32, lum: f32, qual: Qualifier) -> f32 {
+    if (qual.enabled == 0u) { return 0.0; }
+    
+    var hue_influence: f32 = 1.0;
+    let hue_center = (qual.hue.min + qual.hue.max) / 2.0;
+    let hue_width = qual.hue.max - qual.hue.min;
+    
+    if (hue_width > 0.0) {
+        let hue_width_half = hue_width * 0.5;
+        // Handle wrap-around hue (e.g., 350° to 20°)
+        let dist = min(abs(hue - hue_center), 360.0 - abs(hue - hue_center));
+        let falloff = dist / hue_width_half;
+        let raw_influence = exp(-1.5 * falloff * falloff);
+        hue_influence = mix(raw_influence, 1.0, qual.hue.softness);
+    }
+    
+    var sat_influence: f32 = 1.0;
+    let sat_center = (qual.saturation.min + qual.saturation.max) / 2.0;
+    let sat_width = qual.saturation.max - qual.saturation.min;
+    
+    if (sat_width > 0.0) {
+        let sat_width_half = sat_width * 0.5;
+        let dist = abs(sat - sat_center);
+        let falloff = dist / sat_width_half;
+        let raw_influence = exp(-1.5 * falloff * falloff);
+        sat_influence = mix(raw_influence, 1.0, qual.saturation.softness);
+    }
+    
+    var lum_influence: f32 = 1.0;
+    let lum_center = (qual.luminance.min + qual.luminance.max) / 2.0;
+    let lum_width = qual.luminance.max - qual.luminance.min;
+    
+    if (lum_width > 0.0) {
+        let lum_width_half = lum_width * 0.5;
+        let dist = abs(lum - lum_center);
+        let falloff = dist / lum_width_half;
+        let raw_influence = exp(-1.5 * falloff * falloff);
+        lum_influence = mix(raw_influence, 1.0, qual.luminance.softness);
+    }
+    
+    return hue_influence * sat_influence * lum_influence;
+}
+
+fn apply_qualifiers(hsv: vec3<f32>, qualifiers: array<Qualifier, 8>, count: u32) -> vec3<f32> {
+    var result = hsv;
+    var total_weight: f32 = 0.0;
+    var total_hue_shift: f32 = 0.0;
+    var total_sat_shift: f32 = 0.0;
+    var total_lum_shift: f32 = 0.0;
+    
+    for (var i = 0u; i < count; i = i + 1u) {
+        let qual = qualifiers[i];
+        let influence = get_qualifier_influence(hsv.x, hsv.y, hsv.z, qual);
+        
+        if (influence > 0.001) {
+            total_weight += influence;
+            total_hue_shift += qual.hue_shift * influence;
+            total_sat_shift += qual.sat_shift * influence;
+            total_lum_shift += qual.lum_shift * influence;
+        }
+    }
+    
+    if (total_weight > 0.0) {
+        let inv_weight = 1.0 / total_weight;
+        let hue_shift = total_hue_shift * inv_weight;
+        let sat_mult = 1.0 + (total_sat_shift * inv_weight) / 100.0;
+        let lum_mult = 1.0 + (total_lum_shift * inv_weight) / 100.0;
+        
+        result.x = (hsv.x + hue_shift + 360.0) % 360.0;
+        result.y = clamp(hsv.y * sat_mult, 0.0, 1.0);
+        result.z = clamp(hsv.z * lum_mult, 0.0, 1.0);
+    }
+    
+    return result;
 }
 
 fn hash(p: vec2<f32>) -> f32 {
@@ -1590,6 +1699,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, tonal_blurred, is_raw, t_highlights);
     composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
     composite_rgb_linear = apply_hsl_panel(composite_rgb_linear, final_hsl, absolute_coord_i);
+    
+    let hsv_in = rgb_to_hsv(composite_rgb_linear);
+    let hsv_out = apply_qualifiers(hsv_in, adjustments.global.qualifiers, adjustments.global.qualifier_count);
+    composite_rgb_linear = hsv_to_rgb(hsv_out);
+    
     composite_rgb_linear = apply_creative_color(composite_rgb_linear, t_saturation, t_vibrance);
 
     composite_rgb_linear = apply_color_grading(
@@ -1611,6 +1725,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                 m.color_grading_shadows, m.color_grading_midtones, m.color_grading_highlights, m.color_grading_global, m.color_grading_blending, m.color_grading_balance
             );
             composite_rgb_linear = mix(composite_rgb_linear, mask_graded, influence);
+            
+            let mask_hsv_in = rgb_to_hsv(composite_rgb_linear);
+            let mask_hsv_out = apply_qualifiers(mask_hsv_in, m.qualifiers, m.qualifier_count);
+            let mask_qualified = hsv_to_rgb(mask_hsv_out);
+            composite_rgb_linear = mix(composite_rgb_linear, mask_qualified, influence);
         }
     }
 

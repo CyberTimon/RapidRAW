@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Pipette, Sliders } from 'lucide-react';
+import { Pipette, Sliders, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Slider from '../ui/Slider';
+import RangeSlider from '../ui/RangeSlider';
 import ColorWheel from '../ui/ColorWheel';
-import { ColorAdjustment, ColorCalibration, HueSatLum, INITIAL_ADJUSTMENTS } from '../../utils/adjustments';
+import { ColorAdjustment, ColorCalibration, HueSatLum, INITIAL_ADJUSTMENTS, Qualifier } from '../../utils/adjustments';
 import { Adjustments, ColorGrading } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ColorProps {
   color: string;
@@ -390,6 +392,199 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
   );
 };
 
+interface QualifierItemProps {
+  qualifier: Qualifier;
+  index: number;
+  onUpdate: (qualifier: Qualifier) => void;
+  onDelete: () => void;
+  onDragStateChange?: (isDragging: boolean) => void;
+}
+
+const QualifierItem = ({ qualifier, index, onUpdate, onDelete, onDragStateChange }: QualifierItemProps) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  const formatShift = (val: number, unit: string) => `${val > 0 ? '+' : ''}${Math.round(val)}${unit}`;
+
+  const hueGradientColors = [
+    '#ff0000', '#ff8800', '#ffff00', '#88ff00', '#00ff00',
+    '#00ff88', '#00ffff', '#0088ff', '#0000ff', '#8800ff',
+    '#ff00ff', '#ff0088', '#ff0000'
+  ];
+
+  const satGradientColors = ['#444444', '#666666', '#888888', '#aaaaaa', '#cccccc', '#ffffff'];
+
+  const lumGradientColors = ['#000000', '#333333', '#666666', '#999999', '#cccccc', '#ffffff'];
+
+  return (
+    <div className="border-b border-border-color pb-3 mb-3 last:border-b-0 last:pb-0 last:mb-0">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-text-secondary hover:text-text-primary transition-colors"
+          >
+            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+          <Text variant={TextVariants.small} weight={TextWeights.medium}>
+            Qualifier {index + 1}
+          </Text>
+        </div>
+        <button
+          onClick={onDelete}
+          className="p-1 hover:text-red-500 text-text-secondary transition-colors"
+          data-tooltip="Delete Qualifier"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      {isExpanded && (
+        <div className="space-y-4 mt-3 w-full">
+          <RangeSlider
+            label="Hue Range"
+            minLimit={0}
+            maxLimit={360}
+            min={qualifier.hue.min}
+            max={qualifier.hue.max}
+            onChange={(values) => onUpdate({
+              ...qualifier,
+              hue: values
+            })}
+            onDragStateChange={onDragStateChange}
+            gradientColors={hueGradientColors}
+          />
+
+          <RangeSlider
+            label="Saturation Range"
+            minLimit={0}
+            maxLimit={100}
+            min={qualifier.saturation.min}
+            max={qualifier.saturation.max}
+            onChange={(values) => onUpdate({
+              ...qualifier,
+              saturation: values
+            })}
+            onDragStateChange={onDragStateChange}
+            gradientColors={satGradientColors}
+          />
+
+          <RangeSlider
+            label="Luminance Range"
+            minLimit={0}
+            maxLimit={100}
+            min={qualifier.luminance.min}
+            max={qualifier.luminance.max}
+            onChange={(values) => onUpdate({
+              ...qualifier,
+              luminance: values
+            })}
+            onDragStateChange={onDragStateChange}
+            gradientColors={lumGradientColors}
+          />
+
+          <div className="border-t border-border-color my-2" />
+
+          <div className="space-y-4">
+            <Slider
+              label="Hue Shift"
+              min={-180}
+              max={180}
+              step={1}
+              value={qualifier.hueShift}
+              onChange={(e: any) => onUpdate({ ...qualifier, hueShift: e.target.value })}
+              onDragStateChange={onDragStateChange}
+            />
+            <Slider
+              label="Saturation Shift"
+              min={-100}
+              max={100}
+              step={1}
+              value={qualifier.satShift}
+              onChange={(e: any) => onUpdate({ ...qualifier, satShift: e.target.value })}
+              onDragStateChange={onDragStateChange}
+            />
+            <Slider
+              label="Luminance Shift"
+              min={-100}
+              max={100}
+              step={1}
+              value={qualifier.lumShift}
+              onChange={(e: any) => onUpdate({ ...qualifier, lumShift: e.target.value })}
+              onDragStateChange={onDragStateChange}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface QualifiersPanelProps {
+  qualifiers: Array<Qualifier>;
+  onChange: (qualifiers: Array<Qualifier>) => void;
+  onDragStateChange?: (isDragging: boolean) => void;
+}
+
+const QualifiersPanel = ({ qualifiers, onChange, onDragStateChange }: QualifiersPanelProps) => {
+  const addQualifier = () => {
+    const newQualifier: Qualifier = {
+      id: uuidv4(),
+      enabled: true,
+      hue: { min: 0, max: 360 },
+      saturation: { min: 0, max: 100 },
+      luminance: { min: 0, max: 100 },
+      hueShift: 0,
+      satShift: 0,
+      lumShift: 0,
+    };
+    onChange([...qualifiers, newQualifier]);
+  };
+
+  const updateQualifier = (index: number, updated: Qualifier) => {
+    const newList = [...qualifiers];
+    newList[index] = updated;
+    onChange(newList);
+  };
+
+  const deleteQualifier = (index: number) => {
+    onChange(qualifiers.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <Text variant={TextVariants.heading}>Qualifiers</Text>
+        <button
+          onClick={addQualifier}
+          className="p-1.5 rounded-md bg-accent/20 hover:bg-accent/30 text-accent transition-colors"
+          data-tooltip="Add Qualifier"
+        >
+          <Plus size={14} />
+        </button>
+      </div>
+
+      {qualifiers.length === 0 ? (
+        <div className="text-center py-8">
+          <Text variant={TextVariants.small} color={TextColors.secondary}>
+            No qualifiers added. Click + to create one.
+          </Text>
+        </div>
+      ) : (
+        qualifiers.map((qualifier, index) => (
+          <QualifierItem
+            key={qualifier.id}
+            qualifier={qualifier}
+            index={index}
+            onUpdate={(q) => updateQualifier(index, q)}
+            onDelete={() => deleteQualifier(index)}
+            onDragStateChange={onDragStateChange}
+          />
+        ))
+      )}
+    </div>
+  );
+};
+
 export default function ColorPanel({
   adjustments,
   setAdjustments,
@@ -570,6 +765,17 @@ export default function ColorPanel({
           step={1}
           value={currentHsl.luminance}
           trackClassName={luminance_slider}
+          onDragStateChange={onDragStateChange}
+        />
+      </div>
+
+      <div className="p-2 bg-bg-tertiary rounded-md">
+        <QualifiersPanel
+          qualifiers={adjustments.qualifiers || []}
+          onChange={(newQualifiers) => setAdjustments((prev: Adjustments) => ({ 
+            ...prev, 
+            qualifiers: newQualifiers 
+          }))}
           onDragStateChange={onDragStateChange}
         />
       </div>

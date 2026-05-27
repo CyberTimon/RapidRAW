@@ -126,6 +126,22 @@ export interface ColorCalibration {
   blueSaturation: number;
 }
 
+export interface QualifierHslRange {
+  min: number;
+  max: number;
+}
+
+export interface Qualifier {
+  id: string;
+  enabled: boolean;
+  hue: QualifierHslRange;
+  saturation: QualifierHslRange;
+  luminance: QualifierHslRange;
+  hueShift: number;
+  satShift: number;
+  lumShift: number;
+}
+
 export interface ParametricCurveSettings {
   darks: number;
   shadows: number;
@@ -205,6 +221,7 @@ export interface Adjustments {
   lutSize?: number;
   masks: Array<MaskContainer>;
   orientationSteps: number;
+  qualifiers: Array<Qualifier>;
   rotation: number;
   saturation: number;
   sectionVisibility: SectionVisibility;
@@ -310,6 +327,7 @@ export interface MaskAdjustments {
   hsl: Hsl;
   id?: string;
   lumaNoiseReduction: number;
+  qualifiers?: Array<Qualifier>;
   saturation: number;
   sectionVisibility: SectionVisibility;
   shadows: number;
@@ -445,6 +463,7 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
     yellows: { hue: 0, saturation: 0, luminance: 0 },
   },
   lumaNoiseReduction: 0,
+  qualifiers: [],
   saturation: 0,
   sectionVisibility: {
     basic: true,
@@ -529,6 +548,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   lutSize: 0,
   masks: [],
   orientationSteps: 0,
+  qualifiers: [],
   rotation: 0,
   saturation: 0,
   sectionVisibility: {
@@ -588,6 +608,18 @@ const deepCloneParametric = (pCurve: any): ParametricCurve => ({
   blue: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS, ...(pCurve?.blue || {}) },
 });
 
+const deepCloneQualifiers = (qualifiers: any[] = []): Qualifier[] =>
+  qualifiers.map((q: Partial<Qualifier>) => ({
+    id: q.id || uuidv4(),
+    enabled: q.enabled ?? true,
+    hue: { min: q.hue?.min ?? 0, max: q.hue?.max ?? 360 },
+    saturation: { min: q.saturation?.min ?? 0, max: q.saturation?.max ?? 100 },
+    luminance: { min: q.luminance?.min ?? 0, max: q.luminance?.max ?? 100 },
+    hueShift: q.hueShift ?? 0,
+    satShift: q.satShift ?? 0,
+    lumShift: q.lumShift ?? 0,
+  }));
+
 export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any => {
   if (!loadedAdjustments) {
     return INITIAL_ADJUSTMENTS;
@@ -627,6 +659,9 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
           ? deepCloneParametric(containerAdjustments.parametricCurve)
           : getDefaultParametricCurve(),
         curveMode: containerAdjustments.curveMode || INITIAL_MASK_ADJUSTMENTS.curveMode,
+        qualifiers: containerAdjustments.qualifiers
+          ? deepCloneQualifiers(containerAdjustments.qualifiers)
+          : [],
         sectionVisibility: {
           ...INITIAL_MASK_ADJUSTMENTS.sectionVisibility,
           ...(containerAdjustments.sectionVisibility || {}),
@@ -642,6 +677,8 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     ...patch,
     subMasks: normalizeSubMasks(patch.subMasks),
   }));
+
+  const normalizedQualifiers = deepCloneQualifiers(loadedAdjustments.qualifiers);
 
   return {
     ...INITIAL_ADJUSTMENTS,
@@ -678,6 +715,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     curveMode: loadedAdjustments.curveMode || INITIAL_ADJUSTMENTS.curveMode,
     masks: normalizedMasks,
     aiPatches: normalizedAiPatches,
+    qualifiers: normalizedQualifiers,
     sectionVisibility: {
       ...INITIAL_ADJUSTMENTS.sectionVisibility,
       ...(loadedAdjustments.sectionVisibility || {}),
@@ -719,6 +757,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     { label: 'Color Grading', keys: [ColorAdjustment.ColorGrading] },
     { label: 'Color Mixer', keys: [ColorAdjustment.Hsl] },
     { label: 'Color Calibration', keys: ['colorCalibration'] },
+    { label: 'Qualifiers', keys: ['qualifiers'] },
   ],
   details: [
     {
@@ -813,6 +852,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     ColorAdjustment.Hsl,
     ColorAdjustment.ColorGrading,
     'colorCalibration',
+    'qualifiers',
   ],
   details: [
     DetailsAdjustment.Clarity,
