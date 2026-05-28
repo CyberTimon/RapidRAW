@@ -1086,7 +1086,7 @@
       "bestImage": "最佳图像",
       "blurryImagesTab": "模糊图像",
       "blurThreshold": "模糊阈值",
-      "blurThresholdDesc": "锐度得分低于此值的图像将被标记。值越高越严格。",
+      "blurThresholdDesc": "锐度得分低于此值的图像将被标记，值越高越严格。",
       "cancel": "取消",
       "close": "关闭",
       "cullingFailed": "筛选失败",
@@ -1104,7 +1104,7 @@
       "sharpness": "锐度：{{sharpness}}",
       "similarGroupsTab": "相似组",
       "similarityThreshold": "相似度阈值",
-      "similarityThresholdDesc": "越低越严格（精确重复）。越高越宽松（近似重复）。建议使用24-32的值。",
+      "similarityThresholdDesc": "越低越严格（精确重复），越高越宽松（近似重复），建议使用24-32的值。",
       "startCulling": "开始筛选",
       "starting": "正在启动...",
       "title": "筛选图像"
@@ -1317,7 +1317,7 @@
       "zoomDesc": "调整使用滚轮或捏合手势时画布缩放的快慢。"
     },
     "data": {
-      "clearSidecars": "清除所有侧车文件",
+      "clearSidecars": "清除所有配置文件",
       "clearSidecarsButton": "清除",
       "clearSidecarsDesc": "这将删除根文件夹中的所有.rrdata文件（包含您的编辑）：",
       "clearThumbnail": "清除缩略图缓存",
@@ -1340,7 +1340,7 @@
         "confirmClearCache": "清除缓存",
         "confirmDeleteAllEdits": "删除所有编辑",
         "confirmTitle": "确认删除",
-        "sidecarMessage": "您确定要删除所有侧车文件吗？\n\n这将永久移除所有活动根文件夹及其子文件夹中所有图像的所有编辑。"
+        "sidecarMessage": "您确定要删除所有配置文件吗？\n\n这将永久移除所有活动根文件夹及其子文件夹中所有图像的所有编辑。"
       },
       "noFolders": "未选择文件夹",
       "statuses": {
@@ -1351,13 +1351,13 @@
         "allSuccess_one": "",
         "allSuccess_other": "",
         "cacheSuccess": "缩略图缓存已成功清除。",
-        "clearingAi": "从所有侧车文件中清除AI标签...",
-        "clearingAll": "从侧车文件中清除所有标签...",
+        "clearingAi": "从所有配置文件中清除AI标签...",
+        "clearingAll": "从配置文件中清除所有标签...",
         "clearingCache": "清除缩略图缓存...",
-        "deleting": "正在删除侧车文件，请稍候...",
+        "deleting": "正在删除配置文件，请稍候...",
         "failedToGetPath": "无法检索日志文件路径。",
         "processing": "处理中...",
-        "sidecarSuccess": "{{count}}个侧车文件已成功删除。",
+        "sidecarSuccess": "{{count}}个配置文件已成功删除。",
         "sidecarSuccess_one": "",
         "sidecarSuccess_other": ""
       },
@@ -1365,7 +1365,7 @@
     },
     "general": {
       "createXmp": "创建缺失的XMP文件",
-      "createXmpDesc": "如果图像没有XMP侧车文件，则自动创建一个。",
+      "createXmpDesc": "如果图像没有XMP配置文件，则自动创建一个。",
       "createXmpMissing": "如果缺失则创建XMP",
       "enableFocusMode": "启用专注模式",
       "enableOsTitlebar": "启用操作系统标题栏",
@@ -1385,7 +1385,7 @@
       "themeDesc": "更改应用程序的外观和感觉。",
       "title": "常规设置",
       "xmpSync": "XMP元数据同步",
-      "xmpSyncDesc": "将评级、颜色标签和标记同步到标准XMP侧车文件，以便与其他照片编辑器兼容。"
+      "xmpSyncDesc": "将评级、颜色标签和标记同步到标准XMP配置文件，以便与其他照片编辑器兼容。"
     },
     "language": "语言",
     "languageDesc": "更改应用程序语言。如果缺少翻译，则回退到英语。",
