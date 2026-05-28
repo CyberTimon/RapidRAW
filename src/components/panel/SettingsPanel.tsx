@@ -1062,6 +1062,7 @@ export default function SettingsPanel({
                         options={[
                           { value: 'en', label: 'English' },
                           { value: 'de', label: 'Deutsch' },
+                          { value: 'zh', label: '中文' },
                         ]}
                         value={appSettings?.language || 'en'}
                         triggerClassName="bg-bg-primary"
