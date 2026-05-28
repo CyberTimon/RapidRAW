@@ -21,7 +21,7 @@ export function useAutoLensCorrection() {
       !currentPath ||
       !selectedImage?.isReady ||
       !selectedImage.isRaw ||
-      !appSettings?.autoApplyLensCorrection ||
+      appSettings?.autoApplyLensCorrection === false ||
       attemptedPathsRef.current.has(currentPath)
     ) {
       return;

@@ -459,7 +459,7 @@ impl Default for AppSettings {
             library_view_mode: Some("flat".to_string()),
             export_presets: default_export_presets(),
             my_lenses: Some(Vec::new()),
-            auto_apply_lens_correction: Some(false),
+            auto_apply_lens_correction: Some(true),
             prompt_for_unknown_lens_profile: Some(true),
             #[cfg(target_os = "android")]
             high_res_zoom_multiplier: Some(0.75),

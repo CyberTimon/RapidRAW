@@ -1241,7 +1241,7 @@ export default function SettingsPanel({
                       description={t('settings.lenses.autoApplyDesc')}
                     >
                       <Switch
-                        checked={appSettings?.autoApplyLensCorrection ?? false}
+                        checked={appSettings?.autoApplyLensCorrection ?? true}
                         id="auto-lens-correction-toggle"
                         label={t('settings.lenses.autoApplyLabel')}
                         onChange={(checked) => onSettingsChange({ ...appSettings, autoApplyLensCorrection: checked })}
@@ -1249,7 +1249,7 @@ export default function SettingsPanel({
                     </SettingItem>
 
                     <AnimatePresence initial={false}>
-                      {(appSettings?.autoApplyLensCorrection ?? false) && (
+                      {(appSettings?.autoApplyLensCorrection ?? true) && (
                         <motion.div
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
