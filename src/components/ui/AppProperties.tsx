@@ -149,6 +149,7 @@ export enum Theme {
   MutedGreen = 'muted-green',
   Sepia = 'sepia',
   Snow = 'snow',
+  System = 'system',
 }
 
 export enum ThumbnailAspectRatio {

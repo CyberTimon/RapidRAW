@@ -93,14 +93,22 @@ const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[
 function App() {
   const COMPACT_EDITOR_MAX_WIDTH = 900;
 
-  const { appSettings, theme, osPlatform, handleSettingsChange } = useSettingsStore(
+  const { appSettings, theme, osPlatform, handleSettingsChange, cleanupSystemThemeListener } = useSettingsStore(
     useShallow((state) => ({
       appSettings: state.appSettings,
       theme: state.theme,
       osPlatform: state.osPlatform,
       handleSettingsChange: state.handleSettingsChange,
+      cleanupSystemThemeListener: state.cleanupSystemThemeListener,
     })),
   );
+
+  // Cleanup system theme listener on unmount
+  useEffect(() => {
+    return () => {
+      cleanupSystemThemeListener();
+    };
+  }, [cleanupSystemThemeListener]);
 
   const {
     isFullScreen,
