@@ -2,17 +2,18 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { List, useListCallbackRef } from 'react-window';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import debounce from 'lodash.debounce';
+import { useTranslation } from 'react-i18next';
 import { Row } from './LibraryItems';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { LibraryViewMode, SortDirection, ThumbnailSize } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
-import { ColumnWidths } from '../MainLibrary';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { ExifOverlay } from '../../ui/AppProperties';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 
 function ListHeader({ widths, setWidths, containerRef, sortCriteria, onSortChange }: any) {
+  const { t } = useTranslation();
   const exifOverlay = useSettingsStore((s) => s.appSettings?.exifOverlay || ExifOverlay.Off);
   const showExifCols = exifOverlay !== ExifOverlay.Off;
   const totalRawWidth =
@@ -47,7 +48,7 @@ function ListHeader({ widths, setWidths, containerRef, sortCriteria, onSortChang
         newRight = 1;
       }
 
-      setWidths((prev) => ({
+      setWidths((prev: any) => ({
         ...prev,
         [leftCol]: newLeft,
         [rightCol]: newRight,
@@ -104,19 +105,24 @@ function ListHeader({ widths, setWidths, containerRef, sortCriteria, onSortChang
   return (
     <div className="flex items-center w-full h-9 bg-bg-secondary/80 backdrop-blur-sm border-b border-border-color/50 shrink-0">
       <Column title="" widthKey="thumbnail" nextKey="name" />
-      <Column title="Name" widthKey="name" nextKey="date" sortKey="name" />
-      <Column title="Modified" widthKey="date" nextKey="rating" sortKey="date" />
-      <Column title="Rating" widthKey="rating" nextKey="color" sortKey="rating" />
+      <Column title={t('library.grid.columns.name')} widthKey="name" nextKey="date" sortKey="name" />
+      <Column title={t('library.grid.columns.modified')} widthKey="date" nextKey="rating" sortKey="date" />
+      <Column title={t('library.grid.columns.rating')} widthKey="rating" nextKey="color" sortKey="rating" />
       {showExifCols ? (
         <>
-          <Column title="Label" widthKey="color" nextKey="shutter" />
-          <Column title="Shutter" widthKey="shutter" nextKey="aperture" sortKey="shutter_speed" />
-          <Column title="Aperture" widthKey="aperture" nextKey="iso" sortKey="aperture" />
-          <Column title="ISO" widthKey="iso" nextKey="focal" sortKey="iso" />
-          <Column title="Focal" widthKey="focal" sortKey="focal_length" />
+          <Column title={t('library.grid.columns.label')} widthKey="color" nextKey="shutter" />
+          <Column
+            title={t('library.grid.columns.shutter')}
+            widthKey="shutter"
+            nextKey="aperture"
+            sortKey="shutter_speed"
+          />
+          <Column title={t('library.grid.columns.aperture')} widthKey="aperture" nextKey="iso" sortKey="aperture" />
+          <Column title={t('library.grid.columns.iso')} widthKey="iso" nextKey="focal" sortKey="iso" />
+          <Column title={t('library.grid.columns.focal')} widthKey="focal" sortKey="focal_length" />
         </>
       ) : (
-        <Column title="Label" widthKey="color" />
+        <Column title={t('library.grid.columns.label')} widthKey="color" />
       )}
     </div>
   );
@@ -166,15 +172,13 @@ export default function LibraryGrid(props: any) {
     thumbnailSizeOptions,
     onThumbnailSizeChange,
   } = props;
-
-  const { libraryScrollTop, listColumnWidths, setLibrary, sortCriteria, setSortCriteria } = useLibraryStore();
+  const { listColumnWidths, setLibrary, sortCriteria, setSortCriteria } = useLibraryStore();
   const [gridSize, setGridSize] = useState({ height: 0, width: 0 });
   const [listHandle, setListHandle] = useListCallbackRef();
   const [collapsedRecursiveFolders, setCollapsedRecursiveFolders] = useState<Set<string>>(new Set());
   const libraryContainerRef = useRef<HTMLDivElement>(null);
   const gridObserverRef = useRef<ResizeObserver | null>(null);
   const loadedThumbnailsRef = useRef(new Set<string>());
-  const prevScrollState = useRef({ path: null as string | null, top: -1, folder: null as string | null });
   const requestQueueRef = useRef<Set<string>>(new Set());
   const requestTimeoutRef = useRef<any>(null);
 
@@ -257,6 +261,18 @@ export default function LibraryGrid(props: any) {
     [onRequestThumbnails],
   );
 
+  const handleToggleRecursiveFolder = useCallback((path: string) => {
+    setCollapsedRecursiveFolders((prev) => {
+      const next = new Set(prev);
+      next.has(path) ? next.delete(path) : next.add(path);
+      return next;
+    });
+  }, []);
+
+  const handleImageLoad = useCallback((path: string) => {
+    loadedThumbnailsRef.current.add(path);
+  }, []);
+
   const gridData = useMemo(() => {
     if (gridSize.width === 0 || imageList.length === 0) return null;
 
@@ -330,65 +346,28 @@ export default function LibraryGrid(props: any) {
   ]);
 
   useEffect(() => {
-    if (!listHandle?.element) return;
+    if (!listHandle?.element || !gridData) return;
 
-    const element = listHandle.element;
-    const clientHeight = element.clientHeight;
+    const savedTop = useLibraryStore.getState().libraryScrollTop;
+    const element = listHandle.element as HTMLElement;
 
-    if (activePath && gridData) {
-      const { rows, rowHeight, headerHeight, columnCount, isListView } = gridData;
-      let targetTop = 0;
-      let found = false;
-
-      if (libraryViewMode === LibraryViewMode.Recursive) {
-        const grps = groupImagesByFolder(imageList, currentFolderPath);
-        for (const group of grps) {
-          if (group.images.length === 0) continue;
-          targetTop += headerHeight;
-          const idx = group.images.findIndex((img) => img.path === activePath);
-          if (idx !== -1) {
-            targetTop += Math.floor(idx / columnCount) * rowHeight;
-            found = true;
-            break;
-          }
-          targetTop += Math.ceil(group.images.length / columnCount) * rowHeight;
-        }
-      } else {
-        const idx = imageList.findIndex((img) => img.path === activePath);
-        if (idx !== -1) {
-          targetTop = Math.floor(idx / columnCount) * rowHeight;
-          found = true;
-        }
-      }
-
-      if (found) {
-        const itemBottom = targetTop + rowHeight;
-        const savedTop = Math.max(0, libraryScrollTop);
-        const isVisibleAtSaved = targetTop < savedTop + clientHeight && itemBottom > savedTop;
-
-        if (isVisibleAtSaved && libraryScrollTop > 0) {
-          element.scrollTop = libraryScrollTop;
-        } else {
-          element.scrollTop = Math.max(0, targetTop - clientHeight / 2 + rowHeight / 2);
-        }
-
-        prevScrollState.current = {
-          path: activePath,
-          top: targetTop,
-          folder: currentFolderPath,
-        };
-        return;
-      }
+    if (savedTop > 0) {
+      element.scrollTop = savedTop;
     }
+  }, [listHandle, currentFolderPath]);
 
-    if (libraryScrollTop > 0) {
-      element.scrollTop = libraryScrollTop;
-    }
-  }, [listHandle]);
+  const prevActivePath = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!activePath || !gridData || multiSelectedPaths.length > 1) return;
+    if (!listHandle?.element || !gridData || multiSelectedPaths.length > 1) {
+      prevActivePath.current = activePath;
+      return;
+    }
 
+    if (activePath === prevActivePath.current) return;
+    prevActivePath.current = activePath;
+
+    const element = listHandle.element as HTMLElement;
     const { rows, rowHeight, headerHeight, columnCount } = gridData;
 
     let targetTop = 0;
@@ -421,39 +400,64 @@ export default function LibraryGrid(props: any) {
       }
     }
 
-    if (found && listHandle?.element) {
-      const prev = prevScrollState.current;
+    if (found) {
+      const clientHeight = element.clientHeight;
+      const scrollTop = element.scrollTop;
+      const itemBottom = targetTop + rowHeight;
+      const SCROLL_OFFSET = 120;
 
-      const shouldScroll =
-        activePath !== prev.path || Math.abs(targetTop - prev.top) > 1 || currentFolderPath !== prev.folder;
-
-      if (shouldScroll) {
-        const element = listHandle.element;
-        const clientHeight = element.clientHeight;
-        const scrollTop = element.scrollTop;
-        const itemBottom = targetTop + rowHeight;
-        const SCROLL_OFFSET = 120;
-
-        if (itemBottom > scrollTop + clientHeight) {
-          element.scrollTo({
-            top: itemBottom - clientHeight + SCROLL_OFFSET,
-            behavior: 'smooth',
-          });
-        } else if (targetTop < scrollTop) {
-          element.scrollTo({
-            top: targetTop - SCROLL_OFFSET,
-            behavior: 'smooth',
-          });
-        }
-
-        prevScrollState.current = {
-          path: activePath,
-          top: targetTop,
-          folder: currentFolderPath,
-        };
+      if (itemBottom > scrollTop + clientHeight) {
+        element.scrollTo({
+          top: itemBottom - clientHeight + SCROLL_OFFSET,
+          behavior: 'smooth',
+        });
+      } else if (targetTop < scrollTop) {
+        element.scrollTo({
+          top: Math.max(0, targetTop - SCROLL_OFFSET),
+          behavior: 'smooth',
+        });
       }
     }
   }, [activePath, gridData, multiSelectedPaths.length, listHandle, currentFolderPath, imageList, libraryViewMode]);
+
+  const memoizedRowProps = useMemo(() => {
+    if (!gridData) return {};
+
+    return {
+      rows: gridData.rows,
+      activePath,
+      multiSelectedSet: new Set(multiSelectedPaths),
+      onContextMenu,
+      onImageClick,
+      onImageDoubleClick,
+      thumbnailAspectRatio,
+      onImageLoad: handleImageLoad,
+      imageRatings,
+      baseFolderPath: currentFolderPath,
+      itemWidth: gridData.itemWidth,
+      itemHeight: gridData.isListView ? gridData.listRowHeight : gridData.itemWidth,
+      outerPadding: gridData.OUTER_PADDING,
+      gap: gridData.ITEM_GAP,
+      isListView: gridData.isListView,
+      columnWidths: listColumnWidths,
+      queueThumbnailRequest,
+      onToggleRecursiveFolder: handleToggleRecursiveFolder,
+    };
+  }, [
+    gridData,
+    activePath,
+    multiSelectedPaths,
+    onContextMenu,
+    onImageClick,
+    onImageDoubleClick,
+    thumbnailAspectRatio,
+    handleImageLoad,
+    imageRatings,
+    currentFolderPath,
+    listColumnWidths,
+    queueThumbnailRequest,
+    handleToggleRecursiveFolder,
+  ]);
 
   if (!gridData) {
     return (
@@ -513,31 +517,7 @@ export default function LibraryGrid(props: any) {
             onScroll={(e: React.UIEvent<HTMLElement>) => handleScroll(e.currentTarget.scrollTop)}
             className="custom-scrollbar"
             rowComponent={Row}
-            rowProps={{
-              rows: gridData.rows,
-              activePath,
-              multiSelectedPaths,
-              onContextMenu,
-              onImageClick,
-              onImageDoubleClick,
-              thumbnailAspectRatio,
-              loadedThumbnails: loadedThumbnailsRef.current,
-              imageRatings,
-              baseFolderPath: currentFolderPath,
-              itemWidth: gridData.itemWidth,
-              itemHeight: gridData.isListView ? gridData.listRowHeight : gridData.itemWidth,
-              outerPadding: gridData.OUTER_PADDING,
-              gap: gridData.ITEM_GAP,
-              isListView: gridData.isListView,
-              columnWidths: listColumnWidths,
-              queueThumbnailRequest,
-              onToggleRecursiveFolder: (path: string) =>
-                setCollapsedRecursiveFolders((prev) => {
-                  const next = new Set(prev);
-                  next.has(path) ? next.delete(path) : next.add(path);
-                  return next;
-                }),
-            }}
+            rowProps={memoizedRowProps}
           />
         </div>
       </div>

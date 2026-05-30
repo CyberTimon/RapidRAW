@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Image as ImageIcon, Folder, FolderOpen, Star as StarIcon } from 'lucide-react';
+import { Image as ImageIcon, Folder, FolderOpen, Star as StarIcon, SlidersHorizontal } from 'lucide-react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import { ThumbnailAspectRatio, ImageFile, ExifOverlay } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
@@ -28,10 +29,14 @@ const ThumbnailComponent = ({
   rating,
   tags,
   aspectRatio: thumbnailAspectRatio,
+  isEdited,
   exif,
 }: any) => {
+  const { t } = useTranslation();
   const data = useProcessStore((s) => s.thumbnails[path]);
   const exifOverlay = useSettingsStore((s) => s.appSettings?.exifOverlay || ExifOverlay.Off);
+  const displayEditIcon = useSettingsStore((s) => s.appSettings?.displayEditIcon ?? true);
+  const showEditIcon = isEdited && displayEditIcon;
 
   const [showPlaceholder, setShowPlaceholder] = useState(false);
   const [layers, setLayers] = useState<ImageLayer[]>([]);
@@ -93,12 +98,12 @@ const ThumbnailComponent = ({
     if (layerToFadeIn) {
       const timer = setTimeout(() => {
         setLayers((prev) => prev.map((l) => (l.id === layerToFadeIn.id ? { ...l, opacity: 1 } : l)));
-        onLoad();
+        onLoad(path);
       }, 10);
 
       return () => clearTimeout(timer);
     }
-  }, [layers, onLoad]);
+  }, [layers, onLoad, path]);
 
   const handleTransitionEnd = useCallback((finishedId: string) => {
     setLayers((prev) => {
@@ -174,28 +179,82 @@ const ThumbnailComponent = ({
         </AnimatePresence>
       </div>
 
-      {(colorLabel || rating > 0) && (
-        <>
-          <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-linear-to-bl from-black/20 via-black/0 to-transparent pointer-events-none z-0" />
+      <AnimatePresence initial={false}>
+        {(colorLabel || rating > 0 || showEditIcon) && (
+          <motion.div
+            key="gradient-bg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute top-0 right-0 w-1/2 h-1/2 bg-linear-to-bl from-black/20 via-black/0 to-transparent pointer-events-none z-0"
+          />
+        )}
+      </AnimatePresence>
 
-          <div className="absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 flex items-center gap-1 backdrop-blur-md shadow-md">
-            {colorLabel && (
-              <div
-                className="w-3 h-3 rounded-full ring-1 ring-black/20"
-                style={{ backgroundColor: colorLabel.color }}
-              />
-            )}
-            {rating > 0 && (
-              <>
-                <Text variant={TextVariants.small} color={TextColors.white}>
-                  {rating}
-                </Text>
-                <StarIcon size={12} className="text-white fill-white" />
-              </>
-            )}
-          </div>
-        </>
-      )}
+      <div className="absolute top-1.5 right-1.5 flex items-center justify-end z-10 pointer-events-none">
+        <AnimatePresence initial={false}>
+          {(colorLabel || rating > 0 || showEditIcon) && (
+            <motion.div
+              key="badge-container"
+              layout
+              initial={{ opacity: 0, scale: 0.8, y: -5 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: -5 }}
+              transition={{ duration: 0.25, type: 'spring', bounce: 0.3 }}
+              className="rounded-full px-1.5 py-0.5 flex items-center gap-1.5 backdrop-blur-md shadow-md bg-black/10"
+            >
+              <AnimatePresence mode="popLayout" initial={false}>
+                {showEditIcon && (
+                  <motion.div
+                    key="edited"
+                    layout
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ duration: 0.2 }}
+                    className="text-white pointer-events-auto flex items-center"
+                  >
+                    <SlidersHorizontal size={12} />
+                  </motion.div>
+                )}
+                {colorLabel && (
+                  <motion.div
+                    key="color"
+                    layout
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center justify-center shrink-0 pointer-events-auto"
+                  >
+                    <div
+                      className="w-3 h-3 rounded-full ring-1 ring-black/20"
+                      style={{ backgroundColor: colorLabel.color }}
+                    />
+                  </motion.div>
+                )}
+                {rating > 0 && (
+                  <motion.div
+                    key="rating"
+                    layout
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center gap-0.5 shrink-0 pointer-events-auto"
+                  >
+                    <Text variant={TextVariants.small} color={TextColors.white}>
+                      {rating}
+                    </Text>
+                    <StarIcon size={12} className="text-white fill-white" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       <div
         className={clsx(
@@ -278,6 +337,7 @@ const ThumbnailComponent = ({
             <Text
               as="div"
               variant={TextVariants.small}
+              weight={TextWeights.bold}
               className={clsx(
                 'shrink-0 px-1.5 py-0.5 rounded-full transition-colors duration-300 font-bold',
                 isAlways
@@ -286,7 +346,7 @@ const ThumbnailComponent = ({
                     ? 'bg-black/30 text-white backdrop-blur-xs shadow-md group-hover:bg-border-color/30 group-hover:text-text-primary group-hover:shadow-none group-hover:backdrop-blur-none'
                     : 'bg-black/30 text-white backdrop-blur-xs shadow-md',
               )}
-              data-tooltip="Virtual Copy"
+              data-tooltip={t('library.items.tooltipVirtualCopy')}
             >
               VC
             </Text>
@@ -310,25 +370,34 @@ const ThumbnailComponent = ({
                 isAlways ? 'translate-y-0' : isHover ? 'translate-y-3 group-hover:translate-y-0' : 'translate-y-3',
               )}
             >
-              <div className="flex items-center gap-1 text-text-secondary" data-tooltip="Shutter Speed">
+              <div
+                className="flex items-center gap-1 text-text-secondary"
+                data-tooltip={t('library.items.tooltipShutterSpeed')}
+              >
                 <IconShutter className="w-2.5 h-2.5" />
                 <Text variant={TextVariants.small} className="text-[9px] font-medium tracking-wide">
                   {shutter || '-'}
                 </Text>
               </div>
-              <div className="flex items-center gap-1 text-text-secondary" data-tooltip="Aperture">
+              <div
+                className="flex items-center gap-1 text-text-secondary"
+                data-tooltip={t('library.items.tooltipAperture')}
+              >
                 <IconAperture className="w-2.5 h-2.5" />
                 <Text variant={TextVariants.small} className="text-[9px] font-medium tracking-wide">
                   {fNumber || '-'}
                 </Text>
               </div>
-              <div className="flex items-center gap-1 text-text-secondary" data-tooltip="ISO">
+              <div className="flex items-center gap-1 text-text-secondary" data-tooltip={t('library.items.tooltipIso')}>
                 <IconIso className="w-2.5 h-2.5" />
                 <Text variant={TextVariants.small} className="text-[9px] font-medium tracking-wide">
                   {iso || '-'}
                 </Text>
               </div>
-              <div className="flex items-center gap-1 text-text-secondary" data-tooltip="Focal Length">
+              <div
+                className="flex items-center gap-1 text-text-secondary"
+                data-tooltip={t('library.items.tooltipFocalLength')}
+              >
                 <IconFocalLength className="w-2.5 h-2.5" />
                 <Text variant={TextVariants.small} className="text-[9px] font-medium tracking-wide">
                   {focal ? (String(focal).endsWith('mm') ? focal : `${focal}mm`) : '-'}
@@ -361,6 +430,7 @@ const ListItemComponent = ({
   columnWidths,
   exif,
 }: any) => {
+  const { t } = useTranslation();
   const data = useProcessStore((s) => s.thumbnails[path]);
   const exifOverlay = useSettingsStore((s) => s.appSettings?.exifOverlay || ExifOverlay.Off);
 
@@ -431,11 +501,12 @@ const ListItemComponent = ({
     if (layerToFadeIn) {
       const timer = setTimeout(() => {
         setLayers((prev) => prev.map((l) => (l.id === layerToFadeIn.id ? { ...l, opacity: 1 } : l)));
-        onLoad();
+        onLoad(path);
       }, 10);
+
       return () => clearTimeout(timer);
     }
-  }, [layers, onLoad]);
+  }, [layers, onLoad, path]);
 
   const handleTransitionEnd = useCallback((finishedId: string) => {
     setLayers((prev) => {
@@ -524,7 +595,7 @@ const ListItemComponent = ({
             color={TextColors.secondary}
             weight={TextWeights.bold}
             className="shrink-0 bg-bg-primary px-1.5 py-0.5 rounded-full leading-none border border-border-color"
-            data-tooltip="Virtual Copy"
+            data-tooltip={t('library.items.tooltipVirtualCopy')}
           >
             VC
           </Text>
@@ -555,8 +626,10 @@ const ListItemComponent = ({
               className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/20"
               style={{ backgroundColor: colorLabel.color }}
             />
-            <Text variant={TextVariants.small} color={TextColors.secondary} className="capitalize truncate">
-              {colorLabel.name}
+            <Text variant={TextVariants.small} color={TextColors.secondary} className="truncate">
+              {t(`contextMenus.colors.${colorLabel.name}`, {
+                defaultValue: colorLabel.name.charAt(0).toUpperCase() + colorLabel.name.slice(1),
+              })}
             </Text>
           </div>
         )}
@@ -598,12 +671,12 @@ const RowComponent = ({
   style,
   rows,
   activePath,
-  multiSelectedPaths,
+  multiSelectedSet,
   onContextMenu,
   onImageClick,
   onImageDoubleClick,
   thumbnailAspectRatio,
-  loadedThumbnails,
+  onImageLoad,
   imageRatings,
   baseFolderPath,
   itemWidth,
@@ -615,6 +688,7 @@ const RowComponent = ({
   queueThumbnailRequest,
   onToggleRecursiveFolder,
 }: any) => {
+  const { t } = useTranslation();
   const row = rows[index];
 
   useEffect(() => {
@@ -642,7 +716,7 @@ const RowComponent = ({
         displayPath = displayPath.substring(1);
       }
     }
-    if (!displayPath) displayPath = 'Current Folder';
+    if (!displayPath) displayPath = t('library.items.currentFolder');
 
     return (
       <div
@@ -664,7 +738,7 @@ const RowComponent = ({
               event.stopPropagation();
               onToggleRecursiveFolder(row.path);
             }}
-            data-tooltip={row.isExpanded ? 'Collapse Folder' : 'Expand Folder'}
+            data-tooltip={row.isExpanded ? t('library.items.collapseFolder') : t('library.items.expandFolder')}
           >
             {row.isExpanded ? <FolderOpen size={16} /> : <Folder size={16} />}
           </button>
@@ -672,7 +746,7 @@ const RowComponent = ({
             {displayPath}
           </Text>
           <Text variant={TextVariants.small} color={TextColors.secondary} className="ml-auto">
-            {row.count} images
+            {t('library.items.imagesCount', { count: row.count })}
           </Text>
         </div>
       </div>
@@ -701,14 +775,14 @@ const RowComponent = ({
           {isListView ? (
             <ListItem
               isActive={activePath === imageFile.path}
-              isSelected={multiSelectedPaths.includes(imageFile.path)}
+              isSelected={multiSelectedSet.has(imageFile.path)}
               onContextMenu={onContextMenu}
               onImageClick={onImageClick}
               onImageDoubleClick={onImageDoubleClick}
-              onLoad={() => loadedThumbnails.add(imageFile.path)}
+              onLoad={onImageLoad}
               path={imageFile.path}
               rating={imageRatings?.[imageFile.path] || 0}
-              tags={imageFile.tags || []}
+              tags={imageFile.tags}
               exif={imageFile.exif}
               aspectRatio={thumbnailAspectRatio}
               modified={imageFile.modified}
@@ -717,15 +791,16 @@ const RowComponent = ({
           ) : (
             <Thumbnail
               isActive={activePath === imageFile.path}
-              isSelected={multiSelectedPaths.includes(imageFile.path)}
+              isSelected={multiSelectedSet.has(imageFile.path)}
               onContextMenu={onContextMenu}
               onImageClick={onImageClick}
               onImageDoubleClick={onImageDoubleClick}
-              onLoad={() => loadedThumbnails.add(imageFile.path)}
+              onLoad={onImageLoad}
               path={imageFile.path}
               rating={imageRatings?.[imageFile.path] || 0}
-              tags={imageFile.tags || []}
+              tags={imageFile.tags}
               exif={imageFile.exif}
+              isEdited={imageFile.is_edited}
               aspectRatio={thumbnailAspectRatio}
             />
           )}
@@ -735,34 +810,4 @@ const RowComponent = ({
   );
 };
 
-function rowAreEqual(prev: any, next: any) {
-  if (
-    prev.index !== next.index ||
-    prev.itemWidth !== next.itemWidth ||
-    prev.isListView !== next.isListView ||
-    prev.columnWidths !== next.columnWidths
-  )
-    return false;
-
-  const prevRow = prev.rows[prev.index];
-  const nextRow = next.rows[next.index];
-
-  if (!prevRow || !nextRow || prevRow.type !== nextRow.type) return false;
-
-  if (prevRow.type === 'images') {
-    if (prevRow.images.length !== nextRow.images.length) return false;
-    for (let i = 0; i < nextRow.images.length; i++) {
-      if (prevRow.images[i] !== nextRow.images[i]) return false;
-      if (prevRow.images[i].path !== nextRow.images[i].path) return false;
-      const path = nextRow.images[i].path;
-      if ((prev.activePath === path) !== (next.activePath === path)) return false;
-      if (prev.multiSelectedPaths.includes(path) !== next.multiSelectedPaths.includes(path)) return false;
-      if (prev.imageRatings?.[path] !== next.imageRatings?.[path]) return false;
-    }
-  } else if (prevRow.type === 'header') {
-    if (prevRow.isExpanded !== nextRow.isExpanded || prevRow.count !== nextRow.count) return false;
-  }
-  return true;
-}
-
-export const Row = React.memo(RowComponent, rowAreEqual);
+export const Row = React.memo(RowComponent);

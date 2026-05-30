@@ -104,6 +104,7 @@ export enum TransformAdjustment {
 }
 
 export enum LensAdjustment {
+  LensCorrectionMode = 'lensCorrectionMode',
   LensMaker = 'lensMaker',
   LensModel = 'lensModel',
   LensDistortionAmount = 'lensDistortionAmount',
@@ -176,6 +177,7 @@ export interface Adjustments {
   halationAmount: number;
   highlights: number;
   hsl: Hsl;
+  lensCorrectionMode: 'auto' | 'manual';
   lensDistortionAmount: number;
   lensVignetteAmount: number;
   lensTcaAmount: number;
@@ -562,6 +564,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
     reds: { hue: 0, saturation: 0, luminance: 0 },
     yellows: { hue: 0, saturation: 0, luminance: 0 },
   },
+  lensCorrectionMode: 'manual',
   lensDistortionAmount: 100,
   lensVignetteAmount: 100,
   lensTcaAmount: 100,
@@ -700,6 +703,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     flareAmount: loadedAdjustments.flareAmount ?? INITIAL_ADJUSTMENTS.flareAmount,
     glowAmount: loadedAdjustments.glowAmount ?? INITIAL_ADJUSTMENTS.glowAmount,
     halationAmount: loadedAdjustments.halationAmount ?? INITIAL_ADJUSTMENTS.halationAmount,
+    lensCorrectionMode: loadedAdjustments.lensCorrectionMode || 'manual',
     lensMaker: loadedAdjustments.lensMaker ?? INITIAL_ADJUSTMENTS.lensMaker,
     lensModel: loadedAdjustments.lensModel ?? INITIAL_ADJUSTMENTS.lensModel,
     lensDistortionAmount: loadedAdjustments.lensDistortionAmount ?? INITIAL_ADJUSTMENTS.lensDistortionAmount,
@@ -745,11 +749,11 @@ export interface AdjustmentGroup {
 export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
   basic: [
     {
-      label: 'Exposure & Tone Mapper',
+      label: 'modals.copyPaste.groups.exposureToneMapper',
       keys: [BasicAdjustment.Exposure, 'toneMapper'],
     },
     {
-      label: 'Tone',
+      label: 'modals.copyPaste.groups.tone',
       keys: [
         BasicAdjustment.Brightness,
         BasicAdjustment.Contrast,
@@ -760,20 +764,20 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
       ],
     },
     {
-      label: 'Curves',
+      label: 'modals.copyPaste.groups.curves',
       keys: ['curves', 'pointCurves', 'parametricCurve', 'curveMode'],
     },
   ],
   color: [
-    { label: 'White Balance', keys: [ColorAdjustment.Temperature, ColorAdjustment.Tint] },
-    { label: 'Presence', keys: [ColorAdjustment.Saturation, ColorAdjustment.Vibrance] },
-    { label: 'Color Grading', keys: [ColorAdjustment.ColorGrading] },
-    { label: 'Color Mixer', keys: [ColorAdjustment.Hsl] },
-    { label: 'Color Calibration', keys: ['colorCalibration'] },
+    { label: 'modals.copyPaste.groups.whiteBalance', keys: [ColorAdjustment.Temperature, ColorAdjustment.Tint] },
+    { label: 'modals.copyPaste.groups.presence', keys: [ColorAdjustment.Saturation, ColorAdjustment.Vibrance] },
+    { label: 'modals.copyPaste.groups.colorGrading', keys: [ColorAdjustment.ColorGrading] },
+    { label: 'modals.copyPaste.groups.colorMixer', keys: [ColorAdjustment.Hsl] },
+    { label: 'modals.copyPaste.groups.colorCalibration', keys: ['colorCalibration'] },
   ],
   details: [
     {
-      label: 'Clarity & Dehaze',
+      label: 'modals.copyPaste.groups.clarityDehaze',
       keys: [
         DetailsAdjustment.Clarity,
         DetailsAdjustment.Structure,
@@ -781,32 +785,38 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
         DetailsAdjustment.Centré,
       ],
     },
-    { label: 'Sharpness', keys: [DetailsAdjustment.Sharpness, DetailsAdjustment.SharpnessThreshold] },
-    { label: 'Noise Reduction', keys: [DetailsAdjustment.LumaNoiseReduction, DetailsAdjustment.ColorNoiseReduction] },
     {
-      label: 'Chromatic Aberration',
+      label: 'modals.copyPaste.groups.sharpness',
+      keys: [DetailsAdjustment.Sharpness, DetailsAdjustment.SharpnessThreshold],
+    },
+    {
+      label: 'modals.copyPaste.groups.noiseReduction',
+      keys: [DetailsAdjustment.LumaNoiseReduction, DetailsAdjustment.ColorNoiseReduction],
+    },
+    {
+      label: 'modals.copyPaste.groups.chromaticAberration',
       keys: [DetailsAdjustment.ChromaticAberrationRedCyan, DetailsAdjustment.ChromaticAberrationBlueYellow],
     },
   ],
   effects: [
     {
-      label: 'Vignette',
+      label: 'modals.copyPaste.groups.vignette',
       keys: [Effect.VignetteAmount, Effect.VignetteFeather, Effect.VignetteMidpoint, Effect.VignetteRoundness],
     },
-    { label: 'Grain', keys: [Effect.GrainAmount, Effect.GrainRoughness, Effect.GrainSize] },
+    { label: 'modals.copyPaste.groups.grain', keys: [Effect.GrainAmount, Effect.GrainRoughness, Effect.GrainSize] },
     {
-      label: 'Halation & Glow',
+      label: 'modals.copyPaste.groups.halationGlow',
       keys: [CreativeAdjustment.GlowAmount, CreativeAdjustment.HalationAmount, CreativeAdjustment.FlareAmount],
     },
     {
-      label: 'LUT',
+      label: 'modals.copyPaste.groups.lut',
       keys: [Effect.LutIntensity, Effect.LutName, Effect.LutPath, Effect.LutSize, Effect.LutData],
     },
   ],
   geometry: [
-    { label: 'Crop & Aspect Ratio', keys: ['crop', 'aspectRatio'] },
+    { label: 'modals.copyPaste.groups.cropAspectRatio', keys: ['crop', 'aspectRatio'] },
     {
-      label: 'Transform & Rotation',
+      label: 'modals.copyPaste.groups.transformRotation',
       keys: [
         'rotation',
         'flipHorizontal',
@@ -822,9 +832,23 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
         TransformAdjustment.TransformYOffset,
       ],
     },
+    {
+      label: 'modals.copyPaste.groups.lensCorrection',
+      keys: [
+        LensAdjustment.LensCorrectionMode,
+        LensAdjustment.LensMaker,
+        LensAdjustment.LensModel,
+        LensAdjustment.LensDistortionAmount,
+        LensAdjustment.LensVignetteAmount,
+        LensAdjustment.LensTcaAmount,
+        LensAdjustment.LensDistortionEnabled,
+        LensAdjustment.LensTcaEnabled,
+        LensAdjustment.LensVignetteEnabled,
+      ],
+    },
   ],
-  masks: [{ label: 'Masks', keys: ['masks'] }],
-  negative: [{ label: 'Negative Inversion', keys: ['negative'] }],
+  masks: [{ label: 'modals.copyPaste.groups.masks', keys: ['masks'] }],
+  negative: [{ label: 'modals.copyPaste.groups.negative', keys: ['negative'] }],
 };
 
 export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUPS)

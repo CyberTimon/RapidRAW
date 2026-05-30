@@ -1775,8 +1775,6 @@ fn process_and_get_dynamic_image_inner(
 
     let cache = cache_lock.as_ref().unwrap();
 
-    // The only deciding factor of whether we block and read memory back synchronously
-    // is if we are outputting to display (canvas rendering).
     let skip_readback = output_to_display;
 
     let (processed_pixels, out_w, out_h, out_x, out_y) = processor.run(
@@ -1788,13 +1786,11 @@ fn process_and_get_dynamic_image_inner(
         output_to_display,
     )?;
 
-    // Start consolidated final transfers
     let mut final_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("Final Passes Encoder"),
     });
     let mut submit_final_encoder = false;
 
-    // 1. Queue Async Analytics Buffer Prep
     let mut async_readback_buffer: Option<wgpu::Buffer> = None;
     let mut async_padded_bpr: u32 = 0;
     let mut async_unpadded_bpr: u32 = 0;
@@ -1844,7 +1840,6 @@ fn process_and_get_dynamic_image_inner(
         submit_final_encoder = true;
     }
 
-    // 2. Queue Display Texture Protection (Double Buffering)
     if output_to_display {
         final_encoder.copy_texture_to_texture(
             wgpu::TexelCopyTextureInfo {
@@ -1876,15 +1871,12 @@ fn process_and_get_dynamic_image_inner(
         submit_final_encoder = true;
     }
 
-    // Submit both data transfers concurrently
     if submit_final_encoder {
         queue.submit(Some(final_encoder.finish()));
     }
 
-    // Spawn Async Analytics Execution Thread (Zero Main Thread Blocking)
     if let Some(analytics) = analytics_config {
         if let Some(buffer) = async_readback_buffer {
-            // Strictly type everything to avoid compiler inference issues
             let output_buffer: wgpu::Buffer = buffer;
             let padded_bytes_per_row: u32 = async_padded_bpr;
             let unpadded_bytes_per_row: u32 = async_unpadded_bpr;
@@ -1935,7 +1927,6 @@ fn process_and_get_dynamic_image_inner(
                 }
             });
         } else {
-            // Fallback if we actually processed synchronously (e.g. CPU fallback or Exports)
             let pixels_clone = processed_pixels.clone();
             std::thread::spawn(move || {
                 if let Some(img_buf) =
@@ -1953,7 +1944,6 @@ fn process_and_get_dynamic_image_inner(
         }
     }
 
-    // Refresh display
     if output_to_display
         && let Ok(mut display_lock) = context.display.lock()
         && let Some(display) = display_lock.as_mut()

@@ -8,6 +8,25 @@ use ndk_context::android_context;
 use std::fs;
 #[cfg(target_os = "android")]
 use std::path::PathBuf;
+#[cfg(target_os = "android")]
+static INIT_NDK_CONTEXT: std::sync::Once = std::sync::Once::new();
+
+#[cfg(target_os = "android")]
+pub fn initialize_android(window: &tauri::WebviewWindow) {
+    let _ = window.with_webview(|webview| {
+        webview.jni_handle().exec(|env, context, _webview| {
+            if let Ok(vm) = env.get_java_vm() {
+                let vm_ptr = vm.get_java_vm_pointer() as *mut std::ffi::c_void;
+                let context_ptr = context.as_raw() as *mut std::ffi::c_void;
+
+                INIT_NDK_CONTEXT.call_once(|| unsafe {
+                    ndk_context::initialize_android_context(vm_ptr, context_ptr);
+                    log::info!("Successfully initialized ndk-context on Android.");
+                });
+            }
+        });
+    });
+}
 
 pub fn is_android_content_uri(path: &str) -> bool {
     path.starts_with("content://")

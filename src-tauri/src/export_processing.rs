@@ -9,7 +9,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, GenericImageView, GrayImage, ImageBuffer, ImageFormat, Luma, imageops};
 use jxl_encoder::{LosslessConfig, LossyConfig, PixelLayout};
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::Emitter;
@@ -635,139 +634,17 @@ fn export_adjustments_as_lut(
     convert_image_to_cube_lut(&processed_lut, lut_size)
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
-pub async fn export_image(
-    original_path: String,
-    output_path: String,
-    js_adjustments: Value,
-    export_settings: ExportSettings,
-    state: tauri::State<'_, AppState>,
-    app_handle: tauri::AppHandle,
-) -> Result<(), String> {
-    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-
-    if state.export_task_handle.lock().unwrap().is_some() {
-        return Err("An export is already in progress.".to_string());
-    }
-
-    let context = get_or_init_gpu_context(&state, &app_handle)?;
-    let (original_image_data, is_raw) = get_full_image_for_processing(&state)?;
-    let context = Arc::new(context);
-
-    let task = tokio::spawn(async move {
-        let state = app_handle.state::<AppState>();
-        let processing_result: Result<(), String> = (|| {
-            let (source_path, _) = parse_virtual_path(&original_path);
-            let source_path_str = source_path.to_string_lossy().to_string();
-            let output_path_obj = std::path::Path::new(&output_path);
-            let extension = output_path_obj
-                .extension()
-                .and_then(|s| s.to_str())
-                .unwrap_or("")
-                .to_lowercase();
-
-            if extension == "cube" {
-                let cube_bytes = export_adjustments_as_lut(
-                    &js_adjustments,
-                    &source_path_str,
-                    &context,
-                    &state,
-                    &app_handle,
-                )?;
-                #[cfg(target_os = "android")]
-                {
-                    let file_name = output_path_obj
-                        .file_name()
-                        .and_then(|name| name.to_str())
-                        .ok_or_else(|| "Missing Android LUT export file name".to_string())?;
-                    crate::android_integration::save_file_bytes_to_android_downloads(
-                        file_name,
-                        "application/octet-stream",
-                        &cube_bytes,
-                    )?;
-                }
-
-                #[cfg(not(target_os = "android"))]
-                fs::write(output_path_obj, cube_bytes).map_err(|e| e.to_string())?;
-
-                return Ok(());
-            }
-
-            let base_image = composite_patches_on_image(&original_image_data, &js_adjustments)
-                .map_err(|e| format!("Failed to composite AI patches for export: {}", e))?;
-
-            let mut main_export_adjustments = js_adjustments.clone();
-            if export_settings.export_masks
-                && let Some(obj) = main_export_adjustments.as_object_mut()
-            {
-                obj.insert("masks".to_string(), serde_json::json!([]));
-            }
-
-            let final_image = process_image_for_export(
-                &source_path_str,
-                &base_image,
-                &main_export_adjustments,
-                &export_settings,
-                &context,
-                &state,
-                is_raw,
-                &app_handle,
-            )?;
-
-            save_image_with_metadata(
-                &final_image,
-                output_path_obj,
-                &source_path_str,
-                &export_settings,
-            )?;
-
-            if export_settings.preserve_timestamps {
-                set_timestamps_from_exif(Path::new(&source_path_str), output_path_obj);
-            }
-
-            if export_settings.export_masks {
-                export_masks_for_image(
-                    &base_image,
-                    &js_adjustments,
-                    &export_settings,
-                    output_path_obj,
-                    &source_path_str,
-                    &context,
-                    &state,
-                    is_raw,
-                    &app_handle,
-                )?;
-            }
-
-            Ok(())
-        })();
-
-        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
-
-        if let Err(e) = processing_result {
-            let _ = app_handle.emit("export-error", e);
-        } else {
-            let _ = app_handle.emit("export-complete", ());
-        }
-
-        *app_handle
-            .state::<AppState>()
-            .export_task_handle
-            .lock()
-            .unwrap() = None;
-    });
-
-    *state.export_task_handle.lock().unwrap() = Some(task);
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn batch_export_images(
-    output_folder: String,
-    base_origin_folders: Vec<String>,
+pub async fn export_images(
     paths: Vec<String>,
+    output_folder_or_file: String,
+    is_explicit_file_path: bool,
+    base_origin_folders: Vec<String>,
     export_settings: ExportSettings,
     output_format: String,
+    current_edit_path: Option<String>,
+    current_edit_adjustments: Option<Value>,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
@@ -784,37 +661,31 @@ pub async fn batch_export_images(
     let available_cores = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(1);
-    let num_threads = (available_cores / 2).clamp(1, 4);
+
+    let mut sys = sysinfo::System::new();
+    sys.refresh_memory();
+
+    let available_ram_gb = sys.available_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
+
+    let ram_based_limit = (available_ram_gb / 2.5).floor() as usize;
+
+    let num_threads = if paths.len() == 1 {
+        1
+    } else {
+        available_cores.min(ram_based_limit).clamp(1, 16)
+    };
 
     log::info!(
-        "Starting batch export. System cores: {}, Export threads: {}",
+        "Batch Export: {} cores, {:.1} GB free RAM -> {} threads",
         available_cores,
+        available_ram_gb,
         num_threads
     );
 
     let task = tokio::spawn(async move {
-        let state = app_handle.state::<AppState>();
-        let output_folder_path = std::path::Path::new(&output_folder);
+        let output_folder_path = std::path::Path::new(&output_folder_or_file);
         let total_paths = paths.len();
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
-
-        let pool_result = rayon::ThreadPoolBuilder::new()
-            .num_threads(num_threads)
-            .build();
-
-        if let Err(e) = pool_result {
-            let _ = app_handle.emit(
-                "export-error",
-                format!("Failed to initialize worker threads: {}", e),
-            );
-            *app_handle
-                .state::<AppState>()
-                .export_task_handle
-                .lock()
-                .unwrap() = None;
-            return;
-        }
-        let pool = pool_result.unwrap();
 
         let mut base_path_counts: HashMap<String, usize> = HashMap::new();
         let mut export_items = Vec::with_capacity(total_paths);
@@ -844,158 +715,155 @@ pub async fn batch_export_images(
                     }
                 }
             }
-
             export_items.push((i, path_str, *count, explicit_vc));
         }
 
-        let results: Vec<Result<(), String>> = pool.install(|| {
-            export_items
-                .into_par_iter()
-                .map(|(global_index, image_path_str, appearance_count, explicit_vc)| {
-                    if app_handle
-                        .state::<AppState>()
-                        .export_task_handle
-                        .lock()
-                        .unwrap()
-                        .is_none()
-                    {
-                        return Err("Export cancelled".to_string());
-                    }
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(num_threads));
+        let mut join_handles = Vec::new();
 
-                    let current_progress = progress_counter.fetch_add(1, Ordering::SeqCst) + 1;
-                    let _ = app_handle.emit(
-                        "batch-export-progress",
-                        serde_json::json!({
-                            "current": current_progress,
-                            "total": total_paths,
-                            "path": &image_path_str
-                        }),
-                    );
+        for (global_index, image_path_str, appearance_count, explicit_vc) in export_items {
+            let permit = semaphore.clone().acquire_owned().await.unwrap();
 
-                    let result: Result<(), String> = (|| {
-                        let (source_path, sidecar_path) = parse_virtual_path(&image_path_str);
-                        let source_path_str = source_path.to_string_lossy().to_string();
+            let app_handle_clone = app_handle.clone();
+            let context_clone = Arc::clone(&context);
+            let progress_counter_clone = Arc::clone(&progress_counter);
+            let output_folder_path = output_folder_path.to_path_buf();
+            let base_origin_folders = base_origin_folders.clone();
+            let export_settings = export_settings.clone();
+            let output_format = output_format.clone();
+            let current_edit_path = current_edit_path.clone();
+            let current_edit_adjustments = current_edit_adjustments.clone();
+            let settings = settings.clone();
 
+            let handle = tokio::task::spawn_blocking(move || {
+                if app_handle_clone
+                    .state::<AppState>()
+                    .export_task_handle
+                    .lock()
+                    .unwrap()
+                    .is_none()
+                {
+                    return Err("Export cancelled".to_string());
+                }
+
+                let state = app_handle_clone.state::<AppState>();
+                let (source_path, sidecar_path) = parse_virtual_path(&image_path_str);
+                let source_path_str = source_path.to_string_lossy().to_string();
+                let is_current_edit = Some(&source_path_str) == current_edit_path.as_ref();
+
+                let mut js_adjustments = match (is_current_edit, current_edit_adjustments) {
+                    (true, Some(adjustments)) => adjustments,
+                    _ => {
                         let metadata: ImageMetadata = if sidecar_path.exists() {
-                            let file_content = fs::read_to_string(sidecar_path)
+                            let file_content = fs::read_to_string(&sidecar_path)
                                 .map_err(|e| format!("Failed to read sidecar: {}", e))?;
                             serde_json::from_str(&file_content).unwrap_or_default()
                         } else {
                             ImageMetadata::default()
                         };
-                        let mut js_adjustments = metadata.adjustments;
-                        hydrate_adjustments(&state, &mut js_adjustments);
-                        let is_raw = is_raw_file(&source_path_str);
+                        metadata.adjustments
+                    }
+                };
 
-                        let original_path = std::path::Path::new(&source_path_str);
-                        let file_date = exif_processing::get_creation_date_from_path(original_path);
+                hydrate_adjustments(&state, &mut js_adjustments);
+                let is_raw = is_raw_file(&source_path_str);
+                let original_path = std::path::Path::new(&source_path_str);
+                let file_date = exif_processing::get_creation_date_from_path(original_path);
 
-                        let filename_template = export_settings
-                            .filename_template
-                            .as_deref()
-                            .unwrap_or("{original_filename}_edited");
-                        let mut new_stem = generate_filename_from_template(
-                            filename_template,
-                            original_path,
-                            global_index + 1,
-                            total_paths,
-                            &file_date,
-                        );
+                let filename_template = export_settings
+                    .filename_template
+                    .as_deref()
+                    .unwrap_or("{original_filename}_edited");
 
-                        if let Some(vc_id) = explicit_vc {
-                            new_stem = format!("{}_VC{:02}", new_stem, vc_id);
-                        } else if appearance_count > 1 {
-                            new_stem = format!("{}_VC{:02}", new_stem, appearance_count - 1);
-                        }
+                let mut new_stem = generate_filename_from_template(
+                    filename_template,
+                    original_path,
+                    global_index + 1,
+                    total_paths,
+                    &file_date,
+                );
 
-                        let new_filename = format!("{}.{}", new_stem, output_format);
-                        let output_path = if export_settings.preserve_folders {
-                            let matched_base = base_origin_folders
-                                .iter()
-                                .map(std::path::Path::new)
-                                .find(|b| source_path.starts_with(b));
+                if let Some(vc_id) = explicit_vc {
+                    new_stem = format!("{}_VC{:02}", new_stem, vc_id);
+                } else if appearance_count > 1 {
+                    new_stem = format!("{}_VC{:02}", new_stem, appearance_count - 1);
+                }
 
-                            if let Some(base_origin) = matched_base {
-                                if let Ok(rel_path) = source_path.strip_prefix(base_origin) {
-                                    let rel_dir = rel_path.parent().unwrap_or_else(|| std::path::Path::new(""));
-                                    let rel_dir_is_safe = rel_dir.components().all(|component| {
-                                        matches!(
-                                            component,
-                                            std::path::Component::Normal(_)
-                                                | std::path::Component::CurDir
-                                        )
-                                    });
-
-                                    if rel_dir_is_safe {
-                                        let full_dir = output_folder_path.join(rel_dir);
-                                        if let Err(e) = std::fs::create_dir_all(&full_dir) {
-                                            log::warn!("Failed to create export subdirectory: {}", e);
-                                        }
-                                        full_dir.join(&new_filename)
-                                    } else {
-                                        log::warn!(
-                                            "Skipping unsafe preserved folder path outside export directory: {}",
-                                            rel_dir.display()
-                                        );
-                                        output_folder_path.join(&new_filename)
-                                    }
-                                } else {
-                                    output_folder_path.join(&new_filename)
+                let new_filename = format!("{}.{}", new_stem, output_format);
+                let output_path = if is_explicit_file_path && total_paths == 1 {
+                    output_folder_path
+                } else if export_settings.preserve_folders {
+                    let matched_base = base_origin_folders
+                        .iter()
+                        .map(std::path::Path::new)
+                        .find(|b| source_path.starts_with(b));
+                    if let Some(base_origin) = matched_base {
+                        if let Ok(rel_path) = source_path.strip_prefix(base_origin) {
+                            let rel_dir = rel_path
+                                .parent()
+                                .unwrap_or_else(|| std::path::Path::new(""));
+                            let rel_dir_is_safe = rel_dir.components().all(|component| {
+                                matches!(
+                                    component,
+                                    std::path::Component::Normal(_) | std::path::Component::CurDir
+                                )
+                            });
+                            if rel_dir_is_safe {
+                                let full_dir = output_folder_path.join(rel_dir);
+                                if let Err(e) = std::fs::create_dir_all(&full_dir) {
+                                    log::warn!("Failed to create export subdirectory: {}", e);
                                 }
+                                full_dir.join(&new_filename)
                             } else {
                                 output_folder_path.join(&new_filename)
                             }
                         } else {
                             output_folder_path.join(&new_filename)
-                        };
-                        let extension = output_format.to_lowercase();
-
-                        if extension == "cube" {
-                            let cube_bytes = export_adjustments_as_lut(
-                                &js_adjustments,
-                                &source_path_str,
-                                &context,
-                                &state,
-                                &app_handle,
-                            )?;
-                            #[cfg(target_os = "android")]
-                            {
-                                let file_name = output_path
-                                    .file_name()
-                                    .and_then(|name| name.to_str())
-                                    .ok_or_else(|| "Missing Android LUT export file name".to_string())?;
-                                crate::android_integration::save_file_bytes_to_android_downloads(
-                                    file_name,
-                                    "application/octet-stream",
-                                    &cube_bytes,
-                                )?;
-                            }
-
-                            #[cfg(not(target_os = "android"))]
-                            fs::write(&output_path, cube_bytes).map_err(|e| e.to_string())?;
-
-                            return Ok(());
                         }
+                    } else {
+                        output_folder_path.join(&new_filename)
+                    }
+                } else {
+                    output_folder_path.join(&new_filename)
+                };
 
-                        let base_image = match read_file_mapped(Path::new(&source_path_str)) {
-                            Ok(mmap) => load_and_composite(
-                                &mmap,
-                                &source_path_str,
-                                &js_adjustments,
-                                false,
-                                &settings,
-                                None,
-                            )
-                            .map_err(|e| format!("Failed to load image from mmap: {}", e))?,
-                            Err(e) => {
-                                log::warn!(
-                                    "Failed to memory-map file '{}': {}. Falling back to standard read.",
-                                    source_path_str,
-                                    e
-                                );
-                                let bytes = fs::read(&source_path_str).map_err(|io_err| {
-                                    format!("Fallback read failed for {}: {}", source_path_str, io_err)
-                                })?;
+                let extension = output_format.to_lowercase();
+
+                let result: Result<(), String> = (|| {
+                    if extension == "cube" {
+                        let cube_bytes = export_adjustments_as_lut(
+                            &js_adjustments,
+                            &source_path_str,
+                            &context_clone,
+                            &state,
+                            &app_handle_clone,
+                        )?;
+                        #[cfg(target_os = "android")]
+                        {
+                            let file_name = output_path
+                                .file_name()
+                                .and_then(|name| name.to_str())
+                                .ok_or_else(|| "Missing Android LUT file name".to_string())?;
+                            crate::android_integration::save_file_bytes_to_android_downloads(
+                                file_name,
+                                "application/octet-stream",
+                                &cube_bytes,
+                            )?;
+                        }
+                        #[cfg(not(target_os = "android"))]
+                        fs::write(&output_path, cube_bytes).map_err(|e| e.to_string())?;
+                        return Ok(());
+                    }
+
+                    let base_image = if is_current_edit {
+                        match get_full_image_for_processing(&state) {
+                            Ok((orig_data, _)) => {
+                                composite_patches_on_image(&orig_data, &js_adjustments)
+                                    .map_err(|e| format!("Failed to composite AI patches: {}", e))?
+                            }
+                            Err(_) => {
+                                let bytes =
+                                    fs::read(&source_path_str).map_err(|e| e.to_string())?;
                                 load_and_composite(
                                     &bytes,
                                     &source_path_str,
@@ -1004,54 +872,105 @@ pub async fn batch_export_images(
                                     &settings,
                                     None,
                                 )
-                                .map_err(|e| format!("Failed to load image from bytes: {}", e))?
+                                .map_err(|e| format!("Failed to load fallback image: {}", e))?
                             }
-                        };
-
-                        let mut main_export_adjustments = js_adjustments.clone();
-                        if export_settings.export_masks
-                            && let Some(obj) = main_export_adjustments.as_object_mut() {
-                                obj.insert("masks".to_string(), serde_json::json!([]));
+                        }
+                    } else {
+                        match read_file_mapped(Path::new(&source_path_str)) {
+                            Ok(mmap) => load_and_composite(
+                                &mmap,
+                                &source_path_str,
+                                &js_adjustments,
+                                false,
+                                &settings,
+                                None,
+                            )
+                            .map_err(|e| format!("Failed to load from mmap: {}", e))?,
+                            Err(_) => {
+                                let bytes =
+                                    fs::read(&source_path_str).map_err(|e| e.to_string())?;
+                                load_and_composite(
+                                    &bytes,
+                                    &source_path_str,
+                                    &js_adjustments,
+                                    false,
+                                    &settings,
+                                    None,
+                                )
+                                .map_err(|e| format!("Failed to load from bytes: {}", e))?
                             }
+                        }
+                    };
 
-                        let final_image = process_image_for_export(
-                            &source_path_str,
+                    let mut main_export_adjustments = js_adjustments.clone();
+                    if export_settings.export_masks
+                        && let Some(obj) = main_export_adjustments.as_object_mut()
+                    {
+                        obj.insert("masks".to_string(), serde_json::json!([]));
+                    }
+
+                    let final_image = process_image_for_export(
+                        &source_path_str,
+                        &base_image,
+                        &main_export_adjustments,
+                        &export_settings,
+                        &context_clone,
+                        &state,
+                        is_raw,
+                        &app_handle_clone,
+                    )?;
+                    save_image_with_metadata(
+                        &final_image,
+                        &output_path,
+                        &source_path_str,
+                        &export_settings,
+                    )?;
+
+                    if export_settings.preserve_timestamps {
+                        set_timestamps_from_exif(Path::new(&source_path_str), &output_path);
+                    }
+
+                    if export_settings.export_masks {
+                        export_masks_for_image(
                             &base_image,
-                            &main_export_adjustments,
+                            &js_adjustments,
                             &export_settings,
-                            &context,
+                            &output_path,
+                            &source_path_str,
+                            &context_clone,
                             &state,
                             is_raw,
-                            &app_handle,
+                            &app_handle_clone,
                         )?;
+                    }
 
-                        save_image_with_metadata(&final_image, &output_path, &source_path_str, &export_settings)?;
+                    Ok(())
+                })();
 
-                        if export_settings.preserve_timestamps {
-                            set_timestamps_from_exif(Path::new(&source_path_str), &output_path);
-                        }
+                let current_progress = progress_counter_clone.fetch_add(1, Ordering::SeqCst) + 1;
+                let _ = app_handle_clone.emit(
+                    "batch-export-progress",
+                    serde_json::json!({
+                        "current": current_progress,
+                        "total": total_paths,
+                        "path": &image_path_str
+                    }),
+                );
 
-                        if export_settings.export_masks {
-                            export_masks_for_image(
-                                &base_image,
-                                &js_adjustments,
-                                &export_settings,
-                                &output_path,
-                                &source_path_str,
-                                &context,
-                                &state,
-                                is_raw,
-                                &app_handle,
-                            )?;
-                        }
+                drop(permit);
+                result
+            });
 
-                        Ok(())
-                    })();
+            join_handles.push(handle);
+        }
 
-                    result
-                })
-                .collect()
-        });
+        let mut results = Vec::new();
+        for handle in join_handles {
+            match handle.await {
+                Ok(res) => results.push(res),
+                Err(e) => results.push(Err(format!("Thread crashed: {}", e))),
+            }
+        }
 
         tokio::time::sleep(std::time::Duration::from_millis(150)).await;
 
@@ -1059,17 +978,19 @@ pub async fn batch_export_images(
         for result in results {
             if let Err(e) = result {
                 error_count += 1;
-                log::error!("Batch export error: {}", e);
-                let _ = app_handle.emit("export-error", e);
+                log::error!("Export error: {}", e);
+                if total_paths == 1 {
+                    let _ = app_handle.emit("export-error", e);
+                }
             }
         }
 
-        if error_count > 0 {
+        if error_count > 0 && total_paths > 1 {
             let _ = app_handle.emit(
                 "export-complete-with-errors",
                 serde_json::json!({ "errors": error_count, "total": total_paths }),
             );
-        } else {
+        } else if error_count == 0 {
             let _ = app_handle.emit(
                 "batch-export-progress",
                 serde_json::json!({ "current": total_paths, "total": total_paths, "path": "" }),
@@ -1103,138 +1024,12 @@ pub fn cancel_export(state: tauri::State<AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn estimate_export_size(
-    js_adjustments: Value,
-    export_settings: ExportSettings,
-    output_format: String,
-    state: tauri::State<'_, AppState>,
-    app_handle: tauri::AppHandle,
-) -> Result<usize, String> {
-    if output_format.to_lowercase() == "cube" {
-        return Ok(1_050_000);
-    }
-
-    let context = get_or_init_gpu_context(&state, &app_handle)?;
-    let loaded_image = state
-        .original_image
-        .lock()
-        .unwrap()
-        .clone()
-        .ok_or("No original image loaded")?;
-    let is_raw = loaded_image.is_raw;
-
-    let mut adjustments_clone = js_adjustments.clone();
-    hydrate_adjustments(&state, &mut adjustments_clone);
-
-    let new_transform_hash = calculate_transform_hash(&adjustments_clone);
-    let cached_preview_lock = state.cached_preview.lock().unwrap();
-
-    let settings = load_settings(app_handle.clone()).unwrap_or_default();
-    let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
-
-    let (preview_image, scale, unscaled_crop_offset) = if let Some(cached) = &*cached_preview_lock {
-        if cached.transform_hash == new_transform_hash && cached.preview_dim == preview_dim {
-            let img = Arc::clone(&cached.image);
-            let s = cached.scale;
-            let offset = cached.unscaled_crop_offset;
-            drop(cached_preview_lock);
-            let owned_img = Arc::try_unwrap(img).unwrap_or_else(|arc| (*arc).clone());
-            (owned_img, s, offset)
-        } else {
-            drop(cached_preview_lock);
-            generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?
-        }
-    } else {
-        drop(cached_preview_lock);
-        generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?
-    };
-
-    let (img_w, img_h) = preview_image.dimensions();
-    let mask_definitions: Vec<MaskDefinition> = adjustments_clone
-        .get("masks")
-        .and_then(|m| serde_json::from_value(m.clone()).ok())
-        .unwrap_or_default();
-
-    let scaled_crop_offset = (
-        unscaled_crop_offset.0 * scale,
-        unscaled_crop_offset.1 * scale,
-    );
-
-    let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-        .iter()
-        .filter_map(|def| {
-            get_cached_or_generate_mask(
-                &state,
-                def,
-                img_w,
-                img_h,
-                scale,
-                scaled_crop_offset,
-                &adjustments_clone,
-            )
-        })
-        .collect();
-
-    let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
-    let mut all_adjustments =
-        get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
-    all_adjustments.global.show_clipping = 0;
-
-    let lut_path = adjustments_clone["lutPath"].as_str();
-    let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
-    let unique_hash =
-        calculate_full_job_hash(&loaded_image.path, &adjustments_clone).wrapping_add(1);
-
-    let processed_preview = process_and_get_dynamic_image(
-        &context,
-        &state,
-        &preview_image,
-        unique_hash,
-        RenderRequest {
-            adjustments: all_adjustments,
-            mask_bitmaps: &mask_bitmaps,
-            lut,
-            roi: None,
-        },
-        "estimate_export_size",
-    )?;
-
-    let preview_bytes = encode_image_to_bytes(
-        &processed_preview,
-        &output_format,
-        export_settings.jpeg_quality,
-    )?;
-    let preview_byte_size = preview_bytes.len();
-
-    let (transformed_full_res, _unscaled_crop_offset) =
-        apply_all_transformations(&loaded_image.image, &adjustments_clone);
-    let (full_w, full_h) = transformed_full_res.dimensions();
-
-    let (final_full_w, final_full_h) = if let Some(resize_opts) = &export_settings.resize {
-        calculate_resize_target(full_w, full_h, resize_opts)
-    } else {
-        (full_w, full_h)
-    };
-
-    let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
-
-    let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
-        (final_full_w as f64 * final_full_h as f64)
-            / (processed_preview_w as f64 * processed_preview_h as f64)
-    } else {
-        1.0
-    };
-
-    let estimated_size = (preview_byte_size as f64 * pixel_ratio) as usize;
-
-    Ok(estimated_size)
-}
-
-#[tauri::command]
-pub async fn estimate_batch_export_size(
+pub async fn estimate_export_sizes(
     paths: Vec<String>,
     export_settings: ExportSettings,
     output_format: String,
+    current_edit_path: Option<String>,
+    current_edit_adjustments: Option<Value>,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<usize, String> {
@@ -1245,166 +1040,276 @@ pub async fn estimate_batch_export_size(
     if paths.is_empty() {
         return Ok(0);
     }
-    let context = get_or_init_gpu_context(&state, &app_handle)?;
+
     let first_path = &paths[0];
     let (source_path, sidecar_path) = parse_virtual_path(first_path);
     let source_path_str = source_path.to_string_lossy().to_string();
+
+    let context = get_or_init_gpu_context(&state, &app_handle)?;
+    let is_current_edit = Some(&source_path_str) == current_edit_path.as_ref();
     let is_raw = is_raw_file(&source_path_str);
-
-    let metadata: ImageMetadata = if sidecar_path.exists() {
-        let file_content = fs::read_to_string(sidecar_path).map_err(|e| e.to_string())?;
-        serde_json::from_str(&file_content).unwrap_or_default()
-    } else {
-        ImageMetadata::default()
-    };
-    let js_adjustments = metadata.adjustments;
-
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-    const ESTIMATE_DIM: u32 = 1280;
-
-    let mmap_guard;
-    let vec_guard;
-
-    let file_slice: &[u8] = match read_file_mapped(Path::new(&source_path_str)) {
-        Ok(mmap) => {
-            mmap_guard = Some(mmap);
-            mmap_guard.as_ref().unwrap()
-        }
-        Err(e) => {
-            log::warn!(
-                "Failed to memory-map file '{}': {}. Falling back to standard read.",
-                source_path_str,
-                e
-            );
-            let bytes = fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
-            vec_guard = Some(bytes);
-            vec_guard.as_ref().unwrap()
-        }
-    };
-
-    let original_image =
-        load_base_image_from_bytes(file_slice, &source_path_str, true, &settings, None)
-            .map_err(|e| e.to_string())?;
-
-    let raw_scale_factor = if is_raw {
-        crate::raw_processing::get_fast_demosaic_scale_factor(
-            file_slice,
-            original_image.width(),
-            original_image.height(),
-        )
-    } else {
-        1.0
-    };
-
-    let mut scaled_adjustments = js_adjustments.clone();
-    if let Some(crop_val) = scaled_adjustments.get_mut("crop")
-        && let Ok(c) = serde_json::from_value::<Crop>(crop_val.clone())
+    let single_image_extrapolated_size: usize = if is_current_edit
+        && current_edit_adjustments.is_some()
     {
-        *crop_val = serde_json::to_value(Crop {
-            x: c.x * raw_scale_factor as f64,
-            y: c.y * raw_scale_factor as f64,
-            width: c.width * raw_scale_factor as f64,
-            height: c.height * raw_scale_factor as f64,
-        })
-        .unwrap_or(serde_json::Value::Null);
-    }
+        let loaded_image = state
+            .original_image
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or("No original image loaded")?;
+        let mut adjustments_clone = current_edit_adjustments.clone().unwrap();
+        hydrate_adjustments(&state, &mut adjustments_clone);
 
-    let (transformed_shrunk_res, unscaled_crop_offset) =
-        apply_all_transformations(Cow::Borrowed(&original_image), &scaled_adjustments);
-    let (shrunk_w, shrunk_h) = transformed_shrunk_res.dimensions();
+        let new_transform_hash = calculate_transform_hash(&adjustments_clone);
+        let cached_preview_lock = state.cached_preview.lock().unwrap();
+        let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
 
-    let preview_base = if shrunk_w > ESTIMATE_DIM || shrunk_h > ESTIMATE_DIM {
-        downscale_f32_image(transformed_shrunk_res.as_ref(), ESTIMATE_DIM, ESTIMATE_DIM)
+        let (preview_image, scale, unscaled_crop_offset) = if let Some(cached) =
+            &*cached_preview_lock
+        {
+            if cached.transform_hash == new_transform_hash && cached.preview_dim == preview_dim {
+                let img = Arc::clone(&cached.image);
+                let s = cached.scale;
+                let offset = cached.unscaled_crop_offset;
+                drop(cached_preview_lock);
+                let owned_img = Arc::try_unwrap(img).unwrap_or_else(|arc| (*arc).clone());
+                (owned_img, s, offset)
+            } else {
+                drop(cached_preview_lock);
+                generate_transformed_preview(
+                    &state,
+                    &loaded_image,
+                    &adjustments_clone,
+                    preview_dim,
+                )?
+            }
+        } else {
+            drop(cached_preview_lock);
+            generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?
+        };
+
+        let (img_w, img_h) = preview_image.dimensions();
+        let mask_definitions: Vec<MaskDefinition> = adjustments_clone
+            .get("masks")
+            .and_then(|m| serde_json::from_value(m.clone()).ok())
+            .unwrap_or_default();
+
+        let scaled_crop_offset = (
+            unscaled_crop_offset.0 * scale,
+            unscaled_crop_offset.1 * scale,
+        );
+
+        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
+            .iter()
+            .filter_map(|def| {
+                get_cached_or_generate_mask(
+                    &state,
+                    def,
+                    img_w,
+                    img_h,
+                    scale,
+                    scaled_crop_offset,
+                    &adjustments_clone,
+                )
+            })
+            .collect();
+
+        let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
+        let mut all_adjustments =
+            get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
+        all_adjustments.global.show_clipping = 0;
+
+        let lut = adjustments_clone["lutPath"]
+            .as_str()
+            .and_then(|p| get_or_load_lut(&state, p).ok());
+        let unique_hash =
+            calculate_full_job_hash(&loaded_image.path, &adjustments_clone).wrapping_add(1);
+
+        let processed_preview = process_and_get_dynamic_image(
+            &context,
+            &state,
+            &preview_image,
+            unique_hash,
+            RenderRequest {
+                adjustments: all_adjustments,
+                mask_bitmaps: &mask_bitmaps,
+                lut,
+                roi: None,
+            },
+            "estimate_export_size",
+        )?;
+
+        let preview_bytes = encode_image_to_bytes(
+            &processed_preview,
+            &output_format,
+            export_settings.jpeg_quality,
+        )?;
+        let preview_byte_size = preview_bytes.len();
+
+        let (transformed_full_res, _) =
+            apply_all_transformations(&loaded_image.image, &adjustments_clone);
+        let (full_w, full_h) = transformed_full_res.dimensions();
+
+        let (final_full_w, final_full_h) = if let Some(resize_opts) = &export_settings.resize {
+            calculate_resize_target(full_w, full_h, resize_opts)
+        } else {
+            (full_w, full_h)
+        };
+
+        let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
+        let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
+            (final_full_w as f64 * final_full_h as f64)
+                / (processed_preview_w as f64 * processed_preview_h as f64)
+        } else {
+            1.0
+        };
+
+        (preview_byte_size as f64 * pixel_ratio) as usize
     } else {
-        transformed_shrunk_res.into_owned()
-    };
+        let metadata: ImageMetadata = if sidecar_path.exists() {
+            let file_content = fs::read_to_string(&sidecar_path).map_err(|e| e.to_string())?;
+            serde_json::from_str(&file_content).unwrap_or_default()
+        } else {
+            ImageMetadata::default()
+        };
+        let mut js_adjustments = metadata.adjustments;
 
-    let (preview_w, preview_h) = preview_base.dimensions();
-    let gpu_scale = if shrunk_w > 0 {
-        preview_w as f32 / shrunk_w as f32
-    } else {
-        1.0
-    };
+        const ESTIMATE_DIM: u32 = 1280;
 
-    let total_scale = gpu_scale * raw_scale_factor;
+        let file_slice: Vec<u8>;
+        let mmap_guard;
+        let file_data: &[u8] = match read_file_mapped(Path::new(&source_path_str)) {
+            Ok(mmap) => {
+                mmap_guard = Some(mmap);
+                mmap_guard.as_ref().unwrap()
+            }
+            Err(_) => {
+                file_slice = fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
+                &file_slice
+            }
+        };
 
-    let mask_definitions: Vec<MaskDefinition> = scaled_adjustments
-        .get("masks")
-        .and_then(|m| serde_json::from_value(m.clone()).ok())
-        .unwrap_or_default();
+        let original_image =
+            load_base_image_from_bytes(file_data, &source_path_str, true, &settings, None)
+                .map_err(|e| e.to_string())?;
 
-    let scaled_crop_offset = (
-        unscaled_crop_offset.0 * gpu_scale,
-        unscaled_crop_offset.1 * gpu_scale,
-    );
-
-    let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-        .iter()
-        .filter_map(|def| {
-            get_cached_or_generate_mask(
-                &state,
-                def,
-                preview_w,
-                preview_h,
-                total_scale,
-                scaled_crop_offset,
-                &scaled_adjustments,
+        let raw_scale_factor = if is_raw {
+            crate::raw_processing::get_fast_demosaic_scale_factor(
+                file_data,
+                original_image.width(),
+                original_image.height(),
             )
-        })
-        .collect();
+        } else {
+            1.0
+        };
 
-    let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
-    let mut all_adjustments =
-        get_all_adjustments_from_json(&scaled_adjustments, is_raw, tm_override);
-    all_adjustments.global.show_clipping = 0;
+        if let Some(crop_val) = js_adjustments.get_mut("crop")
+            && let Ok(c) = serde_json::from_value::<Crop>(crop_val.clone())
+        {
+            *crop_val = serde_json::to_value(Crop {
+                x: c.x * raw_scale_factor as f64,
+                y: c.y * raw_scale_factor as f64,
+                width: c.width * raw_scale_factor as f64,
+                height: c.height * raw_scale_factor as f64,
+            })
+            .unwrap_or(serde_json::Value::Null);
+        }
 
-    let lut_path = scaled_adjustments["lutPath"].as_str();
-    let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
-    let unique_hash =
-        calculate_full_job_hash(&source_path_str, &scaled_adjustments).wrapping_add(1);
+        let (transformed_shrunk_res, unscaled_crop_offset) =
+            apply_all_transformations(Cow::Borrowed(&original_image), &js_adjustments);
+        let (shrunk_w, shrunk_h) = transformed_shrunk_res.dimensions();
 
-    let processed_preview = process_and_get_dynamic_image(
-        &context,
-        &state,
-        &preview_base,
-        unique_hash,
-        RenderRequest {
-            adjustments: all_adjustments,
-            mask_bitmaps: &mask_bitmaps,
-            lut,
-            roi: None,
-        },
-        "estimate_batch_export_size",
-    )?;
+        let preview_base = if shrunk_w > ESTIMATE_DIM || shrunk_h > ESTIMATE_DIM {
+            downscale_f32_image(transformed_shrunk_res.as_ref(), ESTIMATE_DIM, ESTIMATE_DIM)
+        } else {
+            transformed_shrunk_res.into_owned()
+        };
 
-    let preview_bytes = encode_image_to_bytes(
-        &processed_preview,
-        &output_format,
-        export_settings.jpeg_quality,
-    )?;
-    let single_image_estimated_size = preview_bytes.len();
+        let (preview_w, preview_h) = preview_base.dimensions();
+        let gpu_scale = if shrunk_w > 0 {
+            preview_w as f32 / shrunk_w as f32
+        } else {
+            1.0
+        };
+        let total_scale = gpu_scale * raw_scale_factor;
 
-    let full_w = (shrunk_w as f32 / raw_scale_factor).round() as u32;
-    let full_h = (shrunk_h as f32 / raw_scale_factor).round() as u32;
+        let mask_definitions: Vec<MaskDefinition> = js_adjustments
+            .get("masks")
+            .and_then(|m| serde_json::from_value(m.clone()).ok())
+            .unwrap_or_default();
+        let scaled_crop_offset = (
+            unscaled_crop_offset.0 * gpu_scale,
+            unscaled_crop_offset.1 * gpu_scale,
+        );
 
-    let (final_full_w, final_full_h) = if let Some(resize_opts) = &export_settings.resize {
-        calculate_resize_target(full_w, full_h, resize_opts)
-    } else {
-        (full_w, full_h)
+        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
+            .iter()
+            .filter_map(|def| {
+                get_cached_or_generate_mask(
+                    &state,
+                    def,
+                    preview_w,
+                    preview_h,
+                    total_scale,
+                    scaled_crop_offset,
+                    &js_adjustments,
+                )
+            })
+            .collect();
+
+        let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
+        let mut all_adjustments =
+            get_all_adjustments_from_json(&js_adjustments, is_raw, tm_override);
+        all_adjustments.global.show_clipping = 0;
+
+        let lut = js_adjustments["lutPath"]
+            .as_str()
+            .and_then(|p| get_or_load_lut(&state, p).ok());
+        let unique_hash =
+            calculate_full_job_hash(&source_path_str, &js_adjustments).wrapping_add(1);
+
+        let processed_preview = process_and_get_dynamic_image(
+            &context,
+            &state,
+            &preview_base,
+            unique_hash,
+            RenderRequest {
+                adjustments: all_adjustments,
+                mask_bitmaps: &mask_bitmaps,
+                lut,
+                roi: None,
+            },
+            "estimate_batch_export_size",
+        )?;
+
+        let preview_bytes = encode_image_to_bytes(
+            &processed_preview,
+            &output_format,
+            export_settings.jpeg_quality,
+        )?;
+        let single_image_estimated_size = preview_bytes.len();
+
+        let full_w = (shrunk_w as f32 / raw_scale_factor).round() as u32;
+        let full_h = (shrunk_h as f32 / raw_scale_factor).round() as u32;
+
+        let (final_full_w, final_full_h) = if let Some(resize_opts) = &export_settings.resize {
+            calculate_resize_target(full_w, full_h, resize_opts)
+        } else {
+            (full_w, full_h)
+        };
+
+        let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
+        let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
+            (final_full_w as f64 * final_full_h as f64)
+                / (processed_preview_w as f64 * processed_preview_h as f64)
+        } else {
+            1.0
+        };
+
+        (single_image_estimated_size as f64 * pixel_ratio) as usize
     };
-
-    let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
-
-    let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
-        (final_full_w as f64 * final_full_h as f64)
-            / (processed_preview_w as f64 * processed_preview_h as f64)
-    } else {
-        1.0
-    };
-
-    let single_image_extrapolated_size =
-        (single_image_estimated_size as f64 * pixel_ratio) as usize;
 
     Ok(single_image_extrapolated_size * paths.len())
 }

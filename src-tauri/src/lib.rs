@@ -1972,7 +1972,7 @@ pub fn run() {
 
             let lens_db = lens_correction::load_lensfun_db(&app_handle);
             let state = app.state::<AppState>();
-            *state.lens_db.lock().unwrap() = Some(lens_db);
+            *state.lens_db.lock().unwrap() = Some(Arc::new(lens_db));
 
             unsafe {
                 if let Some(backend) = &settings.processing_backend
@@ -2054,6 +2054,9 @@ pub fn run() {
             }
 
             let window = window_builder.build().expect("Failed to build window");
+
+            #[cfg(target_os = "android")]
+            android_integration::initialize_android(&window);
 
             #[cfg(not(target_os = "android"))]
             {
@@ -2256,11 +2259,9 @@ pub fn run() {
             image_loader::is_image_cached,
             panorama_stitching::stitch_panorama,
             panorama_stitching::save_panorama,
-            export_processing::export_image,
-            export_processing::batch_export_images,
+            export_processing::export_images,
             export_processing::cancel_export,
-            export_processing::estimate_export_size,
-            export_processing::estimate_batch_export_size,
+            export_processing::estimate_export_sizes,
             image_processing::calculate_auto_adjustments,
             mask_generation::generate_mask_overlay,
             file_management::update_exif_fields,

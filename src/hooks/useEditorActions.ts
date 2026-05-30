@@ -6,7 +6,13 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useProcessStore } from '../store/useProcessStore';
-import { Adjustments, INITIAL_ADJUSTMENTS, COPYABLE_ADJUSTMENT_KEYS, PasteMode } from '../utils/adjustments';
+import {
+  Adjustments,
+  INITIAL_ADJUSTMENTS,
+  COPYABLE_ADJUSTMENT_KEYS,
+  PasteMode,
+  LensAdjustment,
+} from '../utils/adjustments';
 import { calculateCenteredCrop } from '../utils/cropUtils';
 import { Invokes } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
@@ -165,6 +171,12 @@ export function useEditorActions() {
         }
       }
 
+      if (includedAdjustments.includes(LensAdjustment.LensMaker)) {
+        if (!adjustmentsToApply.lensMaker) {
+          adjustmentsToApply.lensDistortionParams = null;
+        }
+      }
+
       if (Object.keys(adjustmentsToApply).length === 0) {
         setProcess({ isPasted: true });
         return;
@@ -180,9 +192,22 @@ export function useEditorActions() {
         setAdjustments({ ...adjustments, ...adjustmentsToApply });
       }
 
-      invoke(Invokes.ApplyAdjustmentsToPaths, { paths: pathsToUpdate, adjustments: adjustmentsToApply }).catch((err) =>
-        toast.error(`Failed to paste adjustments: ${err}`),
-      );
+      invoke(Invokes.ApplyAdjustmentsToPaths, { paths: pathsToUpdate, adjustments: adjustmentsToApply })
+        .then(() => {
+          if (selectedImage && pathsToUpdate.includes(selectedImage.path)) {
+            invoke('load_metadata', { path: selectedImage.path }).then((meta: any) => {
+              if (meta.adjustments) {
+                setAdjustments((prev: any) => ({
+                  ...prev,
+                  lensMaker: meta.adjustments.lensMaker,
+                  lensModel: meta.adjustments.lensModel,
+                  lensDistortionParams: meta.adjustments.lensDistortionParams,
+                }));
+              }
+            });
+          }
+        })
+        .catch((err) => toast.error(`Failed to paste adjustments: ${err}`));
 
       setProcess({ isPasted: true });
     },

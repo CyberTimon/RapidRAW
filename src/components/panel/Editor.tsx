@@ -1888,13 +1888,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
   );
 
   if (!selectedImage) {
-    return (
-      <div className="flex-1 bg-bg-secondary rounded-lg flex items-center justify-center">
-        <Text variant={TextVariants.heading} color={TextColors.secondary} weight={TextWeights.normal}>
-          Select an image from the library to begin editing.
-        </Text>
-      </div>
-    );
+    return null;
   }
 
   const isZoomActionActive = !isCropping && !isMasking && !isAiEditing && !isWbPickerActive;
@@ -1953,13 +1947,19 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
 
       <div
         className={clsx(
-          'flex-1 relative overflow-hidden',
+          'flex-1 relative overflow-hidden touch-none',
           isFullScreen ? 'rounded-none' : 'rounded-lg',
           appSettings?.useWgpuRenderer !== false && !isFullScreen && 'ring-[9999px] ring-bg-secondary',
           !isWgpuActive && 'bg-bg-secondary',
         )}
+        style={{ cursor: cursorStyle }}
         onContextMenu={onContextMenu}
         ref={imageContainerRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onClick={handleClick}
       >
         {showSpinner && (
           <div
@@ -1974,16 +1974,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
 
         <div
           ref={contentRef}
-          className="w-full h-full flex items-center justify-center touch-none origin-top-left"
+          className="w-full h-full flex items-center justify-center origin-top-left"
           style={{
             transform: `translate(${transformState.positionX}px, ${transformState.positionY}px) scale(${transformState.scale})`,
-            cursor: cursorStyle,
           }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          onClick={handleClick}
         >
           <ImageCanvas
             appSettings={appSettings}
@@ -2028,7 +2022,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
             cursorStyle={cursorStyle}
             isMaxZoom={isMaxZoom}
             liveRotation={liveRotation}
-            zoomScale={transformState.scale}
+            transformState={transformState}
             hasRenderedFirstFrame={hasRenderedFirstFrame}
           />
         </div>

@@ -9,8 +9,6 @@ rust-version = "1.95"
 name = "rapidraw_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 tauri = { version = "2.11", features = [ "macos-private-api", "rustls-tls" ] }
 tauri-plugin-dialog = "2.7.1"
@@ -67,6 +65,7 @@ filetime = "0.2"
 libc = "0.2.186"
 rgb = "0.8.53"
 imgref = "1.12.1"
+sysinfo = "0.39.3"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "5.2.6"

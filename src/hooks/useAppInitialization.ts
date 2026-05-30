@@ -12,10 +12,12 @@ import {
   Invokes,
   LibraryViewMode,
   RawStatus,
+  EditedStatus,
   Theme,
   ThumbnailSize,
   ThumbnailAspectRatio,
 } from '../components/ui/AppProperties';
+import { useTranslation } from 'react-i18next';
 
 interface UseAppInitializationProps {
   preloadedDataRef: React.RefObject<any>;
@@ -27,6 +29,18 @@ interface UseAppInitializationProps {
   setLibraryViewMode: (mode: LibraryViewMode) => void;
 }
 
+const getDefaultLanguage = (i18nInstance: any): string => {
+  const browserLang = navigator.language || (navigator as any).userLanguage || 'en';
+  const shortLang = browserLang.split('-')[0].toLowerCase();
+  const supportedLanguages = Object.keys(i18nInstance.options.resources || {});
+  const fallbackLang =
+    typeof i18nInstance.options.fallbackLng === 'string'
+      ? i18nInstance.options.fallbackLng
+      : i18nInstance.options.fallbackLng?.[0] || 'en';
+
+  return supportedLanguages.includes(shortLang) ? shortLang : fallbackLang;
+};
+
 export const useAppInitialization = ({
   preloadedDataRef,
   thumbnailSize,
@@ -37,6 +51,7 @@ export const useAppInitialization = ({
   setLibraryViewMode,
 }: UseAppInitializationProps) => {
   const isInitialMount = useRef(true);
+  const { i18n } = useTranslation();
 
   const {
     appSettings,
@@ -121,7 +136,14 @@ export const useAppInitialization = ({
         ) {
           settings.copyPasteSettings = { mode: 'merge', includedAdjustments: COPYABLE_ADJUSTMENT_KEYS };
         }
+
+        if (!settings.language) {
+          settings.language = getDefaultLanguage(i18n);
+          handleSettingsChange(settings);
+        }
+
         setAppSettings(settings);
+        i18n.changeLanguage(settings.language);
 
         if (settings?.sortCriteria) setSortCriteria(settings.sortCriteria);
 
@@ -130,6 +152,7 @@ export const useAppInitialization = ({
             ...prev,
             ...settings.filterCriteria,
             rawStatus: settings.filterCriteria.rawStatus || RawStatus.All,
+            editedStatus: settings.filterCriteria.editedStatus || EditedStatus.All,
             colors: settings.filterCriteria.colors || [],
           }));
         }
@@ -265,6 +288,13 @@ export const useAppInitialization = ({
       handleSettingsChange({ ...appSettings, filterCriteria });
     }
   }, [filterCriteria, appSettings, handleSettingsChange]);
+
+  useEffect(() => {
+    if (isInitialMount.current || !appSettings) return;
+    if (appSettings.language && appSettings.language !== i18n.language) {
+      i18n.changeLanguage(appSettings.language);
+    }
+  }, [appSettings?.language, i18n.language]);
 
   useEffect(() => {
     if (isInitialMount.current || !appSettings) return;

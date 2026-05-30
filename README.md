@@ -21,9 +21,9 @@
 
 > A beautiful, non-destructive, and GPU-accelerated RAW image editor built with performance in mind.
 
-RapidRAW is a modern, high-performance alternative to Adobe Lightroom®. It delivers a simple, beautiful editing experience in a lightweight package (under 20MB) for Windows, macOS, and Linux.
+RapidRAW is a modern, high-performance alternative to Adobe Lightroom®. It delivers a simple, beautiful editing experience in a lightweight package (under 20MB) for Windows, macOS, Linux, and Android.
 
-I started developing this project as a personal challenge when I was 18. My goal was to create a high-performance tool for my own photography workflow while deepening my understanding of React, WGSL and Rust, with the support from Google Gemini.
+I started developing this project as a personal challenge when I was 18. My goal was to create a high-performance tool for my own photography workflow while deepening my understanding of React, WGSL and Rust.
 
 <table width="100%">
   <tr>
@@ -33,7 +33,7 @@ I started developing this project as a personal challenge when I was 18. My goal
         <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/main/src-tauri/icons/full_res_original.png" alt="Download RapidRAW" height="96">
       </a>
       <h3>Download RapidRAW</h3>
-      <p>Get the latest release for Windows, macOS, and Linux. Packaged and ready to run.</p>
+      <p>Get the latest release for Windows, macOS, Linux, and Android. Packaged and ready to run.</p>
       <strong><a href="https://github.com/CyberTimon/RapidRAW/releases/latest">Download Latest Version →</a></strong>
       <br><br>
     </td>
@@ -60,20 +60,33 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
-- **2026-05-04:** Added EXIF editing to the metadata panel, accumulating shader execution order, and improved UI responsiveness with triple buffering.
-- **2026-05-03:** Introduced a "focus mode" for distraction-free editing and enhanced filmic exposure. Batch editing now correctly respects copy/paste settings.
-- **2026-05-01:** Implemented manual noise reduction with separate controls for luma and color. Optimized the thumbnail generation and request system for better performance.
-- **2026-04-30:** Major backend refactoring for improved stability and performance. Fixed key issues with cropping, including preserving position when changing aspect ratios.
-- **2026-04-29:** Added a tonemapper override option and significantly improved the UI on vertical/mobile screens.
-- **2026-04-27:** Implemented parametric curves tool and introduced thumbnail workers to speed up library browsing.
-- **2026-04-24:** Overhauled the controls system, adding a dedicated settings section for fully customizable keyboard shortcuts.
-- **2026-04-22:** Improved auto-adjustment logic, fixed lens correction on Android, and added an import button for mobile devices.
-- **2026-04-21:** Signed Android APKs, added canvas shortcuts to keybinds, added reset adjustments confirm submenu, and fixed WGPU renderer bugs
-- **2026-04-20:** Added style/tool preset mode, improved auto-adjustments via thumbnail caching, and optimized WGPU renderer with custom transform wrapper
+- **2026-05-30:** Implemented reliable edited status, sorting & filtering options
+- **2026-05-29:** Refactor exporting to be resource aware
+- **2026-05-27:** Added German language
+- **2026-05-26:** Converted all components to support full internalization (multilingual / i18n support)
+- **2026-05-25:** Implemented dynamic high-resolution rendering for the canvas UI and added copy/pasting of lens correction parameters
+- **2026-05-24:** Added advanced library filtering capabilities (queries)
+- **2026-05-20:** Introduced a dedicated EXIF data overlay display directly inside the library and list views
+- **2026-05-18:** Added global image preprocessing settings, numpad support for customizable keyboard shortcuts, and updated the "Grey" theme color variables
+- **2026-05-16:** Initial backend implementation of the cloud service functionality alongside a preview worker backpressure mechanism for better handling of high-quality live previews
+- **2026-05-15:** Added the ability to assign custom icons to individual folders in the library tree
 
 <details>
 <summary><strong>Expand further</strong></summary>
 
+- **2026-05-14:** Expanded the library architecture to support multi-root folders and introduced a custom album system
+- **2026-05-11:** Improved brush tool
+- **2026-05-05:** Major refactor to zustand...
+- **2026-05-04:** Added EXIF editing to the metadata panel, accumulating shader execution order, and improved UI responsiveness with triple buffering
+- **2026-05-03:** Introduced a "focus mode" for distraction-free editing and enhanced filmic exposure. Batch editing now correctly respects copy/paste settings
+- **2026-05-01:** Implemented manual noise reduction with separate controls for luma and color. Optimized the thumbnail generation and request system for better performance
+- **2026-04-30:** Major backend refactoring for improved stability and performance. Fixed key issues with cropping, including preserving position when changing aspect ratios
+- **2026-04-29:** Added a tonemapper override option and significantly improved the UI on vertical/mobile screens
+- **2026-04-27:** Implemented parametric curves tool and introduced thumbnail workers to speed up library browsing
+- **2026-04-24:** Overhauled the controls system, adding a dedicated settings section for fully customizable keyboard shortcuts
+- **2026-04-22:** Improved auto-adjustment logic, fixed lens correction on Android, and added an import button for mobile devices
+- **2026-04-21:** Signed Android APKs, added canvas shortcuts to keybinds, added reset adjustments confirm submenu, and fixed WGPU renderer bugs
+- **2026-04-20:** Added style/tool preset mode, improved auto-adjustments via thumbnail caching, and optimized WGPU renderer with custom transform wrapper
 - **2026-04-19:** Added brightness to auto-adjust and replicated pixelated rendering logic in WGPU display
 - **2026-04-18:** Implemented direct WGPU renderer and fixed macOS GPU context initialization
 - **2026-04-17:** Added comprehensive touch support for masks, curves, sliders, and scrolling
@@ -389,7 +402,7 @@ I set an ambitious goal to rapidly build a functional, feature-rich application 
 
 The foundation is built on Rust for its safety and performance, and Tauri for its ability to create lightweight, cross-platform desktop apps with a web frontend. The entire image processing pipeline is offloaded to the GPU via WGPU and a custom WGSL shader, ensuring that even on complex edits with multiple masks, the UI remains fluid.
 
-I am **immensely grateful for Google's Gemini suite of AI models.** As an 18-year-old without a formal background in advanced mathematics or image science, the AI Studio's free tier was an invaluable assistant, helping me research and implement complex concepts in record time.
+I am immensely grateful for Google's Gemini suite of AI models. As a young developer without a formal background in advanced mathematics or image science, Google's AI Studio was an invaluable assistant, helping me research and implement complex concepts in record time.
 
 ## Current Priorities
 
@@ -567,10 +580,6 @@ I’m really grateful for any contributions you make to RapidRAW! Whether you’
 
 If your camera’s RAW files aren’t supported, please open a issue here first: [rawler issues](https://github.com/dnglab/dnglab/issues). Once support is added in rawler, create a issue for RapidRAW so I can update the packages and keep everything in sync.
 
-### Feature requests
-
-Got an idea? Add it in the discussion tab with the **"idea"** tag. This way, the community can vote on features they'd love to see, and I can focus on the most impactful ones.
-
 ## Special Thanks
 
 A huge thank you to the following projects and tools that were very important in the development of RapidRAW:
@@ -590,7 +599,7 @@ A huge thank you to the following projects and tools that were very important in
 
 ## Support the Project
 
-As an 18-year-old developer balancing this project with an apprenticeship, your support means the world. If you find RapidRAW useful or exciting, please consider donating to help me dedicate more time to its development and cover any associated costs.
+As a young developer balancing this project with an apprenticeship, your support means the world. If you find RapidRAW useful or exciting, please consider donating to help me dedicate more time to its development and cover any associated costs.
 
 - **Ko-fi:** [Donate on Ko-fi](https://ko-fi.com/cybertimon)
 - **Crypto:**

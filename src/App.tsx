@@ -8,7 +8,7 @@ import clsx from 'clsx';
 
 import TitleBar from './window/TitleBar';
 import FolderTree from './components/panel/FolderTree';
-import LibraryExportPanel from './components/panel/right/LibraryExportPanel';
+import ExportPanel from './components/panel/right/ExportPanel';
 import Resizer from './components/ui/Resizer';
 import GlobalTooltip from './components/ui/GlobalTooltip';
 import AppModals from './components/modals/AppModals';
@@ -38,6 +38,7 @@ import { useLibraryActions } from './hooks/useLibraryActions';
 import { useProductivityActions } from './hooks/useProductivityActions';
 
 import { useAppInitialization } from './hooks/useAppInitialization';
+import './i18n';
 
 import {
   Invokes,
@@ -152,12 +153,9 @@ function App() {
       })),
     );
 
-  const { exportState, isCopied, isPasted, setProcess, setExportState } = useProcessStore(
+  const { exportState, setExportState } = useProcessStore(
     useShallow((state) => ({
       exportState: state.exportState,
-      isCopied: state.isCopied,
-      isPasted: state.isPasted,
-      setProcess: state.setProcess,
       setExportState: state.setExportState,
     })),
   );
@@ -436,18 +434,6 @@ function App() {
     return () => window.removeEventListener('contextmenu', handleGlobalContextMenu);
   }, []);
 
-  useEffect(() => {
-    if (!isCopied) return;
-    const timer = setTimeout(() => setProcess({ isCopied: false }), 1000);
-    return () => clearTimeout(timer);
-  }, [isCopied, setProcess]);
-
-  useEffect(() => {
-    if (!isPasted) return;
-    const timer = setTimeout(() => setProcess({ isPasted: false }), 1000);
-    return () => clearTimeout(timer);
-  }, [isPasted, setProcess]);
-
   const isLightTheme = useMemo(() => [Theme.Light, Theme.Snow, Theme.Arctic].includes(theme as Theme), [theme]);
 
   useEffect(() => {
@@ -723,16 +709,16 @@ function App() {
               )}
               style={{ width: isLibraryExportPanelVisible && !isFullScreen ? `${rightPanelWidth}px` : '0px' }}
             >
-              <LibraryExportPanel
+              <ExportPanel
                 exportState={exportState}
-                imageList={sortedImageList}
-                isVisible={isLibraryExportPanelVisible}
                 multiSelectedPaths={multiSelectedPaths}
-                onClose={() => setUI({ isLibraryExportPanelVisible: false })}
+                selectedImage={null}
                 setExportState={setExportState}
                 appSettings={appSettings}
                 onSettingsChange={handleSettingsChange}
                 rootPaths={rootPaths}
+                isVisible={isLibraryExportPanelVisible}
+                onClose={() => setUI({ isLibraryExportPanelVisible: false })}
               />
             </div>
           </div>

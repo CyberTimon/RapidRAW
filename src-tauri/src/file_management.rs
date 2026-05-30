@@ -380,9 +380,14 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                         let _ = fs::write(&sidecar_path, json);
                     }
 
-                    let edited = metadata.adjustments.as_object().is_some_and(|a| {
-                        a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
-                    });
+                    let is_raw = crate::formats::is_raw_file(&path_str);
+                    let tm_override =
+                        crate::image_processing::resolve_tonemapper_override(&settings, is_raw);
+                    let edited = crate::image_processing::is_image_edited(
+                        &metadata.adjustments,
+                        is_raw,
+                        tm_override,
+                    );
                     (edited, metadata.tags, metadata.rating)
                 };
 
@@ -506,9 +511,14 @@ pub fn list_images_recursive(
                         let _ = fs::write(&sidecar_path, json);
                     }
 
-                    let edited = metadata.adjustments.as_object().is_some_and(|a| {
-                        a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
-                    });
+                    let is_raw = crate::formats::is_raw_file(&path_str);
+                    let tm_override =
+                        crate::image_processing::resolve_tonemapper_override(&settings, is_raw);
+                    let edited = crate::image_processing::is_image_edited(
+                        &metadata.adjustments,
+                        is_raw,
+                        tm_override,
+                    );
                     (edited, metadata.tags, metadata.rating)
                 };
 
@@ -773,9 +783,14 @@ pub fn get_album_images(
                     let _ = fs::write(&sidecar_path, json);
                 }
 
-                let edited = metadata.adjustments.as_object().is_some_and(|a| {
-                    a.keys().len() > 1 || (a.keys().len() == 1 && !a.contains_key("rating"))
-                });
+                let is_raw = crate::formats::is_raw_file(&source_path);
+                let tm_override =
+                    crate::image_processing::resolve_tonemapper_override(&settings, is_raw);
+                let edited = crate::image_processing::is_image_edited(
+                    &metadata.adjustments,
+                    is_raw,
+                    tm_override,
+                );
                 (edited, metadata.tags, metadata.rating)
             };
 
@@ -1353,21 +1368,27 @@ fn generate_single_thumbnail_and_cache(
     preloaded_image: Option<&DynamicImage>,
     force_regenerate: bool,
     app_handle: &AppHandle,
-) -> Option<(String, u8)> {
+    settings: &AppSettings,
+) -> Option<(String, u8, bool)> {
     let (_, sidecar_path) = parse_virtual_path(path_str);
 
-    let (rating, adjustments_bytes) = if let Ok(content) = fs::read_to_string(&sidecar_path) {
-        if let Ok(meta) = serde_json::from_str::<ImageMetadata>(&content) {
-            (
-                meta.rating,
-                serde_json::to_vec(&meta.adjustments).unwrap_or_default(),
-            )
+    let (rating, is_edited, adjustments_bytes) =
+        if let Ok(content) = fs::read_to_string(&sidecar_path) {
+            if let Ok(meta) = serde_json::from_str::<ImageMetadata>(&content) {
+                let is_raw = crate::formats::is_raw_file(path_str);
+                let tm = crate::image_processing::resolve_tonemapper_override(settings, is_raw);
+
+                (
+                    meta.rating,
+                    crate::image_processing::is_image_edited(&meta.adjustments, is_raw, tm),
+                    serde_json::to_vec(&meta.adjustments).unwrap_or_default(),
+                )
+            } else {
+                (0, false, Vec::new())
+            }
         } else {
-            (0, Vec::new())
-        }
-    } else {
-        (0, Vec::new())
-    };
+            (0, false, Vec::new())
+        };
 
     let cache_hash = compute_thumbnail_cache_hash(path_str, &adjustments_bytes)?;
 
@@ -1379,10 +1400,13 @@ fn generate_single_thumbnail_and_cache(
         && let Ok(data) = fs::read(&cache_path)
     {
         let base64_str = general_purpose::STANDARD.encode(&data);
-        return Some((format!("data:image/jpeg;base64,{}", base64_str), rating));
+        return Some((
+            format!("data:image/jpeg;base64,{}", base64_str),
+            rating,
+            is_edited,
+        ));
     }
 
-    let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let target_width = settings.thumbnail_resolution.unwrap_or(720);
 
     if let Ok(thumb_image) =
@@ -1391,7 +1415,11 @@ fn generate_single_thumbnail_and_cache(
     {
         let _ = fs::write(&cache_path, &thumb_data);
         let base64_str = general_purpose::STANDARD.encode(&thumb_data);
-        return Some((format!("data:image/jpeg;base64,{}", base64_str), rating));
+        return Some((
+            format!("data:image/jpeg;base64,{}", base64_str),
+            rating,
+            is_edited,
+        ));
     }
     None
 }
@@ -1405,6 +1433,7 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
     for _ in 0..thread_count {
         let app_clone = app_handle.clone();
         let manager_clone = manager.clone();
+        let worker_settings = settings.clone();
 
         std::thread::spawn(move || {
             loop {
@@ -1437,15 +1466,17 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                         None,
                         false,
                         &app_clone,
+                        &worker_settings,
                     );
 
-                    if let Some((thumbnail_data, rating)) = result {
+                    if let Some((thumbnail_data, rating, is_edited)) = result {
                         let _ = app_clone.emit(
                             "thumbnail-generated",
                             serde_json::json!({
                                 "path": path_to_process,
                                 "data": thumbnail_data,
-                                "rating": rating
+                                "rating": rating,
+                                "is_edited": is_edited
                             }),
                         );
                     }
@@ -1468,6 +1499,23 @@ pub fn update_thumbnail_queue(
 ) -> Result<(), String> {
     let state = app_handle.state::<crate::AppState>();
 
+    let mut queue = state.thumbnail_manager.queue.lock().unwrap();
+
+    if paths.is_empty() {
+        queue.clear();
+        let mut tracker = state.thumbnail_progress.lock().unwrap();
+        tracker.total = 0;
+        tracker.completed = 0;
+        drop(tracker);
+
+        let _ = app_handle.emit(
+            "thumbnail-progress",
+            serde_json::json!({ "current": 0, "total": 0 }),
+        );
+        state.thumbnail_manager.cvar.notify_all();
+        return Ok(());
+    }
+
     let mut unique_paths = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for path in paths {
@@ -1476,21 +1524,21 @@ pub fn update_thumbnail_queue(
         }
     }
 
-    let mut queue = state.thumbnail_manager.queue.lock().unwrap();
-    queue.clear();
+    queue.retain(|p| !seen.contains(p));
 
-    let path_count = unique_paths.len();
+    while queue.len() + unique_paths.len() > 500 {
+        queue.pop_front();
+    }
+
     for path in unique_paths {
         queue.push_back(path);
     }
 
+    let queue_len = queue.len();
+    drop(queue);
+
     let mut tracker = state.thumbnail_progress.lock().unwrap();
-    if path_count == 0 {
-        tracker.total = 0;
-        tracker.completed = 0;
-    } else {
-        tracker.total = tracker.completed + path_count;
-    }
+    tracker.total = tracker.completed + queue_len;
 
     let current = tracker.completed;
     let total = tracker.total;
@@ -1500,6 +1548,7 @@ pub fn update_thumbnail_queue(
         "thumbnail-progress",
         serde_json::json!({ "current": current, "total": total }),
     );
+
     state.thumbnail_manager.cvar.notify_all();
     Ok(())
 }
@@ -1539,6 +1588,101 @@ pub fn increment_thumbnail_progress(state: &AppState, app_handle: &AppHandle) {
             "thumbnail-progress",
             serde_json::json!({ "current": current, "total": total }),
         );
+    }
+}
+
+pub fn resolve_lens_params_in_adjustments(
+    adjustments: &mut Value,
+    exif_data: &Option<HashMap<String, String>>,
+    lens_db: Option<&crate::lens_correction::LensDatabase>,
+) {
+    if let Some(map) = adjustments.as_object_mut() {
+        let mode = map
+            .get("lensCorrectionMode")
+            .and_then(|v| v.as_str())
+            .unwrap_or("manual");
+
+        if mode == "auto" {
+            if let Some(exif) = exif_data {
+                let exif_maker = exif.get("Make").map(|s| s.as_str()).unwrap_or("");
+                let exif_model = exif.get("LensModel").map(|s| s.as_str()).unwrap_or("");
+                if let Some(db) = lens_db {
+                    if let Some((detected_maker, detected_model)) =
+                        crate::lens_correction::find_best_lens_match(db, exif_maker, exif_model)
+                    {
+                        map.insert(
+                            "lensMaker".to_string(),
+                            serde_json::to_value(&detected_maker).unwrap(),
+                        );
+                        map.insert(
+                            "lensModel".to_string(),
+                            serde_json::to_value(&detected_model).unwrap(),
+                        );
+                    } else {
+                        map.remove("lensMaker");
+                        map.remove("lensModel");
+                    }
+                }
+            } else {
+                map.remove("lensMaker");
+                map.remove("lensModel");
+            }
+        }
+
+        if let Some(db) = lens_db {
+            let has_valid_lens = match (
+                map.get("lensMaker").and_then(|v| v.as_str()),
+                map.get("lensModel").and_then(|v| v.as_str()),
+            ) {
+                (Some(maker), Some(model)) if !maker.is_empty() && !model.is_empty() => {
+                    let mut focal_length = 50.0;
+                    let mut aperture = None;
+                    let mut distance = None;
+
+                    if let Some(exif) = exif_data {
+                        if let Some(fl_str) = exif
+                            .get("FocalLength")
+                            .or(exif.get("FocalLengthIn35mmFilm"))
+                            && let Ok(fl) = fl_str.replace(" mm", "").trim().parse::<f32>()
+                        {
+                            focal_length = fl;
+                        }
+                        if let Some(ap_str) = exif.get("ApertureValue").or(exif.get("FNumber"))
+                            && let Ok(ap) = ap_str.replace("f/", "").trim().parse::<f32>()
+                        {
+                            aperture = Some(ap);
+                        }
+                        if let Some(dist_str) = exif.get("SubjectDistance")
+                            && let Ok(dist) = dist_str.replace(" m", "").trim().parse::<f32>()
+                        {
+                            distance = Some(dist);
+                        }
+                    }
+
+                    if let Some(params) = crate::lens_correction::resolve_lens_params(
+                        db,
+                        maker,
+                        model,
+                        focal_length,
+                        aperture,
+                        distance,
+                    ) {
+                        map.insert(
+                            "lensDistortionParams".to_string(),
+                            serde_json::to_value(params).unwrap(),
+                        );
+                        true
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            };
+
+            if !has_valid_lens {
+                map.remove("lensDistortionParams");
+            }
+        }
     }
 }
 
@@ -1912,7 +2056,17 @@ pub fn save_metadata_and_update_thumbnail(
         ImageMetadata::default()
     };
 
-    metadata.adjustments = adjustments;
+    let mut final_adjustments = adjustments;
+    {
+        let lens_db_guard = state.lens_db.lock().unwrap();
+        resolve_lens_params_in_adjustments(
+            &mut final_adjustments,
+            &metadata.exif,
+            lens_db_guard.as_deref(),
+        );
+    }
+
+    metadata.adjustments = final_adjustments;
 
     let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
     std::fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
@@ -1944,6 +2098,7 @@ pub fn save_metadata_and_update_thumbnail(
 
     thread::spawn(move || {
         let state = app_handle_clone.state::<AppState>();
+        let settings = load_settings(app_handle_clone.clone()).unwrap_or_default();
 
         let thumb_cache_dir = match resolve_thumbnail_cache_dir(&app_handle_clone) {
             Ok(dir) => dir,
@@ -1966,12 +2121,13 @@ pub fn save_metadata_and_update_thumbnail(
             preloaded_image_option.as_deref(),
             true,
             &app_handle_clone,
+            &settings,
         );
 
-        if let Some((thumbnail_data, rating)) = result {
+        if let Some((thumbnail_data, rating, is_edited)) = result {
             let _ = app_handle_clone.emit(
                 "thumbnail-generated",
-                serde_json::json!({ "path": path_clone, "data": thumbnail_data, "rating": rating }),
+                serde_json::json!({ "path": path_clone, "data": thumbnail_data, "rating": rating, "is_edited": is_edited }),
             );
         }
 
@@ -1994,6 +2150,13 @@ pub async fn apply_adjustments_to_paths(
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
         let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
         let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
+
+        let lens_db = app_handle
+            .state::<AppState>()
+            .lens_db
+            .lock()
+            .unwrap()
+            .clone();
 
         paths.par_iter().for_each(|path| {
             let (_, sidecar_path) = parse_virtual_path(path);
@@ -2019,6 +2182,12 @@ pub async fn apply_adjustments_to_paths(
                     new_map.insert(k.clone(), v.clone());
                 }
             }
+
+            resolve_lens_params_in_adjustments(
+                &mut new_adjustments,
+                &existing_metadata.exif,
+                lens_db.as_deref(),
+            );
 
             existing_metadata.adjustments = new_adjustments;
 
@@ -2057,12 +2226,13 @@ pub async fn apply_adjustments_to_paths(
                 None,
                 true,
                 &app_handle,
+                &settings,
             );
 
-            if let Some((thumbnail_data, rating)) = result {
+            if let Some((thumbnail_data, rating, is_edited)) = result {
                 let _ = app_handle.emit(
                     "thumbnail-generated",
-                    serde_json::json!({ "path": path_str, "data": thumbnail_data, "rating": rating }),
+                    serde_json::json!({ "path": path_str, "data": thumbnail_data, "rating": rating, "is_edited": is_edited  }),
                 );
             }
 
@@ -2135,12 +2305,13 @@ pub async fn reset_adjustments_for_paths(
                 None,
                 true,
                 &app_handle,
+                &settings,
             );
 
-            if let Some((thumbnail_data, rating)) = result {
+            if let Some((thumbnail_data, rating, is_edited)) = result {
                 let _ = app_handle.emit(
                     "thumbnail-generated",
-                    serde_json::json!({ "path": path_str, "data": thumbnail_data, "rating": rating }),
+                    serde_json::json!({ "path": path_str, "data": thumbnail_data, "rating": rating, "is_edited": is_edited }),
                 );
             }
 
@@ -2254,12 +2425,13 @@ pub async fn apply_auto_adjustments_to_paths(
                 loaded_image.as_ref(),
                 true,
                 &app_handle,
+                &settings,
             );
 
-            if let Some((thumbnail_data, rating)) = result {
+            if let Some((thumbnail_data, rating, is_edited)) = result {
                 let _ = app_handle.emit(
                     "thumbnail-generated",
-                    serde_json::json!({ "path": path, "data": thumbnail_data, "rating": rating }),
+                    serde_json::json!({ "path": path, "data": thumbnail_data, "rating": rating, "is_edited": is_edited  }),
                 );
             }
 

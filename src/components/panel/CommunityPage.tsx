@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { ArrowLeft, CheckCircle2, ChevronDown, Loader2, Search, Users, Layers, Crop } from 'lucide-react';
 import { siGithub } from 'simple-icons';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { Invokes, SupportedTypes, ImageFile } from '../ui/AppProperties';
@@ -21,11 +22,6 @@ interface CommunityPreset {
   includeCropTransform?: boolean;
   presetType?: 'tool' | 'style';
 }
-
-const SORT_METHODS: {
-  value: string;
-  label: string;
-}[] = [{ value: 'name', label: 'Name (A-Z)' }];
 
 const containerVariants = {
   hidden: { opacity: 1 },
@@ -52,7 +48,6 @@ interface CommunityPageProps {
   currentFolderPath: string | null;
 }
 
-// More robust shuffle algorithm
 const shuffleArray = (array: any[]) => {
   const newArray = [...array];
   for (let i = newArray.length - 1; i > 0; i--) {
@@ -63,6 +58,7 @@ const shuffleArray = (array: any[]) => {
 };
 
 const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: CommunityPageProps) => {
+  const { t } = useTranslation();
   const [presets, setPresets] = useState<CommunityPreset[]>([]);
   const [previews, setPreviews] = useState<Record<string, string | null>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +67,8 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
   const [sortBy, setSortBy] = useState('name');
   const [downloadStatus, setDownloadStatus] = useState<Record<string, 'idle' | 'downloading' | 'success'>>({});
   const [allPreviewsLoaded, setAllPreviewsLoaded] = useState(false);
+
+  const sortMethods = useMemo(() => [{ value: 'name', label: t('library.community.sortMethods.name') }], [t]);
 
   const previewsRef = useRef(previews);
   previewsRef.current = previews;
@@ -221,9 +219,9 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
           </Button>
           <div>
             <Text variant={TextVariants.headline} className="flex items-center gap-2">
-              <Users /> Community Presets
+              <Users /> {t('library.community.headerTitle')}
             </Text>
-            <Text>Discover presets created by the community.</Text>
+            <Text>{t('library.community.headerDesc')}</Text>
           </div>
         </div>
       </header>
@@ -233,18 +231,14 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
           <Input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search presets..."
+            placeholder={t('library.community.searchPlaceholder')}
             className="pl-10 w-64"
           />
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
         </div>
         <div className="flex items-center gap-2 text-sm">
-          <Text variant={TextVariants.label}>Sort by:</Text>
-          <Dropdown
-            options={SORT_METHODS.map(({ value, label }) => ({ value, label }))}
-            value={sortBy}
-            onChange={(value) => setSortBy(value)}
-          />
+          <Text variant={TextVariants.label}>{t('library.community.sortBy')}</Text>
+          <Dropdown options={sortMethods} value={sortBy} onChange={(value) => setSortBy(value)} />
         </div>
       </div>
 
@@ -257,7 +251,7 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
             className="flex items-center justify-center h-full "
           >
             <Loader2 className="h-8 w-8 animate-spin mr-2" />
-            Fetching presets from GitHub...
+            {t('library.community.fetchingPresets')}
           </Text>
         ) : (
           <motion.div
@@ -298,15 +292,15 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
                           disabled={status !== 'idle'}
                           className="shadow-lg"
                         >
-                          {status === 'idle' && <>Save</>}
+                          {status === 'idle' && <>{t('library.community.actionSave')}</>}
                           {status === 'downloading' && (
                             <>
-                              <Loader2 size={14} className="mr-2 animate-spin" /> Saving...
+                              <Loader2 size={14} className="mr-2 animate-spin" /> {t('library.community.actionSaving')}
                             </>
                           )}
                           {status === 'success' && (
                             <>
-                              <CheckCircle2 size={14} className="mr-2" /> Saved
+                              <CheckCircle2 size={14} className="mr-2" /> {t('library.community.actionSaved')}
                             </>
                           )}
                         </Button>
@@ -317,7 +311,7 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
                         {preset.name}
                       </Text>
                       <Text variant={TextVariants.small} className="font-['cursive'] italic">
-                        by {preset.creator}
+                        {t('library.community.presetBy', { creator: preset.creator })}
                       </Text>
                     </div>
                   </motion.div>
@@ -333,15 +327,24 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
           className="text-center mt-8 py-4"
         >
           <Text>
-            Want to get your preset featured?<br />
+            {t('library.community.footerHeading')}
+            <br />
             <a
               href="https://github.com/CyberTimon/RapidRAW-Presets/issues/new?assignees=&labels=preset-submission&template=preset_submission.md&title=Preset+Submission%3A+%5BYour+Preset+Name%5D"
               target="_blank"
               rel="noopener noreferrer"
               className="text-accent hover:underline inline-flex items-center gap-2"
             >
-              <span dangerouslySetInnerHTML={{ __html: siGithub.svg.replace('xmlns="http://www.w3.org/2000/svg"', 'xmlns="http://www.w3.org/2000/svg" fill="currentColor"') }} style={{ display: 'inline-block', width: 14, height: 14 }} />
-              Create an issue on GitHub
+              <span
+                dangerouslySetInnerHTML={{
+                  __html: siGithub.svg.replace(
+                    'xmlns="http://www.w3.org/2000/svg"',
+                    'xmlns="http://www.w3.org/2000/svg" fill="currentColor"',
+                  ),
+                }}
+                style={{ display: 'inline-block', width: 14, height: 14 }}
+              />
+              {t('library.community.footerLinkText')}
             </a>
           </Text>
         </motion.div>

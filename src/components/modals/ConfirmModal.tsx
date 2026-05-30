@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
@@ -15,8 +16,8 @@ interface ConfirmModalProps {
 }
 
 export default function ConfirmModal({
-  cancelText = 'Cancel',
-  confirmText = 'Confirm',
+  cancelText,
+  confirmText,
   confirmVariant = 'primary',
   isOpen,
   message,
@@ -24,8 +25,12 @@ export default function ConfirmModal({
   onConfirm,
   title,
 }: ConfirmModalProps) {
+  const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
+
+  const resolvedCancelText = cancelText || t('modals.confirm.cancel');
+  const resolvedConfirmText = confirmText || t('modals.confirm.confirm');
 
   useEffect(() => {
     if (isOpen) {
@@ -76,8 +81,8 @@ export default function ConfirmModal({
       aria-labelledby="confirm-modal-title"
       aria-modal="true"
       className={`
-        fixed inset-0 flex items-center justify-center z-50 
-        bg-black/30 backdrop-blur-xs 
+        fixed inset-0 flex items-center justify-center z-50
+        bg-black/30 backdrop-blur-xs
         transition-opacity duration-300 ease-in-out
         ${show ? 'opacity-100' : 'opacity-0'}
       `}
@@ -86,7 +91,7 @@ export default function ConfirmModal({
     >
       <div
         className={`
-          bg-surface rounded-lg shadow-xl p-6 w-full max-w-md 
+          bg-surface rounded-lg shadow-xl p-6 w-full max-w-md
           transform transition-all duration-300 ease-out
           ${show ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 -translate-y-4'}
         `}
@@ -104,7 +109,7 @@ export default function ConfirmModal({
             variant="ghost"
             tabIndex={0}
           >
-            {cancelText}
+            {resolvedCancelText}
           </Button>
           <Button
             onClick={handleConfirm}
@@ -112,7 +117,7 @@ export default function ConfirmModal({
             autoFocus={true}
             className="focus:outline-hidden focus:ring-0 focus:ring-offset-0"
           >
-            {confirmText}
+            {resolvedConfirmText}
           </Button>
         </div>
       </div>

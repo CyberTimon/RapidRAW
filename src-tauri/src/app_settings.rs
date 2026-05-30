@@ -21,6 +21,8 @@ pub struct FilterCriteria {
     pub rating: u8,
     pub raw_status: String,
     #[serde(default)]
+    pub edited_status: Option<String>,
+    #[serde(default)]
     pub colors: Vec<String>,
 }
 
@@ -29,6 +31,7 @@ impl Default for FilterCriteria {
         Self {
             rating: 0,
             raw_status: "all".to_string(),
+            edited_status: Some("all".to_string()),
             colors: Vec::new(),
         }
     }
@@ -118,6 +121,15 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "transformXOffset",
         "transformYOffset",
         "masks",
+        "lensCorrectionMode",
+        "lensMaker",
+        "lensModel",
+        "lensDistortionAmount",
+        "lensVignetteAmount",
+        "lensTcaAmount",
+        "lensDistortionEnabled",
+        "lensTcaEnabled",
+        "lensVignetteEnabled",
     ]
     .iter()
     .map(|s| s.to_string())
@@ -143,6 +155,15 @@ pub fn default_included_adjustments() -> HashSet<String> {
         "transformXOffset",
         "transformYOffset",
         "masks",
+        "lensCorrectionMode",
+        "lensMaker",
+        "lensModel",
+        "lensDistortionAmount",
+        "lensVignetteAmount",
+        "lensTcaAmount",
+        "lensDistortionEnabled",
+        "lensTcaEnabled",
+        "lensVignetteEnabled",
     ];
 
     for item in off_by_default.iter() {
@@ -345,6 +366,8 @@ pub struct AppSettings {
     pub my_lenses: Option<Vec<MyLens>>,
     #[serde(default)]
     pub enable_folder_image_counts: Option<bool>,
+    #[serde(default)]
+    pub display_edit_icon: Option<bool>,
     #[serde(default = "default_linear_raw_mode")]
     pub linear_raw_mode: String,
     #[serde(default)]
@@ -387,6 +410,8 @@ pub struct AppSettings {
     pub apply_preprocessing_to_non_raws: Option<bool>,
     #[serde(default)]
     pub exif_overlay: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -440,6 +465,7 @@ impl Default for AppSettings {
             #[cfg(not(target_os = "android"))]
             high_res_zoom_multiplier: Some(1.0),
             enable_folder_image_counts: Some(false),
+            display_edit_icon: Some(true),
             linear_raw_mode: default_linear_raw_mode(),
             enable_xmp_sync: Some(true),
             create_xmp_if_missing: Some(false),
@@ -470,6 +496,7 @@ impl Default for AppSettings {
             raw_preprocessing_sharpening: Some(0.35),
             apply_preprocessing_to_non_raws: Some(false),
             exif_overlay: Some("off".to_string()),
+            language: Some("en".to_string()),
         }
     }
 }
