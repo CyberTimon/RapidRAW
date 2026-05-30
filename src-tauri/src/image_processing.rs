@@ -1350,10 +1350,10 @@ pub struct GlobalAdjustments {
     pub negative_toe_width: f32,
     pub negative_shoulder: f32,
     pub negative_shoulder_width: f32,
-    pub negative_dynamic_range_clip: f32,
+    pub negative_black_clip: f32,
+    pub negative_white_clip: f32,
     pub _pad_neg1: f32,
     pub _pad_neg2: f32,
-    pub _pad_neg3: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -2155,14 +2155,18 @@ fn get_global_adjustments_from_json(
             .and_then(|n| n.get("shoulderWidth"))
             .and_then(|v| v.as_f64())
             .unwrap_or(2.5) as f32,
-        negative_dynamic_range_clip: js_adjustments
+        negative_black_clip: js_adjustments
             .get("negative")
-            .and_then(|n| n.get("dynamicRangeClip"))
+            .and_then(|n| n.get("blackClip"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32,
+        negative_white_clip: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("whiteClip"))
             .and_then(|v| v.as_f64())
             .unwrap_or(0.0) as f32,
         _pad_neg1: 0.0,
         _pad_neg2: 0.0,
-        _pad_neg3: 0.0,
     }
 }
 

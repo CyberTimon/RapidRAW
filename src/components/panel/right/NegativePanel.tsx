@@ -135,13 +135,23 @@ export default function NegativePanel() {
               Dynamic Range
             </Text>
             <Slider
-              label="D-Range Clip"
+              label="Black Clip"
               min={-0.5}
               max={0.5}
               step={0.01}
               defaultValue={0}
-              value={negative.dynamicRangeClip}
-              onChange={sliderChange('dynamicRangeClip')}
+              value={negative.blackClip}
+              onChange={sliderChange('blackClip')}
+              onDragStateChange={onDragStateChange}
+            />
+            <Slider
+              label="White Clip"
+              min={-0.5}
+              max={0.5}
+              step={0.01}
+              defaultValue={0}
+              value={negative.whiteClip}
+              onChange={sliderChange('whiteClip')}
               onDragStateChange={onDragStateChange}
             />
           </div>

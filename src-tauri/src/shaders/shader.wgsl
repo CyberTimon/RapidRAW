@@ -128,10 +128,10 @@ struct GlobalAdjustments {
     negative_toe_width: f32,
     negative_shoulder: f32,
     negative_shoulder_width: f32,
-    negative_dynamic_range_clip: f32,
+    negative_black_clip: f32,
+    negative_white_clip: f32,
     _pad_neg1: f32,
     _pad_neg2: f32,
-    _pad_neg3: f32,
 }
 
 struct MaskAdjustments {
@@ -271,9 +271,8 @@ fn apply_negative_inversion(rgb_linear: vec3<f32>) -> vec3<f32> {
     let inv_log10 = 1.0 / log(10.0);
     let log_rgb = -log(max(rgb_linear, vec3<f32>(1e-6))) * inv_log10;
     let raw_range = max(maxs - mins, vec3<f32>(1e-4));
-    let half_clip = adjustments.global.negative_dynamic_range_clip * 0.5;
-    let adj_mins = mins + half_clip * raw_range;
-    let adj_maxs = maxs - half_clip * raw_range;
+    let adj_mins = mins + adjustments.global.negative_black_clip * raw_range;
+    let adj_maxs = maxs - adjustments.global.negative_white_clip * raw_range;
     let range = max(adj_maxs - adj_mins, vec3<f32>(1e-4));
     let n = clamp((log_rgb - adj_mins) / range, vec3<f32>(0.0), vec3<f32>(1.0)) * weights;
 

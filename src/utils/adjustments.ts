@@ -366,7 +366,8 @@ export interface NegativeAdjustment {
   toeWidth: number;
   shoulder: number;
   shoulderWidth: number;
-  dynamicRangeClip: number;
+  blackClip: number;
+  whiteClip: number;
 }
 
 export const INITIAL_NEGATIVE: NegativeAdjustment = {
@@ -386,7 +387,8 @@ export const INITIAL_NEGATIVE: NegativeAdjustment = {
   toeWidth: 2.5,
   shoulder: 0,
   shoulderWidth: 2.5,
-  dynamicRangeClip: 0,
+  blackClip: 0,
+  whiteClip: 0,
 };
 
 export const NEGATIVE_BOUND_KEYS: Array<keyof NegativeAdjustment> = [
