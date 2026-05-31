@@ -580,6 +580,20 @@
         "showMore": "Show More Mask Types"
       }
     },
+    "negative": {
+      "analyzing": "Analyzing…",
+      "autoAnalyze": "Auto-Analyze Bounds",
+      "blackClip": "Black Clip",
+      "curveShape": "Curve Shape",
+      "dynamicRange": "Dynamic Range",
+      "enable": "Enable negative inversion",
+      "shoulder": "Shoulder",
+      "shoulderWidth": "Shoulder Width",
+      "title": "Negative",
+      "toe": "Toe",
+      "toeWidth": "Toe Width",
+      "whiteClip": "White Clip"
+    },
     "metadata": {
       "author": {
         "creatorDetails": "Creator Details",

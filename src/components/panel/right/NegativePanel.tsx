@@ -1,4 +1,5 @@
 import { ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { useShallow } from 'zustand/react/shallow';
 import { Info, Loader2, Wand2 } from 'lucide-react';
@@ -19,6 +20,7 @@ const isAtIdentityBounds = (n: NegativeAdjustment) =>
   n.blueMax === INITIAL_NEGATIVE.blueMax;
 
 export default function NegativePanel() {
+  const { t } = useTranslation();
   const { setAdjustments } = useEditorActions();
 
   const { adjustments, selectedImage, setEditor } = useEditorStore(
@@ -101,7 +103,7 @@ export default function NegativePanel() {
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>Negative</Text>
+        <Text variant={TextVariants.title}>{t('editor.negative.title')}</Text>
       </div>
       <div className="grow overflow-y-auto p-4">
         <div className="space-y-4">
@@ -109,7 +111,7 @@ export default function NegativePanel() {
             <div className="flex items-center justify-between mb-2">
               <Switch
                 className="flex-1"
-                label="Enable negative inversion"
+                label={t('editor.negative.enable')}
                 checked={negative.enabled}
                 onChange={(val: boolean) => patchNegative({ enabled: val })}
               />
@@ -121,7 +123,7 @@ export default function NegativePanel() {
               className="w-full mt-1 px-3 py-2 rounded-md text-sm flex items-center justify-center gap-2 bg-surface hover:bg-card-active disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isAnalyzing ? <Loader2 className="animate-spin" size={14} /> : <Wand2 size={14} />}
-              {isAnalyzing ? 'Analyzing…' : 'Auto-Analyze Bounds'}
+              {isAnalyzing ? t('editor.negative.analyzing') : t('editor.negative.autoAnalyze')}
             </button>
           </div>
 
@@ -132,10 +134,10 @@ export default function NegativePanel() {
             }
           >
             <Text variant={TextVariants.heading} className="mb-2">
-              Dynamic Range
+              {t('editor.negative.dynamicRange')}
             </Text>
             <Slider
-              label="Black Clip"
+              label={t('editor.negative.blackClip')}
               min={-0.5}
               max={0.5}
               step={0.01}
@@ -145,7 +147,7 @@ export default function NegativePanel() {
               onDragStateChange={onDragStateChange}
             />
             <Slider
-              label="White Clip"
+              label={t('editor.negative.whiteClip')}
               min={-0.5}
               max={0.5}
               step={0.01}
@@ -163,10 +165,10 @@ export default function NegativePanel() {
             }
           >
             <Text variant={TextVariants.heading} className="mb-2">
-              Print Grade
+              {t('modals.negativeConversion.printGrade')}
             </Text>
             <Slider
-              label="Exposure"
+              label={t('modals.negativeConversion.exposure')}
               min={-2}
               max={2}
               step={0.05}
@@ -176,7 +178,7 @@ export default function NegativePanel() {
               onDragStateChange={onDragStateChange}
             />
             <Slider
-              label="Contrast (Grade)"
+              label={t('modals.negativeConversion.contrast')}
               min={0.5}
               max={2.5}
               step={0.05}
@@ -195,10 +197,10 @@ export default function NegativePanel() {
             }
           >
             <Text variant={TextVariants.heading} className="mb-2">
-              Curve Shape
+              {t('editor.negative.curveShape')}
             </Text>
             <Slider
-              label="Toe"
+              label={t('editor.negative.toe')}
               min={-1}
               max={1}
               step={0.01}
@@ -208,7 +210,7 @@ export default function NegativePanel() {
               onDragStateChange={onDragStateChange}
             />
             <Slider
-              label="Toe Width"
+              label={t('editor.negative.toeWidth')}
               min={0.5}
               max={5}
               step={0.1}
@@ -218,7 +220,7 @@ export default function NegativePanel() {
               onDragStateChange={onDragStateChange}
             />
             <Slider
-              label="Shoulder"
+              label={t('editor.negative.shoulder')}
               min={-1}
               max={1}
               step={0.01}
@@ -228,7 +230,7 @@ export default function NegativePanel() {
               onDragStateChange={onDragStateChange}
             />
             <Slider
-              label="Shoulder Width"
+              label={t('editor.negative.shoulderWidth')}
               min={0.5}
               max={5}
               step={0.1}
@@ -246,27 +248,13 @@ export default function NegativePanel() {
           >
             <Info size={16} className="shrink-0" />
             <div className="text-xs text-text-tertiary leading-tight space-y-1">
-              <p>
-                Inversion logic inspired by{' '}
-                <a
-                  href="https://github.com/marcinz606/NegPy"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline hover:text-primary transition-colors"
-                >
-                  NegPy
-                </a>{' '}
-                created by marcinz606 (
-                <a
-                  href="https://github.com/marcinz606/NegPy/blob/main/LICENSE"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline hover:text-primary transition-colors"
-                >
-                  GPL-3.0
-                </a>
-                ).
-              </p>
+              <Trans
+                i18nKey="modals.negativeConversion.noticeText"
+                components={[
+                  <a href="https://github.com/marcinz606/NegPy" target="_blank" rel="noreferrer" className="underline hover:text-primary transition-colors" />,
+                  <a href="https://github.com/marcinz606/NegPy/blob/main/LICENSE" target="_blank" rel="noreferrer" className="underline hover:text-primary transition-colors" />,
+                ]}
+              />
             </div>
           </Text>
         </div>

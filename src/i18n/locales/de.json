@@ -580,6 +580,20 @@
         "showMore": "Mehr Maskenarten anzeigen"
       }
     },
+    "negative": {
+      "analyzing": "Analysiere…",
+      "autoAnalyze": "Grenzen automatisch analysieren",
+      "blackClip": "Schwarzpunkt-Clip",
+      "curveShape": "Kurvenform",
+      "dynamicRange": "Dynamikbereich",
+      "enable": "Negativumkehrung aktivieren",
+      "shoulder": "Schulterbereich",
+      "shoulderWidth": "Schulterbreite",
+      "title": "Negativ",
+      "toe": "Tiefenbereich",
+      "toeWidth": "Tiefenbreite",
+      "whiteClip": "Weißpunkt-Clip"
+    },
     "metadata": {
       "author": {
         "creatorDetails": "Details zum Ersteller",
