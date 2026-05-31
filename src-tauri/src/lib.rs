@@ -871,7 +871,16 @@ fn generate_original_transformed_preview(
 
     let mut image_for_preview = loaded_image.image.as_ref().clone();
     if loaded_image.is_raw {
-        apply_cpu_default_raw_processing(&mut image_for_preview);
+        let tone_mapper = adjustments_clone
+            .get("toneMapper")
+            .and_then(|v| v.as_str())
+            .unwrap_or("basic");
+
+        if tone_mapper == "agx" {
+            crate::image_processing::apply_cpu_agx_tonemap(&mut image_for_preview);
+        } else {
+            apply_cpu_default_raw_processing(&mut image_for_preview);
+        }
     }
 
     let (transformed_full_res, _unscaled_crop_offset) =
