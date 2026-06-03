@@ -649,52 +649,18 @@ pub fn find_best_lens_match(
     let clean_model = model.trim().trim_matches('"').to_string();
     let matcher = fuzzy_matcher::skim::SkimMatcherV2::default().ignore_case();
 
-    let lenses_from_maker: Vec<&Lens> = db
-        .lenses
-        .iter()
-        .filter(|lens| lens.get_maker().eq_ignore_ascii_case(&clean_maker))
-        .collect();
-
-    if !lenses_from_maker.is_empty() {
-        let best_match = lenses_from_maker
-            .iter()
-            .filter_map(|lens| {
-                let english_name = lens.get_full_model_name();
-                let canonical_name = lens.get_canonical_model_name();
-
-                let score_english = matcher
-                    .fuzzy_match(&english_name, &clean_model)
-                    .unwrap_or(0);
-                let score_canonical = matcher
-                    .fuzzy_match(&canonical_name, &clean_model)
-                    .unwrap_or(0);
-                let score = score_english.max(score_canonical);
-
-                if score > 0 {
-                    let best_name = if score_canonical > score_english {
-                        &canonical_name
-                    } else {
-                        &english_name
-                    };
-                    let length_penalty =
-                        (best_name.len() as i64 - clean_model.len() as i64).max(0) / 2;
-                    let adjusted_score = score - length_penalty;
-                    Some((adjusted_score, *lens))
-                } else {
-                    None
-                }
-            })
-            .max_by_key(|(score, _)| *score);
-
-        if let Some((_, best_lens)) = best_match {
-            return Some((
-                best_lens.get_maker(),
-                best_lens.get_display_name(&lenses_from_maker),
-            ));
+    let mut maker_candidates: Vec<String> = Vec::new();
+    if !clean_maker.is_empty() {
+        maker_candidates.push(clean_maker);
+    }
+    if let Some(first_token) = clean_model.split_whitespace().next() {
+        let first_token = first_token.to_string();
+        if !maker_candidates.iter().any(|c| c == &first_token) {
+            maker_candidates.push(first_token);
         }
     }
 
-    let best_match_fallback = db
+    let best_match = db
         .lenses
         .iter()
         .filter_map(|lens| {
@@ -707,13 +673,34 @@ pub fn find_best_lens_match(
             let score_canonical = matcher
                 .fuzzy_match(&canonical_name, &clean_model)
                 .unwrap_or(0);
-            let score = score_english.max(score_canonical);
+            let s_model = score_english.max(score_canonical);
 
-            if score > 0 { Some((score, lens)) } else { None }
+            if s_model <= 0 {
+                return None;
+            }
+
+            let best_model_name = if score_canonical > score_english {
+                &canonical_name
+            } else {
+                &english_name
+            };
+
+            let lens_maker = lens.get_maker();
+            let s_maker = maker_candidates
+                .iter()
+                .map(|cand| matcher.fuzzy_match(&lens_maker, cand).unwrap_or(0))
+                .max()
+                .unwrap_or(0);
+
+            let length_penalty =
+                (best_model_name.len() as i64 - clean_model.len() as i64).max(0) / 2;
+            let total = s_maker + s_model - length_penalty;
+
+            Some((total, lens))
         })
-        .max_by_key(|(score, _): &(i64, _)| *score);
+        .max_by_key(|(score, _)| *score);
 
-    if let Some((_, best_lens)) = best_match_fallback {
+    if let Some((_, best_lens)) = best_match {
         let lens_maker = best_lens.get_maker();
         let maker_lenses = lenses_for_maker(db, &lens_maker);
         return Some((lens_maker, best_lens.get_display_name(&maker_lenses)));
@@ -781,5 +768,180 @@ pub fn resolve_lens_params(
         lens.get_distortion_params(focal_length, aperture, distance)
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn en(name: &str) -> MultiName {
+        MultiName {
+            lang: Some("en".to_string()),
+            value: name.to_string(),
+        }
+    }
+
+    fn canonical(name: &str) -> MultiName {
+        MultiName {
+            lang: None,
+            value: name.to_string(),
+        }
+    }
+
+    fn make_lens(
+        maker: &str,
+        model_names: Vec<MultiName>,
+        mounts: Vec<&str>,
+        calibration: Option<Calibration>,
+    ) -> Lens {
+        Lens {
+            maker: vec![en(maker)],
+            model: model_names,
+            mount: mounts.into_iter().map(String::from).collect(),
+            cropfactor: None,
+            calibration,
+            type_: None,
+            focal: None,
+            aspect_ratio: None,
+            center: None,
+            compat: None,
+            notes: None,
+            aperture: None,
+        }
+    }
+
+    fn make_test_db() -> LensDatabase {
+        let lens_a = make_lens(
+            "Nikon",
+            vec![en("Nikon AF-S Nikkor 24-70mm f/2.8G ED")],
+            vec!["Nikon F"],
+            None,
+        );
+
+        let lens_b = make_lens(
+            "Tamron",
+            vec![
+                canonical("Tamron E 28-75mm F/2.8 Di III VXD G2 A063Z"),
+                en("Tamron 28-75mm F2.8 Di III VXD G2 (A063)"),
+            ],
+            vec!["Sony E", "Nikon Z"],
+            Some(Calibration {
+                elements: vec![CalibrationElement::Distortion(Distortion {
+                    model: "ptlens".to_string(),
+                    focal: 40.0,
+                    real_focal: None,
+                    k1: None,
+                    k2: None,
+                    k3: None,
+                    a: Some(0.01),
+                    b: Some(0.0),
+                    c: Some(0.0),
+                })],
+            }),
+        );
+
+        let lens_c = make_lens(
+            "Tamron",
+            vec![en("Tamron SP 70-200mm F/2.8 Di VC USD (A009)")],
+            vec!["Nikon F"],
+            None,
+        );
+
+        let lens_d = make_lens(
+            "Sigma",
+            vec![en("Sigma 35mm F1.4 DG HSM Art")],
+            vec!["Nikon F"],
+            None,
+        );
+
+        LensDatabase {
+            cameras: Vec::new(),
+            lenses: vec![lens_a, lens_b, lens_c, lens_d],
+        }
+    }
+
+    fn display_name_for(db: &LensDatabase, maker: &str, en_model: &str) -> String {
+        let maker_lenses = lenses_for_maker(db, maker);
+        let lens = maker_lenses
+            .iter()
+            .find(|l| l.get_full_model_name() == en_model)
+            .expect("lens not found in fixture");
+        lens.get_display_name(&maker_lenses)
+    }
+
+    #[test]
+    fn nikon_corporation_matches_nikon_db_entry() {
+        let db = make_test_db();
+        let result = find_best_lens_match(
+            &db,
+            "NIKON CORPORATION",
+            "AF-S NIKKOR 24-70mm f/2.8G ED",
+        );
+        let expected_model = display_name_for(&db, "Nikon", "Nikon AF-S Nikkor 24-70mm f/2.8G ED");
+        assert_eq!(result, Some(("Nikon".to_string(), expected_model)));
+    }
+
+    #[test]
+    fn tamron_on_nikon_z_via_lensmodel_prefix() {
+        let db = make_test_db();
+        let result = find_best_lens_match(
+            &db,
+            "NIKON CORPORATION",
+            "TAMRON 28-75mm F/2.8 Di III VXD G2 A063Z",
+        );
+        let expected_model =
+            display_name_for(&db, "Tamron", "Tamron 28-75mm F2.8 Di III VXD G2 (A063)");
+        assert_eq!(result, Some(("Tamron".to_string(), expected_model)));
+    }
+
+    #[test]
+    fn tamron_70_200_f_mount() {
+        let db = make_test_db();
+        let result = find_best_lens_match(&db, "TAMRON", "Tamron SP 70-200mm F/2.8 Di VC USD");
+        let expected_model =
+            display_name_for(&db, "Tamron", "Tamron SP 70-200mm F/2.8 Di VC USD (A009)");
+        assert_eq!(result, Some(("Tamron".to_string(), expected_model)));
+    }
+
+    #[test]
+    fn unrelated_maker_doesnt_steal_match() {
+        let db = make_test_db();
+        let result = find_best_lens_match(&db, "Tamron", "28-75mm");
+        let expected_model =
+            display_name_for(&db, "Tamron", "Tamron 28-75mm F2.8 Di III VXD G2 (A063)");
+        assert_eq!(result, Some(("Tamron".to_string(), expected_model)));
+    }
+
+    #[test]
+    fn unknown_lens_does_not_panic() {
+        let db = make_test_db();
+        let _ = find_best_lens_match(&db, "NIKON CORPORATION", "Nonsense XYZ 999mm F0.5");
+    }
+
+    #[test]
+    fn model_score_zero_is_skipped() {
+        let db = make_test_db();
+        let result = find_best_lens_match(&db, "Tamron", "???");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn resolve_lens_params_with_corrected_maker() {
+        let db = make_test_db();
+        let (maker, model) = find_best_lens_match(
+            &db,
+            "NIKON CORPORATION",
+            "TAMRON 28-75mm F/2.8 Di III VXD G2 A063Z",
+        )
+        .expect("find_best_lens_match should return a match");
+
+        let params = resolve_lens_params(&db, &maker, &model, 40.0, Some(2.8), Some(2.81))
+            .expect("resolve_lens_params should return params");
+        assert!(
+            params.k1.abs() > 1e-9,
+            "expected non-zero distortion k1, got {}",
+            params.k1
+        );
     }
 }
