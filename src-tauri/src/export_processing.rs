@@ -65,6 +65,8 @@ pub struct ExportSettings {
     pub preserve_timestamps: bool,
     pub strip_gps: bool,
     pub filename_template: Option<String>,
+    #[serde(default)]
+    pub filename_prepend_datestamp: bool,
     pub watermark: Option<WatermarkSettings>,
     #[serde(default)]
     pub export_masks: bool,
@@ -783,6 +785,11 @@ pub async fn export_images(
                     &file_date,
                 );
 
+                if export_settings.filename_prepend_datestamp {
+                    let datestamp = file_date.format("%Y%m%d").to_string();
+                    new_stem = format!("{}-{}", datestamp, new_stem);
+                }
+
                 if let Some(vc_id) = explicit_vc {
                     new_stem = format!("{}_VC{:02}", new_stem, vc_id);
                 } else if appearance_count > 1 {
@@ -791,7 +798,11 @@ pub async fn export_images(
 
                 let new_filename = format!("{}.{}", new_stem, output_format);
                 let output_path = if is_explicit_file_path && total_paths == 1 {
-                    output_folder_path
+                    if export_settings.filename_prepend_datestamp {
+                        output_folder_path.with_file_name(&new_filename)
+                    } else {
+                        output_folder_path
+                    }
                 } else if export_settings.preserve_folders {
                     let matched_base = base_origin_folders
                         .iter()

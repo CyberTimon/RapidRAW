@@ -710,6 +710,7 @@
   "export": {
     "advanced": {
       "exportMasks": "Export masks as separate files",
+      "prependDatestamp": "Prepend date stamp (YYYYMMDD-filename)",
       "preserveFolders": "Preserve Folder Structure",
       "preserveTimestamps": "Set File Timestamps from EXIF Capture Date",
       "title": "Export Settings"

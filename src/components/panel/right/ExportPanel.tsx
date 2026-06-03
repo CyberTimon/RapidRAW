@@ -219,6 +219,8 @@ export default function ExportPanel({
     setExportMasks,
     filenameTemplate,
     setFilenameTemplate,
+    filenamePrependDatestamp,
+    setFilenamePrependDatestamp,
     enableWatermark,
     setEnableWatermark,
     watermarkPath,
@@ -373,6 +375,7 @@ export default function ExportPanel({
   useEffect(() => {
     const exportSettings: ExportSettings = {
       filenameTemplate,
+      filenamePrependDatestamp,
       jpegQuality,
       keepMetadata,
       preserveTimestamps,
@@ -434,6 +437,46 @@ export default function ExportPanel({
     }, 0);
   };
 
+  const toDatestamp = (rawDate: string | null | undefined): string | null => {
+    if (!rawDate) return null;
+    const trimmed = rawDate.trim();
+    const exifMatch = trimmed.match(/^(\d{4})[:\-](\d{2})[:\-](\d{2})/);
+    if (exifMatch) return `${exifMatch[1]}${exifMatch[2]}${exifMatch[3]}`;
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) return null;
+    const y = parsed.getFullYear().toString();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    return `${y}${m}${d}`;
+  };
+
+  const resolveDatestampForPath = useCallback(
+    async (path: string): Promise<string> => {
+      const exifDate = selectedImage?.exif?.DateTimeOriginal || selectedImage?.exif?.CreateDate;
+      const fromSelected = toDatestamp(exifDate);
+      if (fromSelected) return fromSelected;
+
+      try {
+        const exifByPath = (await invoke(Invokes.ReadExifForPaths, { paths: [path] })) as Record<
+          string,
+          Record<string, string>
+        >;
+        const fromPath = exifByPath?.[path];
+        const fromRead = toDatestamp(fromPath?.DateTimeOriginal || fromPath?.CreateDate);
+        if (fromRead) return fromRead;
+      } catch {
+        // Best-effort for save-dialog preview only.
+      }
+
+      const now = new Date();
+      const y = now.getFullYear().toString();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}${m}${d}`;
+    },
+    [selectedImage],
+  );
+
   const handleExport = async () => {
     if (numImages === 0 || isExporting) return;
 
@@ -449,6 +492,7 @@ export default function ExportPanel({
 
     const exportSettings: ExportSettings = {
       filenameTemplate: finalFilenameTemplate,
+      filenamePrependDatestamp,
       jpegQuality,
       keepMetadata,
       preserveTimestamps,
@@ -477,7 +521,11 @@ export default function ExportPanel({
       if (numImages === 1) {
         const originalFilename = pathsToExport[0].split(/[\\/]/).pop() || '';
         const stem = originalFilename.substring(0, originalFilename.lastIndexOf('.')) || originalFilename;
-        const suggestedName = finalFilenameTemplate.replace('{original_filename}', stem);
+        let suggestedName = finalFilenameTemplate.replace('{original_filename}', stem);
+        if (filenamePrependDatestamp) {
+          const datestamp = await resolveDatestampForPath(pathsToExport[0]);
+          suggestedName = `${datestamp}-${suggestedName}`;
+        }
         const outputFileName = `${suggestedName}.${selectedFormat.extensions[0]}`;
 
         outputFolderOrFile = isAndroid
@@ -828,6 +876,13 @@ export default function ExportPanel({
                             )}
                           </>
                         )}
+                        <Switch
+                          label={t('export.advanced.prependDatestamp')}
+                          checked={filenamePrependDatestamp}
+                          onChange={setFilenamePrependDatestamp}
+                          disabled={isExporting}
+                          trackClassName="bg-surface"
+                        />
                       </div>
                     </motion.div>
                   )}
