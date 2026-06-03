@@ -1616,7 +1616,12 @@ pub fn resolve_lens_params_in_adjustments(
 
         if mode == "auto" {
             if let Some(exif) = exif_data {
-                let exif_maker = exif.get("Make").map(|s| s.as_str()).unwrap_or("");
+                let exif_maker = exif
+                    .get("LensMake")
+                    .map(|s| s.as_str())
+                    .filter(|s| !s.is_empty())
+                    .or_else(|| exif.get("Make").map(|s| s.as_str()))
+                    .unwrap_or("");
                 let exif_model = exif.get("LensModel").map(|s| s.as_str()).unwrap_or("");
                 if let Some(db) = lens_db {
                     if let Some((detected_maker, detected_model)) =

@@ -413,7 +413,7 @@ export default function LensCorrectionModal({
       setDetectionStatus('not_found');
       return;
     }
-    const exifMaker = selectedImage.exif.Make || '';
+    const exifMaker = selectedImage.exif.LensMake || selectedImage.exif.Make || '';
     const exifModel = selectedImage.exif.LensModel || '';
 
     if (!exifModel) {
