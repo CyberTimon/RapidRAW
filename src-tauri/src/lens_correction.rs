@@ -873,11 +873,8 @@ mod tests {
     #[test]
     fn nikon_corporation_matches_nikon_db_entry() {
         let db = make_test_db();
-        let result = find_best_lens_match(
-            &db,
-            "NIKON CORPORATION",
-            "AF-S NIKKOR 24-70mm f/2.8G ED",
-        );
+        let result =
+            find_best_lens_match(&db, "NIKON CORPORATION", "AF-S NIKKOR 24-70mm f/2.8G ED");
         let expected_model = display_name_for(&db, "Nikon", "Nikon AF-S Nikkor 24-70mm f/2.8G ED");
         assert_eq!(result, Some(("Nikon".to_string(), expected_model)));
     }
