@@ -192,6 +192,23 @@ pub fn read_iso(path: &str, file_bytes: &[u8]) -> Option<u32> {
     None
 }
 
+fn first_ascii_component(value: &exif::Value) -> Option<String> {
+    if let exif::Value::Ascii(parts) = value {
+        for part in parts {
+            let s = String::from_utf8_lossy(part)
+                .trim_matches(char::from(0))
+                .trim()
+                .to_string();
+            if !s.is_empty() {
+                return Some(s);
+            }
+        }
+        Some(String::new())
+    } else {
+        None
+    }
+}
+
 pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
     let mut map = HashMap::new();
 
@@ -276,6 +293,18 @@ pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
                         fmt_date_str(field.display_value().to_string()),
                     );
                 }
+                exif::Tag::Make
+                | exif::Tag::Model
+                | exif::Tag::LensMake
+                | exif::Tag::LensModel
+                | exif::Tag::LensSerialNumber
+                | exif::Tag::BodySerialNumber => {
+                    if let Some(val) = first_ascii_component(&field.value)
+                        && !val.is_empty()
+                    {
+                        map.insert(field.tag.to_string(), val);
+                    }
+                }
                 _ => {
                     let val = field.display_value().with_unit(&exif_obj).to_string();
                     if !val.trim().is_empty() {
@@ -287,6 +316,19 @@ pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
     }
 
     if !map.is_empty() {
+        let lens_model_missing = map.get("LensModel").map(|v| v.is_empty()).unwrap_or(true);
+        if lens_model_missing
+            && let Some(meta) = read_raw_metadata(file_bytes)
+            && let Some(lens_desc) = &meta.lens
+        {
+            if !lens_desc.lens_model.trim().is_empty() {
+                map.insert("LensModel".to_string(), lens_desc.lens_model.clone());
+            }
+            let lens_make_missing = map.get("LensMake").map(|v| v.is_empty()).unwrap_or(true);
+            if lens_make_missing && !lens_desc.lens_make.trim().is_empty() {
+                map.insert("LensMake".to_string(), lens_desc.lens_make.clone());
+            }
+        }
         return Some(map);
     }
 
