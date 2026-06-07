@@ -678,7 +678,7 @@
       },
       "status": {
         "empty": "Encara no s'ha desat cap predefinit. Crea'n el teu, importa'l des d'un fitxer o explora els de la comunitat.",
-        "getCommunity": "Obtén predefinits de la comunitat",
+        "getCommunity": "Obté predefinits de la comunitat",
         "loading": "S'estan carregant els predefinits..."
       },
       "supports": {
