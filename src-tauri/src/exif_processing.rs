@@ -58,14 +58,13 @@ pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
         }
     }
 
-    if healed
-        && let Ok(json) = serde_json::to_string_pretty(&meta) {
-            let _ = fs::write(sidecar_path, json);
-            log::info!(
-                "Auto-healed bloated sidecar for: {}",
-                sidecar_path.display()
-            );
-        }
+    if healed && let Ok(json) = serde_json::to_string_pretty(&meta) {
+        let _ = fs::write(sidecar_path, json);
+        log::info!(
+            "Auto-healed bloated sidecar for: {}",
+            sidecar_path.display()
+        );
+    }
 
     meta
 }

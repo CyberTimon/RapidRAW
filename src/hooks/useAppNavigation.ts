@@ -375,9 +375,11 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
           setLibrary({ imageList: files });
         }
 
-        invoke(Invokes.StartBackgroundIndexing, { folderPath: path }).catch((err) => {
-          console.error('Failed to start background indexing:', err);
-        });
+        if (!preserveEditor) {
+          invoke(Invokes.StartBackgroundIndexing, { folderPath: path }).catch((err) => {
+            console.error('Failed to start background indexing:', err);
+          });
+        }
       } catch (err) {
         console.error('Failed to load folder contents:', err);
         toast.error('Failed to load images from the selected folder.');
