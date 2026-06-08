@@ -12,8 +12,8 @@ use serde_json::Value;
 use crate::ai_connector;
 use crate::ai_processing::{
     self, AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters,
-    AiSubjectMaskParameters, CachedDepthMap, get_or_init_ai_models,
-    run_depth_anything_model, run_sky_seg_model, run_u2netp_model, run_birefnet_model,
+    AiSubjectMaskParameters, CachedDepthMap, get_or_init_ai_models, run_birefnet_model,
+    run_depth_anything_model, run_sky_seg_model,
 };
 use crate::app_settings::load_settings;
 use crate::app_state::AppState;
@@ -51,8 +51,9 @@ pub async fn generate_ai_foreground_mask(
     let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
 
     let full_mask_image =
-        run_u2netp_model(warped_image.as_ref(), &models.u2netp).map_err(|e| e.to_string())?;
-    let base64_data = encode_to_base64_png(&full_mask_image)?;
+        run_birefnet_model(warped_image.as_ref(), &models.birefnet).map_err(|e| e.to_string())?;
+    let feathered_mask = image::imageops::blur(&full_mask_image, 2.0);
+    let base64_data = encode_to_base64_png(&feathered_mask)?;
 
     Ok(AiForegroundMaskParameters {
         mask_data_base64: Some(base64_data),
@@ -284,7 +285,9 @@ pub async fn generate_ai_subject_mask(
         return Err("Selected bounding box is empty or out of bounds.".to_string());
     }
 
-    let cropped_img = image::imageops::crop_imm(warped_image.as_ref(), min_x_u, min_y_u, crop_w, crop_h).to_image();
+    let cropped_img =
+        image::imageops::crop_imm(warped_image.as_ref(), min_x_u, min_y_u, crop_w, crop_h)
+            .to_image();
     let crop_mask = run_birefnet_model(&DynamicImage::ImageRgba8(cropped_img), &models.birefnet)
         .map_err(|e| e.to_string())?;
 

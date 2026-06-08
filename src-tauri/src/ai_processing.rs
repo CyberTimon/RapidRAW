@@ -5,9 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{Result, anyhow};
 use image::imageops::{self, FilterType};
-use image::{
-    DynamicImage, GenericImageView, GrayImage, Rgb, Rgb32FImage, Rgba, RgbaImage,
-};
+use image::{DynamicImage, GenericImageView, GrayImage, Rgb, Rgb32FImage, Rgba, RgbaImage};
 use ndarray::{Array, Array4, IxDyn};
 use ort::session::Session;
 use ort::value::Tensor;
@@ -22,12 +20,6 @@ const BIREFNET_URL: &str = "https://github.com/danielgatis/rembg/releases/downlo
 const BIREFNET_FILENAME: &str = "birefnet-general-lite.onnx";
 const BIREFNET_INPUT_SIZE: u32 = 1024;
 const BIREFNET_SHA256: &str = "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333";
-
-const U2NETP_URL: &str =
-    "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/u2net.onnx?download=true";
-const U2NETP_FILENAME: &str = "u2net.onnx";
-const U2NETP_INPUT_SIZE: u32 = 320;
-const U2NETP_SHA256: &str = "8d10d2f3bb75ae3b6d527c77944fc5e7dcd94b29809d47a739a7a728a912b491";
 
 const SKYSEG_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/skyseg-u2net.onnx?download=true";
 const SKYSEG_FILENAME: &str = "skyseg_u2net.onnx";
@@ -57,7 +49,6 @@ const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b5
 
 pub struct AiModels {
     pub birefnet: Mutex<Session>,
-    pub u2netp: Mutex<Session>,
     pub sky_seg: Mutex<Session>,
     pub depth_anything: Mutex<Session>,
 }
@@ -262,15 +253,6 @@ pub async fn get_or_init_ai_models(
     download_and_verify_model(
         app_handle,
         &models_dir,
-        U2NETP_FILENAME,
-        U2NETP_URL,
-        U2NETP_SHA256,
-        "Foreground Model",
-    )
-    .await?;
-    download_and_verify_model(
-        app_handle,
-        &models_dir,
         SKYSEG_FILENAME,
         SKYSEG_URL,
         SKYSEG_SHA256,
@@ -290,12 +272,10 @@ pub async fn get_or_init_ai_models(
     let _ = ort::init().with_name("AI").commit();
 
     let birefnet_path = models_dir.join(BIREFNET_FILENAME);
-    let u2netp_path = models_dir.join(U2NETP_FILENAME);
     let sky_seg_path = models_dir.join(SKYSEG_FILENAME);
     let depth_path = models_dir.join(DEPTH_FILENAME);
 
     let birefnet = Session::builder()?.commit_from_file(birefnet_path)?;
-    let u2netp = Session::builder()?.commit_from_file(u2netp_path)?;
     let sky_seg = Session::builder()?.commit_from_file(sky_seg_path)?;
     let depth_anything = Session::builder()?.commit_from_file(depth_path)?;
 
@@ -303,7 +283,6 @@ pub async fn get_or_init_ai_models(
 
     let models = Arc::new(AiModels {
         birefnet: Mutex::new(birefnet),
-        u2netp: Mutex::new(u2netp),
         sky_seg: Mutex::new(sky_seg),
         depth_anything: Mutex::new(depth_anything),
     });
@@ -905,7 +884,11 @@ pub fn run_birefnet_model(
 ) -> Result<GrayImage> {
     let (orig_width, orig_height) = image.dimensions();
 
-    let resized_image = image.resize(BIREFNET_INPUT_SIZE, BIREFNET_INPUT_SIZE, FilterType::Triangle);
+    let resized_image = image.resize(
+        BIREFNET_INPUT_SIZE,
+        BIREFNET_INPUT_SIZE,
+        FilterType::Triangle,
+    );
     let (resized_w, resized_h) = resized_image.dimensions();
     let resized_rgb = resized_image.into_rgb8();
     let raw_pixels = resized_rgb.as_raw();
@@ -913,8 +896,12 @@ pub fn run_birefnet_model(
     let paste_x = ((BIREFNET_INPUT_SIZE - resized_w) / 2) as usize;
     let paste_y = ((BIREFNET_INPUT_SIZE - resized_h) / 2) as usize;
 
-    let mut input_tensor: Array<f32, _> =
-        Array::zeros((1, 3, BIREFNET_INPUT_SIZE as usize, BIREFNET_INPUT_SIZE as usize));
+    let mut input_tensor: Array<f32, _> = Array::zeros((
+        1,
+        3,
+        BIREFNET_INPUT_SIZE as usize,
+        BIREFNET_INPUT_SIZE as usize,
+    ));
 
     let mean = [0.485, 0.456, 0.406];
     let std = [0.229, 0.224, 0.225];
@@ -1042,87 +1029,6 @@ pub fn run_sky_seg_model(
 
     let cropped_mask = GrayImage::from_raw(resized_w, resized_h, cropped_mask_data)
         .ok_or_else(|| anyhow!("Failed to create mask from Sky Segmentation output"))?;
-
-    let final_mask = imageops::resize(&cropped_mask, orig_width, orig_height, FilterType::Triangle);
-
-    Ok(final_mask)
-}
-
-pub fn run_u2netp_model(
-    image: &DynamicImage,
-    u2netp_session: &Mutex<Session>,
-) -> Result<GrayImage> {
-    let (orig_width, orig_height) = image.dimensions();
-
-    let resized_image = image.resize(U2NETP_INPUT_SIZE, U2NETP_INPUT_SIZE, FilterType::Triangle);
-    let (resized_w, resized_h) = resized_image.dimensions();
-    let resized_rgb = resized_image.into_rgb8();
-    let raw_pixels = resized_rgb.as_raw();
-
-    let paste_x = ((U2NETP_INPUT_SIZE - resized_w) / 2) as usize;
-    let paste_y = ((U2NETP_INPUT_SIZE - resized_h) / 2) as usize;
-
-    let mut input_tensor: Array<f32, _> =
-        Array::zeros((1, 3, U2NETP_INPUT_SIZE as usize, U2NETP_INPUT_SIZE as usize));
-
-    let mean = [0.485, 0.456, 0.406];
-    let std = [0.229, 0.224, 0.225];
-
-    let rw = resized_w as usize;
-    let rh = resized_h as usize;
-
-    for y in 0..rh {
-        for x in 0..rw {
-            let idx = (y * rw + x) * 3;
-            let dest_y = y + paste_y;
-            let dest_x = x + paste_x;
-
-            input_tensor[[0, 0, dest_y, dest_x]] =
-                (raw_pixels[idx] as f32 / 255.0 - mean[0]) / std[0];
-            input_tensor[[0, 1, dest_y, dest_x]] =
-                (raw_pixels[idx + 1] as f32 / 255.0 - mean[1]) / std[1];
-            input_tensor[[0, 2, dest_y, dest_x]] =
-                (raw_pixels[idx + 2] as f32 / 255.0 - mean[2]) / std[2];
-        }
-    }
-
-    let input_tensor_dyn = input_tensor.into_dyn();
-    let t_input = Tensor::from_array(input_tensor_dyn.as_standard_layout().into_owned())?;
-
-    let mut session = u2netp_session.lock().unwrap();
-    let outputs = session.run(ort::inputs![t_input])?;
-    let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
-    let out_slice = output_tensor.as_slice().unwrap();
-
-    let mut min_val = f32::MAX;
-    let mut max_val = f32::MIN;
-    for &v in out_slice {
-        min_val = min_val.min(v);
-        max_val = max_val.max(v);
-    }
-
-    let range = max_val - min_val;
-    let scale = if range > 1e-6 { 255.0 / range } else { 0.0 };
-
-    let usize_size = U2NETP_INPUT_SIZE as usize;
-    let mut cropped_mask_data = Vec::with_capacity(rw * rh);
-
-    for y in 0..rh {
-        let src_y = y + paste_y;
-        for x in 0..rw {
-            let src_x = x + paste_x;
-            let val = out_slice[src_y * usize_size + src_x];
-            let pixel = if range > 1e-6 {
-                ((val - min_val) * scale) as u8
-            } else {
-                0
-            };
-            cropped_mask_data.push(pixel);
-        }
-    }
-
-    let cropped_mask = GrayImage::from_raw(resized_w, resized_h, cropped_mask_data)
-        .ok_or_else(|| anyhow!("Failed to create mask from U-2-Netp output"))?;
 
     let final_mask = imageops::resize(&cropped_mask, orig_width, orig_height, FilterType::Triangle);
 

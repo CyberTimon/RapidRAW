@@ -1661,7 +1661,7 @@
         "nind": "Por proporcionar los modelos de IA que impulsan las capacidades de reducción de ruido por IA en RapidRAW.",
         "rawler": "Por la excelente caja (crate) de Rust que proporciona la base para el procesamiento de archivos RAW en este proyecto.",
         "sam2": "Por proporcionar el modelo base usado para las capacidades de detección de sujetos de la IA.",
-        "u2net": "Por proporcionar la arquitectura robusta utilizada para las capacidades de detección de cielos y primeros planos por IA.",
+        "u2net": "Por proporcionar la arquitectura robusta utilizada para las capacidades de detección de cielos por IA.",
         "you": "Por usar y apoyar RapidRAW. Tu interés mantiene vivo y en evolución este proyecto.",
         "youLabel": "Tú"
       },
