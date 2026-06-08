@@ -12,8 +12,8 @@ use serde_json::Value;
 use crate::ai_connector;
 use crate::ai_processing::{
     self, AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters,
-    AiSubjectMaskParameters, CachedDepthMap, generate_image_embeddings, get_or_init_ai_models,
-    run_depth_anything_model, run_sam_decoder, run_sky_seg_model, run_u2netp_model,
+    AiSubjectMaskParameters, CachedDepthMap, get_or_init_ai_models,
+    run_depth_anything_model, run_sky_seg_model, run_u2netp_model, run_birefnet_model,
 };
 use crate::app_settings::load_settings;
 use crate::app_state::AppState;
@@ -188,7 +188,7 @@ pub async fn generate_ai_depth_mask(
 #[tauri::command]
 pub async fn generate_ai_subject_mask(
     js_adjustments: serde_json::Value,
-    path: String,
+    _path: String,
     start_point: (f64, f64),
     end_point: (f64, f64),
     rotation: f32,
@@ -202,48 +202,8 @@ pub async fn generate_ai_subject_mask(
         .await
         .map_err(|e| e.to_string())?;
 
-    let path_hash = {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(path.as_bytes());
-        let mut geo_hasher = DefaultHasher::new();
-        for key in GEOMETRY_KEYS {
-            if let Some(val) = js_adjustments.get(key) {
-                key.hash(&mut geo_hasher);
-                val.to_string().hash(&mut geo_hasher);
-            }
-        }
-        hasher.update(&geo_hasher.finish().to_le_bytes());
-        hasher.finalize().to_hex().to_string()
-    };
-
-    let embeddings = {
-        let mut ai_state_lock = state.ai_state.lock().unwrap();
-        let ai_state = ai_state_lock.as_mut().unwrap();
-
-        if let Some(cached_embeddings) = &ai_state.embeddings {
-            if cached_embeddings.path_hash == path_hash {
-                cached_embeddings.clone()
-            } else {
-                let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
-                let mut new_embeddings =
-                    generate_image_embeddings(warped_image.as_ref(), &models.sam_encoder)
-                        .map_err(|e| e.to_string())?;
-                new_embeddings.path_hash = path_hash.clone();
-                ai_state.embeddings = Some(new_embeddings.clone());
-                new_embeddings
-            }
-        } else {
-            let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
-            let mut new_embeddings =
-                generate_image_embeddings(warped_image.as_ref(), &models.sam_encoder)
-                    .map_err(|e| e.to_string())?;
-            new_embeddings.path_hash = path_hash.clone();
-            ai_state.embeddings = Some(new_embeddings.clone());
-            new_embeddings
-        }
-    };
-
-    let (img_w, img_h) = embeddings.original_size;
+    let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+    let (img_w, img_h) = (warped_image.width(), warped_image.height());
 
     let (coarse_rotated_w, coarse_rotated_h) = if orientation_steps % 2 == 1 {
         (img_h as f64, img_w as f64)
@@ -312,17 +272,32 @@ pub async fn generate_ai_subject_mask(
     let max_x = ucrp1.0.max(ucrp2.0).max(ucrp3.0).max(ucrp4.0);
     let max_y = ucrp1.1.max(ucrp2.1).max(ucrp3.1).max(ucrp4.1);
 
-    let unrotated_start_point = (min_x, min_y);
-    let unrotated_end_point = (max_x, max_y);
+    let min_x_u = (min_x.clamp(0.0, img_w as f64 - 1.0).round()) as u32;
+    let min_y_u = (min_y.clamp(0.0, img_h as f64 - 1.0).round()) as u32;
+    let max_x_u = (max_x.clamp(0.0, img_w as f64).round()) as u32;
+    let max_y_u = (max_y.clamp(0.0, img_h as f64).round()) as u32;
 
-    let mask_bitmap = run_sam_decoder(
-        &models.sam_decoder,
-        &embeddings,
-        unrotated_start_point,
-        unrotated_end_point,
-    )
-    .map_err(|e| e.to_string())?;
-    let base64_data = encode_to_base64_png(&mask_bitmap)?;
+    let crop_w = max_x_u.saturating_sub(min_x_u);
+    let crop_h = max_y_u.saturating_sub(min_y_u);
+
+    if crop_w == 0 || crop_h == 0 {
+        return Err("Selected bounding box is empty or out of bounds.".to_string());
+    }
+
+    let cropped_img = image::imageops::crop_imm(warped_image.as_ref(), min_x_u, min_y_u, crop_w, crop_h).to_image();
+    let crop_mask = run_birefnet_model(&DynamicImage::ImageRgba8(cropped_img), &models.birefnet)
+        .map_err(|e| e.to_string())?;
+
+    let mut full_mask = GrayImage::new(img_w, img_h);
+    for y in 0..crop_h {
+        for x in 0..crop_w {
+            let pixel = crop_mask.get_pixel(x, y);
+            full_mask.put_pixel(min_x_u + x, min_y_u + y, *pixel);
+        }
+    }
+
+    let feathered_mask = image::imageops::blur(&full_mask, 2.0);
+    let base64_data = encode_to_base64_png(&feathered_mask)?;
 
     Ok(AiSubjectMaskParameters {
         start_x: start_point.0,
@@ -339,45 +314,12 @@ pub async fn generate_ai_subject_mask(
 
 #[tauri::command]
 pub async fn precompute_ai_subject_mask(
-    js_adjustments: serde_json::Value,
-    path: String,
-    state: tauri::State<'_, AppState>,
-    app_handle: tauri::AppHandle,
+    _js_adjustments: serde_json::Value,
+    _path: String,
+    _state: tauri::State<'_, AppState>,
+    _app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let path_hash = {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(path.as_bytes());
-        let mut geo_hasher = DefaultHasher::new();
-        for key in GEOMETRY_KEYS {
-            if let Some(val) = js_adjustments.get(key) {
-                key.hash(&mut geo_hasher);
-                val.to_string().hash(&mut geo_hasher);
-            }
-        }
-        hasher.update(&geo_hasher.finish().to_le_bytes());
-        hasher.finalize().to_hex().to_string()
-    };
-
-    let mut ai_state_lock = state.ai_state.lock().unwrap();
-    let ai_state = ai_state_lock.as_mut().unwrap();
-
-    if let Some(cached_embeddings) = &ai_state.embeddings
-        && cached_embeddings.path_hash == path_hash
-    {
-        return Ok(());
-    }
-
-    let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
-    let mut new_embeddings = generate_image_embeddings(warped_image.as_ref(), &models.sam_encoder)
-        .map_err(|e| e.to_string())?;
-
-    new_embeddings.path_hash = path_hash.clone();
-    ai_state.embeddings = Some(new_embeddings);
-
+    // BiRefNet runs on-demand within coordinates, no visual embeddings to cache
     Ok(())
 }
 
