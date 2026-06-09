@@ -11,6 +11,7 @@ import it from './locales/it.json';
 import pt from './locales/pt.json';
 import ja from './locales/ja.json';
 import ru from './locales/ru.json';
+import cs from './locales/cs.json';
 
 i18n.use(initReactI18next).init({
   resources: {
@@ -24,6 +25,7 @@ i18n.use(initReactI18next).init({
     pt: { translation: pt },
     ja: { translation: ja },
     ru: { translation: ru },
+    cs: { translation: cs },
   },
   lng: 'en',
   fallbackLng: 'en',
