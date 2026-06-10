@@ -41,6 +41,8 @@ import {
   Briefcase,
   User,
   Album as AlbumIcon,
+  Flag,
+  FlagOff,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
@@ -75,7 +77,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
 
   const { handleAutoAdjustments, handleResetAdjustments, handleCopyAdjustments, handlePasteAdjustments } =
     useEditorActions();
-  const { handleRate, handleSetColorLabel, handleTagsChanged } = useLibraryActions();
+  const { handleRate, handleSetColorLabel, handleSetFlag, handleTagsChanged } = useLibraryActions();
 
   const albumIcons = useMemo(
     () => [
@@ -263,6 +265,15 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               color: label.color,
               onClick: () => handleSetColorLabel(label.name),
             })),
+          ],
+        },
+        {
+          label: t('contextMenus.editor.flag', 'Flag'),
+          icon: Flag,
+          submenu: [
+            { label: t('contextMenus.editor.flagPick', 'Pick'), icon: Flag, onClick: () => handleSetFlag('picked') },
+            { label: t('contextMenus.editor.flagReject', 'Reject'), icon: FlagOff, onClick: () => handleSetFlag('rejected') },
+            { label: t('contextMenus.editor.flagNone', 'Unflag'), icon: FlagOff, onClick: () => handleSetFlag(null) },
           ],
         },
         {
@@ -693,6 +704,15 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               color: label.color,
               onClick: () => handleSetColorLabel(label.name, finalSelection),
             })),
+          ],
+        },
+        {
+          label: t('contextMenus.editor.flag', 'Flag'),
+          icon: Flag,
+          submenu: [
+            { label: t('contextMenus.editor.flagPick', 'Pick'), icon: Flag, onClick: () => handleSetFlag('picked', finalSelection) },
+            { label: t('contextMenus.editor.flagReject', 'Reject'), icon: FlagOff, onClick: () => handleSetFlag('rejected', finalSelection) },
+            { label: t('contextMenus.editor.flagNone', 'Unflag'), icon: FlagOff, onClick: () => handleSetFlag(null, finalSelection) },
           ],
         },
         {

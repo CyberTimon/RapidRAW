@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { RawStatus, EditedStatus, SortDirection, ImageFile } from '../components/ui/AppProperties';
+import { RawStatus, EditedStatus, FlagStatus, SortDirection, ImageFile } from '../components/ui/AppProperties';
 
 export const ADVANCED_QUERY_REGEX =
   /^(iso|aperture|f|shutter|s|focal|mm|rating|color|camera|make|model|lens)\s*(?::)?\s*(>=|<=|>|<|=)?\s*(.+)$/i;
@@ -122,6 +122,13 @@ export function computeSortedLibrary(libraryState: any, settingsState: any): Ima
       const matchesNone = !imageColor && filterCriteria.colors.includes('none');
 
       if (!hasMatchingColor && !matchesNone) return false;
+    }
+
+    if (filterCriteria.flagStatus && filterCriteria.flagStatus !== FlagStatus.All) {
+      const flagTag = (image.tags || []).find((tag: string) => tag.startsWith('flag:'))?.substring(5);
+      if (filterCriteria.flagStatus === FlagStatus.FlaggedOnly && flagTag !== 'picked') return false;
+      if (filterCriteria.flagStatus === FlagStatus.RejectedOnly && flagTag !== 'rejected') return false;
+      if (filterCriteria.flagStatus === FlagStatus.UnflaggedOnly && flagTag) return false;
     }
 
     return true;

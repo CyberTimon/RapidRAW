@@ -824,6 +824,12 @@
         "editedOnly": "Edited Only",
         "uneditedOnly": "Unedited Only"
       },
+      "flag": {
+        "all": "All Images",
+        "flaggedOnly": "Flagged Only",
+        "rejectedOnly": "Rejected Only",
+        "unflaggedOnly": "Unflagged Only"
+      },
       "noMatch": "No images found that match your filter.",
       "rating": {
         "all": "Show All",
@@ -895,6 +901,7 @@
         "filterByColorLabel": "Filter by Color Label",
         "filterByEdited": "Filter by Edit Status",
         "filterByFileType": "Filter by File Type",
+        "filterByFlag": "Filter by Flag",
         "filterByRating": "Filter by Rating",
         "metadataAlways": "Always",
         "metadataHover": "On Hover",
@@ -1421,6 +1428,9 @@
         "color_label_blue": "Color label: Blue",
         "color_label_green": "Color label: Green",
         "color_label_none": "Color label: None",
+        "flag_none": "Flag: Unflag",
+        "flag_picked": "Flag: Pick",
+        "flag_rejected": "Flag: Reject",
         "color_label_purple": "Color label: Purple",
         "color_label_red": "Color label: Red",
         "color_label_yellow": "Color label: Yellow",
@@ -1688,6 +1698,8 @@
         "expandFilmstrip": "Expand Filmstrip",
         "export": "Export",
         "pasteSettings": "Paste Settings",
+        "flagPick": "Pick (click again to unflag)",
+        "flagReject": "Reject (click again to unflag)",
         "rateStars_one": "Rate 1 star",
         "rateStars_other": "Rate {{count}} stars",
         "resetZoom": "Reset Zoom to Fit Window",

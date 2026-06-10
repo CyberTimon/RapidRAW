@@ -29,7 +29,7 @@ export const useKeyboardShortcuts = ({
   handleZoomChange,
 }: KeyboardShortcutsProps) => {
   const { handleRotate, handleCopyAdjustments, handlePasteAdjustments } = useEditorActions();
-  const { handleRate, handleSetColorLabel } = useLibraryActions();
+  const { handleRate, handleSetColorLabel, handleSetFlag } = useLibraryActions();
 
   const sortedListRef = useRef(sortedImageList);
   useEffect(() => {
@@ -429,6 +429,27 @@ export const useKeyboardShortcuts = ({
           handleSetColorLabel('purple');
         },
       },
+      flag_picked: {
+        shouldFire: () => true,
+        execute: (e: any) => {
+          e.preventDefault();
+          handleSetFlag('picked');
+        },
+      },
+      flag_rejected: {
+        shouldFire: () => true,
+        execute: (e: any) => {
+          e.preventDefault();
+          handleSetFlag('rejected');
+        },
+      },
+      flag_none: {
+        shouldFire: () => true,
+        execute: (e: any) => {
+          e.preventDefault();
+          handleSetFlag(null);
+        },
+      },
       brush_size_up: {
         shouldFire: (s: any) =>
           !!s.editor.selectedImage && !!s.editor.brushSettings && s.ui.activeRightPanel === Panel.Masks,
@@ -571,5 +592,6 @@ export const useKeyboardShortcuts = ({
     handlePasteAdjustments,
     handleRate,
     handleSetColorLabel,
+    handleSetFlag,
   ]);
 };

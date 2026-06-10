@@ -10,6 +10,8 @@ import {
   ChevronUp,
   ChevronDown,
   HelpCircle,
+  Flag,
+  FlagOff,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -18,6 +20,7 @@ import {
   FilterCriteria,
   RawStatus,
   EditedStatus,
+  FlagStatus,
   LibraryViewMode,
   SortCriteria,
   SortDirection,
@@ -332,7 +335,8 @@ export function ViewOptionsDropdown({
   const isFilterActive =
     filterCriteria.rating !== 0 ||
     (filterCriteria.rawStatus && filterCriteria.rawStatus !== RawStatus.All) ||
-    (filterCriteria.colors && filterCriteria.colors.length > 0);
+    (filterCriteria.colors && filterCriteria.colors.length > 0) ||
+    (filterCriteria.flagStatus && filterCriteria.flagStatus !== FlagStatus.All);
 
   const [lastClickedColor, setLastClickedColor] = useState<string | null>(null);
   const allColors = useMemo(() => [...COLOR_LABELS, { name: 'none', color: '#9ca3af' }], []);
@@ -650,6 +654,44 @@ export function ViewOptionsDropdown({
                     >
                       {option.label}
                     </Text>
+                    {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div>
+              <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
+                {t('library.header.viewOptions.filterByFlag', 'Filter by Flag')}
+              </Text>
+              {[
+                { key: FlagStatus.All, label: t('library.filters.flag.all', 'All Images'), icon: null },
+                { key: FlagStatus.FlaggedOnly, label: t('library.filters.flag.flaggedOnly', 'Flagged Only'), icon: <Flag size={14} className="text-green-400" /> },
+                { key: FlagStatus.RejectedOnly, label: t('library.filters.flag.rejectedOnly', 'Rejected Only'), icon: <FlagOff size={14} className="text-red-400" /> },
+                { key: FlagStatus.UnflaggedOnly, label: t('library.filters.flag.unflaggedOnly', 'Unflagged Only'), icon: null },
+              ].map((option) => {
+                const isSelected = (filterCriteria.flagStatus || FlagStatus.All) === option.key;
+                return (
+                  <button
+                    className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
+                      isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
+                    }`}
+                    key={option.key}
+                    onClick={() =>
+                      setFilterCriteria({ flagStatus: option.key as FlagStatus })
+                    }
+                    role="menuitem"
+                  >
+                    <span className="flex items-center gap-2">
+                      {option.icon}
+                      <Text
+                        variant={TextVariants.label}
+                        color={TextColors.primary}
+                        weight={isSelected ? TextWeights.semibold : TextWeights.normal}
+                      >
+                        {option.label}
+                      </Text>
+                    </span>
                     {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
                   </button>
                 );

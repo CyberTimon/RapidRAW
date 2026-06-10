@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::formats::is_raw_file;
 use crate::image_processing::ImageMetadata;
-use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use exif::{Exif, In, Value};
 use little_exif::exif_tag::ExifTag;
 use little_exif::filetype::FileExtension;
@@ -85,48 +85,6 @@ fn to_ir64(val: &exif::SRational) -> iR64 {
 
 fn clean_creation_datetime_str(s: &str) -> &str {
     s.trim().trim_matches('"').trim_matches('\'').trim()
-}
-
-// Parse "+HH:MM" / "-HH:MM" offset into total seconds east of UTC.
-fn parse_offset_secs(s: &str) -> Option<i64> {
-    let s = s.trim().trim_matches('"');
-    if s.len() < 6 {
-        return None;
-    }
-    let sign: i64 = if s.starts_with('-') { -1 } else { 1 };
-    let rest = if s.starts_with('+') || s.starts_with('-') {
-        &s[1..]
-    } else {
-        s
-    };
-    let mut parts = rest.splitn(2, ':');
-    let h = parts.next()?.parse::<i64>().ok()?;
-    let m = parts.next()?.parse::<i64>().ok()?;
-    Some(sign * (h * 3600 + m * 60))
-}
-
-// Combine a datetime string with an optional offset into EXIF inline format.
-// Input dt may use dashes or colons as date separator; output always uses colons.
-// Result: "YYYY:MM:DD HH:MM:SS+HH:MM" or "YYYY:MM:DD HH:MM:SS" if no offset.
-fn combine_datetime_with_offset(dt: &str, offset: Option<&str>) -> String {
-    let dt = dt.trim_matches('"').trim();
-    let normalized = if dt.len() >= 10 {
-        format!("{}{}", dt[..10].replace('-', ":"), &dt[10..])
-    } else {
-        dt.to_string()
-    };
-    let bare = if normalized.len() >= 19 {
-        &normalized[..19]
-    } else {
-        normalized.as_str()
-    };
-    match offset
-        .map(|s| s.trim().trim_matches('"'))
-        .filter(|s| !s.is_empty())
-    {
-        Some(off) => format!("{}{}", bare, off),
-        None => bare.to_string(),
-    }
 }
 
 fn fmt_date_str(s: String) -> String {
@@ -642,29 +600,7 @@ pub fn get_creation_date_from_path(path: &Path) -> DateTime<Utc> {
         && let Some(dt_str) = map.get("DateTimeOriginal").or(map.get("CreateDate"))
         && let Some(dt) = parse_creation_datetime(dt_str)
     {
-        let offset_secs = map
-            .get("OffsetTimeOriginal")
-            .or_else(|| map.get("OffsetTime"))
-            .and_then(|s| parse_offset_secs(s))
-            .or_else(|| {
-                // Sidecar may be stale (created before OffsetTime support); read from file.
-                if !is_raw_file(path.to_string_lossy().as_ref()) {
-                    return None;
-                }
-                let loader = rawler::RawLoader::new();
-                let raw_source = rawler::rawsource::RawSource::new(path).ok()?;
-                let decoder = loader.get_decoder(&raw_source).ok()?;
-                let meta = decoder
-                    .raw_metadata(&raw_source, &Default::default())
-                    .ok()?;
-                meta.exif
-                    .offset_time_original
-                    .as_deref()
-                    .or(meta.exif.offset_time.as_deref())
-                    .and_then(parse_offset_secs)
-            })
-            .unwrap_or(0);
-        return DateTime::from_naive_utc_and_offset(dt - Duration::seconds(offset_secs), Utc);
+        return DateTime::from_naive_utc_and_offset(dt, Utc);
     }
 
     if let Ok(file) = std::fs::File::open(path) {
@@ -688,28 +624,11 @@ pub fn get_creation_date_from_path(path: &Path) -> DateTime<Utc> {
             && let Ok(decoder) = loader.get_decoder(&raw_source)
             && let Ok(metadata) = decoder.raw_metadata(&raw_source, &Default::default())
         {
-            let offset_secs = metadata
-                .exif
-                .offset_time_original
-                .as_deref()
-                .or(metadata.exif.offset_time.as_deref())
-                .and_then(parse_offset_secs)
-                .unwrap_or(0);
-            if let Some(dt) =
-                parse_creation_datetime(metadata.exif.date_time_original.as_deref().unwrap_or(""))
-            {
-                return DateTime::from_naive_utc_and_offset(
-                    dt - Duration::seconds(offset_secs),
-                    Utc,
-                );
+            if let Some(dt) = parse_raw_creation_date(metadata.exif.date_time_original.as_deref()) {
+                return dt;
             }
-            if let Some(dt) =
-                parse_creation_datetime(metadata.exif.create_date.as_deref().unwrap_or(""))
-            {
-                return DateTime::from_naive_utc_and_offset(
-                    dt - Duration::seconds(offset_secs),
-                    Utc,
-                );
+            if let Some(dt) = parse_raw_creation_date(metadata.exif.create_date.as_deref()) {
+                return dt;
             }
         }
     }
@@ -843,27 +762,10 @@ pub fn write_image_with_metadata(
             metadata.set_tag(ExifTag::ImageDescription(clean_s(val)));
         }
         if let Some(val) = map.get("DateTimeOriginal") {
-            let offset = map.get("OffsetTimeOriginal").map(String::as_str);
-            metadata.set_tag(ExifTag::DateTimeOriginal(combine_datetime_with_offset(
-                &clean_s(val),
-                offset,
-            )));
+            metadata.set_tag(ExifTag::DateTimeOriginal(clean_s(val)));
         }
         if let Some(val) = map.get("CreateDate") {
-            let offset = map.get("OffsetTime").map(String::as_str);
-            metadata.set_tag(ExifTag::CreateDate(combine_datetime_with_offset(
-                &clean_s(val),
-                offset,
-            )));
-        }
-        if let Some(val) = map.get("OffsetTime") {
-            metadata.set_tag(ExifTag::OffsetTime(clean_s(val)));
-        }
-        if let Some(val) = map.get("OffsetTimeOriginal") {
-            metadata.set_tag(ExifTag::OffsetTimeOriginal(clean_s(val)));
-        }
-        if let Some(val) = map.get("OffsetTimeDigitized") {
-            metadata.set_tag(ExifTag::OffsetTimeDigitized(clean_s(val)));
+            metadata.set_tag(ExifTag::CreateDate(clean_s(val)));
         }
         if let Some(val) = map.get("FNumber")
             && let Some(ur) = parse_ur64(val)
@@ -940,31 +842,10 @@ pub fn write_image_with_metadata(
                 metadata.set_tag(ExifTag::Copyright(get_string_val(f)));
             }
             if let Some(f) = exif_obj.get_field(exif::Tag::DateTimeOriginal, exif::In::PRIMARY) {
-                let offset = exif_obj
-                    .get_field(exif::Tag::OffsetTimeOriginal, exif::In::PRIMARY)
-                    .map(|of| get_string_val(of));
-                metadata.set_tag(ExifTag::DateTimeOriginal(combine_datetime_with_offset(
-                    &get_string_val(f),
-                    offset.as_deref(),
-                )));
+                metadata.set_tag(ExifTag::DateTimeOriginal(get_string_val(f)));
             }
             if let Some(f) = exif_obj.get_field(exif::Tag::DateTime, exif::In::PRIMARY) {
-                let offset = exif_obj
-                    .get_field(exif::Tag::OffsetTime, exif::In::PRIMARY)
-                    .map(|of| get_string_val(of));
-                metadata.set_tag(ExifTag::CreateDate(combine_datetime_with_offset(
-                    &get_string_val(f),
-                    offset.as_deref(),
-                )));
-            }
-            if let Some(f) = exif_obj.get_field(exif::Tag::OffsetTime, exif::In::PRIMARY) {
-                metadata.set_tag(ExifTag::OffsetTime(get_string_val(f)));
-            }
-            if let Some(f) = exif_obj.get_field(exif::Tag::OffsetTimeOriginal, exif::In::PRIMARY) {
-                metadata.set_tag(ExifTag::OffsetTimeOriginal(get_string_val(f)));
-            }
-            if let Some(f) = exif_obj.get_field(exif::Tag::OffsetTimeDigitized, exif::In::PRIMARY) {
-                metadata.set_tag(ExifTag::OffsetTimeDigitized(get_string_val(f)));
+                metadata.set_tag(ExifTag::CreateDate(get_string_val(f)));
             }
             if let Some(f) = exif_obj.get_field(exif::Tag::FNumber, exif::In::PRIMARY)
                 && let exif::Value::Rational(v) = &f.value
@@ -1074,23 +955,11 @@ pub fn write_image_with_metadata(
             if let Some(copyright) = exif.copyright {
                 metadata.set_tag(ExifTag::Copyright(copyright));
             }
-            if let Some(ref dt) = exif.date_time_original {
-                let combined =
-                    combine_datetime_with_offset(dt, exif.offset_time_original.as_deref());
-                metadata.set_tag(ExifTag::DateTimeOriginal(combined));
+            if let Some(dt) = exif.date_time_original {
+                metadata.set_tag(ExifTag::DateTimeOriginal(dt));
             }
-            if let Some(ref dt) = exif.create_date {
-                let combined = combine_datetime_with_offset(dt, exif.offset_time.as_deref());
-                metadata.set_tag(ExifTag::CreateDate(combined));
-            }
-            if let Some(ot) = exif.offset_time {
-                metadata.set_tag(ExifTag::OffsetTime(ot));
-            }
-            if let Some(oto) = exif.offset_time_original {
-                metadata.set_tag(ExifTag::OffsetTimeOriginal(oto));
-            }
-            if let Some(otd) = exif.offset_time_digitized {
-                metadata.set_tag(ExifTag::OffsetTimeDigitized(otd));
+            if let Some(dt) = exif.create_date {
+                metadata.set_tag(ExifTag::CreateDate(dt));
             }
             if let Some(lens_make) = exif.lens_make {
                 metadata.set_tag(ExifTag::LensMake(lens_make));

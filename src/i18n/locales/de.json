@@ -824,6 +824,12 @@
         "editedOnly": "Nur bearbeitete",
         "uneditedOnly": "Nur unbearbeitete"
       },
+      "flag": {
+        "all": "Alle Bilder",
+        "flaggedOnly": "Nur markierte",
+        "rejectedOnly": "Nur abgelehnte",
+        "unflaggedOnly": "Nur unmarkierte"
+      },
       "noMatch": "Keine Bilder gefunden, die Ihrem Filter entsprechen.",
       "rating": {
         "all": "Alle anzeigen",
@@ -895,6 +901,7 @@
         "filterByColorLabel": "Nach Farbmarkierung filtern",
         "filterByEdited": "Nach Bearbeitungsstatus filtern",
         "filterByFileType": "Nach Dateityp filtern",
+        "filterByFlag": "Nach Markierung filtern",
         "filterByRating": "Nach Bewertung filtern",
         "metadataAlways": "Immer",
         "metadataHover": "Beim Darüberfahren",
@@ -1421,6 +1428,9 @@
         "color_label_blue": "Farbmarkierung: Blau",
         "color_label_green": "Farbmarkierung: Grün",
         "color_label_none": "Farbmarkierung: Keine",
+        "flag_none": "Markierung: Entfernen",
+        "flag_picked": "Markierung: Ausgewählt",
+        "flag_rejected": "Markierung: Abgelehnt",
         "color_label_purple": "Farbmarkierung: Lila",
         "color_label_red": "Farbmarkierung: Rot",
         "color_label_yellow": "Farbmarkierung: Gelb",
@@ -1688,6 +1698,8 @@
         "expandFilmstrip": "Filmstreifen erweitern",
         "export": "Exportieren",
         "pasteSettings": "Einstellungen einfügen",
+        "flagPick": "Auswählen (erneut klicken zum Entmarkieren)",
+        "flagReject": "Ablehnen (erneut klicken zum Entmarkieren)",
         "rateStars_one": "Mit 1 Stern bewerten",
         "rateStars_other": "Mit {{count}} Sternen bewerten",
         "resetZoom": "Zoom auf Einpassen zurücksetzen",

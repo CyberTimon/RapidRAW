@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings } from 'lucide-react';
+import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings, Flag, FlagOff } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
@@ -9,6 +9,7 @@ import Filmstrip from './Filmstrip';
 import { GLOBAL_KEYS, ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { useEditorStore } from '../../store/useEditorStore';
+import { useLibraryActions } from '../../hooks/useLibraryActions';
 
 interface BottomBarProps {
   filmstripHeight?: number;
@@ -89,6 +90,57 @@ const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
   );
 };
 
+interface FlagButtonsProps {
+  disabled: boolean;
+  flag: string | null;
+  onSetFlag(flag: 'picked' | 'rejected' | null): void;
+}
+
+const FlagButtons = ({ flag, onSetFlag, disabled }: FlagButtonsProps) => {
+  const { t } = useTranslation();
+
+  return (
+    <div className={clsx('flex items-center gap-1', disabled && 'cursor-not-allowed')}>
+      <button
+        className="disabled:cursor-not-allowed"
+        disabled={disabled}
+        onClick={() => !disabled && onSetFlag('picked')}
+        data-tooltip={disabled ? t('ui.bottomBar.tooltips.selectToRate') : t('ui.bottomBar.tooltips.flagPick')}
+      >
+        <Flag
+          size={18}
+          className={clsx(
+            'transition-colors duration-150',
+            disabled
+              ? 'text-text-secondary opacity-40'
+              : flag === 'picked'
+                ? 'fill-green-500 text-green-500'
+                : 'text-text-secondary hover:text-green-500',
+          )}
+        />
+      </button>
+      <button
+        className="disabled:cursor-not-allowed"
+        disabled={disabled}
+        onClick={() => !disabled && onSetFlag('rejected')}
+        data-tooltip={disabled ? t('ui.bottomBar.tooltips.selectToRate') : t('ui.bottomBar.tooltips.flagReject')}
+      >
+        <FlagOff
+          size={18}
+          className={clsx(
+            'transition-colors duration-150',
+            disabled
+              ? 'text-text-secondary opacity-40'
+              : flag === 'rejected'
+                ? 'fill-red-500 text-red-500'
+                : 'text-text-secondary hover:text-red-500',
+          )}
+        />
+      </button>
+    </div>
+  );
+};
+
 export default function BottomBar({
   filmstripHeight,
   imageList = [],
@@ -125,6 +177,15 @@ export default function BottomBar({
   totalImages,
 }: BottomBarProps) {
   const { t } = useTranslation();
+  const { handleSetFlag } = useLibraryActions();
+
+  const currentFlag =
+    selectedImage
+      ? (imageList.find((img) => img.path === selectedImage.path)?.tags || [])
+          .find((tag) => tag.startsWith('flag:'))
+          ?.substring(5) ?? null
+      : null;
+
   const { displaySize, originalSize } = useEditorStore(
     useShallow((state) => ({
       displaySize: state.displaySize,
@@ -278,6 +339,8 @@ export default function BottomBar({
       >
         <div className="flex items-center gap-4">
           <StarRating rating={rating} onRate={onRate} disabled={isRatingDisabled} />
+          <div className="h-5 w-px bg-surface"></div>
+          <FlagButtons flag={currentFlag} onSetFlag={handleSetFlag} disabled={isRatingDisabled} />
           <div className="h-5 w-px bg-surface"></div>
           <div className="flex items-center gap-2">
             <button

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Image as ImageIcon, Folder, FolderOpen, Star as StarIcon, SlidersHorizontal } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Image as ImageIcon, Folder, FolderOpen, Star as StarIcon, SlidersHorizontal, Flag, FlagOff } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
@@ -133,6 +134,7 @@ const ThumbnailComponent = ({
 
   const colorTag = tags?.find((t: string) => t.startsWith('color:'))?.substring(6);
   const colorLabel = COLOR_LABELS.find((c: Color) => c.name === colorTag);
+  const flagTag = tags?.find((t: string) => t.startsWith('flag:'))?.substring(5) as 'picked' | 'rejected' | undefined;
 
   const isAlways = exifOverlay === ExifOverlay.Always;
   const isHover = exifOverlay === ExifOverlay.Hover;
@@ -193,6 +195,26 @@ const ThumbnailComponent = ({
           hasAnyOverlay ? 'opacity-100' : 'opacity-0',
         )}
       />
+
+      <AnimatePresence initial={false}>
+        {flagTag && (
+          <motion.div
+            key="flag-badge"
+            initial={{ opacity: 0, scale: 0.8, y: -5 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: -5 }}
+            transition={{ duration: 0.25, type: 'spring', bounce: 0.3 }}
+            className="absolute top-2 left-2 z-10 pointer-events-none rounded-full p-1 backdrop-blur-md shadow-md"
+            style={{ backgroundColor: flagTag === 'picked' ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)' }}
+          >
+            {flagTag === 'picked' ? (
+              <Flag size={11} className="text-green-400 fill-green-400" />
+            ) : (
+              <FlagOff size={11} className="text-red-400" />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="absolute top-1.5 right-1.5 flex items-center justify-end z-10 pointer-events-none">
         <div
