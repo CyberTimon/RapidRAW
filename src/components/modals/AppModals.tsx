@@ -19,7 +19,8 @@ import ConfirmModal from './ConfirmModal';
 import ImportSettingsModal from './ImportSettingsModal';
 import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
-import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
+import LensCorrectionModal from './LensCorrectionModal';
+import { AppSettings, AlbumItem } from '../ui/AppProperties';
 import { CopyPasteSettings } from '../../utils/adjustments';
 
 export interface AppModalsProps {
@@ -35,10 +36,10 @@ export interface AppModalsProps {
   handleCreateFolder: (folderName: string) => Promise<void>;
   handleRenameFolder: (newName: string) => Promise<void>;
   handleSaveRename: (nameTemplate: string) => Promise<void>;
-  handleStartImport: (settings: any) => Promise<void>;
+  handleStartImport: (settings: unknown) => Promise<void>;
   handleSetColorLabel: (color: string | null, paths?: string[]) => Promise<void>;
   handleRate: (rating: number, paths?: string[]) => void;
-  executeDelete: (paths: string[], options: any) => Promise<void>;
+  executeDelete: (paths: string[], options: unknown) => Promise<void>;
   handleSaveCollage: (base64Data: string, firstPath: string) => Promise<string>;
   handleCreateAlbumItem: (name: string, type: 'album' | 'group') => Promise<void>;
   handleRenameAlbumItem: (newName: string) => Promise<void>;
@@ -59,6 +60,7 @@ export default function AppModals(props: AppModalsProps) {
     isRenameFileModalOpen,
     isImportModalOpen,
     isCopyPasteSettingsModalOpen,
+    isLensCorrectionModalOpen,
     folderActionTarget,
     renameTargetPaths,
     importSourcePaths,
@@ -81,6 +83,7 @@ export default function AppModals(props: AppModalsProps) {
       isRenameFileModalOpen: state.isRenameFileModalOpen,
       isImportModalOpen: state.isImportModalOpen,
       isCopyPasteSettingsModalOpen: state.isCopyPasteSettingsModalOpen,
+      isLensCorrectionModalOpen: state.isLensCorrectionModalOpen,
       folderActionTarget: state.folderActionTarget,
       renameTargetPaths: state.renameTargetPaths,
       importSourcePaths: state.importSourcePaths,
@@ -217,6 +220,10 @@ export default function AppModals(props: AppModalsProps) {
             }
           });
         }}
+      />
+      <LensCorrectionModal
+        isOpen={isLensCorrectionModalOpen}
+        onClose={() => setUI({ isLensCorrectionModalOpen: false })}
       />
       <DenoiseModal
         isOpen={denoiseModalState.isOpen}

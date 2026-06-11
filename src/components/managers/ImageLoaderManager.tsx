@@ -1,4 +1,5 @@
 import { useImageLoader } from '../../hooks/useImageLoader';
+import { useAutoLensCorrection } from '../../hooks/useAutoLensCorrection';
 
 interface Props {
   cachedEditStateRef: React.RefObject<any>;
@@ -6,6 +7,7 @@ interface Props {
 
 export default function ImageLoaderManager({ cachedEditStateRef }: Props) {
   useImageLoader(cachedEditStateRef);
+  useAutoLensCorrection();
 
   return null;
 }

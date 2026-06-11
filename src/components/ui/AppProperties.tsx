@@ -181,6 +181,8 @@ export interface AppSettings {
   linuxGpuOptimization?: boolean;
   exportPresets?: ExportPreset[];
   myLenses?: any;
+  autoApplyLensCorrection?: boolean;
+  promptForUnknownLensProfile?: boolean;
   enableFolderImageCounts?: boolean;
   displayEditIcon?: boolean;
   linearRawMode?: string;
