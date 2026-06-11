@@ -98,8 +98,10 @@ impl WgpuDisplay {
                 });
                 let clip_x1 = self.latest_transform.clip[0].max(0.0);
                 let clip_y1 = self.latest_transform.clip[1].max(0.0);
-                let clip_x2 = (clip_x1 + self.latest_transform.clip[2]).max(0.0);
-                let clip_y2 = (clip_y1 + self.latest_transform.clip[3]).max(0.0);
+                let clip_x2 =
+                    (self.latest_transform.clip[0] + self.latest_transform.clip[2]).max(0.0);
+                let clip_y2 =
+                    (self.latest_transform.clip[1] + self.latest_transform.clip[3]).max(0.0);
 
                 let final_clip_x = clip_x1.floor() as u32;
                 let final_clip_y = clip_y1.floor() as u32;
@@ -113,17 +115,19 @@ impl WgpuDisplay {
                     let clamped_width = final_clip_w.min(max_x - final_clip_x);
                     let clamped_height = final_clip_h.min(max_y - final_clip_y);
 
-                    rpass.set_scissor_rect(
-                        final_clip_x,
-                        final_clip_y,
-                        clamped_width,
-                        clamped_height,
-                    );
-                }
+                    if clamped_width > 0 && clamped_height > 0 {
+                        rpass.set_scissor_rect(
+                            final_clip_x,
+                            final_clip_y,
+                            clamped_width,
+                            clamped_height,
+                        );
 
-                rpass.set_pipeline(&self.pipeline);
-                rpass.set_bind_group(0, bind_group, &[]);
-                rpass.draw(0..4, 0..1);
+                        rpass.set_pipeline(&self.pipeline);
+                        rpass.set_bind_group(0, bind_group, &[]);
+                        rpass.draw(0..4, 0..1);
+                    }
+                }
             }
             queue.submit(Some(encoder.finish()));
             output.present();

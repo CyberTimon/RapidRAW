@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
@@ -14,27 +15,31 @@ interface ConfigurePresetModalProps {
   initialPreset?: Preset | null;
 }
 
-const presetTypeOptions = [
-  {
-    id: 'style',
-    label: 'Style',
-    title: 'Applies the complete look. This will override all your current settings to match the preset exactly.',
-  },
-  {
-    id: 'tool',
-    label: 'Tool',
-    title: 'Only applies specific changes without touching your other settings.',
-  },
-] as const;
-
 interface PresetTypeSwitchProps {
   selectedType: 'tool' | 'style';
   onChange: (type: 'tool' | 'style') => void;
 }
 
 const PresetTypeSwitch = ({ selectedType, onChange }: PresetTypeSwitchProps) => {
+  const { t } = useTranslation();
   const [bubbleStyle, setBubbleStyle] = useState({});
   const isInitialAnimation = useRef(true);
+
+  const presetTypeOptions = useMemo(
+    () => [
+      {
+        id: 'style' as const,
+        label: t('modals.configurePreset.typeStyleLabel'),
+        title: t('modals.configurePreset.typeStyleDesc'),
+      },
+      {
+        id: 'tool' as const,
+        label: t('modals.configurePreset.typeToolLabel'),
+        title: t('modals.configurePreset.typeToolDesc'),
+      },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     const selectedIndex = presetTypeOptions.findIndex((m) => m.id === selectedType);
@@ -58,7 +63,7 @@ const PresetTypeSwitch = ({ selectedType, onChange }: PresetTypeSwitchProps) => 
         width: targetWidth,
       });
     }
-  }, [selectedType]);
+  }, [selectedType, presetTypeOptions]);
 
   return (
     <div className="w-full p-1.5 bg-card-active rounded-md mt-2">
@@ -75,7 +80,7 @@ const PresetTypeSwitch = ({ selectedType, onChange }: PresetTypeSwitchProps) => 
             data-tooltip={option.title}
             onClick={(e) => {
               e.preventDefault();
-              onChange(option.id as 'tool' | 'style');
+              onChange(option.id);
             }}
             className={clsx(
               'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
@@ -95,6 +100,7 @@ const PresetTypeSwitch = ({ selectedType, onChange }: PresetTypeSwitchProps) => 
 };
 
 export default function ConfigurePresetModal({ isOpen, onClose, onSave, initialPreset }: ConfigurePresetModalProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [includeMasks, setIncludeMasks] = useState(false);
   const [includeCropTransform, setIncludeCropTransform] = useState(false);
@@ -176,21 +182,25 @@ export default function ConfigurePresetModal({ isOpen, onClose, onSave, initialP
         onClick={(e: any) => e.stopPropagation()}
       >
         <Text variant={TextVariants.title} className="mb-4">
-          {initialPreset ? 'Configure Preset' : 'Save New Preset'}
+          {initialPreset ? t('modals.configurePreset.titleConfigure') : t('modals.configurePreset.titleSave')}
         </Text>
         <input
           autoFocus
           className="w-full bg-bg-primary text-text-primary border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
           onChange={(e: any) => setName(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Enter preset name..."
+          placeholder={t('modals.configurePreset.placeholder')}
           type="text"
           value={name}
         />
 
         <div className="mt-5 mb-4 p-1 space-y-4">
-          <Switch label="Include Masks" checked={includeMasks} onChange={setIncludeMasks} />
-          <Switch label="Include Crop & Transform" checked={includeCropTransform} onChange={setIncludeCropTransform} />
+          <Switch label={t('modals.configurePreset.includeMasks')} checked={includeMasks} onChange={setIncludeMasks} />
+          <Switch
+            label={t('modals.configurePreset.includeCropTransform')}
+            checked={includeCropTransform}
+            onChange={setIncludeCropTransform}
+          />
         </div>
 
         <PresetTypeSwitch selectedType={presetType} onChange={setPresetType} />
@@ -200,14 +210,14 @@ export default function ConfigurePresetModal({ isOpen, onClose, onSave, initialP
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors"
             onClick={onClose}
           >
-            Cancel
+            {t('modals.configurePreset.cancel')}
           </button>
           <button
             className="px-4 py-2 rounded-md bg-accent text-button-text font-semibold hover:bg-accent-hover disabled:bg-gray-500 disabled:text-white disabled:cursor-not-allowed transition-colors"
             disabled={!name.trim()}
             onClick={handleSave}
           >
-            Save
+            {t('modals.configurePreset.save')}
           </button>
         </div>
       </div>

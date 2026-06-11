@@ -870,6 +870,31 @@
         </calibration>
     </lens>
 
+	<lens>
+        <maker>Sigma</maker>
+        <model>24-70mm F2.8 DG DN II | Art 024</model>
+        <mount>Leica L</mount>
+        <mount>Sony E</mount>
+        <cropfactor>1.0</cropfactor>
+        <calibration>
+            <!-- Taken with Lumix DC-S5M2 -->
+            <distortion model="ptlens" focal="24" a="0.0259546" b="-0.0660457" c="0.0072085"/>
+            <distortion model="ptlens" focal="26" a="0.0200757" b="-0.0474195" c="0.0023985"/>
+            <distortion model="ptlens" focal="28" a="0.0152981" b="-0.0305125" c="-0.005953"/>
+            <distortion model="ptlens" focal="35" a="0.0163281" b="-0.054251" c="0.0720896"/>
+            <distortion model="ptlens" focal="42" a="0.0013053" b="0.0130106" c="-0.0134662"/>
+            <distortion model="ptlens" focal="50" a="0.003111" b="0.0007578" c="0.0144751"/>
+            <distortion model="ptlens" focal="70" a="-0.0098212" b="0.0402125" c="-0.0246549"/>
+            <tca model="poly3" focal="24" vr="1.0001517" vb="1.0000218"/>
+            <tca model="poly3" focal="26" vr="1.0001363" vb="1.0000223"/>
+            <tca model="poly3" focal="28" vr="1.0001136" vb="1.0000215"/>
+            <tca model="poly3" focal="35" vr="1.0000664" vb="1.0000028"/>
+            <tca model="poly3" focal="42" vr="1.0000326" vb="0.9999886"/>
+            <tca model="poly3" focal="50" vr="0.9999807" vb="0.9999809"/>
+            <tca model="poly3" focal="70" vr="0.9998615" vb="1.0000057"/>
+        </calibration>
+    </lens>
+	
     <lens>
         <maker>Sigma</maker>
         <model>35mm F2 DG DN | Contemporary 020</model>

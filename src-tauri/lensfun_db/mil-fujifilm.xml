@@ -2199,6 +2199,24 @@
         </calibration>
     </lens>
 
+	<lens>
+        <maker>Fujifilm</maker>
+        <model>GF35-70mmF4.5-5.6 WR</model>
+        <mount>Fujifilm G</mount>
+        <cropfactor>0.79</cropfactor>
+        <calibration>
+            <!-- Taken with Fujifilm GFX50S -->
+            <distortion model="ptlens" focal="35" a="0.0139605" b="-0.0519035" c="0.0110288"/>
+            <distortion model="ptlens" focal="35.6" a="0.0035042" b="-0.0135616" c="-0.0170482"/>
+            <distortion model="ptlens" focal="37.6" a="0.0099162" b="-0.0337503" c="0.004928"/>
+            <distortion model="ptlens" focal="41.8" a="-0.001743" b="0.0111055" c="-0.0398578"/>
+            <distortion model="ptlens" focal="48.2" a="-0.0009373" b="0.0072452" c="-0.0227153"/>
+            <distortion model="ptlens" focal="58.6" a="-0.0071245" b="0.0260238" c="-0.0321751"/>
+            <distortion model="ptlens" focal="65.2" a="0.0059754" b="-0.0155426" c="0.0103616"/>
+            <distortion model="ptlens" focal="70" a="-9.53e-05" b="0.0014091" c="-0.0029489"/>
+        </calibration>
+    </lens>
+
     <lens>
         <maker>Fujifilm</maker>
         <model>XF33mmF1.4 R LM WR</model>

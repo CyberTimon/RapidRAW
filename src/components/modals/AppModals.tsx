@@ -1,4 +1,7 @@
 import { useShallow } from 'zustand/react/shallow';
+import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'react-toastify';
+import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -43,6 +46,7 @@ export interface AppModalsProps {
 }
 
 export default function AppModals(props: AppModalsProps) {
+  const { t } = useTranslation();
   const { appSettings, handleSettingsChange } = useSettingsStore(
     useShallow((state) => ({
       appSettings: state.appSettings,
@@ -116,21 +120,24 @@ export default function AppModals(props: AppModalsProps) {
     setUI((state) => ({ confirmModalState: { ...state.confirmModalState, isOpen: false } }));
   };
 
-  const currentAlbumName = (() => {
-    if (!albumActionTarget) return '';
+  const currentAlbumData = (() => {
+    if (!albumActionTarget) return null;
     const { albumTree } = useLibraryStore.getState();
-    const findName = (nodes: AlbumItem[]): string | null => {
+    const findNode = (nodes: AlbumItem[]): AlbumItem | null => {
       for (const n of nodes) {
-        if (n.id === albumActionTarget) return n.name;
+        if (n.id === albumActionTarget) return n;
         if (n.type === 'group') {
-          const res = findName(n.children);
+          const res = findNode((n as AlbumGroup).children);
           if (res) return res;
         }
       }
       return null;
     };
-    return findName(albumTree) || '';
+    return findNode(albumTree);
   })();
+
+  const currentAlbumName = currentAlbumData?.name || '';
+  const isAlbumGroup = currentAlbumData?.type === 'group';
 
   return (
     <>
@@ -240,38 +247,41 @@ export default function AppModals(props: AppModalsProps) {
             : null
         }
       />
-
-      {/* Folders */}
       <CreateFolderModal
         isOpen={isCreateFolderModalOpen}
         onClose={() => setUI({ isCreateFolderModalOpen: false })}
         onSave={props.handleCreateFolder}
       />
       <RenameFolderModal
-        currentName={folderActionTarget ? folderActionTarget.split(/[\\/]/).pop() : ''}
+        currentName={folderActionTarget ? folderActionTarget.split(/[\\/]/).pop() || '' : ''}
         isOpen={isRenameFolderModalOpen}
         onClose={() => setUI({ isRenameFolderModalOpen: false })}
         onSave={props.handleRenameFolder}
       />
-
-      {/* Albums */}
       <CreateFolderModal
         isOpen={isCreateAlbumModalOpen}
         onClose={() => setUI({ isCreateAlbumModalOpen: false })}
         onSave={(name) => props.handleCreateAlbumItem(name, 'album')}
+        title={t('contextMenus.albums.newAlbum')}
+        placeholder={t('modals.createAlbum.placeholder')}
+        buttonText={t('modals.createFolder.create')}
       />
       <CreateFolderModal
         isOpen={isCreateAlbumGroupModalOpen}
         onClose={() => setUI({ isCreateAlbumGroupModalOpen: false })}
         onSave={(name) => props.handleCreateAlbumItem(name, 'group')}
+        title={t('contextMenus.albums.newGroup')}
+        placeholder={t('modals.createGroup.placeholder')}
+        buttonText={t('modals.createFolder.create')}
       />
       <RenameFolderModal
         currentName={currentAlbumName}
         isOpen={isRenameAlbumModalOpen}
         onClose={() => setUI({ isRenameAlbumModalOpen: false })}
         onSave={props.handleRenameAlbumItem}
+        title={isAlbumGroup ? t('contextMenus.albums.renameGroup') : t('contextMenus.albums.renameAlbum')}
+        placeholder={isAlbumGroup ? t('modals.renameGroup.placeholder') : t('modals.renameAlbum.placeholder')}
       />
-
       <RenameFileModal
         filesToRename={renameTargetPaths}
         isOpen={isRenameFileModalOpen}

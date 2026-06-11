@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { useTranslation, Trans } from 'react-i18next';
 import {
   RotateCcw,
   Check,
@@ -106,11 +107,14 @@ const DEFAULT_PARAMS: LensParams = {
 
 const SLIDER_DIVISOR = 100.0;
 
-export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionModalProps) {
-  const currentAdjustments = useEditorStore((state) => (isOpen ? state.adjustments : null));
-  const selectedImage = useEditorStore((state) => (isOpen ? state.selectedImage : null));
-  const { setAdjustments } = useEditorActions();
-
+export default function LensCorrectionModal({
+  isOpen,
+  onClose,
+  onApply,
+  currentAdjustments,
+  selectedImage,
+}: LensCorrectionModalProps) {
+  const { t } = useTranslation();
   const [params, setParams] = useState<LensParams>(DEFAULT_PARAMS);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
@@ -497,15 +501,41 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
 
   const makerOptions = makers.map((m) => ({ label: m, value: m }));
   const lensOptions = lenses.map((m) => ({ label: m, value: m }));
+
   const myLensOptions = useMemo(() => {
     if (myLenses.length === 0) {
-      return [{ label: 'Manage your lenses in Settings', value: 'none' }];
+      return [{ label: t('modals.lensCorrection.manageLensesPlaceholder'), value: 'none' }];
     }
     return myLenses.map((l, i) => ({
       label: `${l.maker} - ${l.model}`,
       value: i.toString(),
     }));
-  }, [myLenses]);
+  }, [myLenses, t]);
+
+  const autoDetectButtonContent = () => {
+    switch (detectionStatus) {
+      case 'detecting':
+        return (
+          <>
+            <Loader size={16} className="animate-spin" /> {t('modals.lensCorrection.detecting')}
+          </>
+        );
+      case 'not_found':
+        return t('modals.lensCorrection.notFound');
+      case 'success':
+        return (
+          <>
+            <Check size={16} /> {t('modals.lensCorrection.lensFound')}
+          </>
+        );
+      default:
+        return (
+          <>
+            <Search size={16} /> {t('modals.lensCorrection.autoDetectLens')}
+          </>
+        );
+    }
+  };
 
   const handleModeChange = (mode: 'auto' | 'manual') => {
     const newParams = { ...params, lensCorrectionMode: mode };
@@ -521,40 +551,43 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
   const renderControls = () => (
     <div className="modal-adjustments-pane w-80 shrink-0 bg-bg-secondary flex flex-col border-l border-surface h-full z-10">
       <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>Lens Correction</Text>
+        <Text variant={TextVariants.title}>{t('modals.lensCorrection.title')}</Text>
         <button
           onClick={handleReset}
-          data-tooltip="Reset Lens Correction"
+          data-tooltip={t('modals.lensCorrection.resetTooltip')}
           className="p-2 rounded-full hover:bg-surface transition-colors"
         >
           <RotateCcw size={18} />
         </button>
       </div>
       <div className="grow overflow-y-auto p-4 flex flex-col gap-6 text-text-secondary">
-        <div className="bg-bg-primary rounded-md p-1">
+        <div className="w-full p-2 bg-card-active rounded-md">
           <div className="relative flex w-full">
             <motion.div
-              className="absolute top-0 bottom-0 z-0 bg-surface rounded-md shadow-sm"
+              className="absolute top-0 bottom-0 z-0 bg-accent"
+              style={{ borderRadius: 6 }}
               animate={modeBubbleStyle}
               transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
             />
             <button
               onClick={() => handleModeChange('auto')}
               className={clsx(
-                'relative z-10 flex-1 py-1.5 text-sm font-medium rounded-md transition-colors',
-                params.lensCorrectionMode === 'auto' ? 'text-white' : 'text-text-secondary hover:text-white',
+                'relative flex-1 flex items-center justify-center gap-2 px-3 p-1.5 text-sm font-medium rounded-md transition-colors',
+                params.lensCorrectionMode === 'auto' ? 'text-button-text' : 'text-text-primary hover:bg-surface',
               )}
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              Auto
+              <span className="relative z-10 flex items-center">{t('modals.lensCorrection.modeAuto')}</span>
             </button>
             <button
               onClick={() => handleModeChange('manual')}
               className={clsx(
-                'relative z-10 flex-1 py-1.5 text-sm font-medium rounded-md transition-colors',
-                params.lensCorrectionMode === 'manual' ? 'text-white' : 'text-text-secondary hover:text-white',
+                'relative flex-1 flex items-center justify-center gap-2 px-3 p-1.5 text-sm font-medium rounded-md transition-colors',
+                params.lensCorrectionMode === 'manual' ? 'text-button-text' : 'text-text-primary hover:bg-surface',
               )}
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              Manual
+              <span className="relative z-10 flex items-center">{t('modals.lensCorrection.modeManual')}</span>
             </button>
           </div>
         </div>
@@ -562,7 +595,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
         {params.lensCorrectionMode === 'auto' ? (
           <div>
             <Text variant={TextVariants.heading} className="mb-2">
-              Auto Detection Status
+              {t('modals.lensCorrection.autoDetectStatus')}
             </Text>
             <div className="space-y-3">
               <div
@@ -577,16 +610,16 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
               >
                 {detectionStatus === 'detecting' ? (
                   <>
-                    <Loader size={16} className="animate-spin" /> Detecting EXIF...
+                    <Loader size={16} className="animate-spin" /> {t('modals.lensCorrection.detectingExif')}
                   </>
                 ) : detectionStatus === 'not_found' ? (
-                  'Lens profile not found'
+                  t('modals.lensCorrection.lensProfileNotFound')
                 ) : params.lensMaker && params.lensModel ? (
                   <>
                     <Check size={16} /> {params.lensMaker} - {params.lensModel}
                   </>
                 ) : (
-                  'Waiting for Auto-Detect...'
+                  t('modals.lensCorrection.waitingAutoDetect')
                 )}
               </div>
             </div>
@@ -594,27 +627,27 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
         ) : (
           <div>
             <Text variant={TextVariants.heading} className="mb-2">
-              Manual Selection
+              {t('modals.lensCorrection.manualSelection')}
             </Text>
             <div className="space-y-4">
               <Dropdown
                 options={myLensOptions}
                 value=""
                 onChange={handleMyLensSelect}
-                placeholder="Choose Saved Lens"
+                placeholder={t('modals.lensCorrection.chooseSavedLens')}
               />
               <Dropdown
                 options={makerOptions}
                 value={params.lensMaker}
                 onChange={handleMakerChange}
-                placeholder="Select Manufacturer"
+                placeholder={t('modals.lensCorrection.selectManufacturer')}
               />
               {params.lensMaker && (
                 <Dropdown
                   options={lensOptions}
                   value={params.lensModel}
                   onChange={handleModelChange}
-                  placeholder="Select Lens Model"
+                  placeholder={t('modals.lensCorrection.selectLensModel')}
                 />
               )}
             </div>
@@ -623,7 +656,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
 
         <div>
           <Text variant={TextVariants.heading} className="mb-2">
-            Corrections
+            {t('modals.lensCorrection.corrections')}
           </Text>
 
           <div className="flex flex-col gap-4">
@@ -639,7 +672,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
                 </Text>
                 <Switch
                   className="grow"
-                  label="Distortion"
+                  label={t('modals.lensCorrection.distortion')}
                   checked={params.lensDistortionEnabled && availability.distortion}
                   onChange={(val) => handleToggleChange('lensDistortionEnabled', val)}
                   disabled={!availability.distortion}
@@ -655,7 +688,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
                     className="overflow-hidden px-2"
                   >
                     <Slider
-                      label="Amount"
+                      label={t('modals.lensCorrection.amount')}
                       value={params.lensDistortionAmount}
                       min={0}
                       max={200}
@@ -680,7 +713,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
                 </Text>
                 <Switch
                   className="grow"
-                  label="Chromatic Aberration"
+                  label={t('modals.lensCorrection.chromaticAberration')}
                   checked={params.lensTcaEnabled && availability.tca}
                   onChange={(val) => handleToggleChange('lensTcaEnabled', val)}
                   disabled={!availability.tca}
@@ -696,7 +729,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
                     className="overflow-hidden px-2"
                   >
                     <Slider
-                      label="Amount"
+                      label={t('modals.lensCorrection.amount')}
                       value={params.lensTcaAmount}
                       min={0}
                       max={200}
@@ -721,7 +754,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
                 </Text>
                 <Switch
                   className="grow"
-                  label="Vignetting"
+                  label={t('modals.lensCorrection.vignetting')}
                   checked={params.lensVignetteEnabled && availability.vignetting}
                   onChange={(val) => handleToggleChange('lensVignetteEnabled', val)}
                   disabled={!availability.vignetting}
@@ -737,7 +770,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
                     className="overflow-hidden px-2"
                   >
                     <Slider
-                      label="Amount"
+                      label={t('modals.lensCorrection.amount')}
                       value={params.lensVignetteAmount}
                       min={0}
                       max={200}
@@ -760,9 +793,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
               className="p-3 bg-surface rounded-md border border-surface flex items-center gap-3"
             >
               <Info size={16} className="shrink-0" />
-              <p className="leading-relaxed">
-                Lens correction updates base geometry. Existing masks may shift, and AI masks must be regenerated.
-              </p>
+              <p className="leading-relaxed">{t('modals.lensCorrection.maskWarning')}</p>
             </Text>
           )}
           <Text
@@ -772,7 +803,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
           >
             <Info size={16} className="shrink-0" />
             <div className="leading-tight space-y-1">
-              <p>
+              <Trans i18nKey="modals.lensCorrection.databaseNotice">
                 Lens database provided by the{' '}
                 <a
                   href="https://lensfun.github.io/"
@@ -792,7 +823,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
                   CC BY-SA 3.0
                 </a>
                 ).
-              </p>
+              </Trans>
             </div>
           </Text>
         </div>
@@ -832,7 +863,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
                       color={TextColors.button}
                       className="absolute top-4 left-4 bg-accent px-2 py-1 rounded-sm shadow-lg z-20"
                     >
-                      Original
+                      {t('modals.lensCorrection.original')}
                     </Text>
                   )}
                 </div>
@@ -847,7 +878,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
             <button
               onClick={() => setZoom((z) => Math.max(0.1, z - 0.25))}
               className="p-2 text-white/60 hover:bg-white/10 hover:text-white rounded-full transition-colors"
-              data-tooltip="Zoom Out"
+              data-tooltip={t('modals.lensCorrection.zoomOutTooltip')}
             >
               <ZoomOut size={18} />
             </button>
@@ -857,14 +888,14 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
             <button
               onClick={() => setZoom((z) => Math.min(8, z + 0.25))}
               className="p-2 text-white/60 hover:bg-white/10 hover:text-white rounded-full transition-colors"
-              data-tooltip="Zoom In"
+              data-tooltip={t('modals.lensCorrection.zoomInTooltip')}
             >
               <ZoomIn size={18} />
             </button>
             <button
               onClick={handleResetZoom}
               className="p-2 text-white/60 hover:bg-white/10 hover:text-white rounded-full transition-colors"
-              data-tooltip="Reset Zoom"
+              data-tooltip={t('modals.lensCorrection.resetZoomTooltip')}
             >
               <Maximize size={16} />
             </button>
@@ -877,7 +908,7 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
                 'p-2 rounded-full transition-colors select-none',
                 isCompareActive ? 'bg-accent text-white' : 'text-white/60 hover:bg-white/10 hover:text-white',
               )}
-              data-tooltip="Hold to Compare"
+              data-tooltip={t('modals.lensCorrection.compareTooltip')}
             >
               {isCompareActive ? <Eye size={18} /> : <EyeOff size={18} />}
             </button>
@@ -916,10 +947,10 @@ export default function LensCorrectionModal({ isOpen, onClose }: LensCorrectionM
                 onClick={onClose}
                 className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors"
               >
-                Cancel
+                {t('modals.lensCorrection.cancel')}
               </button>
               <Button onClick={handleApply} disabled={isApplying || !previewUrl}>
-                <Check className="mr-2" size={16} /> Apply
+                <Check className="mr-2" size={16} /> {t('modals.lensCorrection.apply')}
               </Button>
             </div>
           </motion.div>

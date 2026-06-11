@@ -1,0 +1,1757 @@
+{
+  "adjustments": {
+    "basic": {
+      "blacks": "Затемнение",
+      "contrast": "Контрастность",
+      "evShift": "Сдвиг экспозиции",
+      "exposure": "Экспозиция",
+      "highlights": "Света",
+      "mappers": {
+        "agx": "AgX",
+        "agxDesc": "Кинематографическое тональное отображение",
+        "basic": "Стандартное",
+        "basicDesc": "Стандартное тональное отображение"
+      },
+      "reset": "Сбросить",
+      "shadows": "Тени",
+      "toneMapper": "Тональное отображение",
+      "whites": "Светлые тона"
+    },
+    "color": {
+      "ariaSelectColor": "Выбрать цвет: {{name}}",
+      "calibration": {
+        "colors": {
+          "blue": "Синий",
+          "green": "Зеленый",
+          "red": "Красный"
+        },
+        "hue": "Цветовой тон",
+        "primaries": "Первичные цвета",
+        "saturation": "Насыщенность",
+        "shadows": "Тени",
+        "tint": "Оттенок",
+        "title": "Калибровка цвета"
+      },
+      "colorGrading": "Цветокоррекция",
+      "colorMixer": "Смешение цветов",
+      "grading": {
+        "balance": "Баланс",
+        "blending": "Смешивание",
+        "global": "Глобально",
+        "highlights": "Света",
+        "midtones": "Средние тона",
+        "shadows": "Тени"
+      },
+      "hue": "Цветовой тон",
+      "luminance": "Светимость",
+      "mixerColors": {
+        "aquas": "Бирюзовые",
+        "blues": "Синие",
+        "greens": "Зеленые",
+        "magentas": "Пурпурные",
+        "oranges": "Оранжевые",
+        "purples": "Фиолетовые",
+        "reds": "Красные",
+        "yellows": "Желтые"
+      },
+      "presence": "Внешний вид",
+      "saturation": "Насыщенность",
+      "temperature": "Температура",
+      "tint": "Оттенок",
+      "toggleSliders": "Переключить ползунки",
+      "vibrance": "Красочность",
+      "wbPickerTooltip": "Пипетка баланса белого",
+      "wbPickerWgpuDisabled": "Пипетка ББ: отключите WGPU в настройках.",
+      "whiteBalance": "Баланс белого"
+    },
+    "curves": {
+      "channels": {
+        "blue": "Синий",
+        "green": "Зеленый",
+        "luma": "Яркость",
+        "red": "Красный"
+      },
+      "channelTitle": "Канал {{channel}}",
+      "copyParametric": "Копировать параметрическую кривую ({{channel}})",
+      "copyPoint": "Копировать точечную кривую ({{channel}})",
+      "curveDataUnavailable": "Данные кривой недоступны.",
+      "parametricCurve": "Параметрическая кривая",
+      "params": {
+        "blackLevel": "Точка черного",
+        "darks": "Темные тона",
+        "highlights": "Света",
+        "lights": "Светлые тона",
+        "shadows": "Тени",
+        "whiteLevel": "Точка белого"
+      },
+      "pasteFromParametric": "Вставить из параметрической кривой",
+      "pasteParametric": "Вставить параметрическую кривую",
+      "pastePoint": "Вставить точечную кривую",
+      "pointCurve": "Точечная кривая",
+      "resetAllParametric": "Сбросить все параметрические кривые",
+      "resetAllPoint": "Сбросить все точечные кривые",
+      "resetParametric": "Сбросить параметрическую кривую {{channel}}",
+      "resetPoint": "Сбросить точечную кривую {{channel}}"
+    },
+    "details": {
+      "blueYellow": "Синий/Желтый",
+      "centre": "Центр",
+      "chromaticAberration": "Хроматическая аберрация",
+      "clarity": "Четкость",
+      "color": "Цвет",
+      "dehaze": "Удаление дымки",
+      "luminance": "Яркость",
+      "noiseReduction": "Подавление шума",
+      "presence": "Присутствие",
+      "redCyan": "Красный/Голубой",
+      "sharpening": "Резкость",
+      "sharpness": "Резкость",
+      "structure": "Структура",
+      "threshold": "Порог"
+    },
+    "effects": {
+      "amount": "Величина",
+      "creative": "Творчество",
+      "feather": "Растушевка",
+      "glow": "Свечение",
+      "grain": "Зернистость",
+      "halation": "Ореол",
+      "lightFlares": "Блики",
+      "lut": "LUT",
+      "midpoint": "Средняя точка",
+      "roughness": "Шероховатость",
+      "roundness": "Округлость",
+      "size": "Размер",
+      "vignette": "Виньетирование"
+    }
+  },
+  "contextMenus": {
+    "album": {
+      "emptyGroup": "(Пустая группа)"
+    },
+    "albumIcons": {
+      "automotive": "Автомобили",
+      "default": "Папка (по умолчанию)",
+      "favorites": "Избранное",
+      "featured": "Рекомендуемое",
+      "locations": "Места",
+      "nature": "Природа",
+      "people": "Люди",
+      "person": "Человек",
+      "photography": "Фотография",
+      "portfolio": "Портфолио",
+      "summer": "Лето",
+      "travel": "Путешествия"
+    },
+    "albums": {
+      "alreadyAtRoot": "Уже в корневом каталоге",
+      "alreadyHere": "Уже здесь",
+      "confirmDeleteAlbum": "Подтвердить удаление альбома",
+      "confirmDeleteGroupEmpty": "Подтвердить удаление группы альбомов",
+      "confirmDeleteGroupNested": "Удалить группу и все вложенные альбомы",
+      "deleteAlbum": "Удалить альбом",
+      "deleteGroup": "Удалить группу",
+      "moveHere": "Переместить сюда",
+      "moveTo": "Переместить в...",
+      "newAlbum": "Новый альбом",
+      "newGroup": "Новая группа",
+      "renameAlbum": "Переименовать альбом",
+      "renameGroup": "Переименовать группу",
+      "rootDir": "Корневой каталог"
+    },
+    "colors": {
+      "blue": "Синий",
+      "green": "Зеленый",
+      "orange": "Оранжевый",
+      "pink": "Розовый",
+      "purple": "Фиолетовый",
+      "red": "Красный",
+      "yellow": "Желтый"
+    },
+    "editor": {
+      "autoAdjust": "Автонастройка изображения",
+      "cancel": "Отмена",
+      "colorLabel": "Цветовая метка",
+      "confirmReset": "Подтвердить сброс",
+      "convertNegative": "Преобразовать негатив",
+      "copyAdjustments": "Копировать настройки",
+      "cullImage": "Отсортировать изображение",
+      "denoise": "Шумоподавление",
+      "editImage": "Редактировать изображение",
+      "exportImage": "Экспортировать изображение",
+      "frameImage": "Добавить рамку",
+      "mergeHdr": "Объединить в HDR",
+      "noLabel": "Без метки",
+      "noRating": "Без рейтинга",
+      "pasteAdjustments": "Вставить настройки",
+      "productivity": "Продуктивность",
+      "rating": "Рейтинг",
+      "ratingLabel_one": "{{count}} звезда",
+      "ratingLabel_other": "{{count}} звезд",
+      "redo": "Повторить",
+      "resetAdjustments": "Сбросить настройки",
+      "stitchPanorama": "Сшить панораму",
+      "tagging": "Теги",
+      "undo": "Отменить"
+    },
+    "folders": {
+      "changeIcon": "Изменить значок",
+      "confirm": "Подтвердить",
+      "copyHere_one": "Копировать изображение сюда",
+      "copyHere_other": "Копировать {{count}} изображений сюда",
+      "deleteFolder": "Удалить папку",
+      "importImages": "Импортировать изображения",
+      "moveHere_one": "Переместить изображение сюда",
+      "moveHere_other": "Переместить {{count}} изображений сюда",
+      "newFolder": "Новая папка",
+      "paste": "Вставить",
+      "pin": "Закрепить папку",
+      "refresh": "Обновить папки",
+      "removeRoot": "Удалить корневую папку",
+      "renameFolder": "Переименовать папку",
+      "showExplorer": "Показать в проводнике",
+      "unpin": "Открепить папку"
+    },
+    "library": {
+      "addCopiedToAlbum_one": "Добавить скопированное изображение в альбом",
+      "addCopiedToAlbum_other": "Добавить {{count}} скопированных изображений в альбом",
+      "refreshView": "Обновить вид"
+    },
+    "tagging": {
+      "addTagTooltip": "Добавить тег",
+      "noTags": "Теги не добавлены",
+      "placeholder": "Добавить тег...",
+      "removeTooltip": "Удалить тег \"{{tag}}\"",
+      "shortcutsHeading": "БЫСТРЫЕ КЛАВИШИ"
+    },
+    "thumbnail": {
+      "addToAlbum": "Добавить в альбом",
+      "autoAdjust_one": "Автонастройка изображения",
+      "autoAdjust_other": "Автонастройка изображений",
+      "collage_one": "Добавить рамку",
+      "collage_other": "Создать коллаж",
+      "confirmDelete": "Подтвердить удаление",
+      "confirmDeleteVc": "Подтвердить удаление + виртуальные копии",
+      "convertNegative_one": "Преобразовать негатив",
+      "convertNegative_other": "Преобразовать негативы",
+      "copyImage_one": "Копировать изображение",
+      "copyImage_other": "Копировать {{count}} изображений",
+      "cullImage_one": "Отсортировать изображение",
+      "cullImage_other": "Отсортировать изображения",
+      "deleteAssociated": "Удалить со связанными файлами",
+      "deleteImage_one": "Удалить изображение",
+      "deleteImage_other": "Удалить {{count}} изображений",
+      "deleteSelected": "Удалить только выбранные",
+      "denoise_one": "Шумоподавление",
+      "denoise_other": "Шумоподавление для изображений",
+      "duplicateImage": "Дублировать изображение",
+      "exportImage_one": "Экспортировать изображение",
+      "exportImage_other": "Экспортировать {{count}} изображений",
+      "noAlbums": "Нет доступных альбомов",
+      "pasteAdjustments_one": "Вставить настройки",
+      "pasteAdjustments_other": "Вставить настройки для {{count}} изображений",
+      "physicalCopy": "Физическая копия",
+      "removeFromAlbum_one": "Удалить из альбома",
+      "removeFromAlbum_other": "Удалить {{count}} изображений из альбома",
+      "renameImage_one": "Переименовать изображение",
+      "renameImage_other": "Переименовать {{count}} изображений",
+      "resetAdjustments_one": "Сбросить настройки",
+      "resetAdjustments_other": "Сбросить настройки для {{count}} изображений",
+      "showExplorer": "Показать в проводнике",
+      "virtualCopy": "Виртуальная копия"
+    },
+    "toasts": {
+      "couldNotShowExplorer": "Не удалось показать файл в проводнике: {{err}}",
+      "couldNotShowFolder": "Не удалось показать папку: {{err}}",
+      "failedAddToAlbum": "Не удалось добавить в альбом: {{err}}",
+      "failedApplyAuto": "Не удалось применить автонастройки: {{err}}",
+      "failedChangeIcon": "Не удалось изменить значок: {{err}}",
+      "failedCopy": "Не удалось скопировать файлы: {{err}}",
+      "failedCreateVirtualCopy": "Не удалось создать виртуальную копию: {{err}}",
+      "failedDelete": "Не удалось удалить: {{err}}",
+      "failedDeleteFolder": "Не удалось удалить папку: {{err}}",
+      "failedDuplicate": "Не удалось дублировать файл: {{err}}",
+      "failedMove": "Не удалось переместить файлы: {{err}}",
+      "failedMoveError": "Не удалось переместить: {{err}}",
+      "failedMoveInvalid": "Не удалось переместить: целевая группа не найдена или недействительна.",
+      "failedRemoveImages": "Не удалось удалить изображения: {{err}}"
+    }
+  },
+  "editor": {
+    "adjustments": {
+      "actions": {
+        "copySectionSettings": "Копировать настройки раздела «{{section}}»",
+        "pasteLabel": "Вставить настройки раздела «{{section}}»",
+        "pasteSettings": "Вставить настройки",
+        "resetSectionSettings": "Сбросить настройки раздела «{{section}}»"
+      },
+      "sections": {
+        "basic": "Основные",
+        "color": "Цвет",
+        "curves": "Кривые",
+        "details": "Детали",
+        "effects": "Эффекты"
+      },
+      "title": "Настройки",
+      "tooltips": {
+        "autoAdjust": "Автонастройка изображения",
+        "resetAdjustments": "Сбросить настройки",
+        "toggleAnalytics": "Показать/скрыть панель гистограммы"
+      }
+    },
+    "ai": {
+      "actions": {
+        "addNewComponent": "Добавить новый компонент",
+        "copyComponent": "Копировать компонент",
+        "copyEdit": "Копировать изменения",
+        "deleteComponent": "Удалить компонент",
+        "deleteEdit": "Удалить изменения",
+        "duplicateAndInvertComponent": "Дублировать и инвертировать компонент",
+        "duplicateAndInvertEdit": "Дублировать и инвертировать изменения",
+        "duplicateComponent": "Дублировать компонент",
+        "duplicateEdit": "Дублировать изменения",
+        "hideEdit": "Скрыть изменения",
+        "intersectEditWith": "Пересечь изменения с",
+        "pasteComponent": "Вставить компонент",
+        "pasteEdit": "Вставить изменения",
+        "rename": "Переименовать",
+        "resetSelection": "Сбросить выделение",
+        "showEdit": "Показать изменения",
+        "subtractFromEdit": "Вычесть из изменений",
+        "switchToAdd": "Переключить на добавление",
+        "switchToIntersect": "Переключить на пересечение",
+        "switchToSubtract": "Переключить на вычитание"
+      },
+      "addNewEdit": "Добавить изменения",
+      "brush": {
+        "add": "Добавить",
+        "erase": "Стереть",
+        "feather": "Растушевка кисти",
+        "size": "Размер кисти"
+      },
+      "comingSoon": "Скоро",
+      "connection": {
+        "backendLabel": "ИИ-платформа:",
+        "builtinDesc": "Используется базовый локальный процессор. Выберите Cloud или AI Connector в настройках для генеративной замены.",
+        "builtinLabel": "Встроенный ИИ:",
+        "cloudLabel": "Облачный ИИ:",
+        "connectorConnectedDesc": "Подключено к локальной генеративной платформе.",
+        "connectorDisconnectedDesc": "Доступно только простое восстановление. Запустите локальную ИИ-платформу.",
+        "connectorLabel": "AI Connector:",
+        "loginRequiredDesc": "Войдите через настройки, чтобы использовать облачный ИИ.",
+        "monthlyUsage": "Ежемесячное использование",
+        "notDetected": "Не обнаружено",
+        "notLoggedIn": "Вход не выполнен",
+        "proRequiredDesc": "Требуется подписка Pro. Обновите тариф в настройках.",
+        "ready": "Готово",
+        "upgradeRequired": "Требуется обновление"
+      },
+      "createNewTitle": "Создать новую генеративную правку",
+      "createNewTooltip": "Создать правку: {{name}}",
+      "dropzoneText": "Перетащите сюда, чтобы создать новую правку",
+      "editSettingsTitle": "Настройки редактирования",
+      "editsTitle": "Правки",
+      "inpaintingTitle": "Восстановление",
+      "noImageSelected": "Изображение не выбрано.",
+      "params": {
+        "feather": "Растушевка",
+        "grow": "Расширение"
+      },
+      "patches": {
+        "aiEdit": "ИИ-правка {{count}}",
+        "aiEdit_one": "ИИ-правка {{count}}",
+        "aiEdit_other": "ИИ-правка {{count}}",
+        "invertedName": "{{name}} (инвертировано)",
+        "quickErase": "Быстрое стирание {{count}}",
+        "quickErase_one": "Быстрое стирание {{count}}",
+        "quickErase_other": "Быстрое стирание {{count}}"
+      },
+      "resetInpaintingTooltip": "Сбросить восстановление",
+      "settings": {
+        "aiModelDownloading": "Загрузка ИИ-модели: ",
+        "basicInpaintTooltipDisabled": "Генеративная платформа недоступна или не настроена. Требуется простое восстановление.",
+        "basicInpaintTooltipEnabled": "Простое восстановление работает быстрее, но оно не генеративное. Снимите флажок для использования текстовых промптов ИИ.",
+        "componentPropertiesTitle": "Свойства {{name}}",
+        "downloading": "Загрузка: ",
+        "fastInpaintDesc": "Заполнить выделение на основе окружающих пикселей.",
+        "generateWithAiButton": "Сгенерировать с ИИ",
+        "generating": "Генерация...",
+        "generativeDesc": "Опишите текстом, что необходимо сгенерировать в выделенной области.",
+        "generativeReplaceTitle": "Генеративная замена",
+        "inpaintSelectionButton": "Восстановить выделение",
+        "invertComponent": "Инвертировать компонент",
+        "invertSelection": "Инвертировать выделение",
+        "placeholder": "например, поле цветов",
+        "quickEraseDesc": "Заполнить выделение, чтобы удалить объект.",
+        "selectionPropertiesTitle": "Свойства выделения",
+        "useBasicInpaint": "Использовать простое восстановление"
+      }
+    },
+    "crop": {
+      "aspectRatioHeading": "Соотношение сторон",
+      "custom": {
+        "hPlaceholder": "В",
+        "hTooltip": "Высота",
+        "wPlaceholder": "Ш",
+        "wTooltip": "Ширина"
+      },
+      "geometryHeading": "Геометрия",
+      "labels": {
+        "flipHoriz": "Отразить по гориз.",
+        "flipVert": "Отразить по верт.",
+        "lens": "Объектив",
+        "rotateLeft": "Повернуть влево",
+        "rotateRight": "Повернуть вправо",
+        "transform": "Трансформировать"
+      },
+      "orientationHeading": "Ориентация",
+      "overlays": {
+        "armature": {
+          "desc": "Гармоническая сетка (Диагонали)",
+          "name": "Диагонали"
+        },
+        "diagonal": {
+          "desc": "Диагональные линии",
+          "name": "Диагонали"
+        },
+        "none": {
+          "desc": "Без наложения",
+          "name": "Нет"
+        },
+        "phiGrid": {
+          "desc": "Сетка золотого сечения",
+          "name": "Золотое сечение"
+        },
+        "spiral": {
+          "desc": "Золотая спираль (Фибоначчи)",
+          "name": "Спираль Фибоначчи"
+        },
+        "thirds": {
+          "desc": "Правило третей",
+          "name": "Сетка 3х3"
+        },
+        "triangle": {
+          "desc": "Золотой треугольник",
+          "name": "Треугольники"
+        }
+      },
+      "presets": {
+        "custom": {
+          "name": "Свой формат",
+          "tooltip": "Ввести произвольное соотношение сторон"
+        },
+        "free": {
+          "desc": "Произвольное кадрирование",
+          "name": "Произвольно"
+        },
+        "original": {
+          "desc": "Исходное соотношение сторон",
+          "name": "Исходное"
+        },
+        "r169": {
+          "desc": "16:9 - Широкоформатный экран, обои, YouTube",
+          "name": "16:9"
+        },
+        "r219": {
+          "desc": "21:9 - Сверхширокие мониторы, киноформат",
+          "name": "21:9"
+        },
+        "r32": {
+          "desc": "3:2 - Пленка 35-мм, зеркальные фотокамеры",
+          "name": "3:2"
+        },
+        "r43": {
+          "desc": "4:3 - Традиционные мониторы, планшеты",
+          "name": "4:3"
+        },
+        "r54": {
+          "desc": "5:4 - Пейзаж Instagram, отпечатки 8x10",
+          "name": "5:4"
+        },
+        "r6524": {
+          "desc": "65:24 - Панорамный широкий формат 35-мм",
+          "name": "65:24"
+        },
+        "sq": {
+          "desc": "Квадрат - Instagram, фото профиля",
+          "name": "1:1"
+        }
+      },
+      "resetTooltip": "Сбросить кадрирование и геометрию",
+      "rotationHeading": "Вращение",
+      "title": "Обрезка и трансформация",
+      "tooltips": {
+        "compositionOverlay": "Сетка композиции",
+        "flipHoriz": "Отразить горизонтально",
+        "flipVert": "Отразить вертикально",
+        "lens": "Коррекция искажений объектива",
+        "overlayDetails": "Сетка: {{name}}{{rotateHint}}",
+        "resetFineRotation": "Сбросить точный поворот",
+        "rotateHint": " (Shift+O для вращения сетки)",
+        "rotateLeft": "Повернуть на 90° против часовой стрелки",
+        "rotateRight": "Повернуть на 90° по часовой стрелке",
+        "straighten": "Выравнивание горизонта (S)",
+        "switchOrientation": "Сменить ориентацию",
+        "switchToLandscape": "Переключить на альбомную",
+        "switchToPortrait": "Переключить на портретную",
+        "transform": "Коррекция перспективы и искажений"
+      }
+    },
+    "masks": {
+      "actions": {
+        "addNewComponent": "Добавить новый компонент",
+        "applyPreset": "Применить пресет",
+        "copyComponent": "Копировать компонент",
+        "copyMask": "Копировать маску",
+        "deleteComponent": "Удалить компонент",
+        "deleteMask": "Удалить маску",
+        "duplicateAndInvertComponent": "Дублировать и инвертировать компонент",
+        "duplicateAndInvertMask": "Дублировать и инвертировать маску",
+        "duplicateComponent": "Дублировать компонент",
+        "duplicateMask": "Дублировать маску",
+        "hideComponent": "Скрыть компонент",
+        "hideMask": "Скрыть маску",
+        "intersectMaskWith": "Пересечь маску с",
+        "noPresets": "Нет пресетов",
+        "pasteComponent": "Вставить компонент",
+        "pasteMask": "Вставить маску",
+        "pasteMaskAdjustments": "Вставить настройки маски",
+        "rename": "Переименовать",
+        "resetMaskAdjustments": "Сбросить настройки маски",
+        "showComponent": "Показать компонент",
+        "showMask": "Показать маску",
+        "subtractFromMask": "Вычесть из маски",
+        "switchToAdd": "Переключить на добавление",
+        "switchToIntersect": "Переключить на пересечение",
+        "switchToSubtract": "Переключить на вычитание"
+      },
+      "addNewMask": "Добавить новую маску",
+      "brush": {
+        "brush": "Кисть",
+        "eraser": "Ластик",
+        "feather": "Растушевка кисти",
+        "flow": "Поток",
+        "size": "Размер кисти"
+      },
+      "comingSoon": "Скоро",
+      "createNewTitle": "Создать новую маску",
+      "depthRange": {
+        "far": "Далеко",
+        "near": "Близко",
+        "reset": "Сбросить",
+        "title": "Диапазон глубины"
+      },
+      "dropzoneText": "Перетащите сюда, чтобы создать новую маску",
+      "maskAdjustmentsTitle": "Коррекция маски",
+      "maskingTitle": "Маскирование",
+      "masksTitle": "Маски",
+      "params": {
+        "feather": "Растушевка",
+        "globalFeather": "Общая растушевка",
+        "grow": "Расширение",
+        "tolerance": "Допуск"
+      },
+      "patches": {
+        "copyName": "Копия {{name}}",
+        "invertedName": "{{name}} (инвертировано)",
+        "maskName": "Маска {{count}}",
+        "maskName_one": "Маска {{count}}",
+        "maskName_other": "Маска {{count}}"
+      },
+      "resetMaskingTooltip": "Сбросить маскирование",
+      "settings": {
+        "aiModelDownloading": "Загрузка ИИ-модели: ",
+        "applyPreset": "Применить пресет",
+        "componentPropertiesTitle": "Свойства компонента {{name}}",
+        "copySectionSettings": "Копировать настройки раздела {{section}}",
+        "invertComponent": "Инвертировать компонент",
+        "invertMask": "Инвертировать маску",
+        "maskPropertiesTitle": "Свойства маски",
+        "noPresetsFound": "Пресеты не найдены",
+        "opacity": "Непрозрачность",
+        "pasteSectionSettings": "Вставить настройки раздела {{section}}",
+        "pasteSettings": "Вставить настройки",
+        "resetSectionSettings": "Сбросить настройки раздела {{section}}",
+        "select": "Выбрать",
+        "selectPresetTooltip": "Выберите пресет для применения"
+      },
+      "toggleAnalyticsTooltip": "Показать/скрыть панель гистограммы",
+      "tooltips": {
+        "addToCurrent": "Добавить {{name}} к текущей маске или создать новую (правый клик)",
+        "createNew": "Создать новую маску: {{name}}",
+        "showMore": "Показать больше типов масок"
+      }
+    },
+    "metadata": {
+      "author": {
+        "creatorDetails": "Информация об авторе",
+        "title": "Автор и авторские права"
+      },
+      "camera": {
+        "aperture": "Диафрагма",
+        "focalLength": "Фокусное расстояние",
+        "iso": "ISO",
+        "lens": "Объектив",
+        "shutterSpeed": "Выдержка",
+        "title": "Параметры съемки"
+      },
+      "clickToEdit": "Нажмите для редактирования",
+      "copied": "Скопировано",
+      "copy": "Копировать",
+      "emptyClickToAdd": "Пусто (нажмите, чтобы добавить)",
+      "extendedExif": {
+        "title": "Расширенный EXIF"
+      },
+      "fields": {
+        "author": "Автор",
+        "comments": "Комментарии",
+        "copyright": "Авторские права",
+        "title": "Название"
+      },
+      "fileInfo": {
+        "dimensions": "{{width}} × {{height}} пикс • {{megapixels}} Мп",
+        "dimensionsNoMp": "{{width}} × {{height}} пикс",
+        "emptyDimensions": "- × - пикс",
+        "title": "Информация о файле",
+        "virtualCopy": "Виртуальная копия"
+      },
+      "gps": {
+        "altitude": "Высота",
+        "clickToOpenTooltip": "Нажмите, чтобы открыть карту в новой вкладке",
+        "latitude": "Широта",
+        "longitude": "Долгота",
+        "title": "Координаты GPS"
+      },
+      "organization": {
+        "addTagPlaceholder": "Добавить тег...",
+        "colorLabel": "Цветовая метка",
+        "none": "Нет",
+        "noTags": "Нет тегов",
+        "rating": "Рейтинг",
+        "ratingLabels": "Рейтинг и метки",
+        "tags": "Теги",
+        "title": "Организация"
+      },
+      "title": "Метаданные"
+    },
+    "presets": {
+      "dialog": {
+        "allPresetFiles": "Все файлы пресетов",
+        "exportAllTitle": "Экспортировать все пресеты",
+        "exportTitle": "Экспорт: {{type}}",
+        "importPresetsTitle": "Импортировать пресеты",
+        "legacyPreset": "Старый пресет",
+        "presetFile": "Файл пресета",
+        "rapidRawPreset": "Пресет RapidRAW"
+      },
+      "menu": {
+        "configurePreset": "Настроить пресет",
+        "deleteFolder": "Удалить папку",
+        "deletePreset": "Удалить пресет",
+        "duplicatePreset": "Дублировать пресет",
+        "exportFolder": "Экспортировать папку",
+        "exportPreset": "Экспортировать пресет",
+        "newFolder": "Новая папка",
+        "newPreset": "Новый пресет",
+        "overwrite": "Перезаписать",
+        "renameFolder": "Переименовать папку",
+        "sortAll": "Сортировать всё по алфавиту"
+      },
+      "status": {
+        "empty": "Пока нет сохраненных пресетов. Создайте свои, импортируйте из файла или изучите пресеты сообщества.",
+        "getCommunity": "Загрузить пресеты сообщества",
+        "loading": "Загрузка пресетов..."
+      },
+      "supports": {
+        "cropTransform": "Кадрирование и трансформация",
+        "label": "Поддержка: {{features}}",
+        "masks": "Маски"
+      },
+      "title": "Пресеты",
+      "tooltips": {
+        "explore": "Обзор пресетов сообщества",
+        "export": "Экспортировать все пресеты в файл .rrpreset",
+        "import": "Импортировать пресеты из файла .rrpreset",
+        "saveNew": "Сохранить как новый пресет"
+      },
+      "types": {
+        "folder": "Папка",
+        "preset": "Псет",
+        "style": "Стиль",
+        "tool": "Инструмент"
+      }
+    },
+    "switcher": {
+      "tooltips": {
+        "adjust": "Коррекция",
+        "crop": "Обрезка",
+        "export": "Экспорт",
+        "info": "Инфо",
+        "inpaint": "Восстановление",
+        "masks": "Маски",
+        "presets": "Пресеты"
+      }
+    },
+    "toolbar": {
+      "tooltips": {
+        "aperture": "Диафрагма",
+        "backToLibrary": "Назад в библиотеку",
+        "focalLength": "Фокусное расстояние",
+        "fullscreen": "Полноэкранный режим (F)",
+        "iso": "ISO",
+        "redo": "Повторить (Ctrl+Y) или история (правый клик)",
+        "showEdited": "Показать измененное (B)",
+        "showOriginal": "Показать оригинал (B)",
+        "shutterSpeed": "Выдержка",
+        "undo": "Отменить (Ctrl+Z) или история (правый клик)"
+      },
+      "vc": "ВК"
+    }
+  },
+  "export": {
+    "advanced": {
+      "exportMasks": "Экспортировать маски отдельными файлами",
+      "preserveFolders": "Сохранять структуру папок",
+      "preserveTimestamps": "Установить дату файла из EXIF даты съемки",
+      "title": "Настройки экспорта"
+    },
+    "bytes": {
+      "bytes": "Байт",
+      "gb": "ГБ",
+      "kb": "КБ",
+      "mb": "МБ",
+      "tb": "ТБ"
+    },
+    "dialog": {
+      "saveEditedImageTitle": "Сохранить измененное изображение",
+      "selectFolderTitle": "Выберите папку для экспорта {{count}} изобр.",
+      "selectFolderTitle_one": "Выберите папку для экспорта {{count}} изображения",
+      "selectFolderTitle_other": "Выберите папку для экспорта {{count}} изображений"
+    },
+    "file": {
+      "quality": "Качество",
+      "qualityLossless": "Качество (без потерь)"
+    },
+    "labels": {
+      "image": "Изображение",
+      "image_plural": "Изображения",
+      "lut": "LUT",
+      "lut_plural": "LUT-файлы"
+    },
+    "metadata": {
+      "removeGps": "Удалить данные GPS",
+      "saveWithMetadata": "Сохранить с метаданными"
+    },
+    "resize": {
+      "dontEnlarge": "Не увеличивать",
+      "modes": {
+        "height": "Высота",
+        "longEdge": "Длинная сторона",
+        "shortEdge": "Короткая сторона",
+        "width": "Ширина"
+      },
+      "pixels": "пикселей",
+      "resizeToFit": "По размеру"
+    },
+    "sections": {
+      "advanced": "Дополнительно",
+      "fileNaming": "Именование файлов",
+      "fileSettings": "Параметры файла",
+      "imageSizing": "Размер изображения",
+      "metadata": "Метаданные",
+      "watermark": "Водяной знак"
+    },
+    "status": {
+      "cancelExport": "Отменить экспорт",
+      "cancelled": "Экспорт отменен",
+      "estimatedAverageSize": " (~{{size}} в среднем)",
+      "estimatedSize": "Оценочный размер файла: ~{{size}}",
+      "estimatedTotalSize": "Оценочный общий размер: ~{{size}}",
+      "estimatingSize": "Оценка размера...",
+      "exporting": "Экспорт…",
+      "exportingProgress": "Экспортировано… ({{current}}/{{total}})",
+      "exportMultiple": "Экспорт {{count}} {{label}}",
+      "exportMultiple_one": "Экспорт {{count}} {{label}}",
+      "exportMultiple_other": "Экспорт {{count}} {{label}}",
+      "exportSingle": "Экспортировать {{label}}",
+      "failed": "Экспорт не удался",
+      "noImageSelected": "Не выбрано изображение для экспорта.",
+      "noImagesSelected": "Изображения не выбраны.",
+      "success": "Экспорт успешно завершен!"
+    },
+    "watermark": {
+      "addWatermark": "Добавить водяной знак",
+      "anchors": {
+        "bottomCenter": "Снизу по центру",
+        "bottomLeft": "Снизу слева",
+        "bottomRight": "Снизу справа",
+        "center": "По центру",
+        "centerLeft": "По центру слева",
+        "centerRight": "По центру справа",
+        "topCenter": "Сверху по центру",
+        "topLeft": "Сверху слева",
+        "topRight": "Сверху справа"
+      },
+      "logoText": "Логотип",
+      "opacity": "Непрозрачность",
+      "previewText": "Предпросмотр",
+      "scale": "Масштаб",
+      "spacing": "Отступы",
+      "watermarkImage": "Изображение водяного знака"
+    }
+  },
+  "library": {
+    "community": {
+      "actionSave": "Сохранить",
+      "actionSaved": "Сохранено",
+      "actionSaving": "Сохранение...",
+      "fetchingPresets": "Получение пресетов с GitHub...",
+      "footerHeading": "Хотите добавить свой пресет в рекомендуемые?",
+      "footerLinkText": "Создайте обращение на GitHub",
+      "headerDesc": "Откройте для себя пресеты, созданные сообществом.",
+      "headerTitle": "Пресеты сообщества",
+      "presetBy": "от {{creator}}",
+      "searchPlaceholder": "Поиск пресетов...",
+      "sortBy": "Сортировка:",
+      "sortMethods": {
+        "name": "Имя (А-Я)"
+      }
+    },
+    "filters": {
+      "edited": {
+        "all": "Все изображения",
+        "editedOnly": "Только измененные",
+        "uneditedOnly": "Только исходные"
+      },
+      "noMatch": "Нет изображений, соответствующих фильтру.",
+      "rating": {
+        "all": "Показать все",
+        "andUpSuffix": "и выше",
+        "fiveOnly": "Только 5",
+        "fourAndUp": "4 и выше",
+        "oneAndUp": "1 и выше",
+        "onlySuffix": "только",
+        "threeAndUp": "3 и выше",
+        "twoAndUp": "2 и выше",
+        "unrated": "Без рейтинга"
+      },
+      "raw": {
+        "all": "Все типы файлов",
+        "nonRawOnly": "Только не-RAW",
+        "preferRaw": "Приоритет RAW",
+        "rawOnly": "Только RAW"
+      }
+    },
+    "folders": {
+      "addFolder": "Добавить папку",
+      "albumsEmpty": "Нажмите правой кнопкой мыши для создания альбома.",
+      "collapseSection": "Свернуть {{section}}",
+      "expandSection": "Развернуть {{section}}",
+      "loading": "Загрузка папок...",
+      "noFoldersFound": "Папки не найдены.",
+      "openFolderInstruction": "Откройте папку, чтобы просмотреть ее структуру.",
+      "searchPlaceholder": "Поиск папок...",
+      "sections": {
+        "albums": "Альбомы",
+        "folders": "Папки",
+        "pinned": "Закрепленные"
+      },
+      "tooltips": {
+        "clearSearch": "Очистить поиск",
+        "collapse": "Свернуть",
+        "expand": "Развернуть"
+      }
+    },
+    "grid": {
+      "columns": {
+        "aperture": "Диафрагма",
+        "focal": "Фокус",
+        "iso": "ISO",
+        "label": "Метка",
+        "modified": "Изменен",
+        "name": "Имя",
+        "rating": "Рейтинг",
+        "shutter": "Выдержка"
+      }
+    },
+    "header": {
+      "search": {
+        "addFilterOrSearch": "Добавить фильтр или найти...",
+        "indexingImages": "Индексация изображений...",
+        "indexingProgress": "Индексация... ({{current}}/{{total}})",
+        "matchAll": "Совпадение по ВСЕМ тегам",
+        "matchAny": "Совпадение по ЛЮБОМУ тегу",
+        "searchOrQuery": "Поиск или поисковый запрос",
+        "tooltipAdvancedQueries": "Расширенные запросы: iso:>800, f:<=2.8, s:1/200, mm:50, camera:sony",
+        "tooltipClearSearch": "Очистить поиск",
+        "tooltipSearchFilter": "Поиск или фильтрация"
+      },
+      "title": "Библиотека",
+      "viewOptions": {
+        "currentFolder": "Текущая папка",
+        "displayMode": "Режим отображения",
+        "exifDisabledTooltip": "Включите чтение EXIF в настройках, чтобы использовать эту функцию.",
+        "filterByColorLabel": "Фильтр по цвету",
+        "filterByEdited": "Фильтр по редактированию",
+        "filterByFileType": "Фильтр по формату",
+        "filterByRating": "Фильтр по рейтингу",
+        "metadataAlways": "Всегда",
+        "metadataHover": "При наведении",
+        "metadataOff": "Выкл",
+        "noLabel": "Без метки",
+        "recursive": "Рекурсивно",
+        "showMetadata": "Показывать метаданные",
+        "sortAscending": "По возрастанию",
+        "sortBy": "Сортировка",
+        "sortDescending": "По убыванию",
+        "thumbnailFit": "Масштаб превью",
+        "thumbnailSize": "Размер превью",
+        "title": "Вид"
+      }
+    },
+    "import": {
+      "complete": "Импорт завершен!",
+      "failed": "Импорт не удался!",
+      "progress": "Импорт... ({{current}}/{{total}})"
+    },
+    "items": {
+      "collapseFolder": "Свернуть папку",
+      "currentFolder": "Текущая папка",
+      "expandFolder": "Развернуть папку",
+      "imagesCount_one": "1 изображение",
+      "imagesCount_other": "{{count}} изображений",
+      "tooltipAperture": "Диафрагма",
+      "tooltipFocalLength": "Фокусное расстояние",
+      "tooltipIso": "ISO",
+      "tooltipShutterSpeed": "Выдержка",
+      "tooltipVirtualCopy": "Виртуальная копия"
+    },
+    "search": {
+      "noResults": "Результатов не найдено",
+      "noResultsAiHint": " Для более точного поиска включите автотегирование в настройках.",
+      "noResultsDesc": "Не удалось найти изображение по названию или тегам."
+    },
+    "sort": {
+      "aperture": "Диафрагме",
+      "dateModified": "Дате изменения",
+      "dateTaken": "Дате съемки",
+      "editedStatus": "Статусу изменения",
+      "fileName": "Имени файла",
+      "focalLength": "Фокусному расстоянию",
+      "iso": "ISO",
+      "rating": "Рейтингу",
+      "shutterSpeed": "Выдержке"
+    },
+    "splash": {
+      "addFolder": "Добавить папку",
+      "brand": "RapidRAW",
+      "continueSession": "Продолжить сеанс",
+      "contribute": "Участвовать на GitHub",
+      "descriptionAndroid": "Невероятно быстрый редактор RAW-файлов с GPU-ускорением. Откройте библиотеку, чтобы начать.",
+      "descriptionDesktop": "Невероятно быстрый редактор RAW-файлов с GPU-ускорением. Откройте папку, чтобы начать.",
+      "donate": "Поддержать на Ko-Fi",
+      "downloadVersion": "Нажмите, чтобы загрузить версию {{version}}",
+      "goToSettings": "Перейти в настройки",
+      "imagesBy": "Фото от",
+      "latestVersion": "У вас установлена последняя версия",
+      "newVersionAvailable": "Доступна новая версия!",
+      "openFolder": "Открыть папку",
+      "openLibrary": "Открыть библиотеку",
+      "or": "или",
+      "version": "Версия {{version}}",
+      "welcomeBack": "С возвращением!",
+      "welcomeBackDesc": "Продолжите работу с прошлого сеанса или начните новый."
+    },
+    "status": {
+      "downloading": "Загрузка {{status}}...",
+      "importing": "Импорт изображений... ({{current}}/{{total}})",
+      "indexing": "Индексация изображений... ({{current}}/{{total}})",
+      "moment": "Это может занять некоторое время.",
+      "processing": "Обработка изображений..."
+    },
+    "thumbnailFit": {
+      "fillSquare": "Заполнить квадрат",
+      "originalRatio": "Исходный формат"
+    },
+    "thumbnailSize": {
+      "large": "Большой",
+      "list": "Список",
+      "medium": "Средний",
+      "small": "Маленький"
+    },
+    "tooltips": {
+      "communityPresets": "Пресеты сообщества",
+      "goHome": "На главную",
+      "importImages": "Импортировать изображения"
+    }
+  },
+  "masks": {
+    "types": {
+      "all": "Изображение целиком",
+      "brush": "Кисть",
+      "color": "Цвет",
+      "depth": "Глубина",
+      "flow": "Поток",
+      "foreground": "Передний план",
+      "linear": "Линейный градиент",
+      "luminance": "Яркость",
+      "others": "Другие",
+      "quickErase": "Быстрое стирание",
+      "quickEraser": "Быстрый ластик",
+      "radial": "Радиальный градиент",
+      "sky": "Небо",
+      "subject": "Объект"
+    }
+  },
+  "menus": {
+    "tagging": {
+      "addTagTooltip": "Добавить тег",
+      "noTags": "Теги не добавлены",
+      "placeholder": "Добавить тег...",
+      "removeTooltip": "Удалить тег \"{{tag}}\"",
+      "shortcutsHeading": "ГОРЯЧИЕ КЛАВИШИ"
+    }
+  },
+  "modals": {
+    "collage": {
+      "aspectRatio": "Соотношение сторон",
+      "background": "Задний план",
+      "borderRadius": "Радиус скругления",
+      "cancel": "Отмена",
+      "close": "Закрыть",
+      "done": "Готово",
+      "errorTitle": "Произошла ошибка",
+      "exportSize": "Размер экспорта (px)",
+      "keepOriginalRatio": "Сохранять исходное соотношение сторон",
+      "layout": "Раскладка",
+      "original": "Исходный",
+      "saveButton": "Сохранить коллаж",
+      "saved": "Коллаж сохранен!",
+      "saving": "Сохранение...",
+      "shuffleTooltip": "Перемешать изображения",
+      "spacing": "Интервал"
+    },
+    "configurePreset": {
+      "cancel": "Отмена",
+      "includeCropTransform": "Включить кадрирование и трансформацию",
+      "includeMasks": "Включить маски",
+      "placeholder": "Введите название пресета...",
+      "save": "Сохранить",
+      "titleConfigure": "Настройка пресета",
+      "titleSave": "Сохранить новый пресет",
+      "typeStyleDesc": "Применяет оформление целиком. Все ваши текущие настройки будут перезаписаны для точного соответствия пресету.",
+      "typeStyleLabel": "Стиль",
+      "typeToolDesc": "Применяет только определенные настройки, не затрагивая остальные параметры.",
+      "typeToolLabel": "Инструмент"
+    },
+    "confirm": {
+      "cancel": "Отмена",
+      "confirm": "Подтвердить"
+    },
+    "copyPaste": {
+      "cancel": "Отмена",
+      "descMerge": "Добавляет скопированные изменения, оставляя другие параметры нетронутыми.",
+      "descReplace": "Перезаписывает все выбранные параметры, сбрасывая остальные к значениям по умолчанию.",
+      "groups": {
+        "chromaticAberration": "Хроматическая аберрация",
+        "clarityDehaze": "Четкость и удаление дымки",
+        "colorCalibration": "Калибровка цвета",
+        "colorGrading": "Цветокоррекция",
+        "colorMixer": "Цветовой микшер",
+        "cropAspectRatio": "Обрезка и формат",
+        "curves": "Кривые",
+        "exposureToneMapper": "Экспозиция и тональное отображение",
+        "grain": "Зернистость",
+        "halationGlow": "Ореол и свечение",
+        "lensCorrection": "Коррекция объектива",
+        "lut": "LUT",
+        "masks": "Маски",
+        "noiseReduction": "Подавление шума",
+        "presence": "Присутствие",
+        "sharpness": "Резкость",
+        "tone": "Тональность",
+        "transformRotation": "Трансформация и поворот",
+        "vignette": "Виньетка",
+        "whiteBalance": "Баланс белого"
+      },
+      "includedAdjustments": "Включаемые настройки",
+      "modeMerge": "Объединить",
+      "modeReplace": "Заменить",
+      "pasteMode": "Режим вставки",
+      "save": "Сохранить",
+      "selectAll": "Выбрать все",
+      "selectNone": "Снять выделение",
+      "title": "Копирование и вставка настроек"
+    },
+    "createAlbum": {
+      "placeholder": "Введите название альбома..."
+    },
+    "createFolder": {
+      "cancel": "Отмена",
+      "create": "Создать",
+      "placeholder": "Введите название папки...",
+      "title": "Создать новую папку"
+    },
+    "createGroup": {
+      "placeholder": "Введите название группы..."
+    },
+    "culling": {
+      "actionDelete": "Переместить в корзину",
+      "actionRateZero": "Установить оценку 1 звезда",
+      "actionReject": "Пометить как отклоненное (красная метка)",
+      "applyButton_one": "Применить к 1 изображению",
+      "applyButton_other": "Применить к {{count}} изображениям",
+      "bestImage": "Лучший кадр",
+      "blurryImagesTab": "Размытые кадры",
+      "blurThreshold": "Порог размытия",
+      "blurThresholdDesc": "Изображения с оценкой резкости ниже этого значения будут помечены. Чем выше значение, тем строже отбор.",
+      "cancel": "Отмена",
+      "close": "Закрыть",
+      "cullingFailed": "Отбор не удался",
+      "cullingSuggestions": "Рекомендации по отбору",
+      "done": "Готово",
+      "duplicatesHeader": "Дубликаты ({{count}})",
+      "duplicatesHeader_one": "Дубликаты ({{count}})",
+      "duplicatesHeader_other": "Дубликаты ({{count}})",
+      "filterBlurry": "Фильтровать смазанные кадры",
+      "groupHeader": "Группа {{index}}",
+      "groupSimilar": "Группировать похожие изображения",
+      "noIssuesDesc": "Похоже, все изображения уникальны и резкие.",
+      "noIssuesFound": "Проблем не обнаружено!",
+      "score": "Рейтинг: {{score}}",
+      "sharpness": "Резкость: {{sharpness}}",
+      "similarGroupsTab": "Похожие группы",
+      "similarityThreshold": "Порог схожести",
+      "similarityThresholdDesc": "Чем ниже значение, тем строже отбор (точные дубликаты). Выше — свободнее (похожие кадры). Рекомендуется значение 24-32.",
+      "startCulling": "Начать отбор",
+      "starting": "Запуск...",
+      "title": "Отбор изображений"
+    },
+    "denoise": {
+      "batchProgressText": "Шумоподавление: {{current}} из {{total}}...",
+      "btnBatchDenoise": "Пакетное шумоподавление и сохранение",
+      "btnRetry": "Повторить",
+      "btnSave": "Сохранить",
+      "btnStart": "Начать",
+      "cancel": "Отмена",
+      "close": "Закрыть",
+      "denoised": "Шумоподавление выполнено",
+      "denoisingProgress": "Выполняется шумоподавление",
+      "description": "Удалите шумы с вашего кадра, используя возможности ИИ или классический алгоритм.",
+      "downloadingText": "Загрузка {{status}}...",
+      "gpuWarningTooltip": "Шумоподавление NIND пока не поддерживает аппаратное ускорение GPU из-за ограничений библиотек.",
+      "initializing": "Инициализация...",
+      "methodAi": "NIND (ИИ — лучшее для RAW)",
+      "methodBm3d": "BM3D (Классический — для всех форматов)",
+      "methodLabel": "Метод",
+      "openInEditor": "Открыть в редакторе",
+      "original": "Оригинал",
+      "panZoomEnabled": "Панорамирование и масштабирование активны",
+      "processingFailed": "Обработка не удалась",
+      "qualityTileSizeLabel": "Качество / Размер плитки",
+      "reset": "Сбросить",
+      "saveSuccess": "Изображение успешно сохранено!",
+      "speedNotice": "Это может занять несколько минут в зависимости от размера изображения и выбранного метода.",
+      "strengthLabel": "Интенсивность",
+      "titleBatch": "Шумоподавление изображений",
+      "titleSingle": "Шумоподавление кадра"
+    },
+    "hdr": {
+      "cancel": "Отмена",
+      "close": "Закрыть",
+      "description": "Объедините серию снимков с брекетингом экспозиции в одно HDR-изображение с широким динамическим диапазоном.",
+      "descriptionWithCount": "Объединить {{count}} кадров с брекетингом экспозиции в одно изображение HDR.",
+      "descriptionWithCount_one": "Объединить {{count}} кадр с брекетингом экспозиции в одно изображение HDR.",
+      "descriptionWithCount_other": "Объединить {{count}} кадров с брекетингом экспозиции в одно изображение HDR.",
+      "failed": "Объединение HDR не удалось",
+      "initializing": "Инициализация...",
+      "merging": "Выполняется объединение HDR",
+      "openInEditor": "Открыть в редакторе",
+      "retry": "Повторить",
+      "save": "Сохранить",
+      "savedSuccess": "HDR-изображение успешно сохранено!",
+      "speedNotice": "Это может занять несколько минут в зависимости от количества и разрешения ваших снимков.",
+      "start": "Начать",
+      "title": "Объединение в HDR"
+    },
+    "importSettings": {
+      "cancel": "Отмена",
+      "dateFormat": "Формат даты",
+      "dateFormatPlaceholder": "например, YYYY/MM-DD",
+      "deleteAfterImport": "Удалять исходные файлы после успешного импорта",
+      "deleteWarning": "Файлы будут перемещены в системную корзину.",
+      "fileNaming": "Именование файлов",
+      "folderOrganization": "Структура папок",
+      "organizeByDate": "Распределять по подпапкам на основе даты",
+      "sourceFiles": "Исходные файлы",
+      "startImport": "Начать импорт",
+      "title": "Параметры импорта"
+    },
+    "lensCorrection": {
+      "amount": "Интенсивность",
+      "apply": "Применить",
+      "autoDetectLens": "Автоопределение объектива",
+      "autoDetectStatus": "Статус автоопределения",
+      "cancel": "Отмена",
+      "chooseSavedLens": "Выбрать сохраненный объектив",
+      "chromaticAberration": "Хроматическая аберрация",
+      "compareTooltip": "Зажмите для сравнения",
+      "corrections": "Коррекция",
+      "databaseNotice": "База данных объективов предоставлена проектом <0>Lensfun</0> (<1>CC BY-SA 3.0</1>).",
+      "detecting": "Определение...",
+      "detectingExif": "Чтение данных EXIF...",
+      "distortion": "Дисторсия",
+      "lensFound": "Объектив найден",
+      "lensProfileNotFound": "Профиль объектива не найден",
+      "manageLensesPlaceholder": "Управление списком объективов в настройках",
+      "manualSelection": "Ручной выбор",
+      "maskWarning": "Коррекция объектива обновляет базовую геометрию кадра. Существующие маски могут сместиться, а ИИ-маски потребуется пересоздать.",
+      "modeAuto": "Авто",
+      "modeManual": "Вручную",
+      "notFound": "Не найдено",
+      "original": "Оригинал",
+      "resetTooltip": "Сбросить коррекцию объектива",
+      "resetZoomTooltip": "Сбросить масштаб",
+      "selectLensModel": "Выберите модель объектива",
+      "selectManufacturer": "Выберите производителя",
+      "title": "Коррекция объектива",
+      "vignetting": "Виньетирование",
+      "waitingAutoDetect": "Ожидание автоопределения...",
+      "zoomInTooltip": "Увеличить",
+      "zoomOutTooltip": "Уменьшить"
+    },
+    "negativeConversion": {
+      "blueWeight": "Синий (желтизна)",
+      "cancel": "Отмена",
+      "colorTiming": "Цветовое сопоставление",
+      "compareTooltip": "Зажмите, чтобы увидеть оригинал",
+      "contrast": "Контраст (градация)",
+      "convertAndSave": "Преобразовать и сохранить",
+      "convertAndSaveAll": "Преобразовать и сохранить всё ({{count}})",
+      "convertAndSaveAll_one": "Преобразовать и сохранить всё ({{count}})",
+      "convertAndSaveAll_other": "Преобразовать и сохранить всё ({{count}})",
+      "converting": "Преобразование",
+      "convertingProgress": "Преобразование: {{current}}/{{total}}",
+      "exposure": "Экспозиция",
+      "greenWeight": "Зеленый (пурпур)",
+      "noticeText": "Алгоритм инверсии разработан на основе проекта <0>NegPy</0> за авторством marcinz606 (<1>GPL-3.0</1>).",
+      "originalLabel": "Исходный негатив",
+      "printGrade": "Контрастность бумаги",
+      "redWeight": "Красный (голубой)",
+      "resetTooltip": "Сбросить",
+      "resetViewTooltip": "Сбросить вид",
+      "title": "Преобразование негатива",
+      "zoomInTooltip": "Увеличить",
+      "zoomOutTooltip": "Уменьшить"
+    },
+    "panorama": {
+      "cancel": "Отмена",
+      "close": "Закрыть",
+      "descCount": "Объедините {{count}} перекрывающихся кадров в бесшовную панораму.",
+      "descCount_one": "Объедините {{count}} перекрывающийся кадр в бесшовную панораму.",
+      "descCount_other": "Объедините {{count}} перекрывающихся кадров в бесшовную панораму.",
+      "descGeneric": "Объедините перекрывающиеся кадры в бесшовную панораму.",
+      "failed": "Создание панорамы не удалось",
+      "initializing": "Инициализация...",
+      "openInEditor": "Открыть в редакторе",
+      "retry": "Повторить",
+      "save": "Сохранить",
+      "savedSuccess": "Панорама успешно сохранена!",
+      "speedNotice": "Это может занять несколько минут в зависимости от количества снимков и их разрешения.",
+      "start": "Начать",
+      "stitchingProgress": "Сшивание панорамы",
+      "title": "Сборка панорамы"
+    },
+    "renameAlbum": {
+      "placeholder": "Введите новое название альбома..."
+    },
+    "renameFile": {
+      "cancel": "Отмена",
+      "fileNamingTemplate": "Шаблон именования файлов",
+      "newName": "Новое имя",
+      "save": "Сохранить",
+      "titleMultiple": "Переименовать {{count}} изобр.",
+      "titleMultiple_one": "Переименовать {{count}} изображение",
+      "titleMultiple_other": "Переименовать {{count}} изображений",
+      "titleSingle": "Переименовать изображение"
+    },
+    "renameFolder": {
+      "cancel": "Отмена",
+      "placeholder": "Введите новое имя папки...",
+      "save": "Сохранить",
+      "title": "Переименовать папку"
+    },
+    "renameGroup": {
+      "placeholder": "Введите новое название группы..."
+    },
+    "transform": {
+      "amount": "Величина",
+      "apply": "Применить",
+      "aspect": "Пропорции",
+      "cancel": "Отмена",
+      "compareTooltip": "Зажмите для сравнения",
+      "distortion": "Искажение",
+      "horizontal": "По горизонтали",
+      "maskWarning": "Трансформация изменяет базовую геометрию кадра. Существующие маски могут сместиться, а ИИ-маски потребуется создать заново.",
+      "offset": "Смещение",
+      "original": "Оригинал",
+      "perspective": "Перспектива",
+      "resetTooltip": "Сбросить трансформацию",
+      "resetZoomTooltip": "Сбросить масштаб",
+      "rotate": "Поворот",
+      "scale": "Масштаб",
+      "title": "Трансформация",
+      "toggleGridTooltip": "Включить/выключить сетку",
+      "toggleHelperLinesTooltip": "Включить/выключить вспомогательные линии",
+      "vertical": "По вертикали",
+      "xAxis": "Ось X",
+      "yAxis": "Ось Y",
+      "zoomInTooltip": "Увеличить",
+      "zoomOutTooltip": "Уменьшить"
+    }
+  },
+  "settings": {
+    "adjustments": {
+      "chromaticAberration": "Хроматическая аберрация",
+      "colorCalibration": "Калибровка цвета",
+      "description": "Скройте неиспользуемые разделы инструментов редактирования, чтобы упростить боковую панель. Ваши настройки сохранятся и будут применены к снимкам, даже если соответствующие панели скрыты.",
+      "grain": "Зернистость",
+      "noiseReduction": "Подавление шума",
+      "title": "Отображение инструментов"
+    },
+    "categories": {
+      "general": "Общие",
+      "processing": "Обработка",
+      "shortcuts": "Управление"
+    },
+    "controls": {
+      "keyboardTitle": "Управление клавиатурой",
+      "modes": {
+        "mouse": "Мышь",
+        "trackpad": "Тачпад"
+      },
+      "notAssigned": "Не назначено",
+      "optimization": "Оптимизация устройств ввода",
+      "optimizationDesc": "Выберите основное устройство ввода для перемещения и масштабирования холста.",
+      "pressKey": "Нажмите клавишу... (Esc для очистки)",
+      "resetDefaults": "Сбросить настройки управления",
+      "speed": "Скорость",
+      "title": "Управление мышью",
+      "zoom": "Чувствительность масштабирования",
+      "zoomDesc": "Настройте скорость масштабирования холста при использовании колеса мыши или жестов тачпада."
+    },
+    "data": {
+      "clearSidecars": "Удалить все файлы сопутствующих данных",
+      "clearSidecarsButton": "Очистить",
+      "clearSidecarsDesc": "Это приведет к безвозвратному удалению всех файлов .rrdata (содержащих настройки вашей обработки) в корневых папках:",
+      "clearThumbnail": "Очистить кеш миниатюр",
+      "clearThumbnailButton": "Очистить",
+      "clearThumbnailDesc": "Это приведет к удалению всех закешированных миниатюр снимков. Они будут автоматически пересозданы по мере просмотра библиотеки.",
+      "loading": "Загрузка...",
+      "logs": "Просмотр логов приложения",
+      "logsButton": "Открыть",
+      "logsDesc": "Просмотрите лог-файл приложения для диагностики неисправностей. Лог расположен по пути:",
+      "modals": {
+        "aiMessage": "Вы уверены, что хотите удалить все сгенерированные ИИ теги из файлов во всех активных корневых папках?\n\nЭто не затронет теги, добавленные пользователем. Данное действие нельзя отменить.",
+        "allMessage": "Вы уверены, что хотите удалить все теги (сгенерированные ИИ и созданные вручную) у всех изображений во всех активных корневых папках?\n\nДанное действие нельзя отменить.",
+        "cacheMessage": "Вы уверены, что хотите очистить кеш миниатюр?\n\nВсе эскизы кадров будут генерироваться заново, что может снизить скорость работы при открытии больших папок.",
+        "confirmAiTitle": "Подтверждение удаления ИИ-тегов",
+        "confirmAllTitle": "Подтверждение удаления всех тегов",
+        "confirmCacheTitle": "Подтверждение удаления кеша",
+        "confirmClear": "Очистить",
+        "confirmClearAi": "Очистить ИИ-теги",
+        "confirmClearAll": "Очистить все теги",
+        "confirmClearCache": "Очистить кеш",
+        "confirmDeleteAllEdits": "Удалить все изменения",
+        "confirmTitle": "Подтвердить удаление",
+        "sidecarMessage": "Вы уверены, что хотите удалить все сопутствующие файлы?\n\nЭто безвозвратно удалит все настройки коррекции для всех снимков внутри активных корневых папок и их подкаталогов."
+      },
+      "noFolders": "Папки не выбраны",
+      "statuses": {
+        "aiSuccess": "Файлов обновлено: {{count}}. ИИ-теги удалены.",
+        "aiSuccess_one": "Файлов обновлено: {{count}}. ИИ-теги удалены.",
+        "aiSuccess_other": "Файлов обновлено: {{count}}. ИИ-теги удалены.",
+        "allSuccess": "Файлов обновлено: {{count}}. Все теги, кроме цветовых меток, удалены.",
+        "allSuccess_one": "Файлов обновлено: {{count}}. Все теги, кроме цветовых меток, удалены.",
+        "allSuccess_other": "Файлов обновлено: {{count}}. Все теги, кроме цветовых меток, удалены.",
+        "cacheSuccess": "Кеш миниатюр успешно очищен.",
+        "clearingAi": "Удаление ИИ-тегов из сопутствующих файлов...",
+        "clearingAll": "Удаление всех тегов из сопутствующих файлов...",
+        "clearingCache": "Очистка кеша миниатюр...",
+        "deleting": "Удаление сопутствующих файлов, пожалуйста, подождите...",
+        "failedToGetPath": "Не удалось получить путь к лог-файлу.",
+        "processing": "Обработка...",
+        "sidecarSuccess": "Успешно удалено сопутствующих файлов: {{count}}.",
+        "sidecarSuccess_one": "Успешно удалено сопутствующих файлов: {{count}}.",
+        "sidecarSuccess_other": "Успешно удалено сопутствующих файлов: {{count}}."
+      },
+      "title": "Управление данными"
+    },
+    "general": {
+      "createXmp": "Создавать недостающие файлы XMP",
+      "createXmpDesc": "Автоматически создавать файл сопутствующих данных XMP, если он отсутствует у изображения.",
+      "createXmpMissing": "Создавать XMP при отсутствии",
+      "displayEditIcon": "Показывать индикатор изменений",
+      "displayEditIconDesc": "Показывать небольшой значок ползунка на эскизах тех кадров, которые были изменены.",
+      "enableFocusMode": "Включить фокусный режим",
+      "enableOsTitlebar": "Использовать заголовок окна ОС",
+      "enableXmpSync": "Включить синхронизацию XMP",
+      "focusMode": "Фокусный режим",
+      "focusModeDesc": "Помогает сосредоточиться на работе, автоматически сворачивая другие боковые панели при открытии новой панели.",
+      "folderImageCounts": "Количество кадров в папках",
+      "folderImageCountsDesc": "Показывать количество изображений внутри папок при наведении курсора на дерево каталогов.",
+      "font": "Шрифт",
+      "fontDesc": "Изменить шрифт интерфейса приложения.",
+      "nativeTitlebar": "Системный заголовок окна",
+      "nativeTitlebarDesc": "Использовать стандартный заголовок окна вашей операционной системы вместо кастомного заголовка RapidRAW.",
+      "poppins": "Poppins",
+      "showImageCounts": "Показывать счетчик изображений",
+      "system": "Системный по умолчанию",
+      "theme": "Тема оформления",
+      "themeDesc": "Изменить внешний вид интерфейса приложения.",
+      "title": "Общие настройки",
+      "xmpSync": "Синхронизация метаданных XMP",
+      "xmpSyncDesc": "Записывать рейтинги, цветовые метки и теги в стандартные файлы сопутствующих данных XMP для совместимости с другими фоторедакторами."
+    },
+    "keybinds": {
+      "actions": {
+        "brush_size_down": "Уменьшить размер кисти",
+        "brush_size_up": "Увеличить размер кисти",
+        "color_label_blue": "Цветовая метка: Синий",
+        "color_label_green": "Цветовая метка: Зеленый",
+        "color_label_none": "Снять цветовую метку",
+        "color_label_purple": "Цветовая метка: Фиолетовый",
+        "color_label_red": "Цветовая метка: Красный",
+        "color_label_yellow": "Цветовая метка: Желтый",
+        "copy_adjustments": "Копировать выбранные настройки",
+        "copy_files": "Копировать выбранные файлы",
+        "cycle_zoom": "Режимы масштаба (По экрану, 2x, 100%)",
+        "delete_selected": "Удалить выбранные файлы",
+        "open_image": "Открыть выбранное изображение",
+        "paste_adjustments": "Вставить скопированные настройки",
+        "paste_files": "Вставить файлы в текущую папку",
+        "preview_next": "Следующий снимок",
+        "preview_prev": "Предыдущий снимок",
+        "rate_0": "Установить рейтинг: 0 звезд",
+        "rate_1": "Установить рейтинг: 1 звезда",
+        "rate_2": "Установить рейтинг: 2 звезды",
+        "rate_3": "Установить рейтинг: 3 звезды",
+        "rate_4": "Установить рейтинг: 4 звезды",
+        "rate_5": "Установить рейтинг: 5 звезд",
+        "redo": "Повторить действие",
+        "rotate_left": "Повернуть на 90° против часовой стрелки",
+        "rotate_right": "Повернуть на 90° по часовой стрелке",
+        "select_all": "Выбрать все снимки",
+        "show_original": "Показать оригинал (До/После)",
+        "toggle_adjustments": "Панель коррекции",
+        "toggle_ai": "Панель ИИ",
+        "toggle_analytics": "Показать/скрыть панель гистограммы",
+        "toggle_crop": "Режим обрезки / выравнивания",
+        "toggle_crop_panel": "Панель обрезки",
+        "toggle_export": "Панель экспорта",
+        "toggle_fullscreen": "Полноэкранный режим",
+        "toggle_library_exif": "Информация EXIF поверх сетки",
+        "toggle_masks": "Панель масок",
+        "toggle_metadata": "Панель метаданных",
+        "toggle_presets": "Панель пресетов",
+        "undo": "Отменить действие",
+        "zoom_100": "Масштаб 100%",
+        "zoom_fit": "Уместить по размеру окна",
+        "zoom_in": "Приблизить",
+        "zoom_in_step": "Приблизить по шагам",
+        "zoom_out": "Отдалить",
+        "zoom_out_step": "Отдалить по шагам"
+      },
+      "sections": {
+        "editing": "Редактирование",
+        "library": "Библиотека",
+        "panels": "Панели",
+        "rating": "Оценки и метки",
+        "view": "Отображение"
+      }
+    },
+    "language": "Язык",
+    "languageDesc": "Изменить язык интерфейса приложения.",
+    "lenses": {
+      "addButton": "Добавить в мои объективы",
+      "addNew": "Добавить новый объектив",
+      "description": "Создайте список часто используемых объективов для быстрого доступа к ним в панели коррекции дисторсии.",
+      "manufacturerPlaceholder": "Выберите производителя",
+      "modelPlaceholder": "Выберите модель объектива",
+      "noLenses": "В список пока не добавлено ни одного объектива.",
+      "removeTooltip": "Удалить объектив",
+      "saved": "Сохраненные объективы",
+      "title": "Мои объективы"
+    },
+    "processing": {
+      "ai": {
+        "cloud": {
+          "description": "Для тех, кто предпочитает готовые решения: дополнительная облачная подписка предоставляет аналогичные по качеству результаты ИИ-обработки без хлопот по локальной настройке сервера. Это самый удобный способ использовать ИИ-функции и поддержать разработку проекта.",
+          "feature1": "Максимальное удобство без локальной настройки",
+          "feature2": "Идентичные результаты с облачными вычислениями",
+          "feature3": "Не требуется мощная видеокарта на вашем компьютере",
+          "signedIn": {
+            "active": "Облачная подписка активна",
+            "inactive": "Нет активной подписки",
+            "logout": "Выйти",
+            "manage": "Управление",
+            "usage": "Ежемесячный лимит",
+            "usageStats": "{{requests}} / {{limit}} запросов"
+          },
+          "signedOut": {
+            "noAccount": "Еще нет аккаунта?",
+            "signup": "Зарегистрироваться на сайте",
+            "upgradeBtn": "Приобрести подписку на сайте",
+            "upgradeDesc": "Чтобы использовать облачные ИИ-функции, необходима активная подписка."
+          },
+          "title": "Облачный сервис"
+        },
+        "connector": {
+          "address": "Адрес ИИ-коннектора",
+          "addressDesc": "Введите сетевой адрес и порт запущенного экземпляра AI Connector. Требуется для работы генеративного ИИ.",
+          "description": "Для опытных пользователей с подходящей видеокартой, желающих получить полный контроль. Подключите RapidRAW к собственному серверу-коннектору для интеграции в технические воркфлоу.",
+          "failed": "Подключение не удалось.",
+          "feature1": "Использование собственной сборки ComfyUI",
+          "feature2": "Полностью бесплатная продвинутая ИИ-генерация",
+          "feature3": "Выбор индивидуальных рабочих сценариев (workflows)",
+          "success": "Успешно подключено!",
+          "test": "Тест",
+          "testing": "Проверка...",
+          "title": "Локальный хостинг (RapidRAW AI Connector)"
+        },
+        "cpu": {
+          "description": "Интегрированные непосредственно в RapidRAW функции, которые полностью выполняются на вашем компьютере. Они бесплатны, работают быстро и не требуют настройки.",
+          "feature1": "Автоматическое маскирование (Объект, Небо, Передний план)",
+          "feature2": "Автоматическое тегирование кадров",
+          "feature3": "Базовая генеративная замена силами процессора",
+          "title": "Встроенный ИИ (CPU)"
+        },
+        "description": "Возможности ИИ в RapidRAW спроектированы с упором на гибкость. Выберите оптимальный режим вычислений: от локальных инструментов до высокопроизводительного ИИ-сервера.",
+        "providers": {
+          "aiConnector": "AI Connector",
+          "cloud": "Облако",
+          "cpu": "Процессор"
+        },
+        "title": "Генеративный ИИ"
+      },
+      "backend": "Графический бэкенд",
+      "backendDesc": "Выберите графический API. Рекомендуется значение 'Авто'. Изменение параметра может устранить сбои рендеринга на некоторых конфигурациях оборудования.",
+      "backends": {
+        "auto": "Авто",
+        "dx12": "DirectX 12",
+        "gl": "OpenGL",
+        "metal": "Metal",
+        "vulkan": "Vulkan"
+      },
+      "dynamicDesc": "Редактор выполняет рендеринг изображения в соответствии с фактической плотностью пикселей вашего экрана. Это гарантирует абсолютную точность 1:1, превосходную четкость деталей при приближении и надежный контроль фокуса.",
+      "enableLivePreviews": "Включить интерактивный предпросмотр",
+      "highDpi": "Рендеринг High-DPI",
+      "highDpiDesc": "Рендерить изображение в родном физическом разрешении вашего экрана (коэффициент масштабирования {{dpr}}x). Обеспечивает максимально детализированную картинку, но расходует значительно больше видеопамяти.",
+      "highDpiDescStandard": "Этот параметр влияет только на экраны высокого разрешения (High-DPI / Retina). Ваш текущий дисплей имеет стандартное разрешение.",
+      "imageCache": "Кеш декодированных кадров",
+      "imageCacheDesc": "Максимальное количество полноразмерных кадров, удерживаемых в оперативной памяти. Большие значения делают переключение между недавно отредактированными кадрами мгновенным, но увеличивают потребление ОЗУ.",
+      "images": "кадров",
+      "linuxCompat": "Режим совместимости для Linux",
+      "linuxCompatDesc": "Включить обходные пути для известных проблем с драйверами графических процессоров и дисплейными серверами. Отключите для получения максимального GPU-ускорения.",
+      "linuxCompatLabel": "Включить режим совместимости",
+      "livePreviewQuality": "Качество интерактивного просмотра",
+      "livePreviewQualityDesc": "Управляет разрешением и сжатием картинки при перетаскивании ползунков регулировки. Пониженное качество значительно увеличивает отклик интерфейса.",
+      "livePreviews": "Интерактивный предпросмотр в реальном времени",
+      "livePreviewsDesc": "Мгновенно обновлять изображение при изменении настроек. Отключите этот параметр, если интерфейс начинает задерживаться во время регулировки ползунков.",
+      "modes": {
+        "dynamic": "Динамический",
+        "static": "Фиксированное разрешение"
+      },
+      "nativeDpi": "Рендерить в родном разрешении",
+      "preprocessing": {
+        "applyPreprocessing": "Предварительная обработка для не-RAW",
+        "applyPreprocessingDesc": "Если включено, базовая коррекция хроматического шума и предварительное повышение резкости будут применяться также к обычным графическим форматам.",
+        "colorNr": "Базовое шумоподавление цвета",
+        "colorNrDesc": "Применяет двусторонний пространственный фильтр на раннем этапе обработки для удаления хроматического шума. Больше значение — сильнее эффект.",
+        "defaultNonRawTonemapper": "Тон-маппер для не-RAW",
+        "defaultNonRawTonemapperDesc": "Алгоритм тонального компрессора, применяемый по умолчанию к изображениям не в формате RAW (например, JPEG, PNG).",
+        "defaultRawTonemapper": "Тон-маппер для RAW",
+        "defaultRawTonemapperDesc": "Алгоритм тонального компрессора, применяемый по умолчанию к файлам RAW.",
+        "enablePreprocessingNonRaws": "Включить для не-RAW файлов",
+        "enableTonemapperOverride": "Принудительный выбор тон-маппера",
+        "highlightRecovery": "Восстановление светов в RAW",
+        "highlightRecoveryDesc": "Регулирует глубину восстановления деталей из переэкспонированных областей в файлах RAW. Высокие значения восстанавливают больше текстур, но могут приводить к появлению нежелательных оттенков в ярких зонах.",
+        "linearOptions": {
+          "auto": "Авто",
+          "gamma": "Применить гамму",
+          "gamma_skip_calib": "Применить гамму и пропустить калибровку",
+          "skip_calib": "Пропустить калибровку"
+        },
+        "linearRaw": "Обработка Linear RAW",
+        "linearRawDesc": "Исправляет искажения цветопередачи и розоватый оттенок на некоторых файлах формата DNG. Контролирует интерпретацию предварительно обработанных данных LinearRAW.",
+        "sharpening": "Базовая резкость",
+        "sharpeningDesc": "Мягкое усиление микроконтраста деталей на ранней стадии конвейера обработки. Больше значение — резче снимок.",
+        "title": "Предварительная обработка снимков",
+        "tonemapperOptions": {
+          "agx": "AgX",
+          "basic": "Стандартный"
+        },
+        "tonemapperOverride": "Глобальный принудительный тон-маппер",
+        "tonemapperOverrideDesc": "Принудительно задействовать выбранный тип тонального отображения для всех снимков, скрыв переключатель тон-маппера на боковой панели настроек."
+      },
+      "previewRes": "Разрешение предпросмотра",
+      "previewResDesc": "Определяет максимальное разрешение изображения в рабочей области. Понижение этого значения существенно ускоряет работу приложения.",
+      "previewStrategy": "Метод отрисовки предпросмотра",
+      "qualities": {
+        "full": "Полное разрешение",
+        "high": "Высокое качество",
+        "performance": "Макс. производительность"
+      },
+      "renderScale": "Масштаб разрешения рендеринга",
+      "renderScaleDesc": "Задает физический масштаб вывода относительно размеров экрана. Понижение коэффициента повышает отзывчивость интерфейса на экранах сверхвысокого разрешения.",
+      "restartRequired": "Для вступления в силу изменений параметров графического ядра потребуется перезапустить приложение.",
+      "saveRelaunch": "Сохранить и перезапустить",
+      "staticDesc": "Изображение на холсте отрисовывается в фиксированном разрешении. Данный режим является наименее ресурсоемким и оптимален для компьютеров начального уровня, где плавная работа важнее попиксельной резкости при масштабировании.",
+      "staticPreviewRes": "Статическая детализация",
+      "staticPreviewResDesc": "Устанавливает разрешение для режимов кадрирования, дисторсии объектива и трансформации перспективы. Не влияет на основное окно редактирования.",
+      "threads": "Потоков вычислений",
+      "thumbnailRes": "Разрешение эскизов",
+      "thumbnailResDesc": "Задает разрешение для создаваемых в галерее миниатюр. Более высокие значения делают эскизы более четкими.",
+      "title": "Параметры графического ядра",
+      "wgpu": "Прямой рендеринг WGPU",
+      "wgpuDescAndroid": "Обходит этап кодирования веб-браузера для моментального обновления интерактивного просмотра. (Функция недоступна на Android: создание нативного контекста WGPU не поддерживается в мобильной среде WebView.)",
+      "wgpuDescLinux": "Обходит этап кодирования веб-браузера для моментального обновления интерактивного просмотра. (Функция недоступна в Linux: Tauri использует компоненты GTK, конфликтующие с контекстом WGPU на общих поверхностях отрисовки X11, что приводит к мерцанию экрана.)",
+      "wgpuDescRecommended": "Обходит этап кодирования веб-браузера для моментального обновления интерактивного просмотра. Настоятельно рекомендуется для достижения максимальной отзывчивости интерфейса.",
+      "wgpuLabel": "Включить прямой рендеринг WGPU",
+      "workerThreads": "Потоки генерации миниатюр",
+      "workerThreadsDesc": "Количество параллельно работающих вычислительных потоков для создания миниатюр снимков. Высокие значения ускоряют первоначальный запуск галереи, но нагружают процессор и ОЗУ."
+    },
+    "tagging": {
+      "addCustomPlaceholder": "Добавить пользовательские AI-теги (через запятую)...",
+      "addCustomTooltip": "Добавить ИИ-тег",
+      "addShortcutsPlaceholder": "Добавить ярлыки (через запятую)...",
+      "addShortcutTooltip": "Добавить быстрый выбор",
+      "aiTagging": "Тегирование силами ИИ",
+      "aiTaggingDesc": "Включает автоматический анализ содержимого кадра и присвоение тегов ИИ-моделью (CLIP). Потребуется загрузка файла весов модели, что может временно снизить производительность при первом чтении каталогов. Теги используются для поиска по ключевым словам.",
+      "amount": "Интенсивность",
+      "automaticAiTagging": "Автоматическое ИИ-тегирование",
+      "clearAiTagsButton": "Удалить",
+      "clearAiTagsDesc": "Это приведет к очистке всех автоматически сгенерированных ИИ тегов в файлах .rrdata во всех активных корневых папках. Пользовательские теги сохранятся.",
+      "clearAiTagsTitle": "Удалить теги ИИ",
+      "clearAllTagsDesc": "Это приведет к очистке всех тегов (сгенерированных ИИ и созданных вами) в файлах .rrdata во всех активных корневых папках. Цветовые метки сохранятся.",
+      "clearAllTagsTitle": "Удалить абсолютно все теги",
+      "clearCustomTooltip": "Очистить список тегов ИИ",
+      "clearShortcutsTooltip": "Очистить список быстрого выбора",
+      "customList": "Индивидуальный ИИ-словарь",
+      "customListDesc": "Если указано, ИИ-модель будет выбирать теги исключительно из этого списка, игнорируя встроенный словарь RapidRAW. Тегирование производится на английском языке.",
+      "maxAiTags": "Максимум ИИ-тегов",
+      "maxAiTagsDesc": "Максимальное количество ключевых слов, генерируемых моделью для одного кадра.",
+      "noCustomTags": "Индивидуальный словарь пуст (используется встроенный список)",
+      "noShortcuts": "Ярлыки быстрого выбора не настроены",
+      "removeCustomTooltip": "Удалить тег \"{{tag}}\"",
+      "removeShortcutTooltip": "Удалить ярлык \"{{shortcut}}\"",
+      "shortcuts": "Ярлыки быстрого тегирования",
+      "shortcutsDesc": "Список тегов, которые будут отображаться в качестве кнопок быстрого клика в меню тегирования.",
+      "title": "Тегирование"
+    },
+    "thanks": {
+      "description": "Мы выражаем искреннюю благодарность разработчикам и сообществам следующих проектов, сыгравших ключевую роль в создании RapidRAW:",
+      "list": {
+        "darktable": "За справочные реализации некоторых алгоритмов обработки, которые легли в основу данного проекта.",
+        "depth": "За модель оценки глубины кадра по одному снимку, сделавшую возможными ИИ-маски глубины резкости.",
+        "lama": "За высокоэффективную нейросетевую модель восстановления, используемую для заполнения областей и ретуши.",
+        "lensfun": "За незаменимую открытую библиотеку геометрической калибровки и обширную базу данных объективов.",
+        "negpy": "За качественный математический аппарат инверсии цветной негативной пленки.",
+        "nind": "За ИИ-модели, обеспечивающие работу фирменного алгоритма интеллектуального шумоподавления.",
+        "rawler": "За великолепную программную библиотеку на языке Rust, составляющую ядро чтения RAW-файлов.",
+        "sam2": "За передовую базовую нейросеть сегментации, используемую в инструменте выделения объектов.",
+        "u2net": "За надежную архитектуру нейронной сети, служащую для автоматического выделения неба и переднего плана.",
+        "you": "За выбор RapidRAW и поддержку проекта. Наш редактор развивается исключительно благодаря вашему интересу.",
+        "youLabel": "Вам лично"
+      },
+      "title": "Выражение благодарности"
+    },
+    "themes": {
+      "dark": "Темная",
+      "grey": "Серая",
+      "light": "Светлая"
+    },
+    "title": "Настройки",
+    "tooltips": {
+      "goHome": "На главную"
+    }
+  },
+  "ui": {
+    "bottomBar": {
+      "imagesSelected": "Выбрано снимков: {{current}} из {{total}}",
+      "tooltips": {
+        "collapseFilmstrip": "Свернуть ленту кадров",
+        "copyPasteSettings": "Копирование и вставка настроек",
+        "copySettings": "Копировать настройки",
+        "customZoom": "Нажмите, чтобы ввести произвольный масштаб в процентах",
+        "expandFilmstrip": "Развернуть ленту кадров",
+        "export": "Экспорт",
+        "pasteSettings": "Вставить настройки",
+        "rateStars_one": "Оценить в 1 звезду",
+        "rateStars_other": "Оценить в {{count}} звезд",
+        "resetZoom": "Сбросить масштаб (по размеру окна)",
+        "selectToRate": "Выберите снимок, чтобы выставить ему оценку"
+      },
+      "zoomLabel": "Масштаб",
+      "zoomLabelReset": "Сбросить масштаб"
+    },
+    "collapsibleSection": {
+      "disableSection": "Отключить блок",
+      "enableSection": "Включить блок"
+    },
+    "colorWheel": {
+      "hue": "Цветовой тон",
+      "hueAbbreviation": "Тон:",
+      "luminance": "Яркость",
+      "reset": "Сбросить",
+      "saturation": "Насыщенность",
+      "saturationAbbreviation": "Нас:"
+    },
+    "exportPresets": {
+      "deleteTooltip": "Удалить пресет",
+      "heading": "Пресеты экспорта",
+      "overwriteTooltip": "Перезаписать выбранный пресет",
+      "placeholder": "Выберите пресет...",
+      "presetNamePlaceholder": "Имя пресета",
+      "saveAsNewTooltip": "Сохранить текущие параметры как новый пресет экспорта",
+      "savedTooltip": "Сохранено!"
+    },
+    "filmstrip": {
+      "tooltips": {
+        "color": "Цвет: {{color}}",
+        "virtualCopy": "Виртуальная копия"
+      },
+      "virtualCopyAbbreviation": "ВК"
+    },
+    "imagePicker": {
+      "clearImage": "Очистить изображение",
+      "filterLabel": "Файлы изображений",
+      "select": "Выбрать",
+      "selectImageFile": "Выберите графический файл"
+    },
+    "lut": {
+      "clearLut": "Удалить LUT",
+      "filterLabel": "Файлы LUT",
+      "intensity": "Интенсивность",
+      "label": "LUT",
+      "select": "Выбрать",
+      "selectLutFile": "Выберите файл таблицы цветов LUT",
+      "unsupportedFormat": "Обнаружены неподдерживаемые форматы файлов: .{{ext}}"
+    },
+    "slider": {
+      "clickToEdit": "Нажмите для точного ввода",
+      "reset": "Сбросить значение"
+    },
+    "waveform": {
+      "tooltips": {
+        "hideClipping": "Скрыть предупреждения о переэкспозиции",
+        "histogram": "Гистограмма",
+        "luma": "Яркостный профиль",
+        "parade": "RGB-парад",
+        "rgb": "RGB-наложение",
+        "showClipping": "Показать предупреждения о переэкспозиции",
+        "vectorscope": "Вектороскоп"
+      }
+    }
+  }
+}

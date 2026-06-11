@@ -166,7 +166,7 @@ jobs:
           stage_dir="$RUNNER_TEMP/android-release-assets"
           mkdir -p "$stage_dir"
 
-          app_name="$(sed -n 's/^name = \"\\([^\"]*\\)\"/\\1/p' src-tauri/Cargo.toml | head -n 1)"
+          app_name="RapidRAW"
           version="$(node -e "const fs=require('fs'); const conf=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8')); process.stdout.write(conf.version || '')")"
           arch="${{ inputs.target }}"
           arch="${arch%%-*}"

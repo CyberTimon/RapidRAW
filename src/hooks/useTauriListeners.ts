@@ -27,6 +27,7 @@ export function useTauriListeners({
 
   const thumbnailBuffer = useRef<Record<string, string>>({});
   const ratingBuffer = useRef<Record<string, number>>({});
+  const editStatusBuffer = useRef<Record<string, boolean>>({});
   const flushHandle = useRef<number | null>(null);
 
   useEffect(() => {
@@ -38,21 +39,27 @@ export function useTauriListeners({
 
       const pendingThumbs = thumbnailBuffer.current;
       const pendingRatings = ratingBuffer.current;
+      const pendingEdits = editStatusBuffer.current;
+
       thumbnailBuffer.current = {};
       ratingBuffer.current = {};
+      editStatusBuffer.current = {};
 
-      const thumbKeys = Object.keys(pendingThumbs);
-      const ratingKeys = Object.keys(pendingRatings);
-
-      if (thumbKeys.length > 0) {
+      if (Object.keys(pendingThumbs).length > 0) {
         useProcessStore.getState().setProcess((state) => ({
           thumbnails: { ...state.thumbnails, ...pendingThumbs },
         }));
       }
 
-      if (ratingKeys.length > 0) {
+      if (Object.keys(pendingRatings).length > 0 || Object.keys(pendingEdits).length > 0) {
         useLibraryStore.getState().setLibrary((state) => ({
           imageRatings: { ...state.imageRatings, ...pendingRatings },
+          imageList:
+            Object.keys(pendingEdits).length > 0
+              ? state.imageList.map((img) =>
+                  pendingEdits[img.path] !== undefined ? { ...img, is_edited: pendingEdits[img.path] } : img,
+                )
+              : state.imageList,
         }));
       }
     };
@@ -90,7 +97,8 @@ export function useTauriListeners({
       }),
       listen('thumbnail-generated', (event: any) => {
         if (!isEffectActive) return;
-        const { path, data, rating } = event.payload;
+        const { path, data, rating, is_edited } = event.payload;
+
         if (data) {
           thumbnailBuffer.current[path] = data;
           refs.current.markGenerated(path);
@@ -98,7 +106,10 @@ export function useTauriListeners({
         if (rating !== undefined) {
           ratingBuffer.current[path] = rating;
         }
-        if (data || rating !== undefined) {
+        if (is_edited !== undefined) {
+          editStatusBuffer.current[path] = is_edited;
+        }
+        if (data || rating !== undefined || is_edited !== undefined) {
           scheduleFlush();
         }
       }),

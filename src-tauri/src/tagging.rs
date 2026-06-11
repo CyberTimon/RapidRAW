@@ -332,14 +332,7 @@ pub async fn start_background_indexing(
                     let path_str = path.to_string_lossy().to_string();
                     let (_, sidecar_path) = parse_virtual_path(&path_str);
 
-                    let mut metadata: ImageMetadata = if sidecar_path.exists() {
-                        fs::read_to_string(&sidecar_path)
-                            .ok()
-                            .and_then(|c| serde_json::from_str(&c).ok())
-                            .unwrap_or_default()
-                    } else {
-                        ImageMetadata::default()
-                    };
+                    let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
                     let should_generate_tags = match &metadata.tags {
                         None => true,
@@ -426,14 +419,7 @@ fn modify_tags_for_path(
 ) -> Result<(), String> {
     let (_, sidecar_path) = parse_virtual_path(path_str);
 
-    let mut metadata: ImageMetadata = if sidecar_path.exists() {
-        fs::read_to_string(&sidecar_path)
-            .ok()
-            .and_then(|content| serde_json::from_str(&content).ok())
-            .unwrap_or_default()
-    } else {
-        ImageMetadata::default()
-    };
+    let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
     let mut tags = metadata.tags.unwrap_or_default();
     modify_fn(&mut tags);

@@ -167,6 +167,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
   const lastPinch = useRef<{ dist: number; midX: number; midY: number } | null>(null);
   const panVelocityHistory = useRef<{ x: number; y: number; t: number }[]>([]);
   const wheelSnapTimeout = useRef<number | null>(null);
+  const isMiddleMousePanning = useRef(false);
+  const wasPanningDisabledOnDown = useRef(false);
 
   const prevRenderState = useRef({
     containerLeft: 0,
@@ -705,8 +707,17 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-      if (isPanningDisabled) return;
+      wasPanningDisabledOnDown.current = isPanningDisabled;
+
+      if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
+
+      const isMiddleClick = e.pointerType === 'mouse' && e.button === 1;
+
+      if (isPanningDisabled && !isMiddleClick) return;
+
+      if (isMiddleClick) {
+        isMiddleMousePanning.current = true;
+      }
 
       if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
       if (physicsFrameId.current) cancelAnimationFrame(physicsFrameId.current);
@@ -734,6 +745,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
 
   useEffect(() => {
     if (!isPanningDisabled) return;
+    if (isMiddleMousePanning.current) return;
 
     activePointers.current.clear();
     lastPanPos.current = null;
@@ -748,7 +760,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
       if (!activePointers.current.has(e.pointerId)) return;
       activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-      if (activePointers.current.size === 1 && lastPanPos.current && isPanningState && !isPanningDisabled) {
+      const canPan = !isPanningDisabled || isMiddleMousePanning.current;
+
+      if (activePointers.current.size === 1 && lastPanPos.current && isPanningState && canPan) {
         panVelocityHistory.current.push({ x: e.clientX, y: e.clientY, t: performance.now() });
         if (panVelocityHistory.current.length > 6) panVelocityHistory.current.shift();
 
@@ -814,6 +828,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
         lastPanPos.current = null;
         lastPinch.current = null;
         setIsPanningState(false);
+        isMiddleMousePanning.current = false;
 
         let vx = 0,
           vy = 0;
@@ -843,7 +858,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
-      if (isCropping || isMasking || isAiEditing || isWbPickerActive) return;
+      if (e.button !== 0) return;
+      if (isPanningDisabled || wasPanningDisabledOnDown.current) return;
 
       if (mouseDownPos.current) {
         const dx = Math.abs(e.clientX - mouseDownPos.current.x);
@@ -1136,10 +1152,11 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
       const windowWidth = Math.max(window.innerWidth * dpr, 1);
       const windowHeight = Math.max(window.innerHeight * dpr, 1);
 
-      const clipX = currentRect.left * dpr;
-      const clipY = currentRect.top * dpr;
-      const clipW = Math.max(currentRect.width * dpr, 1);
-      const clipH = Math.max(currentRect.height * dpr, 1);
+      const OVERLAP = 2;
+      const clipX = (currentRect.left - OVERLAP) * dpr;
+      const clipY = (currentRect.top - OVERLAP) * dpr;
+      const clipW = Math.max((currentRect.width + OVERLAP * 2) * dpr, 1);
+      const clipH = Math.max((currentRect.height + OVERLAP * 2) * dpr, 1);
 
       if (state.useWgpuRenderer === false || !state.isReady || !state.hasRenderedFirstFrame) {
         const hiddenTransform = `${windowWidth},${windowHeight},-999999,-999999,1,1,${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')}`;
@@ -1891,11 +1908,13 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
     return null;
   }
 
-  const isZoomActionActive = !isCropping && !isMasking && !isAiEditing && !isWbPickerActive;
+  const isZoomActionActive = !isPanningDisabled;
   const isMaxZoom = transformState.scale >= maxScaleRef.current - 0.5;
 
   let cursorStyle = 'default';
-  if (isZoomActionActive) {
+  if (isPanningState && isMiddleMousePanning.current) {
+    cursorStyle = 'grabbing';
+  } else if (isZoomActionActive) {
     if (isPanningState) {
       cursorStyle = 'grabbing';
     } else if (transformState.scale > 1.01) {

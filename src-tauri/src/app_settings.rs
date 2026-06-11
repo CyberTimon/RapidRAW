@@ -21,6 +21,8 @@ pub struct FilterCriteria {
     pub rating: u8,
     pub raw_status: String,
     #[serde(default)]
+    pub edited_status: Option<String>,
+    #[serde(default)]
     pub colors: Vec<String>,
 }
 
@@ -29,6 +31,7 @@ impl Default for FilterCriteria {
         Self {
             rating: 0,
             raw_status: "all".to_string(),
+            edited_status: Some("all".to_string()),
             colors: Vec::new(),
         }
     }
@@ -367,6 +370,8 @@ pub struct AppSettings {
     pub prompt_for_unknown_lens_profile: Option<bool>,
     #[serde(default)]
     pub enable_folder_image_counts: Option<bool>,
+    #[serde(default)]
+    pub display_edit_icon: Option<bool>,
     #[serde(default = "default_linear_raw_mode")]
     pub linear_raw_mode: String,
     #[serde(default)]
@@ -466,6 +471,7 @@ impl Default for AppSettings {
             #[cfg(not(target_os = "android"))]
             high_res_zoom_multiplier: Some(1.0),
             enable_folder_image_counts: Some(false),
+            display_edit_icon: Some(true),
             linear_raw_mode: default_linear_raw_mode(),
             enable_xmp_sync: Some(true),
             create_xmp_if_missing: Some(false),

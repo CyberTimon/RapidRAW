@@ -1790,6 +1790,78 @@ pub fn apply_cpu_agx_tonemap(image: &mut DynamicImage) {
     *image = DynamicImage::ImageRgb32F(f32_image);
 }
 
+pub fn is_image_edited(
+    adj: &serde_json::Value,
+    is_raw: bool,
+    tonemapper_override: Option<u32>,
+) -> bool {
+    if adj.is_null() || adj.as_object().is_none() {
+        return false;
+    }
+
+    if let Some(patches) = adj.get("aiPatches").and_then(|v| v.as_array())
+        && !patches.is_empty()
+    {
+        return true;
+    }
+    if let Some(masks) = adj.get("masks").and_then(|v| v.as_array())
+        && !masks.is_empty()
+    {
+        return true;
+    }
+
+    if let Some(crop_val) = adj.get("crop")
+        && !crop_val.is_null()
+        && let Ok(crop) = serde_json::from_value::<Crop>(crop_val.clone())
+        && (crop.x.abs() > 0.1 || crop.y.abs() > 0.1)
+    {
+        return true;
+    }
+
+    if adj
+        .get("orientationSteps")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0)
+        != 0
+    {
+        return true;
+    }
+    if adj
+        .get("rotation")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0)
+        .abs()
+        > 0.001
+    {
+        return true;
+    }
+    if adj
+        .get("flipHorizontal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
+        return true;
+    }
+    if adj
+        .get("flipVertical")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
+        return true;
+    }
+
+    let geo = get_geometry_params_from_json(adj);
+    if !is_geometry_identity(&geo) {
+        return true;
+    }
+
+    let current_adj = get_all_adjustments_from_json(adj, is_raw, tonemapper_override);
+    let default_adj =
+        get_all_adjustments_from_json(&serde_json::json!({}), is_raw, tonemapper_override);
+
+    bytemuck::bytes_of(&current_adj) != bytemuck::bytes_of(&default_adj)
+}
+
 fn get_global_adjustments_from_json(
     js_adjustments: &serde_json::Value,
     is_raw: bool,
@@ -1818,24 +1890,46 @@ fn get_global_adjustments_from_json(
         }
     };
 
+    let default_curve = serde_json::json!([{"x": 0.0, "y": 0.0}, {"x": 255.0, "y": 255.0}]);
     let curves_obj = js_adjustments.get("curves").cloned().unwrap_or_default();
+
     let luma_points: Vec<serde_json::Value> = if is_visible("curves") {
-        curves_obj["luma"].as_array().cloned().unwrap_or_default()
+        curves_obj
+            .get("luma")
+            .unwrap_or(&default_curve)
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
     } else {
         Vec::new()
     };
     let red_points: Vec<serde_json::Value> = if is_visible("curves") {
-        curves_obj["red"].as_array().cloned().unwrap_or_default()
+        curves_obj
+            .get("red")
+            .unwrap_or(&default_curve)
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
     } else {
         Vec::new()
     };
     let green_points: Vec<serde_json::Value> = if is_visible("curves") {
-        curves_obj["green"].as_array().cloned().unwrap_or_default()
+        curves_obj
+            .get("green")
+            .unwrap_or(&default_curve)
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
     } else {
         Vec::new()
     };
     let blue_points: Vec<serde_json::Value> = if is_visible("curves") {
-        curves_obj["blue"].as_array().cloned().unwrap_or_default()
+        curves_obj
+            .get("blue")
+            .unwrap_or(&default_curve)
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
     } else {
         Vec::new()
     };
@@ -2048,7 +2142,7 @@ fn get_global_adjustments_from_json(
             "details",
             "sharpnessThreshold",
             SCALES.sharpness_threshold,
-            Some(10.0),
+            Some(15.0),
         ),
     }
 }

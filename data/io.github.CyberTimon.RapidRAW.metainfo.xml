@@ -38,6 +38,41 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.5.7" date="2026-06-07">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.7</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Expanded Multilingual Support: Following up on the initial German translation, I have added support for eight additional languages: Spanish, French, Italian, Japanese, Polish, Portuguese, Russian, and Chinese (Simplified).</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Library Performance Enhancements: I have focused heavily on optimizing library navigation and thumbnail loading. These adjustments reduce rendering overhead and resource spikes, making scrolling and browsing through large folders feel noticeably smoother.</li>
+                <li>Copy-Paste Fixes: Resolved an issue where copying and pasting adjustments or lens correction parameters between images would occasionally fail to apply or behave inconsistently. The copy-paste system now works reliably again.</li>
+            </ul>
+        </description>
+    </release>
+    <release version="v1.5.6" date="2026-06-01">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.6</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Full Internationalization: Rewrote core UI components to support multilingual translation, with German shipped as the first alternative language alongside English.</li>
+                <li>Advanced Library Filtering: Structured query-based search supporting parameters such as ISO, aperture, shutter speed, focal length, lens, camera, color, and rating with logical AND/OR matching.</li>
+                <li>Multi-Root Folders &amp; Custom Albums: Added support for managing independent directories from different drives and creating virtual albums to group files.</li>
+                <li>Dedicated EXIF Overlays: Introduced customizable metadata overlays to the library views, supported by a new background caching system to maintain scrolling performance.</li>
+                <li>Edited Status Tracking: Added visual indicators to identify edited files, alongside new sorting and filtering options to organize the library by edit status.</li>
+                <li>Improved Canvas Mask Overlays: Repositioned control handles for linear, radial, and brush masks directly onto the active image canvas for smoother adjustments.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>State Management Migration: Migrated state management into isolated Zustand stores to resolve performance bottlenecks and minimize UI rendering overhead.</li>
+                <li>Batch Lens Correction: Enabled copying and pasting of lens correction parameters across multiple files concurrently using the new metadata cache.</li>
+                <li>Resource-Aware Export Pipeline: Refactored the export backend to dynamically manage concurrency and scale usage based on available system memory and CPU cores.</li>
+                <li>Improved Brush Tool: Updated the masking brush for a more precise visual preview on-canvas.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.5.5" date="2026-05-04">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.5</url>
         <description translate="no">

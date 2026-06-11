@@ -13,6 +13,62 @@ use little_exif::metadata::Metadata;
 use little_exif::rational::{iR64, uR64};
 use rawler::decoders::RawMetadata;
 
+pub fn truncate_large_exif(value: &str) -> String {
+    if value.len() <= 500 {
+        return value.to_string();
+    }
+
+    let mut start_idx = 200;
+    while !value.is_char_boundary(start_idx) {
+        start_idx -= 1;
+    }
+
+    let mut end_idx = value.len() - 200;
+    while !value.is_char_boundary(end_idx) {
+        end_idx += 1;
+    }
+
+    if start_idx < end_idx {
+        let start_str = &value[..start_idx];
+        let end_str = &value[end_idx..];
+        return format!("{}...{}", start_str, end_str);
+    }
+
+    value.to_string()
+}
+
+pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
+    if !sidecar_path.exists() {
+        return ImageMetadata::default();
+    }
+
+    let Ok(content) = fs::read_to_string(sidecar_path) else {
+        return ImageMetadata::default();
+    };
+
+    let mut meta = serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default();
+    let mut healed = false;
+
+    if let Some(ref mut exif_map) = meta.exif {
+        for val in exif_map.values_mut() {
+            if val.len() > 500 {
+                *val = truncate_large_exif(val);
+                healed = true;
+            }
+        }
+    }
+
+    if healed && let Ok(json) = serde_json::to_string_pretty(&meta) {
+        let _ = fs::write(sidecar_path, json);
+        log::info!(
+            "Auto-healed bloated sidecar for: {}",
+            sidecar_path.display()
+        );
+    }
+
+    meta
+}
+
 fn to_ur64(val: &exif::Rational) -> uR64 {
     uR64 {
         nominator: val.num,
@@ -313,7 +369,7 @@ pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
     let mut insert_if_present = |key: &str, val: String| {
         let trimmed = val.trim();
         if !trimmed.is_empty() {
-            map.insert(key.to_string(), val);
+            map.insert(key.to_string(), truncate_large_exif(trimmed));
         }
     };
 
@@ -872,6 +928,10 @@ pub fn write_image_with_metadata(
                 {
                     metadata.set_tag(ExifTag::GPSAltitude(vec![to_ur64(&v[0])]));
                 }
+                if let Some(f) = exif_obj.get_field(exif::Tag::GPSAltitudeRef, exif::In::PRIMARY) {
+                    let alt_ref = f.value.get_uint(0).unwrap_or(0) as u8;
+                    metadata.set_tag(ExifTag::GPSAltitudeRef(vec![alt_ref]));
+                }
             }
         }
     }
@@ -1025,14 +1085,7 @@ pub fn get_rrexif_path(image_path: &Path) -> PathBuf {
 
 fn load_primary_metadata(image_path: &Path) -> ImageMetadata {
     let primary = get_primary_sidecar_path(image_path);
-    if primary.exists() {
-        fs::read_to_string(&primary)
-            .ok()
-            .and_then(|c| serde_json::from_str(&c).ok())
-            .unwrap_or_default()
-    } else {
-        ImageMetadata::default()
-    }
+    load_sidecar(&primary)
 }
 
 fn save_primary_metadata(image_path: &Path, metadata: &ImageMetadata) -> std::io::Result<()> {
@@ -1073,10 +1126,8 @@ pub fn read_exif_data_from_bytes(path: &str, file_bytes: &[u8]) -> HashMap<Strin
     let mut exif_data = HashMap::new();
     if let Some(exif) = read_exif(file_bytes) {
         for field in exif.fields() {
-            exif_data.insert(
-                field.tag.to_string(),
-                field.display_value().with_unit(&exif).to_string(),
-            );
+            let raw_val = field.display_value().with_unit(&exif).to_string();
+            exif_data.insert(field.tag.to_string(), truncate_large_exif(&raw_val));
         }
     }
     exif_data

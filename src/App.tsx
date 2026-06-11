@@ -8,7 +8,7 @@ import clsx from 'clsx';
 
 import TitleBar from './window/TitleBar';
 import FolderTree from './components/panel/FolderTree';
-import LibraryExportPanel from './components/panel/right/LibraryExportPanel';
+import ExportPanel from './components/panel/right/ExportPanel';
 import Resizer from './components/ui/Resizer';
 import GlobalTooltip from './components/ui/GlobalTooltip';
 import AppModals from './components/modals/AppModals';
@@ -38,6 +38,7 @@ import { useLibraryActions } from './hooks/useLibraryActions';
 import { useProductivityActions } from './hooks/useProductivityActions';
 
 import { useAppInitialization } from './hooks/useAppInitialization';
+import './i18n';
 
 import {
   Invokes,
@@ -54,16 +55,6 @@ import ImageProcessingManager from './components/managers/ImageProcessingManager
 import ImageLoaderManager from './components/managers/ImageLoaderManager';
 
 const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
-
-const RIGHT_PANEL_ORDER = [
-  Panel.Metadata,
-  Panel.Adjustments,
-  Panel.Crop,
-  Panel.Masks,
-  Panel.Ai,
-  Panel.Presets,
-  Panel.Export,
-];
 
 const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[]): any => {
   if (!node) return null;
@@ -309,10 +300,10 @@ function App() {
             return null;
           };
           const album = findObj(albumTree);
-          if (album) await handleSelectAlbum(album.id, album.name, album.images);
+          if (album) await handleSelectAlbum(album.id, album.name, album.images, true);
         }
       } else {
-        await handleSelectSubfolder(currentFolderPath, false);
+        await handleSelectSubfolder(currentFolderPath, false, undefined, false, true);
       }
     }
   }, [currentFolderPath, handleSelectSubfolder, handleSelectAlbum]);
@@ -533,7 +524,7 @@ function App() {
 
   const handleRightPanelSelect = useCallback(
     (panelId: Panel) => {
-      setRightPanel(panelId, RIGHT_PANEL_ORDER);
+      setRightPanel(panelId);
       setEditor({ activeMaskId: null, activeAiSubMaskId: null, isWbPickerActive: false });
     },
     [setRightPanel, setEditor],
@@ -708,16 +699,16 @@ function App() {
               )}
               style={{ width: isLibraryExportPanelVisible && !isFullScreen ? `${rightPanelWidth}px` : '0px' }}
             >
-              <LibraryExportPanel
+              <ExportPanel
                 exportState={exportState}
-                imageList={sortedImageList}
-                isVisible={isLibraryExportPanelVisible}
                 multiSelectedPaths={multiSelectedPaths}
-                onClose={() => setUI({ isLibraryExportPanelVisible: false })}
+                selectedImage={null}
                 setExportState={setExportState}
                 appSettings={appSettings}
                 onSettingsChange={handleSettingsChange}
                 rootPaths={rootPaths}
+                isVisible={isLibraryExportPanelVisible}
+                onClose={() => setUI({ isLibraryExportPanelVisible: false })}
               />
             </div>
           </div>

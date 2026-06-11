@@ -1,8 +1,7 @@
 const js = require('@eslint/js');
 const tseslint = require('typescript-eslint');
 const react = require('eslint-plugin-react');
-// const prettier = require('eslint-plugin-prettier');
-// const prettierConfig = require('eslint-config-prettier');
+const i18next = require('eslint-plugin-i18next');
 
 const tsFiles = ['**/*.{ts,tsx}'];
 
@@ -32,6 +31,7 @@ module.exports = [
     files: tsFiles,
     plugins: {
       react,
+      i18next,
     },
     languageOptions: {
       ecmaVersion: 'latest',
@@ -53,10 +53,31 @@ module.exports = [
         'warn',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
       ],
-      // '@typescript-eslint/no-explicit-any': 'off',
-      // '@typescript-eslint/explicit-function-return-type': 'off',
-      // 'prettier/prettier': 'error',
+      'i18next/no-literal-string': [
+        'warn',
+        {
+          markupOnly: true,
+          ignoreAttribute: [
+            'className',
+            'style',
+            'data-tooltip',
+            'variant',
+            'size',
+            'color',
+            'weight',
+            'fillOrigin',
+            'id',
+            'name',
+            'type',
+            'value',
+            'label',
+            'placeholder',
+            'stroke',
+            'fill',
+            'viewBox',
+          ],
+        },
+      ],
     },
   },
-  // prettierConfig,
 ];

@@ -35,7 +35,6 @@ export enum Invokes {
   ApplyAdjustmentsToPaths = 'apply_adjustments_to_paths',
   ApplyAutoAdjustmentsToPaths = 'apply_auto_adjustments_to_paths',
   ApplyDenoising = 'apply_denoising',
-  BatchExportImages = 'batch_export_images',
   CalculateAutoAdjustments = 'calculate_auto_adjustments',
   CancelExport = 'cancel_export',
   CheckAIConnectorStatus = 'check_ai_connector_status',
@@ -49,9 +48,8 @@ export enum Invokes {
   CullImages = 'cull_images',
   DeleteFolder = 'delete_folder',
   DuplicateFile = 'duplicate_file',
-  EstimateBatchExportSize = 'estimate_batch_export_size',
-  EstimateExportSize = 'estimate_export_size',
-  ExportImage = 'export_image',
+  EstimateExportSizes = 'estimate_export_sizes',
+  ExportImages = 'export_images',
   FrontendLog = 'frontend_log',
   GenerateAiForegroundMask = 'generate_ai_foreground_mask',
   GenerateAiSkyMask = 'generate_ai_sky_mask',
@@ -186,6 +184,7 @@ export interface AppSettings {
   autoApplyLensCorrection?: boolean;
   promptForUnknownLensProfile?: boolean;
   enableFolderImageCounts?: boolean;
+  displayEditIcon?: boolean;
   linearRawMode?: string;
   enableXmpSync?: boolean;
   createXmpIfMissing?: boolean;
@@ -218,10 +217,19 @@ export enum LibraryViewMode {
   Recursive = 'recursive',
 }
 
+export const EditedStatus = {
+  All: 'all',
+  EditedOnly: 'editedOnly',
+  UneditedOnly: 'uneditedOnly',
+} as const;
+
+export type EditedStatus = (typeof EditedStatus)[keyof typeof EditedStatus];
+
 export interface FilterCriteria {
   colors: Array<string>;
   rating: number;
   rawStatus: RawStatus;
+  editedStatus?: EditedStatus;
 }
 
 export interface Folder {

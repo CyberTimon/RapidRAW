@@ -164,13 +164,13 @@ const KeybindRow = ({
     };
     window.addEventListener('keydown', handler, { capture: true });
     return () => window.removeEventListener('keydown', handler, { capture: true });
-  }, [recording, def.action, onSave, onStartRecording, osPlatform]);
+  }, [recording, def.action, onSave, onStartRecording]);
 
   const displayCombo = currentCombo !== undefined ? (currentCombo.length ? currentCombo : null) : def.defaultCombo;
 
   return (
     <div className="flex justify-between items-center py-2">
-      <Text variant={TextVariants.label}>{def.description}</Text>
+      <Text variant={TextVariants.label}>{t(def.description as any)}</Text>
       <div className="flex items-center gap-1">
         {isConflicting && <span className="text-yellow-400 text-xs">⚠</span>}
         <button onClick={() => onStartRecording(def.action)} className="flex items-center gap-1 flex-wrap shrink-0">
@@ -264,7 +264,7 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
     () => [
       { id: 'cpu', label: t('settings.processing.ai.providers.cpu'), icon: Cpu },
       { id: 'ai-connector', label: t('settings.processing.ai.providers.aiConnector'), icon: Server },
-      { id: 'cloud', label: t('settings.processing.ai.providers.cloud'), icon: Cloud },
+      //{ id: 'cloud', label: t('settings.processing.ai.providers.cloud'), icon: Cloud },
     ],
     [t],
   );
@@ -547,7 +547,9 @@ export default function SettingsPanel({
   });
   const [restartRequired, setRestartRequired] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
-  const [logPath, setLogPath] = useState('');
+  const [logPath, setLogPath] = useState<string | null>(null);
+  const [logPathLoading, setLogPathLoading] = useState(true);
+  const [logPathError, setLogPathError] = useState(false);
   const [dpr, setDpr] = useState(() => (typeof window !== 'undefined' ? window.devicePixelRatio : 1));
 
   const settingCategories = useMemo(
@@ -660,15 +662,17 @@ export default function SettingsPanel({
         setLogPath(path);
       } catch (error) {
         console.error('Failed to get log file path:', error);
-        setLogPath(t('settings.data.loading'));
+        setLogPathError(true);
+      } finally {
+        setLogPathLoading(false);
       }
     };
     fetchLogPath();
+  }, []);
 
-    invoke('get_lensfun_makers')
-      .then((m: any) => setLensMakers(m))
-      .catch(console.error);
-  }, [t]);
+  useEffect(() => {
+    invoke<string[]>('get_lensfun_makers').then(setLensMakers).catch(console.error);
+  }, []);
 
   const handleProcessingSettingChange = async (key: string, value: any) => {
     setProcessingSettings((prev) => ({ ...prev, [key]: value }));
@@ -1050,7 +1054,7 @@ export default function SettingsPanel({
                     <SettingItem label={t('settings.general.theme')} description={t('settings.general.themeDesc')}>
                       <Dropdown
                         onChange={(value: any) => onSettingsChange({ ...appSettings, theme: value })}
-                        options={THEMES.map((theme: ThemeProps) => ({ value: theme.id, label: theme.name }))}
+                        options={THEMES.map((theme: ThemeProps) => ({ value: theme.id, label: t(theme.name as any) }))}
                         value={appSettings?.theme || DEFAULT_THEME_ID}
                         triggerClassName="bg-bg-primary"
                       />
@@ -1062,6 +1066,14 @@ export default function SettingsPanel({
                         options={[
                           { value: 'en', label: 'English' },
                           { value: 'de', label: 'Deutsch' },
+                          { value: 'es', label: 'Español' },
+                          { value: 'fr', label: 'Français' },
+                          { value: 'it', label: 'Italiano' },
+                          { value: 'ja', label: '日本語' },
+                          { value: 'pl', label: 'Polski' },
+                          { value: 'pt', label: 'Português' },
+                          { value: 'ru', label: 'Русский' },
+                          { value: 'zh-CN', label: '简体中文' },
                         ]}
                         value={appSettings?.language || 'en'}
                         triggerClassName="bg-bg-primary"
@@ -1125,6 +1137,18 @@ export default function SettingsPanel({
                         id="folder-image-counts-toggle"
                         label={t('settings.general.showImageCounts')}
                         onChange={(checked) => onSettingsChange({ ...appSettings, enableFolderImageCounts: checked })}
+                      />
+                    </SettingItem>
+
+                    <SettingItem
+                      label={t('settings.general.displayEditIcon')}
+                      description={t('settings.general.displayEditIconDesc')}
+                    >
+                      <Switch
+                        checked={appSettings?.displayEditIcon ?? true}
+                        id="display-edit-icon-toggle"
+                        label={t('settings.general.displayEditIcon')}
+                        onChange={(checked) => onSettingsChange({ ...appSettings, displayEditIcon: checked })}
                       />
                     </SettingItem>
 
@@ -2000,9 +2024,7 @@ export default function SettingsPanel({
                         min={0}
                         max={1.0}
                         step={0.05}
-                        value={
-                          processingSettings.rawPreprocessingTextSharp ?? processingSettings.rawPreprocessingSharpening
-                        }
+                        value={processingSettings.rawPreprocessingSharpening}
                         defaultValue={0.35}
                         onChange={(e: any) =>
                           handleProcessingSettingChange('rawPreprocessingSharpening', parseFloat(e.target.value))
@@ -2313,7 +2335,7 @@ export default function SettingsPanel({
 
                     <DataActionItem
                       buttonAction={async () => {
-                        if (logPath && logPath !== t('settings.data.loading')) {
+                        if (logPath && !logPathLoading && !logPathError) {
                           await invoke(Invokes.ShowInFinder, { path: logPath });
                         }
                       }}
@@ -2322,11 +2344,15 @@ export default function SettingsPanel({
                         <Text as="span" variant={TextVariants.small}>
                           {t('settings.data.logsDesc')}
                           <span className="block font-mono bg-bg-primary p-2 rounded-sm mt-2 break-all border border-border-color">
-                            {logPath || t('settings.data.loading')}
+                            {logPathLoading
+                              ? t('settings.data.loading')
+                              : logPathError
+                                ? t('settings.data.statuses.failedToGetPath')
+                                : logPath}
                           </span>
                         </Text>
                       }
-                      disabled={!logPath || logPath === t('settings.data.loading')}
+                      disabled={logPathLoading || logPathError || !logPath}
                       icon={<ExternalLinkIcon size={16} className="mr-2" />}
                       isProcessing={false}
                       message=""
@@ -2392,7 +2418,7 @@ export default function SettingsPanel({
                       const userKb = appSettings?.keybinds || {};
                       return (
                         <div key={section.id}>
-                          <Text variant={TextVariants.heading}>{section.label}</Text>
+                          <Text variant={TextVariants.heading}>{t(section.label as any)}</Text>
                           <div className="divide-y divide-border-color">
                             {sectionDefs.map((def) => (
                               <KeybindRow

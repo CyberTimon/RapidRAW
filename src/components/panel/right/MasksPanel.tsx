@@ -965,7 +965,7 @@ export default function MasksPanel() {
 
   const cloneMaskContainerData = (
     container: MaskContainer,
-    options: { invert?: boolean; rename?: boolean } = {},
+    options: { invert?: boolean; rename?: boolean; resetAdjustments?: boolean } = {},
   ): MaskContainer => {
     const clonedContainer = JSON.parse(JSON.stringify(container));
 
@@ -977,6 +977,10 @@ export default function MasksPanel() {
       ...subMask,
       id: uuidv4(),
     }));
+
+    if (options.resetAdjustments) {
+      clonedContainer.adjustments = JSON.parse(JSON.stringify(INITIAL_MASK_ADJUSTMENTS));
+    }
 
     return clonedContainer;
   };
@@ -1041,14 +1045,18 @@ export default function MasksPanel() {
 
   const handleDuplicateContainer = (container: MaskContainer) => {
     const containerIndex = adjustments.masks.findIndex((mask) => mask.id === container.id);
-    const duplicatedContainer = cloneMaskContainerData(container, { rename: true });
+    const duplicatedContainer = cloneMaskContainerData(container, { rename: true, resetAdjustments: true });
 
     insertMaskContainer(duplicatedContainer, containerIndex >= 0 ? containerIndex + 1 : undefined);
   };
 
   const handleDuplicateAndInvertContainer = (container: MaskContainer) => {
     const containerIndex = adjustments.masks.findIndex((mask) => mask.id === container.id);
-    const duplicatedContainer = cloneMaskContainerData(container, { invert: true, rename: false });
+    const duplicatedContainer = cloneMaskContainerData(container, {
+      invert: true,
+      rename: false,
+      resetAdjustments: true,
+    });
     duplicatedContainer.name = t('editor.masks.patches.invertedName', { name: container.name });
 
     insertMaskContainer(duplicatedContainer, containerIndex >= 0 ? containerIndex + 1 : undefined);
@@ -1078,7 +1086,7 @@ export default function MasksPanel() {
     if (!parentContainer) return;
 
     const duplicatedSubMask = cloneSubMaskData(subMask, { invert: true, rename: false });
-    const newContainer = cloneMaskContainerData(parentContainer, { rename: false });
+    const newContainer = cloneMaskContainerData(parentContainer, { rename: false, resetAdjustments: true });
 
     newContainer.name = t('editor.masks.patches.invertedName', { name: getSubMaskName(subMask) });
     newContainer.subMasks = [duplicatedSubMask];

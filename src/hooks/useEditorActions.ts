@@ -12,6 +12,7 @@ import {
   COPYABLE_ADJUSTMENT_KEYS,
   PasteMode,
   LensAdjustment,
+  normalizeLoadedAdjustments,
 } from '../utils/adjustments';
 import { calculateCenteredCrop } from '../utils/cropUtils';
 import { Invokes } from '../components/ui/AppProperties';
@@ -131,10 +132,33 @@ export function useEditorActions() {
     [setEditor],
   );
 
-  const handleCopyAdjustments = useCallback(() => {
+  const handleCopyAdjustments = useCallback(async (pathOrEvent?: string | any) => {
+    const pathOverride = typeof pathOrEvent === 'string' ? pathOrEvent : undefined;
     const { selectedImage, adjustments } = useEditorStore.getState();
-    const { libraryActiveAdjustments } = useLibraryStore.getState();
-    const sourceAdjustments = selectedImage ? adjustments : libraryActiveAdjustments;
+    const { libraryActivePath, multiSelectedPaths } = useLibraryStore.getState();
+    let sourceAdjustments: any = null;
+
+    if (selectedImage) {
+      sourceAdjustments = adjustments;
+    } else {
+      const pathToCopyFrom = pathOverride || libraryActivePath || multiSelectedPaths[0];
+      if (pathToCopyFrom) {
+        try {
+          const meta: any = await invoke(Invokes.LoadMetadata, { path: pathToCopyFrom });
+          if (meta?.adjustments && !meta.adjustments.is_null) {
+            sourceAdjustments = normalizeLoadedAdjustments(meta.adjustments);
+          } else {
+            sourceAdjustments = INITIAL_ADJUSTMENTS;
+          }
+        } catch (err) {
+          toast.error(`Failed to load metadata for copying: ${err}`);
+          return;
+        }
+      }
+    }
+
+    if (!sourceAdjustments) return;
+
     const adjustmentsToCopy: any = {};
 
     for (const key of COPYABLE_ADJUSTMENT_KEYS) {

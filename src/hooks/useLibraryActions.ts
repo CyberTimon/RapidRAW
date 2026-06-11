@@ -224,15 +224,38 @@ export function useLibraryActions(handleImageSelect?: (path: string) => void) {
     const { rootPaths, expandedFolders, setLibrary } = useLibraryStore.getState();
     const { appSettings } = useSettingsStore.getState();
 
-    if (!rootPaths || rootPaths.length === 0) return;
+    const showImageCounts = appSettings?.enableFolderImageCounts ?? false;
+    const pinnedFolders = appSettings?.pinnedFolders || [];
+    const expandedArray = Array.from(expandedFolders);
 
     try {
-      const treesData = await invoke(Invokes.GetPinnedFolderTrees, {
-        paths: rootPaths,
-        expandedFolders: Array.from(expandedFolders),
-        showImageCounts: appSettings?.enableFolderImageCounts ?? false,
-      });
-      setLibrary({ folderTrees: treesData });
+      const updates: any = {};
+
+      if (rootPaths && rootPaths.length > 0) {
+        const treesData = await invoke(Invokes.GetPinnedFolderTrees, {
+          paths: rootPaths,
+          expandedFolders: expandedArray,
+          showImageCounts,
+        });
+        updates.folderTrees = treesData;
+      } else {
+        updates.folderTrees = [];
+      }
+
+      if (pinnedFolders && pinnedFolders.length > 0) {
+        const pinnedTreesData = await invoke(Invokes.GetPinnedFolderTrees, {
+          paths: pinnedFolders,
+          expandedFolders: expandedArray,
+          showImageCounts,
+        });
+        updates.pinnedFolderTrees = pinnedTreesData;
+      } else {
+        updates.pinnedFolderTrees = [];
+      }
+
+      if (Object.keys(updates).length > 0) {
+        setLibrary(updates);
+      }
     } catch (err) {
       console.error('Failed to refresh folder trees:', err);
     }

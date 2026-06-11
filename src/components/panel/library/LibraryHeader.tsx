@@ -17,6 +17,7 @@ import { useLibraryStore } from '../../../store/useLibraryStore';
 import {
   FilterCriteria,
   RawStatus,
+  EditedStatus,
   LibraryViewMode,
   SortCriteria,
   SortDirection,
@@ -308,6 +309,7 @@ export function ViewOptionsDropdown({
   thumbnailAspectRatioOptions,
   ratingFilterOptions,
   rawStatusOptions,
+  editedStatusOptions,
   sortOptions,
 }: any) {
   const { t } = useTranslation();
@@ -521,21 +523,22 @@ export function ViewOptionsDropdown({
               <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
                 {t('library.header.viewOptions.filterByRating')}
               </Text>
-              {ratingFilterOptions.map((option: any) => {
-                const isSelected = filterCriteria.rating === option.value;
-                return (
-                  <button
-                    className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
-                      isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
-                    }`}
-                    key={option.value}
-                    onClick={() =>
-                      setFilterCriteria((prev: Partial<FilterCriteria>) => ({ ...prev, rating: option.value }))
-                    }
-                    role="menuitem"
-                  >
-                    <span className="flex items-center gap-2">
-                      {option.value > 0 && <StarIcon size={16} className="text-accent fill-accent" />}
+
+              {ratingFilterOptions
+                .filter((option: any) => option.value <= 0)
+                .map((option: any) => {
+                  const isSelected = filterCriteria.rating === option.value;
+                  return (
+                    <button
+                      className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
+                        isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
+                      }`}
+                      key={option.value}
+                      onClick={() =>
+                        setFilterCriteria((prev: Partial<FilterCriteria>) => ({ ...prev, rating: option.value }))
+                      }
+                      role="menuitem"
+                    >
                       <Text
                         variant={TextVariants.label}
                         color={TextColors.primary}
@@ -543,11 +546,54 @@ export function ViewOptionsDropdown({
                       >
                         {option.label}
                       </Text>
-                    </span>
-                    {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
-                  </button>
-                );
-              })}
+                      {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
+                    </button>
+                  );
+                })}
+
+              <div
+                className={`w-full px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
+                  filterCriteria.rating > 0 ? 'bg-card-active' : 'hover:bg-bg-primary'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    {[...Array(5)].map((_, index: number) => {
+                      const starValue = index + 1;
+                      const isFilled = filterCriteria.rating > 0 && starValue <= filterCriteria.rating;
+                      const optionLabel = ratingFilterOptions.find((o: any) => o.value === starValue)?.label;
+
+                      return (
+                        <button
+                          key={starValue}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFilterCriteria((prev: Partial<FilterCriteria>) => ({
+                              ...prev,
+                              rating: prev.rating === starValue ? 0 : starValue,
+                            }));
+                          }}
+                          className="focus:outline-hidden transition-transform hover:scale-110 flex items-center justify-center p-0.5"
+                          data-tooltip={optionLabel}
+                        >
+                          <StarIcon
+                            size={18}
+                            className={`transition-colors duration-150 ${
+                              isFilled ? 'text-accent fill-accent' : 'text-text-secondary hover:text-accent'
+                            }`}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Text variant={TextVariants.label} color={TextColors.secondary}>
+                    {filterCriteria.rating === 5
+                      ? t('library.filters.rating.onlySuffix')
+                      : t('library.filters.rating.andUpSuffix')}
+                  </Text>
+                </div>
+                {filterCriteria.rating > 0 && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
+              </div>
             </div>
 
             <div>
@@ -579,6 +625,36 @@ export function ViewOptionsDropdown({
                 );
               })}
             </div>
+
+            <div>
+              <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
+                {t('library.header.viewOptions.filterByEdited', 'Filter by Edit Status')}
+              </Text>
+              {editedStatusOptions.map((option: any) => {
+                const isSelected = (filterCriteria.editedStatus || EditedStatus.All) === option.key;
+                return (
+                  <button
+                    className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
+                      isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
+                    }`}
+                    key={option.key}
+                    onClick={() =>
+                      setFilterCriteria((prev: Partial<FilterCriteria>) => ({ ...prev, editedStatus: option.key }))
+                    }
+                    role="menuitem"
+                  >
+                    <Text
+                      variant={TextVariants.label}
+                      color={TextColors.primary}
+                      weight={isSelected ? TextWeights.semibold : TextWeights.normal}
+                    >
+                      {option.label}
+                    </Text>
+                    {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="py-2"></div>
@@ -593,7 +669,9 @@ export function ViewOptionsDropdown({
                 const title =
                   color.name === 'none'
                     ? t('library.header.viewOptions.noLabel')
-                    : color.name.charAt(0).toUpperCase() + color.name.slice(1);
+                    : t(`contextMenus.colors.${color.name}`, {
+                        defaultValue: color.name.charAt(0).toUpperCase() + color.name.slice(1),
+                      });
                 return (
                   <button
                     key={color.name}
@@ -635,7 +713,7 @@ export function ViewOptionsDropdown({
                     ? t('library.header.viewOptions.sortDescending')
                     : t('library.header.viewOptions.sortAscending')
                 }
-                className="absolute top-1/2 right-3 -translate-y-1/2 p-1 bg-transparent border-none text-text-secondary hover:text-text-primary focus:outline-hidden focus:ring-1 focus:ring-accent rounded-sm"
+                className="absolute top-1/2 right-3 -translate-y-1/2 p-1 bg-transparent border-none text-text-secondary hover:text-text-primary rounded-sm"
               >
                 {sortCriteria.order === SortDirection.Ascending ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>

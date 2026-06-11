@@ -2822,4 +2822,27 @@
         </calibration>
     </lens>
 
+	<lens>
+        <maker>LZOS</maker>
+        <model>Industar-61 L/Z MC 50mm f/2.8</model>
+        <mount>M42</mount>
+        <cropfactor>1.0</cropfactor>
+        <calibration>
+            <!-- Taken with Nikon Z6 II -->
+            <distortion model="ptlens" focal="50" a="-0.0017374" b="-0.0072563" c="0.0063777"/>
+            <tca model="poly3" focal="50" vr="1.0000217" vb="0.9999508"/>
+            <vignetting model="pa" focal="50" aperture="2.8" distance="10" k1="-1.0336" k2="0.5988" k3="-0.1623"/>
+            <vignetting model="pa" focal="50" aperture="2.8" distance="1000" k1="-1.0336" k2="0.5988" k3="-0.1623"/>
+            <vignetting model="pa" focal="50" aperture="4" distance="10" k1="-0.3693" k2="-0.0248" k3="0.0115"/>
+            <vignetting model="pa" focal="50" aperture="4" distance="1000" k1="-0.3693" k2="-0.0248" k3="0.0115"/>
+            <vignetting model="pa" focal="50" aperture="5.6" distance="10" k1="-0.4088" k2="0.0671" k3="0.0202"/>
+            <vignetting model="pa" focal="50" aperture="5.6" distance="1000" k1="-0.4088" k2="0.0671" k3="0.0202"/>
+            <vignetting model="pa" focal="50" aperture="8" distance="10" k1="-0.4110" k2="0.0646" k3="0.0229"/>
+            <vignetting model="pa" focal="50" aperture="8" distance="1000" k1="-0.4110" k2="0.0646" k3="0.0229"/>
+            <vignetting model="pa" focal="50" aperture="11" distance="10" k1="-0.4135" k2="0.0720" k3="0.0177"/>
+            <vignetting model="pa" focal="50" aperture="11" distance="1000" k1="-0.4135" k2="0.0720" k3="0.0177"/>
+            <vignetting model="pa" focal="50" aperture="16" distance="10" k1="-0.4257" k2="0.0740" k3="0.0221"/>
+            <vignetting model="pa" focal="50" aperture="16" distance="1000" k1="-0.4257" k2="0.0740" k3="0.0221"/>
+        </calibration>
+    </lens>
 </lensdatabase>

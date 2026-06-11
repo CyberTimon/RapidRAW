@@ -27,6 +27,7 @@ import {
   ThumbnailSize,
   ThumbnailAspectRatio,
   RawStatus,
+  EditedStatus,
 } from '../ui/AppProperties';
 import { ImportState, Status } from '../ui/ExportImportProperties';
 import Text from '../ui/Text';
@@ -120,6 +121,15 @@ export default function MainLibrary(props: MainLibraryProps) {
     [t],
   );
 
+  const translatedEditedStatusOptions = useMemo(
+    () => [
+      { key: EditedStatus.All, label: t('library.filters.edited.all') },
+      { key: EditedStatus.EditedOnly, label: t('library.filters.edited.editedOnly') },
+      { key: EditedStatus.UneditedOnly, label: t('library.filters.edited.uneditedOnly') },
+    ],
+    [t],
+  );
+
   const translatedThumbnailSizeOptions = useMemo(
     () => [
       { id: ThumbnailSize.Small, label: t('library.thumbnailSize.small'), size: 160 },
@@ -148,6 +158,7 @@ export default function MainLibrary(props: MainLibraryProps) {
       { key: 'iso', label: t('library.sort.iso') },
       { key: 'shutter_speed', label: t('library.sort.shutterSpeed') },
       { key: 'aperture', label: t('library.sort.aperture') },
+      { key: 'edited', label: t('library.sort.editedStatus') },
     ],
     [t],
   );
@@ -471,6 +482,7 @@ export default function MainLibrary(props: MainLibraryProps) {
             thumbnailAspectRatioOptions={translatedThumbnailAspectRatioOptions}
             ratingFilterOptions={translatedRatingFilterOptions}
             rawStatusOptions={translatedRawStatusOptions}
+            editedStatusOptions={translatedEditedStatusOptions}
             sortOptions={translatedSortOptions}
           />
           {!props.isAndroid && (

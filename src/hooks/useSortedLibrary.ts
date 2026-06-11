@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { RawStatus, SortDirection, ImageFile } from '../components/ui/AppProperties';
+import { RawStatus, EditedStatus, SortDirection, ImageFile } from '../components/ui/AppProperties';
 
 export const ADVANCED_QUERY_REGEX =
   /^(iso|aperture|f|shutter|s|focal|mm|rating|color|camera|make|model|lens)\s*(?::)?\s*(>=|<=|>|<|=)?\s*(.+)$/i;
@@ -109,6 +109,11 @@ export function computeSortedLibrary(libraryState: any, settingsState: any): Ima
 
       if (filterCriteria.rawStatus === RawStatus.RawOnly && !isRaw) return false;
       if (filterCriteria.rawStatus === RawStatus.NonRawOnly && isRaw) return false;
+    }
+
+    if (filterCriteria.editedStatus && filterCriteria.editedStatus !== EditedStatus.All) {
+      if (filterCriteria.editedStatus === EditedStatus.EditedOnly && !image.is_edited) return false;
+      if (filterCriteria.editedStatus === EditedStatus.UneditedOnly && image.is_edited) return false;
     }
 
     if (filterCriteria.colors && filterCriteria.colors.length > 0) {
@@ -251,6 +256,9 @@ export function computeSortedLibrary(libraryState: any, settingsState: any): Ima
         break;
       case 'rating':
         comparison = (imageRatings[a.path] || 0) - (imageRatings[b.path] || 0);
+        break;
+      case 'edited':
+        comparison = a.is_edited === b.is_edited ? 0 : a.is_edited ? 1 : -1;
         break;
       default: {
         const nameA = a.path.split(/[\\/]/).pop() || a.path;

@@ -1,6 +1,16 @@
 import { create } from 'zustand';
 import { ImageFile, LibraryViewMode, Panel, UiVisibility, CullingSuggestions } from '../components/ui/AppProperties';
 
+const RIGHT_PANEL_ORDER = [
+  Panel.Metadata,
+  Panel.Adjustments,
+  Panel.Crop,
+  Panel.Masks,
+  Panel.Ai,
+  Panel.Presets,
+  Panel.Export,
+];
+
 export interface CollapsibleSectionsState {
   basic: boolean;
   color: boolean;
@@ -116,7 +126,7 @@ interface UIState {
 
   // Actions
   setUI: (updater: Partial<UIState> | ((state: UIState) => Partial<UIState>)) => void;
-  setRightPanel: (panel: Panel | null, orderArray: Panel[]) => void;
+  setRightPanel: (panel: Panel | null) => void;
   customEscapeHandler: (() => void) | null;
   setCustomEscapeHandler: (handler: (() => void) | null) => void;
 }
@@ -188,7 +198,7 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   setUI: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
 
-  setRightPanel: (panelId, RIGHT_PANEL_ORDER) => {
+  setRightPanel: (panelId) => {
     const current = get().activeRightPanel;
     if (panelId === current) {
       set({ activeRightPanel: null });
