@@ -101,6 +101,16 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
         attrs.insert(cap[1].to_string(), cap[2].to_string());
     }
 
+    let elem_re = Regex::new(r#"(?s)<crs:([A-Za-z0-9]+)>\s*([^<]+?)\s*</crs:([A-Za-z0-9]+)>"#)
+        .map_err(|e| format!("Regex compilation failed: {}", e))?;
+    for cap in elem_re.captures_iter(xmp_content) {
+        if cap[1] == cap[3] {
+            attrs
+                .entry(cap[1].to_string())
+                .or_insert_with(|| cap[2].trim().to_string());
+        }
+    }
+
     let mut adjustments = Map::new();
     let mut hsl_map = Map::new();
     let mut color_grading_map = Map::new();
@@ -348,4 +358,37 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
         include_crop_transform: Some(false),
         preset_type: Some("style".to_string()),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn converts_attribute_based_xmp_adjustments() {
+        let preset = convert_xmp_to_preset(
+            r#"<rdf:Description crs:Exposure2012="+0.50" crs:Contrast2012="25" />"#,
+        )
+        .unwrap();
+
+        assert_eq!(preset.adjustments["exposure"], json!(0.5));
+        assert_eq!(preset.adjustments["contrast"], json!(25));
+    }
+
+    #[test]
+    fn converts_element_based_xmp_adjustments() {
+        let preset = convert_xmp_to_preset(
+            r#"
+            <rdf:Description>
+              <crs:Exposure2012>+0.50</crs:Exposure2012>
+              <crs:Contrast2012>25</crs:Contrast2012>
+            </rdf:Description>
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(preset.adjustments["exposure"], json!(0.5));
+        assert_eq!(preset.adjustments["contrast"], json!(25));
+    }
 }

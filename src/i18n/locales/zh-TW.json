@@ -168,6 +168,10 @@
       "red": "紅色",
       "yellow": "黃色"
     },
+    "dialogs": {
+      "importXmpAdjustmentsTitle": "Import XMP Adjustments",
+      "xmpSidecar": "XMP Sidecar"
+    },
     "editor": {
       "autoAdjust": "自動調整影像",
       "cancel": "取消",
@@ -180,6 +184,7 @@
       "editImage": "編輯影像",
       "exportImage": "匯出影像",
       "frameImage": "裝裱影像",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "mergeHdr": "合併為 HDR",
       "noLabel": "無標籤",
       "noRating": "無評分",
@@ -201,6 +206,7 @@
       "copyHere_other": "複製 {{count}} 張影像至此",
       "deleteFolder": "刪除資料夾",
       "importImages": "匯入影像",
+      "importMatchingXmpSidecars": "Import Matching XMP Sidecars",
       "moveHere_one": "移動影像至此",
       "moveHere_other": "移動 {{count}} 張影像至此",
       "newFolder": "新建資料夾",
@@ -247,6 +253,7 @@
       "duplicateImage": "複製影像",
       "exportImage_one": "匯出影像",
       "exportImage_other": "匯出 {{count}} 張影像",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "noAlbums": "無可用相簿",
       "pasteAdjustments_one": "貼上調整",
       "pasteAdjustments_other": "貼上調整到 {{count}} 張影像",
@@ -271,10 +278,22 @@
       "failedDelete": "刪除失敗：{{err}}",
       "failedDeleteFolder": "刪除資料夾失敗：{{err}}",
       "failedDuplicate": "複製檔案失敗：{{err}}",
+      "failedImportXmpAdjustments": "Failed to import XMP adjustments: {{err}}",
+      "failedImportMatchingXmpSidecars": "Failed to import matching XMP sidecars: {{err}}",
+      "failedMatchingXmpSidecars_one": "Failed to import {{count}} matching XMP sidecar.",
+      "failedMatchingXmpSidecars_few": "Failed to import {{count}} matching XMP sidecars.",
+      "failedMatchingXmpSidecars_many": "Failed to import {{count}} matching XMP sidecars.",
+      "failedMatchingXmpSidecars_other": "Failed to import {{count}} matching XMP sidecars.",
       "failedMove": "移動檔案失敗：{{err}}",
       "failedMoveError": "移動失敗：{{err}}",
       "failedMoveInvalid": "移動失敗：未找到目標組或目標組無效。",
-      "failedRemoveImages": "移除影像失敗：{{err}}"
+      "failedRemoveImages": "移除影像失敗：{{err}}",
+      "importedXmpAdjustments": "Imported XMP adjustments.",
+      "importedMatchingXmpSidecars_one": "Imported {{count}} matching XMP sidecar.",
+      "importedMatchingXmpSidecars_few": "Imported {{count}} matching XMP sidecars.",
+      "importedMatchingXmpSidecars_many": "Imported {{count}} matching XMP sidecars.",
+      "importedMatchingXmpSidecars_other": "Imported {{count}} matching XMP sidecars.",
+      "noMatchingXmpSidecars": "No matching XMP sidecars found."
     }
   },
   "editor": {

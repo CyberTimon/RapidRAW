@@ -2284,6 +2284,8 @@ pub fn run() {
             file_management::delete_files_from_disk,
             file_management::delete_files_with_associated,
             file_management::save_metadata_and_update_thumbnail,
+            file_management::import_xmp_adjustments_for_image,
+            file_management::import_matching_xmp_sidecars_in_folder,
             file_management::apply_adjustments_to_paths,
             file_management::load_metadata,
             file_management::load_presets,

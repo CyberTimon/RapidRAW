@@ -2,6 +2,7 @@ use memmap2::{Mmap, MmapOptions};
 use std::borrow::Cow;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsString;
 use std::fmt;
 use std::fs;
 use std::hash::{Hash, Hasher};
@@ -160,6 +161,23 @@ pub struct ImportSettings {
     pub organize_by_date: bool,
     pub date_folder_format: String,
     pub delete_after_import: bool,
+}
+
+#[derive(Debug)]
+struct ImportedXmpSidecar {
+    source_path: PathBuf,
+    sidecar_path: PathBuf,
+    metadata: ImageMetadata,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct XmpSidecarImportResult {
+    pub imported: usize,
+    pub skipped: usize,
+    pub failed: usize,
+    pub failures: Vec<String>,
+    pub imported_paths: Vec<String>,
 }
 
 pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
@@ -2103,6 +2121,201 @@ pub fn save_metadata_and_update_thumbnail(
     Ok(())
 }
 
+fn is_xmp_sidecar_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("xmp"))
+}
+
+fn import_xmp_adjustments_to_sidecar(
+    path: &str,
+    xmp_path: &Path,
+    lens_db: Option<&crate::lens_correction::LensDatabase>,
+) -> Result<ImportedXmpSidecar, String> {
+    if !is_xmp_sidecar_path(xmp_path) {
+        return Err("Selected file is not an XMP sidecar.".to_string());
+    }
+
+    let xmp_content =
+        fs::read_to_string(xmp_path).map_err(|e| format!("Failed to read XMP file: {}", e))?;
+    let converted_preset = preset_converter::convert_xmp_to_preset(&xmp_content)?;
+
+    if converted_preset
+        .adjustments
+        .as_object()
+        .is_none_or(|adjustments| adjustments.is_empty())
+    {
+        return Err(
+            "No supported Lightroom adjustments were found in the selected XMP file.".to_string(),
+        );
+    }
+
+    let (source_path, sidecar_path) = parse_virtual_path(path);
+    let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+    metadata.adjustments = converted_preset.adjustments.clone();
+    resolve_lens_params_in_adjustments(&mut metadata.adjustments, &metadata.exif, lens_db);
+    merge_xmp_metadata_fields(&xmp_content, &mut metadata);
+
+    let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
+    std::fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
+
+    Ok(ImportedXmpSidecar {
+        source_path,
+        sidecar_path,
+        metadata,
+    })
+}
+
+#[tauri::command]
+pub fn import_xmp_adjustments_for_image(
+    path: String,
+    xmp_path: String,
+    app_handle: AppHandle,
+    state: tauri::State<AppState>,
+) -> Result<ImageMetadata, String> {
+    let lens_db = state.lens_db.lock().unwrap().clone();
+    let imported =
+        import_xmp_adjustments_to_sidecar(&path, Path::new(&xmp_path), lens_db.as_deref())?;
+    let imported_adjustments = imported.metadata.adjustments.clone();
+    let sidecar_path = imported.sidecar_path.clone();
+
+    save_metadata_and_update_thumbnail(path, imported_adjustments, app_handle, state)?;
+
+    Ok(crate::exif_processing::load_sidecar(&sidecar_path))
+}
+
+#[tauri::command]
+pub async fn import_matching_xmp_sidecars_in_folder(
+    folder_path: String,
+    app_handle: AppHandle,
+) -> Result<XmpSidecarImportResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let folder = PathBuf::from(&folder_path);
+        if !folder.is_dir() {
+            return Err(format!("Folder not found: {}", folder.display()));
+        }
+
+        let entries: Vec<PathBuf> = fs::read_dir(&folder)
+            .map_err(|e| format!("Failed to read folder: {}", e))?
+            .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+            .filter(|path| path.is_file())
+            .collect();
+
+        let mut xmp_by_stem: HashMap<OsString, PathBuf> = HashMap::new();
+        for path in &entries {
+            if is_xmp_sidecar_path(path)
+                && let Some(stem) = path.file_stem()
+            {
+                xmp_by_stem
+                    .entry(stem.to_os_string())
+                    .or_insert_with(|| path.clone());
+            }
+        }
+
+        let settings = load_settings(app_handle.clone()).unwrap_or_default();
+        let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
+        let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
+        let lens_db = app_handle.state::<AppState>().lens_db.lock().unwrap().clone();
+
+        let mut result = XmpSidecarImportResult {
+            imported: 0,
+            skipped: 0,
+            failed: 0,
+            failures: Vec::new(),
+            imported_paths: Vec::new(),
+        };
+
+        for path in entries.iter().filter(|path| is_supported_image_file(path)) {
+            let Some(stem) = path.file_stem() else {
+                result.skipped += 1;
+                continue;
+            };
+
+            let Some(xmp_path) = xmp_by_stem.get(stem) else {
+                result.skipped += 1;
+                continue;
+            };
+
+            let path_str = path.to_string_lossy().to_string();
+            match import_xmp_adjustments_to_sidecar(&path_str, xmp_path, lens_db.as_deref()) {
+                Ok(imported) => {
+                    if enable_xmp_sync {
+                        sync_metadata_to_xmp(
+                            &imported.source_path,
+                            &imported.metadata,
+                            create_xmp_if_missing,
+                        );
+                    }
+                    result.imported += 1;
+                    result.imported_paths.push(path_str);
+                }
+                Err(err) => {
+                    result.failed += 1;
+                    let file_name = path
+                        .file_name()
+                        .map(|name| name.to_string_lossy())
+                        .unwrap_or_else(|| path.to_string_lossy());
+                    result.failures.push(format!("{}: {}", file_name, err));
+                }
+            }
+        }
+
+        if !result.imported_paths.is_empty() {
+            let imported_paths = result.imported_paths.clone();
+            let app_handle_clone = app_handle.clone();
+            let state = app_handle.state::<AppState>();
+            add_to_thumbnail_queue(&state, imported_paths.len(), &app_handle);
+
+            thread::spawn(move || {
+                let state = app_handle_clone.state::<AppState>();
+                let settings = load_settings(app_handle_clone.clone()).unwrap_or_default();
+
+                let thumb_cache_dir = match resolve_thumbnail_cache_dir(&app_handle_clone) {
+                    Ok(dir) => dir,
+                    Err(e) => {
+                        log::warn!("Unable to initialize thumbnail cache directory: {}", e);
+                        for path in &imported_paths {
+                            emit_thumbnail_cache_setup_error(&app_handle_clone, path, &e);
+                        }
+                        for _ in 0..imported_paths.len() {
+                            increment_thumbnail_progress(&state, &app_handle_clone);
+                        }
+                        return;
+                    }
+                };
+
+                let gpu_context =
+                    gpu_processing::get_or_init_gpu_context(&state, &app_handle_clone).ok();
+
+                imported_paths.par_iter().for_each(|path_str| {
+                    let result = generate_single_thumbnail_and_cache(
+                        path_str,
+                        &thumb_cache_dir,
+                        gpu_context.as_ref(),
+                        None,
+                        true,
+                        &app_handle_clone,
+                        &settings,
+                    );
+
+                    if let Some((thumbnail_data, rating, is_edited)) = result {
+                        let _ = app_handle_clone.emit(
+                            "thumbnail-generated",
+                            serde_json::json!({ "path": path_str, "data": thumbnail_data, "rating": rating, "is_edited": is_edited }),
+                        );
+                    }
+
+                    increment_thumbnail_progress(&state, &app_handle_clone);
+                });
+            });
+        }
+
+        Ok(result)
+    })
+    .await
+    .unwrap_or_else(|e| Err(format!("Task failed: {}", e)))
+}
+
 #[tauri::command]
 pub async fn apply_adjustments_to_paths(
     paths: Vec<String>,
@@ -3445,6 +3658,44 @@ pub fn extract_xmp_tags(content: &str) -> Vec<String> {
         }
     }
     tags
+}
+
+fn merge_xmp_metadata_fields(content: &str, metadata: &mut ImageMetadata) {
+    if let Some(rating) = extract_xmp_rating(content) {
+        metadata.rating = rating;
+        if let Some(obj) = metadata.adjustments.as_object_mut() {
+            obj.insert("rating".to_string(), serde_json::json!(rating));
+        } else {
+            metadata.adjustments = serde_json::json!({ "rating": rating });
+        }
+    }
+
+    let xmp_label = extract_xmp_label(content);
+    let xmp_tags = extract_xmp_tags(content);
+
+    if xmp_label.is_none() && xmp_tags.is_empty() {
+        return;
+    }
+
+    let mut current_tags = metadata.tags.clone().unwrap_or_default();
+
+    for tag in xmp_tags {
+        if !current_tags.contains(&tag) {
+            current_tags.push(tag);
+        }
+    }
+
+    if let Some(label) = xmp_label {
+        let label_tag = format!("{}{}", COLOR_TAG_PREFIX, label.to_lowercase());
+        if !current_tags.contains(&label_tag) {
+            current_tags.retain(|t| !t.starts_with(COLOR_TAG_PREFIX));
+            current_tags.push(label_tag);
+        }
+    }
+
+    if !current_tags.is_empty() {
+        metadata.tags = Some(current_tags);
+    }
 }
 
 pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) -> bool {

@@ -60,6 +60,7 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-06-12:** Added Lightroom XMP sidecar adjustment import for individual images and matching sidecars in folders
 - **2026-06-07:** Fixed copy-pasting, improved library performance & eight new languages
 - **2026-06-01:** Improved thumbnail performance, polished metadata panel & non-blocking exif reading
 - **2026-05-30:** Implemented reliable edited status, sorting & filtering options
@@ -285,6 +286,7 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 **Table of Contents**
 
 - [Key Features](#key-features)
+- [Importing Lightroom XMP Sidecars](#importing-lightroom-xmp-sidecars)
 - [Demo & Screenshots](#demo--screenshots)
 - [The Idea](#the-idea)
 - [Current Priorities](#current-priorities)
@@ -329,6 +331,7 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
         <li><strong>Image Library:</strong> Effortlessly manage and cull your entire photo collection for a streamlined and efficient workflow.</li>
         <li><strong>Organization:</strong> Recursive folder view, virtual copies, color labels, star ratings, tags and more.</li>
         <li><strong>File Operations:</strong> Import, copy, move, rename, and duplicate images/folders.</li>
+        <li><strong>Lightroom XMP Import:</strong> Import <code>.xmp</code> sidecar adjustments for a single image, or batch import matching sidecars from a folder by filename.</li>
         <li><strong>Filmstrip View:</strong> Quickly navigate between all the images in your current folder while editing.</li>
         <li><strong>Batch Operations:</strong> Save significant time by applying a consistent set of adjustments or exporting entire batches of images simultaneously.</li>
         <li><strong>EXIF Data Viewer:</strong> Gain insights by inspecting the complete metadata from your camera.</li>
@@ -345,6 +348,36 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
     </td>
   </tr>
 </table>
+
+## Importing Lightroom XMP Sidecars
+
+RapidRAW can import Adobe Lightroom® / Camera Raw `.xmp` sidecars into its non-destructive `.rrdata` workflow. Imported XMP adjustments replace the current RapidRAW adjustments for the target image while preserving the original image file.
+
+### Import XMP for a Single Image
+
+1. Open the image in the editor, or select it in the library.
+2. Right-click the image.
+3. Choose **Import XMP Adjustments**.
+4. Select the `.xmp` sidecar file to import.
+
+RapidRAW imports supported Lightroom adjustment values, then refreshes the image preview and thumbnail. Rating, color label, and keyword metadata from the XMP are also merged when present.
+
+### Import Matching XMP Sidecars in a Folder
+
+Use this when a folder contains images and Lightroom sidecars with the same filename stem:
+
+```text
+IMG_0001.CR3
+IMG_0001.xmp
+IMG_0002.NEF
+IMG_0002.XMP
+```
+
+1. Open the folder in RapidRAW's library.
+2. Right-click the folder in the folder tree.
+3. Choose **Import Matching XMP Sidecars**.
+
+RapidRAW scans the selected folder, matches supported image files to `.xmp` files by filename without the extension, and imports each matching sidecar. The folder import is non-recursive; subfolders are left untouched.
 
 ## Demo & Screenshots
 
