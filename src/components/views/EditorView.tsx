@@ -12,6 +12,7 @@ import MetadataPanel from '../panel/right/MetadataPanel';
 import CropPanel from '../panel/right/CropPanel';
 import MasksPanel from '../panel/right/MasksPanel';
 import AIPanel from '../panel/right/AIPanel';
+import NegativePanel from '../panel/right/NegativePanel';
 import PresetsPanel from '../panel/right/PresetsPanel';
 import ExportPanel from '../panel/right/ExportPanel';
 
@@ -237,6 +238,7 @@ export default function EditorView({
             />
           )}
           {renderedRightPanel === Panel.Ai && <AIPanel />}
+          {renderedRightPanel === Panel.Negative && <NegativePanel />}
         </motion.div>
       )}
     </AnimatePresence>

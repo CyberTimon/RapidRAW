@@ -111,6 +111,27 @@ struct GlobalAdjustments {
     halation_amount: f32,
     flare_amount: f32,
     sharpness_threshold: f32,
+
+    negative_enabled: u32,
+    negative_red_min: f32,
+    negative_red_max: f32,
+    negative_green_min: f32,
+    negative_green_max: f32,
+    negative_blue_min: f32,
+    negative_blue_max: f32,
+    negative_red_weight: f32,
+    negative_green_weight: f32,
+    negative_blue_weight: f32,
+    negative_exposure: f32,
+    negative_contrast: f32,
+    negative_toe: f32,
+    negative_toe_width: f32,
+    negative_shoulder: f32,
+    negative_shoulder_width: f32,
+    negative_black_clip: f32,
+    negative_white_clip: f32,
+    _pad_neg1: f32,
+    _pad_neg2: f32,
 }
 
 struct MaskAdjustments {
@@ -228,6 +249,78 @@ fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
     let higher = (1.0 + a) * pow(c_clamped, vec3<f32>(1.0 / 2.4)) - a;
     let lower = c_clamped * 12.92;
     return select(higher, lower, c_clamped <= cutoff);
+}
+
+fn apply_negative_inversion(rgb_linear: vec3<f32>) -> vec3<f32> {
+    let mins = vec3<f32>(
+        adjustments.global.negative_red_min,
+        adjustments.global.negative_green_min,
+        adjustments.global.negative_blue_min,
+    );
+    let maxs = vec3<f32>(
+        adjustments.global.negative_red_max,
+        adjustments.global.negative_green_max,
+        adjustments.global.negative_blue_max,
+    );
+    let weights = vec3<f32>(
+        adjustments.global.negative_red_weight,
+        adjustments.global.negative_green_weight,
+        adjustments.global.negative_blue_weight,
+    );
+
+    let inv_log10 = 1.0 / log(10.0);
+    let log_rgb = -log(max(rgb_linear, vec3<f32>(1e-6))) * inv_log10;
+    let raw_range = max(maxs - mins, vec3<f32>(1e-4));
+    let adj_mins = mins + adjustments.global.negative_black_clip * raw_range;
+    let adj_maxs = maxs - adjustments.global.negative_white_clip * raw_range;
+    let range = max(adj_maxs - adj_mins, vec3<f32>(1e-4));
+    let n = clamp((log_rgb - adj_mins) / range, vec3<f32>(0.0), vec3<f32>(1.0)) * weights;
+
+    let k = 4.0 * max(adjustments.global.negative_contrast, 0.1);
+    let x0 = 0.6 - adjustments.global.negative_exposure * 0.25;
+    let eps = 1e-6;
+    let toe_range = max(x0, eps);
+    let shoulder_range = max(1.0 - x0, eps);
+
+    let toe = adjustments.global.negative_toe;
+    let toe_width = adjustments.global.negative_toe_width;
+    let shoulder = adjustments.global.negative_shoulder;
+    let shoulder_width = adjustments.global.negative_shoulder_width;
+
+    let diff = n - vec3<f32>(x0);
+
+    let t_val = toe_width * (-diff / toe_range - 0.5);
+    let toe_mask = vec3<f32>(
+        1.0 / (1.0 + exp(-t_val.r)),
+        1.0 / (1.0 + exp(-t_val.g)),
+        1.0 / (1.0 + exp(-t_val.b)),
+    );
+
+    let s_val = shoulder_width * (diff / shoulder_range - 0.5);
+    let shoulder_mask = vec3<f32>(
+        1.0 / (1.0 + exp(-s_val.r)),
+        1.0 / (1.0 + exp(-s_val.g)),
+        1.0 / (1.0 + exp(-s_val.b)),
+    );
+
+    let toe_offset = toe * toe_mask * 0.25;
+    let shoulder_offset = shoulder * shoulder_mask * 0.25;
+    let diff_adj = diff + toe_offset - shoulder_offset;
+
+    let damp = toe * toe_mask * 0.5 + shoulder * shoulder_mask * 0.5;
+    let k_mod = clamp(vec3<f32>(1.0) - damp, vec3<f32>(0.1), vec3<f32>(2.0));
+
+    let arg = k * diff_adj * k_mod;
+    let s = vec3<f32>(
+        1.0 / (1.0 + exp(-arg.r)),
+        1.0 / (1.0 + exp(-arg.g)),
+        1.0 / (1.0 + exp(-arg.b)),
+    );
+
+    let y0 = 1.0 / (1.0 + exp(k * x0));
+    let y1 = 1.0 / (1.0 + exp(-k * (1.0 - x0)));
+    let scale = 1.0 / max(y1 - y0, eps);
+    return clamp((s - y0) * scale, vec3<f32>(0.0), vec3<f32>(1.0));
 }
 
 fn rgb_to_hsv(c: vec3<f32>) -> vec3<f32> {
@@ -1437,6 +1530,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         initial_linear_rgb = srgb_to_linear(color_from_texture);
     } else {
         initial_linear_rgb = color_from_texture;
+    }
+
+    if (adjustments.global.negative_enabled == 1u) {
+        initial_linear_rgb = apply_negative_inversion(initial_linear_rgb);
     }
 
     var t_exposure = adjustments.global.exposure;

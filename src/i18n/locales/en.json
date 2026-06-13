@@ -582,6 +582,20 @@
         "showMore": "Show More Mask Types"
       }
     },
+    "negative": {
+      "analyzing": "Analyzing…",
+      "autoAnalyze": "Auto-Analyze Bounds",
+      "blackClip": "Black Clip",
+      "curveShape": "Curve Shape",
+      "dynamicRange": "Dynamic Range",
+      "enable": "Enable negative inversion",
+      "shoulder": "Shoulder",
+      "shoulderWidth": "Shoulder Width",
+      "title": "Negative",
+      "toe": "Toe",
+      "toeWidth": "Toe Width",
+      "whiteClip": "White Clip"
+    },
     "metadata": {
       "author": {
         "creatorDetails": "Creator Details",
@@ -689,6 +703,7 @@
         "info": "Info",
         "inpaint": "Inpaint",
         "masks": "Masks",
+        "negative": "Negative",
         "presets": "Presets"
       }
     },
@@ -1067,6 +1082,7 @@
         "lensCorrection": "Lens Correction",
         "lut": "LUT",
         "masks": "Masks",
+        "negative": "Negative Inversion",
         "noiseReduction": "Noise Reduction",
         "presence": "Presence",
         "sharpness": "Sharpness",

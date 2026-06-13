@@ -1333,6 +1333,27 @@ pub struct GlobalAdjustments {
     pub halation_amount: f32,
     pub flare_amount: f32,
     pub sharpness_threshold: f32,
+
+    pub negative_enabled: u32,
+    pub negative_red_min: f32,
+    pub negative_red_max: f32,
+    pub negative_green_min: f32,
+    pub negative_green_max: f32,
+    pub negative_blue_min: f32,
+    pub negative_blue_max: f32,
+    pub negative_red_weight: f32,
+    pub negative_green_weight: f32,
+    pub negative_blue_weight: f32,
+    pub negative_exposure: f32,
+    pub negative_contrast: f32,
+    pub negative_toe: f32,
+    pub negative_toe_width: f32,
+    pub negative_shoulder: f32,
+    pub negative_shoulder_width: f32,
+    pub negative_black_clip: f32,
+    pub negative_white_clip: f32,
+    pub _pad_neg1: f32,
+    pub _pad_neg2: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -2144,6 +2165,102 @@ fn get_global_adjustments_from_json(
             SCALES.sharpness_threshold,
             Some(15.0),
         ),
+
+        negative_enabled: {
+            let neg = js_adjustments.get("negative");
+            let enabled = neg
+                .and_then(|n| n.get("enabled"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if enabled && is_visible("negative") { 1 } else { 0 }
+        },
+        negative_red_min: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("redMin"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32,
+        negative_red_max: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("redMax"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0) as f32,
+        negative_green_min: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("greenMin"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32,
+        negative_green_max: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("greenMax"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0) as f32,
+        negative_blue_min: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("blueMin"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32,
+        negative_blue_max: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("blueMax"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0) as f32,
+        negative_red_weight: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("redWeight"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0) as f32,
+        negative_green_weight: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("greenWeight"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0) as f32,
+        negative_blue_weight: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("blueWeight"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0) as f32,
+        negative_exposure: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("exposure"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32,
+        negative_contrast: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("contrast"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0) as f32,
+        negative_toe: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("toe"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32,
+        negative_toe_width: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("toeWidth"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(2.5) as f32,
+        negative_shoulder: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("shoulder"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32,
+        negative_shoulder_width: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("shoulderWidth"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(2.5) as f32,
+        negative_black_clip: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("blackClip"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32,
+        negative_white_clip: js_adjustments
+            .get("negative")
+            .and_then(|n| n.get("whiteClip"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0) as f32,
+        _pad_neg1: 0.0,
+        _pad_neg2: 0.0,
     }
 }
 

@@ -7,6 +7,7 @@ import {
   Paintbrush,
   SwatchBook,
   FileInput,
+  Film,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +33,7 @@ const panelGroups: Array<Array<PanelOptions>> = [
     { id: Panel.Crop, icon: Crop, title: 'editor.switcher.tooltips.crop' },
     { id: Panel.Masks, icon: Layers, title: 'editor.switcher.tooltips.masks' },
     { id: Panel.Ai, icon: Paintbrush, title: 'editor.switcher.tooltips.inpaint' },
+    { id: Panel.Negative, icon: Film, title: 'editor.switcher.tooltips.negative' },
   ],
   [
     { id: Panel.Presets, icon: SwatchBook, title: 'editor.switcher.tooltips.presets' },

@@ -2317,6 +2317,7 @@ pub fn run() {
             lens_correction::get_lens_distortion_params,
             negative_conversion::preview_negative_conversion,
             negative_conversion::convert_negatives,
+            negative_conversion::analyze_negative_bounds,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

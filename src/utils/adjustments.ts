@@ -204,6 +204,7 @@ export interface Adjustments {
   lutPath?: string | null;
   lutSize?: number;
   masks: Array<MaskContainer>;
+  negative: NegativeAdjustment;
   orientationSteps: number;
   rotation: number;
   saturation: number;
@@ -349,6 +350,58 @@ export interface SectionVisibility {
   details: boolean;
   effects: boolean;
 }
+
+export interface NegativeAdjustment {
+  enabled: boolean;
+  redMin: number;
+  redMax: number;
+  greenMin: number;
+  greenMax: number;
+  blueMin: number;
+  blueMax: number;
+  redWeight: number;
+  greenWeight: number;
+  blueWeight: number;
+  exposure: number;
+  contrast: number;
+  toe: number;
+  toeWidth: number;
+  shoulder: number;
+  shoulderWidth: number;
+  blackClip: number;
+  whiteClip: number;
+}
+
+export const INITIAL_NEGATIVE: NegativeAdjustment = {
+  enabled: false,
+  redMin: 0,
+  redMax: 1,
+  greenMin: 0,
+  greenMax: 1,
+  blueMin: 0,
+  blueMax: 1,
+  redWeight: 1,
+  greenWeight: 1,
+  blueWeight: 1,
+  exposure: 0,
+  contrast: 1,
+  toe: 0,
+  toeWidth: 2.5,
+  shoulder: 0,
+  shoulderWidth: 2.5,
+  blackClip: 0,
+  whiteClip: 0,
+};
+
+export const NEGATIVE_BOUND_KEYS: Array<keyof NegativeAdjustment> = [
+  'redMin', 'redMax', 'greenMin', 'greenMax', 'blueMin', 'blueMax',
+];
+
+export const stripNegativeBounds = (neg: NegativeAdjustment): Partial<NegativeAdjustment> => {
+  const result: Partial<NegativeAdjustment> = { ...neg };
+  for (const k of NEGATIVE_BOUND_KEYS) delete result[k];
+  return result;
+};
 
 export const COLOR_LABELS: Array<Color> = [
   { name: 'red', color: '#ef4444' },
@@ -528,6 +581,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   lutPath: null,
   lutSize: 0,
   masks: [],
+  negative: { ...INITIAL_NEGATIVE },
   orientationSteps: 0,
   rotation: 0,
   saturation: 0,
@@ -670,6 +724,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     colorCalibration: { ...INITIAL_ADJUSTMENTS.colorCalibration, ...(loadedAdjustments.colorCalibration || {}) },
     colorGrading: { ...INITIAL_ADJUSTMENTS.colorGrading, ...(loadedAdjustments.colorGrading || {}) },
     hsl: { ...INITIAL_ADJUSTMENTS.hsl, ...(loadedAdjustments.hsl || {}) },
+    negative: { ...INITIAL_NEGATIVE, ...(loadedAdjustments.negative || {}) },
     curves: loadedAdjustments.curves ? deepCloneCurves(loadedAdjustments.curves) : getDefaultCurves(),
     pointCurves: loadedAdjustments.pointCurves ? deepCloneCurves(loadedAdjustments.pointCurves) : getDefaultCurves(),
     parametricCurve: loadedAdjustments.parametricCurve
@@ -793,6 +848,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     },
   ],
   masks: [{ label: 'modals.copyPaste.groups.masks', keys: ['masks'] }],
+  negative: [{ label: 'modals.copyPaste.groups.negative', keys: ['negative'] }],
 };
 
 export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUPS)

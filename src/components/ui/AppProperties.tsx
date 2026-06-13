@@ -123,6 +123,7 @@ export enum Panel {
   Export = 'export',
   Masks = 'masks',
   Metadata = 'metadata',
+  Negative = 'negative',
   Presets = 'presets',
 }
 
