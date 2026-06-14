@@ -255,6 +255,204 @@ pub fn synthetic_linear_image() -> SyntheticInput {
     }
 }
 
+// ---------------------------------------------------------------------------------------------
+// HDR encoders. Input is always LINEAR scene-referred Rgba<f32> (diffuse white = 1.0, headroom
+// preserved). These apply the primaries conversion + transfer OETF, then encode + tag CICP.
+// ---------------------------------------------------------------------------------------------
+
+/// Map an export quality (0..=100) to a rav1e quantizer (0 = best). 100 -> 0 (near-lossless).
+fn quality_to_quantizer(quality: u8) -> usize {
+    let q = quality.min(100) as usize;
+    ((100 - q) * 255 / 100).min(255)
+}
+
+/// Encode a linear `Rgba<f32>` image to a tagged HDR AVIF (10 or 12 bit).
+///
+/// Uses CICP matrix_coefficients = 0 (Identity / RGB) at 4:4:4 full-range: the planes carry the
+/// RGB transfer-encoded codes directly (no YCbCr conversion, no chroma subsampling), so the
+/// round-trip is exact for every color — not just neutrals. The AV1 spec stores identity planes
+/// in G, B, R order. `primaries` is tagged AND applied (Rec.709->Rec.2020 matrix) to the pixels.
+pub fn encode_avif_hdr(
+    img: &ImageBuffer<Rgba<f32>, Vec<f32>>,
+    bit_depth: u8,
+    transfer: TransferFunction,
+    primaries: ColorPrimaries,
+    quality: u8,
+) -> Result<Vec<u8>, String> {
+    use rav1e::config::SpeedSettings;
+    // Explicit imports (not a glob) so this module's own ColorPrimaries/TransferFunction enums
+    // are not shadowed by rav1e's same-named enums.
+    use rav1e::prelude::{
+        ChromaSamplePosition, ChromaSampling, ColorDescription, Config, Context, EncoderConfig,
+        EncoderStatus, PixelRange,
+    };
+
+    if bit_depth != 10 && bit_depth != 12 {
+        return Err(format!(
+            "AVIF HDR bit depth must be 10 or 12, got {bit_depth}"
+        ));
+    }
+    if transfer == TransferFunction::Srgb {
+        return Err("encode_avif_hdr requires a PQ or HLG transfer".into());
+    }
+    let w = img.width() as usize;
+    let h = img.height() as usize;
+    if w == 0 || h == 0 {
+        return Err("cannot encode an empty image".into());
+    }
+
+    // linear -> primaries -> transfer code -> quantized u16, into G/B/R planes (identity order).
+    let mut plane_g = vec![0u16; w * h];
+    let mut plane_b = vec![0u16; w * h];
+    let mut plane_r = vec![0u16; w * h];
+    for (i, px) in img.pixels().enumerate() {
+        let code = encode_pixel_linear_to_code([px.0[0], px.0[1], px.0[2]], primaries, transfer);
+        plane_r[i] = quantize_full_range(code[0], bit_depth);
+        plane_g[i] = quantize_full_range(code[1], bit_depth);
+        plane_b[i] = quantize_full_range(code[2], bit_depth);
+    }
+
+    let mut enc = EncoderConfig::default();
+    enc.width = w;
+    enc.height = h;
+    enc.bit_depth = bit_depth as usize;
+    enc.chroma_sampling = ChromaSampling::Cs444;
+    enc.chroma_sample_position = ChromaSamplePosition::Unknown;
+    enc.still_picture = true;
+    enc.pixel_range = PixelRange::Full;
+    enc.color_description = Some(ColorDescription {
+        color_primaries: match primaries {
+            ColorPrimaries::Bt2020 => rav1e::prelude::ColorPrimaries::BT2020,
+            ColorPrimaries::Srgb => rav1e::prelude::ColorPrimaries::BT709,
+        },
+        transfer_characteristics: match transfer {
+            TransferFunction::Pq => rav1e::prelude::TransferCharacteristics::SMPTE2084,
+            TransferFunction::Hlg => rav1e::prelude::TransferCharacteristics::HLG,
+            TransferFunction::Srgb => unreachable!(),
+        },
+        matrix_coefficients: rav1e::prelude::MatrixCoefficients::Identity,
+    });
+    enc.quantizer = quality_to_quantizer(quality);
+    enc.speed_settings = SpeedSettings::from_preset(6);
+
+    let threads = std::thread::available_parallelism()
+        .map(|n| n.get().min(8))
+        .unwrap_or(2);
+    let cfg = Config::new().with_encoder_config(enc).with_threads(threads);
+    let mut ctx: Context<u16> = cfg
+        .new_context()
+        .map_err(|e| format!("rav1e new_context failed: {e:?}"))?;
+
+    let mut frame = ctx.new_frame();
+    // Identity plane order: 0=G, 1=B, 2=R. copy_from_raw_u8 writes at the plane origin
+    // (handles rav1e's internal padding), unlike a raw chunks_mut over the padded buffer.
+    let to_le = |p: &[u16]| -> Vec<u8> { p.iter().flat_map(|v| v.to_le_bytes()).collect() };
+    frame.planes[0].copy_from_raw_u8(&to_le(&plane_g), w * 2, 2);
+    frame.planes[1].copy_from_raw_u8(&to_le(&plane_b), w * 2, 2);
+    frame.planes[2].copy_from_raw_u8(&to_le(&plane_r), w * 2, 2);
+
+    ctx.send_frame(std::sync::Arc::new(frame))
+        .map_err(|e| format!("rav1e send_frame failed: {e:?}"))?;
+    ctx.flush();
+
+    let mut av1_obu: Vec<u8> = Vec::new();
+    loop {
+        match ctx.receive_packet() {
+            Ok(pkt) => av1_obu.extend_from_slice(&pkt.data),
+            Err(EncoderStatus::Encoded) => continue,
+            Err(EncoderStatus::LimitReached) | Err(EncoderStatus::NeedMoreData) => break,
+            Err(e) => return Err(format!("rav1e receive_packet failed: {e:?}")),
+        }
+    }
+
+    use avif_serialize::Aviffy;
+    use avif_serialize::constants::{
+        ColorPrimaries as AvifPrimaries, MatrixCoefficients as AvifMatrix,
+        TransferCharacteristics as AvifTransfer,
+    };
+    let mut aviffy = Aviffy::new();
+    aviffy
+        .set_color_primaries(match primaries {
+            ColorPrimaries::Bt2020 => AvifPrimaries::Bt2020,
+            ColorPrimaries::Srgb => AvifPrimaries::Bt709,
+        })
+        .set_transfer_characteristics(match transfer {
+            TransferFunction::Pq => AvifTransfer::Smpte2084,
+            TransferFunction::Hlg => AvifTransfer::Hlg,
+            TransferFunction::Srgb => unreachable!(),
+        })
+        .set_matrix_coefficients(AvifMatrix::Rgb)
+        .set_full_color_range(true)
+        .set_bit_depth(bit_depth)
+        .set_chroma_subsampling((false, false)); // 4:4:4
+
+    Ok(aviffy.to_vec(&av1_obu, None, w as u32, h as u32, bit_depth))
+}
+
+/// Encode a linear `Rgba<f32>` image to a tagged HDR JPEG XL (PQ or HLG, Rec.2020), 32-bit float.
+/// Requires the `hdr_jxl` feature (system libjxl). Feeds transfer-encoded f32 codes with
+/// `uses_original_profile` so libjxl keeps our PQ/HLG color encoding instead of converting to XYB.
+#[cfg(feature = "hdr_jxl")]
+pub fn encode_jxl_hdr(
+    img: &ImageBuffer<Rgba<f32>, Vec<f32>>,
+    transfer: TransferFunction,
+    primaries: ColorPrimaries,
+    lossless: bool,
+) -> Result<Vec<u8>, String> {
+    use jpegxl_rs::encode::{ColorEncoding, EncoderFrame, EncoderResult, EncoderSpeed};
+    use jpegxl_rs::encoder_builder;
+    use jpegxl_sys::color::color_encoding::{
+        JxlColorEncoding, JxlColorSpace, JxlPrimaries, JxlRenderingIntent, JxlTransferFunction,
+        JxlWhitePoint,
+    };
+
+    if transfer == TransferFunction::Srgb {
+        return Err("encode_jxl_hdr requires a PQ or HLG transfer".into());
+    }
+    let (w, h) = (img.width(), img.height());
+
+    let mut rgb: Vec<f32> = Vec::with_capacity((w * h * 3) as usize);
+    for px in img.pixels() {
+        let code = encode_pixel_linear_to_code([px.0[0], px.0[1], px.0[2]], primaries, transfer);
+        rgb.extend_from_slice(&code);
+    }
+
+    let color = JxlColorEncoding {
+        color_space: JxlColorSpace::Rgb,
+        white_point: JxlWhitePoint::D65,
+        white_point_xy: [0.3127, 0.3290],
+        primaries: match primaries {
+            ColorPrimaries::Bt2020 => JxlPrimaries::Rec2100,
+            ColorPrimaries::Srgb => JxlPrimaries::SRGB,
+        },
+        primaries_red_xy: [0.0, 0.0],
+        primaries_green_xy: [0.0, 0.0],
+        primaries_blue_xy: [0.0, 0.0],
+        transfer_function: match transfer {
+            TransferFunction::Pq => JxlTransferFunction::PQ,
+            TransferFunction::Hlg => JxlTransferFunction::HLG,
+            TransferFunction::Srgb => unreachable!(),
+        },
+        gamma: 0.0,
+        rendering_intent: JxlRenderingIntent::Relative,
+    };
+
+    let mut encoder = encoder_builder()
+        .has_alpha(false)
+        .speed(EncoderSpeed::Squirrel)
+        .uses_original_profile(true)
+        .lossless(lossless)
+        .color_encoding(ColorEncoding::Custom(color))
+        .build()
+        .map_err(|e| format!("jxl encoder build failed: {e}"))?;
+
+    let frame = EncoderFrame::new(&rgb).num_channels(3);
+    let result: EncoderResult<f32> = encoder
+        .encode_frame(&frame, w, h)
+        .map_err(|e| format!("jxl encode_frame failed: {e}"))?;
+    Ok(result.data.to_vec())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

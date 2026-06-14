@@ -67,6 +67,22 @@ rgb = "0.8.53"
 imgref = "1.12.1"
 sysinfo = "0.39.3"
 
+# --- HDR export encoders ---
+# AVIF (PQ/HLG, 10/12-bit, CICP nclx): pure-Rust AV1 encoder + ISOBMFF muxer. No C/system deps.
+# `asm` needs nasm at build time; drop it for a pure-Rust (slower) encode if nasm is unavailable.
+rav1e = { version = "0.8.1", default-features = false, features = ["asm", "threading"] }
+avif-serialize = "0.8.9"
+# JPEG XL (PQ/HLG, >=10-bit float): bindings to system libjxl. Optional (see `hdr_jxl` feature)
+# because it requires libjxl (`brew install jpeg-xl`) at build+runtime. GPL-3.0-or-later bindings;
+# compatible with this repo's AGPL-3.0.
+jpegxl-rs = { version = "0.14.0", default-features = false, optional = true }
+jpegxl-sys = { version = "0.12.1", optional = true }
+
+[features]
+# Enable HDR JPEG XL export. Requires system libjxl (macOS: `brew install jpeg-xl`, with
+# PKG_CONFIG_PATH pointing at its keg-only pkgconfig dir). AVIF HDR export is always available.
+hdr_jxl = ["dep:jpegxl-rs", "dep:jpegxl-sys"]
+
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "5.2.6"
 tauri-plugin-single-instance = "2.4.2"
