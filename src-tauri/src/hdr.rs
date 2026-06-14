@@ -423,7 +423,7 @@ pub fn encode_jxl_hdr(
         white_point_xy: [0.3127, 0.3290],
         primaries: match primaries {
             ColorPrimaries::Bt2020 => JxlPrimaries::Rec2100,
-            ColorPrimaries::Srgb => JxlPrimaries::SRGB,
+            ColorPrimaries::Srgb => JxlPrimaries::SRgb,
         },
         primaries_red_xy: [0.0, 0.0],
         primaries_green_xy: [0.0, 0.0],
