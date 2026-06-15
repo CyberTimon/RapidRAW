@@ -126,33 +126,20 @@ impl ExportSettings {
         if self.bit_depth >= 12 { 12 } else { 10 }
     }
 
-    /// Build a fully-specified HDR encode config from these export settings. Out-of-range anchors
-    /// (<=0) fall back to the canonical defaults; the identity matrix forces 4:4:4.
+    /// Map these export settings straight to an HDR encode config — a raw projection of the user's
+    /// input (the single source of truth). The encoders own all coercion: clamping out-of-range
+    /// anchors, forcing 4:4:4 for the identity matrix, and validating bit depth all live in
+    /// `HdrEncodeConfig::sanitized` / `clamp_anchors`, so they are not duplicated here.
     pub fn to_hdr_config(&self) -> crate::hdr::HdrEncodeConfig {
-        let reference_white_nits = if self.reference_white_nits > 0.0 {
-            self.reference_white_nits
-        } else {
-            crate::hdr::REFERENCE_WHITE_NITS
-        };
-        let hlg_peak_ratio = if self.hlg_peak_ratio > 0.0 {
-            self.hlg_peak_ratio
-        } else {
-            crate::hdr::HLG_PEAK_RATIO
-        };
-        let subsampling = if self.matrix == crate::hdr::MatrixMode::Identity {
-            crate::hdr::ChromaSubsampling::Cs444
-        } else {
-            self.chroma_subsampling
-        };
         crate::hdr::HdrEncodeConfig {
             bit_depth: self.export_bit_depth(),
             transfer: self.transfer_function,
             primaries: self.primaries,
             matrix: self.matrix,
-            subsampling,
+            subsampling: self.chroma_subsampling,
             range: self.range,
-            reference_white_nits,
-            hlg_peak_ratio,
+            reference_white_nits: self.reference_white_nits,
+            hlg_peak_ratio: self.hlg_peak_ratio,
             quality: self.jpeg_quality,
             mastering_metadata: self.mastering_metadata,
         }
@@ -533,8 +520,10 @@ fn encode_image_to_bytes(
                         .map_err(|e| format!("Failed to encode lossless JXL: {}", e))?
                 }
             } else {
-                let distance = (100.0 - jpeg_quality as f32) / 10.0;
-                let distance = distance.max(0.01);
+                // Single source for the quality->distance mapping (shared with the HDR JXL path).
+                // The lossy branch only runs for quality <= 99, where (100-q)/10 >= 0.1, so the
+                // shared 0.1 floor never binds here -- this is byte-identical to the prior formula.
+                let distance = crate::hdr::quality_to_jxl_distance(jpeg_quality);
 
                 if has_alpha {
                     let rgba = image.to_rgba8();
@@ -1130,6 +1119,30 @@ pub async fn export_images(
 
     *state.export_task_handle.lock().unwrap() = Some(task);
     Ok(())
+}
+
+/// AVIF 4:2:2 single-tile limits, exposed so the frontend can derive its resolution cap from the
+/// backend instead of hardcoding the number (single source of truth: `crate::hdr::AVIF_422_*`).
+#[derive(Serialize, Debug, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+pub struct Avif422Limits {
+    pub max_width: u32,
+    pub max_pixels: u32,
+    /// Largest long edge that keeps ANY aspect ratio within both caps: `floor(sqrt(max_pixels))`,
+    /// also clamped to `max_width`. (Square is the worst case: `long_edge^2` is the area.)
+    pub max_long_edge: u32,
+}
+
+#[tauri::command]
+pub fn avif_422_limits() -> Avif422Limits {
+    let max_width = crate::hdr::AVIF_422_MAX_WIDTH as u32;
+    let max_pixels = crate::hdr::AVIF_422_MAX_PIXELS as u32;
+    let max_long_edge = ((max_pixels as f64).sqrt().floor() as u32).min(max_width);
+    Avif422Limits {
+        max_width,
+        max_pixels,
+        max_long_edge,
+    }
 }
 
 #[tauri::command]

@@ -108,6 +108,17 @@ adapter is available (headless CI).
    files carry CICP tags but not EXIF.
 6. **Tiling**: the HDR path reuses the SDR tiling logic (parameterized), exercised on small images
    in the harness; very large multi-tile HDR images use the same code but weren't size-stressed.
+7. **4:2:2 AVIF is single-tile only (resolution-capped).** rav1e encodes AV1 4:2:2 (the "Professional"
+   profile) conformantly *only as a single AV1 tile* — any multi-tile 4:2:2 frame (even a forced 2x1
+   split) produces a bitstream strict decoders (dav1d/libavif) reject with "Decoding of color planes
+   failed". 4:2:0 and 4:4:4 tile correctly at any size and are verified at 6177x4118. So 4:2:2 AVIF is
+   bounded to AV1's single-tile envelope: **long edge ≤ 3072 px** (= √(4096·2304), i.e. ≤ 4096 px wide
+   AND ≤ 9,437,184 px in area for any aspect). Selecting 4:2:2 in the export panel **auto-applies this
+   resize cap** (visible and overridable in the Resize controls); removing the cap shows a warning, and
+   an over-size 4:2:2 export **fails loudly** — the backend never silently downgrades the chosen
+   chroma. Limits live in `hdr::AVIF_422_MAX_WIDTH` / `AVIF_422_MAX_PIXELS`, mirrored in
+   `ExportPanel.tsx`. Tests: `avif_422_single_tile_roundtrips_oversize_errors`,
+   `avif_large_frame_is_av1_conformant`.
 
 ## Needs a human + real HDR display (out of scope for automated checks)
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X } from 'lucide-react';
+import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import debounce from 'lodash.debounce';
@@ -521,6 +521,47 @@ export default function ExportPanel({
     [setMatrix, setChromaSubsampling],
   );
 
+  // 4:2:2 AVIF must fit in a single AV1 tile: rav1e can't tile 4:2:2 conformantly, so a larger
+  // frame would produce a file that decoders reject. Keeping the long edge <= sqrt(4096 * 2304)
+  // bounds the frame to <= 4096 px wide AND <= 9_437_184 px in area for ANY aspect ratio. Mirrors
+  // AVIF_422_MAX_WIDTH / AVIF_422_MAX_PIXELS in src-tauri/src/hdr.rs.
+  const AVIF_422_MAX_LONG_EDGE = 3072;
+  const resizeKeeps422Safe =
+    enableResize && resizeMode === 'longEdge' && resizeValue > 0 && resizeValue <= AVIF_422_MAX_LONG_EDGE;
+
+  // Choosing 4:2:2 for AVIF auto-applies the resolution cap — shown right in the Resize controls,
+  // not hidden in the backend. The user can still change/remove it (a warning then appears, and an
+  // over-size export fails loudly rather than silently switching chroma). We only step in when the
+  // current resize wouldn't already keep every image safe, so a tighter existing cap is respected.
+  const handleChromaChange = useCallback(
+    (value: string) => {
+      setChromaSubsampling(value);
+      if (value === '422' && fileFormat === FileFormats.Avif && !resizeKeeps422Safe) {
+        setEnableResize(true);
+        setResizeMode('longEdge');
+        setResizeValue(AVIF_422_MAX_LONG_EDGE);
+        setDontEnlarge(true);
+      }
+    },
+    [
+      fileFormat,
+      resizeKeeps422Safe,
+      setChromaSubsampling,
+      setEnableResize,
+      setResizeMode,
+      setResizeValue,
+      setDontEnlarge,
+    ],
+  );
+
+  // Warn whenever 4:2:2 AVIF is selected but the resize won't guarantee every image stays inside
+  // the single-tile envelope (cap removed, wrong mode, or value too large).
+  const is422Avif = fileFormat === FileFormats.Avif && matrix === 'ycbcr' && chromaSubsampling === '422';
+  const show422CapWarning = is422Avif && !resizeKeeps422Safe;
+  // The resolution cap is doing its job: 4:2:2 AVIF with a safe resize. Surface a short note in
+  // the Resize section so the auto-applied cap reads as an intentional guardrail, not a surprise.
+  const show422CapNote = is422Avif && resizeKeeps422Safe;
+
   const colorProfileOptions = useMemo(
     () => [
       { label: t('export.file.profiles.sdr'), value: 'sdr' },
@@ -578,10 +619,17 @@ export default function ExportPanel({
 
   const transferOptions = useMemo(
     () => [
-      { label: 'PQ (ST.2084)', value: 'pq' },
-      { label: 'HLG', value: 'hlg' },
+      { label: 'PQ — for screens & sharing (recommended)', value: 'pq' },
+      { label: 'HLG — for TV / broadcast', value: 'hlg' },
     ],
     [],
+  );
+
+  // One-line, plain-language summary of what the chosen Color profile produces. Shown under
+  // the profile picker so a non-expert understands the trade-off without opening Advanced.
+  const colorProfileDescription = useMemo(
+    () => t(`export.file.profileDescriptions.${activeColorProfile}`),
+    [t, activeColorProfile],
   );
 
   const debouncedEstimateSize = useMemo(
@@ -860,6 +908,20 @@ export default function ExportPanel({
                     />
                   </HdrField>
 
+                  {/* One-line summary of what the selected profile produces. */}
+                  {colorProfileDescription && (
+                    <div className="rounded-md bg-surface/60 px-3 py-2">
+                      <Text
+                        as="p"
+                        variant={TextVariants.small}
+                        color={TextColors.secondary}
+                        className="leading-snug"
+                      >
+                        {colorProfileDescription}
+                      </Text>
+                    </div>
+                  )}
+
                   {/* An explicit Advanced toggle so users on a preset can still fine-tune. */}
                   {activeColorProfile !== 'custom' && bitDepth > 8 && (
                     <Switch
@@ -874,6 +936,9 @@ export default function ExportPanel({
                   {/* Tier 2: Advanced controls, each with plain-language help. */}
                   {showAdvancedColor && (
                     <div className="space-y-3 pl-2 border-l-2 border-surface">
+                      <Text variant={TextVariants.label} color={TextColors.secondary} className="block">
+                        {t('export.file.advancedSectionTitle')}
+                      </Text>
                       <HdrField label={t('export.file.bitDepth')} help={t('export.file.bitDepthHelp')}>
                         <Dropdown
                           options={bitDepthOptions}
@@ -935,15 +1000,29 @@ export default function ExportPanel({
 
                           {/* Chroma detail only applies to YCbCr; RGB forces full 4:4:4. */}
                           {matrix === 'ycbcr' && (
-                            <HdrField label={t('export.file.chromaDetail')} help={t('export.file.chromaDetailHelp')}>
-                              <Dropdown
-                                options={chromaOptions}
-                                value={chromaSubsampling}
-                                onChange={setChromaSubsampling}
-                                disabled={isExporting}
-                                className="w-56"
-                              />
-                            </HdrField>
+                            <>
+                              <HdrField label={t('export.file.chromaDetail')} help={t('export.file.chromaDetailHelp')}>
+                                <Dropdown
+                                  options={chromaOptions}
+                                  value={chromaSubsampling}
+                                  onChange={handleChromaChange}
+                                  disabled={isExporting}
+                                  className="w-56"
+                                />
+                              </HdrField>
+                              {show422CapWarning && (
+                                <div className="flex items-start gap-2 rounded-md bg-yellow-400/10 border border-yellow-400/20 px-3 py-2">
+                                  <Info size={14} className="text-yellow-400/90 mt-0.5 shrink-0" />
+                                  <Text
+                                    as="p"
+                                    variant={TextVariants.small}
+                                    className="text-yellow-400/90 leading-snug"
+                                  >
+                                    {t('export.file.chroma422CapWarning')}
+                                  </Text>
+                                </div>
+                              )}
+                            </>
                           )}
 
                           <HdrField label={t('export.file.signalRange')} help={t('export.file.signalRangeHelp')}>
@@ -972,22 +1051,23 @@ export default function ExportPanel({
                             </div>
                           </HdrField>
 
-                          <Switch
-                            label={t('export.file.masteringMetadata')}
-                            checked={masteringMetadata}
-                            onChange={setMasteringMetadata}
-                            disabled={isExporting}
-                            tooltip={t('export.file.masteringMetadataHelp')}
-                            trackClassName="bg-surface"
-                          />
-                          <Text
-                            as="p"
-                            variant={TextVariants.small}
-                            color={TextColors.secondary}
-                            className="opacity-70 leading-snug -mt-1"
-                          >
-                            {t('export.file.masteringMetadataHelp')}
-                          </Text>
+                          <div className="space-y-1">
+                            <Switch
+                              label={t('export.file.masteringMetadata')}
+                              checked={masteringMetadata}
+                              onChange={setMasteringMetadata}
+                              disabled={isExporting}
+                              trackClassName="bg-surface"
+                            />
+                            <Text
+                              as="p"
+                              variant={TextVariants.small}
+                              color={TextColors.secondary}
+                              className="opacity-70 leading-snug"
+                            >
+                              {t('export.file.masteringMetadataHelp')}
+                            </Text>
+                          </div>
                         </>
                       )}
                     </div>
@@ -1058,6 +1138,19 @@ export default function ExportPanel({
                         onChange={setDontEnlarge}
                         trackClassName="bg-surface"
                       />
+                      {show422CapNote && (
+                        <div className="flex items-start gap-2 rounded-md bg-surface/60 px-3 py-2">
+                          <Info size={14} className="text-text-secondary mt-0.5 shrink-0" />
+                          <Text
+                            as="p"
+                            variant={TextVariants.small}
+                            color={TextColors.secondary}
+                            className="leading-snug"
+                          >
+                            {t('export.resize.chroma422CapNote')}
+                          </Text>
+                        </div>
+                      )}
                     </div>
                   )}
                 </Section>

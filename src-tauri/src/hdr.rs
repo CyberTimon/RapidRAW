@@ -20,6 +20,12 @@ pub const REFERENCE_WHITE_NITS: f32 = 203.0;
 /// PQ is normalized so code `1.0` == this peak luminance.
 pub const PQ_MAX_NITS: f32 = 10000.0;
 
+/// Max frame width for 4:2:2 AVIF: rav1e only encodes 4:2:2 conformantly as a single AV1 tile,
+/// and AV1 caps a tile at 4096 px wide. (The frontend mirrors this to auto-cap 4:2:2 exports.)
+pub const AVIF_422_MAX_WIDTH: usize = 4096;
+/// Max frame area (pixels) for 4:2:2 AVIF: AV1's single-tile area cap, 4096 * 2304.
+pub const AVIF_422_MAX_PIXELS: usize = 4096 * 2304; // 9_437_184
+
 // --- SMPTE ST 2084 (PQ) constants. Pinned; do not modify. ---
 const PQ_M1: f32 = 0.1593017578125; // 2610/16384
 const PQ_M2: f32 = 78.84375; // 2523/4096 * 128
@@ -232,8 +238,20 @@ impl Default for HdrEncodeConfig {
 }
 
 impl HdrEncodeConfig {
-    /// Sanitize the config: clamp out-of-range anchors to sane defaults and force 4:4:4 for the
-    /// identity matrix. Returns `Err` for unsupported AVIF bit depths.
+    /// Clamp out-of-range luminance anchors to their canonical defaults. The single owner of that
+    /// rule, shared by the AVIF and JXL paths (JXL needs only this; the AVIF [`Self::sanitized`]
+    /// additionally validates bit depth and forces 4:4:4 for the identity matrix).
+    pub(crate) fn clamp_anchors(&mut self) {
+        if self.reference_white_nits <= 0.0 || !self.reference_white_nits.is_finite() {
+            self.reference_white_nits = REFERENCE_WHITE_NITS;
+        }
+        if self.hlg_peak_ratio <= 0.0 || !self.hlg_peak_ratio.is_finite() {
+            self.hlg_peak_ratio = HLG_PEAK_RATIO;
+        }
+    }
+
+    /// Sanitize the config for the AVIF path: clamp out-of-range anchors, force 4:4:4 for the
+    /// identity matrix, and validate the bit depth. Returns `Err` for unsupported AVIF bit depths.
     pub fn sanitized(mut self) -> Result<Self, String> {
         if self.bit_depth != 10 && self.bit_depth != 12 {
             return Err(format!(
@@ -241,12 +259,7 @@ impl HdrEncodeConfig {
                 self.bit_depth
             ));
         }
-        if self.reference_white_nits <= 0.0 || !self.reference_white_nits.is_finite() {
-            self.reference_white_nits = REFERENCE_WHITE_NITS;
-        }
-        if self.hlg_peak_ratio <= 0.0 || !self.hlg_peak_ratio.is_finite() {
-            self.hlg_peak_ratio = HLG_PEAK_RATIO;
-        }
+        self.clamp_anchors();
         if self.matrix == MatrixMode::Identity {
             self.subsampling = ChromaSubsampling::Cs444;
         }
@@ -664,6 +677,26 @@ pub fn encode_avif_hdr(
         return Err("cannot encode an empty image".into());
     }
 
+    // 4:2:2 (AV1 "Professional" profile) is fragile in rav1e: it only emits a stream strict
+    // decoders accept when the frame is a *single AV1 tile*. AV1's per-tile caps (4096 px wide,
+    // 4096*2304 = 9_437_184 px area) force a multi-tile layout on larger frames, and rav1e's 4:2:2
+    // path mis-codes any multi-tile case (verified: even a forced 2x1 split fails to decode at
+    // some geometries). We do NOT silently downgrade the user's chosen subsampling -- instead we
+    // fail loudly so the export surfaces the limit (the UI auto-caps 4:2:2 resolution to keep
+    // frames inside this single-tile envelope, and warns if the cap is overridden). Other formats
+    // (4:2:0 / 4:4:4) have no such limit.
+    if cfg.matrix == MatrixMode::Ycbcr && cfg.subsampling == ChromaSubsampling::Cs422 {
+        let single_tile = w <= AVIF_422_MAX_WIDTH && w.saturating_mul(h) <= AVIF_422_MAX_PIXELS;
+        if !single_tile {
+            return Err(format!(
+                "4:2:2 AVIF supports at most {AVIF_422_MAX_WIDTH} px wide and \
+                 {AVIF_422_MAX_PIXELS} px total (this frame is {w}x{h} = {} px). \
+                 Reduce the export resolution or choose 4:2:0 / 4:4:4 chroma.",
+                w * h
+            ));
+        }
+    }
+
     let planes = build_avif_planes(img, &cfg);
 
     let chroma_sampling = match cfg.matrix {
@@ -822,14 +855,9 @@ pub fn encode_jxl_hdr(
     };
 
     let cfg = {
-        // JXL has no AVIF bit-depth constraint; only sanitize the anchors / peak ratio.
+        // JXL has no AVIF bit-depth constraint; only the luminance anchors need clamping.
         let mut c = *cfg;
-        if c.reference_white_nits <= 0.0 || !c.reference_white_nits.is_finite() {
-            c.reference_white_nits = REFERENCE_WHITE_NITS;
-        }
-        if c.hlg_peak_ratio <= 0.0 || !c.hlg_peak_ratio.is_finite() {
-            c.hlg_peak_ratio = HLG_PEAK_RATIO;
-        }
+        c.clamp_anchors();
         c
     };
     if cfg.transfer == TransferFunction::Srgb {

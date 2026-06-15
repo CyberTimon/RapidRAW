@@ -550,6 +550,98 @@ fn avif_rejects_bad_bit_depth() {
     );
 }
 
+/// Build a gradient test image of the given size (real residual, like photo content).
+fn gradient_image(w: u32, h: u32) -> ImageBuffer<Rgba<f32>, Vec<f32>> {
+    let mut img = ImageBuffer::<Rgba<f32>, Vec<f32>>::new(w, h);
+    for (x, _y, px) in img.enumerate_pixels_mut() {
+        let v = x as f32 / w as f32; // 0..1 ramp, well inside diffuse white
+        *px = Rgba([v, v * 0.5, 1.0 - v, 1.0]);
+    }
+    img
+}
+
+/// Large 4:2:0 / 4:4:4 frames must produce an AV1-conformant bitstream that a strict decoder
+/// (dav1d, via `avifdec`) decodes. AV1 forces a multi-tile layout once a frame exceeds 4096 px
+/// wide or 4096*2304 = 9_437_184 px in area; 4:2:0 and 4:4:4 tile correctly, so real full-res
+/// exports (e.g. 6177x4118) must round-trip. (4:2:2 is special-cased; see the test below.)
+#[test]
+fn avif_large_frame_is_av1_conformant() {
+    // 6177x4118 = 25.4M px: the exact size of a real export that previously failed to decode.
+    let (w, h) = (6177u32, 4118u32);
+    let img = gradient_image(w, h);
+    for sub in [ChromaSubsampling::Cs420, ChromaSubsampling::Cs444] {
+        let cfg = HdrEncodeConfig {
+            matrix: MatrixMode::Ycbcr,
+            subsampling: sub,
+            ..identity_cfg(10, TransferFunction::Pq, ColorPrimaries::Bt2020)
+        };
+        let avif = hdr::encode_avif_hdr(&img, &cfg).expect("encode large frame");
+        // avifdec_to_png16 asserts avifdec exits 0; a non-conformant stream fails here.
+        let dec = avifdec_to_png16(&avif, "largeframe");
+        assert_eq!(
+            dec.dimensions(),
+            (w, h),
+            "decoded dims must match for {sub:?}"
+        );
+    }
+}
+
+/// rav1e only emits conformant 4:2:2 for a *single* AV1 tile (verified: even forced 2x1 splits
+/// fail to decode at some geometries). The encoder must therefore (a) round-trip 4:2:2 inside the
+/// single-tile envelope and (b) refuse — loudly, not silently downgrade — anything larger, so the
+/// UI's resolution cap is the only place that decides the trade-off. No hidden chroma changes.
+#[test]
+fn avif_422_single_tile_roundtrips_oversize_errors() {
+    let base = HdrEncodeConfig {
+        matrix: MatrixMode::Ycbcr,
+        subsampling: ChromaSubsampling::Cs422,
+        ..identity_cfg(10, TransferFunction::Pq, ColorPrimaries::Bt2020)
+    };
+
+    // Dimensions are derived from the single-source-of-truth constants, not re-typed literals.
+    let max_w = hdr::AVIF_422_MAX_WIDTH as u32;
+    let boundary_h = (hdr::AVIF_422_MAX_PIXELS / hdr::AVIF_422_MAX_WIDTH) as u32; // = 2304
+
+    // (a) at the single-tile boundary (max width, exactly max pixels) 4:2:2 must encode + decode.
+    let ok = gradient_image(max_w, boundary_h);
+    let avif = hdr::encode_avif_hdr(&ok, &base).expect("single-tile 4:2:2 must encode");
+    let dec = avifdec_to_png16(&avif, "s422ok");
+    assert_eq!(dec.dimensions(), (max_w, boundary_h));
+
+    // (b) one pixel past the area cap, and past the width cap, must error (NOT silently re-chroma).
+    for (w, h) in [(max_w, boundary_h + 1), (max_w + 1, 16)] {
+        let big = gradient_image(w, h);
+        let err = hdr::encode_avif_hdr(&big, &base)
+            .expect_err("oversize 4:2:2 must error, not silently downgrade");
+        assert!(
+            err.contains("4:2:2"),
+            "error should explain the 4:2:2 limit, got: {err}"
+        );
+    }
+}
+
+/// The frontend caps 4:2:2 export resolution by long edge; the cap value must be DERIVED from the
+/// area/width caps (not a hand-typed mirror). This locks the relationship the `avif_422_limits`
+/// command relies on: a long edge of `floor(sqrt(max_pixels))` keeps any aspect ratio within BOTH
+/// the area cap and the width cap. Guards against drift if the constants ever change.
+#[test]
+fn avif_422_long_edge_cap_is_derivable_from_caps() {
+    let max_pixels = hdr::AVIF_422_MAX_PIXELS;
+    let max_width = hdr::AVIF_422_MAX_WIDTH;
+    let long_edge = (max_pixels as f64).sqrt().floor() as usize;
+    // square is the worst case for area at a given long edge: long_edge^2 must fit the area cap.
+    assert!(
+        long_edge * long_edge <= max_pixels,
+        "long-edge^2 exceeds area cap"
+    );
+    assert!(long_edge <= max_width, "long-edge exceeds width cap");
+    // and it should be the LARGEST such value (one more would break the area cap).
+    assert!(
+        (long_edge + 1) * (long_edge + 1) > max_pixels,
+        "cap is not maximal"
+    );
+}
+
 #[cfg(feature = "hdr_jxl")]
 mod jxl {
     use super::*;

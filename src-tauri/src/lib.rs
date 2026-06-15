@@ -2263,6 +2263,7 @@ pub fn run() {
             export_processing::export_images,
             export_processing::cancel_export,
             export_processing::estimate_export_sizes,
+            export_processing::avif_422_limits,
             image_processing::calculate_auto_adjustments,
             mask_generation::generate_mask_overlay,
             file_management::update_exif_fields,
