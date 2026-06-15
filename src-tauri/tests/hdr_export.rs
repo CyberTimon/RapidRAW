@@ -13,8 +13,32 @@
 //! JXL (behind the `hdr_jxl` feature) is decoded with the pure-Rust jxl-oxide.
 
 use image::{ImageBuffer, Rgba};
-use rapidraw_lib::hdr::{self, ColorPrimaries, TransferFunction};
+use rapidraw_lib::hdr::{
+    self, ChromaSubsampling, ColorPrimaries, DynamicRange, HdrEncodeConfig, MatrixMode,
+    TransferFunction,
+};
 use std::process::Command;
+
+/// Build a config for the identity-matrix PQ/HLG path used by the existing checks: identity
+/// matrix, 4:4:4, full range, default anchors. Mirrors the historical encoder defaults.
+fn identity_cfg(
+    bit_depth: u8,
+    transfer: TransferFunction,
+    primaries: ColorPrimaries,
+) -> HdrEncodeConfig {
+    HdrEncodeConfig {
+        bit_depth,
+        transfer,
+        primaries,
+        matrix: MatrixMode::Identity,
+        subsampling: ChromaSubsampling::Cs444,
+        range: DynamicRange::Full,
+        reference_white_nits: hdr::REFERENCE_WHITE_NITS,
+        hlg_peak_ratio: hdr::HLG_PEAK_RATIO,
+        quality: 100,
+        mastering_metadata: false,
+    }
+}
 
 /// Parse the first ISOBMFF `colr` box of type `nclx`: (primaries, transfer, matrix, full_range).
 fn parse_nclx(bytes: &[u8]) -> Option<(u16, u16, u16, bool)> {
@@ -103,14 +127,62 @@ fn code_from_png16(v16: u16, bit_depth: u8) -> u16 {
     (v16 as f32 / 65535.0 * max).round() as u16
 }
 
+/// Decode an AVIF to y4m via `avifdec` and return the FIRST sample of plane 0 (the coded luma /
+/// identity-G' plane) as a raw integer code. Unlike PNG/RGB output, y4m preserves the coded YUV
+/// sample values verbatim — no limited->full range expansion and no inverse color matrix — so it
+/// reflects exactly what was quantized into the bitstream.
+fn avifdec_plane0_first_sample(avif: &[u8], label: &str) -> u16 {
+    let dir = std::env::temp_dir();
+    let pid = std::process::id();
+    let in_path = dir.join(format!("rr_hdr_{label}_{pid}.avif"));
+    let out_path = dir.join(format!("rr_hdr_{label}_{pid}.y4m"));
+    std::fs::write(&in_path, avif).expect("write temp avif");
+
+    let output = Command::new("avifdec")
+        .arg(&in_path)
+        .arg(&out_path)
+        .output()
+        .expect("run avifdec for y4m");
+    assert!(
+        output.status.success(),
+        "avifdec (y4m) failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let bytes = std::fs::read(&out_path).expect("read y4m");
+    let _ = std::fs::remove_file(&in_path);
+    let _ = std::fs::remove_file(&out_path);
+
+    // y4m: an ASCII header terminated by '\n', then "FRAME[params]\n", then raw plane data.
+    // For depth > 8, samples are little-endian u16.
+    let header_end = bytes
+        .iter()
+        .position(|&b| b == b'\n')
+        .expect("y4m header newline");
+    let header = String::from_utf8_lossy(&bytes[..header_end]);
+    let depth_gt8 = header.contains("p10") || header.contains("p12") || header.contains("p16");
+    // Locate the FRAME marker after the header.
+    let frame_pos = bytes[header_end..]
+        .windows(5)
+        .position(|w| w == b"FRAME")
+        .map(|p| header_end + p)
+        .expect("y4m FRAME marker");
+    let frame_data_start = bytes[frame_pos..]
+        .iter()
+        .position(|&b| b == b'\n')
+        .map(|p| frame_pos + p + 1)
+        .expect("FRAME newline");
+    if depth_gt8 {
+        u16::from_le_bytes([bytes[frame_data_start], bytes[frame_data_start + 1]])
+    } else {
+        bytes[frame_data_start] as u16
+    }
+}
+
 fn run_avif_pq_case(bit_depth: u8) {
     let s = hdr::synthetic_linear_image();
     let avif = hdr::encode_avif_hdr(
         &s.image,
-        bit_depth,
-        TransferFunction::Pq,
-        ColorPrimaries::Bt2020,
-        100,
+        &identity_cfg(bit_depth, TransferFunction::Pq, ColorPrimaries::Bt2020),
     )
     .expect("encode avif");
 
@@ -199,10 +271,7 @@ fn avif_hlg_tags() {
     let s = hdr::synthetic_linear_image();
     let avif = hdr::encode_avif_hdr(
         &s.image,
-        10,
-        TransferFunction::Hlg,
-        ColorPrimaries::Bt2020,
-        100,
+        &identity_cfg(10, TransferFunction::Hlg, ColorPrimaries::Bt2020),
     )
     .expect("encode hlg avif");
     let (p, t, m, fr) = parse_nclx(&avif).expect("nclx box present");
@@ -223,8 +292,11 @@ fn avif_identity_preserves_channel_order() {
     for px in img.pixels_mut() {
         *px = Rgba([0.05, 0.2, 0.8, 1.0]);
     }
-    let avif =
-        hdr::encode_avif_hdr(&img, 10, TransferFunction::Pq, ColorPrimaries::Srgb, 100).unwrap();
+    let avif = hdr::encode_avif_hdr(
+        &img,
+        &identity_cfg(10, TransferFunction::Pq, ColorPrimaries::Srgb),
+    )
+    .unwrap();
     let dec = avifdec_to_png16(&avif, "order");
     let px = dec.get_pixel(1, 1).0;
     assert!(
@@ -240,6 +312,244 @@ fn avif_identity_preserves_channel_order() {
     );
 }
 
+/// Expected full-range 10-bit PQ code for a linear scene value at the 203-nit anchor.
+/// INDEPENDENT ground truth: ST.2084 inverse-EOTF computed here, NOT via the encoder's helpers.
+fn expected_pq_code10(linear: f32) -> u16 {
+    const M1: f64 = 0.1593017578125;
+    const M2: f64 = 78.84375;
+    const C1: f64 = 0.8359375;
+    const C2: f64 = 18.8515625;
+    const C3: f64 = 18.6875;
+    let l = (linear as f64 * 203.0 / 10000.0).max(0.0);
+    let lp = l.powf(M1);
+    let code = ((C1 + C2 * lp) / (1.0 + C3 * lp)).powf(M2);
+    (code.clamp(0.0, 1.0) * 1023.0).round() as u16
+}
+
+fn uniform_image(w: u32, h: u32, rgb: [f32; 3]) -> ImageBuffer<Rgba<f32>, Vec<f32>> {
+    ImageBuffer::from_pixel(w, h, Rgba([rgb[0], rgb[1], rgb[2], 1.0]))
+}
+
+/// YCbCr matrix at 4:4:4, full range, sRGB primaries (no cross-channel primaries matrix). A flat
+/// uniform patch with distinct saturated R!=G!=B must decode back, per channel, within +/-3 codes
+/// of the independently-computed R'G'B' PQ codes. Proves the YCbCr forward/inverse matrix is
+/// correct AND that channels are not swapped (Cr<->R, Cb<->B).
+#[test]
+fn avif_ycbcr_444_colored_roundtrip() {
+    let rgb = [0.1f32, 0.4, 0.9]; // R < G < B, well separated
+    let img = uniform_image(8, 8, rgb);
+    let cfg = HdrEncodeConfig {
+        matrix: MatrixMode::Ycbcr,
+        subsampling: ChromaSubsampling::Cs444,
+        range: DynamicRange::Full,
+        primaries: ColorPrimaries::Srgb,
+        ..identity_cfg(10, TransferFunction::Pq, ColorPrimaries::Srgb)
+    };
+    let avif = hdr::encode_avif_hdr(&img, &cfg).expect("encode ycbcr 444");
+
+    let (_p, _t, m, _fr) = parse_nclx(&avif).expect("nclx box present");
+    assert_eq!(
+        m, 1,
+        "sRGB-primaries YCbCr should tag BT.709 matrix (1), got {m}"
+    );
+
+    let dec = avifdec_to_png16(&avif, "ycbcr444");
+    let px = dec.get_pixel(4, 4).0;
+    let got = [
+        code_from_png16(px[0], 10),
+        code_from_png16(px[1], 10),
+        code_from_png16(px[2], 10),
+    ];
+    let exp = [
+        expected_pq_code10(rgb[0]),
+        expected_pq_code10(rgb[1]),
+        expected_pq_code10(rgb[2]),
+    ];
+    for c in 0..3 {
+        assert!(
+            (got[c] as i32 - exp[c] as i32).abs() <= 3,
+            "channel {c}: got {} expected ~{} (+/-3); full got={got:?} exp={exp:?}",
+            got[c],
+            exp[c]
+        );
+    }
+    assert!(
+        got[0] < got[1] && got[1] < got[2],
+        "channel order lost in YCbCr: {got:?}"
+    );
+    eprintln!("AVIF YCbCr 4:4:4 colored round-trip: got {got:?} expected {exp:?}");
+}
+
+/// Same colored patch but 4:2:0 subsampling. On a UNIFORM patch there are no chroma edges, so even
+/// 2x2 averaging is lossless and the channels must still round-trip within tolerance.
+#[test]
+fn avif_ycbcr_420_uniform_roundtrip() {
+    let rgb = [0.1f32, 0.4, 0.9];
+    let img = uniform_image(8, 8, rgb);
+    let cfg = HdrEncodeConfig {
+        matrix: MatrixMode::Ycbcr,
+        subsampling: ChromaSubsampling::Cs420,
+        range: DynamicRange::Full,
+        primaries: ColorPrimaries::Srgb,
+        ..identity_cfg(10, TransferFunction::Pq, ColorPrimaries::Srgb)
+    };
+    let avif = hdr::encode_avif_hdr(&img, &cfg).expect("encode ycbcr 420");
+    let dec = avifdec_to_png16(&avif, "ycbcr420");
+    let px = dec.get_pixel(4, 4).0;
+    let got = [
+        code_from_png16(px[0], 10),
+        code_from_png16(px[1], 10),
+        code_from_png16(px[2], 10),
+    ];
+    let exp = [
+        expected_pq_code10(rgb[0]),
+        expected_pq_code10(rgb[1]),
+        expected_pq_code10(rgb[2]),
+    ];
+    for c in 0..3 {
+        assert!(
+            (got[c] as i32 - exp[c] as i32).abs() <= 3,
+            "4:2:0 channel {c}: got {} expected ~{} (+/-3); full got={got:?} exp={exp:?}",
+            got[c],
+            exp[c]
+        );
+    }
+    eprintln!("AVIF YCbCr 4:2:0 uniform round-trip: got {got:?} expected {exp:?}");
+}
+
+/// Limited range must produce a smaller luma code than full range for the same input. A very
+/// bright neutral patch saturates PQ to ~1.0: full range -> 1023, limited range -> ~940.
+#[test]
+fn avif_limited_range_is_smaller_than_full() {
+    let img = uniform_image(8, 8, [50.0, 50.0, 50.0]); // PQ code clamps to ~1.0
+    let base = identity_cfg(10, TransferFunction::Pq, ColorPrimaries::Srgb);
+
+    let full_cfg = HdrEncodeConfig {
+        range: DynamicRange::Full,
+        ..base
+    };
+    let lim_cfg = HdrEncodeConfig {
+        range: DynamicRange::Limited,
+        ..base
+    };
+    let full = hdr::encode_avif_hdr(&img, &full_cfg).expect("full");
+    let lim = hdr::encode_avif_hdr(&img, &lim_cfg).expect("limited");
+
+    let (_, _, _, full_fr) = parse_nclx(&full).expect("full nclx");
+    let (_, _, _, lim_fr) = parse_nclx(&lim).expect("lim nclx");
+    assert!(full_fr, "full-range flag should be set");
+    assert!(!lim_fr, "limited-range flag should be clear");
+
+    // Read the RAW coded sample (no decoder range-expansion) from the y4m plane 0.
+    let fcode = avifdec_plane0_first_sample(&full, "rfull");
+    let lcode = avifdec_plane0_first_sample(&lim, "rlim");
+    assert!(
+        (fcode as i32 - 1023).abs() <= 3,
+        "full-range white should be ~1023, got {fcode}"
+    );
+    assert!(
+        (lcode as i32 - 940).abs() <= 4,
+        "limited-range white should be ~940, got {lcode}"
+    );
+    assert!(
+        lcode < fcode,
+        "limited code {lcode} must be smaller than full code {fcode}"
+    );
+    eprintln!("AVIF range: full white={fcode} (exp ~1023), limited white={lcode} (exp ~940)");
+}
+
+/// Each primaries selection must tag the correct CICP colour_primaries (sRGB=1, Bt2020=9,
+/// DisplayP3=12), and a saturated-green patch must store different codes under different primaries
+/// (proving the primaries matrix is actually applied to the pixels, not just tagged).
+#[test]
+fn avif_primaries_tagged_and_applied() {
+    let green = [0.0f32, 0.9, 0.0];
+    let img = uniform_image(8, 8, green);
+
+    let cases = [
+        (ColorPrimaries::Srgb, 1u16, "srgb"),
+        (ColorPrimaries::Bt2020, 9, "bt2020"),
+        (ColorPrimaries::DisplayP3, 12, "p3"),
+    ];
+
+    let mut decoded_codes = Vec::new();
+    for (prim, expected_cicp, label) in cases {
+        let cfg = identity_cfg(10, TransferFunction::Pq, prim);
+        let avif = hdr::encode_avif_hdr(&img, &cfg).unwrap_or_else(|e| panic!("{label}: {e}"));
+        let (p, _t, _m, _fr) = parse_nclx(&avif).expect("nclx box present");
+        assert_eq!(
+            p, expected_cicp,
+            "{label}: colour_primaries should be {expected_cicp}, got {p}"
+        );
+        let dec = avifdec_to_png16(&avif, label);
+        let px = dec.get_pixel(4, 4).0;
+        decoded_codes.push((
+            label,
+            [
+                code_from_png16(px[0], 10),
+                code_from_png16(px[1], 10),
+                code_from_png16(px[2], 10),
+            ],
+        ));
+    }
+
+    // sRGB primaries keep pure green in G only (R=B=0); wide-gamut conversions spread energy into
+    // the other channels, so the stored triples must differ between primaries.
+    let srgb = decoded_codes[0].1;
+    let bt2020 = decoded_codes[1].1;
+    let p3 = decoded_codes[2].1;
+    assert_ne!(
+        srgb, bt2020,
+        "sRGB vs Bt2020 codes identical: {decoded_codes:?}"
+    );
+    assert_ne!(
+        srgb, p3,
+        "sRGB vs DisplayP3 codes identical: {decoded_codes:?}"
+    );
+    assert_ne!(
+        bt2020, p3,
+        "Bt2020 vs DisplayP3 codes identical: {decoded_codes:?}"
+    );
+    eprintln!("AVIF primaries tagged 1/9/12 and applied: {decoded_codes:?}");
+}
+
+/// With mastering metadata enabled, the AVIF must carry a `clli` (Content Light Level) box.
+#[test]
+fn avif_mastering_metadata_emits_clli() {
+    let s = hdr::synthetic_linear_image();
+    let cfg = HdrEncodeConfig {
+        mastering_metadata: true,
+        ..identity_cfg(10, TransferFunction::Pq, ColorPrimaries::Bt2020)
+    };
+    let avif = hdr::encode_avif_hdr(&s.image, &cfg).expect("encode with mastering metadata");
+    let has_clli = avif.windows(4).any(|w| w == b"clli");
+    assert!(
+        has_clli,
+        "expected a `clli` box when mastering_metadata is on"
+    );
+
+    // Sanity: without it the box should be absent.
+    let cfg_off = identity_cfg(10, TransferFunction::Pq, ColorPrimaries::Bt2020);
+    let avif_off = hdr::encode_avif_hdr(&s.image, &cfg_off).expect("encode without metadata");
+    let has_clli_off = avif_off.windows(4).any(|w| w == b"clli");
+    assert!(
+        !has_clli_off,
+        "`clli` box should be absent when metadata is off"
+    );
+    eprintln!("AVIF mastering metadata: clli present when on, absent when off");
+}
+
+/// Bad input must return an Err, not panic.
+#[test]
+fn avif_rejects_bad_bit_depth() {
+    let img = uniform_image(4, 4, [0.5, 0.5, 0.5]);
+    let cfg = identity_cfg(8, TransferFunction::Pq, ColorPrimaries::Srgb);
+    assert!(
+        hdr::encode_avif_hdr(&img, &cfg).is_err(),
+        "8-bit AVIF HDR should be rejected"
+    );
+}
+
 #[cfg(feature = "hdr_jxl")]
 mod jxl {
     use super::*;
@@ -249,9 +559,11 @@ mod jxl {
         use jxl_oxide::JxlImage;
 
         let s = hdr::synthetic_linear_image();
-        let bytes =
-            hdr::encode_jxl_hdr(&s.image, TransferFunction::Pq, ColorPrimaries::Bt2020, true)
-                .expect("encode jxl");
+        let bytes = hdr::encode_jxl_hdr(
+            &s.image,
+            &identity_cfg(10, TransferFunction::Pq, ColorPrimaries::Bt2020),
+        )
+        .expect("encode jxl");
 
         let dir = std::env::temp_dir();
         let path = dir.join(format!("rr_hdr_pq_{}.jxl", std::process::id()));

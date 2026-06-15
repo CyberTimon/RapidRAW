@@ -76,9 +76,35 @@ pub struct ExportSettings {
     /// Transfer function for HDR export (sRGB = SDR, PQ, or HLG).
     #[serde(default)]
     pub transfer_function: crate::hdr::TransferFunction,
-    /// Color primaries for HDR export (sRGB/Rec.709 or Rec.2020).
+    /// Color primaries for HDR export (sRGB/Rec.709, Rec.2020, or Display-P3).
     #[serde(default)]
     pub primaries: crate::hdr::ColorPrimaries,
+    /// AVIF plane layout: identity (RGB, forced 4:4:4) or non-constant-luminance Y'CbCr.
+    #[serde(default)]
+    pub matrix: crate::hdr::MatrixMode,
+    /// Chroma subsampling for the YCbCr matrix path (ignored for identity).
+    #[serde(default)]
+    pub chroma_subsampling: crate::hdr::ChromaSubsampling,
+    /// Quantization range: full or limited/studio.
+    #[serde(default)]
+    pub range: crate::hdr::DynamicRange,
+    /// PQ reference-white anchor in cd/m² (diffuse white). <=0 is treated as 203.
+    #[serde(default = "default_reference_white_nits")]
+    pub reference_white_nits: f32,
+    /// HLG headroom ratio (nominal peak / diffuse white). <=0 is treated as 12.
+    #[serde(default = "default_hlg_peak_ratio")]
+    pub hlg_peak_ratio: f32,
+    /// Emit HDR mastering metadata (MaxCLL/MaxFALL + mastering display) into AVIF.
+    #[serde(default)]
+    pub mastering_metadata: bool,
+}
+
+fn default_reference_white_nits() -> f32 {
+    crate::hdr::REFERENCE_WHITE_NITS
+}
+
+fn default_hlg_peak_ratio() -> f32 {
+    crate::hdr::HLG_PEAK_RATIO
 }
 
 impl ExportSettings {
@@ -98,6 +124,38 @@ impl ExportSettings {
     /// The clamped HDR bit depth (10 or 12).
     pub fn export_bit_depth(&self) -> u8 {
         if self.bit_depth >= 12 { 12 } else { 10 }
+    }
+
+    /// Build a fully-specified HDR encode config from these export settings. Out-of-range anchors
+    /// (<=0) fall back to the canonical defaults; the identity matrix forces 4:4:4.
+    pub fn to_hdr_config(&self) -> crate::hdr::HdrEncodeConfig {
+        let reference_white_nits = if self.reference_white_nits > 0.0 {
+            self.reference_white_nits
+        } else {
+            crate::hdr::REFERENCE_WHITE_NITS
+        };
+        let hlg_peak_ratio = if self.hlg_peak_ratio > 0.0 {
+            self.hlg_peak_ratio
+        } else {
+            crate::hdr::HLG_PEAK_RATIO
+        };
+        let subsampling = if self.matrix == crate::hdr::MatrixMode::Identity {
+            crate::hdr::ChromaSubsampling::Cs444
+        } else {
+            self.chroma_subsampling
+        };
+        crate::hdr::HdrEncodeConfig {
+            bit_depth: self.export_bit_depth(),
+            transfer: self.transfer_function,
+            primaries: self.primaries,
+            matrix: self.matrix,
+            subsampling,
+            range: self.range,
+            reference_white_nits,
+            hlg_peak_ratio,
+            quality: self.jpeg_quality,
+            mastering_metadata: self.mastering_metadata,
+        }
     }
 }
 
@@ -451,9 +509,7 @@ fn encode_image_to_bytes(
                 {
                     return crate::hdr::encode_jxl_hdr(
                         &image.to_rgba32f(),
-                        export_settings.transfer_function,
-                        export_settings.primaries,
-                        jpeg_quality >= 100,
+                        &export_settings.to_hdr_config(),
                     );
                 }
                 #[cfg(not(feature = "hdr_jxl"))]
@@ -528,10 +584,7 @@ fn encode_image_to_bytes(
             if hdr {
                 return crate::hdr::encode_avif_hdr(
                     &image.to_rgba32f(),
-                    export_settings.export_bit_depth(),
-                    export_settings.transfer_function,
-                    export_settings.primaries,
-                    jpeg_quality,
+                    &export_settings.to_hdr_config(),
                 );
             }
             image
