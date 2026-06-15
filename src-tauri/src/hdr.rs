@@ -110,9 +110,11 @@ pub fn rec709_to_rec2020_linear(rgb: [f32; 3]) -> [f32; 3] {
 }
 
 /// Transfer function selector for HDR export.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum TransferFunction {
     /// Plain sRGB (the existing SDR path).
+    #[default]
     Srgb,
     /// SMPTE ST 2084 (PQ). CICP transfer_characteristics = 16.
     Pq,
@@ -121,9 +123,11 @@ pub enum TransferFunction {
 }
 
 /// Color primaries selector for HDR export.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ColorPrimaries {
     /// Rec.709 / sRGB. CICP colour_primaries = 1.
+    #[default]
     Srgb,
     /// Rec.2020. CICP colour_primaries = 9.
     Bt2020,

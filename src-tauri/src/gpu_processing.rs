@@ -2191,3 +2191,50 @@ fn process_and_get_dynamic_image_inner(
         .ok_or("Failed to create image buffer from GPU data")?;
     Ok(DynamicImage::ImageRgba8(img_buf))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Guards the HDR shader substitution anchors. If a future edit to `shader.wgsl` moves any
+    /// of these strings, the `.replace()` silently no-ops and HDR breaks (clipped headroom or a
+    /// storage-format mismatch). This test fails loudly so `hdr_shader_source` gets updated.
+    #[test]
+    fn hdr_shader_substitutions_apply() {
+        let src = include_str!("shaders/shader.wgsl");
+        // The SDR shader must still contain the anchors we substitute on.
+        assert!(
+            src.contains("rgba8unorm, write>"),
+            "shader.wgsl storage anchor moved; update hdr_shader_source()"
+        );
+        assert!(
+            src.contains("linear_to_srgb(composite_rgb_linear)"),
+            "shader.wgsl sRGB-encode anchor moved; update hdr_shader_source()"
+        );
+        assert!(
+            src.contains("clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0))"),
+            "shader.wgsl store-clamp anchor moved; update hdr_shader_source()"
+        );
+        assert!(
+            src.contains("let dither_amount = 1.0 / 255.0;"),
+            "shader.wgsl dither anchor moved; update hdr_shader_source()"
+        );
+
+        let hdr = hdr_shader_source();
+        assert!(hdr.contains("rgba16float, write>"));
+        assert!(
+            !hdr.contains("rgba8unorm, write>"),
+            "storage not promoted to rgba16float"
+        );
+        assert!(hdr.contains("linear_to_srgb_extended(composite_rgb_linear)"));
+        assert!(
+            !hdr.contains("clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0))"),
+            "headroom-killing store clamp still present in HDR shader"
+        );
+        assert!(hdr.contains("max(final_rgb, vec3<f32>(0.0))"));
+        assert!(
+            hdr.contains("let dither_amount = 0.0;"),
+            "dither not disabled in HDR shader"
+        );
+    }
+}
