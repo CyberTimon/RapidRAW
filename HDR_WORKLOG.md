@@ -59,7 +59,23 @@ the final store. Confirmed line numbers:
   → PQ inverse-EOTF with **203-nit anchor** (`L = linear * 203/10000`) → quantize to 10/12-bit
   full-range → AVIF/JXL with CICP primaries=9, transfer=16(PQ)/18(HLG), matrix=9, full_range=1.
 
-## Phase 1.5 — Verification harness (gate) — in progress
-## Phase 2 — Implementation — pending (blocked on encoder-lib spike, running in background)
+## Phase 1.5 — Verification harness (gate) ✅
+`src-tauri/tests/hdr_export.rs` + `hdr.rs` unit tests. Tags + bit depth parsed from raw bytes;
+AVIF pixels decoded by `avifdec` (independent of the encoder), JXL by jxl-oxide. Assertions use
+**independent** ST.2084 ground-truth literals (de-circularized after an audit caught the original
+expected-values being derived from the encoder under test).
+
+## Phase 2 — Implementation ✅
+- Encoder spike: **GO** for both. AVIF via pure-Rust `rav1e` + `avif-serialize` (no C deps);
+  JXL via `jpegxl-rs` + system libjxl (optional `hdr_jxl` feature).
+- 2.1/2.2 GPU: separate lazily-built rgba16float pipeline (SDR untouched). Headroom fix needed
+  **five** shader substitutions, not two — an audit-driven GPU end-to-end test revealed the
+  tone-curve stage was *still* clamping to [0,1] (the deeper half of the bug the brief warned
+  about). With the curve fixes, the GPU recovers linear 3.997 (~4.0) end-to-end.
+- 2.3 encoders + 2.4 settings/command/UI wired through `encode_image_to_bytes` and the export panel.
+
+## Result
+Gate GREEN: AVIF 10/12-bit + JXL, all four criteria with exact codes (594/669/746, 2378/2679/2986,
+JXL 0.5807). Full details, limitations, human-sign-off list, and build commands in **HDR_REPORT.md**.
 </content>
 </invoke>
