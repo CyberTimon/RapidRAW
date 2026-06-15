@@ -32,7 +32,9 @@ export function useExportSettings() {
   const [range, setRange] = useState('full');
   const [referenceWhiteNits, setReferenceWhiteNits] = useState(203);
   const [hlgPeakRatio, setHlgPeakRatio] = useState(12);
-  const [masteringMetadata, setMasteringMetadata] = useState(false);
+  // Default on: it embeds accurate, content-derived brightness metadata (MaxCLL/MaxFALL) and is
+  // only read by the HDR encode path (SDR ignores it), matching the control's "recommended" help.
+  const [masteringMetadata, setMasteringMetadata] = useState(true);
 
   const handleApplyPreset = useCallback((preset: ExportPreset) => {
     setFileFormat(preset.fileFormat);
@@ -61,7 +63,7 @@ export function useExportSettings() {
     setRange(preset.range ?? 'full');
     setReferenceWhiteNits(preset.referenceWhiteNits ?? 203);
     setHlgPeakRatio(preset.hlgPeakRatio ?? 12);
-    setMasteringMetadata(preset.masteringMetadata ?? false);
+    setMasteringMetadata(preset.masteringMetadata ?? true);
   }, []);
 
   const currentSettingsObject = useMemo(
