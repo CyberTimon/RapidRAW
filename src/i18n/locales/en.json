@@ -742,11 +742,11 @@
       "colorProfile": "Color profile",
       "colorProfileHint": "Start here. Each profile sets everything below for you. Choose Custom only if you want to adjust the details yourself.",
       "profiles": {
-        "sdr": "Standard (SDR) — works everywhere",
-        "hdr10": "HDR — best compatibility (HDR10)",
-        "hlg": "HDR — for TV / broadcast (HLG)",
+        "sdr": "Standard (SDR)",
+        "hdr10": "HDR10 — recommended",
+        "hlg": "HLG — broadcast",
         "maxQuality": "HDR — maximum quality",
-        "archival": "HDR — archival (exact, lossless color)",
+        "archival": "HDR — archival",
         "custom": "Custom…"
       },
       "profileDescriptions": {
@@ -769,7 +769,7 @@
       "chroma422": "Balanced (4:2:2)",
       "chroma444": "Full color (4:4:4)",
       "chromaDetailHelp": "How much color resolution to keep. Standard (recommended) shrinks files with no visible difference for most photos. Full color preserves every detail in saturated edges and fine text, at a larger size.",
-      "chroma422CapWarning": "Heads up: Balanced (4:2:2) AVIF is only valid up to 3072 px on the long edge, so we've capped the export size above to keep your file working. You can lift the cap if every image is already smaller — otherwise switch to Standard (4:2:0) or Full color (4:4:4) to export at full resolution.",
+      "chroma422CapWarning": "Heads up: Balanced (4:2:2) AVIF is only valid up to {{maxLongEdge}} px on the long edge, so we've capped the export size above to keep your file working. You can lift the cap if every image is already smaller — otherwise switch to Standard (4:2:0) or Full color (4:4:4) to export at full resolution.",
       "signalRange": "Tone range",
       "rangeFull": "Full (recommended)",
       "rangeLimited": "Limited (TV / video)",
@@ -806,7 +806,7 @@
       },
       "pixels": "pixels",
       "resizeToFit": "Resize to Fit",
-      "chroma422CapNote": "Capped to 3072 px for Balanced (4:2:2) AVIF — this keeps the file valid."
+      "chroma422CapNote": "Capped to {{maxLongEdge}} px for Balanced (4:2:2) AVIF — this keeps the file valid."
     },
     "sections": {
       "advanced": "Advanced",

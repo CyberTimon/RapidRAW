@@ -521,13 +521,31 @@ export default function ExportPanel({
     [setMatrix, setChromaSubsampling],
   );
 
-  // 4:2:2 AVIF must fit in a single AV1 tile: rav1e can't tile 4:2:2 conformantly, so a larger
-  // frame would produce a file that decoders reject. Keeping the long edge <= sqrt(4096 * 2304)
-  // bounds the frame to <= 4096 px wide AND <= 9_437_184 px in area for ANY aspect ratio. Mirrors
-  // AVIF_422_MAX_WIDTH / AVIF_422_MAX_PIXELS in src-tauri/src/hdr.rs.
-  const AVIF_422_MAX_LONG_EDGE = 3072;
+  // 4:2:2 AVIF must fit in a single AV1 tile (rav1e can't tile 4:2:2 conformantly), so the long
+  // edge is capped. The limit is the backend's single source of truth — fetched from the
+  // `avif_422_limits` command (derived there from AVIF_422_MAX_WIDTH / AVIF_422_MAX_PIXELS), never
+  // hardcoded here. `null` until it loads.
+  const [avif422MaxLongEdge, setAvif422MaxLongEdge] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    invoke<{ maxLongEdge: number }>('avif_422_limits')
+      .then((limits) => {
+        if (!cancelled) setAvif422MaxLongEdge(limits.maxLongEdge);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // A long-edge resize at/under the cap is the only mode that guarantees every image (any aspect
+  // ratio) stays within the backend's width AND area limits.
   const resizeKeeps422Safe =
-    enableResize && resizeMode === 'longEdge' && resizeValue > 0 && resizeValue <= AVIF_422_MAX_LONG_EDGE;
+    avif422MaxLongEdge != null &&
+    enableResize &&
+    resizeMode === 'longEdge' &&
+    resizeValue > 0 &&
+    resizeValue <= avif422MaxLongEdge;
 
   // Choosing 4:2:2 for AVIF auto-applies the resolution cap — shown right in the Resize controls,
   // not hidden in the backend. The user can still change/remove it (a warning then appears, and an
@@ -536,15 +554,21 @@ export default function ExportPanel({
   const handleChromaChange = useCallback(
     (value: string) => {
       setChromaSubsampling(value);
-      if (value === '422' && fileFormat === FileFormats.Avif && !resizeKeeps422Safe) {
+      if (
+        value === '422' &&
+        fileFormat === FileFormats.Avif &&
+        avif422MaxLongEdge != null &&
+        !resizeKeeps422Safe
+      ) {
         setEnableResize(true);
         setResizeMode('longEdge');
-        setResizeValue(AVIF_422_MAX_LONG_EDGE);
+        setResizeValue(avif422MaxLongEdge);
         setDontEnlarge(true);
       }
     },
     [
       fileFormat,
+      avif422MaxLongEdge,
       resizeKeeps422Safe,
       setChromaSubsampling,
       setEnableResize,
@@ -557,7 +581,7 @@ export default function ExportPanel({
   // Warn whenever 4:2:2 AVIF is selected but the resize won't guarantee every image stays inside
   // the single-tile envelope (cap removed, wrong mode, or value too large).
   const is422Avif = fileFormat === FileFormats.Avif && matrix === 'ycbcr' && chromaSubsampling === '422';
-  const show422CapWarning = is422Avif && !resizeKeeps422Safe;
+  const show422CapWarning = is422Avif && avif422MaxLongEdge != null && !resizeKeeps422Safe;
   // The resolution cap is doing its job: 4:2:2 AVIF with a safe resize. Surface a short note in
   // the Resize section so the auto-applied cap reads as an intentional guardrail, not a surprise.
   const show422CapNote = is422Avif && resizeKeeps422Safe;
@@ -1011,14 +1035,14 @@ export default function ExportPanel({
                                 />
                               </HdrField>
                               {show422CapWarning && (
-                                <div className="flex items-start gap-2 rounded-md bg-yellow-400/10 border border-yellow-400/20 px-3 py-2">
-                                  <Info size={14} className="text-yellow-400/90 mt-0.5 shrink-0" />
+                                <div className="flex items-start gap-2 rounded-md bg-yellow-400/10 border border-yellow-400/30 px-3 py-2">
+                                  <Info size={14} className="text-yellow-300 mt-0.5 shrink-0" />
                                   <Text
                                     as="p"
                                     variant={TextVariants.small}
-                                    className="text-yellow-400/90 leading-snug"
+                                    className="text-yellow-300 leading-snug"
                                   >
-                                    {t('export.file.chroma422CapWarning')}
+                                    {t('export.file.chroma422CapWarning', { maxLongEdge: avif422MaxLongEdge })}
                                   </Text>
                                 </div>
                               )}
@@ -1147,7 +1171,7 @@ export default function ExportPanel({
                             color={TextColors.secondary}
                             className="leading-snug"
                           >
-                            {t('export.resize.chroma422CapNote')}
+                            {t('export.resize.chroma422CapNote', { maxLongEdge: avif422MaxLongEdge })}
                           </Text>
                         </div>
                       )}

@@ -115,11 +115,11 @@ const Dropdown = <T extends React.Key>({
         onClick={() => setIsOpen(!isOpen)}
         type="button"
       >
-        <Text as="span" variant={TextVariants.label} color={TextColors.primary}>
+        <Text as="span" variant={TextVariants.label} color={TextColors.primary} className="truncate min-w-0">
           {selectedOption ? selectedOption.label : placeholder}
         </Text>
         <ChevronDown
-          className={`${TEXT_COLOR_KEYS[TextColors.secondary]} transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          className={`${TEXT_COLOR_KEYS[TextColors.secondary]} shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
           size={20}
         />
       </button>
