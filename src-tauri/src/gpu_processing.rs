@@ -417,8 +417,9 @@ fn read_texture_data_roi(
     texture: &wgpu::Texture,
     origin: wgpu::Origin3d,
     size: wgpu::Extent3d,
+    bytes_per_pixel: u32,
 ) -> Result<Vec<u8>, String> {
-    let unpadded_bytes_per_row = 4 * size.width;
+    let unpadded_bytes_per_row = bytes_per_pixel * size.width;
     let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
     let padded_bytes_per_row = (unpadded_bytes_per_row + align - 1) & !(align - 1);
     let output_buffer_size = (padded_bytes_per_row * size.height) as u64;
@@ -547,6 +548,220 @@ pub struct GpuProcessor {
     pub working_texture_view: wgpu::TextureView,
     pub output_texture: wgpu::Texture,
     pub output_texture_view: wgpu::TextureView,
+
+    /// Lazily-built HDR (rgba16float) pipeline + tile texture. Only allocated the first time an
+    /// HDR export runs, so SDR-only sessions pay no extra VRAM. The SDR path above is untouched.
+    hdr: std::sync::OnceLock<HdrResources>,
+    /// Size of the (max) tile/output textures, needed to lazily build the HDR tile texture.
+    tile_dims: wgpu::Extent3d,
+}
+
+/// Resources for the HDR output path: a compute pipeline whose storage output is rgba16float
+/// (built from the SDR shader via [`hdr_shader_source`]), plus a matching rgba16float tile texture.
+struct HdrResources {
+    bgl: wgpu::BindGroupLayout,
+    pipeline: wgpu::ComputePipeline,
+    tile_output_texture: wgpu::Texture,
+    tile_output_texture_view: wgpu::TextureView,
+}
+
+/// Build the main image-processing bind-group layout for a given storage-output format. Shared by
+/// the SDR (`Rgba8Unorm`) and HDR (`Rgba16Float`) pipelines so the two layouts can never drift —
+/// only binding 1 (the storage output) changes format.
+fn build_main_bgl(
+    device: &wgpu::Device,
+    storage_format: wgpu::TextureFormat,
+) -> wgpu::BindGroupLayout {
+    const MAX_MASK_BINDINGS: u32 = 1;
+    let mut bind_group_layout_entries = vec![
+        wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                view_dimension: wgpu::TextureViewDimension::D2,
+                multisampled: false,
+            },
+            count: None,
+        },
+        wgpu::BindGroupLayoutEntry {
+            binding: 1,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::StorageTexture {
+                access: wgpu::StorageTextureAccess::WriteOnly,
+                format: storage_format,
+                view_dimension: wgpu::TextureViewDimension::D2,
+            },
+            count: None,
+        },
+        wgpu::BindGroupLayoutEntry {
+            binding: 2,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+    ];
+
+    bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+        binding: 3,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+            view_dimension: wgpu::TextureViewDimension::D2Array,
+            multisampled: false,
+        },
+        count: None,
+    });
+
+    bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+        binding: 3 + MAX_MASK_BINDINGS,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+            view_dimension: wgpu::TextureViewDimension::D3,
+            multisampled: false,
+        },
+        count: None,
+    });
+    bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+        binding: 4 + MAX_MASK_BINDINGS,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+        count: None,
+    });
+
+    bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+        binding: 5 + MAX_MASK_BINDINGS,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        },
+        count: None,
+    });
+    bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+        binding: 6 + MAX_MASK_BINDINGS,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        },
+        count: None,
+    });
+    bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+        binding: 7 + MAX_MASK_BINDINGS,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        },
+        count: None,
+    });
+    bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+        binding: 8 + MAX_MASK_BINDINGS,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        },
+        count: None,
+    });
+
+    bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+        binding: 9 + MAX_MASK_BINDINGS,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        },
+        count: None,
+    });
+    bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+        binding: 10 + MAX_MASK_BINDINGS,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+        count: None,
+    });
+
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("Main BGL"),
+        entries: &bind_group_layout_entries,
+    })
+}
+
+/// The HDR variant of the main shader, derived from the SDR `shader.wgsl` at runtime by four
+/// targeted substitutions (the SDR shader stays the single source of truth for the look):
+/// 1. promote the storage output `rgba8unorm` -> `rgba16float`;
+/// 2. encode with the *headroom-preserving* extended sRGB OETF instead of the clamping one
+///    (`linear_to_srgb` clamps to [0,1] at L229 — the real headroom killer, upstream of the store);
+/// 3. drop the final `[0,1]` clamp (keep `max(.,0)` to avoid negative-light NaNs in PQ);
+/// 4. disable the 8-bit dither (it would add PQ-code noise).
+/// The HDR pipeline therefore stores EXTENDED-sRGB-encoded values with headroom; the CPU readback
+/// inverts that with `hdr::srgb_extended_to_linear` to recover linear scene-referred light.
+fn hdr_shader_source() -> String {
+    include_str!("shaders/shader.wgsl")
+        .replace("rgba8unorm, write>", "rgba16float, write>")
+        .replace(
+            "linear_to_srgb(composite_rgb_linear)",
+            "linear_to_srgb_extended(composite_rgb_linear)",
+        )
+        .replace(
+            "clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0))",
+            "max(final_rgb, vec3<f32>(0.0))",
+        )
+        .replace(
+            "let dither_amount = 1.0 / 255.0;",
+            "let dither_amount = 0.0;",
+        )
+}
+
+fn build_hdr_resources(device: &wgpu::Device, tile_dims: wgpu::Extent3d) -> HdrResources {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("Image Processing Shader (HDR)"),
+        source: wgpu::ShaderSource::Wgsl(hdr_shader_source().into()),
+    });
+    let bgl = build_main_bgl(device, wgpu::TextureFormat::Rgba16Float);
+    let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("Pipeline Layout (HDR)"),
+        bind_group_layouts: &[Some(&bgl)],
+        immediate_size: 0,
+    });
+    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some("Compute Pipeline (HDR)"),
+        layout: Some(&layout),
+        module: &shader,
+        entry_point: Some("main"),
+        compilation_options: Default::default(),
+        cache: None,
+    });
+    let tile_output_texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("Tile Output Texture (HDR)"),
+        size: tile_dims,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba16Float,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING
+            | wgpu::TextureUsages::STORAGE_BINDING
+            | wgpu::TextureUsages::COPY_SRC,
+        view_formats: &[],
+    });
+    let tile_output_texture_view = tile_output_texture.create_view(&Default::default());
+    HdrResources {
+        bgl,
+        pipeline,
+        tile_output_texture,
+        tile_output_texture_view,
+    }
 }
 
 const FLARE_MAP_SIZE: u32 = 512;
@@ -777,129 +992,7 @@ impl GpuProcessor {
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
         });
 
-        let mut bind_group_layout_entries = vec![
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::StorageTexture {
-                    access: wgpu::StorageTextureAccess::WriteOnly,
-                    format: wgpu::TextureFormat::Rgba8Unorm,
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 2,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-        ];
-
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 3,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                view_dimension: wgpu::TextureViewDimension::D2Array,
-                multisampled: false,
-            },
-            count: None,
-        });
-
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 3 + MAX_MASK_BINDINGS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                view_dimension: wgpu::TextureViewDimension::D3,
-                multisampled: false,
-            },
-            count: None,
-        });
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 4 + MAX_MASK_BINDINGS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
-            count: None,
-        });
-
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 5 + MAX_MASK_BINDINGS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        });
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 6 + MAX_MASK_BINDINGS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        });
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 7 + MAX_MASK_BINDINGS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        });
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 8 + MAX_MASK_BINDINGS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        });
-
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 9 + MAX_MASK_BINDINGS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        });
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 10 + MAX_MASK_BINDINGS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-            count: None,
-        });
-
-        let main_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Main BGL"),
-            entries: &bind_group_layout_entries,
-        });
+        let main_bgl = build_main_bgl(device, wgpu::TextureFormat::Rgba8Unorm);
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Pipeline Layout"),
@@ -1070,7 +1163,15 @@ impl GpuProcessor {
             working_texture_view,
             output_texture,
             output_texture_view,
+            hdr: std::sync::OnceLock::new(),
+            tile_dims: max_tile_size,
         })
+    }
+
+    /// Lazily build (and cache) the HDR output resources for this processor's tile size.
+    fn hdr_resources(&self) -> &HdrResources {
+        self.hdr
+            .get_or_init(|| build_hdr_resources(&self.context.device, self.tile_dims))
     }
 
     pub fn run(
@@ -1081,11 +1182,40 @@ impl GpuProcessor {
         request: RenderRequest,
         skip_cpu_readback: bool,
         output_to_display: bool,
+        output_hdr: bool,
     ) -> Result<(Vec<u8>, u32, u32, u32, u32), String> {
         let device = &self.context.device;
         let queue = &self.context.queue;
         let scale = (width.min(height) as f32) / 1080.0;
         const MAX_MASK_BINDINGS: u32 = 1;
+
+        // Select the output pipeline/textures. HDR uses the lazily-built rgba16float pipeline
+        // (8 bytes/pixel readback); SDR uses the original rgba8unorm path (4 bytes/pixel),
+        // completely unchanged. `output_hdr` is only ever true for a CPU readback export.
+        let (out_pipeline, out_bgl, out_tile_texture, out_tile_view, bytes_per_pixel): (
+            &wgpu::ComputePipeline,
+            &wgpu::BindGroupLayout,
+            &wgpu::Texture,
+            &wgpu::TextureView,
+            u32,
+        ) = if output_hdr {
+            let hr = self.hdr_resources();
+            (
+                &hr.pipeline,
+                &hr.bgl,
+                &hr.tile_output_texture,
+                &hr.tile_output_texture_view,
+                8,
+            )
+        } else {
+            (
+                &self.main_pipeline,
+                &self.main_bgl,
+                &self.tile_output_texture,
+                &self.tile_output_texture_view,
+                4,
+            )
+        };
 
         let bounds = request.roi.unwrap_or(Roi {
             x: 0,
@@ -1284,7 +1414,7 @@ impl GpuProcessor {
             if skip_cpu_readback {
                 0
             } else {
-                (out_width * out_height * 4) as usize
+                (out_width * out_height * bytes_per_pixel) as usize
             }
         ];
 
@@ -1422,9 +1552,7 @@ impl GpuProcessor {
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::TextureView(
-                            &self.tile_output_texture_view,
-                        ),
+                        resource: wgpu::BindingResource::TextureView(out_tile_view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
@@ -1493,13 +1621,13 @@ impl GpuProcessor {
 
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Tile Bind Group"),
-                    layout: &self.main_bgl,
+                    layout: out_bgl,
                     entries: &bind_group_entries,
                 });
 
                 {
                     let mut compute_pass = main_encoder.begin_compute_pass(&Default::default());
-                    compute_pass.set_pipeline(&self.main_pipeline);
+                    compute_pass.set_pipeline(out_pipeline);
                     compute_pass.set_bind_group(0, &bind_group, &[]);
                     compute_pass.dispatch_workgroups(
                         input_width.div_ceil(8),
@@ -1547,19 +1675,21 @@ impl GpuProcessor {
                     let processed_tile_data = read_texture_data_roi(
                         device,
                         queue,
-                        &self.tile_output_texture,
+                        out_tile_texture,
                         wgpu::Origin3d::ZERO,
                         input_texture_size,
+                        bytes_per_pixel,
                     )?;
 
+                    let bpp = bytes_per_pixel as usize;
                     for row in 0..tile_height {
                         let final_y = y_start + row - bounds.y;
                         let final_x = x_start - bounds.x;
-                        let final_row_offset = (final_y * out_width + final_x) as usize * 4;
+                        let final_row_offset = (final_y * out_width + final_x) as usize * bpp;
                         let source_y = crop_y_start + row;
                         let source_row_offset =
-                            (source_y * input_width + crop_x_start) as usize * 4;
-                        let copy_bytes = (tile_width * 4) as usize;
+                            (source_y * input_width + crop_x_start) as usize * bpp;
+                        let copy_bytes = (tile_width as usize) * bpp;
 
                         final_pixels[final_row_offset..final_row_offset + copy_bytes]
                             .copy_from_slice(
@@ -1592,6 +1722,30 @@ pub fn process_and_get_dynamic_image(
         caller_id,
         false,
         None,
+        false,
+    )
+}
+
+/// HDR export entry point. Runs the rgba16float pipeline and returns a LINEAR scene-referred
+/// `DynamicImage::ImageRgba32F` (diffuse white = 1.0, headroom preserved) for the HDR encoders.
+pub fn process_and_get_dynamic_image_hdr(
+    context: &GpuContext,
+    state: &tauri::State<AppState>,
+    base_image: &DynamicImage,
+    transform_hash: u64,
+    request: RenderRequest,
+    caller_id: &str,
+) -> Result<DynamicImage, String> {
+    process_and_get_dynamic_image_inner(
+        context,
+        state,
+        base_image,
+        transform_hash,
+        request,
+        caller_id,
+        false,
+        None,
+        true,
     )
 }
 
@@ -1615,6 +1769,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
         caller_id,
         output_to_display,
         analytics_config,
+        false,
     )
 }
 
@@ -1628,6 +1783,7 @@ fn process_and_get_dynamic_image_inner(
     caller_id: &str,
     output_to_display: bool,
     analytics_config: Option<crate::AnalyticsConfig>,
+    output_hdr: bool,
 ) -> Result<DynamicImage, String> {
     let start_time = Instant::now();
     let (width, height) = base_image.dimensions();
@@ -1788,6 +1944,7 @@ fn process_and_get_dynamic_image_inner(
         request,
         skip_readback,
         output_to_display,
+        output_hdr,
     )?;
 
     let mut final_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -2012,6 +2169,23 @@ fn process_and_get_dynamic_image_inner(
         duration,
         fps
     );
+
+    if output_hdr {
+        // HDR readback is rgba16float (8 bytes/pixel). The HDR shader stored EXTENDED-sRGB-encoded
+        // values with headroom; invert that to recover LINEAR scene-referred light (diffuse white
+        // = 1.0, values > 1.0 preserved). Alpha passes through. The HDR encoders apply PQ/HLG.
+        let mut data: Vec<f32> = Vec::with_capacity((out_w * out_h * 4) as usize);
+        for px in processed_pixels.chunks_exact(8) {
+            let ch = |a: u8, b: u8| f16::from_le_bytes([a, b]).to_f32();
+            data.push(crate::hdr::srgb_extended_to_linear(ch(px[0], px[1])));
+            data.push(crate::hdr::srgb_extended_to_linear(ch(px[2], px[3])));
+            data.push(crate::hdr::srgb_extended_to_linear(ch(px[4], px[5])));
+            data.push(ch(px[6], px[7]));
+        }
+        let img_buf = ImageBuffer::<Rgba<f32>, Vec<f32>>::from_raw(out_w, out_h, data)
+            .ok_or("Failed to create HDR image buffer from GPU data")?;
+        return Ok(DynamicImage::ImageRgba32F(img_buf));
+    }
 
     let img_buf = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(out_w, out_h, processed_pixels)
         .ok_or("Failed to create image buffer from GPU data")?;
