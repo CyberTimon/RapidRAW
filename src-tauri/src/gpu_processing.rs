@@ -722,6 +722,24 @@ fn hdr_shader_source() -> String {
             "let dither_amount = 1.0 / 255.0;",
             "let dither_amount = 0.0;",
         )
+        // 5. The tone-curve stage is display-referred and clamps highlights to [0,1] — the other
+        //    half of the headroom bug. Three targeted curve fixes keep values above diffuse white:
+        //    (a) treat empty curves (count<2) as default so they take the non-normalizing branch;
+        .replace(
+            "    if (count < 2u) {\n        return false;\n    }",
+            "    if (count < 2u) {\n        return true;\n    }",
+        )
+        //    (b) above the curve's top control point, pass the headroom excess through instead of
+        //        snapping to the top point's value (identity curve => value passes through);
+        .replace(
+            "    if (x >= local_points[count - 1u].x) { return local_points[count - 1u].y / 255.0; }",
+            "    if (x >= local_points[count - 1u].x) { return local_points[count - 1u].y / 255.0 + (val - local_points[count - 1u].x / 255.0); }",
+        )
+        //    (c) when per-channel RGB curves are active, do not normalize headroom back into gamut.
+        .replace(
+            "        if (max_comp > 1.0) { final_color = final_color / max_comp; }",
+            "        if (max_comp > 1.0e30) { final_color = final_color / max_comp; }",
+        )
 }
 
 fn build_hdr_resources(device: &wgpu::Device, tile_dims: wgpu::Extent3d) -> HdrResources {
@@ -2235,6 +2253,151 @@ mod tests {
         assert!(
             hdr.contains("let dither_amount = 0.0;"),
             "dither not disabled in HDR shader"
+        );
+
+        // Curve-stage headroom anchors (the other half of the clip the GPU E2E test exposed).
+        assert!(
+            src.contains("    if (count < 2u) {\n        return false;\n    }"),
+            "shader.wgsl is_default_curve anchor moved; update hdr_shader_source()"
+        );
+        assert!(
+            src.contains(
+                "    if (x >= local_points[count - 1u].x) { return local_points[count - 1u].y / 255.0; }"
+            ),
+            "shader.wgsl apply_curve top-clamp anchor moved; update hdr_shader_source()"
+        );
+        assert!(
+            src.contains("        if (max_comp > 1.0) { final_color = final_color / max_comp; }"),
+            "shader.wgsl curve-normalize anchor moved; update hdr_shader_source()"
+        );
+        assert!(hdr.contains("    if (count < 2u) {\n        return true;\n    }"));
+        assert!(hdr.contains("+ (val - local_points[count - 1u].x / 255.0)"));
+        assert!(hdr.contains("if (max_comp > 1.0e30)"));
+    }
+
+    /// End-to-end GPU test: runs the REAL pipeline on a headless device, twice on the same input
+    /// (white at +2 stops -> linear 4.0). The SDR path must clamp to 255; the HDR path must
+    /// preserve the headroom (recovered linear ~4.0). This exercises what the string-substitution
+    /// guard cannot: that the substituted WGSL actually compiles, rgba16float storage works, and
+    /// the f16 readback + extended-sRGB inversion recover linear light above diffuse white.
+    /// Skips gracefully if no GPU adapter is available (e.g. headless CI).
+    #[test]
+    fn hdr_gpu_pipeline_preserves_headroom_end_to_end() {
+        use crate::image_processing::AllAdjustments;
+        use wgpu::util::DeviceExt;
+
+        let instance =
+            wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
+        let adapter =
+            match pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: None,
+                ..Default::default()
+            })) {
+                Ok(a) => a,
+                Err(_) => {
+                    eprintln!("no GPU adapter available; skipping GPU HDR end-to-end test");
+                    return;
+                }
+            };
+
+        let mut required_features = wgpu::Features::empty();
+        if adapter
+            .features()
+            .contains(wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES)
+        {
+            required_features |= wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        }
+        let limits = adapter.limits();
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("hdr-test-device"),
+            required_features,
+            required_limits: limits.clone(),
+            experimental_features: wgpu::ExperimentalFeatures::default(),
+            memory_hints: wgpu::MemoryHints::Performance,
+            trace: wgpu::Trace::Off,
+        }))
+        .expect("request_device");
+
+        let context = GpuContext {
+            device: std::sync::Arc::new(device),
+            queue: std::sync::Arc::new(queue),
+            limits,
+            display: std::sync::Arc::new(std::sync::Mutex::new(None)),
+        };
+
+        let (w, h) = (16u32, 16u32);
+        let processor = GpuProcessor::new(context.clone(), w, h).expect("GpuProcessor::new");
+
+        // sRGB-encoded white (1.0). The shader linearizes it (srgb_to_linear -> 1.0) for non-raw.
+        let white = [f16::from_f32(1.0); 4];
+        let data: Vec<f16> = std::iter::repeat_n(white, (w * h) as usize)
+            .flatten()
+            .collect();
+        let input_tex = context.device.create_texture_with_data(
+            &context.queue,
+            &wgpu::TextureDescriptor {
+                label: Some("hdr-test-input"),
+                size: wgpu::Extent3d {
+                    width: w,
+                    height: h,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba16Float,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            TextureDataOrder::MipMajor,
+            bytemuck::cast_slice(&data),
+        );
+        let input_view = input_tex.create_view(&Default::default());
+
+        let mut adjustments = AllAdjustments::default();
+        adjustments.global.exposure = 2.0; // +2 stops -> linear x4 -> 4.0, well above diffuse white
+        adjustments.global.is_raw_image = 0;
+        let make_request = || RenderRequest {
+            adjustments,
+            mask_bitmaps: &[],
+            lut: None,
+            roi: None,
+        };
+
+        // SDR path: the existing rgba8unorm pipeline clamps to [0,1] -> max byte must be 255.
+        let (sdr, _, _, _, _) = processor
+            .run(&input_view, w, h, make_request(), false, false, false)
+            .expect("SDR run");
+        let sdr_max = *sdr.iter().max().unwrap();
+        assert_eq!(
+            sdr_max, 255,
+            "SDR path should clamp the +2-stop white to 255, got {sdr_max}"
+        );
+
+        // HDR path: rgba16float, extended-sRGB encoded WITHOUT clamping, curves headroom-aware.
+        let (hdr, ow, oh, _, _) = processor
+            .run(&input_view, w, h, make_request(), false, false, true)
+            .expect("HDR run");
+        assert_eq!(
+            hdr.len(),
+            (ow * oh * 8) as usize,
+            "HDR readback must be 8 bytes/pixel (rgba16float)"
+        );
+
+        let stored_srgb = f16::from_le_bytes([hdr[0], hdr[1]]).to_f32();
+        let recovered_linear = crate::hdr::srgb_extended_to_linear(stored_srgb);
+        assert!(
+            stored_srgb > 1.0,
+            "stored extended-sRGB value should exceed 1.0 (headroom not clipped), got {stored_srgb}"
+        );
+        // input linear 1.0, +2 stops -> 4.0. The full look stage must carry it through unclipped.
+        assert!(
+            recovered_linear > 3.0,
+            "recovered linear should be ~4.0 (headroom preserved end-to-end), got {recovered_linear}"
+        );
+        eprintln!(
+            "GPU HDR E2E: SDR max byte={sdr_max} (clamped); HDR recovered linear={recovered_linear:.3} (~4.0 expected)"
         );
     }
 }

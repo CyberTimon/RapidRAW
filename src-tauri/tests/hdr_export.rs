@@ -131,22 +131,35 @@ fn run_avif_pq_case(bit_depth: u8) {
     let depth = parse_av1c_depth(&avif).expect("av1C box present");
     assert_eq!(depth, bit_depth, "av1C coded depth {depth} != {bit_depth}");
 
-    // (3) + (4) pixels via independent decoder
+    // (3) + (4) pixels via independent decoder.
+    // INDEPENDENT ground truth: these codes are computed offline from ST.2084 with the 203-nit
+    // anchor (203/406/812 nits) and hardcoded here, NOT derived from the encoder's own functions,
+    // so a wrong anchor/transfer in the encoder cannot make this pass circularly.
+    let (exp_white, exp_rel2, exp_rel4) = match bit_depth {
+        10 => (594u16, 669u16, 746u16),
+        12 => (2378, 2679, 2986),
+        _ => panic!("unexpected bit depth {bit_depth}"),
+    };
     let dec = avifdec_to_png16(&avif, &format!("pq{bit_depth}"));
     let sample =
         |px: (u32, u32)| -> u16 { code_from_png16(dec.get_pixel(px.0, px.1).0[0], bit_depth) };
 
-    let expected_white = hdr::quantize_full_range(hdr::linear_scene_to_pq(1.0), bit_depth);
-    let white = sample(s.diffuse_white_px);
-    assert!(
-        (white as i32 - expected_white as i32).abs() <= 2,
-        "[{bit_depth}b] reference-white code {white}, expected ~{expected_white} (+/-2)"
-    );
+    let near = |got: u16, exp: u16, what: &str| {
+        assert!(
+            (got as i32 - exp as i32).abs() <= 2,
+            "[{bit_depth}b] {what} code {got}, expected ~{exp} (+/-2)"
+        );
+    };
 
+    let white = sample(s.diffuse_white_px);
     let black = sample(s.black_px);
     let rel2 = sample(s.rel2_px);
     let rel4 = sample(s.rel4_px);
     let full = (1u32 << bit_depth) - 1;
+
+    near(white, exp_white, "reference-white (203 nit)");
+    near(rel2, exp_rel2, "2x headroom (406 nit)");
+    near(rel4, exp_rel4, "4x headroom (812 nit)");
     assert!(
         black < white,
         "[{bit_depth}b] black {black} !< white {white}"
@@ -167,7 +180,7 @@ fn run_avif_pq_case(bit_depth: u8) {
     }
 
     eprintln!(
-        "AVIF {bit_depth}-bit PQ: tags 9/16/0/full=1, depth {depth}, white={white} (exp {expected_white}), black={black} rel2={rel2} rel4={rel4} ramp={ramp:?}"
+        "AVIF {bit_depth}-bit PQ: tags 9/16/0/full=1, depth {depth}, white={white} (exp {exp_white}), black={black} rel2={rel2} rel4={rel4} ramp={ramp:?}"
     );
 }
 
@@ -262,20 +275,26 @@ mod jxl {
         let sample = |px: (u32, u32)| -> f32 {
             buf[((px.1 * w as u32 + px.0) as usize) * ch] // first (R) channel
         };
-        let expected = hdr::linear_scene_to_pq(1.0);
+        // INDEPENDENT ground truth (ST.2084, 203/406/812 nit), not derived from the encoder.
+        const EXP_WHITE: f32 = 0.580_690; // 203 nit
+        const EXP_REL2: f32 = 0.654_177; // 406 nit
+        const EXP_REL4: f32 = 0.729_146; // 812 nit
         let white = sample(s.diffuse_white_px);
-        assert!(
-            (white - expected).abs() < 0.01,
-            "jxl reference-white PQ code {white}, expected ~{expected}"
-        );
-        let w1 = hdr::linear_scene_to_pq(1.0);
         let w2 = sample(s.rel2_px);
         let w4 = sample(s.rel4_px);
         assert!(
-            w1 < w2 && w2 < w4 && w4 < 1.0,
-            "jxl headroom not increasing: {w1} {w2} {w4}"
+            (white - EXP_WHITE).abs() < 0.005,
+            "jxl reference-white PQ code {white}, expected ~{EXP_WHITE}"
+        );
+        assert!(
+            (w2 - EXP_REL2).abs() < 0.005 && (w4 - EXP_REL4).abs() < 0.005,
+            "jxl headroom codes {w2}/{w4}, expected ~{EXP_REL2}/{EXP_REL4}"
+        );
+        assert!(
+            white < w2 && w2 < w4 && w4 < 1.0,
+            "jxl headroom not increasing: {white} {w2} {w4}"
         );
         let _ = std::fs::remove_file(&path);
-        eprintln!("JXL PQ: tagged PQ, white={white} (exp {expected}), rel2={w2} rel4={w4}");
+        eprintln!("JXL PQ: tagged PQ, white={white} (exp {EXP_WHITE}), rel2={w2} rel4={w4}");
     }
 }
