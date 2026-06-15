@@ -58,6 +58,28 @@ function Section({ title, children }: SectionProps) {
   );
 }
 
+interface HdrFieldProps {
+  label: string;
+  help: string;
+  children: any;
+}
+
+// A labelled HDR control with a one-line, plain-language explanation underneath so a
+// non-expert understands what each option does without needing to hover.
+function HdrField({ label, help, children }: HdrFieldProps) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <Text color={TextColors.secondary}>{label}</Text>
+        {children}
+      </div>
+      <Text as="p" variant={TextVariants.small} color={TextColors.secondary} className="opacity-70 leading-snug">
+        {help}
+      </Text>
+    </div>
+  );
+}
+
 function WatermarkPreview({
   anchor,
   scale,
@@ -239,6 +261,18 @@ export default function ExportPanel({
     setTransferFunction,
     primaries,
     setPrimaries,
+    matrix,
+    setMatrix,
+    chromaSubsampling,
+    setChromaSubsampling,
+    range,
+    setRange,
+    referenceWhiteNits,
+    setReferenceWhiteNits,
+    hlgPeakRatio,
+    setHlgPeakRatio,
+    masteringMetadata,
+    setMasteringMetadata,
     handleApplyPreset,
     currentSettingsObject,
   } = useExportSettings();
@@ -351,9 +385,203 @@ export default function ExportPanel({
   );
 
   // HDR fields shared by the estimate and export settings objects (kept in one place, DRY).
+  // Keys + value spellings must match the backend serde contract exactly.
   const hdrSettings = useMemo(
-    () => ({ bitDepth, transferFunction, primaries }),
-    [bitDepth, transferFunction, primaries],
+    () => ({
+      bitDepth,
+      transferFunction,
+      primaries,
+      matrix,
+      chromaSubsampling,
+      range,
+      referenceWhiteNits,
+      hlgPeakRatio,
+      masteringMetadata,
+    }),
+    [
+      bitDepth,
+      transferFunction,
+      primaries,
+      matrix,
+      chromaSubsampling,
+      range,
+      referenceWhiteNits,
+      hlgPeakRatio,
+      masteringMetadata,
+    ],
+  );
+
+  // Friendly color profiles for AVIF/JXL. Each bundles the low-level HDR fields so a
+  // non-expert can pick one option instead of reasoning about color science. "custom"
+  // is a sentinel that reveals the Advanced controls without changing any field.
+  const colorProfiles = useMemo(
+    () => ({
+      sdr: { bitDepth: 8, transferFunction: 'srgb', primaries: 'srgb', matrix: 'ycbcr', chromaSubsampling: '420' },
+      hdr10: {
+        bitDepth: 10,
+        transferFunction: 'pq',
+        primaries: 'bt2020',
+        matrix: 'ycbcr',
+        chromaSubsampling: '420',
+        range: 'full',
+      },
+      hlg: {
+        bitDepth: 10,
+        transferFunction: 'hlg',
+        primaries: 'bt2020',
+        matrix: 'ycbcr',
+        chromaSubsampling: '420',
+        range: 'full',
+      },
+      maxQuality: {
+        bitDepth: 12,
+        transferFunction: 'pq',
+        primaries: 'bt2020',
+        matrix: 'ycbcr',
+        chromaSubsampling: '444',
+        range: 'full',
+      },
+      archival: {
+        bitDepth: 12,
+        transferFunction: 'pq',
+        primaries: 'bt2020',
+        matrix: 'identity',
+        chromaSubsampling: '444',
+        range: 'full',
+      },
+    }),
+    [],
+  );
+
+  // The profile that exactly matches the current field bundle, otherwise 'custom'.
+  const activeColorProfile = useMemo(() => {
+    if (bitDepth === 8) return 'sdr';
+    const match = (Object.keys(colorProfiles) as Array<keyof typeof colorProfiles>).find((key) => {
+      if (key === 'sdr') return false;
+      const p = colorProfiles[key];
+      return (
+        p.bitDepth === bitDepth &&
+        p.transferFunction === transferFunction &&
+        p.primaries === primaries &&
+        p.matrix === matrix &&
+        // chroma is forced to 4:4:4 when matrix is RGB, so ignore it in that case.
+        (matrix === 'identity' || p.chromaSubsampling === chromaSubsampling) &&
+        p.range === range
+      );
+    });
+    return match ?? 'custom';
+  }, [bitDepth, transferFunction, primaries, matrix, chromaSubsampling, range, colorProfiles]);
+
+  const [forceAdvancedColor, setForceAdvancedColor] = useState(false);
+  const showAdvancedColor = activeColorProfile === 'custom' || forceAdvancedColor;
+
+  const applyColorProfile = useCallback(
+    (key: string) => {
+      if (key === 'custom') {
+        setForceAdvancedColor(true);
+        return;
+      }
+      const p = colorProfiles[key as keyof typeof colorProfiles];
+      if (!p) return;
+      setBitDepth(p.bitDepth);
+      setTransferFunction(p.transferFunction);
+      setPrimaries(p.primaries);
+      setMatrix(p.matrix);
+      setChromaSubsampling(p.chromaSubsampling);
+      if ('range' in p && p.range) setRange(p.range);
+      setForceAdvancedColor(false);
+    },
+    [colorProfiles, setBitDepth, setTransferFunction, setPrimaries, setMatrix, setChromaSubsampling, setRange],
+  );
+
+  // Switching SDR -> HDR in the Advanced controls promotes the SDR-only fields to the
+  // compatible HDR defaults (PQ / Rec.2020 / YCbCr / 4:2:0) so the output is valid HDR.
+  const handleBitDepthChange = useCallback(
+    (depth: number) => {
+      setBitDepth(depth);
+      if (depth > 8 && transferFunction === 'srgb') {
+        setTransferFunction('pq');
+        setPrimaries('bt2020');
+        setMatrix('ycbcr');
+        setChromaSubsampling('420');
+        setRange('full');
+      }
+    },
+    [transferFunction, setBitDepth, setTransferFunction, setPrimaries, setMatrix, setChromaSubsampling, setRange],
+  );
+
+  const handleMatrixChange = useCallback(
+    (value: string) => {
+      setMatrix(value);
+      // RGB (identity) cannot subsample chroma; force full 4:4:4 to keep the output valid.
+      if (value === 'identity') {
+        setChromaSubsampling('444');
+      }
+    },
+    [setMatrix, setChromaSubsampling],
+  );
+
+  const colorProfileOptions = useMemo(
+    () => [
+      { label: t('export.file.profiles.sdr'), value: 'sdr' },
+      { label: t('export.file.profiles.hdr10'), value: 'hdr10' },
+      { label: t('export.file.profiles.hlg'), value: 'hlg' },
+      { label: t('export.file.profiles.maxQuality'), value: 'maxQuality' },
+      { label: t('export.file.profiles.archival'), value: 'archival' },
+      { label: t('export.file.profiles.custom'), value: 'custom' },
+    ],
+    [t],
+  );
+
+  const bitDepthOptions = useMemo(
+    () => [
+      { label: t('export.file.bitDepth8'), value: '8' },
+      { label: t('export.file.bitDepth10'), value: '10' },
+      { label: t('export.file.bitDepth12'), value: '12' },
+    ],
+    [t],
+  );
+
+  const matrixOptions = useMemo(
+    () => [
+      { label: t('export.file.colorEncodingYcbcr'), value: 'ycbcr' },
+      { label: t('export.file.colorEncodingRgb'), value: 'identity' },
+    ],
+    [t],
+  );
+
+  const chromaOptions = useMemo(
+    () => [
+      { label: t('export.file.chroma420'), value: '420' },
+      { label: t('export.file.chroma422'), value: '422' },
+      { label: t('export.file.chroma444'), value: '444' },
+    ],
+    [t],
+  );
+
+  const rangeOptions = useMemo(
+    () => [
+      { label: t('export.file.rangeFull'), value: 'full' },
+      { label: t('export.file.rangeLimited'), value: 'limited' },
+    ],
+    [t],
+  );
+
+  const gamutOptions = useMemo(
+    () => [
+      { label: t('export.file.gamutSrgb'), value: 'srgb' },
+      { label: t('export.file.gamutDisplayP3'), value: 'displayp3' },
+      { label: t('export.file.gamutBt2020'), value: 'bt2020' },
+    ],
+    [t],
+  );
+
+  const transferOptions = useMemo(
+    () => [
+      { label: 'PQ (ST.2084)', value: 'pq' },
+      { label: 'HLG', value: 'hlg' },
+    ],
+    [],
   );
 
   const debouncedEstimateSize = useMemo(
@@ -620,59 +848,149 @@ export default function ExportPanel({
                 </div>
               )}
               {[FileFormats.Avif, FileFormats.Jxl].includes(fileFormat as FileFormats) && (
-                <div className={`mt-3 space-y-2 ${isExporting ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <Text color={TextColors.secondary}>{t('export.file.bitDepth')}</Text>
+                <div className={`mt-3 space-y-3 ${isExporting ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {/* Tier 1: a single friendly "Color profile" picker that bundles the HDR fields. */}
+                  <HdrField label={t('export.file.colorProfile')} help={t('export.file.colorProfileHint')}>
                     <Dropdown
-                      options={[
-                        { label: t('export.file.bitDepth8'), value: '8' },
-                        { label: t('export.file.bitDepth10'), value: '10' },
-                        { label: t('export.file.bitDepth12'), value: '12' },
-                      ]}
-                      value={String(bitDepth)}
-                      onChange={(v: string) => {
-                        const depth = parseInt(v, 10);
-                        setBitDepth(depth);
-                        // Picking an HDR depth implies an HDR transfer; default to PQ/Rec.2020.
-                        if (depth > 8 && transferFunction === 'srgb') {
-                          setTransferFunction('pq');
-                          setPrimaries('bt2020');
-                        }
-                      }}
+                      options={colorProfileOptions}
+                      value={activeColorProfile}
+                      onChange={applyColorProfile}
                       disabled={isExporting}
-                      className="w-44"
+                      className="w-56"
                     />
-                  </div>
-                  {bitDepth > 8 && (
-                    <>
-                      <div className="flex items-center justify-between gap-2">
-                        <Text color={TextColors.secondary}>{t('export.file.transfer')}</Text>
+                  </HdrField>
+
+                  {/* An explicit Advanced toggle so users on a preset can still fine-tune. */}
+                  {activeColorProfile !== 'custom' && bitDepth > 8 && (
+                    <Switch
+                      label={t('export.file.advancedToggle')}
+                      checked={forceAdvancedColor}
+                      onChange={setForceAdvancedColor}
+                      disabled={isExporting}
+                      trackClassName="bg-surface"
+                    />
+                  )}
+
+                  {/* Tier 2: Advanced controls, each with plain-language help. */}
+                  {showAdvancedColor && (
+                    <div className="space-y-3 pl-2 border-l-2 border-surface">
+                      <HdrField label={t('export.file.bitDepth')} help={t('export.file.bitDepthHelp')}>
                         <Dropdown
-                          options={[
-                            { label: 'PQ (ST.2084)', value: 'pq' },
-                            { label: 'HLG', value: 'hlg' },
-                          ]}
-                          value={transferFunction === 'srgb' ? 'pq' : transferFunction}
-                          onChange={setTransferFunction}
+                          options={bitDepthOptions}
+                          value={String(bitDepth)}
+                          onChange={(v: string) => handleBitDepthChange(parseInt(v, 10))}
                           disabled={isExporting}
-                          className="w-44"
+                          className="w-56"
                         />
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <Text color={TextColors.secondary}>{t('export.file.primaries')}</Text>
-                        <Dropdown
-                          options={[
-                            { label: 'Rec.2020', value: 'bt2020' },
-                            { label: 'Rec.709 / sRGB', value: 'srgb' },
-                          ]}
-                          value={primaries}
-                          onChange={setPrimaries}
-                          disabled={isExporting}
-                          className="w-44"
-                        />
-                      </div>
-                      <p className="text-xs text-text-secondary mt-1">{t('export.file.hdrHint')}</p>
-                    </>
+                      </HdrField>
+
+                      {bitDepth > 8 && (
+                        <>
+                          <HdrField label={t('export.file.transfer')} help={t('export.file.hdrHint')}>
+                            <Dropdown
+                              options={transferOptions}
+                              value={transferFunction === 'srgb' ? 'pq' : transferFunction}
+                              onChange={setTransferFunction}
+                              disabled={isExporting}
+                              className="w-56"
+                            />
+                          </HdrField>
+
+                          {transferFunction === 'hlg' && (
+                            <HdrField label={t('export.file.hlgPeakRatio')} help={t('export.file.hlgPeakRatioHelp')}>
+                              <div className="w-56">
+                                <Slider
+                                  label=""
+                                  min={2}
+                                  max={20}
+                                  step={1}
+                                  value={hlgPeakRatio}
+                                  onChange={(e) => setHlgPeakRatio(parseInt(String(e.target.value), 10))}
+                                  defaultValue={12}
+                                  fillOrigin="min"
+                                />
+                              </div>
+                            </HdrField>
+                          )}
+
+                          <HdrField label={t('export.file.colorGamut')} help={t('export.file.colorGamutHelp')}>
+                            <Dropdown
+                              options={gamutOptions}
+                              value={primaries}
+                              onChange={setPrimaries}
+                              disabled={isExporting}
+                              className="w-56"
+                            />
+                          </HdrField>
+
+                          <HdrField label={t('export.file.colorEncoding')} help={t('export.file.colorEncodingHelp')}>
+                            <Dropdown
+                              options={matrixOptions}
+                              value={matrix}
+                              onChange={handleMatrixChange}
+                              disabled={isExporting}
+                              className="w-56"
+                            />
+                          </HdrField>
+
+                          {/* Chroma detail only applies to YCbCr; RGB forces full 4:4:4. */}
+                          {matrix === 'ycbcr' && (
+                            <HdrField label={t('export.file.chromaDetail')} help={t('export.file.chromaDetailHelp')}>
+                              <Dropdown
+                                options={chromaOptions}
+                                value={chromaSubsampling}
+                                onChange={setChromaSubsampling}
+                                disabled={isExporting}
+                                className="w-56"
+                              />
+                            </HdrField>
+                          )}
+
+                          <HdrField label={t('export.file.signalRange')} help={t('export.file.signalRangeHelp')}>
+                            <Dropdown
+                              options={rangeOptions}
+                              value={range}
+                              onChange={setRange}
+                              disabled={isExporting}
+                              className="w-56"
+                            />
+                          </HdrField>
+
+                          <HdrField label={t('export.file.referenceWhite')} help={t('export.file.referenceWhiteHelp')}>
+                            <div className="w-56">
+                              <Slider
+                                label=""
+                                min={100}
+                                max={300}
+                                step={1}
+                                value={referenceWhiteNits}
+                                onChange={(e) => setReferenceWhiteNits(parseInt(String(e.target.value), 10))}
+                                defaultValue={203}
+                                fillOrigin="min"
+                                suffix="nits"
+                              />
+                            </div>
+                          </HdrField>
+
+                          <Switch
+                            label={t('export.file.masteringMetadata')}
+                            checked={masteringMetadata}
+                            onChange={setMasteringMetadata}
+                            disabled={isExporting}
+                            tooltip={t('export.file.masteringMetadataHelp')}
+                            trackClassName="bg-surface"
+                          />
+                          <Text
+                            as="p"
+                            variant={TextVariants.small}
+                            color={TextColors.secondary}
+                            className="opacity-70 leading-snug -mt-1"
+                          >
+                            {t('export.file.masteringMetadataHelp')}
+                          </Text>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

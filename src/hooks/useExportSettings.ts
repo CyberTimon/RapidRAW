@@ -24,6 +24,15 @@ export function useExportSettings() {
   const [bitDepth, setBitDepth] = useState(8);
   const [transferFunction, setTransferFunction] = useState('srgb');
   const [primaries, setPrimaries] = useState('srgb');
+  // matrix 'identity'|'ycbcr'; subsampling '444'|'422'|'420'; range 'full'|'limited'.
+  // User-facing HDR defaults favour compatibility (ycbcr/420); SDR output is unchanged because
+  // these fields are only emitted/used when bitDepth > 8 and the format is AVIF/JXL.
+  const [matrix, setMatrix] = useState('ycbcr');
+  const [chromaSubsampling, setChromaSubsampling] = useState('420');
+  const [range, setRange] = useState('full');
+  const [referenceWhiteNits, setReferenceWhiteNits] = useState(203);
+  const [hlgPeakRatio, setHlgPeakRatio] = useState(12);
+  const [masteringMetadata, setMasteringMetadata] = useState(false);
 
   const handleApplyPreset = useCallback((preset: ExportPreset) => {
     setFileFormat(preset.fileFormat);
@@ -47,6 +56,12 @@ export function useExportSettings() {
     setBitDepth(preset.bitDepth ?? 8);
     setTransferFunction(preset.transferFunction ?? 'srgb');
     setPrimaries(preset.primaries ?? 'srgb');
+    setMatrix(preset.matrix ?? 'ycbcr');
+    setChromaSubsampling(preset.chromaSubsampling ?? '420');
+    setRange(preset.range ?? 'full');
+    setReferenceWhiteNits(preset.referenceWhiteNits ?? 203);
+    setHlgPeakRatio(preset.hlgPeakRatio ?? 12);
+    setMasteringMetadata(preset.masteringMetadata ?? false);
   }, []);
 
   const currentSettingsObject = useMemo(
@@ -72,6 +87,12 @@ export function useExportSettings() {
       bitDepth,
       transferFunction,
       primaries,
+      matrix,
+      chromaSubsampling,
+      range,
+      referenceWhiteNits,
+      hlgPeakRatio,
+      masteringMetadata,
     }),
     [
       fileFormat,
@@ -95,6 +116,12 @@ export function useExportSettings() {
       bitDepth,
       transferFunction,
       primaries,
+      matrix,
+      chromaSubsampling,
+      range,
+      referenceWhiteNits,
+      hlgPeakRatio,
+      masteringMetadata,
     ],
   );
 
@@ -141,6 +168,18 @@ export function useExportSettings() {
     setTransferFunction,
     primaries,
     setPrimaries,
+    matrix,
+    setMatrix,
+    chromaSubsampling,
+    setChromaSubsampling,
+    range,
+    setRange,
+    referenceWhiteNits,
+    setReferenceWhiteNits,
+    hlgPeakRatio,
+    setHlgPeakRatio,
+    masteringMetadata,
+    setMasteringMetadata,
     handleApplyPreset,
     currentSettingsObject,
   };
