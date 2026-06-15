@@ -731,7 +731,14 @@
     },
     "file": {
       "quality": "Quality",
-      "qualityLossless": "Quality (Lossless)"
+      "qualityLossless": "Quality (Lossless)",
+      "bitDepth": "Bit Depth",
+      "bitDepth8": "8-bit (SDR)",
+      "bitDepth10": "10-bit (HDR)",
+      "bitDepth12": "12-bit (HDR)",
+      "transfer": "Transfer",
+      "primaries": "Primaries",
+      "hdrHint": "HDR output is tagged BT.2020 + PQ/HLG. Needs an HDR display to view correctly."
     },
     "labels": {
       "image": "Image",

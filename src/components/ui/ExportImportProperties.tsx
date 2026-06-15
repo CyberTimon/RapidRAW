@@ -47,6 +47,12 @@ export interface ExportSettings {
   watermark: WatermarkSettings | null;
   exportMasks?: boolean;
   preserveFolders?: boolean;
+  /** HDR export (AVIF/JXL): 8 = SDR, 10/12 = HDR. */
+  bitDepth?: number;
+  /** HDR transfer function: 'srgb' | 'pq' | 'hlg'. */
+  transferFunction?: string;
+  /** HDR primaries: 'srgb' | 'bt2020'. */
+  primaries?: string;
 }
 
 export enum WatermarkAnchor {
@@ -119,4 +125,7 @@ export interface ExportPreset {
   watermarkSpacing: number;
   watermarkOpacity: number;
   lastExportPath?: string;
+  bitDepth?: number;
+  transferFunction?: string;
+  primaries?: string;
 }

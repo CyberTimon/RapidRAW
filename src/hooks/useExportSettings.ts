@@ -20,6 +20,10 @@ export function useExportSettings() {
   const [watermarkScale, setWatermarkScale] = useState(10);
   const [watermarkSpacing, setWatermarkSpacing] = useState(5);
   const [watermarkOpacity, setWatermarkOpacity] = useState(75);
+  // HDR export (AVIF/JXL): bitDepth 8 = SDR; 10/12 = HDR. transferFunction 'srgb'|'pq'|'hlg'.
+  const [bitDepth, setBitDepth] = useState(8);
+  const [transferFunction, setTransferFunction] = useState('srgb');
+  const [primaries, setPrimaries] = useState('srgb');
 
   const handleApplyPreset = useCallback((preset: ExportPreset) => {
     setFileFormat(preset.fileFormat);
@@ -40,6 +44,9 @@ export function useExportSettings() {
     setWatermarkScale(preset.watermarkScale);
     setWatermarkSpacing(preset.watermarkSpacing);
     setWatermarkOpacity(preset.watermarkOpacity);
+    setBitDepth(preset.bitDepth ?? 8);
+    setTransferFunction(preset.transferFunction ?? 'srgb');
+    setPrimaries(preset.primaries ?? 'srgb');
   }, []);
 
   const currentSettingsObject = useMemo(
@@ -62,6 +69,9 @@ export function useExportSettings() {
       watermarkScale,
       watermarkSpacing,
       watermarkOpacity,
+      bitDepth,
+      transferFunction,
+      primaries,
     }),
     [
       fileFormat,
@@ -82,7 +92,10 @@ export function useExportSettings() {
       watermarkScale,
       watermarkSpacing,
       watermarkOpacity,
-    ]
+      bitDepth,
+      transferFunction,
+      primaries,
+    ],
   );
 
   return {
@@ -122,6 +135,12 @@ export function useExportSettings() {
     setWatermarkSpacing,
     watermarkOpacity,
     setWatermarkOpacity,
+    bitDepth,
+    setBitDepth,
+    transferFunction,
+    setTransferFunction,
+    primaries,
+    setPrimaries,
     handleApplyPreset,
     currentSettingsObject,
   };

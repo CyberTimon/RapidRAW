@@ -233,6 +233,12 @@ export default function ExportPanel({
     setWatermarkOpacity,
     preserveFolders,
     setPreserveFolders,
+    bitDepth,
+    setBitDepth,
+    transferFunction,
+    setTransferFunction,
+    primaries,
+    setPrimaries,
     handleApplyPreset,
     currentSettingsObject,
   } = useExportSettings();
@@ -344,6 +350,12 @@ export default function ExportPanel({
     [t],
   );
 
+  // HDR fields shared by the estimate and export settings objects (kept in one place, DRY).
+  const hdrSettings = useMemo(
+    () => ({ bitDepth, transferFunction, primaries }),
+    [bitDepth, transferFunction, primaries],
+  );
+
   const debouncedEstimateSize = useMemo(
     () =>
       debounce(async (paths, currentAdj, currentPath, exportSettings, format) => {
@@ -390,6 +402,7 @@ export default function ExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
+      ...hdrSettings,
     };
     const format = FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0] || 'jpeg';
     debouncedEstimateSize(pathsToExport, adjustments, selectedImage?.path, exportSettings, format);
@@ -466,6 +479,7 @@ export default function ExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
+      ...hdrSettings,
     };
 
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
@@ -603,6 +617,63 @@ export default function ExportPanel({
                     value={jpegQuality}
                     fillOrigin="min"
                   />
+                </div>
+              )}
+              {[FileFormats.Avif, FileFormats.Jxl].includes(fileFormat as FileFormats) && (
+                <div className={`mt-3 space-y-2 ${isExporting ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <Text color={TextColors.secondary}>{t('export.file.bitDepth')}</Text>
+                    <Dropdown
+                      options={[
+                        { label: t('export.file.bitDepth8'), value: '8' },
+                        { label: t('export.file.bitDepth10'), value: '10' },
+                        { label: t('export.file.bitDepth12'), value: '12' },
+                      ]}
+                      value={String(bitDepth)}
+                      onChange={(v: string) => {
+                        const depth = parseInt(v, 10);
+                        setBitDepth(depth);
+                        // Picking an HDR depth implies an HDR transfer; default to PQ/Rec.2020.
+                        if (depth > 8 && transferFunction === 'srgb') {
+                          setTransferFunction('pq');
+                          setPrimaries('bt2020');
+                        }
+                      }}
+                      disabled={isExporting}
+                      className="w-44"
+                    />
+                  </div>
+                  {bitDepth > 8 && (
+                    <>
+                      <div className="flex items-center justify-between gap-2">
+                        <Text color={TextColors.secondary}>{t('export.file.transfer')}</Text>
+                        <Dropdown
+                          options={[
+                            { label: 'PQ (ST.2084)', value: 'pq' },
+                            { label: 'HLG', value: 'hlg' },
+                          ]}
+                          value={transferFunction === 'srgb' ? 'pq' : transferFunction}
+                          onChange={setTransferFunction}
+                          disabled={isExporting}
+                          className="w-44"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <Text color={TextColors.secondary}>{t('export.file.primaries')}</Text>
+                        <Dropdown
+                          options={[
+                            { label: 'Rec.2020', value: 'bt2020' },
+                            { label: 'Rec.709 / sRGB', value: 'srgb' },
+                          ]}
+                          value={primaries}
+                          onChange={setPrimaries}
+                          disabled={isExporting}
+                          className="w-44"
+                        />
+                      </div>
+                      <p className="text-xs text-text-secondary mt-1">{t('export.file.hdrHint')}</p>
+                    </>
+                  )}
                 </div>
               )}
             </Section>
