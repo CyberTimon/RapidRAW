@@ -698,48 +698,17 @@ fn build_main_bgl(
     })
 }
 
-/// The HDR variant of the main shader, derived from the SDR `shader.wgsl` at runtime by four
-/// targeted substitutions (the SDR shader stays the single source of truth for the look):
-/// 1. promote the storage output `rgba8unorm` -> `rgba16float`;
-/// 2. encode with the *headroom-preserving* extended sRGB OETF instead of the clamping one
-///    (`linear_to_srgb` clamps to [0,1] at L229 — the real headroom killer, upstream of the store);
-/// 3. drop the final `[0,1]` clamp (keep `max(.,0)` to avoid negative-light NaNs in PQ);
-/// 4. disable the 8-bit dither (it would add PQ-code noise).
-/// The HDR pipeline therefore stores EXTENDED-sRGB-encoded values with headroom; the CPU readback
+/// The HDR variant of the main compute shader. It is the SAME WGSL as the SDR path — the
+/// headroom-preserving behavior (extended-sRGB encode instead of the clamping one, dropping the
+/// final `[0,1]` store clamp in favor of `max(.,0)`, disabling the 8-bit dither, and not snapping
+/// or renormalizing the tone curves at the top) is switched on by the `IS_HDR` pipeline-overridable
+/// constant set in [`build_hdr_resources`], so the compiler type-checks it rather than it being
+/// patched in by string replacement. The one thing WGSL can't express as an override is a storage
+/// texture's format, so that single line is still swapped textually here (rgba8unorm -> rgba16float).
+/// The HDR pipeline therefore stores extended-sRGB-encoded values with headroom; the CPU readback
 /// inverts that with `hdr::srgb_extended_to_linear` to recover linear scene-referred light.
 fn hdr_shader_source() -> String {
-    include_str!("shaders/shader.wgsl")
-        .replace("rgba8unorm, write>", "rgba16float, write>")
-        .replace(
-            "linear_to_srgb(composite_rgb_linear)",
-            "linear_to_srgb_extended(composite_rgb_linear)",
-        )
-        .replace(
-            "clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0))",
-            "max(final_rgb, vec3<f32>(0.0))",
-        )
-        .replace(
-            "let dither_amount = 1.0 / 255.0;",
-            "let dither_amount = 0.0;",
-        )
-        // 5. The tone-curve stage is display-referred and clamps highlights to [0,1] — the other
-        //    half of the headroom bug. Three targeted curve fixes keep values above diffuse white:
-        //    (a) treat empty curves (count<2) as default so they take the non-normalizing branch;
-        .replace(
-            "    if (count < 2u) {\n        return false;\n    }",
-            "    if (count < 2u) {\n        return true;\n    }",
-        )
-        //    (b) above the curve's top control point, pass the headroom excess through instead of
-        //        snapping to the top point's value (identity curve => value passes through);
-        .replace(
-            "    if (x >= local_points[count - 1u].x) { return local_points[count - 1u].y / 255.0; }",
-            "    if (x >= local_points[count - 1u].x) { return local_points[count - 1u].y / 255.0 + (val - local_points[count - 1u].x / 255.0); }",
-        )
-        //    (c) when per-channel RGB curves are active, do not normalize headroom back into gamut.
-        .replace(
-            "        if (max_comp > 1.0) { final_color = final_color / max_comp; }",
-            "        if (max_comp > 1.0e30) { final_color = final_color / max_comp; }",
-        )
+    include_str!("shaders/shader.wgsl").replace("rgba8unorm, write>", "rgba16float, write>")
 }
 
 fn build_hdr_resources(device: &wgpu::Device, tile_dims: wgpu::Extent3d) -> HdrResources {
@@ -758,7 +727,12 @@ fn build_hdr_resources(device: &wgpu::Device, tile_dims: wgpu::Extent3d) -> HdrR
         layout: Some(&layout),
         module: &shader,
         entry_point: Some("main"),
-        compilation_options: Default::default(),
+        // Switch the shared shader into its headroom-preserving HDR mode. Every other pipeline
+        // leaves this unset, so the override keeps its default 0 and their behavior is unchanged.
+        compilation_options: wgpu::PipelineCompilationOptions {
+            constants: &[("IS_HDR", 1.0)],
+            ..Default::default()
+        },
         cache: None,
     });
     let tile_output_texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -2214,65 +2188,33 @@ fn process_and_get_dynamic_image_inner(
 mod tests {
     use super::*;
 
-    /// Guards the HDR shader substitution anchors. If a future edit to `shader.wgsl` moves any
-    /// of these strings, the `.replace()` silently no-ops and HDR breaks (clipped headroom or a
-    /// storage-format mismatch). This test fails loudly so `hdr_shader_source` gets updated.
+    /// HDR mode is a compile-checked `IS_HDR` override in the shared shader, so the only thing left
+    /// to string-replace is the storage texture format (WGSL can't make that an override). Guards
+    /// that the format anchor still exists and the override gate is still wired; the GPU E2E test
+    /// below proves the gate actually preserves headroom at runtime.
     #[test]
-    fn hdr_shader_substitutions_apply() {
+    fn hdr_shader_source_promotes_storage_format() {
         let src = include_str!("shaders/shader.wgsl");
-        // The SDR shader must still contain the anchors we substitute on.
+        // The one remaining textual substitution: the storage format anchor must stay present.
         assert!(
             src.contains("rgba8unorm, write>"),
-            "shader.wgsl storage anchor moved; update hdr_shader_source()"
+            "shader.wgsl storage-format anchor moved; update hdr_shader_source()"
+        );
+        // HDR behavior is now an override, not a substitution — sanity-check it's still wired.
+        assert!(
+            src.contains("override IS_HDR"),
+            "IS_HDR override removed; HDR mode would no longer switch on"
         );
         assert!(
-            src.contains("linear_to_srgb(composite_rgb_linear)"),
-            "shader.wgsl sRGB-encode anchor moved; update hdr_shader_source()"
-        );
-        assert!(
-            src.contains("clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0))"),
-            "shader.wgsl store-clamp anchor moved; update hdr_shader_source()"
-        );
-        assert!(
-            src.contains("let dither_amount = 1.0 / 255.0;"),
-            "shader.wgsl dither anchor moved; update hdr_shader_source()"
+            src.contains("IS_HDR != 0"),
+            "IS_HDR gate removed; the shared shader no longer branches on HDR mode"
         );
 
         let hdr = hdr_shader_source();
-        assert!(hdr.contains("rgba16float, write>"));
         assert!(
-            !hdr.contains("rgba8unorm, write>"),
+            hdr.contains("rgba16float, write>") && !hdr.contains("rgba8unorm, write>"),
             "storage not promoted to rgba16float"
         );
-        assert!(hdr.contains("linear_to_srgb_extended(composite_rgb_linear)"));
-        assert!(
-            !hdr.contains("clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0))"),
-            "headroom-killing store clamp still present in HDR shader"
-        );
-        assert!(hdr.contains("max(final_rgb, vec3<f32>(0.0))"));
-        assert!(
-            hdr.contains("let dither_amount = 0.0;"),
-            "dither not disabled in HDR shader"
-        );
-
-        // Curve-stage headroom anchors (the other half of the clip the GPU E2E test exposed).
-        assert!(
-            src.contains("    if (count < 2u) {\n        return false;\n    }"),
-            "shader.wgsl is_default_curve anchor moved; update hdr_shader_source()"
-        );
-        assert!(
-            src.contains(
-                "    if (x >= local_points[count - 1u].x) { return local_points[count - 1u].y / 255.0; }"
-            ),
-            "shader.wgsl apply_curve top-clamp anchor moved; update hdr_shader_source()"
-        );
-        assert!(
-            src.contains("        if (max_comp > 1.0) { final_color = final_color / max_comp; }"),
-            "shader.wgsl curve-normalize anchor moved; update hdr_shader_source()"
-        );
-        assert!(hdr.contains("    if (count < 2u) {\n        return true;\n    }"));
-        assert!(hdr.contains("+ (val - local_points[count - 1u].x / 255.0)"));
-        assert!(hdr.contains("if (max_comp > 1.0e30)"));
     }
 
     /// End-to-end GPU test: runs the REAL pipeline on a headless device, twice on the same input
