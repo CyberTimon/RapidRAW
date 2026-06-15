@@ -755,11 +755,12 @@ pub fn encode_avif_hdr(
     let mut frame = ctx.new_frame();
     // copy_from_raw_u8 writes at the plane origin (handles rav1e's internal padding), unlike a
     // raw chunks_mut over the padded buffer. Identity plane order is 0=G', 1=B', 2=R';
-    // YCbCr is 0=Y', 1=Cb, 2=Cr.
-    let to_le = |p: &[u16]| -> Vec<u8> { p.iter().flat_map(|v| v.to_le_bytes()).collect() };
-    frame.planes[0].copy_from_raw_u8(&to_le(&planes.p0), w * 2, 2);
-    frame.planes[1].copy_from_raw_u8(&to_le(&planes.p1), planes.chroma_w * 2, 2);
-    frame.planes[2].copy_from_raw_u8(&to_le(&planes.p2), planes.chroma_w * 2, 2);
+    // YCbCr is 0=Y', 1=Cb, 2=Cr. The samples are u16 and rav1e wants little-endian bytes; on every
+    // supported (little-endian) target that's exactly the in-memory layout, so cast the plane
+    // slices to bytes with no allocation instead of building a byte copy of each plane.
+    frame.planes[0].copy_from_raw_u8(bytemuck::cast_slice(&planes.p0), w * 2, 2);
+    frame.planes[1].copy_from_raw_u8(bytemuck::cast_slice(&planes.p1), planes.chroma_w * 2, 2);
+    frame.planes[2].copy_from_raw_u8(bytemuck::cast_slice(&planes.p2), planes.chroma_w * 2, 2);
     let _ = planes.chroma_h;
 
     ctx.send_frame(std::sync::Arc::new(frame))

@@ -494,10 +494,12 @@ fn encode_image_to_bytes(
             if hdr {
                 #[cfg(feature = "hdr_jxl")]
                 {
-                    return crate::hdr::encode_jxl_hdr(
-                        &image.to_rgba32f(),
-                        &export_settings.to_hdr_config(),
-                    );
+                    // Borrow the existing Rgba32F buffer instead of cloning the whole float image.
+                    let cfg = export_settings.to_hdr_config();
+                    return match image {
+                        DynamicImage::ImageRgba32F(buf) => crate::hdr::encode_jxl_hdr(buf, &cfg),
+                        other => crate::hdr::encode_jxl_hdr(&other.to_rgba32f(), &cfg),
+                    };
                 }
                 #[cfg(not(feature = "hdr_jxl"))]
                 {
@@ -571,10 +573,13 @@ fn encode_image_to_bytes(
         }
         "avif" => {
             if hdr {
-                return crate::hdr::encode_avif_hdr(
-                    &image.to_rgba32f(),
-                    &export_settings.to_hdr_config(),
-                );
+                // The HDR pipeline already produced an Rgba32F image; borrow it directly instead of
+                // cloning the whole float image again (to_rgba32f always allocates a full 16 B/px copy).
+                let cfg = export_settings.to_hdr_config();
+                return match image {
+                    DynamicImage::ImageRgba32F(buf) => crate::hdr::encode_avif_hdr(buf, &cfg),
+                    other => crate::hdr::encode_avif_hdr(&other.to_rgba32f(), &cfg),
+                };
             }
             image
                 .write_to(&mut cursor, image::ImageFormat::Avif)
