@@ -93,10 +93,13 @@ adapter is available (headless CI).
    the >1.0 renormalization. For default/identity curves this is exactly right (verified: linear
    4.0 survives). For a user-set tone/RGB curve the behaviour above diffuse white is a reasonable
    extrapolation but **has not been visually checked** — flagging loudly as the brief requested.
-2. **AVIF uses matrix_coefficients = 0 (Identity/GBR, 4:4:4 full-range).** This is lossless and
-   makes the reference-white code exact, and is explicitly allowed by the brief. It is less
-   universally supported than YCbCr matrix=9; if a target HDR viewer rejects it, switch to matrix 9
-   (requires implementing RGB→BT.2020-NCL YCbCr + 4:2:0, a known follow-up).
+2. **AVIF matrix is now user-selectable** (Identity/RGB *or* YCbCr BT.2020-NCL / BT.709-NCL),
+   alongside chroma subsampling (4:4:4/4:2:2/4:2:0), full/limited range, primaries (sRGB / Display-P3
+   / Rec.2020), reference-white nits, HLG peak, and MaxCLL/MaxFALL mastering metadata — exposed in
+   the export panel via friendly presets + an Advanced section. The YCbCr/subsampling/range/primaries
+   paths are covered by **colored-pixel** round-trip tests (not just neutral), so the matrix/chroma
+   math is numerically verified, not just assumed. `HdrEncodeConfig::default()` is still Identity/
+   4:4:4/full so the originally-verified path is byte-identical.
 3. **HLG is tag- and monotonicity-verified only.** HLG is relative/scene-referred, so there is no
    single absolute-nit anchor check; `HLG_PEAK_RATIO = 12` is a reasonable default, not tuned.
 4. **Watermarking an HDR export clamps the watermarked pixels to SDR** (the overlay runs in 8-bit).
