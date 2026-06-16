@@ -114,11 +114,7 @@ impl ExportSettings {
         if self.bit_depth < 10 || self.transfer_function == crate::hdr::TransferFunction::Srgb {
             return false;
         }
-        match extension {
-            "avif" => true,
-            "jxl" => cfg!(feature = "hdr_jxl"),
-            _ => false,
-        }
+        extension == "avif" || (extension == "jxl" && cfg!(feature = "hdr_jxl"))
     }
 
     /// The clamped HDR bit depth (10 or 12).

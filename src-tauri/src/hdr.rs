@@ -654,6 +654,9 @@ fn content_light_levels(
 /// chroma subsampling) so the round-trip is exact for every color; YCbCr converts to
 /// non-constant-luminance Y'CbCr and supports 4:2:2 / 4:2:0 subsampling. CICP tags
 /// (primaries / transfer / matrix / range) are written to both the AV1 stream and the container.
+// rav1e's EncoderConfig is configured by mutating a Default (its own examples do the same); the
+// nested color_description makes a struct-literal initializer far less readable.
+#[allow(clippy::field_reassign_with_default)]
 pub fn encode_avif_hdr(
     img: &ImageBuffer<Rgba<f32>, Vec<f32>>,
     cfg: &HdrEncodeConfig,

@@ -761,7 +761,6 @@ const FLARE_MAP_SIZE: u32 = 512;
 impl GpuProcessor {
     pub fn new(context: GpuContext, max_width: u32, max_height: u32) -> Result<Self, String> {
         let device = &context.device;
-        const MAX_MASK_BINDINGS: u32 = 1;
 
         let blur_shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Blur Shader"),
@@ -1166,6 +1165,7 @@ impl GpuProcessor {
             .get_or_init(|| build_hdr_resources(&self.context.device, self.tile_dims))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn run(
         &self,
         input_texture_view: &wgpu::TextureView,
