@@ -954,6 +954,7 @@
       "descriptionDesktop": "매우 빠른 GPU 가속 RAW 이미지 편집기입니다. 폴더를 열어 시작하세요.",
       "donate": "Ko-Fi에서 후원하기",
       "downloadVersion": "클릭하여 {{version}} 버전 다운로드",
+      "downloadingUpdate": "업데이트 다운로드 중…",
       "goToSettings": "설정으로 이동",
       "imagesBy": "이미지 제공",
       "latestVersion": "최신 버전을 사용 중입니다",

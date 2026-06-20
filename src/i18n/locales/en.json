@@ -954,6 +954,7 @@
       "descriptionDesktop": "A blazingly fast, GPU-accelerated RAW image editor. Open a folder to begin.",
       "donate": "Donate on Ko-Fi",
       "downloadVersion": "Click to download version {{version}}",
+      "downloadingUpdate": "Downloading update…",
       "goToSettings": "Go to Settings",
       "imagesBy": "Images by",
       "latestVersion": "You are on the latest version",

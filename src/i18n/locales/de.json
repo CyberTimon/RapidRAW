@@ -954,6 +954,7 @@
       "descriptionDesktop": "Ein blitzschneller, GPU-beschleunigter RAW-Bildeditor. Öffnen Sie einen Ordner, um zu beginnen.",
       "donate": "Spenden auf Ko-Fi",
       "downloadVersion": "Klicken, um Version {{version}} herunterzuladen",
+      "downloadingUpdate": "Aktualisierung wird heruntergeladen…",
       "goToSettings": "Zu den Einstellungen",
       "imagesBy": "Bilder von",
       "latestVersion": "Sie haben die neueste Version",
