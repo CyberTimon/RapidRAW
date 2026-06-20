@@ -169,6 +169,10 @@
       "red": "Rosso",
       "yellow": "Giallo"
     },
+    "dialogs": {
+      "importXmpAdjustmentsTitle": "Import XMP Adjustments",
+      "xmpSidecar": "XMP Sidecar"
+    },
     "editor": {
       "autoAdjust": "Regolazione Automatica Immagine",
       "cancel": "Annulla",
@@ -181,6 +185,7 @@
       "editImage": "Modifica Immagine",
       "exportImage": "Esporta Immagine",
       "frameImage": "Incornicia Immagine",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "mergeHdr": "Unisci in HDR",
       "noLabel": "Nessuna Etichetta",
       "noRating": "Nessuna Valutazione",
@@ -202,6 +207,7 @@
       "copyHere_other": "Copia {{count}} immagini qui",
       "deleteFolder": "Elimina Cartella",
       "importImages": "Importa Immagini",
+      "importMatchingXmpSidecars": "Import Matching XMP Sidecars",
       "moveHere_one": "Sposta immagine qui",
       "moveHere_other": "Sposta {{count}} immagini qui",
       "newFolder": "Nuova Cartella",
@@ -248,6 +254,7 @@
       "duplicateImage": "Duplica Immagine",
       "exportImage_one": "Esporta Immagine",
       "exportImage_other": "Esporta {{count}} Immagini",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "noAlbums": "Nessun Album Disponibile",
       "pasteAdjustments_one": "Incolla Regolazioni",
       "pasteAdjustments_other": "Incolla Regolazioni su {{count}} Immagini",
@@ -272,10 +279,22 @@
       "failedDelete": "Impossibile eliminare: {{err}}",
       "failedDeleteFolder": "Impossibile eliminare la cartella: {{err}}",
       "failedDuplicate": "Impossibile duplicare il file: {{err}}",
+      "failedImportXmpAdjustments": "Failed to import XMP adjustments: {{err}}",
+      "failedImportMatchingXmpSidecars": "Failed to import matching XMP sidecars: {{err}}",
+      "failedMatchingXmpSidecars_one": "Failed to import {{count}} matching XMP sidecar.",
+      "failedMatchingXmpSidecars_few": "Failed to import {{count}} matching XMP sidecars.",
+      "failedMatchingXmpSidecars_many": "Failed to import {{count}} matching XMP sidecars.",
+      "failedMatchingXmpSidecars_other": "Failed to import {{count}} matching XMP sidecars.",
       "failedMove": "Impossibile spostare i file: {{err}}",
       "failedMoveError": "Impossibile spostare: {{err}}",
       "failedMoveInvalid": "Impossibile spostare: Gruppo di destinazione non trovato o non valido.",
-      "failedRemoveImages": "Impossibile rimuovere le immagini: {{err}}"
+      "failedRemoveImages": "Impossibile rimuovere le immagini: {{err}}",
+      "importedXmpAdjustments": "Imported XMP adjustments.",
+      "importedMatchingXmpSidecars_one": "Imported {{count}} matching XMP sidecar.",
+      "importedMatchingXmpSidecars_few": "Imported {{count}} matching XMP sidecars.",
+      "importedMatchingXmpSidecars_many": "Imported {{count}} matching XMP sidecars.",
+      "importedMatchingXmpSidecars_other": "Imported {{count}} matching XMP sidecars.",
+      "noMatchingXmpSidecars": "No matching XMP sidecars found."
     }
   },
   "editor": {

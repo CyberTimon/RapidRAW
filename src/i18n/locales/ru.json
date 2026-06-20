@@ -169,6 +169,10 @@
       "red": "Красный",
       "yellow": "Желтый"
     },
+    "dialogs": {
+      "importXmpAdjustmentsTitle": "Import XMP Adjustments",
+      "xmpSidecar": "XMP Sidecar"
+    },
     "editor": {
       "autoAdjust": "Автонастройка изображения",
       "cancel": "Отмена",
@@ -181,6 +185,7 @@
       "editImage": "Редактировать изображение",
       "exportImage": "Экспортировать изображение",
       "frameImage": "Добавить рамку",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "mergeHdr": "Объединить в HDR",
       "noLabel": "Без метки",
       "noRating": "Без рейтинга",
@@ -202,6 +207,7 @@
       "copyHere_other": "Копировать {{count}} изображений сюда",
       "deleteFolder": "Удалить папку",
       "importImages": "Импортировать изображения",
+      "importMatchingXmpSidecars": "Import Matching XMP Sidecars",
       "moveHere_one": "Переместить изображение сюда",
       "moveHere_other": "Переместить {{count}} изображений сюда",
       "newFolder": "Новая папка",
@@ -248,6 +254,7 @@
       "duplicateImage": "Дублировать изображение",
       "exportImage_one": "Экспортировать изображение",
       "exportImage_other": "Экспортировать {{count}} изображений",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "noAlbums": "Нет доступных альбомов",
       "pasteAdjustments_one": "Вставить настройки",
       "pasteAdjustments_other": "Вставить настройки для {{count}} изображений",
@@ -272,10 +279,22 @@
       "failedDelete": "Не удалось удалить: {{err}}",
       "failedDeleteFolder": "Не удалось удалить папку: {{err}}",
       "failedDuplicate": "Не удалось дублировать файл: {{err}}",
+      "failedImportXmpAdjustments": "Failed to import XMP adjustments: {{err}}",
+      "failedImportMatchingXmpSidecars": "Failed to import matching XMP sidecars: {{err}}",
+      "failedMatchingXmpSidecars_one": "Failed to import {{count}} matching XMP sidecar.",
+      "failedMatchingXmpSidecars_few": "Failed to import {{count}} matching XMP sidecars.",
+      "failedMatchingXmpSidecars_many": "Failed to import {{count}} matching XMP sidecars.",
+      "failedMatchingXmpSidecars_other": "Failed to import {{count}} matching XMP sidecars.",
       "failedMove": "Не удалось переместить файлы: {{err}}",
       "failedMoveError": "Не удалось переместить: {{err}}",
       "failedMoveInvalid": "Не удалось переместить: целевая группа не найдена или недействительна.",
-      "failedRemoveImages": "Не удалось удалить изображения: {{err}}"
+      "failedRemoveImages": "Не удалось удалить изображения: {{err}}",
+      "importedXmpAdjustments": "Imported XMP adjustments.",
+      "importedMatchingXmpSidecars_one": "Imported {{count}} matching XMP sidecar.",
+      "importedMatchingXmpSidecars_few": "Imported {{count}} matching XMP sidecars.",
+      "importedMatchingXmpSidecars_many": "Imported {{count}} matching XMP sidecars.",
+      "importedMatchingXmpSidecars_other": "Imported {{count}} matching XMP sidecars.",
+      "noMatchingXmpSidecars": "No matching XMP sidecars found."
     }
   },
   "editor": {
