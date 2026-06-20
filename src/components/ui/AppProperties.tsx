@@ -19,6 +19,8 @@ export const GLOBAL_KEYS = [
   'p',
   'i',
   'e',
+  'x',
+  'u',
   '0',
   '1',
   '2',
@@ -223,11 +225,19 @@ export const EditedStatus = {
 
 export type EditedStatus = (typeof EditedStatus)[keyof typeof EditedStatus];
 
+export enum FlagStatus {
+  All = 'all',
+  FlaggedOnly = 'flaggedOnly',
+  RejectedOnly = 'rejectedOnly',
+  UnflaggedOnly = 'unflaggedOnly',
+}
+
 export interface FilterCriteria {
   colors: Array<string>;
   rating: number;
   rawStatus: RawStatus;
   editedStatus?: EditedStatus;
+  flagStatus?: FlagStatus;
 }
 
 export interface Folder {

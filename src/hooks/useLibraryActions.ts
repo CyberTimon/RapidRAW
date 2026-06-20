@@ -131,6 +131,45 @@ export function useLibraryActions(handleImageSelect?: (path: string) => void) {
     }
   }, []);
 
+  const handleSetFlag = useCallback(async (flag: 'picked' | 'rejected' | null, paths?: string[]) => {
+    const { multiSelectedPaths, libraryActivePath, imageList, setLibrary } = useLibraryStore.getState();
+    const { selectedImage } = useEditorStore.getState();
+
+    const pathsToUpdate =
+      paths || (multiSelectedPaths.length > 0 ? multiSelectedPaths : selectedImage ? [selectedImage.path] : []);
+    if (pathsToUpdate.length === 0) return;
+
+    const primaryPath = selectedImage?.path || libraryActivePath;
+    const primaryImage = imageList.find((img: ImageFile) => img.path === primaryPath);
+    let currentFlag: string | null = null;
+    if (primaryImage?.tags) {
+      const flagTag = primaryImage.tags.find((tag: string) => tag.startsWith('flag:'));
+      if (flagTag) currentFlag = flagTag.substring(5);
+    }
+    const finalFlag = flag !== null && flag === currentFlag ? null : flag;
+
+    // Optimistic update first
+    setLibrary((state) => ({
+      imageList: state.imageList.map((image: ImageFile) => {
+        if (pathsToUpdate.includes(image.path)) {
+          const otherTags = (image.tags || []).filter((tag: string) => !tag.startsWith('flag:'));
+          const newTags = finalFlag ? [...otherTags, `flag:${finalFlag}`] : otherTags;
+          return { ...image, tags: newTags };
+        }
+        return image;
+      }),
+    }));
+
+    for (const flagValue of ['picked', 'rejected']) {
+      await invoke(Invokes.RemoveTagForPaths, { paths: pathsToUpdate, tag: `flag:${flagValue}` }).catch(() => {});
+    }
+    if (finalFlag) {
+      await invoke(Invokes.AddTagForPaths, { paths: pathsToUpdate, tag: `flag:${finalFlag}` }).catch((err) => {
+        console.error('Failed to persist flag:', err);
+      });
+    }
+  }, []);
+
   const handleClearSelection = useCallback(() => {
     const { selectedImage } = useEditorStore.getState();
     if (selectedImage) {
@@ -387,6 +426,7 @@ export function useLibraryActions(handleImageSelect?: (path: string) => void) {
   return {
     handleRate,
     handleSetColorLabel,
+    handleSetFlag,
     handleTagsChanged,
     handleUpdateExif,
     handleClearSelection,
