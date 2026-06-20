@@ -122,7 +122,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
     }));
   };
 
-  const handleGlobalChange = (grading: ColorGrading, value: string) => {
+  const handleColorGradingSliderChange = (grading: ColorGrading, value: string) => {
     setAdjustments((prev: Partial<Adjustments>) => ({
       ...prev,
       colorGrading: {
@@ -267,7 +267,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
           label={t('adjustments.color.grading.blending')}
           max={100}
           min={0}
-          onChange={(e: any) => handleGlobalChange(ColorGrading.Blending, e.target.value)}
+          onChange={(e: any) => handleColorGradingSliderChange(ColorGrading.Blending, e.target.value)}
           step={1}
           value={colorGrading.blending}
           onDragStateChange={onDragStateChange}
@@ -277,7 +277,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
           label={t('adjustments.color.grading.balance')}
           max={100}
           min={-100}
-          onChange={(e: any) => handleGlobalChange(ColorGrading.Balance, e.target.value)}
+          onChange={(e: any) => handleColorGradingSliderChange(ColorGrading.Balance, e.target.value)}
           step={1}
           value={colorGrading.balance}
           onDragStateChange={onDragStateChange}
@@ -447,7 +447,7 @@ export default function ColorPanel({
     document.documentElement.style.setProperty(`--hsl-mixer-sat-${activeColor}`, `${effectiveSaturation}%`);
   }, [effectiveHue, currentHsl.saturation, activeColor]);
 
-  const handleGlobalChange = (key: ColorAdjustment, value: string) => {
+  const handleAdjustmentChange = (key: ColorAdjustment, value: string) => {
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: parseFloat(value) }));
   };
 
@@ -496,7 +496,7 @@ export default function ColorPanel({
           label={t('adjustments.color.temperature')}
           max={100}
           min={-100}
-          onChange={(e: any) => handleGlobalChange(ColorAdjustment.Temperature, e.target.value)}
+          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Temperature, e.target.value)}
           step={1}
           value={adjustments.temperature || 0}
           trackClassName="temperature-gradient-track"
@@ -506,7 +506,7 @@ export default function ColorPanel({
           label={t('adjustments.color.tint')}
           max={100}
           min={-100}
-          onChange={(e: any) => handleGlobalChange(ColorAdjustment.Tint, e.target.value)}
+          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Tint, e.target.value)}
           step={1}
           value={adjustments.tint || 0}
           trackClassName="tint-gradient-track"
@@ -522,7 +522,7 @@ export default function ColorPanel({
           label={t('adjustments.color.vibrance')}
           max={100}
           min={-100}
-          onChange={(e: any) => handleGlobalChange(ColorAdjustment.Vibrance, e.target.value)}
+          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Vibrance, e.target.value)}
           step={1}
           value={adjustments.vibrance || 0}
           onDragStateChange={onDragStateChange}
@@ -531,9 +531,25 @@ export default function ColorPanel({
           label={t('adjustments.color.saturation')}
           max={100}
           min={-100}
-          onChange={(e: any) => handleGlobalChange(ColorAdjustment.Saturation, e.target.value)}
+          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Saturation, e.target.value)}
           step={1}
           value={adjustments.saturation || 0}
+          onDragStateChange={onDragStateChange}
+        />
+      </div>
+
+      <div className="p-2 bg-bg-tertiary rounded-md">
+        <Text variant={TextVariants.heading} className="mb-2">
+          {isForMask ? t('adjustments.color.localHue') : t('adjustments.color.hue')}
+        </Text>
+        <Slider
+          label={t('adjustments.color.hue')}
+          max={180}
+          min={-180}
+          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Hue, e.target.value)}
+          step={1}
+          value={adjustments.hue || 0}
+          trackClassName="hue-range-track"
           onDragStateChange={onDragStateChange}
         />
       </div>

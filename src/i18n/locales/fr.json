@@ -43,6 +43,7 @@
         "shadows": "Ombres"
       },
       "hue": "Teinte",
+      "localHue": "Teinte locale",
       "luminance": "Luminance",
       "mixerColors": {
         "aquas": "Sarcelle",
@@ -65,13 +66,13 @@
       "whiteBalance": "Balance des blancs"
     },
     "curves": {
+      "channelTitle": "Canal {{channel}}",
       "channels": {
         "blue": "Bleu",
         "green": "Vert",
         "luma": "Luma",
         "red": "Rouge"
       },
-      "channelTitle": "Canal {{channel}}",
       "copyParametric": "Copier la courbe paramétrique {{channel}}",
       "copyPoint": "Copier la courbe à points {{channel}}",
       "curveDataUnavailable": "Données de courbe non disponibles.",
@@ -625,8 +626,8 @@
       "organization": {
         "addTagPlaceholder": "Ajouter une étiquette...",
         "colorLabel": "Étiquette de couleur",
-        "none": "Aucun",
         "noTags": "Aucune étiquette",
+        "none": "Aucun",
         "rating": "Note",
         "ratingLabels": "Note & Étiquettes",
         "tags": "Étiquettes",
@@ -635,6 +636,7 @@
       "title": "Métadonnées"
     },
     "presets": {
+      "amount": "Quantité",
       "dialog": {
         "allPresetFiles": "Tous les fichiers de paramètres prédéfinis",
         "exportAllTitle": "Exporter tous les paramètres prédéfinis",
@@ -768,12 +770,12 @@
       "estimatedSize": "Taille estimée du fichier : ~{{size}}",
       "estimatedTotalSize": "Taille totale estimée : ~{{size}}",
       "estimatingSize": "Estimation de la taille...",
-      "exporting": "Exportation en cours…",
-      "exportingProgress": "Exportation en cours… ({{current}}/{{total}})",
       "exportMultiple": "Exporter {{count}} {{label}}",
       "exportMultiple_one": "Exporter {{count}} {{label}}",
       "exportMultiple_other": "Exporter {{count}} {{label}}",
       "exportSingle": "Exporter {{label}}",
+      "exporting": "Exportation en cours…",
+      "exportingProgress": "Exportation en cours… ({{current}}/{{total}})",
       "failed": "Échec de l'exportation",
       "noImageSelected": "Aucune image sélectionnée pour l'exportation.",
       "noImagesSelected": "Aucune image sélectionnée.",
@@ -1064,6 +1066,7 @@
         "exposureToneMapper": "Exposition & Mappeur de tons",
         "grain": "Grain",
         "halationGlow": "Halo & Lueur",
+        "hueShift": "Décalage de teinte global",
         "lensCorrection": "Correction de l'objectif",
         "lut": "LUT",
         "masks": "Masques",
@@ -1103,9 +1106,9 @@
       "applyButton_one": "Appliquer à 1 image",
       "applyButton_other": "Appliquer à {{count}} images",
       "bestImage": "Meilleure image",
-      "blurryImagesTab": "Images floues",
       "blurThreshold": "Seuil de flou",
       "blurThresholdDesc": "Les images avec un score de netteté inférieur à cette valeur sont signalées. Une valeur plus élevée est plus stricte.",
+      "blurryImagesTab": "Images floues",
       "cancel": "Annuler",
       "close": "Fermer",
       "cullingFailed": "Échec du tri",
@@ -1625,8 +1628,8 @@
     "tagging": {
       "addCustomPlaceholder": "Ajouter des étiquettes IA perso. (séparées par des virgules)...",
       "addCustomTooltip": "Ajouter une étiquette IA",
-      "addShortcutsPlaceholder": "Ajouter des raccourcis (séparés par des virgules)...",
       "addShortcutTooltip": "Ajouter un raccourci",
+      "addShortcutsPlaceholder": "Ajouter des raccourcis (séparés par des virgules)...",
       "aiTagging": "Marquage IA",
       "aiTaggingDesc": "Active le marquage automatique des images à l'aide d'un modèle IA (CLIP). Ceci téléchargera un modèle supplémentaire et aura un impact sur les performances lors de la navigation dans les dossiers. Les étiquettes sont utilisées pour rechercher dans un dossier.",
       "amount": "Quantité",
@@ -1688,6 +1691,7 @@
         "expandFilmstrip": "Développer la bande de film",
         "export": "Exporter",
         "pasteSettings": "Coller les paramètres",
+        "quickFilter": "Filtre rapide",
         "rateStars_one": "Noter 1 étoile",
         "rateStars_other": "Noter {{count}} étoiles",
         "resetZoom": "Réinitialiser le zoom pour ajuster à la fenêtre",

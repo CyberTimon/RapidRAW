@@ -43,6 +43,7 @@
         "shadows": "Sombras"
       },
       "hue": "Matiz",
+      "localHue": "Matiz local",
       "luminance": "Luminância",
       "mixerColors": {
         "aquas": "Água-marinha",
@@ -65,13 +66,13 @@
       "whiteBalance": "Balanço de Branco"
     },
     "curves": {
+      "channelTitle": "Canal {{channel}}",
       "channels": {
         "blue": "Azul",
         "green": "Verde",
         "luma": "Luma",
         "red": "Vermelho"
       },
-      "channelTitle": "Canal {{channel}}",
       "copyParametric": "Copiar Curva Paramétrica {{channel}}",
       "copyPoint": "Copiar Curva de Pontos {{channel}}",
       "curveDataUnavailable": "Dados da curva indisponíveis.",
@@ -625,8 +626,8 @@
       "organization": {
         "addTagPlaceholder": "Adicionar etiqueta...",
         "colorLabel": "Rótulo de Cor",
-        "none": "Nenhum",
         "noTags": "Sem etiquetas",
+        "none": "Nenhum",
         "rating": "Avaliação",
         "ratingLabels": "Avaliação e Rótulos",
         "tags": "Etiquetas",
@@ -635,6 +636,7 @@
       "title": "Metadados"
     },
     "presets": {
+      "amount": "Intensidade",
       "dialog": {
         "allPresetFiles": "Todos os Arquivos de Predefinições",
         "exportAllTitle": "Exportar Todas as Predefinições",
@@ -768,12 +770,12 @@
       "estimatedSize": "Tamanho estimado do arquivo: ~{{size}}",
       "estimatedTotalSize": "Tamanho total estimado: ~{{size}}",
       "estimatingSize": "Estimando tamanho...",
-      "exporting": "Exportando...",
-      "exportingProgress": "Exportando... ({{current}}/{{total}})",
       "exportMultiple": "Exportar {{count}} {{label}}",
       "exportMultiple_one": "Exportar {{count}} {{label}}",
       "exportMultiple_other": "Exportar {{count}} {{label}}",
       "exportSingle": "Exportar {{label}}",
+      "exporting": "Exportando...",
+      "exportingProgress": "Exportando... ({{current}}/{{total}})",
       "failed": "A exportação falhou",
       "noImageSelected": "Nenhuma imagem selecionada para exportação.",
       "noImagesSelected": "Nenhuma imagem selecionada.",
@@ -1064,6 +1066,7 @@
         "exposureToneMapper": "Exposição e Mapeador de Tons",
         "grain": "Granulação",
         "halationGlow": "Halo e Brilho",
+        "hueShift": "Deslocamento de matiz global",
         "lensCorrection": "Correção de Lente",
         "lut": "LUT",
         "masks": "Máscaras",
@@ -1103,9 +1106,9 @@
       "applyButton_one": "Aplicar a 1 imagem",
       "applyButton_other": "Aplicar a {{count}} imagens",
       "bestImage": "Melhor Imagem",
-      "blurryImagesTab": "Imagens Desfocadas",
       "blurThreshold": "Limiar de Desfoque",
       "blurThresholdDesc": "Imagens com pontuação de nitidez abaixo deste valor são sinalizadas. Maior é mais rigoroso.",
+      "blurryImagesTab": "Imagens Desfocadas",
       "cancel": "Cancelar",
       "close": "Fechar",
       "cullingFailed": "Falha na Seleção",
@@ -1625,8 +1628,8 @@
     "tagging": {
       "addCustomPlaceholder": "Adicionar etiquetas de IA personalizadas (separadas por vírgula)...",
       "addCustomTooltip": "Adicionar etiqueta de IA",
-      "addShortcutsPlaceholder": "Adicionar atalhos (separados por vírgula)...",
       "addShortcutTooltip": "Adicionar Atalho",
+      "addShortcutsPlaceholder": "Adicionar atalhos (separados por vírgula)...",
       "aiTagging": "Tagging por IA",
       "aiTaggingDesc": "Ativa a marcação automática de imagens usando um modelo de IA (CLIP). Isso baixará um modelo adicional e afetará o desempenho durante a navegação em pastas. As etiquetas são usadas para pesquisar em uma pasta.",
       "amount": "Quantidade",
@@ -1688,6 +1691,7 @@
         "expandFilmstrip": "Expandir Tira de Filme",
         "export": "Exportar",
         "pasteSettings": "Colar Configurações",
+        "quickFilter": "Filtro rápido",
         "rateStars_one": "Avaliar com 1 estrela",
         "rateStars_other": "Avaliar com {{count}} estrelas",
         "resetZoom": "Redefinir Zoom para Caber na Janela",

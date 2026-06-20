@@ -43,6 +43,7 @@
         "shadows": "Tiefen"
       },
       "hue": "Farbton",
+      "localHue": "Lokaler Farbton",
       "luminance": "Luminanz",
       "mixerColors": {
         "aquas": "Aquamarin",
@@ -65,13 +66,13 @@
       "whiteBalance": "Weißabgleich"
     },
     "curves": {
+      "channelTitle": "{{channel}}-Kanal",
       "channels": {
         "blue": "Blau",
         "green": "Grün",
         "luma": "Luma",
         "red": "Rot"
       },
-      "channelTitle": "{{channel}}-Kanal",
       "copyParametric": "Parametrische {{channel}}-Kurve kopieren",
       "copyPoint": "Punktkurve ({{channel}}) kopieren",
       "curveDataUnavailable": "Kurvendaten nicht verfügbar.",
@@ -625,8 +626,8 @@
       "organization": {
         "addTagPlaceholder": "Tag hinzufügen...",
         "colorLabel": "Farbmarkierung",
-        "none": "Keine",
         "noTags": "Keine Tags",
+        "none": "Keine",
         "rating": "Bewertung",
         "ratingLabels": "Bewertung & Markierungen",
         "tags": "Tags",
@@ -635,6 +636,7 @@
       "title": "Metadaten"
     },
     "presets": {
+      "amount": "Stärke",
       "dialog": {
         "allPresetFiles": "Alle Vorgabendateien",
         "exportAllTitle": "Alle Vorgaben exportieren",
@@ -768,12 +770,12 @@
       "estimatedSize": "Geschätzte Dateigröße: ~{{size}}",
       "estimatedTotalSize": "Geschätzte Gesamtgröße: ~{{size}}",
       "estimatingSize": "Größe wird geschätzt...",
-      "exporting": "Wird exportiert…",
-      "exportingProgress": "Wird exportiert… ({{current}}/{{total}})",
       "exportMultiple": "Exportiere {{count}} {{label}}",
       "exportMultiple_one": "Exportiere {{count}} {{label}}",
       "exportMultiple_other": "Exportiere {{count}} {{label}}",
       "exportSingle": "{{label}} exportieren",
+      "exporting": "Wird exportiert…",
+      "exportingProgress": "Wird exportiert… ({{current}}/{{total}})",
       "failed": "Export fehlgeschlagen",
       "noImageSelected": "Kein Bild zum Exportieren ausgewählt.",
       "noImagesSelected": "Keine Bilder ausgewählt.",
@@ -1064,6 +1066,7 @@
         "exposureToneMapper": "Belichtung & Tonemapper",
         "grain": "Körnung",
         "halationGlow": "Lichthof & Glühen",
+        "hueShift": "Globaler Farbton-Shift",
         "lensCorrection": "Objektivkorrektur",
         "lut": "LUT",
         "masks": "Masken",
@@ -1103,9 +1106,9 @@
       "applyButton_one": "Auf 1 Bild anwenden",
       "applyButton_other": "Auf {{count}} Bilder anwenden",
       "bestImage": "Bestes Bild",
-      "blurryImagesTab": "Unscharfe Bilder",
       "blurThreshold": "Unschärfe-Schwellenwert",
       "blurThresholdDesc": "Bilder mit einem Schärfewert unter diesem Wert werden markiert. Höher ist strenger.",
+      "blurryImagesTab": "Unscharfe Bilder",
       "cancel": "Abbrechen",
       "close": "Schließen",
       "cullingFailed": "Aussortieren fehlgeschlagen",
@@ -1625,8 +1628,8 @@
     "tagging": {
       "addCustomPlaceholder": "Benutzerdefinierte KI-Tags hinzufügen (kommagetrennt)...",
       "addCustomTooltip": "KI-Tag hinzufügen",
-      "addShortcutsPlaceholder": "Shortcuts hinzufügen (kommagetrennt)...",
       "addShortcutTooltip": "Shortcut hinzufügen",
+      "addShortcutsPlaceholder": "Shortcuts hinzufügen (kommagetrennt)...",
       "aiTagging": "KI-Tagging",
       "aiTaggingDesc": "Aktiviert automatisches Bild-Tagging mit einem KI-Modell (CLIP). Dies lädt ein zusätzliches Modell herunter und beeinträchtigt die Leistung beim Durchsuchen.",
       "amount": "Betrag",
@@ -1688,6 +1691,7 @@
         "expandFilmstrip": "Filmstreifen erweitern",
         "export": "Exportieren",
         "pasteSettings": "Einstellungen einfügen",
+        "quickFilter": "Schnellfilter",
         "rateStars_one": "Mit 1 Stern bewerten",
         "rateStars_other": "Mit {{count}} Sternen bewerten",
         "resetZoom": "Zoom auf Einpassen zurücksetzen",

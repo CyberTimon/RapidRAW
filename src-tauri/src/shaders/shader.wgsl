@@ -42,6 +42,10 @@ struct GlobalAdjustments {
     temperature: f32,
     tint: f32,
     vibrance: f32,
+    hue: f32,
+    _pad_color1: f32,
+    _pad_color2: f32,
+    _pad_color3: f32,
 
     sharpness: f32,
     luma_noise_reduction: f32,
@@ -138,9 +142,9 @@ struct MaskAdjustments {
     flare_amount: f32,
     sharpness_threshold: f32,
 
+    hue: f32,
     _pad_cg1: f32,
     _pad_cg2: f32,
-    _pad_cg3: f32,
     color_grading_shadows: ColorGradeSettings,
     color_grading_midtones: ColorGradeSettings,
     color_grading_highlights: ColorGradeSettings,
@@ -230,6 +234,15 @@ fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
     return select(higher, lower, c_clamped <= cutoff);
 }
 
+fn linear_to_srgb_extended(c: vec3<f32>) -> vec3<f32> {
+    let safe_c = max(c, vec3<f32>(0.0));
+    let cutoff = vec3<f32>(0.0031308);
+    let a = vec3<f32>(0.055);
+    let higher = (1.0 + a) * pow(safe_c, vec3<f32>(1.0 / 2.4)) - a;
+    let lower = safe_c * 12.92;
+    return select(higher, lower, safe_c <= cutoff);
+}
+
 fn rgb_to_hsv(c: vec3<f32>) -> vec3<f32> {
     let c_max = max(c.r, max(c.g, c.b));
     let c_min = min(c.r, min(c.g, c.b));
@@ -258,6 +271,18 @@ fn hsv_to_rgb(c: vec3<f32>) -> vec3<f32> {
     else if (h < 300.0) { rgb_prime = vec3<f32>(X, 0.0, C); }
     else { rgb_prime = vec3<f32>(C, 0.0, X); }
     return rgb_prime + vec3<f32>(m, m, m);
+}
+
+fn apply_hue_shift(color: vec3<f32>, shift_degrees: f32) -> vec3<f32> {
+    if (abs(shift_degrees) < 0.01) {
+        return color;
+    }
+    let srgb_color = linear_to_srgb_extended(color);
+    let hsv = rgb_to_hsv(srgb_color);
+    var shifted_h = hsv.x + shift_degrees;
+    shifted_h = (shifted_h + 360.0) % 360.0;
+    let shifted_srgb = hsv_to_rgb(vec3<f32>(shifted_h, hsv.y, hsv.z));
+    return srgb_to_linear(shifted_srgb);
 }
 
 fn get_raw_hsl_influence(hue: f32, center: f32, width: f32) -> f32 {
@@ -1459,6 +1484,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var t_halation = adjustments.global.halation_amount;
     var t_flare = adjustments.global.flare_amount;
     var t_sharpness = adjustments.global.sharpness;
+    var t_hue = adjustments.global.hue;
 
     var h0_h = adjustments.global.hsl[0].hue; var h0_s = adjustments.global.hsl[0].saturation; var h0_l = adjustments.global.hsl[0].luminance;
     var h1_h = adjustments.global.hsl[1].hue; var h1_s = adjustments.global.hsl[1].saturation; var h1_l = adjustments.global.hsl[1].luminance;
@@ -1496,6 +1522,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             t_glow += m.glow_amount * influence;
             t_halation += m.halation_amount * influence;
             t_flare += m.flare_amount * influence;
+            t_hue += m.hue * influence;
 
             h0_h += m.hsl[0].hue * influence; h0_s += m.hsl[0].saturation * influence; h0_l += m.hsl[0].luminance * influence;
             h1_h += m.hsl[1].hue * influence; h1_s += m.hsl[1].saturation * influence; h1_l += m.hsl[1].luminance * influence;
@@ -1590,6 +1617,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, tonal_blurred, is_raw, t_highlights);
     composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
     composite_rgb_linear = apply_hsl_panel(composite_rgb_linear, final_hsl, absolute_coord_i);
+    composite_rgb_linear = apply_hue_shift(composite_rgb_linear, t_hue);
     composite_rgb_linear = apply_creative_color(composite_rgb_linear, t_saturation, t_vibrance);
 
     composite_rgb_linear = apply_color_grading(
