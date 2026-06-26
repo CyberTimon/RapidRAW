@@ -3,8 +3,6 @@ use crate::android_integration::is_android_content_uri;
 use crate::android_integration::{
     get_android_cached_lut_path, read_android_content_uri, resolve_android_content_uri_name,
 };
-#[cfg(target_os = "android")]
-use anyhow::Context;
 use anyhow::{Result, anyhow};
 use image::{DynamicImage, GenericImageView, Rgb, Rgb32FImage};
 #[cfg(target_os = "android")]

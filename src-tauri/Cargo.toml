@@ -73,10 +73,11 @@ tauri-plugin-single-instance = "2.4.2"
 reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "rustls"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc = "0.2"
+objc2 = "0.6.4"
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-context = "0.1"
+
 jni = "0.21"
 reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "rustls"] }
 include_dir = "0.7.4"
@@ -103,3 +104,6 @@ opt-level = 3
 codegen-units = 1
 lto = true
 strip = true
+
+[lints.rust]
+warnings = "deny"

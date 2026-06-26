@@ -7,6 +7,7 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use std::process::Command;
 use std::sync::Arc;
 use std::thread;
@@ -2565,6 +2566,7 @@ fn get_internal_library_root_path(app_handle: &AppHandle) -> Result<std::path::P
     }
     #[cfg(target_os = "android")]
     {
+        let _ = app_handle;
         crate::android_integration::get_android_internal_library_root()
     }
 }
@@ -2801,49 +2803,54 @@ pub fn clear_thumbnail_cache(app_handle: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub fn show_in_finder(path: String) -> Result<(), String> {
-    let (source_path, _) = parse_virtual_path(&path);
-
-    #[cfg(target_os = "windows")]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
-        let source_path_str = source_path.to_string_lossy().to_string();
-        Command::new("explorer")
-            .args(["/select,", &source_path_str])
-            .spawn()
-            .map_err(|e| e.to_string())?;
-    }
+        let (source_path, _) = parse_virtual_path(&path);
 
-    #[cfg(target_os = "macos")]
-    {
-        let source_path_str = source_path.to_string_lossy().to_string();
-        Command::new("open")
-            .args(["-R", &source_path_str])
-            .spawn()
-            .map_err(|e| e.to_string())?;
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        if let Some(parent) = source_path.parent() {
-            Command::new("xdg-open")
-                .arg(parent)
+        #[cfg(target_os = "windows")]
+        {
+            let source_path_str = source_path.to_string_lossy().to_string();
+            Command::new("explorer")
+                .args(["/select,", &source_path_str])
                 .spawn()
                 .map_err(|e| e.to_string())?;
-        } else {
-            return Err("Could not get parent directory".into());
         }
+
+        #[cfg(target_os = "macos")]
+        {
+            let source_path_str = source_path.to_string_lossy().to_string();
+            Command::new("open")
+                .args(["-R", &source_path_str])
+                .spawn()
+                .map_err(|e| e.to_string())?;
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            if let Some(parent) = source_path.parent() {
+                Command::new("xdg-open")
+                    .arg(parent)
+                    .spawn()
+                    .map_err(|e| e.to_string())?;
+            } else {
+                return Err("Could not get parent directory".into());
+            }
+        }
+
+        Ok(())
     }
 
     #[cfg(target_os = "android")]
     {
-        return Err("Show in File Manager is not natively supported via CLI on Android.".into());
+        let _ = path;
+        Err("Show in File Manager is not natively supported via CLI on Android.".into())
     }
 
     #[cfg(target_os = "ios")]
     {
-        return Err("Show in File Manager is not supported on iOS.".into());
+        let _ = path;
+        Err("Show in File Manager is not supported on iOS.".into())
     }
-
-    Ok(())
 }
 
 #[tauri::command]

@@ -106,7 +106,7 @@ extern "C" fn force_exit(_signal: libc::c_int) {
 #[cfg(target_os = "macos")]
 pub fn register_exit_handler() {
     unsafe {
-        libc::signal(libc::SIGABRT, force_exit as libc::sighandler_t);
+        libc::signal(libc::SIGABRT, force_exit as *const () as libc::sighandler_t);
     }
 }
 
@@ -1815,50 +1815,58 @@ fn frontend_ready(
 
     #[cfg(not(target_os = "android"))]
     {
-        let mut should_maximize = false;
-        let mut should_fullscreen = false;
-
-        if is_first_run && let Ok(config_dir) = app_handle.path().app_config_dir() {
-            let path = config_dir.join("window_state.json");
-
-            if let Ok(contents) = std::fs::read_to_string(&path)
-                && let Ok(saved_state) = serde_json::from_str::<WindowState>(&contents)
+        let (should_maximize, should_fullscreen) = {
+            #[cfg(any(windows, target_os = "linux"))]
             {
-                #[cfg(any(windows, target_os = "linux"))]
-                {
-                    should_maximize = saved_state.maximized;
-                    should_fullscreen = saved_state.fullscreen;
-                }
+                let mut max = false;
+                let mut full = false;
+                if is_first_run && let Ok(config_dir) = app_handle.path().app_config_dir() {
+                    let path = config_dir.join("window_state.json");
 
-                if (should_maximize || should_fullscreen)
-                    && let Some(monitor) = window
-                        .current_monitor()
-                        .ok()
-                        .flatten()
-                        .or_else(|| window.primary_monitor().ok().flatten())
-                        .or_else(|| {
-                            window
-                                .available_monitors()
+                    if let Ok(contents) = std::fs::read_to_string(&path)
+                        && let Ok(saved_state) = serde_json::from_str::<WindowState>(&contents)
+                    {
+                        max = saved_state.maximized;
+                        full = saved_state.fullscreen;
+
+                        if (max || full)
+                            && let Some(monitor) = window
+                                .current_monitor()
                                 .ok()
-                                .and_then(|m| m.into_iter().next())
-                        })
-                {
-                    let monitor_size = monitor.size();
-                    let monitor_pos = monitor.position();
-                    let default_width = 1280i32;
-                    let default_height = 720i32;
-                    let center_x = monitor_pos.x + (monitor_size.width as i32 - default_width) / 2;
-                    let center_y =
-                        monitor_pos.y + (monitor_size.height as i32 - default_height) / 2;
+                                .flatten()
+                                .or_else(|| window.primary_monitor().ok().flatten())
+                                .or_else(|| {
+                                    window
+                                        .available_monitors()
+                                        .ok()
+                                        .and_then(|m| m.into_iter().next())
+                                })
+                        {
+                            let monitor_size = monitor.size();
+                            let monitor_pos = monitor.position();
+                            let default_width = 1280i32;
+                            let default_height = 720i32;
+                            let center_x =
+                                monitor_pos.x + (monitor_size.width as i32 - default_width) / 2;
+                            let center_y =
+                                monitor_pos.y + (monitor_size.height as i32 - default_height) / 2;
 
-                    let _ = window.set_size(tauri::PhysicalSize::new(
-                        default_width as u32,
-                        default_height as u32,
-                    ));
-                    let _ = window.set_position(tauri::PhysicalPosition::new(center_x, center_y));
+                            let _ = window.set_size(tauri::PhysicalSize::new(
+                                default_width as u32,
+                                default_height as u32,
+                            ));
+                            let _ = window
+                                .set_position(tauri::PhysicalPosition::new(center_x, center_y));
+                        }
+                    }
                 }
+                (max, full)
             }
-        }
+            #[cfg(not(any(windows, target_os = "linux")))]
+            {
+                (false, false)
+            }
+        };
 
         if let Err(e) = window.show() {
             log::error!("Failed to show window: {}", e);
@@ -1888,35 +1896,33 @@ fn frontend_ready(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut builder = tauri::Builder::default();
+    let builder = tauri::Builder::default();
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            log::info!(
-                "New instance launched with args: {:?}. Focusing main window.",
-                argv
-            );
-            if let Some(window) = app.get_webview_window("main") {
-                if let Err(e) = window.unminimize() {
-                    log::error!("Failed to unminimize window: {}", e);
-                }
-                if let Err(e) = window.set_focus() {
-                    log::error!("Failed to set focus on window: {}", e);
-                }
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        log::info!(
+            "New instance launched with args: {:?}. Focusing main window.",
+            argv
+        );
+        if let Some(window) = app.get_webview_window("main") {
+            if let Err(e) = window.unminimize() {
+                log::error!("Failed to unminimize window: {}", e);
             }
+            if let Err(e) = window.set_focus() {
+                log::error!("Failed to set focus on window: {}", e);
+            }
+        }
 
-            if argv.len() > 1 {
-                let path_str = &argv[1];
-                if let Err(e) = app.emit("open-with-file", path_str) {
-                    log::error!(
-                        "Failed to emit open-with-file from single-instance handler: {}",
-                        e
-                    );
-                }
+        if argv.len() > 1 {
+            let path_str = &argv[1];
+            if let Err(e) = app.emit("open-with-file", path_str) {
+                log::error!(
+                    "Failed to emit open-with-file from single-instance handler: {}",
+                    e
+                );
             }
-        }));
-    }
+        }
+    }));
 
     builder
         .plugin(tauri_plugin_os::init())
@@ -2044,14 +2050,12 @@ pub fn run() {
                 .expect("Main window config not found")
                 .clone();
 
-            let mut window_builder =
+            let window_builder =
                 tauri::WebviewWindowBuilder::from_config(app.handle(), &main_window_cfg)
                     .unwrap();
 
             #[cfg(not(target_os = "android"))]
-            {
-                window_builder = window_builder.decorations(decorations).visible(false);
-            }
+            let window_builder = window_builder.decorations(decorations).visible(false);
 
             let window = window_builder.build().expect("Failed to build window");
 
@@ -2324,15 +2328,13 @@ pub fn run() {
             match event {
                 #[cfg(target_os = "macos")]
                 tauri::RunEvent::Opened { urls } => {
-                    if let Some(url) = urls.first() {
-                        if let Ok(path) = url.to_file_path() {
-                            if let Some(path_str) = path.to_str() {
+                    if let Some(url) = urls.first()
+                        && let Ok(path) = url.to_file_path()
+                            && let Some(path_str) = path.to_str() {
                                 let state = app_handle.state::<AppState>();
                                 *state.initial_file_path.lock().unwrap() = Some(path_str.to_string());
                                 log::info!("macOS initial open: Stored path {} for later.", path_str);
                             }
-                        }
-                    }
                 }
                 tauri::RunEvent::ExitRequested { api, .. } => {
                     api.prevent_exit();

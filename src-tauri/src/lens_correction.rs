@@ -4,8 +4,12 @@ use fuzzy_matcher::FuzzyMatcher;
 use include_dir::{Dir, include_dir};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+#[cfg(not(target_os = "android"))]
 use std::fs;
-use tauri::{Manager, State};
+#[cfg(not(target_os = "android"))]
+use tauri::Manager;
+use tauri::State;
+#[cfg(not(target_os = "android"))]
 use walkdir::WalkDir;
 #[cfg(target_os = "android")]
 static LENS_DB_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/lensfun_db");
@@ -533,6 +537,7 @@ pub fn load_lensfun_db(app_handle: &tauri::AppHandle) -> LensDatabase {
 
     #[cfg(target_os = "android")]
     {
+        let _ = app_handle;
         log::info!("Loading Lensfun DB from embedded assets (Android path)");
 
         for file in LENS_DB_DIR.files() {
@@ -543,16 +548,14 @@ pub fn load_lensfun_db(app_handle: &tauri::AppHandle) -> LensDatabase {
                 .map(|s| s.eq_ignore_ascii_case("xml"))
                 .unwrap_or(false);
 
-            if is_xml {
-                if let Some(xml_content) = file.contents_utf8() {
-                    match quick_xml::de::from_str::<LensDatabase>(xml_content) {
-                        Ok(mut db) => {
-                            combined_db.cameras.append(&mut db.cameras);
-                            combined_db.lenses.append(&mut db.lenses);
-                        }
-                        Err(e) => {
-                            log::error!("Failed to parse embedded XML {:?}: {}", file.path(), e)
-                        }
+            if let (true, Some(xml_content)) = (is_xml, file.contents_utf8()) {
+                match quick_xml::de::from_str::<LensDatabase>(xml_content) {
+                    Ok(mut db) => {
+                        combined_db.cameras.append(&mut db.cameras);
+                        combined_db.lenses.append(&mut db.lenses);
+                    }
+                    Err(e) => {
+                        log::error!("Failed to parse embedded XML {:?}: {}", file.path(), e)
                     }
                 }
             }

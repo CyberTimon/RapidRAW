@@ -6,39 +6,41 @@ pub struct PinchZoomDisablePlugin;
 const MACOS_WINDOW_RADIUS: f64 = 14.0;
 
 #[cfg(target_os = "macos")]
-unsafe fn apply_macos_window_rounding(ns_view: *mut objc::runtime::Object) {
-    use objc::{msg_send, sel, sel_impl};
+unsafe fn apply_macos_window_rounding(ns_view_ptr: *mut std::ffi::c_void) {
+    use objc2::{msg_send, runtime::AnyObject};
 
-    if ns_view.is_null() {
+    if ns_view_ptr.is_null() {
         return;
     }
 
-    let ns_window: *mut objc::runtime::Object = msg_send![ns_view, window];
+    let ns_view = ns_view_ptr as *mut AnyObject;
+
+    let ns_window: *mut AnyObject = msg_send![ns_view, window];
     if ns_window.is_null() {
         return;
     }
 
-    let () = msg_send![ns_window, setOpaque: false];
-    let () = msg_send![ns_window, setHasShadow: true];
+    let _: () = msg_send![ns_window, setOpaque: false];
+    let _: () = msg_send![ns_window, setHasShadow: true];
 
-    let content_view: *mut objc::runtime::Object = msg_send![ns_window, contentView];
+    let content_view: *mut AnyObject = msg_send![ns_window, contentView];
     if !content_view.is_null() {
-        let () = msg_send![content_view, setWantsLayer: true];
-        let content_layer: *mut objc::runtime::Object = msg_send![content_view, layer];
+        let _: () = msg_send![content_view, setWantsLayer: true];
+        let content_layer: *mut AnyObject = msg_send![content_view, layer];
         if !content_layer.is_null() {
-            let () = msg_send![content_layer, setCornerRadius: MACOS_WINDOW_RADIUS];
-            let () = msg_send![content_layer, setMasksToBounds: true];
+            let _: () = msg_send![content_layer, setCornerRadius: MACOS_WINDOW_RADIUS];
+            let _: () = msg_send![content_layer, setMasksToBounds: true];
         }
     }
 
-    let () = msg_send![ns_view, setWantsLayer: true];
-    let webview_layer: *mut objc::runtime::Object = msg_send![ns_view, layer];
+    let _: () = msg_send![ns_view, setWantsLayer: true];
+    let webview_layer: *mut AnyObject = msg_send![ns_view, layer];
     if !webview_layer.is_null() {
-        let () = msg_send![webview_layer, setCornerRadius: MACOS_WINDOW_RADIUS];
-        let () = msg_send![webview_layer, setMasksToBounds: true];
+        let _: () = msg_send![webview_layer, setCornerRadius: MACOS_WINDOW_RADIUS];
+        let _: () = msg_send![webview_layer, setMasksToBounds: true];
     }
 
-    let () = msg_send![ns_window, invalidateShadow];
+    let _: () = msg_send![ns_window, invalidateShadow];
 }
 
 impl Default for PinchZoomDisablePlugin {
