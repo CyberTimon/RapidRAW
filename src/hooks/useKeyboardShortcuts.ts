@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ImageFile, Panel, ExifOverlay } from '../components/ui/AppProperties';
-import { KEYBIND_DEFINITIONS, normalizeCombo } from '../utils/keyboardUtils';
+import { KEYBIND_DEFINITIONS, ADJUSTMENT_NUDGES, normalizeCombo } from '../utils/keyboardUtils';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -28,7 +28,7 @@ export const useKeyboardShortcuts = ({
   handleToggleFullScreen,
   handleZoomChange,
 }: KeyboardShortcutsProps) => {
-  const { handleRotate, handleCopyAdjustments, handlePasteAdjustments } = useEditorActions();
+  const { setAdjustments, handleRotate, handleCopyAdjustments, handlePasteAdjustments } = useEditorActions();
   const { handleRate, handleSetColorLabel } = useLibraryActions();
 
   const sortedListRef = useRef(sortedImageList);
@@ -449,6 +449,25 @@ export const useKeyboardShortcuts = ({
       },
     };
 
+    // Capture One–style increase/decrease shortcuts for the tonal & color
+    // sliders, generated from the shared ADJUSTMENT_NUDGES config so the
+    // keybinds and their behaviour stay in lockstep. Each nudges the global
+    // adjustment value and rides the same debounced-history path as the sliders.
+    for (const nudge of ADJUSTMENT_NUDGES) {
+      actions[nudge.action] = {
+        shouldFire: (s: any) => !!s.editor.selectedImage,
+        execute: (e: any) => {
+          e.preventDefault();
+          setAdjustments((prev: any) => {
+            const current = typeof prev[nudge.adjustmentKey] === 'number' ? prev[nudge.adjustmentKey] : 0;
+            // Round to 2 decimals so repeated 0.1 EV steps don't accumulate float drift.
+            const next = Math.round(Math.min(nudge.max, Math.max(nudge.min, current + nudge.delta)) * 100) / 100;
+            return { ...prev, [nudge.adjustmentKey]: next };
+          });
+        },
+      };
+    }
+
     const builtinShortcuts = [
       {
         match: (e: KeyboardEvent) => e.code === 'Escape',
@@ -566,6 +585,7 @@ export const useKeyboardShortcuts = ({
     handlePasteFiles,
     handleToggleFullScreen,
     handleZoomChange,
+    setAdjustments,
     handleRotate,
     handleCopyAdjustments,
     handlePasteAdjustments,

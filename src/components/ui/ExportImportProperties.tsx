@@ -26,12 +26,33 @@ export const FILE_FORMATS: Array<FileFormat> = [
 export const FILENAME_VARIABLES: Array<string> = [
   '{original_filename}',
   '{sequence}',
+  '{title}',
+  '{author}',
+  '{copyright}',
+  '{comments}',
   '{YYYY}',
   '{MM}',
   '{DD}',
   '{hh}',
   '{mm}',
 ];
+
+// The original author's default export filename template.
+export const DEFAULT_FILENAME_TEMPLATE = '{original_filename}_edited';
+
+// Guards against a persisted/imported template that references an unknown token
+// (e.g. a stray "{dcp_title}" saved into the last-used preset): an unrecognized
+// {token} never gets substituted and would leak into the output filename, so we
+// fall back to the default instead.
+export function sanitizeFilenameTemplate(template: string | null | undefined): string {
+  if (!template || !template.trim()) {
+    return DEFAULT_FILENAME_TEMPLATE;
+  }
+  const knownTokens = new Set(FILENAME_VARIABLES);
+  const usedTokens = template.match(/\{[^}]+\}/g) ?? [];
+  const hasUnknownToken = usedTokens.some((token) => !knownTokens.has(token));
+  return hasUnknownToken ? DEFAULT_FILENAME_TEMPLATE : template;
+}
 
 export interface ExportSettings {
   filenameTemplate: string | null;

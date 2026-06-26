@@ -284,6 +284,56 @@ function App() {
 
   const sortedImageList = useSortedLibrary();
 
+  // When the currently-focused image drops out of the filtered/sorted view (e.g. its
+  // rating is lowered below the active star filter), keep the cursor on the view by
+  // advancing to the nearest still-visible image instead of losing the selection.
+  // Covers both the editor (selectedImage) and the library grid (libraryActivePath).
+  const prevSortedListRef = useRef(sortedImageList);
+  useEffect(() => {
+    const prevList = prevSortedListRef.current;
+    prevSortedListRef.current = sortedImageList;
+
+    const visiblePaths = new Set(sortedImageList.map((img) => img.path));
+
+    // Find the nearest path that is still visible, scanning forward from the dropped
+    // image's old position first, then backward. Returns null if nothing remains.
+    const findNearestVisible = (droppedPath: string): string | null => {
+      const oldIndex = prevList.findIndex((img) => img.path === droppedPath);
+      // Only intervene if the image was actually visible in the previous view. This
+      // avoids hijacking selection on unrelated changes such as switching folders/albums.
+      if (oldIndex === -1) return null;
+      for (let i = oldIndex + 1; i < prevList.length; i++) {
+        if (visiblePaths.has(prevList[i].path)) return prevList[i].path;
+      }
+      for (let i = oldIndex - 1; i >= 0; i--) {
+        if (visiblePaths.has(prevList[i].path)) return prevList[i].path;
+      }
+      return null;
+    };
+
+    if (selectedImage) {
+      // Editor view: the open image is the cursor.
+      if (visiblePaths.has(selectedImage.path)) return;
+      const nextPath = findNearestVisible(selectedImage.path);
+      if (nextPath) handleImageSelect(nextPath);
+      return;
+    }
+
+    // Library grid view: libraryActivePath is the cursor.
+    const { libraryActivePath, multiSelectedPaths, setLibrary } = useLibraryStore.getState();
+    if (!libraryActivePath || visiblePaths.has(libraryActivePath)) return;
+    const nextPath = findNearestVisible(libraryActivePath);
+    if (!nextPath) return;
+    // Preserve any still-visible members of the existing multi-selection; otherwise
+    // fall back to selecting just the new cursor image (mirrors a single click).
+    const survivingSelected = multiSelectedPaths.filter((p: string) => visiblePaths.has(p));
+    setLibrary({
+      multiSelectedPaths: survivingSelected.length > 0 ? survivingSelected : [nextPath],
+      libraryActivePath: nextPath,
+      selectionAnchorPath: nextPath,
+    });
+  }, [sortedImageList, selectedImage, handleImageSelect]);
+
   const handleLibraryRefresh = useCallback(async () => {
     if (currentFolderPath) {
       if (currentFolderPath.startsWith('Album: ')) {

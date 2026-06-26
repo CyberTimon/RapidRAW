@@ -2,7 +2,7 @@ export interface KeybindDefinition {
   action: string;
   description: string;
   defaultCombo: string[];
-  section: 'library' | 'view' | 'rating' | 'panels' | 'editing';
+  section: 'library' | 'view' | 'rating' | 'panels' | 'editing' | 'adjustments';
 }
 
 export interface KeybindSection {
@@ -13,9 +13,47 @@ export interface KeybindSection {
 export const KEYBIND_SECTIONS: KeybindSection[] = [
   { id: 'library', label: 'settings.keybinds.sections.library' },
   { id: 'editing', label: 'settings.keybinds.sections.editing' },
+  { id: 'adjustments', label: 'settings.keybinds.sections.adjustments' },
   { id: 'view', label: 'settings.keybinds.sections.view' },
   { id: 'rating', label: 'settings.keybinds.sections.rating' },
   { id: 'panels', label: 'settings.keybinds.sections.panels' },
+];
+
+// Capture One–inspired increase/decrease shortcuts for the core tonal and
+// color sliders. The `+` (Equal) and `-` (Minus) keys set the direction, just
+// like Capture One; the modifier family selects the adjustment. Each entry also
+// carries the data needed to apply it (target adjustment key, step, and clamp
+// range) so the dispatcher in useKeyboardShortcuts stays config-driven and the
+// keybind list cannot drift out of sync with the behaviour.
+export interface AdjustmentNudge {
+  action: string;
+  description: string;
+  defaultCombo: string[];
+  adjustmentKey: string;
+  delta: number;
+  min: number;
+  max: number;
+}
+
+export const ADJUSTMENT_NUDGES: AdjustmentNudge[] = [
+  // Exposure — Capture One uses Ctrl/Cmd + +/-, but that combo is bound to Zoom
+  // here, so exposure moves to Alt + +/-. Step matches Capture One (0.1 EV).
+  { action: 'exposure_up', description: 'settings.keybinds.actions.exposure_up', defaultCombo: ['alt', 'Equal'], adjustmentKey: 'exposure', delta: 0.1, min: -5, max: 5 },
+  { action: 'exposure_down', description: 'settings.keybinds.actions.exposure_down', defaultCombo: ['alt', 'Minus'], adjustmentKey: 'exposure', delta: -0.1, min: -5, max: 5 },
+  // Contrast — matches Capture One's Ctrl(+Shift+Cmd) modifier family.
+  { action: 'contrast_up', description: 'settings.keybinds.actions.contrast_up', defaultCombo: ['ctrl', 'shift', 'Equal'], adjustmentKey: 'contrast', delta: 5, min: -100, max: 100 },
+  { action: 'contrast_down', description: 'settings.keybinds.actions.contrast_down', defaultCombo: ['ctrl', 'shift', 'Minus'], adjustmentKey: 'contrast', delta: -5, min: -100, max: 100 },
+  // Saturation — matches Capture One's Ctrl(+Alt+Cmd) modifier family.
+  { action: 'saturation_up', description: 'settings.keybinds.actions.saturation_up', defaultCombo: ['ctrl', 'alt', 'Equal'], adjustmentKey: 'saturation', delta: 5, min: -100, max: 100 },
+  { action: 'saturation_down', description: 'settings.keybinds.actions.saturation_down', defaultCombo: ['ctrl', 'alt', 'Minus'], adjustmentKey: 'saturation', delta: -5, min: -100, max: 100 },
+  { action: 'vibrance_up', description: 'settings.keybinds.actions.vibrance_up', defaultCombo: ['shift', 'alt', 'Equal'], adjustmentKey: 'vibrance', delta: 5, min: -100, max: 100 },
+  { action: 'vibrance_down', description: 'settings.keybinds.actions.vibrance_down', defaultCombo: ['shift', 'alt', 'Minus'], adjustmentKey: 'vibrance', delta: -5, min: -100, max: 100 },
+  // Temperature / Tint together cover white balance. Temperature gets the
+  // simpler Shift + +/- combo; tint takes the fuller modifier family.
+  { action: 'temperature_up', description: 'settings.keybinds.actions.temperature_up', defaultCombo: ['shift', 'Equal'], adjustmentKey: 'temperature', delta: 5, min: -100, max: 100 },
+  { action: 'temperature_down', description: 'settings.keybinds.actions.temperature_down', defaultCombo: ['shift', 'Minus'], adjustmentKey: 'temperature', delta: -5, min: -100, max: 100 },
+  { action: 'tint_up', description: 'settings.keybinds.actions.tint_up', defaultCombo: ['ctrl', 'shift', 'alt', 'Equal'], adjustmentKey: 'tint', delta: 5, min: -100, max: 100 },
+  { action: 'tint_down', description: 'settings.keybinds.actions.tint_down', defaultCombo: ['ctrl', 'shift', 'alt', 'Minus'], adjustmentKey: 'tint', delta: -5, min: -100, max: 100 },
 ];
 
 export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
@@ -255,6 +293,14 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     defaultCombo: ['ctrl', 'ArrowDown'],
     section: 'editing',
   },
+  ...ADJUSTMENT_NUDGES.map(
+    (n): KeybindDefinition => ({
+      action: n.action,
+      description: n.description,
+      defaultCombo: n.defaultCombo,
+      section: 'adjustments',
+    }),
+  ),
 ];
 
 const symMap: Record<string, string> = {

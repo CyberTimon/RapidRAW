@@ -475,9 +475,19 @@ export default function ExportPanel({
 
       let outputFolderOrFile = '';
       if (numImages === 1) {
-        const originalFilename = pathsToExport[0].split(/[\\/]/).pop() || '';
-        const stem = originalFilename.substring(0, originalFilename.lastIndexOf('.')) || originalFilename;
-        const suggestedName = finalFilenameTemplate.replace('{original_filename}', stem);
+        let suggestedName: string;
+        try {
+          // Resolve the template (dates, metadata tokens, original filename) in the
+          // backend so single-image export supports the same tokens as batch.
+          suggestedName = await invoke<string>(Invokes.GenerateExportFilename, {
+            path: pathsToExport[0],
+            template: finalFilenameTemplate,
+          });
+        } catch {
+          const originalFilename = pathsToExport[0].split(/[\\/]/).pop() || '';
+          const stem = originalFilename.substring(0, originalFilename.lastIndexOf('.')) || originalFilename;
+          suggestedName = finalFilenameTemplate.replace('{original_filename}', stem);
+        }
         const outputFileName = `${suggestedName}.${selectedFormat.extensions[0]}`;
 
         outputFolderOrFile = isAndroid
@@ -607,18 +617,18 @@ export default function ExportPanel({
               )}
             </Section>
 
-            {numImages > 1 && (
-              <Section title={t('export.sections.fileNaming')}>
-                <input
-                  className="w-full bg-surface border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
-                  disabled={isExporting}
-                  onChange={(e) => setFilenameTemplate(e.target.value)}
-                  ref={filenameInputRef}
-                  type="text"
-                  value={filenameTemplate}
-                />
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {FILENAME_VARIABLES.map((variable: string) => (
+            <Section title={t('export.sections.fileNaming')}>
+              <input
+                className="w-full bg-surface border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
+                disabled={isExporting}
+                onChange={(e) => setFilenameTemplate(e.target.value)}
+                ref={filenameInputRef}
+                type="text"
+                value={filenameTemplate}
+              />
+              <div className="flex flex-wrap gap-2 mt-2">
+                {FILENAME_VARIABLES.filter((variable: string) => numImages > 1 || variable !== '{sequence}').map(
+                  (variable: string) => (
                     <button
                       className="px-2 py-1 bg-surface text-text-secondary text-xs rounded-md hover:bg-card-active transition-colors disabled:opacity-50"
                       disabled={isExporting}
@@ -627,10 +637,10 @@ export default function ExportPanel({
                     >
                       {variable}
                     </button>
-                  ))}
-                </div>
-              </Section>
-            )}
+                  ),
+                )}
+              </div>
+            </Section>
 
             {fileFormat !== FileFormats.Cube && (
               <>

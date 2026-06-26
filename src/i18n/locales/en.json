@@ -585,7 +585,11 @@
     },
     "metadata": {
       "author": {
+        "batchHint": "Edits apply to all {{count}} selected images.",
         "creatorDetails": "Creator Details",
+        "syncSuccess": "Metadata synced to {{count}} images",
+        "syncToSelected": "Sync to {{count}} selected",
+        "syncTooltip": "Copy this image's creator details to all selected images",
         "title": "Author & Copyright"
       },
       "camera": {
@@ -1434,10 +1438,14 @@
         "color_label_purple": "Color label: Purple",
         "color_label_red": "Color label: Red",
         "color_label_yellow": "Color label: Yellow",
+        "contrast_down": "Decrease contrast",
+        "contrast_up": "Increase contrast",
         "copy_adjustments": "Copy selected adjustments",
         "copy_files": "Copy selected file(s)",
         "cycle_zoom": "Cycle zoom (Fit, 2x Fit, 100%)",
         "delete_selected": "Delete selected file(s)",
+        "exposure_down": "Decrease exposure",
+        "exposure_up": "Increase exposure",
         "open_image": "Open selected image",
         "paste_adjustments": "Paste copied adjustments",
         "paste_files": "Paste file(s) to current folder",
@@ -1452,8 +1460,14 @@
         "redo": "Redo adjustment",
         "rotate_left": "Rotate 90° counter-clockwise",
         "rotate_right": "Rotate 90° clockwise",
+        "saturation_down": "Decrease saturation",
+        "saturation_up": "Increase saturation",
         "select_all": "Select all images",
         "show_original": "Show original (before/after)",
+        "temperature_down": "Decrease temperature (cooler)",
+        "temperature_up": "Increase temperature (warmer)",
+        "tint_down": "Decrease tint (green)",
+        "tint_up": "Increase tint (magenta)",
         "toggle_adjustments": "Toggle Adjustments panel",
         "toggle_ai": "Toggle AI panel",
         "toggle_analytics": "Toggle Analytics display",
@@ -1466,6 +1480,8 @@
         "toggle_metadata": "Toggle Metadata panel",
         "toggle_presets": "Toggle Presets panel",
         "undo": "Undo adjustment",
+        "vibrance_down": "Decrease vibrance",
+        "vibrance_up": "Increase vibrance",
         "zoom_100": "Zoom to 100%",
         "zoom_fit": "Zoom to fit",
         "zoom_in": "Zoom in",
@@ -1474,6 +1490,7 @@
         "zoom_out_step": "Zoom out (by step)"
       },
       "sections": {
+        "adjustments": "Adjustments",
         "editing": "Editing",
         "library": "Library",
         "panels": "Panels",

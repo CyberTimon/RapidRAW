@@ -135,7 +135,13 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       }
 
       selectedImagePathRef.current = path;
-      setLibrary({ multiSelectedPaths: [path], libraryActivePath: null, selectionAnchorPath: path });
+      // Preserve an existing multi-selection when opening an image that's part of
+      // it, so batch actions (e.g. metadata edits) keep targeting the whole
+      // selection instead of collapsing to just the opened image.
+      const existingSelection = useLibraryStore.getState().multiSelectedPaths;
+      const nextSelection =
+        existingSelection.length > 1 && existingSelection.includes(path) ? existingSelection : [path];
+      setLibrary({ multiSelectedPaths: nextSelection, libraryActivePath: null, selectionAnchorPath: path });
 
       setEditor({
         showOriginal: false,

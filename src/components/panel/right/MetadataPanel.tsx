@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Check, ChevronDown, ChevronRight, Plus, Star, Tag, X, User } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Plus, Star, Tag, X, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { Invokes } from '../../ui/AppProperties';
@@ -249,6 +250,20 @@ export default function MetadataPanel() {
   const liveThumbnailUrl = selectedImage ? thumbnails[selectedImage.path] : undefined;
 
   const targetPaths = multiSelectedPaths?.length > 0 ? multiSelectedPaths : selectedImage ? [selectedImage.path] : [];
+  const isBatch = targetPaths.length > 1;
+
+  // Copy the focused image's creator-detail fields to every selected image.
+  const handleSyncMetadata = () => {
+    if (!selectedImage || !isBatch) return;
+    const updates: Record<string, string> = {};
+    EDITABLE_FIELDS.forEach((field) => {
+      const raw = (selectedImage.exif?.[field.key] as string) || '';
+      const clean = raw.replace(/^"|"$/g, '').trim();
+      updates[field.key] = clean.toLowerCase() === 'default' ? '' : clean;
+    });
+    handleUpdateExif(targetPaths, updates);
+    toast.success(t('editor.metadata.author.syncSuccess', { count: targetPaths.length }));
+  };
 
   const { cameraGridSettings, lensSetting, gpsData, otherExifEntries } = useMemo(() => {
     const exif = selectedImage?.exif || {};
@@ -545,6 +560,20 @@ export default function MetadataPanel() {
                             />
                           );
                         })}
+                        {isBatch && (
+                          <div className="mt-2 pt-2 border-t border-surface/50 flex flex-col gap-2">
+                            <Text variant={TextVariants.small} color={TextColors.secondary}>
+                              {t('editor.metadata.author.batchHint', { count: targetPaths.length })}
+                            </Text>
+                            <button
+                              onClick={handleSyncMetadata}
+                              data-tooltip={t('editor.metadata.author.syncTooltip')}
+                              className="flex items-center justify-center gap-2 px-2 py-1.5 bg-bg-secondary/40 hover:bg-card-active border border-surface/50 rounded-md transition-colors text-xs text-text-primary"
+                            >
+                              <Copy size={14} /> {t('editor.metadata.author.syncToSelected', { count: targetPaths.length })}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   )}
