@@ -875,6 +875,16 @@ pub fn run_lama_inpainting(
         outputs[0].try_extract_array::<f32>()?.to_owned()
     };
 
+    let out_dims = output_tensor.shape();
+    if out_dims.len() < 4 || (out_dims[2] as u32) < fh || (out_dims[3] as u32) < fw {
+        return Err(anyhow::anyhow!(
+            "LaMa output shape {:?} smaller than expected {}x{}",
+            out_dims,
+            fw,
+            fh
+        ));
+    }
+
     let mut result_inf = RgbaImage::new(fw, fh);
     for y in 0..fh {
         for x in 0..fw {
@@ -1045,11 +1055,27 @@ pub fn run_sam_decoder(
         };
 
         let mask_dims = mask_tensor.shape();
+        if mask_dims.len() < 4 {
+            return Err(anyhow::anyhow!(
+                "Unexpected SAM decoder output rank: expected 4 dims, got {:?}",
+                mask_dims
+            ));
+        }
         let h = mask_dims[2];
         let w = mask_dims[3];
         let area = h * w;
 
-        let mask_slice = mask_tensor.as_slice().unwrap();
+        let mask_slice = mask_tensor
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("SAM decoder output tensor is not contiguous"))?;
+        if mask_slice.len() < area {
+            return Err(anyhow::anyhow!(
+                "SAM decoder output too small: {} elements for {}x{} mask",
+                mask_slice.len(),
+                w,
+                h
+            ));
+        }
         let first_mask_slice = &mask_slice[0..area];
 
         if i == iters - 1 {
@@ -1156,9 +1182,11 @@ pub fn run_sam_decoder(
             .collect();
 
         let img_mask_f32 =
-            ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(w as u32, h as u32, mask_f32_vec).unwrap();
+            ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(w as u32, h as u32, mask_f32_vec)
+                .ok_or_else(|| anyhow::anyhow!("Failed to build mask buffer from SAM output"))?;
         let img_gaus_f32 =
-            ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(w as u32, h as u32, gaus_dt).unwrap();
+            ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(w as u32, h as u32, gaus_dt)
+                .ok_or_else(|| anyhow::anyhow!("Failed to build gaussian buffer from SAM output"))?;
 
         let resized_mask = imageops::resize(&img_mask_f32, 256, 256, FilterType::Triangle);
         let resized_gaus = imageops::resize(&img_gaus_f32, 256, 256, FilterType::Triangle);
@@ -1177,7 +1205,7 @@ pub fn run_sam_decoder(
         }
 
         mask_input = Array::from_shape_vec((1, 1, 256, 256), mask_input_flat)
-            .unwrap()
+            .map_err(|e| anyhow::anyhow!("Failed to reshape SAM mask input: {e}"))?
             .into_dyn();
         has_mask_input = 1.0;
     }
@@ -1234,7 +1262,17 @@ pub fn run_sky_seg_model(
     let mut session = sky_seg_session.lock().unwrap();
     let outputs = session.run(ort::inputs![t_input])?;
     let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
-    let out_slice = output_tensor.as_slice().unwrap();
+    let usize_size = SKYSEG_INPUT_SIZE as usize;
+    let out_slice = output_tensor
+        .as_slice()
+        .ok_or_else(|| anyhow::anyhow!("Sky Segmentation output tensor is not contiguous"))?;
+    if out_slice.len() < usize_size * usize_size {
+        return Err(anyhow::anyhow!(
+            "Sky Segmentation output too small: {} elements, need {}",
+            out_slice.len(),
+            usize_size * usize_size
+        ));
+    }
 
     let mut min_val = f32::MAX;
     let mut max_val = f32::MIN;
@@ -1246,7 +1284,6 @@ pub fn run_sky_seg_model(
     let range = max_val - min_val;
     let scale = if range > 1e-6 { 255.0 / range } else { 0.0 };
 
-    let usize_size = SKYSEG_INPUT_SIZE as usize;
     let mut cropped_mask_data = Vec::with_capacity(rw * rh);
 
     for y in 0..rh {
@@ -1315,7 +1352,17 @@ pub fn run_u2netp_model(
     let mut session = u2netp_session.lock().unwrap();
     let outputs = session.run(ort::inputs![t_input])?;
     let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
-    let out_slice = output_tensor.as_slice().unwrap();
+    let usize_size = U2NETP_INPUT_SIZE as usize;
+    let out_slice = output_tensor
+        .as_slice()
+        .ok_or_else(|| anyhow::anyhow!("U-2-Netp output tensor is not contiguous"))?;
+    if out_slice.len() < usize_size * usize_size {
+        return Err(anyhow::anyhow!(
+            "U-2-Netp output too small: {} elements, need {}",
+            out_slice.len(),
+            usize_size * usize_size
+        ));
+    }
 
     let mut min_val = f32::MAX;
     let mut max_val = f32::MIN;
@@ -1327,7 +1374,6 @@ pub fn run_u2netp_model(
     let range = max_val - min_val;
     let scale = if range > 1e-6 { 255.0 / range } else { 0.0 };
 
-    let usize_size = U2NETP_INPUT_SIZE as usize;
     let mut cropped_mask_data = Vec::with_capacity(rw * rh);
 
     for y in 0..rh {
@@ -1394,9 +1440,17 @@ pub fn run_depth_anything_model(
     let mut session = depth_session.lock().unwrap();
     let outputs = session.run(ort::inputs![t_input])?;
     let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
-    let out_slice = output_tensor.as_slice().unwrap();
-
     let usize_size = DEPTH_INPUT_SIZE as usize;
+    let out_slice = output_tensor
+        .as_slice()
+        .ok_or_else(|| anyhow::anyhow!("Depth Anything output tensor is not contiguous"))?;
+    if out_slice.len() < usize_size * usize_size {
+        return Err(anyhow::anyhow!(
+            "Depth Anything output too small: {} elements, need {}",
+            out_slice.len(),
+            usize_size * usize_size
+        ));
+    }
 
     let mut min_val = f32::MAX;
     let mut max_val = f32::MIN;

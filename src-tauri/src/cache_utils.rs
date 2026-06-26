@@ -112,26 +112,26 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
             is_visible.hash(&mut hasher);
 
             if let Some(patch_data) = patch.get("patchData") {
-                let color_len = patch_data
+                // Hash the full base64 content, not just its length: two different
+                // patch results of identical dimensions encode to the same length
+                // and would otherwise collide, leaving the stale patch composited.
+                patch_data
                     .get("color")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
-                    .len();
-                color_len.hash(&mut hasher);
+                    .hash(&mut hasher);
 
-                let mask_len = patch_data
+                patch_data
                     .get("mask")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
-                    .len();
-                mask_len.hash(&mut hasher);
+                    .hash(&mut hasher);
             } else {
-                let data_len = patch
+                patch
                     .get("patchDataBase64")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
-                    .len();
-                data_len.hash(&mut hasher);
+                    .hash(&mut hasher);
             }
 
             if let Some(sub_masks_val) = patch.get("subMasks") {

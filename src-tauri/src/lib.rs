@@ -224,6 +224,13 @@ pub fn get_or_load_lut(state: &tauri::State<AppState>, path: &str) -> Result<Arc
 
     let lut = lut_processing::parse_lut_file(path).map_err(|e| e.to_string())?;
     let arc_lut = Arc::new(lut);
+
+    // Bound the cache: it is keyed by LUT path and never cleared by the session/image
+    // cache resets, so without a cap it grows for every distinct LUT ever applied.
+    const MAX_CACHED_LUTS: usize = 32;
+    if cache.len() >= MAX_CACHED_LUTS {
+        cache.clear();
+    }
     cache.insert(path.to_string(), arc_lut.clone());
     Ok(arc_lut)
 }

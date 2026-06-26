@@ -162,6 +162,12 @@ fn calculate_resize_target(
     current_h: u32,
     resize_opts: &ResizeOptions,
 ) -> (u32, u32) {
+    // Guard against zero-dimension images: the aspect-ratio math below divides by
+    // current_w / current_h and would otherwise produce Inf/NaN.
+    if current_w == 0 || current_h == 0 {
+        return (current_w, current_h);
+    }
+
     if resize_opts.dont_enlarge {
         let exceeds = match resize_opts.mode {
             ResizeMode::LongEdge => current_w.max(current_h) > resize_opts.value,
@@ -369,7 +375,9 @@ fn build_single_mask_adjustments(all: &AllAdjustments, mask_index: usize) -> All
         tile_offset_y: all.tile_offset_y,
         mask_atlas_cols: all.mask_atlas_cols,
     };
-    single.mask_adjustments[0] = all.mask_adjustments[mask_index];
+    if mask_index < all.mask_adjustments.len() {
+        single.mask_adjustments[0] = all.mask_adjustments[mask_index];
+    }
     for i in 1..single.mask_adjustments.len() {
         single.mask_adjustments[i] = Default::default();
     }
