@@ -3,7 +3,8 @@ use crate::app_settings::{AppSettings, load_settings};
 use crate::app_state::{AppState, LoadedImage};
 use crate::exif_processing;
 use crate::file_management::{parse_virtual_path, read_file_mapped};
-use crate::formats::is_raw_file;
+use crate::formats::{is_heif_file, is_raw_file};
+use crate::heif_processing::decode_heif;
 use crate::image_processing::ImageMetadata;
 use crate::image_processing::{apply_orientation, remove_raw_artifacts_and_enhance};
 use crate::mask_generation::{MaskDefinition, SubMask, generate_mask_bitmap};
@@ -128,6 +129,8 @@ pub fn load_base_image_from_bytes(
                 ))
             }
         }
+    } else if is_heif_file(path_for_ext_check) {
+        decode_heif(bytes, cancel_token)
     } else {
         let mut image = load_image_with_orientation(bytes, cancel_token)?;
 

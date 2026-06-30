@@ -73,10 +73,13 @@ pub const RAW_EXTENSIONS: &[(&str, &str)] = &[
 pub const NON_RAW_EXTENSIONS: &[&str] = &[
     "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "jxl", // Standard formats
     "exr", "hdr", // High Dynamic Range / Wide Gamut
+    "hif", "heic", "heif", // HEIF / HEVC Main 10
     "tga", "ico", "dds", // Graphics & Icons
     "qoi", "ff", // Simple/Specialist formats
     "pnm", "pbm", "pgm", "ppm", "pam", // Netpbm family
 ];
+
+const HEIF_EXTENSIONS: &[&str] = &["hif", "heic", "heif"];
 
 pub fn is_raw_file<P: AsRef<Path>>(path: P) -> bool {
     let ext = match path.as_ref().extension().and_then(|s| s.to_str()) {
@@ -87,6 +90,17 @@ pub fn is_raw_file<P: AsRef<Path>>(path: P) -> bool {
     RAW_EXTENSIONS
         .iter()
         .any(|(raw_ext, _)| raw_ext.eq_ignore_ascii_case(ext))
+}
+
+pub fn is_heif_file<P: AsRef<Path>>(path: P) -> bool {
+    let ext = match path.as_ref().extension().and_then(|s| s.to_str()) {
+        Some(e) => e,
+        None => return false,
+    };
+
+    HEIF_EXTENSIONS
+        .iter()
+        .any(|heif_ext| heif_ext.eq_ignore_ascii_case(ext))
 }
 
 pub fn is_supported_image_file<P: AsRef<Path>>(path: P) -> bool {
