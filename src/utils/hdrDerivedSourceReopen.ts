@@ -6,7 +6,10 @@ import {
   derivedOutputProvenanceSidecarSchema,
   derivedOutputReceiptSchema,
 } from '../schemas/computational-merge/derivedOutputReceiptSchemas';
-import { focusStackRetouchSeedSchema } from '../schemas/focus-stack/focusStackOutputReviewSchemas';
+import {
+  focusStackBreathingCompensationSchema,
+  focusStackRetouchSeedSchema,
+} from '../schemas/focus-stack/focusStackOutputReviewSchemas';
 
 const hdrSidecarArtifactSchema = z
   .object({
@@ -340,16 +343,17 @@ export const buildFocusStackReopenedDerivedOutputReceipt = ({
   const outputArtifactId =
     matchingArtifact?.outputArtifact?.artifactId ?? provenance.acceptedApplyId ?? provenance.receipt.receiptId;
   const focusStack = provenance.focusStack ?? buildFocusStackReceiptMetadataFromArtifact(matchingArtifact);
+  const focusStackRetouchSeed = focusStack?.retouchSeed;
   const staleState =
     matchingArtifact?.staleState?.state === 'stale'
       ? 'stale'
       : matchingArtifact?.staleState?.state === 'current'
         ? 'current'
-        : (focusStack?.retouchSeed.staleState ?? 'unknown');
+        : (focusStackRetouchSeed?.staleState ?? 'unknown');
 
   return derivedOutputReceiptSchema.parse({
-    acceptedDryRunPlanHash: focusStack?.retouchSeed.acceptedDryRunPlanHash,
-    acceptedDryRunPlanId: focusStack?.retouchSeed.acceptedDryRunPlanId,
+    acceptedDryRunPlanHash: focusStackRetouchSeed?.acceptedDryRunPlanHash,
+    acceptedDryRunPlanId: focusStackRetouchSeed?.acceptedDryRunPlanId,
     family: 'focus_stack',
     focusStack,
     openInEditorAction: {
@@ -412,11 +416,21 @@ export const upsertReopenedDerivedOutputReceipt = ({
 function buildFocusStackReceiptMetadataFromArtifact(
   artifact: z.infer<typeof rawEngineArtifactsWithHdrProvenanceSchema>['focusStackArtifacts'][number] | undefined,
 ): DerivedOutputReceipt['focusStack'] {
-  if (artifact?.retouchSeed === undefined) return undefined;
-  const parsedRetouchSeed = focusStackRetouchSeedSchema.safeParse(artifact.retouchSeed);
-  if (!parsedRetouchSeed.success) return undefined;
+  if (artifact === undefined) return undefined;
+  const parsedRetouchSeed =
+    artifact.retouchSeed === undefined ? undefined : focusStackRetouchSeedSchema.safeParse(artifact.retouchSeed);
+  const parsedBreathingCompensation =
+    artifact['focusBreathingCompensation'] === undefined
+      ? undefined
+      : focusStackBreathingCompensationSchema.safeParse(artifact['focusBreathingCompensation']);
+  const hasRetouchSeed = parsedRetouchSeed?.success === true;
+  const hasBreathingCompensation = parsedBreathingCompensation?.success === true;
+  if (!hasBreathingCompensation && !hasRetouchSeed) return undefined;
 
-  return { retouchSeed: parsedRetouchSeed.data };
+  return {
+    ...(hasBreathingCompensation ? { breathingCompensation: parsedBreathingCompensation.data } : {}),
+    ...(hasRetouchSeed ? { retouchSeed: parsedRetouchSeed.data } : {}),
+  };
 }
 
 const derivedOutputStaleReasons = new Set([

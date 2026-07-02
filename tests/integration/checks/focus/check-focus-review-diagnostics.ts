@@ -5,6 +5,10 @@ import { readFileSync } from 'node:fs';
 const failures: string[] = [];
 const modalSource = readFileSync('src/components/modals/computational-merge/FocusStackModal.tsx', 'utf8');
 const panelSource = readFileSync('src/components/modals/computational-merge/ComputationalMergeReviewPanel.tsx', 'utf8');
+const receiptPanelSource = readFileSync(
+  'src/components/modals/computational-merge/DerivedOutputReceiptPanel.tsx',
+  'utf8',
+);
 const contractSource = readFileSync('src/utils/computational-merge/computationalMergeReviewPanels.ts', 'utf8');
 const reviewSource = readFileSync('src/utils/focusStackOutputReview.ts', 'utf8');
 
@@ -35,13 +39,6 @@ for (const marker of [
   'modals.focusStack.review.retouchedExportParity',
   'data-retouched-export-parity-status={outputReview.editableHandoff.retouchedExportParity?.status ??',
   'data-retouched-export-parity-proof-hash=',
-  'data-focus-retouch-seed-availability=',
-  'data-focus-retouch-seed-state=',
-  'data-focus-retouch-seed-plan-id=',
-  'data-focus-retouch-seed-region-count=',
-  'data-focus-retouch-seed-reason-codes=',
-  'data-focus-retouch-seed-output-hash=',
-  'data-focus-retouch-seed-preview-hash=',
   'modals.focusStack.review.haloRegionRisk',
   'modals.focusStack.review.haloReviewStatus',
   'modals.focusStack.review.haloReviewTitle',
@@ -61,7 +58,6 @@ for (const marker of [
   'data-editable-artifact-id={outputReview.editableHandoff.artifactId}',
   'data-export-review-artifact-id={outputReview.editableHandoff.exportReviewArtifactId}',
   'data-halo-review-status={outputReview.haloReview.reviewStatus}',
-  'retouchSeed',
   'focus-sharpness-overlay-controls',
   'focus-halo-suppression-controls',
   'settings.haloSuppressionStrengthPercent',
@@ -76,6 +72,7 @@ for (const marker of [
 for (const marker of [
   'buildFocusStackOutputReviewFromArtifact',
   'artifact.haloReview',
+  'focusBreathingCompensation',
   'editableHandoff',
   'retouchedExportParity',
   'transitionRiskRegions',
@@ -96,10 +93,20 @@ for (const marker of [
   'Retouch seed availability',
   'Retouch seed state',
   'Mask regions',
+  'retouchSeed',
+  'Breathing compensation status',
+  'Breathing max scale delta',
+  'Breathing limits',
   'data-focus-retouch-seed-availability=',
   'data-focus-retouch-seed-state=',
+  'data-focus-breathing-compensation-status=',
+  'data-focus-breathing-compensation-applied=',
+  'data-focus-breathing-evidence-source=',
+  'data-focus-breathing-max-relative-scale-delta=',
+  'data-focus-breathing-reference-source-index=',
+  'data-focus-breathing-limits=',
 ]) {
-  if (!panelSource.includes(marker)) {
+  if (!receiptPanelSource.includes(marker)) {
     failures.push(`Derived output receipt panel missing ${marker}.`);
   }
 }

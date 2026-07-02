@@ -81,6 +81,40 @@ export const focusStackRuntimeProvenanceV1Schema = z
     ),
     engineId: z.literal(FOCUS_RUNTIME_ENGINE_ID),
     engineVersion: z.literal(FOCUS_RUNTIME_ENGINE_VERSION),
+    focusBreathingCompensation: z
+      .object({
+        algorithmId: z.literal('focus_breathing_scale_estimate_v1'),
+        compensationApplied: z.literal(false),
+        evidenceSource: z.enum(['focus_distance_metadata', 'missing_focus_distance_metadata']),
+        frameEstimates: z.array(
+          z
+            .object({
+              estimatedScale: z.number().positive(),
+              focusDistanceMm: z.number().positive().optional(),
+              relativeScaleDelta: z.number(),
+              sourceIndex: z.number().int().nonnegative(),
+            })
+            .strict(),
+        ),
+        limits: z.array(
+          z.enum([
+            'estimate_only_no_pixel_warp',
+            'focus_distance_metadata_only',
+            'translation_alignment_only',
+            'uniform_scale_model_only',
+          ]),
+        ),
+        maxRelativeScaleDelta: z.number().min(0),
+        referenceSourceIndex: z.number().int().nonnegative(),
+        scaleRange: z
+          .object({
+            max: z.number().positive(),
+            min: z.number().positive(),
+          })
+          .strict(),
+        status: z.enum(['bounded_estimate', 'not_measured']),
+      })
+      .strict(),
     focusCoverageRatio: z.number().min(0).max(1),
     haloReview: z
       .object({
@@ -409,6 +443,7 @@ export const buildFocusStackRuntimeArtifactV1 = ({
     outputArtifact,
     outputColorSpace: 'linear_rec2020_d65_v1',
     previewArtifacts,
+    focusBreathingCompensation: provenance.focusBreathingCompensation,
     haloMapArtifact,
     retouchSeed,
     retouchedExportParity: buildFocusStackRetouchedExportParityReceipt({
@@ -706,6 +741,7 @@ const renderFocusStackRuntime = (request: ParsedFocusStackRuntimePlanRequestV1) 
       blendSourceCoverage: buildFocusBlendSourceCoverage(request),
       engineId: FOCUS_RUNTIME_ENGINE_ID,
       engineVersion: FOCUS_RUNTIME_ENGINE_VERSION,
+      focusBreathingCompensation: buildFocusBreathingCompensationEstimate(request, referenceSource.sourceIndex),
       focusCoverageRatio,
       haloReview: buildFocusHaloReview(request, focusCoverageRatio),
       qualityMetrics: buildFocusQualityMetrics(request, blend.outputWidth, blend.outputHeight),
@@ -737,6 +773,86 @@ const renderFocusStackRuntime = (request: ParsedFocusStackRuntimePlanRequestV1) 
     }),
     warnings,
     width: blend.outputWidth,
+  };
+};
+
+const buildFocusBreathingCompensationEstimate = (
+  request: ParsedFocusStackRuntimePlanRequestV1,
+  referenceSourceIndex: number,
+): FocusStackRuntimeProvenanceV1['focusBreathingCompensation'] => {
+  const focusDistances = request.frames
+    .map((frame) => frame.focusDistanceMm)
+    .filter((distance): distance is number => distance !== undefined);
+  const hasCompleteFocusDistanceMetadata = focusDistances.length === request.frames.length;
+  if (!hasCompleteFocusDistanceMetadata) {
+    const frameEstimates = request.frames.map((frame) => ({
+      estimatedScale: 1,
+      ...(frame.focusDistanceMm === undefined ? {} : { focusDistanceMm: frame.focusDistanceMm }),
+      relativeScaleDelta: 0,
+      sourceIndex: frame.sourceIndex,
+    }));
+    return {
+      algorithmId: 'focus_breathing_scale_estimate_v1',
+      compensationApplied: false,
+      evidenceSource: 'missing_focus_distance_metadata',
+      frameEstimates,
+      limits: [
+        'estimate_only_no_pixel_warp',
+        'focus_distance_metadata_only',
+        'translation_alignment_only',
+        'uniform_scale_model_only',
+      ],
+      maxRelativeScaleDelta: 0,
+      referenceSourceIndex,
+      scaleRange: {
+        max: 1,
+        min: 1,
+      },
+      status: 'not_measured',
+    };
+  }
+
+  const minFocusDistance = Math.min(...focusDistances);
+  const maxFocusDistance = Math.max(...focusDistances);
+  const distanceSpread = maxFocusDistance - minFocusDistance;
+  const referenceDistance =
+    request.frames.find((frame) => frame.sourceIndex === referenceSourceIndex)?.focusDistanceMm ?? minFocusDistance;
+  const boundedScaleDelta = Math.min(0.04, (distanceSpread / Math.max(1, maxFocusDistance)) * 0.08);
+  const frameEstimates = request.frames.map((frame) => {
+    const normalizedDistanceDelta =
+      distanceSpread === 0 || frame.focusDistanceMm === undefined
+        ? 0
+        : (frame.focusDistanceMm - referenceDistance) / distanceSpread;
+    const relativeScaleDelta = roundFocusMetric(normalizedDistanceDelta * boundedScaleDelta);
+    return {
+      estimatedScale: roundFocusMetric(1 + relativeScaleDelta),
+      focusDistanceMm: frame.focusDistanceMm,
+      relativeScaleDelta,
+      sourceIndex: frame.sourceIndex,
+    };
+  });
+  const estimatedScales = frameEstimates.map((estimate) => estimate.estimatedScale);
+
+  return {
+    algorithmId: 'focus_breathing_scale_estimate_v1',
+    compensationApplied: false,
+    evidenceSource: 'focus_distance_metadata',
+    frameEstimates,
+    limits: [
+      'estimate_only_no_pixel_warp',
+      'focus_distance_metadata_only',
+      'translation_alignment_only',
+      'uniform_scale_model_only',
+    ],
+    maxRelativeScaleDelta: roundFocusMetric(
+      Math.max(...frameEstimates.map((estimate) => Math.abs(estimate.relativeScaleDelta))),
+    ),
+    referenceSourceIndex,
+    scaleRange: {
+      max: Math.max(...estimatedScales),
+      min: Math.min(...estimatedScales),
+    },
+    status: 'bounded_estimate',
   };
 };
 

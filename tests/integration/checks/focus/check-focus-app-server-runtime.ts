@@ -124,10 +124,21 @@ if (applied.apply.sidecarArtifact.retouchSeed?.availability !== 'available') {
 if (applied.apply.sidecarArtifact.retouchSeed?.staleState !== 'current') {
   throw new Error('Expected focus app-server apply to persist current retouch seed state.');
 }
+if (applied.apply.sidecarArtifact.focusBreathingCompensation?.status !== 'bounded_estimate') {
+  throw new Error('Expected focus app-server apply to persist bounded focus breathing compensation evidence.');
+}
+if (applied.apply.sidecarArtifact.focusBreathingCompensation.maxRelativeScaleDelta !== 0.032) {
+  throw new Error(
+    `Expected focus breathing max scale delta 0.032, got ${applied.apply.sidecarArtifact.focusBreathingCompensation.maxRelativeScaleDelta}.`,
+  );
+}
 if (applied.apply.sidecarArtifact.createdAt !== '2026-06-17T20:15:00.000Z') {
   throw new Error('Expected focus app-server apply to preserve sidecar artifact timestamp.');
 }
 const outputReview = buildFocusStackOutputReviewFromArtifact(applied.apply.sidecarArtifact);
+if (outputReview.focusBreathingCompensation?.status !== 'bounded_estimate') {
+  throw new Error('Expected focus output review to expose focus breathing compensation evidence.');
+}
 if (outputReview.haloReview.artifactHash !== applied.apply.sidecarArtifact.haloMapArtifact.contentHash) {
   throw new Error('Expected focus output review to expose halo map hash.');
 }
@@ -184,8 +195,14 @@ if (derivedReceipt.openInEditorAction.path !== outputReview.artifactPath) {
 if (derivedReceipt.provenanceSidecar?.acceptedDryRunId !== outputReview.editableHandoff.exportReviewArtifactId) {
   throw new Error('Expected focus stack derived receipt to preserve export-review handoff metadata.');
 }
-if (derivedReceipt.focusStack?.retouchSeed.acceptedDryRunPlanId !== applied.apply.provenance.acceptedDryRunPlanId) {
+if (derivedReceipt.focusStack?.retouchSeed?.acceptedDryRunPlanId !== applied.apply.provenance.acceptedDryRunPlanId) {
   throw new Error('Expected focus stack derived receipt to persist the accepted retouch seed plan id.');
+}
+if (derivedReceipt.focusStack?.breathingCompensation?.status !== 'bounded_estimate') {
+  throw new Error('Expected focus stack derived receipt to persist breathing compensation evidence.');
+}
+if (derivedReceipt.provenanceSidecar?.focusStack?.breathingCompensation?.compensationApplied !== false) {
+  throw new Error('Expected focus stack sidecar receipt to persist breathing compensation limits.');
 }
 
 const outputHash = new Bun.CryptoHasher('sha256')
@@ -206,6 +223,7 @@ expectThrows('unaccepted focus apply plan', () =>
 const result = {
   editableArtifactId: applied.apply.sidecarArtifact.artifactId,
   fixture: 'synthetic_focus_app_server_runtime_v1',
+  focusBreathingCompensation: applied.apply.provenance.focusBreathingCompensation,
   focusCoverageRatio: applied.apply.provenance.focusCoverageRatio,
   outputSha256: outputHash,
   planId: dryRun.dryRun.dryRunResult.mergePlan.planId,

@@ -4,7 +4,10 @@ import {
   hdrDeghostingModeV1Schema,
   hdrMaskArtifactV1Schema,
 } from '../../../packages/rawengine-schema/src/rawEngineSchemas';
-import { focusStackRetouchSeedSchema } from '../focus-stack/focusStackOutputReviewSchemas';
+import {
+  focusStackBreathingCompensationSchema,
+  focusStackRetouchSeedSchema,
+} from '../focus-stack/focusStackOutputReviewSchemas';
 
 export const derivedOutputFamilySchema = z.enum(['focus_stack', 'hdr', 'panorama', 'super_resolution']);
 export const derivedOutputStoragePolicySchema = z.enum(['export_path', 'sidecar_artifact', 'temp_cache']);
@@ -133,9 +136,13 @@ export const derivedOutputProvenanceSidecarSchema = z
     sourceState: z.array(derivedOutputProvenanceSourceSchema).min(1),
     focusStack: z
       .object({
-        retouchSeed: focusStackRetouchSeedSchema,
+        breathingCompensation: focusStackBreathingCompensationSchema.optional(),
+        retouchSeed: focusStackRetouchSeedSchema.optional(),
       })
       .strict()
+      .refine((metadata) => metadata.breathingCompensation !== undefined || metadata.retouchSeed !== undefined, {
+        message: 'Focus stack receipt metadata requires breathing compensation or retouch seed evidence.',
+      })
       .optional(),
     hdr: derivedOutputHdrMetadataSchema.optional(),
     panorama: derivedOutputPanoramaMetadataSchema.optional(),
@@ -204,9 +211,13 @@ export const derivedOutputReceiptSchema = z
     outputPath: z.string().trim().min(1).optional(),
     focusStack: z
       .object({
-        retouchSeed: focusStackRetouchSeedSchema,
+        breathingCompensation: focusStackBreathingCompensationSchema.optional(),
+        retouchSeed: focusStackRetouchSeedSchema.optional(),
       })
       .strict()
+      .refine((metadata) => metadata.breathingCompensation !== undefined || metadata.retouchSeed !== undefined, {
+        message: 'Focus stack sidecar metadata requires breathing compensation or retouch seed evidence.',
+      })
       .optional(),
     hdr: derivedOutputHdrMetadataSchema.optional(),
     panorama: derivedOutputPanoramaMetadataSchema.optional(),

@@ -31,6 +31,7 @@ export default function DerivedOutputReceiptPanel({
   const canExport = receipt.outputPath !== undefined && onExportOutput !== undefined;
   const isStale = receipt.staleState === 'stale';
   const focusStack = receipt.focusStack ?? receipt.provenanceSidecar?.focusStack;
+  const focusBreathingCompensation = focusStack?.breathingCompensation;
   const focusRetouchSeed = focusStack?.retouchSeed;
   const warningSummary = warnings.join(' | ');
   const lineageSummary =
@@ -85,6 +86,22 @@ export default function DerivedOutputReceiptPanel({
             value: focusRetouchSeed.reasonCodes.join(', '),
           },
         ]),
+    ...(focusBreathingCompensation === undefined
+      ? []
+      : [
+          {
+            label: 'Breathing compensation status',
+            value: focusBreathingCompensation.status,
+          },
+          {
+            label: 'Breathing max scale delta',
+            value: String(focusBreathingCompensation.maxRelativeScaleDelta),
+          },
+          {
+            label: 'Breathing limits',
+            value: focusBreathingCompensation.limits.join(', '),
+          },
+        ]),
   ];
 
   return (
@@ -108,6 +125,12 @@ export default function DerivedOutputReceiptPanel({
       data-focus-retouch-seed-reason-codes={focusRetouchSeed?.reasonCodes.join(',') ?? ''}
       data-focus-retouch-seed-output-hash={focusRetouchSeed?.outputContentHash ?? ''}
       data-focus-retouch-seed-preview-hash={focusRetouchSeed?.previewContentHash ?? ''}
+      data-focus-breathing-compensation-status={focusBreathingCompensation?.status ?? ''}
+      data-focus-breathing-compensation-applied={String(focusBreathingCompensation?.compensationApplied ?? '')}
+      data-focus-breathing-evidence-source={focusBreathingCompensation?.evidenceSource ?? ''}
+      data-focus-breathing-max-relative-scale-delta={focusBreathingCompensation?.maxRelativeScaleDelta ?? ''}
+      data-focus-breathing-reference-source-index={focusBreathingCompensation?.referenceSourceIndex ?? ''}
+      data-focus-breathing-limits={focusBreathingCompensation?.limits.join(',') ?? ''}
       data-panorama-boundary-crop={
         receipt.panorama === undefined
           ? ''

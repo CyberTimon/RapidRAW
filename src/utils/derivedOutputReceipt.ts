@@ -370,8 +370,10 @@ export const buildFocusStackDerivedOutputReceipt = ({
   acceptedDryRunPlanId?: string | undefined;
   review: FocusStackOutputReviewWorkflow;
   settings: FocusStackUiSettings;
-}): DerivedOutputReceipt =>
-  buildDerivedOutputReceipt({
+}): DerivedOutputReceipt => {
+  const focusStackMetadata = buildFocusStackReceiptMetadata(review);
+
+  return buildDerivedOutputReceipt({
     acceptedDryRunPlanHash,
     acceptedDryRunPlanId,
     family: 'focus_stack',
@@ -382,14 +384,14 @@ export const buildFocusStackDerivedOutputReceipt = ({
     },
     outputArtifactId: review.editableHandoff.artifactId,
     outputContentHash: review.editableHandoff.artifactHash,
-    ...(review.retouchSeed === undefined ? {} : { focusStack: { retouchSeed: review.retouchSeed } }),
+    ...(focusStackMetadata === undefined ? {} : { focusStack: focusStackMetadata }),
     ...(review.applyReceipt.status === 'apply_ready'
       ? {
           outputPath: review.artifactPath,
           provenanceSidecar: {
             acceptedApplyId: review.editableHandoff.artifactId,
             acceptedDryRunId: review.editableHandoff.exportReviewArtifactId,
-            ...(review.retouchSeed === undefined ? {} : { focusStack: { retouchSeed: review.retouchSeed } }),
+            ...(focusStackMetadata === undefined ? {} : { focusStack: focusStackMetadata }),
             warnings: review.warningCodes,
           },
         }
@@ -403,6 +405,18 @@ export const buildFocusStackDerivedOutputReceipt = ({
     staleState: review.applyReceipt.status === 'apply_ready' ? 'current' : 'unknown',
     storagePolicy: 'sidecar_artifact',
   });
+};
+
+const buildFocusStackReceiptMetadata = (review: FocusStackOutputReviewWorkflow): DerivedOutputReceipt['focusStack'] => {
+  if (review.focusBreathingCompensation === undefined && review.retouchSeed === undefined) return undefined;
+
+  return {
+    ...(review.focusBreathingCompensation === undefined
+      ? {}
+      : { breathingCompensation: review.focusBreathingCompensation }),
+    ...(review.retouchSeed === undefined ? {} : { retouchSeed: review.retouchSeed }),
+  };
+};
 
 export const buildSuperResolutionDerivedOutputReceipt = ({
   acceptedDryRunPlanHash,

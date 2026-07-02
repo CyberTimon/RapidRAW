@@ -143,6 +143,37 @@ try {
 }
 
 assertEqual(dryRun.provenance.focusCoverageRatio, 1, 'focus coverage');
+assertEqual(
+  dryRun.provenance.focusBreathingCompensation.status,
+  'bounded_estimate',
+  'breathing compensation estimate status',
+);
+assertEqual(
+  dryRun.provenance.focusBreathingCompensation.compensationApplied,
+  false,
+  'breathing compensation applied flag',
+);
+assertEqual(
+  dryRun.provenance.focusBreathingCompensation.maxRelativeScaleDelta,
+  0.032,
+  'breathing max relative scale delta',
+);
+assertDeepEqual(
+  dryRun.provenance.focusBreathingCompensation.frameEstimates.map((estimate) => ({
+    estimatedScale: estimate.estimatedScale,
+    relativeScaleDelta: estimate.relativeScaleDelta,
+    sourceIndex: estimate.sourceIndex,
+  })),
+  [
+    { estimatedScale: 1, relativeScaleDelta: 0, sourceIndex: 0 },
+    { estimatedScale: 1.016, relativeScaleDelta: 0.016, sourceIndex: 1 },
+    { estimatedScale: 1.032, relativeScaleDelta: 0.032, sourceIndex: 2 },
+  ],
+  'breathing frame scale estimates',
+);
+if (!dryRun.provenance.focusBreathingCompensation.limits.includes('estimate_only_no_pixel_warp')) {
+  throw new Error('Expected focus breathing receipt to state no pixel warp was applied.');
+}
 assertEqual(dryRun.provenance.alignmentTransforms.length, frames.length, 'alignment transform count');
 assertEqual(dryRun.provenance.alignmentTransforms[0]?.role, 'reference', 'reference transform role');
 assertEqual(dryRun.provenance.alignmentTransforms[2]?.translationY, -1, 'third transform y');
@@ -174,6 +205,12 @@ for (const artifact of applied.mutationResult.outputArtifacts) {
   }
 }
 assertEqual(applied.sidecarArtifact.family, 'focus_stack', 'sidecar family');
+assertEqual(applied.sidecarArtifact.focusBreathingCompensation?.status, 'bounded_estimate', 'sidecar breathing status');
+assertEqual(
+  applied.sidecarArtifact.focusBreathingCompensation?.maxRelativeScaleDelta,
+  dryRun.provenance.focusBreathingCompensation.maxRelativeScaleDelta,
+  'sidecar breathing max relative scale delta',
+);
 assertEqual(applied.sidecarArtifact.createdAt, '2026-06-17T20:10:00.000Z', 'sidecar created at');
 assertEqual(applied.sidecarArtifact.outputArtifact.artifactId, 'artifact_focus_runtime_output', 'sidecar output');
 assertEqual(applied.sidecarArtifact.haloMapArtifact?.artifactId, 'artifact_focus_runtime_halo_map', 'sidecar halo map');
@@ -231,6 +268,7 @@ const result = {
   artifactContentHashes: applied.mutationResult.outputArtifacts.map((artifact) => artifact.contentHash),
   fixture: 'synthetic_focus_runtime_plan_v1',
   focusCoverageRatio: dryRun.provenance.focusCoverageRatio,
+  focusBreathingCompensation: dryRun.provenance.focusBreathingCompensation,
   outputSha256: outputHash,
   qualityMetrics: dryRun.provenance.qualityMetrics,
   sharpnessSettings: dryRun.provenance.sharpnessSettings,

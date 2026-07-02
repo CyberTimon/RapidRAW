@@ -4675,6 +4675,41 @@ const focusStackSharpnessSettingsV1Schema = z
   })
   .strict();
 
+const focusStackBreathingCompensationV1Schema = z
+  .object({
+    algorithmId: z.literal('focus_breathing_scale_estimate_v1'),
+    compensationApplied: z.literal(false),
+    evidenceSource: z.enum(['focus_distance_metadata', 'missing_focus_distance_metadata']),
+    frameEstimates: z.array(
+      z
+        .object({
+          estimatedScale: z.number().positive(),
+          focusDistanceMm: z.number().positive().optional(),
+          relativeScaleDelta: z.number(),
+          sourceIndex: z.number().int().nonnegative(),
+        })
+        .strict(),
+    ),
+    limits: z.array(
+      z.enum([
+        'estimate_only_no_pixel_warp',
+        'focus_distance_metadata_only',
+        'translation_alignment_only',
+        'uniform_scale_model_only',
+      ]),
+    ),
+    maxRelativeScaleDelta: z.number().min(0),
+    referenceSourceIndex: z.number().int().nonnegative(),
+    scaleRange: z
+      .object({
+        max: z.number().positive(),
+        min: z.number().positive(),
+      })
+      .strict(),
+    status: z.enum(['bounded_estimate', 'not_measured']),
+  })
+  .strict();
+
 const focusStackExportParityHashV1Schema = z.string().regex(/^fnv1a32:[a-f0-9]{8}$/u);
 
 const focusStackRetouchedExportParityV1Schema = z
@@ -4717,6 +4752,7 @@ export const focusStackArtifactV1Schema = z
       })
       .strict(),
     family: z.literal('focus_stack'),
+    focusBreathingCompensation: focusStackBreathingCompensationV1Schema.optional(),
     outputArtifact: artifactHandleV1Schema,
     outputColorSpace: z.string().trim().min(1),
     previewArtifacts: z.array(artifactHandleV1Schema),

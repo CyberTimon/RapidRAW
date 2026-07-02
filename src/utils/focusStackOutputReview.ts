@@ -206,6 +206,7 @@ export const buildFocusStackOutputReviewFromArtifact = (
       retouchedExportParity: artifact.retouchedExportParity,
       status: editableHandoffStatus,
     },
+    focusBreathingCompensation: artifact.focusBreathingCompensation,
     haloRiskCellRatio: artifact.haloReview?.haloRiskCellRatio ?? haloRiskCellRatio,
     haloReview: {
       artifactHash: artifact.haloMapArtifact?.contentHash ?? artifact.haloReview?.artifactHash,
