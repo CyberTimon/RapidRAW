@@ -2260,7 +2260,16 @@ pub async fn reset_adjustments_for_paths(
 
             let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
+            // Saved versions ("virtual copies") survive a reset of the working state.
+            let preserved_versions = existing_metadata
+                .adjustments
+                .get("versions")
+                .filter(|v| v.as_array().is_some_and(|a| !a.is_empty()))
+                .cloned();
             existing_metadata.adjustments = serde_json::json!({});
+            if let Some(versions) = preserved_versions {
+                existing_metadata.adjustments["versions"] = versions;
+            }
 
             if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
                 let _ = std::fs::write(&sidecar_path, json_string);

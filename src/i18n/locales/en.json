@@ -642,6 +642,16 @@
     },
     "presets": {
       "amount": "Amount",
+      "versions": {
+        "title": "Versions",
+        "saveTooltip": "Save current edit as a new version",
+        "empty": "Save the current edit as a version to try multiple looks on this photo.",
+        "defaultName": "Version {{count}}",
+        "apply": "Apply Version",
+        "overwrite": "Overwrite with Current Edit",
+        "rename": "Rename",
+        "delete": "Delete Version"
+      },
       "dialog": {
         "allPresetFiles": "All Preset Files",
         "exportAllTitle": "Export All Presets",

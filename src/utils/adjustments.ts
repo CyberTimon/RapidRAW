@@ -146,9 +146,19 @@ export interface ParametricCurve {
   red: ParametricCurveSettings;
 }
 
+// A saved edit state ("virtual copy") stored inside the sidecar. `state` is a full
+// Adjustments snapshot minus the versions list itself.
+export interface AdjustmentVersion {
+  id: string;
+  name: string;
+  createdAt: number;
+  state: Partial<Adjustments>;
+}
+
 export interface Adjustments {
   [index: string]: any;
   aiPatches: Array<AiPatch>;
+  versions: Array<AdjustmentVersion>;
   aspectRatio: number | null;
   blacks: number;
   brightness: number;
@@ -477,6 +487,7 @@ export const INITIAL_MASK_CONTAINER: MaskContainer = {
 
 export const INITIAL_ADJUSTMENTS: Adjustments = {
   aiPatches: [],
+  versions: [],
   aspectRatio: null,
   blacks: 0,
   brightness: 0,

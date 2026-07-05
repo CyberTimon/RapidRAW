@@ -39,6 +39,7 @@ import CreateFolderModal from '../../modals/CreateFolderModal';
 import RenameFolderModal from '../../modals/RenameFolderModal';
 import Button from '../../ui/Button';
 import Text from '../../ui/Text';
+import VersionsSection from './VersionsSection';
 import Slider from '../../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS } from '../../../utils/adjustments';
@@ -1179,6 +1180,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           onContextMenu={handleBackgroundContextMenu}
           ref={setRootNodeRef}
         >
+          <VersionsSection />
           {isLoading && presets.length === 0 && (
             <Text
               as="div"
