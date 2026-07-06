@@ -1462,7 +1462,7 @@ const SCALES: AdjustmentScales = AdjustmentScales {
     highlights: 120.0,
     shadows: 120.0,
     whites: 30.0,
-    blacks: 70.0,
+    blacks: 40.0,
     saturation: 100.0,
     temperature: 25.0,
     tint: 100.0,

@@ -138,6 +138,13 @@ export enum SortDirection {
   Descending = 'desc',
 }
 
+export type FolderSortKey = 'name' | 'modified' | 'created' | 'imageCount';
+
+export interface FolderTreeSort {
+  key: FolderSortKey;
+  order: SortDirection;
+}
+
 export enum Theme {
   Arctic = 'arctic',
   Blue = 'blue',
@@ -202,6 +209,7 @@ export interface AppSettings {
   folderIcons?: Record<string, string>;
   exifOverlay?: ExifOverlay;
   language?: string;
+  folderTreeSort?: FolderTreeSort;
 }
 
 export interface BrushSettings {

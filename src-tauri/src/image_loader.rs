@@ -5,7 +5,9 @@ use crate::exif_processing;
 use crate::file_management::{parse_virtual_path, read_file_mapped};
 use crate::formats::is_raw_file;
 use crate::image_processing::ImageMetadata;
-use crate::image_processing::{apply_orientation, remove_raw_artifacts_and_enhance};
+use crate::image_processing::{
+    apply_orientation, apply_srgb_to_linear, remove_raw_artifacts_and_enhance,
+};
 use crate::mask_generation::{MaskDefinition, SubMask, generate_mask_bitmap};
 use crate::raw_processing::develop_raw_image;
 use anyhow::{Context, Result, anyhow};
@@ -118,6 +120,15 @@ pub fn load_base_image_from_bytes(
                     path_for_ext_check,
                     classified
                 );
+                if let Some(preview) = embedded_preview_fallback(bytes, path_for_ext_check) {
+                    log::warn!(
+                        "Using embedded preview fallback for '{}' ({}x{})",
+                        path_for_ext_check,
+                        preview.width(),
+                        preview.height()
+                    );
+                    return Ok(apply_srgb_to_linear(preview));
+                }
                 Err(classified)
             }
             Err(_) => {
@@ -164,6 +175,119 @@ fn classify_raw_develop_error(path: &str, err: anyhow::Error) -> anyhow::Error {
     }
 
     err
+}
+
+fn largest_tiff_jpeg_preview(buf: &[u8]) -> Option<DynamicImage> {
+    let le = match buf.get(..4)? {
+        [0x49, 0x49, 0x2A, 0x00] => true,
+        [0x4D, 0x4D, 0x00, 0x2A] => false,
+        _ => return None,
+    };
+    let rd16 = |o: usize| -> Option<u64> {
+        let b: [u8; 2] = buf.get(o..o + 2)?.try_into().ok()?;
+        Some(if le {
+            u16::from_le_bytes(b)
+        } else {
+            u16::from_be_bytes(b)
+        } as u64)
+    };
+    let rd32 = |o: usize| -> Option<u64> {
+        let b: [u8; 4] = buf.get(o..o + 4)?.try_into().ok()?;
+        Some(if le {
+            u32::from_le_bytes(b)
+        } else {
+            u32::from_be_bytes(b)
+        } as u64)
+    };
+
+    let mut best: Option<(u64, u64)> = None;
+    let mut queue: Vec<u64> = vec![rd32(4)?];
+    let mut seen = HashMap::new();
+
+    while let Some(ifd) = queue.pop() {
+        if seen.insert(ifd, ()).is_some() || seen.len() > 64 {
+            continue;
+        }
+        let Some(n) = rd16(ifd as usize) else {
+            continue;
+        };
+        let mut subfile: u64 = u64::MAX;
+        let mut compression: u64 = 0;
+        let mut strip: Option<(u64, u64)> = None;
+        let mut old_jpeg: Option<(u64, u64)> = None;
+        for i in 0..n {
+            let e = ifd as usize + 2 + (i as usize) * 12;
+            let (Some(tag), Some(count), Some(val)) = (rd16(e), rd32(e + 4), rd32(e + 8)) else {
+                continue;
+            };
+            match tag {
+                254 => subfile = val,
+                259 => compression = val,
+                273 if count == 1 => strip = Some((val, strip.map_or(0, |s| s.1))),
+                279 if count == 1 => strip = strip.map(|s| (s.0, val)).or(Some((0, val))),
+                513 => old_jpeg = Some((val, old_jpeg.map_or(0, |s| s.1))),
+                514 => old_jpeg = old_jpeg.map(|s| (s.0, val)).or(Some((0, val))),
+                330 => {
+                    if count == 1 {
+                        queue.push(val);
+                    } else {
+                        for j in 0..count.min(8) {
+                            if let Some(p) = rd32(val as usize + (j as usize) * 4) {
+                                queue.push(p);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        if matches!(compression, 6 | 7)
+            && subfile == 1
+            && let Some((off, len)) = strip
+            && len > best.map_or(0, |b| b.1)
+        {
+            best = Some((off, len));
+        }
+        if let Some((off, len)) = old_jpeg
+            && len > best.map_or(0, |b| b.1)
+        {
+            best = Some((off, len));
+        }
+        if let Some(next) = rd32(ifd as usize + 2 + (n as usize) * 12)
+            && next != 0
+        {
+            queue.push(next);
+        }
+    }
+
+    let (off, len) = best?;
+    let bytes = buf.get(off as usize..(off + len) as usize)?;
+    image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg).ok()
+}
+
+fn embedded_preview_fallback(bytes: &[u8], path: &str) -> Option<DynamicImage> {
+    let img = match largest_tiff_jpeg_preview(bytes) {
+        Some(img) => img,
+        None => rawler::analyze::extract_preview_pixels(
+            path,
+            &rawler::decoders::RawDecodeParams::default(),
+        )
+        .ok()?,
+    };
+
+    let orientation = ExifReader::new()
+        .read_from_container(&mut Cursor::new(bytes))
+        .ok()
+        .and_then(|exif| {
+            exif.get_field(Tag::Orientation, exif::In::PRIMARY)?
+                .value
+                .get_uint(0)
+        });
+
+    Some(match orientation {
+        Some(o) if o > 1 => apply_orientation(img, Orientation::from_u16(o as u16)),
+        _ => img,
+    })
 }
 
 pub fn load_image_with_orientation(

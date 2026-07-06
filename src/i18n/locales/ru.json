@@ -43,6 +43,7 @@
         "shadows": "Тени"
       },
       "hue": "Цветовой тон",
+      "localHue": "Локальный оттенок",
       "luminance": "Светимость",
       "mixerColors": {
         "aquas": "Бирюзовые",
@@ -62,17 +63,16 @@
       "vibrance": "Красочность",
       "wbPickerTooltip": "Пипетка баланса белого",
       "wbPickerWgpuDisabled": "Пипетка ББ: отключите WGPU в настройках.",
-      "whiteBalance": "Баланс белого",
-      "localHue": "Локальный оттенок"
+      "whiteBalance": "Баланс белого"
     },
     "curves": {
+      "channelTitle": "Канал {{channel}}",
       "channels": {
         "blue": "Синий",
         "green": "Зеленый",
         "luma": "Яркость",
         "red": "Красный"
       },
-      "channelTitle": "Канал {{channel}}",
       "copyParametric": "Копировать параметрическую кривую ({{channel}})",
       "copyPoint": "Копировать точечную кривую ({{channel}})",
       "curveDataUnavailable": "Данные кривой недоступны.",
@@ -498,6 +498,11 @@
         "transform": "Коррекция перспективы и искажений"
       }
     },
+    "externalEdit": {
+      "done": "Готово",
+      "exporting": "Экспорт…",
+      "savesTo": "Внешнее редактирование — сохраняется в"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "Добавить новый компонент",
@@ -626,8 +631,8 @@
       "organization": {
         "addTagPlaceholder": "Добавить тег...",
         "colorLabel": "Цветовая метка",
-        "none": "Нет",
         "noTags": "Нет тегов",
+        "none": "Нет",
         "rating": "Рейтинг",
         "ratingLabels": "Рейтинг и метки",
         "tags": "Теги",
@@ -636,6 +641,7 @@
       "title": "Метаданные"
     },
     "presets": {
+      "amount": "Интенсивность",
       "dialog": {
         "allPresetFiles": "Все файлы пресетов",
         "exportAllTitle": "Экспортировать все пресеты",
@@ -823,12 +829,12 @@
       "estimatedSize": "Оценочный размер файла: ~{{size}}",
       "estimatedTotalSize": "Оценочный общий размер: ~{{size}}",
       "estimatingSize": "Оценка размера...",
-      "exporting": "Экспорт…",
-      "exportingProgress": "Экспортировано… ({{current}}/{{total}})",
       "exportMultiple": "Экспорт {{count}} {{label}}",
       "exportMultiple_one": "Экспорт {{count}} {{label}}",
       "exportMultiple_other": "Экспорт {{count}} {{label}}",
       "exportSingle": "Экспортировать {{label}}",
+      "exporting": "Экспорт…",
+      "exportingProgress": "Экспортировано… ({{current}}/{{total}})",
       "failed": "Экспорт не удался",
       "noImageSelected": "Не выбрано изображение для экспорта.",
       "noImagesSelected": "Изображения не выбраны.",
@@ -911,10 +917,17 @@
         "folders": "Папки",
         "pinned": "Закрепленные"
       },
+      "sort": {
+        "created": "Дата создания",
+        "imageCount": "Количество изображений",
+        "modified": "Дата изменения",
+        "name": "По алфавиту"
+      },
       "tooltips": {
         "clearSearch": "Очистить поиск",
         "collapse": "Свернуть",
-        "expand": "Развернуть"
+        "expand": "Развернуть",
+        "sortFolders": "Сортировать папки"
       }
     },
     "grid": {
@@ -1118,6 +1131,7 @@
         "exposureToneMapper": "Экспозиция и тональное отображение",
         "grain": "Зернистость",
         "halationGlow": "Ореол и свечение",
+        "hueShift": "Глобальный сдвиг цветового тона",
         "lensCorrection": "Коррекция объектива",
         "lut": "LUT",
         "masks": "Маски",
@@ -1157,9 +1171,9 @@
       "applyButton_one": "Применить к 1 изображению",
       "applyButton_other": "Применить к {{count}} изображениям",
       "bestImage": "Лучший кадр",
-      "blurryImagesTab": "Размытые кадры",
       "blurThreshold": "Порог размытия",
       "blurThresholdDesc": "Изображения с оценкой резкости ниже этого значения будут помечены. Чем выше значение, тем строже отбор.",
+      "blurryImagesTab": "Размытые кадры",
       "cancel": "Отмена",
       "close": "Закрыть",
       "cullingFailed": "Отбор не удался",
@@ -1679,8 +1693,8 @@
     "tagging": {
       "addCustomPlaceholder": "Добавить пользовательские AI-теги (через запятую)...",
       "addCustomTooltip": "Добавить ИИ-тег",
-      "addShortcutsPlaceholder": "Добавить ярлыки (через запятую)...",
       "addShortcutTooltip": "Добавить быстрый выбор",
+      "addShortcutsPlaceholder": "Добавить ярлыки (через запятую)...",
       "aiTagging": "Тегирование силами ИИ",
       "aiTaggingDesc": "Включает автоматический анализ содержимого кадра и присвоение тегов ИИ-моделью (CLIP). Потребуется загрузка файла весов модели, что может временно снизить производительность при первом чтении каталогов. Теги используются для поиска по ключевым словам.",
       "amount": "Интенсивность",
@@ -1742,6 +1756,7 @@
         "expandFilmstrip": "Развернуть ленту кадров",
         "export": "Экспорт",
         "pasteSettings": "Вставить настройки",
+        "quickFilter": "Быстрый фильтр",
         "rateStars_one": "Оценить в 1 звезду",
         "rateStars_other": "Оценить в {{count}} звезд",
         "resetZoom": "Сбросить масштаб (по размеру окна)",
@@ -1786,9 +1801,13 @@
     },
     "lut": {
       "clearLut": "Удалить LUT",
+      "empty": "Пока нет LUT — импортируйте их",
       "filterLabel": "Файлы LUT",
+      "import": "Импорт профилей",
+      "importFailed": "Не удалось импортировать LUT",
       "intensity": "Интенсивность",
       "label": "LUT",
+      "removeLut": "Удалить LUT",
       "select": "Выбрать",
       "selectLutFile": "Выберите файл таблицы цветов LUT",
       "unsupportedFormat": "Обнаружены неподдерживаемые форматы файлов: .{{ext}}"

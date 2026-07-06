@@ -18,6 +18,7 @@ interface EditorState {
   // Core Image & Adjustments
   selectedImage: SelectedImage | null;
   adjustments: Adjustments;
+  previewOverride: Adjustments | null;
 
   // History State
   history: Adjustments[];
@@ -83,6 +84,7 @@ interface EditorState {
 export const useEditorStore = create<EditorState>((set) => ({
   selectedImage: null,
   adjustments: INITIAL_ADJUSTMENTS,
+  previewOverride: null,
   history: [INITIAL_ADJUSTMENTS],
   historyIndex: 0,
 

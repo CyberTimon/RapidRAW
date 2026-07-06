@@ -60,8 +60,19 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-06-25:** Implemented folder sorting, reliable image/album counts, and fixed folder expansion race conditions
+- **2026-06-20:** Added quick filters to the bottom bar and integrated global hue shifts into the copy-paste system
+- **2026-06-18:** New preset intensity slider
+- **2026-06-14:** Added Korean translation support and integrated the global hue slider
+- **2026-06-12:** Refined and standardized Traditional Chinese translations
+- **2026-06-10:** Completed i18next configuration and added Traditional Chinese locale support
+- **2026-06-08:** Resolved infinite indexing loops, brightness bugs, and general compiler warnings
 - **2026-06-07:** Fixed copy-pasting, improved library performance & eight new languages
 - **2026-06-01:** Improved thumbnail performance, polished metadata panel & non-blocking exif reading
+
+<details>
+<summary><strong>Expand further</strong></summary>
+
 - **2026-05-30:** Implemented reliable edited status, sorting & filtering options
 - **2026-05-29:** Refactor exporting to be resource aware
 - **2026-05-27:** Added German language
@@ -70,10 +81,6 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - **2026-05-24:** Added advanced library filtering capabilities (queries)
 - **2026-05-20:** Introduced a dedicated EXIF data overlay display directly inside the library and list views
 - **2026-05-18:** Added global image preprocessing settings, numpad support for customizable keyboard shortcuts, and updated the "Grey" theme color variables
-
-<details>
-<summary><strong>Expand further</strong></summary>
-
 - **2026-05-16:** Initial backend implementation of the cloud service functionality alongside a preview worker backpressure mechanism for better handling of high-quality live previews
 - **2026-05-15:** Added the ability to assign custom icons to individual folders in the library tree
 - **2026-05-14:** Expanded the library architecture to support multi-root folders and introduced a custom album system

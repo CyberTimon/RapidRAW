@@ -2,6 +2,13 @@ import { create } from 'zustand';
 import { Progress } from '../components/ui/AppProperties';
 import { ExportState, ImportState, Status } from '../components/ui/ExportImportProperties';
 
+export interface ExternalEditSession {
+  source: string;
+  output: string;
+  format: string;
+  jpegQuality: number;
+}
+
 interface ProcessState {
   exportState: ExportState;
   importState: ImportState;
@@ -14,6 +21,7 @@ interface ProcessState {
   isCopied: boolean;
   isPasted: boolean;
   initialFileToOpen: string | null;
+  externalEditSession: ExternalEditSession | null;
 
   setProcess: (state: Partial<ProcessState> | ((state: ProcessState) => Partial<ProcessState>)) => void;
   setExportState: (updater: Partial<ExportState> | ((state: ExportState) => Partial<ExportState>)) => void;
@@ -37,6 +45,7 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
   isCopied: false,
   isPasted: false,
   initialFileToOpen: null,
+  externalEditSession: null,
 
   setProcess: (updater) => {
     set((prev) => {

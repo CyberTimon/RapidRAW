@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings } from 'lucide-react';
+import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings, Filter } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
@@ -9,6 +9,8 @@ import Filmstrip from './Filmstrip';
 import { GLOBAL_KEYS, ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { useEditorStore } from '../../store/useEditorStore';
+import { useLibraryStore } from '../../store/useLibraryStore';
+import { COLOR_LABELS } from '../../utils/adjustments';
 
 interface BottomBarProps {
   filmstripHeight?: number;
@@ -151,6 +153,16 @@ export default function BottomBar({
   const numSelected = multiSelectedPaths.length;
   const total = totalImages ?? 0;
   const showSelectionCounter = numSelected > 1;
+
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+  const { filterCriteria, setFilterCriteria } = useLibraryStore(
+    useShallow((state) => ({
+      filterCriteria: state.filterCriteria,
+      setFilterCriteria: state.setFilterCriteria,
+    })),
+  );
+
+  const allColors = [...COLOR_LABELS, { name: 'none', color: '#9ca3af' }];
 
   useEffect(() => {
     if (isZoomReady && !isDraggingSlider.current) {
@@ -354,6 +366,98 @@ export default function BottomBar({
               <Settings size={18} />
             </button>
           </div>
+
+          <div className="h-5 w-px bg-surface"></div>
+
+          <div
+            className={clsx(
+              'flex items-center transition-all duration-300',
+              isFilterExpanded ? 'bg-surface rounded-md' : 'bg-transparent',
+            )}
+          >
+            <button
+              className={clsx(
+                'relative w-8 h-8 flex items-center justify-center rounded-md transition-colors shrink-0',
+                isFilterExpanded ? 'text-text-primary' : 'text-text-secondary hover:bg-surface hover:text-text-primary',
+              )}
+              onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+              data-tooltip={t('ui.bottomBar.tooltips.quickFilter', 'Quick Filter')}
+            >
+              <Filter size={18} />
+            </button>
+
+            <div
+              className={clsx(
+                'flex items-center transition-all duration-300 ease-in-out overflow-hidden',
+                isFilterExpanded ? 'max-w-100 opacity-100 pr-2 ml-1' : 'max-w-0 opacity-0 pr-0 ml-0',
+              )}
+            >
+              <div className="flex items-center gap-3 whitespace-nowrap">
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((starValue) => {
+                    const isFilled = filterCriteria.rating > 0 && starValue <= filterCriteria.rating;
+                    return (
+                      <button
+                        key={`qf-star-${starValue}`}
+                        onClick={() =>
+                          setFilterCriteria((prev) => ({
+                            ...prev,
+                            rating: prev.rating === starValue ? 0 : starValue,
+                          }))
+                        }
+                        className="p-0.5 focus:outline-none"
+                      >
+                        <Star
+                          size={16}
+                          className={clsx(
+                            'transition-colors duration-150',
+                            isFilled ? 'text-accent fill-accent' : 'text-text-secondary hover:text-accent',
+                          )}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="h-4 w-px bg-border-color"></div>
+
+                <div className="flex items-center gap-1.5">
+                  {allColors.map((color) => {
+                    const isSelected = (filterCriteria.colors || []).includes(color.name);
+
+                    const tooltipTitle =
+                      color.name === 'none'
+                        ? t('library.header.viewOptions.noLabel')
+                        : t(`contextMenus.colors.${color.name}`, {
+                            defaultValue: color.name.charAt(0).toUpperCase() + color.name.slice(1),
+                          });
+
+                    return (
+                      <button
+                        key={`qf-color-${color.name}`}
+                        onClick={() => {
+                          const currentColors = filterCriteria.colors || [];
+                          const newColors = currentColors.includes(color.name)
+                            ? currentColors.filter((c) => c !== color.name)
+                            : [...currentColors, color.name];
+                          setFilterCriteria((prev) => ({ ...prev, colors: newColors }));
+                        }}
+                        className={clsx(
+                          'w-4 h-4 rounded-full transition-transform hover:scale-105 flex items-center justify-center focus:outline-none',
+                          isSelected ? 'ring-2 ring-accent ring-offset-1 ring-offset-bg-primary' : '',
+                        )}
+                        style={{ backgroundColor: color.color }}
+                        data-tooltip={tooltipTitle}
+                      >
+                        {isSelected && <Check size={10} className="text-white drop-shadow-md" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div
             className={clsx(
               'flex items-center transition-all duration-300 ease-out overflow-hidden',

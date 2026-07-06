@@ -390,31 +390,6 @@ fn apply_curve(val: f32, points: array<Point, 16>, count: u32) -> f32 {
     return local_points[count - 1u].y / 255.0;
 }
 
-fn get_shadow_mult(luma: f32, sh: f32, bl: f32) -> f32 {
-    var mult = 1.0;
-    let safe_luma = max(luma, 0.0001);
-
-    if (bl != 0.0) {
-        let limit = 0.05;
-        if (safe_luma < limit) {
-            let x = safe_luma / limit;
-            let mask = (1.0 - x) * (1.0 - x);
-            let factor = min(exp2(bl * 0.75), 3.9);
-            mult *= mix(1.0, factor, mask);
-        }
-    }
-    if (sh != 0.0) {
-        let limit = 0.1;
-        if (safe_luma < limit) {
-            let x = safe_luma / limit;
-            let mask = (1.0 - x) * (1.0 - x);
-            let factor = min(exp2(sh * 1.5), 3.9);
-            mult *= mix(1.0, factor, mask);
-        }
-    }
-    return mult;
-}
-
 fn apply_tonal_adjustments(
     color: vec3<f32>,
     blurred_color_input_space: vec3<f32>,
@@ -446,17 +421,44 @@ fn apply_tonal_adjustments(
     let safe_pixel_luma = max(pixel_luma, 0.0001);
     let safe_blurred_luma = max(blurred_luma, 0.0001);
 
-    let perc_pixel = pow(safe_pixel_luma, 0.5);
-    let perc_blurred = pow(safe_blurred_luma, 0.5);
-    let edge_diff = abs(perc_pixel - perc_blurred);
-    let halo_protection = smoothstep(0.05, 0.25, edge_diff);
-
     if (sh != 0.0 || bl != 0.0) {
-        let spatial_mult = get_shadow_mult(safe_blurred_luma, sh, bl);
-        let pixel_mult   = get_shadow_mult(safe_pixel_luma, sh, bl);
+        let t_pixel = pow(safe_pixel_luma, 0.4545);
+        let t_blurred = pow(safe_blurred_luma, 0.4545);
 
-        let final_mult = mix(spatial_mult, pixel_mult, halo_protection);
-        rgb *= final_mult;
+        let shadow_lift = sh * t_pixel * pow(max(1.0 - t_pixel, 0.0), 4.5);
+        let black_lift = bl * t_pixel * pow(max(1.0 - t_pixel, 0.0), 12.0);
+        let lift_amount = max(shadow_lift + black_lift, 0.0);
+
+        let t_pixel_curved = max(t_pixel + shadow_lift + black_lift, 0.0);
+
+        let shadow_pivot = 0.2;
+        let stretch_factor = 1.0 + (lift_amount * 1.3);
+        let contrasted_t = shadow_pivot + (t_pixel_curved - shadow_pivot) * stretch_factor;
+
+        let final_t = max(mix(t_pixel_curved, contrasted_t, 0.85), 0.0);
+        let curved_luma = pow(final_t, 2.2);
+
+        let luma_ratio = curved_luma / safe_pixel_luma;
+        rgb *= luma_ratio;
+
+        let detail = t_pixel / max(t_blurred, 0.0001);
+        let safe_detail = clamp(detail, 0.8, 1.25);
+
+        let noise_protection = smoothstep(0.0, 0.1, t_blurred);
+
+        let detail_amp = 1.0 + (lift_amount * 1.2 * noise_protection);
+
+        let enhanced_detail = pow(safe_detail, detail_amp);
+        let detail_correction = enhanced_detail / safe_detail;
+
+        let linear_correction = pow(detail_correction, 2.2);
+        rgb *= linear_correction;
+
+        if (luma_ratio > 1.0) {
+            let recovered_luma = get_luma(rgb);
+            let boost_amount = clamp((luma_ratio - 1.0) * 0.15, 0.0, 0.4);
+            rgb = mix(rgb, vec3<f32>(recovered_luma), boost_amount);
+        }
     }
 
     if (con != 0.0) {

@@ -43,6 +43,7 @@
         "shadows": "陰影"
       },
       "hue": "色相",
+      "localHue": "局部色調",
       "luminance": "亮度",
       "mixerColors": {
         "aquas": "青色",
@@ -62,17 +63,16 @@
       "vibrance": "鮮豔度",
       "wbPickerTooltip": "白平衡選取器",
       "wbPickerWgpuDisabled": "白平衡選取器：請在設定中停用 WGPU。",
-      "whiteBalance": "白平衡",
-      "localHue": "局部色調"
+      "whiteBalance": "白平衡"
     },
     "curves": {
+      "channelTitle": "{{channel}} 通道",
       "channels": {
         "blue": "藍色",
         "green": "綠色",
         "luma": "亮度",
         "red": "紅色"
       },
-      "channelTitle": "{{channel}} 通道",
       "copyParametric": "複製 {{channel}} 參數曲線",
       "copyPoint": "複製 {{channel}} 點曲線",
       "curveDataUnavailable": "曲線資料不可用。",
@@ -498,6 +498,11 @@
         "transform": "透視和梯形校正"
       }
     },
+    "externalEdit": {
+      "done": "完成",
+      "exporting": "正在匯出…",
+      "savesTo": "外部編輯 — 儲存至"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "新增新元件",
@@ -626,8 +631,8 @@
       "organization": {
         "addTagPlaceholder": "新增標籤...",
         "colorLabel": "顏色標籤",
-        "none": "無",
         "noTags": "無標籤",
+        "none": "無",
         "rating": "評分",
         "ratingLabels": "評分與標籤",
         "tags": "標籤",
@@ -636,6 +641,7 @@
       "title": "後設資料"
     },
     "presets": {
+      "amount": "數量",
       "dialog": {
         "allPresetFiles": "所有預設檔案",
         "exportAllTitle": "匯出所有預設",
@@ -769,12 +775,12 @@
       "estimatedSize": "預計檔案大小：約 {{size}}",
       "estimatedTotalSize": "預計總大小：約 {{size}}",
       "estimatingSize": "正在估算大小...",
-      "exporting": "匯出中…",
-      "exportingProgress": "匯出中…（{{current}}/{{total}}）",
       "exportMultiple": "匯出 {{count}} {{label}}",
       "exportMultiple_one": "匯出 {{count}} {{label}}",
       "exportMultiple_other": "匯出 {{count}} {{label}}",
       "exportSingle": "匯出 {{label}}",
+      "exporting": "匯出中…",
+      "exportingProgress": "匯出中…（{{current}}/{{total}}）",
       "failed": "匯出失敗",
       "noImageSelected": "未選擇要匯出的影像。",
       "noImagesSelected": "未選擇影像。",
@@ -858,10 +864,17 @@
         "folders": "資料夾",
         "pinned": "已固定"
       },
+      "sort": {
+        "created": "建立日期",
+        "imageCount": "影像數量",
+        "modified": "修改日期",
+        "name": "按字母順序"
+      },
       "tooltips": {
         "clearSearch": "清除搜尋",
         "collapse": "摺疊",
-        "expand": "展開"
+        "expand": "展開",
+        "sortFolders": "對資料夾排序"
       }
     },
     "grid": {
@@ -1065,6 +1078,7 @@
         "exposureToneMapper": "曝光與色調映射",
         "grain": "顆粒",
         "halationGlow": "光暈與發光",
+        "hueShift": "全域色相偏移",
         "lensCorrection": "鏡頭校正",
         "lut": "LUT",
         "masks": "遮色片",
@@ -1104,9 +1118,9 @@
       "applyButton_one": "應用到 1 張影像",
       "applyButton_other": "應用到 {{count}} 張影像",
       "bestImage": "最佳影像",
-      "blurryImagesTab": "模糊影像",
       "blurThreshold": "模糊臨界值",
       "blurThresholdDesc": "銳度評分低於此值的影像將被標記。值越高越嚴格。",
+      "blurryImagesTab": "模糊影像",
       "cancel": "取消",
       "close": "關閉",
       "cullingFailed": "篩選失敗",
@@ -1626,8 +1640,8 @@
     "tagging": {
       "addCustomPlaceholder": "新增自定義 AI 標籤（逗號分隔）...",
       "addCustomTooltip": "新增 AI 標籤",
-      "addShortcutsPlaceholder": "新增快捷方式（逗號分隔）...",
       "addShortcutTooltip": "新增快捷方式",
+      "addShortcutsPlaceholder": "新增快捷方式（逗號分隔）...",
       "aiTagging": "AI 標籤",
       "aiTaggingDesc": "使用 AI（CLIP）模型啟用自動影像標籤。這將下載額外的模型，並在瀏覽資料夾時影響效能。標籤用於搜尋資料夾。",
       "amount": "數量",
@@ -1689,6 +1703,7 @@
         "expandFilmstrip": "展開膠片條",
         "export": "匯出",
         "pasteSettings": "貼上設定",
+        "quickFilter": "快速篩選",
         "rateStars_one": "評分 1 星",
         "rateStars_other": "評分 {{count}} 星",
         "resetZoom": "重置縮放以適應視窗",
@@ -1733,9 +1748,13 @@
     },
     "lut": {
       "clearLut": "清除 LUT",
+      "empty": "暫無 LUT — 請匯入一些",
       "filterLabel": "LUT 檔案",
+      "import": "匯入設定檔",
+      "importFailed": "匯入 LUT 失敗",
       "intensity": "強度",
       "label": "LUT",
+      "removeLut": "移除 LUT",
       "select": "選擇",
       "selectLutFile": "選擇 LUT 檔案",
       "unsupportedFormat": "檢測到不支援的檔案格式：.{{ext}}"

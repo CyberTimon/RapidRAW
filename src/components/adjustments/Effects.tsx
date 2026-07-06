@@ -11,6 +11,7 @@ interface EffectsPanelProps {
   isForMask: boolean;
   setAdjustments(adjustments: Partial<Adjustments>): any;
   handleLutSelect(path: string): void;
+  onLutHover?: (path: string | null) => void;
   appSettings: AppSettings | null;
   onDragStateChange?: (isDragging: boolean) => void;
 }
@@ -20,6 +21,7 @@ export default function EffectsPanel({
   setAdjustments,
   isForMask = false,
   handleLutSelect,
+  onLutHover,
   appSettings,
   onDragStateChange,
 }: EffectsPanelProps) {
@@ -94,9 +96,11 @@ export default function EffectsPanel({
               {t('adjustments.effects.lut')}
             </Text>
             <LUTControl
+              lutPath={adjustments.lutPath || null}
               lutName={adjustments.lutName || null}
               lutIntensity={adjustments.lutIntensity || 100}
               onLutSelect={handleLutSelect}
+              onLutHover={onLutHover}
               onIntensityChange={handleLutIntensityChange}
               onClear={handleLutClear}
               onDragStateChange={onDragStateChange}
