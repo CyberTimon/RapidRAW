@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X } from 'lucide-react';
+import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import debounce from 'lodash.debounce';
@@ -54,6 +54,28 @@ function Section({ title, children }: SectionProps) {
         {title}
       </Text>
       <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
+
+interface HdrFieldProps {
+  label: string;
+  help: string;
+  children: any;
+}
+
+// A labelled HDR control with a one-line, plain-language explanation underneath so a
+// non-expert understands what each option does without needing to hover.
+function HdrField({ label, help, children }: HdrFieldProps) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <Text color={TextColors.secondary}>{label}</Text>
+        {children}
+      </div>
+      <Text as="p" variant={TextVariants.small} color={TextColors.secondary} className="opacity-70 leading-snug">
+        {help}
+      </Text>
     </div>
   );
 }
@@ -233,6 +255,24 @@ export default function ExportPanel({
     setWatermarkOpacity,
     preserveFolders,
     setPreserveFolders,
+    bitDepth,
+    setBitDepth,
+    transferFunction,
+    setTransferFunction,
+    primaries,
+    setPrimaries,
+    matrix,
+    setMatrix,
+    chromaSubsampling,
+    setChromaSubsampling,
+    range,
+    setRange,
+    referenceWhiteNits,
+    setReferenceWhiteNits,
+    hlgPeakRatio,
+    setHlgPeakRatio,
+    masteringMetadata,
+    setMasteringMetadata,
     handleApplyPreset,
     currentSettingsObject,
   } = useExportSettings();
@@ -344,6 +384,278 @@ export default function ExportPanel({
     [t],
   );
 
+  // HDR fields shared by the estimate and export settings objects (kept in one place, DRY).
+  // Keys + value spellings must match the backend serde contract exactly.
+  const hdrSettings = useMemo(
+    () => ({
+      bitDepth,
+      transferFunction,
+      primaries,
+      matrix,
+      chromaSubsampling,
+      range,
+      referenceWhiteNits,
+      hlgPeakRatio,
+      masteringMetadata,
+    }),
+    [
+      bitDepth,
+      transferFunction,
+      primaries,
+      matrix,
+      chromaSubsampling,
+      range,
+      referenceWhiteNits,
+      hlgPeakRatio,
+      masteringMetadata,
+    ],
+  );
+
+  // Friendly color profiles for AVIF/JXL. Each bundles the low-level HDR fields so a
+  // non-expert can pick one option instead of reasoning about color science. "custom"
+  // is a sentinel that reveals the Advanced controls without changing any field.
+  const colorProfiles = useMemo(
+    () => ({
+      sdr: { bitDepth: 8, transferFunction: 'srgb', primaries: 'srgb', matrix: 'ycbcr', chromaSubsampling: '420' },
+      hdr10: {
+        bitDepth: 10,
+        transferFunction: 'pq',
+        primaries: 'bt2020',
+        matrix: 'ycbcr',
+        chromaSubsampling: '420',
+        range: 'full',
+      },
+      hlg: {
+        bitDepth: 10,
+        transferFunction: 'hlg',
+        primaries: 'bt2020',
+        matrix: 'ycbcr',
+        chromaSubsampling: '420',
+        range: 'full',
+      },
+      maxQuality: {
+        bitDepth: 12,
+        transferFunction: 'pq',
+        primaries: 'bt2020',
+        matrix: 'ycbcr',
+        chromaSubsampling: '444',
+        range: 'full',
+      },
+      archival: {
+        bitDepth: 12,
+        transferFunction: 'pq',
+        primaries: 'bt2020',
+        matrix: 'identity',
+        chromaSubsampling: '444',
+        range: 'full',
+      },
+    }),
+    [],
+  );
+
+  // The profile that exactly matches the current field bundle, otherwise 'custom'.
+  const activeColorProfile = useMemo(() => {
+    if (bitDepth === 8) return 'sdr';
+    const match = (Object.keys(colorProfiles) as Array<keyof typeof colorProfiles>).find((key) => {
+      if (key === 'sdr') return false;
+      const p = colorProfiles[key];
+      return (
+        p.bitDepth === bitDepth &&
+        p.transferFunction === transferFunction &&
+        p.primaries === primaries &&
+        p.matrix === matrix &&
+        // chroma is forced to 4:4:4 when matrix is RGB, so ignore it in that case.
+        (matrix === 'identity' || p.chromaSubsampling === chromaSubsampling) &&
+        p.range === range
+      );
+    });
+    return match ?? 'custom';
+  }, [bitDepth, transferFunction, primaries, matrix, chromaSubsampling, range, colorProfiles]);
+
+  const [forceAdvancedColor, setForceAdvancedColor] = useState(false);
+  const showAdvancedColor = activeColorProfile === 'custom' || forceAdvancedColor;
+
+  const applyColorProfile = useCallback(
+    (key: string) => {
+      if (key === 'custom') {
+        setForceAdvancedColor(true);
+        return;
+      }
+      const p = colorProfiles[key as keyof typeof colorProfiles];
+      if (!p) return;
+      setBitDepth(p.bitDepth);
+      setTransferFunction(p.transferFunction);
+      setPrimaries(p.primaries);
+      setMatrix(p.matrix);
+      setChromaSubsampling(p.chromaSubsampling);
+      if ('range' in p && p.range) setRange(p.range);
+      setForceAdvancedColor(false);
+    },
+    [colorProfiles, setBitDepth, setTransferFunction, setPrimaries, setMatrix, setChromaSubsampling, setRange],
+  );
+
+  // Switching SDR -> HDR in the Advanced controls promotes the SDR-only fields to the
+  // compatible HDR defaults (PQ / Rec.2020 / YCbCr / 4:2:0) so the output is valid HDR.
+  const handleBitDepthChange = useCallback(
+    (depth: number) => {
+      setBitDepth(depth);
+      if (depth > 8 && transferFunction === 'srgb') {
+        setTransferFunction('pq');
+        setPrimaries('bt2020');
+        setMatrix('ycbcr');
+        setChromaSubsampling('420');
+        setRange('full');
+      }
+    },
+    [transferFunction, setBitDepth, setTransferFunction, setPrimaries, setMatrix, setChromaSubsampling, setRange],
+  );
+
+  const handleMatrixChange = useCallback(
+    (value: string) => {
+      setMatrix(value);
+      // RGB (identity) cannot subsample chroma; force full 4:4:4 to keep the output valid.
+      if (value === 'identity') {
+        setChromaSubsampling('444');
+      }
+    },
+    [setMatrix, setChromaSubsampling],
+  );
+
+  // 4:2:2 AVIF must fit in a single AV1 tile (rav1e can't tile 4:2:2 conformantly), so the long
+  // edge is capped. The limit is the backend's single source of truth — fetched from the
+  // `avif_422_limits` command (derived there from AVIF_422_MAX_WIDTH / AVIF_422_MAX_PIXELS), never
+  // hardcoded here. `null` until it loads.
+  const [avif422MaxLongEdge, setAvif422MaxLongEdge] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    invoke<{ maxLongEdge: number }>('avif_422_limits')
+      .then((limits) => {
+        if (!cancelled) setAvif422MaxLongEdge(limits.maxLongEdge);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // A long-edge resize at/under the cap is the only mode that guarantees every image (any aspect
+  // ratio) stays within the backend's width AND area limits.
+  const resizeKeeps422Safe =
+    avif422MaxLongEdge != null &&
+    enableResize &&
+    resizeMode === 'longEdge' &&
+    resizeValue > 0 &&
+    resizeValue <= avif422MaxLongEdge;
+
+  // Choosing 4:2:2 for AVIF auto-applies the resolution cap — shown right in the Resize controls,
+  // not hidden in the backend. The user can still change/remove it (a warning then appears, and an
+  // over-size export fails loudly rather than silently switching chroma). We only step in when the
+  // current resize wouldn't already keep every image safe, so a tighter existing cap is respected.
+  const handleChromaChange = useCallback(
+    (value: string) => {
+      setChromaSubsampling(value);
+      if (
+        value === '422' &&
+        fileFormat === FileFormats.Avif &&
+        avif422MaxLongEdge != null &&
+        !resizeKeeps422Safe
+      ) {
+        setEnableResize(true);
+        setResizeMode('longEdge');
+        setResizeValue(avif422MaxLongEdge);
+        setDontEnlarge(true);
+      }
+    },
+    [
+      fileFormat,
+      avif422MaxLongEdge,
+      resizeKeeps422Safe,
+      setChromaSubsampling,
+      setEnableResize,
+      setResizeMode,
+      setResizeValue,
+      setDontEnlarge,
+    ],
+  );
+
+  // Warn whenever 4:2:2 AVIF is selected but the resize won't guarantee every image stays inside
+  // the single-tile envelope (cap removed, wrong mode, or value too large).
+  const is422Avif = fileFormat === FileFormats.Avif && matrix === 'ycbcr' && chromaSubsampling === '422';
+  const show422CapWarning = is422Avif && avif422MaxLongEdge != null && !resizeKeeps422Safe;
+  // The resolution cap is doing its job: 4:2:2 AVIF with a safe resize. Surface a short note in
+  // the Resize section so the auto-applied cap reads as an intentional guardrail, not a surprise.
+  const show422CapNote = is422Avif && resizeKeeps422Safe;
+
+  const colorProfileOptions = useMemo(
+    () => [
+      { label: t('export.file.profiles.sdr'), value: 'sdr' },
+      { label: t('export.file.profiles.hdr10'), value: 'hdr10' },
+      { label: t('export.file.profiles.hlg'), value: 'hlg' },
+      { label: t('export.file.profiles.maxQuality'), value: 'maxQuality' },
+      { label: t('export.file.profiles.archival'), value: 'archival' },
+      { label: t('export.file.profiles.custom'), value: 'custom' },
+    ],
+    [t],
+  );
+
+  const bitDepthOptions = useMemo(
+    () => [
+      { label: t('export.file.bitDepth8'), value: '8' },
+      { label: t('export.file.bitDepth10'), value: '10' },
+      { label: t('export.file.bitDepth12'), value: '12' },
+    ],
+    [t],
+  );
+
+  const matrixOptions = useMemo(
+    () => [
+      { label: t('export.file.colorEncodingYcbcr'), value: 'ycbcr' },
+      { label: t('export.file.colorEncodingRgb'), value: 'identity' },
+    ],
+    [t],
+  );
+
+  const chromaOptions = useMemo(
+    () => [
+      { label: t('export.file.chroma420'), value: '420' },
+      { label: t('export.file.chroma422'), value: '422' },
+      { label: t('export.file.chroma444'), value: '444' },
+    ],
+    [t],
+  );
+
+  const rangeOptions = useMemo(
+    () => [
+      { label: t('export.file.rangeFull'), value: 'full' },
+      { label: t('export.file.rangeLimited'), value: 'limited' },
+    ],
+    [t],
+  );
+
+  const gamutOptions = useMemo(
+    () => [
+      { label: t('export.file.gamutSrgb'), value: 'srgb' },
+      { label: t('export.file.gamutDisplayP3'), value: 'displayp3' },
+      { label: t('export.file.gamutBt2020'), value: 'bt2020' },
+    ],
+    [t],
+  );
+
+  const transferOptions = useMemo(
+    () => [
+      { label: 'PQ — for screens & sharing (recommended)', value: 'pq' },
+      { label: 'HLG — for TV / broadcast', value: 'hlg' },
+    ],
+    [],
+  );
+
+  // One-line, plain-language summary of what the chosen Color profile produces. Shown under
+  // the profile picker so a non-expert understands the trade-off without opening Advanced.
+  const colorProfileDescription = useMemo(
+    () => t(`export.file.profileDescriptions.${activeColorProfile}`),
+    [t, activeColorProfile],
+  );
+
   const debouncedEstimateSize = useMemo(
     () =>
       debounce(async (paths, currentAdj, currentPath, exportSettings, format) => {
@@ -390,6 +702,7 @@ export default function ExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
+      ...hdrSettings,
     };
     const format = FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0] || 'jpeg';
     debouncedEstimateSize(pathsToExport, adjustments, selectedImage?.path, exportSettings, format);
@@ -466,6 +779,7 @@ export default function ExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
+      ...hdrSettings,
     };
 
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
@@ -605,6 +919,185 @@ export default function ExportPanel({
                   />
                 </div>
               )}
+              {[FileFormats.Avif, FileFormats.Jxl].includes(fileFormat as FileFormats) && (
+                <div className={`mt-3 space-y-3 ${isExporting ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {/* Tier 1: a single friendly "Color profile" picker that bundles the HDR fields. */}
+                  <HdrField label={t('export.file.colorProfile')} help={t('export.file.colorProfileHint')}>
+                    <Dropdown
+                      options={colorProfileOptions}
+                      value={activeColorProfile}
+                      onChange={applyColorProfile}
+                      disabled={isExporting}
+                      className="w-56"
+                    />
+                  </HdrField>
+
+                  {/* One-line summary of what the selected profile produces. */}
+                  {colorProfileDescription && (
+                    <div className="rounded-md bg-surface/60 px-3 py-2">
+                      <Text
+                        as="p"
+                        variant={TextVariants.small}
+                        color={TextColors.secondary}
+                        className="leading-snug"
+                      >
+                        {colorProfileDescription}
+                      </Text>
+                    </div>
+                  )}
+
+                  {/* An explicit Advanced toggle so users on a preset can still fine-tune. */}
+                  {activeColorProfile !== 'custom' && bitDepth > 8 && (
+                    <Switch
+                      label={t('export.file.advancedToggle')}
+                      checked={forceAdvancedColor}
+                      onChange={setForceAdvancedColor}
+                      disabled={isExporting}
+                      trackClassName="bg-surface"
+                    />
+                  )}
+
+                  {/* Tier 2: Advanced controls, each with plain-language help. */}
+                  {showAdvancedColor && (
+                    <div className="space-y-3 pl-2 border-l-2 border-surface">
+                      <Text variant={TextVariants.label} color={TextColors.secondary} className="block">
+                        {t('export.file.advancedSectionTitle')}
+                      </Text>
+                      <HdrField label={t('export.file.bitDepth')} help={t('export.file.bitDepthHelp')}>
+                        <Dropdown
+                          options={bitDepthOptions}
+                          value={String(bitDepth)}
+                          onChange={(v: string) => handleBitDepthChange(parseInt(v, 10))}
+                          disabled={isExporting}
+                          className="w-56"
+                        />
+                      </HdrField>
+
+                      {bitDepth > 8 && (
+                        <>
+                          <HdrField label={t('export.file.transfer')} help={t('export.file.hdrHint')}>
+                            <Dropdown
+                              options={transferOptions}
+                              value={transferFunction === 'srgb' ? 'pq' : transferFunction}
+                              onChange={setTransferFunction}
+                              disabled={isExporting}
+                              className="w-56"
+                            />
+                          </HdrField>
+
+                          {transferFunction === 'hlg' && (
+                            <HdrField label={t('export.file.hlgPeakRatio')} help={t('export.file.hlgPeakRatioHelp')}>
+                              <div className="w-56">
+                                <Slider
+                                  label=""
+                                  min={2}
+                                  max={20}
+                                  step={1}
+                                  value={hlgPeakRatio}
+                                  onChange={(e) => setHlgPeakRatio(parseInt(String(e.target.value), 10))}
+                                  defaultValue={12}
+                                  fillOrigin="min"
+                                />
+                              </div>
+                            </HdrField>
+                          )}
+
+                          <HdrField label={t('export.file.colorGamut')} help={t('export.file.colorGamutHelp')}>
+                            <Dropdown
+                              options={gamutOptions}
+                              value={primaries}
+                              onChange={setPrimaries}
+                              disabled={isExporting}
+                              className="w-56"
+                            />
+                          </HdrField>
+
+                          <HdrField label={t('export.file.colorEncoding')} help={t('export.file.colorEncodingHelp')}>
+                            <Dropdown
+                              options={matrixOptions}
+                              value={matrix}
+                              onChange={handleMatrixChange}
+                              disabled={isExporting}
+                              className="w-56"
+                            />
+                          </HdrField>
+
+                          {/* Chroma detail only applies to YCbCr; RGB forces full 4:4:4. */}
+                          {matrix === 'ycbcr' && (
+                            <>
+                              <HdrField label={t('export.file.chromaDetail')} help={t('export.file.chromaDetailHelp')}>
+                                <Dropdown
+                                  options={chromaOptions}
+                                  value={chromaSubsampling}
+                                  onChange={handleChromaChange}
+                                  disabled={isExporting}
+                                  className="w-56"
+                                />
+                              </HdrField>
+                              {show422CapWarning && (
+                                <div className="flex items-start gap-2 rounded-md bg-yellow-400/10 border border-yellow-400/30 px-3 py-2">
+                                  <Info size={14} className="text-yellow-300 mt-0.5 shrink-0" />
+                                  <Text
+                                    as="p"
+                                    variant={TextVariants.small}
+                                    className="text-yellow-300 leading-snug"
+                                  >
+                                    {t('export.file.chroma422CapWarning', { maxLongEdge: avif422MaxLongEdge })}
+                                  </Text>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          <HdrField label={t('export.file.signalRange')} help={t('export.file.signalRangeHelp')}>
+                            <Dropdown
+                              options={rangeOptions}
+                              value={range}
+                              onChange={setRange}
+                              disabled={isExporting}
+                              className="w-56"
+                            />
+                          </HdrField>
+
+                          <HdrField label={t('export.file.referenceWhite')} help={t('export.file.referenceWhiteHelp')}>
+                            <div className="w-56">
+                              <Slider
+                                label=""
+                                min={100}
+                                max={300}
+                                step={1}
+                                value={referenceWhiteNits}
+                                onChange={(e) => setReferenceWhiteNits(parseInt(String(e.target.value), 10))}
+                                defaultValue={203}
+                                fillOrigin="min"
+                                suffix="nits"
+                              />
+                            </div>
+                          </HdrField>
+
+                          <div className="space-y-1">
+                            <Switch
+                              label={t('export.file.masteringMetadata')}
+                              checked={masteringMetadata}
+                              onChange={setMasteringMetadata}
+                              disabled={isExporting}
+                              trackClassName="bg-surface"
+                            />
+                            <Text
+                              as="p"
+                              variant={TextVariants.small}
+                              color={TextColors.secondary}
+                              className="opacity-70 leading-snug"
+                            >
+                              {t('export.file.masteringMetadataHelp')}
+                            </Text>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </Section>
 
             {numImages > 1 && (
@@ -669,6 +1162,19 @@ export default function ExportPanel({
                         onChange={setDontEnlarge}
                         trackClassName="bg-surface"
                       />
+                      {show422CapNote && (
+                        <div className="flex items-start gap-2 rounded-md bg-surface/60 px-3 py-2">
+                          <Info size={14} className="text-text-secondary mt-0.5 shrink-0" />
+                          <Text
+                            as="p"
+                            variant={TextVariants.small}
+                            color={TextColors.secondary}
+                            className="leading-snug"
+                          >
+                            {t('export.resize.chroma422CapNote', { maxLongEdge: avif422MaxLongEdge })}
+                          </Text>
+                        </div>
+                      )}
                     </div>
                   )}
                 </Section>

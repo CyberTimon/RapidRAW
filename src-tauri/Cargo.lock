@@ -7,6 +7,7 @@ name = "RapidRAW"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "avif-serialize",
  "base64 0.22.1",
  "blake3",
  "bytemuck",
@@ -27,6 +28,8 @@ dependencies = [
  "imgref",
  "include_dir",
  "jni 0.21.1",
+ "jpegxl-rs",
+ "jpegxl-sys",
  "jxl-encoder",
  "jxl-oxide",
  "kamadak-exif",
@@ -46,6 +49,7 @@ dependencies = [
  "pollster",
  "quick-xml 0.40.1",
  "rand 0.10.1",
+ "rav1e",
  "rawler",
  "rayon",
  "regex",
@@ -647,6 +651,31 @@ dependencies = [
  "futures-io",
  "futures-lite",
  "piper",
+]
+
+[[package]]
+name = "bon"
+version = "3.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2f04f6fef12d70d42a77b1433c9e0f065238479a6cefc4f5bab105e9873a3c3"
+dependencies = [
+ "bon-macros",
+ "rustversion",
+]
+
+[[package]]
+name = "bon-macros"
+version = "3.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d0bd4c2f75335ad98052a37efb54f428b492f64340257143b3429c8a508fa7b"
+dependencies = [
+ "darling 0.23.0",
+ "ident_case",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -3084,6 +3113,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "jpegxl-rs"
+version = "0.14.0+libjxl-0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b7d16fe73fb6d2e16b986392b716409c6ae6fabd35769d66bea391b016cdbc9"
+dependencies = [
+ "bon",
+ "byteorder",
+ "half",
+ "jpegxl-sys",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "jpegxl-sys"
+version = "0.12.1+libjxl-0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00cb4f7ffb45ee4327e9ec6ca1a732f3abef470ee008f7d4be3afb414075cd7d"
+dependencies = [
+ "pkg-config",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3895,6 +3946,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "nasm-rs"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "706bf8a5e8c8ddb99128c3291d31bd21f4bcde17f0f4c20ec678d85c74faa149"
+dependencies = [
+ "jobserver",
+ "log",
 ]
 
 [[package]]
@@ -5126,6 +5187,7 @@ dependencies = [
  "av1-grain",
  "bitstream-io",
  "built",
+ "cc",
  "cfg-if",
  "interpolate_name",
  "itertools",
@@ -5133,6 +5195,7 @@ dependencies = [
  "libfuzzer-sys",
  "log",
  "maybe-rayon",
+ "nasm-rs",
  "new_debug_unreachable",
  "noop_proc_macro",
  "num-derive",

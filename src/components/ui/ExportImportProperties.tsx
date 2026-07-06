@@ -47,6 +47,24 @@ export interface ExportSettings {
   watermark: WatermarkSettings | null;
   exportMasks?: boolean;
   preserveFolders?: boolean;
+  /** HDR export (AVIF/JXL): 8 = SDR, 10/12 = HDR. */
+  bitDepth?: number;
+  /** HDR transfer function: 'srgb' | 'pq' | 'hlg'. */
+  transferFunction?: string;
+  /** HDR primaries: 'srgb' | 'bt2020' | 'displayp3'. */
+  primaries?: string;
+  /** Color encoding matrix: 'identity' (RGB) | 'ycbcr'. */
+  matrix?: string;
+  /** Chroma subsampling: '444' | '422' | '420'. */
+  chromaSubsampling?: string;
+  /** Signal range: 'full' | 'limited'. */
+  range?: string;
+  /** Reference (paper) white in nits. Default 203. */
+  referenceWhiteNits?: number;
+  /** HLG peak luminance headroom above paper white. Default 12. */
+  hlgPeakRatio?: number;
+  /** Embed mastering display metadata (MaxCLL/MaxFALL). Default false. */
+  masteringMetadata?: boolean;
 }
 
 export enum WatermarkAnchor {
@@ -119,4 +137,13 @@ export interface ExportPreset {
   watermarkSpacing: number;
   watermarkOpacity: number;
   lastExportPath?: string;
+  bitDepth?: number;
+  transferFunction?: string;
+  primaries?: string;
+  matrix?: string;
+  chromaSubsampling?: string;
+  range?: string;
+  referenceWhiteNits?: number;
+  hlgPeakRatio?: number;
+  masteringMetadata?: boolean;
 }

@@ -68,8 +68,11 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libssl-dev \
             libayatana-appindicator3-dev \
-            librsvg2-dev
+            librsvg2-dev \
+            nasm
 
       - name: Clippy
         working-directory: src-tauri
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        # hdr_jxl links system libjxl (too old on the runners); `jpegxl-rs/docs` skips that link so
+        # clippy still type-checks the hdr_jxl module (plain --all-features would force the link).
+        run: cargo clippy --all-targets --features hdr_jxl,jpegxl-rs/docs -- -D warnings

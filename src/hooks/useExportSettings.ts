@@ -20,6 +20,21 @@ export function useExportSettings() {
   const [watermarkScale, setWatermarkScale] = useState(10);
   const [watermarkSpacing, setWatermarkSpacing] = useState(5);
   const [watermarkOpacity, setWatermarkOpacity] = useState(75);
+  // HDR export (AVIF/JXL): bitDepth 8 = SDR; 10/12 = HDR. transferFunction 'srgb'|'pq'|'hlg'.
+  const [bitDepth, setBitDepth] = useState(8);
+  const [transferFunction, setTransferFunction] = useState('srgb');
+  const [primaries, setPrimaries] = useState('srgb');
+  // matrix 'identity'|'ycbcr'; subsampling '444'|'422'|'420'; range 'full'|'limited'.
+  // User-facing HDR defaults favour compatibility (ycbcr/420); SDR output is unchanged because
+  // these fields are only emitted/used when bitDepth > 8 and the format is AVIF/JXL.
+  const [matrix, setMatrix] = useState('ycbcr');
+  const [chromaSubsampling, setChromaSubsampling] = useState('420');
+  const [range, setRange] = useState('full');
+  const [referenceWhiteNits, setReferenceWhiteNits] = useState(203);
+  const [hlgPeakRatio, setHlgPeakRatio] = useState(12);
+  // Default on: it embeds accurate, content-derived brightness metadata (MaxCLL/MaxFALL) and is
+  // only read by the HDR encode path (SDR ignores it), matching the control's "recommended" help.
+  const [masteringMetadata, setMasteringMetadata] = useState(true);
 
   const handleApplyPreset = useCallback((preset: ExportPreset) => {
     setFileFormat(preset.fileFormat);
@@ -40,6 +55,15 @@ export function useExportSettings() {
     setWatermarkScale(preset.watermarkScale);
     setWatermarkSpacing(preset.watermarkSpacing);
     setWatermarkOpacity(preset.watermarkOpacity);
+    setBitDepth(preset.bitDepth ?? 8);
+    setTransferFunction(preset.transferFunction ?? 'srgb');
+    setPrimaries(preset.primaries ?? 'srgb');
+    setMatrix(preset.matrix ?? 'ycbcr');
+    setChromaSubsampling(preset.chromaSubsampling ?? '420');
+    setRange(preset.range ?? 'full');
+    setReferenceWhiteNits(preset.referenceWhiteNits ?? 203);
+    setHlgPeakRatio(preset.hlgPeakRatio ?? 12);
+    setMasteringMetadata(preset.masteringMetadata ?? true);
   }, []);
 
   const currentSettingsObject = useMemo(
@@ -62,6 +86,15 @@ export function useExportSettings() {
       watermarkScale,
       watermarkSpacing,
       watermarkOpacity,
+      bitDepth,
+      transferFunction,
+      primaries,
+      matrix,
+      chromaSubsampling,
+      range,
+      referenceWhiteNits,
+      hlgPeakRatio,
+      masteringMetadata,
     }),
     [
       fileFormat,
@@ -82,7 +115,16 @@ export function useExportSettings() {
       watermarkScale,
       watermarkSpacing,
       watermarkOpacity,
-    ]
+      bitDepth,
+      transferFunction,
+      primaries,
+      matrix,
+      chromaSubsampling,
+      range,
+      referenceWhiteNits,
+      hlgPeakRatio,
+      masteringMetadata,
+    ],
   );
 
   return {
@@ -122,6 +164,24 @@ export function useExportSettings() {
     setWatermarkSpacing,
     watermarkOpacity,
     setWatermarkOpacity,
+    bitDepth,
+    setBitDepth,
+    transferFunction,
+    setTransferFunction,
+    primaries,
+    setPrimaries,
+    matrix,
+    setMatrix,
+    chromaSubsampling,
+    setChromaSubsampling,
+    range,
+    setRange,
+    referenceWhiteNits,
+    setReferenceWhiteNits,
+    hlgPeakRatio,
+    setHlgPeakRatio,
+    masteringMetadata,
+    setMasteringMetadata,
     handleApplyPreset,
     currentSettingsObject,
   };

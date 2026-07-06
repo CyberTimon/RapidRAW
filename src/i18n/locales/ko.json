@@ -737,7 +737,60 @@
     },
     "file": {
       "quality": "품질",
-      "qualityLossless": "품질 (무손실)"
+      "qualityLossless": "품질 (무손실)",
+      "bitDepth": "비트 심도",
+      "bitDepth8": "8비트 (표준 / SDR)",
+      "bitDepth10": "10비트 (HDR)",
+      "bitDepth12": "12비트 (HDR)",
+      "transfer": "밝기 인코딩 (PQ / HLG)",
+      "primaries": "원색",
+      "hdrHint": "PQ는 HDR 사진의 표준이며 화면 표시와 대부분의 공유에 가장 적합합니다. HDR TV나 방송용으로 납품할 때만 HLG를 선택하세요. 어느 쪽이든 HDR를 제대로 보려면 HDR 디스플레이가 필요하며, 일반 화면에서는 색이 바랜 것처럼 보일 수 있습니다.",
+      "colorProfile": "색상 프로파일",
+      "colorProfileHint": "여기서 시작하세요. 각 프로파일이 아래의 모든 항목을 대신 설정해 줍니다. 세부 항목을 직접 조정하려는 경우에만 사용자 지정을 선택하세요.",
+      "profiles": {
+        "sdr": "표준 (SDR)",
+        "hdr10": "HDR10 — 권장",
+        "hlg": "HLG — 방송",
+        "maxQuality": "HDR — 최고 품질",
+        "archival": "HDR — 보관용",
+        "custom": "사용자 지정…"
+      },
+      "profileDescriptions": {
+        "sdr": "전형적인 사진 내보내기. 어떤 화면과 앱에서도 동일하게 보입니다 — 특별히 HDR를 만드는 것이 아니라면 안전한 기본 선택입니다.",
+        "hdr10": "권장 HDR. 더 밝은 하이라이트와 풍부한 색을 제공하며, 휴대폰·브라우저·소셜 플랫폼에서 가장 폭넓게 지원됩니다.",
+        "hlg": "TV 및 방송 워크플로에 맞춰 조정된 HDR. 납품 대상이 HLG를 요구할 때만 선택하세요.",
+        "maxQuality": "색 디테일을 온전히 담은 최고 충실도의 HDR. 파일이 더 큽니다. 편집, 인쇄 준비, 또는 최고의 작업물 보관에 가장 적합합니다.",
+        "archival": "장기 보관용 마스터를 위해 색을 손실 없이 정확하게 저장합니다. 파일이 가장 크고 일상적인 뷰어와의 호환성은 가장 낮습니다.",
+        "custom": "수동 제어. 아래의 모든 설정을 직접 조정할 수 있습니다 — 프로파일이 거의 맞지만 완전하지 않을 때 유용합니다."
+      },
+      "advancedToggle": "고급 색상 설정 표시",
+      "advancedSectionTitle": "고급 색상 설정",
+      "bitDepthHelp": "색 심도입니다. 비트가 많을수록 하늘과 그림자의 그라데이션이 부드러워지지만 파일이 커집니다. 10비트가 권장 HDR 표준이며, 12비트는 최고 품질용입니다.",
+      "colorEncoding": "색상 저장 (인코딩)",
+      "colorEncodingYcbcr": "표준 (YCbCr)",
+      "colorEncodingRgb": "정확 / 무손실 (RGB)",
+      "colorEncodingHelp": "색상 데이터를 담는 방식입니다. 표준 (권장)은 어디서나 재생되는 더 작은 파일을 만듭니다. 정확은 색을 완벽하게 그대로 유지하지만 더 크고 지원 범위가 좁은 파일을 만듭니다 — 보관용으로만 사용하세요.",
+      "chromaDetail": "색 디테일 (크로마)",
+      "chroma420": "표준 (4:2:0) — 가장 작음",
+      "chroma422": "균형 (4:2:2)",
+      "chroma444": "전체 색상 (4:4:4)",
+      "chromaDetailHelp": "유지할 색 해상도의 양입니다. 표준 (권장)은 대부분의 사진에서 눈에 띄는 차이 없이 파일을 줄입니다. 전체 색상은 채도 높은 가장자리와 가는 텍스트의 디테일을 모두 유지하지만 크기가 커집니다.",
+      "chroma422CapWarning": "참고: 균형 (4:2:2) AVIF는 긴 변 {{maxLongEdge}} px까지만 유효하므로, 파일이 정상 작동하도록 위의 내보내기 크기를 제한했습니다. 모든 이미지가 이미 더 작다면 제한을 해제할 수 있습니다 — 그렇지 않으면 표준 (4:2:0) 또는 전체 색상 (4:4:4)으로 전환해 전체 해상도로 내보내세요.",
+      "signalRange": "톤 범위",
+      "rangeFull": "전체 (권장)",
+      "rangeLimited": "제한 (TV / 비디오)",
+      "signalRangeHelp": "어떤 밝기 값을 사용할지입니다. 전체 (사진에 권장)는 전체 범위를 사용해 최대한의 디테일을 얻습니다. 제한은 기존 TV 및 비디오 파이프라인에 맞춥니다.",
+      "colorGamut": "색 범위 (색 영역)",
+      "gamutSrgb": "표준 (sRGB) — 가장 좁은 범위",
+      "gamutDisplayP3": "넓음 (Display-P3)",
+      "gamutBt2020": "가장 넓음 (Rec.2020)",
+      "colorGamutHelp": "표시할 수 있는 색의 폭입니다. 가장 넓음 (Rec.2020)은 HDR 표준이며 여기서 권장됩니다. 넓음 (Display-P3)은 최신 휴대폰과 노트북 화면에 맞고, 표준 (sRGB)은 가장 호환성이 높지만 가장 덜 선명합니다.",
+      "referenceWhite": "종이 백색 밝기",
+      "referenceWhiteHelp": "HDR에서 단색 흰 페이지가 얼마나 밝게 보이는지를 설정합니다. 203 nits가 표준이며, 높이면 전체적으로 더 밝아 보입니다. 변경이 필요하다는 것을 알고 있는 경우가 아니라면 기본값으로 두세요.",
+      "hlgPeakRatio": "하이라이트 여유 (HLG)",
+      "hlgPeakRatioHelp": "HLG 하이라이트가 종이 백색 위로 얼마나 더 밝아질 수 있는지입니다. 기본값은 대부분의 소재에 적합합니다. 납품 사양에서 다르게 지정하지 않는 한 그대로 두세요.",
+      "masteringMetadata": "밝기 메타데이터 포함",
+      "masteringMetadataHelp": "HDR 디스플레이가 정확하게 톤 매핑할 수 있도록 파일에 밝기 수준 (MaxCLL / MaxFALL)을 태그합니다. 권장 — 켜 둬도 안전합니다."
     },
     "labels": {
       "image": "이미지",
@@ -758,7 +811,8 @@
         "width": "너비"
       },
       "pixels": "픽셀",
-      "resizeToFit": "맞춤 크기 조정"
+      "resizeToFit": "맞춤 크기 조정",
+      "chroma422CapNote": "균형 (4:2:2) AVIF를 위해 {{maxLongEdge}} px로 제한했습니다 — 이렇게 하면 파일이 유효하게 유지됩니다."
     },
     "sections": {
       "advanced": "고급",

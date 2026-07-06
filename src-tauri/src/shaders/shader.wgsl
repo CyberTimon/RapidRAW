@@ -198,6 +198,13 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 @group(0) @binding(1) var output_texture: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(2) var<storage, read> adjustments: AllAdjustments;
 
+// HDR export sets this to 1 via a pipeline-overridable constant (see build_hdr_resources). The
+// default 0 keeps every other pipeline byte-identical to before, and gates the few places where
+// the HDR (rgba16float) path must preserve highlight headroom instead of clamping to [0, 1]. The
+// output texture's storage FORMAT can't be an override in WGSL, so that one line is still swapped
+// textually when the HDR shader is built (hdr_shader_source).
+override IS_HDR: i32 = 0;
+
 @group(0) @binding(3) var mask_textures: texture_2d_array<f32>;
 
 @group(0) @binding(4) var lut_texture: texture_3d<f32>;
@@ -342,7 +349,13 @@ fn apply_curve(val: f32, points: array<Point, 16>, count: u32) -> f32 {
     var local_points = points;
     let x = val * 255.0;
     if (x <= local_points[0].x) { return local_points[0].y / 255.0; }
-    if (x >= local_points[count - 1u].x) { return local_points[count - 1u].y / 255.0; }
+    if (x >= local_points[count - 1u].x) {
+        // Above the top control point: SDR snaps to the point's value; HDR passes the headroom
+        // excess through, so values above diffuse white survive (identity curve => value unchanged).
+        let top_y = local_points[count - 1u].y / 255.0;
+        let excess = val - local_points[count - 1u].x / 255.0;
+        return top_y + select(0.0, excess, IS_HDR != 0);
+    }
     for (var i = 0u; i < 15u; i = i + 1u) {
         if (i >= count - 1u) { break; }
         let p1 = local_points[i];
@@ -1198,7 +1211,9 @@ fn no_tonemap(c: vec3<f32>) -> vec3<f32> {
 
 fn is_default_curve(points: array<Point, 16>, count: u32) -> bool {
     if (count < 2u) {
-        return false;
+        // SDR: a <2-point curve isn't "default". HDR: treat it as default so the non-normalizing
+        // branch is taken below and highlight headroom isn't pulled back into gamut.
+        return IS_HDR != 0;
     }
 
     var is_identity = true;
@@ -1231,7 +1246,9 @@ fn apply_all_curves(color: vec3<f32>, luma_curve: array<Point, 16>, luma_curve_c
         var final_color: vec3<f32>;
         if (luma_graded > 0.001) { final_color = color_graded * (luma_target / luma_graded); } else { final_color = vec3<f32>(luma_target); }
         let max_comp = max(final_color.r, max(final_color.g, final_color.b));
-        if (max_comp > 1.0) { final_color = final_color / max_comp; }
+        // SDR renormalizes RGB-curve output back into gamut; HDR leaves headroom (threshold ~never).
+        let max_comp_limit = select(1.0, 1.0e30, IS_HDR != 0);
+        if (max_comp > max_comp_limit) { final_color = final_color / max_comp; }
         return final_color;
     } else {
         return vec3<f32>(apply_curve(color.r, luma_curve, luma_curve_count), apply_curve(color.g, luma_curve, luma_curve_count), apply_curve(color.b, luma_curve, luma_curve_count));
@@ -1667,14 +1684,14 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (adjustments.global.tonemapper_mode == 1u) {
         base_srgb = agx_full_transform(composite_rgb_linear);
     } else if (is_raw == 1u) {
-        var srgb_emulated = linear_to_srgb(composite_rgb_linear);
+        var srgb_emulated = select(linear_to_srgb(composite_rgb_linear), linear_to_srgb_extended(composite_rgb_linear), IS_HDR != 0);
         const BRIGHTNESS_GAMMA: f32 = 1.1;
         srgb_emulated = pow(srgb_emulated, vec3<f32>(1.0 / BRIGHTNESS_GAMMA));
         const CONTRAST_MIX: f32 = 0.75;
         let contrast_curve = srgb_emulated * srgb_emulated * (3.0 - 2.0 * srgb_emulated);
         base_srgb = mix(srgb_emulated, contrast_curve, CONTRAST_MIX);
     } else {
-        base_srgb = linear_to_srgb(composite_rgb_linear);
+        base_srgb = select(linear_to_srgb(composite_rgb_linear), linear_to_srgb_extended(composite_rgb_linear), IS_HDR != 0);
     }
 
     var final_rgb = apply_all_curves(base_srgb,
@@ -1730,8 +1747,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
-    let dither_amount = 1.0 / 255.0;
+    let dither_amount = select(1.0 / 255.0, 0.0, IS_HDR != 0);
     final_rgb += dither(id.xy) * dither_amount;
 
-    textureStore(output_texture, id.xy, vec4<f32>(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)), original_alpha));
+    // SDR clamps to [0,1]; HDR only floors at 0 so values above diffuse white survive to readback.
+    let out_rgb = select(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)), max(final_rgb, vec3<f32>(0.0)), IS_HDR != 0);
+    textureStore(output_texture, id.xy, vec4<f32>(out_rgb, original_alpha));
 }

@@ -77,7 +77,13 @@ jobs:
             libssl-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            patchelf
+            patchelf \
+            nasm
+
+      # nasm assembles rav1e's x86_64 AVIF asm (Apple Silicon uses the built-in assembler).
+      - name: Install additional system dependencies (macOS)
+        if: runner.os == 'macOS' && contains(inputs.target, 'x86_64')
+        run: brew install nasm
 
       # ------------- Android Setup -------------
       - name: Set up JDK

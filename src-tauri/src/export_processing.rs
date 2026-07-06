@@ -72,6 +72,76 @@ pub struct ExportSettings {
     pub export_masks: bool,
     #[serde(default)]
     pub preserve_folders: bool,
+    /// Output bit depth: 0/8 = SDR (existing path); 10 or 12 = HDR (AVIF/JXL only).
+    #[serde(default)]
+    pub bit_depth: u8,
+    /// Transfer function for HDR export (sRGB = SDR, PQ, or HLG).
+    #[serde(default)]
+    pub transfer_function: crate::hdr::TransferFunction,
+    /// Color primaries for HDR export (sRGB/Rec.709, Rec.2020, or Display-P3).
+    #[serde(default)]
+    pub primaries: crate::hdr::ColorPrimaries,
+    /// AVIF plane layout: identity (RGB, forced 4:4:4) or non-constant-luminance Y'CbCr.
+    #[serde(default)]
+    pub matrix: crate::hdr::MatrixMode,
+    /// Chroma subsampling for the YCbCr matrix path (ignored for identity).
+    #[serde(default)]
+    pub chroma_subsampling: crate::hdr::ChromaSubsampling,
+    /// Quantization range: full or limited/studio.
+    #[serde(default)]
+    pub range: crate::hdr::DynamicRange,
+    /// PQ reference-white anchor in cd/m² (diffuse white). <=0 is treated as 203.
+    #[serde(default = "default_reference_white_nits")]
+    pub reference_white_nits: f32,
+    /// HLG headroom ratio (nominal peak / diffuse white). <=0 is treated as 12.
+    #[serde(default = "default_hlg_peak_ratio")]
+    pub hlg_peak_ratio: f32,
+    /// Emit HDR mastering metadata (MaxCLL/MaxFALL + mastering display) into AVIF.
+    #[serde(default)]
+    pub mastering_metadata: bool,
+}
+
+fn default_reference_white_nits() -> f32 {
+    crate::hdr::REFERENCE_WHITE_NITS
+}
+
+fn default_hlg_peak_ratio() -> f32 {
+    crate::hdr::HLG_PEAK_RATIO
+}
+
+impl ExportSettings {
+    /// True when a true-HDR export is requested: a PQ/HLG transfer at >=10 bit, and the format
+    /// can carry it (AVIF always; JXL only when built with the `hdr_jxl` feature).
+    pub fn hdr_enabled(&self, extension: &str) -> bool {
+        if self.bit_depth < 10 || self.transfer_function == crate::hdr::TransferFunction::Srgb {
+            return false;
+        }
+        extension == "avif" || (extension == "jxl" && cfg!(feature = "hdr_jxl"))
+    }
+
+    /// The clamped HDR bit depth (10 or 12).
+    pub fn export_bit_depth(&self) -> u8 {
+        if self.bit_depth >= 12 { 12 } else { 10 }
+    }
+
+    /// Map these export settings straight to an HDR encode config — a raw projection of the user's
+    /// input (the single source of truth). The encoders own all coercion: clamping out-of-range
+    /// anchors, forcing 4:4:4 for the identity matrix, and validating bit depth all live in
+    /// `HdrEncodeConfig::sanitized` / `clamp_anchors`, so they are not duplicated here.
+    pub fn to_hdr_config(&self) -> crate::hdr::HdrEncodeConfig {
+        crate::hdr::HdrEncodeConfig {
+            bit_depth: self.export_bit_depth(),
+            transfer: self.transfer_function,
+            primaries: self.primaries,
+            matrix: self.matrix,
+            subsampling: self.chroma_subsampling,
+            range: self.range,
+            reference_white_nits: self.reference_white_nits,
+            hlg_peak_ratio: self.hlg_peak_ratio,
+            quality: self.jpeg_quality,
+            mastering_metadata: self.mastering_metadata,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -222,6 +292,7 @@ fn process_image_for_export_pipeline(
     is_raw: bool,
     debug_tag: &str,
     app_handle: &tauri::AppHandle,
+    output_hdr: bool,
 ) -> Result<DynamicImage, String> {
     let (transformed_image, unscaled_crop_offset) =
         apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
@@ -256,19 +327,33 @@ fn process_image_for_export_pipeline(
 
     let unique_hash = calculate_full_job_hash(path, js_adjustments);
 
-    process_and_get_dynamic_image(
-        context,
-        state,
-        transformed_image.as_ref(),
-        unique_hash,
-        RenderRequest {
-            adjustments: all_adjustments,
-            mask_bitmaps: &mask_bitmaps,
-            lut,
-            roi: None,
-        },
-        debug_tag,
-    )
+    let request = RenderRequest {
+        adjustments: all_adjustments,
+        mask_bitmaps: &mask_bitmaps,
+        lut,
+        roi: None,
+    };
+
+    if output_hdr {
+        // HDR export: run the rgba16float pipeline and get LINEAR scene-referred Rgba32F.
+        crate::gpu_processing::process_and_get_dynamic_image_hdr(
+            context,
+            state,
+            transformed_image.as_ref(),
+            unique_hash,
+            request,
+            debug_tag,
+        )
+    } else {
+        process_and_get_dynamic_image(
+            context,
+            state,
+            transformed_image.as_ref(),
+            unique_hash,
+            request,
+            debug_tag,
+        )
+    }
 }
 
 fn set_timestamps_from_exif(src: &Path, dst: &Path) {
@@ -294,7 +379,7 @@ fn save_image_with_metadata(
         .unwrap_or("")
         .to_lowercase();
 
-    let mut image_bytes = encode_image_to_bytes(image, &extension, export_settings.jpeg_quality)?;
+    let mut image_bytes = encode_image_to_bytes(image, &extension, export_settings)?;
 
     exif_processing::write_image_with_metadata(
         &mut image_bytes,
@@ -343,11 +428,13 @@ fn process_image_for_export(
     base_image: &DynamicImage,
     js_adjustments: &Value,
     export_settings: &ExportSettings,
+    output_format: &str,
     context: &GpuContext,
     state: &tauri::State<AppState>,
     is_raw: bool,
     app_handle: &tauri::AppHandle,
 ) -> Result<DynamicImage, String> {
+    let output_hdr = export_settings.hdr_enabled(&output_format.to_lowercase());
     let processed_image = process_image_for_export_pipeline(
         path,
         base_image,
@@ -357,6 +444,7 @@ fn process_image_for_export(
         is_raw,
         "process_image_for_export",
         app_handle,
+        output_hdr,
     )?;
 
     apply_export_resize_and_watermark(processed_image, export_settings)
@@ -390,13 +478,32 @@ fn encode_grayscale_to_png(bitmap: &GrayImage) -> Result<Vec<u8>, String> {
 fn encode_image_to_bytes(
     image: &DynamicImage,
     output_format: &str,
-    jpeg_quality: u8,
+    export_settings: &ExportSettings,
 ) -> Result<Vec<u8>, String> {
     let mut image_bytes = Vec::new();
     let mut cursor = Cursor::new(&mut image_bytes);
 
-    match output_format.to_lowercase().as_str() {
+    let jpeg_quality = export_settings.jpeg_quality;
+    let fmt = output_format.to_lowercase();
+    let hdr = export_settings.hdr_enabled(&fmt);
+
+    match fmt.as_str() {
         "jxl" => {
+            if hdr {
+                #[cfg(feature = "hdr_jxl")]
+                {
+                    // Borrow the existing Rgba32F buffer instead of cloning the whole float image.
+                    let cfg = export_settings.to_hdr_config();
+                    return match image {
+                        DynamicImage::ImageRgba32F(buf) => crate::hdr::encode_jxl_hdr(buf, &cfg),
+                        other => crate::hdr::encode_jxl_hdr(&other.to_rgba32f(), &cfg),
+                    };
+                }
+                #[cfg(not(feature = "hdr_jxl"))]
+                {
+                    return Err("HDR JPEG XL export requires building RapidRAW with the `hdr_jxl` feature (system libjxl).".to_string());
+                }
+            }
             let (width, height) = image.dimensions();
             let has_alpha = image.color().has_alpha();
 
@@ -413,8 +520,10 @@ fn encode_image_to_bytes(
                         .map_err(|e| format!("Failed to encode lossless JXL: {}", e))?
                 }
             } else {
-                let distance = (100.0 - jpeg_quality as f32) / 10.0;
-                let distance = distance.max(0.01);
+                // Single source for the quality->distance mapping (shared with the HDR JXL path).
+                // The lossy branch only runs for quality <= 99, where (100-q)/10 >= 0.1, so the
+                // shared 0.1 floor never binds here -- this is byte-identical to the prior formula.
+                let distance = crate::hdr::quality_to_jxl_distance(jpeg_quality);
 
                 if has_alpha {
                     let rgba = image.to_rgba8();
@@ -461,6 +570,15 @@ fn encode_image_to_bytes(
                 .map_err(|e| e.to_string())?;
         }
         "avif" => {
+            if hdr {
+                // The HDR pipeline already produced an Rgba32F image; borrow it directly instead of
+                // cloning the whole float image again (to_rgba32f always allocates a full 16 B/px copy).
+                let cfg = export_settings.to_hdr_config();
+                return match image {
+                    DynamicImage::ImageRgba32F(buf) => crate::hdr::encode_avif_hdr(buf, &cfg),
+                    other => crate::hdr::encode_avif_hdr(&other.to_rgba32f(), &cfg),
+                };
+            }
             image
                 .write_to(&mut cursor, image::ImageFormat::Avif)
                 .map_err(|e| e.to_string())?;
@@ -910,6 +1028,7 @@ pub async fn export_images(
                         &base_image,
                         &main_export_adjustments,
                         &export_settings,
+                        &output_format,
                         &context_clone,
                         &state,
                         is_raw,
@@ -1003,6 +1122,30 @@ pub async fn export_images(
 
     *state.export_task_handle.lock().unwrap() = Some(task);
     Ok(())
+}
+
+/// AVIF 4:2:2 single-tile limits, exposed so the frontend can derive its resolution cap from the
+/// backend instead of hardcoding the number (single source of truth: `crate::hdr::AVIF_422_*`).
+#[derive(Serialize, Debug, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+pub struct Avif422Limits {
+    pub max_width: u32,
+    pub max_pixels: u32,
+    /// Largest long edge that keeps ANY aspect ratio within both caps: `floor(sqrt(max_pixels))`,
+    /// also clamped to `max_width`. (Square is the worst case: `long_edge^2` is the area.)
+    pub max_long_edge: u32,
+}
+
+#[tauri::command]
+pub fn avif_422_limits() -> Avif422Limits {
+    let max_width = crate::hdr::AVIF_422_MAX_WIDTH as u32;
+    let max_pixels = crate::hdr::AVIF_422_MAX_PIXELS as u32;
+    let max_long_edge = ((max_pixels as f64).sqrt().floor() as u32).min(max_width);
+    Avif422Limits {
+        max_width,
+        max_pixels,
+        max_long_edge,
+    }
 }
 
 #[tauri::command]
@@ -1137,11 +1280,8 @@ pub async fn estimate_export_sizes(
             "estimate_export_size",
         )?;
 
-        let preview_bytes = encode_image_to_bytes(
-            &processed_preview,
-            &output_format,
-            export_settings.jpeg_quality,
-        )?;
+        let preview_bytes =
+            encode_image_to_bytes(&processed_preview, &output_format, &export_settings)?;
         let preview_byte_size = preview_bytes.len();
 
         let (transformed_full_res, _) =
@@ -1275,11 +1415,8 @@ pub async fn estimate_export_sizes(
             "estimate_batch_export_size",
         )?;
 
-        let preview_bytes = encode_image_to_bytes(
-            &processed_preview,
-            &output_format,
-            export_settings.jpeg_quality,
-        )?;
+        let preview_bytes =
+            encode_image_to_bytes(&processed_preview, &output_format, &export_settings)?;
         let single_image_estimated_size = preview_bytes.len();
 
         let full_w = (shrunk_w as f32 / raw_scale_factor).round() as u32;

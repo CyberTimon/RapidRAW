@@ -737,7 +737,60 @@
     },
     "file": {
       "quality": "Qualità",
-      "qualityLossless": "Qualità (Senza Perdita)"
+      "qualityLossless": "Qualità (Senza Perdita)",
+      "bitDepth": "Profondità di bit",
+      "bitDepth8": "8 bit (standard / SDR)",
+      "bitDepth10": "10 bit (HDR)",
+      "bitDepth12": "12 bit (HDR)",
+      "transfer": "Codifica della luminosità (PQ / HLG)",
+      "primaries": "Primari",
+      "hdrHint": "PQ è lo standard per le foto HDR e la scelta migliore per gli schermi e per la maggior parte delle condivisioni. Scegli HLG solo se devi consegnare per TV HDR o broadcast. In ogni caso, l’HDR richiede un display HDR per essere visualizzato correttamente; su uno schermo normale può apparire slavato.",
+      "colorProfile": "Profilo colore",
+      "colorProfileHint": "Inizia da qui. Ogni profilo imposta automaticamente tutto ciò che segue. Scegli Personalizzato solo se vuoi regolare i dettagli da solo.",
+      "profiles": {
+        "sdr": "Standard (SDR)",
+        "hdr10": "HDR10 — consigliato",
+        "hlg": "HLG — broadcast",
+        "maxQuality": "HDR — qualità massima",
+        "archival": "HDR — archiviazione",
+        "custom": "Personalizzato…"
+      },
+      "profileDescriptions": {
+        "sdr": "Esportazione foto classica. Appare identica su qualsiasi schermo e app — la scelta sicura predefinita quando non stai creando appositamente in HDR.",
+        "hdr10": "HDR consigliato. Alte luci più brillanti e colori più ricchi, con la più ampia compatibilità su telefoni, browser e piattaforme social.",
+        "hlg": "HDR ottimizzato per televisori e flussi di lavoro broadcast. Scegli questo solo se la destinazione di consegna richiede HLG.",
+        "maxQuality": "HDR della massima fedeltà con tutto il dettaglio del colore. File più grandi; ideale per editing, preparazione alla stampa o archiviazione dei tuoi lavori migliori.",
+        "archival": "Memorizza il colore in modo esatto e senza perdita, per master a lungo termine. I file più grandi e i meno compatibili con i visualizzatori di tutti i giorni.",
+        "custom": "Controllo manuale. Ogni impostazione qui sotto è tua da regolare — comodo quando un profilo va quasi bene, ma non del tutto."
+      },
+      "advancedToggle": "Mostra impostazioni colore avanzate",
+      "advancedSectionTitle": "Impostazioni colore avanzate",
+      "bitDepthHelp": "Profondità di colore. Più bit significano sfumature più morbide in cieli e ombre, al costo di file più grandi. 10 bit è lo standard HDR consigliato; 12 bit è per la qualità massima.",
+      "colorEncoding": "Memorizzazione del colore (codifica)",
+      "colorEncodingYcbcr": "Standard (YCbCr)",
+      "colorEncodingRgb": "Esatto / senza perdita (RGB)",
+      "colorEncodingHelp": "Come vengono impacchettati i dati del colore. Standard (consigliato) produce file più piccoli riproducibili ovunque. Esatto mantiene il colore perfettamente intatto ma crea file più grandi e meno supportati — usalo solo per l’archiviazione.",
+      "chromaDetail": "Dettaglio del colore (croma)",
+      "chroma420": "Standard (4:2:0) — il più piccolo",
+      "chroma422": "Bilanciato (4:2:2)",
+      "chroma444": "Colore completo (4:4:4)",
+      "chromaDetailHelp": "Quanta risoluzione del colore mantenere. Standard (consigliato) riduce i file senza differenze visibili per la maggior parte delle foto. Colore completo preserva ogni dettaglio nei bordi saturi e nel testo fine, con dimensioni maggiori.",
+      "chroma422CapWarning": "Attenzione: l’AVIF Bilanciato (4:2:2) è valido solo fino a {{maxLongEdge}} px sul lato lungo, perciò abbiamo limitato la dimensione di esportazione qui sopra per mantenere il file funzionante. Puoi rimuovere il limite se ogni immagine è già più piccola — altrimenti passa a Standard (4:2:0) o Colore completo (4:4:4) per esportare alla risoluzione piena.",
+      "signalRange": "Gamma tonale",
+      "rangeFull": "Completa (consigliata)",
+      "rangeLimited": "Limitata (TV / video)",
+      "signalRangeHelp": "Quali valori di luminosità vengono usati. Completa (consigliata per le foto) usa l’intera gamma per il massimo dettaglio. Limitata corrisponde alle vecchie pipeline TV e video.",
+      "colorGamut": "Gamma di colori (gamut)",
+      "gamutSrgb": "Standard (sRGB) — gamma più piccola",
+      "gamutDisplayP3": "Ampio (Display-P3)",
+      "gamutBt2020": "Il più ampio (Rec.2020)",
+      "colorGamutHelp": "Quanto è ampio l’insieme di colori che si possono mostrare. Il più ampio (Rec.2020) è lo standard HDR e quello consigliato qui; Ampio (Display-P3) corrisponde agli schermi moderni di telefoni e laptop; Standard (sRGB) è il più compatibile ma il meno vivido.",
+      "referenceWhite": "Luminosità del bianco carta",
+      "referenceWhiteHelp": "Imposta quanto appare luminosa una pagina bianca semplice in HDR. 203 nits è lo standard — aumentalo per un aspetto complessivamente più luminoso. Lascia il valore predefinito a meno che tu non sappia di doverlo cambiare.",
+      "hlgPeakRatio": "Margine sulle alte luci (HLG)",
+      "hlgPeakRatioHelp": "Di quanto le alte luci HLG possono superare il bianco carta. Il valore predefinito va bene per la maggior parte dei materiali; lascialo invariato salvo diversa indicazione delle tue specifiche di consegna.",
+      "masteringMetadata": "Incorpora metadati di luminosità",
+      "masteringMetadataHelp": "Etichetta il file con i suoi livelli di luminosità (MaxCLL / MaxFALL) in modo che i display HDR possano applicare il tone mapping con precisione. Consigliato — si può lasciare attivo senza problemi."
     },
     "labels": {
       "image": "Immagine",
@@ -758,7 +811,8 @@
         "width": "Larghezza"
       },
       "pixels": "pixel",
-      "resizeToFit": "Ridimensiona per Adattare"
+      "resizeToFit": "Ridimensiona per Adattare",
+      "chroma422CapNote": "Limitato a {{maxLongEdge}} px per l’AVIF Bilanciato (4:2:2) — così il file resta valido."
     },
     "sections": {
       "advanced": "Avanzate",
