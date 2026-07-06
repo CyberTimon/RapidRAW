@@ -38,6 +38,24 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.5.8" date="2026-06-25">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.8</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Preset Intensity Slider: Added a slider to adjust the overall strength of a selected preset for more precise control.</li>
+                <li>Global Hue Slider: Introduced a global hue adjustment tool in the editing panel for quick color shifts and creative corrections.</li>
+                <li>Quick Bottombar Filters: Added direct filter options to the bottombar, allowing you to filter the current image list without navigating back to the main library settings.</li>
+                <li>Folder Sorting: Added support for customizing how the folder tree sorts directories to improve organization.</li>
+                <li>New Languages: Expanded translation support to include Korean and Traditional Chinese.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Folder &amp; Album Counts: Improved the reliability of folder and album image counts to ensure they stay updated and accurate.</li>
+                <li>Background Indexing: Resolved an issue where background indexing operations could occasionally get stuck in an infinite loop.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.5.7" date="2026-06-07">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.7</url>
         <description translate="no">

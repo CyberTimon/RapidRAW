@@ -783,6 +783,8 @@ pub struct FolderNode {
     pub is_dir: bool,
     pub image_count: usize,
     pub has_subdirs: bool,
+    pub modified: u64,
+    pub created: u64,
 }
 
 fn has_subdirs(path: &Path) -> bool {
@@ -820,8 +822,24 @@ fn scan_dir_lazy(
 
     for entry in entries.filter_map(Result::ok) {
         let current_path = entry.path();
-        let file_type = match entry.file_type() {
-            Ok(ft) => ft,
+        let (file_type, modified, created) = match entry.metadata() {
+            Ok(meta) => {
+                let ft = meta.file_type();
+                let mod_time = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+                let cre_time = meta.created().unwrap_or(mod_time);
+
+                (
+                    ft,
+                    mod_time
+                        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs(),
+                    cre_time
+                        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs(),
+                )
+            }
             Err(_) => continue,
         };
 
@@ -878,6 +896,8 @@ fn scan_dir_lazy(
                 is_dir: true,
                 image_count: total_child_count,
                 has_subdirs: has_any_subdirs,
+                modified,
+                created,
             });
         } else if show_image_counts
             && file_type.is_file()
@@ -901,6 +921,24 @@ fn get_folder_tree_sync(
     if !root_path.is_dir() {
         return Err(format!("Directory does not exist: {}", path));
     }
+
+    let (modified, created) = root_path
+        .metadata()
+        .map(|m| {
+            let mod_time = m.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+            let cre_time = m.created().unwrap_or(mod_time);
+            (
+                mod_time
+                    .duration_since(std::time::SystemTime::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+                cre_time
+                    .duration_since(std::time::SystemTime::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+            )
+        })
+        .unwrap_or((0, 0));
 
     let expanded_set: HashSet<&str> = expanded_folders.iter().map(|s| s.as_str()).collect();
 
@@ -929,6 +967,8 @@ fn get_folder_tree_sync(
         is_dir: true,
         image_count: own_count + children_sum,
         has_subdirs,
+        modified,
+        created,
     })
 }
 

@@ -628,6 +628,35 @@ fn find_pairwise_seam_dp_horizontal(ctx: &SeamContext) -> Vec<i32> {
     seam
 }
 
+pub fn warp_image_homography(
+    source: &Rgb32FImage,
+    homography: &Matrix3<f64>,
+    width: u32,
+    height: u32,
+) -> Rgb32FImage {
+    assert!(width > 0 && height > 0, "warp output must be non-empty");
+    let mut buffer = vec![0.0f32; (width as usize) * (height as usize) * 3];
+    buffer
+        .par_chunks_mut(width as usize * 3)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for x in 0..width {
+                let mapped = homography * Point3::new(x as f64, y as f64, 1.0);
+                let pixel = if mapped.z.abs() < 1e-8 {
+                    Rgb([0.0, 0.0, 0.0])
+                } else {
+                    get_interpolated_pixel(source, mapped.x / mapped.z, mapped.y / mapped.z)
+                };
+                let base = x as usize * 3;
+                row[base] = pixel[0];
+                row[base + 1] = pixel[1];
+                row[base + 2] = pixel[2];
+            }
+        });
+    Rgb32FImage::from_raw(width, height, buffer)
+        .expect("warp buffer dimensions must match output image")
+}
+
 fn get_interpolated_pixel(img: &Rgb32FImage, x: f64, y: f64) -> Rgb<f32> {
     let (width, height) = img.dimensions();
     let x_floor = x.floor() as u32;

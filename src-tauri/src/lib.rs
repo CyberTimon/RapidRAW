@@ -20,6 +20,7 @@ mod export_processing;
 mod file_management;
 mod formats;
 mod gpu_processing;
+mod hdr_deghosting;
 mod image_loader;
 mod image_processing;
 mod lens_correction;
@@ -40,7 +41,7 @@ use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 use std::io::Write;
 use std::panic;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
@@ -71,20 +72,16 @@ use crate::cache_utils::{
     DecodedImageCache, GEOMETRY_KEYS, calculate_full_job_hash, calculate_geometry_hash,
     calculate_transform_hash, calculate_visual_hash,
 };
-use crate::exif_processing::{read_exposure_time_secs, read_iso};
 use crate::file_management::{parse_virtual_path, read_file_mapped};
 use crate::formats::is_raw_file;
-use crate::image_loader::{
-    composite_patches_on_image, load_and_composite, load_base_image_from_bytes,
-};
+use crate::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
+use crate::image_loader::{composite_patches_on_image, load_and_composite};
 use crate::image_processing::{
     Crop, GeometryParams, RenderRequest, apply_coarse_rotation, apply_cpu_default_raw_processing,
-    apply_flip, apply_geometry_warp, apply_linear_to_srgb, apply_srgb_to_linear,
-    downscale_f32_image, get_all_adjustments_from_json, get_or_init_gpu_context,
-    process_and_get_dynamic_image, resolve_tonemapper_override,
-    resolve_tonemapper_override_from_handle, warp_image_geometry,
+    apply_flip, apply_geometry_warp, apply_linear_to_srgb, downscale_f32_image,
+    get_all_adjustments_from_json, get_or_init_gpu_context, process_and_get_dynamic_image,
+    resolve_tonemapper_override, resolve_tonemapper_override_from_handle, warp_image_geometry,
 };
-use crate::lut_processing::Lut;
 use crate::mask_generation::{
     MaskDefinition, generate_mask_bitmap, get_cached_or_generate_mask,
     resolve_warped_image_for_masks,
@@ -122,11 +119,6 @@ pub struct CommunityPreset {
     pub include_masks: Option<bool>,
     #[serde(rename = "includeCropTransform")]
     pub include_crop_transform: Option<bool>,
-}
-
-#[derive(Serialize)]
-struct LutParseResult {
-    size: u32,
 }
 
 #[derive(serde::Serialize)]
@@ -214,18 +206,6 @@ fn compute_full_transformed_res(
 
     let (transformed_img, offset) = apply_all_transformations(patched_original_image, adjustments);
     Ok((Arc::new(transformed_img.into_owned()), offset))
-}
-
-pub fn get_or_load_lut(state: &tauri::State<AppState>, path: &str) -> Result<Arc<Lut>, String> {
-    let mut cache = state.lut_cache.lock().unwrap();
-    if let Some(lut) = cache.get(path) {
-        return Ok(lut.clone());
-    }
-
-    let lut = lut_processing::parse_lut_file(path).map_err(|e| e.to_string())?;
-    let arc_lut = Arc::new(lut);
-    cache.insert(path.to_string(), arc_lut.clone());
-    Ok(arc_lut)
 }
 
 #[tauri::command]
@@ -485,7 +465,7 @@ fn process_preview_job(
     let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
     let final_adjustments = get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
     let lut_path = adjustments_clone["lutPath"].as_str();
-    let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
+    let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
     let wants_analytics = !(is_interactive && pixel_roi.is_some());
     let channel_filter = if is_interactive {
@@ -816,7 +796,7 @@ fn generate_uncropped_preview(
         let uncropped_adjustments =
             get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
         let lut_path = adjustments_clone["lutPath"].as_str();
-        let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
+        let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
         if let Ok(processed_image) = process_and_get_dynamic_image(
             &context,
@@ -980,7 +960,7 @@ async fn preview_geometry_transform(
             let all_adjustments =
                 get_all_adjustments_from_json(&temp_adjustments, is_raw, tm_override);
             let lut_path = temp_adjustments["lutPath"].as_str();
-            let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
+            let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
             let mask_bitmaps = Vec::new();
 
             let processed_base = process_and_get_dynamic_image(
@@ -1163,7 +1143,7 @@ fn generate_preset_preview(
     let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
     let all_adjustments = get_all_adjustments_from_json(&js_adjustments, is_raw, tm_override);
     let lut_path = js_adjustments["lutPath"].as_str();
-    let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
+    let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
     let processed_image = process_and_get_dynamic_image(
         &context,
@@ -1312,7 +1292,7 @@ async fn generate_all_community_previews(
             let all_adjustments =
                 get_all_adjustments_from_json(&scaled_adjustments, *is_raw, tm_override);
             let lut_path = js_adjustments["lutPath"].as_str();
-            let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
+            let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
             let unique_hash = preset_hash.wrapping_add(i as u64);
 
@@ -1409,69 +1389,11 @@ async fn merge_hdr(
     let hdr_result_handle = state.hdr_result.clone();
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-    let loaded_items: Vec<(String, DynamicImage, Duration, f32)> = paths
-        .iter()
-        .map(|path| {
-            let _ = app_handle.emit(
-                "hdr-progress",
-                format!(
-                    "Processing '{}'",
-                    Path::new(path)
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                ),
-            );
+    let mut frames = load_hdr_frames(&paths, &app_handle, &settings)?;
+    assert_uniform_dimensions(&frames)?;
+    align_hdr_frames(&mut frames, &app_handle);
 
-            let file_bytes =
-                fs::read(path).map_err(|e| format!("Failed to read image {}: {}", path, e))?;
-            let mut dynamic_image =
-                load_base_image_from_bytes(&file_bytes, path, false, &settings, None)
-                    .map_err(|e| format!("Failed to load image {}: {}", path, e))?;
-
-            if !crate::formats::is_raw_file(path) {
-                dynamic_image = apply_srgb_to_linear(dynamic_image);
-            }
-
-            let gains = match read_iso(path, &file_bytes) {
-                None => return Err(format!("Image {} is missing ISO/Sensitivity data", path)),
-                Some(gains) => gains as f32,
-            };
-
-            let exposure = match read_exposure_time_secs(path, &file_bytes) {
-                None => return Err(format!("Image {} is missing ExposureTime data", path)),
-                Some(exp) => Duration::from_secs_f32(exp),
-            };
-
-            Ok((path.clone(), dynamic_image, exposure, gains))
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-
-    if let Some((first_path, first_img, _, _)) = loaded_items.first() {
-        let (width, height) = (first_img.width(), first_img.height());
-
-        for (path, img, _, _) in loaded_items.iter().skip(1) {
-            if img.width() != width || img.height() != height {
-                return Err(format!(
-                    "Dimension mismatch detected.\n\nBase image ({}): {}x{}\nTarget image ({}): {}x{}\n\nHDR merge requires all images to be exactly the same size.",
-                    Path::new(first_path)
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy(),
-                    width,
-                    height,
-                    Path::new(path)
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy(),
-                    img.width(),
-                    img.height()
-                ));
-            }
-        }
-    }
-
-    let images: Vec<HDRInput> = loaded_items
+    let images: Vec<HDRInput> = frames
         .iter()
         .map(|(path, img, exposure, gains)| {
             HDRInput::with_image(img, *exposure, *gains)
@@ -1481,6 +1403,8 @@ async fn merge_hdr(
 
     log::info!("Starting HDR merge of {} images", images.len());
     let mut hdr_merged = hdr_merge_images(&mut images.into()).map_err(|e| e.to_string())?;
+    hdr_merged =
+        image_hdr::stretch::apply_histogram_stretch(&hdr_merged).map_err(|e| e.to_string())?;
     hdr_merged = apply_linear_to_srgb(hdr_merged);
     log::info!("HDR merge completed");
 
@@ -1649,7 +1573,7 @@ fn generate_preview_for_path(
     let tm_override = resolve_tonemapper_override(&settings, is_raw);
     let all_adjustments = get_all_adjustments_from_json(&js_adjustments, is_raw, tm_override);
     let lut_path = js_adjustments["lutPath"].as_str();
-    let lut = lut_path.and_then(|p| get_or_load_lut(&state, p).ok());
+    let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
     let unique_hash = calculate_full_job_hash(&source_path_str, &js_adjustments);
     let final_image = process_and_get_dynamic_image(
         &context,
@@ -1673,20 +1597,6 @@ fn generate_preview_for_path(
         .map_err(|e| format!("Failed to encode with mozjpeg-rs: {}", e))?;
 
     Ok(Response::new(bytes))
-}
-
-#[tauri::command]
-async fn load_and_parse_lut(
-    path: String,
-    state: tauri::State<'_, AppState>,
-) -> Result<LutParseResult, String> {
-    let lut = lut_processing::parse_lut_file(&path).map_err(|e| e.to_string())?;
-    let lut_size = lut.size;
-
-    let mut cache = state.lut_cache.lock().unwrap();
-    cache.insert(path, Arc::new(lut));
-
-    Ok(LutParseResult { size: lut_size })
 }
 
 fn setup_logging(app_handle: &tauri::AppHandle) {
@@ -1801,17 +1711,91 @@ fn handle_file_open(app_handle: &tauri::AppHandle, path: PathBuf) {
     }
 }
 
+enum LaunchRequest {
+    None,
+    OpenFile(String),
+    EditSession(ExternalEditSession),
+}
+
+fn parse_launch_args(args: &[String]) -> LaunchRequest {
+    let mut edit: Option<String> = None;
+    let mut output: Option<String> = None;
+    let mut format: Option<String> = None;
+    let mut quality: Option<u8> = None;
+    let mut plain: Option<String> = None;
+
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "--edit" => edit = iter.next().cloned(),
+            "--output" => output = iter.next().cloned(),
+            "--format" => format = iter.next().cloned(),
+            "--quality" => quality = iter.next().and_then(|q| q.parse().ok()),
+            s if !s.starts_with('-') && plain.is_none() => plain = Some(s.to_string()),
+            _ => {}
+        }
+    }
+
+    match (edit, output) {
+        (Some(source), Some(output)) => {
+            let format = format.unwrap_or_else(|| {
+                std::path::Path::new(&output)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(|e| e.to_lowercase())
+                    .unwrap_or_else(|| "jpg".to_string())
+            });
+            let format = match format.as_str() {
+                "tif" => "tiff".to_string(),
+                _ => format,
+            };
+            LaunchRequest::EditSession(ExternalEditSession {
+                source,
+                output,
+                format,
+                jpeg_quality: quality.unwrap_or(90),
+            })
+        }
+        (Some(source), None) => LaunchRequest::OpenFile(source),
+        _ => match plain {
+            Some(path) => LaunchRequest::OpenFile(path),
+            None => LaunchRequest::None,
+        },
+    }
+}
+
+fn emit_launch_request(app_handle: &tauri::AppHandle, request: LaunchRequest) {
+    match request {
+        LaunchRequest::EditSession(session) => {
+            if let Err(e) = app_handle.emit("external-edit-session", &session) {
+                log::error!("Failed to emit external-edit-session event: {}", e);
+            }
+        }
+        LaunchRequest::OpenFile(path) => {
+            handle_file_open(app_handle, PathBuf::from(path));
+        }
+        LaunchRequest::None => {}
+    }
+}
+
+#[derive(serde::Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct LaunchPayload {
+    open_with_file: Option<String>,
+    edit_session: Option<ExternalEditSession>,
+}
+
 #[tauri::command]
 fn frontend_ready(
     app_handle: tauri::AppHandle,
     window: tauri::Window,
     state: tauri::State<AppState>,
-) -> Result<(), String> {
+) -> Result<LaunchPayload, String> {
     let is_first_run = !state
         .window_setup_complete
         .swap(true, std::sync::atomic::Ordering::Relaxed);
     #[cfg(target_os = "android")]
-    let _ = (is_first_run, &window);
+    let _ = (is_first_run, &window, &app_handle);
 
     #[cfg(not(target_os = "android"))]
     {
@@ -1876,14 +1860,21 @@ fn frontend_ready(
         }
     }
 
-    if let Some(path) = state.initial_file_path.lock().unwrap().take() {
-        log::info!(
-            "Frontend is ready, emitting open-with-file for initial path: {}",
-            &path
-        );
-        handle_file_open(&app_handle, PathBuf::from(path));
+    let open_with_file = state.initial_file_path.lock().unwrap().take();
+    let edit_session = state.pending_edit_session.lock().unwrap().take();
+    if let Some(path) = &open_with_file {
+        log::info!("Frontend is ready, returning initial path: {}", path);
     }
-    Ok(())
+    if let Some(session) = &edit_session {
+        log::info!(
+            "Frontend is ready, returning external edit session for: {}",
+            &session.source
+        );
+    }
+    Ok(LaunchPayload {
+        open_with_file,
+        edit_session,
+    })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1906,15 +1897,8 @@ pub fn run() {
                 }
             }
 
-            if argv.len() > 1 {
-                let path_str = &argv[1];
-                if let Err(e) = app.emit("open-with-file", path_str) {
-                    log::error!(
-                        "Failed to emit open-with-file from single-instance handler: {}",
-                        e
-                    );
-                }
-            }
+            let forwarded_args = argv.get(1..).unwrap_or(&[]);
+            emit_launch_request(app, parse_launch_args(forwarded_args));
         }));
     }
 
@@ -1939,10 +1923,18 @@ pub fn run() {
         .setup(|app| {
             #[cfg(any(windows, target_os = "linux"))]
             {
-                if let Some(arg) = std::env::args().nth(1) {
-                     let state = app.state::<AppState>();
-                     log::info!("Windows/Linux initial open: Storing path {} for later.", &arg);
-                     *state.initial_file_path.lock().unwrap() = Some(arg);
+                let args: Vec<String> = std::env::args().skip(1).collect();
+                let state = app.state::<AppState>();
+                match parse_launch_args(&args) {
+                    LaunchRequest::EditSession(session) => {
+                        log::info!("Initial launch with external edit session for: {}", &session.source);
+                        *state.pending_edit_session.lock().unwrap() = Some(session);
+                    }
+                    LaunchRequest::OpenFile(path) => {
+                        log::info!("Windows/Linux initial open: Storing path {} for later.", &path);
+                        *state.initial_file_path.lock().unwrap() = Some(path);
+                    }
+                    LaunchRequest::None => {}
                 }
             }
 
@@ -2204,6 +2196,7 @@ pub fn run() {
             indexing_task_handle: Mutex::new(None),
             lut_cache: Mutex::new(HashMap::new()),
             initial_file_path: Mutex::new(None),
+            pending_edit_session: Mutex::new(None),
             thumbnail_cancellation_token: Arc::new(AtomicBool::new(false)),
             thumbnail_progress: Mutex::new(ThumbnailProgressTracker { total: 0, completed: 0 }),
             preview_worker_tx: Mutex::new(None),
@@ -2231,7 +2224,11 @@ pub fn run() {
             save_collage,
             merge_hdr,
             save_hdr,
-            load_and_parse_lut,
+            lut_processing::load_and_parse_lut,
+            lut_processing::list_luts,
+            lut_processing::import_luts,
+            lut_processing::remove_lut,
+            lut_processing::generate_lut_previews,
             fetch_community_presets,
             generate_all_community_previews,
             save_temp_file,

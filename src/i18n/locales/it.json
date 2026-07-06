@@ -43,6 +43,7 @@
         "shadows": "Ombre"
       },
       "hue": "Tonalità",
+      "localHue": "Tonalità locale",
       "luminance": "Luminanza",
       "mixerColors": {
         "aquas": "Acquamarina",
@@ -65,13 +66,13 @@
       "whiteBalance": "Bilanciamento del Bianco"
     },
     "curves": {
+      "channelTitle": "Canale {{channel}}",
       "channels": {
         "blue": "Blu",
         "green": "Verde",
         "luma": "Luma",
         "red": "Rosso"
       },
-      "channelTitle": "Canale {{channel}}",
       "copyParametric": "Copia Curva Parametrica {{channel}}",
       "copyPoint": "Copia Curva per Punti {{channel}}",
       "curveDataUnavailable": "Dati curva non disponibili.",
@@ -497,6 +498,11 @@
         "transform": "Correzione prospettiva e distorsione trapezoidale"
       }
     },
+    "externalEdit": {
+      "done": "Fatto",
+      "exporting": "Esportazione…",
+      "savesTo": "Modifica esterna — salva in"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "Aggiungi Nuovo Componente",
@@ -625,8 +631,8 @@
       "organization": {
         "addTagPlaceholder": "Aggiungi tag...",
         "colorLabel": "Etichetta Colore",
-        "none": "Nessuna",
         "noTags": "Nessun tag",
+        "none": "Nessuna",
         "rating": "Valutazione",
         "ratingLabels": "Valutazione ed Etichette",
         "tags": "Tag",
@@ -635,6 +641,7 @@
       "title": "Metadati"
     },
     "presets": {
+      "amount": "Quantità",
       "dialog": {
         "allPresetFiles": "Tutti i File Predefiniti",
         "exportAllTitle": "Esporta Tutti i Predefiniti",
@@ -768,12 +775,12 @@
       "estimatedSize": "Dimensione file stimata: ~{{size}}",
       "estimatedTotalSize": "Dimensione totale stimata: ~{{size}}",
       "estimatingSize": "Stima dimensione...",
-      "exporting": "Esportazione…",
-      "exportingProgress": "Esportazione… ({{current}}/{{total}})",
       "exportMultiple": "Esporta {{count}} {{label}}",
       "exportMultiple_one": "Esporta {{count}} {{label}}",
       "exportMultiple_other": "Esporta {{count}} {{label}}",
       "exportSingle": "Esporta {{label}}",
+      "exporting": "Esportazione…",
+      "exportingProgress": "Esportazione… ({{current}}/{{total}})",
       "failed": "Esportazione fallita",
       "noImageSelected": "Nessuna immagine selezionata per l'esportazione.",
       "noImagesSelected": "Nessuna immagine selezionata.",
@@ -857,10 +864,17 @@
         "folders": "Cartelle",
         "pinned": "Fissate"
       },
+      "sort": {
+        "created": "Data di creazione",
+        "imageCount": "Conteggio immagini",
+        "modified": "Data di modifica",
+        "name": "In ordine alfabetico"
+      },
       "tooltips": {
         "clearSearch": "Cancella ricerca",
         "collapse": "Comprimi",
-        "expand": "Espandi"
+        "expand": "Espandi",
+        "sortFolders": "Ordina cartelle"
       }
     },
     "grid": {
@@ -1064,6 +1078,7 @@
         "exposureToneMapper": "Esposizione e Tone Mapper",
         "grain": "Grana",
         "halationGlow": "Alonatura e Bagliore",
+        "hueShift": "Spostamento tonalità globale",
         "lensCorrection": "Correzione Obiettivo",
         "lut": "LUT",
         "masks": "Maschere",
@@ -1103,9 +1118,9 @@
       "applyButton_one": "Applica a 1 immagine",
       "applyButton_other": "Applica a {{count}} immagini",
       "bestImage": "Migliore Immagine",
-      "blurryImagesTab": "Immagini Sfocate",
       "blurThreshold": "Soglia Sfocatura",
       "blurThresholdDesc": "Le immagini con un punteggio di nitidezza inferiore a questo valore vengono contrassegnate. Più alto è più severo.",
+      "blurryImagesTab": "Immagini Sfocate",
       "cancel": "Annulla",
       "close": "Chiudi",
       "cullingFailed": "Selezione Fallita",
@@ -1625,8 +1640,8 @@
     "tagging": {
       "addCustomPlaceholder": "Aggiungi tag AI personalizzati (separati da virgola)...",
       "addCustomTooltip": "Aggiungi tag AI",
-      "addShortcutsPlaceholder": "Aggiungi scorciatoie (separate da virgola)...",
       "addShortcutTooltip": "Aggiungi Scorciatoia",
+      "addShortcutsPlaceholder": "Aggiungi scorciatoie (separate da virgola)...",
       "aiTagging": "Tagging AI",
       "aiTaggingDesc": "Abilita il tagging automatico delle immagini utilizzando un modello AI (CLIP). Questo scaricherà un modello aggiuntivo e influenzerà le prestazioni durante l'esplorazione delle cartelle. I tag vengono utilizzati per la ricerca in una cartella.",
       "amount": "Quantità",
@@ -1688,6 +1703,7 @@
         "expandFilmstrip": "Espandi Striscia Immagini",
         "export": "Esporta",
         "pasteSettings": "Incolla Impostazioni",
+        "quickFilter": "Filtro rapido",
         "rateStars_one": "Valuta 1 stella",
         "rateStars_other": "Valuta {{count}} stelle",
         "resetZoom": "Ripristina Zoom per Adattare alla Finestra",
@@ -1732,9 +1748,13 @@
     },
     "lut": {
       "clearLut": "Cancella LUT",
+      "empty": "Nessuna LUT ancora — importane alcune",
       "filterLabel": "File LUT",
+      "import": "Importa profili",
+      "importFailed": "Impossibile importare le LUT",
       "intensity": "Intensità",
       "label": "LUT",
+      "removeLut": "Rimuovi LUT",
       "select": "Seleziona",
       "selectLutFile": "Seleziona un file LUT",
       "unsupportedFormat": "Formato(i) di file non supportato rilevato: .{{ext}}"

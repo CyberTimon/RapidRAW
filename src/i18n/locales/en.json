@@ -43,6 +43,7 @@
         "shadows": "Shadows"
       },
       "hue": "Hue",
+      "localHue": "Local Hue",
       "luminance": "Luminance",
       "mixerColors": {
         "aquas": "Aquas",
@@ -65,13 +66,13 @@
       "whiteBalance": "White Balance"
     },
     "curves": {
+      "channelTitle": "{{channel}} Channel",
       "channels": {
         "blue": "Blue",
         "green": "Green",
         "luma": "Luma",
         "red": "Red"
       },
-      "channelTitle": "{{channel}} Channel",
       "copyParametric": "Copy {{channel}} Parametric Curve",
       "copyPoint": "Copy {{channel}} Point Curve",
       "curveDataUnavailable": "Curve data not available.",
@@ -497,6 +498,11 @@
         "transform": "Perspective and keystone correction"
       }
     },
+    "externalEdit": {
+      "done": "Done",
+      "exporting": "Exporting…",
+      "savesTo": "External edit — saves to"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "Add New Component",
@@ -625,8 +631,8 @@
       "organization": {
         "addTagPlaceholder": "Add tag...",
         "colorLabel": "Color Label",
-        "none": "None",
         "noTags": "No tags",
+        "none": "None",
         "rating": "Rating",
         "ratingLabels": "Rating & Labels",
         "tags": "Tags",
@@ -635,6 +641,7 @@
       "title": "Metadata"
     },
     "presets": {
+      "amount": "Amount",
       "dialog": {
         "allPresetFiles": "All Preset Files",
         "exportAllTitle": "Export All Presets",
@@ -768,12 +775,12 @@
       "estimatedSize": "Estimated file size: ~{{size}}",
       "estimatedTotalSize": "Estimated total size: ~{{size}}",
       "estimatingSize": "Estimating size...",
-      "exporting": "Exporting…",
-      "exportingProgress": "Exporting… ({{current}}/{{total}})",
       "exportMultiple": "Export {{count}} {{label}}",
       "exportMultiple_one": "Export {{count}} {{label}}",
       "exportMultiple_other": "Export {{count}} {{label}}",
       "exportSingle": "Export {{label}}",
+      "exporting": "Exporting…",
+      "exportingProgress": "Exporting… ({{current}}/{{total}})",
       "failed": "Export failed",
       "noImageSelected": "No image selected for export.",
       "noImagesSelected": "No images selected.",
@@ -857,10 +864,17 @@
         "folders": "Folders",
         "pinned": "Pinned"
       },
+      "sort": {
+        "created": "Date Created",
+        "imageCount": "Image Count",
+        "modified": "Date Modified",
+        "name": "Alphabetically"
+      },
       "tooltips": {
         "clearSearch": "Clear search",
         "collapse": "Collapse",
-        "expand": "Expand"
+        "expand": "Expand",
+        "sortFolders": "Sort Folders"
       }
     },
     "grid": {
@@ -1064,6 +1078,7 @@
         "exposureToneMapper": "Exposure & Tone Mapper",
         "grain": "Grain",
         "halationGlow": "Halation & Glow",
+        "hueShift": "Global Hue Shift",
         "lensCorrection": "Lens Correction",
         "lut": "LUT",
         "masks": "Masks",
@@ -1103,9 +1118,9 @@
       "applyButton_one": "Apply to 1 image",
       "applyButton_other": "Apply to {{count}} images",
       "bestImage": "Best Image",
-      "blurryImagesTab": "Blurry Images",
       "blurThreshold": "Blur Threshold",
       "blurThresholdDesc": "Images with a sharpness score below this value are flagged. Higher is stricter.",
+      "blurryImagesTab": "Blurry Images",
       "cancel": "Cancel",
       "close": "Close",
       "cullingFailed": "Culling Failed",
@@ -1625,8 +1640,8 @@
     "tagging": {
       "addCustomPlaceholder": "Add custom AI tags (comma separated)...",
       "addCustomTooltip": "Add AI tag",
-      "addShortcutsPlaceholder": "Add shortcuts (comma separated)...",
       "addShortcutTooltip": "Add Shortcut",
+      "addShortcutsPlaceholder": "Add shortcuts (comma separated)...",
       "aiTagging": "AI Tagging",
       "aiTaggingDesc": "Enables automatic image tagging using an AI (CLIP) model. This will download an additional model and impact performance while browsing folders. Tags are used for searching a folder.",
       "amount": "Amount",
@@ -1688,6 +1703,7 @@
         "expandFilmstrip": "Expand Filmstrip",
         "export": "Export",
         "pasteSettings": "Paste Settings",
+        "quickFilter": "Quick Filter",
         "rateStars_one": "Rate 1 star",
         "rateStars_other": "Rate {{count}} stars",
         "resetZoom": "Reset Zoom to Fit Window",
@@ -1732,9 +1748,13 @@
     },
     "lut": {
       "clearLut": "Clear LUT",
+      "empty": "No LUTs yet — import some",
       "filterLabel": "LUT Files",
+      "import": "Import profiles",
+      "importFailed": "Failed to import LUTs",
       "intensity": "Intensity",
       "label": "LUT",
+      "removeLut": "Remove LUT",
       "select": "Select",
       "selectLutFile": "Select a LUT file",
       "unsupportedFormat": "Unsupported file format(s) detected: .{{ext}}"

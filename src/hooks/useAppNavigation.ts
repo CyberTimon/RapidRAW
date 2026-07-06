@@ -264,7 +264,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     ) => {
       const { appSettings, handleSettingsChange } = useSettingsStore.getState();
       const { pinnedFolders } = appSettings || { pinnedFolders: [] };
-      const { setLibrary, sortCriteria, rootPaths, expandedFolders } = useLibraryStore.getState();
+      const { setLibrary, sortCriteria } = useLibraryStore.getState();
       const { setUI } = useUIStore.getState();
       const { setProcess } = useProcessStore.getState();
       const { selectedImage, resetHistory, setEditor } = useEditorStore.getState();
@@ -283,7 +283,8 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       }
 
       try {
-        let newExpandedFolders = new Set(expandedFolders);
+        const { rootPaths, expandedFolders: currentExpandedFolders } = useLibraryStore.getState();
+        let newExpandedFolders = new Set(currentExpandedFolders);
 
         if (isNewRoot && path) {
           newExpandedFolders = new Set([path]);
@@ -463,7 +464,8 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
             const newTree = await invoke(Invokes.GetFolderTree, {
               path: selectedPath,
               expandedFolders: [selectedPath],
-              showImageCounts: appSettings?.enableFolderImageCounts ?? false,
+              showImageCounts:
+                appSettings?.enableFolderImageCounts || appSettings?.folderTreeSort?.key === 'imageCount',
             });
             setLibrary({ folderTrees: [...folderTrees, newTree] });
           } catch (e) {
@@ -518,7 +520,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
           treesData = await invoke(Invokes.GetPinnedFolderTrees, {
             paths: rootFolders,
             expandedFolders: expandedArr,
-            showImageCounts: appSettings?.enableFolderImageCounts ?? false,
+            showImageCounts: appSettings?.enableFolderImageCounts || appSettings?.folderTreeSort?.key === 'imageCount',
           });
         }
         setLibrary({ folderTrees: treesData });

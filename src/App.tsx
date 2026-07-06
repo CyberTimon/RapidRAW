@@ -32,6 +32,9 @@ import { useFileOperations } from './hooks/useFileOperations';
 import { useAppContextMenus } from './hooks/useAppContextMenus';
 import { useSortedLibrary } from './hooks/useSortedLibrary';
 import { useAppNavigation } from './hooks/useAppNavigation';
+import { useExternalEditSession } from './hooks/useExternalEditSession';
+import ExternalEditBar from './components/ui/ExternalEditBar';
+import { Status } from './components/ui/ExportImportProperties';
 
 import { useEditorActions } from './hooks/useEditorActions';
 import { useLibraryActions } from './hooks/useLibraryActions';
@@ -269,6 +272,12 @@ function App() {
     clearThumbnailQueue,
     refs: navigationRefs,
   });
+
+  const {
+    externalEditSession,
+    isFinishing: isExternalEditFinishing,
+    finishExternalEdit,
+  } = useExternalEditSession(handleImageSelect);
 
   const {
     handleRate,
@@ -637,7 +646,15 @@ function App() {
         >
           <div className="flex flex-row grow h-full min-h-0">
             {!shouldHideFolderTree && renderFolderTree()}
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="relative flex-1 flex flex-col min-w-0">
+              {selectedImage && externalEditSession && (
+                <ExternalEditBar
+                  session={externalEditSession}
+                  isFinishing={isExternalEditFinishing}
+                  errorMessage={exportState.status === Status.Error ? exportState.errorMessage : ''}
+                  onDone={finishExternalEdit}
+                />
+              )}
               {selectedImage ? (
                 <EditorView
                   transformWrapperRef={transformWrapperRef}

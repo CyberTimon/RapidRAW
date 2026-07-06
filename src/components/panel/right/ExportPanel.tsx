@@ -607,7 +607,7 @@ export default function ExportPanel({
               )}
             </Section>
 
-            {(numImages > 1 || onClose) && (
+            {numImages > 1 && (
               <Section title={t('export.sections.fileNaming')}>
                 <input
                   className="w-full bg-surface border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"

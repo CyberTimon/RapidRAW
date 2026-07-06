@@ -17,6 +17,15 @@ use crate::image_processing::GpuContext;
 use crate::lens_correction::LensDatabase;
 use crate::lut_processing::Lut;
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalEditSession {
+    pub source: String,
+    pub output: String,
+    pub format: String,
+    pub jpeg_quality: u8,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct WindowState {
     pub width: u32,
@@ -123,6 +132,7 @@ pub struct AppState {
     pub indexing_task_handle: Mutex<Option<JoinHandle<()>>>,
     pub lut_cache: Mutex<HashMap<String, Arc<Lut>>>,
     pub initial_file_path: Mutex<Option<String>>,
+    pub pending_edit_session: Mutex<Option<ExternalEditSession>>,
     pub thumbnail_cancellation_token: Arc<AtomicBool>,
     pub thumbnail_progress: Mutex<ThumbnailProgressTracker>,
     pub preview_worker_tx: Mutex<Option<Sender<PreviewJob>>>,

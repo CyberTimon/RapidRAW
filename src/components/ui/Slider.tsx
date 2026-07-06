@@ -29,6 +29,9 @@ const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const TOUCH_DRAG_THRESHOLD_PX = 10;
 const TOUCH_THUMB_HIT_RADIUS_PX = 24;
 
+const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
+  'shiftKey' in event && (event.shiftKey || event.altKey);
+
 const Slider = ({
   defaultValue = 0,
   label,
@@ -163,11 +166,11 @@ const Slider = ({
       if ('touches' in e) {
         if (e.touches.length === 0) return;
         clientX = e.touches[0].clientX;
-        shiftKey = e.shiftKey || e.altKey;
+        shiftKey = hasFineAdjustmentModifier(e);
         if (e.cancelable) e.preventDefault();
       } else {
         clientX = (e as MouseEvent).clientX;
-        shiftKey = (e as MouseEvent).shiftKey || (e as MouseEvent).altKey;
+        shiftKey = hasFineAdjustmentModifier(e);
       }
 
       const deltaX = clientX - lastPointerXRef.current;
@@ -364,7 +367,8 @@ const Slider = ({
     if (!inputEl) return;
 
     const rect = inputEl.getBoundingClientRect();
-    const rawValue = pendingTouch.startValue + (deltaX / rect.width) * (max - min);
+    const multiplier = hasFineAdjustmentModifier(e) ? FINE_ADJUSTMENT_MULTIPLIER : 1;
+    const rawValue = pendingTouch.startValue + (deltaX / rect.width) * (max - min) * multiplier;
     const snappedValue = snapToStep(rawValue);
 
     accumulatedValueRef.current = rawValue;
