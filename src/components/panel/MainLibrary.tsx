@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { open } from '@tauri-apps/plugin-shell';
+import { check } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
 import {
   AlertTriangle,
   Check,
@@ -36,6 +38,8 @@ import { useLibraryStore } from '../../store/useLibraryStore';
 
 import LibraryGrid from './library/LibraryGrid';
 import { SearchInput, ViewOptionsDropdown } from './library/LibraryHeader';
+
+const RELEASES_URL = 'https://github.com/CyberTimon/RapidRAW/releases/latest';
 
 interface MainLibraryProps {
   activePath: string | null;
@@ -93,6 +97,7 @@ export default function MainLibrary(props: MainLibraryProps) {
   const [appVersion, setAppVersion] = useState('');
   const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
   const [latestVersion, setLatestVersion] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
   const [isBusyDelayed, setIsBusyDelayed] = useState(false);
   const [isProgressHovered, setIsProgressHovered] = useState(false);
 
@@ -221,6 +226,28 @@ export default function MainLibrary(props: MainLibraryProps) {
 
     checkVersion();
   }, []);
+
+  // In-app update if the maintainer has enabled signed updater artifacts, else manual download.
+  const handleUpdateClick = async () => {
+    if (!isUpdateAvailable || isUpdating) {
+      return;
+    }
+    try {
+      const update = await check();
+      if (update?.available) {
+        setIsUpdating(true);
+        await update.downloadAndInstall();
+        await relaunch();
+        return;
+      }
+      await open(RELEASES_URL);
+    } catch (error) {
+      console.error('In-app update unavailable, falling back to manual download:', error);
+      await open(RELEASES_URL);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   if (!props.rootPaths || props.rootPaths.length === 0) {
     if (!props.appSettings) {
@@ -353,24 +380,24 @@ export default function MainLibrary(props: MainLibraryProps) {
                           <span
                             className={`group transition-all duration-300 ease-in-out rounded-md py-1 ${
                               isUpdateAvailable
-                                ? 'cursor-pointer border border-yellow-500 px-2 hover:bg-yellow-500/20'
+                                ? `border border-yellow-500 px-2 ${isUpdating ? 'cursor-wait' : 'cursor-pointer hover:bg-yellow-500/20'}`
                                 : ''
                             }`}
-                            onClick={() => {
-                              if (isUpdateAvailable) {
-                                open('https://github.com/CyberTimon/RapidRAW/releases/latest');
-                              }
-                            }}
+                            onClick={handleUpdateClick}
                             data-tooltip={
-                              isUpdateAvailable
-                                ? t('library.splash.downloadVersion', { version: latestVersion })
-                                : t('library.splash.latestVersion')
+                              isUpdating
+                                ? t('library.splash.downloadingUpdate')
+                                : isUpdateAvailable
+                                  ? t('library.splash.downloadVersion', { version: latestVersion })
+                                  : t('library.splash.latestVersion')
                             }
                           >
-                            <span className={isUpdateAvailable ? 'group-hover:hidden' : ''}>
-                              {t('library.splash.version', { version: appVersion })}
+                            <span className={isUpdateAvailable && !isUpdating ? 'group-hover:hidden' : ''}>
+                              {isUpdating
+                                ? t('library.splash.downloadingUpdate')
+                                : t('library.splash.version', { version: appVersion })}
                             </span>
-                            {isUpdateAvailable && (
+                            {isUpdateAvailable && !isUpdating && (
                               <span className="hidden group-hover:inline text-yellow-400">
                                 {t('library.splash.newVersionAvailable')}
                               </span>

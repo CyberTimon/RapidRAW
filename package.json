@@ -24,6 +24,7 @@
     "@tauri-apps/plugin-os": "^2.3.2",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-shell": "^2.3.5",
+    "@tauri-apps/plugin-updater": "^2.9.0",
     "@uiw/color-convert": "^2.10.1",
     "@uiw/react-color-wheel": "^2.10.1",
     "clsx": "^2.1.1",

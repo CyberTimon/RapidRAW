@@ -966,6 +966,7 @@
       "descriptionDesktop": "一款極速、GPU 加速的 RAW 影像編輯器。開啟資料夾以開始。",
       "donate": "在 Ko-Fi 上捐贈",
       "downloadVersion": "點選下載版本 {{version}}",
+      "downloadingUpdate": "正在下載更新…",
       "goToSettings": "前往設定",
       "imagesBy": "影像來源",
       "latestVersion": "您已是最新版本",

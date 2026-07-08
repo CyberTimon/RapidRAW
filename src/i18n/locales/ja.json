@@ -965,6 +965,7 @@
       "descriptionDesktop": "圧倒的に高速な、GPUアクセラレーション対応RAW画像エディタ。フォルダを開いて始めましょう。",
       "donate": "Ko-fiで寄付する",
       "downloadVersion": "クリックしてバージョン {{version}} をダウンロード",
+      "downloadingUpdate": "アップデートをダウンロード中…",
       "goToSettings": "設定へ移動",
       "imagesBy": "写真提供:",
       "latestVersion": "最新バージョンを使用しています",

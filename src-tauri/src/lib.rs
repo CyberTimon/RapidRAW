@@ -1887,6 +1887,7 @@ pub fn run() {
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             log::info!(
                 "New instance launched with args: {:?}. Focusing main window.",

@@ -70,6 +70,7 @@ sysinfo = "0.39.3"
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "5.2.6"
 tauri-plugin-single-instance = "2.4.2"
+tauri-plugin-updater = "2"
 reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "rustls"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
