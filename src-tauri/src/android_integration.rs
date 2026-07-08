@@ -39,17 +39,12 @@ pub fn initialize_android(window: &tauri::WebviewWindow) {
                     .with_env(|env_22| {
                         let verifier_context =
                             unsafe { VerifierJObject::from_raw(env_22, raw_context) };
-                        rustls_platform_verifier::android::init_with_env(
-                            env_22,
-                            verifier_context,
-                        )
+                        rustls_platform_verifier::android::init_with_env(env_22, verifier_context)
                     })
                     .into_outcome()
                 {
                     jni22::Outcome::Ok(()) => {
-                        log::info!(
-                            "Successfully initialized rustls-platform-verifier on Android."
-                        );
+                        log::info!("Successfully initialized rustls-platform-verifier on Android.");
                     }
                     jni22::Outcome::Err(error) => {
                         log::error!(

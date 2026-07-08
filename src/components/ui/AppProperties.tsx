@@ -247,6 +247,7 @@ export interface Folder {
 
 export interface ImageFile {
   is_edited: boolean;
+  is_negative: boolean;
   modified: number;
   path: string;
   rating: number;

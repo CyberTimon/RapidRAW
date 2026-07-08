@@ -34,6 +34,11 @@ pub fn calculate_geometry_hash(adjustments: &serde_json::Value) -> u64 {
 
     adjustments["orientationSteps"].as_u64().hash(&mut hasher);
 
+    // Negative conversion changes the decoded base, so it must key the base cache.
+    if let Some(nc) = adjustments.get("negativeConversion") {
+        nc.to_string().hash(&mut hasher);
+    }
+
     for key in GEOMETRY_KEYS {
         if let Some(val) = adjustments.get(key) {
             key.hash(&mut hasher);

@@ -62,10 +62,6 @@ export interface DenoiseModalState {
   isRaw: boolean;
 }
 
-export interface NegativeConversionModalState {
-  isOpen: boolean;
-  targetPaths: Array<string>;
-}
 
 export interface CullingModalState {
   isOpen: boolean;
@@ -118,7 +114,6 @@ interface UIState {
   confirmModalState: ConfirmModalState;
   panoramaModalState: PanoramaModalState;
   hdrModalState: HdrModalState;
-  negativeModalState: NegativeConversionModalState;
   denoiseModalState: DenoiseModalState;
   cullingModalState: CullingModalState;
   collageModalState: CollageModalState;
@@ -181,7 +176,6 @@ export const useUIStore = create<UIState>((set, get) => ({
     progressMessage: '',
     stitchingSourcePaths: [],
   },
-  negativeModalState: { isOpen: false, targetPaths: [] },
   denoiseModalState: {
     isOpen: false,
     isProcessing: false,

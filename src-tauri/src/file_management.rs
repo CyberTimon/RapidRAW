@@ -147,10 +147,20 @@ pub struct ImageFile {
     path: String,
     modified: u64,
     is_edited: bool,
+    is_negative: bool,
     rating: u8,
     tags: Option<Vec<String>>,
     exif: Option<HashMap<String, String>>,
     is_virtual_copy: bool,
+}
+
+/// True when the sidecar has an enabled in-library negative conversion.
+pub(crate) fn adjustments_is_negative(adjustments: &serde_json::Value) -> bool {
+    adjustments
+        .get("negativeConversion")
+        .and_then(|nc| nc.get("enabled"))
+        .and_then(|e| e.as_bool())
+        .unwrap_or(false)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -351,7 +361,7 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
 
                 let sidecar_path = path_buf.with_file_name(sidecar_filename);
 
-                let (is_edited, tags, rating) = {
+                let (is_edited, is_negative, tags, rating) = {
                     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
                     if enable_xmp_sync
@@ -369,13 +379,15 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                         is_raw,
                         tm_override,
                     );
-                    (edited, metadata.tags, metadata.rating)
+                    let negative = adjustments_is_negative(&metadata.adjustments);
+                    (edited, negative, metadata.tags, metadata.rating)
                 };
 
                 file_results.push(ImageFile {
                     path: virtual_path,
                     modified,
                     is_edited,
+                    is_negative,
                     tags,
                     exif: None,
                     is_virtual_copy,
@@ -474,7 +486,7 @@ pub fn list_images_recursive(
 
                 let sidecar_path = path_buf.with_file_name(sidecar_filename);
 
-                let (is_edited, tags, rating) = {
+                let (is_edited, is_negative, tags, rating) = {
                     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
                     if enable_xmp_sync
@@ -492,13 +504,15 @@ pub fn list_images_recursive(
                         is_raw,
                         tm_override,
                     );
-                    (edited, metadata.tags, metadata.rating)
+                    let negative = adjustments_is_negative(&metadata.adjustments);
+                    (edited, negative, metadata.tags, metadata.rating)
                 };
 
                 file_results.push(ImageFile {
                     path: virtual_path,
                     modified,
                     is_edited,
+                    is_negative,
                     tags,
                     exif: None,
                     is_virtual_copy,
@@ -738,7 +752,7 @@ pub fn get_album_images(
 
             let is_virtual_copy = virtual_path.contains("?vc=");
 
-            let (is_edited, tags, rating) = {
+            let (is_edited, is_negative, tags, rating) = {
                 let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
                 if enable_xmp_sync
@@ -756,13 +770,15 @@ pub fn get_album_images(
                     is_raw,
                     tm_override,
                 );
-                (edited, metadata.tags, metadata.rating)
+                let negative = adjustments_is_negative(&metadata.adjustments);
+                (edited, negative, metadata.tags, metadata.rating)
             };
 
             Some(ImageFile {
                 path: virtual_path,
                 modified,
                 is_edited,
+                is_negative,
                 tags,
                 exif: None,
                 is_virtual_copy,
@@ -1604,6 +1620,59 @@ pub fn increment_thumbnail_progress(state: &AppState, app_handle: &AppHandle) {
     }
 }
 
+/// Regenerate grid/filmstrip thumbnails for the given paths and push each to the
+/// frontend via `thumbnail-generated`.
+pub fn regenerate_thumbnails_for_paths(paths: &[String], app_handle: &AppHandle) {
+    let state = app_handle.state::<AppState>();
+
+    // Evict any pre-change cached base so the new one is decoded.
+    if let Ok(mut cache) = state.thumbnail_geometry_cache.lock() {
+        for p in paths {
+            cache.remove(p);
+        }
+    }
+
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    add_to_thumbnail_queue(&state, paths.len(), app_handle);
+
+    let thumb_cache_dir = match resolve_thumbnail_cache_dir(app_handle) {
+        Ok(dir) => dir,
+        Err(e) => {
+            log::warn!("Unable to initialize thumbnail cache directory: {}", e);
+            for path in paths {
+                emit_thumbnail_cache_setup_error(app_handle, path, &e);
+            }
+            for _ in 0..paths.len() {
+                increment_thumbnail_progress(&state, app_handle);
+            }
+            return;
+        }
+    };
+
+    let gpu_context = crate::gpu_processing::get_or_init_gpu_context(&state, app_handle).ok();
+
+    paths.par_iter().for_each(|path_str| {
+        let result = generate_single_thumbnail_and_cache(
+            path_str,
+            &thumb_cache_dir,
+            gpu_context.as_ref(),
+            None,
+            true,
+            app_handle,
+            &settings,
+        );
+
+        if let Some((thumbnail_data, rating, is_edited)) = result {
+            let _ = app_handle.emit(
+                "thumbnail-generated",
+                serde_json::json!({ "path": path_str, "data": thumbnail_data, "rating": rating, "is_edited": is_edited }),
+            );
+        }
+
+        increment_thumbnail_progress(&state, app_handle);
+    });
+}
+
 pub fn resolve_lens_params_in_adjustments(
     adjustments: &mut Value,
     exif_data: &Option<HashMap<String, String>>,
@@ -2072,7 +2141,20 @@ pub fn save_metadata_and_update_thumbnail(
         );
     }
 
+    // `negativeConversion` is owned by set_negative_conversion; a normal save must
+    // preserve the sidecar's own value rather than the frontend's.
+    let preserved_negative = metadata.adjustments.get("negativeConversion").cloned();
     metadata.adjustments = final_adjustments;
+    if let Some(obj) = metadata.adjustments.as_object_mut() {
+        match preserved_negative {
+            Some(nc) => {
+                obj.insert("negativeConversion".to_string(), nc);
+            }
+            None => {
+                obj.remove("negativeConversion");
+            }
+        }
+    }
 
     let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
     std::fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;

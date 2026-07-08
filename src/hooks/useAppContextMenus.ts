@@ -77,6 +77,39 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
     useEditorActions();
   const { handleRate, handleSetColorLabel, handleTagsChanged } = useLibraryActions();
 
+  const handleSetNegativeConversion = useCallback(
+    async (paths: string[], enabled: boolean) => {
+      if (paths.length === 0) return;
+      paths.forEach((p) => globalImageCache.delete(p));
+      try {
+        await invoke('set_negative_conversion', { paths, enabled });
+        // Reflect the new state on the affected items right away so the menu toggles
+        // Convert/Revert correctly without waiting on the async folder refresh.
+        useLibraryStore.getState().setLibrary((state) => ({
+          imageList: state.imageList.map((img) =>
+            paths.includes(img.path) ? { ...img, is_negative: enabled } : img,
+          ),
+        }));
+        props.refreshImageList();
+        const { selectedImage, setEditor, resetHistory } = useEditorStore.getState();
+        if (selectedImage && paths.includes(selectedImage.path)) {
+          const path = selectedImage.path;
+          setEditor({ hasRenderedFirstFrame: false });
+          try {
+            await invoke(Invokes.LoadImage, { path });
+            const metadata: any = await invoke(Invokes.LoadMetadata, { path });
+            resetHistory(normalizeLoadedAdjustments(metadata.adjustments));
+          } catch {
+            // ignore; the grid refresh above still reflects the change
+          }
+        }
+      } catch (e) {
+        toast.error(`Negative conversion failed: ${e}`);
+      }
+    },
+    [props],
+  );
+
   const albumIcons = useMemo(
     () => [
       { label: t('contextMenus.albumIcons.default'), value: undefined, icon: Folder },
@@ -221,11 +254,14 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               },
             },
             {
-              label: t('contextMenus.editor.convertNegative'),
+              label: useEditorStore.getState().adjustments?.negativeConversion?.enabled
+                ? t('contextMenus.editor.revertNegative')
+                : t('contextMenus.editor.convertNegative'),
               icon: Film,
               onClick: () => {
                 if (selectedImage) {
-                  setUI({ negativeModalState: { isOpen: true, targetPaths: [selectedImage.path] } });
+                  const enabled = !useEditorStore.getState().adjustments?.negativeConversion?.enabled;
+                  handleSetNegativeConversion([selectedImage.path], enabled);
                 }
               },
             },
@@ -411,7 +447,11 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       const cullLabel = t('contextMenus.thumbnail.cullImage', { count: selectionCount });
       const collageLabel = t('contextMenus.thumbnail.collage', { count: selectionCount });
       const stitchLabel = t('contextMenus.editor.stitchPanorama');
-      const conversionLabel = t('contextMenus.thumbnail.convertNegative', { count: selectionCount });
+      const selectedFiles = imageList.filter((img) => finalSelection.includes(img.path));
+      const allNegative = selectedFiles.length > 0 && selectedFiles.every((f) => f.is_negative);
+      const conversionLabel = allNegative
+        ? t('contextMenus.thumbnail.revertNegative', { count: selectionCount })
+        : t('contextMenus.thumbnail.convertNegative', { count: selectionCount });
       const denoiseLabel = t('contextMenus.thumbnail.denoise', { count: selectionCount });
       const mergeLabel = t('contextMenus.editor.mergeHdr');
 
@@ -567,7 +607,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               icon: Film,
               disabled: selectionCount === 0,
               onClick: () => {
-                setUI({ negativeModalState: { isOpen: true, targetPaths: finalSelection } });
+                handleSetNegativeConversion(finalSelection, !allNegative);
               },
             },
             {

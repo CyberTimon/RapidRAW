@@ -330,8 +330,7 @@ pub fn parse_lut_file(path_str: &str) -> anyhow::Result<Lut> {
                     .and_then(|s| s.to_str())
                     .unwrap_or("cube")
                     .to_lowercase();
-                let uri_bytes =
-                    read_android_content_uri(path_str).map_err(|e| anyhow!("{}", e))?;
+                let uri_bytes = read_android_content_uri(path_str).map_err(|e| anyhow!("{}", e))?;
                 (ext, Some(uri_bytes))
             }
             #[cfg(not(target_os = "android"))]
