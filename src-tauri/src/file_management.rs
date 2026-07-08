@@ -3261,6 +3261,22 @@ pub async fn import_files(
     Ok(())
 }
 
+/// Make an EXIF text value safe to use as part of a filename: strip characters
+/// that are invalid on Windows/Unix or could escape the target directory,
+/// collapse whitespace, trim trailing dots, and cap the length.
+fn sanitize_filename_component(value: &str) -> String {
+    let cleaned: String = value
+        .chars()
+        .map(|c| match c {
+            '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => ' ',
+            c if c.is_control() => ' ',
+            c => c,
+        })
+        .collect();
+    let collapsed = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+    collapsed.trim_matches('.').trim().chars().take(100).collect()
+}
+
 pub fn generate_filename_from_template(
     template: &str,
     original_path: &std::path::Path,
@@ -3288,7 +3304,56 @@ pub fn generate_filename_from_template(
     result = result.replace("{hh}", &local_date.format("%H").to_string());
     result = result.replace("{mm}", &local_date.format("%M").to_string());
 
+    // Metadata tokens, named to match the Metadata panel's editable fields
+    // (Title / Author / Copyright / Comments). Read lazily (only when used) from
+    // the image's cached EXIF in the .rrdata sidecar, so unrelated callers pay no
+    // I/O cost.
+    if result.contains("{title}")
+        || result.contains("{author}")
+        || result.contains("{copyright}")
+        || result.contains("{comments}")
+    {
+        let exif = original_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|n| original_path.with_file_name(format!("{}.rrdata", n)))
+            .map(|sidecar| crate::exif_processing::load_sidecar(&sidecar).exif)
+            .unwrap_or_default()
+            .unwrap_or_default();
+        let lookup = |keys: &[&str]| -> String {
+            keys.iter()
+                .find_map(|k| exif.get(*k))
+                .map(|v| sanitize_filename_component(v))
+                .unwrap_or_default()
+        };
+        result = result.replace("{title}", &lookup(&["ImageDescription", "XPTitle"]));
+        result = result.replace("{author}", &lookup(&["Artist"]));
+        result = result.replace("{copyright}", &lookup(&["Copyright"]));
+        result = result.replace("{comments}", &lookup(&["UserComment", "XPComment"]));
+    }
+
     result
+}
+
+/// Resolve a single export filename stem from a template for one image. Used by
+/// the export panel to build the suggested name shown in the save dialog, so the
+/// same tokens (dates, metadata, original filename) work for single-image export
+/// as for batch export. Falls back to the original stem if the result is empty.
+#[tauri::command]
+pub fn generate_export_filename(path: String, template: String) -> String {
+    let (source_path, _) = parse_virtual_path(&path);
+    let file_date = crate::exif_processing::get_creation_date_from_path(&source_path);
+    let stem = generate_filename_from_template(&template, &source_path, 1, 1, &file_date);
+    let trimmed = stem.trim();
+    if trimmed.is_empty() {
+        source_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("image")
+            .to_string()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 #[tauri::command]

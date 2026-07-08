@@ -1,5 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
-import { ExportPreset, WatermarkAnchor } from '../components/ui/ExportImportProperties';
+import {
+  DEFAULT_FILENAME_TEMPLATE,
+  ExportPreset,
+  sanitizeFilenameTemplate,
+  WatermarkAnchor,
+} from '../components/ui/ExportImportProperties';
 
 export function useExportSettings() {
   const [fileFormat, setFileFormat] = useState('jpeg');
@@ -13,7 +18,7 @@ export function useExportSettings() {
   const [stripGps, setStripGps] = useState(true);
   const [exportMasks, setExportMasks] = useState(false);
   const [preserveFolders, setPreserveFolders] = useState(false);
-  const [filenameTemplate, setFilenameTemplate] = useState('{original_filename}_edited');
+  const [filenameTemplate, setFilenameTemplate] = useState(DEFAULT_FILENAME_TEMPLATE);
   const [enableWatermark, setEnableWatermark] = useState(false);
   const [watermarkPath, setWatermarkPath] = useState<string | null>(null);
   const [watermarkAnchor, setWatermarkAnchor] = useState<WatermarkAnchor>(WatermarkAnchor.BottomRight);
@@ -33,7 +38,7 @@ export function useExportSettings() {
     setStripGps(preset.stripGps);
     setExportMasks(preset.exportMasks ?? false);
     setPreserveFolders(preset.preserveFolders ?? false);
-    setFilenameTemplate(preset.filenameTemplate);
+    setFilenameTemplate(sanitizeFilenameTemplate(preset.filenameTemplate));
     setEnableWatermark(preset.enableWatermark);
     setWatermarkPath(preset.watermarkPath);
     setWatermarkAnchor(preset.watermarkAnchor as WatermarkAnchor);
