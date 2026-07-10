@@ -754,6 +754,7 @@ pub async fn load_image(
         if !is_same_image {
             *state.preview_cache.lock().unwrap() = None;
         }
+        *state.gpu_processor.lock().unwrap() = None;
         *state.gpu_image_cache.lock().unwrap() = None;
         *state.full_warped_cache.lock().unwrap() = None;
         *state.full_transformed_cache.lock().unwrap() = None;

@@ -55,6 +55,12 @@ export function useImageProcessing(
     selectedImagePathRef.current = selectedImage?.path ?? null;
   }, [selectedImage?.path]);
 
+  useEffect(() => {
+    // Image changed: reset resolution refs so the new image starts at base res
+    currentResRef.current = 0;
+    currentOriginalResRef.current = 0;
+  }, [selectedImage?.path]);
+
   const geometricAdjustmentsKey = useMemo(() => {
     if (!adjustments) return '';
     const { crop, rotation, flipHorizontal, flipVertical, orientationSteps } = adjustments;
