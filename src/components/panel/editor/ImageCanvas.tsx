@@ -75,6 +75,7 @@ interface ImageCanvasProps {
   liveRotation?: number | null;
   transformState: { scale: number; positionX: number; positionY: number };
   hasRenderedFirstFrame: boolean;
+  isAndroid?: boolean;
 }
 
 interface MaskOverlayProps {
@@ -1184,6 +1185,7 @@ const ImageCanvas = memo(
     liveRotation,
     transformState,
     hasRenderedFirstFrame,
+    isAndroid,
   }: ImageCanvasProps) => {
     const [isCropViewVisible, setIsCropViewVisible] = useState(false);
     const cropImageRef = useRef<HTMLImageElement>(null);

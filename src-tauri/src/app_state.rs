@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Condvar, Mutex};
+use std::time::Instant;
 
 use image::{DynamicImage, GrayImage};
 use serde::{Deserialize, Serialize};
@@ -60,6 +61,7 @@ pub struct GpuImageCache {
     pub width: u32,
     pub height: u32,
     pub transform_hash: u64,
+    pub staging_buffer: Vec<u8>,
 }
 
 pub struct GpuProcessorState {
@@ -165,8 +167,13 @@ pub struct AppState {
     pub thumbnail_geometry_cache: Mutex<HashMap<String, (u64, DynamicImage, f32)>>,
     pub lens_db: Mutex<Option<Arc<LensDatabase>>>,
     pub load_image_generation: Arc<AtomicUsize>,
+    pub uncropped_preview_seq: AtomicUsize,
+    pub uncropped_preview_work_mutex: Mutex<()>,
+    pub uncropped_last_emit: Mutex<Instant>,
     pub full_warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
     pub full_transformed_cache: Mutex<Option<TransformedImageCache>>,
+    pub preview_cache: Mutex<Option<Arc<DynamicImage>>>,
+    pub processing_active: AtomicBool,
     pub decoded_image_cache: Mutex<DecodedImageCache>,
     pub thumbnail_manager: Arc<ThumbnailManager>,
     pub metadata_manager: Arc<MetadataManager>,

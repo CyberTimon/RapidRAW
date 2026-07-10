@@ -6,7 +6,7 @@ use crate::file_management::{parse_virtual_path, read_file_mapped};
 use crate::formats::is_raw_file;
 use crate::image_processing::ImageMetadata;
 use crate::image_processing::{
-    apply_orientation, apply_srgb_to_linear, remove_raw_artifacts_and_enhance,
+    apply_orientation, apply_srgb_to_linear, downscale_f32_image, remove_raw_artifacts_and_enhance,
 };
 use crate::mask_generation::{MaskDefinition, SubMask, generate_mask_bitmap};
 use anyhow::{Context, Result, anyhow};
@@ -740,9 +740,20 @@ pub async fn load_image(
     let generation_tracker = state.load_image_generation.clone();
     let cancel_token = Some((generation_tracker.clone(), my_generation));
 
+    let is_same_image = {
+        let guard = state.original_image.lock().unwrap();
+        guard.as_ref().and_then(|img| {
+            let (source_path, _) = parse_virtual_path(&path);
+            Some(img.path == source_path.to_string_lossy())
+        }).unwrap_or(false)
+    };
+
     {
         *state.original_image.lock().unwrap() = None;
         *state.cached_preview.lock().unwrap() = None;
+        if !is_same_image {
+            *state.preview_cache.lock().unwrap() = None;
+        }
         *state.gpu_image_cache.lock().unwrap() = None;
         *state.full_warped_cache.lock().unwrap() = None;
         *state.full_transformed_cache.lock().unwrap() = None;
@@ -781,7 +792,7 @@ pub async fn load_image(
             ));
         }
 
-        let (pristine_img, exif_data_loaded) = tokio::task::spawn_blocking(move || {
+        let (mut pristine_img, exif_data_loaded) = tokio::task::spawn_blocking(move || {
             if generation_tracker.load(Ordering::SeqCst) != my_generation {
                 return Err("Load cancelled".to_string());
             }
@@ -835,6 +846,10 @@ pub async fn load_image(
         .await
         .map_err(|e| e.to_string())??;
 
+        if cfg!(target_os = "android") {
+            pristine_img = DynamicImage::ImageRgb8(pristine_img.to_rgb8());
+        }
+
         let arc_img = Arc::new(pristine_img);
 
         state.decoded_image_cache.lock().unwrap().insert(
@@ -857,6 +872,20 @@ pub async fn load_image(
     }
 
     let (orig_width, orig_height) = pristine_arc.dimensions();
+
+    if cfg!(target_os = "android") {
+        let mut cache_lock = state.preview_cache.lock().unwrap();
+        if cache_lock.is_none() {
+            let settings = load_settings(app_handle.clone()).unwrap_or_default();
+            let cache_dim = settings.editor_preview_resolution.unwrap_or(1920).max(2560);
+            if orig_width > cache_dim || orig_height > cache_dim {
+                let cache_img = downscale_f32_image(&pristine_arc, cache_dim, cache_dim);
+                *cache_lock = Some(Arc::new(cache_img));
+            } else {
+                *cache_lock = Some(Arc::clone(&pristine_arc));
+            }
+        }
+    }
 
     *state.original_image.lock().unwrap() = Some(LoadedImage {
         path,
