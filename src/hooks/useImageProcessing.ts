@@ -428,6 +428,10 @@ export function useImageProcessing(
         } else {
           requestHiFiZoom(adjustments, finalRes);
         }
+      } else if (finalRes < currentResRef.current * 0.7) {
+        // Zoomed out significantly — re-render at lower res to free cached high-res preview memory
+        currentResRef.current = finalRes;
+        applyAdjustments(adjustments, false, finalRes);
       }
     }
     return () => {
