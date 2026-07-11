@@ -374,7 +374,21 @@ fn process_preview_job(
         *state.gpu_image_cache.lock().unwrap_or_else(|e| e.into_inner()) = None;
 
         let (orig_w, orig_h) = loaded_image.image.dimensions();
-        let base_image = if orig_w > preview_dim || orig_h > preview_dim {
+
+        let has_patches = adjustments_clone
+            .get("aiPatches")
+            .and_then(|v| v.as_array())
+            .is_some_and(|a| !a.is_empty());
+
+        let base_image = if has_patches {
+            let patched = composite_patches_on_image(&*loaded_image.image, &adjustments_clone)
+                .map_err(|e| format!("Failed to composite AI patches: {}", e))?;
+            if orig_w > preview_dim || orig_h > preview_dim {
+                downscale_f32_image(&patched, preview_dim, preview_dim)
+            } else {
+                patched
+            }
+        } else if orig_w > preview_dim || orig_h > preview_dim {
             let settings = load_settings(app_handle.clone()).unwrap_or_default();
             let cache_dim = settings.editor_preview_resolution.unwrap_or(1920).max(2560);
             if preview_dim > cache_dim {
