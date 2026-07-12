@@ -5,11 +5,13 @@ import android.os.Bundle
 import android.view.View
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.OnBackPressedCallback
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : TauriActivity() {
   private val safeMarginBackgroundColor = Color.rgb(24, 24, 24)
+  private var webView: WebView? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
@@ -42,8 +44,15 @@ class MainActivity : TauriActivity() {
 
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
+    this.webView = webView
 
     webView.setBackgroundColor(safeMarginBackgroundColor)
     webView.fitsSystemWindows = true
+
+    onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+      override fun handleOnBackPressed() {
+        this@MainActivity.webView?.evaluateJavascript("window.__handleAndroidBack()", null)
+      }
+    })
   }
 }

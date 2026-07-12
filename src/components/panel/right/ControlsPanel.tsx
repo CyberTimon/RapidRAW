@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useCallback } from 'react';
 import { RotateCcw, Copy, ClipboardPaste, Aperture, ChartArea } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import BasicAdjustments from '../../adjustments/Basic';
 import CurveGraph from '../../adjustments/Curves';
 import ColorPanel from '../../adjustments/Color';
@@ -12,110 +13,85 @@ import Waveform from '../editor/Waveform';
 import Resizer from '../../ui/Resizer';
 import { Adjustments, SectionVisibility, INITIAL_ADJUSTMENTS, ADJUSTMENT_SECTIONS } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
-import { OPTION_SEPARATOR, SelectedImage, AppSettings, WaveformData, Orientation } from '../../ui/AppProperties';
-import { ChannelConfig } from '../../adjustments/Curves';
+import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
 import { TextVariants } from '../../../types/typography';
+import { useShallow } from 'zustand/react/shallow';
+import { useEditorStore } from '../../../store/useEditorStore';
+import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useUIStore } from '../../../store/useUIStore';
+import { useEditorActions } from '../../../hooks/useEditorActions';
+import { useWaveformControls } from '../../../hooks/useWaveformControls';
 
-interface ControlsPanelOption {
-  disabled?: boolean;
-  icon?: any;
-  label?: string;
-  onClick?(): void;
-  type?: string;
-}
-
-interface ControlsProps {
-  adjustments: Adjustments;
-  collapsibleState: any;
-  copiedSectionAdjustments: Adjustments | null;
-  handleAutoAdjustments(): void;
-  handleLutSelect(path: string): void;
-  histogram: ChannelConfig | null;
-  selectedImage: SelectedImage;
-  setAdjustments(updater: (prev: Adjustments) => Adjustments): void;
-  setCollapsibleState(state: any): void;
-  setCopiedSectionAdjustments(adjustments: any): void;
-  theme: string;
-  appSettings: AppSettings | null;
-  isWbPickerActive?: boolean;
-  toggleWbPicker?: () => void;
-  onDragStateChange?: (isDragging: boolean) => void;
-  isWaveformVisible?: boolean;
-  onToggleWaveform?: () => void;
-  waveform?: WaveformData | null;
-  activeWaveformChannel?: string;
-  setActiveWaveformChannel?: (mode: string) => void;
-  waveformHeight?: number;
-  setWaveformHeight?: (height: number) => void;
-}
-
-export default function Controls({
-  adjustments,
-  collapsibleState,
-  copiedSectionAdjustments,
-  handleAutoAdjustments,
-  handleLutSelect,
-  histogram,
-  selectedImage,
-  setAdjustments,
-  setCollapsibleState,
-  setCopiedSectionAdjustments,
-  theme,
-  appSettings,
-  isWbPickerActive,
-  toggleWbPicker,
-  onDragStateChange,
-  isWaveformVisible,
-  onToggleWaveform,
-  waveform,
-  activeWaveformChannel,
-  setActiveWaveformChannel,
-  waveformHeight,
-  setWaveformHeight,
-}: ControlsProps) {
+export default function Controls() {
+  const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
-  const [isResizingWaveform, setIsResizingWaveform] = useState<boolean>(false);
+  const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, handleWaveformResize } =
+    useWaveformControls();
+  const { setAdjustments, handleAutoAdjustments, handleLutSelect, setLutPreviewOverride } = useEditorActions();
 
-  const handleWaveformResize = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const pointerId = e.pointerId;
-    const target = e.currentTarget;
-    const startY = e.clientY;
-    const startHeight = waveformHeight || 256;
-    const previousTouchAction = document.documentElement.style.touchAction;
-    const previousUserSelect = document.documentElement.style.userSelect;
-    setIsResizingWaveform(true);
+  const { appSettings, theme } = useSettingsStore(
+    useShallow((state) => ({
+      appSettings: state.appSettings,
+      theme: state.theme,
+    })),
+  );
 
-    target.setPointerCapture?.(pointerId);
-    document.documentElement.style.touchAction = 'none';
-    document.documentElement.style.userSelect = 'none';
+  const { collapsibleSectionsState, setUI } = useUIStore(
+    useShallow((state) => ({
+      collapsibleSectionsState: state.collapsibleSectionsState,
+      setUI: state.setUI,
+    })),
+  );
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== pointerId) return;
-      moveEvent.preventDefault();
-      const delta = moveEvent.clientY - startY;
-      const newHeight = Math.round(Math.max(150, Math.min(450, startHeight + delta)));
-      if (setWaveformHeight) setWaveformHeight(newHeight);
-    };
+  const {
+    adjustments,
+    copiedSectionAdjustments,
+    histogram,
+    selectedImage,
+    isWbPickerActive,
+    isWaveformVisible,
+    waveform,
+    activeWaveformChannel,
+    waveformHeight,
+    setEditor,
+  } = useEditorStore(
+    useShallow((state) => ({
+      adjustments: state.adjustments,
+      copiedSectionAdjustments: state.copiedSectionAdjustments,
+      histogram: state.histogram,
+      selectedImage: state.selectedImage,
+      isWbPickerActive: state.isWbPickerActive,
+      isWaveformVisible: state.isWaveformVisible,
+      waveform: state.waveform,
+      activeWaveformChannel: state.activeWaveformChannel,
+      waveformHeight: state.waveformHeight,
+      setEditor: state.setEditor,
+    })),
+  );
 
-    const handlePointerUp = (upEvent: PointerEvent) => {
-      if (upEvent.pointerId !== pointerId) return;
-      if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId);
-      setIsResizingWaveform(false);
-      document.documentElement.style.touchAction = previousTouchAction;
-      document.documentElement.style.userSelect = previousUserSelect;
-      document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerup', handlePointerUp);
-      document.removeEventListener('pointercancel', handlePointerUp);
-    };
+  const setCopiedSectionAdjustments = useCallback(
+    (val: any) => setEditor({ copiedSectionAdjustments: val }),
+    [setEditor],
+  );
 
-    document.addEventListener('pointermove', handlePointerMove, { passive: false });
-    document.addEventListener('pointerup', handlePointerUp);
-    document.addEventListener('pointercancel', handlePointerUp);
-  };
+  const toggleWbPicker = useCallback(
+    () => setEditor((state) => ({ isWbPickerActive: !state.isWbPickerActive })),
+    [setEditor],
+  );
+
+  const onDragStateChange = useCallback(
+    (isDragging: boolean) => setEditor({ isSliderDragging: isDragging }),
+    [setEditor],
+  );
+
+  const setCollapsibleState = useCallback(
+    (updater: any) =>
+      setUI((state) => ({
+        collapsibleSectionsState: typeof updater === 'function' ? updater(state.collapsibleSectionsState) : updater,
+      })),
+    [setUI],
+  );
 
   const handleToggleVisibility = (sectionName: string) => {
     setAdjustments((prev: Adjustments) => {
@@ -136,7 +112,7 @@ export default function Controls({
       ...Object.keys(ADJUSTMENT_SECTIONS)
         .flatMap((s) => ADJUSTMENT_SECTIONS[s])
         .reduce((acc: any, key: string) => {
-          acc[key] = INITIAL_ADJUSTMENTS[key];
+          acc[key] = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
           return acc;
         }, {}),
       sectionVisibility: { ...INITIAL_ADJUSTMENTS.sectionVisibility },
@@ -171,7 +147,7 @@ export default function Controls({
       const adjustmentsToCopy: any = {};
       for (const key of sectionKeys) {
         if (Object.prototype.hasOwnProperty.call(adjustments, key)) {
-          adjustmentsToCopy[key] = JSON.parse(JSON.stringify(adjustments[key]));
+          adjustmentsToCopy[key] = JSON.parse(JSON.stringify(adjustments[key as keyof Adjustments]));
         }
       }
       setCopiedSectionAdjustments({ section: sectionName, values: adjustmentsToCopy });
@@ -194,7 +170,7 @@ export default function Controls({
     const handleReset = () => {
       const resetValues: any = {};
       for (const key of sectionKeys) {
-        resetValues[key] = JSON.parse(JSON.stringify(INITIAL_ADJUSTMENTS[key]));
+        resetValues[key] = JSON.parse(JSON.stringify(INITIAL_ADJUSTMENTS[key as keyof Adjustments]));
       }
       setAdjustments((prev: Adjustments) => ({
         ...prev,
@@ -207,22 +183,22 @@ export default function Controls({
     };
 
     const isPasteAllowed = copiedSectionAdjustments && copiedSectionAdjustments.section === sectionName;
-    const pasteLabel = copiedSectionAdjustments
-      ? `Paste ${
-          copiedSectionAdjustments.section.charAt(0).toUpperCase() + copiedSectionAdjustments.section.slice(1)
-        } Settings`
-      : 'Paste Settings';
+    const translatedSection = t(`editor.adjustments.sections.${sectionName}`);
 
-    const options: Array<ControlsPanelOption> = [
+    const pasteLabel = copiedSectionAdjustments
+      ? t('editor.adjustments.actions.pasteLabel', { section: translatedSection })
+      : t('editor.adjustments.actions.pasteSettings');
+
+    const options: any = [
       {
-        label: `Copy ${sectionName.charAt(0).toUpperCase() + sectionName.slice(1)} Settings`,
+        label: t('editor.adjustments.actions.copySectionSettings', { section: translatedSection }),
         icon: Copy,
         onClick: handleCopy,
       },
       { label: pasteLabel, icon: ClipboardPaste, onClick: handlePaste, disabled: !isPasteAllowed },
       { type: OPTION_SEPARATOR },
       {
-        label: `Reset ${sectionName.charAt(0).toUpperCase() + sectionName.slice(1)} Settings`,
+        label: t('editor.adjustments.actions.resetSectionSettings', { section: translatedSection }),
         icon: RotateCcw,
         onClick: handleReset,
       },
@@ -234,13 +210,13 @@ export default function Controls({
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>Adjustments</Text>
+        <Text variant={TextVariants.title}>{t('editor.adjustments.title')}</Text>
         <div className="flex items-center gap-1">
           <button
             className="p-2 rounded-full hover:bg-surface disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage?.isReady}
             onClick={handleAutoAdjustments}
-            data-tooltip="Auto Adjust Image"
+            data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
           >
             <Aperture size={18} />
           </button>
@@ -250,7 +226,7 @@ export default function Controls({
               isWaveformVisible ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
             )}
             onClick={onToggleWaveform}
-            data-tooltip="Toggle Analytics Display"
+            data-tooltip={t('editor.adjustments.tooltips.toggleAnalytics')}
           >
             <ChartArea size={18} />
           </button>
@@ -258,7 +234,7 @@ export default function Controls({
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage}
             onClick={handleResetAdjustments}
-            data-tooltip="Reset Adjustments"
+            data-tooltip={t('editor.adjustments.tooltips.resetAdjustments')}
           >
             <RotateCcw size={18} />
           </button>
@@ -279,7 +255,7 @@ export default function Controls({
                 waveformData={waveform || null}
                 histogram={histogram}
                 displayMode={activeWaveformChannel || 'luma'}
-                setDisplayMode={setActiveWaveformChannel || (() => {})}
+                setDisplayMode={setActiveWaveformChannel}
                 showClipping={adjustments.showClipping || false}
                 onToggleClipping={() => {
                   setAdjustments((prev: Adjustments) => ({
@@ -295,7 +271,7 @@ export default function Controls({
         )}
       </AnimatePresence>
 
-      <div className="grow overflow-y-auto p-4 flex flex-col gap-2">
+      <div className="grow overflow-y-scroll p-4 flex flex-col gap-2">
         {Object.keys(ADJUSTMENT_SECTIONS).map((sectionName: string) => {
           const SectionComponent: any = {
             basic: BasicAdjustments,
@@ -305,14 +281,14 @@ export default function Controls({
             effects: EffectsPanel,
           }[sectionName];
 
-          const title = sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
+          const title = t(`editor.adjustments.sections.${sectionName}`);
           const sectionVisibility = adjustments.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility;
 
           return (
             <div className="shrink-0 group" key={sectionName}>
               <CollapsibleSection
-                isContentVisible={sectionVisibility[sectionName]}
-                isOpen={collapsibleState[sectionName]}
+                isContentVisible={sectionVisibility[sectionName as keyof SectionVisibility]}
+                isOpen={collapsibleSectionsState[sectionName as keyof typeof collapsibleSectionsState]}
                 onContextMenu={(e: any) => handleSectionContextMenu(e, sectionName)}
                 onToggle={() => handleToggleSection(sectionName)}
                 onToggleVisibility={() => handleToggleVisibility(sectionName)}
@@ -324,6 +300,7 @@ export default function Controls({
                   histogram={histogram}
                   theme={theme}
                   handleLutSelect={handleLutSelect}
+                  onLutHover={setLutPreviewOverride}
                   appSettings={appSettings}
                   isWbPickerActive={isWbPickerActive}
                   toggleWbPicker={toggleWbPicker}

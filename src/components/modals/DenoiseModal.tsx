@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle, XCircle, Loader2, Save, RefreshCw, ZoomIn, ZoomOut, Move, Grip } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Button from '../ui/Button';
@@ -26,12 +27,8 @@ interface DenoiseModalProps {
   targetPaths: string[];
 }
 
-const methodOptions: Array<{ label: string; value: 'ai' | 'bm3d' }> = [
-  { label: 'NIND (AI - Best for RAW)', value: 'ai' },
-  { label: 'BM3D (Traditional - All formats)', value: 'bm3d' },
-];
-
 const ImageCompare = ({ original, denoised }: { original: string; denoised: string }) => {
+  const { t } = useTranslation();
   const [sliderPosition, setSliderPosition] = useState(50);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -120,7 +117,7 @@ const ImageCompare = ({ original, denoised }: { original: string; denoised: stri
     <div className="flex flex-col h-full bg-[#111] rounded-lg overflow-hidden border border-surface">
       <div className="h-9 bg-bg-primary border-b border-surface flex items-center justify-between px-3">
         <Text as="div" variant={TextVariants.small} className="flex items-center gap-2">
-          <Move size={14} /> <span>Pan & Zoom enabled</span>
+          <Move size={14} /> <span>{t('modals.denoise.panZoomEnabled')}</span>
         </Text>
         <Text as="div" variant={TextVariants.small} className="flex items-center gap-2">
           <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.5))} className="hover:text-text-primary">
@@ -138,7 +135,7 @@ const ImageCompare = ({ original, denoised }: { original: string; denoised: stri
             }}
             className="ml-2 text-accent hover:underline"
           >
-            Reset
+            {t('modals.denoise.reset')}
           </button>
         </Text>
       </div>
@@ -194,7 +191,7 @@ const ImageCompare = ({ original, denoised }: { original: string; denoised: stri
           weight={TextWeights.medium}
           className="absolute top-3 left-3 bg-black/60 backdrop-blur-xs px-2.5 py-1 rounded-md pointer-events-none z-0"
         >
-          Original
+          {t('modals.denoise.original')}
         </Text>
         <Text
           as="div"
@@ -203,7 +200,7 @@ const ImageCompare = ({ original, denoised }: { original: string; denoised: stri
           weight={TextWeights.medium}
           className="absolute top-3 right-3 bg-accent/90 backdrop-blur-xs px-2.5 py-1 rounded-md pointer-events-none z-0"
         >
-          Denoised
+          {t('modals.denoise.denoised')}
         </Text>
       </div>
     </div>
@@ -227,6 +224,7 @@ export default function DenoiseModal({
   loadingImageUrl,
   targetPaths,
 }: DenoiseModalProps) {
+  const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [intensity, setIntensity] = useState<number>(15);
@@ -236,6 +234,14 @@ export default function DenoiseModal({
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; path: string } | null>(null);
   const isBatch = targetPaths.length > 1;
   const mouseDownTarget = useRef<EventTarget | null>(null);
+
+  const methodOptions = useMemo<Array<{ label: string; value: 'ai' | 'bm3d' }>>(
+    () => [
+      { label: t('modals.denoise.methodAi'), value: 'ai' },
+      { label: t('modals.denoise.methodBm3d'), value: 'bm3d' },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     const unlisten = listen('denoise-batch-progress', (e: any) => {
@@ -248,10 +254,10 @@ export default function DenoiseModal({
 
   const currentStatusText =
     isBatch && batchProgress
-      ? `Denoising ${batchProgress.current} of ${batchProgress.total}...`
+      ? t('modals.denoise.batchProgressText', { current: batchProgress.current, total: batchProgress.total })
       : aiModelDownloadStatus?.includes('NIND')
-        ? `Downloading ${aiModelDownloadStatus}...`
-        : progressMessage || 'Initializing...';
+        ? t('modals.denoise.downloadingText', { status: aiModelDownloadStatus })
+        : progressMessage || t('modals.denoise.initializing');
 
   useEffect(() => {
     if (isOpen) {
@@ -333,7 +339,7 @@ export default function DenoiseModal({
             <XCircle className="w-12 h-12 text-red-500" />
           </div>
           <Text variant={TextVariants.title} className="mb-2 text-center">
-            Processing Failed
+            {t('modals.denoise.processingFailed')}
           </Text>
           <Text className="text-center p-4 rounded-lg bg-bg-primary max-w-md mt-2 leading-relaxed">
             {String(error)}
@@ -355,7 +361,7 @@ export default function DenoiseModal({
                 className="flex items-center justify-center gap-2 mt-4"
               >
                 <CheckCircle className="w-5 h-5" />
-                <span>Image Saved Successfully!</span>
+                <span>{t('modals.denoise.saveSuccess')}</span>
               </Text>
             </motion.div>
           )}
@@ -381,7 +387,7 @@ export default function DenoiseModal({
               className="flex flex-col items-center w-full"
             >
               <Text variant={TextVariants.title} className="mb-2 text-center">
-                Denoising in Progress
+                {t('modals.denoise.denoisingProgress')}
               </Text>
               <Text className="text-center font-mono h-6 flex justify-center items-center">{currentStatusText}</Text>
 
@@ -404,10 +410,10 @@ export default function DenoiseModal({
 
               <Text
                 variant={TextVariants.small}
-                data-tooltip="NIND Denoise does not yet support GPU acceleration due to dependency limitations."
+                data-tooltip={t('modals.denoise.gpuWarningTooltip')}
                 className="mt-6 text-center max-w-xs opacity-60"
               >
-                This may take a few minutes depending on image size and selected method.
+                {t('modals.denoise.speedNotice')}
               </Text>
             </motion.div>
           </div>
@@ -421,11 +427,9 @@ export default function DenoiseModal({
           <Grip className="w-12 h-12 text-accent" />
         </div>
         <Text variant={TextVariants.title} className="mb-3 text-center">
-          {isBatch ? 'Denoise Images' : 'Denoise Image'}
+          {isBatch ? t('modals.denoise.titleBatch') : t('modals.denoise.titleSingle')}
         </Text>
-        <Text className="text-center max-w-md leading-relaxed">
-          Remove noise from your image using AI-powered or traditional denoising.
-        </Text>
+        <Text className="text-center max-w-md leading-relaxed">{t('modals.denoise.description')}</Text>
       </div>
     );
   };
@@ -434,7 +438,7 @@ export default function DenoiseModal({
     if (error) {
       return (
         <Button onClick={handleClose} className="w-full">
-          Close
+          {t('modals.denoise.close')}
         </Button>
       );
     }
@@ -446,9 +450,9 @@ export default function DenoiseModal({
             onClick={handleClose}
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors"
           >
-            Close
+            {t('modals.denoise.close')}
           </button>
-          <Button onClick={handleOpen}>Open in Editor</Button>
+          <Button onClick={handleOpen}>{t('modals.denoise.openInEditor')}</Button>
         </>
       );
     }
@@ -460,7 +464,7 @@ export default function DenoiseModal({
         <div className="flex-1 flex items-center gap-6">
           <div className="flex flex-col gap-1 w-[280px] mt-2 shrink-0">
             <Text variant={TextVariants.body} weight={TextWeights.medium}>
-              Method
+              {t('modals.denoise.methodLabel')}
             </Text>
             <Dropdown
               options={methodOptions}
@@ -473,7 +477,7 @@ export default function DenoiseModal({
           </div>
           <div className="flex-1 max-w-[280px]">
             <Slider
-              label={method === 'ai' ? 'Quality / Tile Size' : 'Strength'}
+              label={method === 'ai' ? t('modals.denoise.qualityTileSizeLabel') : t('modals.denoise.strengthLabel')}
               value={intensity}
               min={0}
               max={100}
@@ -493,7 +497,7 @@ export default function DenoiseModal({
             onClick={handleClose}
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm"
           >
-            {previewBase64 ? 'Close' : 'Cancel'}
+            {previewBase64 ? t('modals.denoise.close') : t('modals.denoise.cancel')}
           </button>
 
           <Button
@@ -508,13 +512,17 @@ export default function DenoiseModal({
             ) : (
               <Grip className="mr-2" size={16} />
             )}
-            {isBatch ? 'Batch Denoise & Save' : previewBase64 ? 'Retry' : 'Start'}
+            {isBatch
+              ? t('modals.denoise.btnBatchDenoise')
+              : previewBase64
+                ? t('modals.denoise.btnRetry')
+                : t('modals.denoise.btnStart')}
           </Button>
 
           {previewBase64 && !isBatch && (
             <Button onClick={handleSave} disabled={isSaving || isProcessing}>
               {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
-              Save
+              {t('modals.denoise.btnSave')}
             </Button>
           )}
         </div>

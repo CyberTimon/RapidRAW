@@ -10,6 +10,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { useTranslation } from 'react-i18next';
 import { PresetListType, usePresets, UserPreset } from '../../../hooks/usePresets';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import {
@@ -38,9 +39,13 @@ import CreateFolderModal from '../../modals/CreateFolderModal';
 import RenameFolderModal from '../../modals/RenameFolderModal';
 import Button from '../../ui/Button';
 import Text from '../../ui/Text';
+import Slider from '../../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS } from '../../../utils/adjustments';
 import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
+import { useEditorStore } from '../../../store/useEditorStore';
+import { useUIStore } from '../../../store/useUIStore';
+import { useEditorActions } from '../../../hooks/useEditorActions';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -56,6 +61,10 @@ interface DraggablePresetItemProps {
   onContextMenu(event: any, preset: any): void;
   preset: any;
   previewUrl: string;
+  isActive?: boolean;
+  intensity?: number;
+  onIntensityChange?: (val: number) => void;
+  onDragStateChange?: (isDragging: boolean) => void;
 }
 
 interface FolderProps {
@@ -76,13 +85,13 @@ interface PresetItemDisplayProps {
   isGeneratingPreviews: boolean;
   preset: Preset;
   previewUrl: string;
+  isActive?: boolean;
+  intensity?: number;
+  onIntensityChange?: (val: number) => void;
+  onDragStateChange?: (isDragging: boolean) => void;
 }
 
 interface PresetsPanelProps {
-  activePanel: Panel | null;
-  adjustments: Adjustments;
-  selectedImage: SelectedImage;
-  setAdjustments(adjustments: Partial<Adjustments>): void;
   onNavigateToCommunity(): void;
 }
 
@@ -99,7 +108,106 @@ const itemVariants = {
   exit: { opacity: 0, x: -15, transition: { duration: 0.2 } },
 };
 
-function PresetItemDisplay({ preset, previewUrl, isGeneratingPreviews }: PresetItemDisplayProps) {
+const evaluateCurveY = (curve: Array<{ x: number; y: number }>, targetX: number): number => {
+  const len = curve.length;
+  if (len === 1) return curve[0].y;
+  if (targetX <= curve[0].x) return curve[0].y;
+  if (targetX >= curve[len - 1].x) return curve[len - 1].y;
+
+  for (let i = 0; i < len - 1; i++) {
+    const p2 = curve[i + 1];
+    if (targetX <= p2.x) {
+      const p1 = curve[i];
+      const range = p2.x - p1.x;
+      return range === 0 ? p1.y : p1.y + ((targetX - p1.x) / range) * (p2.y - p1.y);
+    }
+  }
+  return targetX;
+};
+
+const mixAdjustments = (presetObj: any, intensity: number, initialObj: any = INITIAL_ADJUSTMENTS): any => {
+  const fraction = intensity / 100;
+
+  if (fraction === 1) return { ...presetObj };
+  if (fraction === 0) return { ...initialObj };
+
+  const result: any = {};
+  const keys = Object.keys(presetObj);
+
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const presetVal = presetObj[key];
+    const initialVal = initialObj[key] !== undefined ? initialObj[key] : (INITIAL_ADJUSTMENTS as any)[key];
+
+    if (typeof presetVal === 'number') {
+      result[key] = typeof initialVal === 'number' ? initialVal + (presetVal - initialVal) * fraction : presetVal;
+    } else if (Array.isArray(presetVal)) {
+      if (!Array.isArray(initialVal)) {
+        result[key] = fraction > 0 ? presetVal : initialVal;
+        continue;
+      }
+
+      if (presetVal.length > 0 && presetVal[0].x !== undefined && presetVal[0].y !== undefined) {
+        const xVals: number[] = [];
+        let p1 = 0,
+          p2 = 0;
+        const len1 = initialVal.length,
+          len2 = presetVal.length;
+
+        while (p1 < len1 && p2 < len2) {
+          const x1 = initialVal[p1].x,
+            x2 = presetVal[p2].x;
+          if (x1 < x2) {
+            xVals.push(x1);
+            p1++;
+          } else if (x1 > x2) {
+            xVals.push(x2);
+            p2++;
+          } else {
+            xVals.push(x1);
+            p1++;
+            p2++;
+          }
+        }
+        while (p1 < len1) xVals.push(initialVal[p1++].x);
+        while (p2 < len2) xVals.push(presetVal[p2++].x);
+
+        const newCurve = new Array(xVals.length);
+
+        for (let j = 0; j < xVals.length; j++) {
+          const x = xVals[j];
+          const yInit = evaluateCurveY(initialVal, x);
+          const yPreset = evaluateCurveY(presetVal, x);
+          const yInterp = yInit + (yPreset - yInit) * fraction;
+
+          newCurve[j] = {
+            x,
+            y: yInterp < 0 ? 0 : yInterp > 255 ? 255 : yInterp,
+          };
+        }
+        result[key] = newCurve;
+      } else {
+        result[key] = fraction > 0 ? presetVal : initialVal;
+      }
+    } else if (presetVal !== null && typeof presetVal === 'object') {
+      result[key] = mixAdjustments(presetVal, intensity, initialVal || {});
+    } else {
+      result[key] = fraction > 0 ? presetVal : initialVal;
+    }
+  }
+  return result;
+};
+
+function PresetItemDisplay({
+  preset,
+  previewUrl,
+  isGeneratingPreviews,
+  isActive,
+  intensity,
+  onIntensityChange,
+  onDragStateChange,
+}: PresetItemDisplayProps) {
+  const { t } = useTranslation();
   const geometryKeys = ADJUSTMENT_GROUPS.geometry.flatMap((g) => g.keys);
 
   const supportsMasks = preset.includeMasks ?? (preset.adjustments?.masks && preset.adjustments.masks.length > 0);
@@ -108,62 +216,91 @@ function PresetItemDisplay({ preset, previewUrl, isGeneratingPreviews }: PresetI
   const isTool = preset.presetType === 'tool';
   const tooltipContent = useMemo(() => {
     const features = [];
-    if (supportsMasks) features.push('Masks');
-    if (supportsGeometry) features.push('Crop & Transform');
+    if (supportsMasks) features.push(t('editor.presets.supports.masks'));
+    if (supportsGeometry) features.push(t('editor.presets.supports.cropTransform'));
 
     if (features.length === 0) return undefined;
-    return `Supports ${features.join(' + ')}`;
-  }, [supportsMasks, supportsGeometry]);
+    return t('editor.presets.supports.label', { features: features.join(' + ') });
+  }, [supportsMasks, supportsGeometry, t]);
 
   return (
-    <div className="flex items-center gap-3 p-2 rounded-lg bg-surface cursor-grabbing">
-      <div
-        className="w-20 h-14 bg-bg-tertiary rounded-md flex items-center justify-center shrink-0 relative overflow-hidden"
-        data-tooltip={tooltipContent}
-      >
-        {isGeneratingPreviews && !previewUrl ? (
-          <Loader2 size={20} className="animate-spin text-text-secondary" />
-        ) : previewUrl ? (
-          <img
-            src={previewUrl}
-            alt={`${preset.name} preview`}
-            className="w-full h-full object-cover rounded-md pointer-events-none"
-          />
-        ) : (
-          <Loader2 size={20} className="animate-spin text-text-secondary" />
-        )}
-
-        {(supportsMasks || supportsGeometry) && (
-          <>
-            <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-linear-to-bl from-black/30 via-black/0 to-transparent pointer-events-none z-0" />
-
-            <div className="absolute top-1 right-1 bg-primary rounded-full px-1.5 py-0.5 flex items-center gap-1.5 backdrop-blur-xs shadow-xs z-10 pointer-events-none">
-              {supportsMasks && <Layers size={11} className="text-white" />}
-              {supportsGeometry && <Crop size={11} className="text-white" />}
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="grow min-w-0 flex flex-col justify-center">
-        <Text color={TextColors.primary} weight={TextWeights.medium} className="truncate">
-          {preset.name}
-        </Text>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          {isTool ? (
-            <Wrench size={12} className="text-text-secondary" />
+    <div className="flex flex-col p-2 rounded-lg bg-surface cursor-grabbing">
+      <div className="flex items-center gap-3">
+        <div
+          className="w-20 h-14 bg-bg-tertiary rounded-md flex items-center justify-center shrink-0 relative overflow-hidden"
+          data-tooltip={tooltipContent}
+        >
+          {isGeneratingPreviews && !previewUrl ? (
+            <Loader2 size={20} className="animate-spin text-text-secondary" />
+          ) : previewUrl ? (
+            <img
+              src={previewUrl}
+              alt={`${preset.name} preview`}
+              className="w-full h-full object-cover rounded-md pointer-events-none"
+            />
           ) : (
-            <Palette size={12} className="text-text-secondary" />
+            <Loader2 size={20} className="animate-spin text-text-secondary" />
           )}
-          <Text
-            variant={TextVariants.small}
-            color={TextColors.secondary}
-            className="text-[10px] uppercase tracking-wider"
-          >
-            {isTool ? 'Tool' : 'Style'}
+
+          {(supportsMasks || supportsGeometry) && (
+            <>
+              <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-linear-to-bl from-black/30 via-black/0 to-transparent pointer-events-none z-0" />
+
+              <div className="absolute top-1 right-1 bg-primary rounded-full px-1.5 py-0.5 flex items-center gap-1.5 backdrop-blur-xs shadow-xs z-10 pointer-events-none">
+                {supportsMasks && <Layers size={11} className="text-white" />}
+                {supportsGeometry && <Crop size={11} className="text-white" />}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="grow min-w-0 flex flex-col justify-center">
+          <Text color={TextColors.primary} weight={TextWeights.medium} className="truncate">
+            {preset.name}
           </Text>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {isTool ? (
+              <Wrench size={12} className="text-text-secondary" />
+            ) : (
+              <Palette size={12} className="text-text-secondary" />
+            )}
+            <Text
+              variant={TextVariants.small}
+              color={TextColors.secondary}
+              className="text-[10px] uppercase tracking-wider"
+            >
+              {isTool ? t('editor.presets.types.tool') : t('editor.presets.types.style')}
+            </Text>
+          </div>
         </div>
       </div>
+
+      <AnimatePresence initial={false}>
+        {isActive && onIntensityChange && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="w-full cursor-auto overflow-hidden"
+            onClick={(e: any) => e.stopPropagation()}
+            onPointerDown={(e: any) => e.stopPropagation()}
+          >
+            <div className="mt-3 px-1 pb-1">
+              <Slider
+                min={0}
+                max={200}
+                defaultValue={100}
+                value={intensity ?? 100}
+                onChange={(e: any) => onIntensityChange(Number(e.target.value))}
+                onDragStateChange={onDragStateChange}
+                label={t('editor.presets.amount')}
+                step={1}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -190,6 +327,10 @@ function DraggablePresetItem({
   onContextMenu,
   previewUrl,
   isGeneratingPreviews,
+  isActive,
+  intensity,
+  onIntensityChange,
+  onDragStateChange,
 }: DraggablePresetItemProps) {
   const {
     attributes,
@@ -233,10 +374,18 @@ function DraggablePresetItem({
         {...listeners}
         {...attributes}
         className="cursor-grab"
-        whileTap={{ scale: 0.98 }}
+        whileTap={{ scale: isActive ? 1 : 0.98 }}
         transition={{ type: 'spring', stiffness: 400, damping: 17 }}
       >
-        <PresetItemDisplay preset={preset} previewUrl={previewUrl} isGeneratingPreviews={isGeneratingPreviews} />
+        <PresetItemDisplay
+          preset={preset}
+          previewUrl={previewUrl}
+          isGeneratingPreviews={isGeneratingPreviews}
+          isActive={isActive}
+          intensity={intensity}
+          onIntensityChange={onIntensityChange}
+          onDragStateChange={onDragStateChange}
+        />
       </motion.div>
     </div>
   );
@@ -324,13 +473,14 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
   );
 }
 
-export default function PresetsPanel({
-  activePanel,
-  adjustments,
-  selectedImage,
-  setAdjustments,
-  onNavigateToCommunity,
-}: PresetsPanelProps) {
+export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProps) {
+  const { t } = useTranslation();
+  const selectedImage = useEditorStore((s) => s.selectedImage);
+  const adjustments = useEditorStore((s) => s.adjustments);
+  const activePanel = useUIStore((s) => s.activeRightPanel);
+  const setEditor = useEditorStore((s) => s.setEditor);
+  const { setAdjustments } = useEditorActions();
+
   const {
     addFolder,
     addPreset,
@@ -358,6 +508,11 @@ export default function PresetsPanel({
   const [activeItem, setActiveItem] = useState<any>(null);
   const [folderPreviewsGenerated, setFolderPreviewsGenerated] = useState<Set<string>>(new Set());
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [presetIntensity, setPresetIntensity] = useState<number>(100);
+  const [baseAdjustments, setBaseAdjustments] = useState<Adjustments | null>(null);
+
   const previewsRef = useRef(previews);
   previewsRef.current = previews;
   const expandedFoldersRef = useRef(expandedFolders);
@@ -365,6 +520,13 @@ export default function PresetsPanel({
   const previewQueue = useRef<Array<any>>([]);
   const isProcessingQueue = useRef(false);
   const currentImagePathRef = useRef<string | null>(selectedImage?.path || null);
+
+  const handleDragStateChange = useCallback(
+    (isDragging: boolean) => {
+      setEditor({ isSliderDragging: isDragging });
+    },
+    [setEditor],
+  );
 
   useEffect(() => {
     const allPresetIds = new Set();
@@ -625,6 +787,9 @@ export default function PresetsPanel({
       setPreviews({});
       setFolderPreviewsGenerated(new Set<string>());
 
+      setActivePresetId(null);
+      setBaseAdjustments(null);
+
       if (isPathChanged && selectedImage?.path) {
         currentImagePathRef.current = selectedImage.path;
       }
@@ -647,11 +812,36 @@ export default function PresetsPanel({
   ]);
 
   const handleApplyPreset = (preset: Preset) => {
+    if (activePresetId === preset.id) {
+      setActivePresetId(null);
+      if (baseAdjustments) {
+        setAdjustments(baseAdjustments);
+      }
+      setBaseAdjustments(null);
+      return;
+    }
+
+    setBaseAdjustments(adjustments);
+    setActivePresetId(preset.id);
+    setPresetIntensity(100);
+
     setAdjustments((prevAdjustments: Adjustments) => ({
       ...prevAdjustments,
       ...preset.adjustments,
     }));
   };
+
+  const handleIntensityChange = useCallback(
+    (preset: Preset, intensity: number) => {
+      setPresetIntensity(intensity);
+      const mixed = mixAdjustments(preset.adjustments, intensity);
+      setAdjustments((prev: Adjustments) => ({
+        ...prev,
+        ...mixed,
+      }));
+    },
+    [setAdjustments],
+  );
 
   const handleSaveConfiguredPreset = async (
     name: string,
@@ -771,12 +961,12 @@ export default function PresetsPanel({
     try {
       const selectedPath = await openDialog({
         filters: [
-          { name: 'All Preset Files', extensions: ['rrpreset', 'xmp', 'lrtemplate'] },
-          { name: 'RapidRAW Preset', extensions: ['rrpreset'] },
-          { name: 'Legacy Preset', extensions: ['xmp', 'lrtemplate'] },
+          { name: t('editor.presets.dialog.allPresetFiles'), extensions: ['rrpreset', 'xmp', 'lrtemplate'] },
+          { name: t('editor.presets.dialog.rapidRawPreset'), extensions: ['rrpreset'] },
+          { name: t('editor.presets.dialog.legacyPreset'), extensions: ['xmp', 'lrtemplate'] },
         ],
         multiple: false,
-        title: 'Import Presets',
+        title: t('editor.presets.dialog.importPresetsTitle'),
       });
 
       if (typeof selectedPath === 'string') {
@@ -805,8 +995,10 @@ export default function PresetsPanel({
     try {
       const filePath = await saveDialog({
         defaultPath: `${name}.rrpreset`.replace(/[<>:"/\\|?*]/g, '_'),
-        filters: [{ name: 'Preset File', extensions: ['rrpreset'] }],
-        title: `Export ${isFolder ? 'Folder' : 'Preset'}`,
+        filters: [{ name: t('editor.presets.dialog.presetFile'), extensions: ['rrpreset'] }],
+        title: t('editor.presets.dialog.exportTitle', {
+          type: isFolder ? t('editor.presets.types.folder') : t('editor.presets.types.preset'),
+        }),
       });
 
       if (filePath) {
@@ -824,8 +1016,8 @@ export default function PresetsPanel({
     try {
       const filePath = await saveDialog({
         defaultPath: 'all_presets.rrpreset',
-        filters: [{ name: 'Preset File', extensions: ['rrpreset'] }],
-        title: 'Export All Presets',
+        filters: [{ name: t('editor.presets.dialog.presetFile'), extensions: ['rrpreset'] }],
+        title: t('editor.presets.dialog.exportAllTitle'),
       });
 
       if (filePath) {
@@ -848,19 +1040,19 @@ export default function PresetsPanel({
       options = [
         {
           icon: Edit,
-          label: 'Rename Folder',
+          label: t('editor.presets.menu.renameFolder'),
           onClick: () => setRenameFolderState({ isOpen: true, folder: data }),
         },
         {
           icon: FileDown,
-          label: 'Export Folder',
+          label: t('editor.presets.menu.exportFolder'),
           onClick: () => handleExport(item),
         },
         { type: OPTION_SEPARATOR },
         {
           icon: Trash2,
           isDestructive: true,
-          label: 'Delete Folder',
+          label: t('editor.presets.menu.deleteFolder'),
           onClick: () => handleDeleteItem(data?.id ?? null, true),
         },
       ];
@@ -868,7 +1060,7 @@ export default function PresetsPanel({
       options = [
         {
           icon: Save,
-          label: 'Overwrite',
+          label: t('editor.presets.menu.overwrite'),
           onClick: async () => {
             const updated = overwritePreset(data?.id ?? null);
             if (updated) {
@@ -878,13 +1070,13 @@ export default function PresetsPanel({
         },
         {
           icon: Settings2,
-          label: 'Configure Preset',
+          label: t('editor.presets.menu.configurePreset'),
           onClick: () => setConfigureModalState({ isOpen: true, preset: data as Preset }),
         },
         { type: OPTION_SEPARATOR },
         {
           icon: CopyPlus,
-          label: 'Duplicate Preset',
+          label: t('editor.presets.menu.duplicatePreset'),
           onClick: async () => {
             const duplicated = duplicatePreset(data?.id ?? null);
             if (duplicated) {
@@ -894,14 +1086,14 @@ export default function PresetsPanel({
         },
         {
           icon: FileDown,
-          label: 'Export Preset',
+          label: t('editor.presets.menu.exportPreset'),
           onClick: () => handleExport(item),
         },
         { type: OPTION_SEPARATOR },
         {
           icon: Trash2,
           isDestructive: true,
-          label: 'Delete Preset',
+          label: t('editor.presets.menu.deletePreset'),
           onClick: () => handleDeleteItem(data?.id ?? null, false),
         },
       ];
@@ -918,19 +1110,19 @@ export default function PresetsPanel({
     const options = [
       {
         icon: Plus,
-        label: 'New Preset',
+        label: t('editor.presets.menu.newPreset'),
         onClick: () => setConfigureModalState({ isOpen: true, preset: null }),
       },
       {
         icon: FolderPlus,
-        label: 'New Folder',
+        label: t('editor.presets.menu.newFolder'),
         onClick: () => setIsAddFolderModalOpen(true),
       },
       { type: OPTION_SEPARATOR },
       {
         disabled: presets.length === 0,
         icon: SortAsc,
-        label: 'Sort All Alphabetically',
+        label: t('editor.presets.menu.sortAll'),
         onClick: sortAllPresetsAlphabetically,
       },
     ];
@@ -944,12 +1136,12 @@ export default function PresetsPanel({
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-full">
         <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-          <Text variant={TextVariants.title}>Presets</Text>
+          <Text variant={TextVariants.title}>{t('editor.presets.title')}</Text>
           <div className="flex items-center gap-1">
             <button
               className="p-2 rounded-full hover:bg-surface transition-colors"
               onClick={onNavigateToCommunity}
-              data-tooltip="Explore Community Presets"
+              data-tooltip={t('editor.presets.tooltips.explore')}
             >
               <Users size={18} />
             </button>
@@ -957,7 +1149,7 @@ export default function PresetsPanel({
               className="p-2 rounded-full hover:bg-surface transition-colors"
               disabled={isLoading}
               onClick={handleImportPresets}
-              data-tooltip="Import presets from .rrpreset file"
+              data-tooltip={t('editor.presets.tooltips.import')}
             >
               <FileUp size={18} />
             </button>
@@ -965,7 +1157,7 @@ export default function PresetsPanel({
               className="p-2 rounded-full hover:bg-surface transition-colors"
               disabled={presets.length === 0 || isLoading}
               onClick={handleExportAllPresets}
-              data-tooltip="Export all presets to .rrpreset file"
+              data-tooltip={t('editor.presets.tooltips.export')}
             >
               <FileDown size={18} />
             </button>
@@ -973,7 +1165,7 @@ export default function PresetsPanel({
               className="p-2 rounded-full hover:bg-surface transition-colors"
               disabled={isLoading}
               onClick={() => setConfigureModalState({ isOpen: true, preset: null })}
-              data-tooltip="Save as new preset"
+              data-tooltip={t('editor.presets.tooltips.saveNew')}
             >
               <Plus size={18} />
             </button>
@@ -995,17 +1187,15 @@ export default function PresetsPanel({
               weight={TextWeights.normal}
               className="text-center mt-4"
             >
-              <Loader2 size={14} className="animate-spin inline-block mr-2" /> Loading Presets...
+              <Loader2 size={14} className="animate-spin inline-block mr-2" /> {t('editor.presets.status.loading')}
             </Text>
           )}
           {!isLoading && presets.length === 0 ? (
             <div className="text-center text-text-secondary flex flex-col items-center gap-4 pt-4">
-              <Text className="max-w-xs">
-                No presets saved yet. Create your own, import from a file, or explore community presets.
-              </Text>
+              <Text className="max-w-xs">{t('editor.presets.status.empty')}</Text>
               <Button variant="secondary" onClick={onNavigateToCommunity}>
                 <Users size={16} className="mr-2" />
-                Get Community Presets
+                {t('editor.presets.status.getCommunity')}
               </Button>
             </div>
           ) : (
@@ -1044,6 +1234,10 @@ export default function PresetsPanel({
                                   onContextMenu={(e: any) => handleContextMenu(e, { preset })}
                                   preset={preset}
                                   previewUrl={previews[preset.id] || ''}
+                                  isActive={preset.id === activePresetId}
+                                  intensity={preset.id === activePresetId ? presetIntensity : 100}
+                                  onIntensityChange={(val) => handleIntensityChange(preset, val)}
+                                  onDragStateChange={handleDragStateChange}
                                 />
                               </motion.div>
                             ))}
@@ -1071,6 +1265,9 @@ export default function PresetsPanel({
                         onContextMenu={(e: any) => handleContextMenu(e, item)}
                         preset={item.preset}
                         previewUrl={(item.preset?.id ? previews[item.preset.id] : '') || ''}
+                        isActive={item.preset?.id === activePresetId}
+                        intensity={item.preset?.id === activePresetId ? presetIntensity : 100}
+                        onIntensityChange={(val) => handleIntensityChange(item.preset as Preset, val)}
                       />
                     </motion.div>
                   ))}

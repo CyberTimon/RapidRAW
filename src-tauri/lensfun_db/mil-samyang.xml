@@ -350,4 +350,23 @@
         </calibration>
     </lens>
 
+	<lens>
+        <maker>Samyang</maker>
+        <model>Samyang 24mm f/1.4 ED AS IF UMC</model>
+        <mount>Canon EF</mount>
+        <mount>Sony E</mount>
+        <mount>Sony Alpha</mount>
+        <mount>Nikon F AF</mount>
+        <mount>Pentax K</mount>
+        <mount>Micro 4/3 System</mount>
+        <mount>Fujifilm X</mount>
+        <mount>Samsung NX</mount>
+        <cropfactor>1.0</cropfactor>
+        <calibration>
+            <!-- Taken with Canon EOS R5 MII -->
+            <distortion model="ptlens" focal="24" a="0.009" b="-0.03" c="0.006" />
+            <tca model="poly3" focal="24" br="-0.0001230" vr="1.0003653" bb="0.0000731" vb="0.9999699"/>
+        </calibration>
+    </lens>
+
 </lensdatabase>

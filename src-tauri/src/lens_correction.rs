@@ -640,91 +640,23 @@ pub fn get_lensfun_lenses_for_maker(
     }
 }
 
-#[tauri::command]
-pub fn autodetect_lens(
-    maker: String,
-    model: String,
-    state: State<AppState>,
-) -> Result<Option<(String, String)>, String> {
+pub fn find_best_lens_match(
+    db: &LensDatabase,
+    maker: &str,
+    model: &str,
+) -> Option<(String, String)> {
     let clean_maker = maker.trim().trim_matches('"').to_string();
     let clean_model = model.trim().trim_matches('"').to_string();
+    let matcher = fuzzy_matcher::skim::SkimMatcherV2::default().ignore_case();
 
-    log::info!(
-        "Attempting to autodetect lens. Cleaned Maker: '{}', Cleaned Model: '{}'",
-        clean_maker,
-        clean_model
-    );
+    let lenses_from_maker: Vec<&Lens> = db
+        .lenses
+        .iter()
+        .filter(|lens| lens.get_maker().eq_ignore_ascii_case(&clean_maker))
+        .collect();
 
-    let db_guard = state
-        .lens_db
-        .lock()
-        .map_err(|e| format!("Lock poisoned: {}", e))?;
-    if let Some(db) = &*db_guard {
-        let matcher = fuzzy_matcher::skim::SkimMatcherV2::default().ignore_case();
-
-        log::info!(
-            "[Attempt 1] Searching for lenses from maker: '{}'",
-            clean_maker
-        );
-
-        let lenses_from_maker: Vec<&Lens> = db
-            .lenses
-            .iter()
-            .filter(|lens| lens.get_maker().eq_ignore_ascii_case(&clean_maker))
-            .collect();
-
-        if !lenses_from_maker.is_empty() {
-            let best_match = lenses_from_maker
-                .iter()
-                .filter_map(|lens| {
-                    let english_name = lens.get_full_model_name();
-                    let canonical_name = lens.get_canonical_model_name();
-
-                    let score_english = matcher
-                        .fuzzy_match(&english_name, &clean_model)
-                        .unwrap_or(0);
-                    let score_canonical = matcher
-                        .fuzzy_match(&canonical_name, &clean_model)
-                        .unwrap_or(0);
-                    let score = score_english.max(score_canonical);
-
-                    if score > 0 {
-                        let best_name = if score_canonical > score_english {
-                            &canonical_name
-                        } else {
-                            &english_name
-                        };
-                        let length_penalty =
-                            (best_name.len() as i64 - clean_model.len() as i64).max(0) / 2;
-                        let adjusted_score = score - length_penalty;
-                        Some((adjusted_score, *lens))
-                    } else {
-                        None
-                    }
-                })
-                .max_by_key(|(score, _)| *score);
-
-            if let Some((_, best_lens)) = best_match {
-                let lens_maker = best_lens.get_maker();
-                let display_name = best_lens.get_display_name(&lenses_from_maker);
-                log::info!(
-                    "[Attempt 1] Success! Found best match: '{} {}'",
-                    lens_maker,
-                    display_name
-                );
-                return Ok(Some((lens_maker, display_name)));
-            }
-        }
-
-        log::warn!(
-            "[Attempt 1] Failed. Could not find a match for model '{}' from maker '{}'.",
-            clean_model,
-            clean_maker
-        );
-        log::info!("[Attempt 2] Falling back to searching model name against ALL lens makers.");
-
-        let best_match_fallback = db
-            .lenses
+    if !lenses_from_maker.is_empty() {
+        let best_match = lenses_from_maker
             .iter()
             .filter_map(|lens| {
                 let english_name = lens.get_full_model_name();
@@ -738,27 +670,71 @@ pub fn autodetect_lens(
                     .unwrap_or(0);
                 let score = score_english.max(score_canonical);
 
-                if score > 0 { Some((score, lens)) } else { None }
+                if score > 0 {
+                    let best_name = if score_canonical > score_english {
+                        &canonical_name
+                    } else {
+                        &english_name
+                    };
+                    let length_penalty =
+                        (best_name.len() as i64 - clean_model.len() as i64).max(0) / 2;
+                    let adjusted_score = score - length_penalty;
+                    Some((adjusted_score, *lens))
+                } else {
+                    None
+                }
             })
-            .max_by_key(|(score, _): &(i64, _)| *score);
+            .max_by_key(|(score, _)| *score);
 
-        if let Some((score, best_lens)) = best_match_fallback {
-            let lens_maker = best_lens.get_maker();
-            let maker_lenses = lenses_for_maker(db, &lens_maker);
-            let display_name = best_lens.get_display_name(&maker_lenses);
-            log::info!(
-                "[Attempt 2] Found best fallback match with score {}: '{} {}'",
-                score,
-                lens_maker,
-                display_name
-            );
-            return Ok(Some((lens_maker, display_name)));
+        if let Some((_, best_lens)) = best_match {
+            return Some((
+                best_lens.get_maker(),
+                best_lens.get_display_name(&lenses_from_maker),
+            ));
         }
+    }
 
-        log::warn!("[Attempt 2] Fallback failed. No suitable lens found in the entire database.");
-        Ok(None)
+    let best_match_fallback = db
+        .lenses
+        .iter()
+        .filter_map(|lens| {
+            let english_name = lens.get_full_model_name();
+            let canonical_name = lens.get_canonical_model_name();
+
+            let score_english = matcher
+                .fuzzy_match(&english_name, &clean_model)
+                .unwrap_or(0);
+            let score_canonical = matcher
+                .fuzzy_match(&canonical_name, &clean_model)
+                .unwrap_or(0);
+            let score = score_english.max(score_canonical);
+
+            if score > 0 { Some((score, lens)) } else { None }
+        })
+        .max_by_key(|(score, _): &(i64, _)| *score);
+
+    if let Some((_, best_lens)) = best_match_fallback {
+        let lens_maker = best_lens.get_maker();
+        let maker_lenses = lenses_for_maker(db, &lens_maker);
+        return Some((lens_maker, best_lens.get_display_name(&maker_lenses)));
+    }
+
+    None
+}
+
+#[tauri::command]
+pub fn autodetect_lens(
+    maker: String,
+    model: String,
+    state: tauri::State<AppState>,
+) -> Result<Option<(String, String)>, String> {
+    let db_guard = state
+        .lens_db
+        .lock()
+        .map_err(|e| format!("Lock poisoned: {}", e))?;
+    if let Some(db) = &*db_guard {
+        Ok(find_best_lens_match(db, &maker, &model))
     } else {
-        log::warn!("Lens database not loaded. Cannot perform autodetect.");
         Ok(None)
     }
 }
@@ -787,4 +763,23 @@ pub fn get_lens_distortion_params(
         }
     }
     Ok(None)
+}
+
+pub fn resolve_lens_params(
+    db: &LensDatabase,
+    maker: &str,
+    model: &str,
+    focal_length: f32,
+    aperture: Option<f32>,
+    distance: Option<f32>,
+) -> Option<LensDistortionParams> {
+    let maker_lenses = lenses_for_maker(db, maker);
+    if let Some(lens) = maker_lenses
+        .iter()
+        .find(|l| l.get_display_name(&maker_lenses) == model)
+    {
+        lens.get_distortion_params(focal_length, aperture, distance)
+    } else {
+        None
+    }
 }

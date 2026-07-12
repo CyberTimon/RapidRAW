@@ -1,13 +1,20 @@
 use sha2::{Digest, Sha256};
 use std::env;
 use std::fs;
-use std::io;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 fn verify_sha256(path: &Path, expected_hash: &str) -> Result<bool, io::Error> {
     let mut file = fs::File::open(path)?;
     let mut hasher = Sha256::new();
-    io::copy(&mut file, &mut hasher)?;
+    let mut buffer = [0; 8192];
+    loop {
+        let n = file.read(&mut buffer)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buffer[..n]);
+    }
     let hash_bytes = hasher.finalize();
     let calculated_hash = hex::encode(hash_bytes);
     Ok(calculated_hash == expected_hash)

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { AlertOctagon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { WaveformData } from '../../ui/AppProperties';
 import { DisplayMode } from '../../../utils/adjustments';
 
@@ -15,32 +16,38 @@ interface WaveformProps {
 }
 
 const modeButtons = [
-  { mode: DisplayMode.Luma, label: 'L', tooltip: 'Luma', bgClass: 'bg-accent', textActiveClass: 'text-button-text' },
+  {
+    mode: DisplayMode.Luma,
+    label: 'L',
+    tooltip: 'ui.waveform.tooltips.luma',
+    bgClass: 'bg-accent',
+    textActiveClass: 'text-button-text',
+  },
   {
     mode: DisplayMode.Rgb,
     label: 'RGB',
-    tooltip: 'RGB Overlay',
+    tooltip: 'ui.waveform.tooltips.rgb',
     bgClass: 'bg-accent',
     textActiveClass: 'text-button-text',
   },
   {
     mode: DisplayMode.Parade,
     label: 'P',
-    tooltip: 'Parade',
+    tooltip: 'ui.waveform.tooltips.parade',
     bgClass: 'bg-accent',
     textActiveClass: 'text-button-text',
   },
   {
     mode: DisplayMode.Vectorscope,
     label: 'V',
-    tooltip: 'Vectorscope',
+    tooltip: 'ui.waveform.tooltips.vectorscope',
     bgClass: 'bg-accent',
     textActiveClass: 'text-button-text',
   },
   {
     mode: DisplayMode.Histogram,
     label: 'H',
-    tooltip: 'Histogram',
+    tooltip: 'ui.waveform.tooltips.histogram',
     bgClass: 'bg-accent',
     textActiveClass: 'text-button-text',
   },
@@ -450,6 +457,7 @@ export default function Waveform({
   onToggleClipping,
   theme,
 }: WaveformProps) {
+  const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -599,7 +607,9 @@ export default function Waveform({
                 <>
                   <button
                     onClick={onToggleClipping}
-                    data-tooltip={showClipping ? 'Hide Clipping Warnings' : 'Show Clipping Warnings'}
+                    data-tooltip={
+                      showClipping ? t('ui.waveform.tooltips.hideClipping') : t('ui.waveform.tooltips.showClipping')
+                    }
                     className={`relative flex items-center justify-center w-7 h-7 shrink-0 rounded-lg transition-colors duration-150 ${
                       showClipping ? 'bg-accent text-button-text' : 'text-text-primary hover:bg-bg-tertiary'
                     }`}
@@ -615,7 +625,7 @@ export default function Waveform({
                   <button
                     key={mode}
                     onClick={() => setDisplayMode(mode)}
-                    data-tooltip={tooltip}
+                    data-tooltip={t(tooltip)}
                     className={`${baseButtonClass} ${displayMode === mode ? textActiveClass : inactiveButtonClass}`}
                   >
                     {displayMode === mode && (

@@ -208,17 +208,13 @@ pub async fn preview_negative_conversion(
                     } else {
                         drop(original_lock);
                         let settings = load_settings(app_handle.clone()).unwrap_or_default();
-                        let highlight_compression =
-                            settings.raw_highlight_compression.unwrap_or(2.5);
-                        let linear_mode = settings.linear_raw_mode;
 
                         match read_file_mapped(Path::new(&source_path_str)) {
                             Ok(mmap) => load_base_image_from_bytes(
                                 &mmap,
                                 &source_path_str,
                                 false,
-                                highlight_compression,
-                                linear_mode.clone(),
+                                &settings,
                                 None,
                             )
                             .map_err(|e| e.to_string())?,
@@ -229,8 +225,7 @@ pub async fn preview_negative_conversion(
                                     &bytes,
                                     &source_path_str,
                                     false,
-                                    highlight_compression,
-                                    linear_mode.clone(),
+                                    &settings,
                                     None,
                                 )
                                 .map_err(|e| e.to_string())?
@@ -240,16 +235,13 @@ pub async fn preview_negative_conversion(
                 } else {
                     drop(original_lock);
                     let settings = load_settings(app_handle.clone()).unwrap_or_default();
-                    let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
-                    let linear_mode = settings.linear_raw_mode;
 
                     match read_file_mapped(Path::new(&source_path_str)) {
                         Ok(mmap) => load_base_image_from_bytes(
                             &mmap,
                             &source_path_str,
                             false,
-                            highlight_compression,
-                            linear_mode.clone(),
+                            &settings,
                             None,
                         )
                         .map_err(|e| e.to_string())?,
@@ -260,8 +252,7 @@ pub async fn preview_negative_conversion(
                                 &bytes,
                                 &source_path_str,
                                 false,
-                                highlight_compression,
-                                linear_mode.clone(),
+                                &settings,
                                 None,
                             )
                             .map_err(|e| e.to_string())?
@@ -312,21 +303,12 @@ pub async fn convert_negatives(
             let real_path = source_path.to_string_lossy().to_string();
 
             let settings = load_settings(app_handle.clone()).unwrap_or_default();
-            let hl_comp = settings.raw_highlight_compression.unwrap_or(2.5);
-            let lin_mode = settings.linear_raw_mode;
 
             let img = match read_file_mapped(Path::new(&real_path)) {
-                Ok(mmap) => load_base_image_from_bytes(
-                    &mmap,
-                    &real_path,
-                    false,
-                    hl_comp,
-                    lin_mode.clone(),
-                    None,
-                ),
+                Ok(mmap) => load_base_image_from_bytes(&mmap, &real_path, false, &settings, None),
                 Err(_) => {
                     let bytes = fs::read(&real_path).unwrap_or_default();
-                    load_base_image_from_bytes(&bytes, &real_path, false, hl_comp, lin_mode, None)
+                    load_base_image_from_bytes(&bytes, &real_path, false, &settings, None)
                 }
             }
             .map_err(|e| e.to_string())?;

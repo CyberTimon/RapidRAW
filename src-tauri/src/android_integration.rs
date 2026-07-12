@@ -3,11 +3,65 @@ use jni::objects::{JObject, JString, JValue};
 #[cfg(target_os = "android")]
 use jni::{JNIEnv, JavaVM};
 #[cfg(target_os = "android")]
+use jni22::{EnvUnowned as VerifierEnvUnowned, objects::JObject as VerifierJObject};
+#[cfg(target_os = "android")]
 use ndk_context::android_context;
 #[cfg(target_os = "android")]
 use std::fs;
 #[cfg(target_os = "android")]
 use std::path::PathBuf;
+#[cfg(target_os = "android")]
+static INIT_NDK_CONTEXT: std::sync::Once = std::sync::Once::new();
+#[cfg(target_os = "android")]
+static INIT_RUSTLS_PLATFORM_VERIFIER: std::sync::Once = std::sync::Once::new();
+
+#[cfg(target_os = "android")]
+pub fn initialize_android(window: &tauri::WebviewWindow) {
+    let _ = window.with_webview(|webview| {
+        webview.jni_handle().exec(|env, context, _webview| {
+            if let Ok(vm) = env.get_java_vm() {
+                let vm_ptr = vm.get_java_vm_pointer() as *mut std::ffi::c_void;
+                let context_ptr = context.as_raw() as *mut std::ffi::c_void;
+
+                INIT_NDK_CONTEXT.call_once(|| unsafe {
+                    ndk_context::initialize_android_context(vm_ptr, context_ptr);
+                    log::info!("Successfully initialized ndk-context on Android.");
+                });
+            }
+
+            INIT_RUSTLS_PLATFORM_VERIFIER.call_once(|| {
+                let raw_env = env.get_raw() as *mut jni22::sys::JNIEnv;
+                let raw_context = context.as_raw() as jni22::sys::jobject;
+
+                let mut env_unowned = unsafe { VerifierEnvUnowned::from_raw(raw_env) };
+
+                match env_unowned
+                    .with_env(|env_22| {
+                        let verifier_context =
+                            unsafe { VerifierJObject::from_raw(env_22, raw_context) };
+                        rustls_platform_verifier::android::init_with_env(env_22, verifier_context)
+                    })
+                    .into_outcome()
+                {
+                    jni22::Outcome::Ok(()) => {
+                        log::info!("Successfully initialized rustls-platform-verifier on Android.");
+                    }
+                    jni22::Outcome::Err(error) => {
+                        log::error!(
+                            "Failed to initialize rustls-platform-verifier on Android: {}",
+                            error
+                        );
+                    }
+                    jni22::Outcome::Panic(_) => {
+                        log::error!(
+                            "Panic while initializing rustls-platform-verifier on Android."
+                        );
+                    }
+                }
+            });
+        });
+    });
+}
 
 pub fn is_android_content_uri(path: &str) -> bool {
     path.starts_with("content://")

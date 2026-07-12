@@ -36,7 +36,6 @@ export enum Invokes {
   ApplyAdjustmentsToPaths = 'apply_adjustments_to_paths',
   ApplyAutoAdjustmentsToPaths = 'apply_auto_adjustments_to_paths',
   ApplyDenoising = 'apply_denoising',
-  BatchExportImages = 'batch_export_images',
   CalculateAutoAdjustments = 'calculate_auto_adjustments',
   CancelExport = 'cancel_export',
   CheckAIConnectorStatus = 'check_ai_connector_status',
@@ -50,9 +49,8 @@ export enum Invokes {
   CullImages = 'cull_images',
   DeleteFolder = 'delete_folder',
   DuplicateFile = 'duplicate_file',
-  EstimateBatchExportSize = 'estimate_batch_export_size',
-  EstimateExportSize = 'estimate_export_size',
-  ExportImage = 'export_image',
+  EstimateExportSizes = 'estimate_export_sizes',
+  ExportImages = 'export_images',
   FrontendLog = 'frontend_log',
   GenerateAiForegroundMask = 'generate_ai_foreground_mask',
   GenerateAiSkyMask = 'generate_ai_sky_mask',
@@ -107,6 +105,16 @@ export enum Invokes {
   GenerateAllCommunityPreviews = 'generate_all_community_previews',
   SaveCommunityPreset = 'save_community_preset',
   SaveTempFile = 'save_temp_file',
+  GetAlbums = 'get_albums',
+  SaveAlbums = 'save_albums',
+  AddToAlbum = 'add_to_album',
+  GetAlbumImages = 'get_album_images',
+}
+
+export enum ExifOverlay {
+  Off = 'off',
+  Hover = 'hover',
+  Always = 'always',
 }
 
 export enum Panel {
@@ -132,11 +140,18 @@ export enum RejectedFilterStatus {
   UnrejectedOnly = 'unrejectedOnly',
 }
 
-export const REJECTED_RATING = -1;
+export const RejectedRating = -1;
 
 export enum SortDirection {
   Ascending = 'asc',
-  Descening = 'desc',
+  Descending = 'desc',
+}
+
+export type FolderSortKey = 'name' | 'modified' | 'created' | 'imageCount';
+
+export interface FolderTreeSort {
+  key: FolderSortKey;
+  order: SortDirection;
 }
 
 export enum Theme {
@@ -157,6 +172,7 @@ export enum ThumbnailAspectRatio {
 
 export interface AppSettings {
   aiConnectorAddress?: string;
+  aiProvider?: string;
   decorations?: any;
   editorPreviewResolution?: number;
   enableZoomHifi?: boolean;
@@ -165,7 +181,6 @@ export interface AppSettings {
   enableLivePreviews?: boolean;
   livePreviewQuality?: string;
   enableAiTagging?: boolean;
-  enableExifReading?: boolean;
   filterCriteria?: FilterCriteria;
   lastFolderState?: any;
   pinnedFolders?: any;
@@ -177,13 +192,13 @@ export interface AppSettings {
   thumbnailAspectRatio?: ThumbnailAspectRatio;
   uiVisibility?: UiVisibility;
   adjustmentVisibility?: { [key: string]: boolean };
-  activeTreeSection?: string | null;
   rawHighlightCompression?: number;
   processingBackend?: string;
   linuxGpuOptimization?: boolean;
   exportPresets?: ExportPreset[];
   myLenses?: any;
   enableFolderImageCounts?: boolean;
+  displayEditIcon?: boolean;
   linearRawMode?: string;
   enableXmpSync?: boolean;
   createXmpIfMissing?: boolean;
@@ -199,6 +214,11 @@ export interface AppSettings {
   defaultNonRawTonemapper?: string;
   copyPasteSettings?: CopyPasteSettings;
   enableFocusMode?: boolean;
+  openTreeSections?: string[];
+  folderIcons?: Record<string, string>;
+  exifOverlay?: ExifOverlay;
+  language?: string;
+  folderTreeSort?: FolderTreeSort;
 }
 
 export interface BrushSettings {
@@ -212,12 +232,25 @@ export enum LibraryViewMode {
   Recursive = 'recursive',
 }
 
+export const EditedStatus = {
+  All: 'all',
+  EditedOnly: 'editedOnly',
+  UneditedOnly: 'uneditedOnly',
+} as const;
+
+export type EditedStatus = (typeof EditedStatus)[keyof typeof EditedStatus];
+
 export interface FilterCriteria {
   colors: Array<string>;
   rating: number;
   rejectedStatus: RejectedFilterStatus;
   rawStatus: RawStatus;
+  editedStatus?: EditedStatus;
 }
+
+export type SelectByCriteria =
+  | { type: 'rating'; mode: 'notRejected' | 'rejected' | 'unrated' | 'atLeast'; value?: number }
+  | { type: 'color'; color: string };
 
 export interface Folder {
   children: any;
@@ -234,6 +267,7 @@ export interface ImageFile {
   tags: Array<string> | null;
   exif: { [key: string]: string } | null;
   is_virtual_copy: boolean;
+  is_cloud_placeholder: boolean;
 }
 
 export interface Option {
@@ -354,4 +388,22 @@ export interface CullingSuggestions {
 export interface KeybindHandler {
   shouldFire?: () => boolean;
   execute: (event: KeyboardEvent) => void;
+}
+
+export type AlbumItem = Album | AlbumGroup;
+
+export interface Album {
+  type: 'album';
+  id: string;
+  name: string;
+  icon?: string;
+  images: string[];
+}
+
+export interface AlbumGroup {
+  type: 'group';
+  id: string;
+  name: string;
+  icon?: string;
+  children: AlbumItem[];
 }

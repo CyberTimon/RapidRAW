@@ -1,17 +1,20 @@
 {
   "compilerOptions": {
+    "types": [],
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": ["dom", "esnext"],
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    "noUncheckedSideEffectImports": true,
     "resolveJsonModule": true,
+    "rootDir": "./src",
     "skipLibCheck": true,
     "strict": true,
-    "target": "es2024",
+    "target": "es2025",
   },
   "include": ["src"],
   "exclude": ["node_modules"]

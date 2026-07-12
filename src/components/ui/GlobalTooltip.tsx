@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
@@ -7,19 +7,24 @@ import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 
 const TOOLTIP_DELAY = 500;
 const OFFSET = 8;
+const TOOLTIP_VIEWPORT_MARGIN = 12;
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
 interface TooltipData {
   content: string;
-  x: number;
+  centerX: number;
   y: number;
   isAbove: boolean;
 }
 
 export default function GlobalTooltip() {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
+  const [leftOverride, setLeftOverride] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const targetRef = useRef<HTMLElement | null>(null);
   const rafRef = useRef<number>(0);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const clearTimer = () => {
@@ -48,18 +53,16 @@ export default function GlobalTooltip() {
       if (!content) return null;
 
       const rect = el.getBoundingClientRect();
-      let x = rect.left + rect.width / 2;
+      const centerX = rect.left + rect.width / 2;
       let y = rect.bottom + OFFSET;
       let isAbove = false;
-
-      x = Math.max(20, Math.min(x, window.innerWidth - 20));
 
       if (y + 40 > window.innerHeight) {
         y = rect.top - OFFSET;
         isAbove = true;
       }
 
-      return { content, x, y, isAbove };
+      return { content, centerX, y, isAbove };
     };
 
     const watchTarget = () => {
@@ -99,6 +102,7 @@ export default function GlobalTooltip() {
           return;
         }
 
+        setLeftOverride(null);
         setTooltip(data);
         watchTarget();
       }, TOOLTIP_DELAY);
@@ -141,16 +145,41 @@ export default function GlobalTooltip() {
     };
   }, []);
 
+  useLayoutEffect(() => {
+    if (!tooltip) {
+      if (leftOverride !== null) setLeftOverride(null);
+      return;
+    }
+
+    const el = tooltipRef.current;
+    if (!el) return;
+
+    const width = el.offsetWidth;
+    const minLeft = TOOLTIP_VIEWPORT_MARGIN;
+    const maxLeft = Math.max(minLeft, window.innerWidth - TOOLTIP_VIEWPORT_MARGIN - width);
+    const desiredLeft = tooltip.centerX - width / 2;
+    const clampedLeft = clamp(desiredLeft, minLeft, maxLeft);
+    // Compensate for the -50% translateX so the original animation stays identical.
+    const adjustedCenterX = clampedLeft + width / 2;
+
+    if (leftOverride !== adjustedCenterX) {
+      setLeftOverride(adjustedCenterX);
+    }
+  }, [tooltip, leftOverride]);
+
+  const left = leftOverride !== null ? leftOverride : tooltip?.centerX ?? 0;
+
   return createPortal(
     <AnimatePresence mode="wait">
       {tooltip && (
         <motion.div
+          ref={tooltipRef}
           key={tooltip.content}
           initial={{ opacity: 0, scale: 0.9, y: tooltip.isAbove ? 5 : -5, x: '-50%' }}
           animate={{ opacity: 1, scale: 1, y: tooltip.isAbove ? -10 : 0, x: '-50%' }}
           exit={{ opacity: 0, scale: 0.9, x: '-50%' }}
           transition={{ duration: 0.15, ease: 'easeOut' }}
-          style={{ top: tooltip.y, left: tooltip.x }}
+          style={{ top: tooltip.y, left }}
           className={clsx(
             'fixed z-100 pointer-events-none',
             'bg-surface/80 backdrop-blur-xs',

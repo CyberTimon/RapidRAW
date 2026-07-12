@@ -1,10 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings } from 'lucide-react';
+import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings, Filter } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useShallow } from 'zustand/react/shallow';
+import { useTranslation } from 'react-i18next';
+
 import Filmstrip from './Filmstrip';
 import { GLOBAL_KEYS, ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
 import Text from '../ui/Text';
+import { useEditorStore } from '../../store/useEditorStore';
+import { useLibraryStore } from '../../store/useLibraryStore';
+import { COLOR_LABELS } from '../../utils/adjustments';
 
 interface BottomBarProps {
   filmstripHeight?: number;
@@ -38,12 +44,7 @@ interface BottomBarProps {
   setIsFilmstripVisible?(isVisible: boolean): void;
   showFilmstrip?: boolean;
   showZoomControls?: boolean;
-  thumbnails?: Record<string, string>;
   thumbnailAspectRatio: ThumbnailAspectRatio;
-  zoom?: number;
-  displaySize?: { width: number; height: number };
-  originalSize?: { width: number; height: number };
-  baseRenderSize?: { width: number; height: number };
   totalImages?: number;
 }
 
@@ -54,6 +55,8 @@ interface StarRatingProps {
 }
 
 const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
+  const { t } = useTranslation();
+
   return (
     <div className={clsx('flex items-center gap-1', disabled && 'cursor-not-allowed')}>
       {[...Array(5)].map((_, index: number) => {
@@ -64,7 +67,11 @@ const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
             disabled={disabled}
             key={starValue}
             onClick={() => !disabled && onRate(starValue === rating ? 0 : starValue)}
-            data-tooltip={disabled ? 'Select an image to rate' : `Rate ${starValue} star${starValue > 1 ? 's' : ''}`}
+            data-tooltip={
+              disabled
+                ? t('ui.bottomBar.tooltips.selectToRate')
+                : t('ui.bottomBar.tooltips.rateStars', { count: starValue })
+            }
           >
             <Star
               size={18}
@@ -116,12 +123,17 @@ export default function BottomBar({
   setIsFilmstripVisible,
   showFilmstrip = true,
   showZoomControls = true,
-  thumbnails,
   thumbnailAspectRatio,
-  displaySize,
-  originalSize,
   totalImages,
 }: BottomBarProps) {
+  const { t } = useTranslation();
+  const { displaySize, originalSize } = useEditorStore(
+    useShallow((state) => ({
+      displaySize: state.displaySize,
+      originalSize: state.originalSize,
+    })),
+  );
+
   const [isEditingPercent, setIsEditingPercent] = useState(false);
   const [percentInputValue, setPercentInputValue] = useState('');
   const isDraggingSlider = useRef(false);
@@ -132,7 +144,7 @@ export default function BottomBar({
   const isZoomReady = !isLoading && originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0;
 
   const currentOriginalPercent = isZoomReady
-    ? (displaySize!.width * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)) / originalSize!.width
+    ? (displaySize.width * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)) / originalSize.width
     : 1.0;
 
   const [latchedSliderValue, setLatchedSliderValue] = useState(1.0);
@@ -141,6 +153,16 @@ export default function BottomBar({
   const numSelected = multiSelectedPaths.length;
   const total = totalImages ?? 0;
   const showSelectionCounter = numSelected > 1;
+
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+  const { filterCriteria, setFilterCriteria } = useLibraryStore(
+    useShallow((state) => ({
+      filterCriteria: state.filterCriteria,
+      setFilterCriteria: state.setFilterCriteria,
+    })),
+  );
+
+  const allColors = [...COLOR_LABELS, { name: 'none', color: '#9ca3af' }];
 
   useEffect(() => {
     if (isZoomReady && !isDraggingSlider.current) {
@@ -253,9 +275,7 @@ export default function BottomBar({
               onImageSelect={onImageSelect}
               onRequestThumbnails={onRequestThumbnails}
               selectedImage={selectedImage}
-              thumbnails={thumbnails}
               thumbnailAspectRatio={thumbnailAspectRatio}
-              totalImages={imageList.length}
             />
           </div>
         </div>
@@ -276,7 +296,7 @@ export default function BottomBar({
               className="relative w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               disabled={isCopyDisabled}
               onClick={onCopy}
-              data-tooltip="Copy Settings"
+              data-tooltip={t('ui.bottomBar.tooltips.copySettings')}
             >
               <AnimatePresence mode="wait" initial={false}>
                 {isCopied ? (
@@ -309,7 +329,7 @@ export default function BottomBar({
               className="relative w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               disabled={isPasteDisabled}
               onClick={onPaste}
-              data-tooltip="Paste Settings"
+              data-tooltip={t('ui.bottomBar.tooltips.pasteSettings')}
             >
               <AnimatePresence mode="wait" initial={false}>
                 {isPasted ? (
@@ -341,11 +361,103 @@ export default function BottomBar({
             <button
               className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
               onClick={onOpenCopyPasteSettings}
-              data-tooltip="Copy & Paste Settings"
+              data-tooltip={t('ui.bottomBar.tooltips.copyPasteSettings')}
             >
               <Settings size={18} />
             </button>
           </div>
+
+          <div className="h-5 w-px bg-surface"></div>
+
+          <div
+            className={clsx(
+              'flex items-center transition-all duration-300',
+              isFilterExpanded ? 'bg-surface rounded-md' : 'bg-transparent',
+            )}
+          >
+            <button
+              className={clsx(
+                'relative w-8 h-8 flex items-center justify-center rounded-md transition-colors shrink-0',
+                isFilterExpanded ? 'text-text-primary' : 'text-text-secondary hover:bg-surface hover:text-text-primary',
+              )}
+              onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+              data-tooltip={t('ui.bottomBar.tooltips.quickFilter', 'Quick Filter')}
+            >
+              <Filter size={18} />
+            </button>
+
+            <div
+              className={clsx(
+                'flex items-center transition-all duration-300 ease-in-out overflow-hidden',
+                isFilterExpanded ? 'max-w-100 opacity-100 pr-2 ml-1' : 'max-w-0 opacity-0 pr-0 ml-0',
+              )}
+            >
+              <div className="flex items-center gap-3 whitespace-nowrap">
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((starValue) => {
+                    const isFilled = filterCriteria.rating > 0 && starValue <= filterCriteria.rating;
+                    return (
+                      <button
+                        key={`qf-star-${starValue}`}
+                        onClick={() =>
+                          setFilterCriteria((prev) => ({
+                            ...prev,
+                            rating: prev.rating === starValue ? 0 : starValue,
+                          }))
+                        }
+                        className="p-0.5 focus:outline-none"
+                      >
+                        <Star
+                          size={16}
+                          className={clsx(
+                            'transition-colors duration-150',
+                            isFilled ? 'text-accent fill-accent' : 'text-text-secondary hover:text-accent',
+                          )}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="h-4 w-px bg-border-color"></div>
+
+                <div className="flex items-center gap-1.5">
+                  {allColors.map((color) => {
+                    const isSelected = (filterCriteria.colors || []).includes(color.name);
+
+                    const tooltipTitle =
+                      color.name === 'none'
+                        ? t('library.header.viewOptions.noLabel')
+                        : t(`contextMenus.colors.${color.name}`, {
+                            defaultValue: color.name.charAt(0).toUpperCase() + color.name.slice(1),
+                          });
+
+                    return (
+                      <button
+                        key={`qf-color-${color.name}`}
+                        onClick={() => {
+                          const currentColors = filterCriteria.colors || [];
+                          const newColors = currentColors.includes(color.name)
+                            ? currentColors.filter((c) => c !== color.name)
+                            : [...currentColors, color.name];
+                          setFilterCriteria((prev) => ({ ...prev, colors: newColors }));
+                        }}
+                        className={clsx(
+                          'w-4 h-4 rounded-full transition-transform hover:scale-105 flex items-center justify-center focus:outline-none',
+                          isSelected ? 'ring-2 ring-accent ring-offset-1 ring-offset-bg-primary' : '',
+                        )}
+                        style={{ backgroundColor: color.color }}
+                        data-tooltip={tooltipTitle}
+                      >
+                        {isSelected && <Check size={10} className="text-white drop-shadow-md" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div
             className={clsx(
               'flex items-center transition-all duration-300 ease-out overflow-hidden',
@@ -354,7 +466,7 @@ export default function BottomBar({
           >
             <div className="h-5 w-px bg-surface mr-4"></div>
             <Text as="span" className="whitespace-nowrap">
-              {numSelected} of {total} images selected
+              {t('ui.bottomBar.imagesSelected', { current: numSelected, total })}
             </Text>
           </div>
         </div>
@@ -365,7 +477,7 @@ export default function BottomBar({
               className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               disabled={isExportDisabled}
               onClick={onExportClick}
-              data-tooltip="Export"
+              data-tooltip={t('ui.bottomBar.tooltips.export')}
             >
               <FileInput size={18} />
             </button>
@@ -378,10 +490,10 @@ export default function BottomBar({
                 onClick={handleResetZoom}
                 onMouseEnter={() => setIsZoomLabelHovered(true)}
                 onMouseLeave={() => setIsZoomLabelHovered(false)}
-                data-tooltip="Reset Zoom to Fit Window"
+                data-tooltip={t('ui.bottomBar.tooltips.resetZoom')}
               >
                 <span className="absolute right-0 text-xs text-text-secondary select-none text-right w-max transition-colors hover:text-text-primary">
-                  {isZoomLabelHovered ? 'Reset Zoom' : 'Zoom'}
+                  {isZoomLabelHovered ? t('ui.bottomBar.zoomLabelReset') : t('ui.bottomBar.zoomLabel')}
                 </span>
               </div>
 
@@ -400,7 +512,7 @@ export default function BottomBar({
                   onTouchStart={handleMouseDown}
                   onTouchEnd={handleMouseUp}
                   onDoubleClick={handleResetZoom}
-                  className={`absolute top-1/2 left-0 w-full h-1.5 -mt-[1.5px] appearance-none bg-transparent cursor-pointer p-0 slider-input z-10 ${
+                  className={`absolute top-1/2 left-0 w-full h-1.5 mt-[-1.5px] appearance-none bg-transparent cursor-pointer p-0 slider-input z-10 ${
                     isZoomActive ? 'slider-thumb-active' : ''
                   }`}
                 />
@@ -422,7 +534,7 @@ export default function BottomBar({
                   <span
                     onClick={handlePercentClick}
                     className="cursor-pointer hover:text-text-primary transition-colors select-none"
-                    data-tooltip="Click to enter custom zoom percentage"
+                    data-tooltip={t('ui.bottomBar.tooltips.customZoom')}
                   >
                     {latchedDisplayPercent}%
                   </span>
@@ -435,7 +547,11 @@ export default function BottomBar({
                 <button
                   className="p-1.5 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
                   onClick={() => setIsFilmstripVisible?.(!isFilmstripVisible)}
-                  data-tooltip={isFilmstripVisible ? 'Collapse Filmstrip' : 'Expand Filmstrip'}
+                  data-tooltip={
+                    isFilmstripVisible
+                      ? t('ui.bottomBar.tooltips.collapseFilmstrip')
+                      : t('ui.bottomBar.tooltips.expandFilmstrip')
+                  }
                 >
                   {isFilmstripVisible ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
                 </button>

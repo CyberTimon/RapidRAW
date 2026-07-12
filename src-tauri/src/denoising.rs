@@ -308,21 +308,13 @@ fn denoise_image(
 
     let is_raw = is_raw_file(&path_str);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
-    let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
-    let linear_mode = settings.linear_raw_mode;
 
     let _ = app_handle.emit("denoise-progress", "Loading image...");
 
     let file_bytes = fs::read(path).map_err(|e| e.to_string())?;
-    let mut dynamic_img = load_base_image_from_bytes(
-        &file_bytes,
-        &path_str,
-        false,
-        highlight_compression,
-        linear_mode,
-        None,
-    )
-    .map_err(|e| e.to_string())?;
+    let mut dynamic_img =
+        load_base_image_from_bytes(&file_bytes, &path_str, false, &settings, None)
+            .map_err(|e| e.to_string())?;
 
     if is_raw {
         let _ = app_handle.emit("denoise-progress", "Preparing RAW data...");

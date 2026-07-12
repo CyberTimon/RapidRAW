@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
-import { Image as ImageIcon, Star, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Image as ImageIcon, Star, SlidersHorizontal, X } from 'lucide-react';
 import clsx from 'clsx';
 import { Grid, useGridCallbackRef } from 'react-window';
-import { ImageFile, SelectedImage, ThumbnailAspectRatio, REJECTED_RATING } from '../ui/AppProperties';
+import { useTranslation } from 'react-i18next';
+import { ImageFile, SelectedImage, ThumbnailAspectRatio, RejectedRating } from '../ui/AppProperties';
 import { Color, COLOR_LABELS } from '../../utils/adjustments';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import { useProcessStore } from '../../store/useProcessStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
 const HORIZONTAL_PADDING = 4;
 const ITEM_GAP = 8;
-const isRejectedRating = (rating: number) => rating === REJECTED_RATING;
 
 interface ImageLayer {
   id: string;
@@ -23,7 +24,6 @@ interface ItemData {
   imageRatings: any;
   selectedPath: string | undefined;
   multiSelectedPaths: string[];
-  thumbnails: Record<string, string> | undefined;
   thumbnailAspectRatio: ThumbnailAspectRatio;
   onRequestThumbnails?: (paths: string[]) => void;
   onContextMenu?: (event: any, path: string) => void;
@@ -40,9 +40,8 @@ const FilmstripThumbnail = memo(
     isSelected,
     onContextMenu,
     onImageSelect,
-    thumbData,
     thumbnailAspectRatio,
-    itemHeight,
+    itemHeight: _itemHeight,
     index,
     setRatio,
   }: {
@@ -52,26 +51,45 @@ const FilmstripThumbnail = memo(
     isSelected: boolean;
     onContextMenu?: (event: any, path: string) => void;
     onImageSelect?: (path: string, event: any) => void;
-    thumbData: string | undefined;
     thumbnailAspectRatio: ThumbnailAspectRatio;
     itemHeight: number;
     index: number;
     setRatio: (index: number, ratio: number) => void;
   }) => {
-    const [layers, setLayers] = useState<ImageLayer[]>(() => {
-      return thumbData ? [{ id: thumbData, url: thumbData, opacity: 1 }] : [];
-    });
+    const { t } = useTranslation();
+    const thumbData = useProcessStore((s) => s.thumbnails[imageFile.path]);
 
-    const latestThumbDataRef = useRef<string | undefined>(thumbData);
+    const [layers, setLayers] = useState<ImageLayer[]>([]);
+
+    const [currentPath, setCurrentPath] = useState(imageFile.path);
+    if (currentPath !== imageFile.path) {
+      setCurrentPath(imageFile.path);
+      setLayers([]);
+    }
+
+    const pathRef = useRef(imageFile.path);
+    const hadDataOnPathChange = useRef(!!thumbData);
+
+    if (pathRef.current !== imageFile.path) {
+      pathRef.current = imageFile.path;
+      hadDataOnPathChange.current = !!thumbData;
+    }
+
     const isInitialLoad = useRef(true);
 
-    const { path, tags } = imageFile;
+    const { path, tags, is_edited: isEdited } = imageFile;
     const rating = imageRatings?.[path] || 0;
     const colorTag = tags?.find((t: string) => t.startsWith('color:'))?.substring(6);
     const colorLabel = COLOR_LABELS.find((c: Color) => c.name === colorTag);
-    const isRejected = isRejectedRating(rating);
-    const contentOpacityClass = isRejected ? 'opacity-35' : '';
     const isVirtualCopy = path.includes('?vc=');
+    const displayEditIcon = useSettingsStore((s) => s.appSettings?.displayEditIcon ?? true);
+    const showEditIcon = isEdited && displayEditIcon;
+
+    const hasEditIcon = !!showEditIcon;
+    const hasColorLabel = !!colorLabel;
+    const isRejected = rating === RejectedRating;
+    const hasRating = rating > 0;
+    const hasAnyOverlay = hasEditIcon || hasColorLabel || hasRating || isRejected;
 
     const cleanPath = path.split('?')[0];
     const filename = cleanPath.split(/[\\/]/).pop() || '';
@@ -99,41 +117,31 @@ const FilmstripThumbnail = memo(
     useEffect(() => {
       if (!thumbData) {
         setLayers([]);
-        latestThumbDataRef.current = undefined;
         return;
       }
 
-      if (thumbData !== latestThumbDataRef.current) {
-        latestThumbDataRef.current = thumbData;
+      setLayers((prev) => {
+        if (prev.some((l) => l.id === thumbData)) return prev;
 
-        if (layers.length === 0) {
-          setLayers([{ id: thumbData, url: thumbData, opacity: 1 }]);
-          return;
+        if (prev.length === 0) {
+          if (hadDataOnPathChange.current) {
+            return [{ id: thumbData, url: thumbData, opacity: 1 }];
+          } else {
+            return [{ id: thumbData, url: thumbData, opacity: 0 }];
+          }
         }
 
-        const img = new Image();
-        img.src = thumbData;
-        img.onload = () => {
-          if (img.src === latestThumbDataRef.current) {
-            setLayers((prev) => {
-              if (prev.some((l) => l.id === img.src)) return prev;
-              return [...prev, { id: img.src, url: img.src, opacity: 0 }];
-            });
-          }
-        };
-        return () => {
-          img.onload = null;
-        };
-      }
-    }, [thumbData, layers.length]);
+        return [...prev, { id: thumbData, url: thumbData, opacity: 0 }];
+      });
+    }, [thumbData, imageFile.path]);
 
     useEffect(() => {
       const layerToFadeIn = layers.find((l) => l.opacity === 0);
       if (layerToFadeIn) {
-        const timer = setTimeout(() => {
+        const frame = requestAnimationFrame(() => {
           setLayers((prev) => prev.map((l) => (l.id === layerToFadeIn.id ? { ...l, opacity: 1 } : l)));
-        }, 10);
-        return () => clearTimeout(timer);
+        });
+        return () => cancelAnimationFrame(frame);
       }
     }, [layers]);
 
@@ -154,7 +162,7 @@ const FilmstripThumbnail = memo(
     const imageClasses = `w-full h-full group-hover:scale-[1.02] transition-transform duration-300`;
 
     return (
-      <motion.div
+      <div
         className={clsx(
           'h-full w-full rounded-md overflow-hidden cursor-pointer shrink-0 group relative transition-all duration-150 bg-surface',
           ringClass,
@@ -169,70 +177,103 @@ const FilmstripThumbnail = memo(
         }}
         data-tooltip={truncatedTitle}
       >
-        <div className={`absolute inset-0 transition-opacity duration-150 ${contentOpacityClass}`}>
-          {layers.length > 0 ? (
-            <div className="absolute inset-0 w-full h-full">
-              {layers.map((layer) => (
-                <div
-                  key={layer.id}
-                  className="absolute inset-0 w-full h-full"
-                  style={{
-                    opacity: layer.opacity,
-                    transition: 'opacity 150ms ease-in-out',
-                    willChange: 'opacity',
-                  }}
-                  onTransitionEnd={() => handleTransitionEnd(layer.id)}
-                >
-                  {thumbnailAspectRatio === ThumbnailAspectRatio.Contain && (
-                    <img
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-50"
-                      src={layer.url}
-                    />
-                  )}
+        {layers.length > 0 ? (
+          <div className={clsx('absolute inset-0 w-full h-full', isRejected && 'opacity-35')}>
+            {layers.map((layer) => (
+              <div
+                key={layer.id}
+                className="absolute inset-0 w-full h-full"
+                style={{
+                  opacity: layer.opacity,
+                  transition: 'opacity 150ms ease-in-out',
+                  willChange: 'opacity',
+                }}
+                onTransitionEnd={() => handleTransitionEnd(layer.id)}
+              >
+                {thumbnailAspectRatio === ThumbnailAspectRatio.Contain && (
                   <img
-                    alt={truncatedTitle}
-                    className={`${imageClasses} ${
-                      thumbnailAspectRatio === ThumbnailAspectRatio.Contain ? 'object-contain' : 'object-cover'
-                    } relative`}
-                    loading="lazy"
-                    decoding="async"
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-50"
                     src={layer.url}
                   />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-surface">
-              <ImageIcon size={24} className="text-text-secondary animate-pulse" />
-            </div>
-          )}
-        </div>
-
-        {(colorLabel || rating > 0 || isRejected) && (
-          <>
-            <div className="absolute top-0 right-0 w-3/4 h-3/4 bg-linear-to-bl from-black/25 via-black/0 to-transparent pointer-events-none z-0" />
-
-            <div className="absolute top-1 right-1 bg-primary/70 rounded-full px-1.5 py-1 text-xs text-white flex items-center gap-1 backdrop-blur-xs shadow-md z-10 pointer-events-none">
-              {isRejected && (
-                <X size={14} className="text-white/90" />
-              )}
-              {colorLabel && (
-                <div
-                  className="w-3 h-3 rounded-full ring-1 ring-black/20 pointer-events-auto"
-                  style={{ backgroundColor: colorLabel.color }}
-                  data-tooltip={`Color: ${colorLabel.name}`}
+                )}
+                <img
+                  alt={truncatedTitle}
+                  className={`${imageClasses} ${
+                    thumbnailAspectRatio === ThumbnailAspectRatio.Contain ? 'object-contain' : 'object-cover'
+                  } relative`}
+                  loading="lazy"
+                  decoding="async"
+                  src={layer.url}
                 />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-surface">
+            <ImageIcon size={24} className="text-text-secondary animate-pulse" />
+          </div>
+        )}
+
+        <div
+          className={clsx(
+            'absolute top-0 right-0 w-3/4 h-3/4 bg-linear-to-bl from-black/25 via-black/0 to-transparent pointer-events-none z-0 transition-opacity duration-200 ease-in-out',
+            hasAnyOverlay ? 'opacity-100' : 'opacity-0',
+          )}
+        />
+
+        <div className="absolute top-1 right-1 flex items-center justify-end z-10 pointer-events-none">
+          <div
+            className={clsx(
+              'rounded-full h-5 px-1.5 flex items-center justify-center gap-0 shadow-md bg-black/30 pointer-events-auto transition-all duration-200 ease-out origin-top-right',
+              hasAnyOverlay ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none',
+            )}
+          >
+            <div
+              className={clsx(
+                'text-white flex items-center transition-all duration-200 ease-out overflow-hidden',
+                hasEditIcon ? 'max-w-3 opacity-100 scale-100' : 'max-w-0 opacity-0 scale-75 pointer-events-none',
               )}
-              {!isRejected && rating > 0 && (
+            >
+              <SlidersHorizontal size={12} />
+            </div>
+
+            <div
+              className={clsx(
+                'flex items-center justify-center shrink-0 transition-all duration-200 ease-out overflow-hidden',
+                hasColorLabel ? 'max-w-3 opacity-100 scale-100' : 'max-w-0 opacity-0 scale-75 pointer-events-none',
+                hasColorLabel && hasEditIcon ? 'ml-1.5' : 'ml-0',
+              )}
+            >
+              <div
+                className="w-3 h-3 rounded-full transition-colors duration-200"
+                style={{ backgroundColor: colorLabel ? colorLabel.color : 'transparent' }}
+              />
+            </div>
+
+            <div
+              className={clsx(
+                'flex items-center gap-0.5 shrink-0 transition-all duration-200 ease-out overflow-hidden',
+                hasRating || isRejected
+                  ? 'max-w-7 opacity-100 scale-100'
+                  : 'max-w-0 opacity-0 scale-75 pointer-events-none',
+                (hasRating || isRejected) && (hasEditIcon || hasColorLabel) ? 'ml-1.5' : 'ml-0',
+              )}
+            >
+              {isRejected ? (
+                <X size={12} className="text-white" />
+              ) : (
                 <>
-                  <span>{rating}</span>
-                  <Star size={12} className="fill-white text-white" />
+                  <Text variant={TextVariants.small} color={TextColors.white}>
+                    {rating}
+                  </Text>
+                  <Star size={12} className="text-white fill-white" />
                 </>
               )}
             </div>
-          </>
-        )}
+          </div>
+        </div>
+
         {isVirtualCopy && (
           <>
             <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-linear-to-tl from-black/30 via-black/0 to-transparent pointer-events-none z-0" />
@@ -243,15 +284,15 @@ const FilmstripThumbnail = memo(
                 variant={TextVariants.small}
                 color={TextColors.white}
                 weight={TextWeights.bold}
-                className="shadow-md text-[10px] px-1 py-0.5 rounded-full backdrop-blur-xs"
-                data-tooltip="Virtual Copy"
+                className="shadow-md text-[10px] px-1 py-0.5 rounded-full bg-black/30"
+                data-tooltip={t('ui.filmstrip.tooltips.virtualCopy')}
               >
-                VC
+                {t('ui.filmstrip.virtualCopyAbbreviation')}
               </Text>
             </div>
           </>
         )}
-      </motion.div>
+      </div>
     );
   },
 );
@@ -263,7 +304,6 @@ const FilmstripCell = ({
   imageRatings,
   selectedPath,
   multiSelectedPaths,
-  thumbnails,
   thumbnailAspectRatio,
   onContextMenu,
   onImageSelect,
@@ -293,7 +333,6 @@ const FilmstripCell = ({
           isSelected={multiSelectedPaths.includes(imageFile.path)}
           onContextMenu={onContextMenu}
           onImageSelect={onImageSelect}
-          thumbData={thumbnails ? thumbnails[imageFile.path] : undefined}
           thumbnailAspectRatio={thumbnailAspectRatio}
           itemHeight={itemHeight}
           index={columnIndex}
@@ -412,19 +451,20 @@ const FilmstripList = ({
       };
 
       const currentData = currentDataRef.current;
-      if (currentData.onRequestThumbnails) {
-        const pathsToRequest: string[] = [];
+      if (!currentData.onRequestThumbnails) return;
 
-        for (let i = allCells.columnStartIndex; i <= allCells.columnStopIndex; i++) {
-          const img = currentData.imageList[i];
-          if (img && (!currentData.thumbnails || !currentData.thumbnails[img.path])) {
-            pathsToRequest.push(img.path);
-          }
-        }
+      const cached = useProcessStore.getState().thumbnails;
+      const pathsToRequest: string[] = [];
 
-        if (pathsToRequest.length > 0) {
-          currentData.onRequestThumbnails(pathsToRequest);
+      for (let i = allCells.columnStartIndex; i <= allCells.columnStopIndex; i++) {
+        const img = currentData.imageList[i];
+        if (img && !cached[img.path]) {
+          pathsToRequest.push(img.path);
         }
+      }
+
+      if (pathsToRequest.length > 0) {
+        currentData.onRequestThumbnails(pathsToRequest);
       }
     },
     [],
@@ -583,8 +623,8 @@ interface FilmStripProps {
   onImageSelect?(path: string, event: any): void;
   onRequestThumbnails?(paths: string[]): void;
   selectedImage?: SelectedImage;
-  thumbnails: Record<string, string> | undefined;
   thumbnailAspectRatio: ThumbnailAspectRatio;
+  totalImages?: number;
 }
 
 export default function Filmstrip({
@@ -597,7 +637,6 @@ export default function Filmstrip({
   onImageSelect,
   onRequestThumbnails,
   selectedImage,
-  thumbnails,
   thumbnailAspectRatio,
 }: FilmStripProps) {
   const clickTriggeredScroll = useRef(false);
@@ -636,7 +675,6 @@ export default function Filmstrip({
             imageRatings,
             selectedPath: selectedImage?.path,
             multiSelectedPaths,
-            thumbnails,
             thumbnailAspectRatio,
             onContextMenu,
             onRequestThumbnails,

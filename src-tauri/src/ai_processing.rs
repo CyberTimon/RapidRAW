@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{self, Cursor};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -34,6 +34,7 @@ const U2NETP_SHA256: &str = "8d10d2f3bb75ae3b6d527c77944fc5e7dcd94b29809d47a739a
 
 const SKYSEG_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/skyseg-u2net.onnx?download=true";
 const SKYSEG_FILENAME: &str = "skyseg_u2net.onnx";
+const SKYSEG_LEGACY_FILENAME: &str = "skyseg-u2net.onnx";
 const SKYSEG_INPUT_SIZE: u32 = 320;
 const SKYSEG_SHA256: &str = "ab9c34c64c3d821220a2886a4a06da4642ffa14d5b30e8d5339056a089aa1d39";
 
@@ -170,12 +171,50 @@ fn get_models_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf> {
     Ok(models_dir)
 }
 
-async fn download_model(url: &str, dest: &Path) -> Result<()> {
-    let response = reqwest::get(url).await?;
-    let mut file = fs::File::create(dest)?;
-    let mut content = Cursor::new(response.bytes().await?);
-    std::io::copy(&mut content, &mut file)?;
+fn persist_downloaded_asset(dest: &Path, bytes: &[u8]) -> Result<()> {
+    if bytes.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Downloaded asset for {} was empty",
+            dest.display()
+        ));
+    }
+
+    let parent = dest.parent().ok_or_else(|| {
+        anyhow::anyhow!(
+            "Cannot determine parent directory for downloaded asset {}",
+            dest.display()
+        )
+    })?;
+    fs::create_dir_all(parent)?;
+
+    let file_name = dest
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| anyhow::anyhow!("Invalid downloaded asset path {}", dest.display()))?;
+    let tmp_path = dest.with_file_name(format!(".{}.download", file_name));
+
+    {
+        let mut file = fs::File::create(&tmp_path)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+    }
+
+    fs::rename(&tmp_path, dest).or_else(|rename_error| -> std::io::Result<()> {
+        if dest.exists() {
+            fs::remove_file(dest)?;
+            fs::rename(&tmp_path, dest)?;
+            Ok(())
+        } else {
+            Err(rename_error)
+        }
+    })?;
     Ok(())
+}
+
+async fn download_model(url: &str, dest: &Path) -> Result<()> {
+    let response = reqwest::get(url).await?.error_for_status()?;
+    let bytes = response.bytes().await?;
+    persist_downloaded_asset(dest, &bytes)
 }
 
 fn verify_sha256(path: &Path, expected_hash: &str) -> Result<bool> {
@@ -184,10 +223,43 @@ fn verify_sha256(path: &Path, expected_hash: &str) -> Result<bool> {
     }
     let mut file = fs::File::open(path)?;
     let mut hasher = Sha256::new();
-    io::copy(&mut file, &mut hasher)?;
+    let mut buffer = [0; 8192];
+    loop {
+        let n = file.read(&mut buffer)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buffer[..n]);
+    }
     let hash = hasher.finalize();
-    let hex_hash = format!("{:x}", hash);
+    let hex_hash = hex::encode(hash);
     Ok(hex_hash == expected_hash)
+}
+
+fn promote_legacy_model_filename(
+    models_dir: &Path,
+    expected_filename: &str,
+    legacy_filename: &str,
+    expected_hash: &str,
+) -> Result<()> {
+    let expected_path = models_dir.join(expected_filename);
+    if expected_path.exists() {
+        return Ok(());
+    }
+
+    let legacy_path = models_dir.join(legacy_filename);
+    if !legacy_path.exists() || !verify_sha256(&legacy_path, expected_hash)? {
+        return Ok(());
+    }
+
+    fs::rename(&legacy_path, &expected_path).or_else(|rename_error| -> std::io::Result<()> {
+        if expected_path.exists() {
+            Ok(())
+        } else {
+            Err(rename_error)
+        }
+    })?;
+    Ok(())
 }
 
 async fn download_and_verify_model(
@@ -199,6 +271,14 @@ async fn download_and_verify_model(
     model_name: &str,
 ) -> Result<()> {
     let dest_path = models_dir.join(filename);
+    if filename == SKYSEG_FILENAME {
+        promote_legacy_model_filename(
+            models_dir,
+            SKYSEG_FILENAME,
+            SKYSEG_LEGACY_FILENAME,
+            SKYSEG_SHA256,
+        )?;
+    }
     let is_valid = verify_sha256(&dest_path, expected_hash)?;
 
     if !is_valid {
@@ -207,8 +287,9 @@ async fn download_and_verify_model(
             fs::remove_file(&dest_path)?;
         }
         let _ = app_handle.emit("ai-model-download-start", model_name);
-        download_model(url, &dest_path).await?;
+        let download_result = download_model(url, &dest_path).await;
         let _ = app_handle.emit("ai-model-download-finish", model_name);
+        download_result?;
 
         if !verify_sha256(&dest_path, expected_hash)? {
             return Err(anyhow::anyhow!(
@@ -434,8 +515,9 @@ pub async fn get_or_init_clip_models(
     let clip_tokenizer_path = models_dir.join(CLIP_TOKENIZER_FILENAME);
     if !clip_tokenizer_path.exists() {
         let _ = app_handle.emit("ai-model-download-start", "CLIP Tokenizer");
-        download_model(CLIP_TOKENIZER_URL, &clip_tokenizer_path).await?;
+        let download_result = download_model(CLIP_TOKENIZER_URL, &clip_tokenizer_path).await;
         let _ = app_handle.emit("ai-model-download-finish", "CLIP Tokenizer");
+        download_result?;
     }
 
     let _ = ort::init().with_name("AI-Tagging").commit();
