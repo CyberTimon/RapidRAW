@@ -1697,6 +1697,7 @@
     },
     "title": "Settings",
     "tooltips": {
+      "back": "Back",
       "goHome": "Go to Home"
     }
   },

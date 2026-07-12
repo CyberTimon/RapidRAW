@@ -1759,6 +1759,7 @@
     },
     "title": "Ustawienia",
     "tooltips": {
+      "back": "Wstecz",
       "goHome": "Przejdź do strony głównej"
     }
   },

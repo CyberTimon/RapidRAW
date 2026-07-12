@@ -1697,6 +1697,7 @@
     },
     "title": "Configurações",
     "tooltips": {
+      "back": "Voltar",
       "goHome": "Ir para Início"
     }
   },
