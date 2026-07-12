@@ -613,7 +613,8 @@
       "copy": "コピー",
       "emptyClickToAdd": "未設定 (クリックして追加)",
       "extendedExif": {
-        "title": "拡張EXIF"
+        "title": "拡張EXIF",
+        "unknownTiffTag": "TIFF タグ（{{id}}）"
       },
       "fields": {
         "author": "作成者",
@@ -1241,6 +1242,14 @@
       "dateFormatPlaceholder": "例: YYYY/MM-DD",
       "deleteAfterImport": "インポート完了後に元のファイルを削除",
       "deleteWarning": "ファイルはシステムのゴミ箱に移動されます。",
+      "fileDialog": {
+        "allFiles": "すべてのファイル",
+        "allSupportedImages": "対応するすべての画像",
+        "rawImages": "RAW 画像",
+        "selectFilesTitle": "インポートするファイルを選択",
+        "standardImages": "標準画像（JPEG、PNG など）",
+        "unsupportedFormats": "対応していないファイル形式が検出されました: {{formats}}"
+      },
       "fileNaming": "ファイル名の命名",
       "folderOrganization": "フォルダ構成",
       "organizeByDate": "日付ごとにサブフォルダに整理する",
@@ -1740,6 +1749,17 @@
     }
   },
   "ui": {
+    "builtInTags": {
+      "architecture": "建築",
+      "event": "イベント",
+      "family": "家族",
+      "food": "食べ物",
+      "landscape": "風景",
+      "nature": "自然",
+      "portrait": "ポートレート",
+      "street": "ストリート",
+      "travel": "旅行"
+    },
     "bottomBar": {
       "imagesSelected": "{{total}}枚中 {{current}}枚の画像を選択中",
       "tooltips": {
@@ -1779,6 +1799,15 @@
       "presetNamePlaceholder": "プリセット名",
       "saveAsNewTooltip": "現在の設定を新規プリセットとして保存",
       "savedTooltip": "保存しました！"
+    },
+    "filenameVariables": {
+      "day": "日",
+      "hour": "時",
+      "minute": "分",
+      "month": "月",
+      "originalFilename": "元のファイル名",
+      "sequence": "連番",
+      "year": "年"
     },
     "filmstrip": {
       "tooltips": {

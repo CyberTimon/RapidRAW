@@ -126,13 +126,14 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
             />
             {!isSingleFile && (
               <div className="flex flex-wrap gap-2 mt-2">
-                {FILENAME_VARIABLES.map((variable: string) => (
+                {FILENAME_VARIABLES.map((variable) => (
                   <button
                     className="px-2 py-1 bg-surface text-text-secondary text-xs rounded-md hover:bg-card-active transition-colors"
-                    key={variable}
-                    onClick={() => handleVariableClick(variable)}
+                    key={variable.token}
+                    onClick={() => handleVariableClick(variable.token)}
+                    data-tooltip={variable.token}
                   >
-                    {variable}
+                    {`{${t(variable.labelKey)}}`}
                   </button>
                 ))}
               </div>

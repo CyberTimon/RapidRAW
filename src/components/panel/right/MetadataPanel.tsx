@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Check, ChevronDown, ChevronRight, Plus, Star, Tag, X, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import i18n from 'i18next';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { Invokes } from '../../ui/AppProperties';
@@ -14,6 +15,7 @@ import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
+import { translateBuiltInTag } from '../../../i18n/translateBuiltInTag';
 
 interface CameraSetting {
   format?(value: number): string | number;
@@ -45,6 +47,160 @@ const USER_TAG_PREFIX = 'user:';
 function formatExifTag(str: string) {
   if (!str) return '';
   return str.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z])([A-Z][a-z])/g, '$1 $2');
+}
+
+const EXIF_FIELD_TRANSLATION_KEYS: Record<string, string> = {
+  ApertureValue: 'editor.metadata.extendedExif.fields.apertureValue',
+  Artist: 'editor.metadata.extendedExif.fields.artist',
+  BitsPerSample: 'editor.metadata.extendedExif.fields.bitsPerSample',
+  BodySerialNumber: 'editor.metadata.extendedExif.fields.bodySerialNumber',
+  BrightnessValue: 'editor.metadata.extendedExif.fields.brightnessValue',
+  CameraSerialNumber: 'editor.metadata.extendedExif.fields.cameraSerialNumber',
+  ColorSpace: 'editor.metadata.extendedExif.fields.colorSpace',
+  ComponentsConfiguration: 'editor.metadata.extendedExif.fields.componentsConfiguration',
+  Compression: 'editor.metadata.extendedExif.fields.compression',
+  Contrast: 'editor.metadata.extendedExif.fields.contrast',
+  Copyright: 'editor.metadata.extendedExif.fields.copyright',
+  CreateDate: 'editor.metadata.extendedExif.fields.createDate',
+  CustomRendered: 'editor.metadata.extendedExif.fields.customRendered',
+  DateTimeOriginal: 'editor.metadata.extendedExif.fields.dateTimeOriginal',
+  DigitalZoomRatio: 'editor.metadata.extendedExif.fields.digitalZoomRatio',
+  ExifVersion: 'editor.metadata.extendedExif.fields.exifVersion',
+  ExposureBiasValue: 'editor.metadata.extendedExif.fields.exposureBiasValue',
+  ExposureIndex: 'editor.metadata.extendedExif.fields.exposureIndex',
+  ExposureMode: 'editor.metadata.extendedExif.fields.exposureMode',
+  ExposureProgram: 'editor.metadata.extendedExif.fields.exposureProgram',
+  FileSource: 'editor.metadata.extendedExif.fields.fileSource',
+  Flash: 'editor.metadata.extendedExif.fields.flash',
+  FlashpixVersion: 'editor.metadata.extendedExif.fields.flashpixVersion',
+  FocalLength: 'editor.metadata.extendedExif.fields.focalLength',
+  FocalLengthIn35mmFormat: 'editor.metadata.extendedExif.fields.focalLengthIn35mmFormat',
+  FocalPlaneResolutionUnit: 'editor.metadata.extendedExif.fields.focalPlaneResolutionUnit',
+  FocalPlaneXResolution: 'editor.metadata.extendedExif.fields.focalPlaneXResolution',
+  FocalPlaneYResolution: 'editor.metadata.extendedExif.fields.focalPlaneYResolution',
+  GainControl: 'editor.metadata.extendedExif.fields.gainControl',
+  ImageDescription: 'editor.metadata.extendedExif.fields.imageDescription',
+  ImageHeight: 'editor.metadata.extendedExif.fields.imageHeight',
+  ImageLength: 'editor.metadata.extendedExif.fields.imageLength',
+  ImageUniqueID: 'editor.metadata.extendedExif.fields.imageUniqueId',
+  ImageWidth: 'editor.metadata.extendedExif.fields.imageWidth',
+  ISOSpeed: 'editor.metadata.extendedExif.fields.isoSpeed',
+  LensMake: 'editor.metadata.extendedExif.fields.lensMake',
+  LensModel: 'editor.metadata.extendedExif.fields.lensModel',
+  LensSerialNumber: 'editor.metadata.extendedExif.fields.lensSerialNumber',
+  LensSpecification: 'editor.metadata.extendedExif.fields.lensSpecification',
+  LightSource: 'editor.metadata.extendedExif.fields.lightSource',
+  Make: 'editor.metadata.extendedExif.fields.make',
+  MaxApertureValue: 'editor.metadata.extendedExif.fields.maxApertureValue',
+  MeteringMode: 'editor.metadata.extendedExif.fields.meteringMode',
+  Model: 'editor.metadata.extendedExif.fields.model',
+  ModifyDate: 'editor.metadata.extendedExif.fields.modifyDate',
+  OffsetTime: 'editor.metadata.extendedExif.fields.offsetTime',
+  OffsetTimeDigitized: 'editor.metadata.extendedExif.fields.offsetTimeDigitized',
+  OffsetTimeOriginal: 'editor.metadata.extendedExif.fields.offsetTimeOriginal',
+  Orientation: 'editor.metadata.extendedExif.fields.orientation',
+  PhotometricInterpretation: 'editor.metadata.extendedExif.fields.photometricInterpretation',
+  PhotographicSensitivity: 'editor.metadata.extendedExif.fields.photographicSensitivity',
+  PixelXDimension: 'editor.metadata.extendedExif.fields.pixelXDimension',
+  PixelYDimension: 'editor.metadata.extendedExif.fields.pixelYDimension',
+  PlanarConfiguration: 'editor.metadata.extendedExif.fields.planarConfiguration',
+  RecommendedExposureIndex: 'editor.metadata.extendedExif.fields.recommendedExposureIndex',
+  ResolutionUnit: 'editor.metadata.extendedExif.fields.resolutionUnit',
+  RowsPerStrip: 'editor.metadata.extendedExif.fields.rowsPerStrip',
+  Saturation: 'editor.metadata.extendedExif.fields.saturation',
+  SamplesPerPixel: 'editor.metadata.extendedExif.fields.samplesPerPixel',
+  SceneCaptureType: 'editor.metadata.extendedExif.fields.sceneCaptureType',
+  SceneType: 'editor.metadata.extendedExif.fields.sceneType',
+  SensingMethod: 'editor.metadata.extendedExif.fields.sensingMethod',
+  SensitivityType: 'editor.metadata.extendedExif.fields.sensitivityType',
+  Sharpness: 'editor.metadata.extendedExif.fields.sharpness',
+  ShutterSpeedValue: 'editor.metadata.extendedExif.fields.shutterSpeedValue',
+  Software: 'editor.metadata.extendedExif.fields.software',
+  StripByteCounts: 'editor.metadata.extendedExif.fields.stripByteCounts',
+  StripOffsets: 'editor.metadata.extendedExif.fields.stripOffsets',
+  SubSecTimeDigitized: 'editor.metadata.extendedExif.fields.subSecTimeDigitized',
+  SubSecTimeOriginal: 'editor.metadata.extendedExif.fields.subSecTimeOriginal',
+  SubjectDistance: 'editor.metadata.extendedExif.fields.subjectDistance',
+  UserComment: 'editor.metadata.extendedExif.fields.userComment',
+  WhiteBalance: 'editor.metadata.extendedExif.fields.whiteBalance',
+  XResolution: 'editor.metadata.extendedExif.fields.xResolution',
+  YResolution: 'editor.metadata.extendedExif.fields.yResolution',
+};
+
+const EXIF_VALUE_TRANSLATION_KEYS: Record<string, Record<string, string>> = {
+  Compression: {
+    uncompressed: 'editor.metadata.extendedExif.values.uncompressed',
+  },
+  Contrast: {
+    normal: 'editor.metadata.extendedExif.values.normal',
+  },
+  CustomRendered: {
+    'normal process': 'editor.metadata.extendedExif.values.normalProcess',
+  },
+  ExposureMode: {
+    'auto exposure': 'editor.metadata.extendedExif.values.autoExposure',
+    'manual exposure': 'editor.metadata.extendedExif.values.manualExposure',
+  },
+  ExposureProgram: {
+    manual: 'editor.metadata.extendedExif.values.manual',
+  },
+  FileSource: {
+    'digital still camera': 'editor.metadata.extendedExif.values.digitalStillCamera',
+  },
+  Flash: {
+    'fired, return light detected': 'editor.metadata.extendedExif.values.flashFiredReturnDetected',
+    'fired, return light not detected': 'editor.metadata.extendedExif.values.flashFiredReturnNotDetected',
+    'fired, return light not detected, forced': 'editor.metadata.extendedExif.values.flashFiredReturnNotDetectedForced',
+    'flash did not fire': 'editor.metadata.extendedExif.values.flashDidNotFire',
+    'no flash': 'editor.metadata.extendedExif.values.noFlash',
+  },
+  MeteringMode: {
+    pattern: 'editor.metadata.extendedExif.values.patternMetering',
+  },
+  Orientation: {
+    'row 0 at top and column 0 at left': 'editor.metadata.extendedExif.values.topLeft',
+  },
+  PlanarConfiguration: {
+    chunky: 'editor.metadata.extendedExif.values.chunky',
+  },
+  Saturation: {
+    normal: 'editor.metadata.extendedExif.values.normal',
+  },
+  SceneCaptureType: {
+    landscape: 'editor.metadata.extendedExif.values.landscape',
+    portrait: 'editor.metadata.extendedExif.values.portrait',
+    standard: 'editor.metadata.extendedExif.values.standard',
+  },
+  SceneType: {
+    'directly photographed': 'editor.metadata.extendedExif.values.directlyPhotographed',
+    'directly photographed image': 'editor.metadata.extendedExif.values.directlyPhotographed',
+  },
+  Sharpness: {
+    normal: 'editor.metadata.extendedExif.values.normal',
+  },
+  WhiteBalance: {
+    auto: 'editor.metadata.extendedExif.values.auto',
+    manual: 'editor.metadata.extendedExif.values.manual',
+  },
+};
+
+function translateExtendedExifTag(tag: string): string {
+  const translationKey = EXIF_FIELD_TRANSLATION_KEYS[tag];
+  if (translationKey) return String(i18n.t(translationKey as never));
+
+  const tiffTagMatch = tag.match(/^Tag\(Tiff,\s*(\d+)\)$/i);
+  if (tiffTagMatch) {
+    return String(i18n.t('editor.metadata.extendedExif.unknownTiffTag', { id: tiffTagMatch[1] }));
+  }
+
+  return formatExifTag(tag);
+}
+
+function translateExtendedExifValue(tag: string, value: unknown) {
+  if (typeof value !== 'string') return value;
+  const normalizedValue = value.trim().toLowerCase().replace(/\s+/g, ' ');
+  const translationKey = EXIF_VALUE_TRANSLATION_KEYS[tag]?.[normalizedValue];
+  return translationKey ? String(i18n.t(translationKey as never)) : value;
 }
 
 function parseDms(dmsString: string) {
@@ -681,7 +837,7 @@ export default function MetadataPanel() {
                                       color={TextColors.primary}
                                       weight={TextWeights.medium}
                                     >
-                                      {tagItem.tag}
+                                      {translateBuiltInTag(tagItem.tag)}
                                     </Text>
                                     <X size={10} className="opacity-50 group-hover:opacity-100" />
                                   </motion.div>
@@ -726,7 +882,7 @@ export default function MetadataPanel() {
                                   onClick={() => handleAddTag(shortcut)}
                                   className="text-xs font-medium bg-bg-secondary hover:bg-card-active text-text-secondary px-1.5 py-0.5 rounded-sm border border-transparent hover:border-border-color transition-all"
                                 >
-                                  {shortcut}
+                                  {translateBuiltInTag(shortcut)}
                                 </button>
                               ))}
                             </div>
@@ -787,7 +943,11 @@ export default function MetadataPanel() {
                 </Text>
                 <div className="bg-surface border border-surface rounded-xl p-3 flex flex-col gap-0.5 overflow-hidden">
                   {otherExifEntries.map(([tag, value]) => (
-                    <MetadataItem key={tag} label={formatExifTag(tag)} value={value} />
+                    <MetadataItem
+                      key={tag}
+                      label={translateExtendedExifTag(tag)}
+                      value={translateExtendedExifValue(tag, value)}
+                    />
                   ))}
                 </div>
               </div>

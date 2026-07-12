@@ -615,7 +615,8 @@
       "copy": "Kopieren",
       "emptyClickToAdd": "Leer (Klicken zum Hinzufügen)",
       "extendedExif": {
-        "title": "Erweiterte EXIF"
+        "title": "Erweiterte EXIF",
+        "unknownTiffTag": "TIFF-Tag ({{id}})"
       },
       "fields": {
         "author": "Autor",
@@ -1243,6 +1244,14 @@
       "dateFormatPlaceholder": "z. B., YYYY/MM-DD",
       "deleteAfterImport": "Originale nach erfolgreichem Import löschen",
       "deleteWarning": "Dateien werden in den Systempapierkorb verschoben.",
+      "fileDialog": {
+        "allFiles": "Alle Dateien",
+        "allSupportedImages": "Alle unterstützten Bilder",
+        "rawImages": "RAW-Bilder",
+        "selectFilesTitle": "Dateien zum Importieren auswählen",
+        "standardImages": "Standardbilder (JPEG, PNG usw.)",
+        "unsupportedFormats": "Nicht unterstützte Dateiformate erkannt: {{formats}}"
+      },
       "fileNaming": "Dateibenennung",
       "folderOrganization": "Ordnerorganisation",
       "organizeByDate": "In Unterordner nach Datum organisieren",
@@ -1742,6 +1751,17 @@
     }
   },
   "ui": {
+    "builtInTags": {
+      "architecture": "Architektur",
+      "event": "Veranstaltung",
+      "family": "Familie",
+      "food": "Essen",
+      "landscape": "Landschaft",
+      "nature": "Natur",
+      "portrait": "Porträt",
+      "street": "Streetfotografie",
+      "travel": "Reisen"
+    },
     "bottomBar": {
       "imagesSelected": "{{current}} von {{total}} Bildern ausgewählt",
       "tooltips": {
@@ -1781,6 +1801,15 @@
       "presetNamePlaceholder": "Vorgaben-Name",
       "saveAsNewTooltip": "Aktuelle Einstellungen als neue Vorgabe speichern",
       "savedTooltip": "Gespeichert!"
+    },
+    "filenameVariables": {
+      "day": "Tag",
+      "hour": "Stunde",
+      "minute": "Minute",
+      "month": "Monat",
+      "originalFilename": "Ursprünglicher Dateiname",
+      "sequence": "Sequenz",
+      "year": "Jahr"
     },
     "filmstrip": {
       "tooltips": {

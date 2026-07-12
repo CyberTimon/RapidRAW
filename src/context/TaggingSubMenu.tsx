@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Invokes } from '../components/ui/AppProperties';
 import Text from '../components/ui/Text';
 import { TextVariants } from '../types/typography';
+import { translateBuiltInTag } from '../i18n/translateBuiltInTag';
 
 interface TaggingSubMenuProps {
   paths: string[];
@@ -101,10 +102,10 @@ export default function TaggingSubMenu({
                   animate="visible"
                   exit="exit"
                   onClick={() => handleRemoveTag(tagItem)}
-                  data-tooltip={t('menus.tagging.removeTooltip', { tag: tagItem.tag })}
+                  data-tooltip={t('menus.tagging.removeTooltip', { tag: translateBuiltInTag(tagItem.tag) })}
                   className="flex items-center gap-1 bg-bg-primary text-text-primary text-xs font-medium px-2 py-1 rounded-sm group cursor-pointer"
                 >
-                  <span>{tagItem.tag}</span>
+                  <span>{translateBuiltInTag(tagItem.tag)}</span>
                   <span className="rounded-full group-hover:bg-black/20 p-0.5 transition-colors">
                     <X size={12} />
                   </span>
@@ -157,7 +158,7 @@ export default function TaggingSubMenu({
                 onClick={() => handleAddTag(shortcut)}
                 className="bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary text-xs font-medium px-2 py-1 rounded-sm"
               >
-                {shortcut}
+                {translateBuiltInTag(shortcut)}
               </button>
             ))}
           </div>

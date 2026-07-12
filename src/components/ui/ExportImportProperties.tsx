@@ -23,15 +23,15 @@ export const FILE_FORMATS: Array<FileFormat> = [
   { id: FileFormats.Cube, name: 'CUBE LUT', extensions: ['cube'] },
 ];
 
-export const FILENAME_VARIABLES: Array<string> = [
-  '{original_filename}',
-  '{sequence}',
-  '{YYYY}',
-  '{MM}',
-  '{DD}',
-  '{hh}',
-  '{mm}',
-];
+export const FILENAME_VARIABLES = [
+  { token: '{original_filename}', labelKey: 'ui.filenameVariables.originalFilename' },
+  { token: '{sequence}', labelKey: 'ui.filenameVariables.sequence' },
+  { token: '{YYYY}', labelKey: 'ui.filenameVariables.year' },
+  { token: '{MM}', labelKey: 'ui.filenameVariables.month' },
+  { token: '{DD}', labelKey: 'ui.filenameVariables.day' },
+  { token: '{hh}', labelKey: 'ui.filenameVariables.hour' },
+  { token: '{mm}', labelKey: 'ui.filenameVariables.minute' },
+] as const;
 
 export interface ExportSettings {
   filenameTemplate: string | null;

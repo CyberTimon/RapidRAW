@@ -45,6 +45,7 @@ import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
 import { open } from '@tauri-apps/plugin-shell';
+import { translateBuiltInTag } from '../../i18n/translateBuiltInTag';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -1467,11 +1468,13 @@ export default function SettingsPanel({
                                   animate="visible"
                                   exit="exit"
                                   onClick={() => handleRemoveShortcut(shortcut)}
-                                  data-tooltip={t('settings.tagging.removeShortcutTooltip', { shortcut })}
+                                  data-tooltip={t('settings.tagging.removeShortcutTooltip', {
+                                    shortcut: translateBuiltInTag(shortcut),
+                                  })}
                                   className="flex items-center gap-1 bg-surface px-2 py-1 rounded-sm group cursor-pointer"
                                 >
                                   <Text variant={TextVariants.label} color={TextColors.primary}>
-                                    {shortcut}
+                                    {translateBuiltInTag(shortcut)}
                                   </Text>
                                   <span className="rounded-full group-hover:bg-black/20 p-0.5 transition-colors">
                                     <X size={14} />
@@ -2268,9 +2271,7 @@ export default function SettingsPanel({
                       buttonText={t('settings.data.clearSidecarsButton')}
                       description={
                         <Text as="span" variant={TextVariants.small}>
-                          {t('settings.data.clearSidecarsDesc')}{' '}
-                          <code className="bg-bg-primary px-1 rounded-sm text-text-primary">.rrdata</code> files
-                          (containing your edits) within your root folders:
+                          {t('settings.data.clearSidecarsDesc')}
                           <span className="block font-mono bg-bg-primary p-2 rounded-sm mt-2 break-all border border-border-color whitespace-pre-wrap">
                             {effectiveRootPaths.length > 0
                               ? effectiveRootPaths.join('\n')

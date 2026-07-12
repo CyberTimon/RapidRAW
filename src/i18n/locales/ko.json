@@ -613,7 +613,8 @@
       "copy": "복사",
       "emptyClickToAdd": "비어 있음 (클릭하여 추가)",
       "extendedExif": {
-        "title": "확장 EXIF"
+        "title": "확장 EXIF",
+        "unknownTiffTag": "TIFF 태그({{id}})"
       },
       "fields": {
         "author": "작성자",
@@ -1241,6 +1242,14 @@
       "dateFormatPlaceholder": "예: YYYY/MM-DD",
       "deleteAfterImport": "가져오기 성공 후 원본 삭제",
       "deleteWarning": "파일이 시스템 휴지통으로 이동됩니다.",
+      "fileDialog": {
+        "allFiles": "모든 파일",
+        "allSupportedImages": "지원되는 모든 이미지",
+        "rawImages": "RAW 이미지",
+        "selectFilesTitle": "가져올 파일 선택",
+        "standardImages": "표준 이미지(JPEG, PNG 등)",
+        "unsupportedFormats": "지원되지 않는 파일 형식이 감지되었습니다: {{formats}}"
+      },
       "fileNaming": "파일 이름 지정",
       "folderOrganization": "폴더 정리",
       "organizeByDate": "날짜별 하위 폴더로 정리",
@@ -1740,6 +1749,17 @@
     }
   },
   "ui": {
+    "builtInTags": {
+      "architecture": "건축",
+      "event": "행사",
+      "family": "가족",
+      "food": "음식",
+      "landscape": "풍경",
+      "nature": "자연",
+      "portrait": "인물",
+      "street": "거리",
+      "travel": "여행"
+    },
     "bottomBar": {
       "imagesSelected": "이미지 {{total}}개 중 {{current}}개 선택됨",
       "tooltips": {
@@ -1779,6 +1799,15 @@
       "presetNamePlaceholder": "프리셋 이름",
       "saveAsNewTooltip": "현재 설정을 새 프리셋으로 저장",
       "savedTooltip": "저장됨!"
+    },
+    "filenameVariables": {
+      "day": "일",
+      "hour": "시",
+      "minute": "분",
+      "month": "월",
+      "originalFilename": "원본 파일 이름",
+      "sequence": "순번",
+      "year": "연도"
     },
     "filmstrip": {
       "tooltips": {
