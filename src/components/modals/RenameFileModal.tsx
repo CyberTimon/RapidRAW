@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FILENAME_VARIABLES } from '../ui/ExportImportProperties';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
@@ -11,6 +12,7 @@ interface RenameFileModalProps {
 }
 
 export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave }: RenameFileModalProps) {
+  const { t } = useTranslation();
   const [nameTemplate, setNameTemplate] = useState('');
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
@@ -104,13 +106,15 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
         onKeyDown={handleKeyDown}
       >
         <Text variant={TextVariants.title} className="mb-4">
-          {isSingleFile ? 'Rename Image' : `Rename ${fileCount} Images`}
+          {isSingleFile
+            ? t('modals.renameFile.titleSingle')
+            : t('modals.renameFile.titleMultiple', { count: fileCount })}
         </Text>
 
         <div className="space-y-8 text-sm">
           <div>
             <Text variant={TextVariants.heading} className="block mb-2">
-              {isSingleFile ? 'New Name' : 'File Naming Template'}
+              {isSingleFile ? t('modals.renameFile.newName') : t('modals.renameFile.fileNamingTemplate')}
             </Text>
             <input
               autoFocus
@@ -141,14 +145,14 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors"
             onClick={onClose}
           >
-            Cancel
+            {t('modals.renameFile.cancel')}
           </button>
           <button
             className="px-4 py-2 rounded-md bg-accent shadow-shiny text-button-text font-semibold hover:bg-accent-hover disabled:bg-gray-500 disabled:text-white disabled:cursor-not-allowed transition-colors"
             disabled={!nameTemplate.trim()}
             onClick={handleSave}
           >
-            Save
+            {t('modals.renameFile.save')}
           </button>
         </div>
       </div>

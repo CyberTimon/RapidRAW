@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import { useEditorStore } from '../store/useEditorStore';
@@ -7,16 +7,23 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { Adjustments, COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
 import { Invokes, Panel } from '../components/ui/AppProperties';
+import { debouncedSave } from './useEditorActions';
+import { globalImageCache } from '../utils/ImageLRUCache';
 
 export function useImageProcessing(
   transformWrapperRef: any,
-  imageCacheRef: any,
-  patchesSentToBackend: React.RefObject<Set<string>>,
-  debouncedSave: any,
   prevAdjustmentsRef: React.RefObject<any>,
+  renderRefs: {
+    previewJobIdRef: React.RefObject<number>;
+    latestRenderedJobIdRef: React.RefObject<number>;
+    currentResRef: React.RefObject<number>;
+  },
 ) {
+  const { previewJobIdRef, latestRenderedJobIdRef, currentResRef } = renderRefs;
+
   const selectedImage = useEditorStore((state) => state.selectedImage);
   const adjustments = useEditorStore((state) => state.adjustments);
+  const previewOverride = useEditorStore((state) => state.previewOverride);
   const isWaveformVisible = useEditorStore((state) => state.isWaveformVisible);
   const activeWaveformChannel = useEditorStore((state) => state.activeWaveformChannel);
   const displaySize = useEditorStore((state) => state.displaySize);
@@ -31,11 +38,8 @@ export function useImageProcessing(
   const appSettings = useSettingsStore((state) => state.appSettings);
   const multiSelectedPaths = useLibraryStore((state) => state.multiSelectedPaths);
 
-  const previewJobIdRef = useRef<number>(0);
-  const latestRenderedJobIdRef = useRef<number>(0);
   const inFlightCountRef = useRef(0);
   const pendingApplyRef = useRef<{ adjustments: Adjustments; targetRes?: number } | null>(null);
-  const currentResRef = useRef<number>(1280);
   const currentOriginalResRef = useRef<number>(0);
   const dragIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeWaveformChannelRef = useRef(activeWaveformChannel);
@@ -119,7 +123,9 @@ export function useImageProcessing(
       const currentPath = selectedImage?.path;
       if (!currentPath) return;
 
-      const payload = JSON.parse(JSON.stringify(currentAdjustments));
+      const payload = structuredClone(currentAdjustments);
+      const { patchesSentToBackend } = useEditorStore.getState();
+      const newlySentPatches = new Set<string>();
 
       const processSubMasks = (subMasks: any[]) => {
         if (!Array.isArray(subMasks)) return;
@@ -131,13 +137,13 @@ export function useImageProcessing(
             for (const key of keys) {
               if (sm.parameters[key] !== undefined && sm.parameters[key] !== null) {
                 foundMaskData = true;
-                if (patchesSentToBackend.current.has(sm.id)) {
+                if (patchesSentToBackend.has(sm.id)) {
                   sm.parameters[key] = null;
                 }
               }
             }
-            if (foundMaskData && !patchesSentToBackend.current.has(sm.id)) {
-              patchesSentToBackend.current.add(sm.id);
+            if (foundMaskData && !patchesSentToBackend.has(sm.id)) {
+              newlySentPatches.add(sm.id);
             }
           }
         });
@@ -146,10 +152,10 @@ export function useImageProcessing(
       if (payload.aiPatches && Array.isArray(payload.aiPatches)) {
         payload.aiPatches.forEach((p: any) => {
           if (p.id && p.patchData && !p.isLoading) {
-            if (patchesSentToBackend.current.has(p.id)) {
+            if (patchesSentToBackend.has(p.id)) {
               p.patchData = null;
             } else {
-              patchesSentToBackend.current.add(p.id);
+              newlySentPatches.add(p.id);
             }
           }
           if (p.subMasks) processSubMasks(p.subMasks);
@@ -174,6 +180,10 @@ export function useImageProcessing(
           computeWaveform: !!isWaveformVisible,
           activeWaveformChannel: activeWaveformChannelRef.current || null,
         });
+
+        if (newlySentPatches.size > 0) {
+          newlySentPatches.forEach((id) => patchesSentToBackend.add(id));
+        }
 
         if (currentPath !== selectedImagePathRef.current) return;
 
@@ -227,9 +237,9 @@ export function useImageProcessing(
 
             setEditor((state) => {
               const prevUrl = state.finalPreviewUrl;
-              if (prevUrl && prevUrl.startsWith('blob:') && !imageCacheRef.current.isProtected(prevUrl)) {
+              if (prevUrl && prevUrl.startsWith('blob:') && !globalImageCache.isProtected(prevUrl)) {
                 setTimeout(() => {
-                  if (!imageCacheRef.current.isProtected(prevUrl)) {
+                  if (!globalImageCache.isProtected(prevUrl)) {
                     URL.revokeObjectURL(prevUrl);
                   }
                 }, 250);
@@ -257,7 +267,7 @@ export function useImageProcessing(
         }
       }
     },
-    [selectedImage?.path, calculateROI, isWaveformVisible, setEditor, patchesSentToBackend, imageCacheRef],
+    [selectedImage?.path, calculateROI, isWaveformVisible, setEditor, previewJobIdRef, latestRenderedJobIdRef],
   );
 
   const flushPipeline = useCallback(() => {
@@ -347,7 +357,7 @@ export function useImageProcessing(
           applyAdjustments(currentAdjustments, false, targetRes);
         }
       }, 50),
-    [applyAdjustments],
+    [applyAdjustments, currentResRef],
   );
 
   const requestHiFiOriginalZoom = useMemo(
@@ -375,7 +385,6 @@ export function useImageProcessing(
     }
   }, [adjustments, activeRightPanel, selectedImage?.isReady, generateUncroppedPreview]);
 
-  // 2. Hi-Fi Zoom Trigger (ONLY cares about zoom/display size changes)
   useEffect(() => {
     if (selectedImage?.isReady && displaySize.width > 0 && !isSliderDragging) {
       let baseRes = calculateTargetRes();
@@ -385,7 +394,6 @@ export function useImageProcessing(
       }
       const finalRes = Math.round(baseRes);
 
-      // ONLY request if we zoomed IN past our previous high-water mark
       if (finalRes > currentResRef.current) {
         requestHiFiZoom(adjustments, finalRes);
       }
@@ -393,7 +401,6 @@ export function useImageProcessing(
     return () => {
       requestHiFiZoom.cancel();
     };
-    // Deliberately excluding 'adjustments' to prevent double-firing with the loop below
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     displaySize.width,
@@ -405,25 +412,26 @@ export function useImageProcessing(
     originalSize,
   ]);
 
-  // 3. Render Loop Idle Timer & Multi-select Apply (ONLY cares about adjustment changes)
   useEffect(() => {
     if (!selectedImage?.isReady) return;
 
     if (dragIdleTimer.current) clearTimeout(dragIdleTimer.current);
 
     const targetRes = calculateTargetRes();
+    const renderAdjustments = previewOverride ?? adjustments;
 
     if (isSliderDragging) {
       if (appSettings?.enableLivePreviews !== false) {
-        applyAdjustments(adjustments, true, targetRes);
+        applyAdjustments(renderAdjustments, true, targetRes);
       }
     } else {
       dragIdleTimer.current = setTimeout(() => {
-        // CRITICAL FIX: Never downgrade the resolution just because an adjustment changed while zoomed out
-        const applyRes = Math.max(targetRes, currentResRef.current);
-        currentResRef.current = applyRes;
+        currentResRef.current = targetRes;
 
-        applyAdjustments(adjustments, false, applyRes);
+        applyAdjustments(renderAdjustments, false, targetRes);
+
+        if (previewOverride) return;
+
         debouncedSave(selectedImage.path, adjustments);
 
         const otherPaths = multiSelectedPaths.filter((p) => p !== selectedImage.path);
@@ -440,7 +448,7 @@ export function useImageProcessing(
               }
             }
             if (Object.keys(delta).length > 0) {
-              otherPaths.forEach((p) => imageCacheRef.current.delete(p));
+              otherPaths.forEach((p) => globalImageCache.delete(p));
               invoke(Invokes.ApplyAdjustmentsToPaths, { paths: otherPaths, adjustments: delta }).catch((err) => {
                 console.error('Failed to apply adjustments to multi-selection:', err);
               });
@@ -454,26 +462,24 @@ export function useImageProcessing(
     return () => {
       if (dragIdleTimer.current) clearTimeout(dragIdleTimer.current);
     };
-    // Explicitly strict dependencies to match original App.tsx behavior
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     adjustments,
+    previewOverride,
     selectedImage?.path,
     selectedImage?.isReady,
     isSliderDragging,
     multiSelectedPaths,
     appSettings?.enableLivePreviews,
     appSettings?.copyPasteSettings?.includedAdjustments,
-    debouncedSave,
+    isWaveformVisible,
   ]);
 
-  // 4. Reset Transformed Original URL
   useEffect(() => {
     setEditor({ transformedOriginalUrl: null });
     currentOriginalResRef.current = 0;
   }, [geometricAdjustmentsKey, selectedImage?.path, setEditor]);
 
-  // 5. Hi-Fi Original Zoom Trigger
   useEffect(() => {
     if (showOriginal && selectedImage?.isReady && displaySize.width > 0 && !isSliderDragging) {
       let targetRes = calculateTargetRes();
@@ -496,7 +502,6 @@ export function useImageProcessing(
     originalSize,
   ]);
 
-  // 6. Generate Original Preview on Mount
   useEffect(() => {
     let isEffectActive = true;
     const generate = async () => {
@@ -528,6 +533,5 @@ export function useImageProcessing(
   return {
     applyAdjustments,
     executeApplyAdjustments,
-    currentResRef,
   };
 }

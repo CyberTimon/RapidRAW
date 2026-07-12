@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import Switch from '../ui/Switch';
 import { FILENAME_VARIABLES } from '../ui/ExportImportProperties';
 import Text from '../ui/Text';
@@ -12,6 +13,7 @@ interface ImportSettingsModalProps {
 }
 
 export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave }: ImportSettingsModalProps) {
+  const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
 
@@ -103,13 +105,13 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
         onKeyDown={handleKeyDown}
       >
         <Text variant={TextVariants.title} className="mb-4">
-          Import Settings
+          {t('modals.importSettings.title')}
         </Text>
 
         <div className="space-y-8 text-sm">
           <div>
             <Text variant={TextVariants.heading} className="block mb-2">
-              File Naming
+              {t('modals.importSettings.fileNaming')}
             </Text>
             <input
               autoFocus
@@ -134,18 +136,22 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
 
           <div>
             <Text variant={TextVariants.heading} className="block mb-2">
-              Folder Organization
+              {t('modals.importSettings.folderOrganization')}
             </Text>
-            <Switch label="Organize into subfolders by date" checked={organizeByDate} onChange={setOrganizeByDate} />
+            <Switch
+              label={t('modals.importSettings.organizeByDate')}
+              checked={organizeByDate}
+              onChange={setOrganizeByDate}
+            />
             {organizeByDate && (
               <div className="mt-2">
                 <Text variant={TextVariants.label} className="block mb-1">
-                  Date Format
+                  {t('modals.importSettings.dateFormat')}
                 </Text>
                 <input
                   className="w-full bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
                   onChange={(e: any) => setDateFolderFormat(e.target.value)}
-                  placeholder="e.g., YYYY/MM-DD"
+                  placeholder={t('modals.importSettings.dateFormatPlaceholder')}
                   type="text"
                   value={dateFolderFormat}
                 />
@@ -155,16 +161,16 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
 
           <div>
             <Text variant={TextVariants.heading} className="block mb-2">
-              Source Files
+              {t('modals.importSettings.sourceFiles')}
             </Text>
             <Switch
               checked={deleteAfterImport}
-              label="Delete originals after successful import"
+              label={t('modals.importSettings.deleteAfterImport')}
               onChange={setDeleteAfterImport}
             />
             {deleteAfterImport && (
               <Text variant={TextVariants.small} className="mt-1">
-                Files will be moved to the system trash.
+                {t('modals.importSettings.deleteWarning')}
               </Text>
             )}
           </div>
@@ -175,13 +181,13 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors"
             onClick={onClose}
           >
-            Cancel
+            {t('modals.importSettings.cancel')}
           </button>
           <button
             className="px-4 py-2 rounded-md bg-accent shadow-shiny text-button-text font-semibold hover:bg-accent-hover transition-colors"
             onClick={handleSave}
           >
-            Start Import
+            {t('modals.importSettings.startImport')}
           </button>
         </div>
       </div>

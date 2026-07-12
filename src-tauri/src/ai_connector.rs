@@ -56,9 +56,10 @@ fn image_to_jpeg_bytes(img: &DynamicImage, quality: u8) -> Result<Vec<u8>> {
 
 async fn upload_source_image(
     client: &Client,
-    address: &str,
+    base_url: &str,
     source_id: &str,
     image: &DynamicImage,
+    token: Option<&str>,
 ) -> Result<()> {
     let jpeg_bytes = image_to_jpeg_bytes(image, 95)?;
 
@@ -70,11 +71,15 @@ async fn upload_source_image(
         .text("source_id", source_id.to_string())
         .part("file", part);
 
-    let res = client
-        .post(format!("http://{}/upload_source", address))
-        .multipart(form)
-        .send()
-        .await?;
+    let mut req = client
+        .post(format!("{}/upload_source", base_url))
+        .multipart(form);
+
+    if let Some(auth_token) = token {
+        req = req.bearer_auth(auth_token);
+    }
+
+    let res = req.send().await?;
 
     if !res.status().is_success() {
         return Err(anyhow!("Upload failed: {}", res.text().await?));
@@ -111,11 +116,12 @@ pub async fn check_status(address: &str) -> Result<bool> {
 }
 
 pub async fn process_inpainting(
-    address: &str,
+    base_url: &str,
     source_path: &str,
     full_source_image: &DynamicImage,
     mask_image: &DynamicImage,
     prompt: String,
+    token: Option<&str>,
 ) -> Result<RgbaImage> {
     let client = Client::new();
     let source_id = generate_source_id(source_path)?;
@@ -130,12 +136,24 @@ pub async fn process_inpainting(
         seed: 0,
     };
 
-    let url = format!("http://{}/inpaint", address);
-    let response = client.post(&url).json(&payload).send().await?;
+    let url = format!("{}/inpaint", base_url);
+
+    let mut req = client.post(&url).json(&payload);
+    if let Some(auth_token) = token {
+        req = req.bearer_auth(auth_token);
+    }
+
+    let response = req.send().await?;
 
     let middleware_data: MiddlewareResponse = if response.status() == 404 {
-        upload_source_image(&client, address, &source_id, full_source_image).await?;
-        let retry_res = client.post(&url).json(&payload).send().await?;
+        upload_source_image(&client, base_url, &source_id, full_source_image, token).await?;
+
+        let mut retry_req = client.post(&url).json(&payload);
+        if let Some(auth_token) = token {
+            retry_req = retry_req.bearer_auth(auth_token);
+        }
+
+        let retry_res = retry_req.send().await?;
         if !retry_res.status().is_success() {
             return Err(anyhow!(
                 "AI generation failed after upload: {}",

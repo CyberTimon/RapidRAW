@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { Status } from '../components/ui/ExportImportProperties';
 import { useProcessStore } from '../store/useProcessStore';
 import { useEditorStore } from '../store/useEditorStore';
@@ -25,8 +26,49 @@ export function useTauriListeners({
     refs.current = { refreshAllFolderTrees, handleSelectSubfolder, refreshImageList, markGenerated };
   });
 
+  const thumbnailBuffer = useRef<Record<string, string>>({});
+  const ratingBuffer = useRef<Record<string, number>>({});
+  const editStatusBuffer = useRef<Record<string, boolean>>({});
+  const flushHandle = useRef<number | null>(null);
+
   useEffect(() => {
     let isEffectActive = true;
+
+    const flushThumbnailBatch = () => {
+      flushHandle.current = null;
+      if (!isEffectActive) return;
+
+      const pendingThumbs = thumbnailBuffer.current;
+      const pendingRatings = ratingBuffer.current;
+      const pendingEdits = editStatusBuffer.current;
+
+      thumbnailBuffer.current = {};
+      ratingBuffer.current = {};
+      editStatusBuffer.current = {};
+
+      if (Object.keys(pendingThumbs).length > 0) {
+        useProcessStore.getState().setProcess((state) => ({
+          thumbnails: { ...state.thumbnails, ...pendingThumbs },
+        }));
+      }
+
+      if (Object.keys(pendingRatings).length > 0 || Object.keys(pendingEdits).length > 0) {
+        useLibraryStore.getState().setLibrary((state) => ({
+          imageRatings: { ...state.imageRatings, ...pendingRatings },
+          imageList:
+            Object.keys(pendingEdits).length > 0
+              ? state.imageList.map((img) =>
+                  pendingEdits[img.path] !== undefined ? { ...img, is_edited: pendingEdits[img.path] } : img,
+                )
+              : state.imageList,
+        }));
+      }
+    };
+
+    const scheduleFlush = () => {
+      if (flushHandle.current !== null) return;
+      flushHandle.current = requestAnimationFrame(flushThumbnailBatch);
+    };
 
     const listeners = [
       listen('preview-update-uncropped', (event: any) => {
@@ -39,6 +81,9 @@ export function useTauriListeners({
       }),
       listen('open-with-file', (event: any) => {
         if (isEffectActive) useProcessStore.getState().setProcess({ initialFileToOpen: event.payload as string });
+      }),
+      listen('external-edit-session', (event: any) => {
+        if (isEffectActive) useProcessStore.getState().setProcess({ externalEditSession: event.payload });
       }),
       listen('waveform-update', (event: any) => {
         if (isEffectActive && event.payload.path === useEditorStore.getState().selectedImage?.path) {
@@ -55,18 +100,36 @@ export function useTauriListeners({
         if (isEffectActive) useProcessStore.getState().setProcess({ thumbnailProgress: { current: 0, total: 0 } });
       }),
       listen('thumbnail-generated', (event: any) => {
-        if (isEffectActive) {
-          const { path, data, rating } = event.payload;
-          if (data) {
-            useProcessStore.getState().setProcess((state) => ({ thumbnails: { ...state.thumbnails, [path]: data } }));
-            refs.current.markGenerated(path);
-          }
-          if (rating !== undefined) {
-            useLibraryStore
-              .getState()
-              .setLibrary((state) => ({ imageRatings: { ...state.imageRatings, [path]: rating } }));
-          }
+        if (!isEffectActive) return;
+        const { path, thumbnailPath, rating, is_edited, data } = event.payload;
+
+        if (thumbnailPath) {
+          thumbnailBuffer.current[path] = convertFileSrc(thumbnailPath);
+          refs.current.markGenerated(path);
+        } else if (data) {
+          thumbnailBuffer.current[path] = data;
+          refs.current.markGenerated(path);
         }
+        if (rating !== undefined) {
+          ratingBuffer.current[path] = rating;
+        }
+        if (is_edited !== undefined) {
+          editStatusBuffer.current[path] = is_edited;
+        }
+        if (thumbnailPath || data || rating !== undefined || is_edited !== undefined) {
+          scheduleFlush();
+        }
+      }),
+      listen('image-metadata-loaded', (event: any) => {
+        if (!isEffectActive) return;
+        const { path, rating, is_edited, tags } = event.payload;
+
+        useLibraryStore.getState().setLibrary((state) => ({
+          imageRatings: { ...state.imageRatings, [path]: rating },
+          imageList: state.imageList.map((img) =>
+            img.path === path ? { ...img, is_edited, tags: tags ?? img.tags } : img,
+          ),
+        }));
       }),
       listen('ai-model-download-start', (event: any) => {
         if (isEffectActive) useProcessStore.getState().setProcess({ aiModelDownloadStatus: event.payload });
@@ -177,8 +240,6 @@ export function useTauriListeners({
           useEditorStore.getState().setEditor({ hasRenderedFirstFrame: true });
         }
       }),
-
-      // Panorama
       listen('panorama-progress', (event: any) => {
         if (isEffectActive) {
           useUIStore.getState().setUI((state) => {
@@ -213,8 +274,6 @@ export function useTauriListeners({
           }));
         }
       }),
-
-      // HDR
       listen('hdr-progress', (event: any) => {
         if (isEffectActive) {
           useUIStore.getState().setUI((state) => ({
@@ -254,8 +313,6 @@ export function useTauriListeners({
           }));
         }
       }),
-
-      // Culling
       listen('culling-start', (event: any) => {
         if (isEffectActive) {
           useUIStore.getState().setUI((state) => ({
@@ -294,6 +351,12 @@ export function useTauriListeners({
 
     return () => {
       isEffectActive = false;
+      if (flushHandle.current !== null) {
+        cancelAnimationFrame(flushHandle.current);
+        flushHandle.current = null;
+      }
+      thumbnailBuffer.current = {};
+      ratingBuffer.current = {};
       listeners.forEach((p) => p.then((unlisten) => unlisten()));
     };
   }, []);

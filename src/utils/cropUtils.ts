@@ -32,6 +32,7 @@ export function calculateCenteredCrop(
   const w_c = aspectRatio * h_c;
 
   return {
+    unit: 'px',
     x: Math.round((W - w_c) / 2),
     y: Math.round((H - h_c) / 2),
     width: Math.round(w_c),

@@ -1,6 +1,16 @@
 import { create } from 'zustand';
 import { ImageFile, LibraryViewMode, Panel, UiVisibility, CullingSuggestions } from '../components/ui/AppProperties';
 
+const RIGHT_PANEL_ORDER = [
+  Panel.Metadata,
+  Panel.Adjustments,
+  Panel.Crop,
+  Panel.Masks,
+  Panel.Ai,
+  Panel.Presets,
+  Panel.Export,
+];
+
 export interface CollapsibleSectionsState {
   basic: boolean;
   color: boolean;
@@ -98,6 +108,12 @@ interface UIState {
   importSourcePaths: Array<string>;
   folderActionTarget: string | null;
 
+  // Album Modals
+  isCreateAlbumModalOpen: boolean;
+  isCreateAlbumGroupModalOpen: boolean;
+  isRenameAlbumModalOpen: boolean;
+  albumActionTarget: string | null;
+
   // Complex Modal States
   confirmModalState: ConfirmModalState;
   panoramaModalState: PanoramaModalState;
@@ -109,7 +125,9 @@ interface UIState {
 
   // Actions
   setUI: (updater: Partial<UIState> | ((state: UIState) => Partial<UIState>)) => void;
-  setRightPanel: (panel: Panel | null, orderArray: Panel[]) => void;
+  setRightPanel: (panel: Panel | null) => void;
+  customEscapeHandler: (() => void) | null;
+  setCustomEscapeHandler: (handler: (() => void) | null) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -140,6 +158,11 @@ export const useUIStore = create<UIState>((set, get) => ({
   importTargetFolder: null,
   importSourcePaths: [],
   folderActionTarget: null,
+
+  isCreateAlbumModalOpen: false,
+  isCreateAlbumGroupModalOpen: false,
+  isRenameAlbumModalOpen: false,
+  albumActionTarget: null,
 
   confirmModalState: { isOpen: false },
   panoramaModalState: {
@@ -173,7 +196,7 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   setUI: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
 
-  setRightPanel: (panelId, RIGHT_PANEL_ORDER) => {
+  setRightPanel: (panelId) => {
     const current = get().activeRightPanel;
     if (panelId === current) {
       set({ activeRightPanel: null });
@@ -187,4 +210,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       });
     }
   },
+
+  customEscapeHandler: null,
+  setCustomEscapeHandler: (handler) => set({ customEscapeHandler: handler }),
 }));

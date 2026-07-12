@@ -239,6 +239,14 @@
         <cropfactor>1</cropfactor>
     </camera>
 
+	<camera>
+        <maker>Canon</maker>
+        <model>Canon EOS R6 V</model>
+        <model lang="en">EOS R6 V</model>
+        <mount>Canon RF</mount>
+        <cropfactor>1</cropfactor>
+    </camera>
+
     <camera>
         <maker>Canon</maker>
         <model>Canon EOS R8</model>
@@ -2649,6 +2657,22 @@
             <vignetting model="pa" focal="45" aperture="4" distance="1000" k1="-0.5196" k2="1.2567" k3="-1.1432"/>
             <vignetting model="pa" focal="45" aperture="16" distance="10" k1="0.0883" k2="-0.3813" k3="0.0777"/>
             <vignetting model="pa" focal="45" aperture="16" distance="1000" k1="0.0883" k2="-0.3813" k3="0.0777"/>
+        </calibration>
+    </lens>
+
+	<lens>
+        <maker>Canon</maker>
+        <model>Canon RF-S55-210mm F5-7.1 IS STM</model>
+        <mount>Canon RF</mount>
+        <cropfactor>1.613</cropfactor>
+        <calibration>
+            <!-- Taken with Canon EOS R100 -->
+            <distortion model="ptlens" focal="55" a="-0.0003899" b="0.0051418" c="0.0066229"/>
+            <distortion model="ptlens" focal="76" a="0.0045474" b="-0.0044745" c="0.0146048"/>
+            <distortion model="ptlens" focal="93" a="0.002536" b="0.0026329" c="0.0082389"/>
+            <distortion model="ptlens" focal="121" a="0.0030628" b="0.00149" c="0.0094275"/>
+            <distortion model="ptlens" focal="162" a="0.0102741" b="-0.0259521" c="0.0435937"/>
+            <distortion model="ptlens" focal="210" a="-0.0034996" b="0.0211619" c="-0.0103389"/>
         </calibration>
     </lens>
 

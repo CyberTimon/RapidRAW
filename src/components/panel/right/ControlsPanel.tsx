@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { RotateCcw, Copy, ClipboardPaste, Aperture, ChartArea } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import BasicAdjustments from '../../adjustments/Basic';
 import CurveGraph from '../../adjustments/Curves';
 import ColorPanel from '../../adjustments/Color';
@@ -15,33 +16,34 @@ import { useContextMenu } from '../../../context/ContextMenuContext';
 import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
 import { TextVariants } from '../../../types/typography';
-
-// Zustand Stores
+import { useShallow } from 'zustand/react/shallow';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
+import { useEditorActions } from '../../../hooks/useEditorActions';
+import { useWaveformControls } from '../../../hooks/useWaveformControls';
 
-interface ControlsPanelOption {
-  disabled?: boolean;
-  icon?: any;
-  label?: string;
-  onClick?(): void;
-  type?: string;
-}
-
-interface ControlsProps {
-  handleAutoAdjustments(): void;
-  handleLutSelect(path: string): void;
-  setAdjustments(updater: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)): void;
-}
-
-export default function Controls({ handleAutoAdjustments, handleLutSelect, setAdjustments }: ControlsProps) {
+export default function Controls() {
+  const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
-  const [isResizingWaveform, setIsResizingWaveform] = useState<boolean>(false);
+  const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, handleWaveformResize } =
+    useWaveformControls();
+  const { setAdjustments, handleAutoAdjustments, handleLutSelect, setLutPreviewOverride } = useEditorActions();
 
-  // --- Zustand Store Hooks ---
-  const { appSettings, theme } = useSettingsStore();
-  const { collapsibleSectionsState, setUI } = useUIStore();
+  const { appSettings, theme } = useSettingsStore(
+    useShallow((state) => ({
+      appSettings: state.appSettings,
+      theme: state.theme,
+    })),
+  );
+
+  const { collapsibleSectionsState, setUI } = useUIStore(
+    useShallow((state) => ({
+      collapsibleSectionsState: state.collapsibleSectionsState,
+      setUI: state.setUI,
+    })),
+  );
+
   const {
     adjustments,
     copiedSectionAdjustments,
@@ -53,7 +55,20 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
     activeWaveformChannel,
     waveformHeight,
     setEditor,
-  } = useEditorStore();
+  } = useEditorStore(
+    useShallow((state) => ({
+      adjustments: state.adjustments,
+      copiedSectionAdjustments: state.copiedSectionAdjustments,
+      histogram: state.histogram,
+      selectedImage: state.selectedImage,
+      isWbPickerActive: state.isWbPickerActive,
+      isWaveformVisible: state.isWaveformVisible,
+      waveform: state.waveform,
+      activeWaveformChannel: state.activeWaveformChannel,
+      waveformHeight: state.waveformHeight,
+      setEditor: state.setEditor,
+    })),
+  );
 
   const setCopiedSectionAdjustments = useCallback(
     (val: any) => setEditor({ copiedSectionAdjustments: val }),
@@ -70,18 +85,6 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
     [setEditor],
   );
 
-  const onToggleWaveform = useCallback(
-    () => setEditor((state) => ({ isWaveformVisible: !state.isWaveformVisible })),
-    [setEditor],
-  );
-
-  const setActiveWaveformChannel = useCallback(
-    (mode: string) => setEditor({ activeWaveformChannel: mode }),
-    [setEditor],
-  );
-
-  const setWaveformHeight = useCallback((height: number) => setEditor({ waveformHeight: height }), [setEditor]);
-
   const setCollapsibleState = useCallback(
     (updater: any) =>
       setUI((state) => ({
@@ -89,46 +92,6 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
       })),
     [setUI],
   );
-
-  const handleWaveformResize = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const pointerId = e.pointerId;
-    const target = e.currentTarget;
-    const startY = e.clientY;
-    const startHeight = waveformHeight || 256;
-    const previousTouchAction = document.documentElement.style.touchAction;
-    const previousUserSelect = document.documentElement.style.userSelect;
-    setIsResizingWaveform(true);
-
-    target.setPointerCapture?.(pointerId);
-    document.documentElement.style.touchAction = 'none';
-    document.documentElement.style.userSelect = 'none';
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== pointerId) return;
-      moveEvent.preventDefault();
-      const delta = moveEvent.clientY - startY;
-      const newHeight = Math.round(Math.max(150, Math.min(450, startHeight + delta)));
-      setWaveformHeight(newHeight);
-    };
-
-    const handlePointerUp = (upEvent: PointerEvent) => {
-      if (upEvent.pointerId !== pointerId) return;
-      if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId);
-      setIsResizingWaveform(false);
-      document.documentElement.style.touchAction = previousTouchAction;
-      document.documentElement.style.userSelect = previousUserSelect;
-      document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerup', handlePointerUp);
-      document.removeEventListener('pointercancel', handlePointerUp);
-    };
-
-    document.addEventListener('pointermove', handlePointerMove, { passive: false });
-    document.addEventListener('pointerup', handlePointerUp);
-    document.addEventListener('pointercancel', handlePointerUp);
-  };
 
   const handleToggleVisibility = (sectionName: string) => {
     setAdjustments((prev: Adjustments) => {
@@ -220,22 +183,22 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
     };
 
     const isPasteAllowed = copiedSectionAdjustments && copiedSectionAdjustments.section === sectionName;
-    const pasteLabel = copiedSectionAdjustments
-      ? `Paste ${
-          copiedSectionAdjustments.section.charAt(0).toUpperCase() + copiedSectionAdjustments.section.slice(1)
-        } Settings`
-      : 'Paste Settings';
+    const translatedSection = t(`editor.adjustments.sections.${sectionName}`);
 
-    const options: Array<ControlsPanelOption> = [
+    const pasteLabel = copiedSectionAdjustments
+      ? t('editor.adjustments.actions.pasteLabel', { section: translatedSection })
+      : t('editor.adjustments.actions.pasteSettings');
+
+    const options: any = [
       {
-        label: `Copy ${sectionName.charAt(0).toUpperCase() + sectionName.slice(1)} Settings`,
+        label: t('editor.adjustments.actions.copySectionSettings', { section: translatedSection }),
         icon: Copy,
         onClick: handleCopy,
       },
       { label: pasteLabel, icon: ClipboardPaste, onClick: handlePaste, disabled: !isPasteAllowed },
       { type: OPTION_SEPARATOR },
       {
-        label: `Reset ${sectionName.charAt(0).toUpperCase() + sectionName.slice(1)} Settings`,
+        label: t('editor.adjustments.actions.resetSectionSettings', { section: translatedSection }),
         icon: RotateCcw,
         onClick: handleReset,
       },
@@ -247,13 +210,13 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>Adjustments</Text>
+        <Text variant={TextVariants.title}>{t('editor.adjustments.title')}</Text>
         <div className="flex items-center gap-1">
           <button
             className="p-2 rounded-full hover:bg-surface disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage?.isReady}
             onClick={handleAutoAdjustments}
-            data-tooltip="Auto Adjust Image"
+            data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
           >
             <Aperture size={18} />
           </button>
@@ -263,7 +226,7 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
               isWaveformVisible ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
             )}
             onClick={onToggleWaveform}
-            data-tooltip="Toggle Analytics Display"
+            data-tooltip={t('editor.adjustments.tooltips.toggleAnalytics')}
           >
             <ChartArea size={18} />
           </button>
@@ -271,7 +234,7 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage}
             onClick={handleResetAdjustments}
-            data-tooltip="Reset Adjustments"
+            data-tooltip={t('editor.adjustments.tooltips.resetAdjustments')}
           >
             <RotateCcw size={18} />
           </button>
@@ -318,7 +281,7 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
             effects: EffectsPanel,
           }[sectionName];
 
-          const title = sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
+          const title = t(`editor.adjustments.sections.${sectionName}`);
           const sectionVisibility = adjustments.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility;
 
           return (
@@ -337,6 +300,7 @@ export default function Controls({ handleAutoAdjustments, handleLutSelect, setAd
                   histogram={histogram}
                   theme={theme}
                   handleLutSelect={handleLutSelect}
+                  onLutHover={setLutPreviewOverride}
                   appSettings={appSettings}
                   isWbPickerActive={isWbPickerActive}
                   toggleWbPicker={toggleWbPicker}

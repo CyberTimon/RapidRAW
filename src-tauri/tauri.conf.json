@@ -23,7 +23,11 @@
     ],
     "security": {
       "csp": null,
-      "capabilities": ["default"]
+      "capabilities": ["default"],
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPCACHE/thumbnails/*"]
+      }
     },
     "macOSPrivateApi": true
   },
@@ -89,5 +93,5 @@
       }
     }
   },
-  "version": "1.5.5"
+  "version": "1.5.9"
 }

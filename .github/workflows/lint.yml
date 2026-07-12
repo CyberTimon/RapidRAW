@@ -7,6 +7,32 @@ on:
   pull_request:
 
 jobs:
+  frontend-lint:
+    name: Frontend Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check Formatting
+        run: npm run format:check
+        continue-on-error: true
+
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Check Translation Sync
+        run: npm run i18n:check
+        continue-on-error: true
+
   fmt:
     name: cargo fmt
     runs-on: ubuntu-latest

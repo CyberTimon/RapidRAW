@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle, XCircle, Loader2, Save, RefreshCw, Layers } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Button from '../ui/Button';
@@ -32,6 +33,7 @@ export default function PanoramaModal({
   onStitch,
   progressMessage,
 }: PanoramaModalProps) {
+  const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -98,7 +100,7 @@ export default function PanoramaModal({
             <XCircle className="w-12 h-12 text-red-500" />
           </div>
           <Text variant={TextVariants.title} className="mb-2 text-center">
-            Panorama Failed
+            {t('modals.panorama.failed')}
           </Text>
           <Text className="text-center p-4 rounded-lg bg-bg-primary max-w-md mt-2 leading-relaxed">
             {String(error)}
@@ -126,7 +128,7 @@ export default function PanoramaModal({
                 className="flex items-center justify-center gap-2 mt-4"
               >
                 <CheckCircle className="w-5 h-5" />
-                <span>Panorama Saved Successfully!</span>
+                <span>{t('modals.panorama.savedSuccess')}</span>
               </Text>
             </motion.div>
           )}
@@ -152,10 +154,10 @@ export default function PanoramaModal({
               className="flex flex-col items-center w-full"
             >
               <Text variant={TextVariants.title} className="mb-2 text-center">
-                Stitching Panorama
+                {t('modals.panorama.stitchingProgress')}
               </Text>
               <Text className="text-center font-mono h-6 flex justify-center items-center">
-                {progressMessage || 'Initializing...'}
+                {progressMessage || t('modals.panorama.initializing')}
               </Text>
 
               <div className="mt-8 w-64 relative">
@@ -176,7 +178,7 @@ export default function PanoramaModal({
               </div>
 
               <Text variant={TextVariants.small} className="mt-6 text-center max-w-xs opacity-60">
-                This may take a few minutes depending on the number and size of images.
+                {t('modals.panorama.speedNotice')}
               </Text>
             </motion.div>
           </div>
@@ -190,11 +192,10 @@ export default function PanoramaModal({
           <Layers className="w-12 h-12 text-accent" />
         </div>
         <Text variant={TextVariants.title} className="mb-3 text-center">
-          Stitch Panorama
+          {t('modals.panorama.title')}
         </Text>
         <Text className="text-center max-w-md leading-relaxed text-text-secondary">
-          Combine {imageCount ? `${imageCount} overlapping images` : 'your overlapping images'} into a seamless
-          panorama.
+          {imageCount ? t('modals.panorama.descCount', { count: imageCount }) : t('modals.panorama.descGeneric')}
         </Text>
       </div>
     );
@@ -204,7 +205,7 @@ export default function PanoramaModal({
     if (error) {
       return (
         <Button onClick={handleClose} className="w-full">
-          Close
+          {t('modals.panorama.close')}
         </Button>
       );
     }
@@ -216,9 +217,9 @@ export default function PanoramaModal({
             onClick={handleClose}
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors"
           >
-            Close
+            {t('modals.panorama.close')}
           </button>
-          <Button onClick={handleOpen}>Open in Editor</Button>
+          <Button onClick={handleOpen}>{t('modals.panorama.openInEditor')}</Button>
         </>
       );
     }
@@ -231,7 +232,7 @@ export default function PanoramaModal({
           onClick={handleClose}
           className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm"
         >
-          {finalImageBase64 ? 'Close' : 'Cancel'}
+          {finalImageBase64 ? t('modals.panorama.close') : t('modals.panorama.cancel')}
         </button>
 
         <Button onClick={onStitch} disabled={isProcessing} variant={finalImageBase64 ? 'secondary' : 'primary'}>
@@ -242,13 +243,13 @@ export default function PanoramaModal({
           ) : (
             <Layers className="mr-2" size={16} />
           )}
-          {finalImageBase64 ? 'Retry' : 'Start'}
+          {finalImageBase64 ? t('modals.panorama.retry') : t('modals.panorama.start')}
         </Button>
 
         {finalImageBase64 && (
           <Button onClick={handleSave} disabled={isSaving || isProcessing}>
             {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
-            Save
+            {t('modals.panorama.save')}
           </Button>
         )}
       </div>

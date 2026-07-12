@@ -18,6 +18,7 @@ interface EditorState {
   // Core Image & Adjustments
   selectedImage: SelectedImage | null;
   adjustments: Adjustments;
+  previewOverride: Adjustments | null;
 
   // History State
   history: Adjustments[];
@@ -64,10 +65,12 @@ interface EditorState {
   isGeneratingAi: boolean;
   isAIConnectorConnected: boolean;
   hasRenderedFirstFrame: boolean;
+  patchesSentToBackend: Set<string>;
 
   // Clipboard
   copiedSectionAdjustments: any | null;
   copiedMask: MaskContainer | null;
+  copiedAdjustments: Adjustments | null;
 
   // Actions
   setEditor: (updater: Partial<EditorState> | ((state: EditorState) => Partial<EditorState>)) => void;
@@ -81,6 +84,7 @@ interface EditorState {
 export const useEditorStore = create<EditorState>((set) => ({
   selectedImage: null,
   adjustments: INITIAL_ADJUSTMENTS,
+  previewOverride: null,
   history: [INITIAL_ADJUSTMENTS],
   historyIndex: 0,
 
@@ -117,12 +121,14 @@ export const useEditorStore = create<EditorState>((set) => ({
   copiedSectionAdjustments: null,
   copiedMask: null,
   brushSettings: { size: 50, feather: 50, tool: ToolType.Brush },
+  copiedAdjustments: null,
 
   isGeneratingAiMask: false,
   isAIConnectorConnected: false,
   isGeneratingAi: false,
   isMaskControlHovered: false,
   hasRenderedFirstFrame: false,
+  patchesSentToBackend: new Set<string>(),
 
   setEditor: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
 

@@ -202,6 +202,14 @@
 
     <camera>
         <maker>Sony</maker>
+        <model>ILCE-7RM6</model>
+        <model lang="en">Alpha 7R VI</model>
+        <mount>Sony E</mount>
+        <cropfactor>1</cropfactor>
+    </camera>
+
+    <camera>
+        <maker>Sony</maker>
         <model>ILCE-7S</model>
         <model lang="en">Alpha 7S</model>
         <mount>Sony E</mount>
@@ -2977,6 +2985,18 @@
 
     <lens>
         <maker>Sony</maker>
+        <model>FE 50mm f/1.4 GM</model>
+        <mount>Sony E</mount>
+        <cropfactor>1.0</cropfactor>
+        <calibration>
+            <!-- Taken with ILCE-7RM5, coeffients fitted from exif data by lf_fitexif_se -->
+            <distortion model="ptlens" focal="50" a="0.0214722" b="-0.0529950" c="0.0396203" />
+            <tca model="poly3" focal="50" vr="1.0001816" cr="-0.0003122" br="0.0001813" vb="1.0000015" cb="0.0003122" bb="-0.0001813" />
+        </calibration>
+    </lens>
+
+    <lens>
+        <maker>Sony</maker>
         <model>FE 28-60mm f/4-5.6</model>
         <mount>Sony E</mount>
         <cropfactor>1.0</cropfactor>
@@ -3161,6 +3181,17 @@
             <tca model="poly3" focal="50" vr="1.0000610" cr="-0.0000000" br="0.0000000" vb="0.9999108" cb="-0.0000726" bb="-0.0000237" />
             <tca model="poly3" focal="70" vr="0.9999932" cr="0.0000506" br="-0.0000556" vb="0.9997559" cb="-0.0000000" bb="0.0000000" />
             <tca model="poly3" focal="70" vr="0.9999606" cr="0.0001254" br="-0.0000873" vb="0.9997559" cb="-0.0000000" bb="0.0000000" />
+        </calibration>
+    </lens>
+
+	<lens>
+        <maker>Sony</maker>
+        <model>FE 16mm f/1.8 G</model>
+        <mount>Sony E</mount>
+        <cropfactor>1.0</cropfactor>
+        <calibration>
+            <distortion model="ptlens" focal="16" a="0.0269355" b="-0.0835928" c="-0.0009985"/>
+            <tca model="poly3" focal="16" vr="1.0000590" vb="1.0000404"/>
         </calibration>
     </lens>
 

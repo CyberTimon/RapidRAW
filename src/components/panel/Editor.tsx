@@ -3,8 +3,11 @@ import { Crop, PercentCrop } from 'react-image-crop';
 import { Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'react-toastify';
+import debounce from 'lodash.debounce';
+
 import { ImageDimensions, useImageRenderSize } from '../../hooks/useImageRenderSize';
-import { Adjustments, AiPatch, Coord, MaskContainer } from '../../utils/adjustments';
+import { Adjustments, AiPatch, MaskContainer } from '../../utils/adjustments';
 import { calculateCenteredCrop } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
@@ -16,7 +19,7 @@ import { useEditorStore } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
-import { useShallow } from 'zustand/react/shallow';
+import { useAiMasking } from '../../hooks/useAiMasking';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -69,109 +72,69 @@ interface WgpuRenderState {
 interface EditorProps {
   onBackToLibrary(): void;
   onContextMenu(event: any): void;
-  onGenerateAiMask(subMaskId: string, startPoint: Coord, endPoint: Coord): void;
-  onQuickErase(subMaskId: string | null, startPoint: Coord, endpoint: Coord): void;
-  setAdjustments(adjustments: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)): void;
   transformWrapperRef: any;
 }
 
-export default function Editor({
-  onBackToLibrary,
-  onContextMenu,
-  onGenerateAiMask,
-  onQuickErase,
-  setAdjustments,
-  transformWrapperRef,
-}: EditorProps) {
-  const { appSettings, osPlatform } = useSettingsStore(
-    useShallow((state) => ({
-      appSettings: state.appSettings,
-      osPlatform: state.osPlatform,
-    })),
-  );
-  const isAndroid = osPlatform === 'android';
+export default function Editor({ onBackToLibrary, onContextMenu, transformWrapperRef }: EditorProps) {
+  const appSettings = useSettingsStore((s) => s.appSettings);
+  const osPlatform = useSettingsStore((s) => s.osPlatform);
+  const isFullScreen = useUIStore((s) => s.isFullScreen);
+  const activeRightPanel = useUIStore((s) => s.activeRightPanel);
+  const isInstantTransition = useUIStore((s) => s.isInstantTransition);
+  const setUI = useUIStore((s) => s.setUI);
+  const isLoading = useLibraryStore((s) => s.isViewLoading);
+  const selectedImage = useEditorStore((s) => s.selectedImage);
+  const adjustments = useEditorStore((s) => s.adjustments);
+  const adjustmentsHistory = useEditorStore((s) => s.history);
+  const adjustmentsHistoryIndex = useEditorStore((s) => s.historyIndex);
+  const finalPreviewUrl = useEditorStore((s) => s.finalPreviewUrl);
+  const uncroppedAdjustedPreviewUrl = useEditorStore((s) => s.uncroppedAdjustedPreviewUrl);
+  const transformedOriginalUrl = useEditorStore((s) => s.transformedOriginalUrl);
+  const interactivePatch = useEditorStore((s) => s.interactivePatch);
+  const showOriginal = useEditorStore((s) => s.showOriginal);
+  const isSliderDragging = useEditorStore((s) => s.isSliderDragging);
+  const targetZoom = useEditorStore((s) => s.zoom);
+  const originalSize = useEditorStore((s) => s.originalSize);
+  const isRotationActive = useEditorStore((s) => s.isRotationActive);
+  const overlayMode = useEditorStore((s) => s.overlayMode);
+  const overlayRotation = useEditorStore((s) => s.overlayRotation);
+  const isStraightenActive = useEditorStore((s) => s.isStraightenActive);
+  const isWbPickerActive = useEditorStore((s) => s.isWbPickerActive);
+  const liveRotation = useEditorStore((s) => s.liveRotation);
+  const brushSettings = useEditorStore((s) => s.brushSettings);
+  const activeMaskContainerId = useEditorStore((s) => s.activeMaskContainerId);
+  const activeMaskId = useEditorStore((s) => s.activeMaskId);
+  const activeAiPatchContainerId = useEditorStore((s) => s.activeAiPatchContainerId);
+  const activeAiSubMaskId = useEditorStore((s) => s.activeAiSubMaskId);
+  const isMaskControlHovered = useEditorStore((s) => s.isMaskControlHovered);
+  const hasRenderedFirstFrame = useEditorStore((s) => s.hasRenderedFirstFrame);
 
-  const { isFullScreen, activeRightPanel, isInstantTransition, setUI } = useUIStore(
-    useShallow((state) => ({
-      isFullScreen: state.isFullScreen,
-      activeRightPanel: state.activeRightPanel,
-      isInstantTransition: state.isInstantTransition,
-      setUI: state.setUI,
-    })),
-  );
-
-  const { isViewLoading: isLoading } = useLibraryStore(
-    useShallow((state) => ({
-      isViewLoading: state.isViewLoading,
-    })),
-  );
-
-  const {
-    selectedImage,
-    adjustments,
-    history: adjustmentsHistory,
-    historyIndex: adjustmentsHistoryIndex,
-    finalPreviewUrl,
-    uncroppedAdjustedPreviewUrl,
-    transformedOriginalUrl,
-    interactivePatch,
-    showOriginal,
-    isSliderDragging,
-    zoom: targetZoom,
-    originalSize,
-    isRotationActive,
-    overlayMode,
-    overlayRotation,
-    isStraightenActive,
-    isWbPickerActive,
-    liveRotation,
-    brushSettings,
-    activeMaskContainerId,
-    activeMaskId,
-    activeAiPatchContainerId,
-    activeAiSubMaskId,
-    isMaskControlHovered,
-    hasRenderedFirstFrame,
-    setEditor,
-    undo,
-    redo,
-    goToHistoryIndex,
-  } = useEditorStore(
-    useShallow((state) => ({
-      selectedImage: state.selectedImage,
-      adjustments: state.adjustments,
-      history: state.history,
-      historyIndex: state.historyIndex,
-      finalPreviewUrl: state.finalPreviewUrl,
-      uncroppedAdjustedPreviewUrl: state.uncroppedAdjustedPreviewUrl,
-      transformedOriginalUrl: state.transformedOriginalUrl,
-      interactivePatch: state.interactivePatch,
-      showOriginal: state.showOriginal,
-      isSliderDragging: state.isSliderDragging,
-      zoom: state.zoom,
-      originalSize: state.originalSize,
-      isRotationActive: state.isRotationActive,
-      overlayMode: state.overlayMode,
-      overlayRotation: state.overlayRotation,
-      isStraightenActive: state.isStraightenActive,
-      isWbPickerActive: state.isWbPickerActive,
-      liveRotation: state.liveRotation,
-      brushSettings: state.brushSettings,
-      activeMaskContainerId: state.activeMaskContainerId,
-      activeMaskId: state.activeMaskId,
-      activeAiPatchContainerId: state.activeAiPatchContainerId,
-      activeAiSubMaskId: state.activeAiSubMaskId,
-      isMaskControlHovered: state.isMaskControlHovered,
-      hasRenderedFirstFrame: state.hasRenderedFirstFrame,
-      setEditor: state.setEditor,
-      undo: state.undo,
-      redo: state.redo,
-      goToHistoryIndex: state.goToHistoryIndex,
-    })),
-  );
-
+  const setEditor = useEditorStore((s) => s.setEditor);
+  const undo = useEditorStore((s) => s.undo);
+  const redo = useEditorStore((s) => s.redo);
+  const goToHistoryIndex = useEditorStore((s) => s.goToHistoryIndex);
+  const pushHistory = useEditorStore((s) => s.pushHistory);
   const canUndo = adjustmentsHistoryIndex > 0;
   const canRedo = adjustmentsHistoryIndex < adjustmentsHistory.length - 1;
+
+  const isAndroid = osPlatform === 'android';
+
+  const debouncedSetHistory = useMemo(() => debounce((newAdj: Adjustments) => pushHistory(newAdj), 500), [pushHistory]);
+
+  const setAdjustments = useCallback(
+    (value: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)) => {
+      setEditor((state) => {
+        const prevAdjustments = state.adjustments;
+        const newAdjustments = typeof value === 'function' ? value(prevAdjustments) : { ...prevAdjustments, ...value };
+        debouncedSetHistory(newAdjustments);
+        return { adjustments: newAdjustments };
+      });
+    },
+    [debouncedSetHistory, setEditor],
+  );
+
+  const { handleGenerateAiMask, handleQuickErase, handleManualCleanup } = useAiMasking();
+
   const [crop, setCrop] = useState<Crop | null>(null);
   const prevCropParams = useRef<any>(null);
   const lastValidCropRef = useRef<PercentCrop | null>(null);
@@ -206,6 +169,8 @@ export default function Editor({
   const lastPinch = useRef<{ dist: number; midX: number; midY: number } | null>(null);
   const panVelocityHistory = useRef<{ x: number; y: number; t: number }[]>([]);
   const wheelSnapTimeout = useRef<number | null>(null);
+  const isMiddleMousePanning = useRef(false);
+  const wasPanningDisabledOnDown = useRef(false);
 
   const prevRenderState = useRef({
     containerLeft: 0,
@@ -272,7 +237,7 @@ export default function Editor({
 
   const handleStraighten = useCallback(
     (angleCorrection: number) => {
-      setAdjustments((prev: Partial<Adjustments>) => {
+      setAdjustments((prev: Adjustments) => {
         const newRotation = (prev.rotation || 0) + angleCorrection;
         return { ...prev, rotation: newRotation };
       });
@@ -298,9 +263,7 @@ export default function Editor({
     [setAdjustments],
   );
 
-  const handleWbPicked = useCallback(() => {
-    // Let's keep it active
-  }, []);
+  const handleWbPicked = useCallback(() => {}, []);
 
   useEffect(() => {
     if (isFullScreen) {
@@ -646,6 +609,8 @@ export default function Editor({
     (isAiEditing &&
       (activeSubMask?.type === Mask.Brush ||
         activeSubMask?.type === Mask.Flow ||
+        activeSubMask?.type === Mask.Clone ||
+        activeSubMask?.type === Mask.Heal ||
         activeSubMask?.type === Mask.AiSubject ||
         activeSubMask?.type === Mask.QuickEraser ||
         activeSubMask?.type === Mask.Color ||
@@ -746,8 +711,17 @@ export default function Editor({
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-      if (isPanningDisabled) return;
+      wasPanningDisabledOnDown.current = isPanningDisabled;
+
+      if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
+
+      const isMiddleClick = e.pointerType === 'mouse' && e.button === 1;
+
+      if (isPanningDisabled && !isMiddleClick) return;
+
+      if (isMiddleClick) {
+        isMiddleMousePanning.current = true;
+      }
 
       if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
       if (physicsFrameId.current) cancelAnimationFrame(physicsFrameId.current);
@@ -775,6 +749,7 @@ export default function Editor({
 
   useEffect(() => {
     if (!isPanningDisabled) return;
+    if (isMiddleMousePanning.current) return;
 
     activePointers.current.clear();
     lastPanPos.current = null;
@@ -789,7 +764,9 @@ export default function Editor({
       if (!activePointers.current.has(e.pointerId)) return;
       activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-      if (activePointers.current.size === 1 && lastPanPos.current && isPanningState && !isPanningDisabled) {
+      const canPan = !isPanningDisabled || isMiddleMousePanning.current;
+
+      if (activePointers.current.size === 1 && lastPanPos.current && isPanningState && canPan) {
         panVelocityHistory.current.push({ x: e.clientX, y: e.clientY, t: performance.now() });
         if (panVelocityHistory.current.length > 6) panVelocityHistory.current.shift();
 
@@ -855,6 +832,7 @@ export default function Editor({
         lastPanPos.current = null;
         lastPinch.current = null;
         setIsPanningState(false);
+        isMiddleMousePanning.current = false;
 
         let vx = 0,
           vy = 0;
@@ -884,7 +862,8 @@ export default function Editor({
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
-      if (isCropping || isMasking || isAiEditing || isWbPickerActive) return;
+      if (e.button !== 0) return;
+      if (isPanningDisabled || wasPanningDisabledOnDown.current) return;
 
       if (mouseDownPos.current) {
         const dx = Math.abs(e.clientX - mouseDownPos.current.x);
@@ -1033,14 +1012,39 @@ export default function Editor({
     isGeneratingOverlayRef.current = true;
     try {
       const cropOffset = [jsAdjustments.crop?.x || 0, jsAdjustments.crop?.y || 0];
+
+      const { patchesSentToBackend } = useEditorStore.getState();
+
+      const stripSubMasks = (subMasks: any[]) => {
+        if (!Array.isArray(subMasks)) return;
+        subMasks.forEach((sm) => {
+          if (sm.id && sm.parameters && patchesSentToBackend.has(sm.id)) {
+            if (sm.parameters.mask_data_base64 !== undefined) sm.parameters.mask_data_base64 = null;
+            if (sm.parameters.maskDataBase64 !== undefined) sm.parameters.maskDataBase64 = null;
+          }
+        });
+      };
+
+      const strippedAdjustments = structuredClone(jsAdjustments);
+      if (strippedAdjustments.masks) {
+        strippedAdjustments.masks.forEach((m: any) => stripSubMasks(m.subMasks));
+      }
+      if (strippedAdjustments.aiPatches) {
+        strippedAdjustments.aiPatches.forEach((p: any) => stripSubMasks(p.subMasks));
+      }
+
+      const strippedMaskDef = structuredClone(maskDef);
+      stripSubMasks(strippedMaskDef.subMasks);
+
       const dataUrl: string = await invoke(Invokes.GenerateMaskOverlay, {
         cropOffset,
         height: Math.round(renderSize.height),
-        maskDef,
+        maskDef: strippedMaskDef,
         scale: renderSize.scale,
         width: Math.round(renderSize.width),
-        jsAdjustments: jsAdjustments,
+        jsAdjustments: strippedAdjustments,
       });
+
       if (dataUrl) {
         setMaskOverlayUrl(dataUrl);
       } else {
@@ -1152,10 +1156,11 @@ export default function Editor({
       const windowWidth = Math.max(window.innerWidth * dpr, 1);
       const windowHeight = Math.max(window.innerHeight * dpr, 1);
 
-      const clipX = currentRect.left * dpr;
-      const clipY = currentRect.top * dpr;
-      const clipW = Math.max(currentRect.width * dpr, 1);
-      const clipH = Math.max(currentRect.height * dpr, 1);
+      const OVERLAP = 2;
+      const clipX = (currentRect.left - OVERLAP) * dpr;
+      const clipY = (currentRect.top - OVERLAP) * dpr;
+      const clipW = Math.max((currentRect.width + OVERLAP * 2) * dpr, 1);
+      const clipH = Math.max((currentRect.height + OVERLAP * 2) * dpr, 1);
 
       if (state.useWgpuRenderer === false || !state.isReady || !state.hasRenderedFirstFrame) {
         const hiddenTransform = `${windowWidth},${windowHeight},-999999,-999999,1,1,${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')}`;
@@ -1310,9 +1315,20 @@ export default function Editor({
     const subMasks = activeMaskDef.subMasks?.map((sm: any) => {
       const { parameters, ...rest } = sm;
       const cleanParams = { ...parameters };
+      const maskDataFingerprint = cleanParams.mask_data_base64
+        ? `${cleanParams.mask_data_base64.length}-${cleanParams.mask_data_base64.slice(-20)}`
+        : null;
+      const maskDataCamelFingerprint = cleanParams.maskDataBase64
+        ? `${cleanParams.maskDataBase64.length}-${cleanParams.maskDataBase64.slice(-20)}`
+        : null;
       delete cleanParams.mask_data_base64;
       delete cleanParams.maskDataBase64;
-      return { ...rest, parameters: cleanParams };
+      return {
+        ...rest,
+        parameters: cleanParams,
+        _maskDataFingerprint: maskDataFingerprint,
+        _maskDataCamelFingerprint: maskDataCamelFingerprint,
+      };
     });
 
     return JSON.stringify({
@@ -1414,6 +1430,7 @@ export default function Editor({
         );
 
         if (
+          maxCropForReference &&
           Math.abs(currentAdjCrop.x - maxCropForReference.x) <= 2 &&
           Math.abs(currentAdjCrop.y - maxCropForReference.y) <= 2 &&
           Math.abs(currentAdjCrop.width - maxCropForReference.width) <= 2 &&
@@ -1545,7 +1562,7 @@ export default function Editor({
             Math.abs(currentAdjCrop.width - nextPixelCrop.width) > 1 ||
             Math.abs(currentAdjCrop.height - nextPixelCrop.height) > 1)
         ) {
-          setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, crop: nextPixelCrop }));
+          setAdjustments((prev: Adjustments) => ({ ...prev, crop: nextPixelCrop }));
         }
       }
     }
@@ -1893,20 +1910,16 @@ export default function Editor({
   );
 
   if (!selectedImage) {
-    return (
-      <div className="flex-1 bg-bg-secondary rounded-lg flex items-center justify-center">
-        <Text variant={TextVariants.heading} color={TextColors.secondary} weight={TextWeights.normal}>
-          Select an image from the library to begin editing.
-        </Text>
-      </div>
-    );
+    return null;
   }
 
-  const isZoomActionActive = !isCropping && !isMasking && !isAiEditing && !isWbPickerActive;
+  const isZoomActionActive = !isPanningDisabled;
   const isMaxZoom = transformState.scale >= maxScaleRef.current - 0.5;
 
   let cursorStyle = 'default';
-  if (isZoomActionActive) {
+  if (isPanningState && isMiddleMousePanning.current) {
+    cursorStyle = 'grabbing';
+  } else if (isZoomActionActive) {
     if (isPanningState) {
       cursorStyle = 'grabbing';
     } else if (transformState.scale > 1.01) {
@@ -1958,13 +1971,19 @@ export default function Editor({
 
       <div
         className={clsx(
-          'flex-1 relative overflow-hidden',
+          'flex-1 relative overflow-hidden touch-none',
           isFullScreen ? 'rounded-none' : 'rounded-lg',
           appSettings?.useWgpuRenderer !== false && !isFullScreen && 'ring-[9999px] ring-bg-secondary',
           !isWgpuActive && 'bg-bg-secondary',
         )}
+        style={{ cursor: cursorStyle }}
         onContextMenu={onContextMenu}
         ref={imageContainerRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onClick={handleClick}
       >
         {showSpinner && (
           <div
@@ -1979,16 +1998,10 @@ export default function Editor({
 
         <div
           ref={contentRef}
-          className="w-full h-full flex items-center justify-center touch-none origin-top-left"
+          className="w-full h-full flex items-center justify-center origin-top-left"
           style={{
             transform: `translate(${transformState.positionX}px, ${transformState.positionY}px) scale(${transformState.scale})`,
-            cursor: cursorStyle,
           }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          onClick={handleClick}
         >
           <ImageCanvas
             appSettings={appSettings}
@@ -2011,9 +2024,12 @@ export default function Editor({
             isRotationActive={isRotationActive}
             isSliderDragging={isSliderDragging}
             maskOverlayUrl={maskOverlayUrl}
-            onGenerateAiMask={onGenerateAiMask}
+            onGenerateAiMask={handleGenerateAiMask}
+            onSelectAiPatchContainer={(id) => setEditor({ activeAiPatchContainerId: id })}
+            onSelectMaskContainer={(id) => setEditor({ activeMaskContainerId: id })}
             onLiveMaskPreview={handleLiveMaskPreview}
-            onQuickErase={onQuickErase}
+            onManualCleanup={handleManualCleanup}
+            onQuickErase={handleQuickErase}
             onSelectAiSubMask={(id) => setEditor({ activeAiSubMaskId: id })}
             onSelectMask={(id) => setEditor({ activeMaskId: id })}
             onStraighten={handleStraighten}
@@ -2033,7 +2049,7 @@ export default function Editor({
             cursorStyle={cursorStyle}
             isMaxZoom={isMaxZoom}
             liveRotation={liveRotation}
-            zoomScale={transformState.scale}
+            transformState={transformState}
             hasRenderedFirstFrame={hasRenderedFirstFrame}
           />
         </div>

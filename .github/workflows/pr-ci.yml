@@ -1,30 +1,9 @@
 name: CI Build
 
 on:
-  pull_request_target:
+  pull_request:
 
 jobs:
-  checkout-branch:
-    runs-on: ubuntu-latest
-    outputs:
-      PR_head_ref: ${{ fromJSON(steps.comment-branch.outputs.result).ref }}
-      PR_head_sha: ${{ fromJSON(steps.comment-branch.outputs.result).sha }}
-      PR_num: ${{ fromJSON(steps.comment-branch.outputs.result).num }}
-      PR_repo: ${{ fromJSON(steps.comment-branch.outputs.result).repo }}
-    permissions:
-      pull-requests: read
-    steps:
-      - uses: actions/github-script@v7
-        id: comment-branch
-        with:
-          script: |
-            const result = await github.rest.pulls.get ({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number
-            })
-            return { repo: result.data.head.repo.full_name, num: result.data.number, sha: result.data.head.sha, ref: result.data.head.ref }
-
   build:
     strategy:
       fail-fast: false
@@ -62,15 +41,9 @@ jobs:
             args: '--debug --target aarch64'
             asset-prefix: '04'
     uses: ./.github/workflows/build.yml
-    needs: [checkout-branch]
     with:
-      repository: ${{ needs.checkout-branch.outputs.PR_repo }}
-      ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
       platform: ${{ matrix.platform }}
       target: ${{ matrix.target }}
       build-args: ${{ matrix.args }}
       asset-prefix: ${{ matrix.asset-prefix }}
       mobile: ${{ matrix.mobile }}
-    secrets: inherit
-    permissions:
-      contents: write
