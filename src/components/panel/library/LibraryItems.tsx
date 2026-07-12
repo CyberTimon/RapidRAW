@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Image as ImageIcon, Folder, FolderOpen, Star as StarIcon, SlidersHorizontal, CloudOff } from 'lucide-react';
+import { Check, Image as ImageIcon, Folder, FolderOpen, Star as StarIcon, SlidersHorizontal, CloudOff } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
@@ -7,6 +7,7 @@ import { ThumbnailAspectRatio, ImageFile, ExifOverlay } from '../../ui/AppProper
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
 import { ColumnWidths } from '../MainLibrary';
+import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
@@ -23,6 +24,7 @@ const ThumbnailComponent = ({
   onContextMenu,
   onImageClick,
   onImageDoubleClick,
+  selectionModeActive,
   onLoad,
   path,
   rating,
@@ -148,11 +150,29 @@ const ThumbnailComponent = ({
       className="aspect-square bg-surface rounded-md overflow-hidden cursor-pointer group relative flex flex-col transition-all duration-150 transform-gpu [-webkit-mask-image:-webkit-radial-gradient(white,black)]"
       onClick={(e: any) => {
         e.stopPropagation();
-        onImageClick(path, e);
+        if (selectionModeActive) {
+          const state = useLibraryStore.getState();
+          const newSet = new Set(state.multiSelectedPaths);
+          if (newSet.has(path)) newSet.delete(path);
+          else newSet.add(path);
+          state.setLibrary({ multiSelectedPaths: Array.from(newSet) });
+        } else {
+          onImageClick(path, e);
+        }
       }}
       onContextMenu={(e: any) => onContextMenu(e, path)}
       onDoubleClick={() => onImageDoubleClick(path)}
     >
+      {selectionModeActive && (
+        <div
+          className={clsx(
+            'absolute top-2 left-2 z-20 w-6 h-6 rounded-full border-2 flex items-center justify-center pointer-events-none transition-all duration-150',
+            isSelected ? 'bg-accent border-white' : 'bg-black/40 border-white/60',
+          )}
+        >
+          {isSelected && <Check size={14} className="text-white" />}
+        </div>
+      )}
       <div className="relative w-full flex-1 min-h-0 z-0 bg-surface">
         {layers.length > 0 && (
           <div className="absolute inset-0 w-full h-full">
@@ -422,6 +442,7 @@ const ListItemComponent = ({
   onContextMenu,
   onImageClick,
   onImageDoubleClick,
+  selectionModeActive,
   onLoad,
   path,
   rating,
@@ -554,11 +575,36 @@ const ListItemComponent = ({
       className={`flex items-center w-full h-full border-b border-border-color/30 cursor-pointer transition-colors duration-150 ${stateClass}`}
       onClick={(e: any) => {
         e.stopPropagation();
-        onImageClick(path, e);
+        if (selectionModeActive) {
+          const state = useLibraryStore.getState();
+          const newSet = new Set(state.multiSelectedPaths);
+          if (newSet.has(path)) newSet.delete(path);
+          else newSet.add(path);
+          state.setLibrary({ multiSelectedPaths: Array.from(newSet) });
+        } else {
+          onImageClick(path, e);
+        }
       }}
       onContextMenu={(e: any) => onContextMenu(e, path)}
       onDoubleClick={() => onImageDoubleClick(path)}
     >
+      {selectionModeActive && (
+        <div
+          className={clsx(
+            'flex items-center justify-center w-8 h-full shrink-0 transition-colors duration-150',
+            isSelected ? 'bg-accent/10' : '',
+          )}
+        >
+          <div
+            className={clsx(
+              'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-150',
+              isSelected ? 'bg-accent border-white' : 'bg-black/20 border-white/60',
+            )}
+          >
+            {isSelected && <Check size={12} className="text-white" />}
+          </div>
+        </div>
+      )}
       <div
         style={{ width: getW('thumbnail') }}
         className="flex items-center justify-center p-1.5 h-full overflow-hidden"
@@ -705,6 +751,7 @@ const RowComponent = ({
   onContextMenu,
   onImageClick,
   onImageDoubleClick,
+  selectionModeActive,
   thumbnailAspectRatio,
   onImageLoad,
   imageRatings,
@@ -818,6 +865,7 @@ const RowComponent = ({
               onContextMenu={onContextMenu}
               onImageClick={onImageClick}
               onImageDoubleClick={onImageDoubleClick}
+              selectionModeActive={selectionModeActive}
               onLoad={onImageLoad}
               path={imageFile.path}
               rating={imageRatings?.[imageFile.path] || 0}
@@ -835,6 +883,7 @@ const RowComponent = ({
               onContextMenu={onContextMenu}
               onImageClick={onImageClick}
               onImageDoubleClick={onImageDoubleClick}
+              selectionModeActive={selectionModeActive}
               onLoad={onImageLoad}
               path={imageFile.path}
               rating={imageRatings?.[imageFile.path] || 0}

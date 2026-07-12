@@ -4,6 +4,7 @@ import { open } from '@tauri-apps/plugin-shell';
 import {
   AlertTriangle,
   Check,
+  CheckCheck,
   Folder,
   FolderInput,
   Home,
@@ -13,6 +14,7 @@ import {
   Search,
   Users,
   SlidersHorizontal,
+  X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -96,6 +98,8 @@ export default function MainLibrary(props: MainLibraryProps) {
   const [isBusyDelayed, setIsBusyDelayed] = useState(false);
   const [isProgressHovered, setIsProgressHovered] = useState(false);
 
+  const [selectionModeActive, setSelectionModeActive] = useState(false);
+  const setLibrary = useLibraryStore((state) => state.setLibrary);
   const searchCriteria = useLibraryStore((state) => state.searchCriteria);
 
   const translatedRatingFilterOptions = useMemo(
@@ -412,102 +416,154 @@ export default function MainLibrary(props: MainLibraryProps) {
   return (
     <div className="flex-1 flex flex-col h-full min-w-0 bg-bg-secondary rounded-lg overflow-hidden">
       <header
-        className="p-4 shrink-0 flex justify-between items-center border-b border-surface gap-4"
+        className="p-4 shrink-0 flex justify-between items-center border-b border-surface gap-4 min-h-[68px]"
         onMouseEnter={() => setIsProgressHovered(true)}
         onMouseLeave={() => setIsProgressHovered(false)}
       >
-        <div className="min-w-0">
-          <Text variant={TextVariants.headline}>{t('library.header.title')}</Text>
-          {!props.isAndroid && (
-            <div className="flex items-center gap-2">
-              {props.currentFolderPath ? (
-                <Text className="truncate">{props.currentFolderPath}</Text>
-              ) : (
-                <p className="text-sm invisible select-none pointer-events-none h-5 overflow-hidden"></p>
-              )}
-              <div
-                className={`flex items-center gap-2 overflow-hidden transition-all duration-300 whitespace-nowrap ${
-                  isBusyDelayed ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'
-                }`}
-              >
-                <Loader2 size={14} className="animate-spin text-text-secondary shrink-0" />
-                <div
-                  className={`flex items-center transition-all duration-300 ease-out overflow-hidden ${
-                    isProgressHovered && isBusyDelayed && (props.thumbnailProgress?.total ?? 0) > 0
-                      ? 'max-w-xs opacity-100'
-                      : 'max-w-0 opacity-0'
-                  }`}
-                >
-                  <Text variant={TextVariants.small} color={TextColors.secondary} className="whitespace-nowrap">
-                    ({props.thumbnailProgress?.current ?? 0}/{props.thumbnailProgress?.total ?? 0})
-                  </Text>
-                </div>
-              </div>
+        {selectionModeActive ? (
+          <div className="w-full flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Text variant={TextVariants.headline}>
+                {props.multiSelectedPaths.length > 0
+                  ? t('library.header.selectedCount', { count: props.multiSelectedPaths.length })
+                  : t('library.header.selectItems')}
+              </Text>
             </div>
-          )}
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {props.importState.status === Status.Importing && (
-            <Text as="div" color={TextColors.accent} className="flex items-center gap-2 animate-pulse">
-              <FolderInput size={16} />
-              <span>
-                {t('library.import.progress', {
-                  current: props.importState.progress?.current,
-                  total: props.importState.progress?.total,
-                })}
-              </span>
-            </Text>
-          )}
-          {props.importState.status === Status.Success && (
-            <Text as="div" color={TextColors.success} className="flex items-center gap-2">
-              <Check size={16} />
-              <span>{t('library.import.complete')}</span>
-            </Text>
-          )}
-          {props.importState.status === Status.Error && (
-            <Text as="div" color={TextColors.error} className="flex items-center gap-2">
-              <AlertTriangle size={16} />
-              <span>{t('library.import.failed')}</span>
-            </Text>
-          )}
-          <SearchInput indexingProgress={props.indexingProgress} isIndexing={props.isIndexing} />
-          <ViewOptionsDropdown
-            libraryViewMode={props.libraryViewMode}
-            onSelectSize={props.onThumbnailSizeChange}
-            onSelectAspectRatio={props.onThumbnailAspectRatioChange}
-            setLibraryViewMode={props.setLibraryViewMode}
-            thumbnailSize={props.thumbnailSize}
-            thumbnailAspectRatio={props.thumbnailAspectRatio}
-            thumbnailSizeOptions={translatedThumbnailSizeOptions}
-            thumbnailAspectRatioOptions={translatedThumbnailAspectRatioOptions}
-            ratingFilterOptions={translatedRatingFilterOptions}
-            rawStatusOptions={translatedRawStatusOptions}
-            editedStatusOptions={translatedEditedStatusOptions}
-            sortOptions={translatedSortOptions}
-          />
-          {!props.isAndroid && (
-            <>
+            <div className="flex items-center gap-3">
+              {props.multiSelectedPaths.length < props.imageList.length && (
+                <Button
+                  className="h-10 px-4 bg-surface text-text-primary shadow-none"
+                  onClick={() =>
+                    setLibrary({ multiSelectedPaths: props.imageList.map((img: any) => img.path) })
+                  }
+                >
+                  <CheckCheck size={16} className="mr-2" />
+                  {t('library.header.selectAll')}
+                </Button>
+              )}
+              {props.multiSelectedPaths.length === props.imageList.length && props.imageList.length > 0 && (
+                <Button
+                  className="h-10 px-4 bg-surface text-text-primary shadow-none"
+                  onClick={() => setLibrary({ multiSelectedPaths: [] })}
+                >
+                  {t('library.header.deselectAll')}
+                </Button>
+              )}
+              <Button
+                className="h-10 px-4 bg-surface text-text-primary shadow-none"
+                onClick={() => {
+                  setSelectionModeActive(false);
+                  if (props.multiSelectedPaths.length > 0) props.onClearSelection();
+                }}
+              >
+                <X size={16} className="mr-2" />
+                {t('library.header.cancel')}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="min-w-0">
+              <Text variant={TextVariants.headline}>{t('library.header.title')}</Text>
+              {!props.isAndroid && (
+                <div className="flex items-center gap-2">
+                  {props.currentFolderPath ? (
+                    <Text className="truncate">{props.currentFolderPath}</Text>
+                  ) : (
+                    <p className="text-sm invisible select-none pointer-events-none h-5 overflow-hidden"></p>
+                  )}
+                  <div
+                    className={`flex items-center gap-2 overflow-hidden transition-all duration-300 whitespace-nowrap ${
+                      isBusyDelayed ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'
+                    }`}
+                  >
+                    <Loader2 size={14} className="animate-spin text-text-secondary shrink-0" />
+                    <div
+                      className={`flex items-center transition-all duration-300 ease-out overflow-hidden ${
+                        isProgressHovered && isBusyDelayed && (props.thumbnailProgress?.total ?? 0) > 0
+                          ? 'max-w-xs opacity-100'
+                          : 'max-w-0 opacity-0'
+                      }`}
+                    >
+                      <Text variant={TextVariants.small} color={TextColors.secondary} className="whitespace-nowrap">
+                        ({props.thumbnailProgress?.current ?? 0}/{props.thumbnailProgress?.total ?? 0})
+                      </Text>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              {props.importState.status === Status.Importing && (
+                <Text as="div" color={TextColors.accent} className="flex items-center gap-2 animate-pulse">
+                  <FolderInput size={16} />
+                  <span>
+                    {t('library.import.progress', {
+                      current: props.importState.progress?.current,
+                      total: props.importState.progress?.total,
+                    })}
+                  </span>
+                </Text>
+              )}
+              {props.importState.status === Status.Success && (
+                <Text as="div" color={TextColors.success} className="flex items-center gap-2">
+                  <Check size={16} />
+                  <span>{t('library.import.complete')}</span>
+                </Text>
+              )}
+              {props.importState.status === Status.Error && (
+                <Text as="div" color={TextColors.error} className="flex items-center gap-2">
+                  <AlertTriangle size={16} />
+                  <span>{t('library.import.failed')}</span>
+                </Text>
+              )}
+              <SearchInput indexingProgress={props.indexingProgress} isIndexing={props.isIndexing} />
+              <ViewOptionsDropdown
+                libraryViewMode={props.libraryViewMode}
+                onSelectSize={props.onThumbnailSizeChange}
+                onSelectAspectRatio={props.onThumbnailAspectRatioChange}
+                setLibraryViewMode={props.setLibraryViewMode}
+                thumbnailSize={props.thumbnailSize}
+                thumbnailAspectRatio={props.thumbnailAspectRatio}
+                thumbnailSizeOptions={translatedThumbnailSizeOptions}
+                thumbnailAspectRatioOptions={translatedThumbnailAspectRatioOptions}
+                ratingFilterOptions={translatedRatingFilterOptions}
+                rawStatusOptions={translatedRawStatusOptions}
+                editedStatusOptions={translatedEditedStatusOptions}
+                sortOptions={translatedSortOptions}
+              />
+              <Button
+                className="h-12 w-12 bg-accent text-button-text shadow-none p-0 flex items-center justify-center"
+                onClick={() => setSelectionModeActive(true)}
+                data-tooltip={t('library.tooltips.select')}
+              >
+                <CheckCheck className="w-6 h-6" />
+              </Button>
+              {!props.isAndroid && (
+                <>
+                  <Button
+                    className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
+                    onClick={props.onNavigateToCommunity}
+                    data-tooltip={t('library.tooltips.communityPresets')}
+                  >
+                    <Users className="w-8 h-8" />
+                  </Button>
+                </>
+              )}
               <Button
                 className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
-                onClick={props.onNavigateToCommunity}
-                data-tooltip={t('library.tooltips.communityPresets')}
+                onClick={props.onGoHome}
+                data-tooltip={t('library.tooltips.goHome')}
               >
-                <Users className="w-8 h-8" />
+                <Home className="w-8 h-8" />
               </Button>
-            </>
-          )}
-          <Button
-            className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
-            onClick={props.onGoHome}
-            data-tooltip={t('library.tooltips.goHome')}
-          >
-            <Home className="w-8 h-8" />
-          </Button>
-        </div>
+            </div>
+          </>
+        )}
       </header>
 
       {props.imageList.length > 0 ? (
-        <LibraryGrid {...props} thumbnailSizeOptions={translatedThumbnailSizeOptions} />
+        <LibraryGrid {...props} selectionModeActive={selectionModeActive} thumbnailSizeOptions={translatedThumbnailSizeOptions} />
       ) : props.isIndexing || props.aiModelDownloadStatus || props.importState.status === Status.Importing ? (
         <div className="flex-1 flex flex-col items-center justify-center" onContextMenu={props.onEmptyAreaContextMenu}>
           <Loader2 className="h-12 w-12 text-secondary animate-spin mb-4" />

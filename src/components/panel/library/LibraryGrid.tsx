@@ -430,6 +430,7 @@ export default function LibraryGrid(props: any) {
       onContextMenu,
       onImageClick,
       onImageDoubleClick,
+      selectionModeActive: props.selectionModeActive,
       thumbnailAspectRatio,
       onImageLoad: handleImageLoad,
       imageRatings,
@@ -450,6 +451,7 @@ export default function LibraryGrid(props: any) {
     onContextMenu,
     onImageClick,
     onImageDoubleClick,
+    props.selectionModeActive,
     thumbnailAspectRatio,
     handleImageLoad,
     imageRatings,
@@ -464,7 +466,7 @@ export default function LibraryGrid(props: any) {
       <div
         ref={libraryContainerRef}
         className="flex-1 w-full h-full"
-        onClick={props.onClearSelection}
+        onClick={props.selectionModeActive ? undefined : props.onClearSelection}
         onContextMenu={props.onEmptyAreaContextMenu}
       />
     );
@@ -493,7 +495,7 @@ export default function LibraryGrid(props: any) {
     <div
       ref={libraryContainerRef}
       className="flex-1 w-full h-full"
-      onClick={props.onClearSelection}
+      onClick={props.selectionModeActive ? undefined : props.onClearSelection}
       onContextMenu={props.onEmptyAreaContextMenu}
     >
       <div className="flex flex-col w-full h-full">
