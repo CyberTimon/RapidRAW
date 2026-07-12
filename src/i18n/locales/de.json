@@ -1021,7 +1021,8 @@
       "rejected": "Abgelehnt",
       "title": "Auswählen nach",
       "unrated": "Nicht bewertet",
-      "ratingAndUp": "{{value}} & höher"
+      "ratingAndUp": "{{value}} & höher",
+      "flags": "Markierungen"
     }
   },
   "masks": {

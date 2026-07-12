@@ -93,17 +93,28 @@ export function SelectByDropdown({
 }) {
   const { t } = useTranslation();
   const { handleSelectBy } = useLibraryActions();
-  const ratingOptions = useMemo<
+  const flagOptions = useMemo<
     Array<{
       label: string;
       criteria: SelectByCriteria;
       icon?: 'check' | 'rejected';
-      starValue?: number;
     }>
   >(
     () => [
       { label: t('library.selectBy.notRejected'), criteria: { type: 'rating', mode: 'notRejected' }, icon: 'check' },
       { label: t('library.selectBy.rejected'), criteria: { type: 'rating', mode: 'rejected' }, icon: 'rejected' },
+    ],
+    [t],
+  );
+
+  const ratingOptions = useMemo<
+    Array<{
+      label: string;
+      criteria: SelectByCriteria;
+      starValue?: number;
+    }>
+  >(
+    () => [
       { label: t('library.selectBy.unrated'), criteria: { type: 'rating', mode: 'unrated' } },
       ...[1, 2, 3, 4, 5].map((value) => ({
         label: value === 5 ? t('library.selectBy.fiveOnly') : t('library.selectBy.ratingAndUp', { value }),
@@ -114,14 +125,16 @@ export function SelectByDropdown({
     [t],
   );
 
+  const allRatingOptions = useMemo(() => [...flagOptions, ...ratingOptions], [flagOptions, ratingOptions]);
+
   const counts = useMemo(() => {
     const result = new Map<string, number>();
-    for (const option of ratingOptions) result.set(option.label, 0);
+    for (const option of allRatingOptions) result.set(option.label, 0);
     for (const color of COLOR_LABELS) result.set(color.name, 0);
 
     for (const image of imageList) {
       const rating = imageRatings[image.path] ?? 0;
-      for (const option of ratingOptions) {
+      for (const option of allRatingOptions) {
         const { mode, value } = option.criteria as Extract<SelectByCriteria, { type: 'rating' }>;
         const matches =
           mode === 'rejected'
@@ -137,7 +150,7 @@ export function SelectByDropdown({
       if (color && result.has(color)) result.set(color, (result.get(color) ?? 0) + 1);
     }
     return result;
-  }, [imageList, imageRatings, ratingOptions]);
+  }, [imageList, imageRatings, allRatingOptions]);
 
   return (
     <DropdownMenu
@@ -147,6 +160,26 @@ export function SelectByDropdown({
     >
       <div className="p-2">
         <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
+          {t('library.selectBy.flags')}
+        </Text>
+        {flagOptions.map((option) => {
+          const count = counts.get(option.label) ?? 0;
+          return (
+            <button
+              key={option.label}
+              type="button"
+              className="w-full px-3 py-2 rounded-md flex items-center gap-2 text-left hover:bg-bg-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={count === 0}
+              onClick={() => handleSelectBy(option.criteria)}
+            >
+              {option.icon === 'check' && <Check size={16} className="text-accent" />}
+              {option.icon === 'rejected' && <X size={16} />}
+              <Text className="grow">{option.label}</Text>
+              <Text color={TextColors.secondary}>{count}</Text>
+            </button>
+          );
+        })}
+        <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 mt-2 uppercase">
           {t('library.selectBy.rating')}
         </Text>
         {ratingOptions.map((option) => {
@@ -159,8 +192,6 @@ export function SelectByDropdown({
               disabled={count === 0}
               onClick={() => handleSelectBy(option.criteria)}
             >
-              {option.icon === 'check' && <Check size={16} className="text-accent" />}
-              {option.icon === 'rejected' && <X size={16} />}
               {option.starValue && <StarIcon size={16} className="text-accent fill-accent" />}
               <Text className="grow">{option.label}</Text>
               <Text color={TextColors.secondary}>{count}</Text>

@@ -1065,7 +1065,8 @@
       "rejected": "Odrzucone",
       "title": "Wybierz według",
       "unrated": "Bez oceny",
-      "ratingAndUp": "{{value}} i więcej"
+      "ratingAndUp": "{{value}} i więcej",
+      "flags": "Flagi"
     }
   },
   "masks": {

@@ -1021,7 +1021,8 @@
       "rejected": "已拒絕",
       "title": "依條件選取",
       "unrated": "未評分",
-      "ratingAndUp": "{{value}} 星以上"
+      "ratingAndUp": "{{value}} 星以上",
+      "flags": "標記"
     }
   },
   "masks": {

@@ -1021,7 +1021,8 @@
       "rejected": "거부됨",
       "title": "기준으로 선택",
       "unrated": "평점 없음",
-      "ratingAndUp": "{{value}}점 이상"
+      "ratingAndUp": "{{value}}점 이상",
+      "flags": "플래그"
     }
   },
   "masks": {

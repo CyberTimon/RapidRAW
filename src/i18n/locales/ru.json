@@ -1020,7 +1020,8 @@
       "rejected": "Отклонённые",
       "title": "Выбрать по",
       "unrated": "Без оценки",
-      "ratingAndUp": "{{value}} и выше"
+      "ratingAndUp": "{{value}} и выше",
+      "flags": "Флаги"
     }
   },
   "masks": {

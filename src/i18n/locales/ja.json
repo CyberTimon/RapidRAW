@@ -1020,7 +1020,8 @@
       "rejected": "却下",
       "title": "条件で選択",
       "unrated": "未評価",
-      "ratingAndUp": "{{value}}以上"
+      "ratingAndUp": "{{value}}以上",
+      "flags": "フラグ"
     }
   },
   "masks": {

@@ -1021,7 +1021,8 @@
       "rejected": "Rifiutate",
       "title": "Seleziona per",
       "unrated": "Senza valutazione",
-      "ratingAndUp": "{{value}} e oltre"
+      "ratingAndUp": "{{value}} e oltre",
+      "flags": "Contrassegni"
     }
   },
   "masks": {
