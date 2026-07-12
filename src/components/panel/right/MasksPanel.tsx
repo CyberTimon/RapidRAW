@@ -429,7 +429,7 @@ function DepthRangePicker({
           {t('editor.masks.depthRange.reset')}
         </Text>
       </div>
-      <div ref={trackRef} className="relative rounded-md overflow-hidden mt-2 select-none" style={{ height: 44 }}>
+      <div ref={trackRef} className="relative rounded-md overflow-hidden mt-2 select-none" style={{ height: 44, touchAction: 'none' }}>
         {isDragging && (
           <div
             className="fixed inset-0 z-[9999]"
@@ -512,6 +512,7 @@ function DepthRangePicker({
             width: `${Math.max(0, vals.maxDepth - vals.minDepth)}%`,
             cursor: activeHandle === 'range' ? 'grabbing' : 'grab',
             zIndex: 5,
+            touchAction: 'none',
           }}
           onPointerDown={beginDrag('range')}
         />
@@ -523,7 +524,7 @@ function DepthRangePicker({
           <div
             key={key}
             className="absolute flex items-start justify-center cursor-ew-resize"
-            style={{ left: `${pos}%`, transform: 'translateX(-50%)', top: 0, height: '50%', width: 28, zIndex: 15 }}
+            style={{ left: `${pos}%`, transform: 'translateX(-50%)', top: 0, height: '50%', width: 44, zIndex: 15, touchAction: 'none' }}
             onPointerDown={beginDrag(key)}
           >
             <svg width="8" height="5" viewBox="0 0 8 5" style={{ marginTop: 3 }}>
@@ -539,7 +540,7 @@ function DepthRangePicker({
           <div
             key={key}
             className="absolute flex items-end justify-center cursor-ew-resize"
-            style={{ left: `${pos}%`, transform: 'translateX(-50%)', bottom: 0, height: '50%', width: 28, zIndex: 20 }}
+            style={{ left: `${pos}%`, transform: 'translateX(-50%)', bottom: 0, height: '50%', width: 44, zIndex: 20, touchAction: 'none' }}
             onPointerDown={beginDrag(key)}
           >
             <svg width="10" height="6" viewBox="0 0 10 6" style={{ marginBottom: 3 }}>
