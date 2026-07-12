@@ -19,20 +19,67 @@ const LOW_DETAIL_WINDOW_RADIUS: u32 = 16;
 const LOW_DETAIL_VARIANCE_THRESHOLD: f64 = 60.0;
 
 pub fn calculate_downscale_dimensions(width: u32, height: u32) -> (u32, u32, f64) {
+    calculate_downscale_dimensions_capped(width, height, MAX_PROCESSING_DIMENSION)
+}
+
+pub fn calculate_downscale_dimensions_capped(
+    width: u32,
+    height: u32,
+    max_dimension: u32,
+) -> (u32, u32, f64) {
+    assert!(max_dimension > 0, "max_dimension must be positive");
     let long_side = width.max(height);
-    if long_side <= MAX_PROCESSING_DIMENSION {
+    if long_side <= max_dimension {
         return (width, height, 1.0);
     }
-    let scale_factor = long_side as f64 / MAX_PROCESSING_DIMENSION as f64;
+    let scale_factor = long_side as f64 / max_dimension as f64;
     let new_width = (width as f64 / scale_factor).round() as u32;
     let new_height = (height as f64 / scale_factor).round() as u32;
     (new_width, new_height, scale_factor)
 }
 
+pub fn normalize_grayscale(img: &GrayImage) -> GrayImage {
+    let mut minimum = u8::MAX;
+    let mut maximum = u8::MIN;
+    for pixel in img.pixels() {
+        let value = pixel[0];
+        if value < minimum {
+            minimum = value;
+        }
+        if value > maximum {
+            maximum = value;
+        }
+    }
+    if maximum <= minimum {
+        return img.clone();
+    }
+    let span = (maximum - minimum) as f32;
+    let (width, height) = img.dimensions();
+    GrayImage::from_fn(width, height, |x, y| {
+        let value = img.get_pixel(x, y)[0];
+        let stretched = ((value - minimum) as f32 / span * 255.0).round();
+        Luma([stretched as u8])
+    })
+}
+
 pub fn find_features(img: &GrayImage, brief_pairs: &[(Point2<i32>, Point2<i32>)]) -> Vec<Feature> {
+    find_features_tuned(
+        img,
+        brief_pairs,
+        FAST_THRESHOLD,
+        NON_MAXIMA_SUPPRESSION_RADIUS,
+    )
+}
+
+pub fn find_features_tuned(
+    img: &GrayImage,
+    brief_pairs: &[(Point2<i32>, Point2<i32>)],
+    fast_threshold: u8,
+    non_maxima_suppression_radius: f32,
+) -> Vec<Feature> {
     let blurred_img_u8 = imageproc::filter::gaussian_blur_f32(img, 1.5);
-    let corners = corners_fast9(&blurred_img_u8, FAST_THRESHOLD);
-    let keypoints = non_maximal_suppression(&corners, NON_MAXIMA_SUPPRESSION_RADIUS);
+    let corners = corners_fast9(&blurred_img_u8, fast_threshold);
+    let keypoints = non_maximal_suppression(&corners, non_maxima_suppression_radius);
     let blurred_img_f32 = gaussian_blur_f32(&convert_gray_u8_to_f32(img), 2.0);
     let features: Vec<Feature> = keypoints
         .par_iter()

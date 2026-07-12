@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GLOBAL_KEYS } from './AppProperties';
 
 type SliderChangeEvent =
@@ -28,6 +29,9 @@ const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const TOUCH_DRAG_THRESHOLD_PX = 10;
 const TOUCH_THUMB_HIT_RADIUS_PX = 24;
 
+const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
+  'shiftKey' in event && (event.shiftKey || event.altKey);
+
 const Slider = ({
   defaultValue = 0,
   label,
@@ -41,6 +45,7 @@ const Slider = ({
   fillOrigin = 'default',
   suffix = '',
 }: SliderProps) => {
+  const { t } = useTranslation();
   const [displayValue, setDisplayValue] = useState<number>(value);
   const [isDragging, setIsDragging] = useState(false);
   const animationFrameRef = useRef<number | undefined>(undefined);
@@ -60,6 +65,16 @@ const Slider = ({
     startValue: number;
   } | null>(null);
   const suppressTouchChangeRef = useRef(false);
+  const isWheelActivelyChangingRef = useRef(false);
+  const wheelTimeoutRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    return () => {
+      if (wheelTimeoutRef.current !== undefined) {
+        window.clearTimeout(wheelTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const fillPercentage = max !== min ? ((displayValue - min) / (max - min)) * 100 : 0;
   const originPercentage = useMemo(() => {
@@ -103,13 +118,23 @@ const Slider = ({
       }
 
       event.preventDefault();
-      const direction = -Math.sign(event.deltaY);
-      const newValue = value + direction * step * 2;
+      const direction = -Math.sign(event.deltaY || event.deltaX);
+      const newValue = value + direction * step;
       const roundedNewValue = parseFloat(newValue.toFixed(decimalPlaces));
 
       const clampedValue = Math.max(min, Math.min(max, roundedNewValue));
 
       if (clampedValue !== value && !isNaN(clampedValue)) {
+        isWheelActivelyChangingRef.current = true;
+        setDisplayValue(clampedValue);
+
+        if (wheelTimeoutRef.current !== undefined) {
+          window.clearTimeout(wheelTimeoutRef.current);
+        }
+        wheelTimeoutRef.current = window.setTimeout(() => {
+          isWheelActivelyChangingRef.current = false;
+        }, 150);
+
         const syntheticEvent = {
           target: {
             value: clampedValue,
@@ -126,6 +151,7 @@ const Slider = ({
     };
   }, [value, min, max, step, onChange, decimalPlaces]);
 
+  // Handle Dragging
   useEffect(() => {
     if (!isDragging) return;
 
@@ -140,11 +166,11 @@ const Slider = ({
       if ('touches' in e) {
         if (e.touches.length === 0) return;
         clientX = e.touches[0].clientX;
-        shiftKey = e.shiftKey || e.altKey;
+        shiftKey = hasFineAdjustmentModifier(e);
         if (e.cancelable) e.preventDefault();
       } else {
         clientX = (e as MouseEvent).clientX;
-        shiftKey = (e as MouseEvent).shiftKey || (e as MouseEvent).altKey;
+        shiftKey = hasFineAdjustmentModifier(e);
       }
 
       const deltaX = clientX - lastPointerXRef.current;
@@ -196,6 +222,14 @@ const Slider = ({
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      return;
+    }
+
+    if (isWheelActivelyChangingRef.current) {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      setDisplayValue(value);
       return;
     }
 
@@ -320,18 +354,12 @@ const Slider = ({
     const deltaX = touch.clientX - pendingTouch.startX;
     const deltaY = touch.clientY - pendingTouch.startY;
 
-    if (
-      Math.abs(deltaY) > TOUCH_DRAG_THRESHOLD_PX &&
-      Math.abs(deltaY) > Math.abs(deltaX)
-    ) {
+    if (Math.abs(deltaY) > TOUCH_DRAG_THRESHOLD_PX && Math.abs(deltaY) > Math.abs(deltaX)) {
       pendingTouchRef.current = null;
       return;
     }
 
-    if (
-      Math.abs(deltaX) < TOUCH_DRAG_THRESHOLD_PX ||
-      Math.abs(deltaX) < Math.abs(deltaY)
-    ) {
+    if (Math.abs(deltaX) < TOUCH_DRAG_THRESHOLD_PX || Math.abs(deltaX) < Math.abs(deltaY)) {
       return;
     }
 
@@ -339,7 +367,8 @@ const Slider = ({
     if (!inputEl) return;
 
     const rect = inputEl.getBoundingClientRect();
-    const rawValue = pendingTouch.startValue + (deltaX / rect.width) * (max - min);
+    const multiplier = hasFineAdjustmentModifier(e) ? FINE_ADJUSTMENT_MULTIPLIER : 1;
+    const rawValue = pendingTouch.startValue + (deltaX / rect.width) * (max - min) * multiplier;
     const snappedValue = snapToStep(rawValue);
 
     accumulatedValueRef.current = rawValue;
@@ -365,17 +394,30 @@ const Slider = ({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
+    const textVal = e.target.value;
+    if (!/^[0-9.,\-]*$/.test(textVal)) {
+      return;
+    }
+    setInputValue(textVal);
+    const parseableText = textVal.replace(',', '.');
+    const parsedValue = parseFloat(parseableText);
+    if (!isNaN(parsedValue)) {
+      const clampedValue = Math.max(min, Math.min(max, parsedValue));
+      onChange({
+        target: {
+          value: clampedValue,
+        },
+      });
+    }
   };
 
   const handleInputCommit = () => {
-    let newValue = parseFloat(inputValue);
+    let newValue = parseFloat(inputValue.replace(',', '.'));
     if (isNaN(newValue)) {
       newValue = value;
     } else {
       newValue = Math.max(min, Math.min(max, newValue));
     }
-
     const syntheticEvent = {
       target: {
         value: newValue,
@@ -393,6 +435,21 @@ const Slider = ({
       setInputValue(String(value));
       setIsEditing(false);
       e.currentTarget.blur();
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      let currentNum = parseFloat(inputValue.replace(',', '.'));
+      if (isNaN(currentNum)) {
+        currentNum = value;
+      }
+      const direction = e.key === 'ArrowUp' ? 1 : -1;
+      const newValue = currentNum + direction * step;
+      const snappedNewValue = snapToStep(newValue);
+      setInputValue(String(snappedNewValue));
+      onChange({
+        target: {
+          value: snappedNewValue,
+        },
+      });
     }
   };
 
@@ -433,7 +490,7 @@ const Slider = ({
                 isLabelHovered ? 'opacity-100' : 'opacity-0'
               }`}
             >
-              Reset
+              {t('ui.slider.reset')}
             </span>
           )}
         </div>
@@ -448,7 +505,7 @@ const Slider = ({
               onKeyDown={handleInputKeyDown}
               ref={inputRef}
               step={step}
-              type="number"
+              type="text"
               value={inputValue}
             />
           ) : (
@@ -456,7 +513,7 @@ const Slider = ({
               className="text-sm text-text-primary w-full text-right select-none cursor-text"
               onClick={handleValueClick}
               onDoubleClick={handleReset}
-              data-tooltip={`Click to edit`}
+              data-tooltip={t('ui.slider.clickToEdit')}
             >
               {decimalPlaces > 0 && numericValue === 0 ? '0' : numericValue.toFixed(decimalPlaces)}
               {suffix && <span className="text-[10px] align-top inline-block mt-0.5 ml-0.5">{suffix}</span>}

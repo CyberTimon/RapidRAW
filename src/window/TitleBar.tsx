@@ -82,24 +82,21 @@ export default function TitleBar() {
   const isMac = osPlatform === 'macos';
   const isLinux = osPlatform === 'linux';
   const isWindows = osPlatform === 'windows';
-
-  if (!osPlatform) {
-    return (
-      <div className="pt-2 px-2 w-full z-50 bg-transparent" data-tauri-drag-region>
-        <div className="h-10 rounded-lg" data-tauri-drag-region />
-      </div>
-    );
+  const isMobile = osPlatform === 'android';
+  if (!osPlatform || isMobile) {
+    return null;
   }
+  const outerDragProps = isLinux ? {} : { 'data-tauri-drag-region': 'true' };
 
   return (
-    <div className="relative pt-2 px-2 w-full z-50 bg-transparent" data-tauri-drag-region>
+    <div className="relative pt-2 px-2 w-full z-50 bg-transparent" {...outerDragProps}>
       <div
         className="h-10 bg-bg-secondary flex justify-between items-center select-none rounded-lg overflow-hidden"
-        data-tauri-drag-region
+        {...outerDragProps}
       >
         <div className="flex items-center h-full">
           {isMac && (
-            <div className="flex items-center h-full px-4 space-x-2">
+            <div className="flex items-center h-full px-4 space-x-2 z-10">
               <button
                 aria-label="Close window"
                 className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 transition-colors duration-150"
@@ -121,8 +118,8 @@ export default function TitleBar() {
             <p className="text-sm font-semibold text-text-secondary pointer-events-none">RapidRAW</p>
           </div>
         </div>
-
-        <div className="flex items-center h-full">
+        <div data-tauri-drag-region className="flex-1 h-full" />
+        <div className="flex items-center h-full z-10">
           {isLinux && (
             <div className="flex items-center gap-2 pr-2 h-full">
               <button
@@ -153,7 +150,7 @@ export default function TitleBar() {
             </div>
           )}
 
-          {isWindows && <div className="w-36 shrink-0 pointer-events-none" />}
+          {isWindows && <div data-tauri-drag-region className="w-36 shrink-0 h-full pointer-events-none" />}
         </div>
       </div>
 

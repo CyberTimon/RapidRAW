@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { ChevronDown, Eye, EyeOff } from 'lucide-react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import Text from './Text';
 import { TextVariants, TextWeights } from '../../types/typography';
 
@@ -25,6 +26,7 @@ export default function CollapsibleSection({
   onToggleVisibility = () => {},
   title,
 }: CollapsibleSectionProps) {
+  const { t } = useTranslation();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [isHovering, setIsHovering] = useState(false);
@@ -96,7 +98,11 @@ export default function CollapsibleSection({
                   isHovering || !isContentVisible ? 'opacity-100' : 'opacity-0 pointer-events-none',
                 )}
                 onClick={handleVisibilityClick}
-                data-tooltip={isContentVisible ? 'Disable Section' : 'Enable Section'}
+                data-tooltip={
+                  isContentVisible
+                    ? t('ui.collapsibleSection.disableSection')
+                    : t('ui.collapsibleSection.enableSection')
+                }
               >
                 {isContentVisible ? <Eye size={16} /> : <EyeOff size={16} />}
               </button>

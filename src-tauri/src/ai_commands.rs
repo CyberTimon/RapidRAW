@@ -1,29 +1,20 @@
-use std::borrow::Cow;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 
 use base64::{Engine as _, engine::general_purpose};
-use image::{
-    DynamicImage, GenericImageView, GrayImage, ImageFormat, Rgb, RgbImage, Rgba, RgbaImage,
-};
-use serde_json::Value;
+use image::{GrayImage, ImageFormat};
 
 use crate::ai_connector;
 use crate::ai_processing::{
-    self, AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters,
+    AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters,
     AiSubjectMaskParameters, CachedDepthMap, generate_image_embeddings, get_or_init_ai_models,
     run_depth_anything_model, run_sam_decoder, run_sky_seg_model, run_u2netp_model,
 };
 use crate::app_settings::load_settings;
 use crate::app_state::AppState;
 use crate::cache_utils::GEOMETRY_KEYS;
-use crate::image_loader::composite_patches_on_image;
-use crate::image_processing::apply_unwarp_geometry;
-use crate::mask_generation::{AiPatchDefinition, MaskDefinition, generate_mask_bitmap};
-use crate::{
-    get_cached_full_warped_image, get_full_image_for_processing, resolve_warped_image_for_masks,
-};
+use crate::get_cached_full_warped_image;
 
 fn encode_to_base64_png(image: &GrayImage) -> Result<String, String> {
     let mut buf = Cursor::new(Vec::new());
@@ -403,196 +394,4 @@ pub async fn test_ai_connector_connection(address: String) -> Result<(), String>
         Ok(false) => Err("Server reachable but returned bad health status".to_string()),
         Err(e) => Err(e.to_string()),
     }
-}
-
-#[tauri::command]
-pub async fn invoke_generative_replace_with_mask_def(
-    path: String,
-    patch_definition: AiPatchDefinition,
-    current_adjustments: Value,
-    use_fast_inpaint: bool,
-    token: Option<String>,
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-) -> Result<String, String> {
-    let settings = load_settings(app_handle.clone()).unwrap_or_default();
-
-    let mut source_image_adjustments = current_adjustments.clone();
-    if let Some(patches) = source_image_adjustments
-        .get_mut("aiPatches")
-        .and_then(|v| v.as_array_mut())
-    {
-        patches.retain(|p| p.get("id").and_then(|id| id.as_str()) != Some(&patch_definition.id));
-    }
-
-    let (base_image, _) = get_full_image_for_processing(&state)?;
-    let source_image = composite_patches_on_image(&base_image, &source_image_adjustments)
-        .map_err(|e| format!("Failed to prepare source image: {}", e))?;
-
-    let (img_w, img_h) = source_image.dimensions();
-    let mask_def_for_generation = MaskDefinition {
-        id: patch_definition.id.clone(),
-        name: patch_definition.name.clone(),
-        visible: patch_definition.visible,
-        invert: patch_definition.invert,
-        opacity: 100.0,
-        adjustments: serde_json::Value::Null,
-        sub_masks: patch_definition.sub_masks,
-    };
-
-    let warped_image = resolve_warped_image_for_masks(
-        &state,
-        &current_adjustments,
-        std::slice::from_ref(&mask_def_for_generation),
-    );
-
-    let mask_bitmap = generate_mask_bitmap(
-        &mask_def_for_generation,
-        img_w,
-        img_h,
-        1.0,
-        (0.0, 0.0),
-        warped_image.as_deref(),
-    )
-    .ok_or("Failed to generate mask bitmap for AI replace")?;
-
-    let mask_dynamic = DynamicImage::ImageLuma8(mask_bitmap);
-    let unwarped_dynamic =
-        apply_unwarp_geometry(Cow::Borrowed(&mask_dynamic), &current_adjustments).into_owned();
-    let mask_bitmap = unwarped_dynamic.to_luma8();
-
-    let patch_rgba = if use_fast_inpaint {
-        let lama_model = ai_processing::get_or_init_lama_model(
-            &app_handle,
-            &state.ai_state,
-            &state.ai_init_lock,
-        )
-        .await
-        .map_err(|e| e.to_string())?;
-
-        ai_processing::run_lama_inpainting(&source_image, &mask_bitmap, &lama_model)
-            .map_err(|e| e.to_string())?
-    } else if let Some(address) = settings.ai_connector_address {
-        let mut rgba_mask = RgbaImage::new(img_w, img_h);
-        for (x, y, luma_pixel) in mask_bitmap.enumerate_pixels() {
-            let intensity = luma_pixel[0];
-            rgba_mask.put_pixel(x, y, Rgba([intensity, intensity, intensity, 255]));
-        }
-        let mask_image_dynamic = DynamicImage::ImageRgba8(rgba_mask);
-
-        let (real_path_buf, _) = crate::file_management::parse_virtual_path(&path);
-        let real_path_str = real_path_buf.to_string_lossy().to_string();
-
-        ai_connector::process_inpainting(
-            &address,
-            &real_path_str,
-            &source_image,
-            &mask_image_dynamic,
-            patch_definition.prompt,
-        )
-        .await
-        .map_err(|e| e.to_string())?
-    } else if let Some(auth_token) = token {
-        let client = reqwest::Client::new();
-        let api_url = "https://api.letshopeitcompiles.com/inpaint";
-
-        let mut source_buf = Cursor::new(Vec::new());
-        source_image
-            .write_to(&mut source_buf, ImageFormat::Png)
-            .map_err(|e| e.to_string())?;
-        let source_base64 = general_purpose::STANDARD.encode(source_buf.get_ref());
-
-        let mut mask_buf = Cursor::new(Vec::new());
-        mask_bitmap
-            .write_to(&mut mask_buf, ImageFormat::Png)
-            .map_err(|e| e.to_string())?;
-        let mask_base64 = general_purpose::STANDARD.encode(mask_buf.get_ref());
-
-        let request_body = serde_json::json!({
-            "prompt": patch_definition.prompt,
-            "image": source_base64,
-            "mask": mask_base64,
-        });
-
-        let response = client
-            .post(api_url)
-            .header("Authorization", format!("Bearer {}", auth_token))
-            .json(&request_body)
-            .send()
-            .await
-            .map_err(|e| format!("Failed to send request to cloud service: {}", e))?;
-
-        if response.status().is_success() {
-            let response_bytes = response.bytes().await.map_err(|e| e.to_string())?;
-            image::load_from_memory(&response_bytes)
-                .map_err(|e| format!("Failed to decode cloud service response: {}", e))?
-                .to_rgba8()
-        } else {
-            let status = response.status();
-            let error_body = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Could not read error body".to_string());
-            return Err(format!(
-                "Cloud service returned an error ({}): {}",
-                status, error_body
-            ));
-        }
-    } else {
-        return Err(
-            "No generative backend available. Connect to a RapidRAW AI Connector or upgrade to Pro for Cloud AI."
-                .to_string(),
-        );
-    };
-
-    let (patch_w, patch_h) = patch_rgba.dimensions();
-    let scaled_mask_bitmap = image::imageops::resize(
-        &mask_bitmap,
-        patch_w,
-        patch_h,
-        image::imageops::FilterType::Lanczos3,
-    );
-    let mut color_image = RgbImage::new(patch_w, patch_h);
-    let mask_image = scaled_mask_bitmap.clone();
-
-    for y in 0..patch_h {
-        for x in 0..patch_w {
-            let mask_value = scaled_mask_bitmap.get_pixel(x, y)[0];
-
-            if mask_value > 0 {
-                let patch_pixel = patch_rgba.get_pixel(x, y);
-                color_image.put_pixel(x, y, Rgb([patch_pixel[0], patch_pixel[1], patch_pixel[2]]));
-            } else {
-                color_image.put_pixel(x, y, Rgb([0, 0, 0]));
-            }
-        }
-    }
-
-    let quality = 92;
-
-    let mut color_buf = Cursor::new(Vec::new());
-    color_image
-        .write_with_encoder(image::codecs::jpeg::JpegEncoder::new_with_quality(
-            &mut color_buf,
-            quality,
-        ))
-        .map_err(|e| e.to_string())?;
-    let color_base64 = general_purpose::STANDARD.encode(color_buf.get_ref());
-
-    let mut mask_buf = Cursor::new(Vec::new());
-    mask_image
-        .write_with_encoder(image::codecs::jpeg::JpegEncoder::new_with_quality(
-            &mut mask_buf,
-            quality,
-        ))
-        .map_err(|e| e.to_string())?;
-    let mask_base64 = general_purpose::STANDARD.encode(mask_buf.get_ref());
-
-    let result_json = serde_json::json!({
-        "color": color_base64,
-        "mask": mask_base64
-    })
-    .to_string();
-
-    Ok(result_json)
 }

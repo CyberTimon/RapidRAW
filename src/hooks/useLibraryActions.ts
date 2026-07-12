@@ -3,7 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
-import { Invokes, ImageFile } from '../components/ui/AppProperties';
+import { useUIStore } from '../store/useUIStore';
+import { Invokes, ImageFile, AlbumItem, Album, AlbumGroup } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { computeSortedLibrary } from './useSortedLibrary';
@@ -220,20 +221,43 @@ export function useLibraryActions(handleImageSelect?: (path: string) => void) {
   );
 
   const refreshAllFolderTrees = useCallback(async () => {
-    const { rootPath, expandedFolders, setLibrary } = useLibraryStore.getState();
+    const { rootPaths, expandedFolders, setLibrary } = useLibraryStore.getState();
     const { appSettings } = useSettingsStore.getState();
 
-    if (!rootPath) return;
+    const showImageCounts = appSettings?.enableFolderImageCounts ?? false;
+    const pinnedFolders = appSettings?.pinnedFolders || [];
+    const expandedArray = Array.from(expandedFolders);
 
     try {
-      const treeData = await invoke(Invokes.GetFolderTree, {
-        path: rootPath,
-        expandedFolders: Array.from(expandedFolders),
-        showImageCounts: appSettings?.enableFolderImageCounts ?? false,
-      });
-      setLibrary({ folderTree: treeData });
+      const updates: any = {};
+
+      if (rootPaths && rootPaths.length > 0) {
+        const treesData = await invoke(Invokes.GetPinnedFolderTrees, {
+          paths: rootPaths,
+          expandedFolders: expandedArray,
+          showImageCounts,
+        });
+        updates.folderTrees = treesData;
+      } else {
+        updates.folderTrees = [];
+      }
+
+      if (pinnedFolders && pinnedFolders.length > 0) {
+        const pinnedTreesData = await invoke(Invokes.GetPinnedFolderTrees, {
+          paths: pinnedFolders,
+          expandedFolders: expandedArray,
+          showImageCounts,
+        });
+        updates.pinnedFolderTrees = pinnedTreesData;
+      } else {
+        updates.pinnedFolderTrees = [];
+      }
+
+      if (Object.keys(updates).length > 0) {
+        setLibrary(updates);
+      }
     } catch (err) {
-      console.error('Failed to refresh folder tree:', err);
+      console.error('Failed to refresh folder trees:', err);
     }
   }, []);
 
@@ -262,6 +286,104 @@ export function useLibraryActions(handleImageSelect?: (path: string) => void) {
     }
   }, []);
 
+  const handleCreateAlbumItem = useCallback(async (name: string, type: 'album' | 'group') => {
+    const { albumTree, setLibrary } = useLibraryStore.getState();
+    const { albumActionTarget } = useUIStore.getState();
+
+    const newTree = structuredClone(albumTree);
+    const newItem: AlbumItem =
+      type === 'album'
+        ? ({ type: 'album', id: crypto.randomUUID(), name, images: [] } as Album)
+        : ({ type: 'group', id: crypto.randomUUID(), name, children: [] } as AlbumGroup);
+
+    let actualTarget = albumActionTarget;
+
+    const findNode = (nodes: AlbumItem[], id: string): AlbumItem | undefined => {
+      for (const n of nodes) {
+        if (n.id === id) return n;
+        if (n.type === 'group') {
+          const found = findNode((n as AlbumGroup).children, id);
+          if (found) return found;
+        }
+      }
+      return undefined;
+    };
+
+    const findParentId = (nodes: AlbumItem[], childId: string, parentId: string | null): string | null | undefined => {
+      for (const n of nodes) {
+        if (n.id === childId) return parentId;
+        if (n.type === 'group') {
+          const found = findParentId((n as AlbumGroup).children, childId, n.id);
+          if (found !== undefined) return found;
+        }
+      }
+      return undefined;
+    };
+
+    if (actualTarget) {
+      const targetNode = findNode(newTree, actualTarget);
+      if (targetNode && targetNode.type === 'album') {
+        const pId = findParentId(newTree, actualTarget, null);
+        actualTarget = pId === undefined ? null : pId;
+      }
+    }
+
+    const insert = (nodes: AlbumItem[], target: string | null): boolean => {
+      if (!target) {
+        nodes.push(newItem);
+        return true;
+      }
+      for (const n of nodes) {
+        if (n.id === target && n.type === 'group') {
+          (n as AlbumGroup).children.push(newItem);
+          return true;
+        } else if (n.type === 'group') {
+          if (insert((n as AlbumGroup).children, target)) return true;
+        }
+      }
+      return false;
+    };
+
+    if (insert(newTree, actualTarget)) {
+      try {
+        await invoke(Invokes.SaveAlbums, { tree: newTree });
+        const sortedTree = await invoke(Invokes.GetAlbums);
+        setLibrary({ albumTree: sortedTree as AlbumItem[] });
+      } catch (err) {
+        toast.error(`Failed to create: ${err}`);
+      }
+    }
+  }, []);
+
+  const handleRenameAlbumItem = useCallback(async (newName: string) => {
+    const { albumTree, setLibrary } = useLibraryStore.getState();
+    const { albumActionTarget } = useUIStore.getState();
+    if (!albumActionTarget) return;
+
+    const newTree = structuredClone(albumTree);
+
+    const rename = (nodes: AlbumItem[]) => {
+      for (const n of nodes) {
+        if (n.id === albumActionTarget) {
+          n.name = newName;
+          return true;
+        }
+        if (n.type === 'group' && rename((n as AlbumGroup).children)) return true;
+      }
+      return false;
+    };
+
+    if (rename(newTree)) {
+      try {
+        await invoke(Invokes.SaveAlbums, { tree: newTree });
+        const sortedTree = await invoke(Invokes.GetAlbums);
+        setLibrary({ albumTree: sortedTree as AlbumItem[] });
+      } catch (err) {
+        toast.error(`Failed to rename: ${err}`);
+      }
+    }
+  }, []);
+
   return {
     handleRate,
     handleSetColorLabel,
@@ -272,5 +394,7 @@ export function useLibraryActions(handleImageSelect?: (path: string) => void) {
     handleImageClick,
     refreshAllFolderTrees,
     handleTogglePinFolder,
+    handleCreateAlbumItem,
+    handleRenameAlbumItem,
   };
 }

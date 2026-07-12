@@ -157,7 +157,7 @@ export function useFileOperations(
   const handleRenameFolder = useCallback(
     async (newName: string) => {
       const { folderActionTarget } = useUIStore.getState();
-      const { rootPath, currentFolderPath, setLibrary } = useLibraryStore.getState();
+      const { rootPaths, currentFolderPath, setLibrary } = useLibraryStore.getState();
       const { appSettings, handleSettingsChange } = useSettingsStore.getState();
 
       if (newName && newName.trim() !== '' && folderActionTarget) {
@@ -174,9 +174,10 @@ export function useFileOperations(
           const newAppSettings = { ...appSettings } as any;
           let settingsChanged = false;
 
-          if (rootPath === oldPath) {
-            setLibrary({ rootPath: newPath });
-            newAppSettings.lastRootPath = newPath;
+          if (rootPaths.includes(oldPath)) {
+            const newRoots = rootPaths.map((r) => (r === oldPath ? newPath : r));
+            setLibrary({ rootPaths: newRoots });
+            newAppSettings.rootFolders = newRoots;
             settingsChanged = true;
           }
           if (currentFolderPath?.startsWith(oldPath)) {

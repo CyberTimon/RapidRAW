@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { ImageFile, Panel } from '../components/ui/AppProperties';
+import { ImageFile, Panel, ExifOverlay } from '../components/ui/AppProperties';
 import { KEYBIND_DEFINITIONS, normalizeCombo } from '../utils/keyboardUtils';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
@@ -318,6 +318,19 @@ export const useKeyboardShortcuts = ({
         execute: (e: any, s: any) => {
           e.preventDefault();
           s.ui.setRightPanel(Panel.Export);
+        },
+      },
+      toggle_library_exif: {
+        shouldFire: (s: any) => !s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          const current = s.settings.appSettings?.exifOverlay || ExifOverlay.Off;
+          const nextState = {
+            [ExifOverlay.Off]: ExifOverlay.Hover,
+            [ExifOverlay.Hover]: ExifOverlay.Always,
+            [ExifOverlay.Always]: ExifOverlay.Off,
+          }[current as ExifOverlay];
+          s.settings.handleSettingsChange({ ...s.settings.appSettings, exifOverlay: nextState });
         },
       },
       toggle_crop: {

@@ -31,6 +31,9 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
 
       const loadMetadataEarly = async () => {
         try {
+          useEditorStore.getState().patchesSentToBackend.clear();
+          await invoke('clear_session_caches').catch((e) => console.warn('Cache clear failed:', e));
+
           const metadata: any = await invoke(Invokes.LoadMetadata, { path: selectedImage.path });
           if (!isEffectActive) return;
 

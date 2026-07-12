@@ -185,8 +185,6 @@ fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<Dyna
     );
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
-    let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
-    let linear_mode = settings.linear_raw_mode;
 
     let start_time = Instant::now();
     let _ = app_handle.emit("panorama-progress", "Loading and preparing images...");
@@ -216,8 +214,7 @@ fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<Dyna
                 &file_bytes,
                 filename,
                 false,
-                highlight_compression,
-                linear_mode.clone(),
+                &settings,
                 None,
             )
             .map_err(|e| format!("Failed to load image {}: {}", filename, e))?;

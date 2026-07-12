@@ -10,6 +10,7 @@ import {
   Cog,
   type LucideIcon,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Panel } from '../../ui/AppProperties';
 
 interface PanelOptions {
@@ -27,16 +28,16 @@ interface RightPanelSwitcherProps {
 }
 
 const panelGroups: Array<Array<PanelOptions>> = [
-  [{ id: Panel.Metadata, icon: Info, title: 'Info' }],
+  [{ id: Panel.Metadata, icon: Info, title: 'editor.switcher.tooltips.info' }],
   [
-    { id: Panel.Adjustments, icon: SlidersHorizontal, title: 'Adjust' },
-    { id: Panel.Crop, icon: Crop, title: 'Crop' },
-    { id: Panel.Masks, icon: Layers, title: 'Masks' },
-    { id: Panel.Ai, icon: Paintbrush, title: 'Inpaint' },
+    { id: Panel.Adjustments, icon: SlidersHorizontal, title: 'editor.switcher.tooltips.adjust' },
+    { id: Panel.Crop, icon: Crop, title: 'editor.switcher.tooltips.crop' },
+    { id: Panel.Masks, icon: Layers, title: 'editor.switcher.tooltips.masks' },
+    { id: Panel.Ai, icon: Paintbrush, title: 'editor.switcher.tooltips.inpaint' },
   ],
   [
-    { id: Panel.Presets, icon: SwatchBook, title: 'Presets' },
-    { id: Panel.Export, icon: FileInput, title: 'Export' },
+    { id: Panel.Presets, icon: SwatchBook, title: 'editor.switcher.tooltips.presets' },
+    { id: Panel.Export, icon: FileInput, title: 'editor.switcher.tooltips.export' },
   ],
 ];
 
@@ -47,6 +48,7 @@ export default function RightPanelSwitcher({
   isInstantTransition,
   layout = 'vertical',
 }: RightPanelSwitcherProps) {
+  const { t } = useTranslation();
   const isHorizontal = layout === 'horizontal';
 
   return (
@@ -54,20 +56,20 @@ export default function RightPanelSwitcher({
       {panelGroups.map((group, groupIndex) => (
         <div key={groupIndex} className={isHorizontal ? 'flex items-center gap-1' : 'flex flex-col gap-1'}>
           {groupIndex > 0 && (
-            <div className={isHorizontal ? 'w-px h-6 bg-surface self-stretch my-auto' : 'w-6 h-px bg-surface self-center'} />
+            <div
+              className={isHorizontal ? 'w-px h-6 bg-surface self-stretch my-auto' : 'w-6 h-px bg-surface self-center'}
+            />
           )}
           {group.map(({ id, icon: Icon, title }) => (
             <button
-              className={`relative rounded-md transition-colors duration-200 ${
-                isHorizontal ? 'p-2 shrink-0' : 'p-2'
-              } ${
+              className={`relative rounded-md transition-colors duration-200 ${isHorizontal ? 'p-2 shrink-0' : 'p-2'} ${
                 activePanel === id
                   ? 'text-text-primary'
                   : 'text-text-secondary hover:bg-surface hover:text-text-primary'
               }`}
               key={id}
               onClick={() => onPanelSelect(id)}
-              data-tooltip={title}
+              data-tooltip={t(title)}
             >
               {activePanel === id && (
                 <motion.div
@@ -89,8 +91,8 @@ export default function RightPanelSwitcher({
               type="button"
               className="relative p-2 rounded-md transition-colors duration-200 text-text-secondary hover:bg-surface hover:text-text-primary"
               onClick={onOpenAppSettings}
-              data-tooltip="App settings"
-              aria-label="App settings"
+              data-tooltip={t('settings.title')}
+              aria-label={t('settings.title')}
             >
               <Cog size={20} className="relative z-10" />
             </button>

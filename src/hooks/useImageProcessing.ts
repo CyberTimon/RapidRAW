@@ -23,6 +23,7 @@ export function useImageProcessing(
 
   const selectedImage = useEditorStore((state) => state.selectedImage);
   const adjustments = useEditorStore((state) => state.adjustments);
+  const previewOverride = useEditorStore((state) => state.previewOverride);
   const isWaveformVisible = useEditorStore((state) => state.isWaveformVisible);
   const activeWaveformChannel = useEditorStore((state) => state.activeWaveformChannel);
   const displaySize = useEditorStore((state) => state.displaySize);
@@ -122,8 +123,9 @@ export function useImageProcessing(
       const currentPath = selectedImage?.path;
       if (!currentPath) return;
 
-      const payload = JSON.parse(JSON.stringify(currentAdjustments));
+      const payload = structuredClone(currentAdjustments);
       const { patchesSentToBackend } = useEditorStore.getState();
+      const newlySentPatches = new Set<string>();
 
       const processSubMasks = (subMasks: any[]) => {
         if (!Array.isArray(subMasks)) return;
@@ -141,7 +143,7 @@ export function useImageProcessing(
               }
             }
             if (foundMaskData && !patchesSentToBackend.has(sm.id)) {
-              patchesSentToBackend.add(sm.id);
+              newlySentPatches.add(sm.id);
             }
           }
         });
@@ -153,7 +155,7 @@ export function useImageProcessing(
             if (patchesSentToBackend.has(p.id)) {
               p.patchData = null;
             } else {
-              patchesSentToBackend.add(p.id);
+              newlySentPatches.add(p.id);
             }
           }
           if (p.subMasks) processSubMasks(p.subMasks);
@@ -178,6 +180,10 @@ export function useImageProcessing(
           computeWaveform: !!isWaveformVisible,
           activeWaveformChannel: activeWaveformChannelRef.current || null,
         });
+
+        if (newlySentPatches.size > 0) {
+          newlySentPatches.forEach((id) => patchesSentToBackend.add(id));
+        }
 
         if (currentPath !== selectedImagePathRef.current) return;
 
@@ -412,17 +418,20 @@ export function useImageProcessing(
     if (dragIdleTimer.current) clearTimeout(dragIdleTimer.current);
 
     const targetRes = calculateTargetRes();
+    const renderAdjustments = previewOverride ?? adjustments;
 
     if (isSliderDragging) {
       if (appSettings?.enableLivePreviews !== false) {
-        applyAdjustments(adjustments, true, targetRes);
+        applyAdjustments(renderAdjustments, true, targetRes);
       }
     } else {
       dragIdleTimer.current = setTimeout(() => {
-        const applyRes = Math.max(targetRes, currentResRef.current);
-        currentResRef.current = applyRes;
+        currentResRef.current = targetRes;
 
-        applyAdjustments(adjustments, false, applyRes);
+        applyAdjustments(renderAdjustments, false, targetRes);
+
+        if (previewOverride) return;
+
         debouncedSave(selectedImage.path, adjustments);
 
         const otherPaths = multiSelectedPaths.filter((p) => p !== selectedImage.path);
@@ -456,6 +465,7 @@ export function useImageProcessing(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     adjustments,
+    previewOverride,
     selectedImage?.path,
     selectedImage?.isReady,
     isSliderDragging,

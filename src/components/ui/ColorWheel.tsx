@@ -5,6 +5,7 @@ import { ColorResult, HsvaColor, hsvaToHex } from '@uiw/color-convert';
 import { Sun } from 'lucide-react';
 import { HueSatLum } from '../../utils/adjustments';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import Text from './Text';
 import { TextColors, TextVariants } from '../../types/typography';
 
@@ -25,6 +26,7 @@ const ColorWheel = ({
   onDragStateChange,
   isExpanded = false,
 }: ColorWheelProps) => {
+  const { t } = useTranslation();
   const effectiveValue = { ...defaultValue, ...value };
   const { hue, saturation, luminance } = effectiveValue;
   const sizerRef = useRef<HTMLDivElement>(null);
@@ -194,7 +196,7 @@ const ColorWheel = ({
             !isDragging && isLabelHovered ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          Reset
+          {t('ui.colorWheel.reset')}
         </Text>
 
         <Text
@@ -205,12 +207,12 @@ const ColorWheel = ({
           }`}
         >
           <div className="flex items-center tabular-nums">
-            <span className="font-bold">H:</span>
+            <span className="font-bold">{t('ui.colorWheel.hueAbbreviation')}</span>
             <span className="w-8 text-right">{Math.round(hue)}&deg;</span>
           </div>
 
           <div className="flex items-center tabular-nums">
-            <span className="font-bold">S:</span>
+            <span className="font-bold">{t('ui.colorWheel.saturationAbbreviation')}</span>
             <span className="w-6 text-right">{Math.round(saturation)}</span>
           </div>
         </Text>
@@ -267,7 +269,7 @@ const ColorWheel = ({
             <div className="w-full">
               <Slider
                 defaultValue={defaultValue.hue}
-                label="Hue"
+                label={t('ui.colorWheel.hue')}
                 max={360}
                 min={0}
                 onChange={handleHueChange}
@@ -281,7 +283,7 @@ const ColorWheel = ({
             <div className="w-full" style={satWrapperStyle}>
               <Slider
                 defaultValue={defaultValue.saturation}
-                label="Saturation"
+                label={t('ui.colorWheel.saturation')}
                 max={100}
                 min={0}
                 onChange={handleSaturationChange}
@@ -298,7 +300,7 @@ const ColorWheel = ({
       <div className="w-full" style={lumWrapperStyle}>
         <Slider
           defaultValue={defaultValue.luminance}
-          label={isExpanded ? 'Luminance' : <Sun size={16} className="text-text-secondary" />}
+          label={isExpanded ? t('ui.colorWheel.luminance') : <Sun size={16} className="text-text-secondary" />}
           max={100}
           min={-100}
           onChange={handleLumChange}

@@ -1,0 +1,1786 @@
+{
+  "adjustments": {
+    "basic": {
+      "blacks": "Negros",
+      "contrast": "Contraste",
+      "evShift": "Compensación EV",
+      "exposure": "Exposición",
+      "highlights": "Iluminaciones",
+      "mappers": {
+        "agx": "AgX",
+        "agxDesc": "Mapeo de tonos estilo película",
+        "basic": "Básico",
+        "basicDesc": "Mapeo de tonos estándar"
+      },
+      "reset": "Restablecer",
+      "shadows": "Sombras",
+      "toneMapper": "Mapeador de tonos",
+      "whites": "Blancos"
+    },
+    "color": {
+      "ariaSelectColor": "Seleccionar color {{name}}",
+      "calibration": {
+        "colors": {
+          "blue": "Azul",
+          "green": "Verde",
+          "red": "Rojo"
+        },
+        "hue": "Tono",
+        "primaries": "Primarias",
+        "saturation": "Saturación",
+        "shadows": "Sombras",
+        "tint": "Matiz",
+        "title": "Calibración de color"
+      },
+      "colorGrading": "Gradación de color",
+      "colorMixer": "Mezclador de colores",
+      "grading": {
+        "balance": "Equilibrio",
+        "blending": "Fusión",
+        "global": "Global",
+        "highlights": "Iluminaciones",
+        "midtones": "Medios tonos",
+        "shadows": "Sombras"
+      },
+      "hue": "Tono",
+      "localHue": "Tono local",
+      "luminance": "Luminancia",
+      "mixerColors": {
+        "aquas": "Aguamarinas",
+        "blues": "Azules",
+        "greens": "Verdes",
+        "magentas": "Magentas",
+        "oranges": "Naranjas",
+        "purples": "Púrpuras",
+        "reds": "Rojos",
+        "yellows": "Amarillos"
+      },
+      "presence": "Presencia",
+      "saturation": "Saturación",
+      "temperature": "Temperatura",
+      "tint": "Matiz",
+      "toggleSliders": "Alternar controles",
+      "vibrance": "Intensidad",
+      "wbPickerTooltip": "Selector de balance de blancos",
+      "wbPickerWgpuDisabled": "Selector BB: Desactiva WGPU en los Ajustes.",
+      "whiteBalance": "Balance de blancos"
+    },
+    "curves": {
+      "channelTitle": "Canal {{channel}}",
+      "channels": {
+        "blue": "Azul",
+        "green": "Verde",
+        "luma": "Luma",
+        "red": "Rojo"
+      },
+      "copyParametric": "Copiar curva paramétrica de {{channel}}",
+      "copyPoint": "Copiar curva de puntos de {{channel}}",
+      "curveDataUnavailable": "Datos de curva no disponibles.",
+      "parametricCurve": "Curva paramétrica",
+      "params": {
+        "blackLevel": "Nivel de negro",
+        "darks": "Oscuros",
+        "highlights": "Iluminaciones",
+        "lights": "Claros",
+        "shadows": "Sombras",
+        "whiteLevel": "Nivel de blanco"
+      },
+      "pasteFromParametric": "Pegar desde curva paramétrica",
+      "pasteParametric": "Pegar curva paramétrica",
+      "pastePoint": "Pegar curva de puntos",
+      "pointCurve": "Curva de puntos",
+      "resetAllParametric": "Restablecer todas las curvas paramétricas",
+      "resetAllPoint": "Restablecer todas las curvas de puntos",
+      "resetParametric": "Restablecer curva paramétrica de {{channel}}",
+      "resetPoint": "Restablecer curva de puntos de {{channel}}"
+    },
+    "details": {
+      "blueYellow": "Azul/Amarillo",
+      "centre": "Centro",
+      "chromaticAberration": "Aberración cromática",
+      "clarity": "Claridad",
+      "color": "Color",
+      "dehaze": "Borrar neblina",
+      "luminance": "Luminancia",
+      "noiseReduction": "Reducción de ruido",
+      "presence": "Presencia",
+      "redCyan": "Rojo/Cian",
+      "sharpening": "Enfoque",
+      "sharpness": "Nitidez",
+      "structure": "Estructura",
+      "threshold": "Umbral"
+    },
+    "effects": {
+      "amount": "Cantidad",
+      "creative": "Creativo",
+      "feather": "Desvanecimiento",
+      "glow": "Resplandor",
+      "grain": "Grano",
+      "halation": "Halación",
+      "lightFlares": "Destellos de luz",
+      "lut": "LUT",
+      "midpoint": "Punto medio",
+      "roughness": "Rugosidad",
+      "roundness": "Redondez",
+      "size": "Tamaño",
+      "vignette": "Viñeteado"
+    }
+  },
+  "contextMenus": {
+    "album": {
+      "emptyGroup": "(Grupo vacío)"
+    },
+    "albumIcons": {
+      "automotive": "Automoción",
+      "default": "Carpeta (Predeterminado)",
+      "favorites": "Favoritos",
+      "featured": "Destacados",
+      "locations": "Ubicaciones",
+      "nature": "Naturaleza",
+      "people": "Gente",
+      "person": "Persona",
+      "photography": "Fotografía",
+      "portfolio": "Portafolio",
+      "summer": "Verano",
+      "travel": "Viajes"
+    },
+    "albums": {
+      "alreadyAtRoot": "Ya está en la raíz",
+      "alreadyHere": "Ya está aquí",
+      "confirmDeleteAlbum": "Confirmar eliminación del álbum",
+      "confirmDeleteGroupEmpty": "Confirmar eliminación del grupo de álbumes",
+      "confirmDeleteGroupNested": "Confirmar eliminación del grupo y todos los álbumes anidados",
+      "deleteAlbum": "Eliminar álbum",
+      "deleteGroup": "Eliminar grupo",
+      "moveHere": "Mover aquí",
+      "moveTo": "Mover a...",
+      "newAlbum": "Nuevo álbum",
+      "newGroup": "Nuevo grupo",
+      "renameAlbum": "Renombrar álbum",
+      "renameGroup": "Renombrar grupo",
+      "rootDir": "Directorio raíz"
+    },
+    "colors": {
+      "blue": "Azul",
+      "green": "Verde",
+      "orange": "Naranja",
+      "pink": "Rosa",
+      "purple": "Púrpura",
+      "red": "Rojo",
+      "yellow": "Amarillo"
+    },
+    "editor": {
+      "autoAdjust": "Ajuste automático de imagen",
+      "cancel": "Cancelar",
+      "colorLabel": "Etiqueta de color",
+      "confirmReset": "Confirmar restablecimiento",
+      "convertNegative": "Convertir negativo",
+      "copyAdjustments": "Copiar ajustes",
+      "cullImage": "Cribar imagen",
+      "denoise": "Reducir ruido de imagen",
+      "editImage": "Editar imagen",
+      "exportImage": "Exportar imagen",
+      "frameImage": "Enmarcar imagen",
+      "mergeHdr": "Combinar en HDR",
+      "noLabel": "Sin etiqueta",
+      "noRating": "Sin puntuación",
+      "pasteAdjustments": "Pegar ajustes",
+      "productivity": "Productividad",
+      "rating": "Puntuación",
+      "ratingLabel_one": "{{count}} Estrella",
+      "ratingLabel_other": "{{count}} Estrellas",
+      "redo": "Rehacer",
+      "resetAdjustments": "Restablecer ajustes",
+      "stitchPanorama": "Unir panorama",
+      "tagging": "Etiquetado",
+      "undo": "Deshacer"
+    },
+    "folders": {
+      "changeIcon": "Cambiar icono",
+      "confirm": "Confirmar",
+      "copyHere_one": "Copiar imagen aquí",
+      "copyHere_other": "Copiar {{count}} imágenes aquí",
+      "deleteFolder": "Eliminar carpeta",
+      "importImages": "Importar imágenes",
+      "moveHere_one": "Mover imagen aquí",
+      "moveHere_other": "Mover {{count}} imágenes aquí",
+      "newFolder": "Nueva carpeta",
+      "paste": "Pegar",
+      "pin": "Fijar carpeta",
+      "refresh": "Actualizar carpetas",
+      "removeRoot": "Quitar carpeta raíz",
+      "renameFolder": "Renombrar carpeta",
+      "showExplorer": "Mostrar en el Explorador de archivos",
+      "unpin": "Desfijar carpeta"
+    },
+    "library": {
+      "addCopiedToAlbum_one": "Agregar imagen copiada al álbum",
+      "addCopiedToAlbum_other": "Agregar {{count}} imágenes copiadas al álbum",
+      "refreshView": "Actualizar vista"
+    },
+    "tagging": {
+      "addTagTooltip": "Añadir etiqueta",
+      "noTags": "No se añadieron etiquetas",
+      "placeholder": "Añadir una etiqueta...",
+      "removeTooltip": "Eliminar etiqueta \"{{tag}}\"",
+      "shortcutsHeading": "ATAJOS"
+    },
+    "thumbnail": {
+      "addToAlbum": "Agregar al álbum",
+      "autoAdjust_one": "Ajuste automático de imagen",
+      "autoAdjust_other": "Ajuste automático de imágenes",
+      "collage_one": "Enmarcar imagen",
+      "collage_other": "Crear collage",
+      "confirmDelete": "Confirmar eliminación",
+      "confirmDeleteVc": "Confirmar eliminación + Copias virtuales",
+      "convertNegative_one": "Convertir negativo",
+      "convertNegative_other": "Convertir negativos",
+      "copyImage_one": "Copiar imagen",
+      "copyImage_other": "Copiar {{count}} imágenes",
+      "cullImage_one": "Cribar imagen",
+      "cullImage_other": "Cribar imágenes",
+      "deleteAssociated": "Eliminar + Asociadas",
+      "deleteImage_one": "Eliminar imagen",
+      "deleteImage_other": "Eliminar {{count}} imágenes",
+      "deleteSelected": "Eliminar solo lo seleccionado",
+      "denoise_one": "Reducir ruido de imagen",
+      "denoise_other": "Reducir ruido de imágenes",
+      "duplicateImage": "Duplicar imagen",
+      "exportImage_one": "Exportar imagen",
+      "exportImage_other": "Exportar {{count}} imágenes",
+      "noAlbums": "Sin álbumes disponibles",
+      "pasteAdjustments_one": "Pegar ajustes",
+      "pasteAdjustments_other": "Pegar ajustes a {{count}} imágenes",
+      "physicalCopy": "Copia física",
+      "removeFromAlbum_one": "Quitar del álbum",
+      "removeFromAlbum_other": "Quitar {{count}} imágenes del álbum",
+      "renameImage_one": "Renombrar imagen",
+      "renameImage_other": "Renombrar {{count}} imágenes",
+      "resetAdjustments_one": "Restablecer ajustes",
+      "resetAdjustments_other": "Restablecer ajustes en {{count}} imágenes",
+      "showExplorer": "Mostrar en el Explorador de archivos",
+      "virtualCopy": "Copia virtual"
+    },
+    "toasts": {
+      "couldNotShowExplorer": "No se pudo mostrar el archivo en el explorador: {{err}}",
+      "couldNotShowFolder": "No se pudo mostrar la carpeta: {{err}}",
+      "failedAddToAlbum": "No se pudo agregar al álbum: {{err}}",
+      "failedApplyAuto": "Error al aplicar ajustes automáticos: {{err}}",
+      "failedChangeIcon": "Error al cambiar el icono: {{err}}",
+      "failedCopy": "Error al copiar los archivos: {{err}}",
+      "failedCreateVirtualCopy": "Error al crear la copia virtual: {{err}}",
+      "failedDelete": "Error al eliminar: {{err}}",
+      "failedDeleteFolder": "Error al eliminar la carpeta: {{err}}",
+      "failedDuplicate": "Error al duplicar el archivo: {{err}}",
+      "failedMove": "Error al mover los archivos: {{err}}",
+      "failedMoveError": "Error al mover: {{err}}",
+      "failedMoveInvalid": "Error al mover: Grupo de destino no encontrado o inválido.",
+      "failedRemoveImages": "Error al quitar las imágenes: {{err}}"
+    }
+  },
+  "editor": {
+    "adjustments": {
+      "actions": {
+        "copySectionSettings": "Copiar ajustes de {{section}}",
+        "pasteLabel": "Pegar ajustes de {{section}}",
+        "pasteSettings": "Pegar ajustes",
+        "resetSectionSettings": "Restablecer ajustes de {{section}}"
+      },
+      "sections": {
+        "basic": "Básico",
+        "color": "Color",
+        "curves": "Curvas",
+        "details": "Detalles",
+        "effects": "Efectos"
+      },
+      "title": "Ajustes",
+      "tooltips": {
+        "autoAdjust": "Ajuste automático de imagen",
+        "resetAdjustments": "Restablecer ajustes",
+        "toggleAnalytics": "Alternar vista de análisis"
+      }
+    },
+    "ai": {
+      "actions": {
+        "addNewComponent": "Añadir nuevo componente",
+        "copyComponent": "Copiar componente",
+        "copyEdit": "Copiar edición",
+        "deleteComponent": "Eliminar componente",
+        "deleteEdit": "Eliminar edición",
+        "duplicateAndInvertComponent": "Duplicar e invertir componente",
+        "duplicateAndInvertEdit": "Duplicar e invertir edición",
+        "duplicateComponent": "Duplicar componente",
+        "duplicateEdit": "Duplicar edición",
+        "hideEdit": "Ocultar edición",
+        "intersectEditWith": "Intersecar edición con",
+        "pasteComponent": "Pegar componente",
+        "pasteEdit": "Pegar edición",
+        "rename": "Renombrar",
+        "resetSelection": "Restablecer selección",
+        "showEdit": "Mostrar edición",
+        "subtractFromEdit": "Restar de la edición",
+        "switchToAdd": "Cambiar a Añadir",
+        "switchToIntersect": "Cambiar a Intersecar",
+        "switchToSubtract": "Cambiar a Restar"
+      },
+      "addNewEdit": "Añadir nueva edición",
+      "brush": {
+        "add": "Añadir",
+        "erase": "Borrar",
+        "feather": "Desvanecimiento de pincel",
+        "size": "Tamaño de pincel"
+      },
+      "comingSoon": "Próximamente",
+      "connection": {
+        "backendLabel": "Backend de IA:",
+        "builtinDesc": "Usando CPU local básica. Selecciona Cloud o AI Connector en ajustes para relleno generativo.",
+        "builtinLabel": "IA integrada:",
+        "cloudLabel": "IA en la nube:",
+        "connectorConnectedDesc": "Conectado al backend generativo local.",
+        "connectorDisconnectedDesc": "Solo Inpainting básico disponible. Inicia tu backend local.",
+        "connectorLabel": "AI Connector:",
+        "loginRequiredDesc": "Inicia sesión a través de Ajustes para usar la IA en la nube.",
+        "monthlyUsage": "Uso mensual",
+        "notDetected": "No detectado",
+        "notLoggedIn": "No has iniciado sesión",
+        "proRequiredDesc": "Se requiere suscripción Pro. Mejora en Ajustes.",
+        "ready": "Listo",
+        "upgradeRequired": "Mejora requerida"
+      },
+      "createNewTitle": "Crear nueva edición generativa",
+      "createNewTooltip": "Crear nueva edición {{name}}",
+      "dropzoneText": "Suelta aquí para crear una nueva edición",
+      "editSettingsTitle": "Ajustes de edición",
+      "editsTitle": "Ediciones",
+      "generativeEditTitle": "Edición generativa",
+      "inpaintingTitle": "Inpainting",
+      "manualCleanupTitle": "Limpieza manual",
+      "noImageSelected": "No hay imagen seleccionada.",
+      "params": {
+        "feather": "Desvanecimiento",
+        "grow": "Expandir"
+      },
+      "patches": {
+        "aiEdit": "Edición IA {{count}}",
+        "aiEdit_one": "Edición IA {{count}}",
+        "aiEdit_other": "Edición IA {{count}}",
+        "clone": "Clonar {{count}}",
+        "heal": "Curar {{count}}",
+        "invertedName": "{{name}} Invertida",
+        "quickErase": "Borrado rápido {{count}}",
+        "quickErase_one": "Borrado rápido {{count}}",
+        "quickErase_other": "Borrado rápido {{count}}"
+      },
+      "resetInpaintingTooltip": "Restablecer Inpainting",
+      "settings": {
+        "aiModelDownloading": "Descargando modelo de IA: ",
+        "basicInpaintTooltipDisabled": "Backend generativo no disponible o no configurado. Se requiere Inpainting básico.",
+        "basicInpaintTooltipEnabled": "El Inpainting básico es más rápido pero no generativo. Desmarca para usar IA Generativa con un prompt de texto.",
+        "componentPropertiesTitle": "Propiedades de {{name}}",
+        "downloading": "Descargando: ",
+        "fastInpaintDesc": "Rellenar la selección basándose en los píxeles circundantes.",
+        "generateWithAiButton": "Generar con IA",
+        "generating": "Generando...",
+        "generativeDesc": "Describe lo que quieres generar en el área seleccionada.",
+        "generativeReplaceTitle": "Relleno generativo",
+        "inpaintSelectionButton": "Rellenar selección",
+        "invertComponent": "Invertir componente",
+        "invertSelection": "Invertir selección",
+        "placeholder": "ej., un campo de flores",
+        "quickEraseDesc": "Rellenar la selección para eliminar el objeto.",
+        "selectionPropertiesTitle": "Propiedades de la selección",
+        "useBasicInpaint": "Usar Inpainting básico"
+      }
+    },
+    "crop": {
+      "aspectRatioHeading": "Relación de aspecto",
+      "custom": {
+        "hPlaceholder": "Al",
+        "hTooltip": "Altura",
+        "wPlaceholder": "An",
+        "wTooltip": "Anchura"
+      },
+      "geometryHeading": "Geometría",
+      "labels": {
+        "flipHoriz": "Voltear Horiz",
+        "flipVert": "Voltear Vert",
+        "lens": "Lente",
+        "rotateLeft": "Rotar a la izquierda",
+        "rotateRight": "Rotar a la derecha",
+        "transform": "Transformar"
+      },
+      "orientationHeading": "Orientación",
+      "overlays": {
+        "armature": {
+          "desc": "Armadura",
+          "name": "Armadura"
+        },
+        "diagonal": {
+          "desc": "Líneas diagonales",
+          "name": "Líneas diagonales"
+        },
+        "none": {
+          "desc": "Sin superposición",
+          "name": "Ninguna"
+        },
+        "phiGrid": {
+          "desc": "Cuadrícula Phi (Proporción áurea)",
+          "name": "Cuadrícula Phi"
+        },
+        "spiral": {
+          "desc": "Espiral dorada (Fibonacci)",
+          "name": "Espiral"
+        },
+        "thirds": {
+          "desc": "Regla de los tercios",
+          "name": "Tercios"
+        },
+        "triangle": {
+          "desc": "Triángulo dorado",
+          "name": "Triángulo"
+        }
+      },
+      "presets": {
+        "custom": {
+          "name": "Personalizado",
+          "tooltip": "Ingresa una relación de aspecto personalizada"
+        },
+        "free": {
+          "desc": "Recorte de forma libre",
+          "name": "Libre"
+        },
+        "original": {
+          "desc": "Relación de aspecto original de la imagen",
+          "name": "Original"
+        },
+        "r169": {
+          "desc": "16:9 - Pantalla panorámica, fondos de escritorio, YouTube",
+          "name": "16:9"
+        },
+        "r219": {
+          "desc": "21:9 - Monitores ultraanchos, cinemático",
+          "name": "21:9"
+        },
+        "r32": {
+          "desc": "3:2 - Película de 35mm, cámaras DSLR",
+          "name": "3:2"
+        },
+        "r43": {
+          "desc": "4:3 - Monitores tradicionales, tablets",
+          "name": "4:3"
+        },
+        "r54": {
+          "desc": "5:4 - Instagram horizontal, impresiones 8x10",
+          "name": "5:4"
+        },
+        "r6524": {
+          "desc": "65:24 - Formato panorámico ancho de 35mm",
+          "name": "65:24"
+        },
+        "sq": {
+          "desc": "Cuadrado - Instagram, fotos de perfil",
+          "name": "1:1"
+        }
+      },
+      "resetTooltip": "Restablecer recorte y transformación",
+      "rotationHeading": "Rotación",
+      "title": "Recortar y transformar",
+      "tooltips": {
+        "compositionOverlay": "Superposición de composición",
+        "flipHoriz": "Voltear imagen horizontalmente",
+        "flipVert": "Voltear imagen verticalmente",
+        "lens": "Corrección de distorsión de lente",
+        "overlayDetails": "Superposición: {{name}}{{rotateHint}}",
+        "resetFineRotation": "Restablecer rotación fina",
+        "rotateHint": " (Shift+O para rotar)",
+        "rotateLeft": "Rotar 90° en sentido antihorario",
+        "rotateRight": "Rotar 90° en sentido horario",
+        "straighten": "Herramienta Enderezar (S)",
+        "switchOrientation": "Cambiar orientación",
+        "switchToLandscape": "Cambiar a horizontal",
+        "switchToPortrait": "Cambiar a vertical",
+        "transform": "Corrección de perspectiva y distorsión trapezoidal"
+      }
+    },
+    "externalEdit": {
+      "done": "Listo",
+      "exporting": "Exportando…",
+      "savesTo": "Edición externa: se guarda en"
+    },
+    "masks": {
+      "actions": {
+        "addNewComponent": "Añadir nuevo componente",
+        "applyPreset": "Aplicar ajuste preestablecido",
+        "copyComponent": "Copiar componente",
+        "copyMask": "Copiar máscara",
+        "deleteComponent": "Eliminar componente",
+        "deleteMask": "Eliminar máscara",
+        "duplicateAndInvertComponent": "Duplicar e invertir componente",
+        "duplicateAndInvertMask": "Duplicar e invertir máscara",
+        "duplicateComponent": "Duplicar componente",
+        "duplicateMask": "Duplicar máscara",
+        "hideComponent": "Ocultar componente",
+        "hideMask": "Ocultar máscara",
+        "intersectMaskWith": "Intersecar máscara con",
+        "noPresets": "Sin ajustes preestablecidos",
+        "pasteComponent": "Pegar componente",
+        "pasteMask": "Pegar máscara",
+        "pasteMaskAdjustments": "Pegar ajustes de máscara",
+        "rename": "Renombrar",
+        "resetMaskAdjustments": "Restablecer ajustes de máscara",
+        "showComponent": "Mostrar componente",
+        "showMask": "Mostrar máscara",
+        "subtractFromMask": "Restar de la máscara",
+        "switchToAdd": "Cambiar a Añadir",
+        "switchToIntersect": "Cambiar a Intersecar",
+        "switchToSubtract": "Cambiar a Restar"
+      },
+      "addNewMask": "Añadir nueva máscara",
+      "brush": {
+        "brush": "Pincel",
+        "eraser": "Borrador",
+        "feather": "Desvanecimiento de pincel",
+        "flow": "Flujo",
+        "size": "Tamaño de pincel"
+      },
+      "comingSoon": "Próximamente",
+      "createNewTitle": "Crear nueva máscara",
+      "depthRange": {
+        "far": "Lejos",
+        "near": "Cerca",
+        "reset": "Restablecer",
+        "title": "Rango de profundidad"
+      },
+      "dropzoneText": "Suelta aquí para crear una nueva máscara",
+      "maskAdjustmentsTitle": "Ajustes de máscara",
+      "maskingTitle": "Enmascaramiento",
+      "masksTitle": "Máscaras",
+      "params": {
+        "feather": "Desvanecimiento",
+        "globalFeather": "Desvanecimiento global",
+        "grow": "Expandir",
+        "tolerance": "Tolerancia"
+      },
+      "patches": {
+        "copyName": "{{name}} Copia",
+        "invertedName": "{{name}} Invertida",
+        "maskName": "Máscara {{count}}",
+        "maskName_one": "Máscara {{count}}",
+        "maskName_other": "Máscara {{count}}"
+      },
+      "resetMaskingTooltip": "Restablecer enmascaramiento",
+      "settings": {
+        "aiModelDownloading": "Descargando modelo de IA: ",
+        "applyPreset": "Aplicar ajuste preestablecido",
+        "componentPropertiesTitle": "Propiedades de {{name}}",
+        "copySectionSettings": "Copiar ajustes de {{section}}",
+        "invertComponent": "Invertir componente",
+        "invertMask": "Invertir máscara",
+        "maskPropertiesTitle": "Propiedades de la máscara",
+        "noPresetsFound": "No se encontraron ajustes preestablecidos",
+        "opacity": "Opacidad",
+        "pasteSectionSettings": "Pegar ajustes de {{section}}",
+        "pasteSettings": "Pegar ajustes",
+        "resetSectionSettings": "Restablecer ajustes de {{section}}",
+        "select": "Seleccionar",
+        "selectPresetTooltip": "Selecciona un ajuste preestablecido para aplicar"
+      },
+      "toggleAnalyticsTooltip": "Alternar vista de análisis",
+      "tooltips": {
+        "addToCurrent": "Añadir {{name}} a la máscara actual o crear nueva (Clic derecho)",
+        "createNew": "Crear nueva máscara {{name}}",
+        "selectNewSourcePoint": "{{modifier}} + Clic para seleccionar un nuevo punto de origen",
+        "showMore": "Mostrar más tipos de máscaras"
+      }
+    },
+    "metadata": {
+      "author": {
+        "creatorDetails": "Detalles del creador",
+        "title": "Autor y Copyright"
+      },
+      "camera": {
+        "aperture": "Apertura",
+        "focalLength": "Distancia focal",
+        "iso": "ISO",
+        "lens": "Lente",
+        "shutterSpeed": "Velocidad de obturación",
+        "title": "Detalles de la cámara"
+      },
+      "clickToEdit": "Haz clic para editar",
+      "copied": "Copiado",
+      "copy": "Copiar",
+      "emptyClickToAdd": "Vacío (Haz clic para añadir)",
+      "extendedExif": {
+        "title": "EXIF Extendido"
+      },
+      "fields": {
+        "author": "Autor",
+        "comments": "Comentarios",
+        "copyright": "Copyright",
+        "title": "Título"
+      },
+      "fileInfo": {
+        "dimensions": "{{width}} × {{height}} px • {{megapixels}} MP",
+        "dimensionsNoMp": "{{width}} × {{height}} px",
+        "emptyDimensions": "- × - px",
+        "title": "Información del archivo",
+        "virtualCopy": "Copia virtual"
+      },
+      "gps": {
+        "altitude": "Altitud",
+        "clickToOpenTooltip": "Haz clic para abrir el mapa en una nueva pestaña",
+        "latitude": "Latitud",
+        "longitude": "Longitud",
+        "title": "Ubicación GPS"
+      },
+      "organization": {
+        "addTagPlaceholder": "Añadir etiqueta...",
+        "colorLabel": "Etiqueta de color",
+        "noTags": "Sin etiquetas",
+        "none": "Ninguno",
+        "rating": "Puntuación",
+        "ratingLabels": "Puntuación y etiquetas",
+        "tags": "Etiquetas",
+        "title": "Organización"
+      },
+      "title": "Metadatos"
+    },
+    "presets": {
+      "amount": "Cantidad",
+      "dialog": {
+        "allPresetFiles": "Todos los archivos de ajustes",
+        "exportAllTitle": "Exportar todos los ajustes preestablecidos",
+        "exportTitle": "Exportar {{type}}",
+        "importPresetsTitle": "Importar ajustes preestablecidos",
+        "legacyPreset": "Ajuste preestablecido heredado",
+        "presetFile": "Archivo de ajuste preestablecido",
+        "rapidRawPreset": "Ajuste preestablecido de RapidRAW"
+      },
+      "menu": {
+        "configurePreset": "Configurar ajuste preestablecido",
+        "deleteFolder": "Eliminar carpeta",
+        "deletePreset": "Eliminar ajuste preestablecido",
+        "duplicatePreset": "Duplicar ajuste preestablecido",
+        "exportFolder": "Exportar carpeta",
+        "exportPreset": "Exportar ajuste preestablecido",
+        "newFolder": "Nueva carpeta",
+        "newPreset": "Nuevo ajuste preestablecido",
+        "overwrite": "Sobrescribir",
+        "renameFolder": "Renombrar carpeta",
+        "sortAll": "Ordenar todo alfabéticamente"
+      },
+      "status": {
+        "empty": "Aún no hay ajustes guardados. Crea el tuyo, impórtalo desde un archivo o explora los de la comunidad.",
+        "getCommunity": "Obtener ajustes de la comunidad",
+        "loading": "Cargando ajustes preestablecidos..."
+      },
+      "supports": {
+        "cropTransform": "Recortar y transformar",
+        "label": "Soporta {{features}}",
+        "masks": "Máscaras"
+      },
+      "title": "Ajustes preestablecidos",
+      "tooltips": {
+        "explore": "Explorar ajustes de la comunidad",
+        "export": "Exportar todos los ajustes a un archivo .rrpreset",
+        "import": "Importar ajustes desde un archivo .rrpreset",
+        "saveNew": "Guardar como nuevo ajuste preestablecido"
+      },
+      "types": {
+        "folder": "Carpeta",
+        "preset": "Ajuste preestablecido",
+        "style": "Estilo",
+        "tool": "Herramienta"
+      }
+    },
+    "switcher": {
+      "tooltips": {
+        "adjust": "Ajustar",
+        "crop": "Recortar",
+        "export": "Exportar",
+        "info": "Info",
+        "inpaint": "Inpainting",
+        "masks": "Máscaras",
+        "presets": "Ajustes preestablecidos"
+      }
+    },
+    "toolbar": {
+      "tooltips": {
+        "aperture": "Apertura",
+        "backToLibrary": "Volver a la Biblioteca",
+        "focalLength": "Distancia focal",
+        "fullscreen": "Alternar pantalla completa (F)",
+        "iso": "ISO",
+        "redo": "Rehacer (Ctrl+Y) o Historial (Clic derecho)",
+        "showEdited": "Mostrar editado (B)",
+        "showOriginal": "Mostrar original (B)",
+        "shutterSpeed": "Velocidad de obturación",
+        "undo": "Deshacer (Ctrl+Z) o Historial (Clic derecho)"
+      },
+      "vc": "CV"
+    }
+  },
+  "export": {
+    "advanced": {
+      "exportMasks": "Exportar máscaras como archivos separados",
+      "preserveFolders": "Preservar estructura de carpetas",
+      "preserveTimestamps": "Establecer marcas de tiempo del archivo desde la fecha de captura EXIF",
+      "title": "Ajustes de exportación"
+    },
+    "bytes": {
+      "bytes": "Bytes",
+      "gb": "GB",
+      "kb": "KB",
+      "mb": "MB",
+      "tb": "TB"
+    },
+    "dialog": {
+      "saveEditedImageTitle": "Guardar imagen editada",
+      "selectFolderTitle": "Seleccionar carpeta para exportar {{count}} imagen(es)",
+      "selectFolderTitle_one": "Seleccionar carpeta para exportar {{count}} imagen",
+      "selectFolderTitle_other": "Seleccionar carpeta para exportar {{count}} imágenes"
+    },
+    "file": {
+      "quality": "Calidad",
+      "qualityLossless": "Calidad (Sin pérdida)"
+    },
+    "labels": {
+      "image": "Imagen",
+      "image_plural": "Imágenes",
+      "lut": "LUT",
+      "lut_plural": "LUTs"
+    },
+    "metadata": {
+      "removeGps": "Eliminar datos GPS",
+      "saveWithMetadata": "Guardar con metadatos"
+    },
+    "resize": {
+      "dontEnlarge": "No agrandar",
+      "modes": {
+        "height": "Altura",
+        "longEdge": "Borde largo",
+        "shortEdge": "Borde corto",
+        "width": "Anchura"
+      },
+      "pixels": "píxeles",
+      "resizeToFit": "Redimensionar para encajar"
+    },
+    "sections": {
+      "advanced": "Avanzado",
+      "fileNaming": "Nomenclatura de archivos",
+      "fileSettings": "Ajustes de archivo",
+      "imageSizing": "Tamaño de imagen",
+      "metadata": "Metadatos",
+      "watermark": "Marca de agua"
+    },
+    "status": {
+      "cancelExport": "Cancelar exportación",
+      "cancelled": "Exportación cancelada",
+      "estimatedAverageSize": " ({{size}} prom)",
+      "estimatedSize": "Tamaño de archivo estimado: ~{{size}}",
+      "estimatedTotalSize": "Tamaño total estimado: ~{{size}}",
+      "estimatingSize": "Estimando tamaño...",
+      "exportMultiple": "Exportar {{count}} {{label}}",
+      "exportMultiple_one": "Exportar {{count}} {{label}}",
+      "exportMultiple_other": "Exportar {{count}} {{label}}",
+      "exportSingle": "Exportar {{label}}",
+      "exporting": "Exportando…",
+      "exportingProgress": "Exportando… ({{current}}/{{total}})",
+      "failed": "Exportación fallida",
+      "noImageSelected": "No se seleccionó ninguna imagen para exportar.",
+      "noImagesSelected": "No se seleccionaron imágenes.",
+      "success": "¡Exportación exitosa!"
+    },
+    "title": "Exportar",
+    "watermark": {
+      "addWatermark": "Añadir marca de agua",
+      "anchors": {
+        "bottomCenter": "Abajo Centro",
+        "bottomLeft": "Abajo Izquierda",
+        "bottomRight": "Abajo Derecha",
+        "center": "Centro",
+        "centerLeft": "Centro Izquierda",
+        "centerRight": "Centro Derecha",
+        "topCenter": "Arriba Centro",
+        "topLeft": "Arriba Izquierda",
+        "topRight": "Arriba Derecha"
+      },
+      "logoText": "Logotipo",
+      "opacity": "Opacidad",
+      "previewText": "Vista previa",
+      "scale": "Escala",
+      "spacing": "Espaciado",
+      "watermarkImage": "Imagen de la marca de agua"
+    }
+  },
+  "library": {
+    "community": {
+      "actionSave": "Guardar",
+      "actionSaved": "Guardado",
+      "actionSaving": "Guardando...",
+      "fetchingPresets": "Obteniendo ajustes preestablecidos desde GitHub...",
+      "footerHeading": "¿Quieres que tu ajuste preestablecido aparezca aquí?",
+      "footerLinkText": "Crea un issue en GitHub",
+      "headerDesc": "Descubre ajustes preestablecidos creados por la comunidad.",
+      "headerTitle": "Ajustes de la comunidad",
+      "presetBy": "por {{creator}}",
+      "searchPlaceholder": "Buscar ajustes preestablecidos...",
+      "sortBy": "Ordenar por:",
+      "sortMethods": {
+        "name": "Nombre (A-Z)"
+      }
+    },
+    "filters": {
+      "edited": {
+        "all": "Todas las imágenes",
+        "editedOnly": "Solo editadas",
+        "uneditedOnly": "Solo sin editar"
+      },
+      "noMatch": "No se encontraron imágenes que coincidan con tu filtro.",
+      "rating": {
+        "all": "Mostrar todas",
+        "andUpSuffix": "y superior",
+        "fiveOnly": "Solo 5",
+        "fourAndUp": "4 y superior",
+        "oneAndUp": "1 y superior",
+        "onlySuffix": "solo",
+        "threeAndUp": "3 y superior",
+        "twoAndUp": "2 y superior",
+        "unrated": "Solo sin puntuación"
+      },
+      "raw": {
+        "all": "Todos los tipos",
+        "nonRawOnly": "Solo no RAW",
+        "preferRaw": "Preferir RAW",
+        "rawOnly": "Solo RAW"
+      }
+    },
+    "folders": {
+      "addFolder": "Añadir carpeta",
+      "albumsEmpty": "Clic derecho para crear un álbum.",
+      "collapseSection": "Contraer {{section}}",
+      "expandSection": "Expandir {{section}}",
+      "loading": "Cargando carpetas...",
+      "noFoldersFound": "No se encontraron carpetas.",
+      "openFolderInstruction": "Abre una carpeta para ver su estructura.",
+      "searchPlaceholder": "Buscar carpetas...",
+      "sections": {
+        "albums": "Álbumes",
+        "folders": "Carpetas",
+        "pinned": "Fijadas"
+      },
+      "sort": {
+        "created": "Fecha de creación",
+        "imageCount": "Recuento de imágenes",
+        "modified": "Fecha de modificación",
+        "name": "Alfabéticamente"
+      },
+      "tooltips": {
+        "clearSearch": "Borrar búsqueda",
+        "collapse": "Contraer",
+        "expand": "Expandir",
+        "sortFolders": "Ordenar carpetas"
+      }
+    },
+    "grid": {
+      "columns": {
+        "aperture": "Apertura",
+        "focal": "Focal",
+        "iso": "ISO",
+        "label": "Etiqueta",
+        "modified": "Modificado",
+        "name": "Nombre",
+        "rating": "Puntuación",
+        "shutter": "Obturador"
+      }
+    },
+    "header": {
+      "search": {
+        "addFilterOrSearch": "Añadir filtro o buscar...",
+        "indexingImages": "Indexando imágenes...",
+        "indexingProgress": "Indexando... ({{current}}/{{total}})",
+        "matchAll": "Coincidir TODAS las etiquetas",
+        "matchAny": "Coincidir CUALQUIER etiqueta",
+        "searchOrQuery": "Buscar o añadir consulta",
+        "tooltipAdvancedQueries": "Consultas avanzadas: iso:>800, f:<=2.8, s:1/200, mm:50, camera:sony",
+        "tooltipClearSearch": "Borrar búsqueda",
+        "tooltipSearchFilter": "Buscar o Filtrar"
+      },
+      "title": "Biblioteca",
+      "viewOptions": {
+        "currentFolder": "Carpeta actual",
+        "displayMode": "Modo de visualización",
+        "exifDisabledTooltip": "Habilita la lectura EXIF en Ajustes para usar esta opción.",
+        "filterByColorLabel": "Filtrar por etiqueta de color",
+        "filterByEdited": "Filtrar por estado de edición",
+        "filterByFileType": "Filtrar por tipo de archivo",
+        "filterByRating": "Filtrar por puntuación",
+        "metadataAlways": "Siempre",
+        "metadataHover": "Al pasar el ratón",
+        "metadataOff": "Desactivado",
+        "noLabel": "Sin etiqueta",
+        "recursive": "Recursivo",
+        "showMetadata": "Mostrar metadatos",
+        "sortAscending": "Ordenar ascendente",
+        "sortBy": "Ordenar por",
+        "sortDescending": "Ordenar descendente",
+        "thumbnailFit": "Ajuste de miniatura",
+        "thumbnailSize": "Tamaño de miniatura",
+        "title": "Opciones de vista"
+      }
+    },
+    "import": {
+      "complete": "¡Importación completada!",
+      "failed": "¡Importación fallida!",
+      "progress": "Importando... ({{current}}/{{total}})"
+    },
+    "items": {
+      "cloudPlaceholder": "Almacenado en iCloud — no descargado",
+      "collapseFolder": "Contraer carpeta",
+      "currentFolder": "Carpeta actual",
+      "expandFolder": "Expandir carpeta",
+      "imagesCount_one": "1 imagen",
+      "imagesCount_other": "{{count}} imágenes",
+      "tooltipAperture": "Apertura",
+      "tooltipFocalLength": "Distancia focal",
+      "tooltipIso": "ISO",
+      "tooltipShutterSpeed": "Velocidad de obturación",
+      "tooltipVirtualCopy": "Copia virtual"
+    },
+    "search": {
+      "noResults": "No se encontraron resultados",
+      "noResultsAiHint": " Para una búsqueda más completa, habilita el etiquetado automático en Ajustes.",
+      "noResultsDesc": "No se pudo encontrar una imagen basada en el nombre de archivo o las etiquetas."
+    },
+    "sort": {
+      "aperture": "Apertura",
+      "dateModified": "Fecha de modificación",
+      "dateTaken": "Fecha de captura",
+      "editedStatus": "Estado editado",
+      "fileName": "Nombre del archivo",
+      "focalLength": "Distancia focal",
+      "iso": "ISO",
+      "rating": "Puntuación",
+      "shutterSpeed": "Velocidad de obturación"
+    },
+    "splash": {
+      "addFolder": "Añadir carpeta",
+      "brand": "RapidRAW",
+      "continueSession": "Continuar sesión",
+      "contribute": "Contribuir en GitHub",
+      "descriptionAndroid": "Un editor de imágenes RAW increíblemente rápido y acelerado por GPU. Abre la biblioteca para comenzar.",
+      "descriptionDesktop": "Un editor de imágenes RAW increíblemente rápido y acelerado por GPU. Abre una carpeta para comenzar.",
+      "donate": "Donar en Ko-Fi",
+      "downloadVersion": "Haz clic para descargar la versión {{version}}",
+      "goToSettings": "Ir a Ajustes",
+      "imagesBy": "Imágenes por",
+      "latestVersion": "Estás en la versión más reciente",
+      "newVersionAvailable": "¡Nueva versión disponible!",
+      "openFolder": "Abrir carpeta",
+      "openLibrary": "Abrir biblioteca",
+      "or": "o",
+      "version": "Versión {{version}}",
+      "welcomeBack": "¡Bienvenido de nuevo!",
+      "welcomeBackDesc": "Continúa donde lo dejaste o inicia una nueva sesión."
+    },
+    "status": {
+      "downloading": "Descargando {{status}}...",
+      "importing": "Importando imágenes... ({{current}}/{{total}})",
+      "indexing": "Indexando imágenes... ({{current}}/{{total}})",
+      "moment": "Esto puede tomar un momento.",
+      "processing": "Procesando imágenes..."
+    },
+    "thumbnailFit": {
+      "fillSquare": "Llenar cuadrado",
+      "originalRatio": "Proporción original"
+    },
+    "thumbnailSize": {
+      "large": "Grande",
+      "list": "Lista",
+      "medium": "Mediano",
+      "small": "Pequeño"
+    },
+    "tooltips": {
+      "communityPresets": "Ajustes de la comunidad",
+      "goHome": "Ir al Inicio",
+      "importImages": "Importar imágenes"
+    }
+  },
+  "masks": {
+    "types": {
+      "all": "Imagen entera",
+      "brush": "Pincel",
+      "clone": "Clonar",
+      "color": "Color",
+      "depth": "Profundidad",
+      "flow": "Flujo",
+      "foreground": "Primer plano",
+      "heal": "Curar",
+      "linear": "Lineal",
+      "luminance": "Luminancia",
+      "others": "Otros",
+      "quickErase": "Borrado rápido",
+      "quickEraser": "Borrador rápido",
+      "radial": "Radial",
+      "sky": "Cielo",
+      "subject": "Sujeto"
+    }
+  },
+  "menus": {
+    "tagging": {
+      "addTagTooltip": "Añadir etiqueta",
+      "noTags": "No se añadieron etiquetas",
+      "placeholder": "Añadir una etiqueta...",
+      "removeTooltip": "Eliminar etiqueta \"{{tag}}\"",
+      "shortcutsHeading": "ATAJOS"
+    }
+  },
+  "modals": {
+    "collage": {
+      "aspectRatio": "Relación de aspecto",
+      "background": "Fondo",
+      "borderRadius": "Radio del borde",
+      "cancel": "Cancelar",
+      "close": "Cerrar",
+      "done": "Hecho",
+      "errorTitle": "Ocurrió un error",
+      "exportSize": "Tamaño de exportación (px)",
+      "keepOriginalRatio": "Mantener relación de aspecto original",
+      "layout": "Diseño",
+      "original": "Original",
+      "saveButton": "Guardar collage",
+      "saved": "¡Collage guardado!",
+      "saving": "Guardando...",
+      "shuffleTooltip": "Mezclar imágenes",
+      "spacing": "Espaciado"
+    },
+    "configurePreset": {
+      "cancel": "Cancelar",
+      "includeCropTransform": "Incluir recorte y transformación",
+      "includeMasks": "Incluir máscaras",
+      "placeholder": "Introduce el nombre del ajuste preestablecido...",
+      "save": "Guardar",
+      "titleConfigure": "Configurar ajuste preestablecido",
+      "titleSave": "Guardar nuevo ajuste",
+      "typeStyleDesc": "Aplica el aspecto completo. Esto sobrescribirá todos tus ajustes actuales para que coincidan exactamente con el ajuste preestablecido.",
+      "typeStyleLabel": "Estilo",
+      "typeToolDesc": "Solo aplica cambios específicos sin tocar el resto de tus ajustes.",
+      "typeToolLabel": "Herramienta"
+    },
+    "confirm": {
+      "cancel": "Cancelar",
+      "confirm": "Confirmar"
+    },
+    "copyPaste": {
+      "cancel": "Cancelar",
+      "descMerge": "Añade tus cambios copiados, dejando los demás ajustes intactos.",
+      "descReplace": "Sobrescribe todos los ajustes seleccionados, restableciendo el resto a sus valores predeterminados.",
+      "groups": {
+        "chromaticAberration": "Aberración cromática",
+        "clarityDehaze": "Claridad y Borrar neblina",
+        "colorCalibration": "Calibración de color",
+        "colorGrading": "Gradación de color",
+        "colorMixer": "Mezclador de colores",
+        "cropAspectRatio": "Recorte y relación de aspecto",
+        "curves": "Curvas",
+        "exposureToneMapper": "Exposición y Mapeador de tonos",
+        "grain": "Grano",
+        "halationGlow": "Halación y Resplandor",
+        "hueShift": "Cambio de tono global",
+        "lensCorrection": "Corrección de lente",
+        "lut": "LUT",
+        "masks": "Máscaras",
+        "noiseReduction": "Reducción de ruido",
+        "presence": "Presencia",
+        "sharpness": "Nitidez",
+        "tone": "Tonos",
+        "transformRotation": "Transformación y Rotación",
+        "vignette": "Viñeteado",
+        "whiteBalance": "Balance de blancos"
+      },
+      "includedAdjustments": "Ajustes incluidos",
+      "modeMerge": "Fusionar",
+      "modeReplace": "Reemplazar",
+      "pasteMode": "Modo de pegado",
+      "save": "Guardar",
+      "selectAll": "Seleccionar todo",
+      "selectNone": "No seleccionar nada",
+      "title": "Copiar y pegar ajustes"
+    },
+    "createAlbum": {
+      "placeholder": "Introduce el nombre del álbum..."
+    },
+    "createFolder": {
+      "cancel": "Cancelar",
+      "create": "Crear",
+      "placeholder": "Introduce el nombre de la carpeta...",
+      "title": "Crear nueva carpeta"
+    },
+    "createGroup": {
+      "placeholder": "Introduce el nombre del grupo..."
+    },
+    "culling": {
+      "actionDelete": "Mover a la papelera",
+      "actionRateZero": "Establecer puntuación a 1 estrella",
+      "actionReject": "Marcar como rechazada (Etiqueta roja)",
+      "applyButton_one": "Aplicar a 1 imagen",
+      "applyButton_other": "Aplicar a {{count}} imágenes",
+      "bestImage": "Mejor imagen",
+      "blurThreshold": "Umbral de desenfoque",
+      "blurThresholdDesc": "Se marcarán las imágenes con una puntuación de nitidez por debajo de este valor. Un valor más alto es más estricto.",
+      "blurryImagesTab": "Imágenes borrosas",
+      "cancel": "Cancelar",
+      "close": "Cerrar",
+      "cullingFailed": "Cribado fallido",
+      "cullingSuggestions": "Sugerencias de cribado",
+      "done": "Hecho",
+      "duplicatesHeader": "Duplicados ({{count}})",
+      "duplicatesHeader_one": "Duplicados ({{count}})",
+      "duplicatesHeader_other": "Duplicados ({{count}})",
+      "filterBlurry": "Filtrar imágenes borrosas",
+      "groupHeader": "Grupo {{index}}",
+      "groupSimilar": "Agrupar imágenes similares",
+      "noIssuesDesc": "Todas las imágenes parecen ser únicas y nítidas.",
+      "noIssuesFound": "¡No se encontraron problemas!",
+      "score": "Puntuación: {{score}}",
+      "sharpness": "Nitidez: {{sharpness}}",
+      "similarGroupsTab": "Grupos similares",
+      "similarityThreshold": "Umbral de similitud",
+      "similarityThresholdDesc": "Más bajo es más estricto (duplicados exactos). Más alto es más flexible (casi duplicados). Se recomienda un valor de 24-32.",
+      "startCulling": "Iniciar cribado",
+      "starting": "Iniciando...",
+      "title": "Cribar imágenes"
+    },
+    "denoise": {
+      "batchProgressText": "Reduciendo ruido de {{current}} de {{total}}...",
+      "btnBatchDenoise": "Reducir ruido en lote y guardar",
+      "btnRetry": "Reintentar",
+      "btnSave": "Guardar",
+      "btnStart": "Iniciar",
+      "cancel": "Cancelar",
+      "close": "Cerrar",
+      "denoised": "Ruido reducido",
+      "denoisingProgress": "Reducción de ruido en progreso",
+      "description": "Elimina el ruido de tu imagen usando reducción de ruido impulsada por IA o tradicional.",
+      "downloadingText": "Descargando {{status}}...",
+      "gpuWarningTooltip": "La reducción de ruido NIND aún no soporta aceleración por GPU debido a limitaciones de dependencias.",
+      "initializing": "Inicializando...",
+      "methodAi": "NIND (IA - Mejor para RAW)",
+      "methodBm3d": "BM3D (Tradicional - Todos los formatos)",
+      "methodLabel": "Método",
+      "openInEditor": "Abrir en el editor",
+      "original": "Original",
+      "panZoomEnabled": "Desplazamiento y zoom habilitados",
+      "processingFailed": "Procesamiento fallido",
+      "qualityTileSizeLabel": "Calidad / Tamaño de mosaico",
+      "reset": "Restablecer",
+      "saveSuccess": "¡Imagen guardada con éxito!",
+      "speedNotice": "Esto puede tardar unos minutos dependiendo del tamaño de la imagen y el método seleccionado.",
+      "strengthLabel": "Fuerza",
+      "titleBatch": "Reducir ruido de imágenes",
+      "titleSingle": "Reducir ruido de imagen"
+    },
+    "hdr": {
+      "cancel": "Cancelar",
+      "close": "Cerrar",
+      "description": "Combina tus exposiciones en horquilla en una sola imagen de Alto Rango Dinámico (HDR).",
+      "descriptionWithCount": "Combina {{count}} exposiciones en horquilla en una sola imagen de Alto Rango Dinámico.",
+      "descriptionWithCount_one": "Combina {{count}} exposición en horquilla en una sola imagen de Alto Rango Dinámico.",
+      "descriptionWithCount_other": "Combina {{count}} exposiciones en horquilla en una sola imagen de Alto Rango Dinámico.",
+      "failed": "Combinación HDR fallida",
+      "initializing": "Inicializando...",
+      "merging": "Combinando HDR",
+      "openInEditor": "Abrir en el editor",
+      "retry": "Reintentar",
+      "save": "Guardar",
+      "savedSuccess": "¡HDR guardado con éxito!",
+      "speedNotice": "Esto puede tardar unos minutos dependiendo del número y tamaño de tus exposiciones.",
+      "start": "Iniciar",
+      "title": "Combinar en HDR"
+    },
+    "importSettings": {
+      "cancel": "Cancelar",
+      "dateFormat": "Formato de fecha",
+      "dateFormatPlaceholder": "ej., AAAA/MM-DD",
+      "deleteAfterImport": "Eliminar originales tras una importación exitosa",
+      "deleteWarning": "Los archivos se moverán a la papelera del sistema.",
+      "fileNaming": "Nomenclatura de archivos",
+      "folderOrganization": "Organización de carpetas",
+      "organizeByDate": "Organizar en subcarpetas por fecha",
+      "sourceFiles": "Archivos de origen",
+      "startImport": "Iniciar importación",
+      "title": "Ajustes de importación"
+    },
+    "lensCorrection": {
+      "amount": "Cantidad",
+      "apply": "Aplicar",
+      "autoDetectLens": "Autodetectar lente",
+      "autoDetectStatus": "Estado de autodetección",
+      "cancel": "Cancelar",
+      "chooseSavedLens": "Elegir lente guardada",
+      "chromaticAberration": "Aberración cromática",
+      "compareTooltip": "Mantén presionado para comparar",
+      "corrections": "Correcciones",
+      "databaseNotice": "Base de datos de lentes proporcionada por el <0>Proyecto Lensfun</0> (<1>CC BY-SA 3.0</1>).",
+      "detecting": "Detectando...",
+      "detectingExif": "Detectando EXIF...",
+      "distortion": "Distorsión",
+      "lensFound": "Lente encontrada",
+      "lensProfileNotFound": "Perfil de lente no encontrado",
+      "manageLensesPlaceholder": "Gestiona tus lentes en Ajustes",
+      "manualSelection": "Selección manual",
+      "maskWarning": "La corrección de lente actualiza la geometría base. Las máscaras existentes pueden desplazarse y las máscaras de IA deben regenerarse.",
+      "modeAuto": "Auto",
+      "modeManual": "Manual",
+      "notFound": "No encontrado",
+      "original": "Original",
+      "resetTooltip": "Restablecer corrección de lente",
+      "resetZoomTooltip": "Restablecer zoom",
+      "selectLensModel": "Seleccionar modelo de lente",
+      "selectManufacturer": "Seleccionar fabricante",
+      "title": "Corrección de lente",
+      "vignetting": "Viñeteo",
+      "waitingAutoDetect": "Esperando autodetección...",
+      "zoomInTooltip": "Acercar",
+      "zoomOutTooltip": "Alejar"
+    },
+    "negativeConversion": {
+      "blueWeight": "Azul (Amarillo)",
+      "cancel": "Cancelar",
+      "colorTiming": "Sincronización de color",
+      "compareTooltip": "Mantén presionado para ver original",
+      "contrast": "Contraste (Grado)",
+      "convertAndSave": "Convertir y guardar",
+      "convertAndSaveAll": "Convertir y guardar todo ({{count}})",
+      "convertAndSaveAll_one": "Convertir y guardar todo ({{count}})",
+      "convertAndSaveAll_other": "Convertir y guardar todo ({{count}})",
+      "converting": "Convirtiendo",
+      "convertingProgress": "Convirtiendo {{current}}/{{total}}",
+      "exposure": "Exposición",
+      "greenWeight": "Verde (Magenta)",
+      "noticeText": "Lógica de inversión inspirada por <0>NegPy</0> creado por marcinz606 (<1>GPL-3.0</1>).",
+      "originalLabel": "Negativo original",
+      "printGrade": "Grado de impresión",
+      "redWeight": "Rojo (Cian)",
+      "resetTooltip": "Restablecer",
+      "resetViewTooltip": "Restablecer vista",
+      "title": "Conversión de negativos",
+      "zoomInTooltip": "Acercar",
+      "zoomOutTooltip": "Alejar"
+    },
+    "panorama": {
+      "cancel": "Cancelar",
+      "close": "Cerrar",
+      "descCount": "Combina {{count}} imágenes superpuestas en un panorama continuo.",
+      "descCount_one": "Combina {{count}} imagen superpuesta en un panorama continuo.",
+      "descCount_other": "Combina {{count}} imágenes superpuestas en un panorama continuo.",
+      "descGeneric": "Combina tus imágenes superpuestas en un panorama continuo.",
+      "failed": "Panorama fallido",
+      "initializing": "Inicializando...",
+      "openInEditor": "Abrir en el editor",
+      "retry": "Reintentar",
+      "save": "Guardar",
+      "savedSuccess": "¡Panorama guardado con éxito!",
+      "speedNotice": "Esto puede tardar unos minutos dependiendo del número y tamaño de las imágenes.",
+      "start": "Iniciar",
+      "stitchingProgress": "Uniendo panorama",
+      "title": "Unir panorama"
+    },
+    "renameAlbum": {
+      "placeholder": "Introduce el nuevo nombre del álbum..."
+    },
+    "renameFile": {
+      "cancel": "Cancelar",
+      "fileNamingTemplate": "Plantilla de nombre de archivo",
+      "newName": "Nuevo nombre",
+      "save": "Guardar",
+      "titleMultiple": "Renombrar {{count}} imágenes",
+      "titleMultiple_one": "Renombrar {{count}} imagen",
+      "titleMultiple_other": "Renombrar {{count}} imágenes",
+      "titleSingle": "Renombrar imagen"
+    },
+    "renameFolder": {
+      "cancel": "Cancelar",
+      "placeholder": "Introduce el nuevo nombre de la carpeta...",
+      "save": "Guardar",
+      "title": "Renombrar carpeta"
+    },
+    "renameGroup": {
+      "placeholder": "Introduce el nuevo nombre del grupo..."
+    },
+    "transform": {
+      "amount": "Cantidad",
+      "apply": "Aplicar",
+      "aspect": "Aspecto",
+      "cancel": "Cancelar",
+      "compareTooltip": "Mantén presionado para comparar",
+      "distortion": "Distorsión",
+      "horizontal": "Horizontal",
+      "maskWarning": "Transformar actualiza la geometría base. Las máscaras existentes pueden desplazarse y las máscaras de IA deben regenerarse.",
+      "offset": "Desplazamiento",
+      "original": "Original",
+      "perspective": "Perspectiva",
+      "resetTooltip": "Restablecer transformación",
+      "resetZoomTooltip": "Restablecer zoom",
+      "rotate": "Rotar",
+      "scale": "Escala",
+      "title": "Transformar",
+      "toggleGridTooltip": "Alternar cuadrícula",
+      "toggleHelperLinesTooltip": "Alternar líneas guía",
+      "vertical": "Vertical",
+      "xAxis": "Eje X",
+      "yAxis": "Eje Y",
+      "zoomInTooltip": "Acercar",
+      "zoomOutTooltip": "Alejar"
+    }
+  },
+  "settings": {
+    "adjustments": {
+      "chromaticAberration": "Aberración cromática",
+      "colorCalibration": "Calibración de color",
+      "description": "Oculta las secciones de ajustes que no usas a menudo para simplificar el panel de edición. Tus ajustes se mantendrán y aplicarán incluso si están ocultos.",
+      "grain": "Grano",
+      "noiseReduction": "Reducción de ruido",
+      "title": "Visibilidad de ajustes"
+    },
+    "categories": {
+      "general": "General",
+      "processing": "Procesamiento",
+      "shortcuts": "Controles"
+    },
+    "controls": {
+      "keyboardTitle": "Controles del teclado",
+      "modes": {
+        "mouse": "Ratón",
+        "trackpad": "Touchpad"
+      },
+      "notAssigned": "No asignado",
+      "optimization": "Optimización del dispositivo de entrada",
+      "optimizationDesc": "Elige el dispositivo de entrada principal que usas para desplazar y hacer zoom en el lienzo.",
+      "pressKey": "Presiona una tecla... (Esc para borrar)",
+      "resetDefaults": "Restablecer todo a los valores predeterminados",
+      "speed": "Velocidad",
+      "title": "Controles del ratón",
+      "zoom": "Multiplicador de velocidad de zoom",
+      "zoomDesc": "Ajusta qué tan rápido se acerca y aleja el lienzo al usar la rueda de desplazamiento o el gesto de pellizcar."
+    },
+    "data": {
+      "clearSidecars": "Borrar todos los archivos sidecar",
+      "clearSidecarsButton": "Borrar",
+      "clearSidecarsDesc": "Esto eliminará todos los archivos .rrdata (que contienen tus ediciones) dentro de tus carpetas raíz:",
+      "clearThumbnail": "Borrar caché de miniaturas",
+      "clearThumbnailButton": "Borrar",
+      "clearThumbnailDesc": "Esto eliminará todas las imágenes en miniatura en caché. Se regenerarán automáticamente a medida que explores tu biblioteca.",
+      "loading": "Cargando...",
+      "logs": "Ver registros de la aplicación",
+      "logsButton": "Abrir",
+      "logsDesc": "Consulta el archivo de registro de la aplicación para solucionar problemas. El registro se encuentra en:",
+      "modals": {
+        "aiMessage": "¿Estás seguro de que quieres eliminar todas las etiquetas generadas por IA de todas las imágenes en todas las carpetas raíz activas?\n\nEsto no afectará a las etiquetas añadidas por el usuario. Esta acción no se puede deshacer.",
+        "allMessage": "¿Estás seguro de que quieres eliminar todas las etiquetas generadas por IA y las añadidas por el usuario de todas las imágenes en todas las carpetas raíz activas?\n\nEsta acción no se puede deshacer.",
+        "cacheMessage": "¿Estás seguro de que quieres borrar la caché de miniaturas?\n\nTodas las miniaturas tendrán que regenerarse, lo que puede ser lento para carpetas grandes.",
+        "confirmAiTitle": "Confirmar eliminación de etiquetas de IA",
+        "confirmAllTitle": "Confirmar eliminación de todas las etiquetas",
+        "confirmCacheTitle": "Confirmar borrado de caché",
+        "confirmClear": "Borrar",
+        "confirmClearAi": "Borrar etiquetas de IA",
+        "confirmClearAll": "Borrar todas las etiquetas",
+        "confirmClearCache": "Borrar caché",
+        "confirmDeleteAllEdits": "Eliminar todas las ediciones",
+        "confirmTitle": "Confirmar eliminación",
+        "sidecarMessage": "¿Estás seguro de que quieres eliminar todos los archivos sidecar?\n\nEsto eliminará permanentemente todas tus ediciones para todas las imágenes dentro de todas las carpetas raíz activas y sus subcarpetas."
+      },
+      "noFolders": "No hay carpetas seleccionadas",
+      "statuses": {
+        "aiSuccess": "{{count}} archivos actualizados. Etiquetas de IA eliminadas.",
+        "aiSuccess_one": "{{count}} archivo actualizado. Etiquetas de IA eliminadas.",
+        "aiSuccess_other": "{{count}} archivos actualizados. Etiquetas de IA eliminadas.",
+        "allSuccess": "{{count}} archivos actualizados. Todas las etiquetas sin color eliminadas.",
+        "allSuccess_one": "{{count}} archivo actualizado. Todas las etiquetas sin color eliminadas.",
+        "allSuccess_other": "{{count}} archivos actualizados. Todas las etiquetas sin color eliminadas.",
+        "cacheSuccess": "Caché de miniaturas borrada con éxito.",
+        "clearingAi": "Borrando etiquetas de IA de todos los archivos sidecar...",
+        "clearingAll": "Borrando todas las etiquetas de los archivos sidecar...",
+        "clearingCache": "Borrando caché de miniaturas...",
+        "deleting": "Eliminando archivos sidecar, por favor espera...",
+        "failedToGetPath": "No se pudo recuperar la ruta del archivo de registro.",
+        "processing": "Procesando...",
+        "sidecarSuccess": "{{count}} archivos sidecar eliminados con éxito.",
+        "sidecarSuccess_one": "{{count}} archivo sidecar eliminado con éxito.",
+        "sidecarSuccess_other": "{{count}} archivos sidecar eliminados con éxito."
+      },
+      "title": "Gestión de datos"
+    },
+    "general": {
+      "createXmp": "Crear archivos XMP faltantes",
+      "createXmpDesc": "Crear automáticamente un nuevo archivo sidecar XMP si no existe uno para una imagen.",
+      "createXmpMissing": "Crear XMP si falta",
+      "displayEditIcon": "Mostrar icono de edición",
+      "displayEditIconDesc": "Muestra un pequeño icono de control deslizante en las miniaturas que han sido editadas.",
+      "enableFocusMode": "Activar modo de enfoque",
+      "enableOsTitlebar": "Activar barra de título del SO",
+      "enableXmpSync": "Activar sincronización XMP",
+      "focusMode": "Modo de enfoque",
+      "focusModeDesc": "Te ayuda a concentrarte cerrando automáticamente otros paneles cuando abres uno nuevo.",
+      "folderImageCounts": "Recuentos de imágenes en carpetas",
+      "folderImageCountsDesc": "Muestra la cantidad de imágenes dentro de las carpetas al pasar el ratón sobre el árbol de carpetas.",
+      "font": "Fuente",
+      "fontDesc": "Cambia la fuente de la aplicación.",
+      "nativeTitlebar": "Barra de título nativa",
+      "nativeTitlebarDesc": "Usa la barra de título de ventana predeterminada de tu sistema en lugar de la personalizada de RapidRAW.",
+      "poppins": "Poppins",
+      "showImageCounts": "Mostrar recuentos de imágenes",
+      "system": "Predeterminado del sistema",
+      "theme": "Tema",
+      "themeDesc": "Cambia el aspecto y la sensación visual de la aplicación.",
+      "title": "Ajustes generales",
+      "xmpSync": "Sincronización de metadatos XMP",
+      "xmpSyncDesc": "Sincroniza puntuaciones, etiquetas de color y etiquetas a archivos sidecar XMP estándar para compatibilidad con otros editores de fotos."
+    },
+    "keybinds": {
+      "actions": {
+        "brush_size_down": "Reducir tamaño del pincel",
+        "brush_size_up": "Aumentar tamaño del pincel",
+        "color_label_blue": "Etiqueta de color: Azul",
+        "color_label_green": "Etiqueta de color: Verde",
+        "color_label_none": "Etiqueta de color: Ninguno",
+        "color_label_purple": "Etiqueta de color: Púrpura",
+        "color_label_red": "Etiqueta de color: Rojo",
+        "color_label_yellow": "Etiqueta de color: Amarillo",
+        "copy_adjustments": "Copiar ajustes seleccionados",
+        "copy_files": "Copiar archivo(s) seleccionado(s)",
+        "cycle_zoom": "Alternar zoom (Ajustar, 2x Ajustar, 100%)",
+        "delete_selected": "Eliminar archivo(s) seleccionado(s)",
+        "open_image": "Abrir imagen seleccionada",
+        "paste_adjustments": "Pegar ajustes copiados",
+        "paste_files": "Pegar archivo(s) a la carpeta actual",
+        "preview_next": "Siguiente imagen",
+        "preview_prev": "Imagen anterior",
+        "rate_0": "Puntuación de estrellas: 0",
+        "rate_1": "Puntuación de estrellas: 1",
+        "rate_2": "Puntuación de estrellas: 2",
+        "rate_3": "Puntuación de estrellas: 3",
+        "rate_4": "Puntuación de estrellas: 4",
+        "rate_5": "Puntuación de estrellas: 5",
+        "redo": "Rehacer ajuste",
+        "rotate_left": "Rotar 90° en sentido antihorario",
+        "rotate_right": "Rotar 90° en sentido horario",
+        "select_all": "Seleccionar todas las imágenes",
+        "show_original": "Mostrar original (antes/después)",
+        "toggle_adjustments": "Alternar panel de Ajustes",
+        "toggle_ai": "Alternar panel de IA",
+        "toggle_analytics": "Alternar vista de análisis",
+        "toggle_crop": "Alternar Recortar / Enderezar",
+        "toggle_crop_panel": "Alternar panel de Recorte",
+        "toggle_export": "Alternar panel de Exportación",
+        "toggle_fullscreen": "Alternar pantalla completa",
+        "toggle_library_exif": "Alternar superposición EXIF",
+        "toggle_masks": "Alternar panel de Máscaras",
+        "toggle_metadata": "Alternar panel de Metadatos",
+        "toggle_presets": "Alternar panel de Ajustes preestablecidos",
+        "undo": "Deshacer ajuste",
+        "zoom_100": "Hacer zoom al 100%",
+        "zoom_fit": "Ajustar al área de visualización",
+        "zoom_in": "Acercar",
+        "zoom_in_step": "Acercar (por pasos)",
+        "zoom_out": "Alejar",
+        "zoom_out_step": "Alejar (por pasos)"
+      },
+      "sections": {
+        "editing": "Edición",
+        "library": "Biblioteca",
+        "panels": "Paneles",
+        "rating": "Puntuación y etiquetas",
+        "view": "Ver"
+      }
+    },
+    "language": "Idioma",
+    "languageDesc": "Cambia el idioma de la aplicación.",
+    "lenses": {
+      "addButton": "Añadir a Mis Lentes",
+      "addNew": "Añadir nueva lente",
+      "description": "Crea una lista de las lentes que usas frecuentemente para acceder a ellas rápidamente en el panel de Corrección de lente.",
+      "manufacturerPlaceholder": "Seleccionar fabricante",
+      "modelPlaceholder": "Seleccionar modelo de lente",
+      "noLenses": "Aún no se han añadido lentes.",
+      "removeTooltip": "Eliminar lente",
+      "saved": "Lentes guardadas",
+      "title": "Mis lentes"
+    },
+    "processing": {
+      "ai": {
+        "cloud": {
+          "description": "Para aquellos que desean una solución más simple, una suscripción opcional proporciona los mismos resultados de alta calidad que el autoalojamiento sin ninguna molestia. Esta es la opción más conveniente y la mejor manera de apoyar el proyecto.",
+          "feature1": "Máxima comodidad, sin configuración",
+          "feature2": "Mismos resultados que el autoalojamiento",
+          "feature3": "No se requiere hardware potente",
+          "signedIn": {
+            "active": "Suscripción en la nube Activa",
+            "inactive": "Sin suscripción activa",
+            "logout": "Cerrar sesión",
+            "manage": "Gestionar",
+            "usage": "Uso mensual",
+            "usageStats": "{{requests}} / {{limit}} peticiones"
+          },
+          "signedOut": {
+            "noAccount": "¿No tienes cuenta?",
+            "signup": "Regístrate en la página web",
+            "upgradeBtn": "Mejorar en la web",
+            "upgradeDesc": "Para usar las funciones de IA en la nube, necesitas una suscripción Cloud."
+          },
+          "title": "Servicio en la nube"
+        },
+        "connector": {
+          "address": "Dirección de AI Connector",
+          "addressDesc": "Introduce la dirección y el puerto de tu instancia en ejecución de AI Connector. Requerido para las funciones de IA generativa.",
+          "description": "Para usuarios con una GPU capaz que deseen el máximo control, conecta RapidRAW a tu propio servidor Connector. Esto te da control total para flujos de trabajo técnicos.",
+          "failed": "Conexión fallida.",
+          "feature1": "Usa tu propia instancia de ComfyUI",
+          "feature2": "Ediciones generativas avanzadas sin coste",
+          "feature3": "Selección de flujo de trabajo personalizado",
+          "success": "¡Conexión exitosa!",
+          "test": "Probar",
+          "testing": "Probando...",
+          "title": "Autoalojado (RapidRAW AI Connector)"
+        },
+        "cpu": {
+          "description": "Integradas directamente en RapidRAW, estas funciones se ejecutan completamente en tu computadora. Son rápidas, gratuitas y no requieren configuración, lo que las hace ideales para acelerar el flujo de trabajo diario.",
+          "feature1": "Enmascaramiento de IA (Sujeto, Cielo, Primer plano)",
+          "feature2": "Etiquetado automático de imágenes",
+          "feature3": "Relleno generativo simple basado en CPU",
+          "title": "IA integrada (CPU)"
+        },
+        "description": "La IA de RapidRAW está diseñada para la flexibilidad. Elige tu flujo de trabajo ideal, desde herramientas locales rápidas hasta un potente autoalojamiento.",
+        "providers": {
+          "aiConnector": "AI Connector",
+          "cloud": "Nube",
+          "cpu": "CPU"
+        },
+        "title": "IA Generativa"
+      },
+      "backend": "Backend de procesamiento",
+      "backendDesc": "Selecciona la API de gráficos. Se recomienda 'Auto'. Puede solucionar bloqueos en algunos sistemas.",
+      "backends": {
+        "auto": "Auto",
+        "dx12": "DirectX 12",
+        "gl": "OpenGL",
+        "metal": "Metal",
+        "vulkan": "Vulkan"
+      },
+      "dynamicDesc": "El editor renderiza la vista previa para que coincida con la densidad real de píxeles de tu pantalla. Esto garantiza que cada detalle se represente con precisión de 1:1 píxeles, proporcionando la máxima claridad al hacer zoom y verificar el enfoque.",
+      "enableLivePreviews": "Activar vistas previas en vivo",
+      "highDpi": "Renderizado de alto DPI",
+      "highDpiDesc": "Renderizar vistas previas en la resolución de píxeles físicos nativa de {{dpr}}x de tu pantalla. Produce la vista previa más nítida posible, pero utiliza mucha más memoria.",
+      "highDpiDescStandard": "Este ajuste solo afecta a las pantallas de alto DPI. Tu pantalla actual tiene resolución estándar.",
+      "imageCache": "Caché de imágenes decodificadas",
+      "imageCacheDesc": "Número máximo de imágenes a resolución completa que se mantienen en la memoria RAM. Valores más altos hacen que el cambio entre imágenes recientemente editadas sea instantáneo, pero usa considerablemente más memoria.",
+      "images": "Imágenes",
+      "linuxCompat": "Modo de compatibilidad de Linux",
+      "linuxCompatDesc": "Habilita soluciones temporales para problemas comunes de controladores de GPU y servidores de pantalla. Desactiva esto para habilitar la aceleración total por GPU.",
+      "linuxCompatLabel": "Activar modo de compatibilidad",
+      "livePreviewQuality": "Calidad de vista previa en vivo",
+      "livePreviewQualityDesc": "Controla la resolución y compresión de la imagen al arrastrar los controles deslizantes. Una calidad más baja mejora significativamente la capacidad de respuesta.",
+      "livePreviews": "Vistas previas interactivas en vivo",
+      "livePreviewsDesc": "Actualiza la vista previa inmediatamente al arrastrar los controles deslizantes. Desactiva esto si la interfaz se siente lenta durante los ajustes.",
+      "modes": {
+        "dynamic": "Dinámico",
+        "static": "Resolución fija"
+      },
+      "nativeDpi": "Renderizar en DPI nativo",
+      "preprocessing": {
+        "applyPreprocessing": "Aplicar preprocesamiento a los no RAW",
+        "applyPreprocessingDesc": "Si está activado, la reducción base del ruido de color y el preenfoque mencionados arriba también se aplicarán a los formatos estándar.",
+        "colorNr": "Reducción base del ruido de color",
+        "colorNrDesc": "Aplica un filtro bilateral cruzado temprano en el pipeline para eliminar el ruido de croma. Valor más alto = mayor reducción.",
+        "defaultNonRawTonemapper": "Mapeador de tonos predeterminado no RAW",
+        "defaultNonRawTonemapperDesc": "El mapeador de tonos a aplicar a las imágenes no RAW (ej., JPEG, PNG).",
+        "defaultRawTonemapper": "Mapeador de tonos predeterminado RAW",
+        "defaultRawTonemapperDesc": "El mapeador de tonos a aplicar a las imágenes RAW.",
+        "enablePreprocessingNonRaws": "Activar para no RAW",
+        "enableTonemapperOverride": "Activar anulación del mapeador de tonos",
+        "highlightRecovery": "Recuperación de altas luces RAW",
+        "highlightRecoveryDesc": "Controla cuánto detalle se recupera de las luces recortadas en los archivos RAW. Valores más altos recuperan más detalle pero pueden introducir artefactos morados.",
+        "linearOptions": {
+          "auto": "Auto",
+          "gamma": "Aplicar Gamma",
+          "gamma_skip_calib": "Aplicar Gamma y Omitir calibración",
+          "skip_calib": "Omitir calibración"
+        },
+        "linearRaw": "Procesamiento Linear RAW",
+        "linearRawDesc": "Corrige las dominantes de color o el tinte rosa en algunos archivos DNG. Controla cómo se interpretan los datos LinearRAW ya procesados.",
+        "sharpening": "Preenfoque base",
+        "sharpeningDesc": "Aplica una suave mejora de detalles tempranamente en la canalización. Valor más alto = Más enfoque.",
+        "title": "Preprocesamiento de imágenes",
+        "tonemapperOptions": {
+          "agx": "AgX",
+          "basic": "Básico"
+        },
+        "tonemapperOverride": "Anulación global del mapeador de tonos",
+        "tonemapperOverrideDesc": "Forzar un mapeador de tonos específico a nivel global para todas las imágenes, ocultando el interruptor del mapeador del panel de ajustes."
+      },
+      "previewRes": "Resolución de vista previa",
+      "previewResDesc": "Determina la resolución máxima de la vista previa. Valores más bajos mejoran considerablemente el rendimiento.",
+      "previewStrategy": "Estrategia de renderizado de la vista previa",
+      "qualities": {
+        "full": "Resolución completa",
+        "high": "Alta calidad",
+        "performance": "Rendimiento"
+      },
+      "renderScale": "Escala de resolución de renderizado",
+      "renderScaleDesc": "Escala la resolución de renderizado en relación con tu pantalla. Valores más bajos mejoran el rendimiento en pantallas de alta resolución a costa de cierta nitidez.",
+      "restartRequired": "Los cambios en el motor de procesamiento requieren reiniciar la aplicación para tener efecto.",
+      "saveRelaunch": "Guardar y reiniciar",
+      "staticDesc": "El editor renderiza la imagen a una resolución fija. Este modo es el más rápido y consistente, ideal para hardware de gama baja donde se prioriza un rendimiento fluido sobre un zoom con precisión de píxeles perfectos.",
+      "staticPreviewRes": "Resolución de vista previa estática",
+      "staticPreviewResDesc": "Establece la resolución de las vistas previas estáticas como el modo de recorte, la corrección de lente y las herramientas de perspectiva. No afecta la vista previa del editor principal.",
+      "threads": "Hilos",
+      "thumbnailRes": "Resolución de miniatura",
+      "thumbnailResDesc": "Determina la resolución de las miniaturas de biblioteca generadas. Valores más altos producen imágenes más nítidas durante la carga.",
+      "title": "Motor de procesamiento",
+      "wgpu": "Renderizado directo WGPU",
+      "wgpuDescAndroid": "Omite la codificación del navegador para vistas previas en vivo que responden al instante. (Desactivado en Android: la creación nativa de la superficie WGPU actualmente no es compatible junto con la webview móvil).",
+      "wgpuDescLinux": "Omite la codificación del navegador para vistas previas en vivo que responden al instante. (Desactivado en Linux: Tauri utiliza GTK para las webviews, lo que entra en conflicto con WGPU en la misma superficie X11 y causa parpadeos).",
+      "wgpuDescRecommended": "Omite la codificación del navegador para vistas previas en vivo que responden al instante. Altamente recomendado para el rendimiento.",
+      "wgpuLabel": "Activar renderizado directo WGPU",
+      "workerThreads": "Hilos de trabajo para miniaturas",
+      "workerThreadsDesc": "Número de hilos paralelos utilizados para generar miniaturas. Valores más altos aceleran la carga de la biblioteca pero utilizan más CPU y RAM."
+    },
+    "tagging": {
+      "addCustomPlaceholder": "Añadir etiquetas de IA personalizadas (separadas por comas)...",
+      "addCustomTooltip": "Añadir etiqueta de IA",
+      "addShortcutTooltip": "Añadir atajo",
+      "addShortcutsPlaceholder": "Añadir atajos (separados por comas)...",
+      "aiTagging": "Etiquetado por IA",
+      "aiTaggingDesc": "Habilita el etiquetado automático de imágenes mediante un modelo de IA (CLIP). Esto descargará un modelo adicional y afectará el rendimiento al navegar por las carpetas. Las etiquetas se utilizan para buscar en una carpeta.",
+      "amount": "Cantidad",
+      "automaticAiTagging": "Etiquetado automático por IA",
+      "clearAiTagsButton": "Borrar",
+      "clearAiTagsDesc": "Esto eliminará todas las etiquetas generadas por IA de tus archivos .rrdata en todas las carpetas raíz activas. Las etiquetas añadidas por los usuarios se mantendrán.",
+      "clearAiTagsTitle": "Borrar etiquetas de IA",
+      "clearAllTagsDesc": "Esto eliminará todas las etiquetas generadas por IA y las añadidas por los usuarios de tus archivos .rrdata en todas las carpetas raíz activas. Se mantendrán las etiquetas de color.",
+      "clearAllTagsTitle": "Borrar todas las etiquetas",
+      "clearCustomTooltip": "Borrar lista de etiquetas de IA",
+      "clearShortcutsTooltip": "Borrar lista de etiquetas de atajos",
+      "customList": "Lista de etiquetas de IA personalizada",
+      "customListDesc": "Si se proporciona, la IA SOLO utilizará las etiquetas de esta lista, anulando la lista incorporada de RapidRAW. El etiquetado funciona solo en inglés.",
+      "maxAiTags": "Máximo de etiquetas de IA",
+      "maxAiTagsDesc": "El número máximo de etiquetas a generar por imagen.",
+      "noCustomTags": "No hay etiquetas de IA personalizadas (Usando la lista incorporada)",
+      "noShortcuts": "No se añadieron atajos",
+      "removeCustomTooltip": "Eliminar etiqueta \"{{tag}}\"",
+      "removeShortcutTooltip": "Eliminar atajo \"{{shortcut}}\"",
+      "shortcuts": "Atajos de etiquetado",
+      "shortcutsDesc": "Una lista de etiquetas que aparecerán como atajos en el menú contextual de etiquetado.",
+      "title": "Etiquetado"
+    },
+    "thanks": {
+      "description": "Un enorme agradecimiento a los siguientes proyectos que fueron muy importantes en el desarrollo de RapidRAW:",
+      "list": {
+        "darktable": "Por algunas implementaciones de referencia que guiaron partes de este trabajo.",
+        "depth": "Por el potente modelo de estimación de profundidad monocular que hace posible las capacidades de enmascaramiento de profundidad por IA.",
+        "lama": "Por el modelo de inpainting de imágenes potente y sencillo, que permite el relleno según el contenido y la eliminación de objetos.",
+        "lensfun": "Por su inestimable biblioteca de código abierto y su completa base de datos para la corrección automática de lentes.",
+        "negpy": "Por la inspiración tras la lógica de conversión de negativos.",
+        "nind": "Por proporcionar los modelos de IA que impulsan las capacidades de reducción de ruido por IA en RapidRAW.",
+        "rawler": "Por la excelente caja (crate) de Rust que proporciona la base para el procesamiento de archivos RAW en este proyecto.",
+        "sam2": "Por proporcionar el modelo base usado para las capacidades de detección de sujetos de la IA.",
+        "u2net": "Por proporcionar la arquitectura robusta utilizada para las capacidades de detección de cielos y primeros planos por IA.",
+        "you": "Por usar y apoyar RapidRAW. Tu interés mantiene vivo y en evolución este proyecto.",
+        "youLabel": "Tú"
+      },
+      "title": "Agradecimientos especiales"
+    },
+    "themes": {
+      "dark": "Oscuro",
+      "grey": "Gris",
+      "light": "Claro"
+    },
+    "title": "Ajustes",
+    "tooltips": {
+      "goHome": "Ir al Inicio"
+    }
+  },
+  "ui": {
+    "bottomBar": {
+      "imagesSelected": "{{current}} de {{total}} imágenes seleccionadas",
+      "tooltips": {
+        "collapseFilmstrip": "Contraer Tira de imágenes",
+        "copyPasteSettings": "Copiar y Pegar ajustes",
+        "copySettings": "Copiar ajustes",
+        "customZoom": "Haz clic para introducir un porcentaje de zoom personalizado",
+        "expandFilmstrip": "Expandir Tira de imágenes",
+        "export": "Exportar",
+        "pasteSettings": "Pegar ajustes",
+        "quickFilter": "Filtro rápido",
+        "rateStars_one": "Puntuar 1 estrella",
+        "rateStars_other": "Puntuar con {{count}} estrellas",
+        "resetZoom": "Restablecer zoom a Ajustar a la ventana",
+        "selectToRate": "Selecciona una imagen para puntuarla"
+      },
+      "zoomLabel": "Zoom",
+      "zoomLabelReset": "Restablecer Zoom"
+    },
+    "collapsibleSection": {
+      "disableSection": "Desactivar sección",
+      "enableSection": "Activar sección"
+    },
+    "colorWheel": {
+      "hue": "Tono",
+      "hueAbbreviation": "T:",
+      "luminance": "Luminancia",
+      "reset": "Restablecer",
+      "saturation": "Saturación",
+      "saturationAbbreviation": "S:"
+    },
+    "exportPresets": {
+      "deleteTooltip": "Eliminar ajuste preestablecido",
+      "heading": "Ajustes de exportación",
+      "overwriteTooltip": "Sobrescribir ajuste preestablecido seleccionado",
+      "placeholder": "Seleccionar un ajuste preestablecido...",
+      "presetNamePlaceholder": "Nombre del ajuste preestablecido",
+      "saveAsNewTooltip": "Guardar los ajustes actuales como un nuevo ajuste preestablecido",
+      "savedTooltip": "¡Guardado!"
+    },
+    "filmstrip": {
+      "tooltips": {
+        "color": "Color: {{color}}",
+        "virtualCopy": "Copia virtual"
+      },
+      "virtualCopyAbbreviation": "CV"
+    },
+    "imagePicker": {
+      "clearImage": "Borrar imagen",
+      "filterLabel": "Archivos de imagen",
+      "select": "Seleccionar",
+      "selectImageFile": "Seleccionar un archivo de imagen"
+    },
+    "lut": {
+      "clearLut": "Borrar LUT",
+      "empty": "Aún no hay LUTs — importa algunos",
+      "filterLabel": "Archivos LUT",
+      "import": "Importar perfiles",
+      "importFailed": "Error al importar LUTs",
+      "intensity": "Intensidad",
+      "label": "LUT",
+      "removeLut": "Eliminar LUT",
+      "select": "Seleccionar",
+      "selectLutFile": "Seleccionar un archivo LUT",
+      "unsupportedFormat": "Formato(s) de archivo no compatible(s) detectado(s): .{{ext}}"
+    },
+    "slider": {
+      "clickToEdit": "Haz clic para editar",
+      "reset": "Restablecer"
+    },
+    "waveform": {
+      "tooltips": {
+        "hideClipping": "Ocultar advertencias de recorte",
+        "histogram": "Histograma",
+        "luma": "Luma",
+        "parade": "Parada",
+        "rgb": "Superposición RGB",
+        "showClipping": "Mostrar advertencias de recorte",
+        "vectorscope": "Vectorescopio"
+      }
+    }
+  }
+}

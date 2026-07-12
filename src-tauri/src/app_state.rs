@@ -17,6 +17,15 @@ use crate::image_processing::GpuContext;
 use crate::lens_correction::LensDatabase;
 use crate::lut_processing::Lut;
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalEditSession {
+    pub source: String,
+    pub output: String,
+    pub format: String,
+    pub jpeg_quality: u8,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct WindowState {
     pub width: u32,
@@ -104,6 +113,28 @@ impl ThumbnailManager {
     }
 }
 
+pub struct PendingMetadata {
+    pub virtual_path: String,
+    pub image_path: PathBuf,
+    pub sidecar_path: PathBuf,
+}
+
+pub struct MetadataManager {
+    pub queue: Mutex<VecDeque<PendingMetadata>>,
+    pub cvar: Condvar,
+    pub pending: Mutex<HashSet<PathBuf>>,
+}
+
+impl MetadataManager {
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self {
+            queue: Mutex::new(VecDeque::new()),
+            cvar: Condvar::new(),
+            pending: Mutex::new(HashSet::new()),
+        })
+    }
+}
+
 pub type TransformedImageCache = (u64, Arc<DynamicImage>, (f32, f32));
 
 pub struct AppState {
@@ -123,6 +154,7 @@ pub struct AppState {
     pub indexing_task_handle: Mutex<Option<JoinHandle<()>>>,
     pub lut_cache: Mutex<HashMap<String, Arc<Lut>>>,
     pub initial_file_path: Mutex<Option<String>>,
+    pub pending_edit_session: Mutex<Option<ExternalEditSession>>,
     pub thumbnail_cancellation_token: Arc<AtomicBool>,
     pub thumbnail_progress: Mutex<ThumbnailProgressTracker>,
     pub preview_worker_tx: Mutex<Option<Sender<PreviewJob>>>,
@@ -131,10 +163,11 @@ pub struct AppState {
     pub patch_cache: Mutex<HashMap<String, serde_json::Value>>,
     pub geometry_cache: Mutex<HashMap<u64, DynamicImage>>,
     pub thumbnail_geometry_cache: Mutex<HashMap<String, (u64, DynamicImage, f32)>>,
-    pub lens_db: Mutex<Option<LensDatabase>>,
+    pub lens_db: Mutex<Option<Arc<LensDatabase>>>,
     pub load_image_generation: Arc<AtomicUsize>,
     pub full_warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
     pub full_transformed_cache: Mutex<Option<TransformedImageCache>>,
     pub decoded_image_cache: Mutex<DecodedImageCache>,
     pub thumbnail_manager: Arc<ThumbnailManager>,
+    pub metadata_manager: Arc<MetadataManager>,
 }

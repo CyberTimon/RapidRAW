@@ -1,5 +1,4 @@
 import { type PointerEvent as ReactPointerEvent, useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -10,7 +9,7 @@ import clsx from 'clsx';
 import TitleBar from './window/TitleBar';
 import SettingsPanel from './components/panel/SettingsPanel';
 import FolderTree from './components/panel/FolderTree';
-import LibraryExportPanel from './components/panel/right/LibraryExportPanel';
+import ExportPanel from './components/panel/right/ExportPanel';
 import Resizer from './components/ui/Resizer';
 import GlobalTooltip from './components/ui/GlobalTooltip';
 import AppModals from './components/modals/AppModals';
@@ -34,20 +33,23 @@ import { useFileOperations } from './hooks/useFileOperations';
 import { useAppContextMenus } from './hooks/useAppContextMenus';
 import { useSortedLibrary } from './hooks/useSortedLibrary';
 import { useAppNavigation } from './hooks/useAppNavigation';
+import { useExternalEditSession } from './hooks/useExternalEditSession';
+import ExternalEditBar from './components/ui/ExternalEditBar';
+import { Status } from './components/ui/ExportImportProperties';
 
 import { useEditorActions } from './hooks/useEditorActions';
 import { useLibraryActions } from './hooks/useLibraryActions';
 import { useProductivityActions } from './hooks/useProductivityActions';
 
-import { THEMES, DEFAULT_THEME_ID, ThemeProps } from './utils/themes';
-import { COPYABLE_ADJUSTMENT_KEYS } from './utils/adjustments';
+import { useAppInitialization } from './hooks/useAppInitialization';
+import { useAndroidBackHandler } from './hooks/useAndroidBackHandler';
+import './i18n';
+
 import {
-  FilterCriteria,
   Invokes,
   ImageFile,
   LibraryViewMode,
   Panel,
-  RawStatus,
   Theme,
   Orientation,
   ThumbnailSize,
@@ -58,16 +60,6 @@ import ImageProcessingManager from './components/managers/ImageProcessingManager
 import ImageLoaderManager from './components/managers/ImageLoaderManager';
 
 const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
-
-const RIGHT_PANEL_ORDER = [
-  Panel.Metadata,
-  Panel.Adjustments,
-  Panel.Crop,
-  Panel.Masks,
-  Panel.Ai,
-  Panel.Presets,
-  Panel.Export,
-];
 
 const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[]): any => {
   if (!node) return null;
@@ -96,26 +88,11 @@ const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[
 function App() {
   const COMPACT_EDITOR_MAX_WIDTH = 900;
 
-  const {
-    appSettings,
-    theme,
-    supportedTypes,
-    osPlatform,
-    setAppSettings,
-    setTheme,
-    setSupportedTypes,
-    initPlatform,
-    handleSettingsChange,
-  } = useSettingsStore(
+  const { appSettings, theme, osPlatform, handleSettingsChange } = useSettingsStore(
     useShallow((state) => ({
       appSettings: state.appSettings,
       theme: state.theme,
-      supportedTypes: state.supportedTypes,
       osPlatform: state.osPlatform,
-      setAppSettings: state.setAppSettings,
-      setTheme: state.setTheme,
-      setSupportedTypes: state.setSupportedTypes,
-      initPlatform: state.initPlatform,
       handleSettingsChange: state.handleSettingsChange,
     })),
   );
@@ -152,27 +129,13 @@ function App() {
     })),
   );
 
-  const {
-    rootPath,
-    currentFolderPath,
-    expandedFolders,
-    multiSelectedPaths,
-    sortCriteria,
-    filterCriteria,
-    setLibrary,
-    setFilterCriteria,
-    setSortCriteria,
-  } = useLibraryStore(
+  const { rootPaths, currentFolderPath, expandedFolders, multiSelectedPaths, setLibrary } = useLibraryStore(
     useShallow((state) => ({
-      rootPath: state.rootPath,
+      rootPaths: state.rootPaths,
       currentFolderPath: state.currentFolderPath,
       expandedFolders: state.expandedFolders,
       multiSelectedPaths: state.multiSelectedPaths,
-      sortCriteria: state.sortCriteria,
-      filterCriteria: state.filterCriteria,
       setLibrary: state.setLibrary,
-      setFilterCriteria: state.setFilterCriteria,
-      setSortCriteria: state.setSortCriteria,
     })),
   );
 
@@ -187,12 +150,9 @@ function App() {
       })),
     );
 
-  const { exportState, isCopied, isPasted, setProcess, setExportState } = useProcessStore(
+  const { exportState, setExportState } = useProcessStore(
     useShallow((state) => ({
       exportState: state.exportState,
-      isCopied: state.isCopied,
-      isPasted: state.isPasted,
-      setProcess: state.setProcess,
       setExportState: state.setExportState,
     })),
   );
@@ -232,13 +192,22 @@ function App() {
   const { requestThumbnails, clearThumbnailQueue, markGenerated } = useThumbnails();
 
   const transformWrapperRef = useRef<any>(null);
-  const isInitialMount = useRef(true);
   const preloadedDataRef = useRef<{
-    tree?: Promise<any>;
+    trees?: Promise<any>;
     images?: Promise<ImageFile[]>;
-    rootPath?: string;
+    rootPaths?: string[];
     currentPath?: string;
   }>({});
+
+  useAppInitialization({
+    preloadedDataRef,
+    thumbnailSize,
+    setThumbnailSize,
+    thumbnailAspectRatio,
+    setThumbnailAspectRatio,
+    libraryViewMode,
+    setLibraryViewMode,
+  });
 
   const isAndroid = osPlatform === 'android';
   const isPortraitViewport = viewportSize.width > 0 && viewportSize.height > viewportSize.width;
@@ -300,12 +269,19 @@ function App() {
     handleBackToLibrary,
     handleImageSelect,
     handleSelectSubfolder,
+    handleSelectAlbum,
     handleOpenFolder,
     handleContinueSession,
   } = useAppNavigation({
     clearThumbnailQueue,
     refs: navigationRefs,
   });
+
+  const {
+    externalEditSession,
+    isFinishing: isExternalEditFinishing,
+    finishExternalEdit,
+  } = useExternalEditSession(handleImageSelect);
 
   const {
     handleRate,
@@ -315,15 +291,35 @@ function App() {
     handleSetColorLabel,
     refreshAllFolderTrees,
     handleTogglePinFolder,
+    handleCreateAlbumItem,
+    handleRenameAlbumItem,
   } = useLibraryActions(handleImageSelect);
 
   const sortedImageList = useSortedLibrary();
 
   const handleLibraryRefresh = useCallback(async () => {
     if (currentFolderPath) {
-      await handleSelectSubfolder(currentFolderPath, false);
+      if (currentFolderPath.startsWith('Album: ')) {
+        const { activeAlbumId, albumTree } = useLibraryStore.getState();
+        if (activeAlbumId) {
+          const findObj = (nodes: any[]): any => {
+            for (const n of nodes) {
+              if (n.id === activeAlbumId) return n;
+              if (n.type === 'group') {
+                const f = findObj(n.children);
+                if (f) return f;
+              }
+            }
+            return null;
+          };
+          const album = findObj(albumTree);
+          if (album) await handleSelectAlbum(album.id, album.name, album.images, true);
+        }
+      } else {
+        await handleSelectSubfolder(currentFolderPath, false, undefined, false, true);
+      }
     }
-  }, [currentFolderPath, handleSelectSubfolder]);
+  }, [currentFolderPath, handleSelectSubfolder, handleSelectAlbum]);
 
   const {
     executeDelete,
@@ -358,6 +354,7 @@ function App() {
     handleEditorContextMenu,
     handleThumbnailContextMenu,
     handleFolderTreeContextMenu,
+    handleAlbumTreeContextMenu,
     handleMainLibraryContextMenu,
   } = useAppContextMenus({
     handleImageSelect,
@@ -377,6 +374,8 @@ function App() {
     refreshImageList: handleLibraryRefresh,
     markGenerated,
   });
+
+  useAndroidBackHandler();
 
   const handleToggleFullScreen = useCallback(() => {
     const { zoom, selectedImage } = useEditorStore.getState();
@@ -433,16 +432,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!isCopied) return;
-    const timer = setTimeout(() => setProcess({ isCopied: false }), 1000);
-    return () => clearTimeout(timer);
-  }, [isCopied, setProcess]);
-
-  useEffect(() => {
-    if (!isPasted) return;
-    const timer = setTimeout(() => setProcess({ isPasted: false }), 1000);
-    return () => clearTimeout(timer);
-  }, [isPasted, setProcess]);
+    const handleGlobalContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener('contextmenu', handleGlobalContextMenu);
+    return () => window.removeEventListener('contextmenu', handleGlobalContextMenu);
+  }, []);
 
   const isLightTheme = useMemo(() => [Theme.Light, Theme.Snow, Theme.Arctic].includes(theme as Theme), [theme]);
 
@@ -544,176 +539,11 @@ function App() {
 
   const handleRightPanelSelect = useCallback(
     (panelId: Panel) => {
-      setRightPanel(panelId, RIGHT_PANEL_ORDER);
+      setRightPanel(panelId);
       setEditor({ activeMaskId: null, activeAiSubMaskId: null, isWbPickerActive: false });
     },
     [setRightPanel, setEditor],
   );
-
-  useEffect(() => {
-    initPlatform();
-  }, [initPlatform]);
-
-  useEffect(() => {
-    invoke(Invokes.LoadSettings)
-      .then(async (settings: any) => {
-        if (
-          !settings.copyPasteSettings ||
-          !settings.copyPasteSettings.includedAdjustments ||
-          settings.copyPasteSettings.includedAdjustments.length === 0
-        ) {
-          settings.copyPasteSettings = { mode: 'merge', includedAdjustments: COPYABLE_ADJUSTMENT_KEYS };
-        }
-        setAppSettings(settings);
-        if (settings?.sortCriteria) setSortCriteria(settings.sortCriteria);
-        if (settings?.filterCriteria) {
-          setFilterCriteria((prev: FilterCriteria) => ({
-            ...prev,
-            ...settings.filterCriteria,
-            rawStatus: settings.filterCriteria.rawStatus || RawStatus.All,
-            colors: settings.filterCriteria.colors || [],
-          }));
-        }
-        if (settings?.theme) setTheme(settings.theme);
-        if (settings?.uiVisibility)
-          setUI((state) => ({ uiVisibility: { ...state.uiVisibility, ...settings.uiVisibility } }));
-        if (settings?.isWaveformVisible !== undefined) setEditor({ isWaveformVisible: settings.isWaveformVisible });
-        if (settings?.activeWaveformChannel) setEditor({ activeWaveformChannel: settings.activeWaveformChannel });
-        if (typeof settings?.waveformHeight === 'number') setEditor({ waveformHeight: settings.waveformHeight });
-        setLibraryViewMode(settings?.libraryViewMode ?? defaultLibraryViewMode);
-        setThumbnailSize(settings?.thumbnailSize ?? defaultThumbnailSize);
-        if (settings?.thumbnailAspectRatio) setThumbnailAspectRatio(settings.thumbnailAspectRatio);
-
-        if (settings?.pinnedFolders && settings.pinnedFolders.length > 0) {
-          try {
-            const trees = await invoke(Invokes.GetPinnedFolderTrees, {
-              paths: settings.pinnedFolders,
-              expandedFolders: settings.lastFolderState?.expandedFolders || [],
-              showImageCounts: settings.enableFolderImageCounts ?? false,
-            });
-            setLibrary({ pinnedFolderTrees: trees });
-          } catch (err) {
-            console.error('Failed to load pinned folder trees:', err);
-          }
-        }
-
-        if (!isAndroid && settings.lastRootPath) {
-          const root = settings.lastRootPath;
-          const currentPath = settings.lastFolderState?.currentFolderPath || root;
-          const command =
-            settings.libraryViewMode === LibraryViewMode.Recursive
-              ? Invokes.ListImagesRecursive
-              : Invokes.ListImagesInDir;
-
-          preloadedDataRef.current = {
-            rootPath: root,
-            currentPath: currentPath,
-            tree: invoke(Invokes.GetFolderTree, {
-              path: root,
-              expandedFolders: settings.lastFolderState?.expandedFolders ?? [root],
-              showImageCounts: settings.enableFolderImageCounts ?? false,
-            }),
-            images: invoke(command, { path: currentPath }),
-          };
-        }
-
-        invoke('frontend_ready').catch((e) => console.error('Failed to notify backend of readiness:', e));
-      })
-      .catch((err) => {
-        console.error('Failed to load settings:', err);
-        setAppSettings({
-          lastRootPath: null,
-          theme: DEFAULT_THEME_ID as Theme,
-          thumbnailSize: defaultThumbnailSize,
-          libraryViewMode: defaultLibraryViewMode,
-        });
-      })
-      .finally(() => {
-        isInitialMount.current = false;
-      });
-  }, [
-    isAndroid,
-    setAppSettings,
-    setTheme,
-    setUI,
-    defaultLibraryViewMode,
-    defaultThumbnailSize,
-    setSortCriteria,
-    setFilterCriteria,
-    setEditor,
-    setLibrary,
-  ]);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings) return;
-    if (JSON.stringify(appSettings.uiVisibility) !== JSON.stringify(uiVisibility)) {
-      handleSettingsChange({ ...appSettings, uiVisibility });
-    }
-  }, [uiVisibility, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings) return;
-    if (appSettings.thumbnailSize !== thumbnailSize) {
-      handleSettingsChange({ ...appSettings, thumbnailSize });
-    }
-  }, [thumbnailSize, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings) return;
-    if (appSettings.thumbnailAspectRatio !== thumbnailAspectRatio) {
-      handleSettingsChange({ ...appSettings, thumbnailAspectRatio });
-    }
-  }, [thumbnailAspectRatio, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings) return;
-    if (appSettings.libraryViewMode !== libraryViewMode) {
-      handleSettingsChange({ ...appSettings, libraryViewMode });
-    }
-  }, [libraryViewMode, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    invoke(Invokes.GetSupportedFileTypes)
-      .then((types: any) => setSupportedTypes(types))
-      .catch((err) => console.error('Failed to load supported file types:', err));
-  }, [setSupportedTypes]);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings) return;
-    if (JSON.stringify(appSettings.sortCriteria) !== JSON.stringify(sortCriteria)) {
-      handleSettingsChange({ ...appSettings, sortCriteria });
-    }
-  }, [sortCriteria, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    if (isInitialMount.current || !appSettings) return;
-    if (JSON.stringify(appSettings.filterCriteria) !== JSON.stringify(filterCriteria)) {
-      handleSettingsChange({ ...appSettings, filterCriteria });
-    }
-  }, [filterCriteria, appSettings, handleSettingsChange]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const currentThemeId = theme || DEFAULT_THEME_ID;
-
-    const baseTheme =
-      THEMES.find((t: ThemeProps) => t.id === currentThemeId) ||
-      THEMES.find((t: ThemeProps) => t.id === DEFAULT_THEME_ID);
-    if (!baseTheme) return;
-
-    let finalCssVariables: any = { ...baseTheme.cssVariables };
-
-    Object.entries(finalCssVariables).forEach(([key, value]) => {
-      root.style.setProperty(key, value as string);
-    });
-
-    const fontFamily = appSettings?.fontFamily || 'poppins';
-    const fontStack =
-      fontFamily === 'system'
-        ? '-apple-system, BlinkMacSystemFont, system-ui, sans-serif'
-        : "'Poppins', system-ui, sans-serif";
-    root.style.setProperty('--font-family', fontStack);
-  }, [theme, appSettings?.fontFamily]);
 
   const handleToggleFolder = useCallback(
     async (path: string) => {
@@ -734,7 +564,9 @@ function App() {
           path,
           showImageCounts: showCounts,
         });
-        setLibrary((state) => ({ folderTree: insertChildrenIntoTree(state.folderTree, path, newChildren) }));
+        setLibrary((state) => ({
+          folderTrees: state.folderTrees.map((t: any) => insertChildrenIntoTree(t, path, newChildren)),
+        }));
         setLibrary((state) => ({
           pinnedFolderTrees: state.pinnedFolderTrees.map((tree) => insertChildrenIntoTree(tree, path, newChildren)),
         }));
@@ -745,8 +577,11 @@ function App() {
     [expandedFolders, appSettings?.enableFolderImageCounts, setLibrary],
   );
 
+  const hasRoots = rootPaths && rootPaths.length > 0;
+  const hasMainContent = hasRoots || !!selectedImage;
+
   const renderFolderTree = () => {
-    if (!rootPath) return null;
+    if (!hasRoots) return null;
 
     return (
       <div
@@ -763,8 +598,11 @@ function App() {
           isResizing={isResizing}
           isVisible={uiVisibility.folderTree}
           onContextMenu={handleFolderTreeContextMenu}
+          onAlbumContextMenu={handleAlbumTreeContextMenu}
+          onSelectAlbum={handleSelectAlbum}
           onFolderSelect={(path) => handleSelectSubfolder(path, false)}
           onToggleFolder={handleToggleFolder}
+          onOpenFolder={handleOpenFolder}
           setIsVisible={(value: boolean) =>
             setUI((state) => ({ uiVisibility: { ...state.uiVisibility, folderTree: value } }))
           }
@@ -809,13 +647,21 @@ function App() {
         <div
           className={clsx(
             'flex-1 flex flex-col min-h-0',
-            isLayoutReady && rootPath && !isInstantTransition && 'transition-all duration-300 ease-in-out',
-            [rootPath && (isFullScreen ? 'p-0 gap-0' : 'p-2 gap-2')],
+            isLayoutReady && hasMainContent && !isInstantTransition && 'transition-all duration-300 ease-in-out',
+            [hasMainContent && (isFullScreen ? 'p-0 gap-0' : 'p-2 gap-2')],
           )}
         >
           <div className="flex flex-row grow h-full min-h-0">
             {!shouldHideFolderTree && renderFolderTree()}
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="relative flex-1 flex flex-col min-w-0">
+              {selectedImage && externalEditSession && (
+                <ExternalEditBar
+                  session={externalEditSession}
+                  isFinishing={isExternalEditFinishing}
+                  errorMessage={exportState.status === Status.Error ? exportState.errorMessage : ''}
+                  onDone={finishExternalEdit}
+                />
+              )}
               {selectedImage ? (
                 <EditorView
                   transformWrapperRef={transformWrapperRef}
@@ -877,16 +723,16 @@ function App() {
               )}
               style={{ width: isLibraryExportPanelVisible && !isFullScreen ? `${rightPanelWidth}px` : '0px' }}
             >
-              <LibraryExportPanel
+              <ExportPanel
                 exportState={exportState}
-                imageList={sortedImageList}
-                isVisible={isLibraryExportPanelVisible}
                 multiSelectedPaths={multiSelectedPaths}
-                onClose={() => setUI({ isLibraryExportPanelVisible: false })}
+                selectedImage={null}
                 setExportState={setExportState}
                 appSettings={appSettings}
                 onSettingsChange={handleSettingsChange}
-                rootPath={rootPath}
+                rootPaths={rootPaths}
+                isVisible={isLibraryExportPanelVisible}
+                onClose={() => setUI({ isLibraryExportPanelVisible: false })}
               />
             </div>
           </div>
@@ -909,6 +755,8 @@ function App() {
           handleRate={handleRate}
           executeDelete={executeDelete}
           handleSaveCollage={handleSaveCollage}
+          handleCreateAlbumItem={handleCreateAlbumItem}
+          handleRenameAlbumItem={handleRenameAlbumItem}
         />
         {isSettingsOpen && appSettings && (
           <div
@@ -924,7 +772,7 @@ function App() {
                   onBack={() => setUI({ isSettingsOpen: false })}
                   onLibraryRefresh={handleLibraryRefresh}
                   onSettingsChange={handleSettingsChange}
-                  rootPath={rootPath}
+                  rootPaths={rootPaths}
                 />
               </div>
             </div>
@@ -955,7 +803,7 @@ function App() {
 }
 
 const AppWrapper = () => (
-  <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+  <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} routerPush={(to) => {}} routerReplace={(to) => {}}>
     <ContextMenuProvider>
       <App />
       <GlobalTooltip />

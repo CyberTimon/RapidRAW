@@ -3,13 +3,14 @@ use crate::ai_processing::{
 };
 use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, GenericImageView, GrayImage, ImageFormat, Luma, Rgba, RgbaImage};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::hash_map::DefaultHasher;
 use std::f32::consts::PI;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
-use std::sync::Arc;
+use std::sync::Arc; // Required for parallel rasterization
 
 use crate::app_state::AppState;
 use crate::get_cached_full_warped_image;
@@ -337,71 +338,202 @@ fn apply_grow_and_feather(mask: &mut GrayImage, grow: f32, feather: f32, width: 
     }
 }
 
-fn draw_feathered_ellipse_mut(
-    mask: &mut GrayImage,
-    center: (i32, i32),
+fn stroke_bounds(
+    points: &[Point],
+    width: u32,
+    height: u32,
+    radius: f32,
+    scale: f32,
+    crop_offset: (f32, f32),
+) -> Option<(u32, u32, u32, u32)> {
+    if width == 0 || height == 0 || points.is_empty() {
+        return None;
+    }
+
+    let mut min_x = f32::INFINITY;
+    let mut min_y = f32::INFINITY;
+    let mut max_x = f32::NEG_INFINITY;
+    let mut max_y = f32::NEG_INFINITY;
+    let r_pad = radius.ceil() + 2.0;
+
+    for p in points {
+        let px = p.x as f32 * scale - crop_offset.0;
+        let py = p.y as f32 * scale - crop_offset.1;
+
+        min_x = min_x.min(px - r_pad);
+        min_y = min_y.min(py - r_pad);
+        max_x = max_x.max(px + r_pad);
+        max_y = max_y.max(py + r_pad);
+    }
+
+    if max_x < 0.0 || max_y < 0.0 || min_x > (width - 1) as f32 || min_y > (height - 1) as f32 {
+        return None;
+    }
+
+    let min_x = min_x.floor().max(0.0).min((width - 1) as f32) as u32;
+    let min_y = min_y.floor().max(0.0).min((height - 1) as f32) as u32;
+    let max_x = max_x.ceil().max(0.0).min((width - 1) as f32) as u32;
+    let max_y = max_y.ceil().max(0.0).min((height - 1) as f32) as u32;
+
+    if min_x > max_x || min_y > max_y {
+        None
+    } else {
+        Some((min_x, min_y, max_x, max_y))
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_stroke_layer_parallel(
+    points: &[Point],
     radius: f32,
     feather: f32,
-    color_value: u8,
-    is_eraser: bool,
-) {
-    if radius <= 0.0 {
-        return;
+    scale: f32,
+    crop_offset: (f32, f32),
+    layer_offset: (f32, f32),
+    bb_w: u32,
+    bb_h: u32,
+) -> GrayImage {
+    let mut out_pixels = vec![0u8; (bb_w * bb_h) as usize];
+    if points.is_empty() || radius <= 0.0 {
+        return GrayImage::from_raw(bb_w, bb_h, out_pixels).unwrap();
     }
 
-    let (cx, cy) = center;
+    struct Segment {
+        x1: f32,
+        y1: f32,
+        dx: f32,
+        dy: f32,
+        len_sq: f32,
+        bounds_left: i32,
+        bounds_right: i32,
+        bounds_top: i32,
+        bounds_bottom: i32,
+    }
+
+    let mut segments = Vec::with_capacity(points.len().saturating_sub(1));
+    for pair in points.windows(2) {
+        let x1 = pair[0].x as f32 * scale - crop_offset.0 - layer_offset.0;
+        let y1 = pair[0].y as f32 * scale - crop_offset.1 - layer_offset.1;
+        let x2 = pair[1].x as f32 * scale - crop_offset.0 - layer_offset.0;
+        let y2 = pair[1].y as f32 * scale - crop_offset.1 - layer_offset.1;
+
+        let left = ((x1.min(x2) - radius).floor() as i32).max(0);
+        let right = ((x1.max(x2) + radius).ceil() as i32).min(bb_w as i32 - 1);
+        let top = ((y1.min(y2) - radius).floor() as i32).max(0);
+        let bottom = ((y1.max(y2) + radius).ceil() as i32).min(bb_h as i32 - 1);
+
+        if left > right || top > bottom {
+            continue;
+        }
+
+        let dx = x2 - x1;
+        let dy = y2 - y1;
+        let len_sq = dx * dx + dy * dy;
+
+        segments.push(Segment {
+            x1,
+            y1,
+            dx,
+            dy,
+            len_sq,
+            bounds_left: left,
+            bounds_right: right,
+            bounds_top: top,
+            bounds_bottom: bottom,
+        });
+    }
+
+    let mut single_point = None;
+    if segments.is_empty() && !points.is_empty() {
+        let x1 = points[0].x as f32 * scale - crop_offset.0 - layer_offset.0;
+        let y1 = points[0].y as f32 * scale - crop_offset.1 - layer_offset.1;
+        let left = ((x1 - radius).floor() as i32).max(0);
+        let right = ((x1 + radius).ceil() as i32).min(bb_w as i32 - 1);
+        let top = ((y1 - radius).floor() as i32).max(0);
+        let bottom = ((y1 + radius).ceil() as i32).min(bb_h as i32 - 1);
+        if left <= right && top <= bottom {
+            single_point = Some((x1, y1, left, right, top, bottom));
+        }
+    }
+
     let feather_amount = feather.clamp(0.0, 1.0);
     let inner_radius = radius * (1.0 - feather_amount);
-
+    let feather_range = (radius - inner_radius).max(0.01);
     let radius_sq = radius * radius;
     let inner_radius_sq = inner_radius * inner_radius;
-    let feather_range = (radius - inner_radius).max(0.01);
 
-    let width = mask.width() as i32;
-    let height = mask.height() as i32;
+    out_pixels
+        .par_chunks_mut(bb_w as usize)
+        .enumerate()
+        .for_each(|(y, row)| {
+            let py = y as f32;
+            let y_i32 = y as i32;
 
-    let left = ((cx as f32 - radius).ceil() as i32).max(0);
-    let right = ((cx as f32 + radius).floor() as i32).min(width - 1);
-    let top = ((cy as f32 - radius).ceil() as i32).max(0);
-    let bottom = ((cy as f32 + radius).floor() as i32).min(height - 1);
+            let mut active_segments = Vec::new();
+            for seg in &segments {
+                if y_i32 >= seg.bounds_top && y_i32 <= seg.bounds_bottom {
+                    active_segments.push(seg);
+                }
+            }
 
-    if left > right || top > bottom {
-        return;
-    }
+            let is_point_active = if let Some(pt) = &single_point {
+                y_i32 >= pt.4 && y_i32 <= pt.5
+            } else {
+                false
+            };
 
-    for y in top..=bottom {
-        let dy = y as f32 - cy as f32;
-        let dy_sq = dy * dy;
+            if active_segments.is_empty() && !is_point_active {
+                return;
+            }
 
-        for x in left..=right {
-            let dx = x as f32 - cx as f32;
-            let dist_sq = dx * dx + dy_sq;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let px = x as f32;
+                let x_i32 = x as i32;
 
-            if dist_sq <= radius_sq {
-                let intensity = if dist_sq <= inner_radius_sq {
-                    1.0
-                } else {
-                    let dist = dist_sq.sqrt();
-                    1.0 - (dist - inner_radius) / feather_range
-                };
+                let mut min_dist_sq = radius_sq + 1.0;
 
-                let final_value = (intensity * color_value as f32) as u8;
-
-                if final_value > 0 {
-                    let current_pixel = mask.get_pixel_mut(x as u32, y as u32);
-
-                    if is_eraser {
-                        let ceiling = 255u8.saturating_sub(final_value);
-                        current_pixel[0] = current_pixel[0].min(ceiling);
-                    } else {
-                        if final_value > current_pixel[0] {
-                            current_pixel[0] = final_value;
+                for seg in &active_segments {
+                    if x_i32 >= seg.bounds_left && x_i32 <= seg.bounds_right {
+                        let dist_sq = if seg.len_sq < 0.0001 {
+                            (px - seg.x1) * (px - seg.x1) + (py - seg.y1) * (py - seg.y1)
+                        } else {
+                            let t = (((px - seg.x1) * seg.dx + (py - seg.y1) * seg.dy)
+                                / seg.len_sq)
+                                .clamp(0.0, 1.0);
+                            let proj_x = seg.x1 + t * seg.dx;
+                            let proj_y = seg.y1 + t * seg.dy;
+                            (px - proj_x) * (px - proj_x) + (py - proj_y) * (py - proj_y)
+                        };
+                        if dist_sq < min_dist_sq {
+                            min_dist_sq = dist_sq;
                         }
                     }
                 }
+
+                if is_point_active {
+                    let pt = single_point.as_ref().unwrap();
+                    if x_i32 >= pt.2 && x_i32 <= pt.3 {
+                        let dist_sq = (px - pt.0) * (px - pt.0) + (py - pt.1) * (py - pt.1);
+                        if dist_sq < min_dist_sq {
+                            min_dist_sq = dist_sq;
+                        }
+                    }
+                }
+
+                if min_dist_sq <= radius_sq {
+                    let intensity = if min_dist_sq <= inner_radius_sq {
+                        1.0
+                    } else {
+                        let dist = min_dist_sq.sqrt();
+                        let t = ((dist - inner_radius) / feather_range).clamp(0.0, 1.0);
+                        1.0 - (t * t * (3.0 - 2.0 * t))
+                    };
+                    *pixel = (intensity * 255.0).round() as u8;
+                }
             }
-        }
-    }
+        });
+
+    GrayImage::from_raw(bb_w, bb_h, out_pixels).unwrap()
 }
 
 fn generate_radial_bitmap(
@@ -511,7 +643,7 @@ fn generate_brush_bitmap(
 ) -> GrayImage {
     let params: BrushMaskParameters =
         serde_json::from_value(params_value.clone()).unwrap_or_default();
-    let mut mask = GrayImage::new(width, height);
+    let mut final_mask = GrayImage::new(width, height);
 
     for line in &params.lines {
         if line.points.is_empty() {
@@ -519,153 +651,54 @@ fn generate_brush_bitmap(
         }
 
         let is_eraser = line.tool == "eraser";
-        let color_value = 255u8;
         let radius = (line.brush_size * scale / 2.0).max(0.0);
         let feather = line.feather.clamp(0.0, 1.0);
 
-        if line.points.len() > 1 {
-            for points_pair in line.points.windows(2) {
-                let p1 = &points_pair[0];
-                let p2 = &points_pair[1];
+        let Some((min_x, min_y, max_x, max_y)) =
+            stroke_bounds(&line.points, width, height, radius, scale, crop_offset)
+        else {
+            continue;
+        };
 
-                let x1_f = p1.x as f32 * scale - crop_offset.0;
-                let y1_f = p1.y as f32 * scale - crop_offset.1;
-                let x2_f = p2.x as f32 * scale - crop_offset.0;
-                let y2_f = p2.y as f32 * scale - crop_offset.1;
+        let bb_w = max_x - min_x + 1;
+        let bb_h = max_y - min_y + 1;
+        let layer_offset = (min_x as f32, min_y as f32);
 
-                let dist = ((x2_f - x1_f).powi(2) + (y2_f - y1_f).powi(2)).sqrt();
-                let step_size = (radius * (1.0 - feather) / 2.0).max(1.0);
-                let steps = (dist / step_size).ceil() as i32;
-
-                if steps > 1 {
-                    for i in 0..=steps {
-                        let t = i as f32 / steps as f32;
-                        let interp_x = (x1_f + t * (x2_f - x1_f)) as i32;
-                        let interp_y = (y1_f + t * (y2_f - y1_f)) as i32;
-                        draw_feathered_ellipse_mut(
-                            &mut mask,
-                            (interp_x, interp_y),
-                            radius,
-                            feather,
-                            color_value,
-                            is_eraser,
-                        );
-                    }
-                } else {
-                    draw_feathered_ellipse_mut(
-                        &mut mask,
-                        (x1_f as i32, y1_f as i32),
-                        radius,
-                        feather,
-                        color_value,
-                        is_eraser,
-                    );
-                    draw_feathered_ellipse_mut(
-                        &mut mask,
-                        (x2_f as i32, y2_f as i32),
-                        radius,
-                        feather,
-                        color_value,
-                        is_eraser,
-                    );
-                }
-            }
-        } else {
-            let p1 = &line.points[0];
-            let x1 = (p1.x as f32 * scale - crop_offset.0) as i32;
-            let y1 = (p1.y as f32 * scale - crop_offset.1) as i32;
-            draw_feathered_ellipse_mut(
-                &mut mask,
-                (x1, y1),
-                radius,
-                feather,
-                color_value,
-                is_eraser,
-            );
-        }
-    }
-    mask
-}
-
-fn generate_flow_stroke_coverage(
-    line: &FlowLine,
-    width: u32,
-    height: u32,
-    scale: f32,
-    crop_offset: (f32, f32),
-) -> GrayImage {
-    let mut stroke_mask = GrayImage::new(width, height);
-
-    if line.points.is_empty() {
-        return stroke_mask;
-    }
-
-    let radius = (line.brush_size * scale / 2.0).max(0.0);
-    let feather = line.feather.clamp(0.0, 1.0);
-    let color_value = 255u8;
-
-    if line.points.len() > 1 {
-        for points_pair in line.points.windows(2) {
-            let p1 = &points_pair[0];
-            let p2 = &points_pair[1];
-
-            let x1_f = p1.x as f32 * scale - crop_offset.0;
-            let y1_f = p1.y as f32 * scale - crop_offset.1;
-            let x2_f = p2.x as f32 * scale - crop_offset.0;
-            let y2_f = p2.y as f32 * scale - crop_offset.1;
-
-            let dist = ((x2_f - x1_f).powi(2) + (y2_f - y1_f).powi(2)).sqrt();
-            let step_size = (radius * (1.0 - feather) / 2.0).max(1.0);
-            let steps = (dist / step_size).ceil() as i32;
-
-            if steps > 1 {
-                for i in 0..=steps {
-                    let t = i as f32 / steps as f32;
-                    let interp_x = (x1_f + t * (x2_f - x1_f)) as i32;
-                    let interp_y = (y1_f + t * (y2_f - y1_f)) as i32;
-                    draw_feathered_ellipse_mut(
-                        &mut stroke_mask,
-                        (interp_x, interp_y),
-                        radius,
-                        feather,
-                        color_value,
-                        false,
-                    );
-                }
-            } else {
-                draw_feathered_ellipse_mut(
-                    &mut stroke_mask,
-                    (x1_f as i32, y1_f as i32),
-                    radius,
-                    feather,
-                    color_value,
-                    false,
-                );
-                draw_feathered_ellipse_mut(
-                    &mut stroke_mask,
-                    (x2_f as i32, y2_f as i32),
-                    radius,
-                    feather,
-                    color_value,
-                    false,
-                );
-            }
-        }
-    } else {
-        let p1 = &line.points[0];
-        let x1 = (p1.x as f32 * scale - crop_offset.0) as i32;
-        let y1 = (p1.y as f32 * scale - crop_offset.1) as i32;
-        draw_feathered_ellipse_mut(
-            &mut stroke_mask,
-            (x1, y1),
+        let line_mask = render_stroke_layer_parallel(
+            &line.points,
             radius,
             feather,
-            color_value,
-            false,
+            scale,
+            crop_offset,
+            layer_offset,
+            bb_w,
+            bb_h,
         );
+
+        for y in 0..bb_h {
+            for x in 0..bb_w {
+                let src_val = line_mask.get_pixel(x, y)[0] as f32 / 255.0;
+                if src_val <= 0.0 {
+                    continue;
+                }
+
+                let abs_x = min_x + x;
+                let abs_y = min_y + y;
+                let dst_pixel = final_mask.get_pixel_mut(abs_x, abs_y);
+                let dst_val = dst_pixel[0] as f32 / 255.0;
+
+                let blended = if is_eraser {
+                    dst_val * (1.0 - src_val)
+                } else {
+                    dst_val + src_val - dst_val * src_val
+                };
+
+                dst_pixel[0] = (blended.clamp(0.0, 1.0) * 255.0).round() as u8;
+            }
+        }
     }
 
-    stroke_mask
+    final_mask
 }
 
 fn generate_flow_bitmap(
@@ -677,36 +710,66 @@ fn generate_flow_bitmap(
 ) -> GrayImage {
     let params: FlowMaskParameters =
         serde_json::from_value(params_value.clone()).unwrap_or_default();
-    let mut mask = GrayImage::new(width, height);
+    let mut final_mask = GrayImage::new(width, height);
 
     for line in &params.lines {
         if line.points.is_empty() {
             continue;
         }
 
-        let flow_per_stroke = (line.flow.clamp(0.0, 100.0) / 100.0) * 255.0;
         let is_eraser = line.tool == "eraser";
-        let stroke_coverage =
-            generate_flow_stroke_coverage(line, width, height, scale, crop_offset);
+        let flow_per_stroke = (line.flow.clamp(0.0, 100.0) / 100.0) * 255.0;
+        let radius = (line.brush_size * scale / 2.0).max(0.0);
+        let feather = line.feather.clamp(0.0, 1.0);
 
-        for (x, y, pixel) in mask.enumerate_pixels_mut() {
-            let stroke_pixel = stroke_coverage.get_pixel(x, y)[0] as f32;
-            if stroke_pixel <= 0.0 {
-                continue;
+        let Some((min_x, min_y, max_x, max_y)) =
+            stroke_bounds(&line.points, width, height, radius, scale, crop_offset)
+        else {
+            continue;
+        };
+
+        let bb_w = max_x - min_x + 1;
+        let bb_h = max_y - min_y + 1;
+        let layer_offset = (min_x as f32, min_y as f32);
+
+        let line_mask = render_stroke_layer_parallel(
+            &line.points,
+            radius,
+            feather,
+            scale,
+            crop_offset,
+            layer_offset,
+            bb_w,
+            bb_h,
+        );
+
+        for y in 0..bb_h {
+            for x in 0..bb_w {
+                let stroke_pixel = line_mask.get_pixel(x, y)[0] as f32;
+                if stroke_pixel <= 0.0 {
+                    continue;
+                }
+
+                let abs_x = min_x + x;
+                let abs_y = min_y + y;
+                let pixel = final_mask.get_pixel_mut(abs_x, abs_y);
+
+                let c_norm = pixel[0] as f32 / 255.0;
+                let delta = ((stroke_pixel / 255.0) * flow_per_stroke).round();
+                let d_norm = (delta / 255.0).clamp(0.0, 1.0);
+
+                let next = if is_eraser {
+                    c_norm * (1.0 - d_norm)
+                } else {
+                    c_norm + d_norm - c_norm * d_norm
+                };
+
+                pixel[0] = (next.clamp(0.0, 1.0) * 255.0).round() as u8;
             }
-
-            let delta = ((stroke_pixel / 255.0) * flow_per_stroke).round();
-            let current = pixel[0] as f32;
-            let next = if is_eraser {
-                (current - delta).max(0.0)
-            } else {
-                (current + delta).min(255.0)
-            };
-            pixel[0] = next as u8;
         }
     }
 
-    mask
+    final_mask
 }
 
 struct TransformParams {
@@ -1206,7 +1269,7 @@ fn generate_sub_mask_bitmap(
             scale,
             crop_offset,
         )),
-        "brush" => Some(generate_brush_bitmap(
+        "brush" | "clone" | "heal" => Some(generate_brush_bitmap(
             &sub_mask.parameters,
             width,
             height,
@@ -1326,22 +1389,34 @@ pub fn generate_mask_bitmap(
 
 #[tauri::command]
 pub fn generate_mask_overlay(
-    mask_def: MaskDefinition,
+    mut mask_def: serde_json::Value,
     width: u32,
     height: u32,
     scale: f32,
     crop_offset: (f32, f32),
-    js_adjustments: Option<serde_json::Value>,
+    mut js_adjustments: Option<serde_json::Value>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
+    if let Some(ref mut adj) = js_adjustments {
+        crate::adjustment_utils::hydrate_adjustments(&state, adj);
+    }
+
+    if let Some(sub_masks) = mask_def.get_mut("subMasks").and_then(|v| v.as_array_mut()) {
+        let mut cache = state.patch_cache.lock().unwrap();
+        crate::adjustment_utils::hydrate_sub_masks(sub_masks, &mut cache);
+    }
+
+    let parsed_mask_def: MaskDefinition = serde_json::from_value(mask_def)
+        .map_err(|e| format!("Failed to parse hydrated mask_def: {}", e))?;
+
     let scaled_crop_offset = (crop_offset.0 * scale, crop_offset.1 * scale);
 
     let warped_image = js_adjustments.as_ref().and_then(|adj| {
-        resolve_warped_image_for_masks(&state, adj, std::slice::from_ref(&mask_def))
+        resolve_warped_image_for_masks(&state, adj, std::slice::from_ref(&parsed_mask_def))
     });
 
     if let Some(gray_mask) = generate_mask_bitmap(
-        &mask_def,
+        &parsed_mask_def,
         width,
         height,
         scale,

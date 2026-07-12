@@ -71,7 +71,7 @@ export default function LibraryView({
   );
 
   const {
-    rootPath,
+    rootPaths,
     currentFolderPath,
     libraryActivePath,
     multiSelectedPaths,
@@ -81,7 +81,7 @@ export default function LibraryView({
     isTreeLoading,
   } = useLibraryStore(
     useShallow((state) => ({
-      rootPath: state.rootPath,
+      rootPaths: state.rootPaths,
       currentFolderPath: state.currentFolderPath,
       libraryActivePath: state.libraryActivePath,
       multiSelectedPaths: state.multiSelectedPaths,
@@ -154,7 +154,7 @@ export default function LibraryView({
             onThumbnailAspectRatioChange={setThumbnailAspectRatio}
             onThumbnailSizeChange={setThumbnailSize}
             onRequestThumbnails={requestThumbnails}
-            rootPath={rootPath}
+            rootPaths={rootPaths}
             setLibraryViewMode={setLibraryViewMode}
             theme={theme}
             thumbnailAspectRatio={thumbnailAspectRatio}
@@ -163,7 +163,7 @@ export default function LibraryView({
             onNavigateToCommunity={() => setUI({ activeView: 'community' })}
           />
         )}
-        {rootPath && (
+        {rootPaths && rootPaths.length > 0 && (
           <BottomBar
             isCopied={isCopied}
             isCopyDisabled={multiSelectedPaths.length !== 1}

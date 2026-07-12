@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufReader, Cursor};
+use std::path::{Path, PathBuf};
 
 use crate::formats::is_raw_file;
+use crate::image_processing::ImageMetadata;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use exif::{Exif, In, Value};
 use little_exif::exif_tag::ExifTag;
@@ -10,6 +12,62 @@ use little_exif::filetype::FileExtension;
 use little_exif::metadata::Metadata;
 use little_exif::rational::{iR64, uR64};
 use rawler::decoders::RawMetadata;
+
+pub fn truncate_large_exif(value: &str) -> String {
+    if value.len() <= 500 {
+        return value.to_string();
+    }
+
+    let mut start_idx = 200;
+    while !value.is_char_boundary(start_idx) {
+        start_idx -= 1;
+    }
+
+    let mut end_idx = value.len() - 200;
+    while !value.is_char_boundary(end_idx) {
+        end_idx += 1;
+    }
+
+    if start_idx < end_idx {
+        let start_str = &value[..start_idx];
+        let end_str = &value[end_idx..];
+        return format!("{}...{}", start_str, end_str);
+    }
+
+    value.to_string()
+}
+
+pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
+    if !sidecar_path.exists() {
+        return ImageMetadata::default();
+    }
+
+    let Ok(content) = fs::read_to_string(sidecar_path) else {
+        return ImageMetadata::default();
+    };
+
+    let mut meta = serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default();
+    let mut healed = false;
+
+    if let Some(ref mut exif_map) = meta.exif {
+        for val in exif_map.values_mut() {
+            if val.len() > 500 {
+                *val = truncate_large_exif(val);
+                healed = true;
+            }
+        }
+    }
+
+    if healed && let Ok(json) = serde_json::to_string_pretty(&meta) {
+        let _ = fs::write(sidecar_path, json);
+        log::info!(
+            "Auto-healed bloated sidecar for: {}",
+            sidecar_path.display()
+        );
+    }
+
+    meta
+}
 
 fn to_ur64(val: &exif::Rational) -> uR64 {
     uR64 {
@@ -89,7 +147,7 @@ pub fn read_raw_metadata(file_bytes: &[u8]) -> Option<RawMetadata> {
 }
 
 pub fn read_exposure_time_secs(path: &str, file_bytes: &[u8]) -> Option<f32> {
-    if let Some(map) = read_rrexif_sidecar(std::path::Path::new(path))
+    if let Some(map) = read_rrexif_sidecar(Path::new(path))
         && let Some(val_str) = map.get("ExposureTime").or(map.get("ShutterSpeedValue"))
     {
         let cleaned = val_str.replace(" s", "");
@@ -160,7 +218,7 @@ pub fn read_exposure_time_secs(path: &str, file_bytes: &[u8]) -> Option<f32> {
 }
 
 pub fn read_iso(path: &str, file_bytes: &[u8]) -> Option<u32> {
-    if let Some(map) = read_rrexif_sidecar(std::path::Path::new(path))
+    if let Some(map) = read_rrexif_sidecar(Path::new(path))
         && let Some(val_str) = map
             .get("ISOSpeed")
             .or(map.get("PhotographicSensitivity"))
@@ -188,29 +246,6 @@ pub fn read_iso(path: &str, file_bytes: &[u8]) -> Option<u32> {
         }
     }
     None
-}
-
-pub fn read_exif_data(path: &str, file_bytes: &[u8]) -> HashMap<String, String> {
-    if let Some(sidecar_exif) = read_rrexif_sidecar(std::path::Path::new(path)) {
-        return sidecar_exif;
-    }
-
-    if is_raw_file(path)
-        && let Some(map) = extract_metadata(file_bytes)
-    {
-        return map;
-    }
-
-    let mut exif_data = HashMap::new();
-    if let Some(exif) = read_exif(file_bytes) {
-        for field in exif.fields() {
-            exif_data.insert(
-                field.tag.to_string(),
-                field.display_value().with_unit(&exif).to_string(),
-            );
-        }
-    }
-    exif_data
 }
 
 pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
@@ -334,7 +369,7 @@ pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
     let mut insert_if_present = |key: &str, val: String| {
         let trimmed = val.trim();
         if !trimmed.is_empty() {
-            map.insert(key.to_string(), val);
+            map.insert(key.to_string(), truncate_large_exif(trimmed));
         }
     };
 
@@ -560,7 +595,7 @@ pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
     Some(map)
 }
 
-pub fn get_creation_date_from_path(path: &std::path::Path) -> DateTime<Utc> {
+pub fn get_creation_date_from_path(path: &Path) -> DateTime<Utc> {
     if let Some(map) = read_rrexif_sidecar(path)
         && let Some(dt_str) = map.get("DateTimeOriginal").or(map.get("CreateDate"))
         && let Some(dt) = parse_creation_datetime(dt_str)
@@ -643,7 +678,7 @@ pub fn write_image_with_metadata(
         return Ok(());
     }
 
-    let original_path = std::path::Path::new(original_path_str);
+    let original_path = Path::new(original_path_str);
     if !original_path.exists() {
         return Ok(());
     }
@@ -893,14 +928,17 @@ pub fn write_image_with_metadata(
                 {
                     metadata.set_tag(ExifTag::GPSAltitude(vec![to_ur64(&v[0])]));
                 }
+                if let Some(f) = exif_obj.get_field(exif::Tag::GPSAltitudeRef, exif::In::PRIMARY) {
+                    let alt_ref = f.value.get_uint(0).unwrap_or(0) as u8;
+                    metadata.set_tag(ExifTag::GPSAltitudeRef(vec![alt_ref]));
+                }
             }
         }
     }
 
     if !source_read_success && is_raw_file(original_path_str) {
         let loader = rawler::RawLoader::new();
-        if let Ok(raw_source) =
-            rawler::rawsource::RawSource::new(std::path::Path::new(original_path_str))
+        if let Ok(raw_source) = rawler::rawsource::RawSource::new(Path::new(original_path_str))
             && let Ok(decoder) = loader.get_decoder(&raw_source)
             && let Ok(meta) = decoder.raw_metadata(&raw_source, &Default::default())
         {
@@ -1033,43 +1071,134 @@ pub fn write_image_with_metadata(
     Ok(())
 }
 
-pub fn get_rrexif_path(image_path: &std::path::Path) -> std::path::PathBuf {
+pub fn get_primary_sidecar_path(image_path: &Path) -> PathBuf {
+    let mut filename = image_path.file_name().unwrap_or_default().to_os_string();
+    filename.push(".rrdata");
+    image_path.with_file_name(filename)
+}
+
+pub fn get_rrexif_path(image_path: &Path) -> PathBuf {
     let mut filename = image_path.file_name().unwrap_or_default().to_os_string();
     filename.push(".rrexif");
     image_path.with_file_name(filename)
 }
 
-pub fn read_rrexif_sidecar(image_path: &std::path::Path) -> Option<HashMap<String, String>> {
-    let rrexif_path = get_rrexif_path(image_path);
-    if rrexif_path.exists()
-        && let Ok(content) = std::fs::read_to_string(&rrexif_path)
-        && let Ok(map) = serde_json::from_str(&content)
+fn load_primary_metadata(image_path: &Path) -> ImageMetadata {
+    let primary = get_primary_sidecar_path(image_path);
+    load_sidecar(&primary)
+}
+
+fn save_primary_metadata(image_path: &Path, metadata: &ImageMetadata) -> std::io::Result<()> {
+    let primary = get_primary_sidecar_path(image_path);
+    let json = serde_json::to_string_pretty(metadata).map_err(std::io::Error::other)?;
+    fs::write(&primary, json)
+}
+
+pub fn read_rrexif_sidecar(image_path: &Path) -> Option<HashMap<String, String>> {
+    let metadata = load_primary_metadata(image_path);
+    if let Some(exif) = metadata.exif {
+        return Some(exif);
+    }
+
+    let legacy = get_rrexif_path(image_path);
+    if legacy.exists()
+        && let Ok(content) = fs::read_to_string(&legacy)
+        && let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&content)
     {
+        let mut migrated = load_primary_metadata(image_path);
+        migrated.exif = Some(map.clone());
+        if save_primary_metadata(image_path, &migrated).is_ok() {
+            let _ = fs::remove_file(&legacy);
+        }
         return Some(map);
     }
+
     None
 }
 
-pub fn write_rrexif_sidecar(
-    original_path_str: &str,
-    output_image_path: &std::path::Path,
-) -> Result<(), String> {
-    let original_path = std::path::Path::new(original_path_str);
-    let original_rrexif = get_rrexif_path(original_path);
-    let dest_rrexif = get_rrexif_path(output_image_path);
+pub fn read_exif_data_from_bytes(path: &str, file_bytes: &[u8]) -> HashMap<String, String> {
+    if is_raw_file(path)
+        && let Some(map) = extract_metadata(file_bytes)
+    {
+        return map;
+    }
 
-    if original_rrexif.exists() {
-        let _ = std::fs::copy(&original_rrexif, &dest_rrexif);
+    let mut exif_data = HashMap::new();
+    if let Some(exif) = read_exif(file_bytes) {
+        for field in exif.fields() {
+            let raw_val = field.display_value().with_unit(&exif).to_string();
+            exif_data.insert(field.tag.to_string(), truncate_large_exif(&raw_val));
+        }
+    }
+    exif_data
+}
+
+pub fn read_exif_data(path: &str, file_bytes: &[u8]) -> HashMap<String, String> {
+    let source_path = Path::new(path);
+    if let Some(sidecar_exif) = read_rrexif_sidecar(source_path) {
+        return sidecar_exif;
+    }
+
+    let exif_map = read_exif_data_from_bytes(path, file_bytes);
+    if !exif_map.is_empty() {
+        let mut metadata = load_primary_metadata(source_path);
+        metadata.exif = Some(exif_map.clone());
+        let _ = save_primary_metadata(source_path, &metadata);
+    }
+    exif_map
+}
+
+pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_bytes: &[u8]) {
+    {
+        let metadata = load_primary_metadata(source_path);
+        if metadata.exif.is_some() {
+            return;
+        }
+    }
+
+    let legacy = get_rrexif_path(source_path);
+    if legacy.exists()
+        && let Ok(content) = fs::read_to_string(&legacy)
+        && let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&content)
+    {
+        let mut metadata = load_primary_metadata(source_path);
+        metadata.exif = Some(map);
+        if save_primary_metadata(source_path, &metadata).is_ok() {
+            let _ = fs::remove_file(&legacy);
+        }
+        return;
+    }
+
+    let exif_map = read_exif_data_from_bytes(source_path_str, file_bytes);
+    if exif_map.is_empty() {
+        return;
+    }
+
+    let mut metadata = load_primary_metadata(source_path);
+
+    if metadata.exif.is_none() {
+        metadata.exif = Some(exif_map);
+        let _ = save_primary_metadata(source_path, &metadata);
+    }
+}
+
+pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> Result<(), String> {
+    let source_path = Path::new(source_path_str);
+
+    let exif_data = if let Some(existing) = read_rrexif_sidecar(source_path) {
+        existing
+    } else if let Ok(bytes) = fs::read(source_path) {
+        read_exif_data_from_bytes(source_path_str, &bytes)
+    } else {
+        return Ok(());
+    };
+
+    if exif_data.is_empty() {
         return Ok(());
     }
 
-    if let Ok(bytes) = std::fs::read(original_path) {
-        let exif_data = read_exif_data(original_path_str, &bytes);
-        if !exif_data.is_empty()
-            && let Ok(json) = serde_json::to_string_pretty(&exif_data)
-        {
-            let _ = std::fs::write(&dest_rrexif, json);
-        }
-    }
-    Ok(())
+    let mut metadata = load_primary_metadata(target_image_path);
+    metadata.exif = Some(exif_data);
+    save_primary_metadata(target_image_path, &metadata)
+        .map_err(|e| format!("Failed to write sidecar: {}", e))
 }

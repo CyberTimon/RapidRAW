@@ -115,12 +115,12 @@ export default function EditorView({
     })),
   );
 
-  const { multiSelectedPaths, imageRatings, isViewLoading, rootPath } = useLibraryStore(
+  const { multiSelectedPaths, imageRatings, isViewLoading, rootPaths } = useLibraryStore(
     useShallow((state) => ({
       multiSelectedPaths: state.multiSelectedPaths,
       imageRatings: state.imageRatings,
       isViewLoading: state.isViewLoading,
-      rootPath: state.rootPath,
+      rootPaths: state.rootPaths,
     })),
   );
 
@@ -139,8 +139,6 @@ export default function EditorView({
       handleSettingsChange: state.handleSettingsChange,
     })),
   );
-
-  const { displaySize, originalSize, baseRenderSize, zoom, adjustments } = useEditorStore.getState();
 
   const editorNode = (
     <Editor
@@ -164,9 +162,6 @@ export default function EditorView({
       isRatingDisabled={!selectedImage}
       isResizing={isResizing}
       multiSelectedPaths={multiSelectedPaths}
-      displaySize={displaySize}
-      originalSize={originalSize}
-      baseRenderSize={baseRenderSize}
       onClearSelection={handleClearSelection}
       onContextMenu={handleThumbnailContextMenu}
       onCopy={handleCopyAdjustments}
@@ -184,7 +179,6 @@ export default function EditorView({
       showFilmstrip={!isCompactPortrait}
       showZoomControls={!isAndroid}
       thumbnailAspectRatio={thumbnailAspectRatio}
-      zoom={zoom}
       totalImages={sortedImageList.length}
     />
   );
@@ -233,14 +227,13 @@ export default function EditorView({
           )}
           {renderedRightPanel === Panel.Export && (
             <ExportPanel
-              adjustments={adjustments}
               exportState={exportState}
               multiSelectedPaths={multiSelectedPaths}
               selectedImage={selectedImage}
               setExportState={setExportState}
               appSettings={appSettings}
               onSettingsChange={handleSettingsChange}
-              rootPath={rootPath}
+              rootPaths={rootPaths}
             />
           )}
           {renderedRightPanel === Panel.Ai && <AIPanel />}

@@ -6,7 +6,14 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useProcessStore } from '../store/useProcessStore';
-import { Adjustments, INITIAL_ADJUSTMENTS, COPYABLE_ADJUSTMENT_KEYS, PasteMode } from '../utils/adjustments';
+import {
+  Adjustments,
+  INITIAL_ADJUSTMENTS,
+  COPYABLE_ADJUSTMENT_KEYS,
+  PasteMode,
+  LensAdjustment,
+  normalizeLoadedAdjustments,
+} from '../utils/adjustments';
 import { calculateCenteredCrop } from '../utils/cropUtils';
 import { Invokes } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
@@ -80,7 +87,7 @@ export function useEditorActions() {
       const isAndroid = useSettingsStore.getState().osPlatform === 'android';
       try {
         const result: { size: number } = await invoke('load_and_parse_lut', { path });
-        let name = isAndroid
+        let name = isAndroid && path.startsWith('content://')
           ? await invoke<string>('resolve_android_content_uri_name', { uriStr: path })
           : path.split(/[\\/]/).pop() || 'LUT';
         setAdjustments((prev: Adjustments) => ({
@@ -96,6 +103,24 @@ export function useEditorActions() {
       }
     },
     [setAdjustments],
+  );
+
+  const setLutPreviewOverride = useCallback(
+    (path: string | null) => {
+      setEditor((state) => {
+        if (!path) return { previewOverride: null };
+        const name = path.split(/[\\/]/).pop() || 'LUT';
+        return {
+          previewOverride: {
+            ...state.adjustments,
+            lutPath: path,
+            lutName: name,
+            lutIntensity: state.adjustments.lutIntensity,
+          },
+        };
+      });
+    },
+    [setEditor],
   );
 
   const handleResetAdjustments = useCallback(
@@ -125,10 +150,33 @@ export function useEditorActions() {
     [setEditor],
   );
 
-  const handleCopyAdjustments = useCallback(() => {
+  const handleCopyAdjustments = useCallback(async (pathOrEvent?: string | any) => {
+    const pathOverride = typeof pathOrEvent === 'string' ? pathOrEvent : undefined;
     const { selectedImage, adjustments } = useEditorStore.getState();
-    const { libraryActiveAdjustments } = useLibraryStore.getState();
-    const sourceAdjustments = selectedImage ? adjustments : libraryActiveAdjustments;
+    const { libraryActivePath, multiSelectedPaths } = useLibraryStore.getState();
+    let sourceAdjustments: any = null;
+
+    const pathToCopyFrom =
+      pathOverride || (selectedImage ? selectedImage.path : libraryActivePath || multiSelectedPaths[0]);
+
+    if (selectedImage && pathToCopyFrom === selectedImage.path) {
+      sourceAdjustments = adjustments;
+    } else if (pathToCopyFrom) {
+      try {
+        const meta: any = await invoke(Invokes.LoadMetadata, { path: pathToCopyFrom });
+        if (meta?.adjustments && !meta.adjustments.is_null) {
+          sourceAdjustments = normalizeLoadedAdjustments(meta.adjustments);
+        } else {
+          sourceAdjustments = INITIAL_ADJUSTMENTS;
+        }
+      } catch (err) {
+        toast.error(`Failed to load metadata for copying: ${err}`);
+        return;
+      }
+    }
+
+    if (!sourceAdjustments) return;
+
     const adjustmentsToCopy: any = {};
 
     for (const key of COPYABLE_ADJUSTMENT_KEYS) {
@@ -165,6 +213,12 @@ export function useEditorActions() {
         }
       }
 
+      if (includedAdjustments.includes(LensAdjustment.LensMaker)) {
+        if (!adjustmentsToApply.lensMaker) {
+          adjustmentsToApply.lensDistortionParams = null;
+        }
+      }
+
       if (Object.keys(adjustmentsToApply).length === 0) {
         setProcess({ isPasted: true });
         return;
@@ -180,9 +234,22 @@ export function useEditorActions() {
         setAdjustments({ ...adjustments, ...adjustmentsToApply });
       }
 
-      invoke(Invokes.ApplyAdjustmentsToPaths, { paths: pathsToUpdate, adjustments: adjustmentsToApply }).catch((err) =>
-        toast.error(`Failed to paste adjustments: ${err}`),
-      );
+      invoke(Invokes.ApplyAdjustmentsToPaths, { paths: pathsToUpdate, adjustments: adjustmentsToApply })
+        .then(() => {
+          if (selectedImage && pathsToUpdate.includes(selectedImage.path)) {
+            invoke('load_metadata', { path: selectedImage.path }).then((meta: any) => {
+              if (meta.adjustments) {
+                setAdjustments((prev: any) => ({
+                  ...prev,
+                  lensMaker: meta.adjustments.lensMaker,
+                  lensModel: meta.adjustments.lensModel,
+                  lensDistortionParams: meta.adjustments.lensDistortionParams,
+                }));
+              }
+            });
+          }
+        })
+        .catch((err) => toast.error(`Failed to paste adjustments: ${err}`));
 
       setProcess({ isPasted: true });
     },
@@ -244,6 +311,7 @@ export function useEditorActions() {
     handleRotate,
     handleAutoAdjustments,
     handleLutSelect,
+    setLutPreviewOverride,
     handleResetAdjustments,
     handleCopyAdjustments,
     handlePasteAdjustments,

@@ -284,6 +284,34 @@
     </lens>
 
     <lens>
+        <maker>Nikon Corporation</maker>
+        <maker lang="en">Nikon</maker>
+        <model>1 Nikkor VR 10-30mm f/3.5-5.6 PD-ZOOM</model>
+        <mount>Nikon CX</mount>
+        <cropfactor>2.727</cropfactor>
+        <calibration>
+            <distortion model="ptlens" focal="10" a="0.00633975" b="-0.0224342" c="-0.0124228"/>
+            <distortion model="ptlens" focal="11" a="-0.00201551" b="0.000923032" c="-0.0233002"/>
+            <distortion model="ptlens" focal="12.1" a="-0.0169053" b="0.0586521" c="-0.0817663"/>
+            <distortion model="ptlens" focal="12.8" a="0.0117987" b="-0.0435606" c="0.0421776"/>
+            <distortion model="ptlens" focal="13.4" a="-0.00182062" b="0.0162721" c="-0.0366782"/>
+            <distortion model="ptlens" focal="14" a="-0.00201673" b="0.0087256" c="-0.0105972"/>
+            <distortion model="ptlens" focal="14.7" a="0.000312588" b="0.00173731" c="-0.00240519"/>
+            <distortion model="ptlens" focal="15.7" a="-0.00440148" b="0.0233057" c="-0.022799"/>
+            <distortion model="ptlens" focal="16.5" a="-0.0132011" b="0.0515063" c="-0.047109"/>
+            <distortion model="ptlens" focal="18" a="-0.00577555" b="0.0284372" c="-0.0204307"/>
+            <distortion model="ptlens" focal="18.4" a="-0.0123371" b="0.0539002" c="-0.0488885"/>
+            <distortion model="ptlens" focal="20.1" a="0.010715" b="-0.0186526" c="0.0238602"/>
+            <distortion model="ptlens" focal="21.8" a="-0.0101904" b="0.0512183" c="-0.0465632"/>
+            <distortion model="ptlens" focal="23.6" a="0.123527" b="-0.361792" c="0.331003"/>
+            <distortion model="ptlens" focal="24" a="-0.0353505" b="0.138" c="-0.140557"/>
+            <distortion model="ptlens" focal="26.8" a="-0.00168539" b="0.0401355" c="-0.0628615"/>
+            <distortion model="ptlens" focal="29.4" a="0.0064046" b="-0.0231507" c="0.0585582"/>
+            <distortion model="ptlens" focal="30" a="-0.0137211" b="0.0598244" c="-0.0513631"/>
+        </calibration>
+    </lens>
+
+    <lens>
         <maker>Nikon</maker>
         <model>1 Nikkor VR 30-110mm f/3.8-5.6</model>
         <mount>Nikon CX</mount>

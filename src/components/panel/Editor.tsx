@@ -132,7 +132,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
     },
     [debouncedSetHistory, setEditor],
   );
-  const { handleGenerateAiMask, handleQuickErase } = useAiMasking();
+
+  const { handleGenerateAiMask, handleQuickErase, handleManualCleanup } = useAiMasking();
+
   const [crop, setCrop] = useState<Crop | null>(null);
   const prevCropParams = useRef<any>(null);
   const lastValidCropRef = useRef<PercentCrop | null>(null);
@@ -167,6 +169,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
   const lastPinch = useRef<{ dist: number; midX: number; midY: number } | null>(null);
   const panVelocityHistory = useRef<{ x: number; y: number; t: number }[]>([]);
   const wheelSnapTimeout = useRef<number | null>(null);
+  const isMiddleMousePanning = useRef(false);
+  const wasPanningDisabledOnDown = useRef(false);
 
   const prevRenderState = useRef({
     containerLeft: 0,
@@ -605,6 +609,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
     (isAiEditing &&
       (activeSubMask?.type === Mask.Brush ||
         activeSubMask?.type === Mask.Flow ||
+        activeSubMask?.type === Mask.Clone ||
+        activeSubMask?.type === Mask.Heal ||
         activeSubMask?.type === Mask.AiSubject ||
         activeSubMask?.type === Mask.QuickEraser ||
         activeSubMask?.type === Mask.Color ||
@@ -705,8 +711,17 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-      if (isPanningDisabled) return;
+      wasPanningDisabledOnDown.current = isPanningDisabled;
+
+      if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
+
+      const isMiddleClick = e.pointerType === 'mouse' && e.button === 1;
+
+      if (isPanningDisabled && !isMiddleClick) return;
+
+      if (isMiddleClick) {
+        isMiddleMousePanning.current = true;
+      }
 
       if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
       if (physicsFrameId.current) cancelAnimationFrame(physicsFrameId.current);
@@ -734,6 +749,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
 
   useEffect(() => {
     if (!isPanningDisabled) return;
+    if (isMiddleMousePanning.current) return;
 
     activePointers.current.clear();
     lastPanPos.current = null;
@@ -748,7 +764,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
       if (!activePointers.current.has(e.pointerId)) return;
       activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-      if (activePointers.current.size === 1 && lastPanPos.current && isPanningState && !isPanningDisabled) {
+      const canPan = !isPanningDisabled || isMiddleMousePanning.current;
+
+      if (activePointers.current.size === 1 && lastPanPos.current && isPanningState && canPan) {
         panVelocityHistory.current.push({ x: e.clientX, y: e.clientY, t: performance.now() });
         if (panVelocityHistory.current.length > 6) panVelocityHistory.current.shift();
 
@@ -814,6 +832,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
         lastPanPos.current = null;
         lastPinch.current = null;
         setIsPanningState(false);
+        isMiddleMousePanning.current = false;
 
         let vx = 0,
           vy = 0;
@@ -843,7 +862,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
-      if (isCropping || isMasking || isAiEditing || isWbPickerActive) return;
+      if (e.button !== 0) return;
+      if (isPanningDisabled || wasPanningDisabledOnDown.current) return;
 
       if (mouseDownPos.current) {
         const dx = Math.abs(e.clientX - mouseDownPos.current.x);
@@ -992,14 +1012,39 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
     isGeneratingOverlayRef.current = true;
     try {
       const cropOffset = [jsAdjustments.crop?.x || 0, jsAdjustments.crop?.y || 0];
+
+      const { patchesSentToBackend } = useEditorStore.getState();
+
+      const stripSubMasks = (subMasks: any[]) => {
+        if (!Array.isArray(subMasks)) return;
+        subMasks.forEach((sm) => {
+          if (sm.id && sm.parameters && patchesSentToBackend.has(sm.id)) {
+            if (sm.parameters.mask_data_base64 !== undefined) sm.parameters.mask_data_base64 = null;
+            if (sm.parameters.maskDataBase64 !== undefined) sm.parameters.maskDataBase64 = null;
+          }
+        });
+      };
+
+      const strippedAdjustments = structuredClone(jsAdjustments);
+      if (strippedAdjustments.masks) {
+        strippedAdjustments.masks.forEach((m: any) => stripSubMasks(m.subMasks));
+      }
+      if (strippedAdjustments.aiPatches) {
+        strippedAdjustments.aiPatches.forEach((p: any) => stripSubMasks(p.subMasks));
+      }
+
+      const strippedMaskDef = structuredClone(maskDef);
+      stripSubMasks(strippedMaskDef.subMasks);
+
       const dataUrl: string = await invoke(Invokes.GenerateMaskOverlay, {
         cropOffset,
         height: Math.round(renderSize.height),
-        maskDef,
+        maskDef: strippedMaskDef,
         scale: renderSize.scale,
         width: Math.round(renderSize.width),
-        jsAdjustments: jsAdjustments,
+        jsAdjustments: strippedAdjustments,
       });
+
       if (dataUrl) {
         setMaskOverlayUrl(dataUrl);
       } else {
@@ -1119,10 +1164,11 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
       const windowWidth = Math.max(window.innerWidth * dpr, 1);
       const windowHeight = Math.max(window.innerHeight * dpr, 1);
 
-      const clipX = currentRect.left * dpr;
-      const clipY = currentRect.top * dpr;
-      const clipW = Math.max(currentRect.width * dpr, 1);
-      const clipH = Math.max(currentRect.height * dpr, 1);
+      const OVERLAP = 2;
+      const clipX = (currentRect.left - OVERLAP) * dpr;
+      const clipY = (currentRect.top - OVERLAP) * dpr;
+      const clipW = Math.max((currentRect.width + OVERLAP * 2) * dpr, 1);
+      const clipH = Math.max((currentRect.height + OVERLAP * 2) * dpr, 1);
 
       if (state.useWgpuRenderer === false || !state.isReady || !state.hasRenderedFirstFrame) {
         const hiddenTransform = `${windowWidth},${windowHeight},-999999,-999999,1,1,${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')}`;
@@ -1277,9 +1323,20 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
     const subMasks = activeMaskDef.subMasks?.map((sm: any) => {
       const { parameters, ...rest } = sm;
       const cleanParams = { ...parameters };
+      const maskDataFingerprint = cleanParams.mask_data_base64
+        ? `${cleanParams.mask_data_base64.length}-${cleanParams.mask_data_base64.slice(-20)}`
+        : null;
+      const maskDataCamelFingerprint = cleanParams.maskDataBase64
+        ? `${cleanParams.maskDataBase64.length}-${cleanParams.maskDataBase64.slice(-20)}`
+        : null;
       delete cleanParams.mask_data_base64;
       delete cleanParams.maskDataBase64;
-      return { ...rest, parameters: cleanParams };
+      return {
+        ...rest,
+        parameters: cleanParams,
+        _maskDataFingerprint: maskDataFingerprint,
+        _maskDataCamelFingerprint: maskDataCamelFingerprint,
+      };
     });
 
     return JSON.stringify({
@@ -1381,6 +1438,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
         );
 
         if (
+          maxCropForReference &&
           Math.abs(currentAdjCrop.x - maxCropForReference.x) <= 2 &&
           Math.abs(currentAdjCrop.y - maxCropForReference.y) <= 2 &&
           Math.abs(currentAdjCrop.width - maxCropForReference.width) <= 2 &&
@@ -1860,20 +1918,16 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
   );
 
   if (!selectedImage) {
-    return (
-      <div className="flex-1 bg-bg-secondary rounded-lg flex items-center justify-center">
-        <Text variant={TextVariants.heading} color={TextColors.secondary} weight={TextWeights.normal}>
-          Select an image from the library to begin editing.
-        </Text>
-      </div>
-    );
+    return null;
   }
 
-  const isZoomActionActive = !isCropping && !isMasking && !isAiEditing && !isWbPickerActive;
+  const isZoomActionActive = !isPanningDisabled;
   const isMaxZoom = transformState.scale >= maxScaleRef.current - 0.5;
 
   let cursorStyle = 'default';
-  if (isZoomActionActive) {
+  if (isPanningState && isMiddleMousePanning.current) {
+    cursorStyle = 'grabbing';
+  } else if (isZoomActionActive) {
     if (isPanningState) {
       cursorStyle = 'grabbing';
     } else if (transformState.scale > 1.01) {
@@ -1925,13 +1979,19 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
 
       <div
         className={clsx(
-          'flex-1 relative overflow-hidden',
+          'flex-1 relative overflow-hidden touch-none',
           isFullScreen ? 'rounded-none' : 'rounded-lg',
           appSettings?.useWgpuRenderer !== false && !isFullScreen && 'ring-[9999px] ring-bg-secondary',
           !isWgpuActive && 'bg-bg-secondary',
         )}
+        style={{ cursor: cursorStyle }}
         onContextMenu={onContextMenu}
         ref={imageContainerRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onClick={handleClick}
       >
         {showSpinner && (
           <div
@@ -1946,16 +2006,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
 
         <div
           ref={contentRef}
-          className="w-full h-full flex items-center justify-center touch-none origin-top-left"
+          className="w-full h-full flex items-center justify-center origin-top-left"
           style={{
             transform: `translate(${transformState.positionX}px, ${transformState.positionY}px) scale(${transformState.scale})`,
-            cursor: cursorStyle,
           }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          onClick={handleClick}
         >
           <ImageCanvas
             appSettings={appSettings}
@@ -1979,7 +2033,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
             isSliderDragging={isSliderDragging}
             maskOverlayUrl={maskOverlayUrl}
             onGenerateAiMask={handleGenerateAiMask}
+            onSelectAiPatchContainer={(id) => setEditor({ activeAiPatchContainerId: id })}
+            onSelectMaskContainer={(id) => setEditor({ activeMaskContainerId: id })}
             onLiveMaskPreview={handleLiveMaskPreview}
+            onManualCleanup={handleManualCleanup}
             onQuickErase={handleQuickErase}
             onSelectAiSubMask={(id) => setEditor({ activeAiSubMaskId: id })}
             onSelectMask={(id) => setEditor({ activeMaskId: id })}
@@ -2000,7 +2057,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, transformWrappe
             cursorStyle={cursorStyle}
             isMaxZoom={isMaxZoom}
             liveRotation={liveRotation}
-            zoomScale={transformState.scale}
+            transformState={transformState}
             hasRenderedFirstFrame={hasRenderedFirstFrame}
           />
         </div>
