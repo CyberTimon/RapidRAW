@@ -147,6 +147,19 @@ export default function LensCorrectionModal({
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastMousePos = useRef({ x: 0, y: 0 });
+  const [isTouchDragging, setIsTouchDragging] = useState(false);
+  const touchState = useRef({
+    initialPinchDist: 0,
+    initialZoom: 1,
+    initialPanX: 0,
+    initialPanY: 0,
+    lastCenterX: 0,
+    lastCenterY: 0,
+    lastTouchX: 0,
+    lastTouchY: 0,
+    isPinching: false,
+    isDragging: false,
+  });
 
   const [modeBubbleStyle, setModeBubbleStyle] = useState({});
   const isModeInitialAnimation = useRef(true);
@@ -225,6 +238,78 @@ export default function LensCorrectionModal({
     const newPanY = mouseY - mouseFromCenterY * scaleRatio;
     setZoom(newZoom);
     setPan({ x: newPanX, y: newPanY });
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchState.current = {
+        initialPinchDist: Math.hypot(dx, dy),
+        initialZoom: zoom,
+        initialPanX: pan.x,
+        initialPanY: pan.y,
+        lastCenterX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        lastCenterY: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        lastTouchX: 0,
+        lastTouchY: 0,
+        isPinching: true,
+        isDragging: false,
+      };
+    } else if (e.touches.length === 1) {
+      e.preventDefault();
+      touchState.current = {
+        ...touchState.current,
+        lastTouchX: e.touches[0].clientX,
+        lastTouchY: e.touches[0].clientY,
+        isPinching: false,
+        isDragging: true,
+      };
+      setIsTouchDragging(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchState.current.isPinching && e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const scale = dist / touchState.current.initialPinchDist;
+      const newZoom = Math.min(Math.max(0.1, touchState.current.initialZoom * scale), 8);
+
+      const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const cx = centerX - touchState.current.lastCenterX;
+      const cy = centerY - touchState.current.lastCenterY;
+
+      setZoom(newZoom);
+      setPan((prev) => ({ x: prev.x + cx, y: prev.y + cy }));
+      touchState.current.lastCenterX = centerX;
+      touchState.current.lastCenterY = centerY;
+    } else if (touchState.current.isDragging && e.touches.length === 1) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - touchState.current.lastTouchX;
+      const dy = e.touches[0].clientY - touchState.current.lastTouchY;
+      setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      touchState.current.lastTouchX = e.touches[0].clientX;
+      touchState.current.lastTouchY = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length === 0) {
+      touchState.current.isPinching = false;
+      touchState.current.isDragging = false;
+      setIsTouchDragging(false);
+    } else if (e.touches.length === 1) {
+      touchState.current.isPinching = false;
+      touchState.current.isDragging = true;
+      touchState.current.lastTouchX = e.touches[0].clientX;
+      touchState.current.lastTouchY = e.touches[0].clientY;
+      setIsTouchDragging(true);
+    }
   };
 
   const handleResetZoom = (e?: React.MouseEvent) => {
@@ -533,7 +618,7 @@ export default function LensCorrectionModal({
 
   const imageTransformStyle = {
     transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-    transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+    transition: isDragging || isTouchDragging ? 'none' : 'transform 0.1s ease-out',
     transformOrigin: 'center center',
   };
 
@@ -875,8 +960,12 @@ export default function LensCorrectionModal({
         <div
           ref={containerRef}
           className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing select-none"
+          style={{ touchAction: 'none' as any }}
           onMouseDown={handleMouseDown}
           onWheel={handleWheel}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           <div
             className="absolute inset-0 opacity-20 pointer-events-none"
