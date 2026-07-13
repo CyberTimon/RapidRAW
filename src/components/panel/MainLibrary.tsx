@@ -420,7 +420,7 @@ export default function MainLibrary(props: MainLibraryProps) {
         onMouseEnter={() => setIsProgressHovered(true)}
         onMouseLeave={() => setIsProgressHovered(false)}
       >
-        {selectionModeActive ? (
+        {selectionModeActive && props.isAndroid ? (
           <>
             <div className="min-w-0">
               <Text variant={TextVariants.headline}>
@@ -530,13 +530,15 @@ export default function MainLibrary(props: MainLibraryProps) {
                 editedStatusOptions={translatedEditedStatusOptions}
                 sortOptions={translatedSortOptions}
               />
-              <Button
-                className="h-12 w-12 bg-accent text-button-text shadow-none p-0 flex items-center justify-center"
-                onClick={() => setSelectionModeActive(true)}
-                data-tooltip={t('library.tooltips.select')}
-              >
-                <CheckCheck className="w-6 h-6" />
-              </Button>
+              {props.isAndroid && (
+                <Button
+                  className="h-12 w-12 bg-accent text-button-text shadow-none p-0 flex items-center justify-center"
+                  onClick={() => setSelectionModeActive(true)}
+                  data-tooltip={t('library.tooltips.select')}
+                >
+                  <CheckCheck className="w-6 h-6" />
+                </Button>
+              )}
               {!props.isAndroid && (
                 <>
                   <Button
