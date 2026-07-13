@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Check, Image as ImageIcon, Folder, FolderOpen, Star as StarIcon, SlidersHorizontal, CloudOff } from 'lucide-react';
+import { Image as ImageIcon, Folder, FolderOpen, Star as StarIcon, SlidersHorizontal, CloudOff } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
@@ -20,11 +20,11 @@ interface ImageLayer {
 
 const ThumbnailComponent = ({
   isActive,
-  isSelected,
   onContextMenu,
   onImageClick,
   onImageDoubleClick,
   selectionModeActive,
+  isSelected,
   onLoad,
   path,
   rating,
@@ -155,7 +155,8 @@ const ThumbnailComponent = ({
           const newSet = new Set(state.multiSelectedPaths);
           if (newSet.has(path)) newSet.delete(path);
           else newSet.add(path);
-          state.setLibrary({ multiSelectedPaths: Array.from(newSet) });
+          const newArr = Array.from(newSet);
+          state.setLibrary({ multiSelectedPaths: newArr });
         } else {
           onImageClick(path, e);
         }
@@ -166,11 +167,21 @@ const ThumbnailComponent = ({
       {selectionModeActive && (
         <div
           className={clsx(
-            'absolute top-2 left-2 z-20 w-6 h-6 rounded-full border-2 flex items-center justify-center pointer-events-none transition-all duration-150',
+            'absolute top-2 left-2 z-20 w-6 h-6 rounded-full border-2 flex items-center justify-center pointer-events-none',
             isSelected ? 'bg-accent border-white' : 'bg-black/40 border-white/60',
           )}
         >
-          {isSelected && <Check size={14} className="text-white" />}
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={clsx('w-4 h-4', isSelected ? 'block text-button-text' : 'hidden')}
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
         </div>
       )}
       <div className="relative w-full flex-1 min-h-0 z-0 bg-surface">
@@ -438,11 +449,11 @@ const ThumbnailComponent = ({
 
 const ListItemComponent = ({
   isActive,
-  isSelected,
   onContextMenu,
   onImageClick,
   onImageDoubleClick,
   selectionModeActive,
+  isSelected,
   onLoad,
   path,
   rating,
@@ -580,7 +591,8 @@ const ListItemComponent = ({
           const newSet = new Set(state.multiSelectedPaths);
           if (newSet.has(path)) newSet.delete(path);
           else newSet.add(path);
-          state.setLibrary({ multiSelectedPaths: Array.from(newSet) });
+          const newArr = Array.from(newSet);
+          state.setLibrary({ multiSelectedPaths: newArr });
         } else {
           onImageClick(path, e);
         }
@@ -589,19 +601,24 @@ const ListItemComponent = ({
       onDoubleClick={() => onImageDoubleClick(path)}
     >
       {selectionModeActive && (
-        <div
-          className={clsx(
-            'flex items-center justify-center w-8 h-full shrink-0 transition-colors duration-150',
-            isSelected ? 'bg-accent/10' : '',
-          )}
-        >
+        <div className="flex items-center justify-center w-8 h-full shrink-0">
           <div
             className={clsx(
-              'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-150',
+              'w-5 h-5 rounded-full border-2 flex items-center justify-center',
               isSelected ? 'bg-accent border-white' : 'bg-black/20 border-white/60',
             )}
           >
-            {isSelected && <Check size={12} className="text-white" />}
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={clsx('w-3 h-3', isSelected ? 'block text-button-text' : 'hidden')}
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
           </div>
         </div>
       )}

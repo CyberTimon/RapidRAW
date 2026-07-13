@@ -416,23 +416,21 @@ export default function MainLibrary(props: MainLibraryProps) {
   return (
     <div className="flex-1 flex flex-col h-full min-w-0 bg-bg-secondary rounded-lg overflow-hidden">
       <header
-        className="p-4 shrink-0 flex justify-between items-center border-b border-surface gap-4 min-h-[68px]"
+        className="p-4 shrink-0 flex justify-between items-center border-b border-surface gap-4"
         onMouseEnter={() => setIsProgressHovered(true)}
         onMouseLeave={() => setIsProgressHovered(false)}
       >
         {selectionModeActive ? (
-          <div className="w-full flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+          <>
+            <div className="min-w-0">
               <Text variant={TextVariants.headline}>
-                {props.multiSelectedPaths.length > 0
-                  ? t('library.header.selectedCount', { count: props.multiSelectedPaths.length })
-                  : t('library.header.selectItems')}
+                {t('library.header.selectItems')}
               </Text>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               {props.multiSelectedPaths.length < props.imageList.length && (
                 <Button
-                  className="h-10 px-4 bg-surface text-text-primary shadow-none"
+                  className="h-12 px-4 bg-surface text-text-primary shadow-none"
                   onClick={() =>
                     setLibrary({ multiSelectedPaths: props.imageList.map((img: any) => img.path) })
                   }
@@ -443,14 +441,14 @@ export default function MainLibrary(props: MainLibraryProps) {
               )}
               {props.multiSelectedPaths.length === props.imageList.length && props.imageList.length > 0 && (
                 <Button
-                  className="h-10 px-4 bg-surface text-text-primary shadow-none"
+                  className="h-12 px-4 bg-surface text-text-primary shadow-none"
                   onClick={() => setLibrary({ multiSelectedPaths: [] })}
                 >
                   {t('library.header.deselectAll')}
                 </Button>
               )}
               <Button
-                className="h-10 px-4 bg-surface text-text-primary shadow-none"
+                className="h-12 px-4 bg-surface text-text-primary shadow-none"
                 onClick={() => {
                   setSelectionModeActive(false);
                   if (props.multiSelectedPaths.length > 0) props.onClearSelection();
@@ -460,7 +458,7 @@ export default function MainLibrary(props: MainLibraryProps) {
                 {t('library.header.cancel')}
               </Button>
             </div>
-          </div>
+          </>
         ) : (
           <>
             <div className="min-w-0">

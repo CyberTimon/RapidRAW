@@ -879,6 +879,7 @@
         "clearSearch": "Clear search",
         "collapse": "Collapse",
         "expand": "Expand",
+        "select": "Select",
         "sortFolders": "Sort Folders"
       }
     },
@@ -895,6 +896,10 @@
       }
     },
     "header": {
+      "cancel": "Cancel",
+      "deselectAll": "Deselect All",
+      "selectAll": "Select All",
+      "selectItems": "Select items",
       "search": {
         "addFilterOrSearch": "Add filter or search...",
         "indexingImages": "Indexing Images...",
