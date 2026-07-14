@@ -63,6 +63,8 @@ const EXIF_FIELD_TRANSLATION_KEYS: Record<string, string> = {
   Copyright: 'editor.metadata.extendedExif.fields.copyright',
   CreateDate: 'editor.metadata.extendedExif.fields.createDate',
   CustomRendered: 'editor.metadata.extendedExif.fields.customRendered',
+  DateTime: 'editor.metadata.extendedExif.fields.createDate',
+  DateTimeDigitized: 'editor.metadata.extendedExif.fields.modifyDate',
   DateTimeOriginal: 'editor.metadata.extendedExif.fields.dateTimeOriginal',
   DigitalZoomRatio: 'editor.metadata.extendedExif.fields.digitalZoomRatio',
   ExifVersion: 'editor.metadata.extendedExif.fields.exifVersion',
@@ -180,7 +182,9 @@ const EXIF_VALUE_TRANSLATION_KEYS: Record<string, Record<string, string>> = {
   },
   WhiteBalance: {
     auto: 'editor.metadata.extendedExif.values.auto',
+    'auto white balance': 'editor.metadata.extendedExif.values.auto',
     manual: 'editor.metadata.extendedExif.values.manual',
+    'manual white balance': 'editor.metadata.extendedExif.values.manual',
   },
 };
 
