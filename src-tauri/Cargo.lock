@@ -5038,7 +5038,7 @@ dependencies = [
 [[package]]
 name = "rawler"
 version = "0.7.1"
-source = "git+https://github.com/CyberTimon/RapidRAW-DngLab.git#6ac6ec2342a5b98970a9d700bcaa8134ae62e060"
+source = "git+https://github.com/CyberTimon/RapidRAW-DngLab.git#ee86c32e3d85ff6057fdc8b3c3eed38923712d91"
 dependencies = [
  "backtrace",
  "bitstream-io",
