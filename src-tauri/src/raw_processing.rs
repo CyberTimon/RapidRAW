@@ -92,13 +92,14 @@ fn read_dng_exposure_tag_value(
     let value_offset =
         usize::try_from(read_tiff_u32(bytes, entry_offset.checked_add(8)?, endian)?).ok()?;
     match value_type {
-        // BaselineExposure and BaselineExposureOffset are SRATIONAL values in DNG.
+        // BaselineExposure is SRATIONAL in DNG.
         10 => {
             let numerator = read_tiff_u32(bytes, value_offset, endian)? as i32;
             let denominator = read_tiff_u32(bytes, value_offset.checked_add(4)?, endian)? as i32;
             (denominator != 0).then_some(numerator as f32 / denominator as f32)
         }
-        // Be tolerant of well-formed metadata written with another scalar TIFF type.
+        // BaselineExposureOffset is RATIONAL in DNG. Also accept this type for
+        // BaselineExposure to tolerate otherwise well-formed metadata.
         5 => {
             let numerator = read_tiff_u32(bytes, value_offset, endian)?;
             let denominator = read_tiff_u32(bytes, value_offset.checked_add(4)?, endian)?;
@@ -456,9 +457,9 @@ mod tests {
         write_u32(&mut bytes, 4, ROOT_IFD_OFFSET as u32, endian);
         write_u16(&mut bytes, ROOT_IFD_OFFSET, ENTRY_COUNT as u16, endian);
 
-        for (index, (tag, numerator, denominator)) in [
-            (DNG_TAG_BASELINE_EXPOSURE, baseline.0, baseline.1),
-            (DNG_TAG_BASELINE_EXPOSURE_OFFSET, offset.0, offset.1),
+        for (index, (tag, value_type, numerator, denominator)) in [
+            (DNG_TAG_BASELINE_EXPOSURE, 10, baseline.0, baseline.1),
+            (DNG_TAG_BASELINE_EXPOSURE_OFFSET, 5, offset.0, offset.1),
         ]
         .into_iter()
         .enumerate()
@@ -466,7 +467,7 @@ mod tests {
             let entry_offset = ROOT_IFD_OFFSET + 2 + index * 12;
             let value_offset = VALUES_OFFSET + index * 8;
             write_u16(&mut bytes, entry_offset, tag, endian);
-            write_u16(&mut bytes, entry_offset + 2, 10, endian);
+            write_u16(&mut bytes, entry_offset + 2, value_type, endian);
             write_u32(&mut bytes, entry_offset + 4, 1, endian);
             write_u32(&mut bytes, entry_offset + 8, value_offset as u32, endian);
             write_u32(&mut bytes, value_offset, numerator as u32, endian);
