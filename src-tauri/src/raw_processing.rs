@@ -2,10 +2,11 @@ use crate::image_processing::apply_orientation;
 use anyhow::{Result, anyhow};
 use image::{DynamicImage, ImageBuffer, Rgba};
 use rawler::{
-    decoders::{Orientation, RawDecodeParams},
+    decoders::{Decoder, Orientation, RawDecodeParams, WellKnownIFD},
     imgop::develop::{DemosaicAlgorithm, Intermediate, ProcessingStep, RawDevelop},
     rawimage::{RawImage, RawPhotometricInterpretation},
     rawsource::RawSource,
+    tags::DngTag,
 };
 use std::sync::{
     Arc,
@@ -45,6 +46,36 @@ fn srgb_to_linear(value: f32) -> f32 {
     }
 }
 
+const MAX_ABS_DNG_BASELINE_EXPOSURE_EV: f32 = 16.0;
+
+fn bounded_exposure_ev(value: f32) -> f32 {
+    if value.is_finite() {
+        value.clamp(
+            -MAX_ABS_DNG_BASELINE_EXPOSURE_EV,
+            MAX_ABS_DNG_BASELINE_EXPOSURE_EV,
+        )
+    } else {
+        0.0
+    }
+}
+
+fn dng_default_exposure_ev(decoder: &dyn Decoder) -> f32 {
+    let Ok(Some(ifd)) = decoder.ifd(WellKnownIFD::VirtualDngRootTags) else {
+        return 0.0;
+    };
+
+    let tag_value = |tag| {
+        ifd.get_entry(tag)
+            .and_then(|entry| entry.get_f32(0).ok().flatten())
+            .map(bounded_exposure_ev)
+            .unwrap_or(0.0)
+    };
+
+    bounded_exposure_ev(
+        tag_value(DngTag::BaselineExposure) + tag_value(DngTag::BaselineExposureOffset),
+    )
+}
+
 fn develop_internal(
     file_bytes: &[u8],
     fast_demosaic: bool,
@@ -65,6 +96,10 @@ fn develop_internal(
 
     let source = RawSource::new_from_slice(file_bytes);
     let decoder = rawler::get_decoder(&source)?;
+    // DNG baseline exposure is expressed in EV in linear light. Keep it
+    // separate from sample normalization so gamma-tagged linear raws apply it
+    // only after their transfer function has been decoded.
+    let baseline_exposure_gain = 2.0_f32.powf(dng_default_exposure_ev(decoder.as_ref()));
 
     check_cancel()?;
     let mut raw_image: RawImage = decoder.raw_image(&source, &RawDecodeParams::default(), false)?;
@@ -145,7 +180,7 @@ fn develop_internal(
                 if is_linear_format && apply_ungamma {
                     linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
                 }
-                *p = linear_val.clamp(0.0, clamp_limit);
+                *p = (linear_val * baseline_exposure_gain).clamp(0.0, clamp_limit);
             });
         }
         Intermediate::ThreeColor(pixels) => {
@@ -159,6 +194,10 @@ fn develop_internal(
                     g = srgb_to_linear(g.clamp(0.0, 1.0));
                     b = srgb_to_linear(b.clamp(0.0, 1.0));
                 }
+
+                r *= baseline_exposure_gain;
+                g *= baseline_exposure_gain;
+                b *= baseline_exposure_gain;
 
                 let max_c = r.max(g).max(b);
 
@@ -197,7 +236,7 @@ fn develop_internal(
                     if is_linear_format && apply_ungamma {
                         linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
                     }
-                    *c = linear_val.clamp(0.0, clamp_limit);
+                    *c = (linear_val * baseline_exposure_gain).clamp(0.0, clamp_limit);
                 });
             });
         }
@@ -254,4 +293,21 @@ pub fn get_fast_demosaic_scale_factor(
         }
     }
     1.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bounds_untrusted_dng_exposure_metadata() {
+        assert_eq!(bounded_exposure_ev(f32::NAN), 0.0);
+        assert_eq!(bounded_exposure_ev(f32::INFINITY), 0.0);
+        assert_eq!(bounded_exposure_ev(4.7), 4.7);
+        assert_eq!(bounded_exposure_ev(100.0), MAX_ABS_DNG_BASELINE_EXPOSURE_EV);
+        assert_eq!(
+            bounded_exposure_ev(-100.0),
+            -MAX_ABS_DNG_BASELINE_EXPOSURE_EV
+        );
+    }
 }
