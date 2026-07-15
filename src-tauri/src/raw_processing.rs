@@ -48,15 +48,19 @@ fn srgb_to_linear(value: f32) -> f32 {
 
 const MAX_ABS_DNG_BASELINE_EXPOSURE_EV: f32 = 16.0;
 
-fn bounded_exposure_ev(value: f32) -> f32 {
-    if value.is_finite() {
-        value.clamp(
-            -MAX_ABS_DNG_BASELINE_EXPOSURE_EV,
-            MAX_ABS_DNG_BASELINE_EXPOSURE_EV,
-        )
-    } else {
-        0.0
-    }
+fn combined_dng_exposure_ev(baseline: f32, offset: f32) -> f32 {
+    let finite_component = |value: f32| {
+        if value.is_finite() {
+            f64::from(value)
+        } else {
+            0.0
+        }
+    };
+
+    (finite_component(baseline) + finite_component(offset)).clamp(
+        -f64::from(MAX_ABS_DNG_BASELINE_EXPOSURE_EV),
+        f64::from(MAX_ABS_DNG_BASELINE_EXPOSURE_EV),
+    ) as f32
 }
 
 fn dng_default_exposure_ev(decoder: &dyn Decoder) -> f32 {
@@ -67,12 +71,12 @@ fn dng_default_exposure_ev(decoder: &dyn Decoder) -> f32 {
     let tag_value = |tag| {
         ifd.get_entry(tag)
             .and_then(|entry| entry.get_f32(0).ok().flatten())
-            .map(bounded_exposure_ev)
             .unwrap_or(0.0)
     };
 
-    bounded_exposure_ev(
-        tag_value(DngTag::BaselineExposure) + tag_value(DngTag::BaselineExposureOffset),
+    combined_dng_exposure_ev(
+        tag_value(DngTag::BaselineExposure),
+        tag_value(DngTag::BaselineExposureOffset),
     )
 }
 
@@ -300,13 +304,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bounds_untrusted_dng_exposure_metadata() {
-        assert_eq!(bounded_exposure_ev(f32::NAN), 0.0);
-        assert_eq!(bounded_exposure_ev(f32::INFINITY), 0.0);
-        assert_eq!(bounded_exposure_ev(4.7), 4.7);
-        assert_eq!(bounded_exposure_ev(100.0), MAX_ABS_DNG_BASELINE_EXPOSURE_EV);
+    fn combines_before_bounding_dng_exposure_metadata() {
+        assert_eq!(combined_dng_exposure_ev(20.0, -10.0), 10.0);
+        assert_eq!(combined_dng_exposure_ev(20.0, -20.0), 0.0);
+        assert_eq!(combined_dng_exposure_ev(f32::NAN, 4.7), 4.7);
+        assert_eq!(combined_dng_exposure_ev(f32::INFINITY, 4.7), 4.7);
         assert_eq!(
-            bounded_exposure_ev(-100.0),
+            combined_dng_exposure_ev(f32::MAX, f32::MAX),
+            MAX_ABS_DNG_BASELINE_EXPOSURE_EV
+        );
+        assert_eq!(
+            combined_dng_exposure_ev(100.0, 0.0),
+            MAX_ABS_DNG_BASELINE_EXPOSURE_EV
+        );
+        assert_eq!(
+            combined_dng_exposure_ev(-100.0, 0.0),
             -MAX_ABS_DNG_BASELINE_EXPOSURE_EV
         );
     }
