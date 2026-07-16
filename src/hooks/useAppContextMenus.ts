@@ -75,7 +75,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
 
   const { handleAutoAdjustments, handleResetAdjustments, handleCopyAdjustments, handlePasteAdjustments } =
     useEditorActions();
-  const { handleRate, handleSetColorLabel, handleTagsChanged } = useLibraryActions();
+  const { handleRate, handleToggleRejected, handleSetColorLabel, handleTagsChanged } = useLibraryActions();
 
   const albumIcons = useMemo(
     () => [
@@ -254,6 +254,11 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           })),
         },
         {
+          label: t('contextMenus.editor.rejected'),
+          icon: X,
+          onClick: () => handleToggleRejected(),
+        },
+        {
           label: t('contextMenus.editor.colorLabel'),
           icon: Palette,
           submenu: [
@@ -312,6 +317,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       handlePasteAdjustments,
       handleAutoAdjustments,
       handleRate,
+      handleToggleRejected,
       handleSetColorLabel,
       handleTagsChanged,
       showContextMenu,
@@ -684,6 +690,11 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           })),
         },
         {
+          icon: X,
+          label: t('contextMenus.editor.rejected'),
+          onClick: () => handleToggleRejected(finalSelection),
+        },
+        {
           label: t('contextMenus.editor.colorLabel'),
           icon: Palette,
           submenu: [
@@ -768,6 +779,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       handleCopyAdjustments,
       handlePasteAdjustments,
       handleRate,
+      handleToggleRejected,
       handleSetColorLabel,
       handleTagsChanged,
       handleResetAdjustments,

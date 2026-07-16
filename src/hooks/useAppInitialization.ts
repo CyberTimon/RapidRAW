@@ -10,6 +10,7 @@ import { THEMES, DEFAULT_THEME_ID, ThemeProps } from '../utils/themes';
 import { COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
 import {
   FilterCriteria,
+  RejectedFilterStatus,
   Invokes,
   LibraryViewMode,
   RawStatus,
@@ -157,6 +158,7 @@ export const useAppInitialization = ({
           setFilterCriteria((prev: FilterCriteria) => ({
             ...prev,
             ...settings.filterCriteria,
+            rejectedStatus: settings.filterCriteria.rejectedStatus || RejectedFilterStatus.All,
             rawStatus: settings.filterCriteria.rawStatus || RawStatus.All,
             editedStatus: settings.filterCriteria.editedStatus || EditedStatus.All,
             colors: settings.filterCriteria.colors || [],

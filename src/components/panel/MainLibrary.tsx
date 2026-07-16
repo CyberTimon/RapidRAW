@@ -27,6 +27,7 @@ import {
   ThumbnailSize,
   ThumbnailAspectRatio,
   RawStatus,
+  RejectedFilterStatus,
   EditedStatus,
 } from '../ui/AppProperties';
 import { ImportState, Status } from '../ui/ExportImportProperties';
@@ -35,7 +36,7 @@ import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useLibraryStore } from '../../store/useLibraryStore';
 
 import LibraryGrid from './library/LibraryGrid';
-import { SearchInput, ViewOptionsDropdown } from './library/LibraryHeader';
+import { SearchInput, SelectByDropdown, ViewOptionsDropdown } from './library/LibraryHeader';
 
 interface MainLibraryProps {
   activePath: string | null;
@@ -126,6 +127,15 @@ export default function MainLibrary(props: MainLibraryProps) {
       { key: EditedStatus.All, label: t('library.filters.edited.all') },
       { key: EditedStatus.EditedOnly, label: t('library.filters.edited.editedOnly') },
       { key: EditedStatus.UneditedOnly, label: t('library.filters.edited.uneditedOnly') },
+    ],
+    [t],
+  );
+
+  const translatedRejectedStatusOptions = useMemo(
+    () => [
+      { key: RejectedFilterStatus.All, label: t('library.filters.rejected.all') },
+      { key: RejectedFilterStatus.UnrejectedOnly, label: t('library.filters.rejected.notRejectedOnly') },
+      { key: RejectedFilterStatus.RejectedOnly, label: t('library.filters.rejected.rejectedOnly') },
     ],
     [t],
   );
@@ -483,10 +493,12 @@ export default function MainLibrary(props: MainLibraryProps) {
             ratingFilterOptions={translatedRatingFilterOptions}
             rawStatusOptions={translatedRawStatusOptions}
             editedStatusOptions={translatedEditedStatusOptions}
+            rejectedStatusOptions={translatedRejectedStatusOptions}
             sortOptions={translatedSortOptions}
           />
           {!props.isAndroid && (
             <>
+              <SelectByDropdown imageList={props.imageList} imageRatings={props.imageRatings} />
               <Button
                 className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
                 onClick={props.onNavigateToCommunity}

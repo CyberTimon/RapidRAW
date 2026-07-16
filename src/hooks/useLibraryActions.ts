@@ -4,34 +4,102 @@ import { toast } from 'react-toastify';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
-import { Invokes, ImageFile, AlbumItem, Album, AlbumGroup } from '../components/ui/AppProperties';
+import {
+  Invokes,
+  ImageFile,
+  AlbumItem,
+  Album,
+  AlbumGroup,
+  RejectedRating,
+  SelectByCriteria,
+} from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { computeSortedLibrary } from './useSortedLibrary';
 
 export function useLibraryActions(handleImageSelect?: (path: string) => void) {
-  const handleRate = useCallback((newRating: number, paths?: string[]) => {
-    const { multiSelectedPaths, imageRatings, setLibrary } = useLibraryStore.getState();
-    const { selectedImage } = useEditorStore.getState();
+  const applyRatingToPaths = useCallback((paths: string[], rating: number) => {
+    if (paths.length === 0) return;
 
-    const pathsToRate =
-      paths || (multiSelectedPaths.length > 0 ? multiSelectedPaths : selectedImage ? [selectedImage.path] : []);
-    if (pathsToRate.length === 0) return;
-
-    const currentRating = imageRatings[pathsToRate[0]] || 0;
-    const finalRating = newRating === currentRating ? 0 : newRating;
-
+    const { setLibrary } = useLibraryStore.getState();
     setLibrary((state) => {
-      const newRatings = { ...state.imageRatings };
-      pathsToRate.forEach((p) => {
-        newRatings[p] = finalRating;
-      });
-      return { imageRatings: newRatings };
+      const imageRatings = { ...state.imageRatings };
+      for (const path of paths) imageRatings[path] = rating;
+      return { imageRatings };
     });
 
-    invoke(Invokes.SetRatingForPaths, { paths: pathsToRate, rating: finalRating }).catch((err) => {
+    invoke(Invokes.SetRatingForPaths, { paths, rating }).catch((err) => {
       console.error(err);
       toast.error(`Failed to apply rating: ${err}`);
+    });
+  }, []);
+
+  const handleRate = useCallback(
+    (newRating: number, paths?: string[]) => {
+      const { multiSelectedPaths, imageRatings } = useLibraryStore.getState();
+      const { selectedImage } = useEditorStore.getState();
+
+      const pathsToRate =
+        paths || (multiSelectedPaths.length > 0 ? multiSelectedPaths : selectedImage ? [selectedImage.path] : []);
+      if (pathsToRate.length === 0) return;
+
+      const currentRating = imageRatings[pathsToRate[0]] || 0;
+      const finalRating = newRating === currentRating ? 0 : newRating;
+
+      applyRatingToPaths(pathsToRate, finalRating);
+    },
+    [applyRatingToPaths],
+  );
+
+  const handleToggleRejected = useCallback(
+    (paths?: string[]) => {
+      const { multiSelectedPaths, imageRatings } = useLibraryStore.getState();
+      const { selectedImage } = useEditorStore.getState();
+      const pathsToRate =
+        paths || (multiSelectedPaths.length > 0 ? multiSelectedPaths : selectedImage ? [selectedImage.path] : []);
+      if (pathsToRate.length === 0) return;
+
+      const allRejected = pathsToRate.every((path) => (imageRatings[path] ?? 0) === RejectedRating);
+      applyRatingToPaths(pathsToRate, allRejected ? 0 : RejectedRating);
+    },
+    [applyRatingToPaths],
+  );
+
+  const handleSetRating = useCallback(
+    (rating: number, paths: string[]) => applyRatingToPaths(paths, rating),
+    [applyRatingToPaths],
+  );
+
+  const handleSelectBy = useCallback((criteria: SelectByCriteria) => {
+    const library = useLibraryStore.getState();
+    const settings = useSettingsStore.getState();
+    const currentList = computeSortedLibrary(library, settings);
+    const matchingPaths: string[] = [];
+
+    for (const image of currentList) {
+      if (criteria.type === 'color') {
+        const color = image.tags?.find((tag) => tag.startsWith('color:'))?.substring(6);
+        if (color === criteria.color) matchingPaths.push(image.path);
+        continue;
+      }
+
+      const rating = library.imageRatings[image.path] ?? 0;
+      const matches =
+        criteria.mode === 'rejected'
+          ? rating === RejectedRating
+          : criteria.mode === 'notRejected'
+            ? rating !== RejectedRating
+            : criteria.mode === 'unrated'
+              ? rating === 0
+              : rating !== RejectedRating && (criteria.value === 5 ? rating === 5 : rating >= (criteria.value ?? 0));
+      if (matches) matchingPaths.push(image.path);
+    }
+
+    const firstPath = matchingPaths[0] ?? null;
+    library.setLibrary({
+      multiSelectedPaths: matchingPaths,
+      libraryActivePath: firstPath,
+      selectionAnchorPath: firstPath,
     });
   }, []);
 
@@ -385,7 +453,10 @@ export function useLibraryActions(handleImageSelect?: (path: string) => void) {
   }, []);
 
   return {
+    handleSetRating,
     handleRate,
+    handleToggleRejected,
+    handleSelectBy,
     handleSetColorLabel,
     handleTagsChanged,
     handleUpdateExif,

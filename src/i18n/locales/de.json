@@ -193,7 +193,8 @@
       "resetAdjustments": "Einstellungen zurücksetzen",
       "stitchPanorama": "Panorama zusammenfügen",
       "tagging": "Tagging",
-      "undo": "Rückgängig"
+      "undo": "Rückgängig",
+      "rejected": "Abgelehnt"
     },
     "folders": {
       "changeIcon": "Symbol ändern",
@@ -641,7 +642,8 @@
         "rating": "Bewertung",
         "ratingLabels": "Bewertung & Markierungen",
         "tags": "Tags",
-        "title": "Organisation"
+        "title": "Organisation",
+        "rejected": "Abgelehnt"
       },
       "title": "Metadaten"
     },
@@ -853,6 +855,11 @@
         "nonRawOnly": "Nur Nicht-RAW",
         "preferRaw": "RAW bevorzugen",
         "rawOnly": "Nur RAW"
+      },
+      "rejected": {
+        "all": "Alle Bilder",
+        "notRejectedOnly": "Nur nicht abgelehnte",
+        "rejectedOnly": "Nur abgelehnte"
       }
     },
     "folders": {
@@ -926,7 +933,8 @@
         "sortDescending": "Absteigend sortieren",
         "thumbnailFit": "Miniaturansicht Einpassen",
         "thumbnailSize": "Miniaturbildgröße",
-        "title": "Ansichtsoptionen"
+        "title": "Ansichtsoptionen",
+        "filterByStatus": "Nach Status filtern"
       }
     },
     "import": {
@@ -1004,6 +1012,17 @@
       "communityPresets": "Community-Vorgaben",
       "goHome": "Zur Startseite",
       "importImages": "Bilder importieren"
+    },
+    "selectBy": {
+      "color": "Farbmarkierung",
+      "fiveOnly": "Nur 5",
+      "notRejected": "Nicht abgelehnt",
+      "rating": "Bewertung",
+      "rejected": "Abgelehnt",
+      "title": "Auswählen nach",
+      "unrated": "Nicht bewertet",
+      "ratingAndUp": "{{value}} & höher",
+      "flags": "Markierungen"
     }
   },
   "masks": {
@@ -1122,7 +1141,7 @@
     "culling": {
       "actionDelete": "In den Papierkorb verschieben",
       "actionRateZero": "Bewertung auf 1 Stern setzen",
-      "actionReject": "Als abgelehnt markieren (Rote Markierung)",
+      "actionReject": "Als abgelehnt markieren",
       "applyButton_one": "Auf 1 Bild anwenden",
       "applyButton_other": "Auf {{count}} Bilder anwenden",
       "bestImage": "Bestes Bild",
@@ -1484,7 +1503,8 @@
         "zoom_in": "Vergrößern",
         "zoom_in_step": "Vergrößern (schrittweise)",
         "zoom_out": "Verkleinern",
-        "zoom_out_step": "Verkleinern (schrittweise)"
+        "zoom_out_step": "Verkleinern (schrittweise)",
+        "toggle_rejected": "Abgelehnten Status umschalten"
       },
       "sections": {
         "editing": "Bearbeitung",

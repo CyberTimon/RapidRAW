@@ -193,7 +193,8 @@
       "resetAdjustments": "Сбросить настройки",
       "stitchPanorama": "Сшить панораму",
       "tagging": "Теги",
-      "undo": "Отменить"
+      "undo": "Отменить",
+      "rejected": "Отклонённые"
     },
     "folders": {
       "changeIcon": "Изменить значок",
@@ -641,7 +642,8 @@
         "rating": "Рейтинг",
         "ratingLabels": "Рейтинг и метки",
         "tags": "Теги",
-        "title": "Организация"
+        "title": "Организация",
+        "rejected": "Отклонённые"
       },
       "title": "Метаданные"
     },
@@ -852,6 +854,11 @@
         "nonRawOnly": "Только не-RAW",
         "preferRaw": "Приоритет RAW",
         "rawOnly": "Только RAW"
+      },
+      "rejected": {
+        "all": "Все изображения",
+        "notRejectedOnly": "Только не отклонённые",
+        "rejectedOnly": "Только отклонённые"
       }
     },
     "folders": {
@@ -925,7 +932,8 @@
         "sortDescending": "По убыванию",
         "thumbnailFit": "Масштаб превью",
         "thumbnailSize": "Размер превью",
-        "title": "Вид"
+        "title": "Вид",
+        "filterByStatus": "Фильтровать по статусу"
       }
     },
     "import": {
@@ -1003,6 +1011,17 @@
       "communityPresets": "Пресеты сообщества",
       "goHome": "На главную",
       "importImages": "Импортировать изображения"
+    },
+    "selectBy": {
+      "color": "Цветовая метка",
+      "fiveOnly": "Только 5",
+      "notRejected": "Не отклонённые",
+      "rating": "Оценка",
+      "rejected": "Отклонённые",
+      "title": "Выбрать по",
+      "unrated": "Без оценки",
+      "ratingAndUp": "{{value}} и выше",
+      "flags": "Флаги"
     }
   },
   "masks": {
@@ -1121,7 +1140,7 @@
     "culling": {
       "actionDelete": "Переместить в корзину",
       "actionRateZero": "Установить оценку 1 звезда",
-      "actionReject": "Пометить как отклоненное (красная метка)",
+      "actionReject": "Отметить как отклонённое",
       "applyButton_one": "Применить к 1 изображению",
       "applyButton_other": "Применить к {{count}} изображениям",
       "bestImage": "Лучший кадр",
@@ -1483,7 +1502,8 @@
         "zoom_in": "Приблизить",
         "zoom_in_step": "Приблизить по шагам",
         "zoom_out": "Отдалить",
-        "zoom_out_step": "Отдалить по шагам"
+        "zoom_out_step": "Отдалить по шагам",
+        "toggle_rejected": "Переключить статус отклонения"
       },
       "sections": {
         "editing": "Редактирование",

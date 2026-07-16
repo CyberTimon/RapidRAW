@@ -193,7 +193,8 @@
       "resetAdjustments": "Restablecer ajustes",
       "stitchPanorama": "Unir panorama",
       "tagging": "Etiquetado",
-      "undo": "Deshacer"
+      "undo": "Deshacer",
+      "rejected": "Rechazadas"
     },
     "folders": {
       "changeIcon": "Cambiar icono",
@@ -641,7 +642,8 @@
         "rating": "Puntuación",
         "ratingLabels": "Puntuación y etiquetas",
         "tags": "Etiquetas",
-        "title": "Organización"
+        "title": "Organización",
+        "rejected": "Rechazadas"
       },
       "title": "Metadatos"
     },
@@ -853,6 +855,11 @@
         "nonRawOnly": "Solo no RAW",
         "preferRaw": "Preferir RAW",
         "rawOnly": "Solo RAW"
+      },
+      "rejected": {
+        "all": "Todas las imágenes",
+        "notRejectedOnly": "Solo no rechazadas",
+        "rejectedOnly": "Solo rechazadas"
       }
     },
     "folders": {
@@ -926,7 +933,8 @@
         "sortDescending": "Ordenar descendente",
         "thumbnailFit": "Ajuste de miniatura",
         "thumbnailSize": "Tamaño de miniatura",
-        "title": "Opciones de vista"
+        "title": "Opciones de vista",
+        "filterByStatus": "Filtrar por estado"
       }
     },
     "import": {
@@ -1004,6 +1012,17 @@
       "communityPresets": "Ajustes de la comunidad",
       "goHome": "Ir al Inicio",
       "importImages": "Importar imágenes"
+    },
+    "selectBy": {
+      "color": "Etiqueta de color",
+      "fiveOnly": "Solo 5",
+      "notRejected": "No rechazadas",
+      "rating": "Clasificación",
+      "rejected": "Rechazadas",
+      "title": "Seleccionar por",
+      "unrated": "Sin clasificar",
+      "ratingAndUp": "{{value}} o más",
+      "flags": "Indicadores"
     }
   },
   "masks": {
@@ -1122,7 +1141,7 @@
     "culling": {
       "actionDelete": "Mover a la papelera",
       "actionRateZero": "Establecer puntuación a 1 estrella",
-      "actionReject": "Marcar como rechazada (Etiqueta roja)",
+      "actionReject": "Marcar como rechazada",
       "applyButton_one": "Aplicar a 1 imagen",
       "applyButton_other": "Aplicar a {{count}} imágenes",
       "bestImage": "Mejor imagen",
@@ -1484,7 +1503,8 @@
         "zoom_in": "Acercar",
         "zoom_in_step": "Acercar (por pasos)",
         "zoom_out": "Alejar",
-        "zoom_out_step": "Alejar (por pasos)"
+        "zoom_out_step": "Alejar (por pasos)",
+        "toggle_rejected": "Alternar estado de rechazada"
       },
       "sections": {
         "editing": "Edición",

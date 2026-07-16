@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
-import { Image as ImageIcon, Star, SlidersHorizontal } from 'lucide-react';
+import { Image as ImageIcon, Star, SlidersHorizontal, X } from 'lucide-react';
 import clsx from 'clsx';
 import { Grid, useGridCallbackRef } from 'react-window';
 import { useTranslation } from 'react-i18next';
-import { ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
+import { ImageFile, SelectedImage, ThumbnailAspectRatio, RejectedRating } from '../ui/AppProperties';
 import { Color, COLOR_LABELS } from '../../utils/adjustments';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
@@ -87,8 +87,9 @@ const FilmstripThumbnail = memo(
 
     const hasEditIcon = !!showEditIcon;
     const hasColorLabel = !!colorLabel;
+    const isRejected = rating === RejectedRating;
     const hasRating = rating > 0;
-    const hasAnyOverlay = hasEditIcon || hasColorLabel || hasRating;
+    const hasAnyOverlay = hasEditIcon || hasColorLabel || hasRating || isRejected;
 
     const cleanPath = path.split('?')[0];
     const filename = cleanPath.split(/[\\/]/).pop() || '';
@@ -177,7 +178,7 @@ const FilmstripThumbnail = memo(
         data-tooltip={truncatedTitle}
       >
         {layers.length > 0 ? (
-          <div className="absolute inset-0 w-full h-full">
+          <div className={clsx('absolute inset-0 w-full h-full', isRejected && 'opacity-35')}>
             {layers.map((layer) => (
               <div
                 key={layer.id}
@@ -253,14 +254,22 @@ const FilmstripThumbnail = memo(
             <div
               className={clsx(
                 'flex items-center gap-0.5 shrink-0 transition-all duration-200 ease-out overflow-hidden',
-                hasRating ? 'max-w-7 opacity-100 scale-100' : 'max-w-0 opacity-0 scale-75 pointer-events-none',
-                hasRating && (hasEditIcon || hasColorLabel) ? 'ml-1.5' : 'ml-0',
+                hasRating || isRejected
+                  ? 'max-w-7 opacity-100 scale-100'
+                  : 'max-w-0 opacity-0 scale-75 pointer-events-none',
+                (hasRating || isRejected) && (hasEditIcon || hasColorLabel) ? 'ml-1.5' : 'ml-0',
               )}
             >
-              <Text variant={TextVariants.small} color={TextColors.white}>
-                {rating}
-              </Text>
-              <Star size={12} className="text-white fill-white" />
+              {isRejected ? (
+                <X size={12} className="text-white" />
+              ) : (
+                <>
+                  <Text variant={TextVariants.small} color={TextColors.white}>
+                    {rating}
+                  </Text>
+                  <Star size={12} className="text-white fill-white" />
+                </>
+              )}
             </div>
           </div>
         </div>

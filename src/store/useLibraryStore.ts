@@ -3,6 +3,7 @@ import {
   FilterCriteria,
   ImageFile,
   RawStatus,
+  RejectedFilterStatus,
   SortCriteria,
   SortDirection,
   AlbumItem,
@@ -75,7 +76,12 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   libraryActiveAdjustments: INITIAL_ADJUSTMENTS,
 
   sortCriteria: { key: 'name', order: SortDirection.Ascending },
-  filterCriteria: { colors: [], rating: 0, rawStatus: RawStatus.All },
+  filterCriteria: {
+    colors: [],
+    rating: 0,
+    rejectedStatus: RejectedFilterStatus.All,
+    rawStatus: RawStatus.All,
+  },
   searchCriteria: { tags: [], text: '', mode: 'OR' },
 
   isTreeLoading: false,

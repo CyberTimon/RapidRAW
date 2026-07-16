@@ -193,7 +193,8 @@
       "resetAdjustments": "조정값 초기화",
       "stitchPanorama": "파노라마 스티칭",
       "tagging": "태그 지정",
-      "undo": "실행 취소"
+      "undo": "실행 취소",
+      "rejected": "거부됨"
     },
     "folders": {
       "changeIcon": "아이콘 변경",
@@ -641,7 +642,8 @@
         "rating": "평점",
         "ratingLabels": "평점 및 레이블",
         "tags": "태그",
-        "title": "정리"
+        "title": "정리",
+        "rejected": "거부됨"
       },
       "title": "메타데이터"
     },
@@ -853,6 +855,11 @@
         "nonRawOnly": "RAW가 아닌 항목만",
         "preferRaw": "RAW 우선",
         "rawOnly": "RAW만"
+      },
+      "rejected": {
+        "all": "모든 이미지",
+        "notRejectedOnly": "거부되지 않은 항목만",
+        "rejectedOnly": "거부된 항목만"
       }
     },
     "folders": {
@@ -926,7 +933,8 @@
         "sortDescending": "내림차순 정렬",
         "thumbnailFit": "썸네일 맞춤",
         "thumbnailSize": "썸네일 크기",
-        "title": "보기 옵션"
+        "title": "보기 옵션",
+        "filterByStatus": "상태별 필터"
       }
     },
     "import": {
@@ -1004,6 +1012,17 @@
       "communityPresets": "커뮤니티 프리셋",
       "goHome": "홈으로 이동",
       "importImages": "이미지 가져오기"
+    },
+    "selectBy": {
+      "color": "색상 레이블",
+      "fiveOnly": "5점만",
+      "notRejected": "거부되지 않음",
+      "rating": "평점",
+      "rejected": "거부됨",
+      "title": "기준으로 선택",
+      "unrated": "평점 없음",
+      "ratingAndUp": "{{value}}점 이상",
+      "flags": "플래그"
     }
   },
   "masks": {
@@ -1122,7 +1141,7 @@
     "culling": {
       "actionDelete": "휴지통으로 이동",
       "actionRateZero": "평점을 1점으로 설정",
-      "actionReject": "거부됨으로 표시 (빨간 레이블)",
+      "actionReject": "거부로 표시",
       "applyButton_one": "이미지 1개에 적용",
       "applyButton_other": "이미지 {{count}}개에 적용",
       "bestImage": "최고의 이미지",
@@ -1484,7 +1503,8 @@
         "zoom_in": "확대",
         "zoom_in_step": "확대 (단계별)",
         "zoom_out": "축소",
-        "zoom_out_step": "축소 (단계별)"
+        "zoom_out_step": "축소 (단계별)",
+        "toggle_rejected": "거부 상태 전환"
       },
       "sections": {
         "editing": "편집",

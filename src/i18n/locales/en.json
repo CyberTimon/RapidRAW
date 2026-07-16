@@ -193,7 +193,8 @@
       "resetAdjustments": "Reset Adjustments",
       "stitchPanorama": "Stitch Panorama",
       "tagging": "Tagging",
-      "undo": "Undo"
+      "undo": "Undo",
+      "rejected": "Rejected"
     },
     "folders": {
       "changeIcon": "Change Icon",
@@ -641,7 +642,8 @@
         "rating": "Rating",
         "ratingLabels": "Rating & Labels",
         "tags": "Tags",
-        "title": "Organization"
+        "title": "Organization",
+        "rejected": "Rejected"
       },
       "title": "Metadata"
     },
@@ -853,6 +855,11 @@
         "nonRawOnly": "Non-RAW Only",
         "preferRaw": "Prefer RAW",
         "rawOnly": "RAW Only"
+      },
+      "rejected": {
+        "all": "All Images",
+        "notRejectedOnly": "Not Rejected Only",
+        "rejectedOnly": "Rejected Only"
       }
     },
     "folders": {
@@ -926,7 +933,8 @@
         "sortDescending": "Sort Descending",
         "thumbnailFit": "Thumbnail Fit",
         "thumbnailSize": "Thumbnail Size",
-        "title": "View Options"
+        "title": "View Options",
+        "filterByStatus": "Filter by Status"
       }
     },
     "import": {
@@ -1004,6 +1012,17 @@
       "communityPresets": "Community Presets",
       "goHome": "Go to Home",
       "importImages": "Import Images"
+    },
+    "selectBy": {
+      "color": "Color Label",
+      "fiveOnly": "5 only",
+      "notRejected": "Not Rejected",
+      "rating": "Rating",
+      "rejected": "Rejected",
+      "title": "Select By",
+      "unrated": "Unrated",
+      "ratingAndUp": "{{value}} & up",
+      "flags": "Flags"
     }
   },
   "masks": {
@@ -1122,7 +1141,7 @@
     "culling": {
       "actionDelete": "Move to Trash",
       "actionRateZero": "Set Rating to 1 Stars",
-      "actionReject": "Mark as Rejected (Red Label)",
+      "actionReject": "Mark as Rejected",
       "applyButton_one": "Apply to 1 image",
       "applyButton_other": "Apply to {{count}} images",
       "bestImage": "Best Image",
@@ -1484,7 +1503,8 @@
         "zoom_in": "Zoom in",
         "zoom_in_step": "Zoom in (by step)",
         "zoom_out": "Zoom out",
-        "zoom_out_step": "Zoom out (by step)"
+        "zoom_out_step": "Zoom out (by step)",
+        "toggle_rejected": "Toggle rejected status"
       },
       "sections": {
         "editing": "Editing",

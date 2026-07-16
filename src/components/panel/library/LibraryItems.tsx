@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Image as ImageIcon, Folder, FolderOpen, Star as StarIcon, SlidersHorizontal, CloudOff } from 'lucide-react';
+import { Image as ImageIcon, Folder, FolderOpen, Star as StarIcon, SlidersHorizontal, CloudOff, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
-import { ThumbnailAspectRatio, ImageFile, ExifOverlay } from '../../ui/AppProperties';
+import { ThumbnailAspectRatio, ImageFile, ExifOverlay, RejectedRating } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
 import { ColumnWidths } from '../MainLibrary';
@@ -140,8 +140,9 @@ const ThumbnailComponent = ({
 
   const hasEditIcon = !!showEditIcon;
   const hasColorLabel = !!colorLabel;
+  const isRejected = rating === RejectedRating;
   const hasRating = rating > 0;
-  const hasAnyOverlay = hasEditIcon || hasColorLabel || hasRating;
+  const hasAnyOverlay = hasEditIcon || hasColorLabel || hasRating || isRejected;
 
   return (
     <div
@@ -154,7 +155,7 @@ const ThumbnailComponent = ({
       onContextMenu={(e: any) => onContextMenu(e, path)}
       onDoubleClick={() => onImageDoubleClick(path)}
     >
-      <div className="relative w-full flex-1 min-h-0 z-0 bg-surface">
+      <div className={clsx('relative w-full flex-1 min-h-0 z-0 bg-surface', isRejected && 'opacity-35')}>
         {layers.length > 0 && (
           <div className="absolute inset-0 w-full h-full">
             {layers.map((layer) => (
@@ -246,14 +247,22 @@ const ThumbnailComponent = ({
           <div
             className={clsx(
               'flex items-center gap-0.5 shrink-0 transition-all duration-200 ease-out overflow-hidden',
-              hasRating ? 'max-w-7 opacity-100 scale-100' : 'max-w-0 opacity-0 scale-75 pointer-events-none',
-              hasRating && (hasEditIcon || hasColorLabel) ? 'ml-1.5' : 'ml-0',
+              hasRating || isRejected
+                ? 'max-w-7 opacity-100 scale-100'
+                : 'max-w-0 opacity-0 scale-75 pointer-events-none',
+              (hasRating || isRejected) && (hasEditIcon || hasColorLabel) ? 'ml-1.5' : 'ml-0',
             )}
           >
-            <Text variant={TextVariants.small} color={TextColors.white}>
-              {rating}
-            </Text>
-            <StarIcon size={12} className="text-white fill-white" />
+            {isRejected ? (
+              <X size={12} className="text-white" />
+            ) : (
+              <>
+                <Text variant={TextVariants.small} color={TextColors.white}>
+                  {rating}
+                </Text>
+                <StarIcon size={12} className="text-white fill-white" />
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -537,6 +546,7 @@ const ListItemComponent = ({
 
   const colorTag = tags?.find((t: string) => t.startsWith('color:'))?.substring(6);
   const colorLabel = COLOR_LABELS.find((c: Color) => c.name === colorTag);
+  const isRejected = rating === RejectedRating;
 
   const dateObj = new Date(modified > 1e11 ? modified : modified * 1000);
   const dateStr =
@@ -562,7 +572,7 @@ const ListItemComponent = ({
     >
       <div
         style={{ width: getW('thumbnail') }}
-        className="flex items-center justify-center p-1.5 h-full overflow-hidden"
+        className={clsx('flex items-center justify-center p-1.5 h-full overflow-hidden', isRejected && 'opacity-35')}
       >
         <div className="w-full h-full relative overflow-hidden rounded-sm bg-surface flex items-center justify-center">
           {layers.length > 0 && (
@@ -640,14 +650,16 @@ const ListItemComponent = ({
       </div>
 
       <div style={{ width: getW('rating') }} className="flex items-center px-3 h-full overflow-hidden">
-        {rating > 0 && (
+        {isRejected ? (
+          <X size={12} className="text-text-secondary" />
+        ) : rating > 0 ? (
           <div className="flex items-center gap-1">
             <StarIcon size={12} className="text-accent fill-accent" />
             <Text variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
               {rating}
             </Text>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div style={{ width: getW('color') }} className="flex items-center px-3 h-full overflow-hidden">
@@ -729,7 +741,9 @@ const RowComponent = ({
       queueThumbnailRequest(img.path);
     });
 
-    const cloudPaths = row.images.filter((img: ImageFile) => img.is_cloud_placeholder).map((img: ImageFile) => img.path);
+    const cloudPaths = row.images
+      .filter((img: ImageFile) => img.is_cloud_placeholder)
+      .map((img: ImageFile) => img.path);
     if (cloudPaths.length === 0) return;
 
     const interval = setInterval(() => {

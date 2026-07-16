@@ -29,7 +29,7 @@ export const useKeyboardShortcuts = ({
   handleZoomChange,
 }: KeyboardShortcutsProps) => {
   const { handleRotate, handleCopyAdjustments, handlePasteAdjustments } = useEditorActions();
-  const { handleRate, handleSetColorLabel } = useLibraryActions();
+  const { handleRate, handleSetColorLabel, handleToggleRejected } = useLibraryActions();
 
   const sortedListRef = useRef(sortedImageList);
   useEffect(() => {
@@ -352,6 +352,13 @@ export const useKeyboardShortcuts = ({
           handleRate(0);
         },
       },
+      toggle_rejected: {
+        shouldFire: (s: any) => s.library.multiSelectedPaths.length > 0 || !!s.editor.selectedImage,
+        execute: (e: any) => {
+          e.preventDefault();
+          handleToggleRejected();
+        },
+      },
       rate_1: {
         shouldFire: () => true,
         execute: (e: any) => {
@@ -570,6 +577,7 @@ export const useKeyboardShortcuts = ({
     handleCopyAdjustments,
     handlePasteAdjustments,
     handleRate,
+    handleToggleRejected,
     handleSetColorLabel,
   ]);
 };

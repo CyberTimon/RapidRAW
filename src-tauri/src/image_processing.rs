@@ -51,7 +51,7 @@ impl<'a> IntoCowImage<'a> for &'a std::sync::Arc<DynamicImage> {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageMetadata {
     pub version: u32,
-    pub rating: u8,
+    pub rating: i8,
     pub adjustments: Value,
     #[serde(default)]
     pub tags: Option<Vec<String>>,

@@ -10,6 +10,7 @@ import {
   ChevronUp,
   ChevronDown,
   HelpCircle,
+  SquareDashedMousePointer,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -22,6 +23,10 @@ import {
   SortCriteria,
   SortDirection,
   ExifOverlay,
+  ImageFile,
+  RejectedFilterStatus,
+  RejectedRating,
+  SelectByCriteria,
 } from '../../ui/AppProperties';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import Text from '../../ui/Text';
@@ -29,6 +34,7 @@ import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../..
 import Button from '../../ui/Button';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { ADVANCED_QUERY_REGEX } from '../../../hooks/useSortedLibrary';
+import { useLibraryActions } from '../../../hooks/useLibraryActions';
 
 function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName = 'w-56' }: any) {
   const [isOpen, setIsOpen] = useState(false);
@@ -75,6 +81,146 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export function SelectByDropdown({
+  imageList,
+  imageRatings,
+}: {
+  imageList: ImageFile[];
+  imageRatings: Record<string, number>;
+}) {
+  const { t } = useTranslation();
+  const { handleSelectBy } = useLibraryActions();
+  const flagOptions = useMemo<
+    Array<{
+      label: string;
+      criteria: SelectByCriteria;
+      icon?: 'check' | 'rejected';
+    }>
+  >(
+    () => [
+      { label: t('library.selectBy.notRejected'), criteria: { type: 'rating', mode: 'notRejected' }, icon: 'check' },
+      { label: t('library.selectBy.rejected'), criteria: { type: 'rating', mode: 'rejected' }, icon: 'rejected' },
+    ],
+    [t],
+  );
+
+  const ratingOptions = useMemo<
+    Array<{
+      label: string;
+      criteria: SelectByCriteria;
+      starValue?: number;
+    }>
+  >(
+    () => [
+      { label: t('library.selectBy.unrated'), criteria: { type: 'rating', mode: 'unrated' } },
+      ...[1, 2, 3, 4, 5].map((value) => ({
+        label: value === 5 ? t('library.selectBy.fiveOnly') : t('library.selectBy.ratingAndUp', { value }),
+        criteria: { type: 'rating' as const, mode: 'atLeast' as const, value },
+        starValue: value,
+      })),
+    ],
+    [t],
+  );
+
+  const allRatingOptions = useMemo(() => [...flagOptions, ...ratingOptions], [flagOptions, ratingOptions]);
+
+  const counts = useMemo(() => {
+    const result = new Map<string, number>();
+    for (const option of allRatingOptions) result.set(option.label, 0);
+    for (const color of COLOR_LABELS) result.set(color.name, 0);
+
+    for (const image of imageList) {
+      const rating = imageRatings[image.path] ?? 0;
+      for (const option of allRatingOptions) {
+        const { mode, value } = option.criteria as Extract<SelectByCriteria, { type: 'rating' }>;
+        const matches =
+          mode === 'rejected'
+            ? rating === RejectedRating
+            : mode === 'notRejected'
+              ? rating !== RejectedRating
+              : mode === 'unrated'
+                ? rating === 0
+                : rating !== RejectedRating && (value === 5 ? rating === 5 : rating >= (value ?? 0));
+        if (matches) result.set(option.label, (result.get(option.label) ?? 0) + 1);
+      }
+      const color = image.tags?.find((tag) => tag.startsWith('color:'))?.substring(6);
+      if (color && result.has(color)) result.set(color, (result.get(color) ?? 0) + 1);
+    }
+    return result;
+  }, [imageList, imageRatings, allRatingOptions]);
+
+  return (
+    <DropdownMenu
+      buttonContent={<SquareDashedMousePointer className="w-8 h-8" />}
+      buttonTitle={t('library.selectBy.title')}
+      contentClassName="w-64"
+    >
+      <div className="p-2">
+        <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
+          {t('library.selectBy.flags')}
+        </Text>
+        {flagOptions.map((option) => {
+          const count = counts.get(option.label) ?? 0;
+          return (
+            <button
+              key={option.label}
+              type="button"
+              className="w-full px-3 py-2 rounded-md flex items-center gap-2 text-left hover:bg-bg-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={count === 0}
+              onClick={() => handleSelectBy(option.criteria)}
+            >
+              {option.icon === 'check' && <Check size={16} className="text-accent" />}
+              {option.icon === 'rejected' && <X size={16} />}
+              <Text className="grow">{option.label}</Text>
+              <Text color={TextColors.secondary}>{count}</Text>
+            </button>
+          );
+        })}
+        <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 mt-2 uppercase">
+          {t('library.selectBy.rating')}
+        </Text>
+        {ratingOptions.map((option) => {
+          const count = counts.get(option.label) ?? 0;
+          return (
+            <button
+              key={option.label}
+              type="button"
+              className="w-full px-3 py-2 rounded-md flex items-center gap-2 text-left hover:bg-bg-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={count === 0}
+              onClick={() => handleSelectBy(option.criteria)}
+            >
+              {option.starValue && <StarIcon size={16} className="text-accent fill-accent" />}
+              <Text className="grow">{option.label}</Text>
+              <Text color={TextColors.secondary}>{count}</Text>
+            </button>
+          );
+        })}
+        <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 mt-2 uppercase">
+          {t('library.selectBy.color')}
+        </Text>
+        <div className="flex gap-3 px-3 py-2">
+          {COLOR_LABELS.map((color) => {
+            const count = counts.get(color.name) ?? 0;
+            return (
+              <button
+                key={color.name}
+                type="button"
+                aria-label={t(`contextMenus.colors.${color.name}` as any)}
+                className="w-6 h-6 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={count === 0}
+                onClick={() => handleSelectBy({ type: 'color', color: color.name })}
+                data-tooltip={t(`contextMenus.colors.${color.name}` as any)}
+              >
+                <span className="block w-full h-full rounded-full" style={{ backgroundColor: color.color }} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </DropdownMenu>
   );
 }
 
@@ -310,6 +456,7 @@ export function ViewOptionsDropdown({
   ratingFilterOptions,
   rawStatusOptions,
   editedStatusOptions,
+  rejectedStatusOptions,
   sortOptions,
 }: any) {
   const { t } = useTranslation();
@@ -331,6 +478,7 @@ export function ViewOptionsDropdown({
 
   const isFilterActive =
     filterCriteria.rating !== 0 ||
+    filterCriteria.rejectedStatus !== RejectedFilterStatus.All ||
     (filterCriteria.rawStatus && filterCriteria.rawStatus !== RawStatus.All) ||
     (filterCriteria.colors && filterCriteria.colors.length > 0);
 
@@ -534,9 +682,7 @@ export function ViewOptionsDropdown({
                         isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
                       }`}
                       key={option.value}
-                      onClick={() =>
-                        setFilterCriteria((prev: Partial<FilterCriteria>) => ({ ...prev, rating: option.value }))
-                      }
+                      onClick={() => setFilterCriteria((prev: FilterCriteria) => ({ ...prev, rating: option.value }))}
                       role="menuitem"
                     >
                       <Text
@@ -568,7 +714,7 @@ export function ViewOptionsDropdown({
                           key={starValue}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setFilterCriteria((prev: Partial<FilterCriteria>) => ({
+                            setFilterCriteria((prev: FilterCriteria) => ({
                               ...prev,
                               rating: prev.rating === starValue ? 0 : starValue,
                             }));
@@ -598,6 +744,28 @@ export function ViewOptionsDropdown({
 
             <div>
               <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
+                {t('library.header.viewOptions.filterByStatus')}
+              </Text>
+              {rejectedStatusOptions.map((option: any) => {
+                const isSelected = (filterCriteria.rejectedStatus || RejectedFilterStatus.All) === option.key;
+                return (
+                  <button
+                    className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'}`}
+                    key={option.key}
+                    type="button"
+                    onClick={() =>
+                      setFilterCriteria((prev: FilterCriteria) => ({ ...prev, rejectedStatus: option.key }))
+                    }
+                  >
+                    <Text weight={isSelected ? TextWeights.semibold : TextWeights.normal}>{option.label}</Text>
+                    {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div>
+              <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
                 {t('library.header.viewOptions.filterByFileType')}
               </Text>
               {rawStatusOptions.map((option: any) => {
@@ -608,9 +776,7 @@ export function ViewOptionsDropdown({
                       isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
                     }`}
                     key={option.key}
-                    onClick={() =>
-                      setFilterCriteria((prev: Partial<FilterCriteria>) => ({ ...prev, rawStatus: option.key }))
-                    }
+                    onClick={() => setFilterCriteria((prev: FilterCriteria) => ({ ...prev, rawStatus: option.key }))}
                     role="menuitem"
                   >
                     <Text
@@ -638,9 +804,7 @@ export function ViewOptionsDropdown({
                       isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
                     }`}
                     key={option.key}
-                    onClick={() =>
-                      setFilterCriteria((prev: Partial<FilterCriteria>) => ({ ...prev, editedStatus: option.key }))
-                    }
+                    onClick={() => setFilterCriteria((prev: FilterCriteria) => ({ ...prev, editedStatus: option.key }))}
                     role="menuitem"
                   >
                     <Text

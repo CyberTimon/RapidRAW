@@ -195,7 +195,8 @@
       "resetAdjustments": "Resetuj ustawienia",
       "stitchPanorama": "Złóż panoramę",
       "tagging": "Tagowanie",
-      "undo": "Cofnij"
+      "undo": "Cofnij",
+      "rejected": "Odrzucone"
     },
     "folders": {
       "changeIcon": "Zmień ikonę",
@@ -679,7 +680,8 @@
         "rating": "Ocena",
         "ratingLabels": "Oceny i Etykiety",
         "tags": "Tagi",
-        "title": "Organizacja"
+        "title": "Organizacja",
+        "rejected": "Odrzucone"
       },
       "title": "Metadane"
     },
@@ -895,6 +897,11 @@
         "nonRawOnly": "Tylko nie-RAW",
         "preferRaw": "Preferuj RAW",
         "rawOnly": "Tylko RAW"
+      },
+      "rejected": {
+        "all": "Wszystkie obrazy",
+        "notRejectedOnly": "Tylko nieodrzucone",
+        "rejectedOnly": "Tylko odrzucone"
       }
     },
     "folders": {
@@ -968,7 +975,8 @@
         "sortDescending": "Sortuj malejąco",
         "thumbnailFit": "Dopasowanie miniatury",
         "thumbnailSize": "Rozmiar miniatury",
-        "title": "Opcje widoku"
+        "title": "Opcje widoku",
+        "filterByStatus": "Filtruj według stanu"
       }
     },
     "import": {
@@ -1048,6 +1056,17 @@
       "communityPresets": "Presety społeczności",
       "goHome": "Przejdź do strony głównej",
       "importImages": "Importuj obrazy"
+    },
+    "selectBy": {
+      "color": "Etykieta koloru",
+      "fiveOnly": "Tylko 5",
+      "notRejected": "Nieodrzucone",
+      "rating": "Ocena",
+      "rejected": "Odrzucone",
+      "title": "Wybierz według",
+      "unrated": "Bez oceny",
+      "ratingAndUp": "{{value}} i więcej",
+      "flags": "Flagi"
     }
   },
   "masks": {
@@ -1166,7 +1185,7 @@
     "culling": {
       "actionDelete": "Przenieś do kosza",
       "actionRateZero": "Ustaw ocenę na 1 Gwiazdkę",
-      "actionReject": "Oznacz jako odrzucone (Czerwona etykieta)",
+      "actionReject": "Oznacz jako odrzucone",
       "applyButton_few": "Zastosuj dla {{count}} obrazów",
       "applyButton_many": "Zastosuj dla {{count}} obrazów",
       "applyButton_one": "Zastosuj dla 1 obrazu",
@@ -1546,7 +1565,8 @@
         "zoom_in": "Przybliż",
         "zoom_in_step": "Przybliż (krokowo)",
         "zoom_out": "Oddal",
-        "zoom_out_step": "Oddal (krokowo)"
+        "zoom_out_step": "Oddal (krokowo)",
+        "toggle_rejected": "Przełącz stan odrzucenia"
       },
       "sections": {
         "editing": "Edycja",

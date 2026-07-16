@@ -50,6 +50,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'library',
   },
   {
+    action: 'toggle_rejected',
+    description: 'settings.keybinds.actions.toggle_rejected',
+    defaultCombo: ['KeyX'],
+    section: 'library',
+  },
+  {
     action: 'preview_prev',
     description: 'settings.keybinds.actions.preview_prev',
     defaultCombo: ['ArrowLeft'],

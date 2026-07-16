@@ -193,7 +193,8 @@
       "resetAdjustments": "重置調整",
       "stitchPanorama": "拼接全景圖",
       "tagging": "標籤",
-      "undo": "復原"
+      "undo": "復原",
+      "rejected": "已拒絕"
     },
     "folders": {
       "changeIcon": "更換圖示",
@@ -641,7 +642,8 @@
         "rating": "評分",
         "ratingLabels": "評分與標籤",
         "tags": "標籤",
-        "title": "組織"
+        "title": "組織",
+        "rejected": "已拒絕"
       },
       "title": "後設資料"
     },
@@ -853,6 +855,11 @@
         "nonRawOnly": "僅非 RAW",
         "preferRaw": "優先 RAW",
         "rawOnly": "僅 RAW"
+      },
+      "rejected": {
+        "all": "所有影像",
+        "notRejectedOnly": "僅未拒絕",
+        "rejectedOnly": "僅已拒絕"
       }
     },
     "folders": {
@@ -926,7 +933,8 @@
         "sortDescending": "降序排列",
         "thumbnailFit": "縮圖適應",
         "thumbnailSize": "縮圖大小",
-        "title": "檢視選項"
+        "title": "檢視選項",
+        "filterByStatus": "依狀態篩選"
       }
     },
     "import": {
@@ -1004,6 +1012,17 @@
       "communityPresets": "社群預設",
       "goHome": "返回首頁",
       "importImages": "匯入影像"
+    },
+    "selectBy": {
+      "color": "顏色標籤",
+      "fiveOnly": "僅 5 星",
+      "notRejected": "未拒絕",
+      "rating": "評分",
+      "rejected": "已拒絕",
+      "title": "依條件選取",
+      "unrated": "未評分",
+      "ratingAndUp": "{{value}} 星以上",
+      "flags": "標記"
     }
   },
   "masks": {
@@ -1122,7 +1141,7 @@
     "culling": {
       "actionDelete": "移至垃圾桶",
       "actionRateZero": "將評分設為 1 星",
-      "actionReject": "標記為已拒絕（紅色標籤）",
+      "actionReject": "標記為已拒絕",
       "applyButton_one": "應用到 1 張影像",
       "applyButton_other": "應用到 {{count}} 張影像",
       "bestImage": "最佳影像",
@@ -1484,7 +1503,8 @@
         "zoom_in": "放大",
         "zoom_in_step": "放大（步進）",
         "zoom_out": "縮小",
-        "zoom_out_step": "縮小（步進）"
+        "zoom_out_step": "縮小（步進）",
+        "toggle_rejected": "切換拒絕狀態"
       },
       "sections": {
         "editing": "編輯",

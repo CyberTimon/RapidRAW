@@ -1,7 +1,14 @@
 import { useMemo } from 'react';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { RawStatus, EditedStatus, SortDirection, ImageFile } from '../components/ui/AppProperties';
+import {
+  RawStatus,
+  RejectedFilterStatus,
+  RejectedRating,
+  EditedStatus,
+  SortDirection,
+  ImageFile,
+} from '../components/ui/AppProperties';
 
 export const ADVANCED_QUERY_REGEX =
   /^(iso|aperture|f|shutter|s|focal|mm|rating|color|camera|make|model|lens)\s*(?::)?\s*(>=|<=|>|<|=)?\s*(.+)$/i;
@@ -90,11 +97,20 @@ export function computeSortedLibrary(libraryState: any, settingsState: any): Ima
   }
 
   const filteredList = processedList.filter((image: ImageFile) => {
+    const rating = imageRatings[image.path] ?? 0;
+
     if (filterCriteria.rating !== 0) {
-      const rating = imageRatings[image.path] || 0;
       if (filterCriteria.rating === -1 && rating !== 0) return false;
       if (filterCriteria.rating === 5 && rating !== 5) return false;
       if (filterCriteria.rating > 0 && filterCriteria.rating < 5 && rating < filterCriteria.rating) return false;
+    }
+
+    if (filterCriteria.rejectedStatus === RejectedFilterStatus.RejectedOnly && rating !== RejectedRating) {
+      return false;
+    }
+
+    if (filterCriteria.rejectedStatus === RejectedFilterStatus.UnrejectedOnly && rating === RejectedRating) {
+      return false;
     }
 
     if (

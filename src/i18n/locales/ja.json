@@ -193,7 +193,8 @@
       "resetAdjustments": "補正設定をリセット",
       "stitchPanorama": "パノラマ写真を作成",
       "tagging": "タグ付け",
-      "undo": "元に戻す"
+      "undo": "元に戻す",
+      "rejected": "却下"
     },
     "folders": {
       "changeIcon": "アイコンを変更",
@@ -641,7 +642,8 @@
         "rating": "評価",
         "ratingLabels": "評価とラベル",
         "tags": "タグ",
-        "title": "整理"
+        "title": "整理",
+        "rejected": "却下"
       },
       "title": "メタデータ"
     },
@@ -852,6 +854,11 @@
         "nonRawOnly": "非RAWのみ",
         "preferRaw": "RAWを優先",
         "rawOnly": "RAWのみ"
+      },
+      "rejected": {
+        "all": "すべての画像",
+        "notRejectedOnly": "却下以外のみ",
+        "rejectedOnly": "却下のみ"
       }
     },
     "folders": {
@@ -925,7 +932,8 @@
         "sortDescending": "降順で並べ替え",
         "thumbnailFit": "サムネイルのフィット",
         "thumbnailSize": "サムネイルサイズ",
-        "title": "表示オプション"
+        "title": "表示オプション",
+        "filterByStatus": "ステータスで絞り込み"
       }
     },
     "import": {
@@ -1003,6 +1011,17 @@
       "communityPresets": "コミュニティプリセット",
       "goHome": "ホームへ移動",
       "importImages": "画像をインポート"
+    },
+    "selectBy": {
+      "color": "カラーラベル",
+      "fiveOnly": "5のみ",
+      "notRejected": "却下以外",
+      "rating": "評価",
+      "rejected": "却下",
+      "title": "条件で選択",
+      "unrated": "未評価",
+      "ratingAndUp": "{{value}}以上",
+      "flags": "フラグ"
     }
   },
   "masks": {
@@ -1121,7 +1140,7 @@
     "culling": {
       "actionDelete": "ゴミ箱に移動",
       "actionRateZero": "評価を星1に設定",
-      "actionReject": "除外としてマーク (赤ラベル)",
+      "actionReject": "却下としてマーク",
       "applyButton_one": "1 枚の画像に適用",
       "applyButton_other": "{{count}} 枚の画像に適用",
       "bestImage": "ベスト画像",
@@ -1483,7 +1502,8 @@
         "zoom_in": "ズームイン",
         "zoom_in_step": "段階的にズームイン",
         "zoom_out": "ズームアウト",
-        "zoom_out_step": "段階的にズームアウト"
+        "zoom_out_step": "段階的にズームアウト",
+        "toggle_rejected": "却下状態を切り替え"
       },
       "sections": {
         "editing": "編集",

@@ -4,7 +4,7 @@ import { Check, ChevronDown, ChevronRight, Plus, Star, Tag, X, User } from 'luci
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { Invokes } from '../../ui/AppProperties';
+import { Invokes, RejectedRating } from '../../ui/AppProperties';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
@@ -242,7 +242,8 @@ export default function MetadataPanel() {
   const appSettings = useSettingsStore((s) => s.appSettings);
   const thumbnails = useProcessStore((s) => s.thumbnails);
 
-  const { handleRate, handleSetColorLabel, handleTagsChanged, handleUpdateExif } = useLibraryActions();
+  const { handleRate, handleToggleRejected, handleSetColorLabel, handleTagsChanged, handleUpdateExif } =
+    useLibraryActions();
 
   const rating = selectedImage ? imageRatings[selectedImage.path] || 0 : 0;
   const tags = selectedImage ? imageList.find((img) => img.path === selectedImage.path)?.tags || [] : [];
@@ -611,6 +612,18 @@ export default function MetadataPanel() {
                                 />
                               </button>
                             ))}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleRejected(targetPaths)}
+                              className={clsx(
+                                'ml-2 rounded-md border px-2 py-1 text-xs transition-colors',
+                                rating === RejectedRating
+                                  ? 'border-red-400 bg-red-500/10 text-red-300'
+                                  : 'border-surface bg-bg-primary text-text-secondary hover:text-text-primary',
+                              )}
+                            >
+                              {t('editor.metadata.organization.rejected')}
+                            </button>
                           </div>
                         </div>
                         <div>

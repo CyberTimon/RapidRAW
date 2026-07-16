@@ -281,6 +281,7 @@ function App() {
   } = useExternalEditSession(handleImageSelect);
 
   const {
+    handleSetRating,
     handleRate,
     handleClearSelection,
     handleLibraryImageSingleClick,
@@ -749,6 +750,7 @@ function App() {
           handleSaveRename={handleSaveRename}
           handleStartImport={handleStartImport}
           handleSetColorLabel={handleSetColorLabel}
+          handleSetRating={handleSetRating}
           handleRate={handleRate}
           executeDelete={executeDelete}
           handleSaveCollage={handleSaveCollage}

@@ -193,7 +193,8 @@
       "resetAdjustments": "Redefinir Ajustes",
       "stitchPanorama": "Montar Panorama",
       "tagging": "Etiquetas",
-      "undo": "Desfazer"
+      "undo": "Desfazer",
+      "rejected": "Rejeitadas"
     },
     "folders": {
       "changeIcon": "Alterar Ícone",
@@ -641,7 +642,8 @@
         "rating": "Avaliação",
         "ratingLabels": "Avaliação e Rótulos",
         "tags": "Etiquetas",
-        "title": "Organização"
+        "title": "Organização",
+        "rejected": "Rejeitadas"
       },
       "title": "Metadados"
     },
@@ -853,6 +855,11 @@
         "nonRawOnly": "Apenas Não-RAW",
         "preferRaw": "Preferir RAW",
         "rawOnly": "Apenas RAW"
+      },
+      "rejected": {
+        "all": "Todas as imagens",
+        "notRejectedOnly": "Apenas não rejeitadas",
+        "rejectedOnly": "Apenas rejeitadas"
       }
     },
     "folders": {
@@ -926,7 +933,8 @@
         "sortDescending": "Classificação Descendente",
         "thumbnailFit": "Ajuste de Miniatura",
         "thumbnailSize": "Tamanho da Miniatura",
-        "title": "Opções de Visualização"
+        "title": "Opções de Visualização",
+        "filterByStatus": "Filtrar por status"
       }
     },
     "import": {
@@ -1004,6 +1012,17 @@
       "communityPresets": "Predefinições da Comunidade",
       "goHome": "Ir para Início",
       "importImages": "Importar Imagens"
+    },
+    "selectBy": {
+      "color": "Rótulo de cor",
+      "fiveOnly": "Apenas 5",
+      "notRejected": "Não rejeitadas",
+      "rating": "Avaliação",
+      "rejected": "Rejeitadas",
+      "title": "Selecionar por",
+      "unrated": "Sem avaliação",
+      "ratingAndUp": "{{value}} ou mais",
+      "flags": "Sinalizadores"
     }
   },
   "masks": {
@@ -1122,7 +1141,7 @@
     "culling": {
       "actionDelete": "Mover para a Lixeira",
       "actionRateZero": "Definir Avaliação para 1 Estrela",
-      "actionReject": "Marcar como Rejeitado (Rótulo Vermelho)",
+      "actionReject": "Marcar como rejeitada",
       "applyButton_one": "Aplicar a 1 imagem",
       "applyButton_other": "Aplicar a {{count}} imagens",
       "bestImage": "Melhor Imagem",
@@ -1484,7 +1503,8 @@
         "zoom_in": "Mais zoom",
         "zoom_in_step": "Mais zoom (por etapas)",
         "zoom_out": "Menos zoom",
-        "zoom_out_step": "Menos zoom (por etapas)"
+        "zoom_out_step": "Menos zoom (por etapas)",
+        "toggle_rejected": "Alternar status de rejeitada"
       },
       "sections": {
         "editing": "Edição",

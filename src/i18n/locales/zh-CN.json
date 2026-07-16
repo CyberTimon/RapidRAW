@@ -193,7 +193,8 @@
       "resetAdjustments": "重置调整",
       "stitchPanorama": "拼接全景图",
       "tagging": "标签",
-      "undo": "撤销"
+      "undo": "撤销",
+      "rejected": "已拒绝"
     },
     "folders": {
       "changeIcon": "更换图标",
@@ -641,7 +642,8 @@
         "rating": "评分",
         "ratingLabels": "评分与标签",
         "tags": "标签",
-        "title": "组织"
+        "title": "组织",
+        "rejected": "已拒绝"
       },
       "title": "元数据"
     },
@@ -853,6 +855,11 @@
         "nonRawOnly": "仅非 RAW",
         "preferRaw": "优先 RAW",
         "rawOnly": "仅 RAW"
+      },
+      "rejected": {
+        "all": "所有图像",
+        "notRejectedOnly": "仅未拒绝",
+        "rejectedOnly": "仅已拒绝"
       }
     },
     "folders": {
@@ -926,7 +933,8 @@
         "sortDescending": "降序排列",
         "thumbnailFit": "缩略图适应",
         "thumbnailSize": "缩略图大小",
-        "title": "视图选项"
+        "title": "视图选项",
+        "filterByStatus": "按状态筛选"
       }
     },
     "import": {
@@ -1004,6 +1012,17 @@
       "communityPresets": "社区预设",
       "goHome": "返回首页",
       "importImages": "导入图像"
+    },
+    "selectBy": {
+      "color": "颜色标签",
+      "fiveOnly": "仅 5 星",
+      "notRejected": "未拒绝",
+      "rating": "评分",
+      "rejected": "已拒绝",
+      "title": "按条件选择",
+      "unrated": "未评分",
+      "ratingAndUp": "{{value}} 星及以上",
+      "flags": "标记"
     }
   },
   "masks": {
@@ -1122,7 +1141,7 @@
     "culling": {
       "actionDelete": "移至回收站",
       "actionRateZero": "将评分设为 1 星",
-      "actionReject": "标记为已拒绝（红色标签）",
+      "actionReject": "标记为已拒绝",
       "applyButton_one": "应用到 1 张图像",
       "applyButton_other": "应用到 {{count}} 张图像",
       "bestImage": "最佳图像",
@@ -1484,7 +1503,8 @@
         "zoom_in": "放大",
         "zoom_in_step": "放大（步进）",
         "zoom_out": "缩小",
-        "zoom_out_step": "缩小（步进）"
+        "zoom_out_step": "缩小（步进）",
+        "toggle_rejected": "切换拒绝状态"
       },
       "sections": {
         "editing": "编辑",

@@ -193,7 +193,8 @@
       "resetAdjustments": "Réinitialiser les ajustements",
       "stitchPanorama": "Assembler le panorama",
       "tagging": "Marquage",
-      "undo": "Annuler"
+      "undo": "Annuler",
+      "rejected": "Rejetées"
     },
     "folders": {
       "changeIcon": "Changer l'icône",
@@ -641,7 +642,8 @@
         "rating": "Note",
         "ratingLabels": "Note & Étiquettes",
         "tags": "Étiquettes",
-        "title": "Organisation"
+        "title": "Organisation",
+        "rejected": "Rejetées"
       },
       "title": "Métadonnées"
     },
@@ -853,6 +855,11 @@
         "nonRawOnly": "Uniquement Non-RAW",
         "preferRaw": "Préférer RAW",
         "rawOnly": "Uniquement RAW"
+      },
+      "rejected": {
+        "all": "Toutes les images",
+        "notRejectedOnly": "Uniquement les non rejetées",
+        "rejectedOnly": "Uniquement les rejetées"
       }
     },
     "folders": {
@@ -926,7 +933,8 @@
         "sortDescending": "Trier par ordre décroissant",
         "thumbnailFit": "Ajustement de la miniature",
         "thumbnailSize": "Taille de la miniature",
-        "title": "Options d'affichage"
+        "title": "Options d'affichage",
+        "filterByStatus": "Filtrer par statut"
       }
     },
     "import": {
@@ -1004,6 +1012,17 @@
       "communityPresets": "Paramètres prédéfinis de la communauté",
       "goHome": "Aller à l'accueil",
       "importImages": "Importer des images"
+    },
+    "selectBy": {
+      "color": "Étiquette de couleur",
+      "fiveOnly": "5 uniquement",
+      "notRejected": "Non rejetées",
+      "rating": "Note",
+      "rejected": "Rejetées",
+      "title": "Sélectionner par",
+      "unrated": "Sans note",
+      "ratingAndUp": "{{value}} et plus",
+      "flags": "Indicateurs"
     }
   },
   "masks": {
@@ -1122,7 +1141,7 @@
     "culling": {
       "actionDelete": "Mettre à la corbeille",
       "actionRateZero": "Définir la note sur 1 étoile",
-      "actionReject": "Marquer comme rejeté (Étiquette rouge)",
+      "actionReject": "Marquer comme rejetée",
       "applyButton_one": "Appliquer à 1 image",
       "applyButton_other": "Appliquer à {{count}} images",
       "bestImage": "Meilleure image",
@@ -1484,7 +1503,8 @@
         "zoom_in": "Zoom avant",
         "zoom_in_step": "Zoom avant (par palier)",
         "zoom_out": "Zoom arrière",
-        "zoom_out_step": "Zoom arrière (par palier)"
+        "zoom_out_step": "Zoom arrière (par palier)",
+        "toggle_rejected": "Basculer le statut rejeté"
       },
       "sections": {
         "editing": "Retouche",

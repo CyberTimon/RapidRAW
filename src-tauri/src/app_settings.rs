@@ -19,6 +19,8 @@ pub struct SortCriteria {
 #[serde(rename_all = "camelCase")]
 pub struct FilterCriteria {
     pub rating: u8,
+    #[serde(default = "default_rejected_status")]
+    pub rejected_status: String,
     pub raw_status: String,
     #[serde(default)]
     pub edited_status: Option<String>,
@@ -26,10 +28,15 @@ pub struct FilterCriteria {
     pub colors: Vec<String>,
 }
 
+fn default_rejected_status() -> String {
+    "all".to_string()
+}
+
 impl Default for FilterCriteria {
     fn default() -> Self {
         Self {
             rating: 0,
+            rejected_status: default_rejected_status(),
             raw_status: "all".to_string(),
             edited_status: Some("all".to_string()),
             colors: Vec::new(),

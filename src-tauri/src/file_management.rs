@@ -85,7 +85,7 @@ fn resolve_image_metadata(
     sidecar_path: &Path,
     enable_xmp_sync: bool,
     settings: &AppSettings,
-) -> (bool, Option<Vec<String>>, u8) {
+) -> (bool, Option<Vec<String>>, i8) {
     let mut metadata = crate::exif_processing::load_sidecar(sidecar_path);
 
     if enable_xmp_sync
@@ -105,7 +105,7 @@ fn resolve_image_metadata(
 fn emit_image_metadata_loaded(
     app_handle: &AppHandle,
     path: &str,
-    rating: u8,
+    rating: i8,
     is_edited: bool,
     tags: &Option<Vec<String>>,
 ) {
@@ -256,7 +256,7 @@ pub struct ImageFile {
     path: String,
     modified: u64,
     is_edited: bool,
-    rating: u8,
+    rating: i8,
     tags: Option<Vec<String>>,
     exif: Option<HashMap<String, String>>,
     is_virtual_copy: bool,
@@ -1526,7 +1526,7 @@ fn generate_single_thumbnail_and_cache(
     force_regenerate: bool,
     app_handle: &AppHandle,
     settings: &AppSettings,
-) -> Option<(String, u8, bool)> {
+) -> Option<(String, i8, bool)> {
     let (source_path, sidecar_path) = parse_virtual_path(path_str);
 
     let (rating, is_edited, adjustments_bytes) = if is_cloud_placeholder(&sidecar_path) {
@@ -1748,7 +1748,7 @@ fn emit_thumbnail_generated(
     app_handle: &AppHandle,
     path: &str,
     thumbnail_path: &str,
-    rating: u8,
+    rating: i8,
     is_edited: bool,
 ) {
     let _ = app_handle.emit(
@@ -2620,7 +2620,7 @@ pub fn set_color_label_for_paths(
 #[tauri::command]
 pub fn set_rating_for_paths(
     paths: Vec<String>,
-    rating: u8,
+    rating: i8,
     app_handle: AppHandle,
 ) -> Result<(), String> {
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
@@ -3586,7 +3586,7 @@ pub fn create_virtual_copy(
     Ok(new_virtual_path)
 }
 
-pub fn extract_xmp_rating(content: &str) -> Option<u8> {
+pub fn extract_xmp_rating(content: &str) -> Option<i8> {
     if let Some(idx) = content.find("xmp:Rating=\"") {
         let start = idx + 12;
         let end = content[start..].find('"').map(|i| start + i)?;
@@ -3808,5 +3808,26 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         let _ = fs::write(&xmp_file, content);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{extract_xmp_rating, sync_metadata_to_xmp};
+    use crate::image_processing::ImageMetadata;
+
+    #[test]
+    fn xmp_rating_round_trips_signed_values() {
+        let temp_dir = tempfile::tempdir().expect("create temp directory");
+        let image_path = temp_dir.path().join("rating-test.jpg");
+        let xmp_path = image_path.with_extension("xmp");
+        let mut metadata = ImageMetadata::default();
+
+        for rating in -1..=5 {
+            metadata.rating = rating;
+            sync_metadata_to_xmp(&image_path, &metadata, true);
+            let content = std::fs::read_to_string(&xmp_path).expect("read XMP sidecar");
+            assert_eq!(extract_xmp_rating(&content), Some(rating));
+        }
     }
 }
