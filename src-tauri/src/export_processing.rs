@@ -17,7 +17,7 @@ use tauri::Manager;
 use crate::AppState;
 use crate::exif_processing;
 use crate::file_management::{
-    generate_filename_from_template, parse_virtual_path, read_file_mapped,
+    generate_filename_from_template, parse_virtual_path, read_file_bytes,
 };
 use crate::formats::is_raw_file;
 use crate::image_loader::{
@@ -915,30 +915,17 @@ pub async fn export_images(
                             }
                         }
                     } else {
-                        match read_file_mapped(Path::new(&source_path_str)) {
-                            Ok(mmap) => load_and_composite(
-                                &mmap,
-                                &source_path_str,
-                                &js_adjustments,
-                                false,
-                                &settings,
-                                None,
-                            )
-                            .map_err(|e| format!("Failed to load from mmap: {}", e))?,
-                            Err(_) => {
-                                let bytes =
-                                    fs::read(&source_path_str).map_err(|e| e.to_string())?;
-                                load_and_composite(
-                                    &bytes,
-                                    &source_path_str,
-                                    &js_adjustments,
-                                    false,
-                                    &settings,
-                                    None,
-                                )
-                                .map_err(|e| format!("Failed to load from bytes: {}", e))?
-                            }
-                        }
+                        let bytes = read_file_bytes(Path::new(&source_path_str))
+                            .map_err(|e| e.to_string())?;
+                        load_and_composite(
+                            &bytes,
+                            &source_path_str,
+                            &js_adjustments,
+                            false,
+                            &settings,
+                            None,
+                        )
+                        .map_err(|e| format!("Failed to load image: {}", e))?
                     };
 
                     let mut main_export_adjustments = js_adjustments.clone();
@@ -1212,18 +1199,9 @@ pub async fn estimate_export_sizes(
 
         const ESTIMATE_DIM: u32 = 1280;
 
-        let file_slice: Vec<u8>;
-        let mmap_guard;
-        let file_data: &[u8] = match read_file_mapped(Path::new(&source_path_str)) {
-            Ok(mmap) => {
-                mmap_guard = Some(mmap);
-                mmap_guard.as_ref().unwrap()
-            }
-            Err(_) => {
-                file_slice = fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
-                &file_slice
-            }
-        };
+        let file_bytes =
+            read_file_bytes(Path::new(&source_path_str)).map_err(|e| e.to_string())?;
+        let file_data: &[u8] = &file_bytes;
 
         let original_image =
             load_base_image_from_bytes(file_data, &source_path_str, true, &settings, None)

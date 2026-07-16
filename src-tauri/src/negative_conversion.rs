@@ -1,4 +1,4 @@
-use crate::file_management::{parse_virtual_path, read_file_mapped};
+use crate::file_management::{parse_virtual_path, read_file_bytes};
 use crate::image_loader::load_base_image_from_bytes;
 use base64::{Engine as _, engine::general_purpose};
 use image::codecs::jpeg::JpegEncoder;
@@ -7,7 +7,6 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
-use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 use std::path::Path;
@@ -209,55 +208,25 @@ pub async fn preview_negative_conversion(
                         drop(original_lock);
                         let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-                        match read_file_mapped(Path::new(&source_path_str)) {
-                            Ok(mmap) => load_base_image_from_bytes(
-                                &mmap,
-                                &source_path_str,
-                                false,
-                                &settings,
-                                None,
-                            )
-                            .map_err(|e| e.to_string())?,
-                            Err(_e) => {
-                                let bytes = fs::read(&source_path_str)
-                                    .map_err(|io_err| io_err.to_string())?;
-                                load_base_image_from_bytes(
-                                    &bytes,
-                                    &source_path_str,
-                                    false,
-                                    &settings,
-                                    None,
-                                )
-                                .map_err(|e| e.to_string())?
-                            }
-                        }
-                    }
-                } else {
-                    drop(original_lock);
-                    let settings = load_settings(app_handle.clone()).unwrap_or_default();
-
-                    match read_file_mapped(Path::new(&source_path_str)) {
-                        Ok(mmap) => load_base_image_from_bytes(
-                            &mmap,
+                        let bytes = read_file_bytes(Path::new(&source_path_str))
+                            .map_err(|e| e.to_string())?;
+                        load_base_image_from_bytes(
+                            &bytes,
                             &source_path_str,
                             false,
                             &settings,
                             None,
                         )
-                        .map_err(|e| e.to_string())?,
-                        Err(_e) => {
-                            let bytes =
-                                fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
-                            load_base_image_from_bytes(
-                                &bytes,
-                                &source_path_str,
-                                false,
-                                &settings,
-                                None,
-                            )
-                            .map_err(|e| e.to_string())?
-                        }
+                        .map_err(|e| e.to_string())?
                     }
+                } else {
+                    drop(original_lock);
+                    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+
+                    let bytes = read_file_bytes(Path::new(&source_path_str))
+                        .map_err(|e| e.to_string())?;
+                    load_base_image_from_bytes(&bytes, &source_path_str, false, &settings, None)
+                        .map_err(|e| e.to_string())?
                 }
             };
 
@@ -304,14 +273,9 @@ pub async fn convert_negatives(
 
             let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-            let img = match read_file_mapped(Path::new(&real_path)) {
-                Ok(mmap) => load_base_image_from_bytes(&mmap, &real_path, false, &settings, None),
-                Err(_) => {
-                    let bytes = fs::read(&real_path).unwrap_or_default();
-                    load_base_image_from_bytes(&bytes, &real_path, false, &settings, None)
-                }
-            }
-            .map_err(|e| e.to_string())?;
+            let bytes = read_file_bytes(Path::new(&real_path)).map_err(|e| e.to_string())?;
+            let img = load_base_image_from_bytes(&bytes, &real_path, false, &settings, None)
+                .map_err(|e| e.to_string())?;
 
             let bounds_ref = downscale_f32_image(&img, 1080, 1080);
             let ref_rgb = bounds_ref.to_rgb32f();

@@ -1,4 +1,3 @@
-use memmap2::{Mmap, MmapOptions};
 use std::borrow::Cow;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
@@ -233,7 +232,6 @@ pub struct PresetFile {
 #[derive(Debug)]
 pub enum ReadFileError {
     Io(std::io::Error),
-    Locked,
     Empty,
     NotFound,
     Invalid,
@@ -243,7 +241,6 @@ impl fmt::Display for ReadFileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ReadFileError::Io(err) => write!(f, "IO error: {}", err),
-            ReadFileError::Locked => write!(f, "File is locked"),
             ReadFileError::Empty => write!(f, "File is empty"),
             ReadFileError::NotFound => write!(f, "File not found"),
             ReadFileError::Invalid => write!(f, "Invalid file"),
@@ -321,9 +318,7 @@ pub async fn read_exif_for_paths(
                     sidecar_exif
                 } else if is_cloud_placeholder(&source_path) {
                     HashMap::new()
-                } else if let Ok(mmap) = read_file_mapped(&source_path) {
-                    crate::exif_processing::read_exif_data(&source_path_str, &mmap)
-                } else if let Ok(bytes) = fs::read(&source_path) {
+                } else if let Ok(bytes) = read_file_bytes(&source_path) {
                     crate::exif_processing::read_exif_data(&source_path_str, &bytes)
                 } else {
                     HashMap::new()
@@ -357,9 +352,7 @@ pub async fn update_exif_fields(
             let mut exif_data = temp_metadata.exif.unwrap_or_else(|| {
                 if let Some(existing) = crate::exif_processing::read_rrexif_sidecar(original_path) {
                     existing
-                } else if let Ok(mmap) = read_file_mapped(original_path) {
-                    crate::exif_processing::read_exif_data_from_bytes(path, &mmap)
-                } else if let Ok(bytes) = fs::read(original_path) {
+                } else if let Ok(bytes) = read_file_bytes(original_path) {
                     crate::exif_processing::read_exif_data_from_bytes(path, &bytes)
                 } else {
                     HashMap::new()
@@ -1178,7 +1171,7 @@ pub fn is_cloud_placeholder(_path: &Path) -> bool {
     false
 }
 
-pub fn read_file_mapped(path: &Path) -> Result<Mmap, ReadFileError> {
+pub fn read_file_bytes(path: &Path) -> Result<Vec<u8>, ReadFileError> {
     if !path.is_file() {
         return Err(ReadFileError::Invalid);
     }
@@ -1188,17 +1181,7 @@ pub fn read_file_mapped(path: &Path) -> Result<Mmap, ReadFileError> {
     if path.metadata().map_err(ReadFileError::Io)?.len() == 0 {
         return Err(ReadFileError::Empty);
     }
-    let file = fs::File::open(path).map_err(ReadFileError::Io)?;
-    if file.try_lock_shared().is_err() {
-        return Err(ReadFileError::Locked);
-    }
-    let mmap = unsafe {
-        MmapOptions::new()
-            .len(file.metadata().map_err(ReadFileError::Io)?.len() as usize)
-            .map(&file)
-            .map_err(ReadFileError::Io)?
-    };
-    Ok(mmap)
+    fs::read(path).map_err(ReadFileError::Io)
 }
 
 pub fn generate_thumbnail_data(
@@ -1274,29 +1257,10 @@ pub fn generate_thumbnail_data(
             let composite_image = if let Some(img) = preloaded_image {
                 image_loader::composite_patches_on_image(img, &adjustments)?
             } else {
-                let mmap_guard;
-                let vec_guard;
-
-                let file_slice: &[u8] = match read_file_mapped(&source_path) {
-                    Ok(mmap) => {
-                        mmap_guard = Some(mmap);
-                        mmap_guard.as_ref().unwrap()
-                    }
-                    Err(e) => {
-                        if preloaded_image.is_none() {
-                            log::warn!("Fallback read for {}: {}", source_path_str, e);
-                        }
-                        let bytes = fs::read(&source_path).map_err(|io_err| {
-                            anyhow::anyhow!(
-                                "Fallback read failed for {}: {}",
-                                source_path_str,
-                                io_err
-                            )
-                        })?;
-                        vec_guard = Some(bytes);
-                        vec_guard.as_ref().unwrap()
-                    }
-                };
+                let file_data = read_file_bytes(&source_path).map_err(|e| {
+                    anyhow::anyhow!("Failed to read {}: {}", source_path_str, e)
+                })?;
+                let file_slice: &[u8] = &file_data;
 
                 let img = image_loader::load_and_composite(
                     file_slice,
@@ -1463,28 +1427,16 @@ pub fn generate_thumbnail_data(
     let mut final_image = if let Some(img) = preloaded_image {
         image_loader::composite_patches_on_image(img, &adjustments)?
     } else {
-        match read_file_mapped(&source_path) {
-            Ok(mmap) => image_loader::load_and_composite(
-                &mmap,
-                &source_path_str,
-                &adjustments,
-                true,
-                &settings,
-                None,
-            )?,
-            Err(e) => {
-                log::warn!("Fallback read for {}: {}", source_path_str, e);
-                let bytes = fs::read(&source_path)?;
-                image_loader::load_and_composite(
-                    &bytes,
-                    &source_path_str,
-                    &adjustments,
-                    true,
-                    &settings,
-                    None,
-                )?
-            }
-        }
+        let bytes = read_file_bytes(&source_path)
+            .map_err(|e| anyhow::anyhow!("Failed to read {}: {}", source_path_str, e))?;
+        image_loader::load_and_composite(
+            &bytes,
+            &source_path_str,
+            &adjustments,
+            true,
+            &settings,
+            None,
+        )?
     };
 
     if adjustments.is_null() {
