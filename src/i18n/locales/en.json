@@ -595,7 +595,11 @@
     },
     "metadata": {
       "author": {
+        "batchHint": "Edits apply to all {{count}} selected images.",
         "creatorDetails": "Creator Details",
+        "syncSuccess": "Metadata synced to {{count}} images",
+        "syncToSelected": "Sync to {{count}} selected",
+        "syncTooltip": "Copy this image's creator details to all selected images",
         "title": "Author & Copyright"
       },
       "camera": {
