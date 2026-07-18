@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use half::f16;
-use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Rgba};
+use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Rgb, Rgba};
 use std::num::NonZero;
 
 #[cfg(not(any(target_os = "android", target_os = "linux")))]
@@ -12,6 +12,18 @@ use wgpu::util::{DeviceExt, TextureDataOrder};
 use crate::image_processing::{AllAdjustments, GpuContext, MAX_MASKS};
 use crate::lut_processing::Lut;
 use crate::{AppState, GpuImageCache};
+
+fn high_precision_shader_source() -> String {
+    include_str!("shaders/shader.wgsl")
+        .replace(
+            "texture_storage_2d<rgba8unorm, write>",
+            "texture_storage_2d<rgba16float, write>",
+        )
+        .replace(
+            "let dither_amount = 1.0 / 255.0;",
+            "let dither_amount = 1.0 / 65535.0;",
+        )
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Roi {
@@ -418,8 +430,9 @@ fn read_texture_data_roi(
     texture: &wgpu::Texture,
     origin: wgpu::Origin3d,
     size: wgpu::Extent3d,
+    bytes_per_pixel: u32,
 ) -> Result<Vec<u8>, String> {
-    let unpadded_bytes_per_row = 4 * size.width;
+    let unpadded_bytes_per_row = bytes_per_pixel * size.width;
     let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
     let padded_bytes_per_row = (unpadded_bytes_per_row + align - 1) & !(align - 1);
     let output_buffer_size = (padded_bytes_per_row * size.height) as u64;
@@ -486,8 +499,26 @@ fn read_texture_data_roi(
 }
 
 fn to_rgba_f16(img: &DynamicImage) -> Vec<f16> {
-    let rgba_f32 = img.to_rgba32f();
-    rgba_f32.into_raw().into_iter().map(f16::from_f32).collect()
+    let pixel_count = img.width() as usize * img.height() as usize;
+    let mut output = Vec::with_capacity(pixel_count.saturating_mul(4));
+    match img {
+        DynamicImage::ImageRgb32F(buffer) => {
+            for pixel in buffer.as_raw().chunks_exact(3) {
+                output.push(f16::from_f32(pixel[0]));
+                output.push(f16::from_f32(pixel[1]));
+                output.push(f16::from_f32(pixel[2]));
+                output.push(f16::ONE);
+            }
+        }
+        DynamicImage::ImageRgba32F(buffer) => {
+            output.extend(buffer.as_raw().iter().copied().map(f16::from_f32));
+        }
+        _ => {
+            let rgba_f32 = img.to_rgba32f();
+            output.extend(rgba_f32.as_raw().iter().copied().map(f16::from_f32));
+        }
+    }
+    output
 }
 
 #[repr(C)]
@@ -535,6 +566,8 @@ pub struct GpuProcessor {
 
     main_bgl: wgpu::BindGroupLayout,
     main_pipeline: wgpu::ComputePipeline,
+    main_bgl_high_precision: wgpu::BindGroupLayout,
+    main_pipeline_high_precision: wgpu::ComputePipeline,
     adjustments_buffer: wgpu::Buffer,
     dummy_blur_view: wgpu::TextureView,
     dummy_lut_view: wgpu::TextureView,
@@ -554,6 +587,9 @@ pub struct GpuProcessor {
 }
 
 const FLARE_MAP_SIZE: u32 = 512;
+const PROCESSING_TILE_SIZE: u32 = 2048;
+const PROCESSING_TILE_OVERLAP: u32 = 128;
+const MAX_PROCESSING_TILE_EXTENT: u32 = PROCESSING_TILE_SIZE + 2 * PROCESSING_TILE_OVERLAP;
 
 impl GpuProcessor {
     pub fn new(context: GpuContext, max_width: u32, max_height: u32) -> Result<Self, String> {
@@ -780,6 +816,11 @@ impl GpuProcessor {
             label: Some("Image Processing Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
         });
+        let high_precision_shader_module =
+            device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("High Precision Image Processing Shader"),
+                source: wgpu::ShaderSource::Wgsl(high_precision_shader_source().into()),
+            });
 
         let mut bind_group_layout_entries = vec![
             wgpu::BindGroupLayoutEntry {
@@ -900,10 +941,23 @@ impl GpuProcessor {
             count: None,
         });
 
+        let mut high_precision_bind_group_layout_entries = bind_group_layout_entries.clone();
+        let wgpu::BindingType::StorageTexture { format, .. } =
+            &mut high_precision_bind_group_layout_entries[1].ty
+        else {
+            return Err("Main output binding is not a storage texture".to_string());
+        };
+        *format = wgpu::TextureFormat::Rgba16Float;
+
         let main_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Main BGL"),
             entries: &bind_group_layout_entries,
         });
+        let main_bgl_high_precision =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("High Precision Main BGL"),
+                entries: &high_precision_bind_group_layout_entries,
+            });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Pipeline Layout"),
@@ -919,6 +973,21 @@ impl GpuProcessor {
             compilation_options: Default::default(),
             cache: None,
         });
+        let high_precision_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("High Precision Pipeline Layout"),
+                bind_group_layouts: &[Some(&main_bgl_high_precision)],
+                immediate_size: 0,
+            });
+        let main_pipeline_high_precision =
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("High Precision Compute Pipeline"),
+                layout: Some(&high_precision_pipeline_layout),
+                module: &high_precision_shader_module,
+                entry_point: Some("main"),
+                compilation_options: Default::default(),
+                cache: None,
+            });
 
         let adjustments_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Adjustments Buffer"),
@@ -951,7 +1020,16 @@ impl GpuProcessor {
         let dummy_lut_view = dummy_lut_texture.create_view(&Default::default());
         let dummy_lut_sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
 
+        // Blur and compute output coordinates are tile-local. Keeping these
+        // textures at full image dimensions multiplied 100 MP inputs across
+        // six reusable allocations even though only one overlapped tile is
+        // processed at a time.
         let max_tile_size = wgpu::Extent3d {
+            width: max_width.min(MAX_PROCESSING_TILE_EXTENT),
+            height: max_height.min(MAX_PROCESSING_TILE_EXTENT),
+            depth_or_array_layers: 1,
+        };
+        let full_output_size = wgpu::Extent3d {
             width: max_width,
             height: max_height,
             depth_or_array_layers: 1,
@@ -1014,7 +1092,7 @@ impl GpuProcessor {
 
         let working_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Working Output Texture"),
-            size: max_tile_size,
+            size: full_output_size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -1029,7 +1107,7 @@ impl GpuProcessor {
 
         let output_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Full Output Texture"),
-            size: max_tile_size,
+            size: full_output_size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -1059,6 +1137,8 @@ impl GpuProcessor {
             flare_sampler,
             main_bgl,
             main_pipeline,
+            main_bgl_high_precision,
+            main_pipeline_high_precision,
             adjustments_buffer,
             dummy_blur_view,
             dummy_lut_view,
@@ -1077,6 +1157,7 @@ impl GpuProcessor {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn run(
         &self,
         input_texture_view: &wgpu::TextureView,
@@ -1085,7 +1166,15 @@ impl GpuProcessor {
         request: RenderRequest,
         skip_cpu_readback: bool,
         output_to_display: bool,
+        high_precision_cpu_readback: bool,
     ) -> Result<(Vec<u8>, u32, u32, u32, u32), String> {
+        if high_precision_cpu_readback && (skip_cpu_readback || output_to_display) {
+            return Err(
+                "High precision processing requires CPU readback and cannot target the display"
+                    .to_string(),
+            );
+        }
+
         let device = &self.context.device;
         let queue = &self.context.queue;
         let scale = (width.min(height) as f32) / 1080.0;
@@ -1099,6 +1188,42 @@ impl GpuProcessor {
         });
         let out_width = bounds.width;
         let out_height = bounds.height;
+        let output_bytes_per_pixel = if high_precision_cpu_readback { 8 } else { 4 };
+
+        let high_precision_tile_output = high_precision_cpu_readback.then(|| {
+            let texture = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("High Precision Tile Output Texture"),
+                size: wgpu::Extent3d {
+                    width: width.min(MAX_PROCESSING_TILE_EXTENT),
+                    height: height.min(MAX_PROCESSING_TILE_EXTENT),
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba16Float,
+                usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_SRC,
+                view_formats: &[],
+            });
+            let view = texture.create_view(&Default::default());
+            (texture, view)
+        });
+        let (main_bgl, main_pipeline, tile_output_texture, tile_output_texture_view) =
+            if let Some((texture, view)) = &high_precision_tile_output {
+                (
+                    &self.main_bgl_high_precision,
+                    &self.main_pipeline_high_precision,
+                    texture,
+                    view,
+                )
+            } else {
+                (
+                    &self.main_bgl,
+                    &self.main_pipeline,
+                    &self.tile_output_texture,
+                    &self.tile_output_texture_view,
+                )
+            };
         let mask_layer_count = request.mask_bitmaps.len().clamp(2, MAX_MASKS) as u32;
         let full_texture_size = wgpu::Extent3d {
             width,
@@ -1280,44 +1405,41 @@ impl GpuProcessor {
             queue.submit(Some(encoder.finish()));
         }
 
-        const TILE_SIZE: u32 = 2048;
-        const TILE_OVERLAP: u32 = 128;
-
         let mut final_pixels = vec![
             0u8;
             if skip_cpu_readback {
                 0
             } else {
-                (out_width * out_height * 4) as usize
+                (out_width * out_height * output_bytes_per_pixel) as usize
             }
         ];
 
-        let start_tile_x = bounds.x / TILE_SIZE;
-        let start_tile_y = bounds.y / TILE_SIZE;
-        let end_tile_x = (bounds.x + bounds.width).div_ceil(TILE_SIZE);
-        let end_tile_y = (bounds.y + bounds.height).div_ceil(TILE_SIZE);
+        let start_tile_x = bounds.x / PROCESSING_TILE_SIZE;
+        let start_tile_y = bounds.y / PROCESSING_TILE_SIZE;
+        let end_tile_x = (bounds.x + bounds.width).div_ceil(PROCESSING_TILE_SIZE);
+        let end_tile_y = (bounds.y + bounds.height).div_ceil(PROCESSING_TILE_SIZE);
 
         for tile_y in start_tile_y..end_tile_y {
             for tile_x in start_tile_x..end_tile_x {
-                let x_start_unclamped = tile_x * TILE_SIZE;
-                let y_start_unclamped = tile_y * TILE_SIZE;
+                let x_start_unclamped = tile_x * PROCESSING_TILE_SIZE;
+                let y_start_unclamped = tile_y * PROCESSING_TILE_SIZE;
 
                 let x_start = x_start_unclamped.max(bounds.x);
                 let y_start = y_start_unclamped.max(bounds.y);
-                let x_end = (x_start_unclamped + TILE_SIZE)
+                let x_end = (x_start_unclamped + PROCESSING_TILE_SIZE)
                     .min(bounds.x + bounds.width)
                     .min(width);
-                let y_end = (y_start_unclamped + TILE_SIZE)
+                let y_end = (y_start_unclamped + PROCESSING_TILE_SIZE)
                     .min(bounds.y + bounds.height)
                     .min(height);
 
                 let tile_width = x_end - x_start;
                 let tile_height = y_end - y_start;
 
-                let input_x_start = (x_start as i32 - TILE_OVERLAP as i32).max(0) as u32;
-                let input_y_start = (y_start as i32 - TILE_OVERLAP as i32).max(0) as u32;
-                let input_x_end = (x_end + TILE_OVERLAP).min(width);
-                let input_y_end = (y_end + TILE_OVERLAP).min(height);
+                let input_x_start = (x_start as i32 - PROCESSING_TILE_OVERLAP as i32).max(0) as u32;
+                let input_y_start = (y_start as i32 - PROCESSING_TILE_OVERLAP as i32).max(0) as u32;
+                let input_x_end = (x_end + PROCESSING_TILE_OVERLAP).min(width);
+                let input_y_end = (y_end + PROCESSING_TILE_OVERLAP).min(height);
                 let input_width = input_x_end - input_x_start;
                 let input_height = input_y_end - input_y_start;
 
@@ -1426,9 +1548,7 @@ impl GpuProcessor {
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::TextureView(
-                            &self.tile_output_texture_view,
-                        ),
+                        resource: wgpu::BindingResource::TextureView(tile_output_texture_view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
@@ -1497,13 +1617,13 @@ impl GpuProcessor {
 
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Tile Bind Group"),
-                    layout: &self.main_bgl,
+                    layout: main_bgl,
                     entries: &bind_group_entries,
                 });
 
                 {
                     let mut compute_pass = main_encoder.begin_compute_pass(&Default::default());
-                    compute_pass.set_pipeline(&self.main_pipeline);
+                    compute_pass.set_pipeline(main_pipeline);
                     compute_pass.set_bind_group(0, &bind_group, &[]);
                     compute_pass.dispatch_workgroups(
                         input_width.div_ceil(8),
@@ -1518,7 +1638,7 @@ impl GpuProcessor {
                 if output_to_display {
                     main_encoder.copy_texture_to_texture(
                         wgpu::TexelCopyTextureInfo {
-                            texture: &self.tile_output_texture,
+                            texture: tile_output_texture,
                             mip_level: 0,
                             origin: wgpu::Origin3d {
                                 x: crop_x_start,
@@ -1551,19 +1671,21 @@ impl GpuProcessor {
                     let processed_tile_data = read_texture_data_roi(
                         device,
                         queue,
-                        &self.tile_output_texture,
+                        tile_output_texture,
                         wgpu::Origin3d::ZERO,
                         input_texture_size,
+                        output_bytes_per_pixel,
                     )?;
 
                     for row in 0..tile_height {
                         let final_y = y_start + row - bounds.y;
                         let final_x = x_start - bounds.x;
-                        let final_row_offset = (final_y * out_width + final_x) as usize * 4;
+                        let final_row_offset = (final_y * out_width + final_x) as usize
+                            * output_bytes_per_pixel as usize;
                         let source_y = crop_y_start + row;
-                        let source_row_offset =
-                            (source_y * input_width + crop_x_start) as usize * 4;
-                        let copy_bytes = (tile_width * 4) as usize;
+                        let source_row_offset = (source_y * input_width + crop_x_start) as usize
+                            * output_bytes_per_pixel as usize;
+                        let copy_bytes = (tile_width * output_bytes_per_pixel) as usize;
 
                         final_pixels[final_row_offset..final_row_offset + copy_bytes]
                             .copy_from_slice(
@@ -1595,6 +1717,32 @@ pub fn process_and_get_dynamic_image(
         request,
         caller_id,
         false,
+        false,
+        None,
+    )
+}
+
+/// Runs the normal render pipeline but reads the final tile texture back as
+/// RGBA16F and returns RGBA32F. This keeps export data above 8-bit precision;
+/// the final integer quantization is owned by the selected encoder.
+#[allow(dead_code)] // Called by the follow-up JXL export backend.
+pub(crate) fn process_and_get_high_precision_dynamic_image(
+    context: &GpuContext,
+    state: &tauri::State<AppState>,
+    base_image: &DynamicImage,
+    transform_hash: u64,
+    request: RenderRequest,
+    caller_id: &str,
+) -> Result<DynamicImage, String> {
+    process_and_get_dynamic_image_inner(
+        context,
+        state,
+        base_image,
+        transform_hash,
+        request,
+        caller_id,
+        true,
+        false,
         None,
     )
 }
@@ -1617,6 +1765,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
         transform_hash,
         request,
         caller_id,
+        false,
         output_to_display,
         analytics_config,
     )
@@ -1630,11 +1779,13 @@ fn process_and_get_dynamic_image_inner(
     transform_hash: u64,
     request: RenderRequest,
     caller_id: &str,
+    high_precision_cpu_readback: bool,
     output_to_display: bool,
     analytics_config: Option<crate::AnalyticsConfig>,
 ) -> Result<DynamicImage, String> {
     let start_time = Instant::now();
     let (width, height) = base_image.dimensions();
+    let preserve_alpha = base_image.color().has_alpha();
     let device = &context.device;
     let queue = &context.queue;
 
@@ -1795,6 +1946,7 @@ fn process_and_get_dynamic_image_inner(
         request,
         skip_readback,
         output_to_display,
+        high_precision_cpu_readback,
     )?;
 
     let mut final_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -2024,7 +2176,72 @@ fn process_and_get_dynamic_image_inner(
         fps
     );
 
-    let img_buf = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(out_w, out_h, processed_pixels)
-        .ok_or("Failed to create image buffer from GPU data")?;
-    Ok(DynamicImage::ImageRgba8(img_buf))
+    if high_precision_cpu_readback {
+        let read_f16 = |bytes: &[u8]| {
+            let bits = u16::from_le_bytes([bytes[0], bytes[1]]);
+            f16::from_bits(bits).to_f32()
+        };
+        if preserve_alpha {
+            let samples = processed_pixels.chunks_exact(2).map(read_f16).collect();
+            let img_buf = ImageBuffer::<Rgba<f32>, Vec<f32>>::from_raw(out_w, out_h, samples)
+                .ok_or("Failed to create high precision RGBA image buffer from GPU data")?;
+            Ok(DynamicImage::ImageRgba32F(img_buf))
+        } else {
+            let samples = processed_pixels
+                .chunks_exact(8)
+                .flat_map(|pixel| {
+                    [
+                        read_f16(&pixel[0..2]),
+                        read_f16(&pixel[2..4]),
+                        read_f16(&pixel[4..6]),
+                    ]
+                })
+                .collect();
+            let img_buf = ImageBuffer::<Rgb<f32>, Vec<f32>>::from_raw(out_w, out_h, samples)
+                .ok_or("Failed to create high precision RGB image buffer from GPU data")?;
+            Ok(DynamicImage::ImageRgb32F(img_buf))
+        }
+    } else {
+        // Keep the existing 8-bit pipeline contract unchanged for previews and
+        // non-JXL exports. JXL normalizes RGB/RGBA semantics at its export edge.
+        let img_buf = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(out_w, out_h, processed_pixels)
+            .ok_or("Failed to create RGBA image buffer from GPU data")?;
+        Ok(DynamicImage::ImageRgba8(img_buf))
+    }
+}
+
+#[cfg(test)]
+mod memory_tests {
+    use super::*;
+
+    #[test]
+    fn rgb32f_upload_converts_directly_to_rgba_f16() {
+        let image = DynamicImage::ImageRgb32F(
+            ImageBuffer::from_raw(2, 1, vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6]).unwrap(),
+        );
+        let converted = to_rgba_f16(&image);
+        assert_eq!(converted.len(), 8);
+        assert_eq!(converted[3], f16::ONE);
+        assert_eq!(converted[7], f16::ONE);
+        assert_eq!(converted[0], f16::from_f32(0.1));
+        assert_eq!(converted[6], f16::from_f32(0.6));
+    }
+
+    #[test]
+    fn reusable_compute_textures_are_bounded_to_one_overlapped_tile() {
+        assert_eq!(MAX_PROCESSING_TILE_EXTENT, 2304);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::high_precision_shader_source;
+
+    #[test]
+    fn high_precision_shader_uses_sixteen_bit_output_and_dither_scale() {
+        let shader = high_precision_shader_source();
+        assert!(shader.contains("texture_storage_2d<rgba16float, write>"));
+        assert!(shader.contains("let dither_amount = 1.0 / 65535.0;"));
+        assert!(!shader.contains("let dither_amount = 1.0 / 255.0;"));
+    }
 }
