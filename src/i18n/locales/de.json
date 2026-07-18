@@ -883,6 +883,7 @@
         "clearSearch": "Suche löschen",
         "collapse": "Zuklappen",
         "expand": "Aufklappen",
+        "select": "Auswählen",
         "sortFolders": "Ordner sortieren"
       }
     },
@@ -899,6 +900,10 @@
       }
     },
     "header": {
+      "cancel": "Abbrechen",
+      "deselectAll": "Alle abwählen",
+      "selectAll": "Alle auswählen",
+      "selectItems": "Bilder auswählen",
       "search": {
         "addFilterOrSearch": "Filter oder Suche hinzufügen...",
         "indexingImages": "Bilder werden indiziert...",
