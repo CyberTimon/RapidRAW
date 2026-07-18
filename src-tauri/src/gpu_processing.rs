@@ -20,8 +20,8 @@ fn high_precision_shader_source() -> String {
             "texture_storage_2d<rgba16float, write>",
         )
         .replace(
-            "let dither_amount = 1.0 / 255.0;",
-            "let dither_amount = 1.0 / 65535.0;",
+            "    let dither_amount = 1.0 / 255.0;\n    final_rgb += dither(id.xy) * dither_amount;\n",
+            "",
         )
 }
 
@@ -2238,10 +2238,10 @@ mod tests {
     use super::high_precision_shader_source;
 
     #[test]
-    fn high_precision_shader_uses_sixteen_bit_output_and_dither_scale() {
+    fn high_precision_shader_defers_integer_dither_to_the_encoder() {
         let shader = high_precision_shader_source();
         assert!(shader.contains("texture_storage_2d<rgba16float, write>"));
-        assert!(shader.contains("let dither_amount = 1.0 / 65535.0;"));
-        assert!(!shader.contains("let dither_amount = 1.0 / 255.0;"));
+        assert!(!shader.contains("dither_amount"));
+        assert!(!shader.contains("final_rgb += dither"));
     }
 }
