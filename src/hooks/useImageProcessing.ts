@@ -18,6 +18,7 @@ export function useImageProcessing(
     latestRenderedJobIdRef: React.RefObject<number>;
     currentResRef: React.RefObject<number>;
   },
+  isAndroid: boolean,
 ) {
   const { previewJobIdRef, latestRenderedJobIdRef, currentResRef } = renderRefs;
 
@@ -40,7 +41,11 @@ export function useImageProcessing(
 
   const inFlightCountRef = useRef(0);
   const pendingApplyRef = useRef<{ adjustments: Adjustments; targetRes?: number } | null>(null);
+  const lastFlushTimeRef = useRef(0);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentOriginalResRef = useRef<number>(0);
+  const hiFiZoomMaxResRef = useRef<number>(0);
+  const hiFiOriginalZoomMaxResRef = useRef<number>(0);
   const dragIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeWaveformChannelRef = useRef(activeWaveformChannel);
   activeWaveformChannelRef.current = activeWaveformChannel;
@@ -48,6 +53,12 @@ export function useImageProcessing(
   const selectedImagePathRef = useRef<string | null>(null);
   useEffect(() => {
     selectedImagePathRef.current = selectedImage?.path ?? null;
+  }, [selectedImage?.path]);
+
+  useEffect(() => {
+    // Image changed: reset resolution refs so the new image starts at base res
+    currentResRef.current = 0;
+    currentOriginalResRef.current = 0;
   }, [selectedImage?.path]);
 
   const geometricAdjustmentsKey = useMemo(() => {
@@ -122,6 +133,9 @@ export function useImageProcessing(
     async (currentAdjustments: Adjustments, dragging: boolean = false, targetRes?: number) => {
       const currentPath = selectedImage?.path;
       if (!currentPath) return;
+      if (isAndroid) {
+        console.warn(`[ZOOMDBG] executeApplyAdjustments targetRes=${targetRes} dragging=${dragging} currentRes=${currentResRef.current}`);
+      }
 
       const payload = structuredClone(currentAdjustments);
       const { patchesSentToBackend } = useEditorStore.getState();
@@ -274,6 +288,21 @@ export function useImageProcessing(
     if (inFlightCountRef.current >= 3) return;
     if (!pendingApplyRef.current) return;
 
+    if (isAndroid) {
+      const now = Date.now();
+      const elapsed = now - lastFlushTimeRef.current;
+      if (elapsed < 33) {
+        if (!flushTimerRef.current) {
+          flushTimerRef.current = setTimeout(() => {
+            flushTimerRef.current = null;
+            flushPipeline();
+          }, 200 - elapsed);
+        }
+        return;
+      }
+      lastFlushTimeRef.current = now;
+    }
+
     const { adjustments, targetRes } = pendingApplyRef.current;
     pendingApplyRef.current = null;
 
@@ -285,7 +314,7 @@ export function useImageProcessing(
         requestAnimationFrame(() => flushPipeline());
       }
     });
-  }, [executeApplyAdjustments]);
+  }, [executeApplyAdjustments, isAndroid]);
 
   const applyAdjustments = useCallback(
     (currentAdjustments: Adjustments, dragging: boolean = false, targetRes?: number) => {
@@ -351,39 +380,43 @@ export function useImageProcessing(
 
   const requestHiFiZoom = useMemo(
     () =>
-      debounce((currentAdjustments: Adjustments, targetRes: number) => {
-        if (targetRes > currentResRef.current) {
-          currentResRef.current = targetRes;
-          applyAdjustments(currentAdjustments, false, targetRes);
+      debounce((currentAdjustments: Adjustments, targetRes?: number) => {
+        const bestRes = isAndroid ? hiFiZoomMaxResRef.current : (targetRes || 0);
+        if (isAndroid) hiFiZoomMaxResRef.current = 0;
+        if (bestRes > currentResRef.current) {
+          currentResRef.current = bestRes;
+          applyAdjustments(currentAdjustments, false, bestRes);
         }
       }, 50),
-    [applyAdjustments, currentResRef],
+    [applyAdjustments, currentResRef, isAndroid],
   );
 
   const requestHiFiOriginalZoom = useMemo(
     () =>
-      debounce(async (currentAdjustments: Adjustments, targetRes: number) => {
-        if (targetRes > currentOriginalResRef.current) {
+      debounce(async (currentAdjustments: Adjustments, targetRes?: number) => {
+        const bestRes = isAndroid ? hiFiOriginalZoomMaxResRef.current : (targetRes || 0);
+        if (isAndroid) hiFiOriginalZoomMaxResRef.current = 0;
+        if (bestRes > currentOriginalResRef.current) {
           try {
             const base64Data: string = await invoke('generate_original_transformed_preview', {
               jsAdjustments: currentAdjustments,
-              targetResolution: targetRes,
+              targetResolution: bestRes,
             });
-            currentOriginalResRef.current = targetRes;
+            currentOriginalResRef.current = bestRes;
             setEditor({ transformedOriginalUrl: base64Data });
           } catch (e) {
             console.error('Failed to generate hi-fi original preview:', e);
           }
         }
       }, 200),
-    [setEditor],
+    [setEditor, isAndroid],
   );
 
   useEffect(() => {
-    if (activeRightPanel === Panel.Crop && selectedImage?.isReady) {
+    if (activeRightPanel === Panel.Crop && selectedImage?.isReady && !isSliderDragging) {
       generateUncroppedPreview(adjustments);
     }
-  }, [adjustments, activeRightPanel, selectedImage?.isReady, generateUncroppedPreview]);
+  }, [adjustments, activeRightPanel, selectedImage?.isReady, isSliderDragging, generateUncroppedPreview]);
 
   useEffect(() => {
     if (selectedImage?.isReady && displaySize.width > 0 && !isSliderDragging) {
@@ -395,7 +428,16 @@ export function useImageProcessing(
       const finalRes = Math.round(baseRes);
 
       if (finalRes > currentResRef.current) {
-        requestHiFiZoom(adjustments, finalRes);
+        if (isAndroid) {
+          hiFiZoomMaxResRef.current = Math.max(hiFiZoomMaxResRef.current, finalRes);
+          requestHiFiZoom(adjustments);
+        } else {
+          requestHiFiZoom(adjustments, finalRes);
+        }
+      } else if (finalRes < currentResRef.current * 0.7) {
+        // Zoomed out significantly — re-render at lower res to free cached high-res preview memory
+        currentResRef.current = finalRes;
+        applyAdjustments(adjustments, false, finalRes);
       }
     }
     return () => {
@@ -484,7 +526,12 @@ export function useImageProcessing(
     if (showOriginal && selectedImage?.isReady && displaySize.width > 0 && !isSliderDragging) {
       let targetRes = calculateTargetRes();
       if (targetRes > currentOriginalResRef.current) {
-        requestHiFiOriginalZoom(adjustments, targetRes);
+        if (isAndroid) {
+          hiFiOriginalZoomMaxResRef.current = Math.max(hiFiOriginalZoomMaxResRef.current, targetRes);
+          requestHiFiOriginalZoom(adjustments);
+        } else {
+          requestHiFiOriginalZoom(adjustments, targetRes);
+        }
       }
     }
     return () => {

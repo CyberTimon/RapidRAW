@@ -1,7 +1,7 @@
-#[cfg(not(all(target_os = "windows", target_arch = "aarch64")))]
+#[cfg(not(any(target_os = "windows", target_arch = "aarch64", target_os = "android")))]
 use mimalloc::MiMalloc;
 
-#[cfg(not(all(target_os = "windows", target_arch = "aarch64")))]
+#[cfg(not(any(target_os = "windows", target_arch = "aarch64", target_os = "android")))]
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
@@ -50,6 +50,7 @@ use std::thread;
 
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use std::time::Duration;
 
 use base64::{Engine as _, engine::general_purpose};
@@ -261,7 +262,7 @@ pub fn get_cached_full_warped_image(
         apply_cpu_default_raw_processing(cow_image.to_mut());
     }
 
-    let warped_image = apply_geometry_warp(cow_image, js_adjustments).into_owned();
+    let warped_image = apply_all_transformations(cow_image, js_adjustments).0.into_owned();
     let warped_arc = Arc::new(warped_image);
 
     {
@@ -277,7 +278,7 @@ async fn update_wgpu_transform(
     payload: WgpuTransformPayload,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let context = match state.gpu_context.lock().unwrap().as_ref() {
+    let context = match state.gpu_context.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
         Some(c) => c.clone(),
         None => return Ok(()),
     };
@@ -325,7 +326,7 @@ fn process_preview_job(
     let fn_start = std::time::Instant::now();
     let context = get_or_init_gpu_context(&state, app_handle)?;
     hydrate_adjustments(&state, &mut adjustments_json);
-    let adjustments_clone = adjustments_json;
+    let mut adjustments_clone = adjustments_json;
 
     let loaded_image_guard = state.original_image.lock().unwrap();
     let loaded_image = loaded_image_guard
@@ -369,8 +370,98 @@ fn process_preview_job(
             cached.scale,
             cached.unscaled_crop_offset,
         )
+    } else if cfg!(target_os = "android") {
+        state.processing_active.store(true, Ordering::SeqCst);
+        *state.gpu_image_cache.lock().unwrap_or_else(|e| e.into_inner()) = None;
+
+        let (orig_w, orig_h) = loaded_image.image.dimensions();
+
+        let has_patches = adjustments_clone
+            .get("aiPatches")
+            .and_then(|v| v.as_array())
+            .is_some_and(|a| !a.is_empty());
+
+        let base_image = if has_patches {
+            let patched = composite_patches_on_image(&*loaded_image.image, &adjustments_clone)
+                .map_err(|e| format!("Failed to composite AI patches: {}", e))?;
+            if orig_w > preview_dim || orig_h > preview_dim {
+                downscale_f32_image(&patched, preview_dim, preview_dim)
+            } else {
+                patched
+            }
+        } else if orig_w > preview_dim || orig_h > preview_dim {
+            let settings = load_settings(app_handle.clone()).unwrap_or_default();
+            let cache_dim = settings.editor_preview_resolution.unwrap_or(1920).max(2560);
+            if preview_dim > cache_dim {
+                // High zoom: go directly from original for full sharpness
+                downscale_f32_image(&*loaded_image.image, preview_dim, preview_dim)
+            } else {
+                // Normal zoom: use cache, then downscale to preview_dim
+                let cached = state.preview_cache.lock().unwrap().as_ref().map(Arc::clone);
+                match cached {
+                    Some(cached_img) => {
+                        downscale_f32_image(&cached_img, preview_dim, preview_dim)
+                    }
+                    None => {
+                        let mut cache_lock = state.preview_cache.lock().unwrap();
+                        if let Some(cached_img) = cache_lock.as_ref().map(Arc::clone) {
+                            drop(cache_lock);
+                            downscale_f32_image(&cached_img, preview_dim, preview_dim)
+                        } else {
+                            let cache_img = downscale_f32_image(&*loaded_image.image, cache_dim, cache_dim);
+                            let result = downscale_f32_image(&cache_img, preview_dim, preview_dim);
+                            *cache_lock = Some(Arc::new(cache_img));
+                            result
+                        }
+                    }
+                }
+            }
+        } else {
+            (*loaded_image.image).clone()
+        };
+        let downscale = base_image.width() as f32 / orig_w.max(1) as f32;
+
+        // Scale crop values to preview resolution so apply_crop uses correct coords
+        if let Some(crop) = adjustments_clone
+            .get_mut("crop")
+            .and_then(|c| c.as_object_mut())
+        {
+            if let Some(v) = crop.get("x").and_then(|v| v.as_f64()) {
+                crop["x"] = (v * downscale as f64).into();
+            }
+            if let Some(v) = crop.get("y").and_then(|v| v.as_f64()) {
+                crop["y"] = (v * downscale as f64).into();
+            }
+            if let Some(v) = crop.get("width").and_then(|v| v.as_f64()) {
+                crop["width"] = (v * downscale as f64).into();
+            }
+            if let Some(v) = crop.get("height").and_then(|v| v.as_f64()) {
+                crop["height"] = (v * downscale as f64).into();
+            }
+        }
+
+        // Run transformations at preview resolution (CPU warp, rotation, flip, crop)
+        let (transformed, scaled_offset) =
+            apply_all_transformations(Cow::Owned(base_image), &adjustments_clone);
+        let transformed = transformed.into_owned();
+
+        // Convert crop offset back to full-res for mask generation
+        let unscaled_offset = (
+            scaled_offset.0 / downscale,
+            scaled_offset.1 / downscale,
+        );
+
+        // Compute scale from final preview dimensions to original image
+        let new_scale = downscale;
+
+        // Clear full_res caches since we're operating at preview resolution
+        *state.full_transformed_cache.lock().unwrap() = None;
+
+        state.processing_active.store(false, Ordering::SeqCst);
+
+        (Arc::new(transformed), new_scale, unscaled_offset)
     } else {
-        *state.gpu_image_cache.lock().unwrap() = None;
+        *state.gpu_image_cache.lock().unwrap_or_else(|e| e.into_inner()) = None;
 
         let (base, scale, offset) =
             generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?;
@@ -400,7 +491,7 @@ fn process_preview_job(
         };
 
         if is_interactive && base_valid {
-            *state.gpu_image_cache.lock().unwrap() = None;
+            *state.gpu_image_cache.lock().unwrap_or_else(|e| e.into_inner()) = None;
         }
 
         small
@@ -722,6 +813,8 @@ fn generate_uncropped_preview(
         .clone()
         .ok_or("No original image loaded")?;
 
+    let my_seq = state.uncropped_preview_seq.fetch_add(1, Ordering::SeqCst) + 1;
+
     thread::spawn(move || {
         let state = app_handle.state::<AppState>();
         let path = loaded_image.path.clone();
@@ -731,20 +824,80 @@ fn generate_uncropped_preview(
             .get("aiPatches")
             .and_then(|v| v.as_array())
             .is_some_and(|a| !a.is_empty());
-        let patched_image = if has_patches {
-            Cow::Owned(
-                composite_patches_on_image(&loaded_image.image, &adjustments_clone).unwrap_or_else(
-                    |e| {
+        let settings = load_settings(app_handle.clone()).unwrap_or_default();
+        let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
+
+        if state.processing_active.load(Ordering::SeqCst) {
+            return;
+        }
+
+        let _guard = state.uncropped_preview_work_mutex.lock().unwrap();
+        if state.uncropped_preview_seq.load(Ordering::SeqCst) != my_seq {
+            log::info!("Uncropped preview superseded before geometry, skipping");
+            return;
+        }
+
+        let geo_base = if cfg!(target_os = "android") && {
+            let (w, h) = loaded_image.image.dimensions();
+            w > preview_dim || h > preview_dim
+        } {
+            if has_patches {
+                let patched = composite_patches_on_image(&loaded_image.image, &adjustments_clone)
+                    .unwrap_or_else(|e| {
                         eprintln!("Failed to composite patches for uncropped preview: {}", e);
-                        loaded_image.image.as_ref().clone()
-                    },
-                ),
-            )
+                        (*loaded_image.image).clone()
+                    });
+                let (w, h) = patched.dimensions();
+                if w > preview_dim || h > preview_dim {
+                    let scaled = downscale_f32_image(&patched, preview_dim, preview_dim);
+                    drop(patched);
+                    scaled
+                } else {
+                    patched
+                }
+            } else {
+                let (w, h) = loaded_image.image.dimensions();
+                if w > preview_dim || h > preview_dim {
+                    let cache_dim = settings.editor_preview_resolution.unwrap_or(1920).max(2560);
+                    if preview_dim > cache_dim {
+                        // High zoom: go directly from original for full sharpness
+                        downscale_f32_image(&*loaded_image.image, preview_dim, preview_dim)
+                    } else {
+                        // Normal zoom: use cache, then downscale to preview_dim
+                        let cached = state.preview_cache.lock().unwrap().as_ref().map(Arc::clone);
+                        match cached {
+                            Some(cached_img) => {
+                                downscale_f32_image(&cached_img, preview_dim, preview_dim)
+                            }
+                            None => {
+                                let mut cache_lock = state.preview_cache.lock().unwrap();
+                                if let Some(cached_img) = cache_lock.as_ref().map(Arc::clone) {
+                                    drop(cache_lock);
+                                    downscale_f32_image(&cached_img, preview_dim, preview_dim)
+                                } else {
+                                    let cache_img = downscale_f32_image(&*loaded_image.image, cache_dim, cache_dim);
+                                    let result = downscale_f32_image(&cache_img, preview_dim, preview_dim);
+                                    *cache_lock = Some(Arc::new(cache_img));
+                                    result
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    (*loaded_image.image).clone()
+                }
+            }
+        } else if has_patches {
+            composite_patches_on_image(&loaded_image.image, &adjustments_clone)
+                .unwrap_or_else(|e| {
+                    eprintln!("Failed to composite patches for uncropped preview: {}", e);
+                    (*loaded_image.image).clone()
+                })
         } else {
-            Cow::Borrowed(loaded_image.image.as_ref())
+            (*loaded_image.image).clone()
         };
 
-        let warped_image = apply_geometry_warp(patched_image, &adjustments_clone);
+        let warped_image = apply_geometry_warp(Cow::Owned(geo_base), &adjustments_clone);
 
         let orientation_steps = adjustments_clone["orientationSteps"].as_u64().unwrap_or(0) as u8;
         let coarse_rotated_image = apply_coarse_rotation(warped_image, orientation_steps);
@@ -754,26 +907,9 @@ fn generate_uncropped_preview(
             .unwrap_or(false);
         let flip_vertical = adjustments_clone["flipVertical"].as_bool().unwrap_or(false);
 
-        let flipped_image =
+        let processing_base =
             apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical).into_owned();
-
-        let settings = load_settings(app_handle.clone()).unwrap_or_default();
-        let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
-
-        let (rotated_w, rotated_h) = flipped_image.dimensions();
-
-        let (processing_base, scale_for_gpu) = if rotated_w > preview_dim || rotated_h > preview_dim
-        {
-            let base = downscale_f32_image(&flipped_image, preview_dim, preview_dim);
-            let scale = if rotated_w > 0 {
-                base.width() as f32 / rotated_w as f32
-            } else {
-                1.0
-            };
-            (base, scale)
-        } else {
-            (flipped_image.clone(), 1.0)
-        };
+        let scale_for_gpu = 1.0;
 
         let (preview_width, preview_height) = processing_base.dimensions();
 
@@ -803,6 +939,11 @@ fn generate_uncropped_preview(
         let lut_path = adjustments_clone["lutPath"].as_str();
         let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
+        if state.uncropped_preview_seq.load(Ordering::SeqCst) != my_seq {
+            log::info!("Uncropped preview superseded, skipping GPU pipeline");
+            return;
+        }
+
         if let Ok(processed_image) = process_and_get_dynamic_image(
             &context,
             &state,
@@ -823,9 +964,21 @@ fn generate_uncropped_preview(
                 .encode_rgb(&rgb_pixels, width, height)
             {
                 Ok(bytes) => {
-                    let base64_str = general_purpose::STANDARD.encode(&bytes);
-                    let data_url = format!("data:image/jpeg;base64,{}", base64_str);
-                    let _ = app_handle.emit("preview-update-uncropped", data_url);
+                    let should_emit = {
+                        let mut last = state.uncropped_last_emit.lock().unwrap();
+                        let now = Instant::now();
+                        if now.duration_since(*last).as_millis() >= 500 {
+                            *last = now;
+                            true
+                        } else {
+                            false
+                        }
+                    };
+                    if should_emit {
+                        let base64_str = general_purpose::STANDARD.encode(&bytes);
+                        let data_url = format!("data:image/jpeg;base64,{}", base64_str);
+                        let _ = app_handle.emit("preview-update-uncropped", data_url);
+                    }
                 }
                 Err(e) => {
                     log::error!("Failed to encode uncropped preview with mozjpeg-rs: {}", e);
@@ -1552,8 +1705,9 @@ fn generate_preview_for_path(
         }
     };
 
+    let geo_base = Cow::Owned(base_image);
     let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(Cow::Borrowed(&base_image), &js_adjustments);
+        apply_all_transformations(geo_base, &js_adjustments);
     let (img_w, img_h) = transformed_image.dimensions();
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
         .get("masks")
@@ -2282,8 +2436,13 @@ pub fn run() {
             thumbnail_geometry_cache: Mutex::new(HashMap::new()),
             lens_db: Mutex::new(None),
             load_image_generation: Arc::new(AtomicUsize::new(0)),
+            uncropped_preview_seq: AtomicUsize::new(0),
+            uncropped_preview_work_mutex: Mutex::new(()),
+            uncropped_last_emit: Mutex::new(Instant::now()),
             full_warped_cache: Mutex::new(None),
             full_transformed_cache: Mutex::new(None),
+            preview_cache: Mutex::new(None),
+            processing_active: AtomicBool::new(false),
             decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
             thumbnail_manager: ThumbnailManager::new(),
             metadata_manager: MetadataManager::new(),

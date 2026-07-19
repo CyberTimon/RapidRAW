@@ -37,6 +37,11 @@ pub async fn generate_manual_cleanup_patch(
     let composited = composite_patches_on_image(&base_image, &source_image_adjustments)
         .map_err(|e| format!("Failed to prepare source image: {}", e))?;
 
+    let composited = match composited {
+        DynamicImage::ImageRgb8(img) => DynamicImage::ImageRgba32F(DynamicImage::ImageRgb8(img).to_rgba32f()),
+        other => other,
+    };
+
     let source_image = if is_raw {
         apply_linear_to_srgb(composited)
     } else {
@@ -345,6 +350,11 @@ pub async fn invoke_generative_replace_with_mask_def(
     let (base_image, _) = crate::get_original_image(&state)?;
     let composited = composite_patches_on_image(&base_image, &source_image_adjustments)
         .map_err(|e| format!("Failed to prepare source image: {}", e))?;
+
+    let composited = match composited {
+        DynamicImage::ImageRgb8(img) => DynamicImage::ImageRgba32F(DynamicImage::ImageRgb8(img).to_rgba32f()),
+        other => other,
+    };
 
     let source_image = if is_raw {
         apply_linear_to_srgb(composited)

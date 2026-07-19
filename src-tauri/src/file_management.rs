@@ -1272,7 +1272,25 @@ pub fn generate_thumbnail_data(
             let mut raw_scale_factor = 1.0f32;
 
             let composite_image = if let Some(img) = preloaded_image {
-                image_loader::composite_patches_on_image(img, &adjustments)?
+                let has_no_patches = !adjustments
+                    .get("aiPatches")
+                    .and_then(|v| v.as_array())
+                    .is_some_and(|a| !a.is_empty());
+                if has_no_patches {
+                    let cached_base = state.preview_cache.lock().unwrap().as_ref().map(Arc::clone);
+                    if let Some(cached_img) = cached_base {
+                        let (cw, ch) = cached_img.dimensions();
+                        if cw >= target_res || ch >= target_res {
+                            cached_img.as_ref().clone()
+                        } else {
+                            image_loader::composite_patches_on_image(img, &adjustments)?
+                        }
+                    } else {
+                        image_loader::composite_patches_on_image(img, &adjustments)?
+                    }
+                } else {
+                    image_loader::composite_patches_on_image(img, &adjustments)?
+                }
             } else {
                 let mmap_guard;
                 let vec_guard;
