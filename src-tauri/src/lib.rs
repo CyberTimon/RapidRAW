@@ -74,7 +74,7 @@ use crate::cache_utils::{
     DecodedImageCache, GEOMETRY_KEYS, calculate_full_job_hash, calculate_geometry_hash,
     calculate_transform_hash, calculate_visual_hash,
 };
-use crate::file_management::{parse_virtual_path, read_file_mapped};
+use crate::file_management::{parse_virtual_path, read_file_bytes};
 use crate::formats::is_raw_file;
 use crate::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
 use crate::image_loader::{composite_patches_on_image, load_and_composite};
@@ -1523,34 +1523,16 @@ fn generate_preview_for_path(
     let is_raw = is_raw_file(&source_path_str);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-    let base_image = match read_file_mapped(&source_path) {
-        Ok(mmap) => load_and_composite(
-            &mmap,
-            &source_path_str,
-            &js_adjustments,
-            false,
-            &settings,
-            None,
-        )
-        .map_err(|e| e.to_string())?,
-        Err(e) => {
-            log::warn!(
-                "Failed to memory-map file '{}': {}. Falling back to standard read.",
-                source_path_str,
-                e
-            );
-            let bytes = fs::read(&source_path).map_err(|io_err| io_err.to_string())?;
-            load_and_composite(
-                &bytes,
-                &source_path_str,
-                &js_adjustments,
-                false,
-                &settings,
-                None,
-            )
-            .map_err(|e| e.to_string())?
-        }
-    };
+    let bytes = read_file_bytes(&source_path).map_err(|e| e.to_string())?;
+    let base_image = load_and_composite(
+        &bytes,
+        &source_path_str,
+        &js_adjustments,
+        false,
+        &settings,
+        None,
+    )
+    .map_err(|e| e.to_string())?;
 
     let (transformed_image, unscaled_crop_offset) =
         apply_all_transformations(Cow::Borrowed(&base_image), &js_adjustments);

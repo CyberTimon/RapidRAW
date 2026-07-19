@@ -2,7 +2,7 @@ use crate::Cursor;
 use crate::app_settings::{AppSettings, load_settings};
 use crate::app_state::{AppState, LoadedImage};
 use crate::exif_processing;
-use crate::file_management::{parse_virtual_path, read_file_mapped};
+use crate::file_management::{parse_virtual_path, read_file_bytes};
 use crate::formats::is_raw_file;
 use crate::image_processing::ImageMetadata;
 use crate::image_processing::{
@@ -18,7 +18,6 @@ use rayon::prelude::*;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::fs;
 use std::panic;
 use std::path::Path;
 use std::sync::OnceLock;
@@ -800,50 +799,25 @@ pub async fn load_image(
                 return Err("Load cancelled".to_string());
             }
 
-            let result: Result<(DynamicImage, HashMap<String, String>), String> =
-                (|| match read_file_mapped(Path::new(&path_clone)) {
-                    Ok(mmap) => {
-                        if generation_tracker.load(Ordering::SeqCst) != my_generation {
-                            return Err("Load cancelled".to_string());
-                        }
+            let result: Result<(DynamicImage, HashMap<String, String>), String> = (|| {
+                let bytes = read_file_bytes(Path::new(&path_clone))
+                    .map_err(|e| format!("Failed to read {}: {}", path_clone, e))?;
 
-                        let img = load_base_image_from_bytes(
-                            &mmap,
-                            &path_clone,
-                            false,
-                            &settings,
-                            cancel_token.clone(),
-                        )
-                        .map_err(|e| e.to_string())?;
-                        let exif = exif_processing::read_exif_data(&path_clone, &mmap);
-                        Ok((img, exif))
-                    }
-                    Err(e) => {
-                        log::warn!(
-                            "Failed to memory-map file '{}': {}. Falling back to standard read.",
-                            path_clone,
-                            e
-                        );
-                        let bytes = fs::read(&path_clone).map_err(|io_err| {
-                            format!("Fallback read failed for {}: {}", path_clone, io_err)
-                        })?;
+                if generation_tracker.load(Ordering::SeqCst) != my_generation {
+                    return Err("Load cancelled".to_string());
+                }
 
-                        if generation_tracker.load(Ordering::SeqCst) != my_generation {
-                            return Err("Load cancelled".to_string());
-                        }
-
-                        let img = load_base_image_from_bytes(
-                            &bytes,
-                            &path_clone,
-                            false,
-                            &settings,
-                            cancel_token.clone(),
-                        )
-                        .map_err(|e| e.to_string())?;
-                        let exif = exif_processing::read_exif_data(&path_clone, &bytes);
-                        Ok((img, exif))
-                    }
-                })();
+                let img = load_base_image_from_bytes(
+                    &bytes,
+                    &path_clone,
+                    false,
+                    &settings,
+                    cancel_token.clone(),
+                )
+                .map_err(|e| e.to_string())?;
+                let exif = exif_processing::read_exif_data(&path_clone, &bytes);
+                Ok((img, exif))
+            })();
             result
         })
         .await

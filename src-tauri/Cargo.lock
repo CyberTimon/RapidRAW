@@ -34,7 +34,6 @@ dependencies = [
  "libc",
  "little_exif",
  "log",
- "memmap2",
  "mimalloc",
  "mozjpeg-rs",
  "nalgebra",
