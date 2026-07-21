@@ -517,7 +517,7 @@ export default function MainLibrary(props: MainLibraryProps) {
 
   if (libraryDisplayMode === LibraryDisplayMode.Loupe && props.imageList.length > 0) {
     return (
-      <div className="flex-1 flex h-full min-h-0 overflow-hidden bg-[#0a0b0d]">
+      <div className="flex-1 flex h-full min-h-0 min-w-0 overflow-hidden rounded-lg bg-bg-secondary">
         <CullingLoupeView
           activePath={props.activePath}
           currentFolderPath={props.currentFolderPath}

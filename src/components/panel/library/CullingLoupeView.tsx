@@ -18,16 +18,7 @@ import {
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import clsx from 'clsx';
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import { useShallow } from 'zustand/react/shallow';
@@ -299,7 +290,7 @@ const LoupeCanvas = forwardRef<LoupeCanvasHandle, LoupeCanvasProps>(function Lou
     <div
       ref={containerRef}
       className={clsx(
-        'relative h-full w-full overflow-hidden bg-[#0a0b0d] touch-none',
+        'relative h-full w-full overflow-hidden bg-black touch-none',
         zoom > 1 + ZOOM_EPSILON ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in',
       )}
       onDoubleClick={handleDoubleClick}
@@ -336,14 +327,18 @@ const LoupeCanvas = forwardRef<LoupeCanvasHandle, LoupeCanvasProps>(function Lou
 function ToolButton({
   children,
   className,
+  tone = 'theme',
   tooltip,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { tooltip: string }) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: 'overlay' | 'theme'; tooltip: string }) {
   return (
     <button
       className={clsx(
         'flex h-9 min-w-9 items-center justify-center gap-2 rounded-md px-2.5 text-sm font-medium',
-        'text-white/75 hover:bg-white/10 hover:text-white active:scale-[0.97]',
+        tone === 'overlay'
+          ? 'text-white/75 hover:bg-white/10 hover:text-white'
+          : 'text-text-secondary hover:bg-surface hover:text-text-primary',
+        'active:scale-[0.97]',
         'transition-[transform,background-color,color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)]',
         'disabled:pointer-events-none disabled:opacity-35 motion-reduce:transition-none',
         className,
@@ -361,7 +356,7 @@ function ShortcutKey({ children }: { children: string }) {
   return (
     <kbd
       aria-hidden="true"
-      className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-white/10 bg-black/20 px-1 text-[10px] font-semibold leading-none text-white/55"
+      className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border-color bg-bg-primary px-1 text-[10px] font-semibold leading-none text-text-secondary"
     >
       {children}
     </kbd>
@@ -443,19 +438,6 @@ export default function CullingLoupeView({
     [cullingFlags, imageList],
   );
   const clearablePaths = useMemo(() => uniquePhysicalPaths(imageList), [imageList]);
-
-  useLayoutEffect(() => {
-    const previous = useUIStore.getState();
-    setUI({ isFullScreen: true, isInstantTransition: true });
-    const frame = requestAnimationFrame(() => setUI({ isInstantTransition: previous.isInstantTransition }));
-    return () => {
-      cancelAnimationFrame(frame);
-      setUI((state) => ({
-        ...(state.isFullScreen ? { isFullScreen: previous.isFullScreen } : {}),
-        ...(state.isInstantTransition ? { isInstantTransition: previous.isInstantTransition } : {}),
-      }));
-    };
-  }, [setUI]);
 
   useEffect(() => {
     if (filteredImages.length === 0) {
@@ -732,18 +714,18 @@ export default function CullingLoupeView({
 
   return (
     <section
-      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#0a0b0d] text-white"
+      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-bg-secondary text-text-primary"
       aria-label={t('library.loupe.title', { defaultValue: 'Photo review' })}
     >
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-white/10 bg-[#111316] px-3">
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-surface bg-bg-secondary px-3">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-white">
+          <div className="truncate text-sm font-semibold text-text-primary">
             {fileName || t('library.loupe.noPhoto', { defaultValue: 'No photo' })}
           </div>
-          <div className="truncate text-xs text-white/45">{currentFolderPath}</div>
+          <div className="truncate text-xs text-text-secondary">{currentFolderPath}</div>
         </div>
 
-        <div className="shrink-0 tabular-nums text-sm text-white/55">
+        <div className="shrink-0 tabular-nums text-sm text-text-secondary">
           {overallIndex >= 0 ? overallIndex + 1 : 0} / {imageList.length}
         </div>
 
@@ -755,7 +737,7 @@ export default function CullingLoupeView({
             <Sparkles size={17} />
           </ToolButton>
           <ToolButton
-            className={comparePaths.size > 0 ? 'bg-white/12 text-white' : undefined}
+            className={comparePaths.size > 0 ? 'bg-surface text-text-primary' : undefined}
             onClick={enterCompare}
             tooltip={t('library.loupe.compare', { defaultValue: 'Open comparison view' })}
           >
@@ -763,7 +745,7 @@ export default function CullingLoupeView({
             {comparePaths.size > 0 && <span className="tabular-nums">{comparePaths.size}</span>}
           </ToolButton>
           <ToolButton
-            className={showFilmstrip ? 'bg-white/12 text-white' : undefined}
+            className={showFilmstrip ? 'bg-surface text-text-primary' : undefined}
             onClick={() => setShowFilmstrip((value) => !value)}
             tooltip={t('library.loupe.toggleFilmstrip', { defaultValue: 'Toggle filmstrip' })}
           >
@@ -775,7 +757,7 @@ export default function CullingLoupeView({
         </div>
       </header>
 
-      <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#111316] px-3">
+      <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-surface bg-bg-secondary px-3">
         <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
           {filterOptions.map((option) => (
             <button
@@ -784,13 +766,20 @@ export default function CullingLoupeView({
               className={clsx(
                 'flex h-8 shrink-0 items-center gap-2 rounded-md px-3 text-xs font-medium active:scale-[0.97]',
                 'transition-[transform,background-color,color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
-                filter === option.id ? 'bg-white text-black' : 'text-white/55 hover:bg-white/8 hover:text-white',
+                filter === option.id
+                  ? 'bg-accent text-button-text'
+                  : 'text-text-secondary hover:bg-surface hover:text-text-primary',
               )}
               onClick={() => setFilter(option.id)}
               type="button"
             >
               {option.label}
-              <span className={clsx('tabular-nums', filter === option.id ? 'text-black/55' : 'text-white/35')}>
+              <span
+                className={clsx(
+                  'tabular-nums',
+                  filter === option.id ? 'text-button-text/60' : 'text-text-secondary/65',
+                )}
+              >
                 {option.count}
               </span>
             </button>
@@ -798,10 +787,10 @@ export default function CullingLoupeView({
         </div>
         <Switch
           checked={autoAdvance}
-          className="w-36 shrink-0 gap-3 text-white [&_span]:text-white/65"
+          className="w-36 shrink-0 gap-3 text-text-primary [&_span]:text-text-secondary"
           label={t('library.loupe.autoAdvance', { defaultValue: 'Auto advance' })}
           onChange={setAutoAdvance}
-          trackClassName="bg-white/12"
+          trackClassName="bg-surface"
         />
       </div>
 
@@ -841,6 +830,7 @@ export default function CullingLoupeView({
             <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-md bg-black/55 p-1 backdrop-blur-sm">
               <ToolButton
                 onClick={() => goToRelative(-1)}
+                tone="overlay"
                 tooltip={t('library.loupe.previous', { defaultValue: 'Previous photo' })}
               >
                 <ChevronLeft size={18} />
@@ -851,6 +841,7 @@ export default function CullingLoupeView({
                 className="!min-w-9 !px-0"
                 disabled={!zoomState.canZoomOut}
                 onClick={() => loupeCanvasRef.current?.zoomOut()}
+                tone="overlay"
                 tooltip={t('modals.transform.zoomOutTooltip', { defaultValue: 'Zoom out' })}
               >
                 <ZoomOut size={18} />
@@ -869,6 +860,7 @@ export default function CullingLoupeView({
                 className="!min-w-9 !px-0"
                 disabled={!zoomState.canZoomIn}
                 onClick={() => loupeCanvasRef.current?.zoomIn()}
+                tone="overlay"
                 tooltip={t('modals.transform.zoomInTooltip', { defaultValue: 'Zoom in' })}
               >
                 <ZoomIn size={18} />
@@ -876,6 +868,7 @@ export default function CullingLoupeView({
               <span aria-hidden="true" className="mx-1 h-5 w-px bg-white/15" />
               <ToolButton
                 onClick={() => goToRelative(1)}
+                tone="overlay"
                 tooltip={t('library.loupe.next', { defaultValue: 'Next photo' })}
               >
                 <ChevronRight size={18} />
@@ -883,7 +876,7 @@ export default function CullingLoupeView({
             </div>
           </>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-white/35">
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-text-secondary">
             <ImageIcon size={32} />
             <span className="text-sm">
               {t('library.loupe.noPhotosInFilter', { defaultValue: 'No photos in this view' })}
@@ -893,7 +886,7 @@ export default function CullingLoupeView({
       </div>
 
       {showFilmstrip && (
-        <div className="flex h-24 shrink-0 items-center gap-2 overflow-x-auto border-t border-white/10 bg-[#111316] px-3 py-2">
+        <div className="flex h-24 shrink-0 items-center gap-2 overflow-x-auto border-t border-surface bg-bg-primary px-3 py-2">
           {filteredImages.map((image) => {
             const flag = cullingFlags[image.path] ?? null;
             const isCurrent = currentImage?.path === image.path;
@@ -907,9 +900,11 @@ export default function CullingLoupeView({
                 }}
                 aria-current={isCurrent ? 'true' : undefined}
                 className={clsx(
-                  'relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-white/5 active:scale-[0.97]',
+                  'relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-surface active:scale-[0.97]',
                   'transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
-                  isCurrent ? 'ring-2 ring-white ring-offset-2 ring-offset-[#111316]' : 'opacity-70 hover:opacity-100',
+                  isCurrent
+                    ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg-primary'
+                    : 'opacity-70 hover:opacity-100',
                 )}
                 onClick={() => {
                   setCurrentPath(image.path);
@@ -938,8 +933,8 @@ export default function CullingLoupeView({
         </div>
       )}
 
-      <footer className="flex min-h-14 shrink-0 items-center gap-3 border-t border-white/10 bg-[#111316] px-3 py-2">
-        <div className="flex min-w-0 flex-1 items-center gap-3 text-xs tabular-nums text-white/50">
+      <footer className="flex min-h-14 shrink-0 items-center gap-3 border-t border-surface bg-bg-secondary px-3 py-2">
+        <div className="flex min-w-0 flex-1 items-center gap-3 text-xs tabular-nums text-text-secondary">
           <span className="text-emerald-400">
             {t('library.loupe.pickCount', { count: cullingCounts.pick, defaultValue: `Picks ${cullingCounts.pick}` })}
           </span>
@@ -957,7 +952,7 @@ export default function CullingLoupeView({
           </span>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 rounded-md bg-white/5 p-1">
+        <div className="flex shrink-0 items-center gap-1 rounded-md bg-surface p-1">
           <ToolButton
             className={currentFlag === 'pick' ? 'bg-emerald-600 text-white hover:bg-emerald-600' : undefined}
             onClick={() => applyFlag('pick')}
@@ -1021,7 +1016,7 @@ export default function CullingLoupeView({
             </div>
           ) : (
             <ToolButton
-              className="bg-white/8 text-white hover:bg-white/12"
+              className="bg-surface text-text-primary hover:bg-card-active"
               disabled={rejectedImages.length === 0 || isFileActionRunning}
               onClick={archiveRejected}
               tooltip={t('library.loupe.archiveRejects', {
