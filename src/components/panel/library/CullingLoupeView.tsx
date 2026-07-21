@@ -188,6 +188,17 @@ function ToolButton({
   );
 }
 
+function ShortcutKey({ children }: { children: string }) {
+  return (
+    <kbd
+      aria-hidden="true"
+      className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-white/10 bg-black/20 px-1 text-[10px] font-semibold leading-none text-white/55"
+    >
+      {children}
+    </kbd>
+  );
+}
+
 export default function CullingLoupeView({
   activePath,
   currentFolderPath,
@@ -753,6 +764,7 @@ export default function CullingLoupeView({
           >
             <Check size={17} />
             <span className="hidden md:inline">{t('library.loupe.pick', { defaultValue: 'Pick' })}</span>
+            <ShortcutKey>P</ShortcutKey>
           </ToolButton>
           <ToolButton
             className={currentFlag === 'reject' ? 'bg-red-600 text-white hover:bg-red-600' : undefined}
@@ -761,12 +773,14 @@ export default function CullingLoupeView({
           >
             <X size={17} />
             <span className="hidden md:inline">{t('library.loupe.reject', { defaultValue: 'Reject' })}</span>
+            <ShortcutKey>X</ShortcutKey>
           </ToolButton>
           <ToolButton
             onClick={() => applyFlag(null)}
             tooltip={t('library.loupe.unflag', { defaultValue: 'Clear flag' })}
           >
             <RotateCcw size={16} />
+            <ShortcutKey>U</ShortcutKey>
           </ToolButton>
         </div>
 
