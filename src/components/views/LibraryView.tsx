@@ -10,7 +10,13 @@ import { useEditorStore } from '../../store/useEditorStore';
 import { useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
-import { ImageFile, LibraryViewMode, ThumbnailAspectRatio, ThumbnailSize } from '../ui/AppProperties';
+import {
+  ImageFile,
+  LibraryDisplayMode,
+  LibraryViewMode,
+  ThumbnailAspectRatio,
+  ThumbnailSize,
+} from '../ui/AppProperties';
 import { GroupBadgeInfo, GroupId } from '../../utils/imageGrouping';
 
 interface LibraryViewProps {
@@ -153,6 +159,7 @@ export default function LibraryView({
             onImageDoubleClick={handleImageSelect}
             onImportClick={() => handleImportClick(currentFolderPath as string)}
             onLibraryRefresh={handleLibraryRefresh}
+            onRate={handleRate}
             onOpenFolder={handleOpenFolder}
             onSettingsChange={handleSettingsChange}
             onThumbnailAspectRatioChange={setThumbnailAspectRatio}
@@ -167,7 +174,9 @@ export default function LibraryView({
             onNavigateToCommunity={() => setUI({ activeView: 'community' })}
           />
         )}
-        {rootPaths && rootPaths.length > 0 && (
+        {rootPaths &&
+          rootPaths.length > 0 &&
+          appSettings?.libraryDisplayMode !== LibraryDisplayMode.Loupe && (
           <BottomBar
             isCopied={isCopied}
             isCopyDisabled={multiSelectedPaths.length !== 1}

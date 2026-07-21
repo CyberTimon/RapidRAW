@@ -9,6 +9,7 @@ import {
 } from '../components/ui/AppProperties';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
 import { ColumnWidths } from '../components/panel/MainLibrary';
+import { buildCullingIndex, CullingCounts, CullingFlag } from '../utils/cullingFlags';
 
 export interface SearchCriteria {
   tags: string[];
@@ -32,6 +33,8 @@ interface LibraryState {
   // Images & Selection
   imageList: Array<ImageFile>;
   imageRatings: Record<string, number>;
+  cullingFlags: Record<string, CullingFlag>;
+  cullingCounts: CullingCounts;
   multiSelectedPaths: Array<string>;
   selectionAnchorPath: string | null;
   libraryActivePath: string | null;
@@ -69,6 +72,8 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
   imageList: [],
   imageRatings: {},
+  cullingFlags: {},
+  cullingCounts: { total: 0, pick: 0, reject: 0, unflagged: 0 },
   multiSelectedPaths: [],
   selectionAnchorPath: null,
   libraryActivePath: null,
@@ -93,7 +98,14 @@ export const useLibraryStore = create<LibraryState>((set) => ({
     focal: 15,
   },
 
-  setLibrary: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
+  setLibrary: (updater) =>
+    set((state) => {
+      const update = typeof updater === 'function' ? updater(state) : updater;
+      if (!Object.prototype.hasOwnProperty.call(update, 'imageList') || !update.imageList) return update;
+
+      const { flags, counts } = buildCullingIndex(update.imageList);
+      return { ...update, cullingFlags: flags, cullingCounts: counts };
+    }),
 
   clearSelection: () => set({ multiSelectedPaths: [], libraryActivePath: null }),
 

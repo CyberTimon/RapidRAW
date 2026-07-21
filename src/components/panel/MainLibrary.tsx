@@ -16,8 +16,10 @@ import {
   Columns,
   SlidersHorizontal,
   Rows3,
+  Focus,
 } from 'lucide-react';
 import CullingView from './library/CullingView';
+import CullingLoupeView from './library/CullingLoupeView';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
@@ -77,6 +79,7 @@ interface MainLibraryProps {
   onImageDoubleClick(path: string): void;
   onImportClick(): void;
   onLibraryRefresh(): void;
+  onRate(rating: number, paths?: string[]): void;
   onOpenFolder(): void;
   onSettingsChange(settings: AppSettings): Promise<void>;
   onThumbnailAspectRatioChange(aspectRatio: ThumbnailAspectRatio): void;
@@ -126,6 +129,11 @@ function DisplayModeSwitch({ displayMode, setDisplayMode, t }: DisplayModeSwitch
         id: LibraryDisplayMode.Cull,
         Icon: Columns,
         tooltip: t('library.viewMode.culling', { defaultValue: 'Culling View' }),
+      },
+      {
+        id: LibraryDisplayMode.Loupe,
+        Icon: Focus,
+        tooltip: t('library.viewMode.loupe', { defaultValue: 'Photo Review' }),
       },
     ],
     [t],
@@ -503,6 +511,24 @@ export default function MainLibrary(props: MainLibraryProps) {
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (libraryDisplayMode === LibraryDisplayMode.Loupe && props.imageList.length > 0) {
+    return (
+      <div className="flex-1 flex h-full min-h-0 overflow-hidden bg-[#0a0b0d]">
+        <CullingLoupeView
+          activePath={props.activePath}
+          currentFolderPath={props.currentFolderPath}
+          imageList={props.imageList}
+          imageRatings={props.imageRatings}
+          onEnterCompare={() => setLibraryDisplayMode(LibraryDisplayMode.Cull)}
+          onExit={() => setLibraryDisplayMode(LibraryDisplayMode.Grid)}
+          onRate={props.onRate}
+          onRefresh={props.onLibraryRefresh}
+          onRequestThumbnails={props.onRequestThumbnails}
+        />
       </div>
     );
   }

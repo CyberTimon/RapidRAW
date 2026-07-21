@@ -10,6 +10,7 @@ import { ColumnWidths } from '../MainLibrary';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
+import { getCullingFlag } from '../../../utils/cullingFlags';
 
 interface ImageLayer {
   id: string;
@@ -136,6 +137,7 @@ const ThumbnailComponent = ({
         ? 'ring-2 ring-inset ring-hover-color'
         : 'group-hover:ring-2 group-hover:ring-inset group-hover:ring-hover-color';
 
+  const cullingFlag = getCullingFlag(tags);
   const colorTag = tags?.find((t: string) => t.startsWith('color:'))?.substring(6);
   const colorLabel = COLOR_LABELS.find((c: Color) => c.name === colorTag);
 
@@ -431,6 +433,15 @@ const ThumbnailComponent = ({
       <div
         className={clsx('absolute inset-0 rounded-md pointer-events-none z-30 transition-all duration-150', ringClass)}
       />
+      {cullingFlag && (
+        <span
+          className={clsx(
+            'pointer-events-none absolute inset-x-0 bottom-0 z-40 h-1',
+            cullingFlag === 'pick' ? 'bg-emerald-500' : 'bg-red-500',
+          )}
+          data-culling-flag={cullingFlag}
+        />
+      )}
     </div>
   );
 };

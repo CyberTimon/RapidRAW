@@ -28,6 +28,7 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
+import { isCullingFlagTag } from '../../../utils/cullingFlags';
 
 interface SyncViewport {
   isActive: boolean;
@@ -107,7 +108,7 @@ function CullingPreview({
 
   const currentTags = useMemo(() => {
     return (image.tags || [])
-      .filter((t) => !t.startsWith('color:'))
+      .filter((t) => !t.startsWith('color:') && !isCullingFlagTag(t))
       .map((t) => ({
         tag: t.startsWith(USER_TAG_PREFIX) ? t.substring(USER_TAG_PREFIX.length) : t,
         isUser: t.startsWith(USER_TAG_PREFIX),

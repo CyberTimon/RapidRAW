@@ -21,6 +21,7 @@ import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
 import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
 import { CopyPasteSettings } from '../../utils/adjustments';
+import { setCullingFlagForPaths } from '../../hooks/useCullingActions';
 
 export interface AppModalsProps {
   handleImageSelect: (path: string) => void;
@@ -302,7 +303,7 @@ export default function AppModals(props: AppModalsProps) {
         thumbnails={thumbnails}
         onApply={(action, paths) => {
           if (action === 'reject') {
-            props.handleSetColorLabel('red', paths);
+            void setCullingFlagForPaths(paths, 'reject').catch(() => undefined);
           } else if (action === 'rate_zero') {
             props.handleRate(1, paths);
           } else if (action === 'delete') {

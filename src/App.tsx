@@ -48,6 +48,7 @@ import './i18n';
 import {
   Invokes,
   ImageFile,
+  LibraryDisplayMode,
   LibraryViewMode,
   Panel,
   Theme,
@@ -579,6 +580,8 @@ function App() {
 
   const hasRoots = rootPaths && rootPaths.length > 0;
   const hasMainContent = hasRoots || !!selectedImage;
+  const isLibraryLoupe = !selectedImage && appSettings?.libraryDisplayMode === LibraryDisplayMode.Loupe;
+  const isAppChromeHidden = isFullScreen && !isLibraryLoupe;
 
   const renderFolderTree = () => {
     if (!hasRoots) return null;
@@ -616,7 +619,8 @@ function App() {
 
   const shouldHideFolderTree = isAndroid;
   const isWgpuActive = appSettings?.useWgpuRenderer !== false && selectedImage?.isReady && hasRenderedFirstFrame;
-  const useMacWindowShell = osPlatform === 'macos' && !appSettings?.decorations && !isWindowFullScreen && !isFullScreen;
+  const useMacWindowShell =
+    osPlatform === 'macos' && !appSettings?.decorations && !isWindowFullScreen && !isAppChromeHidden;
 
   return (
     <>
@@ -639,7 +643,7 @@ function App() {
           className={clsx(
             'shrink-0 overflow-hidden z-50',
             !isInstantTransition && 'transition-all duration-300 ease-in-out',
-            isFullScreen ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-[60px] opacity-100',
+            isAppChromeHidden ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-[60px] opacity-100',
           )}
         >
           {appSettings?.decorations || (!isWindowFullScreen && <TitleBar />)}
@@ -648,7 +652,7 @@ function App() {
           className={clsx(
             'flex-1 flex flex-col min-h-0',
             isLayoutReady && hasMainContent && !isInstantTransition && 'transition-all duration-300 ease-in-out',
-            [hasMainContent && (isFullScreen ? 'p-0 gap-0' : 'p-2 gap-2')],
+            [hasMainContent && (isAppChromeHidden ? 'p-0 gap-0' : 'p-2 gap-2')],
           )}
         >
           <div className="flex flex-row grow h-full min-h-0">

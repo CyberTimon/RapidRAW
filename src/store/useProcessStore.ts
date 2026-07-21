@@ -36,7 +36,7 @@ let importTimeout: ReturnType<typeof setTimeout>;
 let copyTimeout: ReturnType<typeof setTimeout>;
 let pasteTimeout: ReturnType<typeof setTimeout>;
 
-const MAX_PREVIEW_CACHE_SIZE = 10;
+const MAX_PREVIEW_CACHE_SIZE = 16;
 
 export const useProcessStore = create<ProcessState>((set, get) => ({
   exportState: { errorMessage: '', progress: { current: 0, total: 0 }, status: Status.Idle },
