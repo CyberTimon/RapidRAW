@@ -174,9 +174,7 @@ export default function LibraryView({
             onNavigateToCommunity={() => setUI({ activeView: 'community' })}
           />
         )}
-        {rootPaths &&
-          rootPaths.length > 0 &&
-          appSettings?.libraryDisplayMode !== LibraryDisplayMode.Loupe && (
+        {rootPaths && rootPaths.length > 0 && appSettings?.libraryDisplayMode !== LibraryDisplayMode.Loupe && (
           <BottomBar
             isCopied={isCopied}
             isCopyDisabled={multiSelectedPaths.length !== 1}

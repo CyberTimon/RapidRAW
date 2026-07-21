@@ -103,9 +103,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
     if (imageFiles.length === 0) return [];
 
     const allTagsSets = imageFiles.map((img) => {
-      const tagsWithPrefix = (img.tags || []).filter(
-        (t: string) => !t.startsWith('color:') && !isCullingFlagTag(t),
-      );
+      const tagsWithPrefix = (img.tags || []).filter((t: string) => !t.startsWith('color:') && !isCullingFlagTag(t));
       return new Set(tagsWithPrefix);
     });
 
