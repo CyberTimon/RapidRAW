@@ -18,7 +18,16 @@ import {
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import clsx from 'clsx';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
 import { useShallow } from 'zustand/react/shallow';
@@ -50,7 +59,36 @@ interface FlagHistoryEntry {
   previous: CullingFlag;
 }
 
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface LoupeZoomState {
+  percentage: number;
+  canZoomIn: boolean;
+  canZoomOut: boolean;
+}
+
+interface LoupeCanvasHandle {
+  reset(): void;
+  toggleActualSize(): void;
+  zoomIn(): void;
+  zoomOut(): void;
+}
+
+interface LoupeCanvasProps {
+  image: ImageFile;
+  previewUrl: string | null;
+  thumbnailUrl: string | undefined;
+  isLoading: boolean;
+  onZoomChange(state: LoupeZoomState): void;
+}
+
 const ARCHIVE_FOLDER_NAME = '_archived';
+const MAX_ABSOLUTE_ZOOM = 4;
+const ZOOM_STEP = 1.25;
+const ZOOM_EPSILON = 0.001;
 
 function physicalPath(path: string): string {
   return path.split('?vc=')[0];
@@ -60,61 +98,160 @@ function uniquePhysicalPaths(images: ImageFile[]): string[] {
   return Array.from(new Set(images.filter((image) => !image.is_virtual_copy).map((image) => physicalPath(image.path))));
 }
 
-function LoupeCanvas({
-  image,
-  previewUrl,
-  thumbnailUrl,
-  isLoading,
-  isOneToOne,
-  onToggleZoom,
-}: {
-  image: ImageFile;
-  previewUrl: string | null;
-  thumbnailUrl: string | undefined;
-  isLoading: boolean;
-  isOneToOne: boolean;
-  onToggleZoom(): void;
-}) {
+const LoupeCanvas = forwardRef<LoupeCanvasHandle, LoupeCanvasProps>(function LoupeCanvas(
+  { image, previewUrl, thumbnailUrl, isLoading, onZoomChange },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const pointerIdRef = useRef<number | null>(null);
   const dragOriginRef = useRef({ x: 0, y: 0 });
   const panOriginRef = useRef({ x: 0, y: 0 });
+  const fitScaleRef = useRef(1);
+  const zoomRef = useRef(1);
+  const panRef = useRef<Point>({ x: 0, y: 0 });
+  const loadedImagePathRef = useRef<string | null>(null);
+  const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [oneToOneScale, setOneToOneScale] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const updateScale = useCallback(() => {
+  const reportZoom = useCallback(
+    (nextZoom: number, fitScale = fitScaleRef.current) => {
+      const maxZoom = Math.max(1, MAX_ABSOLUTE_ZOOM / fitScale);
+      onZoomChange({
+        percentage: Math.round(nextZoom * fitScale * 100),
+        canZoomIn: nextZoom < maxZoom - ZOOM_EPSILON,
+        canZoomOut: nextZoom > 1 + ZOOM_EPSILON,
+      });
+    },
+    [onZoomChange],
+  );
+
+  const clampPan = useCallback((nextPan: Point, nextZoom: number): Point => {
     const container = containerRef.current;
     const element = imageRef.current;
-    if (!container || !element?.naturalWidth || !element.naturalHeight) return;
-    const fitScale = Math.min(
-      container.clientWidth / element.naturalWidth,
-      container.clientHeight / element.naturalHeight,
-    );
-    setOneToOneScale(fitScale > 0 ? 1 / fitScale : 1);
+    if (!container || !element?.naturalWidth || !element.naturalHeight) return { x: 0, y: 0 };
+
+    const scaledWidth = element.naturalWidth * fitScaleRef.current * nextZoom;
+    const scaledHeight = element.naturalHeight * fitScaleRef.current * nextZoom;
+    const maxX = Math.max(0, (scaledWidth - container.clientWidth) / 2);
+    const maxY = Math.max(0, (scaledHeight - container.clientHeight) / 2);
+    return {
+      x: Math.min(maxX, Math.max(-maxX, nextPan.x)),
+      y: Math.min(maxY, Math.max(-maxY, nextPan.y)),
+    };
   }, []);
 
-  useEffect(() => {
-    setPan({ x: 0, y: 0 });
-  }, [image.path, isOneToOne]);
+  const updatePan = useCallback(
+    (nextPan: Point, nextZoom = zoomRef.current) => {
+      const clampedPan = clampPan(nextPan, nextZoom);
+      panRef.current = clampedPan;
+      setPan(clampedPan);
+    },
+    [clampPan],
+  );
+
+  const updateViewport = useCallback(
+    (nextZoom: number, nextPan: Point) => {
+      const maxZoom = Math.max(1, MAX_ABSOLUTE_ZOOM / fitScaleRef.current);
+      const clampedZoom = Math.min(maxZoom, Math.max(1, nextZoom));
+      zoomRef.current = clampedZoom;
+      setZoom(clampedZoom);
+      updatePan(nextPan, clampedZoom);
+      reportZoom(clampedZoom);
+    },
+    [reportZoom, updatePan],
+  );
+
+  const zoomTo = useCallback(
+    (nextZoom: number, anchor: Point = { x: 0, y: 0 }) => {
+      const currentZoom = zoomRef.current;
+      const maxZoom = Math.max(1, MAX_ABSOLUTE_ZOOM / fitScaleRef.current);
+      const clampedZoom = Math.min(maxZoom, Math.max(1, nextZoom));
+      const ratio = clampedZoom / currentZoom;
+      updateViewport(clampedZoom, {
+        x: anchor.x - (anchor.x - panRef.current.x) * ratio,
+        y: anchor.y - (anchor.y - panRef.current.y) * ratio,
+      });
+    },
+    [updateViewport],
+  );
+
+  const reset = useCallback(() => updateViewport(1, { x: 0, y: 0 }), [updateViewport]);
+
+  const zoomIn = useCallback(() => zoomTo(zoomRef.current * ZOOM_STEP), [zoomTo]);
+  const zoomOut = useCallback(() => zoomTo(zoomRef.current / ZOOM_STEP), [zoomTo]);
+
+  const toggleActualSize = useCallback(
+    (anchor: Point = { x: 0, y: 0 }) => {
+      const absoluteZoom = zoomRef.current * fitScaleRef.current;
+      const nextZoom = Math.abs(absoluteZoom - 1) < 0.01 ? 1 : 1 / fitScaleRef.current;
+      zoomTo(nextZoom, anchor);
+    },
+    [zoomTo],
+  );
+
+  useImperativeHandle(ref, () => ({ reset, toggleActualSize, zoomIn, zoomOut }), [
+    reset,
+    toggleActualSize,
+    zoomIn,
+    zoomOut,
+  ]);
+
+  const measureFitScale = useCallback(() => {
+    const container = containerRef.current;
+    const element = imageRef.current;
+    if (!container || !element?.naturalWidth || !element.naturalHeight) return null;
+    return Math.min(1, container.clientWidth / element.naturalWidth, container.clientHeight / element.naturalHeight);
+  }, []);
+
+  const handleImageLoad = useCallback(() => {
+    const nextFitScale = measureFitScale();
+    if (!nextFitScale || nextFitScale <= 0) return;
+    const shouldReset = loadedImagePathRef.current !== image.path;
+    loadedImagePathRef.current = image.path;
+    fitScaleRef.current = nextFitScale;
+    if (shouldReset) reset();
+    else updateViewport(zoomRef.current, panRef.current);
+  }, [image.path, measureFitScale, reset, updateViewport]);
+
+  const handleResize = useCallback(() => {
+    const nextFitScale = measureFitScale();
+    if (!nextFitScale || nextFitScale <= 0) return;
+    const previousFitScale = fitScaleRef.current;
+    const wasFit = zoomRef.current <= 1 + ZOOM_EPSILON;
+    const absoluteZoom = zoomRef.current * previousFitScale;
+    fitScaleRef.current = nextFitScale;
+    updateViewport(wasFit ? 1 : absoluteZoom / nextFitScale, panRef.current);
+  }, [measureFitScale, updateViewport]);
 
   useEffect(() => {
-    const observer = new ResizeObserver(updateScale);
+    loadedImagePathRef.current = null;
+    fitScaleRef.current = 1;
+    pointerIdRef.current = null;
+    setIsDragging(false);
+    reset();
+  }, [image.path, reset]);
+
+  useEffect(() => {
+    const observer = new ResizeObserver(handleResize);
     if (containerRef.current) observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [updateScale]);
+  }, [handleResize]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isOneToOne || pointerIdRef.current !== null || event.button !== 0) return;
+    if (zoomRef.current <= 1 + ZOOM_EPSILON || pointerIdRef.current !== null || event.button !== 0) return;
+    event.preventDefault();
     pointerIdRef.current = event.pointerId;
     dragOriginRef.current = { x: event.clientX, y: event.clientY };
-    panOriginRef.current = pan;
+    panOriginRef.current = panRef.current;
+    setIsDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (pointerIdRef.current !== event.pointerId) return;
-    setPan({
+    updatePan({
       x: panOriginRef.current.x + event.clientX - dragOriginRef.current.x,
       y: panOriginRef.current.y + event.clientY - dragOriginRef.current.y,
     });
@@ -123,8 +260,39 @@ function LoupeCanvas({
   const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
     if (pointerIdRef.current !== event.pointerId) return;
     pointerIdRef.current = null;
+    setIsDragging(false);
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
+  const handleDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    event.preventDefault();
+    toggleActualSize({
+      x: event.clientX - rect.left - rect.width / 2,
+      y: event.clientY - rect.top - rect.height / 2,
+    });
+  };
+
+  const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const looksLikeTrackpadScroll =
+      !event.ctrlKey && event.deltaMode === 0 && (Math.abs(event.deltaX) > 0 || Math.abs(event.deltaY) < 40);
+    if (looksLikeTrackpadScroll) {
+      if (zoomRef.current > 1 + ZOOM_EPSILON) {
+        updatePan({ x: panRef.current.x - event.deltaX, y: panRef.current.y - event.deltaY });
+      }
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const intensity = event.ctrlKey ? 0.01 : 0.002;
+    zoomTo(zoomRef.current * Math.exp(-event.deltaY * intensity), {
+      x: event.clientX - rect.left - rect.width / 2,
+      y: event.clientY - rect.top - rect.height / 2,
+    });
   };
 
   return (
@@ -132,13 +300,14 @@ function LoupeCanvas({
       ref={containerRef}
       className={clsx(
         'relative h-full w-full overflow-hidden bg-[#0a0b0d] touch-none',
-        isOneToOne ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in',
+        zoom > 1 + ZOOM_EPSILON ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in',
       )}
-      onDoubleClick={onToggleZoom}
+      onDoubleClick={handleDoubleClick}
       onPointerCancel={handlePointerEnd}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
+      onWheel={handleWheel}
     >
       {(previewUrl || thumbnailUrl) && (
         <img
@@ -146,11 +315,11 @@ function LoupeCanvas({
           alt={physicalPath(image.path).split(/[\\/]/).pop() || ''}
           className="pointer-events-none absolute inset-0 m-auto max-h-full max-w-full select-none object-contain will-change-transform"
           draggable={false}
-          onLoad={updateScale}
+          onLoad={handleImageLoad}
           src={previewUrl || thumbnailUrl}
           style={{
             filter: previewUrl ? 'none' : 'blur(1px)',
-            transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${isOneToOne ? oneToOneScale : 1})`,
+            transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
             transformOrigin: 'center',
           }}
         />
@@ -162,7 +331,7 @@ function LoupeCanvas({
       )}
     </div>
   );
-}
+});
 
 function ToolButton({
   children,
@@ -227,11 +396,16 @@ export default function CullingLoupeView({
   );
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [showFilmstrip, setShowFilmstrip] = useState(true);
-  const [isOneToOne, setIsOneToOne] = useState(false);
+  const [zoomState, setZoomState] = useState<LoupeZoomState>({
+    percentage: 100,
+    canZoomIn: true,
+    canZoomOut: false,
+  });
   const [comparePaths, setComparePaths] = useState<Set<string>>(() => new Set(multiSelectedPaths.slice(0, 4)));
   const [isFileActionRunning, setIsFileActionRunning] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const loupeCanvasRef = useRef<LoupeCanvasHandle>(null);
   const undoStackRef = useRef<FlagHistoryEntry[]>([]);
   const filmstripRefs = useRef(new Map<string, HTMLButtonElement>());
 
@@ -353,7 +527,6 @@ export default function CullingLoupeView({
       const index = Math.max(0, currentIndex);
       const nextIndex = Math.min(filteredImages.length - 1, Math.max(0, index + offset));
       setCurrentPath(filteredImages[nextIndex].path);
-      setIsOneToOne(false);
     },
     [currentIndex, filteredImages],
   );
@@ -376,7 +549,6 @@ export default function CullingLoupeView({
       void setCullingFlagForPaths([currentImage.path], flag).catch(() => undefined);
       if ((options.advance ?? autoAdvance) && nextPath !== currentImage.path) {
         setCurrentPath(nextPath);
-        setIsOneToOne(false);
       }
     },
     [autoAdvance, cullingFlags, currentImage, currentIndex, filteredImages, goToRelative],
@@ -386,7 +558,6 @@ export default function CullingLoupeView({
     const entry = undoStackRef.current.pop();
     if (!entry) return;
     setCurrentPath(entry.path);
-    setIsOneToOne(false);
     void setCullingFlagForPaths([entry.path], entry.previous).catch(() => undefined);
   }, []);
 
@@ -415,12 +586,16 @@ export default function CullingLoupeView({
 
       const key = event.key.toLowerCase();
       const isUndo = key === 'z' && (event.ctrlKey || event.metaKey);
+      const isZoomIn = key === '+' || key === '=';
+      const isZoomOut = key === '-' || key === '_';
       const handled =
         isUndo ||
-        ['p', 'x', 'u', 'c', 'escape', 'arrowleft', 'arrowright', ' ', 'enter'].includes(key) ||
+        isZoomIn ||
+        isZoomOut ||
+        ['p', 'x', 'u', 'c', 'escape', 'arrowleft', 'arrowright', ' ', 'enter', '0'].includes(key) ||
         /^[1-5]$/.test(key);
       if (!handled) return;
-      if (event.repeat && !['arrowleft', 'arrowright'].includes(key)) return;
+      if (event.repeat && !['arrowleft', 'arrowright', '+', '=', '-', '_'].includes(key)) return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -432,7 +607,10 @@ export default function CullingLoupeView({
       else if (key === 'u') applyFlag(null);
       else if (key === 'arrowleft') goToRelative(-1);
       else if (key === 'arrowright') goToRelative(1);
-      else if (key === ' ') setIsOneToOne((value) => !value);
+      else if (key === ' ') loupeCanvasRef.current?.toggleActualSize();
+      else if (isZoomIn) loupeCanvasRef.current?.zoomIn();
+      else if (isZoomOut) loupeCanvasRef.current?.zoomOut();
+      else if (key === '0') loupeCanvasRef.current?.reset();
       else if (key === 'c') toggleComparePath();
       else if (key === 'enter' && comparePaths.size > 0) enterCompare();
       else if (key === 'escape') onExit();
@@ -631,10 +809,11 @@ export default function CullingLoupeView({
         {currentImage ? (
           <>
             <LoupeCanvas
+              ref={loupeCanvasRef}
+              key={currentImage.path}
               image={currentImage}
               isLoading={isPreviewLoading}
-              isOneToOne={isOneToOne}
-              onToggleZoom={() => setIsOneToOne((value) => !value)}
+              onZoomChange={setZoomState}
               previewUrl={previewUrl}
               thumbnailUrl={currentThumbnail}
             />
@@ -666,12 +845,35 @@ export default function CullingLoupeView({
               >
                 <ChevronLeft size={18} />
               </ToolButton>
+              <span aria-hidden="true" className="mx-1 h-5 w-px bg-white/15" />
               <ToolButton
-                onClick={() => setIsOneToOne((value) => !value)}
-                tooltip={t('library.loupe.zoom', { defaultValue: 'Toggle 100% zoom' })}
+                aria-label={t('modals.transform.zoomOutTooltip', { defaultValue: 'Zoom out' })}
+                className="!min-w-9 !px-0"
+                disabled={!zoomState.canZoomOut}
+                onClick={() => loupeCanvasRef.current?.zoomOut()}
+                tooltip={t('modals.transform.zoomOutTooltip', { defaultValue: 'Zoom out' })}
               >
-                {isOneToOne ? <ZoomOut size={18} /> : <ZoomIn size={18} />}
+                <ZoomOut size={18} />
               </ToolButton>
+              <button
+                aria-label={t('modals.transform.resetZoomTooltip', { defaultValue: 'Fit photo to view' })}
+                className="h-9 w-14 shrink-0 rounded-md font-mono text-xs tabular-nums text-white/85 hover:bg-white/10 hover:text-white active:scale-[0.97]"
+                data-tooltip={t('modals.transform.resetZoomTooltip', { defaultValue: 'Fit photo to view' })}
+                onClick={() => loupeCanvasRef.current?.reset()}
+                type="button"
+              >
+                {zoomState.percentage}%
+              </button>
+              <ToolButton
+                aria-label={t('modals.transform.zoomInTooltip', { defaultValue: 'Zoom in' })}
+                className="!min-w-9 !px-0"
+                disabled={!zoomState.canZoomIn}
+                onClick={() => loupeCanvasRef.current?.zoomIn()}
+                tooltip={t('modals.transform.zoomInTooltip', { defaultValue: 'Zoom in' })}
+              >
+                <ZoomIn size={18} />
+              </ToolButton>
+              <span aria-hidden="true" className="mx-1 h-5 w-px bg-white/15" />
               <ToolButton
                 onClick={() => goToRelative(1)}
                 tooltip={t('library.loupe.next', { defaultValue: 'Next photo' })}
@@ -711,7 +913,6 @@ export default function CullingLoupeView({
                 )}
                 onClick={() => {
                   setCurrentPath(image.path);
-                  setIsOneToOne(false);
                 }}
                 type="button"
               >
