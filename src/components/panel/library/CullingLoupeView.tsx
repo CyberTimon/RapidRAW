@@ -77,6 +77,7 @@ interface LoupeCanvasProps {
 }
 
 const ARCHIVE_FOLDER_NAME = '_archived';
+const MAX_COMPARE_PHOTOS = 6;
 const MAX_ABSOLUTE_ZOOM = 4;
 const ZOOM_STEP = 1.25;
 const ZOOM_EPSILON = 0.001;
@@ -396,7 +397,9 @@ export default function CullingLoupeView({
     canZoomIn: true,
     canZoomOut: false,
   });
-  const [comparePaths, setComparePaths] = useState<Set<string>>(() => new Set(multiSelectedPaths.slice(0, 4)));
+  const [comparePaths, setComparePaths] = useState<Set<string>>(
+    () => new Set(multiSelectedPaths.slice(0, MAX_COMPARE_PHOTOS)),
+  );
   const [isFileActionRunning, setIsFileActionRunning] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
@@ -548,8 +551,15 @@ export default function CullingLoupeView({
     setComparePaths((previous) => {
       const next = new Set(previous);
       if (next.has(currentImage.path)) next.delete(currentImage.path);
-      else if (next.size < 4) next.add(currentImage.path);
-      else toast.info(t('library.loupe.compareLimit', { defaultValue: 'You can compare up to 4 photos.' }));
+      else if (next.size < MAX_COMPARE_PHOTOS) next.add(currentImage.path);
+      else {
+        toast.info(
+          t('library.loupe.compareLimit', {
+            max: MAX_COMPARE_PHOTOS,
+            defaultValue: 'You can compare up to {{max}} photos.',
+          }),
+        );
+      }
       return next;
     });
   }, [currentImage, t]);

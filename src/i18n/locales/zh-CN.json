@@ -998,7 +998,7 @@
       "archiveRejects_other": "归档淘汰项（{{count}}）",
       "autoAdvance": "自动前进",
       "compare": "打开对比视图",
-      "compareLimit": "最多可对比 4 张照片。",
+      "compareLimit": "最多可对比 {{max}} 张照片。",
       "emptyArchive_one": "清空归档（1）",
       "emptyArchive_other": "清空归档（{{count}}）",
       "emptyArchiveComplete": "归档内容已移到系统废纸篓。",

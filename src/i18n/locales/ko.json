@@ -996,7 +996,7 @@
       "archiveRejects_other": "Archive rejects ({{count}})",
       "autoAdvance": "Auto advance",
       "compare": "Open comparison view",
-      "compareLimit": "You can compare up to 4 photos.",
+      "compareLimit": "You can compare up to {{max}} photos.",
       "emptyArchive_other": "Empty archive ({{count}})",
       "emptyArchiveComplete": "Archive moved to the system Trash.",
       "emptyArchiveMessage_other": "{{count}} photos and their sidecars will be moved to the system Trash.",
