@@ -22,6 +22,7 @@ export interface CollapsibleSectionsState {
 export interface ConfirmModalState {
   confirmText?: string;
   confirmVariant?: string;
+  initialFocus?: 'cancel' | 'confirm';
   isOpen: boolean;
   message?: string;
   onConfirm?(): void;

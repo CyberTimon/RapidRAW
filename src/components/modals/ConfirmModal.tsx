@@ -8,6 +8,7 @@ interface ConfirmModalProps {
   cancelText?: string;
   confirmText?: string;
   confirmVariant?: string;
+  initialFocus?: 'cancel' | 'confirm';
   isOpen: boolean;
   message?: string;
   onClose(): void;
@@ -19,6 +20,7 @@ export default function ConfirmModal({
   cancelText,
   confirmText,
   confirmVariant = 'primary',
+  initialFocus = 'confirm',
   isOpen,
   message,
   onClose,
@@ -43,7 +45,7 @@ export default function ConfirmModal({
       setShow(false);
       const timer = setTimeout(() => {
         setIsMounted(false);
-      }, 300);
+      }, 200);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
@@ -58,6 +60,7 @@ export default function ConfirmModal({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === 'Enter') {
+        if ((e.target as HTMLElement).closest('button')) return;
         e.preventDefault();
         e.stopPropagation();
         e.nativeEvent.stopImmediatePropagation();
@@ -83,7 +86,7 @@ export default function ConfirmModal({
       className={`
         fixed inset-0 flex items-center justify-center z-50
         bg-black/30 backdrop-blur-xs
-        transition-opacity duration-300 ease-in-out
+        transition-opacity duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none
         ${show ? 'opacity-100' : 'opacity-0'}
       `}
       onClick={onClose}
@@ -92,10 +95,10 @@ export default function ConfirmModal({
       <div
         className={`
           bg-surface rounded-lg shadow-xl p-6 w-full max-w-md
-          transform transition-all duration-300 ease-out
-          ${show ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 -translate-y-4'}
+          transform transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transform-none motion-reduce:transition-none
+          ${show ? 'scale-100 opacity-100 translate-y-0' : 'scale-[0.97] opacity-0 -translate-y-2'}
         `}
-        onClick={(e: any) => e.stopPropagation()}
+        onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
         <Text variant={TextVariants.title} id="confirm-modal-title" className="mb-4">
@@ -105,6 +108,7 @@ export default function ConfirmModal({
         <div className="flex justify-end gap-3 mt-5">
           <Button
             className="bg-bg-primary shadow-transparent hover:bg-bg-primary text-white shadow-none focus:outline-hidden focus:ring-0"
+            autoFocus={initialFocus === 'cancel'}
             onClick={onClose}
             variant="ghost"
             tabIndex={0}
@@ -114,7 +118,7 @@ export default function ConfirmModal({
           <Button
             onClick={handleConfirm}
             variant={confirmVariant}
-            autoFocus={true}
+            autoFocus={initialFocus === 'confirm'}
             className="focus:outline-hidden focus:ring-0 focus:ring-offset-0"
           >
             {resolvedConfirmText}

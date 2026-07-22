@@ -2349,6 +2349,7 @@ pub fn run() {
             file_management::duplicate_file,
             file_management::show_in_finder,
             file_management::delete_files_from_disk,
+            file_management::move_files_to_trash,
             file_management::delete_files_with_associated,
             file_management::save_metadata_and_update_thumbnail,
             file_management::apply_adjustments_to_paths,

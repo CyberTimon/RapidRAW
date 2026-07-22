@@ -3247,10 +3247,8 @@ pub fn show_in_finder(path: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Result<(), String> {
+fn collect_files_for_removal(paths: Vec<String>) -> (HashSet<PathBuf>, HashSet<String>) {
     let mut files_to_trash = HashSet::new();
-
     let mut deletions = HashSet::new();
 
     for path_str in paths {
@@ -3280,6 +3278,13 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
             }
         }
     }
+
+    (files_to_trash, deletions)
+}
+
+#[tauri::command]
+pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Result<(), String> {
+    let (files_to_trash, deletions) = collect_files_for_removal(paths);
 
     if files_to_trash.is_empty() {
         return Ok(());
@@ -3342,6 +3347,31 @@ fn deletion_stem_for(filename: &str) -> Option<&str> {
     Path::new(image_filename)
         .file_stem()
         .and_then(|s| s.to_str())
+}
+
+#[tauri::command]
+pub fn move_files_to_trash(paths: Vec<String>, app_handle: AppHandle) -> Result<(), String> {
+    let (files_to_trash, deletions) = collect_files_for_removal(paths);
+
+    if files_to_trash.is_empty() {
+        return Ok(());
+    }
+
+    let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
+
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        trash::delete_all(&final_paths_to_delete)
+            .map_err(|error| format!("Failed to move files to the system Trash: {error}"))?;
+        sync_album_path_changes(&app_handle, None, Some(&deletions), None);
+        Ok(())
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        let _ = (final_paths_to_delete, deletions, app_handle);
+        Err("Moving files to the system Trash is not supported on this platform.".to_string())
+    }
 }
 
 #[tauri::command]

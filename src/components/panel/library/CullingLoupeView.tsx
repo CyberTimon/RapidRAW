@@ -2,10 +2,12 @@ import {
   Archive,
   ArchiveRestore,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Columns3,
   Image as ImageIcon,
+  Info,
   Loader2,
   PanelBottom,
   RotateCcw,
@@ -25,9 +27,12 @@ import { useShallow } from 'zustand/react/shallow';
 import { setCullingFlagForPaths } from '../../../hooks/useCullingActions';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useProcessStore } from '../../../store/useProcessStore';
+import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { CullingFlag, isArchiveDirectory, joinPath, parentDirectory } from '../../../utils/cullingFlags';
 import { ensureCullingPreview, prefetchCullingPreviews } from '../../../utils/cullingPreview';
+import { getShootingInfo, type ShootingInfo } from '../../../utils/shootingInfo';
+import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
 import { ImageFile, Invokes } from '../../ui/AppProperties';
 import Switch from '../../ui/Switch';
 
@@ -364,6 +369,55 @@ function ShortcutKey({ children }: { children: string }) {
   );
 }
 
+function ShootingInfoStrip({ info }: { info: ShootingInfo }) {
+  const { t } = useTranslation();
+  const items = [
+    {
+      icon: IconShutter,
+      label: t('library.items.tooltipShutterSpeed', { defaultValue: 'Shutter speed' }),
+      value: info.shutter,
+    },
+    {
+      icon: IconAperture,
+      label: t('library.items.tooltipAperture', { defaultValue: 'Aperture' }),
+      value: info.aperture,
+    },
+    {
+      icon: IconIso,
+      label: t('library.items.tooltipIso', { defaultValue: 'ISO' }),
+      value: info.iso,
+    },
+    {
+      icon: IconFocalLength,
+      label: t('library.items.tooltipFocalLength', { defaultValue: 'Focal length' }),
+      value: info.focalLength,
+    },
+  ];
+
+  return (
+    <div
+      aria-label={t('library.loupe.shootingInfo', { defaultValue: 'Shooting information' })}
+      className="pointer-events-auto flex min-w-0 max-w-full overflow-x-auto rounded-md bg-black/55 p-1 text-white/90 shadow-lg backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      role="group"
+    >
+      {items.map(({ icon: Icon, label, value }, index) => (
+        <div
+          key={label}
+          aria-label={`${label}: ${value || '-'}`}
+          className={clsx(
+            'flex h-9 min-w-[5.5rem] shrink-0 items-center gap-1.5 px-2 font-mono text-xs tabular-nums',
+            index > 0 && 'border-l border-white/10',
+          )}
+          data-tooltip={label}
+        >
+          <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-white/55" />
+          <span className="truncate">{value || '--'}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function CullingLoupeView({
   activePath,
   currentFolderPath,
@@ -385,6 +439,12 @@ export default function CullingLoupeView({
     })),
   );
   const thumbnails = useProcessStore((state) => state.thumbnails);
+  const { appSettings, handleSettingsChange } = useSettingsStore(
+    useShallow((state) => ({
+      appSettings: state.appSettings,
+      handleSettingsChange: state.handleSettingsChange,
+    })),
+  );
   const setUI = useUIStore((state) => state.setUI);
   const [filter, setFilter] = useState<CullingFilter>('all');
   const [currentPath, setCurrentPath] = useState(() =>
@@ -401,11 +461,13 @@ export default function CullingLoupeView({
     () => new Set(multiSelectedPaths.slice(0, MAX_COMPARE_PHOTOS)),
   );
   const [isFileActionRunning, setIsFileActionRunning] = useState(false);
+  const [isRejectActionsOpen, setIsRejectActionsOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const loupeCanvasRef = useRef<LoupeCanvasHandle>(null);
   const undoStackRef = useRef<FlagHistoryEntry[]>([]);
   const filmstripRefs = useRef(new Map<string, HTMLButtonElement>());
+  const rejectActionsRef = useRef<HTMLDivElement>(null);
 
   const filteredImages = useMemo(
     () =>
@@ -430,7 +492,9 @@ export default function CullingLoupeView({
   const overallIndex = currentImage ? imageList.findIndex((image) => image.path === currentImage.path) : -1;
   const currentFlag = currentImage ? (cullingFlags[currentImage.path] ?? null) : null;
   const currentRating = currentImage ? imageRatings[currentImage.path] || 0 : 0;
+  const currentShootingInfo = useMemo(() => getShootingInfo(currentImage?.exif), [currentImage?.exif]);
   const isArchivedFolder = isArchiveDirectory(currentFolderPath);
+  const showShootingInfo = appSettings?.showReviewShootingInfo ?? true;
 
   const rejectedImages = useMemo(
     () => imageList.filter((image) => cullingFlags[image.path] === 'reject' && !image.is_virtual_copy),
@@ -441,6 +505,21 @@ export default function CullingLoupeView({
     [cullingFlags, imageList],
   );
   const clearablePaths = useMemo(() => uniquePhysicalPaths(imageList), [imageList]);
+
+  const toggleShootingInfo = useCallback(() => {
+    if (!appSettings) return;
+    void handleSettingsChange({ ...appSettings, showReviewShootingInfo: !showShootingInfo });
+  }, [appSettings, handleSettingsChange, showShootingInfo]);
+
+  useEffect(() => {
+    if (!isRejectActionsOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rejectActionsRef.current?.contains(event.target as Node)) setIsRejectActionsOpen(false);
+    };
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, [isRejectActionsOpen]);
 
   useEffect(() => {
     if (filteredImages.length === 0) {
@@ -577,6 +656,14 @@ export default function CullingLoupeView({
       if (target?.matches('input, textarea, select, [contenteditable="true"]')) return;
 
       const key = event.key.toLowerCase();
+      if (useUIStore.getState().confirmModalState.isOpen) return;
+      if (isRejectActionsOpen && key === 'escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        setIsRejectActionsOpen(false);
+        return;
+      }
       const isUndo = key === 'z' && (event.ctrlKey || event.metaKey);
       const isZoomIn = key === '+' || key === '=';
       const isZoomOut = key === '-' || key === '_';
@@ -617,6 +704,7 @@ export default function CullingLoupeView({
     currentImage,
     enterCompare,
     goToRelative,
+    isRejectActionsOpen,
     onExit,
     onRate,
     toggleComparePath,
@@ -664,6 +752,33 @@ export default function CullingLoupeView({
     );
   }, [rejectedImages, runFileAction, t]);
 
+  const confirmTrashRejected = useCallback(() => {
+    const paths = uniquePhysicalPaths(rejectedImages);
+    if (paths.length === 0) return;
+    setIsRejectActionsOpen(false);
+    setUI({
+      confirmModalState: {
+        confirmText: t('library.loupe.moveToTrash', { defaultValue: 'Move to Trash' }),
+        confirmVariant: 'danger',
+        initialFocus: 'cancel',
+        isOpen: true,
+        message: t('library.loupe.trashRejectsMessage', {
+          rejectCount: paths.length,
+          defaultValue: `Selected rejected photos (${paths.length}) and their sidecars will be moved to the system Trash.`,
+        }),
+        onConfirm: () => {
+          void runFileAction(
+            () => invoke(Invokes.MoveFilesToTrash, { paths }),
+            t('library.loupe.trashRejectsComplete', {
+              defaultValue: 'Rejected photos moved to the system Trash.',
+            }),
+          );
+        },
+        title: t('library.loupe.trashRejectsTitle', { defaultValue: 'Move rejected photos to Trash?' }),
+      },
+    });
+  }, [rejectedImages, runFileAction, setUI, t]);
+
   const restorePicked = useCallback(() => {
     if (!currentFolderPath || !isArchivedFolder) return;
     const paths = uniquePhysicalPaths(pickedImages);
@@ -679,6 +794,7 @@ export default function CullingLoupeView({
     if (clearablePaths.length === 0) return;
     setUI({
       confirmModalState: {
+        initialFocus: 'cancel',
         isOpen: true,
         title: t('library.loupe.emptyArchiveTitle', { defaultValue: 'Empty archive?' }),
         message: t('library.loupe.emptyArchiveMessage', {
@@ -689,7 +805,7 @@ export default function CullingLoupeView({
         confirmVariant: 'danger',
         onConfirm: () => {
           void runFileAction(
-            () => invoke(Invokes.DeleteFilesFromDisk, { paths: clearablePaths }),
+            () => invoke(Invokes.MoveFilesToTrash, { paths: clearablePaths }),
             t('library.loupe.emptyArchiveComplete', { defaultValue: 'Archive moved to the system Trash.' }),
           );
         },
@@ -745,6 +861,16 @@ export default function CullingLoupeView({
             tooltip={t('library.loupe.aiSuggestions', { defaultValue: 'AI culling suggestions' })}
           >
             <Sparkles size={17} />
+          </ToolButton>
+          <ToolButton
+            aria-label={t('library.loupe.shootingInfo', { defaultValue: 'Shooting information' })}
+            aria-pressed={showShootingInfo}
+            className={showShootingInfo ? 'bg-surface text-text-primary' : undefined}
+            disabled={!currentImage}
+            onClick={toggleShootingInfo}
+            tooltip={t('library.loupe.shootingInfo', { defaultValue: 'Shooting information' })}
+          >
+            <Info size={17} />
           </ToolButton>
           <ToolButton
             className={comparePaths.size > 0 ? 'bg-surface text-text-primary' : undefined}
@@ -837,52 +963,55 @@ export default function CullingLoupeView({
                 </span>
               )}
             </div>
-            <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-md bg-black/55 p-1 backdrop-blur-sm">
-              <ToolButton
-                onClick={() => goToRelative(-1)}
-                tone="overlay"
-                tooltip={t('library.loupe.previous', { defaultValue: 'Previous photo' })}
-              >
-                <ChevronLeft size={18} />
-              </ToolButton>
-              <span aria-hidden="true" className="mx-1 h-5 w-px bg-white/15" />
-              <ToolButton
-                aria-label={t('modals.transform.zoomOutTooltip', { defaultValue: 'Zoom out' })}
-                className="!min-w-9 !px-0"
-                disabled={!zoomState.canZoomOut}
-                onClick={() => loupeCanvasRef.current?.zoomOut()}
-                tone="overlay"
-                tooltip={t('modals.transform.zoomOutTooltip', { defaultValue: 'Zoom out' })}
-              >
-                <ZoomOut size={18} />
-              </ToolButton>
-              <button
-                aria-label={t('modals.transform.resetZoomTooltip', { defaultValue: 'Fit photo to view' })}
-                className="h-9 w-14 shrink-0 rounded-md font-mono text-xs tabular-nums text-white/85 hover:bg-white/10 hover:text-white active:scale-[0.97]"
-                data-tooltip={t('modals.transform.resetZoomTooltip', { defaultValue: 'Fit photo to view' })}
-                onClick={() => loupeCanvasRef.current?.reset()}
-                type="button"
-              >
-                {zoomState.percentage}%
-              </button>
-              <ToolButton
-                aria-label={t('modals.transform.zoomInTooltip', { defaultValue: 'Zoom in' })}
-                className="!min-w-9 !px-0"
-                disabled={!zoomState.canZoomIn}
-                onClick={() => loupeCanvasRef.current?.zoomIn()}
-                tone="overlay"
-                tooltip={t('modals.transform.zoomInTooltip', { defaultValue: 'Zoom in' })}
-              >
-                <ZoomIn size={18} />
-              </ToolButton>
-              <span aria-hidden="true" className="mx-1 h-5 w-px bg-white/15" />
-              <ToolButton
-                onClick={() => goToRelative(1)}
-                tone="overlay"
-                tooltip={t('library.loupe.next', { defaultValue: 'Next photo' })}
-              >
-                <ChevronRight size={18} />
-              </ToolButton>
+            <div className="pointer-events-none absolute inset-x-4 bottom-4 flex min-w-0 items-end justify-between gap-3">
+              {showShootingInfo && currentShootingInfo.hasAny && <ShootingInfoStrip info={currentShootingInfo} />}
+              <div className="pointer-events-auto ml-auto flex shrink-0 items-center gap-1 rounded-md bg-black/55 p-1 backdrop-blur-sm">
+                <ToolButton
+                  onClick={() => goToRelative(-1)}
+                  tone="overlay"
+                  tooltip={t('library.loupe.previous', { defaultValue: 'Previous photo' })}
+                >
+                  <ChevronLeft size={18} />
+                </ToolButton>
+                <span aria-hidden="true" className="mx-1 h-5 w-px bg-white/15" />
+                <ToolButton
+                  aria-label={t('modals.transform.zoomOutTooltip', { defaultValue: 'Zoom out' })}
+                  className="!min-w-9 !px-0"
+                  disabled={!zoomState.canZoomOut}
+                  onClick={() => loupeCanvasRef.current?.zoomOut()}
+                  tone="overlay"
+                  tooltip={t('modals.transform.zoomOutTooltip', { defaultValue: 'Zoom out' })}
+                >
+                  <ZoomOut size={18} />
+                </ToolButton>
+                <button
+                  aria-label={t('modals.transform.resetZoomTooltip', { defaultValue: 'Fit photo to view' })}
+                  className="h-9 w-14 shrink-0 rounded-md font-mono text-xs tabular-nums text-white/85 hover:bg-white/10 hover:text-white active:scale-[0.97]"
+                  data-tooltip={t('modals.transform.resetZoomTooltip', { defaultValue: 'Fit photo to view' })}
+                  onClick={() => loupeCanvasRef.current?.reset()}
+                  type="button"
+                >
+                  {zoomState.percentage}%
+                </button>
+                <ToolButton
+                  aria-label={t('modals.transform.zoomInTooltip', { defaultValue: 'Zoom in' })}
+                  className="!min-w-9 !px-0"
+                  disabled={!zoomState.canZoomIn}
+                  onClick={() => loupeCanvasRef.current?.zoomIn()}
+                  tone="overlay"
+                  tooltip={t('modals.transform.zoomInTooltip', { defaultValue: 'Zoom in' })}
+                >
+                  <ZoomIn size={18} />
+                </ToolButton>
+                <span aria-hidden="true" className="mx-1 h-5 w-px bg-white/15" />
+                <ToolButton
+                  onClick={() => goToRelative(1)}
+                  tone="overlay"
+                  tooltip={t('library.loupe.next', { defaultValue: 'Next photo' })}
+                >
+                  <ChevronRight size={18} />
+                </ToolButton>
+              </div>
             </div>
           </>
         ) : (
@@ -1025,23 +1154,57 @@ export default function CullingLoupeView({
               </ToolButton>
             </div>
           ) : (
-            <ToolButton
-              className="bg-surface text-text-primary hover:bg-card-active"
-              disabled={rejectedImages.length === 0 || isFileActionRunning}
-              onClick={archiveRejected}
-              tooltip={t('library.loupe.archiveRejects', {
-                count: rejectedImages.length,
-                defaultValue: 'Archive rejects',
-              })}
-            >
-              {isFileActionRunning ? <Loader2 size={17} className="animate-spin" /> : <Archive size={17} />}
-              <span className="hidden lg:inline">
-                {t('library.loupe.archiveRejects', {
+            <div ref={rejectActionsRef} className="relative flex items-center gap-1">
+              <ToolButton
+                className="bg-surface text-text-primary hover:bg-card-active"
+                disabled={rejectedImages.length === 0 || isFileActionRunning}
+                onClick={archiveRejected}
+                tooltip={t('library.loupe.archiveRejects', {
                   count: rejectedImages.length,
-                  defaultValue: `Archive rejects (${rejectedImages.length})`,
+                  defaultValue: 'Archive rejects',
                 })}
-              </span>
-            </ToolButton>
+              >
+                {isFileActionRunning ? <Loader2 size={17} className="animate-spin" /> : <Archive size={17} />}
+                <span className="hidden lg:inline">
+                  {t('library.loupe.archiveRejects', {
+                    count: rejectedImages.length,
+                    defaultValue: `Archive rejects (${rejectedImages.length})`,
+                  })}
+                </span>
+              </ToolButton>
+              <ToolButton
+                aria-controls="review-reject-actions"
+                aria-expanded={isRejectActionsOpen}
+                aria-haspopup="menu"
+                aria-label={t('library.loupe.moreRejectActions', { defaultValue: 'More reject actions' })}
+                className="bg-surface !px-2 text-text-primary hover:bg-card-active"
+                disabled={rejectedImages.length === 0 || isFileActionRunning}
+                onClick={() => setIsRejectActionsOpen((value) => !value)}
+                tooltip={t('library.loupe.moreRejectActions', { defaultValue: 'More reject actions' })}
+              >
+                <ChevronDown size={16} />
+              </ToolButton>
+              {isRejectActionsOpen && (
+                <div
+                  id="review-reject-actions"
+                  className="absolute bottom-full right-0 z-30 mb-2 w-64 origin-bottom-right rounded-md border border-border-color bg-surface p-1.5 shadow-xl"
+                  role="menu"
+                >
+                  <button
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-red-300 transition-[transform,background-color,color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-red-500/15 hover:text-red-200 active:scale-[0.97] motion-reduce:transition-none"
+                    onClick={confirmTrashRejected}
+                    role="menuitem"
+                    type="button"
+                  >
+                    <Trash2 aria-hidden="true" className="shrink-0" size={16} />
+                    <span className="min-w-0 flex-1 truncate">
+                      {t('library.loupe.moveRejectsToTrash', { defaultValue: 'Move rejects to Trash' })}
+                    </span>
+                    <span className="tabular-nums text-text-secondary">{rejectedImages.length}</span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </footer>

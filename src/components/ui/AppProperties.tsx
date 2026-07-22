@@ -78,6 +78,7 @@ export enum Invokes {
   LoadMetadata = 'load_metadata',
   LoadPresets = 'load_presets',
   LoadSettings = 'load_settings',
+  MoveFilesToTrash = 'move_files_to_trash',
   MoveFiles = 'move_files',
   ReadExifForPaths = 'read_exif_for_paths',
   RemoveTagForPaths = 'remove_tag_for_paths',
@@ -215,6 +216,7 @@ export interface AppSettings {
   openTreeSections?: string[];
   folderIcons?: Record<string, string>;
   exifOverlay?: ExifOverlay;
+  showReviewShootingInfo?: boolean;
   language?: string;
   fontFamily?: string;
   folderTreeSort?: FolderTreeSort;
