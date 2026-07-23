@@ -201,6 +201,7 @@
       "copyHere_one": "여기에 이미지 복사",
       "copyHere_other": "여기에 이미지 {{count}}개 복사",
       "deleteFolder": "폴더 삭제",
+      "generateThumbnails": "모든 썸네일 생성",
       "importImages": "이미지 가져오기",
       "moveHere_one": "여기로 이미지 이동",
       "moveHere_other": "여기로 이미지 {{count}}개 이동",
@@ -208,6 +209,7 @@
       "paste": "붙여넣기",
       "pin": "폴더 고정",
       "refresh": "폴더 새로고침",
+      "retagWithAi": "AI로 콘텐츠 다시 태그",
       "removeRoot": "루트 폴더 제거",
       "renameFolder": "폴더 이름 변경",
       "showExplorer": "파일 탐색기에서 표시",
@@ -272,10 +274,12 @@
       "failedDelete": "삭제하지 못했습니다: {{err}}",
       "failedDeleteFolder": "폴더를 삭제하지 못했습니다: {{err}}",
       "failedDuplicate": "파일을 복제하지 못했습니다: {{err}}",
+      "failedGenerateThumbnails": "썸네일을 생성하지 못했습니다: {{err}}",
       "failedMove": "파일을 이동하지 못했습니다: {{err}}",
       "failedMoveError": "이동하지 못했습니다: {{err}}",
       "failedMoveInvalid": "이동하지 못했습니다: 대상 그룹을 찾을 수 없거나 유효하지 않습니다.",
-      "failedRemoveImages": "이미지를 제거하지 못했습니다: {{err}}"
+      "failedRemoveImages": "이미지를 제거하지 못했습니다: {{err}}",
+      "failedStartAiTagging": "AI 태그 지정을 시작하지 못했습니다: {{err}}"
     }
   },
   "editor": {

@@ -201,6 +201,7 @@
       "copyHere_one": "Bild hierher kopieren",
       "copyHere_other": "{{count}} Bilder hierher kopieren",
       "deleteFolder": "Ordner löschen",
+      "generateThumbnails": "Alle Miniaturbilder erstellen",
       "importImages": "Bilder importieren",
       "moveHere_one": "Bild hierher verschieben",
       "moveHere_other": "{{count}} Bilder hierher verschieben",
@@ -208,6 +209,7 @@
       "paste": "Einfügen",
       "pin": "Ordner anheften",
       "refresh": "Ordner aktualisieren",
+      "retagWithAi": "Inhalt mit KI neu taggen",
       "removeRoot": "Stammordner entfernen",
       "renameFolder": "Ordner umbenennen",
       "showExplorer": "Im Explorer anzeigen",
@@ -272,10 +274,12 @@
       "failedDelete": "Löschen fehlgeschlagen: {{err}}",
       "failedDeleteFolder": "Ordner löschen fehlgeschlagen: {{err}}",
       "failedDuplicate": "Datei duplizieren fehlgeschlagen: {{err}}",
+      "failedGenerateThumbnails": "Miniaturbilder konnten nicht erstellt werden: {{err}}",
       "failedMove": "Dateien verschieben fehlgeschlagen: {{err}}",
       "failedMoveError": "Verschieben fehlgeschlagen: {{err}}",
       "failedMoveInvalid": "Verschieben fehlgeschlagen: Zielgruppe nicht gefunden oder ungültig.",
-      "failedRemoveImages": "Bilder entfernen fehlgeschlagen: {{err}}"
+      "failedRemoveImages": "Bilder entfernen fehlgeschlagen: {{err}}",
+      "failedStartAiTagging": "KI-Tagging konnte nicht gestartet werden: {{err}}"
     }
   },
   "editor": {

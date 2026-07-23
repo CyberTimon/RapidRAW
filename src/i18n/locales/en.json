@@ -201,6 +201,7 @@
       "copyHere_one": "Copy image here",
       "copyHere_other": "Copy {{count}} images here",
       "deleteFolder": "Delete Folder",
+      "generateThumbnails": "Generate All Thumbnails",
       "importImages": "Import Images",
       "moveHere_one": "Move image here",
       "moveHere_other": "Move {{count}} images here",
@@ -208,6 +209,7 @@
       "paste": "Paste",
       "pin": "Pin Folder",
       "refresh": "Refresh Folders",
+      "retagWithAi": "Re-tag Contents with AI",
       "removeRoot": "Remove Root Folder",
       "renameFolder": "Rename Folder",
       "showExplorer": "Show in File Explorer",
@@ -272,10 +274,12 @@
       "failedDelete": "Failed to delete: {{err}}",
       "failedDeleteFolder": "Failed to delete folder: {{err}}",
       "failedDuplicate": "Failed to duplicate file: {{err}}",
+      "failedGenerateThumbnails": "Failed to generate thumbnails: {{err}}",
       "failedMove": "Failed to move files: {{err}}",
       "failedMoveError": "Failed to move: {{err}}",
       "failedMoveInvalid": "Failed to move: Target group not found or invalid.",
-      "failedRemoveImages": "Failed to remove images: {{err}}"
+      "failedRemoveImages": "Failed to remove images: {{err}}",
+      "failedStartAiTagging": "Failed to start AI tagging: {{err}}"
     }
   },
   "editor": {

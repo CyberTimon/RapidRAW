@@ -7,7 +7,7 @@ use ort::value::Tensor;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokenizers::Tokenizer;
@@ -15,7 +15,6 @@ use tokio::task::JoinHandle;
 use walkdir::WalkDir;
 
 use crate::file_management::{self, parse_virtual_path};
-use crate::formats::is_supported_image_file;
 use crate::hierarchy::TAG_HIERARCHY;
 use crate::image_processing::ImageMetadata;
 use crate::{AppState, candidates::TAG_CANDIDATES};
@@ -251,22 +250,29 @@ pub fn generate_tags_with_clip(
 #[tauri::command]
 pub async fn start_background_indexing(
     folder_path: String,
+    force_retag: Option<bool>,
+    recursive: Option<bool>,
     app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    if let Some(handle) = state.indexing_task_handle.lock().unwrap().take() {
-        println!("Cancelling previous indexing task.");
-        handle.abort();
+    if !Path::new(&folder_path).is_dir() {
+        return Err(format!("Folder does not exist: {}", folder_path));
     }
 
     let settings = crate::load_settings(app_handle.clone())?;
-    if !settings.enable_ai_tagging.unwrap_or(false) {
+    let force_retag = force_retag.unwrap_or(false);
+    if !force_retag && !settings.enable_ai_tagging.unwrap_or(false) {
         return Ok(());
     }
+    let recursive = recursive.unwrap_or(false);
 
     let max_concurrent_tasks = settings.tagging_thread_count.unwrap_or(3).max(1) as usize;
     let custom_ai_tags = settings.custom_ai_tags.clone();
     let ai_tag_count = settings.ai_tag_count.unwrap_or(10) as usize;
+
+    if force_retag {
+        println!("Preparing recursive AI re-tagging for: {}", folder_path);
+    }
 
     let clip_models = crate::ai_processing::get_or_init_clip_models(
         &app_handle,
@@ -275,6 +281,11 @@ pub async fn start_background_indexing(
     )
     .await
     .map_err(|e| e.to_string())?;
+
+    if let Some(handle) = state.indexing_task_handle.lock().unwrap().take() {
+        println!("Cancelling previous indexing task.");
+        handle.abort();
+    }
 
     let app_handle_clone = app_handle.clone();
 
@@ -290,24 +301,39 @@ pub async fn start_background_indexing(
         let gpu_context =
             crate::gpu_processing::get_or_init_gpu_context(&state_clone, &app_handle).ok();
 
-        let image_paths: Vec<PathBuf> = match fs::read_dir(&folder_path) {
-            Ok(entries) => entries
-                .filter_map(Result::ok)
-                .map(|entry| entry.path())
-                .filter(|path| {
-                    path.is_file() && is_supported_image_file(path.to_string_lossy().as_ref())
-                })
-                .collect(),
-            Err(e) => {
-                eprintln!("Failed to read directory '{}': {}", folder_path, e);
-                let _ = app_handle_clone
-                    .emit("indexing-error", format!("Failed to read directory: {}", e));
-                *app_handle_clone
-                    .state::<AppState>()
-                    .indexing_task_handle
-                    .lock()
-                    .unwrap() = None;
-                return;
+        let image_paths: Vec<String> = if recursive {
+            match file_management::list_images_recursive(
+                folder_path.clone(),
+                app_handle_clone.clone(),
+            ) {
+                Ok(images) => images.into_iter().map(|image| image.path).collect(),
+                Err(e) => {
+                    eprintln!("Failed to read directory '{}': {}", folder_path, e);
+                    let _ = app_handle_clone
+                        .emit("indexing-error", format!("Failed to read directory: {}", e));
+                    *app_handle_clone
+                        .state::<AppState>()
+                        .indexing_task_handle
+                        .lock()
+                        .unwrap() = None;
+                    return;
+                }
+            }
+        } else {
+            match file_management::list_images_in_dir(folder_path.clone(), app_handle_clone.clone())
+            {
+                Ok(images) => images.into_iter().map(|image| image.path).collect(),
+                Err(e) => {
+                    eprintln!("Failed to read directory '{}': {}", folder_path, e);
+                    let _ = app_handle_clone
+                        .emit("indexing-error", format!("Failed to read directory: {}", e));
+                    *app_handle_clone
+                        .state::<AppState>()
+                        .indexing_task_handle
+                        .lock()
+                        .unwrap() = None;
+                    return;
+                }
             }
         };
 
@@ -329,17 +355,19 @@ pub async fn start_background_indexing(
                 let tags_inner = Arc::clone(&custom_ai_tags_shared);
 
                 async move {
-                    let path_str = path.to_string_lossy().to_string();
+                    let path_str = path;
                     let (_, sidecar_path) = parse_virtual_path(&path_str);
 
                     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
-                    let should_generate_tags = match &metadata.tags {
-                        None => true,
-                        Some(tags) => !tags.iter().any(|tag| {
-                            !tag.starts_with(COLOR_TAG_PREFIX) && !tag.starts_with(USER_TAG_PREFIX)
-                        }),
-                    };
+                    let should_generate_tags = force_retag
+                        || match &metadata.tags {
+                            None => true,
+                            Some(tags) => !tags.iter().any(|tag| {
+                                !tag.starts_with(COLOR_TAG_PREFIX)
+                                    && !tag.starts_with(USER_TAG_PREFIX)
+                            }),
+                        };
 
                     if should_generate_tags {
                         match file_management::get_cached_or_generate_thumbnail_image(
@@ -359,6 +387,14 @@ pub async fn start_background_indexing(
 
                                     let mut existing_tags: HashSet<String> =
                                         metadata.tags.unwrap_or_default().into_iter().collect();
+
+                                    if force_retag {
+                                        // Preserve user and generated color tags while replacing semantic AI tags.
+                                        existing_tags.retain(|tag| {
+                                            tag.starts_with(COLOR_TAG_PREFIX)
+                                                || tag.starts_with(USER_TAG_PREFIX)
+                                        });
+                                    }
 
                                     for tag in ai_tags {
                                         existing_tags.insert(tag);

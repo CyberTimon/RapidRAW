@@ -203,6 +203,7 @@
       "copyHere_one": "Copia immagine qui",
       "copyHere_other": "Copia {{count}} immagini qui",
       "deleteFolder": "Elimina Cartella",
+      "generateThumbnails": "Genera tutte le miniature",
       "importImages": "Importa Immagini",
       "moveHere_many": "Sposta {{count}} immagini qui",
       "moveHere_one": "Sposta immagine qui",
@@ -211,6 +212,7 @@
       "paste": "Incolla",
       "pin": "Fissa Cartella",
       "refresh": "Aggiorna Cartelle",
+      "retagWithAi": "Rietichetta i contenuti con l’IA",
       "removeRoot": "Rimuovi Cartella Principale",
       "renameFolder": "Rinomina Cartella",
       "showExplorer": "Mostra in Esplora File",
@@ -288,10 +290,12 @@
       "failedDelete": "Impossibile eliminare: {{err}}",
       "failedDeleteFolder": "Impossibile eliminare la cartella: {{err}}",
       "failedDuplicate": "Impossibile duplicare il file: {{err}}",
+      "failedGenerateThumbnails": "Impossibile generare le miniature: {{err}}",
       "failedMove": "Impossibile spostare i file: {{err}}",
       "failedMoveError": "Impossibile spostare: {{err}}",
       "failedMoveInvalid": "Impossibile spostare: Gruppo di destinazione non trovato o non valido.",
-      "failedRemoveImages": "Impossibile rimuovere le immagini: {{err}}"
+      "failedRemoveImages": "Impossibile rimuovere le immagini: {{err}}",
+      "failedStartAiTagging": "Impossibile avviare il tagging IA: {{err}}"
     }
   },
   "editor": {

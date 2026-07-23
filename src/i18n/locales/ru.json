@@ -205,6 +205,7 @@
       "copyHere_one": "Копировать изображение сюда",
       "copyHere_other": "Копировать {{count}} изображений сюда",
       "deleteFolder": "Удалить папку",
+      "generateThumbnails": "Создать все миниатюры",
       "importImages": "Импортировать изображения",
       "moveHere_few": "Переместить {{count}} изображений сюда",
       "moveHere_many": "Переместить {{count}} изображений сюда",
@@ -214,6 +215,7 @@
       "paste": "Вставить",
       "pin": "Закрепить папку",
       "refresh": "Обновить папки",
+      "retagWithAi": "Повторно назначить ИИ-теги",
       "removeRoot": "Удалить корневую папку",
       "renameFolder": "Переименовать папку",
       "showExplorer": "Показать в проводнике",
@@ -304,10 +306,12 @@
       "failedDelete": "Не удалось удалить: {{err}}",
       "failedDeleteFolder": "Не удалось удалить папку: {{err}}",
       "failedDuplicate": "Не удалось дублировать файл: {{err}}",
+      "failedGenerateThumbnails": "Не удалось создать миниатюры: {{err}}",
       "failedMove": "Не удалось переместить файлы: {{err}}",
       "failedMoveError": "Не удалось переместить: {{err}}",
       "failedMoveInvalid": "Не удалось переместить: целевая группа не найдена или недействительна.",
-      "failedRemoveImages": "Не удалось удалить изображения: {{err}}"
+      "failedRemoveImages": "Не удалось удалить изображения: {{err}}",
+      "failedStartAiTagging": "Не удалось запустить ИИ-тегирование: {{err}}"
     }
   },
   "editor": {

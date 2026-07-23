@@ -201,6 +201,7 @@
       "copyHere_one": "画像をここにコピー",
       "copyHere_other": "{{count}} 枚の画像をここにコピー",
       "deleteFolder": "フォルダを削除",
+      "generateThumbnails": "すべてのサムネイルを生成",
       "importImages": "画像をインポート",
       "moveHere_one": "画像をここに移動",
       "moveHere_other": "{{count}} 枚の画像をここに移動",
@@ -208,6 +209,7 @@
       "paste": "貼り付け",
       "pin": "フォルダをピン留め",
       "refresh": "フォルダを更新",
+      "retagWithAi": "AIタグを再生成",
       "removeRoot": "ルートフォルダを解除",
       "renameFolder": "フォルダ名を変更",
       "showExplorer": "エクスプローラーで表示",
@@ -272,10 +274,12 @@
       "failedDelete": "削除に失敗しました: {{err}}",
       "failedDeleteFolder": "フォルダの削除に失敗しました: {{err}}",
       "failedDuplicate": "ファイルの複製に失敗しました: {{err}}",
+      "failedGenerateThumbnails": "サムネイルの生成に失敗しました: {{err}}",
       "failedMove": "ファイルの移動に失敗しました: {{err}}",
       "failedMoveError": "移動に失敗しました: {{err}}",
       "failedMoveInvalid": "移動に失敗しました: 対象グループが見つからないか無効です。",
-      "failedRemoveImages": "画像の削除に失敗しました: {{err}}"
+      "failedRemoveImages": "画像の削除に失敗しました: {{err}}",
+      "failedStartAiTagging": "AIタグ付けの開始に失敗しました: {{err}}"
     }
   },
   "editor": {

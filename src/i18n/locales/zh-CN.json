@@ -201,6 +201,7 @@
       "copyHere_one": "复制图像至此",
       "copyHere_other": "复制 {{count}} 张图像至此",
       "deleteFolder": "删除文件夹",
+      "generateThumbnails": "生成所有缩略图",
       "importImages": "导入图像",
       "moveHere_one": "移动图像至此",
       "moveHere_other": "移动 {{count}} 张图像至此",
@@ -208,6 +209,7 @@
       "paste": "粘贴",
       "pin": "固定文件夹",
       "refresh": "刷新文件夹",
+      "retagWithAi": "使用 AI 重新标记内容",
       "removeRoot": "移除根文件夹",
       "renameFolder": "重命名文件夹",
       "showExplorer": "在文件资源管理器中显示",
@@ -272,10 +274,12 @@
       "failedDelete": "删除失败：{{err}}",
       "failedDeleteFolder": "删除文件夹失败：{{err}}",
       "failedDuplicate": "复制文件失败：{{err}}",
+      "failedGenerateThumbnails": "生成缩略图失败：{{err}}",
       "failedMove": "移动文件失败：{{err}}",
       "failedMoveError": "移动失败：{{err}}",
       "failedMoveInvalid": "移动失败：未找到目标组或目标组无效。",
-      "failedRemoveImages": "移除图像失败：{{err}}"
+      "failedRemoveImages": "移除图像失败：{{err}}",
+      "failedStartAiTagging": "启动 AI 标记失败：{{err}}"
     }
   },
   "editor": {
