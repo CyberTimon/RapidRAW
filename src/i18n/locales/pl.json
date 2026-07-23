@@ -205,6 +205,7 @@
       "copyHere_one": "Skopiuj obraz tutaj",
       "copyHere_other": "Skopiuj {{count}} obrazów tutaj",
       "deleteFolder": "Usuń folder",
+      "generateThumbnails": "Wygeneruj wszystkie miniatury",
       "importImages": "Importuj obrazy",
       "moveHere_few": "Przenieś {{count}} obrazy tutaj",
       "moveHere_many": "Przenieś {{count}} obrazów tutaj",
@@ -214,6 +215,7 @@
       "paste": "Wklej",
       "pin": "Przypnij folder",
       "refresh": "Odśwież foldery",
+      "retagWithAi": "Oznacz zawartość ponownie przez AI",
       "removeRoot": "Usuń folder główny",
       "renameFolder": "Zmień nazwę folderu",
       "showExplorer": "Pokaż w eksploratorze plików",
@@ -304,10 +306,12 @@
       "failedDelete": "Nie udało się usunąć: {{err}}",
       "failedDeleteFolder": "Nie udało się usunąć folderu: {{err}}",
       "failedDuplicate": "Nie udało się zduplikować pliku: {{err}}",
+      "failedGenerateThumbnails": "Nie udało się wygenerować miniatur: {{err}}",
       "failedMove": "Nie udało się przenieść plików: {{err}}",
       "failedMoveError": "Nie udało się przenieść: {{err}}",
       "failedMoveInvalid": "Nie udało się przenieść: Grupa docelowa nie znaleziona lub nieprawidłowa.",
-      "failedRemoveImages": "Nie udało się usunąć obrazów: {{err}}"
+      "failedRemoveImages": "Nie udało się usunąć obrazów: {{err}}",
+      "failedStartAiTagging": "Nie udało się uruchomić tagowania AI: {{err}}"
     }
   },
   "editor": {

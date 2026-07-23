@@ -203,6 +203,7 @@
       "copyHere_one": "Copiar imagen aquí",
       "copyHere_other": "Copiar {{count}} imágenes aquí",
       "deleteFolder": "Eliminar carpeta",
+      "generateThumbnails": "Generar todas las miniaturas",
       "importImages": "Importar imágenes",
       "moveHere_many": "Mover {{count}} imágenes aquí",
       "moveHere_one": "Mover imagen aquí",
@@ -211,6 +212,7 @@
       "paste": "Pegar",
       "pin": "Fijar carpeta",
       "refresh": "Actualizar carpetas",
+      "retagWithAi": "Volver a etiquetar con IA",
       "removeRoot": "Quitar carpeta raíz",
       "renameFolder": "Renombrar carpeta",
       "showExplorer": "Mostrar en el Explorador de archivos",
@@ -288,10 +290,12 @@
       "failedDelete": "Error al eliminar: {{err}}",
       "failedDeleteFolder": "Error al eliminar la carpeta: {{err}}",
       "failedDuplicate": "Error al duplicar el archivo: {{err}}",
+      "failedGenerateThumbnails": "Error al generar miniaturas: {{err}}",
       "failedMove": "Error al mover los archivos: {{err}}",
       "failedMoveError": "Error al mover: {{err}}",
       "failedMoveInvalid": "Error al mover: Grupo de destino no encontrado o inválido.",
-      "failedRemoveImages": "Error al quitar las imágenes: {{err}}"
+      "failedRemoveImages": "Error al quitar las imágenes: {{err}}",
+      "failedStartAiTagging": "Error al iniciar el etiquetado con IA: {{err}}"
     }
   },
   "editor": {

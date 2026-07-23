@@ -201,6 +201,7 @@
       "copyHere_one": "複製影像至此",
       "copyHere_other": "複製 {{count}} 張影像至此",
       "deleteFolder": "刪除資料夾",
+      "generateThumbnails": "產生所有縮圖",
       "importImages": "匯入影像",
       "moveHere_one": "移動影像至此",
       "moveHere_other": "移動 {{count}} 張影像至此",
@@ -208,6 +209,7 @@
       "paste": "貼上",
       "pin": "固定資料夾",
       "refresh": "重新整理資料夾",
+      "retagWithAi": "使用 AI 重新標記內容",
       "removeRoot": "移除根資料夾",
       "renameFolder": "重新命名資料夾",
       "showExplorer": "在檔案資源管理器中顯示",
@@ -272,10 +274,12 @@
       "failedDelete": "刪除失敗：{{err}}",
       "failedDeleteFolder": "刪除資料夾失敗：{{err}}",
       "failedDuplicate": "複製檔案失敗：{{err}}",
+      "failedGenerateThumbnails": "產生縮圖失敗：{{err}}",
       "failedMove": "移動檔案失敗：{{err}}",
       "failedMoveError": "移動失敗：{{err}}",
       "failedMoveInvalid": "移動失敗：未找到目標組或目標組無效。",
-      "failedRemoveImages": "移除影像失敗：{{err}}"
+      "failedRemoveImages": "移除影像失敗：{{err}}",
+      "failedStartAiTagging": "啟動 AI 標記失敗：{{err}}"
     }
   },
   "editor": {

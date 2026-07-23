@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use anyhow::Result;
@@ -253,7 +253,7 @@ impl fmt::Display for ReadFileError {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageFile {
-    path: String,
+    pub path: String,
     modified: u64,
     is_edited: bool,
     rating: u8,
@@ -1646,6 +1646,145 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
 }
 
 #[tauri::command]
+pub async fn generate_folder_thumbnails(
+    folder_path: String,
+    app_handle: tauri::AppHandle,
+) -> Result<usize, String> {
+    let folder = PathBuf::from(&folder_path);
+    if !folder.is_dir() {
+        return Err(format!("Folder does not exist: {}", folder_path));
+    }
+
+    let image_paths: Vec<String> = list_images_recursive(folder_path.clone(), app_handle.clone())?
+        .into_iter()
+        .map(|image| image.path)
+        .collect();
+
+    let total = image_paths.len();
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let worker_count = settings.thumbnail_worker_threads.unwrap_or(4).clamp(1, 16) as usize;
+    let cache_dir = get_thumb_cache_dir(&app_handle).map_err(|e| e.to_string())?;
+    let worker_pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(worker_count)
+        .build()
+        .map_err(|e| format!("Could not start thumbnail workers: {}", e))?;
+
+    let state = app_handle.state::<crate::AppState>();
+    let generation = state
+        .bulk_thumbnail_generation
+        .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        + 1;
+    state
+        .bulk_thumbnail_active
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+
+    // The bulk job owns progress while active, so grid visibility cannot change its total.
+    state.thumbnail_manager.queue.lock().unwrap().clear();
+    {
+        let mut tracker = state.thumbnail_progress.lock().unwrap();
+        tracker.total = 0;
+        tracker.completed = 0;
+    }
+
+    let _ = app_handle.emit(
+        "thumbnail-progress",
+        serde_json::json!({ "current": 0, "total": total }),
+    );
+
+    if total == 0 {
+        state
+            .bulk_thumbnail_active
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        let _ = app_handle.emit("thumbnail-generation-complete", true);
+        return Ok(0);
+    }
+
+    let gpu_context = crate::gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
+    let completed = Arc::new(Mutex::new(0usize));
+    let app_handle_clone = app_handle.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        worker_pool.install(|| {
+            image_paths.par_iter().for_each(|path| {
+                let current_state = app_handle_clone.state::<crate::AppState>();
+                if current_state
+                    .bulk_thumbnail_generation
+                    .load(std::sync::atomic::Ordering::SeqCst)
+                    != generation
+                {
+                    return;
+                }
+
+                let result = generate_single_thumbnail_and_cache(
+                    path,
+                    &cache_dir,
+                    gpu_context.as_ref(),
+                    None,
+                    false,
+                    &app_handle_clone,
+                    &settings,
+                );
+
+                if let Some((thumbnail_path, rating, is_edited)) = result {
+                    emit_thumbnail_generated(
+                        &app_handle_clone,
+                        path,
+                        &thumbnail_path,
+                        rating,
+                        is_edited,
+                    );
+                }
+
+                if current_state
+                    .bulk_thumbnail_generation
+                    .load(std::sync::atomic::Ordering::SeqCst)
+                    != generation
+                {
+                    return;
+                }
+
+                // Serialize increments and emissions so progress cannot arrive out of order.
+                let mut count = completed.lock().unwrap();
+                *count += 1;
+                let _ = app_handle_clone.emit(
+                    "thumbnail-progress",
+                    serde_json::json!({ "current": *count, "total": total }),
+                );
+            });
+        });
+
+        let current_state = app_handle_clone.state::<crate::AppState>();
+        if current_state
+            .bulk_thumbnail_generation
+            .load(std::sync::atomic::Ordering::SeqCst)
+            == generation
+        {
+            current_state
+                .bulk_thumbnail_active
+                .store(false, std::sync::atomic::Ordering::SeqCst);
+            let _ = app_handle_clone.emit("thumbnail-generation-complete", true);
+        }
+    })
+    .await
+    .map_err(|e| {
+        let current_state = app_handle.state::<crate::AppState>();
+        if current_state
+            .bulk_thumbnail_generation
+            .load(std::sync::atomic::Ordering::SeqCst)
+            == generation
+        {
+            current_state
+                .bulk_thumbnail_active
+                .store(false, std::sync::atomic::Ordering::SeqCst);
+            let _ = app_handle.emit("thumbnail-generation-complete", true);
+        }
+        e.to_string()
+    })?;
+
+    Ok(total)
+}
+
+#[tauri::command]
 pub fn update_thumbnail_queue(
     paths: Vec<String>,
     app_handle: tauri::AppHandle,
@@ -1661,10 +1800,15 @@ pub fn update_thumbnail_queue(
         tracker.completed = 0;
         drop(tracker);
 
-        let _ = app_handle.emit(
-            "thumbnail-progress",
-            serde_json::json!({ "current": 0, "total": 0 }),
-        );
+        if !state
+            .bulk_thumbnail_active
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            let _ = app_handle.emit(
+                "thumbnail-progress",
+                serde_json::json!({ "current": 0, "total": 0 }),
+            );
+        }
         state.thumbnail_manager.cvar.notify_all();
         return Ok(());
     }
@@ -1697,10 +1841,15 @@ pub fn update_thumbnail_queue(
     let total = tracker.total;
     drop(tracker);
 
-    let _ = app_handle.emit(
-        "thumbnail-progress",
-        serde_json::json!({ "current": current, "total": total }),
-    );
+    if !state
+        .bulk_thumbnail_active
+        .load(std::sync::atomic::Ordering::SeqCst)
+    {
+        let _ = app_handle.emit(
+            "thumbnail-progress",
+            serde_json::json!({ "current": current, "total": total }),
+        );
+    }
 
     state.thumbnail_manager.cvar.notify_all();
     Ok(())
@@ -1730,17 +1879,27 @@ pub fn increment_thumbnail_progress(state: &AppState, app_handle: &AppHandle) {
         tracker.completed = 0;
         drop(tracker);
 
-        let _ = app_handle.emit(
-            "thumbnail-progress",
-            serde_json::json!({ "current": 0, "total": 0 }),
-        );
-        let _ = app_handle.emit("thumbnail-generation-complete", true);
+        if !state
+            .bulk_thumbnail_active
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            let _ = app_handle.emit(
+                "thumbnail-progress",
+                serde_json::json!({ "current": 0, "total": 0 }),
+            );
+            let _ = app_handle.emit("thumbnail-generation-complete", true);
+        }
     } else {
         drop(tracker);
-        let _ = app_handle.emit(
-            "thumbnail-progress",
-            serde_json::json!({ "current": current, "total": total }),
-        );
+        if !state
+            .bulk_thumbnail_active
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            let _ = app_handle.emit(
+                "thumbnail-progress",
+                serde_json::json!({ "current": current, "total": total }),
+            );
+        }
     }
 }
 

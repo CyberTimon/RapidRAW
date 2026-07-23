@@ -957,6 +957,37 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           label: t('contextMenus.folders.refresh'),
           onClick: () => props.refreshAllFolderTrees(),
         },
+        { type: OPTION_SEPARATOR },
+        {
+          icon: Images,
+          label: t('contextMenus.folders.generateThumbnails'),
+          onClick: () => {
+            invoke<number>(Invokes.GenerateFolderThumbnails, { folderPath: targetPath }).catch((err) => {
+              console.error('Failed to generate folder thumbnails:', err);
+              toast.error(t('contextMenus.toasts.failedGenerateThumbnails', { err }));
+            });
+          },
+        },
+        ...(appSettings?.enableAiTagging
+          ? [
+              {
+                icon: Tag,
+                label: t('contextMenus.folders.retagWithAi'),
+                onClick: () => {
+                  toast.info(t('library.header.search.indexingImages'));
+                  invoke(Invokes.StartBackgroundIndexing, {
+                    folderPath: targetPath,
+                    forceRetag: true,
+                    recursive: true,
+                  }).catch((err) => {
+                    console.error('Failed to start folder AI tagging:', err);
+                    toast.error(t('contextMenus.toasts.failedStartAiTagging', { err }));
+                  });
+                },
+              },
+            ]
+          : []),
+        { type: OPTION_SEPARATOR },
         {
           disabled: isRoot,
           icon: Trash2,

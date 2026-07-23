@@ -203,6 +203,7 @@
       "copyHere_one": "Copier l'image ici",
       "copyHere_other": "Copier {{count}} images ici",
       "deleteFolder": "Supprimer le dossier",
+      "generateThumbnails": "Générer toutes les miniatures",
       "importImages": "Importer des images",
       "moveHere_many": "Déplacer {{count}} images ici",
       "moveHere_one": "Déplacer l'image ici",
@@ -211,6 +212,7 @@
       "paste": "Coller",
       "pin": "Épingler le dossier",
       "refresh": "Actualiser les dossiers",
+      "retagWithAi": "Réétiqueter le contenu avec l’IA",
       "removeRoot": "Supprimer le dossier racine",
       "renameFolder": "Renommer le dossier",
       "showExplorer": "Afficher dans l'explorateur",
@@ -288,10 +290,12 @@
       "failedDelete": "Échec de la suppression : {{err}}",
       "failedDeleteFolder": "Échec de la suppression du dossier : {{err}}",
       "failedDuplicate": "Échec de la duplication du fichier : {{err}}",
+      "failedGenerateThumbnails": "Échec de la génération des miniatures : {{err}}",
       "failedMove": "Échec du déplacement des fichiers : {{err}}",
       "failedMoveError": "Échec du déplacement : {{err}}",
       "failedMoveInvalid": "Échec du déplacement : Groupe cible introuvable ou invalide.",
-      "failedRemoveImages": "Échec de la suppression des images : {{err}}"
+      "failedRemoveImages": "Échec de la suppression des images : {{err}}",
+      "failedStartAiTagging": "Échec du démarrage de l’étiquetage IA : {{err}}"
     }
   },
   "editor": {

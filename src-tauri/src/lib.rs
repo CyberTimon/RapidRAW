@@ -226,6 +226,12 @@ fn cancel_thumbnail_generation(
     state
         .thumbnail_cancellation_token
         .store(true, Ordering::SeqCst);
+    state
+        .bulk_thumbnail_generation
+        .fetch_add(1, Ordering::SeqCst);
+    state.bulk_thumbnail_active.store(false, Ordering::SeqCst);
+
+    state.thumbnail_manager.queue.lock().unwrap().clear();
 
     let mut tracker = state.thumbnail_progress.lock().unwrap();
     tracker.total = 0;
@@ -2280,6 +2286,8 @@ pub fn run() {
             initial_file_path: Mutex::new(None),
             pending_edit_session: Mutex::new(None),
             thumbnail_cancellation_token: Arc::new(AtomicBool::new(false)),
+            bulk_thumbnail_active: AtomicBool::new(false),
+            bulk_thumbnail_generation: AtomicUsize::new(0),
             thumbnail_progress: Mutex::new(ThumbnailProgressTracker { total: 0, completed: 0 }),
             preview_worker_tx: Mutex::new(None),
             analytics_worker_tx: Mutex::new(None),
@@ -2354,6 +2362,7 @@ pub fn run() {
             file_management::get_folder_children,
             file_management::get_pinned_folder_trees,
             file_management::update_thumbnail_queue,
+            file_management::generate_folder_thumbnails,
             file_management::create_folder,
             file_management::delete_folder,
             file_management::copy_files,

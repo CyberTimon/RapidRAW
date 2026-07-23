@@ -203,6 +203,7 @@
       "copyHere_one": "Copiar imagem para cá",
       "copyHere_other": "Copiar {{count}} imagens para cá",
       "deleteFolder": "Excluir Pasta",
+      "generateThumbnails": "Gerar todas as miniaturas",
       "importImages": "Importar Imagens",
       "moveHere_many": "Mover {{count}} imagens para cá",
       "moveHere_one": "Mover imagem para cá",
@@ -211,6 +212,7 @@
       "paste": "Colar",
       "pin": "Fixar Pasta",
       "refresh": "Atualizar Pastas",
+      "retagWithAi": "Reetiquetar conteúdo com IA",
       "removeRoot": "Remover Pasta Raiz",
       "renameFolder": "Renomear Pasta",
       "showExplorer": "Mostrar no Explorador de Arquivos",
@@ -288,10 +290,12 @@
       "failedDelete": "Falha ao excluir: {{err}}",
       "failedDeleteFolder": "Falha ao excluir pasta: {{err}}",
       "failedDuplicate": "Falha ao duplicar arquivo: {{err}}",
+      "failedGenerateThumbnails": "Falha ao gerar miniaturas: {{err}}",
       "failedMove": "Falha ao mover arquivos: {{err}}",
       "failedMoveError": "Falha ao mover: {{err}}",
       "failedMoveInvalid": "Falha ao mover: Grupo de destino não encontrado ou inválido.",
-      "failedRemoveImages": "Falha ao remover imagens: {{err}}"
+      "failedRemoveImages": "Falha ao remover imagens: {{err}}",
+      "failedStartAiTagging": "Falha ao iniciar etiquetagem por IA: {{err}}"
     }
   },
   "editor": {
