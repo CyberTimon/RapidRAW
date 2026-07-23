@@ -1114,6 +1114,14 @@
       "shuffleTooltip": "Rimescola Immagini",
       "spacing": "Spaziatura"
     },
+    "commandPalette": {
+      "filePlaceholder": "Cerca file per nome...",
+      "files": "File",
+      "noResults": "Nessun risultato corrispondente",
+      "placeholder": "Digita un comando...",
+      "searchFiles": "Cerca file...",
+      "title": "Palette dei comandi"
+    },
     "configurePreset": {
       "cancel": "Annulla",
       "includeCropTransform": "Includi Ritaglio e Trasformazione",
@@ -1524,6 +1532,7 @@
         "cycle_zoom": "Ruota zoom (Adatta, Adatta 2x, 100%)",
         "delete_selected": "Elimina file selezionati",
         "focus_search": "Attiva il campo di ricerca",
+        "open_command_palette": "Apri la palette dei comandi",
         "open_image": "Apri immagine selezionata",
         "open_settings": "Apri le impostazioni",
         "paste_adjustments": "Incolla regolazioni copiate",

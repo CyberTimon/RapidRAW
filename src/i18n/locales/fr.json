@@ -1114,6 +1114,14 @@
       "shuffleTooltip": "Mélanger les images",
       "spacing": "Espacement"
     },
+    "commandPalette": {
+      "filePlaceholder": "Rechercher des fichiers par nom...",
+      "files": "Fichiers",
+      "noResults": "Aucun résultat correspondant",
+      "placeholder": "Saisir une commande...",
+      "searchFiles": "Rechercher des fichiers...",
+      "title": "Palette de commandes"
+    },
     "configurePreset": {
       "cancel": "Annuler",
       "includeCropTransform": "Inclure Recadrage & Transformation",
@@ -1524,6 +1532,7 @@
         "cycle_zoom": "Faire défiler le zoom (Ajuster, 2x Ajuster, 100%)",
         "delete_selected": "Supprimer le(s) fichier(s) sélectionné(s)",
         "focus_search": "Activer le champ de recherche",
+        "open_command_palette": "Ouvrir la palette de commandes",
         "open_image": "Ouvrir l'image sélectionnée",
         "open_settings": "Ouvrir les paramètres",
         "paste_adjustments": "Coller les ajustements copiés",

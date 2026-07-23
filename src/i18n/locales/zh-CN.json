@@ -1088,6 +1088,14 @@
       "shuffleTooltip": "随机排列图像",
       "spacing": "间距"
     },
+    "commandPalette": {
+      "filePlaceholder": "按名称搜索文件...",
+      "files": "文件",
+      "noResults": "没有匹配的结果",
+      "placeholder": "输入命令...",
+      "searchFiles": "搜索文件...",
+      "title": "命令面板"
+    },
     "configurePreset": {
       "cancel": "取消",
       "includeCropTransform": "包含裁剪与变换",
@@ -1489,6 +1497,7 @@
         "cycle_zoom": "循环缩放（适应、2倍适应、100%）",
         "delete_selected": "删除选中的文件",
         "focus_search": "聚焦搜索框",
+        "open_command_palette": "打开命令面板",
         "open_image": "打开选中的图像",
         "open_settings": "打开设置",
         "paste_adjustments": "粘贴复制的调整",

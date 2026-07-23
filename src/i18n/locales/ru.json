@@ -1138,6 +1138,14 @@
       "shuffleTooltip": "Перемешать изображения",
       "spacing": "Интервал"
     },
+    "commandPalette": {
+      "filePlaceholder": "Поиск файлов по имени...",
+      "files": "Файлы",
+      "noResults": "Нет совпадающих результатов",
+      "placeholder": "Введите команду...",
+      "searchFiles": "Поиск файлов...",
+      "title": "Палитра команд"
+    },
     "configurePreset": {
       "cancel": "Отмена",
       "includeCropTransform": "Включить кадрирование и трансформацию",
@@ -1557,6 +1565,7 @@
         "cycle_zoom": "Режимы масштаба (По экрану, 2x, 100%)",
         "delete_selected": "Удалить выбранные файлы",
         "focus_search": "Перейти к полю поиска",
+        "open_command_palette": "Открыть палитру команд",
         "open_image": "Открыть выбранное изображение",
         "open_settings": "Открыть настройки",
         "paste_adjustments": "Вставить скопированные настройки",

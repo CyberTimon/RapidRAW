@@ -1088,6 +1088,14 @@
       "shuffleTooltip": "画像をシャッフル",
       "spacing": "間隔"
     },
+    "commandPalette": {
+      "filePlaceholder": "ファイル名で検索...",
+      "files": "ファイル",
+      "noResults": "一致する結果がありません",
+      "placeholder": "コマンドを入力...",
+      "searchFiles": "ファイルを検索...",
+      "title": "コマンドパレット"
+    },
     "configurePreset": {
       "cancel": "キャンセル",
       "includeCropTransform": "切り抜きと変形を含める",
@@ -1489,6 +1497,7 @@
         "cycle_zoom": "ズームの切り替え (全体表示、2倍拡大、100%)",
         "delete_selected": "選択したファイルを削除",
         "focus_search": "検索フィールドにフォーカス",
+        "open_command_palette": "コマンドパレットを開く",
         "open_image": "選択した画像を開く",
         "open_settings": "設定を開く",
         "paste_adjustments": "コピーした補正設定を貼り付け",

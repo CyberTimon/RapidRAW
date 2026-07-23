@@ -99,6 +99,7 @@ interface UIState {
   collapsibleSectionsState: CollapsibleSectionsState;
 
   // Modals & Dialogs
+  isCommandPaletteOpen: boolean;
   isCreateFolderModalOpen: boolean;
   isRenameFolderModalOpen: boolean;
   isRenameFileModalOpen: boolean;
@@ -131,6 +132,13 @@ interface UIState {
   setCustomEscapeHandler: (handler: (() => void) | null) => void;
   searchFocusRequest: number;
   requestSearchFocus: () => void;
+  keybindActionRunner: KeybindActionRunner | null;
+  setKeybindActionRunner: (runner: KeybindActionRunner | null) => void;
+}
+
+export interface KeybindActionRunner {
+  canRun(action: string): boolean;
+  run(action: string): void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -153,6 +161,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   slideDirection: 1,
   collapsibleSectionsState: { basic: true, color: false, curves: true, details: false, effects: false },
 
+  isCommandPaletteOpen: false,
   isCreateFolderModalOpen: false,
   isRenameFolderModalOpen: false,
   isRenameFileModalOpen: false,
@@ -220,4 +229,7 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   searchFocusRequest: 0,
   requestSearchFocus: () => set((state) => ({ searchFocusRequest: state.searchFocusRequest + 1 })),
+
+  keybindActionRunner: null,
+  setKeybindActionRunner: (runner) => set({ keybindActionRunner: runner }),
 }));

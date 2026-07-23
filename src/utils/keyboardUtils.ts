@@ -223,6 +223,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     defaultCombo: ['ctrl', 'KeyF'],
     section: 'library',
   },
+  {
+    action: 'open_command_palette',
+    description: 'settings.keybinds.actions.open_command_palette',
+    defaultCombo: ['ctrl', 'KeyP'],
+    section: 'library',
+  },
   { action: 'undo', description: 'settings.keybinds.actions.undo', defaultCombo: ['ctrl', 'KeyZ'], section: 'editing' },
   { action: 'redo', description: 'settings.keybinds.actions.redo', defaultCombo: ['ctrl', 'KeyY'], section: 'editing' },
   {

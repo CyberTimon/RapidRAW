@@ -1138,6 +1138,14 @@
       "shuffleTooltip": "Tasuj obrazy",
       "spacing": "Odstępy"
     },
+    "commandPalette": {
+      "filePlaceholder": "Szukaj plików po nazwie...",
+      "files": "Pliki",
+      "noResults": "Brak pasujących wyników",
+      "placeholder": "Wpisz polecenie...",
+      "searchFiles": "Szukaj plików...",
+      "title": "Paleta poleceń"
+    },
     "configurePreset": {
       "cancel": "Anuluj",
       "includeCropTransform": "Uwzględnij Kadrowanie i Przekształcanie",
@@ -1557,6 +1565,7 @@
         "cycle_zoom": "Przełącz przybliżenie (Dopasuj, 2x Dopasuj, 100%)",
         "delete_selected": "Usuń wybrane pliki",
         "focus_search": "Przejdź do pola wyszukiwania",
+        "open_command_palette": "Otwórz paletę poleceń",
         "open_image": "Otwórz wybrany obraz",
         "open_settings": "Otwórz ustawienia",
         "paste_adjustments": "Wklej skopiowane ustawienia",
