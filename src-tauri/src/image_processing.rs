@@ -1,7 +1,7 @@
 use crate::gpu_processing::WgpuDisplay;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat3, Vec2, Vec3};
-use image::{DynamicImage, GenericImageView, Rgb32FImage, Rgba};
+use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb, Rgb32FImage, RgbImage, Rgba};
 use imageproc::geometric_transformations::{Border, Interpolation, rotate_about_center};
 use nalgebra::{Matrix3 as NaMatrix3, Vector3 as NaVector3};
 use rawler::decoders::Orientation;
@@ -3165,7 +3165,40 @@ pub fn calculate_waveform_from_image(
     })
 }
 
-pub fn perform_auto_analysis(image: &DynamicImage) -> AutoAdjustmentResults {
+fn linear_to_srgb(value: f32) -> f32 {
+    const CUTOFF: f32 = 0.0031308;
+    const A: f32 = 0.055;
+    const GAMMA: f32 = 1.0 / 2.4;
+
+    let clamped: f32 = value.clamp(0.0, 1.0);
+    if clamped <= CUTOFF {
+        clamped * 12.92
+    } else {
+        (1.0 + A) * clamped.powf(GAMMA) - A
+    }
+}
+
+fn to_display_encoded_rgb8(image: &DynamicImage, is_raw: bool) -> RgbImage {
+    let linear_source: Rgb32FImage = image.to_rgb32f();
+    let (width, height) = linear_source.dimensions();
+
+    assert!(width > 0 && height > 0, "analysis preview has zero extent");
+
+    ImageBuffer::from_fn(width, height, |x, y| {
+        let pixel: &Rgb<f32> = linear_source.get_pixel(x, y);
+        let encode = |channel: f32| -> u8 {
+            let display: f32 = if is_raw {
+                linear_to_srgb(channel)
+            } else {
+                channel.clamp(0.0, 1.0)
+            };
+            (display * 255.0).round() as u8
+        };
+        Rgb([encode(pixel[0]), encode(pixel[1]), encode(pixel[2])])
+    })
+}
+
+pub fn perform_auto_analysis(image: &DynamicImage, is_raw: bool) -> AutoAdjustmentResults {
     const ANALYSIS_MAX_DIM: u32 = 1024;
 
     const LUMA_R: f32 = 0.2126;
@@ -3216,8 +3249,10 @@ pub fn perform_auto_analysis(image: &DynamicImage) -> AutoAdjustmentResults {
     const BRIGHTNESS_SCALE: f64 = 0.007;
 
     let analysis_preview = downscale_f32_image(image, ANALYSIS_MAX_DIM, ANALYSIS_MAX_DIM);
-    let rgb_image = analysis_preview.to_rgb8();
+    let rgb_image = to_display_encoded_rgb8(&analysis_preview, is_raw);
     let total_pixels = (rgb_image.width() * rgb_image.height()) as f64;
+
+    assert!(total_pixels > 0.0, "auto analysis received empty image");
 
     let (width, height) = rgb_image.dimensions();
     let cx0 = (width as f32 * VIGNETTE_CENTER_LOW) as u32;
@@ -3415,16 +3450,15 @@ pub fn auto_results_to_json(results: &AutoAdjustmentResults) -> serde_json::Valu
 pub fn calculate_auto_adjustments(
     state: tauri::State<AppState>,
 ) -> Result<serde_json::Value, String> {
-    let original_image = state
-        .original_image
-        .lock()
-        .unwrap()
-        .as_ref()
-        .ok_or("No image loaded for auto adjustments")?
-        .image
-        .clone();
+    let (original_image, is_raw) = {
+        let guard = state.original_image.lock().unwrap();
+        let loaded = guard
+            .as_ref()
+            .ok_or("No image loaded for auto adjustments")?;
+        (loaded.image.clone(), loaded.is_raw)
+    };
 
-    let results = perform_auto_analysis(&original_image);
+    let results = perform_auto_analysis(&original_image, is_raw);
 
     Ok(auto_results_to_json(&results))
 }

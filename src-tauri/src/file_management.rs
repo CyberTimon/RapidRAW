@@ -2509,7 +2509,8 @@ pub async fn apply_auto_adjustments_to_paths(
                 )
                 .map_err(|e| e.to_string())?;
 
-                let auto_results = perform_auto_analysis(&image);
+                let auto_results =
+                    perform_auto_analysis(&image, crate::formats::is_raw_file(&source_path_str));
                 let auto_adjustments_json = auto_results_to_json(&auto_results);
 
                 let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
