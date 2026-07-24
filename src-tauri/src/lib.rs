@@ -13,6 +13,7 @@ mod android_integration;
 mod app_settings;
 mod app_state;
 mod cache_utils;
+mod color_encoding;
 mod culling;
 mod denoising;
 mod exif_processing;
@@ -32,6 +33,7 @@ mod panorama_stitching;
 mod panorama_utils;
 mod preset_converter;
 mod raw_processing;
+mod tagged_image;
 mod tagging;
 mod tagging_utils;
 mod window_customizer;
@@ -78,7 +80,7 @@ use crate::formats::is_raw_file;
 use crate::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
 use crate::image_loader::{composite_patches_on_image, load_and_composite};
 use crate::image_processing::{
-    Crop, GeometryParams, RenderRequest, apply_coarse_rotation, apply_cpu_default_raw_processing,
+    Crop, GeometryParams, RenderRequest, apply_coarse_rotation,
     apply_flip, apply_geometry_warp, apply_linear_to_srgb, downscale_f32_image,
     get_all_adjustments_from_json, get_or_init_gpu_context, process_and_get_dynamic_image,
     resolve_tonemapper_override, resolve_tonemapper_override_from_handle, warp_image_geometry,
@@ -257,7 +259,7 @@ pub fn get_cached_full_warped_image(
     let mut cow_image = Cow::Borrowed(base_arc.as_ref());
 
     if is_raw {
-        apply_cpu_default_raw_processing(cow_image.to_mut());
+        cow_image = Cow::Owned(apply_linear_to_srgb(cow_image.into_owned()));
     }
 
     let warped_image = apply_geometry_warp(cow_image, js_adjustments).into_owned();
@@ -855,7 +857,7 @@ fn generate_original_transformed_preview(
 
     let mut image_for_preview = loaded_image.image.as_ref().clone();
     if loaded_image.is_raw {
-        apply_cpu_default_raw_processing(&mut image_for_preview);
+        image_for_preview = apply_linear_to_srgb(image_for_preview);
     }
 
     let (transformed_full_res, _unscaled_crop_offset) =

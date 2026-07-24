@@ -1,9 +1,7 @@
 use crate::app_settings::load_settings;
 use crate::app_state::AppState;
 use crate::file_management::parse_virtual_path;
-use crate::formats::is_raw_file;
-use crate::image_loader::load_base_image_from_bytes;
-use crate::image_processing::apply_cpu_default_raw_processing;
+use crate::image_loader::load_base_image_tagged;
 use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, GenericImageView, ImageFormat, Rgb, Rgb32FImage};
 use rayon::prelude::*;
@@ -306,20 +304,15 @@ fn denoise_image(
         return Err("File not found".to_string());
     }
 
-    let is_raw = is_raw_file(&path_str);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
     let _ = app_handle.emit("denoise-progress", "Loading image...");
 
     let file_bytes = fs::read(path).map_err(|e| e.to_string())?;
-    let mut dynamic_img =
-        load_base_image_from_bytes(&file_bytes, &path_str, false, &settings, None)
-            .map_err(|e| e.to_string())?;
-
-    if is_raw {
-        let _ = app_handle.emit("denoise-progress", "Preparing RAW data...");
-        apply_cpu_default_raw_processing(&mut dynamic_img);
-    }
+    let dynamic_img = load_base_image_tagged(&file_bytes, &path_str, false, &settings, None)
+        .map_err(|e| e.to_string())?
+        .into_srgb()
+        .into_inner();
 
     let rgb_img_for_denoiser = dynamic_img.to_rgb32f();
 

@@ -35,7 +35,7 @@ use crate::gpu_processing;
 use crate::image_loader;
 use crate::image_processing::GpuContext;
 use crate::image_processing::{
-    Crop, ImageMetadata, apply_coarse_rotation, apply_cpu_default_raw_processing, apply_crop,
+    Crop, ImageMetadata, apply_coarse_rotation, apply_crop,
     apply_flip, apply_geometry_warp, apply_rotation, auto_results_to_json,
     get_all_adjustments_from_json, perform_auto_analysis,
 };
@@ -1502,7 +1502,7 @@ pub fn generate_thumbnail_data(
             }
             crate::image_processing::apply_cpu_agx_tonemap(&mut final_image);
         } else if is_raw {
-            apply_cpu_default_raw_processing(&mut final_image);
+            final_image = crate::image_processing::apply_linear_to_srgb(final_image);
         }
     }
 

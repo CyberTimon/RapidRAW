@@ -21,7 +21,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::panic;
 use std::path::Path;
-use std::sync::OnceLock;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -48,20 +47,29 @@ struct PatchMaskInfo {
     sub_masks: Vec<SubMask>,
 }
 
-fn srgb_to_linear_lut() -> &'static [f32; 256] {
-    static LUT: OnceLock<[f32; 256]> = OnceLock::new();
-    LUT.get_or_init(|| {
-        let mut lut = [0.0f32; 256];
-        for (i, v) in lut.iter_mut().enumerate() {
-            let x = i as f32 / 255.0;
-            *v = if x <= 0.04045 {
-                x / 12.92
-            } else {
-                ((x + 0.055) / 1.055).powf(2.4)
-            };
-        }
-        lut
-    })
+pub fn load_base_image_tagged(
+    bytes: &[u8],
+    path_for_ext_check: &str,
+    use_fast_raw_dev: bool,
+    settings: &AppSettings,
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<crate::tagged_image::TaggedImage> {
+    let is_raw: bool = is_raw_file(path_for_ext_check);
+    let image: DynamicImage = load_base_image_from_bytes(
+        bytes,
+        path_for_ext_check,
+        use_fast_raw_dev,
+        settings,
+        cancel_token,
+    )?;
+
+    let encoding: crate::tagged_image::Encoding = if is_raw {
+        crate::tagged_image::Encoding::Linear
+    } else {
+        crate::tagged_image::Encoding::Srgb
+    };
+
+    Ok(crate::tagged_image::TaggedImage::new(image, encoding))
 }
 
 pub fn load_and_composite(
@@ -553,7 +561,7 @@ pub fn composite_patches_on_image(
     let decoded_patches = decoded_patches?;
 
     let mut composited_image = base_image.clone();
-    let lut = srgb_to_linear_lut();
+    let lut = crate::color_encoding::srgb_to_linear_lut();
 
     let get_color = |patch: &DecodedPatch, r: u8, g: u8, b: u8| -> (f32, f32, f32) {
         if patch.is_srgb_encoded {

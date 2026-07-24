@@ -3,7 +3,7 @@ use crate::exif_processing::{read_exposure_time_secs, read_iso};
 use crate::formats::is_raw_file;
 use crate::image_loader::load_base_image_from_bytes;
 use crate::image_processing::{
-    apply_cpu_default_raw_processing, apply_linear_to_srgb, apply_srgb_to_linear,
+    apply_linear_to_srgb, apply_srgb_to_linear,
 };
 use crate::panorama_stitching::{Feature, KeyPoint, Match};
 use crate::panorama_utils::{processing, stitching};
@@ -110,7 +110,7 @@ pub fn align_hdr_frames(frames: &mut [HdrFrame], app_handle: &AppHandle) {
     let reference_index = frames.len() / 2;
     let detections: Vec<FrameDetection> = frames
         .iter()
-        .map(|frame| detect_frame_features(&frame.1, &brief_pairs, is_raw_file(&frame.0)))
+        .map(|frame| detect_frame_features(&frame.1, &brief_pairs))
         .collect();
     for index in 0..frames.len() {
         if index == reference_index {
@@ -145,14 +145,8 @@ pub fn align_hdr_frames(frames: &mut [HdrFrame], app_handle: &AppHandle) {
 fn detect_frame_features(
     image: &DynamicImage,
     brief_pairs: &[(Point2<i32>, Point2<i32>)],
-    source_is_raw: bool,
 ) -> FrameDetection {
-    let mut detection_proxy = image.clone();
-    if source_is_raw {
-        apply_cpu_default_raw_processing(&mut detection_proxy);
-    } else {
-        detection_proxy = apply_linear_to_srgb(detection_proxy);
-    }
+    let detection_proxy = apply_linear_to_srgb(image.clone());
     let gray_full = image::imageops::colorops::grayscale(&detection_proxy.to_rgb8());
     let (width, height) = gray_full.dimensions();
     let (small_width, small_height, scale_factor) =

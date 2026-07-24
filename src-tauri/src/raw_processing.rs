@@ -1,3 +1,4 @@
+use crate::color_encoding::srgb_to_linear;
 use crate::image_processing::apply_orientation;
 use anyhow::{Result, anyhow};
 use image::{DynamicImage, ImageBuffer, Rgba};
@@ -34,15 +35,6 @@ fn is_linear_raw_format(raw_image: &RawImage) -> bool {
         raw_image.photometric,
         RawPhotometricInterpretation::LinearRaw
     )
-}
-
-#[inline]
-fn srgb_to_linear(value: f32) -> f32 {
-    if value <= 0.04045 {
-        value / 12.92
-    } else {
-        ((value + 0.055) / 1.055).powf(3.0)
-    }
 }
 
 fn develop_internal(

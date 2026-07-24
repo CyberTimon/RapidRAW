@@ -13,8 +13,6 @@ use std::path::Path;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
 
-use crate::formats::is_raw_file;
-use crate::image_processing::apply_cpu_default_raw_processing;
 use crate::panorama_utils::{processing, stitching};
 
 pub const BRIEF_DESCRIPTOR_SIZE: usize = 256;
@@ -210,18 +208,16 @@ fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<Dyna
             let file_bytes = fs::read(filename)
                 .map_err(|e| format!("Failed to read image {}: {}", filename, e))?;
 
-            let mut dynamic_image = crate::image_loader::load_base_image_from_bytes(
+            let dynamic_image = crate::image_loader::load_base_image_tagged(
                 &file_bytes,
                 filename,
                 false,
                 &settings,
                 None,
             )
-            .map_err(|e| format!("Failed to load image {}: {}", filename, e))?;
-
-            if is_raw_file(filename) {
-                apply_cpu_default_raw_processing(&mut dynamic_image);
-            }
+            .map_err(|e| format!("Failed to load image {}: {}", filename, e))?
+            .into_srgb()
+            .into_inner();
 
             let image_f32 = dynamic_image.to_rgb32f();
 

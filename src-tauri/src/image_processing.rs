@@ -1113,30 +1113,6 @@ pub fn inverse_transform_point(
     (x, y)
 }
 
-pub fn apply_cpu_default_raw_processing(image: &mut DynamicImage) {
-    let mut f32_image = image.to_rgb32f();
-
-    const GAMMA: f32 = 2.38;
-    const INV_GAMMA: f32 = 1.0 / GAMMA;
-    const CONTRAST: f32 = 1.28;
-
-    f32_image.par_chunks_mut(3).for_each(|pixel_chunk| {
-        let r_gamma = pixel_chunk[0].powf(INV_GAMMA);
-        let g_gamma = pixel_chunk[1].powf(INV_GAMMA);
-        let b_gamma = pixel_chunk[2].powf(INV_GAMMA);
-
-        let r_contrast = (r_gamma - 0.5) * CONTRAST + 0.5;
-        let g_contrast = (g_gamma - 0.5) * CONTRAST + 0.5;
-        let b_contrast = (b_gamma - 0.5) * CONTRAST + 0.5;
-
-        pixel_chunk[0] = r_contrast.clamp(0.0, 1.0);
-        pixel_chunk[1] = g_contrast.clamp(0.0, 1.0);
-        pixel_chunk[2] = b_contrast.clamp(0.0, 1.0);
-    });
-
-    *image = DynamicImage::ImageRgb32F(f32_image);
-}
-
 pub fn apply_srgb_to_linear(mut image: DynamicImage) -> DynamicImage {
     let to_linear = |x: f32| -> f32 {
         let x = x.max(0.0);
@@ -3165,19 +3141,6 @@ pub fn calculate_waveform_from_image(
     })
 }
 
-fn linear_to_srgb(value: f32) -> f32 {
-    const CUTOFF: f32 = 0.0031308;
-    const A: f32 = 0.055;
-    const GAMMA: f32 = 1.0 / 2.4;
-
-    let clamped: f32 = value.clamp(0.0, 1.0);
-    if clamped <= CUTOFF {
-        clamped * 12.92
-    } else {
-        (1.0 + A) * clamped.powf(GAMMA) - A
-    }
-}
-
 fn to_display_encoded_rgb8(image: &DynamicImage, is_raw: bool) -> RgbImage {
     let linear_source: Rgb32FImage = image.to_rgb32f();
     let (width, height) = linear_source.dimensions();
@@ -3188,7 +3151,7 @@ fn to_display_encoded_rgb8(image: &DynamicImage, is_raw: bool) -> RgbImage {
         let pixel: &Rgb<f32> = linear_source.get_pixel(x, y);
         let encode = |channel: f32| -> u8 {
             let display: f32 = if is_raw {
-                linear_to_srgb(channel)
+                crate::color_encoding::linear_to_srgb(channel)
             } else {
                 channel.clamp(0.0, 1.0)
             };
