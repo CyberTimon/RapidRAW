@@ -30,7 +30,7 @@ export interface ConfirmModalState {
 
 export interface CollageModalState {
   isOpen: boolean;
-  sourceImages: ImageFile[];
+  sourceImages: Array<Pick<ImageFile, 'path'>>;
 }
 
 export interface PanoramaModalState {
@@ -84,6 +84,7 @@ interface UIState {
   isLayoutReady: boolean;
   uiVisibility: UiVisibility;
   isLibraryExportPanelVisible: boolean;
+  isSettingsOpen: boolean;
 
   // Dimensions
   leftPanelWidth: number;
@@ -138,6 +139,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   isLayoutReady: false,
   uiVisibility: { folderTree: true, filmstrip: true },
   isLibraryExportPanelVisible: false,
+  isSettingsOpen: false,
 
   leftPanelWidth: 256,
   rightPanelWidth: 320,

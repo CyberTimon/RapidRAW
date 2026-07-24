@@ -201,6 +201,8 @@ pub struct CopyPasteSettings {
     pub included_adjustments: HashSet<String>,
     #[serde(default)]
     pub known_adjustments: HashSet<String>,
+    #[serde(default)]
+    pub auto_sync: bool,
 }
 
 impl Default for CopyPasteSettings {
@@ -209,6 +211,7 @@ impl Default for CopyPasteSettings {
             mode: PasteMode::Merge,
             included_adjustments: default_included_adjustments(),
             known_adjustments: all_available_adjustments(),
+            auto_sync: false,
         }
     }
 }
@@ -379,6 +382,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub linux_gpu_optimization: Option<bool>,
     #[serde(default)]
+    pub linux_gpu_optimization_migrated_v1: Option<bool>,
+    #[serde(default)]
     pub library_view_mode: Option<String>,
     #[serde(default = "default_export_presets")]
     pub export_presets: Vec<ExportPreset>,
@@ -434,6 +439,8 @@ pub struct AppSettings {
     pub language: Option<String>,
     #[serde(default)]
     pub folder_tree_sort: Option<FolderTreeSort>,
+    #[serde(default)]
+    pub library_display_mode: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -475,10 +482,8 @@ impl Default for AppSettings {
             copy_paste_settings: CopyPasteSettings::default(),
             raw_highlight_compression: Some(2.5),
             processing_backend: Some("auto".to_string()),
-            #[cfg(target_os = "linux")]
-            linux_gpu_optimization: Some(true),
-            #[cfg(not(target_os = "linux"))]
             linux_gpu_optimization: Some(false),
+            linux_gpu_optimization_migrated_v1: Some(true),
             library_view_mode: Some("flat".to_string()),
             export_presets: default_export_presets(),
             my_lenses: Some(Vec::new()),
@@ -520,6 +525,7 @@ impl Default for AppSettings {
             exif_overlay: Some("off".to_string()),
             language: Some("en".to_string()),
             folder_tree_sort: Some(FolderTreeSort::default()),
+            library_display_mode: Some("grid".to_string()),
         }
     }
 }
@@ -556,6 +562,15 @@ pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
         && let Some(last) = &settings.last_root_path
     {
         settings.root_folders.push(last.clone());
+        settings_modified = true;
+    }
+
+    #[cfg(target_os = "linux")]
+    if !settings.linux_gpu_optimization_migrated_v1.unwrap_or(false) {
+        if settings.linux_gpu_optimization == Some(true) {
+            settings.linux_gpu_optimization = Some(false);
+        }
+        settings.linux_gpu_optimization_migrated_v1 = Some(true);
         settings_modified = true;
     }
 

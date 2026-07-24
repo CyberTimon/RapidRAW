@@ -6,6 +6,8 @@ export interface ImageDimensions {
 }
 
 export interface RenderSize {
+  containerHeight: number;
+  containerWidth: number;
   height: number;
   offsetX: number;
   offsetY: number;
@@ -13,10 +15,18 @@ export interface RenderSize {
   width: number;
 }
 
-const DEFAULT_SIZE: RenderSize = { width: 0, height: 0, scale: 1, offsetX: 0, offsetY: 0 };
+const DEFAULT_SIZE: RenderSize = {
+  width: 0,
+  height: 0,
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  containerWidth: 0,
+  containerHeight: 0,
+};
 
 export const useImageRenderSize = (
-  containerRef: React.RefObject<HTMLElement>,
+  containerRef: React.RefObject<HTMLElement | null>,
   imageDimensions: ImageDimensions | null,
 ) => {
   const [renderSize, setRenderSize] = useState<RenderSize>(DEFAULT_SIZE);
@@ -48,7 +58,7 @@ export const useImageRenderSize = (
       const offsetX = (containerWidth - width) / 2;
       const offsetY = (containerHeight - height) / 2;
 
-      setRenderSize({ width, height, scale: width / imgWidth, offsetX, offsetY });
+      setRenderSize({ width, height, scale: width / imgWidth, offsetX, offsetY, containerWidth, containerHeight });
     };
 
     updateSize();

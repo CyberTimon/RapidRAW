@@ -338,6 +338,7 @@ const EditorToolbar = memo(
             onClick={onBackToLibrary}
             onKeyDown={handleButtonKeyDown}
             data-tooltip={t('editor.toolbar.tooltips.backToLibrary')}
+            data-bench-id="back-to-library"
           >
             <ArrowLeft size={20} />
           </button>
@@ -536,6 +537,7 @@ const EditorToolbar = memo(
                 setIsHistoryVisible((prev) => !prev);
               }}
               data-tooltip={t('editor.toolbar.tooltips.undo')}
+              data-bench-id="undo"
             >
               <Undo size={20} />
             </button>

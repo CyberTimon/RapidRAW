@@ -109,6 +109,9 @@ fn develop_internal(
         developer.steps.retain(|&step| step != ProcessingStep::SRgb);
     }
 
+    raw_image.wb_coeffs =
+        crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
+
     check_cancel()?;
     let mut developed_intermediate = developer.develop_intermediate(&raw_image)?;
 

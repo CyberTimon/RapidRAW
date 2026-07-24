@@ -365,7 +365,9 @@
         "aiEdit_one": "AI編集 {{count}}",
         "aiEdit_other": "AI編集 {{count}}",
         "clone": "クローン {{count}}",
+        "clone_other": "クローン {{count}}",
         "heal": "修復 {{count}}",
+        "heal_other": "修復 {{count}}",
         "invertedName": "{{name}} 反転",
         "quickErase": "クイック消去 {{count}}",
         "quickErase_one": "クイック消去 {{count}}",
@@ -791,6 +793,7 @@
       "noImagesSelected": "画像が選択されていません。",
       "success": "書き出しが成功しました！"
     },
+    "title": "エクスポート",
     "watermark": {
       "addWatermark": "ウォーターマークを追加",
       "anchors": {
@@ -828,6 +831,31 @@
       "sortMethods": {
         "name": "名前 (A-Z)"
       }
+    },
+    "culling": {
+      "addTagPlaceholder": "タグを追加...",
+      "altCullingPreviewHighRes": "高解像度選別プレビュー",
+      "altThumbnailLoading": "サムネイル読み込み中",
+      "aperture": "絞り",
+      "cameraSettings": "カメラ設定",
+      "clickThumbnailsHint": "右サイドバーのサムネイルをクリックして比較ビューに追加します。",
+      "colorLabel": "カラーラベル",
+      "dimensions": "寸法",
+      "editImage": "画像を編集",
+      "focalLength": "焦点距離",
+      "iso": "ISO",
+      "metadata": "メタデータ",
+      "noMetadataAvailable": "メタデータがありません",
+      "noTagsAdded": "タグが追加されていません",
+      "none": "なし",
+      "rateAndLabel": "評価とラベル",
+      "rating": "評価",
+      "selectImagesToCompare": "比較する画像を選択",
+      "shutterSpeed": "シャッタースピード",
+      "syncZoomAndPan": "ズームとパンを同期",
+      "tags": "タグ",
+      "toggleFit": "1:1 / 全体表示の切り替え",
+      "vc": "VC"
     },
     "filters": {
       "edited": {
@@ -1071,6 +1099,9 @@
       "confirm": "確認"
     },
     "copyPaste": {
+      "autoSyncDesc": "選択したすべての画像に調整を自動的に適用します。",
+      "autoSyncLabel": "自動同期を有効にする",
+      "autoSyncTitle": "調整の自動同期",
       "cancel": "キャンセル",
       "descMerge": "コピーした設定を追加し、その他の設定はそのまま残します。",
       "descReplace": "選択したすべての設定を上書きし、残りの設定をデフォルトにリセットします。",
@@ -1451,6 +1482,7 @@
         "cycle_zoom": "ズームの切り替え (全体表示、2倍拡大、100%)",
         "delete_selected": "選択したファイルを削除",
         "open_image": "選択した画像を開く",
+        "open_settings": "設定を開く",
         "paste_adjustments": "コピーした補正設定を貼り付け",
         "paste_files": "現在のフォルダにファイルを貼り付け",
         "preview_next": "次の画像",

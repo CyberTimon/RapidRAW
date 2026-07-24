@@ -132,6 +132,76 @@ fn parse_raw_creation_date(date_str: Option<&str>) -> Option<DateTime<Utc>> {
     parse_creation_datetime(date_str?).map(|dt| DateTime::from_naive_utc_and_offset(dt, Utc))
 }
 
+fn clean_ascii_value(value: &exif::Value) -> Option<String> {
+    let exif::Value::Ascii(ref components) = *value else {
+        return None;
+    };
+
+    let cleaned: Vec<String> = components
+        .iter()
+        .map(|c| {
+            String::from_utf8_lossy(c)
+                .trim_matches(char::from(0))
+                .trim()
+                .to_string()
+        })
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if cleaned.is_empty() {
+        None
+    } else {
+        Some(cleaned.join(" "))
+    }
+}
+
+fn rational_to_f32_checked(r: &exif::Rational) -> Option<f32> {
+    if r.denom == 0 {
+        None
+    } else {
+        Some(r.num as f32 / r.denom as f32)
+    }
+}
+
+fn rawler_rational_to_f32_checked(r: &rawler::formats::tiff::Rational) -> Option<f32> {
+    if r.d == 0 {
+        None
+    } else {
+        Some(r.n as f32 / r.d as f32)
+    }
+}
+
+fn format_min_max(min: f32, max: f32, tolerance: f32) -> String {
+    if (min - max).abs() < tolerance {
+        format!("{min}")
+    } else {
+        format!("{min}-{max}")
+    }
+}
+
+fn format_lens_specification(components: &[exif::Rational]) -> Option<String> {
+    if components.len() < 4 {
+        return None;
+    }
+
+    let focal_min = rational_to_f32_checked(&components[0]);
+    let focal_max = rational_to_f32_checked(&components[1]);
+    let (focal_min, focal_max) = match (focal_min, focal_max) {
+        (Some(min), Some(max)) => (min, max),
+        _ => return None,
+    };
+
+    let mut spec = format!("{} mm", format_min_max(focal_min, focal_max, 0.01));
+
+    let aperture_min = rational_to_f32_checked(&components[2]);
+    let aperture_max = rational_to_f32_checked(&components[3]);
+    if let (Some(amin), Some(amax)) = (aperture_min, aperture_max) {
+        spec.push_str(&format!(", f/{}", format_min_max(amin, amax, 0.01)));
+    }
+
+    Some(spec)
+}
+
 pub fn read_exif(file_bytes: &[u8]) -> Option<Exif> {
     let exifreader = exif::Reader::new();
     exifreader
@@ -332,12 +402,53 @@ pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
                         fmt_date_str(field.display_value().to_string()),
                     );
                 }
-                _ => {
-                    let val = field.display_value().with_unit(&exif_obj).to_string();
-                    if !val.trim().is_empty() {
-                        map.insert(field.tag.to_string(), val);
+                exif::Tag::LensSpecification => {
+                    if let exif::Value::Rational(ref v) = field.value
+                        && v.len() >= 4
+                        && let (Some(focal_min), Some(focal_max)) = (
+                            rational_to_f32_checked(&v[0]),
+                            rational_to_f32_checked(&v[1]),
+                        )
+                    {
+                        let mut spec = format!("{} mm", format_min_max(focal_min, focal_max, 0.01));
+
+                        let aperture = match (
+                            rational_to_f32_checked(&v[2]),
+                            rational_to_f32_checked(&v[3]),
+                        ) {
+                            (Some(amin), Some(amax)) => Some((amin, amax)),
+                            _ => read_raw_metadata(file_bytes).and_then(|meta| {
+                                let lens_desc = meta.lens?;
+                                let amin =
+                                    rawler_rational_to_f32_checked(&lens_desc.aperture_range[0])?;
+                                let amax =
+                                    rawler_rational_to_f32_checked(&lens_desc.aperture_range[1])?;
+                                Some((amin, amax))
+                            }),
+                        };
+
+                        if let Some((amin, amax)) = aperture
+                            && (amin > 0.0 || amax > 0.0)
+                        {
+                            spec.push_str(&format!(", f/{}", format_min_max(amin, amax, 0.01)));
+                        }
+
+                        map.insert("LensSpecification".to_string(), spec);
                     }
                 }
+                _ => match &field.value {
+                    exif::Value::Ascii(_) => {
+                        if let Some(val) = clean_ascii_value(&field.value) {
+                            map.insert(field.tag.to_string(), val);
+                        }
+                    }
+                    _ => {
+                        let val = field.display_value().with_unit(&exif_obj).to_string();
+                        if !val.trim().is_empty() {
+                            map.insert(field.tag.to_string(), val);
+                        }
+                    }
+                },
             }
         }
     }
@@ -438,6 +549,23 @@ pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
 
     if let Some(v) = exif.lens_serial_number {
         insert_if_present("LensSerialNumber", v);
+    }
+
+    if let Some(lens_desc) = &metadata.lens {
+        let focal_min = fmt_rat(&lens_desc.focal_range[0]);
+        let focal_max = fmt_rat(&lens_desc.focal_range[1]);
+        let mut spec = format!("{} mm", format_min_max(focal_min, focal_max, 0.01));
+
+        let aperture_min = fmt_rat(&lens_desc.aperture_range[0]);
+        let aperture_max = fmt_rat(&lens_desc.aperture_range[1]);
+        if aperture_min > 0.0 || aperture_max > 0.0 {
+            spec.push_str(&format!(
+                ", f/{}",
+                format_min_max(aperture_min, aperture_max, 0.01)
+            ));
+        }
+
+        insert_if_present("LensSpecification", spec);
     }
 
     if let Some(v) = exif.orientation {
@@ -1126,7 +1254,19 @@ pub fn read_exif_data_from_bytes(path: &str, file_bytes: &[u8]) -> HashMap<Strin
     let mut exif_data = HashMap::new();
     if let Some(exif) = read_exif(file_bytes) {
         for field in exif.fields() {
-            let raw_val = field.display_value().with_unit(&exif).to_string();
+            let raw_val = match &field.value {
+                exif::Value::Ascii(_) => match clean_ascii_value(&field.value) {
+                    Some(v) => v,
+                    None => continue,
+                },
+                exif::Value::Rational(v) if field.tag == exif::Tag::LensSpecification => {
+                    match format_lens_specification(v) {
+                        Some(s) => s,
+                        None => continue,
+                    }
+                }
+                _ => field.display_value().with_unit(&exif).to_string(),
+            };
             exif_data.insert(field.tag.to_string(), truncate_large_exif(&raw_val));
         }
     }

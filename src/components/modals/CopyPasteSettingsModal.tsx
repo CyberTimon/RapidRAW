@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS: CopyPasteSettings = {
   mode: PasteMode.Merge,
   includedAdjustments: COPYABLE_ADJUSTMENT_KEYS,
   knownAdjustments: [],
+  autoSync: false,
 };
 
 interface PasteModeSwitchProps {
@@ -209,6 +210,20 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
               <b>{t('modals.copyPaste.modeMerge')}:</b> {t('modals.copyPaste.descMerge')}
               <br />
               <b>{t('modals.copyPaste.modeReplace')}:</b> {t('modals.copyPaste.descReplace')}
+            </Text>
+          </div>
+
+          <div>
+            <Text variant={TextVariants.heading} className="block mb-2">
+              {t('modals.copyPaste.autoSyncTitle')}
+            </Text>
+            <Switch
+              label={t('modals.copyPaste.autoSyncLabel')}
+              checked={localSettings.autoSync}
+              onChange={(checked) => setLocalSettings((p) => ({ ...p, autoSync: checked }))}
+            />
+            <Text variant={TextVariants.small} className="mt-2">
+              {t('modals.copyPaste.autoSyncDesc')}
             </Text>
           </div>
 

@@ -8,7 +8,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, GenericImageView, GrayImage, ImageBuffer, ImageFormat, Luma, imageops};
-use jxl_encoder::{LosslessConfig, LossyConfig, PixelLayout};
+use jxl_encoder::{
+    LosslessConfig, LossyConfig, PixelLayout,
+    api::{calibrated_jxl_quality, quality_to_distance},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::Emitter;
@@ -474,8 +477,8 @@ fn encode_image_to_bytes(
                         .map_err(|e| format!("Failed to encode lossless JXL: {}", e))?
                 }
             } else {
-                let distance = (100.0 - jpeg_quality as f32) / 10.0;
-                let distance = distance.max(0.01);
+                let jxl_quality = calibrated_jxl_quality(jpeg_quality as f32);
+                let distance = quality_to_distance(jxl_quality);
 
                 if has_alpha {
                     let rgba = image.to_rgba8();
@@ -697,6 +700,23 @@ fn export_adjustments_as_lut(
     convert_image_to_cube_lut(&processed_lut, lut_size)
 }
 
+struct ExportHandleGuard {
+    app_handle: tauri::AppHandle,
+}
+
+impl Drop for ExportHandleGuard {
+    fn drop(&mut self) {
+        if let Ok(mut handle_lock) = self
+            .app_handle
+            .state::<AppState>()
+            .export_task_handle
+            .lock()
+        {
+            *handle_lock = None;
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn export_images(
@@ -730,12 +750,12 @@ pub async fn export_images(
 
     let available_ram_gb = sys.available_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
 
-    let ram_based_limit = (available_ram_gb / 2.5).floor() as usize;
+    let ram_based_limit = (available_ram_gb / 4.0).floor() as usize;
 
     let num_threads = if paths.len() == 1 {
         1
     } else {
-        available_cores.min(ram_based_limit).clamp(1, 16)
+        available_cores.min(ram_based_limit).clamp(1, 4)
     };
 
     log::info!(
@@ -746,6 +766,9 @@ pub async fn export_images(
     );
 
     let task = tokio::spawn(async move {
+        let _export_guard = ExportHandleGuard {
+            app_handle: app_handle.clone(),
+        };
         let output_folder_path = std::path::Path::new(&output_folder_or_file);
         let total_paths = paths.len();
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
@@ -1036,12 +1059,6 @@ pub async fn export_images(
             );
             let _ = app_handle.emit("export-complete", ());
         }
-
-        *app_handle
-            .state::<AppState>()
-            .export_task_handle
-            .lock()
-            .unwrap() = None;
     });
 
     *state.export_task_handle.lock().unwrap() = Some(task);

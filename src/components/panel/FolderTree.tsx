@@ -24,7 +24,7 @@ import {
   Check,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
@@ -849,6 +849,7 @@ export default function FolderTree({
             </div>
           </div>
 
+          <LayoutGroup id="folder-tree">
           <div className="flex-1 overflow-y-auto" onContextMenu={handleEmptyAreaContextMenu}>
             {hasVisiblePinnedTrees && (
               <>
@@ -1072,6 +1073,7 @@ export default function FolderTree({
               </div>
             )}
           </div>
+          </LayoutGroup>
         </div>
       )}
     </div>

@@ -365,7 +365,9 @@
         "aiEdit_one": "AI 编辑 {{count}}",
         "aiEdit_other": "AI 编辑 {{count}}",
         "clone": "克隆 {{count}}",
+        "clone_other": "克隆 {{count}}",
         "heal": "修复 {{count}}",
+        "heal_other": "修复 {{count}}",
         "invertedName": "{{name}} 反转",
         "quickErase": "快速擦除 {{count}}",
         "quickErase_one": "快速擦除 {{count}}",
@@ -830,6 +832,31 @@
         "name": "名称（A-Z）"
       }
     },
+    "culling": {
+      "addTagPlaceholder": "添加标签...",
+      "altCullingPreviewHighRes": "高分辨率筛选预览",
+      "altThumbnailLoading": "缩略图加载中",
+      "aperture": "光圈",
+      "cameraSettings": "相机设置",
+      "clickThumbnailsHint": "在右侧边栏中单击缩略图以将它们添加到比较视图中。",
+      "colorLabel": "颜色标签",
+      "dimensions": "尺寸",
+      "editImage": "编辑图像",
+      "focalLength": "焦距",
+      "iso": "ISO",
+      "metadata": "元数据",
+      "noMetadataAvailable": "无可用元数据",
+      "noTagsAdded": "未添加标签",
+      "none": "无",
+      "rateAndLabel": "评分与标签",
+      "rating": "评分",
+      "selectImagesToCompare": "选择要比较的图像",
+      "shutterSpeed": "快门速度",
+      "syncZoomAndPan": "同步缩放和平移",
+      "tags": "标签",
+      "toggleFit": "切换 1:1 / 适应",
+      "vc": "VC"
+    },
     "filters": {
       "edited": {
         "all": "所有图像",
@@ -1072,6 +1099,9 @@
       "confirm": "确认"
     },
     "copyPaste": {
+      "autoSyncDesc": "自动将调整应用于所有选定的图像。",
+      "autoSyncLabel": "启用自动同步",
+      "autoSyncTitle": "自动同步调整",
       "cancel": "取消",
       "descMerge": "添加您复制的更改，保留其他设置不变。",
       "descReplace": "覆盖所有选中的设置，其余重置为默认值。",
@@ -1452,6 +1482,7 @@
         "cycle_zoom": "循环缩放（适应、2倍适应、100%）",
         "delete_selected": "删除选中的文件",
         "open_image": "打开选中的图像",
+        "open_settings": "打开设置",
         "paste_adjustments": "粘贴复制的调整",
         "paste_files": "将文件粘贴到当前文件夹",
         "preview_next": "下一张",

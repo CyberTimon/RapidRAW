@@ -104,7 +104,7 @@ export function useTauriListeners({
         const { path, thumbnailPath, rating, is_edited, data } = event.payload;
 
         if (thumbnailPath) {
-          thumbnailBuffer.current[path] = convertFileSrc(thumbnailPath);
+          thumbnailBuffer.current[path] = convertFileSrc(thumbnailPath.replace(/\\/g, '/'));
           refs.current.markGenerated(path);
         } else if (data) {
           thumbnailBuffer.current[path] = data;

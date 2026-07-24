@@ -38,3 +38,6 @@ src-tauri/libs/
 **/keystore.properties
 **/keystore.jks
 **/key.properties
+
+# bench/replay.js result dumps
+bench/out/

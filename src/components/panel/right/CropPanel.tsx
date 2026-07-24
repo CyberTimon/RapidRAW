@@ -24,6 +24,8 @@ import Slider from '../../ui/Slider';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
+import { calculateAreaPreservingCrop, calculateCenteredCrop } from '../../../utils/cropUtils';
+import { Crop } from 'react-image-crop';
 
 const BASE_RATIO = 1.618;
 const ORIGINAL_RATIO = 0;
@@ -240,14 +242,38 @@ export default function CropPanel() {
     }
   }, [isCustomActive, aspectRatio, isEditingCustom]);
 
+  const applyAspectRatio = useCallback(
+    (newAspectRatio: number | null) => {
+      if (newAspectRatio === null) {
+        setAdjustments((prev: Adjustments) => ({ ...prev, aspectRatio: null }));
+        return;
+      }
+      let newCrop: Crop | null = null;
+      if (selectedImage?.width && selectedImage?.height) {
+        newCrop =
+          calculateAreaPreservingCrop(
+            selectedImage.width,
+            selectedImage.height,
+            orientationSteps,
+            newAspectRatio,
+            rotation,
+            adjustments.crop,
+          ) ??
+          calculateCenteredCrop(selectedImage.width, selectedImage.height, orientationSteps, newAspectRatio, rotation);
+      }
+      setAdjustments((prev: Adjustments) => ({ ...prev, aspectRatio: newAspectRatio, crop: newCrop }));
+    },
+    [selectedImage, orientationSteps, rotation, adjustments.crop, setAdjustments],
+  );
+
   useEffect(() => {
     if (activePreset?.value === ORIGINAL_RATIO) {
       const newOriginalRatio = getEffectiveOriginalRatio();
       if (newOriginalRatio !== null && aspectRatio && Math.abs(aspectRatio - newOriginalRatio) > RATIO_TOLERANCE) {
-        setAdjustments((prev: Adjustments) => ({ ...prev, aspectRatio: newOriginalRatio }));
+        applyAspectRatio(newOriginalRatio);
       }
     }
-  }, [orientationSteps, activePreset, aspectRatio, getEffectiveOriginalRatio, setAdjustments]);
+  }, [orientationSteps, activePreset, aspectRatio, getEffectiveOriginalRatio, applyAspectRatio]);
 
   const handleCustomInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -271,7 +297,7 @@ export default function CropPanel() {
       const newAspectRatio = numW / numH;
       lastSyncedRatio.current = newAspectRatio;
       if (!adjustments?.aspectRatio || Math.abs(adjustments.aspectRatio - newAspectRatio) > RATIO_TOLERANCE) {
-        setAdjustments((prev: Adjustments) => ({ ...prev, aspectRatio: newAspectRatio }));
+        applyAspectRatio(newAspectRatio);
       }
     }
   };
@@ -295,10 +321,7 @@ export default function CropPanel() {
 
   const handlePresetClick = (preset: CropPreset) => {
     if (preset.value === ORIGINAL_RATIO) {
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        aspectRatio: getEffectiveOriginalRatio(),
-      }));
+      applyAspectRatio(getEffectiveOriginalRatio());
       return;
     }
 
@@ -306,10 +329,7 @@ export default function CropPanel() {
     if (activePreset === preset && targetRatio && targetRatio !== 1) {
       const newRatio = 1 / (adjustments.aspectRatio ? adjustments.aspectRatio : 1);
       setPreferPortrait(newRatio < 1);
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        aspectRatio: newRatio,
-      }));
+      applyAspectRatio(newRatio);
       return;
     }
 
@@ -322,19 +342,16 @@ export default function CropPanel() {
       }
     }
 
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aspectRatio: newAspectRatio }));
+    applyAspectRatio(newAspectRatio);
   };
 
   const handleOrientationToggle = useCallback(() => {
     if (aspectRatio && aspectRatio !== 1) {
       const newRatio = 1 / aspectRatio;
       setPreferPortrait(newRatio < 1);
-      setAdjustments((prev: Partial<Adjustments>) => ({
-        ...prev,
-        aspectRatio: newRatio,
-      }));
+      applyAspectRatio(newRatio);
     }
-  }, [aspectRatio, setAdjustments]);
+  }, [aspectRatio, applyAspectRatio]);
 
   const handleReset = () => {
     const originalAspectRatio =
@@ -397,11 +414,17 @@ export default function CropPanel() {
     const increment = degrees > 0 ? 1 : 3;
     setAdjustments((prev: Adjustments) => {
       const newAspectRatio = prev.aspectRatio && prev.aspectRatio !== 0 ? 1 / prev.aspectRatio : null;
+      const newOrientationSteps = ((prev.orientationSteps || 0) + increment) % 4;
+      const newCrop =
+        selectedImage?.width && selectedImage?.height
+          ? calculateCenteredCrop(selectedImage.width, selectedImage.height, newOrientationSteps, newAspectRatio, 0)
+          : null;
       return {
         ...prev,
         aspectRatio: newAspectRatio,
-        orientationSteps: ((prev.orientationSteps || 0) + increment) % 4,
+        orientationSteps: newOrientationSteps,
         rotation: 0,
+        crop: newCrop,
       };
     });
   };
@@ -522,10 +545,7 @@ export default function CropPanel() {
                     if (preferPortrait || (imageRatio && imageRatio < 1)) {
                       newAspectRatio = 1 / BASE_RATIO;
                     }
-                    setAdjustments((prev: Partial<Adjustments>) => ({
-                      ...prev,
-                      aspectRatio: newAspectRatio,
-                    }));
+                    applyAspectRatio(newAspectRatio);
                   }}
                   data-tooltip={t('editor.crop.presets.custom.tooltip')}
                   whileTap={{ scale: 0.98 }}

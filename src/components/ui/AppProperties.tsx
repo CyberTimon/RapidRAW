@@ -172,6 +172,8 @@ export interface AppSettings {
   enableLivePreviews?: boolean;
   livePreviewQuality?: string;
   enableAiTagging?: boolean;
+  aiTagCount?: number;
+  customAiTags?: string[];
   filterCriteria?: FilterCriteria;
   lastFolderState?: any;
   pinnedFolders?: any;
@@ -209,7 +211,11 @@ export interface AppSettings {
   folderIcons?: Record<string, string>;
   exifOverlay?: ExifOverlay;
   language?: string;
+  fontFamily?: string;
   folderTreeSort?: FolderTreeSort;
+  rootFolders?: string[];
+  taggingShortcuts?: string[];
+  libraryDisplayMode?: LibraryDisplayMode;
 }
 
 export interface BrushSettings {
@@ -313,11 +319,16 @@ export interface SupportedTypes {
   raw: Array<string>;
 }
 
+export enum LibraryDisplayMode {
+  Grid = 'grid',
+  Cull = 'cull',
+  List = 'list',
+}
+
 export enum ThumbnailSize {
   Large = 'large',
   Medium = 'medium',
   Small = 'small',
-  List = 'list',
 }
 
 export interface TransformState {

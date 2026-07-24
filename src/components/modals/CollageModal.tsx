@@ -28,7 +28,7 @@ interface CollageModalProps {
   isOpen: boolean;
   onClose(): void;
   onSave(base64Data: string, firstPath: string): Promise<string>;
-  sourceImages: ImageFile[];
+  sourceImages: Array<Pick<ImageFile, 'path'>>;
   thumbnails: Record<string, string>;
 }
 
@@ -152,7 +152,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
             path: imageFile.path,
             jsAdjustments: adjustments,
           });
-          const blob = new Blob([imageData], { type: 'image/jpeg' });
+          const blob = new Blob([new Uint8Array(imageData)], { type: 'image/jpeg' });
           const url = URL.createObjectURL(blob);
 
           return new Promise<LoadedImage>((resolve, reject) => {

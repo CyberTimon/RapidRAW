@@ -1,20 +1,20 @@
 {
   "compilerOptions": {
-    "types": [],
+    "types": ["vite/client"],
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
     "lib": ["dom", "esnext"],
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "noUncheckedSideEffectImports": true,
     "resolveJsonModule": true,
     "rootDir": "./src",
     "skipLibCheck": true,
     "strict": true,
-    "target": "es2025",
+    "target": "es2025"
   },
   "include": ["src"],
   "exclude": ["node_modules"]

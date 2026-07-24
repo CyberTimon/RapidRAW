@@ -319,6 +319,26 @@ fn parse_hald(image: DynamicImage) -> anyhow::Result<Lut> {
 }
 
 pub fn parse_lut_file(path_str: &str) -> anyhow::Result<Lut> {
+    if path_str.starts_with(r"\\") || path_str.starts_with("//") {
+        return Err(anyhow!("Network paths (UNC) are not allowed for LUTs"));
+    }
+
+    if path_str.contains("..") {
+        return Err(anyhow!("Directory traversal (..) is not allowed"));
+    }
+
+    let path = std::path::Path::new(path_str);
+    if let Some(std::path::Component::Prefix(prefix)) = path.components().next() {
+        match prefix.kind() {
+            std::path::Prefix::UNC(_, _)
+            | std::path::Prefix::VerbatimUNC(_, _)
+            | std::path::Prefix::DeviceNS(_) => {
+                return Err(anyhow!("Device/UNC prefix paths are not allowed"));
+            }
+            _ => {}
+        }
+    }
+
     let (extension, bytes): (String, Option<Vec<u8>>) =
         if cfg!(target_os = "android") && is_android_content_uri(path_str) {
             #[cfg(target_os = "android")]

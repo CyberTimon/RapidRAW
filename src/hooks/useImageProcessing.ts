@@ -435,7 +435,7 @@ export function useImageProcessing(
         debouncedSave(selectedImage.path, adjustments);
 
         const otherPaths = multiSelectedPaths.filter((p) => p !== selectedImage.path);
-        if (otherPaths.length > 0) {
+        if (appSettings?.copyPasteSettings?.autoSync && otherPaths.length > 0) {
           const prev = prevAdjustmentsRef.current;
           if (prev && prev.path === selectedImage.path) {
             const delta: Partial<Adjustments> = {};
@@ -472,6 +472,7 @@ export function useImageProcessing(
     multiSelectedPaths,
     appSettings?.enableLivePreviews,
     appSettings?.copyPasteSettings?.includedAdjustments,
+    appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
   ]);
 

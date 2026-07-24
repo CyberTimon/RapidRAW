@@ -365,7 +365,9 @@
         "aiEdit_one": "AI 編輯 {{count}}",
         "aiEdit_other": "AI 編輯 {{count}}",
         "clone": "仿製 {{count}}",
+        "clone_other": "仿製 {{count}}",
         "heal": "修復 {{count}}",
+        "heal_other": "修復 {{count}}",
         "invertedName": "{{name}} 反轉",
         "quickErase": "快速擦除 {{count}}",
         "quickErase_one": "快速擦除 {{count}}",
@@ -830,6 +832,31 @@
         "name": "名稱（A-Z）"
       }
     },
+    "culling": {
+      "addTagPlaceholder": "新增標籤...",
+      "altCullingPreviewHighRes": "高解析度篩選預覽",
+      "altThumbnailLoading": "縮圖載入中",
+      "aperture": "光圈",
+      "cameraSettings": "相機設定",
+      "clickThumbnailsHint": "按一下右側邊欄中的縮圖，將其新增至比較檢視中。",
+      "colorLabel": "顏色標籤",
+      "dimensions": "尺寸",
+      "editImage": "編輯影像",
+      "focalLength": "焦距",
+      "iso": "ISO",
+      "metadata": "中繼資料",
+      "noMetadataAvailable": "無可用中繼資料",
+      "noTagsAdded": "未新增標籤",
+      "none": "無",
+      "rateAndLabel": "評分與標籤",
+      "rating": "評分",
+      "selectImagesToCompare": "選擇要比較的影像",
+      "shutterSpeed": "快門速度",
+      "syncZoomAndPan": "同步縮放與平移",
+      "tags": "標籤",
+      "toggleFit": "切換 1:1 / 適應",
+      "vc": "VC"
+    },
     "filters": {
       "edited": {
         "all": "所有影像",
@@ -1072,6 +1099,9 @@
       "confirm": "確認"
     },
     "copyPaste": {
+      "autoSyncDesc": "自動將調整套用於所有選取的影像。",
+      "autoSyncLabel": "啟用自動同步",
+      "autoSyncTitle": "自動同步調整",
       "cancel": "取消",
       "descMerge": "新增您複製的更改，保留其他設定不變。",
       "descReplace": "覆蓋所有選中的設定，其餘重置為預設值。",
@@ -1452,6 +1482,7 @@
         "cycle_zoom": "迴圈縮放（適應、2倍適應、100%）",
         "delete_selected": "刪除選中的檔案",
         "open_image": "開啟選中的影像",
+        "open_settings": "開啟設定",
         "paste_adjustments": "貼上複製的調整",
         "paste_files": "將檔案貼上到當前資料夾",
         "preview_next": "下一張",

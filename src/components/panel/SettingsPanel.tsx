@@ -22,7 +22,7 @@ import {
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import clsx from 'clsx';
 import { Show, SignIn, useUser, useAuth, useClerk } from '@clerk/react';
 import Button from '../ui/Button';
@@ -987,6 +987,7 @@ export default function SettingsPanel({
   return (
     <>
       <ConfirmModal {...confirmModalState} onClose={closeConfirmModal} />
+      <LayoutGroup id="settings-panel">
       <div className="flex flex-col h-full w-full text-text-primary">
         <header className="shrink-0 flex flex-wrap items-center justify-between gap-y-4 mb-8 pt-4">
           <div className="flex items-center shrink-0">
@@ -2409,6 +2410,7 @@ export default function SettingsPanel({
           </AnimatePresence>
         </div>
       </div>
+      </LayoutGroup>
     </>
   );
 }

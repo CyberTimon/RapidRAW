@@ -1997,7 +1997,7 @@ const ImageCanvas = memo(
           return;
         }
 
-        if (isAiSubjectActive && previewBoxRef.current) {
+        if (isAiSubjectActive && previewBoxRef.current && pos) {
           const updatedBox = { ...previewBoxRef.current, end: pos };
           previewBoxRef.current = updatedBox;
           setPreviewBox(updatedBox);

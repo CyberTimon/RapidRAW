@@ -333,6 +333,13 @@ export const useKeyboardShortcuts = ({
           s.settings.handleSettingsChange({ ...s.settings.appSettings, exifOverlay: nextState });
         },
       },
+      open_settings: {
+        shouldFire: () => true,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.ui.setUI({ isSettingsOpen: true });
+        },
+      },
       toggle_crop: {
         shouldFire: (s: any) => !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
@@ -531,6 +538,14 @@ export const useKeyboardShortcuts = ({
         state.ui.negativeModalState.isOpen;
 
       if (isModalOpen) return;
+
+      if (state.ui.isSettingsOpen) {
+        if (event.code === 'Escape') {
+          event.preventDefault();
+          state.ui.setUI({ isSettingsOpen: false });
+        }
+        return;
+      }
 
       const isInputFocused =
         document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';

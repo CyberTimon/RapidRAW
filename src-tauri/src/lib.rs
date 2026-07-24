@@ -28,6 +28,7 @@ mod inpainting;
 mod lens_correction;
 mod lut_processing;
 mod mask_generation;
+mod multi_exposure;
 mod negative_conversion;
 mod panorama_stitching;
 mod panorama_utils;
@@ -1512,97 +1513,109 @@ async fn save_collage(base64_data: String, first_path_str: String) -> Result<Str
 }
 
 #[tauri::command]
-fn generate_preview_for_path(
+async fn generate_preview_for_path(
     path: String,
     js_adjustments: Value,
-    state: tauri::State<AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<Response, String> {
-    let context = get_or_init_gpu_context(&state, &app_handle)?;
-    let (source_path, _) = parse_virtual_path(&path);
-    let source_path_str = source_path.to_string_lossy().to_string();
-    let is_raw = is_raw_file(&source_path_str);
-    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    tokio::task::spawn_blocking(move || {
+        let state = app_handle.state::<AppState>();
+        let context = get_or_init_gpu_context(&state, &app_handle)?;
+        let (source_path, _) = parse_virtual_path(&path);
+        let source_path_str = source_path.to_string_lossy().to_string();
+        let is_raw = is_raw_file(&source_path_str);
+        let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-    let base_image = match read_file_mapped(&source_path) {
-        Ok(mmap) => load_and_composite(
-            &mmap,
-            &source_path_str,
-            &js_adjustments,
-            false,
-            &settings,
-            None,
-        )
-        .map_err(|e| e.to_string())?,
-        Err(e) => {
-            log::warn!(
-                "Failed to memory-map file '{}': {}. Falling back to standard read.",
-                source_path_str,
-                e
-            );
-            let bytes = fs::read(&source_path).map_err(|io_err| io_err.to_string())?;
-            load_and_composite(
-                &bytes,
+        let base_image = match read_file_mapped(&source_path) {
+            Ok(mmap) => load_and_composite(
+                &mmap,
                 &source_path_str,
                 &js_adjustments,
                 false,
                 &settings,
                 None,
             )
-            .map_err(|e| e.to_string())?
-        }
-    };
+            .map_err(|e| e.to_string())?,
+            Err(e) => {
+                log::warn!(
+                    "Failed to memory-map file '{}': {}. Falling back to standard read.",
+                    source_path_str,
+                    e
+                );
+                let bytes = fs::read(&source_path).map_err(|io_err| io_err.to_string())?;
+                load_and_composite(
+                    &bytes,
+                    &source_path_str,
+                    &js_adjustments,
+                    false,
+                    &settings,
+                    None,
+                )
+                .map_err(|e| e.to_string())?
+            }
+        };
 
-    let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(Cow::Borrowed(&base_image), &js_adjustments);
-    let (img_w, img_h) = transformed_image.dimensions();
-    let mask_definitions: Vec<MaskDefinition> = js_adjustments
-        .get("masks")
-        .and_then(|m| serde_json::from_value(m.clone()).ok())
-        .unwrap_or_default();
+        let (transformed_image, unscaled_crop_offset) =
+            apply_all_transformations(Cow::Borrowed(&base_image), &js_adjustments);
+        let (img_w, img_h) = transformed_image.dimensions();
+        let mask_definitions: Vec<MaskDefinition> = js_adjustments
+            .get("masks")
+            .and_then(|m| serde_json::from_value(m.clone()).ok())
+            .unwrap_or_default();
 
-    let warped_image = resolve_warped_image_for_masks(&state, &js_adjustments, &mask_definitions);
-    let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-        .iter()
-        .filter_map(|def| {
-            generate_mask_bitmap(
-                def,
-                img_w,
-                img_h,
-                1.0,
-                unscaled_crop_offset,
-                warped_image.as_deref(),
-            )
-        })
-        .collect();
+        let warped_image =
+            resolve_warped_image_for_masks(&state, &js_adjustments, &mask_definitions);
+        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
+            .iter()
+            .filter_map(|def| {
+                generate_mask_bitmap(
+                    def,
+                    img_w,
+                    img_h,
+                    1.0,
+                    unscaled_crop_offset,
+                    warped_image.as_deref(),
+                )
+            })
+            .collect();
 
-    let tm_override = resolve_tonemapper_override(&settings, is_raw);
-    let all_adjustments = get_all_adjustments_from_json(&js_adjustments, is_raw, tm_override);
-    let lut_path = js_adjustments["lutPath"].as_str();
-    let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
-    let unique_hash = calculate_full_job_hash(&source_path_str, &js_adjustments);
-    let final_image = process_and_get_dynamic_image(
-        &context,
-        &state,
-        transformed_image.as_ref(),
-        unique_hash,
-        RenderRequest {
-            adjustments: all_adjustments,
-            mask_bitmaps: &mask_bitmaps,
-            lut,
-            roi: None,
-        },
-        "generate_preview_for_path",
-    )?;
-    let (width, height) = final_image.dimensions();
-    let rgb_pixels = final_image.to_rgb8().into_vec();
+        let tm_override = resolve_tonemapper_override(&settings, is_raw);
+        let all_adjustments = get_all_adjustments_from_json(&js_adjustments, is_raw, tm_override);
+        let lut_path = js_adjustments["lutPath"].as_str();
+        let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
+        let unique_hash = calculate_full_job_hash(&source_path_str, &js_adjustments);
 
-    let bytes = Encoder::new(Preset::BaselineFastest)
-        .quality(92)
-        .encode_rgb(&rgb_pixels, width, height)
-        .map_err(|e| format!("Failed to encode with mozjpeg-rs: {}", e))?;
+        let final_image = process_and_get_dynamic_image(
+            &context,
+            &state,
+            transformed_image.as_ref(),
+            unique_hash,
+            RenderRequest {
+                adjustments: all_adjustments,
+                mask_bitmaps: &mask_bitmaps,
+                lut,
+                roi: None,
+            },
+            "generate_preview_for_path",
+        )?;
 
-    Ok(Response::new(bytes))
+        let (width, height) = final_image.dimensions();
+        let rgb_pixels = final_image.to_rgb8().into_vec();
+
+        let bytes = Encoder::new(Preset::BaselineFastest)
+            .quality(92)
+            .encode_rgb(&rgb_pixels, width, height)
+            .map_err(|e| format!("Failed to encode with mozjpeg-rs: {}", e))?;
+
+        Ok(Response::new(bytes))
+    })
+    .await
+    .map_err(|e| format!("Task execution failed: {}", e))?
+}
+
+#[cfg(target_os = "linux")]
+fn is_nvidia_gpu() -> bool {
+    std::path::Path::new("/proc/driver/nvidia/version").exists()
 }
 
 fn setup_logging(app_handle: &tauri::AppHandle) {
@@ -2044,12 +2057,14 @@ pub fn run() {
                         std::env::set_var("WGPU_BACKEND", backend);
                     }
 
-                if settings.linux_gpu_optimization.unwrap_or(true) {
-                    #[cfg(target_os = "linux")]
-                    {
+                #[cfg(target_os = "linux")]
+                {
+                    if settings.linux_gpu_optimization.unwrap_or(false) {
                         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
                         std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
                         std::env::set_var("NODEVICE_SELECT", "1");
+                    } else if is_nvidia_gpu() {
+                        std::env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1");
                     }
                 }
 
@@ -2082,10 +2097,12 @@ pub fn run() {
                 && backend != "auto" {
                     log::info!("Applied processing backend setting: {}", backend);
                 }
-            if settings.linux_gpu_optimization.unwrap_or(false) {
-                #[cfg(target_os = "linux")]
-                {
-                    log::info!("Applied Linux GPU optimizations.");
+            #[cfg(target_os = "linux")]
+            {
+                if settings.linux_gpu_optimization.unwrap_or(false) {
+                    log::info!("Applied Linux Compatibility Mode (forced software compositing).");
+                } else if is_nvidia_gpu() {
+                    log::info!("Applied Nvidia explicit-sync workaround (hardware compositing kept).");
                 }
             }
 

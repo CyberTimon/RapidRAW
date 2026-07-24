@@ -506,14 +506,6 @@ const FilmstripList = ({
     const currentPath = data.selectedPath;
 
     if (currentPath && gridHandle) {
-      if (data.multiSelectedPaths.length > 1) {
-        prevSelectedPath.current = currentPath;
-        if (data.clickTriggeredScroll.current) {
-          data.clickTriggeredScroll.current = false;
-        }
-        return;
-      }
-
       const index = data.imageList.findIndex((img) => img.path === currentPath);
 
       if (index !== -1) {
@@ -535,15 +527,7 @@ const FilmstripList = ({
         }
       }
     }
-  }, [
-    data.selectedPath,
-    data.multiSelectedPaths,
-    data.imageList,
-    isItemVisible,
-    data.clickTriggeredScroll,
-    performSafeScroll,
-    gridHandle,
-  ]);
+  }, [data.selectedPath, data.imageList, isItemVisible, data.clickTriggeredScroll, performSafeScroll, gridHandle]);
 
   const setRatio = useCallback(
     (index: number, ratio: number) => {

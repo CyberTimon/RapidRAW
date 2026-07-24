@@ -154,7 +154,7 @@ export default function LUTControl({
               console.error('Failed to resolve Android URI:', e);
               return path;
             }
-          })
+          }),
         );
         const allowedExtensions = new Set(['cube', '3dl']);
         validPaths = sourcePaths.filter((_, index) => {
@@ -297,7 +297,7 @@ export default function LUTControl({
                 step={1}
                 value={lutIntensity}
                 defaultValue={100}
-                onChange={(e) => onIntensityChange(parseInt(e.target.value, 10))}
+                onChange={(e) => onIntensityChange(Number(e.target.value))}
                 onDragStateChange={onDragStateChange}
                 fillOrigin="min"
               />

@@ -365,7 +365,9 @@
         "aiEdit_one": "AI 편집 {{count}}",
         "aiEdit_other": "AI 편집 {{count}}",
         "clone": "복제 {{count}}",
+        "clone_other": "복제 {{count}}",
         "heal": "복구 {{count}}",
+        "heal_other": "복구 {{count}}",
         "invertedName": "{{name}} 반전됨",
         "quickErase": "빠른 지우기 {{count}}",
         "quickErase_one": "빠른 지우기 {{count}}",
@@ -830,6 +832,31 @@
         "name": "이름 (가나다순)"
       }
     },
+    "culling": {
+      "addTagPlaceholder": "태그 추가...",
+      "altCullingPreviewHighRes": "고해상도 선별 미리보기",
+      "altThumbnailLoading": "썸네일 로딩 중",
+      "aperture": "조리개",
+      "cameraSettings": "카메라 설정",
+      "clickThumbnailsHint": "비교 뷰에 추가하려면 오른쪽 사이드바에서 썸네일을 클릭하세요.",
+      "colorLabel": "색상 라벨",
+      "dimensions": "크기",
+      "editImage": "이미지 편집",
+      "focalLength": "초점 거리",
+      "iso": "ISO",
+      "metadata": "메타데이터",
+      "noMetadataAvailable": "메타데이터 없음",
+      "noTagsAdded": "추가된 태그 없음",
+      "none": "없음",
+      "rateAndLabel": "평가 및 라벨",
+      "rating": "평가",
+      "selectImagesToCompare": "비교할 이미지 선택",
+      "shutterSpeed": "셔터 속도",
+      "syncZoomAndPan": "줌 및 이동 동기화",
+      "tags": "태그",
+      "toggleFit": "1:1 / 맞춤 전환",
+      "vc": "VC"
+    },
     "filters": {
       "edited": {
         "all": "모든 이미지",
@@ -1072,6 +1099,9 @@
       "confirm": "확인"
     },
     "copyPaste": {
+      "autoSyncDesc": "선택한 모든 이미지에 조정을 자동으로 적용합니다.",
+      "autoSyncLabel": "자동 동기화 활성화",
+      "autoSyncTitle": "조정 자동 동기화",
       "cancel": "취소",
       "descMerge": "복사한 변경 사항을 추가하며 다른 설정은 그대로 둡니다.",
       "descReplace": "선택한 모든 설정을 덮어쓰고 나머지는 기본값으로 초기화합니다.",
@@ -1452,6 +1482,7 @@
         "cycle_zoom": "확대/축소 순환 (맞춤, 2배 맞춤, 100%)",
         "delete_selected": "선택한 파일 삭제",
         "open_image": "선택한 이미지 열기",
+        "open_settings": "설정 열기",
         "paste_adjustments": "복사한 조정값 붙여넣기",
         "paste_files": "현재 폴더에 파일 붙여넣기",
         "preview_next": "다음 이미지",
