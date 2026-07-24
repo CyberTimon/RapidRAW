@@ -63,8 +63,9 @@ const EXIF_FIELD_TRANSLATION_KEYS: Record<string, string> = {
   Copyright: 'editor.metadata.extendedExif.fields.copyright',
   CreateDate: 'editor.metadata.extendedExif.fields.createDate',
   CustomRendered: 'editor.metadata.extendedExif.fields.customRendered',
-  DateTime: 'editor.metadata.extendedExif.fields.createDate',
-  DateTimeDigitized: 'editor.metadata.extendedExif.fields.modifyDate',
+  // Keep the standard EXIF names aligned with their common ExifTool aliases.
+  DateTime: 'editor.metadata.extendedExif.fields.modifyDate',
+  DateTimeDigitized: 'editor.metadata.extendedExif.fields.createDate',
   DateTimeOriginal: 'editor.metadata.extendedExif.fields.dateTimeOriginal',
   DigitalZoomRatio: 'editor.metadata.extendedExif.fields.digitalZoomRatio',
   ExifVersion: 'editor.metadata.extendedExif.fields.exifVersion',
