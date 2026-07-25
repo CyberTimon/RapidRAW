@@ -57,6 +57,14 @@ pub struct ImageMetadata {
     pub tags: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exif: Option<std::collections::HashMap<String, String>>,
+    /// Envelope keys this build does not recognise, carried through untouched.
+    ///
+    /// `adjustments` is an opaque `Value` and so already round-trips unknown
+    /// keys; without this, top-level keys added by a newer build or by external
+    /// tooling would be dropped on the next save. Flattened, so it is invisible
+    /// in the serialised form.
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
 }
 
 impl Default for ImageMetadata {
@@ -67,6 +75,7 @@ impl Default for ImageMetadata {
             adjustments: Value::Null,
             tags: None,
             exif: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
