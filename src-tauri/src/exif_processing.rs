@@ -4,7 +4,7 @@ use std::io::{BufReader, Cursor};
 use std::path::{Path, PathBuf};
 
 use crate::formats::is_raw_file;
-use crate::image_processing::ImageMetadata;
+use crate::image_processing::{ImageMetadata, SIDECAR_SCHEMA_VERSION};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use exif::{Exif, In, Value};
 use little_exif::exif_tag::ExifTag;
@@ -130,7 +130,17 @@ pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
     };
 
     let mut meta = match serde_json::from_str::<ImageMetadata>(&content) {
-        Ok(meta) => meta,
+        Ok(meta) if meta.version <= SIDECAR_SCHEMA_VERSION => meta,
+        Ok(meta) => {
+            quarantine_sidecar(
+                sidecar_path,
+                &format!(
+                    "declares schema version {} but this build supports at most {}",
+                    meta.version, SIDECAR_SCHEMA_VERSION
+                ),
+            );
+            return ImageMetadata::default();
+        }
         Err(e) => {
             quarantine_sidecar(sidecar_path, &format!("could not be parsed ({})", e));
             return ImageMetadata::default();
@@ -1461,13 +1471,18 @@ mod sidecar_tests {
     }
 
     #[test]
+    fn default_declares_the_current_schema_version() {
+        assert_eq!(ImageMetadata::default().version, SIDECAR_SCHEMA_VERSION);
+    }
+
+    #[test]
     fn absent_sidecar_yields_defaults_without_creating_files() {
         let dir = tempfile::tempdir().unwrap();
         let missing = dir.path().join("nope.rrdata");
 
         let meta = load_sidecar(&missing);
 
-        assert_eq!(meta.version, 1);
+        assert_eq!(meta.version, SIDECAR_SCHEMA_VERSION);
         assert_eq!(meta.rating, 0);
         assert!(!missing.exists());
         assert!(!backup_of(&missing).exists());
@@ -1532,6 +1547,31 @@ mod sidecar_tests {
             Some(&json!("external-tool/1.4")),
             "unknown envelope keys must round-trip"
         );
+    }
+
+    #[test]
+    fn future_schema_version_is_quarantined_and_bytes_preserved() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = json!({
+            "version": SIDECAR_SCHEMA_VERSION + 1,
+            "rating": 5,
+            "adjustments": { "somethingNew": true },
+            "tags": ["user:keep"]
+        })
+        .to_string();
+        let path = write_sidecar(dir.path(), &original);
+
+        let meta = load_sidecar(&path);
+
+        // The caller gets defaults, so it cannot act on half-understood data.
+        assert_eq!(meta.rating, 0);
+        assert!(meta.adjustments.is_null());
+
+        // The user's bytes are still on disk, untouched.
+        let backup = backup_of(&path);
+        assert!(backup.exists(), "a newer sidecar must be preserved");
+        assert_eq!(fs::read_to_string(&backup).unwrap(), original);
+        assert_eq!(fs::read_to_string(&path).unwrap(), original);
     }
 
     #[test]

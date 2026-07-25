@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "rating": 4,
+  "adjustments": {
+    "exposure": 0.35,
+    "contrast": 12,
+    "shadows": 20,
+    "whites": -5,
+    "toneMapper": "agx",
+    "vibrance": 8,
+    "centré": 15,
+    "lumaNoiseReduction": 25,
+    "hsl": {
+      "blues": { "hue": -12, "saturation": 18, "luminance": -6 }
+    },
+    "colorGrading": {
+      "balance": -10,
+      "blending": 50,
+      "shadows": { "hue": 210, "saturation": 12, "luminance": 0 }
+    },
+    "curves": {
+      "luma": [
+        { "x": 0, "y": 8 },
+        { "x": 128, "y": 132 },
+        { "x": 255, "y": 255 }
+      ]
+    }
+  },
+  "tags": ["color:green", "user:portfolio", "landscape"]
+}

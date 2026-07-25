@@ -33,6 +33,12 @@ jobs:
         run: npm run i18n:check
         continue-on-error: true
 
+      # Not continue-on-error: the sidecar schema is a published integration
+      # point, and a schema that has drifted from the adjustments it describes
+      # is worse than no schema at all.
+      - name: Check Sidecar Schema
+        run: npm run schema:check
+
   fmt:
     name: cargo fmt
     runs-on: ubuntu-latest

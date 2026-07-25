@@ -1,0 +1,462 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/CyberTimon/RapidRAW/blob/main/schema/rrdata-v1.schema.json",
+  "title": "RapidRAW sidecar (.rrdata) v1",
+  "description": "Schema for RapidRAW's non-destructive edit sidecar. One sidecar accompanies each image as '<filename>.rrdata' (or '<filename>.<copyId>.rrdata' for a virtual copy). Unknown properties are legal everywhere and are preserved verbatim by the application; see docs/sidecar-format.md for the compatibility contract.",
+  "type": "object",
+  "required": ["version", "rating", "adjustments"],
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Sidecar schema version. A reader encountering a version greater than it supports must not overwrite the file; RapidRAW quarantines such sidecars to '<name>.rrdata.bak' and continues with defaults rather than silently discarding the contents."
+    },
+    "rating": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5,
+      "description": "Star rating. 0 means unrated."
+    },
+    "adjustments": {
+      "oneOf": [{ "$ref": "#/definitions/adjustments" }, { "type": "null" }],
+      "description": "The complete edit. Null on sidecars written for images that have never been edited."
+    },
+    "tags": {
+      "oneOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }],
+      "description": "Flat, namespaced tag list. Entries prefixed 'color:' are colour labels (one at most; red, yellow, green, blue or purple). Entries prefixed 'user:' are user-authored tags. Unprefixed entries are AI-generated tags. Writers must preserve prefixes exactly; RapidRAW filters on them."
+    },
+    "exif": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Cached EXIF key/value pairs. Values longer than 500 characters are truncated on load to keep sidecars small, and the file is rewritten when that happens."
+    }
+  },
+
+  "definitions": {
+    "curvePoint": {
+      "type": "object",
+      "required": ["x", "y"],
+      "additionalProperties": true,
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 255 },
+        "y": { "type": "number", "minimum": 0, "maximum": 255 }
+      }
+    },
+
+    "curve": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/definitions/curvePoint" },
+      "description": "Point curve as an ordered list of control points. Identity is [{x:0,y:0},{x:255,y:255}]."
+    },
+
+    "curves": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "blue": { "$ref": "#/definitions/curve" },
+        "green": { "$ref": "#/definitions/curve" },
+        "luma": { "$ref": "#/definitions/curve" },
+        "red": { "$ref": "#/definitions/curve" }
+      }
+    },
+
+    "parametricCurveSettings": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "darks": { "type": "number", "minimum": -100, "maximum": 100 },
+        "shadows": { "type": "number", "minimum": -100, "maximum": 100 },
+        "lights": { "type": "number", "minimum": -100, "maximum": 100 },
+        "highlights": { "type": "number", "minimum": -100, "maximum": 100 },
+        "whiteLevel": {
+          "type": "number",
+          "minimum": -100,
+          "maximum": 0,
+          "description": "Note the asymmetric range: whiteLevel is -100..0 and blackLevel is 0..100. This is not a transcription error; it matches the UI controls."
+        },
+        "blackLevel": { "type": "number", "minimum": 0, "maximum": 100 },
+        "split1": { "type": "number", "minimum": 0, "maximum": 100 },
+        "split2": { "type": "number", "minimum": 0, "maximum": 100 },
+        "split3": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+
+    "parametricCurve": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "luma": { "$ref": "#/definitions/parametricCurveSettings" },
+        "red": { "$ref": "#/definitions/parametricCurveSettings" },
+        "green": { "$ref": "#/definitions/parametricCurveSettings" },
+        "blue": { "$ref": "#/definitions/parametricCurveSettings" }
+      }
+    },
+
+    "hslBand": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "One colour-mixer band. All three properties are -100..100. This differs from the identically-shaped colourGradingWheel, whose hue is 0..360.",
+      "properties": {
+        "hue": { "type": "number", "minimum": -100, "maximum": 100 },
+        "saturation": { "type": "number", "minimum": -100, "maximum": 100 },
+        "luminance": { "type": "number", "minimum": -100, "maximum": 100 }
+      }
+    },
+
+    "hsl": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "aquas": { "$ref": "#/definitions/hslBand" },
+        "blues": { "$ref": "#/definitions/hslBand" },
+        "greens": { "$ref": "#/definitions/hslBand" },
+        "magentas": { "$ref": "#/definitions/hslBand" },
+        "oranges": { "$ref": "#/definitions/hslBand" },
+        "purples": { "$ref": "#/definitions/hslBand" },
+        "reds": { "$ref": "#/definitions/hslBand" },
+        "yellows": { "$ref": "#/definitions/hslBand" }
+      }
+    },
+
+    "colorGradingWheel": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "One colour-grading wheel. Hue is an absolute angle 0..360, unlike hslBand where hue is a -100..100 shift.",
+      "properties": {
+        "hue": { "type": "number", "minimum": 0, "maximum": 360 },
+        "saturation": { "type": "number", "minimum": 0, "maximum": 100 },
+        "luminance": { "type": "number", "minimum": -100, "maximum": 100 }
+      }
+    },
+
+    "colorGrading": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "balance": { "type": "number", "minimum": -100, "maximum": 100 },
+        "blending": { "type": "number", "minimum": 0, "maximum": 100 },
+        "global": { "$ref": "#/definitions/colorGradingWheel" },
+        "highlights": { "$ref": "#/definitions/colorGradingWheel" },
+        "midtones": { "$ref": "#/definitions/colorGradingWheel" },
+        "shadows": { "$ref": "#/definitions/colorGradingWheel" }
+      }
+    },
+
+    "colorCalibration": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "shadowsTint": { "type": "number", "minimum": -100, "maximum": 100 },
+        "redHue": { "type": "number", "minimum": -100, "maximum": 100 },
+        "redSaturation": { "type": "number", "minimum": -100, "maximum": 100 },
+        "greenHue": { "type": "number", "minimum": -100, "maximum": 100 },
+        "greenSaturation": { "type": "number", "minimum": -100, "maximum": 100 },
+        "blueHue": { "type": "number", "minimum": -100, "maximum": 100 },
+        "blueSaturation": { "type": "number", "minimum": -100, "maximum": 100 }
+      }
+    },
+
+    "crop": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "additionalProperties": true,
+      "description": "Crop rectangle in source-image pixel coordinates.",
+      "properties": {
+        "x": { "type": "number", "minimum": 0 },
+        "y": { "type": "number", "minimum": 0 },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+
+    "sectionVisibility": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Per-section UI collapse state. Presentation only; does not affect rendering.",
+      "properties": {
+        "basic": { "type": "boolean" },
+        "curves": { "type": "boolean" },
+        "color": { "type": "boolean" },
+        "details": { "type": "boolean" },
+        "effects": { "type": "boolean" }
+      }
+    },
+
+    "lensDistortionParams": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Resolved lens correction coefficients, normally populated from the bundled Lensfun database rather than authored by hand.",
+      "properties": {
+        "k1": { "type": "number" },
+        "k2": { "type": "number" },
+        "k3": { "type": "number" },
+        "model": { "type": "integer" },
+        "tca_vr": { "type": "number" },
+        "tca_vb": { "type": "number" },
+        "vig_k1": { "type": "number" },
+        "vig_k2": { "type": "number" },
+        "vig_k3": { "type": "number" }
+      }
+    },
+
+    "subMask": {
+      "type": "object",
+      "required": ["id", "type", "visible", "mode", "parameters"],
+      "additionalProperties": true,
+      "description": "One component of a mask. Sub-masks combine in array order using their mode.",
+      "properties": {
+        "id": { "type": "string" },
+        "type": {
+          "type": "string",
+          "description": "Sub-mask kind. The listed values are those the renderer dispatches on; an unrecognised type yields no coverage rather than an error.",
+          "examples": [
+            "radial",
+            "linear",
+            "brush",
+            "clone",
+            "heal",
+            "color",
+            "luminance",
+            "ai-subject",
+            "ai-foreground",
+            "ai-sky",
+            "ai-depth"
+          ]
+        },
+        "visible": { "type": "boolean" },
+        "invert": { "type": "boolean" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 100 },
+        "mode": {
+          "type": "string",
+          "enum": ["additive", "subtractive", "intersect"]
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Geometry and tuning for this sub-mask kind. The shape varies by 'type' and is deliberately unconstrained here: it is the least stable part of the format and is not covered by the v1 compatibility guarantee."
+        }
+      }
+    },
+
+    "maskContainer": {
+      "type": "object",
+      "required": ["adjustments", "invert", "name", "opacity", "subMasks", "visible"],
+      "additionalProperties": true,
+      "properties": {
+        "id": {},
+        "name": { "type": "string" },
+        "visible": { "type": "boolean" },
+        "invert": { "type": "boolean" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 100 },
+        "adjustments": { "$ref": "#/definitions/maskAdjustments" },
+        "subMasks": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/subMask" }
+        }
+      }
+    },
+
+    "aiPatch": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "A generative-replace or cleanup patch.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "prompt": { "type": "string" },
+        "visible": { "type": "boolean" },
+        "invert": { "type": "boolean" },
+        "isLoading": { "type": "boolean" },
+        "patchData": {},
+        "subMasks": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/subMask" }
+        }
+      }
+    },
+
+    "maskAdjustments": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Adjustments applied within a mask. A strict subset of the global set, with two deliberate range differences: lumaNoiseReduction and colorNoiseReduction accept negative values here (-100..100) because a mask can subtract noise reduction, whereas globally they are 0..100.",
+      "properties": {
+        "id": { "type": "string" },
+        "exposure": { "type": "number", "minimum": -5, "maximum": 5 },
+        "brightness": { "type": "number", "minimum": -5, "maximum": 5 },
+        "contrast": { "type": "number", "minimum": -100, "maximum": 100 },
+        "highlights": { "type": "number", "minimum": -100, "maximum": 100 },
+        "shadows": { "type": "number", "minimum": -100, "maximum": 100 },
+        "whites": { "type": "number", "minimum": -100, "maximum": 100 },
+        "blacks": { "type": "number", "minimum": -100, "maximum": 100 },
+        "saturation": { "type": "number", "minimum": -100, "maximum": 100 },
+        "temperature": { "type": "number", "minimum": -100, "maximum": 100 },
+        "tint": { "type": "number", "minimum": -100, "maximum": 100 },
+        "vibrance": { "type": "number", "minimum": -100, "maximum": 100 },
+        "hue": { "type": "number", "minimum": -180, "maximum": 180 },
+        "clarity": { "type": "number", "minimum": -100, "maximum": 100 },
+        "dehaze": { "type": "number", "minimum": -100, "maximum": 100 },
+        "structure": { "type": "number", "minimum": -100, "maximum": 100 },
+        "sharpness": { "type": "number", "minimum": -100, "maximum": 100 },
+        "sharpnessThreshold": { "type": "number", "minimum": 0, "maximum": 80 },
+        "lumaNoiseReduction": { "type": "number", "minimum": -100, "maximum": 100 },
+        "colorNoiseReduction": { "type": "number", "minimum": -100, "maximum": 100 },
+        "glowAmount": { "type": "number", "minimum": 0, "maximum": 100 },
+        "halationAmount": { "type": "number", "minimum": 0, "maximum": 100 },
+        "flareAmount": { "type": "number", "minimum": 0, "maximum": 100 },
+        "hsl": { "$ref": "#/definitions/hsl" },
+        "colorGrading": { "$ref": "#/definitions/colorGrading" },
+        "curves": { "$ref": "#/definitions/curves" },
+        "pointCurves": { "$ref": "#/definitions/curves" },
+        "parametricCurve": { "$ref": "#/definitions/parametricCurve" },
+        "curveMode": { "type": "string", "enum": ["point", "parametric"] },
+        "sectionVisibility": { "$ref": "#/definitions/sectionVisibility" }
+      }
+    },
+
+    "adjustments": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "The global edit. additionalProperties is true by design: RapidRAW round-trips keys it does not recognise, so a validator must not reject them.",
+      "properties": {
+        "exposure": {
+          "type": "number",
+          "minimum": -5,
+          "maximum": 5,
+          "description": "Exposure in stops."
+        },
+        "brightness": { "type": "number", "minimum": -5, "maximum": 5 },
+        "contrast": { "type": "number", "minimum": -100, "maximum": 100 },
+        "highlights": { "type": "number", "minimum": -100, "maximum": 100 },
+        "shadows": { "type": "number", "minimum": -100, "maximum": 100 },
+        "whites": { "type": "number", "minimum": -100, "maximum": 100 },
+        "blacks": { "type": "number", "minimum": -100, "maximum": 100 },
+        "toneMapper": { "type": "string", "enum": ["agx", "basic"] },
+
+        "saturation": { "type": "number", "minimum": -100, "maximum": 100 },
+        "temperature": { "type": "number", "minimum": -100, "maximum": 100 },
+        "tint": { "type": "number", "minimum": -100, "maximum": 100 },
+        "vibrance": { "type": "number", "minimum": -100, "maximum": 100 },
+        "hue": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180,
+          "description": "Global hue rotation in degrees. Distinct from the per-band hsl shifts, which are -100..100."
+        },
+        "hsl": { "$ref": "#/definitions/hsl" },
+        "colorGrading": { "$ref": "#/definitions/colorGrading" },
+        "colorCalibration": { "$ref": "#/definitions/colorCalibration" },
+
+        "curves": { "$ref": "#/definitions/curves" },
+        "pointCurves": { "$ref": "#/definitions/curves" },
+        "parametricCurve": { "$ref": "#/definitions/parametricCurve" },
+        "curveMode": { "type": "string", "enum": ["point", "parametric"] },
+
+        "clarity": { "type": "number", "minimum": -100, "maximum": 100 },
+        "dehaze": { "type": "number", "minimum": -100, "maximum": 100 },
+        "structure": { "type": "number", "minimum": -100, "maximum": 100 },
+        "centré": {
+          "type": "number",
+          "minimum": -100,
+          "maximum": 100,
+          "description": "Detail centring amount. The accented key is historical and normative in v1: writers must emit exactly \"centré\" (final character U+00E9). RapidRAW reads no ASCII alias. Sidecars are UTF-8."
+        },
+        "sharpness": { "type": "number", "minimum": -100, "maximum": 100 },
+        "sharpnessThreshold": { "type": "number", "minimum": 0, "maximum": 80 },
+        "lumaNoiseReduction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Globally 0..100. Inside a mask the same key accepts -100..100."
+        },
+        "colorNoiseReduction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Globally 0..100. Inside a mask the same key accepts -100..100."
+        },
+        "chromaticAberrationRedCyan": { "type": "number", "minimum": -100, "maximum": 100 },
+        "chromaticAberrationBlueYellow": { "type": "number", "minimum": -100, "maximum": 100 },
+
+        "vignetteAmount": { "type": "number", "minimum": -100, "maximum": 100 },
+        "vignetteFeather": { "type": "number", "minimum": 0, "maximum": 100 },
+        "vignetteMidpoint": { "type": "number", "minimum": 0, "maximum": 100 },
+        "vignetteRoundness": { "type": "number", "minimum": -100, "maximum": 100 },
+        "grainAmount": { "type": "number", "minimum": 0, "maximum": 100 },
+        "grainSize": { "type": "number", "minimum": 0, "maximum": 100 },
+        "grainRoughness": { "type": "number", "minimum": 0, "maximum": 100 },
+        "glowAmount": { "type": "number", "minimum": 0, "maximum": 100 },
+        "halationAmount": { "type": "number", "minimum": 0, "maximum": 100 },
+        "flareAmount": { "type": "number", "minimum": 0, "maximum": 100 },
+
+        "lutIntensity": { "type": "number", "minimum": 0, "maximum": 100 },
+        "lutName": { "type": ["string", "null"] },
+        "lutPath": { "type": ["string", "null"] },
+        "lutData": {
+          "type": ["string", "null"],
+          "description": "Inlined LUT contents. Present when the LUT travels with the edit rather than being referenced by path."
+        },
+        "lutSize": { "type": "integer", "minimum": 0 },
+
+        "crop": {
+          "oneOf": [{ "$ref": "#/definitions/crop" }, { "type": "null" }]
+        },
+        "aspectRatio": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "Locked crop aspect as width/height. Null means unlocked."
+        },
+        "rotation": {
+          "type": "number",
+          "description": "Free crop rotation in degrees. No range is declared: the UI exposes this through a canvas handle rather than a bounded control, so v1 constrains the type only."
+        },
+        "orientationSteps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3,
+          "description": "Coarse rotation in 90-degree steps, applied before free rotation."
+        },
+        "flipHorizontal": { "type": "boolean" },
+        "flipVertical": { "type": "boolean" },
+
+        "transformDistortion": { "type": "number", "minimum": -100, "maximum": 100 },
+        "transformVertical": { "type": "number", "minimum": -100, "maximum": 100 },
+        "transformHorizontal": { "type": "number", "minimum": -100, "maximum": 100 },
+        "transformRotate": { "type": "number", "minimum": -45, "maximum": 45 },
+        "transformAspect": { "type": "number", "minimum": -100, "maximum": 100 },
+        "transformScale": { "type": "number", "minimum": 50, "maximum": 150 },
+        "transformXOffset": { "type": "number", "minimum": -100, "maximum": 100 },
+        "transformYOffset": { "type": "number", "minimum": -100, "maximum": 100 },
+
+        "lensCorrectionMode": { "type": "string", "enum": ["auto", "manual"] },
+        "lensMaker": { "type": ["string", "null"] },
+        "lensModel": { "type": ["string", "null"] },
+        "lensDistortionAmount": { "type": "number", "minimum": 0, "maximum": 200 },
+        "lensVignetteAmount": { "type": "number", "minimum": 0, "maximum": 200 },
+        "lensTcaAmount": { "type": "number", "minimum": 0, "maximum": 200 },
+        "lensDistortionEnabled": { "type": "boolean" },
+        "lensTcaEnabled": { "type": "boolean" },
+        "lensVignetteEnabled": { "type": "boolean" },
+        "lensDistortionParams": {
+          "oneOf": [{ "$ref": "#/definitions/lensDistortionParams" }, { "type": "null" }]
+        },
+
+        "masks": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/maskContainer" }
+        },
+        "aiPatches": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/aiPatch" }
+        },
+
+        "sectionVisibility": { "$ref": "#/definitions/sectionVisibility" },
+        "showClipping": {
+          "type": "boolean",
+          "description": "Clipping-overlay toggle. Presentation only; does not affect rendering."
+        }
+      }
+    }
+  }
+}
