@@ -1075,6 +1075,7 @@ export default function SettingsPanel({
                           { value: 'pl', label: 'Polski' },
                           { value: 'pt', label: 'Português' },
                           { value: 'ru', label: 'Русский' },
+                          { value: 'cs', label: 'Čeština' },
                           { value: 'zh-CN', label: '简体中文' },
                           { value: 'zh-TW', label: '繁體中文' },
                         ]}
