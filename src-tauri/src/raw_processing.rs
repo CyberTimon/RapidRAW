@@ -196,6 +196,11 @@ fn dng_default_exposure_ev(file_bytes: &[u8]) -> f32 {
     combined_dng_exposure_ev(baseline, offset)
 }
 
+#[inline]
+fn dng_default_exposure_gain(file_bytes: &[u8]) -> f32 {
+    2.0_f32.powf(dng_default_exposure_ev(file_bytes))
+}
+
 fn develop_internal(
     file_bytes: &[u8],
     fast_demosaic: bool,
@@ -220,7 +225,7 @@ fn develop_internal(
     // separate from sample normalization so gamma-tagged linear raws apply it
     // only after their transfer function has been decoded.
     let baseline_exposure_gain = if decoder.format_hint() == FormatHint::DNG {
-        2.0_f32.powf(dng_default_exposure_ev(file_bytes))
+        dng_default_exposure_gain(file_bytes)
     } else {
         1.0
     };
@@ -503,6 +508,17 @@ mod tests {
             let dng = dng_with_baseline_tags(endian, (-3, 2), (5, 2));
             assert_eq!(dng_default_exposure_ev(&dng), 1.0);
         }
+    }
+
+    #[test]
+    fn samsung_linear_dng_one_ev_metadata_doubles_linear_pixel_values() {
+        // This is a minimal, privacy-safe regression fixture: -1.5 EV baseline
+        // plus +2.5 EV offset yields +1 EV, so a linear midtone doubles.
+        let dng = dng_with_baseline_tags(TiffEndian::Little, (-3, 2), (5, 2));
+        let source_pixel = 0.18_f32;
+
+        assert!((dng_default_exposure_gain(&dng) - 2.0).abs() < f32::EPSILON);
+        assert!((source_pixel * dng_default_exposure_gain(&dng) - 0.36).abs() < f32::EPSILON);
     }
 
     #[test]
