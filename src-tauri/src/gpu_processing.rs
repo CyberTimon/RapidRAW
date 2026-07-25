@@ -25,6 +25,14 @@ fn high_precision_shader_source() -> String {
         )
 }
 
+fn supports_high_precision_storage(allowed_usages: wgpu::TextureUsages) -> bool {
+    allowed_usages.contains(
+        wgpu::TextureUsages::TEXTURE_BINDING
+            | wgpu::TextureUsages::STORAGE_BINDING
+            | wgpu::TextureUsages::COPY_SRC,
+    )
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Roi {
     pub x: u32,
@@ -229,6 +237,11 @@ pub fn get_or_init_gpu_context(
     }
 
     let limits = adapter.limits();
+    let high_precision_storage_supported = supports_high_precision_storage(
+        adapter
+            .get_texture_format_features(wgpu::TextureFormat::Rgba16Float)
+            .allowed_usages,
+    );
 
     let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         label: Some("Processing Device"),
@@ -418,6 +431,7 @@ pub fn get_or_init_gpu_context(
         device: Arc::new(device),
         queue: Arc::new(queue),
         limits,
+        high_precision_storage_supported,
         display: Arc::new(std::sync::Mutex::new(display_opt)),
     };
     *context_lock = Some(new_context.clone());
@@ -566,8 +580,8 @@ pub struct GpuProcessor {
 
     main_bgl: wgpu::BindGroupLayout,
     main_pipeline: wgpu::ComputePipeline,
-    main_bgl_high_precision: wgpu::BindGroupLayout,
-    main_pipeline_high_precision: wgpu::ComputePipeline,
+    main_bgl_high_precision: Option<wgpu::BindGroupLayout>,
+    main_pipeline_high_precision: Option<wgpu::ComputePipeline>,
     adjustments_buffer: wgpu::Buffer,
     dummy_blur_view: wgpu::TextureView,
     dummy_lut_view: wgpu::TextureView,
@@ -590,6 +604,14 @@ const FLARE_MAP_SIZE: u32 = 512;
 const PROCESSING_TILE_SIZE: u32 = 2048;
 const PROCESSING_TILE_OVERLAP: u32 = 128;
 const MAX_PROCESSING_TILE_EXTENT: u32 = PROCESSING_TILE_SIZE + 2 * PROCESSING_TILE_OVERLAP;
+const BOUNDED_RGBA16_INTERMEDIATE_TEXTURES: u64 = 5;
+
+fn bounded_processing_texture_dimensions(width: u32, height: u32) -> (u32, u32) {
+    (
+        width.min(MAX_PROCESSING_TILE_EXTENT),
+        height.min(MAX_PROCESSING_TILE_EXTENT),
+    )
+}
 
 impl GpuProcessor {
     pub fn new(context: GpuContext, max_width: u32, max_height: u32) -> Result<Self, String> {
@@ -816,12 +838,6 @@ impl GpuProcessor {
             label: Some("Image Processing Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
         });
-        let high_precision_shader_module =
-            device.create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("High Precision Image Processing Shader"),
-                source: wgpu::ShaderSource::Wgsl(high_precision_shader_source().into()),
-            });
-
         let mut bind_group_layout_entries = vec![
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
@@ -941,23 +957,10 @@ impl GpuProcessor {
             count: None,
         });
 
-        let mut high_precision_bind_group_layout_entries = bind_group_layout_entries.clone();
-        let wgpu::BindingType::StorageTexture { format, .. } =
-            &mut high_precision_bind_group_layout_entries[1].ty
-        else {
-            return Err("Main output binding is not a storage texture".to_string());
-        };
-        *format = wgpu::TextureFormat::Rgba16Float;
-
         let main_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Main BGL"),
             entries: &bind_group_layout_entries,
         });
-        let main_bgl_high_precision =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("High Precision Main BGL"),
-                entries: &high_precision_bind_group_layout_entries,
-            });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Pipeline Layout"),
@@ -973,21 +976,43 @@ impl GpuProcessor {
             compilation_options: Default::default(),
             cache: None,
         });
-        let high_precision_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let (main_bgl_high_precision, main_pipeline_high_precision) = if context
+            .high_precision_storage_supported
+        {
+            let high_precision_shader_module =
+                device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label: Some("High Precision Image Processing Shader"),
+                    source: wgpu::ShaderSource::Wgsl(high_precision_shader_source().into()),
+                });
+            let mut high_precision_bind_group_layout_entries = bind_group_layout_entries.clone();
+            let wgpu::BindingType::StorageTexture { format, .. } =
+                &mut high_precision_bind_group_layout_entries[1].ty
+            else {
+                return Err("Main output binding is not a storage texture".to_string());
+            };
+            *format = wgpu::TextureFormat::Rgba16Float;
+            let bind_group_layout =
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("High Precision Main BGL"),
+                    entries: &high_precision_bind_group_layout_entries,
+                });
+            let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("High Precision Pipeline Layout"),
-                bind_group_layouts: &[Some(&main_bgl_high_precision)],
+                bind_group_layouts: &[Some(&bind_group_layout)],
                 immediate_size: 0,
             });
-        let main_pipeline_high_precision =
-            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("High Precision Compute Pipeline"),
-                layout: Some(&high_precision_pipeline_layout),
+                layout: Some(&pipeline_layout),
                 module: &high_precision_shader_module,
                 entry_point: Some("main"),
                 compilation_options: Default::default(),
                 cache: None,
             });
+            (Some(bind_group_layout), Some(pipeline))
+        } else {
+            (None, None)
+        };
 
         let adjustments_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Adjustments Buffer"),
@@ -1022,11 +1047,13 @@ impl GpuProcessor {
 
         // Blur and compute output coordinates are tile-local. Keeping these
         // textures at full image dimensions multiplied 100 MP inputs across
-        // six reusable allocations even though only one overlapped tile is
+        // five reusable allocations even though only one overlapped tile is
         // processed at a time.
+        let (tile_width, tile_height) =
+            bounded_processing_texture_dimensions(max_width, max_height);
         let max_tile_size = wgpu::Extent3d {
-            width: max_width.min(MAX_PROCESSING_TILE_EXTENT),
-            height: max_height.min(MAX_PROCESSING_TILE_EXTENT),
+            width: tile_width,
+            height: tile_height,
             depth_or_array_layers: 1,
         };
         let full_output_size = wgpu::Extent3d {
@@ -1208,22 +1235,26 @@ impl GpuProcessor {
             let view = texture.create_view(&Default::default());
             (texture, view)
         });
-        let (main_bgl, main_pipeline, tile_output_texture, tile_output_texture_view) =
-            if let Some((texture, view)) = &high_precision_tile_output {
-                (
-                    &self.main_bgl_high_precision,
-                    &self.main_pipeline_high_precision,
-                    texture,
-                    view,
-                )
-            } else {
-                (
-                    &self.main_bgl,
-                    &self.main_pipeline,
-                    &self.tile_output_texture,
-                    &self.tile_output_texture_view,
-                )
-            };
+        let (main_bgl, main_pipeline, tile_output_texture, tile_output_texture_view) = if let Some(
+            (texture, view),
+        ) =
+            &high_precision_tile_output
+        {
+            let main_bgl = self.main_bgl_high_precision.as_ref().ok_or(
+                    "This GPU does not support RGBA16Float storage textures required for high-precision export",
+                )?;
+            let main_pipeline = self.main_pipeline_high_precision.as_ref().ok_or(
+                    "This GPU does not support RGBA16Float storage textures required for high-precision export",
+                )?;
+            (main_bgl, main_pipeline, texture, view)
+        } else {
+            (
+                &self.main_bgl,
+                &self.main_pipeline,
+                &self.tile_output_texture,
+                &self.tile_output_texture_view,
+            )
+        };
         let mask_layer_count = request.mask_bitmaps.len().clamp(2, MAX_MASKS) as u32;
         let full_texture_size = wgpu::Extent3d {
             width,
@@ -2229,13 +2260,22 @@ mod memory_tests {
 
     #[test]
     fn reusable_compute_textures_are_bounded_to_one_overlapped_tile() {
-        assert_eq!(MAX_PROCESSING_TILE_EXTENT, 2304);
+        assert_eq!(
+            bounded_processing_texture_dimensions(11_600, 8_600),
+            (2304, 2304)
+        );
+        let bounded_bytes =
+            BOUNDED_RGBA16_INTERMEDIATE_TEXTURES * u64::from(MAX_PROCESSING_TILE_EXTENT).pow(2) * 8;
+        let unbounded_bytes = BOUNDED_RGBA16_INTERMEDIATE_TEXTURES * 11_600 * 8_600 * 8;
+
+        assert!(bounded_bytes < 220 * 1024 * 1024);
+        assert!(unbounded_bytes > 3 * 1024 * 1024 * 1024);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::high_precision_shader_source;
+    use super::{high_precision_shader_source, supports_high_precision_storage};
 
     #[test]
     fn high_precision_shader_defers_integer_dither_to_the_encoder() {
@@ -2243,5 +2283,16 @@ mod tests {
         assert!(shader.contains("texture_storage_2d<rgba16float, write>"));
         assert!(!shader.contains("dither_amount"));
         assert!(!shader.contains("final_rgb += dither"));
+    }
+
+    #[test]
+    fn high_precision_export_requires_sample_storage_and_readback_usage() {
+        let required = wgpu::TextureUsages::TEXTURE_BINDING
+            | wgpu::TextureUsages::STORAGE_BINDING
+            | wgpu::TextureUsages::COPY_SRC;
+        assert!(supports_high_precision_storage(required));
+        assert!(!supports_high_precision_storage(
+            wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC,
+        ));
     }
 }
