@@ -604,7 +604,6 @@ const FLARE_MAP_SIZE: u32 = 512;
 const PROCESSING_TILE_SIZE: u32 = 2048;
 const PROCESSING_TILE_OVERLAP: u32 = 128;
 const MAX_PROCESSING_TILE_EXTENT: u32 = PROCESSING_TILE_SIZE + 2 * PROCESSING_TILE_OVERLAP;
-const BOUNDED_RGBA16_INTERMEDIATE_TEXTURES: u64 = 5;
 
 fn bounded_processing_texture_dimensions(width: u32, height: u32) -> (u32, u32) {
     (
@@ -2244,6 +2243,8 @@ fn process_and_get_dynamic_image_inner(
 #[cfg(test)]
 mod memory_tests {
     use super::*;
+
+    const BOUNDED_RGBA16_INTERMEDIATE_TEXTURES: u64 = 5;
 
     #[test]
     fn rgb32f_upload_converts_directly_to_rgba_f16() {
