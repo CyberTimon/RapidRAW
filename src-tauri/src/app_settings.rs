@@ -343,6 +343,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub use_full_dpi_rendering: Option<bool>,
     #[serde(default)]
+    pub enable_denoise_hardware_acceleration: bool,
+    #[serde(default)]
     pub high_res_zoom_multiplier: Option<f32>,
     #[serde(default)]
     pub enable_live_previews: Option<bool>,
@@ -468,6 +470,7 @@ impl Default for AppSettings {
             editor_preview_resolution: Some(1920),
             enable_zoom_hifi: Some(true),
             use_full_dpi_rendering: Some(false),
+            enable_denoise_hardware_acceleration: false,
             enable_live_previews: Some(true),
             live_preview_quality: Some("high".to_string()),
             sort_criteria: None,

@@ -534,6 +534,7 @@ export default function SettingsPanel({
     thumbnailResolution: appSettings?.thumbnailResolution || 720,
     rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
     processingBackend: appSettings?.processingBackend || 'auto',
+    enableDenoiseHardwareAcceleration: appSettings?.enableDenoiseHardwareAcceleration ?? false,
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
     highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
     useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
@@ -642,6 +643,7 @@ export default function SettingsPanel({
       thumbnailResolution: appSettings?.thumbnailResolution || 720,
       rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
       processingBackend: appSettings?.processingBackend || 'auto',
+      enableDenoiseHardwareAcceleration: appSettings?.enableDenoiseHardwareAcceleration ?? false,
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
       highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
       useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
@@ -679,6 +681,7 @@ export default function SettingsPanel({
 
     if (
       key === 'processingBackend' ||
+      key === 'enableDenoiseHardwareAcceleration' ||
       key === 'linuxGpuOptimization' ||
       key === 'useWgpuRenderer' ||
       key === 'thumbnailWorkerThreads'
@@ -1904,6 +1907,20 @@ export default function SettingsPanel({
                         triggerClassName="bg-bg-primary"
                       />
                     </SettingItem>
+
+                    {osPlatform === 'macos' && (
+                      <SettingItem
+                        label={t('settings.processing.denoiseHardwareAcceleration')}
+                        description={t('settings.processing.denoiseHardwareAccelerationDescMacos')}
+                      >
+                        <Switch
+                          checked={processingSettings.enableDenoiseHardwareAcceleration}
+                          id="ai-gpu-toggle"
+                          label={t('settings.processing.denoiseHardwareAccelerationLabel')}
+                          onChange={(checked) => handleProcessingSettingChange('enableDenoiseHardwareAcceleration', checked)}
+                        />
+                      </SettingItem>
+                    )}
 
                     {osPlatform !== 'macos' && osPlatform !== 'windows' && (
                       <SettingItem

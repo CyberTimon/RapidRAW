@@ -1206,6 +1206,8 @@
       "btnStart": "Start",
       "cancel": "Cancel",
       "close": "Close",
+      "completedIn": "Denoising completed in {{time}}s",
+      "elapsedTime": "Time elapsed: {{time}}s",
       "denoised": "Denoised",
       "denoisingProgress": "Denoising in Progress",
       "description": "Remove noise from your image using AI-powered or traditional denoising.",
@@ -1607,6 +1609,9 @@
         },
         "title": "Generative AI"
       },
+      "denoiseHardwareAcceleration": "Denoise Hardware Acceleration",
+      "denoiseHardwareAccelerationDescMacos": "Uses Apple's CoreML (Neural Engine & GPU) to vastly accelerate AI Denoising. Disabling this uses pure CPU execution, which has slower performance but offers absolute numerical precision and avoids potential driver/stability issues.",
+      "denoiseHardwareAccelerationLabel": "Enable Denoise Hardware Acceleration",
       "backend": "Processing Backend",
       "backendDesc": "Select the graphics API. 'Auto' is recommended. May fix crashes on some systems.",
       "backends": {

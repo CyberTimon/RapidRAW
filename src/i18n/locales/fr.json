@@ -1226,6 +1226,8 @@
     },
     "denoise": {
       "batchProgressText": "Débruitage {{current}} sur {{total}}...",
+      "completedIn": "Débruitage terminé en {{time}}s",
+      "elapsedTime": "Temps écoulé : {{time}}s",
       "btnBatchDenoise": "Débruiter par lot & Enregistrer",
       "btnRetry": "Réessayer",
       "btnSave": "Enregistrer",
@@ -1640,6 +1642,9 @@
         },
         "title": "IA Générative"
       },
+      "denoiseHardwareAcceleration": "Accélération matérielle du débruitage",
+      "denoiseHardwareAccelerationDescMacos": "Utilise le CoreML d'Apple (Neural Engine & GPU) pour accélérer considérablement le débruitage par IA. La désactivation utilise uniquement le processeur (CPU), ce qui est plus lent mais offre une précision numérique absolue et évite les problèmes potentiels de pilote ou de stabilité.",
+      "denoiseHardwareAccelerationLabel": "Activer l'accélération matérielle du débruitage",
       "backend": "Moteur de traitement",
       "backendDesc": "Sélectionnez l'API graphique. 'Auto' est recommandé. Peut résoudre des problèmes de plantage sur certains systèmes.",
       "backends": {

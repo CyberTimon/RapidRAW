@@ -1226,6 +1226,8 @@
     },
     "denoise": {
       "batchProgressText": "Reduzindo ruído {{current}} de {{total}}...",
+      "completedIn": "Redução de ruído concluída em {{time}}s",
+      "elapsedTime": "Tempo decorrido: {{time}}s",
       "btnBatchDenoise": "Redução de Ruído em Lote e Salvar",
       "btnRetry": "Tentar Novamente",
       "btnSave": "Salvar",
@@ -1640,6 +1642,9 @@
         },
         "title": "IA Generativa"
       },
+      "denoiseHardwareAcceleration": "Aceleração de Hardware para Redução de Ruído",
+      "denoiseHardwareAccelerationDescMacos": "Usa o CoreML da Apple (Neural Engine & GPU) para acelerar significativamente a Redução de Ruído por IA. Desativar isso usa apenas a execução da CPU, que tem um desempenho mais lento, mas oferece precisão numérica absoluta e evita possíveis problemas de driver ou estabilidade.",
+      "denoiseHardwareAccelerationLabel": "Ativar Aceleração de Hardware para Redução de Ruído",
       "backend": "Backend de Processamento",
       "backendDesc": "Selecione a API gráfica. 'Auto' é recomendado. Pode corrigir travamentos em alguns sistemas.",
       "backends": {

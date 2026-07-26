@@ -170,6 +170,7 @@ export interface AppSettings {
   editorPreviewResolution?: number;
   enableZoomHifi?: boolean;
   useFullDpiRendering?: boolean;
+  enableDenoiseHardwareAcceleration?: boolean;
   highResZoomMultiplier?: number;
   enableLivePreviews?: boolean;
   livePreviewQuality?: string;

@@ -1206,6 +1206,8 @@
       "btnStart": "Start",
       "cancel": "Abbrechen",
       "close": "Schließen",
+      "completedIn": "Rauschminderung abgeschlossen in {{time}}s",
+      "elapsedTime": "Vergangene Zeit: {{time}}s",
       "denoised": "Entrauscht",
       "denoisingProgress": "Entrauschen in Arbeit",
       "description": "Entfernen Sie Rauschen aus Ihrem Bild mithilfe von KI-gestütztem oder traditionellem Entrauschen.",
@@ -1607,6 +1609,9 @@
         },
         "title": "Generative KI"
       },
+      "denoiseHardwareAcceleration": "Denoising-Hardwarebeschleunigung",
+      "denoiseHardwareAccelerationDescMacos": "Nutzt Apples CoreML (Neural Engine & GPU) zur erheblichen Beschleunigung von AI Denoising. Das Deaktivieren verwendet reine CPU-Ausführung, was langsamer ist, aber absolute numerische Präzision bietet und mögliche Treiber- oder Stabilitätsprobleme vermeidet.",
+      "denoiseHardwareAccelerationLabel": "Denoising-Hardwarebeschleunigung aktivieren",
       "backend": "Verarbeitungs-Backend",
       "backendDesc": "Wählen Sie die Grafik-API. 'Auto' wird empfohlen. Kann Abstürze auf einigen Systemen beheben.",
       "backends": {

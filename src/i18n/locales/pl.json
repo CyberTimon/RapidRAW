@@ -1252,6 +1252,8 @@
     },
     "denoise": {
       "batchProgressText": "Odszumianie {{current}} z {{total}}...",
+      "completedIn": "Odszumianie zakończone w {{time}}s",
+      "elapsedTime": "Czas, który upłynął: {{time}}s",
       "btnBatchDenoise": "Zbiorcze Odszumianie i Zapis",
       "btnRetry": "Spróbuj ponownie",
       "btnSave": "Zapisz",
@@ -1673,6 +1675,9 @@
         },
         "title": "Generatywne AI"
       },
+      "denoiseHardwareAcceleration": "Akceleracja sprzętowa odszumiania",
+      "denoiseHardwareAccelerationDescMacos": "Wykorzystuje technologię Apple CoreML (Neural Engine i GPU), aby znacznie przyspieszyć odszumianie AI. Wyłączenie tej opcji powoduje przejście na procesor (CPU), co spowalnia działanie, ale zapewnia absolutną precyzję obliczeniową i zapobiega ewentualnym problemom ze sterownikami lub stabilnością.",
+      "denoiseHardwareAccelerationLabel": "Włącz akcelerację sprzętową odszumiania",
       "backend": "Backend przetwarzania",
       "backendDesc": "Wybierz interfejs API grafiki. 'Auto' jest zalecane. Może rozwiązać problemy z zawieszaniem się na niektórych systemach.",
       "backends": {

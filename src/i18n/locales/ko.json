@@ -1204,6 +1204,8 @@
       "btnStart": "시작",
       "cancel": "취소",
       "close": "닫기",
+      "completedIn": "노이즈 제거 완료: {{time}}초",
+      "elapsedTime": "경과 시간: {{time}}초",
       "denoised": "노이즈 제거됨",
       "denoisingProgress": "노이즈 제거 진행 중",
       "description": "AI 기반 또는 기존 방식의 노이즈 제거로 이미지의 노이즈를 제거합니다.",
@@ -1605,6 +1607,9 @@
         },
         "title": "생성형 AI"
       },
+      "denoiseHardwareAcceleration": "노이즈 제거 하드웨어 가속",
+      "denoiseHardwareAccelerationDescMacos": "Apple의 CoreML(Neural Engine 및 GPU)을 사용하여 AI 노이즈 제거를 대폭 가속화합니다. 비활성화하면 순수 CPU 실행을 사용하며, 성능은 느려지지만 절대적인 수치 정밀도를 제공하고 잠재적인 드라이버/안정성 문제를 방지합니다.",
+      "denoiseHardwareAccelerationLabel": "노이즈 제거 하드웨어 가속 활성화",
       "backend": "처리 백엔드",
       "backendDesc": "그래픽 API를 선택합니다. 'Auto'를 권장합니다. 일부 시스템의 충돌을 해결할 수 있습니다.",
       "backends": {

@@ -235,6 +235,38 @@ export default function DenoiseModal({
   const isBatch = targetPaths.length > 1;
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const startTimeRef = useRef<number | null>(null);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (isProcessing) {
+      startTimeRef.current = Date.now();
+      setElapsedTime(0);
+      timerIntervalRef.current = setInterval(() => {
+        if (startTimeRef.current !== null) {
+          setElapsedTime(Date.now() - startTimeRef.current);
+        }
+      }, 50);
+    } else {
+      if (startTimeRef.current !== null) {
+        const duration = Date.now() - startTimeRef.current;
+        setElapsedTime(duration);
+        startTimeRef.current = null;
+      }
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, [isProcessing]);
+
   const methodOptions = useMemo<Array<{ label: string; value: 'ai' | 'bm3d' }>>(
     () => [
       { label: t('modals.denoise.methodAi'), value: 'ai' },
@@ -264,6 +296,7 @@ export default function DenoiseModal({
       setMethod(isRaw ? 'ai' : 'bm3d');
       setIntensity(isRaw ? 50 : 15);
       setIsMounted(true);
+      setElapsedTime(0);
       const timer = setTimeout(() => setShow(true), 10);
       return () => clearTimeout(timer);
     } else {
@@ -352,6 +385,15 @@ export default function DenoiseModal({
       return (
         <div className="w-full h-[500px]">
           <ImageCompare original={originalBase64} denoised={previewBase64} />
+          {elapsedTime > 0 && (
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+              <div className="text-center mt-3">
+                <Text color={TextColors.success}>
+                  {t('modals.denoise.completedIn', { time: (elapsedTime / 1000).toFixed(2) })}
+                </Text>
+              </div>
+            </motion.div>
+          )}
           {savedPath && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
               <Text
@@ -390,6 +432,12 @@ export default function DenoiseModal({
                 {t('modals.denoise.denoisingProgress')}
               </Text>
               <Text className="text-center font-mono h-6 flex justify-center items-center">{currentStatusText}</Text>
+
+              {elapsedTime > 0 && (
+                <Text variant={TextVariants.small} className="text-center font-mono mt-2 opacity-80">
+                  {t('modals.denoise.elapsedTime', { time: (elapsedTime / 1000).toFixed(2) })}
+                </Text>
+              )}
 
               <div className="mt-8 w-64 relative">
                 <div className="h-1 bg-surface rounded-full overflow-hidden relative w-full shadow-xs">

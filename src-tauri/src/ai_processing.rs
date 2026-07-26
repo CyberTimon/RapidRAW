@@ -453,7 +453,7 @@ pub async fn get_or_init_denoise_model(
 
     let _ = ort::init().with_name("AI-Denoise").commit();
     let model_path = models_dir.join(DENOISE_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let session = create_session(app_handle, model_path)?;
     let denoise_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -1582,4 +1582,50 @@ pub struct AiDepthMaskParameters {
     pub flip_vertical: Option<bool>,
     #[serde(default)]
     pub orientation_steps: Option<u8>,
+}
+
+fn create_session<P: AsRef<Path>>(
+    app_handle: &tauri::AppHandle,
+    model_path: P,
+) -> Result<Session, ort::Error> {
+    let settings = crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default();
+    let enable_hardware_acceleration = settings.enable_denoise_hardware_acceleration;
+    let path_ref = model_path.as_ref();
+
+    #[cfg(target_os = "macos")]
+    if enable_hardware_acceleration {
+        use ort::execution_providers::{
+            CoreMLExecutionProvider,
+            coreml::{CoreMLComputeUnits, CoreMLModelFormat},
+        };
+
+        // Attempt CoreML compilation
+        if let Ok(builder) = Session::builder() {
+            let provider = CoreMLExecutionProvider::default()
+                .with_subgraphs(true)
+                .with_model_format(CoreMLModelFormat::MLProgram)
+                .with_compute_units(CoreMLComputeUnits::All)
+                .build();
+
+            if let Ok(builder_with_ep) = builder.with_execution_providers([provider]) {
+                match builder_with_ep.commit_from_file(path_ref) {
+                    Ok(session) => return Ok(session),
+                    Err(e) => {
+                        log::warn!(
+                            "Hardware acceleration failed for {:?}, falling back to CPU. Error: {}",
+                            path_ref.file_name().unwrap_or_default(),
+                            e
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    let _ = enable_hardware_acceleration;
+
+    // Fallback to CPU execution
+    let builder = Session::builder()?;
+    builder.commit_from_file(path_ref)
 }

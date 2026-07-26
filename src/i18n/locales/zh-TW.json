@@ -1204,6 +1204,8 @@
       "btnStart": "開始",
       "cancel": "取消",
       "close": "關閉",
+      "completedIn": "降噪完成，耗時 {{time}} 秒",
+      "elapsedTime": "已用時間：{{time}} 秒",
       "denoised": "已降噪",
       "denoisingProgress": "降噪進行中",
       "description": "使用 AI 驅動或傳統降噪技術去除影像中的噪聲。",
@@ -1605,6 +1607,9 @@
         },
         "title": "生成式 AI"
       },
+      "denoiseHardwareAcceleration": "降噪硬體加速",
+      "denoiseHardwareAccelerationDescMacos": "使用 Apple 的 CoreML（Neural Engine 和 GPU）大幅加速 AI 降噪。停用此功能將使用純 CPU 執行，雖然速度較慢，但能提供絕對的數值精度，並避免潛在的驅動程式或穩定性問題。",
+      "denoiseHardwareAccelerationLabel": "啟用降噪硬體加速",
       "backend": "處理後端",
       "backendDesc": "選擇圖形 API。推薦使用「自動」。在某些系統上可能解決崩潰問題。",
       "backends": {

@@ -1198,6 +1198,8 @@
     },
     "denoise": {
       "batchProgressText": "降噪中 {{current}} / {{total}}...",
+      "completedIn": "降噪完成，耗时 {{time}} 秒",
+      "elapsedTime": "已用时间：{{time}} 秒",
       "btnBatchDenoise": "批量降噪并保存",
       "btnRetry": "重试",
       "btnSave": "保存",
@@ -1605,6 +1607,9 @@
         },
         "title": "生成式 AI"
       },
+      "denoiseHardwareAcceleration": "降噪硬件加速",
+      "denoiseHardwareAccelerationDescMacos": "使用 Apple CoreML (Neural Engine 和 GPU) 来大幅加速 AI 降噪。禁用此功能将使用纯 CPU 执行，虽然速度较慢，但能提供绝对数值精度，并能避免潜在的驱动或稳定性问题。",
+      "denoiseHardwareAccelerationLabel": "启用降噪硬件加速",
       "backend": "处理后端",
       "backendDesc": "选择图形 API。推荐使用「自动」。在某些系统上可能解决崩溃问题。",
       "backends": {

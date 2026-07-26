@@ -1226,6 +1226,8 @@
     },
     "denoise": {
       "batchProgressText": "Riduzione rumore su {{current}} di {{total}}...",
+      "completedIn": "Riduzione rumore completata in {{time}}s",
+      "elapsedTime": "Tempo trascorso: {{time}}s",
       "btnBatchDenoise": "Riduci Rumore in Blocco e Salva",
       "btnRetry": "Riprova",
       "btnSave": "Salva",
@@ -1640,6 +1642,9 @@
         },
         "title": "AI Generativa"
       },
+      "denoiseHardwareAcceleration": "Accelerazione Hardware Riduzione Rumore",
+      "denoiseHardwareAccelerationDescMacos": "Utilizza CoreML di Apple (Neural Engine & GPU) per accelerare notevolmente la riduzione del rumore AI. La disattivazione utilizza solo la CPU, che offre prestazioni inferiori ma garantisce una precisione numerica assoluta ed evita potenziali problemi di driver o stabilità.",
+      "denoiseHardwareAccelerationLabel": "Abilita Accelerazione Hardware Riduzione Rumore",
       "backend": "Backend di Elaborazione",
       "backendDesc": "Seleziona l'API grafica. 'Auto' è consigliata. Potrebbe risolvere i crash su alcuni sistemi.",
       "backends": {

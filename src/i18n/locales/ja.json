@@ -1198,6 +1198,8 @@
     },
     "denoise": {
       "batchProgressText": "ノイズ低減を実行中 ({{current}}/{{total}})...",
+      "completedIn": "ノイズ低減が {{time}}秒 で完了しました",
+      "elapsedTime": "経過時間: {{time}}秒",
       "btnBatchDenoise": "一括ノイズ低減して保存",
       "btnRetry": "再試行",
       "btnSave": "保存",
@@ -1605,6 +1607,9 @@
         },
         "title": "生成AI"
       },
+      "denoiseHardwareAcceleration": "ノイズ低減のハードウェアアクセラレーション",
+      "denoiseHardwareAccelerationDescMacos": "Apple CoreML (Neural Engine および GPU) を使用して、AIノイズ低減を大幅に高速化します。無効にすると、CPUのみの実行になります。処理は遅くなりますが、絶対的な数値精度が得られ、ドライバや安定性に関する潜在的な問題を回避できます。",
+      "denoiseHardwareAccelerationLabel": "ノイズ低減のハードウェアアクセラレーションを有効にする",
       "backend": "処理バックエンド",
       "backendDesc": "グラフィックスAPIを選択します。「自動」を推奨します。一部のシステムでのクラッシュを回避できる場合があります。",
       "backends": {
