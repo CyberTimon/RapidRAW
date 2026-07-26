@@ -1761,6 +1761,7 @@
         "export": "Export",
         "pasteSettings": "Paste Settings",
         "quickFilter": "Quick Filter",
+        "refreshLibrary": "Refresh Library",
         "rateStars_one": "Rate 1 star",
         "rateStars_other": "Rate {{count}} stars",
         "resetZoom": "Reset Zoom to Fit Window",

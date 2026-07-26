@@ -61,6 +61,7 @@ interface EditorViewProps {
   handleZoomChange: (zoom: number) => void;
   handleRightPanelSelect: (panelId: Panel) => void;
   requestThumbnails: any;
+  handleLibraryRefresh: () => Promise<void>;
 }
 
 export default function EditorView({
@@ -84,6 +85,7 @@ export default function EditorView({
   handleZoomChange,
   handleRightPanelSelect,
   requestThumbnails,
+  handleLibraryRefresh,
 }: EditorViewProps) {
   const { selectedImage } = useEditorStore(
     useShallow((state) => ({
@@ -170,6 +172,7 @@ export default function EditorView({
       onImageSelect={handleImageClick}
       onPaste={() => handlePasteAdjustments()}
       onRate={handleRate}
+      onRefresh={handleLibraryRefresh}
       onRequestThumbnails={requestThumbnails}
       onZoomChange={handleZoomChange}
       rating={imageRatings[selectedImage?.path || ''] || 0}

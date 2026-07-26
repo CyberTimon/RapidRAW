@@ -684,6 +684,7 @@ function App() {
                   handleZoomChange={handleZoomChange}
                   handleRightPanelSelect={handleRightPanelSelect}
                   requestThumbnails={requestThumbnails}
+                  handleLibraryRefresh={handleLibraryRefresh}
                 />
               ) : (
                 <LibraryView
