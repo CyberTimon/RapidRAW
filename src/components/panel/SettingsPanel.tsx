@@ -996,7 +996,7 @@ export default function SettingsPanel({
               onClick={onBack}
               size="icon"
               variant="ghost"
-              data-tooltip={t('settings.tooltips.goHome')}
+              data-tooltip={t('settings.tooltips.back')}
             >
               <ArrowLeft />
             </Button>

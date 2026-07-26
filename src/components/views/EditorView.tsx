@@ -314,6 +314,7 @@ export default function EditorView({
                 <RightPanelSwitcher
                   activePanel={activeRightPanel}
                   onPanelSelect={handleRightPanelSelect}
+                  onOpenAppSettings={() => setUI({ isSettingsOpen: true })}
                   isInstantTransition={isInstantTransition}
                 />
               </div>

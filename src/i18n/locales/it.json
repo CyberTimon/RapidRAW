@@ -1779,6 +1779,7 @@
     },
     "title": "Impostazioni",
     "tooltips": {
+      "back": "Indietro",
       "goHome": "Torna alla Home page"
     }
   },

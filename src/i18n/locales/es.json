@@ -1779,6 +1779,7 @@
     },
     "title": "Ajustes",
     "tooltips": {
+      "back": "Atrás",
       "goHome": "Ir al Inicio"
     }
   },

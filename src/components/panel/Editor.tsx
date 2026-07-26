@@ -1102,19 +1102,27 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   });
 
   useEffect(() => {
-    const rootStyle = getComputedStyle(document.documentElement);
-    const bgPrimaryStr = rootStyle.getPropertyValue('--app-bg-primary') || 'rgb(24, 24, 24)';
-    const bgSecondaryStr = rootStyle.getPropertyValue('--app-bg-secondary') || 'rgb(35, 35, 35)';
+    let isCancelled = false;
+    const applyDocumentThemeToWgpuRef = () => {
+      if (isCancelled) return;
+      const rootStyle = getComputedStyle(document.documentElement);
+      const bgPrimaryStr = rootStyle.getPropertyValue('--app-bg-primary') || 'rgb(24, 24, 24)';
+      const bgSecondaryStr = rootStyle.getPropertyValue('--app-bg-secondary') || 'rgb(35, 35, 35)';
 
-    wgpuStateRef.current = {
-      useWgpuRenderer: appSettings?.useWgpuRenderer,
-      isReady: selectedImage?.isReady ?? false,
-      hasRenderedFirstFrame,
-      isCropping,
-      uncroppedAdjustedPreviewUrl,
-      showOriginal,
-      bgPrimary: parseRgb(bgPrimaryStr),
-      bgSecondary: parseRgb(bgSecondaryStr),
+      wgpuStateRef.current = {
+        useWgpuRenderer: appSettings?.useWgpuRenderer,
+        isReady: selectedImage?.isReady ?? false,
+        hasRenderedFirstFrame,
+        isCropping,
+        uncroppedAdjustedPreviewUrl,
+        showOriginal,
+        bgPrimary: parseRgb(bgPrimaryStr),
+        bgSecondary: parseRgb(bgSecondaryStr),
+      };
+    };
+    queueMicrotask(applyDocumentThemeToWgpuRef);
+    return () => {
+      isCancelled = true;
     };
   }, [
     appSettings?.useWgpuRenderer,

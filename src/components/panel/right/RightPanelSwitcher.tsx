@@ -7,6 +7,7 @@ import {
   Paintbrush,
   SwatchBook,
   FileInput,
+  Cog,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +22,7 @@ interface PanelOptions {
 interface RightPanelSwitcherProps {
   activePanel: Panel | null;
   onPanelSelect(id: Panel): void;
+  onOpenAppSettings?(): void;
   isInstantTransition: boolean;
   layout?: 'horizontal' | 'vertical';
 }
@@ -42,6 +44,7 @@ const panelGroups: Array<Array<PanelOptions>> = [
 export default function RightPanelSwitcher({
   activePanel,
   onPanelSelect,
+  onOpenAppSettings,
   isInstantTransition,
   layout = 'vertical',
 }: RightPanelSwitcherProps) {
@@ -81,6 +84,22 @@ export default function RightPanelSwitcher({
           ))}
         </div>
       ))}
+      {!isHorizontal && onOpenAppSettings && (
+        <>
+          <div className="flex-1 min-h-2" aria-hidden />
+          <div className="shrink-0 flex flex-col gap-1 pt-1 border-t border-surface">
+            <button
+              type="button"
+              className="relative p-2 rounded-md transition-colors duration-200 text-text-secondary hover:bg-surface hover:text-text-primary"
+              onClick={onOpenAppSettings}
+              data-tooltip={t('settings.title')}
+              aria-label={t('settings.title')}
+            >
+              <Cog size={20} className="relative z-10" />
+            </button>
+          </div>
+        </>
+      )}
     </div>
     </LayoutGroup>
   );

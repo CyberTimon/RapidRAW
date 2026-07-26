@@ -7,6 +7,7 @@ import { ToastContainer, toast, Slide } from 'react-toastify';
 import clsx from 'clsx';
 
 import TitleBar from './window/TitleBar';
+import SettingsPanel from './components/panel/SettingsPanel';
 import FolderTree from './components/panel/FolderTree';
 import SettingsPanel from './components/panel/SettingsPanel';
 import ExportPanel from './components/panel/right/ExportPanel';
@@ -772,6 +773,26 @@ function App() {
           handleCreateAlbumItem={handleCreateAlbumItem}
           handleRenameAlbumItem={handleRenameAlbumItem}
         />
+        {isSettingsOpen && appSettings && (
+          <div
+            className="fixed inset-0 z-60 flex flex-col bg-bg-primary overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Settings"
+          >
+            <div className="flex flex-1 min-h-0 flex-col px-4 py-6 sm:px-6 sm:py-8 md:py-10 lg:px-8">
+              <div className="mx-auto flex h-full min-h-0 w-full max-w-4xl flex-1 flex-col overflow-hidden">
+                <SettingsPanel
+                  appSettings={appSettings}
+                  onBack={() => setUI({ isSettingsOpen: false })}
+                  onLibraryRefresh={handleLibraryRefresh}
+                  onSettingsChange={handleSettingsChange}
+                  rootPaths={rootPaths}
+                />
+              </div>
+            </div>
+          </div>
+        )}
         <ToastContainer
           position="bottom-right"
           autoClose={5000}

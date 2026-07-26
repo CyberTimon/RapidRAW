@@ -894,7 +894,7 @@
             <tca model="poly3" focal="70" vr="0.9998615" vb="1.0000057"/>
         </calibration>
     </lens>
-	
+
     <lens>
         <maker>Sigma</maker>
         <model>35mm F2 DG DN | Contemporary 020</model>
