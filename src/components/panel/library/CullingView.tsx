@@ -447,11 +447,17 @@ function CullingPreview({
       : 'group-hover:ring-2 group-hover:ring-inset group-hover:ring-hover-color';
 
   const effectiveDragging = isDragging || (syncViewport.isActive && syncViewport.isDragging);
-  const imageTransformStyle = {
-    transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
+
+  const SCALE_FACTOR = 4;
+  const imageTransformStyle: React.CSSProperties = {
+    position: 'relative',
+    width: `${SCALE_FACTOR * 100}%`,
+    height: `${SCALE_FACTOR * 100}%`,
+    flexShrink: 0,
+    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom / SCALE_FACTOR})`,
     transition: effectiveDragging ? 'none' : 'transform 0.1s ease-out',
     transformOrigin: 'center center',
-    backfaceVisibility: 'hidden' as const,
+    willChange: 'transform',
   };
 
   const isHovered = hoveredPath === image.path;
@@ -487,12 +493,15 @@ function CullingPreview({
         }}
       />
 
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-        <div className="origin-center w-full h-full flex items-center justify-center" style={imageTransformStyle}>
+      <div
+        className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+        style={{ isolation: 'isolate' }}
+      >
+        <div style={imageTransformStyle}>
           {thumbUrl && (
             <img
               src={thumbUrl}
-              className="absolute w-full h-full object-contain drop-shadow-lg"
+              className="absolute inset-0 w-full h-full object-contain"
               alt={t('library.culling.altThumbnailLoading')}
               draggable={false}
             />
@@ -506,7 +515,7 @@ function CullingPreview({
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
               src={highResSrc}
-              className="absolute w-full h-full object-contain drop-shadow-lg"
+              className="absolute inset-0 w-full h-full object-contain"
               alt={t('library.culling.altCullingPreviewHighRes')}
               draggable={false}
             />

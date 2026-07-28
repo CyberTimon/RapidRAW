@@ -723,32 +723,42 @@ export function ViewOptionsDropdown({
                   }
                 }}
               />
-              {groupingMode !== 'off' && (
-                <div className="mt-2 space-y-2 px-1">
-                  <Switch
-                    checked={!requireMatchingExif}
-                    id="group-ignore-metadata-toggle"
-                    label={t('library.header.viewOptions.groupIgnoreMetadata')}
-                    onChange={async (checked) => {
-                      if (appSettings) {
-                        await handleSettingsChange({ ...appSettings, requireMatchingExif: !checked });
-                        onLibraryRefresh?.();
-                      }
-                    }}
-                  />
-                  <Switch
-                    checked={appSettings?.groupEditedFiles ?? true}
-                    id="group-edited-files-toggle"
-                    label={t('library.header.viewOptions.groupEditedFiles')}
-                    onChange={async (checked) => {
-                      if (appSettings) {
-                        await handleSettingsChange({ ...appSettings, groupEditedFiles: checked });
-                        onLibraryRefresh?.();
-                      }
-                    }}
-                  />
-                </div>
-              )}
+              <AnimatePresence initial={false}>
+                {groupingMode !== 'off' && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pt-2 space-y-2 px-1">
+                      <Switch
+                        checked={!requireMatchingExif}
+                        id="group-ignore-metadata-toggle"
+                        label={t('library.header.viewOptions.groupIgnoreMetadata')}
+                        onChange={async (checked) => {
+                          if (appSettings) {
+                            await handleSettingsChange({ ...appSettings, requireMatchingExif: !checked });
+                            onLibraryRefresh?.();
+                          }
+                        }}
+                      />
+                      <Switch
+                        checked={appSettings?.groupEditedFiles ?? true}
+                        id="group-edited-files-toggle"
+                        label={t('library.header.viewOptions.groupEditedFiles')}
+                        onChange={async (checked) => {
+                          if (appSettings) {
+                            await handleSettingsChange({ ...appSettings, groupEditedFiles: checked });
+                            onLibraryRefresh?.();
+                          }
+                        }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 

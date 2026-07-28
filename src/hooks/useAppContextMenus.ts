@@ -361,7 +361,17 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
 
       const hasAssociatedFiles = finalSelection.some((selectedPath) => {
         const image = imageList.find((img) => img.path === selectedPath);
-        return image?.group_id != null;
+        if (image?.group_id != null) return true;
+
+        const getBasePath = (p: string) => {
+          const qMark = p.indexOf('?');
+          const clean = qMark === -1 ? p : p.substring(0, qMark);
+          const dot = clean.lastIndexOf('.');
+          return dot === -1 ? clean : clean.substring(0, dot);
+        };
+        const basePath = getBasePath(selectedPath);
+
+        return imageList.some((img) => img.path !== selectedPath && getBasePath(img.path) === basePath);
       });
 
       let deleteSubmenu;

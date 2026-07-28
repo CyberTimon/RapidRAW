@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/editor.png" alt="RapidRAW Editor">
+  <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/editor.jpg" alt="RapidRAW Editor">
 </p>
 
 <div align="center">
@@ -60,6 +60,7 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-07-26:** Added AI Lens Blur (Bokeh) for realistic depth-of-field background blurring
 - **2026-07-25:** Added headless CLI batch export supporting custom JSON adjustments
 - **2026-07-24:** Added Ctrl/Cmd+F search shortcut and optimized library & scope performance
 - **2026-07-23:** Significantly improved HDD thumbnail loading and resolved Linux NVIDIA crash issues
@@ -69,11 +70,11 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - **2026-07-16:** Enhanced crop tool with area preservation and crop-centered rotation
 - **2026-07-15:** Fixed Canon multi-exposure WB, reduced export RAM usage, and added settings shortcut
 - **2026-07-14:** Improved EXIF lens metadata extraction and fixed crop scaling bugs
-- **2026-07-12:** Added layout-aware keybinds, adjusted black levels, and fixed patch offsets on transformed images
 
 <details>
 <summary><strong>Expand further</strong></summary>
 
+- **2026-07-12:** Added layout-aware keybinds, adjusted black levels, and fixed patch offsets on transformed images
 - **2026-07-11:** Added new local Clone and Heal cleanup tools with highly optimized, parallelized processing. Also fixed Android back-button navigation and resolved an issue causing freezes with iCloud
 - **2026-07-08:** Improved thumbnail loading speeds using native file transfers and updated core rendering engines for better overall performance and compatibility
 - **2026-07-06:** Fixed copying adjustments directly from the filmstrip, resolved AI model and LUT download issues on Android, and fixed several Windows-specific bugs (including offscreen windows and folder exports)
@@ -303,24 +304,184 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 
 </details>
 </details>
-<br>
 
-**Table of Contents**
+<details>
+<summary><strong>Table of Contents</strong></summary>
 
-- [Key Features](#key-features)
-- [Demo & Screenshots](#demo--screenshots)
+- [Showcase & Edits](#showcase--edits)
 - [The Idea](#the-idea)
+- [Key Features](#key-features)
 - [Current Priorities](#current-priorities)
 - [AI Roadmap](#ai-roadmap)
 - [Initial Development Log](#initial-development-log)
 - [Getting Started](#getting-started)
+- [Command Line Interface (CLI)](#command-line-interface-cli)
 - [System Requirements](#system-requirements)
 - [Contributing](#contributing)
 - [Special Thanks](#special-thanks)
 - [Support the Project](#support-the-project)
 - [License & Philosophy](#license--philosophy)
 
+</details>
+
 ---
+
+## Showcase & Edits
+
+Watch RapidRAW in action:
+
+<p align="center">
+
+https://github.com/user-attachments/assets/4b9b932a-b18c-49d3-849f-e44d3bef0d12
+
+</p>
+
+<table width="100%">
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/library_view.jpg" alt="RapidRAW Library View" width="100%">
+      <br>
+      <strong>Library & Culling View</strong>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/editor_view.jpg" alt="RapidRAW Editor View" width="100%">
+      <br>
+      <strong>Editor View</strong>
+    </td>
+  </tr>
+</table>
+
+Explore example edits processed entirely within RapidRAW. You can download the `.rrdata` sidecar file for each image to inspect or apply the exact adjustment parameters.
+
+<details>
+<summary><strong>Before & After Edits</strong></summary>
+<br>
+
+<table width="100%">
+  <thead>
+    <tr>
+      <th width="30%" align="left">Edits & Sidecar File</th>
+      <th width="35%" align="center">Before</th>
+      <th width="35%" align="center">After</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td valign="top">
+        <h4>1. Frankfurt Skyline</h4>
+        <p>Sunset color grading, bridge and shadow recovery, tone curve adjustment, and urban warmth enhancement.</p>
+        <a href="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Frankfurt.rrdata"><strong>Download Frankfurt.rrdata</strong></a>
+      </td>
+      <td align="center" valign="middle">
+        <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Frankfurt_Before.jpg" alt="Frankfurt Before" width="100%">
+      </td>
+      <td align="center" valign="middle">
+        <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Frankfurt_After.jpg" alt="Frankfurt After" width="100%">
+      </td>
+    </tr>
+    <tr>
+      <td valign="top">
+        <h4>2. Gotthard Pass</h4>
+        <p>Atmospheric contrast, cloud dehaze, highlight compression, and selective warm split-toning on the terrain.</p>
+        <a href="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Gotthard.rrdata"><strong>Download Gotthard.rrdata</strong></a>
+      </td>
+      <td align="center" valign="middle">
+        <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Gotthard_Before.jpg" alt="Gotthard Before" width="100%">
+      </td>
+      <td align="center" valign="middle">
+        <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Gotthard_After.jpg" alt="Gotthard After" width="100%">
+      </td>
+    </tr>
+    <tr>
+      <td valign="top">
+        <h4>3. Saint Tropez Portrait</h4>
+        <p>AI Subject Masking for targeted portrait exposure lift, skin tone calibration, and golden hour coastal warmth.</p>
+        <a href="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Saint_Tropez.rrdata"><strong>Download Saint_Tropez.rrdata</strong></a>
+      </td>
+      <td align="center" valign="middle">
+        <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Saint_Tropez_Before.jpg" alt="Saint Tropez Before" width="100%">
+      </td>
+      <td align="center" valign="middle">
+        <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Saint_Tropez_After.jpg" alt="Saint Tropez After" width="100%">
+      </td>
+    </tr>
+    <tr>
+      <td valign="top">
+        <h4>4. Mallorca Coast</h4>
+        <p>HSL color mixer adjustments for rich ocean teals, local clarity boost on coastal rocks, and subtle exposure lift.</p>
+        <a href="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Mallorca.rrdata"><strong>Download Mallorca.rrdata</strong></a>
+      </td>
+      <td align="center" valign="middle">
+        <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Mallorca_Before.jpg" alt="Mallorca Before" width="100%">
+      </td>
+      <td align="center" valign="middle">
+        <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Mallorca_After.jpg" alt="Mallorca After" width="100%">
+      </td>
+    </tr>
+    <tr>
+      <td valign="top">
+        <h4>5. Moutathal Waterfall</h4>
+        <p>Moody forest grade with desaturated harsh greens, localized waterfall mask pop, and overall exposure reduction.</p>
+        <a href="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Moutathal.rrdata"><strong>Download Moutathal.rrdata</strong></a>
+      </td>
+      <td align="center" valign="middle">
+        <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Moutathal_Before.jpg" alt="Moutathal Before" width="100%">
+      </td>
+      <td align="center" valign="middle">
+        <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Moutathal_After.jpg" alt="Moutathal After" width="100%">
+      </td>
+    </tr>
+    <tr>
+      <td valign="top">
+        <h4>6. Nufenen Pass</h4>
+        <p>AgX tone mapping to recover sky highlights, shadow recovery on the car and road, and sunset peak illumination.</p>
+        <a href="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Nufenen.rrdata"><strong>Download Nufenen.rrdata</strong></a>
+      </td>
+      <td align="center" valign="middle">
+        <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Nufenen_Before.jpg" alt="Nufenen Before" width="100%">
+      </td>
+      <td align="center" valign="middle">
+        <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/Comparison/Nufenen_After.jpg" alt="Nufenen After" width="100%">
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+</details>
+
+> If you like the showcased images and want to see more of my own photography, check out my Instagram: [**@timonkaech.photography**](https://www.instagram.com/timonkaech.photography/)
+
+## The Idea
+
+<table width="100%">
+  <tr>
+    <td width="25%" valign="top" align="center">
+      <br>
+      <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/portrait.jpg" alt="Timon Käch" width="100%" style="border-radius: 8px;">
+      <br><br>
+      <strong>Timon Käch</strong><br>
+      <sub>Lucerne, Switzerland</sub><br>
+      <sub>Developer & Photographer</sub>
+      <br><br>
+    </td>
+    <td width="75%" valign="top">
+      <br>
+      <p>
+        As a photography enthusiast, I often found existing software to be sluggish and resource-heavy on my machine. I wanted a faster, simpler photo editing experience, so I decided to build my own. The goal was to create a tool that was not only fast but <strong>also helped me learn the details of digital image processing and camera technology</strong>.
+      </p>
+      <p>
+        I set an ambitious goal to rapidly build a functional, feature-rich application from an empty folder. This personal challenge pushed me to learn quickly and focus intensely on the core architecture and user experience.
+      </p>
+      <p>
+        The foundation is built on Rust for its safety and performance, and Tauri for its ability to create lightweight, cross-platform desktop apps with a web frontend. The entire image processing pipeline is offloaded to the GPU via WGPU and a custom WGSL shader, ensuring that even on complex edits with multiple masks, the UI remains fluid.
+      </p>
+      <p>
+        I am immensely grateful for Google's Gemini suite of AI models. As a young developer without a formal background in advanced mathematics or image science, Google's AI Studio was an invaluable assistant, helping me research and implement complex concepts in record time.
+      </p>
+      <br>
+    </td>
+  </tr>
+</table>
 
 ## Key Features
 
@@ -330,23 +491,24 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
       <h4>Core Editing Engine</h4>
       <ul>
         <li><strong>GPU-Accelerated:</strong> Full 32-bit image processing pipeline written in WGSL for instant feedback.</li>
-        <li><strong>Masking:</strong> Layer-based masking with AI subject, depth, sky, and foreground detection. Combine with traditional masks for great control.</li>
+        <li><strong>Layered Masking:</strong> AI subject, depth, sky, and foreground detection, combined with parametric color and luminance masks.</li>
+        <li><strong>Retouching Tools:</strong> Local Clone and Heal tools for dust and blemish removal.</li>
         <li><strong>Generative Edits:</strong> Remove or add elements using text prompts, powered by an optional AI backend.</li>
         <li><strong>Full RAW Support:</strong> Supports a wide range of RAW camera formats through rawler, with JPEG support included.</li>
         <li><strong>Non-Destructive Workflow:</strong> All edits are stored in a <code>.rrdata</code> sidecar file, leaving your original images untouched.</li>
-        <li><strong>Lens Correction:</strong> Automatic distortion, TCA, and vignette correction powered by Lensfun.</li>
+        <li><strong>Lens Correction:</strong> Automatic distortion, TCA, and vignette correction powered by Lensfun.</li><br><br>
       </ul>
     </td>
     <td valign="top" width="50%">
       <h4>Library & Workflow</h4>
       <ul>
-        <li><strong>Image Library:</strong> Effortlessly manage and cull your entire photo collection for a streamlined and efficient workflow.</li>
-        <li><strong>Organization:</strong> Recursive folder view, virtual copies, color labels, star ratings, tags and more.</li>
+        <li><strong>Image Library:</strong> Effortlessly manage your photo collection for a streamlined workflow.</li>
+        <li><strong>Culling View:</strong> Compare images side-by-side with star ratings, color labels, and metadata.</li>
+        <li><strong>Organization:</strong> Recursive folder view, virtual copies, color labels, star ratings, and custom tags.</li>
         <li><strong>File Operations:</strong> Import, copy, move, rename, and duplicate images/folders.</li>
-        <li><strong>Filmstrip View:</strong> Quickly navigate between all the images in your current folder while editing.</li>
-        <li><strong>Batch Operations:</strong> Save significant time by applying a consistent set of adjustments or exporting entire batches of images simultaneously.</li>
-        <li><strong>EXIF Data Viewer:</strong> Gain insights by inspecting the complete metadata from your camera.</li>
-        <li><strong>Headless CLI Export:</strong> Batch export photos or entire directory trees directly from your terminal/scripts without launching the GUI.</li>
+        <li><strong>Filmstrip View:</strong> Quickly navigate between images in your current folder while editing.</li>
+        <li><strong>Batch Operations:</strong> Apply adjustments or export entire batches of images simultaneously.</li>
+        <li><strong>EXIF Data & CLI:</strong> Full metadata viewer and headless CLI batch exporter for scripting/terminal use.</li>
       </ul>
     </td>
   </tr>
@@ -356,101 +518,41 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
       <h4>Professional Grade Adjustments</h4>
       <ul>
         <li><strong>Tonal Controls:</strong> Exposure, Tone Mapping (including AgX!), Contrast, Highlights, Shadows, Whites, and Blacks.</li>
-        <li><strong>Tone Curves:</strong> Full control over Luma/RGB channels.</li>
-        <li><strong>Color Grading:</strong> Temperature, Tint, Vibrance, Saturation, color wheels and a full HSL color mixer.</li>
-        <li><strong>Detail Enhancement:</strong> Sharpening, Clarity, Structure, and Noise Reduction.</li>
-        <li><strong>Effects:</strong> LUTs, Dehaze, Vignette, Glow, Halation, Flares and Film Grain.</li>
+        <li><strong>Tone Curves:</strong> Full control over Luma/RGB and parametric curves.</li>
+        <li><strong>Color Grading:</strong> Temperature, Tint, Vibrance, Saturation, color wheels, and a full HSL color mixer.</li>
+        <li><strong>Detail Enhancement:</strong> Sharpening, Clarity, Structure, and Noise Reduction (Luma & Color).</li>
+        <li><strong>Creative Effects:</strong> Lens Blur (Bokeh), LUTs, Dehaze, Vignette, Glow, Halation, Flares, and Film Grain.</li>
         <li><strong>Transform Tools:</strong> Perspective correction, rotation, straightening, crop, and warping tools.</li>
       </ul>
     </td>
     <td valign="top" width="50%" style="border-top: 1px solid #444; padding-top: 12px;">
       <h4>Productivity & UI</h4>
       <ul>
-        <li><strong>Preset System:</strong> Create, save, import, and share your favorite looks.</li>
-        <li><strong>Copy & Paste Settings:</strong> Quickly transfer adjustments between images.</li>
-        <li><strong>Undo/Redo History:</strong> A robust history system for every edit.</li>
-        <li><strong>Customizable UI:</strong> Modern, multilingual UI with resizable panels and smooth animations.</li>
-        <li><strong>Compositions:</strong> Built-in seamless Panorama Stitcher, flexible Collage Maker, and Film Negative Converter.</li>
-        <li><strong>Exporting:</strong> Control file format, watermarking, naming scheme, metadata, resizing options on export.</li>
+        <li><strong>Preset System:</strong> Create, save, import, share, and adjust preset intensity.</li>
+        <li><strong>Image Analytics:</strong> Real-time Vectorscope, Waveform, RGB Parade, and Histogram displays.</li>
+        <li><strong>Copy & Paste Settings:</strong> Quickly transfer adjustments and masks between images.</li>
+        <li><strong>Undo/Redo History:</strong> Robust history tracking for every edit step.</li>
+        <li><strong>Compositions & Merging:</strong> Bracketed HDR merging, seamless Panorama Stitcher, Collage Maker, and Film Negative Converter.</li>
+        <li><strong>Flexible Exporting:</strong> Export to JPEG, PNG, WebP, AVIF, TIFF, JXL, or LUT formats with custom watermarking and EXIF retention.</li><br><br>
       </ul>
     </td>
   </tr>
 </table>
 
-## Demo & Screenshots
-
-Here's RapidRAW in action.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/editor.gif" alt="The main editor interface in action"></img><br>
-  <em>The main editor interface in action.</em>
-</p>
-<br>
-<table width="100%">
-  <tr>
-    <td width="50%" align="center">
-      <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/batch.gif" alt="Powerful batch operations and export" style="max-width: 100%;">
-      <br>
-      <em>Powerful batch operations and export.</em>
-    </td>
-    <td width="50%" align="center">
-      <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/customization.gif" alt="Customizable editor layout and panels" style="max-width: 100%;">
-      <br>
-      <em>Customizable editor layout and panels.</em>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/masks.gif" alt="Advanced masking to speedup workflow" style="max-width: 100%;">
-      <br>
-      <em>Advanced masking to speedup workflow.</em>
-    </td>
-    <td width="50%" align="center">
-      <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/ai.gif" alt="Experimental generative AI features" style="max-width: 100%;">
-      <br>
-      <em>Experimental generative AI features.</em>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/library.gif" alt="Library navigation and folder management" style="max-width: 100%;">
-      <br>
-      <em>Library navigation and folder management.</em>
-    </td>
-    <td width="50%" align="center">
-      <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/themes.gif" alt="Beautiful themes and UI customization" style="max-width: 100%;">
-      <br>
-      <em>Beautiful themes and UI customization.</em>
-    </td>
-  </tr>
-</table>
-
-> If you like the theme images and want to see more of my own images, checkout my Instagram: [**@timonkaech.photography**](https://www.instagram.com/timonkaech.photography/)
-
-## The Idea
-
-As a photography enthusiast, I often found existing software to be sluggish and resource-heavy on my machine. Born from the desire for a more responsive and streamlined photo editing experience, I set out to build my own. The goal was to create a tool that was not only fast but **also helped me learn the details of digital image processing and camera technology**.
-
-I set an ambitious goal to rapidly build a functional, feature-rich application from an empty folder. This personal challenge pushed me to learn quickly and focus intensely on the core architecture and user experience.
-
-The foundation is built on Rust for its safety and performance, and Tauri for its ability to create lightweight, cross-platform desktop apps with a web frontend. The entire image processing pipeline is offloaded to the GPU via WGPU and a custom WGSL shader, ensuring that even on complex edits with multiple masks, the UI remains fluid.
-
-I am immensely grateful for Google's Gemini suite of AI models. As a young developer without a formal background in advanced mathematics or image science, Google's AI Studio was an invaluable assistant, helping me research and implement complex concepts in record time.
-
 ## Current Priorities
 
-While the core functionality is in place, I'm actively working on improving several key areas. Here's a transparent look at the current focus:
+Here is an outlook on what is actively being developed and planned for the coming months:
 
-| Task                                                                                                       | Priority | Difficulty | Status |
-| ---------------------------------------------------------------------------------------------------------- | -------- | ---------- | ------ |
-| Find a better X-Trans demosaicing algorithm                                                                | Medium   | High       | [ ]    |
-| Refactoring the frontend (reduce prop drilling in React components)                                        | Low      | Medium     | [X]    |
-| Write a tutorial on how to connect ComfyUI with RapidRAW                                                   | Medium   | Medium     | [ ]    |
-| Centralize Coordinate Transformation Logic - See [#245](https://github.com/CyberTimon/RapidRAW/issues/245) | Medium   | High       | [X]    |
-| Improve speed on older systems (e.g. Pascal GPUs)                                                          | Medium   | High       | [X]    |
-| Implement warping tools                                                                                    | Low      | High       | [X]    |
+- **Bug Fixes & Stability:** Continuous memory optimization, resolving OS-specific crashes (such as Linux Wayland/WebKit edge cases), and refining GPU processing backend auto-selection for seamless performance across all platforms.
+- **Tethered Shooting:** Adding native camera tethering support to allow studio and portrait photographers to capture photos directly into RapidRAW with instant live previews and automatic sidecar application.
+- **Cloud AI Inpainting:** Launching the optional cloud generative AI integration to deliver high-quality object removal and generative replace without requiring local ComfyUI setups or heavy GPU hardware.
+- **Performance & Algorithm Refinements:** Further optimizing processing speed on older GPU architectures, refining Fujifilm X-Trans sensor demosaicing algorithms, and expanding UI responsiveness on mobile/Android devices.
 
 ## AI Roadmap
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/inpainting.gif" alt="RapidRAW AI Inpainting" width="100%">
+</p>
 
 I've designed RapidRAW's AI features with flexibility in mind. You have three ways to use them, giving you the choice between fast local tools, powerful self-hosting, and simple cloud convenience.
 
@@ -488,16 +590,6 @@ This is purely a **convenience service**. It provides the **same high-quality re
 | **Setup**    | None                           | Manual ComfyUI / AI Connector setup | None (Just log in)     |
 | **Use Case** | Everyday workflow acceleration | Full control for technical users    | Maximum convenience    |
 | **Status**   | **Available**                  | **Available**                       | Coming Soon            |
-
-<details>
-<summary><strong>Click to see the Generative AI features in action</strong></summary>
-<br>
-<p align="center">
-  <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/ai.gif" alt="Experimental generative AI features" style="max-width: 100%;">
-  <br>
-  <em>Generative Replace, which can be powered by either a local ComfyUI backend or the upcoming optional cloud service.</em>
-</p>
-</details>
 
 ## Initial Development Log
 
@@ -560,23 +652,26 @@ npm start
 RapidRAW includes a headless export tool for batch processing photos in automated scripts, terminal pipelines, or server environments without opening the GUI:
 
 ```bash
-# Export a folder using the default edits found in .rrdata sidecar files
+# Export an entire folder using edits found in .rrdata sidecar files
 rapidraw export /path/to/photos --output /path/to/output_dir --format jpeg --quality 90
 
-# Batch export a folder using a custom adjustments JSON
+# Export a single image directly to a specific target file
+rapidraw export /path/to/photo.raw --output /path/to/output.png --format png
+
+# Batch export a folder using a custom adjustments JSON file to override sidecars
 rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path/to/preset.json
 ```
 
-> **Note:** By default, headless export automatically detects and applies edits stored in `.rrdata` sidecar files located alongside your source images. You can override this by passing a custom JSON file using the `--adjustments` flag.
+> **Note:** By default, headless export automatically detects and applies edits stored in `.rrdata` sidecar files located alongside your source images. You can override sidecars for all exported images by passing a custom JSON file using the `--adjustments` flag.
 
-| Option                 | Description                                                               | Default           |
-| :--------------------- | :------------------------------------------------------------------------ | :---------------- |
-| `<source>`             | Path to an image file or directory containing images                      | _(Required)_      |
-| `--output <path>`      | Target folder for exported images                                         | _(Required)_      |
-| `--format <fmt>`       | Output format (`jpeg`, `png`, `webp`, `avif`, `tiff`, `jxl`, `cube`)      | `jpeg`            |
-| `--quality <1-100>`    | Image export quality                                                      | `90`              |
-| `--keep-metadata`      | Retain EXIF/capture metadata in exported files                            | `false`           |
-| `--adjustments <path>` | Path to a custom JSON file containing adjustments to override the sidecar | _(Auto-detected)_ |
+| Option                 | Description                                                            | Default           |
+| :--------------------- | :--------------------------------------------------------------------- | :---------------- |
+| `<source>`             | Path to an image file or directory containing images                   | _(Required)_      |
+| `--output <path>`      | Target directory or specific output file path                          | _(Required)_      |
+| `--format <fmt>`       | Output format (`jpeg`, `png`, `webp`, `avif`, `tiff`, `jxl`, `cube`)   | `jpeg`            |
+| `--quality <1-100>`    | Image export quality                                                   | `90`              |
+| `--keep-metadata`      | Retain EXIF/capture metadata in exported files                         | `false`           |
+| `--adjustments <path>` | Path to a custom JSON file containing adjustments to override sidecars | _(Auto-detected)_ |
 
 ## System Requirements
 

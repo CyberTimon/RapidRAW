@@ -38,6 +38,26 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.6.0" date="2026-07-26">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.0</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Lens Blur (Bokeh): Added an AI-powered depth blur tool to generate realistic depth-of-field, custom bokeh shapes, and tilt-shift miniature effects.</li>
+                <li>Culling View: Introduced a side-by-side comparison view supporting up to 6 images with quick star rating and metadata inspection.</li>
+                <li>Group RAW + JPEG: Stacks RAW and JPEG file pairs together in the library view with customizable primary display preferences.</li>
+                <li>Command Line Interface (CLI): Added a headless export CLI for automated batch processing and terminal scripting.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Performance Optimizations: Drastically improved thumbnail loading speeds on HDDs and optimized performance across library and analytics panels.</li>
+                <li>Cropping Upgrades: Enhanced the crop tool with area preservation and crop-centered rotation.</li>
+                <li>Export &amp; Memory Enhancements: Significantly reduced RAM usage during exports and calibrated JPEG XL quality curves.</li>
+                <li>Workflow Improvements: Preserved image selections between views, added quick shortcuts for search and settings, and made multi-selection adjustment sync optional.</li>
+                <li>Metadata &amp; Bug Fixes: Improved lens metadata extraction, resolved Canon multi-exposure white balance errors, and fixed performance issues on Linux NVIDIA GPUs.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.5.9" date="2026-07-12">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.9</url>
         <description translate="no">

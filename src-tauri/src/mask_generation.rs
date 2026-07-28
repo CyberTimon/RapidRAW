@@ -772,15 +772,15 @@ fn generate_flow_bitmap(
     final_mask
 }
 
-struct TransformParams {
-    rotation: f32,
-    flip_horizontal: bool,
-    flip_vertical: bool,
-    orientation_steps: u8,
-    width: u32,
-    height: u32,
-    scale: f32,
-    crop_offset: (f32, f32),
+pub struct TransformParams {
+    pub rotation: f32,
+    pub flip_horizontal: bool,
+    pub flip_vertical: bool,
+    pub orientation_steps: u8,
+    pub width: u32,
+    pub height: u32,
+    pub scale: f32,
+    pub crop_offset: (f32, f32),
 }
 
 fn generate_ai_bitmap_from_full_mask(
@@ -855,7 +855,7 @@ fn generate_ai_bitmap_from_full_mask(
     final_mask
 }
 
-fn generate_ai_bitmap_from_base64(data_url: &str, tf: &TransformParams) -> Option<GrayImage> {
+pub fn generate_ai_bitmap_from_base64(data_url: &str, tf: &TransformParams) -> Option<GrayImage> {
     let b64_data = if let Some(idx) = data_url.find(',') {
         &data_url[idx + 1..]
     } else {

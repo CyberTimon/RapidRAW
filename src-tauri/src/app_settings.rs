@@ -453,6 +453,8 @@ pub struct AppSettings {
     #[serde(default, skip_serializing)] // legacy
     #[allow(dead_code)]
     pub group_preferred_type: Option<String>,
+    #[serde(default)]
+    pub always_decode_raw_thumbnails: Option<bool>,
 }
 
 impl Default for AppSettings {
@@ -543,6 +545,7 @@ impl Default for AppSettings {
             group_edited_files: Some(true),
             group_associated_files: Some(false),
             group_preferred_type: Some("raw".to_string()),
+            always_decode_raw_thumbnails: Some(false),
         }
     }
 }

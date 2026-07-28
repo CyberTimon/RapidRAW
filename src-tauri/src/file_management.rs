@@ -30,7 +30,6 @@ use crate::PendingMetadata;
 #[cfg(target_os = "android")]
 use crate::android_integration::*;
 use crate::app_settings::*;
-use crate::cache_utils::calculate_geometry_hash;
 use crate::exif_processing;
 use crate::formats::{is_raw_file, is_supported_image_file};
 use crate::gpu_processing;
@@ -1454,8 +1453,10 @@ pub fn generate_thumbnail_data(
         .as_ref()
         .map_or(serde_json::Value::Null, |m| m.adjustments.clone());
 
-    if is_raw && adjustments.is_null() && preloaded_image.is_none() {
-        let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let always_decode_raw = settings.always_decode_raw_thumbnails.unwrap_or(false);
+
+    if is_raw && adjustments.is_null() && preloaded_image.is_none() && !always_decode_raw {
         let target_res = settings.thumbnail_resolution.unwrap_or(720);
         if let Some(preview) = try_load_embedded_raw_preview(&source_path, target_res) {
             return Ok(preview);
@@ -1466,10 +1467,9 @@ pub fn generate_thumbnail_data(
         && !meta.adjustments.is_null()
     {
         let state = app_handle.state::<AppState>();
-        let settings = load_settings(app_handle.clone()).unwrap_or_default();
         let target_res = settings.thumbnail_resolution.unwrap_or(720);
 
-        let geometry_hash = calculate_geometry_hash(&meta.adjustments);
+        let base_cache_hash = crate::cache_utils::calculate_thumbnail_base_hash(&meta.adjustments);
 
         let crop_data: Option<Crop> = serde_json::from_value(meta.adjustments["crop"].clone()).ok();
 
@@ -1488,7 +1488,7 @@ pub fn generate_thumbnail_data(
                     }
                 }
 
-                if *cached_hash == geometry_hash && sufficient_resolution {
+                if *cached_hash == base_cache_hash && sufficient_resolution {
                     Some((img.clone(), *scale))
                 } else {
                     None
@@ -1501,7 +1501,6 @@ pub fn generate_thumbnail_data(
         let (processing_base, total_scale) = if let Some(hit) = cached_base {
             hit
         } else {
-            let settings = load_settings(app_handle.clone()).unwrap_or_default();
             let mut raw_scale_factor = 1.0f32;
 
             let composite_image = if let Some(img) = preloaded_image {
@@ -1552,9 +1551,12 @@ pub fn generate_thumbnail_data(
 
             let warped_image =
                 apply_geometry_warp(Cow::Borrowed(&composite_image), &meta.adjustments);
+
+            let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, &meta.adjustments);
+
             let orientation_steps =
                 meta.adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
-            let coarse_rotated_image = apply_coarse_rotation(warped_image, orientation_steps);
+            let coarse_rotated_image = apply_coarse_rotation(blurred_image, orientation_steps);
 
             let (full_w, full_h) = coarse_rotated_image.dimensions();
 
@@ -1596,7 +1598,7 @@ pub fn generate_thumbnail_data(
             }
             cache.insert(
                 path_str.to_string(),
-                (geometry_hash, base.clone(), total_scale),
+                (base_cache_hash, base.clone(), total_scale),
             );
 
             (base, total_scale)
@@ -1690,8 +1692,6 @@ pub fn generate_thumbnail_data(
             return Ok(cropped_preview.into_owned());
         }
     }
-
-    let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
     let mut final_image = if let Some(img) = preloaded_image {
         image_loader::composite_patches_on_image(img, &adjustments)?

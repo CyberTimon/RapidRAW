@@ -989,790 +989,143 @@ export default function SettingsPanel({
     <>
       <ConfirmModal {...confirmModalState} onClose={closeConfirmModal} />
       <LayoutGroup id="settings-panel">
-      <div className="flex flex-col h-full w-full text-text-primary">
-        <header className="shrink-0 flex flex-wrap items-center justify-between gap-y-4 mb-8 pt-4">
-          <div className="flex items-center shrink-0">
-            <Button
-              className="mr-4 hover:bg-surface text-text-primary rounded-full"
-              onClick={onBack}
-              size="icon"
-              variant="ghost"
-              data-tooltip={t('settings.tooltips.goHome')}
-            >
-              <ArrowLeft />
-            </Button>
-            <Text variant={TextVariants.display} color={TextColors.accent} className="whitespace-nowrap">
-              {t('settings.title')}
-            </Text>
-          </div>
-
-          <div className="relative flex w-full min-[1200px]:w-112.5 p-2 bg-surface rounded-md">
-            {settingCategories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => setActiveCategory(category.id)}
-                className={clsx(
-                  'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-                  {
-                    'text-text-primary hover:bg-surface': activeCategory !== category.id,
-                    'text-button-text': activeCategory === category.id,
-                  },
-                )}
-                style={{ WebkitTapHighlightColor: 'transparent' }}
+        <div className="flex flex-col h-full w-full text-text-primary">
+          <header className="shrink-0 flex flex-wrap items-center justify-between gap-y-4 mb-8 pt-4">
+            <div className="flex items-center shrink-0">
+              <Button
+                className="mr-4 hover:bg-surface text-text-primary rounded-full"
+                onClick={onBack}
+                size="icon"
+                variant="ghost"
+                data-tooltip={t('settings.tooltips.goHome')}
               >
-                {activeCategory === category.id && (
-                  <motion.span
-                    layoutId="settings-category-switch-bubble"
-                    className="absolute inset-0 z-0 bg-accent"
-                    style={{ borderRadius: 6 }}
-                    transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center">
-                  <category.icon size={16} className="mr-2 shrink-0" />
-                  <span className="truncate">{category.label}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </header>
+                <ArrowLeft />
+              </Button>
+              <Text variant={TextVariants.display} color={TextColors.accent} className="whitespace-nowrap">
+                {t('settings.title')}
+              </Text>
+            </div>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 -mr-2 custom-scrollbar">
-          <AnimatePresence mode="wait">
-            {activeCategory === 'general' && (
-              <motion.div
-                key="general"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-10"
-              >
-                <div className="p-6 bg-surface rounded-xl shadow-md">
-                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                    {t('settings.general.title')}
-                  </Text>
-                  <div className="space-y-8">
-                    <SettingItem label={t('settings.general.theme')} description={t('settings.general.themeDesc')}>
-                      <Dropdown
-                        onChange={(value: any) => onSettingsChange({ ...appSettings, theme: value })}
-                        options={THEMES.map((theme: ThemeProps) => ({ value: theme.id, label: t(theme.name as any) }))}
-                        value={appSettings?.theme || DEFAULT_THEME_ID}
-                        triggerClassName="bg-bg-primary"
-                      />
-                    </SettingItem>
+            <div className="relative flex w-full min-[1200px]:w-112.5 p-2 bg-surface rounded-md">
+              {settingCategories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setActiveCategory(category.id)}
+                  className={clsx(
+                    'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                    {
+                      'text-text-primary hover:bg-surface': activeCategory !== category.id,
+                      'text-button-text': activeCategory === category.id,
+                    },
+                  )}
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                  {activeCategory === category.id && (
+                    <motion.span
+                      layoutId="settings-category-switch-bubble"
+                      className="absolute inset-0 z-0 bg-accent"
+                      style={{ borderRadius: 6 }}
+                      transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center">
+                    <category.icon size={16} className="mr-2 shrink-0" />
+                    <span className="truncate">{category.label}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </header>
 
-                    <SettingItem label={t('settings.language')} description={t('settings.languageDesc')}>
-                      <Dropdown
-                        onChange={(value: any) => onSettingsChange({ ...appSettings, language: value })}
-                        options={[
-                          { value: 'en', label: 'English' },
-                          { value: 'de', label: 'Deutsch' },
-                          { value: 'es', label: 'Español' },
-                          { value: 'fr', label: 'Français' },
-                          { value: 'it', label: 'Italiano' },
-                          { value: 'ja', label: '日本語' },
-                          { value: 'ko', label: '한국어' },
-                          { value: 'pl', label: 'Polski' },
-                          { value: 'pt', label: 'Português' },
-                          { value: 'ru', label: 'Русский' },
-                          { value: 'zh-CN', label: '简体中文' },
-                          { value: 'zh-TW', label: '繁體中文' },
-                        ]}
-                        value={appSettings?.language || 'en'}
-                        triggerClassName="bg-bg-primary"
-                      />
-                    </SettingItem>
-
-                    <div className="space-y-4">
-                      <SettingItem
-                        label={t('settings.general.xmpSync')}
-                        description={t('settings.general.xmpSyncDesc')}
-                      >
-                        <Switch
-                          checked={appSettings?.enableXmpSync ?? true}
-                          id="enable-xmp-sync-toggle"
-                          label={t('settings.general.enableXmpSync')}
-                          onChange={(checked) => {
-                            const newSettings = { ...appSettings, enableXmpSync: checked };
-                            if (!checked) {
-                              newSettings.createXmpIfMissing = false;
-                            }
-                            onSettingsChange(newSettings);
-                          }}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 -mr-2 custom-scrollbar">
+            <AnimatePresence mode="wait">
+              {activeCategory === 'general' && (
+                <motion.div
+                  key="general"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-10"
+                >
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                      {t('settings.general.title')}
+                    </Text>
+                    <div className="space-y-8">
+                      <SettingItem label={t('settings.general.theme')} description={t('settings.general.themeDesc')}>
+                        <Dropdown
+                          onChange={(value: any) => onSettingsChange({ ...appSettings, theme: value })}
+                          options={THEMES.map((theme: ThemeProps) => ({
+                            value: theme.id,
+                            label: t(theme.name as any),
+                          }))}
+                          value={appSettings?.theme || DEFAULT_THEME_ID}
+                          triggerClassName="bg-bg-primary"
                         />
                       </SettingItem>
 
-                      <AnimatePresence initial={false}>
-                        {(appSettings?.enableXmpSync ?? true) && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.3, ease: 'easeInOut' }}
-                            className="overflow-hidden"
-                          >
-                            <div className="pl-4 border-l-2 border-border-color ml-1">
-                              <SettingItem
-                                label={t('settings.general.createXmp')}
-                                description={t('settings.general.createXmpDesc')}
-                              >
-                                <Switch
-                                  checked={appSettings?.createXmpIfMissing ?? false}
-                                  id="create-xmp-missing-toggle"
-                                  label={t('settings.general.createXmpMissing')}
-                                  onChange={(checked) =>
-                                    onSettingsChange({ ...appSettings, createXmpIfMissing: checked })
-                                  }
-                                />
-                              </SettingItem>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-
-                    <SettingItem
-                      label={t('settings.general.folderImageCounts')}
-                      description={t('settings.general.folderImageCountsDesc')}
-                    >
-                      <Switch
-                        checked={appSettings?.enableFolderImageCounts ?? false}
-                        id="folder-image-counts-toggle"
-                        label={t('settings.general.showImageCounts')}
-                        onChange={(checked) => onSettingsChange({ ...appSettings, enableFolderImageCounts: checked })}
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      label={t('settings.general.displayEditIcon')}
-                      description={t('settings.general.displayEditIconDesc')}
-                    >
-                      <Switch
-                        checked={appSettings?.displayEditIcon ?? true}
-                        id="display-edit-icon-toggle"
-                        label={t('settings.general.displayEditIcon')}
-                        onChange={(checked) => onSettingsChange({ ...appSettings, displayEditIcon: checked })}
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      label={t('settings.general.focusMode')}
-                      description={t('settings.general.focusModeDesc')}
-                    >
-                      <Switch
-                        checked={appSettings?.enableFocusMode ?? false}
-                        id="focus-mode-toggle"
-                        label={t('settings.general.enableFocusMode')}
-                        onChange={(checked) => onSettingsChange({ ...appSettings, enableFocusMode: checked })}
-                      />
-                    </SettingItem>
-
-                    <SettingItem label={t('settings.general.font')} description={t('settings.general.fontDesc')}>
-                      <Dropdown
-                        onChange={(value: any) => onSettingsChange({ ...appSettings, fontFamily: value })}
-                        options={fontOptions}
-                        value={appSettings?.fontFamily || 'poppins'}
-                        triggerClassName="bg-bg-primary"
-                      />
-                    </SettingItem>
-
-                    {osPlatform === 'linux' && (
-                      <SettingItem
-                        label={t('settings.general.nativeTitlebar')}
-                        description={t('settings.general.nativeTitlebarDesc')}
-                      >
-                        <Switch
-                          checked={appSettings?.decorations ?? false}
-                          id="native-titlebar-toggle"
-                          label={t('settings.general.enableOsTitlebar')}
-                          onChange={(checked) => {
-                            onSettingsChange({ ...appSettings, decorations: checked });
-                            getCurrentWindow().setDecorations(checked).catch(console.error);
-                          }}
+                      <SettingItem label={t('settings.language')} description={t('settings.languageDesc')}>
+                        <Dropdown
+                          onChange={(value: any) => onSettingsChange({ ...appSettings, language: value })}
+                          options={[
+                            { value: 'en', label: 'English' },
+                            { value: 'de', label: 'Deutsch' },
+                            { value: 'es', label: 'Español' },
+                            { value: 'fr', label: 'Français' },
+                            { value: 'it', label: 'Italiano' },
+                            { value: 'ja', label: '日本語' },
+                            { value: 'ko', label: '한국어' },
+                            { value: 'pl', label: 'Polski' },
+                            { value: 'pt', label: 'Português' },
+                            { value: 'ru', label: 'Русский' },
+                            { value: 'zh-CN', label: '简体中文' },
+                            { value: 'zh-TW', label: '繁體中文' },
+                          ]}
+                          value={appSettings?.language || 'en'}
+                          triggerClassName="bg-bg-primary"
                         />
                       </SettingItem>
-                    )}
-                  </div>
-                </div>
 
-                <div className="p-6 bg-surface rounded-xl shadow-md">
-                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                    {t('settings.adjustments.title')}
-                  </Text>
-                  <Text className="mb-4">{t('settings.adjustments.description')}</Text>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                    <Switch
-                      label={t('settings.adjustments.chromaticAberration')}
-                      checked={appSettings?.adjustmentVisibility?.chromaticAberration ?? false}
-                      onChange={(checked) =>
-                        onSettingsChange({
-                          ...appSettings,
-                          adjustmentVisibility: {
-                            ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                            chromaticAberration: checked,
-                          },
-                        })
-                      }
-                    />
-                    <Switch
-                      label={t('settings.adjustments.grain')}
-                      checked={appSettings?.adjustmentVisibility?.grain ?? true}
-                      onChange={(checked) =>
-                        onSettingsChange({
-                          ...appSettings,
-                          adjustmentVisibility: {
-                            ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                            grain: checked,
-                          },
-                        })
-                      }
-                    />
-                    <Switch
-                      label={t('settings.adjustments.colorCalibration')}
-                      checked={appSettings?.adjustmentVisibility?.colorCalibration ?? true}
-                      onChange={(checked) =>
-                        onSettingsChange({
-                          ...appSettings,
-                          adjustmentVisibility: {
-                            ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                            colorCalibration: checked,
-                          },
-                        })
-                      }
-                    />
-                    <Switch
-                      label={t('settings.adjustments.noiseReduction')}
-                      checked={appSettings?.adjustmentVisibility?.noiseReduction ?? true}
-                      onChange={(checked) =>
-                        onSettingsChange({
-                          ...appSettings,
-                          adjustmentVisibility: {
-                            ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                            noiseReduction: checked,
-                          },
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="p-6 bg-surface rounded-xl shadow-md">
-                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                    {t('settings.lenses.title')}
-                  </Text>
-                  <Text className="mb-6">{t('settings.lenses.description')}</Text>
-
-                  <div className="space-y-8">
-                    <div className="bg-bg-primary rounded-lg p-4 border border-border-color">
-                      <Text variant={TextVariants.heading} className="mb-3">
-                        {t('settings.lenses.addNew')}
-                      </Text>
                       <div className="space-y-4">
-                        <Dropdown
-                          options={lensMakers.map((m) => ({ label: m, value: m }))}
-                          value={tempLensMaker}
-                          onChange={handleTempMakerChange}
-                          placeholder={t('settings.lenses.manufacturerPlaceholder')}
-                        />
-                        <Dropdown
-                          options={lensModels.map((m) => ({ label: m, value: m }))}
-                          value={tempLensModel}
-                          onChange={setTempLensModel}
-                          placeholder={t('settings.lenses.modelPlaceholder')}
-                          disabled={!tempLensMaker}
-                        />
-                        <Button onClick={handleAddLens} disabled={!tempLensMaker || !tempLensModel} className="w-full">
-                          <Plus size={16} className="mr-1" />
-                          {t('settings.lenses.addButton')}
-                        </Button>
-                      </div>
-                    </div>
+                        <SettingItem
+                          label={t('settings.general.xmpSync')}
+                          description={t('settings.general.xmpSyncDesc')}
+                        >
+                          <Switch
+                            checked={appSettings?.enableXmpSync ?? true}
+                            id="enable-xmp-sync-toggle"
+                            label={t('settings.general.enableXmpSync')}
+                            onChange={(checked) => {
+                              const newSettings = { ...appSettings, enableXmpSync: checked };
+                              if (!checked) {
+                                newSettings.createXmpIfMissing = false;
+                              }
+                              onSettingsChange(newSettings);
+                            }}
+                          />
+                        </SettingItem>
 
-                    <div>
-                      <Text variant={TextVariants.heading} className="mb-2">
-                        {t('settings.lenses.saved')}
-                      </Text>
-                      {(!appSettings?.myLenses || appSettings.myLenses.length === 0) && (
-                        <Text className="italic">{t('settings.lenses.noLenses')}</Text>
-                      )}
-                      <div className="divide-y divide-border-color">
-                        {(appSettings?.myLenses || []).map((lens: MyLens, index: number) => (
-                          <div
-                            key={`${lens.maker}-${lens.model}-${index}`}
-                            className="flex justify-between items-center py-3 first:pt-0 last:pb-0"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 bg-surface rounded-md text-accent">
-                                <Bookmark size={16} />
-                              </div>
-                              <div>
-                                <Text color={TextColors.primary} weight={TextWeights.medium}>
-                                  {lens.model}
-                                </Text>
-                                <Text variant={TextVariants.small}>{lens.maker}</Text>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleRemoveLens(index)}
-                              className="p-2 text-text-secondary hover:text-red-400 hover:bg-bg-primary rounded-md transition-colors"
-                              data-tooltip={t('settings.lenses.removeTooltip')}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 bg-surface rounded-xl shadow-md">
-                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                    {t('settings.tagging.title')}
-                  </Text>
-                  <div className="space-y-8">
-                    <div className="space-y-4">
-                      <SettingItem
-                        description={t('settings.tagging.aiTaggingDesc')}
-                        label={t('settings.tagging.aiTagging')}
-                      >
-                        <Switch
-                          checked={appSettings?.enableAiTagging ?? false}
-                          id="ai-tagging-toggle"
-                          label={t('settings.tagging.automaticAiTagging')}
-                          onChange={(checked) => onSettingsChange({ ...appSettings, enableAiTagging: checked })}
-                        />
-                      </SettingItem>
-
-                      <AnimatePresence>
-                        {(appSettings?.enableAiTagging ?? false) && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.3, ease: 'easeInOut' }}
-                            className="overflow-hidden"
-                          >
-                            <div className="pl-4 border-l-2 border-border-color ml-1 space-y-8">
-                              <SettingItem
-                                label={t('settings.tagging.maxAiTags')}
-                                description={t('settings.tagging.maxAiTagsDesc')}
-                              >
-                                <Slider
-                                  label={t('settings.tagging.amount')}
-                                  min={1}
-                                  max={20}
-                                  step={1}
-                                  value={appSettings?.aiTagCount ?? 10}
-                                  defaultValue={10}
-                                  onChange={(e: any) =>
-                                    onSettingsChange({ ...appSettings, aiTagCount: parseInt(e.target.value) })
-                                  }
-                                />
-                              </SettingItem>
-
-                              <SettingItem
-                                label={t('settings.tagging.customList')}
-                                description={t('settings.tagging.customListDesc')}
-                              >
-                                <div>
-                                  <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-10 border border-border-color mb-2 items-center">
-                                    <AnimatePresence>
-                                      {customAiTags.length > 0 ? (
-                                        customAiTags.map((tag: string) => (
-                                          <motion.div
-                                            key={tag}
-                                            layout
-                                            variants={shortcutTagVariants}
-                                            initial={false}
-                                            animate="visible"
-                                            exit="exit"
-                                            onClick={() => handleRemoveAiTag(tag)}
-                                            data-tooltip={t('settings.tagging.removeCustomTooltip', { tag })}
-                                            className="flex items-center gap-1 bg-surface px-2 py-1 rounded-sm group cursor-pointer"
-                                          >
-                                            <Text variant={TextVariants.label} color={TextColors.primary}>
-                                              {tag}
-                                            </Text>
-                                            <span className="rounded-full group-hover:bg-black/20 p-0.5 transition-colors">
-                                              <X size={14} />
-                                            </span>
-                                          </motion.div>
-                                        ))
-                                      ) : (
-                                        <motion.span
-                                          key="no-ai-tags-placeholder"
-                                          initial={{ opacity: 0 }}
-                                          animate={{ opacity: 1 }}
-                                          exit={{ opacity: 0 }}
-                                          transition={{ duration: 0.2 }}
-                                        >
-                                          <Text className="px-1 select-none italic">
-                                            {t('settings.tagging.noCustomTags')}
-                                          </Text>
-                                        </motion.span>
-                                      )}
-                                    </AnimatePresence>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <div className="relative flex-1">
-                                      <Input
-                                        type="text"
-                                        value={newAiTag}
-                                        onChange={(e) => setNewAiTag(e.target.value)}
-                                        onKeyDown={handleAiTagInputKeyDown}
-                                        placeholder={t('settings.tagging.addCustomPlaceholder')}
-                                        className="pr-10"
-                                        bgClassName="bg-bg-primary"
-                                      />
-                                      <button
-                                        onClick={handleAddAiTag}
-                                        className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-text-secondary hover:text-text-primary hover:bg-surface"
-                                        data-tooltip={t('settings.tagging.addCustomTooltip')}
-                                      >
-                                        <Plus size={18} />
-                                      </button>
-                                    </div>
-                                    <button
-                                      onClick={() => onSettingsChange({ ...appSettings, customAiTags: [] })}
-                                      disabled={customAiTags.length === 0}
-                                      className="p-2 text-text-secondary hover:text-red-400 hover:bg-surface rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-secondary disabled:hover:bg-transparent"
-                                      data-tooltip={t('settings.tagging.clearCustomTooltip')}
-                                    >
-                                      <Trash2 size={18} />
-                                    </button>
-                                  </div>
-                                </div>
-                              </SettingItem>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-
-                    <SettingItem
-                      label={t('settings.tagging.shortcuts')}
-                      description={t('settings.tagging.shortcutsDesc')}
-                    >
-                      <div>
-                        <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-10 border border-border-color mb-2 items-center">
-                          <AnimatePresence>
-                            {taggingShortcuts.length > 0 ? (
-                              taggingShortcuts.map((shortcut: string) => (
-                                <motion.div
-                                  key={shortcut}
-                                  layout
-                                  variants={shortcutTagVariants}
-                                  initial={false}
-                                  animate="visible"
-                                  exit="exit"
-                                  onClick={() => handleRemoveShortcut(shortcut)}
-                                  data-tooltip={t('settings.tagging.removeShortcutTooltip', {
-                                    shortcut: translateBuiltInTag(shortcut),
-                                  })}
-                                  className="flex items-center gap-1 bg-surface px-2 py-1 rounded-sm group cursor-pointer"
-                                >
-                                  <Text variant={TextVariants.label} color={TextColors.primary}>
-                                    {translateBuiltInTag(shortcut)}
-                                  </Text>
-                                  <span className="rounded-full group-hover:bg-black/20 p-0.5 transition-colors">
-                                    <X size={14} />
-                                  </span>
-                                </motion.div>
-                              ))
-                            ) : (
-                              <motion.span
-                                key="no-shortcuts-placeholder"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="text-sm text-text-secondary italic px-1 select-none"
-                              >
-                                {t('settings.tagging.noShortcuts')}
-                              </motion.span>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="relative flex-1">
-                            <Input
-                              type="text"
-                              value={newShortcut}
-                              onChange={(e) => setNewShortcut(e.target.value)}
-                              onKeyDown={handleInputKeyDown}
-                              placeholder={t('settings.tagging.addShortcutsPlaceholder')}
-                              className="pr-10"
-                              bgClassName="bg-bg-primary"
-                            />
-                            <button
-                              onClick={handleAddShortcut}
-                              className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-text-secondary hover:text-text-primary hover:bg-surface"
-                              data-tooltip={t('settings.tagging.addShortcutTooltip')}
-                            >
-                              <Plus size={18} />
-                            </button>
-                          </div>
-                          <button
-                            onClick={() => onSettingsChange({ ...appSettings, taggingShortcuts: [] })}
-                            disabled={taggingShortcuts.length === 0}
-                            className="p-2 text-text-secondary hover:text-red-400 hover:bg-surface rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-secondary disabled:hover:bg-transparent"
-                            data-tooltip={t('settings.tagging.clearShortcutsTooltip')}
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </div>
-                    </SettingItem>
-
-                    <div className="pt-8 border-t border-border-color">
-                      <div className="space-y-8">
-                        <DataActionItem
-                          buttonAction={handleClearAiTags}
-                          buttonText={t('settings.tagging.clearAiTagsButton')}
-                          description={t('settings.tagging.clearAiTagsDesc')}
-                          disabled={effectiveRootPaths.length === 0}
-                          icon={<Trash2 size={16} className="mr-2" />}
-                          isProcessing={isClearingAiTags}
-                          message={aiTagsClearMessage}
-                          title={t('settings.tagging.clearAiTagsTitle')}
-                        />
-                        <DataActionItem
-                          buttonAction={handleClearTags}
-                          buttonText={t('settings.tagging.clearAiTagsButton')}
-                          description={t('settings.tagging.clearAllTagsDesc')}
-                          disabled={effectiveRootPaths.length === 0}
-                          icon={<Trash2 size={16} className="mr-2" />}
-                          isProcessing={isClearingTags}
-                          message={tagsClearMessage}
-                          title={t('settings.tagging.clearAllTagsTitle')}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 bg-surface rounded-xl shadow-md">
-                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-6">
-                    {t('settings.thanks.title')}
-                  </Text>
-                  <Text className="mb-4">{t('settings.thanks.description')}</Text>
-                  <Text as="ul" className="space-y-3 list-disc ml-5 pl-1">
-                    <li>
-                      <a
-                        href="https://github.com/dnglab/dnglab/tree/main/rawler"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-accent hover:underline"
-                      >
-                        rawler
-                      </a>
-                      : {t('settings.thanks.list.rawler')}
-                    </li>
-                    <li>
-                      <a
-                        href="https://lensfun.github.io/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-accent hover:underline"
-                      >
-                        lensfun
-                      </a>
-                      : {t('settings.thanks.list.lensfun')}
-                    </li>
-                    <li>
-                      <a
-                        href="https://github.com/marcinz606/NegPy"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-accent hover:underline"
-                      >
-                        NegPy
-                      </a>
-                      : {t('settings.thanks.list.negpy')}
-                    </li>
-                    <li>
-                      <a
-                        href="https://github.com/advimman/lama"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-accent hover:underline"
-                      >
-                        LaMa
-                      </a>
-                      : {t('settings.thanks.list.lama')}
-                    </li>
-                    <li>
-                      <a
-                        href="https://github.com/facebookresearch/sam2"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-accent hover:underline"
-                      >
-                        SAM 2
-                      </a>
-                      : {t('settings.thanks.list.sam2')}
-                    </li>
-                    <li>
-                      <a
-                        href="https://github.com/xuebinqin/U-2-Net"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-accent hover:underline"
-                      >
-                        U-2-Net
-                      </a>
-                      : {t('settings.thanks.list.u2net')}
-                    </li>
-                    <li>
-                      <a
-                        href="https://github.com/DepthAnything/Depth-Anything-V2"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-accent hover:underline"
-                      >
-                        Depth Anything V2
-                      </a>
-                      : {t('settings.thanks.list.depth')}
-                    </li>
-                    <li>
-                      <a
-                        href="https://github.com/trougnouf/nind-denoise"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-accent hover:underline"
-                      >
-                        nind-denoise
-                      </a>
-                      : {t('settings.thanks.list.nind')}
-                    </li>
-                    <li>
-                      <a
-                        href="https://github.com/darktable-org/darktable"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-accent hover:underline"
-                      >
-                        darktable & co.
-                      </a>
-                      : {t('settings.thanks.list.darktable')}
-                    </li>
-                    <li>
-                      <span className="font-semibold text-accent">{t('settings.thanks.list.youLabel')}</span>:{' '}
-                      {t('settings.thanks.list.you')}
-                    </li>
-                  </Text>
-                </div>
-              </motion.div>
-            )}
-            {activeCategory === 'processing' && (
-              <motion.div
-                key="processing"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-10"
-              >
-                <div className="p-6 bg-surface rounded-xl shadow-md">
-                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                    {t('settings.processing.title')}
-                  </Text>
-                  <div className="space-y-8">
-                    <div>
-                      <Text variant={TextVariants.heading} className="mb-2">
-                        {t('settings.processing.previewStrategy')}
-                      </Text>
-                      <PreviewModeSwitch
-                        mode={appSettings?.enableZoomHifi ? 'dynamic' : 'static'}
-                        onModeChange={handlePreviewModeChange}
-                      />
-
-                      <div className="mt-3">
-                        <AnimatePresence mode="wait">
-                          {!(appSettings?.enableZoomHifi ?? true) ? (
+                        <AnimatePresence initial={false}>
+                          {(appSettings?.enableXmpSync ?? true) && (
                             <motion.div
-                              key="static-preview"
-                              initial={{ opacity: 0, x: 10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: -10 }}
-                              transition={{ duration: 0.2 }}
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3, ease: 'easeInOut' }}
+                              className="overflow-hidden"
                             >
-                              <Text variant={TextVariants.small} className="mb-4">
-                                {t('settings.processing.staticDesc')}
-                              </Text>
                               <div className="pl-4 border-l-2 border-border-color ml-1">
                                 <SettingItem
-                                  description={t('settings.processing.previewResDesc')}
-                                  label={t('settings.processing.previewRes')}
-                                >
-                                  <Dropdown
-                                    onChange={(value: any) =>
-                                      handleProcessingSettingChange('editorPreviewResolution', value)
-                                    }
-                                    options={resolutions}
-                                    value={processingSettings.editorPreviewResolution}
-                                    triggerClassName="bg-bg-primary"
-                                  />
-                                </SettingItem>
-                              </div>
-                            </motion.div>
-                          ) : (
-                            <motion.div
-                              key="dynamic-preview"
-                              initial={{ opacity: 0, x: 10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: -10 }}
-                              transition={{ duration: 0.2 }}
-                            >
-                              <Text variant={TextVariants.small} className="mb-4">
-                                {t('settings.processing.dynamicDesc')}
-                              </Text>
-                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-3">
-                                <SettingItem
-                                  description={t('settings.processing.staticPreviewResDesc')}
-                                  label={t('settings.processing.staticPreviewRes')}
-                                >
-                                  <Dropdown
-                                    onChange={(value: any) =>
-                                      handleProcessingSettingChange('editorPreviewResolution', value)
-                                    }
-                                    options={resolutions}
-                                    value={processingSettings.editorPreviewResolution}
-                                    triggerClassName="bg-bg-primary"
-                                  />
-                                </SettingItem>
-
-                                <SettingItem
-                                  label={t('settings.processing.renderScale')}
-                                  description={t('settings.processing.renderScaleDesc')}
-                                >
-                                  <Dropdown
-                                    onChange={(value: any) =>
-                                      handleProcessingSettingChange('highResZoomMultiplier', value)
-                                    }
-                                    options={zoomMultiplierOptions}
-                                    value={processingSettings.highResZoomMultiplier}
-                                    triggerClassName="bg-bg-primary"
-                                  />
-                                </SettingItem>
-
-                                <SettingItem
-                                  label={t('settings.processing.highDpi')}
-                                  description={
-                                    dpr > 1
-                                      ? t('settings.processing.highDpiDesc', { dpr })
-                                      : t('settings.processing.highDpiDescStandard')
-                                  }
+                                  label={t('settings.general.createXmp')}
+                                  description={t('settings.general.createXmpDesc')}
                                 >
                                   <Switch
-                                    checked={processingSettings.useFullDpiRendering}
-                                    disabled={dpr <= 1}
-                                    id="full-dpi-rendering-toggle"
-                                    label={t('settings.processing.nativeDpi')}
+                                    checked={appSettings?.createXmpIfMissing ?? false}
+                                    id="create-xmp-missing-toggle"
+                                    label={t('settings.general.createXmpMissing')}
                                     onChange={(checked) =>
-                                      handleProcessingSettingChange('useFullDpiRendering', checked)
+                                      onSettingsChange({ ...appSettings, createXmpIfMissing: checked })
                                     }
                                   />
                                 </SettingItem>
@@ -1781,636 +1134,1311 @@ export default function SettingsPanel({
                           )}
                         </AnimatePresence>
                       </div>
-                    </div>
 
-                    <div className="space-y-4">
                       <SettingItem
-                        label={t('settings.processing.livePreviews')}
-                        description={t('settings.processing.livePreviewsDesc')}
+                        label={t('settings.general.folderImageCounts')}
+                        description={t('settings.general.folderImageCountsDesc')}
                       >
                         <Switch
-                          checked={appSettings?.enableLivePreviews ?? true}
-                          id="live-previews-toggle"
-                          label={t('settings.processing.enableLivePreviews')}
+                          checked={appSettings?.enableFolderImageCounts ?? false}
+                          id="folder-image-counts-toggle"
+                          label={t('settings.general.showImageCounts')}
+                          onChange={(checked) => onSettingsChange({ ...appSettings, enableFolderImageCounts: checked })}
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.general.displayEditIcon')}
+                        description={t('settings.general.displayEditIconDesc')}
+                      >
+                        <Switch
+                          checked={appSettings?.displayEditIcon ?? true}
+                          id="display-edit-icon-toggle"
+                          label={t('settings.general.displayEditIcon')}
+                          onChange={(checked) => onSettingsChange({ ...appSettings, displayEditIcon: checked })}
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.general.focusMode')}
+                        description={t('settings.general.focusModeDesc')}
+                      >
+                        <Switch
+                          checked={appSettings?.enableFocusMode ?? false}
+                          id="focus-mode-toggle"
+                          label={t('settings.general.enableFocusMode')}
+                          onChange={(checked) => onSettingsChange({ ...appSettings, enableFocusMode: checked })}
+                        />
+                      </SettingItem>
+
+                      <SettingItem label={t('settings.general.font')} description={t('settings.general.fontDesc')}>
+                        <Dropdown
+                          onChange={(value: any) => onSettingsChange({ ...appSettings, fontFamily: value })}
+                          options={fontOptions}
+                          value={appSettings?.fontFamily || 'poppins'}
+                          triggerClassName="bg-bg-primary"
+                        />
+                      </SettingItem>
+
+                      {osPlatform === 'linux' && (
+                        <SettingItem
+                          label={t('settings.general.nativeTitlebar')}
+                          description={t('settings.general.nativeTitlebarDesc')}
+                        >
+                          <Switch
+                            checked={appSettings?.decorations ?? false}
+                            id="native-titlebar-toggle"
+                            label={t('settings.general.enableOsTitlebar')}
+                            onChange={(checked) => {
+                              onSettingsChange({ ...appSettings, decorations: checked });
+                              getCurrentWindow().setDecorations(checked).catch(console.error);
+                            }}
+                          />
+                        </SettingItem>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                      {t('settings.adjustments.title')}
+                    </Text>
+                    <Text className="mb-4">{t('settings.adjustments.description')}</Text>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                      <Switch
+                        label={t('settings.adjustments.chromaticAberration')}
+                        checked={appSettings?.adjustmentVisibility?.chromaticAberration ?? false}
+                        onChange={(checked) =>
+                          onSettingsChange({
+                            ...appSettings,
+                            adjustmentVisibility: {
+                              ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
+                              chromaticAberration: checked,
+                            },
+                          })
+                        }
+                      />
+                      <Switch
+                        label={t('settings.adjustments.grain')}
+                        checked={appSettings?.adjustmentVisibility?.grain ?? true}
+                        onChange={(checked) =>
+                          onSettingsChange({
+                            ...appSettings,
+                            adjustmentVisibility: {
+                              ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
+                              grain: checked,
+                            },
+                          })
+                        }
+                      />
+                      <Switch
+                        label={t('settings.adjustments.colorCalibration')}
+                        checked={appSettings?.adjustmentVisibility?.colorCalibration ?? true}
+                        onChange={(checked) =>
+                          onSettingsChange({
+                            ...appSettings,
+                            adjustmentVisibility: {
+                              ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
+                              colorCalibration: checked,
+                            },
+                          })
+                        }
+                      />
+                      <Switch
+                        label={t('settings.adjustments.noiseReduction')}
+                        checked={appSettings?.adjustmentVisibility?.noiseReduction ?? true}
+                        onChange={(checked) =>
+                          onSettingsChange({
+                            ...appSettings,
+                            adjustmentVisibility: {
+                              ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
+                              noiseReduction: checked,
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                      {t('settings.lenses.title')}
+                    </Text>
+                    <Text className="mb-6">{t('settings.lenses.description')}</Text>
+
+                    <div className="space-y-8">
+                      <div className="bg-bg-primary rounded-lg p-4 border border-border-color">
+                        <Text variant={TextVariants.heading} className="mb-3">
+                          {t('settings.lenses.addNew')}
+                        </Text>
+                        <div className="space-y-4">
+                          <Dropdown
+                            options={lensMakers.map((m) => ({ label: m, value: m }))}
+                            value={tempLensMaker}
+                            onChange={handleTempMakerChange}
+                            placeholder={t('settings.lenses.manufacturerPlaceholder')}
+                          />
+                          <Dropdown
+                            options={lensModels.map((m) => ({ label: m, value: m }))}
+                            value={tempLensModel}
+                            onChange={setTempLensModel}
+                            placeholder={t('settings.lenses.modelPlaceholder')}
+                            disabled={!tempLensMaker}
+                          />
+                          <Button
+                            onClick={handleAddLens}
+                            disabled={!tempLensMaker || !tempLensModel}
+                            className="w-full"
+                          >
+                            <Plus size={16} className="mr-1" />
+                            {t('settings.lenses.addButton')}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Text variant={TextVariants.heading} className="mb-2">
+                          {t('settings.lenses.saved')}
+                        </Text>
+                        {(!appSettings?.myLenses || appSettings.myLenses.length === 0) && (
+                          <Text className="italic">{t('settings.lenses.noLenses')}</Text>
+                        )}
+                        <div className="divide-y divide-border-color">
+                          {(appSettings?.myLenses || []).map((lens: MyLens, index: number) => (
+                            <div
+                              key={`${lens.maker}-${lens.model}-${index}`}
+                              className="flex justify-between items-center py-3 first:pt-0 last:pb-0"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-surface rounded-md text-accent">
+                                  <Bookmark size={16} />
+                                </div>
+                                <div>
+                                  <Text color={TextColors.primary} weight={TextWeights.medium}>
+                                    {lens.model}
+                                  </Text>
+                                  <Text variant={TextVariants.small}>{lens.maker}</Text>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleRemoveLens(index)}
+                                className="p-2 text-text-secondary hover:text-red-400 hover:bg-bg-primary rounded-md transition-colors"
+                                data-tooltip={t('settings.lenses.removeTooltip')}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                      {t('settings.tagging.title')}
+                    </Text>
+                    <div className="space-y-8">
+                      <div className="space-y-4">
+                        <SettingItem
+                          description={t('settings.tagging.aiTaggingDesc')}
+                          label={t('settings.tagging.aiTagging')}
+                        >
+                          <Switch
+                            checked={appSettings?.enableAiTagging ?? false}
+                            id="ai-tagging-toggle"
+                            label={t('settings.tagging.automaticAiTagging')}
+                            onChange={(checked) => onSettingsChange({ ...appSettings, enableAiTagging: checked })}
+                          />
+                        </SettingItem>
+
+                        <AnimatePresence>
+                          {(appSettings?.enableAiTagging ?? false) && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3, ease: 'easeInOut' }}
+                              className="overflow-hidden"
+                            >
+                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-8">
+                                <SettingItem
+                                  label={t('settings.tagging.maxAiTags')}
+                                  description={t('settings.tagging.maxAiTagsDesc')}
+                                >
+                                  <Slider
+                                    label={t('settings.tagging.amount')}
+                                    min={1}
+                                    max={20}
+                                    step={1}
+                                    value={appSettings?.aiTagCount ?? 10}
+                                    defaultValue={10}
+                                    onChange={(e: any) =>
+                                      onSettingsChange({ ...appSettings, aiTagCount: parseInt(e.target.value) })
+                                    }
+                                  />
+                                </SettingItem>
+
+                                <SettingItem
+                                  label={t('settings.tagging.customList')}
+                                  description={t('settings.tagging.customListDesc')}
+                                >
+                                  <div>
+                                    <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-10 border border-border-color mb-2 items-center">
+                                      <AnimatePresence>
+                                        {customAiTags.length > 0 ? (
+                                          customAiTags.map((tag: string) => (
+                                            <motion.div
+                                              key={tag}
+                                              layout
+                                              variants={shortcutTagVariants}
+                                              initial={false}
+                                              animate="visible"
+                                              exit="exit"
+                                              onClick={() => handleRemoveAiTag(tag)}
+                                              data-tooltip={t('settings.tagging.removeCustomTooltip', { tag })}
+                                              className="flex items-center gap-1 bg-surface px-2 py-1 rounded-sm group cursor-pointer"
+                                            >
+                                              <Text variant={TextVariants.label} color={TextColors.primary}>
+                                                {tag}
+                                              </Text>
+                                              <span className="rounded-full group-hover:bg-black/20 p-0.5 transition-colors">
+                                                <X size={14} />
+                                              </span>
+                                            </motion.div>
+                                          ))
+                                        ) : (
+                                          <motion.span
+                                            key="no-ai-tags-placeholder"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ duration: 0.2 }}
+                                          >
+                                            <Text className="px-1 select-none italic">
+                                              {t('settings.tagging.noCustomTags')}
+                                            </Text>
+                                          </motion.span>
+                                        )}
+                                      </AnimatePresence>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="relative flex-1">
+                                        <Input
+                                          type="text"
+                                          value={newAiTag}
+                                          onChange={(e) => setNewAiTag(e.target.value)}
+                                          onKeyDown={handleAiTagInputKeyDown}
+                                          placeholder={t('settings.tagging.addCustomPlaceholder')}
+                                          className="pr-10"
+                                          bgClassName="bg-bg-primary"
+                                        />
+                                        <button
+                                          onClick={handleAddAiTag}
+                                          className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-text-secondary hover:text-text-primary hover:bg-surface"
+                                          data-tooltip={t('settings.tagging.addCustomTooltip')}
+                                        >
+                                          <Plus size={18} />
+                                        </button>
+                                      </div>
+                                      <button
+                                        onClick={() => onSettingsChange({ ...appSettings, customAiTags: [] })}
+                                        disabled={customAiTags.length === 0}
+                                        className="p-2 text-text-secondary hover:text-red-400 hover:bg-surface rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-secondary disabled:hover:bg-transparent"
+                                        data-tooltip={t('settings.tagging.clearCustomTooltip')}
+                                      >
+                                        <Trash2 size={18} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </SettingItem>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      <SettingItem
+                        label={t('settings.tagging.shortcuts')}
+                        description={t('settings.tagging.shortcutsDesc')}
+                      >
+                        <div>
+                          <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-10 border border-border-color mb-2 items-center">
+                            <AnimatePresence>
+                              {taggingShortcuts.length > 0 ? (
+                                taggingShortcuts.map((shortcut: string) => (
+                                  <motion.div
+                                    key={shortcut}
+                                    layout
+                                    variants={shortcutTagVariants}
+                                    initial={false}
+                                    animate="visible"
+                                    exit="exit"
+                                    onClick={() => handleRemoveShortcut(shortcut)}
+                                    data-tooltip={t('settings.tagging.removeShortcutTooltip', {
+                                      shortcut: translateBuiltInTag(shortcut),
+                                    })}
+                                    className="flex items-center gap-1 bg-surface px-2 py-1 rounded-sm group cursor-pointer"
+                                  >
+                                    <Text variant={TextVariants.label} color={TextColors.primary}>
+                                      {translateBuiltInTag(shortcut)}
+                                    </Text>
+                                    <span className="rounded-full group-hover:bg-black/20 p-0.5 transition-colors">
+                                      <X size={14} />
+                                    </span>
+                                  </motion.div>
+                                ))
+                              ) : (
+                                <motion.span
+                                  key="no-shortcuts-placeholder"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="text-sm text-text-secondary italic px-1 select-none"
+                                >
+                                  {t('settings.tagging.noShortcuts')}
+                                </motion.span>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="relative flex-1">
+                              <Input
+                                type="text"
+                                value={newShortcut}
+                                onChange={(e) => setNewShortcut(e.target.value)}
+                                onKeyDown={handleInputKeyDown}
+                                placeholder={t('settings.tagging.addShortcutsPlaceholder')}
+                                className="pr-10"
+                                bgClassName="bg-bg-primary"
+                              />
+                              <button
+                                onClick={handleAddShortcut}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-text-secondary hover:text-text-primary hover:bg-surface"
+                                data-tooltip={t('settings.tagging.addShortcutTooltip')}
+                              >
+                                <Plus size={18} />
+                              </button>
+                            </div>
+                            <button
+                              onClick={() => onSettingsChange({ ...appSettings, taggingShortcuts: [] })}
+                              disabled={taggingShortcuts.length === 0}
+                              className="p-2 text-text-secondary hover:text-red-400 hover:bg-surface rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-secondary disabled:hover:bg-transparent"
+                              data-tooltip={t('settings.tagging.clearShortcutsTooltip')}
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      </SettingItem>
+
+                      <div className="pt-8 border-t border-border-color">
+                        <div className="space-y-8">
+                          <DataActionItem
+                            buttonAction={handleClearAiTags}
+                            buttonText={t('settings.tagging.clearAiTagsButton')}
+                            description={t('settings.tagging.clearAiTagsDesc')}
+                            disabled={effectiveRootPaths.length === 0}
+                            icon={<Trash2 size={16} className="mr-2" />}
+                            isProcessing={isClearingAiTags}
+                            message={aiTagsClearMessage}
+                            title={t('settings.tagging.clearAiTagsTitle')}
+                          />
+                          <DataActionItem
+                            buttonAction={handleClearTags}
+                            buttonText={t('settings.tagging.clearAiTagsButton')}
+                            description={t('settings.tagging.clearAllTagsDesc')}
+                            disabled={effectiveRootPaths.length === 0}
+                            icon={<Trash2 size={16} className="mr-2" />}
+                            isProcessing={isClearingTags}
+                            message={tagsClearMessage}
+                            title={t('settings.tagging.clearAllTagsTitle')}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-6">
+                      {t('settings.thanks.title')}
+                    </Text>
+                    <Text className="mb-4">{t('settings.thanks.description')}</Text>
+                    <Text as="ul" className="space-y-3 list-disc ml-5 pl-1">
+                      <li>
+                        <a
+                          href="https://github.com/dnglab/dnglab/tree/main/rawler"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          rawler
+                        </a>
+                        : {t('settings.thanks.list.rawler')}
+                      </li>
+                      <li>
+                        <a
+                          href="https://lensfun.github.io/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          lensfun
+                        </a>
+                        : {t('settings.thanks.list.lensfun')}
+                      </li>
+                      <li>
+                        <a
+                          href="https://github.com/marcinz606/NegPy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          NegPy
+                        </a>
+                        : {t('settings.thanks.list.negpy')}
+                      </li>
+                      <li>
+                        <a
+                          href="https://github.com/advimman/lama"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          LaMa
+                        </a>
+                        : {t('settings.thanks.list.lama')}
+                      </li>
+                      <li>
+                        <a
+                          href="https://github.com/facebookresearch/sam2"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          SAM 2
+                        </a>
+                        : {t('settings.thanks.list.sam2')}
+                      </li>
+                      <li>
+                        <a
+                          href="https://github.com/xuebinqin/U-2-Net"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          U-2-Net
+                        </a>
+                        : {t('settings.thanks.list.u2net')}
+                      </li>
+                      <li>
+                        <a
+                          href="https://github.com/DepthAnything/Depth-Anything-V2"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          Depth Anything V2
+                        </a>
+                        : {t('settings.thanks.list.depth')}
+                      </li>
+                      <li>
+                        <a
+                          href="https://github.com/trougnouf/nind-denoise"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          nind-denoise
+                        </a>
+                        : {t('settings.thanks.list.nind')}
+                      </li>
+                      <li>
+                        <a
+                          href="https://github.com/darktable-org/darktable"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          darktable & co.
+                        </a>
+                        : {t('settings.thanks.list.darktable')}
+                      </li>
+                      <li>
+                        <span className="font-semibold text-accent">{t('settings.thanks.list.youLabel')}</span>:{' '}
+                        {t('settings.thanks.list.you')}
+                      </li>
+                    </Text>
+                  </div>
+                </motion.div>
+              )}
+              {activeCategory === 'processing' && (
+                <motion.div
+                  key="processing"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-10"
+                >
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                      {t('settings.processing.title')}
+                    </Text>
+                    <div className="space-y-8">
+                      <div>
+                        <Text variant={TextVariants.heading} className="mb-2">
+                          {t('settings.processing.previewStrategy')}
+                        </Text>
+                        <PreviewModeSwitch
+                          mode={appSettings?.enableZoomHifi ? 'dynamic' : 'static'}
+                          onModeChange={handlePreviewModeChange}
+                        />
+
+                        <div className="mt-3">
+                          <AnimatePresence mode="wait">
+                            {!(appSettings?.enableZoomHifi ?? true) ? (
+                              <motion.div
+                                key="static-preview"
+                                initial={{ opacity: 0, x: 10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -10 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                <Text variant={TextVariants.small} className="mb-4">
+                                  {t('settings.processing.staticDesc')}
+                                </Text>
+                                <div className="pl-4 border-l-2 border-border-color ml-1">
+                                  <SettingItem
+                                    description={t('settings.processing.previewResDesc')}
+                                    label={t('settings.processing.previewRes')}
+                                  >
+                                    <Dropdown
+                                      onChange={(value: any) =>
+                                        handleProcessingSettingChange('editorPreviewResolution', value)
+                                      }
+                                      options={resolutions}
+                                      value={processingSettings.editorPreviewResolution}
+                                      triggerClassName="bg-bg-primary"
+                                    />
+                                  </SettingItem>
+                                </div>
+                              </motion.div>
+                            ) : (
+                              <motion.div
+                                key="dynamic-preview"
+                                initial={{ opacity: 0, x: 10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -10 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                <Text variant={TextVariants.small} className="mb-4">
+                                  {t('settings.processing.dynamicDesc')}
+                                </Text>
+                                <div className="pl-4 border-l-2 border-border-color ml-1 space-y-3">
+                                  <SettingItem
+                                    description={t('settings.processing.staticPreviewResDesc')}
+                                    label={t('settings.processing.staticPreviewRes')}
+                                  >
+                                    <Dropdown
+                                      onChange={(value: any) =>
+                                        handleProcessingSettingChange('editorPreviewResolution', value)
+                                      }
+                                      options={resolutions}
+                                      value={processingSettings.editorPreviewResolution}
+                                      triggerClassName="bg-bg-primary"
+                                    />
+                                  </SettingItem>
+
+                                  <SettingItem
+                                    label={t('settings.processing.renderScale')}
+                                    description={t('settings.processing.renderScaleDesc')}
+                                  >
+                                    <Dropdown
+                                      onChange={(value: any) =>
+                                        handleProcessingSettingChange('highResZoomMultiplier', value)
+                                      }
+                                      options={zoomMultiplierOptions}
+                                      value={processingSettings.highResZoomMultiplier}
+                                      triggerClassName="bg-bg-primary"
+                                    />
+                                  </SettingItem>
+
+                                  <SettingItem
+                                    label={t('settings.processing.highDpi')}
+                                    description={
+                                      dpr > 1
+                                        ? t('settings.processing.highDpiDesc', { dpr })
+                                        : t('settings.processing.highDpiDescStandard')
+                                    }
+                                  >
+                                    <Switch
+                                      checked={processingSettings.useFullDpiRendering}
+                                      disabled={dpr <= 1}
+                                      id="full-dpi-rendering-toggle"
+                                      label={t('settings.processing.nativeDpi')}
+                                      onChange={(checked) =>
+                                        handleProcessingSettingChange('useFullDpiRendering', checked)
+                                      }
+                                    />
+                                  </SettingItem>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <SettingItem
+                          label={t('settings.processing.livePreviews')}
+                          description={t('settings.processing.livePreviewsDesc')}
+                        >
+                          <Switch
+                            checked={appSettings?.enableLivePreviews ?? true}
+                            id="live-previews-toggle"
+                            label={t('settings.processing.enableLivePreviews')}
+                            onChange={(checked) => {
+                              setHasInteractedWithLivePreview(true);
+                              onSettingsChange({ ...appSettings, enableLivePreviews: checked });
+                            }}
+                          />
+                        </SettingItem>
+
+                        <AnimatePresence>
+                          {(appSettings?.enableLivePreviews ?? true) && (
+                            <motion.div
+                              initial={hasInteractedWithLivePreview ? { height: 0, opacity: 0 } : false}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3, ease: 'easeInOut' }}
+                            >
+                              <div className="pl-4 border-l-2 border-border-color ml-1">
+                                <SettingItem
+                                  label={t('settings.processing.livePreviewQuality')}
+                                  description={t('settings.processing.livePreviewQualityDesc')}
+                                >
+                                  <Dropdown
+                                    onChange={(value: any) =>
+                                      onSettingsChange({ ...appSettings, livePreviewQuality: value })
+                                    }
+                                    options={livePreviewQualityOptions}
+                                    value={appSettings?.livePreviewQuality || 'high'}
+                                    triggerClassName="bg-bg-primary"
+                                  />
+                                </SettingItem>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      <SettingItem
+                        description={t('settings.processing.thumbnailResDesc')}
+                        label={t('settings.processing.thumbnailRes')}
+                      >
+                        <Dropdown
+                          onChange={(value: any) => handleProcessingSettingChange('thumbnailResolution', value)}
+                          options={thumbnailResolutions}
+                          value={processingSettings.thumbnailResolution}
+                          triggerClassName="bg-bg-primary"
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.processing.alwaysDecodeRaw')}
+                        description={t('settings.processing.alwaysDecodeRawDesc')}
+                      >
+                        <Switch
+                          checked={appSettings?.alwaysDecodeRawThumbnails ?? false}
+                          id="always-decode-raw-thumbnails-toggle"
+                          label={t('settings.processing.alwaysDecodeRawLabel')}
                           onChange={(checked) => {
-                            setHasInteractedWithLivePreview(true);
-                            onSettingsChange({ ...appSettings, enableLivePreviews: checked });
+                            onSettingsChange({ ...appSettings, alwaysDecodeRawThumbnails: checked });
                           }}
                         />
                       </SettingItem>
 
-                      <AnimatePresence>
-                        {(appSettings?.enableLivePreviews ?? true) && (
-                          <motion.div
-                            initial={hasInteractedWithLivePreview ? { height: 0, opacity: 0 } : false}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.3, ease: 'easeInOut' }}
-                          >
-                            <div className="pl-4 border-l-2 border-border-color ml-1">
-                              <SettingItem
-                                label={t('settings.processing.livePreviewQuality')}
-                                description={t('settings.processing.livePreviewQualityDesc')}
-                              >
-                                <Dropdown
-                                  onChange={(value: any) =>
-                                    onSettingsChange({ ...appSettings, livePreviewQuality: value })
-                                  }
-                                  options={livePreviewQualityOptions}
-                                  value={appSettings?.livePreviewQuality || 'high'}
-                                  triggerClassName="bg-bg-primary"
-                                />
-                              </SettingItem>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-
-                    <SettingItem
-                      description={t('settings.processing.thumbnailResDesc')}
-                      label={t('settings.processing.thumbnailRes')}
-                    >
-                      <Dropdown
-                        onChange={(value: any) => handleProcessingSettingChange('thumbnailResolution', value)}
-                        options={thumbnailResolutions}
-                        value={processingSettings.thumbnailResolution}
-                        triggerClassName="bg-bg-primary"
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      label={t('settings.processing.workerThreads')}
-                      description={t('settings.processing.workerThreadsDesc')}
-                    >
-                      <Slider
-                        label={t('settings.processing.threads')}
-                        min={2}
-                        max={10}
-                        step={1}
-                        value={processingSettings.thumbnailWorkerThreads}
-                        defaultValue={4}
-                        onChange={(e: any) =>
-                          handleProcessingSettingChange('thumbnailWorkerThreads', parseInt(e.target.value))
-                        }
-                        fillOrigin="min"
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      label={t('settings.processing.imageCache')}
-                      description={t('settings.processing.imageCacheDesc')}
-                    >
-                      <Slider
-                        label={t('settings.processing.images')}
-                        min={2}
-                        max={10}
-                        step={1}
-                        value={processingSettings.imageCacheSize}
-                        defaultValue={5}
-                        onChange={(e: any) => handleProcessingSettingChange('imageCacheSize', parseInt(e.target.value))}
-                        fillOrigin="min"
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      label={t('settings.processing.wgpu')}
-                      description={
-                        osPlatform === 'linux'
-                          ? t('settings.processing.wgpuDescLinux')
-                          : osPlatform === 'android'
-                            ? t('settings.processing.wgpuDescAndroid')
-                            : t('settings.processing.wgpuDescRecommended')
-                      }
-                    >
-                      <Switch
-                        checked={processingSettings.useWgpuRenderer}
-                        disabled={osPlatform === 'linux' || osPlatform === 'android'}
-                        id="wgpu-renderer-toggle"
-                        label={t('settings.processing.wgpuLabel')}
-                        onChange={(checked) => handleProcessingSettingChange('useWgpuRenderer', checked)}
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      label={t('settings.processing.backend')}
-                      description={t('settings.processing.backendDesc')}
-                    >
-                      <Dropdown
-                        onChange={(value: any) => handleProcessingSettingChange('processingBackend', value)}
-                        options={filteredBackendOptions}
-                        value={
-                          filteredBackendOptions.some((option) => option.value === processingSettings.processingBackend)
-                            ? processingSettings.processingBackend
-                            : 'auto'
-                        }
-                        triggerClassName="bg-bg-primary"
-                      />
-                    </SettingItem>
-
-                    {osPlatform !== 'macos' && osPlatform !== 'windows' && (
                       <SettingItem
-                        label={t('settings.processing.linuxCompat')}
-                        description={t('settings.processing.linuxCompatDesc')}
+                        label={t('settings.processing.workerThreads')}
+                        description={t('settings.processing.workerThreadsDesc')}
                       >
-                        <Switch
-                          checked={processingSettings.linuxGpuOptimization}
-                          id="gpu-compat-toggle"
-                          label={t('settings.processing.linuxCompatLabel')}
-                          onChange={(checked) => handleProcessingSettingChange('linuxGpuOptimization', checked)}
-                        />
-                      </SettingItem>
-                    )}
-
-                    {restartRequired && (
-                      <>
-                        <Text
-                          as="div"
-                          color={TextColors.info}
-                          className="p-3 bg-blue-900/10 border border-blue-500/50 rounded-lg flex items-center gap-3"
-                        >
-                          <Info size={18} />
-                          <p>{t('settings.processing.restartRequired')}</p>
-                        </Text>
-                        <div className="flex justify-end">
-                          <Button onClick={handleSaveAndRelaunch}>{t('settings.processing.saveRelaunch')}</Button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-6 bg-surface rounded-xl shadow-md">
-                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                    {t('settings.processing.preprocessing.title')}
-                  </Text>
-                  <div className="space-y-8">
-                    <SettingItem
-                      label={t('settings.processing.preprocessing.highlightRecovery')}
-                      description={t('settings.processing.preprocessing.highlightRecoveryDesc')}
-                    >
-                      <Slider
-                        label={t('settings.tagging.amount')}
-                        min={1}
-                        max={10}
-                        step={0.1}
-                        value={processingSettings.rawHighlightCompression}
-                        defaultValue={2.5}
-                        onChange={(e: any) =>
-                          handleProcessingSettingChange('rawHighlightCompression', parseFloat(e.target.value))
-                        }
-                        fillOrigin="min"
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      label={t('settings.processing.preprocessing.colorNr')}
-                      description={t('settings.processing.preprocessing.colorNrDesc')}
-                    >
-                      <Slider
-                        label={t('settings.tagging.amount')}
-                        min={0}
-                        max={1.0}
-                        step={0.05}
-                        value={processingSettings.rawPreprocessingColorNr}
-                        defaultValue={0.5}
-                        onChange={(e: any) =>
-                          handleProcessingSettingChange('rawPreprocessingColorNr', parseFloat(e.target.value))
-                        }
-                        fillOrigin="min"
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      label={t('settings.processing.preprocessing.sharpening')}
-                      description={t('settings.processing.preprocessing.sharpeningDesc')}
-                    >
-                      <Slider
-                        label={t('settings.tagging.amount')}
-                        min={0}
-                        max={1.0}
-                        step={0.05}
-                        value={processingSettings.rawPreprocessingSharpening}
-                        defaultValue={0.35}
-                        onChange={(e: any) =>
-                          handleProcessingSettingChange('rawPreprocessingSharpening', parseFloat(e.target.value))
-                        }
-                        fillOrigin="min"
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      label={t('settings.processing.preprocessing.applyPreprocessing')}
-                      description={t('settings.processing.preprocessing.applyPreprocessingDesc')}
-                    >
-                      <Switch
-                        checked={processingSettings.applyPreprocessingToNonRaws}
-                        id="preprocessing-non-raws-toggle"
-                        label={t('settings.processing.preprocessing.enablePreprocessingNonRaws')}
-                        onChange={(checked) => handleProcessingSettingChange('applyPreprocessingToNonRaws', checked)}
-                      />
-                    </SettingItem>
-
-                    <SettingItem
-                      label={t('settings.processing.preprocessing.linearRaw')}
-                      description={t('settings.processing.preprocessing.linearRawDesc')}
-                    >
-                      <Dropdown
-                        onChange={(value: any) => onSettingsChange({ ...appSettings, linearRawMode: value })}
-                        options={linearRawOptions}
-                        value={appSettings?.linearRawMode || 'auto'}
-                        triggerClassName="bg-bg-primary"
-                      />
-                    </SettingItem>
-
-                    <div className="space-y-4">
-                      <SettingItem
-                        label={t('settings.processing.preprocessing.tonemapperOverride')}
-                        description={t('settings.processing.preprocessing.tonemapperOverrideDesc')}
-                      >
-                        <Switch
-                          checked={appSettings?.tonemapperOverrideEnabled ?? false}
-                          id="tonemapper-override-toggle"
-                          label={t('settings.processing.preprocessing.enableTonemapperOverride')}
-                          onChange={(checked) =>
-                            onSettingsChange({ ...appSettings, tonemapperOverrideEnabled: checked })
+                        <Slider
+                          label={t('settings.processing.threads')}
+                          min={2}
+                          max={10}
+                          step={1}
+                          value={processingSettings.thumbnailWorkerThreads}
+                          defaultValue={4}
+                          onChange={(e: any) =>
+                            handleProcessingSettingChange('thumbnailWorkerThreads', parseInt(e.target.value))
                           }
+                          fillOrigin="min"
                         />
                       </SettingItem>
 
-                      <AnimatePresence>
-                        {(appSettings?.tonemapperOverrideEnabled ?? false) && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.3, ease: 'easeInOut' }}
-                          >
-                            <div className="pl-4 border-l-2 border-border-color ml-1 space-y-3">
-                              <SettingItem
-                                label={t('settings.processing.preprocessing.defaultRawTonemapper')}
-                                description={t('settings.processing.preprocessing.defaultRawTonemapperDesc')}
-                              >
-                                <Dropdown
-                                  onChange={(value: any) =>
-                                    onSettingsChange({ ...appSettings, defaultRawTonemapper: value })
-                                  }
-                                  options={tonemapperOptions}
-                                  value={appSettings?.defaultRawTonemapper || 'agx'}
-                                  triggerClassName="bg-bg-primary"
-                                />
-                              </SettingItem>
+                      <SettingItem
+                        label={t('settings.processing.imageCache')}
+                        description={t('settings.processing.imageCacheDesc')}
+                      >
+                        <Slider
+                          label={t('settings.processing.images')}
+                          min={2}
+                          max={10}
+                          step={1}
+                          value={processingSettings.imageCacheSize}
+                          defaultValue={5}
+                          onChange={(e: any) =>
+                            handleProcessingSettingChange('imageCacheSize', parseInt(e.target.value))
+                          }
+                          fillOrigin="min"
+                        />
+                      </SettingItem>
 
+                      <SettingItem
+                        label={t('settings.processing.wgpu')}
+                        description={
+                          osPlatform === 'linux'
+                            ? t('settings.processing.wgpuDescLinux')
+                            : osPlatform === 'android'
+                              ? t('settings.processing.wgpuDescAndroid')
+                              : t('settings.processing.wgpuDescRecommended')
+                        }
+                      >
+                        <Switch
+                          checked={processingSettings.useWgpuRenderer}
+                          disabled={osPlatform === 'linux' || osPlatform === 'android'}
+                          id="wgpu-renderer-toggle"
+                          label={t('settings.processing.wgpuLabel')}
+                          onChange={(checked) => handleProcessingSettingChange('useWgpuRenderer', checked)}
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.processing.backend')}
+                        description={t('settings.processing.backendDesc')}
+                      >
+                        <Dropdown
+                          onChange={(value: any) => handleProcessingSettingChange('processingBackend', value)}
+                          options={filteredBackendOptions}
+                          value={
+                            filteredBackendOptions.some(
+                              (option) => option.value === processingSettings.processingBackend,
+                            )
+                              ? processingSettings.processingBackend
+                              : 'auto'
+                          }
+                          triggerClassName="bg-bg-primary"
+                        />
+                      </SettingItem>
+
+                      {osPlatform !== 'macos' && osPlatform !== 'windows' && (
+                        <SettingItem
+                          label={t('settings.processing.linuxCompat')}
+                          description={t('settings.processing.linuxCompatDesc')}
+                        >
+                          <Switch
+                            checked={processingSettings.linuxGpuOptimization}
+                            id="gpu-compat-toggle"
+                            label={t('settings.processing.linuxCompatLabel')}
+                            onChange={(checked) => handleProcessingSettingChange('linuxGpuOptimization', checked)}
+                          />
+                        </SettingItem>
+                      )}
+
+                      {restartRequired && (
+                        <>
+                          <Text
+                            as="div"
+                            color={TextColors.info}
+                            className="p-3 bg-blue-900/10 border border-blue-500/50 rounded-lg flex items-center gap-3"
+                          >
+                            <Info size={18} />
+                            <p>{t('settings.processing.restartRequired')}</p>
+                          </Text>
+                          <div className="flex justify-end">
+                            <Button onClick={handleSaveAndRelaunch}>{t('settings.processing.saveRelaunch')}</Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                      {t('settings.processing.preprocessing.title')}
+                    </Text>
+                    <div className="space-y-8">
+                      <SettingItem
+                        label={t('settings.processing.preprocessing.highlightRecovery')}
+                        description={t('settings.processing.preprocessing.highlightRecoveryDesc')}
+                      >
+                        <Slider
+                          label={t('settings.tagging.amount')}
+                          min={1}
+                          max={10}
+                          step={0.1}
+                          value={processingSettings.rawHighlightCompression}
+                          defaultValue={2.5}
+                          onChange={(e: any) =>
+                            handleProcessingSettingChange('rawHighlightCompression', parseFloat(e.target.value))
+                          }
+                          fillOrigin="min"
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.processing.preprocessing.colorNr')}
+                        description={t('settings.processing.preprocessing.colorNrDesc')}
+                      >
+                        <Slider
+                          label={t('settings.tagging.amount')}
+                          min={0}
+                          max={1.0}
+                          step={0.05}
+                          value={processingSettings.rawPreprocessingColorNr}
+                          defaultValue={0.5}
+                          onChange={(e: any) =>
+                            handleProcessingSettingChange('rawPreprocessingColorNr', parseFloat(e.target.value))
+                          }
+                          fillOrigin="min"
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.processing.preprocessing.sharpening')}
+                        description={t('settings.processing.preprocessing.sharpeningDesc')}
+                      >
+                        <Slider
+                          label={t('settings.tagging.amount')}
+                          min={0}
+                          max={1.0}
+                          step={0.05}
+                          value={processingSettings.rawPreprocessingSharpening}
+                          defaultValue={0.35}
+                          onChange={(e: any) =>
+                            handleProcessingSettingChange('rawPreprocessingSharpening', parseFloat(e.target.value))
+                          }
+                          fillOrigin="min"
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.processing.preprocessing.applyPreprocessing')}
+                        description={t('settings.processing.preprocessing.applyPreprocessingDesc')}
+                      >
+                        <Switch
+                          checked={processingSettings.applyPreprocessingToNonRaws}
+                          id="preprocessing-non-raws-toggle"
+                          label={t('settings.processing.preprocessing.enablePreprocessingNonRaws')}
+                          onChange={(checked) => handleProcessingSettingChange('applyPreprocessingToNonRaws', checked)}
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.processing.preprocessing.linearRaw')}
+                        description={t('settings.processing.preprocessing.linearRawDesc')}
+                      >
+                        <Dropdown
+                          onChange={(value: any) => onSettingsChange({ ...appSettings, linearRawMode: value })}
+                          options={linearRawOptions}
+                          value={appSettings?.linearRawMode || 'auto'}
+                          triggerClassName="bg-bg-primary"
+                        />
+                      </SettingItem>
+
+                      <div className="space-y-4">
+                        <SettingItem
+                          label={t('settings.processing.preprocessing.tonemapperOverride')}
+                          description={t('settings.processing.preprocessing.tonemapperOverrideDesc')}
+                        >
+                          <Switch
+                            checked={appSettings?.tonemapperOverrideEnabled ?? false}
+                            id="tonemapper-override-toggle"
+                            label={t('settings.processing.preprocessing.enableTonemapperOverride')}
+                            onChange={(checked) =>
+                              onSettingsChange({ ...appSettings, tonemapperOverrideEnabled: checked })
+                            }
+                          />
+                        </SettingItem>
+
+                        <AnimatePresence>
+                          {(appSettings?.tonemapperOverrideEnabled ?? false) && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3, ease: 'easeInOut' }}
+                            >
+                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-3">
+                                <SettingItem
+                                  label={t('settings.processing.preprocessing.defaultRawTonemapper')}
+                                  description={t('settings.processing.preprocessing.defaultRawTonemapperDesc')}
+                                >
+                                  <Dropdown
+                                    onChange={(value: any) =>
+                                      onSettingsChange({ ...appSettings, defaultRawTonemapper: value })
+                                    }
+                                    options={tonemapperOptions}
+                                    value={appSettings?.defaultRawTonemapper || 'agx'}
+                                    triggerClassName="bg-bg-primary"
+                                  />
+                                </SettingItem>
+
+                                <SettingItem
+                                  label={t('settings.processing.preprocessing.defaultNonRawTonemapper')}
+                                  description={t('settings.processing.preprocessing.defaultNonRawTonemapperDesc')}
+                                >
+                                  <Dropdown
+                                    onChange={(value: any) =>
+                                      onSettingsChange({ ...appSettings, defaultNonRawTonemapper: value })
+                                    }
+                                    options={tonemapperOptions}
+                                    value={appSettings?.defaultNonRawTonemapper || 'basic'}
+                                    triggerClassName="bg-bg-primary"
+                                  />
+                                </SettingItem>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                      {t('settings.processing.ai.title')}
+                    </Text>
+                    <Text className="mb-4">{t('settings.processing.ai.description')}</Text>
+
+                    <AiProviderSwitch selectedProvider={aiProvider} onProviderChange={handleProviderChange} />
+
+                    <div className="mt-8">
+                      <AnimatePresence mode="wait">
+                        {aiProvider === 'cpu' && (
+                          <motion.div
+                            key="cpu"
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <Text variant={TextVariants.heading}>{t('settings.processing.ai.cpu.title')}</Text>
+                            <Text className="mt-1">{t('settings.processing.ai.cpu.description')}</Text>
+                            <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
+                              <li>{t('settings.processing.ai.cpu.feature1')}</li>
+                              <li>{t('settings.processing.ai.cpu.feature2')}</li>
+                              <li>{t('settings.processing.ai.cpu.feature3')}</li>
+                            </Text>
+                          </motion.div>
+                        )}
+
+                        {aiProvider === 'ai-connector' && (
+                          <motion.div
+                            key="ai-connector"
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <div className="space-y-8">
+                              <div>
+                                <Text variant={TextVariants.heading}>
+                                  {t('settings.processing.ai.connector.title')}
+                                </Text>
+                                <Text className="mt-1">{t('settings.processing.ai.connector.description')}</Text>
+                                <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
+                                  <li>{t('settings.processing.ai.connector.feature1')}</li>
+                                  <li>{t('settings.processing.ai.connector.feature2')}</li>
+                                  <li>{t('settings.processing.ai.connector.feature3')}</li>
+                                </Text>
+                              </div>
                               <SettingItem
-                                label={t('settings.processing.preprocessing.defaultNonRawTonemapper')}
-                                description={t('settings.processing.preprocessing.defaultNonRawTonemapperDesc')}
+                                label={t('settings.processing.ai.connector.address')}
+                                description={t('settings.processing.ai.connector.addressDesc')}
                               >
-                                <Dropdown
-                                  onChange={(value: any) =>
-                                    onSettingsChange({ ...appSettings, defaultNonRawTonemapper: value })
-                                  }
-                                  options={tonemapperOptions}
-                                  value={appSettings?.defaultNonRawTonemapper || 'basic'}
-                                  triggerClassName="bg-bg-primary"
-                                />
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    className="grow"
+                                    id="ai-connector-address"
+                                    onBlur={() =>
+                                      onSettingsChange({ ...appSettings, aiConnectorAddress: aiConnectorAddress })
+                                    }
+                                    onChange={(e: any) => setAiConnectorAddress(e.target.value)}
+                                    onKeyDown={(e: any) => e.stopPropagation()}
+                                    placeholder="127.0.0.1:8188"
+                                    type="text"
+                                    value={aiConnectorAddress}
+                                    bgClassName="bg-bg-primary"
+                                  />
+                                  <Button
+                                    className="w-32"
+                                    disabled={testStatus.testing || !aiConnectorAddress}
+                                    onClick={handleTestConnection}
+                                  >
+                                    {testStatus.testing
+                                      ? t('settings.processing.ai.connector.testing')
+                                      : t('settings.processing.ai.connector.test')}
+                                  </Button>
+                                </div>
+                                {testStatus.message && (
+                                  <Text
+                                    color={testStatus.success ? TextColors.success : TextColors.error}
+                                    className="mt-2 flex items-center gap-2"
+                                  >
+                                    {testStatus.success === true && <Wifi size={16} />}
+                                    {testStatus.success === false && <WifiOff size={16} />}
+                                    {testStatus.message}
+                                  </Text>
+                                )}
                               </SettingItem>
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {aiProvider === 'cloud' && (
+                          <motion.div
+                            key="cloud"
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <Text variant={TextVariants.heading}>{t('settings.processing.ai.cloud.title')}</Text>
+                            <Text className="mt-1">{t('settings.processing.ai.cloud.description')}</Text>
+                            <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
+                              <li>{t('settings.processing.ai.cloud.feature1')}</li>
+                              <li>{t('settings.processing.ai.cloud.feature2')}</li>
+                              <li>{t('settings.processing.ai.cloud.feature3')}</li>
+                            </Text>
+
+                            <div className="mt-8">
+                              <Show when="signed-in">
+                                <div className="p-6 bg-bg-primary rounded-xl border border-border-color shadow-inner">
+                                  <CloudDashboard />
+                                </div>
+                              </Show>
+                              <Show when="signed-out">
+                                <div className="w-full max-w-md">
+                                  <SignIn
+                                    routing="hash"
+                                    fallbackRedirectUrl="/"
+                                    forceRedirectUrl="/"
+                                    appearance={{
+                                      variables: {
+                                        colorBackground: 'transparent',
+                                        colorInput: 'transparent',
+                                        colorForeground: 'inherit',
+                                        colorInputForeground: 'inherit',
+                                        colorPrimaryForeground: 'inherit',
+                                        colorBorder: 'transparent',
+                                        colorShadow: 'none',
+                                        colorNeutral: 'inherit',
+                                      },
+                                      elements: {
+                                        rootBox: '',
+
+                                        cardBox: '!shadow-none !m-0 !p-0 !rounded-none',
+
+                                        card: '!bg-transparent !border-none !shadow-none !py-0 !px-1 !rounded-none',
+
+                                        header: '!hidden',
+
+                                        formFieldLabel: '!text-base !font-semibold !text-text-primary !block !mb-2',
+
+                                        formFieldAction:
+                                          '!text-text-secondary hover:!text-text-primary !transition-colors !no-underline hover:!underline',
+
+                                        formFieldInput:
+                                          '!bg-bg-primary !border !border-border-color !text-text-primary focus:!border-accent focus:!ring-1 focus:!ring-accent !rounded-md !px-3 !py-2',
+
+                                        formButtonPrimary:
+                                          '!bg-accent !text-button-text hover:!bg-accent/90 !shadow-none !transition-colors !rounded-md !mt-4 !py-2',
+
+                                        footer:
+                                          '!bg-transparent !p-0 !mt-4 opacity-50 hover:opacity-100 transition-opacity',
+                                        footerAction: '!hidden',
+
+                                        identityPreview:
+                                          '!bg-bg-primary !border !border-border-color !rounded-md !mb-4',
+                                        identityPreviewText: '!text-text-primary !font-medium',
+                                        identityPreviewEditButtonIcon:
+                                          '!text-text-secondary hover:!text-text-primary !transition-colors',
+                                      },
+                                    }}
+                                  />
+                                  <div className="mt-6">
+                                    <Text variant={TextVariants.small}>
+                                      {t('settings.processing.ai.cloud.signedOut.noAccount')}{' '}
+                                      <button
+                                        onClick={() => open('https://www.getrapidraw.com/dashboard')}
+                                        className="text-accent hover:underline focus:outline-none"
+                                      >
+                                        {t('settings.processing.ai.cloud.signedOut.signup')}
+                                      </button>
+                                    </Text>
+                                  </div>
+                                </div>
+                              </Show>
                             </div>
                           </motion.div>
                         )}
                       </AnimatePresence>
                     </div>
                   </div>
-                </div>
 
-                <div className="p-6 bg-surface rounded-xl shadow-md">
-                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                    {t('settings.processing.ai.title')}
-                  </Text>
-                  <Text className="mb-4">{t('settings.processing.ai.description')}</Text>
-
-                  <AiProviderSwitch selectedProvider={aiProvider} onProviderChange={handleProviderChange} />
-
-                  <div className="mt-8">
-                    <AnimatePresence mode="wait">
-                      {aiProvider === 'cpu' && (
-                        <motion.div
-                          key="cpu"
-                          initial={{ opacity: 0, x: 10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <Text variant={TextVariants.heading}>{t('settings.processing.ai.cpu.title')}</Text>
-                          <Text className="mt-1">{t('settings.processing.ai.cpu.description')}</Text>
-                          <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
-                            <li>{t('settings.processing.ai.cpu.feature1')}</li>
-                            <li>{t('settings.processing.ai.cpu.feature2')}</li>
-                            <li>{t('settings.processing.ai.cpu.feature3')}</li>
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                      {t('settings.data.title')}
+                    </Text>
+                    <div className="space-y-8">
+                      <DataActionItem
+                        buttonAction={handleClearSidecars}
+                        buttonText={t('settings.data.clearSidecarsButton')}
+                        description={
+                          <Text as="span" variant={TextVariants.small}>
+                            {t('settings.data.clearSidecarsDesc')}
+                            <span className="block font-mono bg-bg-primary p-2 rounded-sm mt-2 break-all border border-border-color whitespace-pre-wrap">
+                              {effectiveRootPaths.length > 0
+                                ? effectiveRootPaths.join('\n')
+                                : t('settings.data.noFolders')}
+                            </span>
                           </Text>
-                        </motion.div>
-                      )}
+                        }
+                        disabled={effectiveRootPaths.length === 0}
+                        icon={<Trash2 size={16} className="mr-2" />}
+                        isProcessing={isClearing}
+                        message={clearMessage}
+                        title={t('settings.data.clearSidecars')}
+                      />
 
-                      {aiProvider === 'ai-connector' && (
-                        <motion.div
-                          key="ai-connector"
-                          initial={{ opacity: 0, x: 10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <div className="space-y-8">
-                            <div>
-                              <Text variant={TextVariants.heading}>{t('settings.processing.ai.connector.title')}</Text>
-                              <Text className="mt-1">{t('settings.processing.ai.connector.description')}</Text>
-                              <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
-                                <li>{t('settings.processing.ai.connector.feature1')}</li>
-                                <li>{t('settings.processing.ai.connector.feature2')}</li>
-                                <li>{t('settings.processing.ai.connector.feature3')}</li>
-                              </Text>
+                      <DataActionItem
+                        buttonAction={handleClearCache}
+                        buttonText={t('settings.data.clearThumbnailButton')}
+                        description={t('settings.data.clearThumbnailDesc')}
+                        icon={<Trash2 size={16} className="mr-2" />}
+                        isProcessing={isClearingCache}
+                        message={cacheClearMessage}
+                        title={t('settings.data.clearThumbnail')}
+                      />
+
+                      <DataActionItem
+                        buttonAction={async () => {
+                          if (logPath && !logPathLoading && !logPathError) {
+                            await invoke(Invokes.ShowInFinder, { path: logPath });
+                          }
+                        }}
+                        buttonText={t('settings.data.logsButton')}
+                        description={
+                          <Text as="span" variant={TextVariants.small}>
+                            {t('settings.data.logsDesc')}
+                            <span className="block font-mono bg-bg-primary p-2 rounded-sm mt-2 break-all border border-border-color">
+                              {logPathLoading
+                                ? t('settings.data.loading')
+                                : logPathError
+                                  ? t('settings.data.statuses.failedToGetPath')
+                                  : logPath}
+                            </span>
+                          </Text>
+                        }
+                        disabled={logPathLoading || logPathError || !logPath}
+                        icon={<ExternalLinkIcon size={16} className="mr-2" />}
+                        isProcessing={false}
+                        message=""
+                        title={t('settings.data.logs')}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {activeCategory === 'shortcuts' && (
+                <motion.div
+                  key="shortcuts"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-10"
+                >
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                      {t('settings.controls.title')}
+                    </Text>
+                    <div className="space-y-8">
+                      <div>
+                        <Text variant={TextVariants.heading} className="mb-2">
+                          {t('settings.controls.optimization')}
+                        </Text>
+                        <Text variant={TextVariants.small} className="mb-4">
+                          {t('settings.controls.optimizationDesc')}
+                        </Text>
+                        <CanvasInputModeSwitch
+                          mode={(appSettings?.canvasInputMode as 'mouse' | 'trackpad') || 'mouse'}
+                          onModeChange={(value) => onSettingsChange({ ...appSettings, canvasInputMode: value })}
+                        />
+                      </div>
+
+                      <SettingItem label={t('settings.controls.zoom')} description={t('settings.controls.zoomDesc')}>
+                        <Slider
+                          label={t('settings.controls.speed')}
+                          min={0.1}
+                          max={3.0}
+                          step={0.1}
+                          value={appSettings?.zoomSpeedMultiplier ?? 1.0}
+                          defaultValue={1.0}
+                          onChange={(e: any) =>
+                            onSettingsChange({ ...appSettings, zoomSpeedMultiplier: parseFloat(e.target.value) })
+                          }
+                          fillOrigin="min"
+                        />
+                      </SettingItem>
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                      {t('settings.controls.keyboardTitle')}
+                    </Text>
+                    <div className="space-y-8">
+                      {' '}
+                      {KEYBIND_SECTIONS.map((section) => {
+                        const sectionDefs = KEYBIND_DEFINITIONS.filter((d) => d.section === section.id);
+                        const userKb = appSettings?.keybinds || {};
+                        return (
+                          <div key={section.id}>
+                            <Text variant={TextVariants.heading}>{t(section.label as any)}</Text>
+                            <div className="divide-y divide-border-color">
+                              {sectionDefs.map((def) => (
+                                <KeybindRow
+                                  key={def.action}
+                                  def={def}
+                                  currentCombo={userKb[def.action]}
+                                  osPlatform={osPlatform}
+                                  onSave={handleKeybindSave}
+                                  recordingAction={recordingAction}
+                                  onStartRecording={setRecordingAction}
+                                  isConflicting={conflictingKeys.has(def.action)}
+                                />
+                              ))}
                             </div>
-                            <SettingItem
-                              label={t('settings.processing.ai.connector.address')}
-                              description={t('settings.processing.ai.connector.addressDesc')}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  className="grow"
-                                  id="ai-connector-address"
-                                  onBlur={() =>
-                                    onSettingsChange({ ...appSettings, aiConnectorAddress: aiConnectorAddress })
-                                  }
-                                  onChange={(e: any) => setAiConnectorAddress(e.target.value)}
-                                  onKeyDown={(e: any) => e.stopPropagation()}
-                                  placeholder="127.0.0.1:8188"
-                                  type="text"
-                                  value={aiConnectorAddress}
-                                  bgClassName="bg-bg-primary"
-                                />
-                                <Button
-                                  className="w-32"
-                                  disabled={testStatus.testing || !aiConnectorAddress}
-                                  onClick={handleTestConnection}
-                                >
-                                  {testStatus.testing
-                                    ? t('settings.processing.ai.connector.testing')
-                                    : t('settings.processing.ai.connector.test')}
-                                </Button>
-                              </div>
-                              {testStatus.message && (
-                                <Text
-                                  color={testStatus.success ? TextColors.success : TextColors.error}
-                                  className="mt-2 flex items-center gap-2"
-                                >
-                                  {testStatus.success === true && <Wifi size={16} />}
-                                  {testStatus.success === false && <WifiOff size={16} />}
-                                  {testStatus.message}
-                                </Text>
-                              )}
-                            </SettingItem>
                           </div>
-                        </motion.div>
-                      )}
-
-                      {aiProvider === 'cloud' && (
-                        <motion.div
-                          key="cloud"
-                          initial={{ opacity: 0, x: 10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <Text variant={TextVariants.heading}>{t('settings.processing.ai.cloud.title')}</Text>
-                          <Text className="mt-1">{t('settings.processing.ai.cloud.description')}</Text>
-                          <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
-                            <li>{t('settings.processing.ai.cloud.feature1')}</li>
-                            <li>{t('settings.processing.ai.cloud.feature2')}</li>
-                            <li>{t('settings.processing.ai.cloud.feature3')}</li>
-                          </Text>
-
-                          <div className="mt-8">
-                            <Show when="signed-in">
-                              <div className="p-6 bg-bg-primary rounded-xl border border-border-color shadow-inner">
-                                <CloudDashboard />
-                              </div>
-                            </Show>
-                            <Show when="signed-out">
-                              <div className="w-full max-w-md">
-                                <SignIn
-                                  routing="hash"
-                                  fallbackRedirectUrl="/"
-                                  forceRedirectUrl="/"
-                                  appearance={{
-                                    variables: {
-                                      colorBackground: 'transparent',
-                                      colorInput: 'transparent',
-                                      colorForeground: 'inherit',
-                                      colorInputForeground: 'inherit',
-                                      colorPrimaryForeground: 'inherit',
-                                      colorBorder: 'transparent',
-                                      colorShadow: 'none',
-                                      colorNeutral: 'inherit',
-                                    },
-                                    elements: {
-                                      rootBox: '',
-
-                                      cardBox: '!shadow-none !m-0 !p-0 !rounded-none',
-
-                                      card: '!bg-transparent !border-none !shadow-none !py-0 !px-1 !rounded-none',
-
-                                      header: '!hidden',
-
-                                      formFieldLabel: '!text-base !font-semibold !text-text-primary !block !mb-2',
-
-                                      formFieldAction:
-                                        '!text-text-secondary hover:!text-text-primary !transition-colors !no-underline hover:!underline',
-
-                                      formFieldInput:
-                                        '!bg-bg-primary !border !border-border-color !text-text-primary focus:!border-accent focus:!ring-1 focus:!ring-accent !rounded-md !px-3 !py-2',
-
-                                      formButtonPrimary:
-                                        '!bg-accent !text-button-text hover:!bg-accent/90 !shadow-none !transition-colors !rounded-md !mt-4 !py-2',
-
-                                      footer:
-                                        '!bg-transparent !p-0 !mt-4 opacity-50 hover:opacity-100 transition-opacity',
-                                      footerAction: '!hidden',
-
-                                      identityPreview: '!bg-bg-primary !border !border-border-color !rounded-md !mb-4',
-                                      identityPreviewText: '!text-text-primary !font-medium',
-                                      identityPreviewEditButtonIcon:
-                                        '!text-text-secondary hover:!text-text-primary !transition-colors',
-                                    },
-                                  }}
-                                />
-                                <div className="mt-6">
-                                  <Text variant={TextVariants.small}>
-                                    {t('settings.processing.ai.cloud.signedOut.noAccount')}{' '}
-                                    <button
-                                      onClick={() => open('https://www.getrapidraw.com/dashboard')}
-                                      className="text-accent hover:underline focus:outline-none"
-                                    >
-                                      {t('settings.processing.ai.cloud.signedOut.signup')}
-                                    </button>
-                                  </Text>
-                                </div>
-                              </div>
-                            </Show>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-
-                <div className="p-6 bg-surface rounded-xl shadow-md">
-                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                    {t('settings.data.title')}
-                  </Text>
-                  <div className="space-y-8">
-                    <DataActionItem
-                      buttonAction={handleClearSidecars}
-                      buttonText={t('settings.data.clearSidecarsButton')}
-                      description={
-                        <Text as="span" variant={TextVariants.small}>
-                          {t('settings.data.clearSidecarsDesc')}
-                          <span className="block font-mono bg-bg-primary p-2 rounded-sm mt-2 break-all border border-border-color whitespace-pre-wrap">
-                            {effectiveRootPaths.length > 0
-                              ? effectiveRootPaths.join('\n')
-                              : t('settings.data.noFolders')}
-                          </span>
-                        </Text>
-                      }
-                      disabled={effectiveRootPaths.length === 0}
-                      icon={<Trash2 size={16} className="mr-2" />}
-                      isProcessing={isClearing}
-                      message={clearMessage}
-                      title={t('settings.data.clearSidecars')}
-                    />
-
-                    <DataActionItem
-                      buttonAction={handleClearCache}
-                      buttonText={t('settings.data.clearThumbnailButton')}
-                      description={t('settings.data.clearThumbnailDesc')}
-                      icon={<Trash2 size={16} className="mr-2" />}
-                      isProcessing={isClearingCache}
-                      message={cacheClearMessage}
-                      title={t('settings.data.clearThumbnail')}
-                    />
-
-                    <DataActionItem
-                      buttonAction={async () => {
-                        if (logPath && !logPathLoading && !logPathError) {
-                          await invoke(Invokes.ShowInFinder, { path: logPath });
-                        }
-                      }}
-                      buttonText={t('settings.data.logsButton')}
-                      description={
-                        <Text as="span" variant={TextVariants.small}>
-                          {t('settings.data.logsDesc')}
-                          <span className="block font-mono bg-bg-primary p-2 rounded-sm mt-2 break-all border border-border-color">
-                            {logPathLoading
-                              ? t('settings.data.loading')
-                              : logPathError
-                                ? t('settings.data.statuses.failedToGetPath')
-                                : logPath}
-                          </span>
-                        </Text>
-                      }
-                      disabled={logPathLoading || logPathError || !logPath}
-                      icon={<ExternalLinkIcon size={16} className="mr-2" />}
-                      isProcessing={false}
-                      message=""
-                      title={t('settings.data.logs')}
-                    />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {activeCategory === 'shortcuts' && (
-              <motion.div
-                key="shortcuts"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-10"
-              >
-                <div className="p-6 bg-surface rounded-xl shadow-md">
-                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                    {t('settings.controls.title')}
-                  </Text>
-                  <div className="space-y-8">
-                    <div>
-                      <Text variant={TextVariants.heading} className="mb-2">
-                        {t('settings.controls.optimization')}
-                      </Text>
-                      <Text variant={TextVariants.small} className="mb-4">
-                        {t('settings.controls.optimizationDesc')}
-                      </Text>
-                      <CanvasInputModeSwitch
-                        mode={(appSettings?.canvasInputMode as 'mouse' | 'trackpad') || 'mouse'}
-                        onModeChange={(value) => onSettingsChange({ ...appSettings, canvasInputMode: value })}
-                      />
-                    </div>
-
-                    <SettingItem label={t('settings.controls.zoom')} description={t('settings.controls.zoomDesc')}>
-                      <Slider
-                        label={t('settings.controls.speed')}
-                        min={0.1}
-                        max={3.0}
-                        step={0.1}
-                        value={appSettings?.zoomSpeedMultiplier ?? 1.0}
-                        defaultValue={1.0}
-                        onChange={(e: any) =>
-                          onSettingsChange({ ...appSettings, zoomSpeedMultiplier: parseFloat(e.target.value) })
-                        }
-                        fillOrigin="min"
-                      />
-                    </SettingItem>
-                  </div>
-                </div>
-
-                <div className="p-6 bg-surface rounded-xl shadow-md">
-                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                    {t('settings.controls.keyboardTitle')}
-                  </Text>
-                  <div className="space-y-8">
-                    {' '}
-                    {KEYBIND_SECTIONS.map((section) => {
-                      const sectionDefs = KEYBIND_DEFINITIONS.filter((d) => d.section === section.id);
-                      const userKb = appSettings?.keybinds || {};
-                      return (
-                        <div key={section.id}>
-                          <Text variant={TextVariants.heading}>{t(section.label as any)}</Text>
-                          <div className="divide-y divide-border-color">
-                            {sectionDefs.map((def) => (
-                              <KeybindRow
-                                key={def.action}
-                                def={def}
-                                currentCombo={userKb[def.action]}
-                                osPlatform={osPlatform}
-                                onSave={handleKeybindSave}
-                                recordingAction={recordingAction}
-                                onStartRecording={setRecordingAction}
-                                isConflicting={conflictingKeys.has(def.action)}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div className="flex justify-end mt-6">
-                      <Button variant="ghost" onClick={() => onSettingsChange({ ...appSettings, keybinds: {} })}>
-                        {t('settings.controls.resetDefaults')}
-                      </Button>
+                        );
+                      })}
+                      <div className="flex justify-end mt-6">
+                        <Button variant="ghost" onClick={() => onSettingsChange({ ...appSettings, keybinds: {} })}>
+                          {t('settings.controls.resetDefaults')}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
       </LayoutGroup>
     </>
   );

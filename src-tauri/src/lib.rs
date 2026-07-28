@@ -25,6 +25,7 @@ mod image_loader;
 mod image_processing;
 mod inpainting;
 mod launch_request;
+mod lens_blur;
 mod lens_correction;
 mod lut_processing;
 mod mask_generation;
@@ -749,9 +750,9 @@ fn generate_uncropped_preview(
         };
 
         let warped_image = apply_geometry_warp(patched_image, &adjustments_clone);
-
+        let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, &adjustments_clone);
         let orientation_steps = adjustments_clone["orientationSteps"].as_u64().unwrap_or(0) as u8;
-        let coarse_rotated_image = apply_coarse_rotation(warped_image, orientation_steps);
+        let coarse_rotated_image = apply_coarse_rotation(blurred_image, orientation_steps);
 
         let flip_horizontal = adjustments_clone["flipHorizontal"]
             .as_bool()
@@ -856,6 +857,14 @@ fn generate_original_transformed_preview(
         .ok_or("No original image loaded")?;
 
     let mut adjustments_clone = js_adjustments.clone();
+
+    if let Some(obj) = adjustments_clone.as_object_mut() {
+        obj.insert(
+            "lensBlurEnabled".to_string(),
+            serde_json::Value::Bool(false),
+        );
+    }
+
     hydrate_adjustments(&state, &mut adjustments_clone);
 
     let mut image_for_preview = loaded_image.image.as_ref().clone();
@@ -944,6 +953,7 @@ async fn preview_geometry_transform(
                 obj.insert("orientationSteps".to_string(), serde_json::json!(0));
                 obj.insert("flipHorizontal".to_string(), serde_json::json!(false));
                 obj.insert("flipVertical".to_string(), serde_json::json!(false));
+                obj.insert("lensBlurEnabled".to_string(), serde_json::json!(false));
                 for key in GEOMETRY_KEYS {
                     match *key {
                         "transformScale"
@@ -2306,6 +2316,7 @@ pub fn run() {
             ai_commands::generate_ai_depth_mask,
             ai_commands::check_ai_connector_status,
             ai_commands::test_ai_connector_connection,
+            ai_commands::generate_full_image_depth_map,
             inpainting::invoke_generative_replace_with_mask_def,
             inpainting::generate_manual_cleanup_patch,
             denoising::apply_denoising,

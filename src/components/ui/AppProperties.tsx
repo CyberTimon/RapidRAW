@@ -222,6 +222,7 @@ export interface AppSettings {
   requireMatchingExif?: boolean;
   groupEditedFiles?: boolean;
   groupPreferredType?: GroupPreference; // legacy
+  alwaysDecodeRawThumbnails?: boolean;
 }
 
 export interface BrushSettings {

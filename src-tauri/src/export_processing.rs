@@ -76,6 +76,15 @@ pub struct ExportSettings {
     pub preserve_folders: bool,
 }
 
+#[derive(Clone)]
+pub(crate) enum ExportAdjustmentsMode {
+    UseSidecars {
+        active_path: Option<String>,
+        active_adjustments: Option<Value>,
+    },
+    GlobalOverride(Value),
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum WatermarkAnchor {
@@ -843,8 +852,7 @@ pub(crate) async fn export_images_impl(
     base_origin_folders: Vec<String>,
     export_settings: ExportSettings,
     output_format: String,
-    current_edit_path: Option<String>,
-    current_edit_adjustments: Option<Value>,
+    adjustments_mode: ExportAdjustmentsMode,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
     completion_tx: Option<tokio::sync::oneshot::Sender<Result<(), usize>>>,
@@ -954,10 +962,9 @@ pub(crate) async fn export_images_impl(
             let base_origin_folders = base_origin_folders.clone();
             let export_settings = export_settings.clone();
             let output_format = output_format.clone();
-            let current_edit_path = current_edit_path.clone();
-            let current_edit_adjustments = current_edit_adjustments.clone();
             let settings = settings.clone();
             let cancellation_token_clone = Arc::clone(&cancellation_token);
+            let adjustments_mode = adjustments_mode.clone();
 
             let handle = tokio::task::spawn_blocking(move || {
                 ensure_export_not_cancelled(&cancellation_token_clone)?;
@@ -965,16 +972,29 @@ pub(crate) async fn export_images_impl(
                 let state = app_handle_clone.state::<AppState>();
                 let (source_path, sidecar_path) = parse_virtual_path(&image_path_str);
                 let source_path_str = source_path.to_string_lossy().to_string();
-                let is_current_edit = Some(&source_path_str) == current_edit_path.as_ref();
 
-                let mut js_adjustments = if let Some(ref adj) = current_edit_adjustments {
-                    if is_current_edit || current_edit_path.is_none() {
-                        adj.clone()
-                    } else {
-                        crate::exif_processing::load_sidecar(&sidecar_path).adjustments
+                let is_current_edit = match &adjustments_mode {
+                    ExportAdjustmentsMode::UseSidecars { active_path, .. } => {
+                        Some(&source_path_str) == active_path.as_ref()
                     }
-                } else {
-                    crate::exif_processing::load_sidecar(&sidecar_path).adjustments
+                    ExportAdjustmentsMode::GlobalOverride(_) => false,
+                };
+
+                let mut js_adjustments = match &adjustments_mode {
+                    ExportAdjustmentsMode::UseSidecars {
+                        active_adjustments, ..
+                    } => {
+                        if is_current_edit {
+                            if let Some(adj) = active_adjustments {
+                                adj.clone()
+                            } else {
+                                crate::exif_processing::load_sidecar(&sidecar_path).adjustments
+                            }
+                        } else {
+                            crate::exif_processing::load_sidecar(&sidecar_path).adjustments
+                        }
+                    }
+                    ExportAdjustmentsMode::GlobalOverride(adj) => adj.clone(),
                 };
 
                 hydrate_adjustments(&state, &mut js_adjustments);
@@ -1253,8 +1273,10 @@ pub async fn export_images(
         base_origin_folders,
         export_settings,
         output_format,
-        current_edit_path,
-        current_edit_adjustments,
+        ExportAdjustmentsMode::UseSidecars {
+            active_path: current_edit_path,
+            active_adjustments: current_edit_adjustments,
+        },
         state,
         app_handle,
         None,
@@ -1274,9 +1296,6 @@ pub async fn run_headless_export(
         return Err(format!("Source path does not exist: {}", session.source));
     }
 
-    std::fs::create_dir_all(&session.output)
-        .map_err(|e| format!("Failed to create output directory: {}", e))?;
-
     let mut paths = Vec::new();
     if source_path.is_dir() {
         let images = crate::file_management::list_images_recursive(
@@ -1290,6 +1309,20 @@ pub async fn run_headless_export(
 
     if paths.is_empty() {
         return Err("No supported images found at the source path.".to_string());
+    }
+
+    let output_path = std::path::Path::new(&session.output);
+    let is_explicit_file_path =
+        paths.len() == 1 && output_path.extension().is_some() && !output_path.is_dir();
+
+    if is_explicit_file_path {
+        if let Some(parent) = output_path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create output parent directory: {}", e))?;
+        }
+    } else {
+        std::fs::create_dir_all(&session.output)
+            .map_err(|e| format!("Failed to create output directory: {}", e))?;
     }
 
     println!("Found {} images to export. Processing...", paths.len());
@@ -1321,15 +1354,23 @@ pub async fn run_headless_export(
 
     let (tx, rx) = tokio::sync::oneshot::channel();
 
+    let mode = if let Some(adj) = custom_adjustments {
+        ExportAdjustmentsMode::GlobalOverride(adj)
+    } else {
+        ExportAdjustmentsMode::UseSidecars {
+            active_path: None,
+            active_adjustments: None,
+        }
+    };
+
     export_images_impl(
         paths,
         session.output,
-        false,
+        is_explicit_file_path,
         vec![session.source],
         export_settings,
         session.format,
-        None,
-        custom_adjustments,
+        mode,
         state.clone(),
         app_handle.clone(),
         Some(tx),

@@ -85,6 +85,15 @@ export enum Effect {
   VignetteFeather = 'vignetteFeather',
   VignetteMidpoint = 'vignetteMidpoint',
   VignetteRoundness = 'vignetteRoundness',
+  LensBlurEnabled = 'lensBlurEnabled',
+  LensBlurAmount = 'lensBlurAmount',
+  lensBlurDiffusion = 'lensBlurDiffusion',
+  LensBlurShape = 'lensBlurShape',
+  LensBlurDepthMap = 'lensBlurDepthMap',
+  LensBlurMinDepth = 'lensBlurMinDepth',
+  LensBlurMaxDepth = 'lensBlurMaxDepth',
+  LensBlurMinFade = 'lensBlurMinFade',
+  LensBlurMaxFade = 'lensBlurMaxFade',
 }
 
 export enum CreativeAdjustment {
@@ -179,6 +188,15 @@ export interface Adjustments {
   highlights: number;
   hsl: Hsl;
   hue: number;
+  lensBlurAmount: number;
+  lensBlurDiffusion: number;
+  lensBlurShape: 'circle' | 'hexagon' | 'octagon' | 'ring';
+  lensBlurDepthMap: string | null;
+  lensBlurEnabled: boolean;
+  lensBlurMaxDepth: number;
+  lensBlurMaxFade: number;
+  lensBlurMinDepth: number;
+  lensBlurMinFade: number;
   lensCorrectionMode: 'auto' | 'manual';
   lensDistortionAmount: number;
   lensVignetteAmount: number;
@@ -516,6 +534,15 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
     yellows: { hue: 0, saturation: 0, luminance: 0 },
   },
   hue: 0,
+  lensBlurAmount: 40,
+  lensBlurDiffusion: 0,
+  lensBlurShape: 'circle',
+  lensBlurDepthMap: null,
+  lensBlurEnabled: false,
+  lensBlurMaxDepth: 100,
+  lensBlurMaxFade: 20,
+  lensBlurMinDepth: 20,
+  lensBlurMinFade: 20,
   lensCorrectionMode: 'manual',
   lensDistortionAmount: 100,
   lensVignetteAmount: 100,
@@ -655,6 +682,15 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     flareAmount: loadedAdjustments.flareAmount ?? INITIAL_ADJUSTMENTS.flareAmount,
     glowAmount: loadedAdjustments.glowAmount ?? INITIAL_ADJUSTMENTS.glowAmount,
     halationAmount: loadedAdjustments.halationAmount ?? INITIAL_ADJUSTMENTS.halationAmount,
+    lensBlurAmount: loadedAdjustments.lensBlurAmount ?? INITIAL_ADJUSTMENTS.lensBlurAmount,
+    lensBlurDiffusion: loadedAdjustments.lensBlurDiffusion ?? INITIAL_ADJUSTMENTS.lensBlurDiffusion,
+    lensBlurShape: loadedAdjustments.lensBlurShape ?? INITIAL_ADJUSTMENTS.lensBlurShape,
+    lensBlurDepthMap: loadedAdjustments.lensBlurDepthMap ?? INITIAL_ADJUSTMENTS.lensBlurDepthMap,
+    lensBlurEnabled: loadedAdjustments.lensBlurEnabled ?? INITIAL_ADJUSTMENTS.lensBlurEnabled,
+    lensBlurMaxDepth: loadedAdjustments.lensBlurMaxDepth ?? INITIAL_ADJUSTMENTS.lensBlurMaxDepth,
+    lensBlurMaxFade: loadedAdjustments.lensBlurMaxFade ?? INITIAL_ADJUSTMENTS.lensBlurMaxFade,
+    lensBlurMinDepth: loadedAdjustments.lensBlurMinDepth ?? INITIAL_ADJUSTMENTS.lensBlurMinDepth,
+    lensBlurMinFade: loadedAdjustments.lensBlurMinFade ?? INITIAL_ADJUSTMENTS.lensBlurMinFade,
     lensCorrectionMode: loadedAdjustments.lensCorrectionMode || 'manual',
     lensMaker: loadedAdjustments.lensMaker ?? INITIAL_ADJUSTMENTS.lensMaker,
     lensModel: loadedAdjustments.lensModel ?? INITIAL_ADJUSTMENTS.lensModel,
@@ -858,5 +894,14 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.VignetteFeather,
     Effect.VignetteMidpoint,
     Effect.VignetteRoundness,
+    Effect.LensBlurEnabled,
+    Effect.LensBlurAmount,
+    Effect.lensBlurDiffusion,
+    Effect.LensBlurShape,
+    Effect.LensBlurDepthMap,
+    Effect.LensBlurMinDepth,
+    Effect.LensBlurMaxDepth,
+    Effect.LensBlurMinFade,
+    Effect.LensBlurMaxFade,
   ],
 };
