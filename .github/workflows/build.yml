@@ -140,6 +140,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NO_STRIP: ${{ startsWith(inputs.platform, 'ubuntu') }}
+          # Configure these repository secrets before publishing macOS releases.
+          # Tauri signs and notarizes only release builds on macOS runners.
+          APPLE_CERTIFICATE: ${{ inputs.release-id != '' && startsWith(inputs.platform, 'macos') && secrets.APPLE_CERTIFICATE || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ inputs.release-id != '' && startsWith(inputs.platform, 'macos') && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ inputs.release-id != '' && startsWith(inputs.platform, 'macos') && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_ID: ${{ inputs.release-id != '' && startsWith(inputs.platform, 'macos') && secrets.APPLE_ID || '' }}
+          APPLE_PASSWORD: ${{ inputs.release-id != '' && startsWith(inputs.platform, 'macos') && secrets.APPLE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ inputs.release-id != '' && startsWith(inputs.platform, 'macos') && secrets.APPLE_TEAM_ID || '' }}
         with:
           args: --verbose ${{ inputs.build-args }} ${{ inputs.target != '' && '--target' || ''  }} ${{ inputs.target }}
           assetNamePattern: ${{ steps.patch-release-name.outputs.platform }}
