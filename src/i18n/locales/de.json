@@ -1098,6 +1098,14 @@
       "shuffleTooltip": "Bilder mischen",
       "spacing": "Abstand"
     },
+    "commandPalette": {
+      "filePlaceholder": "Dateien nach Namen suchen...",
+      "files": "Dateien",
+      "noResults": "Keine passenden Ergebnisse",
+      "placeholder": "Befehl eingeben...",
+      "searchFiles": "Dateien durchsuchen...",
+      "title": "Befehlspalette"
+    },
     "configurePreset": {
       "cancel": "Abbrechen",
       "includeCropTransform": "Zuschnitt & Form einbeziehen",
@@ -1500,6 +1508,7 @@
         "cycle_zoom": "Zoom durchwechseln (Einpassen, 2x Einpassen, 100%)",
         "delete_selected": "Ausgewählte Datei(en) löschen",
         "focus_search": "Suchfeld fokussieren",
+        "open_command_palette": "Befehlspalette öffnen",
         "open_image": "Ausgewähltes Bild öffnen",
         "open_settings": "Einstellungen öffnen",
         "paste_adjustments": "Kopierte Anpassungen einfügen",

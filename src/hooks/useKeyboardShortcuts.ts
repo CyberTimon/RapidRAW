@@ -383,6 +383,13 @@ export const useKeyboardShortcuts = ({
           s.ui.requestSearchFocus();
         },
       },
+      open_command_palette: {
+        shouldFire: () => true,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.ui.setUI({ isCommandPaletteOpen: true });
+        },
+      },
       toggle_crop: {
         shouldFire: (s: any) => !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
@@ -568,6 +575,7 @@ export const useKeyboardShortcuts = ({
       const state = getStoreState();
 
       const isModalOpen =
+        state.ui.isCommandPaletteOpen ||
         state.ui.isCreateFolderModalOpen ||
         state.ui.isRenameFolderModalOpen ||
         state.ui.isRenameFileModalOpen ||
@@ -613,8 +621,24 @@ export const useKeyboardShortcuts = ({
       }
     };
 
+    const runnerEvent = { preventDefault: () => {} };
+    useUIStore.getState().setKeybindActionRunner({
+      canRun: (action: string) => {
+        const handler = actions[action];
+        return !!handler && (!handler.shouldFire || handler.shouldFire(getStoreState()));
+      },
+      run: (action: string) => {
+        const handler = actions[action];
+        if (!handler) return;
+        const state = getStoreState();
+        if (handler.shouldFire && !handler.shouldFire(state)) return;
+        handler.execute(runnerEvent, state);
+      },
+    });
+
     window.addEventListener('keydown', handleKeyDown);
     return () => {
+      useUIStore.getState().setKeybindActionRunner(null);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [

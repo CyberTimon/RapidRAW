@@ -19,6 +19,7 @@ import ConfirmModal from './ConfirmModal';
 import ImportSettingsModal from './ImportSettingsModal';
 import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
+import CommandPaletteModal from './CommandPaletteModal';
 import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
 import { CopyPasteSettings } from '../../utils/adjustments';
 
@@ -54,6 +55,7 @@ export default function AppModals(props: AppModalsProps) {
   );
 
   const {
+    isCommandPaletteOpen,
     isCreateFolderModalOpen,
     isRenameFolderModalOpen,
     isRenameFileModalOpen,
@@ -76,6 +78,7 @@ export default function AppModals(props: AppModalsProps) {
     setUI,
   } = useUIStore(
     useShallow((state) => ({
+      isCommandPaletteOpen: state.isCommandPaletteOpen,
       isCreateFolderModalOpen: state.isCreateFolderModalOpen,
       isRenameFolderModalOpen: state.isRenameFolderModalOpen,
       isRenameFileModalOpen: state.isRenameFileModalOpen,
@@ -322,6 +325,11 @@ export default function AppModals(props: AppModalsProps) {
         onSave={props.handleSaveCollage}
         sourceImages={collageModalState.sourceImages}
         thumbnails={thumbnails}
+      />
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setUI({ isCommandPaletteOpen: false })}
+        onSelectFile={props.handleImageSelect}
       />
     </>
   );
