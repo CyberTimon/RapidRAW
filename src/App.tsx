@@ -614,7 +614,7 @@ function App() {
     );
   };
 
-  const shouldHideFolderTree = isAndroid;
+  const shouldHideFolderTree = isAndroid && isPortraitViewport;
   const isWgpuActive = appSettings?.useWgpuRenderer !== false && selectedImage?.isReady && hasRenderedFirstFrame;
   const useMacWindowShell = osPlatform === 'macos' && !appSettings?.decorations && !isWindowFullScreen && !isFullScreen;
 
