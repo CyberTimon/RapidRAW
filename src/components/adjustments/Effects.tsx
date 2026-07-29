@@ -196,7 +196,7 @@ export default function EffectsPanel({
 
   return (
     <div className="space-y-4">
-      <div className="p-2 bg-bg-tertiary rounded-md">
+      <div className="bg-bg-tertiary rounded-md">
         <Text variant={TextVariants.heading} className="mb-2">
           {t('adjustments.effects.creative')}
         </Text>
@@ -235,8 +235,8 @@ export default function EffectsPanel({
       </div>
 
       {!isForMask && (
-        <div className="space-y-4">
-          <div className="p-2 bg-bg-tertiary rounded-md">
+        <div className="space-y-8">
+          <div className="bg-bg-tertiary rounded-md">
             <Text variant={TextVariants.heading} className="mb-2">
               {t('adjustments.effects.lensBlur')}
             </Text>
@@ -351,7 +351,7 @@ export default function EffectsPanel({
           </div>
 
           {adjustmentVisibility.vignette !== false && (
-            <div className="p-2 bg-bg-tertiary rounded-md">
+            <div className="bg-bg-tertiary rounded-md">
               <Text variant={TextVariants.heading} className="mb-2">
                 {t('adjustments.effects.vignette')}
               </Text>
@@ -399,7 +399,7 @@ export default function EffectsPanel({
           )}
 
           {adjustmentVisibility.grain !== false && (
-            <div className="p-2 bg-bg-tertiary rounded-md">
+            <div className="bg-bg-tertiary rounded-md">
               <Text variant={TextVariants.heading} className="mb-2">
                 {t('adjustments.effects.grain')}
               </Text>

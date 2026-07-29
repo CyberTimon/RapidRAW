@@ -771,7 +771,7 @@ export default function CurveGraph({
       <Text
         as="div"
         variant={TextVariants.small}
-        className="w-full aspect-square bg-surface-secondary p-1 rounded-md flex items-center justify-center"
+        className="w-full aspect-square bg-bg-primary flex items-center justify-center"
       >
         {t('adjustments.curves.curveDataUnavailable')}
       </Text>
@@ -779,8 +779,8 @@ export default function CurveGraph({
   }
 
   return (
-    <div className="select-none touch-none" ref={containerRef}>
-      <div className="flex items-center justify-between gap-2 mb-2 mt-2">
+    <div className="select-none touch-none px-1" ref={containerRef}>
+      <div className="flex items-center justify-between gap-2 mb-6 mt-2">
         <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-secondary shrink-0">
           <button
             className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${
@@ -833,7 +833,7 @@ export default function CurveGraph({
 
       <div className="relative">
         <div
-          className="w-full aspect-square bg-surface-secondary p-1 rounded-md relative touch-none"
+          className="w-full aspect-square bg-bg-primary relative touch-none"
           onMouseDown={handleContainerStart}
           onTouchStart={handleContainerStart}
           onDoubleClick={handleDoubleClick}

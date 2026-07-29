@@ -156,7 +156,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
 
   return (
     <div>
-      <div className="flex items-center justify-start gap-2 mb-4 mt-2">
+      <div className="px-1 flex items-center justify-start gap-2 mb-4 mt-2">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -191,7 +191,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
         </button>
       </div>
 
-      <div className="relative w-full mb-4">
+      <div className="relative w-full mb-4 px-1">
         <AnimatePresence mode="wait">
           {activeTab === '3way' ? (
             <motion.div
@@ -330,7 +330,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
   const trackSuffix = `${activePrimary}s`;
 
   return (
-    <div className="p-2 bg-bg-tertiary rounded-md mt-4">
+    <div className="bg-bg-tertiary rounded-md">
       <Text variant={TextVariants.heading} className="mb-2">
         {t('adjustments.color.calibration.title')}
       </Text>
@@ -470,7 +470,7 @@ export default function ColorPanel({
 
   return (
     <div className="space-y-4">
-      <div className="p-2 bg-bg-tertiary rounded-md">
+      <div className="bg-bg-tertiary rounded-md">
         <div className="flex justify-between items-center mb-2">
           <Text variant={TextVariants.heading}>{t('adjustments.color.whiteBalance')}</Text>
           {!isForMask && toggleWbPicker && (
@@ -514,7 +514,7 @@ export default function ColorPanel({
         />
       </div>
 
-      <div className="p-2 bg-bg-tertiary rounded-md">
+      <div className="bg-bg-tertiary rounded-md">
         <Text variant={TextVariants.heading} className="mb-2">
           {t('adjustments.color.presence')}
         </Text>
@@ -538,7 +538,7 @@ export default function ColorPanel({
         />
       </div>
 
-      <div className="p-2 bg-bg-tertiary rounded-md">
+      <div className="bg-bg-tertiary rounded-md">
         <Text variant={TextVariants.heading} className="mb-2">
           {isForMask ? t('adjustments.color.localHue') : t('adjustments.color.hue')}
         </Text>
@@ -554,7 +554,7 @@ export default function ColorPanel({
         />
       </div>
 
-      <div className="p-2 bg-bg-tertiary rounded-md">
+      <div className="bg-bg-tertiary rounded-md">
         <Text variant={TextVariants.heading} className="mb-3">
           {t('adjustments.color.colorGrading')}
         </Text>
@@ -566,7 +566,7 @@ export default function ColorPanel({
         />
       </div>
 
-      <div className="p-2 bg-bg-tertiary rounded-md">
+      <div className="bg-bg-tertiary rounded-md">
         <Text variant={TextVariants.heading} className="mb-3">
           {t('adjustments.color.colorMixer')}
         </Text>
