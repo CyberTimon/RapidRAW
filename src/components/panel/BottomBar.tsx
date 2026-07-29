@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings, Filter } from 'lucide-react';
+import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings, Filter, RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
@@ -37,6 +37,7 @@ interface BottomBarProps {
   onRequestThumbnails?(paths: string[]): void;
   onPaste(): void;
   onRate(rate: number): void;
+  onRefresh?(): void;
   onReset?(): void;
   onZoomChange?(zoomValue: number, fitToWindow?: boolean): void;
   rating: number;
@@ -116,6 +117,7 @@ export default function BottomBar({
   onRequestThumbnails,
   onPaste,
   onRate,
+  onRefresh,
   onReset,
   onZoomChange = () => {},
   rating,
@@ -544,6 +546,13 @@ export default function BottomBar({
             {showFilmstrip && (
               <>
                 <div className="h-5 w-px bg-surface"></div>
+                <button
+                  className="p-1.5 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
+                  onClick={onRefresh}
+                  data-tooltip={t('ui.bottomBar.tooltips.refreshLibrary')}
+                >
+                  <RefreshCw size={16} />
+                </button>
                 <button
                   className="p-1.5 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
                   onClick={() => setIsFilmstripVisible?.(!isFilmstripVisible)}
