@@ -659,6 +659,16 @@
     },
     "presets": {
       "amount": "Amount",
+      "snapshots": {
+        "title": "Snapshots",
+        "saveTooltip": "Save a snapshot of the current edit",
+        "empty": "Save checkpoints of your edit and switch between looks without leaving the editor.",
+        "defaultName": "Snapshot {{count}}",
+        "apply": "Apply Snapshot",
+        "overwrite": "Overwrite with Current Edit",
+        "rename": "Rename",
+        "delete": "Delete Snapshot"
+      },
       "dialog": {
         "allPresetFiles": "All Preset Files",
         "exportAllTitle": "Export All Presets",

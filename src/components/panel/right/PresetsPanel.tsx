@@ -26,11 +26,7 @@ import {
   SortAsc,
   Trash2,
   Users,
-  Layers,
-  Crop,
   Save,
-  Wrench,
-  Palette,
   Settings2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -39,9 +35,10 @@ import CreateFolderModal from '../../modals/CreateFolderModal';
 import RenameFolderModal from '../../modals/RenameFolderModal';
 import Button from '../../ui/Button';
 import Text from '../../ui/Text';
-import Slider from '../../ui/Slider';
+import SnapshotsSection, { snapshotPreviewId } from './SnapshotsSection';
+import PresetItemDisplay from './PresetItemDisplay';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
-import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS } from '../../../utils/adjustments';
+import { Adjustments, AdjustmentSnapshot, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useUIStore } from '../../../store/useUIStore';
@@ -79,16 +76,6 @@ interface FolderState {
 interface ModalState {
   isOpen: boolean;
   preset: Preset | null;
-}
-
-interface PresetItemDisplayProps {
-  isGeneratingPreviews: boolean;
-  preset: Preset;
-  previewUrl: string;
-  isActive?: boolean;
-  intensity?: number;
-  onIntensityChange?: (val: number) => void;
-  onDragStateChange?: (isDragging: boolean) => void;
 }
 
 interface PresetsPanelProps {
@@ -197,113 +184,6 @@ const mixAdjustments = (presetObj: any, intensity: number, initialObj: any = INI
   }
   return result;
 };
-
-function PresetItemDisplay({
-  preset,
-  previewUrl,
-  isGeneratingPreviews,
-  isActive,
-  intensity,
-  onIntensityChange,
-  onDragStateChange,
-}: PresetItemDisplayProps) {
-  const { t } = useTranslation();
-  const geometryKeys = ADJUSTMENT_GROUPS.geometry.flatMap((g) => g.keys);
-
-  const supportsMasks = preset.includeMasks ?? (preset.adjustments?.masks && preset.adjustments.masks.length > 0);
-  const supportsGeometry =
-    preset.includeCropTransform ?? geometryKeys.some((key) => preset.adjustments?.[key] !== undefined);
-  const isTool = preset.presetType === 'tool';
-  const tooltipContent = useMemo(() => {
-    const features = [];
-    if (supportsMasks) features.push(t('editor.presets.supports.masks'));
-    if (supportsGeometry) features.push(t('editor.presets.supports.cropTransform'));
-
-    if (features.length === 0) return undefined;
-    return t('editor.presets.supports.label', { features: features.join(' + ') });
-  }, [supportsMasks, supportsGeometry, t]);
-
-  return (
-    <div className="flex flex-col p-2 rounded-lg bg-surface cursor-grabbing">
-      <div className="flex items-center gap-3">
-        <div
-          className="w-20 h-14 bg-bg-tertiary rounded-md flex items-center justify-center shrink-0 relative overflow-hidden"
-          data-tooltip={tooltipContent}
-        >
-          {isGeneratingPreviews && !previewUrl ? (
-            <Loader2 size={20} className="animate-spin text-text-secondary" />
-          ) : previewUrl ? (
-            <img
-              src={previewUrl}
-              alt={`${preset.name} preview`}
-              className="w-full h-full object-cover rounded-md pointer-events-none"
-            />
-          ) : (
-            <Loader2 size={20} className="animate-spin text-text-secondary" />
-          )}
-
-          {(supportsMasks || supportsGeometry) && (
-            <>
-              <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-linear-to-bl from-black/30 via-black/0 to-transparent pointer-events-none z-0" />
-
-              <div className="absolute top-1 right-1 bg-primary rounded-full px-1.5 py-0.5 flex items-center gap-1.5 backdrop-blur-xs shadow-xs z-10 pointer-events-none">
-                {supportsMasks && <Layers size={11} className="text-white" />}
-                {supportsGeometry && <Crop size={11} className="text-white" />}
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="grow min-w-0 flex flex-col justify-center">
-          <Text color={TextColors.primary} weight={TextWeights.medium} className="truncate">
-            {preset.name}
-          </Text>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            {isTool ? (
-              <Wrench size={12} className="text-text-secondary" />
-            ) : (
-              <Palette size={12} className="text-text-secondary" />
-            )}
-            <Text
-              variant={TextVariants.small}
-              color={TextColors.secondary}
-              className="text-[10px] uppercase tracking-wider"
-            >
-              {isTool ? t('editor.presets.types.tool') : t('editor.presets.types.style')}
-            </Text>
-          </div>
-        </div>
-      </div>
-
-      <AnimatePresence initial={false}>
-        {isActive && onIntensityChange && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="w-full cursor-auto overflow-hidden"
-            onClick={(e: any) => e.stopPropagation()}
-            onPointerDown={(e: any) => e.stopPropagation()}
-          >
-            <div className="mt-3 px-1 pb-1">
-              <Slider
-                min={0}
-                max={200}
-                defaultValue={100}
-                value={intensity ?? 100}
-                onChange={(e: any) => onIntensityChange(Number(e.target.value))}
-                onDragStateChange={onDragStateChange}
-                label={t('editor.presets.amount')}
-                step={1}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
 
 function FolderItemDisplay({ folder }: FolderProps) {
   return (
@@ -480,6 +360,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const activePanel = useUIStore((s) => s.activeRightPanel);
   const setEditor = useEditorStore((s) => s.setEditor);
   const { setAdjustments } = useEditorActions();
+  const snapshots = useMemo<AdjustmentSnapshot[]>(() => adjustments.snapshots || [], [adjustments.snapshots]);
 
   const {
     addFolder,
@@ -537,6 +418,8 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         item.folder.children.forEach((p: Preset) => allPresetIds.add(p.id));
       }
     });
+    // Keep live snapshot previews; a stale (overwritten) one falls out and gets revoked.
+    snapshots.forEach((s: AdjustmentSnapshot) => allPresetIds.add(snapshotPreviewId(s)));
 
     const currentPreviews = previewsRef.current;
     const previewsToDelete = Object.keys(currentPreviews).filter((id) => !allPresetIds.has(id));
@@ -554,7 +437,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         return newPreviews;
       });
     }
-  }, [presets]);
+  }, [presets, snapshots]);
 
   useEffect(() => {
     return () => {
@@ -771,6 +654,16 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     }
   }, [selectedImage?.isReady, presets, enqueuePreviews]);
 
+  // Feed snapshots through the preset preview pipeline as { id, adjustments } items.
+  const generateSnapshotPreviews = useCallback(() => {
+    if (!selectedImage?.isReady) {
+      return;
+    }
+    enqueuePreviews(
+      snapshots.map((s: AdjustmentSnapshot) => ({ id: snapshotPreviewId(s), name: s.name, adjustments: s.state })) as any,
+    );
+  }, [selectedImage?.isReady, snapshots, enqueuePreviews]);
+
   useEffect(() => {
     const isPathChanged = selectedImage?.path !== currentImagePathRef.current;
 
@@ -795,11 +688,14 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       }
     }
 
-    if (activePanel === Panel.Presets && selectedImage?.isReady && presets.length > 0) {
-      generateRootPreviews();
-      expandedFolders.forEach((folderId: string) => {
-        generateFolderPreviews(folderId);
-      });
+    if (activePanel === Panel.Presets && selectedImage?.isReady) {
+      if (presets.length > 0) {
+        generateRootPreviews();
+        expandedFolders.forEach((folderId: string) => {
+          generateFolderPreviews(folderId);
+        });
+      }
+      generateSnapshotPreviews();
     }
   }, [
     activePanel,
@@ -808,6 +704,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     presets.length,
     generateRootPreviews,
     generateFolderPreviews,
+    generateSnapshotPreviews,
     expandedFolders,
   ]);
 
@@ -1179,6 +1076,10 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           onContextMenu={handleBackgroundContextMenu}
           ref={setRootNodeRef}
         >
+          <SnapshotsSection previews={previews} isGeneratingPreviews={isGeneratingPreviews} />
+          <Text variant={TextVariants.heading} className="flex items-center gap-2 mb-2">
+            {t('editor.presets.title')}
+          </Text>
           {isLoading && presets.length === 0 && (
             <Text
               as="div"

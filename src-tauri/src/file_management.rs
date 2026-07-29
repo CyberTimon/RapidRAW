@@ -2667,7 +2667,16 @@ pub async fn reset_adjustments_for_paths(
 
             let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
+            // Saved snapshots survive a reset of the working state.
+            let preserved_snapshots = existing_metadata
+                .adjustments
+                .get("snapshots")
+                .filter(|v| v.as_array().is_some_and(|a| !a.is_empty()))
+                .cloned();
             existing_metadata.adjustments = serde_json::json!({});
+            if let Some(snapshots) = preserved_snapshots {
+                existing_metadata.adjustments["snapshots"] = snapshots;
+            }
 
             if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
                 let _ = std::fs::write(&sidecar_path, json_string);

@@ -156,9 +156,20 @@ export interface ParametricCurve {
   red: ParametricCurveSettings;
 }
 
+// An in-editor checkpoint of the edit state, stored inside the sidecar. `state` is
+// a full Adjustments snapshot minus the snapshots list itself. Complements
+// library-level Virtual Copies (Duplicate Image > Virtual Copy).
+export interface AdjustmentSnapshot {
+  id: string;
+  name: string;
+  createdAt: number;
+  state: Partial<Adjustments>;
+}
+
 export interface Adjustments {
   [index: string]: any;
   aiPatches: Array<AiPatch>;
+  snapshots: Array<AdjustmentSnapshot>;
   aspectRatio: number | null;
   blacks: number;
   brightness: number;
@@ -496,6 +507,7 @@ export const INITIAL_MASK_CONTAINER: MaskContainer = {
 
 export const INITIAL_ADJUSTMENTS: Adjustments = {
   aiPatches: [],
+  snapshots: [],
   aspectRatio: null,
   blacks: 0,
   brightness: 0,

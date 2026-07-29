@@ -123,7 +123,13 @@ export function useImageProcessing(
       const currentPath = selectedImage?.path;
       if (!currentPath) return;
 
-      const payload = structuredClone(currentAdjustments);
+      // Snapshots are in-editor checkpoints persisted through the sidecar save
+      // path; the renderer never reads them. Drop them before cloning so a
+      // growing snapshots list — each a full edit state, potentially carrying
+      // base64 mask/patch data — isn't structuredClone'd and shipped over IPC on
+      // every interactive tick.
+      const { snapshots: _snapshots, ...renderAdjustments } = currentAdjustments;
+      const payload = structuredClone(renderAdjustments);
       const { patchesSentToBackend } = useEditorStore.getState();
       const newlySentPatches = new Set<string>();
 
