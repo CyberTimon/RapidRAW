@@ -959,29 +959,36 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
 
   const handleImportPresets = async () => {
     try {
-      const selectedPath = await openDialog({
+      const selectedPaths = await openDialog({
         filters: [
           { name: t('editor.presets.dialog.allPresetFiles'), extensions: ['rrpreset', 'xmp', 'lrtemplate'] },
           { name: t('editor.presets.dialog.rapidRawPreset'), extensions: ['rrpreset'] },
           { name: t('editor.presets.dialog.legacyPreset'), extensions: ['xmp', 'lrtemplate'] },
         ],
-        multiple: false,
+        multiple: true,
         title: t('editor.presets.dialog.importPresetsTitle'),
       });
 
-      if (typeof selectedPath === 'string') {
-        const isLegacy =
-          selectedPath.toLowerCase().endsWith('.xmp') || selectedPath.toLowerCase().endsWith('.lrtemplate');
-
-        if (isLegacy) {
-          await importLegacyPresetsFromFile(selectedPath);
-        } else {
-          await importPresetsFromFile(selectedPath);
-        }
-
-        setFolderPreviewsGenerated(new Set<string>());
-        setPreviews({});
+      if (!selectedPaths) {
+        return;
       }
+
+      const paths = Array.isArray(selectedPaths) ? selectedPaths : [selectedPaths];
+
+      for (const path of paths) {
+        const isLegacy =
+          path.toLowerCase().endsWith('.xmp') ||
+          path.toLowerCase().endsWith('.lrtemplate');
+          
+        if (isLegacy) {
+          await importLegacyPresetsFromFile(path);
+        } else {
+          await importPresetsFromFile(path);
+        }
+      }
+
+      setFolderPreviewsGenerated(new Set<string>());
+      setPreviews({});
     } catch (error) {
       console.error('Failed to import presets:', error);
     }
