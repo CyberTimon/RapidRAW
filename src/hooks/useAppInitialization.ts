@@ -148,6 +148,15 @@ export const useAppInitialization = ({
           handleSettingsChange(settings);
         }
 
+        // legacy
+        const savedRawStatus = settings?.filterCriteria?.rawStatus as string | undefined;
+        if (savedRawStatus === 'groupVariants' || savedRawStatus === 'rawOverNonRaw') {
+          const legacyPref = settings?.groupPreferredType === 'jpeg' ? 'jpeg' : 'raw';
+          settings.grouping = legacyPref;
+          settings.filterCriteria = { ...settings.filterCriteria, rawStatus: 'all' };
+          handleSettingsChange(settings);
+        }
+
         setAppSettings(settings);
         i18n.changeLanguage(settings.language);
 

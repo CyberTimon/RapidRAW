@@ -97,13 +97,14 @@ pub fn apply_all_transformations<'a, I: IntoCowImage<'a>>(
     let start_time = std::time::Instant::now();
     let image = image.into_cow();
     let warped_image = apply_geometry_warp(image, adjustments);
+    let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, adjustments);
 
     let orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
     let rotation_degrees = adjustments["rotation"].as_f64().unwrap_or(0.0) as f32;
     let flip_horizontal = adjustments["flipHorizontal"].as_bool().unwrap_or(false);
     let flip_vertical = adjustments["flipVertical"].as_bool().unwrap_or(false);
 
-    let coarse_rotated_image = apply_coarse_rotation(warped_image, orientation_steps);
+    let coarse_rotated_image = apply_coarse_rotation(blurred_image, orientation_steps);
     let flipped_image = apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical);
     let rotated_image = apply_rotation(flipped_image, rotation_degrees);
 

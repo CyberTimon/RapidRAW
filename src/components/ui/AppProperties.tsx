@@ -130,7 +130,6 @@ export enum RawStatus {
   All = 'all',
   NonRawOnly = 'nonRawOnly',
   RawOnly = 'rawOnly',
-  RawOverNonRaw = 'rawOverNonRaw',
 }
 
 export enum SortDirection {
@@ -161,6 +160,9 @@ export enum ThumbnailAspectRatio {
   Contain = 'contain',
 }
 
+export type GroupPreference = 'jpeg' | 'raw';
+export type GroupingMode = 'off' | GroupPreference;
+
 export interface AppSettings {
   aiConnectorAddress?: string;
   aiProvider?: string;
@@ -178,6 +180,7 @@ export interface AppSettings {
   lastFolderState?: any;
   pinnedFolders?: any;
   lastRootPath: string | null;
+  rootFolders?: string[];
   libraryViewMode?: LibraryViewMode;
   sortCriteria?: SortCriteria;
   theme: Theme;
@@ -213,9 +216,13 @@ export interface AppSettings {
   language?: string;
   fontFamily?: string;
   folderTreeSort?: FolderTreeSort;
-  rootFolders?: string[];
   taggingShortcuts?: string[];
   libraryDisplayMode?: LibraryDisplayMode;
+  grouping?: GroupingMode;
+  requireMatchingExif?: boolean;
+  groupEditedFiles?: boolean;
+  groupPreferredType?: GroupPreference; // legacy
+  alwaysDecodeRawThumbnails?: boolean;
 }
 
 export interface BrushSettings {
@@ -260,6 +267,8 @@ export interface ImageFile {
   exif: { [key: string]: string } | null;
   is_virtual_copy: boolean;
   is_cloud_placeholder: boolean;
+  is_raw: boolean;
+  group_id: string | null;
 }
 
 export interface Option {
@@ -297,6 +306,7 @@ export interface Progress {
 
 export interface SelectedImage {
   exif: any;
+  group_id?: string | null;
   height: number;
   isRaw: boolean;
   isReady: boolean;

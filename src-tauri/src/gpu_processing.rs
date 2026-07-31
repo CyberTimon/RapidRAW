@@ -1649,8 +1649,6 @@ fn process_and_get_dynamic_image_inner(
         return Ok(base_image.clone());
     }
 
-    let mut reallocated = false;
-
     let mut processor_lock = state.gpu_processor.lock().unwrap();
     let mut needs_new_processor = false;
     let new_width = (width + 255) & !255;
@@ -1671,12 +1669,6 @@ fn process_and_get_dynamic_image_inner(
             new_height
         );
 
-        if let Ok(mut display_lock) = context.display.lock()
-            && let Some(display) = display_lock.as_mut()
-        {
-            display.current_bind_group = None;
-        }
-
         let old_processor = processor_lock.take();
         drop(old_processor);
 
@@ -1692,44 +1684,10 @@ fn process_and_get_dynamic_image_inner(
             width: new_width,
             height: new_height,
         });
-        reallocated = true;
     }
 
     let processor_state = processor_lock.as_ref().unwrap();
     let processor = &processor_state.processor;
-
-    if reallocated
-        && let Ok(mut display_lock) = context.display.lock()
-        && let Some(display) = display_lock.as_mut()
-    {
-        display.latest_transform.texture_size =
-            [processor_state.width as f32, processor_state.height as f32];
-        queue.write_buffer(
-            &display.transform_buffer,
-            0,
-            bytemuck::bytes_of(&display.latest_transform),
-        );
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &display.bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: display.transform_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&processor.output_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&display.sampler),
-                },
-            ],
-            label: Some("Migrated Display Bind Group"),
-        });
-        display.current_bind_group = Some(bind_group);
-    }
 
     let mut cache_lock = state.gpu_image_cache.lock().unwrap();
     let mut needs_new_cache = false;

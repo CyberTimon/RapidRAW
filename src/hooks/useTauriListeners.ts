@@ -74,9 +74,12 @@ export function useTauriListeners({
       listen('preview-update-uncropped', (event: any) => {
         if (isEffectActive) useEditorStore.getState().setEditor({ uncroppedAdjustedPreviewUrl: event.payload });
       }),
-      listen('histogram-update', (event: any) => {
+      listen('analytics-update', (event: any) => {
         if (isEffectActive && event.payload.path === useEditorStore.getState().selectedImage?.path) {
-          useEditorStore.getState().setEditor({ histogram: event.payload.data });
+          const update: { histogram?: any; waveform?: any } = {};
+          if (event.payload.histogram != null) update.histogram = event.payload.histogram;
+          if (event.payload.waveform != null) update.waveform = event.payload.waveform;
+          useEditorStore.getState().setEditor(update);
         }
       }),
       listen('open-with-file', (event: any) => {
@@ -84,11 +87,6 @@ export function useTauriListeners({
       }),
       listen('external-edit-session', (event: any) => {
         if (isEffectActive) useProcessStore.getState().setProcess({ externalEditSession: event.payload });
-      }),
-      listen('waveform-update', (event: any) => {
-        if (isEffectActive && event.payload.path === useEditorStore.getState().selectedImage?.path) {
-          useEditorStore.getState().setEditor({ waveform: event.payload.data });
-        }
       }),
       listen('thumbnail-progress', (event: any) => {
         if (isEffectActive)
@@ -165,6 +163,9 @@ export function useTauriListeners({
             status: Status.Error,
             errorMessage: typeof event.payload === 'string' ? event.payload : 'Unknown error',
           });
+      }),
+      listen('export-cancelling', () => {
+        if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Cancelling });
       }),
       listen('export-cancelled', () => {
         if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Cancelled });

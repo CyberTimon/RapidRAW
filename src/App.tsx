@@ -295,7 +295,7 @@ function App() {
     handleRenameAlbumItem,
   } = useLibraryActions(handleImageSelect);
 
-  const sortedImageList = useSortedLibrary();
+  const { displayList: sortedImageList, badges: groupBadgeInfo } = useSortedLibrary();
 
   const handleLibraryRefresh = useCallback(async () => {
     if (currentFolderPath) {
@@ -688,6 +688,7 @@ function App() {
               ) : (
                 <LibraryView
                   sortedImageList={sortedImageList}
+                  groupBadgeInfo={groupBadgeInfo}
                   thumbnailSize={thumbnailSize}
                   thumbnailAspectRatio={thumbnailAspectRatio}
                   libraryViewMode={libraryViewMode}

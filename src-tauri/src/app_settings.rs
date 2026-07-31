@@ -441,6 +441,20 @@ pub struct AppSettings {
     pub folder_tree_sort: Option<FolderTreeSort>,
     #[serde(default)]
     pub library_display_mode: Option<String>,
+    #[serde(default)]
+    pub grouping: Option<String>,
+    #[serde(default)]
+    pub require_matching_exif: Option<bool>,
+    #[serde(default)]
+    pub group_edited_files: Option<bool>,
+    #[serde(default, skip_serializing)] // legacy
+    #[allow(dead_code)]
+    pub group_associated_files: Option<bool>,
+    #[serde(default, skip_serializing)] // legacy
+    #[allow(dead_code)]
+    pub group_preferred_type: Option<String>,
+    #[serde(default)]
+    pub always_decode_raw_thumbnails: Option<bool>,
 }
 
 impl Default for AppSettings {
@@ -526,6 +540,12 @@ impl Default for AppSettings {
             language: Some("en".to_string()),
             folder_tree_sort: Some(FolderTreeSort::default()),
             library_display_mode: Some("grid".to_string()),
+            grouping: Some("off".to_string()),
+            require_matching_exif: Some(false),
+            group_edited_files: Some(true),
+            group_associated_files: Some(false),
+            group_preferred_type: Some("raw".to_string()),
+            always_decode_raw_thumbnails: Some(false),
         }
     }
 }

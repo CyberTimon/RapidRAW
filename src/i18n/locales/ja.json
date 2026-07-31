@@ -112,11 +112,18 @@
     },
     "effects": {
       "amount": "適用量",
+      "bokehCircular": "円形",
+      "bokehHexagonal": "六角形",
+      "bokehOctagonal": "八角形",
+      "bokehRing": "バブル（リング）",
+      "bokehShape": "ボケの形状",
       "creative": "クリエイティブ",
       "feather": "ぼかし",
       "glow": "グロー",
       "grain": "粒子",
       "halation": "ハレーション",
+      "lensBlur": "レンズぼかし",
+      "lensDiffusion": "拡散",
       "lightFlares": "ライトフレア",
       "lut": "LUT",
       "midpoint": "中間点",
@@ -358,6 +365,7 @@
       "dropzoneText": "ここにドロップして新しい編集を作成",
       "editSettingsTitle": "編集設定",
       "editsTitle": "編集一覧",
+      "generatingDepthMap": "AI深度マップを計算中...",
       "generativeEditTitle": "生成編集",
       "inpaintingTitle": "インペインティング",
       "manualCleanupTitle": "手動クリーンアップ",
@@ -713,6 +721,7 @@
       }
     },
     "toolbar": {
+      "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "絞り値",
         "backToLibrary": "ライブラリに戻る",
@@ -784,6 +793,7 @@
     "status": {
       "cancelExport": "書き出しをキャンセル",
       "cancelled": "書き出しがキャンセルされました",
+      "cancelling": "書き出しをキャンセル中…",
       "estimatedAverageSize": " (平均 {{size}})",
       "estimatedSize": "推定ファイルサイズ: ~{{size}}",
       "estimatedTotalSize": "推定合計サイズ: ~{{size}}",
@@ -884,7 +894,6 @@
       "raw": {
         "all": "すべての種類",
         "nonRawOnly": "非RAWのみ",
-        "preferRaw": "RAWを優先",
         "rawOnly": "RAWのみ"
       }
     },
@@ -948,6 +957,12 @@
         "filterByEdited": "編集状態でフィルター",
         "filterByFileType": "ファイル形式でフィルター",
         "filterByRating": "評価でフィルター",
+        "groupEditedFiles": "Include edited files in groups",
+        "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
+        "groupOff": "Off",
+        "groupPreferJpeg": "Prefer JPEG",
+        "groupPreferRaw": "Prefer RAW",
+        "groupRawJpeg": "Group RAW + JPEG",
         "metadataAlways": "常に表示",
         "metadataHover": "ホバー時に表示",
         "metadataOff": "オフ",
@@ -1485,8 +1500,10 @@
         "color_label_yellow": "カラーラベル: イエロー",
         "copy_adjustments": "選択した補正設定をコピー",
         "copy_files": "選択したファイルをコピー",
+        "copy_image_path": "選択した画像のパスをコピー",
         "cycle_zoom": "ズームの切り替え (全体表示、2倍拡大、100%)",
         "delete_selected": "選択したファイルを削除",
+        "focus_search": "検索フィールドにフォーカス",
         "open_image": "選択した画像を開く",
         "open_settings": "設定を開く",
         "paste_adjustments": "コピーした補正設定を貼り付け",
@@ -1595,6 +1612,9 @@
         },
         "title": "生成AI"
       },
+      "alwaysDecodeRaw": "常にRAWをデコード",
+      "alwaysDecodeRawDesc": "埋め込まれたJPEGプレビューを使用する代わりに、サムネイルの完全なRAWデコードを強制します。サムネイルの色やコントラストが開いた画像と異なる場合に有効にしてください。",
+      "alwaysDecodeRawLabel": "サムネイル用に常にRAWをデコード",
       "backend": "処理バックエンド",
       "backendDesc": "グラフィックスAPIを選択します。「自動」を推奨します。一部のシステムでのクラッシュを回避できる場合があります。",
       "backends": {

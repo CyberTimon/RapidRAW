@@ -222,9 +222,11 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
       isBackendReadyRef.current = true;
 
+      const imageFile = useLibraryStore.getState().imageList.find((img) => img.path === path);
       setEditor({
         selectedImage: {
           exif: null,
+          group_id: imageFile?.group_id ?? null,
           height: 0,
           isRaw: false,
           isReady: false,

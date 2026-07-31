@@ -25,6 +25,43 @@ pub const GEOMETRY_KEYS: &[&str] = &[
     "lensVignetteEnabled",
 ];
 
+pub fn calculate_thumbnail_base_hash(adjustments: &serde_json::Value) -> u64 {
+    let mut hasher = DefaultHasher::new();
+
+    calculate_geometry_hash(adjustments).hash(&mut hasher);
+
+    let effects_visible = adjustments
+        .get("sectionVisibility")
+        .and_then(|v| v.get("effects"))
+        .and_then(|s| s.as_bool())
+        .unwrap_or(true);
+
+    let blur_enabled = effects_visible && adjustments["lensBlurEnabled"].as_bool().unwrap_or(false);
+    blur_enabled.hash(&mut hasher);
+
+    if blur_enabled {
+        let blur_keys = [
+            "lensBlurAmount",
+            "lensBlurDiffusion",
+            "lensBlurShape",
+            "lensBlurMinDepth",
+            "lensBlurMaxDepth",
+            "lensBlurMinFade",
+            "lensBlurMaxFade",
+            "lensBlurDepthMap",
+        ];
+
+        for key in blur_keys {
+            if let Some(val) = adjustments.get(key) {
+                key.hash(&mut hasher);
+                val.to_string().hash(&mut hasher);
+            }
+        }
+    }
+
+    hasher.finish()
+}
+
 pub fn calculate_geometry_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
@@ -81,6 +118,41 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
 
     let flip_v = adjustments["flipVertical"].as_bool().unwrap_or(false);
     flip_v.hash(&mut hasher);
+
+    let effects_visible = adjustments
+        .get("sectionVisibility")
+        .and_then(|v| v.get("effects"))
+        .and_then(|s| s.as_bool())
+        .unwrap_or(true);
+
+    let blur_enabled = effects_visible && adjustments["lensBlurEnabled"].as_bool().unwrap_or(false);
+    blur_enabled.hash(&mut hasher);
+    if blur_enabled {
+        if let Some(val) = adjustments.get("lensBlurAmount") {
+            val.to_string().hash(&mut hasher);
+        }
+        if let Some(val) = adjustments.get("lensBlurDiffusion") {
+            val.to_string().hash(&mut hasher);
+        }
+        if let Some(val) = adjustments.get("lensBlurShape") {
+            val.as_str().unwrap_or("").hash(&mut hasher);
+        }
+        if let Some(val) = adjustments.get("lensBlurMinDepth") {
+            val.to_string().hash(&mut hasher);
+        }
+        if let Some(val) = adjustments.get("lensBlurMaxDepth") {
+            val.to_string().hash(&mut hasher);
+        }
+        if let Some(val) = adjustments.get("lensBlurMinFade") {
+            val.to_string().hash(&mut hasher);
+        }
+        if let Some(val) = adjustments.get("lensBlurMaxFade") {
+            val.to_string().hash(&mut hasher);
+        }
+        if let Some(val) = adjustments.get("lensBlurDepthMap") {
+            val.as_str().unwrap_or("").len().hash(&mut hasher);
+        }
+    }
 
     if let Some(crop_val) = adjustments.get("crop")
         && !crop_val.is_null()

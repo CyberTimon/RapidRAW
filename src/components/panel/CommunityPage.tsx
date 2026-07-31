@@ -11,6 +11,7 @@ import { INITIAL_ADJUSTMENTS } from '../../utils/adjustments';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import Dropdown from '../ui/Dropdown';
+import { useUIStore } from '../../store/useUIStore';
 
 const DEFAULT_PREVIEW_IMAGE_URL = 'https://raw.githubusercontent.com/CyberTimon/RapidRAW-Presets/main/sample-image.jpg';
 
@@ -65,6 +66,9 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
   const [previewImagePaths, setPreviewImagePaths] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchFocusRequest = useUIStore((state) => state.searchFocusRequest);
+  const lastSearchFocusRequest = useRef(searchFocusRequest);
   const [downloadStatus, setDownloadStatus] = useState<Record<string, 'idle' | 'downloading' | 'success'>>({});
   const [allPreviewsLoaded, setAllPreviewsLoaded] = useState(false);
 
@@ -194,6 +198,12 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
     }
   };
 
+  useEffect(() => {
+    if (searchFocusRequest === lastSearchFocusRequest.current) return;
+    lastSearchFocusRequest.current = searchFocusRequest;
+    searchInputRef.current?.focus();
+  }, [searchFocusRequest]);
+
   const filteredAndSortedPresets = useMemo(() => {
     return presets
       .filter((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -229,6 +239,7 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
       <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
         <div className="relative">
           <Input
+            ref={searchInputRef}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={t('library.community.searchPlaceholder')}

@@ -90,6 +90,7 @@ export interface ImportState {
 
 export enum Status {
   Cancelled = 'cancelled',
+  Cancelling = 'cancelling',
   Exporting = 'exporting',
   Error = 'error',
   Idle = 'idle',

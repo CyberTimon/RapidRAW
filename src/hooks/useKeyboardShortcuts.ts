@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { toast } from 'react-toastify';
 import { ImageFile, Panel, ExifOverlay } from '../components/ui/AppProperties';
 import { KEYBIND_DEFINITIONS, normalizeCombo } from '../utils/keyboardUtils';
 import { useEditorStore } from '../store/useEditorStore';
@@ -36,6 +37,19 @@ export const useKeyboardShortcuts = ({
     sortedListRef.current = sortedImageList;
   }, [sortedImageList]);
 
+  const handleCopyImagePaths = useCallback(async (paths: Array<string>) => {
+    const physicalPaths = [...new Set(paths.map((path) => path.split('?vc=')[0]))];
+    if (physicalPaths.length === 0) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(physicalPaths.join('\n'));
+    } catch (err) {
+      console.error('Failed to copy image path to clipboard', err);
+      toast.error(`Failed to copy path: ${err}`);
+    }
+  }, []);
+
   useEffect(() => {
     const getStoreState = () => ({
       editor: useEditorStore.getState(),
@@ -55,6 +69,21 @@ export const useKeyboardShortcuts = ({
         comboMap.set(effective.join('+'), def.action);
       }
     }
+
+    const getImagePathsForCopy = (s: any): Array<string> => {
+      if (s.editor.selectedImage) {
+        return [s.editor.selectedImage.path];
+      }
+      const { libraryActivePath, multiSelectedPaths } = s.library;
+      if (multiSelectedPaths.length > 0) {
+        const listOrder = new Map(sortedListRef.current.map((image: ImageFile, index: number) => [image.path, index]));
+        return [...multiSelectedPaths].sort(
+          (a: string, b: string) =>
+            (listOrder.get(a) ?? Number.MAX_SAFE_INTEGER) - (listOrder.get(b) ?? Number.MAX_SAFE_INTEGER),
+        );
+      }
+      return libraryActivePath ? [libraryActivePath] : [];
+    };
 
     const actions: Record<string, any> = {
       open_image: {
@@ -76,6 +105,13 @@ export const useKeyboardShortcuts = ({
         execute: (e: any) => {
           e.preventDefault();
           handlePasteAdjustments();
+        },
+      },
+      copy_image_path: {
+        shouldFire: (s: any) => getImagePathsForCopy(s).length > 0,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          handleCopyImagePaths(getImagePathsForCopy(s));
         },
       },
       copy_files: {
@@ -340,6 +376,13 @@ export const useKeyboardShortcuts = ({
           s.ui.setUI({ isSettingsOpen: true });
         },
       },
+      focus_search: {
+        shouldFire: (s: any) => !s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.ui.requestSearchFocus();
+        },
+      },
       toggle_crop: {
         shouldFire: (s: any) => !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
@@ -583,6 +626,7 @@ export const useKeyboardShortcuts = ({
     handleZoomChange,
     handleRotate,
     handleCopyAdjustments,
+    handleCopyImagePaths,
     handlePasteAdjustments,
     handleRate,
     handleSetColorLabel,

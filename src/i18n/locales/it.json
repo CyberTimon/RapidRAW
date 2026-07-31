@@ -112,11 +112,18 @@
     },
     "effects": {
       "amount": "Quantità",
+      "bokehCircular": "Circolare",
+      "bokehHexagonal": "Esagonale",
+      "bokehOctagonal": "Ottagonale",
+      "bokehRing": "Bolla (Anello)",
+      "bokehShape": "Forma del bokeh",
       "creative": "Creativo",
       "feather": "Sfumatura",
       "glow": "Bagliore",
       "grain": "Grana",
       "halation": "Alonatura",
+      "lensBlur": "Sfocatura obiettivo",
+      "lensDiffusion": "Diffusione",
       "lightFlares": "Riflessi di Luce",
       "lut": "LUT",
       "midpoint": "Punto Medio",
@@ -374,6 +381,7 @@
       "dropzoneText": "Rilascia qui per creare una nuova modifica",
       "editSettingsTitle": "Impostazioni Modifica",
       "editsTitle": "Modifiche",
+      "generatingDepthMap": "Calcolo mappa di profondità IA...",
       "generativeEditTitle": "Modifica generativa",
       "inpaintingTitle": "Inpainting",
       "manualCleanupTitle": "Pulizia manuale",
@@ -736,6 +744,7 @@
       }
     },
     "toolbar": {
+      "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "Apertura",
         "backToLibrary": "Torna alla Libreria",
@@ -808,6 +817,7 @@
     "status": {
       "cancelExport": "Annulla Esportazione",
       "cancelled": "Esportazione annullata",
+      "cancelling": "Annullamento esportazione…",
       "estimatedAverageSize": " ({{size}} media)",
       "estimatedSize": "Dimensione file stimata: ~{{size}}",
       "estimatedTotalSize": "Dimensione totale stimata: ~{{size}}",
@@ -909,7 +919,6 @@
       "raw": {
         "all": "Tutti i Tipi",
         "nonRawOnly": "Solo non RAW",
-        "preferRaw": "Preferisci RAW",
         "rawOnly": "Solo RAW"
       }
     },
@@ -973,6 +982,12 @@
         "filterByEdited": "Filtra per Stato Modifica",
         "filterByFileType": "Filtra per Tipo di File",
         "filterByRating": "Filtra per Valutazione",
+        "groupEditedFiles": "Include edited files in groups",
+        "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
+        "groupOff": "Off",
+        "groupPreferJpeg": "Prefer JPEG",
+        "groupPreferRaw": "Prefer RAW",
+        "groupRawJpeg": "Group RAW + JPEG",
         "metadataAlways": "Sempre",
         "metadataHover": "Al passaggio del mouse",
         "metadataOff": "Spento",
@@ -1520,8 +1535,10 @@
         "color_label_yellow": "Etichetta colore: Giallo",
         "copy_adjustments": "Copia regolazioni selezionate",
         "copy_files": "Copia file selezionati",
+        "copy_image_path": "Copia il percorso delle immagini selezionate",
         "cycle_zoom": "Ruota zoom (Adatta, Adatta 2x, 100%)",
         "delete_selected": "Elimina file selezionati",
+        "focus_search": "Attiva il campo di ricerca",
         "open_image": "Apri immagine selezionata",
         "open_settings": "Apri le impostazioni",
         "paste_adjustments": "Incolla regolazioni copiate",
@@ -1630,6 +1647,9 @@
         },
         "title": "AI Generativa"
       },
+      "alwaysDecodeRaw": "Decodifica RAW sempre",
+      "alwaysDecodeRawDesc": "Forza la decodifica RAW completa per le miniature invece di usare le anteprime JPEG incorporate. Attiva questa opzione se i colori o il contrasto delle miniature sono diversi dall'immagine aperta.",
+      "alwaysDecodeRawLabel": "Decodifica RAW sempre per le miniature",
       "backend": "Backend di Elaborazione",
       "backendDesc": "Seleziona l'API grafica. 'Auto' è consigliata. Potrebbe risolvere i crash su alcuni sistemi.",
       "backends": {

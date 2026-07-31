@@ -4,6 +4,7 @@ import { ChevronUp, ChevronDown } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import { useTranslation } from 'react-i18next';
 import { Row } from './LibraryItems';
+import { useShallow } from 'zustand/react/shallow';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { LibraryViewMode, SortDirection, LibraryDisplayMode } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
@@ -11,6 +12,7 @@ import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../..
 import { useProcessStore } from '../../../store/useProcessStore';
 import { ExifOverlay } from '../../ui/AppProperties';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+
 
 function ListHeader({ widths, setWidths, containerRef, sortCriteria, onSortChange }: any) {
   const { t } = useTranslation();
@@ -172,8 +174,17 @@ export default function LibraryGrid(props: any) {
     onRequestThumbnails,
     thumbnailSizeOptions,
     onThumbnailSizeChange,
+    groupBadgeInfo,
   } = props;
-  const { listColumnWidths, setLibrary, sortCriteria, setSortCriteria } = useLibraryStore();
+  const { listColumnWidths, setLibrary, sortCriteria, setSortCriteria } = useLibraryStore(
+    useShallow((state) => ({
+      listColumnWidths: state.listColumnWidths,
+      setLibrary: state.setLibrary,
+      sortCriteria: state.sortCriteria,
+      setSortCriteria: state.setSortCriteria,
+    })),
+  );
+
   const [gridSize, setGridSize] = useState({ height: 0, width: 0 });
   const [listHandle, setListHandle] = useListCallbackRef();
   const [collapsedRecursiveFolders, setCollapsedRecursiveFolders] = useState<Set<string>>(new Set());
@@ -456,6 +467,7 @@ export default function LibraryGrid(props: any) {
       columnWidths: listColumnWidths,
       queueThumbnailRequest,
       onToggleRecursiveFolder: handleToggleRecursiveFolder,
+      groupBadgeInfo,
     };
   }, [
     gridData,
@@ -471,7 +483,17 @@ export default function LibraryGrid(props: any) {
     listColumnWidths,
     queueThumbnailRequest,
     handleToggleRecursiveFolder,
+    groupBadgeInfo,
   ]);
+
+  const getItemSize = useCallback(
+    (index: number) => {
+      if (!gridData) return 0;
+      if (gridData.rows[index].type === 'footer') return gridData.isListView ? 24 : gridData.OUTER_PADDING;
+      return gridData.rows[index].type === 'header' ? gridData.headerHeight : gridData.rowHeight;
+    },
+    [gridData],
+  );
 
   if (!gridData) {
     return (
@@ -483,11 +505,6 @@ export default function LibraryGrid(props: any) {
       />
     );
   }
-
-  const getItemSize = (index: number) => {
-    if (gridData.rows[index].type === 'footer') return gridData.isListView ? 24 : gridData.OUTER_PADDING;
-    return gridData.rows[index].type === 'header' ? gridData.headerHeight : gridData.rowHeight;
-  };
 
   const handleHeaderSort = (key: string) => {
     props.onClearSelection();

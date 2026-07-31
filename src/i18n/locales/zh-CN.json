@@ -112,11 +112,18 @@
     },
     "effects": {
       "amount": "数量",
+      "bokehCircular": "圆形",
+      "bokehHexagonal": "六边形",
+      "bokehOctagonal": "八边形",
+      "bokehRing": "气泡（环形）",
+      "bokehShape": "散景形状",
       "creative": "创意",
       "feather": "羽化",
       "glow": "发光",
       "grain": "颗粒",
       "halation": "光晕",
+      "lensBlur": "镜头模糊",
+      "lensDiffusion": "扩散",
       "lightFlares": "光线耀斑",
       "lut": "LUT",
       "midpoint": "中点",
@@ -358,6 +365,7 @@
       "dropzoneText": "拖放到此处以创建新编辑",
       "editSettingsTitle": "编辑设置",
       "editsTitle": "编辑",
+      "generatingDepthMap": "正在计算 AI 深度图...",
       "generativeEditTitle": "生成式编辑",
       "inpaintingTitle": "图像修复",
       "manualCleanupTitle": "手动清理",
@@ -713,6 +721,7 @@
       }
     },
     "toolbar": {
+      "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "光圈",
         "backToLibrary": "返回图库",
@@ -784,6 +793,7 @@
     "status": {
       "cancelExport": "取消导出",
       "cancelled": "导出已取消",
+      "cancelling": "正在取消导出…",
       "estimatedAverageSize": "（平均 {{size}}）",
       "estimatedSize": "预计文件大小：约 {{size}}",
       "estimatedTotalSize": "预计总大小：约 {{size}}",
@@ -884,7 +894,6 @@
       "raw": {
         "all": "所有类型",
         "nonRawOnly": "仅非 RAW",
-        "preferRaw": "优先 RAW",
         "rawOnly": "仅 RAW"
       }
     },
@@ -948,6 +957,12 @@
         "filterByEdited": "按编辑状态过滤",
         "filterByFileType": "按文件类型过滤",
         "filterByRating": "按评分过滤",
+        "groupEditedFiles": "Include edited files in groups",
+        "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
+        "groupOff": "Off",
+        "groupPreferJpeg": "Prefer JPEG",
+        "groupPreferRaw": "Prefer RAW",
+        "groupRawJpeg": "Group RAW + JPEG",
         "metadataAlways": "始终",
         "metadataHover": "悬停时",
         "metadataOff": "关闭",
@@ -1485,8 +1500,10 @@
         "color_label_yellow": "颜色标签：黄色",
         "copy_adjustments": "复制选中的调整",
         "copy_files": "复制选中的文件",
+        "copy_image_path": "复制所选图片的路径",
         "cycle_zoom": "循环缩放（适应、2倍适应、100%）",
         "delete_selected": "删除选中的文件",
+        "focus_search": "聚焦搜索框",
         "open_image": "打开选中的图像",
         "open_settings": "打开设置",
         "paste_adjustments": "粘贴复制的调整",
@@ -1595,6 +1612,9 @@
         },
         "title": "生成式 AI"
       },
+      "alwaysDecodeRaw": "始终解码 RAW",
+      "alwaysDecodeRawDesc": "强制对缩略图进行完整的 RAW 解码，而不是使用内置的 JPEG 预览。如果您的缩略图在颜色或对比度上与打开的图像不同，请启用此选项。",
+      "alwaysDecodeRawLabel": "始终为缩略图解码 RAW",
       "backend": "处理后端",
       "backendDesc": "选择图形 API。推荐使用「自动」。在某些系统上可能解决崩溃问题。",
       "backends": {

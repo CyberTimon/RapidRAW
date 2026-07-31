@@ -129,6 +129,8 @@ interface UIState {
   setRightPanel: (panel: Panel | null) => void;
   customEscapeHandler: (() => void) | null;
   setCustomEscapeHandler: (handler: (() => void) | null) => void;
+  searchFocusRequest: number;
+  requestSearchFocus: () => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -215,4 +217,7 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   customEscapeHandler: null,
   setCustomEscapeHandler: (handler) => set({ customEscapeHandler: handler }),
+
+  searchFocusRequest: 0,
+  requestSearchFocus: () => set((state) => ({ searchFocusRequest: state.searchFocusRequest + 1 })),
 }));

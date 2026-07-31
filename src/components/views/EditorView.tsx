@@ -144,6 +144,7 @@ export default function EditorView({
     <Editor
       onBackToLibrary={handleBackToLibrary}
       onContextMenu={handleEditorContextMenu}
+      onImageSelect={handleImageClick}
       transformWrapperRef={transformWrapperRef}
     />
   );

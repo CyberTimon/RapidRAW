@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import clsx from 'clsx';
 import {
   Search,
   Loader2,
@@ -22,12 +23,18 @@ import {
   SortCriteria,
   SortDirection,
   ExifOverlay,
+  GroupingMode,
+  ThumbnailSize,
+  ThumbnailAspectRatio,
 } from '../../ui/AppProperties';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
 import Button from '../../ui/Button';
+import Switch from '../../ui/Switch';
+import Dropdown from '../../ui/Dropdown';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useUIStore } from '../../../store/useUIStore';
 import { ADVANCED_QUERY_REGEX } from '../../../hooks/useSortedLibrary';
 
 function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName = 'w-56' }: any) {
@@ -78,6 +85,159 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
   );
 }
 
+interface SegmentedSwitchProps {
+  options: { id: string | number; label: string }[];
+  value: string | number;
+  onChange: (id: any) => void;
+}
+
+const SegmentedSwitch = ({ options, value, onChange }: SegmentedSwitchProps) => {
+  const [bubbleStyle, setBubbleStyle] = useState({});
+  const isInitialAnimation = useRef(true);
+
+  const selectedIndex = options.findIndex((m) => m.id === value);
+  const hasSelection = selectedIndex >= 0;
+
+  useEffect(() => {
+    const safeIndex = hasSelection ? selectedIndex : 0;
+    const widthPercent = 100 / options.length;
+    const targetX = `${safeIndex * 100}%`;
+    const targetWidth = `${widthPercent}%`;
+
+    if (isInitialAnimation.current) {
+      setBubbleStyle({ x: targetX, width: targetWidth, opacity: hasSelection ? 1 : 0 });
+      isInitialAnimation.current = false;
+    } else {
+      setBubbleStyle({ x: targetX, width: targetWidth, opacity: hasSelection ? 1 : 0 });
+    }
+  }, [value, options, hasSelection]);
+
+  return (
+    <div className="w-full bg-bg-primary p-1 rounded-md">
+      <div className="relative flex w-full">
+        <motion.div
+          className="absolute top-0 bottom-0 left-0 z-0 bg-card-active shadow-xs"
+          style={{ borderRadius: 6 }}
+          animate={bubbleStyle}
+          initial={false}
+          transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+        />
+        {options.map((option) => (
+          <button
+            key={option.id}
+            onClick={() => onChange(option.id)}
+            className={clsx(
+              'relative flex-1 flex items-center justify-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors truncate',
+              {
+                'text-text-secondary hover:text-text-primary': value !== option.id,
+                'text-text-primary font-semibold': value === option.id,
+              },
+            )}
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            <span className="relative z-10">{option.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions }: any) => {
+  const [bubbleStyle, setBubbleStyle] = useState({});
+  const isInitialAnimation = useRef(true);
+
+  const getActiveIndex = () => {
+    if (rating === 0) return 0;
+    if (rating <= -1) return 1;
+    return 2;
+  };
+
+  const activeIndex = getActiveIndex();
+
+  useEffect(() => {
+    const targetX = `${activeIndex * 100}%`;
+    const targetWidth = '33.333333%';
+
+    if (isInitialAnimation.current) {
+      setBubbleStyle({ x: targetX, width: targetWidth });
+      isInitialAnimation.current = false;
+    } else {
+      setBubbleStyle({ x: targetX, width: targetWidth });
+    }
+  }, [activeIndex]);
+
+  return (
+    <div className="w-full bg-bg-primary p-1 rounded-md">
+      <div className="relative flex w-full">
+        <motion.div
+          className="absolute top-0 bottom-0 left-0 z-0 bg-card-active shadow-xs"
+          style={{ borderRadius: 6 }}
+          animate={bubbleStyle}
+          initial={false}
+          transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+        />
+
+        <button
+          onClick={() => onChange(0)}
+          className={clsx(
+            'relative flex-1 flex items-center justify-center px-1 py-1.5 text-xs rounded-md transition-colors truncate',
+            activeIndex === 0 ? 'text-text-primary font-semibold' : 'text-text-secondary hover:text-text-primary',
+          )}
+        >
+          <span className="relative z-10">{ratingFilterOptions.find((o: any) => o.value === 0)?.label || 'All'}</span>
+        </button>
+
+        <button
+          onClick={() => onChange(-1)}
+          className={clsx(
+            'relative flex-1 flex items-center justify-center px-1 py-1.5 text-xs rounded-md transition-colors truncate',
+            activeIndex === 1 ? 'text-text-primary font-semibold' : 'text-text-secondary hover:text-text-primary',
+          )}
+        >
+          <span className="relative z-10">
+            {ratingFilterOptions.find((o: any) => o.value === -1)?.label || 'Unrated'}
+          </span>
+        </button>
+
+        <div
+          className={clsx(
+            'relative flex-1 flex items-center justify-center gap-0.5 px-1 py-1.5 transition-colors',
+            activeIndex === 2 ? 'text-text-primary' : 'text-text-secondary',
+          )}
+        >
+          <div className="flex items-center z-10">
+            {[...Array(5)].map((_, index) => {
+              const starValue = index + 1;
+              const isFilled = rating > 0 && starValue <= rating;
+              const optionLabel = ratingFilterOptions.find((o: any) => o.value === starValue)?.label;
+
+              return (
+                <button
+                  key={starValue}
+                  data-tooltip={optionLabel}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange(rating === starValue ? 0 : starValue);
+                  }}
+                  className="focus:outline-hidden transition-transform hover:scale-110 flex items-center justify-center p-0.5"
+                >
+                  <StarIcon
+                    size={14}
+                    className={`transition-colors duration-150 ${
+                      isFilled ? 'text-accent fill-accent' : 'text-text-secondary hover:text-accent'
+                    }`}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export function SearchInput({ indexingProgress, isIndexing }: any) {
   const { t } = useTranslation();
   const { searchCriteria, setSearchCriteria } = useLibraryStore(
@@ -88,6 +248,8 @@ export function SearchInput({ indexingProgress, isIndexing }: any) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const { tags, text, mode } = searchCriteria;
+  const searchFocusRequest = useUIStore((state) => state.searchFocusRequest);
+  const lastSearchFocusRequest = useRef(searchFocusRequest);
 
   const [contentWidth, setContentWidth] = useState(0);
 
@@ -96,6 +258,13 @@ export function SearchInput({ indexingProgress, isIndexing }: any) {
       inputRef.current?.focus();
     }
   }, [isSearchActive]);
+
+  useEffect(() => {
+    if (searchFocusRequest === lastSearchFocusRequest.current) return;
+    lastSearchFocusRequest.current = searchFocusRequest;
+    setIsSearchActive(true);
+    inputRef.current?.focus();
+  }, [searchFocusRequest]);
 
   useEffect(() => {
     function handleClickOutside(event: any) {
@@ -298,10 +467,33 @@ export function SearchInput({ indexingProgress, isIndexing }: any) {
   );
 }
 
+const groupingOptionKeys = [
+  { key: 'off' as GroupingMode, labelKey: 'library.header.viewOptions.groupOff' as const },
+  { key: 'raw' as GroupingMode, labelKey: 'library.header.viewOptions.groupPreferRaw' as const },
+  { key: 'jpeg' as GroupingMode, labelKey: 'library.header.viewOptions.groupPreferJpeg' as const },
+];
+
+interface ViewOptionsDropdownProps {
+  libraryViewMode: LibraryViewMode;
+  onSelectSize: (id: ThumbnailSize) => void;
+  onSelectAspectRatio: (id: ThumbnailAspectRatio) => void;
+  onLibraryRefresh?: () => void;
+  setLibraryViewMode: (mode: LibraryViewMode) => void;
+  thumbnailSize: ThumbnailSize;
+  thumbnailAspectRatio: ThumbnailAspectRatio;
+  thumbnailSizeOptions: Array<{ id: ThumbnailSize; label: string; size: number }>;
+  thumbnailAspectRatioOptions: Array<{ id: ThumbnailAspectRatio; label: string }>;
+  ratingFilterOptions: Array<{ value: number; label: string }>;
+  rawStatusOptions: Array<{ key: RawStatus; label: string }>;
+  editedStatusOptions: Array<{ key: EditedStatus; label: string }>;
+  sortOptions: Array<{ key: string; label: string; disabled?: boolean }>;
+}
+
 export function ViewOptionsDropdown({
   libraryViewMode,
   onSelectSize,
   onSelectAspectRatio,
+  onLibraryRefresh,
   setLibraryViewMode,
   thumbnailSize,
   thumbnailAspectRatio,
@@ -311,7 +503,7 @@ export function ViewOptionsDropdown({
   rawStatusOptions,
   editedStatusOptions,
   sortOptions,
-}: any) {
+}: ViewOptionsDropdownProps) {
   const { t } = useTranslation();
   const { filterCriteria, setFilterCriteria, sortCriteria, setSortCriteria } = useLibraryStore(
     useShallow((state) => ({
@@ -329,9 +521,13 @@ export function ViewOptionsDropdown({
     })),
   );
 
+  const groupingMode: GroupingMode = appSettings?.grouping ?? 'off';
+  const requireMatchingExif = appSettings?.requireMatchingExif ?? false;
+
   const isFilterActive =
     filterCriteria.rating !== 0 ||
     (filterCriteria.rawStatus && filterCriteria.rawStatus !== RawStatus.All) ||
+    (filterCriteria.editedStatus && filterCriteria.editedStatus !== EditedStatus.All) ||
     (filterCriteria.colors && filterCriteria.colors.length > 0);
 
   const [lastClickedColor, setLastClickedColor] = useState<string | null>(null);
@@ -383,321 +579,13 @@ export function ViewOptionsDropdown({
         </>
       }
       buttonTitle={t('library.header.viewOptions.title')}
-      contentClassName="library-view-options-menu w-[720px]"
+      contentClassName="library-view-options-menu w-[760px]"
     >
       <div className="library-view-options-content flex">
-        <div className="library-view-options-section w-1/4 p-2 border-r border-border-color">
-          <>
-            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
-              {t('library.header.viewOptions.thumbnailSize')}
-            </Text>
-            {thumbnailSizeOptions.map((option: any) => {
-              const isSelected = thumbnailSize === option.id;
-              return (
-                <button
-                  className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
-                    isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
-                  }`}
-                  key={option.id}
-                  onClick={() => onSelectSize(option.id)}
-                  role="menuitem"
-                >
-                  <Text
-                    variant={TextVariants.label}
-                    color={TextColors.primary}
-                    weight={isSelected ? TextWeights.semibold : TextWeights.normal}
-                  >
-                    {option.label}
-                  </Text>
-                  {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
-                </button>
-              );
-            })}
-          </>
-
-          <div className="pt-2">
-            <>
-              <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
-                {t('library.header.viewOptions.thumbnailFit')}
-              </Text>
-              {thumbnailAspectRatioOptions.map((option: any) => {
-                const isSelected = thumbnailAspectRatio === option.id;
-                return (
-                  <button
-                    className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
-                      isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
-                    }`}
-                    key={option.id}
-                    onClick={() => onSelectAspectRatio(option.id)}
-                    role="menuitem"
-                  >
-                    <Text
-                      variant={TextVariants.label}
-                      color={TextColors.primary}
-                      weight={isSelected ? TextWeights.semibold : TextWeights.normal}
-                    >
-                      {option.label}
-                    </Text>
-                    {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
-                  </button>
-                );
-              })}
-            </>
-          </div>
-
-          <div className="pt-2">
-            <>
-              <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
-                {t('library.header.viewOptions.displayMode')}
-              </Text>
-              <button
-                className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
-                  libraryViewMode === LibraryViewMode.Flat ? 'bg-card-active' : 'hover:bg-bg-primary'
-                }`}
-                onClick={() => setLibraryViewMode(LibraryViewMode.Flat)}
-                role="menuitem"
-              >
-                <Text
-                  variant={TextVariants.label}
-                  color={TextColors.primary}
-                  weight={libraryViewMode === LibraryViewMode.Flat ? TextWeights.semibold : TextWeights.normal}
-                >
-                  {t('library.header.viewOptions.currentFolder')}
-                </Text>
-                {libraryViewMode === LibraryViewMode.Flat && (
-                  <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />
-                )}
-              </button>
-              <button
-                className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
-                  libraryViewMode === LibraryViewMode.Recursive ? 'bg-card-active' : 'hover:bg-bg-primary'
-                }`}
-                onClick={() => setLibraryViewMode(LibraryViewMode.Recursive)}
-                role="menuitem"
-              >
-                <Text
-                  variant={TextVariants.label}
-                  color={TextColors.primary}
-                  weight={libraryViewMode === LibraryViewMode.Recursive ? TextWeights.semibold : TextWeights.normal}
-                >
-                  {t('library.header.viewOptions.recursive')}
-                </Text>
-                {libraryViewMode === LibraryViewMode.Recursive && (
-                  <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />
-                )}
-              </button>
-            </>
-          </div>
-
-          <div className="pt-2">
-            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
-              {t('library.header.viewOptions.showMetadata')}
-            </Text>
-            {metadataOptions.map((option) => {
-              const isSelected = (appSettings?.exifOverlay || ExifOverlay.Off) === option.id;
-              return (
-                <button
-                  key={option.id}
-                  className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
-                    isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
-                  }`}
-                  onClick={() => handleSettingsChange({ ...appSettings!, exifOverlay: option.id })}
-                >
-                  <Text
-                    variant={TextVariants.label}
-                    color={TextColors.primary}
-                    weight={isSelected ? TextWeights.semibold : TextWeights.normal}
-                  >
-                    {option.label}
-                  </Text>
-                  {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="library-view-options-section w-2/4 p-2 border-r border-border-color">
-          <div className="space-y-4">
-            <div>
-              <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
-                {t('library.header.viewOptions.filterByRating')}
-              </Text>
-
-              {ratingFilterOptions
-                .filter((option: any) => option.value <= 0)
-                .map((option: any) => {
-                  const isSelected = filterCriteria.rating === option.value;
-                  return (
-                    <button
-                      className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
-                        isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
-                      }`}
-                      key={option.value}
-                      onClick={() =>
-                        setFilterCriteria((prev: Partial<FilterCriteria>) => ({ ...prev, rating: option.value }))
-                      }
-                      role="menuitem"
-                    >
-                      <Text
-                        variant={TextVariants.label}
-                        color={TextColors.primary}
-                        weight={isSelected ? TextWeights.semibold : TextWeights.normal}
-                      >
-                        {option.label}
-                      </Text>
-                      {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
-                    </button>
-                  );
-                })}
-
-              <div
-                className={`w-full px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
-                  filterCriteria.rating > 0 ? 'bg-card-active' : 'hover:bg-bg-primary'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    {[...Array(5)].map((_, index: number) => {
-                      const starValue = index + 1;
-                      const isFilled = filterCriteria.rating > 0 && starValue <= filterCriteria.rating;
-                      const optionLabel = ratingFilterOptions.find((o: any) => o.value === starValue)?.label;
-
-                      return (
-                        <button
-                          key={starValue}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFilterCriteria((prev: Partial<FilterCriteria>) => ({
-                              ...prev,
-                              rating: prev.rating === starValue ? 0 : starValue,
-                            }));
-                          }}
-                          className="focus:outline-hidden transition-transform hover:scale-110 flex items-center justify-center p-0.5"
-                          data-tooltip={optionLabel}
-                        >
-                          <StarIcon
-                            size={18}
-                            className={`transition-colors duration-150 ${
-                              isFilled ? 'text-accent fill-accent' : 'text-text-secondary hover:text-accent'
-                            }`}
-                          />
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <Text variant={TextVariants.label} color={TextColors.secondary}>
-                    {filterCriteria.rating === 5
-                      ? t('library.filters.rating.onlySuffix')
-                      : t('library.filters.rating.andUpSuffix')}
-                  </Text>
-                </div>
-                {filterCriteria.rating > 0 && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
-              </div>
-            </div>
-
-            <div>
-              <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
-                {t('library.header.viewOptions.filterByFileType')}
-              </Text>
-              {rawStatusOptions.map((option: any) => {
-                const isSelected = (filterCriteria.rawStatus || RawStatus.All) === option.key;
-                return (
-                  <button
-                    className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
-                      isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
-                    }`}
-                    key={option.key}
-                    onClick={() =>
-                      setFilterCriteria((prev: Partial<FilterCriteria>) => ({ ...prev, rawStatus: option.key }))
-                    }
-                    role="menuitem"
-                  >
-                    <Text
-                      variant={TextVariants.label}
-                      color={TextColors.primary}
-                      weight={isSelected ? TextWeights.semibold : TextWeights.normal}
-                    >
-                      {option.label}
-                    </Text>
-                    {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div>
-              <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
-                {t('library.header.viewOptions.filterByEdited', 'Filter by Edit Status')}
-              </Text>
-              {editedStatusOptions.map((option: any) => {
-                const isSelected = (filterCriteria.editedStatus || EditedStatus.All) === option.key;
-                return (
-                  <button
-                    className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
-                      isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
-                    }`}
-                    key={option.key}
-                    onClick={() =>
-                      setFilterCriteria((prev: Partial<FilterCriteria>) => ({ ...prev, editedStatus: option.key }))
-                    }
-                    role="menuitem"
-                  >
-                    <Text
-                      variant={TextVariants.label}
-                      color={TextColors.primary}
-                      weight={isSelected ? TextWeights.semibold : TextWeights.normal}
-                    >
-                      {option.label}
-                    </Text>
-                    {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="py-2"></div>
-
+        {/* Left Column (50%) - View Settings */}
+        <div className="library-view-options-section w-1/2 py-4 px-2 border-r border-border-color space-y-5">
           <div>
-            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-2 uppercase">
-              {t('library.header.viewOptions.filterByColorLabel')}
-            </Text>
-            <div className="flex flex-wrap gap-3 px-3 py-2">
-              {allColors.map((color: Color) => {
-                const isSelected = (filterCriteria.colors || []).includes(color.name);
-                const title =
-                  color.name === 'none'
-                    ? t('library.header.viewOptions.noLabel')
-                    : t(`contextMenus.colors.${color.name}`, {
-                        defaultValue: color.name.charAt(0).toUpperCase() + color.name.slice(1),
-                      });
-                return (
-                  <button
-                    key={color.name}
-                    data-tooltip={title}
-                    onClick={(e: any) => handleColorClick(color.name, e)}
-                    className="w-6 h-6 rounded-full focus:outline-hidden focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface transition-transform hover:scale-110"
-                    role="menuitem"
-                  >
-                    <div className="relative w-full h-full">
-                      <div className="w-full h-full rounded-full" style={{ backgroundColor: color.color }}></div>
-                      {isSelected && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
-                          <Check size={14} className={TEXT_COLOR_KEYS[TextColors.white]} />
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="library-view-options-section w-1/4 p-2">
-          <>
-            <div className="px-3 py-2 relative flex items-center">
+            <div className="px-3 py-1 relative flex items-center">
               <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="uppercase">
                 {t('library.header.viewOptions.sortBy')}
               </Text>
@@ -713,38 +601,201 @@ export function ViewOptionsDropdown({
                     ? t('library.header.viewOptions.sortDescending')
                     : t('library.header.viewOptions.sortAscending')
                 }
-                className="absolute top-1/2 right-3 -translate-y-1/2 p-1 bg-transparent border-none text-text-secondary hover:text-text-primary rounded-sm"
+                className="absolute top-1/2 right-3 -translate-y-1/2 p-1 bg-transparent border-none text-text-secondary hover:text-text-primary rounded-sm transition-colors"
               >
                 {sortCriteria.order === SortDirection.Ascending ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
             </div>
-            {sortOptions.map((option: any) => {
-              const isSelected = sortCriteria.key === option.key;
-              return (
-                <button
-                  className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150 ${
-                    isSelected ? 'bg-card-active' : 'hover:bg-bg-primary'
-                  } ${option.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  key={option.key}
-                  onClick={() =>
-                    !option.disabled && setSortCriteria((prev: SortCriteria) => ({ ...prev, key: option.key }))
+            <div className="px-3 mt-1">
+              <Dropdown
+                options={sortOptions.map((opt) => ({ value: opt.key, label: opt.label, disabled: opt.disabled }))}
+                value={sortCriteria.key}
+                onChange={(val) => setSortCriteria((prev: SortCriteria) => ({ ...prev, key: val }))}
+                triggerClassName="bg-bg-primary w-full"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">
+              {t('library.header.viewOptions.thumbnailSize')}
+            </Text>
+            <div className="px-3 mt-1">
+              <SegmentedSwitch options={thumbnailSizeOptions} value={thumbnailSize} onChange={onSelectSize} />
+            </div>
+          </div>
+
+          <div>
+            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">
+              {t('library.header.viewOptions.thumbnailFit')}
+            </Text>
+            <div className="px-3 mt-1">
+              <SegmentedSwitch
+                options={thumbnailAspectRatioOptions}
+                value={thumbnailAspectRatio}
+                onChange={onSelectAspectRatio}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">
+              {t('library.header.viewOptions.displayMode')}
+            </Text>
+            <div className="px-3 mt-1">
+              <SegmentedSwitch
+                options={[
+                  { id: LibraryViewMode.Flat, label: t('library.header.viewOptions.currentFolder') },
+                  { id: LibraryViewMode.Recursive, label: t('library.header.viewOptions.recursive') },
+                ]}
+                value={libraryViewMode}
+                onChange={setLibraryViewMode}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">
+              {t('library.header.viewOptions.showMetadata')}
+            </Text>
+            <div className="px-3 mt-1">
+              <SegmentedSwitch
+                options={metadataOptions}
+                value={appSettings?.exifOverlay || ExifOverlay.Off}
+                onChange={(val) => handleSettingsChange({ ...appSettings!, exifOverlay: val as ExifOverlay })}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column (50%) - Filters & Grouping */}
+        <div className="library-view-options-section w-1/2 py-4 px-2 space-y-5">
+          <div>
+            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">
+              {t('library.header.viewOptions.filterByRating')}
+            </Text>
+            <div className="px-3 mt-1">
+              <RatingSegmentedSwitch
+                rating={filterCriteria.rating}
+                onChange={(val: number) => setFilterCriteria((prev: FilterCriteria) => ({ ...prev, rating: val }))}
+                ratingFilterOptions={ratingFilterOptions}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">
+              {t('library.header.viewOptions.filterByFileType')}
+            </Text>
+            <div className="px-3 mt-1">
+              <SegmentedSwitch
+                options={rawStatusOptions.map((o) => ({ id: o.key, label: o.label }))}
+                value={filterCriteria.rawStatus || RawStatus.All}
+                onChange={(val) => setFilterCriteria((prev: FilterCriteria) => ({ ...prev, rawStatus: val }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">
+              {t('library.header.viewOptions.filterByEdited', 'Filter by Edit Status')}
+            </Text>
+            <div className="px-3 mt-1">
+              <SegmentedSwitch
+                options={editedStatusOptions.map((o) => ({ id: o.key, label: o.label }))}
+                value={filterCriteria.editedStatus || EditedStatus.All}
+                onChange={(val) => setFilterCriteria((prev: FilterCriteria) => ({ ...prev, editedStatus: val }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">
+              {t('library.header.viewOptions.groupRawJpeg')}
+            </Text>
+            <div className="px-3 mt-1">
+              <SegmentedSwitch
+                options={groupingOptionKeys.map((o) => ({ id: o.key, label: t(o.labelKey) }))}
+                value={groupingMode}
+                onChange={async (val) => {
+                  if (appSettings) {
+                    await handleSettingsChange({ ...appSettings, grouping: val as GroupingMode });
                   }
-                  role="menuitem"
-                  disabled={option.disabled}
-                  data-tooltip={option.disabled ? t('library.header.viewOptions.exifDisabledTooltip') : undefined}
-                >
-                  <Text
-                    variant={TextVariants.label}
-                    color={TextColors.primary}
-                    weight={isSelected ? TextWeights.semibold : TextWeights.normal}
+                }}
+              />
+              <AnimatePresence initial={false}>
+                {groupingMode !== 'off' && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                    className="overflow-hidden"
                   >
-                    {option.label}
-                  </Text>
-                  {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
-                </button>
-              );
-            })}
-          </>
+                    <div className="pt-2 space-y-2 px-1">
+                      <Switch
+                        checked={!requireMatchingExif}
+                        id="group-ignore-metadata-toggle"
+                        label={t('library.header.viewOptions.groupIgnoreMetadata')}
+                        onChange={async (checked) => {
+                          if (appSettings) {
+                            await handleSettingsChange({ ...appSettings, requireMatchingExif: !checked });
+                            onLibraryRefresh?.();
+                          }
+                        }}
+                      />
+                      <Switch
+                        checked={appSettings?.groupEditedFiles ?? true}
+                        id="group-edited-files-toggle"
+                        label={t('library.header.viewOptions.groupEditedFiles')}
+                        onChange={async (checked) => {
+                          if (appSettings) {
+                            await handleSettingsChange({ ...appSettings, groupEditedFiles: checked });
+                            onLibraryRefresh?.();
+                          }
+                        }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          <div>
+            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">
+              {t('library.header.viewOptions.filterByColorLabel')}
+            </Text>
+            <div className="flex flex-wrap gap-2.5 px-3 py-1.5">
+              {allColors.map((color: Color) => {
+                const isSelected = (filterCriteria.colors || []).includes(color.name);
+                const title =
+                  color.name === 'none'
+                    ? t('library.header.viewOptions.noLabel')
+                    : t(`contextMenus.colors.${color.name}`, {
+                        defaultValue: color.name.charAt(0).toUpperCase() + color.name.slice(1),
+                      });
+                return (
+                  <button
+                    key={color.name}
+                    data-tooltip={title}
+                    onClick={(e: any) => handleColorClick(color.name, e)}
+                    className="w-5 h-5 rounded-full focus:outline-hidden focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface transition-transform hover:scale-110"
+                    role="menuitem"
+                  >
+                    <div className="relative w-full h-full">
+                      <div className="w-full h-full rounded-full" style={{ backgroundColor: color.color }}></div>
+                      {isSelected && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
+                          <Check size={12} className={TEXT_COLOR_KEYS[TextColors.white]} />
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </DropdownMenu>

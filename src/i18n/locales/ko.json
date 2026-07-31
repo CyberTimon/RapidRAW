@@ -112,11 +112,18 @@
     },
     "effects": {
       "amount": "양",
+      "bokehCircular": "원형",
+      "bokehHexagonal": "육각형",
+      "bokehOctagonal": "팔각형",
+      "bokehRing": "버블 (링)",
+      "bokehShape": "보케 모양",
       "creative": "크리에이티브",
       "feather": "페더",
       "glow": "글로우",
       "grain": "그레인",
       "halation": "헐레이션",
+      "lensBlur": "렌즈 블러",
+      "lensDiffusion": "확산",
       "lightFlares": "빛 번짐",
       "lut": "LUT",
       "midpoint": "중간점",
@@ -358,6 +365,7 @@
       "dropzoneText": "여기에 놓아 새 편집을 만드세요",
       "editSettingsTitle": "편집 설정",
       "editsTitle": "편집",
+      "generatingDepthMap": "AI 심도 맵 계산 중...",
       "generativeEditTitle": "생성형 편집",
       "inpaintingTitle": "인페인팅",
       "manualCleanupTitle": "수동 정리",
@@ -713,6 +721,7 @@
       }
     },
     "toolbar": {
+      "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "조리개",
         "backToLibrary": "라이브러리로 돌아가기",
@@ -784,6 +793,7 @@
     "status": {
       "cancelExport": "내보내기 취소",
       "cancelled": "내보내기가 취소되었습니다",
+      "cancelling": "내보내기 취소 중…",
       "estimatedAverageSize": " ({{size}} 평균)",
       "estimatedSize": "예상 파일 크기: ~{{size}}",
       "estimatedTotalSize": "예상 총 크기: ~{{size}}",
@@ -884,7 +894,6 @@
       "raw": {
         "all": "모든 유형",
         "nonRawOnly": "RAW가 아닌 항목만",
-        "preferRaw": "RAW 우선",
         "rawOnly": "RAW만"
       }
     },
@@ -948,6 +957,12 @@
         "filterByEdited": "편집 상태로 필터링",
         "filterByFileType": "파일 유형으로 필터링",
         "filterByRating": "평점으로 필터링",
+        "groupEditedFiles": "Include edited files in groups",
+        "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
+        "groupOff": "Off",
+        "groupPreferJpeg": "Prefer JPEG",
+        "groupPreferRaw": "Prefer RAW",
+        "groupRawJpeg": "Group RAW + JPEG",
         "metadataAlways": "항상",
         "metadataHover": "마우스 오버 시",
         "metadataOff": "끄기",
@@ -1485,8 +1500,10 @@
         "color_label_yellow": "색상 레이블: 노랑",
         "copy_adjustments": "선택한 조정값 복사",
         "copy_files": "선택한 파일 복사",
+        "copy_image_path": "선택한 이미지의 경로 복사",
         "cycle_zoom": "확대/축소 순환 (맞춤, 2배 맞춤, 100%)",
         "delete_selected": "선택한 파일 삭제",
+        "focus_search": "검색창에 포커스",
         "open_image": "선택한 이미지 열기",
         "open_settings": "설정 열기",
         "paste_adjustments": "복사한 조정값 붙여넣기",
@@ -1595,6 +1612,9 @@
         },
         "title": "생성형 AI"
       },
+      "alwaysDecodeRaw": "항상 RAW 디코딩",
+      "alwaysDecodeRawDesc": "포함된 JPEG 미리보기를 사용하는 대신 썸네일에 대해 전체 RAW 디코딩을 강제합니다. 썸네일의 색상이나 대비가 열린 이미지와 다르게 보이는 경우 이 옵션을 활성화하세요.",
+      "alwaysDecodeRawLabel": "썸네일에 대해 항상 RAW 디코딩",
       "backend": "처리 백엔드",
       "backendDesc": "그래픽 API를 선택합니다. 'Auto'를 권장합니다. 일부 시스템의 충돌을 해결할 수 있습니다.",
       "backends": {

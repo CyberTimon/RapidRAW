@@ -5,90 +5,124 @@ LOCALES_DIR = Path("./locales")
 
 TRANSLATIONS = {
     "de": {
-        "copyPaste": {
-            "autoSyncTitle": "Anpassungen automatisch synchronisieren",
-            "autoSyncLabel": "Auto-Sync aktivieren",
-            "autoSyncDesc": "Wendet Anpassungen automatisch auf alle ausgewählten Bilder an."
+        "settings": {
+            "processing": {
+                "alwaysDecodeRaw": "RAW immer decodieren",
+                "alwaysDecodeRawDesc": "Erzwingt die vollständige RAW-Decodierung für Vorschaubilder, anstatt eingebettete JPEG-Vorschauen zu verwenden. Aktiviere diese Option, wenn sich die Vorschaubilder farblich oder im Kontrast vom geöffneten Bild unterscheiden.",
+                "alwaysDecodeRawLabel": "RAW für Vorschaubilder immer decodieren"
+            }
         }
     },
     "en": {
-        "copyPaste": {
-            "autoSyncTitle": "Auto-sync adjustments",
-            "autoSyncLabel": "Enable auto-sync",
-            "autoSyncDesc": "Automatically apply adjustments to all selected images."
+        "settings": {
+            "processing": {
+                "alwaysDecodeRaw": "Always Decode RAW",
+                "alwaysDecodeRawDesc": "Force full RAW decoding for thumbnails instead of using embedded JPEG previews. Enable this if your thumbnails look different in color or contrast compared to the opened image.",
+                "alwaysDecodeRawLabel": "Always decode RAW for thumbnails"
+            }
         }
     },
     "es": {
-        "copyPaste": {
-            "autoSyncTitle": "Sincronizar ajustes automáticamente",
-            "autoSyncLabel": "Habilitar sincronización automática",
-            "autoSyncDesc": "Aplica automáticamente los ajustes a todas las imágenes seleccionadas."
+        "settings": {
+            "processing": {
+                "alwaysDecodeRaw": "Decodificar RAW siempre",
+                "alwaysDecodeRawDesc": "Fuerza la decodificación RAW completa para las miniaturas en lugar de usar vistas previas JPEG incrustadas. Activa esta opción si las miniaturas tienen colores o contrastes diferentes a la imagen abierta.",
+                "alwaysDecodeRawLabel": "Decodificar RAW siempre para miniaturas"
+            }
         }
     },
     "fr": {
-        "copyPaste": {
-            "autoSyncTitle": "Synchronisation automatique des réglages",
-            "autoSyncLabel": "Activer la synchronisation automatique",
-            "autoSyncDesc": "Applique automatiquement les réglages à toutes les images sélectionnées."
+        "settings": {
+            "processing": {
+                "alwaysDecodeRaw": "Toujours décoder le RAW",
+                "alwaysDecodeRawDesc": "Force le décodage RAW complet pour les miniatures au lieu d'utiliser les aperçus JPEG intégrés. Activez cette option si vos miniatures ont des couleurs ou des contrastes différents de l'image ouverte.",
+                "alwaysDecodeRawLabel": "Toujours décoder le RAW pour les miniatures"
+            }
         }
     },
     "it": {
-        "copyPaste": {
-            "autoSyncTitle": "Sincronizzazione automatica regolazioni",
-            "autoSyncLabel": "Abilita sincronizzazione automatica",
-            "autoSyncDesc": "Applica automaticamente le regolazioni a tutte le immagini selezionate."
+        "settings": {
+            "processing": {
+                "alwaysDecodeRaw": "Decodifica RAW sempre",
+                "alwaysDecodeRawDesc": "Forza la decodifica RAW completa per le miniature invece di usare le anteprime JPEG incorporate. Attiva questa opzione se i colori o il contrasto delle miniature sono diversi dall'immagine aperta.",
+                "alwaysDecodeRawLabel": "Decodifica RAW sempre per le miniature"
+            }
         }
     },
     "ja": {
-        "copyPaste": {
-            "autoSyncTitle": "調整の自動同期",
-            "autoSyncLabel": "自動同期を有効にする",
-            "autoSyncDesc": "選択したすべての画像に調整を自動的に適用します。"
+        "settings": {
+            "processing": {
+                "alwaysDecodeRaw": "常にRAWをデコード",
+                "alwaysDecodeRawDesc": "埋め込まれたJPEGプレビューを使用する代わりに、サムネイルの完全なRAWデコードを強制します。サムネイルの色やコントラストが開いた画像と異なる場合に有効にしてください。",
+                "alwaysDecodeRawLabel": "サムネイル用に常にRAWをデコード"
+            }
         }
     },
     "ko": {
-        "copyPaste": {
-            "autoSyncTitle": "조정 자동 동기화",
-            "autoSyncLabel": "자동 동기화 활성화",
-            "autoSyncDesc": "선택한 모든 이미지에 조정을 자동으로 적용합니다."
+        "settings": {
+            "processing": {
+                "alwaysDecodeRaw": "항상 RAW 디코딩",
+                "alwaysDecodeRawDesc": "포함된 JPEG 미리보기를 사용하는 대신 썸네일에 대해 전체 RAW 디코딩을 강제합니다. 썸네일의 색상이나 대비가 열린 이미지와 다르게 보이는 경우 이 옵션을 활성화하세요.",
+                "alwaysDecodeRawLabel": "썸네일에 대해 항상 RAW 디코딩"
+            }
         }
     },
     "pl": {
-        "copyPaste": {
-            "autoSyncTitle": "Automatyczna synchronizacja dostosowań",
-            "autoSyncLabel": "Włącz auto-synchronizację",
-            "autoSyncDesc": "Automatycznie stosuje dostosowania do wszystkich wybranych obrazów."
+        "settings": {
+            "processing": {
+                "alwaysDecodeRaw": "Zawsze dekoduj RAW",
+                "alwaysDecodeRawDesc": "Wymusza pełne dekodowanie RAW dla miniatur zamiast korzystania z osadzonych podglądów JPEG. Włącz tę opcję, jeśli miniatury różnią się kolorami lub kontrastem od otwartego obrazu.",
+                "alwaysDecodeRawLabel": "Zawsze dekoduj RAW dla miniatur"
+            }
         }
     },
     "pt": {
-        "copyPaste": {
-            "autoSyncTitle": "Sincronização automática de ajustes",
-            "autoSyncLabel": "Ativar sincronização automática",
-            "autoSyncDesc": "Aplica automaticamente os ajustes a todas as imagens selecionadas."
+        "settings": {
+            "processing": {
+                "alwaysDecodeRaw": "Sempre decodificar RAW",
+                "alwaysDecodeRawDesc": "Força a decodificação RAW completa para miniaturas em vez de usar visualizações JPEG incorporadas. Ative esta opção se as suas miniaturas tiverem cores ou contrastes diferentes em comparação com a imagem aberta.",
+                "alwaysDecodeRawLabel": "Sempre decodificar RAW para miniaturas"
+            }
         }
     },
     "ru": {
-        "copyPaste": {
-            "autoSyncTitle": "Автосинхронизация коррекций",
-            "autoSyncLabel": "Включить автосинхронизацию",
-            "autoSyncDesc": "Автоматически применяет коррекции ко всем выбранным изображениям."
+        "settings": {
+            "processing": {
+                "alwaysDecodeRaw": "Всегда декодировать RAW",
+                "alwaysDecodeRawDesc": "Принудительно использовать полное декодирование RAW для миниатюр вместо встроенных превью JPEG. Включите эту опцию, если цвета или контрастность миниатюр отличаются от открытого изображения.",
+                "alwaysDecodeRawLabel": "Всегда декодировать RAW для миниатюр"
+            }
         }
     },
     "zh-CN": {
-        "copyPaste": {
-            "autoSyncTitle": "自动同步调整",
-            "autoSyncLabel": "启用自动同步",
-            "autoSyncDesc": "自动将调整应用于所有选定的图像。"
+        "settings": {
+            "processing": {
+                "alwaysDecodeRaw": "始终解码 RAW",
+                "alwaysDecodeRawDesc": "强制对缩略图进行完整的 RAW 解码，而不是使用内置的 JPEG 预览。如果您的缩略图在颜色或对比度上与打开的图像不同，请启用此选项。",
+                "alwaysDecodeRawLabel": "始终为缩略图解码 RAW"
+            }
         }
     },
     "zh-TW": {
-        "copyPaste": {
-            "autoSyncTitle": "自動同步調整",
-            "autoSyncLabel": "啟用自動同步",
-            "autoSyncDesc": "自動將調整套用於所有選取的影像。"
+        "settings": {
+            "processing": {
+                "alwaysDecodeRaw": "始終解碼 RAW",
+                "alwaysDecodeRawDesc": "強制對縮圖進行完整的 RAW 解碼，而不是使用內建的 JPEG 預覽。如果您的縮圖在顏色或對比度上與打開的影像不同，請啟用此選項。",
+                "alwaysDecodeRawLabel": "始終為縮圖解碼 RAW"
+            }
         }
     }
 }
+
+def deep_merge(target: dict, source: dict):
+    """Recursively merges source dict into target dict."""
+    for key, value in source.items():
+        if isinstance(value, dict):
+            node = target.setdefault(key, {})
+            if isinstance(node, dict):
+                deep_merge(node, value)
+        else:
+            target[key] = value
 
 def sort_dict_recursively(item):
     if isinstance(item, dict):
@@ -109,13 +143,7 @@ def update_json_file(file_path: Path, trans: dict):
         print(f"Error parsing JSON in {file_path.name}. Skipping.")
         return
 
-    # Navigate to or create modals -> copyPaste node
-    modals_node = data.setdefault("modals", {})
-    copy_paste_node = modals_node.setdefault("copyPaste", {})
-
-    for key, value in trans["copyPaste"].items():
-        copy_paste_node[key] = value
-
+    deep_merge(data, trans)
     sorted_data = sort_dict_recursively(data)
 
     with open(file_path, "w", encoding="utf-8") as f:
@@ -129,7 +157,7 @@ def main():
         print(f"Error: Locales directory '{LOCALES_DIR}' does not exist.")
         return
 
-    print("Starting sorted translation updates...")
+    print("Starting thumbnail RAW decoding translation updates...")
     for lang, trans in TRANSLATIONS.items():
         file_path = LOCALES_DIR / f"{lang}.json"
         update_json_file(file_path, trans)

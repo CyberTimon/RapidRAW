@@ -38,6 +38,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'library',
   },
   {
+    action: 'copy_image_path',
+    description: 'settings.keybinds.actions.copy_image_path',
+    defaultCombo: ['ctrl', 'KeyL'],
+    section: 'library',
+  },
+  {
     action: 'select_all',
     description: 'settings.keybinds.actions.select_all',
     defaultCombo: ['ctrl', 'KeyA'],
@@ -215,6 +221,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     action: 'open_settings',
     description: 'settings.keybinds.actions.open_settings',
     defaultCombo: ['ctrl', 'Comma'],
+    section: 'library',
+  },
+  {
+    action: 'focus_search',
+    description: 'settings.keybinds.actions.focus_search',
+    defaultCombo: ['ctrl', 'KeyF'],
     section: 'library',
   },
   { action: 'undo', description: 'settings.keybinds.actions.undo', defaultCombo: ['ctrl', 'KeyZ'], section: 'editing' },

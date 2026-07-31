@@ -111,12 +111,19 @@
       "threshold": "Schwellenwert"
     },
     "effects": {
-      "amount": "Betrag",
+      "amount": "Stärke",
+      "bokehCircular": "Kreisförmig",
+      "bokehHexagonal": "Sechseckig",
+      "bokehOctagonal": "Achteckig",
+      "bokehRing": "Blase (Ring)",
+      "bokehShape": "Bokeh-Form",
       "creative": "Kreativ",
       "feather": "Weiche Kante",
       "glow": "Glühen",
       "grain": "Körnung",
       "halation": "Lichthof",
+      "lensBlur": "Objektivunschärfe",
+      "lensDiffusion": "Streuung",
       "lightFlares": "Blendenflecke",
       "lut": "LUT",
       "midpoint": "Mittelpunkt",
@@ -358,6 +365,7 @@
       "dropzoneText": "Hier ablegen, um eine neue Bearbeitung zu erstellen",
       "editSettingsTitle": "Bearbeitungseinstellungen",
       "editsTitle": "Bearbeitungen",
+      "generatingDepthMap": "KI-Tiefenkarte wird berechnet...",
       "generativeEditTitle": "Generative Bearbeitung",
       "inpaintingTitle": "Reparieren",
       "manualCleanupTitle": "Manuelle Bereinigung",
@@ -715,6 +723,7 @@
       }
     },
     "toolbar": {
+      "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "Blende",
         "backToLibrary": "Zurück zur Bibliothek",
@@ -786,6 +795,7 @@
     "status": {
       "cancelExport": "Export abbrechen",
       "cancelled": "Export abgebrochen",
+      "cancelling": "Export wird abgebrochen…",
       "estimatedAverageSize": " ({{size}} Ø)",
       "estimatedSize": "Geschätzte Dateigröße: ~{{size}}",
       "estimatedTotalSize": "Geschätzte Gesamtgröße: ~{{size}}",
@@ -886,7 +896,6 @@
       "raw": {
         "all": "Alle Typen",
         "nonRawOnly": "Nur Nicht-RAW",
-        "preferRaw": "RAW bevorzugen",
         "rawOnly": "Nur RAW"
       }
     },
@@ -950,6 +959,12 @@
         "filterByEdited": "Nach Bearbeitungsstatus filtern",
         "filterByFileType": "Nach Dateityp filtern",
         "filterByRating": "Nach Bewertung filtern",
+        "groupEditedFiles": "Include edited files in groups",
+        "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
+        "groupOff": "Off",
+        "groupPreferJpeg": "Prefer JPEG",
+        "groupPreferRaw": "Prefer RAW",
+        "groupRawJpeg": "Group RAW + JPEG",
         "metadataAlways": "Immer",
         "metadataHover": "Beim Darüberfahren",
         "metadataOff": "Aus",
@@ -1487,8 +1502,10 @@
         "color_label_yellow": "Farbmarkierung: Gelb",
         "copy_adjustments": "Ausgewählte Anpassungen kopieren",
         "copy_files": "Ausgewählte Datei(en) kopieren",
+        "copy_image_path": "Pfad des/der ausgewählten Bilder kopieren",
         "cycle_zoom": "Zoom durchwechseln (Einpassen, 2x Einpassen, 100%)",
         "delete_selected": "Ausgewählte Datei(en) löschen",
+        "focus_search": "Suchfeld fokussieren",
         "open_image": "Ausgewähltes Bild öffnen",
         "open_settings": "Einstellungen öffnen",
         "paste_adjustments": "Kopierte Anpassungen einfügen",
@@ -1597,6 +1614,9 @@
         },
         "title": "Generative KI"
       },
+      "alwaysDecodeRaw": "RAW immer decodieren",
+      "alwaysDecodeRawDesc": "Erzwingt die vollständige RAW-Decodierung für Vorschaubilder, anstatt eingebettete JPEG-Vorschauen zu verwenden. Aktiviere diese Option, wenn sich die Vorschaubilder farblich oder im Kontrast vom geöffneten Bild unterscheiden.",
+      "alwaysDecodeRawLabel": "RAW für Vorschaubilder immer decodieren",
       "backend": "Verarbeitungs-Backend",
       "backendDesc": "Wählen Sie die Grafik-API. 'Auto' wird empfohlen. Kann Abstürze auf einigen Systemen beheben.",
       "backends": {

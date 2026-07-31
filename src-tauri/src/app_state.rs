@@ -6,6 +6,7 @@ use std::sync::{Arc, Condvar, Mutex};
 
 use image::{DynamicImage, GrayImage};
 use serde::{Deserialize, Serialize};
+use sysinfo::Disks;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::task::JoinHandle;
 use wgpu::{Texture, TextureView};
@@ -14,17 +15,9 @@ use crate::ai_processing::AiState;
 use crate::cache_utils::DecodedImageCache;
 use crate::gpu_processing::GpuProcessor;
 use crate::image_processing::GpuContext;
+use crate::launch_request::ExternalEditSession;
 use crate::lens_correction::LensDatabase;
 use crate::lut_processing::Lut;
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct ExternalEditSession {
-    pub source: String,
-    pub output: String,
-    pub format: String,
-    pub jpeg_quality: u8,
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct WindowState {
@@ -101,6 +94,8 @@ pub struct ThumbnailManager {
     pub queue: Mutex<VecDeque<String>>,
     pub cvar: Condvar,
     pub processing_now: Mutex<HashSet<String>>,
+    pub rotational_disk: AtomicBool,
+    pub io_gate: Mutex<()>,
 }
 
 impl ThumbnailManager {
@@ -109,6 +104,8 @@ impl ThumbnailManager {
             queue: Mutex::new(VecDeque::new()),
             cvar: Condvar::new(),
             processing_now: Mutex::new(HashSet::new()),
+            rotational_disk: AtomicBool::new(false),
+            io_gate: Mutex::new(()),
         })
     }
 }
@@ -147,7 +144,7 @@ pub struct AppState {
     pub gpu_processor: Mutex<Option<GpuProcessorState>>,
     pub ai_state: Mutex<Option<AiState>>,
     pub ai_init_lock: TokioMutex<()>,
-    pub export_task_handle: Mutex<Option<JoinHandle<()>>>,
+    pub export_task_token: Arc<Mutex<Option<Arc<AtomicBool>>>>,
     pub hdr_result: Arc<Mutex<Option<DynamicImage>>>,
     pub panorama_result: Arc<Mutex<Option<DynamicImage>>>,
     pub denoise_result: Arc<Mutex<Option<DynamicImage>>>,
@@ -170,4 +167,6 @@ pub struct AppState {
     pub decoded_image_cache: Mutex<DecodedImageCache>,
     pub thumbnail_manager: Arc<ThumbnailManager>,
     pub metadata_manager: Arc<MetadataManager>,
+    pub disks_cache: Mutex<Option<Disks>>,
+    pub disks_cache_refreshing: AtomicBool,
 }
