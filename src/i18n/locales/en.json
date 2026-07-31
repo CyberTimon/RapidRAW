@@ -293,11 +293,17 @@
         "details": "Details",
         "effects": "Effects"
       },
+      "autoModes": {
+        "percentile": "Percentile",
+        "geometricMean": "Geometric Mean",
+        "zonal": "Zonal"
+      },
       "title": "Adjustments",
       "tooltips": {
         "autoAdjust": "Auto Adjust Image",
         "resetAdjustments": "Reset Adjustments",
-        "toggleAnalytics": "Toggle Analytics Display"
+        "toggleAnalytics": "Toggle Analytics Display",
+        "autoAdjustHold": "Hold for metering modes"
       }
     },
     "ai": {

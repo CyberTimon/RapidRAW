@@ -3141,6 +3141,39 @@ pub fn calculate_waveform_from_image(
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AutoMeteringMode {
+    Percentile,
+    GeometricMean,
+    Zonal,
+}
+
+impl AutoMeteringMode {
+    pub fn from_opt(s: Option<&str>) -> Self {
+        match s {
+            Some("percentile") | Some("Percentile") => AutoMeteringMode::Percentile,
+            Some("geometricMean") | Some("GeometricMean") => AutoMeteringMode::GeometricMean,
+            Some("zonal") | Some("Zonal") => AutoMeteringMode::Zonal,
+            _ => AutoMeteringMode::Percentile,
+        }
+    }
+}
+
+struct MeteringStats {
+    histogram: Vec<u32>,
+    total_pixels: f64,
+    mean_saturation: f32,
+    center_sum: f32,
+    center_n: u32,
+    edge_sum: f32,
+    edge_n: u32,
+    log_luma_sum: f64,
+    log_luma_count: u64,
+    zonal_cells: Vec<f32>,
+    grid: usize,
+}
+
 fn to_display_encoded_rgb8(image: &DynamicImage, is_raw: bool) -> RgbImage {
     let linear_source: Rgb32FImage = image.to_rgb32f();
     let (width, height) = linear_source.dimensions();
@@ -3161,55 +3194,42 @@ fn to_display_encoded_rgb8(image: &DynamicImage, is_raw: bool) -> RgbImage {
     })
 }
 
-pub fn perform_auto_analysis(image: &DynamicImage, is_raw: bool) -> AutoAdjustmentResults {
-    const ANALYSIS_MAX_DIM: u32 = 1024;
-
+fn __linear_luma(r: f32, g: f32, b: f32, is_raw: bool) -> f32 {
     const LUMA_R: f32 = 0.2126;
     const LUMA_G: f32 = 0.7152;
     const LUMA_B: f32 = 0.0722;
 
-    const EXPOSURE_MIDPOINT: f64 = 128.0;
-    const EXPOSURE_SCALE: f64 = 0.125;
-    const WHITE_POINT_HARD_LIMIT: usize = 245;
-    const HIGHLIGHT_LUMA_THRESHOLD: usize = 240;
-    const CLIPPED_LUMA_THRESHOLD: usize = 250;
-    const HIGHLIGHT_PERCENT_THRESHOLD: f64 = 0.02;
-    const CLIPPED_PERCENT_THRESHOLD: f64 = 0.005;
-    const EXPOSURE_CEILING: f64 = 250.0;
+    let r_lin = if is_raw {
+        r
+    } else {
+        crate::color_encoding::srgb_to_linear(r)
+    };
+    let g_lin = if is_raw {
+        g
+    } else {
+        crate::color_encoding::srgb_to_linear(g)
+    };
+    let b_lin = if is_raw {
+        b
+    } else {
+        crate::color_encoding::srgb_to_linear(b)
+    };
 
-    const TARGET_RANGE: f64 = 220.0;
-    const CONTRAST_SCALE: f64 = 10.0;
-    const HIGHLIGHT_CONTRAST_REDUCE: f64 = 0.5;
+    LUMA_R * r_lin + LUMA_G * g_lin + LUMA_B * b_lin
+}
 
-    const SHADOW_LUMA_MAX: usize = 32;
-    const SHADOW_PERCENT_THRESHOLD: f64 = 0.05;
-    const SHADOW_BOOST_SCALE: f64 = 40.0;
-    const SHADOW_MAX: f64 = 50.0;
-    const HIGHLIGHT_BOOST_SCALE: f64 = 120.0;
-    const HIGHLIGHT_MAX: f64 = 70.0;
-
-    const VIBRANCY_SAT_THRESHOLD: f32 = 0.2;
-    const VIBRANCY_SCALE: f64 = 120.0;
-
-    const DEHAZE_RANGE_THRESHOLD: f64 = 120.0;
-    const DEHAZE_SAT_THRESHOLD: f32 = 0.15;
-    const DEHAZE_SCALE: f64 = 35.0;
-    const CLARITY_RANGE_THRESHOLD: f64 = 180.0;
-    const CLARITY_SCALE: f64 = 50.0;
-
+fn __gather_metering_stats(
+    image: &DynamicImage,
+    is_raw: bool,
+    mode: AutoMeteringMode,
+) -> MeteringStats {
+    const ANALYSIS_MAX_DIM: u32 = 1024;
+    const LUMA_R: f32 = 0.2126;
+    const LUMA_G: f32 = 0.7152;
+    const LUMA_B: f32 = 0.0722;
     const VIGNETTE_CENTER_LOW: f32 = 0.25;
     const VIGNETTE_CENTER_HIGH: f32 = 0.75;
-
-    const VIGNETTE_SCALE: f64 = 100.0;
-    const VIGNETTE_CENTRE_DIFF_THRESHOLD: f32 = 0.05;
-    const CENTRE_SCALE: f64 = 100.0;
-    const CENTRE_MAX: f64 = 60.0;
-
-    const MID_GRAY: f64 = 128.0;
-    const BLACKS_SCALE: f64 = 0.5;
-    const WHITES_SCALE: f64 = 0.2;
-    const EXPOSURE_OUTPUT_SCALE: f64 = 20.0;
-    const BRIGHTNESS_SCALE: f64 = 0.007;
+    const GRID: usize = 5;
 
     let analysis_preview = downscale_f32_image(image, ANALYSIS_MAX_DIM, ANALYSIS_MAX_DIM);
     let rgb_image = to_display_encoded_rgb8(&analysis_preview, is_raw);
@@ -3260,8 +3280,66 @@ pub fn perform_auto_analysis(image: &DynamicImage, is_raw: bool) -> AutoAdjustme
 
     mean_saturation /= total_pixels as f32;
 
+    let mut log_luma_sum = 0.0f64;
+    let mut log_luma_count = 0u64;
+    let mut zonal_cells = vec![0.0f32; GRID * GRID];
+
+    if mode != AutoMeteringMode::Percentile {
+        let linear_source: Rgb32FImage = analysis_preview.to_rgb32f();
+        let (src_width, src_height) = linear_source.dimensions();
+        let cell_width = (src_width as f32 / GRID as f32).max(1.0);
+        let cell_height = (src_height as f32 / GRID as f32).max(1.0);
+        let mut cell_counts = vec![0u32; GRID * GRID];
+
+        for (x, y, pixel) in linear_source.enumerate_pixels() {
+            let cell_x = (x as f32 / cell_width) as usize;
+            let cell_y = (y as f32 / cell_height) as usize;
+            let cell_idx = (cell_y.min(GRID - 1)) * GRID + (cell_x.min(GRID - 1));
+
+            let luma = __linear_luma(pixel[0], pixel[1], pixel[2], is_raw);
+            if luma > 0.0 {
+                log_luma_sum += luma.ln() as f64;
+                log_luma_count += 1;
+            }
+
+            zonal_cells[cell_idx] += luma;
+            cell_counts[cell_idx] += 1;
+        }
+
+        for i in 0..zonal_cells.len() {
+            if cell_counts[i] > 0 {
+                zonal_cells[i] /= cell_counts[i] as f32;
+            }
+        }
+    }
+
+    MeteringStats {
+        histogram: luma_hist,
+        total_pixels,
+        mean_saturation,
+        center_sum,
+        center_n,
+        edge_sum,
+        edge_n,
+        log_luma_sum,
+        log_luma_count,
+        zonal_cells,
+        grid: GRID,
+    }
+}
+
+fn __exposure_from_percentile(stats: &MeteringStats) -> f64 {
+    const EXPOSURE_MIDPOINT: f64 = 128.0;
+    const EXPOSURE_SCALE: f64 = 0.125;
+    const WHITE_POINT_HARD_LIMIT: usize = 245;
+    const HIGHLIGHT_LUMA_THRESHOLD: usize = 240;
+    const CLIPPED_LUMA_THRESHOLD: usize = 250;
+    const HIGHLIGHT_PERCENT_THRESHOLD: f64 = 0.02;
+    const CLIPPED_PERCENT_THRESHOLD: f64 = 0.005;
+    const EXPOSURE_CEILING: f64 = 250.0;
+
     let percentile = |hist: &Vec<u32>, p: f64| -> usize {
-        let target = (total_pixels * p) as u32;
+        let target = (stats.total_pixels * p) as u32;
         let mut cumulative = 0u32;
         for (i, &v) in hist.iter().enumerate() {
             cumulative += v;
@@ -3272,18 +3350,16 @@ pub fn perform_auto_analysis(image: &DynamicImage, is_raw: bool) -> AutoAdjustme
         255
     };
 
-    let p1 = percentile(&luma_hist, 0.01);
-    let p50 = percentile(&luma_hist, 0.50);
-    let p99 = percentile(&luma_hist, 0.99);
+    let p50 = percentile(&stats.histogram, 0.50);
+    let p99 = percentile(&stats.histogram, 0.99);
 
-    let black_point = p1;
     let white_point = p99;
-    let range = (white_point as f64 - black_point as f64).max(1.0);
-
     let highlight_percent =
-        luma_hist[HIGHLIGHT_LUMA_THRESHOLD..256].iter().sum::<u32>() as f64 / total_pixels;
+        stats.histogram[HIGHLIGHT_LUMA_THRESHOLD..256].iter().sum::<u32>() as f64
+            / stats.total_pixels;
     let clipped_percent =
-        luma_hist[CLIPPED_LUMA_THRESHOLD..256].iter().sum::<u32>() as f64 / total_pixels;
+        stats.histogram[CLIPPED_LUMA_THRESHOLD..256].iter().sum::<u32>() as f64
+            / stats.total_pixels;
 
     let mut exposure = (EXPOSURE_MIDPOINT - p50 as f64) * EXPOSURE_SCALE;
 
@@ -3298,6 +3374,150 @@ pub fn perform_auto_analysis(image: &DynamicImage, is_raw: bool) -> AutoAdjustme
         exposure = EXPOSURE_CEILING - white_point as f64;
     }
 
+    exposure
+}
+
+// Converts EV stops to the internal display-luma-delta units the shared tail expects.
+// Chain: display-luma-delta -> slider (EXPOSURE_OUTPUT_SCALE = 20) -> shader EV
+// (get_val divides by SCALES.exposure = 0.8). So 1 EV = 20 * 0.8 = 16 display-luma units.
+const EV_TO_DISPLAY_LUMA: f64 = 16.0;
+
+// Percentile-style highlight guard for the EV-based modes: never brighten a scene that
+// already has blown highlights. Darkening (negative exposure) is always allowed.
+fn __limit_brightening_if_clipped(exposure: f64, stats: &MeteringStats) -> f64 {
+    const HIGHLIGHT_LUMA_THRESHOLD: usize = 240;
+    const CLIPPED_LUMA_THRESHOLD: usize = 250;
+    const HIGHLIGHT_PERCENT_THRESHOLD: f64 = 0.02;
+    const CLIPPED_PERCENT_THRESHOLD: f64 = 0.005;
+
+    assert!(stats.total_pixels > 0.0, "highlight guard requires pixels");
+
+    let highlight_percent = stats.histogram[HIGHLIGHT_LUMA_THRESHOLD..256]
+        .iter()
+        .sum::<u32>() as f64
+        / stats.total_pixels;
+    let clipped_percent = stats.histogram[CLIPPED_LUMA_THRESHOLD..256]
+        .iter()
+        .sum::<u32>() as f64
+        / stats.total_pixels;
+
+    if highlight_percent > HIGHLIGHT_PERCENT_THRESHOLD
+        || clipped_percent > CLIPPED_PERCENT_THRESHOLD
+    {
+        exposure.min(0.0)
+    } else {
+        exposure
+    }
+}
+
+fn __exposure_from_geometric_mean(stats: &MeteringStats) -> f64 {
+    assert!(
+        stats.log_luma_count > 0,
+        "geometric mean requires log luma accumulation"
+    );
+
+    let key = (stats.log_luma_sum / stats.log_luma_count as f64).exp() as f32;
+    assert!(
+        key.is_finite() && key > 0.0,
+        "geometric mean key must be finite and positive"
+    );
+
+    let stops = (0.18 / key).log2() as f64;
+    let exposure = stops * EV_TO_DISPLAY_LUMA;
+
+    __limit_brightening_if_clipped(exposure, stats)
+}
+
+fn __exposure_from_zonal(stats: &MeteringStats) -> f64 {
+    assert!(
+        stats.grid > 0 && !stats.zonal_cells.is_empty(),
+        "zonal metering requires cell grid"
+    );
+
+    let grid = stats.grid;
+    let mid = (grid / 2) as i32;
+    let mut key_sum = 0.0f32;
+    let mut weight_sum = 0.0f32;
+
+    for y in 0..grid {
+        for x in 0..grid {
+            let idx = y * grid + x;
+            let luma = stats.zonal_cells[idx];
+
+            let dx = (x as i32 - mid).abs() as f32;
+            let dy = (y as i32 - mid).abs() as f32;
+            let dist = (dx * dx + dy * dy).sqrt();
+            let weight = (-dist * dist / 2.0).exp();
+
+            key_sum += luma * weight;
+            weight_sum += weight;
+        }
+    }
+
+    assert!(weight_sum > 0.0, "zonal weighting produced zero total weight");
+
+    let key = key_sum / weight_sum;
+    assert!(
+        key.is_finite() && key > 0.0,
+        "zonal key must be finite and positive"
+    );
+
+    let stops = (0.18 / key).log2() as f64;
+    let exposure = stops * EV_TO_DISPLAY_LUMA;
+
+    __limit_brightening_if_clipped(exposure, stats)
+}
+
+fn __auto_results_from_exposure(
+    stats: &MeteringStats,
+    exposure: f64,
+) -> AutoAdjustmentResults {
+    const TARGET_RANGE: f64 = 220.0;
+    const CONTRAST_SCALE: f64 = 10.0;
+    const HIGHLIGHT_CONTRAST_REDUCE: f64 = 0.5;
+    const SHADOW_LUMA_MAX: usize = 32;
+    const SHADOW_PERCENT_THRESHOLD: f64 = 0.05;
+    const SHADOW_BOOST_SCALE: f64 = 40.0;
+    const SHADOW_MAX: f64 = 50.0;
+    const HIGHLIGHT_PERCENT_THRESHOLD: f64 = 0.02;
+    const HIGHLIGHT_BOOST_SCALE: f64 = 120.0;
+    const HIGHLIGHT_MAX: f64 = 70.0;
+    const VIBRANCY_SAT_THRESHOLD: f32 = 0.2;
+    const VIBRANCY_SCALE: f64 = 120.0;
+    const DEHAZE_RANGE_THRESHOLD: f64 = 120.0;
+    const DEHAZE_SAT_THRESHOLD: f32 = 0.15;
+    const DEHAZE_SCALE: f64 = 35.0;
+    const CLARITY_RANGE_THRESHOLD: f64 = 180.0;
+    const CLARITY_SCALE: f64 = 50.0;
+    const VIGNETTE_SCALE: f64 = 100.0;
+    const VIGNETTE_CENTRE_DIFF_THRESHOLD: f32 = 0.05;
+    const CENTRE_SCALE: f64 = 100.0;
+    const CENTRE_MAX: f64 = 60.0;
+    const MID_GRAY: f64 = 128.0;
+    const BLACKS_SCALE: f64 = 0.5;
+    const WHITES_SCALE: f64 = 0.2;
+    const EXPOSURE_OUTPUT_SCALE: f64 = 20.0;
+    const BRIGHTNESS_SCALE: f64 = 0.007;
+
+    let percentile = |hist: &Vec<u32>, p: f64| -> usize {
+        let target = (stats.total_pixels * p) as u32;
+        let mut cumulative = 0u32;
+        for (i, &v) in hist.iter().enumerate() {
+            cumulative += v;
+            if cumulative >= target {
+                return i;
+            }
+        }
+        255
+    };
+
+    let black_point = percentile(&stats.histogram, 0.01);
+    let white_point = percentile(&stats.histogram, 0.99);
+    let range = (white_point as f64 - black_point as f64).max(1.0);
+
+    let highlight_percent = stats.histogram[240..256].iter().sum::<u32>() as f64
+        / stats.total_pixels;
+
     let mut contrast = 0.0f64;
     if range < TARGET_RANGE {
         contrast = ((TARGET_RANGE / range) - 1.0) * CONTRAST_SCALE;
@@ -3306,7 +3526,8 @@ pub fn perform_auto_analysis(image: &DynamicImage, is_raw: bool) -> AutoAdjustme
         contrast *= HIGHLIGHT_CONTRAST_REDUCE;
     }
 
-    let shadow_percent = luma_hist[0..SHADOW_LUMA_MAX].iter().sum::<u32>() as f64 / total_pixels;
+    let shadow_percent = stats.histogram[0..SHADOW_LUMA_MAX].iter().sum::<u32>() as f64
+        / stats.total_pixels;
 
     let mut shadows = 0.0f64;
     if shadow_percent > SHADOW_PERCENT_THRESHOLD {
@@ -3319,12 +3540,12 @@ pub fn perform_auto_analysis(image: &DynamicImage, is_raw: bool) -> AutoAdjustme
     }
 
     let mut vibrancy = 0.0f64;
-    if mean_saturation < VIBRANCY_SAT_THRESHOLD {
-        vibrancy = (VIBRANCY_SAT_THRESHOLD - mean_saturation) as f64 * VIBRANCY_SCALE;
+    if stats.mean_saturation < VIBRANCY_SAT_THRESHOLD {
+        vibrancy = (VIBRANCY_SAT_THRESHOLD - stats.mean_saturation) as f64 * VIBRANCY_SCALE;
     }
 
     let mut dehaze = 0.0f64;
-    if range < DEHAZE_RANGE_THRESHOLD && mean_saturation < DEHAZE_SAT_THRESHOLD {
+    if range < DEHAZE_RANGE_THRESHOLD && stats.mean_saturation < DEHAZE_SAT_THRESHOLD {
         dehaze = (1.0 - range / DEHAZE_RANGE_THRESHOLD) * DEHAZE_SCALE;
     }
 
@@ -3336,9 +3557,9 @@ pub fn perform_auto_analysis(image: &DynamicImage, is_raw: bool) -> AutoAdjustme
     let mut vignette_amount = 0.0f64;
     let mut centre = 0.0f64;
 
-    if center_n > 0 && edge_n > 0 {
-        let c_avg = center_sum / center_n as f32;
-        let e_avg = edge_sum / edge_n as f32;
+    if stats.center_n > 0 && stats.edge_n > 0 {
+        let c_avg = stats.center_sum / stats.center_n as f32;
+        let e_avg = stats.edge_sum / stats.edge_n as f32;
 
         if e_avg < c_avg {
             let diff = c_avg - e_avg;
@@ -3351,14 +3572,12 @@ pub fn perform_auto_analysis(image: &DynamicImage, is_raw: bool) -> AutoAdjustme
     }
 
     let mut adjusted_luma_hist = vec![0u32; 256];
-    for pixel in rgb_image.pixels() {
-        let r = pixel[0] as f64;
-        let g = pixel[1] as f64;
-        let b = pixel[2] as f64;
-        let mut luma = LUMA_R as f64 * r + LUMA_G as f64 * g + LUMA_B as f64 * b;
+    for (i, &v) in stats.histogram.iter().enumerate() {
+        let i_f = i as f64;
+        let mut luma = i_f;
         luma += exposure;
         luma = (luma - MID_GRAY) * (1.0 + contrast / 100.0) + MID_GRAY;
-        adjusted_luma_hist[luma.clamp(0.0, 255.0).round() as usize] += 1;
+        adjusted_luma_hist[luma.clamp(0.0, 255.0).round() as usize] += v;
     }
 
     let adj_p1 = percentile(&adjusted_luma_hist, 0.01);
@@ -3384,6 +3603,18 @@ pub fn perform_auto_analysis(image: &DynamicImage, is_raw: bool) -> AutoAdjustme
         whites: whites.clamp(-100.0, 100.0),
         blacks: blacks.clamp(-100.0, 100.0),
     }
+}
+
+pub fn perform_auto_analysis(image: &DynamicImage, mode: AutoMeteringMode, is_raw: bool) -> AutoAdjustmentResults {
+    let stats = __gather_metering_stats(image, is_raw, mode);
+
+    let exposure = match mode {
+        AutoMeteringMode::Percentile => __exposure_from_percentile(&stats),
+        AutoMeteringMode::GeometricMean => __exposure_from_geometric_mean(&stats),
+        AutoMeteringMode::Zonal => __exposure_from_zonal(&stats),
+    };
+
+    __auto_results_from_exposure(&stats, exposure)
 }
 
 pub fn auto_results_to_json(results: &AutoAdjustmentResults) -> serde_json::Value {
@@ -3412,6 +3643,7 @@ pub fn auto_results_to_json(results: &AutoAdjustmentResults) -> serde_json::Valu
 #[tauri::command]
 pub fn calculate_auto_adjustments(
     state: tauri::State<AppState>,
+    mode: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let (original_image, is_raw) = {
         let guard = state.original_image.lock().unwrap();
@@ -3421,7 +3653,49 @@ pub fn calculate_auto_adjustments(
         (loaded.image.clone(), loaded.is_raw)
     };
 
-    let results = perform_auto_analysis(&original_image, is_raw);
+    let metering_mode = AutoMeteringMode::from_opt(mode.as_deref());
+    let results = perform_auto_analysis(&original_image, metering_mode, is_raw);
 
     Ok(auto_results_to_json(&results))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Inputs are LINEAR (is_raw = true) so the accumulator uses the pixel value directly,
+    // isolating the key/stops math. Dividing the returned display-luma exposure by
+    // EV_TO_DISPLAY_LUMA recovers the EV stops the mode is asking for.
+    #[test]
+    fn test_geometric_mean_mid_gray() {
+        let size = 64u32;
+        let img = Rgb32FImage::from_fn(size, size, |_, _| Rgb([0.18, 0.18, 0.18]));
+        let dyn_img = DynamicImage::ImageRgb32F(img);
+
+        let stats = __gather_metering_stats(&dyn_img, true, AutoMeteringMode::GeometricMean);
+        let stops = __exposure_from_geometric_mean(&stats) / EV_TO_DISPLAY_LUMA;
+
+        assert!(
+            stops.abs() < 0.05,
+            "linear 0.18 key should ask for ~0 EV, got {}",
+            stops
+        );
+    }
+
+    #[test]
+    fn test_geometric_mean_half_stop_dark() {
+        let size = 64u32;
+        let half_stop = 0.18f32 / 2.0f32.sqrt();
+        let img = Rgb32FImage::from_fn(size, size, |_, _| Rgb([half_stop, half_stop, half_stop]));
+        let dyn_img = DynamicImage::ImageRgb32F(img);
+
+        let stats = __gather_metering_stats(&dyn_img, true, AutoMeteringMode::GeometricMean);
+        let stops = __exposure_from_geometric_mean(&stats) / EV_TO_DISPLAY_LUMA;
+
+        assert!(
+            stops > 0.45 && stops < 0.55,
+            "half-stop-dark linear should ask for ~+0.5 EV, got {}",
+            stops
+        );
+    }
 }

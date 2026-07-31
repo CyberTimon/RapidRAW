@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { RotateCcw, Copy, ClipboardPaste, Aperture, ChartArea } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -29,6 +29,9 @@ export default function Controls() {
   const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, handleWaveformResize } =
     useWaveformControls();
   const { setAdjustments, handleAutoAdjustments, handleLutSelect, setLutPreviewOverride } = useEditorActions();
+
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heldRef = useRef(false);
 
   const { appSettings, theme } = useSettingsStore(
     useShallow((state) => ({
@@ -92,6 +95,61 @@ export default function Controls() {
       })),
     [setUI],
   );
+
+  const openAutoModeMenu = useCallback(
+    (anchorRect: DOMRect) => {
+      const options: any = [
+        {
+          label: t('editor.adjustments.autoModes.percentile'),
+          onClick: () => handleAutoAdjustments('percentile'),
+        },
+        {
+          label: t('editor.adjustments.autoModes.geometricMean'),
+          onClick: () => handleAutoAdjustments('geometricMean'),
+        },
+        {
+          label: t('editor.adjustments.autoModes.zonal'),
+          onClick: () => handleAutoAdjustments('zonal'),
+        },
+      ];
+      showContextMenu(anchorRect.left, anchorRect.bottom, options);
+    },
+    [handleAutoAdjustments, showContextMenu, t],
+  );
+
+  const handleAutoPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (!selectedImage?.isReady) {
+        return;
+      }
+      heldRef.current = false;
+      const buttonRect = e.currentTarget.getBoundingClientRect();
+      holdTimerRef.current = setTimeout(() => {
+        heldRef.current = true;
+        openAutoModeMenu(buttonRect);
+      }, 350);
+    },
+    [selectedImage?.isReady, openAutoModeMenu],
+  );
+
+  const handleAutoPointerUp = useCallback(() => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (!heldRef.current) {
+      handleAutoAdjustments();
+    }
+    heldRef.current = false;
+  }, [handleAutoAdjustments]);
+
+  const handleAutoPointerLeave = useCallback(() => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    heldRef.current = false;
+  }, []);
 
   const handleToggleVisibility = (sectionName: string) => {
     setAdjustments((prev: Adjustments) => {
@@ -215,7 +273,10 @@ export default function Controls() {
           <button
             className="p-2 rounded-full hover:bg-surface disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage?.isReady}
-            onClick={handleAutoAdjustments}
+            onPointerDown={handleAutoPointerDown}
+            onPointerUp={handleAutoPointerUp}
+            onPointerLeave={handleAutoPointerLeave}
+            onPointerCancel={handleAutoPointerLeave}
             data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
           >
             <Aperture size={18} />
