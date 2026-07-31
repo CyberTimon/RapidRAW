@@ -293,11 +293,17 @@
         "details": "细节",
         "effects": "效果"
       },
+      "autoModes": {
+        "percentile": "百分位数",
+        "geometricMean": "几何平均",
+        "zonal": "分区"
+      },
       "title": "调整",
       "tooltips": {
         "autoAdjust": "自动调整图像",
         "resetAdjustments": "重置调整",
-        "toggleAnalytics": "切换分析显示"
+        "toggleAnalytics": "切换分析显示",
+        "autoAdjustHold": "长按显示测光模式"
       }
     },
     "ai": {

@@ -293,11 +293,17 @@
         "details": "ディテール",
         "effects": "効果"
       },
+      "autoModes": {
+        "percentile": "パーセンタイル",
+        "geometricMean": "幾何平均",
+        "zonal": "ゾーン"
+      },
       "title": "補正",
       "tooltips": {
         "autoAdjust": "画像を自動補正",
         "resetAdjustments": "補正設定をリセット",
-        "toggleAnalytics": "アナリティクス表示の切り替え"
+        "toggleAnalytics": "アナリティクス表示の切り替え",
+        "autoAdjustHold": "長押しで測光モードを表示"
       }
     },
     "ai": {

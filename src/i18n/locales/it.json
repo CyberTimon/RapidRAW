@@ -309,11 +309,17 @@
         "details": "Dettagli",
         "effects": "Effetti"
       },
+      "autoModes": {
+        "percentile": "Percentile",
+        "geometricMean": "Media geometrica",
+        "zonal": "Zonale"
+      },
       "title": "Regolazioni",
       "tooltips": {
         "autoAdjust": "Regolazione Automatica Immagine",
         "resetAdjustments": "Ripristina Regolazioni",
-        "toggleAnalytics": "Attiva/Disattiva Visualizzazione Analitiche"
+        "toggleAnalytics": "Attiva/Disattiva Visualizzazione Analitiche",
+        "autoAdjustHold": "Tieni premuto per le modalità di misurazione"
       }
     },
     "ai": {

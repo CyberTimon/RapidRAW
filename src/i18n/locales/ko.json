@@ -293,11 +293,17 @@
         "details": "디테일",
         "effects": "효과"
       },
+      "autoModes": {
+        "percentile": "백분위수",
+        "geometricMean": "기하 평균",
+        "zonal": "구역"
+      },
       "title": "조정",
       "tooltips": {
         "autoAdjust": "이미지 자동 조정",
         "resetAdjustments": "조정값 초기화",
-        "toggleAnalytics": "분석 표시 전환"
+        "toggleAnalytics": "분석 표시 전환",
+        "autoAdjustHold": "길게 눌러 측광 모드 표시"
       }
     },
     "ai": {
