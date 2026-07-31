@@ -3289,7 +3289,7 @@ fn __gather_metering_stats(
         let (src_width, src_height) = linear_source.dimensions();
         let cell_width = (src_width as f32 / GRID as f32).max(1.0);
         let cell_height = (src_height as f32 / GRID as f32).max(1.0);
-        let mut cell_counts = vec![0u32; GRID * GRID];
+        let mut cell_counts = [0u32; GRID * GRID];
 
         for (x, y, pixel) in linear_source.enumerate_pixels() {
             let cell_x = (x as f32 / cell_width) as usize;
@@ -3354,12 +3354,14 @@ fn __exposure_from_percentile(stats: &MeteringStats) -> f64 {
     let p99 = percentile(&stats.histogram, 0.99);
 
     let white_point = p99;
-    let highlight_percent =
-        stats.histogram[HIGHLIGHT_LUMA_THRESHOLD..256].iter().sum::<u32>() as f64
-            / stats.total_pixels;
-    let clipped_percent =
-        stats.histogram[CLIPPED_LUMA_THRESHOLD..256].iter().sum::<u32>() as f64
-            / stats.total_pixels;
+    let highlight_percent = stats.histogram[HIGHLIGHT_LUMA_THRESHOLD..256]
+        .iter()
+        .sum::<u32>() as f64
+        / stats.total_pixels;
+    let clipped_percent = stats.histogram[CLIPPED_LUMA_THRESHOLD..256]
+        .iter()
+        .sum::<u32>() as f64
+        / stats.total_pixels;
 
     let mut exposure = (EXPOSURE_MIDPOINT - p50 as f64) * EXPOSURE_SCALE;
 
@@ -3454,7 +3456,10 @@ fn __exposure_from_zonal(stats: &MeteringStats) -> f64 {
         }
     }
 
-    assert!(weight_sum > 0.0, "zonal weighting produced zero total weight");
+    assert!(
+        weight_sum > 0.0,
+        "zonal weighting produced zero total weight"
+    );
 
     let key = key_sum / weight_sum;
     assert!(
@@ -3468,10 +3473,7 @@ fn __exposure_from_zonal(stats: &MeteringStats) -> f64 {
     __limit_brightening_if_clipped(exposure, stats)
 }
 
-fn __auto_results_from_exposure(
-    stats: &MeteringStats,
-    exposure: f64,
-) -> AutoAdjustmentResults {
+fn __auto_results_from_exposure(stats: &MeteringStats, exposure: f64) -> AutoAdjustmentResults {
     const TARGET_RANGE: f64 = 220.0;
     const CONTRAST_SCALE: f64 = 10.0;
     const HIGHLIGHT_CONTRAST_REDUCE: f64 = 0.5;
@@ -3515,8 +3517,8 @@ fn __auto_results_from_exposure(
     let white_point = percentile(&stats.histogram, 0.99);
     let range = (white_point as f64 - black_point as f64).max(1.0);
 
-    let highlight_percent = stats.histogram[240..256].iter().sum::<u32>() as f64
-        / stats.total_pixels;
+    let highlight_percent =
+        stats.histogram[240..256].iter().sum::<u32>() as f64 / stats.total_pixels;
 
     let mut contrast = 0.0f64;
     if range < TARGET_RANGE {
@@ -3526,8 +3528,8 @@ fn __auto_results_from_exposure(
         contrast *= HIGHLIGHT_CONTRAST_REDUCE;
     }
 
-    let shadow_percent = stats.histogram[0..SHADOW_LUMA_MAX].iter().sum::<u32>() as f64
-        / stats.total_pixels;
+    let shadow_percent =
+        stats.histogram[0..SHADOW_LUMA_MAX].iter().sum::<u32>() as f64 / stats.total_pixels;
 
     let mut shadows = 0.0f64;
     if shadow_percent > SHADOW_PERCENT_THRESHOLD {
@@ -3605,7 +3607,11 @@ fn __auto_results_from_exposure(
     }
 }
 
-pub fn perform_auto_analysis(image: &DynamicImage, mode: AutoMeteringMode, is_raw: bool) -> AutoAdjustmentResults {
+pub fn perform_auto_analysis(
+    image: &DynamicImage,
+    mode: AutoMeteringMode,
+    is_raw: bool,
+) -> AutoAdjustmentResults {
     let stats = __gather_metering_stats(image, is_raw, mode);
 
     let exposure = match mode {

@@ -105,7 +105,13 @@ fn calculate_exposure_metric(image: &GrayImage) -> f64 {
     }
 
     let histogram_total: u32 = histogram.channels[0].iter().sum();
-    assert_eq!(histogram_total, (image.width() * image.height()) as u32, "Histogram total mismatch: expected {} pixels, found {}", (image.width() * image.height()) as u32, histogram_total);
+    assert_eq!(
+        histogram_total,
+        image.width() * image.height(),
+        "Histogram total mismatch: expected {} pixels, found {}",
+        image.width() * image.height(),
+        histogram_total
+    );
 
     let clip_threshold_dark = 5;
     let clip_threshold_bright = 250;

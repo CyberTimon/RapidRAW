@@ -1,4 +1,4 @@
-use crate::color_encoding::{linear_to_srgb_extended, srgb_to_linear};
+use crate::color_encoding::linear_to_srgb_extended;
 use image::DynamicImage;
 use rayon::prelude::*;
 
@@ -18,10 +18,6 @@ impl TaggedImage {
         TaggedImage { image, encoding }
     }
 
-    pub fn encoding(&self) -> Encoding {
-        self.encoding
-    }
-
     pub fn into_srgb(mut self) -> TaggedImage {
         if self.encoding == Encoding::Srgb {
             return self;
@@ -31,24 +27,6 @@ impl TaggedImage {
         self.encoding = Encoding::Srgb;
         debug_assert!(self.encoding == Encoding::Srgb, "into_srgb tag mismatch");
         self
-    }
-
-    pub fn into_linear(mut self) -> TaggedImage {
-        if self.encoding == Encoding::Linear {
-            return self;
-        }
-
-        __convert_in_place(&mut self.image, srgb_to_linear);
-        self.encoding = Encoding::Linear;
-        debug_assert!(
-            self.encoding == Encoding::Linear,
-            "into_linear tag mismatch"
-        );
-        self
-    }
-
-    pub fn as_image(&self) -> &DynamicImage {
-        &self.image
     }
 
     pub fn into_inner(self) -> DynamicImage {

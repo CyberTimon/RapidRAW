@@ -2,9 +2,7 @@ use crate::app_settings::AppSettings;
 use crate::exif_processing::{read_exposure_time_secs, read_iso};
 use crate::formats::is_raw_file;
 use crate::image_loader::load_base_image_from_bytes;
-use crate::image_processing::{
-    apply_linear_to_srgb, apply_srgb_to_linear,
-};
+use crate::image_processing::{apply_linear_to_srgb, apply_srgb_to_linear};
 use crate::panorama_stitching::{Feature, KeyPoint, Match};
 use crate::panorama_utils::{processing, stitching};
 use image::{DynamicImage, GenericImageView, Rgb32FImage};

@@ -36,9 +36,8 @@ use crate::gpu_processing;
 use crate::image_loader;
 use crate::image_processing::GpuContext;
 use crate::image_processing::{
-    Crop, ImageMetadata, apply_coarse_rotation, apply_crop,
-    apply_flip, apply_geometry_warp, apply_rotation, auto_results_to_json,
-    get_all_adjustments_from_json, perform_auto_analysis,
+    Crop, ImageMetadata, apply_coarse_rotation, apply_crop, apply_flip, apply_geometry_warp,
+    apply_rotation, auto_results_to_json, get_all_adjustments_from_json, perform_auto_analysis,
 };
 use crate::mask_generation::MaskDefinition;
 use crate::preset_converter;
@@ -2763,8 +2762,11 @@ pub async fn apply_auto_adjustments_to_paths(
                 )
                 .map_err(|e| e.to_string())?;
 
-                let auto_results =
-                    perform_auto_analysis(&image, crate::image_processing::AutoMeteringMode::Percentile, crate::formats::is_raw_file(&source_path_str));
+                let auto_results = perform_auto_analysis(
+                    &image,
+                    crate::image_processing::AutoMeteringMode::Percentile,
+                    crate::formats::is_raw_file(&source_path_str),
+                );
                 let auto_adjustments_json = auto_results_to_json(&auto_results);
 
                 let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
