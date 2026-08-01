@@ -2,7 +2,7 @@ use crate::image_processing::apply_orientation;
 use anyhow::{Result, anyhow};
 use image::{DynamicImage, ImageBuffer, Rgba};
 use rawler::{
-    decoders::{Orientation, RawDecodeParams},
+    decoders::{FormatHint, Orientation, RawDecodeParams},
     imgop::develop::{DemosaicAlgorithm, Intermediate, ProcessingStep, RawDevelop},
     rawimage::{RawImage, RawPhotometricInterpretation},
     rawsource::RawSource,
@@ -45,6 +45,162 @@ fn srgb_to_linear(value: f32) -> f32 {
     }
 }
 
+const MAX_ABS_DNG_BASELINE_EXPOSURE_EV: f32 = 16.0;
+const DNG_TAG_BASELINE_EXPOSURE: u16 = 50_730;
+const DNG_TAG_BASELINE_EXPOSURE_OFFSET: u16 = 51_109;
+
+#[derive(Clone, Copy)]
+enum TiffEndian {
+    Little,
+    Big,
+}
+
+fn read_tiff_u16(bytes: &[u8], offset: usize, endian: TiffEndian) -> Option<u16> {
+    let value: [u8; 2] = bytes.get(offset..offset.checked_add(2)?)?.try_into().ok()?;
+    Some(match endian {
+        TiffEndian::Little => u16::from_le_bytes(value),
+        TiffEndian::Big => u16::from_be_bytes(value),
+    })
+}
+
+fn read_tiff_u32(bytes: &[u8], offset: usize, endian: TiffEndian) -> Option<u32> {
+    let value: [u8; 4] = bytes.get(offset..offset.checked_add(4)?)?.try_into().ok()?;
+    Some(match endian {
+        TiffEndian::Little => u32::from_le_bytes(value),
+        TiffEndian::Big => u32::from_be_bytes(value),
+    })
+}
+
+fn read_tiff_u64(bytes: &[u8], offset: usize, endian: TiffEndian) -> Option<u64> {
+    let value: [u8; 8] = bytes.get(offset..offset.checked_add(8)?)?.try_into().ok()?;
+    Some(match endian {
+        TiffEndian::Little => u64::from_le_bytes(value),
+        TiffEndian::Big => u64::from_be_bytes(value),
+    })
+}
+
+fn read_dng_exposure_tag_value(
+    bytes: &[u8],
+    entry_offset: usize,
+    endian: TiffEndian,
+) -> Option<f32> {
+    let value_type = read_tiff_u16(bytes, entry_offset.checked_add(2)?, endian)?;
+    if read_tiff_u32(bytes, entry_offset.checked_add(4)?, endian)? != 1 {
+        return None;
+    }
+
+    let value_offset =
+        usize::try_from(read_tiff_u32(bytes, entry_offset.checked_add(8)?, endian)?).ok()?;
+    match value_type {
+        // BaselineExposure is SRATIONAL in DNG.
+        10 => {
+            let numerator = read_tiff_u32(bytes, value_offset, endian)? as i32;
+            let denominator = read_tiff_u32(bytes, value_offset.checked_add(4)?, endian)? as i32;
+            (denominator != 0).then_some(numerator as f32 / denominator as f32)
+        }
+        // BaselineExposureOffset is RATIONAL in DNG. Also accept this type for
+        // BaselineExposure to tolerate otherwise well-formed metadata.
+        5 => {
+            let numerator = read_tiff_u32(bytes, value_offset, endian)?;
+            let denominator = read_tiff_u32(bytes, value_offset.checked_add(4)?, endian)?;
+            (denominator != 0).then_some(numerator as f32 / denominator as f32)
+        }
+        11 => Some(f32::from_bits(read_tiff_u32(
+            bytes,
+            entry_offset.checked_add(8)?,
+            endian,
+        )?)),
+        12 => Some(f64::from_bits(read_tiff_u64(bytes, value_offset, endian)?) as f32),
+        _ => None,
+    }
+}
+
+fn combined_dng_exposure_ev(baseline: f32, offset: f32) -> f32 {
+    let finite_component = |value: f32| {
+        if value.is_finite() {
+            f64::from(value)
+        } else {
+            0.0
+        }
+    };
+
+    (finite_component(baseline) + finite_component(offset)).clamp(
+        -f64::from(MAX_ABS_DNG_BASELINE_EXPOSURE_EV),
+        f64::from(MAX_ABS_DNG_BASELINE_EXPOSURE_EV),
+    ) as f32
+}
+
+fn dng_default_exposure_ev(file_bytes: &[u8]) -> f32 {
+    let Some(endian) = (match file_bytes.get(0..2) {
+        Some(bytes) if bytes == b"II" => Some(TiffEndian::Little),
+        Some(bytes) if bytes == b"MM" => Some(TiffEndian::Big),
+        _ => None,
+    }) else {
+        return 0.0;
+    };
+
+    // RapidRAW-DngLab accepts classic TIFF DNGs (magic 42), so only inspect
+    // that root IFD. Reading these two scalar tags directly avoids asking
+    // rawler for VirtualDngRootTags, which clones profile/private blobs that
+    // the renderer never uses.
+    if read_tiff_u16(file_bytes, 2, endian) != Some(42) {
+        return 0.0;
+    }
+
+    let Some(root_ifd_offset) =
+        read_tiff_u32(file_bytes, 4, endian).and_then(|offset| usize::try_from(offset).ok())
+    else {
+        return 0.0;
+    };
+    let Some(entry_count) = read_tiff_u16(file_bytes, root_ifd_offset, endian).map(usize::from)
+    else {
+        return 0.0;
+    };
+    let Some(entries_offset) = root_ifd_offset.checked_add(2) else {
+        return 0.0;
+    };
+    let Some(entries_size) = entry_count.checked_mul(12) else {
+        return 0.0;
+    };
+    let Some(entries_end) = entries_offset.checked_add(entries_size) else {
+        return 0.0;
+    };
+    if entries_end > file_bytes.len() {
+        return 0.0;
+    }
+
+    let mut baseline = 0.0;
+    let mut offset = 0.0;
+    for entry_index in 0..entry_count {
+        let Some(entry_offset) = entries_offset.checked_add(entry_index * 12) else {
+            return 0.0;
+        };
+        let Some(tag) = read_tiff_u16(file_bytes, entry_offset, endian) else {
+            return 0.0;
+        };
+        let Some(value) = (tag == DNG_TAG_BASELINE_EXPOSURE
+            || tag == DNG_TAG_BASELINE_EXPOSURE_OFFSET)
+            .then(|| read_dng_exposure_tag_value(file_bytes, entry_offset, endian))
+            .flatten()
+        else {
+            continue;
+        };
+
+        if tag == DNG_TAG_BASELINE_EXPOSURE {
+            baseline = value;
+        } else {
+            offset = value;
+        }
+    }
+
+    combined_dng_exposure_ev(baseline, offset)
+}
+
+#[inline]
+fn dng_default_exposure_gain(file_bytes: &[u8]) -> f32 {
+    2.0_f32.powf(dng_default_exposure_ev(file_bytes))
+}
+
 fn develop_internal(
     file_bytes: &[u8],
     fast_demosaic: bool,
@@ -65,6 +221,14 @@ fn develop_internal(
 
     let source = RawSource::new_from_slice(file_bytes);
     let decoder = rawler::get_decoder(&source)?;
+    // DNG baseline exposure is expressed in EV in linear light. Keep it
+    // separate from sample normalization so gamma-tagged linear raws apply it
+    // only after their transfer function has been decoded.
+    let baseline_exposure_gain = if decoder.format_hint() == FormatHint::DNG {
+        dng_default_exposure_gain(file_bytes)
+    } else {
+        1.0
+    };
 
     check_cancel()?;
     let mut raw_image: RawImage = decoder.raw_image(&source, &RawDecodeParams::default(), false)?;
@@ -145,7 +309,7 @@ fn develop_internal(
                 if is_linear_format && apply_ungamma {
                     linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
                 }
-                *p = linear_val.clamp(0.0, clamp_limit);
+                *p = (linear_val * baseline_exposure_gain).clamp(0.0, clamp_limit);
             });
         }
         Intermediate::ThreeColor(pixels) => {
@@ -159,6 +323,10 @@ fn develop_internal(
                     g = srgb_to_linear(g.clamp(0.0, 1.0));
                     b = srgb_to_linear(b.clamp(0.0, 1.0));
                 }
+
+                r *= baseline_exposure_gain;
+                g *= baseline_exposure_gain;
+                b *= baseline_exposure_gain;
 
                 let max_c = r.max(g).max(b);
 
@@ -197,7 +365,7 @@ fn develop_internal(
                     if is_linear_format && apply_ungamma {
                         linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
                     }
-                    *c = linear_val.clamp(0.0, clamp_limit);
+                    *c = (linear_val * baseline_exposure_gain).clamp(0.0, clamp_limit);
                 });
             });
         }
@@ -254,4 +422,112 @@ pub fn get_fast_demosaic_scale_factor(
         }
     }
     1.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn write_u16(bytes: &mut [u8], offset: usize, value: u16, endian: TiffEndian) {
+        let value = match endian {
+            TiffEndian::Little => value.to_le_bytes(),
+            TiffEndian::Big => value.to_be_bytes(),
+        };
+        bytes[offset..offset + 2].copy_from_slice(&value);
+    }
+
+    fn write_u32(bytes: &mut [u8], offset: usize, value: u32, endian: TiffEndian) {
+        let value = match endian {
+            TiffEndian::Little => value.to_le_bytes(),
+            TiffEndian::Big => value.to_be_bytes(),
+        };
+        bytes[offset..offset + 4].copy_from_slice(&value);
+    }
+
+    fn dng_with_baseline_tags(
+        endian: TiffEndian,
+        baseline: (i32, i32),
+        offset: (i32, i32),
+    ) -> Vec<u8> {
+        const ROOT_IFD_OFFSET: usize = 8;
+        const ENTRY_COUNT: usize = 2;
+        const VALUES_OFFSET: usize = ROOT_IFD_OFFSET + 2 + ENTRY_COUNT * 12 + 4;
+
+        let mut bytes = vec![0; VALUES_OFFSET + ENTRY_COUNT * 8];
+        bytes[..2].copy_from_slice(match endian {
+            TiffEndian::Little => b"II",
+            TiffEndian::Big => b"MM",
+        });
+        write_u16(&mut bytes, 2, 42, endian);
+        write_u32(&mut bytes, 4, ROOT_IFD_OFFSET as u32, endian);
+        write_u16(&mut bytes, ROOT_IFD_OFFSET, ENTRY_COUNT as u16, endian);
+
+        for (index, (tag, value_type, numerator, denominator)) in [
+            (DNG_TAG_BASELINE_EXPOSURE, 10, baseline.0, baseline.1),
+            (DNG_TAG_BASELINE_EXPOSURE_OFFSET, 5, offset.0, offset.1),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let entry_offset = ROOT_IFD_OFFSET + 2 + index * 12;
+            let value_offset = VALUES_OFFSET + index * 8;
+            write_u16(&mut bytes, entry_offset, tag, endian);
+            write_u16(&mut bytes, entry_offset + 2, value_type, endian);
+            write_u32(&mut bytes, entry_offset + 4, 1, endian);
+            write_u32(&mut bytes, entry_offset + 8, value_offset as u32, endian);
+            write_u32(&mut bytes, value_offset, numerator as u32, endian);
+            write_u32(&mut bytes, value_offset + 4, denominator as u32, endian);
+        }
+
+        bytes
+    }
+
+    #[test]
+    fn combines_before_bounding_dng_exposure_metadata() {
+        assert_eq!(combined_dng_exposure_ev(20.0, -10.0), 10.0);
+        assert_eq!(combined_dng_exposure_ev(20.0, -20.0), 0.0);
+        assert_eq!(combined_dng_exposure_ev(f32::NAN, 4.7), 4.7);
+        assert_eq!(combined_dng_exposure_ev(f32::INFINITY, 4.7), 4.7);
+        assert_eq!(
+            combined_dng_exposure_ev(f32::MAX, f32::MAX),
+            MAX_ABS_DNG_BASELINE_EXPOSURE_EV
+        );
+        assert_eq!(
+            combined_dng_exposure_ev(100.0, 0.0),
+            MAX_ABS_DNG_BASELINE_EXPOSURE_EV
+        );
+        assert_eq!(
+            combined_dng_exposure_ev(-100.0, 0.0),
+            -MAX_ABS_DNG_BASELINE_EXPOSURE_EV
+        );
+    }
+
+    #[test]
+    fn reads_dng_baseline_and_offset_without_materializing_other_root_tags() {
+        for endian in [TiffEndian::Little, TiffEndian::Big] {
+            let dng = dng_with_baseline_tags(endian, (-3, 2), (5, 2));
+            assert_eq!(dng_default_exposure_ev(&dng), 1.0);
+        }
+    }
+
+    #[test]
+    fn samsung_linear_dng_one_ev_metadata_doubles_linear_pixel_values() {
+        // This is a minimal, privacy-safe regression fixture: -1.5 EV baseline
+        // plus +2.5 EV offset yields +1 EV, so a linear midtone doubles.
+        let dng = dng_with_baseline_tags(TiffEndian::Little, (-3, 2), (5, 2));
+        let source_pixel = 0.18_f32;
+
+        assert!((dng_default_exposure_gain(&dng) - 2.0).abs() < f32::EPSILON);
+        assert!((source_pixel * dng_default_exposure_gain(&dng) - 0.36).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn rejects_truncated_root_ifds_and_ignores_invalid_scalar_values() {
+        let mut truncated = dng_with_baseline_tags(TiffEndian::Little, (0, 1), (0, 1));
+        write_u16(&mut truncated, 8, u16::MAX, TiffEndian::Little);
+        assert_eq!(dng_default_exposure_ev(&truncated), 0.0);
+
+        let dng_with_zero_denominator = dng_with_baseline_tags(TiffEndian::Little, (1, 0), (3, 2));
+        assert_eq!(dng_default_exposure_ev(&dng_with_zero_denominator), 1.5);
+    }
 }
