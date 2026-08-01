@@ -283,7 +283,7 @@ export default function BottomBar({
 
       <div
         className={clsx(
-          'shrink-0 h-10 flex items-center justify-between px-3',
+          'shrink-0 h-12 flex items-center justify-between px-3',
           !isLibraryView && 'border-t',
           !isLibraryView && showFilmstrip && isFilmstripVisible ? 'border-surface' : 'border-transparent',
         )}

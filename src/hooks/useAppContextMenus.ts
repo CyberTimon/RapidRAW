@@ -328,7 +328,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       const { multiSelectedPaths, imageList, libraryActivePath, albumTree, activeAlbumId, setLibrary } =
         useLibraryStore.getState();
       const { appSettings } = useSettingsStore.getState();
-      const { setUI, setRightPanel } = useUIStore.getState();
+      const { activeView, setUI, setRightPanel } = useUIStore.getState();
       const { setProcess } = useProcessStore.getState();
 
       const isTargetInSelection = multiSelectedPaths.includes(path);
@@ -350,7 +350,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
 
       const selectionCount = finalSelection.length;
       const isSingleSelection = selectionCount === 1;
-      const isEditingThisImage = selectedImage?.path === path;
+      const isEditingThisImage = activeView === 'editor' && selectedImage?.path === path;
       const deleteLabel = t('contextMenus.thumbnail.deleteImage', { count: selectionCount });
       const exportLabel = t('contextMenus.thumbnail.exportImage', { count: selectionCount });
 

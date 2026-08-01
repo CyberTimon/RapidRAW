@@ -25,7 +25,7 @@ interface SliderProps {
   suffix?: string;
 }
 
-const DOUBLE_CLICK_THRESHOLD_MS = 300;
+const DOUBLE_CLICK_THRESHOLD_MS = 150;
 const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const TOUCH_DRAG_THRESHOLD_PX = 10;
 const TOUCH_THUMB_HIT_RADIUS_PX = 24;
@@ -570,12 +570,12 @@ const Slider = ({
 
       <div className="relative w-full h-5">
         <div
-          className={`absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/4 rounded-full pointer-events-none ${
+          className={`absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 rounded-full pointer-events-none ${
             trackClassName || 'bg-card-active'
           }`}
         />
         <div
-          className="absolute top-1/2 h-1.5 -translate-y-1/4 rounded-full pointer-events-none bg-accent/25"
+          className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full pointer-events-none bg-accent/25"
           style={{
             left: `${Math.min(fillPercentage, originPercentage)}%`,
             width: `${Math.abs(fillPercentage - originPercentage)}%`,
@@ -583,10 +583,9 @@ const Slider = ({
         />
         <input
           ref={rangeInputRef}
-          className={`absolute top-1/2 left-0 w-full h-1.5 appearance-none bg-transparent cursor-pointer m-0 p-0 slider-input z-10 ${
+          className={`absolute top-1/2 left-0 w-full h-7 -translate-y-1/2 appearance-none bg-transparent cursor-pointer m-0 p-0 slider-input z-10 ${
             isDragging ? 'slider-thumb-active' : ''
           } ${disabled ? 'cursor-not-allowed' : ''}`}
-          disabled={disabled}
           style={{ margin: 0, touchAction: isDragging ? 'none' : 'pan-y' }}
           max={String(max)}
           min={String(min)}

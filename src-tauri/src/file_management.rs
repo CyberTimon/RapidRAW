@@ -404,35 +404,44 @@ pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
 #[tauri::command]
 pub async fn read_exif_for_paths(
     paths: Vec<String>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<HashMap<String, HashMap<String, String>>, String> {
+    let is_hdd = state
+        .thumbnail_manager
+        .rotational_disk
+        .load(Ordering::Relaxed);
+
     tauri::async_runtime::spawn_blocking(move || {
-        let exif_data: HashMap<String, HashMap<String, String>> = paths
-            .par_iter()
-            .filter_map(|virtual_path| {
-                let (source_path, _) = parse_virtual_path(virtual_path);
-                let source_path_str = source_path.to_string_lossy().to_string();
+        let process_path = |virtual_path: &String| {
+            let (source_path, _) = parse_virtual_path(virtual_path);
+            let source_path_str = source_path.to_string_lossy().to_string();
 
-                let map = if let Some(sidecar_exif) =
-                    crate::exif_processing::read_rrexif_sidecar(&source_path)
-                {
-                    sidecar_exif
-                } else if is_cloud_placeholder(&source_path) {
-                    HashMap::new()
-                } else if let Ok(mmap) = read_file_mapped(&source_path) {
-                    crate::exif_processing::read_exif_data(&source_path_str, &mmap)
-                } else if let Ok(bytes) = fs::read(&source_path) {
-                    crate::exif_processing::read_exif_data(&source_path_str, &bytes)
-                } else {
-                    HashMap::new()
-                };
+            let map = if let Some(sidecar_exif) =
+                crate::exif_processing::read_rrexif_sidecar(&source_path)
+            {
+                sidecar_exif
+            } else if is_cloud_placeholder(&source_path) {
+                HashMap::new()
+            } else if let Ok(mmap) = read_file_mapped(&source_path) {
+                crate::exif_processing::read_exif_data(&source_path_str, &mmap)
+            } else if let Ok(bytes) = fs::read(&source_path) {
+                crate::exif_processing::read_exif_data(&source_path_str, &bytes)
+            } else {
+                HashMap::new()
+            };
 
-                if map.is_empty() {
-                    None
-                } else {
-                    Some((virtual_path.clone(), map))
-                }
-            })
-            .collect();
+            if map.is_empty() {
+                None
+            } else {
+                Some((virtual_path.clone(), map))
+            }
+        };
+
+        let exif_data: HashMap<String, HashMap<String, String>> = if is_hdd {
+            paths.iter().filter_map(process_path).collect()
+        } else {
+            paths.par_iter().filter_map(process_path).collect()
+        };
 
         Ok(exif_data)
     })

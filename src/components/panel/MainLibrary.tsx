@@ -510,7 +510,7 @@ export default function MainLibrary(props: MainLibraryProps) {
   return (
     <div className="flex-1 flex flex-col h-full min-w-0 bg-bg-secondary rounded-lg overflow-hidden">
       <header
-        className="p-4 shrink-0 flex justify-between items-center border-b border-surface gap-4"
+        className="p-3 shrink-0 flex justify-between items-center border-b border-surface gap-4"
         onMouseEnter={() => setIsProgressHovered(true)}
         onMouseLeave={() => setIsProgressHovered(false)}
       >
@@ -533,9 +533,7 @@ export default function MainLibrary(props: MainLibraryProps) {
                   }
                 }}
               >
-                {isBusyLoaderMounted && (
-                  <Loader2 size={14} className="animate-spin text-text-secondary shrink-0" />
-                )}
+                {isBusyLoaderMounted && <Loader2 size={14} className="animate-spin text-text-secondary shrink-0" />}
                 <div
                   className={`flex items-center transition-all duration-300 ease-out overflow-hidden ${
                     isProgressHovered && isBusyDelayed && (props.thumbnailProgress?.total ?? 0) > 0

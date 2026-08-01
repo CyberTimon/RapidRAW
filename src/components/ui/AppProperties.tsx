@@ -124,7 +124,10 @@ export enum Panel {
   Masks = 'masks',
   Metadata = 'metadata',
   Presets = 'presets',
+  FolderTree = 'folderTree',
 }
+
+export type PanelRegion = 'leftTop' | 'leftBottom' | 'rightTop' | 'rightBottom';
 
 export enum RawStatus {
   All = 'all',

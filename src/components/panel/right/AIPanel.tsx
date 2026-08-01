@@ -278,6 +278,38 @@ const ConnectionStatus = ({
   );
 };
 
+function AiListRoot({
+  children,
+  onClick,
+  activeDragItem,
+  hasPatches,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  activeDragItem: any;
+  hasPatches: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'ai-list-root' });
+
+  return (
+    <motion.div
+      key="ai-list"
+      ref={setNodeRef}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className={`flex flex-col transition-colors ${isOver ? 'bg-surface' : ''}`}
+      onClick={onClick}
+    >
+      {children}
+      <AnimatePresence>
+        {activeDragItem?.type === 'Creation' && hasPatches && <NewMaskDropZone isOver={isOver} />}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
 export default function AIPanel() {
   const { t } = useTranslation();
   const activePatchContainerId = useEditorStore((s) => s.activeAiPatchContainerId);
@@ -369,7 +401,6 @@ export default function AIPanel() {
   });
 
   const { showContextMenu } = useContextMenu();
-  const { setNodeRef: setRootDroppableRef, isOver: isRootOver } = useDroppable({ id: 'ai-list-root' });
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const activeContainer = (adjustments.aiPatches || []).find((p) => p.id === activePatchContainerId);
@@ -1010,13 +1041,14 @@ export default function AIPanel() {
 
   return (
     <DndContext
+      id="ai-panel-dnd"
       sensors={sensors}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       collisionDetection={pointerWithin}
     >
       <div className="flex flex-col h-full select-none overflow-hidden" onContextMenu={handlePanelContextMenu}>
-        <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
+        <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
           <Text variant={TextVariants.title}>{t('editor.ai.inpaintingTitle')}</Text>
           <button
             className="p-2 rounded-full hover:bg-surface transition-colors"
@@ -1027,29 +1059,31 @@ export default function AIPanel() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0 p-4">
-          <AnimatePresence mode="wait">
-            {(adjustments.aiPatches || []).length === 0 ? (
-              <motion.div
-                key="ai-grid"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="z-10 shrink-0"
-                onClick={handleDeselect}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0 p-3">
+          {!selectedImage ? (
+            <div className="flex items-center justify-center h-full">
+              <Text
+                variant={TextVariants.heading}
+                color={TextColors.secondary}
+                weight={TextWeights.normal}
+                className="text-center"
               >
-                {!selectedImage ? (
-                  <Text
-                    variant={TextVariants.heading}
-                    color={TextColors.secondary}
-                    weight={TextWeights.normal}
-                    className="text-center mt-4"
+                {t('editor.ai.noImageSelected')}
+              </Text>
+            </div>
+          ) : (
+            <>
+              <AnimatePresence mode="wait">
+                {(adjustments.aiPatches || []).length === 0 ? (
+                  <motion.div
+                    key="ai-grid"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="z-10 shrink-0"
+                    onClick={handleDeselect}
                   >
-                    {t('editor.ai.noImageSelected')}
-                  </Text>
-                ) : (
-                  <>
                     <ConnectionStatus
                       aiProvider={aiProvider}
                       isAIConnectorConnected={isAIConnectorConnected}
@@ -1085,129 +1119,118 @@ export default function AIPanel() {
                         />
                       ))}
                     </div>
-                  </>
-                )}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="ai-list"
-                ref={setRootDroppableRef}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className={`flex flex-col transition-colors ${isRootOver ? 'bg-surface' : ''}`}
-                onClick={handleDeselect}
-              >
-                <Text variant={TextVariants.heading} className="mb-2">
-                  {t('editor.ai.editsTitle')}
-                </Text>
+                  </motion.div>
+                ) : (
+                  <AiListRoot
+                    onClick={handleDeselect}
+                    activeDragItem={activeDragItem}
+                    hasPatches={(adjustments.aiPatches || []).length > 0}
+                  >
+                    <Text variant={TextVariants.heading} className="mb-2">
+                      {t('editor.ai.editsTitle')}
+                    </Text>
 
-                <AnimatePresence
-                  initial={false}
-                  mode="popLayout"
-                  onExitComplete={() => {
-                    if (pendingAction) {
-                      pendingAction();
-                      setPendingAction(null);
-                    }
-                  }}
-                >
-                  {(adjustments.aiPatches || []).map((container) => (
-                    <ContainerRow
-                      key={container.id}
-                      container={container}
-                      isSelected={activePatchContainerId === container.id && activeSubMaskId === null}
-                      hasActiveChild={activePatchContainerId === container.id && activeSubMaskId !== null}
-                      isExpanded={expandedContainers.has(container.id)}
-                      onToggle={() => handleToggleExpand(container.id)}
-                      onSelect={() => {
-                        onSelectPatchContainer(container.id);
-                        onSelectSubMask(null);
+                    <AnimatePresence
+                      initial={false}
+                      mode="popLayout"
+                      onExitComplete={() => {
+                        if (pendingAction) {
+                          pendingAction();
+                          setPendingAction(null);
+                        }
                       }}
-                      renamingId={renamingId}
-                      setRenamingId={setRenamingId}
-                      tempName={tempName}
-                      setTempName={setTempName}
+                    >
+                      {(adjustments.aiPatches || []).map((container) => (
+                        <ContainerRow
+                          key={container.id}
+                          container={container}
+                          isSelected={activePatchContainerId === container.id && activeSubMaskId === null}
+                          hasActiveChild={activePatchContainerId === container.id && activeSubMaskId !== null}
+                          isExpanded={expandedContainers.has(container.id)}
+                          onToggle={() => handleToggleExpand(container.id)}
+                          onSelect={() => {
+                            onSelectPatchContainer(container.id);
+                            onSelectSubMask(null);
+                          }}
+                          renamingId={renamingId}
+                          setRenamingId={setRenamingId}
+                          tempName={tempName}
+                          setTempName={setTempName}
+                          updateContainer={updatePatch}
+                          handleDelete={handleDeleteContainer}
+                          handleDuplicate={handleDuplicatePatchContainer}
+                          handleDuplicateAndInvert={handleDuplicateAndInvertPatchContainer}
+                          handlePastePatch={handlePastePatch}
+                          copyPatchToClipboard={copyPatchToClipboard}
+                          copiedPatch={copiedPatch}
+                          setAdjustments={setAdjustments}
+                          activeDragItem={activeDragItem}
+                          activeSubMaskId={activeSubMaskId}
+                          activePatchContainerId={activePatchContainerId}
+                          onSelectContainer={onSelectPatchContainer}
+                          onSelectSubMask={onSelectSubMask}
+                          updateSubMask={updateSubMask}
+                          handleDeleteSubMask={handleDeleteSubMask}
+                          handleDuplicateSubMask={handleDuplicateSubMask}
+                          handleDuplicateAndInvertSubMask={handleDuplicateAndInvertSubMask}
+                          handlePasteSubMask={handlePasteSubMask}
+                          copySubMaskToClipboard={copySubMaskToClipboard}
+                          copiedSubMask={copiedSubMask}
+                          analyzingSubMaskId={analyzingSubMaskId}
+                          onAddComponent={(e: React.MouseEvent) => handleAddAiContextMenu(e, container.id)}
+                        />
+                      ))}
+                    </AnimatePresence>
+
+                    <Text
+                      as="div"
+                      weight={TextWeights.medium}
+                      className="flex items-center gap-2 p-2 rounded-md transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
+                      onClick={(e) => handleAddAiContextMenu(e, null)}
+                    >
+                      <div className="p-0.5">
+                        <Plus size={18} />
+                      </div>
+                      <span>{t('editor.ai.addNewEdit')}</span>
+                    </Text>
+                  </AiListRoot>
+                )}
+              </AnimatePresence>
+
+              <div className="h-4 shrink-0 w-full" onClick={handleDeselect} />
+
+              <AnimatePresence>
+                {isSettingsPanelEverOpened && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className="flex-1 min-h-0"
+                  >
+                    <Text variant={TextVariants.heading} className="mb-2">
+                      {t('editor.ai.editSettingsTitle')}
+                    </Text>
+                    <SettingsPanel
+                      container={activeContainer || null}
+                      activeSubMask={activeSubMaskData || null}
+                      aiModelDownloadStatus={aiModelDownloadStatus}
+                      brushSettings={brushSettings}
+                      setBrushSettings={setBrushSettings}
                       updateContainer={updatePatch}
-                      handleDelete={handleDeleteContainer}
-                      handleDuplicate={handleDuplicatePatchContainer}
-                      handleDuplicateAndInvert={handleDuplicateAndInvertPatchContainer}
-                      handlePastePatch={handlePastePatch}
-                      copyPatchToClipboard={copyPatchToClipboard}
-                      copiedPatch={copiedPatch}
-                      setAdjustments={setAdjustments}
-                      activeDragItem={activeDragItem}
-                      activeSubMaskId={activeSubMaskId}
-                      activePatchContainerId={activePatchContainerId}
-                      onSelectContainer={onSelectPatchContainer}
-                      onSelectSubMask={onSelectSubMask}
                       updateSubMask={updateSubMask}
-                      handleDeleteSubMask={handleDeleteSubMask}
-                      handleDuplicateSubMask={handleDuplicateSubMask}
-                      handleDuplicateAndInvertSubMask={handleDuplicateAndInvertSubMask}
-                      handlePasteSubMask={handlePasteSubMask}
-                      copySubMaskToClipboard={copySubMaskToClipboard}
-                      copiedSubMask={copiedSubMask}
-                      analyzingSubMaskId={analyzingSubMaskId}
-                      onAddComponent={(e: React.MouseEvent) => handleAddAiContextMenu(e, container.id)}
+                      isGeneratingAi={isGeneratingAi}
+                      isGeneratingAiMask={isGeneratingAiMask}
+                      onGenerativeReplace={handleGenerativeReplace}
+                      collapsibleState={collapsibleState}
+                      setCollapsibleState={setCollapsibleState}
+                      isGenerativeAvailable={isGenerativeAvailable}
                     />
-                  ))}
-                </AnimatePresence>
-
-                <AnimatePresence>
-                  {activeDragItem?.type === 'Creation' && (adjustments.aiPatches || []).length > 0 && (
-                    <NewMaskDropZone isOver={isRootOver} />
-                  )}
-                </AnimatePresence>
-
-                <Text
-                  as="div"
-                  weight={TextWeights.medium}
-                  className="flex items-center gap-2 p-2 rounded-md transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
-                  onClick={(e) => handleAddAiContextMenu(e, null)}
-                >
-                  <div className="p-0.5">
-                    <Plus size={18} />
-                  </div>
-                  <span>{t('editor.ai.addNewEdit')}</span>
-                </Text>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <div className="h-4 shrink-0 w-full" onClick={handleDeselect} />
-
-          <AnimatePresence>
-            {isSettingsPanelEverOpened && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="flex-1 min-h-0"
-              >
-                <Text variant={TextVariants.heading} className="mb-2">
-                  {t('editor.ai.editSettingsTitle')}
-                </Text>
-                <SettingsPanel
-                  container={activeContainer || null}
-                  activeSubMask={activeSubMaskData || null}
-                  aiModelDownloadStatus={aiModelDownloadStatus}
-                  brushSettings={brushSettings}
-                  setBrushSettings={setBrushSettings}
-                  updateContainer={updatePatch}
-                  updateSubMask={updateSubMask}
-                  isGeneratingAi={isGeneratingAi}
-                  isGeneratingAiMask={isGeneratingAiMask}
-                  onGenerativeReplace={handleGenerativeReplace}
-                  collapsibleState={collapsibleState}
-                  setCollapsibleState={setCollapsibleState}
-                  isGenerativeAvailable={isGenerativeAvailable}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          )}
         </div>
       </div>
 
@@ -1283,7 +1306,7 @@ function NewMaskDropZone({ isOver }: { isOver: boolean }) {
       animate={{ opacity: 1, height: 'auto', marginTop: '4px' }}
       exit={{ opacity: 0, height: 0, marginTop: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className={`p-4 rounded-lg text-center ${isOver ? 'border border-accent/80 bg-bg-tertiary/50' : ''}`}
+      className={`p-3 rounded-lg text-center ${isOver ? 'border border-accent/80 bg-bg-tertiary/50' : ''}`}
     >
       <Text weight={TextWeights.medium}>{t('editor.ai.dropzoneText')}</Text>
     </motion.div>

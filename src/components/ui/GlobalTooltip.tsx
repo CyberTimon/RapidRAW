@@ -167,7 +167,7 @@ export default function GlobalTooltip() {
     }
   }, [tooltip, leftOverride]);
 
-  const left = leftOverride !== null ? leftOverride : tooltip?.centerX ?? 0;
+  const left = leftOverride !== null ? leftOverride : (tooltip?.centerX ?? 0);
 
   return createPortal(
     <AnimatePresence mode="wait">

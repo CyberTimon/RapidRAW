@@ -21,13 +21,14 @@ import {
   FileFormats,
   WatermarkAnchor,
 } from '../../ui/ExportImportProperties';
-import { Invokes, SelectedImage, AppSettings } from '../../ui/AppProperties';
+import { Invokes, SelectedImage, AppSettings, Panel } from '../../ui/AppProperties';
 import ExportPresetsList from '../../ui/ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
+import { useUIStore } from '../../../store/useUIStore';
 
 interface ExportPanelProps {
   exportState: ExportState;
@@ -275,24 +276,29 @@ export default function ExportPanel({
   const filenameInputRef = useRef<HTMLInputElement>(null);
   const osPlatform = useOsPlatform();
   const isAndroid = osPlatform === 'android';
+  const activePanels = useUIStore((state) => state.activePanels);
+  const isPanelReallyActive = Object.values(activePanels).includes(Panel.Export);
 
   const { status, progress, errorMessage } = exportState;
   const isExporting = [Status.Exporting, Status.Cancelling].includes(status);
   const isCancelling = status === Status.Cancelling;
   const isLibraryContext = !!onClose;
 
-  const pathsToExport = isLibraryContext
-    ? multiSelectedPaths
-    : multiSelectedPaths.length > 0
+  const pathsToExport = useMemo(() => {
+    return isLibraryContext
       ? multiSelectedPaths
-      : selectedImage
-        ? [selectedImage.path]
-        : [];
+      : multiSelectedPaths.length > 0
+        ? multiSelectedPaths
+        : selectedImage
+          ? [selectedImage.path]
+          : [];
+  }, [isLibraryContext, multiSelectedPaths, selectedImage?.path]);
+
   const numImages = pathsToExport.length;
 
   useEffect(() => {
     const fetchDims = async () => {
-      if (!enableWatermark || numImages === 0 || !isVisible) return;
+      if (!enableWatermark || numImages === 0 || !isVisible || !isPanelReallyActive) return;
       if (!isLibraryContext && selectedImage && selectedImage.width && selectedImage.height) {
         setImageAspectRatio(selectedImage.width / selectedImage.height);
         return;
@@ -367,6 +373,8 @@ export default function ExportPanel({
   );
 
   useEffect(() => {
+    if (!isPanelReallyActive) return;
+
     const exportSettings: ExportSettings = {
       filenameTemplate,
       jpegQuality,
@@ -392,9 +400,14 @@ export default function ExportPanel({
       debouncedEstimateSize(pathsToExport, adjustmentsRef.current, selectedImage?.path, exportSettings, format);
 
     runEstimate();
+
+    let prevAdjustments = useEditorStore.getState().adjustments;
     const unsubscribe = useEditorStore.subscribe((state) => {
-      adjustmentsRef.current = state.adjustments;
-      runEstimate();
+      if (state.adjustments !== prevAdjustments) {
+        prevAdjustments = state.adjustments;
+        adjustmentsRef.current = state.adjustments;
+        runEstimate();
+      }
     });
 
     return () => {
@@ -402,6 +415,7 @@ export default function ExportPanel({
       debouncedEstimateSize.cancel();
     };
   }, [
+    isPanelReallyActive,
     pathsToExport,
     selectedImage?.path,
     fileFormat,
@@ -563,18 +577,10 @@ export default function ExportPanel({
 
   return (
     <div className={onClose ? 'h-full bg-bg-secondary rounded-lg flex flex-col' : 'flex flex-col h-full'}>
-      <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
+      <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
         <Text variant={TextVariants.title}>{t('export.title')}</Text>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="p-1 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary"
-          >
-            <X size={20} />
-          </button>
-        )}
       </div>
-      <div className="grow overflow-y-auto p-4 space-y-8">
+      <div className="grow overflow-y-auto p-3 space-y-8">
         {canExport ? (
           <>
             <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
@@ -853,18 +859,20 @@ export default function ExportPanel({
             </div>
           </>
         ) : (
-          <Text
-            variant={TextVariants.heading}
-            color={TextColors.secondary}
-            weight={TextWeights.normal}
-            className="text-center mt-4"
-          >
-            {isLibraryContext ? t('export.status.noImagesSelected') : t('export.status.noImageSelected')}
-          </Text>
+          <div className="flex items-center justify-center h-full">
+            <Text
+              variant={TextVariants.heading}
+              color={TextColors.secondary}
+              weight={TextWeights.normal}
+              className="text-center"
+            >
+              {isLibraryContext ? t('export.status.noImagesSelected') : t('export.status.noImageSelected')}
+            </Text>
+          </div>
         )}
       </div>
 
-      <div className="p-4 border-t border-surface shrink-0 space-y-2">
+      <div className="p-3 border-t border-surface shrink-0 space-y-2">
         <Text as="div" variant={TextVariants.small} color={TextColors.primary} className="text-center">
           {isEstimating ? (
             <span className="italic">{t('export.status.estimatingSize')}</span>

@@ -278,7 +278,7 @@ pub fn get_or_init_gpu_context(
             width: size.width.max(1),
             height: size.height.max(1),
             format: swapchain_format,
-            color_space: wgpu::SurfaceColorSpace::Auto,
+            color_space: wgpu::SurfaceColorSpace::Srgb,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             present_mode: wgpu::PresentMode::Fifo,
             alpha_mode,
