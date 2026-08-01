@@ -2493,6 +2493,7 @@ pub struct GpuContext {
     pub device: Arc<wgpu::Device>,
     pub queue: Arc<wgpu::Queue>,
     pub limits: wgpu::Limits,
+    pub high_precision_storage_supported: bool,
     pub display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
 }
 
