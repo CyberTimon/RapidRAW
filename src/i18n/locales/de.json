@@ -519,6 +519,9 @@
       "exporting": "Exportieren…",
       "savesTo": "Externe Bearbeitung — speichert in"
     },
+    "layout": {
+      "split": "Teilen"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "Neue Komponente hinzufügen",
@@ -913,6 +916,7 @@
         "modified": "Änderungsdatum",
         "name": "Alphabetisch"
       },
+      "sourcesTitle": "Quellen",
       "tooltips": {
         "clearSearch": "Suche löschen",
         "collapse": "Zuklappen",
@@ -1496,6 +1500,7 @@
         "color_label_yellow": "Farbmarkierung: Gelb",
         "copy_adjustments": "Ausgewählte Anpassungen kopieren",
         "copy_files": "Ausgewählte Datei(en) kopieren",
+        "copy_image_path": "Pfad des/der ausgewählten Bilder kopieren",
         "cycle_zoom": "Zoom durchwechseln (Einpassen, 2x Einpassen, 100%)",
         "delete_selected": "Ausgewählte Datei(en) löschen",
         "focus_search": "Suchfeld fokussieren",

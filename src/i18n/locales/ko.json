@@ -517,6 +517,9 @@
       "exporting": "내보내는 중…",
       "savesTo": "외부 편집 — 저장 위치:"
     },
+    "layout": {
+      "split": "분할"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "새 구성 요소 추가",
@@ -911,6 +914,7 @@
         "modified": "수정일",
         "name": "알파벳순"
       },
+      "sourcesTitle": "소스",
       "tooltips": {
         "clearSearch": "검색 지우기",
         "collapse": "접기",
@@ -1494,6 +1498,7 @@
         "color_label_yellow": "색상 레이블: 노랑",
         "copy_adjustments": "선택한 조정값 복사",
         "copy_files": "선택한 파일 복사",
+        "copy_image_path": "선택한 이미지의 경로 복사",
         "cycle_zoom": "확대/축소 순환 (맞춤, 2배 맞춤, 100%)",
         "delete_selected": "선택한 파일 삭제",
         "focus_search": "검색창에 포커스",

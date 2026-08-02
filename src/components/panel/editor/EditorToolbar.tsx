@@ -357,7 +357,7 @@ const EditorToolbar = memo(
     const isExpanded = isInfoHovered && (hasExif || isLoading);
 
     return (
-      <div className="relative shrink-0 flex items-center justify-between px-4 h-14 gap-4 z-40">
+      <div className="relative shrink-0 flex items-center justify-between px-3 h-12 gap-3 z-40">
         <div className="flex items-center gap-2 shrink-0 z-40">
           <button
             className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors shrink-0"
@@ -390,13 +390,13 @@ const EditorToolbar = memo(
             className={clsx(
               'bg-surface flex flex-col items-center overflow-hidden transition-all duration-200 ease-out pt-2',
               isExpanded
-                ? 'h-18 px-8 rounded-2xl absolute min-w-[340px] whitespace-nowrap shadow-2xl shadow-black/50'
+                ? 'h-18 px-8 rounded-2xl absolute min-w-85 whitespace-nowrap shadow-2xl shadow-black/50'
                 : 'h-9 px-4 rounded-[18px] absolute min-w-0 w-auto max-w-full shadow-none',
             )}
             onMouseEnter={() => setIsInfoHovered(true)}
             onMouseLeave={() => setIsInfoHovered(false)}
             style={{
-              top: '10px',
+              top: '6px',
               transform: 'translateX(-50%)',
               left: '50%',
               zIndex: isExpanded ? 50 : 0,
@@ -445,9 +445,7 @@ const EditorToolbar = memo(
                         disabled={isActive}
                         className={clsx(
                           'px-2.5 py-1 text-[11px] font-medium transition-colors',
-                          isActive
-                            ? 'bg-surface text-text-primary'
-                            : 'text-text-secondary hover:bg-surface/50',
+                          isActive ? 'bg-surface text-text-primary' : 'text-text-secondary hover:bg-surface/50',
                         )}
                         data-tooltip={t('editor.toolbar.switchToVariant', { label: v.label })}
                         onClick={(e) => onImageSelect?.(v.path, e)}

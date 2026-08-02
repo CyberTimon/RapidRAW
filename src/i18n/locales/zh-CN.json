@@ -517,6 +517,9 @@
       "exporting": "正在导出…",
       "savesTo": "外部编辑 — 保存至"
     },
+    "layout": {
+      "split": "拆分"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "添加新组件",
@@ -911,6 +914,7 @@
         "modified": "修改日期",
         "name": "按字母顺序"
       },
+      "sourcesTitle": "来源",
       "tooltips": {
         "clearSearch": "清除搜索",
         "collapse": "折叠",
@@ -1494,6 +1498,7 @@
         "color_label_yellow": "颜色标签：黄色",
         "copy_adjustments": "复制选中的调整",
         "copy_files": "复制选中的文件",
+        "copy_image_path": "复制所选图片的路径",
         "cycle_zoom": "循环缩放（适应、2倍适应、100%）",
         "delete_selected": "删除选中的文件",
         "focus_search": "聚焦搜索框",

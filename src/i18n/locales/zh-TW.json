@@ -517,6 +517,9 @@
       "exporting": "正在匯出…",
       "savesTo": "外部編輯 — 儲存至"
     },
+    "layout": {
+      "split": "拆分"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "新增新元件",
@@ -911,6 +914,7 @@
         "modified": "修改日期",
         "name": "按字母順序"
       },
+      "sourcesTitle": "來源",
       "tooltips": {
         "clearSearch": "清除搜尋",
         "collapse": "摺疊",
@@ -1494,6 +1498,7 @@
         "color_label_yellow": "顏色標籤：黃色",
         "copy_adjustments": "複製選中的調整",
         "copy_files": "複製選中的檔案",
+        "copy_image_path": "複製所選圖片的路徑",
         "cycle_zoom": "迴圈縮放（適應、2倍適應、100%）",
         "delete_selected": "刪除選中的檔案",
         "focus_search": "聚焦搜尋框",

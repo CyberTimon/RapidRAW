@@ -539,6 +539,9 @@
       "exporting": "Exportation…",
       "savesTo": "Modification externe — s'enregistre dans"
     },
+    "layout": {
+      "split": "Diviser"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "Ajouter un nouveau composant",
@@ -936,6 +939,7 @@
         "modified": "Date de modification",
         "name": "Alphabétique"
       },
+      "sourcesTitle": "Sources",
       "tooltips": {
         "clearSearch": "Effacer la recherche",
         "collapse": "Réduire",
@@ -1529,6 +1533,7 @@
         "color_label_yellow": "Étiquette de couleur : Jaune",
         "copy_adjustments": "Copier les ajustements sélectionnés",
         "copy_files": "Copier le(s) fichier(s) sélectionné(s)",
+        "copy_image_path": "Copier le chemin de la ou des images sélectionnées",
         "cycle_zoom": "Faire défiler le zoom (Ajuster, 2x Ajuster, 100%)",
         "delete_selected": "Supprimer le(s) fichier(s) sélectionné(s)",
         "focus_search": "Activer le champ de recherche",

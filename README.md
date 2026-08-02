@@ -647,6 +647,16 @@ npm install
 npm start
 ```
 
+To build the release-build:
+
+```bash
+# 1. Make the release build
+npm run tauri build
+
+# 2. Run the release build
+./src-tauri/target/release/RapidRAW
+```
+
 ## Command Line Interface (CLI)
 
 RapidRAW includes a headless export tool for batch processing photos in automated scripts, terminal pipelines, or server environments without opening the GUI:

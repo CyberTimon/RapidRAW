@@ -38,6 +38,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'library',
   },
   {
+    action: 'copy_image_path',
+    description: 'settings.keybinds.actions.copy_image_path',
+    defaultCombo: ['ctrl', 'KeyL'],
+    section: 'library',
+  },
+  {
     action: 'select_all',
     description: 'settings.keybinds.actions.select_all',
     defaultCombo: ['ctrl', 'KeyA'],

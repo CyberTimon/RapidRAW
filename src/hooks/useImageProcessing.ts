@@ -34,6 +34,7 @@ export function useImageProcessing(
   const transformedOriginalUrl = useEditorStore((state) => state.transformedOriginalUrl);
   const setEditor = useEditorStore((state) => state.setEditor);
 
+  const activeView = useUIStore((state) => state.activeView);
   const activeRightPanel = useUIStore((state) => state.activeRightPanel);
   const appSettings = useSettingsStore((state) => state.appSettings);
   const multiSelectedPaths = useLibraryStore((state) => state.multiSelectedPaths);
@@ -380,13 +381,13 @@ export function useImageProcessing(
   );
 
   useEffect(() => {
-    if (activeRightPanel === Panel.Crop && selectedImage?.isReady) {
+    if (activeView === 'editor' && activeRightPanel === Panel.Crop && selectedImage?.isReady) {
       generateUncroppedPreview(adjustments);
     }
-  }, [adjustments, activeRightPanel, selectedImage?.isReady, generateUncroppedPreview]);
+  }, [activeView, adjustments, activeRightPanel, selectedImage?.isReady, generateUncroppedPreview]);
 
   useEffect(() => {
-    if (selectedImage?.isReady && displaySize.width > 0 && !isSliderDragging) {
+    if (activeView === 'editor' && selectedImage?.isReady && displaySize.width > 0 && !isSliderDragging) {
       let baseRes = calculateTargetRes();
       if (originalSize.width > 0 && originalSize.height > 0) {
         const maxRes = Math.max(originalSize.width, originalSize.height);
@@ -403,6 +404,7 @@ export function useImageProcessing(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    activeView,
     displaySize.width,
     displaySize.height,
     calculateTargetRes,
@@ -419,6 +421,10 @@ export function useImageProcessing(
 
     const targetRes = calculateTargetRes();
     const renderAdjustments = previewOverride ?? adjustments;
+
+    if (activeView !== 'editor') {
+      if (isSliderDragging) return;
+    }
 
     if (isSliderDragging) {
       if (appSettings?.enableLivePreviews !== false) {
@@ -464,6 +470,7 @@ export function useImageProcessing(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    activeView,
     adjustments,
     previewOverride,
     selectedImage?.path,
@@ -482,7 +489,13 @@ export function useImageProcessing(
   }, [geometricAdjustmentsKey, selectedImage?.path, setEditor]);
 
   useEffect(() => {
-    if (showOriginal && selectedImage?.isReady && displaySize.width > 0 && !isSliderDragging) {
+    if (
+      activeView === 'editor' &&
+      showOriginal &&
+      selectedImage?.isReady &&
+      displaySize.width > 0 &&
+      !isSliderDragging
+    ) {
       let targetRes = calculateTargetRes();
       if (targetRes > currentOriginalResRef.current) {
         requestHiFiOriginalZoom(adjustments, targetRes);
@@ -493,6 +506,7 @@ export function useImageProcessing(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    activeView,
     showOriginal,
     displaySize.width,
     displaySize.height,
@@ -506,7 +520,7 @@ export function useImageProcessing(
   useEffect(() => {
     let isEffectActive = true;
     const generate = async () => {
-      if (showOriginal && selectedImage?.path && !transformedOriginalUrl) {
+      if (activeView === 'editor' && showOriginal && selectedImage?.path && !transformedOriginalUrl) {
         try {
           const targetRes = calculateTargetRes();
           const base64Data: string = await invoke('generate_original_transformed_preview', {
@@ -529,7 +543,15 @@ export function useImageProcessing(
     return () => {
       isEffectActive = false;
     };
-  }, [showOriginal, selectedImage?.path, adjustments, transformedOriginalUrl, calculateTargetRes, setEditor]);
+  }, [
+    activeView,
+    showOriginal,
+    selectedImage?.path,
+    adjustments,
+    transformedOriginalUrl,
+    calculateTargetRes,
+    setEditor,
+  ]);
 
   return {
     applyAdjustments,

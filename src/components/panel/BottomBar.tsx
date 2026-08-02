@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings, Filter } from 'lucide-react';
+import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, Settings, Filter } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
@@ -283,7 +283,7 @@ export default function BottomBar({
 
       <div
         className={clsx(
-          'shrink-0 h-10 flex items-center justify-between px-3',
+          'shrink-0 h-12 flex items-center justify-between px-3',
           !isLibraryView && 'border-t',
           !isLibraryView && showFilmstrip && isFilmstripVisible ? 'border-surface' : 'border-transparent',
         )}
@@ -471,18 +471,7 @@ export default function BottomBar({
           </div>
         </div>
         <div className="grow" />
-        {isLibraryView ? (
-          <div className="flex items-center gap-2">
-            <button
-              className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-              disabled={isExportDisabled}
-              onClick={onExportClick}
-              data-tooltip={t('ui.bottomBar.tooltips.export')}
-            >
-              <FileInput size={18} />
-            </button>
-          </div>
-        ) : showZoomControls ? (
+        {!isLibraryView && showZoomControls && (
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 w-56">
               <div
@@ -558,7 +547,7 @@ export default function BottomBar({
               </>
             )}
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

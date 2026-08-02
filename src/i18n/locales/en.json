@@ -519,6 +519,9 @@
       "exporting": "Exporting…",
       "savesTo": "External edit — saves to"
     },
+    "layout": {
+      "split": "Split"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "Add New Component",
@@ -913,6 +916,7 @@
         "modified": "Date Modified",
         "name": "Alphabetically"
       },
+      "sourcesTitle": "Sources",
       "tooltips": {
         "clearSearch": "Clear search",
         "collapse": "Collapse",
@@ -1496,6 +1500,7 @@
         "color_label_yellow": "Color label: Yellow",
         "copy_adjustments": "Copy selected adjustments",
         "copy_files": "Copy selected file(s)",
+        "copy_image_path": "Copy path of selected image(s)",
         "cycle_zoom": "Cycle zoom (Fit, 2x Fit, 100%)",
         "delete_selected": "Delete selected file(s)",
         "focus_search": "Focus search field",
