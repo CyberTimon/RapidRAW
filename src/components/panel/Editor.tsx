@@ -264,7 +264,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     [setAdjustments],
   );
 
-  const handleWbPicked = useCallback(() => { }, []);
+  const handleWbPicked = useCallback(() => {}, []);
 
   useEffect(() => {
     if (isFullScreen) {
@@ -1182,8 +1182,15 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       const clipY = (currentRect.top - OVERLAP) * dpr;
       const clipW = Math.max((currentRect.width + OVERLAP * 2) * dpr, 1);
       const clipH = Math.max((currentRect.height + OVERLAP * 2) * dpr, 1);
+      const irs = imageRenderSizeRef.current;
 
-      if (state.useWgpuRenderer === false || !state.isReady || !state.hasRenderedFirstFrame) {
+      if (
+        state.useWgpuRenderer === false ||
+        !state.isReady ||
+        !state.hasRenderedFirstFrame ||
+        irs.width === 0 ||
+        irs.height === 0
+      ) {
         const hiddenTransform = `${windowWidth},${windowHeight},-999999,-999999,1,1,${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')}`;
 
         if (lastWgpuTransformRef.current !== hiddenTransform && !isInvoking) {
@@ -1206,7 +1213,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
               pixelated: false,
             },
           })
-            .catch(() => { })
+            .catch(() => {})
             .finally(() => {
               isInvoking = false;
               scheduleSync();
@@ -1222,7 +1229,6 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       const cw = currentRect.width;
       const ch = currentRect.height;
 
-      const irs = imageRenderSizeRef.current;
       const offsetX = irs.width > 0 ? irs.offsetX : 0;
       const offsetY = irs.height > 0 ? irs.offsetY : 0;
       const baseW = irs.width > 0 ? irs.width : cw;

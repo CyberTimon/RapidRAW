@@ -65,7 +65,13 @@ pub fn list_luts_in_dir(dir: &Path) -> anyhow::Result<Vec<LutEntry>> {
             .and_then(|s| s.to_str())
             .unwrap_or("")
             .to_lowercase();
-        if extension == "cube" || extension == "3dl" {
+
+        let is_supported = matches!(
+            extension.as_str(),
+            "cube" | "3dl" | "png" | "jpg" | "jpeg" | "tiff"
+        );
+
+        if is_supported {
             let name = path
                 .file_stem()
                 .and_then(|s| s.to_str())
@@ -495,7 +501,13 @@ fn list_luts_in_cache() -> anyhow::Result<Vec<LutEntry>> {
             .and_then(|s| s.to_str())
             .unwrap_or("")
             .to_lowercase();
-        if extension == "cube" || extension == "3dl" {
+
+        let is_supported = matches!(
+            extension.as_str(),
+            "cube" | "3dl" | "png" | "jpg" | "jpeg" | "tiff"
+        );
+
+        if is_supported {
             let name = path
                 .file_stem()
                 .and_then(|s| s.to_str())

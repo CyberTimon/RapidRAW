@@ -523,6 +523,9 @@
       "exporting": "正在匯出…",
       "savesTo": "外部編輯 — 儲存至"
     },
+    "layout": {
+      "split": "拆分"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "新增新元件",
@@ -917,6 +920,7 @@
         "modified": "修改日期",
         "name": "按字母順序"
       },
+      "sourcesTitle": "來源",
       "tooltips": {
         "clearSearch": "清除搜尋",
         "collapse": "摺疊",

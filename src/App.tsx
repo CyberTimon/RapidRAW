@@ -503,18 +503,26 @@ function App() {
 
       if (stateKey === 'left') {
         let w = startSize + (moveEvent.clientX - startX);
-        if (w < 150) w = 48;
+        if (w < 200) w = 48;
         else if (w > 600) w = 600;
         setUI({ leftPanelWidth: Math.round(w) });
       } else if (stateKey === 'right') {
         let w = startSize - (moveEvent.clientX - startX);
-        if (w < 150) w = 48;
+        if (w < 200) w = 48;
         else if (w > 600) w = 600;
         setUI({ rightPanelWidth: Math.round(w) });
       } else if (stateKey === 'bottom') {
-        setUI({
-          bottomPanelHeight: Math.round(Math.max(100, Math.min(startSize - (moveEvent.clientY - startY), 400))),
-        });
+        const newHeight = startSize - (moveEvent.clientY - startY);
+        if (newHeight < 100) {
+          setUI((state) => ({
+            uiVisibility: { ...state.uiVisibility, filmstrip: false },
+          }));
+        } else {
+          setUI((state) => ({
+            bottomPanelHeight: Math.round(Math.min(newHeight, 400)),
+            uiVisibility: { ...state.uiVisibility, filmstrip: true },
+          }));
+        }
       } else if (stateKey === 'compact') {
         setUI({
           compactEditorPanelHeightOverride: Math.round(
@@ -751,30 +759,44 @@ function App() {
                     onDone={finishExternalEdit}
                   />
                 )}
-                {activeView === 'editor' && selectedImage ? (
-                  <EditorView
-                    transformWrapperRef={transformWrapperRef}
-                    isResizing={isResizing}
-                    isCompactPortrait={isCompactPortrait}
-                    isAndroid={isAndroid}
-                    compactEditorPanelHeight={compactEditorPanelHeight}
-                    compactEditorPanelCollapsedHeight={compactEditorPanelCollapsedHeight}
-                    thumbnailAspectRatio={thumbnailAspectRatio}
-                    sortedImageList={sortedImageList}
-                    createResizeHandler={createResizeHandler}
-                    handleBackToLibrary={handleBackToLibrary}
-                    handleEditorContextMenu={handleEditorContextMenu}
-                    handleThumbnailContextMenu={handleThumbnailContextMenu}
-                    handleImageClick={handleImageClick}
-                    handleClearSelection={handleClearSelection}
-                    handleCopyAdjustments={handleCopyAdjustments}
-                    handlePasteAdjustments={handlePasteAdjustments}
-                    handleRate={handleRate}
-                    handleZoomChange={handleZoomChange}
-                    handleRightPanelSelect={handleRightPanelSelect}
-                    requestThumbnails={requestThumbnails}
-                  />
-                ) : (
+                <div
+                  className={clsx(
+                    'flex-1 flex flex-col min-w-0 h-full',
+                    activeView === 'editor' && selectedImage ? 'flex' : 'hidden',
+                  )}
+                >
+                  {selectedImage && (
+                    <EditorView
+                      transformWrapperRef={transformWrapperRef}
+                      isResizing={isResizing}
+                      isCompactPortrait={isCompactPortrait}
+                      isAndroid={isAndroid}
+                      compactEditorPanelHeight={compactEditorPanelHeight}
+                      compactEditorPanelCollapsedHeight={compactEditorPanelCollapsedHeight}
+                      thumbnailAspectRatio={thumbnailAspectRatio}
+                      sortedImageList={sortedImageList}
+                      createResizeHandler={createResizeHandler}
+                      handleBackToLibrary={handleBackToLibrary}
+                      handleEditorContextMenu={handleEditorContextMenu}
+                      handleThumbnailContextMenu={handleThumbnailContextMenu}
+                      handleMainLibraryContextMenu={handleMainLibraryContextMenu}
+                      handleImageClick={handleImageClick}
+                      handleClearSelection={handleClearSelection}
+                      handleCopyAdjustments={handleCopyAdjustments}
+                      handlePasteAdjustments={handlePasteAdjustments}
+                      handleRate={handleRate}
+                      handleZoomChange={handleZoomChange}
+                      handleRightPanelSelect={handleRightPanelSelect}
+                      requestThumbnails={requestThumbnails}
+                    />
+                  )}
+                </div>
+                <div
+                  className={clsx(
+                    'flex-1 flex flex-col min-w-0 h-full',
+                    activeView === 'editor' && selectedImage ? 'hidden' : 'flex',
+                  )}
+                >
                   <LibraryView
                     sortedImageList={sortedImageList}
                     groupBadgeInfo={groupBadgeInfo}
@@ -801,7 +823,7 @@ function App() {
                     handleResetAdjustments={handleResetAdjustments}
                     requestThumbnails={requestThumbnails}
                   />
-                )}
+                </div>
                 {isSettingsOpen && appSettings && hasRoots && (
                   <div className="absolute inset-0 z-50 flex bg-bg-secondary rounded-lg">
                     <div className="w-full h-full flex flex-col p-4 lg:p-8 overflow-y-auto custom-scrollbar">

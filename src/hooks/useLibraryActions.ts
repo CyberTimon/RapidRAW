@@ -132,25 +132,36 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
   }, []);
 
   const handleClearSelection = useCallback(() => {
-    useLibraryStore.getState().setLibrary({
-      multiSelectedPaths: [],
-      libraryActivePath: null,
-      selectionAnchorPath: null,
-    });
+    const activeView = useUIStore.getState().activeView;
+    const { selectedImage } = useEditorStore.getState();
 
-    useEditorStore.getState().setEditor({
-      selectedImage: null,
-      finalPreviewUrl: null,
-      uncroppedAdjustedPreviewUrl: null,
-      histogram: null,
-      waveform: null,
-      activeMaskId: null,
-      activeMaskContainerId: null,
-      activeAiPatchContainerId: null,
-      activeAiSubMaskId: null,
-      isWbPickerActive: false,
-      transformedOriginalUrl: null,
-    });
+    if (activeView === 'editor' && selectedImage) {
+      useLibraryStore.getState().setLibrary({
+        multiSelectedPaths: [selectedImage.path],
+        libraryActivePath: selectedImage.path,
+        selectionAnchorPath: selectedImage.path,
+      });
+    } else {
+      useLibraryStore.getState().setLibrary({
+        multiSelectedPaths: [],
+        libraryActivePath: null,
+        selectionAnchorPath: null,
+      });
+
+      useEditorStore.getState().setEditor({
+        selectedImage: null,
+        finalPreviewUrl: null,
+        uncroppedAdjustedPreviewUrl: null,
+        histogram: null,
+        waveform: null,
+        activeMaskId: null,
+        activeMaskContainerId: null,
+        activeAiPatchContainerId: null,
+        activeAiSubMaskId: null,
+        isWbPickerActive: false,
+        transformedOriginalUrl: null,
+      });
+    }
   }, []);
 
   const handleMultiSelectClick = useCallback(

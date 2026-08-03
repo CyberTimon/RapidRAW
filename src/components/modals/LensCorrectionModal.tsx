@@ -841,27 +841,25 @@ export default function LensCorrectionModal({
           >
             <Info size={16} className="shrink-0" />
             <div className="leading-tight space-y-1">
-              <Trans i18nKey="modals.lensCorrection.databaseNotice">
-                Lens database provided by the{' '}
-                <a
-                  href="https://lensfun.github.io/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline hover:text-primary transition-colors"
-                >
-                  Lensfun Project
-                </a>{' '}
-                (
-                <a
-                  href="https://creativecommons.org/licenses/by-sa/3.0/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline hover:text-primary transition-colors"
-                >
-                  CC BY-SA 3.0
-                </a>
-                ).
-              </Trans>
+              <Trans
+                i18nKey="modals.lensCorrection.databaseNotice"
+                components={[
+                  <a
+                    key="0"
+                    href="https://lensfun.github.io/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline hover:text-primary transition-colors"
+                  />,
+                  <a
+                    key="1"
+                    href="https://creativecommons.org/licenses/by-sa/3.0/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline hover:text-primary transition-colors"
+                  />,
+                ]}
+              />
             </div>
           </Text>
         </div>

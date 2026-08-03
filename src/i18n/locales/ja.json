@@ -523,6 +523,9 @@
       "exporting": "書き出し中…",
       "savesTo": "外部編集 — 保存先"
     },
+    "layout": {
+      "split": "分割"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "新しいコンポーネントを追加",
@@ -917,6 +920,7 @@
         "modified": "更新日",
         "name": "アルファベット順"
       },
+      "sourcesTitle": "ソース",
       "tooltips": {
         "clearSearch": "検索をクリア",
         "collapse": "折りたたむ",

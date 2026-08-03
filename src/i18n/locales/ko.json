@@ -523,6 +523,9 @@
       "exporting": "내보내는 중…",
       "savesTo": "외부 편집 — 저장 위치:"
     },
+    "layout": {
+      "split": "분할"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "새 구성 요소 추가",
@@ -917,6 +920,7 @@
         "modified": "수정일",
         "name": "알파벳순"
       },
+      "sourcesTitle": "소스",
       "tooltips": {
         "clearSearch": "검색 지우기",
         "collapse": "접기",

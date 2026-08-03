@@ -699,7 +699,7 @@ fn apply_color_grading(color: vec3<f32>, shadows: ColorGradeSettings, midtones: 
     let midtone_mask = max(0.0, 1.0 - shadow_mask - highlight_mask);
     let global_mask = 1.0;
     var graded_color = color;
-    let shadow_sat_strength = 0.3;
+    let shadow_sat_strength = 0.1;
     let shadow_lum_strength = 0.5;
     let midtone_sat_strength = 0.6;
     let midtone_lum_strength = 0.8;
@@ -1224,15 +1224,29 @@ fn apply_all_curves(color: vec3<f32>, luma_curve: array<Point, 16>, luma_curve_c
     let rgb_curves_are_active = !red_is_default || !green_is_default || !blue_is_default;
 
     if (rgb_curves_are_active) {
-        let color_graded = vec3<f32>(apply_curve(color.r, red_curve, red_curve_count), apply_curve(color.g, green_curve, green_curve_count), apply_curve(color.b, blue_curve, blue_curve_count));
+        let color_graded = vec3<f32>(
+            apply_curve(color.r, red_curve, red_curve_count),
+            apply_curve(color.g, green_curve, green_curve_count),
+            apply_curve(color.b, blue_curve, blue_curve_count)
+        );
         let luma_initial = get_luma(color);
         let luma_target = apply_curve(luma_initial, luma_curve, luma_curve_count);
         let luma_graded = get_luma(color_graded);
-        var final_color: vec3<f32>;
-        if (luma_graded > 0.001) { final_color = color_graded * (luma_target / luma_graded); } else { final_color = vec3<f32>(luma_target); }
-        let max_comp = max(final_color.r, max(final_color.g, final_color.b));
-        if (max_comp > 1.0) { final_color = final_color / max_comp; }
-        return final_color;
+
+        let d = luma_target - luma_graded;
+        var final_color = color_graded + vec3<f32>(d);
+
+        let c_min = min(final_color.r, min(final_color.g, final_color.b));
+        if (c_min < 0.0) {
+            final_color = vec3<f32>(luma_target) + ((final_color - vec3<f32>(luma_target)) * luma_target) / max(luma_target - c_min, 1e-6);
+        }
+
+        let c_max = max(final_color.r, max(final_color.g, final_color.b));
+        if (c_max > 1.0) {
+            final_color = vec3<f32>(luma_target) + ((final_color - vec3<f32>(luma_target)) * (1.0 - luma_target)) / max(c_max - luma_target, 1e-6);
+        }
+
+        return clamp(final_color, vec3<f32>(0.0), vec3<f32>(1.0));
     } else {
         return vec3<f32>(apply_curve(color.r, luma_curve, luma_curve_count), apply_curve(color.g, luma_curve, luma_curve_count), apply_curve(color.b, luma_curve, luma_curve_count));
     }

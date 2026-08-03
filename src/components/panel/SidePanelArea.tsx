@@ -1,10 +1,13 @@
 import { useState, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { useDroppable, useDndMonitor } from '@dnd-kit/core';
 import { SwitcherPlacement, useUIStore } from '../../store/useUIStore';
 import { Panel, PanelRegion } from '../ui/AppProperties';
 import PanelSwitcher from './PanelSwitcher';
+
+const COLLAPSE_THRESHOLD = 200;
 
 interface SidePanelAreaProps {
   side: 'left' | 'right';
@@ -108,7 +111,7 @@ function RegionDroppableContainer({
 
   const isFlexRow = placement === 'left' || placement === 'right';
   const showSwitcherFirst = placement === 'left' || placement === 'top';
-  const isCollapsed = width < 150;
+  const isCollapsed = width < COLLAPSE_THRESHOLD;
 
   return (
     <div
@@ -151,29 +154,34 @@ function RegionDroppableContainer({
         )}
       </AnimatePresence>
 
-      {showSwitcherFirst && !isCollapsed && <PanelSwitcher region={region} side={side} placement={placement} />}
-
       <div
-        className={clsx('flex-1 overflow-hidden relative min-w-0', isCollapsed && 'opacity-0 pointer-events-none')}
-        onPointerDownCapture={handleContentInteraction}
+        className={clsx(
+          'flex flex-1 w-full h-full min-w-0 min-h-0 overflow-hidden transition-opacity duration-300 ease-in-out',
+          isFlexRow ? 'flex-row' : 'flex-col',
+          isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto',
+        )}
       >
-        <AnimatePresence mode="wait">
-          {activePanel && (
-            <motion.div
-              key={activePanel}
-              className="absolute inset-0 overflow-y-auto custom-scrollbar"
-              initial={isInstantTransition || isResizing ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              {renderPanel(activePanel)}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+        {showSwitcherFirst && <PanelSwitcher region={region} side={side} placement={placement} />}
 
-      {!showSwitcherFirst && !isCollapsed && <PanelSwitcher region={region} side={side} placement={placement} />}
+        <div className="flex-1 overflow-hidden relative min-w-0" onPointerDownCapture={handleContentInteraction}>
+          <AnimatePresence mode="wait">
+            {activePanel && (
+              <motion.div
+                key={activePanel}
+                className="absolute inset-0 overflow-y-auto custom-scrollbar"
+                initial={isInstantTransition || isResizing ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                {renderPanel(activePanel)}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {!showSwitcherFirst && <PanelSwitcher region={region} side={side} placement={placement} />}
+      </div>
     </div>
   );
 }
@@ -187,6 +195,7 @@ function SplitOverlayDropzone({
   side: 'left' | 'right';
   isTop: boolean;
 }) {
+  const { t } = useTranslation();
   const setPanelSwitcherPlacement = useUIStore((s) => s.setPanelSwitcherPlacement);
 
   const [hoverPlacement, setHoverPlacement] = useState<SwitcherPlacement | null>(null);
@@ -287,7 +296,9 @@ function SplitOverlayDropzone({
           </motion.div>
         )}
       </AnimatePresence>
-      <span className="text-xs uppercase tracking-wider relative z-10 pointer-events-none">Split</span>
+      <span className="text-xs uppercase tracking-wider relative z-10 pointer-events-none">
+        {t('editor.layout.split')}
+      </span>
     </motion.div>
   );
 }
@@ -310,7 +321,9 @@ export default function SidePanelArea({
   const topPlacement = useUIStore((s) => s.panelSwitcherPlacement[topRegion]);
   const bottomPlacement = useUIStore((s) => s.panelSwitcherPlacement[bottomRegion]);
 
-  const [topHeight, setTopHeight] = useState(450);
+  const topHeight = useUIStore((s) => (side === 'left' ? s.leftTopHeight : s.rightTopHeight));
+  const setUI = useUIStore((s) => s.setUI);
+
   const colContainerRef = useRef<HTMLDivElement>(null);
 
   const handleVerticalResize = useCallback(
@@ -323,8 +336,15 @@ export default function SidePanelArea({
       const doDrag = (moveEvent: PointerEvent) => {
         const containerHeight = colContainerRef.current?.clientHeight || window.innerHeight;
         const maxTopHeight = Math.max(150, containerHeight - 150);
-        setTopHeight(Math.max(150, Math.min(maxTopHeight, startHeight + (moveEvent.clientY - startY))));
+        const newHeight = Math.max(150, Math.min(maxTopHeight, startHeight + (moveEvent.clientY - startY)));
+
+        if (side === 'left') {
+          setUI({ leftTopHeight: newHeight });
+        } else {
+          setUI({ rightTopHeight: newHeight });
+        }
       };
+
       const stopDrag = () => {
         window.removeEventListener('pointermove', doDrag);
         window.removeEventListener('pointerup', stopDrag);
@@ -332,7 +352,7 @@ export default function SidePanelArea({
       window.addEventListener('pointermove', doDrag);
       window.addEventListener('pointerup', stopDrag);
     },
-    [topHeight],
+    [topHeight, side, setUI],
   );
 
   const topPanels = panelLayout[topRegion];
@@ -343,8 +363,6 @@ export default function SidePanelArea({
 
   if (!hasTop && !hasBottom && !isDraggingLayout) return null;
 
-  // A split is only valid if there's more than 1 panel in the existing region,
-  // or if the item being dragged is coming from a different region/side.
   const canSplitTop =
     topPanels.length > 1 || (activeLayoutDragItem !== null && !topPanels.includes(activeLayoutDragItem));
   const canSplitBottom =
@@ -353,12 +371,15 @@ export default function SidePanelArea({
   const topSplitIsTop = topPlacement === 'bottom';
   const bottomSplitIsTop = bottomPlacement !== 'top';
 
+  const isCollapsed = width < COLLAPSE_THRESHOLD;
+  const shouldAnimateWidth = !isInstantTransition && (!isResizing || isCollapsed);
+
   return (
     <div
       className={clsx(
-        'flex shrink-0 h-full relative',
+        'flex shrink-0 h-full relative overflow-hidden',
         isFullScreen ? 'w-0 opacity-0 pointer-events-none' : 'opacity-100',
-        !isInstantTransition && !isResizing && 'transition-all duration-300 ease-in-out',
+        shouldAnimateWidth && 'transition-all duration-300 ease-in-out',
       )}
       style={{ width: isFullScreen ? 0 : width }}
     >

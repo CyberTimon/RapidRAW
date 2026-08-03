@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings, Filter } from 'lucide-react';
+import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, Settings, Filter } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
@@ -10,6 +10,7 @@ import { GLOBAL_KEYS, ImageFile, SelectedImage, ThumbnailAspectRatio } from '../
 import Text from '../ui/Text';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { useUIStore } from '../../store/useUIStore';
 import { COLOR_LABELS } from '../../utils/adjustments';
 
 interface BottomBarProps {
@@ -30,6 +31,7 @@ interface BottomBarProps {
   multiSelectedPaths?: Array<string>;
   onClearSelection?(): void;
   onContextMenu?(event: any, path: string): void;
+  onEmptyAreaContextMenu?(event: any): void;
   onCopy(): void;
   onExportClick?(): void;
   onImageSelect?(path: string, event: any): void;
@@ -97,26 +99,23 @@ export default function BottomBar({
   imageRatings,
   isCopied,
   isCopyDisabled,
-  isExportDisabled,
   isFilmstripVisible,
   isLibraryView = false,
   isLoading = false,
   isPasted,
   isPasteDisabled,
   isRatingDisabled = false,
-  isResetDisabled = false,
   isResizing,
   multiSelectedPaths = [],
   onClearSelection,
   onContextMenu,
+  onEmptyAreaContextMenu,
   onCopy,
-  onExportClick,
   onImageSelect,
   onOpenCopyPasteSettings,
   onRequestThumbnails,
   onPaste,
   onRate,
-  onReset,
   onZoomChange = () => {},
   rating,
   selectedImage,
@@ -127,6 +126,8 @@ export default function BottomBar({
   totalImages,
 }: BottomBarProps) {
   const { t } = useTranslation();
+  const isInstantTransition = useUIStore((s) => s.isInstantTransition);
+
   const { displaySize, originalSize } = useEditorStore(
     useShallow((state) => ({
       displaySize: state.displaySize,
@@ -163,6 +164,10 @@ export default function BottomBar({
   );
 
   const allColors = [...COLOR_LABELS, { name: 'none', color: '#9ca3af' }];
+  const currentHeight = filmstripHeight ?? 120;
+  const isCollapsed = !isFilmstripVisible;
+  const effectiveHeight = isFilmstripVisible ? currentHeight : 0;
+  const shouldAnimate = !isInstantTransition && (!isResizing || isCollapsed);
 
   useEffect(() => {
     if (isZoomReady && !isDraggingSlider.current) {
@@ -261,10 +266,19 @@ export default function BottomBar({
     <div className="shrink-0 bg-bg-secondary rounded-lg flex flex-col">
       {!isLibraryView && showFilmstrip && (
         <div
-          className={clsx('overflow-hidden', !isResizing && 'transition-all duration-300 ease-in-out')}
-          style={{ height: isFilmstripVisible ? `${filmstripHeight}px` : '0px' }}
+          className={clsx(
+            'overflow-hidden shrink-0 relative',
+            shouldAnimate && 'transition-all duration-300 ease-in-out',
+          )}
+          style={{ height: `${effectiveHeight}px` }}
         >
-          <div className="w-full p-2" style={{ height: `${filmstripHeight}px` }}>
+          <div
+            className={clsx(
+              'w-full p-2 transition-opacity duration-300 ease-in-out',
+              isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto',
+            )}
+            style={{ height: `${currentHeight}px` }}
+          >
             <Filmstrip
               imageList={imageList}
               imageRatings={imageRatings}
@@ -272,6 +286,7 @@ export default function BottomBar({
               multiSelectedPaths={multiSelectedPaths}
               onClearSelection={onClearSelection}
               onContextMenu={onContextMenu}
+              onEmptyAreaContextMenu={onEmptyAreaContextMenu}
               onImageSelect={onImageSelect}
               onRequestThumbnails={onRequestThumbnails}
               selectedImage={selectedImage}
@@ -284,7 +299,7 @@ export default function BottomBar({
       <div
         className={clsx(
           'shrink-0 h-12 flex items-center justify-between px-3',
-          !isLibraryView && 'border-t',
+          !isLibraryView && 'border-t transition-colors duration-300',
           !isLibraryView && showFilmstrip && isFilmstripVisible ? 'border-surface' : 'border-transparent',
         )}
       >
@@ -471,18 +486,7 @@ export default function BottomBar({
           </div>
         </div>
         <div className="grow" />
-        {isLibraryView ? (
-          <div className="flex items-center gap-2">
-            <button
-              className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-              disabled={isExportDisabled}
-              onClick={onExportClick}
-              data-tooltip={t('ui.bottomBar.tooltips.export')}
-            >
-              <FileInput size={18} />
-            </button>
-          </div>
-        ) : showZoomControls ? (
+        {!isLibraryView && showZoomControls && (
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 w-56">
               <div
@@ -558,7 +562,7 @@ export default function BottomBar({
               </>
             )}
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

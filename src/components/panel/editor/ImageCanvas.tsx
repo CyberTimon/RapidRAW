@@ -1732,7 +1732,15 @@ const ImageCanvas = memo(
           onWbPicked();
         };
       },
-      [isWbPickerActive, selectedImage?.thumbnailUrl, finalPreviewUrl, imageRenderSize, onWbPicked, setAdjustments, getCanvasPointer],
+      [
+        isWbPickerActive,
+        selectedImage?.thumbnailUrl,
+        finalPreviewUrl,
+        imageRenderSize,
+        onWbPicked,
+        setAdjustments,
+        getCanvasPointer,
+      ],
     );
 
     const handleStart = useCallback(
@@ -2673,7 +2681,6 @@ const ImageCanvas = memo(
                         overflow: 'visible',
                       }
                 }
-                preserveAspectRatio={imageRenderSize.width > 0 && imageRenderSize.height > 0 ? 'none' : 'xMidYMid meet'}
               >
                 {displayState.base && !isWgpuActive && (
                   <image

@@ -545,6 +545,9 @@
       "exporting": "Exportation…",
       "savesTo": "Modification externe — s'enregistre dans"
     },
+    "layout": {
+      "split": "Diviser"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "Ajouter un nouveau composant",
@@ -942,6 +945,7 @@
         "modified": "Date de modification",
         "name": "Alphabétique"
       },
+      "sourcesTitle": "Sources",
       "tooltips": {
         "clearSearch": "Effacer la recherche",
         "collapse": "Réduire",

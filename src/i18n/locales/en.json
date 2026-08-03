@@ -525,6 +525,9 @@
       "exporting": "Exporting…",
       "savesTo": "External edit — saves to"
     },
+    "layout": {
+      "split": "Split"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "Add New Component",
@@ -919,6 +922,7 @@
         "modified": "Date Modified",
         "name": "Alphabetically"
       },
+      "sourcesTitle": "Sources",
       "tooltips": {
         "clearSearch": "Clear search",
         "collapse": "Collapse",
@@ -1635,7 +1639,7 @@
       "imageCacheDesc": "Maximum number of full-resolution images kept in RAM. Higher values make switching between recently edited images instant, but use significantly more memory.",
       "images": "Images",
       "linuxCompat": "Linux Compatibility Mode",
-      "linuxCompatDesc": "Force software compositing to work around GPU driver crashes. Nvidia GPUs already get a lighter, non-software-fallback workaround automatically, so only enable this if you still experience crashes on launch or when opening images.",
+      "linuxCompatDesc": "Force software compositing to work around GPU driver crashes. Nvidia GPUs already get a lighter, automatic workaround, so only enable this if you still experience crashes on launch or when opening images.",
       "linuxCompatLabel": "Enable Compatibility Mode",
       "livePreviewQuality": "Live Preview Quality",
       "livePreviewQualityDesc": "Controls the resolution and compression of the image while dragging sliders. Lower quality significantly improves responsiveness.",

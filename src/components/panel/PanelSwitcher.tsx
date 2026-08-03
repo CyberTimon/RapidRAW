@@ -36,7 +36,7 @@ const PANEL_TITLES: Record<Panel, string> = {
   [Panel.Ai]: 'editor.switcher.tooltips.inpaint',
   [Panel.Presets]: 'editor.switcher.tooltips.presets',
   [Panel.Export]: 'editor.switcher.tooltips.export',
-  [Panel.FolderTree]: 'library.folders.title',
+  [Panel.FolderTree]: 'library.folders.sourcesTitle',
 };
 
 function PanelTab({ panel, region, side }: { panel: Panel; region: PanelRegion; side: 'left' | 'right' }) {
@@ -58,10 +58,10 @@ function PanelTab({ panel, region, side }: { panel: Panel; region: PanelRegion; 
 
   const handleClick = () => {
     setActivePanel(region, panel);
-    if (side === 'left' && leftPanelWidth < 150) {
+    if (side === 'left' && leftPanelWidth < 200) {
       setUI({ leftPanelWidth: 320 });
     }
-    if (side === 'right' && rightPanelWidth < 150) {
+    if (side === 'right' && rightPanelWidth < 200) {
       setUI({ rightPanelWidth: 320 });
     }
   };

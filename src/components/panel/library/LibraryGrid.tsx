@@ -13,7 +13,6 @@ import { useProcessStore } from '../../../store/useProcessStore';
 import { ExifOverlay } from '../../ui/AppProperties';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 
-
 function ListHeader({ widths, setWidths, containerRef, sortCriteria, onSortChange }: any) {
   const { t } = useTranslation();
   const exifOverlay = useSettingsStore((s) => s.appSettings?.exifOverlay || ExifOverlay.Off);
@@ -206,7 +205,9 @@ export default function LibraryGrid(props: any) {
       const ro = new ResizeObserver((entries) => {
         const entry = entries[0];
         if (entry) {
-          const { height, width } = entry.contentRect;
+          const height = Math.round(entry.contentRect.height);
+          const width = Math.round(entry.contentRect.width);
+
           setGridSize((prev) => (prev.height === height && prev.width === width ? prev : { height, width }));
         }
       });
@@ -382,17 +383,28 @@ export default function LibraryGrid(props: any) {
   }, [listHandle, currentFolderPath]);
 
   const prevActivePath = useRef<string | null>(null);
+  const prevDisplayMode = useRef<LibraryDisplayMode | null>(null);
+  const prevListElement = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!listHandle?.element || !gridData || multiSelectedPaths.length > 1) {
       prevActivePath.current = activePath;
+      prevDisplayMode.current = libraryDisplayMode;
+      if (listHandle?.element) prevListElement.current = listHandle.element as HTMLElement;
       return;
     }
 
-    if (activePath === prevActivePath.current) return;
-    prevActivePath.current = activePath;
-
     const element = listHandle.element as HTMLElement;
+    const isPathSame = activePath === prevActivePath.current;
+    const isModeSame = libraryDisplayMode === prevDisplayMode.current;
+    const isElementSame = element === prevListElement.current;
+
+    if (isPathSame && isModeSame && isElementSame) return;
+
+    prevActivePath.current = activePath;
+    prevDisplayMode.current = libraryDisplayMode;
+    prevListElement.current = element;
+
     const { rows, rowHeight, headerHeight, columnCount } = gridData;
 
     let targetTop = 0;
@@ -431,7 +443,12 @@ export default function LibraryGrid(props: any) {
       const itemBottom = targetTop + rowHeight;
       const SCROLL_OFFSET = 120;
 
-      if (itemBottom > scrollTop + clientHeight) {
+      if (!isModeSame || !isElementSame) {
+        element.scrollTo({
+          top: Math.max(0, targetTop - clientHeight / 2 + rowHeight / 2),
+          behavior: 'instant',
+        });
+      } else if (itemBottom > scrollTop + clientHeight) {
         element.scrollTo({
           top: itemBottom - clientHeight + SCROLL_OFFSET,
           behavior: 'smooth',
@@ -443,7 +460,16 @@ export default function LibraryGrid(props: any) {
         });
       }
     }
-  }, [activePath, gridData, multiSelectedPaths.length, listHandle, currentFolderPath, imageList, libraryViewMode]);
+  }, [
+    activePath,
+    gridData,
+    multiSelectedPaths.length,
+    listHandle,
+    currentFolderPath,
+    imageList,
+    libraryViewMode,
+    libraryDisplayMode,
+  ]);
 
   const memoizedRowProps = useMemo(() => {
     if (!gridData) return {};
@@ -537,10 +563,7 @@ export default function LibraryGrid(props: any) {
             onSortChange={handleHeaderSort}
           />
         )}
-        <div
-          key={`${gridSize.width}-${thumbnailSize}-${libraryViewMode}-${sortCriteria.key}-${sortCriteria.order}-${thumbnailAspectRatio}`}
-          style={{ height: gridData.isListView ? gridSize.height - 36 : gridSize.height, width: gridSize.width }}
-        >
+        <div style={{ height: gridData.isListView ? gridSize.height - 36 : gridSize.height, width: gridSize.width }}>
           <List
             listRef={setListHandle}
             rowCount={gridData.rows.length}

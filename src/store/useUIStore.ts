@@ -98,6 +98,8 @@ interface UIState {
   leftPanelWidth: number;
   rightPanelWidth: number;
   bottomPanelHeight: number;
+  leftTopHeight: number;
+  rightTopHeight: number;
   compactEditorPanelHeightOverride: number | null;
 
   panelLayout: Record<PanelRegion, Panel[]>;
@@ -160,25 +162,27 @@ export const useUIStore = create<UIState>((set, get) => ({
   leftPanelWidth: 320,
   rightPanelWidth: 320,
   bottomPanelHeight: 144,
+  leftTopHeight: 450,
+  rightTopHeight: 450,
   compactEditorPanelHeightOverride: null,
 
   panelLayout: {
-    leftTop: [Panel.FolderTree],
+    leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export],
     leftBottom: [],
-    rightTop: [Panel.Metadata, Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai],
-    rightBottom: [Panel.Presets, Panel.Export],
+    rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
+    rightBottom: [],
   },
   activePanels: {
     leftTop: Panel.FolderTree,
     leftBottom: null,
     rightTop: Panel.Adjustments,
-    rightBottom: Panel.Presets,
+    rightBottom: null,
   },
   activeLayoutDragItem: null,
 
   panelSwitcherPlacement: {
-    leftTop: 'left',
-    leftBottom: 'left',
+    leftTop: 'bottom',
+    leftBottom: 'bottom',
     rightTop: 'right',
     rightBottom: 'right',
   },

@@ -73,6 +73,11 @@ use tauri::{Emitter, Manager, ipc::Response};
 use tempfile::NamedTempFile;
 use tokio::sync::Mutex as TokioMutex;
 
+#[cfg(target_os = "linux")]
+use webkit2gtk_nvidia_quirk::{
+    ApplyWorkaroundOptions, WorkaroundKind, apply_workaround_with_options, needs_workaround,
+};
+
 use crate::cache_utils::{
     DecodedImageCache, GEOMETRY_KEYS, calculate_full_job_hash, calculate_geometry_hash,
     calculate_transform_hash, calculate_visual_hash,
@@ -1627,11 +1632,6 @@ async fn generate_preview_for_path(
     .map_err(|e| format!("Task execution failed: {}", e))?
 }
 
-#[cfg(target_os = "linux")]
-fn is_nvidia_gpu() -> bool {
-    std::path::Path::new("/proc/driver/nvidia/version").exists()
-}
-
 fn setup_logging(app_handle: &tauri::AppHandle) {
     let log_dir = match app_handle.path().app_log_dir() {
         Ok(dir) => dir,
@@ -2015,12 +2015,11 @@ pub fn run() {
 
                 #[cfg(target_os = "linux")]
                 {
+                    apply_workaround_with_options(ApplyWorkaroundOptions::default());
                     if settings.linux_gpu_optimization.unwrap_or(false) {
                         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
                         std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
                         std::env::set_var("NODEVICE_SELECT", "1");
-                    } else if is_nvidia_gpu() {
-                        std::env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1");
                     }
                 }
 
@@ -2054,11 +2053,12 @@ pub fn run() {
                     log::info!("Applied processing backend setting: {}", backend);
                 }
             #[cfg(target_os = "linux")]
-            {
-                if settings.linux_gpu_optimization.unwrap_or(false) {
-                    log::info!("Applied Linux Compatibility Mode (forced software compositing).");
-                } else if is_nvidia_gpu() {
-                    log::info!("Applied Nvidia explicit-sync workaround (hardware compositing kept).");
+            if settings.linux_gpu_optimization.unwrap_or(false) {
+                log::info!("Applied Linux Compatibility Mode (forced software compositing).");
+            } else {
+                match needs_workaround() {
+                    WorkaroundKind::None => {}
+                    kind => log::info!("Applied Nvidia workaround: {:?}", kind),
                 }
             }
 

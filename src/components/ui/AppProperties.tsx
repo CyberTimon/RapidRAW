@@ -163,6 +163,16 @@ export enum ThumbnailAspectRatio {
   Contain = 'contain',
 }
 
+export interface WorkspaceState {
+  leftPanelWidth: number;
+  rightPanelWidth: number;
+  leftTopHeight: number;
+  rightTopHeight: number;
+  panelLayout: Record<PanelRegion, Panel[]>;
+  activePanels: Record<PanelRegion, Panel | null>;
+  panelSwitcherPlacement: Record<PanelRegion, 'left' | 'right' | 'top' | 'bottom'>;
+}
+
 export type GroupPreference = 'jpeg' | 'raw';
 export type GroupingMode = 'off' | GroupPreference;
 
@@ -226,6 +236,7 @@ export interface AppSettings {
   groupEditedFiles?: boolean;
   groupPreferredType?: GroupPreference; // legacy
   alwaysDecodeRawThumbnails?: boolean;
+  workspace?: WorkspaceState;
 }
 
 export interface BrushSettings {

@@ -565,6 +565,9 @@
       "exporting": "Экспорт…",
       "savesTo": "Внешнее редактирование — сохраняется в"
     },
+    "layout": {
+      "split": "Разделить"
+    },
     "masks": {
       "actions": {
         "addNewComponent": "Добавить новый компонент",
@@ -965,6 +968,7 @@
         "modified": "Дата изменения",
         "name": "По алфавиту"
       },
+      "sourcesTitle": "Источники",
       "tooltips": {
         "clearSearch": "Очистить поиск",
         "collapse": "Свернуть",

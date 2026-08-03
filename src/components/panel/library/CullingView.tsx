@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { List } from 'react-window';
+import { List, useListCallbackRef } from 'react-window';
 import {
   Loader2,
   Star as StarIcon,
@@ -1016,6 +1016,51 @@ export default function CullingView(props: any) {
   const [showRateBar, setShowRateBar] = useState(false);
   const [showInfoBar, setShowInfoBar] = useState(false);
 
+  const [listHandle, setListHandle] = useListCallbackRef();
+  const prevActivePath = useRef<string | null>(null);
+  const prevListElement = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!listHandle?.element || imageList.length === 0 || !activePath) return;
+
+    const element = listHandle.element as HTMLElement;
+    const isPathChanged = activePath !== prevActivePath.current;
+    const isElementChanged = element !== prevListElement.current;
+
+    if (isPathChanged || isElementChanged) {
+      const isInitial = prevActivePath.current === null || isElementChanged;
+      prevActivePath.current = activePath;
+      prevListElement.current = element;
+
+      const index = imageList.findIndex((img: ImageFile) => img.path === activePath);
+      if (index !== -1) {
+        const rowHeight = sidebarWidth - 16;
+        const targetTop = index * rowHeight;
+        const clientHeight = element.clientHeight;
+        const scrollTop = element.scrollTop;
+        const itemBottom = targetTop + rowHeight;
+        const SCROLL_OFFSET = 40;
+
+        if (isInitial) {
+          element.scrollTo({
+            top: Math.max(0, targetTop - clientHeight / 2 + rowHeight / 2),
+            behavior: 'instant',
+          });
+        } else if (itemBottom > scrollTop + clientHeight) {
+          element.scrollTo({
+            top: itemBottom - clientHeight + SCROLL_OFFSET,
+            behavior: 'smooth',
+          });
+        } else if (targetTop < scrollTop) {
+          element.scrollTo({
+            top: Math.max(0, targetTop - SCROLL_OFFSET),
+            behavior: 'smooth',
+          });
+        }
+      }
+    }
+  }, [activePath, listHandle, imageList, sidebarWidth]);
+
   const queueThumbnailRequest = useCallback(
     (path: string) => {
       if (!onRequestThumbnails) return;
@@ -1185,6 +1230,7 @@ export default function CullingView(props: any) {
         />
         <div key={`${sidebarWidth}-${thumbnailAspectRatio}`} style={{ height: listHeight, width: '100%' }}>
           <List
+            listRef={setListHandle}
             rowCount={imageList.length}
             rowHeight={sidebarWidth - 16}
             rowComponent={Row}

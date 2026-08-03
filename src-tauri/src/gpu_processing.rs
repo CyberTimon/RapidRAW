@@ -951,7 +951,19 @@ impl GpuProcessor {
         let dummy_lut_view = dummy_lut_texture.create_view(&Default::default());
         let dummy_lut_sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
 
-        let max_tile_size = wgpu::Extent3d {
+        const TILE_SIZE: u32 = 2048;
+        const TILE_OVERLAP: u32 = 128;
+
+        let clamped_tile_width = max_width.min(TILE_SIZE + TILE_OVERLAP * 2);
+        let clamped_tile_height = max_height.min(TILE_SIZE + TILE_OVERLAP * 2);
+
+        let clamped_tile_size = wgpu::Extent3d {
+            width: clamped_tile_width,
+            height: clamped_tile_height,
+            depth_or_array_layers: 1,
+        };
+
+        let full_image_size = wgpu::Extent3d {
             width: max_width,
             height: max_height,
             depth_or_array_layers: 1,
@@ -959,7 +971,7 @@ impl GpuProcessor {
 
         let reusable_texture_desc = wgpu::TextureDescriptor {
             label: None,
-            size: max_tile_size,
+            size: clamped_tile_size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -1000,7 +1012,7 @@ impl GpuProcessor {
 
         let tile_output_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Tile Output Texture"),
-            size: max_tile_size,
+            size: clamped_tile_size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -1014,7 +1026,7 @@ impl GpuProcessor {
 
         let working_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Working Output Texture"),
-            size: max_tile_size,
+            size: full_image_size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -1029,7 +1041,7 @@ impl GpuProcessor {
 
         let output_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Full Output Texture"),
-            size: max_tile_size,
+            size: full_image_size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
