@@ -33,9 +33,12 @@ export const FILENAME_VARIABLES: Array<string> = [
   '{mm}',
 ];
 
+export type TiffBitDepth = 8 | 16;
+
 export interface ExportSettings {
   filenameTemplate: string | null;
   jpegQuality: number;
+  tiffBitDepth: TiffBitDepth;
   keepMetadata: boolean;
   preserveTimestamps: boolean;
   resize: {
@@ -103,6 +106,7 @@ export interface ExportPreset {
   name: string;
   fileFormat: string;
   jpegQuality: number;
+  tiffBitDepth?: TiffBitDepth;
   enableResize: boolean;
   resizeMode: string;
   resizeValue: number;

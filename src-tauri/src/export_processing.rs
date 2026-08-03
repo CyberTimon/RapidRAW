@@ -27,9 +27,9 @@ use crate::image_loader::{
     composite_patches_on_image, load_and_composite, load_base_image_from_bytes,
 };
 use crate::image_processing::{
-    AllAdjustments, Crop, GpuContext, RenderRequest, downscale_f32_image,
+    AllAdjustments, Crop, GpuContext, RenderOutputPrecision, RenderRequest, downscale_f32_image,
     get_all_adjustments_from_json, get_or_init_gpu_context, process_and_get_dynamic_image,
-    resolve_tonemapper_override_from_handle,
+    process_and_get_dynamic_image_with_precision, resolve_tonemapper_override_from_handle,
 };
 use crate::lut_processing::{
     convert_image_to_cube_lut, generate_identity_lut_image, get_or_load_lut,
@@ -41,6 +41,35 @@ use crate::{
     apply_all_transformations, generate_transformed_preview, get_cached_or_generate_mask,
     hydrate_adjustments, load_settings, resolve_warped_image_for_masks,
 };
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(try_from = "u8", into = "u8")]
+pub enum TiffBitDepth {
+    Eight = 8,
+    #[default]
+    Sixteen = 16,
+}
+
+impl TryFrom<u8> for TiffBitDepth {
+    type Error = String;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            8 => Ok(Self::Eight),
+            16 => Ok(Self::Sixteen),
+            _ => Err(format!(
+                "Invalid TIFF bit depth '{}'; expected 8 or 16.",
+                value
+            )),
+        }
+    }
+}
+
+impl From<TiffBitDepth> for u8 {
+    fn from(value: TiffBitDepth) -> Self {
+        value as u8
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -63,6 +92,8 @@ pub struct ResizeOptions {
 #[serde(rename_all = "camelCase")]
 pub struct ExportSettings {
     pub jpeg_quality: u8,
+    #[serde(default)]
+    pub tiff_bit_depth: TiffBitDepth,
     pub resize: Option<ResizeOptions>,
     pub keep_metadata: bool,
     #[serde(default)]
@@ -130,16 +161,10 @@ fn apply_watermark(
 
     let scaled_watermark =
         watermark_img.resize_exact(new_wm_w, new_wm_h, image::imageops::FilterType::Lanczos3);
-    let mut scaled_watermark_rgba = scaled_watermark.to_rgba8();
-
     let opacity_factor = (watermark_settings.opacity / 100.0).clamp(0.0, 1.0);
-    for pixel in scaled_watermark_rgba.pixels_mut() {
-        pixel[3] = (pixel[3] as f32 * opacity_factor) as u8;
-    }
-    let final_watermark = DynamicImage::ImageRgba8(scaled_watermark_rgba);
 
     let spacing_pixels = (base_min_dim * (watermark_settings.spacing / 100.0)) as i64;
-    let (wm_w, wm_h) = final_watermark.dimensions();
+    let (wm_w, wm_h) = scaled_watermark.dimensions();
 
     let x = match watermark_settings.anchor {
         WatermarkAnchor::TopLeft | WatermarkAnchor::CenterLeft | WatermarkAnchor::BottomLeft => {
@@ -165,7 +190,37 @@ fn apply_watermark(
         | WatermarkAnchor::BottomRight => base_h as i64 - wm_h as i64 - spacing_pixels,
     };
 
-    image::imageops::overlay(base_image, &final_watermark, x, y);
+    if matches!(
+        base_image,
+        DynamicImage::ImageRgb16(_) | DynamicImage::ImageRgba16(_)
+    ) {
+        let mut base_rgba = base_image.to_rgba16();
+        let mut watermark_rgba = scaled_watermark.to_rgba16();
+        for pixel in watermark_rgba.pixels_mut() {
+            pixel[3] = (pixel[3] as f32 * opacity_factor).round() as u16;
+        }
+        image::imageops::overlay(&mut base_rgba, &watermark_rgba, x, y);
+        *base_image = DynamicImage::ImageRgba16(base_rgba);
+    } else if matches!(
+        base_image,
+        DynamicImage::ImageRgb32F(_) | DynamicImage::ImageRgba32F(_)
+    ) {
+        let mut base_rgba = base_image.to_rgba32f();
+        let mut watermark_rgba = scaled_watermark.to_rgba32f();
+        for pixel in watermark_rgba.pixels_mut() {
+            pixel[3] *= opacity_factor;
+        }
+        image::imageops::overlay(&mut base_rgba, &watermark_rgba, x, y);
+        *base_image = DynamicImage::ImageRgba32F(base_rgba);
+    } else {
+        let mut base_rgba = base_image.to_rgba8();
+        let mut watermark_rgba = scaled_watermark.to_rgba8();
+        for pixel in watermark_rgba.pixels_mut() {
+            pixel[3] = (pixel[3] as f32 * opacity_factor).round() as u8;
+        }
+        image::imageops::overlay(&mut base_rgba, &watermark_rgba, x, y);
+        *base_image = DynamicImage::ImageRgba8(base_rgba);
+    }
 
     Ok(())
 }
@@ -414,6 +469,7 @@ fn process_image_for_export_pipeline(
     is_raw: bool,
     debug_tag: &str,
     app_handle: &tauri::AppHandle,
+    output_precision: RenderOutputPrecision,
 ) -> Result<DynamicImage, String> {
     let (transformed_image, unscaled_crop_offset) =
         apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
@@ -448,7 +504,7 @@ fn process_image_for_export_pipeline(
 
     let unique_hash = calculate_full_job_hash(path, js_adjustments);
 
-    process_and_get_dynamic_image(
+    process_and_get_dynamic_image_with_precision(
         context,
         state,
         transformed_image.as_ref(),
@@ -460,7 +516,21 @@ fn process_image_for_export_pipeline(
             roi: None,
         },
         debug_tag,
+        output_precision,
     )
+}
+
+fn render_output_precision(
+    output_format: &str,
+    export_settings: &ExportSettings,
+) -> RenderOutputPrecision {
+    if matches!(output_format.to_lowercase().as_str(), "tif" | "tiff")
+        && export_settings.tiff_bit_depth == TiffBitDepth::Sixteen
+    {
+        RenderOutputPrecision::SixteenBit
+    } else {
+        RenderOutputPrecision::EightBit
+    }
 }
 
 fn set_timestamps_from_exif(src: &Path, dst: &Path) {
@@ -486,7 +556,12 @@ fn save_image_with_metadata(
         .unwrap_or("")
         .to_lowercase();
 
-    let mut image_bytes = encode_image_to_bytes(image, &extension, export_settings.jpeg_quality)?;
+    let mut image_bytes = encode_image_to_bytes(
+        image,
+        &extension,
+        export_settings.jpeg_quality,
+        export_settings.tiff_bit_depth,
+    )?;
 
     exif_processing::write_image_with_metadata(
         &mut image_bytes,
@@ -539,6 +614,7 @@ fn process_image_for_export(
     state: &tauri::State<AppState>,
     is_raw: bool,
     app_handle: &tauri::AppHandle,
+    output_format: &str,
 ) -> Result<DynamicImage, String> {
     let processed_image = process_image_for_export_pipeline(
         path,
@@ -549,6 +625,7 @@ fn process_image_for_export(
         is_raw,
         "process_image_for_export",
         app_handle,
+        render_output_precision(output_format, export_settings),
     )?;
 
     apply_export_resize_and_watermark(processed_image, export_settings)
@@ -583,6 +660,7 @@ fn encode_image_to_bytes(
     image: &DynamicImage,
     output_format: &str,
     jpeg_quality: u8,
+    tiff_bit_depth: TiffBitDepth,
 ) -> Result<Vec<u8>, String> {
     let mut image_bytes = Vec::new();
     let mut cursor = Cursor::new(&mut image_bytes);
@@ -647,8 +725,12 @@ fn encode_image_to_bytes(
                 .write_to(&mut cursor, image::ImageFormat::Png)
                 .map_err(|e| e.to_string())?;
         }
-        "tiff" => {
-            DynamicImage::ImageRgb16(image.to_rgb16())
+        "tif" | "tiff" => {
+            let image_to_encode = match tiff_bit_depth {
+                TiffBitDepth::Eight => DynamicImage::ImageRgb8(image.to_rgb8()),
+                TiffBitDepth::Sixteen => DynamicImage::ImageRgb16(image.to_rgb16()),
+            };
+            image_to_encode
                 .write_to(&mut cursor, image::ImageFormat::Tiff)
                 .map_err(|e| e.to_string())?;
         }
@@ -724,7 +806,7 @@ fn export_masks_for_image(
             let full_white_mask = ImageBuffer::from_fn(img_w, img_h, |_, _| Luma([255u8]));
             let single_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = vec![full_white_mask];
 
-            let processed = process_and_get_dynamic_image(
+            let processed = process_and_get_dynamic_image_with_precision(
                 context,
                 state,
                 transformed_image.as_ref(),
@@ -736,6 +818,7 @@ fn export_masks_for_image(
                     roi: None,
                 },
                 "export_mask_image",
+                render_output_precision(extension, export_settings),
             )?;
             ensure_export_not_cancelled(cancellation_token)?;
 
@@ -1127,6 +1210,11 @@ pub(crate) async fn export_images_impl(
                         obj.insert("masks".to_string(), serde_json::json!([]));
                     }
 
+                    let actual_output_format = output_path
+                        .extension()
+                        .and_then(|extension| extension.to_str())
+                        .unwrap_or(output_format.as_str());
+
                     let final_image = process_image_for_export(
                         &source_path_str,
                         &base_image,
@@ -1136,6 +1224,7 @@ pub(crate) async fn export_images_impl(
                         &state,
                         is_raw,
                         &app_handle_clone,
+                        actual_output_format,
                     )?;
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
                     save_image_with_metadata(
@@ -1329,6 +1418,7 @@ pub async fn run_headless_export(
 
     let export_settings = ExportSettings {
         jpeg_quality: session.quality,
+        tiff_bit_depth: session.tiff_bit_depth,
         resize: None,
         keep_metadata: session.keep_metadata,
         preserve_timestamps: true,
@@ -1509,7 +1599,7 @@ pub async fn estimate_export_sizes(
         let unique_hash =
             calculate_full_job_hash(&loaded_image.path, &adjustments_clone).wrapping_add(1);
 
-        let processed_preview = process_and_get_dynamic_image(
+        let processed_preview = process_and_get_dynamic_image_with_precision(
             &context,
             &state,
             &preview_image,
@@ -1521,12 +1611,14 @@ pub async fn estimate_export_sizes(
                 roi: None,
             },
             "estimate_export_size",
+            render_output_precision(&output_format, &export_settings),
         )?;
 
         let preview_bytes = encode_image_to_bytes(
             &processed_preview,
             &output_format,
             export_settings.jpeg_quality,
+            export_settings.tiff_bit_depth,
         )?;
         let preview_byte_size = preview_bytes.len();
 
@@ -1647,7 +1739,7 @@ pub async fn estimate_export_sizes(
         let unique_hash =
             calculate_full_job_hash(&source_path_str, &js_adjustments).wrapping_add(1);
 
-        let processed_preview = process_and_get_dynamic_image(
+        let processed_preview = process_and_get_dynamic_image_with_precision(
             &context,
             &state,
             &preview_base,
@@ -1659,12 +1751,14 @@ pub async fn estimate_export_sizes(
                 roi: None,
             },
             "estimate_batch_export_size",
+            render_output_precision(&output_format, &export_settings),
         )?;
 
         let preview_bytes = encode_image_to_bytes(
             &processed_preview,
             &output_format,
             export_settings.jpeg_quality,
+            export_settings.tiff_bit_depth,
         )?;
         let single_image_estimated_size = preview_bytes.len();
 
@@ -1689,4 +1783,97 @@ pub async fn estimate_export_sizes(
     };
 
     Ok(single_image_extrapolated_size * paths.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{ColorType, Rgba};
+
+    fn legacy_export_settings_json() -> serde_json::Value {
+        serde_json::json!({
+            "jpegQuality": 90,
+            "resize": null,
+            "keepMetadata": true,
+            "stripGps": false,
+            "filenameTemplate": null,
+            "watermark": null
+        })
+    }
+
+    #[test]
+    fn legacy_export_settings_default_tiff_to_sixteen_bit() {
+        let settings: ExportSettings =
+            serde_json::from_value(legacy_export_settings_json()).expect("legacy settings");
+        assert_eq!(settings.tiff_bit_depth, TiffBitDepth::Sixteen);
+    }
+
+    #[test]
+    fn tiff_bit_depth_serializes_as_number_and_rejects_invalid_values() {
+        assert_eq!(
+            serde_json::to_value(TiffBitDepth::Eight).expect("serialize"),
+            serde_json::json!(8)
+        );
+        assert_eq!(
+            serde_json::to_value(TiffBitDepth::Sixteen).expect("serialize"),
+            serde_json::json!(16)
+        );
+
+        let mut invalid = legacy_export_settings_json();
+        invalid["tiffBitDepth"] = serde_json::json!(12);
+        let error = serde_json::from_value::<ExportSettings>(invalid)
+            .expect_err("invalid TIFF bit depth must fail");
+        assert!(error.to_string().contains("expected 8 or 16"));
+    }
+
+    #[test]
+    fn tiff_encoder_writes_real_rgb8_and_rgb16() {
+        let samples = vec![1, 258, 4095, 65535, 65534, 32769, 12345, 60000];
+        let source = DynamicImage::ImageRgba16(
+            ImageBuffer::<Rgba<u16>, Vec<u16>>::from_raw(2, 1, samples)
+                .expect("synthetic RGBA16 image"),
+        );
+
+        let encoded_8 = encode_image_to_bytes(&source, "tiff", 90, TiffBitDepth::Eight)
+            .expect("encode RGB8 TIFF");
+        let decoded_8 = image::load_from_memory_with_format(&encoded_8, ImageFormat::Tiff)
+            .expect("decode RGB8 TIFF");
+        assert_eq!(decoded_8.color(), ColorType::Rgb8);
+        assert_eq!(decoded_8.to_rgb8(), source.to_rgb8());
+
+        let encoded_16 = encode_image_to_bytes(&source, "tiff", 90, TiffBitDepth::Sixteen)
+            .expect("encode RGB16 TIFF");
+        let decoded_16 = image::load_from_memory_with_format(&encoded_16, ImageFormat::Tiff)
+            .expect("decode RGB16 TIFF");
+        assert_eq!(decoded_16.color(), ColorType::Rgb16);
+        assert_eq!(
+            decoded_16.to_rgb16().into_raw(),
+            vec![1, 258, 4095, 65534, 32769, 12345]
+        );
+    }
+
+    #[test]
+    fn resize_preserves_synthetic_sixteen_bit_samples() {
+        let source = DynamicImage::ImageRgba16(ImageBuffer::from_fn(4, 4, |x, y| {
+            let value = 1000 + (x + y * 4) as u16 * 997;
+            Rgba([value, value + 1, value + 2, u16::MAX])
+        }));
+        let mut settings: ExportSettings =
+            serde_json::from_value(legacy_export_settings_json()).expect("settings");
+        settings.resize = Some(ResizeOptions {
+            mode: ResizeMode::Width,
+            value: 3,
+            dont_enlarge: false,
+        });
+
+        let resized = apply_export_resize_and_watermark(source, &settings).expect("resize");
+        assert_eq!(resized.color(), ColorType::Rgba16);
+        assert!(
+            resized
+                .to_rgba16()
+                .pixels()
+                .flat_map(|pixel| pixel.0[..3].iter().copied())
+                .any(|sample| sample % 257 != 0)
+        );
+    }
 }

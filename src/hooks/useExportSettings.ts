@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
-import { ExportPreset, WatermarkAnchor } from '../components/ui/ExportImportProperties';
+import { ExportPreset, TiffBitDepth, WatermarkAnchor } from '../components/ui/ExportImportProperties';
 
 export function useExportSettings() {
   const [fileFormat, setFileFormat] = useState('jpeg');
   const [jpegQuality, setJpegQuality] = useState(90);
+  const [tiffBitDepth, setTiffBitDepth] = useState<TiffBitDepth>(16);
   const [enableResize, setEnableResize] = useState(false);
   const [resizeMode, setResizeMode] = useState('longEdge');
   const [resizeValue, setResizeValue] = useState(2048);
@@ -24,6 +25,7 @@ export function useExportSettings() {
   const handleApplyPreset = useCallback((preset: ExportPreset) => {
     setFileFormat(preset.fileFormat);
     setJpegQuality(preset.jpegQuality);
+    setTiffBitDepth(preset.tiffBitDepth ?? 16);
     setEnableResize(preset.enableResize);
     setResizeMode(preset.resizeMode);
     setResizeValue(preset.resizeValue);
@@ -46,6 +48,7 @@ export function useExportSettings() {
     () => ({
       fileFormat,
       jpegQuality,
+      tiffBitDepth,
       enableResize,
       resizeMode,
       resizeValue,
@@ -66,6 +69,7 @@ export function useExportSettings() {
     [
       fileFormat,
       jpegQuality,
+      tiffBitDepth,
       enableResize,
       resizeMode,
       resizeValue,
@@ -82,7 +86,7 @@ export function useExportSettings() {
       watermarkScale,
       watermarkSpacing,
       watermarkOpacity,
-    ]
+    ],
   );
 
   return {
@@ -90,6 +94,8 @@ export function useExportSettings() {
     setFileFormat,
     jpegQuality,
     setJpegQuality,
+    tiffBitDepth,
+    setTiffBitDepth,
     enableResize,
     setEnableResize,
     resizeMode,

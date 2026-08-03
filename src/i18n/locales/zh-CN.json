@@ -756,7 +756,10 @@
     },
     "file": {
       "quality": "质量",
-      "qualityLossless": "质量（无损）"
+      "qualityLossless": "质量（无损）",
+      "tiffBitDepth": "TIFF 位深",
+      "tiffBitDepth8": "8 位",
+      "tiffBitDepth16": "16 位"
     },
     "labels": {
       "image": "图像",

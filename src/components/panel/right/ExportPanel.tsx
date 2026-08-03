@@ -19,6 +19,7 @@ import {
   Status,
   ExportState,
   FileFormats,
+  TiffBitDepth,
   WatermarkAnchor,
 } from '../../ui/ExportImportProperties';
 import { Invokes, SelectedImage, AppSettings, Panel } from '../../ui/AppProperties';
@@ -196,11 +197,21 @@ export default function ExportPanel({
     [t],
   );
 
+  const tiffBitDepthOptions = useMemo(
+    () => [
+      { label: t('export.file.tiffBitDepth8'), value: '8' },
+      { label: t('export.file.tiffBitDepth16'), value: '16' },
+    ],
+    [t],
+  );
+
   const {
     fileFormat,
     setFileFormat,
     jpegQuality,
     setJpegQuality,
+    tiffBitDepth,
+    setTiffBitDepth,
     enableResize,
     setEnableResize,
     resizeMode,
@@ -378,6 +389,7 @@ export default function ExportPanel({
     const exportSettings: ExportSettings = {
       filenameTemplate,
       jpegQuality,
+      tiffBitDepth,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -420,6 +432,7 @@ export default function ExportPanel({
     selectedImage?.path,
     fileFormat,
     jpegQuality,
+    tiffBitDepth,
     enableResize,
     resizeMode,
     resizeValue,
@@ -470,6 +483,7 @@ export default function ExportPanel({
     const exportSettings: ExportSettings = {
       filenameTemplate: finalFilenameTemplate,
       jpegQuality,
+      tiffBitDepth,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -622,6 +636,20 @@ export default function ExportPanel({
                     step={1}
                     value={jpegQuality}
                     fillOrigin="min"
+                  />
+                </div>
+              )}
+              {fileFormat === FileFormats.Tiff && (
+                <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
+                  <Text variant={TextVariants.label} className="mb-1">
+                    {t('export.file.tiffBitDepth')}
+                  </Text>
+                  <Dropdown
+                    options={tiffBitDepthOptions}
+                    value={String(tiffBitDepth)}
+                    onChange={(value) => setTiffBitDepth(Number(value) as TiffBitDepth)}
+                    disabled={isExporting}
+                    className="w-full"
                   />
                 </div>
               )}

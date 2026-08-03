@@ -802,7 +802,10 @@
     },
     "file": {
       "quality": "Качество",
-      "qualityLossless": "Качество (без потерь)"
+      "qualityLossless": "Качество (без потерь)",
+      "tiffBitDepth": "Глубина цвета TIFF",
+      "tiffBitDepth8": "8 бит",
+      "tiffBitDepth16": "16 бит"
     },
     "labels": {
       "image": "Изображение",

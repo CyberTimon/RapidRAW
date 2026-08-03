@@ -756,7 +756,10 @@
     },
     "file": {
       "quality": "품질",
-      "qualityLossless": "품질 (무손실)"
+      "qualityLossless": "품질 (무손실)",
+      "tiffBitDepth": "TIFF 비트 심도",
+      "tiffBitDepth8": "8비트",
+      "tiffBitDepth16": "16비트"
     },
     "labels": {
       "image": "이미지",

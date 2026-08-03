@@ -668,6 +668,9 @@ rapidraw export /path/to/photos --output /path/to/output_dir --format jpeg --qua
 # Export a single image directly to a specific target file
 rapidraw export /path/to/photo.raw --output /path/to/output.png --format png
 
+# Export a true 16-bit TIFF (the TIFF default; use 8 for an RGB8 TIFF)
+rapidraw export /path/to/photo.raw --output /path/to/output.tiff --format tiff --tiff-bit-depth 16
+
 # Batch export a folder using a custom adjustments JSON file to override sidecars
 rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path/to/preset.json
 ```
@@ -680,6 +683,7 @@ rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path
 | `--output <path>`      | Target directory or specific output file path                          | _(Required)_      |
 | `--format <fmt>`       | Output format (`jpeg`, `png`, `webp`, `avif`, `tiff`, `jxl`, `cube`)   | `jpeg`            |
 | `--quality <1-100>`    | Image export quality                                                   | `90`              |
+| `--tiff-bit-depth <n>` | TIFF channel depth (`8` or `16`)                                       | `16`              |
 | `--keep-metadata`      | Retain EXIF/capture metadata in exported files                         | `false`           |
 | `--adjustments <path>` | Path to a custom JSON file containing adjustments to override sidecars | _(Auto-detected)_ |
 

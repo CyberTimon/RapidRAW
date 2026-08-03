@@ -21,6 +21,13 @@ pub struct Roi {
     pub height: u32,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RenderOutputPrecision {
+    #[default]
+    EightBit,
+    SixteenBit,
+}
+
 pub struct RenderRequest<'a> {
     pub adjustments: AllAdjustments,
     pub mask_bitmaps: &'a [ImageBuffer<Luma<u8>, Vec<u8>>],
@@ -418,8 +425,9 @@ fn read_texture_data_roi(
     texture: &wgpu::Texture,
     origin: wgpu::Origin3d,
     size: wgpu::Extent3d,
+    bytes_per_pixel: u32,
 ) -> Result<Vec<u8>, String> {
-    let unpadded_bytes_per_row = 4 * size.width;
+    let unpadded_bytes_per_row = bytes_per_pixel * size.width;
     let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
     let padded_bytes_per_row = (unpadded_bytes_per_row + align - 1) & !(align - 1);
     let output_buffer_size = (padded_bytes_per_row * size.height) as u64;
@@ -535,6 +543,10 @@ pub struct GpuProcessor {
 
     main_bgl: wgpu::BindGroupLayout,
     main_pipeline: wgpu::ComputePipeline,
+    high_precision_bgl: wgpu::BindGroupLayout,
+    high_precision_pipeline: wgpu::ComputePipeline,
+    high_precision_tile: std::sync::OnceLock<HighPrecisionTile>,
+    tile_output_size: wgpu::Extent3d,
     adjustments_buffer: wgpu::Buffer,
     dummy_blur_view: wgpu::TextureView,
     dummy_lut_view: wgpu::TextureView,
@@ -551,6 +563,20 @@ pub struct GpuProcessor {
     pub working_texture_view: wgpu::TextureView,
     pub output_texture: wgpu::Texture,
     pub output_texture_view: wgpu::TextureView,
+}
+
+struct HighPrecisionTile {
+    texture: wgpu::Texture,
+    view: wgpu::TextureView,
+}
+
+enum RenderedPixels {
+    U8(Vec<u8>),
+    U16(Vec<u16>),
+}
+
+fn high_precision_shader_source() -> String {
+    include_str!("shaders/shader.wgsl").replace("rgba8unorm, write>", "rgba16float, write>")
 }
 
 const FLARE_MAP_SIZE: u32 = 512;
@@ -920,6 +946,39 @@ impl GpuProcessor {
             cache: None,
         });
 
+        bind_group_layout_entries[1].ty = wgpu::BindingType::StorageTexture {
+            access: wgpu::StorageTextureAccess::WriteOnly,
+            format: wgpu::TextureFormat::Rgba16Float,
+            view_dimension: wgpu::TextureViewDimension::D2,
+        };
+        let high_precision_bgl =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("High Precision Main BGL"),
+                entries: &bind_group_layout_entries,
+            });
+        let high_precision_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("High Precision Pipeline Layout"),
+                bind_group_layouts: &[Some(&high_precision_bgl)],
+                immediate_size: 0,
+            });
+        let high_precision_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("High Precision Image Processing Shader"),
+            source: wgpu::ShaderSource::Wgsl(high_precision_shader_source().into()),
+        });
+        let high_precision_pipeline =
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("High Precision Compute Pipeline"),
+                layout: Some(&high_precision_pipeline_layout),
+                module: &high_precision_shader,
+                entry_point: Some("main"),
+                compilation_options: wgpu::PipelineCompilationOptions {
+                    constants: &[("HIGH_PRECISION_OUTPUT", 1.0)],
+                    ..Default::default()
+                },
+                cache: None,
+            });
+
         let adjustments_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Adjustments Buffer"),
             size: std::mem::size_of::<AllAdjustments>() as u64,
@@ -1071,6 +1130,10 @@ impl GpuProcessor {
             flare_sampler,
             main_bgl,
             main_pipeline,
+            high_precision_bgl,
+            high_precision_pipeline,
+            high_precision_tile: std::sync::OnceLock::new(),
+            tile_output_size: clamped_tile_size,
             adjustments_buffer,
             dummy_blur_view,
             dummy_lut_view,
@@ -1089,7 +1152,29 @@ impl GpuProcessor {
         })
     }
 
-    pub fn run(
+    fn high_precision_tile(&self) -> &HighPrecisionTile {
+        self.high_precision_tile.get_or_init(|| {
+            let texture = self
+                .context
+                .device
+                .create_texture(&wgpu::TextureDescriptor {
+                    label: Some("High Precision Tile Output Texture"),
+                    size: self.tile_output_size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba16Float,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING
+                        | wgpu::TextureUsages::STORAGE_BINDING
+                        | wgpu::TextureUsages::COPY_SRC,
+                    view_formats: &[],
+                });
+            let view = texture.create_view(&Default::default());
+            HighPrecisionTile { texture, view }
+        })
+    }
+
+    fn run(
         &self,
         input_texture_view: &wgpu::TextureView,
         width: u32,
@@ -1097,11 +1182,44 @@ impl GpuProcessor {
         request: RenderRequest,
         skip_cpu_readback: bool,
         output_to_display: bool,
-    ) -> Result<(Vec<u8>, u32, u32, u32, u32), String> {
+        output_precision: RenderOutputPrecision,
+    ) -> Result<(RenderedPixels, u32, u32, u32, u32), String> {
         let device = &self.context.device;
         let queue = &self.context.queue;
         let scale = (width.min(height) as f32) / 1080.0;
         const MAX_MASK_BINDINGS: u32 = 1;
+
+        if output_precision == RenderOutputPrecision::SixteenBit
+            && (skip_cpu_readback || output_to_display)
+        {
+            return Err(
+                "High-precision GPU output is only supported for CPU-readback renders.".to_string(),
+            );
+        }
+
+        let high_precision_tile = if output_precision == RenderOutputPrecision::SixteenBit {
+            Some(self.high_precision_tile())
+        } else {
+            None
+        };
+        let (output_pipeline, output_bgl, output_tile_texture, output_tile_view, bytes_per_pixel) =
+            if let Some(high_precision_tile) = high_precision_tile {
+                (
+                    &self.high_precision_pipeline,
+                    &self.high_precision_bgl,
+                    &high_precision_tile.texture,
+                    &high_precision_tile.view,
+                    8,
+                )
+            } else {
+                (
+                    &self.main_pipeline,
+                    &self.main_bgl,
+                    &self.tile_output_texture,
+                    &self.tile_output_texture_view,
+                    4,
+                )
+            };
 
         let bounds = request.roi.unwrap_or(Roi {
             x: 0,
@@ -1295,14 +1413,15 @@ impl GpuProcessor {
         const TILE_SIZE: u32 = 2048;
         const TILE_OVERLAP: u32 = 128;
 
-        let mut final_pixels = vec![
-            0u8;
-            if skip_cpu_readback {
-                0
-            } else {
-                (out_width * out_height * 4) as usize
-            }
-        ];
+        let output_len = if skip_cpu_readback {
+            0
+        } else {
+            (out_width * out_height * 4) as usize
+        };
+        let mut final_pixels = match output_precision {
+            RenderOutputPrecision::EightBit => RenderedPixels::U8(vec![0u8; output_len]),
+            RenderOutputPrecision::SixteenBit => RenderedPixels::U16(vec![0u16; output_len]),
+        };
 
         let start_tile_x = bounds.x / TILE_SIZE;
         let start_tile_y = bounds.y / TILE_SIZE;
@@ -1438,9 +1557,7 @@ impl GpuProcessor {
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::TextureView(
-                            &self.tile_output_texture_view,
-                        ),
+                        resource: wgpu::BindingResource::TextureView(output_tile_view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
@@ -1509,13 +1626,13 @@ impl GpuProcessor {
 
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Tile Bind Group"),
-                    layout: &self.main_bgl,
+                    layout: output_bgl,
                     entries: &bind_group_entries,
                 });
 
                 {
                     let mut compute_pass = main_encoder.begin_compute_pass(&Default::default());
-                    compute_pass.set_pipeline(&self.main_pipeline);
+                    compute_pass.set_pipeline(output_pipeline);
                     compute_pass.set_bind_group(0, &bind_group, &[]);
                     compute_pass.dispatch_workgroups(
                         input_width.div_ceil(8),
@@ -1563,25 +1680,54 @@ impl GpuProcessor {
                     let processed_tile_data = read_texture_data_roi(
                         device,
                         queue,
-                        &self.tile_output_texture,
+                        output_tile_texture,
                         wgpu::Origin3d::ZERO,
                         input_texture_size,
+                        bytes_per_pixel,
                     )?;
 
-                    for row in 0..tile_height {
-                        let final_y = y_start + row - bounds.y;
-                        let final_x = x_start - bounds.x;
-                        let final_row_offset = (final_y * out_width + final_x) as usize * 4;
-                        let source_y = crop_y_start + row;
-                        let source_row_offset =
-                            (source_y * input_width + crop_x_start) as usize * 4;
-                        let copy_bytes = (tile_width * 4) as usize;
+                    match &mut final_pixels {
+                        RenderedPixels::U8(final_pixels) => {
+                            for row in 0..tile_height {
+                                let final_y = y_start + row - bounds.y;
+                                let final_x = x_start - bounds.x;
+                                let final_row_offset = (final_y * out_width + final_x) as usize * 4;
+                                let source_y = crop_y_start + row;
+                                let source_row_offset =
+                                    (source_y * input_width + crop_x_start) as usize * 4;
+                                let copy_bytes = (tile_width * 4) as usize;
 
-                        final_pixels[final_row_offset..final_row_offset + copy_bytes]
-                            .copy_from_slice(
-                                &processed_tile_data
-                                    [source_row_offset..source_row_offset + copy_bytes],
-                            );
+                                final_pixels[final_row_offset..final_row_offset + copy_bytes]
+                                    .copy_from_slice(
+                                        &processed_tile_data
+                                            [source_row_offset..source_row_offset + copy_bytes],
+                                    );
+                            }
+                        }
+                        RenderedPixels::U16(final_pixels) => {
+                            for row in 0..tile_height {
+                                let final_y = y_start + row - bounds.y;
+                                let final_x = x_start - bounds.x;
+                                let final_row_offset = (final_y * out_width + final_x) as usize * 4;
+                                let source_y = crop_y_start + row;
+                                let source_pixel_offset =
+                                    (source_y * input_width + crop_x_start) as usize;
+
+                                for sample in 0..(tile_width as usize * 4) {
+                                    let source_byte_offset = (source_pixel_offset * 4 + sample) * 2;
+                                    let bits = u16::from_ne_bytes([
+                                        processed_tile_data[source_byte_offset],
+                                        processed_tile_data[source_byte_offset + 1],
+                                    ]);
+                                    let value = f16::from_bits(bits).to_f32();
+                                    final_pixels[final_row_offset + sample] = if value.is_finite() {
+                                        (value.clamp(0.0, 1.0) * u16::MAX as f32).round() as u16
+                                    } else {
+                                        0
+                                    };
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1606,6 +1752,29 @@ pub fn process_and_get_dynamic_image(
         transform_hash,
         request,
         caller_id,
+        RenderOutputPrecision::EightBit,
+        false,
+        None,
+    )
+}
+
+pub fn process_and_get_dynamic_image_with_precision(
+    context: &GpuContext,
+    state: &tauri::State<AppState>,
+    base_image: &DynamicImage,
+    transform_hash: u64,
+    request: RenderRequest,
+    caller_id: &str,
+    output_precision: RenderOutputPrecision,
+) -> Result<DynamicImage, String> {
+    process_and_get_dynamic_image_inner(
+        context,
+        state,
+        base_image,
+        transform_hash,
+        request,
+        caller_id,
+        output_precision,
         false,
         None,
     )
@@ -1629,6 +1798,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
         transform_hash,
         request,
         caller_id,
+        RenderOutputPrecision::EightBit,
         output_to_display,
         analytics_config,
     )
@@ -1642,6 +1812,7 @@ fn process_and_get_dynamic_image_inner(
     transform_hash: u64,
     request: RenderRequest,
     caller_id: &str,
+    output_precision: RenderOutputPrecision,
     output_to_display: bool,
     analytics_config: Option<crate::AnalyticsConfig>,
 ) -> Result<DynamicImage, String> {
@@ -1765,6 +1936,7 @@ fn process_and_get_dynamic_image_inner(
         request,
         skip_readback,
         output_to_display,
+        output_precision,
     )?;
 
     let mut final_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -1914,20 +2086,24 @@ fn process_and_get_dynamic_image_inner(
                 }
             });
         } else {
-            let pixels_clone = processed_pixels.clone();
-            std::thread::spawn(move || {
-                if let Some(img_buf) =
-                    ImageBuffer::<Rgba<u8>, _>::from_raw(out_w, out_h, pixels_clone)
-                {
-                    let dynamic_img = DynamicImage::ImageRgba8(img_buf);
-                    let _ = analytics.sender.send(crate::AnalyticsJob {
-                        path: analytics.path,
-                        image: std::sync::Arc::new(dynamic_img),
-                        compute_waveform: analytics.compute_waveform,
-                        active_waveform_channel: analytics.active_waveform_channel,
-                    });
-                }
-            });
+            if let RenderedPixels::U8(pixels) = &processed_pixels {
+                let pixels_clone = pixels.clone();
+                std::thread::spawn(move || {
+                    if let Some(img_buf) =
+                        ImageBuffer::<Rgba<u8>, _>::from_raw(out_w, out_h, pixels_clone)
+                    {
+                        let dynamic_img = DynamicImage::ImageRgba8(img_buf);
+                        let _ = analytics.sender.send(crate::AnalyticsJob {
+                            path: analytics.path,
+                            image: std::sync::Arc::new(dynamic_img),
+                            compute_waveform: analytics.compute_waveform,
+                            active_waveform_channel: analytics.active_waveform_channel,
+                        });
+                    }
+                });
+            } else {
+                log::warn!("Skipping analytics for a high-precision CPU readback");
+            }
         }
     }
 
@@ -1994,7 +2170,30 @@ fn process_and_get_dynamic_image_inner(
         fps
     );
 
-    let img_buf = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(out_w, out_h, processed_pixels)
-        .ok_or("Failed to create image buffer from GPU data")?;
-    Ok(DynamicImage::ImageRgba8(img_buf))
+    match processed_pixels {
+        RenderedPixels::U8(pixels) => {
+            let img_buf = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(out_w, out_h, pixels)
+                .ok_or("Failed to create 8-bit image buffer from GPU data")?;
+            Ok(DynamicImage::ImageRgba8(img_buf))
+        }
+        RenderedPixels::U16(pixels) => {
+            let img_buf = ImageBuffer::<Rgba<u16>, Vec<u16>>::from_raw(out_w, out_h, pixels)
+                .ok_or("Failed to create 16-bit image buffer from GPU data")?;
+            Ok(DynamicImage::ImageRgba16(img_buf))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn high_precision_shader_keeps_shared_transfer_and_changes_storage_format() {
+        let source = high_precision_shader_source();
+        assert!(source.contains("texture_storage_2d<rgba16float, write>"));
+        assert!(!source.contains("texture_storage_2d<rgba8unorm, write>"));
+        assert!(source.contains("override HIGH_PRECISION_OUTPUT: u32 = 0u"));
+        assert!(source.contains("base_srgb = linear_to_srgb"));
+    }
 }
