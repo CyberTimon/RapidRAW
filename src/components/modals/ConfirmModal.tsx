@@ -10,6 +10,7 @@ interface ConfirmModalProps {
   confirmVariant?: string;
   isOpen: boolean;
   message?: string;
+  messageClassName?: string;
   onClose(): void;
   onConfirm?(): void;
   title?: string;
@@ -21,6 +22,7 @@ export default function ConfirmModal({
   confirmVariant = 'primary',
   isOpen,
   message,
+  messageClassName,
   onClose,
   onConfirm,
   title,
@@ -101,7 +103,7 @@ export default function ConfirmModal({
         <Text variant={TextVariants.title} id="confirm-modal-title" className="mb-4">
           {title}
         </Text>
-        <Text className="mb-6 whitespace-pre-wrap">{message}</Text>
+        <Text className={`mb-6 whitespace-pre-wrap ${messageClassName || ''}`}>{message}</Text>
         <div className="flex justify-end gap-3 mt-5">
           <Button
             className="bg-bg-primary shadow-transparent hover:bg-bg-primary text-white shadow-none focus:outline-hidden focus:ring-0"

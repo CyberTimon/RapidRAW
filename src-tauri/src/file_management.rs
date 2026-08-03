@@ -370,6 +370,29 @@ pub struct ImportSettings {
     pub delete_after_import: bool,
 }
 
+#[derive(Debug)]
+struct ImportedXmpSidecar {
+    source_path: PathBuf,
+    sidecar_path: PathBuf,
+    metadata: ImageMetadata,
+}
+
+const NO_SUPPORTED_XMP_CONTENT_ERROR: &str =
+    "No supported Lightroom adjustments or metadata were found in the selected XMP file.";
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct XmpSidecarImportResult {
+    pub matched: usize,
+    pub imported: usize,
+    pub unchanged: usize,
+    pub skipped: usize,
+    pub failed: usize,
+    pub failures: Vec<String>,
+    pub imported_paths: Vec<String>,
+    pub unchanged_paths: Vec<String>,
+}
+
 pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
     let (source_path_str, copy_id) = if let Some((base, id)) = virtual_path.rsplit_once("?vc=") {
         (base.to_string(), Some(id.to_string()))
@@ -2562,6 +2585,258 @@ pub fn save_metadata_and_update_thumbnail(
     Ok(())
 }
 
+fn is_xmp_sidecar_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("xmp"))
+}
+
+fn find_matching_xmp_sidecar(path: &str) -> Option<PathBuf> {
+    let (source_path, _) = parse_virtual_path(path);
+    resolve_xmp_path(&source_path)
+}
+
+fn find_matching_xmp_sidecars_recursive(
+    folder: &Path,
+) -> (Vec<(PathBuf, PathBuf)>, usize, Vec<String>) {
+    let mut matches = Vec::new();
+    let mut skipped = 0;
+    let mut failures = Vec::new();
+
+    for entry in WalkDir::new(folder) {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                failures.push(format!("Failed to inspect folder entry: {}", error));
+                continue;
+            }
+        };
+
+        let path = entry.path();
+        if !entry.file_type().is_file() || !is_supported_image_file(path) {
+            continue;
+        }
+
+        if let Some(xmp_path) = resolve_xmp_path(path) {
+            matches.push((path.to_path_buf(), xmp_path));
+        } else {
+            skipped += 1;
+        }
+    }
+
+    matches.sort_by(|(left, _), (right, _)| left.cmp(right));
+    (matches, skipped, failures)
+}
+
+fn import_xmp_adjustments_to_sidecar(
+    path: &str,
+    xmp_path: &Path,
+    lens_db: Option<&crate::lens_correction::LensDatabase>,
+) -> Result<ImportedXmpSidecar, String> {
+    if !is_xmp_sidecar_path(xmp_path) {
+        return Err("Selected file is not an XMP sidecar.".to_string());
+    }
+
+    let xmp_content = fs::read_to_string(xmp_path)
+        .map_err(|error| format!("Failed to read XMP file: {}", error))?;
+    let (source_path, sidecar_path) = parse_virtual_path(path);
+    let converted_preset = preset_converter::convert_xmp_sidecar_to_preset(&xmp_content)?;
+
+    let has_supported_adjustments = converted_preset
+        .adjustments
+        .as_object()
+        .is_some_and(|adjustments| !adjustments.is_empty());
+    let has_supported_metadata = extract_xmp_rating(&xmp_content).is_some()
+        || extract_xmp_label(&xmp_content).is_some()
+        || !extract_xmp_tags(&xmp_content).is_empty();
+    if !has_supported_adjustments && !has_supported_metadata {
+        return Err(NO_SUPPORTED_XMP_CONTENT_ERROR.to_string());
+    }
+
+    let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+    metadata.adjustments = converted_preset.adjustments;
+    resolve_lens_params_in_adjustments(&mut metadata.adjustments, &metadata.exif, lens_db);
+    merge_xmp_metadata_fields(&xmp_content, &mut metadata);
+
+    let json_string = serde_json::to_string_pretty(&metadata).map_err(|error| error.to_string())?;
+    fs::write(&sidecar_path, json_string).map_err(|error| error.to_string())?;
+
+    Ok(ImportedXmpSidecar {
+        source_path,
+        sidecar_path,
+        metadata,
+    })
+}
+
+#[tauri::command]
+pub fn import_xmp_adjustments_for_image(
+    path: String,
+    xmp_path: Option<String>,
+    app_handle: AppHandle,
+    state: tauri::State<AppState>,
+) -> Result<ImageMetadata, String> {
+    let xmp_path = xmp_path
+        .map(PathBuf::from)
+        .or_else(|| find_matching_xmp_sidecar(&path))
+        .ok_or_else(|| "No matching XMP sidecar was found next to this image.".to_string())?;
+    let lens_db = state.lens_db.lock().unwrap().clone();
+    let imported = import_xmp_adjustments_to_sidecar(&path, &xmp_path, lens_db.as_deref())?;
+    let imported_adjustments = imported.metadata.adjustments.clone();
+    let sidecar_path = imported.sidecar_path.clone();
+
+    save_metadata_and_update_thumbnail(path, imported_adjustments, app_handle, state)?;
+
+    log::info!(
+        "Imported XMP adjustments from {} to {}",
+        xmp_path.display(),
+        sidecar_path.display()
+    );
+
+    Ok(crate::exif_processing::load_sidecar(&sidecar_path))
+}
+
+#[tauri::command]
+pub async fn import_matching_xmp_sidecars_in_folder(
+    folder_path: String,
+    app_handle: AppHandle,
+) -> Result<XmpSidecarImportResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let folder = PathBuf::from(&folder_path);
+        if !folder.is_dir() {
+            return Err(format!("Folder not found: {}", folder.display()));
+        }
+
+        let (matches, skipped, traversal_failures) = find_matching_xmp_sidecars_recursive(&folder);
+        let total = matches.len();
+        let settings = load_settings(app_handle.clone()).unwrap_or_default();
+        let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
+        let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
+        let lens_db = app_handle
+            .state::<AppState>()
+            .lens_db
+            .lock()
+            .unwrap()
+            .clone();
+
+        let mut result = XmpSidecarImportResult {
+            matched: total,
+            imported: 0,
+            unchanged: 0,
+            skipped,
+            failed: traversal_failures.len(),
+            failures: traversal_failures,
+            imported_paths: Vec::new(),
+            unchanged_paths: Vec::new(),
+        };
+
+        let emit_progress = |current: usize, result: &XmpSidecarImportResult| {
+            let _ = app_handle.emit(
+                "xmp-sidecar-import-progress",
+                serde_json::json!({
+                    "folderPath": folder_path,
+                    "current": current,
+                    "total": total,
+                    "imported": result.imported,
+                    "unchanged": result.unchanged,
+                    "failed": result.failed,
+                }),
+            );
+        };
+        emit_progress(0, &result);
+
+        for (index, (path, xmp_path)) in matches.into_iter().enumerate() {
+            let path_string = path.to_string_lossy().to_string();
+            match import_xmp_adjustments_to_sidecar(&path_string, &xmp_path, lens_db.as_deref()) {
+                Ok(imported) => {
+                    if enable_xmp_sync {
+                        sync_metadata_to_xmp(
+                            &imported.source_path,
+                            &imported.metadata,
+                            create_xmp_if_missing,
+                        );
+                    }
+                    result.imported += 1;
+                    result.imported_paths.push(path_string);
+                }
+                Err(error) if error == NO_SUPPORTED_XMP_CONTENT_ERROR => {
+                    result.unchanged += 1;
+                    result.unchanged_paths.push(path_string);
+                    log::debug!(
+                        "Skipping unchanged Lightroom XMP sidecar for {}",
+                        path.display()
+                    );
+                }
+                Err(error) => {
+                    result.failed += 1;
+                    log::warn!(
+                        "Failed to import Lightroom XMP sidecar {} for {}: {}",
+                        xmp_path.display(),
+                        path.display(),
+                        error
+                    );
+                    result
+                        .failures
+                        .push(format!("{}: {}", path.display(), error));
+                }
+            }
+            emit_progress(index + 1, &result);
+        }
+
+        if !result.imported_paths.is_empty() {
+            let imported_paths = result.imported_paths.clone();
+            let app_handle_clone = app_handle.clone();
+            let state = app_handle.state::<AppState>();
+            add_to_thumbnail_queue(&state, imported_paths.len(), &app_handle);
+
+            thread::spawn(move || {
+                let state = app_handle_clone.state::<AppState>();
+                let settings = load_settings(app_handle_clone.clone()).unwrap_or_default();
+                let thumbnail_cache_dir = match resolve_thumbnail_cache_dir(&app_handle_clone) {
+                    Ok(directory) => directory,
+                    Err(error) => {
+                        log::warn!("Unable to initialize thumbnail cache directory: {}", error);
+                        for path in &imported_paths {
+                            emit_thumbnail_cache_setup_error(&app_handle_clone, path, &error);
+                            increment_thumbnail_progress(&state, &app_handle_clone);
+                        }
+                        return;
+                    }
+                };
+                let gpu_context =
+                    gpu_processing::get_or_init_gpu_context(&state, &app_handle_clone).ok();
+
+                imported_paths.par_iter().for_each(|path| {
+                    let generated = generate_single_thumbnail_and_cache(
+                        path,
+                        &thumbnail_cache_dir,
+                        gpu_context.as_ref(),
+                        None,
+                        true,
+                        &app_handle_clone,
+                        &settings,
+                    );
+
+                    if let Some((thumbnail_path, rating, is_edited)) = generated {
+                        emit_thumbnail_generated(
+                            &app_handle_clone,
+                            path,
+                            &thumbnail_path,
+                            rating,
+                            is_edited,
+                        );
+                    }
+
+                    increment_thumbnail_progress(&state, &app_handle_clone);
+                });
+            });
+        }
+
+        Ok(result)
+    })
+    .await
+    .unwrap_or_else(|error| Err(format!("Task failed: {}", error)))
+}
+
 #[tauri::command]
 pub async fn apply_adjustments_to_paths(
     paths: Vec<String>,
@@ -3925,7 +4200,50 @@ pub fn resolve_xmp_path(image_path: &Path) -> Option<PathBuf> {
     } else if xmp_path_upper.exists() {
         Some(xmp_path_upper)
     } else {
-        None
+        let parent = image_path.parent()?;
+        let image_stem = image_path.file_stem()?;
+        fs::read_dir(parent)
+            .ok()?
+            .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+            .find(|candidate| {
+                candidate.file_stem() == Some(image_stem) && is_xmp_sidecar_path(candidate)
+            })
+    }
+}
+
+fn merge_xmp_metadata_fields(content: &str, metadata: &mut ImageMetadata) {
+    if let Some(rating) = extract_xmp_rating(content) {
+        metadata.rating = rating;
+        if let Some(adjustments) = metadata.adjustments.as_object_mut() {
+            adjustments.insert("rating".to_string(), serde_json::json!(rating));
+        } else {
+            metadata.adjustments = serde_json::json!({ "rating": rating });
+        }
+    }
+
+    let xmp_label = extract_xmp_label(content);
+    let xmp_tags = extract_xmp_tags(content);
+    if xmp_label.is_none() && xmp_tags.is_empty() {
+        return;
+    }
+
+    let mut current_tags = metadata.tags.clone().unwrap_or_default();
+    for tag in xmp_tags {
+        if !current_tags.contains(&tag) {
+            current_tags.push(tag);
+        }
+    }
+
+    if let Some(label) = xmp_label {
+        let label_tag = format!("{}{}", COLOR_TAG_PREFIX, label.to_lowercase());
+        if !current_tags.contains(&label_tag) {
+            current_tags.retain(|tag| !tag.starts_with(COLOR_TAG_PREFIX));
+            current_tags.push(label_tag);
+        }
+    }
+
+    if !current_tags.is_empty() {
+        metadata.tags = Some(current_tags);
     }
 }
 
@@ -4091,5 +4409,191 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         let _ = fs::write(&xmp_file, content);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn imports_crop_only_lightroom_xmp_to_sidecar() {
+        let test_directory =
+            std::env::temp_dir().join(format!("rapidraw-xmp-crop-{}", Uuid::new_v4()));
+        fs::create_dir_all(&test_directory).unwrap();
+
+        let source_path = test_directory.join("sample.jpg");
+        let xmp_path = test_directory.join("sample.xmp");
+        fs::write(
+            &xmp_path,
+            r#"<?xpacket begin="﻿"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description
+   xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+   xmlns:tiff="http://ns.adobe.com/tiff/1.0/"
+   xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   crs:HasCrop="True"
+   crs:AlreadyApplied="False"
+   crs:CropTop="0.078"
+   crs:CropLeft="0"
+   crs:CropBottom="0.922"
+   crs:CropRight="1"
+   crs:CropAngle="0"
+   tiff:ImageWidth="6000"
+   tiff:ImageLength="4000"
+   tiff:Orientation="1"
+   xmp:Rating="4">
+   <dc:subject><rdf:Bag><rdf:li>crop-test</rdf:li></rdf:Bag></dc:subject>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>"#,
+        )
+        .unwrap();
+
+        let imported = import_xmp_adjustments_to_sidecar(
+            source_path.to_string_lossy().as_ref(),
+            &xmp_path,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            imported.metadata.adjustments["crop"],
+            serde_json::json!({
+                "x": 0.0,
+                "y": 312.0,
+                "width": 6000.0,
+                "height": 3376.0
+            })
+        );
+        assert_eq!(imported.metadata.rating, 4);
+        assert_eq!(imported.metadata.tags, Some(vec!["crop-test".to_string()]));
+        assert!(imported.sidecar_path.exists());
+
+        let saved = crate::exif_processing::load_sidecar(&imported.sidecar_path);
+        assert_eq!(saved.adjustments, imported.metadata.adjustments);
+
+        fs::remove_dir_all(test_directory).unwrap();
+    }
+
+    #[test]
+    fn imports_metadata_only_lightroom_xmp_to_sidecar() {
+        let test_directory =
+            std::env::temp_dir().join(format!("rapidraw-xmp-metadata-{}", Uuid::new_v4()));
+        fs::create_dir_all(&test_directory).unwrap();
+
+        let source_path = test_directory.join("sample.jpg");
+        let xmp_path = test_directory.join("sample.xmp");
+        fs::write(
+            &xmp_path,
+            r#"<rdf:Description xmp:Rating="3" xmp:Label="Red">
+                <dc:subject><rdf:Bag><rdf:li>portfolio</rdf:li></rdf:Bag></dc:subject>
+            </rdf:Description>"#,
+        )
+        .unwrap();
+
+        let imported = import_xmp_adjustments_to_sidecar(
+            source_path.to_string_lossy().as_ref(),
+            &xmp_path,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(imported.metadata.rating, 3);
+        assert_eq!(
+            imported.metadata.tags,
+            Some(vec!["portfolio".to_string(), "color:red".to_string()])
+        );
+        assert_eq!(
+            imported.metadata.adjustments["rating"],
+            serde_json::json!(3)
+        );
+
+        fs::remove_dir_all(test_directory).unwrap();
+    }
+
+    #[test]
+    fn treats_default_only_lightroom_xmp_as_unchanged() {
+        let test_directory =
+            std::env::temp_dir().join(format!("rapidraw-xmp-unchanged-{}", Uuid::new_v4()));
+        fs::create_dir_all(&test_directory).unwrap();
+
+        let source_path = test_directory.join("sample.cr2");
+        let xmp_path = test_directory.join("sample.xmp");
+        fs::write(
+            &xmp_path,
+            r#"<rdf:Description
+                tiff:ImageWidth="4752"
+                tiff:ImageLength="3168"
+                crs:CropTop="0"
+                crs:CropLeft="0"
+                crs:CropBottom="1"
+                crs:CropRight="1"
+                crs:CropAngle="0" />"#,
+        )
+        .unwrap();
+
+        let error = import_xmp_adjustments_to_sidecar(
+            source_path.to_string_lossy().as_ref(),
+            &xmp_path,
+            None,
+        )
+        .unwrap_err();
+
+        assert_eq!(error, NO_SUPPORTED_XMP_CONTENT_ERROR);
+        assert!(
+            !parse_virtual_path(source_path.to_string_lossy().as_ref())
+                .1
+                .exists()
+        );
+
+        fs::remove_dir_all(test_directory).unwrap();
+    }
+
+    #[test]
+    fn finds_matching_xmp_sidecars_in_nested_folders() {
+        let test_directory =
+            std::env::temp_dir().join(format!("rapidraw-xmp-recursive-{}", Uuid::new_v4()));
+        let first_directory = test_directory.join("2020").join("06");
+        let second_directory = test_directory.join("2021").join("07");
+        fs::create_dir_all(&first_directory).unwrap();
+        fs::create_dir_all(&second_directory).unwrap();
+
+        let first_image = first_directory.join("duplicate.jpg");
+        let first_xmp = first_directory.join("duplicate.xmp");
+        let second_image = second_directory.join("duplicate.jpg");
+        let second_xmp = second_directory.join("duplicate.XmP");
+        fs::write(&first_image, []).unwrap();
+        fs::write(&first_xmp, []).unwrap();
+        fs::write(&second_image, []).unwrap();
+        fs::write(&second_xmp, []).unwrap();
+        fs::write(second_directory.join("without-sidecar.jpg"), []).unwrap();
+        fs::write(second_directory.join("ignored.txt"), []).unwrap();
+
+        let (matches, skipped, failures) = find_matching_xmp_sidecars_recursive(&test_directory);
+
+        assert_eq!(matches.len(), 2);
+        for (image_path, xmp_path) in &matches {
+            assert!(xmp_path.is_file());
+            assert_eq!(image_path.parent(), xmp_path.parent());
+            assert_eq!(image_path.file_stem(), xmp_path.file_stem());
+        }
+        assert!(
+            matches
+                .iter()
+                .any(|(image_path, _)| image_path == &first_image)
+        );
+        assert!(
+            matches
+                .iter()
+                .any(|(image_path, _)| image_path == &second_image)
+        );
+        assert_eq!(skipped, 1);
+        assert!(failures.is_empty());
+
+        fs::remove_dir_all(test_directory).unwrap();
     }
 }

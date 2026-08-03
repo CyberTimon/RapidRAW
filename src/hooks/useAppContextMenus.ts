@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import {
   Aperture,
   Check,
@@ -9,6 +11,7 @@ import {
   Edit,
   FileEdit,
   FileInput,
+  FileUp,
   Folder,
   FolderInput,
   FolderPlus,
@@ -51,11 +54,39 @@ import { useProcessStore } from '../store/useProcessStore';
 import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Invokes, Option, OPTION_SEPARATOR, Panel, AlbumItem, Album, AlbumGroup } from '../components/ui/AppProperties';
-import { Color, COLOR_LABELS, INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
+import { Status } from '../components/ui/ExportImportProperties';
+import {
+  Color,
+  COLOR_LABELS,
+  INITIAL_ADJUSTMENTS,
+  normalizeLoadedAdjustments,
+  type Adjustments,
+} from '../utils/adjustments';
 import TaggingSubMenu from '../context/TaggingSubMenu';
-import { useEditorActions } from './useEditorActions';
+import { debouncedSave, debouncedSetHistory, useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
 import { globalImageCache } from '../utils/ImageLRUCache';
+
+interface ImportedXmpMetadata {
+  adjustments?: (Partial<Adjustments> & { is_null?: boolean }) | null;
+}
+
+interface MatchingXmpSidecarImportResult {
+  matched: number;
+  imported: number;
+  unchanged: number;
+  skipped: number;
+  failed: number;
+  failures: string[];
+  importedPaths: string[];
+  unchangedPaths: string[];
+}
+
+interface MatchingXmpSidecarImportProgress {
+  folderPath: string;
+  current: number;
+  total: number;
+}
 
 export interface UseAppContextMenusProps {
   handleImageSelect: (path: string) => void;
@@ -156,6 +187,210 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
     [albumIcons, t],
   );
 
+  const applyImportedXmpMetadata = useCallback((targetPath: string, metadata: ImportedXmpMetadata) => {
+    if (!metadata.adjustments || metadata.adjustments.is_null) return;
+
+    const normalized = normalizeLoadedAdjustments(metadata.adjustments as Adjustments);
+    const editorState = useEditorStore.getState();
+    if (editorState.selectedImage?.path === targetPath) {
+      editorState.setEditor({ adjustments: normalized });
+      editorState.resetHistory(normalized);
+    }
+
+    const libraryState = useLibraryStore.getState();
+    if (libraryState.libraryActivePath === targetPath) {
+      libraryState.setLibrary({ libraryActiveAdjustments: normalized });
+    }
+  }, []);
+
+  const refreshImportedXmpPaths = useCallback(
+    async (importedPaths: string[]) => {
+      importedPaths.forEach((path) => globalImageCache.delete(path));
+
+      const editorState = useEditorStore.getState();
+      const libraryState = useLibraryStore.getState();
+      const pathsToRefresh = new Set<string>();
+      if (editorState.selectedImage?.path && importedPaths.includes(editorState.selectedImage.path)) {
+        pathsToRefresh.add(editorState.selectedImage.path);
+      }
+      if (libraryState.libraryActivePath && importedPaths.includes(libraryState.libraryActivePath)) {
+        pathsToRefresh.add(libraryState.libraryActivePath);
+      }
+
+      await Promise.all(
+        [...pathsToRefresh].map(async (path) => {
+          const metadata = await invoke<ImportedXmpMetadata>(Invokes.LoadMetadata, { path });
+          applyImportedXmpMetadata(path, metadata);
+        }),
+      );
+    },
+    [applyImportedXmpMetadata],
+  );
+
+  const importXmpAdjustmentsForImage = useCallback(
+    async (targetPath: string) => {
+      try {
+        // A pending editor save would otherwise overwrite the newly imported sidecar.
+        debouncedSave.cancel();
+        debouncedSetHistory.cancel();
+        globalImageCache.delete(targetPath);
+
+        let metadata: ImportedXmpMetadata;
+        try {
+          metadata = await invoke<ImportedXmpMetadata>(Invokes.ImportXmpAdjustmentsForImage, {
+            path: targetPath,
+          });
+        } catch (automaticImportError) {
+          if (!String(automaticImportError).includes('No matching XMP sidecar')) {
+            throw automaticImportError;
+          }
+
+          const selectedPath = await openDialog({
+            filters: [{ name: t('contextMenus.dialogs.xmpSidecar'), extensions: ['xmp'] }],
+            multiple: false,
+            title: t('contextMenus.dialogs.importXmpAdjustmentsTitle'),
+          });
+          if (typeof selectedPath !== 'string') return;
+
+          metadata = await invoke<ImportedXmpMetadata>(Invokes.ImportXmpAdjustmentsForImage, {
+            path: targetPath,
+            xmpPath: selectedPath,
+          });
+        }
+
+        applyImportedXmpMetadata(targetPath, metadata);
+        await props.refreshImageList();
+        toast.success(t('contextMenus.toasts.importedXmpAdjustments'));
+      } catch (err) {
+        console.error('Failed to import XMP adjustments:', err);
+        toast.error(t('contextMenus.toasts.failedImportXmpAdjustments', { err }));
+      }
+    },
+    [applyImportedXmpMetadata, props, t],
+  );
+
+  const importMatchingXmpSidecarsInFolder = useCallback(
+    async (targetPath: string) => {
+      const processStore = useProcessStore.getState();
+      processStore.setImportState({
+        errorMessage: '',
+        path: targetPath,
+        progress: { current: 0, total: 0 },
+        status: Status.Importing,
+      });
+      const progressToastId = toast.loading(t('contextMenus.toasts.importingMatchingXmpSidecars'));
+      let stopListening: (() => void) | undefined;
+
+      try {
+        debouncedSave.cancel();
+        debouncedSetHistory.cancel();
+        stopListening = await listen<MatchingXmpSidecarImportProgress>('xmp-sidecar-import-progress', ({ payload }) => {
+          if (payload.folderPath !== targetPath) return;
+          useProcessStore.getState().setImportState({
+            path: targetPath,
+            progress: { current: payload.current, total: payload.total },
+          });
+        });
+
+        const result = await invoke<MatchingXmpSidecarImportResult>(Invokes.ImportMatchingXmpSidecarsInFolder, {
+          folderPath: targetPath,
+        });
+
+        await refreshImportedXmpPaths(result.importedPaths);
+
+        const { currentFolderPath, imageList } = useLibraryStore.getState();
+        const importedVisibleImage = imageList.some((image) => result.importedPaths.includes(image.path));
+        if (targetPath === currentFolderPath || importedVisibleImage) {
+          await props.refreshImageList();
+        }
+
+        useProcessStore.getState().setImportState({
+          progress: { current: result.matched, total: result.matched },
+          status: result.failed > 0 && result.imported === 0 ? Status.Error : Status.Success,
+        });
+
+        if (result.imported > 0) {
+          toast.update(progressToastId, {
+            autoClose: 5000,
+            isLoading: false,
+            render: t('contextMenus.toasts.importedMatchingXmpSidecars', { count: result.imported }),
+            type: 'success',
+          });
+        } else {
+          toast.dismiss(progressToastId);
+        }
+
+        const relativeToImportedFolder = (path: string) =>
+          path.startsWith(`${targetPath}/`) ? path.slice(targetPath.length + 1) : path;
+        const reportLines = [t('contextMenus.xmpImportReport.folder', { folder: targetPath })];
+        if (result.unchangedPaths.length > 0) {
+          reportLines.push(
+            '',
+            t('contextMenus.xmpImportReport.unchanged', { total: result.unchangedPaths.length }),
+            ...result.unchangedPaths.map(relativeToImportedFolder),
+          );
+        }
+        if (result.failures.length > 0) {
+          reportLines.push(
+            '',
+            t('contextMenus.xmpImportReport.failed', { total: result.failures.length }),
+            ...result.failures.map(relativeToImportedFolder),
+          );
+        }
+        const reportText = reportLines.join('\n');
+        const showImportReport = () => {
+          useUIStore.getState().setUI({
+            confirmModalState: {
+              confirmText: t('contextMenus.xmpImportReport.copy'),
+              isOpen: true,
+              message: reportText,
+              messageClassName: 'font-mono text-xs max-h-[60vh] overflow-y-auto break-all pr-2',
+              onConfirm: () => {
+                navigator.clipboard
+                  .writeText(reportText)
+                  .then(() => toast.success(t('contextMenus.xmpImportReport.copied')))
+                  .catch((err) => toast.error(t('contextMenus.toasts.failedCopy', { err })));
+              },
+              title: t('contextMenus.xmpImportReport.title'),
+            },
+          });
+        };
+
+        if (result.unchanged > 0 || result.failed > 0) {
+          const notify = result.failed > 0 ? toast.error : toast.info;
+          notify(
+            t('contextMenus.xmpImportReport.available', {
+              failed: result.failed,
+              unchanged: result.unchanged,
+            }),
+            { autoClose: false, onClick: showImportReport },
+          );
+        } else if (result.imported === 0) {
+          toast.info(t('contextMenus.toasts.noMatchingXmpSidecars'));
+        }
+
+        if (result.failed > 0) {
+          console.warn('Some matching XMP sidecars failed to import:', result.failures);
+        }
+      } catch (err) {
+        console.error('Failed to import matching XMP sidecars:', err);
+        useProcessStore.getState().setImportState({
+          errorMessage: String(err),
+          status: Status.Error,
+        });
+        toast.update(progressToastId, {
+          autoClose: 5000,
+          isLoading: false,
+          render: t('contextMenus.toasts.failedImportMatchingXmpSidecars', { err }),
+          type: 'error',
+        });
+      } finally {
+        stopListening?.();
+      }
+    },
+    [props, refreshImportedXmpPaths, t],
+  );
+
   const handleEditorContextMenu = useCallback(
     (event: any) => {
       event.preventDefault();
@@ -192,6 +427,11 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           icon: ClipboardPaste,
           onClick: () => handlePasteAdjustments(),
           disabled: copiedAdjustments === null,
+        },
+        {
+          label: t('contextMenus.editor.importXmpAdjustments'),
+          icon: FileUp,
+          onClick: () => importXmpAdjustmentsForImage(selectedImage.path),
         },
         {
           label: t('contextMenus.editor.productivity'),
@@ -310,6 +550,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       getCommonTags,
       handleCopyAdjustments,
       handlePasteAdjustments,
+      importXmpAdjustmentsForImage,
       handleAutoAdjustments,
       handleRate,
       handleSetColorLabel,
@@ -550,6 +791,12 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           onClick: () => handlePasteAdjustments(finalSelection),
         },
         {
+          disabled: !isSingleSelection,
+          icon: FileUp,
+          label: t('contextMenus.thumbnail.importXmpAdjustments'),
+          onClick: () => importXmpAdjustmentsForImage(finalSelection[0]),
+        },
+        {
           label: t('contextMenus.editor.productivity'),
           icon: Gauge,
           submenu: [
@@ -777,6 +1024,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       buildAddToAlbumMenu,
       handleCopyAdjustments,
       handlePasteAdjustments,
+      importXmpAdjustmentsForImage,
       handleRate,
       handleSetColorLabel,
       handleTagsChanged,
@@ -951,6 +1199,11 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           label: t('contextMenus.folders.importImages'),
           onClick: () => props.handleImportClick(targetPath),
         },
+        {
+          icon: FileUp,
+          label: t('contextMenus.folders.importMatchingXmpSidecars'),
+          onClick: () => importMatchingXmpSidecarsInFolder(targetPath),
+        },
         { type: OPTION_SEPARATOR },
         {
           icon: Folder,
@@ -1012,7 +1265,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       ];
       showContextMenu(event.clientX, event.clientY, options);
     },
-    [props, showContextMenu, albumIcons, t],
+    [props, showContextMenu, albumIcons, importMatchingXmpSidecarsInFolder, t],
   );
 
   const handleAlbumTreeContextMenu = useCallback(

@@ -553,7 +553,7 @@ export default function MainLibrary(props: MainLibraryProps) {
           {props.importState.status === Status.Importing && (
             <Text as="div" color={TextColors.accent} className="flex items-center gap-2 animate-pulse">
               <FolderInput size={16} />
-              <span>
+              <span className="whitespace-nowrap tabular-nums">
                 {t('library.import.progress', {
                   current: props.importState.progress?.current,
                   total: props.importState.progress?.total,

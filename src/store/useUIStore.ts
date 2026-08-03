@@ -34,6 +34,7 @@ export interface ConfirmModalState {
   confirmVariant?: string;
   isOpen: boolean;
   message?: string;
+  messageClassName?: string;
   onConfirm?(): void;
   title?: string;
 }

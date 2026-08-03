@@ -176,6 +176,10 @@
       "red": "Rouge",
       "yellow": "Jaune"
     },
+    "dialogs": {
+      "importXmpAdjustmentsTitle": "Import XMP Adjustments",
+      "xmpSidecar": "XMP Sidecar"
+    },
     "editor": {
       "autoAdjust": "Ajustement auto de l'image",
       "cancel": "Annuler",
@@ -188,6 +192,7 @@
       "editImage": "Modifier l'image",
       "exportImage": "Exporter l'image",
       "frameImage": "Encadrer l'image",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "mergeHdr": "Fusionner en HDR",
       "noLabel": "Aucune étiquette",
       "noRating": "Aucune note",
@@ -211,6 +216,7 @@
       "copyHere_other": "Copier {{count}} images ici",
       "deleteFolder": "Supprimer le dossier",
       "importImages": "Importer des images",
+      "importMatchingXmpSidecars": "Import XMP Adjustments",
       "moveHere_many": "Déplacer {{count}} images ici",
       "moveHere_one": "Déplacer l'image ici",
       "moveHere_other": "Déplacer {{count}} images ici",
@@ -267,6 +273,7 @@
       "exportImage_many": "Exporter {{count}} images",
       "exportImage_one": "Exporter l'image",
       "exportImage_other": "Exporter {{count}} images",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "noAlbums": "Aucun album disponible",
       "pasteAdjustments_many": "Coller les ajustements sur {{count}} images",
       "pasteAdjustments_one": "Coller les ajustements",
@@ -284,6 +291,15 @@
       "showExplorer": "Afficher dans l'explorateur",
       "virtualCopy": "Copie virtuelle"
     },
+    "xmpImportReport": {
+      "available": "XMP import report: {{unchanged}} unchanged, {{failed}} failed. Click to view details.",
+      "copied": "Import report copied.",
+      "copy": "Copy Report",
+      "failed": "Failed ({{total}})",
+      "folder": "Folder: {{folder}}",
+      "title": "XMP Import Report",
+      "unchanged": "Not imported — no supported changes ({{total}})"
+    },
     "toasts": {
       "couldNotShowExplorer": "Impossible d'afficher le fichier dans l'explorateur : {{err}}",
       "couldNotShowFolder": "Impossible d'afficher le dossier : {{err}}",
@@ -295,10 +311,22 @@
       "failedDelete": "Échec de la suppression : {{err}}",
       "failedDeleteFolder": "Échec de la suppression du dossier : {{err}}",
       "failedDuplicate": "Échec de la duplication du fichier : {{err}}",
+      "failedImportMatchingXmpSidecars": "Failed to import matching XMP sidecars: {{err}}",
+      "failedImportXmpAdjustments": "Failed to import XMP adjustments: {{err}}",
+      "failedMatchingXmpSidecars_one": "Matching XMP sidecars failed to import: {{count}}.",
+      "failedMatchingXmpSidecars_many": "Matching XMP sidecars failed to import: {{count}}.",
+      "failedMatchingXmpSidecars_other": "Matching XMP sidecars failed to import: {{count}}.",
       "failedMove": "Échec du déplacement des fichiers : {{err}}",
       "failedMoveError": "Échec du déplacement : {{err}}",
       "failedMoveInvalid": "Échec du déplacement : Groupe cible introuvable ou invalide.",
-      "failedRemoveImages": "Échec de la suppression des images : {{err}}"
+      "failedRemoveImages": "Échec de la suppression des images : {{err}}",
+      "importedMatchingXmpSidecars_one": "Imported matching XMP sidecars: {{count}}.",
+      "importedMatchingXmpSidecars_many": "Imported matching XMP sidecars: {{count}}.",
+      "importedMatchingXmpSidecars_other": "Imported matching XMP sidecars: {{count}}.",
+      "importedXmpAdjustments": "Imported XMP adjustments.",
+      "importingMatchingXmpSidecars": "Importing matching XMP sidecars…",
+      "noMatchingXmpSidecars": "No matching XMP sidecars found.",
+      "unchangedMatchingXmpSidecars": "Skipped matching XMP sidecars with no importable changes: {{count}}."
     }
   },
   "editor": {
