@@ -142,7 +142,7 @@ export function computeGroupedLibrary(libraryState: any, settingsState: any): Gr
     if (!isSearchActive) return true;
 
     const lowerCaseImageTags = (image.tags || []).map((t) => t.toLowerCase().replace('user:', ''));
-    const filename = image?.path?.split(/[\\/]/)?.pop()?.toLowerCase() || '';
+    const filename = image.path.split(/[\\/]/).pop()?.toLowerCase() || '';
 
     let tagsMatch = true;
     if (parsedTags.length > 0) {

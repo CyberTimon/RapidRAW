@@ -4,6 +4,7 @@ const react = require('eslint-plugin-react');
 const i18next = require('eslint-plugin-i18next');
 
 const tsFiles = ['**/*.{ts,tsx}'];
+const noUnnecessaryConditionErrorFiles = ['src/hooks/useSortedLibrary.ts'];
 
 const jsRecommendedForTs = {
   ...js.configs.recommended,
@@ -40,6 +41,7 @@ module.exports = [
         ecmaFeatures: {
           jsx: true,
         },
+        projectService: true,
       },
     },
     settings: {
@@ -48,6 +50,7 @@ module.exports = [
       },
     },
     rules: {
+      '@typescript-eslint/no-unnecessary-condition': 'warn',
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
@@ -78,6 +81,12 @@ module.exports = [
           ],
         },
       ],
+    },
+  },
+  {
+    files: noUnnecessaryConditionErrorFiles,
+    rules: {
+      '@typescript-eslint/no-unnecessary-condition': 'error',
     },
   },
 ];
