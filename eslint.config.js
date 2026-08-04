@@ -41,7 +41,9 @@ module.exports = [
         ecmaFeatures: {
           jsx: true,
         },
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ['i18next.config.ts'],
+        },
       },
     },
     settings: {
