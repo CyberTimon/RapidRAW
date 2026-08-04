@@ -583,6 +583,15 @@
         "maskName_one": "Maske {{count}}",
         "maskName_other": "Maske {{count}}"
       },
+      "redEye": {
+        "alreadyMasked": "Alle erkannten roten Pupillen haben bereits Korrekturmasken.",
+        "detected": "{{total}} rote Pupille(n) korrigiert.",
+        "failed": "Rote-Augen-Erkennung fehlgeschlagen: {{error}}",
+        "maskName": "Rote Augen",
+        "noneDetected": "Keine roten Pupillen erkannt.",
+        "pupilName": "Pupille {{number}}",
+        "tooltip": "Rote Augen erkennen und korrigieren"
+      },
       "resetMaskingTooltip": "Maskierung zurücksetzen",
       "settings": {
         "aiModelDownloading": "KI-Modell wird heruntergeladen: ",

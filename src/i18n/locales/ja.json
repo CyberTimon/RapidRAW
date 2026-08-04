@@ -581,6 +581,15 @@
         "maskName_one": "マスク {{count}}",
         "maskName_other": "マスク {{count}}"
       },
+      "redEye": {
+        "alreadyMasked": "検出された赤い瞳には、すでに補正マスクがあります。",
+        "detected": "{{total}} 個の赤い瞳を補正しました。",
+        "failed": "赤目検出に失敗しました: {{error}}",
+        "maskName": "赤目",
+        "noneDetected": "赤い瞳は検出されませんでした。",
+        "pupilName": "瞳 {{number}}",
+        "tooltip": "赤目を検出して補正"
+      },
       "resetMaskingTooltip": "マスク処理をリセット",
       "settings": {
         "aiModelDownloading": "AIモデルをダウンロード中: ",

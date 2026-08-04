@@ -581,6 +581,15 @@
         "maskName_one": "마스크 {{count}}",
         "maskName_other": "마스크 {{count}}"
       },
+      "redEye": {
+        "alreadyMasked": "감지된 모든 붉은 눈동자에 이미 보정 마스크가 있습니다.",
+        "detected": "붉은 눈동자 {{total}}개를 보정했습니다.",
+        "failed": "적목 감지 실패: {{error}}",
+        "maskName": "적목",
+        "noneDetected": "붉은 눈동자가 감지되지 않았습니다.",
+        "pupilName": "눈동자 {{number}}",
+        "tooltip": "적목 감지 및 보정"
+      },
       "resetMaskingTooltip": "마스킹 초기화",
       "settings": {
         "aiModelDownloading": "AI 모델 다운로드 중: ",

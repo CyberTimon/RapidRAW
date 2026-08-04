@@ -581,6 +581,15 @@
         "maskName_one": "蒙版 {{count}}",
         "maskName_other": "蒙版 {{count}}"
       },
+      "redEye": {
+        "alreadyMasked": "所有检测到的红眼瞳孔都已有校正蒙版。",
+        "detected": "已校正 {{total}} 个红眼瞳孔。",
+        "failed": "红眼检测失败：{{error}}",
+        "maskName": "红眼",
+        "noneDetected": "未检测到红色瞳孔。",
+        "pupilName": "瞳孔 {{number}}",
+        "tooltip": "检测并校正红眼"
+      },
       "resetMaskingTooltip": "重置蒙版",
       "settings": {
         "aiModelDownloading": "AI 模型下载中：",

@@ -625,6 +625,15 @@
         "maskName_one": "Maska {{count}}",
         "maskName_other": "Maska {{count}}"
       },
+      "redEye": {
+        "alreadyMasked": "Wszystkie wykryte czerwone źrenice mają już maski korekcyjne.",
+        "detected": "Skorygowano czerwone źrenice: {{total}}.",
+        "failed": "Wykrywanie czerwonych oczu nie powiodło się: {{error}}",
+        "maskName": "Czerwone oczy",
+        "noneDetected": "Nie wykryto czerwonych źrenic.",
+        "pupilName": "Źrenica {{number}}",
+        "tooltip": "Wykryj i skoryguj czerwone oczy"
+      },
       "resetMaskingTooltip": "Resetuj maskowanie",
       "settings": {
         "aiModelDownloading": "Pobieranie modelu AI: ",
