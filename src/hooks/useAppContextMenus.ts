@@ -178,6 +178,15 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           icon: FileInput,
           onClick: () => setRightPanel(Panel.Export),
         },
+        {
+          label: t('contextMenus.thumbnail.showExplorer'),
+          icon: Folder,
+          onClick: () => {
+            invoke(Invokes.ShowInFinder, { path: selectedImage.path }).catch((err) =>
+              toast.error(t('contextMenus.toasts.couldNotShowExplorer', { err })),
+            );
+          },
+        },
         { type: OPTION_SEPARATOR },
         { label: t('contextMenus.editor.undo'), icon: Undo, onClick: undo, disabled: !canUndo },
         { label: t('contextMenus.editor.redo'), icon: Redo, onClick: redo, disabled: !canRedo },

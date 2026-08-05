@@ -10,6 +10,7 @@ import { TextColors, TextVariants, TextWeights } from '../../../types/typography
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { findGroupVariants, getVariantLabel } from '../../../utils/imageGrouping';
+import { getLibraryDisplayPath } from '../../../utils/filePath';
 
 interface EditorToolbarProps {
   canRedo: boolean;
@@ -60,6 +61,8 @@ const EditorToolbar = memo(
     const prevIsLoadingRef = useRef(isLoading);
     const [isVcHovered, setIsVcHovered] = useState(false);
     const [isInfoHovered, setIsInfoHovered] = useState(false);
+    const [isPathHovered, setIsPathHovered] = useState(false);
+    const [isPathCopied, setIsPathCopied] = useState(false);
     const [isHistoryVisible, setIsHistoryVisible] = useState(false);
     const historyContainerRef = useRef<HTMLDivElement>(null);
     const historyButtonRef = useRef<HTMLDivElement>(null);
@@ -68,6 +71,7 @@ const EditorToolbar = memo(
     const [displayedResolution, setDisplayedResolution] = useState('');
 
     const imageList = useLibraryStore((s) => s.imageList);
+    const rootPaths = useLibraryStore((s) => s.rootPaths);
     const groupingMode: GroupingMode = useSettingsStore((s) => s.appSettings?.grouping) ?? 'off';
 
     const variantOptions = useMemo(() => {
@@ -79,10 +83,11 @@ const EditorToolbar = memo(
       return variants.map((v) => ({ path: v.path, label: getVariantLabel(v.path) }));
     }, [groupingMode, selectedImage.path, imageList, onImageSelect]);
 
-    const { baseName, isVirtualCopy, vcId, exifData, hasExif } = useMemo(() => {
+    const { baseName, directoryPath, physicalPath, isVirtualCopy, vcId, exifData, hasExif } = useMemo(() => {
       const path = selectedImage.path;
       const parts = path.split('?vc=');
-      const fullFileName = parts[0].split(/[\\/]/).pop() || '';
+      const sourcePath = parts[0];
+      const fullFileName = sourcePath.split(/[\\/]/).pop() || '';
 
       const exif = selectedImage.exif || {};
 
@@ -117,12 +122,14 @@ const EditorToolbar = memo(
 
       return {
         baseName: fullFileName,
+        directoryPath: getLibraryDisplayPath(sourcePath, rootPaths),
+        physicalPath: sourcePath,
         isVirtualCopy: parts.length > 1,
         vcId: parts.length > 1 ? parts[1] : null,
         exifData: data,
         hasExif: hasData,
       };
-    }, [selectedImage.path, selectedImage.exif]);
+    }, [selectedImage.path, selectedImage.exif, rootPaths]);
 
     useEffect(() => {
       if (showResolution) {
@@ -354,7 +361,19 @@ const EditorToolbar = memo(
       e.currentTarget.blur();
     };
 
-    const isExpanded = isInfoHovered && (hasExif || isLoading);
+    const handleCopyPath = async (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(physicalPath);
+        setIsPathCopied(true);
+        setTimeout(() => setIsPathCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy image path', err);
+      }
+    };
+
+    const isExpanded = isInfoHovered;
+    const hasExpandedDetails = hasExif || isLoading;
 
     return (
       <div className="relative shrink-0 flex items-center justify-between px-3 h-12 gap-3 z-40">
@@ -390,11 +409,18 @@ const EditorToolbar = memo(
             className={clsx(
               'bg-surface flex flex-col items-center overflow-hidden transition-all duration-200 ease-out pt-2',
               isExpanded
-                ? 'h-18 px-8 rounded-2xl absolute min-w-85 whitespace-nowrap shadow-2xl shadow-black/50'
+                ? clsx(
+                    'px-8 rounded-2xl absolute min-w-85 whitespace-nowrap shadow-2xl shadow-black/50',
+                    hasExpandedDetails ? 'h-24' : 'h-14',
+                  )
                 : 'h-9 px-4 rounded-[18px] absolute min-w-0 w-auto max-w-full shadow-none',
             )}
             onMouseEnter={() => setIsInfoHovered(true)}
-            onMouseLeave={() => setIsInfoHovered(false)}
+            onMouseLeave={() => {
+              setIsInfoHovered(false);
+              setIsPathHovered(false);
+              setIsPathCopied(false);
+            }}
             style={{
               top: '6px',
               transform: 'translateX(-50%)',
@@ -492,10 +518,46 @@ const EditorToolbar = memo(
               </div>
             </div>
 
+            <button
+              type="button"
+              className={clsx(
+                'grid w-full min-w-0 h-4 mt-0.5 cursor-pointer transition-opacity duration-200',
+                isExpanded ? 'opacity-100 delay-75' : 'opacity-0 hidden',
+              )}
+              aria-label={`${t('editor.metadata.copy')}: ${physicalPath}`}
+              data-tooltip={physicalPath}
+              onMouseEnter={() => setIsPathHovered(true)}
+              onMouseLeave={() => {
+                setIsPathHovered(false);
+                setIsPathCopied(false);
+              }}
+              onClick={handleCopyPath}
+            >
+              <Text
+                as="span"
+                color={TextColors.secondary}
+                className={clsx(
+                  'col-start-1 row-start-1 truncate min-w-0 px-1 text-[10px] transition-opacity duration-200 ease-in-out select-none',
+                  isPathHovered ? 'opacity-0' : 'opacity-100',
+                )}
+              >
+                {directoryPath}
+              </Text>
+              <span
+                aria-hidden={!isPathHovered}
+                className={clsx(
+                  'col-start-1 row-start-1 text-[10px] font-medium text-text-primary select-none transition-opacity duration-200 ease-in-out pointer-events-none flex items-center justify-center h-full',
+                  isPathHovered ? 'opacity-100' : 'opacity-0',
+                )}
+              >
+                {isPathCopied ? t('editor.metadata.copied') : t('editor.metadata.copy')}
+              </span>
+            </button>
+
             <div
               className={clsx(
-                'relative mt-2 w-full grow justify-center border-t border-text-secondary/10 pt-2 transition-opacity duration-200',
-                isExpanded ? 'opacity-100 delay-75' : 'opacity-0 hidden',
+                'relative mt-1 w-full grow justify-center border-t border-text-secondary/10 pt-2 transition-opacity duration-200',
+                isExpanded && hasExpandedDetails ? 'opacity-100 delay-75' : 'opacity-0 hidden',
                 hasExif && 'cursor-pointer',
               )}
               onClick={() => hasExif && onToggleDateView()}

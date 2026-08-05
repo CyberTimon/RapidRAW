@@ -12,6 +12,7 @@ import { IconAperture, IconShutter, IconIso, IconFocalLength, IconLens } from '.
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { getLibraryDisplayPath } from '../../../utils/filePath';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
 
@@ -36,8 +37,9 @@ interface GPSData {
 }
 
 interface MetaDataItemProps {
-  label: string;
+  label?: string;
   value: any;
+  copyValue?: string;
 }
 
 const USER_TAG_PREFIX = 'user:';
@@ -65,17 +67,18 @@ const CAMERA_ICONS: Record<string, React.FC> = {
   LensModel: IconLens,
 };
 
-function MetadataItem({ label, value }: MetaDataItemProps) {
+function MetadataItem({ label, value, copyValue }: MetaDataItemProps) {
   const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const strValue = String(value);
+  const clipboardValue = String(copyValue ?? value);
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await navigator.clipboard.writeText(strValue);
+      await navigator.clipboard.writeText(clipboardValue);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -85,29 +88,32 @@ function MetadataItem({ label, value }: MetaDataItemProps) {
 
   return (
     <div className="flex justify-between items-start gap-4 py-1.5 px-2 rounded-md hover:bg-card-active transition-colors cursor-default">
-      <Text
-        variant={TextVariants.small}
-        color={TextColors.secondary}
-        weight={TextWeights.medium}
-        className="shrink-0 mt-0.5"
-      >
-        {label}
-      </Text>
+      {label && (
+        <Text
+          variant={TextVariants.small}
+          color={TextColors.secondary}
+          weight={TextWeights.medium}
+          className="shrink-0 mt-0.5"
+        >
+          {label}
+        </Text>
+      )}
       <div
-        className="grid cursor-pointer text-right min-w-0 flex-1"
+        className={clsx('grid cursor-pointer min-w-0 flex-1', label ? 'text-right' : 'text-left')}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => {
           setIsHovered(false);
           setCopied(false);
         }}
         onClick={handleCopy}
-        data-tooltip={strValue.length > 500 ? strValue.slice(0, 500) + '...' : strValue}
+        data-tooltip={clipboardValue.length > 500 ? clipboardValue.slice(0, 500) + '...' : clipboardValue}
       >
         <Text
           variant={TextVariants.small}
           color={TextColors.primary}
           className={clsx(
-            'col-start-1 row-start-1 break-words min-w-0 text-right line-clamp-3 transition-opacity duration-200 ease-in-out select-none',
+            'col-start-1 row-start-1 break-words min-w-0 line-clamp-3 transition-opacity duration-200 ease-in-out select-none',
+            label ? 'text-right' : 'text-left',
             isHovered ? 'opacity-0' : 'opacity-100',
           )}
         >
@@ -116,7 +122,8 @@ function MetadataItem({ label, value }: MetaDataItemProps) {
         <span
           aria-hidden={!isHovered}
           className={clsx(
-            'col-start-1 row-start-1 text-xs font-medium text-text-primary select-none transition-opacity duration-200 ease-in-out pointer-events-none flex items-center justify-end h-full',
+            'col-start-1 row-start-1 text-xs font-medium text-text-primary select-none transition-opacity duration-200 ease-in-out pointer-events-none flex items-center h-full',
+            label ? 'justify-end' : 'justify-center',
             isHovered ? 'opacity-100' : 'opacity-0',
           )}
         >
@@ -238,6 +245,7 @@ export default function MetadataPanel() {
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const multiSelectedPaths = useLibraryStore((s) => s.multiSelectedPaths);
   const imageList = useLibraryStore((s) => s.imageList);
+  const rootPaths = useLibraryStore((s) => s.rootPaths);
   const imageRatings = useLibraryStore((s) => s.imageRatings);
   const appSettings = useSettingsStore((s) => s.appSettings);
   const thumbnails = useProcessStore((s) => s.thumbnails);
@@ -335,6 +343,7 @@ export default function MetadataPanel() {
   const fullPath = selectedImage?.path || '';
   const isVirtualCopy = fullPath.includes('?vc=');
   const basePath = fullPath.split('?vc=')[0];
+  const directoryPath = getLibraryDisplayPath(basePath, rootPaths);
   const fileName = basePath.split(/[\\/]/).pop() || '';
   const fileExtension = fileName.split('.').pop()?.toUpperCase() || 'FILE';
   const megapixels =
@@ -439,6 +448,10 @@ export default function MetadataPanel() {
                   <Text variant={TextVariants.small} color={TextColors.secondary} className="truncate drop-shadow-sm">
                     {selectedImage.exif?.DateTimeOriginal || '-'}
                   </Text>
+                </div>
+
+                <div className="relative z-10 border-t border-surface/50 pt-1">
+                  <MetadataItem value={directoryPath} copyValue={basePath} />
                 </div>
               </div>
             </div>
