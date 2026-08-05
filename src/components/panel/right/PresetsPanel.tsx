@@ -11,7 +11,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { useTranslation } from 'react-i18next';
-import { PresetListType, usePresets, UserPreset } from '../../../hooks/usePresets';
+import { PresetImportFailure, PresetListType, usePresets, UserPreset } from '../../../hooks/usePresets';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import {
   CopyPlus,
@@ -560,8 +560,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     deleteItem,
     duplicatePreset,
     exportPresetsToFile,
-    importPresetsFromFile,
-    importLegacyPresetsFromFile,
+    importPresetsFromFiles,
     isLoading,
     movePreset,
     overwritePreset,
@@ -1037,29 +1036,33 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
 
   const handleImportPresets = async () => {
     try {
-      const selectedPath = await openDialog({
+      const selectedPaths = await openDialog({
         filters: [
           { name: t('editor.presets.dialog.allPresetFiles'), extensions: ['rrpreset', 'xmp', 'lrtemplate'] },
           { name: t('editor.presets.dialog.rapidRawPreset'), extensions: ['rrpreset'] },
           { name: t('editor.presets.dialog.legacyPreset'), extensions: ['xmp', 'lrtemplate'] },
         ],
-        multiple: false,
+        multiple: true,
         title: t('editor.presets.dialog.importPresetsTitle'),
       });
 
-      if (typeof selectedPath === 'string') {
-        const isLegacy =
-          selectedPath.toLowerCase().endsWith('.xmp') || selectedPath.toLowerCase().endsWith('.lrtemplate');
-
-        if (isLegacy) {
-          await importLegacyPresetsFromFile(selectedPath);
-        } else {
-          await importPresetsFromFile(selectedPath);
-        }
-
-        setFolderPreviewsGenerated(new Set<string>());
-        setPreviews({});
+      if (!selectedPaths) {
+        return;
       }
+
+      const paths = Array.isArray(selectedPaths) ? selectedPaths : [selectedPaths];
+      if (paths.length === 0) {
+        return;
+      }
+
+      const { failures } = await importPresetsFromFiles(paths);
+
+      setFolderPreviewsGenerated(new Set<string>());
+      setPreviews({});
+
+      failures.forEach((failure: PresetImportFailure) =>
+        console.error(`Failed to import ${failure.fileName}: ${failure.error}`),
+      );
     } catch (error) {
       console.error('Failed to import presets:', error);
     }

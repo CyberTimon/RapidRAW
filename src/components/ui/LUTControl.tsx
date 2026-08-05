@@ -32,6 +32,7 @@ interface LUTControlProps {
 }
 
 const PREVIEW_SIZE = 112;
+const SUPPORTED_EXTENSIONS = ['cube', '3dl', 'png', 'jpg', 'jpeg', 'tiff'];
 
 export default function LUTControl({
   lutPath,
@@ -139,7 +140,14 @@ export default function LUTControl({
 
       const selected = await open({
         multiple: true,
-        filters: isAndroid ? [] : [{ name: t('ui.lut.filterLabel'), extensions: ['cube', '3dl', 'CUBE', '3DL'] }],
+        filters: isAndroid
+          ? []
+          : [
+              {
+                name: t('ui.lut.filterLabel'),
+                extensions: [...SUPPORTED_EXTENSIONS, ...SUPPORTED_EXTENSIONS.map((ext) => ext.toUpperCase())],
+              },
+            ],
       });
       const sourcePaths = Array.isArray(selected) ? selected : selected ? [selected] : [];
       if (sourcePaths.length === 0) return;
@@ -156,7 +164,7 @@ export default function LUTControl({
             }
           }),
         );
-        const allowedExtensions = new Set(['cube', '3dl']);
+        const allowedExtensions = new Set(SUPPORTED_EXTENSIONS);
         validPaths = sourcePaths.filter((_, index) => {
           const resolvedName = resolvedNames[index];
           const ext = resolvedName.split('.').pop()?.toLowerCase() || '';

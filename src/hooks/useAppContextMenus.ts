@@ -399,7 +399,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       const { selectedImage, history, historyIndex, undo, redo, resetHistory, copiedAdjustments, setEditor } =
         useEditorStore.getState();
       const { appSettings } = useSettingsStore.getState();
-      const { setRightPanel, setUI } = useUIStore.getState();
+      const { setPanel, setUI } = useUIStore.getState();
 
       if (!selectedImage) return;
 
@@ -411,7 +411,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
         {
           label: t('contextMenus.editor.exportImage'),
           icon: FileInput,
-          onClick: () => setRightPanel(Panel.Export),
+          onClick: () => setPanel(Panel.Export),
         },
         { type: OPTION_SEPARATOR },
         { label: t('contextMenus.editor.undo'), icon: Undo, onClick: undo, disabled: !canUndo },
@@ -569,7 +569,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       const { multiSelectedPaths, imageList, libraryActivePath, albumTree, activeAlbumId, setLibrary } =
         useLibraryStore.getState();
       const { appSettings } = useSettingsStore.getState();
-      const { activeView, setUI, setRightPanel } = useUIStore.getState();
+      const { activeView, setUI, setPanel } = useUIStore.getState();
       const { setProcess } = useProcessStore.getState();
 
       const isTargetInSelection = multiSelectedPaths.includes(path);
@@ -717,7 +717,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
             props.handleImageSelect(path);
           }
           setLibrary({ multiSelectedPaths: finalSelection });
-          setRightPanel(Panel.Export);
+          setPanel(Panel.Export);
         } else {
           setLibrary({ multiSelectedPaths: finalSelection });
           setUI({ isLibraryExportPanelVisible: true });

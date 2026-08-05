@@ -30,8 +30,10 @@ export function useFileOperations(
 
       const { libraryActivePath, setLibrary } = useLibraryStore.getState();
       const { selectedImage } = useEditorStore.getState();
+      const { activeView } = useUIStore.getState(); // <-- Check active view
 
-      const activePath = selectedImage ? selectedImage.path : libraryActivePath;
+      // Determine the active path based on the current view
+      const activePath = selectedImage && activeView === 'editor' ? selectedImage.path : libraryActivePath;
       let nextImagePath: string | null = null;
 
       if (activePath) {
@@ -68,7 +70,7 @@ export function useFileOperations(
         await invoke(command, { paths: pathsToDelete });
         await refreshImageList();
 
-        if (selectedImage) {
+        if (selectedImage && activeView === 'editor') {
           const physicalPath = selectedImage.path.split('?vc=')[0];
           const isFileBeingEditedDeleted = pathsToDelete.some((p) => p === selectedImage.path || p === physicalPath);
 
@@ -84,6 +86,13 @@ export function useFileOperations(
             setLibrary({ multiSelectedPaths: [nextImagePath], libraryActivePath: nextImagePath });
           } else {
             setLibrary({ multiSelectedPaths: [], libraryActivePath: null });
+          }
+
+          if (selectedImage) {
+            const physicalPath = selectedImage.path.split('?vc=')[0];
+            if (pathsToDelete.some((p) => p === selectedImage.path || p === physicalPath)) {
+              useEditorStore.getState().setEditor({ selectedImage: null });
+            }
           }
         }
       } catch (err) {

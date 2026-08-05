@@ -19,7 +19,7 @@ base64 = "0.22"
 tauri-plugin-fs = "2.5.1"
 rayon = "1.12.0"
 blake3 = "1.8.5"
-wgpu = "30.0"
+wgpu = "29.0" # Downgraded to prevent P3 color shifts on Apple devices
 pollster = "0.4"
 bytemuck = { version = "1.25", features = ["derive"] }
 anyhow = "1.0.103"
@@ -86,6 +86,7 @@ include_dir = "0.7.4"
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18.2"
 webkit2gtk = "=2.0.2"
+webkit2gtk-nvidia-quirk = "1.4"
 
 [build-dependencies]
 tauri-build = { version = "2.6", features = [] }

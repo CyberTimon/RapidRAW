@@ -6,109 +6,109 @@ LOCALES_DIR = Path("./locales")
 TRANSLATIONS = {
     "de": {
         "settings": {
-            "processing": {
-                "alwaysDecodeRaw": "RAW immer decodieren",
-                "alwaysDecodeRawDesc": "Erzwingt die vollständige RAW-Decodierung für Vorschaubilder, anstatt eingebettete JPEG-Vorschauen zu verwenden. Aktiviere diese Option, wenn sich die Vorschaubilder farblich oder im Kontrast vom geöffneten Bild unterscheiden.",
-                "alwaysDecodeRawLabel": "RAW für Vorschaubilder immer decodieren"
+            "keybinds": {
+                "actions": {
+                    "toggle_folder_tree": "Ordnerstruktur-Panel ein-/ausblenden"
+                }
             }
         }
     },
     "en": {
         "settings": {
-            "processing": {
-                "alwaysDecodeRaw": "Always Decode RAW",
-                "alwaysDecodeRawDesc": "Force full RAW decoding for thumbnails instead of using embedded JPEG previews. Enable this if your thumbnails look different in color or contrast compared to the opened image.",
-                "alwaysDecodeRawLabel": "Always decode RAW for thumbnails"
+            "keybinds": {
+                "actions": {
+                    "toggle_folder_tree": "Toggle Folder Tree panel"
+                }
             }
         }
     },
     "es": {
         "settings": {
-            "processing": {
-                "alwaysDecodeRaw": "Decodificar RAW siempre",
-                "alwaysDecodeRawDesc": "Fuerza la decodificación RAW completa para las miniaturas en lugar de usar vistas previas JPEG incrustadas. Activa esta opción si las miniaturas tienen colores o contrastes diferentes a la imagen abierta.",
-                "alwaysDecodeRawLabel": "Decodificar RAW siempre para miniaturas"
+            "keybinds": {
+                "actions": {
+                    "toggle_folder_tree": "Alternar panel de árbol de carpetas"
+                }
             }
         }
     },
     "fr": {
         "settings": {
-            "processing": {
-                "alwaysDecodeRaw": "Toujours décoder le RAW",
-                "alwaysDecodeRawDesc": "Force le décodage RAW complet pour les miniatures au lieu d'utiliser les aperçus JPEG intégrés. Activez cette option si vos miniatures ont des couleurs ou des contrastes différents de l'image ouverte.",
-                "alwaysDecodeRawLabel": "Toujours décoder le RAW pour les miniatures"
+            "keybinds": {
+                "actions": {
+                    "toggle_folder_tree": "Afficher/Masquer le panneau d'arborescence des dossiers"
+                }
             }
         }
     },
     "it": {
         "settings": {
-            "processing": {
-                "alwaysDecodeRaw": "Decodifica RAW sempre",
-                "alwaysDecodeRawDesc": "Forza la decodifica RAW completa per le miniature invece di usare le anteprime JPEG incorporate. Attiva questa opzione se i colori o il contrasto delle miniature sono diversi dall'immagine aperta.",
-                "alwaysDecodeRawLabel": "Decodifica RAW sempre per le miniature"
+            "keybinds": {
+                "actions": {
+                    "toggle_folder_tree": "Mostra/Nascondi pannello albero delle cartelle"
+                }
             }
         }
     },
     "ja": {
         "settings": {
-            "processing": {
-                "alwaysDecodeRaw": "常にRAWをデコード",
-                "alwaysDecodeRawDesc": "埋め込まれたJPEGプレビューを使用する代わりに、サムネイルの完全なRAWデコードを強制します。サムネイルの色やコントラストが開いた画像と異なる場合に有効にしてください。",
-                "alwaysDecodeRawLabel": "サムネイル用に常にRAWをデコード"
+            "keybinds": {
+                "actions": {
+                    "toggle_folder_tree": "フォルダーツリーパネルの切り替え"
+                }
             }
         }
     },
     "ko": {
         "settings": {
-            "processing": {
-                "alwaysDecodeRaw": "항상 RAW 디코딩",
-                "alwaysDecodeRawDesc": "포함된 JPEG 미리보기를 사용하는 대신 썸네일에 대해 전체 RAW 디코딩을 강제합니다. 썸네일의 색상이나 대비가 열린 이미지와 다르게 보이는 경우 이 옵션을 활성화하세요.",
-                "alwaysDecodeRawLabel": "썸네일에 대해 항상 RAW 디코딩"
+            "keybinds": {
+                "actions": {
+                    "toggle_folder_tree": "폴더 트리 패널 토글"
+                }
             }
         }
     },
     "pl": {
         "settings": {
-            "processing": {
-                "alwaysDecodeRaw": "Zawsze dekoduj RAW",
-                "alwaysDecodeRawDesc": "Wymusza pełne dekodowanie RAW dla miniatur zamiast korzystania z osadzonych podglądów JPEG. Włącz tę opcję, jeśli miniatury różnią się kolorami lub kontrastem od otwartego obrazu.",
-                "alwaysDecodeRawLabel": "Zawsze dekoduj RAW dla miniatur"
+            "keybinds": {
+                "actions": {
+                    "toggle_folder_tree": "Przełącz panel drzewa folderów"
+                }
             }
         }
     },
     "pt": {
         "settings": {
-            "processing": {
-                "alwaysDecodeRaw": "Sempre decodificar RAW",
-                "alwaysDecodeRawDesc": "Força a decodificação RAW completa para miniaturas em vez de usar visualizações JPEG incorporadas. Ative esta opção se as suas miniaturas tiverem cores ou contrastes diferentes em comparação com a imagem aberta.",
-                "alwaysDecodeRawLabel": "Sempre decodificar RAW para miniaturas"
+            "keybinds": {
+                "actions": {
+                    "toggle_folder_tree": "Alternar painel da árvore de pastas"
+                }
             }
         }
     },
     "ru": {
         "settings": {
-            "processing": {
-                "alwaysDecodeRaw": "Всегда декодировать RAW",
-                "alwaysDecodeRawDesc": "Принудительно использовать полное декодирование RAW для миниатюр вместо встроенных превью JPEG. Включите эту опцию, если цвета или контрастность миниатюр отличаются от открытого изображения.",
-                "alwaysDecodeRawLabel": "Всегда декодировать RAW для миниатюр"
+            "keybinds": {
+                "actions": {
+                    "toggle_folder_tree": "Показать/скрыть панель дерева папок"
+                }
             }
         }
     },
     "zh-CN": {
         "settings": {
-            "processing": {
-                "alwaysDecodeRaw": "始终解码 RAW",
-                "alwaysDecodeRawDesc": "强制对缩略图进行完整的 RAW 解码，而不是使用内置的 JPEG 预览。如果您的缩略图在颜色或对比度上与打开的图像不同，请启用此选项。",
-                "alwaysDecodeRawLabel": "始终为缩略图解码 RAW"
+            "keybinds": {
+                "actions": {
+                    "toggle_folder_tree": "切换文件夹树面板"
+                }
             }
         }
     },
     "zh-TW": {
         "settings": {
-            "processing": {
-                "alwaysDecodeRaw": "始終解碼 RAW",
-                "alwaysDecodeRawDesc": "強制對縮圖進行完整的 RAW 解碼，而不是使用內建的 JPEG 預覽。如果您的縮圖在顏色或對比度上與打開的影像不同，請啟用此選項。",
-                "alwaysDecodeRawLabel": "始終為縮圖解碼 RAW"
+            "keybinds": {
+                "actions": {
+                    "toggle_folder_tree": "切換資料夾樹面板"
+                }
             }
         }
     }
@@ -157,7 +157,7 @@ def main():
         print(f"Error: Locales directory '{LOCALES_DIR}' does not exist.")
         return
 
-    print("Starting thumbnail RAW decoding translation updates...")
+    print("Starting Folder Tree keybind translation updates...")
     for lang, trans in TRANSLATIONS.items():
         file_path = LOCALES_DIR / f"{lang}.json"
         update_json_file(file_path, trans)
