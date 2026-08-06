@@ -35,7 +35,7 @@ interface EditorViewProps {
   handlePasteAdjustments: () => void;
   handleRate: (...args: any) => void;
   handleZoomChange: (zoom: number) => void;
-  handleRightPanelSelect: (panelId: any) => void;
+  handlePanelSelect: (panelId: any) => void;
   requestThumbnails: any;
   renderAppPanel: (panelId: any) => React.ReactNode;
 }
@@ -60,7 +60,7 @@ export default function EditorView({
   handlePasteAdjustments,
   handleRate,
   handleZoomChange,
-  handleRightPanelSelect,
+  handlePanelSelect,
   requestThumbnails,
   renderAppPanel,
 }: EditorViewProps) {
@@ -70,13 +70,13 @@ export default function EditorView({
     })),
   );
 
-  const { isFullScreen, isInstantTransition, uiVisibility, bottomPanelHeight, activeRightPanel, setUI } = useUIStore(
+  const { isFullScreen, isInstantTransition, uiVisibility, bottomPanelHeight, activePanel, setUI } = useUIStore(
     useShallow((state) => ({
       isFullScreen: state.isFullScreen,
       isInstantTransition: state.isInstantTransition,
       uiVisibility: state.uiVisibility,
       bottomPanelHeight: state.bottomPanelHeight,
-      activeRightPanel: state.activeRightPanel,
+      activePanel: state.activePanel,
       setUI: state.setUI,
     })),
   );
@@ -166,11 +166,11 @@ export default function EditorView({
         !isResizing && !isInstantTransition && 'transition-all duration-300 ease-in-out',
       )}
       style={{
-        height: isFullScreen ? 0 : activeRightPanel ? compactEditorPanelHeight : compactEditorPanelCollapsedHeight,
+        height: isFullScreen ? 0 : activePanel ? compactEditorPanelHeight : compactEditorPanelCollapsedHeight,
         opacity: isFullScreen ? 0 : 1,
       }}
     >
-      {activeRightPanel && !isFullScreen && (
+      {activePanel && !isFullScreen && (
         <Resizer
           direction={Orientation.Horizontal}
           onMouseDown={createResizeHandler('compact', compactEditorPanelHeight)}
@@ -178,21 +178,21 @@ export default function EditorView({
       )}
       <div className="min-h-0 flex-1 overflow-hidden relative">
         <AnimatePresence mode="wait">
-          {activeRightPanel && (
+          {activePanel && (
             <motion.div
-              key={activeRightPanel}
+              key={activePanel}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.15 }}
               className="absolute inset-0 overflow-y-auto custom-scrollbar"
             >
-              {renderAppPanel(activeRightPanel)}
+              {renderAppPanel(activePanel)}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-      <MobilePanelSwitcher activePanel={activeRightPanel} onPanelSelect={handleRightPanelSelect} />
+      <MobilePanelSwitcher activePanel={activePanel} onPanelSelect={handlePanelSelect} />
       <div className="shrink-0 border-t border-surface">{editorBottomBarComponent}</div>
     </div>
   ) : null;

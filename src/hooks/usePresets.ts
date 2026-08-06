@@ -16,6 +16,16 @@ export interface UserPreset {
   preset?: Preset;
 }
 
+export interface PresetImportFailure {
+  fileName: string;
+  error: string;
+}
+
+export interface PresetImportResult {
+  presets: Array<UserPreset>;
+  failures: Array<PresetImportFailure>;
+}
+
 function arrayMove(array: any, from: any, to: any) {
   const newArray = array.slice();
   const [item] = newArray.splice(from, 1);
@@ -601,6 +611,23 @@ export function usePresets(currentAdjustments: Adjustments) {
     [setPresets],
   );
 
+  const importPresetsFromFiles = useCallback(
+    async (filePaths: Array<string>): Promise<PresetImportResult> => {
+      setIsLoading(true);
+      try {
+        const result: PresetImportResult = await invoke(Invokes.HandleImportPresetsFromFiles, { filePaths });
+        setPresets(result.presets);
+        return result;
+      } catch (error) {
+        console.error('Failed to import presets from files:', error);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [setPresets],
+  );
+
   const exportPresetsToFile = useCallback(async (presetsToExport: Array<any>, filePath: string) => {
     try {
       await invoke(Invokes.HandleExportPresetsToFile, { presetsToExport, filePath });
@@ -618,6 +645,7 @@ export function usePresets(currentAdjustments: Adjustments) {
     duplicatePreset,
     exportPresetsToFile,
     importPresetsFromFile,
+    importPresetsFromFiles,
     importLegacyPresetsFromFile,
     isLoading,
     movePreset,

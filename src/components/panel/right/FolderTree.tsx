@@ -363,22 +363,23 @@ function AlbumTreeNode({
           </AnimatePresence>
         </div>
 
-        <span onDoubleClick={() => isGroup && onToggle(item.id)} className="truncate flex-1 select-none">
-          <span className="truncate">{item.name}</span>
-          {imageCount > 0 && (
-            <Text
-              as="span"
-              variant={TextVariants.small}
-              color={TextColors.secondary}
-              className={clsx(
-                'inline-block ml-1 transition-all ease-in-out duration-300',
-                showImageCounts ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2',
-              )}
-            >
-              ({imageCount})
-            </Text>
-          )}
+        <span onDoubleClick={() => isGroup && onToggle(item.id)} className="min-w-0 flex-1 select-none">
+          <span className="block truncate">{item.name}</span>
         </span>
+
+        {imageCount > 0 && (
+          <Text
+            as="span"
+            variant={TextVariants.small}
+            color={TextColors.secondary}
+            className={clsx(
+              'ml-auto min-w-8 shrink-0 text-right tabular-nums transition-opacity ease-in-out duration-300',
+              showImageCounts ? 'opacity-100' : 'opacity-0',
+            )}
+          >
+            {imageCount}
+          </Text>
+        )}
 
         {isGroup && (
           <div
@@ -391,6 +392,7 @@ function AlbumTreeNode({
             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </div>
         )}
+        {!isGroup && <div className="w-5 h-5 shrink-0" aria-hidden="true" />}
       </div>
 
       <AnimatePresence>
@@ -524,22 +526,23 @@ function TreeNode({
           </AnimatePresence>
         </div>
 
-        <span onDoubleClick={handleNameDoubleClick} className="truncate select-none flex-1">
-          <span className="truncate">{node.name}</span>
-          {typeof node.imageCount === 'number' && node.imageCount > 0 && (
-            <Text
-              as="span"
-              variant={TextVariants.small}
-              color={TextColors.secondary}
-              className={clsx(
-                'inline-block ml-1 transition-all ease-in-out duration-300',
-                showImageCounts ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2',
-              )}
-            >
-              ({node.imageCount})
-            </Text>
-          )}
+        <span onDoubleClick={handleNameDoubleClick} className="min-w-0 flex-1 select-none">
+          <span className="block truncate">{node.name}</span>
         </span>
+
+        {typeof node.imageCount === 'number' && node.imageCount > 0 && (
+          <Text
+            as="span"
+            variant={TextVariants.small}
+            color={TextColors.secondary}
+            className={clsx(
+              'ml-auto min-w-8 shrink-0 text-right tabular-nums transition-opacity ease-in-out duration-300',
+              showImageCounts ? 'opacity-100' : 'opacity-0',
+            )}
+          >
+            {node.imageCount}
+          </Text>
+        )}
 
         {hasChildren && (
           <Text
@@ -551,6 +554,7 @@ function TreeNode({
             {isExpanded ? <ChevronUp size={16} className="shrink-0" /> : <ChevronDown size={16} className="shrink-0" />}
           </Text>
         )}
+        {!hasChildren && <div className="w-5 h-5 shrink-0" aria-hidden="true" />}
       </div>
 
       <AnimatePresence initial={false}>

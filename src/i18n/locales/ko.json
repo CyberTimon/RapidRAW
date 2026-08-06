@@ -1525,6 +1525,7 @@
         "toggle_crop": "자르기 / 수평 맞추기 전환",
         "toggle_crop_panel": "자르기 패널 전환",
         "toggle_export": "내보내기 패널 전환",
+        "toggle_folder_tree": "폴더 트리 패널 토글",
         "toggle_fullscreen": "전체 화면 전환",
         "toggle_library_exif": "EXIF 오버레이 전환",
         "toggle_masks": "마스크 패널 전환",

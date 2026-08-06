@@ -1527,6 +1527,7 @@
         "toggle_crop": "Zuschnitt / Gerade ausrichten umschalten",
         "toggle_crop_panel": "Zuschneiden-Panel ein-/ausblenden",
         "toggle_export": "Exportieren-Panel ein-/ausblenden",
+        "toggle_folder_tree": "Ordnerstruktur-Panel ein-/ausblenden",
         "toggle_fullscreen": "Vollbild umschalten",
         "toggle_library_exif": "EXIF-Überlagerung ein-/ausblenden",
         "toggle_masks": "Maskieren-Panel ein-/ausblenden",

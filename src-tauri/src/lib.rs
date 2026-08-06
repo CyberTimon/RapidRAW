@@ -2360,6 +2360,7 @@ pub fn run() {
             file_management::apply_auto_adjustments_to_paths,
             file_management::handle_import_presets_from_file,
             file_management::handle_import_legacy_presets_from_file,
+            file_management::handle_import_presets_from_files,
             file_management::handle_export_presets_to_file,
             file_management::save_community_preset,
             file_management::clear_all_sidecars,

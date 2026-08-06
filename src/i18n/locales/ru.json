@@ -1593,6 +1593,7 @@
         "toggle_crop": "Режим обрезки / выравнивания",
         "toggle_crop_panel": "Панель обрезки",
         "toggle_export": "Панель экспорта",
+        "toggle_folder_tree": "Показать/скрыть панель дерева папок",
         "toggle_fullscreen": "Полноэкранный режим",
         "toggle_library_exif": "Информация EXIF поверх сетки",
         "toggle_masks": "Панель масок",

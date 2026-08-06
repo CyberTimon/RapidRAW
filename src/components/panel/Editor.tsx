@@ -80,7 +80,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const appSettings = useSettingsStore((s) => s.appSettings);
   const osPlatform = useSettingsStore((s) => s.osPlatform);
   const isFullScreen = useUIStore((s) => s.isFullScreen);
-  const activeRightPanel = useUIStore((s) => s.activeRightPanel);
+  const activePanel = useUIStore((s) => s.activePanel);
   const isInstantTransition = useUIStore((s) => s.isInstantTransition);
   const setUI = useUIStore((s) => s.setUI);
   const isLoading = useLibraryStore((s) => s.isViewLoading);
@@ -277,9 +277,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     }
   }, [isFullScreen]);
 
-  const isCropping = activeRightPanel === Panel.Crop;
-  const isMasking = activeRightPanel === Panel.Masks;
-  const isAiEditing = activeRightPanel === Panel.Ai;
+  const isCropping = activePanel === Panel.Crop;
+  const isMasking = activePanel === Panel.Masks;
+  const isAiEditing = activePanel === Panel.Ai;
 
   const croppedDimensions = useMemo<ImageDimensions | null>(() => {
     if (!selectedImage?.width || !selectedImage?.height) {
@@ -1303,9 +1303,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   const overlayTriggerHash = useMemo(() => {
     let activeMaskDef = null;
-    if (activeRightPanel === Panel.Masks && activeMaskContainerId) {
+    if (activePanel === Panel.Masks && activeMaskContainerId) {
       activeMaskDef = adjustments.masks?.find((c: MaskContainer) => c.id === activeMaskContainerId);
-    } else if (activeRightPanel === Panel.Ai && activeAiPatchContainerId) {
+    } else if (activePanel === Panel.Ai && activeAiPatchContainerId) {
       activeMaskDef = adjustments.aiPatches?.find((p: AiPatch) => p.id === activeAiPatchContainerId);
     }
 
@@ -1369,7 +1369,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       renderSize: { w: imageRenderSize.width, h: imageRenderSize.height },
     });
   }, [
-    activeRightPanel,
+    activePanel,
     activeMaskContainerId,
     activeAiPatchContainerId,
     adjustments,
@@ -1380,7 +1380,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   useEffect(() => {
     let maskDefForOverlay = null;
 
-    if (activeRightPanel === Panel.Masks && activeMaskContainerId) {
+    if (activePanel === Panel.Masks && activeMaskContainerId) {
       const activeMask = adjustments.masks?.find((c: MaskContainer) => c.id === activeMaskContainerId);
       if (activeMask) {
         maskDefForOverlay = {
@@ -1388,7 +1388,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           adjustments: {},
         };
       }
-    } else if (activeRightPanel === Panel.Ai && activeAiPatchContainerId) {
+    } else if (activePanel === Panel.Ai && activeAiPatchContainerId) {
       const activePatch = adjustments.aiPatches?.find((p: AiPatch) => p.id === activeAiPatchContainerId);
       if (activePatch) {
         maskDefForOverlay = {
@@ -1404,7 +1404,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [
     overlayTriggerHash,
     requestMaskOverlay,
-    activeRightPanel,
+    activePanel,
     activeMaskContainerId,
     activeAiPatchContainerId,
     imageRenderSize,

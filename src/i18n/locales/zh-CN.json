@@ -1525,6 +1525,7 @@
         "toggle_crop": "切换裁剪/拉直",
         "toggle_crop_panel": "切换裁剪面板",
         "toggle_export": "切换导出面板",
+        "toggle_folder_tree": "切换文件夹树面板",
         "toggle_fullscreen": "切换全屏",
         "toggle_library_exif": "切换 EXIF 叠加",
         "toggle_masks": "切换蒙版面板",

@@ -1527,6 +1527,7 @@
         "toggle_crop": "Toggle Crop / Straighten",
         "toggle_crop_panel": "Toggle Crop panel",
         "toggle_export": "Toggle Export panel",
+        "toggle_folder_tree": "Toggle Folder Tree panel",
         "toggle_fullscreen": "Toggle fullscreen",
         "toggle_library_exif": "Toggle EXIF overlay",
         "toggle_masks": "Toggle Masks panel",

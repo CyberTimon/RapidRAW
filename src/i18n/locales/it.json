@@ -1560,6 +1560,7 @@
         "toggle_crop": "Attiva/Disattiva Ritaglio / Raddrizza",
         "toggle_crop_panel": "Attiva/Disattiva pannello Ritaglio",
         "toggle_export": "Attiva/Disattiva pannello Esportazione",
+        "toggle_folder_tree": "Mostra/Nascondi pannello albero delle cartelle",
         "toggle_fullscreen": "Attiva/Disattiva schermo intero",
         "toggle_library_exif": "Attiva/Disattiva overlay EXIF",
         "toggle_masks": "Attiva/Disattiva pannello Maschere",
