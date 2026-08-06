@@ -117,11 +117,11 @@ function App() {
     leftPanelWidth,
     rightPanelWidth,
     compactEditorPanelHeightOverride,
-    activeRightPanel,
+    activePanel,
     activeLayoutDragItem,
     isSettingsOpen,
     setUI,
-    setRightPanel,
+    setPanel,
     setLayoutDragItem,
     movePanel,
   } = useUIStore(
@@ -136,11 +136,11 @@ function App() {
       leftPanelWidth: state.leftPanelWidth,
       rightPanelWidth: state.rightPanelWidth,
       compactEditorPanelHeightOverride: state.compactEditorPanelHeightOverride,
-      activeRightPanel: state.activeRightPanel,
+      activePanel: state.activePanel,
       activeLayoutDragItem: state.activeLayoutDragItem,
       isSettingsOpen: state.isSettingsOpen,
       setUI: state.setUI,
-      setRightPanel: state.setRightPanel,
+      setPanel: state.setPanel,
       setLayoutDragItem: state.setLayoutDragItem,
       movePanel: state.movePanel,
     })),
@@ -460,12 +460,12 @@ function App() {
 
   useEffect(() => {
     if (
-      (activeRightPanel !== Panel.Masks || !activeMaskContainerId) &&
-      (activeRightPanel !== Panel.Ai || !activeAiPatchContainerId)
+      (activePanel !== Panel.Masks || !activeMaskContainerId) &&
+      (activePanel !== Panel.Ai || !activeAiPatchContainerId)
     ) {
       setEditor({ isMaskControlHovered: false });
     }
-  }, [activeRightPanel, activeMaskContainerId, activeAiPatchContainerId, setEditor]);
+  }, [activePanel, activeMaskContainerId, activeAiPatchContainerId, setEditor]);
 
   useEffect(() => {
     const unlisten = listen('ai-connector-status-update', (event: any) => {
@@ -568,12 +568,12 @@ function App() {
     };
   }, [setUI]);
 
-  const handleRightPanelSelect = useCallback(
+  const handlePanelSelect = useCallback(
     (panelId: Panel) => {
-      setRightPanel(panelId);
+      setPanel(panelId);
       setEditor({ activeMaskId: null, activeAiSubMaskId: null, isWbPickerActive: false });
     },
-    [setRightPanel, setEditor],
+    [setPanel, setEditor],
   );
 
   const handleToggleFolder = useCallback(
@@ -721,15 +721,17 @@ function App() {
           isWgpuActive ? 'bg-transparent' : 'bg-bg-primary',
         )}
       >
-        <div
-          className={clsx(
-            'shrink-0 overflow-hidden z-50',
-            !isInstantTransition && 'transition-all duration-300 ease-in-out',
-            isFullScreen ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-[60px] opacity-100',
-          )}
-        >
-          {appSettings?.decorations || (!isWindowFullScreen && <TitleBar />)}
-        </div>
+        {!isAndroid && (
+          <div
+            className={clsx(
+              'shrink-0 overflow-hidden z-50',
+              !isInstantTransition && 'transition-all duration-300 ease-in-out',
+              isFullScreen ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-15 opacity-100',
+            )}
+          >
+            {appSettings?.decorations || (!isWindowFullScreen && <TitleBar />)}
+          </div>
+        )}
         <div
           className={clsx(
             'flex-1 flex flex-col min-h-0',
@@ -786,8 +788,9 @@ function App() {
                       handlePasteAdjustments={handlePasteAdjustments}
                       handleRate={handleRate}
                       handleZoomChange={handleZoomChange}
-                      handleRightPanelSelect={handleRightPanelSelect}
+                      handlePanelSelect={handlePanelSelect}
                       requestThumbnails={requestThumbnails}
+                      renderAppPanel={renderAppPanel}
                     />
                   )}
                 </div>

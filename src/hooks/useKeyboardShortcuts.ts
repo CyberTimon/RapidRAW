@@ -309,42 +309,49 @@ export const useKeyboardShortcuts = ({
         shouldFire: () => true,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          s.ui.setRightPanel(Panel.Adjustments);
+          s.ui.setPanel(Panel.Adjustments);
         },
       },
       toggle_crop_panel: {
         shouldFire: () => true,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          s.ui.setRightPanel(Panel.Crop);
+          s.ui.setPanel(Panel.Crop);
         },
       },
       toggle_masks: {
         shouldFire: () => true,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          s.ui.setRightPanel(Panel.Masks);
+          s.ui.setPanel(Panel.Masks);
         },
       },
       toggle_ai: {
         shouldFire: () => true,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          s.ui.setRightPanel(Panel.Ai);
+          s.ui.setPanel(Panel.Ai);
         },
       },
       toggle_presets: {
         shouldFire: () => true,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          s.ui.setRightPanel(Panel.Presets);
+          s.ui.setPanel(Panel.Presets);
         },
       },
       toggle_metadata: {
         shouldFire: () => true,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          s.ui.setRightPanel(Panel.Metadata);
+          s.ui.setPanel(Panel.Metadata);
+        },
+      },
+      toggle_folder_tree: {
+        shouldFire: () => true,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.ui.setPanel(Panel.FolderTree);
         },
       },
       toggle_analytics: {
@@ -358,7 +365,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: () => true,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          s.ui.setRightPanel(Panel.Export);
+          s.ui.setPanel(Panel.Export);
         },
       },
       toggle_library_exif: {
@@ -392,10 +399,10 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          if (s.ui.activeRightPanel === Panel.Crop) {
+          if (s.ui.activePanel === Panel.Crop) {
             s.editor.setEditor({ isStraightenActive: !s.editor.isStraightenActive });
           } else {
-            s.ui.setRightPanel(Panel.Crop);
+            s.ui.setPanel(Panel.Crop);
             s.editor.setEditor({ isStraightenActive: true });
           }
         },
@@ -489,7 +496,7 @@ export const useKeyboardShortcuts = ({
           s.ui.activeView === 'editor' &&
           !!s.editor.selectedImage &&
           !!s.editor.brushSettings &&
-          s.ui.activeRightPanel === Panel.Masks,
+          s.ui.activePanel === Panel.Masks,
         execute: (e: any, s: any) => {
           e.preventDefault();
           const newSize = Math.min((s.editor.brushSettings.size || 50) + 10, 200);
@@ -501,7 +508,7 @@ export const useKeyboardShortcuts = ({
           s.ui.activeView === 'editor' &&
           !!s.editor.selectedImage &&
           !!s.editor.brushSettings &&
-          s.ui.activeRightPanel === Panel.Masks,
+          s.ui.activePanel === Panel.Masks,
         execute: (e: any, s: any) => {
           e.preventDefault();
           const newSize = Math.max((s.editor.brushSettings.size || 50) - 10, 1);
@@ -521,7 +528,7 @@ export const useKeyboardShortcuts = ({
           else if (s.editor.activeAiPatchContainerId) s.editor.setEditor({ activeAiPatchContainerId: null });
           else if (s.editor.activeMaskId) s.editor.setEditor({ activeMaskId: null });
           else if (s.editor.activeMaskContainerId) s.editor.setEditor({ activeMaskContainerId: null });
-          else if (s.ui.activeRightPanel === Panel.Crop) s.ui.setRightPanel(Panel.Adjustments);
+          else if (s.ui.activePanel === Panel.Crop) s.ui.setPanel(Panel.Adjustments);
           else if (s.ui.isFullScreen) handleToggleFullScreen();
           else if (s.ui.activeView === 'editor') handleBackToLibrary();
         },

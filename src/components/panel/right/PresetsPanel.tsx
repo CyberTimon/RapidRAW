@@ -11,7 +11,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { useTranslation } from 'react-i18next';
-import { PresetListType, usePresets, UserPreset } from '../../../hooks/usePresets';
+import { PresetImportFailure, PresetListType, usePresets, UserPreset } from '../../../hooks/usePresets';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import {
   CopyPlus,
@@ -560,8 +560,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     deleteItem,
     duplicatePreset,
     exportPresetsToFile,
-    importPresetsFromFile,
-    importLegacyPresetsFromFile,
+    importPresetsFromFiles,
     isLoading,
     movePreset,
     overwritePreset,
@@ -1052,21 +1051,18 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       }
 
       const paths = Array.isArray(selectedPaths) ? selectedPaths : [selectedPaths];
-
-      for (const path of paths) {
-        const isLegacy =
-          path.toLowerCase().endsWith('.xmp') ||
-          path.toLowerCase().endsWith('.lrtemplate');
-          
-        if (isLegacy) {
-          await importLegacyPresetsFromFile(path);
-        } else {
-          await importPresetsFromFile(path);
-        }
+      if (paths.length === 0) {
+        return;
       }
+
+      const { failures } = await importPresetsFromFiles(paths);
 
       setFolderPreviewsGenerated(new Set<string>());
       setPreviews({});
+
+      failures.forEach((failure: PresetImportFailure) =>
+        console.error(`Failed to import ${failure.fileName}: ${failure.error}`),
+      );
     } catch (error) {
       console.error('Failed to import presets:', error);
     }
