@@ -1176,7 +1176,6 @@ impl GpuProcessor {
         width: u32,
         height: u32,
         request: RenderRequest,
-        skip_cpu_readback: bool,
         output_to_display: bool,
         output_precision: RenderOutputPrecision,
     ) -> Result<(RenderedPixels, u32, u32, u32, u32), String> {
@@ -1185,9 +1184,7 @@ impl GpuProcessor {
         let scale = (width.min(height) as f32) / 1080.0;
         const MAX_MASK_BINDINGS: u32 = 1;
 
-        if output_precision == RenderOutputPrecision::SixteenBit
-            && (skip_cpu_readback || output_to_display)
-        {
+        if output_precision == RenderOutputPrecision::SixteenBit && output_to_display {
             return Err(
                 "High-precision GPU output is only supported for CPU-readback renders.".to_string(),
             );
@@ -1409,7 +1406,7 @@ impl GpuProcessor {
         const TILE_SIZE: u32 = 2048;
         const TILE_OVERLAP: u32 = 128;
 
-        let output_len = if skip_cpu_readback {
+        let output_len = if output_to_display {
             0
         } else {
             (out_width * out_height * 4) as usize
@@ -1672,7 +1669,7 @@ impl GpuProcessor {
 
                 queue.submit(Some(main_encoder.finish()));
 
-                if !skip_cpu_readback {
+                if !output_to_display {
                     let processed_tile_data = read_texture_data_roi(
                         device,
                         queue,
@@ -1930,7 +1927,6 @@ fn process_and_get_dynamic_image_inner(
         cache.width,
         cache.height,
         request,
-        skip_readback,
         output_to_display,
         output_precision,
     )?;
