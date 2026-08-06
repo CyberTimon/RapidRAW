@@ -41,6 +41,7 @@ import {
   Briefcase,
   User,
   Album as AlbumIcon,
+  CalendarClock,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
@@ -418,6 +419,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       const copyLabel = t('contextMenus.thumbnail.copyImage', { count: selectionCount });
       const autoAdjustLabel = t('contextMenus.thumbnail.autoAdjust', { count: selectionCount });
       const renameLabel = t('contextMenus.thumbnail.renameImage', { count: selectionCount });
+      const captureDateLabel = t('contextMenus.thumbnail.editCaptureDate', { count: selectionCount });
       const cullLabel = t('contextMenus.thumbnail.cullImage', { count: selectionCount });
       const collageLabel = t('contextMenus.thumbnail.collage', { count: selectionCount });
       const stitchLabel = t('contextMenus.editor.stitchPanorama');
@@ -681,6 +683,15 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           ],
         },
         { icon: FileEdit, label: renameLabel, onClick: () => props.handleRenameFiles(finalSelection) },
+        {
+          icon: CalendarClock,
+          label: captureDateLabel,
+          onClick: () =>
+            setUI({
+              captureDateTargetPaths: finalSelection,
+              isCaptureDateModalOpen: true,
+            }),
+        },
         { type: OPTION_SEPARATOR },
         {
           icon: Star,

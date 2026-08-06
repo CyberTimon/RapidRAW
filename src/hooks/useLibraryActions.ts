@@ -9,6 +9,27 @@ import { globalImageCache } from '../utils/ImageLRUCache';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { computeSortedLibrary } from './useSortedLibrary';
 
+export type CaptureDateOperation =
+  { mode: 'adjust'; referencePath: string; newDate: string } | { mode: 'shift'; seconds: number } | { mode: 'revert' };
+
+export interface CaptureDateUpdate {
+  path: string;
+  newDate: string | null;
+  wroteOriginal: boolean;
+  sourceError: string | null;
+}
+
+export interface CaptureDateBatchResult {
+  updates: CaptureDateUpdate[];
+  failures: { path: string; error: string }[];
+}
+
+export interface CaptureDateRevertAvailability {
+  canRevert: boolean;
+  eligibleCount: number;
+  totalCount: number;
+}
+
 export function useLibraryActions(handleImageSelect?: (path: string, openInEditor?: boolean) => void) {
   const handleRate = useCallback((newRating: number, paths?: string[]) => {
     const { multiSelectedPaths, imageRatings, setLibrary } = useLibraryStore.getState();
@@ -129,6 +150,73 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     } catch (err) {
       toast.error(`Failed to update metadata: ${err}`);
     }
+  }, []);
+
+  const handleUpdateCaptureDates = useCallback(
+    async (
+      paths: string[],
+      operation: CaptureDateOperation,
+      writeToOriginal: boolean,
+    ): Promise<CaptureDateBatchResult> => {
+      const physicalPaths = Array.from(new Set(paths.map((path) => path.split('?vc=')[0])));
+      const result = await invoke<CaptureDateBatchResult>(Invokes.UpdateCaptureDates, {
+        paths: physicalPaths,
+        operation,
+        writeToOriginal,
+      });
+      const updatesByPath = new Map(result.updates.map((update) => [update.path, update]));
+
+      const updateExif = (
+        path: string,
+        exif: Record<string, string> | null | undefined,
+      ): Record<string, string> | null => {
+        const update = updatesByPath.get(path.split('?vc=')[0]);
+        if (!update) return exif || null;
+        const nextExif = { ...(exif || {}) };
+        if (update.newDate) {
+          nextExif.DateTimeOriginal = update.newDate;
+        } else {
+          delete nextExif.DateTimeOriginal;
+        }
+        return nextExif;
+      };
+
+      useEditorStore.getState().setEditor((state) => {
+        if (!state.selectedImage) return state;
+        const nextExif = updateExif(state.selectedImage.path, state.selectedImage.exif);
+        if (nextExif === state.selectedImage.exif) return state;
+        return { selectedImage: { ...state.selectedImage, exif: nextExif } };
+      });
+
+      useLibraryStore.getState().setLibrary((state) => ({
+        imageList: state.imageList.map((image) => {
+          const nextExif = updateExif(image.path, image.exif);
+          return nextExif === image.exif ? image : { ...image, exif: nextExif };
+        }),
+      }));
+
+      paths.forEach((path) => {
+        const cached = globalImageCache.get(path);
+        if (!cached?.selectedImage) return;
+        const nextExif = updateExif(path, cached.selectedImage.exif);
+        if (nextExif !== cached.selectedImage.exif) {
+          globalImageCache.set(path, {
+            ...cached,
+            selectedImage: { ...cached.selectedImage, exif: nextExif },
+          });
+        }
+      });
+
+      return result;
+    },
+    [],
+  );
+
+  const getCaptureDateRevertAvailability = useCallback(async (paths: string[]) => {
+    const physicalPaths = Array.from(new Set(paths.map((path) => path.split('?vc=')[0])));
+    return invoke<CaptureDateRevertAvailability>(Invokes.GetCaptureDateRevertAvailability, {
+      paths: physicalPaths,
+    });
   }, []);
 
   const handleClearSelection = useCallback(() => {
@@ -425,9 +513,11 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
   }, []);
 
   return {
+    getCaptureDateRevertAvailability,
     handleRate,
     handleSetColorLabel,
     handleTagsChanged,
+    handleUpdateCaptureDates,
     handleUpdateExif,
     handleClearSelection,
     handleLibraryImageSingleClick,

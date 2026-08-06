@@ -468,6 +468,8 @@ export const useAppInitialization = ({
       THEMES.find((t: ThemeProps) => t.id === DEFAULT_THEME_ID);
     if (!baseTheme) return;
 
+    root.style.colorScheme = currentThemeId === Theme.Light ? 'light' : 'dark';
+
     let finalCssVariables: any = { ...baseTheme.cssVariables };
 
     Object.entries(finalCssVariables).forEach(([key, value]) => {

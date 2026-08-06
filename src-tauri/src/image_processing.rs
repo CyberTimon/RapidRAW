@@ -57,6 +57,15 @@ pub struct ImageMetadata {
     pub tags: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exif: Option<std::collections::HashMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capture_date_backup: Option<CaptureDateBackup>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CaptureDateBackup {
+    pub date_time_original: Option<String>,
+    #[serde(default)]
+    pub source_written: bool,
 }
 
 impl Default for ImageMetadata {
@@ -67,6 +76,7 @@ impl Default for ImageMetadata {
             adjustments: Value::Null,
             tags: None,
             exif: None,
+            capture_date_backup: None,
         }
     }
 }

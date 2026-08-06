@@ -2331,6 +2331,8 @@ pub fn run() {
             export_processing::estimate_export_sizes,
             image_processing::calculate_auto_adjustments,
             mask_generation::generate_mask_overlay,
+            file_management::get_capture_date_revert_availability,
+            file_management::update_capture_dates,
             file_management::update_exif_fields,
             file_management::get_supported_file_types,
             file_management::read_exif_for_paths,

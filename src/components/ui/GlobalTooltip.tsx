@@ -179,12 +179,16 @@ export default function GlobalTooltip() {
           animate={{ opacity: 1, scale: 1, y: tooltip.isAbove ? -10 : 0, x: '-50%' }}
           exit={{ opacity: 0, scale: 0.9, x: '-50%' }}
           transition={{ duration: 0.15, ease: 'easeOut' }}
-          style={{ top: tooltip.y, left }}
+          style={{
+            top: tooltip.y,
+            left,
+            maxWidth: 'min(24rem, calc(100vw - 1.5rem))',
+          }}
           className={clsx(
             'fixed z-100 pointer-events-none',
             'bg-surface/80 backdrop-blur-xs',
             'border border-text-secondary/10 shadow-xl rounded-md',
-            'px-2.5 py-1.5 whitespace-nowrap',
+            'px-2.5 py-1.5 whitespace-normal text-center break-words',
             tooltip.isAbove && '-translate-y-full',
           )}
         >

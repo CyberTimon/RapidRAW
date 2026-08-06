@@ -100,7 +100,7 @@ fn normalize_creation_datetime(s: &str) -> Option<String> {
     Some(format!("{} {}", date.replace(':', "-"), time))
 }
 
-fn parse_creation_datetime(s: &str) -> Option<NaiveDateTime> {
+pub(crate) fn parse_creation_datetime(s: &str) -> Option<NaiveDateTime> {
     let clean = clean_creation_datetime_str(s);
     if clean.is_empty() {
         return None;
