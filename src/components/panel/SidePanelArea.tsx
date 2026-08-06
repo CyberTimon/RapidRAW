@@ -7,11 +7,10 @@ import { SwitcherPlacement, useUIStore } from '../../store/useUIStore';
 import { Panel, PanelRegion } from '../ui/AppProperties';
 import PanelSwitcher from './PanelSwitcher';
 
-const COLLAPSE_THRESHOLD = 200;
-
 interface SidePanelAreaProps {
   side: 'left' | 'right';
   width: number;
+  isVisible: boolean;
   topRegion: PanelRegion;
   bottomRegion: PanelRegion;
   renderPanel: (panel: Panel) => React.ReactNode;
@@ -23,14 +22,14 @@ function RegionDroppableContainer({
   region,
   side,
   renderPanel,
-  width,
+  isVisible,
   isInstantTransition,
   isResizing,
 }: {
   region: PanelRegion;
   side: 'left' | 'right';
   renderPanel: (panel: Panel) => React.ReactNode;
-  width: number;
+  isVisible: boolean;
   isInstantTransition: boolean;
   isResizing: boolean;
 }) {
@@ -111,8 +110,6 @@ function RegionDroppableContainer({
 
   const isFlexRow = placement === 'left' || placement === 'right';
   const showSwitcherFirst = placement === 'left' || placement === 'top';
-  const isCollapsed = width < COLLAPSE_THRESHOLD;
-
   return (
     <div
       ref={setRefs}
@@ -158,10 +155,10 @@ function RegionDroppableContainer({
         className={clsx(
           'flex flex-1 w-full h-full min-w-0 min-h-0 overflow-hidden transition-opacity duration-300 ease-in-out',
           isFlexRow ? 'flex-row' : 'flex-col',
-          isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto',
+          isVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
         )}
       >
-        {showSwitcherFirst && <PanelSwitcher region={region} side={side} placement={placement} />}
+        {showSwitcherFirst && <PanelSwitcher region={region} placement={placement} />}
 
         <div className="flex-1 overflow-hidden relative min-w-0" onPointerDownCapture={handleContentInteraction}>
           <AnimatePresence mode="wait">
@@ -180,7 +177,7 @@ function RegionDroppableContainer({
           </AnimatePresence>
         </div>
 
-        {!showSwitcherFirst && <PanelSwitcher region={region} side={side} placement={placement} />}
+        {!showSwitcherFirst && <PanelSwitcher region={region} placement={placement} />}
       </div>
     </div>
   );
@@ -306,6 +303,7 @@ function SplitOverlayDropzone({
 export default function SidePanelArea({
   side,
   width,
+  isVisible,
   topRegion,
   bottomRegion,
   renderPanel,
@@ -371,19 +369,20 @@ export default function SidePanelArea({
   const topSplitIsTop = topPlacement === 'bottom';
   const bottomSplitIsTop = bottomPlacement !== 'top';
 
-  const isCollapsed = width < COLLAPSE_THRESHOLD;
-  const shouldAnimateWidth = !isInstantTransition && (!isResizing || isCollapsed);
+  const shouldAnimateWidth = !isInstantTransition && !isResizing;
 
   return (
     <div
+      aria-hidden={isFullScreen || !isVisible}
+      inert={isFullScreen || !isVisible}
       className={clsx(
         'flex shrink-0 h-full relative overflow-hidden',
-        isFullScreen ? 'w-0 opacity-0 pointer-events-none' : 'opacity-100',
+        isFullScreen || !isVisible ? 'opacity-0 pointer-events-none' : 'opacity-100',
         shouldAnimateWidth && 'transition-all duration-300 ease-in-out',
       )}
-      style={{ width: isFullScreen ? 0 : width }}
+      style={{ width: isFullScreen || !isVisible ? 0 : width }}
     >
-      {side === 'right' && (
+      {side === 'right' && isVisible && (
         <div className="shrink-0 w-2 my-auto h-full cursor-col-resize z-20" onPointerDown={onWidthChange} />
       )}
 
@@ -397,7 +396,7 @@ export default function SidePanelArea({
               region={topRegion}
               side={side}
               renderPanel={renderPanel}
-              width={width}
+              isVisible={isVisible}
               isInstantTransition={isInstantTransition}
               isResizing={isResizing}
             />
@@ -426,7 +425,7 @@ export default function SidePanelArea({
               region={bottomRegion}
               side={side}
               renderPanel={renderPanel}
-              width={width}
+              isVisible={isVisible}
               isInstantTransition={isInstantTransition}
               isResizing={isResizing}
             />
@@ -439,7 +438,7 @@ export default function SidePanelArea({
               region={topRegion}
               side={side}
               renderPanel={renderPanel}
-              width={width}
+              isVisible={isVisible}
               isInstantTransition={isInstantTransition}
               isResizing={isResizing}
             />
@@ -447,7 +446,7 @@ export default function SidePanelArea({
         )}
       </div>
 
-      {side === 'left' && (
+      {side === 'left' && isVisible && (
         <div className="shrink-0 w-2 my-auto h-full cursor-col-resize z-20" onPointerDown={onWidthChange} />
       )}
     </div>

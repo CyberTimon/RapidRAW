@@ -1529,6 +1529,8 @@
         "toggle_export": "Exportieren-Panel ein-/ausblenden",
         "toggle_folder_tree": "Ordnerstruktur-Panel ein-/ausblenden",
         "toggle_fullscreen": "Vollbild umschalten",
+        "toggle_left_panel": "Linkes Bedienfeld ein-/ausblenden",
+        "toggle_right_panel": "Rechtes Bedienfeld ein-/ausblenden",
         "toggle_library_exif": "EXIF-Überlagerung ein-/ausblenden",
         "toggle_masks": "Maskieren-Panel ein-/ausblenden",
         "toggle_metadata": "Metadaten-Panel ein-/ausblenden",

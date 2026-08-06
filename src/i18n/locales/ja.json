@@ -1527,6 +1527,8 @@
         "toggle_export": "書き出しパネルの表示/非表示",
         "toggle_folder_tree": "フォルダーツリーパネルの切り替え",
         "toggle_fullscreen": "全画面表示の切り替え",
+        "toggle_left_panel": "左パネルの表示/非表示",
+        "toggle_right_panel": "右パネルの表示/非表示",
         "toggle_library_exif": "EXIF重ね合わせ表示の表示/非表示",
         "toggle_masks": "マスクパネルの表示/非表示",
         "toggle_metadata": "メタデータパネルの表示/非表示",

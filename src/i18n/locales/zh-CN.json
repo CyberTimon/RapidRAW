@@ -1527,6 +1527,8 @@
         "toggle_export": "切换导出面板",
         "toggle_folder_tree": "切换文件夹树面板",
         "toggle_fullscreen": "切换全屏",
+        "toggle_left_panel": "切换左侧面板",
+        "toggle_right_panel": "切换右侧面板",
         "toggle_library_exif": "切换 EXIF 叠加",
         "toggle_masks": "切换蒙版面板",
         "toggle_metadata": "切换元数据面板",

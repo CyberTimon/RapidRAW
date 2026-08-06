@@ -1,7 +1,10 @@
 import { useCallback, useState, useEffect } from 'react';
 import { platform } from '@tauri-apps/plugin-os';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Minus, Square, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import clsx from 'clsx';
+import { Minus, PanelLeft, PanelRight, Square, X } from 'lucide-react';
+import { useUIStore } from '../store/useUIStore';
 
 const RestoreDownIcon = ({ size = 14, className = '' }) => (
   <svg
@@ -20,9 +23,14 @@ const RestoreDownIcon = ({ size = 14, className = '' }) => (
   </svg>
 );
 
-export default function TitleBar() {
+export default function TitleBar({ showPanelControls = false }: { showPanelControls?: boolean }) {
+  const { t } = useTranslation();
   const [osPlatform, setOsPlatform] = useState('');
   const [isMaximized, setIsMaximized] = useState(false);
+  const leftPanelVisible = useUIStore((state) => state.leftPanelVisible);
+  const rightPanelVisible = useUIStore((state) => state.rightPanelVisible);
+  const toggleLeftPanel = useUIStore((state) => state.toggleLeftPanel);
+  const toggleRightPanel = useUIStore((state) => state.toggleRightPanel);
 
   const appWindow = getCurrentWindow();
 
@@ -120,6 +128,41 @@ export default function TitleBar() {
         </div>
         <div data-tauri-drag-region className="flex-1 h-full" />
         <div className="flex items-center h-full z-10">
+          {showPanelControls && (
+            <div className="flex items-center gap-1 px-2 h-full">
+              <button
+                type="button"
+                aria-label={t('settings.keybinds.actions.toggle_left_panel')}
+                aria-pressed={leftPanelVisible}
+                data-tooltip={t('settings.keybinds.actions.toggle_left_panel')}
+                className={clsx(
+                  'w-8 h-8 rounded-md inline-flex justify-center items-center transition-colors duration-150',
+                  leftPanelVisible
+                    ? 'bg-surface text-text-primary'
+                    : 'text-text-secondary hover:bg-surface hover:text-text-primary',
+                )}
+                onClick={toggleLeftPanel}
+              >
+                <PanelLeft size={18} strokeWidth={1.75} />
+              </button>
+              <button
+                type="button"
+                aria-label={t('settings.keybinds.actions.toggle_right_panel')}
+                aria-pressed={rightPanelVisible}
+                data-tooltip={t('settings.keybinds.actions.toggle_right_panel')}
+                className={clsx(
+                  'w-8 h-8 rounded-md inline-flex justify-center items-center transition-colors duration-150',
+                  rightPanelVisible
+                    ? 'bg-surface text-text-primary'
+                    : 'text-text-secondary hover:bg-surface hover:text-text-primary',
+                )}
+                onClick={toggleRightPanel}
+              >
+                <PanelRight size={18} strokeWidth={1.75} />
+              </button>
+            </div>
+          )}
+
           {isLinux && (
             <div className="flex items-center gap-2 pr-2 h-full">
               <button

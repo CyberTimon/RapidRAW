@@ -305,6 +305,20 @@ export const useKeyboardShortcuts = ({
           s.editor.setEditor({ showOriginal: !s.editor.showOriginal });
         },
       },
+      toggle_left_panel: {
+        shouldFire: () => true,
+        execute: (e: KeyboardEvent, s: ReturnType<typeof getStoreState>) => {
+          e.preventDefault();
+          s.ui.toggleLeftPanel();
+        },
+      },
+      toggle_right_panel: {
+        shouldFire: () => true,
+        execute: (e: KeyboardEvent, s: ReturnType<typeof getStoreState>) => {
+          e.preventDefault();
+          s.ui.toggleRightPanel();
+        },
+      },
       toggle_adjustments: {
         shouldFire: () => true,
         execute: (e: any, s: any) => {

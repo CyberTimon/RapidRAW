@@ -1562,6 +1562,8 @@
         "toggle_export": "Alternar panel de Exportación",
         "toggle_folder_tree": "Alternar panel de árbol de carpetas",
         "toggle_fullscreen": "Alternar pantalla completa",
+        "toggle_left_panel": "Alternar panel izquierdo",
+        "toggle_right_panel": "Alternar panel derecho",
         "toggle_library_exif": "Alternar superposición EXIF",
         "toggle_masks": "Alternar panel de Máscaras",
         "toggle_metadata": "Alternar panel de Metadatos",

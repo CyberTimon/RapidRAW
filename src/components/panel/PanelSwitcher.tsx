@@ -39,13 +39,10 @@ const PANEL_TITLES: Record<Panel, string> = {
   [Panel.FolderTree]: 'library.folders.sourcesTitle',
 };
 
-function PanelTab({ panel, region, side }: { panel: Panel; region: PanelRegion; side: 'left' | 'right' }) {
+function PanelTab({ panel, region }: { panel: Panel; region: PanelRegion }) {
   const { t } = useTranslation();
   const activePanels = useUIStore((s) => s.activePanels);
   const setActivePanel = useUIStore((s) => s.setActivePanel);
-  const setUI = useUIStore((s) => s.setUI);
-  const leftPanelWidth = useUIStore((s) => s.leftPanelWidth);
-  const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
   const isInstantTransition = useUIStore((s) => s.isInstantTransition);
 
   const isActive = activePanels[region] === panel;
@@ -58,12 +55,6 @@ function PanelTab({ panel, region, side }: { panel: Panel; region: PanelRegion; 
 
   const handleClick = () => {
     setActivePanel(region, panel);
-    if (side === 'left' && leftPanelWidth < 200) {
-      setUI({ leftPanelWidth: 320 });
-    }
-    if (side === 'right' && rightPanelWidth < 200) {
-      setUI({ rightPanelWidth: 320 });
-    }
   };
 
   return (
@@ -94,15 +85,7 @@ function PanelTab({ panel, region, side }: { panel: Panel; region: PanelRegion; 
   );
 }
 
-export default function PanelSwitcher({
-  region,
-  side,
-  placement,
-}: {
-  region: PanelRegion;
-  side: 'left' | 'right';
-  placement: SwitcherPlacement;
-}) {
+export default function PanelSwitcher({ region, placement }: { region: PanelRegion; placement: SwitcherPlacement }) {
   const panelLayout = useUIStore((s) => s.panelLayout);
   const panels = panelLayout[region];
   const movePanelToIndex = useUIStore((s) => s.movePanelToIndex);
@@ -230,7 +213,7 @@ export default function PanelSwitcher({
 
       <LayoutGroup id={`switcher-${region}`}>
         {panels.map((id) => (
-          <PanelTab key={id} panel={id} region={region} side={side} />
+          <PanelTab key={id} panel={id} region={region} />
         ))}
       </LayoutGroup>
     </div>

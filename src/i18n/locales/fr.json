@@ -1562,6 +1562,8 @@
         "toggle_export": "Basculer le panneau d'exportation",
         "toggle_folder_tree": "Afficher/Masquer le panneau d'arborescence des dossiers",
         "toggle_fullscreen": "Basculer en plein écran",
+        "toggle_left_panel": "Afficher ou masquer le panneau gauche",
+        "toggle_right_panel": "Afficher ou masquer le panneau droit",
         "toggle_library_exif": "Basculer la superposition EXIF",
         "toggle_masks": "Basculer le panneau des masques",
         "toggle_metadata": "Basculer le panneau des métadonnées",

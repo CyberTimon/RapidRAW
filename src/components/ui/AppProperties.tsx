@@ -167,6 +167,8 @@ export enum ThumbnailAspectRatio {
 export interface WorkspaceState {
   leftPanelWidth: number;
   rightPanelWidth: number;
+  leftPanelVisible?: boolean;
+  rightPanelVisible?: boolean;
   leftTopHeight: number;
   rightTopHeight: number;
   panelLayout: Record<PanelRegion, Panel[]>;

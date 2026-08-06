@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { ImageFile, Panel, UiVisibility, CullingSuggestions, PanelRegion } from '../components/ui/AppProperties';
 
+export const DEFAULT_SIDE_PANEL_WIDTH = 320;
+export const MIN_SIDE_PANEL_WIDTH = 200;
+
 export type SwitcherPlacement = 'bottom' | 'right' | 'left' | 'top';
 
 export interface CollapsibleSectionsState {
@@ -79,6 +82,8 @@ interface UIState {
 
   leftPanelWidth: number;
   rightPanelWidth: number;
+  leftPanelVisible: boolean;
+  rightPanelVisible: boolean;
   bottomPanelHeight: number;
   leftTopHeight: number;
   rightTopHeight: number;
@@ -124,6 +129,8 @@ interface UIState {
   collageModalState: CollageModalState;
 
   setUI: (updater: Partial<UIState> | ((state: UIState) => Partial<UIState>)) => void;
+  toggleLeftPanel: () => void;
+  toggleRightPanel: () => void;
   setPanel: (panel: Panel | null) => void;
   customEscapeHandler: (() => void) | null;
   setCustomEscapeHandler: (handler: (() => void) | null) => void;
@@ -141,8 +148,10 @@ export const useUIStore = create<UIState>((set, get) => ({
   isLibraryExportPanelVisible: false,
   isSettingsOpen: false,
 
-  leftPanelWidth: 320,
-  rightPanelWidth: 320,
+  leftPanelWidth: DEFAULT_SIDE_PANEL_WIDTH,
+  rightPanelWidth: DEFAULT_SIDE_PANEL_WIDTH,
+  leftPanelVisible: true,
+  rightPanelVisible: true,
   bottomPanelHeight: 144,
   leftTopHeight: 450,
   rightTopHeight: 450,
@@ -223,6 +232,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   collageModalState: { isOpen: false, sourceImages: [] },
 
   setUI: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
+
+  toggleLeftPanel: () => set((state) => ({ leftPanelVisible: !state.leftPanelVisible })),
+  toggleRightPanel: () => set((state) => ({ rightPanelVisible: !state.rightPanelVisible })),
 
   setLayoutDragItem: (panel) => set({ activeLayoutDragItem: panel }),
 
@@ -318,7 +330,10 @@ export const useUIStore = create<UIState>((set, get) => ({
         break;
       }
     }
-    if (targetRegion) state.setActivePanel(targetRegion, panelId);
+    if (targetRegion) {
+      state.setActivePanel(targetRegion, panelId);
+      set(targetRegion.startsWith('left') ? { leftPanelVisible: true } : { rightPanelVisible: true });
+    }
   },
 
   customEscapeHandler: null,

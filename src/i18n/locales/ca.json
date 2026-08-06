@@ -1529,6 +1529,8 @@
         "toggle_export": "Alternar tauler d'Exportació",
         "toggle_folder_tree": "Alternar tauler d'arbre de carpetes",
         "toggle_fullscreen": "Alternar pantalla completa",
+        "toggle_left_panel": "Alternar el tauler esquerre",
+        "toggle_right_panel": "Alternar el tauler dret",
         "toggle_library_exif": "Alternar superposició EXIF",
         "toggle_masks": "Alternar tauler de Màscares",
         "toggle_metadata": "Alternar tauler de Metadades",

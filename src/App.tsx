@@ -28,7 +28,7 @@ import LibraryView from './components/views/LibraryView';
 
 import { ContextMenuProvider } from './context/ContextMenuContext';
 import { useSettingsStore } from './store/useSettingsStore';
-import { useUIStore } from './store/useUIStore';
+import { MIN_SIDE_PANEL_WIDTH, useUIStore } from './store/useUIStore';
 import { useLibraryStore } from './store/useLibraryStore';
 import { useEditorStore } from './store/useEditorStore';
 import { useProcessStore } from './store/useProcessStore';
@@ -116,6 +116,8 @@ function App() {
     isLibraryExportPanelVisible,
     leftPanelWidth,
     rightPanelWidth,
+    leftPanelVisible,
+    rightPanelVisible,
     compactEditorPanelHeightOverride,
     activePanel,
     activeLayoutDragItem,
@@ -135,6 +137,8 @@ function App() {
       isLibraryExportPanelVisible: state.isLibraryExportPanelVisible,
       leftPanelWidth: state.leftPanelWidth,
       rightPanelWidth: state.rightPanelWidth,
+      leftPanelVisible: state.leftPanelVisible,
+      rightPanelVisible: state.rightPanelVisible,
       compactEditorPanelHeightOverride: state.compactEditorPanelHeightOverride,
       activePanel: state.activePanel,
       activeLayoutDragItem: state.activeLayoutDragItem,
@@ -503,14 +507,20 @@ function App() {
 
       if (stateKey === 'left') {
         let w = startSize + (moveEvent.clientX - startX);
-        if (w < 200) w = 48;
-        else if (w > 600) w = 600;
-        setUI({ leftPanelWidth: Math.round(w) });
+        if (w < MIN_SIDE_PANEL_WIDTH) {
+          setUI({ leftPanelWidth: startSize, leftPanelVisible: false });
+        } else {
+          if (w > 600) w = 600;
+          setUI({ leftPanelWidth: Math.round(w), leftPanelVisible: true });
+        }
       } else if (stateKey === 'right') {
         let w = startSize - (moveEvent.clientX - startX);
-        if (w < 200) w = 48;
-        else if (w > 600) w = 600;
-        setUI({ rightPanelWidth: Math.round(w) });
+        if (w < MIN_SIDE_PANEL_WIDTH) {
+          setUI({ rightPanelWidth: startSize, rightPanelVisible: false });
+        } else {
+          if (w > 600) w = 600;
+          setUI({ rightPanelWidth: Math.round(w), rightPanelVisible: true });
+        }
       } else if (stateKey === 'bottom') {
         const newHeight = startSize - (moveEvent.clientY - startY);
         if (newHeight < 100) {
@@ -729,7 +739,7 @@ function App() {
               isFullScreen ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-15 opacity-100',
             )}
           >
-            {appSettings?.decorations || (!isWindowFullScreen && <TitleBar />)}
+            {appSettings?.decorations || (!isWindowFullScreen && <TitleBar showPanelControls={hasMainContent} />)}
           </div>
         )}
         <div
@@ -745,6 +755,7 @@ function App() {
                 <SidePanelArea
                   side="left"
                   width={leftPanelWidth}
+                  isVisible={leftPanelVisible}
                   topRegion="leftTop"
                   bottomRegion="leftBottom"
                   renderPanel={renderAppPanel}
@@ -845,6 +856,7 @@ function App() {
                 <SidePanelArea
                   side="right"
                   width={rightPanelWidth}
+                  isVisible={rightPanelVisible}
                   topRegion="rightTop"
                   bottomRegion="rightBottom"
                   renderPanel={renderAppPanel}

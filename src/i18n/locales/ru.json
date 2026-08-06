@@ -1595,6 +1595,8 @@
         "toggle_export": "Панель экспорта",
         "toggle_folder_tree": "Показать/скрыть панель дерева папок",
         "toggle_fullscreen": "Полноэкранный режим",
+        "toggle_left_panel": "Показать или скрыть левую панель",
+        "toggle_right_panel": "Показать или скрыть правую панель",
         "toggle_library_exif": "Информация EXIF поверх сетки",
         "toggle_masks": "Панель масок",
         "toggle_metadata": "Панель метаданных",

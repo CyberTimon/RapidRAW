@@ -164,6 +164,18 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'rating',
   },
   {
+    action: 'toggle_left_panel',
+    description: 'settings.keybinds.actions.toggle_left_panel',
+    defaultCombo: ['ctrl', 'KeyB'],
+    section: 'panels',
+  },
+  {
+    action: 'toggle_right_panel',
+    description: 'settings.keybinds.actions.toggle_right_panel',
+    defaultCombo: ['ctrl', 'shift', 'KeyB'],
+    section: 'panels',
+  },
+  {
     action: 'toggle_adjustments',
     description: 'settings.keybinds.actions.toggle_adjustments',
     defaultCombo: ['KeyD'],

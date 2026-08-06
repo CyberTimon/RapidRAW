@@ -1562,6 +1562,8 @@
         "toggle_export": "Alternar painel de Exportação",
         "toggle_folder_tree": "Alternar painel da árvore de pastas",
         "toggle_fullscreen": "Alternar tela cheia",
+        "toggle_left_panel": "Alternar painel esquerdo",
+        "toggle_right_panel": "Alternar painel direito",
         "toggle_library_exif": "Alternar sobreposição EXIF",
         "toggle_masks": "Alternar painel de Máscaras",
         "toggle_metadata": "Alternar painel de Metadados",

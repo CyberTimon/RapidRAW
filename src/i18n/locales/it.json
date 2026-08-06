@@ -1562,6 +1562,8 @@
         "toggle_export": "Attiva/Disattiva pannello Esportazione",
         "toggle_folder_tree": "Mostra/Nascondi pannello albero delle cartelle",
         "toggle_fullscreen": "Attiva/Disattiva schermo intero",
+        "toggle_left_panel": "Attiva/disattiva pannello sinistro",
+        "toggle_right_panel": "Attiva/disattiva pannello destro",
         "toggle_library_exif": "Attiva/Disattiva overlay EXIF",
         "toggle_masks": "Attiva/Disattiva pannello Maschere",
         "toggle_metadata": "Attiva/Disattiva pannello Metadati",

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useShallow } from 'zustand/react/shallow';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { useUIStore } from '../store/useUIStore';
+import { DEFAULT_SIDE_PANEL_WIDTH, MIN_SIDE_PANEL_WIDTH, useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useProcessStore } from '../store/useProcessStore';
@@ -91,6 +91,8 @@ export const useAppInitialization = ({
     useShallow((state) => ({
       leftPanelWidth: state.leftPanelWidth,
       rightPanelWidth: state.rightPanelWidth,
+      leftPanelVisible: state.leftPanelVisible,
+      rightPanelVisible: state.rightPanelVisible,
       leftTopHeight: state.leftTopHeight,
       rightTopHeight: state.rightTopHeight,
       panelLayout: state.panelLayout,
@@ -191,9 +193,18 @@ export const useAppInitialization = ({
         }
 
         if (settings?.workspace) {
+          const savedLeftPanelWidth = settings.workspace.leftPanelWidth;
+          const savedRightPanelWidth = settings.workspace.rightPanelWidth;
+          const leftPanelWasCollapsed =
+            typeof savedLeftPanelWidth === 'number' && savedLeftPanelWidth < MIN_SIDE_PANEL_WIDTH;
+          const rightPanelWasCollapsed =
+            typeof savedRightPanelWidth === 'number' && savedRightPanelWidth < MIN_SIDE_PANEL_WIDTH;
+
           setUI({
-            leftPanelWidth: settings.workspace.leftPanelWidth,
-            rightPanelWidth: settings.workspace.rightPanelWidth,
+            leftPanelWidth: leftPanelWasCollapsed ? DEFAULT_SIDE_PANEL_WIDTH : savedLeftPanelWidth,
+            rightPanelWidth: rightPanelWasCollapsed ? DEFAULT_SIDE_PANEL_WIDTH : savedRightPanelWidth,
+            leftPanelVisible: settings.workspace.leftPanelVisible ?? !leftPanelWasCollapsed,
+            rightPanelVisible: settings.workspace.rightPanelVisible ?? !rightPanelWasCollapsed,
             leftTopHeight: settings.workspace.leftTopHeight,
             rightTopHeight: settings.workspace.rightTopHeight,
             panelLayout: settings.workspace.panelLayout,

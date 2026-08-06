@@ -1595,6 +1595,8 @@
         "toggle_export": "Przełącz panel Eksport",
         "toggle_folder_tree": "Przełącz panel drzewa folderów",
         "toggle_fullscreen": "Przełącz tryb pełnoekranowy",
+        "toggle_left_panel": "Przełącz lewy panel",
+        "toggle_right_panel": "Przełącz prawy panel",
         "toggle_library_exif": "Przełącz nakładkę EXIF",
         "toggle_masks": "Przełącz panel Maski",
         "toggle_metadata": "Przełącz panel Metadane",
