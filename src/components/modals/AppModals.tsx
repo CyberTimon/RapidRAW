@@ -66,6 +66,7 @@ export default function AppModals(props: AppModalsProps) {
     isCopyPasteSettingsModalOpen,
     folderActionTarget,
     renameTargetPaths,
+    captureDateReferencePath,
     captureDateTargetPaths,
     importSourcePaths,
     isCreateAlbumModalOpen,
@@ -90,6 +91,7 @@ export default function AppModals(props: AppModalsProps) {
       isCopyPasteSettingsModalOpen: state.isCopyPasteSettingsModalOpen,
       folderActionTarget: state.folderActionTarget,
       renameTargetPaths: state.renameTargetPaths,
+      captureDateReferencePath: state.captureDateReferencePath,
       captureDateTargetPaths: state.captureDateTargetPaths,
       importSourcePaths: state.importSourcePaths,
       isCreateAlbumModalOpen: state.isCreateAlbumModalOpen,
@@ -122,10 +124,14 @@ export default function AppModals(props: AppModalsProps) {
   );
 
   const imageList = useLibraryStore((state) => state.imageList);
-  const captureDateReferencePath = captureDateTargetPaths[0] || '';
+  const resolvedCaptureDateReferencePath =
+    captureDateReferencePath && captureDateTargetPaths.includes(captureDateReferencePath)
+      ? captureDateReferencePath
+      : captureDateTargetPaths[0] || '';
   const captureDateReferenceImage =
-    imageList.find((image) => image.path === captureDateReferencePath) ||
-    (selectedImage?.path === captureDateReferencePath ? selectedImage : null);
+    imageList.find((image) => image.path === resolvedCaptureDateReferencePath) ||
+    (selectedImage?.path === resolvedCaptureDateReferencePath ? selectedImage : null);
+  const captureDateReferenceName = resolvedCaptureDateReferencePath.split(/[\\/]/).pop()?.split('?vc=')[0] || '';
   const physicalCaptureDateTargetPaths = Array.from(
     new Set(captureDateTargetPaths.map((path) => path.split('?vc=')[0])),
   );
@@ -312,8 +318,11 @@ export default function AppModals(props: AppModalsProps) {
           handleUpdateCaptureDates(captureDateTargetPaths, operation, writeToOriginal)
         }
         onCheckRevertAvailability={checkCaptureDateRevertAvailability}
-        onClose={() => setUI({ captureDateTargetPaths: [], isCaptureDateModalOpen: false })}
-        referencePath={captureDateReferencePath}
+        onClose={() =>
+          setUI({ captureDateReferencePath: null, captureDateTargetPaths: [], isCaptureDateModalOpen: false })
+        }
+        referenceName={captureDateReferenceName}
+        referencePath={resolvedCaptureDateReferencePath}
         targetCount={physicalCaptureDateTargetPaths.length}
       />
       <ConfirmModal {...confirmModalState} onClose={closeConfirmModal} />

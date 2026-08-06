@@ -688,6 +688,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           label: captureDateLabel,
           onClick: () =>
             setUI({
+              captureDateReferencePath: path,
               captureDateTargetPaths: finalSelection,
               isCaptureDateModalOpen: true,
             }),

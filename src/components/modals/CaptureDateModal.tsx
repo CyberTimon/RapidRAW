@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarClock, Check } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,7 @@ interface CaptureDateModalProps {
   onApply(operation: CaptureDateOperation, writeToOriginal: boolean): Promise<CaptureDateBatchResult>;
   onCheckRevertAvailability(): Promise<CaptureDateRevertAvailability>;
   onClose(): void;
+  referenceName: string;
   referencePath: string;
   targetCount: number;
 }
@@ -26,6 +27,15 @@ type EditMode = 'adjust' | 'shift';
 function captureDateParts(value?: string) {
   const match = value?.match(/^(\d{4})[:-](\d{2})[:-](\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
   return match ? { date: `${match[1]}-${match[2]}-${match[3]}`, time: `${match[4]}:${match[5]}:${match[6]}` } : null;
+}
+
+function currentLocalDateParts() {
+  const now = new Date();
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return {
+    date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    time: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+  };
 }
 
 function shiftCaptureDate(value: string | undefined, seconds: number) {
@@ -45,6 +55,7 @@ export default function CaptureDateModal({
   onApply,
   onCheckRevertAvailability,
   onClose,
+  referenceName,
   referencePath,
   targetCount,
 }: CaptureDateModalProps) {
@@ -52,29 +63,34 @@ export default function CaptureDateModal({
   const [mode, setMode] = useState<EditMode>('adjust');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('00:00:00');
-  const [direction, setDirection] = useState<1 | -1>(1);
-  const [days, setDays] = useState(0);
-  const [hours, setHours] = useState(0);
-  const [minutes, setMinutes] = useState(0);
-  const [seconds, setSeconds] = useState(0);
+  const [days, setDays] = useState('0');
+  const [hours, setHours] = useState('0');
+  const [minutes, setMinutes] = useState('0');
+  const [seconds, setSeconds] = useState('0');
   const [writeToOriginal, setWriteToOriginal] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [canRevert, setCanRevert] = useState(false);
   const [isCheckingRevert, setIsCheckingRevert] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
-    const parts = captureDateParts(currentDate);
+    const parts = captureDateParts(currentDate) || currentLocalDateParts();
     setMode('adjust');
-    setDate(parts?.date || '');
-    setTime(parts?.time || '00:00:00');
-    setDirection(1);
-    setDays(0);
-    setHours(0);
-    setMinutes(0);
-    setSeconds(0);
+    setDate(parts.date);
+    setTime(parts.time);
+    setDays('0');
+    setHours('0');
+    setMinutes('0');
+    setSeconds('0');
     setWriteToOriginal(false);
   }, [currentDate, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const frame = requestAnimationFrame(() => dialogRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -96,7 +112,12 @@ export default function CaptureDateModal({
     };
   }, [isOpen, onCheckRevertAvailability]);
 
-  const shiftSeconds = direction * (days * 86400 + hours * 3600 + minutes * 60 + seconds);
+  const shiftValue = (value: string, max: number) => Math.max(-max, Math.min(max, Number.parseInt(value, 10) || 0));
+  const shiftSeconds =
+    shiftValue(days, 99999) * 86400 +
+    shiftValue(hours, 23) * 3600 +
+    shiftValue(minutes, 59) * 60 +
+    shiftValue(seconds, 59);
   const preview = useMemo(
     () => (mode === 'adjust' ? (date ? `${date} ${time}` : null) : shiftCaptureDate(currentDate, shiftSeconds)),
     [currentDate, date, mode, shiftSeconds, time],
@@ -105,7 +126,10 @@ export default function CaptureDateModal({
     const parts = captureDateParts(currentDate);
     return parts ? `${parts.date} ${parts.time}` : null;
   }, [currentDate]);
-  const canApply = mode === 'adjust' ? Boolean(date && time && preview !== normalizedCurrentDate) : shiftSeconds !== 0;
+  const canApply =
+    mode === 'adjust'
+      ? Boolean(date && time && (!normalizedCurrentDate || preview !== normalizedCurrentDate))
+      : shiftSeconds !== 0 && preview !== null;
 
   const reportResult = (result: CaptureDateBatchResult) => {
     const sourceFailures = result.updates.filter((update) => update.sourceError);
@@ -169,7 +193,11 @@ export default function CaptureDateModal({
 
   if (!isOpen) return null;
 
-  const numberInput = (label: string, value: number, setValue: (value: number) => void, max: number) => (
+  const requestClose = () => {
+    if (!isApplying) onClose();
+  };
+
+  const numberInput = (label: string, value: string, setValue: (value: string) => void, max: number) => (
     <label className="flex-1 min-w-0">
       <Text as="span" variant={TextVariants.small} color={TextColors.secondary} className="block mb-1">
         {label}
@@ -177,8 +205,27 @@ export default function CaptureDateModal({
       <input
         className="w-full bg-bg-primary border border-surface rounded-md px-2 py-2 text-sm text-text-primary focus:border-accent outline-hidden"
         max={max}
-        min={0}
-        onChange={(event) => setValue(Math.max(0, Math.min(max, Number(event.target.value) || 0)))}
+        min={-max}
+        onBlur={() => {
+          setValue(String(shiftValue(value, max)));
+        }}
+        onChange={(event) => {
+          const next = event.target.value;
+          if (next === '' || next === '-' || /^-?\d+$/.test(next)) setValue(next);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === '-') {
+            event.preventDefault();
+            setValue(value.startsWith('-') ? value.slice(1) || '0' : `-${value || '0'}`);
+          } else if (event.key === '+') {
+            event.preventDefault();
+            setValue(value.replace(/^-/, '') || '0');
+          } else if (/^\d$/.test(event.key) && value === '-0') {
+            event.preventDefault();
+            setValue(`-${event.key}`);
+          }
+        }}
+        step={1}
         type="number"
         value={value}
       />
@@ -189,17 +236,23 @@ export default function CaptureDateModal({
     <div
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs"
-      onClick={onClose}
-      onKeyDown={(event) => event.key === 'Escape' && onClose()}
+      aria-labelledby="capture-date-title"
+      aria-describedby="capture-date-description"
+      onClick={requestClose}
+      onKeyDown={(event) => event.key === 'Escape' && requestClose()}
       role="dialog"
     >
       <div
-        className="bg-surface border border-surface rounded-xl shadow-2xl p-6 w-full max-w-lg"
+        ref={dialogRef}
+        className="bg-surface border border-surface rounded-xl shadow-2xl p-6 w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-y-auto outline-hidden"
         onClick={(event) => event.stopPropagation()}
+        tabIndex={-1}
       >
         <div className="flex items-center gap-3 mb-1">
           <CalendarClock size={20} className="text-accent" />
-          <Text variant={TextVariants.title}>{t('editor.metadata.captureDate.title')}</Text>
+          <Text id="capture-date-title" variant={TextVariants.title}>
+            {t('editor.metadata.captureDate.title')}
+          </Text>
         </div>
         <Text variant={TextVariants.small} color={TextColors.secondary} className="mb-5">
           {t('editor.metadata.captureDate.selectionCount', { count: targetCount })}
@@ -212,14 +265,16 @@ export default function CaptureDateModal({
                 mode === item ? 'bg-accent text-button-text' : 'bg-bg-primary text-text-secondary hover:bg-card-active'
               }`}
               key={item}
+              aria-pressed={mode === item}
               onClick={() => setMode(item)}
+              type="button"
             >
               {t(`editor.metadata.captureDate.${item}`)}
             </button>
           ))}
         </div>
 
-        <Text variant={TextVariants.small} color={TextColors.secondary} className="mb-4">
+        <Text id="capture-date-description" variant={TextVariants.small} color={TextColors.secondary} className="mb-4">
           {t(
             mode === 'adjust'
               ? targetCount > 1
@@ -257,20 +312,6 @@ export default function CaptureDateModal({
           </div>
         ) : (
           <div className="mb-5">
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <button
-                className={`rounded-md px-3 py-2 text-sm ${direction === 1 ? 'bg-card-active text-text-primary' : 'bg-bg-primary text-text-secondary'}`}
-                onClick={() => setDirection(1)}
-              >
-                {t('editor.metadata.captureDate.forward')}
-              </button>
-              <button
-                className={`rounded-md px-3 py-2 text-sm ${direction === -1 ? 'bg-card-active text-text-primary' : 'bg-bg-primary text-text-secondary'}`}
-                onClick={() => setDirection(-1)}
-              >
-                {t('editor.metadata.captureDate.backward')}
-              </button>
-            </div>
             <div className="flex gap-2">
               {numberInput(t('editor.metadata.captureDate.days'), days, setDays, 99999)}
               {numberInput(t('editor.metadata.captureDate.hours'), hours, setHours, 23)}
@@ -283,9 +324,12 @@ export default function CaptureDateModal({
         <div className="rounded-lg bg-bg-primary p-3 mb-5 text-sm">
           <div className="flex justify-between gap-4 mb-1">
             <Text variant={TextVariants.small} color={TextColors.secondary}>
-              {t('editor.metadata.captureDate.current')}
+              {t(targetCount > 1 ? 'editor.metadata.captureDate.reference' : 'editor.metadata.captureDate.current')}
             </Text>
-            <Text variant={TextVariants.small}>{currentDate || '—'}</Text>
+            <Text variant={TextVariants.small} className="text-right">
+              {targetCount > 1 && referenceName ? `${referenceName} · ` : ''}
+              {currentDate || '—'}
+            </Text>
           </div>
           <div className="flex justify-between gap-4">
             <Text variant={TextVariants.small} color={TextColors.secondary}>
@@ -332,14 +376,23 @@ export default function CaptureDateModal({
 
         <div className="flex justify-between gap-3 mt-6">
           <div
-            data-tooltip={
-              !isCheckingRevert && !canRevert ? t('editor.metadata.captureDate.revertUnavailable') : undefined
+            aria-label={
+              !isCheckingRevert && !canRevert
+                ? t('editor.metadata.captureDate.revertUnavailable', { count: targetCount })
+                : undefined
             }
+            data-tooltip={
+              !isCheckingRevert && !canRevert
+                ? t('editor.metadata.captureDate.revertUnavailable', { count: targetCount })
+                : undefined
+            }
+            tabIndex={!isCheckingRevert && !canRevert ? 0 : undefined}
           >
             <button
               className="px-3 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isApplying || isCheckingRevert || !canRevert}
               onClick={() => applyOperation({ mode: 'revert' }, false)}
+              type="button"
             >
               {t('editor.metadata.captureDate.revert')}
             </button>
@@ -348,7 +401,8 @@ export default function CaptureDateModal({
             <button
               className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors"
               disabled={isApplying}
-              onClick={onClose}
+              onClick={requestClose}
+              type="button"
             >
               {t('editor.metadata.captureDate.cancel')}
             </button>
@@ -356,6 +410,7 @@ export default function CaptureDateModal({
               className="px-4 py-2 rounded-md bg-accent text-button-text font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors"
               disabled={!canApply || isApplying}
               onClick={handleApply}
+              type="button"
             >
               {isApplying ? t('editor.metadata.captureDate.applying') : t('editor.metadata.captureDate.apply')}
             </button>

@@ -16,6 +16,7 @@ export interface CaptureDateUpdate {
   path: string;
   newDate: string | null;
   wroteOriginal: boolean;
+  modified: number | null;
   sourceError: string | null;
 }
 
@@ -190,21 +191,25 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
 
       useLibraryStore.getState().setLibrary((state) => ({
         imageList: state.imageList.map((image) => {
+          const update = updatesByPath.get(image.path.split('?vc=')[0]);
           const nextExif = updateExif(image.path, image.exif);
-          return nextExif === image.exif ? image : { ...image, exif: nextExif };
+          if (!update) return image;
+          return {
+            ...image,
+            exif: nextExif,
+            modified: update.modified ?? image.modified,
+          };
         }),
       }));
 
-      paths.forEach((path) => {
-        const cached = globalImageCache.get(path);
-        if (!cached?.selectedImage) return;
-        const nextExif = updateExif(path, cached.selectedImage.exif);
-        if (nextExif !== cached.selectedImage.exif) {
-          globalImageCache.set(path, {
-            ...cached,
-            selectedImage: { ...cached.selectedImage, exif: nextExif },
-          });
-        }
+      physicalPaths.forEach((physicalPath) => {
+        globalImageCache.updateByPrefix(physicalPath, (cached) => {
+          if (!cached.selectedImage) return cached;
+          const nextExif = updateExif(cached.selectedImage.path || physicalPath, cached.selectedImage.exif);
+          return nextExif === cached.selectedImage.exif
+            ? cached
+            : { ...cached, selectedImage: { ...cached.selectedImage, exif: nextExif } };
+        });
       });
 
       return result;

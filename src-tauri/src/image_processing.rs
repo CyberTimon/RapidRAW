@@ -66,6 +66,19 @@ pub struct CaptureDateBackup {
     pub date_time_original: Option<String>,
     #[serde(default)]
     pub source_written: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_date_written: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_source_rewrite: Option<CaptureDateSourceRecovery>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CaptureDateSourceRecovery {
+    pub backup_file_name: String,
+    pub original_date: Option<String>,
+    pub intended_date: Option<String>,
+    #[serde(default)]
+    pub source_written_before_rewrite: bool,
 }
 
 impl Default for ImageMetadata {

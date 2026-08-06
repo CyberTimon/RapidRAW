@@ -106,6 +106,7 @@ interface UIState {
   renameTargetPaths: Array<string>;
   isCaptureDateModalOpen: boolean;
   captureDateTargetPaths: Array<string>;
+  captureDateReferencePath: string | null;
   isImportModalOpen: boolean;
   isCopyPasteSettingsModalOpen: boolean;
   importTargetFolder: string | null;
@@ -186,6 +187,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   renameTargetPaths: [],
   isCaptureDateModalOpen: false,
   captureDateTargetPaths: [],
+  captureDateReferencePath: null,
   isImportModalOpen: false,
   isCopyPasteSettingsModalOpen: false,
   importTargetFolder: null,
