@@ -60,20 +60,25 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-08-05:** Added Catalan language support and folder tree shortcut
+- **2026-08-03:** Added support for image-based LUTs (.png, .jpg, .jpeg, .tiff) and batch importing multiple presets
+- **2026-08-01:** Implemented customizable workspace layout system with animated side panels
+- **2026-07-31:** Enabled White Balance color picker tool for the WGPU renderer
+- **2026-07-29:** Added Cmd/Ctrl+L keyboard shortcut to quickly copy image file paths to the clipboard
 - **2026-07-26:** Added AI Lens Blur (Bokeh) for realistic depth-of-field background blurring
 - **2026-07-25:** Added headless CLI batch export supporting custom JSON adjustments
 - **2026-07-24:** Added Ctrl/Cmd+F search shortcut and optimized library & scope performance
 - **2026-07-23:** Significantly improved HDD thumbnail loading and resolved Linux NVIDIA crash issues
 - **2026-07-22:** Calibrated JPEG XL (JXL) export quality curves
+
+<details>
+<summary><strong>Expand further</strong></summary>
+
 - **2026-07-20:** Made automatic adjustment synchronization optional for multi-selections
 - **2026-07-19:** Introduced new Culling View (up to 6 images side-by-side) with star ratings and metadata
 - **2026-07-16:** Enhanced crop tool with area preservation and crop-centered rotation
 - **2026-07-15:** Fixed Canon multi-exposure WB, reduced export RAM usage, and added settings shortcut
 - **2026-07-14:** Improved EXIF lens metadata extraction and fixed crop scaling bugs
-
-<details>
-<summary><strong>Expand further</strong></summary>
-
 - **2026-07-12:** Added layout-aware keybinds, adjusted black levels, and fixed patch offsets on transformed images
 - **2026-07-11:** Added new local Clone and Heal cleanup tools with highly optimized, parallelized processing. Also fixed Android back-button navigation and resolved an issue causing freezes with iCloud
 - **2026-07-08:** Improved thumbnail loading speeds using native file transfers and updated core rendering engines for better overall performance and compatibility
@@ -311,6 +316,7 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - [Showcase & Edits](#showcase--edits)
 - [The Idea](#the-idea)
 - [Key Features](#key-features)
+- [Supported Formats, Lenses & Languages](#supported-formats-lenses--languages)
 - [Current Priorities](#current-priorities)
 - [AI Roadmap](#ai-roadmap)
 - [Initial Development Log](#initial-development-log)
@@ -475,9 +481,6 @@ Explore example edits processed entirely within RapidRAW. You can download the `
       <p>
         The foundation is built on Rust for its safety and performance, and Tauri for its ability to create lightweight, cross-platform desktop apps with a web frontend. The entire image processing pipeline is offloaded to the GPU via WGPU and a custom WGSL shader, ensuring that even on complex edits with multiple masks, the UI remains fluid.
       </p>
-      <p>
-        I am immensely grateful for Google's Gemini suite of AI models. As a young developer without a formal background in advanced mathematics or image science, Google's AI Studio was an invaluable assistant, helping me research and implement complex concepts in record time.
-      </p>
       <br>
     </td>
   </tr>
@@ -538,6 +541,86 @@ Explore example edits processed entirely within RapidRAW. You can download the `
     </td>
   </tr>
 </table>
+
+## Supported Formats, Lenses & Languages
+
+RapidRAW supports a wide array of camera RAW formats, non-RAW image files, and automatic lens corrections.
+
+<details>
+<summary><strong>Supported Camera RAW Formats</strong></summary>
+
+RapidRAW relies on [dnglab / rawler](https://github.com/dnglab/dnglab) for RAW file decoding. You can check out the full list of specific camera models on the **[dnglab Supported Cameras List](https://github.com/dnglab/dnglab/blob/main/SUPPORTED_CAMERAS.md)**.
+
+| Brand / Manufacturer  | Supported Extensions           | Description                |
+| :-------------------- | :----------------------------- | :------------------------- |
+| **Adobe**             | `.dng`                         | Digital Negative           |
+| **Apple**             | `.pro`                         | Apple ProRAW               |
+| **ARRI**              | `.ari`                         | ARRI Raw                   |
+| **Canon**             | `.crw`, `.cr2`, `.cr3`         | Canon Raw 1, 2, 3          |
+| **Casio**             | `.bay`                         | Casio Raw                  |
+| **Contax**            | `.raw`                         | Contax Raw                 |
+| **Epson**             | `.erf`                         | Epson Raw                  |
+| **Fujifilm**          | `.raf`                         | Fuji Raw (X-Trans & Bayer) |
+| **Hasselblad**        | `.3fr`, `.fff`                 | Hasselblad Raw             |
+| **Kodak**             | `.kdc`, `.k25`, `.dcs`, `.dcr` | Kodak Raw formats          |
+| **Leaf / Imacon**     | `.mos`, `.iiq`                 | Leaf / Imacon Raw          |
+| **Leica**             | `.rwl`                         | Leica Raw                  |
+| **Mamiya**            | `.mef`                         | Mamiya Raw                 |
+| **Minolta**           | `.mrw`                         | Minolta Raw                |
+| **Nikon**             | `.nef`, `.nrw`                 | Nikon Electronic Format    |
+| **Olympus**           | `.orf`                         | Olympus Raw                |
+| **Panasonic / Leica** | `.rw2`, `.raw`                 | Panasonic / Leica Raw      |
+| **Pentax / Ricoh**    | `.pef`, `.ptx`                 | Pentax Electronic File     |
+| **Phase One**         | `.iiq`                         | Phase One Raw              |
+| **Samsung**           | `.srw`                         | Samsung Raw                |
+| **Sigma**             | `.x3f`                         | Sigma Foveon Raw           |
+| **Sony**              | `.arw`, `.srf`, `.sr2`         | Sony Alpha Raw formats     |
+
+> **Note:** Is your camera's RAW file unsupported? Please open an issue directly with **[dnglab](https://github.com/dnglab/dnglab/issues)** to request RAW decoding support for your camera model. Once added there, support will be updated in RapidRAW.
+
+</details>
+
+<details>
+<summary><strong>Supported Non-RAW Formats</strong></summary>
+
+RapidRAW isn't just for RAW files! You can also import, edit, and convert standard image formats:
+
+- **Standard Formats:** `.jpg`, `.jpeg`, `.png`, `.webp`, `.jxl`, `.tiff`, `.tif`, `.bmp`, `.gif`
+- **High Dynamic Range (HDR) / Wide Gamut:** `.exr`, `.hdr`
+- **Graphics & Textures:** `.tga`, `.ico`, `.dds`
+- **Specialist Formats:** `.qoi`, `.ff`
+- **Netpbm Bitmaps:** `.pnm`, `.pbm`, `.pgm`, `.ppm`, `.pam`
+</details>
+
+<details>
+<summary><strong>Lens Correction Support</strong></summary>
+
+RapidRAW supports automatic lens profile detection, distortion, transverse chromatic aberration (TCA), and vignetting correction powered by **[Lensfun](https://lensfun.github.io/)**.
+
+> **Note:** If your lens profile is missing, please open an issue directly on the **[Lensfun repository](https://github.com/lensfun/lensfun/issues)** to request profile addition.
+
+</details>
+
+<details>
+<summary><strong>Supported Languages</strong></summary>
+
+RapidRAW is fully translated into the following 13 languages:
+
+- 🇬🇧 **English**
+- 🇪🇸 **Català**
+- 🇩🇪 **Deutsch**
+- 🇪🇸 **Español**
+- 🇫🇷 **Français**
+- 🇮🇹 **Italiano**
+- 🇵🇱 **Polski**
+- 🇵🇹 **Português**
+- 🇷🇺 **Русский**
+- 🇯🇵 **日本語**
+- 🇰🇷 **한국어**
+- 🇨🇳 **简体中文**
+- 🇹🇼 **繁體中文**
+
+</details>
 
 ## Current Priorities
 
@@ -647,7 +730,7 @@ npm install
 npm start
 ```
 
-To build the release-build:
+To build the release build:
 
 ```bash
 # 1. Make the release build

@@ -1069,15 +1069,16 @@ export default function SettingsPanel({
                           onChange={(value: any) => onSettingsChange({ ...appSettings, language: value })}
                           options={[
                             { value: 'en', label: 'English' },
+                            { value: 'ca', label: 'Català' },
                             { value: 'de', label: 'Deutsch' },
                             { value: 'es', label: 'Español' },
                             { value: 'fr', label: 'Français' },
                             { value: 'it', label: 'Italiano' },
-                            { value: 'ja', label: '日本語' },
-                            { value: 'ko', label: '한국어' },
                             { value: 'pl', label: 'Polski' },
                             { value: 'pt', label: 'Português' },
                             { value: 'ru', label: 'Русский' },
+                            { value: 'ja', label: '日本語' },
+                            { value: 'ko', label: '한국어' },
                             { value: 'zh-CN', label: '简体中文' },
                             { value: 'zh-TW', label: '繁體中文' },
                           ]}

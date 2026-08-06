@@ -200,6 +200,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'panels',
   },
   {
+    action: 'toggle_folder_tree',
+    description: 'settings.keybinds.actions.toggle_folder_tree',
+    defaultCombo: ['KeyL'],
+    section: 'panels',
+  },
+  {
     action: 'toggle_analytics',
     description: 'settings.keybinds.actions.toggle_analytics',
     defaultCombo: ['KeyA'],

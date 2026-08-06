@@ -243,6 +243,20 @@ pub struct PresetFile {
     pub presets: Vec<PresetItem>,
 }
 
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetImportFailure {
+    pub file_name: String,
+    pub error: String,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetImportResult {
+    pub presets: Vec<PresetItem>,
+    pub failures: Vec<PresetImportFailure>,
+}
+
 #[derive(Debug)]
 pub enum ReadFileError {
     Io(std::io::Error),
@@ -2986,71 +3000,41 @@ pub fn get_or_create_internal_library_root(app_handle: AppHandle) -> Result<Stri
     Ok(library_root.to_string_lossy().to_string())
 }
 
-#[tauri::command]
-pub fn handle_import_presets_from_file(
-    file_path: String,
-    app_handle: AppHandle,
-) -> Result<Vec<PresetItem>, String> {
-    let content =
-        fs::read_to_string(file_path).map_err(|e| format!("Failed to read preset file: {}", e))?;
-    let imported_preset_file: PresetFile = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse preset file: {}", e))?;
+fn preset_file_display_name(file_path: &str) -> String {
+    Path::new(file_path)
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| file_path.to_string())
+}
 
-    let mut current_presets = load_presets(app_handle.clone())?;
-
-    let mut current_names: HashSet<String> = current_presets
+fn collect_top_level_preset_names(items: &[PresetItem]) -> HashSet<String> {
+    items
         .iter()
         .map(|item| match item {
             PresetItem::Preset(p) => p.name.clone(),
             PresetItem::Folder(f) => f.name.clone(),
         })
-        .collect();
-
-    for mut imported_item in imported_preset_file.presets {
-        let (current_name, _new_id) = match &mut imported_item {
-            PresetItem::Preset(p) => {
-                p.id = Uuid::new_v4().to_string();
-                (p.name.clone(), p.id.clone())
-            }
-            PresetItem::Folder(f) => {
-                f.id = Uuid::new_v4().to_string();
-                for child in &mut f.children {
-                    child.id = Uuid::new_v4().to_string();
-                }
-                (f.name.clone(), f.id.clone())
-            }
-        };
-
-        let mut new_name = current_name.clone();
-        let mut counter = 1;
-        while current_names.contains(&new_name) {
-            new_name = format!("{} ({})", current_name, counter);
-            counter += 1;
-        }
-
-        match &mut imported_item {
-            PresetItem::Preset(p) => p.name = new_name.clone(),
-            PresetItem::Folder(f) => f.name = new_name.clone(),
-        }
-
-        current_names.insert(new_name);
-        current_presets.push(imported_item);
-    }
-
-    save_presets(current_presets.clone(), app_handle)?;
-    Ok(current_presets)
+        .collect()
 }
 
-#[tauri::command]
-pub fn handle_import_legacy_presets_from_file(
-    file_path: String,
-    app_handle: AppHandle,
-) -> Result<Vec<PresetItem>, String> {
-    let content = fs::read_to_string(&file_path)
+fn parse_preset_file(file_path: &str) -> Result<Vec<PresetItem>, String> {
+    let lower_path = file_path.to_lowercase();
+    let is_legacy = lower_path.ends_with(".xmp") || lower_path.ends_with(".lrtemplate");
+
+    if !is_legacy {
+        let content = fs::read_to_string(file_path)
+            .map_err(|e| format!("Failed to read preset file: {}", e))?;
+        let preset_file: PresetFile = serde_json::from_str(&content)
+            .map_err(|e| format!("Failed to parse preset file: {}", e))?;
+        return Ok(preset_file.presets);
+    }
+
+    let content = fs::read_to_string(file_path)
         .map_err(|e| format!("Failed to read legacy preset file: {}", e))?;
 
-    let xmp_content = if file_path.to_lowercase().ends_with(".lrtemplate") {
-        let re = Regex::new(r#"(?s)s.xmp = "(.*)""#).unwrap();
+    let xmp_content = if lower_path.ends_with(".lrtemplate") {
+        let re = Regex::new(r#"(?s)s.xmp = "(.*)""#)
+            .map_err(|e| format!("Regex compilation failed: {}", e))?;
         if let Some(caps) = re.captures(&content) {
             caps.get(1)
                 .map(|m| m.as_str().replace(r#"\""#, r#"""#))
@@ -3063,35 +3047,108 @@ pub fn handle_import_legacy_presets_from_file(
     };
 
     let converted_preset = preset_converter::convert_xmp_to_preset(&xmp_content)?;
+    Ok(vec![PresetItem::Preset(converted_preset)])
+}
+
+fn merge_imported_items(
+    target: &mut Vec<PresetItem>,
+    taken_names: &mut HashSet<String>,
+    imported: Vec<PresetItem>,
+) {
+    for mut imported_item in imported {
+        let original_name = match &mut imported_item {
+            PresetItem::Preset(p) => {
+                p.id = Uuid::new_v4().to_string();
+                p.name.clone()
+            }
+            PresetItem::Folder(f) => {
+                f.id = Uuid::new_v4().to_string();
+                for child in &mut f.children {
+                    child.id = Uuid::new_v4().to_string();
+                }
+                f.name.clone()
+            }
+        };
+
+        let mut new_name = original_name.clone();
+        let mut counter = 1;
+        while taken_names.contains(&new_name) {
+            new_name = format!("{} ({})", original_name, counter);
+            counter += 1;
+        }
+
+        match &mut imported_item {
+            PresetItem::Preset(p) => p.name = new_name.clone(),
+            PresetItem::Folder(f) => f.name = new_name.clone(),
+        }
+
+        taken_names.insert(new_name);
+        target.push(imported_item);
+    }
+}
+
+fn import_preset_file_into_library(
+    file_path: &str,
+    app_handle: AppHandle,
+) -> Result<Vec<PresetItem>, String> {
+    let imported = parse_preset_file(file_path)?;
 
     let mut current_presets = load_presets(app_handle.clone())?;
-
-    let current_names: HashSet<String> = current_presets
-        .iter()
-        .flat_map(|item| match item {
-            PresetItem::Preset(p) => vec![p.name.clone()],
-            PresetItem::Folder(f) => {
-                let mut names = vec![f.name.clone()];
-                names.extend(f.children.iter().map(|c| c.name.clone()));
-                names
-            }
-        })
-        .collect();
-
-    let mut new_name = converted_preset.name.clone();
-    let mut counter = 1;
-    while current_names.contains(&new_name) {
-        new_name = format!("{} ({})", converted_preset.name, counter);
-        counter += 1;
-    }
-
-    let mut final_preset = converted_preset;
-    final_preset.name = new_name;
-
-    current_presets.push(PresetItem::Preset(final_preset));
+    let mut taken_names = collect_top_level_preset_names(&current_presets);
+    merge_imported_items(&mut current_presets, &mut taken_names, imported);
 
     save_presets(current_presets.clone(), app_handle)?;
     Ok(current_presets)
+}
+
+#[tauri::command]
+pub fn handle_import_presets_from_file(
+    file_path: String,
+    app_handle: AppHandle,
+) -> Result<Vec<PresetItem>, String> {
+    import_preset_file_into_library(&file_path, app_handle)
+}
+
+#[tauri::command]
+pub fn handle_import_legacy_presets_from_file(
+    file_path: String,
+    app_handle: AppHandle,
+) -> Result<Vec<PresetItem>, String> {
+    import_preset_file_into_library(&file_path, app_handle)
+}
+
+#[tauri::command]
+pub fn handle_import_presets_from_files(
+    file_paths: Vec<String>,
+    app_handle: AppHandle,
+) -> Result<PresetImportResult, String> {
+    let mut current_presets = load_presets(app_handle.clone())?;
+    let mut taken_names = collect_top_level_preset_names(&current_presets);
+
+    let mut failures: Vec<PresetImportFailure> = Vec::new();
+    let mut library_changed = false;
+
+    for file_path in &file_paths {
+        match parse_preset_file(file_path) {
+            Ok(imported) => {
+                library_changed |= !imported.is_empty();
+                merge_imported_items(&mut current_presets, &mut taken_names, imported);
+            }
+            Err(error) => failures.push(PresetImportFailure {
+                file_name: preset_file_display_name(file_path),
+                error,
+            }),
+        }
+    }
+
+    if library_changed {
+        save_presets(current_presets.clone(), app_handle)?;
+    }
+
+    Ok(PresetImportResult {
+        presets: current_presets,
+        failures,
+    })
 }
 
 #[tauri::command]

@@ -236,3 +236,45 @@ export default function PanelSwitcher({
     </div>
   );
 }
+
+export function MobilePanelSwitcher({
+  activePanel,
+  onPanelSelect,
+}: {
+  activePanel: Panel | null;
+  onPanelSelect: (id: Panel) => void;
+}) {
+  const MOBILE_PANELS = [
+    Panel.Metadata,
+    Panel.Adjustments,
+    Panel.Crop,
+    Panel.Masks,
+    Panel.Ai,
+    Panel.Presets,
+    Panel.Export,
+  ];
+
+  return (
+    <div className="flex items-center gap-2 p-2 overflow-x-auto border-t border-surface shrink-0 custom-scrollbar">
+      {MOBILE_PANELS.map((id) => {
+        const Icon = PANEL_ICONS[id];
+        const isActive = activePanel === id;
+
+        return (
+          <button
+            key={id}
+            onClick={() => onPanelSelect(id)}
+            className={clsx(
+              'p-2 rounded-md shrink-0 transition-colors',
+              isActive
+                ? 'bg-surface text-text-primary'
+                : 'text-text-secondary hover:bg-surface hover:text-text-primary',
+            )}
+          >
+            <Icon size={20} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
