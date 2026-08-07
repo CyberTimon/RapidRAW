@@ -48,6 +48,15 @@ impl<'a> IntoCowImage<'a> for &'a std::sync::Arc<DynamicImage> {
     }
 }
 
+/// Schema version of the `.rrdata` sidecar format this build reads and writes.
+///
+/// The format is a public integration point, so the version is a negotiation
+/// anchor rather than decoration: a sidecar declaring a higher version was
+/// written by a newer RapidRAW and must not be parsed as if it were v1, nor
+/// silently overwritten. See `docs/sidecar-format.md` and
+/// `schema/rrdata-v1.schema.json`.
+pub const SIDECAR_SCHEMA_VERSION: u32 = 1;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageMetadata {
     pub version: u32,
@@ -57,16 +66,25 @@ pub struct ImageMetadata {
     pub tags: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exif: Option<std::collections::HashMap<String, String>>,
+    /// Envelope keys this build does not recognise, carried through untouched.
+    ///
+    /// `adjustments` is an opaque `Value` and so already round-trips unknown
+    /// keys; without this, top-level keys added by a newer build or by external
+    /// tooling would be dropped on the next save. Flattened, so it is invisible
+    /// in the serialised form.
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
 }
 
 impl Default for ImageMetadata {
     fn default() -> Self {
         ImageMetadata {
-            version: 1,
+            version: SIDECAR_SCHEMA_VERSION,
             rating: 0,
             adjustments: Value::Null,
             tags: None,
             exif: None,
+            extra: serde_json::Map::new(),
         }
     }
 }

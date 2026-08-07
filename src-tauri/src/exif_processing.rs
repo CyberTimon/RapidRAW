@@ -4,7 +4,7 @@ use std::io::{BufReader, Cursor};
 use std::path::{Path, PathBuf};
 
 use crate::formats::is_raw_file;
-use crate::image_processing::ImageMetadata;
+use crate::image_processing::{ImageMetadata, SIDECAR_SCHEMA_VERSION};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use exif::{Exif, In, Value};
 use little_exif::exif_tag::ExifTag;
@@ -37,6 +37,89 @@ pub fn truncate_large_exif(value: &str) -> String {
     value.to_string()
 }
 
+/// Extension appended to a sidecar that could not be interpreted.
+const QUARANTINE_EXTENSION: &str = "bak";
+
+/// Upper bound on distinct quarantine copies kept for one sidecar.
+const MAX_QUARANTINE_SLOTS: u32 = 100;
+
+fn quarantine_path(sidecar_path: &Path, slot: u32) -> PathBuf {
+    let mut name = sidecar_path.as_os_str().to_os_string();
+    name.push(".");
+    name.push(QUARANTINE_EXTENSION);
+    if slot > 0 {
+        name.push(format!(".{}", slot));
+    }
+    PathBuf::from(name)
+}
+
+/// Preserve a sidecar we could not interpret before anything overwrites it.
+///
+/// Sidecar writes are read-modify-write: `load_sidecar` supplies the base that
+/// callers such as `save_metadata_and_update_thumbnail` and
+/// `set_color_label_for_paths` mutate and write back. If an unreadable file
+/// silently degraded to defaults, that next write would destroy the user's
+/// rating, tags and cached EXIF. Copying the bytes aside first bounds the
+/// damage to something recoverable.
+///
+/// Copies rather than moves, so the application's normal flow is untouched.
+/// Never overwrites a backup whose contents differ, and does nothing when an
+/// identical backup already exists, so the repeated loads performed by the
+/// thumbnail and metadata workers cannot pile up copies.
+fn quarantine_sidecar(sidecar_path: &Path, reason: &str) {
+    let original = match fs::read(sidecar_path) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            log::error!(
+                "Could not read sidecar '{}' to quarantine it ({}): {}",
+                sidecar_path.display(),
+                reason,
+                e
+            );
+            return;
+        }
+    };
+
+    for slot in 0..MAX_QUARANTINE_SLOTS {
+        let candidate = quarantine_path(sidecar_path, slot);
+
+        if candidate.exists() {
+            // Already preserved verbatim; nothing to do.
+            if let Ok(existing) = fs::read(&candidate)
+                && existing == original
+            {
+                return;
+            }
+            // A different file is parked here. Never clobber it.
+            continue;
+        }
+
+        match fs::write(&candidate, &original) {
+            Ok(()) => log::warn!(
+                "Sidecar '{}' {}. Preserved a copy at '{}' and continued with defaults; \
+                 the original will not be read until it is restored.",
+                sidecar_path.display(),
+                reason,
+                candidate.display()
+            ),
+            Err(e) => log::error!(
+                "Failed to quarantine sidecar '{}' to '{}': {}",
+                sidecar_path.display(),
+                candidate.display(),
+                e
+            ),
+        }
+        return;
+    }
+
+    log::error!(
+        "Sidecar '{}' {} but all {} quarantine slots are occupied; leaving it untouched.",
+        sidecar_path.display(),
+        reason,
+        MAX_QUARANTINE_SLOTS
+    );
+}
+
 pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
     if !sidecar_path.exists() {
         return ImageMetadata::default();
@@ -46,7 +129,24 @@ pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
         return ImageMetadata::default();
     };
 
-    let mut meta = serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default();
+    let mut meta = match serde_json::from_str::<ImageMetadata>(&content) {
+        Ok(meta) if meta.version <= SIDECAR_SCHEMA_VERSION => meta,
+        Ok(meta) => {
+            quarantine_sidecar(
+                sidecar_path,
+                &format!(
+                    "declares schema version {} but this build supports at most {}",
+                    meta.version, SIDECAR_SCHEMA_VERSION
+                ),
+            );
+            return ImageMetadata::default();
+        }
+        Err(e) => {
+            quarantine_sidecar(sidecar_path, &format!("could not be parsed ({})", e));
+            return ImageMetadata::default();
+        }
+    };
+
     let mut healed = false;
 
     if let Some(ref mut exif_map) = meta.exif {
@@ -1349,4 +1449,242 @@ pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> 
     metadata.exif = Some(exif_data);
     save_primary_metadata(target_image_path, &metadata)
         .map_err(|e| format!("Failed to write sidecar: {}", e))
+}
+
+#[cfg(test)]
+mod sidecar_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// The `.rrdata` format is a public integration point, so these tests pin
+    /// down the guarantees third-party writers are asked to rely on:
+    /// unknown keys survive a round trip, and a sidecar this build cannot
+    /// interpret is preserved rather than quietly replaced with defaults.
+    fn write_sidecar(dir: &Path, contents: &str) -> PathBuf {
+        let path = dir.join("IMG_0001.ARW.rrdata");
+        fs::write(&path, contents).expect("failed to seed sidecar");
+        path
+    }
+
+    fn backup_of(path: &Path) -> PathBuf {
+        quarantine_path(path, 0)
+    }
+
+    #[test]
+    fn default_declares_the_current_schema_version() {
+        assert_eq!(ImageMetadata::default().version, SIDECAR_SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn absent_sidecar_yields_defaults_without_creating_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("nope.rrdata");
+
+        let meta = load_sidecar(&missing);
+
+        assert_eq!(meta.version, SIDECAR_SCHEMA_VERSION);
+        assert_eq!(meta.rating, 0);
+        assert!(!missing.exists());
+        assert!(!backup_of(&missing).exists());
+    }
+
+    #[test]
+    fn valid_sidecar_loads_and_is_never_quarantined() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_sidecar(
+            dir.path(),
+            &json!({
+                "version": 1,
+                "rating": 4,
+                "adjustments": { "exposure": 0.5 },
+                "tags": ["color:green", "user:portfolio"]
+            })
+            .to_string(),
+        );
+
+        let meta = load_sidecar(&path);
+
+        assert_eq!(meta.rating, 4);
+        assert_eq!(meta.adjustments["exposure"], json!(0.5));
+        assert_eq!(
+            meta.tags.as_deref(),
+            Some(&["color:green".to_string(), "user:portfolio".to_string()][..])
+        );
+        assert!(
+            !backup_of(&path).exists(),
+            "a readable sidecar must not be quarantined"
+        );
+    }
+
+    #[test]
+    fn unknown_keys_survive_a_full_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_sidecar(
+            dir.path(),
+            &json!({
+                "version": 1,
+                "rating": 2,
+                "adjustments": { "exposure": 1.0, "myPipelineKey": "keep me" },
+                "producedBy": "external-tool/1.4"
+            })
+            .to_string(),
+        );
+
+        // Load, mutate the way the app does, write back, load again.
+        let mut meta = load_sidecar(&path);
+        meta.rating = 5;
+        fs::write(&path, serde_json::to_string_pretty(&meta).unwrap()).unwrap();
+        let reloaded = load_sidecar(&path);
+
+        assert_eq!(reloaded.rating, 5);
+        assert_eq!(
+            reloaded.adjustments["myPipelineKey"],
+            json!("keep me"),
+            "unknown keys inside adjustments must round-trip"
+        );
+        assert_eq!(
+            reloaded.extra.get("producedBy"),
+            Some(&json!("external-tool/1.4")),
+            "unknown envelope keys must round-trip"
+        );
+    }
+
+    #[test]
+    fn future_schema_version_is_quarantined_and_bytes_preserved() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = json!({
+            "version": SIDECAR_SCHEMA_VERSION + 1,
+            "rating": 5,
+            "adjustments": { "somethingNew": true },
+            "tags": ["user:keep"]
+        })
+        .to_string();
+        let path = write_sidecar(dir.path(), &original);
+
+        let meta = load_sidecar(&path);
+
+        // The caller gets defaults, so it cannot act on half-understood data.
+        assert_eq!(meta.rating, 0);
+        assert!(meta.adjustments.is_null());
+
+        // The user's bytes are still on disk, untouched.
+        let backup = backup_of(&path);
+        assert!(backup.exists(), "a newer sidecar must be preserved");
+        assert_eq!(fs::read_to_string(&backup).unwrap(), original);
+        assert_eq!(fs::read_to_string(&path).unwrap(), original);
+    }
+
+    #[test]
+    fn unparseable_sidecar_is_quarantined_and_bytes_preserved() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = "{ this is not json";
+        let path = write_sidecar(dir.path(), original);
+
+        let meta = load_sidecar(&path);
+
+        assert_eq!(meta.rating, 0);
+        let backup = backup_of(&path);
+        assert!(backup.exists());
+        assert_eq!(fs::read_to_string(&backup).unwrap(), original);
+    }
+
+    #[test]
+    fn sidecar_missing_required_fields_is_quarantined() {
+        let dir = tempfile::tempdir().unwrap();
+        // No `version`: previously this parsed to defaults and the next save
+        // silently discarded the rating and tags.
+        let original = json!({ "rating": 3, "adjustments": {} }).to_string();
+        let path = write_sidecar(dir.path(), &original);
+
+        let meta = load_sidecar(&path);
+
+        assert_eq!(meta.rating, 0);
+        assert_eq!(fs::read_to_string(backup_of(&path)).unwrap(), original);
+    }
+
+    #[test]
+    fn repeated_loads_do_not_accumulate_backups() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_sidecar(dir.path(), "not json at all");
+
+        // The thumbnail and metadata workers load the same sidecar repeatedly.
+        for _ in 0..5 {
+            let _ = load_sidecar(&path);
+        }
+
+        let backups = fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_name().to_string_lossy().contains(".bak"))
+            .count();
+        assert_eq!(backups, 1, "identical content must reuse the same backup");
+    }
+
+    #[test]
+    fn quarantine_never_overwrites_a_different_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_sidecar(dir.path(), "first broken payload");
+        let _ = load_sidecar(&path);
+
+        let first_backup = backup_of(&path);
+        assert_eq!(
+            fs::read_to_string(&first_backup).unwrap(),
+            "first broken payload"
+        );
+
+        // A different corrupt payload lands at the same sidecar path.
+        fs::write(&path, "second broken payload").unwrap();
+        let _ = load_sidecar(&path);
+
+        assert_eq!(
+            fs::read_to_string(&first_backup).unwrap(),
+            "first broken payload",
+            "the earlier backup must not be clobbered"
+        );
+        assert_eq!(
+            fs::read_to_string(quarantine_path(&path, 1)).unwrap(),
+            "second broken payload",
+            "a differing payload must take the next slot"
+        );
+    }
+
+    #[test]
+    fn oversized_exif_values_are_still_healed() {
+        let dir = tempfile::tempdir().unwrap();
+        let bloated = "x".repeat(2000);
+        let path = write_sidecar(
+            dir.path(),
+            &json!({
+                "version": 1,
+                "rating": 0,
+                "adjustments": null,
+                "exif": { "MakerNote": bloated }
+            })
+            .to_string(),
+        );
+
+        let meta = load_sidecar(&path);
+
+        let stored = &meta.exif.as_ref().unwrap()["MakerNote"];
+        assert!(stored.len() < 2000, "bloated EXIF should be truncated");
+        assert!(stored.contains("..."));
+        assert!(
+            !backup_of(&path).exists(),
+            "healing is not a compatibility failure"
+        );
+    }
+
+    #[test]
+    fn adjustments_may_be_null_for_an_unedited_image() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_sidecar(
+            dir.path(),
+            &json!({ "version": 1, "rating": 0, "adjustments": null }).to_string(),
+        );
+
+        let meta = load_sidecar(&path);
+
+        assert!(meta.adjustments.is_null());
+        assert!(!backup_of(&path).exists());
+    }
 }

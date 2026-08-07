@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "rating": 5,
+  "adjustments": {
+    "exposure": -0.2,
+    "highlights": -30,
+    "masks": [
+      {
+        "id": "5b1f8c34-2f8e-4a1d-9c77-1f0b9a6d3e21",
+        "name": "Sky",
+        "visible": true,
+        "invert": false,
+        "opacity": 100,
+        "adjustments": {
+          "exposure": -0.8,
+          "saturation": 15,
+          "colorNoiseReduction": -20
+        },
+        "subMasks": [
+          {
+            "id": "a7c3e910-77b2-4d55-8e0a-2c4f6b8d1a03",
+            "type": "linear",
+            "visible": true,
+            "invert": false,
+            "opacity": 100,
+            "mode": "additive",
+            "parameters": {
+              "startX": 0.5,
+              "startY": 0.1,
+              "endX": 0.5,
+              "endY": 0.45,
+              "range": 50
+            }
+          },
+          {
+            "id": "c2d4f681-3a9b-4e17-b5c8-6d0e2f4a7b91",
+            "type": "brush",
+            "visible": true,
+            "invert": false,
+            "opacity": 80,
+            "mode": "subtractive",
+            "parameters": {
+              "lines": [{ "points": [0.2, 0.3, 0.24, 0.33], "brushSize": 40, "feather": 50 }]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "tags": ["color:blue"]
+}
