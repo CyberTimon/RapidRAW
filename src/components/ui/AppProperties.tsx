@@ -364,8 +364,9 @@ export interface TransformState {
 }
 
 export interface UiVisibility {
-  folderTree: boolean;
   filmstrip: boolean;
+  leftPanel: boolean;
+  rightPanel: boolean;
 }
 
 export interface WaveformData {

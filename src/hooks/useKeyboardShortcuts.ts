@@ -368,6 +368,37 @@ export const useKeyboardShortcuts = ({
           s.ui.setPanel(Panel.Export);
         },
       },
+      toggle_left_panel: {
+        shouldFire: () => true,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          const isOpening = !s.ui.uiVisibility.leftPanel;
+          s.ui.setUI((state: any) => ({
+            uiVisibility: { ...state.uiVisibility, leftPanel: isOpening },
+            leftPanelWidth: isOpening && state.leftPanelWidth < 250 ? 350 : state.leftPanelWidth,
+          }));
+        },
+      },
+      toggle_right_panel: {
+        shouldFire: () => true,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          const isOpening = !s.ui.uiVisibility.rightPanel;
+          s.ui.setUI((state: any) => ({
+            uiVisibility: { ...state.uiVisibility, rightPanel: isOpening },
+            rightPanelWidth: isOpening && state.rightPanelWidth < 250 ? 350 : state.rightPanelWidth,
+          }));
+        },
+      },
+      toggle_bottom_panel: {
+        shouldFire: (s: any) => s.ui.activeView !== 'library',
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          s.ui.setUI((state: any) => ({
+            uiVisibility: { ...state.uiVisibility, filmstrip: !state.uiVisibility.filmstrip },
+          }));
+        },
+      },
       toggle_library_exif: {
         shouldFire: (s: any) => s.ui.activeView === 'library',
         execute: (e: any, s: any) => {

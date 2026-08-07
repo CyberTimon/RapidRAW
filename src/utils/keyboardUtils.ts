@@ -218,6 +218,24 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'panels',
   },
   {
+    action: 'toggle_left_panel',
+    description: 'settings.keybinds.actions.toggle_left_panel',
+    defaultCombo: ['ctrl', 'shift', 'KeyB'],
+    section: 'panels',
+  },
+  {
+    action: 'toggle_right_panel',
+    description: 'settings.keybinds.actions.toggle_right_panel',
+    defaultCombo: ['ctrl', 'KeyB'],
+    section: 'panels',
+  },
+  {
+    action: 'toggle_bottom_panel',
+    description: 'settings.keybinds.actions.toggle_bottom_panel',
+    defaultCombo: ['ctrl', 'KeyJ'],
+    section: 'panels',
+  },
+  {
     action: 'toggle_library_exif',
     description: 'settings.keybinds.actions.toggle_library_exif',
     defaultCombo: ['KeyT'],

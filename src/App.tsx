@@ -503,14 +503,26 @@ function App() {
 
       if (stateKey === 'left') {
         let w = startSize + (moveEvent.clientX - startX);
-        if (w < 200) w = 48;
-        else if (w > 600) w = 600;
-        setUI({ leftPanelWidth: Math.round(w) });
+        if (w < 200) {
+          setUI((state) => ({ uiVisibility: { ...state.uiVisibility, leftPanel: false } }));
+        } else {
+          w = Math.min(w, 600);
+          setUI((state) => ({
+            leftPanelWidth: Math.round(w),
+            uiVisibility: { ...state.uiVisibility, leftPanel: true },
+          }));
+        }
       } else if (stateKey === 'right') {
         let w = startSize - (moveEvent.clientX - startX);
-        if (w < 200) w = 48;
-        else if (w > 600) w = 600;
-        setUI({ rightPanelWidth: Math.round(w) });
+        if (w < 200) {
+          setUI((state) => ({ uiVisibility: { ...state.uiVisibility, rightPanel: false } }));
+        } else {
+          w = Math.min(w, 600);
+          setUI((state) => ({
+            rightPanelWidth: Math.round(w),
+            uiVisibility: { ...state.uiVisibility, rightPanel: true },
+          }));
+        }
       } else if (stateKey === 'bottom') {
         const newHeight = startSize - (moveEvent.clientY - startY);
         if (newHeight < 100) {
@@ -615,16 +627,12 @@ function App() {
           return (
             <FolderTree
               isResizing={isResizing}
-              isVisible={true}
               onContextMenu={handleFolderTreeContextMenu}
               onAlbumContextMenu={handleAlbumTreeContextMenu}
               onSelectAlbum={handleSelectAlbum}
               onFolderSelect={(path) => handleSelectSubfolder(path, false)}
               onToggleFolder={handleToggleFolder}
               onOpenFolder={handleOpenFolder}
-              setIsVisible={(value: boolean) =>
-                setUI((state) => ({ uiVisibility: { ...state.uiVisibility, folderTree: value } }))
-              }
               style={{ width: '100%', height: '100%' }}
               isInstantTransition={isInstantTransition}
             />
@@ -703,6 +711,8 @@ function App() {
     }
   };
   const ActiveOverlayIcon = activeLayoutDragItem ? PANEL_ICONS[activeLayoutDragItem] : null;
+  const effectiveLeftWidth = uiVisibility.leftPanel ? leftPanelWidth : 48;
+  const effectiveRightWidth = uiVisibility.rightPanel ? rightPanelWidth : 48;
 
   return (
     <>
@@ -744,11 +754,11 @@ function App() {
               {!shouldHideFolderTree && hasMainContent && (
                 <SidePanelArea
                   side="left"
-                  width={leftPanelWidth}
+                  width={effectiveLeftWidth}
                   topRegion="leftTop"
                   bottomRegion="leftBottom"
                   renderPanel={renderAppPanel}
-                  onWidthChange={createResizeHandler('left', leftPanelWidth)}
+                  onWidthChange={createResizeHandler('left', effectiveLeftWidth)}
                   isResizing={isResizing}
                 />
               )}
@@ -844,11 +854,11 @@ function App() {
               {!isAndroid && hasMainContent && (
                 <SidePanelArea
                   side="right"
-                  width={rightPanelWidth}
+                  width={effectiveRightWidth}
                   topRegion="rightTop"
                   bottomRegion="rightBottom"
                   renderPanel={renderAppPanel}
-                  onWidthChange={createResizeHandler('right', rightPanelWidth)}
+                  onWidthChange={createResizeHandler('right', effectiveRightWidth)}
                   isResizing={isResizing}
                 />
               )}
