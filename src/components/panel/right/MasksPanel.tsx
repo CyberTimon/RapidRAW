@@ -76,7 +76,7 @@ import {
   ADJUSTMENT_SECTIONS,
 } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
-import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
+import { OPTION_SEPARATOR, Orientation, Panel } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
 import { usePresets } from '../../../hooks/usePresets';
 import Text from '../../ui/Text';
@@ -251,7 +251,23 @@ export default function MasksPanel() {
   const { t } = useTranslation();
   const { setAdjustments } = useEditorActions();
   const { handleGenerateAiDepthMask, handleGenerateAiForegroundMask, handleGenerateAiSkyMask } = useAiMasking();
-  const setCustomEscapeHandler = useUIStore((s) => s.setCustomEscapeHandler);
+  const { setCustomEscapeHandler, isAdjustmentsPanelVisible } = useUIStore(
+    useShallow((state) => {
+      const leftVisible = state.uiVisibility.leftPanel;
+      const rightVisible = state.uiVisibility.rightPanel;
+
+      const isVisible =
+        (leftVisible && state.activePanels.leftTop === Panel.Adjustments) ||
+        (leftVisible && state.activePanels.leftBottom === Panel.Adjustments) ||
+        (rightVisible && state.activePanels.rightTop === Panel.Adjustments) ||
+        (rightVisible && state.activePanels.rightBottom === Panel.Adjustments);
+
+      return {
+        setCustomEscapeHandler: state.setCustomEscapeHandler,
+        isAdjustmentsPanelVisible: isVisible,
+      };
+    }),
+  );
   const { appSettings } = useSettingsStore(
     useShallow((state) => ({
       appSettings: state.appSettings,
@@ -969,10 +985,19 @@ export default function MasksPanel() {
             <button
               className={clsx(
                 'p-2 rounded-full transition-colors',
-                isWaveformVisible ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
+                isAdjustmentsPanelVisible
+                  ? 'opacity-50 cursor-not-allowed text-text-secondary'
+                  : isWaveformVisible
+                    ? 'bg-surface hover:bg-card-active'
+                    : 'hover:bg-surface',
               )}
               onClick={onToggleWaveform}
-              data-tooltip={t('editor.masks.toggleAnalyticsTooltip')}
+              disabled={isAdjustmentsPanelVisible}
+              data-tooltip={
+                isAdjustmentsPanelVisible
+                  ? t('editor.masks.toggleAnalyticsInAdjustments')
+                  : t('editor.masks.toggleAnalyticsTooltip')
+              }
             >
               <ChartArea size={18} />
             </button>
@@ -987,7 +1012,7 @@ export default function MasksPanel() {
         </div>
 
         <AnimatePresence initial={false}>
-          {isWaveformVisible && (
+          {isWaveformVisible && !isAdjustmentsPanelVisible && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: waveformHeight || 256, opacity: 1 }}

@@ -35,7 +35,7 @@ export function useImageProcessing(
   const setEditor = useEditorStore((state) => state.setEditor);
 
   const activeView = useUIStore((state) => state.activeView);
-  const activeRightPanel = useUIStore((state) => state.activeRightPanel);
+  const activePanel = useUIStore((state) => state.activePanel);
   const appSettings = useSettingsStore((state) => state.appSettings);
   const multiSelectedPaths = useLibraryStore((state) => state.multiSelectedPaths);
 
@@ -381,10 +381,10 @@ export function useImageProcessing(
   );
 
   useEffect(() => {
-    if (activeView === 'editor' && activeRightPanel === Panel.Crop && selectedImage?.isReady) {
+    if (activeView === 'editor' && activePanel === Panel.Crop && selectedImage?.isReady) {
       generateUncroppedPreview(adjustments);
     }
-  }, [activeView, adjustments, activeRightPanel, selectedImage?.isReady, generateUncroppedPreview]);
+  }, [activeView, adjustments, activePanel, selectedImage?.isReady, generateUncroppedPreview]);
 
   useEffect(() => {
     if (activeView === 'editor' && selectedImage?.isReady && displaySize.width > 0 && !isSliderDragging) {

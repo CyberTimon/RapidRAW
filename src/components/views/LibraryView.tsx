@@ -173,6 +173,7 @@ export default function LibraryView({
             isCopyDisabled={multiSelectedPaths.length !== 1}
             isExportDisabled={multiSelectedPaths.length === 0}
             isLibraryView={true}
+            isAndroid={isAndroid}
             isPasted={isPasted}
             isPasteDisabled={useEditorStore.getState().copiedAdjustments === null || multiSelectedPaths.length === 0}
             isRatingDisabled={multiSelectedPaths.length === 0}

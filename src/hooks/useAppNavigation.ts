@@ -262,7 +262,6 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         await invoke('cancel_thumbnail_generation');
         clearThumbnailQueue();
         setLibrary({ isViewLoading: true, activeAlbumId: null, libraryScrollTop: 0 });
-        useLibraryStore.getState().setSearchCriteria({ tags: [], text: '', mode: 'OR' });
         setProcess({ thumbnails: {} });
         globalImageCache.clear();
         setUI({ activeView: 'library' });
@@ -412,7 +411,6 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       if (!preserveEditor) {
         await invoke('cancel_thumbnail_generation');
         clearThumbnailQueue();
-        useLibraryStore.getState().setSearchCriteria({ tags: [], text: '', mode: 'OR' });
         setLibrary({ libraryScrollTop: 0 });
         globalImageCache.clear();
         setUI({ activeView: 'library' });

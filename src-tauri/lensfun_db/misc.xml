@@ -1849,6 +1849,9 @@
         <calibration>
             <!-- Taken with Panasonic DC-S5M2 -->
             <distortion model="ptlens" focal="18" a="0.0598779" b="-0.1336256" c="0.0579053"/>
+			<!-- Taken with Nikon Z6M2 -->
+            <vignetting model="pa" focal="18" aperture="5.6" distance="10" k1="-2.1036" k2="2.0044" k3="-0.7755"/>
+            <vignetting model="pa" focal="18" aperture="5.6" distance="1000" k1="-2.1036" k2="2.0044" k3="-0.7755"/>
         </calibration>
     </lens>
 
@@ -2845,4 +2848,37 @@
             <vignetting model="pa" focal="50" aperture="16" distance="1000" k1="-0.4257" k2="0.0740" k3="0.0221"/>
         </calibration>
     </lens>
+
+	<lens>
+        <maker>TTArtisan</maker>
+        <model>TTArtisan 50mm f/2</model>
+        <mount>Sony E</mount>
+        <mount>Fujifilm X</mount>
+        <mount>Canon RF</mount>
+        <mount>Nikon Z</mount>
+        <mount>Micro 4/3 System</mount>
+        <mount>Leica L</mount>
+        <mount>Canon RF</mount>
+        <cropfactor>1.0</cropfactor>
+        <calibration>
+            <!-- Taken with Sony Alpha 7 -->
+            <distortion model="ptlens" focal="50" a="-0.017" b="0.052" c="-0.025" />
+            <tca model="poly3" focal="50.0" vr="1.0000303" vb="0.9997727" />
+        </calibration>
+    </lens>
+
+	<lens>
+        <maker>Meike</maker>
+        <model>E 33mm F1.4 STM NEO</model>
+		<model lang="en">Meike E 33mm F1.4 STM NEO</model>
+        <mount>Sony E</mount>
+		<mount>Nikon Z</mount>
+		<mount>Fujifilm X</mount>
+        <cropfactor>1.534</cropfactor>
+        <calibration>
+            <!-- Taken with Sony ILCE-6400 -->
+            <distortion model="ptlens" focal="33" a="-0.00027" b="-0.00687" c="0.0015"/>
+        </calibration>
+    </lens>
+
 </lensdatabase>

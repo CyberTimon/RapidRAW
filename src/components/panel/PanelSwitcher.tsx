@@ -59,10 +59,10 @@ function PanelTab({ panel, region, side }: { panel: Panel; region: PanelRegion; 
   const handleClick = () => {
     setActivePanel(region, panel);
     if (side === 'left' && leftPanelWidth < 200) {
-      setUI({ leftPanelWidth: 320 });
+      setUI({ leftPanelWidth: 350 });
     }
     if (side === 'right' && rightPanelWidth < 200) {
-      setUI({ rightPanelWidth: 320 });
+      setUI({ rightPanelWidth: 350 });
     }
   };
 
@@ -233,6 +233,48 @@ export default function PanelSwitcher({
           <PanelTab key={id} panel={id} region={region} side={side} />
         ))}
       </LayoutGroup>
+    </div>
+  );
+}
+
+export function MobilePanelSwitcher({
+  activePanel,
+  onPanelSelect,
+}: {
+  activePanel: Panel | null;
+  onPanelSelect: (id: Panel) => void;
+}) {
+  const MOBILE_PANELS = [
+    Panel.Metadata,
+    Panel.Adjustments,
+    Panel.Crop,
+    Panel.Masks,
+    Panel.Ai,
+    Panel.Presets,
+    Panel.Export,
+  ];
+
+  return (
+    <div className="flex items-center gap-2 p-2 overflow-x-auto border-t border-surface shrink-0 custom-scrollbar">
+      {MOBILE_PANELS.map((id) => {
+        const Icon = PANEL_ICONS[id];
+        const isActive = activePanel === id;
+
+        return (
+          <button
+            key={id}
+            onClick={() => onPanelSelect(id)}
+            className={clsx(
+              'p-2 rounded-md shrink-0 transition-colors',
+              isActive
+                ? 'bg-surface text-text-primary'
+                : 'text-text-secondary hover:bg-surface hover:text-text-primary',
+            )}
+          >
+            <Icon size={20} />
+          </button>
+        );
+      })}
     </div>
   );
 }
