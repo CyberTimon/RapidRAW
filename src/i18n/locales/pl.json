@@ -452,6 +452,8 @@
         "wPlaceholder": "Szer.",
         "wTooltip": "Szerokość"
       },
+      "autoStraightenFailed": "Automatyczne prostowanie nie powiodło się",
+      "autoStraightenNoLines": "Nie znaleziono wyraźnych linii poziomych ani pionowych",
       "geometryHeading": "Geometria",
       "labels": {
         "flipHoriz": "Przerzuć w poziomie",
@@ -538,6 +540,7 @@
       "rotationHeading": "Obrót",
       "title": "Kadrowanie i Przekształcanie",
       "tooltips": {
+        "autoStraighten": "Wyprostuj automatycznie",
         "compositionOverlay": "Nakładka kompozycji",
         "flipHoriz": "Przerzuć obraz w poziomie",
         "flipVert": "Przerzuć obraz w pionie",

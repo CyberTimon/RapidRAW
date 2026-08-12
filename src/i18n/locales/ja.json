@@ -410,6 +410,8 @@
         "wPlaceholder": "W",
         "wTooltip": "幅"
       },
+      "autoStraightenFailed": "自動角度補正に失敗しました",
+      "autoStraightenNoLines": "明確な水平線または垂直線が見つかりませんでした",
       "geometryHeading": "ジオメトリ",
       "labels": {
         "flipHoriz": "水平反転",
@@ -496,6 +498,7 @@
       "rotationHeading": "回転",
       "title": "切り抜きと変形",
       "tooltips": {
+        "autoStraighten": "自動角度補正",
         "compositionOverlay": "構図ガイド",
         "flipHoriz": "画像を水平方向に反転",
         "flipVert": "画像を垂直方向に反転",

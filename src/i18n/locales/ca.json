@@ -412,6 +412,8 @@
         "wPlaceholder": "Am",
         "wTooltip": "Amplada"
       },
+      "autoStraightenFailed": "No s'ha pogut redreçar automàticament",
+      "autoStraightenNoLines": "No s'han trobat línies horitzontals o verticals clares",
       "geometryHeading": "Geometria",
       "labels": {
         "flipHoriz": "Capgirar horitz.",
@@ -498,6 +500,7 @@
       "rotationHeading": "Rotació",
       "title": "Retallar i transformar",
       "tooltips": {
+        "autoStraighten": "Redreça automàticament",
         "compositionOverlay": "Superposició de composició",
         "flipHoriz": "Capgirar la imatge horitzontalment",
         "flipVert": "Capgirar la imatge verticalment",

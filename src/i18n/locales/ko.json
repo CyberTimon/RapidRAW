@@ -410,6 +410,8 @@
         "wPlaceholder": "너비",
         "wTooltip": "너비"
       },
+      "autoStraightenFailed": "자동 수평 맞추기에 실패했습니다",
+      "autoStraightenNoLines": "뚜렷한 수평선이나 수직선을 찾지 못했습니다",
       "geometryHeading": "지오메트리",
       "labels": {
         "flipHoriz": "좌우 반전",
@@ -496,6 +498,7 @@
       "rotationHeading": "회전",
       "title": "자르기 및 변형",
       "tooltips": {
+        "autoStraighten": "자동 수평 맞추기",
         "compositionOverlay": "구도 오버레이",
         "flipHoriz": "이미지를 좌우로 반전",
         "flipVert": "이미지를 상하로 반전",

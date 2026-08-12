@@ -412,6 +412,8 @@
         "wPlaceholder": "B",
         "wTooltip": "Breite"
       },
+      "autoStraightenFailed": "Automatisches Ausrichten fehlgeschlagen",
+      "autoStraightenNoLines": "Keine klaren horizontalen oder vertikalen Linien gefunden",
       "geometryHeading": "Geometrie",
       "labels": {
         "flipHoriz": "Horiz. spiegeln",
@@ -498,6 +500,7 @@
       "rotationHeading": "Drehung",
       "title": "Zuschnitt & Form",
       "tooltips": {
+        "autoStraighten": "Automatisch ausrichten",
         "compositionOverlay": "Kompositions-Überlagerung",
         "flipHoriz": "Bild horizontal spiegeln",
         "flipVert": "Bild vertikal spiegeln",

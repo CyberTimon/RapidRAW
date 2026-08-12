@@ -410,6 +410,8 @@
         "wPlaceholder": "宽",
         "wTooltip": "宽度"
       },
+      "autoStraightenFailed": "自动拉直失败",
+      "autoStraightenNoLines": "未找到清晰的水平线或垂直线",
       "geometryHeading": "几何",
       "labels": {
         "flipHoriz": "水平翻转",
@@ -496,6 +498,7 @@
       "rotationHeading": "旋转",
       "title": "裁剪与变换",
       "tooltips": {
+        "autoStraighten": "自动拉直",
         "compositionOverlay": "构图叠加",
         "flipHoriz": "水平翻转图像",
         "flipVert": "垂直翻转图像",

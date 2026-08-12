@@ -36,6 +36,7 @@ export enum Invokes {
   ApplyAutoAdjustmentsToPaths = 'apply_auto_adjustments_to_paths',
   ApplyDenoising = 'apply_denoising',
   CalculateAutoAdjustments = 'calculate_auto_adjustments',
+  CalculateAutoStraighten = 'calculate_auto_straighten',
   CancelExport = 'cancel_export',
   CheckAIConnectorStatus = 'check_ai_connector_status',
   ClearAllSidecars = 'clear_all_sidecars',

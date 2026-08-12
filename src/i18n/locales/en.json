@@ -412,6 +412,8 @@
         "wPlaceholder": "W",
         "wTooltip": "Width"
       },
+      "autoStraightenFailed": "Auto straighten failed",
+      "autoStraightenNoLines": "No clear horizontal or vertical lines found",
       "geometryHeading": "Geometry",
       "labels": {
         "flipHoriz": "Flip Horiz",
@@ -498,6 +500,7 @@
       "rotationHeading": "Rotation",
       "title": "Crop & Transform",
       "tooltips": {
+        "autoStraighten": "Auto straighten",
         "compositionOverlay": "Composition Overlay",
         "flipHoriz": "Flip image horizontally",
         "flipVert": "Flip image vertically",

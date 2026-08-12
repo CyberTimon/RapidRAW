@@ -432,6 +432,8 @@
         "wPlaceholder": "An",
         "wTooltip": "Anchura"
       },
+      "autoStraightenFailed": "No se pudo enderezar automáticamente",
+      "autoStraightenNoLines": "No se encontraron líneas horizontales o verticales claras",
       "geometryHeading": "Geometría",
       "labels": {
         "flipHoriz": "Voltear Horiz",
@@ -518,6 +520,7 @@
       "rotationHeading": "Rotación",
       "title": "Recortar y transformar",
       "tooltips": {
+        "autoStraighten": "Enderezar automáticamente",
         "compositionOverlay": "Superposición de composición",
         "flipHoriz": "Voltear imagen horizontalmente",
         "flipVert": "Voltear imagen verticalmente",

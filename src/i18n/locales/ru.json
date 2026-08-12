@@ -452,6 +452,8 @@
         "wPlaceholder": "Ш",
         "wTooltip": "Ширина"
       },
+      "autoStraightenFailed": "Не удалось выполнить автовыравнивание",
+      "autoStraightenNoLines": "Чёткие горизонтальные или вертикальные линии не найдены",
       "geometryHeading": "Геометрия",
       "labels": {
         "flipHoriz": "Отразить по гориз.",
@@ -538,6 +540,7 @@
       "rotationHeading": "Вращение",
       "title": "Обрезка и трансформация",
       "tooltips": {
+        "autoStraighten": "Автовыравнивание",
         "compositionOverlay": "Сетка композиции",
         "flipHoriz": "Отразить горизонтально",
         "flipVert": "Отразить вертикально",

@@ -1,8 +1,10 @@
 use crate::gpu_processing::WgpuDisplay;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat3, Vec2, Vec3};
-use image::{DynamicImage, GenericImageView, Rgb32FImage, Rgba};
+use image::{DynamicImage, GenericImageView, GrayImage, Rgb32FImage, Rgba};
+use imageproc::edges::canny;
 use imageproc::geometric_transformations::{Border, Interpolation, rotate_about_center};
+use imageproc::hough::{LineDetectionOptions, detect_lines};
 use nalgebra::{Matrix3 as NaMatrix3, Vector3 as NaVector3};
 use rawler::decoders::Orientation;
 use rayon::prelude::*;
@@ -3411,6 +3413,179 @@ pub fn auto_results_to_json(results: &AutoAdjustmentResults) -> serde_json::Valu
     })
 }
 
+#[derive(Clone, Copy)]
+struct StraightenCandidate {
+    correction: f32,
+    support: f32,
+}
+
+fn axis_offset(angle: f32) -> f32 {
+    (angle + 45.0).rem_euclid(90.0) - 45.0
+}
+
+fn line_candidate(
+    edges: &GrayImage,
+    angle_degrees: f32,
+    radius: f32,
+) -> Option<StraightenCandidate> {
+    let width = edges.width() as f32;
+    let height = edges.height() as f32;
+    let margin = (width.min(height) * 0.03).max(3.0);
+    let theta = angle_degrees.to_radians();
+    let normal = (theta.cos(), theta.sin());
+    let direction = (-normal.1, normal.0);
+    let origin = (normal.0 * radius, normal.1 * radius);
+    let distance = width.hypot(height);
+    let mut points = Vec::new();
+    let mut previous = (-1, -1);
+    let steps = (distance * 2.0).ceil() as i32;
+
+    for step in 0..=steps {
+        let t = step as f32 - distance;
+        let x = origin.0 + direction.0 * t;
+        let y = origin.1 + direction.1 * t;
+        if x < margin || y < margin || x >= width - margin || y >= height - margin {
+            continue;
+        }
+
+        let mut edge_point = None;
+        for offset in -2..=2 {
+            let sample_x = (x + normal.0 * offset as f32).round() as i32;
+            let sample_y = (y + normal.1 * offset as f32).round() as i32;
+            if sample_x >= 0
+                && sample_y >= 0
+                && sample_x < edges.width() as i32
+                && sample_y < edges.height() as i32
+                && edges.get_pixel(sample_x as u32, sample_y as u32)[0] > 0
+            {
+                edge_point = Some((sample_x, sample_y));
+                break;
+            }
+        }
+
+        if let Some(point) = edge_point
+            && point != previous
+        {
+            points.push((point.0 as f32, point.1 as f32));
+            previous = point;
+        }
+    }
+
+    let min_support = (width.min(height) * 0.1).max(24.0) as usize;
+    if points.len() < min_support {
+        return None;
+    }
+
+    let count = points.len() as f32;
+    let mean_x = points.iter().map(|point| point.0).sum::<f32>() / count;
+    let mean_y = points.iter().map(|point| point.1).sum::<f32>() / count;
+    let (xx, xy, yy) = points.iter().fold((0.0, 0.0, 0.0), |acc, point| {
+        let x = point.0 - mean_x;
+        let y = point.1 - mean_y;
+        (acc.0 + x * x, acc.1 + x * y, acc.2 + y * y)
+    });
+    let line_angle = 0.5 * (2.0 * xy).atan2(xx - yy).to_degrees();
+    let correction = -axis_offset(line_angle);
+
+    (correction.abs() <= 20.0).then_some(StraightenCandidate {
+        correction,
+        support: count,
+    })
+}
+
+fn detect_auto_straighten_angle(image: &DynamicImage) -> Option<f32> {
+    let gray = image.thumbnail(1280, 1280).to_luma8();
+    let min_dimension = gray.width().min(gray.height());
+    if min_dimension < 80 {
+        return None;
+    }
+
+    let edges = canny(&gray, 30.0, 90.0);
+    let lines = detect_lines(
+        &edges,
+        LineDetectionOptions {
+            vote_threshold: ((min_dimension as f32 * 0.12).round() as u32).max(20),
+            suppression_radius: 8,
+        },
+    );
+    let candidates: Vec<_> = lines
+        .iter()
+        .filter_map(|line| line_candidate(&edges, line.angle_in_degrees as f32, line.r))
+        .collect();
+
+    let best = candidates.iter().max_by(|left, right| {
+        let left_weight: f32 = candidates
+            .iter()
+            .filter(|candidate| (candidate.correction - left.correction).abs() <= 1.5)
+            .map(|candidate| candidate.support)
+            .sum();
+        let right_weight: f32 = candidates
+            .iter()
+            .filter(|candidate| (candidate.correction - right.correction).abs() <= 1.5)
+            .map(|candidate| candidate.support)
+            .sum();
+        left_weight.total_cmp(&right_weight)
+    })?;
+
+    let cluster: Vec<_> = candidates
+        .iter()
+        .filter(|candidate| (candidate.correction - best.correction).abs() <= 1.5)
+        .collect();
+    let cluster_weight: f32 = cluster.iter().map(|candidate| candidate.support).sum();
+    let competing_weight = candidates
+        .iter()
+        .filter(|candidate| (candidate.correction - best.correction).abs() > 3.0)
+        .map(|candidate| {
+            candidates
+                .iter()
+                .filter(|other| (other.correction - candidate.correction).abs() <= 1.5)
+                .map(|other| other.support)
+                .sum::<f32>()
+        })
+        .fold(0.0, f32::max);
+
+    if competing_weight > cluster_weight * 0.8 {
+        return None;
+    }
+
+    let correction = cluster
+        .iter()
+        .map(|candidate| candidate.correction * candidate.support)
+        .sum::<f32>()
+        / cluster_weight;
+    Some(if correction.abs() < 0.05 {
+        0.0
+    } else {
+        correction
+    })
+}
+
+#[tauri::command]
+pub fn calculate_auto_straighten(
+    js_adjustments: serde_json::Value,
+    state: tauri::State<AppState>,
+) -> Result<Option<f32>, String> {
+    let original_image = state
+        .original_image
+        .lock()
+        .unwrap()
+        .as_ref()
+        .ok_or("No image loaded for auto straighten")?
+        .image
+        .clone();
+    let preview = original_image.thumbnail(1280, 1280);
+    let warped = apply_geometry_warp(Cow::Owned(preview), &js_adjustments);
+    let orientation_steps = js_adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
+    let oriented = apply_coarse_rotation(warped, orientation_steps);
+    let flipped = apply_flip(
+        oriented,
+        js_adjustments["flipHorizontal"].as_bool().unwrap_or(false),
+        js_adjustments["flipVertical"].as_bool().unwrap_or(false),
+    );
+
+    Ok(detect_auto_straighten_angle(flipped.as_ref()))
+}
+
 #[tauri::command]
 pub fn calculate_auto_adjustments(
     state: tauri::State<AppState>,
@@ -3427,4 +3602,46 @@ pub fn calculate_auto_adjustments(
     let results = perform_auto_analysis(&original_image);
 
     Ok(auto_results_to_json(&results))
+}
+
+#[cfg(test)]
+mod auto_straighten_tests {
+    use super::*;
+    use image::{GrayImage, Luma};
+    use imageproc::drawing::draw_line_segment_mut;
+
+    #[test]
+    fn detects_tilted_horizontal_lines() {
+        let mut image = GrayImage::from_pixel(800, 600, Luma([24]));
+        let slope = (-4.0f32).to_radians().tan();
+        for y in [150.0, 300.0, 450.0] {
+            draw_line_segment_mut(
+                &mut image,
+                (40.0, y),
+                (760.0, y + 720.0 * slope),
+                Luma([235]),
+            );
+        }
+
+        let correction = detect_auto_straighten_angle(&DynamicImage::ImageLuma8(image)).unwrap();
+        assert!((correction - 4.0).abs() < 0.7, "detected {correction}");
+    }
+
+    #[test]
+    fn detects_tilted_vertical_lines() {
+        let mut image = GrayImage::from_pixel(800, 600, Luma([24]));
+        let offset = (3.0f32).to_radians().tan() * 520.0;
+        for x in [180.0, 400.0, 620.0] {
+            draw_line_segment_mut(&mut image, (x, 40.0), (x + offset, 560.0), Luma([235]));
+        }
+
+        let correction = detect_auto_straighten_angle(&DynamicImage::ImageLuma8(image)).unwrap();
+        assert!((correction - 3.0).abs() < 0.7, "detected {correction}");
+    }
+
+    #[test]
+    fn ignores_images_without_clear_lines() {
+        let image = DynamicImage::ImageLuma8(GrayImage::from_pixel(800, 600, Luma([128])));
+        assert!(detect_auto_straighten_angle(&image).is_none());
+    }
 }

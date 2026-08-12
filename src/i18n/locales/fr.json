@@ -432,6 +432,8 @@
         "wPlaceholder": "L",
         "wTooltip": "Largeur"
       },
+      "autoStraightenFailed": "Échec du redressement automatique",
+      "autoStraightenNoLines": "Aucune ligne horizontale ou verticale nette trouvée",
       "geometryHeading": "Géométrie",
       "labels": {
         "flipHoriz": "Miroir Horiz",
@@ -518,6 +520,7 @@
       "rotationHeading": "Rotation",
       "title": "Recadrage & Transformation",
       "tooltips": {
+        "autoStraighten": "Redresser automatiquement",
         "compositionOverlay": "Superposition de composition",
         "flipHoriz": "Retourner l'image horizontalement",
         "flipVert": "Retourner l'image verticalement",

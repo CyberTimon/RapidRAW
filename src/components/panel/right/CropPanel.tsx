@@ -4,15 +4,19 @@ import {
   FlipHorizontal,
   FlipVertical,
   Grid3x3,
+  Loader2,
   RectangleHorizontal,
   RectangleVertical,
   RotateCcw,
   RotateCw,
   Ruler,
   Scan,
+  Wand2,
   X,
 } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'react-toastify';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import clsx from 'clsx';
 import { Orientation } from '../../ui/AppProperties';
@@ -26,6 +30,7 @@ import { useEditorStore } from '../../../store/useEditorStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { calculateAreaPreservingCrop, calculateCenteredCrop } from '../../../utils/cropUtils';
 import { Crop } from 'react-image-crop';
+import { Invokes } from '../../ui/AppProperties';
 
 const BASE_RATIO = 1.618;
 const ORIGINAL_RATIO = 0;
@@ -58,6 +63,7 @@ export default function CropPanel() {
   const [isTransformModalOpen, setIsTransformModalOpen] = useState(false);
   const [isLensModalOpen, setIsLensModalOpen] = useState(false);
   const [isRotationActive, setIsRotationActive] = useState(false);
+  const [isAutoStraightening, setIsAutoStraightening] = useState(false);
   const [preferPortrait, setPreferPortrait] = useState(false);
   const [isEditingCustom, setIsEditingCustom] = useState(false);
 
@@ -434,6 +440,33 @@ export default function CropPanel() {
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, rotation: 0 }));
   };
 
+  const handleAutoStraighten = async () => {
+    if (isAutoStraightening) return;
+
+    setIsAutoStraightening(true);
+    try {
+      const detectedRotation = await invoke<number | null>(Invokes.CalculateAutoStraighten, {
+        jsAdjustments: adjustments,
+      });
+      if (detectedRotation === null) {
+        toast.info(t('editor.crop.autoStraightenNoLines'));
+        return;
+      }
+
+      updateLocalRotation(null);
+      setEditor({ isStraightenActive: false });
+      setAdjustments((prev: Adjustments) => ({
+        ...prev,
+        rotation: Math.round(detectedRotation * 10) / 10,
+      }));
+    } catch (err) {
+      console.error('Auto straighten failed:', err);
+      toast.error(t('editor.crop.autoStraightenFailed'));
+    } finally {
+      setIsAutoStraightening(false);
+    }
+  };
+
   const handleOverlayCycle = () => {
     const currentIndex = OVERLAYS.findIndex((o) => o.id === activeOverlay);
     const nextIndex = (currentIndex + 1) % OVERLAYS.length;
@@ -622,6 +655,14 @@ export default function CropPanel() {
                         data-tooltip={t('editor.crop.tooltips.straighten')}
                       >
                         <Ruler size={14} />
+                      </button>
+                      <button
+                        className="p-1.5 rounded-md text-text-secondary transition-colors hover:bg-card-active hover:text-text-primary disabled:opacity-50 disabled:cursor-wait"
+                        onClick={handleAutoStraighten}
+                        data-tooltip={t('editor.crop.tooltips.autoStraighten')}
+                        disabled={isAutoStraightening}
+                      >
+                        {isAutoStraightening ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
                       </button>
                       <button
                         className="p-1.5 rounded-md text-text-secondary transition-colors cursor-pointer hover:bg-card-active hover:text-text-primary"

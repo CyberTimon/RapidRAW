@@ -432,6 +432,8 @@
         "wPlaceholder": "L",
         "wTooltip": "Larghezza"
       },
+      "autoStraightenFailed": "Raddrizzamento automatico non riuscito",
+      "autoStraightenNoLines": "Nessuna linea orizzontale o verticale chiara trovata",
       "geometryHeading": "Geometria",
       "labels": {
         "flipHoriz": "Rifletti Orizz.",
@@ -518,6 +520,7 @@
       "rotationHeading": "Rotazione",
       "title": "Ritaglio e Trasformazione",
       "tooltips": {
+        "autoStraighten": "Raddrizza automaticamente",
         "compositionOverlay": "Sovrapposizione Composizione",
         "flipHoriz": "Rifletti immagine orizzontalmente",
         "flipVert": "Rifletti immagine verticalmente",

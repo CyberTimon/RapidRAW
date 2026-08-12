@@ -432,6 +432,8 @@
         "wPlaceholder": "L",
         "wTooltip": "Largura"
       },
+      "autoStraightenFailed": "Falha ao endireitar automaticamente",
+      "autoStraightenNoLines": "Nenhuma linha horizontal ou vertical nítida foi encontrada",
       "geometryHeading": "Geometria",
       "labels": {
         "flipHoriz": "Inverter Horiz.",
@@ -518,6 +520,7 @@
       "rotationHeading": "Rotação",
       "title": "Cortar e Transformar",
       "tooltips": {
+        "autoStraighten": "Endireitar automaticamente",
         "compositionOverlay": "Sobreposição de Composição",
         "flipHoriz": "Inverter imagem horizontalmente",
         "flipVert": "Inverter imagem verticalmente",
