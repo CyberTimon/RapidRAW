@@ -187,7 +187,7 @@
     <camera>
         <maker>Sony</maker>
         <model>ILCE-7RM4A</model>
-        <model lang="en">Alpha 7R IV A</model>
+        <model lang="en">Alpha 7R IVA</model>
         <mount>Sony E</mount>
         <cropfactor>1</cropfactor>
     </camera>
@@ -272,6 +272,14 @@
         <cropfactor>1.534</cropfactor>
     </camera>
 
+	<camera>
+        <maker>Sony</maker>
+        <model>ILCE-6100A</model>
+        <model lang="en">Alpha 6100A</model>
+        <mount>Sony E</mount>
+        <cropfactor>1.534</cropfactor>
+    </camera>
+
     <camera>
         <maker>Sony</maker>
         <model>ILCE-6300</model>
@@ -284,6 +292,14 @@
         <maker>Sony</maker>
         <model>ILCE-6400</model>
         <model lang="en">Alpha 6400</model>
+        <mount>Sony E</mount>
+        <cropfactor>1.534</cropfactor>
+    </camera>
+
+	<camera>
+        <maker>Sony</maker>
+        <model>ILCE-6400A</model>
+        <model lang="en">Alpha 6400A</model>
         <mount>Sony E</mount>
         <cropfactor>1.534</cropfactor>
     </camera>
@@ -3192,6 +3208,18 @@
         <calibration>
             <distortion model="ptlens" focal="16" a="0.0269355" b="-0.0835928" c="-0.0009985"/>
             <tca model="poly3" focal="16" vr="1.0000590" vb="1.0000404"/>
+        </calibration>
+    </lens>
+
+	<lens>
+        <maker>Sony</maker>
+        <model>E 15mm F1.4 G</model>
+        <mount>Sony E</mount>
+        <cropfactor>1.534</cropfactor>
+        <calibration>
+            <!-- Taken with Sony ILCE-6700 -->
+            <distortion model="ptlens" focal="15" a="-0.0069089" b="-0.0026383" c="-0.055656"/>
+            <tca model="poly3" focal="15" vr="1.0003160" vb="1.0000452"/>
         </calibration>
     </lens>
 

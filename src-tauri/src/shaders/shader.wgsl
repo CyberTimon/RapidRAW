@@ -779,6 +779,154 @@ fn apply_local_contrast(
     return mix(processed_color_linear, final_color, midtone_mask);
 }
 
+fn sharpen_perc(c: vec3<f32>, is_raw: u32) -> f32 {
+    let y = max(get_luma(c), 0.0);
+    if (is_raw == 1u) { return sqrt(y); }
+    return y;
+}
+
+fn sharpen_tap(coords: vec2<i32>, max_idx: vec2<i32>, is_raw: u32) -> f32 {
+    let c = clamp(coords, vec2<i32>(0), max_idx);
+    return sharpen_perc(textureLoad(input_texture, vec2<u32>(c), 0).rgb, is_raw);
+}
+
+fn sharpen_tap_bilinear(p: vec2<f32>, max_idx: vec2<i32>, is_raw: u32) -> f32 {
+    let fl = floor(p);
+    let w = p - fl;
+    let b = vec2<i32>(fl);
+    let s00 = sharpen_tap(b, max_idx, is_raw);
+    let s10 = sharpen_tap(b + vec2<i32>(1, 0), max_idx, is_raw);
+    let s01 = sharpen_tap(b + vec2<i32>(0, 1), max_idx, is_raw);
+    let s11 = sharpen_tap(b + vec2<i32>(1, 1), max_idx, is_raw);
+    return mix(mix(s00, s10, w.x), mix(s01, s11, w.x), w.y);
+}
+
+fn sharpen_soft_limit(v: f32, lo: f32, hi: f32, margin: f32) -> f32 {
+    let m = max(margin, 1e-5);
+    if (v > hi) {
+        let e = v - hi;
+        return hi + e / (1.0 + e / m);
+    }
+    if (v < lo) {
+        let e = lo - v;
+        return lo - e / (1.0 + e / m);
+    }
+    return v;
+}
+
+fn apply_sharpen(
+    color: vec3<f32>,
+    b1_in: vec3<f32>,
+    b2_in: vec3<f32>,
+    coords_i: vec2<i32>,
+    amount: f32,
+    threshold: f32,
+    is_raw: u32
+) -> vec3<f32> {
+    if (abs(amount) < 0.0005) {
+        return color;
+    }
+
+    if (amount < 0.0) {
+        var b1_lin = b1_in;
+        if (is_raw == 0u) { b1_lin = srgb_to_linear(b1_in); }
+        return mix(color, b1_lin, clamp(-amount * 0.5, 0.0, 1.0));
+    }
+
+    var color_enc = color;
+    if (is_raw == 0u) {
+        color_enc = linear_to_srgb_extended(color);
+    }
+    let l = select(get_luma(color_enc), sqrt(max(get_luma(color), 0.0)), is_raw == 1u);
+    let l1 = sharpen_perc(b1_in, is_raw);
+    let l2 = sharpen_perc(b2_in, is_raw);
+
+    let d0 = l  - l1;
+    let d1 = l1 - l2;
+
+    let t = max(threshold * 0.15, 1e-4);
+    let g0 = smoothstep(t * 0.20, t * 0.85, abs(d0));
+    let g1 = smoothstep(t * 0.12, t * 0.55, abs(d1));
+
+    let boost = (d0 * 1.20 * g0
+               + d1 * 0.70 * g1) * amount;
+
+    let dims = vec2<i32>(textureDimensions(input_texture));
+    let max_idx = dims - vec2<i32>(1);
+    let kw = array<f32, 5>(0.01853, -0.21023, 1.38348, -0.21023, 0.01853);
+
+    var acc = 0.0;
+    var center_tap = 0.0;
+    var lo = 1.0e9;
+    var hi = -1.0e9;
+    var gx = 0.0;
+    var gy = 0.0;
+
+    for (var iy = 0; iy < 5; iy = iy + 1) {
+        let oy = iy - 2;
+        let ky = kw[iy];
+        let cy = clamp(coords_i.y + oy, 0, max_idx.y);
+        for (var ix = 0; ix < 5; ix = ix + 1) {
+            let ox = ix - 2;
+            let cx = clamp(coords_i.x + ox, 0, max_idx.x);
+            let sl = sharpen_perc(textureLoad(input_texture, vec2<u32>(vec2<i32>(cx, cy)), 0).rgb, is_raw);
+
+            acc += sl * kw[ix] * ky;
+            lo = min(lo, sl);
+            hi = max(hi, sl);
+
+            if (ox == 0 && oy == 0) { center_tap = sl; }
+
+            if (abs(ox) <= 1 && abs(oy) <= 1) {
+                gx += sl * f32(ox) * (2.0 - abs(f32(oy)));
+                gy += sl * f32(oy) * (2.0 - abs(f32(ox)));
+            }
+        }
+    }
+
+    let deconv_delta = (acc - center_tap) * clamp(amount * 0.60, 0.0, 1.0);
+
+    var l_new = l + boost + deconv_delta;
+
+    let range = max(hi - lo, 1e-5);
+    l_new = sharpen_soft_limit(
+        l_new,
+        lo - range * 0.06,
+        hi + range * 0.10,
+        range * 0.12
+    );
+
+    let g2 = gx * gx + gy * gy;
+    if (g2 > 1e-6) {
+        let diagonality = clamp(2.0 * abs(gx * gy) / g2, 0.0, 1.0);
+        let edge_present = smoothstep(t * 0.5, t * 2.5, sqrt(g2) * 0.25);
+        let aa = 0.90 * diagonality * edge_present;
+
+        if (aa > 0.002) {
+            let inv_g = inverseSqrt(g2);
+            let tang = vec2<f32>(-gy, gx) * inv_g * 1.30;
+            let p = vec2<f32>(coords_i) + vec2<f32>(0.5);
+
+            let tp = sharpen_tap_bilinear(p + tang - vec2<f32>(0.5), max_idx, is_raw);
+            let tn = sharpen_tap_bilinear(p - tang - vec2<f32>(0.5), max_idx, is_raw);
+            let l_tan = (tp + tn + l * 2.0) * 0.25;
+
+            let l_aa = l_tan + (l_new - l);
+            l_new = mix(l_new, l_aa, aa);
+        }
+    }
+
+    let shadow_floor = select(0.03, 0.10, is_raw == 1u);
+    let prot = smoothstep(0.0, shadow_floor, l) * (1.0 - smoothstep(0.92, 1.0, l));
+    l_new = max(mix(l, l_new, prot), 0.0);
+
+    let ratio = l_new / max(l, 1e-4);
+    if (is_raw == 1u) {
+        return color * (ratio * ratio);
+    }
+    return srgb_to_linear(max(color_enc * ratio, vec3<f32>(0.0)));
+}
+
 fn apply_centre_local_contrast(
     color_in: vec3<f32>,
     centre_amount: f32,
@@ -1500,6 +1648,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var t_halation = adjustments.global.halation_amount;
     var t_flare = adjustments.global.flare_amount;
     var t_sharpness = adjustments.global.sharpness;
+    var t_sharp_thresh = adjustments.global.sharpness_threshold;
     var t_hue = adjustments.global.hue;
 
     var h0_h = adjustments.global.hsl[0].hue; var h0_s = adjustments.global.hsl[0].saturation; var h0_l = adjustments.global.hsl[0].luminance;
@@ -1539,6 +1688,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             t_halation += m.halation_amount * influence;
             t_flare += m.flare_amount * influence;
             t_hue += m.hue * influence;
+            t_sharpness += m.sharpness * influence;
 
             h0_h += m.hsl[0].hue * influence; h0_s += m.hsl[0].saturation * influence; h0_l += m.hsl[0].luminance * influence;
             h1_h += m.hsl[1].hue * influence; h1_s += m.hsl[1].saturation * influence; h1_l += m.hsl[1].luminance * influence;
@@ -1570,26 +1720,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     var locally_contrasted_rgb = initial_linear_rgb;
 
-    locally_contrasted_rgb = apply_local_contrast(
-        locally_contrasted_rgb, sharpness_blurred,
-        t_sharpness, is_raw, 0u, adjustments.global.sharpness_threshold
+    locally_contrasted_rgb = apply_sharpen(
+        locally_contrasted_rgb,
+        sharpness_blurred, tonal_blurred,
+        absolute_coord_i, t_sharpness, t_sharp_thresh, is_raw
     );
-
-    var sharpness_delta = vec3<f32>(0.0);
-    for (var i = 0u; i < adjustments.mask_count; i = i + 1u) {
-        let influence = get_mask_influence(i, absolute_coord);
-        if (influence > 0.001) {
-            let m = adjustments.mask_adjustments[i];
-            if (abs(m.sharpness) > 0.001) {
-                let local_sharp_result = apply_local_contrast(
-                    initial_linear_rgb, sharpness_blurred,
-                    m.sharpness, is_raw, 0u, m.sharpness_threshold
-                );
-                sharpness_delta += (local_sharp_result - initial_linear_rgb) * influence;
-            }
-        }
-    }
-    locally_contrasted_rgb += sharpness_delta;
 
     locally_contrasted_rgb = apply_local_contrast(locally_contrasted_rgb, clarity_blurred, t_clarity, is_raw, 1u, 0.0);
     locally_contrasted_rgb = apply_local_contrast(locally_contrasted_rgb, structure_blurred, t_structure, is_raw, 1u, 0.0);

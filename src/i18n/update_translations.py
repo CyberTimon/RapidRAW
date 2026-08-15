@@ -4,111 +4,94 @@ from pathlib import Path
 LOCALES_DIR = Path("./locales")
 
 TRANSLATIONS = {
+    "ca": {
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "Commutar l'anàlisi al panell d'ajustos"
+            }
+        }
+    },
     "de": {
-        "settings": {
-            "keybinds": {
-                "actions": {
-                    "toggle_folder_tree": "Ordnerstruktur-Panel ein-/ausblenden"
-                }
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "Analyseanzeige im Anpassungen-Panel umschalten"
             }
         }
     },
     "en": {
-        "settings": {
-            "keybinds": {
-                "actions": {
-                    "toggle_folder_tree": "Toggle Folder Tree panel"
-                }
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "Toggle analytics in Adjustments panel"
             }
         }
     },
     "es": {
-        "settings": {
-            "keybinds": {
-                "actions": {
-                    "toggle_folder_tree": "Alternar panel de árbol de carpetas"
-                }
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "Alternar análisis en el panel de Ajustes"
             }
         }
     },
     "fr": {
-        "settings": {
-            "keybinds": {
-                "actions": {
-                    "toggle_folder_tree": "Afficher/Masquer le panneau d'arborescence des dossiers"
-                }
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "Afficher/Masquer l'analyse dans le panneau Réglages"
             }
         }
     },
     "it": {
-        "settings": {
-            "keybinds": {
-                "actions": {
-                    "toggle_folder_tree": "Mostra/Nascondi pannello albero delle cartelle"
-                }
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "Mostra/Nascondi analisi nel pannello Regolazioni"
             }
         }
     },
     "ja": {
-        "settings": {
-            "keybinds": {
-                "actions": {
-                    "toggle_folder_tree": "フォルダーツリーパネルの切り替え"
-                }
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "調整パネルでアナリティクスを切り替える"
             }
         }
     },
     "ko": {
-        "settings": {
-            "keybinds": {
-                "actions": {
-                    "toggle_folder_tree": "폴더 트리 패널 토글"
-                }
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "조정 패널에서 분석 토글"
             }
         }
     },
     "pl": {
-        "settings": {
-            "keybinds": {
-                "actions": {
-                    "toggle_folder_tree": "Przełącz panel drzewa folderów"
-                }
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "Przełącz analizę w panelu Dopasowania"
             }
         }
     },
     "pt": {
-        "settings": {
-            "keybinds": {
-                "actions": {
-                    "toggle_folder_tree": "Alternar painel da árvore de pastas"
-                }
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "Alternar análise no painel de Ajustes"
             }
         }
     },
     "ru": {
-        "settings": {
-            "keybinds": {
-                "actions": {
-                    "toggle_folder_tree": "Показать/скрыть панель дерева папок"
-                }
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "Переключить аналитику на панели «Коррекция»"
             }
         }
     },
     "zh-CN": {
-        "settings": {
-            "keybinds": {
-                "actions": {
-                    "toggle_folder_tree": "切换文件夹树面板"
-                }
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "在调整面板中切换分析"
             }
         }
     },
     "zh-TW": {
-        "settings": {
-            "keybinds": {
-                "actions": {
-                    "toggle_folder_tree": "切換資料夾樹面板"
-                }
+        "editor": {
+            "masks": {
+                "toggleAnalyticsInAdjustments": "在調整面板中切換分析"
             }
         }
     }
@@ -157,7 +140,7 @@ def main():
         print(f"Error: Locales directory '{LOCALES_DIR}' does not exist.")
         return
 
-    print("Starting Folder Tree keybind translation updates...")
+    print("Starting Analytics translation updates...")
     for lang, trans in TRANSLATIONS.items():
         file_path = LOCALES_DIR / f"{lang}.json"
         update_json_file(file_path, trans)

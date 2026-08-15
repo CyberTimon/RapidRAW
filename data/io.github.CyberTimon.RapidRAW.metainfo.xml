@@ -38,6 +38,23 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.6.1" date="2026-08-07">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.1</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Fully Customizable Workspace: Drag-and-drop panel switcher to reorder panels and build custom split-view layouts.</li>
+                <li>Unified Library &amp; Edit Views: Access editing tools and adjustment panels directly within the library grid without switching views.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Export Stability &amp; Memory Optimization: Reduced VRAM consumption during exports to prevent out-of-memory crashes on lower-end systems.</li>
+                <li>Display Color Accuracy: Resolved subtle color shift issues on P3 wide-gamut displays (especially Apple Displays).</li>
+                <li>Image-Based LUTs &amp; Batch Presets: Added support for image-based LUT formats (.png, .jpg, .tiff) and batch-importing multiple presets simultaneously.</li>
+                <li>WGPU &amp; Workflow Upgrades: Enabled White Balance picker on the WGPU renderer, added Cmd/Ctrl+L shortcut to copy file paths, and added Catalan language support.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.6.0" date="2026-07-26">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.0</url>
         <description translate="no">

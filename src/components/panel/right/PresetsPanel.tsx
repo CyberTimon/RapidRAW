@@ -686,13 +686,8 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     isProcessingQueue.current = true;
     setIsGeneratingPreviews(true);
 
-    const pathAtStart = currentImagePathRef.current;
-
     while (previewQueue.current.length > 0) {
-      if (pathAtStart !== currentImagePathRef.current) {
-        previewQueue.current = [];
-        break;
-      }
+      const itemPath = currentImagePathRef.current;
 
       const item = previewQueue.current.shift();
       if (!item) break;
@@ -712,9 +707,8 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           jsAdjustments: fullPresetAdjustments,
         });
 
-        if (pathAtStart !== currentImagePathRef.current) {
-          previewQueue.current = [];
-          break;
+        if (itemPath !== currentImagePathRef.current) {
+          continue;
         }
 
         const blob = new Blob([new Uint8Array(imageData)], { type: 'image/jpeg' });
@@ -729,12 +723,15 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       } catch (error) {
         const errStr = String(error);
         if (errStr.includes('No original image loaded') || errStr.includes('cancelled')) {
+          if (itemPath !== currentImagePathRef.current) {
+            continue;
+          }
           previewQueue.current = [];
           break;
         }
 
         console.error(`Failed to generate preview for preset ${preset.name}:`, error);
-        if (pathAtStart === currentImagePathRef.current) {
+        if (itemPath === currentImagePathRef.current) {
           setPreviews((prev: Record<string, string | null>) => ({ ...prev, [preset.id]: null }));
         }
       }

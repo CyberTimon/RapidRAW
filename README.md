@@ -12,7 +12,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/CyberTimon/RapidRAW?style=for-the-badge&logo=github&label=Stars)](https://github.com/CyberTimon/RapidRAW/stargazers)
 <br>
 [![www.getrapidraw.com](https://img.shields.io/badge/getrapidraw.com-%232ea44f?style=for-the-badge&logo=safari&logoColor=white)](https://www.getrapidraw.com)
-[![Instagram](https://img.shields.io/badge/Instagram-%23E4405F.svg?style=for-the-badge&logo=Instagram&logoColor=white)](https://www.instagram.com/getrapidraw/)
+[![Instagram](https://img.shields.io/badge/Instagram-%23E4405F.svg?style=for-the-badge&logo=Instagram&logoColor=white)](https://www.instagram.com/timonkaech.photography/)
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/cvFugZ2Hw8)
 
 </div>

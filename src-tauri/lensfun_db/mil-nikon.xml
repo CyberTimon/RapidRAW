@@ -2028,4 +2028,26 @@
         </calibration>
     </lens>
 
+	<lens>
+        <maker>Nikon</maker>
+        <model>Nikkor Z 24-105mm f/4-7.1</model>
+        <mount>Nikon Z</mount>
+        <cropfactor>1</cropfactor>
+        <calibration>
+            <!-- Taken with Nikon Z 5II -->
+            <distortion model="ptlens" focal="24" a="0.015" b="-0.059" c="-0.019"/>
+            <distortion model="ptlens" focal="35" a="-0.027" b="0.111" c="-0.185"/>
+            <distortion model="ptlens" focal="50" a="-0.014" b="0.069" c="-0.113"/>
+            <distortion model="ptlens" focal="70" a="-0.028" b="0.13" c="-0.185"/>
+            <distortion model="ptlens" focal="86" a="-0.01" b="0.061" c="-0.094"/>
+            <distortion model="ptlens" focal="105" a="-0.009" b="0.058" c="-0.086"/>
+            <tca model="poly3" focal="24" vr="1.0001818" vb="1.0002038"/>
+            <tca model="poly3" focal="35" vr="1.0001706" vb="1.0000444"/>
+            <tca model="poly3" focal="50" vr="1.0000841" vb="0.9999953"/>
+            <tca model="poly3" focal="70" vr="0.9999642" vb="1.0000261"/>
+            <tca model="poly3" focal="86" vr="0.9999305" vb="0.9999830"/>
+            <tca model="poly3" focal="105" vr="0.9998539" vb="1.0000170"/>
+        </calibration>
+    </lens>
+
 </lensdatabase>
