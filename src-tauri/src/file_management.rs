@@ -2654,7 +2654,8 @@ fn import_xmp_adjustments_to_sidecar(
     let xmp_content = fs::read_to_string(xmp_path)
         .map_err(|error| format!("Failed to read XMP file: {}", error))?;
     let (source_path, sidecar_path) = parse_virtual_path(path);
-    let converted_preset = preset_converter::convert_xmp_sidecar_to_preset(&xmp_content)?;
+    let converted_preset =
+        preset_converter::convert_xmp_sidecar_to_preset_for_image(&xmp_content, &source_path)?;
 
     let has_supported_adjustments = converted_preset
         .adjustments
