@@ -13,6 +13,7 @@ mod culling;
 mod denoising;
 mod exif_processing;
 mod export_processing;
+pub mod fast_resizer;
 mod file_management;
 mod focus_stacking;
 mod formats;

@@ -1048,10 +1048,12 @@
       "originalRatio": "Original Ratio"
     },
     "thumbnailSize": {
-      "large": "Large",
-      "list": "List",
+      "tiny": "Tiny",
+      "small": "Small",
       "medium": "Medium",
-      "small": "Small"
+      "large": "Large",
+      "huge": "Huge",
+      "list": "List"
     },
     "tooltips": {
       "communityPresets": "Community Presets",

@@ -353,9 +353,11 @@ export enum LibraryDisplayMode {
 }
 
 export enum ThumbnailSize {
-  Large = 'large',
-  Medium = 'medium',
+  Tiny = 'tiny',
   Small = 'small',
+  Medium = 'medium',
+  Large = 'large',
+  Huge = 'huge',
 }
 
 export interface TransformState {

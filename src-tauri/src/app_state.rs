@@ -34,6 +34,7 @@ pub struct LoadedImage {
     pub path: String,
     pub image: Arc<DynamicImage>,
     pub is_raw: bool,
+    pub pyramid: Option<Arc<crate::fast_resizer::MultiResPyramid>>,
 }
 
 #[derive(Clone)]

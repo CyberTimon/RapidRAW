@@ -225,9 +225,11 @@ export default function MainLibrary(props: MainLibraryProps) {
 
   const translatedThumbnailSizeOptions = useMemo(
     () => [
-      { id: ThumbnailSize.Small, label: t('library.thumbnailSize.small'), size: 160 },
-      { id: ThumbnailSize.Medium, label: t('library.thumbnailSize.medium'), size: 240 },
-      { id: ThumbnailSize.Large, label: t('library.thumbnailSize.large'), size: 320 },
+      { id: ThumbnailSize.Tiny, label: String((t as any)('library.thumbnailSize.tiny') || 'Tiny'), size: 120 },
+      { id: ThumbnailSize.Small, label: String((t as any)('library.thumbnailSize.small') || 'Small'), size: 180 },
+      { id: ThumbnailSize.Medium, label: String((t as any)('library.thumbnailSize.medium') || 'Medium'), size: 240 },
+      { id: ThumbnailSize.Large, label: String((t as any)('library.thumbnailSize.large') || 'Large'), size: 360 },
+      { id: ThumbnailSize.Huge, label: String((t as any)('library.thumbnailSize.huge') || 'Huge'), size: 480 },
     ],
     [t],
   );

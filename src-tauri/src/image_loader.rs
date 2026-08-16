@@ -871,11 +871,13 @@ pub async fn load_image(
     }
 
     let (orig_width, orig_height) = pristine_arc.dimensions();
+    let pyramid = Arc::new(crate::fast_resizer::MultiResPyramid::build(&pristine_arc));
 
     *state.original_image.lock().unwrap() = Some(LoadedImage {
         path,
         image: pristine_arc,
         is_raw,
+        pyramid: Some(pyramid),
     });
 
     Ok(LoadImageResult {
