@@ -96,7 +96,7 @@ interface DragData {
   parentId?: string;
 }
 
-const SUB_MASK_CONFIG: Record<Mask, any> = {
+const SUB_MASK_CONFIG: Partial<Record<Mask, any>> = {
   [Mask.Radial]: {
     parameters: [{ key: 'feather', min: 0, max: 100, step: 1, multiplier: 100, defaultValue: 50 }],
   },
@@ -468,32 +468,32 @@ export default function MasksPanel() {
     }
 
     if (type === Mask.Linear || type === Mask.Radial || type === Mask.Color || type === Mask.Luminance) {
-      if (!subMask.parameters) subMask.parameters = {};
-      subMask.parameters.isInitialDraw = true;
+      if (!subMask.parameters) subMask.parameters = {} as any;
+      (subMask.parameters as any).isInitialDraw = true;
       if (type === Mask.Linear || type === Mask.Radial) {
-        subMask.parameters.startX = -10000;
-        subMask.parameters.startY = -10000;
-        subMask.parameters.endX = -10000;
-        subMask.parameters.endY = -10000;
-        subMask.parameters.centerX = -10000;
-        subMask.parameters.centerY = -10000;
-        subMask.parameters.radiusX = 0;
-        subMask.parameters.radiusY = 0;
+        (subMask.parameters as any).startX = -10000;
+        (subMask.parameters as any).startY = -10000;
+        (subMask.parameters as any).endX = -10000;
+        (subMask.parameters as any).endY = -10000;
+        (subMask.parameters as any).centerX = -10000;
+        (subMask.parameters as any).centerY = -10000;
+        (subMask.parameters as any).radiusX = 0;
+        (subMask.parameters as any).radiusY = 0;
       } else {
-        subMask.parameters.targetX = -10000;
-        subMask.parameters.targetY = -10000;
-        subMask.parameters.tolerance = 20;
-        subMask.parameters.feather = 35;
+        (subMask.parameters as any).targetX = -10000;
+        (subMask.parameters as any).targetY = -10000;
+        (subMask.parameters as any).tolerance = 20;
+        (subMask.parameters as any).feather = 35;
       }
     }
 
     if (type === Mask.AiDepth) {
-      if (!subMask.parameters) subMask.parameters = {};
-      subMask.parameters.minDepth = 20;
-      subMask.parameters.maxDepth = 80;
-      subMask.parameters.minFade = 15;
-      subMask.parameters.maxFade = 15;
-      subMask.parameters.feather = 10;
+      if (!subMask.parameters) subMask.parameters = {} as any;
+      (subMask.parameters as any).minDepth = 20;
+      (subMask.parameters as any).maxDepth = 80;
+      (subMask.parameters as any).minFade = 15;
+      (subMask.parameters as any).maxFade = 15;
+      (subMask.parameters as any).feather = 10;
     }
     return subMask;
   };
@@ -829,9 +829,9 @@ export default function MasksPanel() {
           handleAddSubMask(overData.item!.id, dragData.maskType!);
         } else if (overData?.type === 'SubMask') {
           const container = adjustments.masks.find((m) => m.id === overData.parentId);
-          if (container) {
+          if (container && over) {
             const targetIndex = container.subMasks.findIndex((sm) => sm.id === over.id);
-            handleAddSubMask(overData.parentId!, dragData.maskType!, targetIndex);
+            handleAddSubMask(overData.parentId!, dragData.maskType!, SubMaskMode.Additive, targetIndex);
           }
         } else {
           handleAddMaskContainer(dragData.maskType!);
@@ -1989,7 +1989,7 @@ function SettingsPanel({
     updateSubMask(activeSubMask.id, { parameters: newParams });
   };
 
-  const subMaskConfig = activeSubMask ? SUB_MASK_CONFIG[activeSubMask.type] || {} : {};
+  const subMaskConfig = activeSubMask ? (SUB_MASK_CONFIG as any)[activeSubMask.type] || {} : {};
   const isAiMask = activeSubMask && ['ai-subject', 'ai-foreground', 'ai-sky', 'ai-depth'].includes(activeSubMask.type);
   const isComponentMode = !!activeSubMask;
 
@@ -2207,13 +2207,13 @@ function SettingsPanel({
                   label={
                     param.key === 'feather' && activeSubMask.type === Mask.AiDepth
                       ? t('editor.masks.params.globalFeather')
-                      : t('editor.masks.params.' + param.key)
+                      : String((t as any)('editor.masks.params.' + param.key))
                   }
                   min={param.min}
                   max={param.max}
                   step={param.step}
                   defaultValue={param.defaultValue}
-                  value={(activeSubMask.parameters[param.key] || 0) * (param.multiplier || 1)}
+                  value={(((activeSubMask.parameters as any)?.[param.key] || 0)) * (param.multiplier || 1)}
                   onChange={(e: any) =>
                     handleSubMaskParametersChange({ [param.key]: parseFloat(e.target.value) / (param.multiplier || 1) })
                   }

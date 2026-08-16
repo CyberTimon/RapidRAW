@@ -1,9 +1,5 @@
-#[cfg(not(all(target_os = "windows", target_arch = "aarch64")))]
-use mimalloc::MiMalloc;
+// Use standard system allocator on Windows
 
-#[cfg(not(all(target_os = "windows", target_arch = "aarch64")))]
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
 
 mod adjustment_utils;
 mod ai_commands;

@@ -510,29 +510,29 @@ export default function AIPanel() {
     const imgW = isRotated ? selectedImage.height || 1000 : selectedImage.width || 1000;
     const imgH = isRotated ? selectedImage.width || 1000 : selectedImage.height || 1000;
 
-    const config = SUB_MASK_CONFIG[type];
+    const config = (SUB_MASK_CONFIG as any)[type];
     if (config && config.parameters) {
       config.parameters.forEach((param: any) => {
         if (param.defaultValue !== undefined) {
-          subMask.parameters[param.key] = param.defaultValue / (param.multiplier || 1);
+          (subMask.parameters as any)[param.key] = param.defaultValue / (param.multiplier || 1);
         }
       });
     }
 
     if (type === Mask.Linear && subMask.parameters) {
-      subMask.parameters.range = Math.min(imgW, imgH) * 0.1;
+      (subMask.parameters as any).range = Math.min(imgW, imgH) * 0.1;
     }
 
     if (type === Mask.Linear || type === Mask.Radial) {
-      if (!subMask.parameters) subMask.parameters = {};
-      subMask.parameters.isInitialDraw = true;
-      subMask.parameters.startX = -10000;
-      subMask.parameters.startY = -10000;
-      subMask.parameters.endX = -10000;
-      subMask.parameters.endY = -10000;
-      subMask.parameters.centerX = -10000;
-      subMask.parameters.centerY = -10000;
-      subMask.parameters.radiusX = 0;
+      if (!subMask.parameters) subMask.parameters = {} as any;
+      (subMask.parameters as any).isInitialDraw = true;
+      (subMask.parameters as any).startX = -10000;
+      (subMask.parameters as any).startY = -10000;
+      (subMask.parameters as any).endX = -10000;
+      (subMask.parameters as any).endY = -10000;
+      (subMask.parameters as any).centerX = -10000;
+      (subMask.parameters as any).centerY = -10000;
+      (subMask.parameters as any).radiusX = 0;
       subMask.parameters.radiusY = 0;
     }
     return subMask;
@@ -2089,12 +2089,12 @@ function SettingsPanel({
               {subMaskConfig.parameters?.map((param: any) => (
                 <Slider
                   key={param.key}
-                  label={t('editor.ai.params.' + param.key)}
+                  label={String((t as any)('editor.ai.params.' + param.key))}
                   min={param.min}
                   max={param.max}
                   step={param.step}
                   defaultValue={param.defaultValue}
-                  value={(activeSubMask.parameters[param.key] || 0) * (param.multiplier || 1)}
+                  value={(((activeSubMask.parameters as any)?.[param.key] || 0)) * (param.multiplier || 1)}
                   onChange={(e: any) =>
                     updateSubMask(activeSubMask.id, {
                       parameters: {

@@ -138,7 +138,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         compactEditorPanelHeightOverride: null,
       });
 
-      if (isFrontendCached) {
+      if (cached && isFrontendCached) {
         setEditor({
           selectedImage: {
             ...cached.selectedImage,
@@ -189,7 +189,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
               setEditor({ adjustments: freshAdjustments });
               resetHistory(freshAdjustments);
               prevAdjustmentsRef.current = { path, adjustments: freshAdjustments };
-              globalImageCache.set(path, { ...cached, adjustments: freshAdjustments });
+              globalImageCache.set(path, { ...cached, adjustments: freshAdjustments, histogram: cached.histogram || null });
             }
           })
           .catch((err) => console.error('Failed background metadata sync on cache hit:', err));

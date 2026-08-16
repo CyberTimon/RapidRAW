@@ -266,8 +266,11 @@ export const useUIStore = create<UIState>((set, get) => ({
 
       if (!layout[toRegion].includes(panel)) layout[toRegion].push(panel);
 
-      if (fromRegion && active[fromRegion] === panel) {
-        active[fromRegion] = layout[fromRegion].length > 0 ? layout[fromRegion][0] : null;
+      if (fromRegion !== null) {
+        const srcReg = fromRegion as PanelRegion;
+        if ((active as any)[srcReg] === panel) {
+          (active as any)[srcReg] = (layout as any)[srcReg]?.length > 0 ? (layout as any)[srcReg][0] : null;
+        }
       }
 
       active[toRegion] = panel;
@@ -302,8 +305,11 @@ export const useUIStore = create<UIState>((set, get) => ({
       const clampedIndex = Math.max(0, Math.min(index, layout[toRegion].length));
       layout[toRegion].splice(clampedIndex, 0, panel);
 
-      if (fromRegion && active[fromRegion] === panel) {
-        active[fromRegion] = layout[fromRegion].length > 0 ? layout[fromRegion][0] : null;
+      if (fromRegion !== null) {
+        const srcReg = fromRegion as PanelRegion;
+        if ((active as any)[srcReg] === panel) {
+          (active as any)[srcReg] = (layout as any)[srcReg]?.length > 0 ? (layout as any)[srcReg][0] : null;
+        }
       }
       active[toRegion] = panel;
 

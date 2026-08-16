@@ -215,8 +215,8 @@ export function useImageProcessing(
             const url = URL.createObjectURL(blob);
 
             setEditor((state) => {
-              if (state.interactivePatch && state.interactivePatch.url)
-                setTimeout(() => URL.revokeObjectURL(state.interactivePatch.url), 100);
+              const oldUrl = state.interactivePatch?.url;
+              if (oldUrl) setTimeout(() => URL.revokeObjectURL(oldUrl), 100);
               return {
                 interactivePatch: {
                   url,
@@ -249,8 +249,9 @@ export function useImageProcessing(
             });
 
             setEditor((state) => {
-              if (state.interactivePatch && state.interactivePatch.url) {
-                setTimeout(() => URL.revokeObjectURL(state.interactivePatch.url), 500);
+              const oldUrl = state.interactivePatch?.url;
+              if (oldUrl) {
+                setTimeout(() => URL.revokeObjectURL(oldUrl), 500);
               }
               return { interactivePatch: null };
             });

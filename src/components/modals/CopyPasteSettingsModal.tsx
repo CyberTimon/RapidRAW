@@ -260,7 +260,7 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
                       return (
                         <div key={group.label} className="mb-1.5 last:mb-0">
                           <Switch
-                            label={t(group.label)}
+                            label={String((t as any)(group.label))}
                             checked={isFullyChecked}
                             onChange={(checked) => handleGroupToggle(group.keys, checked)}
                           />

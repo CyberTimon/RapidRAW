@@ -3,7 +3,7 @@ name = "RapidRAW"
 description = "A blazingly-fast, non-destructive, and GPU-accelerated RAW image editor built with performance in mind."
 authors = ["Timon Käch"]
 edition = "2024"
-rust-version = "1.96"
+rust-version = "1.95"
 
 [lib]
 name = "rapidraw_lib"
@@ -48,7 +48,6 @@ hex = "0.4"
 rand = "0.10"
 tauri-plugin-shell = "2.3.5"
 tempfile = "3.27.0"
-mimalloc = "0.1.52"
 image_hasher = "3.1.1"
 regex = "1.12.4"
 memmap2 = "0.9.11"
@@ -66,6 +65,7 @@ libc = "0.2.186"
 rgb = "0.8.53"
 imgref = "1.12.2"
 sysinfo = "0.39.5"
+fast_image_resize = "5.1"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "5.2.6"
