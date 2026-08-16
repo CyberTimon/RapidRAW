@@ -38,6 +38,7 @@ mod panorama_utils;
 mod preset_converter;
 mod raw_processing;
 pub mod stock_prep;
+pub mod super_resolution;
 mod tagging;
 mod tagging_utils;
 mod window_customizer;
@@ -2396,6 +2397,7 @@ pub fn run() {
             stock_prep::batch_stock_photo_prep,
             compliance_inspector::scan_active_image_compliance,
             compliance_inspector::auto_inpaint_compliance_issues,
+            super_resolution::upscale_active_image,
             negative_conversion::preview_negative_conversion,
             negative_conversion::convert_negatives,
         ])
