@@ -103,9 +103,10 @@ incremental = true
 opt-level = 3
 
 [profile.release]
-codegen-units = 1
-lto = true
+codegen-units = 16
+lto = "thin"
 strip = true
+panic = "abort"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }

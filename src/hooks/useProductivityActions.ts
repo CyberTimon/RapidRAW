@@ -190,11 +190,59 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     [refreshImageList],
   );
 
+  const handleStartAstroStack = useCallback(
+    (paths: string[]) => {
+      setUI((state) => ({
+        hdrModalState: {
+          ...state.hdrModalState,
+          isProcessing: true,
+          error: null,
+          finalImageBase64: null,
+          progressMessage: 'Starting Astro Stacker (Kappa-Sigma Alignment)...',
+        },
+      }));
+      invoke('stack_astro_frames', {
+        options: {
+          paths,
+          sigma_clip: 2.5,
+          stack_mode: 'kappa_sigma',
+          auto_dark_subtract: true,
+        },
+      }).catch((err) => {
+        setUI((state) => ({ hdrModalState: { ...state.hdrModalState, isProcessing: false, error: String(err) } }));
+      });
+    },
+    [setUI],
+  );
+
+  const handleStartStockPhotoPrep = useCallback(
+    async (paths: string[], outputDir: string) => {
+      try {
+        const result: any = await invoke('batch_stock_photo_prep', {
+          options: {
+            input_paths: paths,
+            output_dir: outputDir,
+            format: 'jpg',
+            quality: 95,
+          },
+        });
+        await refreshImageList();
+        return result;
+      } catch (err) {
+        console.error('Stock photo auto-prep error:', err);
+        throw err;
+      }
+    },
+    [refreshImageList],
+  );
+
   return {
     handleStartPanorama,
     handleSavePanorama,
     handleStartHdr,
     handleSaveHdr,
+    handleStartAstroStack,
+    handleStartStockPhotoPrep,
     handleApplyDenoise,
     handleBatchDenoise,
     handleSaveDenoisedImage,

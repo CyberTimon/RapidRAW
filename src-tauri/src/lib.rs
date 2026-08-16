@@ -8,6 +8,7 @@ mod ai_processing;
 mod android_integration;
 mod app_settings;
 mod app_state;
+pub mod astro_stacking;
 mod cache_utils;
 mod culling;
 mod default_presets;
@@ -35,6 +36,7 @@ mod panorama_stitching;
 mod panorama_utils;
 mod preset_converter;
 mod raw_processing;
+pub mod stock_prep;
 mod tagging;
 mod tagging_utils;
 mod window_customizer;
@@ -2388,6 +2390,8 @@ pub fn run() {
             lens_correction::get_lens_distortion_params,
             defect_repair::detect_auto_horizon,
             defect_repair::get_saliency_crop_recommendation,
+            astro_stacking::stack_astro_frames,
+            stock_prep::batch_stock_photo_prep,
             negative_conversion::preview_negative_conversion,
             negative_conversion::convert_negatives,
         ])
