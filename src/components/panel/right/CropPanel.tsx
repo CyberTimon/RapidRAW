@@ -10,8 +10,11 @@ import {
   RotateCw,
   Ruler,
   Scan,
+  Sparkles,
+  Wand2,
   X,
 } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import clsx from 'clsx';
@@ -275,6 +278,40 @@ export default function CropPanel() {
     }
   }, [orientationSteps, activePreset, aspectRatio, getEffectiveOriginalRatio, applyAspectRatio]);
 
+  const handleAutoHorizon = async () => {
+    try {
+      const result: any = await invoke('detect_auto_horizon');
+      if (result && typeof result.angle_degrees === 'number') {
+        const rounded = Math.round(result.angle_degrees * 10) / 10;
+        updateLocalRotation(rounded);
+        setAdjustments((prev: Adjustments) => ({ ...prev, rotation: rounded }));
+      }
+    } catch (e) {
+      console.error('Auto horizon detection error:', e);
+    }
+  };
+
+  const handleSaliencyCrop = async () => {
+    try {
+      const currentRatio = adjustments.aspectRatio ?? (selectedImage?.width && selectedImage?.height ? selectedImage.width / selectedImage.height : 1.5);
+      const result: any = await invoke('get_saliency_crop_recommendation', {
+        aspectRatio: currentRatio || 0,
+      });
+      if (result && result.width > 0) {
+        const newCrop: Crop = {
+          unit: '%',
+          x: result.x,
+          y: result.y,
+          width: result.width,
+          height: result.height,
+        };
+        setAdjustments((prev: Adjustments) => ({ ...prev, crop: newCrop }));
+      }
+    } catch (e) {
+      console.error('Saliency crop error:', e);
+    }
+  };
+
   const handleCustomInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (name === 'customW') {
@@ -496,6 +533,13 @@ export default function CropPanel() {
                 {t('editor.crop.aspectRatioHeading')}
                 <div className="flex items-center gap-2">
                   <button
+                    className="p-1.5 rounded-md hover:bg-surface transition-colors text-text-secondary hover:text-accent"
+                    onClick={handleSaliencyCrop}
+                    data-tooltip={String((t as any)('editor.crop.tooltips.autoSaliency') || 'Smart Saliency Crop (Rule of Thirds / Golden Ratio)')}
+                  >
+                    <Wand2 size={16} />
+                  </button>
+                  <button
                     className="p-1.5 rounded-md hover:bg-surface transition-colors"
                     onClick={handleOverlayCycle}
                     data-tooltip={getOverlayTooltip()}
@@ -622,6 +666,13 @@ export default function CropPanel() {
                         data-tooltip={t('editor.crop.tooltips.straighten')}
                       >
                         <Ruler size={14} />
+                      </button>
+                      <button
+                        className="p-1.5 rounded-md text-text-secondary transition-colors cursor-pointer hover:bg-card-active hover:text-accent"
+                        onClick={handleAutoHorizon}
+                        data-tooltip={String((t as any)('editor.crop.tooltips.autoHorizon') || 'Auto Horizon Straighten')}
+                      >
+                        <Sparkles size={14} />
                       </button>
                       <button
                         className="p-1.5 rounded-md text-text-secondary transition-colors cursor-pointer hover:bg-card-active hover:text-text-primary"

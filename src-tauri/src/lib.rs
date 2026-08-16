@@ -11,6 +11,7 @@ mod app_state;
 mod cache_utils;
 mod culling;
 mod default_presets;
+pub mod defect_repair;
 mod denoising;
 mod exif_processing;
 mod export_processing;
@@ -2385,6 +2386,8 @@ pub fn run() {
             lens_correction::get_lensfun_lenses_for_maker,
             lens_correction::autodetect_lens,
             lens_correction::get_lens_distortion_params,
+            defect_repair::detect_auto_horizon,
+            defect_repair::get_saliency_crop_recommendation,
             negative_conversion::preview_negative_conversion,
             negative_conversion::convert_negatives,
         ])

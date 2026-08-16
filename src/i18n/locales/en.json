@@ -503,6 +503,8 @@
       "rotationHeading": "Rotation",
       "title": "Crop & Transform",
       "tooltips": {
+        "autoHorizon": "Auto Horizon Straighten",
+        "autoSaliency": "Smart Saliency Crop (Rule of Thirds / Golden Ratio)",
         "compositionOverlay": "Composition Overlay",
         "flipHoriz": "Flip image horizontally",
         "flipVert": "Flip image vertically",
