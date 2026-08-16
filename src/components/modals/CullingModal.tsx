@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, XCircle, Loader2, Users, Trash2, Star, Tag, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Users, Trash2, Star, Tag, FileText, Sparkles, ShieldCheck } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CullingSettings, CullingSuggestions, Invokes, Progress } from '../ui/AppProperties';
 import Button from '../ui/Button';
@@ -87,6 +87,28 @@ export default function CullingModal({
   const [activeTab, setActiveTab] = useState<'similar' | 'blurry'>('similar');
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [reportSuccessMsg, setReportSuccessMsg] = useState<string | null>(null);
+  const [isInpaintingTrademarks, setIsInpaintingTrademarks] = useState(false);
+  const [inpaintSuccessMsg, setInpaintSuccessMsg] = useState<string | null>(null);
+
+  const handleAutoInpaintTrademarks = async () => {
+    try {
+      setIsInpaintingTrademarks(true);
+      setInpaintSuccessMsg(null);
+      const issues: any = await invoke('scan_active_image_compliance');
+      if (issues && issues.length > 0) {
+        const count: number = await invoke('auto_inpaint_compliance_issues', { issues });
+        setInpaintSuccessMsg(`Inpainted ${count} trademark/logo regions`);
+      } else {
+        setInpaintSuccessMsg('No trademark/logo issues detected');
+      }
+      setTimeout(() => setInpaintSuccessMsg(null), 4000);
+    } catch (e: any) {
+      console.error('Failed to auto-inpaint compliance issues:', e);
+      onError(e?.toString() || 'Failed to auto-inpaint compliance issues');
+    } finally {
+      setIsInpaintingTrademarks(false);
+    }
+  };
 
   const handleExportStockReport = async () => {
     if (!suggestions || imagePaths.length === 0) return;
@@ -314,11 +336,25 @@ export default function CullingModal({
             {t('modals.culling.cullingSuggestions')}
           </Text>
           <div className="flex items-center gap-2">
+            {inpaintSuccessMsg && (
+              <span className="text-xs text-blue-400 font-medium">
+                {inpaintSuccessMsg}
+              </span>
+            )}
             {reportSuccessMsg && (
               <span className="text-xs text-green-400 font-medium">
                 {reportSuccessMsg}
               </span>
             )}
+            <button
+              onClick={handleAutoInpaintTrademarks}
+              disabled={isInpaintingTrademarks}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-surface hover:bg-surface-secondary text-xs text-text-primary hover:text-accent border border-border-color/50 transition-colors font-medium cursor-pointer disabled:opacity-50"
+              title="Automatically detect and inpaint commercial logos and trademarks"
+            >
+              {isInpaintingTrademarks ? <Loader2 size={13} className="animate-spin text-accent" /> : <Sparkles size={13} className="text-accent" />}
+              <span>Auto-Inpaint Trademarks</span>
+            </button>
             <button
               onClick={handleExportStockReport}
               disabled={isExportingReport}

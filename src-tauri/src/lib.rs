@@ -10,6 +10,7 @@ mod app_settings;
 mod app_state;
 pub mod astro_stacking;
 mod cache_utils;
+pub mod compliance_inspector;
 mod culling;
 mod default_presets;
 pub mod defect_repair;
@@ -2393,6 +2394,8 @@ pub fn run() {
             defect_repair::get_saliency_crop_recommendation,
             astro_stacking::stack_astro_frames,
             stock_prep::batch_stock_photo_prep,
+            compliance_inspector::scan_active_image_compliance,
+            compliance_inspector::auto_inpaint_compliance_issues,
             negative_conversion::preview_negative_conversion,
             negative_conversion::convert_negatives,
         ])

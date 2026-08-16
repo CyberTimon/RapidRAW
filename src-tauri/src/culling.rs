@@ -20,7 +20,7 @@ pub struct CullingSettings {
     pub filter_blurry: bool,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageAnalysisResult {
     pub path: String,
@@ -32,14 +32,14 @@ pub struct ImageAnalysisResult {
     pub height: u32,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CullGroup {
     pub representative: ImageAnalysisResult,
     pub duplicates: Vec<ImageAnalysisResult>,
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CullingSuggestions {
     pub similar_groups: Vec<CullGroup>,
