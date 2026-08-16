@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
+import { Sparkles } from 'lucide-react';
 import Slider from '../ui/Slider';
 import { Adjustments, BasicAdjustment } from '../../utils/adjustments';
 import { useEffect, useRef, useState, useMemo } from 'react';
@@ -175,10 +176,47 @@ export default function BasicAdjustments({
     }));
   };
 
+  const handleNightSkyMagic = () => {
+    setAdjustments((prev: Partial<Adjustments>) => ({
+      ...prev,
+      exposure: (prev.exposure || 0) + 0.25,
+      contrast: 24,
+      highlights: -18,
+      shadows: 14,
+      whites: 18,
+      blacks: -18,
+      temperature: (prev.temperature || 0) - 8,
+      tint: (prev.tint || 0) + 10,
+      clarity: 22,
+      dehaze: 24,
+      sharpening: 35,
+      luminanceDenoise: 16,
+      colorDenoise: 26,
+      colorGrading: {
+        ...(prev.colorGrading || {}),
+        shadows: { hue: 220, sat: 16, lum: -6 },
+        highlights: { hue: 38, sat: 22, lum: 4 },
+      } as any,
+    }));
+  };
+
   const hideTonemapper = isForMask || appSettings?.tonemapperOverrideEnabled;
 
   return (
     <div>
+      {!isForMask && (
+        <div className="mb-3">
+          <button
+            type="button"
+            onClick={handleNightSkyMagic}
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-md bg-surface hover:bg-surface-secondary text-text-primary hover:text-accent border border-border-color/50 transition-all font-medium text-xs shadow-xs group"
+            title="1-Click Night Sky Magic: Neutralizes background sky glow, stretches nebular contrast, and enhances stars"
+          >
+            <Sparkles size={14} className="text-accent group-hover:scale-110 transition-transform" />
+            <span>{String((t as any)('adjustments.basic.nightSkyMagic') || 'Night Sky Magic')}</span>
+          </button>
+        </div>
+      )}
       {hideTonemapper ? (
         <Slider
           label={t('adjustments.basic.evShift')}

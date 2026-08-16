@@ -13,6 +13,7 @@
         "basicDesc": "Standard Tonemapping"
       },
       "reset": "Reset",
+      "nightSkyMagic": "Night Sky Magic",
       "shadows": "Shadows",
       "toneMapper": "Tone Mapper",
       "whites": "Whites"

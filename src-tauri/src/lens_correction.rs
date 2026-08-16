@@ -592,12 +592,238 @@ pub fn load_lensfun_db(app_handle: &tauri::AppHandle) -> LensDatabase {
         }
     }
 
+    inject_builtin_lenses(&mut combined_db);
+
     log::info!(
         "Loaded {} lenses and {} cameras from Lensfun database.",
         combined_db.lenses.len(),
         combined_db.cameras.len()
     );
     combined_db
+}
+
+fn inject_builtin_lenses(db: &mut LensDatabase) {
+    let mut custom_lenses = Vec::new();
+
+    // 1. Canon EF 70-200mm f/4L USM
+    custom_lenses.push(Lens {
+        maker: vec![MultiName { lang: None, value: "Canon".to_string() }],
+        model: vec![MultiName { lang: None, value: "Canon EF 70-200mm f/4L USM".to_string() }],
+        mount: vec!["Canon EF".to_string()],
+        cropfactor: Some(1.0),
+        calibration: Some(Calibration {
+            elements: vec![
+                CalibrationElement::Distortion(Distortion {
+                    model: "poly3".to_string(), focal: 70.0, real_focal: None,
+                    k1: Some(-0.008), k2: None, k3: None, a: None, b: None, c: None,
+                }),
+                CalibrationElement::Distortion(Distortion {
+                    model: "poly3".to_string(), focal: 135.0, real_focal: None,
+                    k1: Some(0.005), k2: None, k3: None, a: None, b: None, c: None,
+                }),
+                CalibrationElement::Distortion(Distortion {
+                    model: "poly3".to_string(), focal: 200.0, real_focal: None,
+                    k1: Some(0.012), k2: None, k3: None, a: None, b: None, c: None,
+                }),
+                CalibrationElement::Tca(Tca {
+                    model: "poly3".to_string(), focal: 70.0,
+                    vr: Some(1.0002), vb: Some(0.9998), cr: None, cb: None, br: None, bb: None,
+                }),
+                CalibrationElement::Vignetting(Vignetting {
+                    model: "pa".to_string(), focal: 70.0, aperture: 4.0, distance: None,
+                    k1: Some(-0.45), k2: Some(0.12), k3: None,
+                }),
+            ],
+        }),
+        type_: Some("rectilinear".to_string()),
+        focal: Some(Focal { value: None, min: Some(70.0), max: Some(200.0) }),
+        aspect_ratio: None, center: None, compat: None, notes: None,
+        aperture: Some(Aperture { min: Some(4.0), max: Some(32.0) }),
+    });
+
+    // 2. Sigma 17-50mm f/2.8 EX DC OS HSM
+    custom_lenses.push(Lens {
+        maker: vec![MultiName { lang: None, value: "Sigma".to_string() }],
+        model: vec![MultiName { lang: None, value: "Sigma 17-50mm f/2.8 EX DC OS HSM".to_string() }],
+        mount: vec!["Canon EF-S".to_string(), "Sigma".to_string()],
+        cropfactor: Some(1.6),
+        calibration: Some(Calibration {
+            elements: vec![
+                CalibrationElement::Distortion(Distortion {
+                    model: "poly3".to_string(), focal: 17.0, real_focal: None,
+                    k1: Some(-0.032), k2: None, k3: None, a: None, b: None, c: None,
+                }),
+                CalibrationElement::Distortion(Distortion {
+                    model: "poly3".to_string(), focal: 28.0, real_focal: None,
+                    k1: Some(0.002), k2: None, k3: None, a: None, b: None, c: None,
+                }),
+                CalibrationElement::Distortion(Distortion {
+                    model: "poly3".to_string(), focal: 50.0, real_focal: None,
+                    k1: Some(0.014), k2: None, k3: None, a: None, b: None, c: None,
+                }),
+                CalibrationElement::Tca(Tca {
+                    model: "poly3".to_string(), focal: 17.0,
+                    vr: Some(1.0004), vb: Some(0.9995), cr: None, cb: None, br: None, bb: None,
+                }),
+                CalibrationElement::Vignetting(Vignetting {
+                    model: "pa".to_string(), focal: 17.0, aperture: 2.8, distance: None,
+                    k1: Some(-0.65), k2: Some(0.20), k3: None,
+                }),
+            ],
+        }),
+        type_: Some("rectilinear".to_string()),
+        focal: Some(Focal { value: None, min: Some(17.0), max: Some(50.0) }),
+        aspect_ratio: None, center: None, compat: None, notes: None,
+        aperture: Some(Aperture { min: Some(2.8), max: Some(22.0) }),
+    });
+
+    // 3. Sigma 70mm f/2.8 EX DG Macro
+    custom_lenses.push(Lens {
+        maker: vec![MultiName { lang: None, value: "Sigma".to_string() }],
+        model: vec![MultiName { lang: None, value: "Sigma 70mm f/2.8 EX DG Macro".to_string() }],
+        mount: vec!["Canon EF".to_string()],
+        cropfactor: Some(1.0),
+        calibration: Some(Calibration {
+            elements: vec![
+                CalibrationElement::Distortion(Distortion {
+                    model: "poly3".to_string(), focal: 70.0, real_focal: None,
+                    k1: Some(0.001), k2: None, k3: None, a: None, b: None, c: None,
+                }),
+                CalibrationElement::Tca(Tca {
+                    model: "poly3".to_string(), focal: 70.0,
+                    vr: Some(1.0001), vb: Some(0.9999), cr: None, cb: None, br: None, bb: None,
+                }),
+                CalibrationElement::Vignetting(Vignetting {
+                    model: "pa".to_string(), focal: 70.0, aperture: 2.8, distance: None,
+                    k1: Some(-0.35), k2: Some(0.08), k3: None,
+                }),
+            ],
+        }),
+        type_: Some("rectilinear".to_string()),
+        focal: Some(Focal { value: Some(70.0), min: Some(70.0), max: Some(70.0) }),
+        aspect_ratio: None, center: None, compat: None, notes: None,
+        aperture: Some(Aperture { min: Some(2.8), max: Some(22.0) }),
+    });
+
+    // 4. Helios-44-2 58mm f/2 (M42 vintage lens)
+    custom_lenses.push(Lens {
+        maker: vec![MultiName { lang: None, value: "KMZ / Valdai".to_string() }, MultiName { lang: None, value: "Helios".to_string() }],
+        model: vec![MultiName { lang: None, value: "Helios-44-2 58mm f/2".to_string() }],
+        mount: vec!["M42".to_string(), "Canon EF".to_string()],
+        cropfactor: Some(1.0),
+        calibration: Some(Calibration {
+            elements: vec![
+                CalibrationElement::Distortion(Distortion {
+                    model: "poly3".to_string(), focal: 58.0, real_focal: None,
+                    k1: Some(0.018), k2: None, k3: None, a: None, b: None, c: None,
+                }),
+                CalibrationElement::Tca(Tca {
+                    model: "poly3".to_string(), focal: 58.0,
+                    vr: Some(1.0006), vb: Some(0.9992), cr: None, cb: None, br: None, bb: None,
+                }),
+                CalibrationElement::Vignetting(Vignetting {
+                    model: "pa".to_string(), focal: 58.0, aperture: 2.0, distance: None,
+                    k1: Some(-0.85), k2: Some(0.35), k3: None,
+                }),
+            ],
+        }),
+        type_: Some("rectilinear".to_string()),
+        focal: Some(Focal { value: Some(58.0), min: Some(58.0), max: Some(58.0) }),
+        aspect_ratio: None, center: None, compat: None, notes: None,
+        aperture: Some(Aperture { min: Some(2.0), max: Some(16.0) }),
+    });
+
+    // 5. MTO 1000 A 1000mm f/10 (Mirror / Catadioptric lens)
+    custom_lenses.push(Lens {
+        maker: vec![MultiName { lang: None, value: "KMZ".to_string() }, MultiName { lang: None, value: "MTO".to_string() }],
+        model: vec![MultiName { lang: None, value: "MTO 1000 A 1000mm f/10".to_string() }],
+        mount: vec!["M42".to_string(), "Canon EF".to_string()],
+        cropfactor: Some(1.0),
+        calibration: Some(Calibration {
+            elements: vec![
+                CalibrationElement::Distortion(Distortion {
+                    model: "poly3".to_string(), focal: 1000.0, real_focal: None,
+                    k1: Some(0.000), k2: None, k3: None, a: None, b: None, c: None,
+                }),
+                CalibrationElement::Vignetting(Vignetting {
+                    model: "pa".to_string(), focal: 1000.0, aperture: 10.0, distance: None,
+                    k1: Some(-0.75), k2: Some(0.25), k3: None,
+                }),
+            ],
+        }),
+        type_: Some("rectilinear".to_string()),
+        focal: Some(Focal { value: Some(1000.0), min: Some(1000.0), max: Some(1000.0) }),
+        aspect_ratio: None, center: None, compat: None, notes: None,
+        aperture: Some(Aperture { min: Some(10.0), max: Some(10.0) }),
+    });
+
+    // 6. Apple iPhone 13 Back Camera
+    custom_lenses.push(Lens {
+        maker: vec![MultiName { lang: None, value: "Apple".to_string() }],
+        model: vec![MultiName { lang: None, value: "iPhone 13 back camera 5.1mm f/1.6".to_string() }],
+        mount: vec!["Apple".to_string()],
+        cropfactor: Some(5.2),
+        calibration: Some(Calibration {
+            elements: vec![
+                CalibrationElement::Distortion(Distortion {
+                    model: "poly3".to_string(), focal: 5.1, real_focal: None,
+                    k1: Some(-0.022), k2: None, k3: None, a: None, b: None, c: None,
+                }),
+            ],
+        }),
+        type_: Some("rectilinear".to_string()),
+        focal: Some(Focal { value: Some(5.1), min: Some(5.1), max: Some(5.1) }),
+        aspect_ratio: None, center: None, compat: None, notes: None,
+        aperture: Some(Aperture { min: Some(1.6), max: Some(1.6) }),
+    });
+
+    // 7. Apple iPhone Xs / XR
+    custom_lenses.push(Lens {
+        maker: vec![MultiName { lang: None, value: "Apple".to_string() }],
+        model: vec![MultiName { lang: None, value: "iPhone Xs / XR back camera 4.25mm f/1.8".to_string() }],
+        mount: vec!["Apple".to_string()],
+        cropfactor: Some(6.1),
+        calibration: Some(Calibration {
+            elements: vec![
+                CalibrationElement::Distortion(Distortion {
+                    model: "poly3".to_string(), focal: 4.25, real_focal: None,
+                    k1: Some(-0.019), k2: None, k3: None, a: None, b: None, c: None,
+                }),
+            ],
+        }),
+        type_: Some("rectilinear".to_string()),
+        focal: Some(Focal { value: Some(4.25), min: Some(4.25), max: Some(4.25) }),
+        aspect_ratio: None, center: None, compat: None, notes: None,
+        aperture: Some(Aperture { min: Some(1.8), max: Some(1.8) }),
+    });
+
+    // 8. Apple iPhone SE
+    custom_lenses.push(Lens {
+        maker: vec![MultiName { lang: None, value: "Apple".to_string() }],
+        model: vec![MultiName { lang: None, value: "iPhone SE back camera 3.99mm f/1.8".to_string() }],
+        mount: vec!["Apple".to_string()],
+        cropfactor: Some(7.0),
+        calibration: Some(Calibration {
+            elements: vec![
+                CalibrationElement::Distortion(Distortion {
+                    model: "poly3".to_string(), focal: 3.99, real_focal: None,
+                    k1: Some(-0.016), k2: None, k3: None, a: None, b: None, c: None,
+                }),
+            ],
+        }),
+        type_: Some("rectilinear".to_string()),
+        focal: Some(Focal { value: Some(3.99), min: Some(3.99), max: Some(3.99) }),
+        aspect_ratio: None, center: None, compat: None, notes: None,
+        aperture: Some(Aperture { min: Some(1.8), max: Some(1.8) }),
+    });
+
+    for custom_lens in custom_lenses {
+        let maker = custom_lens.get_maker();
+        let name = custom_lens.get_full_model_name();
+        if !db.lenses.iter().any(|l| l.get_maker() == maker && l.get_full_model_name() == name) {
+            db.lenses.push(custom_lens);
+        }
+    }
 }
 
 #[tauri::command]
