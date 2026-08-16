@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, XCircle, Loader2, Users, Trash2, Star, Tag } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Users, Trash2, Star, Tag, FileText } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CullingSettings, CullingSuggestions, Invokes, Progress } from '../ui/AppProperties';
 import Button from '../ui/Button';
@@ -85,6 +85,30 @@ export default function CullingModal({
   const [selectedRejects, setSelectedRejects] = useState<Set<string>>(new Set());
   const [action, setAction] = useState<CullAction>('reject');
   const [activeTab, setActiveTab] = useState<'similar' | 'blurry'>('similar');
+  const [isExportingReport, setIsExportingReport] = useState(false);
+  const [reportSuccessMsg, setReportSuccessMsg] = useState<string | null>(null);
+
+  const handleExportStockReport = async () => {
+    if (!suggestions || imagePaths.length === 0) return;
+    try {
+      setIsExportingReport(true);
+      setReportSuccessMsg(null);
+      const firstPath = imagePaths[0];
+      const lastSlash = Math.max(firstPath.lastIndexOf('/'), firstPath.lastIndexOf('\\'));
+      const dir = lastSlash !== -1 ? firstPath.substring(0, lastSlash) : '.';
+      await invoke('generate_stock_report', {
+        suggestions,
+        outputDirectory: dir,
+      });
+      setReportSuccessMsg('Report exported to stock_culling_report.html');
+      setTimeout(() => setReportSuccessMsg(null), 5000);
+    } catch (e: any) {
+      console.error('Failed to generate stock report:', e);
+      onError(e?.toString() || 'Failed to generate stock report');
+    } finally {
+      setIsExportingReport(false);
+    }
+  };
 
   const CULL_ACTIONS = useMemo(
     () => [
@@ -285,9 +309,27 @@ export default function CullingModal({
 
     return (
       <>
-        <Text variant={TextVariants.title} className="mb-4">
-          {t('modals.culling.cullingSuggestions')}
-        </Text>
+        <div className="flex justify-between items-center mb-4">
+          <Text variant={TextVariants.title}>
+            {t('modals.culling.cullingSuggestions')}
+          </Text>
+          <div className="flex items-center gap-2">
+            {reportSuccessMsg && (
+              <span className="text-xs text-green-400 font-medium">
+                {reportSuccessMsg}
+              </span>
+            )}
+            <button
+              onClick={handleExportStockReport}
+              disabled={isExportingReport}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-surface hover:bg-surface-secondary text-xs text-text-primary hover:text-accent border border-border-color/50 transition-colors font-medium cursor-pointer disabled:opacity-50"
+              title="Generate a standalone HTML quality report of all analyzed photos"
+            >
+              {isExportingReport ? <Loader2 size={13} className="animate-spin text-accent" /> : <FileText size={13} className="text-accent" />}
+              <span>Export Stock QC Report (.html)</span>
+            </button>
+          </div>
+        </div>
         <div className="border-b border-surface mb-4">
           <nav className="-mb-px flex space-x-4" aria-label="Tabs">
             {numSimilar > 0 && (

@@ -293,19 +293,42 @@ export default function CropPanel() {
 
   const handleSaliencyCrop = async () => {
     try {
-      const currentRatio = adjustments.aspectRatio ?? (selectedImage?.width && selectedImage?.height ? selectedImage.width / selectedImage.height : 1.5);
+      if (!selectedImage?.width || !selectedImage?.height) {
+        return;
+      }
+
+      const isSwapped = orientationSteps === 1 || orientationSteps === 3;
+      const W = isSwapped ? selectedImage.height : selectedImage.width;
+      const H = isSwapped ? selectedImage.width : selectedImage.height;
+
+      const currentRatio = adjustments.aspectRatio ?? (W > 0 && H > 0 ? W / H : 1.5);
+
       const result: any = await invoke('get_saliency_crop_recommendation', {
         aspectRatio: currentRatio || 0,
+        orientationSteps: orientationSteps || 0,
+        flipHorizontal: Boolean(flipHorizontal),
+        flipVertical: Boolean(flipVertical),
       });
-      if (result && result.width > 0) {
-        const newCrop: Crop = {
-          unit: '%',
-          x: result.x,
-          y: result.y,
-          width: result.width,
-          height: result.height,
+
+      if (result && result.width > 0 && result.height > 0) {
+        const normX = result.x > 1.0 ? result.x / 100.0 : result.x;
+        const normY = result.y > 1.0 ? result.y / 100.0 : result.y;
+        const normW = result.width > 1.0 ? result.width / 100.0 : result.width;
+        const normH = result.height > 1.0 ? result.height / 100.0 : result.height;
+
+        const pixelCrop: Crop = {
+          unit: 'px',
+          x: Math.round(normX * W),
+          y: Math.round(normY * H),
+          width: Math.round(normW * W),
+          height: Math.round(normH * H),
         };
-        setAdjustments((prev: Adjustments) => ({ ...prev, crop: newCrop }));
+
+        setAdjustments((prev: Adjustments) => ({
+          ...prev,
+          aspectRatio: currentRatio,
+          crop: pixelCrop,
+        }));
       }
     } catch (e) {
       console.error('Saliency crop error:', e);

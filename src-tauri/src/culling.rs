@@ -316,3 +316,279 @@ pub async fn cull_images(
     let _ = app_handle.emit("culling-complete", &suggestions);
     Ok(suggestions)
 }
+
+#[tauri::command]
+pub fn generate_stock_report(
+    suggestions: CullingSuggestions,
+    output_directory: String,
+) -> Result<String, String> {
+    let report_path = Path::new(&output_directory).join("stock_culling_report.html");
+    
+    let total_similar_groups = suggestions.similar_groups.len();
+    let total_duplicate_images: usize = suggestions.similar_groups.iter().map(|g| g.duplicates.len()).sum();
+    let total_blurry = suggestions.blurry_images.len();
+
+    let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+    let mut html = format!(r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RapidRAW Pro - Stock Photo QC & Culling Report</title>
+    <style>
+        :root {{
+            --bg: #121316;
+            --surface: #1c1d22;
+            --surface-hover: #26272e;
+            --accent: #3b82f6;
+            --text: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --border: #2d2f36;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 32px;
+            line-height: 1.5;
+        }}
+        .container {{
+            max-width: 1100px;
+            margin: 0 auto;
+        }}
+        .header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }}
+        h1 {{
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+            color: #ffffff;
+        }}
+        .meta {{
+            color: var(--text-secondary);
+            font-size: 14px;
+        }}
+        .stats-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 36px;
+        }}
+        .stat-card {{
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }}
+        .stat-value {{
+            font-size: 28px;
+            font-weight: 700;
+            margin-top: 4px;
+        }}
+        .stat-label {{
+            color: var(--text-secondary);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        .section-title {{
+            font-size: 18px;
+            font-weight: 600;
+            margin: 32px 0 16px 0;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 32px;
+            font-size: 14px;
+        }}
+        th, td {{
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }}
+        th {{
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        tr:last-child td {{
+            border-bottom: none;
+        }}
+        tr:hover td {{
+            background: var(--surface-hover);
+        }}
+        .badge {{
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }}
+        .badge-success {{ background: rgba(16, 185, 129, 0.15); color: var(--success); }}
+        .badge-warning {{ background: rgba(245, 158, 11, 0.15); color: var(--warning); }}
+        .badge-danger {{ background: rgba(239, 68, 68, 0.15); color: var(--danger); }}
+        .file-path {{
+            font-family: monospace;
+            word-break: break-all;
+            color: #e5e7eb;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>RapidRAW Pro: Stock QC & Culling Report</h1>
+                <div class="meta">Generated on {} &bull; Output Directory: {}</div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Similar Burst Groups</div>
+                <div class="stat-value" style="color: var(--accent);">{}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Redundant Duplicates</div>
+                <div class="stat-value" style="color: var(--warning);">{}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Blurry / Soft Rejects</div>
+                <div class="stat-value" style="color: var(--danger);">{}</div>
+            </div>
+        </div>
+"#, now, output_directory, total_similar_groups, total_duplicate_images, total_blurry);
+
+    if !suggestions.similar_groups.is_empty() {
+        html.push_str(r#"
+        <div class="section-title">Similar Burst Sequences & Duplicate Analysis</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Role</th>
+                    <th>File Name</th>
+                    <th>Resolution</th>
+                    <th>Quality Score</th>
+                    <th>Sharpness</th>
+                    <th>Center Focus</th>
+                    <th>Exposure</th>
+                </tr>
+            </thead>
+            <tbody>
+"#);
+        for (grp_idx, grp) in suggestions.similar_groups.iter().enumerate() {
+            let rep_name = Path::new(&grp.representative.path).file_name().unwrap_or_default().to_string_lossy();
+            html.push_str(&format!(
+                r#"<tr style="background: rgba(59, 130, 246, 0.05);">
+                    <td><span class="badge badge-success">Top Pick (Grp {})</span></td>
+                    <td class="file-path">{}</td>
+                    <td>{}x{}</td>
+                    <td><b>{:.1}</b></td>
+                    <td>{:.1}</td>
+                    <td>{:.1}</td>
+                    <td>{:.1}</td>
+                </tr>"#,
+                grp_idx + 1,
+                rep_name,
+                grp.representative.width,
+                grp.representative.height,
+                grp.representative.quality_score,
+                grp.representative.sharpness_metric,
+                grp.representative.center_focus_metric,
+                grp.representative.exposure_metric
+            ));
+            for dup in &grp.duplicates {
+                let dup_name = Path::new(&dup.path).file_name().unwrap_or_default().to_string_lossy();
+                html.push_str(&format!(
+                    r#"<tr>
+                        <td><span class="badge badge-warning">Duplicate</span></td>
+                        <td class="file-path">{}</td>
+                        <td>{}x{}</td>
+                        <td>{:.1}</td>
+                        <td>{:.1}</td>
+                        <td>{:.1}</td>
+                        <td>{:.1}</td>
+                    </tr>"#,
+                    dup_name,
+                    dup.width,
+                    dup.height,
+                    dup.quality_score,
+                    dup.sharpness_metric,
+                    dup.center_focus_metric,
+                    dup.exposure_metric
+                ));
+            }
+        }
+        html.push_str("</tbody></table>");
+    }
+
+    if !suggestions.blurry_images.is_empty() {
+        html.push_str(r#"
+        <div class="section-title">Blurry / Soft Focus Images (Below Quality Threshold)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>File Name</th>
+                    <th>Resolution</th>
+                    <th>Quality Score</th>
+                    <th>Sharpness Metric</th>
+                    <th>Center Focus</th>
+                </tr>
+            </thead>
+            <tbody>
+"#);
+        for img in &suggestions.blurry_images {
+            let name = Path::new(&img.path).file_name().unwrap_or_default().to_string_lossy();
+            html.push_str(&format!(
+                r#"<tr>
+                    <td><span class="badge badge-danger">Blurry / Soft</span></td>
+                    <td class="file-path">{}</td>
+                    <td>{}x{}</td>
+                    <td>{:.1}</td>
+                    <td>{:.1}</td>
+                    <td>{:.1}</td>
+                </tr>"#,
+                name,
+                img.width,
+                img.height,
+                img.quality_score,
+                img.sharpness_metric,
+                img.center_focus_metric
+            ));
+        }
+        html.push_str("</tbody></table>");
+    }
+
+    html.push_str(r#"
+    </div>
+</body>
+</html>
+"#);
+
+    std::fs::write(&report_path, html).map_err(|e| format!("Failed to write HTML report to {:?}: {}", report_path, e))?;
+    Ok(report_path.to_string_lossy().to_string())
+}

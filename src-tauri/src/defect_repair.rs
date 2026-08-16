@@ -1,6 +1,8 @@
 use crate::AppState;
+use crate::image_processing;
 use image::{DynamicImage, GenericImageView, Rgb};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::f32::consts::PI;
 use tauri::State;
 
@@ -100,6 +102,16 @@ pub fn detect_horizon_angle(image: &DynamicImage) -> AutoHorizonResult {
 /// Calculates rule-of-thirds & golden-ratio saliency crop recommendation.
 pub fn calculate_saliency_crop(image: &DynamicImage, aspect_ratio: f32) -> SaliencyCropResult {
     let (width, height) = image.dimensions();
+    if width == 0 || height == 0 {
+        return SaliencyCropResult {
+            x: 0.0,
+            y: 0.0,
+            width: 100.0,
+            height: 100.0,
+            target_aspect_ratio: 1.0,
+        };
+    }
+
     let thumb = image.thumbnail(256, 256).to_luma8();
     let (tw, th) = thumb.dimensions();
 
@@ -107,40 +119,70 @@ pub fn calculate_saliency_crop(image: &DynamicImage, aspect_ratio: f32) -> Salie
     let mut cx_sum = 0.0f32;
     let mut cy_sum = 0.0f32;
 
-    for y in 1..(th - 1) {
-        for x in 1..(tw - 1) {
-            let p = thumb.get_pixel(x, y)[0] as f32;
-            let p_r = thumb.get_pixel(x + 1, y)[0] as f32;
-            let p_b = thumb.get_pixel(x, y + 1)[0] as f32;
-            let grad = ((p_r - p).abs() + (p_b - p).abs()).max(0.0);
-            
-            // Prioritize center-weighted and high-contrast regions
-            let nx = (x as f32 / tw as f32) - 0.5;
-            let ny = (y as f32 / th as f32) - 0.5;
-            let dist_center = 1.0 - (nx * nx + ny * ny).sqrt() * 0.5;
+    if tw > 2 && th > 2 {
+        for y in 1..(th - 1) {
+            for x in 1..(tw - 1) {
+                let p = thumb.get_pixel(x, y)[0] as f32;
+                let p_r = thumb.get_pixel(x + 1, y)[0] as f32;
+                let p_b = thumb.get_pixel(x, y + 1)[0] as f32;
+                let grad = ((p_r - p).abs() + (p_b - p).abs()).max(0.0);
+                
+                // Prioritize center-weighted and high-contrast regions
+                let nx = (x as f32 / tw as f32) - 0.5;
+                let ny = (y as f32 / th as f32) - 0.5;
+                let dist_center = 1.0 - (nx * nx + ny * ny).sqrt() * 0.5;
 
-            let sal = grad * dist_center;
-            total_saliency += sal;
-            cx_sum += (x as f32 / tw as f32) * sal;
-            cy_sum += (y as f32 / th as f32) * sal;
+                let sal = grad * dist_center;
+                total_saliency += sal;
+                cx_sum += (x as f32 / tw as f32) * sal;
+                cy_sum += (y as f32 / th as f32) * sal;
+            }
         }
     }
 
     let focal_x = if total_saliency > 0.0 { cx_sum / total_saliency } else { 0.5 };
     let focal_y = if total_saliency > 0.0 { cy_sum / total_saliency } else { 0.5 };
 
-    // Fit a crop box of 85% area around the focal point aligned with golden ratio / thirds
-    let target_ar = if aspect_ratio > 0.01 { aspect_ratio } else { width as f32 / height as f32 };
-    let mut crop_w = 0.88f32;
-    let mut crop_h = crop_w / target_ar;
+    let img_ar = width as f32 / height as f32;
+    let target_ar = if aspect_ratio > 0.01 { aspect_ratio } else { img_ar };
 
-    if crop_h > 0.95 {
-        crop_h = 0.88;
-        crop_w = crop_h * target_ar;
-    }
+    // Ratio of target aspect ratio to image aspect ratio
+    let r = target_ar / img_ar;
 
-    let crop_x = (focal_x - crop_w * 0.382).clamp(0.0, 1.0 - crop_w);
-    let crop_y = (focal_y - crop_h * 0.382).clamp(0.0, 1.0 - crop_h);
+    // Standard high-quality crop box coverage (88% of constraining dimension)
+    let (crop_w, crop_h) = if r >= 1.0 {
+        let w = 0.88f32;
+        let h = (w / r).clamp(0.05, 1.0);
+        (w, h)
+    } else {
+        let h = 0.88f32;
+        let w = (h * r).clamp(0.05, 1.0);
+        (w, h)
+    };
+
+    // Compositional anchor placement:
+    // Place focal point at golden ratio (~0.382 / 0.618) or center (0.5)
+    let anchor_x = if focal_x < 0.45 {
+        0.382f32
+    } else if focal_x > 0.55 {
+        0.618f32
+    } else {
+        0.5f32
+    };
+
+    let anchor_y = if focal_y < 0.45 {
+        0.382f32
+    } else if focal_y > 0.55 {
+        0.618f32
+    } else {
+        0.5f32
+    };
+
+    let max_x = (1.0f32 - crop_w).max(0.0);
+    let max_y = (1.0f32 - crop_h).max(0.0);
+
+    let crop_x = (focal_x - crop_w * anchor_x).clamp(0.0, max_x);
+    let crop_y = (focal_y - crop_h * anchor_y).clamp(0.0, max_y);
 
     SaliencyCropResult {
         x: crop_x * 100.0,
@@ -256,16 +298,27 @@ pub fn detect_auto_horizon(state: State<AppState>) -> Result<AutoHorizonResult, 
 }
 
 #[tauri::command]
-pub fn get_saliency_crop_recommendation(aspect_ratio: f32, state: State<AppState>) -> Result<SaliencyCropResult, String> {
-    if let Ok(preview_guard) = state.cached_preview.lock()
-        && let Some(cached) = &*preview_guard
-    {
-        return Ok(calculate_saliency_crop(&cached.image, aspect_ratio));
-    }
-
+pub fn get_saliency_crop_recommendation(
+    aspect_ratio: f32,
+    orientation_steps: Option<u8>,
+    flip_horizontal: Option<bool>,
+    flip_vertical: Option<bool>,
+    state: State<AppState>,
+) -> Result<SaliencyCropResult, String> {
     let orig_guard = state.original_image.lock().map_err(|e| e.to_string())?;
     if let Some(loaded_image) = &*orig_guard {
-        Ok(calculate_saliency_crop(&loaded_image.image, aspect_ratio))
+        let mut cow_img = Cow::Borrowed(loaded_image.image.as_ref());
+        let flip_h = flip_horizontal.unwrap_or(false);
+        let flip_v = flip_vertical.unwrap_or(false);
+        if flip_h || flip_v {
+            cow_img = image_processing::apply_flip(cow_img, flip_h, flip_v);
+        }
+        if let Some(steps) = orientation_steps {
+            if steps > 0 {
+                cow_img = image_processing::apply_coarse_rotation(cow_img, steps);
+            }
+        }
+        Ok(calculate_saliency_crop(&cow_img, aspect_ratio))
     } else {
         Err("No active image loaded".to_string())
     }
