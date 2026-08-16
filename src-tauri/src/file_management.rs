@@ -2960,10 +2960,17 @@ fn get_presets_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, String
 pub fn load_presets(app_handle: AppHandle) -> Result<Vec<PresetItem>, String> {
     let path = get_presets_path(&app_handle)?;
     if !path.exists() {
-        return Ok(Vec::new());
+        let defaults = crate::default_presets::get_default_curated_presets();
+        let _ = save_presets(defaults.clone(), app_handle);
+        return Ok(defaults);
     }
     let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&content).map_err(|e| e.to_string())
+    let mut items: Vec<PresetItem> = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    if items.is_empty() {
+        items = crate::default_presets::get_default_curated_presets();
+        let _ = save_presets(items.clone(), app_handle);
+    }
+    Ok(items)
 }
 
 #[tauri::command]
