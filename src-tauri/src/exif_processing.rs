@@ -230,33 +230,34 @@ static XMP_RATING_ATTR: std::sync::OnceLock<regex::bytes::Regex> = std::sync::On
 static XMP_RATING_ELEM: std::sync::OnceLock<regex::bytes::Regex> = std::sync::OnceLock::new();
 
 pub fn read_image_rating(file_bytes: &[u8]) -> Option<u8> {
-    let attr = XMP_RATING_ATTR
-        .get_or_init(|| regex::bytes::Regex::new(r#"xmp:Rating\s*=\s*["'](-?[0-9]+)["']"#).unwrap());
-    if let Some(caps) = attr.captures(file_bytes) {
-        if let Some(m) = caps.get(1) {
-            if let Ok(s) = std::str::from_utf8(m.as_bytes())
-                && let Some(r) = parse_xmp_rating(s)
-            {
-                return Some(r);
-            }
-        }
+    let attr = XMP_RATING_ATTR.get_or_init(|| {
+        regex::bytes::Regex::new(r#"xmp:Rating\s*=\s*["'](-?[0-9]+)["']"#).unwrap()
+    });
+    if let Some(caps) = attr.captures(file_bytes)
+        && let Some(m) = caps.get(1)
+        && let Ok(s) = std::str::from_utf8(m.as_bytes())
+        && let Some(r) = parse_xmp_rating(s)
+    {
+        return Some(r);
     }
-    let elem = XMP_RATING_ELEM
-        .get_or_init(|| regex::bytes::Regex::new(r#"<xmp:Rating>(-?[0-9]+)</xmp:Rating>"#).unwrap());
-    if let Some(caps) = elem.captures(file_bytes) {
-        if let Some(m) = caps.get(1) {
-            if let Ok(s) = std::str::from_utf8(m.as_bytes())
-                && let Some(r) = parse_xmp_rating(s)
-            {
-                return Some(r);
-            }
-        }
+    let elem = XMP_RATING_ELEM.get_or_init(|| {
+        regex::bytes::Regex::new(r#"<xmp:Rating>(-?[0-9]+)</xmp:Rating>"#).unwrap()
+    });
+    if let Some(caps) = elem.captures(file_bytes)
+        && let Some(m) = caps.get(1)
+        && let Ok(s) = std::str::from_utf8(m.as_bytes())
+        && let Some(r) = parse_xmp_rating(s)
+    {
+        return Some(r);
     }
 
     if let Some(exif) = read_exif(file_bytes) {
         for field in exif.fields() {
             if field.tag.number() == 0x4746 {
-                return field.value.get_uint(0).and_then(|v| (v <= 5).then_some(v as u8));
+                return field
+                    .value
+                    .get_uint(0)
+                    .and_then(|v| (v <= 5).then_some(v as u8));
             }
         }
     }
