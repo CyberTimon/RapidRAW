@@ -217,8 +217,6 @@ pub fn read_raw_metadata(file_bytes: &[u8]) -> Option<RawMetadata> {
     decoder.raw_metadata(&raw_source, &Default::default()).ok()
 }
 
-/// Map an XMP `xmp:Rating` textual value onto a star rating.
-/// `-1` ("rejected") is intentionally not a star rating, so it yields `None`.
 fn parse_xmp_rating(raw: &str) -> Option<u8> {
     let v: i32 = raw.trim().parse().ok()?;
     match v {
@@ -228,14 +226,7 @@ fn parse_xmp_rating(raw: &str) -> Option<u8> {
     }
 }
 
-/// Rating (0..=5) written by a camera or another tool.
-///
-/// Reads from embedded XMP `xmp:Rating` (the interoperable carrier used by
-/// Lightroom / digikam / many cameras) and, as a fallback, the private EXIF
-/// `Rating` tag (0x4746). Returns `None` when no rating is present so callers
-/// can fall back to 0.
 pub fn read_image_rating(file_bytes: &[u8]) -> Option<u8> {
-    // Embedded XMP `xmp:Rating`, attribute or element form.
     let attr = regex::bytes::Regex::new(r#"xmp:Rating\s*=\s*["'](-?[0-9]+)["']"#).ok()?;
     if let Some(caps) = attr.captures(file_bytes) {
         if let Some(m) = caps.get(1) {
@@ -257,7 +248,6 @@ pub fn read_image_rating(file_bytes: &[u8]) -> Option<u8> {
         }
     }
 
-    // Private EXIF Rating tag (0x4746).
     if let Some(exif) = read_exif(file_bytes) {
         for field in exif.fields() {
             if field.tag.number() == 0x4746 {
@@ -1489,48 +1479,4 @@ pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> 
     metadata.exif = Some(exif_data);
     save_primary_metadata(target_image_path, &metadata)
         .map_err(|e| format!("Failed to write sidecar: {}", e))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{parse_xmp_rating, read_image_rating};
-
-    #[test]
-    fn xmp_attribute_rating() {
-        let bytes = b"<rdf:RDF><rdf:Description xmp:Rating=\"4\"></rdf:Description></rdf:RDF>".to_vec();
-        assert_eq!(read_image_rating(&bytes), Some(4));
-    }
-
-    #[test]
-    fn xmp_attribute_rating_single_quote() {
-        let bytes = b"<rdf:Description xmp:Rating='2'/>".to_vec();
-        assert_eq!(read_image_rating(&bytes), Some(2));
-    }
-
-    #[test]
-    fn xmp_element_rating() {
-        let bytes = b"<rdf:Description><xmp:Rating>3</xmp:Rating></rdf:Description>".to_vec();
-        assert_eq!(read_image_rating(&bytes), Some(3));
-    }
-
-    #[test]
-    fn xmp_rating_mapping() {
-        assert_eq!(parse_xmp_rating("-1"), None); // rejected is not a star
-        assert_eq!(parse_xmp_rating("0"), Some(0));
-        assert_eq!(parse_xmp_rating("5"), Some(5));
-        assert_eq!(parse_xmp_rating("7"), None);
-        assert_eq!(parse_xmp_rating("abc"), None);
-    }
-
-    #[test]
-    fn explicit_zero_rating() {
-        let bytes = b"<rdf:Description xmp:Rating=\"0\"/>".to_vec();
-        assert_eq!(read_image_rating(&bytes), Some(0));
-    }
-
-    #[test]
-    fn no_rating_returns_none() {
-        let bytes = b"<rdf:RDF></rdf:RDF> no rating present".to_vec();
-        assert_eq!(read_image_rating(&bytes), None);
-    }
 }

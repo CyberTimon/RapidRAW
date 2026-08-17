@@ -103,8 +103,6 @@ fn resolve_image_metadata(
         let _ = fs::write(sidecar_path, json);
     }
 
-    // Read a camera/software rating the user never edited in RapidRAW
-    // (no rated `.rrdata`). In-memory only — we do not grow `.rrdata` here.
     if metadata.rating == 0 {
         if let Ok(mm) = read_file_mapped(image_path)
             && let Some(rating) = crate::exif_processing::read_image_rating(mm.as_ref())
