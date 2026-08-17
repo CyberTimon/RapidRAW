@@ -446,7 +446,13 @@ pub async fn read_exif_for_paths(
                 }
                 map
             } else if let Ok(bytes) = fs::read(&source_path) {
-                crate::exif_processing::read_exif_data(&source_path_str, &bytes)
+                let mut map = crate::exif_processing::read_exif_data(&source_path_str, &bytes);
+                if !map.contains_key("Rating")
+                    && let Some(r) = crate::exif_processing::read_image_rating(&bytes)
+                {
+                    map.insert("Rating".to_string(), r.to_string());
+                }
+                map
             } else {
                 HashMap::new()
             };
