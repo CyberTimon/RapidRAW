@@ -1,6 +1,6 @@
 use crate::AppState;
-use crate::fast_resizer::fast_resize_dyn;
-use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb, Rgb32FImage};
+use crate::fast_resizer::{fast_resize_rgb32f, MultiResPyramid};
+use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -40,8 +40,9 @@ pub fn perform_super_resolution(
     );
 
     // 1. High-fidelity SIMD Lanczos3 base reconstruction
-    let upscaled_base = fast_resize_dyn(src, dst_w, dst_h);
-    let mut rgb32f = upscaled_base.to_rgb32f();
+    let src_rgb32f = src.to_rgb32f();
+    let upscaled_base = fast_resize_rgb32f(&src_rgb32f, dst_w, dst_h);
+    let rgb32f = upscaled_base;
 
     let _ = app_handle.emit("upscale-progress", "Synthesizing high-frequency edge textures...");
 
@@ -77,7 +78,7 @@ pub fn perform_super_resolution(
                 let lum_t = 0.2126 * p_t[0] + 0.7152 * p_t[1] + 0.0722 * p_t[2];
                 let lum_b = 0.2126 * p_b[0] + 0.7152 * p_b[1] + 0.0722 * p_b[2];
 
-                let lap = (4.0 * clum - lum_l - lum_r - lum_t - lum_b);
+                let lap = 4.0 * clum - lum_l - lum_r - lum_t - lum_b;
                 let edge_mag = (lum_r - lum_l).abs() + (lum_b - lum_t).abs();
 
                 // Non-linear texture sharpening: enhance real edges, suppress random flat sensor noise
@@ -124,8 +125,8 @@ pub fn upscale_active_image(
         let (nw, nh) = upscaled.dimensions();
 
         // Rebuild pyramid for instant responsive zooming
-        let new_pyramid = crate::fast_resizer::MultiResPyramid::new(&upscaled);
-        loaded_image.pyramid = new_pyramid;
+        let new_pyramid = MultiResPyramid::build(&upscaled);
+        loaded_image.pyramid = Some(Arc::new(new_pyramid));
         loaded_image.image = Arc::new(upscaled.clone());
 
         // Update cached preview

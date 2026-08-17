@@ -13,7 +13,36 @@
         "basicDesc": "Standard Tonemapping"
       },
       "reset": "Reset",
-      "nightSkyMagic": "Night Sky Magic",
+      "nightSkyMagic": "Night Sky & Astro Magic",
+      "nightSkyMagicShort": "Night Sky",
+      "nightSkyMagicDesc": "1-Click Astrophotography Engine: Neutralizes light pollution, stretches nebular contrast, enhances H-alpha emissions, and preserves star colors.",
+      "nightSkyScenes": {
+        "master": "Master Astro Look",
+        "milkyWay": "🌌 Milky Way Core & Dust",
+        "starryLandscape": "🌠 Starry Night Landscape",
+        "deepSky": "☄️ Deep Sky & Nebulae",
+        "moonlitAurora": "🌙 Moonlit & Aurora"
+      },
+      "weddingMagic": "Wedding & Portrait Magic",
+      "weddingMagicShort": "Wedding Magic",
+      "weddingMagicDesc": "1-Click Bridal & Portrait Engine: Preserves white gown lace, flatters skin tones, adds bridal veil glow, and neutralizes neon foliage.",
+      "weddingScenes": {
+        "master": "Master Wedding Look",
+        "bridalGlow": "Bridal Glow & Details",
+        "ceremony": "Ceremony & Chapel (Lace Recovery)",
+        "goldenHour": "Golden Hour Romance",
+        "reception": "Reception & Party (High-ISO Film)"
+      },
+      "macroMagic": "Macro & Nature Magic",
+      "macroMagicShort": "Macro Magic",
+      "macroMagicDesc": "1-Click Macro & Close-up Engine: Recovers diffraction softness, compresses water droplet reflections, removes LoCA fringing, and enhances biological vibrance.",
+      "macroScenes": {
+        "master": "Master Macro Look",
+        "droplets": "💧 Water Droplets & Dew",
+        "insects": "🐝 Insects & Chitin",
+        "botanical": "🌸 Botanical & Flora",
+        "jewelry": "💍 Jewelry & Diamonds"
+      },
       "shadows": "Shadows",
       "toneMapper": "Tone Mapper",
       "whites": "Whites"

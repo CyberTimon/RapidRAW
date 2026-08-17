@@ -1,2 +1,1 @@
-[target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "linker=rust-lld.exe"]
+# Default MSVC configuration
