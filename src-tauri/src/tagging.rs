@@ -22,6 +22,8 @@ use crate::{AppState, candidates::TAG_CANDIDATES};
 
 pub const COLOR_TAG_PREFIX: &str = "color:";
 pub const USER_TAG_PREFIX: &str = "user:";
+pub const CULLING_PICK_TAG: &str = "flag:pick";
+pub const CULLING_REJECT_TAG: &str = "flag:reject";
 
 fn preprocess_clip_image(image: &DynamicImage) -> Array<f32, ndarray::Dim<[usize; 4]>> {
     let input_size = 224;
@@ -463,6 +465,27 @@ pub fn remove_tag_for_paths(paths: Vec<String>, tag: String) -> Result<(), Strin
         }
     });
     Ok(())
+}
+
+#[tauri::command]
+pub fn set_culling_flag_for_paths(paths: Vec<String>, flag: Option<String>) -> Result<(), String> {
+    if let Some(value) = flag.as_deref()
+        && value != "pick"
+        && value != "reject"
+    {
+        return Err(format!("Invalid culling flag: {value}"));
+    }
+
+    paths.par_iter().try_for_each(|path| {
+        modify_tags_for_path(path, |tags| {
+            tags.retain(|tag| tag != CULLING_PICK_TAG && tag != CULLING_REJECT_TAG);
+            match flag.as_deref() {
+                Some("pick") => tags.push(CULLING_PICK_TAG.to_string()),
+                Some("reject") => tags.push(CULLING_REJECT_TAG.to_string()),
+                _ => {}
+            }
+        })
+    })
 }
 
 #[tauri::command]

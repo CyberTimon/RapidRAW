@@ -28,6 +28,8 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
+import { isCullingFlagTag } from '../../../utils/cullingFlags';
+import { getShootingInfo } from '../../../utils/shootingInfo';
 
 interface SyncViewport {
   isActive: boolean;
@@ -107,7 +109,7 @@ function CullingPreview({
 
   const currentTags = useMemo(() => {
     return (image.tags || [])
-      .filter((t) => !t.startsWith('color:'))
+      .filter((t) => !t.startsWith('color:') && !isCullingFlagTag(t))
       .map((t) => ({
         tag: t.startsWith(USER_TAG_PREFIX) ? t.substring(USER_TAG_PREFIX.length) : t,
         isUser: t.startsWith(USER_TAG_PREFIX),
@@ -115,43 +117,8 @@ function CullingPreview({
       .sort((a, b) => a.tag.localeCompare(b.tag));
   }, [image.tags]);
 
-  const { exifData, hasExif } = useMemo(() => {
-    const exif = image.exif || {};
-
-    let fNum = exif.FNumber;
-    if (fNum) {
-      const fStr = String(fNum);
-      fNum = fStr.toLowerCase().startsWith('f') ? fStr : `f/${fStr}`;
-    }
-
-    let captureDate = null;
-    let captureTime = null;
-
-    if (exif.DateTimeOriginal) {
-      const dateTimeParts = exif.DateTimeOriginal.split(' ');
-      captureDate = dateTimeParts[0]?.replace(/:/g, '-') || null;
-      if (dateTimeParts[1]) {
-        const timeParts = dateTimeParts[1].split(':');
-        captureTime = `${timeParts[0]}:${timeParts[1]}`;
-      }
-    }
-
-    const data = {
-      iso: exif.PhotographicSensitivity || exif.ISO,
-      fNumber: fNum,
-      shutter: exif.ExposureTime,
-      focal: exif.FocalLengthIn35mmFilm,
-      captureDate: captureDate,
-      captureTime: captureTime,
-    };
-
-    const hasData = !!(data.iso || data.fNumber || data.shutter || data.focal || data.captureDate);
-
-    return {
-      exifData: data,
-      hasExif: hasData,
-    };
-  }, [image.exif]);
+  const exifData = useMemo(() => getShootingInfo(image.exif), [image.exif]);
+  const hasExif = exifData.hasAny;
 
   const imageWidth = (image as any).width || image.exif?.ExifImageWidth || image.exif?.PixelXDimension;
   const imageHeight = (image as any).height || image.exif?.ExifImageHeight || image.exif?.PixelYDimension;
@@ -582,12 +549,12 @@ function CullingPreview({
                         <Text variant={TextVariants.small}>{exifData.shutter}</Text>
                       </div>
                     )}
-                    {exifData.fNumber && (
+                    {exifData.aperture && (
                       <div className="flex items-center gap-1.5 text-white/90" title={t('library.culling.aperture')}>
                         <span className="opacity-70">
                           <IconAperture />
                         </span>
-                        <Text variant={TextVariants.small}>{exifData.fNumber}</Text>
+                        <Text variant={TextVariants.small}>{exifData.aperture}</Text>
                       </div>
                     )}
                     {exifData.iso && (
@@ -598,14 +565,12 @@ function CullingPreview({
                         <Text variant={TextVariants.small}>{exifData.iso}</Text>
                       </div>
                     )}
-                    {exifData.focal && (
+                    {exifData.focalLength && (
                       <div className="flex items-center gap-1.5 text-white/90" title={t('library.culling.focalLength')}>
                         <span className="opacity-70">
                           <IconFocalLength />
                         </span>
-                        <Text variant={TextVariants.small}>
-                          {String(exifData.focal).endsWith('mm') ? exifData.focal : `${exifData.focal}mm`}
-                        </Text>
+                        <Text variant={TextVariants.small}>{exifData.focalLength}</Text>
                       </div>
                     )}
                   </div>

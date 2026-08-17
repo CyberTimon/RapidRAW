@@ -8,6 +8,7 @@ import { Invokes, ImageFile, AlbumItem, Album, AlbumGroup } from '../components/
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { computeSortedLibrary } from './useSortedLibrary';
+import { isCullingFlagTag } from '../utils/cullingFlags';
 
 export function useLibraryActions(handleImageSelect?: (path: string, openInEditor?: boolean) => void) {
   const handleRate = useCallback((newRating: number, paths?: string[]) => {
@@ -73,9 +74,9 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     useLibraryStore.getState().setLibrary((state) => ({
       imageList: state.imageList.map((image) => {
         if (changedPaths.includes(image.path)) {
-          const colorTags = (image.tags || []).filter((t) => t.startsWith('color:'));
+          const preservedTags = (image.tags || []).filter((t) => t.startsWith('color:') || isCullingFlagTag(t));
           const prefixedNewTags = newTags.map((t) => (t.isUser ? `user:${t.tag}` : t.tag));
-          const finalTags = [...colorTags, ...prefixedNewTags].sort();
+          const finalTags = [...preservedTags, ...prefixedNewTags].sort();
           return { ...image, tags: finalTags.length > 0 ? finalTags : null };
         }
         return image;

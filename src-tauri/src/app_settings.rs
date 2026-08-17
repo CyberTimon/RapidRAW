@@ -501,6 +501,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub exif_overlay: Option<String>,
     #[serde(default)]
+    pub show_review_shooting_info: Option<bool>,
+    #[serde(default)]
     pub language: Option<String>,
     #[serde(default)]
     pub folder_tree_sort: Option<FolderTreeSort>,
@@ -604,6 +606,7 @@ impl Default for AppSettings {
             raw_preprocessing_sharpening: Some(0.35),
             apply_preprocessing_to_non_raws: Some(false),
             exif_overlay: Some("off".to_string()),
+            show_review_shooting_info: Some(true),
             language: Some("en".to_string()),
             folder_tree_sort: Some(FolderTreeSort::default()),
             library_display_mode: Some("grid".to_string()),

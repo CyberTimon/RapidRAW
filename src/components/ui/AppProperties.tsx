@@ -80,6 +80,7 @@ export enum Invokes {
   LoadMetadata = 'load_metadata',
   LoadPresets = 'load_presets',
   LoadSettings = 'load_settings',
+  MoveFilesToTrash = 'move_files_to_trash',
   MoveFiles = 'move_files',
   ReadExifForPaths = 'read_exif_for_paths',
   RemoveTagForPaths = 'remove_tag_for_paths',
@@ -94,7 +95,9 @@ export enum Invokes {
   SavePresets = 'save_presets',
   SaveSettings = 'save_settings',
   SetColorLabelForPaths = 'set_color_label_for_paths',
+  SetCullingFlagForPaths = 'set_culling_flag_for_paths',
   SetRatingForPaths = 'set_rating_for_paths',
+  DeleteFilesFromDisk = 'delete_files_from_disk',
   ShowInFinder = 'show_in_finder',
   StartBackgroundIndexing = 'start_background_indexing',
   StitchPanorama = 'stitch_panorama',
@@ -237,6 +240,7 @@ export interface AppSettings {
   openTreeSections?: string[];
   folderIcons?: Record<string, string>;
   exifOverlay?: ExifOverlay;
+  showReviewShootingInfo?: boolean;
   language?: string;
   fontFamily?: string;
   folderTreeSort?: FolderTreeSort;
@@ -357,6 +361,7 @@ export interface SupportedTypes {
 export enum LibraryDisplayMode {
   Grid = 'grid',
   Cull = 'cull',
+  Loupe = 'loupe',
   List = 'list',
 }
 

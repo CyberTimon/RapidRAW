@@ -57,6 +57,7 @@ import TaggingSubMenu from '../context/TaggingSubMenu';
 import { useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
 import { globalImageCache } from '../utils/ImageLRUCache';
+import { isCullingFlagTag } from '../utils/cullingFlags';
 
 export interface UseAppContextMenusProps {
   handleImageSelect: (path: string) => void;
@@ -103,7 +104,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
     if (imageFiles.length === 0) return [];
 
     const allTagsSets = imageFiles.map((img) => {
-      const tagsWithPrefix = (img.tags || []).filter((t: string) => !t.startsWith('color:'));
+      const tagsWithPrefix = (img.tags || []).filter((t: string) => !t.startsWith('color:') && !isCullingFlagTag(t));
       return new Set(tagsWithPrefix);
     });
 
