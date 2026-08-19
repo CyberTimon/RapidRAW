@@ -1751,7 +1751,7 @@ const ImageCanvas = memo(
 
         if (e.evt && e.evt.cancelable) e.evt.preventDefault();
 
-        if (isWbPickerActive) {
+        if (isWbPickerActive && !isMasking && !isAiEditing) {
           handleWbClick(e);
           return;
         }
@@ -2192,6 +2192,7 @@ const ImageCanvas = memo(
         effectiveImageDimensions,
         brushSettings,
         isMasking,
+        isAiEditing,
         localInitialDrawParams,
         brushImageSpaceSize,
         baseTool,
