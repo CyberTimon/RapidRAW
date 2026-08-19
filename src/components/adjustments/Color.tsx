@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, memo, CSSProperties, ReactNode } from 'react';
-import { Pipette, Sliders } from 'lucide-react';
+import { Contrast, Pipette, Sliders } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Slider, { SliderChangeEvent } from '../ui/Slider';
@@ -780,6 +780,23 @@ function ColorPanel({
     if (mixerPickerProperty) setEditor({ mixerPickerProperty: tab });
   };
 
+  const isMixerBw = useMemo(() => HSL_MIXER_BANDS.every((name) => (hsl[name]?.saturation ?? 0) === -100), [hsl]);
+
+  const handleToggleMixerBw = () => {
+    const targetSaturation = isMixerBw ? 0 : -100;
+    setAdjustments((prev: Partial<Adjustments>) => {
+      const prevHsl = prev.hsl || INITIAL_ADJUSTMENTS.hsl;
+      const newHsl = HSL_MIXER_BANDS.reduce(
+        (acc, name) => ({
+          ...acc,
+          [name]: { ...(prevHsl[name] || INITIAL_ADJUSTMENTS.hsl[name]), saturation: targetSaturation },
+        }),
+        {} as Record<string, HueSatLum>,
+      );
+      return { ...prev, hsl: { ...prevHsl, ...newHsl } };
+    });
+  };
+
   const isMonochromeImage = useEditorStore((state) => !!state.adjustments.monochromeEnabled);
   const isMonochrome = !isForMask && !!adjustments.monochromeEnabled;
   const isMonochromeMask = isForMask && isMonochromeImage;
@@ -1047,6 +1064,13 @@ function ColorPanel({
           actions={
             !showMonochromeMix && (
               <div className="flex items-center gap-1">
+                <HeaderToggleButton
+                  isActive={isMixerBw}
+                  onClick={handleToggleMixerBw}
+                  tooltip={t('adjustments.color.blackAndWhiteTooltip')}
+                >
+                  <Contrast size={16} />
+                </HeaderToggleButton>
                 {isMixerExpanded && (
                   <HeaderToggleButton
                     isActive={mixerPickerProperty !== null}
