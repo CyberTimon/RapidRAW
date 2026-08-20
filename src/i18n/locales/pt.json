@@ -652,7 +652,8 @@
       "copy": "Copiar",
       "emptyClickToAdd": "Vazio (Clique para adicionar)",
       "extendedExif": {
-        "title": "EXIF Estendido"
+        "title": "EXIF Estendido",
+        "unknownTiffTag": "Etiqueta TIFF ({{id}})"
       },
       "fields": {
         "author": "Autor",
@@ -1306,6 +1307,14 @@
       "dateFormatPlaceholder": "ex.: AAAA/MM-DD",
       "deleteAfterImport": "Excluir originais após importação bem-sucedida",
       "deleteWarning": "Os arquivos serão movidos para a lixeira do sistema.",
+      "fileDialog": {
+        "allFiles": "Todos os arquivos",
+        "allSupportedImages": "Todas as imagens compatíveis",
+        "rawImages": "Imagens RAW",
+        "selectFilesTitle": "Selecionar arquivos para importar",
+        "standardImages": "Imagens padrão (JPEG, PNG etc.)",
+        "unsupportedFormats": "Formatos de arquivo não compatíveis detectados: {{formats}}"
+      },
       "fileNaming": "Nomeação de Arquivos",
       "folderOrganization": "Organização de Pastas",
       "organizeByDate": "Organizar em subpastas por data",
@@ -1874,6 +1883,17 @@
     "whiteBalance": "Balanço de Branco"
   },
   "ui": {
+    "builtInTags": {
+      "architecture": "Arquitetura",
+      "event": "Evento",
+      "family": "Família",
+      "food": "Comida",
+      "landscape": "Paisagem",
+      "nature": "Natureza",
+      "portrait": "Retrato",
+      "street": "Rua",
+      "travel": "Viagem"
+    },
     "bottomBar": {
       "imagesSelected": "{{current}} de {{total}} imagens selecionadas",
       "tooltips": {
@@ -1918,6 +1938,15 @@
       "presetNamePlaceholder": "Nome da Predefinição",
       "saveAsNewTooltip": "Salvar configurações atuais como nova predefinição",
       "savedTooltip": "Salvo!"
+    },
+    "filenameVariables": {
+      "day": "Dia",
+      "hour": "Hora",
+      "minute": "Minuto",
+      "month": "Mês",
+      "originalFilename": "Nome do arquivo original",
+      "sequence": "Sequência",
+      "year": "Ano"
     },
     "filmstrip": {
       "tooltips": {

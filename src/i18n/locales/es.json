@@ -652,7 +652,8 @@
       "copy": "Copiar",
       "emptyClickToAdd": "Vacío (Haz clic para añadir)",
       "extendedExif": {
-        "title": "EXIF Extendido"
+        "title": "EXIF Extendido",
+        "unknownTiffTag": "Etiqueta TIFF ({{id}})"
       },
       "fields": {
         "author": "Autor",
@@ -1305,6 +1306,14 @@
       "dateFormatPlaceholder": "ej., AAAA/MM-DD",
       "deleteAfterImport": "Eliminar originales tras una importación exitosa",
       "deleteWarning": "Los archivos se moverán a la papelera del sistema.",
+      "fileDialog": {
+        "allFiles": "Todos los archivos",
+        "allSupportedImages": "Todas las imágenes compatibles",
+        "rawImages": "Imágenes RAW",
+        "selectFilesTitle": "Seleccionar archivos para importar",
+        "standardImages": "Imágenes estándar (JPEG, PNG, etc.)",
+        "unsupportedFormats": "Se detectaron formatos de archivo no compatibles: {{formats}}"
+      },
       "fileNaming": "Nomenclatura de archivos",
       "folderOrganization": "Organización de carpetas",
       "organizeByDate": "Organizar en subcarpetas por fecha",
@@ -1873,6 +1882,17 @@
     "whiteBalance": "Balance de blancos"
   },
   "ui": {
+    "builtInTags": {
+      "architecture": "Arquitectura",
+      "event": "Evento",
+      "family": "Familia",
+      "food": "Comida",
+      "landscape": "Paisaje",
+      "nature": "Naturaleza",
+      "portrait": "Retrato",
+      "street": "Calle",
+      "travel": "Viaje"
+    },
     "bottomBar": {
       "imagesSelected": "{{current}} de {{total}} imágenes seleccionadas",
       "tooltips": {
@@ -1917,6 +1937,15 @@
       "presetNamePlaceholder": "Nombre del ajuste preestablecido",
       "saveAsNewTooltip": "Guardar los ajustes actuales como un nuevo ajuste preestablecido",
       "savedTooltip": "¡Guardado!"
+    },
+    "filenameVariables": {
+      "day": "Día",
+      "hour": "Hora",
+      "minute": "Minuto",
+      "month": "Mes",
+      "originalFilename": "Nombre de archivo original",
+      "sequence": "Secuencia",
+      "year": "Año"
     },
     "filmstrip": {
       "tooltips": {

@@ -652,7 +652,8 @@
       "copy": "Copier",
       "emptyClickToAdd": "Vide (cliquer pour ajouter)",
       "extendedExif": {
-        "title": "EXIF étendu"
+        "title": "EXIF étendu",
+        "unknownTiffTag": "Balise TIFF ({{id}})"
       },
       "fields": {
         "author": "Auteur",
@@ -1305,6 +1306,14 @@
       "dateFormatPlaceholder": "ex. : AAAA/MM-JJ",
       "deleteAfterImport": "Supprimer les originaux après importation réussie",
       "deleteWarning": "Les fichiers seront déplacés vers la corbeille du système.",
+      "fileDialog": {
+        "allFiles": "Tous les fichiers",
+        "allSupportedImages": "Toutes les images prises en charge",
+        "rawImages": "Images RAW",
+        "selectFilesTitle": "Sélectionner les fichiers à importer",
+        "standardImages": "Images standard (JPEG, PNG, etc.)",
+        "unsupportedFormats": "Formats de fichier non pris en charge détectés : {{formats}}"
+      },
       "fileNaming": "Nommage des fichiers",
       "folderOrganization": "Organisation des dossiers",
       "organizeByDate": "Organiser dans des sous-dossiers par date",
@@ -1873,6 +1882,17 @@
     "whiteBalance": "Balance des blancs"
   },
   "ui": {
+    "builtInTags": {
+      "architecture": "Architecture",
+      "event": "Événement",
+      "family": "Famille",
+      "food": "Cuisine",
+      "landscape": "Paysage",
+      "nature": "Nature",
+      "portrait": "Portrait",
+      "street": "Rue",
+      "travel": "Voyage"
+    },
     "bottomBar": {
       "imagesSelected": "{{current}} sur {{total}} images sélectionnées",
       "tooltips": {
@@ -1917,6 +1937,15 @@
       "presetNamePlaceholder": "Nom du paramètre",
       "saveAsNewTooltip": "Enregistrer les paramètres actuels comme nouveau",
       "savedTooltip": "Enregistré !"
+    },
+    "filenameVariables": {
+      "day": "Jour",
+      "hour": "Heure",
+      "minute": "Minute",
+      "month": "Mois",
+      "originalFilename": "Nom de fichier d’origine",
+      "sequence": "Séquence",
+      "year": "Année"
     },
     "filmstrip": {
       "tooltips": {

@@ -673,7 +673,8 @@
       "copy": "Копировать",
       "emptyClickToAdd": "Пусто (нажмите, чтобы добавить)",
       "extendedExif": {
-        "title": "Расширенный EXIF"
+        "title": "Расширенный EXIF",
+        "unknownTiffTag": "Тег TIFF ({{id}})"
       },
       "fields": {
         "author": "Автор",
@@ -1334,6 +1335,14 @@
       "dateFormatPlaceholder": "например, YYYY/MM-DD",
       "deleteAfterImport": "Удалять исходные файлы после успешного импорта",
       "deleteWarning": "Файлы будут перемещены в системную корзину.",
+      "fileDialog": {
+        "allFiles": "Все файлы",
+        "allSupportedImages": "Все поддерживаемые изображения",
+        "rawImages": "Изображения RAW",
+        "selectFilesTitle": "Выберите файлы для импорта",
+        "standardImages": "Стандартные изображения (JPEG, PNG и т. д.)",
+        "unsupportedFormats": "Обнаружены неподдерживаемые форматы файлов: {{formats}}"
+      },
       "fileNaming": "Именование файлов",
       "folderOrganization": "Структура папок",
       "organizeByDate": "Распределять по подпапкам на основе даты",
@@ -1908,6 +1917,17 @@
     "whiteBalance": "Баланс белого"
   },
   "ui": {
+    "builtInTags": {
+      "architecture": "Архитектура",
+      "event": "Событие",
+      "family": "Семья",
+      "food": "Еда",
+      "landscape": "Пейзаж",
+      "nature": "Природа",
+      "portrait": "Портрет",
+      "street": "Улица",
+      "travel": "Путешествия"
+    },
     "bottomBar": {
       "imagesSelected": "Выбрано снимков: {{current}} из {{total}}",
       "tooltips": {
@@ -1953,6 +1973,15 @@
       "presetNamePlaceholder": "Имя пресета",
       "saveAsNewTooltip": "Сохранить текущие параметры как новый пресет экспорта",
       "savedTooltip": "Сохранено!"
+    },
+    "filenameVariables": {
+      "day": "День",
+      "hour": "Час",
+      "minute": "Минута",
+      "month": "Месяц",
+      "originalFilename": "Исходное имя файла",
+      "sequence": "Последовательность",
+      "year": "Год"
     },
     "filmstrip": {
       "tooltips": {
