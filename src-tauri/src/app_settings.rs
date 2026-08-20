@@ -522,6 +522,8 @@ pub struct AppSettings {
     pub always_decode_raw_thumbnails: Option<bool>,
     #[serde(default)]
     pub workspace: WorkspaceState,
+    #[serde(default)]
+    pub auto_apply_lens_correction: Option<bool>,
 }
 
 impl Default for AppSettings {
@@ -614,6 +616,7 @@ impl Default for AppSettings {
             group_preferred_type: Some("raw".to_string()),
             always_decode_raw_thumbnails: Some(false),
             workspace: WorkspaceState::default(),
+            auto_apply_lens_correction: Some(false),
         }
     }
 }

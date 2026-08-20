@@ -1267,6 +1267,13 @@ export default function SettingsPanel({
                     <Text className="mb-6">{t('settings.lenses.description')}</Text>
 
                     <div className="space-y-8">
+                      <Switch
+                        label={t('settings.lenses.autoApplyOnImport')}
+                        tooltip={t('settings.lenses.autoApplyOnImportDescription')}
+                        checked={appSettings?.autoApplyLensCorrection ?? false}
+                        onChange={(checked) => onSettingsChange({ ...appSettings, autoApplyLensCorrection: checked })}
+                      />
+
                       <div className="bg-bg-primary rounded-lg p-4 border border-border-color">
                         <Text variant={TextVariants.heading} className="mb-3">
                           {t('settings.lenses.addNew')}

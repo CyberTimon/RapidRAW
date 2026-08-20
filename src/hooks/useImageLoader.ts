@@ -5,7 +5,7 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Invokes } from '../components/ui/AppProperties';
-import { INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
+import { Adjustments, INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
 
 export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
   const selectedImage = useEditorStore((s) => s.selectedImage);
@@ -28,6 +28,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
   useEffect(() => {
     if (selectedImage && !selectedImage.isReady && selectedImage.path) {
       let isEffectActive = true;
+      let isFreshImage = false;
 
       const loadMetadataEarly = async () => {
         try {
@@ -42,12 +43,67 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
             initialAdjusts = normalizeLoadedAdjustments(metadata.adjustments);
           } else {
             initialAdjusts = { ...INITIAL_ADJUSTMENTS };
+            isFreshImage = true;
           }
 
           setEditor({ adjustments: initialAdjusts });
           resetHistory(initialAdjusts);
         } catch (err) {
           console.error('Failed to load metadata early:', err);
+        }
+      };
+
+      const tryAutoApplyLensCorrection = async (exif: any, path: string) => {
+        const exifMaker = exif?.Make || '';
+        const exifModel = exif?.LensModel || '';
+        const cameraModel = exif?.Model || '';
+        if (!exifModel && !cameraModel) return;
+
+        try {
+          const detected: [string, string] | null = await invoke('autodetect_lens', {
+            maker: exifMaker,
+            model: exifModel,
+            cameraModel,
+          });
+          if (!detected) return;
+
+          const [lensMaker, lensModel] = detected;
+          const focalLength = parseFloat(exif.FocalLength);
+          const aperture = parseFloat(exif.FNumber);
+          const distance = parseFloat(exif.SubjectDistance);
+
+          const distortionParams: Adjustments['lensDistortionParams'] = await invoke('get_lens_distortion_params', {
+            maker: lensMaker,
+            model: lensModel,
+            focalLength: isNaN(focalLength) ? 0 : focalLength,
+            aperture: isNaN(aperture) ? null : aperture,
+            distance: isNaN(distance) ? null : distance,
+          });
+
+          // Note: this deliberately doesn't gate on `isEffectActive` — setting
+          // `selectedImage.isReady` above re-triggers this very effect (it's one of
+          // its own dependencies), which runs this closure's cleanup while we're
+          // still awaiting the lens lookups. The path check below is the real guard:
+          // it still protects against the user having moved to a different image.
+          setEditor((state) => {
+            if (state.selectedImage?.path !== path || state.adjustments.lensMaker) {
+              return state;
+            }
+            return {
+              adjustments: {
+                ...state.adjustments,
+                lensCorrectionMode: 'auto',
+                lensMaker,
+                lensModel,
+                lensDistortionParams: distortionParams,
+                lensDistortionEnabled: true,
+                lensTcaEnabled: true,
+                lensVignetteEnabled: true,
+              },
+            };
+          });
+        } catch (err) {
+          console.error('Automatic lens correction failed:', err);
         }
       };
 
@@ -102,6 +158,10 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
             }
             return state;
           });
+
+          if (isFreshImage && appSettings?.autoApplyLensCorrection && loadImageResult.exif) {
+            await tryAutoApplyLensCorrection(loadImageResult.exif, selectedImage.path);
+          }
         } catch (err) {
           if (isEffectActive) {
             console.error('Failed to load image:', err);

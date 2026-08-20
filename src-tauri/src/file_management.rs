@@ -2050,9 +2050,24 @@ pub fn resolve_lens_params_in_adjustments(
                 let exif_maker = exif.get("Make").map(|s| s.as_str()).unwrap_or("");
                 let exif_model = exif.get("LensModel").map(|s| s.as_str()).unwrap_or("");
                 if let Some(db) = lens_db {
-                    if let Some((detected_maker, detected_model)) =
+                    // Fixed-lens cameras (compacts) usually leave EXIF LensModel empty,
+                    // so fall back to resolving the lens profile through the camera's
+                    // own model/mount — mirrors autodetect_lens's fallback.
+                    let detected = if !exif_model.is_empty() {
                         crate::lens_correction::find_best_lens_match(db, exif_maker, exif_model)
-                    {
+                    } else {
+                        None
+                    }
+                    .or_else(|| {
+                        let camera_model = exif.get("Model").map(|s| s.as_str()).unwrap_or("");
+                        crate::lens_correction::find_lens_by_camera_mount(
+                            db,
+                            exif_maker,
+                            camera_model,
+                        )
+                    });
+
+                    if let Some((detected_maker, detected_model)) = detected {
                         map.insert(
                             "lensMaker".to_string(),
                             serde_json::to_value(&detected_maker).unwrap(),
@@ -2490,28 +2505,35 @@ pub fn save_metadata_and_update_thumbnail(
 ) -> Result<(), String> {
     let (source_path, sidecar_path) = parse_virtual_path(&path);
 
-    let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
-
-    let mut final_adjustments = adjustments;
+    // Serialized against the other sidecar writers (bulk auto adjustments, bulk
+    // lens correction, ...) so this write and theirs can't interleave/corrupt the
+    // file if they land on the same path at the same time.
     {
-        let lens_db_guard = state.lens_db.lock().unwrap();
-        resolve_lens_params_in_adjustments(
-            &mut final_adjustments,
-            &metadata.exif,
-            lens_db_guard.as_deref(),
-        );
-    }
+        let _guard = state.sidecar_write_lock.lock().unwrap();
 
-    metadata.adjustments = final_adjustments;
+        let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
-    let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
-    std::fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
+        let mut final_adjustments = adjustments;
+        {
+            let lens_db_guard = state.lens_db.lock().unwrap();
+            resolve_lens_params_in_adjustments(
+                &mut final_adjustments,
+                &metadata.exif,
+                lens_db_guard.as_deref(),
+            );
+        }
 
-    if let Ok(settings) = load_settings(app_handle.clone())
-        && settings.enable_xmp_sync.unwrap_or(false)
-    {
-        let create_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
-        sync_metadata_to_xmp(&source_path, &metadata, create_if_missing);
+        metadata.adjustments = final_adjustments;
+
+        let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
+        std::fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
+
+        if let Ok(settings) = load_settings(app_handle.clone())
+            && settings.enable_xmp_sync.unwrap_or(false)
+        {
+            let create_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
+            sync_metadata_to_xmp(&source_path, &metadata, create_if_missing);
+        }
     }
 
     let loaded_image_lock = state.original_image.lock().unwrap();
@@ -2789,41 +2811,49 @@ pub async fn apply_auto_adjustments_to_paths(
                 let auto_results = perform_auto_analysis(&image);
                 let auto_adjustments_json = auto_results_to_json(&auto_results);
 
-                let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+                // Read, merge and write under the shared lock so a concurrent writer
+                // for this same path (the editor saving it, or another bulk command
+                // such as the automatic lens correction pass) can't have its own
+                // write silently overwritten by our stale-by-then snapshot.
+                {
+                    let _guard = state.sidecar_write_lock.lock().unwrap();
 
-                if existing_metadata.adjustments.is_null() {
-                    existing_metadata.adjustments = serde_json::json!({});
-                }
+                    let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
-                if let (Some(existing_map), Some(auto_map)) = (
-                    existing_metadata.adjustments.as_object_mut(),
-                    auto_adjustments_json.as_object(),
-                ) {
-                    for (k, v) in auto_map {
-                        if k == "sectionVisibility" {
-                            if let Some(existing_vis_val) = existing_map.get_mut(k) {
-                                if let (Some(existing_vis), Some(auto_vis)) =
-                                    (existing_vis_val.as_object_mut(), v.as_object())
-                                {
-                                    for (vis_k, vis_v) in auto_vis {
-                                        existing_vis.insert(vis_k.clone(), vis_v.clone());
+                    if existing_metadata.adjustments.is_null() {
+                        existing_metadata.adjustments = serde_json::json!({});
+                    }
+
+                    if let (Some(existing_map), Some(auto_map)) = (
+                        existing_metadata.adjustments.as_object_mut(),
+                        auto_adjustments_json.as_object(),
+                    ) {
+                        for (k, v) in auto_map {
+                            if k == "sectionVisibility" {
+                                if let Some(existing_vis_val) = existing_map.get_mut(k) {
+                                    if let (Some(existing_vis), Some(auto_vis)) =
+                                        (existing_vis_val.as_object_mut(), v.as_object())
+                                    {
+                                        for (vis_k, vis_v) in auto_vis {
+                                            existing_vis.insert(vis_k.clone(), vis_v.clone());
+                                        }
                                     }
+                                } else {
+                                    existing_map.insert(k.clone(), v.clone());
                                 }
                             } else {
                                 existing_map.insert(k.clone(), v.clone());
                             }
-                        } else {
-                            existing_map.insert(k.clone(), v.clone());
                         }
                     }
-                }
 
-                if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
-                    let _ = std::fs::write(&sidecar_path, json_string);
-                }
+                    if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
+                        let _ = std::fs::write(&sidecar_path, json_string);
+                    }
 
-                if enable_xmp_sync {
-                    sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
+                    if enable_xmp_sync {
+                        sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
+                    }
                 }
                 Ok(image)
             })()
@@ -2845,6 +2875,171 @@ pub async fn apply_auto_adjustments_to_paths(
             }
 
             increment_thumbnail_progress(&state, &app_handle);
+        });
+    });
+
+    Ok(())
+}
+
+/// Silently resolves and applies a lens correction profile for every path that has
+/// never been touched before (no sidecar adjustments yet), without requiring the
+/// image to be opened in the editor. Used to auto-correct a whole folder as soon as
+/// it's listed, when the `autoApplyLensCorrection` setting is enabled. Images that
+/// already have an edit history (even an empty one) are left untouched.
+#[tauri::command]
+pub async fn auto_apply_lens_correction_to_paths(
+    paths: Vec<String>,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    if !settings.auto_apply_lens_correction.unwrap_or(false) {
+        return Ok(());
+    }
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
+        let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
+
+        let state = app_handle.state::<AppState>();
+        let lens_db = state.lens_db.lock().unwrap().clone();
+        let Some(lens_db) = lens_db else {
+            return;
+        };
+
+        let thumb_cache_dir = match resolve_thumbnail_cache_dir(&app_handle) {
+            Ok(dir) => dir,
+            Err(e) => {
+                log::warn!("Unable to initialize thumbnail cache directory: {}", e);
+                return;
+            }
+        };
+        let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
+
+        paths.par_iter().for_each(|path| {
+            let (source_path, sidecar_path) = parse_virtual_path(path);
+            let metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+
+            let already_has_lens = metadata
+                .adjustments
+                .get("lensMaker")
+                .and_then(|v| v.as_str())
+                .is_some();
+            if already_has_lens || !metadata.adjustments.is_null() {
+                return;
+            }
+
+            let exif = if let Some(sidecar_exif) = &metadata.exif {
+                sidecar_exif.clone()
+            } else if let Ok(mmap) = read_file_mapped(&source_path) {
+                crate::exif_processing::read_exif_data(&source_path.to_string_lossy(), &mmap)
+            } else if let Ok(bytes) = fs::read(&source_path) {
+                crate::exif_processing::read_exif_data(&source_path.to_string_lossy(), &bytes)
+            } else {
+                return;
+            };
+
+            let exif_maker = exif.get("Make").map(|s| s.as_str()).unwrap_or("");
+            let exif_model = exif.get("LensModel").map(|s| s.as_str()).unwrap_or("");
+            let camera_model = exif.get("Model").map(|s| s.as_str()).unwrap_or("");
+
+            let detected = if !exif_model.is_empty() {
+                crate::lens_correction::find_best_lens_match(&lens_db, exif_maker, exif_model)
+            } else {
+                None
+            }
+            .or_else(|| {
+                crate::lens_correction::find_lens_by_camera_mount(
+                    &lens_db,
+                    exif_maker,
+                    camera_model,
+                )
+            });
+
+            let Some((lens_maker, lens_model)) = detected else {
+                return;
+            };
+
+            let mut focal_length = 50.0;
+            let mut aperture = None;
+            let mut distance = None;
+            if let Some(fl_str) = exif.get("FocalLength").or(exif.get("FocalLengthIn35mmFilm"))
+                && let Ok(fl) = fl_str.replace(" mm", "").trim().parse::<f32>()
+            {
+                focal_length = fl;
+            }
+            if let Some(ap_str) = exif.get("ApertureValue").or(exif.get("FNumber"))
+                && let Ok(ap) = ap_str.replace("f/", "").trim().parse::<f32>()
+            {
+                aperture = Some(ap);
+            }
+            if let Some(dist_str) = exif.get("SubjectDistance")
+                && let Ok(dist) = dist_str.replace(" m", "").trim().parse::<f32>()
+            {
+                distance = Some(dist);
+            }
+
+            let distortion_params = crate::lens_correction::resolve_lens_params(
+                &lens_db,
+                &lens_maker,
+                &lens_model,
+                focal_length,
+                aperture,
+                distance,
+            );
+
+            // Re-read and write under the shared lock: another writer (the editor
+            // saving this same "fresh" image, or another bulk command) could have
+            // touched the sidecar since our read above. Re-checking freshness here
+            // avoids clobbering whatever it wrote with our now-stale snapshot.
+            {
+                let _guard = state.sidecar_write_lock.lock().unwrap();
+
+                let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+                let already_has_lens = metadata
+                    .adjustments
+                    .get("lensMaker")
+                    .and_then(|v| v.as_str())
+                    .is_some();
+                if already_has_lens || !metadata.adjustments.is_null() {
+                    return;
+                }
+
+                metadata.adjustments = serde_json::json!({});
+                if let Some(map) = metadata.adjustments.as_object_mut() {
+                    map.insert("lensCorrectionMode".to_string(), serde_json::json!("auto"));
+                    map.insert("lensMaker".to_string(), serde_json::json!(lens_maker));
+                    map.insert("lensModel".to_string(), serde_json::json!(lens_model));
+                    map.insert("lensDistortionEnabled".to_string(), serde_json::json!(true));
+                    map.insert("lensTcaEnabled".to_string(), serde_json::json!(true));
+                    map.insert("lensVignetteEnabled".to_string(), serde_json::json!(true));
+                    if let Some(params) = &distortion_params {
+                        map.insert(
+                            "lensDistortionParams".to_string(),
+                            serde_json::to_value(params).unwrap(),
+                        );
+                    }
+                }
+
+                if let Ok(json_string) = serde_json::to_string_pretty(&metadata) {
+                    let _ = fs::write(&sidecar_path, json_string);
+                }
+
+                if enable_xmp_sync {
+                    sync_metadata_to_xmp(&source_path, &metadata, create_xmp_if_missing);
+                }
+            }
+
+            if let Some((thumbnail_path, rating, is_edited)) = generate_single_thumbnail_and_cache(
+                path,
+                &thumb_cache_dir,
+                gpu_context.as_ref(),
+                None,
+                true,
+                &app_handle,
+                &settings,
+            ) {
+                emit_thumbnail_generated(&app_handle, path, &thumbnail_path, rating, is_edited);
+            }
         });
     });
 
@@ -4148,5 +4343,69 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         let _ = fs::write(&xmp_file, content);
+    }
+}
+
+#[cfg(test)]
+mod lens_resolution_tests {
+    use super::*;
+    use crate::lens_correction::LensDatabase;
+    use walkdir::WalkDir;
+
+    fn load_test_db() -> LensDatabase {
+        let mut combined_db = LensDatabase {
+            cameras: Vec::new(),
+            lenses: Vec::new(),
+        };
+        let db_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("lensfun_db");
+        for entry in WalkDir::new(db_dir)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "xml"))
+        {
+            let xml_content = fs::read_to_string(entry.path()).expect("failed to read lensfun XML");
+            let mut db: LensDatabase =
+                quick_xml::de::from_str(&xml_content).expect("failed to parse lensfun XML");
+            combined_db.cameras.append(&mut db.cameras);
+            combined_db.lenses.append(&mut db.lenses);
+        }
+        combined_db
+    }
+
+    /// Regression test for the bug where every save of a fixed-lens compact's
+    /// (e.g. Sony RX10 IV) auto-detected lens correction got silently stripped
+    /// back out on the very next save: `resolve_lens_params_in_adjustments`
+    /// re-validates the lens on each save, but used to only try matching via the
+    /// (empty, for fixed lenses) EXIF LensModel, with no camera-mount fallback.
+    #[test]
+    fn auto_mode_survives_resave_for_fixed_lens_camera() {
+        let db = load_test_db();
+
+        let mut exif = HashMap::new();
+        exif.insert("Make".to_string(), "Sony".to_string());
+        exif.insert("Model".to_string(), "DSC-RX10M4".to_string());
+        exif.insert("FocalLength".to_string(), "8.8 mm".to_string());
+        // Deliberately no "LensModel" entry: fixed-lens compacts don't populate it.
+
+        let mut adjustments = serde_json::json!({
+            "lensCorrectionMode": "auto",
+            "lensMaker": "Sony",
+            "lensModel": "RX10III & compatibles",
+        });
+
+        resolve_lens_params_in_adjustments(&mut adjustments, &Some(exif), Some(&db));
+
+        assert_eq!(
+            adjustments.get("lensMaker").and_then(|v| v.as_str()),
+            Some("Sony"),
+            "lensMaker should survive re-validation on save, got: {adjustments:?}"
+        );
+        assert!(
+            adjustments
+                .get("lensModel")
+                .and_then(|v| v.as_str())
+                .is_some_and(|s| s.contains("RX10")),
+            "lensModel should survive re-validation on save, got: {adjustments:?}"
+        );
     }
 }

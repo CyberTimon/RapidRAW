@@ -172,4 +172,9 @@ pub struct AppState {
     pub disks_cache: Mutex<Option<Disks>>,
     pub disks_cache_refreshing: AtomicBool,
     pub camera_session: Mutex<CameraSession>,
+    /// Serializes read-modify-write access to `.rrdata` sidecars across the
+    /// concurrent commands that can touch them (per-image save, bulk auto
+    /// adjustments, bulk lens correction, ...), so one command's write can't be
+    /// silently clobbered by another that read the sidecar before it was written.
+    pub sidecar_write_lock: Mutex<()>,
 }
