@@ -7,6 +7,7 @@ import {
   PanelRegion,
   WorkspaceState,
 } from '../components/ui/AppProperties';
+import { useEditorStore } from './useEditorStore';
 
 export type SwitcherPlacement = 'bottom' | 'right' | 'left' | 'top';
 
@@ -111,6 +112,17 @@ export const DEFAULT_PANEL_DEFAULT_REGIONS: Record<Panel, PanelRegion> = {
 export const DEFAULT_PANEL_WIDTH = 350;
 export const DEFAULT_PANEL_SECTION_HEIGHT = 450;
 export const DEFAULT_BOTTOM_PANEL_HEIGHT = 144;
+
+const resetWbPickerForActivePanels = (activePanels: Record<PanelRegion, Panel | null>) => {
+  const visiblePanels = Object.values(activePanels);
+  const canvasToolIsVisible = visiblePanels.some(
+    (panel) => panel === Panel.Masks || panel === Panel.Ai || panel === Panel.Crop,
+  );
+
+  if (canvasToolIsVisible || !visiblePanels.includes(Panel.Adjustments)) {
+    useEditorStore.getState().setEditor({ isWbPickerActive: false });
+  }
+};
 
 export function reconcileWorkspace(
   savedWorkspace: WorkspaceState | undefined,
@@ -369,19 +381,25 @@ export const useUIStore = create<UIState>((set, get) => ({
   cullingModalState: { isOpen: false, suggestions: null, progress: null, error: null, pathsToCull: [] },
   collageModalState: { isOpen: false, sourceImages: [] },
 
-  setUI: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
+  setUI: (updater) => {
+    const updates = typeof updater === 'function' ? updater(get()) : updater;
+    set(updates);
+    if (updates.activePanels) resetWbPickerForActivePanels(updates.activePanels);
+  },
 
   setLayoutDragItem: (panel) => set({ activeLayoutDragItem: panel }),
 
-  movePanel: (panel, toRegion) =>
+  movePanel: (panel, toRegion) => {
+    let nextActivePanels: Record<PanelRegion, Panel | null> | undefined;
+
     set((state) => {
-      const layout = {
+      const layout: Record<PanelRegion, Panel[]> = {
         leftTop: [...state.panelLayout.leftTop],
         leftBottom: [...state.panelLayout.leftBottom],
         rightTop: [...state.panelLayout.rightTop],
         rightBottom: [...state.panelLayout.rightBottom],
       };
-      const active = { ...state.activePanels };
+      const active: Record<PanelRegion, Panel | null> = { ...state.activePanels };
 
       let fromRegion: PanelRegion | null = null;
       (Object.keys(layout) as PanelRegion[]).forEach((r) => {
@@ -393,11 +411,13 @@ export const useUIStore = create<UIState>((set, get) => ({
 
       if (!layout[toRegion].includes(panel)) layout[toRegion].push(panel);
 
-      if (fromRegion && active[fromRegion] === panel) {
-        active[fromRegion] = layout[fromRegion].length > 0 ? layout[fromRegion][0] : null;
+      const sourceRegion = fromRegion as PanelRegion | null;
+      if (sourceRegion && active[sourceRegion] === panel) {
+        active[sourceRegion] = layout[sourceRegion].length > 0 ? layout[sourceRegion][0] : null;
       }
 
       active[toRegion] = panel;
+      nextActivePanels = active;
 
       return {
         panelLayout: layout,
@@ -406,17 +426,22 @@ export const useUIStore = create<UIState>((set, get) => ({
         activePanel: panel,
         renderedPanel: panel,
       };
-    }),
+    });
 
-  movePanelToIndex: (panel, toRegion, index) =>
+    if (nextActivePanels) resetWbPickerForActivePanels(nextActivePanels);
+  },
+
+  movePanelToIndex: (panel, toRegion, index) => {
+    let nextActivePanels: Record<PanelRegion, Panel | null> | undefined;
+
     set((state) => {
-      const layout = {
+      const layout: Record<PanelRegion, Panel[]> = {
         leftTop: [...state.panelLayout.leftTop],
         leftBottom: [...state.panelLayout.leftBottom],
         rightTop: [...state.panelLayout.rightTop],
         rightBottom: [...state.panelLayout.rightBottom],
       };
-      const active = { ...state.activePanels };
+      const active: Record<PanelRegion, Panel | null> = { ...state.activePanels };
 
       let fromRegion: PanelRegion | null = null;
       (Object.keys(layout) as PanelRegion[]).forEach((r) => {
@@ -429,10 +454,12 @@ export const useUIStore = create<UIState>((set, get) => ({
       const clampedIndex = Math.max(0, Math.min(index, layout[toRegion].length));
       layout[toRegion].splice(clampedIndex, 0, panel);
 
-      if (fromRegion && active[fromRegion] === panel) {
-        active[fromRegion] = layout[fromRegion].length > 0 ? layout[fromRegion][0] : null;
+      const sourceRegion = fromRegion as PanelRegion | null;
+      if (sourceRegion && active[sourceRegion] === panel) {
+        active[sourceRegion] = layout[sourceRegion].length > 0 ? layout[sourceRegion][0] : null;
       }
       active[toRegion] = panel;
+      nextActivePanels = active;
 
       return {
         panelLayout: layout,
@@ -441,36 +468,43 @@ export const useUIStore = create<UIState>((set, get) => ({
         activePanel: panel,
         renderedPanel: panel,
       };
-    }),
+    });
 
-  setActivePanel: (region, panel) =>
-    set((state) => {
-      if (!panel) return state;
-      const updates: Partial<UIState> = {
-        activePanels: { ...state.activePanels, [region]: panel },
-        activePanel: panel,
-        renderedPanel: panel,
+    if (nextActivePanels) resetWbPickerForActivePanels(nextActivePanels);
+  },
+
+  setActivePanel: (region, panel) => {
+    if (!panel) return;
+    const state = get();
+    const activePanels = { ...state.activePanels, [region]: panel };
+    const updates: Partial<UIState> = {
+      activePanels,
+      activePanel: panel,
+      renderedPanel: panel,
+    };
+
+    const isLeft = region === 'leftTop' || region === 'leftBottom';
+    const isRight = region === 'rightTop' || region === 'rightBottom';
+
+    if ((isLeft && !state.uiVisibility.leftPanel) || (isRight && !state.uiVisibility.rightPanel)) {
+      updates.uiVisibility = {
+        ...state.uiVisibility,
+        leftPanel: isLeft ? true : state.uiVisibility.leftPanel,
+        rightPanel: isRight ? true : state.uiVisibility.rightPanel,
       };
+    }
 
-      const isLeft = region === 'leftTop' || region === 'leftBottom';
-      const isRight = region === 'rightTop' || region === 'rightBottom';
+    if (isLeft && !state.uiVisibility.leftPanel && state.leftPanelWidth < DEFAULT_PANEL_WIDTH) {
+      updates.leftPanelWidth = DEFAULT_PANEL_WIDTH;
+    }
 
-      if (isLeft && !state.uiVisibility.leftPanel) {
-        updates.uiVisibility = { ...state.uiVisibility, leftPanel: true };
-        if (state.leftPanelWidth < DEFAULT_PANEL_WIDTH) {
-          updates.leftPanelWidth = DEFAULT_PANEL_WIDTH;
-        }
-      }
+    if (isRight && !state.uiVisibility.rightPanel && state.rightPanelWidth < DEFAULT_PANEL_WIDTH) {
+      updates.rightPanelWidth = DEFAULT_PANEL_WIDTH;
+    }
 
-      if (isRight && !state.uiVisibility.rightPanel) {
-        updates.uiVisibility = { ...state.uiVisibility, rightPanel: true };
-        if (state.rightPanelWidth < DEFAULT_PANEL_WIDTH) {
-          updates.rightPanelWidth = DEFAULT_PANEL_WIDTH;
-        }
-      }
-
-      return updates;
-    }),
+    set(updates);
+    resetWbPickerForActivePanels(activePanels);
+  },
 
   setPanel: (panelId) => {
     const state = get();
