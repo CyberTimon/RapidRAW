@@ -217,8 +217,12 @@ pub fn read_raw_metadata(file_bytes: &[u8]) -> Option<RawMetadata> {
     decoder.raw_metadata(&raw_source, &Default::default()).ok()
 }
 
-pub fn read_exposure_time_secs(path: &str, file_bytes: &[u8]) -> Option<f32> {
-    if let Some(map) = read_rrexif_sidecar(Path::new(path))
+pub fn read_exposure_time_secs(
+    app_handle: &tauri::AppHandle,
+    path: &str,
+    file_bytes: &[u8],
+) -> Option<f32> {
+    if let Some(map) = read_rrexif_sidecar(app_handle, Path::new(path))
         && let Some(val_str) = map.get("ExposureTime").or(map.get("ShutterSpeedValue"))
     {
         let cleaned = val_str.replace(" s", "");
@@ -288,8 +292,12 @@ pub fn read_exposure_time_secs(path: &str, file_bytes: &[u8]) -> Option<f32> {
     None
 }
 
-pub fn read_iso(path: &str, file_bytes: &[u8]) -> Option<u32> {
-    if let Some(map) = read_rrexif_sidecar(Path::new(path))
+pub fn read_iso(
+    app_handle: &tauri::AppHandle,
+    path: &str,
+    file_bytes: &[u8],
+) -> Option<u32> {
+    if let Some(map) = read_rrexif_sidecar(app_handle, Path::new(path))
         && let Some(val_str) = map
             .get("ISOSpeed")
             .or(map.get("PhotographicSensitivity"))
@@ -724,8 +732,11 @@ pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
     Some(map)
 }
 
-pub fn get_creation_date_from_path(path: &Path) -> DateTime<Utc> {
-    if let Some(dt) = try_get_exif_creation_date(path) {
+pub fn get_creation_date_from_path(
+    app_handle: Option<&tauri::AppHandle>,
+    path: &Path,
+) -> DateTime<Utc> {
+    if let Some(dt) = try_get_exif_creation_date(app_handle, path) {
         return dt;
     }
 
@@ -736,8 +747,17 @@ pub fn get_creation_date_from_path(path: &Path) -> DateTime<Utc> {
         .unwrap_or_else(Utc::now)
 }
 
-pub fn try_get_exif_creation_date(path: &Path) -> Option<DateTime<Utc>> {
-    if let Some(map) = read_rrexif_sidecar(path)
+/// `app_handle` is optional: when available it's used to check the
+/// centralized `.rrdata`/legacy `.rrexif` sidecar cache first (the fast
+/// path); when not (a caller without easy access to one, e.g. a sort
+/// comparator), this falls straight through to reading real EXIF/RAW
+/// metadata from the file itself — slower, but exactly as correct.
+pub fn try_get_exif_creation_date(
+    app_handle: Option<&tauri::AppHandle>,
+    path: &Path,
+) -> Option<DateTime<Utc>> {
+    if let Some(handle) = app_handle
+        && let Some(map) = read_rrexif_sidecar(handle, path)
         && let Some(dt_str) = map.get("DateTimeOriginal").or(map.get("CreateDate"))
         && let Some(dt) = parse_creation_datetime(dt_str)
     {
@@ -875,6 +895,7 @@ fn apply_sidecar_field_overrides(metadata: &mut Metadata, map: &HashMap<String, 
 }
 
 pub fn write_image_with_metadata(
+    app_handle: &tauri::AppHandle,
     image_bytes: &mut Vec<u8>,
     original_path_str: &str,
     output_format: &str,
@@ -917,7 +938,9 @@ pub fn write_image_with_metadata(
         && copy_full_exif_from_source(&mut metadata, original_path, strip_gps);
     let mut source_read_success = full_exif_copied;
 
-    if !source_read_success && let Some(map) = read_rrexif_sidecar(original_path) {
+    if !source_read_success
+        && let Some(map) = read_rrexif_sidecar(app_handle, original_path)
+    {
         source_read_success = true;
 
         let clean_s = |s: &String| s.replace('"', "").trim().to_string();
@@ -1272,7 +1295,9 @@ pub fn write_image_with_metadata(
         }
     }
 
-    if full_exif_copied && let Some(map) = read_rrexif_sidecar(original_path) {
+    if full_exif_copied
+        && let Some(map) = read_rrexif_sidecar(app_handle, original_path)
+    {
         apply_sidecar_field_overrides(&mut metadata, &map);
     }
 
@@ -1295,31 +1320,48 @@ pub fn write_image_with_metadata(
     Ok(())
 }
 
-pub fn get_primary_sidecar_path(image_path: &Path) -> PathBuf {
-    let mut filename = image_path.file_name().unwrap_or_default().to_os_string();
-    filename.push(".rrdata");
-    image_path.with_file_name(filename)
+/// The centralized `.rrdata` path for `image_path` (see `sidecar_paths.rs`)
+/// — falls back to the legacy adjacent-to-photo location on any resolution
+/// failure (e.g. `app_data_dir()` unavailable) rather than panicking or
+/// erroring, since every caller here treats "no sidecar found/writable" as
+/// a perfectly normal case already (a fresh, never-edited photo).
+pub fn get_primary_sidecar_path(app_handle: &tauri::AppHandle, image_path: &Path) -> PathBuf {
+    crate::sidecar_paths::sidecar_path_for(app_handle, image_path, None, "rrdata")
+        .unwrap_or_else(|_| crate::sidecar_paths::legacy_sidecar_path(image_path, None, "rrdata"))
 }
 
+/// Legacy `.rrexif` is never relocated — it only ever lives next to the
+/// photo, and only until `read_rrexif_sidecar` finds and migrates it into
+/// the (now centralized) `.rrdata`'s `exif` field.
 pub fn get_rrexif_path(image_path: &Path) -> PathBuf {
     let mut filename = image_path.file_name().unwrap_or_default().to_os_string();
     filename.push(".rrexif");
     image_path.with_file_name(filename)
 }
 
-fn load_primary_metadata(image_path: &Path) -> ImageMetadata {
-    let primary = get_primary_sidecar_path(image_path);
+fn load_primary_metadata(app_handle: &tauri::AppHandle, image_path: &Path) -> ImageMetadata {
+    let primary = get_primary_sidecar_path(app_handle, image_path);
     load_sidecar(&primary)
 }
 
-fn save_primary_metadata(image_path: &Path, metadata: &ImageMetadata) -> std::io::Result<()> {
-    let primary = get_primary_sidecar_path(image_path);
+fn save_primary_metadata(
+    app_handle: &tauri::AppHandle,
+    image_path: &Path,
+    metadata: &ImageMetadata,
+) -> std::io::Result<()> {
+    let primary = get_primary_sidecar_path(app_handle, image_path);
+    if let Some(parent) = primary.parent() {
+        fs::create_dir_all(parent)?;
+    }
     let json = serde_json::to_string_pretty(metadata).map_err(std::io::Error::other)?;
     fs::write(&primary, json)
 }
 
-pub fn read_rrexif_sidecar(image_path: &Path) -> Option<HashMap<String, String>> {
-    let metadata = load_primary_metadata(image_path);
+pub fn read_rrexif_sidecar(
+    app_handle: &tauri::AppHandle,
+    image_path: &Path,
+) -> Option<HashMap<String, String>> {
+    let metadata = load_primary_metadata(app_handle, image_path);
     if let Some(exif) = metadata.exif {
         return Some(exif);
     }
@@ -1329,9 +1371,9 @@ pub fn read_rrexif_sidecar(image_path: &Path) -> Option<HashMap<String, String>>
         && let Ok(content) = fs::read_to_string(&legacy)
         && let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&content)
     {
-        let mut migrated = load_primary_metadata(image_path);
+        let mut migrated = load_primary_metadata(app_handle, image_path);
         migrated.exif = Some(map.clone());
-        if save_primary_metadata(image_path, &migrated).is_ok() {
+        if save_primary_metadata(app_handle, image_path, &migrated).is_ok() {
             let _ = fs::remove_file(&legacy);
         }
         return Some(map);
@@ -1369,24 +1411,33 @@ pub fn read_exif_data_from_bytes(path: &str, file_bytes: &[u8]) -> HashMap<Strin
     exif_data
 }
 
-pub fn read_exif_data(path: &str, file_bytes: &[u8]) -> HashMap<String, String> {
+pub fn read_exif_data(
+    app_handle: &tauri::AppHandle,
+    path: &str,
+    file_bytes: &[u8],
+) -> HashMap<String, String> {
     let source_path = Path::new(path);
-    if let Some(sidecar_exif) = read_rrexif_sidecar(source_path) {
+    if let Some(sidecar_exif) = read_rrexif_sidecar(app_handle, source_path) {
         return sidecar_exif;
     }
 
     let exif_map = read_exif_data_from_bytes(path, file_bytes);
     if !exif_map.is_empty() {
-        let mut metadata = load_primary_metadata(source_path);
+        let mut metadata = load_primary_metadata(app_handle, source_path);
         metadata.exif = Some(exif_map.clone());
-        let _ = save_primary_metadata(source_path, &metadata);
+        let _ = save_primary_metadata(app_handle, source_path, &metadata);
     }
     exif_map
 }
 
-pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_bytes: &[u8]) {
+pub fn persist_exif_if_missing(
+    app_handle: &tauri::AppHandle,
+    source_path: &Path,
+    source_path_str: &str,
+    file_bytes: &[u8],
+) {
     {
-        let metadata = load_primary_metadata(source_path);
+        let metadata = load_primary_metadata(app_handle, source_path);
         if metadata.exif.is_some() {
             return;
         }
@@ -1397,9 +1448,9 @@ pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_b
         && let Ok(content) = fs::read_to_string(&legacy)
         && let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&content)
     {
-        let mut metadata = load_primary_metadata(source_path);
+        let mut metadata = load_primary_metadata(app_handle, source_path);
         metadata.exif = Some(map);
-        if save_primary_metadata(source_path, &metadata).is_ok() {
+        if save_primary_metadata(app_handle, source_path, &metadata).is_ok() {
             let _ = fs::remove_file(&legacy);
         }
         return;
@@ -1410,18 +1461,22 @@ pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_b
         return;
     }
 
-    let mut metadata = load_primary_metadata(source_path);
+    let mut metadata = load_primary_metadata(app_handle, source_path);
 
     if metadata.exif.is_none() {
         metadata.exif = Some(exif_map);
-        let _ = save_primary_metadata(source_path, &metadata);
+        let _ = save_primary_metadata(app_handle, source_path, &metadata);
     }
 }
 
-pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> Result<(), String> {
+pub fn write_rrexif_sidecar(
+    app_handle: &tauri::AppHandle,
+    source_path_str: &str,
+    target_image_path: &Path,
+) -> Result<(), String> {
     let source_path = Path::new(source_path_str);
 
-    let exif_data = if let Some(existing) = read_rrexif_sidecar(source_path) {
+    let exif_data = if let Some(existing) = read_rrexif_sidecar(app_handle, source_path) {
         existing
     } else if let Ok(bytes) = fs::read(source_path) {
         read_exif_data_from_bytes(source_path_str, &bytes)
@@ -1433,8 +1488,8 @@ pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> 
         return Ok(());
     }
 
-    let mut metadata = load_primary_metadata(target_image_path);
+    let mut metadata = load_primary_metadata(app_handle, target_image_path);
     metadata.exif = Some(exif_data);
-    save_primary_metadata(target_image_path, &metadata)
+    save_primary_metadata(app_handle, target_image_path, &metadata)
         .map_err(|e| format!("Failed to write sidecar: {}", e))
 }

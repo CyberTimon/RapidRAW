@@ -55,16 +55,16 @@ pub fn load_hdr_frames(
             let file_bytes =
                 fs::read(path).map_err(|e| format!("Failed to read image {}: {}", path, e))?;
             let mut dynamic_image =
-                load_base_image_from_bytes(&file_bytes, path, false, settings, None)
+                load_base_image_from_bytes(&file_bytes, path, false, settings, None, Some(app_handle))
                     .map_err(|e| format!("Failed to load image {}: {}", path, e))?;
             if !is_raw_file(path) {
                 dynamic_image = apply_srgb_to_linear(dynamic_image);
             }
-            let gains = match read_iso(path, &file_bytes) {
+            let gains = match read_iso(app_handle, path, &file_bytes) {
                 None => return Err(format!("Image {} is missing ISO/Sensitivity data", path)),
                 Some(gains) => gains as f32,
             };
-            let exposure = match read_exposure_time_secs(path, &file_bytes) {
+            let exposure = match read_exposure_time_secs(app_handle, path, &file_bytes) {
                 None => return Err(format!("Image {} is missing ExposureTime data", path)),
                 Some(exp) => Duration::from_secs_f32(exp),
             };
