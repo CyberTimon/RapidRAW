@@ -2917,6 +2917,14 @@ pub async fn auto_apply_lens_correction_to_paths(
 
         paths.par_iter().for_each(|path| {
             let (source_path, sidecar_path) = parse_virtual_path(path);
+
+            // Camera-generated JPEGs typically already have the manufacturer's own
+            // lens correction baked in; only RAW files need ours. The manual Lens
+            // button still works on any format if the user wants it anyway.
+            if !crate::formats::is_raw_file(&source_path) {
+                return;
+            }
+
             let metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
             let already_has_lens = metadata

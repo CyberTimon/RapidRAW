@@ -159,7 +159,16 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
             return state;
           });
 
-          if (isFreshImage && appSettings?.autoApplyLensCorrection && loadImageResult.exif) {
+          // Only RAW files: camera-generated JPEGs typically already have the
+          // manufacturer's own lens correction baked in, so re-applying ours on
+          // top would double-correct (over-corrected distortion, blown-out corner
+          // vignetting, ...). The manual Lens button still works on any format.
+          if (
+            isFreshImage &&
+            appSettings?.autoApplyLensCorrection &&
+            loadImageResult.exif &&
+            loadImageResult.is_raw
+          ) {
             await tryAutoApplyLensCorrection(loadImageResult.exif, selectedImage.path);
           }
         } catch (err) {
