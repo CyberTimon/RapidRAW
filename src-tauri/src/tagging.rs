@@ -382,7 +382,11 @@ pub async fn start_background_indexing(
                                         if let Some(parent) = sidecar_path.parent() {
                                             let _ = fs::create_dir_all(parent);
                                         }
-                                        let _ = fs::write(sidecar_path, json_string);
+                                        let _ = crate::sidecar_paths::write_sidecar(
+                                            &app_handle_inner,
+                                            &sidecar_path,
+                                            &json_string,
+                                        );
                                     }
                                 }
                             }
@@ -449,7 +453,7 @@ fn modify_tags_for_path(
     if let Some(parent) = sidecar_path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
+    crate::sidecar_paths::write_sidecar(app_handle, &sidecar_path, &json_string).map_err(|e| e.to_string())?;
 
     if let Ok(settings) = crate::load_settings(app_handle.clone())
         && settings.enable_xmp_sync.unwrap_or(false)

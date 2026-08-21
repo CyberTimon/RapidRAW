@@ -2678,7 +2678,7 @@ pub fn save_metadata_and_update_thumbnail(
     if let Some(parent) = sidecar_path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    std::fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
+    crate::sidecar_paths::write_sidecar(&app_handle, &sidecar_path, &json_string).map_err(|e| e.to_string())?;
 
     if let Ok(settings) = load_settings(app_handle.clone())
         && settings.enable_xmp_sync.unwrap_or(false)
@@ -2803,7 +2803,7 @@ pub async fn apply_adjustments_to_paths(
                 if let Some(parent) = sidecar_path.parent() {
                     let _ = std::fs::create_dir_all(parent);
                 }
-                let _ = std::fs::write(&sidecar_path, json_string);
+                let _ = crate::sidecar_paths::write_sidecar(&app_handle, &sidecar_path, &json_string);
             }
 
             if enable_xmp_sync {
@@ -2877,7 +2877,7 @@ pub async fn reset_adjustments_for_paths(
                 if let Some(parent) = sidecar_path.parent() {
                     let _ = std::fs::create_dir_all(parent);
                 }
-                let _ = std::fs::write(&sidecar_path, json_string);
+                let _ = crate::sidecar_paths::write_sidecar(&app_handle, &sidecar_path, &json_string);
             }
 
             if enable_xmp_sync {
@@ -3006,7 +3006,7 @@ pub async fn apply_auto_adjustments_to_paths(
                     if let Some(parent) = sidecar_path.parent() {
                         let _ = std::fs::create_dir_all(parent);
                     }
-                    let _ = std::fs::write(&sidecar_path, json_string);
+                    let _ = crate::sidecar_paths::write_sidecar(&app_handle, &sidecar_path, &json_string);
                 }
 
                 if enable_xmp_sync {
@@ -3074,7 +3074,7 @@ pub fn set_color_label_for_paths(
             if let Some(parent) = sidecar_path.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
-            let _ = std::fs::write(&sidecar_path, json_string);
+            let _ = crate::sidecar_paths::write_sidecar(&app_handle, &sidecar_path, &json_string);
         }
 
         if enable_xmp_sync {
@@ -3108,7 +3108,7 @@ pub fn set_rating_for_paths(
             if let Some(parent) = sidecar_path.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
-            let _ = std::fs::write(&sidecar_path, json_string);
+            let _ = crate::sidecar_paths::write_sidecar(&app_handle, &sidecar_path, &json_string);
         }
 
         if enable_xmp_sync {

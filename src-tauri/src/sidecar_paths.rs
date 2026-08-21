@@ -2,21 +2,119 @@ use std::path::{Component, Path, PathBuf};
 
 use tauri::{AppHandle, Manager};
 
-/// Root directory every relocated `.rrdata`/`.rrexif` sidecar lives under —
-/// `app_data_dir()/sidecars`, the same place presets/settings/library/ONNX
-/// models already live (see `ai_processing.rs`'s `get_models_dir` for the
-/// identical pattern). Not `app_cache_dir()` — unlike thumbnails, this data
-/// isn't regenerable, so it belongs with the app's other persistent data.
+/// Root directory every relocated `.rrdata`/`.rrexif` sidecar lives under.
+/// Deliberately *not* `app_data_dir()/sidecars` (which would nest under the
+/// full Tauri bundle identifier, e.g. `io.github.CyberTimon.RapidRAW`) —
+/// sidecars live in a plain `RapidRAW/sidecars` sibling folder instead, so
+/// the folder a user finds browsing AppData actually reads "RapidRAW", not
+/// the bundle id. `tauri.conf.json`'s `identifier` itself is untouched —
+/// presets/settings/library/ONNX models (`ai_processing.rs`'s
+/// `get_models_dir`) keep living under the identifier-named folder as
+/// before; only this one relocation feature's own root moves. Not
+/// `app_cache_dir()` either — unlike thumbnails, this data isn't
+/// regenerable, so it belongs with the app's other persistent data.
 pub fn sidecar_root_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    let root = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("sidecars");
+    let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let old_root = app_data.join("sidecars");
+    let base = app_data.parent().map(|p| p.to_path_buf()).unwrap_or(app_data);
+    let root = base.join("RapidRAW").join("sidecars");
     if !root.exists() {
+        // One-time migration for anyone who already had sidecars under the
+        // pre-rename, bundle-identifier-nested location: move the whole
+        // tree in one `rename` rather than recreating it empty and
+        // orphaning everything already relocated there (there's no
+        // adjacent-to-photo fallback once a sidecar has already left the
+        // photo's own folder, so silently starting fresh here would look
+        // like every edit made since the relocation feature shipped had
+        // been lost).
+        if old_root.is_dir() {
+            if let Some(parent) = root.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            if std::fs::rename(&old_root, &root).is_ok() {
+                return Ok(root);
+            }
+        }
         std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
     }
     Ok(root)
+}
+
+/// Root of the cosmetic "browse by month" secondary view — a sibling of
+/// [`sidecar_root_dir`], so both live under the same `RapidRAW/` folder.
+fn sidecar_by_month_root(app_handle: &AppHandle) -> Result<PathBuf, String> {
+    let root = sidecar_root_dir(app_handle)?;
+    Ok(root
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| root.clone())
+        .join("sidecars_by_month"))
+}
+
+/// Best-effort: hard-links `sidecar_path` (which must already live under
+/// [`sidecar_root_dir`]) into `sidecars_by_month/<month>/<same-mirrored-
+/// relative-path>`, purely for the user's own convenience browsing Explorer
+/// — grouped by the month a sidecar was *first* created (i.e. first edited),
+/// never the photo's own capture date (not worth an EXIF read on every
+/// write just for this). This is a second pointer at the same file, not a
+/// copy and not the authoritative location — the app's own logic never
+/// reads through this tree, so any failure here (unsupported filesystem,
+/// cross-volume link, permissions) is safe to swallow silently rather than
+/// surfacing an error for a cosmetic feature. A hard link (not a symlink)
+/// is used specifically because Windows symlinks need admin/Developer Mode
+/// privileges and hard links don't — and the same-volume constraint hard
+/// links carry is always satisfied here since both paths live under the
+/// same `RapidRAW/` tree.
+fn link_into_month_view(app_handle: &AppHandle, sidecar_path: &Path, month: &str) {
+    let Ok(root) = sidecar_root_dir(app_handle) else {
+        return;
+    };
+    let Ok(relative) = sidecar_path.strip_prefix(&root) else {
+        return;
+    };
+    let Ok(by_month_root) = sidecar_by_month_root(app_handle) else {
+        return;
+    };
+    let link_path = by_month_root.join(month).join(relative);
+    if link_path.exists() {
+        return;
+    }
+    if let Some(parent) = link_path.parent() {
+        if std::fs::create_dir_all(parent).is_err() {
+            return;
+        }
+    }
+    let _ = std::fs::hard_link(sidecar_path, &link_path);
+}
+
+/// The month (`YYYY-MM`, local time) a sidecar was first created — `now` for
+/// a fresh write ([`write_sidecar`]), or the file's own modified time for a
+/// pre-existing file being migrated ([`migrate_legacy_rrdata`]), falling
+/// back to `now` if that metadata can't be read.
+fn month_of(path: &Path) -> String {
+    std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .map(|t| {
+            let datetime: chrono::DateTime<chrono::Local> = t.into();
+            datetime.format("%Y-%m").to_string()
+        })
+        .unwrap_or_else(|| chrono::Local::now().format("%Y-%m").to_string())
+}
+
+/// Writes a sidecar's contents and, only the first time this exact file is
+/// created, adds it to the cosmetic by-month view above — every write site
+/// funnels through this (instead of a bare `fs::write`) so that view can't
+/// silently miss a sidecar. Safe/cheap to call on every save: the `exists()`
+/// check means re-saving an already-edited photo just overwrites the real
+/// file and skips the link step entirely.
+pub fn write_sidecar(app_handle: &AppHandle, sidecar_path: &Path, contents: &str) -> std::io::Result<()> {
+    let is_new = !sidecar_path.exists();
+    std::fs::write(sidecar_path, contents)?;
+    if is_new {
+        link_into_month_view(app_handle, sidecar_path, &chrono::Local::now().format("%Y-%m").to_string());
+    }
+    Ok(())
 }
 
 /// Sanitizes one path component into something valid as a plain directory
@@ -147,6 +245,7 @@ pub fn migrate_legacy_rrdata(
     let parent = new_path.parent()?;
     std::fs::create_dir_all(parent).ok()?;
     std::fs::rename(legacy_path, &new_path).ok()?;
+    link_into_month_view(app_handle, &new_path, &month_of(&new_path));
     Some(new_path)
 }
 
