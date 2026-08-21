@@ -2403,6 +2403,7 @@ pub fn run() {
             file_management::save_albums,
             file_management::add_to_album,
             file_management::get_album_images,
+            file_management::create_missing_xmp_files,
             tagging::start_background_indexing,
             tagging::clear_ai_tags,
             tagging::clear_all_tags,

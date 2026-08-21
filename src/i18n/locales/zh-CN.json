@@ -1494,6 +1494,10 @@
     "general": {
       "createXmp": "创建缺失的 XMP 文件",
       "createXmpDesc": "如果图像没有对应的 XMP 附属文件，则自动创建一个。",
+      "xmpBackfillError": "无法创建缺失的 XMP 文件：{{error}}",
+      "xmpBackfillSuccess": "已创建 {{count}} 个缺失的 XMP 文件。",
+      "xmpBackfillSuccess_one": "已创建 {{count}} 个缺失的 XMP 文件。",
+      "xmpBackfillSuccess_other": "已创建 {{count}} 个缺失的 XMP 文件。",
       "createXmpMissing": "缺失时创建 XMP",
       "displayEditIcon": "显示编辑图标",
       "displayEditIconDesc": "在已编辑的缩略图上显示一个小滑块图标。",

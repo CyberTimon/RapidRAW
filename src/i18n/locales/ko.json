@@ -1494,6 +1494,10 @@
     "general": {
       "createXmp": "누락된 XMP 파일 생성",
       "createXmpDesc": "이미지에 XMP 사이드카 파일이 없으면 자동으로 새로 생성합니다.",
+      "xmpBackfillError": "누락된 XMP 파일을 만들지 못했습니다: {{error}}",
+      "xmpBackfillSuccess": "누락된 XMP 파일 {{count}}개를 만들었습니다.",
+      "xmpBackfillSuccess_one": "누락된 XMP 파일 {{count}}개를 만들었습니다.",
+      "xmpBackfillSuccess_other": "누락된 XMP 파일 {{count}}개를 만들었습니다.",
       "createXmpMissing": "없는 경우 XMP 생성",
       "displayEditIcon": "편집 아이콘 표시",
       "displayEditIconDesc": "편집된 썸네일에 작은 슬라이더 아이콘을 표시합니다.",

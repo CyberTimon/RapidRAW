@@ -3934,6 +3934,69 @@ pub fn create_virtual_copy(
     Ok(new_virtual_path)
 }
 
+#[tauri::command]
+pub fn create_missing_xmp_files(root_paths: Vec<String>) -> Result<usize, String> {
+    let mut created = 0;
+
+    for rrdata_path in collect_rrdata(&root_paths) {
+        if create_xmp_from_rrdata(&rrdata_path)? {
+            created += 1;
+        }
+    }
+
+    Ok(created)
+}
+
+fn collect_rrdata(root_paths: &[String]) -> Vec<PathBuf> {
+    let mut matches = Vec::new();
+
+    for root in root_paths {
+        for entry in WalkDir::new(root).into_iter().filter_map(Result::ok) {
+            let path = entry.path();
+
+            if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("rrdata") {
+                matches.push(path.to_path_buf());
+            }
+        }
+    }
+
+    matches
+}
+
+fn create_xmp_from_rrdata(rrdata_path: &Path) -> Result<bool, String> {
+    let Some(source_path) = rrdata_source_path(rrdata_path) else {
+        return Ok(false);
+    };
+
+    if resolve_xmp_path(&source_path).is_some() {
+        return Ok(false);
+    }
+
+    let metadata = crate::exif_processing::load_sidecar(rrdata_path);
+
+    try_sync_metadata_to_xmp(&source_path, &metadata, true)?;
+
+    Ok(true)
+}
+
+pub(crate) fn rrdata_source_path(rrdata: &Path) -> Option<PathBuf> {
+    let name = rrdata.file_name()?.to_str()?;
+    let base = name.strip_suffix(".rrdata")?;
+
+    let source_filename = if base.len() >= 7 && base.as_bytes()[base.len() - 7] == b'.' {
+        let id = &base[base.len() - 6..];
+        if id.chars().all(|c| c.is_ascii_hexdigit()) {
+            &base[..base.len() - 7]
+        } else {
+            base
+        }
+    } else {
+        base
+    };
+
+    Some(rrdata.with_file_name(source_filename))
+}
+
 pub fn extract_xmp_rating(content: &str) -> Option<u8> {
     if let Some(idx) = content.find("xmp:Rating=\"") {
         let start = idx + 12;
@@ -3983,8 +4046,8 @@ pub fn extract_xmp_tags(content: &str) -> Vec<String> {
 }
 
 pub fn resolve_xmp_path(image_path: &Path) -> Option<PathBuf> {
-    let xmp_path = image_path.with_extension("xmp");
-    let xmp_path_upper = image_path.with_extension("XMP");
+    let (xmp_path, xmp_path_upper) = xmp_paths(image_path)?;
+
     if xmp_path.exists() {
         Some(xmp_path)
     } else if xmp_path_upper.exists() {
@@ -3992,6 +4055,21 @@ pub fn resolve_xmp_path(image_path: &Path) -> Option<PathBuf> {
     } else {
         None
     }
+}
+
+fn xmp_paths(image_path: &Path) -> Option<(PathBuf, PathBuf)> {
+    let filename = image_path.file_name()?;
+
+    let mut lower_name = filename.to_os_string();
+    lower_name.push(".xmp");
+
+    let mut upper_name = filename.to_os_string();
+    upper_name.push(".XMP");
+
+    Some((
+        image_path.with_file_name(lower_name),
+        image_path.with_file_name(upper_name),
+    ))
 }
 
 pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) -> bool {
@@ -4045,8 +4123,18 @@ pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) 
 }
 
 pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create_if_missing: bool) {
-    let xmp_path = source_path.with_extension("xmp");
-    let xmp_path_upper = source_path.with_extension("XMP");
+    if let Err(error) = try_sync_metadata_to_xmp(source_path, metadata, create_if_missing) {
+        log::error!("Failed to sync XMP: {}", error);
+    }
+}
+
+fn try_sync_metadata_to_xmp(
+    source_path: &Path,
+    metadata: &ImageMetadata,
+    create_if_missing: bool,
+) -> Result<(), String> {
+    let (xmp_path, xmp_path_upper) = xmp_paths(source_path)
+        .ok_or_else(|| format!("Could not derive XMP path for {}", source_path.display()))?;
 
     let mut actual_xmp = if xmp_path.exists() {
         Some(xmp_path.clone())
@@ -4058,7 +4146,7 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
 
     if actual_xmp.is_none() {
         if !create_if_missing {
-            return;
+            return Ok(());
         }
         let skeleton = r#"<?xml version="1.0" encoding="UTF-8"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="RapidRAW">
@@ -4069,91 +4157,96 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
   </rdf:Description>
  </rdf:RDF>
 </x:xmpmeta>"#;
-        if let Err(e) = fs::write(&xmp_path, skeleton) {
-            log::error!("Failed to create skeleton XMP: {}", e);
-            return;
-        }
+
+        fs::write(&xmp_path, skeleton)
+            .map_err(|error| format!("Failed to create skeleton XMP: {}", error))?;
+
         actual_xmp = Some(xmp_path);
     }
 
-    if let Some(xmp_file) = actual_xmp
-        && let Ok(mut content) = fs::read_to_string(&xmp_file)
-    {
-        let rating_str = metadata.rating.to_string();
-        let re_rating_attr = regex!(r#"xmp:Rating\s*=\s*"[^"]*""#);
-        let re_rating_tag = regex!(r#"<xmp:Rating\s*>[^<]*</xmp:Rating>"#);
+    let Some(xmp_file) = actual_xmp else {
+        return Ok(());
+    };
 
-        if re_rating_attr.is_match(&content) {
-            content = re_rating_attr
-                .replace(&content, format!("xmp:Rating=\"{}\"", rating_str))
+    let mut content =
+        fs::read_to_string(&xmp_file).map_err(|error| format!("Failed to read XMP: {}", error))?;
+
+    let rating_str = metadata.rating.to_string();
+    let re_rating_attr = regex!(r#"xmp:Rating\s*=\s*"[^"]*""#);
+    let re_rating_tag = regex!(r#"<xmp:Rating\s*>[^<]*</xmp:Rating>"#);
+
+    if re_rating_attr.is_match(&content) {
+        content = re_rating_attr
+            .replace(&content, format!("xmp:Rating=\"{}\"", rating_str))
+            .to_string();
+    } else if re_rating_tag.is_match(&content) {
+        content = re_rating_tag
+            .replace(&content, format!("<xmp:Rating>{}</xmp:Rating>", rating_str))
+            .to_string();
+    } else if let Some(last_index) = content.rfind("</rdf:Description>") {
+        let (start, end) = content.split_at(last_index);
+        content = format!("{} <xmp:Rating>{}</xmp:Rating>\n{}", start, rating_str, end);
+    }
+
+    let current_tags = metadata.tags.clone().unwrap_or_default();
+    let mut label = None;
+    let mut normal_tags = Vec::new();
+
+    for t in current_tags {
+        if let Some(color) = t.strip_prefix(COLOR_TAG_PREFIX) {
+            let mut c = color.chars();
+            let cap_color = match c.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            };
+            label = Some(cap_color);
+        } else {
+            normal_tags.push(t);
+        }
+    }
+
+    if let Some(lbl) = label {
+        let re_label_attr = regex!(r#"xmp:Label\s*=\s*"[^"]*""#);
+        let re_label_tag = regex!(r#"<xmp:Label\s*>[^<]*</xmp:Label>"#);
+
+        if re_label_attr.is_match(&content) {
+            content = re_label_attr
+                .replace(&content, format!("xmp:Label=\"{}\"", lbl))
                 .to_string();
-        } else if re_rating_tag.is_match(&content) {
-            content = re_rating_tag
-                .replace(&content, format!("<xmp:Rating>{}</xmp:Rating>", rating_str))
+        } else if re_label_tag.is_match(&content) {
+            content = re_label_tag
+                .replace(&content, format!("<xmp:Label>{}</xmp:Label>", lbl))
                 .to_string();
         } else if let Some(last_index) = content.rfind("</rdf:Description>") {
             let (start, end) = content.split_at(last_index);
-            content = format!("{} <xmp:Rating>{}</xmp:Rating>\n{}", start, rating_str, end);
+            content = format!("{} <xmp:Label>{}</xmp:Label>\n{}", start, lbl, end);
         }
-
-        let current_tags = metadata.tags.clone().unwrap_or_default();
-        let mut label = None;
-        let mut normal_tags = Vec::new();
-
-        for t in current_tags {
-            if let Some(color) = t.strip_prefix(COLOR_TAG_PREFIX) {
-                let mut c = color.chars();
-                let cap_color = match c.next() {
-                    None => String::new(),
-                    Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-                };
-                label = Some(cap_color);
-            } else {
-                normal_tags.push(t);
-            }
-        }
-
-        if let Some(lbl) = label {
-            let re_label_attr = regex!(r#"xmp:Label\s*=\s*"[^"]*""#);
-            let re_label_tag = regex!(r#"<xmp:Label\s*>[^<]*</xmp:Label>"#);
-
-            if re_label_attr.is_match(&content) {
-                content = re_label_attr
-                    .replace(&content, format!("xmp:Label=\"{}\"", lbl))
-                    .to_string();
-            } else if re_label_tag.is_match(&content) {
-                content = re_label_tag
-                    .replace(&content, format!("<xmp:Label>{}</xmp:Label>", lbl))
-                    .to_string();
-            } else if let Some(last_index) = content.rfind("</rdf:Description>") {
-                let (start, end) = content.split_at(last_index);
-                content = format!("{} <xmp:Label>{}</xmp:Label>\n{}", start, lbl, end);
-            }
-        } else {
-            let re_label_attr = regex!(r#"\s*xmp:Label\s*=\s*"[^"]*""#);
-            let re_label_tag = regex!(r#"\s*<xmp:Label\s*>[^<]*</xmp:Label>"#);
-            content = re_label_attr.replace_all(&content, "").to_string();
-            content = re_label_tag.replace_all(&content, "").to_string();
-        }
-
-        let re_subject = regex!(r#"(?s)<dc:subject>\s*<rdf:Bag>.*?</rdf:Bag>\s*</dc:subject>"#);
-        if normal_tags.is_empty() {
-            content = re_subject.replace_all(&content, "").to_string();
-        } else {
-            let mut bag = String::from("<dc:subject>\n    <rdf:Bag>\n");
-            for t in normal_tags {
-                bag.push_str(&format!("     <rdf:li>{}</rdf:li>\n", t));
-            }
-            bag.push_str("    </rdf:Bag>\n   </dc:subject>");
-
-            if re_subject.is_match(&content) {
-                content = re_subject.replace(&content, bag).to_string();
-            } else if let Some(last_index) = content.rfind("</rdf:Description>") {
-                let (start, end) = content.split_at(last_index);
-                content = format!("{} {}\n  {}", start, bag, end);
-            }
-        }
-
-        let _ = fs::write(&xmp_file, content);
+    } else {
+        let re_label_attr = regex!(r#"\s*xmp:Label\s*=\s*"[^"]*""#);
+        let re_label_tag = regex!(r#"\s*<xmp:Label\s*>[^<]*</xmp:Label>"#);
+        content = re_label_attr.replace_all(&content, "").to_string();
+        content = re_label_tag.replace_all(&content, "").to_string();
     }
+
+    let re_subject = regex!(r#"(?s)<dc:subject>\s*<rdf:Bag>.*?</rdf:Bag>\s*</dc:subject>"#);
+    if normal_tags.is_empty() {
+        content = re_subject.replace_all(&content, "").to_string();
+    } else {
+        let mut bag = String::from("<dc:subject>\n    <rdf:Bag>\n");
+        for t in normal_tags {
+            bag.push_str(&format!("     <rdf:li>{}</rdf:li>\n", t));
+        }
+        bag.push_str("    </rdf:Bag>\n   </dc:subject>");
+
+        if re_subject.is_match(&content) {
+            content = re_subject.replace(&content, bag).to_string();
+        } else if let Some(last_index) = content.rfind("</rdf:Description>") {
+            let (start, end) = content.split_at(last_index);
+            content = format!("{} {}\n  {}", start, bag, end);
+        }
+    }
+
+    fs::write(&xmp_file, content).map_err(|error| format!("Failed to write XMP: {}", error))?;
+
+    Ok(())
 }

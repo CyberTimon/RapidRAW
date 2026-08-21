@@ -1496,6 +1496,10 @@
     "general": {
       "createXmp": "Fehlende XMP-Dateien erstellen",
       "createXmpDesc": "Erstellt automatisch eine neue XMP-Filialdatei, falls noch keine für ein Bild existiert.",
+      "xmpBackfillError": "Fehlende XMP-Dateien konnten nicht erstellt werden: {{error}}",
+      "xmpBackfillSuccess": "{{count}} fehlende XMP-Dateien wurden erstellt.",
+      "xmpBackfillSuccess_one": "{{count}} fehlende XMP-Datei wurde erstellt.",
+      "xmpBackfillSuccess_other": "{{count}} fehlende XMP-Dateien wurden erstellt.",
       "createXmpMissing": "XMP erstellen, falls fehlend",
       "displayEditIcon": "Bearbeitungssymbol anzeigen",
       "displayEditIconDesc": "Zeigt ein kleines Schieberegler-Symbol auf Miniaturbildern an, die bearbeitet wurden.",

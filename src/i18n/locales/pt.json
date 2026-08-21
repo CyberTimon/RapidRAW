@@ -1530,6 +1530,11 @@
     "general": {
       "createXmp": "Criar Arquivos XMP Ausentes",
       "createXmpDesc": "Cria automaticamente um novo arquivo sidecar XMP se não existir um para uma imagem.",
+      "xmpBackfillError": "Não foi possível criar os ficheiros XMP em falta: {{error}}",
+      "xmpBackfillSuccess": "Foram criados {{count}} ficheiros XMP em falta.",
+      "xmpBackfillSuccess_many": "Foram criados {{count}} ficheiros XMP em falta.",
+      "xmpBackfillSuccess_one": "Foi criado {{count}} ficheiro XMP em falta.",
+      "xmpBackfillSuccess_other": "Foram criados {{count}} ficheiros XMP em falta.",
       "createXmpMissing": "Criar XMP se ausente",
       "displayEditIcon": "Exibir Ícone de Edição",
       "displayEditIconDesc": "Mostrar um pequeno ícone de controle deslizante em miniaturas que foram editadas.",

@@ -47,6 +47,7 @@ import { useOsPlatform } from '../../hooks/useOsPlatform';
 import { open } from '@tauri-apps/plugin-shell';
 import { RotateCcw } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
+import { toast } from 'react-toastify';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -1164,9 +1165,27 @@ export default function SettingsPanel({
                                     checked={appSettings?.createXmpIfMissing ?? false}
                                     id="create-xmp-missing-toggle"
                                     label={t('settings.general.createXmpMissing')}
-                                    onChange={(checked) =>
-                                      onSettingsChange({ ...appSettings, createXmpIfMissing: checked })
-                                    }
+                                    onChange={async (checked) => {
+                                      const wasEnabled = appSettings?.createXmpIfMissing ?? false;
+                                      const rootPaths = effectiveRootPaths ?? [];
+
+                                      await onSettingsChange({
+                                        ...appSettings,
+                                        createXmpIfMissing: checked,
+                                      });
+
+                                      if (!wasEnabled && checked) {
+                                        try {
+                                          const count = await invoke<number>(Invokes.CreateMissingXmpFiles, {
+                                            rootPaths,
+                                          });
+
+                                          toast.success(t('settings.general.xmpBackfillSuccess', { count }));
+                                        } catch (error) {
+                                          toast.error(t('settings.general.xmpBackfillError', { error: String(error) }));
+                                        }
+                                      }
+                                    }}
                                   />
                                 </SettingItem>
                               </div>
