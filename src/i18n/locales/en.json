@@ -95,6 +95,7 @@
       "resetPoint": "Reset {{channel}} Point Curve"
     },
     "details": {
+      "aiDenoiseButton": "AI Denoise…",
       "blueYellow": "Blue/Yellow",
       "centre": "Centré",
       "chromaticAberration": "Chromatic Aberration",

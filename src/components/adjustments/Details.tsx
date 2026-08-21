@@ -1,9 +1,13 @@
 import { useTranslation } from 'react-i18next';
+import { Grip } from 'lucide-react';
+import Button from '../ui/Button';
 import Slider from '../ui/Slider';
 import { Adjustments, DetailsAdjustment } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { useEditorStore } from '../../store/useEditorStore';
+import { useUIStore } from '../../store/useUIStore';
 
 interface DetailsPanelProps {
   adjustments: Adjustments;
@@ -25,6 +29,26 @@ export default function DetailsPanel({
   const handleAdjustmentChange = (key: string, value: string) => {
     const numericValue = parseInt(value, 10);
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
+  };
+
+  // Opens the same modal the right-click "Denoise" context-menu entry opens
+  // (useAppContextMenus.ts) — a second, more discoverable entry point into
+  // the exact same flow, not a reimplementation of it.
+  const handleOpenAiDenoise = () => {
+    const { selectedImage } = useEditorStore.getState();
+    if (!selectedImage) return;
+    const { setUI } = useUIStore.getState();
+    setUI({
+      denoiseModalState: {
+        isOpen: true,
+        isProcessing: false,
+        previewBase64: null,
+        error: null,
+        targetPaths: [selectedImage.path],
+        progressMessage: null,
+        isRaw: selectedImage?.isRaw || false,
+      },
+    });
   };
 
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
@@ -128,6 +152,12 @@ export default function DetailsPanel({
             value={adjustments.colorNoiseReduction}
             onDragStateChange={onDragStateChange}
           />
+          {!isForMask && (
+            <Button onClick={handleOpenAiDenoise} className="w-full mt-3">
+              <Grip size={16} />
+              {t('adjustments.details.aiDenoiseButton')}
+            </Button>
+          )}
         </div>
       )}
 
