@@ -789,7 +789,19 @@
       "exportMasks": "Eksportuj maski jako osobne pliki",
       "preserveFolders": "Zachowaj strukturę folderów",
       "preserveTimestamps": "Ustaw datę modyfikacji pliku na podstawie daty wykonania (EXIF)",
-      "title": "Ustawienia eksportu"
+      "title": "Ustawienia eksportu",
+      "replaceOriginal": "Zastąp oryginał"
+    },
+    "replaceOriginal": {
+      "warningTitle": "Zastąp oryginał",
+      "warningMessage": "Po włączeniu eksport usunie pliki oryginalne i zastąpi je wersjami edytowanymi. Oryginały zostaną przeniesione do Kosza. Tej operacji nie można cofnąć.",
+      "enableButton": "Włącz",
+      "confirmTitle": "Zastąpić oryginał?",
+      "confirmMessage": "Wybrane pliki oryginalne zostaną usunięte i zastąpione wersjami edytowanymi. Oryginały zostaną przeniesione do Kosza. Tej operacji nie można cofnąć.",
+      "confirmMessage_one": "Wybrany oryginał zostanie usunięty i zastąpiony wersją edytowaną. Oryginał zostanie przeniesiony do Kosza. Tej operacji nie można cofnąć.",
+      "confirmMessage_other": "Wybrane {{count}} oryginały zostaną usunięte i zastąpione wersjami edytowanymi. Oryginały zostaną przeniesione do Kosza. Tej operacji nie można cofnąć.",
+      "confirmButton": "Zastąp",
+      "virtualCopyUnavailable": "Funkcja „Zastąp oryginał” nie jest dostępna dla kopii wirtualnych."
     },
     "bytes": {
       "bytes": "Bajty",

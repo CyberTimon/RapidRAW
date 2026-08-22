@@ -747,7 +747,19 @@
       "exportMasks": "Export masks as separate files",
       "preserveFolders": "Preserve Folder Structure",
       "preserveTimestamps": "Set File Timestamps from EXIF Capture Date",
-      "title": "Export Settings"
+      "title": "Export Settings",
+      "replaceOriginal": "Replace Original"
+    },
+    "replaceOriginal": {
+      "warningTitle": "Replace Original",
+      "warningMessage": "When enabled, exporting will delete the original files and replace them with the edited versions. The originals are moved to the system Recycle Bin. This cannot be undone.",
+      "enableButton": "Enable",
+      "confirmTitle": "Replace Original?",
+      "confirmMessage": "The selected original file(s) will be deleted and replaced with the edited version(s). The originals are moved to the system Recycle Bin. This cannot be undone.",
+      "confirmMessage_one": "The selected original will be deleted and replaced with the edited version. The original is moved to the system Recycle Bin. This cannot be undone.",
+      "confirmMessage_other": "The selected {{count}} originals will be deleted and replaced with the edited versions. The originals are moved to the system Recycle Bin. This cannot be undone.",
+      "confirmButton": "Replace",
+      "virtualCopyUnavailable": "Replace Original is unavailable for virtual copies."
     },
     "bytes": {
       "bytes": "Bytes",

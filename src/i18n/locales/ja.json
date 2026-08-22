@@ -745,7 +745,19 @@
       "exportMasks": "マスクを個別ファイルとして書き出す",
       "preserveFolders": "フォルダ構造を維持",
       "preserveTimestamps": "EXIFの撮影日時からファイルタイムスタンプを設定",
-      "title": "書き出し設定"
+      "title": "書き出し設定",
+      "replaceOriginal": "元の画像を置き換える"
+    },
+    "replaceOriginal": {
+      "warningTitle": "元の画像を置き換える",
+      "warningMessage": "有効にすると、書き出し時に元のファイルが削除され、編集済みのファイルに置き換わります。元のファイルはゴミ箱へ移動されます。元に戻すことはできません。",
+      "enableButton": "有効にする",
+      "confirmTitle": "元のファイルを置き換えますか？",
+      "confirmMessage": "選択した元のファイルは削除され、編集済みのバージョンに置き換わります。元のファイルはゴミ箱へ移動されます。元に戻すことはできません。",
+      "confirmMessage_one": "選択した元のファイルは削除され、編集済みのバージョンに置き換わります。元のファイルはゴミ箱へ移動されます。元に戻すことはできません。",
+      "confirmMessage_other": "選択した{{count}}個の元のファイルは削除され、編集済みのバージョンに置き換わります。元のファイルはゴミ箱へ移動されます。元に戻すことはできません。",
+      "confirmButton": "置き換え",
+      "virtualCopyUnavailable": "仮想コピーでは「元の画像を置き換える」は利用できません。"
     },
     "bytes": {
       "bytes": "バイト",

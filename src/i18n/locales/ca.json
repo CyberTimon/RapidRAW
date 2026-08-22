@@ -747,7 +747,19 @@
       "exportMasks": "Exportar màscares com a fitxers separats",
       "preserveFolders": "Mantenir l'estructura de carpetes",
       "preserveTimestamps": "Establir les marques de temps dels fitxers des de la data de captura EXIF",
-      "title": "Configuració d'exportació"
+      "title": "Configuració d'exportació",
+      "replaceOriginal": "Reemplaçar l'original"
+    },
+    "replaceOriginal": {
+      "warningTitle": "Reemplaçar l'original",
+      "warningMessage": "Quan s'activa, l'exportació esborrarà els fitxers originals i els substituirà per les versions editades. Els originals es mouran a la paperera del sistema. Això no es pot desfer.",
+      "enableButton": "Activa",
+      "confirmTitle": "Reemplaçar l'original?",
+      "confirmMessage": "Els fitxers originals seleccionats se substituiran per les versions editades i els originals aniran a la paperera del sistema. Això no es pot desfer.",
+      "confirmMessage_one": "El fitxer original seleccionat se substituirà per la versió editada i l'original anirà a la paperera del sistema. Això no es pot desfer.",
+      "confirmMessage_other": "Els {{count}} fitxers originals seleccionats se substituiran per les versions editades i els originals aniran a la paperera del sistema. Això no es pot desfer.",
+      "confirmButton": "Reemplaça",
+      "virtualCopyUnavailable": "Reemplaçar l'original no està disponible per a còpies virtuals."
     },
     "bytes": {
       "bytes": "Bytes",

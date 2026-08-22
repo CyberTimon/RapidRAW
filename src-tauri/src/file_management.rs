@@ -924,7 +924,7 @@ pub fn add_to_album(
     Ok(())
 }
 
-fn sync_album_path_changes(
+pub(crate) fn sync_album_path_changes(
     app_handle: &AppHandle,
     renames: Option<&HashMap<String, String>>,
     deletions: Option<&HashSet<String>>,
@@ -3499,6 +3499,85 @@ pub fn delete_files_with_associated(
     sync_album_path_changes(&app_handle, None, Some(&deletions), None);
 
     Ok(())
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+pub(crate) fn trash_file_or_remove(path: &Path) -> Result<(), String> {
+    match trash::delete(path) {
+        Ok(()) => Ok(()),
+        Err(trash_error) => {
+            log::warn!(
+                "Failed to move file to trash {}: {}. Falling back to permanent delete.",
+                path.display(),
+                trash_error
+            );
+            fs::remove_file(path).map_err(|e| format!("Failed to delete {}: {}", path.display(), e))
+        }
+    }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+pub(crate) fn trash_file_or_remove(path: &Path) -> Result<(), String> {
+    fs::remove_file(path).map_err(|e| format!("Failed to delete {}: {}", path.display(), e))
+}
+
+pub(crate) fn cleanup_sidecars_after_replacement(source: &Path, target: &Path) -> HashSet<String> {
+    let mut deletions = HashSet::new();
+    deletions.insert(source.to_string_lossy().into_owned());
+
+    let Some(parent) = source.parent() else {
+        return deletions;
+    };
+    let source_file_name = source.file_name().unwrap_or_default().to_string_lossy();
+    let target_file_name = target.file_name().unwrap_or_default().to_string_lossy();
+
+    let old_primary = parent.join(format!("{}.rrdata", source_file_name));
+    let new_primary = parent.join(format!("{}.rrdata", target_file_name));
+
+    if old_primary.exists() {
+        let mut metadata = crate::exif_processing::load_sidecar(&old_primary);
+        metadata.adjustments = serde_json::json!({});
+
+        if new_primary == old_primary {
+            if let Ok(json) = serde_json::to_string_pretty(&metadata) {
+                let _ = fs::write(&old_primary, json);
+            }
+        } else {
+            let carry_over =
+                metadata.rating != 0 || metadata.tags.is_some() || metadata.exif.is_some();
+            if carry_over && let Ok(json) = serde_json::to_string_pretty(&metadata) {
+                let _ = fs::write(&new_primary, json);
+            }
+            let _ = trash_file_or_remove(&old_primary);
+        }
+    }
+
+    if let Ok(entries) = fs::read_dir(parent) {
+        for entry in entries.filter_map(Result::ok) {
+            let entry_path = entry.path();
+            if !entry_path.is_file() {
+                continue;
+            }
+            let entry_file_name = entry.file_name();
+            let entry_filename = entry_file_name.to_string_lossy();
+            let old_vc_prefix = format!("{}.", source_file_name);
+
+            if entry_filename.starts_with(&old_vc_prefix)
+                && entry_filename.ends_with(".rrdata")
+                && entry_filename != format!("{}.rrdata", source_file_name)
+            {
+                let _ = trash_file_or_remove(&entry_path);
+            }
+        }
+    }
+
+    let old_rrexif = parent.join(format!("{}.rrexif", source_file_name));
+    let new_rrexif = parent.join(format!("{}.rrexif", target_file_name));
+    if old_rrexif.exists() && old_rrexif != new_rrexif {
+        let _ = trash_file_or_remove(&old_rrexif);
+    }
+
+    deletions
 }
 
 pub fn get_thumb_cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {

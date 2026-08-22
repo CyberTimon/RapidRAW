@@ -747,7 +747,19 @@
       "exportMasks": "Masken als separate Dateien exportieren",
       "preserveFolders": "Ordnerstruktur beibehalten",
       "preserveTimestamps": "Dateizeitstempel aus EXIF-Aufnahmedatum setzen",
-      "title": "Exporteinstellungen"
+      "title": "Exporteinstellungen",
+      "replaceOriginal": "Original ersetzen"
+    },
+    "replaceOriginal": {
+      "warningTitle": "Original ersetzen",
+      "warningMessage": "Wenn aktiviert, werden die Originaldateien beim Export gelöscht und durch die bearbeiteten Versionen ersetzt. Die Originale werden in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
+      "enableButton": "Aktivieren",
+      "confirmTitle": "Original ersetzen?",
+      "confirmMessage": "Die ausgewählten Originaldateien werden gelöscht und durch die bearbeiteten Versionen ersetzt. Die Originale werden in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
+      "confirmMessage_one": "Das ausgewählte Original wird gelöscht und durch die bearbeitete Version ersetzt. Das Original wird in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
+      "confirmMessage_other": "Die {{count}} ausgewählten Originaldateien werden gelöscht und durch die bearbeiteten Versionen ersetzt. Die Originale werden in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
+      "confirmButton": "Ersetzen",
+      "virtualCopyUnavailable": "„Original ersetzen“ ist bei virtuellen Kopien nicht verfügbar."
     },
     "bytes": {
       "bytes": "Bytes",

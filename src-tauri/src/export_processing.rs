@@ -20,7 +20,8 @@ use tauri::Manager;
 use crate::AppState;
 use crate::exif_processing;
 use crate::file_management::{
-    generate_filename_from_template, parse_virtual_path, read_file_mapped,
+    cleanup_sidecars_after_replacement, generate_filename_from_template, parse_virtual_path,
+    read_file_mapped, trash_file_or_remove,
 };
 use crate::formats::is_raw_file;
 use crate::image_loader::{
@@ -74,6 +75,8 @@ pub struct ExportSettings {
     pub export_masks: bool,
     #[serde(default)]
     pub preserve_folders: bool,
+    #[serde(default)]
+    pub replace_original: bool,
 }
 
 #[derive(Clone)]
@@ -892,7 +895,7 @@ pub(crate) async fn export_images_impl(
     let available_ram_gb = sys.available_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
     let ram_based_limit = (available_ram_gb / 4.0).floor() as usize;
 
-    let num_threads = if paths.len() == 1 {
+    let num_threads = if export_settings.replace_original || paths.len() == 1 {
         1
     } else {
         available_cores.min(ram_based_limit).clamp(1, 4)
@@ -904,6 +907,18 @@ pub(crate) async fn export_images_impl(
         available_ram_gb,
         num_threads
     );
+
+    if export_settings.replace_original
+        && let Some(virtual_copy_path) = paths.iter().find(|p| p.contains("?vc="))
+    {
+        return Err(format!(
+            "Replace Original cannot be used with virtual copies ({})",
+            virtual_copy_path
+                .split("?vc=")
+                .next()
+                .unwrap_or(virtual_copy_path)
+        ));
+    }
 
     let _export_task = tokio::spawn(async move {
         let _task_guard = task_guard;
@@ -972,6 +987,11 @@ pub(crate) async fn export_images_impl(
                 let state = app_handle_clone.state::<AppState>();
                 let (source_path, sidecar_path) = parse_virtual_path(&image_path_str);
                 let source_path_str = source_path.to_string_lossy().to_string();
+
+                #[cfg(target_os = "android")]
+                if export_settings.replace_original {
+                    return Err("Replace Original is not supported on Android.".to_string());
+                }
 
                 let is_current_edit = match &adjustments_mode {
                     ExportAdjustmentsMode::UseSidecars { active_path, .. } => {
@@ -1043,8 +1063,39 @@ pub(crate) async fn export_images_impl(
 
                 let extension = output_format.to_lowercase();
 
+                let mut replacement_target: Option<PathBuf> = None;
+                let mut replacement_temp: Option<PathBuf> = None;
+                if export_settings.replace_original {
+                    let target_path = {
+                        let stem = source_path
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("image");
+                        source_path.with_file_name(format!("{}.{}", stem, extension))
+                    };
+                    if target_path.exists() && target_path != source_path {
+                        return Err(format!(
+                            "Replace Original: '{}' already exists. Rename or move it before replacing {}.",
+                            target_path.display(),
+                            source_path.display()
+                        ));
+                    }
+                    if target_path == source_path {
+                        replacement_temp = Some(
+                            source_path
+                                .with_file_name(format!(".rrreplace-{}.tmp", uuid::Uuid::new_v4())),
+                        );
+                    }
+                    replacement_target = Some(target_path);
+                }
+
                 let result: Result<(), String> = (|| {
                     if extension == "cube" {
+                        if export_settings.replace_original {
+                            return Err(
+                                "Replace Original is not supported for LUT exports.".to_string()
+                            );
+                        }
                         let cube_bytes = export_adjustments_as_lut(
                             &js_adjustments,
                             &source_path_str,
@@ -1071,6 +1122,16 @@ pub(crate) async fn export_images_impl(
                         ensure_export_not_cancelled(&cancellation_token_clone)?;
                         return Ok(());
                     }
+
+                    let (output_write_path, output_mask_base_path) =
+                        if let Some(target) = &replacement_target {
+                            match &replacement_temp {
+                                Some(temp_path) => (temp_path.clone(), target.clone()),
+                                None => (target.clone(), target.clone()),
+                            }
+                        } else {
+                            (output_path.clone(), output_path.clone())
+                        };
 
                     let base_image = if is_current_edit {
                         match crate::get_original_image(&state) {
@@ -1140,14 +1201,14 @@ pub(crate) async fn export_images_impl(
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
                     save_image_with_metadata(
                         &final_image,
-                        &output_path,
+                        &output_write_path,
                         &source_path_str,
                         &export_settings,
                     )?;
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
                     if export_settings.preserve_timestamps {
-                        set_timestamps_from_exif(Path::new(&source_path_str), &output_path);
+                        set_timestamps_from_exif(Path::new(&source_path_str), &output_write_path);
                     }
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
@@ -1156,7 +1217,7 @@ pub(crate) async fn export_images_impl(
                             &base_image,
                             &js_adjustments,
                             &export_settings,
-                            &output_path,
+                            &output_mask_base_path,
                             &source_path_str,
                             &context_clone,
                             &state,
@@ -1166,6 +1227,36 @@ pub(crate) async fn export_images_impl(
                         )?;
                     }
 
+                    if replacement_target.is_some() {
+                        #[cfg(not(target_os = "android"))]
+                        {
+                            let target = replacement_target.clone().unwrap();
+
+                            trash_file_or_remove(&source_path)?;
+
+                            if let Some(temp_path) = &replacement_temp
+                                && let Err(e) = fs::rename(temp_path, &target)
+                            {
+                                let _ = fs::remove_file(temp_path);
+                                return Err(format!(
+                                    "Failed to finalize replaced file {}: {}",
+                                    target.display(),
+                                    e
+                                ));
+                            }
+
+                            let deletions =
+                                cleanup_sidecars_after_replacement(&source_path, &target);
+                            crate::file_management::sync_album_path_changes(
+                                &app_handle_clone,
+                                None,
+                                Some(&deletions),
+                                None,
+                            );
+                        }
+                    }
+
+                    ensure_export_not_cancelled(&cancellation_token_clone)?;
                     Ok(())
                 })();
 
@@ -1337,6 +1428,7 @@ pub async fn run_headless_export(
         watermark: None,
         export_masks: false,
         preserve_folders: true,
+        replace_original: false,
     };
 
     let mut custom_adjustments = None;

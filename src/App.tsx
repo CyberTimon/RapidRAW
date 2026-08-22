@@ -724,6 +724,11 @@ function App() {
               rootPaths={rootPaths}
               isVisible={true}
               onClose={() => setUI({ isLibraryExportPanelVisible: false })}
+              onFilesReplaced={() => {
+                refreshAllFolderTrees();
+                handleLibraryRefresh();
+                useLibraryStore.getState().setLibrary({ multiSelectedPaths: [] });
+              }}
             />
           );
         case Panel.Adjustments:
@@ -761,6 +766,8 @@ function App() {
       appSettings,
       handleSettingsChange,
       rootPaths,
+      refreshAllFolderTrees,
+      handleLibraryRefresh,
     ],
   );
 

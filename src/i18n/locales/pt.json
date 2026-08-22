@@ -768,7 +768,19 @@
       "exportMasks": "Exportar máscaras como arquivos separados",
       "preserveFolders": "Preservar Estrutura de Pastas",
       "preserveTimestamps": "Definir Data/Hora do Arquivo a partir da Data de Captura EXIF",
-      "title": "Configurações de Exportação"
+      "title": "Configurações de Exportação",
+      "replaceOriginal": "Substituir original"
+    },
+    "replaceOriginal": {
+      "warningTitle": "Substituir original",
+      "warningMessage": "Quando ativada, a exportação irá apagar os arquivos originais e substituí-los pelas versões editadas. Os originais serão movidos para a Lixeira do sistema. Não pode ser desfeito.",
+      "enableButton": "Ativar",
+      "confirmTitle": "Substituir original?",
+      "confirmMessage": "Os arquivos originais selecionados serão apagados e substituídos pelas versões editadas. Os originais serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_one": "O original selecionado será apagado e substituído pela versão editada. O original será movido para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_other": "Os {{count}} arquivos originais selecionados serão apagados e substituídos pelas versões editadas. Os originais serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmButton": "Substituir",
+      "virtualCopyUnavailable": "Substituir original não está disponível para cópias virtuais."
     },
     "bytes": {
       "bytes": "Bytes",

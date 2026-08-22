@@ -768,7 +768,19 @@
       "exportMasks": "Exporter les masques sous forme de fichiers séparés",
       "preserveFolders": "Conserver la structure des dossiers",
       "preserveTimestamps": "Définir l'horodatage des fichiers à partir de la date de prise de vue EXIF",
-      "title": "Paramètres d'exportation"
+      "title": "Paramètres d'exportation",
+      "replaceOriginal": "Remplacer l'original"
+    },
+    "replaceOriginal": {
+      "warningTitle": "Remplacer l'original",
+      "warningMessage": "Une fois activé, l'export supprimera les fichiers d'origine et les remplacera par les versions modifiées. Les originaux seront déplacés dans la corbeille du système. Ne peut pas être annulé.",
+      "enableButton": "Activer",
+      "confirmTitle": "Remplacer l'original ?",
+      "confirmMessage": "Les fichiers d'origine sélectionnés seront supprimés et remplacés par les versions modifiées. Les originaux seront déplacés dans la corbeille. Ne peut pas être annulé.",
+      "confirmMessage_one": "Le fichier d'origine sélectionné sera supprimé et remplacé par la version modifiée. L'original sera déplacé dans la corbeille. Ne peut pas être annulé.",
+      "confirmMessage_other": "Les {{count}} fichiers d'origine sélectionnés seront supprimés et remplacés par les versions modifiées. Les originaux seront déplacés dans la corbeille. Ne peut pas être annulé.",
+      "confirmButton": "Remplacer",
+      "virtualCopyUnavailable": "Remplacer l'original n'est pas disponible pour les copies virtuelles."
     },
     "bytes": {
       "bytes": "Octets",

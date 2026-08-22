@@ -40,6 +40,7 @@ interface ExportPanelProps {
   rootPaths: string[];
   isVisible?: boolean;
   onClose?: () => void;
+  onFilesReplaced?: () => void | Promise<void>;
 }
 
 interface SectionProps {
@@ -183,6 +184,7 @@ export default function ExportPanel({
   rootPaths,
   isVisible = true,
   onClose,
+  onFilesReplaced,
 }: ExportPanelProps) {
   const { t } = useTranslation();
 
@@ -240,6 +242,8 @@ export default function ExportPanel({
   const adjustmentsRef = useRef(useEditorStore.getState().adjustments);
 
   const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
+  const [replaceOriginal, setReplaceOriginal] = useState(false);
+  const hasWarnedReplaceOriginal = useRef(false);
   const initDone = useRef(false);
 
   useEffect(() => {
@@ -295,6 +299,11 @@ export default function ExportPanel({
   }, [isLibraryContext, multiSelectedPaths, selectedImage?.path]);
 
   const numImages = pathsToExport.length;
+
+  const selectionContainsVirtualCopy = useMemo(
+    () => pathsToExport.some((path) => path.includes('?vc=')),
+    [pathsToExport],
+  );
 
   useEffect(() => {
     const fetchDims = async () => {
@@ -454,11 +463,41 @@ export default function ExportPanel({
     }, 0);
   };
 
-  const handleExport = async () => {
+  const handleToggleReplaceOriginal = useCallback(
+    (enabled: boolean) => {
+            if (!enabled) {
+        setReplaceOriginal(false);
+        return;
+      }
+      if (hasWarnedReplaceOriginal.current) {
+        setReplaceOriginal(true);
+        return;
+      }
+      useUIStore.getState().setUI({
+        confirmModalState: {
+          isOpen: true,
+          title: t('export.replaceOriginal.warningTitle'),
+          message: t('export.replaceOriginal.warningMessage'),
+          confirmText: t('export.replaceOriginal.enableButton'),
+          confirmVariant: 'destructive',
+          onConfirm: () => {
+            hasWarnedReplaceOriginal.current = true;
+            setReplaceOriginal(true);
+          },
+        },
+      });
+    },
+    [t],
+  );
+
+  const performExport = async () => {
     if (numImages === 0 || isExporting) return;
+
+    const effectiveReplaceOriginal = replaceOriginal && !selectionContainsVirtualCopy;
 
     let finalFilenameTemplate = filenameTemplate;
     if (
+      !effectiveReplaceOriginal &&
       numImages > 1 &&
       !filenameTemplate.includes('{sequence}') &&
       !filenameTemplate.includes('{original_filename}')
@@ -486,6 +525,7 @@ export default function ExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
+      replaceOriginal: effectiveReplaceOriginal,
     };
 
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
@@ -494,8 +534,10 @@ export default function ExportPanel({
       const selectedFormat: any = FILE_FORMATS.find((f) => f.id === fileFormat);
 
       let outputFolderOrFile = '';
-      const shouldChooseOutputFile = numImages === 1 && !preserveFolders;
-      if (shouldChooseOutputFile) {
+      let shouldChooseOutputFile = false;
+      if (!effectiveReplaceOriginal) {
+        shouldChooseOutputFile = numImages === 1 && !preserveFolders;
+        if (shouldChooseOutputFile) {
         const originalFilename = pathsToExport[0].split(/[\\/]/).pop() || '';
         const stem = originalFilename.substring(0, originalFilename.lastIndexOf('.')) || originalFilename;
         const suggestedName = finalFilenameTemplate.replace('{original_filename}', stem);
@@ -524,8 +566,9 @@ export default function ExportPanel({
             })) as string);
       }
 
-      if (isAndroid || outputFolderOrFile) {
-        if (!isAndroid) {
+      }
+      if (isAndroid || outputFolderOrFile || effectiveReplaceOriginal) {
+        if (!isAndroid && !effectiveReplaceOriginal && outputFolderOrFile) {
           const dir = shouldChooseOutputFile
             ? outputFolderOrFile.substring(
                 0,
@@ -546,6 +589,10 @@ export default function ExportPanel({
           currentEditPath: selectedImage?.path || null,
           currentEditAdjustments: adjustmentsRef.current || null,
         });
+
+        if (effectiveReplaceOriginal) {
+          await onFilesReplaced?.();
+        }
       }
     } catch (error) {
       setExportState({
@@ -554,6 +601,28 @@ export default function ExportPanel({
         status: Status.Error,
       });
     }
+  };
+
+  const handleExport = async () => {
+    if (numImages === 0 || isExporting) return;
+
+    if (replaceOriginal && !selectionContainsVirtualCopy) {
+      useUIStore.getState().setUI({
+        confirmModalState: {
+          isOpen: true,
+          title: t('export.replaceOriginal.confirmTitle', { count: numImages }),
+          message: t('export.replaceOriginal.confirmMessage', { count: numImages }),
+          confirmText: t('export.replaceOriginal.confirmButton'),
+          confirmVariant: 'destructive',
+          onConfirm: () => {
+            void performExport();
+          },
+        },
+      });
+      return;
+    }
+
+    await performExport();
   };
 
   const handleCancel = async () => {
@@ -846,6 +915,20 @@ export default function ExportPanel({
                                 checked={exportMasks}
                                 onChange={setExportMasks}
                                 disabled={isExporting}
+                                trackClassName="bg-surface"
+                              />
+                            )}
+                            {!isAndroid && (
+                              <Switch
+                                label={t('export.advanced.replaceOriginal')}
+                                checked={replaceOriginal}
+                                onChange={handleToggleReplaceOriginal}
+                                disabled={isExporting || selectionContainsVirtualCopy}
+                                tooltip={
+                                  selectionContainsVirtualCopy
+                                    ? t('export.replaceOriginal.virtualCopyUnavailable')
+                                    : undefined
+                                }
                                 trackClassName="bg-surface"
                               />
                             )}

@@ -47,6 +47,7 @@ export interface ExportSettings {
   watermark: WatermarkSettings | null;
   exportMasks?: boolean;
   preserveFolders?: boolean;
+  replaceOriginal?: boolean;
 }
 
 export enum WatermarkAnchor {
