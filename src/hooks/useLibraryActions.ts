@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
-import { Invokes, ImageFile, AlbumItem, Album, AlbumGroup } from '../components/ui/AppProperties';
+import { Invokes, ImageFile, AlbumItem, Album, AlbumGroup, Roll } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { computeSortedLibrary } from './useSortedLibrary';
@@ -406,6 +406,26 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     }
   }, []);
 
+  const handleSaveRoll = useCallback(async (details: Omit<Roll, 'id' | 'images'>) => {
+    const { rolls, activeRollId, setLibrary } = useLibraryStore.getState();
+    const { rollActionTarget } = useUIStore.getState();
+    const updatedRolls = rollActionTarget
+      ? rolls.map((roll) => (roll.id === rollActionTarget ? { ...roll, ...details } : roll))
+      : [...rolls, { id: crypto.randomUUID(), images: [], ...details }];
+
+    try {
+      await invoke(Invokes.SaveRolls, { rolls: updatedRolls });
+      setLibrary({
+        rolls: await invoke<Roll[]>(Invokes.GetRolls),
+        ...(rollActionTarget === activeRollId
+          ? { currentFolderPath: `Roll: ${details.loadedOn} · ${details.camera} · ${details.filmStock}` }
+          : {}),
+      });
+    } catch (err) {
+      toast.error(`Failed to save roll: ${err}`);
+    }
+  }, []);
+
   const handleRenameAlbumItem = useCallback(async (newName: string) => {
     const { albumTree, setLibrary } = useLibraryStore.getState();
     const { albumActionTarget } = useUIStore.getState();
@@ -447,5 +467,6 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     handleTogglePinFolder,
     handleCreateAlbumItem,
     handleRenameAlbumItem,
+    handleSaveRoll,
   };
 }

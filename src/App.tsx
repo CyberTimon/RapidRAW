@@ -73,6 +73,7 @@ import {
   Theme,
   ThumbnailSize,
   ThumbnailAspectRatio,
+  Roll,
 } from './components/ui/AppProperties';
 
 import ImageProcessingManager from './components/managers/ImageProcessingManager';
@@ -360,13 +361,31 @@ function App() {
     handleTogglePinFolder,
     handleCreateAlbumItem,
     handleRenameAlbumItem,
+    handleSaveRoll,
   } = useLibraryActions(handleImageSelect);
+
+  const handleSelectRoll = useCallback(
+    async (roll: Roll, preserveEditor = false) => {
+      const rollTitle = `${roll.loadedOn} · ${roll.camera} · ${roll.filmStock}`;
+      await handleSelectAlbum(roll.id, rollTitle, roll.images, preserveEditor);
+      useLibraryStore.getState().setLibrary({
+        currentFolderPath: `Roll: ${rollTitle}`,
+        activeAlbumId: null,
+        activeRollId: roll.id,
+      });
+    },
+    [handleSelectAlbum],
+  );
 
   const { displayList: sortedImageList, badges: groupBadgeInfo } = useSortedLibrary();
 
   const handleLibraryRefresh = useCallback(async () => {
     if (currentFolderPath) {
-      if (currentFolderPath.startsWith('Album: ')) {
+      if (currentFolderPath.startsWith('Roll: ')) {
+        const { activeRollId, rolls } = useLibraryStore.getState();
+        const roll = rolls.find((item) => item.id === activeRollId);
+        if (roll) await handleSelectRoll(roll, true);
+      } else if (currentFolderPath.startsWith('Album: ')) {
         const { activeAlbumId, albumTree } = useLibraryStore.getState();
         if (activeAlbumId) {
           const findObj = (nodes: any[]): any => {
@@ -386,7 +405,7 @@ function App() {
         await handleSelectSubfolder(currentFolderPath, false, undefined, false, true);
       }
     }
-  }, [currentFolderPath, handleSelectSubfolder, handleSelectAlbum]);
+  }, [currentFolderPath, handleSelectSubfolder, handleSelectAlbum, handleSelectRoll]);
 
   const {
     executeDelete,
@@ -424,6 +443,7 @@ function App() {
     handleThumbnailContextMenu,
     handleFolderTreeContextMenu,
     handleAlbumTreeContextMenu,
+    handleRollContextMenu,
     handleMainLibraryContextMenu,
   } = useAppContextMenus({
     handleImageSelect,
@@ -704,7 +724,9 @@ function App() {
               isResizing={isResizing}
               onContextMenu={handleFolderTreeContextMenu}
               onAlbumContextMenu={handleAlbumTreeContextMenu}
+              onRollContextMenu={handleRollContextMenu}
               onSelectAlbum={handleSelectAlbum}
+              onSelectRoll={handleSelectRoll}
               onFolderSelect={(path) => handleSelectSubfolder(path, false)}
               onToggleFolder={handleToggleFolder}
               onOpenFolder={handleOpenFolder}
@@ -748,7 +770,9 @@ function App() {
       isResizing,
       handleFolderTreeContextMenu,
       handleAlbumTreeContextMenu,
+      handleRollContextMenu,
       handleSelectAlbum,
+      handleSelectRoll,
       handleSelectSubfolder,
       handleToggleFolder,
       handleOpenFolder,
@@ -809,6 +833,35 @@ function App() {
         .catch((err) => {
           toast.error(`Failed to move files: ${err}`);
         });
+    }
+
+    if (active.data.current?.type === 'library-image' && over?.data.current?.type === 'roll') {
+      const targetRollId = over.data.current.id;
+      const sourcePaths = activeImageDragItem?.paths || [active.data.current.path];
+
+      invoke(Invokes.AddToRoll, { rollId: targetRollId, paths: sourcePaths })
+        .then(() => invoke(Invokes.GetRolls))
+        .then((rolls: any) => {
+          useLibraryStore.getState().setLibrary((state) => {
+            const movedFromActiveRoll = !!state.activeRollId && state.activeRollId !== targetRollId;
+            return {
+              rolls,
+              multiSelectedPaths: [],
+              ...(movedFromActiveRoll
+                ? {
+                    imageList: state.imageList.filter((image) => !sourcePaths.includes(image.path)),
+                    libraryActivePath: sourcePaths.includes(state.libraryActivePath ?? '')
+                      ? null
+                      : state.libraryActivePath,
+                    selectionAnchorPath: sourcePaths.includes(state.selectionAnchorPath ?? '')
+                      ? null
+                      : state.selectionAnchorPath,
+                  }
+                : {}),
+            };
+          });
+        })
+        .catch((err) => toast.error(`Failed to add to roll: ${err}`));
     }
 
     if (active.data.current?.type === 'library-image' && over?.data.current?.type === 'album') {
@@ -1025,6 +1078,7 @@ function App() {
           handleSaveCollage={handleSaveCollage}
           handleCreateAlbumItem={handleCreateAlbumItem}
           handleRenameAlbumItem={handleRenameAlbumItem}
+          handleSaveRoll={handleSaveRoll}
         />
         <ToastContainer
           position="bottom-right"

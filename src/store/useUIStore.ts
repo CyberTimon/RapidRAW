@@ -251,6 +251,9 @@ interface UIState {
   isRenameAlbumModalOpen: boolean;
   albumActionTarget: string | null;
 
+  isRollModalOpen: boolean;
+  rollActionTarget: string | null;
+
   confirmModalState: ConfirmModalState;
   panoramaModalState: PanoramaModalState;
   focusStackModalState: FocusStackModalState;
@@ -329,6 +332,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   isCreateAlbumGroupModalOpen: false,
   isRenameAlbumModalOpen: false,
   albumActionTarget: null,
+  isRollModalOpen: false,
+  rollActionTarget: null,
 
   confirmModalState: { isOpen: false },
   panoramaModalState: {

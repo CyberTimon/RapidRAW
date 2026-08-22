@@ -22,6 +22,7 @@ import {
   ArrowUpDown,
   Check,
   MoveRight,
+  Film,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
@@ -35,7 +36,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
-import { AlbumItem, AlbumGroup, Album, Invokes, FolderTreeSort, SortDirection } from '../../ui/AppProperties';
+import { AlbumItem, AlbumGroup, Album, Roll, Invokes, FolderTreeSort, SortDirection } from '../../ui/AppProperties';
 
 export interface FolderTree {
   children: FolderTree[];
@@ -52,8 +53,10 @@ interface FolderTreeProps {
   isResizing: boolean;
   onContextMenu(event: any, path: string | null, isPinned?: boolean): void;
   onAlbumContextMenu(event: any, item: AlbumItem | null): void;
+  onRollContextMenu(event: any, roll: Roll | null): void;
   onFolderSelect(folder: string): void;
   onSelectAlbum(albumId: string, albumName: string, images: string[]): void;
+  onSelectRoll(roll: Roll): void;
   onToggleFolder(folder: string): void;
   onOpenFolder(): void;
   style: any;
@@ -350,7 +353,7 @@ function AlbumTreeNode({
   const isImageDrag = active?.data?.current?.type === 'library-image';
   const isDropTarget = isOver && isImageDrag && !isGroup;
 
-  let ItemIcon = isGroup ? (isExpanded ? FolderOpen : Folder) : AlbumIcon;
+  let ItemIcon: React.ElementType = isGroup ? (isExpanded ? FolderOpen : Folder) : AlbumIcon;
   if (item.icon && ALBUM_ICONS[item.icon]) {
     ItemIcon = ALBUM_ICONS[item.icon];
   }
@@ -461,6 +464,64 @@ function AlbumTreeNode({
   );
 }
 
+function RollTreeNode({
+  roll,
+  selected,
+  onSelect,
+  onContextMenu,
+  showImageCounts,
+  isLayoutDragging,
+}: {
+  roll: Roll;
+  selected: boolean;
+  onSelect: (roll: Roll) => void;
+  onContextMenu: (event: any, roll: Roll) => void;
+  showImageCounts: boolean;
+  isLayoutDragging: boolean;
+}) {
+  const { setNodeRef, isOver, active } = useDroppable({
+    id: `roll-${roll.id}`,
+    data: { type: 'roll', id: roll.id },
+    disabled: isLayoutDragging,
+  });
+  const isDropTarget = isOver && active?.data?.current?.type === 'library-image';
+  const label = `${roll.loadedOn} · ${roll.camera} · ${roll.filmStock}`;
+  return (
+    <Text as="div" color={TextColors.primary} weight={TextWeights.medium}>
+      <div
+        ref={setNodeRef}
+        className={clsx('flex items-center gap-2 p-1.5 rounded-md transition-colors cursor-pointer', {
+          'bg-surface': selected && !isDropTarget,
+          'hover:bg-card-active': !selected && !isDropTarget,
+          'bg-accent/20': isDropTarget,
+        })}
+        onClick={() => onSelect(roll)}
+        onContextMenu={(event) => onContextMenu(event, roll)}
+        data-tooltip={`${label}\n${roll.loadedOn}${roll.finishedOn ? ` – ${roll.finishedOn}` : ' – loaded'}`}
+      >
+        <div className="w-5 h-5 flex items-center justify-center text-text-secondary shrink-0">
+          {isDropTarget ? <MoveRight size={16} /> : <Film size={16} />}
+        </div>
+        <span className="min-w-0 flex-1 select-none truncate">{label}</span>
+        {roll.images.length > 0 && (
+          <Text
+            as="span"
+            variant={TextVariants.small}
+            color={TextColors.secondary}
+            className={clsx(
+              'min-w-8 text-right tabular-nums transition-opacity',
+              showImageCounts ? 'opacity-100' : 'opacity-0',
+            )}
+          >
+            {roll.images.length}
+          </Text>
+        )}
+        <div className="w-5 h-5 shrink-0" aria-hidden="true" />
+      </div>
+    </Text>
+  );
+}
+
 function TreeNode({
   sectionId,
   expandedFolders,
@@ -525,7 +586,7 @@ function TreeNode({
   };
 
   const currentFolderIconKey = folderIcons[node.path];
-  let ResolvedIcon = isExpanded ? FolderOpen : Folder;
+  let ResolvedIcon: React.ElementType = isExpanded ? FolderOpen : Folder;
 
   if (currentFolderIconKey && ALBUM_ICONS[currentFolderIconKey]) {
     ResolvedIcon = ALBUM_ICONS[currentFolderIconKey];
@@ -655,8 +716,10 @@ export default function FolderTree({
   isResizing,
   onContextMenu,
   onAlbumContextMenu,
+  onRollContextMenu,
   onFolderSelect,
   onSelectAlbum,
+  onSelectRoll,
   onToggleFolder,
   onOpenFolder,
   style,
@@ -681,6 +744,8 @@ export default function FolderTree({
     albumTree,
     activeAlbumId,
     expandedAlbumGroups,
+    rolls,
+    activeRollId,
   } = useLibraryStore(
     useShallow((state) => ({
       folderTrees: state.folderTrees,
@@ -691,6 +756,8 @@ export default function FolderTree({
       albumTree: state.albumTree,
       activeAlbumId: state.activeAlbumId,
       expandedAlbumGroups: state.expandedAlbumGroups,
+      rolls: state.rolls,
+      activeRollId: state.activeRollId,
     })),
   );
 
@@ -705,7 +772,9 @@ export default function FolderTree({
   const showHeaderButtons = isHovering || isSortMenuOpen;
 
   useEffect(() => {
-    invoke(Invokes.GetAlbums).then((res: any) => useLibraryStore.getState().setLibrary({ albumTree: res }));
+    Promise.all([invoke(Invokes.GetAlbums), invoke(Invokes.GetRolls)]).then(([albumTree, rolls]) =>
+      useLibraryStore.getState().setLibrary({ albumTree: albumTree as AlbumItem[], rolls: rolls as Roll[] }),
+    );
   }, []);
 
   const toggleSection = (section: string) => {
@@ -763,12 +832,23 @@ export default function FolderTree({
     return new Set([...expandedFolders, ...searchAutoExpandedFolders]);
   }, [expandedFolders, searchAutoExpandedFolders]);
 
+  const sortedRolls = useMemo(() => [...rolls].sort((a, b) => b.loadedOn.localeCompare(a.loadedOn)), [rolls]);
+
+  const filteredRolls = useMemo(() => {
+    if (!isSearching) return sortedRolls;
+    const query = trimmedQuery.toLowerCase();
+    return sortedRolls.filter((roll) =>
+      [roll.camera, roll.filmStock, roll.loadedOn, roll.finishedOn ?? ''].some((value) =>
+        value.toLowerCase().includes(query),
+      ),
+    );
+  }, [sortedRolls, trimmedQuery, isSearching]);
+
   const filteredAlbumTree = useMemo(() => {
-    let base = albumTree;
-    if (isSearching) {
-      base = base.map((item: any) => filterAlbumTree(item, trimmedQuery)).filter((t: any) => t !== null);
-    }
-    return base;
+    if (!isSearching) return albumTree;
+    return albumTree
+      .map((item) => filterAlbumTree(item, trimmedQuery))
+      .filter((item): item is AlbumItem => item !== null);
   }, [albumTree, trimmedQuery, isSearching]);
 
   const searchAutoExpandedAlbumGroups = useMemo(() => {
@@ -787,6 +867,7 @@ export default function FolderTree({
       const hasPinnedResults = filteredPinnedTrees && filteredPinnedTrees.length > 0;
       const hasBaseResults = filteredTrees && filteredTrees.length > 0;
       const hasAlbumResults = filteredAlbumTree && filteredAlbumTree.length > 0;
+      const hasRollResults = filteredRolls.length > 0;
 
       let newSections = [...openSections];
       let changed = false;
@@ -803,6 +884,10 @@ export default function FolderTree({
         newSections.push('albums');
         changed = true;
       }
+      if (hasRollResults && !newSections.includes('rolls')) {
+        newSections.push('rolls');
+        changed = true;
+      }
 
       if (changed) {
         handleSettingsChange({ ...appSettings, openTreeSections: newSections });
@@ -813,6 +898,7 @@ export default function FolderTree({
     filteredTrees,
     filteredPinnedTrees,
     filteredAlbumTree,
+    filteredRolls,
     openSections,
     handleSettingsChange,
     appSettings,
@@ -821,10 +907,12 @@ export default function FolderTree({
   const isPinnedOpen = openSections.includes('pinned');
   const isCurrentOpen = openSections.includes('current');
   const isAlbumsOpen = openSections.includes('albums');
+  const isRollsOpen = openSections.includes('rolls');
 
   const hasVisiblePinnedTrees = filteredPinnedTrees && filteredPinnedTrees.length > 0;
   const hasVisibleAlbums = filteredAlbumTree && filteredAlbumTree.length > 0;
   const showAlbumsSection = hasVisibleAlbums || (!isSearching && albumTree.length === 0);
+  const showRollsSection = filteredRolls.length > 0 || (!isSearching && rolls.length === 0);
 
   return (
     <div
@@ -1015,6 +1103,44 @@ export default function FolderTree({
               </>
             )}
 
+            {showRollsSection && (
+              <>
+                <SectionHeader title="Rolls" isOpen={isRollsOpen} onToggle={() => toggleSection('rolls')} />
+                <AnimatePresence>
+                  {isRollsOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden pt-1 pb-2"
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onRollContextMenu(event, null);
+                      }}
+                    >
+                      {filteredRolls.map((roll) => (
+                        <RollTreeNode
+                          key={roll.id}
+                          roll={roll}
+                          selected={roll.id === activeRollId}
+                          onSelect={onSelectRoll}
+                          onContextMenu={onRollContextMenu}
+                          showImageCounts={showImageCounts && isHovering}
+                          isLayoutDragging={isLayoutDragging}
+                        />
+                      ))}
+                      {rolls.length === 0 && !isSearching && (
+                        <Text variant={TextVariants.small} className="p-2 text-center">
+                          Right-click to create a film roll
+                        </Text>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )}
+
             {filteredTrees && filteredTrees.length > 0 && (
               <>
                 <div>
@@ -1105,9 +1231,11 @@ export default function FolderTree({
               </>
             )}
 
-            {!filteredTrees?.length && !hasVisiblePinnedTrees && !hasVisibleAlbums && isSearching && (
-              <Text className="p-2 text-center">{t('library.folders.noFoldersFound')}</Text>
-            )}
+            {!filteredTrees?.length &&
+              !hasVisiblePinnedTrees &&
+              !hasVisibleAlbums &&
+              filteredRolls.length === 0 &&
+              isSearching && <Text className="p-2 text-center">{t('library.folders.noFoldersFound')}</Text>}
 
             {folderTrees.length === 0 && pinnedFolderTrees.length === 0 && !isSearching && (
               <div className="pt-1">

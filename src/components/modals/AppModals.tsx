@@ -18,7 +18,8 @@ import ConfirmModal from './ConfirmModal';
 import ImportSettingsModal from './ImportSettingsModal';
 import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
-import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
+import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup, Roll } from '../ui/AppProperties';
+import RollModal from './RollModal';
 import { CopyPasteSettings } from '../../utils/adjustments';
 
 export interface AppModalsProps {
@@ -43,6 +44,7 @@ export interface AppModalsProps {
   handleSaveCollage: (base64Data: string, firstPath: string) => Promise<string>;
   handleCreateAlbumItem: (name: string, type: 'album' | 'group') => Promise<void>;
   handleRenameAlbumItem: (newName: string) => Promise<void>;
+  handleSaveRoll: (details: Omit<Roll, 'id' | 'images'>) => Promise<void>;
 }
 
 export default function AppModals(props: AppModalsProps) {
@@ -67,6 +69,8 @@ export default function AppModals(props: AppModalsProps) {
     isCreateAlbumGroupModalOpen,
     isRenameAlbumModalOpen,
     albumActionTarget,
+    isRollModalOpen,
+    rollActionTarget,
     confirmModalState,
     panoramaModalState,
     hdrModalState,
@@ -90,6 +94,8 @@ export default function AppModals(props: AppModalsProps) {
       isCreateAlbumGroupModalOpen: state.isCreateAlbumGroupModalOpen,
       isRenameAlbumModalOpen: state.isRenameAlbumModalOpen,
       albumActionTarget: state.albumActionTarget,
+      isRollModalOpen: state.isRollModalOpen,
+      rollActionTarget: state.rollActionTarget,
       confirmModalState: state.confirmModalState,
       panoramaModalState: state.panoramaModalState,
       hdrModalState: state.hdrModalState,
@@ -308,6 +314,12 @@ export default function AppModals(props: AppModalsProps) {
         onSave={props.handleRenameAlbumItem}
         title={isAlbumGroup ? t('contextMenus.albums.renameGroup') : t('contextMenus.albums.renameAlbum')}
         placeholder={isAlbumGroup ? t('modals.renameGroup.placeholder') : t('modals.renameAlbum.placeholder')}
+      />
+      <RollModal
+        isOpen={isRollModalOpen}
+        roll={useLibraryStore.getState().rolls.find((roll) => roll.id === rollActionTarget) ?? null}
+        onClose={() => setUI({ isRollModalOpen: false, rollActionTarget: null })}
+        onSave={props.handleSaveRoll}
       />
       <RenameFileModal
         filesToRename={renameTargetPaths}

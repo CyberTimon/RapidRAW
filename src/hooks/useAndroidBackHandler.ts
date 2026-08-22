@@ -34,6 +34,10 @@ export function useAndroidBackHandler() {
         ui.setUI({ isCopyPasteSettingsModalOpen: false });
         return;
       }
+      if (ui.isRollModalOpen) {
+        ui.setUI({ isRollModalOpen: false, rollActionTarget: null });
+        return;
+      }
       if (ui.isCreateAlbumModalOpen) {
         ui.setUI({ isCreateAlbumModalOpen: false });
         return;
@@ -91,7 +95,9 @@ export function useAndroidBackHandler() {
         return;
       }
 
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }),
+      );
     };
 
     return () => {

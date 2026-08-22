@@ -111,6 +111,9 @@ export enum Invokes {
   GetAlbums = 'get_albums',
   SaveAlbums = 'save_albums',
   AddToAlbum = 'add_to_album',
+  GetRolls = 'get_rolls',
+  SaveRolls = 'save_rolls',
+  AddToRoll = 'add_to_roll',
   GetAlbumImages = 'get_album_images',
   TetherListCameras = 'tether_list_cameras',
   TetherConnect = 'tether_connect',
@@ -421,6 +424,15 @@ export interface CullingSuggestions {
 export interface KeybindHandler {
   shouldFire?: () => boolean;
   execute: (event: KeyboardEvent) => void;
+}
+
+export interface Roll {
+  id: string;
+  camera: string;
+  filmStock: string;
+  loadedOn: string;
+  finishedOn?: string;
+  images: string[];
 }
 
 export type AlbumItem = Album | AlbumGroup;

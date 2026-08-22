@@ -835,6 +835,17 @@ pub enum AlbumItem {
     },
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Roll {
+    pub id: String,
+    pub camera: String,
+    pub film_stock: String,
+    pub loaded_on: String,
+    pub finished_on: Option<String>,
+    pub images: Vec<String>,
+}
+
 fn get_albums_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
     let data_dir = app_handle
         .path()
@@ -885,6 +896,83 @@ pub fn save_albums(mut tree: Vec<AlbumItem>, app_handle: AppHandle) -> Result<()
     sort_album_tree(&mut tree);
     let json_string = serde_json::to_string_pretty(&tree).map_err(|e| e.to_string())?;
     fs::write(path, json_string).map_err(|e| e.to_string())
+}
+
+fn get_rolls_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
+    let data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+    let rolls_dir = data_dir.join("rolls");
+    if !rolls_dir.exists() {
+        fs::create_dir_all(&rolls_dir).map_err(|e| e.to_string())?;
+    }
+    Ok(rolls_dir.join("rolls.json"))
+}
+
+fn sort_and_deduplicate_rolls(rolls: &mut [Roll]) {
+    rolls.sort_by(|a, b| {
+        b.loaded_on
+            .cmp(&a.loaded_on)
+            .then_with(|| a.camera.to_lowercase().cmp(&b.camera.to_lowercase()))
+    });
+
+    // A scan belongs to one roll only. For legacy duplicate data, keep it on
+    // the most recently loaded roll.
+    let mut assigned_images = HashSet::new();
+    for roll in rolls {
+        roll.images
+            .retain(|path| assigned_images.insert(path.clone()));
+    }
+}
+
+#[tauri::command]
+pub fn get_rolls(app_handle: AppHandle) -> Result<Vec<Roll>, String> {
+    let path = get_rolls_path(&app_handle)?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let mut rolls: Vec<Roll> = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    sort_and_deduplicate_rolls(&mut rolls);
+    Ok(rolls)
+}
+
+#[tauri::command]
+pub fn save_rolls(mut rolls: Vec<Roll>, app_handle: AppHandle) -> Result<(), String> {
+    let path = get_rolls_path(&app_handle)?;
+    sort_and_deduplicate_rolls(&mut rolls);
+    let json = serde_json::to_string_pretty(&rolls).map_err(|e| e.to_string())?;
+    fs::write(path, json).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn add_to_roll(
+    roll_id: String,
+    paths: Vec<String>,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    let mut rolls = get_rolls(app_handle.clone())?;
+    if !rolls.iter().any(|roll| roll.id == roll_id) {
+        return Err("Roll not found".to_string());
+    }
+
+    let paths_to_move: HashSet<&String> = paths.iter().collect();
+    for roll in &mut rolls {
+        roll.images.retain(|path| !paths_to_move.contains(path));
+    }
+
+    let target_roll = rolls
+        .iter_mut()
+        .find(|roll| roll.id == roll_id)
+        .ok_or_else(|| "Roll not found".to_string())?;
+    for path in paths {
+        if !target_roll.images.contains(&path) {
+            target_roll.images.push(path);
+        }
+    }
+
+    save_rolls(rolls, app_handle)
 }
 
 #[tauri::command]
@@ -1014,6 +1102,53 @@ fn sync_album_path_changes(
 
         if changed {
             let _ = save_albums(tree, app_handle.clone());
+        }
+    }
+
+    if let Ok(mut rolls) = get_rolls(app_handle.clone()) {
+        let mut changed = false;
+        for roll in &mut rolls {
+            let mut updated = Vec::new();
+            for image in roll.images.drain(..) {
+                let mut image = image;
+                if let Some((old_folder, new_folder)) = folder_rename
+                    && let Ok(relative) = Path::new(&image).strip_prefix(old_folder)
+                {
+                    image = Path::new(new_folder)
+                        .join(relative)
+                        .to_string_lossy()
+                        .into_owned();
+                    changed = true;
+                }
+                if let Some(rename_map) = renames {
+                    if let Some(new_path) = rename_map.get(&image) {
+                        image = new_path.clone();
+                        changed = true;
+                    } else if let Some((base, copy_id)) = image.rsplit_once("?vc=")
+                        && let Some(new_base) = rename_map.get(base)
+                    {
+                        image = format!("{}?vc={}", new_base, copy_id);
+                        changed = true;
+                    }
+                }
+                let deleted = deletions.is_some_and(|deleted_paths| {
+                    deleted_paths.iter().any(|path| {
+                        Path::new(&image).starts_with(path)
+                            || image
+                                .rsplit_once("?vc=")
+                                .is_some_and(|(base, _)| base == path)
+                    })
+                });
+                if deleted {
+                    changed = true;
+                } else {
+                    updated.push(image);
+                }
+            }
+            roll.images = updated;
+        }
+        if changed {
+            let _ = save_rolls(rolls, app_handle.clone());
         }
     }
 }

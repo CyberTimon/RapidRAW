@@ -46,6 +46,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       rootPaths: [],
       currentFolderPath: null,
       activeAlbumId: null,
+      activeRollId: null,
       imageList: [],
       imageRatings: {},
       folderTrees: [],
@@ -261,7 +262,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       if (!preserveEditor) {
         await invoke('cancel_thumbnail_generation');
         clearThumbnailQueue();
-        setLibrary({ isViewLoading: true, activeAlbumId: null, libraryScrollTop: 0 });
+        setLibrary({ isViewLoading: true, activeAlbumId: null, activeRollId: null, libraryScrollTop: 0 });
         setProcess({ thumbnails: {} });
         globalImageCache.clear();
         setUI({ activeView: 'library' });
@@ -420,6 +421,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         isViewLoading: true,
         currentFolderPath: `Album: ${albumName}`,
         activeAlbumId: albumId,
+        activeRollId: null,
       });
 
       try {
@@ -551,7 +553,28 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         }
       }
 
-      if (pathToSelect && pathToSelect.startsWith('Album: ')) {
+      if (pathToSelect && pathToSelect.startsWith('Roll: ')) {
+        const activeRollId = folderState?.activeRollId;
+        if (activeRollId) {
+          try {
+            const rolls: any[] = await invoke(Invokes.GetRolls);
+            setLibrary({ rolls });
+            const roll = rolls.find((item) => item.id === activeRollId);
+            if (roll) {
+              const rollTitle = `${roll.loadedOn} · ${roll.camera} · ${roll.filmStock}`;
+              await handleSelectAlbum(roll.id, rollTitle, roll.images);
+              setLibrary({ currentFolderPath: `Roll: ${rollTitle}`, activeAlbumId: null, activeRollId: roll.id });
+            } else {
+              await handleSelectSubfolder(rootFolders[0], false, undefined, false);
+            }
+          } catch (e) {
+            console.error('Failed to restore roll session:', e);
+            await handleSelectSubfolder(rootFolders[0], false, undefined, false);
+          }
+        } else {
+          await handleSelectSubfolder(rootFolders[0], false, undefined, false);
+        }
+      } else if (pathToSelect && pathToSelect.startsWith('Album: ')) {
         const activeAlbumId = folderState?.activeAlbumId;
         if (activeAlbumId) {
           try {
