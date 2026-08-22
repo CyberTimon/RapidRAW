@@ -1468,7 +1468,9 @@
       "filmStockPlaceholder": "es. Kodak Portra 400",
       "finishedOn": "Terminato il",
       "loadedOn": "Caricato il",
-      "newTitle": "Nuovo rullino"
+      "newTitle": "Nuovo rullino",
+      "name": "Nome del rullino (facoltativo)",
+      "namePlaceholder": "es. Viaggio estivo"
     }
   },
   "settings": {

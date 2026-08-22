@@ -1468,7 +1468,9 @@
       "filmStockPlaceholder": "p. ex. Kodak Portra 400",
       "finishedOn": "Terminée le",
       "loadedOn": "Chargée le",
-      "newTitle": "Nouvelle pellicule"
+      "newTitle": "Nouvelle pellicule",
+      "name": "Nom de la pellicule (facultatif)",
+      "namePlaceholder": "p. ex. Voyage d’été"
     }
   },
   "settings": {

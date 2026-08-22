@@ -1468,7 +1468,9 @@
       "filmStockPlaceholder": "p. ej., Kodak Portra 400",
       "finishedOn": "Finalizado el",
       "loadedOn": "Cargado el",
-      "newTitle": "Nuevo carrete"
+      "newTitle": "Nuevo carrete",
+      "name": "Nombre del carrete (opcional)",
+      "namePlaceholder": "p. ej. Viaje de verano"
     }
   },
   "settings": {

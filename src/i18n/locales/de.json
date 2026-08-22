@@ -1435,7 +1435,9 @@
       "filmStockPlaceholder": "z. B. Kodak Portra 400",
       "finishedOn": "Beendet am",
       "loadedOn": "Eingelegt am",
-      "newTitle": "Neue Filmrolle"
+      "newTitle": "Neue Filmrolle",
+      "name": "Name der Filmrolle (optional)",
+      "namePlaceholder": "z. B. Sommerurlaub"
     }
   },
   "settings": {

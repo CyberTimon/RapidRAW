@@ -841,9 +841,14 @@ export default function FolderTree({
     if (!isSearching) return sortedRolls;
     const query = trimmedQuery.toLowerCase();
     return sortedRolls.filter((roll) =>
-      [formatRollNumber(roll.number), roll.camera, roll.filmStock, roll.loadedOn, roll.finishedOn ?? ''].some((value) =>
-        value.toLowerCase().includes(query),
-      ),
+      [
+        formatRollNumber(roll.number),
+        roll.name ?? '',
+        roll.camera,
+        roll.filmStock,
+        roll.loadedOn,
+        roll.finishedOn ?? '',
+      ].some((value) => value.toLowerCase().includes(query)),
     );
   }, [sortedRolls, trimmedQuery, isSearching]);
 

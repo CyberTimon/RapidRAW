@@ -1438,7 +1438,9 @@
       "filmStockPlaceholder": "p. ex. Kodak Portra 400",
       "finishedOn": "Acabat el",
       "loadedOn": "Carregat el",
-      "newTitle": "Carret nou"
+      "newTitle": "Carret nou",
+      "name": "Nom del carret (opcional)",
+      "namePlaceholder": "p. ex. Viatge d’estiu"
     }
   },
   "settings": {

@@ -1469,7 +1469,9 @@
       "filmStockPlaceholder": "ex.: Kodak Portra 400",
       "finishedOn": "Terminado em",
       "loadedOn": "Carregado em",
-      "newTitle": "Novo rolo"
+      "newTitle": "Novo rolo",
+      "name": "Nome do rolo (opcional)",
+      "namePlaceholder": "ex.: Viagem de verão"
     }
   },
   "settings": {

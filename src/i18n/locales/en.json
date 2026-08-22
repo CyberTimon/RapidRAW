@@ -1435,7 +1435,9 @@
       "filmStockPlaceholder": "e.g. Kodak Portra 400",
       "finishedOn": "Finished On",
       "loadedOn": "Loaded On",
-      "newTitle": "New Roll"
+      "newTitle": "New Roll",
+      "name": "Roll Name (Optional)",
+      "namePlaceholder": "e.g. Summer Trip"
     }
   },
   "settings": {

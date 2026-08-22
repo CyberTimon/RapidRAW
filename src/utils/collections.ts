@@ -4,11 +4,14 @@ export type RollDetails = Omit<Roll, 'id' | 'number' | 'images'>;
 
 export const formatRollNumber = (number: number): string => String(number).padStart(5, '0');
 
-export const getRollTitle = (roll: Pick<Roll, 'number' | 'loadedOn' | 'camera' | 'filmStock'>): string =>
-  `${roll.loadedOn} · ${roll.camera} · ${roll.filmStock} · ${formatRollNumber(roll.number)}`;
+type RollTitleDetails = Pick<Roll, 'number' | 'name' | 'loadedOn' | 'camera' | 'filmStock'>;
 
-export const getRollPath = (roll: Pick<Roll, 'number' | 'loadedOn' | 'camera' | 'filmStock'>): string =>
-  `Roll: ${getRollTitle(roll)}`;
+export const getRollTitle = (roll: RollTitleDetails): string => {
+  const metadata = roll.name?.trim() || `${roll.camera} · ${roll.filmStock}`;
+  return `${roll.loadedOn} · ${metadata} · ${formatRollNumber(roll.number)}`;
+};
+
+export const getRollPath = (roll: RollTitleDetails): string => `Roll: ${getRollTitle(roll)}`;
 
 export const isCollectionPath = (path: string | null | undefined): boolean =>
   !!path && (path.startsWith('Album: ') || path.startsWith('Roll: '));

@@ -841,6 +841,8 @@ pub struct Roll {
     pub id: String,
     #[serde(default)]
     pub number: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     pub camera: String,
     pub film_stock: String,
     pub loaded_on: String,
@@ -1116,6 +1118,7 @@ mod roll_tests {
         Roll {
             id: id.to_string(),
             number: 0,
+            name: None,
             camera: "Camera".to_string(),
             film_stock: "Film".to_string(),
             loaded_on: loaded_on.to_string(),

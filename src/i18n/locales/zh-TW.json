@@ -1430,7 +1430,9 @@
       "filmStockPlaceholder": "例如 Kodak Portra 400",
       "finishedOn": "拍完日期",
       "loadedOn": "裝片日期",
-      "newTitle": "新增底片卷"
+      "newTitle": "新增底片卷",
+      "name": "底片卷名稱（選填）",
+      "namePlaceholder": "例如：夏日旅行"
     }
   },
   "settings": {

@@ -1503,7 +1503,9 @@
       "filmStockPlaceholder": "например, Kodak Portra 400",
       "finishedOn": "Отснята",
       "loadedOn": "Заряжена",
-      "newTitle": "Новая плёнка"
+      "newTitle": "Новая плёнка",
+      "name": "Название плёнки (необязательно)",
+      "namePlaceholder": "например, Летняя поездка"
     }
   },
   "settings": {

@@ -1430,7 +1430,9 @@
       "filmStockPlaceholder": "예: Kodak Portra 400",
       "finishedOn": "촬영 완료일",
       "loadedOn": "장전일",
-      "newTitle": "새 필름 롤"
+      "newTitle": "새 필름 롤",
+      "name": "롤 이름(선택 사항)",
+      "namePlaceholder": "예: 여름 여행"
     }
   },
   "settings": {

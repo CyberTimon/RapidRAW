@@ -1503,7 +1503,9 @@
       "filmStockPlaceholder": "np. Kodak Portra 400",
       "finishedOn": "Zakończono",
       "loadedOn": "Załadowano",
-      "newTitle": "Nowa rolka"
+      "newTitle": "Nowa rolka",
+      "name": "Nazwa rolki (opcjonalnie)",
+      "namePlaceholder": "np. Letnia podróż"
     }
   },
   "settings": {

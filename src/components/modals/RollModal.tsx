@@ -14,6 +14,7 @@ interface RollModalProps {
 
 export default function RollModal({ isOpen, roll, onClose, onSave }: RollModalProps) {
   const { t } = useTranslation();
+  const [name, setName] = useState('');
   const [camera, setCamera] = useState('');
   const [filmStock, setFilmStock] = useState('');
   const [loadedOn, setLoadedOn] = useState('');
@@ -23,6 +24,7 @@ export default function RollModal({ isOpen, roll, onClose, onSave }: RollModalPr
 
   useEffect(() => {
     if (isOpen) {
+      setName(roll?.name ?? '');
       setCamera(roll?.camera ?? '');
       setFilmStock(roll?.filmStock ?? '');
       setLoadedOn(roll?.loadedOn ?? getLocalDateString());
@@ -42,13 +44,14 @@ export default function RollModal({ isOpen, roll, onClose, onSave }: RollModalPr
   const handleSave = useCallback(() => {
     if (!isValid) return;
     onSave({
+      name: name.trim() || undefined,
       camera: camera.trim(),
       filmStock: filmStock.trim(),
       loadedOn,
       finishedOn: finishedOn || undefined,
     });
     onClose();
-  }, [camera, filmStock, finishedOn, isValid, loadedOn, onClose, onSave]);
+  }, [camera, filmStock, finishedOn, isValid, loadedOn, name, onClose, onSave]);
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -86,10 +89,20 @@ export default function RollModal({ isOpen, roll, onClose, onSave }: RollModalPr
           {t(roll ? 'modals.roll.editTitle' : 'modals.roll.newTitle')}
         </Text>
         <div className="grid gap-4">
+          <label className="text-sm text-text-secondary" htmlFor="roll-name">
+            {t('modals.roll.name')}
+            <input
+              autoFocus
+              className={`${inputClass} mt-1`}
+              id="roll-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder={t('modals.roll.namePlaceholder')}
+            />
+          </label>
           <label className="text-sm text-text-secondary" htmlFor="roll-camera">
             {t('modals.roll.camera')}
             <input
-              autoFocus
               className={`${inputClass} mt-1`}
               id="roll-camera"
               value={camera}

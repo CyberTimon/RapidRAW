@@ -1430,7 +1430,9 @@
       "filmStockPlaceholder": "例如 Kodak Portra 400",
       "finishedOn": "拍完日期",
       "loadedOn": "装片日期",
-      "newTitle": "新建胶卷"
+      "newTitle": "新建胶卷",
+      "name": "胶卷名称（可选）",
+      "namePlaceholder": "例如：夏日旅行"
     }
   },
   "settings": {

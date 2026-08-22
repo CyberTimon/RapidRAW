@@ -1430,7 +1430,9 @@
       "filmStockPlaceholder": "例：Kodak Portra 400",
       "finishedOn": "撮影完了日",
       "loadedOn": "装填日",
-      "newTitle": "新しいフィルムロール"
+      "newTitle": "新しいフィルムロール",
+      "name": "ロール名（任意）",
+      "namePlaceholder": "例：夏の旅行"
     }
   },
   "settings": {
