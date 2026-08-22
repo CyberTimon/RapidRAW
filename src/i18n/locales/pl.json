@@ -245,6 +245,10 @@
       "shortcutsHeading": "SKRÓTY"
     },
     "thumbnail": {
+      "confirmAutoAdjustButton": "Dostosuj automatycznie {{photoCount}} zdjęć",
+      "confirmAutoAdjustEditedMessage": "Zastosować automatyczne korekty do {{photoCount}} wybranych zdjęć? {{editedCount}} z nich zawiera już edycje. Globalne korekty tonalne zostaną zastąpione; maski i kadrowanie zostaną zachowane.",
+      "confirmAutoAdjustMessage": "Zastosować automatyczne korekty do {{photoCount}} wybranych zdjęć?",
+      "confirmAutoAdjustTitle": "Automatycznie dostosuj zaznaczenie",
       "addToAlbum": "Dodaj do albumu",
       "autoAdjust_few": "Auto-korekta obrazów",
       "autoAdjust_many": "Auto-korekta obrazów",
@@ -1589,6 +1593,7 @@
     },
     "keybinds": {
       "actions": {
+        "apply_auto_adjustments": "Zastosuj automatyczne korekty",
         "brush_size_down": "Zmniejsz rozmiar pędzla",
         "brush_size_up": "Zwiększ rozmiar pędzla",
         "color_label_blue": "Etykieta koloru: Niebieski",

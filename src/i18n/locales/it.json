@@ -241,6 +241,10 @@
       "shortcutsHeading": "SCORCIATOIE"
     },
     "thumbnail": {
+      "confirmAutoAdjustButton": "Regola automaticamente {{photoCount}} foto",
+      "confirmAutoAdjustEditedMessage": "Applicare le regolazioni automatiche a {{photoCount}} foto selezionate? {{editedCount}} contengono già modifiche. Le regolazioni tonali globali verranno sostituite; maschere e ritagli verranno mantenuti.",
+      "confirmAutoAdjustMessage": "Applicare le regolazioni automatiche a {{photoCount}} foto selezionate?",
+      "confirmAutoAdjustTitle": "Regola automaticamente la selezione",
       "addToAlbum": "Aggiungi all'Album",
       "autoAdjust_many": "Regolazione Automatica Immagini",
       "autoAdjust_one": "Regolazione Automatica Immagine",
@@ -1554,6 +1558,7 @@
     },
     "keybinds": {
       "actions": {
+        "apply_auto_adjustments": "Applica regolazioni automatiche",
         "brush_size_down": "Riduci dimensione pennello",
         "brush_size_up": "Aumenta dimensione pennello",
         "color_label_blue": "Etichetta colore: Blu",

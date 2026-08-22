@@ -241,6 +241,10 @@
       "shortcutsHeading": "RACCOURCIS"
     },
     "thumbnail": {
+      "confirmAutoAdjustButton": "Ajuster automatiquement {{photoCount}} photos",
+      "confirmAutoAdjustEditedMessage": "Appliquer les réglages automatiques aux {{photoCount}} photos sélectionnées ? {{editedCount}} contiennent déjà des modifications. Leurs réglages tonaux globaux seront remplacés ; les masques et recadrages seront conservés.",
+      "confirmAutoAdjustMessage": "Appliquer les réglages automatiques aux {{photoCount}} photos sélectionnées ?",
+      "confirmAutoAdjustTitle": "Ajuster automatiquement la sélection",
       "addToAlbum": "Ajouter à l'album",
       "autoAdjust_many": "Ajustement auto des images",
       "autoAdjust_one": "Ajustement auto de l'image",
@@ -1554,6 +1558,7 @@
     },
     "keybinds": {
       "actions": {
+        "apply_auto_adjustments": "Appliquer les réglages automatiques",
         "brush_size_down": "Diminuer la taille du pinceau",
         "brush_size_up": "Augmenter la taille du pinceau",
         "color_label_blue": "Étiquette de couleur : Bleu",

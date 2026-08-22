@@ -237,6 +237,10 @@
       "shortcutsHeading": "DRECERES"
     },
     "thumbnail": {
+      "confirmAutoAdjustButton": "Ajusta automàticament {{photoCount}} fotos",
+      "confirmAutoAdjustEditedMessage": "Voleu aplicar ajustaments automàtics a {{photoCount}} fotos seleccionades? {{editedCount}} ja contenen edicions. Se'n substituiran els ajustaments tonals globals; les màscares i els retalls es conservaran.",
+      "confirmAutoAdjustMessage": "Voleu aplicar ajustaments automàtics a {{photoCount}} fotos seleccionades?",
+      "confirmAutoAdjustTitle": "Ajusta automàticament la selecció",
       "addToAlbum": "Afegir a l'àlbum",
       "autoAdjust_one": "Ajustament automàtic de la imatge",
       "autoAdjust_other": "Ajustament automàtic de les imatges",
@@ -1521,6 +1525,7 @@
     },
     "keybinds": {
       "actions": {
+        "apply_auto_adjustments": "Aplica ajustaments automàtics",
         "brush_size_down": "Reduir mida del pinzell",
         "brush_size_up": "Augmentar mida del pinzell",
         "color_label_blue": "Etiqueta de color: Blau",

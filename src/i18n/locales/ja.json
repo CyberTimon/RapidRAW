@@ -237,6 +237,10 @@
       "shortcutsHeading": "ショートカット"
     },
     "thumbnail": {
+      "confirmAutoAdjustButton": "{{photoCount}}枚の写真を自動補正",
+      "confirmAutoAdjustEditedMessage": "選択した{{photoCount}}枚の写真に自動補正を適用しますか？そのうち{{editedCount}}枚には既に編集があります。全体の階調補正は置き換えられますが、マスクと切り抜きは保持されます。",
+      "confirmAutoAdjustMessage": "選択した{{photoCount}}枚の写真に自動補正を適用しますか？",
+      "confirmAutoAdjustTitle": "選択範囲を自動補正",
       "addToAlbum": "アルバムに追加",
       "autoAdjust_one": "画像を自動補正",
       "autoAdjust_other": "画像を自動補正",
@@ -1519,6 +1523,7 @@
     },
     "keybinds": {
       "actions": {
+        "apply_auto_adjustments": "自動補正を適用",
         "brush_size_down": "ブラシサイズを縮小",
         "brush_size_up": "ブラシサイズを拡大",
         "color_label_blue": "カラーラベル: ブルー",

@@ -237,6 +237,10 @@
       "shortcutsHeading": "快捷方式"
     },
     "thumbnail": {
+      "confirmAutoAdjustButton": "自动调整 {{photoCount}} 张照片",
+      "confirmAutoAdjustEditedMessage": "要对选中的 {{photoCount}} 张照片应用自动调整吗？其中 {{editedCount}} 张已有编辑。它们的全局色调调整将被替换；蒙版和裁剪会保留。",
+      "confirmAutoAdjustMessage": "要对选中的 {{photoCount}} 张照片应用自动调整吗？",
+      "confirmAutoAdjustTitle": "自动调整所选照片",
       "addToAlbum": "添加到相册",
       "autoAdjust_one": "自动调整图像",
       "autoAdjust_other": "自动调整图像",
@@ -1519,6 +1523,7 @@
     },
     "keybinds": {
       "actions": {
+        "apply_auto_adjustments": "应用自动调整",
         "brush_size_down": "减小画笔大小",
         "brush_size_up": "增大画笔大小",
         "color_label_blue": "颜色标签：蓝色",

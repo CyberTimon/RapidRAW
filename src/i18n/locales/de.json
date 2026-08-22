@@ -237,6 +237,10 @@
       "shortcutsHeading": "TASTENKÜRZEL"
     },
     "thumbnail": {
+      "confirmAutoAdjustButton": "{{photoCount}} Fotos automatisch anpassen",
+      "confirmAutoAdjustEditedMessage": "Automatische Anpassungen auf {{photoCount}} ausgewählte Fotos anwenden? {{editedCount}} davon enthalten bereits Bearbeitungen. Ihre globalen Tonwertanpassungen werden ersetzt; Masken und Zuschnitte bleiben erhalten.",
+      "confirmAutoAdjustMessage": "Automatische Anpassungen auf {{photoCount}} ausgewählte Fotos anwenden?",
+      "confirmAutoAdjustTitle": "Auswahl automatisch anpassen",
       "addToAlbum": "Zu Album hinzufügen",
       "autoAdjust_one": "Bild autom. anpassen",
       "autoAdjust_other": "Bilder autom. anpassen",
@@ -1521,6 +1525,7 @@
     },
     "keybinds": {
       "actions": {
+        "apply_auto_adjustments": "Automatische Anpassungen anwenden",
         "brush_size_down": "Pinselgröße verringern",
         "brush_size_up": "Pinselgröße erhöhen",
         "color_label_blue": "Farbmarkierung: Blau",
