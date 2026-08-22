@@ -38,7 +38,7 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { Invokes, SortDirection } from '../../ui/AppProperties';
 import type { AlbumItem, AlbumGroup, Album, Roll, FolderTreeSort } from '../../ui/AppProperties';
-import { getRollTitle } from '../../../utils/collections';
+import { formatRollNumber, getRollTitle } from '../../../utils/collections';
 
 export interface FolderTree {
   children: FolderTree[];
@@ -841,7 +841,7 @@ export default function FolderTree({
     if (!isSearching) return sortedRolls;
     const query = trimmedQuery.toLowerCase();
     return sortedRolls.filter((roll) =>
-      [roll.camera, roll.filmStock, roll.loadedOn, roll.finishedOn ?? ''].some((value) =>
+      [formatRollNumber(roll.number), roll.camera, roll.filmStock, roll.loadedOn, roll.finishedOn ?? ''].some((value) =>
         value.toLowerCase().includes(query),
       ),
     );

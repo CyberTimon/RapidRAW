@@ -1,11 +1,13 @@
 import type { Roll } from '../components/ui/AppProperties';
 
-export type RollDetails = Omit<Roll, 'id' | 'images'>;
+export type RollDetails = Omit<Roll, 'id' | 'number' | 'images'>;
 
-export const getRollTitle = (roll: Pick<Roll, 'loadedOn' | 'camera' | 'filmStock'>): string =>
-  `${roll.loadedOn} · ${roll.camera} · ${roll.filmStock}`;
+export const formatRollNumber = (number: number): string => String(number).padStart(5, '0');
 
-export const getRollPath = (roll: Pick<Roll, 'loadedOn' | 'camera' | 'filmStock'>): string =>
+export const getRollTitle = (roll: Pick<Roll, 'number' | 'loadedOn' | 'camera' | 'filmStock'>): string =>
+  `${roll.loadedOn} · ${roll.camera} · ${roll.filmStock} · ${formatRollNumber(roll.number)}`;
+
+export const getRollPath = (roll: Pick<Roll, 'number' | 'loadedOn' | 'camera' | 'filmStock'>): string =>
   `Roll: ${getRollTitle(roll)}`;
 
 export const isCollectionPath = (path: string | null | undefined): boolean =>

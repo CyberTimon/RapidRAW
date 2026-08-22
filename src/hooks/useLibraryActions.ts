@@ -416,13 +416,15 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
       const { rollActionTarget } = useUIStore.getState();
       const updatedRolls = rollActionTarget
         ? rolls.map((roll) => (roll.id === rollActionTarget ? { ...roll, ...details } : roll))
-        : [...rolls, { id: crypto.randomUUID(), images: [], ...details }];
+        : [...rolls, { id: crypto.randomUUID(), number: 0, images: [], ...details }];
 
       try {
         await invoke(Invokes.SaveRolls, { rolls: updatedRolls });
+        const savedRolls = await invoke<Roll[]>(Invokes.GetRolls);
+        const activeRoll = savedRolls.find((roll) => roll.id === activeRollId);
         setLibrary({
-          rolls: await invoke<Roll[]>(Invokes.GetRolls),
-          ...(rollActionTarget === activeRollId ? { currentFolderPath: getRollPath(details) } : {}),
+          rolls: savedRolls,
+          ...(rollActionTarget === activeRollId && activeRoll ? { currentFolderPath: getRollPath(activeRoll) } : {}),
         });
       } catch (err) {
         toast.error(t('contextMenus.toasts.failedSaveRoll', { err }));

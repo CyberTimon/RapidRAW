@@ -839,11 +839,41 @@ pub enum AlbumItem {
 #[serde(rename_all = "camelCase")]
 pub struct Roll {
     pub id: String,
+    #[serde(default)]
+    pub number: u64,
     pub camera: String,
     pub film_stock: String,
     pub loaded_on: String,
     pub finished_on: Option<String>,
     pub images: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct RollsData {
+    #[serde(default = "default_next_roll_number")]
+    next_number: u64,
+    rolls: Vec<Roll>,
+}
+
+impl Default for RollsData {
+    fn default() -> Self {
+        Self {
+            next_number: default_next_roll_number(),
+            rolls: Vec::new(),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StoredRolls {
+    Current(RollsData),
+    Legacy(Vec<Roll>),
+}
+
+fn default_next_roll_number() -> u64 {
+    1
 }
 
 fn get_albums_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
@@ -926,24 +956,116 @@ fn sort_and_deduplicate_rolls(rolls: &mut [Roll]) {
     }
 }
 
+fn read_rolls_data(path: &Path) -> Result<(RollsData, bool), String> {
+    if !path.exists() {
+        return Ok((RollsData::default(), false));
+    }
+
+    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    match serde_json::from_str::<StoredRolls>(&content).map_err(|e| e.to_string())? {
+        StoredRolls::Current(data) => Ok((data, false)),
+        StoredRolls::Legacy(rolls) => Ok((
+            RollsData {
+                rolls,
+                ..Default::default()
+            },
+            true,
+        )),
+    }
+}
+
+fn write_rolls_data(path: &Path, data: &RollsData) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(data).map_err(|e| e.to_string())?;
+    fs::write(path, json).map_err(|e| e.to_string())
+}
+
+fn assign_roll_numbers(data: &mut RollsData) -> Result<bool, String> {
+    let mut changed = false;
+    let mut used_numbers = HashSet::new();
+
+    for roll in &mut data.rolls {
+        if roll.number == 0 || !used_numbers.insert(roll.number) {
+            if roll.number != 0 {
+                changed = true;
+            }
+            roll.number = 0;
+        }
+    }
+
+    let highest_number = used_numbers.iter().copied().max().unwrap_or(0);
+    let minimum_next = highest_number
+        .checked_add(1)
+        .ok_or_else(|| "Roll number limit reached".to_string())?;
+    let mut next_number = data.next_number.max(minimum_next).max(1);
+
+    let mut unnumbered_indices: Vec<usize> = data
+        .rolls
+        .iter()
+        .enumerate()
+        .filter_map(|(index, roll)| (roll.number == 0).then_some(index))
+        .collect();
+    unnumbered_indices.sort_by(|&a, &b| {
+        data.rolls[a]
+            .loaded_on
+            .cmp(&data.rolls[b].loaded_on)
+            .then_with(|| {
+                data.rolls[a]
+                    .camera
+                    .to_lowercase()
+                    .cmp(&data.rolls[b].camera.to_lowercase())
+            })
+            .then_with(|| data.rolls[a].id.cmp(&data.rolls[b].id))
+    });
+
+    for index in unnumbered_indices {
+        data.rolls[index].number = next_number;
+        next_number = next_number
+            .checked_add(1)
+            .ok_or_else(|| "Roll number limit reached".to_string())?;
+        changed = true;
+    }
+
+    if data.next_number != next_number {
+        data.next_number = next_number;
+        changed = true;
+    }
+
+    Ok(changed)
+}
+
 #[tauri::command]
 pub fn get_rolls(app_handle: AppHandle) -> Result<Vec<Roll>, String> {
     let path = get_rolls_path(&app_handle)?;
-    if !path.exists() {
-        return Ok(Vec::new());
+    let (mut data, was_legacy) = read_rolls_data(&path)?;
+    let numbers_changed = assign_roll_numbers(&mut data)?;
+    sort_and_deduplicate_rolls(&mut data.rolls);
+
+    if was_legacy || numbers_changed {
+        write_rolls_data(&path, &data)?;
     }
-    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let mut rolls: Vec<Roll> = serde_json::from_str(&content).map_err(|e| e.to_string())?;
-    sort_and_deduplicate_rolls(&mut rolls);
-    Ok(rolls)
+
+    Ok(data.rolls)
 }
 
 #[tauri::command]
 pub fn save_rolls(mut rolls: Vec<Roll>, app_handle: AppHandle) -> Result<(), String> {
     let path = get_rolls_path(&app_handle)?;
-    sort_and_deduplicate_rolls(&mut rolls);
-    let json = serde_json::to_string_pretty(&rolls).map_err(|e| e.to_string())?;
-    fs::write(path, json).map_err(|e| e.to_string())
+    let (mut data, _) = read_rolls_data(&path)?;
+    assign_roll_numbers(&mut data)?;
+
+    let existing_numbers: HashMap<_, _> = data
+        .rolls
+        .iter()
+        .map(|roll| (roll.id.as_str(), roll.number))
+        .collect();
+    for roll in &mut rolls {
+        roll.number = existing_numbers.get(roll.id.as_str()).copied().unwrap_or(0);
+    }
+
+    data.rolls = rolls;
+    assign_roll_numbers(&mut data)?;
+    sort_and_deduplicate_rolls(&mut data.rolls);
+    write_rolls_data(&path, &data)
 }
 
 fn move_images_to_roll(
@@ -986,11 +1108,14 @@ pub fn add_to_roll(
 
 #[cfg(test)]
 mod roll_tests {
-    use super::{Roll, move_images_to_roll, sort_and_deduplicate_rolls};
+    use super::{
+        Roll, RollsData, assign_roll_numbers, move_images_to_roll, sort_and_deduplicate_rolls,
+    };
 
     fn roll(id: &str, loaded_on: &str, images: &[&str]) -> Roll {
         Roll {
             id: id.to_string(),
+            number: 0,
             camera: "Camera".to_string(),
             film_stock: "Film".to_string(),
             loaded_on: loaded_on.to_string(),
@@ -1025,6 +1150,42 @@ mod roll_tests {
         assert_eq!(rolls[0].id, "new");
         assert_eq!(rolls[0].images, vec!["image.jpg"]);
         assert!(rolls[1].images.is_empty());
+    }
+
+    #[test]
+    fn numbering_legacy_rolls_starts_with_oldest() {
+        let mut data = RollsData {
+            next_number: 1,
+            rolls: vec![
+                roll("new", "2024-02-01", &[]),
+                roll("old", "2024-01-01", &[]),
+            ],
+        };
+
+        assign_roll_numbers(&mut data).unwrap();
+
+        assert_eq!(data.rolls[0].number, 2);
+        assert_eq!(data.rolls[1].number, 1);
+        assert_eq!(data.next_number, 3);
+    }
+
+    #[test]
+    fn deleted_roll_numbers_are_not_reused() {
+        let mut data = RollsData {
+            next_number: 1,
+            rolls: vec![
+                roll("one", "2024-01-01", &[]),
+                roll("two", "2024-02-01", &[]),
+            ],
+        };
+        assign_roll_numbers(&mut data).unwrap();
+        data.rolls.clear();
+        data.rolls.push(roll("three", "2024-03-01", &[]));
+
+        assign_roll_numbers(&mut data).unwrap();
+
+        assert_eq!(data.rolls[0].number, 3);
+        assert_eq!(data.next_number, 4);
     }
 }
 

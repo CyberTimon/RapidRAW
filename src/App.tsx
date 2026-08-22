@@ -71,6 +71,7 @@ import {
   LibraryViewMode,
   Panel,
   PanelRegion,
+  Roll,
   Theme,
   ThumbnailSize,
   ThumbnailAspectRatio,

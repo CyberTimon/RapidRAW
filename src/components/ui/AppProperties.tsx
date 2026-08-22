@@ -428,6 +428,7 @@ export interface KeybindHandler {
 
 export interface Roll {
   id: string;
+  number: number;
   camera: string;
   filmStock: string;
   loadedOn: string;
