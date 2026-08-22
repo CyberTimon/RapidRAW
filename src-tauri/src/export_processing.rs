@@ -463,8 +463,8 @@ fn process_image_for_export_pipeline(
     )
 }
 
-fn set_timestamps_from_exif(src: &Path, dst: &Path) {
-    let capture_dt = exif_processing::get_creation_date_from_path(src);
+fn set_timestamps_from_exif(app_handle: &tauri::AppHandle, src: &Path, dst: &Path) {
+    let capture_dt = exif_processing::get_creation_date_from_path(Some(app_handle), src);
     let ft = filetime::FileTime::from_unix_time(
         capture_dt.timestamp(),
         capture_dt.timestamp_subsec_nanos(),
@@ -475,6 +475,7 @@ fn set_timestamps_from_exif(src: &Path, dst: &Path) {
 }
 
 fn save_image_with_metadata(
+    app_handle: &tauri::AppHandle,
     image: &DynamicImage,
     output_path: &std::path::Path,
     source_path_str: &str,
@@ -489,6 +490,7 @@ fn save_image_with_metadata(
     let mut image_bytes = encode_image_to_bytes(image, &extension, export_settings.jpeg_quality)?;
 
     exif_processing::write_image_with_metadata(
+        app_handle,
         &mut image_bytes,
         source_path_str,
         &extension,
@@ -755,6 +757,7 @@ fn export_masks_for_image(
             let mask_alpha_path = output_dir.join(format!("{}_mask_{}_alpha.png", stem, i));
 
             save_image_with_metadata(
+                app_handle,
                 &with_options,
                 &mask_image_path,
                 source_path_str,
@@ -763,7 +766,7 @@ fn export_masks_for_image(
             ensure_export_not_cancelled(cancellation_token)?;
 
             if export_settings.preserve_timestamps {
-                set_timestamps_from_exif(Path::new(source_path_str), &mask_image_path);
+                set_timestamps_from_exif(app_handle, Path::new(source_path_str), &mask_image_path);
             }
 
             let alpha_bytes = encode_grayscale_to_png(&alpha_resized)?;
@@ -970,7 +973,12 @@ pub(crate) async fn export_images_impl(
                 ensure_export_not_cancelled(&cancellation_token_clone)?;
 
                 let state = app_handle_clone.state::<AppState>();
-                let (source_path, sidecar_path) = parse_virtual_path(&image_path_str);
+                let (source_path, sidecar_path) =
+                    crate::file_management::sidecar_path_for_virtual(
+                        &app_handle_clone,
+                        &image_path_str,
+                    )
+                    .map_err(|e| format!("Failed to resolve sidecar path: {}", e))?;
                 let source_path_str = source_path.to_string_lossy().to_string();
 
                 let is_current_edit = match &adjustments_mode {
@@ -1000,7 +1008,10 @@ pub(crate) async fn export_images_impl(
                 hydrate_adjustments(&state, &mut js_adjustments);
                 let is_raw = is_raw_file(&source_path_str);
                 let original_path = std::path::Path::new(&source_path_str);
-                let file_date = exif_processing::get_creation_date_from_path(original_path);
+                let file_date = exif_processing::get_creation_date_from_path(
+                    Some(&app_handle_clone),
+                    original_path,
+                );
 
                 let filename_template = export_settings
                     .filename_template
@@ -1139,6 +1150,7 @@ pub(crate) async fn export_images_impl(
                     )?;
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
                     save_image_with_metadata(
+                        &app_handle_clone,
                         &final_image,
                         &output_path,
                         &source_path_str,
@@ -1147,7 +1159,11 @@ pub(crate) async fn export_images_impl(
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
                     if export_settings.preserve_timestamps {
-                        set_timestamps_from_exif(Path::new(&source_path_str), &output_path);
+                        set_timestamps_from_exif(
+                            &app_handle_clone,
+                            Path::new(&source_path_str),
+                            &output_path,
+                        );
                     }
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
@@ -1424,7 +1440,8 @@ pub async fn estimate_export_sizes(
     }
 
     let first_path = &paths[0];
-    let (source_path, sidecar_path) = parse_virtual_path(first_path);
+    let (source_path, sidecar_path) =
+        crate::file_management::sidecar_path_for_virtual(&app_handle, first_path)?;
     let source_path_str = source_path.to_string_lossy().to_string();
 
     let context = get_or_init_gpu_context(&state, &app_handle)?;
@@ -1568,9 +1585,15 @@ pub async fn estimate_export_sizes(
             }
         };
 
-        let original_image =
-            load_base_image_from_bytes(file_data, &source_path_str, true, &settings, None)
-                .map_err(|e| e.to_string())?;
+        let original_image = load_base_image_from_bytes(
+            file_data,
+            &source_path_str,
+            true,
+            &settings,
+            None,
+            Some(&app_handle),
+        )
+        .map_err(|e| e.to_string())?;
 
         let raw_scale_factor = if is_raw {
             crate::raw_processing::get_fast_demosaic_scale_factor(

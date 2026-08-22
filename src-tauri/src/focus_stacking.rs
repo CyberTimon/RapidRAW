@@ -2088,7 +2088,7 @@ fn decode_frame(
 ) -> Result<PlanarRgb, String> {
     let bytes = fs::read(path).map_err(|e| format!("Failed to read {}: {}", path, e))?;
     let mut dyn_img =
-        crate::image_loader::load_base_image_from_bytes(&bytes, path, false, settings, None)
+        crate::image_loader::load_base_image_from_bytes(&bytes, path, false, settings, None, None)
             .map_err(|e| format!("Failed to decode {}: {}", path, e))?;
     if is_raw_file(path) {
         apply_cpu_default_raw_processing(&mut dyn_img);
@@ -2137,6 +2137,7 @@ fn make_depth_preview(result: &StackResult, n_frames: usize) -> Result<String, S
 #[tauri::command]
 pub async fn save_focus_stack(
     first_path_str: String,
+    app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let focus_image = state
@@ -2159,7 +2160,7 @@ pub async fn save_focus_stack(
         .save_with_format(&output_path, ImageFormat::Tiff)
         .map_err(|e| format!("Failed to save {}: {}", output_path.display(), e))?;
 
-    crate::exif_processing::write_rrexif_sidecar(&first_path_str, &output_path).ok();
+    crate::exif_processing::write_rrexif_sidecar(&app_handle, &first_path_str, &output_path).ok();
 
     Ok(output_path.to_string_lossy().to_string())
 }
