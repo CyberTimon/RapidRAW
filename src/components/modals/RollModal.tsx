@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
@@ -21,6 +21,8 @@ export default function RollModal({ isOpen, roll, onClose, onSave }: RollModalPr
   const [finishedOn, setFinishedOn] = useState('');
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
+  const loadedOnInputRef = useRef<HTMLInputElement>(null);
+  const finishedOnInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -68,6 +70,14 @@ export default function RollModal({ isOpen, roll, onClose, onSave }: RollModalPr
     [handleSave, onClose],
   );
 
+  const handlePointerDownCapture = useCallback((event: React.PointerEvent) => {
+    const activeElement = document.activeElement;
+    const isDateInput = activeElement === loadedOnInputRef.current || activeElement === finishedOnInputRef.current;
+    if (isDateInput && event.target !== activeElement) {
+      (activeElement as HTMLInputElement).blur();
+    }
+  }, []);
+
   if (!isMounted) return null;
 
   const inputClass =
@@ -78,6 +88,7 @@ export default function RollModal({ isOpen, roll, onClose, onSave }: RollModalPr
       aria-modal="true"
       className={`fixed inset-0 flex items-center justify-center z-50 bg-black/30 backdrop-blur-xs transition-opacity duration-300 ease-in-out ${show ? 'opacity-100' : 'opacity-0'}`}
       onClick={onClose}
+      onPointerDownCapture={handlePointerDownCapture}
       role="dialog"
     >
       <div
@@ -126,9 +137,13 @@ export default function RollModal({ isOpen, roll, onClose, onSave }: RollModalPr
               <input
                 className={`${inputClass} mt-1`}
                 id="roll-loaded-on"
+                ref={loadedOnInputRef}
                 type="date"
                 value={loadedOn}
-                onChange={(event) => setLoadedOn(event.target.value)}
+                onChange={(event) => {
+                  setLoadedOn(event.target.value);
+                  event.currentTarget.blur();
+                }}
               />
             </label>
             <label className="text-sm text-text-secondary" htmlFor="roll-finished-on">
@@ -136,10 +151,14 @@ export default function RollModal({ isOpen, roll, onClose, onSave }: RollModalPr
               <input
                 className={`${inputClass} mt-1`}
                 id="roll-finished-on"
+                ref={finishedOnInputRef}
                 type="date"
                 min={loadedOn}
                 value={finishedOn}
-                onChange={(event) => setFinishedOn(event.target.value)}
+                onChange={(event) => {
+                  setFinishedOn(event.target.value);
+                  event.currentTarget.blur();
+                }}
               />
             </label>
           </div>
