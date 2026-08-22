@@ -1179,8 +1179,8 @@ export default function SettingsPanel({
                                           const count = await invoke<number>(Invokes.CreateMissingXmpFiles, {
                                             rootPaths,
                                           });
-
-                                          toast.success(t('settings.general.xmpBackfillSuccess', { count }));
+                                          if (count > 0)
+                                            toast.success(t('settings.general.xmpBackfillSuccess', { count }));
                                         } catch (error) {
                                           toast.error(t('settings.general.xmpBackfillError', { error: String(error) }));
                                         }
