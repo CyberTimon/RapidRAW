@@ -45,11 +45,7 @@ use crate::preset_converter;
 use crate::tagging::COLOR_TAG_PREFIX;
 
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
-    let cache_dir = app_handle
-        .path()
-        .app_cache_dir()
-        .map_err(|e| e.to_string())?;
-    let thumb_cache_dir = cache_dir.join("thumbnails");
+    let thumb_cache_dir = crate::sidecar_paths::app_root_dir(app_handle)?.join("thumbnails");
     if !thumb_cache_dir.exists() {
         fs::create_dir_all(&thumb_cache_dir).map_err(|e| e.to_string())?;
     }
@@ -1862,7 +1858,18 @@ pub fn generate_thumbnail_data(
     };
 
     if adjustments.is_null() {
-        let default_tm = if is_raw {
+        // Mirrors `image_processing::resolve_tonemapper_override`: the
+        // configured default_raw_tonemapper/default_non_raw_tonemapper only
+        // apply when the user has explicitly opted into overriding the
+        // tonemapper. Without this gate, unedited RAWs always got the
+        // (deliberately darker, filmic) AgX default here even though the
+        // GPU-rendered editor/thumbnail path already treats `agx` as opt-in
+        // — the mismatch is what made every freshly-opened RAW look much
+        // darker than its own editor view.
+        let override_enabled = settings.tonemapper_override_enabled.unwrap_or(false);
+        let default_tm = if !override_enabled {
+            "basic"
+        } else if is_raw {
             settings.default_raw_tonemapper.as_deref().unwrap_or("agx")
         } else {
             settings
@@ -3436,11 +3443,7 @@ pub fn clear_all_sidecars(root_path: String) -> Result<usize, String> {
 
 #[tauri::command]
 pub fn clear_thumbnail_cache(app_handle: AppHandle) -> Result<(), String> {
-    let cache_dir = app_handle
-        .path()
-        .app_cache_dir()
-        .map_err(|e| e.to_string())?;
-    let thumb_cache_dir = cache_dir.join("thumbnails");
+    let thumb_cache_dir = crate::sidecar_paths::app_root_dir(&app_handle)?.join("thumbnails");
 
     if thumb_cache_dir.exists() {
         fs::remove_dir_all(&thumb_cache_dir)
@@ -3697,15 +3700,7 @@ pub fn delete_files_with_associated(
 }
 
 pub fn get_thumb_cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    let cache_dir = app_handle
-        .path()
-        .app_cache_dir()
-        .map_err(|e| e.to_string())?;
-    let thumb_cache_dir = cache_dir.join("thumbnails");
-    if !thumb_cache_dir.exists() {
-        fs::create_dir_all(&thumb_cache_dir).map_err(|e| e.to_string())?;
-    }
-    Ok(thumb_cache_dir)
+    resolve_thumbnail_cache_dir(app_handle)
 }
 
 pub fn get_cache_key_hash(path_str: &str, app_handle: &AppHandle) -> Option<String> {

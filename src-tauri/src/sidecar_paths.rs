@@ -2,16 +2,18 @@ use std::path::{Component, Path, PathBuf};
 
 use tauri::{AppHandle, Manager};
 
-/// Root directory *every* persistent app file lives under — settings,
-/// presets, albums, the internal library, LUTs, ONNX models, window state,
-/// and relocated `.rrdata`/`.rrexif` sidecars alike. Deliberately *not*
-/// `app_data_dir()` / `app_config_dir()` directly (which nest under the full
-/// Tauri bundle identifier, e.g. `io.github.CyberTimon.RapidRAW`) — instead
-/// everything lives in a plain `RapidRAW` sibling folder, so the folder a
+/// Root directory *every* app file lives under — settings, presets, albums,
+/// the internal library, LUTs, ONNX models, window state, relocated
+/// `.rrdata`/`.rrexif` sidecars, the thumbnail cache, logs, and the
+/// WebView2/WebKitGTK data directory alike. Deliberately *not*
+/// `app_data_dir()` / `app_config_dir()` / `app_cache_dir()` / `app_log_dir()`
+/// / `app_local_data_dir()` directly (all of which nest under the full Tauri
+/// bundle identifier, e.g. `io.github.CyberTimon.RapidRAW`, and are scattered
+/// across both the Roaming and Local AppData trees on Windows) — instead
+/// everything lives in one plain `RapidRAW` sibling folder, so the folder a
 /// user finds browsing AppData actually reads "RapidRAW", not the bundle id.
-/// `tauri.conf.json`'s `identifier` itself is untouched; only where files
-/// are written moves. Not `app_cache_dir()` either — unlike thumbnails, none
-/// of this data is regenerable.
+/// `tauri.conf.json`'s `identifier` itself is untouched; only where files are
+/// written moves.
 pub fn app_root_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
     let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
     let base = app_data.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| app_data.clone());
