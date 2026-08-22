@@ -1407,6 +1407,12 @@
     }
   },
   "settings": {
+    "search": {
+      "clear": "清除搜尋",
+      "noResults": "找不到設定。",
+      "placeholder": "搜尋設定…",
+      "results": "搜尋結果"
+    },
     "adjustments": {
       "chromaticAberration": "色差",
       "colorCalibration": "顏色校準",

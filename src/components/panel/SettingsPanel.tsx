@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Cloud,
@@ -17,6 +17,7 @@ import {
   Scaling,
   Image as ImageIcon,
   Mouse,
+  Search,
   Touchpad,
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
@@ -47,6 +48,9 @@ import { useOsPlatform } from '../../hooks/useOsPlatform';
 import { open } from '@tauri-apps/plugin-shell';
 import { RotateCcw } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
+import { filterSettingsSearchItems, SettingsSearchItem } from '../../utils/settingsSearch';
+
+type SettingsCategoryId = 'general' | 'processing' | 'shortcuts';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -137,6 +141,250 @@ const zoomMultiplierOptions: OptionItem<number>[] = [
   { value: 0.25, label: '0.25x' },
 ];
 
+interface SettingsSearchDefinition {
+  category: SettingsCategoryId;
+  descriptionKey?: string;
+  keywords?: string[];
+  labelKey: string;
+  targetLabelKey?: string;
+}
+
+const SETTINGS_SEARCH_DEFINITIONS: SettingsSearchDefinition[] = [
+  { category: 'general', labelKey: 'settings.general.theme', descriptionKey: 'settings.general.themeDesc' },
+  { category: 'general', labelKey: 'settings.language', descriptionKey: 'settings.languageDesc' },
+  { category: 'general', labelKey: 'settings.general.xmpSync', descriptionKey: 'settings.general.xmpSyncDesc' },
+  {
+    category: 'general',
+    labelKey: 'settings.general.createXmp',
+    descriptionKey: 'settings.general.createXmpDesc',
+    targetLabelKey: 'settings.general.xmpSync',
+  },
+  {
+    category: 'general',
+    labelKey: 'settings.general.folderImageCounts',
+    descriptionKey: 'settings.general.folderImageCountsDesc',
+  },
+  {
+    category: 'general',
+    labelKey: 'settings.general.displayEditIcon',
+    descriptionKey: 'settings.general.displayEditIconDesc',
+  },
+  { category: 'general', labelKey: 'settings.general.focusMode', descriptionKey: 'settings.general.focusModeDesc' },
+  { category: 'general', labelKey: 'settings.general.font', descriptionKey: 'settings.general.fontDesc' },
+  {
+    category: 'general',
+    labelKey: 'settings.general.nativeTitlebar',
+    descriptionKey: 'settings.general.nativeTitlebarDesc',
+  },
+  {
+    category: 'general',
+    labelKey: 'settings.adjustments.title',
+    descriptionKey: 'settings.adjustments.description',
+    keywords: ['panels', 'visibility'],
+  },
+  ...[
+    'settings.adjustments.chromaticAberration',
+    'settings.adjustments.colorCalibration',
+    'settings.adjustments.grain',
+    'settings.adjustments.noiseReduction',
+  ].map((labelKey) => ({
+    category: 'general' as const,
+    labelKey,
+    targetLabelKey: 'settings.adjustments.title',
+  })),
+  {
+    category: 'general',
+    labelKey: 'settings.lenses.title',
+    descriptionKey: 'settings.lenses.description',
+    keywords: ['manufacturer', 'model'],
+  },
+  {
+    category: 'general',
+    labelKey: 'settings.tagging.aiTagging',
+    descriptionKey: 'settings.tagging.aiTaggingDesc',
+  },
+  {
+    category: 'general',
+    labelKey: 'settings.tagging.maxAiTags',
+    descriptionKey: 'settings.tagging.maxAiTagsDesc',
+    targetLabelKey: 'settings.tagging.aiTagging',
+  },
+  {
+    category: 'general',
+    labelKey: 'settings.tagging.customList',
+    descriptionKey: 'settings.tagging.customListDesc',
+    targetLabelKey: 'settings.tagging.aiTagging',
+  },
+  {
+    category: 'general',
+    labelKey: 'settings.tagging.shortcuts',
+    descriptionKey: 'settings.tagging.shortcutsDesc',
+  },
+  { category: 'general', labelKey: 'settings.data.clearSidecars', descriptionKey: 'settings.data.clearSidecarsDesc' },
+  {
+    category: 'general',
+    labelKey: 'settings.data.resetLayoutTitle',
+    descriptionKey: 'settings.data.resetLayoutDesc',
+  },
+  {
+    category: 'general',
+    labelKey: 'settings.data.clearThumbnail',
+    descriptionKey: 'settings.data.clearThumbnailDesc',
+  },
+  { category: 'general', labelKey: 'settings.data.logs', descriptionKey: 'settings.data.logsDesc' },
+  {
+    category: 'general',
+    labelKey: 'settings.tagging.clearAiTagsTitle',
+    descriptionKey: 'settings.tagging.clearAiTagsDesc',
+  },
+  {
+    category: 'general',
+    labelKey: 'settings.tagging.clearAllTagsTitle',
+    descriptionKey: 'settings.tagging.clearAllTagsDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.previewStrategy',
+    descriptionKey: 'settings.processing.dynamicDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.previewRes',
+    descriptionKey: 'settings.processing.previewResDesc',
+    targetLabelKey: 'settings.processing.previewStrategy',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.staticPreviewRes',
+    descriptionKey: 'settings.processing.staticPreviewResDesc',
+    targetLabelKey: 'settings.processing.previewStrategy',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.renderScale',
+    descriptionKey: 'settings.processing.renderScaleDesc',
+    targetLabelKey: 'settings.processing.previewStrategy',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.highDpi',
+    descriptionKey: 'settings.processing.highDpiDesc',
+    targetLabelKey: 'settings.processing.previewStrategy',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.livePreviews',
+    descriptionKey: 'settings.processing.livePreviewsDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.livePreviewQuality',
+    descriptionKey: 'settings.processing.livePreviewQualityDesc',
+    targetLabelKey: 'settings.processing.livePreviews',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.thumbnailRes',
+    descriptionKey: 'settings.processing.thumbnailResDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.alwaysDecodeRaw',
+    descriptionKey: 'settings.processing.alwaysDecodeRawDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.workerThreads',
+    descriptionKey: 'settings.processing.workerThreadsDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.imageCache',
+    descriptionKey: 'settings.processing.imageCacheDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.wgpu',
+    descriptionKey: 'settings.processing.wgpuDescRecommended',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.backend',
+    descriptionKey: 'settings.processing.backendDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.linuxCompat',
+    descriptionKey: 'settings.processing.linuxCompatDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.preprocessing.highlightRecovery',
+    descriptionKey: 'settings.processing.preprocessing.highlightRecoveryDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.preprocessing.colorNr',
+    descriptionKey: 'settings.processing.preprocessing.colorNrDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.preprocessing.sharpening',
+    descriptionKey: 'settings.processing.preprocessing.sharpeningDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.preprocessing.applyPreprocessing',
+    descriptionKey: 'settings.processing.preprocessing.applyPreprocessingDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.preprocessing.linearRaw',
+    descriptionKey: 'settings.processing.preprocessing.linearRawDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.preprocessing.tonemapperOverride',
+    descriptionKey: 'settings.processing.preprocessing.tonemapperOverrideDesc',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.preprocessing.defaultRawTonemapper',
+    descriptionKey: 'settings.processing.preprocessing.defaultRawTonemapperDesc',
+    targetLabelKey: 'settings.processing.preprocessing.tonemapperOverride',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.preprocessing.defaultNonRawTonemapper',
+    descriptionKey: 'settings.processing.preprocessing.defaultNonRawTonemapperDesc',
+    targetLabelKey: 'settings.processing.preprocessing.tonemapperOverride',
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.ai.title',
+    descriptionKey: 'settings.processing.ai.description',
+    keywords: ['artificial intelligence', 'provider'],
+  },
+  {
+    category: 'processing',
+    labelKey: 'settings.processing.ai.connector.address',
+    descriptionKey: 'settings.processing.ai.connector.addressDesc',
+    targetLabelKey: 'settings.processing.ai.title',
+  },
+  {
+    category: 'shortcuts',
+    labelKey: 'settings.controls.optimization',
+    descriptionKey: 'settings.controls.optimizationDesc',
+    keywords: ['mouse', 'trackpad'],
+  },
+  { category: 'shortcuts', labelKey: 'settings.controls.zoom', descriptionKey: 'settings.controls.zoomDesc' },
+  {
+    category: 'shortcuts',
+    labelKey: 'settings.controls.keyboardTitle',
+    targetLabelKey: 'settings.controls.keyboardTitle',
+  },
+];
+
 const KeybindRow = ({
   def,
   currentCombo,
@@ -171,7 +419,7 @@ const KeybindRow = ({
   const displayCombo = currentCombo !== undefined ? (currentCombo.length ? currentCombo : null) : def.defaultCombo;
 
   return (
-    <div className="flex justify-between items-center py-2">
+    <div className="flex justify-between items-center py-2" data-settings-search-text={t(def.description as any)}>
       <Text variant={TextVariants.label}>{t(def.description as any)}</Text>
       <div className="flex items-center gap-1">
         {isConflicting && <span className="text-yellow-400 text-xs">⚠</span>}
@@ -208,7 +456,7 @@ const KeybindRow = ({
 };
 
 const SettingItem = ({ children, description, label }: SettingItemProps) => (
-  <div>
+  <div data-settings-search-text={`${label} ${description || ''}`}>
     <Text variant={TextVariants.heading} className="block mb-2">
       {label}
     </Text>
@@ -234,7 +482,10 @@ const DataActionItem = ({
   const { t } = useTranslation();
 
   return (
-    <div className="pb-8 border-b border-border-color last:border-b-0 last:pb-0">
+    <div
+      className="pb-8 border-b border-border-color last:border-b-0 last:pb-0"
+      data-settings-search-text={`${title} ${typeof description === 'string' ? description : ''}`}
+    >
       <Text variant={TextVariants.heading} className="mb-2">
         {title}
       </Text>
@@ -551,13 +802,17 @@ export default function SettingsPanel({
     applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
   });
   const [restartRequired, setRestartRequired] = useState(false);
-  const [activeCategory, setActiveCategory] = useState('general');
+  const [activeCategory, setActiveCategory] = useState<SettingsCategoryId>('general');
+  const [settingsSearchQuery, setSettingsSearchQuery] = useState('');
+  const [pendingSearchTarget, setPendingSearchTarget] = useState<string | null>(null);
   const [logPath, setLogPath] = useState<string | null>(null);
   const [logPathLoading, setLogPathLoading] = useState(true);
   const [logPathError, setLogPathError] = useState(false);
   const [dpr, setDpr] = useState(() => (typeof window !== 'undefined' ? window.devicePixelRatio : 1));
+  const settingsSearchInputRef = useRef<HTMLInputElement>(null);
+  const settingsContentRef = useRef<HTMLDivElement>(null);
 
-  const settingCategories = useMemo(
+  const settingCategories = useMemo<{ id: SettingsCategoryId; label: string; icon: typeof Cpu }[]>(
     () => [
       { id: 'general', label: t('settings.categories.general'), icon: SlidersHorizontal },
       { id: 'processing', label: t('settings.categories.processing'), icon: Cpu },
@@ -565,6 +820,78 @@ export default function SettingsPanel({
     ],
     [t],
   );
+
+  const settingsSearchItems = useMemo<(SettingsSearchItem<SettingsCategoryId> & { targetText: string })[]>(() => {
+    const categoryLabels: Record<SettingsCategoryId, string> = {
+      general: t('settings.categories.general'),
+      processing: t('settings.categories.processing'),
+      shortcuts: t('settings.categories.shortcuts'),
+    };
+
+    const settingItems = SETTINGS_SEARCH_DEFINITIONS.map((definition) => ({
+      category: definition.category,
+      categoryLabel: categoryLabels[definition.category],
+      description: definition.descriptionKey ? t(definition.descriptionKey as never) : undefined,
+      keywords: definition.keywords,
+      label: t(definition.labelKey as never),
+      targetText: t((definition.targetLabelKey || definition.labelKey) as never),
+    }));
+
+    const keybindItems = KEYBIND_DEFINITIONS.map((definition) => {
+      const section = KEYBIND_SECTIONS.find((item) => item.id === definition.section);
+      return {
+        category: 'shortcuts' as const,
+        categoryLabel: categoryLabels.shortcuts,
+        description: section ? t(section.label as never) : t('settings.controls.keyboardTitle'),
+        keywords: [definition.action.replaceAll('_', ' ')],
+        label: t(definition.description as never),
+        targetText: t(definition.description as never),
+      };
+    });
+
+    return [...settingItems, ...keybindItems];
+  }, [t]);
+
+  const filteredSettingsSearchItems = useMemo(
+    () => filterSettingsSearchItems(settingsSearchItems, settingsSearchQuery),
+    [settingsSearchItems, settingsSearchQuery],
+  );
+
+  useEffect(() => {
+    const handleSettingsSearchShortcut = (event: KeyboardEvent) => {
+      if (recordingAction) return;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'f') {
+        event.preventDefault();
+        settingsSearchInputRef.current?.focus();
+        settingsSearchInputRef.current?.select();
+      }
+    };
+
+    window.addEventListener('keydown', handleSettingsSearchShortcut);
+    return () => window.removeEventListener('keydown', handleSettingsSearchShortcut);
+  }, [recordingAction]);
+
+  useEffect(() => {
+    if (!pendingSearchTarget) return;
+
+    const timer = window.setTimeout(() => {
+      const target = Array.from(
+        settingsContentRef.current?.querySelectorAll<HTMLElement>('[data-settings-search-text]') || [],
+      ).find((element) => element.dataset.settingsSearchText?.includes(pendingSearchTarget));
+
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.dataset.settingsSearchHighlight = 'true';
+        window.setTimeout(() => {
+          delete target.dataset.settingsSearchHighlight;
+        }, 1800);
+      }
+
+      setPendingSearchTarget(null);
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [activeCategory, pendingSearchTarget]);
 
   const livePreviewQualityOptions = useMemo<OptionItem<string>[]>(
     () => [
@@ -1029,7 +1356,7 @@ export default function SettingsPanel({
       <ConfirmModal {...confirmModalState} onClose={closeConfirmModal} />
       <LayoutGroup id="settings-panel">
         <div className="flex flex-col h-full w-full text-text-primary">
-          <header className="shrink-0 flex flex-wrap items-center justify-between gap-y-4 mb-8 pt-4">
+          <header className="shrink-0 flex flex-wrap items-center justify-between gap-4 mb-8 pt-4">
             <div className="flex items-center shrink-0">
               <Button
                 className="mr-4 hover:bg-surface text-text-primary rounded-full"
@@ -1045,11 +1372,53 @@ export default function SettingsPanel({
               </Text>
             </div>
 
+            <div className="relative w-full min-[1200px]:w-72">
+              <Search
+                aria-hidden="true"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none"
+                size={17}
+              />
+              <input
+                ref={settingsSearchInputRef}
+                aria-label={t('settings.search.placeholder')}
+                className="w-full h-11 pl-10 pr-10 bg-surface border border-border-color rounded-md text-sm text-text-primary placeholder:text-text-secondary focus:border-accent transition-colors"
+                onChange={(event) => setSettingsSearchQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape' && settingsSearchQuery) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setSettingsSearchQuery('');
+                  }
+                }}
+                placeholder={t('settings.search.placeholder')}
+                role="searchbox"
+                spellCheck={false}
+                type="text"
+                value={settingsSearchQuery}
+              />
+              {settingsSearchQuery && (
+                <button
+                  aria-label={t('settings.search.clear')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-secondary hover:text-text-primary rounded"
+                  onClick={() => {
+                    setSettingsSearchQuery('');
+                    settingsSearchInputRef.current?.focus();
+                  }}
+                >
+                  <X aria-hidden="true" size={16} />
+                </button>
+              )}
+            </div>
+
             <div className="relative flex w-full min-[1200px]:w-112.5 p-2 bg-surface rounded-md">
               {settingCategories.map((category) => (
                 <button
                   key={category.id}
-                  onClick={() => setActiveCategory(category.id)}
+                  onClick={() => {
+                    setActiveCategory(category.id);
+                    setPendingSearchTarget(null);
+                    setSettingsSearchQuery('');
+                  }}
                   className={clsx(
                     'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
                     {
@@ -1076,9 +1445,58 @@ export default function SettingsPanel({
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 -mr-2 custom-scrollbar">
+          <div
+            ref={settingsContentRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden pr-2 -mr-2 custom-scrollbar"
+          >
             <AnimatePresence mode="wait">
-              {activeCategory === 'general' && (
+              {settingsSearchQuery.trim() && (
+                <motion.div
+                  key="settings-search-results"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.16 }}
+                  className="p-6 bg-surface rounded-xl shadow-md"
+                >
+                  <Text variant={TextVariants.title} color={TextColors.accent} className="mb-6">
+                    {t('settings.search.results')}
+                  </Text>
+                  {filteredSettingsSearchItems.length > 0 ? (
+                    <div className="divide-y divide-border-color">
+                      {filteredSettingsSearchItems.map((item) => (
+                        <button
+                          key={`${item.category}-${item.label}`}
+                          className="w-full text-left py-4 px-3 first:pt-2 last:pb-2 rounded-md hover:bg-bg-primary transition-colors"
+                          onClick={() => {
+                            setActiveCategory(item.category);
+                            setPendingSearchTarget(item.targetText);
+                            setSettingsSearchQuery('');
+                          }}
+                        >
+                          <span className="flex items-center justify-between gap-4">
+                            <Text variant={TextVariants.heading} color={TextColors.primary}>
+                              {item.label}
+                            </Text>
+                            <Text variant={TextVariants.small} color={TextColors.accent} className="shrink-0">
+                              {item.categoryLabel}
+                            </Text>
+                          </span>
+                          {item.description && (
+                            <Text variant={TextVariants.small} className="mt-1">
+                              {item.description}
+                            </Text>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <Text className="py-8 text-center">{t('settings.search.noResults')}</Text>
+                  )}
+                </motion.div>
+              )}
+
+              {!settingsSearchQuery.trim() && activeCategory === 'general' && (
                 <motion.div
                   key="general"
                   initial={{ opacity: 0, x: 10 }}
@@ -1239,7 +1657,10 @@ export default function SettingsPanel({
                     </div>
                   </div>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                  <div
+                    className="p-6 bg-surface rounded-xl shadow-md"
+                    data-settings-search-text={`${t('settings.adjustments.title')} ${t('settings.adjustments.description')}`}
+                  >
                     <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
                       {t('settings.adjustments.title')}
                     </Text>
@@ -1300,7 +1721,10 @@ export default function SettingsPanel({
                     </div>
                   </div>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                  <div
+                    className="p-6 bg-surface rounded-xl shadow-md"
+                    data-settings-search-text={`${t('settings.lenses.title')} ${t('settings.lenses.description')}`}
+                  >
                     <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
                       {t('settings.lenses.title')}
                     </Text>
@@ -1733,7 +2157,7 @@ export default function SettingsPanel({
                   </div>
                 </motion.div>
               )}
-              {activeCategory === 'processing' && (
+              {!settingsSearchQuery.trim() && activeCategory === 'processing' && (
                 <motion.div
                   key="processing"
                   initial={{ opacity: 0, x: 10 }}
@@ -1747,7 +2171,7 @@ export default function SettingsPanel({
                       {t('settings.processing.title')}
                     </Text>
                     <div className="space-y-8">
-                      <div>
+                      <div data-settings-search-text={t('settings.processing.previewStrategy')}>
                         <Text variant={TextVariants.heading} className="mb-2">
                           {t('settings.processing.previewStrategy')}
                         </Text>
@@ -2167,7 +2591,10 @@ export default function SettingsPanel({
                     </div>
                   </div>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                  <div
+                    className="p-6 bg-surface rounded-xl shadow-md"
+                    data-settings-search-text={`${t('settings.processing.ai.title')} ${t('settings.processing.ai.description')}`}
+                  >
                     <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
                       {t('settings.processing.ai.title')}
                     </Text>
@@ -2426,7 +2853,7 @@ export default function SettingsPanel({
                 </motion.div>
               )}
 
-              {activeCategory === 'shortcuts' && (
+              {!settingsSearchQuery.trim() && activeCategory === 'shortcuts' && (
                 <motion.div
                   key="shortcuts"
                   initial={{ opacity: 0, x: 10 }}
@@ -2440,7 +2867,9 @@ export default function SettingsPanel({
                       {t('settings.controls.title')}
                     </Text>
                     <div className="space-y-8">
-                      <div>
+                      <div
+                        data-settings-search-text={`${t('settings.controls.optimization')} ${t('settings.controls.optimizationDesc')}`}
+                      >
                         <Text variant={TextVariants.heading} className="mb-2">
                           {t('settings.controls.optimization')}
                         </Text>
@@ -2470,7 +2899,10 @@ export default function SettingsPanel({
                     </div>
                   </div>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                  <div
+                    className="p-6 bg-surface rounded-xl shadow-md"
+                    data-settings-search-text={t('settings.controls.keyboardTitle')}
+                  >
                     <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
                       {t('settings.controls.keyboardTitle')}
                     </Text>

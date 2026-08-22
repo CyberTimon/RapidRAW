@@ -1439,6 +1439,12 @@
     }
   },
   "settings": {
+    "search": {
+      "clear": "Borrar búsqueda",
+      "noResults": "No se encontraron ajustes.",
+      "placeholder": "Buscar en Ajustes…",
+      "results": "Resultados de búsqueda"
+    },
     "adjustments": {
       "chromaticAberration": "Aberración cromática",
       "colorCalibration": "Calibración de color",

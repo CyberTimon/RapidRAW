@@ -1407,6 +1407,12 @@
     }
   },
   "settings": {
+    "search": {
+      "clear": "검색 지우기",
+      "noResults": "설정을 찾을 수 없습니다.",
+      "placeholder": "설정 검색…",
+      "results": "검색 결과"
+    },
     "adjustments": {
       "chromaticAberration": "색수차",
       "colorCalibration": "색상 보정",

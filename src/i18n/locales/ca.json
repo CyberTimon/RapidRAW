@@ -1409,6 +1409,12 @@
     }
   },
   "settings": {
+    "search": {
+      "clear": "Esborra la cerca",
+      "noResults": "No s'ha trobat cap configuració.",
+      "placeholder": "Cerca a la configuració…",
+      "results": "Resultats de la cerca"
+    },
     "adjustments": {
       "chromaticAberration": "Aberració cromàtica",
       "colorCalibration": "Calibratge de color",
