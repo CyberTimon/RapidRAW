@@ -608,6 +608,13 @@ export default function MainLibrary(props: MainLibraryProps) {
             >
               <Home className="w-5 h-5" />
             </Button>
+            <Button
+              className="h-12 w-12 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center"
+              onClick={() => setUI({ isSettingsOpen: true })}
+              data-tooltip={t('settings.general.title')}
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </header>

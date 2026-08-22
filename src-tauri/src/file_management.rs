@@ -956,10 +956,7 @@ pub enum AlbumItem {
 }
 
 fn get_albums_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    let data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let data_dir = crate::sidecar_paths::app_root_dir(app_handle)?;
     let albums_dir = data_dir.join("albums");
     if !albums_dir.exists() {
         fs::create_dir_all(&albums_dir).map_err(|e| e.to_string())?;
@@ -3141,11 +3138,7 @@ pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadat
 }
 
 fn get_presets_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, String> {
-    let presets_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("presets");
+    let presets_dir = crate::sidecar_paths::app_root_dir(app_handle)?.join("presets");
 
     if !presets_dir.exists() {
         fs::create_dir_all(&presets_dir).map_err(|e| e.to_string())?;
@@ -3174,11 +3167,7 @@ pub fn save_presets(presets: Vec<PresetItem>, app_handle: AppHandle) -> Result<(
 fn get_internal_library_root_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, String> {
     #[cfg(not(target_os = "android"))]
     {
-        let library_dir = app_handle
-            .path()
-            .app_data_dir()
-            .map_err(|e| e.to_string())?
-            .join("library");
+        let library_dir = crate::sidecar_paths::app_root_dir(app_handle)?.join("library");
 
         if !library_dir.exists() {
             fs::create_dir_all(&library_dir).map_err(|e| e.to_string())?;

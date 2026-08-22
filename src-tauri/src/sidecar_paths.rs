@@ -2,39 +2,62 @@ use std::path::{Component, Path, PathBuf};
 
 use tauri::{AppHandle, Manager};
 
-/// Root directory every relocated `.rrdata`/`.rrexif` sidecar lives under.
-/// Deliberately *not* `app_data_dir()/sidecars` (which would nest under the
-/// full Tauri bundle identifier, e.g. `io.github.CyberTimon.RapidRAW`) —
-/// sidecars live in a plain `RapidRAW/sidecars` sibling folder instead, so
-/// the folder a user finds browsing AppData actually reads "RapidRAW", not
-/// the bundle id. `tauri.conf.json`'s `identifier` itself is untouched —
-/// presets/settings/library/ONNX models (`ai_processing.rs`'s
-/// `get_models_dir`) keep living under the identifier-named folder as
-/// before; only this one relocation feature's own root moves. Not
-/// `app_cache_dir()` either — unlike thumbnails, this data isn't
-/// regenerable, so it belongs with the app's other persistent data.
-pub fn sidecar_root_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
+/// Root directory *every* persistent app file lives under — settings,
+/// presets, albums, the internal library, LUTs, ONNX models, window state,
+/// and relocated `.rrdata`/`.rrexif` sidecars alike. Deliberately *not*
+/// `app_data_dir()` / `app_config_dir()` directly (which nest under the full
+/// Tauri bundle identifier, e.g. `io.github.CyberTimon.RapidRAW`) — instead
+/// everything lives in a plain `RapidRAW` sibling folder, so the folder a
+/// user finds browsing AppData actually reads "RapidRAW", not the bundle id.
+/// `tauri.conf.json`'s `identifier` itself is untouched; only where files
+/// are written moves. Not `app_cache_dir()` either — unlike thumbnails, none
+/// of this data is regenerable.
+pub fn app_root_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
     let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
-    let old_root = app_data.join("sidecars");
-    let base = app_data.parent().map(|p| p.to_path_buf()).unwrap_or(app_data);
-    let root = base.join("RapidRAW").join("sidecars");
-    if !root.exists() {
-        // One-time migration for anyone who already had sidecars under the
-        // pre-rename, bundle-identifier-nested location: move the whole
-        // tree in one `rename` rather than recreating it empty and
-        // orphaning everything already relocated there (there's no
-        // adjacent-to-photo fallback once a sidecar has already left the
-        // photo's own folder, so silently starting fresh here would look
-        // like every edit made since the relocation feature shipped had
-        // been lost).
-        if old_root.is_dir() {
-            if let Some(parent) = root.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            if std::fs::rename(&old_root, &root).is_ok() {
-                return Ok(root);
+    let base = app_data.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| app_data.clone());
+    let root = base.join("RapidRAW");
+
+    if !root.exists() && app_data.is_dir() {
+        // Fresh migration: nobody has touched the RapidRAW folder yet, so
+        // the entire identifier-named folder (settings, presets, albums,
+        // library, luts, models, sidecars, window state, ...) can move in
+        // one atomic `rename` instead of being walked entry-by-entry.
+        if let Some(parent) = root.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if std::fs::rename(&app_data, &root).is_ok() {
+            return Ok(root);
+        }
+    }
+
+    std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
+
+    // Mixed case: an older release already relocated just the `sidecars`
+    // folder, so `root` exists but the identifier folder still holds
+    // everything else. Merge any leftover top-level entries into `root` in
+    // one pass (skipping anything already present there) so an upgrade from
+    // that in-between state converges on the same layout as a fresh
+    // install. Cheap no-op once the identifier folder has been drained.
+    if app_data.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&app_data) {
+            for entry in entries.flatten() {
+                let dest = root.join(entry.file_name());
+                if !dest.exists() {
+                    let _ = std::fs::rename(entry.path(), dest);
+                }
             }
         }
+        let _ = std::fs::remove_dir(&app_data);
+    }
+
+    Ok(root)
+}
+
+/// Root directory every relocated `.rrdata`/`.rrexif` sidecar lives under —
+/// a subfolder of [`app_root_dir`].
+pub fn sidecar_root_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
+    let root = app_root_dir(app_handle)?.join("sidecars");
+    if !root.exists() {
         std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
     }
     Ok(root)

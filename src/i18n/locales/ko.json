@@ -714,7 +714,10 @@
     "switcher": {
       "tooltips": {
         "adjust": "조정",
+        "colorCurves": "색상 및 커브",
         "crop": "자르기",
+        "details": "디테일",
+        "effects": "효과",
         "export": "내보내기",
         "info": "정보",
         "inpaint": "인페인팅",

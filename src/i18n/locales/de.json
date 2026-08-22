@@ -716,7 +716,10 @@
     "switcher": {
       "tooltips": {
         "adjust": "Anpassen",
+        "colorCurves": "Farbe & Kurven",
         "crop": "Zuschnitt",
+        "details": "Details",
+        "effects": "Effekte",
         "export": "Exportieren",
         "info": "Info",
         "inpaint": "Reparieren",

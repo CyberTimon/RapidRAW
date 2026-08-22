@@ -60,7 +60,6 @@ import {
   MaskType,
   SubMask,
   MASK_PANEL_CREATION_TYPES,
-  OTHERS_MASK_TYPES,
   MASK_ICON_MAP,
   SubMaskMode,
   ToolType,
@@ -256,11 +255,14 @@ export default function MasksPanel() {
       const leftVisible = state.uiVisibility.leftPanel;
       const rightVisible = state.uiVisibility.rightPanel;
 
+      const hasOwnWaveformToggle = (panel: Panel | null) =>
+        panel === Panel.Adjustments || panel === Panel.ColorCurves;
+
       const isVisible =
-        (leftVisible && state.activePanels.leftTop === Panel.Adjustments) ||
-        (leftVisible && state.activePanels.leftBottom === Panel.Adjustments) ||
-        (rightVisible && state.activePanels.rightTop === Panel.Adjustments) ||
-        (rightVisible && state.activePanels.rightBottom === Panel.Adjustments);
+        (leftVisible && hasOwnWaveformToggle(state.activePanels.leftTop)) ||
+        (leftVisible && hasOwnWaveformToggle(state.activePanels.leftBottom)) ||
+        (rightVisible && hasOwnWaveformToggle(state.activePanels.rightTop)) ||
+        (rightVisible && hasOwnWaveformToggle(state.activePanels.rightBottom));
 
       return {
         setCustomEscapeHandler: state.setCustomEscapeHandler,
@@ -349,10 +351,10 @@ export default function MasksPanel() {
   const [copiedSubMask, setCopiedSubMask] = useState<SubMask | null>(null);
   const [collapsibleState, setCollapsibleState] = useState<any>({
     basic: true,
-    curves: false,
-    color: false,
-    details: false,
-    effects: false,
+    curves: true,
+    color: true,
+    details: true,
+    effects: true,
   });
   const [copiedSectionAdjustments, setCopiedSectionAdjustments] = useState<any | null>(null);
   const [isSettingsSectionOpen, setSettingsSectionOpen] = useState(true);
@@ -561,18 +563,6 @@ export default function MasksPanel() {
     handleGridClick(type, true);
   };
 
-  const handleAddOthersMask = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const options = OTHERS_MASK_TYPES.map((maskType) => ({
-      label: getMaskTypeName(maskType),
-      icon: maskType.icon,
-      onClick: () => handleGridClick(maskType.type),
-      onRightClick: () => handleGridClick(maskType.type, true),
-    }));
-    showContextMenu(rect.left, rect.bottom + 5, options);
-  };
-
   const handleAddMaskContextMenu = (event: React.MouseEvent, targetContainerId?: string | null) => {
     event.preventDefault();
     event.stopPropagation();
@@ -598,35 +588,15 @@ export default function MasksPanel() {
     const buildModeSubmenu = (label: string, icon: any, mode: SubMaskMode) => ({
       label,
       icon,
-      submenu: MASK_PANEL_CREATION_TYPES.map((maskType) => {
-        if (maskType.id === 'others') {
-          return {
-            label: getMaskTypeName(maskType),
-            icon: maskType.icon,
-            submenu: buildMenu(OTHERS_MASK_TYPES, mode),
-          };
-        }
-        return {
-          label: getMaskTypeName(maskType),
-          icon: maskType.icon,
-          disabled: maskType.disabled,
-          onClick: () => handleAddSubMask(targetContainerId!, maskType.type, mode),
-        };
-      }),
+      submenu: MASK_PANEL_CREATION_TYPES.map((maskType) => ({
+        label: getMaskTypeName(maskType),
+        icon: maskType.icon,
+        disabled: maskType.disabled,
+        onClick: () => handleAddSubMask(targetContainerId!, maskType.type, mode),
+      })),
     });
 
-    const options: any[] = buildMenu(
-      MASK_PANEL_CREATION_TYPES.filter((m) => m.id !== 'others'),
-      SubMaskMode.Additive,
-    );
-    const others = MASK_PANEL_CREATION_TYPES.find((m) => m.id === 'others');
-    if (others) {
-      options.push({
-        label: getMaskTypeName(others),
-        icon: others.icon,
-        submenu: buildMenu(OTHERS_MASK_TYPES, SubMaskMode.Additive),
-      });
-    }
+    const options: any[] = buildMenu(MASK_PANEL_CREATION_TYPES, SubMaskMode.Additive);
 
     if (targetContainerId && hasComponents) {
       options.push(
@@ -953,8 +923,7 @@ export default function MasksPanel() {
 
   const handlePanelContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    const allTypes = [...MASK_PANEL_CREATION_TYPES.filter((m) => m.id !== 'others'), ...OTHERS_MASK_TYPES];
-    const newMaskSubMenu = allTypes.map((m) => ({
+    const newMaskSubMenu = MASK_PANEL_CREATION_TYPES.map((m) => ({
       label: getMaskTypeName(m),
       icon: m.icon,
       onClick: () => handleAddMaskContainer(m.type),
@@ -1060,13 +1029,11 @@ export default function MasksPanel() {
                     <div className="grid grid-cols-3 gap-2" onClick={(e) => e.stopPropagation()}>
                       {MASK_PANEL_CREATION_TYPES.map((maskType: MaskType) => (
                         <DraggableGridItem
-                          key={maskType.type || maskType.id}
+                          key={maskType.type}
                           maskType={maskType}
-                          onClick={(e: any) =>
-                            maskType.id === 'others' ? handleAddOthersMask(e) : handleGridClick(maskType.type)
-                          }
+                          onClick={() => handleGridClick(maskType.type)}
                           onRightClick={(e: React.MouseEvent) => handleGridRightClick(e, maskType.type)}
-                          isDraggable={maskType.id !== 'others'}
+                          isDraggable
                           activeMaskContainerId={activeMaskContainerId}
                         />
                       ))}
@@ -1247,9 +1214,7 @@ export default function MasksPanel() {
                 className="bg-surface rounded-lg gap-2 p-2 flex flex-col items-center justify-center aspect-square w-20 shadow-xl opacity-90"
               >
                 {(() => {
-                  const maskType =
-                    MASK_PANEL_CREATION_TYPES.find((m) => m.type === activeDragItem.maskType) ||
-                    OTHERS_MASK_TYPES.find((m) => m.type === activeDragItem.maskType);
+                  const maskType = MASK_PANEL_CREATION_TYPES.find((m) => m.type === activeDragItem.maskType);
                   const Icon = maskType?.icon || Circle;
                   return (
                     <>

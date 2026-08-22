@@ -1831,7 +1831,7 @@ fn frontend_ready(
         let _ = (&app_handle, is_first_run);
 
         #[cfg(any(windows, target_os = "linux"))]
-        if is_first_run && let Ok(config_dir) = app_handle.path().app_config_dir() {
+        if is_first_run && let Ok(config_dir) = sidecar_paths::app_root_dir(&app_handle) {
             let path = config_dir.join("window_state.json");
 
             if let Ok(contents) = std::fs::read_to_string(&path)
@@ -2007,7 +2007,7 @@ pub fn run() {
                 });
             }
 
-            let config_dir = app_handle.path().app_config_dir().expect("Failed to get config dir");
+            let config_dir = sidecar_paths::app_root_dir(&app_handle).expect("Failed to get config dir");
             let crash_flag_path = config_dir.join(".gpu_init_crash_flag");
 
             {
@@ -2153,7 +2153,7 @@ pub fn run() {
                     );
                 }
 
-                if let Ok(config_dir) = app.path().app_config_dir() {
+                if let Ok(config_dir) = sidecar_paths::app_root_dir(&app_handle) {
                     let path = config_dir.join("window_state.json");
                     if let Ok(contents) = std::fs::read_to_string(&path) {
                         if let Ok(state) = serde_json::from_str::<WindowState>(&contents) {
@@ -2176,10 +2176,15 @@ pub fn run() {
                                 let _ = window.center();
                             }
                         } else {
-                            let _ = window.center();
+                            // Saved window_state.json is corrupt/unparseable — treat the
+                            // same as a fresh install rather than falling back to the
+                            // small default size.
+                            let _ = window.maximize();
                         }
                     } else {
-                        let _ = window.center();
+                        // No window_state.json yet: this is the very first launch, so
+                        // open maximized instead of the small default size.
+                        let _ = window.maximize();
                     }
                 } else {
                     let _ = window.center();
@@ -2212,7 +2217,7 @@ pub fn run() {
 
                         if let Some(state) = state_to_save
                             && let Ok(config_dir) =
-                                app_handle_for_saver.path().app_config_dir()
+                                sidecar_paths::app_root_dir(&app_handle_for_saver)
                         {
                             let path = config_dir.join("window_state.json");
                             let _ = std::fs::create_dir_all(&config_dir);

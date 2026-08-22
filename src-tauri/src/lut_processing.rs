@@ -494,10 +494,7 @@ pub fn list_luts(app_handle: AppHandle) -> Result<Vec<LutEntry>, String> {
         all_luts.extend(built_in);
     }
 
-    let data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let data_dir = crate::sidecar_paths::app_root_dir(&app_handle)?;
     let luts_dir = get_luts_dir(&data_dir).map_err(|e| e.to_string())?;
 
     #[cfg(target_os = "android")]
@@ -572,10 +569,7 @@ pub fn import_luts(
     app_handle: AppHandle,
     source_paths: Vec<String>,
 ) -> Result<Vec<LutEntry>, String> {
-    let data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let data_dir = crate::sidecar_paths::app_root_dir(&app_handle)?;
     let luts_dir = get_luts_dir(&data_dir).map_err(|e| e.to_string())?;
     import_luts_to_dir(&luts_dir, &source_paths).map_err(|e| e.to_string())?;
 
@@ -584,10 +578,7 @@ pub fn import_luts(
 
 #[tauri::command]
 pub fn remove_lut(app_handle: AppHandle, path: String) -> Result<Vec<LutEntry>, String> {
-    let data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let data_dir = crate::sidecar_paths::app_root_dir(&app_handle)?;
     let luts_dir = strip_verbatim(&get_luts_dir(&data_dir).map_err(|e| e.to_string())?);
     let target_path = strip_verbatim(Path::new(&path));
 

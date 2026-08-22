@@ -320,35 +320,37 @@ impl Default for WorkspaceState {
         left_top.push("tethering".to_string());
 
         panel_layout.insert("leftTop".to_string(), left_top);
-        panel_layout.insert("leftBottom".to_string(), vec![]);
+        panel_layout.insert("leftBottom".to_string(), vec!["presets".to_string()]);
 
         panel_layout.insert(
             "rightTop".to_string(),
             vec![
                 "adjustments".to_string(),
-                "crop".to_string(),
+                "colorCurves".to_string(),
+                "details".to_string(),
+                "effects".to_string(),
                 "masks".to_string(),
+                "crop".to_string(),
                 "ai".to_string(),
-                "presets".to_string(),
             ],
         );
         panel_layout.insert("rightBottom".to_string(), vec![]);
 
         let mut active_panels = HashMap::new();
         active_panels.insert("leftTop".to_string(), Some("folderTree".to_string()));
-        active_panels.insert("leftBottom".to_string(), None);
+        active_panels.insert("leftBottom".to_string(), Some("presets".to_string()));
         active_panels.insert("rightTop".to_string(), Some("adjustments".to_string()));
         active_panels.insert("rightBottom".to_string(), None);
 
         let mut panel_switcher_placement = HashMap::new();
         panel_switcher_placement.insert("leftTop".to_string(), "bottom".to_string());
-        panel_switcher_placement.insert("leftBottom".to_string(), "bottom".to_string());
+        panel_switcher_placement.insert("leftBottom".to_string(), "left".to_string());
         panel_switcher_placement.insert("rightTop".to_string(), "right".to_string());
         panel_switcher_placement.insert("rightBottom".to_string(), "right".to_string());
 
         Self {
-            left_panel_width: 320,
-            right_panel_width: 320,
+            left_panel_width: 393,
+            right_panel_width: 393,
             left_top_height: 450,
             right_top_height: 450,
             panel_layout,
@@ -530,25 +532,20 @@ impl Default for AppSettings {
             last_root_path: None,
             root_folders: Vec::new(),
             pinned_folders: Vec::new(),
-            // Lowered from 720 — this value drives both the final JPEG size and
-            // the GPU/CPU decode target resolution (`processing_dim`), so the win
-            // compounds: a typical library-grid tile is 150-400px, and 360 cuts
-            // decode/resize/encode cost by roughly 4x versus 720 while staying
-            // comfortably above what a grid thumbnail actually needs on screen.
-            thumbnail_resolution: Some(360),
+            thumbnail_resolution: Some(640),
             #[cfg(target_os = "android")]
             editor_preview_resolution: Some(1280),
             #[cfg(not(target_os = "android"))]
-            editor_preview_resolution: Some(1920),
+            editor_preview_resolution: Some(720),
             enable_zoom_hifi: Some(true),
             use_full_dpi_rendering: Some(false),
             enable_live_previews: Some(true),
-            live_preview_quality: Some("high".to_string()),
+            live_preview_quality: Some("performance".to_string()),
             sort_criteria: None,
             filter_criteria: None,
             theme: Some("dark".to_string()),
             font_family: None,
-            decorations: Some(false),
+            decorations: Some(true),
             ai_connector_address: None,
             last_folder_state: None,
             ui_visibility: None,
@@ -560,7 +557,7 @@ impl Default for AppSettings {
             #[cfg(target_os = "android")]
             thumbnail_size: Some("small".to_string()),
             #[cfg(not(target_os = "android"))]
-            thumbnail_size: Some("medium".to_string()),
+            thumbnail_size: Some("small".to_string()),
             thumbnail_aspect_ratio: Some("cover".to_string()),
             ai_provider: Some("cpu".to_string()),
             adjustment_visibility: default_adjustment_visibility(),
@@ -576,8 +573,8 @@ impl Default for AppSettings {
             #[cfg(target_os = "android")]
             high_res_zoom_multiplier: Some(0.75),
             #[cfg(not(target_os = "android"))]
-            high_res_zoom_multiplier: Some(1.0),
-            enable_folder_image_counts: Some(false),
+            high_res_zoom_multiplier: Some(0.5),
+            enable_folder_image_counts: Some(true),
             display_edit_icon: Some(true),
             linear_raw_mode: default_linear_raw_mode(),
             enable_xmp_sync: Some(true),
@@ -618,11 +615,11 @@ impl Default for AppSettings {
             raw_preprocessing_color_nr: Some(0.5),
             raw_preprocessing_sharpening: Some(0.35),
             apply_preprocessing_to_non_raws: Some(false),
-            exif_overlay: Some("off".to_string()),
+            exif_overlay: Some("hover".to_string()),
             language: Some("en".to_string()),
             folder_tree_sort: Some(FolderTreeSort::default()),
             library_display_mode: Some("grid".to_string()),
-            grouping: Some("off".to_string()),
+            grouping: Some("raw".to_string()),
             require_matching_exif: Some(false),
             group_edited_files: Some(true),
             group_associated_files: Some(false),
@@ -634,10 +631,7 @@ impl Default for AppSettings {
 }
 
 pub fn get_settings_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    let settings_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let settings_dir = crate::sidecar_paths::app_root_dir(app_handle)?;
 
     if !settings_dir.exists() {
         fs::create_dir_all(&settings_dir).map_err(|e| e.to_string())?;

@@ -23,7 +23,19 @@ import { useUIStore } from '../../../store/useUIStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
 
-export default function Controls() {
+interface ControlsProps {
+  sections: string[];
+  titleKey: string;
+  showAutoAdjust?: boolean;
+  showWaveformToggle?: boolean;
+}
+
+export default function Controls({
+  sections,
+  titleKey,
+  showAutoAdjust = false,
+  showWaveformToggle = false,
+}: ControlsProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
   const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, handleWaveformResize } =
@@ -109,13 +121,19 @@ export default function Controls() {
   const handleResetAdjustments = () => {
     setAdjustments((prev: Adjustments) => ({
       ...prev,
-      ...Object.keys(ADJUSTMENT_SECTIONS)
+      ...sections
         .flatMap((s) => ADJUSTMENT_SECTIONS[s])
         .reduce((acc: any, key: string) => {
           acc[key] = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
           return acc;
         }, {}),
-      sectionVisibility: { ...INITIAL_ADJUSTMENTS.sectionVisibility },
+      sectionVisibility: {
+        ...(prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility),
+        ...sections.reduce((acc: any, s: string) => {
+          acc[s] = INITIAL_ADJUSTMENTS.sectionVisibility[s as keyof SectionVisibility];
+          return acc;
+        }, {}),
+      },
     }));
   };
 
@@ -210,26 +228,30 @@ export default function Controls() {
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>{t('editor.adjustments.title')}</Text>
+        <Text variant={TextVariants.title}>{t(titleKey)}</Text>
         <div className="flex items-center gap-1">
-          <button
-            className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            disabled={!selectedImage}
-            onClick={handleAutoAdjustments}
-            data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
-          >
-            <Aperture size={18} />
-          </button>
-          <button
-            className={clsx(
-              'p-2 rounded-full transition-colors',
-              isWaveformVisible ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
-            )}
-            onClick={onToggleWaveform}
-            data-tooltip={t('editor.adjustments.tooltips.toggleAnalytics')}
-          >
-            <ChartArea size={18} />
-          </button>
+          {showAutoAdjust && (
+            <button
+              className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              disabled={!selectedImage}
+              onClick={handleAutoAdjustments}
+              data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
+            >
+              <Aperture size={18} />
+            </button>
+          )}
+          {showWaveformToggle && (
+            <button
+              className={clsx(
+                'p-2 rounded-full transition-colors',
+                isWaveformVisible ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
+              )}
+              onClick={onToggleWaveform}
+              data-tooltip={t('editor.adjustments.tooltips.toggleAnalytics')}
+            >
+              <ChartArea size={18} />
+            </button>
+          )}
           <button
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage}
@@ -242,7 +264,7 @@ export default function Controls() {
       </div>
 
       <AnimatePresence initial={false}>
-        {isWaveformVisible && (
+        {showWaveformToggle && isWaveformVisible && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: waveformHeight || 256, opacity: 1 }}
@@ -273,7 +295,7 @@ export default function Controls() {
 
       <div className="grow overflow-y-scroll p-3 flex flex-col gap-2">
         {selectedImage ? (
-          Object.keys(ADJUSTMENT_SECTIONS).map((sectionName: string) => {
+          sections.map((sectionName: string) => {
             const SectionComponent: any = {
               basic: BasicAdjustments,
               curves: CurveGraph,

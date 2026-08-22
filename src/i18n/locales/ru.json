@@ -758,7 +758,10 @@
     "switcher": {
       "tooltips": {
         "adjust": "Коррекция",
+        "colorCurves": "Цвет и кривые",
         "crop": "Обрезка",
+        "details": "Детали",
+        "effects": "Эффекты",
         "export": "Экспорт",
         "info": "Инфо",
         "inpaint": "Восстановление",
