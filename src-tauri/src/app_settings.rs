@@ -577,7 +577,7 @@ impl Default for AppSettings {
             #[cfg(target_os = "android")]
             high_res_zoom_multiplier: Some(0.75),
             #[cfg(not(target_os = "android"))]
-            high_res_zoom_multiplier: Some(0.5),
+            high_res_zoom_multiplier: Some(1.0),
             enable_folder_image_counts: Some(true),
             display_edit_icon: Some(true),
             linear_raw_mode: default_linear_raw_mode(),
