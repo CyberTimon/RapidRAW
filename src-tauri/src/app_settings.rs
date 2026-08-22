@@ -532,7 +532,11 @@ impl Default for AppSettings {
             last_root_path: None,
             root_folders: Vec::new(),
             pinned_folders: Vec::new(),
-            thumbnail_resolution: Some(640),
+            // A typical library-grid tile is 150-400px, so 360 keeps
+            // decode/resize/encode cost far below the previous 640/720
+            // defaults while staying comfortably above what a grid
+            // thumbnail actually needs on screen.
+            thumbnail_resolution: Some(360),
             #[cfg(target_os = "android")]
             editor_preview_resolution: Some(1280),
             #[cfg(not(target_os = "android"))]
@@ -593,15 +597,15 @@ impl Default for AppSettings {
             thumbnail_worker_threads: Some(2),
             // Scales with the machine instead of a flat 4 — same
             // available_parallelism() pattern export_processing.rs already uses
-            // for its own worker count. Clamped 4-12 so very-low-core machines
-            // still get a reasonable floor and very-high-core ones don't jump
-            // straight to the setting's own max (16) by default.
+            // for its own worker count. Clamped 4-16 (the setting's own max) so
+            // very-low-core machines still get a reasonable floor while
+            // very-high-core ones can actually use all of it by default.
             #[cfg(not(target_os = "android"))]
             thumbnail_worker_threads: Some(
                 std::thread::available_parallelism()
                     .map(|n| n.get() as u32)
                     .unwrap_or(4)
-                    .clamp(4, 12),
+                    .clamp(4, 16),
             ),
             #[cfg(target_os = "android")]
             image_cache_size: Some(2),

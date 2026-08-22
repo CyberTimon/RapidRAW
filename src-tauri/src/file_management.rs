@@ -45,7 +45,7 @@ use crate::preset_converter;
 use crate::tagging::COLOR_TAG_PREFIX;
 
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
-    let thumb_cache_dir = crate::sidecar_paths::app_root_dir(app_handle)?.join("thumbnails");
+    let thumb_cache_dir = crate::sidecar_paths::app_local_root_dir(app_handle)?.join("thumbnails");
     if !thumb_cache_dir.exists() {
         fs::create_dir_all(&thumb_cache_dir).map_err(|e| e.to_string())?;
     }
@@ -1971,10 +1971,29 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let thread_count = settings.thumbnail_worker_threads.unwrap_or(4).clamp(1, 16);
 
+    // Resolved once, up front, and shared by every worker — `get_thumb_cache_dir`
+    // does real filesystem I/O (an `exists`/`create_dir_all` round trip, plus a
+    // one-time migration walk on first run), so calling it per-photo inside the
+    // loop below, from every worker thread, in parallel, for a whole library at
+    // once, made thumbnail generation far slower than it needs to be. It also
+    // meant a single transient failure silently dropped that photo's progress
+    // tick forever (the `if let Ok(cache_dir) = ...` guard skipped
+    // `increment_thumbnail_progress` on `Err`), which could look like generation
+    // had hung. If it fails here, bail out before spawning workers that could
+    // never make progress anyway.
+    let cache_dir = match get_thumb_cache_dir(&app_handle) {
+        Ok(dir) => dir,
+        Err(e) => {
+            log::error!("Failed to resolve thumbnail cache directory: {}", e);
+            return;
+        }
+    };
+
     for _ in 0..thread_count {
         let app_clone = app_handle.clone();
         let manager_clone = manager.clone();
         let worker_settings = settings.clone();
+        let cache_dir = cache_dir.clone();
 
         std::thread::spawn(move || {
             loop {
@@ -1999,33 +2018,32 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                 let gpu_context =
                     crate::gpu_processing::get_or_init_gpu_context(&state, &app_clone).ok();
 
-                if let Ok(cache_dir) = get_thumb_cache_dir(&app_clone) {
-                    if manager_clone.rotational_disk.load(Ordering::Relaxed) {
-                        let _io_permit = manager_clone.io_gate.lock().unwrap();
-                        prefetch_source_file(&path_to_process);
-                    }
-
-                    let result = generate_single_thumbnail_and_cache(
-                        &path_to_process,
-                        &cache_dir,
-                        gpu_context.as_ref(),
-                        None,
-                        false,
-                        &app_clone,
-                        &worker_settings,
-                    );
-
-                    if let Some((thumbnail_path, rating, is_edited)) = result {
-                        emit_thumbnail_generated(
-                            &app_clone,
-                            &path_to_process,
-                            &thumbnail_path,
-                            rating,
-                            is_edited,
-                        );
-                    }
-                    increment_thumbnail_progress(&state, &app_clone);
+                if manager_clone.rotational_disk.load(Ordering::Relaxed) {
+                    let _io_permit = manager_clone.io_gate.lock().unwrap();
+                    prefetch_source_file(&path_to_process);
                 }
+
+                let result = generate_single_thumbnail_and_cache(
+                    &path_to_process,
+                    &cache_dir,
+                    gpu_context.as_ref(),
+                    None,
+                    false,
+                    &app_clone,
+                    &worker_settings,
+                );
+
+                if let Some((thumbnail_path, rating, is_edited)) = result {
+                    emit_thumbnail_generated(
+                        &app_clone,
+                        &path_to_process,
+                        &thumbnail_path,
+                        rating,
+                        is_edited,
+                    );
+                }
+                increment_thumbnail_progress(&state, &app_clone);
+
                 manager_clone
                     .processing_now
                     .lock()
@@ -3443,7 +3461,7 @@ pub fn clear_all_sidecars(root_path: String) -> Result<usize, String> {
 
 #[tauri::command]
 pub fn clear_thumbnail_cache(app_handle: AppHandle) -> Result<(), String> {
-    let thumb_cache_dir = crate::sidecar_paths::app_root_dir(&app_handle)?.join("thumbnails");
+    let thumb_cache_dir = crate::sidecar_paths::app_local_root_dir(&app_handle)?.join("thumbnails");
 
     if thumb_cache_dir.exists() {
         fs::remove_dir_all(&thumb_cache_dir)

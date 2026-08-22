@@ -1644,7 +1644,7 @@ async fn generate_preview_for_path(
 }
 
 fn setup_logging(app_handle: &tauri::AppHandle) {
-    let log_dir = match sidecar_paths::app_root_dir(app_handle) {
+    let log_dir = match sidecar_paths::app_local_root_dir(app_handle) {
         Ok(root) => root.join("logs"),
         Err(e) => {
             eprintln!("Failed to get app log directory: {}", e);
@@ -1716,7 +1716,7 @@ fn setup_logging(app_handle: &tauri::AppHandle) {
 
 #[tauri::command]
 fn get_log_file_path(app_handle: tauri::AppHandle) -> Result<String, String> {
-    let log_dir = sidecar_paths::app_root_dir(&app_handle)?.join("logs");
+    let log_dir = sidecar_paths::app_local_root_dir(&app_handle)?.join("logs");
     let log_file_path = log_dir.join("app.log");
     Ok(log_file_path.to_string_lossy().to_string())
 }
@@ -2140,11 +2140,11 @@ pub fn run() {
                 // Without this, Tauri forces the WebView2/WebKitGTK data
                 // directory (cookies, GPU shader cache, IndexedDB, etc.) to
                 // `app_local_data_dir()` — i.e. back under the bundle
-                // identifier folder — even though every other piece of app
-                // data now lives under the shared `RapidRAW` root
-                // (`sidecar_paths::app_root_dir`).
+                // identifier folder — even though it should live alongside
+                // the rest of the app's cache-like data under the local
+                // `RapidRAW` root (`sidecar_paths::app_local_root_dir`).
                 #[cfg(any(target_os = "windows", target_os = "linux"))]
-                if let Ok(root) = sidecar_paths::app_root_dir(&app_handle) {
+                if let Ok(root) = sidecar_paths::app_local_root_dir(&app_handle) {
                     window_builder = window_builder.data_directory(root.join("webview"));
                 }
             }

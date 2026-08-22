@@ -2,24 +2,19 @@ use std::path::{Component, Path, PathBuf};
 
 use tauri::{AppHandle, Manager};
 
-/// Root directory *every* app file lives under — settings, presets, albums,
-/// the internal library, LUTs, ONNX models, window state, relocated
-/// `.rrdata`/`.rrexif` sidecars, the thumbnail cache, logs, and the
-/// WebView2/WebKitGTK data directory alike. Deliberately *not*
-/// `app_data_dir()` / `app_config_dir()` / `app_cache_dir()` / `app_log_dir()`
-/// / `app_local_data_dir()` directly (all of which nest under the full Tauri
-/// bundle identifier, e.g. `io.github.CyberTimon.RapidRAW`, and are scattered
-/// across both the Roaming and Local AppData trees on Windows) — instead
-/// everything lives in one plain `RapidRAW` sibling folder, so the folder a
-/// user finds browsing AppData actually reads "RapidRAW", not the bundle id.
-/// `tauri.conf.json`'s `identifier` itself is untouched; only where files are
-/// written moves.
-pub fn app_root_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
-    let base = app_data.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| app_data.clone());
+/// Shared by [`app_root_dir`] and [`app_local_root_dir`]: given the
+/// identifier-named folder Tauri would otherwise use (e.g.
+/// `Roaming/io.github.CyberTimon.RapidRAW` or its `Local` counterpart),
+/// returns the plain `RapidRAW` sibling folder everything actually lives
+/// under, migrating the identifier folder's contents into it as needed.
+fn relocate_into_rapidraw_root(identifier_dir: PathBuf) -> Result<PathBuf, String> {
+    let base = identifier_dir
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| identifier_dir.clone());
     let root = base.join("RapidRAW");
 
-    if !root.exists() && app_data.is_dir() {
+    if !root.exists() && identifier_dir.is_dir() {
         // Fresh migration: nobody has touched the RapidRAW folder yet, so
         // the entire identifier-named folder (settings, presets, albums,
         // library, luts, models, sidecars, window state, ...) can move in
@@ -27,21 +22,21 @@ pub fn app_root_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
         if let Some(parent) = root.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        if std::fs::rename(&app_data, &root).is_ok() {
+        if std::fs::rename(&identifier_dir, &root).is_ok() {
             return Ok(root);
         }
     }
 
     std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
 
-    // Mixed case: an older release already relocated just the `sidecars`
-    // folder, so `root` exists but the identifier folder still holds
-    // everything else. Merge any leftover top-level entries into `root` in
-    // one pass (skipping anything already present there) so an upgrade from
-    // that in-between state converges on the same layout as a fresh
-    // install. Cheap no-op once the identifier folder has been drained.
-    if app_data.is_dir() {
-        if let Ok(entries) = std::fs::read_dir(&app_data) {
+    // Mixed case: an older release already relocated part of this tree, so
+    // `root` exists but the identifier folder still holds some leftovers.
+    // Merge any leftover top-level entries into `root` in one pass (skipping
+    // anything already present there) so an upgrade from that in-between
+    // state converges on the same layout as a fresh install. Cheap no-op
+    // once the identifier folder has been drained.
+    if identifier_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&identifier_dir) {
             for entry in entries.flatten() {
                 let dest = root.join(entry.file_name());
                 if !dest.exists() {
@@ -49,10 +44,49 @@ pub fn app_root_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
                 }
             }
         }
-        let _ = std::fs::remove_dir(&app_data);
+        let _ = std::fs::remove_dir(&identifier_dir);
     }
 
     Ok(root)
+}
+
+/// Root directory persistent app files live under — settings, presets,
+/// albums, the internal library, LUTs, ONNX models, window state, and
+/// relocated `.rrdata`/`.rrexif` sidecars alike. Deliberately *not*
+/// `app_data_dir()` / `app_config_dir()` directly (which nest under the full
+/// Tauri bundle identifier, e.g. `io.github.CyberTimon.RapidRAW`) — instead
+/// everything lives in a plain `RapidRAW` sibling folder, so the folder a
+/// user finds browsing Roaming AppData actually reads "RapidRAW", not the
+/// bundle id. `tauri.conf.json`'s `identifier` itself is untouched; only
+/// where files are written moves. Cache-like data (thumbnails, logs, the
+/// WebView2/WebKitGTK data directory) intentionally does *not* live here —
+/// see [`app_local_root_dir`] — since Windows syncs/backs up the Roaming
+/// profile, and dumping large, disposable caches into it is exactly the
+/// mistake `app_local_data_dir`/`app_cache_dir` exist to avoid.
+///
+/// This does filesystem I/O (at least one `exists`/`create_dir_all` check)
+/// on every call — callers on a hot path (e.g. per-thumbnail) should resolve
+/// it once and reuse the result rather than calling this per item.
+pub fn app_root_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
+    let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    relocate_into_rapidraw_root(app_data)
+}
+
+/// Root directory for cache-like, disposable app data — the thumbnail
+/// cache, log files, and the WebView2/WebKitGTK data directory. A sibling of
+/// [`app_root_dir`] but rooted under `app_local_data_dir()` (Local AppData
+/// on Windows) instead of `app_data_dir()` (Roaming), matching the OS
+/// convention this kind of data is supposed to follow — and avoiding the
+/// slowdowns a large, frequently-rewritten thumbnail cache would cause if it
+/// lived in a folder Windows treats as worth syncing/backing up.
+///
+/// Same hot-path caveat as [`app_root_dir`]: resolve once, reuse the result.
+pub fn app_local_root_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
+    let local_data = app_handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| e.to_string())?;
+    relocate_into_rapidraw_root(local_data)
 }
 
 /// Root directory every relocated `.rrdata`/`.rrexif` sidecar lives under —
