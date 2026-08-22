@@ -1220,7 +1220,7 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
-                      {osPlatform === 'linux' && (
+                      {(osPlatform === 'linux' || osPlatform === 'windows') && (
                         <SettingItem
                           label={t('settings.general.nativeTitlebar')}
                           description={t('settings.general.nativeTitlebarDesc')}
