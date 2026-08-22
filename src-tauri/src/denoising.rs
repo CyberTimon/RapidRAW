@@ -120,8 +120,11 @@ pub async fn batch_denoise_images(
                 }),
             );
 
-            let (source_path, source_sidecar_path) =
-                crate::file_management::parse_virtual_path(path_str);
+            let Ok((source_path, source_sidecar_path)) =
+                crate::file_management::sidecar_path_for_virtual(&app_handle, path_str)
+            else {
+                continue;
+            };
             let real_path = source_path.to_string_lossy().to_string();
 
             match crate::denoising::denoise_image(
@@ -160,13 +163,23 @@ pub async fn batch_denoise_images(
                         continue;
                     }
 
-                    let _ = crate::exif_processing::write_rrexif_sidecar(&real_path, &output_path);
+                    let _ = crate::exif_processing::write_rrexif_sidecar(
+                        &app_handle,
+                        &real_path,
+                        &output_path,
+                    );
 
                     if source_sidecar_path.exists()
                         && let Some(output_path_str) = output_path.to_str()
+                        && let Ok((_, dest_sidecar_path)) =
+                            crate::file_management::sidecar_path_for_virtual(
+                                &app_handle,
+                                output_path_str,
+                            )
                     {
-                        let (_, dest_sidecar_path) =
-                            crate::file_management::parse_virtual_path(output_path_str);
+                        if let Some(parent) = dest_sidecar_path.parent() {
+                            let _ = std::fs::create_dir_all(parent);
+                        }
                         if let Err(e) = std::fs::copy(&source_sidecar_path, &dest_sidecar_path) {
                             log::warn!("Failed to copy sidecar file for denoised image: {}", e);
                         }
@@ -192,6 +205,7 @@ pub async fn batch_denoise_images(
 #[tauri::command]
 pub async fn save_denoised_image(
     original_path_str: String,
+    app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let denoised_image = state.denoise_result.lock().unwrap().take().ok_or_else(|| {
@@ -202,7 +216,7 @@ pub async fn save_denoised_image(
     let is_raw = crate::formats::is_raw_file(&original_path_str);
 
     let (first_path, source_sidecar_path) =
-        crate::file_management::parse_virtual_path(&original_path_str);
+        crate::file_management::sidecar_path_for_virtual(&app_handle, &original_path_str)?;
     let parent_dir = first_path
         .parent()
         .ok_or_else(|| "Could not determine parent directory.".to_string())?;
@@ -229,13 +243,20 @@ pub async fn save_denoised_image(
         .map_err(|e| format!("Failed to save image: {}", e))?;
 
     let (real_path, _) = crate::file_management::parse_virtual_path(&original_path_str);
-    let _ =
-        crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
+    let _ = crate::exif_processing::write_rrexif_sidecar(
+        &app_handle,
+        &real_path.to_string_lossy(),
+        &output_path,
+    );
 
     if source_sidecar_path.exists()
         && let Some(output_path_str) = output_path.to_str()
+        && let Ok((_, dest_sidecar_path)) =
+            crate::file_management::sidecar_path_for_virtual(&app_handle, output_path_str)
     {
-        let (_, dest_sidecar_path) = crate::file_management::parse_virtual_path(output_path_str);
+        if let Some(parent) = dest_sidecar_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
         if let Err(e) = std::fs::copy(&source_sidecar_path, &dest_sidecar_path) {
             log::warn!("Failed to copy sidecar file for denoised image: {}", e);
         }
@@ -312,8 +333,15 @@ fn denoise_image(
     let _ = app_handle.emit("denoise-progress", "Loading image...");
 
     let file_bytes = fs::read(path).map_err(|e| e.to_string())?;
-    let dynamic_img = load_base_image_from_bytes(&file_bytes, &path_str, false, &settings, None)
-        .map_err(|e| e.to_string())?;
+    let dynamic_img = load_base_image_from_bytes(
+        &file_bytes,
+        &path_str,
+        false,
+        &settings,
+        None,
+        Some(&app_handle),
+    )
+    .map_err(|e| e.to_string())?;
 
     let rgb_img_for_denoiser = dynamic_img.to_rgb32f();
 

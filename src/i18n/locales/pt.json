@@ -95,6 +95,7 @@
       "resetPoint": "Redefinir Curva de Pontos {{channel}}"
     },
     "details": {
+      "aiDenoiseButton": "Denoise por IA…",
       "blueYellow": "Azul/Amarelo",
       "centre": "Centro",
       "chromaticAberration": "Aberração Cromática",

@@ -72,8 +72,14 @@ pub fn load_and_composite(
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
-    let base_image =
-        load_base_image_from_bytes(base_image, path, use_fast_raw_dev, settings, cancel_token)?;
+    let base_image = load_base_image_from_bytes(
+        base_image,
+        path,
+        use_fast_raw_dev,
+        settings,
+        cancel_token,
+        None,
+    )?;
     composite_patches_on_image(&base_image, adjustments)
 }
 
@@ -83,6 +89,7 @@ pub fn load_base_image_from_bytes(
     use_fast_raw_dev: bool,
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+    app_handle: Option<&tauri::AppHandle>,
 ) -> Result<DynamicImage> {
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
     let linear_mode = settings.linear_raw_mode.clone();
@@ -96,11 +103,14 @@ pub fn load_base_image_from_bytes(
     let sharpening_amount = settings.raw_preprocessing_sharpening.unwrap_or(0.35);
     let apply_to_non_raws = settings.apply_preprocessing_to_non_raws.unwrap_or(false);
 
-    crate::exif_processing::persist_exif_if_missing(
-        Path::new(path_for_ext_check),
-        path_for_ext_check,
-        bytes,
-    );
+    if let Some(handle) = app_handle {
+        crate::exif_processing::persist_exif_if_missing(
+            handle,
+            Path::new(path_for_ext_check),
+            path_for_ext_check,
+            bytes,
+        );
+    }
 
     if is_raw_file(path_for_ext_check) {
         match panic::catch_unwind(move || {
@@ -770,7 +780,10 @@ pub async fn load_image(
         *state.panorama_result.lock().unwrap() = None;
     }
 
-    let (source_path, sidecar_path) = parse_virtual_path(&path);
+    let (source_path, sidecar_path) = crate::file_management::sidecar_path_for_virtual(
+        &app_handle,
+        &path,
+    )?;
     let source_path_str = source_path.to_string_lossy().to_string();
 
     let metadata: ImageMetadata = crate::exif_processing::load_sidecar(&sidecar_path);
@@ -813,9 +826,10 @@ pub async fn load_image(
                             false,
                             &settings,
                             cancel_token.clone(),
+                            Some(&app_handle),
                         )
                         .map_err(|e| e.to_string())?;
-                        let exif = exif_processing::read_exif_data(&path_clone, &mmap);
+                        let exif = exif_processing::read_exif_data(&app_handle, &path_clone, &mmap);
                         Ok((img, exif))
                     }
                     Err(e) => {
@@ -838,9 +852,10 @@ pub async fn load_image(
                             false,
                             &settings,
                             cancel_token.clone(),
+                            Some(&app_handle),
                         )
                         .map_err(|e| e.to_string())?;
-                        let exif = exif_processing::read_exif_data(&path_clone, &bytes);
+                        let exif = exif_processing::read_exif_data(&app_handle, &path_clone, &bytes);
                         Ok((img, exif))
                     }
                 })();
