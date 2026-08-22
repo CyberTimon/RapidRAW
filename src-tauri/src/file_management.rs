@@ -855,6 +855,7 @@ pub struct Roll {
 struct RollsData {
     #[serde(default = "default_next_roll_number")]
     next_number: u64,
+    #[serde(default)]
     rolls: Vec<Roll>,
 }
 
@@ -942,7 +943,7 @@ fn get_rolls_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
     Ok(rolls_dir.join("rolls.json"))
 }
 
-fn sort_and_deduplicate_rolls(rolls: &mut [Roll]) {
+fn sort_and_deduplicate_rolls(rolls: &mut [Roll]) -> bool {
     rolls.sort_by(|a, b| {
         b.loaded_on
             .cmp(&a.loaded_on)
@@ -951,11 +952,13 @@ fn sort_and_deduplicate_rolls(rolls: &mut [Roll]) {
 
     // An image belongs to one roll only. For legacy duplicate data, keep it on
     // the most recently loaded roll.
+    let original_image_count: usize = rolls.iter().map(|roll| roll.images.len()).sum();
     let mut assigned_images = HashSet::new();
-    for roll in rolls {
+    for roll in rolls.iter_mut() {
         roll.images
             .retain(|path| assigned_images.insert(path.clone()));
     }
+    rolls.iter().map(|roll| roll.images.len()).sum::<usize>() != original_image_count
 }
 
 fn read_rolls_data(path: &Path) -> Result<(RollsData, bool), String> {
@@ -1040,9 +1043,9 @@ pub fn get_rolls(app_handle: AppHandle) -> Result<Vec<Roll>, String> {
     let path = get_rolls_path(&app_handle)?;
     let (mut data, was_legacy) = read_rolls_data(&path)?;
     let numbers_changed = assign_roll_numbers(&mut data)?;
-    sort_and_deduplicate_rolls(&mut data.rolls);
+    let images_changed = sort_and_deduplicate_rolls(&mut data.rolls);
 
-    if was_legacy || numbers_changed {
+    if was_legacy || numbers_changed || images_changed {
         write_rolls_data(&path, &data)?;
     }
 
@@ -1111,7 +1114,8 @@ pub fn add_to_roll(
 #[cfg(test)]
 mod roll_tests {
     use super::{
-        Roll, RollsData, assign_roll_numbers, move_images_to_roll, sort_and_deduplicate_rolls,
+        Roll, RollsData, StoredRolls, assign_roll_numbers, move_images_to_roll,
+        sort_and_deduplicate_rolls,
     };
 
     fn roll(id: &str, loaded_on: &str, images: &[&str]) -> Roll {
@@ -1148,11 +1152,54 @@ mod roll_tests {
             roll("new", "2024-02-01", &["image.jpg"]),
         ];
 
-        sort_and_deduplicate_rolls(&mut rolls);
+        assert!(sort_and_deduplicate_rolls(&mut rolls));
 
         assert_eq!(rolls[0].id, "new");
         assert_eq!(rolls[0].images, vec!["image.jpg"]);
         assert!(rolls[1].images.is_empty());
+    }
+
+    #[test]
+    fn sorting_unique_data_reports_no_deduplication() {
+        let mut rolls = vec![
+            roll("old", "2024-01-01", &["one.jpg"]),
+            roll("new", "2024-02-01", &["two.jpg"]),
+        ];
+
+        assert!(!sort_and_deduplicate_rolls(&mut rolls));
+        assert_eq!(rolls[0].id, "new");
+    }
+
+    #[test]
+    fn missing_rolls_field_defaults_to_empty() {
+        let stored: StoredRolls = serde_json::from_str(r#"{"nextNumber": 4}"#).unwrap();
+        let StoredRolls::Current(data) = stored else {
+            panic!("expected current roll storage");
+        };
+
+        assert_eq!(data.next_number, 4);
+        assert!(data.rolls.is_empty());
+    }
+
+    #[test]
+    fn legacy_array_without_numbers_or_names_deserializes() {
+        let stored: StoredRolls = serde_json::from_str(
+            r#"[{
+                "id": "legacy",
+                "camera": "Camera",
+                "filmStock": "Film",
+                "loadedOn": "2024-01-01",
+                "finishedOn": null,
+                "images": ["one.jpg"]
+            }]"#,
+        )
+        .unwrap();
+        let StoredRolls::Legacy(rolls) = stored else {
+            panic!("expected legacy roll storage");
+        };
+
+        assert_eq!(rolls[0].number, 0);
+        assert!(rolls[0].name.is_none());
     }
 
     #[test]
@@ -1170,6 +1217,31 @@ mod roll_tests {
         assert_eq!(data.rolls[0].number, 2);
         assert_eq!(data.rolls[1].number, 1);
         assert_eq!(data.next_number, 3);
+    }
+
+    #[test]
+    fn existing_numbers_stay_stable_when_adding_a_roll() {
+        let mut first = roll("one", "2024-01-01", &[]);
+        first.number = 8;
+        let mut data = RollsData {
+            next_number: 9,
+            rolls: vec![first, roll("two", "2024-02-01", &[])],
+        };
+
+        assign_roll_numbers(&mut data).unwrap();
+
+        assert_eq!(data.rolls[0].number, 8);
+        assert_eq!(data.rolls[1].number, 9);
+        assert_eq!(data.next_number, 10);
+    }
+
+    #[test]
+    fn moving_to_missing_roll_does_not_change_membership() {
+        let mut rolls = vec![roll("one", "2024-01-01", &["one.jpg"])];
+        let original = rolls[0].images.clone();
+
+        assert!(move_images_to_roll(&mut rolls, "missing", &["one.jpg".to_string()]).is_err());
+        assert_eq!(rolls[0].images, original);
     }
 
     #[test]
@@ -3704,6 +3776,7 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
     }
 
     if files_to_trash.is_empty() {
+        sync_collection_path_changes(&app_handle, None, Some(&deletions), None);
         return Ok(());
     }
 
@@ -3815,6 +3888,9 @@ pub fn delete_files_with_associated(
                 if let Some(stem) = deletion_stem_for(&entry_filename_str)
                     && stems_to_delete.contains(stem)
                 {
+                    if is_supported_image_file(&entry_path) {
+                        deletions.insert(entry_path.to_string_lossy().into_owned());
+                    }
                     files_to_trash.insert(entry_path);
                 }
             }
@@ -3822,6 +3898,7 @@ pub fn delete_files_with_associated(
     }
 
     if files_to_trash.is_empty() {
+        sync_collection_path_changes(&app_handle, None, Some(&deletions), None);
         return Ok(());
     }
 

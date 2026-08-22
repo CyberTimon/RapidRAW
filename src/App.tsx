@@ -68,6 +68,8 @@ import './i18n';
 import {
   Invokes,
   ImageFile,
+  Album,
+  AlbumItem,
   LibraryViewMode,
   Panel,
   PanelRegion,
@@ -372,18 +374,22 @@ function App() {
   const handleLibraryRefresh = useCallback(async () => {
     if (currentFolderPath) {
       if (currentFolderPath.startsWith('Roll: ')) {
-        const { activeRollId, rolls } = useLibraryStore.getState();
+        const { activeRollId, setLibrary } = useLibraryStore.getState();
+        const rolls = await invoke<Roll[]>(Invokes.GetRolls);
+        setLibrary({ rolls });
         const roll = rolls.find((item) => item.id === activeRollId);
         if (roll) await handleSelectRoll(roll, true);
       } else if (currentFolderPath.startsWith('Album: ')) {
-        const { activeAlbumId, albumTree } = useLibraryStore.getState();
+        const { activeAlbumId, setLibrary } = useLibraryStore.getState();
         if (activeAlbumId) {
-          const findObj = (nodes: any[]): any => {
-            for (const n of nodes) {
-              if (n.id === activeAlbumId) return n;
-              if (n.type === 'group') {
-                const f = findObj(n.children);
-                if (f) return f;
+          const albumTree = await invoke<AlbumItem[]>(Invokes.GetAlbums);
+          setLibrary({ albumTree });
+          const findObj = (nodes: AlbumItem[]): Album | null => {
+            for (const node of nodes) {
+              if (node.id === activeAlbumId && node.type === 'album') return node;
+              if (node.type === 'group') {
+                const match = findObj(node.children);
+                if (match) return match;
               }
             }
             return null;

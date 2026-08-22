@@ -775,9 +775,12 @@ export default function FolderTree({
   const showHeaderButtons = isHovering || isSortMenuOpen;
 
   useEffect(() => {
-    Promise.all([invoke<AlbumItem[]>(Invokes.GetAlbums), invoke<Roll[]>(Invokes.GetRolls)]).then(([albumTree, rolls]) =>
-      useLibraryStore.getState().setLibrary({ albumTree, rolls }),
-    );
+    invoke<AlbumItem[]>(Invokes.GetAlbums)
+      .then((albumTree) => useLibraryStore.getState().setLibrary({ albumTree }))
+      .catch((error) => console.error('Failed to load albums:', error));
+    invoke<Roll[]>(Invokes.GetRolls)
+      .then((rolls) => useLibraryStore.getState().setLibrary({ rolls }))
+      .catch((error) => console.error('Failed to load film rolls:', error));
   }, []);
 
   const toggleSection = (section: string) => {

@@ -285,6 +285,20 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
 
     try {
       const updates: any = {};
+      const [albumsResult, rollsResult] = await Promise.allSettled([
+        invoke<AlbumItem[]>(Invokes.GetAlbums),
+        invoke<Roll[]>(Invokes.GetRolls),
+      ]);
+      if (albumsResult.status === 'fulfilled') {
+        setLibrary({ albumTree: albumsResult.value });
+      } else {
+        console.error('Failed to refresh albums:', albumsResult.reason);
+      }
+      if (rollsResult.status === 'fulfilled') {
+        setLibrary({ rolls: rollsResult.value });
+      } else {
+        console.error('Failed to refresh film rolls:', rollsResult.reason);
+      }
 
       if (rootPaths && rootPaths.length > 0) {
         const treesData = await invoke(Invokes.GetPinnedFolderTrees, {
@@ -412,13 +426,14 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
 
   const handleSaveRoll = useCallback(
     async (details: RollDetails) => {
-      const { rolls, activeRollId, setLibrary } = useLibraryStore.getState();
+      const { activeRollId, setLibrary } = useLibraryStore.getState();
       const { rollActionTarget } = useUIStore.getState();
-      const updatedRolls = rollActionTarget
-        ? rolls.map((roll) => (roll.id === rollActionTarget ? { ...roll, ...details } : roll))
-        : [...rolls, { id: crypto.randomUUID(), number: 0, images: [], ...details }];
 
       try {
+        const currentRolls = await invoke<Roll[]>(Invokes.GetRolls);
+        const updatedRolls = rollActionTarget
+          ? currentRolls.map((roll) => (roll.id === rollActionTarget ? { ...roll, ...details } : roll))
+          : [...currentRolls, { id: crypto.randomUUID(), number: 0, images: [], ...details }];
         await invoke(Invokes.SaveRolls, { rolls: updatedRolls });
         const savedRolls = await invoke<Roll[]>(Invokes.GetRolls);
         const activeRoll = savedRolls.find((roll) => roll.id === activeRollId);

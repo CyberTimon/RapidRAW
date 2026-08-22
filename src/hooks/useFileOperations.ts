@@ -69,6 +69,7 @@ export function useFileOperations(
       try {
         const command = options.includeAssociated ? 'delete_files_with_associated' : 'delete_files_from_disk';
         await invoke(command, { paths: pathsToDelete });
+        await refreshAllFolderTrees();
         await refreshImageList();
 
         if (selectedImage && activeView === 'editor') {
@@ -101,7 +102,7 @@ export function useFileOperations(
         toast.error(`Failed to delete files: ${err}`);
       }
     },
-    [refreshImageList, handleBackToLibrary, sortedImageList, handleImageSelect],
+    [refreshImageList, refreshAllFolderTrees, handleBackToLibrary, sortedImageList, handleImageSelect],
   );
 
   const handleDeleteSelected = useCallback(() => {
@@ -230,6 +231,7 @@ export function useFileOperations(
             paths: renameTargetPaths,
           });
 
+          await refreshAllFolderTrees();
           await refreshImageList();
 
           if (selectedImage && renameTargetPaths.includes(selectedImage.path)) {
@@ -257,7 +259,7 @@ export function useFileOperations(
       }
       setUI({ renameTargetPaths: [] });
     },
-    [refreshImageList, handleImageSelect, handleBackToLibrary],
+    [refreshImageList, refreshAllFolderTrees, handleImageSelect, handleBackToLibrary],
   );
 
   const handleRenameFiles = useCallback((paths: Array<string>) => {

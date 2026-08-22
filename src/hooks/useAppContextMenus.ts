@@ -542,12 +542,13 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
 
       const handleRemoveFromRoll = async () => {
         if (!activeRollId) return;
-        const updated = rolls.map((roll) =>
-          roll.id === activeRollId
-            ? { ...roll, images: roll.images.filter((path) => !finalSelection.includes(path)) }
-            : roll,
-        );
         try {
+          const currentRolls = await invoke<Roll[]>(Invokes.GetRolls);
+          const updated = currentRolls.map((roll) =>
+            roll.id === activeRollId
+              ? { ...roll, images: roll.images.filter((path) => !finalSelection.includes(path)) }
+              : roll,
+          );
           await invoke(Invokes.SaveRolls, { rolls: updated });
           const sortedRolls = await invoke<Roll[]>(Invokes.GetRolls);
           setLibrary({
@@ -1359,7 +1360,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       event.preventDefault();
       event.stopPropagation();
       const { setUI } = useUIStore.getState();
-      const { rolls, activeRollId, setLibrary } = useLibraryStore.getState();
+      const { activeRollId, setLibrary } = useLibraryStore.getState();
       const options: Option[] = [
         {
           label: t('contextMenus.rolls.newRoll'),
@@ -1386,7 +1387,8 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
                     isDestructive: true,
                     onClick: async () => {
                       try {
-                        const updated = rolls.filter((item) => item.id !== roll.id);
+                        const currentRolls = await invoke<Roll[]>(Invokes.GetRolls);
+                        const updated = currentRolls.filter((item) => item.id !== roll.id);
                         await invoke(Invokes.SaveRolls, { rolls: updated });
                         setLibrary({
                           rolls: await invoke<Roll[]>(Invokes.GetRolls),
