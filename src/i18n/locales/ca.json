@@ -223,7 +223,10 @@
     "library": {
       "addCopiedToAlbum_one": "Afegir imatge copiada a l'àlbum",
       "addCopiedToAlbum_other": "Afegir {{count}} imatges copiades a l'àlbum",
-      "refreshView": "Actualitzar vista"
+      "refreshView": "Actualitzar vista",
+      "addCopiedToRoll_one": "Afegeix la imatge copiada al carret",
+      "addCopiedToRoll_other": "Afegeix {{count}} imatges copiades al carret",
+      "addCopiedToRoll_many": "Afegeix {{count}} imatges copiades al carret"
     },
     "merge": {
       "focusStack": "Apilament d'enfocament",
@@ -270,7 +273,12 @@
       "resetAdjustments_one": "Restablir ajustaments",
       "resetAdjustments_other": "Restablir ajustaments a {{count}} imatges",
       "showExplorer": "Mostrar a l'Explorador de fitxers",
-      "virtualCopy": "Còpia virtual"
+      "virtualCopy": "Còpia virtual",
+      "addToRoll": "Afegeix al carret",
+      "noRolls": "No hi ha carrets disponibles",
+      "removeFromRoll_one": "Treu del carret",
+      "removeFromRoll_other": "Treu {{count}} imatges del carret",
+      "removeFromRoll_many": "Treu {{count}} imatges del carret"
     },
     "toasts": {
       "couldNotShowExplorer": "No s'ha pogut mostrar el fitxer a l'explorador: {{err}}",
@@ -286,7 +294,20 @@
       "failedMove": "No s'han pogut moure els fitxers: {{err}}",
       "failedMoveError": "No s'ha pogut moure: {{err}}",
       "failedMoveInvalid": "No s'ha pogut moure: el grup de destinació no s'ha trobat o no és vàlid.",
-      "failedRemoveImages": "No s'han pogut treure les imatges: {{err}}"
+      "failedRemoveImages": "No s'han pogut treure les imatges: {{err}}",
+      "failedAddToRoll": "No s’ha pogut afegir al carret: {{err}}",
+      "failedDeleteRoll": "No s’ha pogut suprimir el carret: {{err}}",
+      "failedRemoveFromRoll": "No s’ha pogut treure del carret: {{err}}",
+      "failedSaveRoll": "No s’ha pogut desar el carret: {{err}}",
+      "failedLoadRoll": "No s’ha pogut carregar el carret: {{err}}"
+    },
+    "rolls": {
+      "confirmDelete_one": "Suprimeix el carret amb {{count}} foto",
+      "confirmDelete_other": "Suprimeix el carret amb {{count}} fotos",
+      "deleteRoll": "Suprimeix el carret",
+      "editRoll": "Edita el carret",
+      "newRoll": "Carret nou",
+      "confirmDelete_many": "Suprimeix el carret amb {{count}} fotos"
     }
   },
   "editor": {
@@ -914,7 +935,8 @@
       "sections": {
         "albums": "Àlbums",
         "folders": "Carpetes",
-        "pinned": "Fixades"
+        "pinned": "Fixades",
+        "rolls": "Carrets"
       },
       "sort": {
         "created": "Data de creació",
@@ -928,7 +950,8 @@
         "collapse": "Contraure",
         "expand": "Expandir",
         "sortFolders": "Ordenar carpetes"
-      }
+      },
+      "rollsEmpty": "Feu clic amb el botó dret per crear un carret."
     },
     "grid": {
       "columns": {
@@ -1406,6 +1429,16 @@
       "yAxis": "Eix Y",
       "zoomInTooltip": "Apropar",
       "zoomOutTooltip": "Allunyar"
+    },
+    "roll": {
+      "camera": "Càmera",
+      "cameraPlaceholder": "p. ex. Nikon F3",
+      "editTitle": "Edita el carret",
+      "filmStock": "Pel·lícula",
+      "filmStockPlaceholder": "p. ex. Kodak Portra 400",
+      "finishedOn": "Acabat el",
+      "loadedOn": "Carregat el",
+      "newTitle": "Carret nou"
     }
   },
   "settings": {

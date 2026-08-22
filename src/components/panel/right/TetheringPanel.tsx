@@ -42,6 +42,7 @@ import CompositionOverlays from '../editor/overlays/CompositionOverlays';
 import type { OverlayMode } from '../right/CropPanel';
 import { IconAperture, IconShutter, IconIso } from '../editor/ExifIcons';
 import { useTetheringStore, CameraSetting } from '../../../store/useTetheringStore';
+import { isCollectionPath } from '../../../utils/collections';
 
 const iconProps = {
   width: 14,
@@ -391,7 +392,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
   };
 
   const captureImage = async () => {
-    if (!currentFolderPath || currentFolderPath.startsWith('Album: ')) {
+    if (!currentFolderPath || isCollectionPath(currentFolderPath)) {
       toast.warn(t('tethering.toasts.selectFolderFirst'));
       return;
     }

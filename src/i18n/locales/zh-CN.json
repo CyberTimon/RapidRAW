@@ -223,7 +223,8 @@
     "library": {
       "addCopiedToAlbum_one": "将复制的图像添加到相册",
       "addCopiedToAlbum_other": "将 {{count}} 张复制的图像添加到相册",
-      "refreshView": "刷新视图"
+      "refreshView": "刷新视图",
+      "addCopiedToRoll_other": "将 {{count}} 张复制的图像添加到胶卷"
     },
     "merge": {
       "focusStack": "焦距合成",
@@ -270,7 +271,10 @@
       "resetAdjustments_one": "重置调整",
       "resetAdjustments_other": "重置 {{count}} 张图像的调整",
       "showExplorer": "在文件资源管理器中显示",
-      "virtualCopy": "虚拟副本"
+      "virtualCopy": "虚拟副本",
+      "addToRoll": "添加到胶卷",
+      "noRolls": "没有可用的胶卷",
+      "removeFromRoll_other": "从胶卷中移除 {{count}} 张图像"
     },
     "toasts": {
       "couldNotShowExplorer": "无法在文件资源管理器中显示文件：{{err}}",
@@ -286,7 +290,18 @@
       "failedMove": "移动文件失败：{{err}}",
       "failedMoveError": "移动失败：{{err}}",
       "failedMoveInvalid": "移动失败：未找到目标组或目标组无效。",
-      "failedRemoveImages": "移除图像失败：{{err}}"
+      "failedRemoveImages": "移除图像失败：{{err}}",
+      "failedAddToRoll": "添加到胶卷失败：{{err}}",
+      "failedDeleteRoll": "删除胶卷失败：{{err}}",
+      "failedRemoveFromRoll": "从胶卷中移除失败：{{err}}",
+      "failedSaveRoll": "保存胶卷失败：{{err}}",
+      "failedLoadRoll": "加载胶卷失败：{{err}}"
+    },
+    "rolls": {
+      "confirmDelete_other": "删除包含 {{count}} 张照片的胶卷",
+      "deleteRoll": "删除胶卷",
+      "editRoll": "编辑胶卷",
+      "newRoll": "新建胶卷"
     }
   },
   "editor": {
@@ -912,7 +927,8 @@
       "sections": {
         "albums": "相册",
         "folders": "文件夹",
-        "pinned": "已固定"
+        "pinned": "已固定",
+        "rolls": "胶卷"
       },
       "sort": {
         "created": "创建日期",
@@ -926,7 +942,8 @@
         "collapse": "折叠",
         "expand": "展开",
         "sortFolders": "对文件夹排序"
-      }
+      },
+      "rollsEmpty": "右键单击以创建胶卷。"
     },
     "grid": {
       "columns": {
@@ -1404,6 +1421,16 @@
       "yAxis": "Y 轴",
       "zoomInTooltip": "放大",
       "zoomOutTooltip": "缩小"
+    },
+    "roll": {
+      "camera": "相机",
+      "cameraPlaceholder": "例如 Nikon F3",
+      "editTitle": "编辑胶卷",
+      "filmStock": "胶片型号",
+      "filmStockPlaceholder": "例如 Kodak Portra 400",
+      "finishedOn": "拍完日期",
+      "loadedOn": "装片日期",
+      "newTitle": "新建胶卷"
     }
   },
   "settings": {

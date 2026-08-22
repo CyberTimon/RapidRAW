@@ -223,7 +223,9 @@
     "library": {
       "addCopiedToAlbum_one": "Kopiertes Bild zum Album hinzufügen",
       "addCopiedToAlbum_other": "{{count}} kopierte Bilder zum Album hinzufügen",
-      "refreshView": "Ansicht aktualisieren"
+      "refreshView": "Ansicht aktualisieren",
+      "addCopiedToRoll_one": "Kopiertes Bild zur Filmrolle hinzufügen",
+      "addCopiedToRoll_other": "{{count}} kopierte Bilder zur Filmrolle hinzufügen"
     },
     "merge": {
       "focusStack": "Fokus-Stacking",
@@ -270,7 +272,11 @@
       "resetAdjustments_one": "Einstellungen zurücksetzen",
       "resetAdjustments_other": "Einstellungen bei {{count}} Bildern zurücksetzen",
       "showExplorer": "Im Explorer anzeigen",
-      "virtualCopy": "Virtuelle Kopie"
+      "virtualCopy": "Virtuelle Kopie",
+      "addToRoll": "Zur Filmrolle hinzufügen",
+      "noRolls": "Keine Filmrollen verfügbar",
+      "removeFromRoll_one": "Aus Filmrolle entfernen",
+      "removeFromRoll_other": "{{count}} Bilder aus Filmrolle entfernen"
     },
     "toasts": {
       "couldNotShowExplorer": "Datei konnte nicht im Explorer angezeigt werden: {{err}}",
@@ -286,7 +292,19 @@
       "failedMove": "Dateien verschieben fehlgeschlagen: {{err}}",
       "failedMoveError": "Verschieben fehlgeschlagen: {{err}}",
       "failedMoveInvalid": "Verschieben fehlgeschlagen: Zielgruppe nicht gefunden oder ungültig.",
-      "failedRemoveImages": "Bilder entfernen fehlgeschlagen: {{err}}"
+      "failedRemoveImages": "Bilder entfernen fehlgeschlagen: {{err}}",
+      "failedAddToRoll": "Hinzufügen zur Filmrolle fehlgeschlagen: {{err}}",
+      "failedDeleteRoll": "Löschen der Filmrolle fehlgeschlagen: {{err}}",
+      "failedRemoveFromRoll": "Entfernen aus Filmrolle fehlgeschlagen: {{err}}",
+      "failedSaveRoll": "Speichern der Filmrolle fehlgeschlagen: {{err}}",
+      "failedLoadRoll": "Laden der Filmrolle fehlgeschlagen: {{err}}"
+    },
+    "rolls": {
+      "confirmDelete_one": "Filmrolle mit {{count}} Foto löschen",
+      "confirmDelete_other": "Filmrolle mit {{count}} Fotos löschen",
+      "deleteRoll": "Filmrolle löschen",
+      "editRoll": "Filmrolle bearbeiten",
+      "newRoll": "Neue Filmrolle"
     }
   },
   "editor": {
@@ -914,7 +932,8 @@
       "sections": {
         "albums": "Alben",
         "folders": "Ordner",
-        "pinned": "Angeheftet"
+        "pinned": "Angeheftet",
+        "rolls": "Filmrollen"
       },
       "sort": {
         "created": "Erstellungsdatum",
@@ -928,7 +947,8 @@
         "collapse": "Zuklappen",
         "expand": "Aufklappen",
         "sortFolders": "Ordner sortieren"
-      }
+      },
+      "rollsEmpty": "Mit Rechtsklick eine Filmrolle erstellen."
     },
     "grid": {
       "columns": {
@@ -1406,6 +1426,16 @@
       "yAxis": "Y-Achse",
       "zoomInTooltip": "Vergrößern",
       "zoomOutTooltip": "Verkleinern"
+    },
+    "roll": {
+      "camera": "Kamera",
+      "cameraPlaceholder": "z. B. Nikon F3",
+      "editTitle": "Filmrolle bearbeiten",
+      "filmStock": "Filmtyp",
+      "filmStockPlaceholder": "z. B. Kodak Portra 400",
+      "finishedOn": "Beendet am",
+      "loadedOn": "Eingelegt am",
+      "newTitle": "Neue Filmrolle"
     }
   },
   "settings": {

@@ -223,7 +223,9 @@
     "library": {
       "addCopiedToAlbum_one": "Add copied image to album",
       "addCopiedToAlbum_other": "Add {{count}} copied images to album",
-      "refreshView": "Refresh View"
+      "refreshView": "Refresh View",
+      "addCopiedToRoll_one": "Add copied image to roll",
+      "addCopiedToRoll_other": "Add {{count}} copied images to roll"
     },
     "merge": {
       "focusStack": "Focus Stacking",
@@ -270,7 +272,11 @@
       "resetAdjustments_one": "Reset Adjustments",
       "resetAdjustments_other": "Reset Adjustments on {{count}} Images",
       "showExplorer": "Show in File Explorer",
-      "virtualCopy": "Virtual Copy"
+      "virtualCopy": "Virtual Copy",
+      "addToRoll": "Add to Roll",
+      "noRolls": "No Rolls Available",
+      "removeFromRoll_one": "Remove from Roll",
+      "removeFromRoll_other": "Remove {{count}} Images from Roll"
     },
     "toasts": {
       "couldNotShowExplorer": "Could not show file in explorer: {{err}}",
@@ -286,7 +292,19 @@
       "failedMove": "Failed to move files: {{err}}",
       "failedMoveError": "Failed to move: {{err}}",
       "failedMoveInvalid": "Failed to move: Target group not found or invalid.",
-      "failedRemoveImages": "Failed to remove images: {{err}}"
+      "failedRemoveImages": "Failed to remove images: {{err}}",
+      "failedAddToRoll": "Failed to add to roll: {{err}}",
+      "failedDeleteRoll": "Failed to delete roll: {{err}}",
+      "failedRemoveFromRoll": "Failed to remove from roll: {{err}}",
+      "failedSaveRoll": "Failed to save roll: {{err}}",
+      "failedLoadRoll": "Failed to load roll: {{err}}"
+    },
+    "rolls": {
+      "confirmDelete_one": "Delete roll with {{count}} photo",
+      "confirmDelete_other": "Delete roll with {{count}} photos",
+      "deleteRoll": "Delete Roll",
+      "editRoll": "Edit Roll",
+      "newRoll": "New Roll"
     }
   },
   "editor": {
@@ -914,7 +932,8 @@
       "sections": {
         "albums": "Albums",
         "folders": "Folders",
-        "pinned": "Pinned"
+        "pinned": "Pinned",
+        "rolls": "Rolls"
       },
       "sort": {
         "created": "Date Created",
@@ -928,7 +947,8 @@
         "collapse": "Collapse",
         "expand": "Expand",
         "sortFolders": "Sort Folders"
-      }
+      },
+      "rollsEmpty": "Right-click to create a film roll."
     },
     "grid": {
       "columns": {
@@ -1406,6 +1426,16 @@
       "yAxis": "Y Axis",
       "zoomInTooltip": "Zoom In",
       "zoomOutTooltip": "Zoom Out"
+    },
+    "roll": {
+      "camera": "Camera",
+      "cameraPlaceholder": "e.g. Nikon F3",
+      "editTitle": "Edit Roll",
+      "filmStock": "Film Stock",
+      "filmStockPlaceholder": "e.g. Kodak Portra 400",
+      "finishedOn": "Finished On",
+      "loadedOn": "Loaded On",
+      "newTitle": "New Roll"
     }
   },
   "settings": {

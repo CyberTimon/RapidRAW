@@ -36,7 +36,9 @@ import { useShallow } from 'zustand/react/shallow';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
-import { AlbumItem, AlbumGroup, Album, Roll, Invokes, FolderTreeSort, SortDirection } from '../../ui/AppProperties';
+import { Invokes, SortDirection } from '../../ui/AppProperties';
+import type { AlbumItem, AlbumGroup, Album, Roll, FolderTreeSort } from '../../ui/AppProperties';
+import { getRollTitle } from '../../../utils/collections';
 
 export interface FolderTree {
   children: FolderTree[];
@@ -53,7 +55,7 @@ interface FolderTreeProps {
   isResizing: boolean;
   onContextMenu(event: any, path: string | null, isPinned?: boolean): void;
   onAlbumContextMenu(event: any, item: AlbumItem | null): void;
-  onRollContextMenu(event: any, roll: Roll | null): void;
+  onRollContextMenu(event: React.MouseEvent, roll: Roll | null): void;
   onFolderSelect(folder: string): void;
   onSelectAlbum(albumId: string, albumName: string, images: string[]): void;
   onSelectRoll(roll: Roll): void;
@@ -475,17 +477,18 @@ function RollTreeNode({
   roll: Roll;
   selected: boolean;
   onSelect: (roll: Roll) => void;
-  onContextMenu: (event: any, roll: Roll) => void;
+  onContextMenu: (event: React.MouseEvent, roll: Roll) => void;
   showImageCounts: boolean;
   isLayoutDragging: boolean;
 }) {
+  const { t } = useTranslation();
   const { setNodeRef, isOver, active } = useDroppable({
     id: `roll-${roll.id}`,
     data: { type: 'roll', id: roll.id },
     disabled: isLayoutDragging,
   });
   const isDropTarget = isOver && active?.data?.current?.type === 'library-image';
-  const label = `${roll.loadedOn} · ${roll.camera} · ${roll.filmStock}`;
+  const label = getRollTitle(roll);
   return (
     <Text as="div" color={TextColors.primary} weight={TextWeights.medium}>
       <div
@@ -497,7 +500,7 @@ function RollTreeNode({
         })}
         onClick={() => onSelect(roll)}
         onContextMenu={(event) => onContextMenu(event, roll)}
-        data-tooltip={`${label}\n${roll.loadedOn}${roll.finishedOn ? ` – ${roll.finishedOn}` : ' – loaded'}`}
+        data-tooltip={roll.finishedOn ? `${label}\n${t('modals.roll.finishedOn')}: ${roll.finishedOn}` : label}
       >
         <div className="w-5 h-5 flex items-center justify-center text-text-secondary shrink-0">
           {isDropTarget ? <MoveRight size={16} /> : <Film size={16} />}
@@ -772,8 +775,8 @@ export default function FolderTree({
   const showHeaderButtons = isHovering || isSortMenuOpen;
 
   useEffect(() => {
-    Promise.all([invoke(Invokes.GetAlbums), invoke(Invokes.GetRolls)]).then(([albumTree, rolls]) =>
-      useLibraryStore.getState().setLibrary({ albumTree: albumTree as AlbumItem[], rolls: rolls as Roll[] }),
+    Promise.all([invoke<AlbumItem[]>(Invokes.GetAlbums), invoke<Roll[]>(Invokes.GetRolls)]).then(([albumTree, rolls]) =>
+      useLibraryStore.getState().setLibrary({ albumTree, rolls }),
     );
   }, []);
 
@@ -869,7 +872,7 @@ export default function FolderTree({
       const hasAlbumResults = filteredAlbumTree && filteredAlbumTree.length > 0;
       const hasRollResults = filteredRolls.length > 0;
 
-      let newSections = [...openSections];
+      const newSections = [...openSections];
       let changed = false;
 
       if (hasPinnedResults && !newSections.includes('pinned')) {
@@ -1105,7 +1108,11 @@ export default function FolderTree({
 
             {showRollsSection && (
               <>
-                <SectionHeader title="Rolls" isOpen={isRollsOpen} onToggle={() => toggleSection('rolls')} />
+                <SectionHeader
+                  title={t('library.folders.sections.rolls')}
+                  isOpen={isRollsOpen}
+                  onToggle={() => toggleSection('rolls')}
+                />
                 <AnimatePresence>
                   {isRollsOpen && (
                     <motion.div
@@ -1132,7 +1139,7 @@ export default function FolderTree({
                       ))}
                       {rolls.length === 0 && !isSearching && (
                         <Text variant={TextVariants.small} className="p-2 text-center">
-                          Right-click to create a film roll
+                          {t('library.folders.rollsEmpty')}
                         </Text>
                       )}
                     </motion.div>

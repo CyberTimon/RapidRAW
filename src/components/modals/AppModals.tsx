@@ -18,9 +18,10 @@ import ConfirmModal from './ConfirmModal';
 import ImportSettingsModal from './ImportSettingsModal';
 import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
-import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup, Roll } from '../ui/AppProperties';
+import type { AppSettings, AlbumItem, AlbumGroup } from '../ui/AppProperties';
 import RollModal from './RollModal';
-import { CopyPasteSettings } from '../../utils/adjustments';
+import type { CopyPasteSettings } from '../../utils/adjustments';
+import type { RollDetails } from '../../utils/collections';
 
 export interface AppModalsProps {
   handleImageSelect: (path: string) => void;
@@ -44,7 +45,7 @@ export interface AppModalsProps {
   handleSaveCollage: (base64Data: string, firstPath: string) => Promise<string>;
   handleCreateAlbumItem: (name: string, type: 'album' | 'group') => Promise<void>;
   handleRenameAlbumItem: (newName: string) => Promise<void>;
-  handleSaveRoll: (details: Omit<Roll, 'id' | 'images'>) => Promise<void>;
+  handleSaveRoll: (details: RollDetails) => Promise<void>;
 }
 
 export default function AppModals(props: AppModalsProps) {

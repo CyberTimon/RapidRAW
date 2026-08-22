@@ -8,6 +8,7 @@ import { useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Invokes } from '../components/ui/AppProperties';
+import type { AlbumItem, Roll } from '../components/ui/AppProperties';
 import { Status } from '../components/ui/ExportImportProperties';
 
 export function useFileOperations(
@@ -378,12 +379,18 @@ export function useFileOperations(
   const handlePasteFiles = useCallback(
     async (mode = 'copy') => {
       const { copiedFilePaths, setProcess } = useProcessStore.getState();
-      const { currentFolderPath, setLibrary } = useLibraryStore.getState();
+      const { currentFolderPath, activeAlbumId, activeRollId, setLibrary } = useLibraryStore.getState();
 
       if (copiedFilePaths.length === 0 || !currentFolderPath) return;
 
       try {
-        if (mode === 'copy') {
+        if (activeRollId) {
+          await invoke(Invokes.AddToRoll, { rollId: activeRollId, paths: copiedFilePaths });
+          setLibrary({ rolls: await invoke<Roll[]>(Invokes.GetRolls) });
+        } else if (activeAlbumId) {
+          await invoke(Invokes.AddToAlbum, { albumId: activeAlbumId, paths: copiedFilePaths });
+          setLibrary({ albumTree: await invoke<AlbumItem[]>(Invokes.GetAlbums) });
+        } else if (mode === 'copy') {
           await invoke(Invokes.CopyFiles, { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
         } else {
           await invoke(Invokes.MoveFiles, { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });

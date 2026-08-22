@@ -227,7 +227,10 @@
       "addCopiedToAlbum_many": "Ajouter {{count}} images copiées à l'album",
       "addCopiedToAlbum_one": "Ajouter l'image copiée à l'album",
       "addCopiedToAlbum_other": "Ajouter {{count}} images copiées à l'album",
-      "refreshView": "Actualiser l'affichage"
+      "refreshView": "Actualiser l'affichage",
+      "addCopiedToRoll_one": "Ajouter l’image copiée à la pellicule",
+      "addCopiedToRoll_many": "Ajouter {{count}} images copiées à la pellicule",
+      "addCopiedToRoll_other": "Ajouter {{count}} images copiées à la pellicule"
     },
     "merge": {
       "focusStack": "Empilement de mise au point",
@@ -286,7 +289,12 @@
       "resetAdjustments_one": "Réinitialiser les ajustements",
       "resetAdjustments_other": "Réinitialiser les ajustements sur {{count}} images",
       "showExplorer": "Afficher dans l'explorateur",
-      "virtualCopy": "Copie virtuelle"
+      "virtualCopy": "Copie virtuelle",
+      "addToRoll": "Ajouter à la pellicule",
+      "noRolls": "Aucune pellicule disponible",
+      "removeFromRoll_one": "Retirer de la pellicule",
+      "removeFromRoll_many": "Retirer {{count}} images de la pellicule",
+      "removeFromRoll_other": "Retirer {{count}} images de la pellicule"
     },
     "toasts": {
       "couldNotShowExplorer": "Impossible d'afficher le fichier dans l'explorateur : {{err}}",
@@ -302,7 +310,20 @@
       "failedMove": "Échec du déplacement des fichiers : {{err}}",
       "failedMoveError": "Échec du déplacement : {{err}}",
       "failedMoveInvalid": "Échec du déplacement : Groupe cible introuvable ou invalide.",
-      "failedRemoveImages": "Échec de la suppression des images : {{err}}"
+      "failedRemoveImages": "Échec de la suppression des images : {{err}}",
+      "failedAddToRoll": "Échec de l’ajout à la pellicule : {{err}}",
+      "failedDeleteRoll": "Échec de la suppression de la pellicule : {{err}}",
+      "failedRemoveFromRoll": "Échec du retrait de la pellicule : {{err}}",
+      "failedSaveRoll": "Échec de l’enregistrement de la pellicule : {{err}}",
+      "failedLoadRoll": "Échec du chargement de la pellicule : {{err}}"
+    },
+    "rolls": {
+      "confirmDelete_one": "Supprimer la pellicule contenant {{count}} photo",
+      "confirmDelete_many": "Supprimer la pellicule contenant {{count}} photos",
+      "confirmDelete_other": "Supprimer la pellicule contenant {{count}} photos",
+      "deleteRoll": "Supprimer la pellicule",
+      "editRoll": "Modifier la pellicule",
+      "newRoll": "Nouvelle pellicule"
     }
   },
   "editor": {
@@ -937,7 +958,8 @@
       "sections": {
         "albums": "Albums",
         "folders": "Dossiers",
-        "pinned": "Épinglés"
+        "pinned": "Épinglés",
+        "rolls": "Pellicules"
       },
       "sort": {
         "created": "Date de création",
@@ -951,7 +973,8 @@
         "collapse": "Réduire",
         "expand": "Développer",
         "sortFolders": "Trier les dossiers"
-      }
+      },
+      "rollsEmpty": "Faites un clic droit pour créer une pellicule."
     },
     "grid": {
       "columns": {
@@ -1436,6 +1459,16 @@
       "yAxis": "Axe Y",
       "zoomInTooltip": "Zoom avant",
       "zoomOutTooltip": "Zoom arrière"
+    },
+    "roll": {
+      "camera": "Appareil photo",
+      "cameraPlaceholder": "p. ex. Nikon F3",
+      "editTitle": "Modifier la pellicule",
+      "filmStock": "Type de pellicule",
+      "filmStockPlaceholder": "p. ex. Kodak Portra 400",
+      "finishedOn": "Terminée le",
+      "loadedOn": "Chargée le",
+      "newTitle": "Nouvelle pellicule"
     }
   },
   "settings": {

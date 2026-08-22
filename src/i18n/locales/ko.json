@@ -223,7 +223,8 @@
     "library": {
       "addCopiedToAlbum_one": "복사한 이미지를 앨범에 추가",
       "addCopiedToAlbum_other": "복사한 이미지 {{count}}개를 앨범에 추가",
-      "refreshView": "보기 새로고침"
+      "refreshView": "보기 새로고침",
+      "addCopiedToRoll_other": "복사한 이미지 {{count}}장을 필름 롤에 추가"
     },
     "merge": {
       "focusStack": "포커스 스태킹",
@@ -270,7 +271,10 @@
       "resetAdjustments_one": "조정값 초기화",
       "resetAdjustments_other": "이미지 {{count}}개의 조정값 초기화",
       "showExplorer": "파일 탐색기에서 표시",
-      "virtualCopy": "가상 복사본"
+      "virtualCopy": "가상 복사본",
+      "addToRoll": "필름 롤에 추가",
+      "noRolls": "사용 가능한 필름 롤 없음",
+      "removeFromRoll_other": "필름 롤에서 이미지 {{count}}장 제거"
     },
     "toasts": {
       "couldNotShowExplorer": "탐색기에서 파일을 표시할 수 없습니다: {{err}}",
@@ -286,7 +290,18 @@
       "failedMove": "파일을 이동하지 못했습니다: {{err}}",
       "failedMoveError": "이동하지 못했습니다: {{err}}",
       "failedMoveInvalid": "이동하지 못했습니다: 대상 그룹을 찾을 수 없거나 유효하지 않습니다.",
-      "failedRemoveImages": "이미지를 제거하지 못했습니다: {{err}}"
+      "failedRemoveImages": "이미지를 제거하지 못했습니다: {{err}}",
+      "failedAddToRoll": "필름 롤에 추가하지 못했습니다: {{err}}",
+      "failedDeleteRoll": "필름 롤을 삭제하지 못했습니다: {{err}}",
+      "failedRemoveFromRoll": "필름 롤에서 제거하지 못했습니다: {{err}}",
+      "failedSaveRoll": "필름 롤을 저장하지 못했습니다: {{err}}",
+      "failedLoadRoll": "필름 롤을 불러오지 못했습니다: {{err}}"
+    },
+    "rolls": {
+      "confirmDelete_other": "사진 {{count}}장이 있는 필름 롤 삭제",
+      "deleteRoll": "필름 롤 삭제",
+      "editRoll": "필름 롤 편집",
+      "newRoll": "새 필름 롤"
     }
   },
   "editor": {
@@ -912,7 +927,8 @@
       "sections": {
         "albums": "앨범",
         "folders": "폴더",
-        "pinned": "고정됨"
+        "pinned": "고정됨",
+        "rolls": "필름 롤"
       },
       "sort": {
         "created": "생성일",
@@ -926,7 +942,8 @@
         "collapse": "접기",
         "expand": "펼치기",
         "sortFolders": "폴더 정렬"
-      }
+      },
+      "rollsEmpty": "마우스 오른쪽 버튼을 클릭하여 필름 롤을 만드세요."
     },
     "grid": {
       "columns": {
@@ -1404,6 +1421,16 @@
       "yAxis": "Y축",
       "zoomInTooltip": "확대",
       "zoomOutTooltip": "축소"
+    },
+    "roll": {
+      "camera": "카메라",
+      "cameraPlaceholder": "예: Nikon F3",
+      "editTitle": "필름 롤 편집",
+      "filmStock": "필름 종류",
+      "filmStockPlaceholder": "예: Kodak Portra 400",
+      "finishedOn": "촬영 완료일",
+      "loadedOn": "장전일",
+      "newTitle": "새 필름 롤"
     }
   },
   "settings": {

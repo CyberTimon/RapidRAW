@@ -223,7 +223,8 @@
     "library": {
       "addCopiedToAlbum_one": "コピーした画像をアルバムに追加",
       "addCopiedToAlbum_other": "コピーした {{count}} 枚の画像をアルバムに追加",
-      "refreshView": "表示を更新"
+      "refreshView": "表示を更新",
+      "addCopiedToRoll_other": "コピーした{{count}}枚の画像をフィルムロールに追加"
     },
     "merge": {
       "focusStack": "フォーカススタッキング",
@@ -270,7 +271,10 @@
       "resetAdjustments_one": "補正設定をリセット",
       "resetAdjustments_other": "{{count}} 枚の画像の補正設定をリセット",
       "showExplorer": "エクスプローラーで表示",
-      "virtualCopy": "仮想コピー"
+      "virtualCopy": "仮想コピー",
+      "addToRoll": "フィルムロールに追加",
+      "noRolls": "利用可能なフィルムロールはありません",
+      "removeFromRoll_other": "フィルムロールから{{count}}枚の画像を削除"
     },
     "toasts": {
       "couldNotShowExplorer": "エクスプローラーでファイルを表示できませんでした: {{err}}",
@@ -286,7 +290,18 @@
       "failedMove": "ファイルの移動に失敗しました: {{err}}",
       "failedMoveError": "移動に失敗しました: {{err}}",
       "failedMoveInvalid": "移動に失敗しました: 対象グループが見つからないか無効です。",
-      "failedRemoveImages": "画像の削除に失敗しました: {{err}}"
+      "failedRemoveImages": "画像の削除に失敗しました: {{err}}",
+      "failedAddToRoll": "フィルムロールへの追加に失敗しました：{{err}}",
+      "failedDeleteRoll": "フィルムロールの削除に失敗しました：{{err}}",
+      "failedRemoveFromRoll": "フィルムロールからの削除に失敗しました：{{err}}",
+      "failedSaveRoll": "フィルムロールの保存に失敗しました：{{err}}",
+      "failedLoadRoll": "フィルムロールの読み込みに失敗しました：{{err}}"
+    },
+    "rolls": {
+      "confirmDelete_other": "{{count}}枚の写真を含むフィルムロールを削除",
+      "deleteRoll": "フィルムロールを削除",
+      "editRoll": "フィルムロールを編集",
+      "newRoll": "新しいフィルムロール"
     }
   },
   "editor": {
@@ -912,7 +927,8 @@
       "sections": {
         "albums": "アルバム",
         "folders": "フォルダ",
-        "pinned": "ピン留め"
+        "pinned": "ピン留め",
+        "rolls": "フィルムロール"
       },
       "sort": {
         "created": "作成日",
@@ -926,7 +942,8 @@
         "collapse": "折りたたむ",
         "expand": "展開",
         "sortFolders": "フォルダーを並べ替え"
-      }
+      },
+      "rollsEmpty": "右クリックしてフィルムロールを作成します。"
     },
     "grid": {
       "columns": {
@@ -1404,6 +1421,16 @@
       "yAxis": "Y軸",
       "zoomInTooltip": "拡大",
       "zoomOutTooltip": "縮小"
+    },
+    "roll": {
+      "camera": "カメラ",
+      "cameraPlaceholder": "例：Nikon F3",
+      "editTitle": "フィルムロールを編集",
+      "filmStock": "フィルム銘柄",
+      "filmStockPlaceholder": "例：Kodak Portra 400",
+      "finishedOn": "撮影完了日",
+      "loadedOn": "装填日",
+      "newTitle": "新しいフィルムロール"
     }
   },
   "settings": {

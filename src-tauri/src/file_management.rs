@@ -917,7 +917,7 @@ fn sort_and_deduplicate_rolls(rolls: &mut [Roll]) {
             .then_with(|| a.camera.to_lowercase().cmp(&b.camera.to_lowercase()))
     });
 
-    // A scan belongs to one roll only. For legacy duplicate data, keep it on
+    // An image belongs to one roll only. For legacy duplicate data, keep it on
     // the most recently loaded roll.
     let mut assigned_images = HashSet::new();
     for roll in rolls {
@@ -946,6 +946,33 @@ pub fn save_rolls(mut rolls: Vec<Roll>, app_handle: AppHandle) -> Result<(), Str
     fs::write(path, json).map_err(|e| e.to_string())
 }
 
+fn move_images_to_roll(
+    rolls: &mut [Roll],
+    target_roll_id: &str,
+    paths: &[String],
+) -> Result<(), String> {
+    if !rolls.iter().any(|roll| roll.id == target_roll_id) {
+        return Err("Roll not found".to_string());
+    }
+
+    let paths_to_move: HashSet<&str> = paths.iter().map(String::as_str).collect();
+    for roll in rolls.iter_mut() {
+        roll.images
+            .retain(|path| !paths_to_move.contains(path.as_str()));
+    }
+
+    let target_roll = rolls
+        .iter_mut()
+        .find(|roll| roll.id == target_roll_id)
+        .ok_or_else(|| "Roll not found".to_string())?;
+    for path in paths {
+        if !target_roll.images.contains(path) {
+            target_roll.images.push(path.clone());
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn add_to_roll(
     roll_id: String,
@@ -953,26 +980,52 @@ pub fn add_to_roll(
     app_handle: AppHandle,
 ) -> Result<(), String> {
     let mut rolls = get_rolls(app_handle.clone())?;
-    if !rolls.iter().any(|roll| roll.id == roll_id) {
-        return Err("Roll not found".to_string());
-    }
+    move_images_to_roll(&mut rolls, &roll_id, &paths)?;
+    save_rolls(rolls, app_handle)
+}
 
-    let paths_to_move: HashSet<&String> = paths.iter().collect();
-    for roll in &mut rolls {
-        roll.images.retain(|path| !paths_to_move.contains(path));
-    }
+#[cfg(test)]
+mod roll_tests {
+    use super::{Roll, move_images_to_roll, sort_and_deduplicate_rolls};
 
-    let target_roll = rolls
-        .iter_mut()
-        .find(|roll| roll.id == roll_id)
-        .ok_or_else(|| "Roll not found".to_string())?;
-    for path in paths {
-        if !target_roll.images.contains(&path) {
-            target_roll.images.push(path);
+    fn roll(id: &str, loaded_on: &str, images: &[&str]) -> Roll {
+        Roll {
+            id: id.to_string(),
+            camera: "Camera".to_string(),
+            film_stock: "Film".to_string(),
+            loaded_on: loaded_on.to_string(),
+            finished_on: None,
+            images: images.iter().map(|path| path.to_string()).collect(),
         }
     }
 
-    save_rolls(rolls, app_handle)
+    #[test]
+    fn moving_images_removes_them_from_other_rolls() {
+        let mut rolls = vec![
+            roll("old", "2024-01-01", &["one.jpg", "two.jpg"]),
+            roll("new", "2024-02-01", &["three.jpg"]),
+        ];
+        let paths = vec!["one.jpg".to_string(), "three.jpg".to_string()];
+
+        move_images_to_roll(&mut rolls, "new", &paths).unwrap();
+
+        assert_eq!(rolls[0].images, vec!["two.jpg"]);
+        assert_eq!(rolls[1].images, vec!["one.jpg", "three.jpg"]);
+    }
+
+    #[test]
+    fn sorting_legacy_data_keeps_duplicate_on_newest_roll() {
+        let mut rolls = vec![
+            roll("old", "2024-01-01", &["image.jpg"]),
+            roll("new", "2024-02-01", &["image.jpg"]),
+        ];
+
+        sort_and_deduplicate_rolls(&mut rolls);
+
+        assert_eq!(rolls[0].id, "new");
+        assert_eq!(rolls[0].images, vec!["image.jpg"]);
+        assert!(rolls[1].images.is_empty());
+    }
 }
 
 #[tauri::command]
@@ -1012,7 +1065,7 @@ pub fn add_to_album(
     Ok(())
 }
 
-fn sync_album_path_changes(
+fn sync_collection_path_changes(
     app_handle: &AppHandle,
     renames: Option<&HashMap<String, String>>,
     deletions: Option<&HashSet<String>>,
@@ -2316,7 +2369,7 @@ pub fn rename_folder(path: String, new_name: String, app_handle: AppHandle) -> R
         fs::rename(p, &new_path).map_err(|e| e.to_string())?;
 
         let new_folder_str = new_path.to_string_lossy().into_owned();
-        sync_album_path_changes(&app_handle, None, None, Some((&path, &new_folder_str)));
+        sync_collection_path_changes(&app_handle, None, None, Some((&path, &new_folder_str)));
 
         Ok(())
     } else {
@@ -2344,7 +2397,7 @@ pub fn delete_folder(path: String, app_handle: AppHandle) -> Result<(), String> 
 
     let mut deletions = HashSet::new();
     deletions.insert(path);
-    sync_album_path_changes(&app_handle, None, Some(&deletions), None);
+    sync_collection_path_changes(&app_handle, None, Some(&deletions), None);
 
     Ok(())
 }
@@ -2353,6 +2406,7 @@ pub fn delete_folder(path: String, app_handle: AppHandle) -> Result<(), String> 
 pub fn duplicate_file(
     path: String,
     target_album_id: Option<String>,
+    target_roll_id: Option<String>,
     app_handle: AppHandle,
 ) -> Result<String, String> {
     let (source_path, source_sidecar_path) = parse_virtual_path(&path);
@@ -2411,6 +2465,8 @@ pub fn duplicate_file(
 
     if let Some(album_id) = target_album_id {
         let _ = add_to_album(album_id, vec![dest_path_str.clone()], app_handle);
+    } else if let Some(roll_id) = target_roll_id {
+        let _ = add_to_roll(roll_id, vec![dest_path_str.clone()], app_handle);
     }
 
     Ok(dest_path_str)
@@ -2613,7 +2669,7 @@ pub fn move_files(
         }
     }
 
-    sync_album_path_changes(&app_handle, Some(&renames), None, None);
+    sync_collection_path_changes(&app_handle, Some(&renames), None, None);
 
     Ok(())
 }
@@ -3521,7 +3577,7 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
         }
     }
 
-    sync_album_path_changes(&app_handle, None, Some(&deletions), None);
+    sync_collection_path_changes(&app_handle, None, Some(&deletions), None);
 
     Ok(())
 }
@@ -3631,7 +3687,7 @@ pub fn delete_files_with_associated(
         }
     }
 
-    sync_album_path_changes(&app_handle, None, Some(&deletions), None);
+    sync_collection_path_changes(&app_handle, None, Some(&deletions), None);
 
     Ok(())
 }
@@ -4037,7 +4093,7 @@ pub fn rename_files(
         }
     }
 
-    sync_album_path_changes(&app_handle, Some(&renames), None, None);
+    sync_collection_path_changes(&app_handle, Some(&renames), None, None);
 
     Ok(final_new_paths)
 }
@@ -4046,6 +4102,7 @@ pub fn rename_files(
 pub fn create_virtual_copy(
     source_virtual_path: String,
     target_album_id: Option<String>,
+    target_roll_id: Option<String>,
     app_handle: AppHandle,
 ) -> Result<String, String> {
     let (source_path, source_sidecar_path) = parse_virtual_path(&source_virtual_path);
@@ -4066,6 +4123,8 @@ pub fn create_virtual_copy(
 
     if let Some(album_id) = target_album_id {
         let _ = add_to_album(album_id, vec![new_virtual_path.clone()], app_handle);
+    } else if let Some(roll_id) = target_roll_id {
+        let _ = add_to_roll(roll_id, vec![new_virtual_path.clone()], app_handle);
     }
 
     Ok(new_virtual_path)

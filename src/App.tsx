@@ -1,4 +1,5 @@
 import { type PointerEvent as ReactPointerEvent, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -73,7 +74,6 @@ import {
   Theme,
   ThumbnailSize,
   ThumbnailAspectRatio,
-  Roll,
 } from './components/ui/AppProperties';
 
 import ImageProcessingManager from './components/managers/ImageProcessingManager';
@@ -142,6 +142,7 @@ function ImageDragOverlayNode({ activeItem }: { activeItem: { path: string; path
 }
 
 function App() {
+  const { t } = useTranslation();
   const COMPACT_EDITOR_MAX_WIDTH = 900;
   const ANDROID_PHONE_MAX_WIDTH = 600;
 
@@ -338,6 +339,7 @@ function App() {
     handleImageSelect,
     handleSelectSubfolder,
     handleSelectAlbum,
+    handleSelectRoll,
     handleOpenFolder,
     handleContinueSession,
   } = useAppNavigation({
@@ -363,19 +365,6 @@ function App() {
     handleRenameAlbumItem,
     handleSaveRoll,
   } = useLibraryActions(handleImageSelect);
-
-  const handleSelectRoll = useCallback(
-    async (roll: Roll, preserveEditor = false) => {
-      const rollTitle = `${roll.loadedOn} · ${roll.camera} · ${roll.filmStock}`;
-      await handleSelectAlbum(roll.id, rollTitle, roll.images, preserveEditor);
-      useLibraryStore.getState().setLibrary({
-        currentFolderPath: `Roll: ${rollTitle}`,
-        activeAlbumId: null,
-        activeRollId: roll.id,
-      });
-    },
-    [handleSelectAlbum],
-  );
 
   const { displayList: sortedImageList, badges: groupBadgeInfo } = useSortedLibrary();
 
@@ -840,8 +829,8 @@ function App() {
       const sourcePaths = activeImageDragItem?.paths || [active.data.current.path];
 
       invoke(Invokes.AddToRoll, { rollId: targetRollId, paths: sourcePaths })
-        .then(() => invoke(Invokes.GetRolls))
-        .then((rolls: any) => {
+        .then(() => invoke<Roll[]>(Invokes.GetRolls))
+        .then((rolls) => {
           useLibraryStore.getState().setLibrary((state) => {
             const movedFromActiveRoll = !!state.activeRollId && state.activeRollId !== targetRollId;
             return {
@@ -861,7 +850,7 @@ function App() {
             };
           });
         })
-        .catch((err) => toast.error(`Failed to add to roll: ${err}`));
+        .catch((err) => toast.error(t('contextMenus.toasts.failedAddToRoll', { err })));
     }
 
     if (active.data.current?.type === 'library-image' && over?.data.current?.type === 'album') {

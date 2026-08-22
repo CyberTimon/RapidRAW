@@ -1,16 +1,20 @@
 import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
+import { useTranslation } from 'react-i18next';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
-import { Invokes, ImageFile, AlbumItem, Album, AlbumGroup, Roll } from '../components/ui/AppProperties';
+import { Invokes } from '../components/ui/AppProperties';
+import type { ImageFile, AlbumItem, Album, AlbumGroup, Roll } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { computeSortedLibrary } from './useSortedLibrary';
 import { expandGroupedPaths } from '../utils/imageGrouping';
+import { getRollPath, type RollDetails } from '../utils/collections';
 
 export function useLibraryActions(handleImageSelect?: (path: string, openInEditor?: boolean) => void) {
+  const { t } = useTranslation();
   const handleRate = useCallback((newRating: number, paths?: string[]) => {
     const { multiSelectedPaths, imageList, imageRatings, setLibrary } = useLibraryStore.getState();
     const { selectedImage } = useEditorStore.getState();
@@ -406,25 +410,26 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     }
   }, []);
 
-  const handleSaveRoll = useCallback(async (details: Omit<Roll, 'id' | 'images'>) => {
-    const { rolls, activeRollId, setLibrary } = useLibraryStore.getState();
-    const { rollActionTarget } = useUIStore.getState();
-    const updatedRolls = rollActionTarget
-      ? rolls.map((roll) => (roll.id === rollActionTarget ? { ...roll, ...details } : roll))
-      : [...rolls, { id: crypto.randomUUID(), images: [], ...details }];
+  const handleSaveRoll = useCallback(
+    async (details: RollDetails) => {
+      const { rolls, activeRollId, setLibrary } = useLibraryStore.getState();
+      const { rollActionTarget } = useUIStore.getState();
+      const updatedRolls = rollActionTarget
+        ? rolls.map((roll) => (roll.id === rollActionTarget ? { ...roll, ...details } : roll))
+        : [...rolls, { id: crypto.randomUUID(), images: [], ...details }];
 
-    try {
-      await invoke(Invokes.SaveRolls, { rolls: updatedRolls });
-      setLibrary({
-        rolls: await invoke<Roll[]>(Invokes.GetRolls),
-        ...(rollActionTarget === activeRollId
-          ? { currentFolderPath: `Roll: ${details.loadedOn} · ${details.camera} · ${details.filmStock}` }
-          : {}),
-      });
-    } catch (err) {
-      toast.error(`Failed to save roll: ${err}`);
-    }
-  }, []);
+      try {
+        await invoke(Invokes.SaveRolls, { rolls: updatedRolls });
+        setLibrary({
+          rolls: await invoke<Roll[]>(Invokes.GetRolls),
+          ...(rollActionTarget === activeRollId ? { currentFolderPath: getRollPath(details) } : {}),
+        });
+      } catch (err) {
+        toast.error(t('contextMenus.toasts.failedSaveRoll', { err }));
+      }
+    },
+    [t],
+  );
 
   const handleRenameAlbumItem = useCallback(async (newName: string) => {
     const { albumTree, setLibrary } = useLibraryStore.getState();

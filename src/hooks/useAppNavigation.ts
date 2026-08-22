@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { homeDir } from '@tauri-apps/api/path';
@@ -8,10 +9,12 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { Invokes, LibraryViewMode, ImageFile } from '../components/ui/AppProperties';
+import { Invokes, LibraryViewMode } from '../components/ui/AppProperties';
+import type { ImageFile, Roll } from '../components/ui/AppProperties';
 import { INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { debouncedSave, debouncedSetHistory } from './useEditorActions';
+import { getRollTitle } from '../utils/collections';
 
 export interface AppNavigationProps {
   clearThumbnailQueue: () => void;
@@ -29,6 +32,7 @@ export interface AppNavigationProps {
 }
 
 export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationProps) {
+  const { t } = useTranslation();
   const {
     transformWrapperRef,
     preloadedDataRef,
@@ -404,8 +408,14 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     [clearThumbnailQueue, refs],
   );
 
-  const handleSelectAlbum = useCallback(
-    async (albumId: string, albumName: string, imagePaths: string[], preserveEditor = false) => {
+  const handleSelectCollection = useCallback(
+    async (
+      collectionId: string,
+      collectionName: string,
+      imagePaths: string[],
+      collectionType: 'album' | 'roll',
+      preserveEditor = false,
+    ) => {
       const { setLibrary } = useLibraryStore.getState();
       const { setUI } = useUIStore.getState();
 
@@ -417,11 +427,12 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         setUI({ activeView: 'library' });
       }
 
+      const isRoll = collectionType === 'roll';
       setLibrary({
         isViewLoading: true,
-        currentFolderPath: `Album: ${albumName}`,
-        activeAlbumId: albumId,
-        activeRollId: null,
+        currentFolderPath: `${isRoll ? 'Roll' : 'Album'}: ${collectionName}`,
+        activeAlbumId: isRoll ? null : collectionId,
+        activeRollId: isRoll ? collectionId : null,
       });
 
       try {
@@ -438,13 +449,25 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
           ...(preserveEditor ? {} : { multiSelectedPaths: [], libraryActivePath: null }),
         });
       } catch (err) {
-        console.error('Failed to load album images:', err);
-        toast.error(`Failed to load album: ${err}`);
+        console.error(`Failed to load ${collectionType} images:`, err);
+        toast.error(isRoll ? t('contextMenus.toasts.failedLoadRoll', { err }) : `Failed to load album: ${err}`);
       } finally {
         setLibrary({ isViewLoading: false });
       }
     },
-    [clearThumbnailQueue],
+    [clearThumbnailQueue, t],
+  );
+
+  const handleSelectAlbum = useCallback(
+    (albumId: string, albumName: string, imagePaths: string[], preserveEditor = false) =>
+      handleSelectCollection(albumId, albumName, imagePaths, 'album', preserveEditor),
+    [handleSelectCollection],
+  );
+
+  const handleSelectRoll = useCallback(
+    (roll: Roll, preserveEditor = false) =>
+      handleSelectCollection(roll.id, getRollTitle(roll), roll.images, 'roll', preserveEditor),
+    [handleSelectCollection],
   );
 
   const handleOpenFolder = async () => {
@@ -557,13 +580,11 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         const activeRollId = folderState?.activeRollId;
         if (activeRollId) {
           try {
-            const rolls: any[] = await invoke(Invokes.GetRolls);
+            const rolls = await invoke<Roll[]>(Invokes.GetRolls);
             setLibrary({ rolls });
             const roll = rolls.find((item) => item.id === activeRollId);
             if (roll) {
-              const rollTitle = `${roll.loadedOn} · ${roll.camera} · ${roll.filmStock}`;
-              await handleSelectAlbum(roll.id, rollTitle, roll.images);
-              setLibrary({ currentFolderPath: `Roll: ${rollTitle}`, activeAlbumId: null, activeRollId: roll.id });
+              await handleSelectRoll(roll);
             } else {
               await handleSelectSubfolder(rootFolders[0], false, undefined, false);
             }
@@ -624,6 +645,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     handleImageSelect,
     handleSelectSubfolder,
     handleSelectAlbum,
+    handleSelectRoll,
     handleOpenFolder,
     handleContinueSession,
   };

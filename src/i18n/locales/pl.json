@@ -231,7 +231,11 @@
       "addCopiedToAlbum_many": "Dodaj {{count}} skopiowanych obrazów do albumu",
       "addCopiedToAlbum_one": "Dodaj skopiowany obraz do albumu",
       "addCopiedToAlbum_other": "Dodaj {{count}} skopiowanych obrazów do albumu",
-      "refreshView": "Odśwież widok"
+      "refreshView": "Odśwież widok",
+      "addCopiedToRoll_one": "Dodaj skopiowany obraz do rolki",
+      "addCopiedToRoll_few": "Dodaj {{count}} skopiowanych obrazów do rolki",
+      "addCopiedToRoll_many": "Dodaj {{count}} skopiowanych obrazów do rolki",
+      "addCopiedToRoll_other": "Dodaj {{count}} skopiowanych obrazów do rolki"
     },
     "merge": {
       "focusStack": "Stosowanie ostrości (Focus Stacking)",
@@ -302,7 +306,13 @@
       "resetAdjustments_one": "Resetuj ustawienia",
       "resetAdjustments_other": "Resetuj ustawienia w {{count}} obrazach",
       "showExplorer": "Pokaż w eksploratorze plików",
-      "virtualCopy": "Kopia wirtualna"
+      "virtualCopy": "Kopia wirtualna",
+      "addToRoll": "Dodaj do rolki",
+      "noRolls": "Brak dostępnych rolek",
+      "removeFromRoll_one": "Usuń z rolki",
+      "removeFromRoll_few": "Usuń {{count}} obrazów z rolki",
+      "removeFromRoll_many": "Usuń {{count}} obrazów z rolki",
+      "removeFromRoll_other": "Usuń {{count}} obrazów z rolki"
     },
     "toasts": {
       "couldNotShowExplorer": "Nie można pokazać pliku w eksploratorze: {{err}}",
@@ -318,7 +328,21 @@
       "failedMove": "Nie udało się przenieść plików: {{err}}",
       "failedMoveError": "Nie udało się przenieść: {{err}}",
       "failedMoveInvalid": "Nie udało się przenieść: Grupa docelowa nie znaleziona lub nieprawidłowa.",
-      "failedRemoveImages": "Nie udało się usunąć obrazów: {{err}}"
+      "failedRemoveImages": "Nie udało się usunąć obrazów: {{err}}",
+      "failedAddToRoll": "Nie udało się dodać do rolki: {{err}}",
+      "failedDeleteRoll": "Nie udało się usunąć rolki: {{err}}",
+      "failedRemoveFromRoll": "Nie udało się usunąć z rolki: {{err}}",
+      "failedSaveRoll": "Nie udało się zapisać rolki: {{err}}",
+      "failedLoadRoll": "Nie udało się wczytać rolki: {{err}}"
+    },
+    "rolls": {
+      "confirmDelete_one": "Usuń rolkę z {{count}} zdjęciem",
+      "confirmDelete_few": "Usuń rolkę z {{count}} zdjęciami",
+      "confirmDelete_many": "Usuń rolkę z {{count}} zdjęciami",
+      "confirmDelete_other": "Usuń rolkę z {{count}} zdjęciami",
+      "deleteRoll": "Usuń rolkę",
+      "editRoll": "Edytuj rolkę",
+      "newRoll": "Nowa rolka"
     }
   },
   "editor": {
@@ -960,7 +984,8 @@
       "sections": {
         "albums": "Albumy",
         "folders": "Foldery",
-        "pinned": "Przypięte"
+        "pinned": "Przypięte",
+        "rolls": "Rolki"
       },
       "sort": {
         "created": "Data utworzenia",
@@ -974,7 +999,8 @@
         "collapse": "Zwiń",
         "expand": "Rozwiń",
         "sortFolders": "Sortuj foldery"
-      }
+      },
+      "rollsEmpty": "Kliknij prawym przyciskiem, aby utworzyć rolkę filmu."
     },
     "grid": {
       "columns": {
@@ -1468,6 +1494,16 @@
       "yAxis": "Oś Y",
       "zoomInTooltip": "Przybliż",
       "zoomOutTooltip": "Oddal"
+    },
+    "roll": {
+      "camera": "Aparat",
+      "cameraPlaceholder": "np. Nikon F3",
+      "editTitle": "Edytuj rolkę",
+      "filmStock": "Film",
+      "filmStockPlaceholder": "np. Kodak Portra 400",
+      "finishedOn": "Zakończono",
+      "loadedOn": "Załadowano",
+      "newTitle": "Nowa rolka"
     }
   },
   "settings": {
