@@ -83,7 +83,7 @@ use crate::cache_utils::{
     DecodedImageCache, GEOMETRY_KEYS, calculate_full_job_hash, calculate_geometry_hash,
     calculate_transform_hash, calculate_visual_hash,
 };
-use crate::file_management::{parse_virtual_path, read_file_mapped};
+use crate::file_management::{parse_virtual_path, read_file_mapped, try_load_embedded_raw_preview};
 use crate::formats::is_raw_file;
 use crate::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
 use crate::image_loader::{composite_patches_on_image, load_and_composite};
@@ -1243,18 +1243,33 @@ async fn generate_all_community_previews(
     for image_path in image_paths.iter() {
         let (source_path, _) = parse_virtual_path(image_path);
         let source_path_str = source_path.to_string_lossy().to_string();
-        let image_bytes = fs::read(&source_path).map_err(|e| e.to_string())?;
-        let original_image = crate::image_loader::load_base_image_from_bytes(
-            &image_bytes,
-            &source_path_str,
-            true,
-            &settings,
-            None,
-            Some(&app_handle),
-        )
-        .map_err(|e| e.to_string())?;
-
         let is_raw = is_raw_file(&source_path_str);
+
+        // Same trick generate_thumbnail_data uses for unedited RAW library
+        // thumbnails: a preview tile this small doesn't need a full
+        // demosaic, so try the camera's own embedded JPEG preview first —
+        // it's already at least PROCESSING_DIM on its long edge (checked
+        // inside try_load_embedded_raw_preview) and multiple community
+        // presets get applied to this same decoded base, so skipping the
+        // ~500ms/photo RAW decode here pays off once per photo, not once
+        // per preset.
+        let original_image = if is_raw
+            && let Some(preview) = try_load_embedded_raw_preview(&source_path, PROCESSING_DIM)
+        {
+            preview
+        } else {
+            let image_bytes = fs::read(&source_path).map_err(|e| e.to_string())?;
+            crate::image_loader::load_base_image_from_bytes(
+                &image_bytes,
+                &source_path_str,
+                true,
+                &settings,
+                None,
+                Some(&app_handle),
+            )
+            .map_err(|e| e.to_string())?
+        };
+
         let (orig_w, orig_h) = original_image.dimensions();
         let (base_image, base_scale) = if orig_w > PROCESSING_DIM || orig_h > PROCESSING_DIM {
             let downscaled = downscale_f32_image(&original_image, PROCESSING_DIM, PROCESSING_DIM);
