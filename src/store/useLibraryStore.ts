@@ -74,7 +74,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   libraryActivePath: null,
   libraryActiveAdjustments: INITIAL_ADJUSTMENTS,
 
-  sortCriteria: { key: 'name', order: SortDirection.Ascending },
+  sortCriteria: { key: 'date_taken', order: SortDirection.Descending },
   filterCriteria: { colors: [], rating: 0, rawStatus: RawStatus.All },
   searchCriteria: { tags: [], text: '', mode: 'OR' },
 

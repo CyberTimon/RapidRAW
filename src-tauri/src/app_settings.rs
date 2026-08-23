@@ -545,7 +545,10 @@ impl Default for AppSettings {
             use_full_dpi_rendering: Some(false),
             enable_live_previews: Some(true),
             live_preview_quality: Some("performance".to_string()),
-            sort_criteria: None,
+            sort_criteria: Some(SortCriteria {
+                key: "date_taken".to_string(),
+                order: "desc".to_string(),
+            }),
             filter_criteria: None,
             theme: Some("dark".to_string()),
             font_family: None,
