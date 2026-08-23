@@ -177,6 +177,45 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
     generateAllPreviews();
   }, [presets, previewImagePaths]);
 
+  // downloadStatus is local component state, so it forgets everything on
+  // unmount — closing the Community panel and reopening it always
+  // remounts this component, which otherwise showed "Save" again for
+  // presets you'd already saved last time. Cross-reference the manifest
+  // against your actual local presets (save_community_preset stores them
+  // under a "Community" folder, deduplicated by name) once the manifest
+  // loads, so already-saved presets start out marked as saved.
+  useEffect(() => {
+    if (presets.length === 0) return;
+
+    const checkAlreadySaved = async () => {
+      try {
+        const localPresets: any[] = await invoke(Invokes.LoadPresets);
+        const savedNames = new Set<string>();
+        const collectNames = (items: any[]) => {
+          for (const item of items) {
+            if (item.preset?.name) savedNames.add(item.preset.name);
+            if (item.folder?.children) collectNames(item.folder.children);
+          }
+        };
+        collectNames(localPresets);
+
+        setDownloadStatus((prev) => {
+          const next = { ...prev };
+          for (const preset of presets) {
+            if (savedNames.has(preset.name) && !next[preset.name]) {
+              next[preset.name] = 'success';
+            }
+          }
+          return next;
+        });
+      } catch (error) {
+        console.error('Failed to check already-saved community presets:', error);
+      }
+    };
+
+    checkAlreadySaved();
+  }, [presets]);
+
   const handleDownloadPreset = async (preset: CommunityPreset) => {
     setDownloadStatus((prev) => ({ ...prev, [preset.name]: 'downloading' }));
     try {
