@@ -124,6 +124,7 @@ const resolutions: OptionItem<number>[] = [
 ];
 
 const thumbnailResolutions: OptionItem<number>[] = [
+  { value: 240, label: '240px' },
   { value: 360, label: '360px' },
   { value: 640, label: '640px' },
   { value: 720, label: '720px' },
@@ -537,7 +538,7 @@ export default function SettingsPanel({
   const osPlatform = useOsPlatform();
   const [processingSettings, setProcessingSettings] = useState({
     editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
-    thumbnailResolution: appSettings?.thumbnailResolution || 360,
+    thumbnailResolution: appSettings?.thumbnailResolution || 240,
     rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
     processingBackend: appSettings?.processingBackend || 'auto',
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
@@ -645,7 +646,7 @@ export default function SettingsPanel({
     }
     setProcessingSettings({
       editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
-      thumbnailResolution: appSettings?.thumbnailResolution || 360,
+      thumbnailResolution: appSettings?.thumbnailResolution || 240,
       rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
       processingBackend: appSettings?.processingBackend || 'auto',
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,

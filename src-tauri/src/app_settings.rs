@@ -532,11 +532,11 @@ impl Default for AppSettings {
             last_root_path: None,
             root_folders: Vec::new(),
             pinned_folders: Vec::new(),
-            // A typical library-grid tile is 150-400px, so 360 keeps
-            // decode/resize/encode cost far below the previous 640/720
-            // defaults while staying comfortably above what a grid
-            // thumbnail actually needs on screen.
-            thumbnail_resolution: Some(360),
+            // Grid tiles run 160-320px (small/medium/large), so 240 stays
+            // sharp at typical sizes — even with some HiDPI headroom — while
+            // keeping resize/encode cost as low as reasonably possible for a
+            // whole-folder scan.
+            thumbnail_resolution: Some(240),
             #[cfg(target_os = "android")]
             editor_preview_resolution: Some(1280),
             #[cfg(not(target_os = "android"))]

@@ -1996,6 +1996,17 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
         let cache_dir = cache_dir.clone();
 
         std::thread::spawn(move || {
+            // Thumbnail generation is bulk background work, not interactive —
+            // it shouldn't compete on equal footing with the GPU/CPU work the
+            // live editor does in response to a slider drag. Running these
+            // workers at the OS's lowest thread priority lets the scheduler
+            // keep them fully fed when the CPU is otherwise idle (so a whole
+            // folder still finishes fast) while automatically yielding to the
+            // editor's own threads the moment it's actually busy, instead of
+            // fighting it for every timeslice. Best-effort: unsupported
+            // platforms/sandboxes just keep the default priority.
+            let _ = thread_priority::set_current_thread_priority(thread_priority::ThreadPriority::Min);
+
             loop {
                 let path_to_process: String = {
                     let mut queue = manager_clone.queue.lock().unwrap();
