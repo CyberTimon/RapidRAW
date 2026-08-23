@@ -609,7 +609,13 @@ export function ViewOptionsDropdown({
               <Dropdown
                 options={sortOptions.map((opt) => ({ value: opt.key, label: opt.label, disabled: opt.disabled }))}
                 value={sortCriteria.key}
-                onChange={(val) => setSortCriteria((prev: SortCriteria) => ({ ...prev, key: val }))}
+                onChange={(val) =>
+                  setSortCriteria((prev: SortCriteria) => ({
+                    ...prev,
+                    key: val,
+                    order: val === 'date' || val === 'date_taken' ? SortDirection.Descending : prev.order,
+                  }))
+                }
                 triggerClassName="bg-bg-primary w-full"
               />
             </div>

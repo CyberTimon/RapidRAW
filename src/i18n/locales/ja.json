@@ -714,7 +714,10 @@
     "switcher": {
       "tooltips": {
         "adjust": "補正",
+        "colorCurves": "カラーとカーブ",
         "crop": "切り抜き",
+        "details": "ディテール",
+        "effects": "効果",
         "export": "書き出し",
         "info": "情報",
         "inpaint": "インペイント",

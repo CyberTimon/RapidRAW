@@ -18,7 +18,7 @@
         "minWidth": 800,
         "minHeight": 600,
         "transparent": true,
-        "decorations": false
+        "decorations": true
       }
     ],
     "security": {
@@ -26,7 +26,7 @@
       "capabilities": ["default"],
       "assetProtocol": {
         "enable": true,
-        "scope": ["$APPCACHE/thumbnails/*"]
+        "scope": ["$LOCALDATA/RapidRAW/thumbnails/*"]
       }
     },
     "macOSPrivateApi": true
@@ -93,5 +93,5 @@
       }
     }
   },
-  "version": "1.6.2"
+  "version": "1.7.8"
 }

@@ -216,6 +216,7 @@ pub async fn preview_negative_conversion(
                                 false,
                                 &settings,
                                 None,
+                                Some(&app_handle),
                             )
                             .map_err(|e| e.to_string())?,
                             Err(_e) => {
@@ -227,6 +228,7 @@ pub async fn preview_negative_conversion(
                                     false,
                                     &settings,
                                     None,
+                                    Some(&app_handle),
                                 )
                                 .map_err(|e| e.to_string())?
                             }
@@ -243,6 +245,7 @@ pub async fn preview_negative_conversion(
                             false,
                             &settings,
                             None,
+                            Some(&app_handle),
                         )
                         .map_err(|e| e.to_string())?,
                         Err(_e) => {
@@ -254,6 +257,7 @@ pub async fn preview_negative_conversion(
                                 false,
                                 &settings,
                                 None,
+                                Some(&app_handle),
                             )
                             .map_err(|e| e.to_string())?
                         }
@@ -305,10 +309,24 @@ pub async fn convert_negatives(
             let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
             let img = match read_file_mapped(Path::new(&real_path)) {
-                Ok(mmap) => load_base_image_from_bytes(&mmap, &real_path, false, &settings, None),
+                Ok(mmap) => load_base_image_from_bytes(
+                    &mmap,
+                    &real_path,
+                    false,
+                    &settings,
+                    None,
+                    Some(&app_handle),
+                ),
                 Err(_) => {
                     let bytes = fs::read(&real_path).unwrap_or_default();
-                    load_base_image_from_bytes(&bytes, &real_path, false, &settings, None)
+                    load_base_image_from_bytes(
+                        &bytes,
+                        &real_path,
+                        false,
+                        &settings,
+                        None,
+                        Some(&app_handle),
+                    )
                 }
             }
             .map_err(|e| e.to_string())?;
@@ -336,7 +354,8 @@ pub async fn convert_negatives(
                 .save(&out_path)
                 .map_err(|e| format!("Failed to save {}: {}", filename, e))?;
 
-            let _ = crate::exif_processing::write_rrexif_sidecar(&real_path, &out_path);
+            let _ =
+                crate::exif_processing::write_rrexif_sidecar(&app_handle, &real_path, &out_path);
             results.push(out_path.to_string_lossy().to_string());
         }
 

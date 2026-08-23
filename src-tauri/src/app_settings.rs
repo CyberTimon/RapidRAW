@@ -320,35 +320,37 @@ impl Default for WorkspaceState {
         left_top.push("tethering".to_string());
 
         panel_layout.insert("leftTop".to_string(), left_top);
-        panel_layout.insert("leftBottom".to_string(), vec![]);
+        panel_layout.insert("leftBottom".to_string(), vec!["presets".to_string()]);
 
         panel_layout.insert(
             "rightTop".to_string(),
             vec![
                 "adjustments".to_string(),
-                "crop".to_string(),
+                "colorCurves".to_string(),
+                "details".to_string(),
+                "effects".to_string(),
                 "masks".to_string(),
+                "crop".to_string(),
                 "ai".to_string(),
-                "presets".to_string(),
             ],
         );
         panel_layout.insert("rightBottom".to_string(), vec![]);
 
         let mut active_panels = HashMap::new();
         active_panels.insert("leftTop".to_string(), Some("folderTree".to_string()));
-        active_panels.insert("leftBottom".to_string(), None);
-        active_panels.insert("rightTop".to_string(), Some("adjustments".to_string()));
+        active_panels.insert("leftBottom".to_string(), Some("presets".to_string()));
+        active_panels.insert("rightTop".to_string(), Some("details".to_string()));
         active_panels.insert("rightBottom".to_string(), None);
 
         let mut panel_switcher_placement = HashMap::new();
         panel_switcher_placement.insert("leftTop".to_string(), "bottom".to_string());
-        panel_switcher_placement.insert("leftBottom".to_string(), "bottom".to_string());
+        panel_switcher_placement.insert("leftBottom".to_string(), "left".to_string());
         panel_switcher_placement.insert("rightTop".to_string(), "right".to_string());
         panel_switcher_placement.insert("rightBottom".to_string(), "right".to_string());
 
         Self {
-            left_panel_width: 320,
-            right_panel_width: 320,
+            left_panel_width: 393,
+            right_panel_width: 393,
             left_top_height: 450,
             right_top_height: 450,
             panel_layout,
@@ -530,20 +532,27 @@ impl Default for AppSettings {
             last_root_path: None,
             root_folders: Vec::new(),
             pinned_folders: Vec::new(),
-            thumbnail_resolution: Some(720),
+            // Grid tiles run 160-320px (small/medium/large), so 240 stays
+            // sharp at typical sizes — even with some HiDPI headroom — while
+            // keeping resize/encode cost as low as reasonably possible for a
+            // whole-folder scan.
+            thumbnail_resolution: Some(240),
             #[cfg(target_os = "android")]
             editor_preview_resolution: Some(1280),
             #[cfg(not(target_os = "android"))]
-            editor_preview_resolution: Some(1920),
+            editor_preview_resolution: Some(720),
             enable_zoom_hifi: Some(true),
             use_full_dpi_rendering: Some(false),
             enable_live_previews: Some(true),
-            live_preview_quality: Some("high".to_string()),
-            sort_criteria: None,
-            filter_criteria: None,
+            live_preview_quality: Some("performance".to_string()),
+            sort_criteria: Some(SortCriteria {
+                key: "date_taken".to_string(),
+                order: "desc".to_string(),
+            }),
+            filter_criteria: Some(FilterCriteria::default()),
             theme: Some("dark".to_string()),
             font_family: None,
-            decorations: Some(false),
+            decorations: Some(true),
             ai_connector_address: None,
             last_folder_state: None,
             ui_visibility: None,
@@ -555,7 +564,7 @@ impl Default for AppSettings {
             #[cfg(target_os = "android")]
             thumbnail_size: Some("small".to_string()),
             #[cfg(not(target_os = "android"))]
-            thumbnail_size: Some("medium".to_string()),
+            thumbnail_size: Some("small".to_string()),
             thumbnail_aspect_ratio: Some("cover".to_string()),
             ai_provider: Some("cpu".to_string()),
             adjustment_visibility: default_adjustment_visibility(),
@@ -572,7 +581,7 @@ impl Default for AppSettings {
             high_res_zoom_multiplier: Some(0.75),
             #[cfg(not(target_os = "android"))]
             high_res_zoom_multiplier: Some(1.0),
-            enable_folder_image_counts: Some(false),
+            enable_folder_image_counts: Some(true),
             display_edit_icon: Some(true),
             linear_raw_mode: default_linear_raw_mode(),
             enable_xmp_sync: Some(true),
@@ -589,8 +598,18 @@ impl Default for AppSettings {
             keybinds: HashMap::new(),
             #[cfg(target_os = "android")]
             thumbnail_worker_threads: Some(2),
+            // Scales with the machine instead of a flat 4 — same
+            // available_parallelism() pattern export_processing.rs already uses
+            // for its own worker count. Clamped 4-16 (the setting's own max) so
+            // very-low-core machines still get a reasonable floor while
+            // very-high-core ones can actually use all of it by default.
             #[cfg(not(target_os = "android"))]
-            thumbnail_worker_threads: Some(4),
+            thumbnail_worker_threads: Some(
+                std::thread::available_parallelism()
+                    .map(|n| n.get() as u32)
+                    .unwrap_or(4)
+                    .clamp(4, 16),
+            ),
             #[cfg(target_os = "android")]
             image_cache_size: Some(2),
             #[cfg(not(target_os = "android"))]
@@ -619,10 +638,7 @@ impl Default for AppSettings {
 }
 
 pub fn get_settings_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    let settings_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let settings_dir = crate::sidecar_paths::app_root_dir(app_handle)?;
 
     if !settings_dir.exists() {
         fs::create_dir_all(&settings_dir).map_err(|e| e.to_string())?;

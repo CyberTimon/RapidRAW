@@ -95,6 +95,7 @@
       "resetPoint": "Redefinir Curva de Pontos {{channel}}"
     },
     "details": {
+      "aiDenoiseButton": "Denoise por IA…",
       "blueYellow": "Azul/Amarelo",
       "centre": "Centro",
       "chromaticAberration": "Aberração Cromática",
@@ -107,7 +108,7 @@
       "redCyan": "Vermelho/Ciano",
       "sharpening": "Nitidez",
       "sharpness": "Nitidez",
-      "structure": "Estrutura",
+      "structure": "Textura",
       "threshold": "Limiar"
     },
     "effects": {
@@ -737,7 +738,10 @@
     "switcher": {
       "tooltips": {
         "adjust": "Ajustar",
+        "colorCurves": "Cor e Curvas",
         "crop": "Cortar",
+        "details": "Detalhes",
+        "effects": "Efeitos",
         "export": "Exportar",
         "info": "Informações",
         "inpaint": "Preencher",

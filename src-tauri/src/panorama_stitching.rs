@@ -124,6 +124,7 @@ pub async fn stitch_panorama(
 #[tauri::command]
 pub async fn save_panorama(
     first_path_str: String,
+    app_handle: AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let panorama_image = state
@@ -167,8 +168,11 @@ pub async fn save_panorama(
         .map_err(|e| format!("Failed to save panorama image: {}", e))?;
 
     let (real_path, _) = crate::file_management::parse_virtual_path(&first_path_str);
-    let _ =
-        crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
+    let _ = crate::exif_processing::write_rrexif_sidecar(
+        &app_handle,
+        &real_path.to_string_lossy(),
+        &output_path,
+    );
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -216,6 +220,7 @@ fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<Dyna
                 false,
                 &settings,
                 None,
+                Some(&app_handle),
             )
             .map_err(|e| format!("Failed to load image {}: {}", filename, e))?;
 

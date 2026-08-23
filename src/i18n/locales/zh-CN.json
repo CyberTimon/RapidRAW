@@ -714,7 +714,10 @@
     "switcher": {
       "tooltips": {
         "adjust": "调整",
+        "colorCurves": "颜色与曲线",
         "crop": "裁剪",
+        "details": "细节",
+        "effects": "效果",
         "export": "导出",
         "info": "信息",
         "inpaint": "修复",

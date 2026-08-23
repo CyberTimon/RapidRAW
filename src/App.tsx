@@ -727,7 +727,26 @@ function App() {
             />
           );
         case Panel.Adjustments:
-          return <Controls />;
+          return (
+            <Controls
+              sections={['basic']}
+              titleKey="editor.adjustments.title"
+              showAutoAdjust
+              showWaveformToggle
+            />
+          );
+        case Panel.ColorCurves:
+          return (
+            <Controls
+              sections={['curves', 'color']}
+              titleKey="editor.switcher.tooltips.colorCurves"
+              showWaveformToggle
+            />
+          );
+        case Panel.Details:
+          return <Controls sections={['details']} titleKey="editor.switcher.tooltips.details" />;
+        case Panel.Effects:
+          return <Controls sections={['effects']} titleKey="editor.switcher.tooltips.effects" />;
         case Panel.Metadata:
           return <MetadataPanel />;
         case Panel.Crop:

@@ -534,15 +534,23 @@ export default function LibraryGrid(props: any) {
 
   const handleHeaderSort = (key: string) => {
     props.onClearSelection();
+    const isDateKey = key === 'date' || key === 'date_taken';
     setSortCriteria((prev: any) => {
       if (prev.key === key) {
+        if (isDateKey) {
+          if (prev.order === SortDirection.Descending) {
+            return { ...prev, order: SortDirection.Ascending };
+          } else {
+            return { key: 'name', order: SortDirection.Ascending };
+          }
+        }
         if (prev.order === SortDirection.Ascending) {
           return { ...prev, order: SortDirection.Descending };
         } else {
           return { key: 'name', order: SortDirection.Ascending };
         }
       }
-      return { key, order: SortDirection.Ascending };
+      return { key, order: isDateKey ? SortDirection.Descending : SortDirection.Ascending };
     });
   };
 

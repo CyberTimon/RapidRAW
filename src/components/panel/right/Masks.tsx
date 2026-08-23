@@ -147,10 +147,39 @@ export const MASK_PANEL_CREATION_TYPES: Array<MaskType> = [
   },
   {
     disabled: false,
-    icon: MoreHorizontal,
-    id: 'others',
-    name: 'Others',
-    type: null as any,
+    icon: BringToFront,
+    name: 'Depth',
+    type: Mask.AiDepth,
+  },
+  {
+    disabled: false,
+    icon: Droplet,
+    name: 'Color',
+    type: Mask.Color,
+  },
+  {
+    disabled: false,
+    icon: Sun,
+    name: 'Luminance',
+    type: Mask.Luminance,
+  },
+  {
+    disabled: false,
+    icon: Brush,
+    name: 'Brush',
+    type: Mask.Brush,
+  },
+  {
+    disabled: false,
+    icon: Droplets,
+    name: 'Flow',
+    type: Mask.Flow,
+  },
+  {
+    disabled: false,
+    icon: RectangleHorizontal,
+    name: 'Whole Image',
+    type: Mask.All,
   },
 ];
 

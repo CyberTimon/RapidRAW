@@ -37,6 +37,7 @@ mod panorama_stitching;
 mod panorama_utils;
 mod preset_converter;
 mod raw_processing;
+mod sidecar_paths;
 mod tagging;
 mod tagging_utils;
 mod window_customizer;
@@ -82,7 +83,7 @@ use crate::cache_utils::{
     DecodedImageCache, GEOMETRY_KEYS, calculate_full_job_hash, calculate_geometry_hash,
     calculate_transform_hash, calculate_visual_hash,
 };
-use crate::file_management::{parse_virtual_path, read_file_mapped};
+use crate::file_management::{parse_virtual_path, read_file_mapped, try_load_embedded_raw_preview};
 use crate::formats::is_raw_file;
 use crate::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
 use crate::image_loader::{composite_patches_on_image, load_and_composite};
@@ -1242,17 +1243,33 @@ async fn generate_all_community_previews(
     for image_path in image_paths.iter() {
         let (source_path, _) = parse_virtual_path(image_path);
         let source_path_str = source_path.to_string_lossy().to_string();
-        let image_bytes = fs::read(&source_path).map_err(|e| e.to_string())?;
-        let original_image = crate::image_loader::load_base_image_from_bytes(
-            &image_bytes,
-            &source_path_str,
-            true,
-            &settings,
-            None,
-        )
-        .map_err(|e| e.to_string())?;
-
         let is_raw = is_raw_file(&source_path_str);
+
+        // Same trick generate_thumbnail_data uses for unedited RAW library
+        // thumbnails: a preview tile this small doesn't need a full
+        // demosaic, so try the camera's own embedded JPEG preview first —
+        // it's already at least PROCESSING_DIM on its long edge (checked
+        // inside try_load_embedded_raw_preview) and multiple community
+        // presets get applied to this same decoded base, so skipping the
+        // ~500ms/photo RAW decode here pays off once per photo, not once
+        // per preset.
+        let original_image = if is_raw
+            && let Some(preview) = try_load_embedded_raw_preview(&source_path, PROCESSING_DIM)
+        {
+            preview
+        } else {
+            let image_bytes = fs::read(&source_path).map_err(|e| e.to_string())?;
+            crate::image_loader::load_base_image_from_bytes(
+                &image_bytes,
+                &source_path_str,
+                true,
+                &settings,
+                None,
+                Some(&app_handle),
+            )
+            .map_err(|e| e.to_string())?
+        };
+
         let (orig_w, orig_h) = original_image.dimensions();
         let (base_image, base_scale) = if orig_w > PROCESSING_DIM || orig_h > PROCESSING_DIM {
             let downscaled = downscale_f32_image(&original_image, PROCESSING_DIM, PROCESSING_DIM);
@@ -1463,6 +1480,7 @@ async fn merge_hdr(
 #[tauri::command]
 async fn save_hdr(
     first_path_str: String,
+    app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let hdr_image = state.hdr_result.lock().unwrap().take().ok_or_else(|| {
@@ -1500,8 +1518,11 @@ async fn save_hdr(
         .map_err(|e| format!("Failed to save hdr image: {}", e))?;
 
     let (real_path, _) = crate::file_management::parse_virtual_path(&first_path_str);
-    let _ =
-        crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
+    let _ = crate::exif_processing::write_rrexif_sidecar(
+        &app_handle,
+        &real_path.to_string_lossy(),
+        &output_path,
+    );
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -1638,8 +1659,8 @@ async fn generate_preview_for_path(
 }
 
 fn setup_logging(app_handle: &tauri::AppHandle) {
-    let log_dir = match app_handle.path().app_log_dir() {
-        Ok(dir) => dir,
+    let log_dir = match sidecar_paths::app_local_root_dir(app_handle) {
+        Ok(root) => root.join("logs"),
         Err(e) => {
             eprintln!("Failed to get app log directory: {}", e);
             return;
@@ -1710,7 +1731,7 @@ fn setup_logging(app_handle: &tauri::AppHandle) {
 
 #[tauri::command]
 fn get_log_file_path(app_handle: tauri::AppHandle) -> Result<String, String> {
-    let log_dir = app_handle.path().app_log_dir().map_err(|e| e.to_string())?;
+    let log_dir = sidecar_paths::app_local_root_dir(&app_handle)?.join("logs");
     let log_file_path = log_dir.join("app.log");
     Ok(log_file_path.to_string_lossy().to_string())
 }
@@ -1825,7 +1846,7 @@ fn frontend_ready(
         let _ = (&app_handle, is_first_run);
 
         #[cfg(any(windows, target_os = "linux"))]
-        if is_first_run && let Ok(config_dir) = app_handle.path().app_config_dir() {
+        if is_first_run && let Ok(config_dir) = sidecar_paths::app_root_dir(&app_handle) {
             let path = config_dir.join("window_state.json");
 
             if let Ok(contents) = std::fs::read_to_string(&path)
@@ -2001,7 +2022,7 @@ pub fn run() {
                 });
             }
 
-            let config_dir = app_handle.path().app_config_dir().expect("Failed to get config dir");
+            let config_dir = sidecar_paths::app_root_dir(&app_handle).expect("Failed to get config dir");
             let crash_flag_path = config_dir.join(".gpu_init_crash_flag");
 
             {
@@ -2130,6 +2151,17 @@ pub fn run() {
             #[cfg(not(target_os = "android"))]
             {
                 window_builder = window_builder.decorations(decorations).visible(false);
+
+                // Without this, Tauri forces the WebView2/WebKitGTK data
+                // directory (cookies, GPU shader cache, IndexedDB, etc.) to
+                // `app_local_data_dir()` — i.e. back under the bundle
+                // identifier folder — even though it should live alongside
+                // the rest of the app's cache-like data under the local
+                // `RapidRAW` root (`sidecar_paths::app_local_root_dir`).
+                #[cfg(any(target_os = "windows", target_os = "linux"))]
+                if let Ok(root) = sidecar_paths::app_local_root_dir(&app_handle) {
+                    window_builder = window_builder.data_directory(root.join("webview"));
+                }
             }
 
             let window = window_builder.build().expect("Failed to build window");
@@ -2147,7 +2179,7 @@ pub fn run() {
                     );
                 }
 
-                if let Ok(config_dir) = app.path().app_config_dir() {
+                if let Ok(config_dir) = sidecar_paths::app_root_dir(&app_handle) {
                     let path = config_dir.join("window_state.json");
                     if let Ok(contents) = std::fs::read_to_string(&path) {
                         if let Ok(state) = serde_json::from_str::<WindowState>(&contents) {
@@ -2170,10 +2202,15 @@ pub fn run() {
                                 let _ = window.center();
                             }
                         } else {
-                            let _ = window.center();
+                            // Saved window_state.json is corrupt/unparseable — treat the
+                            // same as a fresh install rather than falling back to the
+                            // small default size.
+                            let _ = window.maximize();
                         }
                     } else {
-                        let _ = window.center();
+                        // No window_state.json yet: this is the very first launch, so
+                        // open maximized instead of the small default size.
+                        let _ = window.maximize();
                     }
                 } else {
                     let _ = window.center();
@@ -2206,7 +2243,7 @@ pub fn run() {
 
                         if let Some(state) = state_to_save
                             && let Ok(config_dir) =
-                                app_handle_for_saver.path().app_config_dir()
+                                sidecar_paths::app_root_dir(&app_handle_for_saver)
                         {
                             let path = config_dir.join("window_state.json");
                             let _ = std::fs::create_dir_all(&config_dir);

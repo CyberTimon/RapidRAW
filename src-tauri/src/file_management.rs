@@ -45,11 +45,7 @@ use crate::preset_converter;
 use crate::tagging::COLOR_TAG_PREFIX;
 
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
-    let cache_dir = app_handle
-        .path()
-        .app_cache_dir()
-        .map_err(|e| e.to_string())?;
-    let thumb_cache_dir = cache_dir.join("thumbnails");
+    let thumb_cache_dir = crate::sidecar_paths::app_local_root_dir(app_handle)?.join("thumbnails");
     if !thumb_cache_dir.exists() {
         fs::create_dir_all(&thumb_cache_dir).map_err(|e| e.to_string())?;
     }
@@ -343,7 +339,7 @@ fn assign_group_ids(files: &mut [ImageFile], settings: &crate::app_settings::App
             .map(|p| {
                 (
                     p.clone(),
-                    crate::exif_processing::try_get_exif_creation_date(p),
+                    crate::exif_processing::try_get_exif_creation_date(None, p),
                 )
             })
             .collect();
@@ -384,41 +380,53 @@ pub struct ImportSettings {
     pub delete_after_import: bool,
 }
 
-pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
-    let (source_path_str, copy_id) = if let Some((base, id)) = virtual_path.rsplit_once("?vc=") {
-        (base.to_string(), Some(id.to_string()))
+/// Strips the `?vc=<id>` virtual-copy suffix (if present) from a "virtual
+/// path" string, returning the real filesystem path plus the copy id (if
+/// any). Pure string parsing, no filesystem access — use this whenever only
+/// the underlying photo's real path matters, not its sidecar. For the
+/// sidecar path itself, see `sidecar_path_for_virtual` below, which needs
+/// an `AppHandle` since sidecars now live under the app's data directory
+/// (see `sidecar_paths.rs`) rather than next to the photo.
+pub fn split_virtual_path(virtual_path: &str) -> (PathBuf, Option<String>) {
+    if let Some((base, id)) = virtual_path.rsplit_once("?vc=") {
+        (PathBuf::from(base), Some(id.to_string()))
     } else {
-        (virtual_path.to_string(), None)
-    };
+        (PathBuf::from(virtual_path), None)
+    }
+}
 
-    let source_path = PathBuf::from(source_path_str);
+/// Back-compat shape for the many call sites that only ever wanted the real
+/// source path and discarded the sidecar path `parse_virtual_path` used to
+/// also return — every one of those didn't need an `AppHandle` before and
+/// still doesn't.
+pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, Option<String>) {
+    split_virtual_path(virtual_path)
+}
 
-    let sidecar_filename = if let Some(id) = copy_id {
-        format!(
-            "{}.{}.rrdata",
-            source_path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy(),
-            &id
-        )
-    } else {
-        format!(
-            "{}.rrdata",
-            source_path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-        )
-    };
-
-    let sidecar_path = source_path.with_file_name(sidecar_filename);
-    (source_path, sidecar_path)
+/// The centralized sidecar path (see `sidecar_paths.rs`) for a "virtual
+/// path" string — resolves the `?vc=` copy id the same way
+/// `split_virtual_path` does, then defers to `sidecar_paths::sidecar_path_for`
+/// for the actual (mirrored-directory) location. Returns the real source
+/// path alongside it, matching the old `parse_virtual_path`'s two-value
+/// shape for callers that need both.
+pub fn sidecar_path_for_virtual(
+    app_handle: &AppHandle,
+    virtual_path: &str,
+) -> Result<(PathBuf, PathBuf), String> {
+    let (source_path, copy_id) = split_virtual_path(virtual_path);
+    let sidecar_path = crate::sidecar_paths::sidecar_path_for(
+        app_handle,
+        &source_path,
+        copy_id.as_deref(),
+        "rrdata",
+    )?;
+    Ok((source_path, sidecar_path))
 }
 
 #[tauri::command]
 pub async fn read_exif_for_paths(
     paths: Vec<String>,
+    app_handle: AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<HashMap<String, HashMap<String, String>>, String> {
     let is_hdd = state
@@ -432,15 +440,15 @@ pub async fn read_exif_for_paths(
             let source_path_str = source_path.to_string_lossy().to_string();
 
             let map = if let Some(sidecar_exif) =
-                crate::exif_processing::read_rrexif_sidecar(&source_path)
+                crate::exif_processing::read_rrexif_sidecar(&app_handle, &source_path)
             {
                 sidecar_exif
             } else if is_cloud_placeholder(&source_path) {
                 HashMap::new()
             } else if let Ok(mmap) = read_file_mapped(&source_path) {
-                crate::exif_processing::read_exif_data(&source_path_str, &mmap)
+                crate::exif_processing::read_exif_data(&app_handle, &source_path_str, &mmap)
             } else if let Ok(bytes) = fs::read(&source_path) {
-                crate::exif_processing::read_exif_data(&source_path_str, &bytes)
+                crate::exif_processing::read_exif_data(&app_handle, &source_path_str, &bytes)
             } else {
                 HashMap::new()
             };
@@ -468,15 +476,19 @@ pub async fn read_exif_for_paths(
 pub async fn update_exif_fields(
     paths: Vec<String>,
     updates: HashMap<String, String>,
+    app_handle: AppHandle,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         paths.par_iter().for_each(|path| {
             let original_path = Path::new(&path);
-            let primary_path = crate::exif_processing::get_primary_sidecar_path(original_path);
+            let primary_path =
+                crate::exif_processing::get_primary_sidecar_path(&app_handle, original_path);
             let temp_metadata = crate::exif_processing::load_sidecar(&primary_path);
 
             let mut exif_data = temp_metadata.exif.unwrap_or_else(|| {
-                if let Some(existing) = crate::exif_processing::read_rrexif_sidecar(original_path) {
+                if let Some(existing) =
+                    crate::exif_processing::read_rrexif_sidecar(&app_handle, original_path)
+                {
                     existing
                 } else if let Ok(mmap) = read_file_mapped(original_path) {
                     crate::exif_processing::read_exif_data_from_bytes(path, &mmap)
@@ -570,7 +582,6 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
 
     let entries = fs::read_dir(&path).map_err(|e| e.to_string())?;
     let mut images = Vec::new();
-    let mut sidecars_by_filename: HashMap<String, Vec<Option<String>>> = HashMap::new();
 
     for entry in entries.filter_map(Result::ok) {
         let entry_path = entry.path();
@@ -579,9 +590,13 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
             .into_string()
             .unwrap_or_else(|os| os.to_string_lossy().into_owned());
 
-        if file_name.ends_with(".rrdata") {
-            let base = &file_name[..file_name.len() - 7];
-
+        if is_supported_image_file(&file_name) {
+            images.push((file_name, entry_path));
+        } else if let Some(base) = file_name.strip_suffix(".rrdata") {
+            // A .rrdata found directly in the photo folder is always a
+            // pre-relocation leftover (the app never writes new ones
+            // here) — migrate it to its centralized, mirrored location
+            // now, incrementally, on ordinary folder browsing.
             let (source_filename, copy_id) =
                 if base.len() >= 7 && base.as_bytes()[base.len() - 7] == b'.' {
                     let id = &base[base.len() - 6..];
@@ -593,13 +608,52 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                 } else {
                     (base, None)
                 };
+            let photo_path = Path::new(&path).join(source_filename);
+            crate::sidecar_paths::migrate_legacy_rrdata(
+                &app_handle,
+                &entry_path,
+                &photo_path,
+                copy_id.as_deref(),
+            );
+        }
+    }
 
-            sidecars_by_filename
-                .entry(source_filename.to_string())
-                .or_default()
-                .push(copy_id);
-        } else if is_supported_image_file(&file_name) {
-            images.push((file_name, entry_path));
+    // .rrdata sidecars are centralized (sidecar_paths.rs) but mirror this
+    // folder's own structure, so a single scan of the mirrored directory
+    // finds exactly the same set of sidecars (including virtual copies)
+    // a scan of this folder itself used to find pre-relocation — same
+    // bucket-and-match logic, just pointed at a different root. A missing
+    // mirrored directory (nothing has ever been edited in this folder
+    // since relocating) is a normal, empty-bucket case, not an error.
+    let mut sidecars_by_filename: HashMap<String, Vec<Option<String>>> = HashMap::new();
+    let sidecar_dir = crate::sidecar_paths::mirrored_root_for_source_dir(&app_handle, Path::new(&path))
+        .map(|(dir, _)| dir)
+        .unwrap_or_default();
+    if let Ok(sidecar_entries) = fs::read_dir(&sidecar_dir) {
+        for entry in sidecar_entries.filter_map(Result::ok) {
+            let file_name = entry
+                .file_name()
+                .into_string()
+                .unwrap_or_else(|os| os.to_string_lossy().into_owned());
+
+            if let Some(base) = file_name.strip_suffix(".rrdata") {
+                let (source_filename, copy_id) =
+                    if base.len() >= 7 && base.as_bytes()[base.len() - 7] == b'.' {
+                        let id = &base[base.len() - 6..];
+                        if id.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f')) {
+                            (&base[..base.len() - 7], Some(id.to_string()))
+                        } else {
+                            (base, None)
+                        }
+                    } else {
+                        (base, None)
+                    };
+
+                sidecars_by_filename
+                    .entry(source_filename.to_string())
+                    .or_default()
+                    .push(copy_id);
+            }
         }
     }
 
@@ -638,7 +692,7 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                     None => (path_str.clone(), false, format!("{}.rrdata", file_name)),
                 };
 
-                let sidecar_path = path_buf.with_file_name(sidecar_filename);
+                let sidecar_path = sidecar_dir.join(sidecar_filename);
 
                 let xmp_is_placeholder = enable_xmp_sync
                     && resolve_xmp_path(&path_buf)
@@ -698,16 +752,74 @@ pub fn list_images_recursive(
     let root_path = Path::new(&path);
     let mut images = Vec::new();
 
-    let mut sidecars_by_path: HashMap<PathBuf, Vec<Option<String>>> = HashMap::new();
-
     for entry in WalkDir::new(root_path).into_iter().filter_map(Result::ok) {
         let entry_path = entry.path();
         if !entry_path.is_file() {
             continue;
         }
 
-        let file_name = entry_path.file_name().unwrap_or_default().to_string_lossy();
-        if let Some(base) = file_name.strip_suffix(".rrdata") {
+        if is_supported_image_file(entry_path.to_string_lossy().as_ref()) {
+            images.push(entry_path.to_path_buf());
+        } else if let Some(parent) = entry_path.parent()
+            && let Some(base) = entry_path
+                .file_name()
+                .and_then(|f| f.to_str())
+                .and_then(|f| f.strip_suffix(".rrdata"))
+        {
+            // Same incremental migration as list_images_in_dir, just
+            // walking the whole subtree instead of one folder.
+            let (source_filename, copy_id) =
+                if base.len() >= 7 && base.as_bytes()[base.len() - 7] == b'.' {
+                    let id = &base[base.len() - 6..];
+                    if id.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f')) {
+                        (&base[..base.len() - 7], Some(id.to_string()))
+                    } else {
+                        (base, None)
+                    }
+                } else {
+                    (base, None)
+                };
+            let photo_path = parent.join(source_filename);
+            crate::sidecar_paths::migrate_legacy_rrdata(
+                &app_handle,
+                entry_path,
+                &photo_path,
+                copy_id.as_deref(),
+            );
+        }
+    }
+
+    // .rrdata sidecars are centralized (sidecar_paths.rs) but mirror the
+    // source tree's own structure, so a walk of root_path's mirrored
+    // sidecar tree finds exactly the same sidecars (including virtual
+    // copies) a walk of root_path itself used to find pre-relocation.
+    // Every discovered sidecar's *source* path is reconstructed by
+    // reversing the mirror (stripping the mirrored root's prefix, then
+    // re-joining the remaining relative path onto the canonicalized
+    // source root) — both this and the image-walk side below are keyed
+    // off the same canonicalized root so the two HashMap key sets agree
+    // exactly regardless of how `path` was itself spelled/cased.
+    let mut sidecars_by_path: HashMap<PathBuf, Vec<Option<String>>> = HashMap::new();
+    if let Ok((mirrored_root, canonical_root)) =
+        crate::sidecar_paths::mirrored_root_for_source_dir(&app_handle, root_path)
+    {
+        for entry in WalkDir::new(&mirrored_root).into_iter().filter_map(Result::ok) {
+            let entry_path = entry.path();
+            if !entry_path.is_file() {
+                continue;
+            }
+
+            let file_name = entry_path.file_name().unwrap_or_default().to_string_lossy();
+            let Some(base) = file_name.strip_suffix(".rrdata") else {
+                continue;
+            };
+            let Some(relative_dir) = entry_path
+                .parent()
+                .and_then(|p| p.strip_prefix(&mirrored_root).ok())
+            else {
+                continue;
+            };
+
             let (source_filename, copy_id) =
                 if base.len() >= 7 && base.as_bytes()[base.len() - 7] == b'.' {
                     let id = &base[base.len() - 6..];
@@ -720,22 +832,24 @@ pub fn list_images_recursive(
                     (base, None)
                 };
 
-            if let Some(parent) = entry_path.parent() {
-                sidecars_by_path
-                    .entry(parent.join(source_filename))
-                    .or_default()
-                    .push(copy_id);
-            }
-        } else if is_supported_image_file(entry_path.to_string_lossy().as_ref()) {
-            images.push(entry_path.to_path_buf());
+            let source_key = canonical_root.join(relative_dir).join(source_filename);
+            sidecars_by_path
+                .entry(source_key)
+                .or_default()
+                .push(copy_id);
         }
     }
 
     let tasks: Vec<_> = images
         .into_iter()
         .map(|path_buf| {
+            // sidecars_by_path's keys are canonicalized (see above) —
+            // canonicalize this image's own path the same way before
+            // looking it up, so the two sides agree regardless of how
+            // `path` was itself spelled/cased.
+            let lookup_key = path_buf.canonicalize().unwrap_or_else(|_| path_buf.clone());
             let sidecars = sidecars_by_path
-                .remove(&path_buf)
+                .remove(&lookup_key)
                 .unwrap_or_else(|| vec![None]);
             let path_str = path_buf.to_string_lossy().into_owned();
             let file_name = path_buf
@@ -771,7 +885,9 @@ pub fn list_images_recursive(
                     None => (path_str.clone(), false, format!("{}.rrdata", file_name)),
                 };
 
-                let sidecar_path = path_buf.with_file_name(sidecar_filename);
+                let sidecar_path = crate::sidecar_paths::sidecar_dir_for_photo(&app_handle, &path_buf)
+                    .map(|dir| dir.join(&sidecar_filename))
+                    .unwrap_or_else(|_| path_buf.with_file_name(sidecar_filename));
 
                 let xmp_is_placeholder = enable_xmp_sync
                     && resolve_xmp_path(&path_buf)
@@ -836,10 +952,7 @@ pub enum AlbumItem {
 }
 
 fn get_albums_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    let data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let data_dir = crate::sidecar_paths::app_root_dir(app_handle)?;
     let albums_dir = data_dir.join("albums");
     if !albums_dir.exists() {
         fs::create_dir_all(&albums_dir).map_err(|e| e.to_string())?;
@@ -1029,7 +1142,7 @@ pub fn get_album_images(
     let mut result_list: Vec<ImageFile> = paths
         .into_par_iter()
         .filter_map(|virtual_path| {
-            let (source_path, sidecar_path) = parse_virtual_path(&virtual_path);
+            let (source_path, sidecar_path) = sidecar_path_for_virtual(&app_handle, &virtual_path).ok()?;
             if !source_path.exists() {
                 return None;
             }
@@ -1424,7 +1537,7 @@ fn apply_exif_orientation(img: DynamicImage, orientation: u32) -> DynamicImage {
     }
 }
 
-fn try_load_embedded_raw_preview(source_path: &Path, target_res: u32) -> Option<DynamicImage> {
+pub(crate) fn try_load_embedded_raw_preview(source_path: &Path, target_res: u32) -> Option<DynamicImage> {
     let mmap = read_file_mapped(source_path).ok()?;
     let exif = exif_processing::read_exif(&mmap)?;
 
@@ -1454,7 +1567,8 @@ pub fn generate_thumbnail_data(
     preloaded_image: Option<&DynamicImage>,
     app_handle: &AppHandle,
 ) -> anyhow::Result<DynamicImage> {
-    let (source_path, sidecar_path) = parse_virtual_path(path_str);
+    let (source_path, sidecar_path) =
+        sidecar_path_for_virtual(app_handle, path_str).map_err(|e| anyhow::anyhow!(e))?;
     let source_path_str = source_path.to_string_lossy().to_string();
     let is_raw = is_raw_file(&source_path_str);
 
@@ -1744,7 +1858,18 @@ pub fn generate_thumbnail_data(
     };
 
     if adjustments.is_null() {
-        let default_tm = if is_raw {
+        // Mirrors `image_processing::resolve_tonemapper_override`: the
+        // configured default_raw_tonemapper/default_non_raw_tonemapper only
+        // apply when the user has explicitly opted into overriding the
+        // tonemapper. Without this gate, unedited RAWs always got the
+        // (deliberately darker, filmic) AgX default here even though the
+        // GPU-rendered editor/thumbnail path already treats `agx` as opt-in
+        // — the mismatch is what made every freshly-opened RAW look much
+        // darker than its own editor view.
+        let override_enabled = settings.tonemapper_override_enabled.unwrap_or(false);
+        let default_tm = if !override_enabled {
+            "basic"
+        } else if is_raw {
             settings.default_raw_tonemapper.as_deref().unwrap_or("agx")
         } else {
             settings
@@ -1783,7 +1908,7 @@ fn generate_single_thumbnail_and_cache(
     app_handle: &AppHandle,
     settings: &AppSettings,
 ) -> Option<(String, u8, bool)> {
-    let (source_path, sidecar_path) = parse_virtual_path(path_str);
+    let (source_path, sidecar_path) = sidecar_path_for_virtual(app_handle, path_str).ok()?;
 
     let (rating, is_edited, adjustments_bytes) = if is_cloud_placeholder(&sidecar_path) {
         enqueue_metadata(
@@ -1846,12 +1971,42 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let thread_count = settings.thumbnail_worker_threads.unwrap_or(4).clamp(1, 16);
 
+    // Resolved once, up front, and shared by every worker — `get_thumb_cache_dir`
+    // does real filesystem I/O (an `exists`/`create_dir_all` round trip, plus a
+    // one-time migration walk on first run), so calling it per-photo inside the
+    // loop below, from every worker thread, in parallel, for a whole library at
+    // once, made thumbnail generation far slower than it needs to be. It also
+    // meant a single transient failure silently dropped that photo's progress
+    // tick forever (the `if let Ok(cache_dir) = ...` guard skipped
+    // `increment_thumbnail_progress` on `Err`), which could look like generation
+    // had hung. If it fails here, bail out before spawning workers that could
+    // never make progress anyway.
+    let cache_dir = match get_thumb_cache_dir(&app_handle) {
+        Ok(dir) => dir,
+        Err(e) => {
+            log::error!("Failed to resolve thumbnail cache directory: {}", e);
+            return;
+        }
+    };
+
     for _ in 0..thread_count {
         let app_clone = app_handle.clone();
         let manager_clone = manager.clone();
         let worker_settings = settings.clone();
+        let cache_dir = cache_dir.clone();
 
         std::thread::spawn(move || {
+            // Thumbnail generation is bulk background work, not interactive —
+            // it shouldn't compete on equal footing with the GPU/CPU work the
+            // live editor does in response to a slider drag. Running these
+            // workers at the OS's lowest thread priority lets the scheduler
+            // keep them fully fed when the CPU is otherwise idle (so a whole
+            // folder still finishes fast) while automatically yielding to the
+            // editor's own threads the moment it's actually busy, instead of
+            // fighting it for every timeslice. Best-effort: unsupported
+            // platforms/sandboxes just keep the default priority.
+            let _ = thread_priority::set_current_thread_priority(thread_priority::ThreadPriority::Min);
+
             loop {
                 let path_to_process: String = {
                     let mut queue = manager_clone.queue.lock().unwrap();
@@ -1874,33 +2029,32 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                 let gpu_context =
                     crate::gpu_processing::get_or_init_gpu_context(&state, &app_clone).ok();
 
-                if let Ok(cache_dir) = get_thumb_cache_dir(&app_clone) {
-                    if manager_clone.rotational_disk.load(Ordering::Relaxed) {
-                        let _io_permit = manager_clone.io_gate.lock().unwrap();
-                        prefetch_source_file(&path_to_process);
-                    }
-
-                    let result = generate_single_thumbnail_and_cache(
-                        &path_to_process,
-                        &cache_dir,
-                        gpu_context.as_ref(),
-                        None,
-                        false,
-                        &app_clone,
-                        &worker_settings,
-                    );
-
-                    if let Some((thumbnail_path, rating, is_edited)) = result {
-                        emit_thumbnail_generated(
-                            &app_clone,
-                            &path_to_process,
-                            &thumbnail_path,
-                            rating,
-                            is_edited,
-                        );
-                    }
-                    increment_thumbnail_progress(&state, &app_clone);
+                if manager_clone.rotational_disk.load(Ordering::Relaxed) {
+                    let _io_permit = manager_clone.io_gate.lock().unwrap();
+                    prefetch_source_file(&path_to_process);
                 }
+
+                let result = generate_single_thumbnail_and_cache(
+                    &path_to_process,
+                    &cache_dir,
+                    gpu_context.as_ref(),
+                    None,
+                    false,
+                    &app_clone,
+                    &worker_settings,
+                );
+
+                if let Some((thumbnail_path, rating, is_edited)) = result {
+                    emit_thumbnail_generated(
+                        &app_clone,
+                        &path_to_process,
+                        &thumbnail_path,
+                        rating,
+                        is_edited,
+                    );
+                }
+                increment_thumbnail_progress(&state, &app_clone);
+
                 manager_clone
                     .processing_now
                     .lock()
@@ -2220,7 +2374,7 @@ pub fn duplicate_file(
     target_album_id: Option<String>,
     app_handle: AppHandle,
 ) -> Result<String, String> {
-    let (source_path, source_sidecar_path) = parse_virtual_path(&path);
+    let (source_path, source_sidecar_path) = sidecar_path_for_virtual(&app_handle, &path)?;
     if !source_path.is_file() {
         return Err("Source path is not a file.".to_string());
     }
@@ -2257,7 +2411,10 @@ pub fn duplicate_file(
     if source_sidecar_path.exists()
         && let Some(dest_str) = dest_path.to_str()
     {
-        let (_, dest_sidecar_path) = parse_virtual_path(dest_str);
+        let (_, dest_sidecar_path) = sidecar_path_for_virtual(&app_handle, dest_str)?;
+        if let Some(parent) = dest_sidecar_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
         fs::copy(&source_sidecar_path, &dest_sidecar_path).map_err(|e| e.to_string())?;
     }
 
@@ -2281,23 +2438,21 @@ pub fn duplicate_file(
     Ok(dest_path_str)
 }
 
-fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, String> {
+fn find_all_associated_files(
+    app_handle: &AppHandle,
+    source_image_path: &Path,
+) -> Result<Vec<PathBuf>, String> {
     let mut associated_files = vec![source_image_path.to_path_buf()];
 
-    let mut rrexif_name = source_image_path
-        .file_name()
-        .unwrap_or_default()
-        .to_os_string();
-    rrexif_name.push(".rrexif");
-    let rrexif_path = source_image_path.with_file_name(rrexif_name);
-
+    // Legacy .rrexif is never relocated — it only ever lives next to the
+    // photo (see sidecar_paths.rs's legacy_sidecar_path doc comment); by
+    // the time a fresh .rrdata exists, any .rrexif has already been merged
+    // into it and deleted (exif_processing.rs's read_rrexif_sidecar).
+    let rrexif_path = crate::sidecar_paths::legacy_sidecar_path(source_image_path, None, "rrexif");
     if rrexif_path.exists() {
         associated_files.push(rrexif_path);
     }
 
-    let parent_dir = source_image_path
-        .parent()
-        .ok_or("Could not determine parent directory")?;
     let source_filename = source_image_path
         .file_name()
         .ok_or("Could not get source filename")?
@@ -2306,7 +2461,8 @@ fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, S
     let primary_sidecar_name = format!("{}.rrdata", source_filename);
     let virtual_copy_prefix = format!("{}.", source_filename);
 
-    if let Ok(entries) = fs::read_dir(parent_dir) {
+    let sidecar_dir = crate::sidecar_paths::sidecar_dir_for_photo(app_handle, source_image_path)?;
+    if let Ok(entries) = fs::read_dir(&sidecar_dir) {
         for entry in entries.filter_map(Result::ok) {
             let entry_path = entry.path();
             if !entry_path.is_file() {
@@ -2329,7 +2485,11 @@ fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, S
 }
 
 #[tauri::command]
-pub fn copy_files(source_paths: Vec<String>, destination_folder: String) -> Result<(), String> {
+pub fn copy_files(
+    source_paths: Vec<String>,
+    destination_folder: String,
+    app_handle: AppHandle,
+) -> Result<(), String> {
     let dest_path = Path::new(&destination_folder);
     if !dest_path.is_dir() {
         return Err(format!(
@@ -2346,7 +2506,9 @@ pub fn copy_files(source_paths: Vec<String>, destination_folder: String) -> Resu
     let mut operations_to_perform = Vec::new();
 
     for source_image_path in &unique_source_images {
-        let all_files_to_copy = find_all_associated_files(source_image_path)?;
+        let all_files_to_copy = find_all_associated_files(&app_handle, source_image_path)?;
+        let sidecar_source_dir =
+            crate::sidecar_paths::sidecar_dir_for_photo(&app_handle, source_image_path)?;
 
         let source_parent = source_image_path
             .parent()
@@ -2372,6 +2534,8 @@ pub fn copy_files(source_paths: Vec<String>, destination_folder: String) -> Resu
                 counter += 1;
             };
             let new_filename = new_base_path.file_name().unwrap().to_string_lossy();
+            let dest_sidecar_dir =
+                crate::sidecar_paths::sidecar_dir_for_photo(&app_handle, &new_base_path)?;
 
             for original_file in all_files_to_copy {
                 let original_full_filename = original_file.file_name().unwrap().to_string_lossy();
@@ -2379,13 +2543,30 @@ pub fn copy_files(source_paths: Vec<String>, destination_folder: String) -> Resu
                 let new_dest_filename =
                     original_full_filename.replacen(&*source_base_filename, &new_filename, 1);
 
-                let final_dest_path = dest_path.join(new_dest_filename);
+                let final_dest_path =
+                    if original_file.parent() == Some(sidecar_source_dir.as_path()) {
+                        dest_sidecar_dir.join(new_dest_filename)
+                    } else {
+                        dest_path.join(new_dest_filename)
+                    };
                 operations_to_perform.push((original_file, final_dest_path));
             }
         } else {
+            let dest_image_path = dest_path.join(source_image_path.file_name().unwrap());
+            let dest_sidecar_dir =
+                crate::sidecar_paths::sidecar_dir_for_photo(&app_handle, &dest_image_path)?;
+
             for file_to_copy in all_files_to_copy {
                 if let Some(file_name) = file_to_copy.file_name() {
-                    let dest_file_path = dest_path.join(file_name);
+                    // A .rrdata sidecar re-mirrors to the destination's own
+                    // mirrored directory; everything else (the photo, a
+                    // legacy adjacent .rrexif) copies into dest_path as before.
+                    let dest_file_path =
+                        if file_to_copy.parent() == Some(sidecar_source_dir.as_path()) {
+                            dest_sidecar_dir.join(file_name)
+                        } else {
+                            dest_path.join(file_name)
+                        };
 
                     if dest_file_path.exists() {
                         return Err(format!(
@@ -2401,6 +2582,9 @@ pub fn copy_files(source_paths: Vec<String>, destination_folder: String) -> Resu
     }
 
     for (source, dest) in operations_to_perform {
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
         fs::copy(&source, &dest)
             .map_err(|e| format!("Copy failed for {}: {}", source.display(), e))?;
     }
@@ -2439,11 +2623,26 @@ pub fn move_files(
             return Err("Cannot move files into the same folder they are already in.".to_string());
         }
 
-        let all_files_to_move = find_all_associated_files(source_image_path)?;
+        let all_files_to_move = find_all_associated_files(&app_handle, source_image_path)?;
+        let sidecar_source_dir =
+            crate::sidecar_paths::sidecar_dir_for_photo(&app_handle, source_image_path)?;
+        let dest_image_path = dest_path.join(source_image_path.file_name().unwrap());
+        let dest_sidecar_dir =
+            crate::sidecar_paths::sidecar_dir_for_photo(&app_handle, &dest_image_path)?;
 
         for file_to_move in &all_files_to_move {
             if let Some(file_name) = file_to_move.file_name() {
-                let dest_file_path = dest_path.join(file_name);
+                // A .rrdata sidecar (whose parent is the source's mirrored
+                // sidecar directory, not the photo's own folder) re-mirrors
+                // to the destination's own mirrored directory — everything
+                // else (the photo itself, a legacy adjacent .rrexif) moves
+                // into dest_path exactly as before.
+                let dest_file_path = if file_to_move.parent() == Some(sidecar_source_dir.as_path())
+                {
+                    dest_sidecar_dir.join(file_name)
+                } else {
+                    dest_path.join(file_name)
+                };
 
                 if dest_file_path.exists() {
                     return Err(format!(
@@ -2456,7 +2655,6 @@ pub fn move_files(
             }
         }
 
-        let dest_image_path = dest_path.join(source_image_path.file_name().unwrap());
         renames.insert(
             source_image_path.to_string_lossy().into_owned(),
             dest_image_path.to_string_lossy().into_owned(),
@@ -2464,6 +2662,9 @@ pub fn move_files(
     }
 
     for (source, dest) in operations_to_perform {
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
         if fs::rename(&source, &dest).is_err() {
             fs::copy(&source, &dest)
                 .map_err(|e| format!("Move failed during copy for {}: {}", source.display(), e))?;
@@ -2490,7 +2691,7 @@ pub fn save_metadata_and_update_thumbnail(
     app_handle: AppHandle,
     state: tauri::State<AppState>,
 ) -> Result<(), String> {
-    let (source_path, sidecar_path) = parse_virtual_path(&path);
+    let (source_path, sidecar_path) = sidecar_path_for_virtual(&app_handle, &path)?;
 
     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
@@ -2507,7 +2708,10 @@ pub fn save_metadata_and_update_thumbnail(
     metadata.adjustments = final_adjustments;
 
     let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
-    std::fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
+    if let Some(parent) = sidecar_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    crate::sidecar_paths::write_sidecar(&app_handle, &sidecar_path, &json_string).map_err(|e| e.to_string())?;
 
     if let Ok(settings) = load_settings(app_handle.clone())
         && settings.enable_xmp_sync.unwrap_or(false)
@@ -2600,7 +2804,10 @@ pub async fn apply_adjustments_to_paths(
             .clone();
 
         paths.par_iter().for_each(|path| {
-            let (_, sidecar_path) = parse_virtual_path(path);
+            let Ok((source_path, sidecar_path)) = sidecar_path_for_virtual(&app_handle, path)
+            else {
+                return;
+            };
 
             let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
@@ -2626,11 +2833,13 @@ pub async fn apply_adjustments_to_paths(
             existing_metadata.adjustments = new_adjustments;
 
             if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
-                let _ = std::fs::write(&sidecar_path, json_string);
+                if let Some(parent) = sidecar_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let _ = crate::sidecar_paths::write_sidecar(&app_handle, &sidecar_path, &json_string);
             }
 
             if enable_xmp_sync {
-                let source_path = parse_virtual_path(path).0;
                 sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
             }
         });
@@ -2688,18 +2897,23 @@ pub async fn reset_adjustments_for_paths(
         let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
         paths.par_iter().for_each(|path| {
-            let (_, sidecar_path) = parse_virtual_path(path);
+            let Ok((source_path, sidecar_path)) = sidecar_path_for_virtual(&app_handle, path)
+            else {
+                return;
+            };
 
             let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
             existing_metadata.adjustments = serde_json::json!({});
 
             if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
-                let _ = std::fs::write(&sidecar_path, json_string);
+                if let Some(parent) = sidecar_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let _ = crate::sidecar_paths::write_sidecar(&app_handle, &sidecar_path, &json_string);
             }
 
             if enable_xmp_sync {
-                let source_path = parse_virtual_path(path).0;
                 sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
             }
         });
@@ -2775,7 +2989,7 @@ pub async fn apply_auto_adjustments_to_paths(
 
         paths.par_iter().for_each(|path| {
             let loaded_image: Option<DynamicImage> = (|| -> Result<DynamicImage, String> {
-                let (source_path, sidecar_path) = parse_virtual_path(path);
+                let (source_path, sidecar_path) = sidecar_path_for_virtual(&app_handle, path)?;
                 let source_path_str = source_path.to_string_lossy().to_string();
 
                 let file_bytes = fs::read(&source_path).map_err(|e| e.to_string())?;
@@ -2785,6 +2999,7 @@ pub async fn apply_auto_adjustments_to_paths(
                     true,
                     &settings,
                     None,
+                    Some(&app_handle),
                 )
                 .map_err(|e| e.to_string())?;
 
@@ -2821,7 +3036,10 @@ pub async fn apply_auto_adjustments_to_paths(
                 }
 
                 if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
-                    let _ = std::fs::write(&sidecar_path, json_string);
+                    if let Some(parent) = sidecar_path.parent() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
+                    let _ = crate::sidecar_paths::write_sidecar(&app_handle, &sidecar_path, &json_string);
                 }
 
                 if enable_xmp_sync {
@@ -2864,7 +3082,9 @@ pub fn set_color_label_for_paths(
     let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
     paths.par_iter().for_each(|path| {
-        let (_, sidecar_path) = parse_virtual_path(path);
+        let Ok((source_path, sidecar_path)) = sidecar_path_for_virtual(&app_handle, path) else {
+            return;
+        };
 
         let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
@@ -2884,11 +3104,13 @@ pub fn set_color_label_for_paths(
         }
 
         if let Ok(json_string) = serde_json::to_string_pretty(&metadata) {
-            let _ = std::fs::write(&sidecar_path, json_string);
+            if let Some(parent) = sidecar_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = crate::sidecar_paths::write_sidecar(&app_handle, &sidecar_path, &json_string);
         }
 
         if enable_xmp_sync {
-            let source_path = parse_virtual_path(path).0;
             sync_metadata_to_xmp(&source_path, &metadata, create_xmp_if_missing);
         }
     });
@@ -2907,18 +3129,22 @@ pub fn set_rating_for_paths(
     let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
     paths.par_iter().for_each(|path| {
-        let (_, sidecar_path) = parse_virtual_path(path);
+        let Ok((source_path, sidecar_path)) = sidecar_path_for_virtual(&app_handle, path) else {
+            return;
+        };
 
         let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
         metadata.rating = rating;
 
         if let Ok(json_string) = serde_json::to_string_pretty(&metadata) {
-            let _ = std::fs::write(&sidecar_path, json_string);
+            if let Some(parent) = sidecar_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = crate::sidecar_paths::write_sidecar(&app_handle, &sidecar_path, &json_string);
         }
 
         if enable_xmp_sync {
-            let source_path = parse_virtual_path(path).0;
             sync_metadata_to_xmp(&source_path, &metadata, create_xmp_if_missing);
         }
     });
@@ -2928,16 +3154,19 @@ pub fn set_rating_for_paths(
 
 #[tauri::command]
 pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadata, String> {
-    let settings = load_settings(app_handle).unwrap_or_default();
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
 
-    let (source_path, sidecar_path) = parse_virtual_path(&path);
+    let (source_path, sidecar_path) = sidecar_path_for_virtual(&app_handle, &path)?;
     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
     if enable_xmp_sync
         && sync_metadata_from_xmp(&source_path, &mut metadata)
         && let Ok(json) = serde_json::to_string_pretty(&metadata)
     {
+        if let Some(parent) = sidecar_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
         let _ = fs::write(&sidecar_path, json);
     }
 
@@ -2945,11 +3174,7 @@ pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadat
 }
 
 fn get_presets_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, String> {
-    let presets_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("presets");
+    let presets_dir = crate::sidecar_paths::app_root_dir(app_handle)?.join("presets");
 
     if !presets_dir.exists() {
         fs::create_dir_all(&presets_dir).map_err(|e| e.to_string())?;
@@ -2978,11 +3203,7 @@ pub fn save_presets(presets: Vec<PresetItem>, app_handle: AppHandle) -> Result<(
 fn get_internal_library_root_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, String> {
     #[cfg(not(target_os = "android"))]
     {
-        let library_dir = app_handle
-            .path()
-            .app_data_dir()
-            .map_err(|e| e.to_string())?
-            .join("library");
+        let library_dir = crate::sidecar_paths::app_root_dir(app_handle)?.join("library");
 
         if !library_dir.exists() {
             fs::create_dir_all(&library_dir).map_err(|e| e.to_string())?;
@@ -3251,11 +3472,7 @@ pub fn clear_all_sidecars(root_path: String) -> Result<usize, String> {
 
 #[tauri::command]
 pub fn clear_thumbnail_cache(app_handle: AppHandle) -> Result<(), String> {
-    let cache_dir = app_handle
-        .path()
-        .app_cache_dir()
-        .map_err(|e| e.to_string())?;
-    let thumb_cache_dir = cache_dir.join("thumbnails");
+    let thumb_cache_dir = crate::sidecar_paths::app_local_root_dir(&app_handle)?.join("thumbnails");
 
     if thumb_cache_dir.exists() {
         fs::remove_dir_all(&thumb_cache_dir)
@@ -3321,7 +3538,10 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
     let mut deletions = HashSet::new();
 
     for path_str in paths {
-        let (source_path, sidecar_path) = parse_virtual_path(&path_str);
+        let Ok((source_path, sidecar_path)) = sidecar_path_for_virtual(&app_handle, &path_str)
+        else {
+            continue;
+        };
         deletions.insert(path_str.clone());
 
         if path_str.contains("?vc=") {
@@ -3330,7 +3550,7 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
             }
         } else {
             if source_path.exists() {
-                match find_all_associated_files(&source_path) {
+                match find_all_associated_files(&app_handle, &source_path) {
                     Ok(associated_files) => {
                         for file in associated_files {
                             files_to_trash.insert(file);
@@ -3427,6 +3647,7 @@ pub fn delete_files_with_associated(
 
     let mut stems_to_delete = HashSet::new();
     let mut parent_dirs = HashSet::new();
+    let mut sidecar_dirs = HashSet::new();
     let mut deletions = HashSet::new();
 
     for path_str in &paths {
@@ -3438,6 +3659,12 @@ pub fn delete_files_with_associated(
         if let Some(parent) = source_path.parent() {
             parent_dirs.insert(parent.to_path_buf());
         }
+        // .rrdata sidecars are centralized (sidecar_paths.rs) — scan their
+        // mirrored directory too, not just the photo's own folder (which
+        // only ever has the image itself and a legacy .rrexif now).
+        if let Ok(dir) = crate::sidecar_paths::sidecar_dir_for_photo(&app_handle, &source_path) {
+            sidecar_dirs.insert(dir);
+        }
     }
 
     if stems_to_delete.is_empty() {
@@ -3446,8 +3673,8 @@ pub fn delete_files_with_associated(
 
     let mut files_to_trash = HashSet::new();
 
-    for parent_dir in parent_dirs {
-        if let Ok(entries) = fs::read_dir(parent_dir) {
+    for dir in parent_dirs.iter().chain(sidecar_dirs.iter()) {
+        if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.filter_map(Result::ok) {
                 let entry_path = entry.path();
                 if !entry_path.is_file() {
@@ -3502,19 +3729,11 @@ pub fn delete_files_with_associated(
 }
 
 pub fn get_thumb_cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    let cache_dir = app_handle
-        .path()
-        .app_cache_dir()
-        .map_err(|e| e.to_string())?;
-    let thumb_cache_dir = cache_dir.join("thumbnails");
-    if !thumb_cache_dir.exists() {
-        fs::create_dir_all(&thumb_cache_dir).map_err(|e| e.to_string())?;
-    }
-    Ok(thumb_cache_dir)
+    resolve_thumbnail_cache_dir(app_handle)
 }
 
-pub fn get_cache_key_hash(path_str: &str) -> Option<String> {
-    let (_, sidecar_path) = parse_virtual_path(path_str);
+pub fn get_cache_key_hash(path_str: &str, app_handle: &AppHandle) -> Option<String> {
+    let (_, sidecar_path) = sidecar_path_for_virtual(app_handle, path_str).ok()?;
 
     let adjustments_bytes = if let Ok(content) = fs::read_to_string(&sidecar_path) {
         if let Ok(meta) = serde_json::from_str::<ImageMetadata>(&content) {
@@ -3538,7 +3757,7 @@ pub fn get_cached_or_generate_thumbnail_image(
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let target_width = settings.thumbnail_resolution.unwrap_or(720);
 
-    if let Some(cache_hash) = get_cache_key_hash(path_str) {
+    if let Some(cache_hash) = get_cache_key_hash(path_str, app_handle) {
         let cache_filename = format!("{}.jpg", cache_hash);
         let cache_path = thumb_cache_dir.join(cache_filename);
 
@@ -3637,12 +3856,17 @@ pub async fn import_files(
                     return Ok(());
                 }
 
-                let (source_path, source_sidecar) = parse_virtual_path(source_path_str);
+                let (source_path, source_sidecar) =
+                    sidecar_path_for_virtual(&app_handle, source_path_str)
+                        .map_err(|e| e.to_string())?;
                 if !source_path.exists() {
                     return Err(format!("Source file not found: {}", source_path_str));
                 }
 
-                let file_date = exif_processing::get_creation_date_from_path(&source_path);
+                let file_date = exif_processing::get_creation_date_from_path(
+                    Some(&app_handle),
+                    &source_path,
+                );
 
                 let mut final_dest_folder = PathBuf::from(&destination_folder);
                 if settings.organize_by_date {
@@ -3683,7 +3907,11 @@ pub async fn import_files(
                 if source_sidecar.exists()
                     && let Some(dest_str) = dest_file_path.to_str()
                 {
-                    let (_, dest_sidecar) = parse_virtual_path(dest_str);
+                    let (_, dest_sidecar) = sidecar_path_for_virtual(&app_handle, dest_str)
+                        .map_err(|e| e.to_string())?;
+                    if let Some(parent) = dest_sidecar.parent() {
+                        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                    }
                     fs::copy(&source_sidecar, &dest_sidecar).map_err(|e| e.to_string())?;
                 }
 
@@ -3815,7 +4043,10 @@ pub fn rename_files(
             .and_then(|s| s.to_str())
             .unwrap_or("");
 
-        let file_date = exif_processing::get_creation_date_from_path(&original_path);
+        let file_date = exif_processing::get_creation_date_from_path(
+            Some(&app_handle),
+            &original_path,
+        );
 
         let new_stem = generate_filename_from_template(
             &name_template,
@@ -3839,13 +4070,17 @@ pub fn rename_files(
 
     let mut sidecar_operations: Vec<(PathBuf, PathBuf)> = Vec::new();
     for (original_path, new_path) in &operations {
-        let parent = original_path
-            .parent()
-            .ok_or("Could not get parent directory")?;
         let original_filename_str = original_path.file_name().unwrap().to_string_lossy();
         let new_filename_str = new_path.file_name().unwrap().to_string_lossy();
 
-        if let Ok(entries) = fs::read_dir(parent) {
+        // .rrdata sidecars are centralized now (sidecar_paths.rs) — this is
+        // a same-folder rename, so the mirrored sidecar directory is the
+        // same for both the old and new name, only the filename inside it
+        // changes.
+        if let Ok(sidecar_dir) =
+            crate::sidecar_paths::sidecar_dir_for_photo(&app_handle, original_path)
+            && let Ok(entries) = fs::read_dir(&sidecar_dir)
+        {
             for entry in entries.filter_map(Result::ok) {
                 let entry_path = entry.path();
                 let entry_os_filename = entry.file_name();
@@ -3856,12 +4091,11 @@ pub fn rename_files(
                 {
                     let new_sidecar_filename =
                         entry_filename.replacen(&*original_filename_str, &new_filename_str, 1);
-                    let new_sidecar_path = parent.join(new_sidecar_filename);
+                    let new_sidecar_path = sidecar_dir.join(new_sidecar_filename);
                     sidecar_operations.push((entry_path, new_sidecar_path));
                 } else if entry_filename == format!("{}.rrdata", original_filename_str) {
-                    let mut new_sidecar_name = new_path.file_name().unwrap().to_os_string();
-                    new_sidecar_name.push(".rrdata");
-                    let new_sidecar_path = new_path.with_file_name(new_sidecar_name);
+                    let new_sidecar_name = format!("{}.rrdata", new_filename_str);
+                    let new_sidecar_path = sidecar_dir.join(new_sidecar_name);
 
                     sidecar_operations.push((entry_path, new_sidecar_path));
                 }
@@ -3913,11 +4147,15 @@ pub fn create_virtual_copy(
     target_album_id: Option<String>,
     app_handle: AppHandle,
 ) -> Result<String, String> {
-    let (source_path, source_sidecar_path) = parse_virtual_path(&source_virtual_path);
+    let (source_path, source_sidecar_path) =
+        sidecar_path_for_virtual(&app_handle, &source_virtual_path)?;
 
     let new_copy_id = Uuid::new_v4().to_string()[..6].to_string();
     let new_virtual_path = format!("{}?vc={}", source_path.to_string_lossy(), new_copy_id);
-    let (_, new_sidecar_path) = parse_virtual_path(&new_virtual_path);
+    let (_, new_sidecar_path) = sidecar_path_for_virtual(&app_handle, &new_virtual_path)?;
+    if let Some(parent) = new_sidecar_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
 
     if source_sidecar_path.exists() {
         fs::copy(&source_sidecar_path, &new_sidecar_path)

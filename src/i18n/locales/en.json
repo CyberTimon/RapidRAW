@@ -95,6 +95,7 @@
       "resetPoint": "Reset {{channel}} Point Curve"
     },
     "details": {
+      "aiDenoiseButton": "AI Denoise…",
       "blueYellow": "Blue/Yellow",
       "centre": "Centré",
       "chromaticAberration": "Chromatic Aberration",
@@ -107,7 +108,7 @@
       "redCyan": "Red/Cyan",
       "sharpening": "Sharpening",
       "sharpness": "Sharpness",
-      "structure": "Structure",
+      "structure": "Texture",
       "threshold": "Threshold"
     },
     "effects": {
@@ -716,7 +717,10 @@
     "switcher": {
       "tooltips": {
         "adjust": "Adjust",
+        "colorCurves": "Color & Curves",
         "crop": "Crop",
+        "details": "Details",
+        "effects": "Effects",
         "export": "Export",
         "info": "Info",
         "inpaint": "Inpaint",

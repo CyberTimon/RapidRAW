@@ -1414,7 +1414,13 @@ impl GpuProcessor {
                 let did_create_sharpness_blur = run_blur(1.0, &self.sharpness_blur_view);
                 let did_create_tonal_blur = run_blur(3.5, &self.tonal_blur_view);
                 let did_create_clarity_blur = run_blur(8.0, &self.clarity_blur_view);
-                let did_create_structure_blur = run_blur(40.0, &self.structure_blur_view);
+                // Radius intentionally small (below Clarity's 8.0, in the same
+                // family as sharpness's 1.0 / tonal's 3.5) so this slider behaves
+                // like Lightroom's fine-detail "Texture" instead of a second,
+                // exaggerated Clarity — see preset_converter.rs's own
+                // ("Texture", "structure") XMP mapping, which already treats this
+                // field as Texture; only the radius (and the UI label) were wrong.
+                let did_create_structure_blur = run_blur(2.5, &self.structure_blur_view);
 
                 let mut main_encoder = device.create_command_encoder(&Default::default());
 

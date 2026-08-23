@@ -1,9 +1,13 @@
 import { useTranslation } from 'react-i18next';
+import { Grip } from 'lucide-react';
+import Button from '../ui/Button';
 import Slider from '../ui/Slider';
 import { Adjustments, DetailsAdjustment } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { useEditorStore } from '../../store/useEditorStore';
+import { useUIStore } from '../../store/useUIStore';
 
 interface DetailsPanelProps {
   adjustments: Adjustments;
@@ -27,84 +31,30 @@ export default function DetailsPanel({
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
   };
 
+  // Opens the same modal the right-click "Denoise" context-menu entry opens
+  // (useAppContextMenus.ts) — a second, more discoverable entry point into
+  // the exact same flow, not a reimplementation of it.
+  const handleOpenAiDenoise = () => {
+    const { selectedImage } = useEditorStore.getState();
+    if (!selectedImage) return;
+    const { setUI } = useUIStore.getState();
+    setUI({
+      denoiseModalState: {
+        isOpen: true,
+        isProcessing: false,
+        previewBase64: null,
+        error: null,
+        targetPaths: [selectedImage.path],
+        progressMessage: null,
+        isRaw: selectedImage?.isRaw || false,
+      },
+    });
+  };
+
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
 
   return (
     <div className="space-y-4">
-      {adjustmentVisibility.sharpening !== false && (
-        <div className="p-2 bg-bg-tertiary rounded-md">
-          <Text variant={TextVariants.heading} className="mb-2">
-            {t('adjustments.details.sharpening')}
-          </Text>
-          <Slider
-            label={t('adjustments.details.sharpness')}
-            max={100}
-            min={-100}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Sharpness, e.target.value)}
-            step={1}
-            value={adjustments.sharpness}
-            onDragStateChange={onDragStateChange}
-          />
-          <Slider
-            label={t('adjustments.details.threshold')}
-            max={80}
-            min={0}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.SharpnessThreshold, e.target.value)}
-            step={1}
-            value={adjustments.sharpnessThreshold ?? 15}
-            onDragStateChange={onDragStateChange}
-            defaultValue={15}
-            fillOrigin="min"
-          />
-        </div>
-      )}
-
-      {adjustmentVisibility.presence !== false && (
-        <div className="p-2 bg-bg-tertiary rounded-md">
-          <Text variant={TextVariants.heading} className="mb-2">
-            {t('adjustments.details.presence')}
-          </Text>
-          <Slider
-            label={t('adjustments.details.clarity')}
-            max={100}
-            min={-100}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Clarity, e.target.value)}
-            step={1}
-            value={adjustments.clarity}
-            onDragStateChange={onDragStateChange}
-          />
-          <Slider
-            label={t('adjustments.details.dehaze')}
-            max={100}
-            min={-100}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Dehaze, e.target.value)}
-            step={1}
-            value={adjustments.dehaze}
-            onDragStateChange={onDragStateChange}
-          />
-          <Slider
-            label={t('adjustments.details.structure')}
-            max={100}
-            min={-100}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Structure, e.target.value)}
-            step={1}
-            value={adjustments.structure}
-            onDragStateChange={onDragStateChange}
-          />
-          {!isForMask && (
-            <Slider
-              label={t('adjustments.details.centre')}
-              max={100}
-              min={-100}
-              onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Centré, e.target.value)}
-              step={1}
-              value={adjustments.centré}
-              onDragStateChange={onDragStateChange}
-            />
-          )}
-        </div>
-      )}
-
       {adjustmentVisibility.noiseReduction !== false && (
         <div className="p-2 bg-bg-tertiary rounded-md">
           <Text variant={TextVariants.heading} className="mb-2">
@@ -128,6 +78,12 @@ export default function DetailsPanel({
             value={adjustments.colorNoiseReduction}
             onDragStateChange={onDragStateChange}
           />
+          {!isForMask && (
+            <Button onClick={handleOpenAiDenoise} className="w-full mt-3">
+              <Grip size={16} />
+              {t('adjustments.details.aiDenoiseButton')}
+            </Button>
+          )}
         </div>
       )}
 

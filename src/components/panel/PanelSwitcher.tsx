@@ -13,6 +13,9 @@ import {
   FileInput,
   Camera,
   Folder as FolderIcon,
+  Palette,
+  Focus,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { Panel, PanelRegion } from '../ui/AppProperties';
@@ -21,7 +24,10 @@ import { SwitcherPlacement, useUIStore } from '../../store/useUIStore';
 export const PANEL_ICONS: Record<Panel, LucideIcon> = {
   [Panel.Metadata]: Info,
   [Panel.Adjustments]: SlidersHorizontal,
+  [Panel.ColorCurves]: Palette,
   [Panel.Crop]: Crop,
+  [Panel.Details]: Focus,
+  [Panel.Effects]: Sparkles,
   [Panel.Masks]: Layers,
   [Panel.Ai]: Paintbrush,
   [Panel.Presets]: SwatchBook,
@@ -33,7 +39,10 @@ export const PANEL_ICONS: Record<Panel, LucideIcon> = {
 const PANEL_TITLES: Record<Panel, string> = {
   [Panel.Metadata]: 'editor.switcher.tooltips.info',
   [Panel.Adjustments]: 'editor.switcher.tooltips.adjust',
+  [Panel.ColorCurves]: 'editor.switcher.tooltips.colorCurves',
   [Panel.Crop]: 'editor.switcher.tooltips.crop',
+  [Panel.Details]: 'editor.switcher.tooltips.details',
+  [Panel.Effects]: 'editor.switcher.tooltips.effects',
   [Panel.Masks]: 'editor.switcher.tooltips.masks',
   [Panel.Ai]: 'editor.switcher.tooltips.inpaint',
   [Panel.Presets]: 'editor.switcher.tooltips.presets',
@@ -250,6 +259,9 @@ export function MobilePanelSwitcher({
   const MOBILE_PANELS = [
     Panel.Metadata,
     Panel.Adjustments,
+    Panel.ColorCurves,
+    Panel.Details,
+    Panel.Effects,
     Panel.Crop,
     Panel.Masks,
     Panel.Ai,

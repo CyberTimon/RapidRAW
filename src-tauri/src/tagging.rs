@@ -14,7 +14,7 @@ use tokenizers::Tokenizer;
 use tokio::task::JoinHandle;
 use walkdir::WalkDir;
 
-use crate::file_management::{self, parse_virtual_path};
+use crate::file_management;
 use crate::formats::is_supported_image_file;
 use crate::hierarchy::TAG_HIERARCHY;
 use crate::image_processing::ImageMetadata;
@@ -330,7 +330,14 @@ pub async fn start_background_indexing(
 
                 async move {
                     let path_str = path.to_string_lossy().to_string();
-                    let (_, sidecar_path) = parse_virtual_path(&path_str);
+                    let Ok((_, sidecar_path)) =
+                        crate::file_management::sidecar_path_for_virtual(
+                            &app_handle_inner,
+                            &path_str,
+                        )
+                    else {
+                        return;
+                    };
 
                     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
@@ -372,7 +379,14 @@ pub async fn start_background_indexing(
 
                                     if let Ok(json_string) = serde_json::to_string_pretty(&metadata)
                                     {
-                                        let _ = fs::write(sidecar_path, json_string);
+                                        if let Some(parent) = sidecar_path.parent() {
+                                            let _ = fs::create_dir_all(parent);
+                                        }
+                                        let _ = crate::sidecar_paths::write_sidecar(
+                                            &app_handle_inner,
+                                            &sidecar_path,
+                                            &json_string,
+                                        );
                                     }
                                 }
                             }
@@ -418,7 +432,8 @@ fn modify_tags_for_path(
     app_handle: &AppHandle,
     modify_fn: impl Fn(&mut Vec<String>),
 ) -> Result<(), String> {
-    let (source_path, sidecar_path) = parse_virtual_path(path_str);
+    let (source_path, sidecar_path) =
+        crate::file_management::sidecar_path_for_virtual(app_handle, path_str)?;
 
     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
@@ -435,7 +450,10 @@ fn modify_tags_for_path(
     }
 
     let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
-    fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
+    if let Some(parent) = sidecar_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    crate::sidecar_paths::write_sidecar(app_handle, &sidecar_path, &json_string).map_err(|e| e.to_string())?;
 
     if let Ok(settings) = crate::load_settings(app_handle.clone())
         && settings.enable_xmp_sync.unwrap_or(false)
@@ -483,7 +501,17 @@ pub fn remove_tag_for_paths(
     Ok(())
 }
 
-fn rrdata_source_path(rrdata: &Path) -> Option<PathBuf> {
+/// Recovers a discovered sidecar's original photo path — `rrdata` is
+/// somewhere under `mirrored_root` (the centralized, relocated sidecar
+/// tree for `source_root`), so this strips `mirrored_root`'s prefix off,
+/// re-joins the remaining relative path onto `source_root`, and finally
+/// strips the sidecar's own `.rrdata` (and, for a virtual copy, its 6-hex
+/// `.<id>` suffix) off the filename — the exact inverse of
+/// `sidecar_paths::sidecar_path_for`.
+fn rrdata_source_path(rrdata: &Path, mirrored_root: &Path, source_root: &Path) -> Option<PathBuf> {
+    let relative_dir = rrdata.parent()?.strip_prefix(mirrored_root).ok()?;
+    let source_dir = source_root.join(relative_dir);
+
     let name = rrdata.file_name()?.to_str()?;
     let base = name.strip_suffix(".rrdata")?;
 
@@ -498,11 +526,13 @@ fn rrdata_source_path(rrdata: &Path) -> Option<PathBuf> {
         base
     };
 
-    Some(rrdata.with_file_name(source_filename))
+    Some(source_dir.join(source_filename))
 }
 
 fn sync_xmp_for_rrdata(
     rrdata_path: &Path,
+    mirrored_root: &Path,
+    source_root: &Path,
     metadata: &ImageMetadata,
     enable_xmp_sync: bool,
     create_xmp_if_missing: bool,
@@ -510,14 +540,15 @@ fn sync_xmp_for_rrdata(
     if !enable_xmp_sync {
         return;
     }
-    if let Some(source_path) = rrdata_source_path(rrdata_path) {
+    if let Some(source_path) = rrdata_source_path(rrdata_path, mirrored_root, source_root) {
         file_management::sync_metadata_to_xmp(&source_path, metadata, create_xmp_if_missing);
     }
 }
 
 #[tauri::command]
 pub fn clear_ai_tags(root_path: String, app_handle: AppHandle) -> Result<usize, String> {
-    if !Path::new(&root_path).exists() {
+    let root = Path::new(&root_path);
+    if !root.exists() {
         return Err(format!("Root path does not exist: {}", root_path));
     }
 
@@ -525,8 +556,15 @@ pub fn clear_ai_tags(root_path: String, app_handle: AppHandle) -> Result<usize, 
     let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
     let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
+    // Sidecars are centralized (sidecar_paths.rs) but mirror the source
+    // tree's own structure, so a bulk walk over root_path's *mirrored*
+    // sidecar directory finds exactly the same .rrdata files a walk of
+    // root_path itself used to find pre-relocation.
+    let (mirrored_root, canonical_root) =
+        crate::sidecar_paths::mirrored_root_for_source_dir(&app_handle, root)?;
+
     let mut updated_count = 0;
-    let walker = WalkDir::new(root_path).into_iter();
+    let walker = WalkDir::new(&mirrored_root).into_iter();
 
     for entry in walker.filter_map(|e| e.ok()) {
         let path = entry.path();
@@ -550,7 +588,14 @@ pub fn clear_ai_tags(root_path: String, app_handle: AppHandle) -> Result<usize, 
                     && fs::write(path, json_string).is_ok()
                 {
                     updated_count += 1;
-                    sync_xmp_for_rrdata(path, &metadata, enable_xmp_sync, create_xmp_if_missing);
+                    sync_xmp_for_rrdata(
+                        path,
+                        &mirrored_root,
+                        &canonical_root,
+                        &metadata,
+                        enable_xmp_sync,
+                        create_xmp_if_missing,
+                    );
                 }
             }
         }
@@ -560,7 +605,8 @@ pub fn clear_ai_tags(root_path: String, app_handle: AppHandle) -> Result<usize, 
 
 #[tauri::command]
 pub fn clear_all_tags(root_path: String, app_handle: AppHandle) -> Result<usize, String> {
-    if !Path::new(&root_path).exists() {
+    let root = Path::new(&root_path);
+    if !root.exists() {
         return Err(format!("Root path does not exist: {}", root_path));
     }
 
@@ -568,8 +614,11 @@ pub fn clear_all_tags(root_path: String, app_handle: AppHandle) -> Result<usize,
     let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
     let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
+    let (mirrored_root, canonical_root) =
+        crate::sidecar_paths::mirrored_root_for_source_dir(&app_handle, root)?;
+
     let mut updated_count = 0;
-    let walker = WalkDir::new(root_path).into_iter();
+    let walker = WalkDir::new(&mirrored_root).into_iter();
 
     for entry in walker.filter_map(|e| e.ok()) {
         let path = entry.path();
@@ -591,7 +640,14 @@ pub fn clear_all_tags(root_path: String, app_handle: AppHandle) -> Result<usize,
                     && fs::write(path, json_string).is_ok()
                 {
                     updated_count += 1;
-                    sync_xmp_for_rrdata(path, &metadata, enable_xmp_sync, create_xmp_if_missing);
+                    sync_xmp_for_rrdata(
+                        path,
+                        &mirrored_root,
+                        &canonical_root,
+                        &metadata,
+                        enable_xmp_sync,
+                        create_xmp_if_missing,
+                    );
                 }
             }
         }

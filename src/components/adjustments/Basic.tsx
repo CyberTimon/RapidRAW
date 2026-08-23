@@ -1,9 +1,11 @@
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider from '../ui/Slider';
-import { Adjustments, BasicAdjustment } from '../../utils/adjustments';
+import { Adjustments, BasicAdjustment, DetailsAdjustment } from '../../utils/adjustments';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import Text from '../ui/Text';
+import { TextVariants } from '../../types/typography';
 
 interface BasicAdjustmentsProps {
   adjustments: Adjustments;
@@ -163,7 +165,7 @@ export default function BasicAdjustments({
 }: BasicAdjustmentsProps) {
   const { t } = useTranslation();
 
-  const handleAdjustmentChange = (key: BasicAdjustment, value: any) => {
+  const handleAdjustmentChange = (key: string, value: any) => {
     const numericValue = parseFloat(value);
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
   };
@@ -176,6 +178,7 @@ export default function BasicAdjustments({
   };
 
   const hideTonemapper = isForMask || appSettings?.tonemapperOverrideEnabled;
+  const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
 
   return (
     <div>
@@ -252,6 +255,80 @@ export default function BasicAdjustments({
         value={adjustments.blacks}
         onDragStateChange={onDragStateChange}
       />
+
+      {adjustmentVisibility.sharpening !== false && (
+        <div className="p-2 mt-4 bg-bg-tertiary rounded-md">
+          <Text variant={TextVariants.heading} className="mb-2">
+            {t('adjustments.details.sharpening')}
+          </Text>
+          <Slider
+            label={t('adjustments.details.sharpness')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Sharpness, e.target.value)}
+            step={1}
+            value={adjustments.sharpness}
+            onDragStateChange={onDragStateChange}
+          />
+          <Slider
+            label={t('adjustments.details.threshold')}
+            max={80}
+            min={0}
+            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.SharpnessThreshold, e.target.value)}
+            step={1}
+            value={adjustments.sharpnessThreshold ?? 15}
+            onDragStateChange={onDragStateChange}
+            defaultValue={15}
+            fillOrigin="min"
+          />
+        </div>
+      )}
+
+      {adjustmentVisibility.presence !== false && (
+        <div className="p-2 mt-4 bg-bg-tertiary rounded-md">
+          <Text variant={TextVariants.heading} className="mb-2">
+            {t('adjustments.details.presence')}
+          </Text>
+          <Slider
+            label={t('adjustments.details.clarity')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Clarity, e.target.value)}
+            step={1}
+            value={adjustments.clarity}
+            onDragStateChange={onDragStateChange}
+          />
+          <Slider
+            label={t('adjustments.details.dehaze')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Dehaze, e.target.value)}
+            step={1}
+            value={adjustments.dehaze}
+            onDragStateChange={onDragStateChange}
+          />
+          <Slider
+            label={t('adjustments.details.structure')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Structure, e.target.value)}
+            step={1}
+            value={adjustments.structure}
+            onDragStateChange={onDragStateChange}
+          />
+          {!isForMask && (
+            <Slider
+              label={t('adjustments.details.centre')}
+              max={100}
+              min={-100}
+              onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Centré, e.target.value)}
+              step={1}
+              value={adjustments.centré}
+              onDragStateChange={onDragStateChange}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

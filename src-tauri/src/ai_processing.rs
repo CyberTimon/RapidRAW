@@ -14,7 +14,6 @@ use ort::value::Tensor;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::Emitter;
-use tauri::Manager;
 use tokenizers::Tokenizer;
 use tokio::sync::Mutex as TokioMutex;
 
@@ -164,7 +163,9 @@ fn edt_2d(grid: &[bool], width: usize, height: usize) -> Vec<f32> {
 }
 
 fn get_models_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf> {
-    let models_dir = app_handle.path().app_data_dir()?.join("models");
+    let models_dir = crate::sidecar_paths::app_root_dir(app_handle)
+        .map_err(|e| anyhow::anyhow!(e))?
+        .join("models");
     if !models_dir.exists() {
         fs::create_dir_all(&models_dir)?;
     }
@@ -680,6 +681,20 @@ struct SeamlessBlend {
     overlap: usize,
 }
 
+/// Raised-cosine ramp used by [`apply_seamless`] to cross-fade overlapping
+/// denoise tiles: `w(0) = 0`, `w(1) = 1`, and `w(t) + w(1 - t) = 1` for any
+/// `t` in `[0, 1]`. That symmetry is what matters here — two neighboring
+/// tiles, each fading via this same curve from opposite ends of their shared
+/// overlap band, always sum to exactly 1.0 at every pixel, but ramp smoothly
+/// instead of meeting at a flat 0.5/0.5 step (the previous behavior, which
+/// could show as a faint seam on strongly denoised, detail-crossing edges).
+/// `t = 0` is the edge touching the neighboring tile (trust it least);
+/// `t = 1` is deep in this tile's own territory (trust it fully).
+#[inline]
+fn seam_weight(t: f32) -> f32 {
+    0.5 - 0.5 * (std::f32::consts::PI * t).cos()
+}
+
 fn apply_seamless(tile: &mut Array4<f32>, blend: &SeamlessBlend) {
     let SeamlessBlend {
         ud0,
@@ -693,20 +708,22 @@ fn apply_seamless(tile: &mut Array4<f32>, blend: &SeamlessBlend) {
         overlap,
     } = *blend;
     let ol = overlap;
-    if absx0 > 0 {
+    if absx0 > 0 && ol > 0 {
         for c in 0..3 {
             for y in ud1..ud3 {
                 for x in ud0..(ud0 + ol).min(ud2) {
-                    tile[[0, c, y, x]] *= 0.5;
+                    let t = (x - ud0) as f32 / ol as f32;
+                    tile[[0, c, y, x]] *= seam_weight(t);
                 }
             }
         }
     }
-    if absy0 > 0 {
+    if absy0 > 0 && ol > 0 {
         for c in 0..3 {
             for y in ud1..(ud1 + ol).min(ud3) {
                 for x in ud0..ud2 {
-                    tile[[0, c, y, x]] *= 0.5;
+                    let t = (y - ud1) as f32 / ol as f32;
+                    tile[[0, c, y, x]] *= seam_weight(t);
                 }
             }
         }
@@ -716,7 +733,8 @@ fn apply_seamless(tile: &mut Array4<f32>, blend: &SeamlessBlend) {
         for c in 0..3 {
             for y in ud1..ud3 {
                 for x in right_start..ud2 {
-                    tile[[0, c, y, x]] *= 0.5;
+                    let t = (ud2 - 1 - x) as f32 / ol as f32;
+                    tile[[0, c, y, x]] *= seam_weight(t);
                 }
             }
         }
@@ -726,9 +744,25 @@ fn apply_seamless(tile: &mut Array4<f32>, blend: &SeamlessBlend) {
         for c in 0..3 {
             for y in bottom_start..ud3 {
                 for x in ud0..ud2 {
-                    tile[[0, c, y, x]] *= 0.5;
+                    let t = (ud3 - 1 - y) as f32 / ol as f32;
+                    tile[[0, c, y, x]] *= seam_weight(t);
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod seam_weight_tests {
+    use super::*;
+
+    #[test]
+    fn seam_weight_endpoints_and_symmetry() {
+        assert!((seam_weight(0.0) - 0.0).abs() < 1e-6);
+        assert!((seam_weight(1.0) - 1.0).abs() < 1e-6);
+        for i in 1..10 {
+            let t = i as f32 / 10.0;
+            assert!((seam_weight(t) + seam_weight(1.0 - t) - 1.0).abs() < 1e-5);
         }
     }
 }
