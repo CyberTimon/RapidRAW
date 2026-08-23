@@ -9,6 +9,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use exif::{Exif, In, Value};
 use little_exif::exif_tag::ExifTag;
 use little_exif::filetype::FileExtension;
+use little_exif::ifd::ExifTagGroup;
 use little_exif::metadata::Metadata;
 use little_exif::rational::{iR64, uR64};
 use rawler::decoders::RawMetadata;
@@ -802,6 +803,77 @@ pub fn get_creation_date_from_bytes(path_hint: &str, file_bytes: &[u8]) -> DateT
     Utc::now()
 }
 
+fn copy_full_exif_from_source(
+    metadata: &mut Metadata,
+    original_path: &Path,
+    strip_gps: bool,
+) -> bool {
+    let Ok(source_metadata) = Metadata::new_from_path(original_path) else {
+        return false;
+    };
+
+    let mut copied_any = false;
+    for ifd in source_metadata.get_ifds() {
+        if ifd.get_generic_ifd_nr() != 0 {
+            continue;
+        }
+        if strip_gps && ifd.get_ifd_type() == ExifTagGroup::GPS {
+            continue;
+        }
+        for tag in ifd.get_tags() {
+            metadata.set_tag(tag.clone());
+            copied_any = true;
+        }
+    }
+    copied_any
+}
+
+fn apply_sidecar_field_overrides(metadata: &mut Metadata, map: &HashMap<String, String>) {
+    let clean_s = |s: &String| s.replace('"', "").trim().to_string();
+    let is_user_edit = |s: &str| !s.is_empty() && s != "...";
+
+    match map.get("Artist").map(clean_s) {
+        Some(val) => {
+            if is_user_edit(&val) {
+                metadata.set_tag(ExifTag::Artist(val));
+            }
+        }
+        None => {
+            metadata.remove_tag(ExifTag::Artist(String::new()));
+        }
+    }
+    match map.get("Copyright").map(clean_s) {
+        Some(val) => {
+            if is_user_edit(&val) {
+                metadata.set_tag(ExifTag::Copyright(val));
+            }
+        }
+        None => {
+            metadata.remove_tag(ExifTag::Copyright(String::new()));
+        }
+    }
+    match map.get("ImageDescription").map(clean_s) {
+        Some(val) => {
+            if is_user_edit(&val) {
+                metadata.set_tag(ExifTag::ImageDescription(val));
+            }
+        }
+        None => {
+            metadata.remove_tag(ExifTag::ImageDescription(String::new()));
+        }
+    }
+    match map.get("UserComment").map(clean_s) {
+        Some(val) => {
+            if is_user_edit(&val) && !val.starts_with("0x") {
+                metadata.set_tag(ExifTag::UserComment(val.into_bytes()));
+            }
+        }
+        None => {
+            metadata.remove_tag(ExifTag::UserComment(Vec::new()));
+        }
+    }
+}
+
 pub fn write_image_with_metadata(
     image_bytes: &mut Vec<u8>,
     original_path_str: &str,
@@ -835,13 +907,17 @@ pub fn write_image_with_metadata(
             as_zTXt_chunk: true,
         },
         "tiff" => FileExtension::TIFF,
+        "webp" => FileExtension::WEBP,
         _ => return Ok(()),
     };
 
     let mut metadata = Metadata::new();
-    let mut source_read_success = false;
 
-    if let Some(map) = read_rrexif_sidecar(original_path) {
+    let full_exif_copied = !is_raw_file(original_path_str)
+        && copy_full_exif_from_source(&mut metadata, original_path, strip_gps);
+    let mut source_read_success = full_exif_copied;
+
+    if !source_read_success && let Some(map) = read_rrexif_sidecar(original_path) {
         source_read_success = true;
 
         let clean_s = |s: &String| s.replace('"', "").trim().to_string();
@@ -1196,9 +1272,21 @@ pub fn write_image_with_metadata(
         }
     }
 
+    if full_exif_copied && let Some(map) = read_rrexif_sidecar(original_path) {
+        apply_sidecar_field_overrides(&mut metadata, &map);
+    }
+
     metadata.set_tag(ExifTag::Software("RapidRAW".to_string()));
     metadata.set_tag(ExifTag::Orientation(vec![1u16]));
     metadata.set_tag(ExifTag::ColorSpace(vec![1u16]));
+
+    if let Ok(reader) =
+        image::ImageReader::new(Cursor::new(image_bytes.as_slice())).with_guessed_format()
+        && let Ok((width, height)) = reader.into_dimensions()
+    {
+        metadata.set_tag(ExifTag::ExifImageWidth(vec![width]));
+        metadata.set_tag(ExifTag::ExifImageHeight(vec![height]));
+    }
 
     if let Err(e) = metadata.write_to_vec(image_bytes, file_type) {
         log::warn!("Failed to write metadata: {}", e);

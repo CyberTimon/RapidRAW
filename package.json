@@ -7,6 +7,7 @@
     "build": "vite build",
     "tauri": "tauri",
     "start": "tauri dev",
+    "start:tethering": "tauri dev -- --features tethering",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

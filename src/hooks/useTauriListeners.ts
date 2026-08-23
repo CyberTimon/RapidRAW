@@ -314,6 +314,42 @@ export function useTauriListeners({
           }));
         }
       }),
+      listen('focus-stack-progress', (event: any) => {
+        if (isEffectActive) {
+          useUIStore.getState().setUI((state) => {
+            if (state.focusStackModalState.finalImageBase64 || state.focusStackModalState.error) return state;
+            return { focusStackModalState: { ...state.focusStackModalState, progressMessage: event.payload } };
+          });
+        }
+      }),
+      listen('focus-stack-complete', (event: any) => {
+        if (isEffectActive) {
+          useUIStore.getState().setUI((state) => ({
+            focusStackModalState: {
+              ...state.focusStackModalState,
+              error: null,
+              finalImageBase64: event.payload.base64,
+              depthMapBase64: event.payload.depthMap,
+              isProcessing: false,
+              progressMessage: null,
+            },
+          }));
+        }
+      }),
+      listen('focus-stack-error', (event: any) => {
+        if (isEffectActive) {
+          useUIStore.getState().setUI((state) => ({
+            focusStackModalState: {
+              ...state.focusStackModalState,
+              error: String(event.payload),
+              finalImageBase64: null,
+              depthMapBase64: null,
+              isProcessing: false,
+              progressMessage: null,
+            },
+          }));
+        }
+      }),
       listen('culling-start', (event: any) => {
         if (isEffectActive) {
           useUIStore.getState().setUI((state) => ({

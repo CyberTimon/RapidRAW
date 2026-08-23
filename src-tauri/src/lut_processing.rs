@@ -5,7 +5,7 @@ use crate::android_integration::{
 };
 use anyhow::anyhow;
 use image::{DynamicImage, GenericImageView, Rgb, Rgb32FImage};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs::{File, copy, create_dir_all, read_dir};
 use std::io::{BufRead, BufReader, Cursor};
 use std::path::{Path, PathBuf};
@@ -29,9 +29,18 @@ pub struct Lut {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LutEntry {
     pub name: String,
     pub path: String,
+    pub is_built_in: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LutPreviewRequest {
+    pub path: String,
+    pub is_built_in: bool,
 }
 
 #[derive(Serialize)]
@@ -45,6 +54,19 @@ pub struct LutPreview {
     pub thumb: Option<String>,
 }
 
+fn strip_verbatim(path: &Path) -> PathBuf {
+    let s = path.to_string_lossy();
+    PathBuf::from(s.strip_prefix(r"\\?\").unwrap_or(&s).to_string())
+}
+
+fn film_luts_dir(app_handle: &AppHandle) -> Option<PathBuf> {
+    app_handle
+        .path()
+        .resolve("resources/film_luts", tauri::path::BaseDirectory::Resource)
+        .ok()
+        .map(|p| strip_verbatim(&p))
+}
+
 pub fn get_luts_dir(app_data_dir: &Path) -> anyhow::Result<PathBuf> {
     let luts_dir = app_data_dir.join("luts");
     if !luts_dir.exists() {
@@ -53,7 +75,7 @@ pub fn get_luts_dir(app_data_dir: &Path) -> anyhow::Result<PathBuf> {
     Ok(luts_dir)
 }
 
-pub fn list_luts_in_dir(dir: &Path) -> anyhow::Result<Vec<LutEntry>> {
+pub fn list_luts_in_dir(dir: &Path, is_built_in: bool) -> anyhow::Result<Vec<LutEntry>> {
     let mut entries: Vec<LutEntry> = Vec::new();
     if !dir.exists() {
         return Ok(entries);
@@ -77,9 +99,11 @@ pub fn list_luts_in_dir(dir: &Path) -> anyhow::Result<Vec<LutEntry>> {
                 .and_then(|s| s.to_str())
                 .unwrap_or("LUT")
                 .to_string();
+
             entries.push(LutEntry {
                 name,
-                path: path.to_string_lossy().into_owned(),
+                path: strip_verbatim(&path).to_string_lossy().into_owned(),
+                is_built_in,
             });
         }
     }
@@ -127,7 +151,7 @@ pub fn import_luts_to_dir(dir: &Path, source_paths: &[String]) -> anyhow::Result
             log::error!("Failed to copy LUT '{}': {}", source, error);
         }
     }
-    list_luts_in_dir(dir)
+    list_luts_in_dir(dir, false)
 }
 
 #[cfg(target_os = "android")]
@@ -325,7 +349,9 @@ fn parse_hald(image: DynamicImage) -> anyhow::Result<Lut> {
 }
 
 pub fn parse_lut_file(path_str: &str) -> anyhow::Result<Lut> {
-    if path_str.starts_with(r"\\") || path_str.starts_with("//") {
+    let normalized_path_str = path_str.strip_prefix(r"\\?\").unwrap_or(path_str);
+
+    if normalized_path_str.starts_with(r"\\") || normalized_path_str.starts_with("//") {
         return Err(anyhow!("Network paths (UNC) are not allowed for LUTs"));
     }
 
@@ -460,6 +486,14 @@ pub fn get_or_load_lut(state: &State<AppState>, path: &str) -> Result<Arc<Lut>, 
 
 #[tauri::command]
 pub fn list_luts(app_handle: AppHandle) -> Result<Vec<LutEntry>, String> {
+    let mut all_luts = Vec::new();
+
+    if let Some(resource_path) = film_luts_dir(&app_handle)
+        && let Ok(built_in) = list_luts_in_dir(&resource_path, true)
+    {
+        all_luts.extend(built_in);
+    }
+
     let data_dir = app_handle
         .path()
         .app_data_dir()
@@ -468,12 +502,21 @@ pub fn list_luts(app_handle: AppHandle) -> Result<Vec<LutEntry>, String> {
 
     #[cfg(target_os = "android")]
     {
-        combined_lut_list(&luts_dir).map_err(|e| e.to_string())
+        if let Ok(user_luts) = list_luts_in_dir(&luts_dir, false) {
+            all_luts.extend(user_luts);
+        }
+        if let Ok(cached) = list_luts_in_cache() {
+            all_luts.extend(cached);
+        }
     }
     #[cfg(not(target_os = "android"))]
     {
-        list_luts_in_dir(&luts_dir).map_err(|e| e.to_string())
+        if let Ok(user_luts) = list_luts_in_dir(&luts_dir, false) {
+            all_luts.extend(user_luts);
+        }
     }
+
+    Ok(all_luts)
 }
 
 #[cfg(target_os = "android")]
@@ -515,20 +558,12 @@ fn list_luts_in_cache() -> anyhow::Result<Vec<LutEntry>> {
                 .to_string();
             entries.push(LutEntry {
                 name,
-                path: path.to_string_lossy().into_owned(),
+                path: strip_verbatim(&path).to_string_lossy().into_owned(),
+                is_built_in: false,
             });
         }
     }
     entries.sort_by_key(|a| a.name.to_lowercase());
-    Ok(entries)
-}
-
-#[cfg(target_os = "android")]
-fn combined_lut_list(luts_dir: &Path) -> anyhow::Result<Vec<LutEntry>> {
-    let mut entries = list_luts_in_dir(luts_dir)?;
-    if let Ok(cached) = list_luts_in_cache() {
-        entries.extend(cached);
-    }
     Ok(entries)
 }
 
@@ -544,14 +579,7 @@ pub fn import_luts(
     let luts_dir = get_luts_dir(&data_dir).map_err(|e| e.to_string())?;
     import_luts_to_dir(&luts_dir, &source_paths).map_err(|e| e.to_string())?;
 
-    #[cfg(target_os = "android")]
-    {
-        combined_lut_list(&luts_dir).map_err(|e| e.to_string())
-    }
-    #[cfg(not(target_os = "android"))]
-    {
-        list_luts_in_dir(&luts_dir).map_err(|e| e.to_string())
-    }
+    list_luts(app_handle)
 }
 
 #[tauri::command]
@@ -560,12 +588,18 @@ pub fn remove_lut(app_handle: AppHandle, path: String) -> Result<Vec<LutEntry>, 
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?;
-    let luts_dir = get_luts_dir(&data_dir).map_err(|e| e.to_string())?;
-    let target_path = PathBuf::from(&path);
+    let luts_dir = strip_verbatim(&get_luts_dir(&data_dir).map_err(|e| e.to_string())?);
+    let target_path = strip_verbatim(Path::new(&path));
+
+    if let Some(resource_path) = film_luts_dir(&app_handle)
+        && target_path.starts_with(&resource_path)
+    {
+        return Err("Cannot delete built-in film emulations".to_string());
+    }
 
     #[cfg(target_os = "android")]
     {
-        let cache_dir = get_lut_cache_dir().map_err(|e| e.to_string())?;
+        let cache_dir = strip_verbatim(&get_lut_cache_dir().map_err(|e| e.to_string())?);
         if !target_path.starts_with(&luts_dir) && !target_path.starts_with(&cache_dir) {
             return Err(
                 "Access denied: Cannot remove files outside the user LUT directory".to_string(),
@@ -585,14 +619,7 @@ pub fn remove_lut(app_handle: AppHandle, path: String) -> Result<Vec<LutEntry>, 
         return Err("LUT file not found".to_string());
     }
 
-    #[cfg(target_os = "android")]
-    {
-        combined_lut_list(&luts_dir).map_err(|e| e.to_string())
-    }
-    #[cfg(not(target_os = "android"))]
-    {
-        list_luts_in_dir(&luts_dir).map_err(|e| e.to_string())
-    }
+    list_luts(app_handle)
 }
 
 fn render_lut_swatch(
@@ -633,7 +660,7 @@ fn render_lut_swatch(
 
 #[tauri::command]
 pub fn generate_lut_previews(
-    lut_paths: Vec<String>,
+    luts: Vec<LutPreviewRequest>,
     size: u32,
     state: State<AppState>,
     app_handle: AppHandle,
@@ -652,26 +679,32 @@ pub fn generate_lut_previews(
         crate::generate_transformed_preview(&state, &loaded_image, &base_json, size)?;
 
     let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
-    let lut_json = serde_json::json!({
-        "lutPath": "preview",
-        "lutIntensity": 100,
-        "sectionVisibility": { "effects": true }
-    });
-    let adjustments = get_all_adjustments_from_json(&lut_json, is_raw, tm_override);
     let transform_hash = calculate_transform_hash(&base_json);
 
-    let previews = lut_paths
+    let previews = luts
         .into_iter()
-        .map(|path| {
+        .map(|request| {
+            let swatch_lut_json = serde_json::json!({
+                "lutPath": "preview",
+                "lutIntensity": 100,
+                "lutIsSceneReferred": request.is_built_in,
+                "sectionVisibility": { "effects": true }
+            });
+            let swatch_adjustments =
+                get_all_adjustments_from_json(&swatch_lut_json, is_raw, tm_override);
+
             let thumb = render_lut_swatch(
                 &context,
                 &state,
                 &base_image,
                 transform_hash,
-                adjustments,
-                &path,
+                swatch_adjustments,
+                &request.path,
             );
-            LutPreview { path, thumb }
+            LutPreview {
+                path: request.path,
+                thumb,
+            }
         })
         .collect();
 

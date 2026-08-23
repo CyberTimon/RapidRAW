@@ -13,6 +13,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 interface LutEntry {
   name: string;
   path: string;
+  isBuiltIn: boolean;
 }
 
 interface LutPreview {
@@ -24,8 +25,8 @@ interface LUTControlProps {
   lutPath: string | null;
   lutName: string | null;
   lutIntensity: number;
-  onLutSelect: (path: string) => void;
-  onLutHover?: (path: string | null) => void;
+  onLutSelect: (path: string, isBuiltIn: boolean) => void;
+  onLutHover?: (path: string | null, isBuiltIn?: boolean) => void;
   onIntensityChange: (intensity: number) => void;
   onClear: () => void;
   onDragStateChange?: (isDragging: boolean) => void;
@@ -56,6 +57,8 @@ export default function LUTControl({
   const previewCache = useRef<Map<string, Record<string, string | null>>>(new Map());
 
   const handleContextMenu = (event: React.MouseEvent, entry: LutEntry) => {
+    if (entry.isBuiltIn) return;
+
     event.preventDefault();
     event.stopPropagation();
 
@@ -79,6 +82,7 @@ export default function LUTControl({
             }
           } catch (err) {
             console.error('Failed to remove LUT:', err);
+            toast.error(String(err));
           }
         },
       },
@@ -102,7 +106,9 @@ export default function LUTControl({
     if (!isExpanded || !selectedImagePath || !isImageReady || entries.length === 0) {
       return;
     }
-    const cacheKey = `${selectedImagePath}|${entries.map((entry) => entry.path).join(',')}`;
+    const cacheKey = `${selectedImagePath}|${entries
+      .map((entry) => `${entry.path}:${entry.isBuiltIn ? 1 : 0}`)
+      .join(',')}`;
     const cached = previewCache.current.get(cacheKey);
     if (cached) {
       setPreviews(cached);
@@ -112,7 +118,7 @@ export default function LUTControl({
     let isActive = true;
     setIsLoadingPreviews(true);
     invoke<LutPreview[]>('generate_lut_previews', {
-      lutPaths: entries.map((entry) => entry.path),
+      luts: entries.map((entry) => ({ path: entry.path, isBuiltIn: entry.isBuiltIn })),
       size: PREVIEW_SIZE,
     })
       .then((results) => {
@@ -190,13 +196,47 @@ export default function LUTControl({
     }
   };
 
-  const handleSwatchClick = (path: string) => {
+  const handleSwatchClick = (entry: LutEntry) => {
     onLutHover?.(null);
-    if (path === lutPath) {
+    if (entry.path === lutPath) {
       onClear();
     } else {
-      onLutSelect(path);
+      onLutSelect(entry.path, entry.isBuiltIn);
     }
+  };
+
+  const builtInLuts = entries.filter((e) => e.isBuiltIn);
+  const customLuts = entries.filter((e) => !e.isBuiltIn);
+
+  const renderSwatch = (entry: LutEntry) => {
+    const thumb = previews[entry.path];
+    const isSelected = entry.path === lutPath;
+    return (
+      <button
+        key={entry.path}
+        onMouseEnter={() => onLutHover?.(entry.path, entry.isBuiltIn)}
+        onMouseLeave={() => onLutHover?.(null)}
+        onClick={() => handleSwatchClick(entry)}
+        onContextMenu={entry.isBuiltIn ? undefined : (e) => handleContextMenu(e, entry)}
+        className={`relative aspect-square rounded-md overflow-hidden bg-bg-tertiary border-2 transition-colors ${
+          isSelected ? 'border-accent' : 'border-transparent hover:border-surface'
+        }`}
+        data-tooltip={entry.name}
+      >
+        {isLoadingPreviews && thumb === undefined ? (
+          <div className="w-full h-full animate-pulse bg-surface" />
+        ) : thumb ? (
+          <img src={thumb} alt={entry.name} className="w-full h-full object-cover" draggable={false} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-text-secondary">
+            <ImageOff size={18} />
+          </div>
+        )}
+        <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-[10px] text-white bg-black/60 truncate text-left backdrop-blur-xs">
+          {entry.name}
+        </span>
+      </button>
+    );
   };
 
   return (
@@ -225,70 +265,6 @@ export default function LUTControl({
       </div>
 
       <AnimatePresence initial={false}>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="overflow-hidden"
-          >
-            <div className="mt-2 pb-1">
-              {entries.length === 0 ? (
-                <button
-                  onClick={handleImport}
-                  className="w-full flex items-center justify-center gap-1.5 py-4 rounded-md bg-bg-tertiary hover:bg-surface border-2 border-dashed border-text-secondary/20 hover:border-text-secondary/40 text-sm text-text-primary transition-colors"
-                >
-                  <Upload size={16} />
-                  {t('ui.lut.import')}
-                </button>
-              ) : (
-                <div className="grid grid-cols-3 gap-2">
-                  {entries.map((entry) => {
-                    const thumb = previews[entry.path];
-                    const isSelected = entry.path === lutPath;
-                    return (
-                      <button
-                        key={entry.path}
-                        onMouseEnter={() => onLutHover?.(entry.path)}
-                        onMouseLeave={() => onLutHover?.(null)}
-                        onClick={() => handleSwatchClick(entry.path)}
-                        onContextMenu={(e) => handleContextMenu(e, entry)}
-                        className={`relative aspect-square rounded-md overflow-hidden bg-bg-tertiary border-2 transition-colors ${
-                          isSelected ? 'border-accent' : 'border-transparent hover:border-surface'
-                        }`}
-                        data-tooltip={entry.name}
-                      >
-                        {isLoadingPreviews && thumb === undefined ? (
-                          <div className="w-full h-full animate-pulse bg-surface" />
-                        ) : thumb ? (
-                          <img src={thumb} alt={entry.name} className="w-full h-full object-cover" draggable={false} />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-text-secondary">
-                            <ImageOff size={18} />
-                          </div>
-                        )}
-                        <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-[10px] text-white bg-black/50 truncate text-left">
-                          {entry.name}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  <button
-                    onClick={handleImport}
-                    className="aspect-square rounded-md bg-bg-tertiary border-2 border-text-secondary/25 hover:border-accent flex items-center justify-center text-text-secondary hover:text-text-primary transition-all duration-150"
-                    data-tooltip={t('ui.lut.import')}
-                  >
-                    <Upload size={20} />
-                  </button>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence initial={false}>
         {lutName && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
@@ -297,7 +273,7 @@ export default function LUTControl({
             transition={{ duration: 0.2, ease: 'easeInOut' }}
             className="overflow-hidden"
           >
-            <div className="mt-2">
+            <div className="mt-3">
               <Slider
                 label={t('ui.lut.intensity')}
                 min={0}
@@ -309,6 +285,67 @@ export default function LUTControl({
                 onDragStateChange={onDragStateChange}
                 fillOrigin="min"
               />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className={`${lutName ? '' : 'mt-3'} pb-1 space-y-4`}>
+              {builtInLuts.length > 0 && (
+                <div>
+                  <span className="text-sm font-medium text-text-secondary select-none block mb-2">
+                    {t('ui.lut.filmEmulations')}
+                  </span>
+                  <div className="grid grid-cols-3 gap-2">{builtInLuts.map(renderSwatch)}</div>
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-text-secondary select-none">{t('ui.lut.customLuts')}</span>
+                  {customLuts.length > 0 && (
+                    <button
+                      onClick={handleImport}
+                      className="text-xs text-text-secondary hover:text-accent flex items-center gap-1 transition-colors"
+                      data-tooltip={t('ui.lut.import')}
+                    >
+                      <Upload size={12} />
+                      {t('ui.lut.import')}
+                    </button>
+                  )}
+                </div>
+
+                {customLuts.length === 0 ? (
+                  <button
+                    onClick={handleImport}
+                    className="w-full flex items-center justify-center gap-1.5 py-4 rounded-md bg-bg-tertiary hover:bg-surface border-2 border-dashed border-text-secondary/20 hover:border-text-secondary/40 text-sm text-text-primary transition-colors cursor-pointer"
+                  >
+                    <Upload size={16} />
+                    {t('ui.lut.import')}
+                  </button>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {customLuts.map(renderSwatch)}
+
+                    <button
+                      onClick={handleImport}
+                      className="aspect-square rounded-md bg-bg-tertiary border-2 border-dashed border-text-secondary/25 hover:border-accent flex items-center justify-center text-text-secondary hover:text-text-primary transition-all duration-150 cursor-pointer"
+                      data-tooltip={t('ui.lut.import')}
+                    >
+                      <Upload size={18} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
         )}

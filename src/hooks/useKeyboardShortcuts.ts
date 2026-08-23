@@ -14,6 +14,7 @@ interface KeyboardShortcutsProps {
   sortedImageList: Array<ImageFile>;
   handleBackToLibrary(): void;
   handleDeleteSelected(): void;
+  handleGoHome(): void;
   handleImageSelect(path: string, openInEditor?: boolean): void;
   handlePasteFiles(str: string): void;
   handleToggleFullScreen(): void;
@@ -24,6 +25,7 @@ export const useKeyboardShortcuts = ({
   sortedImageList,
   handleBackToLibrary,
   handleDeleteSelected,
+  handleGoHome,
   handleImageSelect,
   handlePasteFiles,
   handleToggleFullScreen,
@@ -562,6 +564,7 @@ export const useKeyboardShortcuts = ({
           else if (s.ui.activePanel === Panel.Crop) s.ui.setPanel(Panel.Adjustments);
           else if (s.ui.isFullScreen) handleToggleFullScreen();
           else if (s.ui.activeView === 'editor') handleBackToLibrary();
+          else if (s.ui.activeView === 'library' && s.library.rootPaths?.length > 0) handleGoHome();
         },
       },
       {
@@ -670,6 +673,7 @@ export const useKeyboardShortcuts = ({
   }, [
     handleBackToLibrary,
     handleDeleteSelected,
+    handleGoHome,
     handleImageSelect,
     handlePasteFiles,
     handleToggleFullScreen,

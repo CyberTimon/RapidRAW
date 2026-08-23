@@ -393,90 +393,6 @@ pub async fn invoke_generative_replace_with_mask_def(
     let mask_bitmap =
         crate::image_processing::inverse_transform_mask(mask_bitmap, &current_adjustments);
 
-    let patch_rgba = if use_fast_inpaint {
-        let lama_model = ai_processing::get_or_init_lama_model(
-            &app_handle,
-            &state.ai_state,
-            &state.ai_init_lock,
-        )
-        .await
-        .map_err(|e| e.to_string())?;
-
-        ai_processing::run_lama_inpainting(&source_image, &mask_bitmap, &lama_model)
-            .map_err(|e| e.to_string())?
-    } else if settings.ai_provider.as_deref() == Some("cloud")
-        && let Some(auth_token) = token
-    {
-        let base_url = "https://getrapidraw.com/api";
-
-        let mut rgba_mask = RgbaImage::new(img_w, img_h);
-        for (src_val, dst_chunk) in mask_bitmap.as_raw().iter().zip(rgba_mask.chunks_mut(4)) {
-            let intensity = *src_val;
-            dst_chunk[0] = intensity;
-            dst_chunk[1] = intensity;
-            dst_chunk[2] = intensity;
-            dst_chunk[3] = 255;
-        }
-        let mask_image_dynamic = DynamicImage::ImageRgba8(rgba_mask);
-
-        let (real_path_buf, _) = crate::file_management::parse_virtual_path(&path);
-
-        ai_connector::process_inpainting(
-            base_url,
-            &real_path_buf.to_string_lossy(),
-            &source_image,
-            &mask_image_dynamic,
-            patch_definition.prompt,
-            Some(&auth_token),
-        )
-        .await
-        .map_err(|e| e.to_string())?
-    } else if settings.ai_provider.as_deref() == Some("ai-connector")
-        && let Some(address) = settings.ai_connector_address
-    {
-        let base_url = format!("http://{}", address);
-
-        let mut rgba_mask = RgbaImage::new(img_w, img_h);
-        for (src_val, dst_chunk) in mask_bitmap.as_raw().iter().zip(rgba_mask.chunks_mut(4)) {
-            let intensity = *src_val;
-            dst_chunk[0] = intensity;
-            dst_chunk[1] = intensity;
-            dst_chunk[2] = intensity;
-            dst_chunk[3] = 255;
-        }
-        let mask_image_dynamic = DynamicImage::ImageRgba8(rgba_mask);
-
-        let (real_path_buf, _) = crate::file_management::parse_virtual_path(&path);
-
-        ai_connector::process_inpainting(
-            &base_url,
-            &real_path_buf.to_string_lossy(),
-            &source_image,
-            &mask_image_dynamic,
-            patch_definition.prompt,
-            None,
-        )
-        .await
-        .map_err(|e| e.to_string())?
-    } else {
-        return Err(
-            "No generative backend configured or connection invalid. Please check your AI settings."
-                .to_string(),
-        );
-    };
-
-    let (patch_w, patch_h) = patch_rgba.dimensions();
-    let final_patch = if patch_w != img_w || patch_h != img_h {
-        image::imageops::resize(
-            &patch_rgba,
-            img_w,
-            img_h,
-            image::imageops::FilterType::Lanczos3,
-        )
-    } else {
-        patch_rgba.clone()
-    };
-
     let mask_raw = mask_bitmap.as_raw();
     let img_w_usize = img_w as usize;
     let img_h_usize = img_h as usize;
@@ -524,6 +440,174 @@ pub async fn invoke_generative_replace_with_mask_def(
             max_x = last;
         }
     }
+
+    let patch_rgba = if use_fast_inpaint {
+        let lama_model = ai_processing::get_or_init_lama_model(
+            &app_handle,
+            &state.ai_state,
+            &state.ai_init_lock,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
+        ai_processing::run_lama_inpainting(&source_image, &mask_bitmap, &lama_model)
+            .map_err(|e| e.to_string())?
+    } else if settings.ai_provider.as_deref() == Some("cloud")
+        && let Some(auth_token) = token
+    {
+        let tight_w = max_x - min_x + 1;
+        let tight_h = max_y - min_y + 1;
+
+        let pad_x = tight_w / 2;
+        let pad_y = tight_h / 2;
+
+        let padded_min_x = min_x.saturating_sub(pad_x);
+        let padded_min_y = min_y.saturating_sub(pad_y);
+        let padded_max_x = (max_x + pad_x).min(img_w_usize - 1);
+        let padded_max_y = (max_y + pad_y).min(img_h_usize - 1);
+
+        let crop_w = (padded_max_x - padded_min_x + 1) as u32;
+        let crop_h = (padded_max_y - padded_min_y + 1) as u32;
+
+        let src_crop = image::imageops::crop_imm(
+            &source_image,
+            padded_min_x as u32,
+            padded_min_y as u32,
+            crop_w,
+            crop_h,
+        )
+        .to_image();
+
+        let mask_crop = image::imageops::crop_imm(
+            &mask_bitmap,
+            padded_min_x as u32,
+            padded_min_y as u32,
+            crop_w,
+            crop_h,
+        )
+        .to_image();
+
+        let max_pixels = 1_500_000_f32;
+        let current_pixels = (crop_w * crop_h) as f32;
+
+        let mut ai_w = crop_w;
+        let mut ai_h = crop_h;
+        if current_pixels > max_pixels {
+            let scale = (max_pixels / current_pixels).sqrt();
+            ai_w = (crop_w as f32 * scale) as u32;
+            ai_h = (crop_h as f32 * scale) as u32;
+        }
+
+        ai_w = (ai_w / 16) * 16;
+        ai_h = (ai_h / 16) * 16;
+
+        let resize_needed = ai_w != crop_w || ai_h != crop_h;
+
+        let (final_src_crop, final_mask_crop) = if resize_needed {
+            (
+                image::imageops::resize(
+                    &src_crop,
+                    ai_w,
+                    ai_h,
+                    image::imageops::FilterType::Lanczos3,
+                ),
+                image::imageops::resize(
+                    &mask_crop,
+                    ai_w,
+                    ai_h,
+                    image::imageops::FilterType::Nearest,
+                ),
+            )
+        } else {
+            (src_crop, mask_crop)
+        };
+
+        let mut rgba_mask = RgbaImage::new(ai_w, ai_h);
+        for (src_val, dst_chunk) in final_mask_crop.as_raw().iter().zip(rgba_mask.chunks_mut(4)) {
+            let intensity = *src_val;
+            dst_chunk[0] = intensity;
+            dst_chunk[1] = intensity;
+            dst_chunk[2] = intensity;
+            dst_chunk[3] = 255;
+        }
+
+        let base_url = "http://127.0.0.1:5000";
+        let generated_ai_patch = ai_connector::process_cloud_inpainting(
+            base_url,
+            &DynamicImage::ImageRgba8(final_src_crop),
+            &DynamicImage::ImageRgba8(rgba_mask),
+            patch_definition.prompt,
+            &auth_token,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
+        let generated_ai_patch_rgba = generated_ai_patch.to_rgba8();
+        let restored_ai_patch = if resize_needed {
+            image::imageops::resize(
+                &generated_ai_patch_rgba,
+                crop_w,
+                crop_h,
+                image::imageops::FilterType::Lanczos3,
+            )
+        } else {
+            generated_ai_patch_rgba
+        };
+
+        let mut full_canvas = RgbaImage::new(img_w, img_h);
+        image::imageops::overlay(
+            &mut full_canvas,
+            &restored_ai_patch,
+            padded_min_x as i64,
+            padded_min_y as i64,
+        );
+
+        full_canvas
+    } else if settings.ai_provider.as_deref() == Some("ai-connector")
+        && let Some(address) = settings.ai_connector_address
+    {
+        let base_url = format!("http://{}", address);
+
+        let mut rgba_mask = RgbaImage::new(img_w, img_h);
+        for (src_val, dst_chunk) in mask_bitmap.as_raw().iter().zip(rgba_mask.chunks_mut(4)) {
+            let intensity = *src_val;
+            dst_chunk[0] = intensity;
+            dst_chunk[1] = intensity;
+            dst_chunk[2] = intensity;
+            dst_chunk[3] = 255;
+        }
+        let mask_image_dynamic = DynamicImage::ImageRgba8(rgba_mask);
+
+        let (real_path_buf, _) = crate::file_management::parse_virtual_path(&path);
+
+        ai_connector::process_inpainting(
+            &base_url,
+            &real_path_buf.to_string_lossy(),
+            &source_image,
+            &mask_image_dynamic,
+            patch_definition.prompt,
+            None,
+        )
+        .await
+        .map_err(|e| e.to_string())?
+    } else {
+        return Err(
+            "No generative backend configured or connection invalid. Please check your AI settings."
+                .to_string(),
+        );
+    };
+
+    let (patch_w, patch_h) = patch_rgba.dimensions();
+    let final_patch = if patch_w != img_w || patch_h != img_h {
+        image::imageops::resize(
+            &patch_rgba,
+            img_w,
+            img_h,
+            image::imageops::FilterType::Lanczos3,
+        )
+    } else {
+        patch_rgba.clone()
+    };
 
     let min_x_u32 = min_x as u32;
     let min_y_u32 = min_y as u32;

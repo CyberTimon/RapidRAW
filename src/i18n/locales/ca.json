@@ -225,6 +225,10 @@
       "addCopiedToAlbum_other": "Afegir {{count}} imatges copiades a l'àlbum",
       "refreshView": "Actualitzar vista"
     },
+    "merge": {
+      "focusStack": "Apilament d'enfocament",
+      "title": "Fusionar"
+    },
     "tagging": {
       "addTagTooltip": "Afegir etiqueta",
       "noTags": "No s'han afegit etiquetes",
@@ -717,7 +721,8 @@
         "info": "Informació",
         "inpaint": "Inpainting",
         "masks": "Màscares",
-        "presets": "Ajustos preestablerts"
+        "presets": "Ajustos preestablerts",
+        "tethering": "Captura connectada"
       }
     },
     "toolbar": {
@@ -1232,6 +1237,23 @@
       "titleBatch": "Reduir soroll de les imatges",
       "titleSingle": "Reduir soroll de la imatge"
     },
+    "focusStack": {
+      "cancel": "Cancel·la",
+      "close": "Tanca",
+      "depthMap": "Mapa de profunditat",
+      "description": "Combina diverses imatges amb diferents distàncies d'enfocament en una sola imatge perfectament nítida.",
+      "descriptionWithCount_one": "Combina {{count}} imatge amb diferents distàncies d'enfocament en una sola imatge perfectament nítida.",
+      "descriptionWithCount_other": "Combina {{count}} imatges amb diferents distàncies d'enfocament en una sola imatge perfectament nítida.",
+      "failed": "S'ha produït un error en l'apilament d'enfocament",
+      "initializing": "Inicialitzant...",
+      "openInEditor": "Obre a l'editor",
+      "result": "Resultat",
+      "save": "Desa",
+      "savedSuccess": "L'apilament d'enfocament s'ha desat correctament!",
+      "stacking": "Apilant enfocament",
+      "start": "Inicia",
+      "title": "Apilament d'enfocament"
+    },
     "hdr": {
       "cancel": "Cancel·lar",
       "close": "Tancar",
@@ -1439,10 +1461,16 @@
         "confirmClearAll": "Esborrar totes les etiquetes",
         "confirmClearCache": "Esborrar memòria cau",
         "confirmDeleteAllEdits": "Eliminar totes les edicions",
+        "confirmResetLayout": "Restablir disseny",
+        "confirmResetLayoutTitle": "Restablir el disseny de l'espai de treball",
         "confirmTitle": "Confirmar eliminació",
+        "resetLayoutMessage": "Esteu segur que voleu restablir el disseny de l'espai de treball? Tots els panells acoblats, les amplades i les posicions dels commutadors es restauraran als seus valors predeterminats.",
         "sidecarMessage": "Esteu segur que voleu suprimir tots els fitxers sidecar?\n\nAixò eliminarà permanentment totes les vostres edicions per a totes les imatges dins de totes les carpetes arrel actives i les seves subcarpetes."
       },
       "noFolders": "No s'ha seleccionat cap carpeta",
+      "resetLayoutButton": "Restablir disseny",
+      "resetLayoutDesc": "Restaura els acoblaments de panells, els separadors laterals, les alçades i els commutadors de panells a la seva disposició predeterminada.",
+      "resetLayoutTitle": "Restablir el disseny de l'espai de treball",
       "statuses": {
         "aiSuccess": "{{count}} fitxers actualitzats. S'han eliminat les etiquetes d'IA.",
         "aiSuccess_one": "{{count}} fitxer actualitzat. S'han eliminat les etiquetes d'IA.",
@@ -1456,7 +1484,9 @@
         "clearingCache": "S'està esborrant la memòria cau de miniatures...",
         "deleting": "S'estan suprimint els fitxers sidecar, espereu si us plau...",
         "failedToGetPath": "No s'ha pogut recuperar el camí del fitxer de registre.",
+        "layoutResetSuccess": "El disseny de l'espai de treball s'ha restablert.",
         "processing": "S'està processant...",
+        "resettingLayout": "Restablint l'espai de treball...",
         "sidecarSuccess": "{{count}} fitxers sidecar eliminats correctament.",
         "sidecarSuccess_one": "{{count}} fitxer sidecar eliminat correctament.",
         "sidecarSuccess_other": "{{count}} fitxers sidecar eliminats correctament."
@@ -1742,10 +1772,12 @@
         "depth": "Per al potent model d'estimació de profunditat monocular que permet les capacitats d'emmascarament de profunditat d'IA.",
         "lama": "Per al potent i senzill model d'inpainting d'imatges, que permet el farciment i l'eliminació d'objectes segons el contingut.",
         "lensfun": "Per la seva inestimable biblioteca de codi obert i la completa base de dades per a la correcció automàtica d'objectius.",
+        "libgphoto2": "Per la completa biblioteca de comunicació amb càmeres que impulsa el sistema de tethering i captura remota de RapidRAW.",
         "negpy": "Per la inspiració que hi ha darrere de la lògica de conversió de negatius.",
         "nind": "Per proporcionar els models d'IA que impulsen les capacitats de reducció de soroll per IA a RapidRAW.",
         "rawler": "Per l'excel·lent component de Rust que proporciona la base per al processament de fitxers RAW en aquest projecte.",
         "sam2": "Per proporcionar el model de base utilitzat per a les capacitats de detecció de subjectes per IA.",
+        "spektrafilm": "Per les LUTs d'emulació de pel·lícula basades en espectres, d'Andrea Volpato, que impulsen les emulacions integrades de RapidRAW. Amb llicència CC BY-SA 4.0.",
         "u2net": "Per proporcionar la robusta arquitectura utilitzada per a les capacitats de detecció de cel i primer pla per IA.",
         "you": "A vosaltres, per utilitzar i donar suport a RapidRAW. El vostre interès manté aquest projecte viu i en evolució.",
         "youLabel": "Vosaltres"
@@ -1761,6 +1793,59 @@
     "tooltips": {
       "goHome": "Anar a l'inici"
     }
+  },
+  "tethering": {
+    "aperture": "Obertura",
+    "aperturePlaceholder": "p. ex. 2.8",
+    "autoApplyPreset": "Aplica preajust automàticament",
+    "autoOpenCaptured": "Obre automàticament la imatge capturada",
+    "cameraConnected": "Càmera connectada",
+    "capturing": "Capturant...",
+    "changePreset": "Canvia",
+    "clearPreset": "Neteja el preajust",
+    "connectCamera": "Connecta la càmera",
+    "expComp": "Comp. Exp.",
+    "expCompPlaceholder": "p. ex. 0.0",
+    "expMode": "Mode Exp.",
+    "exposureSettings": "Ajustaments d'exposició",
+    "flipHorizontal": "Inverteix horitzontalment",
+    "generalSettings": "Ajustaments generals",
+    "ghostOverlayAlt": "Superposició fantasma",
+    "iso": "ISO",
+    "isoPlaceholder": "p. ex. 400",
+    "liveViewAlt": "Vista en directe",
+    "metering": "Mode de mesura",
+    "noCameraDetected": "Cap càmera detectada",
+    "noCamerasFound": "No s'han trobat càmeres. Assegura't que està connectada i en mode PC Remote.",
+    "overlayLastShot": "Superposa l'última captura",
+    "overlayOff": "Desactivat",
+    "rotate90": "Gira 90°",
+    "scanTooltip": "Cerca càmeres",
+    "selectCamera": "Selecciona càmera",
+    "selectCameraPlaceholder": "Selecciona una càmera",
+    "shutter": "Obturador",
+    "shutterPlaceholder": "p. ex. 1/200",
+    "startLiveView": "Inicia vista en directe",
+    "status": "Estat",
+    "stopLiveView": "Atura vista en directe",
+    "title": "Captura connectada",
+    "toasts": {
+      "afFailed": "Error en disparar l'enfocament automàtic",
+      "cameraDisconnected": "Càmera desconnectada",
+      "captureFailed": "Error en la captura: {{err}}",
+      "communicationFailed": "Error en comunicar-se amb la càmera",
+      "connectionFailed": "Connexió fallida: {{err}}",
+      "detectionFailed": "Error en la detecció: {{err}}",
+      "noCamerasFound": "No s'han trobat càmeres. Assegura't que està en mode PC Remote.",
+      "presetApplyFailed": "Error en aplicar el preajust a la captura",
+      "selectFolderFirst": "Selecciona primer una carpeta estàndard a la biblioteca.",
+      "setFailed": "Error en configurar {{key}}: {{err}}"
+    },
+    "triggerAutofocus": "Dispara l'enfocament automàtic",
+    "triggerCapture": "Captura",
+    "wbTemp": "Temp. WB (K)",
+    "wbTempPlaceholder": "p. ex. 5600",
+    "whiteBalance": "Balanç de blancs"
   },
   "ui": {
     "bottomBar": {
@@ -1822,7 +1907,9 @@
     },
     "lut": {
       "clearLut": "Esborrar LUT",
+      "customLuts": "LUTs personalitzades",
       "empty": "Cap LUT encara — importeu-ne algun",
+      "filmEmulations": "Emulacions de pel·lícula",
       "filterLabel": "Fitxers LUT",
       "import": "Importar perfils",
       "importFailed": "Error en importar LUTs",

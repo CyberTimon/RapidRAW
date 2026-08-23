@@ -9,6 +9,10 @@ rust-version = "1.96"
 name = "rapidraw_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+default = []
+tethering = ["dep:gphoto2"]
+
 [dependencies]
 tauri = { version = "2.11", features = [ "macos-private-api", "rustls-tls", "protocol-asset" ] }
 tauri-plugin-dialog = "2.7.1"
@@ -71,6 +75,9 @@ sysinfo = "0.39.5"
 trash = "5.2.6"
 tauri-plugin-single-instance = "2.4.2"
 reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "rustls"] }
+
+[target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
+gphoto2 = { git = "https://github.com/CyberTimon/libgphoto2-rs", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"

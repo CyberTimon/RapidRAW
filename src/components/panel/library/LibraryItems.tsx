@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Image as ImageIcon, Folder, FolderOpen, Star as StarIcon, SlidersHorizontal, CloudOff, Layers } from 'lucide-react';
+import {
+  Image as ImageIcon,
+  Folder,
+  FolderOpen,
+  Star as StarIcon,
+  SlidersHorizontal,
+  CloudOff,
+  Layers,
+} from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
+import { useDraggable } from '@dnd-kit/core';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import { ThumbnailAspectRatio, ImageFile, ExifOverlay } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
@@ -56,6 +65,11 @@ const ThumbnailComponent = ({
     pathRef.current = path;
     hadDataOnPathChange.current = !!data;
   }
+
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `image-${path}`,
+    data: { type: 'library-image', path },
+  });
 
   const { baseName, isVirtualCopy } = useMemo(() => {
     const fullFileName = path.split(/[\\/]/).pop() || '';
@@ -150,7 +164,13 @@ const ThumbnailComponent = ({
 
   return (
     <div
-      className="aspect-square bg-surface rounded-md overflow-hidden cursor-pointer group relative flex flex-col transition-all duration-150 transform-gpu [-webkit-mask-image:-webkit-radial-gradient(white,black)]"
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={clsx(
+        'aspect-square bg-surface rounded-md overflow-hidden cursor-pointer group relative flex flex-col transition-all duration-150 transform-gpu [-webkit-mask-image:-webkit-radial-gradient(white,black)]',
+        isDragging && 'opacity-50 ring-2 ring-accent z-50',
+      )}
       data-bench-id="thumbnail"
       onClick={(e: any) => {
         e.stopPropagation();
@@ -474,6 +494,11 @@ const ListItemComponent = ({
     hadDataOnPathChange.current = !!data;
   }
 
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `image-${path}`,
+    data: { type: 'library-image', path },
+  });
+
   const { baseName, isVirtualCopy } = useMemo(() => {
     const fullFileName = path.split(/[\\/]/).pop() || '';
     const parts = fullFileName.split('?vc=');
@@ -586,7 +611,10 @@ const ListItemComponent = ({
 
   return (
     <div
-      className={`flex items-center w-full h-full cursor-pointer transition-all duration-150 ${borderClass} ${roundingClass} ${stateClass}`}
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={`flex items-center w-full h-full cursor-pointer transition-all duration-150 ${borderClass} ${roundingClass} ${stateClass} ${isDragging ? 'opacity-50 ring-2 ring-accent z-50' : ''}`}
       onClick={(e: any) => {
         e.stopPropagation();
         onImageClick(path, e);

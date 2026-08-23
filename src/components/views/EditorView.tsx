@@ -25,6 +25,7 @@ interface EditorViewProps {
   thumbnailAspectRatio: ThumbnailAspectRatio;
   sortedImageList: ImageFile[];
   createResizeHandler: (stateKey: string, startSize: number) => (e: ReactPointerEvent<HTMLDivElement>) => void;
+  createResizeResetHandler: (stateKey: string) => () => void;
   handleBackToLibrary: () => void;
   handleEditorContextMenu: (...args: any) => void;
   handleThumbnailContextMenu: (...args: any) => void;
@@ -50,6 +51,7 @@ export default function EditorView({
   thumbnailAspectRatio,
   sortedImageList,
   createResizeHandler,
+  createResizeResetHandler,
   handleBackToLibrary,
   handleEditorContextMenu,
   handleThumbnailContextMenu,
@@ -154,7 +156,11 @@ export default function EditorView({
       }}
     >
       {!isCompactPortrait && (
-        <Resizer direction={Orientation.Horizontal} onMouseDown={createResizeHandler('bottom', bottomPanelHeight)} />
+        <Resizer
+          direction={Orientation.Horizontal}
+          onMouseDown={createResizeHandler('bottom', bottomPanelHeight)}
+          onDoubleClick={createResizeResetHandler('bottom')}
+        />
       )}
       {editorBottomBarComponent}
     </div>
@@ -175,6 +181,7 @@ export default function EditorView({
         <Resizer
           direction={Orientation.Horizontal}
           onMouseDown={createResizeHandler('compact', compactEditorPanelHeight)}
+          onDoubleClick={createResizeResetHandler('compact')}
         />
       )}
       <div className="min-h-0 flex-1 overflow-hidden relative">

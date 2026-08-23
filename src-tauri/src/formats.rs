@@ -92,6 +92,14 @@ pub fn is_raw_file<P: AsRef<Path>>(path: P) -> bool {
 pub fn is_supported_image_file<P: AsRef<Path>>(path: P) -> bool {
     let path = path.as_ref();
 
+    if path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with('.'))
+    {
+        return false;
+    }
+
     let ext = match path.extension().and_then(|s| s.to_str()) {
         Some(e) => e,
         None => return false,

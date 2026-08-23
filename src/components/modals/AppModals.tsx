@@ -1,6 +1,4 @@
 import { useShallow } from 'zustand/react/shallow';
-import { invoke } from '@tauri-apps/api/core';
-import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
@@ -10,6 +8,7 @@ import { useEditorStore } from '../../store/useEditorStore';
 import CopyPasteSettingsModal from './CopyPasteSettingsModal';
 import PanoramaModal from './PanoramaModal';
 import HdrModal from './HdrModal';
+import FocusStackModal from './FocusStackModal';
 import NegativeConversionModal from './NegativeConversionModal';
 import DenoiseModal from './DenoiseModal';
 import CreateFolderModal from './CreateFolderModal';
@@ -28,6 +27,8 @@ export interface AppModalsProps {
   handleStartPanorama: (paths: string[]) => void;
   handleSaveHdr: () => Promise<string>;
   handleStartHdr: (paths: string[]) => void;
+  handleStartFocusStack: (paths: string[]) => void;
+  handleSaveFocusStack: () => Promise<string>;
   refreshImageList: () => Promise<void>;
   handleApplyDenoise: (intensity: number, method: 'ai' | 'bm3d') => Promise<void>;
   handleBatchDenoise: (intensity: number, method: 'ai' | 'bm3d', paths: string[]) => Promise<string[]>;
@@ -69,6 +70,7 @@ export default function AppModals(props: AppModalsProps) {
     confirmModalState,
     panoramaModalState,
     hdrModalState,
+    focusStackModalState,
     negativeModalState,
     denoiseModalState,
     cullingModalState,
@@ -91,6 +93,7 @@ export default function AppModals(props: AppModalsProps) {
       confirmModalState: state.confirmModalState,
       panoramaModalState: state.panoramaModalState,
       hdrModalState: state.hdrModalState,
+      focusStackModalState: state.focusStackModalState,
       negativeModalState: state.negativeModalState,
       denoiseModalState: state.denoiseModalState,
       cullingModalState: state.cullingModalState,
@@ -205,6 +208,37 @@ export default function AppModals(props: AppModalsProps) {
         onSave={props.handleSaveHdr}
         onMerge={() => props.handleStartHdr(hdrModalState.stitchingSourcePaths)}
         progressMessage={hdrModalState.progressMessage}
+      />
+      <FocusStackModal
+        error={focusStackModalState.error}
+        finalImageBase64={focusStackModalState.finalImageBase64}
+        imageCount={focusStackModalState.sourcePaths.length}
+        isOpen={focusStackModalState.isOpen}
+        isProcessing={focusStackModalState.isProcessing}
+        loadingImageUrl={
+          focusStackModalState.sourcePaths.length > 0
+            ? thumbnails[focusStackModalState.sourcePaths[Math.floor(focusStackModalState.sourcePaths.length / 2)]] ||
+              null
+            : null
+        }
+        depthMapBase64={focusStackModalState.depthMapBase64}
+        onClose={() =>
+          setUI({
+            focusStackModalState: {
+              isOpen: false,
+              isProcessing: false,
+              progressMessage: '',
+              finalImageBase64: null,
+              depthMapBase64: null,
+              error: null,
+              sourcePaths: [],
+            },
+          })
+        }
+        onOpenFile={(path: string) => props.handleImageSelect(path)}
+        onSave={props.handleSaveFocusStack}
+        onMerge={() => props.handleStartFocusStack(focusStackModalState.sourcePaths)}
+        progressMessage={focusStackModalState.progressMessage}
       />
       <NegativeConversionModal
         isOpen={negativeModalState.isOpen}

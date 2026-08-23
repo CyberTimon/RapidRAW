@@ -1437,7 +1437,7 @@ pub struct GlobalAdjustments {
     pub has_lut: u32,
     pub lut_intensity: f32,
     pub tonemapper_mode: u32,
-    _pad_lut2: f32,
+    pub lut_is_scene_referred: u32,
     _pad_lut3: f32,
     _pad_lut4: f32,
     _pad_lut5: f32,
@@ -2117,7 +2117,7 @@ fn get_global_adjustments_from_json(
     let tone_mapper = js_adjustments["toneMapper"].as_str().unwrap_or("basic");
     let (pipe_to_rendering, rendering_to_pipe) = calculate_agx_matrices();
 
-    let (has_lut, lut_intensity) = if is_visible("effects") {
+    let (has_lut, lut_intensity, lut_is_scene_referred) = if is_visible("effects") {
         (
             if js_adjustments["lutPath"].is_string() {
                 1
@@ -2125,9 +2125,17 @@ fn get_global_adjustments_from_json(
                 0
             },
             js_adjustments["lutIntensity"].as_f64().unwrap_or(100.0) as f32 / 100.0,
+            if js_adjustments["lutIsSceneReferred"]
+                .as_bool()
+                .unwrap_or(false)
+            {
+                1
+            } else {
+                0
+            },
         )
     } else {
-        (0, 1.0)
+        (0, 1.0, 0)
     };
 
     GlobalAdjustments {
@@ -2219,7 +2227,7 @@ fn get_global_adjustments_from_json(
 
         tonemapper_mode: tonemapper_override
             .unwrap_or_else(|| if tone_mapper == "agx" { 1 } else { 0 }),
-        _pad_lut2: 0.0,
+        lut_is_scene_referred,
         _pad_lut3: 0.0,
         _pad_lut4: 0.0,
         _pad_lut5: 0.0,

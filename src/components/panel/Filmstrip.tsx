@@ -10,6 +10,7 @@ import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { useDraggable } from '@dnd-kit/core';
 
 const HORIZONTAL_PADDING = 4;
 const ITEM_GAP = 8;
@@ -79,6 +80,12 @@ const FilmstripThumbnail = memo(
     const isInitialLoad = useRef(true);
 
     const { path, tags, is_edited: isEdited } = imageFile;
+
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+      id: `filmstrip-image-${path}`,
+      data: { type: 'library-image', path },
+    });
+
     const rating = imageRatings?.[path] || 0;
     const colorTag = tags?.find((t: string) => t.startsWith('color:'))?.substring(6);
     const colorLabel = COLOR_LABELS.find((c: Color) => c.name === colorTag);
@@ -163,9 +170,13 @@ const FilmstripThumbnail = memo(
 
     return (
       <div
+        ref={setNodeRef}
+        {...listeners}
+        {...attributes}
         className={clsx(
           'h-full w-full rounded-md overflow-hidden cursor-pointer shrink-0 group relative transition-all duration-150 bg-surface',
           ringClass,
+          isDragging && 'opacity-50 ring-2 ring-accent z-50',
         )}
         onClick={(e: any) => {
           e.stopPropagation();
@@ -173,7 +184,7 @@ const FilmstripThumbnail = memo(
         }}
         onContextMenu={(e: any) => onContextMenu?.(e, path)}
         style={{
-          zIndex: isActive ? 2 : isSelected ? 1 : 'auto',
+          zIndex: isDragging ? 50 : isActive ? 2 : isSelected ? 1 : 'auto',
         }}
         data-tooltip={truncatedTitle}
       >
