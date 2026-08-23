@@ -549,7 +549,7 @@ impl Default for AppSettings {
                 key: "date_taken".to_string(),
                 order: "desc".to_string(),
             }),
-            filter_criteria: None,
+            filter_criteria: Some(FilterCriteria::default()),
             theme: Some("dark".to_string()),
             font_family: None,
             decorations: Some(true),
