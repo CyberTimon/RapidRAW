@@ -339,7 +339,7 @@ impl Default for WorkspaceState {
         let mut active_panels = HashMap::new();
         active_panels.insert("leftTop".to_string(), Some("folderTree".to_string()));
         active_panels.insert("leftBottom".to_string(), Some("presets".to_string()));
-        active_panels.insert("rightTop".to_string(), Some("adjustments".to_string()));
+        active_panels.insert("rightTop".to_string(), Some("details".to_string()));
         active_panels.insert("rightBottom".to_string(), None);
 
         let mut panel_switcher_placement = HashMap::new();
@@ -619,11 +619,11 @@ impl Default for AppSettings {
             raw_preprocessing_color_nr: Some(0.5),
             raw_preprocessing_sharpening: Some(0.35),
             apply_preprocessing_to_non_raws: Some(false),
-            exif_overlay: Some("hover".to_string()),
+            exif_overlay: Some("off".to_string()),
             language: Some("en".to_string()),
             folder_tree_sort: Some(FolderTreeSort::default()),
             library_display_mode: Some("grid".to_string()),
-            grouping: Some("raw".to_string()),
+            grouping: Some("off".to_string()),
             require_matching_exif: Some(false),
             group_edited_files: Some(true),
             group_associated_files: Some(false),
