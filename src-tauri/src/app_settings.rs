@@ -339,7 +339,7 @@ impl Default for WorkspaceState {
         let mut active_panels = HashMap::new();
         active_panels.insert("leftTop".to_string(), Some("folderTree".to_string()));
         active_panels.insert("leftBottom".to_string(), Some("presets".to_string()));
-        active_panels.insert("rightTop".to_string(), Some("details".to_string()));
+        active_panels.insert("rightTop".to_string(), Some("adjustments".to_string()));
         active_panels.insert("rightBottom".to_string(), None);
 
         let mut panel_switcher_placement = HashMap::new();

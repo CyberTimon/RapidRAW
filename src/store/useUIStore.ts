@@ -146,7 +146,7 @@ export function reconcileWorkspace(
     activePanels: {
       leftTop: Panel.FolderTree,
       leftBottom: Panel.Presets,
-      rightTop: Panel.Details,
+      rightTop: Panel.Adjustments,
       rightBottom: null,
     },
     panelSwitcherPlacement: {
@@ -317,7 +317,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   activePanels: {
     leftTop: Panel.FolderTree,
     leftBottom: Panel.Presets,
-    rightTop: Panel.Details,
+    rightTop: Panel.Adjustments,
     rightBottom: null,
   },
   activeLayoutDragItem: null,
