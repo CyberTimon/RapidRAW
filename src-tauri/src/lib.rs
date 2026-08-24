@@ -1849,42 +1849,58 @@ fn frontend_ready(
         if is_first_run && let Ok(config_dir) = sidecar_paths::app_root_dir(&app_handle) {
             let path = config_dir.join("window_state.json");
 
-            if let Ok(contents) = std::fs::read_to_string(&path)
-                && let Ok(saved_state) = serde_json::from_str::<WindowState>(&contents)
+            match std::fs::read_to_string(&path) {
+                Ok(contents) => match serde_json::from_str::<WindowState>(&contents) {
+                    Ok(saved_state) => {
+                        should_maximize = saved_state.maximized;
+                        should_fullscreen = saved_state.fullscreen;
+                    }
+                    Err(_) => {
+                        // Corrupt/unparseable window_state.json — treat like a
+                        // fresh install (see the "no file" case below).
+                        should_maximize = true;
+                    }
+                },
+                Err(_) => {
+                    // No window_state.json yet: the very first launch ever.
+                    // window.maximize() isn't called earlier in .setup() (while
+                    // the window is still hidden) because that doesn't reliably
+                    // propagate to WebView2's internal layout on Windows — it
+                    // can stay stuck at the small pre-maximize size until a
+                    // real, visible resize happens (the "editor canvas stays
+                    // tiny until you manually resize the window" bug). Setting
+                    // should_maximize here instead routes through the exact
+                    // same post-show maximize() call below that already works
+                    // correctly for a restored "was maximized" state.
+                    should_maximize = true;
+                }
+            }
+
+            if (should_maximize || should_fullscreen)
+                && let Some(monitor) = window
+                    .current_monitor()
+                    .ok()
+                    .flatten()
+                    .or_else(|| window.primary_monitor().ok().flatten())
+                    .or_else(|| {
+                        window
+                            .available_monitors()
+                            .ok()
+                            .and_then(|m| m.into_iter().next())
+                    })
             {
-                #[cfg(any(windows, target_os = "linux"))]
-                {
-                    should_maximize = saved_state.maximized;
-                    should_fullscreen = saved_state.fullscreen;
-                }
+                let monitor_size = monitor.size();
+                let monitor_pos = monitor.position();
+                let default_width = 1280i32;
+                let default_height = 720i32;
+                let center_x = monitor_pos.x + (monitor_size.width as i32 - default_width) / 2;
+                let center_y = monitor_pos.y + (monitor_size.height as i32 - default_height) / 2;
 
-                if (should_maximize || should_fullscreen)
-                    && let Some(monitor) = window
-                        .current_monitor()
-                        .ok()
-                        .flatten()
-                        .or_else(|| window.primary_monitor().ok().flatten())
-                        .or_else(|| {
-                            window
-                                .available_monitors()
-                                .ok()
-                                .and_then(|m| m.into_iter().next())
-                        })
-                {
-                    let monitor_size = monitor.size();
-                    let monitor_pos = monitor.position();
-                    let default_width = 1280i32;
-                    let default_height = 720i32;
-                    let center_x = monitor_pos.x + (monitor_size.width as i32 - default_width) / 2;
-                    let center_y =
-                        monitor_pos.y + (monitor_size.height as i32 - default_height) / 2;
-
-                    let _ = window.set_size(tauri::PhysicalSize::new(
-                        default_width as u32,
-                        default_height as u32,
-                    ));
-                    let _ = window.set_position(tauri::PhysicalPosition::new(center_x, center_y));
-                }
+                let _ = window.set_size(tauri::PhysicalSize::new(
+                    default_width as u32,
+                    default_height as u32,
+                ));
+                let _ = window.set_position(tauri::PhysicalPosition::new(center_x, center_y));
             }
         }
 
@@ -2202,15 +2218,25 @@ pub fn run() {
                                 let _ = window.center();
                             }
                         } else {
-                            // Saved window_state.json is corrupt/unparseable — treat the
-                            // same as a fresh install rather than falling back to the
-                            // small default size.
-                            let _ = window.maximize();
+                            // Saved window_state.json is corrupt/unparseable — center at
+                            // the default size for now; frontend_ready's should_maximize
+                            // handling (after the window is actually shown) treats this
+                            // the same as a fresh install and maximizes it properly.
+                            let _ = window.center();
                         }
                     } else {
-                        // No window_state.json yet: this is the very first launch, so
-                        // open maximized instead of the small default size.
-                        let _ = window.maximize();
+                        // No window_state.json yet: this is the very first launch.
+                        // Deliberately *not* calling window.maximize() here — the window
+                        // is still hidden at this point (.visible(false) above), and
+                        // maximizing a hidden window doesn't reliably propagate to
+                        // WebView2's internal layout on Windows (it can stay stuck at
+                        // the small pre-maximize size until a real, visible resize
+                        // happens — the "editor canvas stays tiny until you manually
+                        // resize the window" bug). frontend_ready's should_maximize
+                        // handling maximizes it after window.show() instead, which is
+                        // the same call path that already works correctly when
+                        // restoring a maximized state from a previous session.
+                        let _ = window.center();
                     }
                 } else {
                     let _ = window.center();
