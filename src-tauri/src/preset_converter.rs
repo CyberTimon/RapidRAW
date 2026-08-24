@@ -153,8 +153,7 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     }
 
     if let Some(shadows_val) = get_attr_as_f64(&attrs, "Shadows2012") {
-        let adjusted_shadows = (shadows_val * 1.5).min(100.0);
-        adjustments.insert("shadows".to_string(), json!(adjusted_shadows));
+        adjustments.insert("shadows".to_string(), json!(shadows_val));
     }
 
     if let Some(sharpness_val) = get_attr_as_f64(&attrs, "Sharpness") {
@@ -163,6 +162,10 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
             "sharpness".to_string(),
             json!(scaled_sharpness.clamp(0.0, 100.0)),
         );
+    }
+
+    if let Some(masking_val) = get_attr_as_f64(&attrs, "SharpenEdgeMasking") {
+        adjustments.insert("sharpnessThreshold".to_string(), json!(masking_val));
     }
 
     if let Some(adjusted_k) = get_attr_as_f64(&attrs, "Temperature") {

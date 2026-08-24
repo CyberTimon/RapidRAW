@@ -2138,7 +2138,10 @@ fn get_global_adjustments_from_json(
         ColorCalibrationSettings::default()
     };
 
-    let tone_mapper = js_adjustments["toneMapper"].as_str().unwrap_or("basic");
+    let default_tone_mapper = if is_raw { "agx" } else { "basic" };
+    let tone_mapper = js_adjustments["toneMapper"]
+        .as_str()
+        .unwrap_or(default_tone_mapper);
     let (pipe_to_rendering, rendering_to_pipe) = calculate_agx_matrices();
 
     let (has_lut, lut_intensity, lut_is_scene_referred) = if is_visible("effects") {
@@ -2191,7 +2194,7 @@ fn get_global_adjustments_from_json(
             "details",
             "colorNoiseReduction",
             SCALES.color_noise_reduction,
-            None,
+            Some(25.0),
         ),
 
         clarity: get_val("details", "clarity", SCALES.clarity, None),

@@ -404,10 +404,15 @@ fn apply_tonal_adjustments(
     }
 
     if (wh != 0.0) {
+        let pre_luma = get_luma(max(rgb, vec3<f32>(0.0)));
+        let safe_pre_luma = max(pre_luma, 0.0001);
+        let white_mask_input = tanh(safe_pre_luma * 1.5);
+        let white_mask = smoothstep(0.5, 0.98, white_mask_input);
+
         let white_level = 1.0 - wh * 0.25;
         let w_mult = 1.0 / max(white_level, 0.01);
-        rgb *= w_mult;
-        blurred_linear *= w_mult;
+        rgb = mix(rgb, rgb * w_mult, white_mask);
+        blurred_linear = mix(blurred_linear, blurred_linear * w_mult, white_mask);
     }
 
     let pixel_luma = get_luma(max(rgb, vec3<f32>(0.0)));
@@ -485,7 +490,7 @@ fn apply_highlights_adjustment(
     let safe_pixel_luma = max(pixel_luma, 0.0001);
 
     let pixel_mask_input = tanh(safe_pixel_luma * 1.5);
-    let highlight_mask = smoothstep(0.3, 0.95, pixel_mask_input);
+    let highlight_mask = smoothstep(0.55, 0.95, pixel_mask_input);
 
     if (highlight_mask < 0.001) {
         return color_in;
@@ -1822,7 +1827,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     var default_tonemapped: vec3<f32>;
     if (adjustments.global.tonemapper_mode == 1u) {
-        default_tonemapped = agx_full_transform(composite_rgb_linear);
+        default_tonemapped = linear_to_srgb(agx_full_transform(composite_rgb_linear));
     } else if (is_raw == 1u) {
         var srgb_emulated = linear_to_srgb(composite_rgb_linear);
         const BRIGHTNESS_GAMMA: f32 = 1.1;
