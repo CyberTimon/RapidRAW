@@ -1496,7 +1496,7 @@ pub fn generate_thumbnail_data(
 
         let crop_data: Option<Crop> = serde_json::from_value(meta.adjustments["crop"].clone()).ok();
 
-        let cached_base: Option<(DynamicImage, f32)> = {
+        let cached_base: Option<(Arc<DynamicImage>, f32)> = {
             let cache = state.thumbnail_geometry_cache.lock().unwrap();
             if let Some((cached_hash, img, scale)) = cache.get(path_str) {
                 let mut sufficient_resolution = true;
@@ -1512,7 +1512,7 @@ pub fn generate_thumbnail_data(
                 }
 
                 if *cached_hash == base_cache_hash && sufficient_resolution {
-                    Some((img.clone(), *scale))
+                    Some((Arc::clone(img), *scale))
                 } else {
                     None
                 }
@@ -1521,8 +1521,8 @@ pub fn generate_thumbnail_data(
             }
         };
 
-        let (processing_base, total_scale) = if let Some(hit) = cached_base {
-            hit
+        let (processing_base, total_scale) = if let Some((arc_img, scale)) = cached_base {
+            ((*arc_img).clone(), scale)
         } else {
             let mut raw_scale_factor = 1.0f32;
 
@@ -1616,15 +1616,24 @@ pub fn generate_thumbnail_data(
             let total_scale = gpu_scale * raw_scale_factor;
 
             let mut cache = state.thumbnail_geometry_cache.lock().unwrap();
-            if cache.len() > 30 {
-                cache.clear();
+            if cache.len() >= 8 {
+                // Evict one entry at a time rather than clearing all at once.
+                // Each value holds a full decoded DynamicImage (~70-100 MB for
+                // RAW files); clearing all entries simultaneously forces every
+                // worker thread to re-decode at the same time, causing a spike
+                // in both CPU and RAM usage.
+                if let Some(oldest_key) = cache.keys().next().cloned() {
+                    cache.remove(&oldest_key);
+                }
             }
+            let base_arc = Arc::new(base);
             cache.insert(
                 path_str.to_string(),
-                (base_cache_hash, base.clone(), total_scale),
+                (base_cache_hash, Arc::clone(&base_arc), total_scale),
             );
 
-            (base, total_scale)
+            ((*base_arc).clone(), total_scale)
+            
         };
 
         let rotation_degrees = meta.adjustments["rotation"].as_f64().unwrap_or(0.0) as f32;
@@ -1837,7 +1846,11 @@ fn generate_single_thumbnail_and_cache(
 
 fn prefetch_source_file(path_str: &str) {
     let (source_path, _) = parse_virtual_path(path_str);
-    let _ = fs::read(&source_path);
+    // Use a memory-mapped read to warm the OS page cache without allocating
+    // a full copy of the file in Rust heap memory. For a 50 MB RAW file,
+    // fs::read allocates a 50 MB buffer that is immediately discarded;
+    // read_file_mapped avoids that transient allocation entirely.
+    let _ = read_file_mapped(&source_path);
 }
 
 pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
