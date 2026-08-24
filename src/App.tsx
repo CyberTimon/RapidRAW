@@ -7,6 +7,8 @@ import { ToastContainer, toast, Slide } from 'react-toastify';
 import {
   DndContext,
   DragOverlay,
+  DragStartEvent,
+  DragEndEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -18,6 +20,9 @@ import clsx from 'clsx';
 
 import TitleBar from './window/TitleBar';
 import FolderTree from './components/panel/right/FolderTree';
+import type { FolderTree as FolderTreeNode } from './components/panel/right/FolderTree';
+import type { AlbumItem } from './components/ui/AppProperties';
+import type { Adjustments } from './utils/adjustments';
 import SettingsPanel from './components/panel/SettingsPanel';
 import ExportPanel from './components/panel/right/ExportPanel';
 import GlobalTooltip from './components/ui/GlobalTooltip';
@@ -42,6 +47,7 @@ import { DEFAULT_BOTTOM_PANEL_HEIGHT, DEFAULT_PANEL_WIDTH, useUIStore } from './
 import { useLibraryStore } from './store/useLibraryStore';
 import { useEditorStore } from './store/useEditorStore';
 import { useProcessStore } from './store/useProcessStore';
+import type { ImageCacheEntry } from './utils/ImageLRUCache';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useThumbnails } from './hooks/useThumbnails';
@@ -80,12 +86,16 @@ import ImageLoaderManager from './components/managers/ImageLoaderManager';
 
 const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
 
-const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[]): any => {
-  if (!node) return null;
+const insertChildrenIntoTree = (
+  node: FolderTreeNode,
+  targetPath: string,
+  newChildren: FolderTreeNode[],
+): FolderTreeNode => {
+  if (!node) return node;
 
   if (node.path === targetPath) {
-    const mergedChildren = newChildren.map((newChild: any) => {
-      const existingChild = node.children?.find((c: any) => c.path === newChild.path);
+    const mergedChildren = newChildren.map((newChild) => {
+      const existingChild = node.children?.find((c) => c.path === newChild.path);
       if (existingChild && existingChild.children && existingChild.children.length > 0) {
         return { ...newChild, children: existingChild.children };
       }
@@ -97,7 +107,7 @@ const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[
   if (node.children && node.children.length > 0) {
     return {
       ...node,
-      children: node.children.map((child: any) => insertChildrenIntoTree(child, targetPath, newChildren)),
+      children: node.children.map((child) => insertChildrenIntoTree(child, targetPath, newChildren)),
     };
   }
 
@@ -106,7 +116,7 @@ const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[
 
 const imageDragModifier: Modifier = ({ active, activatorEvent, activeNodeRect, transform }) => {
   if (active?.data?.current?.type === 'library-image' && activatorEvent && activeNodeRect) {
-    const event = activatorEvent as any;
+    const event = activatorEvent as PointerEvent & { touches?: TouchList };
     const startX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
     const startY = event.clientY ?? event.touches?.[0]?.clientY ?? 0;
 
@@ -162,7 +172,6 @@ function App() {
     isInstantTransition,
     isLayoutReady,
     uiVisibility,
-    isLibraryExportPanelVisible,
     leftPanelWidth,
     rightPanelWidth,
     compactEditorPanelHeightOverride,
@@ -231,7 +240,7 @@ function App() {
     selectedImagePathRef.current = selectedImage?.path ?? null;
   }, [selectedImage?.path]);
 
-  const prevAdjustmentsRef = useRef<any>(null);
+  const prevAdjustmentsRef = useRef<{ path: string; adjustments: Adjustments } | null>(null);
 
   const [viewportSize, setViewportSize] = useState<ImageDimensions>(() => {
     if (typeof window === 'undefined') {
@@ -248,7 +257,7 @@ function App() {
   const previewJobIdRef = useRef<number>(0);
   const latestRenderedJobIdRef = useRef<number>(0);
   const currentResRef = useRef<number>(1280);
-  const cachedEditStateRef = useRef<any | null>(null);
+  const cachedEditStateRef = useRef<ImageCacheEntry | null>(null);
 
   const [libraryViewMode, setLibraryViewMode] = useState<LibraryViewMode>(defaultLibraryViewMode);
   const [isResizing, setIsResizing] = useState(false);
@@ -257,9 +266,9 @@ function App() {
 
   const { requestThumbnails, clearThumbnailQueue, markGenerated } = useThumbnails();
 
-  const transformWrapperRef = useRef<any>(null);
+  const transformWrapperRef = useRef<{ resetTransform: (animationTime?: number, scale?: number) => void } | null>(null);
   const preloadedDataRef = useRef<{
-    trees?: Promise<any>;
+    trees?: Promise<FolderTreeNode[]>;
     images?: Promise<ImageFile[]>;
     rootPaths?: string[];
     currentPath?: string;
@@ -370,7 +379,7 @@ function App() {
       if (currentFolderPath.startsWith('Album: ')) {
         const { activeAlbumId, albumTree } = useLibraryStore.getState();
         if (activeAlbumId) {
-          const findObj = (nodes: any[]): any => {
+          const findObj = (nodes: AlbumItem[]): AlbumItem | null => {
             for (const n of nodes) {
               if (n.id === activeAlbumId) return n;
               if (n.type === 'group') {
@@ -381,7 +390,7 @@ function App() {
             return null;
           };
           const album = findObj(albumTree);
-          if (album) await handleSelectAlbum(album.id, album.name, album.images, true);
+          if (album && album.type === 'album') await handleSelectAlbum(album.id, album.name, album.images, true);
         }
       } else {
         await handleSelectSubfolder(currentFolderPath, false, undefined, false, true);
@@ -522,7 +531,7 @@ function App() {
   }, [activePanel, activeMaskContainerId, activeAiPatchContainerId, setEditor]);
 
   useEffect(() => {
-    const unlisten = listen('ai-connector-status-update', (event: any) => {
+    const unlisten = listen<{ connected: boolean }>('ai-connector-status-update', (event) => {
       setEditor({ isAIConnectorConnected: event.payload.connected });
     });
     invoke(Invokes.CheckAIConnectorStatus);
@@ -652,7 +661,7 @@ function App() {
     checkFullscreen();
     const unlistenPromise = appWindow.onResized(checkFullscreen);
     return () => {
-      unlistenPromise.then((unlisten: any) => unlisten());
+      unlistenPromise.then((unlisten) => unlisten());
     };
   }, [setUI]);
 
@@ -679,12 +688,12 @@ function App() {
       if (!isExpanding) return;
       try {
         const showCounts = appSettings?.enableFolderImageCounts ?? false;
-        const newChildren: any[] = await invoke(Invokes.GetFolderChildren, {
+        const newChildren = await invoke<FolderTreeNode[]>(Invokes.GetFolderChildren, {
           path,
           showImageCounts: showCounts,
         });
         setLibrary((state) => ({
-          folderTrees: state.folderTrees.map((t: any) => insertChildrenIntoTree(t, path, newChildren)),
+          folderTrees: state.folderTrees.map((t) => insertChildrenIntoTree(t, path, newChildren)),
         }));
         setLibrary((state) => ({
           pinnedFolderTrees: state.pinnedFolderTrees.map((tree) => insertChildrenIntoTree(tree, path, newChildren)),
@@ -786,7 +795,7 @@ function App() {
   const useMacWindowShell = osPlatform === 'macos' && !appSettings?.decorations && !isWindowFullScreen && !isFullScreen;
 
   const layoutSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-  const handleDragStart = (e: any) => {
+  const handleDragStart = (e: DragStartEvent) => {
     if (e.active.data.current?.type === 'layout-tab') {
       setLayoutDragItem(e.active.data.current.panel as Panel);
     } else if (e.active.data.current?.type === 'library-image') {
@@ -797,7 +806,7 @@ function App() {
     }
   };
 
-  const handleDragEnd = (e: any) => {
+  const handleDragEnd = (e: DragEndEvent) => {
     setLayoutDragItem(null);
     setActiveImageDragItem(null);
     const { active, over } = e;
@@ -826,8 +835,8 @@ function App() {
       const sourcePaths = activeImageDragItem?.paths || [active.data.current.path];
 
       invoke(Invokes.AddToAlbum, { albumId: targetAlbumId, paths: sourcePaths })
-        .then(() => invoke(Invokes.GetAlbums))
-        .then((updatedTree: any) => {
+        .then(() => invoke<AlbumItem[]>(Invokes.GetAlbums))
+        .then((updatedTree) => {
           useLibraryStore.getState().setLibrary({ albumTree: updatedTree, multiSelectedPaths: [] });
           handleLibraryRefresh();
         })
@@ -1061,7 +1070,7 @@ function App() {
 }
 
 const AppWrapper = () => (
-  <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} routerPush={(to) => {}} routerReplace={(to) => {}}>
+  <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} routerPush={(_to) => {}} routerReplace={(_to) => {}}>
     <ContextMenuProvider>
       <App />
       <GlobalTooltip />

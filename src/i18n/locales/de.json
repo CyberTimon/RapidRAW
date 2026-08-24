@@ -750,11 +750,11 @@
       "title": "Exporteinstellungen"
     },
     "replaceOriginal": {
-      "confirmTitle": "Original ersetzen?",
-      "confirmMessage": "Die ausgewählten Originaldateien werden gelöscht und durch die bearbeiteten Versionen ersetzt. Die Originale werden in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
-      "confirmMessage_one": "Das ausgewählte Original wird gelöscht und durch die bearbeitete Version ersetzt. Das Original wird in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
-      "confirmMessage_other": "Die {{count}} ausgewählten Originaldateien werden gelöscht und durch die bearbeiteten Versionen ersetzt. Die Originale werden in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
-      "confirmButton": "Ersetzen"
+      "confirmTitle": "Originalbild(er) ersetzen?",
+      "confirmMessage": "Nach dem Export werden die ausgewählten Originalbild(er) durch die bearbeitete(n) Version(en) ersetzt. Die Originale werden in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
+      "confirmMessage_one": "Nach dem Export wird das ausgewählte Originalbild durch die bearbeitete Version ersetzt. Das Original wird in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
+      "confirmMessage_other": "Nach dem Export werden die {{count}} ausgewählten Originalbilder durch die bearbeiteten Versionen ersetzt. Die Originale werden in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
+      "confirmButton": "Exportieren & ersetzen"
     },
     "bytes": {
       "bytes": "Bytes",
@@ -764,7 +764,7 @@
       "tb": "TB"
     },
     "deleteOriginal": {
-      "confirmTitle": "Originale löschen?",
+      "confirmTitle": "Originalbild(er) löschen?",
       "confirmMessage": "Nach dem Export werden die ausgewählten Originalbilder und ihre Bearbeitungsdaten (.rrdata) in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
       "confirmMessage_one": "Nach dem Export wird das ausgewählte Originalbild und seine Bearbeitungsdaten (.rrdata) in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
       "confirmMessage_other": "Nach dem Export werden die {{count}} ausgewählten Originalbilder und ihre Bearbeitungsdaten (.rrdata) in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",

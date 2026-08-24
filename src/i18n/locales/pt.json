@@ -771,12 +771,12 @@
       "title": "Configurações de Exportação"
     },
     "replaceOriginal": {
-      "confirmTitle": "Substituir original?",
-      "confirmMessage": "Os arquivos originais selecionados serão apagados e substituídos pelas versões editadas. Os originais serão movidos para a Lixeira. Não pode ser desfeito.",
-      "confirmMessage_one": "O original selecionado será apagado e substituído pela versão editada. O original será movido para a Lixeira. Não pode ser desfeito.",
-      "confirmMessage_other": "Os {{count}} arquivos originais selecionados serão apagados e substituídos pelas versões editadas. Os originais serão movidos para a Lixeira. Não pode ser desfeito.",
-      "confirmMessage_many": "Os {{count}} arquivos originais selecionados serão apagados e substituídos pelas versões editadas. Os originais serão movidos para a Lixeira. Não pode ser desfeito.",
-      "confirmButton": "Substituir"
+      "confirmTitle": "Substituir imagem(ns) original(is)?",
+      "confirmMessage": "Após exportar, as imagens originais selecionadas serão substituídas pelas versões editadas. Os originais serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_one": "Após exportar, a imagem original selecionada será substituída pela versão editada. O original será movido para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_other": "Após exportar, as {{count}} imagens originais selecionadas serão substituídas pelas versões editadas. Os originais serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_many": "Após exportar, as {{count}} imagens originais selecionadas serão substituídas pelas versões editadas. Os originais serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmButton": "Exportar e substituir"
     },
     "bytes": {
       "bytes": "Bytes",
@@ -786,7 +786,7 @@
       "tb": "TB"
     },
     "deleteOriginal": {
-      "confirmTitle": "Excluir originais?",
+      "confirmTitle": "Excluir imagem(ns) original(is)?",
       "confirmMessage": "Após exportar, as imagens originais selecionadas e seus dados de edição (.rrdata) serão movidos para a Lixeira. Não pode ser desfeito.",
       "confirmMessage_one": "Após exportar, a imagem original selecionada e seus dados de edição (.rrdata) serão movidos para a Lixeira. Não pode ser desfeito.",
       "confirmMessage_other": "Após exportar, as {{count}} imagens originais selecionadas e seus dados de edição (.rrdata) serão movidos para a Lixeira. Não pode ser desfeito.",

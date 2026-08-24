@@ -3582,6 +3582,20 @@ pub(crate) fn cleanup_sidecars_after_replacement(source: &Path, target: &Path) -
     deletions
 }
 
+pub(crate) fn is_same_path(a: &Path, b: &Path) -> bool {
+    if a == b {
+        return true;
+    }
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    {
+        let (sa, sb) = (a.to_string_lossy(), b.to_string_lossy());
+        if sa.eq_ignore_ascii_case(&sb) {
+            return true;
+        }
+    }
+    false
+}
+
 pub(crate) fn recycle_original_with_sidecars(source: &Path) -> Result<HashSet<String>, String> {
     let mut deletions = HashSet::new();
     deletions.insert(source.to_string_lossy().into_owned());

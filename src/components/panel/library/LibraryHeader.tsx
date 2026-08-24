@@ -38,13 +38,20 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { ADVANCED_QUERY_REGEX } from '../../../hooks/useSortedLibrary';
 
-function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName = 'w-56' }: any) {
+interface DropdownMenuProps {
+  buttonContent: React.ReactNode;
+  buttonTitle?: string;
+  children: React.ReactNode;
+  contentClassName?: string;
+}
+
+function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName = 'w-56' }: DropdownMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<any>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: any) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -86,7 +93,13 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
   );
 }
 
-const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions }: any) => {
+interface RatingSegmentedSwitchProps {
+  rating: number;
+  onChange: (rating: number) => void;
+  ratingFilterOptions: { value: number; label: string }[];
+}
+
+const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions }: RatingSegmentedSwitchProps) => {
   const [bubbleStyle, setBubbleStyle] = useState({});
   const isInitialAnimation = useRef(true);
 
@@ -128,7 +141,7 @@ const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions }: any) =
             activeIndex === 0 ? 'text-text-primary font-semibold' : 'text-text-secondary hover:text-text-primary',
           )}
         >
-          <span className="relative z-10">{ratingFilterOptions.find((o: any) => o.value === 0)?.label || 'All'}</span>
+          <span className="relative z-10">{ratingFilterOptions.find((o) => o.value === 0)?.label || 'All'}</span>
         </button>
 
         <button
@@ -138,9 +151,7 @@ const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions }: any) =
             activeIndex === 1 ? 'text-text-primary font-semibold' : 'text-text-secondary hover:text-text-primary',
           )}
         >
-          <span className="relative z-10">
-            {ratingFilterOptions.find((o: any) => o.value === -1)?.label || 'Unrated'}
-          </span>
+          <span className="relative z-10">{ratingFilterOptions.find((o) => o.value === -1)?.label || 'Unrated'}</span>
         </button>
 
         <div
@@ -153,7 +164,7 @@ const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions }: any) =
             {[...Array(5)].map((_, index) => {
               const starValue = index + 1;
               const isFilled = rating > 0 && starValue <= rating;
-              const optionLabel = ratingFilterOptions.find((o: any) => o.value === starValue)?.label;
+              const optionLabel = ratingFilterOptions.find((o) => o.value === starValue)?.label;
 
               return (
                 <button
@@ -181,7 +192,12 @@ const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions }: any) =
   );
 };
 
-export function SearchInput({ indexingProgress, isIndexing }: any) {
+interface SearchInputProps {
+  indexingProgress: { current: number; total: number };
+  isIndexing: boolean;
+}
+
+export function SearchInput({ indexingProgress, isIndexing }: SearchInputProps) {
   const { t } = useTranslation();
   const { searchCriteria, setSearchCriteria } = useLibraryStore(
     useShallow((state) => ({ searchCriteria: state.searchCriteria, setSearchCriteria: state.setSearchCriteria })),
@@ -210,8 +226,8 @@ export function SearchInput({ indexingProgress, isIndexing }: any) {
   }, [searchFocusRequest]);
 
   useEffect(() => {
-    function handleClickOutside(event: any) {
-      if (containerRef.current && !containerRef.current.contains(event.target) && tags.length === 0 && !text) {
+    function handleClickOutside(event: MouseEvent | TouchEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node) && tags.length === 0 && !text) {
         setIsSearchActive(false);
       }
     }
@@ -485,7 +501,7 @@ export function ViewOptionsDropdown({
     [t],
   );
 
-  const handleColorClick = (colorName: string, event: any) => {
+  const handleColorClick = (colorName: string, event: React.MouseEvent) => {
     const { ctrlKey, metaKey, shiftKey } = event;
     const isCtrlPressed = ctrlKey || metaKey;
     const currentColors = filterCriteria.colors || [];
@@ -726,7 +742,7 @@ export function ViewOptionsDropdown({
                   <button
                     key={color.name}
                     data-tooltip={title}
-                    onClick={(e: any) => handleColorClick(color.name, e)}
+                    onClick={(e) => handleColorClick(color.name, e)}
                     className="w-5 h-5 rounded-full focus:outline-hidden focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface transition-transform hover:scale-110"
                     role="menuitem"
                   >

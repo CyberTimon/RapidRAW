@@ -771,12 +771,12 @@
       "title": "Impostazioni di Esportazione"
     },
     "replaceOriginal": {
-      "confirmTitle": "Sostituire l'originale?",
-      "confirmMessage": "I file originali selezionati verranno eliminati e sostituiti con le versioni modificate. Gli originali verranno spostati nel Cestino. Non può essere annullato.",
-      "confirmMessage_one": "L'originale selezionato verrà eliminato e sostituito con la versione modificata. L'originale verrà spostato nel Cestino. Non può essere annullato.",
-      "confirmMessage_other": "I {{count}} file originali selezionati verranno eliminati e sostituiti con le versioni modificate. Gli originali verranno spostati nel Cestino. Non può essere annullato.",
-      "confirmMessage_many": "I {{count}} file originali selezionati verranno eliminati e sostituiti con le versioni modificate. Gli originali verranno spostati nel Cestino. Non può essere annullato.",
-      "confirmButton": "Sostituisci"
+      "confirmTitle": "Sostituire immagine/i originale/i?",
+      "confirmMessage": "Dopo l'esportazione, le immagini originali selezionate verranno sostituite con le versioni modificate. Gli originali verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmMessage_one": "Dopo l'esportazione, l'immagine originale selezionata verrà sostituita con la versione modificata. L'originale verrà spostato nel Cestino. Non può essere annullato.",
+      "confirmMessage_other": "Dopo l'esportazione, le {{count}} immagini originali selezionate verranno sostituite con le versioni modificate. Gli originali verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmMessage_many": "Dopo l'esportazione, le {{count}} immagini originali selezionate verranno sostituite con le versioni modificate. Gli originali verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmButton": "Esporta e sostituisci"
     },
     "bytes": {
       "bytes": "Byte",
@@ -786,7 +786,7 @@
       "tb": "TB"
     },
     "deleteOriginal": {
-      "confirmTitle": "Eliminare gli originali?",
+      "confirmTitle": "Eliminare immagine/i originale/i?",
       "confirmMessage": "Dopo l'esportazione, le immagini originali selezionate e i loro dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
       "confirmMessage_one": "Dopo l'esportazione, l'immagine originale selezionata e i suoi dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
       "confirmMessage_other": "Dopo l'esportazione, le {{count}} immagini originali selezionate e i loro dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",

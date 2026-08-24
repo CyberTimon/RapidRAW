@@ -748,11 +748,10 @@
       "title": "导出设置"
     },
     "replaceOriginal": {
-      "confirmTitle": "替换原文件？",
-      "confirmMessage": "所选原始文件将被删除并替换为编辑后的版本。原文件将移到系统回收站。此操作无法撤销。",
-      "confirmMessage_one": "所选原始文件将被删除并替换为编辑后的版本。原文件将移到系统回收站。此操作无法撤销。",
-      "confirmMessage_other": "所选 {{count}} 个原始文件将被删除并替换为编辑后的版本。原文件将移到系统回收站。此操作无法撤销。",
-      "confirmButton": "替换"
+      "confirmTitle": "替换原始图像？",
+      "confirmMessage": "导出完成后，所选原始图像将被编辑后的版本替换，原图像将移到系统回收站。此操作无法撤销。",
+      "confirmMessage_other": "导出完成后，所选 {{count}} 张原始图像将被编辑后的版本替换，原图像将移到系统回收站。此操作无法撤销。",
+      "confirmButton": "导出并替换"
     },
     "bytes": {
       "bytes": "字节",
@@ -762,10 +761,9 @@
       "tb": "TB"
     },
     "deleteOriginal": {
-      "confirmTitle": "删除原文件？",
+      "confirmTitle": "删除原始图像？",
       "confirmMessage": "导出完成后，所选原始图像及其编辑数据（.rrdata）将被移到系统回收站。此操作无法撤销。",
-      "confirmMessage_one": "导出完成后，所选原始图像及其编辑数据（.rrdata）将被移到系统回收站。此操作无法撤销。",
-      "confirmMessage_other": "导出完成后，所选 {{count}} 个原始图像及其编辑数据（.rrdata）将被移到系统回收站。此操作无法撤销。",
+      "confirmMessage_other": "导出完成后，所选 {{count}} 张原始图像及其编辑数据（.rrdata）将被移到系统回收站。此操作无法撤销。",
       "confirmButton": "导出并删除"
     },
     "dialog": {

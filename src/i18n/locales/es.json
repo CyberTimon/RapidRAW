@@ -771,12 +771,12 @@
       "title": "Ajustes de exportación"
     },
     "replaceOriginal": {
-      "confirmTitle": "¿Reemplazar original?",
-      "confirmMessage": "Los archivos originales seleccionados se eliminarán y reemplazarán con las versiones editadas. Los originales se moverán a la papelera. Esto no se puede deshacer.",
-      "confirmMessage_one": "El original seleccionado se eliminará y reemplazará con la versión editada. El original se moverá a la papelera. Esto no se puede deshacer.",
-      "confirmMessage_other": "Los {{count}} originales seleccionados se eliminarán y reemplazarán con las versiones editadas. Los originales se moverán a la papelera. Esto no se puede deshacer.",
-      "confirmMessage_many": "Los {{count}} originales seleccionados se eliminarán y reemplazarán con las versiones editadas. Los originales se moverán a la papelera. Esto no se puede deshacer.",
-      "confirmButton": "Reemplazar"
+      "confirmTitle": "¿Reemplazar imagen(es) original(es)?",
+      "confirmMessage": "Después de exportar, las imágenes originales seleccionadas se reemplazarán con las versiones editadas. Los originales se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmMessage_one": "Después de exportar, la imagen original seleccionada se reemplazará con la versión editada. El original se moverá a la papelera. Esto no se puede deshacer.",
+      "confirmMessage_other": "Después de exportar, las {{count}} imágenes originales seleccionadas se reemplazarán con las versiones editadas. Los originales se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmMessage_many": "Después de exportar, las {{count}} imágenes originales seleccionadas se reemplazarán con las versiones editadas. Los originales se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmButton": "Exportar y reemplazar"
     },
     "bytes": {
       "bytes": "Bytes",
@@ -786,7 +786,7 @@
       "tb": "TB"
     },
     "deleteOriginal": {
-      "confirmTitle": "¿Eliminar originales?",
+      "confirmTitle": "¿Eliminar imagen(es) original(es)?",
       "confirmMessage": "Después de exportar, las imágenes originales seleccionadas y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
       "confirmMessage_one": "Después de exportar, la imagen original seleccionada y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
       "confirmMessage_other": "Después de exportar, las {{count}} imágenes originales seleccionadas y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",

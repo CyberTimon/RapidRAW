@@ -771,12 +771,12 @@
       "title": "Paramètres d'exportation"
     },
     "replaceOriginal": {
-      "confirmTitle": "Remplacer l'original ?",
-      "confirmMessage": "Les fichiers d'origine sélectionnés seront supprimés et remplacés par les versions modifiées. Les originaux seront déplacés dans la corbeille. Ne peut pas être annulé.",
-      "confirmMessage_one": "Le fichier d'origine sélectionné sera supprimé et remplacé par la version modifiée. L'original sera déplacé dans la corbeille. Ne peut pas être annulé.",
-      "confirmMessage_other": "Les {{count}} fichiers d'origine sélectionnés seront supprimés et remplacés par les versions modifiées. Les originaux seront déplacés dans la corbeille. Ne peut pas être annulé.",
-      "confirmMessage_many": "Les {{count}} fichiers d'origine sélectionnés seront supprimés et remplacés par les versions modifiées. Les originaux seront déplacés dans la corbeille. Ne peut pas être annulé.",
-      "confirmButton": "Remplacer"
+      "confirmTitle": "Remplacer image(s) d'origine ?",
+      "confirmMessage": "Après l'export, les images d'origine sélectionnées seront remplacées par les versions modifiées. Les originaux seront déplacés dans la corbeille. Ne peut pas être annulé.",
+      "confirmMessage_one": "Après l'export, l'image d'origine sélectionnée sera remplacée par la version modifiée. L'original sera déplacé dans la corbeille. Ne peut pas être annulé.",
+      "confirmMessage_other": "Après l'export, les {{count}} images d'origine sélectionnées seront remplacées par les versions modifiées. Les originaux seront déplacés dans la corbeille. Ne peut pas être annulé.",
+      "confirmMessage_many": "Après l'export, les {{count}} images d'origine sélectionnées seront remplacées par les versions modifiées. Les originaux seront déplacés dans la corbeille. Ne peut pas être annulé.",
+      "confirmButton": "Exporter et remplacer"
     },
     "bytes": {
       "bytes": "Octets",
@@ -786,11 +786,11 @@
       "tb": "To"
     },
     "deleteOriginal": {
-      "confirmTitle": "Supprimer les originaux ?",
+      "confirmTitle": "Supprimer image(s) d'origine ?",
       "confirmMessage": "Après l'export, les images d'origine sélectionnées et leurs données d'édition (.rrdata) seront déplacées dans la corbeille. Ne peut pas être annulé.",
       "confirmMessage_one": "Après l'export, l'image d'origine sélectionnée et ses données d'édition (.rrdata) seront déplacées dans la corbeille. Ne peut pas être annulé.",
-      "confirmMessage_other": "Les {{count}} images d'origine sélectionnées seront déplacées dans la corbeille après l'export, avec leurs données d'édition (.rrdata). Ne peut pas être annulé.",
-      "confirmMessage_many": "Les {{count}} images d'origine sélectionnées seront déplacées dans la corbeille après l'export, avec leurs données d'édition (.rrdata). Ne peut pas être annulé.",
+      "confirmMessage_other": "Après l'export, les {{count}} images d'origine sélectionnées et leurs données d'édition (.rrdata) seront déplacées dans la corbeille. Ne peut pas être annulé.",
+      "confirmMessage_many": "Après l'export, les {{count}} images d'origine sélectionnées et leurs données d'édition (.rrdata) seront déplacées dans la corbeille. Ne peut pas être annulé.",
       "confirmButton": "Exporter et supprimer"
     },
     "dialog": {

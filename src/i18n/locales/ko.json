@@ -748,11 +748,10 @@
       "title": "내보내기 설정"
     },
     "replaceOriginal": {
-      "confirmTitle": "원본을 대체할까요?",
-      "confirmMessage": "선택한 원본 파일이 삭제되고 편집된 버전으로 대체됩니다. 원본은 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
-      "confirmMessage_one": "선택한 원본 파일이 삭제되고 편집된 버전으로 대체됩니다. 원본은 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
-      "confirmMessage_other": "선택한 {{count}}개의 원본 파일이 삭제되고 편집된 버전으로 대체됩니다. 원본은 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
-      "confirmButton": "대체"
+      "confirmTitle": "원본 이미지를 대체할까요?",
+      "confirmMessage": "내보낸 후 선택한 원본 이미지는 편집된 버전으로 대체되며, 기존 원본은 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
+      "confirmMessage_other": "내보낸 후 선택한 {{count}}개의 원본 이미지는 편집된 버전으로 대체되며, 기존 원본은 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
+      "confirmButton": "내보내고 대체"
     },
     "bytes": {
       "bytes": "바이트",
@@ -762,9 +761,8 @@
       "tb": "TB"
     },
     "deleteOriginal": {
-      "confirmTitle": "원본을 삭제할까요?",
+      "confirmTitle": "원본 이미지를 삭제할까요?",
       "confirmMessage": "내보낸 후 선택한 원본 이미지와 그 편집 데이터(.rrdata)가 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
-      "confirmMessage_one": "내보낸 후 선택한 원본 이미지와 그 편집 데이터(.rrdata)가 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
       "confirmMessage_other": "내보낸 후 선택한 {{count}}개의 원본 이미지와 그 편집 데이터(.rrdata)가 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
       "confirmButton": "내보내고 삭제"
     },

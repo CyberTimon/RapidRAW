@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { type ReactNode, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X } from 'lucide-react';
+import { type TFunction } from 'i18next';
+import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import debounce from 'lodash.debounce';
@@ -38,7 +39,7 @@ interface ExportPanelProps {
   exportState: ExportState;
   multiSelectedPaths: Array<string>;
   selectedImage: SelectedImage | null;
-  setExportState(state: any): void;
+  setExportState(updater: Partial<ExportState> | ((current: ExportState) => Partial<ExportState>)): void;
   appSettings: AppSettings | null;
   onSettingsChange: (settings: AppSettings) => void;
   rootPaths: string[];
@@ -48,15 +49,21 @@ interface ExportPanelProps {
 }
 
 interface SectionProps {
-  children: any;
+  children: ReactNode;
   title: string;
 }
 
 type ExportTerminationEvent = 'export-complete' | 'export-error' | 'export-cancelled';
 
-function waitForExportTermination(): Promise<ExportTerminationEvent> {
+interface ExportTermination {
+  event: ExportTerminationEvent;
+  changed: OriginalFilesReplacedPayload | null;
+}
+
+function waitForExportTermination(): Promise<ExportTermination> {
   return new Promise((resolve) => {
     let settled = false;
+    let changed: OriginalFilesReplacedPayload | null = null;
     const unlisteners: Array<Promise<() => void>> = [];
     const finish = (eventName: ExportTerminationEvent) => {
       if (settled) return;
@@ -64,8 +71,16 @@ function waitForExportTermination(): Promise<ExportTerminationEvent> {
       for (const unlisten of unlisteners) {
         unlisten.then((fn) => fn()).catch(() => {});
       }
-      resolve(eventName);
+      resolve({ event: eventName, changed });
     };
+    unlisteners.push(
+      listen('original-files-changed', (payload) => {
+        const p = payload?.payload as OriginalFilesReplacedPayload | undefined;
+        if (p && Array.isArray(p.replacements) && Array.isArray(p.deleted)) {
+          changed = { replacements: p.replacements, deleted: p.deleted };
+        }
+      }),
+    );
     unlisteners.push(listen('export-complete', () => finish('export-complete')));
     unlisteners.push(listen('export-error', () => finish('export-error')));
     unlisteners.push(listen('export-cancelled', () => finish('export-cancelled')));
@@ -183,7 +198,7 @@ function WatermarkPreview({
   );
 }
 
-const formatBytes = (bytes: number, t: any, decimals = 2) => {
+const formatBytes = (bytes: number, t: TFunction, decimals = 2) => {
   if (!+bytes) return `0 ${t('export.bytes.bytes')}`;
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
@@ -270,6 +285,7 @@ export default function ExportPanel({
   const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
   const [originalHandling, setOriginalHandling] = useState<OriginalHandling>('off');
   const initDone = useRef(false);
+  const pendingHandlingRef = useRef<'off' | 'replace' | 'delete'>('off');
 
   useEffect(() => {
     if (initDone.current || appSettings === null || !isVisible) return;
@@ -363,7 +379,9 @@ export default function ExportPanel({
         return;
       }
       try {
-        const dims: any = await invoke('get_image_dimensions', { path: pathsToExport[0] });
+        const dims = await invoke<{ width: number; height: number }>('get_image_dimensions', {
+          path: pathsToExport[0],
+        });
         if (dims.width > 0 && dims.height > 0) setImageAspectRatio(dims.width / dims.height);
       } catch {
         setImageAspectRatio(3 / 2);
@@ -383,7 +401,7 @@ export default function ExportPanel({
           path: watermarkPath,
         });
         setWatermarkImageAspectRatio(dimensions.height > 0 ? dimensions.width / dimensions.height : 1);
-      } catch (error) {
+      } catch {
         setWatermarkImageAspectRatio(1);
       }
     };
@@ -422,7 +440,7 @@ export default function ExportPanel({
             currentEditAdjustments: currentAdj || null,
           });
           setEstimatedSize(size);
-        } catch (err) {
+        } catch {
           setEstimatedSize(null);
         } finally {
           setIsEstimating(false);
@@ -525,10 +543,23 @@ export default function ExportPanel({
   const performExport = async () => {
     if (numImages === 0 || isExporting) return;
 
-    const effectiveReplaceOriginal =
-      originalHandling === 'replace' && !originalHandlingUnavailableReason;
-    const effectiveDeleteOriginal =
-      originalHandling === 'delete' && !originalHandlingUnavailableReason;
+    const effectiveReplaceOriginal = originalHandling === 'replace' && !originalHandlingUnavailableReason;
+    const effectiveDeleteOriginal = originalHandling === 'delete' && !originalHandlingUnavailableReason;
+
+    const intendedHandling = pendingHandlingRef.current;
+    pendingHandlingRef.current = 'off';
+    if (
+      intendedHandling !== 'off' &&
+      ((intendedHandling === 'replace' && !effectiveReplaceOriginal) ||
+        (intendedHandling === 'delete' && !effectiveDeleteOriginal))
+    ) {
+      setExportState({
+        errorMessage: t('export.originalHandling.attachedVcsUnavailable'),
+        progress,
+        status: Status.Error,
+      });
+      return;
+    }
 
     let finalFilenameTemplate = filenameTemplate;
     if (
@@ -567,7 +598,7 @@ export default function ExportPanel({
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
 
     try {
-      const selectedFormat: any = FILE_FORMATS.find((f) => f.id === fileFormat);
+      const selectedFormat = FILE_FORMATS.find((f) => f.id === fileFormat) as FileFormat;
 
       let outputFolderOrFile = '';
       let shouldChooseOutputFile = false;
@@ -643,10 +674,11 @@ export default function ExportPanel({
                 return { from: p, to };
               })
             : [];
-          const deleted = effectiveDeleteOriginal ? [...pathsToExport] : [];
-          const terminationEvent = await waitForExportTermination();
-          if (terminationEvent === 'export-complete') {
-            await onFilesReplaced?.({ replacements, deleted });
+          const predictedDeleted = effectiveDeleteOriginal ? [...pathsToExport] : [];
+          const termination = await waitForExportTermination();
+          const payload = termination.changed ?? { replacements, deleted: predictedDeleted };
+          if (termination.changed || termination.event === 'export-complete') {
+            await onFilesReplaced?.(payload);
           }
         }
       }
@@ -664,6 +696,7 @@ export default function ExportPanel({
 
     if (originalHandling !== 'off' && !originalHandlingUnavailableReason) {
       const useReplace = originalHandling === 'replace';
+      pendingHandlingRef.current = useReplace ? 'replace' : 'delete';
       useUIStore.getState().setUI({
         confirmModalState: {
           isOpen: true,

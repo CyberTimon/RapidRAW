@@ -21,7 +21,7 @@ use crate::AppState;
 use crate::exif_processing;
 use crate::file_management::{
     cleanup_sidecars_after_replacement, find_available_sibling_path_excluding,
-    find_unbatched_vc_sidecar, generate_filename_from_template, parse_virtual_path,
+    find_unbatched_vc_sidecar, generate_filename_from_template, is_same_path, parse_virtual_path,
     read_file_mapped, recycle_original_with_sidecars, trash_file_or_remove,
 };
 use crate::formats::is_raw_file;
@@ -849,6 +849,25 @@ fn export_adjustments_as_lut(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn promote_replacement_temp(
+    replacement_temp: &Option<PathBuf>,
+    target: &Path,
+) -> Result<(), String> {
+    let Some(temp_path) = replacement_temp else {
+        return Ok(());
+    };
+    if let Err(e) = fs::rename(temp_path, target) {
+        let _ = fs::remove_file(temp_path);
+        return Err(format!(
+            "Failed to finalize replaced file {}: {}",
+            target.display(),
+            e
+        ));
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn export_images_impl(
     paths: Vec<String>,
     output_folder_or_file: String,
@@ -972,6 +991,10 @@ pub(crate) async fn export_images_impl(
             export_items.push((i, path_str, *count, explicit_vc));
         }
 
+        let actual_replacements: Arc<std::sync::Mutex<Vec<(String, String)>>> =
+            Arc::new(std::sync::Mutex::new(Vec::new()));
+        let actual_deleted: Arc<std::sync::Mutex<Vec<String>>> =
+            Arc::new(std::sync::Mutex::new(Vec::new()));
         let mut reserved_conversion_targets: HashSet<PathBuf> = HashSet::new();
         if export_settings.replace_original || export_settings.delete_original {
             let mut bases_with_vcs: HashSet<String> = HashSet::new();
@@ -1024,6 +1047,8 @@ pub(crate) async fn export_images_impl(
             let export_settings = export_settings.clone();
             let output_format = output_format.clone();
             let reserved_conversion_targets = reserved_conversion_targets.clone();
+            let actual_replacements_task = Arc::clone(&actual_replacements);
+            let actual_deleted_task = Arc::clone(&actual_deleted);
             let settings = settings.clone();
             let cancellation_token_clone = Arc::clone(&cancellation_token);
             let adjustments_mode = adjustments_mode.clone();
@@ -1135,14 +1160,14 @@ pub(crate) async fn export_images_impl(
                                 .unwrap_or("image");
                             source_path.with_file_name(format!("{}.{}", stem, extension))
                         };
-                        if target_path.exists() && target_path != source_path {
+                        if target_path.exists() && !is_same_path(&target_path, &source_path) {
                             return Err(format!(
                                 "Replace Original: '{}' already exists. Rename or move it before replacing {}.",
                                 target_path.display(),
                                 source_path.display()
                             ));
                         }
-                        if target_path == source_path {
+                        if is_same_path(&target_path, &source_path) {
                             replacement_temp = Some(source_path.with_file_name(format!(
                                 ".rrreplace-{}.tmp",
                                 uuid::Uuid::new_v4()
@@ -1311,27 +1336,71 @@ pub(crate) async fn export_images_impl(
                         #[cfg(not(target_os = "android"))]
                         {
                             if let Some(target) = replacement_target.clone() {
-                                trash_file_or_remove(&source_path)?;
-
-                                if let Some(temp_path) = &replacement_temp
-                                    && let Err(e) = fs::rename(temp_path, &target)
-                                {
-                                    let _ = fs::remove_file(temp_path);
-                                    return Err(format!(
-                                        "Failed to finalize replaced file {}: {}",
-                                        target.display(),
-                                        e
+                                let promotes_in_place = is_same_path(&target, &source_path);
+                                let displaced = if promotes_in_place {
+                                    let d = source_path.with_file_name(format!(
+                                        "{}.rrdisplaced-{}.{}",
+                                        source_path
+                                            .file_stem()
+                                            .and_then(|s| s.to_str())
+                                            .unwrap_or("image"),
+                                        uuid::Uuid::new_v4(),
+                                        source_path
+                                            .extension()
+                                            .and_then(|e| e.to_str())
+                                            .unwrap_or("dat")
                                     ));
+                                    fs::rename(&source_path, &d).map_err(|e| {
+                                        format!(
+                                            "Failed to stage replaced file {}: {}",
+                                            target.display(),
+                                            e
+                                        )
+                                    })?;
+                                    Some(d)
+                                } else {
+                                    None
+                                };
+                                if let Err(e) = promote_replacement_temp(&replacement_temp, &target)
+                                {
+                                    if let Some(d) = &displaced {
+                                        let _ = fs::rename(d, &source_path);
+                                    }
+                                    return Err(e);
                                 }
 
-                                let deletions =
-                                    cleanup_sidecars_after_replacement(&source_path, &target);
-                                crate::file_management::sync_album_path_changes(
-                                    &app_handle_clone,
-                                    None,
-                                    Some(&deletions),
-                                    None,
-                                );
+                                let _ = cleanup_sidecars_after_replacement(&source_path, &target);
+
+                                let superseded = match &displaced {
+                                    Some(d) => d,
+                                    None => &source_path,
+                                };
+                                if let Err(e) = trash_file_or_remove(superseded) {
+                                    log::warn!(
+                                        "Failed to discard superseded original {}: {}",
+                                        superseded.display(),
+                                        e
+                                    );
+                                }
+
+                                actual_replacements_task.lock().unwrap().push((
+                                    image_path_str.clone(),
+                                    target.to_string_lossy().into_owned(),
+                                ));
+
+                                if !promotes_in_place {
+                                    let mut renames = HashMap::new();
+                                    renames.insert(
+                                        image_path_str.clone(),
+                                        target.to_string_lossy().into_owned(),
+                                    );
+                                    crate::file_management::sync_album_path_changes(
+                                        &app_handle_clone,
+                                        Some(&renames),
+                                        None,
+                                        None,
+                                    );
+                                }
                             } else if let Some(target) = conversion_target.clone() {
                                 let mut renames = HashMap::new();
                                 renames.insert(
@@ -1362,6 +1431,10 @@ pub(crate) async fn export_images_impl(
                                     None,
                                     None,
                                 );
+                                actual_replacements_task.lock().unwrap().push((
+                                    image_path_str.clone(),
+                                    target.to_string_lossy().into_owned(),
+                                ));
                             } else if is_virtual_copy_item {
                                 trash_file_or_remove(&sidecar_path)?;
                                 let mut deletions = HashSet::new();
@@ -1372,6 +1445,10 @@ pub(crate) async fn export_images_impl(
                                     Some(&deletions),
                                     None,
                                 );
+                                actual_deleted_task
+                                    .lock()
+                                    .unwrap()
+                                    .push(image_path_str.clone());
                             } else if output_write_path != source_path {
                                 let deletions = recycle_original_with_sidecars(&source_path)?;
                                 crate::file_management::sync_album_path_changes(
@@ -1380,6 +1457,10 @@ pub(crate) async fn export_images_impl(
                                     Some(&deletions),
                                     None,
                                 );
+                                actual_deleted_task
+                                    .lock()
+                                    .unwrap()
+                                    .push(image_path_str.clone());
                             }
                         }
                     }
@@ -1422,11 +1503,33 @@ pub(crate) async fn export_images_impl(
 
         let errors: Vec<String> = results.into_iter().filter_map(Result::err).collect();
         let error_count = errors.len();
+        let actual_replacements_finalize = Arc::clone(&actual_replacements);
+        let actual_deleted_finalize = Arc::clone(&actual_deleted);
         let export_state = app_handle.state::<AppState>();
         let finalized = finish_export_task(
             &export_state.export_task_token,
             &cancellation_token,
             |cancelled| {
+                {
+                    let replacements = actual_replacements_finalize
+                        .lock()
+                        .map(|g| g.clone())
+                        .unwrap_or_default();
+                    let deleted = actual_deleted_finalize
+                        .lock()
+                        .map(|g| g.clone())
+                        .unwrap_or_default();
+                    let _ = app_handle.emit(
+                        "original-files-changed",
+                        serde_json::json!({
+                            "replacements": replacements
+                                .iter()
+                                .map(|(from, to)| serde_json::json!({ "from": from, "to": to }))
+                                .collect::<Vec<_>>(),
+                            "deleted": deleted,
+                        }),
+                    );
+                }
                 if cancelled {
                     log::info!("Batch export cancelled and worker cleanup completed");
                     let _ = app_handle.emit("export-cancelled", ());

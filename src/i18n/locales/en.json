@@ -750,11 +750,11 @@
       "title": "Export Settings"
     },
     "replaceOriginal": {
-      "confirmTitle": "Replace Original?",
-      "confirmMessage": "The selected original file(s) will be deleted and replaced with the edited version(s). The originals are moved to the system Recycle Bin. This cannot be undone.",
-      "confirmMessage_one": "The selected original will be deleted and replaced with the edited version. The original is moved to the system Recycle Bin. This cannot be undone.",
-      "confirmMessage_other": "The selected {{count}} originals will be deleted and replaced with the edited versions. The originals are moved to the system Recycle Bin. This cannot be undone.",
-      "confirmButton": "Replace"
+      "confirmTitle": "Replace Original(s)?",
+      "confirmMessage": "After exporting, the selected original image(s) will be replaced by the edited version(s). The originals will be moved to the system Recycle Bin. This cannot be undone.",
+      "confirmMessage_one": "After exporting, the selected original image will be replaced by the edited version. The original will be moved to the system Recycle Bin. This cannot be undone.",
+      "confirmMessage_other": "After exporting, the {{count}} selected original images will be replaced by the edited versions. The originals will be moved to the system Recycle Bin. This cannot be undone.",
+      "confirmButton": "Export & Replace"
     },
     "bytes": {
       "bytes": "Bytes",
@@ -764,7 +764,7 @@
       "tb": "TB"
     },
     "deleteOriginal": {
-      "confirmTitle": "Delete Originals?",
+      "confirmTitle": "Delete Original(s)?",
       "confirmMessage": "After exporting, the selected original image(s) and their edit data (.rrdata) will be moved to the system Recycle Bin. This cannot be undone.",
       "confirmMessage_one": "After exporting, the selected original image and its edit data (.rrdata) will be moved to the system Recycle Bin. This cannot be undone.",
       "confirmMessage_other": "After exporting, the {{count}} selected original images and their edit data (.rrdata) will be moved to the system Recycle Bin. This cannot be undone.",
