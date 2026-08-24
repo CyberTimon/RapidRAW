@@ -768,19 +768,15 @@
       "exportMasks": "Exportar máscaras como archivos separados",
       "preserveFolders": "Preservar estructura de carpetas",
       "preserveTimestamps": "Establecer marcas de tiempo del archivo desde la fecha de captura EXIF",
-      "title": "Ajustes de exportación",
-      "replaceOriginal": "Reemplazar original"
+      "title": "Ajustes de exportación"
     },
     "replaceOriginal": {
-      "warningTitle": "Reemplazar original",
-      "warningMessage": "Si se activa, la exportación eliminará los archivos originales y los reemplazará con las versiones editadas. Los originales se moverán a la papelera del sistema. Esto no se puede deshacer.",
-      "enableButton": "Habilitar",
       "confirmTitle": "¿Reemplazar original?",
       "confirmMessage": "Los archivos originales seleccionados se eliminarán y reemplazarán con las versiones editadas. Los originales se moverán a la papelera. Esto no se puede deshacer.",
       "confirmMessage_one": "El original seleccionado se eliminará y reemplazará con la versión editada. El original se moverá a la papelera. Esto no se puede deshacer.",
       "confirmMessage_other": "Los {{count}} originales seleccionados se eliminarán y reemplazarán con las versiones editadas. Los originales se moverán a la papelera. Esto no se puede deshacer.",
-      "confirmButton": "Reemplazar",
-      "virtualCopyUnavailable": "Reemplazar original no está disponible para copias virtuales."
+      "confirmMessage_many": "Los {{count}} originales seleccionados se eliminarán y reemplazarán con las versiones editadas. Los originales se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmButton": "Reemplazar"
     },
     "bytes": {
       "bytes": "Bytes",
@@ -794,6 +790,7 @@
       "confirmMessage": "Después de exportar, las imágenes originales seleccionadas y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
       "confirmMessage_one": "Después de exportar, la imagen original seleccionada y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
       "confirmMessage_other": "Después de exportar, las {{count}} imágenes originales seleccionadas y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmMessage_many": "Después de exportar, las {{count}} imágenes originales seleccionadas y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
       "confirmButton": "Exportar y eliminar"
     },
     "dialog": {
@@ -819,12 +816,10 @@
     },
     "originalHandling": {
       "label": "Archivos originales",
-      "off": "No",
+      "off": "Conservar",
       "replace": "Reemplazar",
       "delete": "Eliminar",
-      "warningTitle": "Los originales se eliminarán",
-      "warningMessage": "Al exportar, los archivos de imagen originales y sus datos de edición (.rrdata) se moverán a la papelera del sistema una vez completada la exportación. Esto no se puede deshacer.",
-      "virtualCopyUnavailable": "No disponible para copias virtuales."
+      "attachedVcsUnavailable": "No es posible porque las imágenes seleccionadas tienen copias virtuales adjuntas."
     },
     "resize": {
       "dontEnlarge": "No agrandar",

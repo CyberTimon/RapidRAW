@@ -66,17 +66,19 @@ fn emit_thumbnail_cache_setup_error(app_handle: &AppHandle, path: &str, reason: 
 fn compute_thumbnail_cache_hash(path_str: &str, adjustments_bytes: &[u8]) -> Option<String> {
     let (source_path, _) = parse_virtual_path(path_str);
 
-    let img_mod_time = fs::metadata(&source_path)
-        .ok()?
+    let metadata = fs::metadata(&source_path).ok()?;
+    let img_mod_time = metadata
         .modified()
         .ok()?
         .duration_since(std::time::UNIX_EPOCH)
         .ok()?
         .as_secs();
+    let img_size = metadata.len();
 
     let mut hasher = blake3::Hasher::new();
     hasher.update(path_str.as_bytes());
     hasher.update(&img_mod_time.to_le_bytes());
+    hasher.update(&img_size.to_le_bytes());
     hasher.update(adjustments_bytes);
     Some(hasher.finalize().to_hex().to_string())
 }
@@ -3580,14 +3582,14 @@ pub(crate) fn cleanup_sidecars_after_replacement(source: &Path, target: &Path) -
     deletions
 }
 
-pub(crate) fn recycle_original_with_sidecars(source: &Path) -> HashSet<String> {
+pub(crate) fn recycle_original_with_sidecars(source: &Path) -> Result<HashSet<String>, String> {
     let mut deletions = HashSet::new();
     deletions.insert(source.to_string_lossy().into_owned());
 
-    let _ = trash_file_or_remove(source);
+    trash_file_or_remove(source)?;
 
     let Some(parent) = source.parent() else {
-        return deletions;
+        return Ok(deletions);
     };
     let source_file_name = source.file_name().unwrap_or_default().to_string_lossy();
 
@@ -3610,7 +3612,74 @@ pub(crate) fn recycle_original_with_sidecars(source: &Path) -> HashSet<String> {
         }
     }
 
-    deletions
+    Ok(deletions)
+}
+
+pub(crate) fn find_available_sibling_path_excluding(
+    target: &Path,
+    reserved: &HashSet<PathBuf>,
+) -> PathBuf {
+    if !target.exists() && !reserved.contains(target) {
+        return target.to_path_buf();
+    }
+
+    let stem = target
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("image")
+        .to_string();
+    let extension = target
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_string();
+
+    for counter in 1..10000u32 {
+        let candidate_name = if extension.is_empty() {
+            format!("{}_{}", stem, counter)
+        } else {
+            format!("{}_{}.{}", stem, counter, extension)
+        };
+        let candidate = target.with_file_name(candidate_name);
+        if !candidate.exists() && !reserved.contains(&candidate) {
+            return candidate;
+        }
+    }
+
+    target.to_path_buf()
+}
+
+pub(crate) fn find_unbatched_vc_sidecar(
+    source_path_str: &str,
+    batched_vc_ids: &HashMap<String, HashSet<String>>,
+) -> Option<String> {
+    let source_path = Path::new(source_path_str);
+    let parent = source_path.parent()?;
+    let file_name = source_path.file_name()?.to_string_lossy().to_string();
+    let prefix = format!("{}.", file_name);
+
+    for entry in fs::read_dir(parent).ok()?.filter_map(Result::ok) {
+        if !entry.path().is_file() {
+            continue;
+        }
+        let entry_filename = entry.file_name().to_string_lossy().to_string();
+        if entry_filename.starts_with(&prefix) && entry_filename.ends_with(".rrdata") {
+            let id_end = entry_filename.len() - ".rrdata".len();
+            if id_end <= prefix.len() {
+                continue;
+            }
+            let vc_id = &entry_filename[prefix.len()..id_end];
+            if !vc_id.is_empty()
+                && !batched_vc_ids
+                    .get(source_path_str)
+                    .is_some_and(|ids| ids.contains(vc_id))
+            {
+                return Some(file_name);
+            }
+        }
+    }
+
+    None
 }
 
 pub fn get_thumb_cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {

@@ -725,10 +725,10 @@ function App() {
               rootPaths={rootPaths}
               isVisible={true}
               onClose={() => setUI({ isLibraryExportPanelVisible: false })}
-              onFilesReplaced={(payload) => {
-                void handleOriginalFilesReplaced(payload);
-                refreshAllFolderTrees();
-                handleLibraryRefresh();
+              onFilesReplaced={async (payload) => {
+                await handleOriginalFilesReplaced(payload);
+                await refreshAllFolderTrees();
+                await handleLibraryRefresh();
                 useLibraryStore.getState().setLibrary({ multiSelectedPaths: [] });
               }}
             />

@@ -8,7 +8,7 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { Invokes, LibraryViewMode, ImageFile } from '../components/ui/AppProperties';
+import { Invokes, LibraryViewMode, ImageFile, AlbumItem } from '../components/ui/AppProperties';
 import { INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { debouncedSave, debouncedSetHistory } from './useEditorActions';
@@ -78,47 +78,6 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     setLibrary({ libraryActivePath: lastActivePath });
     setUI({ activeView: 'library', slideDirection: 1 });
   }, [refs]);
-
-  const handleOriginalFilesReplaced = useCallback(
-    async (payload: OriginalFilesReplacedPayload) => {
-      const replacements = payload?.replacements ?? [];
-      const deleted = payload?.deleted ?? [];
-      if (replacements.length === 0 && deleted.length === 0) return;
-
-      await invoke('clear_image_caches').catch(() => {});
-
-      for (const r of replacements) {
-        globalImageCache.delete(r.from);
-        globalImageCache.delete(r.to);
-      }
-      for (const p of deleted) {
-        globalImageCache.delete(p);
-      }
-
-      const { thumbnails, previews, setProcess } = useProcessStore.getState();
-      const affectedKeys = new Set<string>();
-      for (const r of replacements) {
-        affectedKeys.add(r.from);
-        affectedKeys.add(r.to);
-      }
-      for (const p of deleted) {
-        affectedKeys.add(p);
-      }
-      for (const key of affectedKeys) {
-        if (thumbnails[key]) delete thumbnails[key];
-        if (previews[key]) delete previews[key];
-      }
-      if (affectedKeys.size > 0) {
-        setProcess({ thumbnails: { ...thumbnails }, previews: { ...previews } });
-      }
-
-      const currentView = useUIStore.getState().activeView;
-      if (currentView === 'editor') {
-        handleBackToLibrary();
-      }
-    },
-    [handleBackToLibrary],
-  );
 
   const handleImageSelect = useCallback(
     async (path: string, openInEditor: boolean = true) => {
@@ -485,6 +444,86 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       }
     },
     [clearThumbnailQueue],
+  );
+
+  const handleOriginalFilesReplaced = useCallback(
+    async (payload: OriginalFilesReplacedPayload) => {
+      const replacements = payload?.replacements ?? [];
+      const deleted = payload?.deleted ?? [];
+      if (replacements.length === 0 && deleted.length === 0) return;
+
+      const affectedKeys = new Set<string>();
+      for (const r of replacements) {
+        affectedKeys.add(r.from);
+        affectedKeys.add(r.to);
+      }
+      for (const p of deleted) {
+        affectedKeys.add(p);
+      }
+
+      const purgeAffectedProcessEntries = () => {
+        const { thumbnails, previews, setProcess } = useProcessStore.getState();
+        let removed = false;
+        for (const key of affectedKeys) {
+          if (thumbnails[key]) {
+            delete thumbnails[key];
+            removed = true;
+          }
+          if (previews[key]) {
+            delete previews[key];
+            removed = true;
+          }
+        }
+        if (removed) {
+          setProcess({ thumbnails: { ...thumbnails }, previews: { ...previews } });
+        }
+      };
+
+      const selectedPath = useEditorStore.getState().selectedImage?.path ?? null;
+      if (selectedPath && affectedKeys.has(selectedPath)) {
+        debouncedSave.cancel();
+      } else {
+        debouncedSave.flush();
+      }
+      debouncedSetHistory.cancel();
+
+      await invoke('clear_image_caches').catch(() => {});
+      for (const key of affectedKeys) {
+        globalImageCache.delete(key);
+      }
+      purgeAffectedProcessEntries();
+
+      const { currentFolderPath, activeAlbumId } = useLibraryStore.getState();
+      if (currentFolderPath && !currentFolderPath.startsWith('Album: ')) {
+        await handleSelectSubfolder(currentFolderPath, false);
+        purgeAffectedProcessEntries();
+      } else if (activeAlbumId) {
+        try {
+          const albumTree = await invoke<AlbumItem[]>(Invokes.GetAlbums);
+          useLibraryStore.getState().setLibrary({ albumTree });
+
+          const findObj = (nodes: AlbumItem[]): AlbumItem | null => {
+            for (const n of nodes) {
+              if (n.id === activeAlbumId) return n;
+              if (n.type === 'group') {
+                const found = findObj(n.children);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+
+          const album = findObj(albumTree);
+          if (album && album.type === 'album') {
+            await handleSelectAlbum(album.id, album.name, album.images);
+            purgeAffectedProcessEntries();
+          }
+        } catch (err) {
+          console.error('Failed to refresh album after file replacement:', err);
+        }
+      }
+    },
+    [handleSelectSubfolder, handleSelectAlbum],
   );
 
   const handleOpenFolder = async () => {

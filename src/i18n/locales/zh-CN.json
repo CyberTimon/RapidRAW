@@ -745,19 +745,14 @@
       "exportMasks": "将蒙版导出为单独文件",
       "preserveFolders": "保留文件夹结构",
       "preserveTimestamps": "将文件时间戳设为 EXIF 拍摄日期",
-      "title": "导出设置",
-      "replaceOriginal": "替换原文件"
+      "title": "导出设置"
     },
     "replaceOriginal": {
-      "warningTitle": "替换原文件",
-      "warningMessage": "启用后，导出将删除原始文件并用编辑后的版本替换它们。原文件将移到系统回收站。此操作无法撤销。",
-      "enableButton": "启用",
       "confirmTitle": "替换原文件？",
       "confirmMessage": "所选原始文件将被删除并替换为编辑后的版本。原文件将移到系统回收站。此操作无法撤销。",
       "confirmMessage_one": "所选原始文件将被删除并替换为编辑后的版本。原文件将移到系统回收站。此操作无法撤销。",
       "confirmMessage_other": "所选 {{count}} 个原始文件将被删除并替换为编辑后的版本。原文件将移到系统回收站。此操作无法撤销。",
-      "confirmButton": "替换",
-      "virtualCopyUnavailable": "虚拟副本不支持替换原文件。"
+      "confirmButton": "替换"
     },
     "bytes": {
       "bytes": "字节",
@@ -795,12 +790,10 @@
     },
     "originalHandling": {
       "label": "原始文件",
-      "off": "关",
+      "off": "保留",
       "replace": "替换",
       "delete": "删除",
-      "warningTitle": "原文件将被删除",
-      "warningMessage": "导出完成后，原始图像文件及其编辑数据（.rrdata）将被移到系统回收站。此操作无法撤销。",
-      "virtualCopyUnavailable": "虚拟副本不可用。"
+      "attachedVcsUnavailable": "无法执行，因为所选图像带有虚拟副本。"
     },
     "resize": {
       "dontEnlarge": "不放大",

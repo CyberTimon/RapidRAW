@@ -747,19 +747,14 @@
       "exportMasks": "Masken als separate Dateien exportieren",
       "preserveFolders": "Ordnerstruktur beibehalten",
       "preserveTimestamps": "Dateizeitstempel aus EXIF-Aufnahmedatum setzen",
-      "title": "Exporteinstellungen",
-      "replaceOriginal": "Original ersetzen"
+      "title": "Exporteinstellungen"
     },
     "replaceOriginal": {
-      "warningTitle": "Original ersetzen",
-      "warningMessage": "Wenn aktiviert, werden die Originaldateien beim Export gelöscht und durch die bearbeiteten Versionen ersetzt. Die Originale werden in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
-      "enableButton": "Aktivieren",
       "confirmTitle": "Original ersetzen?",
       "confirmMessage": "Die ausgewählten Originaldateien werden gelöscht und durch die bearbeiteten Versionen ersetzt. Die Originale werden in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
       "confirmMessage_one": "Das ausgewählte Original wird gelöscht und durch die bearbeitete Version ersetzt. Das Original wird in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
       "confirmMessage_other": "Die {{count}} ausgewählten Originaldateien werden gelöscht und durch die bearbeiteten Versionen ersetzt. Die Originale werden in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
-      "confirmButton": "Ersetzen",
-      "virtualCopyUnavailable": "„Original ersetzen“ ist bei virtuellen Kopien nicht verfügbar."
+      "confirmButton": "Ersetzen"
     },
     "bytes": {
       "bytes": "Bytes",
@@ -797,12 +792,10 @@
     },
     "originalHandling": {
       "label": "Originaldateien",
-      "off": "Aus",
+      "off": "Behalten",
       "replace": "Ersetzen",
       "delete": "Löschen",
-      "warningTitle": "Originaldateien werden gelöscht",
-      "warningMessage": "Beim Export werden die Originalbilddateien und ihre Bearbeitungsdaten (.rrdata) nach Abschluss des Exports in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
-      "virtualCopyUnavailable": "Für virtuelle Kopien nicht verfügbar."
+      "attachedVcsUnavailable": "Nicht möglich, da die ausgewählten Bilder angehängte virtuelle Kopien haben."
     },
     "resize": {
       "dontEnlarge": "Nicht vergrößern",

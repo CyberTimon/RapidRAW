@@ -747,19 +747,14 @@
       "exportMasks": "Export masks as separate files",
       "preserveFolders": "Preserve Folder Structure",
       "preserveTimestamps": "Set File Timestamps from EXIF Capture Date",
-      "title": "Export Settings",
-      "replaceOriginal": "Replace Original"
+      "title": "Export Settings"
     },
     "replaceOriginal": {
-      "warningTitle": "Replace Original",
-      "warningMessage": "When enabled, exporting will delete the original files and replace them with the edited versions. The originals are moved to the system Recycle Bin. This cannot be undone.",
-      "enableButton": "Enable",
       "confirmTitle": "Replace Original?",
       "confirmMessage": "The selected original file(s) will be deleted and replaced with the edited version(s). The originals are moved to the system Recycle Bin. This cannot be undone.",
       "confirmMessage_one": "The selected original will be deleted and replaced with the edited version. The original is moved to the system Recycle Bin. This cannot be undone.",
       "confirmMessage_other": "The selected {{count}} originals will be deleted and replaced with the edited versions. The originals are moved to the system Recycle Bin. This cannot be undone.",
-      "confirmButton": "Replace",
-      "virtualCopyUnavailable": "Replace Original is unavailable for virtual copies."
+      "confirmButton": "Replace"
     },
     "bytes": {
       "bytes": "Bytes",
@@ -797,12 +792,10 @@
     },
     "originalHandling": {
       "label": "Original Files",
-      "off": "Off",
+      "off": "Keep",
       "replace": "Replace",
       "delete": "Delete",
-      "warningTitle": "Originals Will Be Deleted",
-      "warningMessage": "Exporting will move the original image files and their edit data (.rrdata) to the system Recycle Bin once the export completes. This cannot be undone.",
-      "virtualCopyUnavailable": "Not available for virtual copies."
+      "attachedVcsUnavailable": "Not possible because the selected image has attached virtual copies."
     },
     "resize": {
       "dontEnlarge": "Don't Enlarge",

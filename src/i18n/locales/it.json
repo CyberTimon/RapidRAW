@@ -768,19 +768,15 @@
       "exportMasks": "Esporta maschere come file separati",
       "preserveFolders": "Mantieni Struttura Cartelle",
       "preserveTimestamps": "Imposta Timestamp File dalla Data di Acquisizione EXIF",
-      "title": "Impostazioni di Esportazione",
-      "replaceOriginal": "Sostituisci originale"
+      "title": "Impostazioni di Esportazione"
     },
     "replaceOriginal": {
-      "warningTitle": "Sostituisci originale",
-      "warningMessage": "Se attivata, l'esportazione eliminerà i file originali e li sostituirà con le versioni modificate. Gli originali verranno spostati nel Cestino di sistema. Non può essere annullato.",
-      "enableButton": "Attiva",
       "confirmTitle": "Sostituire l'originale?",
       "confirmMessage": "I file originali selezionati verranno eliminati e sostituiti con le versioni modificate. Gli originali verranno spostati nel Cestino. Non può essere annullato.",
       "confirmMessage_one": "L'originale selezionato verrà eliminato e sostituito con la versione modificata. L'originale verrà spostato nel Cestino. Non può essere annullato.",
       "confirmMessage_other": "I {{count}} file originali selezionati verranno eliminati e sostituiti con le versioni modificate. Gli originali verranno spostati nel Cestino. Non può essere annullato.",
-      "confirmButton": "Sostituisci",
-      "virtualCopyUnavailable": "Sostituisci originale non è disponibile per le copie virtuali."
+      "confirmMessage_many": "I {{count}} file originali selezionati verranno eliminati e sostituiti con le versioni modificate. Gli originali verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmButton": "Sostituisci"
     },
     "bytes": {
       "bytes": "Byte",
@@ -794,6 +790,7 @@
       "confirmMessage": "Dopo l'esportazione, le immagini originali selezionate e i loro dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
       "confirmMessage_one": "Dopo l'esportazione, l'immagine originale selezionata e i suoi dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
       "confirmMessage_other": "Dopo l'esportazione, le {{count}} immagini originali selezionate e i loro dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmMessage_many": "Dopo l'esportazione, le {{count}} immagini originali selezionate e i loro dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
       "confirmButton": "Esporta ed elimina"
     },
     "dialog": {
@@ -819,12 +816,10 @@
     },
     "originalHandling": {
       "label": "File originali",
-      "off": "No",
+      "off": "Mantieni",
       "replace": "Sostituisci",
       "delete": "Elimina",
-      "warningTitle": "Gli originali verranno eliminati",
-      "warningMessage": "All'esportazione, i file immagine originali e i loro dati di modifica (.rrdata) verranno spostati nel Cestino di sistema al termine dell'esportazione. Non può essere annullato.",
-      "virtualCopyUnavailable": "Non disponibile per le copie virtuali."
+      "attachedVcsUnavailable": "Non possibile perché le immagini selezionate hanno copie virtuali collegate."
     },
     "resize": {
       "dontEnlarge": "Non Ingrandire",

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +31,7 @@ import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
+import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useUIStore } from '../../../store/useUIStore';
 
 interface ExportPanelProps {
@@ -48,6 +50,26 @@ interface ExportPanelProps {
 interface SectionProps {
   children: any;
   title: string;
+}
+
+type ExportTerminationEvent = 'export-complete' | 'export-error' | 'export-cancelled';
+
+function waitForExportTermination(): Promise<ExportTerminationEvent> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const unlisteners: Array<Promise<() => void>> = [];
+    const finish = (eventName: ExportTerminationEvent) => {
+      if (settled) return;
+      settled = true;
+      for (const unlisten of unlisteners) {
+        unlisten.then((fn) => fn()).catch(() => {});
+      }
+      resolve(eventName);
+    };
+    unlisteners.push(listen('export-complete', () => finish('export-complete')));
+    unlisteners.push(listen('export-error', () => finish('export-error')));
+    unlisteners.push(listen('export-cancelled', () => finish('export-cancelled')));
+  });
 }
 
 function Section({ title, children }: SectionProps) {
@@ -303,10 +325,35 @@ export default function ExportPanel({
 
   const numImages = pathsToExport.length;
 
-  const selectionContainsVirtualCopy = useMemo(
-    () => pathsToExport.some((path) => path.includes('?vc=')),
-    [pathsToExport],
-  );
+  const libraryImages = useLibraryStore((s) => s.imageList);
+
+  const originalHandlingUnavailableReason = useMemo(() => {
+    const batchedVcIdsByBase = new Map<string, Set<string>>();
+    for (const path of pathsToExport) {
+      if (!path.includes('?vc=')) continue;
+      const separatorIndex = path.indexOf('?vc=');
+      const base = path.substring(0, separatorIndex);
+      const id = path.substring(separatorIndex + 4);
+      if (!batchedVcIdsByBase.has(base)) batchedVcIdsByBase.set(base, new Set());
+      batchedVcIdsByBase.get(base)!.add(id);
+    }
+    const hasUnbatchedVcs = pathsToExport.some((path) => {
+      if (path.includes('?vc=')) return false;
+      const basePrefix = `${path}?vc=`;
+      return libraryImages.some((img) => {
+        if (!img.is_virtual_copy || !img.path.startsWith(basePrefix)) return false;
+        const id = img.path.substring(basePrefix.length);
+        return !batchedVcIdsByBase.get(path)?.has(id);
+      });
+    });
+    return hasUnbatchedVcs ? t('export.originalHandling.attachedVcsUnavailable') : null;
+  }, [pathsToExport, libraryImages, t]);
+
+  useEffect(() => {
+    if (originalHandlingUnavailableReason) {
+      setOriginalHandling('off');
+    }
+  }, [originalHandlingUnavailableReason]);
 
   useEffect(() => {
     const fetchDims = async () => {
@@ -469,17 +516,19 @@ export default function ExportPanel({
   const handleOriginalHandlingChange = useCallback(
     (id: string) => {
       const next = id as OriginalHandling;
-      if (next === originalHandling || selectionContainsVirtualCopy) return;
+      if (next === originalHandling) return;
       setOriginalHandling(next);
     },
-    [originalHandling, selectionContainsVirtualCopy],
+    [originalHandling],
   );
 
   const performExport = async () => {
     if (numImages === 0 || isExporting) return;
 
-    const effectiveReplaceOriginal = originalHandling === 'replace' && !selectionContainsVirtualCopy;
-    const effectiveDeleteOriginal = originalHandling === 'delete' && !selectionContainsVirtualCopy;
+    const effectiveReplaceOriginal =
+      originalHandling === 'replace' && !originalHandlingUnavailableReason;
+    const effectiveDeleteOriginal =
+      originalHandling === 'delete' && !originalHandlingUnavailableReason;
 
     let finalFilenameTemplate = filenameTemplate;
     if (
@@ -579,20 +628,26 @@ export default function ExportPanel({
         if (effectiveReplaceOriginal || effectiveDeleteOriginal) {
           const replacements = effectiveReplaceOriginal
             ? pathsToExport.map((p) => {
-                const base = p.split('?vc=')[0];
-                const separator = base.includes('\\') ? '\\' : '/';
-                const dir = base.substring(0, base.lastIndexOf(separator));
-                const name = base.split(separator).pop() || base;
+                const isVirtualCopy = p.includes('?vc=');
+                const filePath = p.split('?vc=')[0];
+                const separator = filePath.includes('\\') ? '\\' : '/';
+                const dir = filePath.substring(0, filePath.lastIndexOf(separator));
+                const name = filePath.split(separator).pop() || filePath;
                 const stem = name.substring(0, name.lastIndexOf('.')) || name;
                 const ext = String(selectedFormat.extensions[0]).toLowerCase();
-                const to = dir ? `${dir}${separator}${stem}.${ext}` : `${stem}.${ext}`;
+                let fileName = `${stem}.${ext}`;
+                if (isVirtualCopy && `${dir ? `${dir}${separator}` : ''}${fileName}` === filePath) {
+                  fileName = `${stem}_1.${ext}`;
+                }
+                const to = dir ? `${dir}${separator}${fileName}` : fileName;
                 return { from: p, to };
               })
             : [];
-          const deleted = effectiveDeleteOriginal
-            ? pathsToExport.map((p) => p.split('?vc=')[0])
-            : [];
-          await onFilesReplaced?.({ replacements, deleted });
+          const deleted = effectiveDeleteOriginal ? [...pathsToExport] : [];
+          const terminationEvent = await waitForExportTermination();
+          if (terminationEvent === 'export-complete') {
+            await onFilesReplaced?.({ replacements, deleted });
+          }
         }
       }
     } catch (error) {
@@ -607,7 +662,7 @@ export default function ExportPanel({
   const handleExport = async () => {
     if (numImages === 0 || isExporting) return;
 
-    if (originalHandling !== 'off' && !selectionContainsVirtualCopy) {
+    if (originalHandling !== 'off' && !originalHandlingUnavailableReason) {
       const useReplace = originalHandling === 'replace';
       useUIStore.getState().setUI({
         confirmModalState: {
@@ -863,33 +918,28 @@ export default function ExportPanel({
                   )}
                 </Section>
                 {!isAndroid && (
-                  <div>
-                    <Text variant={TextVariants.label} className="mb-1">
-                      {t('export.originalHandling.label')}
-                    </Text>
-                    <div
-                      data-tooltip={
-                        selectionContainsVirtualCopy ? t('export.originalHandling.virtualCopyUnavailable') : undefined
-                      }
-                    >
-                      <SegmentedSwitch
-                        disabled={isExporting || selectionContainsVirtualCopy}
-                        options={[
-                          { id: 'off', label: t('export.originalHandling.off') },
-                          {
-                            id: 'replace',
-                            label: t('export.originalHandling.replace'),
-                          },
-                          {
-                            id: 'delete',
-                            label: t('export.originalHandling.delete'),
-                          },
-                        ]}
-                        value={originalHandling}
-                        onChange={handleOriginalHandlingChange}
-                      />
-                    </div>
-                  </div>
+                  <Section title={t('export.originalHandling.label')}>
+                    <SegmentedSwitch
+                      disabled={isExporting}
+                      options={[
+                        { id: 'off', label: t('export.originalHandling.off') },
+                        {
+                          id: 'replace',
+                          label: t('export.originalHandling.replace'),
+                          disabled: !!originalHandlingUnavailableReason,
+                          tooltip: originalHandlingUnavailableReason ?? undefined,
+                        },
+                        {
+                          id: 'delete',
+                          label: t('export.originalHandling.delete'),
+                          disabled: !!originalHandlingUnavailableReason,
+                          tooltip: originalHandlingUnavailableReason ?? undefined,
+                        },
+                      ]}
+                      value={originalHandling}
+                      onChange={handleOriginalHandlingChange}
+                    />
+                  </Section>
                 )}
               </>
             )}

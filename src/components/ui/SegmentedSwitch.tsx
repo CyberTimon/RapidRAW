@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 
 interface SegmentedSwitchProps<T extends string | number = string | number> {
-  options: { id: T; label: string }[];
+  options: { id: T; label: string; disabled?: boolean; tooltip?: string }[];
   value: T;
   onChange: (id: T) => void;
   disabled?: boolean;
@@ -52,14 +52,16 @@ const SegmentedSwitch = <T extends string | number>({
           <button
             key={option.id}
             type="button"
-            disabled={disabled}
+            disabled={disabled || option.disabled}
             aria-pressed={value === option.id}
+            data-tooltip={option.tooltip}
             onClick={() => onChange(option.id)}
             className={clsx(
               'relative flex-1 flex items-center justify-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors truncate',
               {
-                'text-text-secondary hover:text-text-primary': value !== option.id,
+                'text-text-secondary hover:text-text-primary': value !== option.id && !option.disabled,
                 'text-text-primary font-semibold': value === option.id,
+                'opacity-50 cursor-not-allowed': option.disabled,
               },
             )}
             style={{ WebkitTapHighlightColor: 'transparent' }}

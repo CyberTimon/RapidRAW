@@ -745,19 +745,14 @@
       "exportMasks": "마스크를 별도 파일로 내보내기",
       "preserveFolders": "폴더 구조 유지",
       "preserveTimestamps": "EXIF 촬영 날짜로 파일 타임스탬프 설정",
-      "title": "내보내기 설정",
-      "replaceOriginal": "원본 파일 대체"
+      "title": "내보내기 설정"
     },
     "replaceOriginal": {
-      "warningTitle": "원본 파일 대체",
-      "warningMessage": "활성화하면 내보내기 시 원본 파일이 삭제되고 편집된 버전으로 대체됩니다. 원본은 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
-      "enableButton": "활성화",
       "confirmTitle": "원본을 대체할까요?",
       "confirmMessage": "선택한 원본 파일이 삭제되고 편집된 버전으로 대체됩니다. 원본은 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
       "confirmMessage_one": "선택한 원본 파일이 삭제되고 편집된 버전으로 대체됩니다. 원본은 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
       "confirmMessage_other": "선택한 {{count}}개의 원본 파일이 삭제되고 편집된 버전으로 대체됩니다. 원본은 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
-      "confirmButton": "대체",
-      "virtualCopyUnavailable": "가상 복사본에는 원본 파일 대체를 사용할 수 없습니다."
+      "confirmButton": "대체"
     },
     "bytes": {
       "bytes": "바이트",
@@ -795,12 +790,10 @@
     },
     "originalHandling": {
       "label": "원본 파일",
-      "off": "끔",
+      "off": "유지",
       "replace": "대체",
       "delete": "삭제",
-      "warningTitle": "원본이 삭제됩니다",
-      "warningMessage": "내보내기가 완료되면 원본 이미지 파일과 그 편집 데이터(.rrdata)가 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
-      "virtualCopyUnavailable": "가상 복사본에서는 사용할 수 없습니다."
+      "attachedVcsUnavailable": "선택한 이미지에 연결된 가상 복사본이 있어 실행할 수 없습니다."
     },
     "resize": {
       "dontEnlarge": "확대하지 않음",
