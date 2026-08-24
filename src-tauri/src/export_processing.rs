@@ -915,7 +915,7 @@ pub(crate) async fn export_images_impl(
         && let Some(virtual_copy_path) = paths.iter().find(|p| p.contains("?vc="))
     {
         return Err(format!(
-            "Replace Original cannot be used with virtual copies ({})",
+            "Replace/Delete Original cannot be used with virtual copies ({})",
             virtual_copy_path
                 .split("?vc=")
                 .next()

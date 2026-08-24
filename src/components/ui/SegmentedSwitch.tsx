@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 
@@ -15,8 +15,11 @@ const SegmentedSwitch = <T extends string | number>({
   onChange,
   disabled = false,
 }: SegmentedSwitchProps<T>) => {
-  const [bubbleStyle, setBubbleStyle] = useState({});
-  const isInitialAnimation = useRef(true);
+  const [bubbleStyle, setBubbleStyle] = useState<{
+    x?: string;
+    width?: string;
+    opacity: number;
+  }>({ opacity: 0 });
 
   const selectedIndex = options.findIndex((m) => m.id === value);
   const hasSelection = selectedIndex >= 0;
@@ -24,16 +27,12 @@ const SegmentedSwitch = <T extends string | number>({
   useEffect(() => {
     const safeIndex = hasSelection ? selectedIndex : 0;
     const widthPercent = 100 / options.length;
-    const targetX = `${safeIndex * 100}%`;
-    const targetWidth = `${widthPercent}%`;
-
-    if (isInitialAnimation.current) {
-      setBubbleStyle({ x: targetX, width: targetWidth, opacity: hasSelection ? 1 : 0 });
-      isInitialAnimation.current = false;
-    } else {
-      setBubbleStyle({ x: targetX, width: targetWidth, opacity: hasSelection ? 1 : 0 });
-    }
-  }, [value, options, hasSelection]);
+    setBubbleStyle({
+      x: `${safeIndex * 100}%`,
+      width: `${widthPercent}%`,
+      opacity: hasSelection ? 1 : 0,
+    });
+  }, [value, options, hasSelection, selectedIndex]);
 
   return (
     <div
@@ -52,7 +51,10 @@ const SegmentedSwitch = <T extends string | number>({
         {options.map((option) => (
           <button
             key={option.id}
-            onClick={() => !disabled && onChange(option.id)}
+            type="button"
+            disabled={disabled}
+            aria-pressed={value === option.id}
+            onClick={() => onChange(option.id)}
             className={clsx(
               'relative flex-1 flex items-center justify-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors truncate',
               {
