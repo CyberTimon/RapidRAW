@@ -810,6 +810,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "deleteOriginal": {
+      "confirmTitle": "Usunąć oryginały?",
+      "confirmMessage": "Po eksporcie wybrane oryginalne obrazy i ich dane edycji (.rrdata) zostaną przeniesione do Kosza. Tej operacji nie można cofnąć.",
+      "confirmMessage_one": "Po eksporcie wybrany oryginalny obraz i jego dane edycji (.rrdata) zostaną przeniesione do Kosza. Tej operacji nie można cofnąć.",
+      "confirmMessage_other": "Po eksporcie wybrane {{count}} oryginalne obrazy i ich dane edycji (.rrdata) zostaną przeniesione do Kosza. Tej operacji nie można cofnąć.",
+      "confirmButton": "Eksportuj i usuń"
+    },
     "dialog": {
       "saveEditedImageTitle": "Zapisz edytowany obraz",
       "selectFolderTitle": "Wybierz folder do eksportu {{count}} obrazów",
@@ -831,6 +838,15 @@
     "metadata": {
       "removeGps": "Usuń dane GPS",
       "saveWithMetadata": "Zapisz z metadanymi"
+    },
+    "originalHandling": {
+      "label": "Pliki oryginalne",
+      "off": "Wył.",
+      "replace": "Zastąp",
+      "delete": "Usuń",
+      "warningTitle": "Oryginały zostaną usunięte",
+      "warningMessage": "Eksport przeniesie oryginalne pliki obrazów i ich dane edycji (.rrdata) do Kosza po zakończeniu eksportu. Tej operacji nie można cofnąć.",
+      "virtualCopyUnavailable": "Niedostępne dla kopii wirtualnych."
     },
     "resize": {
       "dontEnlarge": "Nie powiększaj",

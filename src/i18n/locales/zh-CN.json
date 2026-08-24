@@ -766,6 +766,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "deleteOriginal": {
+      "confirmTitle": "删除原文件？",
+      "confirmMessage": "导出完成后，所选原始图像及其编辑数据（.rrdata）将被移到系统回收站。此操作无法撤销。",
+      "confirmMessage_one": "导出完成后，所选原始图像及其编辑数据（.rrdata）将被移到系统回收站。此操作无法撤销。",
+      "confirmMessage_other": "导出完成后，所选 {{count}} 个原始图像及其编辑数据（.rrdata）将被移到系统回收站。此操作无法撤销。",
+      "confirmButton": "导出并删除"
+    },
     "dialog": {
       "saveEditedImageTitle": "保存编辑后的图像",
       "selectFolderTitle": "选择文件夹以导出 {{count}} 张图像",
@@ -785,6 +792,15 @@
     "metadata": {
       "removeGps": "移除 GPS 数据",
       "saveWithMetadata": "保存时包含元数据"
+    },
+    "originalHandling": {
+      "label": "原始文件",
+      "off": "关",
+      "replace": "替换",
+      "delete": "删除",
+      "warningTitle": "原文件将被删除",
+      "warningMessage": "导出完成后，原始图像文件及其编辑数据（.rrdata）将被移到系统回收站。此操作无法撤销。",
+      "virtualCopyUnavailable": "虚拟副本不可用。"
     },
     "resize": {
       "dontEnlarge": "不放大",

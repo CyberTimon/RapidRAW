@@ -27,6 +27,7 @@ import {
   ThumbnailSize,
   ThumbnailAspectRatio,
 } from '../../ui/AppProperties';
+import SegmentedSwitch from '../../ui/SegmentedSwitch';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
@@ -84,64 +85,6 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
     </div>
   );
 }
-
-interface SegmentedSwitchProps {
-  options: { id: string | number; label: string }[];
-  value: string | number;
-  onChange: (id: any) => void;
-}
-
-const SegmentedSwitch = ({ options, value, onChange }: SegmentedSwitchProps) => {
-  const [bubbleStyle, setBubbleStyle] = useState({});
-  const isInitialAnimation = useRef(true);
-
-  const selectedIndex = options.findIndex((m) => m.id === value);
-  const hasSelection = selectedIndex >= 0;
-
-  useEffect(() => {
-    const safeIndex = hasSelection ? selectedIndex : 0;
-    const widthPercent = 100 / options.length;
-    const targetX = `${safeIndex * 100}%`;
-    const targetWidth = `${widthPercent}%`;
-
-    if (isInitialAnimation.current) {
-      setBubbleStyle({ x: targetX, width: targetWidth, opacity: hasSelection ? 1 : 0 });
-      isInitialAnimation.current = false;
-    } else {
-      setBubbleStyle({ x: targetX, width: targetWidth, opacity: hasSelection ? 1 : 0 });
-    }
-  }, [value, options, hasSelection]);
-
-  return (
-    <div className="w-full bg-bg-primary p-1 rounded-md">
-      <div className="relative flex w-full">
-        <motion.div
-          className="absolute top-0 bottom-0 left-0 z-0 bg-card-active shadow-xs"
-          style={{ borderRadius: 6 }}
-          animate={bubbleStyle}
-          initial={false}
-          transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-        />
-        {options.map((option) => (
-          <button
-            key={option.id}
-            onClick={() => onChange(option.id)}
-            className={clsx(
-              'relative flex-1 flex items-center justify-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors truncate',
-              {
-                'text-text-secondary hover:text-text-primary': value !== option.id,
-                'text-text-primary font-semibold': value === option.id,
-              },
-            )}
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-          >
-            <span className="relative z-10">{option.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions }: any) => {
   const [bubbleStyle, setBubbleStyle] = useState({});

@@ -12,6 +12,7 @@ import { Invokes, LibraryViewMode, ImageFile } from '../components/ui/AppPropert
 import { INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { debouncedSave, debouncedSetHistory } from './useEditorActions';
+import { OriginalFilesReplacedPayload } from '../components/ui/ExportImportProperties';
 
 export interface AppNavigationProps {
   clearThumbnailQueue: () => void;
@@ -77,6 +78,47 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     setLibrary({ libraryActivePath: lastActivePath });
     setUI({ activeView: 'library', slideDirection: 1 });
   }, [refs]);
+
+  const handleOriginalFilesReplaced = useCallback(
+    async (payload: OriginalFilesReplacedPayload) => {
+      const replacements = payload?.replacements ?? [];
+      const deleted = payload?.deleted ?? [];
+      if (replacements.length === 0 && deleted.length === 0) return;
+
+      await invoke('clear_image_caches').catch(() => {});
+
+      for (const r of replacements) {
+        globalImageCache.delete(r.from);
+        globalImageCache.delete(r.to);
+      }
+      for (const p of deleted) {
+        globalImageCache.delete(p);
+      }
+
+      const { thumbnails, previews, setProcess } = useProcessStore.getState();
+      const affectedKeys = new Set<string>();
+      for (const r of replacements) {
+        affectedKeys.add(r.from);
+        affectedKeys.add(r.to);
+      }
+      for (const p of deleted) {
+        affectedKeys.add(p);
+      }
+      for (const key of affectedKeys) {
+        if (thumbnails[key]) delete thumbnails[key];
+        if (previews[key]) delete previews[key];
+      }
+      if (affectedKeys.size > 0) {
+        setProcess({ thumbnails: { ...thumbnails }, previews: { ...previews } });
+      }
+
+      const currentView = useUIStore.getState().activeView;
+      if (currentView === 'editor') {
+        handleBackToLibrary();
+      }
+    },
+    [handleBackToLibrary],
+  );
 
   const handleImageSelect = useCallback(
     async (path: string, openInEditor: boolean = true) => {
@@ -603,5 +645,6 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     handleSelectAlbum,
     handleOpenFolder,
     handleContinueSession,
+    handleOriginalFilesReplaced,
   };
 }

@@ -768,6 +768,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "deleteOriginal": {
+      "confirmTitle": "Originale löschen?",
+      "confirmMessage": "Nach dem Export werden die ausgewählten Originalbilder und ihre Bearbeitungsdaten (.rrdata) in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
+      "confirmMessage_one": "Nach dem Export wird das ausgewählte Originalbild und seine Bearbeitungsdaten (.rrdata) in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
+      "confirmMessage_other": "Nach dem Export werden die {{count}} ausgewählten Originalbilder und ihre Bearbeitungsdaten (.rrdata) in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
+      "confirmButton": "Exportieren & löschen"
+    },
     "dialog": {
       "saveEditedImageTitle": "Bearbeitetes Bild speichern",
       "selectFolderTitle": "Ordner zum Exportieren von {{count}} Bild(ern) auswählen",
@@ -787,6 +794,15 @@
     "metadata": {
       "removeGps": "GPS-Daten entfernen",
       "saveWithMetadata": "Mit Metadaten speichern"
+    },
+    "originalHandling": {
+      "label": "Originaldateien",
+      "off": "Aus",
+      "replace": "Ersetzen",
+      "delete": "Löschen",
+      "warningTitle": "Originaldateien werden gelöscht",
+      "warningMessage": "Beim Export werden die Originalbilddateien und ihre Bearbeitungsdaten (.rrdata) nach Abschluss des Exports in den Papierkorb verschoben. Dies kann nicht rückgängig gemacht werden.",
+      "virtualCopyUnavailable": "Für virtuelle Kopien nicht verfügbar."
     },
     "resize": {
       "dontEnlarge": "Nicht vergrößern",

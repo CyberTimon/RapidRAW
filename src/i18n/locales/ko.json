@@ -766,6 +766,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "deleteOriginal": {
+      "confirmTitle": "원본을 삭제할까요?",
+      "confirmMessage": "내보낸 후 선택한 원본 이미지와 그 편집 데이터(.rrdata)가 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
+      "confirmMessage_one": "내보낸 후 선택한 원본 이미지와 그 편집 데이터(.rrdata)가 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
+      "confirmMessage_other": "내보낸 후 선택한 {{count}}개의 원본 이미지와 그 편집 데이터(.rrdata)가 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
+      "confirmButton": "내보내고 삭제"
+    },
     "dialog": {
       "saveEditedImageTitle": "편집한 이미지 저장",
       "selectFolderTitle": "이미지 {{count}}개를 내보낼 폴더 선택",
@@ -785,6 +792,15 @@
     "metadata": {
       "removeGps": "GPS 데이터 제거",
       "saveWithMetadata": "메타데이터와 함께 저장"
+    },
+    "originalHandling": {
+      "label": "원본 파일",
+      "off": "끔",
+      "replace": "대체",
+      "delete": "삭제",
+      "warningTitle": "원본이 삭제됩니다",
+      "warningMessage": "내보내기가 완료되면 원본 이미지 파일과 그 편집 데이터(.rrdata)가 휴지통으로 이동됩니다. 이 작업은 취소할 수 없습니다.",
+      "virtualCopyUnavailable": "가상 복사본에서는 사용할 수 없습니다."
     },
     "resize": {
       "dontEnlarge": "확대하지 않음",

@@ -10,12 +10,14 @@ import Button from '../../ui/Button';
 import Dropdown from '../../ui/Dropdown';
 import Slider from '../../ui/Slider';
 import ImagePicker from '../../ui/ImagePicker';
+import SegmentedSwitch from '../../ui/SegmentedSwitch';
 import {
   ExportPreset,
   ExportSettings,
   FileFormat,
   FILE_FORMATS,
   FILENAME_VARIABLES,
+  OriginalFilesReplacedPayload,
   Status,
   ExportState,
   FileFormats,
@@ -40,7 +42,7 @@ interface ExportPanelProps {
   rootPaths: string[];
   isVisible?: boolean;
   onClose?: () => void;
-  onFilesReplaced?: () => void | Promise<void>;
+  onFilesReplaced?: (payload: OriginalFilesReplacedPayload) => void | Promise<void>;
 }
 
 interface SectionProps {
@@ -174,6 +176,8 @@ const formatBytes = (bytes: number, t: any, decimals = 2) => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 };
 
+type OriginalHandling = 'off' | 'replace' | 'delete';
+
 export default function ExportPanel({
   exportState,
   multiSelectedPaths,
@@ -242,8 +246,7 @@ export default function ExportPanel({
   const adjustmentsRef = useRef(useEditorStore.getState().adjustments);
 
   const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
-  const [replaceOriginal, setReplaceOriginal] = useState(false);
-  const hasWarnedReplaceOriginal = useRef(false);
+  const [originalHandling, setOriginalHandling] = useState<OriginalHandling>('off');
   const initDone = useRef(false);
 
   useEffect(() => {
@@ -463,37 +466,20 @@ export default function ExportPanel({
     }, 0);
   };
 
-  const handleToggleReplaceOriginal = useCallback(
-    (enabled: boolean) => {
-            if (!enabled) {
-        setReplaceOriginal(false);
-        return;
-      }
-      if (hasWarnedReplaceOriginal.current) {
-        setReplaceOriginal(true);
-        return;
-      }
-      useUIStore.getState().setUI({
-        confirmModalState: {
-          isOpen: true,
-          title: t('export.replaceOriginal.warningTitle'),
-          message: t('export.replaceOriginal.warningMessage'),
-          confirmText: t('export.replaceOriginal.enableButton'),
-          confirmVariant: 'destructive',
-          onConfirm: () => {
-            hasWarnedReplaceOriginal.current = true;
-            setReplaceOriginal(true);
-          },
-        },
-      });
+  const handleOriginalHandlingChange = useCallback(
+    (id: string) => {
+      const next = id as OriginalHandling;
+      if (next === originalHandling || selectionContainsVirtualCopy) return;
+      setOriginalHandling(next);
     },
-    [t],
+    [originalHandling, selectionContainsVirtualCopy],
   );
 
   const performExport = async () => {
     if (numImages === 0 || isExporting) return;
 
-    const effectiveReplaceOriginal = replaceOriginal && !selectionContainsVirtualCopy;
+    const effectiveReplaceOriginal = originalHandling === 'replace' && !selectionContainsVirtualCopy;
+    const effectiveDeleteOriginal = originalHandling === 'delete' && !selectionContainsVirtualCopy;
 
     let finalFilenameTemplate = filenameTemplate;
     if (
@@ -526,6 +512,7 @@ export default function ExportPanel({
             }
           : null,
       replaceOriginal: effectiveReplaceOriginal,
+      deleteOriginal: effectiveDeleteOriginal,
     };
 
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
@@ -538,34 +525,33 @@ export default function ExportPanel({
       if (!effectiveReplaceOriginal) {
         shouldChooseOutputFile = numImages === 1 && !preserveFolders;
         if (shouldChooseOutputFile) {
-        const originalFilename = pathsToExport[0].split(/[\\/]/).pop() || '';
-        const stem = originalFilename.substring(0, originalFilename.lastIndexOf('.')) || originalFilename;
-        const suggestedName = finalFilenameTemplate.replace('{original_filename}', stem);
-        const outputFileName = `${suggestedName}.${selectedFormat.extensions[0]}`;
+          const originalFilename = pathsToExport[0].split(/[\\/]/).pop() || '';
+          const stem = originalFilename.substring(0, originalFilename.lastIndexOf('.')) || originalFilename;
+          const suggestedName = finalFilenameTemplate.replace('{original_filename}', stem);
+          const outputFileName = `${suggestedName}.${selectedFormat.extensions[0]}`;
 
-        outputFolderOrFile = isAndroid
-          ? outputFileName
-          : ((await save({
-              title: t('export.dialog.saveEditedImageTitle'),
-              defaultPath: lastExportPath ? `${lastExportPath}/${outputFileName}` : outputFileName,
-              filters: [
-                { name: selectedFormat.name, extensions: selectedFormat.extensions },
-                ...FILE_FORMATS.filter((f: FileFormat) => f.id !== fileFormat).map((f: FileFormat) => ({
-                  name: f.name,
-                  extensions: f.extensions,
-                })),
-              ],
-            })) as string);
-      } else {
-        outputFolderOrFile = isAndroid
-          ? ''
-          : ((await open({
-              title: t('export.dialog.selectFolderTitle', { count: numImages }),
-              directory: true,
-              defaultPath: lastExportPath ?? undefined,
-            })) as string);
-      }
-
+          outputFolderOrFile = isAndroid
+            ? outputFileName
+            : ((await save({
+                title: t('export.dialog.saveEditedImageTitle'),
+                defaultPath: lastExportPath ? `${lastExportPath}/${outputFileName}` : outputFileName,
+                filters: [
+                  { name: selectedFormat.name, extensions: selectedFormat.extensions },
+                  ...FILE_FORMATS.filter((f: FileFormat) => f.id !== fileFormat).map((f: FileFormat) => ({
+                    name: f.name,
+                    extensions: f.extensions,
+                  })),
+                ],
+              })) as string);
+        } else {
+          outputFolderOrFile = isAndroid
+            ? ''
+            : ((await open({
+                title: t('export.dialog.selectFolderTitle', { count: numImages }),
+                directory: true,
+                defaultPath: lastExportPath ?? undefined,
+              })) as string);
+        }
       }
       if (isAndroid || outputFolderOrFile || effectiveReplaceOriginal) {
         if (!isAndroid && !effectiveReplaceOriginal && outputFolderOrFile) {
@@ -590,8 +576,23 @@ export default function ExportPanel({
           currentEditAdjustments: adjustmentsRef.current || null,
         });
 
-        if (effectiveReplaceOriginal) {
-          await onFilesReplaced?.();
+        if (effectiveReplaceOriginal || effectiveDeleteOriginal) {
+          const replacements = effectiveReplaceOriginal
+            ? pathsToExport.map((p) => {
+                const base = p.split('?vc=')[0];
+                const separator = base.includes('\\') ? '\\' : '/';
+                const dir = base.substring(0, base.lastIndexOf(separator));
+                const name = base.split(separator).pop() || base;
+                const stem = name.substring(0, name.lastIndexOf('.')) || name;
+                const ext = String(selectedFormat.extensions[0]).toLowerCase();
+                const to = dir ? `${dir}${separator}${stem}.${ext}` : `${stem}.${ext}`;
+                return { from: p, to };
+              })
+            : [];
+          const deleted = effectiveDeleteOriginal
+            ? pathsToExport.map((p) => p.split('?vc=')[0])
+            : [];
+          await onFilesReplaced?.({ replacements, deleted });
         }
       }
     } catch (error) {
@@ -606,13 +607,16 @@ export default function ExportPanel({
   const handleExport = async () => {
     if (numImages === 0 || isExporting) return;
 
-    if (replaceOriginal && !selectionContainsVirtualCopy) {
+    if (originalHandling !== 'off' && !selectionContainsVirtualCopy) {
+      const useReplace = originalHandling === 'replace';
       useUIStore.getState().setUI({
         confirmModalState: {
           isOpen: true,
-          title: t('export.replaceOriginal.confirmTitle', { count: numImages }),
-          message: t('export.replaceOriginal.confirmMessage', { count: numImages }),
-          confirmText: t('export.replaceOriginal.confirmButton'),
+          title: t(useReplace ? 'export.replaceOriginal.confirmTitle' : 'export.deleteOriginal.confirmTitle'),
+          message: t(useReplace ? 'export.replaceOriginal.confirmMessage' : 'export.deleteOriginal.confirmMessage', {
+            count: numImages,
+          }),
+          confirmText: t(useReplace ? 'export.replaceOriginal.confirmButton' : 'export.deleteOriginal.confirmButton'),
           confirmVariant: 'destructive',
           onConfirm: () => {
             void performExport();
@@ -858,6 +862,35 @@ export default function ExportPanel({
                     </div>
                   )}
                 </Section>
+                {!isAndroid && (
+                  <div>
+                    <Text variant={TextVariants.label} className="mb-1">
+                      {t('export.originalHandling.label')}
+                    </Text>
+                    <div
+                      data-tooltip={
+                        selectionContainsVirtualCopy ? t('export.originalHandling.virtualCopyUnavailable') : undefined
+                      }
+                    >
+                      <SegmentedSwitch
+                        disabled={isExporting || selectionContainsVirtualCopy}
+                        options={[
+                          { id: 'off', label: t('export.originalHandling.off') },
+                          {
+                            id: 'replace',
+                            label: t('export.originalHandling.replace'),
+                          },
+                          {
+                            id: 'delete',
+                            label: t('export.originalHandling.delete'),
+                          },
+                        ]}
+                        value={originalHandling}
+                        onChange={handleOriginalHandlingChange}
+                      />
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -915,20 +948,6 @@ export default function ExportPanel({
                                 checked={exportMasks}
                                 onChange={setExportMasks}
                                 disabled={isExporting}
-                                trackClassName="bg-surface"
-                              />
-                            )}
-                            {!isAndroid && (
-                              <Switch
-                                label={t('export.advanced.replaceOriginal')}
-                                checked={replaceOriginal}
-                                onChange={handleToggleReplaceOriginal}
-                                disabled={isExporting || selectionContainsVirtualCopy}
-                                tooltip={
-                                  selectionContainsVirtualCopy
-                                    ? t('export.replaceOriginal.virtualCopyUnavailable')
-                                    : undefined
-                                }
                                 trackClassName="bg-surface"
                               />
                             )}

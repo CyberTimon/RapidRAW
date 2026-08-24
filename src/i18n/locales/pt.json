@@ -789,6 +789,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "deleteOriginal": {
+      "confirmTitle": "Excluir originais?",
+      "confirmMessage": "Após exportar, as imagens originais selecionadas e seus dados de edição (.rrdata) serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_one": "Após exportar, a imagem original selecionada e seus dados de edição (.rrdata) serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_other": "Após exportar, as {{count}} imagens originais selecionadas e seus dados de edição (.rrdata) serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmButton": "Exportar e excluir"
+    },
     "dialog": {
       "saveEditedImageTitle": "Salvar Imagem Editada",
       "selectFolderTitle": "Selecionar Pasta para Exportar {{count}} Imagem(ns)",
@@ -809,6 +816,15 @@
     "metadata": {
       "removeGps": "Remover Dados de GPS",
       "saveWithMetadata": "Salvar com Metadados"
+    },
+    "originalHandling": {
+      "label": "Arquivos originais",
+      "off": "Não",
+      "replace": "Substituir",
+      "delete": "Excluir",
+      "warningTitle": "Os originais serão excluídos",
+      "warningMessage": "Ao exportar, os arquivos de imagem originais e seus dados de edição (.rrdata) serão movidos para a Lixeira do sistema ao término da exportação. Não pode ser desfeito.",
+      "virtualCopyUnavailable": "Não disponível para cópias virtuais."
     },
     "resize": {
       "dontEnlarge": "Não Ampliar",

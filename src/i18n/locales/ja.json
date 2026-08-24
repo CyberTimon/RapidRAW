@@ -766,6 +766,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "deleteOriginal": {
+      "confirmTitle": "元の画像を削除しますか？",
+      "confirmMessage": "書き出し後、選択した元の画像とその編集データ（.rrdata）はゴミ箱へ移動されます。元に戻すことはできません。",
+      "confirmMessage_one": "書き出し後、選択した元の画像とその編集データ（.rrdata）はゴミ箱へ移動されます。元に戻すことはできません。",
+      "confirmMessage_other": "書き出し後、選択した{{count}}個の元の画像とその編集データ（.rrdata）はゴミ箱へ移動されます。元に戻すことはできません。",
+      "confirmButton": "書き出して削除"
+    },
     "dialog": {
       "saveEditedImageTitle": "編集した画像を保存",
       "selectFolderTitle": "{{count}} 枚の画像を書き出すフォルダを選択",
@@ -785,6 +792,15 @@
     "metadata": {
       "removeGps": "GPSデータを削除",
       "saveWithMetadata": "メタデータを含めて保存"
+    },
+    "originalHandling": {
+      "label": "元のファイル",
+      "off": "オフ",
+      "replace": "置き換え",
+      "delete": "削除",
+      "warningTitle": "元の画像は削除されます",
+      "warningMessage": "書き出しすると、書き出し完了後に元の画像ファイルとその編集データ（.rrdata）がゴミ箱へ移動されます。元に戻すことはできません。",
+      "virtualCopyUnavailable": "仮想コピーでは利用できません。"
     },
     "resize": {
       "dontEnlarge": "拡大しない",

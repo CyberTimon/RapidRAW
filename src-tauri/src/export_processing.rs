@@ -21,7 +21,7 @@ use crate::AppState;
 use crate::exif_processing;
 use crate::file_management::{
     cleanup_sidecars_after_replacement, generate_filename_from_template, parse_virtual_path,
-    read_file_mapped, trash_file_or_remove,
+    read_file_mapped, recycle_original_with_sidecars, trash_file_or_remove,
 };
 use crate::formats::is_raw_file;
 use crate::image_loader::{
@@ -77,6 +77,8 @@ pub struct ExportSettings {
     pub preserve_folders: bool,
     #[serde(default)]
     pub replace_original: bool,
+    #[serde(default)]
+    pub delete_original: bool,
 }
 
 #[derive(Clone)]
@@ -482,12 +484,9 @@ fn save_image_with_metadata(
     output_path: &std::path::Path,
     source_path_str: &str,
     export_settings: &ExportSettings,
+    output_format: &str,
 ) -> Result<(), String> {
-    let extension = output_path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
+    let extension = output_format.to_lowercase();
 
     let mut image_bytes = encode_image_to_bytes(image, &extension, export_settings.jpeg_quality)?;
 
@@ -762,6 +761,7 @@ fn export_masks_for_image(
                 &mask_image_path,
                 source_path_str,
                 export_settings,
+                extension,
             )?;
             ensure_export_not_cancelled(cancellation_token)?;
 
@@ -895,7 +895,10 @@ pub(crate) async fn export_images_impl(
     let available_ram_gb = sys.available_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
     let ram_based_limit = (available_ram_gb / 4.0).floor() as usize;
 
-    let num_threads = if export_settings.replace_original || paths.len() == 1 {
+    let num_threads = if export_settings.replace_original
+        || export_settings.delete_original
+        || paths.len() == 1
+    {
         1
     } else {
         available_cores.min(ram_based_limit).clamp(1, 4)
@@ -908,7 +911,7 @@ pub(crate) async fn export_images_impl(
         num_threads
     );
 
-    if export_settings.replace_original
+    if (export_settings.replace_original || export_settings.delete_original)
         && let Some(virtual_copy_path) = paths.iter().find(|p| p.contains("?vc="))
     {
         return Err(format!(
@@ -989,8 +992,8 @@ pub(crate) async fn export_images_impl(
                 let source_path_str = source_path.to_string_lossy().to_string();
 
                 #[cfg(target_os = "android")]
-                if export_settings.replace_original {
-                    return Err("Replace Original is not supported on Android.".to_string());
+                if export_settings.replace_original || export_settings.delete_original {
+                    return Err("Replace/Delete Original is not supported on Android.".to_string());
                 }
 
                 let is_current_edit = match &adjustments_mode {
@@ -1091,9 +1094,10 @@ pub(crate) async fn export_images_impl(
 
                 let result: Result<(), String> = (|| {
                     if extension == "cube" {
-                        if export_settings.replace_original {
+                        if export_settings.replace_original || export_settings.delete_original {
                             return Err(
-                                "Replace Original is not supported for LUT exports.".to_string()
+                                "Replace/Delete Original is not supported for LUT exports."
+                                    .to_string(),
                             );
                         }
                         let cube_bytes = export_adjustments_as_lut(
@@ -1204,6 +1208,7 @@ pub(crate) async fn export_images_impl(
                         &output_write_path,
                         &source_path_str,
                         &export_settings,
+                        &extension,
                     )?;
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
@@ -1227,32 +1232,40 @@ pub(crate) async fn export_images_impl(
                         )?;
                     }
 
-                    if replacement_target.is_some() {
+                    if replacement_target.is_some() || export_settings.delete_original {
                         #[cfg(not(target_os = "android"))]
                         {
-                            let target = replacement_target.clone().unwrap();
+                            if let Some(target) = replacement_target.clone() {
+                                trash_file_or_remove(&source_path)?;
 
-                            trash_file_or_remove(&source_path)?;
+                                if let Some(temp_path) = &replacement_temp
+                                    && let Err(e) = fs::rename(temp_path, &target)
+                                {
+                                    let _ = fs::remove_file(temp_path);
+                                    return Err(format!(
+                                        "Failed to finalize replaced file {}: {}",
+                                        target.display(),
+                                        e
+                                    ));
+                                }
 
-                            if let Some(temp_path) = &replacement_temp
-                                && let Err(e) = fs::rename(temp_path, &target)
-                            {
-                                let _ = fs::remove_file(temp_path);
-                                return Err(format!(
-                                    "Failed to finalize replaced file {}: {}",
-                                    target.display(),
-                                    e
-                                ));
+                                let deletions =
+                                    cleanup_sidecars_after_replacement(&source_path, &target);
+                                crate::file_management::sync_album_path_changes(
+                                    &app_handle_clone,
+                                    None,
+                                    Some(&deletions),
+                                    None,
+                                );
+                            } else if output_write_path != source_path {
+                                let deletions = recycle_original_with_sidecars(&source_path);
+                                crate::file_management::sync_album_path_changes(
+                                    &app_handle_clone,
+                                    None,
+                                    Some(&deletions),
+                                    None,
+                                );
                             }
-
-                            let deletions =
-                                cleanup_sidecars_after_replacement(&source_path, &target);
-                            crate::file_management::sync_album_path_changes(
-                                &app_handle_clone,
-                                None,
-                                Some(&deletions),
-                                None,
-                            );
                         }
                     }
 
@@ -1429,6 +1442,7 @@ pub async fn run_headless_export(
         export_masks: false,
         preserve_folders: true,
         replace_original: false,
+        delete_original: false,
     };
 
     let mut custom_adjustments = None;

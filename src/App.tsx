@@ -339,6 +339,7 @@ function App() {
     handleSelectAlbum,
     handleOpenFolder,
     handleContinueSession,
+    handleOriginalFilesReplaced,
   } = useAppNavigation({
     clearThumbnailQueue,
     refs: navigationRefs,
@@ -724,7 +725,8 @@ function App() {
               rootPaths={rootPaths}
               isVisible={true}
               onClose={() => setUI({ isLibraryExportPanelVisible: false })}
-              onFilesReplaced={() => {
+              onFilesReplaced={(payload) => {
+                void handleOriginalFilesReplaced(payload);
                 refreshAllFolderTrees();
                 handleLibraryRefresh();
                 useLibraryStore.getState().setLibrary({ multiSelectedPaths: [] });
@@ -768,6 +770,7 @@ function App() {
       rootPaths,
       refreshAllFolderTrees,
       handleLibraryRefresh,
+      handleOriginalFilesReplaced,
     ],
   );
 

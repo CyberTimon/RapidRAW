@@ -789,6 +789,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "deleteOriginal": {
+      "confirmTitle": "¿Eliminar originales?",
+      "confirmMessage": "Después de exportar, las imágenes originales seleccionadas y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmMessage_one": "Después de exportar, la imagen original seleccionada y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmMessage_other": "Después de exportar, las {{count}} imágenes originales seleccionadas y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmButton": "Exportar y eliminar"
+    },
     "dialog": {
       "saveEditedImageTitle": "Guardar imagen editada",
       "selectFolderTitle": "Seleccionar carpeta para exportar {{count}} imagen(es)",
@@ -809,6 +816,15 @@
     "metadata": {
       "removeGps": "Eliminar datos GPS",
       "saveWithMetadata": "Guardar con metadatos"
+    },
+    "originalHandling": {
+      "label": "Archivos originales",
+      "off": "No",
+      "replace": "Reemplazar",
+      "delete": "Eliminar",
+      "warningTitle": "Los originales se eliminarán",
+      "warningMessage": "Al exportar, los archivos de imagen originales y sus datos de edición (.rrdata) se moverán a la papelera del sistema una vez completada la exportación. Esto no se puede deshacer.",
+      "virtualCopyUnavailable": "No disponible para copias virtuales."
     },
     "resize": {
       "dontEnlarge": "No agrandar",

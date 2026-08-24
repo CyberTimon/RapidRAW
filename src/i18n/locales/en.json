@@ -768,6 +768,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "deleteOriginal": {
+      "confirmTitle": "Delete Originals?",
+      "confirmMessage": "After exporting, the selected original image(s) and their edit data (.rrdata) will be moved to the system Recycle Bin. This cannot be undone.",
+      "confirmMessage_one": "After exporting, the selected original image and its edit data (.rrdata) will be moved to the system Recycle Bin. This cannot be undone.",
+      "confirmMessage_other": "After exporting, the {{count}} selected original images and their edit data (.rrdata) will be moved to the system Recycle Bin. This cannot be undone.",
+      "confirmButton": "Export & Delete"
+    },
     "dialog": {
       "saveEditedImageTitle": "Save Edited Image",
       "selectFolderTitle": "Select Folder to Export {{count}} Image(s)",
@@ -787,6 +794,15 @@
     "metadata": {
       "removeGps": "Remove GPS Data",
       "saveWithMetadata": "Save with Metadata"
+    },
+    "originalHandling": {
+      "label": "Original Files",
+      "off": "Off",
+      "replace": "Replace",
+      "delete": "Delete",
+      "warningTitle": "Originals Will Be Deleted",
+      "warningMessage": "Exporting will move the original image files and their edit data (.rrdata) to the system Recycle Bin once the export completes. This cannot be undone.",
+      "virtualCopyUnavailable": "Not available for virtual copies."
     },
     "resize": {
       "dontEnlarge": "Don't Enlarge",

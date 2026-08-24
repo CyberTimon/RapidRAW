@@ -789,6 +789,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "deleteOriginal": {
+      "confirmTitle": "Eliminare gli originali?",
+      "confirmMessage": "Dopo l'esportazione, le immagini originali selezionate e i loro dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmMessage_one": "Dopo l'esportazione, l'immagine originale selezionata e i suoi dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmMessage_other": "Dopo l'esportazione, le {{count}} immagini originali selezionate e i loro dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmButton": "Esporta ed elimina"
+    },
     "dialog": {
       "saveEditedImageTitle": "Salva Immagine Modificata",
       "selectFolderTitle": "Seleziona Cartella per Esportare {{count}} Immagine(i)",
@@ -809,6 +816,15 @@
     "metadata": {
       "removeGps": "Rimuovi Dati GPS",
       "saveWithMetadata": "Salva con Metadati"
+    },
+    "originalHandling": {
+      "label": "File originali",
+      "off": "No",
+      "replace": "Sostituisci",
+      "delete": "Elimina",
+      "warningTitle": "Gli originali verranno eliminati",
+      "warningMessage": "All'esportazione, i file immagine originali e i loro dati di modifica (.rrdata) verranno spostati nel Cestino di sistema al termine dell'esportazione. Non può essere annullato.",
+      "virtualCopyUnavailable": "Non disponibile per le copie virtuali."
     },
     "resize": {
       "dontEnlarge": "Non Ingrandire",

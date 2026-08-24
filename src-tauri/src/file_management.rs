@@ -3580,6 +3580,39 @@ pub(crate) fn cleanup_sidecars_after_replacement(source: &Path, target: &Path) -
     deletions
 }
 
+pub(crate) fn recycle_original_with_sidecars(source: &Path) -> HashSet<String> {
+    let mut deletions = HashSet::new();
+    deletions.insert(source.to_string_lossy().into_owned());
+
+    let _ = trash_file_or_remove(source);
+
+    let Some(parent) = source.parent() else {
+        return deletions;
+    };
+    let source_file_name = source.file_name().unwrap_or_default().to_string_lossy();
+
+    if let Ok(entries) = fs::read_dir(parent) {
+        for entry in entries.filter_map(Result::ok) {
+            let entry_path = entry.path();
+            if !entry_path.is_file() {
+                continue;
+            }
+            let entry_file_name = entry.file_name();
+            let entry_filename = entry_file_name.to_string_lossy();
+
+            if entry_filename == format!("{}.rrdata", source_file_name)
+                || (entry_filename.starts_with(&format!("{}.", source_file_name))
+                    && entry_filename.ends_with(".rrdata"))
+                || entry_filename == format!("{}.rrexif", source_file_name)
+            {
+                let _ = trash_file_or_remove(&entry_path);
+            }
+        }
+    }
+
+    deletions
+}
+
 pub fn get_thumb_cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
     let cache_dir = app_handle
         .path()
