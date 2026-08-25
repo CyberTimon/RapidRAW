@@ -75,6 +75,15 @@ export class ImageLRUCache {
     }
   }
 
+  updateByPrefix(prefix: string, update: (entry: ImageCacheEntry) => ImageCacheEntry): void {
+    for (const key of [...this.cache.keys()]) {
+      if (key === prefix || key.startsWith(prefix + '?vc=')) {
+        const entry = this.cache.get(key);
+        if (entry) this.set(key, update(entry));
+      }
+    }
+  }
+
   clear(): void {
     for (const entry of this.cache.values()) {
       this.cleanupEntry(entry);

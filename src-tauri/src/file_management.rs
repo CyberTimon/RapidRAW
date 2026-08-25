@@ -3,9 +3,9 @@ use std::borrow::Cow;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::fs;
+use std::fs::{self, File, OpenOptions};
 use std::hash::{Hash, Hasher};
-use std::io::Cursor;
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
@@ -13,15 +13,19 @@ use std::sync::atomic::Ordering;
 use std::thread;
 
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma};
+use little_exif::exif_tag::ExifTag;
+use little_exif::filetype::FileExtension;
+use little_exif::metadata::Metadata;
 use rayon::prelude::*;
 use regex::regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sysinfo::Disks;
 use tauri::{AppHandle, Emitter, Manager};
+use tempfile::NamedTempFile;
 use uuid::Uuid;
 use walkdir::WalkDir;
 
@@ -36,9 +40,9 @@ use crate::gpu_processing;
 use crate::image_loader;
 use crate::image_processing::GpuContext;
 use crate::image_processing::{
-    Crop, ImageMetadata, apply_coarse_rotation, apply_cpu_default_raw_processing, apply_crop,
-    apply_flip, apply_geometry_warp, apply_rotation, auto_results_to_json,
-    get_all_adjustments_from_json, perform_auto_analysis,
+    CaptureDateBackup, CaptureDateSourceRecovery, Crop, ImageMetadata, apply_coarse_rotation,
+    apply_cpu_default_raw_processing, apply_crop, apply_flip, apply_geometry_warp, apply_rotation,
+    auto_results_to_json, get_all_adjustments_from_json, perform_auto_analysis,
 };
 use crate::mask_generation::MaskDefinition;
 use crate::preset_converter;
@@ -507,6 +511,1872 @@ pub async fn update_exif_fields(
     })
     .await
     .map_err(|e| format!("Task failed: {}", e))?
+}
+
+#[derive(Deserialize)]
+#[serde(
+    tag = "mode",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum CaptureDateOperation {
+    Adjust {
+        reference_path: String,
+        new_date: String,
+    },
+    Shift {
+        seconds: i64,
+    },
+    Revert,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptureDateUpdate {
+    path: String,
+    new_date: Option<String>,
+    wrote_original: bool,
+    modified: Option<u64>,
+    source_error: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct CaptureDateFailure {
+    path: String,
+    error: String,
+}
+
+#[derive(Serialize)]
+pub struct CaptureDateBatchResult {
+    updates: Vec<CaptureDateUpdate>,
+    failures: Vec<CaptureDateFailure>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptureDateRevertAvailability {
+    can_revert: bool,
+    eligible_count: usize,
+    total_count: usize,
+}
+
+enum ResolvedCaptureDateOperation {
+    Add(Duration),
+    Set(NaiveDateTime),
+    Revert,
+}
+
+fn file_modified_unix_seconds(path: &Path) -> Option<u64> {
+    fs::metadata(path)
+        .ok()?
+        .modified()
+        .ok()?
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_secs())
+}
+
+fn read_source_exif(path: &Path) -> HashMap<String, String> {
+    let path_str = path.to_string_lossy();
+    if let Ok(mmap) = read_file_mapped(path) {
+        exif_processing::read_exif_data_from_bytes(&path_str, &mmap)
+    } else if let Ok(bytes) = fs::read(path) {
+        exif_processing::read_exif_data_from_bytes(&path_str, &bytes)
+    } else {
+        HashMap::new()
+    }
+}
+
+fn current_exif_for_path(path: &Path, metadata: &ImageMetadata) -> HashMap<String, String> {
+    metadata
+        .exif
+        .clone()
+        .or_else(|| exif_processing::read_rrexif_sidecar(path))
+        .unwrap_or_else(|| read_source_exif(path))
+}
+
+fn normalized_capture_date(value: &str) -> Result<NaiveDateTime, String> {
+    exif_processing::parse_creation_datetime(value)
+        .ok_or_else(|| format!("Invalid capture date: {value}"))
+}
+
+fn capture_date_physical_paths(paths: &[String]) -> Vec<PathBuf> {
+    let mut seen = HashSet::new();
+    paths
+        .iter()
+        .map(|path| parse_virtual_path(path).0)
+        .filter(|path| seen.insert(path.clone()))
+        .collect()
+}
+
+fn capture_date_revert_availability_for_paths(
+    physical_paths: &[PathBuf],
+) -> CaptureDateRevertAvailability {
+    let total_count = physical_paths.len();
+    let eligible_count = physical_paths
+        .iter()
+        .filter(|path| {
+            exif_processing::load_sidecar(&exif_processing::get_primary_sidecar_path(path))
+                .capture_date_backup
+                .is_some()
+        })
+        .count();
+    CaptureDateRevertAvailability {
+        can_revert: total_count > 0 && eligible_count == total_count,
+        eligible_count,
+        total_count,
+    }
+}
+
+fn save_capture_date_metadata(path: &Path, metadata: &ImageMetadata) -> Result<(), String> {
+    let sidecar_path = exif_processing::get_primary_sidecar_path(path);
+    let json = serde_json::to_string_pretty(metadata).map_err(|e| e.to_string())?;
+    let parent = sidecar_path.parent().ok_or_else(|| {
+        format!(
+            "Sidecar has no parent directory: {}",
+            sidecar_path.display()
+        )
+    })?;
+    let mut staged = NamedTempFile::new_in(parent).map_err(|e| {
+        format!(
+            "Failed to stage Capture Date metadata beside {}: {e}",
+            sidecar_path.display()
+        )
+    })?;
+    staged
+        .write_all(json.as_bytes())
+        .and_then(|_| staged.flush())
+        .and_then(|_| staged.as_file().sync_all())
+        .map_err(|e| format!("Failed to stage {}: {e}", sidecar_path.display()))?;
+    staged
+        .persist(&sidecar_path)
+        .map_err(|e| format!("Failed to replace {}: {}", sidecar_path.display(), e.error))?;
+    sync_parent_directory(parent).map_err(|e| format!("Failed to sync {}: {e}", parent.display()))
+}
+
+#[cfg(unix)]
+fn sync_parent_directory(path: &Path) -> std::io::Result<()> {
+    File::open(path)?.sync_all()
+}
+
+#[cfg(not(unix))]
+fn sync_parent_directory(_path: &Path) -> std::io::Result<()> {
+    Ok(())
+}
+
+fn is_jpeg(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .map(str::to_ascii_lowercase)
+            .as_deref(),
+        Some("jpg" | "jpeg")
+    )
+}
+
+#[derive(Clone, Copy)]
+enum TiffByteOrder {
+    Big,
+    Little,
+}
+
+impl TiffByteOrder {
+    fn read_u16(self, bytes: &[u8], offset: usize) -> Option<u16> {
+        let value = bytes.get(offset..offset.checked_add(2)?)?.try_into().ok()?;
+        Some(match self {
+            Self::Big => u16::from_be_bytes(value),
+            Self::Little => u16::from_le_bytes(value),
+        })
+    }
+
+    fn read_u32(self, bytes: &[u8], offset: usize) -> Option<u32> {
+        let value = bytes.get(offset..offset.checked_add(4)?)?.try_into().ok()?;
+        Some(match self {
+            Self::Big => u32::from_be_bytes(value),
+            Self::Little => u32::from_le_bytes(value),
+        })
+    }
+}
+
+#[derive(Debug)]
+struct ExifDateLocation {
+    offset: usize,
+    current_bytes: [u8; 20],
+    current_date: String,
+}
+
+#[derive(Debug)]
+struct CaptureDateSourceWriteError {
+    message: String,
+    source_restored: bool,
+}
+
+impl CaptureDateSourceWriteError {
+    fn unchanged(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            source_restored: true,
+        }
+    }
+
+    fn uncertain(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            source_restored: false,
+        }
+    }
+}
+
+fn strict_exif_date(bytes: &[u8]) -> Option<String> {
+    if bytes.len() != 20 || bytes[19] != 0 {
+        return None;
+    }
+    let value = std::str::from_utf8(&bytes[..19]).ok()?;
+    let parsed = NaiveDateTime::parse_from_str(value, "%Y:%m:%d %H:%M:%S").ok()?;
+    let round_trip = parsed.format("%Y:%m:%d %H:%M:%S").to_string();
+    (round_trip == value).then_some(round_trip)
+}
+
+fn normalized_optional_capture_date(value: Option<&str>) -> Option<String> {
+    value.map(|value| {
+        exif_processing::parse_creation_datetime(value)
+            .map(|date| date.format("%Y-%m-%d %H:%M:%S").to_string())
+            .unwrap_or_else(|| value.trim().to_string())
+    })
+}
+
+fn find_tiff_ifd_entry(
+    bytes: &[u8],
+    tiff_start: usize,
+    tiff_end: usize,
+    ifd_relative_offset: u32,
+    target_tag: u16,
+    byte_order: TiffByteOrder,
+) -> Result<Option<(u16, u32, usize)>, String> {
+    let ifd_start = tiff_start
+        .checked_add(ifd_relative_offset as usize)
+        .ok_or_else(|| "EXIF IFD offset overflowed".to_string())?;
+    if ifd_start < tiff_start || ifd_start >= tiff_end {
+        return Err("EXIF IFD offset is outside the APP1 segment".to_string());
+    }
+    let count = byte_order
+        .read_u16(bytes, ifd_start)
+        .ok_or_else(|| "EXIF IFD entry count is truncated".to_string())? as usize;
+    let entries_start = ifd_start
+        .checked_add(2)
+        .ok_or_else(|| "EXIF IFD entry offset overflowed".to_string())?;
+    let entries_len = count
+        .checked_mul(12)
+        .ok_or_else(|| "EXIF IFD entry table is too large".to_string())?;
+    let entries_end = entries_start
+        .checked_add(entries_len)
+        .and_then(|end| end.checked_add(4))
+        .ok_or_else(|| "EXIF IFD entry table overflowed".to_string())?;
+    if entries_end > tiff_end || entries_end > bytes.len() {
+        return Err("EXIF IFD entry table is truncated".to_string());
+    }
+
+    for index in 0..count {
+        let entry = entries_start + index * 12;
+        let tag = byte_order
+            .read_u16(bytes, entry)
+            .ok_or_else(|| "EXIF tag is truncated".to_string())?;
+        if tag == target_tag {
+            let field_type = byte_order
+                .read_u16(bytes, entry + 2)
+                .ok_or_else(|| "EXIF field type is truncated".to_string())?;
+            let component_count = byte_order
+                .read_u32(bytes, entry + 4)
+                .ok_or_else(|| "EXIF field count is truncated".to_string())?;
+            return Ok(Some((field_type, component_count, entry + 8)));
+        }
+    }
+    Ok(None)
+}
+
+fn locate_datetime_original(bytes: &[u8]) -> Result<Option<ExifDateLocation>, String> {
+    if !bytes.starts_with(&[0xff, 0xd8]) {
+        return Err("The file does not have a JPEG signature".to_string());
+    }
+
+    let mut cursor = 2usize;
+    while cursor < bytes.len() {
+        if bytes[cursor] != 0xff {
+            return Err("JPEG segment marker is malformed".to_string());
+        }
+        while cursor < bytes.len() && bytes[cursor] == 0xff {
+            cursor += 1;
+        }
+        let marker = *bytes
+            .get(cursor)
+            .ok_or_else(|| "JPEG marker is truncated".to_string())?;
+        cursor += 1;
+
+        if marker == 0xd9 || marker == 0xda {
+            break;
+        }
+        if marker == 0x01 || (0xd0..=0xd7).contains(&marker) {
+            continue;
+        }
+
+        let segment_length = u16::from_be_bytes(
+            bytes
+                .get(cursor..cursor + 2)
+                .ok_or_else(|| "JPEG segment length is truncated".to_string())?
+                .try_into()
+                .map_err(|_| "JPEG segment length is invalid".to_string())?,
+        ) as usize;
+        if segment_length < 2 {
+            return Err("JPEG segment length is invalid".to_string());
+        }
+        let payload_start = cursor + 2;
+        let segment_end = cursor
+            .checked_add(segment_length)
+            .ok_or_else(|| "JPEG segment length overflowed".to_string())?;
+        if segment_end > bytes.len() {
+            return Err("JPEG segment is truncated".to_string());
+        }
+        cursor = segment_end;
+
+        if marker != 0xe1 || bytes.get(payload_start..payload_start + 6) != Some(b"Exif\0\0") {
+            continue;
+        }
+
+        let tiff_start = payload_start + 6;
+        let byte_order = match bytes.get(tiff_start..tiff_start + 2) {
+            Some(b"II") => TiffByteOrder::Little,
+            Some(b"MM") => TiffByteOrder::Big,
+            _ => return Err("EXIF TIFF byte order is invalid".to_string()),
+        };
+        if byte_order.read_u16(bytes, tiff_start + 2) != Some(42) {
+            return Err("EXIF TIFF signature is invalid".to_string());
+        }
+        let ifd0_offset = byte_order
+            .read_u32(bytes, tiff_start + 4)
+            .ok_or_else(|| "EXIF TIFF header is truncated".to_string())?;
+        let Some((field_type, component_count, value_offset)) = find_tiff_ifd_entry(
+            bytes,
+            tiff_start,
+            segment_end,
+            ifd0_offset,
+            0x8769,
+            byte_order,
+        )?
+        else {
+            return Ok(None);
+        };
+        if field_type != 4 || component_count != 1 {
+            return Err("EXIF IFD pointer has an unexpected type or size".to_string());
+        }
+        let exif_ifd_offset = byte_order
+            .read_u32(bytes, value_offset)
+            .ok_or_else(|| "EXIF IFD pointer is truncated".to_string())?;
+        let Some((field_type, component_count, value_offset)) = find_tiff_ifd_entry(
+            bytes,
+            tiff_start,
+            segment_end,
+            exif_ifd_offset,
+            0x9003,
+            byte_order,
+        )?
+        else {
+            return Ok(None);
+        };
+        if field_type != 2 || component_count != 20 {
+            return Err(
+                "EXIF DateTimeOriginal is not a fixed-width 20-byte ASCII field".to_string(),
+            );
+        }
+        let relative_value_offset = byte_order
+            .read_u32(bytes, value_offset)
+            .ok_or_else(|| "EXIF DateTimeOriginal offset is truncated".to_string())?;
+        let absolute_value_offset = tiff_start
+            .checked_add(relative_value_offset as usize)
+            .ok_or_else(|| "EXIF DateTimeOriginal offset overflowed".to_string())?;
+        let value_end = absolute_value_offset
+            .checked_add(20)
+            .ok_or_else(|| "EXIF DateTimeOriginal length overflowed".to_string())?;
+        if absolute_value_offset < tiff_start || value_end > segment_end {
+            return Err("EXIF DateTimeOriginal is outside the APP1 segment".to_string());
+        }
+        let current_slice = bytes
+            .get(absolute_value_offset..value_end)
+            .ok_or_else(|| "EXIF DateTimeOriginal value is truncated".to_string())?;
+        let current_bytes: [u8; 20] = current_slice
+            .try_into()
+            .map_err(|_| "EXIF DateTimeOriginal value has an invalid length".to_string())?;
+        let current_date = strict_exif_date(&current_bytes).ok_or_else(|| {
+            "EXIF DateTimeOriginal is not in YYYY:MM:DD HH:MM:SS format".to_string()
+        })?;
+        return Ok(Some(ExifDateLocation {
+            offset: absolute_value_offset,
+            current_bytes,
+            current_date,
+        }));
+    }
+
+    Ok(None)
+}
+
+fn validate_expected_source_date(
+    path: &Path,
+    bytes: &[u8],
+    expected_date: Option<&str>,
+) -> Result<(), String> {
+    let source_exif = exif_processing::read_exif_data_from_bytes(&path.to_string_lossy(), bytes);
+    let actual =
+        normalized_optional_capture_date(source_exif.get("DateTimeOriginal").map(String::as_str));
+    let expected = normalized_optional_capture_date(expected_date);
+    if actual != expected {
+        return Err(format!(
+            "The original Capture Date changed outside RapidRAW (expected {}, found {})",
+            expected.as_deref().unwrap_or("not set"),
+            actual.as_deref().unwrap_or("not set")
+        ));
+    }
+    Ok(())
+}
+
+fn verify_jpeg_capture_date(
+    path: &Path,
+    bytes: &[u8],
+    intended_date: Option<&str>,
+) -> Result<(), String> {
+    image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg)
+        .map_err(|e| format!("Updated JPEG could not be decoded: {e}"))?;
+    let exif = exif_processing::read_exif_data_from_bytes(&path.to_string_lossy(), bytes);
+    let actual = normalized_optional_capture_date(exif.get("DateTimeOriginal").map(String::as_str));
+    let intended = normalized_optional_capture_date(intended_date);
+    if actual != intended {
+        return Err(format!(
+            "Updated JPEG has Capture Date {}, expected {}",
+            actual.as_deref().unwrap_or("not set"),
+            intended.as_deref().unwrap_or("not set")
+        ));
+    }
+    Ok(())
+}
+
+fn rewrite_existing_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(path)
+        .map_err(|e| format!("Failed to open {} for writing: {e}", path.display()))?;
+    file.write_all(bytes)
+        .and_then(|_| file.flush())
+        .and_then(|_| file.sync_all())
+        .map_err(|e| format!("Failed to rewrite {}: {e}", path.display()))
+}
+
+fn recovery_path(path: &Path, recovery: &CaptureDateSourceRecovery) -> Result<PathBuf, String> {
+    let backup_name = Path::new(&recovery.backup_file_name);
+    if backup_name.file_name().and_then(|name| name.to_str())
+        != Some(recovery.backup_file_name.as_str())
+    {
+        return Err("Capture Date recovery filename is invalid".to_string());
+    }
+    Ok(path.with_file_name(&recovery.backup_file_name))
+}
+
+fn clear_recovery_state(
+    path: &Path,
+    source_written: bool,
+    source_date_written: Option<&str>,
+) -> Result<(), String> {
+    let mut metadata =
+        exif_processing::load_sidecar(&exif_processing::get_primary_sidecar_path(path));
+    if let Some(backup) = metadata.capture_date_backup.as_mut() {
+        backup.pending_source_rewrite = None;
+        backup.source_written = source_written;
+        backup.source_date_written = if source_written {
+            normalized_optional_capture_date(source_date_written)
+        } else {
+            None
+        };
+    }
+    save_capture_date_metadata(path, &metadata)
+}
+
+pub(crate) fn recover_pending_capture_date_rewrite(path: &Path) -> Result<bool, String> {
+    let sidecar_path = exif_processing::get_primary_sidecar_path(path);
+    let mut metadata = exif_processing::load_sidecar(&sidecar_path);
+    let Some(recovery) = metadata
+        .capture_date_backup
+        .as_ref()
+        .and_then(|backup| backup.pending_source_rewrite.clone())
+    else {
+        return Ok(false);
+    };
+    let backup_path = recovery_path(path, &recovery)?;
+
+    if backup_path.exists() {
+        let backup_metadata = fs::metadata(&backup_path)
+            .map_err(|e| format!("Failed to inspect {}: {e}", backup_path.display()))?;
+        let accessed = filetime::FileTime::from_last_access_time(&backup_metadata);
+        let modified = filetime::FileTime::from_last_modification_time(&backup_metadata);
+        let original_bytes = fs::read(&backup_path)
+            .map_err(|e| format!("Failed to read {}: {e}", backup_path.display()))?;
+        rewrite_existing_file(path, &original_bytes)?;
+        verify_jpeg_capture_date(path, &original_bytes, recovery.original_date.as_deref())?;
+        filetime::set_file_times(path, accessed, modified)
+            .map_err(|e| format!("Failed to restore file times for {}: {e}", path.display()))?;
+        fs::remove_file(&backup_path)
+            .map_err(|e| format!("Failed to remove {}: {e}", backup_path.display()))?;
+        if let Some(parent) = path.parent() {
+            sync_parent_directory(parent)
+                .map_err(|e| format!("Failed to sync {}: {e}", parent.display()))?;
+        }
+        if let Some(backup) = metadata.capture_date_backup.as_mut() {
+            backup.pending_source_rewrite = None;
+            backup.source_written = recovery.source_written_before_rewrite;
+            backup.source_date_written = if recovery.source_written_before_rewrite {
+                recovery.original_date.clone()
+            } else {
+                None
+            };
+        }
+        save_capture_date_metadata(path, &metadata)?;
+        log::warn!(
+            "Recovered an interrupted Capture Date rewrite for {}",
+            path.display()
+        );
+        return Ok(true);
+    }
+
+    let source_exif = read_source_exif(path);
+    let current =
+        normalized_optional_capture_date(source_exif.get("DateTimeOriginal").map(String::as_str));
+    let intended = normalized_optional_capture_date(recovery.intended_date.as_deref());
+    let original = normalized_optional_capture_date(recovery.original_date.as_deref());
+    let source_written = if current == intended {
+        true
+    } else if current == original {
+        recovery.source_written_before_rewrite
+    } else {
+        return Err(format!(
+            "Capture Date recovery file is missing and {} has an unexpected Capture Date",
+            path.display()
+        ));
+    };
+    if let Some(backup) = metadata.capture_date_backup.as_mut() {
+        backup.pending_source_rewrite = None;
+        backup.source_written = source_written;
+        backup.source_date_written = if source_written { current } else { None };
+    }
+    save_capture_date_metadata(path, &metadata)?;
+    Ok(false)
+}
+
+fn build_updated_jpeg(
+    path: &Path,
+    original_bytes: &[u8],
+    capture_date: Option<&str>,
+) -> Result<Vec<u8>, String> {
+    let mut image_bytes = original_bytes.to_vec();
+    let mut metadata = match Metadata::new_from_vec(&image_bytes, FileExtension::JPEG) {
+        Ok(metadata) => metadata,
+        Err(little_exif_error) => {
+            let mut cursor = Cursor::new(&image_bytes);
+            match exif::Reader::new().read_from_container(&mut cursor) {
+                Err(exif::Error::NotFound(_)) => Metadata::new(),
+                _ => {
+                    return Err(format!(
+                        "Existing EXIF metadata in {} could not be preserved: {little_exif_error}",
+                        path.display()
+                    ));
+                }
+            }
+        }
+    };
+    metadata.remove_tag(ExifTag::DateTimeOriginal(String::new()));
+    if let Some(value) = capture_date {
+        let parsed = normalized_capture_date(value)?;
+        metadata.set_tag(ExifTag::DateTimeOriginal(
+            parsed.format("%Y:%m:%d %H:%M:%S").to_string(),
+        ));
+    }
+    metadata
+        .write_to_vec(&mut image_bytes, FileExtension::JPEG)
+        .map_err(|e| format!("Failed to update JPEG metadata for {}: {e}", path.display()))?;
+    verify_jpeg_capture_date(path, &image_bytes, capture_date)?;
+    Ok(image_bytes)
+}
+
+fn create_source_recovery(
+    path: &Path,
+    original_date: Option<&str>,
+    intended_date: Option<&str>,
+    source_written_before_rewrite: bool,
+    accessed: filetime::FileTime,
+    modified: filetime::FileTime,
+) -> Result<(CaptureDateSourceRecovery, PathBuf), String> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| format!("File has no parent directory: {}", path.display()))?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format!("File name is not valid UTF-8: {}", path.display()))?;
+    let backup_file_name = format!(".{file_name}.{}.capture-date.rrrecover", Uuid::new_v4());
+    let backup_path = parent.join(&backup_file_name);
+    let copied = fs::copy(path, &backup_path).map_err(|e| {
+        format!(
+            "Failed to create recovery copy {}: {e}",
+            backup_path.display()
+        )
+    })?;
+    let original_len = fs::metadata(path)
+        .map_err(|e| format!("Failed to inspect {}: {e}", path.display()))?
+        .len();
+    if copied != original_len {
+        let _ = fs::remove_file(&backup_path);
+        return Err(format!(
+            "Recovery copy is incomplete: copied {copied} of {original_len} bytes"
+        ));
+    }
+    if let Err(error) = filetime::set_file_times(&backup_path, accessed, modified) {
+        let _ = fs::remove_file(&backup_path);
+        return Err(format!(
+            "Failed to preserve recovery timestamps for {}: {error}",
+            path.display()
+        ));
+    }
+    if let Err(error) = File::open(&backup_path)
+        .and_then(|file| file.sync_all())
+        .and_then(|_| sync_parent_directory(parent))
+    {
+        let _ = fs::remove_file(&backup_path);
+        return Err(format!(
+            "Failed to sync recovery copy {}: {error}",
+            backup_path.display()
+        ));
+    }
+
+    Ok((
+        CaptureDateSourceRecovery {
+            backup_file_name,
+            original_date: normalized_optional_capture_date(original_date),
+            intended_date: normalized_optional_capture_date(intended_date),
+            source_written_before_rewrite,
+        },
+        backup_path,
+    ))
+}
+
+fn write_jpeg_capture_date(
+    path: &Path,
+    capture_date: Option<&str>,
+    expected_date: Option<&str>,
+    source_written_before_rewrite: bool,
+) -> Result<(), CaptureDateSourceWriteError> {
+    if !is_jpeg(path) {
+        return Err(CaptureDateSourceWriteError::unchanged(
+            "Writing Capture Date to the original is currently supported only for JPEG files"
+                .to_string(),
+        ));
+    }
+
+    let file_metadata = fs::metadata(path).map_err(|e| {
+        CaptureDateSourceWriteError::unchanged(format!(
+            "Failed to read file attributes for {}: {e}",
+            path.display()
+        ))
+    })?;
+    let accessed = filetime::FileTime::from_last_access_time(&file_metadata);
+    let modified = filetime::FileTime::from_last_modification_time(&file_metadata);
+    let original_bytes = fs::read(path).map_err(|e| {
+        CaptureDateSourceWriteError::unchanged(format!("Failed to read {}: {e}", path.display()))
+    })?;
+    validate_expected_source_date(path, &original_bytes, expected_date)
+        .map_err(CaptureDateSourceWriteError::unchanged)?;
+
+    let fixed_date_location = if capture_date.is_some() {
+        locate_datetime_original(&original_bytes).map_err(CaptureDateSourceWriteError::unchanged)?
+    } else {
+        None
+    };
+
+    if let Some(capture_date) = capture_date
+        && let Some(location) = fixed_date_location
+    {
+        let expected = normalized_optional_capture_date(expected_date);
+        let located = normalized_optional_capture_date(Some(&location.current_date));
+        if expected != located {
+            return Err(CaptureDateSourceWriteError::unchanged(
+                "The original Capture Date changed before it could be updated",
+            ));
+        }
+        let parsed = normalized_capture_date(capture_date)
+            .map_err(CaptureDateSourceWriteError::unchanged)?;
+        let replacement = format!("{}\0", parsed.format("%Y:%m:%d %H:%M:%S"));
+        let replacement: [u8; 20] = replacement.as_bytes().try_into().map_err(|_| {
+            CaptureDateSourceWriteError::unchanged("Capture Date has an invalid length")
+        })?;
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
+            .map_err(|e| {
+                CaptureDateSourceWriteError::unchanged(format!(
+                    "Failed to open {} for updating: {e}",
+                    path.display()
+                ))
+            })?;
+        file.seek(SeekFrom::Start(location.offset as u64))
+            .map_err(|e| CaptureDateSourceWriteError::unchanged(e.to_string()))?;
+        let mut current = [0u8; 20];
+        file.read_exact(&mut current)
+            .map_err(|e| CaptureDateSourceWriteError::unchanged(e.to_string()))?;
+        if current != location.current_bytes {
+            return Err(CaptureDateSourceWriteError::unchanged(
+                "The original Capture Date changed before it could be updated",
+            ));
+        }
+        let write_result = (|| -> Result<(), String> {
+            file.seek(SeekFrom::Start(location.offset as u64))
+                .map_err(|e| e.to_string())?;
+            file.write_all(&replacement)
+                .and_then(|_| file.flush())
+                .and_then(|_| file.sync_all())
+                .map_err(|e| e.to_string())?;
+            let updated_bytes = fs::read(path).map_err(|e| e.to_string())?;
+            let updated_location = locate_datetime_original(&updated_bytes)?
+                .ok_or_else(|| "Updated EXIF DateTimeOriginal could not be found".to_string())?;
+            if updated_location.current_bytes != replacement {
+                return Err("Updated EXIF DateTimeOriginal did not verify".to_string());
+            }
+            Ok(())
+        })();
+        if let Err(write_error) = write_result {
+            let rollback = (|| -> Result<(), String> {
+                file.seek(SeekFrom::Start(location.offset as u64))
+                    .map_err(|e| e.to_string())?;
+                file.write_all(&location.current_bytes)
+                    .and_then(|_| file.flush())
+                    .and_then(|_| file.sync_all())
+                    .map_err(|e| e.to_string())?;
+                let restored = fs::read(path).map_err(|e| e.to_string())?;
+                let restored_location = locate_datetime_original(&restored)?.ok_or_else(|| {
+                    "Restored EXIF DateTimeOriginal could not be found".to_string()
+                })?;
+                if restored_location.current_bytes != location.current_bytes {
+                    return Err("Restored EXIF DateTimeOriginal did not verify".to_string());
+                }
+                filetime::set_file_times(path, accessed, modified)
+                    .map_err(|e| format!("Failed to restore file times: {e}"))?;
+                Ok(())
+            })();
+            return match rollback {
+                Ok(()) => Err(CaptureDateSourceWriteError::unchanged(format!(
+                    "Failed to verify the in-place Capture Date update: {write_error}"
+                ))),
+                Err(rollback_error) => Err(CaptureDateSourceWriteError::uncertain(format!(
+                    "Capture Date update failed ({write_error}) and rollback failed ({rollback_error})"
+                ))),
+            };
+        }
+
+        return Ok(());
+    }
+
+    let updated_bytes = build_updated_jpeg(path, &original_bytes, capture_date)
+        .map_err(CaptureDateSourceWriteError::unchanged)?;
+    let (recovery, backup_path) = create_source_recovery(
+        path,
+        expected_date,
+        capture_date,
+        source_written_before_rewrite,
+        accessed,
+        modified,
+    )
+    .map_err(CaptureDateSourceWriteError::unchanged)?;
+
+    let mut sidecar =
+        exif_processing::load_sidecar(&exif_processing::get_primary_sidecar_path(path));
+    let Some(capture_backup) = sidecar.capture_date_backup.as_mut() else {
+        let _ = fs::remove_file(&backup_path);
+        return Err(CaptureDateSourceWriteError::unchanged(
+            "Capture Date recovery state is missing from RapidRAW metadata",
+        ));
+    };
+    capture_backup.pending_source_rewrite = Some(recovery.clone());
+    if let Err(error) = save_capture_date_metadata(path, &sidecar) {
+        let _ = fs::remove_file(&backup_path);
+        return Err(CaptureDateSourceWriteError::unchanged(error));
+    }
+
+    let rewrite_result = rewrite_existing_file(path, &updated_bytes).and_then(|_| {
+        let written =
+            fs::read(path).map_err(|e| format!("Failed to verify {}: {e}", path.display()))?;
+        verify_jpeg_capture_date(path, &written, capture_date)
+    });
+    if let Err(rewrite_error) = rewrite_result {
+        let restore_result = rewrite_existing_file(path, &original_bytes).and_then(|_| {
+            verify_jpeg_capture_date(path, &original_bytes, expected_date)?;
+            filetime::set_file_times(path, accessed, modified)
+                .map_err(|e| format!("Failed to restore file times: {e}"))
+        });
+        return match restore_result {
+            Ok(()) => {
+                let _ = fs::remove_file(&backup_path);
+                let _ = clear_recovery_state(path, source_written_before_rewrite, expected_date);
+                Err(CaptureDateSourceWriteError::unchanged(format!(
+                    "Failed to rewrite Capture Date: {rewrite_error}"
+                )))
+            }
+            Err(restore_error) => Err(CaptureDateSourceWriteError::uncertain(format!(
+                "Capture Date rewrite failed ({rewrite_error}); recovery copy retained at {} because restoration failed ({restore_error})",
+                backup_path.display()
+            ))),
+        };
+    }
+
+    if let Err(error) = fs::remove_file(&backup_path) {
+        let restore_result = rewrite_existing_file(path, &original_bytes).and_then(|_| {
+            verify_jpeg_capture_date(path, &original_bytes, expected_date)?;
+            filetime::set_file_times(path, accessed, modified)
+                .map_err(|e| format!("Failed to restore file times: {e}"))
+        });
+        return match restore_result {
+            Ok(()) => {
+                let _ = clear_recovery_state(path, source_written_before_rewrite, expected_date);
+                Err(CaptureDateSourceWriteError::unchanged(format!(
+                    "Failed to remove recovery copy {}: {error}",
+                    backup_path.display()
+                )))
+            }
+            Err(restore_error) => Err(CaptureDateSourceWriteError::uncertain(format!(
+                "Failed to remove recovery copy {} ({error}) and could not restore the original ({restore_error})",
+                backup_path.display()
+            ))),
+        };
+    }
+    if let Some(parent) = path.parent() {
+        if let Err(error) = sync_parent_directory(parent) {
+            log::warn!(
+                "Capture Date recovery cleanup for {} could not be synced: {}",
+                path.display(),
+                error
+            );
+        }
+    }
+    if let Err(error) = clear_recovery_state(path, true, capture_date) {
+        log::warn!(
+            "EXIF was updated for {}, but recovery metadata could not be cleared: {}",
+            path.display(),
+            error
+        );
+    }
+
+    Ok(())
+}
+
+fn resolve_capture_date_operation(
+    paths: &[PathBuf],
+    operation: &CaptureDateOperation,
+) -> Result<ResolvedCaptureDateOperation, String> {
+    match operation {
+        CaptureDateOperation::Shift { seconds } => {
+            if *seconds == 0 {
+                return Err("Capture Date is unchanged".to_string());
+            }
+            Duration::try_seconds(*seconds)
+                .map(ResolvedCaptureDateOperation::Add)
+                .ok_or_else(|| "The requested Capture Date shift is too large".to_string())
+        }
+        CaptureDateOperation::Revert => Ok(ResolvedCaptureDateOperation::Revert),
+        CaptureDateOperation::Adjust {
+            reference_path,
+            new_date,
+        } => {
+            let desired = normalized_capture_date(new_date)?;
+            let (reference_path, _) = parse_virtual_path(reference_path);
+            if !paths.contains(&reference_path) {
+                return Err("The reference photo must be part of the selection".to_string());
+            }
+            let reference_metadata = exif_processing::load_sidecar(
+                &exif_processing::get_primary_sidecar_path(&reference_path),
+            );
+            let reference_exif = current_exif_for_path(&reference_path, &reference_metadata);
+
+            if let Some(current) = reference_exif
+                .get("DateTimeOriginal")
+                .and_then(|value| exif_processing::parse_creation_datetime(value))
+            {
+                let delta = desired - current;
+                if delta == Duration::zero() {
+                    Err("Capture Date is unchanged".to_string())
+                } else {
+                    Ok(ResolvedCaptureDateOperation::Add(delta))
+                }
+            } else if paths.len() == 1 {
+                Ok(ResolvedCaptureDateOperation::Set(desired))
+            } else {
+                Err(
+                    "The reference photo has no Capture Date. Set undated photos one at a time"
+                        .to_string(),
+                )
+            }
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn get_capture_date_revert_availability(
+    paths: Vec<String>,
+) -> Result<CaptureDateRevertAvailability, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let physical_paths = capture_date_physical_paths(&paths);
+        for path in &physical_paths {
+            recover_pending_capture_date_rewrite(path)?;
+        }
+        Ok(capture_date_revert_availability_for_paths(&physical_paths))
+    })
+    .await
+    .map_err(|e| format!("Task failed: {e}"))?
+}
+
+#[tauri::command]
+pub async fn update_capture_dates(
+    paths: Vec<String>,
+    operation: CaptureDateOperation,
+    write_to_original: bool,
+) -> Result<CaptureDateBatchResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let physical_paths = capture_date_physical_paths(&paths);
+        for path in &physical_paths {
+            recover_pending_capture_date_rewrite(path)?;
+        }
+        let resolved = resolve_capture_date_operation(&physical_paths, &operation)?;
+        if matches!(&resolved, ResolvedCaptureDateOperation::Revert) {
+            let availability = capture_date_revert_availability_for_paths(&physical_paths);
+            if !availability.can_revert {
+                return Err(format!(
+                    "Revert requires a Capture Date backup for every selected photo ({}/{} available)",
+                    availability.eligible_count, availability.total_count
+                ));
+            }
+        }
+        let mut updates = Vec::new();
+        let mut failures = Vec::new();
+
+        for path in physical_paths {
+            let path_string = path.to_string_lossy().to_string();
+            let mut metadata =
+                exif_processing::load_sidecar(&exif_processing::get_primary_sidecar_path(&path));
+            let mut exif = current_exif_for_path(&path, &metadata);
+            let logical_date_before_operation = exif.get("DateTimeOriginal").cloned();
+
+            let new_date = match &resolved {
+                ResolvedCaptureDateOperation::Revert => {
+                    let Some(backup) = metadata.capture_date_backup.as_ref() else {
+                        failures.push(CaptureDateFailure {
+                            path: path_string,
+                            error: "No original Capture Date is stored".to_string(),
+                        });
+                        continue;
+                    };
+                    backup.date_time_original.clone()
+                }
+                ResolvedCaptureDateOperation::Set(value) => {
+                    Some(value.format("%Y-%m-%d %H:%M:%S").to_string())
+                }
+                ResolvedCaptureDateOperation::Add(delta) => {
+                    let Some(current) = exif
+                        .get("DateTimeOriginal")
+                        .and_then(|value| exif_processing::parse_creation_datetime(value))
+                    else {
+                        failures.push(CaptureDateFailure {
+                            path: path_string,
+                            error: "This photo has no Capture Date to shift".to_string(),
+                        });
+                        continue;
+                    };
+                    let Some(updated) = current.checked_add_signed(*delta) else {
+                        failures.push(CaptureDateFailure {
+                            path: path_string,
+                            error: "The adjusted Capture Date is outside the supported range"
+                                .to_string(),
+                        });
+                        continue;
+                    };
+                    Some(updated.format("%Y-%m-%d %H:%M:%S").to_string())
+                }
+            };
+
+            let is_revert = matches!(&resolved, ResolvedCaptureDateOperation::Revert);
+            if metadata.capture_date_backup.is_none() && !is_revert {
+                let source_exif = read_source_exif(&path);
+                metadata.capture_date_backup = Some(CaptureDateBackup {
+                    date_time_original: source_exif.get("DateTimeOriginal").map(|value| {
+                        exif_processing::parse_creation_datetime(value)
+                            .map(|date| date.format("%Y-%m-%d %H:%M:%S").to_string())
+                            .unwrap_or_else(|| value.clone())
+                    }),
+                    source_written: false,
+                    source_date_written: None,
+                    pending_source_rewrite: None,
+                });
+            }
+
+            if let Some(value) = &new_date {
+                exif.insert("DateTimeOriginal".to_string(), value.clone());
+            } else {
+                exif.remove("DateTimeOriginal");
+            }
+
+            metadata.exif = Some(exif);
+
+            if is_revert {
+                let source_was_written = metadata
+                    .capture_date_backup
+                    .as_ref()
+                    .is_some_and(|backup| backup.source_written);
+                let mut wrote_original = false;
+                if source_was_written {
+                    let source_exif = read_source_exif(&path);
+                    let actual_source_date = source_exif.get("DateTimeOriginal");
+                    let original_source_date = metadata
+                        .capture_date_backup
+                        .as_ref()
+                        .and_then(|backup| backup.date_time_original.as_ref());
+                    let source_already_reverted = normalized_optional_capture_date(
+                        actual_source_date.map(String::as_str),
+                    ) == normalized_optional_capture_date(original_source_date.map(String::as_str));
+
+                    if !source_already_reverted {
+                        let expected_date = metadata
+                            .capture_date_backup
+                            .as_ref()
+                            .and_then(|backup| backup.source_date_written.as_deref())
+                            .or(logical_date_before_operation.as_deref());
+                        match write_jpeg_capture_date(
+                            &path,
+                            new_date.as_deref(),
+                            expected_date,
+                            true,
+                        ) {
+                            Ok(()) => wrote_original = true,
+                            Err(error) => {
+                                failures.push(CaptureDateFailure {
+                                    path: path_string,
+                                    error: error.message,
+                                });
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                metadata.capture_date_backup = None;
+                if let Err(error) = save_capture_date_metadata(&path, &metadata) {
+                    failures.push(CaptureDateFailure {
+                        path: path_string,
+                        error,
+                    });
+                    continue;
+                }
+
+                updates.push(CaptureDateUpdate {
+                    path: path_string,
+                    new_date,
+                    wrote_original,
+                    modified: if wrote_original {
+                        file_modified_unix_seconds(&path)
+                    } else {
+                        None
+                    },
+                    source_error: None,
+                });
+                continue;
+            }
+
+            let should_write_source = write_to_original;
+            let source_written_before_rewrite = metadata
+                .capture_date_backup
+                .as_ref()
+                .is_some_and(|backup| backup.source_written);
+            let source_date_written_before_rewrite = metadata
+                .capture_date_backup
+                .as_ref()
+                .and_then(|backup| backup.source_date_written.clone());
+            let source_date_before_write = if should_write_source {
+                read_source_exif(&path)
+                    .get("DateTimeOriginal")
+                    .cloned()
+            } else {
+                None
+            };
+            if should_write_source && let Some(backup) = metadata.capture_date_backup.as_mut() {
+                // Mark conservatively before touching the source so an interrupted or failed
+                // write can still be safely restored by Revert.
+                backup.source_written = true;
+            }
+
+            if let Err(error) = save_capture_date_metadata(&path, &metadata) {
+                failures.push(CaptureDateFailure {
+                    path: path_string,
+                    error,
+                });
+                continue;
+            }
+
+            let source_result = if should_write_source {
+                Some(write_jpeg_capture_date(
+                    &path,
+                    new_date.as_deref(),
+                    source_date_before_write.as_deref(),
+                    source_written_before_rewrite,
+                ))
+            } else {
+                None
+            };
+            let wrote_original = matches!(&source_result, Some(Ok(_)));
+            let mut source_error = None;
+            match source_result {
+                Some(Ok(())) => {
+                    if let Some(backup) = metadata.capture_date_backup.as_mut() {
+                        backup.source_written = true;
+                        backup.source_date_written = normalized_optional_capture_date(new_date.as_deref());
+                    }
+                    if let Err(error) = save_capture_date_metadata(&path, &metadata) {
+                        source_error = Some(format!(
+                            "Capture Date was written to the original, but its recovery state could not be saved: {error}"
+                        ));
+                    }
+                }
+                Some(Err(error)) => {
+                    source_error = Some(error.message);
+                    if error.source_restored && !source_written_before_rewrite {
+                        if let Some(backup) = metadata.capture_date_backup.as_mut() {
+                            backup.source_written = false;
+                            backup.source_date_written = None;
+                            backup.pending_source_rewrite = None;
+                        }
+                        if let Err(save_error) = save_capture_date_metadata(&path, &metadata) {
+                            source_error = Some(format!(
+                                "{}; failed to update recovery state: {save_error}",
+                                source_error.unwrap_or_default()
+                            ));
+                        }
+                    }
+                    if error.source_restored && source_written_before_rewrite {
+                        if let Some(backup) = metadata.capture_date_backup.as_mut() {
+                            backup.source_date_written = source_date_written_before_rewrite;
+                        }
+                    }
+                }
+                None => {}
+            }
+
+            updates.push(CaptureDateUpdate {
+                path: path_string,
+                new_date,
+                wrote_original,
+                modified: if wrote_original {
+                    file_modified_unix_seconds(&path)
+                } else {
+                    None
+                },
+                source_error,
+            });
+        }
+
+        Ok(CaptureDateBatchResult { updates, failures })
+    })
+    .await
+    .map_err(|e| format!("Task failed: {e}"))?
+}
+
+#[cfg(test)]
+mod capture_date_tests {
+    use super::*;
+
+    fn push_u16(bytes: &mut Vec<u8>, value: u16, order: TiffByteOrder) {
+        bytes.extend(match order {
+            TiffByteOrder::Big => value.to_be_bytes(),
+            TiffByteOrder::Little => value.to_le_bytes(),
+        });
+    }
+
+    fn push_u32(bytes: &mut Vec<u8>, value: u32, order: TiffByteOrder) {
+        bytes.extend(match order {
+            TiffByteOrder::Big => value.to_be_bytes(),
+            TiffByteOrder::Little => value.to_le_bytes(),
+        });
+    }
+
+    fn jpeg_with_fixed_width_capture_date(order: TiffByteOrder, capture_date: &str) -> Vec<u8> {
+        let mut jpeg = Vec::new();
+        DynamicImage::new_rgb8(2, 2)
+            .write_to(&mut Cursor::new(&mut jpeg), image::ImageFormat::Jpeg)
+            .unwrap();
+
+        let mut tiff = Vec::new();
+        tiff.extend(match order {
+            TiffByteOrder::Big => *b"MM",
+            TiffByteOrder::Little => *b"II",
+        });
+        push_u16(&mut tiff, 42, order);
+        push_u32(&mut tiff, 8, order);
+        push_u16(&mut tiff, 1, order);
+        push_u16(&mut tiff, 0x8769, order);
+        push_u16(&mut tiff, 4, order);
+        push_u32(&mut tiff, 1, order);
+        push_u32(&mut tiff, 26, order);
+        push_u32(&mut tiff, 0, order);
+        push_u16(&mut tiff, 1, order);
+        push_u16(&mut tiff, 0x9003, order);
+        push_u16(&mut tiff, 2, order);
+        push_u32(&mut tiff, 20, order);
+        push_u32(&mut tiff, 44, order);
+        push_u32(&mut tiff, 0, order);
+        tiff.extend(capture_date.as_bytes());
+        tiff.push(0);
+        assert_eq!(tiff.len(), 64);
+
+        let segment_length = 2 + 6 + tiff.len();
+        let mut app1 = vec![0xff, 0xe1];
+        app1.extend((segment_length as u16).to_be_bytes());
+        app1.extend(b"Exif\0\0");
+        app1.extend(tiff);
+
+        let mut result = Vec::with_capacity(jpeg.len() + app1.len());
+        result.extend(&jpeg[..2]);
+        result.extend(app1);
+        result.extend(&jpeg[2..]);
+        result
+    }
+
+    fn create_test_jpeg(path: &Path, capture_date: &str) {
+        let mut bytes = Vec::new();
+        DynamicImage::new_rgb8(2, 2)
+            .write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Jpeg)
+            .unwrap();
+        let mut metadata = Metadata::new();
+        metadata.set_tag(ExifTag::Make("RapidRAW test camera".to_string()));
+        metadata.set_tag(ExifTag::DateTimeOriginal(capture_date.to_string()));
+        metadata
+            .write_to_vec(&mut bytes, FileExtension::JPEG)
+            .unwrap();
+        fs::write(path, bytes).unwrap();
+    }
+
+    #[test]
+    fn parses_and_shifts_capture_dates_as_wall_clock_time() {
+        let start = normalized_capture_date("2024:02:28 23:30:00").unwrap();
+        let shifted = start.checked_add_signed(Duration::hours(25)).unwrap();
+        assert_eq!(
+            shifted.format("%Y-%m-%d %H:%M:%S").to_string(),
+            "2024-03-01 00:30:00"
+        );
+
+        let shifted = start.checked_add_signed(Duration::hours(-22)).unwrap();
+        assert_eq!(
+            shifted.format("%Y-%m-%d %H:%M:%S").to_string(),
+            "2024-02-28 01:30:00"
+        );
+    }
+
+    #[test]
+    fn locates_strict_fixed_width_capture_dates_in_both_tiff_byte_orders() {
+        for order in [TiffByteOrder::Little, TiffByteOrder::Big] {
+            let bytes = jpeg_with_fixed_width_capture_date(order, "2024:02:29 23:30:01");
+            let location = locate_datetime_original(&bytes).unwrap().unwrap();
+            assert_eq!(location.current_date, "2024:02:29 23:30:01");
+            assert_eq!(
+                &bytes[location.offset..location.offset + 20],
+                b"2024:02:29 23:30:01\0"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_non_calendar_fixed_width_capture_dates() {
+        let bytes =
+            jpeg_with_fixed_width_capture_date(TiffByteOrder::Little, "2024:02:31 23:30:01");
+        assert!(locate_datetime_original(&bytes).is_err());
+    }
+
+    #[test]
+    fn malformed_fixed_width_capture_date_is_not_rewritten() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("malformed-date.jpg");
+        let original =
+            jpeg_with_fixed_width_capture_date(TiffByteOrder::Little, "2024:02:31 23:30:01");
+        fs::write(&path, &original).unwrap();
+
+        let error = match write_jpeg_capture_date(
+            &path,
+            Some("2024-03-01 23:30:01"),
+            Some("2024:02:31 23:30:01"),
+            false,
+        ) {
+            Ok(_) => panic!("a malformed fixed-width date should be rejected"),
+            Err(error) => error,
+        };
+
+        assert!(error.source_restored);
+        assert!(error.message.contains("YYYY:MM:DD HH:MM:SS"));
+        assert_eq!(fs::read(path).unwrap(), original);
+    }
+
+    #[test]
+    fn capture_date_operations_deserialize_frontend_payloads() {
+        let adjust: CaptureDateOperation = serde_json::from_value(serde_json::json!({
+            "mode": "adjust",
+            "referencePath": "/photos/reference.jpg",
+            "newDate": "2026-08-06 08:11:25"
+        }))
+        .unwrap();
+        assert!(matches!(
+            adjust,
+            CaptureDateOperation::Adjust {
+                reference_path,
+                new_date
+            } if reference_path == "/photos/reference.jpg" && new_date == "2026-08-06 08:11:25"
+        ));
+
+        let shift: CaptureDateOperation = serde_json::from_value(serde_json::json!({
+            "mode": "shift",
+            "seconds": 3_600
+        }))
+        .unwrap();
+        assert!(matches!(
+            shift,
+            CaptureDateOperation::Shift { seconds: 3_600 }
+        ));
+
+        let revert: CaptureDateOperation =
+            serde_json::from_value(serde_json::json!({ "mode": "revert" })).unwrap();
+        assert!(matches!(revert, CaptureDateOperation::Revert));
+    }
+
+    #[test]
+    fn unchanged_capture_date_does_not_create_backup() {
+        let directory = tempfile::tempdir().unwrap();
+        let image_path = directory.path().join("unchanged.jpg");
+        create_test_jpeg(&image_path, "2020:01:02 03:04:05");
+        let path = image_path.to_string_lossy().to_string();
+
+        let result = tauri::async_runtime::block_on(update_capture_dates(
+            vec![path.clone()],
+            CaptureDateOperation::Adjust {
+                reference_path: path,
+                new_date: "2020-01-02 03:04:05".to_string(),
+            },
+            false,
+        ));
+        let error = match result {
+            Err(error) => error,
+            Ok(_) => panic!("unchanged operation unexpectedly succeeded"),
+        };
+
+        assert_eq!(error, "Capture Date is unchanged");
+        let metadata =
+            exif_processing::load_sidecar(&exif_processing::get_primary_sidecar_path(&image_path));
+        assert!(metadata.capture_date_backup.is_none());
+    }
+
+    #[test]
+    fn jpeg_source_write_preserves_other_exif_and_can_remove_capture_date() {
+        let directory = tempfile::tempdir().unwrap();
+        let image_path = directory.path().join("capture-date.jpg");
+        create_test_jpeg(&image_path, "2020:01:02 03:04:05");
+        let original_bytes = fs::read(&image_path).unwrap();
+        let date_location = locate_datetime_original(&original_bytes).unwrap().unwrap();
+        let original_modified = filetime::FileTime::from_unix_time(1_600_000_000, 0);
+        filetime::set_file_mtime(&image_path, original_modified).unwrap();
+
+        write_jpeg_capture_date(
+            &image_path,
+            Some("2023-04-05 06:07:08"),
+            Some("2020-01-02 03:04:05"),
+            false,
+        )
+        .unwrap();
+        let updated_bytes = fs::read(&image_path).unwrap();
+        assert_eq!(updated_bytes.len(), original_bytes.len());
+        assert!(
+            original_bytes
+                .iter()
+                .zip(&updated_bytes)
+                .enumerate()
+                .all(|(index, (before, after))| before == after
+                    || (date_location.offset..date_location.offset + 20).contains(&index))
+        );
+        image::load_from_memory_with_format(&updated_bytes, image::ImageFormat::Jpeg).unwrap();
+        let updated_exif = exif_processing::read_exif_data_from_bytes(
+            image_path.to_str().unwrap(),
+            &updated_bytes,
+        );
+        assert_eq!(
+            updated_exif.get("DateTimeOriginal").map(String::as_str),
+            Some("2023:04:05 06:07:08")
+        );
+        assert_eq!(
+            updated_exif.get("Make").map(String::as_str),
+            Some("RapidRAW test camera")
+        );
+        assert_ne!(
+            filetime::FileTime::from_last_modification_time(&fs::metadata(&image_path).unwrap()),
+            original_modified
+        );
+
+        let mut rapidraw_metadata = ImageMetadata::default();
+        rapidraw_metadata.capture_date_backup = Some(CaptureDateBackup {
+            date_time_original: Some("2020-01-02 03:04:05".to_string()),
+            source_written: true,
+            source_date_written: Some("2023-04-05 06:07:08".to_string()),
+            pending_source_rewrite: None,
+        });
+        save_capture_date_metadata(&image_path, &rapidraw_metadata).unwrap();
+        let before_remove_modified = filetime::FileTime::from_unix_time(1_600_000_100, 0);
+        filetime::set_file_mtime(&image_path, before_remove_modified).unwrap();
+        write_jpeg_capture_date(&image_path, None, Some("2023-04-05 06:07:08"), true).unwrap();
+        let reverted_bytes = fs::read(&image_path).unwrap();
+        image::load_from_memory_with_format(&reverted_bytes, image::ImageFormat::Jpeg).unwrap();
+        let reverted_exif = exif_processing::read_exif_data_from_bytes(
+            image_path.to_str().unwrap(),
+            &reverted_bytes,
+        );
+        assert!(!reverted_exif.contains_key("DateTimeOriginal"));
+        assert_eq!(
+            reverted_exif.get("Make").map(String::as_str),
+            Some("RapidRAW test camera")
+        );
+        assert_ne!(
+            filetime::FileTime::from_last_modification_time(&fs::metadata(&image_path).unwrap()),
+            before_remove_modified
+        );
+    }
+
+    #[test]
+    fn jpeg_source_write_adds_capture_date_to_scan_without_exif() {
+        let directory = tempfile::tempdir().unwrap();
+        let image_path = directory.path().join("scan.jpg");
+        let mut bytes = Vec::new();
+        DynamicImage::new_rgb8(2, 2)
+            .write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Jpeg)
+            .unwrap();
+        fs::write(&image_path, bytes).unwrap();
+        let original_modified = filetime::FileTime::from_unix_time(1_600_000_000, 0);
+        filetime::set_file_mtime(&image_path, original_modified).unwrap();
+
+        #[cfg(unix)]
+        let original_inode = {
+            use std::os::unix::fs::MetadataExt;
+            fs::metadata(&image_path).unwrap().ino()
+        };
+        #[cfg(target_os = "macos")]
+        unsafe {
+            use std::ffi::CString;
+            use std::os::unix::ffi::OsStrExt;
+            let path = CString::new(image_path.as_os_str().as_bytes()).unwrap();
+            let name = CString::new("com.rapidraw.capture-date-test").unwrap();
+            let value = b"preserve-me";
+            assert_eq!(
+                libc::setxattr(
+                    path.as_ptr(),
+                    name.as_ptr(),
+                    value.as_ptr().cast(),
+                    value.len(),
+                    0,
+                    0,
+                ),
+                0
+            );
+        }
+
+        let mut rapidraw_metadata = ImageMetadata::default();
+        rapidraw_metadata.capture_date_backup = Some(CaptureDateBackup {
+            date_time_original: None,
+            source_written: false,
+            source_date_written: None,
+            pending_source_rewrite: None,
+        });
+        save_capture_date_metadata(&image_path, &rapidraw_metadata).unwrap();
+        write_jpeg_capture_date(&image_path, Some("1985-07-04 12:30:00"), None, false).unwrap();
+        let updated_bytes = fs::read(&image_path).unwrap();
+        image::load_from_memory_with_format(&updated_bytes, image::ImageFormat::Jpeg).unwrap();
+        let updated_exif = exif_processing::read_exif_data_from_bytes(
+            image_path.to_str().unwrap(),
+            &updated_bytes,
+        );
+        assert_eq!(
+            updated_exif.get("DateTimeOriginal").map(String::as_str),
+            Some("1985:07:04 12:30:00")
+        );
+        assert_ne!(
+            filetime::FileTime::from_last_modification_time(&fs::metadata(&image_path).unwrap()),
+            original_modified
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            assert_eq!(fs::metadata(&image_path).unwrap().ino(), original_inode);
+        }
+        #[cfg(target_os = "macos")]
+        unsafe {
+            use std::ffi::CString;
+            use std::os::unix::ffi::OsStrExt;
+            let path = CString::new(image_path.as_os_str().as_bytes()).unwrap();
+            let name = CString::new("com.rapidraw.capture-date-test").unwrap();
+            let mut value = [0u8; 11];
+            let read = libc::getxattr(
+                path.as_ptr(),
+                name.as_ptr(),
+                value.as_mut_ptr().cast(),
+                value.len(),
+                0,
+                0,
+            );
+            assert_eq!(read, value.len() as isize);
+            assert_eq!(&value, b"preserve-me");
+        }
+        assert!(
+            fs::read_dir(directory.path())
+                .unwrap()
+                .filter_map(Result::ok)
+                .all(|entry| !entry.file_name().to_string_lossy().ends_with(".rrrecover"))
+        );
+    }
+
+    #[test]
+    fn pending_full_rewrite_is_restored_from_recovery_copy() {
+        let directory = tempfile::tempdir().unwrap();
+        let image_path = directory.path().join("interrupted.jpg");
+        create_test_jpeg(&image_path, "2020:01:02 03:04:05");
+        let backup_file_name = ".interrupted.jpg.test.capture-date.rrrecover";
+        let backup_path = directory.path().join(backup_file_name);
+        fs::copy(&image_path, &backup_path).unwrap();
+
+        let mut changed = fs::read(&image_path).unwrap();
+        let location = locate_datetime_original(&changed).unwrap().unwrap();
+        changed[location.offset..location.offset + 20].copy_from_slice(b"2021:02:03 04:05:06\0");
+        fs::write(&image_path, changed).unwrap();
+
+        let mut metadata = ImageMetadata::default();
+        metadata.capture_date_backup = Some(CaptureDateBackup {
+            date_time_original: Some("2020-01-02 03:04:05".to_string()),
+            source_written: true,
+            source_date_written: Some("2021-02-03 04:05:06".to_string()),
+            pending_source_rewrite: Some(CaptureDateSourceRecovery {
+                backup_file_name: backup_file_name.to_string(),
+                original_date: Some("2020-01-02 03:04:05".to_string()),
+                intended_date: Some("2021-02-03 04:05:06".to_string()),
+                source_written_before_rewrite: false,
+            }),
+        });
+        save_capture_date_metadata(&image_path, &metadata).unwrap();
+
+        assert!(recover_pending_capture_date_rewrite(&image_path).unwrap());
+        assert!(!backup_path.exists());
+        let restored = read_source_exif(&image_path);
+        assert_eq!(
+            restored.get("DateTimeOriginal").map(String::as_str),
+            Some("2020:01:02 03:04:05")
+        );
+        let restored_metadata =
+            exif_processing::load_sidecar(&exif_processing::get_primary_sidecar_path(&image_path));
+        let capture_backup = restored_metadata.capture_date_backup.unwrap();
+        assert!(!capture_backup.source_written);
+        assert!(capture_backup.pending_source_rewrite.is_none());
+    }
+
+    #[test]
+    fn revert_removes_added_source_date_and_consumes_empty_backup() {
+        let directory = tempfile::tempdir().unwrap();
+        let image_path = directory.path().join("scan.jpg");
+        let mut bytes = Vec::new();
+        DynamicImage::new_rgb8(2, 2)
+            .write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Jpeg)
+            .unwrap();
+        fs::write(&image_path, bytes).unwrap();
+        let path = image_path.to_string_lossy().to_string();
+
+        let adjusted = tauri::async_runtime::block_on(update_capture_dates(
+            vec![path.clone()],
+            CaptureDateOperation::Adjust {
+                reference_path: path.clone(),
+                new_date: "1985-07-04 12:30:00".to_string(),
+            },
+            true,
+        ))
+        .unwrap();
+        assert_eq!(adjusted.updates.len(), 1);
+        assert!(adjusted.updates[0].source_error.is_none());
+        assert!(adjusted.updates[0].wrote_original);
+        assert!(adjusted.updates[0].modified.is_some());
+
+        let adjusted_metadata =
+            exif_processing::load_sidecar(&exif_processing::get_primary_sidecar_path(&image_path));
+        let backup = adjusted_metadata.capture_date_backup.as_ref().unwrap();
+        assert!(backup.date_time_original.is_none());
+        assert!(backup.source_written);
+        assert_eq!(
+            backup.source_date_written.as_deref(),
+            Some("1985-07-04 12:30:00")
+        );
+
+        let reverted = tauri::async_runtime::block_on(update_capture_dates(
+            vec![path],
+            CaptureDateOperation::Revert,
+            false,
+        ))
+        .unwrap();
+        assert_eq!(reverted.updates.len(), 1);
+        assert!(reverted.failures.is_empty());
+        assert!(reverted.updates[0].wrote_original);
+        assert!(reverted.updates[0].modified.is_some());
+
+        let reverted_metadata =
+            exif_processing::load_sidecar(&exif_processing::get_primary_sidecar_path(&image_path));
+        assert!(reverted_metadata.capture_date_backup.is_none());
+        assert!(
+            !read_source_exif(&image_path).contains_key("DateTimeOriginal"),
+            "Revert should remove a Capture Date that did not exist originally"
+        );
+    }
+
+    #[test]
+    fn revert_does_not_overwrite_capture_date_changed_outside_rapidraw() {
+        let directory = tempfile::tempdir().unwrap();
+        let image_path = directory.path().join("external-change.jpg");
+        create_test_jpeg(&image_path, "2020:01:02 03:04:05");
+        let path = image_path.to_string_lossy().to_string();
+
+        let adjusted = tauri::async_runtime::block_on(update_capture_dates(
+            vec![path.clone()],
+            CaptureDateOperation::Adjust {
+                reference_path: path.clone(),
+                new_date: "2021-02-03 04:05:06".to_string(),
+            },
+            true,
+        ))
+        .unwrap();
+        assert_eq!(adjusted.updates.len(), 1);
+        assert!(adjusted.updates[0].wrote_original);
+
+        let mut externally_changed = fs::read(&image_path).unwrap();
+        let location = locate_datetime_original(&externally_changed)
+            .unwrap()
+            .unwrap();
+        externally_changed[location.offset..location.offset + 20]
+            .copy_from_slice(b"2022:03:04 05:06:07\0");
+        fs::write(&image_path, externally_changed).unwrap();
+
+        let reverted = tauri::async_runtime::block_on(update_capture_dates(
+            vec![path],
+            CaptureDateOperation::Revert,
+            false,
+        ))
+        .unwrap();
+        assert!(reverted.updates.is_empty());
+        assert_eq!(reverted.failures.len(), 1);
+        assert!(
+            reverted.failures[0]
+                .error
+                .contains("changed outside RapidRAW")
+        );
+        assert_eq!(
+            read_source_exif(&image_path)
+                .get("DateTimeOriginal")
+                .map(String::as_str),
+            Some("2022:03:04 05:06:07")
+        );
+
+        let metadata =
+            exif_processing::load_sidecar(&exif_processing::get_primary_sidecar_path(&image_path));
+        assert!(metadata.capture_date_backup.is_some());
+    }
+
+    #[test]
+    fn batch_adjust_uses_reference_delta_and_revert_restores_each_original() {
+        let directory = tempfile::tempdir().unwrap();
+        let reference_path = directory.path().join("reference.jpg");
+        let second_path = directory.path().join("second.jpg");
+        create_test_jpeg(&reference_path, "2020:01:02 03:04:05");
+        create_test_jpeg(&second_path, "2020:01:02 05:04:05");
+        let paths = vec![
+            reference_path.to_string_lossy().to_string(),
+            second_path.to_string_lossy().to_string(),
+        ];
+
+        let result = tauri::async_runtime::block_on(update_capture_dates(
+            paths.clone(),
+            CaptureDateOperation::Adjust {
+                reference_path: paths[0].clone(),
+                new_date: "2020-01-02 04:04:05".to_string(),
+            },
+            false,
+        ))
+        .unwrap();
+        assert_eq!(result.updates.len(), 2);
+        assert!(result.failures.is_empty());
+        assert!(result.updates.iter().all(|update| !update.wrote_original));
+        assert!(
+            result
+                .updates
+                .iter()
+                .all(|update| update.modified.is_none())
+        );
+
+        let availability =
+            tauri::async_runtime::block_on(get_capture_date_revert_availability(paths.clone()))
+                .unwrap();
+        assert!(availability.can_revert);
+        assert_eq!(availability.eligible_count, 2);
+        assert_eq!(availability.total_count, 2);
+
+        let unedited_path = directory.path().join("unedited.jpg");
+        create_test_jpeg(&unedited_path, "2020:01:02 07:04:05");
+        let mixed_paths = vec![
+            paths[0].clone(),
+            unedited_path.to_string_lossy().to_string(),
+        ];
+        let mixed_availability = tauri::async_runtime::block_on(
+            get_capture_date_revert_availability(mixed_paths.clone()),
+        )
+        .unwrap();
+        assert!(!mixed_availability.can_revert);
+        assert_eq!(mixed_availability.eligible_count, 1);
+        assert_eq!(mixed_availability.total_count, 2);
+
+        let mixed_revert = tauri::async_runtime::block_on(update_capture_dates(
+            mixed_paths,
+            CaptureDateOperation::Revert,
+            false,
+        ));
+        assert!(mixed_revert.is_err());
+        let still_adjusted = exif_processing::load_sidecar(
+            &exif_processing::get_primary_sidecar_path(&reference_path),
+        );
+        assert!(still_adjusted.capture_date_backup.is_some());
+        assert_eq!(
+            still_adjusted
+                .exif
+                .as_ref()
+                .and_then(|exif| exif.get("DateTimeOriginal"))
+                .map(String::as_str),
+            Some("2020-01-02 04:04:05")
+        );
+
+        let reference_metadata = exif_processing::load_sidecar(
+            &exif_processing::get_primary_sidecar_path(&reference_path),
+        );
+        let second_metadata =
+            exif_processing::load_sidecar(&exif_processing::get_primary_sidecar_path(&second_path));
+        assert_eq!(
+            reference_metadata
+                .exif
+                .as_ref()
+                .and_then(|exif| exif.get("DateTimeOriginal"))
+                .map(String::as_str),
+            Some("2020-01-02 04:04:05")
+        );
+        assert_eq!(
+            second_metadata
+                .exif
+                .as_ref()
+                .and_then(|exif| exif.get("DateTimeOriginal"))
+                .map(String::as_str),
+            Some("2020-01-02 06:04:05")
+        );
+
+        let reverted = tauri::async_runtime::block_on(update_capture_dates(
+            paths.clone(),
+            CaptureDateOperation::Revert,
+            false,
+        ))
+        .unwrap();
+        assert_eq!(reverted.updates.len(), 2);
+        let reverted_second =
+            exif_processing::load_sidecar(&exif_processing::get_primary_sidecar_path(&second_path));
+        assert_eq!(
+            reverted_second
+                .exif
+                .as_ref()
+                .and_then(|exif| exif.get("DateTimeOriginal"))
+                .map(String::as_str),
+            Some("2020-01-02 05:04:05")
+        );
+        assert!(reverted_second.capture_date_backup.is_none());
+
+        let availability =
+            tauri::async_runtime::block_on(get_capture_date_revert_availability(paths)).unwrap();
+        assert!(!availability.can_revert);
+        assert_eq!(availability.eligible_count, 0);
+        assert_eq!(availability.total_count, 2);
+    }
+
+    #[test]
+    fn batch_adjust_rejects_reference_outside_selection() {
+        let directory = tempfile::tempdir().unwrap();
+        let selected_path = directory.path().join("selected.jpg");
+        let other_path = directory.path().join("other.jpg");
+        create_test_jpeg(&selected_path, "2020:01:02 03:04:05");
+        create_test_jpeg(&other_path, "2020:01:02 05:04:05");
+
+        let result = tauri::async_runtime::block_on(update_capture_dates(
+            vec![selected_path.to_string_lossy().to_string()],
+            CaptureDateOperation::Adjust {
+                reference_path: other_path.to_string_lossy().to_string(),
+                new_date: "2020-01-02 04:04:05".to_string(),
+            },
+            false,
+        ));
+        let error = match result {
+            Ok(_) => panic!("an out-of-selection reference should be rejected"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "The reference photo must be part of the selection");
+    }
+
+    #[test]
+    fn failed_initial_source_write_still_allows_sidecar_revert() {
+        let directory = tempfile::tempdir().unwrap();
+        let image_path = directory.path().join("not-a-jpeg.png");
+        create_test_jpeg(&image_path, "2020:01:02 03:04:05");
+        let path = image_path.to_string_lossy().to_string();
+
+        let adjusted = tauri::async_runtime::block_on(update_capture_dates(
+            vec![path.clone()],
+            CaptureDateOperation::Adjust {
+                reference_path: path.clone(),
+                new_date: "2021-02-03 04:05:06".to_string(),
+            },
+            true,
+        ))
+        .unwrap();
+        assert_eq!(adjusted.updates.len(), 1);
+        assert!(adjusted.updates[0].source_error.is_some());
+        assert!(!adjusted.updates[0].wrote_original);
+        assert!(adjusted.updates[0].modified.is_none());
+
+        let reverted = tauri::async_runtime::block_on(update_capture_dates(
+            vec![path],
+            CaptureDateOperation::Revert,
+            false,
+        ))
+        .unwrap();
+        assert_eq!(reverted.updates.len(), 1);
+        assert!(reverted.failures.is_empty());
+
+        let metadata =
+            exif_processing::load_sidecar(&exif_processing::get_primary_sidecar_path(&image_path));
+        assert!(metadata.capture_date_backup.is_none());
+        assert_eq!(
+            metadata
+                .exif
+                .as_ref()
+                .and_then(|exif| exif.get("DateTimeOriginal"))
+                .map(String::as_str),
+            Some("2020-01-02 03:04:05")
+        );
+    }
 }
 
 fn match_disk_kind(disks: &Disks, canonical: &Path) -> Option<bool> {

@@ -240,6 +240,9 @@ interface UIState {
   isRenameFolderModalOpen: boolean;
   isRenameFileModalOpen: boolean;
   renameTargetPaths: Array<string>;
+  isCaptureDateModalOpen: boolean;
+  captureDateTargetPaths: Array<string>;
+  captureDateReferencePath: string | null;
   isImportModalOpen: boolean;
   isCopyPasteSettingsModalOpen: boolean;
   importTargetFolder: string | null;
@@ -320,6 +323,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   isRenameFolderModalOpen: false,
   isRenameFileModalOpen: false,
   renameTargetPaths: [],
+  isCaptureDateModalOpen: false,
+  captureDateTargetPaths: [],
+  captureDateReferencePath: null,
   isImportModalOpen: false,
   isCopyPasteSettingsModalOpen: false,
   importTargetFolder: null,
