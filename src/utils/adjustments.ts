@@ -515,7 +515,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   parametricCurve: getDefaultParametricCurve(),
   curveMode: 'point',
   dehaze: 0,
-  exposure: 0,
+  exposure: 2,
   flipHorizontal: false,
   flipVertical: false,
   flareAmount: 0,

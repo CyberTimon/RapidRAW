@@ -902,6 +902,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     setAdjustments((prevAdjustments: Adjustments) => ({
       ...prevAdjustments,
       ...preset.adjustments,
+      exposure: prevAdjustments.exposure,
     }));
   };
 
@@ -912,6 +913,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       setAdjustments((prev: Adjustments) => ({
         ...prev,
         ...mixed,
+        exposure: prev.exposure,
       }));
     },
     [setAdjustments],

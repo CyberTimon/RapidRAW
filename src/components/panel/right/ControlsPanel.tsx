@@ -119,6 +119,20 @@ export default function Controls({
   };
 
   const handleResetAdjustments = () => {
+    const allSections = Object.keys(ADJUSTMENT_SECTIONS);
+    setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      ...allSections
+        .flatMap((s) => ADJUSTMENT_SECTIONS[s])
+        .reduce((acc: any, key: string) => {
+          acc[key] = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
+          return acc;
+        }, {}),
+      sectionVisibility: { ...INITIAL_ADJUSTMENTS.sectionVisibility },
+    }));
+  };
+
+  const handleResetCurrentTab = () => {
     setAdjustments((prev: Adjustments) => ({
       ...prev,
       ...sections
@@ -135,6 +149,18 @@ export default function Controls({
         }, {}),
       },
     }));
+  };
+
+  const handleResetButtonContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showContextMenu(event.clientX, event.clientY, [
+      {
+        label: t('editor.adjustments.actions.resetSectionSettings', { section: t(titleKey) }),
+        icon: RotateCcw,
+        onClick: handleResetCurrentTab,
+      },
+    ]);
   };
 
   const handleToggleSection = (section: string) => {
@@ -256,6 +282,7 @@ export default function Controls({
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage}
             onClick={handleResetAdjustments}
+            onContextMenu={handleResetButtonContextMenu}
             data-tooltip={t('editor.adjustments.tooltips.resetAdjustments')}
           >
             <RotateCcw size={18} />
