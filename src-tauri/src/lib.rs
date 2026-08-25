@@ -761,18 +761,17 @@ fn generate_uncropped_preview(
             Cow::Borrowed(loaded_image.image.as_ref())
         };
 
-        let warped_image = apply_geometry_warp(patched_image, &adjustments_clone);
-        let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, &adjustments_clone);
         let orientation_steps = adjustments_clone["orientationSteps"].as_u64().unwrap_or(0) as u8;
-        let coarse_rotated_image = apply_coarse_rotation(blurred_image, orientation_steps);
+        let coarse_rotated_image = apply_coarse_rotation(patched_image, orientation_steps);
+        let warped_image = apply_geometry_warp(coarse_rotated_image, &adjustments_clone);
+        let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, &adjustments_clone);
 
         let flip_horizontal = adjustments_clone["flipHorizontal"]
             .as_bool()
             .unwrap_or(false);
         let flip_vertical = adjustments_clone["flipVertical"].as_bool().unwrap_or(false);
 
-        let flipped_image =
-            apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical).into_owned();
+        let flipped_image = apply_flip(blurred_image, flip_horizontal, flip_vertical).into_owned();
 
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
         let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
@@ -972,15 +971,15 @@ async fn preview_geometry_transform(
             adjusted_params.lens_vignette_amount *= 0.8;
         }
 
-        let warped_image = warp_image_geometry(&base_image_to_warp, adjusted_params);
         let orientation_steps = js_adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
         let flip_horizontal = js_adjustments["flipHorizontal"].as_bool().unwrap_or(false);
         let flip_vertical = js_adjustments["flipVertical"].as_bool().unwrap_or(false);
 
         let coarse_rotated_image =
-            apply_coarse_rotation(Cow::Owned(warped_image), orientation_steps);
+            apply_coarse_rotation(Cow::Borrowed(&base_image_to_warp), orientation_steps);
+        let warped_image = warp_image_geometry(coarse_rotated_image.as_ref(), adjusted_params);
         let flipped_image =
-            apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical).into_owned();
+            apply_flip(Cow::Owned(warped_image), flip_horizontal, flip_vertical).into_owned();
 
         if show_lines {
             let gray_image = flipped_image.to_luma8();
