@@ -40,6 +40,7 @@ export function useImageProcessing(
   const multiSelectedPaths = useLibraryStore((state) => state.multiSelectedPaths);
 
   const inFlightCountRef = useRef(0);
+  const lastAnalyticsTimeRef = useRef<number>(0);
   const pendingApplyRef = useRef<{ adjustments: Adjustments; targetRes?: number } | null>(null);
   const currentOriginalResRef = useRef<number>(0);
   const dragIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -124,6 +125,18 @@ export function useImageProcessing(
       const currentPath = selectedImage?.path;
       if (!currentPath) return;
 
+      let shouldRequestAnalytics = false;
+      if (dragging) {
+        const now = performance.now();
+        if (now - lastAnalyticsTimeRef.current > 33.33) {
+          shouldRequestAnalytics = true;
+          lastAnalyticsTimeRef.current = now;
+        }
+      } else {
+        shouldRequestAnalytics = true;
+        lastAnalyticsTimeRef.current = 0;
+      }
+
       const payload = structuredClone(currentAdjustments);
       const { patchesSentToBackend } = useEditorStore.getState();
       const newlySentPatches = new Set<string>();
@@ -178,6 +191,7 @@ export function useImageProcessing(
           isInteractive: dragging,
           targetResolution: targetRes || null,
           roi: roi || null,
+          requestAnalytics: shouldRequestAnalytics,
           computeWaveform: !!isWaveformVisible,
           activeWaveformChannel: activeWaveformChannelRef.current || null,
         });

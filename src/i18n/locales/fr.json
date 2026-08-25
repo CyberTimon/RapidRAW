@@ -229,6 +229,10 @@
       "addCopiedToAlbum_other": "Ajouter {{count}} images copiées à l'album",
       "refreshView": "Actualiser l'affichage"
     },
+    "merge": {
+      "focusStack": "Empilement de mise au point",
+      "title": "Fusionner"
+    },
     "tagging": {
       "addTagTooltip": "Ajouter une étiquette",
       "noTags": "Aucune étiquette ajoutée",
@@ -738,7 +742,8 @@
         "info": "Info",
         "inpaint": "Inpainting",
         "masks": "Masques",
-        "presets": "Paramètres prédéfinis"
+        "presets": "Paramètres prédéfinis",
+        "tethering": "Prise de vue connectée"
       }
     },
     "toolbar": {
@@ -1258,6 +1263,23 @@
       "titleBatch": "Débruiter les images",
       "titleSingle": "Débruiter l'image"
     },
+    "focusStack": {
+      "cancel": "Annuler",
+      "close": "Fermer",
+      "depthMap": "Carte de profondeur",
+      "description": "Combinez plusieurs images avec des distances de mise au point variables en une seule image parfaitement nette.",
+      "descriptionWithCount_one": "Combinez {{count}} image avec des distances de mise au point variables en une seule image parfaitement nette.",
+      "descriptionWithCount_other": "Combinez {{count}} images avec des distances de mise au point variables en une seule image parfaitement nette.",
+      "failed": "L'empilement de mise au point a échoué",
+      "initializing": "Initialisation...",
+      "openInEditor": "Ouvrir dans l'éditeur",
+      "result": "Résultat",
+      "save": "Enregistrer",
+      "savedSuccess": "Empilement de mise au point enregistré avec succès !",
+      "stacking": "Empilement de la mise au point",
+      "start": "Démarrer",
+      "title": "Empilement de mise au point"
+    },
     "hdr": {
       "cancel": "Annuler",
       "close": "Fermer",
@@ -1469,10 +1491,16 @@
         "confirmClearAll": "Effacer toutes les étiquettes",
         "confirmClearCache": "Effacer le cache",
         "confirmDeleteAllEdits": "Supprimer toutes les retouches",
+        "confirmResetLayout": "Réinitialiser la disposition",
+        "confirmResetLayoutTitle": "Réinitialiser la disposition de l'espace de travail",
         "confirmTitle": "Confirmer la suppression",
+        "resetLayoutMessage": "Êtes-vous sûr de vouloir réinitialiser la disposition de l'espace de travail ? Tous les panneaux ancrés, les largeurs et les positions des sélecteurs seront restaurés à leurs valeurs par défaut.",
         "sidecarMessage": "Êtes-vous sûr de vouloir supprimer tous les fichiers annexes ?\n\nCeci supprimera définitivement toutes vos retouches pour toutes les images à l'intérieur de tous les dossiers racine actifs et de leurs sous-dossiers."
       },
       "noFolders": "Aucun dossier sélectionné",
+      "resetLayoutButton": "Réinitialiser la disposition",
+      "resetLayoutDesc": "Restaure les panneaux ancrés, les séparateurs latéraux, les hauteurs et les sélecteurs de panneaux à leur disposition par défaut.",
+      "resetLayoutTitle": "Réinitialiser la disposition de l'espace de travail",
       "statuses": {
         "aiSuccess": "{{count}} fichiers mis à jour. Étiquettes IA supprimées.",
         "aiSuccess_many": "{{count}} fichiers mis à jour. Étiquettes IA supprimées.",
@@ -1488,7 +1516,9 @@
         "clearingCache": "Effacement du cache des miniatures...",
         "deleting": "Suppression des fichiers annexes, veuillez patienter...",
         "failedToGetPath": "Impossible de récupérer le chemin du fichier journal.",
+        "layoutResetSuccess": "La disposition de l'espace de travail a été réinitialisée.",
         "processing": "Traitement en cours...",
+        "resettingLayout": "Réinitialisation de l'espace de travail...",
         "sidecarSuccess": "{{count}} fichiers annexes supprimés avec succès.",
         "sidecarSuccess_many": "{{count}} fichiers annexes supprimés avec succès.",
         "sidecarSuccess_one": "{{count}} fichier annexe supprimé avec succès.",
@@ -1775,10 +1805,12 @@
         "depth": "Pour le puissant modèle d'estimation de profondeur monoculaire qui permet les capacités de masquage de profondeur par l'IA.",
         "lama": "Pour le modèle d'inpainting d'image puissant & simple, qui permet le remplissage génératif et la suppression d'objets.",
         "lensfun": "Pour son inestimable bibliothèque open-source et sa base de données complète pour la correction automatique de l'objectif.",
+        "libgphoto2": "Pour la bibliothèque complète de communication avec les appareils photo qui alimente le tethering et la capture à distance de RapidRAW.",
         "negpy": "Pour l'inspiration derrière la logique de conversion de négatif.",
         "nind": "Pour avoir fourni les modèles d'IA qui propulsent les capacités de réduction de bruit par IA dans RapidRAW.",
         "rawler": "Pour l'excellente crate Rust qui fournit la base du traitement des fichiers RAW dans ce projet.",
         "sam2": "Pour avoir fourni le modèle de base utilisé pour les capacités de détection de sujet par IA.",
+        "spektrafilm": "Pour les LUTs d'émulation de film à base spectrale d'Andrea Volpato, qui alimentent les émulations intégrées de RapidRAW. Sous licence CC BY-SA 4.0.",
         "u2net": "Pour avoir fourni l'architecture robuste utilisée pour les capacités de détection du ciel et du premier plan par l'IA.",
         "you": "À vous, pour l'utilisation et le soutien de RapidRAW. Votre intérêt maintient ce projet vivant et en évolution.",
         "youLabel": "Vous"
@@ -1794,6 +1826,59 @@
     "tooltips": {
       "goHome": "Aller à l'accueil"
     }
+  },
+  "tethering": {
+    "aperture": "Ouverture",
+    "aperturePlaceholder": "ex. 2.8",
+    "autoApplyPreset": "Appliquer preset auto.",
+    "autoOpenCaptured": "Ouvrir automatiquement l'image capturée",
+    "cameraConnected": "Appareil connecté",
+    "capturing": "Capture en cours...",
+    "changePreset": "Changer",
+    "clearPreset": "Effacer le preset",
+    "connectCamera": "Connecter l'appareil",
+    "expComp": "Comp. Exp.",
+    "expCompPlaceholder": "ex. 0.0",
+    "expMode": "Mode Exp.",
+    "exposureSettings": "Paramètres d'exposition",
+    "flipHorizontal": "Retourner horizontalement",
+    "generalSettings": "Paramètres généraux",
+    "ghostOverlayAlt": "Incrustation fantôme",
+    "iso": "ISO",
+    "isoPlaceholder": "ex. 400",
+    "liveViewAlt": "Visée directe",
+    "metering": "Mode de mesure",
+    "noCameraDetected": "Aucun appareil détecté",
+    "noCamerasFound": "Aucun appareil trouvé. Assurez-vous qu'il est connecté et en mode PC Remote.",
+    "overlayLastShot": "Superposer la dernière photo",
+    "overlayOff": "Désactivé",
+    "rotate90": "Faire pivoter de 90°",
+    "scanTooltip": "Rechercher des appareils",
+    "selectCamera": "Sélectionner un appareil",
+    "selectCameraPlaceholder": "Sélectionner un appareil",
+    "shutter": "Obturateur",
+    "shutterPlaceholder": "ex. 1/200",
+    "startLiveView": "Démarrer la visée directe",
+    "status": "État",
+    "stopLiveView": "Arrêter la visée directe",
+    "title": "Prise de vue connectée",
+    "toasts": {
+      "afFailed": "Échec du déclenchement de l'autofocus",
+      "cameraDisconnected": "Appareil déconnecté",
+      "captureFailed": "Échec de la capture : {{err}}",
+      "communicationFailed": "Échec de la communication avec l'appareil",
+      "connectionFailed": "Échec de la connexion : {{err}}",
+      "detectionFailed": "Échec de la détection : {{err}}",
+      "noCamerasFound": "Aucun appareil trouvé. Assurez-vous qu'il est en mode PC Remote.",
+      "presetApplyFailed": "Échec de l'application du preset à la photo",
+      "selectFolderFirst": "Veuillez d'abord sélectionner un dossier standard dans votre bibliothèque.",
+      "setFailed": "Échec de la définition de {{key}} : {{err}}"
+    },
+    "triggerAutofocus": "Déclencher l'autofocus",
+    "triggerCapture": "Capturer",
+    "wbTemp": "Témperature WB (K)",
+    "wbTempPlaceholder": "ex. 5600",
+    "whiteBalance": "Balance des blancs"
   },
   "ui": {
     "bottomBar": {
@@ -1856,7 +1941,9 @@
     },
     "lut": {
       "clearLut": "Effacer LUT",
+      "customLuts": "LUTs personnalisées",
       "empty": "Pas encore de LUT — importez-en",
+      "filmEmulations": "Émulations de film",
       "filterLabel": "Fichiers LUT",
       "import": "Importer des profils",
       "importFailed": "Échec de l'importation des LUT",

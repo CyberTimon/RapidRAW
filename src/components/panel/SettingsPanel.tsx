@@ -45,6 +45,8 @@ import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
 import { open } from '@tauri-apps/plugin-shell';
+import { RotateCcw } from 'lucide-react';
+import { useUIStore } from '../../store/useUIStore';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -314,7 +316,7 @@ const CloudDashboard = () => {
       try {
         const token = await getToken();
         if (!token) return;
-        const res = await fetch('https://getrapidraw.com/api/usage', {
+        const res = await fetch('http://127.0.0.1:5000/usage', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -527,6 +529,9 @@ export default function SettingsPanel({
   const [lensModels, setLensModels] = useState<string[]>([]);
   const [tempLensMaker, setTempLensMaker] = useState<string>('');
   const [tempLensModel, setTempLensModel] = useState<string>('');
+
+  const [isResettingLayout, setIsResettingLayout] = useState(false);
+  const [layoutResetMessage, setLayoutResetMessage] = useState('');
 
   const osPlatform = useOsPlatform();
   const [processingSettings, setProcessingSettings] = useState({
@@ -778,6 +783,41 @@ export default function SettingsPanel({
         setClearMessage('');
       }, EXECUTE_TIMEOUT);
     }
+  };
+
+  const executeResetLayout = async () => {
+    setIsResettingLayout(true);
+    setLayoutResetMessage(t('settings.data.statuses.resettingLayout'));
+    try {
+      const resetWorkspaceLayout = useUIStore.getState().resetWorkspaceLayout;
+      const defaultWorkspace = resetWorkspaceLayout(false);
+
+      await onSettingsChange({
+        ...appSettings,
+        workspace: defaultWorkspace,
+      });
+
+      setLayoutResetMessage(t('settings.data.statuses.layoutResetSuccess'));
+    } catch (err: any) {
+      console.error('Failed to reset workspace layout:', err);
+      setLayoutResetMessage(`Error: ${err}`);
+    } finally {
+      setTimeout(() => {
+        setIsResettingLayout(false);
+        setLayoutResetMessage('');
+      }, EXECUTE_TIMEOUT);
+    }
+  };
+
+  const handleResetLayout = () => {
+    setConfirmModalState({
+      confirmText: t('settings.data.modals.confirmResetLayout'),
+      confirmVariant: 'destructive',
+      isOpen: true,
+      message: t('settings.data.modals.resetLayoutMessage'),
+      onConfirm: executeResetLayout,
+      title: t('settings.data.modals.confirmResetLayoutTitle'),
+    });
   };
 
   const handleClearSidecars = () => {
@@ -1588,6 +1628,17 @@ export default function SettingsPanel({
                       </li>
                       <li>
                         <a
+                          href="https://github.com/andreavolpato/spektrafilm"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          spektrafilm
+                        </a>
+                        : {t('settings.thanks.list.spektrafilm')}
+                      </li>
+                      <li>
+                        <a
                           href="https://github.com/marcinz606/NegPy"
                           target="_blank"
                           rel="noopener noreferrer"
@@ -1651,6 +1702,17 @@ export default function SettingsPanel({
                           nind-denoise
                         </a>
                         : {t('settings.thanks.list.nind')}
+                      </li>
+                      <li>
+                        <a
+                          href="http://gphoto.org/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          libgphoto2
+                        </a>
+                        : {t('settings.thanks.list.libgphoto2')}
                       </li>
                       <li>
                         <a
@@ -2312,6 +2374,16 @@ export default function SettingsPanel({
                         isProcessing={isClearing}
                         message={clearMessage}
                         title={t('settings.data.clearSidecars')}
+                      />
+
+                      <DataActionItem
+                        buttonAction={handleResetLayout}
+                        buttonText={t('settings.data.resetLayoutButton')}
+                        description={t('settings.data.resetLayoutDesc')}
+                        icon={<RotateCcw size={16} className="mr-2" />}
+                        isProcessing={isResettingLayout}
+                        message={layoutResetMessage}
+                        title={t('settings.data.resetLayoutTitle')}
                       />
 
                       <DataActionItem

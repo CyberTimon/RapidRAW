@@ -333,7 +333,8 @@ export default function BottomBar({
         >
           <div
             className={clsx(
-              'w-full p-2 transition-opacity duration-300 ease-in-out',
+              'w-full p-2 duration-300 ease-in-out',
+              shouldAnimate ? 'transition-all' : 'transition-opacity',
               isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto',
             )}
             style={{ height: `${currentHeight}px` }}

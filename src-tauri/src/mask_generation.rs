@@ -10,7 +10,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::f32::consts::PI;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
-use std::sync::Arc; // Required for parallel rasterization
+use std::sync::Arc;
 
 use crate::app_state::AppState;
 use crate::get_cached_full_warped_image;

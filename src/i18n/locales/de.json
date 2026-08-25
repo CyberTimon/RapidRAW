@@ -225,6 +225,10 @@
       "addCopiedToAlbum_other": "{{count}} kopierte Bilder zum Album hinzufügen",
       "refreshView": "Ansicht aktualisieren"
     },
+    "merge": {
+      "focusStack": "Fokus-Stacking",
+      "title": "Zusammenfügen"
+    },
     "tagging": {
       "addTagTooltip": "Tag hinzufügen",
       "noTags": "Keine Tags hinzugefügt",
@@ -717,7 +721,8 @@
         "info": "Info",
         "inpaint": "Reparieren",
         "masks": "Masken",
-        "presets": "Vorgaben"
+        "presets": "Vorgaben",
+        "tethering": "Tethering"
       }
     },
     "toolbar": {
@@ -1232,6 +1237,23 @@
       "titleBatch": "Bilder entrauschen",
       "titleSingle": "Bild entrauschen"
     },
+    "focusStack": {
+      "cancel": "Abbrechen",
+      "close": "Schließen",
+      "depthMap": "Tiefenkarte",
+      "description": "Kombinieren Sie mehrere Bilder mit unterschiedlichen Fokusdistanzen zu einem einzigen, perfekt scharfen Bild.",
+      "descriptionWithCount_one": "Kombinieren Sie {{count}} Bild mit unterschiedlichen Fokusdistanzen zu einem einzigen, perfekt scharfen Bild.",
+      "descriptionWithCount_other": "Kombinieren Sie {{count}} Bilder mit unterschiedlichen Fokusdistanzen zu einem einzigen, perfekt scharfen Bild.",
+      "failed": "Fokus-Stacking fehlgeschlagen",
+      "initializing": "Wird initialisiert...",
+      "openInEditor": "Im Editor öffnen",
+      "result": "Ergebnis",
+      "save": "Speichern",
+      "savedSuccess": "Fokus-Stack erfolgreich gespeichert!",
+      "stacking": "Fokus wird gestapelt",
+      "start": "Start",
+      "title": "Fokus-Stacking"
+    },
     "hdr": {
       "cancel": "Abbrechen",
       "close": "Schließen",
@@ -1439,10 +1461,16 @@
         "confirmClearAll": "Alle Tags löschen",
         "confirmClearCache": "Cache löschen",
         "confirmDeleteAllEdits": "Alle Bearbeitungen löschen",
+        "confirmResetLayout": "Layout zurücksetzen",
+        "confirmResetLayoutTitle": "Arbeitsbereich-Layout zurücksetzen",
         "confirmTitle": "Löschen bestätigen",
+        "resetLayoutMessage": "Möchten Sie das Layout des Arbeitsbereichs wirklich zurücksetzen? Alle angedockten Panels, Breiten und Umschalter-Positionen werden auf ihre Standardwerte zurückgesetzt.",
         "sidecarMessage": "Sind Sie sicher, dass Sie alle Filialdateien löschen möchten?\n\nDies entfernt dauerhaft alle Ihre Bearbeitungen für alle Bilder in allen aktiven Stammordnern."
       },
       "noFolders": "Keine Ordner ausgewählt",
+      "resetLayoutButton": "Layout zurücksetzen",
+      "resetLayoutDesc": "Setzt Panel-Docks, seitliche Teiler, Höhen und Panel-Umschalter auf das Standard-Layout zurück.",
+      "resetLayoutTitle": "Arbeitsbereich-Layout zurücksetzen",
       "statuses": {
         "aiSuccess": "{{count}} Dateien aktualisiert. KI-Tags entfernt.",
         "aiSuccess_one": "{{count}} Datei aktualisiert. KI-Tags entfernt.",
@@ -1456,7 +1484,9 @@
         "clearingCache": "Miniaturbild-Cache löschen...",
         "deleting": "Filialdateien werden gelöscht, bitte warten...",
         "failedToGetPath": "Protokolldateipfad konnte nicht abgerufen werden.",
+        "layoutResetSuccess": "Layout des Arbeitsbereichs auf Standard zurückgesetzt.",
         "processing": "Wird verarbeitet...",
+        "resettingLayout": "Arbeitsbereich wird zurückgesetzt...",
         "sidecarSuccess": "{{count}} Filialdateien erfolgreich gelöscht.",
         "sidecarSuccess_one": "{{count}} Filialdatei erfolgreich gelöscht.",
         "sidecarSuccess_other": "{{count}} Filialdateien erfolgreich gelöscht."
@@ -1742,10 +1772,12 @@
         "depth": "Für das Modell zur monokularen Tiefenschätzung (Tiefenmasken).",
         "lama": "Für das leistungsstarke Bild-Inpainting-Modell.",
         "lensfun": "Für die unschätzbare Open-Source-Bibliothek für Objektivkorrektur.",
+        "libgphoto2": "Für die umfassende Kamera-Kommunikationsbibliothek, die RapidRAWs Tethering und Fernauslösung ermöglicht.",
         "negpy": "Für die Inspiration hinter der Negativumwandlungslogik.",
         "nind": "Für die Bereitstellung von KI-Modellen für die Rauschreduzierung.",
         "rawler": "Für die hervorragende Rust-Crate zur RAW-Bildverarbeitung.",
         "sam2": "Für das grundlegende Modell der KI-Motiverkennung.",
+        "spektrafilm": "Für die spektralbasierten Filmemulations-LUTs von Andrea Volpato, die RapidRAWs integrierte Filmemulationen ermöglichen. Lizenziert unter CC BY-SA 4.0.",
         "u2net": "Für die Architektur zur Erkennung von Himmel und Vordergrund.",
         "you": "Dafür, dass Sie RapidRAW nutzen. Ihr Interesse hält dieses Projekt am Leben.",
         "youLabel": "Ihnen"
@@ -1761,6 +1793,59 @@
     "tooltips": {
       "goHome": "Zur Startseite"
     }
+  },
+  "tethering": {
+    "aperture": "Blende",
+    "aperturePlaceholder": "z. B. 2.8",
+    "autoApplyPreset": "Preset autom. anwenden",
+    "autoOpenCaptured": "Aufgenommenes Bild autom. öffnen",
+    "cameraConnected": "Kamera verbunden",
+    "capturing": "Aufnahme läuft...",
+    "changePreset": "Ändern",
+    "clearPreset": "Preset entfernen",
+    "connectCamera": "Kamera verbinden",
+    "expComp": "Belichtungskorr.",
+    "expCompPlaceholder": "z. B. 0.0",
+    "expMode": "Belichtungsmodus",
+    "exposureSettings": "Belichtungseinstellungen",
+    "flipHorizontal": "Horizontal spiegeln",
+    "generalSettings": "Allgemeine Einstellungen",
+    "ghostOverlayAlt": "Geister-Überlagerung",
+    "iso": "ISO",
+    "isoPlaceholder": "z. B. 400",
+    "liveViewAlt": "Live-View",
+    "metering": "Messmodus",
+    "noCameraDetected": "Keine Kamera erkannt",
+    "noCamerasFound": "Keine Kameras gefunden. Stellen Sie sicher, dass sie angeschlossen und im PC-Fernsteuerungsmodus ist.",
+    "overlayLastShot": "Letzte Aufnahme überlagern",
+    "overlayOff": "Aus",
+    "rotate90": "90° drehen",
+    "scanTooltip": "Nach Kameras suchen",
+    "selectCamera": "Kamera auswählen",
+    "selectCameraPlaceholder": "Eine Kamera auswählen",
+    "shutter": "Verschluss",
+    "shutterPlaceholder": "z. B. 1/200",
+    "startLiveView": "Live-View starten",
+    "status": "Status",
+    "stopLiveView": "Live-View beenden",
+    "title": "Tethering",
+    "toasts": {
+      "afFailed": "Autofokus fehlgeschlagen",
+      "cameraDisconnected": "Kamera getrennt",
+      "captureFailed": "Aufnahme fehlgeschlagen: {{err}}",
+      "communicationFailed": "Kommunikation mit der Kamera fehlgeschlagen",
+      "connectionFailed": "Verbindung fehlgeschlagen: {{err}}",
+      "detectionFailed": "Erkennung fehlgeschlagen: {{err}}",
+      "noCamerasFound": "Keine Kameras gefunden. Stellen Sie sicher, dass sie im PC-Fernsteuerungsmodus ist.",
+      "presetApplyFailed": "Fehler beim Anwenden des Presets auf die Aufnahme",
+      "selectFolderFirst": "Bitte wählen Sie zuerst einen Standardordner in Ihrer Bibliothek aus.",
+      "setFailed": "Fehler beim Einstellen von {{key}}: {{err}}"
+    },
+    "triggerAutofocus": "Autofokus auslösen",
+    "triggerCapture": "Aufnehmen",
+    "wbTemp": "Farbtemp. (K)",
+    "wbTempPlaceholder": "z. B. 5600",
+    "whiteBalance": "Weißabgleich"
   },
   "ui": {
     "bottomBar": {
@@ -1822,7 +1907,9 @@
     },
     "lut": {
       "clearLut": "LUT löschen",
+      "customLuts": "Eigene LUTs",
       "empty": "Noch keine LUTs — importiere welche",
+      "filmEmulations": "Filmemulationen",
       "filterLabel": "LUT-Dateien",
       "import": "Profile importieren",
       "importFailed": "LUTs konnten nicht importiert werden",

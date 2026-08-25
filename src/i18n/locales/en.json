@@ -225,6 +225,10 @@
       "addCopiedToAlbum_other": "Add {{count}} copied images to album",
       "refreshView": "Refresh View"
     },
+    "merge": {
+      "focusStack": "Focus Stacking",
+      "title": "Merge"
+    },
     "tagging": {
       "addTagTooltip": "Add tag",
       "noTags": "No tags added",
@@ -717,7 +721,8 @@
         "info": "Info",
         "inpaint": "Inpaint",
         "masks": "Masks",
-        "presets": "Presets"
+        "presets": "Presets",
+        "tethering": "Tethering"
       }
     },
     "toolbar": {
@@ -1232,6 +1237,23 @@
       "titleBatch": "Denoise Images",
       "titleSingle": "Denoise Image"
     },
+    "focusStack": {
+      "cancel": "Cancel",
+      "close": "Close",
+      "depthMap": "Depth Map",
+      "description": "Combine multiple images with varying focus distances into a single perfectly sharp image.",
+      "descriptionWithCount_one": "Combine {{count}} image with varying focus distances into a single perfectly sharp image.",
+      "descriptionWithCount_other": "Combine {{count}} images with varying focus distances into a single perfectly sharp image.",
+      "failed": "Focus Stack Failed",
+      "initializing": "Initializing...",
+      "openInEditor": "Open in Editor",
+      "result": "Result",
+      "save": "Save",
+      "savedSuccess": "Focus Stack Saved Successfully!",
+      "stacking": "Stacking Focus",
+      "start": "Start",
+      "title": "Focus Stacking"
+    },
     "hdr": {
       "cancel": "Cancel",
       "close": "Close",
@@ -1439,10 +1461,16 @@
         "confirmClearAll": "Clear All Tags",
         "confirmClearCache": "Clear Cache",
         "confirmDeleteAllEdits": "Delete All Edits",
+        "confirmResetLayout": "Reset Layout",
+        "confirmResetLayoutTitle": "Reset Workspace Layout",
         "confirmTitle": "Confirm Deletion",
+        "resetLayoutMessage": "Are you sure you want to reset the workspace layout? All docked panels, widths, and switcher positions will be restored to their defaults.",
         "sidecarMessage": "Are you sure you want to delete all sidecar files?\n\nThis will permanently remove all your edits for all images inside all active root folders and their subfolders."
       },
       "noFolders": "No folders selected",
+      "resetLayoutButton": "Reset Layout",
+      "resetLayoutDesc": "Restore panel docks, side splitters, heights, and panel switchers to the default layout.",
+      "resetLayoutTitle": "Reset Workspace Layout",
       "statuses": {
         "aiSuccess": "{{count}} files updated. AI tags removed.",
         "aiSuccess_one": "{{count}} file updated. AI tags removed.",
@@ -1456,7 +1484,9 @@
         "clearingCache": "Clearing thumbnail cache...",
         "deleting": "Deleting sidecar files, please wait...",
         "failedToGetPath": "Could not retrieve log file path.",
+        "layoutResetSuccess": "Workspace layout reset to default.",
         "processing": "Processing...",
+        "resettingLayout": "Resetting workspace...",
         "sidecarSuccess": "{{count}} sidecar files deleted successfully.",
         "sidecarSuccess_one": "{{count}} sidecar file deleted successfully.",
         "sidecarSuccess_other": "{{count}} sidecar files deleted successfully."
@@ -1742,10 +1772,12 @@
         "depth": "For the powerful monocular depth estimation model that enables the AI depth masking capabilities.",
         "lama": "For the powerful & simple image inpainting model, which enables content-aware fill and object removal.",
         "lensfun": "For its invaluable open-source library and comprehensive database for automatic lens correction.",
+        "libgphoto2": "For the comprehensive camera communication library powering RapidRAW's tethering and remote capture subsystem.",
         "negpy": "For the inspiration behind the negative conversion logic.",
         "nind": "For providing AI models that power the AI noise reduction capabilities in RapidRAW.",
         "rawler": "For the excellent Rust crate that provides the foundation for RAW file processing in this project.",
         "sam2": "For providing the foundation model used for the AI subject detection capabilities.",
+        "spektrafilm": "For the spectrally-based film emulation LUTs by Andrea Volpato, used to power RapidRAW's built-in film emulations. Licensed CC BY-SA 4.0.",
         "u2net": "For providing the robust architecture used for the AI sky and foreground detection capabilities.",
         "you": "For using and supporting RapidRAW. Your interest keeps this project alive and evolving.",
         "youLabel": "You"
@@ -1761,6 +1793,59 @@
     "tooltips": {
       "goHome": "Go to Home"
     }
+  },
+  "tethering": {
+    "aperture": "Aperture",
+    "aperturePlaceholder": "e.g. 2.8",
+    "autoApplyPreset": "Auto Apply Preset",
+    "autoOpenCaptured": "Auto-open captured image",
+    "cameraConnected": "Camera Connected",
+    "capturing": "Capturing...",
+    "changePreset": "Change",
+    "clearPreset": "Clear Preset",
+    "connectCamera": "Connect Camera",
+    "expComp": "Exp. Comp",
+    "expCompPlaceholder": "e.g. 0.0",
+    "expMode": "Exp. Mode",
+    "exposureSettings": "Exposure Settings",
+    "flipHorizontal": "Flip Horizontal",
+    "generalSettings": "General Settings",
+    "ghostOverlayAlt": "Ghost Overlay",
+    "iso": "ISO",
+    "isoPlaceholder": "e.g. 400",
+    "liveViewAlt": "Live View",
+    "metering": "Metering Mode",
+    "noCameraDetected": "No camera detected",
+    "noCamerasFound": "No cameras found. Ensure it is connected and in PC Remote mode.",
+    "overlayLastShot": "Overlay Last Shot",
+    "overlayOff": "Off",
+    "rotate90": "Rotate 90°",
+    "scanTooltip": "Scan for Cameras",
+    "selectCamera": "Select Camera",
+    "selectCameraPlaceholder": "Select a camera",
+    "shutter": "Shutter",
+    "shutterPlaceholder": "e.g. 1/200",
+    "startLiveView": "Start Live View",
+    "status": "Status",
+    "stopLiveView": "Stop Live View",
+    "title": "Tethering",
+    "toasts": {
+      "afFailed": "Autofocus trigger failed",
+      "cameraDisconnected": "Camera disconnected",
+      "captureFailed": "Capture failed: {{err}}",
+      "communicationFailed": "Failed to communicate with camera",
+      "connectionFailed": "Connection failed: {{err}}",
+      "detectionFailed": "Detection failed: {{err}}",
+      "noCamerasFound": "No cameras found. Ensure it is in PC Remote mode.",
+      "presetApplyFailed": "Failed to apply preset to captured image",
+      "selectFolderFirst": "Please select a standard folder in your Library first.",
+      "setFailed": "Failed to set {{key}}: {{err}}"
+    },
+    "triggerAutofocus": "Trigger Autofocus",
+    "triggerCapture": "Capture",
+    "wbTemp": "WB Temp (K)",
+    "wbTempPlaceholder": "e.g. 5600",
+    "whiteBalance": "White Balance"
   },
   "ui": {
     "bottomBar": {
@@ -1822,7 +1907,9 @@
     },
     "lut": {
       "clearLut": "Clear LUT",
+      "customLuts": "Custom LUTs",
       "empty": "No LUTs yet — import some",
+      "filmEmulations": "Film Emulations",
       "filterLabel": "LUT Files",
       "import": "Import profiles",
       "importFailed": "Failed to import LUTs",

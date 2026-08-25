@@ -65,7 +65,7 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className={`absolute right-0 mt-2 ${contentClassName} origin-top-right z-20`}
+            className={`absolute right-0 mt-2 ${contentClassName} origin-top-right z-50`}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -582,7 +582,6 @@ export function ViewOptionsDropdown({
       contentClassName="library-view-options-menu w-[760px]"
     >
       <div className="library-view-options-content flex">
-        {/* Left Column (50%) - View Settings */}
         <div className="library-view-options-section w-1/2 py-4 px-2 border-r border-border-color space-y-5">
           <div>
             <div className="px-3 py-1 relative flex items-center">
@@ -649,7 +648,13 @@ export function ViewOptionsDropdown({
                   { id: LibraryViewMode.Recursive, label: t('library.header.viewOptions.recursive') },
                 ]}
                 value={libraryViewMode}
-                onChange={setLibraryViewMode}
+                onChange={async (val) => {
+                  setLibraryViewMode(val as LibraryViewMode);
+                  if (appSettings) {
+                    await handleSettingsChange({ ...appSettings, libraryViewMode: val as LibraryViewMode });
+                    onLibraryRefresh?.();
+                  }
+                }}
               />
             </div>
           </div>
@@ -668,7 +673,6 @@ export function ViewOptionsDropdown({
           </div>
         </div>
 
-        {/* Right Column (50%) - Filters & Grouping */}
         <div className="library-view-options-section w-1/2 py-4 px-2 space-y-5">
           <div>
             <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">

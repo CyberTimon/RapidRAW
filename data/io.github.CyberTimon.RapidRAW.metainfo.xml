@@ -38,6 +38,26 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.6.2" date="2026-08-21">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.2</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Camera Tethering: Connect cameras over USB for real-time live view, remote capture, camera controls, and automatic ingestion.</li>
+                <li>Focus Stacking: Merge multiple focus-bracketed exposures into a single image with extended front-to-back sharpness.</li>
+                <li>Analog Film Emulations: Built-in, scientifically modeled film profiles powered by spektrafilm in a scene-referred V-Log pipeline.</li>
+                <li>Deconvolution Sharpening: Rewritten sharpening engine featuring multi-scale deconvolution with halo suppression and edge smoothing.</li>
+                <li>Drag &amp; Drop Organization: Select and drag multiple images directly into folders or albums.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Full EXIF Preservation: Retain and embed complete capture metadata upon export.</li>
+                <li>Touch &amp; Tablet UI: Restored side panel layouts and controls for touch-screen devices.</li>
+                <li>Inpainting Auto-Crop: Added automatic canvas cropping for generative AI inpainting workflows.</li>
+                <li>Stability &amp; Fixes: General bug fixes and overall performance optimizations.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.6.1" date="2026-08-07">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.1</url>
         <description translate="no">

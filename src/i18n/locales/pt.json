@@ -229,6 +229,10 @@
       "addCopiedToAlbum_other": "Adicionar {{count}} imagens copiadas ao álbum",
       "refreshView": "Atualizar Exibição"
     },
+    "merge": {
+      "focusStack": "Empilhamento de Foco",
+      "title": "Mesclar"
+    },
     "tagging": {
       "addTagTooltip": "Adicionar etiqueta",
       "noTags": "Nenhuma etiqueta adicionada",
@@ -738,7 +742,8 @@
         "info": "Informações",
         "inpaint": "Preencher",
         "masks": "Máscaras",
-        "presets": "Predefinições"
+        "presets": "Predefinições",
+        "tethering": "Captura Conectada (Tethering)"
       }
     },
     "toolbar": {
@@ -1258,6 +1263,24 @@
       "titleBatch": "Reduzir Ruído de Imagens",
       "titleSingle": "Reduzir Ruído da Imagem"
     },
+    "focusStack": {
+      "cancel": "Cancelar",
+      "close": "Fechar",
+      "depthMap": "Mapa de Profundidade",
+      "description": "Combine várias imagens com diferentes distâncias de foco em uma única imagem perfeitamente nítida.",
+      "descriptionWithCount_many": "Combine {{count}} imagens com diferentes distâncias de foco em uma única imagem perfeitamente nítida.",
+      "descriptionWithCount_one": "Combine {{count}} imagem com diferentes distâncias de foco em uma única imagem perfeitamente nítida.",
+      "descriptionWithCount_other": "Combine {{count}} imagens com diferentes distâncias de foco em uma única imagem perfeitamente nítida.",
+      "failed": "Falha no Empilhamento de Foco",
+      "initializing": "Inicializando...",
+      "openInEditor": "Abrir no Editor",
+      "result": "Resultado",
+      "save": "Salvar",
+      "savedSuccess": "Empilhamento de foco salvo com sucesso!",
+      "stacking": "Empilhando Foco",
+      "start": "Iniciar",
+      "title": "Empilhamento de Foco"
+    },
     "hdr": {
       "cancel": "Cancelar",
       "close": "Fechar",
@@ -1469,10 +1492,16 @@
         "confirmClearAll": "Limpar Todas as Etiquetas",
         "confirmClearCache": "Limpar Cache",
         "confirmDeleteAllEdits": "Excluir Todas as Edições",
+        "confirmResetLayout": "Redefinir layout",
+        "confirmResetLayoutTitle": "Redefinir layout do espaço de trabalho",
         "confirmTitle": "Confirmar Exclusão",
+        "resetLayoutMessage": "Tem certeza de que deseja redefinir o layout do espaço de trabalho? Todos os painéis acoplados, larguras e posições dos seletores serão restaurados para os padrões originais.",
         "sidecarMessage": "Tem certeza de que deseja excluir todos os arquivos sidecar?\n\nIsso removerá permanentemente todas as suas edições para todas as imagens dentro de todas as pastas raiz ativas e suas subpastas."
       },
       "noFolders": "Nenhuma pasta selecionada",
+      "resetLayoutButton": "Redefinir layout",
+      "resetLayoutDesc": "Restaura os painéis acoplados, divisores laterais, alturas e seletores de painel para o layout padrão.",
+      "resetLayoutTitle": "Redefinir layout do espaço de trabalho",
       "statuses": {
         "aiSuccess": "{{count}} arquivos atualizados. Etiquetas de IA removidas.",
         "aiSuccess_many": "{{count}} arquivos atualizados. Etiquetas de IA removidas.",
@@ -1488,7 +1517,9 @@
         "clearingCache": "Limpando cache de miniaturas...",
         "deleting": "Excluindo arquivos sidecar, por favor aguarde...",
         "failedToGetPath": "Não foi possível recuperar o caminho do arquivo de log.",
+        "layoutResetSuccess": "O layout do espaço de trabalho foi redefinido para o padrão.",
         "processing": "Processando...",
+        "resettingLayout": "Redefinando espaço de trabalho...",
         "sidecarSuccess": "{{count}} arquivos sidecar excluídos com sucesso.",
         "sidecarSuccess_many": "{{count}} arquivos sidecar excluídos com sucesso.",
         "sidecarSuccess_one": "{{count}} arquivo sidecar excluído com sucesso.",
@@ -1775,10 +1806,12 @@
         "depth": "Pelo poderoso modelo de estimativa de profundidade monocular que permite as capacidades de mascaramento de profundidade por IA.",
         "lama": "Pelo modelo poderoso e simples de preenchimento de imagens, que permite o preenchimento sensível ao conteúdo e a remoção de objetos.",
         "lensfun": "Pela sua valiosa biblioteca de código aberto e banco de dados abrangente para correção automática de lente.",
+        "libgphoto2": "Pela abrangente biblioteca de comunicação com câmeras que alimenta o tethering e a captura remota do RapidRAW.",
         "negpy": "Pela inspiração por trás da lógica de conversão de negativo.",
         "nind": "Por fornecer modelos de IA que alimentam os recursos de redução de ruído por IA no RapidRAW.",
         "rawler": "Pelo excelente crate Rust que fornece a base para o processamento de arquivos RAW neste projeto.",
         "sam2": "Por fornecer o modelo base usado para os recursos de detecção de motivos por IA.",
+        "spektrafilm": "Pelas LUTs de emulação de filme com base espectral, de Andrea Volpato, que alimentam as emulações integradas do RapidRAW. Licenciadas sob CC BY-SA 4.0.",
         "u2net": "Por fornecer a arquitetura robusta usada para as capacidades de detecção de céu e primeiro plano por IA.",
         "you": "Por usar e apoiar o RapidRAW. Seu interesse mantém este projeto vivo e em evolução.",
         "youLabel": "Você"
@@ -1794,6 +1827,59 @@
     "tooltips": {
       "goHome": "Ir para Início"
     }
+  },
+  "tethering": {
+    "aperture": "Abertura",
+    "aperturePlaceholder": "ex. 2.8",
+    "autoApplyPreset": "Aplicar Predefinição Auto.",
+    "autoOpenCaptured": "Abrir automaticamente imagem capturada",
+    "cameraConnected": "Câmera Conectada",
+    "capturing": "Capturando...",
+    "changePreset": "Alterar",
+    "clearPreset": "Limpar Predefinição",
+    "connectCamera": "Conectar Câmera",
+    "expComp": "Comp. Exp.",
+    "expCompPlaceholder": "ex. 0.0",
+    "expMode": "Modo Exp.",
+    "exposureSettings": "Configurações de Exposição",
+    "flipHorizontal": "Espelhar Horizontalmente",
+    "generalSettings": "Configurações Gerais",
+    "ghostOverlayAlt": "Sobreposição Fantasma",
+    "iso": "ISO",
+    "isoPlaceholder": "ex. 400",
+    "liveViewAlt": "Live View",
+    "metering": "Modo de Medição",
+    "noCameraDetected": "Nenhuma câmera detectada",
+    "noCamerasFound": "Nenhuma câmera encontrada. Certifique-se de que esteja conectada e no modo PC Remote.",
+    "overlayLastShot": "Sobrepor Última Foto",
+    "overlayOff": "Desligado",
+    "rotate90": "Girar 90°",
+    "scanTooltip": "Buscar Câmeras",
+    "selectCamera": "Selecionar Câmera",
+    "selectCameraPlaceholder": "Selecione uma câmera",
+    "shutter": "Obturador",
+    "shutterPlaceholder": "ex. 1/200",
+    "startLiveView": "Iniciar Live View",
+    "status": "Status",
+    "stopLiveView": "Parar Live View",
+    "title": "Tethering",
+    "toasts": {
+      "afFailed": "Falha ao acionar foco automático",
+      "cameraDisconnected": "Câmera desconectada",
+      "captureFailed": "Falha na captura: {{err}}",
+      "communicationFailed": "Falha na comunicação com a câmera",
+      "connectionFailed": "Falha na conexão: {{err}}",
+      "detectionFailed": "Falha na detecção: {{err}}",
+      "noCamerasFound": "Nenhuma câmera encontrada. Verifique se está no modo PC Remote.",
+      "presetApplyFailed": "Falha ao aplicar predefinição à captura",
+      "selectFolderFirst": "Selecione uma pasta padrão na sua Biblioteca primeiro.",
+      "setFailed": "Falha ao definir {{key}}: {{err}}"
+    },
+    "triggerAutofocus": "Disparar Foco Automático",
+    "triggerCapture": "Capturar",
+    "wbTemp": "Temp. WB (K)",
+    "wbTempPlaceholder": "ex. 5600",
+    "whiteBalance": "Balanço de Branco"
   },
   "ui": {
     "bottomBar": {
@@ -1856,7 +1942,9 @@
     },
     "lut": {
       "clearLut": "Limpar LUT",
+      "customLuts": "LUTs personalizadas",
       "empty": "Sem LUTs ainda — importe alguns",
+      "filmEmulations": "Emulações de filme",
       "filterLabel": "Arquivos LUT",
       "import": "Importar perfis",
       "importFailed": "Falha ao importar LUTs",

@@ -225,6 +225,10 @@
       "addCopiedToAlbum_other": "将 {{count}} 张复制的图像添加到相册",
       "refreshView": "刷新视图"
     },
+    "merge": {
+      "focusStack": "焦距合成",
+      "title": "合并"
+    },
     "tagging": {
       "addTagTooltip": "添加标签",
       "noTags": "未添加标签",
@@ -715,7 +719,8 @@
         "info": "信息",
         "inpaint": "修复",
         "masks": "蒙版",
-        "presets": "预设"
+        "presets": "预设",
+        "tethering": "联机拍摄"
       }
     },
     "toolbar": {
@@ -1230,6 +1235,23 @@
       "titleBatch": "降噪图像",
       "titleSingle": "降噪图像"
     },
+    "focusStack": {
+      "cancel": "取消",
+      "close": "关闭",
+      "depthMap": "深度图",
+      "description": "将多张不同对焦距离的图像合并为一张完美清晰的图像。",
+      "descriptionWithCount_one": "将 {{count}} 张不同对焦距离的图像合并为一张完美清晰的图像。",
+      "descriptionWithCount_other": "将 {{count}} 张不同对焦距离的图像合并为一张完美清晰的图像。",
+      "failed": "焦距合成失败",
+      "initializing": "正在初始化...",
+      "openInEditor": "在编辑器中打开",
+      "result": "结果",
+      "save": "保存",
+      "savedSuccess": "焦距合成已成功保存！",
+      "stacking": "正在合成焦距",
+      "start": "开始",
+      "title": "焦距合成"
+    },
     "hdr": {
       "cancel": "取消",
       "close": "关闭",
@@ -1437,10 +1459,16 @@
         "confirmClearAll": "清除所有标签",
         "confirmClearCache": "清除缓存",
         "confirmDeleteAllEdits": "删除所有编辑",
+        "confirmResetLayout": "重置布局",
+        "confirmResetLayoutTitle": "重置工作区布局",
         "confirmTitle": "确认删除",
+        "resetLayoutMessage": "是否确定要重置工作区布局？所有停靠的面板、宽度和切换器位置都将恢复为默认值。",
         "sidecarMessage": "您确定要删除所有附属文件吗？\n\n这将永久删除所有活动根文件夹及其子文件夹中所有图像的所有编辑数据。"
       },
       "noFolders": "未选择文件夹",
+      "resetLayoutButton": "重置布局",
+      "resetLayoutDesc": "将面板停靠区、侧边分割条、高度和面板切换器恢复为默认布局。",
+      "resetLayoutTitle": "重置工作区布局",
       "statuses": {
         "aiSuccess": "{{count}} 个文件已更新。AI 标签已移除。",
         "aiSuccess_one": "{{count}} 个文件已更新。AI 标签已移除。",
@@ -1454,7 +1482,9 @@
         "clearingCache": "正在清除缩略图缓存...",
         "deleting": "正在删除附属文件，请稍候...",
         "failedToGetPath": "无法获取日志文件路径。",
+        "layoutResetSuccess": "工作区布局已重置为默认值。",
         "processing": "处理中...",
+        "resettingLayout": "正在重置工作区...",
         "sidecarSuccess": "{{count}} 个附属文件已成功删除。",
         "sidecarSuccess_one": "{{count}} 个附属文件已成功删除。",
         "sidecarSuccess_other": "{{count}} 个附属文件已成功删除。"
@@ -1740,10 +1770,12 @@
         "depth": "为强大的单目深度估计模型提供支持，实现了 AI 深度蒙版功能。",
         "lama": "为强大且简单的图像修复模型提供支持，实现了内容感知填充和对象移除。",
         "lensfun": "为无价的开源库和全面的数据库提供支持，实现了自动镜头校正。",
+        "libgphoto2": "感谢提供全面的相机通信库，为 RapidRAW 的联机拍摄与远程控制子系统提供支持。",
         "negpy": "为负片转换逻辑提供了灵感。",
         "nind": "为 AI 模型提供支持，驱动了 RapidRAW 中的 AI 降噪功能。",
         "rawler": "为优秀的 Rust 库提供支持，构成了本项目 RAW 文件处理的基础。",
         "sam2": "为提供基础模型，用于 AI 主体检测功能。",
+        "spektrafilm": "感谢 Andrea Volpato 提供基于光谱的胶片模拟 LUT，为 RapidRAW 的内置胶片模拟提供支持。采用 CC BY-SA 4.0 许可。",
         "u2net": "为提供稳健的架构，用于 AI 天空和前景检测功能。",
         "you": "感谢您使用和支持 RapidRAW。您的关注使本项目持续发展。",
         "youLabel": "您"
@@ -1759,6 +1791,59 @@
     "tooltips": {
       "goHome": "返回首页"
     }
+  },
+  "tethering": {
+    "aperture": "光圈",
+    "aperturePlaceholder": "例如 2.8",
+    "autoApplyPreset": "自动应用预设",
+    "autoOpenCaptured": "自动打开拍摄的照片",
+    "cameraConnected": "相机已连接",
+    "capturing": "正在拍摄...",
+    "changePreset": "更改",
+    "clearPreset": "清除预设",
+    "connectCamera": "连接相机",
+    "expComp": "曝光补偿",
+    "expCompPlaceholder": "例如 0.0",
+    "expMode": "曝光模式",
+    "exposureSettings": "曝光设置",
+    "flipHorizontal": "水平翻转",
+    "generalSettings": "常规设置",
+    "ghostOverlayAlt": "叠图预览",
+    "iso": "ISO",
+    "isoPlaceholder": "例如 400",
+    "liveViewAlt": "实时取景",
+    "metering": "测光模式",
+    "noCameraDetected": "未检测到相机",
+    "noCamerasFound": "未找到相机。请确保已连接并处于 PC 遥控模式。",
+    "overlayLastShot": "叠加上一张拍摄照片",
+    "overlayOff": "关闭",
+    "rotate90": "旋转 90°",
+    "scanTooltip": "扫描相机",
+    "selectCamera": "选择相机",
+    "selectCameraPlaceholder": "选择一台相机",
+    "shutter": "快门",
+    "shutterPlaceholder": "例如 1/200",
+    "startLiveView": "开启实时取景",
+    "status": "状态",
+    "stopLiveView": "停止实时取景",
+    "title": "联机拍摄",
+    "toasts": {
+      "afFailed": "触发自动对焦失败",
+      "cameraDisconnected": "相机已断开连接",
+      "captureFailed": "拍摄失败: {{err}}",
+      "communicationFailed": "与相机通信失败",
+      "connectionFailed": "连接失败: {{err}}",
+      "detectionFailed": "检测失败: {{err}}",
+      "noCamerasFound": "未找到相机。请确保处于 PC 遥控模式。",
+      "presetApplyFailed": "对捕获的图像应用预设失败",
+      "selectFolderFirst": "请先在图库中选择一个普通文件夹。",
+      "setFailed": "设置 {{key}} 失败: {{err}}"
+    },
+    "triggerAutofocus": "触发自动对焦",
+    "triggerCapture": "拍摄",
+    "wbTemp": "色温 (K)",
+    "wbTempPlaceholder": "例如 5600",
+    "whiteBalance": "白平衡"
   },
   "ui": {
     "bottomBar": {
@@ -1820,7 +1905,9 @@
     },
     "lut": {
       "clearLut": "清除 LUT",
+      "customLuts": "自定义 LUT",
       "empty": "暂无 LUT — 请导入一些",
+      "filmEmulations": "胶片模拟",
       "filterLabel": "LUT 文件",
       "import": "导入配置文件",
       "importFailed": "导入 LUT 失败",

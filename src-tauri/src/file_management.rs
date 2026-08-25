@@ -17,7 +17,7 @@ use chrono::{DateTime, Utc};
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma};
 use rayon::prelude::*;
-use regex::Regex;
+use regex::regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sysinfo::Disks;
@@ -400,7 +400,7 @@ pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
                 .file_name()
                 .unwrap_or_default()
                 .to_string_lossy(),
-            &id
+            id
         )
     } else {
         format!(
@@ -2343,12 +2343,15 @@ pub fn copy_files(source_paths: Vec<String>, destination_folder: String) -> Resu
         .map(|p| parse_virtual_path(p).0)
         .collect();
 
-    for source_image_path in unique_source_images {
-        let all_files_to_copy = find_all_associated_files(&source_image_path)?;
+    let mut operations_to_perform = Vec::new();
+
+    for source_image_path in &unique_source_images {
+        let all_files_to_copy = find_all_associated_files(source_image_path)?;
 
         let source_parent = source_image_path
             .parent()
             .ok_or("Could not get parent directory")?;
+
         if source_parent == dest_path {
             let stem = source_image_path
                 .file_stem()
@@ -2375,19 +2378,33 @@ pub fn copy_files(source_paths: Vec<String>, destination_folder: String) -> Resu
                 let source_base_filename = source_image_path.file_name().unwrap().to_string_lossy();
                 let new_dest_filename =
                     original_full_filename.replacen(&*source_base_filename, &new_filename, 1);
-                let final_dest_path = dest_path.join(new_dest_filename);
 
-                fs::copy(&original_file, &final_dest_path).map_err(|e| e.to_string())?;
+                let final_dest_path = dest_path.join(new_dest_filename);
+                operations_to_perform.push((original_file, final_dest_path));
             }
         } else {
             for file_to_copy in all_files_to_copy {
                 if let Some(file_name) = file_to_copy.file_name() {
                     let dest_file_path = dest_path.join(file_name);
-                    fs::copy(&file_to_copy, &dest_file_path).map_err(|e| e.to_string())?;
+
+                    if dest_file_path.exists() {
+                        return Err(format!(
+                            "Copy aborted: File already exists at destination: {}",
+                            dest_file_path.display()
+                        ));
+                    }
+
+                    operations_to_perform.push((file_to_copy, dest_file_path));
                 }
             }
         }
     }
+
+    for (source, dest) in operations_to_perform {
+        fs::copy(&source, &dest)
+            .map_err(|e| format!("Copy failed for {}: {}", source.display(), e))?;
+    }
+
     Ok(())
 }
 
@@ -2410,35 +2427,32 @@ pub fn move_files(
         .map(|p| parse_virtual_path(p).0)
         .collect();
 
-    let mut all_files_to_trash = Vec::new();
+    let mut operations_to_perform = Vec::new();
     let mut renames = HashMap::new();
 
-    for source_image_path in unique_source_images {
+    for source_image_path in &unique_source_images {
         let source_parent = source_image_path
             .parent()
             .ok_or("Could not get parent directory")?;
+
         if source_parent == dest_path {
             return Err("Cannot move files into the same folder they are already in.".to_string());
         }
 
-        let files_to_move = find_all_associated_files(&source_image_path)?;
+        let all_files_to_move = find_all_associated_files(source_image_path)?;
 
-        for file_to_move in &files_to_move {
+        for file_to_move in &all_files_to_move {
             if let Some(file_name) = file_to_move.file_name() {
                 let dest_file_path = dest_path.join(file_name);
+
                 if dest_file_path.exists() {
                     return Err(format!(
-                        "File already exists at destination: {}",
+                        "Move aborted: File already exists at destination: {}",
                         dest_file_path.display()
                     ));
                 }
-            }
-        }
 
-        for file_to_move in &files_to_move {
-            if let Some(file_name) = file_to_move.file_name() {
-                let dest_file_path = dest_path.join(file_name);
-                fs::copy(file_to_move, &dest_file_path).map_err(|e| e.to_string())?;
+                operations_to_perform.push((file_to_move.clone(), dest_file_path));
             }
         }
 
@@ -2447,32 +2461,20 @@ pub fn move_files(
             source_image_path.to_string_lossy().into_owned(),
             dest_image_path.to_string_lossy().into_owned(),
         );
-
-        all_files_to_trash.extend(files_to_move);
     }
 
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-    if !all_files_to_trash.is_empty()
-        && let Err(trash_error) = trash::delete_all(&all_files_to_trash)
-    {
-        log::warn!(
-            "Failed to move source files to trash: {}. Falling back to permanent delete.",
-            trash_error
-        );
-        for path in all_files_to_trash {
-            if path.is_file() {
-                fs::remove_file(&path).map_err(|e| {
-                    format!("Failed to delete source file {}: {}", path.display(), e)
-                })?;
+    for (source, dest) in operations_to_perform {
+        if fs::rename(&source, &dest).is_err() {
+            fs::copy(&source, &dest)
+                .map_err(|e| format!("Move failed during copy for {}: {}", source.display(), e))?;
+
+            if let Err(e) = fs::remove_file(&source) {
+                log::warn!(
+                    "Moved file successfully, but failed to delete original {}: {}",
+                    source.display(),
+                    e
+                );
             }
-        }
-    }
-
-    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-    for path in all_files_to_trash {
-        if path.is_file() {
-            fs::remove_file(&path)
-                .map_err(|e| format!("Failed to delete source file {}: {}", path.display(), e))?;
         }
     }
 
@@ -3033,9 +3035,7 @@ fn parse_preset_file(file_path: &str) -> Result<Vec<PresetItem>, String> {
         .map_err(|e| format!("Failed to read legacy preset file: {}", e))?;
 
     let xmp_content = if lower_path.ends_with(".lrtemplate") {
-        let re = Regex::new(r#"(?s)s.xmp = "(.*)""#)
-            .map_err(|e| format!("Regex compilation failed: {}", e))?;
-        if let Some(caps) = re.captures(&content) {
+        if let Some(caps) = regex!(r#"(?s)s.xmp = "(.*)""#).captures(&content) {
             caps.get(1)
                 .map(|m| m.as_str().replace(r#"\""#, r#"""#))
                 .unwrap_or(content)
@@ -3316,7 +3316,6 @@ pub fn show_in_finder(path: String) -> Result<(), String> {
 #[tauri::command]
 pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Result<(), String> {
     let mut files_to_trash = HashSet::new();
-
     let mut deletions = HashSet::new();
 
     for path_str in paths {
@@ -3352,6 +3351,7 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
     }
 
     let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
+
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     if let Err(trash_error) = trash::delete_all(&final_paths_to_delete) {
         log::warn!(
@@ -3360,11 +3360,13 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
         );
         for path in final_paths_to_delete {
             if path.is_file() {
-                fs::remove_file(&path)
-                    .map_err(|e| format!("Failed to delete file {}: {}", path.display(), e))?;
-            } else if path.is_dir() {
-                fs::remove_dir_all(&path)
-                    .map_err(|e| format!("Failed to delete directory {}: {}", path.display(), e))?;
+                if let Err(e) = fs::remove_file(&path) {
+                    log::warn!("Failed to delete file {}: {}", path.display(), e);
+                }
+            } else if path.is_dir()
+                && let Err(e) = fs::remove_dir_all(&path)
+            {
+                log::warn!("Failed to delete directory {}: {}", path.display(), e);
             }
         }
     }
@@ -3372,11 +3374,13 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     for path in final_paths_to_delete {
         if path.is_file() {
-            fs::remove_file(&path)
-                .map_err(|e| format!("Failed to delete file {}: {}", path.display(), e))?;
+            if let Err(e) = fs::remove_file(&path) {
+                log::warn!("Failed to delete file {}: {}", path.display(), e);
+            }
         } else if path.is_dir() {
-            fs::remove_dir_all(&path)
-                .map_err(|e| format!("Failed to delete directory {}: {}", path.display(), e))?;
+            if let Err(e) = fs::remove_dir_all(&path) {
+                log::warn!("Failed to delete directory {}: {}", path.display(), e);
+            }
         }
     }
 
@@ -3465,6 +3469,7 @@ pub fn delete_files_with_associated(
     }
 
     let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
+
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     if let Err(trash_error) = trash::delete_all(&final_paths_to_delete) {
         log::warn!(
@@ -3472,9 +3477,10 @@ pub fn delete_files_with_associated(
             trash_error
         );
         for path in final_paths_to_delete {
-            if path.is_file() {
-                fs::remove_file(&path)
-                    .map_err(|e| format!("Failed to delete file {}: {}", path.display(), e))?;
+            if path.is_file()
+                && let Err(e) = fs::remove_file(&path)
+            {
+                log::warn!("Failed to delete file {}: {}", path.display(), e);
             }
         }
     }
@@ -3482,8 +3488,9 @@ pub fn delete_files_with_associated(
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     for path in final_paths_to_delete {
         if path.is_file() {
-            fs::remove_file(&path)
-                .map_err(|e| format!("Failed to delete file {}: {}", path.display(), e))?;
+            if let Err(e) = fs::remove_file(&path) {
+                log::warn!("Failed to delete file {}: {}", path.display(), e);
+            }
         }
     }
 
@@ -3734,7 +3741,7 @@ pub async fn import_files(
             if let Err(e) = import_result {
                 eprintln!("Failed to import {}: {}", source_path_str, e);
                 let _ = app_handle.emit("import-error", e);
-                return;
+                continue;
             }
         }
 
@@ -3788,7 +3795,7 @@ pub fn rename_files(
         return Ok(Vec::new());
     }
 
-    let mut operations: HashMap<PathBuf, PathBuf> = HashMap::new();
+    let mut operations: Vec<(PathBuf, PathBuf)> = Vec::new();
     let mut final_new_paths = Vec::with_capacity(paths.len());
     let mut renames = HashMap::new();
 
@@ -3825,10 +3832,10 @@ pub fn rename_files(
             ));
         }
 
-        operations.insert(original_path, new_path);
+        operations.push((original_path, new_path));
     }
 
-    let mut sidecar_operations: HashMap<PathBuf, PathBuf> = HashMap::new();
+    let mut sidecar_operations: Vec<(PathBuf, PathBuf)> = Vec::new();
     for (original_path, new_path) in &operations {
         let parent = original_path
             .parent()
@@ -3848,13 +3855,13 @@ pub fn rename_files(
                     let new_sidecar_filename =
                         entry_filename.replacen(&*original_filename_str, &new_filename_str, 1);
                     let new_sidecar_path = parent.join(new_sidecar_filename);
-                    sidecar_operations.insert(entry_path, new_sidecar_path);
+                    sidecar_operations.push((entry_path, new_sidecar_path));
                 } else if entry_filename == format!("{}.rrdata", original_filename_str) {
                     let mut new_sidecar_name = new_path.file_name().unwrap().to_os_string();
                     new_sidecar_name.push(".rrdata");
                     let new_sidecar_path = new_path.with_file_name(new_sidecar_name);
 
-                    sidecar_operations.insert(entry_path, new_sidecar_path);
+                    sidecar_operations.push((entry_path, new_sidecar_path));
                 }
             }
         }
@@ -3867,20 +3874,21 @@ pub fn rename_files(
             let mut new_rrexif_name = new_path.file_name().unwrap().to_os_string();
             new_rrexif_name.push(".rrexif");
             let new_rrexif = new_path.with_file_name(new_rrexif_name);
-            sidecar_operations.insert(old_rrexif, new_rrexif);
+            sidecar_operations.push((old_rrexif, new_rrexif));
         }
     }
     operations.extend(sidecar_operations);
 
     for (old_path, new_path) in operations {
-        fs::rename(&old_path, &new_path).map_err(|e| {
-            format!(
+        if let Err(e) = fs::rename(&old_path, &new_path) {
+            log::warn!(
                 "Failed to rename {} to {}: {}",
                 old_path.display(),
                 new_path.display(),
                 e
-            )
-        })?;
+            );
+            continue;
+        }
 
         let old_str = old_path.to_string_lossy().into_owned();
         let new_str = new_path.to_string_lossy().into_owned();
@@ -4072,8 +4080,8 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         && let Ok(mut content) = fs::read_to_string(&xmp_file)
     {
         let rating_str = metadata.rating.to_string();
-        let re_rating_attr = Regex::new(r#"xmp:Rating\s*=\s*"[^"]*""#).unwrap();
-        let re_rating_tag = Regex::new(r#"<xmp:Rating\s*>[^<]*</xmp:Rating>"#).unwrap();
+        let re_rating_attr = regex!(r#"xmp:Rating\s*=\s*"[^"]*""#);
+        let re_rating_tag = regex!(r#"<xmp:Rating\s*>[^<]*</xmp:Rating>"#);
 
         if re_rating_attr.is_match(&content) {
             content = re_rating_attr
@@ -4106,8 +4114,8 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         if let Some(lbl) = label {
-            let re_label_attr = Regex::new(r#"xmp:Label\s*=\s*"[^"]*""#).unwrap();
-            let re_label_tag = Regex::new(r#"<xmp:Label\s*>[^<]*</xmp:Label>"#).unwrap();
+            let re_label_attr = regex!(r#"xmp:Label\s*=\s*"[^"]*""#);
+            let re_label_tag = regex!(r#"<xmp:Label\s*>[^<]*</xmp:Label>"#);
 
             if re_label_attr.is_match(&content) {
                 content = re_label_attr
@@ -4122,14 +4130,13 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
                 content = format!("{} <xmp:Label>{}</xmp:Label>\n{}", start, lbl, end);
             }
         } else {
-            let re_label_attr = Regex::new(r#"\s*xmp:Label\s*=\s*"[^"]*""#).unwrap();
-            let re_label_tag = Regex::new(r#"\s*<xmp:Label\s*>[^<]*</xmp:Label>"#).unwrap();
+            let re_label_attr = regex!(r#"\s*xmp:Label\s*=\s*"[^"]*""#);
+            let re_label_tag = regex!(r#"\s*<xmp:Label\s*>[^<]*</xmp:Label>"#);
             content = re_label_attr.replace_all(&content, "").to_string();
             content = re_label_tag.replace_all(&content, "").to_string();
         }
 
-        let re_subject =
-            Regex::new(r#"(?s)<dc:subject>\s*<rdf:Bag>.*?</rdf:Bag>\s*</dc:subject>"#).unwrap();
+        let re_subject = regex!(r#"(?s)<dc:subject>\s*<rdf:Bag>.*?</rdf:Bag>\s*</dc:subject>"#);
         if normal_tags.is_empty() {
             content = re_subject.replace_all(&content, "").to_string();
         } else {

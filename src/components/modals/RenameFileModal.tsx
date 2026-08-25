@@ -46,22 +46,26 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
   }, [isOpen, filesToRename, isSingleFile]);
 
   const handleSave = useCallback(() => {
-    if (nameTemplate.trim()) {
-      let finalTemplate = nameTemplate.trim();
+    const trimmed = nameTemplate.trim();
+    if (trimmed) {
+      let finalTemplate = trimmed;
       if (!isSingleFile && !finalTemplate.includes('{sequence}') && !finalTemplate.includes('{original_filename}')) {
         finalTemplate = `${finalTemplate}_{sequence}`;
       }
       onSave(finalTemplate);
+      onClose();
     }
-    onClose();
   }, [nameTemplate, onSave, onClose, isSingleFile]);
 
   const handleKeyDown = useCallback(
-    (e: any) => {
+    (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        e.stopPropagation();
         handleSave();
       } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
         onClose();
       }
     },
@@ -120,6 +124,7 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
               autoFocus
               className="w-full bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
               onChange={(e: any) => setNameTemplate(e.target.value)}
+              onKeyDown={handleKeyDown}
               ref={nameInputRef}
               type="text"
               value={nameTemplate}

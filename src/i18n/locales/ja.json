@@ -225,6 +225,10 @@
       "addCopiedToAlbum_other": "コピーした {{count}} 枚の画像をアルバムに追加",
       "refreshView": "表示を更新"
     },
+    "merge": {
+      "focusStack": "フォーカススタッキング",
+      "title": "結合"
+    },
     "tagging": {
       "addTagTooltip": "タグを追加",
       "noTags": "タグが追加されていません",
@@ -715,7 +719,8 @@
         "info": "情報",
         "inpaint": "インペイント",
         "masks": "マスク",
-        "presets": "プリセット"
+        "presets": "プリセット",
+        "tethering": "テザー撮影"
       }
     },
     "toolbar": {
@@ -1230,6 +1235,23 @@
       "titleBatch": "画像を一括ノイズ低減",
       "titleSingle": "画像のノイズ低減"
     },
+    "focusStack": {
+      "cancel": "キャンセル",
+      "close": "閉じる",
+      "depthMap": "深度マップ",
+      "description": "ピント位置の異なる複数の画像を結合し、全体にピントが合った1枚の画像を作成します。",
+      "descriptionWithCount_one": "ピント位置の異なる {{count}} 枚の画像を結合し、全体にピントが合った1枚の画像を作成します。",
+      "descriptionWithCount_other": "ピント位置の異なる {{count}} 枚の画像を結合し、全体にピントが合った1枚の画像を作成します。",
+      "failed": "フォーカススタッキングに失敗しました",
+      "initializing": "初期化中...",
+      "openInEditor": "エディターで開く",
+      "result": "結果",
+      "save": "保存",
+      "savedSuccess": "フォーカススタックを正常に保存しました！",
+      "stacking": "フォーカスをスタック中",
+      "start": "開始",
+      "title": "フォーカススタッキング"
+    },
     "hdr": {
       "cancel": "キャンセル",
       "close": "閉じる",
@@ -1437,10 +1459,16 @@
         "confirmClearAll": "すべてのタグを削除",
         "confirmClearCache": "キャッシュを削除",
         "confirmDeleteAllEdits": "すべての編集を削除",
+        "confirmResetLayout": "レイアウトをリセット",
+        "confirmResetLayoutTitle": "ワークスペースレイアウトのリセット",
         "confirmTitle": "削除の確認",
+        "resetLayoutMessage": "ワークスペースのレイアウトをリセットしてもよろしいですか？ドッキングされたすべてのパネル、幅、および切り替えボタンの位置がデフォルトに復元されます。",
         "sidecarMessage": "本当にすべてのサイドカーファイルを削除しますか？\n\nアクティブなルートフォルダとそのサブフォルダ内にある、すべての画像の編集内容が完全に削除されます。"
       },
       "noFolders": "フォルダが選択されていません",
+      "resetLayoutButton": "レイアウトをリセット",
+      "resetLayoutDesc": "パネルのドック、サイドスプリッター、高さ、パネル切り替えボタンをデフォルトの配置に復元します。",
+      "resetLayoutTitle": "ワークスペースレイアウトのリセット",
       "statuses": {
         "aiSuccess": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
         "aiSuccess_one": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
@@ -1454,7 +1482,9 @@
         "clearingCache": "サムネイルキャッシュを削除中...",
         "deleting": "サイドカーファイルを削除しています。しばらくお待ちください...",
         "failedToGetPath": "ログファイルのパスを取得できませんでした。",
+        "layoutResetSuccess": "ワークスペースレイアウトがデフォルトにリセットされました。",
         "processing": "処理中...",
+        "resettingLayout": "ワークスペースをリセット中...",
         "sidecarSuccess": "{{count}} 件のサイドカーファイルを正常に削除しました。",
         "sidecarSuccess_one": "{{count}} 件のサイドカーファイルを正常に削除しました。",
         "sidecarSuccess_other": "{{count}} 件のサイドカーファイルを正常に削除しました。"
@@ -1740,10 +1770,12 @@
         "depth": "AI奥行きマスクを可能にする、単眼深度推定モデルを提供しています。",
         "lama": "コンテンツに応じた塗りつぶしやオブジェクト削除を実現する、シンプルかつ強力な画像インペインティングモデルを提供しています。",
         "lensfun": "自動レンズ補正に不可欠な、オープンソースライブラリと膨大なデータベースを提供しています。",
+        "libgphoto2": "RapidRAW のテザリングおよびリモート撮影機能を支える、包括的なカメラ通信ライブラリを提供してくださったことに。",
         "negpy": "ネガ反転アルゴリズムのヒントとなりました。",
         "nind": "AIノイズ低減機能を支えるAIモデルを提供しています。",
         "rawler": "RAWファイル処理の基盤となる優れたRustライブラリを提供しています。",
         "sam2": "AI被写体検出機能の基盤となるモデルを提供しています。",
+        "spektrafilm": "RapidRAW の内蔵フィルムエミュレーションを支える、Andrea Volpato 氏によるスペクトルベースのフィルムエミュレーション LUT を提供してくださったことに。ライセンスは CC BY-SA 4.0 です。",
         "u2net": "AIによる空や手前の自動検出に用いる、堅牢なアーキテクチャを提供しています。",
         "you": "RapidRAWをご利用、ご支援いただきありがとうございます。皆様のご関心こそが、プロジェクトの存続と発展の支えです。",
         "youLabel": "皆様"
@@ -1759,6 +1791,59 @@
     "tooltips": {
       "goHome": "ホームへ移動"
     }
+  },
+  "tethering": {
+    "aperture": "絞り",
+    "aperturePlaceholder": "例: 2.8",
+    "autoApplyPreset": "プリセット自動適用",
+    "autoOpenCaptured": "撮影した画像を自動で開く",
+    "cameraConnected": "カメラ接続中",
+    "capturing": "撮影中...",
+    "changePreset": "変更",
+    "clearPreset": "プリセットを解除",
+    "connectCamera": "カメラを接続",
+    "expComp": "露出補正",
+    "expCompPlaceholder": "例: 0.0",
+    "expMode": "露出モード",
+    "exposureSettings": "露出設定",
+    "flipHorizontal": "左右反転",
+    "generalSettings": "一般設定",
+    "ghostOverlayAlt": "ゴーストオーバーレイ",
+    "iso": "ISO",
+    "isoPlaceholder": "例: 400",
+    "liveViewAlt": "ライブビュー",
+    "metering": "測光モード",
+    "noCameraDetected": "カメラが検出されません",
+    "noCamerasFound": "カメラが見つかりません。接続とPCリモートモードを確認してください。",
+    "overlayLastShot": "直前のショットをオーバーレイ",
+    "overlayOff": "オフ",
+    "rotate90": "90°回転",
+    "scanTooltip": "カメラをスキャン",
+    "selectCamera": "カメラを選択",
+    "selectCameraPlaceholder": "カメラを選択してください",
+    "shutter": "シャッター",
+    "shutterPlaceholder": "例: 1/200",
+    "startLiveView": "ライブビュー開始",
+    "status": "ステータス",
+    "stopLiveView": "ライブビュー停止",
+    "title": "テザー撮影",
+    "toasts": {
+      "afFailed": "オートフォーカスの実行に失敗しました",
+      "cameraDisconnected": "カメラが切断されました",
+      "captureFailed": "撮影に失敗しました: {{err}}",
+      "communicationFailed": "カメラとの通信に失敗しました",
+      "connectionFailed": "接続に失敗しました: {{err}}",
+      "detectionFailed": "検出に失敗しました: {{err}}",
+      "noCamerasFound": "カメラが見つかりません。PCリモートモードになっていることを確認してください。",
+      "presetApplyFailed": "撮影画像へのプリセット適用に失敗しました",
+      "selectFolderFirst": "最初にライブラリで通常のフォルダを選択してください。",
+      "setFailed": "{{key}} の設定に失敗しました: {{err}}"
+    },
+    "triggerAutofocus": "AFを実行",
+    "triggerCapture": "撮影",
+    "wbTemp": "色温度 (K)",
+    "wbTempPlaceholder": "例: 5600",
+    "whiteBalance": "ホワイトバランス"
   },
   "ui": {
     "bottomBar": {
@@ -1820,7 +1905,9 @@
     },
     "lut": {
       "clearLut": "LUTをクリア",
+      "customLuts": "カスタム LUT",
       "empty": "LUTはまだありません — インポートしてください",
+      "filmEmulations": "フィルムエミュレーション",
       "filterLabel": "LUTファイル",
       "import": "プロファイルをインポート",
       "importFailed": "LUTのインポートに失敗しました",

@@ -56,7 +56,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          key: ${{ inputs.mobile == '' && inputs.platform || format('{0}-{1}', inputs.platform, inputs.mobile) }}
+          key: ${{ inputs.mobile == '' && inputs.platform || format('{0}-{1}', inputs.platform, inputs.mobile) }}-${{ contains(inputs.build-args, 'tethering') && 'tethering' || 'standard' }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -77,7 +77,18 @@ jobs:
             libssl-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            patchelf
+            patchelf \
+            pkg-config
+
+      - name: Install libgphoto2 for Tethering (Linux)
+        if: runner.os == 'Linux' && contains(inputs.build-args, 'tethering')
+        run: |
+          sudo apt-get install -y libgphoto2-dev
+
+      - name: Install libgphoto2 for Tethering (macOS)
+        if: runner.os == 'macOS' && contains(inputs.build-args, 'tethering')
+        run: |
+          brew install libgphoto2 pkg-config
 
       # ------------- Android Setup -------------
       - name: Set up JDK
@@ -221,7 +232,7 @@ jobs:
         if: ${{ !startsWith(inputs.platform, 'windows') && inputs.release-id == '' && inputs.mobile == '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.asset-prefix }}_${{ inputs.platform }}${{ inputs.target && format('_{0}', inputs.target) || '' }}_artifacts
+          name: ${{ inputs.asset-prefix }}_${{ inputs.platform }}${{ inputs.target && format('_{0}', inputs.target) || '' }}${{ contains(inputs.build-args, 'tethering') && '_tethering' || '' }}_artifacts
           path: |
             src-tauri/target/${{ inputs.target || 'release' }}/**/*.rpm
             src-tauri/target/${{ inputs.target || 'release' }}/**/*.deb

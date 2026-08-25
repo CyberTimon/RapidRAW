@@ -225,6 +225,10 @@
       "addCopiedToAlbum_other": "將 {{count}} 張複製的影像新增到相簿",
       "refreshView": "重新整理檢視"
     },
+    "merge": {
+      "focusStack": "焦距合成",
+      "title": "合併"
+    },
     "tagging": {
       "addTagTooltip": "新增標籤",
       "noTags": "未新增標籤",
@@ -715,7 +719,8 @@
         "info": "資訊",
         "inpaint": "修復",
         "masks": "遮色片",
-        "presets": "預設"
+        "presets": "預設",
+        "tethering": "連線拍攝"
       }
     },
     "toolbar": {
@@ -1230,6 +1235,23 @@
       "titleBatch": "降噪影像",
       "titleSingle": "降噪影像"
     },
+    "focusStack": {
+      "cancel": "取消",
+      "close": "關閉",
+      "depthMap": "深度圖",
+      "description": "將多張不同對焦距離的影像合併為一張完美清晰的影像。",
+      "descriptionWithCount_one": "將 {{count}} 張不同對焦距離的影像合併為一張完美清晰的影像。",
+      "descriptionWithCount_other": "將 {{count}} 張不同對焦距離的影像合併為一張完美清晰的影像。",
+      "failed": "焦距合成失敗",
+      "initializing": "正在初始化...",
+      "openInEditor": "在編輯器中打開",
+      "result": "結果",
+      "save": "儲存",
+      "savedSuccess": "焦距合成已成功儲存！",
+      "stacking": "正在合成焦距",
+      "start": "開始",
+      "title": "焦距合成"
+    },
     "hdr": {
       "cancel": "取消",
       "close": "關閉",
@@ -1437,10 +1459,16 @@
         "confirmClearAll": "清除所有標籤",
         "confirmClearCache": "清除快取",
         "confirmDeleteAllEdits": "刪除所有編輯",
+        "confirmResetLayout": "重設版面配置",
+        "confirmResetLayoutTitle": "重設工作區版面配置",
         "confirmTitle": "確認刪除",
+        "resetLayoutMessage": "確定要重設工作區版面配置嗎？所有停靠的面板、寬度和切換器位置都將還原為預設值。",
         "sidecarMessage": "您確定要刪除所有附屬檔案嗎？\n\n這將永久刪除所有活動根資料夾及其子資料夾中所有影像的所有編輯資料。"
       },
       "noFolders": "未選擇資料夾",
+      "resetLayoutButton": "重設版面配置",
+      "resetLayoutDesc": "將面板停靠區、側邊分割條、高度和面板切換器還原為預設的版面配置。",
+      "resetLayoutTitle": "重設工作區版面配置",
       "statuses": {
         "aiSuccess": "{{count}} 個檔案已更新。AI 標籤已移除。",
         "aiSuccess_one": "{{count}} 個檔案已更新。AI 標籤已移除。",
@@ -1454,7 +1482,9 @@
         "clearingCache": "正在清除縮圖快取...",
         "deleting": "正在刪除附屬檔案，請稍候...",
         "failedToGetPath": "無法取得日誌檔案路徑。",
+        "layoutResetSuccess": "工作區版面配置已重設為預設值。",
         "processing": "處理中...",
+        "resettingLayout": "正在重設工作區...",
         "sidecarSuccess": "{{count}} 個附屬檔案已成功刪除。",
         "sidecarSuccess_one": "{{count}} 個附屬檔案已成功刪除。",
         "sidecarSuccess_other": "{{count}} 個附屬檔案已成功刪除。"
@@ -1740,10 +1770,12 @@
         "depth": "為強大的單目深度估計模型提供支援，實現了 AI 深度遮色片功能。",
         "lama": "為強大且簡單的影像修復模型提供支援，實現了內容感知填充和物件移除。",
         "lensfun": "為無價的開源庫和全面的資料庫提供支援，實現了自動鏡頭校正。",
+        "libgphoto2": "感謝提供全面的相機通訊函式庫，為 RapidRAW 的連線拍攝與遠端控制子系統提供支援。",
         "negpy": "為負片轉換邏輯提供了靈感。",
         "nind": "為 AI 模型提供支援，驅動了 RapidRAW 中的 AI 降噪功能。",
         "rawler": "為優秀的 Rust 庫提供支援，構成了本專案 RAW 檔案處理的基礎。",
         "sam2": "為提供基礎模型，用於 AI 主體檢測功能。",
+        "spektrafilm": "感謝 Andrea Volpato 提供基於光譜的底片模擬 LUT，為 RapidRAW 的內建底片模擬提供支援。採用 CC BY-SA 4.0 授權。",
         "u2net": "為提供穩健的架構，用於 AI 天空和前景檢測功能。",
         "you": "感謝您使用和支援 RapidRAW。您的關注使本專案持續發展。",
         "youLabel": "您"
@@ -1759,6 +1791,59 @@
     "tooltips": {
       "goHome": "返回首頁"
     }
+  },
+  "tethering": {
+    "aperture": "光圈",
+    "aperturePlaceholder": "例如 2.8",
+    "autoApplyPreset": "自動套用預設集",
+    "autoOpenCaptured": "自動開啟拍攝的影像",
+    "cameraConnected": "相機已連線",
+    "capturing": "正在拍攝...",
+    "changePreset": "變更",
+    "clearPreset": "清除預設集",
+    "connectCamera": "連線相機",
+    "expComp": "曝光補償",
+    "expCompPlaceholder": "例如 0.0",
+    "expMode": "曝光模式",
+    "exposureSettings": "曝光設定",
+    "flipHorizontal": "水平翻轉",
+    "generalSettings": "一般設定",
+    "ghostOverlayAlt": "疊圖預覽",
+    "iso": "ISO",
+    "isoPlaceholder": "例如 400",
+    "liveViewAlt": "即時取景",
+    "metering": "測光模式",
+    "noCameraDetected": "未偵測到相機",
+    "noCamerasFound": "未找到相機。請確保已連線並處於 PC 遙控模式。",
+    "overlayLastShot": "疊加上一張拍攝相片",
+    "overlayOff": "關閉",
+    "rotate90": "旋轉 90°",
+    "scanTooltip": "掃描相機",
+    "selectCamera": "選擇相機",
+    "selectCameraPlaceholder": "選擇一台相機",
+    "shutter": "快門",
+    "shutterPlaceholder": "例如 1/200",
+    "startLiveView": "開啟即時取景",
+    "status": "狀態",
+    "stopLiveView": "停止即時取景",
+    "title": "連線拍攝",
+    "toasts": {
+      "afFailed": "觸發自動對焦失敗",
+      "cameraDisconnected": "相機已中斷連線",
+      "captureFailed": "拍攝失敗: {{err}}",
+      "communicationFailed": "與相機通訊失敗",
+      "connectionFailed": "連線失敗: {{err}}",
+      "detectionFailed": "偵測失敗: {{err}}",
+      "noCamerasFound": "未找到相機。請確保處於 PC 遙控模式。",
+      "presetApplyFailed": "對拍攝的影像套用預設集失敗",
+      "selectFolderFirst": "請先在媒體庫中選擇一個一般資料夾。",
+      "setFailed": "設定 {{key}} 失敗: {{err}}"
+    },
+    "triggerAutofocus": "觸發自動對焦",
+    "triggerCapture": "拍攝",
+    "wbTemp": "色溫 (K)",
+    "wbTempPlaceholder": "例如 5600",
+    "whiteBalance": "白平衡"
   },
   "ui": {
     "bottomBar": {
@@ -1820,7 +1905,9 @@
     },
     "lut": {
       "clearLut": "清除 LUT",
+      "customLuts": "自訂 LUT",
       "empty": "暫無 LUT — 請匯入一些",
+      "filmEmulations": "底片模擬",
       "filterLabel": "LUT 檔案",
       "import": "匯入設定檔",
       "importFailed": "匯入 LUT 失敗",

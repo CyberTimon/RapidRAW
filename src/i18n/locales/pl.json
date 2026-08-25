@@ -233,6 +233,10 @@
       "addCopiedToAlbum_other": "Dodaj {{count}} skopiowanych obrazów do albumu",
       "refreshView": "Odśwież widok"
     },
+    "merge": {
+      "focusStack": "Stosowanie ostrości (Focus Stacking)",
+      "title": "Połącz"
+    },
     "tagging": {
       "addTagTooltip": "Dodaj tag",
       "noTags": "Brak dodanych tagów",
@@ -759,7 +763,8 @@
         "info": "Informacje",
         "inpaint": "Inpaint",
         "masks": "Maski",
-        "presets": "Presety"
+        "presets": "Presety",
+        "tethering": "Tethering (Połączenie przewodowe)"
       }
     },
     "toolbar": {
@@ -1284,6 +1289,25 @@
       "titleBatch": "Odszum obrazy",
       "titleSingle": "Odszum obraz"
     },
+    "focusStack": {
+      "cancel": "Anuluj",
+      "close": "Zamknij",
+      "depthMap": "Mapa głębi",
+      "description": "Połącz wiele obrazów z różnymi odległościami ostrości w jeden idealnie ostry obraz.",
+      "descriptionWithCount_few": "Połącz {{count}} obrazy z różnymi odległościami ostrości w jeden idealnie ostry obraz.",
+      "descriptionWithCount_many": "Połącz {{count}} obrazów z różnymi odległościami ostrości w jeden idealnie ostry obraz.",
+      "descriptionWithCount_one": "Połącz {{count}} obraz z różnymi odległościami ostrości w jeden idealnie ostry obraz.",
+      "descriptionWithCount_other": "Połącz {{count}} obrazów z różnymi odległościami ostrości w jeden idealnie ostry obraz.",
+      "failed": "Złożenie ostrości nie powiodło się",
+      "initializing": "Inicjowanie...",
+      "openInEditor": "Otwórz w edytorze",
+      "result": "Wynik",
+      "save": "Zapisz",
+      "savedSuccess": "Stos ostrości zapisany pomyślnie!",
+      "stacking": "Składanie ostrości",
+      "start": "Rozpocznij",
+      "title": "Stosowanie ostrości"
+    },
     "hdr": {
       "cancel": "Anuluj",
       "close": "Zamknij",
@@ -1499,10 +1523,16 @@
         "confirmClearAll": "Wyczyść wszystkie tagi",
         "confirmClearCache": "Wyczyść pamięć podręczną",
         "confirmDeleteAllEdits": "Usuń wszystkie edycje",
+        "confirmResetLayout": "Zresetuj układ",
+        "confirmResetLayoutTitle": "Zresetuj układ obszaru roboczego",
         "confirmTitle": "Potwierdź usunięcie",
+        "resetLayoutMessage": "Czy na pewno chcesz zresetować układ obszaru roboczego? Wszystkie przypięte panele, szerokości i pozycje przełączników zostaną przywrócone do wartości domyślnych.",
         "sidecarMessage": "Czy na pewno chcesz usunąć wszystkie pliki sidecar?\n\nTo trwale usunie wszystkie twoje edycje dla wszystkich obrazów wewnątrz wszystkich aktywnych folderów głównych oraz ich podfolderów."
       },
       "noFolders": "Nie wybrano żadnych folderów",
+      "resetLayoutButton": "Zresetuj układ",
+      "resetLayoutDesc": "Przywraca domyślny układ paneli, podziałów bocznych, wysokości oraz przełączników paneli.",
+      "resetLayoutTitle": "Zresetuj układ obszaru roboczego",
       "statuses": {
         "aiSuccess": "Zaktualizowano {{count}} plików. Tagi AI usunięte.",
         "aiSuccess_few": "Zaktualizowano {{count}} pliki. Tagi AI usunięte.",
@@ -1520,7 +1550,9 @@
         "clearingCache": "Czyszczenie pamięci podręcznej miniatur...",
         "deleting": "Usuwanie plików sidecar, proszę czekać...",
         "failedToGetPath": "Nie można uzyskać ścieżki pliku dziennika.",
+        "layoutResetSuccess": "Układ obszaru roboczego został zresetowany do ustawień domyślnych.",
         "processing": "Przetwarzanie...",
+        "resettingLayout": "Resetowanie obszaru roboczego...",
         "sidecarSuccess": "Pomyślnie usunięto {{count}} plików sidecar.",
         "sidecarSuccess_few": "Pomyślnie usunięto {{count}} pliki sidecar.",
         "sidecarSuccess_many": "Pomyślnie usunięto {{count}} plików sidecar.",
@@ -1808,10 +1840,12 @@
         "depth": "Za zaawansowany model szacowania głębi, który włącza maskowanie oparte na głębi za pomocą AI.",
         "lama": "Za niesamowity model do inpaintingu obrazu, umożliwiający usuwanie obiektów z uwzględnieniem kontekstu.",
         "lensfun": "Za nieocenioną bibliotekę open-source z bogatą bazą obiektywów do automatycznej korekcji.",
+        "libgphoto2": "Za kompleksową bibliotekę komunikacji z aparatami, napędzającą tethering i zdalne wyzwalanie w RapidRAW.",
         "negpy": "Za inspirację stojącą za rozwiązaniem do inwersji negatywów.",
         "nind": "Za dostarczenie modeli AI, które stanowią silnik odszumiający RapidRAW.",
         "rawler": "Za świetną bibliotekę w Rust, dostarczającą fundament dla przetwarzania plików RAW w tym projekcie.",
         "sam2": "Za dostarczenie bazowego modelu do wykrywania i wycinania obiektów za pomocą AI.",
+        "spektrafilm": "Za oparte na danych spektralnych LUT-y emulacji filmu autorstwa Andrei Volpato, napędzające wbudowane emulacje filmowe RapidRAW. Licencja CC BY-SA 4.0.",
         "u2net": "Za świetną architekturę używaną przez nasze modele wykrywania nieba i pierwszego planu.",
         "you": "Za to, że używasz i wspierasz RapidRAW. Twoje zainteresowanie sprawia, że ten projekt nadal ewoluuje.",
         "youLabel": "Ty"
@@ -1827,6 +1861,59 @@
     "tooltips": {
       "goHome": "Przejdź do strony głównej"
     }
+  },
+  "tethering": {
+    "aperture": "Przysłona",
+    "aperturePlaceholder": "np. 2.8",
+    "autoApplyPreset": "Automatycznie stosuj preset",
+    "autoOpenCaptured": "Automatycznie otwieraj zrobione zdjęcie",
+    "cameraConnected": "Aparat połączony",
+    "capturing": "Robienie zdjęcia...",
+    "changePreset": "Zmień",
+    "clearPreset": "Wyczyść preset",
+    "connectCamera": "Połącz aparat",
+    "expComp": "Komp. eksp.",
+    "expCompPlaceholder": "np. 0.0",
+    "expMode": "Tryb ekspozycji",
+    "exposureSettings": "Ustawienia ekspozycji",
+    "flipHorizontal": "Obróć w poziomie",
+    "generalSettings": "Ustawienia ogólne",
+    "ghostOverlayAlt": "Nakładka poprzedniego zdjęcia",
+    "iso": "ISO",
+    "isoPlaceholder": "np. 400",
+    "liveViewAlt": "Live View",
+    "metering": "Tryb pomiaru",
+    "noCameraDetected": "Nie wykryto aparatu",
+    "noCamerasFound": "Nie znaleziono aparatów. Upewnij się, że aparat jest podłączony i działa w trybie PC Remote.",
+    "overlayLastShot": "Nałóż ostatnie zdjęcie",
+    "overlayOff": "Wył.",
+    "rotate90": "Obróć o 90°",
+    "scanTooltip": "Szukaj aparatów",
+    "selectCamera": "Wybierz aparat",
+    "selectCameraPlaceholder": "Wybierz aparat",
+    "shutter": "Migawka",
+    "shutterPlaceholder": "np. 1/200",
+    "startLiveView": "Uruchom Live View",
+    "status": "Status",
+    "stopLiveView": "Zatrzymaj Live View",
+    "title": "Tethering",
+    "toasts": {
+      "afFailed": "Błąd wyzwalania autofocusu",
+      "cameraDisconnected": "Aparat został odłączony",
+      "captureFailed": "Przechwytywanie nie powiodło się: {{err}}",
+      "communicationFailed": "Błąd komunikacji z aparatem",
+      "connectionFailed": "Połączenie nie powiodło się: {{err}}",
+      "detectionFailed": "Wykrywanie nie powiodło się: {{err}}",
+      "noCamerasFound": "Nie znaleziono aparatów. Upewnij się, że włączono tryb PC Remote.",
+      "presetApplyFailed": "Nie udało się zastosować presetu do zdjęcia",
+      "selectFolderFirst": "Najpierw wybierz standardowy folder w bibliotece.",
+      "setFailed": "Nie udało się ustawić {{key}}: {{err}}"
+    },
+    "triggerAutofocus": "Wyzwól autofocus",
+    "triggerCapture": "Zrób zdjęcie",
+    "wbTemp": "Temp. barwowa (K)",
+    "wbTempPlaceholder": "np. 5600",
+    "whiteBalance": "Balans bieli"
   },
   "ui": {
     "bottomBar": {
@@ -1890,7 +1977,9 @@
     },
     "lut": {
       "clearLut": "Wyczyść LUT",
+      "customLuts": "Własne LUT-y",
       "empty": "Brak LUT — zaimportuj jakieś",
+      "filmEmulations": "Emulacje filmowe",
       "filterLabel": "Pliki LUT",
       "import": "Importuj profile",
       "importFailed": "Nie udało się zaimportować LUT",

@@ -1,4 +1,4 @@
-import { GroupPreference, ImageFile } from '../components/ui/AppProperties';
+import { GroupPreference, GroupingMode, ImageFile } from '../components/ui/AppProperties';
 
 export type GroupId = string;
 
@@ -84,4 +84,20 @@ export function getVariantLabel(path: string): string {
 export function findGroupVariants(images: ImageFile[], groupId: string | null | undefined): ImageFile[] {
   if (!groupId) return [];
   return images.filter((img) => img.group_id === groupId && !img.is_virtual_copy);
+}
+
+export function expandGroupedPaths(images: ImageFile[], paths: string[], groupingMode: GroupingMode): string[] {
+  const expandedPaths = new Set(paths);
+  if (groupingMode === 'off') return Array.from(expandedPaths);
+
+  for (const path of paths) {
+    const image = images.find((item) => item.path === path);
+    if (!image?.group_id) continue;
+
+    for (const variant of findGroupVariants(images, image.group_id)) {
+      expandedPaths.add(variant.path);
+    }
+  }
+
+  return Array.from(expandedPaths);
 }

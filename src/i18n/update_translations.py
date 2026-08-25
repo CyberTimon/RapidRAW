@@ -5,94 +5,68 @@ LOCALES_DIR = Path("./locales")
 
 TRANSLATIONS = {
     "ca": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "Commutar l'anàlisi al panell d'ajustos"
-            }
+        "tethering": {
+            "triggerCapture": "Captura"
         }
     },
     "de": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "Analyseanzeige im Anpassungen-Panel umschalten"
-            }
+        "tethering": {
+            "triggerCapture": "Aufnehmen"
         }
     },
     "en": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "Toggle analytics in Adjustments panel"
-            }
+        "tethering": {
+            "triggerCapture": "Capture"
         }
     },
     "es": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "Alternar análisis en el panel de Ajustes"
-            }
+        "tethering": {
+            "triggerCapture": "Capturar"
         }
     },
     "fr": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "Afficher/Masquer l'analyse dans le panneau Réglages"
-            }
+        "tethering": {
+            "triggerCapture": "Capturer"
         }
     },
     "it": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "Mostra/Nascondi analisi nel pannello Regolazioni"
-            }
+        "tethering": {
+            "triggerCapture": "Acquisisci"
         }
     },
     "ja": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "調整パネルでアナリティクスを切り替える"
-            }
+        "tethering": {
+            "triggerCapture": "撮影"
         }
     },
     "ko": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "조정 패널에서 분석 토글"
-            }
+        "tethering": {
+            "triggerCapture": "촬영"
         }
     },
     "pl": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "Przełącz analizę w panelu Dopasowania"
-            }
+        "tethering": {
+            "triggerCapture": "Zrób zdjęcie"
         }
     },
     "pt": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "Alternar análise no painel de Ajustes"
-            }
+        "tethering": {
+            "triggerCapture": "Capturar"
         }
     },
     "ru": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "Переключить аналитику на панели «Коррекция»"
-            }
+        "tethering": {
+            "triggerCapture": "Съемка"
         }
     },
     "zh-CN": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "在调整面板中切换分析"
-            }
+        "tethering": {
+            "triggerCapture": "拍摄"
         }
     },
     "zh-TW": {
-        "editor": {
-            "masks": {
-                "toggleAnalyticsInAdjustments": "在調整面板中切換分析"
-            }
+        "tethering": {
+            "triggerCapture": "拍攝"
         }
     }
 }
@@ -140,7 +114,7 @@ def main():
         print(f"Error: Locales directory '{LOCALES_DIR}' does not exist.")
         return
 
-    print("Starting Analytics translation updates...")
+    print("Starting translation updates for tethering capture button...")
     for lang, trans in TRANSLATIONS.items():
         file_path = LOCALES_DIR / f"{lang}.json"
         update_json_file(file_path, trans)

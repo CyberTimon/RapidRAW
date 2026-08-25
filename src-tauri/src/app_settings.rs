@@ -123,6 +123,7 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "lutPath",
         "lutSize",
         "lutData",
+        "lutIsSceneReferred",
         "glowAmount",
         "halationAmount",
         "flareAmount",
@@ -308,14 +309,17 @@ pub struct WorkspaceState {
 impl Default for WorkspaceState {
     fn default() -> Self {
         let mut panel_layout = HashMap::new();
-        panel_layout.insert(
-            "leftTop".to_string(),
-            vec![
-                "metadata".to_string(),
-                "folderTree".to_string(),
-                "export".to_string(),
-            ],
-        );
+        #[allow(unused)]
+        let mut left_top = vec![
+            "metadata".to_string(),
+            "folderTree".to_string(),
+            "export".to_string(),
+        ];
+
+        #[cfg(feature = "tethering")]
+        left_top.push("tethering".to_string());
+
+        panel_layout.insert("leftTop".to_string(), left_top);
         panel_layout.insert("leftBottom".to_string(), vec![]);
 
         panel_layout.insert(
@@ -625,6 +629,11 @@ pub fn get_settings_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
     }
 
     Ok(settings_dir.join("settings.json"))
+}
+
+#[tauri::command]
+pub fn is_tethering_supported() -> bool {
+    cfg!(feature = "tethering")
 }
 
 #[tauri::command]

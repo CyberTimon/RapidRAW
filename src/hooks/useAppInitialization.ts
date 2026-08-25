@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useShallow } from 'zustand/react/shallow';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { useUIStore } from '../store/useUIStore';
+import { useUIStore, reconcileWorkspace } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useProcessStore } from '../store/useProcessStore';
@@ -145,8 +145,8 @@ export const useAppInitialization = ({
   }, [setSupportedTypes]);
 
   useEffect(() => {
-    invoke(Invokes.LoadSettings)
-      .then(async (settings: any) => {
+    Promise.all([invoke(Invokes.LoadSettings), invoke<boolean>(Invokes.IsTetheringSupported).catch(() => false)])
+      .then(async ([settings, isTetheringSupported]: [any, boolean]) => {
         if (
           !settings.copyPasteSettings ||
           !settings.copyPasteSettings.includedAdjustments ||
@@ -160,7 +160,6 @@ export const useAppInitialization = ({
           handleSettingsChange(settings);
         }
 
-        // legacy
         const savedRawStatus = settings?.filterCriteria?.rawStatus as string | undefined;
         if (savedRawStatus === 'groupVariants' || savedRawStatus === 'rawOverNonRaw') {
           const legacyPref = settings?.groupPreferredType === 'jpeg' ? 'jpeg' : 'raw';
@@ -168,6 +167,9 @@ export const useAppInitialization = ({
           settings.filterCriteria = { ...settings.filterCriteria, rawStatus: 'all' };
           handleSettingsChange(settings);
         }
+
+        const reconciledWorkspace = reconcileWorkspace(settings?.workspace, isTetheringSupported);
+        settings.workspace = reconciledWorkspace;
 
         setAppSettings(settings);
         i18n.changeLanguage(settings.language);
@@ -190,17 +192,15 @@ export const useAppInitialization = ({
           setUI((state) => ({ uiVisibility: { ...state.uiVisibility, ...settings.uiVisibility } }));
         }
 
-        if (settings?.workspace) {
-          setUI({
-            leftPanelWidth: settings.workspace.leftPanelWidth,
-            rightPanelWidth: settings.workspace.rightPanelWidth,
-            leftTopHeight: settings.workspace.leftTopHeight,
-            rightTopHeight: settings.workspace.rightTopHeight,
-            panelLayout: settings.workspace.panelLayout,
-            activePanels: settings.workspace.activePanels,
-            panelSwitcherPlacement: settings.workspace.panelSwitcherPlacement,
-          });
-        }
+        setUI({
+          leftPanelWidth: reconciledWorkspace.leftPanelWidth,
+          rightPanelWidth: reconciledWorkspace.rightPanelWidth,
+          leftTopHeight: reconciledWorkspace.leftTopHeight,
+          rightTopHeight: reconciledWorkspace.rightTopHeight,
+          panelLayout: reconciledWorkspace.panelLayout,
+          activePanels: reconciledWorkspace.activePanels,
+          panelSwitcherPlacement: reconciledWorkspace.panelSwitcherPlacement,
+        });
 
         if (settings?.isWaveformVisible !== undefined) setEditor({ isWaveformVisible: settings.isWaveformVisible });
         if (settings?.activeWaveformChannel) setEditor({ activeWaveformChannel: settings.activeWaveformChannel });

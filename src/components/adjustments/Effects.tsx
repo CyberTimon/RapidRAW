@@ -19,7 +19,7 @@ interface EffectsPanelProps {
   adjustments: Adjustments;
   isForMask?: boolean;
   setAdjustments(adjustments: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)): any;
-  handleLutSelect(path: string): void;
+  handleLutSelect(path: string, isSceneReferred: boolean): void;
   onLutHover?: (path: string | null) => void;
   appSettings: AppSettings | null;
   onDragStateChange?: (isDragging: boolean) => void;
@@ -182,6 +182,7 @@ export default function EffectsPanel({
       lutData: null,
       lutSize: 0,
       lutIntensity: 100,
+      lutIsSceneReferred: false,
     }));
   };
 

@@ -225,6 +225,10 @@
       "addCopiedToAlbum_other": "복사한 이미지 {{count}}개를 앨범에 추가",
       "refreshView": "보기 새로고침"
     },
+    "merge": {
+      "focusStack": "포커스 스태킹",
+      "title": "병합"
+    },
     "tagging": {
       "addTagTooltip": "태그 추가",
       "noTags": "추가된 태그 없음",
@@ -715,7 +719,8 @@
         "info": "정보",
         "inpaint": "인페인팅",
         "masks": "마스크",
-        "presets": "프리셋"
+        "presets": "프리셋",
+        "tethering": "테더링"
       }
     },
     "toolbar": {
@@ -1230,6 +1235,23 @@
       "titleBatch": "이미지 노이즈 제거",
       "titleSingle": "이미지 노이즈 제거"
     },
+    "focusStack": {
+      "cancel": "취소",
+      "close": "닫기",
+      "depthMap": "심도 맵",
+      "description": "초점 거리가 다른 여러 이미지를 결합하여 완벽하게 선명한 단일 이미지를 만듭니다.",
+      "descriptionWithCount_one": "초점 거리가 다른 {{count}}개의 이미지를 결합하여 완벽하게 선명한 단일 이미지를 만듭니다.",
+      "descriptionWithCount_other": "초점 거리가 다른 {{count}}개의 이미지를 결합하여 완벽하게 선명한 단일 이미지를 만듭니다.",
+      "failed": "포커스 스태킹 실패",
+      "initializing": "초기화 중...",
+      "openInEditor": "편집기에서 열기",
+      "result": "결과",
+      "save": "저장",
+      "savedSuccess": "포커스 스택이 성공적으로 저장되었습니다!",
+      "stacking": "포커스 스태킹 중",
+      "start": "시작",
+      "title": "포커스 스태킹"
+    },
     "hdr": {
       "cancel": "취소",
       "close": "닫기",
@@ -1437,10 +1459,16 @@
         "confirmClearAll": "모든 태그 지우기",
         "confirmClearCache": "캐시 지우기",
         "confirmDeleteAllEdits": "모든 편집 삭제",
+        "confirmResetLayout": "레이아웃 초기화",
+        "confirmResetLayoutTitle": "작업 공간 레이아웃 초기화",
         "confirmTitle": "삭제 확인",
+        "resetLayoutMessage": "작업 공간 레이아웃을 초기화하시겠습니까? 도킹된 모든 패널, 너비 및 전환기 위치가 기본값으로 복원됩니다.",
         "sidecarMessage": "모든 사이드카 파일을 삭제하시겠습니까?\n\n모든 활성 루트 폴더 및 하위 폴더 내의 모든 이미지에 대한 편집 내용이 영구적으로 제거됩니다."
       },
       "noFolders": "선택된 폴더 없음",
+      "resetLayoutButton": "레이아웃 초기화",
+      "resetLayoutDesc": "패널 도크, 측면 분할기, 높이 및 패널 전환기를 기본 레이아웃으로 복원합니다.",
+      "resetLayoutTitle": "작업 공간 레이아웃 초기화",
       "statuses": {
         "aiSuccess": "{{count}}개 파일이 업데이트되었습니다. AI 태그가 제거되었습니다.",
         "aiSuccess_one": "{{count}}개 파일이 업데이트되었습니다. AI 태그가 제거되었습니다.",
@@ -1454,7 +1482,9 @@
         "clearingCache": "썸네일 캐시를 지우는 중...",
         "deleting": "사이드카 파일을 삭제하는 중입니다. 잠시 기다려 주세요...",
         "failedToGetPath": "로그 파일 경로를 가져올 수 없습니다.",
+        "layoutResetSuccess": "작업 공간 레이아웃이 기본값으로 초기화되었습니다.",
         "processing": "처리 중...",
+        "resettingLayout": "작업 공간 초기화 중...",
         "sidecarSuccess": "사이드카 파일 {{count}}개가 성공적으로 삭제되었습니다.",
         "sidecarSuccess_one": "사이드카 파일 {{count}}개가 성공적으로 삭제되었습니다.",
         "sidecarSuccess_other": "사이드카 파일 {{count}}개가 성공적으로 삭제되었습니다."
@@ -1740,10 +1770,12 @@
         "depth": "AI 심도 마스킹 기능을 가능하게 하는 강력한 단안 심도 추정 모델을 제공해 주었습니다.",
         "lama": "콘텐츠 인식 채우기와 객체 제거를 가능하게 하는 강력하고 간단한 이미지 인페인팅 모델을 제공해 주었습니다.",
         "lensfun": "자동 렌즈 보정을 위한 귀중한 오픈소스 라이브러리와 방대한 데이터베이스를 제공해 주었습니다.",
+        "libgphoto2": "RapidRAW의 테더링 및 원격 촬영 시스템을 구동하는 포괄적인 카메라 통신 라이브러리를 제공해 주셔서.",
         "negpy": "네거티브 변환 로직에 영감을 주었습니다.",
         "nind": "RapidRAW의 AI 노이즈 감소 기능을 구동하는 AI 모델을 제공해 주었습니다.",
         "rawler": "이 프로젝트의 RAW 파일 처리 기반이 되는 훌륭한 Rust 크레이트를 제공해 주었습니다.",
         "sam2": "AI 피사체 감지 기능에 사용되는 파운데이션 모델을 제공해 주었습니다.",
+        "spektrafilm": "RapidRAW의 내장 필름 에뮬레이션을 구동하는, Andrea Volpato의 스펙트럼 기반 필름 에뮬레이션 LUT를 제공해 주셔서. CC BY-SA 4.0 라이선스입니다.",
         "u2net": "AI 하늘 및 전경 감지 기능에 사용되는 견고한 아키텍처를 제공해 주었습니다.",
         "you": "RapidRAW를 사용하고 지원해 주셔서 감사합니다. 여러분의 관심이 이 프로젝트를 살아 숨 쉬고 발전하게 합니다.",
         "youLabel": "여러분"
@@ -1759,6 +1791,59 @@
     "tooltips": {
       "goHome": "홈으로 이동"
     }
+  },
+  "tethering": {
+    "aperture": "조리개",
+    "aperturePlaceholder": "예: 2.8",
+    "autoApplyPreset": "프리셋 자동 적용",
+    "autoOpenCaptured": "촬영된 이미지 자동으로 열기",
+    "cameraConnected": "카메라 연결됨",
+    "capturing": "촬영 중...",
+    "changePreset": "변경",
+    "clearPreset": "프리셋 제거",
+    "connectCamera": "카메라 연결",
+    "expComp": "노출 보정",
+    "expCompPlaceholder": "예: 0.0",
+    "expMode": "노출 모드",
+    "exposureSettings": "노출 설정",
+    "flipHorizontal": "좌우 대칭",
+    "generalSettings": "일반 설정",
+    "ghostOverlayAlt": "고스트 오버레이",
+    "iso": "ISO",
+    "isoPlaceholder": "예: 400",
+    "liveViewAlt": "라이브 뷰",
+    "metering": "측광 모드",
+    "noCameraDetected": "감지된 카메라 없음",
+    "noCamerasFound": "카메라를 찾을 수 없습니다. 연결 상태와 PC 원격 모드를 확인하세요.",
+    "overlayLastShot": "이전 촬영 오버레이",
+    "overlayOff": "끄기",
+    "rotate90": "90° 회전",
+    "scanTooltip": "카메라 검색",
+    "selectCamera": "카메라 선택",
+    "selectCameraPlaceholder": "카메라를 선택하세요",
+    "shutter": "셔터",
+    "shutterPlaceholder": "예: 1/200",
+    "startLiveView": "라이브 뷰 시작",
+    "status": "상태",
+    "stopLiveView": "라이브 뷰 중지",
+    "title": "테더링",
+    "toasts": {
+      "afFailed": "자동 초점 실행에 실패했습니다",
+      "cameraDisconnected": "카메라 연결이 끊어졌습니다",
+      "captureFailed": "촬영 실패: {{err}}",
+      "communicationFailed": "카메라와 통신하지 못했습니다",
+      "connectionFailed": "연결 실패: {{err}}",
+      "detectionFailed": "감지 실패: {{err}}",
+      "noCamerasFound": "카메라를 찾을 수 없습니다. PC 원격 모드인지 확인하세요.",
+      "presetApplyFailed": "촬영된 이미지에 프리셋 적용 실패",
+      "selectFolderFirst": "라이브러리에서 먼저 일반 폴더를 선택하세요.",
+      "setFailed": "{{key}} 설정 실패: {{err}}"
+    },
+    "triggerAutofocus": "자동 초점 실행",
+    "triggerCapture": "촬영",
+    "wbTemp": "색온도 (K)",
+    "wbTempPlaceholder": "예: 5600",
+    "whiteBalance": "화이트 밸런스"
   },
   "ui": {
     "bottomBar": {
@@ -1820,7 +1905,9 @@
     },
     "lut": {
       "clearLut": "LUT 지우기",
+      "customLuts": "사용자 LUT",
       "empty": "아직 LUT가 없습니다 — 가져오기를 수행하세요",
+      "filmEmulations": "필름 에뮬레이션",
       "filterLabel": "LUT 파일",
       "import": "프로필 가져오기",
       "importFailed": "LUT 가져오기 실패",
