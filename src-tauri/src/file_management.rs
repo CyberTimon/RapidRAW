@@ -17,7 +17,7 @@ use chrono::{DateTime, Utc};
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma};
 use rayon::prelude::*;
-use regex::Regex;
+use regex::regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sysinfo::Disks;
@@ -399,7 +399,7 @@ pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
                 .file_name()
                 .unwrap_or_default()
                 .to_string_lossy(),
-            &id
+            id
         )
     } else {
         format!(
@@ -3038,9 +3038,7 @@ fn parse_preset_file(file_path: &str) -> Result<Vec<PresetItem>, String> {
         .map_err(|e| format!("Failed to read legacy preset file: {}", e))?;
 
     let xmp_content = if lower_path.ends_with(".lrtemplate") {
-        let re = Regex::new(r#"(?s)s.xmp = "(.*)""#)
-            .map_err(|e| format!("Regex compilation failed: {}", e))?;
-        if let Some(caps) = re.captures(&content) {
+        if let Some(caps) = regex!(r#"(?s)s.xmp = "(.*)""#).captures(&content) {
             caps.get(1)
                 .map(|m| m.as_str().replace(r#"\""#, r#"""#))
                 .unwrap_or(content)
@@ -4085,8 +4083,8 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         && let Ok(mut content) = fs::read_to_string(&xmp_file)
     {
         let rating_str = metadata.rating.to_string();
-        let re_rating_attr = Regex::new(r#"xmp:Rating\s*=\s*"[^"]*""#).unwrap();
-        let re_rating_tag = Regex::new(r#"<xmp:Rating\s*>[^<]*</xmp:Rating>"#).unwrap();
+        let re_rating_attr = regex!(r#"xmp:Rating\s*=\s*"[^"]*""#);
+        let re_rating_tag = regex!(r#"<xmp:Rating\s*>[^<]*</xmp:Rating>"#);
 
         if re_rating_attr.is_match(&content) {
             content = re_rating_attr
@@ -4119,8 +4117,8 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         if let Some(lbl) = label {
-            let re_label_attr = Regex::new(r#"xmp:Label\s*=\s*"[^"]*""#).unwrap();
-            let re_label_tag = Regex::new(r#"<xmp:Label\s*>[^<]*</xmp:Label>"#).unwrap();
+            let re_label_attr = regex!(r#"xmp:Label\s*=\s*"[^"]*""#);
+            let re_label_tag = regex!(r#"<xmp:Label\s*>[^<]*</xmp:Label>"#);
 
             if re_label_attr.is_match(&content) {
                 content = re_label_attr
@@ -4135,14 +4133,13 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
                 content = format!("{} <xmp:Label>{}</xmp:Label>\n{}", start, lbl, end);
             }
         } else {
-            let re_label_attr = Regex::new(r#"\s*xmp:Label\s*=\s*"[^"]*""#).unwrap();
-            let re_label_tag = Regex::new(r#"\s*<xmp:Label\s*>[^<]*</xmp:Label>"#).unwrap();
+            let re_label_attr = regex!(r#"\s*xmp:Label\s*=\s*"[^"]*""#);
+            let re_label_tag = regex!(r#"\s*<xmp:Label\s*>[^<]*</xmp:Label>"#);
             content = re_label_attr.replace_all(&content, "").to_string();
             content = re_label_tag.replace_all(&content, "").to_string();
         }
 
-        let re_subject =
-            Regex::new(r#"(?s)<dc:subject>\s*<rdf:Bag>.*?</rdf:Bag>\s*</dc:subject>"#).unwrap();
+        let re_subject = regex!(r#"(?s)<dc:subject>\s*<rdf:Bag>.*?</rdf:Bag>\s*</dc:subject>"#);
         if normal_tags.is_empty() {
             content = re_subject.replace_all(&content, "").to_string();
         } else {

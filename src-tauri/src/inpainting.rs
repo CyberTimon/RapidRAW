@@ -515,7 +515,7 @@ pub async fn invoke_generative_replace_with_mask_def(
                     &mask_crop,
                     ai_w,
                     ai_h,
-                    image::imageops::FilterType::Nearest,
+                    image::imageops::FilterType::Triangle,
                 ),
             )
         } else {
@@ -625,38 +625,30 @@ pub async fn invoke_generative_replace_with_mask_def(
             let out_x = px_x - min_x_u32;
             let out_y = px_y - min_y_u32;
 
-            if mask_value > 0 {
-                let patch_pixel = final_patch.get_pixel(px_x, px_y);
-                color_image.put_pixel(
-                    out_x,
-                    out_y,
-                    Rgb([patch_pixel[0], patch_pixel[1], patch_pixel[2]]),
-                );
+            let px = if mask_value > 0 {
+                *final_patch.get_pixel(px_x, px_y)
             } else {
-                color_image.put_pixel(out_x, out_y, Rgb([0, 0, 0]));
-            }
+                source_image.get_pixel(px_x, px_y)
+            };
+            color_image.put_pixel(out_x, out_y, Rgb([px[0], px[1], px[2]]));
         }
     }
 
     let output_mask =
         image::imageops::crop_imm(&mask_bitmap, min_x_u32, min_y_u32, crop_w, crop_h).to_image();
 
-    let quality = 95;
     let mut color_buf = Cursor::new(Vec::with_capacity(32768));
     color_image
         .write_with_encoder(image::codecs::jpeg::JpegEncoder::new_with_quality(
             &mut color_buf,
-            quality,
+            95,
         ))
         .map_err(|e| e.to_string())?;
     let color_base64 = general_purpose::STANDARD.encode(color_buf.get_ref());
 
     let mut mask_buf = Cursor::new(Vec::with_capacity(32768));
     output_mask
-        .write_with_encoder(image::codecs::jpeg::JpegEncoder::new_with_quality(
-            &mut mask_buf,
-            quality,
-        ))
+        .write_to(&mut mask_buf, image::ImageFormat::Png)
         .map_err(|e| e.to_string())?;
     let mask_base64 = general_purpose::STANDARD.encode(mask_buf.get_ref());
 

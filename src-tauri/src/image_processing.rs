@@ -325,7 +325,7 @@ pub fn downscale_f32_image(image: &DynamicImage, nwidth: u32, nheight: u32) -> D
                     let src_end = row_offset + x_in_end * 3;
                     let src_slice = &src[src_start..src_end];
 
-                    for (&w_x, chunk) in x_wts.iter().zip(src_slice.chunks_exact(3)) {
+                    for (&w_x, chunk) in x_wts.iter().zip(src_slice.as_chunks::<3>().0) {
                         let w = w_x * w_y;
 
                         let r = chunk[0].max(0.0);
@@ -714,7 +714,7 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
             let y_f = y as f32;
             let mut current_vec = origin_vec + (step_vec_y * y_f);
 
-            for pixel in row_pixel_data.chunks_exact_mut(3) {
+            for pixel in row_pixel_data.as_chunks_mut::<3>().0.iter_mut() {
                 if current_vec.z.abs() > 1e-6 {
                     let inv_z = 1.0 / current_vec.z;
                     let mut src_x = current_vec.x * inv_z;
@@ -838,7 +838,7 @@ pub fn unwarp_image_geometry(warped_image: &DynamicImage, params: GeometryParams
         .for_each(|(y, row_pixel_data)| {
             let y_f = y as f32;
 
-            for (x, pixel) in row_pixel_data.chunks_exact_mut(3).enumerate() {
+            for (x, pixel) in row_pixel_data.as_chunks_mut::<3>().0.iter_mut().enumerate() {
                 let x_f = x as f32;
                 let mut current_x = x_f;
                 let mut current_y = y_f;
@@ -2729,7 +2729,7 @@ pub fn calculate_histogram_from_image(image: &DynamicImage) -> Result<HistogramD
             let raw = f32_img.as_raw();
             raw.par_chunks(30_000)
                 .fold(init_hist, |mut acc, chunk| {
-                    for pixel in chunk.chunks_exact(3).step_by(2) {
+                    for pixel in chunk.as_chunks::<3>().0.iter().step_by(2) {
                         let r = (pixel[0].clamp(0.0, 1.0) * 255.0) as usize;
                         let g = (pixel[1].clamp(0.0, 1.0) * 255.0) as usize;
                         let b = (pixel[2].clamp(0.0, 1.0) * 255.0) as usize;
@@ -2750,7 +2750,7 @@ pub fn calculate_histogram_from_image(image: &DynamicImage) -> Result<HistogramD
             let raw = rgb.as_raw();
             raw.par_chunks(30_000)
                 .fold(init_hist, |mut acc, chunk| {
-                    for pixel in chunk.chunks_exact(3).step_by(2) {
+                    for pixel in chunk.as_chunks::<3>().0.iter().step_by(2) {
                         let r = pixel[0] as usize;
                         let g = pixel[1] as usize;
                         let b = pixel[2] as usize;

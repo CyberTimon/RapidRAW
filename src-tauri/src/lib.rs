@@ -1894,7 +1894,7 @@ fn frontend_ready(
     if let Some(session) = &edit_session {
         log::info!(
             "Frontend is ready, returning external edit session for: {}",
-            &session.source
+            session.source
         );
     }
     Ok(LaunchPayload {
@@ -1981,11 +1981,11 @@ pub fn run() {
             {
                 match launch_req.clone() {
                     LaunchRequest::EditSession(session) => {
-                        log::info!("Initial launch with external edit session for: {}", &session.source);
+                        log::info!("Initial launch with external edit session for: {}", session.source);
                         *state.pending_edit_session.lock().unwrap() = Some(session);
                     }
                     LaunchRequest::OpenFile(path) => {
-                        log::info!("Initial open: Storing path {} for later.", &path);
+                        log::info!("Initial open: Storing path {} for later.", path);
                         *state.initial_file_path.lock().unwrap() = Some(path);
                     }
                     _ => {}

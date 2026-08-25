@@ -1149,7 +1149,7 @@ impl GpuProcessor {
             let lut_data = &lut_arc.data;
             let size = lut_arc.size;
             let mut rgba_lut_data_f16 = Vec::with_capacity(lut_data.len() / 3 * 4);
-            for chunk in lut_data.chunks_exact(3) {
+            for chunk in lut_data.as_chunks::<3>().0 {
                 rgba_lut_data_f16.push(f16::from_f32(chunk[0]));
                 rgba_lut_data_f16.push(f16::from_f32(chunk[1]));
                 rgba_lut_data_f16.push(f16::from_f32(chunk[2]));
