@@ -102,10 +102,10 @@ pub fn apply_all_transformations<'a, I: IntoCowImage<'a>>(
     let flip_vertical = adjustments["flipVertical"].as_bool().unwrap_or(false);
 
     let coarse_rotated_image = apply_coarse_rotation(image, orientation_steps);
-    let warped_image = apply_geometry_warp(coarse_rotated_image, adjustments);
+    let oriented_image = apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical);
+    let warped_image = apply_geometry_warp(oriented_image, adjustments);
     let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, adjustments);
-    let flipped_image = apply_flip(blurred_image, flip_horizontal, flip_vertical);
-    let rotated_image = apply_rotation(flipped_image, rotation_degrees);
+    let rotated_image = apply_rotation(blurred_image, rotation_degrees);
 
     let crop_data: Option<Crop> = serde_json::from_value(adjustments["crop"].clone()).ok();
     let crop_json = serde_json::to_value(crop_data).unwrap_or(serde_json::Value::Null);

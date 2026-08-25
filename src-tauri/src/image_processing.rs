@@ -962,7 +962,8 @@ pub fn inverse_transform_mask(
         .get("flipVertical")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    let flipped = apply_flip(unrotated_fine, flip_h, flip_v).into_owned();
+    let unwarped = apply_unwarp_geometry(unrotated_fine, adjustments).into_owned();
+    let flipped = apply_flip(unwarped, flip_h, flip_v).into_owned();
 
     let steps = adjustments
         .get("orientationSteps")
@@ -971,9 +972,7 @@ pub fn inverse_transform_mask(
     let inverse_steps = (4 - (steps % 4)) % 4;
     let unrotated_coarse = apply_coarse_rotation(flipped, inverse_steps).into_owned();
 
-    let unwarped = apply_unwarp_geometry(unrotated_coarse, adjustments).into_owned();
-
-    unwarped.into_luma8()
+    unrotated_coarse.into_luma8()
 }
 
 pub fn inverse_transform_point(
@@ -999,6 +998,8 @@ pub fn inverse_transform_point(
         x = cx + dx * cos_t - dy * sin_t;
         y = cy + dx * sin_t + dy * cos_t;
     }
+
+    (x, y) = inverse_geometry_point(x, y, curr_w, curr_h, adjustments);
 
     let flip_h = adjustments
         .get("flipHorizontal")
@@ -1028,6 +1029,16 @@ pub fn inverse_transform_point(
         std::mem::swap(&mut curr_w, &mut curr_h);
     }
 
+    (x, y)
+}
+
+fn inverse_geometry_point(
+    x: f64,
+    y: f64,
+    curr_w: f64,
+    curr_h: f64,
+    adjustments: &serde_json::Value,
+) -> (f64, f64) {
     let params = get_geometry_params_from_json(adjustments);
     let width = curr_w as f32;
     let height = curr_h as f32;
