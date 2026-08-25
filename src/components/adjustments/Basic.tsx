@@ -1,11 +1,14 @@
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider from '../ui/Slider';
-import { Adjustments, BasicAdjustment, DetailsAdjustment } from '../../utils/adjustments';
+import { Adjustments, BasicAdjustment, DetailsAdjustment, INITIAL_ADJUSTMENTS } from '../../utils/adjustments';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+
+const BASIC_DEFAULT_EXPOSURE = INITIAL_ADJUSTMENTS.exposure;
+const AGX_DEFAULT_EXPOSURE = 0;
 
 interface BasicAdjustmentsProps {
   adjustments: Adjustments;
@@ -53,7 +56,7 @@ const ToneMapperSwitch = ({
 
   const handleReset = () => {
     onMapperChange('basic');
-    onEvShiftChange(0);
+    onEvShiftChange(BASIC_DEFAULT_EXPOSURE);
   };
 
   useEffect(() => {
@@ -171,10 +174,19 @@ export default function BasicAdjustments({
   };
 
   const handleToneMapperChange = (mapper: string) => {
-    setAdjustments((prev: Partial<Adjustments>) => ({
-      ...prev,
-      toneMapper: mapper as 'basic' | 'agx',
-    }));
+    setAdjustments((prev: Partial<Adjustments>) => {
+      let exposure = prev.exposure;
+      if (mapper === 'agx' && prev.exposure === BASIC_DEFAULT_EXPOSURE) {
+        exposure = AGX_DEFAULT_EXPOSURE;
+      } else if (mapper === 'basic' && prev.exposure === AGX_DEFAULT_EXPOSURE) {
+        exposure = BASIC_DEFAULT_EXPOSURE;
+      }
+      return {
+        ...prev,
+        toneMapper: mapper as 'basic' | 'agx',
+        exposure,
+      };
+    });
   };
 
   const hideTonemapper = isForMask || appSettings?.tonemapperOverrideEnabled;
