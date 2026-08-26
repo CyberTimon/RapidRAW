@@ -338,6 +338,12 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         if (files.length > 0) {
           const paths = files.map((f: ImageFile) => f.path);
 
+          if (appSettings?.autoApplyLensCorrection) {
+            invoke(Invokes.AutoApplyLensCorrectionToPaths, { paths }).catch((err) => {
+              console.error('Failed to auto-apply lens correction:', err);
+            });
+          }
+
           if (isExifSortActive) {
             let combinedExifMap: Record<string, any> = {};
             const chunkSize = 100;

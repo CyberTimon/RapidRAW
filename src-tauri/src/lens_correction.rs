@@ -525,6 +525,54 @@ fn lenses_for_maker<'a>(db: &'a LensDatabase, maker: &str) -> Vec<&'a Lens> {
         .collect()
 }
 
+impl Camera {
+    pub fn get_maker(&self) -> String {
+        self.maker
+            .iter()
+            .find(|m| m.lang.as_deref() == Some("en"))
+            .or_else(|| self.maker.first())
+            .map(|m| m.value.clone())
+            .unwrap_or_else(|| "Misc".to_string())
+    }
+
+    fn matches_model(&self, model: &str) -> bool {
+        self.model.iter().any(|m| m.value.eq_ignore_ascii_case(model))
+    }
+}
+
+/// Fixed-lens cameras (compacts) rarely populate the EXIF LensModel tag, since
+/// there is no interchangeable lens to name. Lensfun instead links these cameras
+/// to their (often shared) lens profile through a common `<mount>` id. This looks
+/// up the camera by maker/model, then finds the lens profile registered for that
+/// same mount.
+pub fn find_lens_by_camera_mount(
+    db: &LensDatabase,
+    maker: &str,
+    camera_model: &str,
+) -> Option<(String, String)> {
+    let clean_maker = maker.trim().trim_matches('"');
+    let clean_model = camera_model.trim().trim_matches('"');
+    if clean_model.is_empty() {
+        return None;
+    }
+
+    let camera = db.cameras.iter().find(|c| {
+        c.get_maker().eq_ignore_ascii_case(clean_maker) && c.matches_model(clean_model)
+    })?;
+
+    let lenses_from_maker: Vec<&Lens> = db
+        .lenses
+        .iter()
+        .filter(|lens| lens.get_maker().eq_ignore_ascii_case(clean_maker))
+        .collect();
+
+    let lens = lenses_from_maker
+        .iter()
+        .find(|lens| lens.mount.iter().any(|m| m == &camera.mount))?;
+
+    Some((lens.get_maker(), lens.get_display_name(&lenses_from_maker)))
+}
+
 pub fn load_lensfun_db(app_handle: &tauri::AppHandle) -> LensDatabase {
     let mut combined_db = LensDatabase {
         cameras: Vec::new(),
@@ -726,6 +774,7 @@ pub fn find_best_lens_match(
 pub fn autodetect_lens(
     maker: String,
     model: String,
+    camera_model: Option<String>,
     state: tauri::State<AppState>,
 ) -> Result<Option<(String, String)>, String> {
     let db_guard = state
@@ -733,7 +782,19 @@ pub fn autodetect_lens(
         .lock()
         .map_err(|e| format!("Lock poisoned: {}", e))?;
     if let Some(db) = &*db_guard {
-        Ok(find_best_lens_match(db, &maker, &model))
+        if !model.trim().is_empty()
+            && let Some(found) = find_best_lens_match(db, &maker, &model)
+        {
+            return Ok(Some(found));
+        }
+
+        // Fixed-lens cameras (compacts) usually leave EXIF LensModel empty, so fall
+        // back to resolving the lens profile through the camera's own model/mount.
+        if let Some(camera_model) = camera_model {
+            return Ok(find_lens_by_camera_mount(db, &maker, &camera_model));
+        }
+
+        Ok(None)
     } else {
         Ok(None)
     }
@@ -781,5 +842,48 @@ pub fn resolve_lens_params(
         lens.get_distortion_params(focal_length, aperture, distance)
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn load_test_db() -> LensDatabase {
+        let mut combined_db = LensDatabase {
+            cameras: Vec::new(),
+            lenses: Vec::new(),
+        };
+        let db_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("lensfun_db");
+        for entry in WalkDir::new(db_dir)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "xml"))
+        {
+            let xml_content = fs::read_to_string(entry.path()).expect("failed to read lensfun XML");
+            let mut db: LensDatabase =
+                quick_xml::de::from_str(&xml_content).expect("failed to parse lensfun XML");
+            combined_db.cameras.append(&mut db.cameras);
+            combined_db.lenses.append(&mut db.lenses);
+        }
+        combined_db
+    }
+
+    #[test]
+    fn fixed_lens_compact_resolves_via_camera_mount() {
+        let db = load_test_db();
+
+        // A Sony RX10 IV RAW leaves EXIF LensModel empty (no interchangeable lens),
+        // so autodetection must fall back to the camera model -> mount -> lens lookup.
+        let result = find_lens_by_camera_mount(&db, "Sony", "DSC-RX10M4");
+        let (maker, model) = result.expect("expected a lens match for the Sony RX10 IV via its camera mount");
+        assert_eq!(maker, "Sony");
+        assert!(
+            model.contains("RX10"),
+            "expected the shared RX10 III/IV lens profile, got {model:?}"
+        );
+
+        let unknown = find_lens_by_camera_mount(&db, "Sony", "Not A Real Camera");
+        assert!(unknown.is_none());
     }
 }

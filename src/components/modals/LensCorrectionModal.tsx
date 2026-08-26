@@ -415,8 +415,9 @@ export default function LensCorrectionModal({
     }
     const exifMaker = selectedImage.exif.Make || '';
     const exifModel = selectedImage.exif.LensModel || '';
+    const cameraModel = selectedImage.exif.Model || '';
 
-    if (!exifModel) {
+    if (!exifModel && !cameraModel) {
       setDetectionStatus('not_found');
       return;
     }
@@ -424,7 +425,11 @@ export default function LensCorrectionModal({
     setDetectionStatus('detecting');
 
     try {
-      const result: [string, string] | null = await invoke('autodetect_lens', { maker: exifMaker, model: exifModel });
+      const result: [string, string] | null = await invoke('autodetect_lens', {
+        maker: exifMaker,
+        model: exifModel,
+        cameraModel,
+      });
 
       if (result) {
         const [detectedMaker, detectedModel] = result;
