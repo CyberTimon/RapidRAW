@@ -242,6 +242,10 @@
       "autoAdjust_other": "Auto Adjust Images",
       "collage_one": "Frame Image",
       "collage_other": "Create Collage",
+      "confirmAutoAdjustButton": "Auto Adjust {{photoCount}} Photos",
+      "confirmAutoAdjustEditedMessage": "Apply Auto Adjust to {{photoCount}} selected photos? {{editedCount}} already contain edits. Their global tone adjustments will be replaced; masks and crops will be preserved.",
+      "confirmAutoAdjustMessage": "Apply Auto Adjust to {{photoCount}} selected photos?",
+      "confirmAutoAdjustTitle": "Auto Adjust Selection",
       "confirmDelete": "Confirm Delete",
       "confirmDeleteVc": "Confirm Delete + Virtual Copies",
       "convertNegative_one": "Convert Negative",
@@ -1538,6 +1542,7 @@
     },
     "keybinds": {
       "actions": {
+        "apply_auto_adjustments": "Apply auto adjustments",
         "brush_size_down": "Decrease brush size",
         "brush_size_up": "Increase brush size",
         "color_label_blue": "Color label: Blue",

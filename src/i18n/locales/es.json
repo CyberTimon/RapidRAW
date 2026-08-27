@@ -241,6 +241,10 @@
       "shortcutsHeading": "ATAJOS"
     },
     "thumbnail": {
+      "confirmAutoAdjustButton": "Ajustar automáticamente {{photoCount}} fotos",
+      "confirmAutoAdjustEditedMessage": "¿Aplicar ajustes automáticos a {{photoCount}} fotos seleccionadas? {{editedCount}} ya contienen ediciones. Sus ajustes tonales globales se reemplazarán; las máscaras y los recortes se conservarán.",
+      "confirmAutoAdjustMessage": "¿Aplicar ajustes automáticos a {{photoCount}} fotos seleccionadas?",
+      "confirmAutoAdjustTitle": "Ajustar selección automáticamente",
       "addToAlbum": "Agregar al álbum",
       "autoAdjust_many": "Ajuste automático de imágenes",
       "autoAdjust_one": "Ajuste automático de imagen",
@@ -1571,6 +1575,7 @@
     },
     "keybinds": {
       "actions": {
+        "apply_auto_adjustments": "Aplicar ajustes automáticos",
         "brush_size_down": "Reducir tamaño del pincel",
         "brush_size_up": "Aumentar tamaño del pincel",
         "color_label_blue": "Etiqueta de color: Azul",

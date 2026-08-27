@@ -2,10 +2,12 @@ import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import { toast } from 'react-toastify';
+import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useProcessStore } from '../store/useProcessStore';
+import { useUIStore } from '../store/useUIStore';
 import {
   Adjustments,
   INITIAL_ADJUSTMENTS,
@@ -17,6 +19,11 @@ import {
 import { calculateCenteredCrop } from '../utils/cropUtils';
 import { Invokes } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
+import {
+  countEditedAutoAdjustTargets,
+  resolveAutoAdjustTargets,
+  shouldConfirmAutoAdjust,
+} from '../utils/autoAdjustments';
 
 export const debouncedSetHistory = debounce((newAdj: Adjustments) => {
   useEditorStore.getState().pushHistory(newAdj);
@@ -30,6 +37,7 @@ export const debouncedSave = debounce((path: string, adjustmentsToSave: Adjustme
 }, 300);
 
 export function useEditorActions() {
+  const { t } = useTranslation();
   const setEditor = useEditorStore((s) => s.setEditor);
 
   const setAdjustments = useCallback(
@@ -67,20 +75,86 @@ export function useEditorActions() {
     [setAdjustments],
   );
 
-  const handleAutoAdjustments = useCallback(async () => {
-    const selectedImage = useEditorStore.getState().selectedImage;
-    if (!selectedImage?.isReady) return;
-    try {
-      const autoAdjustments: Adjustments = await invoke(Invokes.CalculateAutoAdjustments);
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        ...autoAdjustments,
-        sectionVisibility: { ...prev.sectionVisibility, ...autoAdjustments.sectionVisibility },
-      }));
-    } catch (err) {
-      toast.error(`Failed to apply auto adjustments: ${err}`);
-    }
-  }, [setAdjustments]);
+  const applyAutoAdjustments = useCallback(
+    async (paths: string[]) => {
+      if (paths.length === 0) return;
+
+      const { selectedImage } = useEditorStore.getState();
+      const currentEditorPath = selectedImage?.isReady ? selectedImage.path : null;
+      const batchPaths = currentEditorPath ? paths.filter((path) => path !== currentEditorPath) : paths;
+
+      paths.forEach((path) => globalImageCache.delete(path));
+
+      try {
+        const tasks: Promise<unknown>[] = [];
+
+        if (currentEditorPath && paths.includes(currentEditorPath)) {
+          tasks.push(
+            invoke<Adjustments>(Invokes.CalculateAutoAdjustments).then((autoAdjustments) => {
+              setAdjustments((prev: Adjustments) => ({
+                ...prev,
+                ...autoAdjustments,
+                sectionVisibility: { ...prev.sectionVisibility, ...autoAdjustments.sectionVisibility },
+              }));
+            }),
+          );
+        }
+
+        if (batchPaths.length > 0) {
+          tasks.push(invoke(Invokes.ApplyAutoAdjustmentsToPaths, { paths: batchPaths }));
+        }
+
+        await Promise.all(tasks);
+      } catch (err) {
+        toast.error(t('contextMenus.toasts.failedApplyAuto', { err }));
+      }
+    },
+    [setAdjustments, t],
+  );
+
+  const handleAutoAdjustments = useCallback(
+    (pathsOrEvent?: string[] | unknown) => {
+      const { selectedImage } = useEditorStore.getState();
+      const { imageList, libraryActivePath, multiSelectedPaths } = useLibraryStore.getState();
+      const { activeView, setUI } = useUIStore.getState();
+      const explicitPaths = Array.isArray(pathsOrEvent) ? pathsOrEvent : undefined;
+      const paths = resolveAutoAdjustTargets({
+        activeView,
+        explicitPaths,
+        libraryActivePath,
+        multiSelectedPaths,
+        selectedImagePath: selectedImage?.path ?? null,
+      });
+
+      if (paths.length === 0) return;
+
+      const editedTargetCount = countEditedAutoAdjustTargets(paths, imageList, selectedImage);
+
+      if (shouldConfirmAutoAdjust(paths.length, editedTargetCount)) {
+        setUI({
+          confirmModalState: {
+            confirmText: t('contextMenus.thumbnail.confirmAutoAdjustButton', { photoCount: paths.length }),
+            isOpen: true,
+            message:
+              editedTargetCount > 0
+                ? t('contextMenus.thumbnail.confirmAutoAdjustEditedMessage', {
+                    photoCount: paths.length,
+                    editedCount: editedTargetCount,
+                  })
+                : t('contextMenus.thumbnail.confirmAutoAdjustMessage', { photoCount: paths.length }),
+            onConfirm: () => {
+              void applyAutoAdjustments(paths);
+            },
+            title: t('contextMenus.thumbnail.confirmAutoAdjustTitle'),
+          },
+        });
+        return;
+      }
+
+      void applyAutoAdjustments(paths);
+    },
+    [applyAutoAdjustments, t],
+  );
 
   const handleLutSelect = useCallback(
     async (path: string, isBuiltIn: boolean = false) => {

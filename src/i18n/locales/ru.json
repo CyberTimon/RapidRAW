@@ -245,6 +245,10 @@
       "shortcutsHeading": "БЫСТРЫЕ КЛАВИШИ"
     },
     "thumbnail": {
+      "confirmAutoAdjustButton": "Автоматически скорректировать {{photoCount}} фото",
+      "confirmAutoAdjustEditedMessage": "Применить автоматические корректировки к {{photoCount}} выбранным фотографиям? {{editedCount}} из них уже содержат правки. Их глобальные тоновые корректировки будут заменены; маски и кадрирование сохранятся.",
+      "confirmAutoAdjustMessage": "Применить автоматические корректировки к {{photoCount}} выбранным фотографиям?",
+      "confirmAutoAdjustTitle": "Автоматически скорректировать выбранное",
       "addToAlbum": "Добавить в альбом",
       "autoAdjust_few": "Автонастройка изображений",
       "autoAdjust_many": "Автонастройка изображений",
@@ -1606,6 +1610,7 @@
     },
     "keybinds": {
       "actions": {
+        "apply_auto_adjustments": "Применить автоматические корректировки",
         "brush_size_down": "Уменьшить размер кисти",
         "brush_size_up": "Увеличить размер кисти",
         "color_label_blue": "Цветовая метка: Синий",

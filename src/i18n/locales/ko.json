@@ -237,6 +237,10 @@
       "shortcutsHeading": "단축키"
     },
     "thumbnail": {
+      "confirmAutoAdjustButton": "사진 {{photoCount}}장 자동 조정",
+      "confirmAutoAdjustEditedMessage": "선택한 사진 {{photoCount}}장에 자동 조정을 적용할까요? 이 중 {{editedCount}}장은 이미 편집되어 있습니다. 전역 톤 조정은 대체되며 마스크와 자르기는 유지됩니다.",
+      "confirmAutoAdjustMessage": "선택한 사진 {{photoCount}}장에 자동 조정을 적용할까요?",
+      "confirmAutoAdjustTitle": "선택 항목 자동 조정",
       "addToAlbum": "앨범에 추가",
       "autoAdjust_one": "이미지 자동 조정",
       "autoAdjust_other": "이미지 자동 조정",
@@ -1536,6 +1540,7 @@
     },
     "keybinds": {
       "actions": {
+        "apply_auto_adjustments": "자동 조정 적용",
         "brush_size_down": "브러시 크기 줄이기",
         "brush_size_up": "브러시 크기 늘리기",
         "color_label_blue": "색상 레이블: 파랑",
