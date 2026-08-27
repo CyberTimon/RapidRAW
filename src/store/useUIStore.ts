@@ -45,6 +45,7 @@ export interface FocusStackModalState {
 }
 
 export interface HdrModalState {
+  detectedScene?: string | null;
   error: string | null;
   finalImageBase64: string | null;
   isOpen: boolean;
@@ -67,6 +68,66 @@ export interface DenoiseModalState {
 export interface NegativeConversionModalState {
   isOpen: boolean;
   targetPaths: Array<string>;
+}
+
+export interface BatchPolishModalState {
+  isOpen: boolean;
+  selectedPaths: Array<string>;
+}
+
+export interface ColorMatcherModalState {
+  isOpen: boolean;
+}
+
+export interface HeroCuratorModalState {
+  isOpen: boolean;
+  selectedPaths: Array<string>;
+}
+
+export interface ClientDeliveryModalState {
+  isOpen: boolean;
+  selectedPaths: Array<string>;
+}
+
+export interface BokehModalState {
+  isOpen: boolean;
+}
+
+export interface AdvancedExportModalState {
+  isOpen: boolean;
+  selectedPaths: Array<string>;
+}
+
+export interface SpeedCullerModalState {
+  isOpen: boolean;
+  selectedPaths: Array<string>;
+  initialIndex: number;
+}
+
+export interface TetheringModalState {
+  isOpen: boolean;
+  isLiveViewActive: boolean;
+  isConnected: boolean;
+  cameraInfo: any | null;
+  capturedPhotos: Array<{
+    filePath: string;
+    fileName: string;
+    exposureInfo: string;
+    timestamp: number;
+  }>;
+  isCapturing: boolean;
+  error: string | null;
+}
+
+export interface NightSkyState {
+  isExpanded: boolean;
+  targetPaths: Array<string>;
+  isProcessing: boolean;
+  progressMessage: string | null;
+  freezeGround: boolean;
+  removeLightPollution: boolean;
+  sigmaClip: number;
+  error: string | null;
 }
 
 export interface CullingModalState {
@@ -132,7 +193,16 @@ interface UIState {
   negativeModalState: NegativeConversionModalState;
   denoiseModalState: DenoiseModalState;
   cullingModalState: CullingModalState;
+  batchPolishModalState: BatchPolishModalState;
+  tetheringModalState: TetheringModalState;
+  colorMatcherModalState: ColorMatcherModalState;
+  heroCuratorModalState: HeroCuratorModalState;
+  clientDeliveryModalState: ClientDeliveryModalState;
+  bokehModalState: BokehModalState;
+  advancedExportModalState: AdvancedExportModalState;
+  speedCullerModalState: SpeedCullerModalState;
   collageModalState: CollageModalState;
+  nightSkyState: NightSkyState;
 
   setUI: (updater: Partial<UIState> | ((state: UIState) => Partial<UIState>)) => void;
   setPanel: (panel: Panel | null) => void;
@@ -240,7 +310,33 @@ export const useUIStore = create<UIState>((set, get) => ({
     isRaw: false,
   },
   cullingModalState: { isOpen: false, suggestions: null, progress: null, error: null, pathsToCull: [] },
+  batchPolishModalState: { isOpen: false, selectedPaths: [] },
+  tetheringModalState: {
+    isOpen: false,
+    isLiveViewActive: false,
+    isConnected: false,
+    cameraInfo: null,
+    capturedPhotos: [],
+    isCapturing: false,
+    error: null,
+  },
+  colorMatcherModalState: { isOpen: false },
+  heroCuratorModalState: { isOpen: false, selectedPaths: [] },
+  clientDeliveryModalState: { isOpen: false, selectedPaths: [] },
+  bokehModalState: { isOpen: false },
+  advancedExportModalState: { isOpen: false, selectedPaths: [] },
+  speedCullerModalState: { isOpen: false, selectedPaths: [], initialIndex: 0 },
   collageModalState: { isOpen: false, sourceImages: [] },
+  nightSkyState: {
+    isExpanded: false,
+    targetPaths: [],
+    isProcessing: false,
+    progressMessage: null,
+    freezeGround: true,
+    removeLightPollution: true,
+    sigmaClip: 2.5,
+    error: null,
+  },
 
   setUI: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
 

@@ -1685,7 +1685,12 @@ pub fn resolve_tonemapper_override(settings: &crate::AppSettings, is_raw: bool) 
             .as_deref()
             .unwrap_or("basic")
     };
-    Some(if tm == "agx" { 1 } else { 0 })
+    Some(match tm {
+        "agx" => 1,
+        "aces" | "acescg" => 2,
+        "oklab" => 3,
+        _ => 0,
+    })
 }
 
 pub fn resolve_tonemapper_override_from_handle(
@@ -2086,8 +2091,12 @@ fn get_global_adjustments_from_json(
         has_lut,
         lut_intensity,
 
-        tonemapper_mode: tonemapper_override
-            .unwrap_or_else(|| if tone_mapper == "agx" { 1 } else { 0 }),
+        tonemapper_mode: tonemapper_override.unwrap_or_else(|| match tone_mapper {
+            "agx" => 1,
+            "aces" | "acescg" => 2,
+            "oklab" => 3,
+            _ => 0,
+        }),
         _pad_lut2: 0.0,
         _pad_lut3: 0.0,
         _pad_lut4: 0.0,
@@ -3273,3 +3282,77 @@ pub fn calculate_auto_adjustments(
 
     Ok(auto_results_to_json(&results))
 }
+
+/// Centralized, high-performance 2D discrete 4-neighbor Laplacian variance metric for sharpness and focus estimation.
+/// Computes mean and standard deviation / variance in a single streaming O(1)-memory pass.
+pub fn compute_laplacian_sharpness_score(img: &DynamicImage) -> f32 {
+    let gray = img.to_luma8();
+    compute_gray_laplacian_variance(&gray).sqrt() as f32
+}
+
+/// Computes the Laplacian variance on a grayscale image buffer using a streaming pass without allocating vectors.
+pub fn compute_gray_laplacian_variance(gray: &image::GrayImage) -> f64 {
+    let (w, h) = gray.dimensions();
+    if w < 3 || h < 3 {
+        return 0.0;
+    }
+
+    let mut sum = 0.0f64;
+    let mut sq_sum = 0.0f64;
+    let mut count = 0.0f64;
+
+    for y in 1..h - 1 {
+        for x in 1..w - 1 {
+            let center = gray.get_pixel(x, y)[0] as f64;
+            let up = gray.get_pixel(x, y - 1)[0] as f64;
+            let down = gray.get_pixel(x, y + 1)[0] as f64;
+            let left = gray.get_pixel(x - 1, y)[0] as f64;
+            let right = gray.get_pixel(x + 1, y)[0] as f64;
+
+            let lap = (4.0 * center - up - down - left - right).abs();
+            sum += lap;
+            sq_sum += lap * lap;
+            count += 1.0;
+        }
+    }
+
+    if count == 0.0 {
+        return 0.0;
+    }
+
+    let mean = sum / count;
+    let variance = (sq_sum / count) - (mean * mean);
+    variance.max(0.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{GrayImage, Luma};
+
+    #[test]
+    fn test_laplacian_flat_image_has_zero_variance() {
+        let flat = GrayImage::from_pixel(100, 100, Luma([128u8]));
+        let variance = compute_gray_laplacian_variance(&flat);
+        assert_eq!(variance, 0.0);
+    }
+
+    #[test]
+    fn test_laplacian_sharp_edge_has_positive_variance() {
+        let mut img = GrayImage::from_pixel(50, 50, Luma([0u8]));
+        for y in 15..35 {
+            for x in 15..35 {
+                img.put_pixel(x, y, Luma([255u8]));
+            }
+        }
+        let variance = compute_gray_laplacian_variance(&img);
+        assert!(variance > 100.0, "Sharp edge should have high Laplacian variance, got {}", variance);
+    }
+
+    #[test]
+    fn test_laplacian_small_image_edge_case() {
+        let tiny = GrayImage::new(2, 2);
+        assert_eq!(compute_gray_laplacian_variance(&tiny), 0.0);
+    }
+}
+

@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Mappage des tons type film",
         "basic": "Standard",
-        "basicDesc": "Mappage des tons standard"
+        "basicDesc": "Mappage des tons standard",
+        "oklab": "Oklab",
+        "oklabDesc": "Science de la couleur perceptive et hautes lumières"
       },
       "reset": "Réinitialiser",
       "shadows": "Ombres",
@@ -1277,7 +1279,8 @@
       "savedSuccess": "Empilement de mise au point enregistré avec succès !",
       "stacking": "Empilement de la mise au point",
       "start": "Démarrer",
-      "title": "Empilement de mise au point"
+      "title": "Empilement de mise au point",
+      "descriptionWithCount_many": "Combinez {{count}} images avec des distances de mise au point variables en une seule image parfaitement nette."
     },
     "hdr": {
       "cancel": "Annuler",
@@ -1729,7 +1732,8 @@
         "title": "Prétraitement de l'image",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Standard"
+          "basic": "Standard",
+          "oklab": "Oklab (Perceptuel)"
         },
         "tonemapperOverride": "Surcharge globale du mappeur de tons",
         "tonemapperOverrideDesc": "Forcer un mappeur de tons spécifique de manière globale pour toutes les images, masquant le sélecteur de mappeur de tons dans le panneau des ajustements."

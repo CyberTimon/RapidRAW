@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "電影感色調映射",
         "basic": "基礎",
-        "basicDesc": "標準色調映射"
+        "basicDesc": "標準色調映射",
+        "oklab": "Oklab",
+        "oklabDesc": "感知色彩與高光科學"
       },
       "reset": "重置",
       "shadows": "陰影",
@@ -200,7 +202,8 @@
       "resetAdjustments": "重置調整",
       "stitchPanorama": "拼接全景圖",
       "tagging": "標籤",
-      "undo": "復原"
+      "undo": "復原",
+      "ratingLabel_many": "{{count}} 星"
     },
     "folders": {
       "changeIcon": "更換圖示",
@@ -218,12 +221,15 @@
       "removeRoot": "移除根資料夾",
       "renameFolder": "重新命名資料夾",
       "showExplorer": "在檔案資源管理器中顯示",
-      "unpin": "取消固定資料夾"
+      "unpin": "取消固定資料夾",
+      "copyHere_many": "複製 {{count}} 張影像至此",
+      "moveHere_many": "移動 {{count}} 張影像至此"
     },
     "library": {
       "addCopiedToAlbum_one": "將複製的影像新增到相簿",
       "addCopiedToAlbum_other": "將 {{count}} 張複製的影像新增到相簿",
-      "refreshView": "重新整理檢視"
+      "refreshView": "重新整理檢視",
+      "addCopiedToAlbum_many": "將 {{count}} 張複製的影像新增到相簿"
     },
     "merge": {
       "focusStack": "焦距合成",
@@ -270,7 +276,19 @@
       "resetAdjustments_one": "重置調整",
       "resetAdjustments_other": "重置 {{count}} 張影像的調整",
       "showExplorer": "在檔案資源管理器中顯示",
-      "virtualCopy": "虛擬副本"
+      "virtualCopy": "虛擬副本",
+      "autoAdjust_many": "自動調整影像",
+      "collage_many": "建立拼貼畫",
+      "convertNegative_many": "轉換負片",
+      "copyImage_many": "複製 {{count}} 張影像",
+      "cullImage_many": "篩選影像",
+      "deleteImage_many": "刪除 {{count}} 張影像",
+      "denoise_many": "降噪影像",
+      "exportImage_many": "匯出 {{count}} 張影像",
+      "pasteAdjustments_many": "貼上調整到 {{count}} 張影像",
+      "removeFromAlbum_many": "從相簿中移除 {{count}} 張影像",
+      "renameImage_many": "重新命名 {{count}} 張影像",
+      "resetAdjustments_many": "重置 {{count}} 張影像的調整"
     },
     "toasts": {
       "couldNotShowExplorer": "無法在檔案資源管理器中顯示檔案：{{err}}",
@@ -383,7 +401,11 @@
         "invertedName": "{{name}} 反轉",
         "quickErase": "快速擦除 {{count}}",
         "quickErase_one": "快速擦除 {{count}}",
-        "quickErase_other": "快速擦除 {{count}}"
+        "quickErase_other": "快速擦除 {{count}}",
+        "aiEdit_many": "AI 編輯 {{count}}",
+        "clone_many": "仿製 {{count}}",
+        "heal_many": "修復 {{count}}",
+        "quickErase_many": "快速擦除 {{count}}"
       },
       "resetInpaintingTooltip": "重置影像修復",
       "settings": {
@@ -583,7 +605,8 @@
         "invertedName": "{{name}} 反轉",
         "maskName": "遮色片 {{count}}",
         "maskName_one": "遮色片 {{count}}",
-        "maskName_other": "遮色片 {{count}}"
+        "maskName_other": "遮色片 {{count}}",
+        "maskName_many": "遮色片 {{count}}"
       },
       "resetMaskingTooltip": "重置遮色片",
       "settings": {
@@ -757,7 +780,8 @@
       "saveEditedImageTitle": "儲存編輯後的影像",
       "selectFolderTitle": "選擇資料夾以匯出 {{count}} 張影像",
       "selectFolderTitle_one": "選擇資料夾以匯出 {{count}} 張影像",
-      "selectFolderTitle_other": "選擇資料夾以匯出 {{count}} 張影像"
+      "selectFolderTitle_other": "選擇資料夾以匯出 {{count}} 張影像",
+      "selectFolderTitle_many": "選擇資料夾以匯出 {{count}} 張影像"
     },
     "file": {
       "quality": "品質",
@@ -809,7 +833,8 @@
       "failed": "匯出失敗",
       "noImageSelected": "未選擇要匯出的影像。",
       "noImagesSelected": "未選擇影像。",
-      "success": "匯出成功！"
+      "success": "匯出成功！",
+      "exportMultiple_many": "匯出 {{count}} {{label}}"
     },
     "title": "匯出",
     "watermark": {
@@ -996,7 +1021,8 @@
       "tooltipFocalLength": "焦距",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "快門速度",
-      "tooltipVirtualCopy": "虛擬副本"
+      "tooltipVirtualCopy": "虛擬副本",
+      "imagesCount_many": "{{count}} 張影像"
     },
     "search": {
       "noResults": "未找到結果",
@@ -1203,7 +1229,9 @@
       "similarityThresholdDesc": "值越低越嚴格（完全重複）。值越高越寬鬆（近似重複）。建議值 24-32。",
       "startCulling": "開始篩選",
       "starting": "啟動中...",
-      "title": "篩選影像"
+      "title": "篩選影像",
+      "applyButton_many": "應用到 {{count}} 張影像",
+      "duplicatesHeader_many": "重複項（{{count}}）"
     },
     "denoise": {
       "batchProgressText": "降噪中 {{current}} / {{total}}...",
@@ -1249,7 +1277,8 @@
       "savedSuccess": "焦距合成已成功儲存！",
       "stacking": "正在合成焦距",
       "start": "開始",
-      "title": "焦距合成"
+      "title": "焦距合成",
+      "descriptionWithCount_many": "將 {{count}} 張不同對焦距離的影像合併為一張完美清晰的影像。"
     },
     "hdr": {
       "cancel": "取消",
@@ -1267,7 +1296,8 @@
       "savedSuccess": "HDR 儲存成功！",
       "speedNotice": "這可能需要幾分鐘，具體取決於曝光影像的數量和大小。",
       "start": "開始",
-      "title": "合併為 HDR"
+      "title": "合併為 HDR",
+      "descriptionWithCount_many": "將 {{count}} 張包圍曝光合併為一張高動態範圍影像。"
     },
     "importSettings": {
       "cancel": "取消",
@@ -1337,7 +1367,8 @@
       "resetViewTooltip": "重置檢視",
       "title": "負片轉換",
       "zoomInTooltip": "放大",
-      "zoomOutTooltip": "縮小"
+      "zoomOutTooltip": "縮小",
+      "convertAndSaveAll_many": "轉換並儲存全部（{{count}}）"
     },
     "panorama": {
       "cancel": "取消",
@@ -1355,7 +1386,8 @@
       "speedNotice": "這可能需要幾分鐘，具體取決於影像的數量和大小。",
       "start": "開始",
       "stitchingProgress": "拼接全景圖中",
-      "title": "拼接全景圖"
+      "title": "拼接全景圖",
+      "descCount_many": "將 {{count}} 張重疊影像合併為一張無縫全景圖。"
     },
     "renameAlbum": {
       "placeholder": "輸入新的相簿名稱..."
@@ -1368,7 +1400,8 @@
       "titleMultiple": "重新命名 {{count}} 張影像",
       "titleMultiple_one": "重新命名 {{count}} 張影像",
       "titleMultiple_other": "重新命名 {{count}} 張影像",
-      "titleSingle": "重新命名影像"
+      "titleSingle": "重新命名影像",
+      "titleMultiple_many": "重新命名 {{count}} 張影像"
     },
     "renameFolder": {
       "cancel": "取消",
@@ -1478,7 +1511,10 @@
         "processing": "處理中...",
         "sidecarSuccess": "{{count}} 個附屬檔案已成功刪除。",
         "sidecarSuccess_one": "{{count}} 個附屬檔案已成功刪除。",
-        "sidecarSuccess_other": "{{count}} 個附屬檔案已成功刪除。"
+        "sidecarSuccess_other": "{{count}} 個附屬檔案已成功刪除。",
+        "aiSuccess_many": "{{count}} 個檔案已更新。AI 標籤已移除。",
+        "allSuccess_many": "{{count}} 個檔案已更新。所有非顏色標籤已移除。",
+        "sidecarSuccess_many": "{{count}} 個附屬檔案已成功刪除。"
       },
       "title": "資料管理"
     },
@@ -1694,7 +1730,8 @@
         "title": "影像預處理",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "基礎"
+          "basic": "基礎",
+          "oklab": "Oklab (感知)"
         },
         "tonemapperOverride": "全域色調映射覆蓋",
         "tonemapperOverrideDesc": "為所有影像全域強制使用特定的色調映射器，從調整面板中隱藏色調映射器開關。"
@@ -1800,7 +1837,8 @@
         "rateStars_one": "評分 1 星",
         "rateStars_other": "評分 {{count}} 星",
         "resetZoom": "重置縮放以適應視窗",
-        "selectToRate": "選擇一張影像以評分"
+        "selectToRate": "選擇一張影像以評分",
+        "rateStars_many": "評分 {{count}} 星"
       },
       "zoomLabel": "縮放",
       "zoomLabelReset": "重置縮放"

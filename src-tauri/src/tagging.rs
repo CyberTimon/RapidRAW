@@ -372,6 +372,9 @@ pub async fn start_background_indexing(
 
                                     if let Ok(json_string) = serde_json::to_string_pretty(&metadata)
                                     {
+                                        if let Some(parent) = sidecar_path.parent() {
+                                            let _ = fs::create_dir_all(parent);
+                                        }
                                         let _ = fs::write(sidecar_path, json_string);
                                     }
                                 }
@@ -434,6 +437,9 @@ fn modify_tags_for_path(
     }
 
     let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
+    if let Some(parent) = sidecar_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
     fs::write(sidecar_path, json_string).map_err(|e| e.to_string())
 }
 

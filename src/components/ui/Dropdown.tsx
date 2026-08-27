@@ -20,6 +20,7 @@ interface DropdownProps<T extends React.Key> {
   value: T | null;
   disabled?: boolean;
   triggerClassName?: string;
+  direction?: 'down' | 'up';
 }
 
 const Dropdown = <T extends React.Key>({
@@ -31,6 +32,7 @@ const Dropdown = <T extends React.Key>({
   value,
   disabled = false,
   triggerClassName = '',
+  direction = 'down',
 }: DropdownProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -128,14 +130,17 @@ const Dropdown = <T extends React.Key>({
         {isOpen && (
           <motion.div
             animate={{ opacity: 1, scale: 1 }}
-            className="absolute right-0 mt-2 w-full origin-top-right z-20"
+            className={clsx(
+              'absolute right-0 w-full z-50',
+              direction === 'up' ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right'
+            )}
             exit={{ opacity: 0, scale: 0.95 }}
             initial={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.1, ease: 'easeOut' }}
           >
             <div
               aria-orientation="vertical"
-              className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 max-h-80 overflow-y-auto"
+              className="bg-surface/98 border border-border-color/80 backdrop-blur-md rounded-lg shadow-2xl p-2 max-h-80 overflow-y-auto"
               role="listbox"
             >
               {showSearch && (

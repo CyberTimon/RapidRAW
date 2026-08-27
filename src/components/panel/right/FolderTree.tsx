@@ -32,6 +32,8 @@ import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../..
 import { useShallow } from 'zustand/react/shallow';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useUIStore } from '../../../store/useUIStore';
+import NightSkyDropzone from './NightSkyDropzone';
 import { AlbumItem, AlbumGroup, Album, Invokes, FolderTreeSort, SortDirection } from '../../ui/AppProperties';
 
 export interface FolderTree {
@@ -770,6 +772,10 @@ export default function FolderTree({
   const isPinnedOpen = openSections.includes('pinned');
   const isCurrentOpen = openSections.includes('current');
   const isAlbumsOpen = openSections.includes('albums');
+  const isAutoToolsOpen = openSections.includes('autotools') || true;
+
+  const nightSkyState = useUIStore((s) => s.nightSkyState);
+  const setUI = useUIStore((s) => s.setUI);
 
   const hasVisiblePinnedTrees = filteredPinnedTrees && filteredPinnedTrees.length > 0;
   const hasVisibleAlbums = filteredAlbumTree && filteredAlbumTree.length > 0;
@@ -959,6 +965,69 @@ export default function FolderTree({
                 </AnimatePresence>
               </>
             )}
+
+            {/* Auto-Tools Category */}
+            <div>
+              <SectionHeader
+                title="⛏️ Auto-Tools"
+                isOpen={isAutoToolsOpen}
+                onToggle={() => toggleSection('autotools')}
+              />
+            </div>
+            <AnimatePresence initial={false}>
+              {isAutoToolsOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-1 pb-2 px-1">
+                    <div
+                      className={clsx(
+                        'flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm font-medium transition-colors select-none',
+                        nightSkyState.isExpanded ? 'bg-card-active text-text-primary' : 'hover:bg-card-active text-text-primary/90',
+                      )}
+                      onClick={() =>
+                        setUI((s) => ({
+                          nightSkyState: {
+                            ...s.nightSkyState,
+                            isExpanded: !s.nightSkyState.isExpanded,
+                          },
+                        }))
+                      }
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base leading-none">🪐</span>
+                        <span>Night Sky</span>
+                      </div>
+                      <ChevronDown
+                        size={15}
+                        className={clsx(
+                          'text-text-secondary transition-transform duration-200',
+                          nightSkyState.isExpanded && 'rotate-180',
+                        )}
+                      />
+                    </div>
+
+                    <AnimatePresence>
+                      {nightSkyState.isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden pt-1"
+                        >
+                          <NightSkyDropzone />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {filteredTrees && filteredTrees.length > 0 && (
               <>

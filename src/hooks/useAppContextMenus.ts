@@ -18,11 +18,17 @@ import {
   RefreshCw,
   RotateCcw,
   Star,
+  Sparkles,
   SquaresUnite,
+  Wand2,
   Palette,
+  Trophy,
+  Package,
+  Download,
   Tag,
   Trash2,
   Undo,
+  Zap,
   X,
   Pin,
   PinOff,
@@ -193,6 +199,21 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           icon: ClipboardPaste,
           onClick: () => handlePasteAdjustments(),
           disabled: copiedAdjustments === null,
+        },
+        {
+          label: t('contextMenus.thumbnail.virtualCopy'),
+          icon: Copy,
+          onClick: () => {
+            invoke(Invokes.CreateVirtualCopy, {
+              sourceVirtualPath: selectedImage.path,
+              targetAlbumId: null,
+            })
+              .then(() => {
+                toast.success('Virtual Copy created');
+                props.refreshImageList();
+              })
+              .catch((err) => toast.error(String(err)));
+          },
         },
         {
           label: t('contextMenus.editor.productivity'),
@@ -558,6 +579,12 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           onClick: () => handlePasteAdjustments(finalSelection),
         },
         {
+          disabled: !isSingleSelection,
+          icon: Copy,
+          label: t('contextMenus.thumbnail.virtualCopy'),
+          onClick: handleCreateVirtualCopy,
+        },
+        {
           label: t('contextMenus.editor.productivity'),
           icon: Gauge,
           submenu: [
@@ -597,6 +624,42 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               },
               disabled: selectionCount === 0 || selectionCount > 9,
             },
+          ],
+        },
+        {
+          label: '⚡ Culling & Selection',
+          icon: Users,
+          submenu: [
+            {
+              icon: Zap,
+              label: 'Speed Culler & Face Loupe (C)',
+              onClick: () => {
+                const initialIdx =
+                  finalSelection.length > 0
+                    ? imageList.findIndex((img) => img.path === finalSelection[0])
+                    : 0;
+                setUI({
+                  speedCullerModalState: {
+                    isOpen: true,
+                    selectedPaths: finalSelection.length > 1 ? finalSelection : [],
+                    initialIndex: Math.max(0, initialIdx),
+                  },
+                });
+              },
+            },
+            {
+              icon: Trophy,
+              label: 'AI Hero-Shot Curator...',
+              onClick: () => {
+                setUI({
+                  heroCuratorModalState: {
+                    isOpen: true,
+                    selectedPaths: finalSelection,
+                  },
+                });
+              },
+              disabled: finalSelection.length < 2,
+            },
             {
               label: cullLabel,
               icon: Users,
@@ -611,6 +674,111 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
                   },
                 }),
               disabled: selectionCount < 2,
+            },
+          ],
+        },
+        {
+          label: '✨ AI Studio & Color',
+          icon: Wand2,
+          submenu: [
+            {
+              icon: Wand2,
+              label: 'Universal AI Shoot Polish...',
+              onClick: () => {
+                setUI({
+                  batchPolishModalState: {
+                    isOpen: true,
+                    selectedPaths: finalSelection,
+                  },
+                });
+              },
+              disabled: finalSelection.length === 0,
+            },
+            {
+              icon: Palette,
+              label: '"Steal the Look" Color Matcher...',
+              onClick: () => {
+                setUI({
+                  colorMatcherModalState: {
+                    isOpen: true,
+                  },
+                });
+              },
+            },
+            {
+              icon: Aperture,
+              label: 'Optical AI Bokeh & Depth...',
+              onClick: () => {
+                setUI({
+                  bokehModalState: {
+                    isOpen: true,
+                  },
+                });
+              },
+            },
+            {
+              icon: Sparkles,
+              label: 'Heal Sensor Dust Spots',
+              onClick: async () => {
+                try {
+                  const res: any = await invoke('batch_heal_sensor_dust', { paths: finalSelection });
+                  if (res) {
+                    await props.refreshImageList();
+                  }
+                } catch (err) {
+                  console.error('Failed to heal sensor dust:', err);
+                }
+              },
+              disabled: finalSelection.length === 0,
+            },
+          ],
+        },
+        {
+          label: '🚀 Studio & Delivery',
+          icon: Package,
+          submenu: [
+            {
+              icon: Download,
+              label: 'Advanced Batch Exporter & Watermark...',
+              onClick: () => {
+                setUI({
+                  advancedExportModalState: {
+                    isOpen: true,
+                    selectedPaths: finalSelection,
+                  },
+                });
+              },
+              disabled: finalSelection.length === 0,
+            },
+            {
+              icon: Package,
+              label: 'Export Client Delivery Pack...',
+              onClick: () => {
+                setUI({
+                  clientDeliveryModalState: {
+                    isOpen: true,
+                    selectedPaths: finalSelection,
+                  },
+                });
+              },
+              disabled: finalSelection.length === 0,
+            },
+            {
+              icon: Camera,
+              label: 'Canon EOS Studio Tethering...',
+              onClick: () => {
+                setUI({
+                  tetheringModalState: {
+                    isOpen: true,
+                    isLiveViewActive: false,
+                    isConnected: true,
+                    cameraInfo: null,
+                    capturedPhotos: [],
+                    isCapturing: false,
+                    error: null,
+                  },
+                });
+              },
             },
           ],
         },
@@ -667,6 +835,35 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
                     progressMessage: null,
                     sourcePaths: finalSelection,
                   },
+                });
+              },
+            },
+            {
+              disabled: selectionCount < 2,
+              icon: Sparkles,
+              label: t('contextMenus.merge.astroStack', 'Astro Stack (Kappa-Sigma)'),
+              onClick: () => {
+                setUI({
+                  hdrModalState: {
+                    error: null,
+                    finalImageBase64: null,
+                    isOpen: true,
+                    isProcessing: true,
+                    progressMessage: 'Aligning stars and stacking with Kappa-Sigma rejection...',
+                    stitchingSourcePaths: finalSelection,
+                  },
+                });
+                invoke('stack_astro_frames', {
+                  options: {
+                    paths: finalSelection,
+                    sigma_clip: 2.5,
+                    stack_mode: 'kappa_sigma',
+                    auto_dark_subtract: true,
+                  },
+                }).catch((err) => {
+                  setUI((state) => ({
+                    hdrModalState: { ...state.hdrModalState, isProcessing: false, error: String(err) },
+                  }));
                 });
               },
             },

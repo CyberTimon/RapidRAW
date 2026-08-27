@@ -599,6 +599,7 @@ export default function SettingsPanel({
     () => [
       { value: 'agx', label: t('settings.processing.preprocessing.tonemapperOptions.agx') },
       { value: 'basic', label: t('settings.processing.preprocessing.tonemapperOptions.basic') },
+      { value: 'oklab', label: t('settings.processing.preprocessing.tonemapperOptions.oklab') },
     ],
     [t],
   );

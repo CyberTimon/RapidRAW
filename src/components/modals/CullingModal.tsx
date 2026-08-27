@@ -483,6 +483,7 @@ export default function CullingModal({
               value={action}
               onChange={(newValue: CullAction) => setAction(newValue)}
               className="w-full"
+              direction="up"
             />
           </div>
           <div className="flex gap-3">

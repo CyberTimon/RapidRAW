@@ -100,6 +100,9 @@ fn resolve_image_metadata(
         && sync_metadata_from_xmp(image_path, &mut metadata)
         && let Ok(json) = serde_json::to_string_pretty(&metadata)
     {
+        if let Some(parent) = sidecar_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
         let _ = fs::write(sidecar_path, json);
     }
 
@@ -412,7 +415,18 @@ pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
         )
     };
 
-    let sidecar_path = source_path.with_file_name(sidecar_filename);
+    let parent = source_path.parent().unwrap_or_else(|| Path::new(""));
+    let subfolder_sidecar = parent.join(".rapidraw").join(&sidecar_filename);
+    let legacy_sidecar = source_path.with_file_name(&sidecar_filename);
+
+    let sidecar_path = if subfolder_sidecar.exists() {
+        subfolder_sidecar
+    } else if legacy_sidecar.exists() {
+        legacy_sidecar
+    } else {
+        subfolder_sidecar
+    };
+
     (source_path, sidecar_path)
 }
 
@@ -500,6 +514,9 @@ pub async fn update_exif_fields(
 
             final_metadata.exif = Some(exif_data);
             if let Ok(json) = serde_json::to_string_pretty(&final_metadata) {
+                if let Some(parent) = primary_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
                 let _ = std::fs::write(&primary_path, json);
             }
         });
@@ -572,13 +589,7 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
     let mut images = Vec::new();
     let mut sidecars_by_filename: HashMap<String, Vec<Option<String>>> = HashMap::new();
 
-    for entry in entries.filter_map(Result::ok) {
-        let entry_path = entry.path();
-        let file_name = entry
-            .file_name()
-            .into_string()
-            .unwrap_or_else(|os| os.to_string_lossy().into_owned());
-
+    let mut parse_sidecar_filename = |file_name: &str| {
         if file_name.ends_with(".rrdata") {
             let base = &file_name[..file_name.len() - 7];
 
@@ -594,12 +605,44 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                     (base, None)
                 };
 
-            sidecars_by_filename
+            let list = sidecars_by_filename
                 .entry(source_filename.to_string())
-                .or_default()
-                .push(copy_id);
+                .or_default();
+            if !list.contains(&copy_id) {
+                list.push(copy_id);
+            }
+        }
+    };
+
+    for entry in entries.filter_map(Result::ok) {
+        let entry_path = entry.path();
+        let file_name = entry
+            .file_name()
+            .into_string()
+            .unwrap_or_else(|os| os.to_string_lossy().into_owned());
+
+        if file_name == ".rapidraw" {
+            continue;
+        }
+
+        if file_name.ends_with(".rrdata") {
+            parse_sidecar_filename(&file_name);
         } else if is_supported_image_file(&file_name) {
             images.push((file_name, entry_path));
+        }
+    }
+
+    // Also scan .rapidraw subfolder if present
+    let subfolder = Path::new(&path).join(".rapidraw");
+    if let Ok(sub_entries) = fs::read_dir(subfolder) {
+        for entry in sub_entries.filter_map(Result::ok) {
+            let file_name = entry
+                .file_name()
+                .into_string()
+                .unwrap_or_else(|os| os.to_string_lossy().into_owned());
+            if file_name.ends_with(".rrdata") {
+                parse_sidecar_filename(&file_name);
+            }
         }
     }
 
@@ -638,7 +681,17 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                     None => (path_str.clone(), false, format!("{}.rrdata", file_name)),
                 };
 
-                let sidecar_path = path_buf.with_file_name(sidecar_filename);
+                let parent = path_buf.parent().unwrap_or_else(|| Path::new(""));
+                let subfolder_sidecar = parent.join(".rapidraw").join(&sidecar_filename);
+                let legacy_sidecar = path_buf.with_file_name(&sidecar_filename);
+
+                let sidecar_path = if subfolder_sidecar.exists() {
+                    subfolder_sidecar
+                } else if legacy_sidecar.exists() {
+                    legacy_sidecar
+                } else {
+                    subfolder_sidecar
+                };
 
                 let xmp_is_placeholder = enable_xmp_sync
                     && resolve_xmp_path(&path_buf)
@@ -721,13 +774,22 @@ pub fn list_images_recursive(
                 };
 
             if let Some(parent) = entry_path.parent() {
-                sidecars_by_path
-                    .entry(parent.join(source_filename))
-                    .or_default()
-                    .push(copy_id);
+                let target_dir = if parent.file_name().and_then(|n| n.to_str()) == Some(".rapidraw") {
+                    parent.parent().unwrap_or(parent)
+                } else {
+                    parent
+                };
+                let list = sidecars_by_path
+                    .entry(target_dir.join(source_filename))
+                    .or_default();
+                if !list.contains(&copy_id) {
+                    list.push(copy_id);
+                }
             }
         } else if is_supported_image_file(entry_path.to_string_lossy().as_ref()) {
-            images.push(entry_path.to_path_buf());
+            if entry_path.parent().and_then(|p| p.file_name()).and_then(|n| n.to_str()) != Some(".rapidraw") {
+                images.push(entry_path.to_path_buf());
+            }
         }
     }
 
@@ -771,7 +833,17 @@ pub fn list_images_recursive(
                     None => (path_str.clone(), false, format!("{}.rrdata", file_name)),
                 };
 
-                let sidecar_path = path_buf.with_file_name(sidecar_filename);
+                let parent = path_buf.parent().unwrap_or_else(|| Path::new(""));
+                let subfolder_sidecar = parent.join(".rapidraw").join(&sidecar_filename);
+                let legacy_sidecar = path_buf.with_file_name(&sidecar_filename);
+
+                let sidecar_path = if subfolder_sidecar.exists() {
+                    subfolder_sidecar
+                } else if legacy_sidecar.exists() {
+                    legacy_sidecar
+                } else {
+                    subfolder_sidecar
+                };
 
                 let xmp_is_placeholder = enable_xmp_sync
                     && resolve_xmp_path(&path_buf)
@@ -1852,6 +1924,7 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
         let worker_settings = settings.clone();
 
         std::thread::spawn(move || {
+            let _priority_guard = crate::stability::BackgroundPriorityGuard::new();
             loop {
                 let path_to_process: String = {
                     let mut queue = manager_clone.queue.lock().unwrap();
@@ -1871,6 +1944,10 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                 };
 
                 let state = app_clone.state::<crate::AppState>();
+                if crate::stability::check_and_mitigate_memory_pressure(&state) {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+
                 let gpu_context =
                     crate::gpu_processing::get_or_init_gpu_context(&state, &app_clone).ok();
 
@@ -2306,21 +2383,24 @@ fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, S
     let primary_sidecar_name = format!("{}.rrdata", source_filename);
     let virtual_copy_prefix = format!("{}.", source_filename);
 
-    if let Ok(entries) = fs::read_dir(parent_dir) {
-        for entry in entries.filter_map(Result::ok) {
-            let entry_path = entry.path();
-            if !entry_path.is_file() {
-                continue;
-            }
+    let dirs_to_check = [parent_dir.to_path_buf(), parent_dir.join(".rapidraw")];
+    for dir in &dirs_to_check {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.filter_map(Result::ok) {
+                let entry_path = entry.path();
+                if !entry_path.is_file() {
+                    continue;
+                }
 
-            let entry_os_filename = entry.file_name();
-            let entry_filename = entry_os_filename.to_string_lossy();
+                let entry_os_filename = entry.file_name();
+                let entry_filename = entry_os_filename.to_string_lossy();
 
-            if entry_filename == primary_sidecar_name
-                || (entry_filename.starts_with(&virtual_copy_prefix)
-                    && entry_filename.ends_with(".rrdata"))
-            {
-                associated_files.push(entry_path);
+                if entry_filename == primary_sidecar_name
+                    || (entry_filename.starts_with(&virtual_copy_prefix)
+                        && entry_filename.ends_with(".rrdata"))
+                {
+                    associated_files.push(entry_path);
+                }
             }
         }
     }
@@ -2503,8 +2583,10 @@ pub fn save_metadata_and_update_thumbnail(
     }
 
     metadata.adjustments = final_adjustments;
-
     let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
+    if let Some(parent) = sidecar_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
     std::fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
 
     if let Ok(settings) = load_settings(app_handle.clone())
@@ -2624,6 +2706,9 @@ pub async fn apply_adjustments_to_paths(
             existing_metadata.adjustments = new_adjustments;
 
             if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
+                if let Some(parent) = sidecar_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
                 let _ = std::fs::write(&sidecar_path, json_string);
             }
 
@@ -2693,6 +2778,9 @@ pub async fn reset_adjustments_for_paths(
             existing_metadata.adjustments = serde_json::json!({});
 
             if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
+                if let Some(parent) = sidecar_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
                 let _ = std::fs::write(&sidecar_path, json_string);
             }
 
@@ -2819,6 +2907,9 @@ pub async fn apply_auto_adjustments_to_paths(
                 }
 
                 if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
+                    if let Some(parent) = sidecar_path.parent() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
                     let _ = std::fs::write(&sidecar_path, json_string);
                 }
 
@@ -2882,6 +2973,9 @@ pub fn set_color_label_for_paths(
         }
 
         if let Ok(json_string) = serde_json::to_string_pretty(&metadata) {
+            if let Some(parent) = sidecar_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
             let _ = std::fs::write(&sidecar_path, json_string);
         }
 
@@ -2912,6 +3006,9 @@ pub fn set_rating_for_paths(
         metadata.rating = rating;
 
         if let Ok(json_string) = serde_json::to_string_pretty(&metadata) {
+            if let Some(parent) = sidecar_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
             let _ = std::fs::write(&sidecar_path, json_string);
         }
 
@@ -2936,6 +3033,9 @@ pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadat
         && sync_metadata_from_xmp(&source_path, &mut metadata)
         && let Ok(json) = serde_json::to_string_pretty(&metadata)
     {
+        if let Some(parent) = sidecar_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
         let _ = fs::write(&sidecar_path, json);
     }
 
@@ -3775,10 +3875,16 @@ pub fn generate_filename_from_template(
 
     let mut result = template.to_string();
     result = result.replace("{original_filename}", stem);
+    result = result.replace("{filename}", stem);
     result = result.replace("{sequence}", &sequence_str);
+    result = result.replace("{seq}", &sequence_str);
     result = result.replace("{YYYY}", &local_date.format("%Y").to_string());
+    result = result.replace("{year}", &local_date.format("%Y").to_string());
     result = result.replace("{MM}", &local_date.format("%m").to_string());
+    result = result.replace("{month}", &local_date.format("%m").to_string());
     result = result.replace("{DD}", &local_date.format("%d").to_string());
+    result = result.replace("{day}", &local_date.format("%d").to_string());
+    result = result.replace("{date}", &local_date.format("%Y-%m-%d").to_string());
     result = result.replace("{hh}", &local_date.format("%H").to_string());
     result = result.replace("{mm}", &local_date.format("%M").to_string());
 
@@ -3843,43 +3949,44 @@ pub fn rename_files(
         let original_filename_str = original_path.file_name().unwrap().to_string_lossy();
         let new_filename_str = new_path.file_name().unwrap().to_string_lossy();
 
-        if let Ok(entries) = fs::read_dir(parent) {
-            for entry in entries.filter_map(Result::ok) {
-                let entry_path = entry.path();
-                let entry_os_filename = entry.file_name();
-                let entry_filename = entry_os_filename.to_string_lossy();
+        let dirs_to_check = [parent.to_path_buf(), parent.join(".rapidraw")];
+        for dir in &dirs_to_check {
+            if let Ok(entries) = fs::read_dir(dir) {
+                for entry in entries.filter_map(Result::ok) {
+                    let entry_path = entry.path();
+                    let entry_os_filename = entry.file_name();
+                    let entry_filename = entry_os_filename.to_string_lossy();
 
-                if entry_filename.starts_with(&format!("{}.", original_filename_str))
-                    && entry_filename.ends_with(".rrdata")
-                {
-                    let new_sidecar_filename =
-                        entry_filename.replacen(&*original_filename_str, &new_filename_str, 1);
-                    let new_sidecar_path = parent.join(new_sidecar_filename);
-                    sidecar_operations.insert(entry_path, new_sidecar_path);
-                } else if entry_filename == format!("{}.rrdata", original_filename_str) {
-                    let mut new_sidecar_name = new_path.file_name().unwrap().to_os_string();
-                    new_sidecar_name.push(".rrdata");
-                    let new_sidecar_path = new_path.with_file_name(new_sidecar_name);
+                    if entry_filename.starts_with(&format!("{}.", original_filename_str))
+                        && entry_filename.ends_with(".rrdata")
+                    {
+                        let new_sidecar_filename =
+                            entry_filename.replacen(&*original_filename_str, &new_filename_str, 1);
+                        let new_sidecar_path = dir.join(new_sidecar_filename);
+                        sidecar_operations.insert(entry_path, new_sidecar_path);
+                    } else if entry_filename == format!("{}.rrdata", original_filename_str) {
+                        let mut new_sidecar_name = new_path.file_name().unwrap().to_os_string();
+                        new_sidecar_name.push(".rrdata");
+                        let new_sidecar_path = dir.join(new_sidecar_name);
 
-                    sidecar_operations.insert(entry_path, new_sidecar_path);
+                        sidecar_operations.insert(entry_path, new_sidecar_path);
+                    } else if entry_filename == format!("{}.rrexif", original_filename_str) {
+                        let mut new_rrexif_name = new_path.file_name().unwrap().to_os_string();
+                        new_rrexif_name.push(".rrexif");
+                        let new_rrexif_path = dir.join(new_rrexif_name);
+
+                        sidecar_operations.insert(entry_path, new_rrexif_path);
+                    }
                 }
             }
-        }
-
-        let mut old_rrexif_name = original_path.file_name().unwrap().to_os_string();
-        old_rrexif_name.push(".rrexif");
-        let old_rrexif = original_path.with_file_name(old_rrexif_name);
-
-        if old_rrexif.exists() {
-            let mut new_rrexif_name = new_path.file_name().unwrap().to_os_string();
-            new_rrexif_name.push(".rrexif");
-            let new_rrexif = new_path.with_file_name(new_rrexif_name);
-            sidecar_operations.insert(old_rrexif, new_rrexif);
         }
     }
     operations.extend(sidecar_operations);
 
     for (old_path, new_path) in operations {
+        if let Some(parent) = new_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
         fs::rename(&old_path, &new_path).map_err(|e| {
             format!(
                 "Failed to rename {} to {}: {}",

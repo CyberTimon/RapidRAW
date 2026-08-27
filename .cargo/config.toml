@@ -1,1 +1,3 @@
-# Default MSVC configuration
+# High-Performance SIMD Autovectorization for Windows x86_64
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+avx2,+fma,+sse4.2"]

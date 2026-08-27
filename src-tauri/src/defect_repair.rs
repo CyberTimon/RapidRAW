@@ -1,10 +1,23 @@
 use crate::AppState;
+use crate::exif_processing::load_sidecar;
+use crate::file_management::{parse_virtual_path, read_file_mapped};
+use crate::image_loader::load_base_image_from_bytes;
 use crate::image_processing;
 use image::{DynamicImage, GenericImageView, Rgb};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::f32::consts::PI;
-use tauri::State;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter, State};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BatchDustSummary {
+    pub total_processed: usize,
+    pub total_spots_healed: usize,
+    pub elapsed_ms: u64,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AutoHorizonResult {
@@ -323,3 +336,137 @@ pub fn get_saliency_crop_recommendation(
         Err("No active image loaded".to_string())
     }
 }
+
+#[tauri::command]
+pub async fn batch_heal_sensor_dust(
+    paths: Vec<String>,
+    app_handle: AppHandle,
+    _state: State<'_, AppState>,
+) -> Result<BatchDustSummary, String> {
+    if paths.is_empty() {
+        return Err("No photos provided for dust healing".to_string());
+    }
+
+    let _sleep_guard = crate::sleep_lock::SleepLockGuard::new("batch_heal_sensor_dust");
+    let start_time = std::time::Instant::now();
+    let total = paths.len();
+    let settings = crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default();
+    let processed_counter = Arc::new(AtomicUsize::new(0));
+    let spots_counter = Arc::new(AtomicUsize::new(0));
+
+    let app_handle_clone = app_handle.clone();
+    let paths_clone = paths.clone();
+    let processed_counter_clone = processed_counter.clone();
+    let spots_counter_clone = spots_counter.clone();
+
+    let total_spots = tokio::task::spawn_blocking(move || {
+        paths_clone.par_iter().for_each(|path_str| {
+            let (source_path, sidecar_path) = parse_virtual_path(path_str);
+            if let Ok(file_bytes) = read_file_mapped(&source_path) {
+                if let Ok(mut image) = load_base_image_from_bytes(
+                    &file_bytes,
+                    &source_path.to_string_lossy(),
+                    true,
+                    &settings,
+                    None,
+                ) {
+                    let res = heal_sky_dust_spots(&mut image);
+                    let count = res.spots_detected;
+                    if count > 0 {
+                        spots_counter_clone.fetch_add(count, Ordering::SeqCst);
+
+                        let mut metadata = load_sidecar(&sidecar_path);
+                        if let Some(obj) = metadata.adjustments.as_object_mut() {
+                            obj.insert(
+                                "sensorDustHealedCount".to_string(),
+                                serde_json::json!(count),
+                            );
+                        }
+                        if let Ok(json_str) = serde_json::to_string_pretty(&metadata) {
+                            if let Some(parent) = sidecar_path.parent() {
+                                let _ = std::fs::create_dir_all(parent);
+                            }
+                            let _ = std::fs::write(&sidecar_path, json_str);
+                        }
+                    }
+                }
+            }
+
+            let done = processed_counter_clone.fetch_add(1, Ordering::SeqCst) + 1;
+            let percent = (done as f32 / total as f32) * 100.0;
+            let _ = app_handle_clone.emit(
+                "batch-dust-progress",
+                serde_json::json!({
+                    "current": done,
+                    "total": total,
+                    "percentage": percent
+                }),
+            );
+        });
+
+        spots_counter.load(Ordering::SeqCst)
+    })
+    .await
+    .map_err(|e| format!("Batch dust repair task failed: {}", e))?;
+
+    let summary = BatchDustSummary {
+        total_processed: total,
+        total_spots_healed: total_spots,
+        elapsed_ms: start_time.elapsed().as_millis() as u64,
+    };
+
+    let _ = app_handle.emit("batch-dust-complete", &summary);
+    Ok(summary)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgb, RgbImage};
+
+    #[test]
+    fn test_detect_horizon_angle_horizontal_flat() {
+        let (w, h) = (128u32, 128u32);
+        let mut img = RgbImage::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                // Sky is bright (200), sea/ground is dark (50) with sharp horizontal line at y = 64
+                let val = if y < 64 { 200 } else { 50 };
+                img.put_pixel(x, y, Rgb([val, val, val]));
+            }
+        }
+        let dynamic_img = DynamicImage::ImageRgb8(img);
+        let res = detect_horizon_angle(&dynamic_img);
+        assert!(res.angle_degrees.abs() < 1.0, "Horizontal flat horizon should have near-zero angle: got {}", res.angle_degrees);
+        assert!(res.confidence > 0.0, "Confidence should be positive on sharp line");
+    }
+
+    #[test]
+    fn test_dust_spot_detection_and_healing() {
+        let (w, h) = (128u32, 128u32);
+        let mut img = RgbImage::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                img.put_pixel(x, y, Rgb([200, 200, 200]));
+            }
+        }
+
+        // Add a dark dust spot at (64, 32) in sky region with radius 3
+        for dy in -3i32..=3i32 {
+            for dx in -3i32..=3i32 {
+                if dx * dx + dy * dy <= 9 {
+                    img.put_pixel((64 + dx) as u32, (32 + dy) as u32, Rgb([140, 140, 140]));
+                }
+            }
+        }
+
+        let mut dynamic_img = DynamicImage::ImageRgb8(img);
+        let heal_res = heal_sky_dust_spots(&mut dynamic_img);
+
+        // Dust spot should be detected and healed
+        assert!(heal_res.spots_detected >= 1, "Dust spot should be detected: healed count {}", heal_res.spots_detected);
+        let center_after = dynamic_img.get_pixel(64, 32);
+        assert!(center_after[0] > 140, "Healed pixel should blend back brighter than 140: got {}", center_after[0]);
+    }
+}
+

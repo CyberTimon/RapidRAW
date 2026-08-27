@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "フィルム調トーンマッピング",
         "basic": "標準",
-        "basicDesc": "標準トーンマッピング"
+        "basicDesc": "標準トーンマッピング",
+        "oklab": "Oklab",
+        "oklabDesc": "知覚的カラー＆ハイライトサイエンス"
       },
       "reset": "リセット",
       "shadows": "シャドウ",
@@ -200,7 +202,8 @@
       "resetAdjustments": "補正設定をリセット",
       "stitchPanorama": "パノラマ写真を作成",
       "tagging": "タグ付け",
-      "undo": "元に戻す"
+      "undo": "元に戻す",
+      "ratingLabel_many": "{{count}} つ星"
     },
     "folders": {
       "changeIcon": "アイコンを変更",
@@ -218,12 +221,15 @@
       "removeRoot": "ルートフォルダを解除",
       "renameFolder": "フォルダ名を変更",
       "showExplorer": "エクスプローラーで表示",
-      "unpin": "フォルダのピン留めを解除"
+      "unpin": "フォルダのピン留めを解除",
+      "copyHere_many": "{{count}} 枚の画像をここにコピー",
+      "moveHere_many": "{{count}} 枚の画像をここに移動"
     },
     "library": {
       "addCopiedToAlbum_one": "コピーした画像をアルバムに追加",
       "addCopiedToAlbum_other": "コピーした {{count}} 枚の画像をアルバムに追加",
-      "refreshView": "表示を更新"
+      "refreshView": "表示を更新",
+      "addCopiedToAlbum_many": "コピーした {{count}} 枚の画像をアルバムに追加"
     },
     "merge": {
       "focusStack": "フォーカススタッキング",
@@ -270,7 +276,19 @@
       "resetAdjustments_one": "補正設定をリセット",
       "resetAdjustments_other": "{{count}} 枚の画像の補正設定をリセット",
       "showExplorer": "エクスプローラーで表示",
-      "virtualCopy": "仮想コピー"
+      "virtualCopy": "仮想コピー",
+      "autoAdjust_many": "画像を自動補正",
+      "collage_many": "コラージュを作成",
+      "convertNegative_many": "ネガ反転",
+      "copyImage_many": "{{count}} 枚の画像をコピー",
+      "cullImage_many": "画像を選別",
+      "deleteImage_many": "{{count}} 枚の画像を削除",
+      "denoise_many": "ノイズ低減を実行",
+      "exportImage_many": "{{count}} 枚の画像を書き出し",
+      "pasteAdjustments_many": "{{count}} 枚の画像に補正設定を貼り付け",
+      "removeFromAlbum_many": "{{count}} 枚の画像をアルバムから削除",
+      "renameImage_many": "{{count}} 枚の画像名を変更",
+      "resetAdjustments_many": "{{count}} 枚の画像の補正設定をリセット"
     },
     "toasts": {
       "couldNotShowExplorer": "エクスプローラーでファイルを表示できませんでした: {{err}}",
@@ -383,7 +401,11 @@
         "invertedName": "{{name}} 反転",
         "quickErase": "クイック消去 {{count}}",
         "quickErase_one": "クイック消去 {{count}}",
-        "quickErase_other": "クイック消去 {{count}}"
+        "quickErase_other": "クイック消去 {{count}}",
+        "aiEdit_many": "AI編集 {{count}}",
+        "clone_many": "クローン {{count}}",
+        "heal_many": "修復 {{count}}",
+        "quickErase_many": "クイック消去 {{count}}"
       },
       "resetInpaintingTooltip": "インペインティングをリセット",
       "settings": {
@@ -583,7 +605,8 @@
         "invertedName": "{{name}} 反転",
         "maskName": "マスク {{count}}",
         "maskName_one": "マスク {{count}}",
-        "maskName_other": "マスク {{count}}"
+        "maskName_other": "マスク {{count}}",
+        "maskName_many": "マスク {{count}}"
       },
       "resetMaskingTooltip": "マスク処理をリセット",
       "settings": {
@@ -757,7 +780,8 @@
       "saveEditedImageTitle": "編集した画像を保存",
       "selectFolderTitle": "{{count}} 枚の画像を書き出すフォルダを選択",
       "selectFolderTitle_one": "{{count}} 枚の画像を書き出すフォルダを選択",
-      "selectFolderTitle_other": "{{count}} 枚の画像を書き出すフォルダを選択"
+      "selectFolderTitle_other": "{{count}} 枚の画像を書き出すフォルダを選択",
+      "selectFolderTitle_many": "{{count}} 枚の画像を書き出すフォルダを選択"
     },
     "file": {
       "quality": "画質",
@@ -809,7 +833,8 @@
       "failed": "書き出しに失敗しました",
       "noImageSelected": "書き出す画像が選択されていません。",
       "noImagesSelected": "画像が選択されていません。",
-      "success": "書き出しが成功しました！"
+      "success": "書き出しが成功しました！",
+      "exportMultiple_many": "{{count}} 件の {{label}} を書き出し"
     },
     "title": "エクスポート",
     "watermark": {
@@ -996,7 +1021,8 @@
       "tooltipFocalLength": "焦点距離",
       "tooltipIso": "ISO感度",
       "tooltipShutterSpeed": "シャッタースピード",
-      "tooltipVirtualCopy": "仮想コピー"
+      "tooltipVirtualCopy": "仮想コピー",
+      "imagesCount_many": "{{count}} 枚の画像"
     },
     "search": {
       "noResults": "結果が見つかりません",
@@ -1203,7 +1229,9 @@
       "similarityThresholdDesc": "低いほど厳密（完全な重複）になります。高いほど緩やか（類似画像）になります。24-32の値を推奨します。",
       "startCulling": "選別を開始",
       "starting": "開始中...",
-      "title": "画像を選別"
+      "title": "画像を選別",
+      "applyButton_many": "{{count}} 枚の画像に適用",
+      "duplicatesHeader_many": "重複 ({{count}})"
     },
     "denoise": {
       "batchProgressText": "ノイズ低減を実行中 ({{current}}/{{total}})...",
@@ -1249,7 +1277,8 @@
       "savedSuccess": "フォーカススタックを正常に保存しました！",
       "stacking": "フォーカスをスタック中",
       "start": "開始",
-      "title": "フォーカススタッキング"
+      "title": "フォーカススタッキング",
+      "descriptionWithCount_many": "ピント位置の異なる {{count}} 枚の画像を結合し、全体にピントが合った1枚の画像を作成します。"
     },
     "hdr": {
       "cancel": "キャンセル",
@@ -1267,7 +1296,8 @@
       "savedSuccess": "HDRを正常に保存しました！",
       "speedNotice": "露出数や画像サイズによって、数分かかる場合があります。",
       "start": "開始",
-      "title": "HDRに統合"
+      "title": "HDRに統合",
+      "descriptionWithCount_many": "{{count}} 枚のブラケット露出を1枚のHDR画像に統合します。"
     },
     "importSettings": {
       "cancel": "キャンセル",
@@ -1337,7 +1367,8 @@
       "resetViewTooltip": "表示をリセット",
       "title": "ネガ反転",
       "zoomInTooltip": "拡大",
-      "zoomOutTooltip": "縮小"
+      "zoomOutTooltip": "縮小",
+      "convertAndSaveAll_many": "すべて変換して保存 ({{count}})"
     },
     "panorama": {
       "cancel": "キャンセル",
@@ -1355,7 +1386,8 @@
       "speedNotice": "画像枚数や画像サイズによって、数分かかる場合があります。",
       "start": "開始",
       "stitchingProgress": "パノラマ写真を作成中",
-      "title": "パノラマ写真を作成"
+      "title": "パノラマ写真を作成",
+      "descCount_many": "{{count}} 枚の重複する画像をシームレスなパノラマに結合します。"
     },
     "renameAlbum": {
       "placeholder": "新しいアルバム名を入力..."
@@ -1368,7 +1400,8 @@
       "titleMultiple": "{{count}} 件の画像名を変更",
       "titleMultiple_one": "{{count}} 件の画像名を変更",
       "titleMultiple_other": "{{count}} 件の画像名を変更",
-      "titleSingle": "画像名を変更"
+      "titleSingle": "画像名を変更",
+      "titleMultiple_many": "{{count}} 件の画像名を変更"
     },
     "renameFolder": {
       "cancel": "キャンセル",
@@ -1478,7 +1511,10 @@
         "processing": "処理中...",
         "sidecarSuccess": "{{count}} 件のサイドカーファイルを正常に削除しました。",
         "sidecarSuccess_one": "{{count}} 件のサイドカーファイルを正常に削除しました。",
-        "sidecarSuccess_other": "{{count}} 件のサイドカーファイルを正常に削除しました。"
+        "sidecarSuccess_other": "{{count}} 件のサイドカーファイルを正常に削除しました。",
+        "aiSuccess_many": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
+        "allSuccess_many": "{{count}} 件のファイルを更新しました。カラーラベル以外のタグをすべて削除しました。",
+        "sidecarSuccess_many": "{{count}} 件のサイドカーファイルを正常に削除しました。"
       },
       "title": "データ管理"
     },
@@ -1694,7 +1730,8 @@
         "title": "画像の事前処理",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "標準"
+          "basic": "標準",
+          "oklab": "Oklab (知覚的)"
         },
         "tonemapperOverride": "グローバルトーンマッパー上書き",
         "tonemapperOverrideDesc": "すべての画像に対して指定したトーンマッパーを強制適用し、調整パネル内の切り替えスイッチを非表示にします。"
@@ -1800,7 +1837,8 @@
         "rateStars_one": "星1に評価",
         "rateStars_other": "星 {{count}} に評価",
         "resetZoom": "ズームをウィンドウサイズに合わせる",
-        "selectToRate": "画像を選択して評価を設定"
+        "selectToRate": "画像を選択して評価を設定",
+        "rateStars_many": "星 {{count}} に評価"
       },
       "zoomLabel": "ズーム",
       "zoomLabelReset": "ズームをリセット"

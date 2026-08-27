@@ -11,12 +11,22 @@ import throttle from 'lodash.throttle';
 import Text from '../ui/Text';
 import { TextColors, TextVariants } from '../../types/typography';
 
+import { Pipette, Sparkles } from 'lucide-react';
+
 interface NegativeParams {
   red_weight: number;
   green_weight: number;
   blue_weight: number;
   contrast: number;
   exposure: number;
+  film_profile?: string;
+  base_mask_r?: number;
+  base_mask_g?: number;
+  base_mask_b?: number;
+  toe_compression?: number;
+  shoulder_compression?: number;
+  shadow_crossover?: number;
+  highlight_crossover?: number;
 }
 
 const DEFAULT_PARAMS: NegativeParams = {
@@ -25,6 +35,14 @@ const DEFAULT_PARAMS: NegativeParams = {
   blue_weight: 1.0,
   contrast: 1.0,
   exposure: 0.0,
+  film_profile: 'portra_400',
+  base_mask_r: 1.0,
+  base_mask_g: 1.0,
+  base_mask_b: 1.0,
+  toe_compression: 0.0,
+  shoulder_compression: 0.0,
+  shadow_crossover: 0.0,
+  highlight_crossover: 0.0,
 };
 
 interface NegativeConversionModalProps {
@@ -214,7 +232,85 @@ export default function NegativeConversionModal({
         </button>
       </div>
 
-      <div className="grow overflow-y-auto p-4 flex flex-col gap-8">
+      <div className="grow overflow-y-auto p-4 flex flex-col gap-6">
+        {/* Film Emulsion Stock */}
+        <div className={clsx('transition-opacity duration-200', isSaving && 'opacity-50 pointer-events-none grayscale')}>
+          <div className="flex items-center justify-between mb-2">
+            <Text variant={TextVariants.heading} className="flex items-center gap-1.5">
+              <Sparkles size={14} className="text-amber-400" />
+              Film Stock Profile
+            </Text>
+          </div>
+          <select
+            value={params.film_profile || 'portra_400'}
+            onChange={(e) => {
+              const newParams = { ...params, film_profile: e.target.value };
+              setParams(newParams);
+              updatePreview(newParams);
+            }}
+            className="w-full bg-surface border border-border-color text-text-primary text-xs rounded-lg px-3 py-2 outline-hidden focus:border-accent"
+          >
+            <option value="portra_400">🎞️ Kodak Portra 400 (Golden Skin Tones)</option>
+            <option value="portra_160">🎞️ Kodak Portra 160 (Fine Grain Portrait)</option>
+            <option value="portra_800">🎞️ Kodak Portra 800 (Rich Warmth)</option>
+            <option value="ektar_100">🎞️ Kodak Ektar 100 (Vivid Landscape)</option>
+            <option value="gold_200">🎞️ Kodak Gold 200 (Vintage Warm)</option>
+            <option value="fuji_400h">🎞️ Fujifilm Pro 400H (Pastel Greens/Cyan)</option>
+            <option value="fuji_superia">🎞️ Fujifilm Superia 400 (Vibrant)</option>
+            <option value="cinestill_800t">🎬 CineStill 800T (Tungsten Cinema)</option>
+            <option value="ilford_hp5">⚪ Ilford HP5 Plus (Classic Silver B&W)</option>
+            <option value="kodak_tri_x">⚫ Kodak Tri-X 400 (High Contrast B&W)</option>
+          </select>
+        </div>
+
+        {/* Orange Base Mask Sampling */}
+        <div className={clsx('transition-opacity duration-200', isSaving && 'opacity-50 pointer-events-none grayscale')}>
+          <Text variant={TextVariants.heading} className="mb-2">
+            Film Base Mask (Orange Tint)
+          </Text>
+          <div className="flex items-center justify-between p-2.5 bg-surface rounded-lg border border-border-color">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-5 h-5 rounded-md border border-white/20 shadow-xs"
+                style={{
+                  backgroundColor: `rgb(${Math.round((params.base_mask_r || 1.0) * 180)}, ${Math.round((params.base_mask_g || 1.0) * 120)}, ${Math.round((params.base_mask_b || 1.0) * 80)})`,
+                }}
+              />
+              <span className="text-xs text-text-secondary">Base Mask Compensation</span>
+            </div>
+            <button
+              onClick={async () => {
+                if (!selectedImagePath) return;
+                try {
+                  const sampled: any = await invoke('sample_negative_border_mask', {
+                    path: selectedImagePath,
+                    normX: 0.05,
+                    normY: 0.05,
+                    normRadius: 0.03,
+                  });
+                  if (sampled) {
+                    const newParams = {
+                      ...params,
+                      base_mask_r: sampled.r,
+                      base_mask_g: sampled.g,
+                      base_mask_b: sampled.b,
+                    };
+                    setParams(newParams);
+                    updatePreview(newParams);
+                  }
+                } catch (e) {
+                  console.error('Border sampling failed', e);
+                }
+              }}
+              className="flex items-center gap-1 text-xs px-2.5 py-1 bg-accent/15 text-accent rounded-md hover:bg-accent/25 transition-colors"
+            >
+              <Pipette size={13} />
+              Sample Border
+            </button>
+          </div>
+        </div>
+
+        {/* Color Timing Weights */}
         <div
           className={clsx('transition-opacity duration-200', isSaving && 'opacity-50 pointer-events-none grayscale')}
         >
@@ -255,6 +351,7 @@ export default function NegativeConversionModal({
           </div>
         </div>
 
+        {/* Print Grade Exposure & Contrast */}
         <div
           className={clsx('transition-opacity duration-200', isSaving && 'opacity-50 pointer-events-none grayscale')}
         >
@@ -280,6 +377,42 @@ export default function NegativeConversionModal({
               defaultValue={1}
               onChange={(e) => handleParamChange('contrast', Number(e.target.value))}
               fillOrigin="min"
+            />
+            <Slider
+              label="Shadow Toe Roll-off"
+              value={params.toe_compression ?? 0}
+              min={-0.5}
+              max={0.5}
+              step={0.02}
+              defaultValue={0}
+              onChange={(e) => handleParamChange('toe_compression', Number(e.target.value))}
+            />
+            <Slider
+              label="Highlight Shoulder Roll-off"
+              value={params.shoulder_compression ?? 0}
+              min={-0.5}
+              max={0.5}
+              step={0.02}
+              defaultValue={0}
+              onChange={(e) => handleParamChange('shoulder_compression', Number(e.target.value))}
+            />
+            <Slider
+              label="Shadow Color Crossover"
+              value={params.shadow_crossover ?? 0}
+              min={-0.5}
+              max={0.5}
+              step={0.02}
+              defaultValue={0}
+              onChange={(e) => handleParamChange('shadow_crossover', Number(e.target.value))}
+            />
+            <Slider
+              label="Highlight Color Crossover"
+              value={params.highlight_crossover ?? 0}
+              min={-0.5}
+              max={0.5}
+              step={0.02}
+              defaultValue={0}
+              onChange={(e) => handleParamChange('highlight_crossover', Number(e.target.value))}
             />
           </div>
         </div>

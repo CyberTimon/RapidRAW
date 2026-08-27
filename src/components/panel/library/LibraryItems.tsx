@@ -9,6 +9,7 @@ import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../..
 import { ColumnWidths } from '../MainLibrary';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useLibraryStore } from '../../../store/useLibraryStore';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
 
 interface ImageLayer {
@@ -152,6 +153,14 @@ const ThumbnailComponent = ({
     <div
       className="aspect-square bg-surface rounded-md overflow-hidden cursor-pointer group relative flex flex-col transition-all duration-150 transform-gpu [-webkit-mask-image:-webkit-radial-gradient(white,black)]"
       data-bench-id="thumbnail"
+      draggable={true}
+      onDragStart={(e: any) => {
+        const multiSelected = useLibraryStore.getState().multiSelectedPaths;
+        const pathsToDrag = multiSelected.includes(path) ? multiSelected : [path];
+        e.dataTransfer.setData('application/x-rapidraw-images', JSON.stringify(pathsToDrag));
+        e.dataTransfer.setData('text/plain', JSON.stringify(pathsToDrag));
+        e.dataTransfer.effectAllowed = 'copyMove';
+      }}
       onClick={(e: any) => {
         e.stopPropagation();
         onImageClick(path, e);
@@ -174,8 +183,9 @@ const ThumbnailComponent = ({
               >
                 <img
                   alt={path.split(/[\\/]/).pop()}
+                  draggable={false}
                   className={clsx(
-                    'w-full h-full transition-transform duration-300 will-change-transform relative',
+                    'w-full h-full transition-transform duration-300 will-change-transform relative select-none pointer-events-none',
                     thumbnailAspectRatio === ThumbnailAspectRatio.Contain ? 'object-contain' : 'object-cover',
                     isForcedHover ? 'scale-[1.02]' : 'group-hover:scale-[1.02]',
                   )}
@@ -587,6 +597,14 @@ const ListItemComponent = ({
   return (
     <div
       className={`flex items-center w-full h-full cursor-pointer transition-all duration-150 ${borderClass} ${roundingClass} ${stateClass}`}
+      draggable={true}
+      onDragStart={(e: any) => {
+        const multiSelected = useLibraryStore.getState().multiSelectedPaths;
+        const pathsToDrag = multiSelected.includes(path) ? multiSelected : [path];
+        e.dataTransfer.setData('application/x-rapidraw-images', JSON.stringify(pathsToDrag));
+        e.dataTransfer.setData('text/plain', JSON.stringify(pathsToDrag));
+        e.dataTransfer.effectAllowed = 'copyMove';
+      }}
       onClick={(e: any) => {
         e.stopPropagation();
         onImageClick(path, e);
@@ -610,7 +628,8 @@ const ListItemComponent = ({
                 >
                   <img
                     alt={baseName}
-                    className={`w-full h-full relative ${
+                    draggable={false}
+                    className={`w-full h-full relative select-none pointer-events-none ${
                       thumbnailAspectRatio === ThumbnailAspectRatio.Contain ? 'object-contain' : 'object-cover'
                     }`}
                     decoding="async"

@@ -250,7 +250,12 @@ function MasksListRoot({ children, onClick }: { children: React.ReactNode; onCli
 export default function MasksPanel() {
   const { t } = useTranslation();
   const { setAdjustments } = useEditorActions();
-  const { handleGenerateAiDepthMask, handleGenerateAiForegroundMask, handleGenerateAiSkyMask } = useAiMasking();
+  const {
+    handleGenerateAiDepthMask,
+    handleGenerateAiForegroundMask,
+    handleGenerateAiSkyMask,
+    handleGeneratePortraitSubmasks,
+  } = useAiMasking();
   const { setCustomEscapeHandler, isAdjustmentsPanelVisible } = useUIStore(
     useShallow((state) => {
       const leftVisible = state.uiVisibility.leftPanel;
@@ -499,6 +504,10 @@ export default function MasksPanel() {
   };
 
   const handleAddMaskContainer = (type: Mask) => {
+    if (type === Mask.AiPortrait) {
+      handleGeneratePortraitSubmasks();
+      return;
+    }
     const subMask = createMaskLogic(type);
     const count = (adjustments.masks?.length || 0) + 1;
     const newContainer = {
@@ -523,6 +532,10 @@ export default function MasksPanel() {
     mode: SubMaskMode = SubMaskMode.Additive,
     insertIndex: number = -1,
   ) => {
+    if (type === Mask.AiPortrait) {
+      handleGeneratePortraitSubmasks();
+      return;
+    }
     const subMask = createMaskLogic(type, mode);
     setAdjustments((prev: Adjustments) => ({
       ...prev,
@@ -549,6 +562,10 @@ export default function MasksPanel() {
   };
 
   const handleGridClick = (type: Mask, forceNewMaskContainer: boolean = false) => {
+    if (type === Mask.AiPortrait) {
+      handleGeneratePortraitSubmasks();
+      return;
+    }
     if (!forceNewMaskContainer && activeMaskContainerId) handleAddSubMask(activeMaskContainerId, type);
     else handleAddMaskContainer(type);
   };

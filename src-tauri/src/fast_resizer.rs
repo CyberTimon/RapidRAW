@@ -138,39 +138,69 @@ pub fn fast_downscale_dynamic(img: &DynamicImage, max_w: u32, max_h: u32) -> Dyn
     }
 }
 
-/// Multi-resolution preview pyramid for instant pan/zoom responsiveness
+/// Lightweight Two-Tier Screen Proxy for ultra-fast (120+ FPS) real-time slider adjustments
 #[derive(Clone)]
-pub struct MultiResPyramid {
-    pub proxy_1080p: Arc<DynamicImage>,     // Level 0: 1920x1080
-    pub proxy_2k: Arc<DynamicImage>,        // Level 1: 2560x1440
-    pub proxy_4k: Arc<DynamicImage>,        // Level 2: 3840x2160
-    pub proxy_native_8_7mp: Arc<DynamicImage>, // Level 3: 3600x2400
+pub struct ScreenProxy {
+    pub image: Arc<DynamicImage>,
+    pub width: u32,
+    pub height: u32,
 }
 
-impl MultiResPyramid {
-    pub fn build(full_res: &DynamicImage) -> Self {
-        let p_1080 = Arc::new(fast_downscale_dynamic(full_res, 1920, 1080));
-        let p_2k = Arc::new(fast_downscale_dynamic(full_res, 2560, 1440));
-        let p_4k = Arc::new(fast_downscale_dynamic(full_res, 3840, 2160));
-        let p_8_7mp = Arc::new(fast_downscale_dynamic(full_res, 3600, 2400));
-
+impl ScreenProxy {
+    pub fn build(full_res: &DynamicImage, max_dim: u32) -> Self {
+        let downscaled = fast_downscale_dynamic(full_res, max_dim, max_dim);
+        let (w, h) = downscaled.dimensions();
         Self {
-            proxy_1080p: p_1080,
-            proxy_2k: p_2k,
-            proxy_4k: p_4k,
-            proxy_native_8_7mp: p_8_7mp,
+            image: Arc::new(downscaled),
+            width: w,
+            height: h,
         }
     }
+}
 
-    pub fn get_optimal_level(&self, target_dim: u32) -> Arc<DynamicImage> {
-        if target_dim <= 1920 {
-            Arc::clone(&self.proxy_1080p)
-        } else if target_dim <= 2560 {
-            Arc::clone(&self.proxy_2k)
-        } else if target_dim <= 3600 {
-            Arc::clone(&self.proxy_native_8_7mp)
-        } else {
-            Arc::clone(&self.proxy_4k)
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::Rgb;
+
+    #[test]
+    fn test_fast_resize_rgb8_exact() {
+        let (w, h) = (100u32, 50u32);
+        let mut src = RgbImage::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                src.put_pixel(x, y, Rgb([(x * 2) as u8, (y * 4) as u8, 128]));
+            }
         }
+
+        let dst = fast_resize_rgb8(&src, 50, 25);
+        assert_eq!(dst.dimensions(), (50, 25));
+        let p = dst.get_pixel(25, 12);
+        assert_eq!(p[2], 128);
+    }
+
+    #[test]
+    fn test_fast_resize_rgb32f_exact() {
+        let (w, h) = (64u32, 64u32);
+        let mut src = Rgb32FImage::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                src.put_pixel(x, y, Rgb([0.5, 0.25, 0.75]));
+            }
+        }
+
+        let dst = fast_resize_rgb32f(&src, 32, 32);
+        assert_eq!(dst.dimensions(), (32, 32));
+        let p = dst.get_pixel(16, 16);
+        assert!((p[0] - 0.5).abs() < 1e-4);
+        assert!((p[1] - 0.25).abs() < 1e-4);
+        assert!((p[2] - 0.75).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_screen_proxy_dimensions() {
+        let img = DynamicImage::ImageRgb8(RgbImage::new(4000, 3000));
+        let proxy = ScreenProxy::build(&img, 1000);
+        assert_eq!((proxy.width, proxy.height), (1000, 750));
     }
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { Check, RotateCcw, Grid3X3, Eye, EyeOff, Info, LineChart, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { Check, RotateCcw, Grid3X3, Eye, EyeOff, Info, LineChart, ZoomIn, ZoomOut, Maximize, Compass, Wand2, Sparkles } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Button from '../ui/Button';
 import Slider from '../ui/Slider';
@@ -128,7 +128,14 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const lastMousePos = useRef({ x: 0, y: 0 });
+
+  // Guided Upright State
+  const [isGuidedActive, setIsGuidedActive] = useState(false);
+  const [guidedLines, setGuidedLines] = useState<Array<{ id: string; x1: number; y1: number; x2: number; y2: number; orientation: 'vertical' | 'horizontal' }>>([]);
+  const [currentLine, setCurrentLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const [isSolvingUpright, setIsSolvingUpright] = useState(false);
 
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
@@ -284,7 +291,58 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
 
   const handleReset = () => {
     setParams(DEFAULT_PARAMS);
+    setGuidedLines([]);
     updatePreview(DEFAULT_PARAMS, showLines);
+  };
+
+  const handleAutoHorizon = async () => {
+    try {
+      const angle = await invoke<number>('detect_auto_horizon');
+      if (typeof angle === 'number' && !isNaN(angle)) {
+        const rounded = Math.round(angle * 10) / 10;
+        handleChange('rotate', rounded);
+      }
+    } catch (e) {
+      console.error('Failed to detect auto horizon', e);
+    }
+  };
+
+  const handleSolveUpright = async () => {
+    if (guidedLines.length === 0) return;
+    setIsSolvingUpright(true);
+    try {
+      const result = await invoke<{
+        vertical: number;
+        horizontal: number;
+        rotate: number;
+        aspect: number;
+        scale: number;
+      }>('solve_guided_upright', {
+        lines: guidedLines.map((l) => ({
+          x1: l.x1,
+          y1: l.y1,
+          x2: l.x2,
+          y2: l.y2,
+          orientation: l.orientation,
+        })),
+        width: 1920,
+        height: 1080,
+      });
+
+      const newParams = {
+        ...params,
+        vertical: result.vertical,
+        horizontal: result.horizontal,
+        rotate: result.rotate,
+        scale: result.scale,
+      };
+      setParams(newParams);
+      updatePreview(newParams, showLines);
+    } catch (e) {
+      console.error('Failed to solve guided upright', e);
+    } finally {
+      setIsSolvingUpright(false);
+    }
   };
 
   const handleShowLinesToggle = () => {
@@ -338,7 +396,68 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
         </button>
       </div>
 
-      <div className="grow overflow-y-auto p-4 flex flex-col gap-8" onPointerDownCapture={handleInteractionStart}>
+      <div className="grow overflow-y-auto p-4 flex flex-col gap-6" onPointerDownCapture={handleInteractionStart}>
+        {/* Guided Upright & Auto Horizon Card */}
+        <div className="p-3 bg-bg-tertiary rounded-xl border border-surface flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
+              <Compass size={14} className="text-accent" />
+              Guided Upright Solver
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsGuidedActive(!isGuidedActive)}
+              className={clsx(
+                'px-2.5 py-1 rounded-full text-xs font-bold transition-all border cursor-pointer',
+                isGuidedActive
+                  ? 'bg-accent text-white border-accent shadow-sm'
+                  : 'bg-surface text-text-secondary border-surface hover:text-white',
+              )}
+            >
+              {isGuidedActive ? 'Guides: ON' : 'Guides: OFF'}
+            </button>
+          </div>
+
+          <span className="text-[11px] text-text-secondary leading-tight">
+            Draw vertical lines on walls & horizontal lines on level edges to calculate perspective homography.
+          </span>
+
+          <div className="flex items-center justify-between text-xs font-mono text-text-secondary">
+            <span>Guides: {guidedLines.length} / 4</span>
+            {guidedLines.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setGuidedLines([])}
+                className="text-[11px] text-red-400 hover:underline cursor-pointer"
+              >
+                Clear Guides
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleAutoHorizon}
+              className="w-full text-xs font-medium"
+            >
+              <Wand2 size={13} className="mr-1 text-accent" />
+              Auto Level
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={handleSolveUpright}
+              disabled={guidedLines.length === 0 || isSolvingUpright}
+              className="w-full text-xs font-bold"
+            >
+              <Sparkles size={13} className="mr-1" />
+              Solve Upright
+            </Button>
+          </div>
+        </div>
+
         <div>
           <Text variant={TextVariants.heading} className="mb-2">
             {t('modals.transform.distortion')}
@@ -487,6 +606,7 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
               <div className="origin-center" style={imageTransformStyle}>
                 <div className="relative inline-block shadow-2xl">
                   <img
+                    ref={imageRef}
                     src={previewUrl}
                     className="block object-contain"
                     style={{
@@ -501,6 +621,85 @@ export default function TransformModal({ isOpen, onClose, onApply, currentAdjust
 
                   {!isCompareActive && (
                     <CustomGrid ruleOfThirdsVisible={showGrid} denseVisible={showGrid && isInteracting} />
+                  )}
+
+                  {/* Guided Lines Interactive Drawing Layer */}
+                  {isGuidedActive && (
+                    <svg
+                      className="absolute inset-0 w-full h-full cursor-crosshair z-30 pointer-events-auto select-none"
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                        const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+                        setCurrentLine({ x1: x, y1: y, x2: x, y2: y });
+                      }}
+                      onMouseMove={(e) => {
+                        if (!currentLine) return;
+                        e.stopPropagation();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                        const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+                        setCurrentLine((prev) => (prev ? { ...prev, x2: x, y2: y } : null));
+                      }}
+                      onMouseUp={(e) => {
+                        if (!currentLine) return;
+                        e.stopPropagation();
+                        const dx = Math.abs(currentLine.x2 - currentLine.x1);
+                        const dy = Math.abs(currentLine.y2 - currentLine.y1);
+                        const length = Math.sqrt(dx * dx + dy * dy);
+                        if (length > 0.03 && guidedLines.length < 4) {
+                          const orientation = dy >= dx ? 'vertical' : 'horizontal';
+                          setGuidedLines((prev) => [
+                            ...prev,
+                            {
+                              id: `guide-${Date.now()}-${Math.random()}`,
+                              ...currentLine,
+                              orientation,
+                            },
+                          ]);
+                        }
+                        setCurrentLine(null);
+                      }}
+                    >
+                      {/* Render Drawn Guided Lines */}
+                      {guidedLines.map((line) => {
+                        const isVert = line.orientation === 'vertical';
+                        const strokeColor = isVert ? '#06b6d4' : '#f59e0b';
+                        return (
+                          <g key={line.id}>
+                            <line
+                              x1={`${line.x1 * 100}%`}
+                              y1={`${line.y1 * 100}%`}
+                              x2={`${line.x2 * 100}%`}
+                              y2={`${line.y2 * 100}%`}
+                              stroke={strokeColor}
+                              strokeWidth="3"
+                              strokeDasharray="4 3"
+                            />
+                            <circle cx={`${line.x1 * 100}%`} cy={`${line.y1 * 100}%`} r="6" fill={strokeColor} stroke="#ffffff" strokeWidth="1.5" />
+                            <circle cx={`${line.x2 * 100}%`} cy={`${line.y2 * 100}%`} r="6" fill={strokeColor} stroke="#ffffff" strokeWidth="1.5" />
+                          </g>
+                        );
+                      })}
+
+                      {/* Current Drawing Line */}
+                      {currentLine && (
+                        <g>
+                          <line
+                            x1={`${currentLine.x1 * 100}%`}
+                            y1={`${currentLine.y1 * 100}%`}
+                            x2={`${currentLine.x2 * 100}%`}
+                            y2={`${currentLine.y2 * 100}%`}
+                            stroke="#38bdf8"
+                            strokeWidth="2.5"
+                            strokeDasharray="2 2"
+                          />
+                          <circle cx={`${currentLine.x1 * 100}%`} cy={`${currentLine.y1 * 100}%`} r="5" fill="#38bdf8" stroke="#ffffff" strokeWidth="1" />
+                          <circle cx={`${currentLine.x2 * 100}%`} cy={`${currentLine.y2 * 100}%`} r="5" fill="#38bdf8" stroke="#ffffff" strokeWidth="1" />
+                        </g>
+                      )}
+                    </svg>
                   )}
 
                   {isCompareActive && (

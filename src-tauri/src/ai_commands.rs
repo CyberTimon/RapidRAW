@@ -426,3 +426,14 @@ pub async fn test_ai_connector_connection(address: String) -> Result<(), String>
         Err(e) => Err(e.to_string()),
     }
 }
+
+#[tauri::command]
+pub async fn generate_portrait_submasks(
+    js_adjustments: serde_json::Value,
+    state: tauri::State<'_, AppState>,
+) -> Result<crate::ai_processing::PortraitSegmentationResult, String> {
+    let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+    let result = crate::ai_processing::detect_and_segment_portrait_features(warped_image.as_ref());
+    Ok(result)
+}
+

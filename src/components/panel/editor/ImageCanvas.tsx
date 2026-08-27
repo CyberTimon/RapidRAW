@@ -12,6 +12,8 @@ import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import { useTranslation } from 'react-i18next';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
+import SplitCompareOverlay from './SplitCompareOverlay';
+import VariantMatrix4Way from './VariantMatrix4Way';
 
 interface CursorPreview {
   visible: boolean;
@@ -56,7 +58,7 @@ interface ImageCanvasProps {
   onSelectAiPatchContainer?: (id: string | null) => void;
   onSelectMaskContainer?: (id: string | null) => void;
   onStraighten(val: number): void;
-  selectedImage: SelectedImage;
+  selectedImage: SelectedImage | null;
   setCrop(crop: Crop, perfentCrop: PercentCrop): void;
   setIsMaskHovered(isHovered: boolean): void;
   setIsMaskTouchInteracting(isInteracting: boolean): void;
@@ -66,6 +68,8 @@ interface ImageCanvasProps {
   updateSubMask(id: string | null, subMask: Partial<SubMask>): void;
   interactivePatch?: { url: string; normX: number; normY: number; normW: number; normH: number } | null;
   isWbPickerActive?: boolean;
+  isTatActive?: boolean;
+  tatMode?: 'hsl_hue' | 'hsl_sat' | 'hsl_lum' | 'curve' | 'exposure' | null;
   onWbPicked?: () => void;
   setAdjustments(fn: (prev: Adjustments) => Adjustments): void;
   overlayMode?: OverlayMode;
@@ -1175,6 +1179,8 @@ const ImageCanvas = memo(
     uncroppedAdjustedPreviewUrl,
     updateSubMask,
     isWbPickerActive = false,
+    isTatActive = false,
+    tatMode = null,
     onWbPicked,
     setAdjustments,
     overlayRotation,
@@ -1196,6 +1202,7 @@ const ImageCanvas = memo(
     const drawingStageRef = useRef<any>(null);
     const dragStartPointer = useRef<Coord | null>(null);
     const lastBrushPoint = useRef<Coord | null>(null);
+    const isPenActive = useRef(false);
     const currentLine = useRef<DrawnLine | null>(null);
     const previewBoxRef = useRef<{ start: Coord; end: Coord } | null>(null);
     const [previewBox, setPreviewBox] = useState<{ start: Coord; end: Coord } | null>(null);
@@ -1206,11 +1213,11 @@ const ImageCanvas = memo(
     const isStraightening = useRef(false);
 
     const [displayState, setDisplayState] = useState({
-      base: finalPreviewUrl || selectedImage.thumbnailUrl,
+      base: finalPreviewUrl || selectedImage?.thumbnailUrl || null,
       fade: null as string | null,
     });
     const [isFadingIn, setIsFadingIn] = useState(false);
-    const prevImageIdentityRef = useRef(selectedImage.thumbnailUrl);
+    const prevImageIdentityRef = useRef(selectedImage?.thumbnailUrl);
 
     const [baseTool, setBaseTool] = useState<ToolType>(brushSettings?.tool ?? ToolType.Brush);
     const [isAltPressed, setIsAltPressed] = useState(false);
@@ -1302,11 +1309,11 @@ const ImageCanvas = memo(
     }, [interactivePatch]);
 
     useEffect(() => {
-      const newSrc = finalPreviewUrl || selectedImage.thumbnailUrl;
-      const isNewImage = prevImageIdentityRef.current !== selectedImage.thumbnailUrl;
+      const newSrc = finalPreviewUrl || selectedImage?.thumbnailUrl || null;
+      const isNewImage = prevImageIdentityRef.current !== selectedImage?.thumbnailUrl;
 
       if (isNewImage) {
-        prevImageIdentityRef.current = selectedImage.thumbnailUrl;
+        prevImageIdentityRef.current = selectedImage?.thumbnailUrl;
         setDisplayState({ base: newSrc, fade: null });
         setIsFadingIn(false);
         return;
@@ -1344,7 +1351,7 @@ const ImageCanvas = memo(
           setIsFadingIn(false);
         }
       }
-    }, [finalPreviewUrl, selectedImage.thumbnailUrl, isSliderDragging]);
+    }, [finalPreviewUrl, selectedImage?.thumbnailUrl, isSliderDragging]);
 
     useEffect(() => {
       setBaseTool(brushSettings?.tool ?? ToolType.Brush);
@@ -1425,13 +1432,13 @@ const ImageCanvas = memo(
 
     const effectiveImageDimensions = useMemo(() => {
       const steps = adjustments.orientationSteps || 0;
-      const w = selectedImage.width || 0;
-      const h = selectedImage.height || 0;
+      const w = selectedImage?.width || 0;
+      const h = selectedImage?.height || 0;
       if (steps === 1 || steps === 3) {
         return { width: h, height: w };
       }
       return { width: w, height: h };
-    }, [selectedImage.width, selectedImage.height, adjustments.orientationSteps]);
+    }, [selectedImage?.width, selectedImage?.height, adjustments.orientationSteps]);
 
     const activeCrop = adjustments.crop;
     const isPercentCrop = activeCrop?.unit === '%';
@@ -1743,6 +1750,127 @@ const ImageCanvas = memo(
       ],
     );
 
+    const [tatHud, setTatHud] = useState<{ x: number; y: number; text: string; color: string } | null>(null);
+    const tatDragState = useRef<{ isDragging: boolean; startY: number; startVal: number; colorKey: string; mode: string } | null>(null);
+
+    const mapHueToHslColorKey = (hueDeg: number): { key: string; color: string; label: string } => {
+      const h = ((hueDeg % 360) + 360) % 360;
+      if (h >= 345 || h < 15) return { key: 'reds', color: '#f87171', label: 'Red' };
+      if (h >= 15 && h < 45) return { key: 'oranges', color: '#fb923c', label: 'Orange' };
+      if (h >= 45 && h < 75) return { key: 'yellows', color: '#facc15', label: 'Yellow' };
+      if (h >= 75 && h < 165) return { key: 'greens', color: '#4ade80', label: 'Green' };
+      if (h >= 165 && h < 200) return { key: 'aquas', color: '#2dd4bf', label: 'Aqua' };
+      if (h >= 200 && h < 270) return { key: 'blues', color: '#60a5fa', label: 'Blue' };
+      if (h >= 270 && h < 320) return { key: 'purples', color: '#a78bfa', label: 'Purple' };
+      return { key: 'magentas', color: '#f472b6', label: 'Magenta' };
+    };
+
+    const handleTatStart = useCallback(
+      (e: any) => {
+        const sampleUrl = selectedImage?.thumbnailUrl || finalPreviewUrl;
+        if (!isTatActive || !sampleUrl) return;
+
+        const stage = e.target.getStage();
+        const pointerPos = getCanvasPointer(stage);
+        if (!pointerPos) return;
+
+        const x = pointerPos.x / imageRenderSize.scale;
+        const y = pointerPos.y / imageRenderSize.scale;
+
+        const imgLogicalWidth = imageRenderSize.width / imageRenderSize.scale;
+        const imgLogicalHeight = imageRenderSize.height / imageRenderSize.scale;
+        if (x < 0 || x > imgLogicalWidth || y < 0 || y > imgLogicalHeight) return;
+
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.src = sampleUrl;
+
+        img.onload = () => {
+          const radius = 4;
+          const side = radius * 2 + 1;
+          const canvas = document.createElement('canvas');
+          canvas.width = side;
+          canvas.height = side;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (!ctx) return;
+
+          const scaleX = img.width / imgLogicalWidth;
+          const scaleY = img.height / imgLogicalHeight;
+          const srcX = Math.floor(x * scaleX);
+          const srcY = Math.floor(y * scaleY);
+
+          const startX = Math.max(0, srcX - radius);
+          const startY = Math.max(0, srcY - radius);
+          const endX = Math.min(img.width, srcX + radius + 1);
+          const endY = Math.min(img.height, srcY + radius + 1);
+          const sw = endX - startX;
+          const sh = endY - startY;
+          if (sw <= 0 || sh <= 0) return;
+
+          ctx.drawImage(img, startX, startY, sw, sh, 0, 0, sw, sh);
+          const imageData = ctx.getImageData(0, 0, sw, sh);
+          const data = imageData.data;
+
+          let rTotal = 0,
+            gTotal = 0,
+            bTotal = 0,
+            count = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            rTotal += data[i];
+            gTotal += data[i + 1];
+            bTotal += data[i + 2];
+            count++;
+          }
+          if (count === 0) return;
+
+          const r = rTotal / count / 255.0;
+          const g = gTotal / count / 255.0;
+          const b = bTotal / count / 255.0;
+
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          const d = max - min;
+          let hueDeg = 0;
+          if (d > 0.0001) {
+            if (max === r) hueDeg = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+            else if (max === g) hueDeg = ((b - r) / d + 2) * 60;
+            else hueDeg = ((r - g) / d + 4) * 60;
+          }
+
+          const channel = mapHueToHslColorKey(hueDeg);
+          const mode = tatMode === 'hsl_hue' ? 'hue' : tatMode === 'hsl_lum' ? 'luminance' : 'saturation';
+          const startVal = adjustments.hsl?.[channel.key]?.[mode as 'hue' | 'saturation' | 'luminance'] || 0;
+
+          tatDragState.current = {
+            isDragging: true,
+            startY: e.evt?.clientY || pointerPos.y,
+            startVal,
+            colorKey: channel.key,
+            mode,
+          };
+
+          const clientX = e.evt?.clientX || window.innerWidth / 2;
+          const clientY = e.evt?.clientY || window.innerHeight / 2;
+
+          setTatHud({
+            x: clientX,
+            y: clientY,
+            text: `${channel.label} ${mode.charAt(0).toUpperCase() + mode.slice(1)}: ${startVal > 0 ? '+' : ''}${Math.round(startVal)}`,
+            color: channel.color,
+          });
+        };
+      },
+      [
+        isTatActive,
+        selectedImage?.thumbnailUrl,
+        finalPreviewUrl,
+        imageRenderSize,
+        tatMode,
+        adjustments.hsl,
+        getCanvasPointer,
+      ],
+    );
+
     const handleStart = useCallback(
       (e: any) => {
         if (e.evt && typeof e.evt.button === 'number' && e.evt.button !== 0) {
@@ -1753,6 +1881,11 @@ const ImageCanvas = memo(
 
         if (isWbPickerActive) {
           handleWbClick(e);
+          return;
+        }
+
+        if (isTatActive) {
+          handleTatStart(e);
           return;
         }
 
@@ -1864,11 +1997,32 @@ const ImageCanvas = memo(
             return;
           }
 
+          const pointerType = (e.evt as any)?.pointerType || (e.evt?.touches ? 'touch' : 'mouse');
+          const isPen = pointerType === 'pen';
+          const isEraserTipOrBarrel =
+            isPen && ((e.evt as any)?.buttons === 32 || (e.evt as any)?.button === 5 || (e.evt as any)?.buttons === 2);
+          const rawPressure =
+            typeof (e.evt as any)?.pressure === 'number' && (e.evt as any).pressure > 0
+              ? (e.evt as any).pressure
+              : 0.5;
+          const pressureMultiplier = isPen ? Math.max(0.2, Math.min(2.2, rawPressure * 1.8)) : 1.0;
+
+          // Palm rejection: if pen was drawing or interacting, ignore touch
+          if (pointerType === 'touch' && isPenActive.current) {
+            if (e.evt && e.evt.cancelable) e.evt.preventDefault();
+            return;
+          }
+          if (isPen) {
+            isPenActive.current = true;
+          }
+
           const isAltPressed = e.evt.altKey || (window as any).altKeyDown;
           let effectiveTool;
 
           if (isAiSubjectActive) {
             effectiveTool = ToolType.AiSeletor;
+          } else if (isEraserTipOrBarrel) {
+            effectiveTool = ToolType.Eraser;
           } else if (isAltPressed) {
             effectiveTool = baseTool === ToolType.Brush ? ToolType.Eraser : ToolType.Brush;
           } else {
@@ -1898,7 +2052,7 @@ const ImageCanvas = memo(
             }
 
             const imageSpaceLine: DrawnLine = {
-              brushSize: brushImageSpaceSize,
+              brushSize: brushImageSpaceSize * pressureMultiplier,
               feather: brushSettings?.feather ? brushSettings?.feather / 100 : 0,
               flow: activeLineFlow,
               points: interpolatedPoints,
@@ -1930,7 +2084,7 @@ const ImageCanvas = memo(
           }
 
           const newLine: DrawnLine = {
-            brushSize: isBrushActive && brushSettings?.size ? brushStageSize : 2,
+            brushSize: isBrushActive && brushSettings?.size ? brushStageSize * pressureMultiplier : 2,
             points: [pos],
             tool: effectiveTool,
           };
@@ -1979,6 +2133,44 @@ const ImageCanvas = memo(
     const handleMove = useCallback(
       (e: any) => {
         if (isWbPickerActive) {
+          return;
+        }
+
+        if (isTatActive && tatDragState.current?.isDragging) {
+          const clientY = e.evt?.clientY || (e.touches && e.touches[0]?.clientY) || 0;
+          const clientX = e.evt?.clientX || (e.touches && e.touches[0]?.clientX) || 0;
+          const dy = tatDragState.current.startY - clientY;
+          const deltaVal = dy * 0.5;
+          const newVal = Math.max(-100, Math.min(100, Math.round(tatDragState.current.startVal + deltaVal)));
+          const { colorKey, mode } = tatDragState.current;
+
+          setAdjustments((prev: Adjustments) => ({
+            ...prev,
+            hsl: {
+              ...(prev.hsl || {}),
+              [colorKey]: {
+                ...(prev.hsl?.[colorKey] || {}),
+                [mode]: newVal,
+              },
+            },
+          }));
+
+          const channel = mapHueToHslColorKey(
+            colorKey === 'reds' ? 0 :
+            colorKey === 'oranges' ? 30 :
+            colorKey === 'yellows' ? 60 :
+            colorKey === 'greens' ? 120 :
+            colorKey === 'aquas' ? 180 :
+            colorKey === 'blues' ? 240 :
+            colorKey === 'purples' ? 300 : 340
+          );
+
+          setTatHud({
+            x: clientX,
+            y: clientY,
+            text: `${channel.label} ${mode.charAt(0).toUpperCase() + mode.slice(1)}: ${newVal > 0 ? '+' : ''}${newVal}`,
+            color: channel.color,
+          });
           return;
         }
 
@@ -2103,9 +2295,16 @@ const ImageCanvas = memo(
 
           if (isManualCleanupActive && activeId) {
             const { scale } = imageRenderSize;
+            const pointerType = (e.evt as any)?.pointerType || (e.evt?.touches ? 'touch' : 'mouse');
+            const isPen = pointerType === 'pen';
+            const rawPressure =
+              typeof (e.evt as any)?.pressure === 'number' && (e.evt as any).pressure > 0
+                ? (e.evt as any).pressure
+                : 0.5;
+            const pressureMultiplier = isPen ? Math.max(0.2, Math.min(2.2, rawPressure * 1.8)) : 1.0;
 
             const imageSpaceLine: DrawnLine = {
-              brushSize: brushImageSpaceSize,
+              brushSize: brushImageSpaceSize * pressureMultiplier,
               feather: brushSettings?.feather ? brushSettings?.feather / 100 : 0,
               flow: activeLineFlow,
               points: updatedLine.points.map((p: Coord) => ({
@@ -2138,9 +2337,16 @@ const ImageCanvas = memo(
             }
           } else if (onLiveMaskPreview && activeContainer && activeSubMask && isBrushActive) {
             const { scale } = imageRenderSize;
+            const pointerType = (e.evt as any)?.pointerType || (e.evt?.touches ? 'touch' : 'mouse');
+            const isPen = pointerType === 'pen';
+            const rawPressure =
+              typeof (e.evt as any)?.pressure === 'number' && (e.evt as any).pressure > 0
+                ? (e.evt as any).pressure
+                : 0.5;
+            const pressureMultiplier = isPen ? Math.max(0.2, Math.min(2.2, rawPressure * 1.8)) : 1.0;
 
             const imageSpaceLine: DrawnLine = {
-              brushSize: brushImageSpaceSize,
+              brushSize: brushImageSpaceSize * pressureMultiplier,
               feather: brushSettings?.feather ? brushSettings?.feather / 100 : 0,
               flow: activeLineFlow,
               points: updatedLine.points.map((p: Coord) => ({
@@ -2200,6 +2406,14 @@ const ImageCanvas = memo(
     );
 
     const handleUp = useCallback(() => {
+      if (isTatActive) {
+        if (tatDragState.current) {
+          tatDragState.current.isDragging = false;
+        }
+        setTatHud(null);
+        return;
+      }
+
       if (!isDrawing.current) {
         return;
       }
@@ -2294,9 +2508,10 @@ const ImageCanvas = memo(
       const { scale } = imageRenderSize;
       const activeId = isMasking ? activeMaskId : activeAiSubMaskId;
 
+      isPenActive.current = false;
       if (isBrushActive) {
         const imageSpaceLine: DrawnLine = {
-          brushSize: brushImageSpaceSize,
+          brushSize: line.brushSize ? line.brushSize / (imageRenderSize.scale || 1) : brushImageSpaceSize,
           feather: brushSettings?.feather ? brushSettings?.feather / 100 : 0,
           flow: activeLineFlow,
           points: line.points.map((p: Coord) => ({
@@ -2487,7 +2702,7 @@ const ImageCanvas = memo(
       }
     };
 
-    const cropPreviewUrl = uncroppedAdjustedPreviewUrl || selectedImage.thumbnailUrl;
+    const cropPreviewUrl = uncroppedAdjustedPreviewUrl || selectedImage?.thumbnailUrl || null;
     const originalSrc = transformedOriginalUrl;
     const isShowingOriginal = showOriginal && !!originalSrc;
 
@@ -2512,7 +2727,7 @@ const ImageCanvas = memo(
       };
     }, [originalSrc]);
 
-    const currentTarget = finalPreviewUrl || selectedImage.thumbnailUrl;
+    const currentTarget = finalPreviewUrl || selectedImage?.thumbnailUrl || null;
     const baseIsReady = displayState.base === currentTarget && !displayState.fade;
 
     const visiblePatch = interactivePatch ?? (baseIsReady ? null : retainedPatchRef.current);
@@ -2531,8 +2746,8 @@ const ImageCanvas = memo(
       const viewportWidth = imageRenderSize.width + 2 * imageRenderSize.offsetX;
       const viewportHeight = imageRenderSize.height + 2 * imageRenderSize.offsetY;
 
-      let uncroppedEffectiveWidth = selectedImage.width;
-      let uncroppedEffectiveHeight = selectedImage.height;
+      let uncroppedEffectiveWidth = selectedImage?.width || 0;
+      let uncroppedEffectiveHeight = selectedImage?.height || 0;
       const orientationSteps = adjustments.orientationSteps || 0;
       if (orientationSteps === 1 || orientationSteps === 3) {
         [uncroppedEffectiveWidth, uncroppedEffectiveHeight] = [uncroppedEffectiveHeight, uncroppedEffectiveWidth];
@@ -2568,6 +2783,7 @@ const ImageCanvas = memo(
 
     const effectiveCursor = useMemo(() => {
       if (isWbPickerActive) return 'crosshair';
+      if (isTatActive) return 'crosshair';
       if (isParametricActive) return 'crosshair';
       if (isInitialDrawing) return 'crosshair';
 
@@ -2593,6 +2809,7 @@ const ImageCanvas = memo(
       return cursorStyle;
     }, [
       isWbPickerActive,
+      isTatActive,
       isInitialDrawing,
       isBrushActive,
       isManualCleanupActive,
@@ -2752,6 +2969,16 @@ const ImageCanvas = memo(
                   }
                 />
               )}
+
+              <SplitCompareOverlay
+                imageWidth={imageRenderSize.width}
+                imageHeight={imageRenderSize.height}
+                offsetX={imageRenderSize.offsetX}
+                offsetY={imageRenderSize.offsetY}
+                originalSrc={originalSrc}
+                adjustedSrc={finalPreviewUrl}
+                isMaxZoom={isMaxZoom}
+              />
               {displayedMaskUrl && (
                 <img
                   alt="Mask Overlay"
@@ -2839,7 +3066,20 @@ const ImageCanvas = memo(
             </div>
           </div>
 
-          {(isMasking || isAiEditing || isWbPickerActive) && (
+          {tatHud && (
+            <div
+              className="fixed pointer-events-none z-50 px-3 py-1.5 rounded-lg bg-black/90 backdrop-blur-md border border-white/20 text-white text-xs font-mono font-semibold shadow-2xl flex items-center gap-2 transform -translate-x-1/2 -translate-y-12"
+              style={{ left: tatHud.x, top: tatHud.y }}
+            >
+              <span
+                className="w-3.5 h-3.5 rounded-full border border-white/40 shrink-0"
+                style={{ backgroundColor: tatHud.color }}
+              />
+              <span>{tatHud.text}</span>
+            </div>
+          )}
+
+          {(isMasking || isAiEditing || isWbPickerActive || isTatActive) && (
             <div
               style={{
                 position: 'absolute',
@@ -3056,6 +3296,7 @@ const ImageCanvas = memo(
               )}
             </div>
           )}
+          <VariantMatrix4Way />
         </div>
       </div>
     );

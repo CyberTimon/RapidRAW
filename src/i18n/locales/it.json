@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Tonemapping stile pellicola",
         "basic": "Base",
-        "basicDesc": "Tonemapping Standard"
+        "basicDesc": "Tonemapping Standard",
+        "oklab": "Oklab",
+        "oklabDesc": "Scienza del colore percettivo e alte luci"
       },
       "reset": "Ripristina",
       "shadows": "Ombre",
@@ -1277,7 +1279,8 @@
       "savedSuccess": "Focus Stack salvato con successo!",
       "stacking": "Unione messa a fuoco in corso",
       "start": "Avvia",
-      "title": "Focus Stacking"
+      "title": "Focus Stacking",
+      "descriptionWithCount_many": "Combina {{count}} immagini con diverse distanze di messa a fuoco in un'unica immagine perfettamente nitida."
     },
     "hdr": {
       "cancel": "Annulla",
@@ -1729,7 +1732,8 @@
         "title": "Pre-elaborazione Immagine",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Base"
+          "basic": "Base",
+          "oklab": "Oklab (Percettivo)"
         },
         "tonemapperOverride": "Sovrascrittura Tonemapper Globale",
         "tonemapperOverrideDesc": "Forza un tonemapper specifico globalmente per tutte le immagini, nascondendo il selettore del tonemapper dal pannello delle regolazioni."

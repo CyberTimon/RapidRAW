@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
-import { Sparkles, Heart, Flower2, ChevronDown, Check } from 'lucide-react';
+import { Sparkles, Heart, Flower2, ChevronDown, Check, Zap, Loader2, Sun } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import Slider from '../ui/Slider';
 import { Adjustments, BasicAdjustment } from '../../utils/adjustments';
 import { useEffect, useRef, useState, useMemo } from 'react';
@@ -45,6 +46,11 @@ const ToneMapperSwitch = ({
         id: 'agx',
         label: t('adjustments.basic.mappers.agx'),
         title: t('adjustments.basic.mappers.agxDesc'),
+      },
+      {
+        id: 'oklab',
+        label: t('adjustments.basic.mappers.oklab'),
+        title: t('adjustments.basic.mappers.oklabDesc'),
       },
     ],
     [t],
@@ -179,6 +185,12 @@ export default function BasicAdjustments({
   const [selectedAstroScene, setSelectedAstroScene] = useState<AstroScene>('master');
   const astroMenuRef = useRef<HTMLDivElement>(null);
 
+  const [selectedSkyPreset, setSelectedSkyPreset] = useState<string>('polar');
+  const [isSkyMenuOpen, setIsSkyMenuOpen] = useState<boolean>(false);
+  const skyMenuRef = useRef<HTMLDivElement>(null);
+
+  const [isAutoAnalyzing, setIsAutoAnalyzing] = useState(false);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (weddingMenuRef.current && !weddingMenuRef.current.contains(event.target as Node)) {
@@ -190,10 +202,79 @@ export default function BasicAdjustments({
       if (astroMenuRef.current && !astroMenuRef.current.contains(event.target as Node)) {
         setIsAstroMenuOpen(false);
       }
+      if (skyMenuRef.current && !skyMenuRef.current.contains(event.target as Node)) {
+        setIsSkyMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const [detectedSceneBadge, setDetectedSceneBadge] = useState<string | null>(null);
+
+  const handleSkySculpt = async (preset: string = selectedSkyPreset) => {
+    setSelectedSkyPreset(preset);
+    setIsSkyMenuOpen(false);
+    try {
+      const res: any = await invoke('apply_ai_sky_sculpt', { preset, intensity: 100 });
+      if (res && res.mask_adjustments) {
+        setAdjustments((prev: Partial<Adjustments>) => ({
+          ...prev,
+          ...res.mask_adjustments,
+        }));
+        setDetectedSceneBadge(`🌅 Sky Sculpted: ${res.preset_name}`);
+        setTimeout(() => setDetectedSceneBadge(null), 5000);
+      }
+    } catch (err) {
+      console.error('Sky sculpt error:', err);
+    }
+  };
+
+  const handleAutoEnhance = async () => {
+    try {
+      setIsAutoAnalyzing(true);
+      const res: any = await invoke('analyze_and_polish_active_image', {
+        intensity: 100,
+        autoStraighten: true,
+        toneStyle: 'filmic',
+        skinProtection: true,
+      });
+      if (res && res.adjustments) {
+        setDetectedSceneBadge(res.sceneName || null);
+        const adj = res.adjustments;
+        setAdjustments((prev: Partial<Adjustments>) => ({
+          ...prev,
+          ...adj,
+        }));
+        setTimeout(() => setDetectedSceneBadge(null), 5000);
+      }
+    } catch (err) {
+      console.error('Semantic AI polish error:', err);
+      // Fallback to basic auto adjustments
+      try {
+        const results: any = await invoke('calculate_auto_adjustments');
+        if (results) {
+          setAdjustments((prev: Partial<Adjustments>) => ({
+            ...prev,
+            exposure: typeof results.exposure === 'number' ? results.exposure : prev.exposure,
+            contrast: typeof results.contrast === 'number' ? results.contrast : prev.contrast,
+            highlights: typeof results.highlights === 'number' ? results.highlights : prev.highlights,
+            shadows: typeof results.shadows === 'number' ? results.shadows : prev.shadows,
+            whites: typeof results.whites === 'number' ? results.whites : prev.whites,
+            blacks: typeof results.blacks === 'number' ? results.blacks : prev.blacks,
+            clarity: typeof results.clarity === 'number' ? results.clarity : prev.clarity,
+            dehaze: typeof results.dehaze === 'number' ? results.dehaze : prev.dehaze,
+            vibrance: typeof results.vibrance === 'number' ? results.vibrance : prev.vibrance,
+            vignetteAmount: typeof results.vignetteAmount === 'number' ? results.vignetteAmount : prev.vignetteAmount,
+          }));
+        }
+      } catch (e) {
+        console.error('Fallback auto enhance error:', e);
+      }
+    } finally {
+      setIsAutoAnalyzing(false);
+    }
+  };
 
   const handleAdjustmentChange = (key: BasicAdjustment, value: any) => {
     const numericValue = parseFloat(value);
@@ -203,7 +284,7 @@ export default function BasicAdjustments({
   const handleToneMapperChange = (mapper: string) => {
     setAdjustments((prev: Partial<Adjustments>) => ({
       ...prev,
-      toneMapper: mapper as 'basic' | 'agx',
+      toneMapper: mapper as 'basic' | 'agx' | 'oklab',
     }));
   };
 
@@ -511,9 +592,9 @@ export default function BasicAdjustments({
       let clarity = 22;
       let dehaze = 24;
       let sharpening = 35;
-      let sharpnessThreshold = 40;
-      let lumaDenoise = 16;
-      let colorDenoise = 28;
+      let sharpnessThreshold = 60;
+      let lumaDenoise = 28;
+      let colorDenoise = 46;
 
       let redHsl = { hue: -6, saturation: 18, luminance: 8 };
       let magentaHsl = { hue: 0, saturation: 15, luminance: 4 };
@@ -538,6 +619,9 @@ export default function BasicAdjustments({
         clarity = 26;
         dehaze = 26;
         sharpening = 38;
+        sharpnessThreshold = 65;
+        lumaDenoise = 32;
+        colorDenoise = 52;
         redHsl = { hue: -8, saturation: 24, luminance: 10 };
         magentaHsl = { hue: 2, saturation: 20, luminance: 6 };
       } else if (scene === 'starryLandscape') {
@@ -552,8 +636,9 @@ export default function BasicAdjustments({
         clarity = 18;
         dehaze = 22;
         sharpening = 32;
-        lumaDenoise = 14;
-        colorDenoise = 24;
+        sharpnessThreshold = 55;
+        lumaDenoise = 26;
+        colorDenoise = 44;
       } else if (scene === 'deepSky') {
         expShift = 0.32;
         contrast = 26;
@@ -566,9 +651,9 @@ export default function BasicAdjustments({
         clarity = 24;
         dehaze = 28;
         sharpening = 40;
-        sharpnessThreshold = 45;
-        lumaDenoise = 20;
-        colorDenoise = 38;
+        sharpnessThreshold = 70;
+        lumaDenoise = 36;
+        colorDenoise = 58;
         redHsl = { hue: -10, saturation: 28, luminance: 12 };
         magentaHsl = { hue: 4, saturation: 24, luminance: 8 };
       } else if (scene === 'moonlitAurora') {
@@ -583,6 +668,9 @@ export default function BasicAdjustments({
         clarity = 16;
         dehaze = 18;
         sharpening = 30;
+        sharpnessThreshold = 50;
+        lumaDenoise = 24;
+        colorDenoise = 40;
         greenHsl = { hue: 10, saturation: 22, luminance: 10 };
         magentaHsl = { hue: 0, saturation: 22, luminance: 8 };
         shadowGrading = { hue: 215, saturation: 14, luminance: -4 };
@@ -624,13 +712,51 @@ export default function BasicAdjustments({
     });
   };
 
+  const handleRemoveLightPollution = async () => {
+    try {
+      setIsAstroMenuOpen(false);
+      await invoke('remove_active_light_pollution_gradient', {
+        preservePedestal: 0.02,
+      });
+      // Trigger canvas preview re-render
+      setAdjustments((prev: Partial<Adjustments>) => ({
+        ...prev,
+        exposure: (prev.exposure || 0) + 0.0001 - 0.0001,
+      }));
+    } catch (err) {
+      console.error('Failed to remove light pollution gradient:', err);
+    }
+  };
+
   const hideTonemapper = isForMask || appSettings?.tonemapperOverrideEnabled;
 
   return (
     <div>
       {!isForMask && (
         <div className="mb-3">
-          <div className="grid grid-cols-3 gap-1.5">
+          {detectedSceneBadge && (
+            <div className="mb-1.5 px-2 py-1 rounded bg-amber-500/15 border border-amber-500/30 flex items-center justify-between text-[11px] text-amber-300 animate-fadeIn">
+              <span className="font-medium">AI Scene: {detectedSceneBadge}</span>
+              <span className="text-[10px] text-amber-400/80">Tailored Polish Applied</span>
+            </div>
+          )}
+          <div className="grid grid-cols-5 gap-1">
+            {/* 1-Click Auto Enhance Button */}
+            <button
+              type="button"
+              onClick={handleAutoEnhance}
+              disabled={isAutoAnalyzing}
+              className="flex items-center justify-center gap-1 py-2 px-1 rounded-md bg-surface hover:bg-surface-secondary border border-border-color/50 text-text-primary hover:text-amber-400 font-medium text-xs truncate transition-all shadow-xs disabled:opacity-50"
+              title="1-Click Universal AI Polish: Detects scene (portrait, sunset, landscape, pets, architecture), balances dynamic range, and auto-levels horizon."
+            >
+              {isAutoAnalyzing ? (
+                <Loader2 size={12} className="animate-spin text-amber-400 shrink-0" />
+              ) : (
+                <Zap size={12} className="text-amber-400 shrink-0" />
+              )}
+              <span className="truncate">Auto</span>
+            </button>
+
             {/* Wedding Magic Button with Scene Menu */}
             <div className="relative" ref={weddingMenuRef}>
               <div className="flex rounded-md bg-surface hover:bg-surface-secondary border border-border-color/50 transition-all shadow-xs group">
@@ -659,7 +785,7 @@ export default function BasicAdjustments({
               </div>
 
               {isWeddingMenuOpen && (
-                <div className="absolute top-full left-0 mt-1 py-1 bg-surface-secondary border border-border-color rounded-md shadow-lg z-30 text-xs min-w-[150px]">
+                <div className="absolute top-full left-0 mt-1 py-1 bg-[#18181b] border border-border-color/80 rounded-md shadow-2xl backdrop-blur-xl z-50 text-xs min-w-[150px]">
                   {(
                     [
                       { key: 'master', label: 'Master Wedding Look' },
@@ -674,7 +800,7 @@ export default function BasicAdjustments({
                       type="button"
                       onClick={() => handleWeddingMagic(key as WeddingScene)}
                       className={clsx(
-                        'w-full flex items-center justify-between px-2.5 py-1.5 text-left hover:bg-surface transition-colors',
+                        'w-full flex items-center justify-between px-2.5 py-1.5 text-left hover:bg-surface/80 transition-colors',
                         selectedWeddingScene === key ? 'text-pink-400 font-semibold' : 'text-text-secondary'
                       )}
                     >
@@ -714,7 +840,7 @@ export default function BasicAdjustments({
               </div>
 
               {isMacroMenuOpen && (
-                <div className="absolute top-full left-0 mt-1 py-1 bg-surface-secondary border border-border-color rounded-md shadow-lg z-30 text-xs min-w-[150px]">
+                <div className="absolute top-full left-0 mt-1 py-1 bg-[#18181b] border border-border-color/80 rounded-md shadow-2xl backdrop-blur-xl z-50 text-xs min-w-[150px]">
                   {(
                     [
                       { key: 'master', label: 'Master Macro Look' },
@@ -729,7 +855,7 @@ export default function BasicAdjustments({
                       type="button"
                       onClick={() => handleMacroMagic(key as MacroScene)}
                       className={clsx(
-                        'w-full flex items-center justify-between px-2.5 py-1.5 text-left hover:bg-surface transition-colors',
+                        'w-full flex items-center justify-between px-2.5 py-1.5 text-left hover:bg-surface/80 transition-colors',
                         selectedMacroScene === key ? 'text-emerald-400 font-semibold' : 'text-text-secondary'
                       )}
                     >
@@ -769,7 +895,7 @@ export default function BasicAdjustments({
               </div>
 
               {isAstroMenuOpen && (
-                <div className="absolute top-full right-0 mt-1 py-1 bg-surface-secondary border border-border-color rounded-md shadow-lg z-30 text-xs min-w-[160px]">
+                <div className="absolute top-full right-0 mt-1 py-1 bg-[#18181b] border border-border-color/80 rounded-md shadow-2xl backdrop-blur-xl z-50 text-xs min-w-[160px]">
                   {(
                     [
                       { key: 'master', label: 'Master Astro Look' },
@@ -784,12 +910,69 @@ export default function BasicAdjustments({
                       type="button"
                       onClick={() => handleNightSkyMagic(key as AstroScene)}
                       className={clsx(
-                        'w-full flex items-center justify-between px-2.5 py-1.5 text-left hover:bg-surface transition-colors',
+                        'w-full flex items-center justify-between px-2.5 py-1.5 text-left hover:bg-surface/80 transition-colors',
                         selectedAstroScene === key ? 'text-accent font-semibold' : 'text-text-secondary'
                       )}
                     >
                       <span className="truncate">{label}</span>
                       {selectedAstroScene === key && <Check size={12} className="shrink-0 text-accent ml-1" />}
+                    </button>
+                  ))}
+                  <div className="border-t border-border-color/50 my-1" />
+                  <button
+                    type="button"
+                    onClick={handleRemoveLightPollution}
+                    className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-left hover:bg-surface/80 text-amber-400 font-medium transition-colors"
+                    title="Extracts and subtracts 2D polynomial background light pollution gradient"
+                  >
+                    <span className="truncate">⚡ Remove Light Pollution</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Sky Sculptor Button with Menu */}
+            <div className="relative" ref={skyMenuRef}>
+              <div className="flex rounded-md bg-surface hover:bg-surface-secondary border border-border-color/50 transition-all shadow-xs group">
+                <button
+                  type="button"
+                  onClick={() => handleSkySculpt(selectedSkyPreset)}
+                  className="flex-1 flex items-center justify-center gap-1 py-2 px-1 text-text-primary hover:text-sky-400 font-medium text-xs truncate"
+                  title="AI Sky Sculptor: Deep Polar Blue, Sunset Glow, Stormy Clouds, and Horizon Dehaze"
+                >
+                  <Sun size={12} className="text-sky-400 group-hover:scale-110 transition-transform shrink-0" />
+                  <span className="truncate">Sky</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSkyMenuOpen(!isSkyMenuOpen)}
+                  className="px-1 border-l border-border-color/40 text-text-secondary hover:text-text-primary transition-colors flex items-center justify-center"
+                  title="Select Sky Preset"
+                >
+                  <ChevronDown size={11} className={clsx('transition-transform', isSkyMenuOpen && 'rotate-180')} />
+                </button>
+              </div>
+
+              {isSkyMenuOpen && (
+                <div className="absolute top-full right-0 mt-1 py-1 bg-[#18181b] border border-border-color/80 rounded-md shadow-2xl backdrop-blur-xl z-50 text-xs min-w-[170px]">
+                  {[
+                    { key: 'polar', label: '🌌 Deep Polar Blue' },
+                    { key: 'sunset', label: '🌅 Sunset Amber Glow' },
+                    { key: 'stormy', label: '⛈️ Stormy Drama' },
+                    { key: 'golden', label: '☀️ Golden Hour Radiance' },
+                    { key: 'gentle', label: '🌫️ Clean Horizon Dehaze' },
+                  ].map(({ key, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleSkySculpt(key)}
+                      className={clsx(
+                        'w-full flex items-center justify-between px-2.5 py-1.5 text-left hover:bg-surface/80 transition-colors',
+                        selectedSkyPreset === key ? 'text-accent font-semibold' : 'text-text-secondary'
+                      )}
+                    >
+                      <span className="truncate">{label}</span>
+                      {selectedSkyPreset === key && <Check size={12} className="shrink-0 text-accent ml-1" />}
                     </button>
                   ))}
                 </div>

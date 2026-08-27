@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Mapeig de tons tipus pel·lícula",
         "basic": "Bàsic",
-        "basicDesc": "Mapeig de tons estàndard"
+        "basicDesc": "Mapeig de tons estàndard",
+        "oklab": "Oklab",
+        "oklabDesc": "Ciència del color perceptiu i altes llums"
       },
       "reset": "Restablir",
       "shadows": "Ombres",
@@ -200,7 +202,8 @@
       "resetAdjustments": "Restablir ajustaments",
       "stitchPanorama": "Unir panorama",
       "tagging": "Etiquetatge",
-      "undo": "Desfer"
+      "undo": "Desfer",
+      "ratingLabel_many": "{{count}} Estrelles"
     },
     "folders": {
       "changeIcon": "Canviar icona",
@@ -218,12 +221,15 @@
       "removeRoot": "Treure carpeta arrel",
       "renameFolder": "Reanomenar carpeta",
       "showExplorer": "Mostrar a l'Explorador de fitxers",
-      "unpin": "Desfixar carpeta"
+      "unpin": "Desfixar carpeta",
+      "copyHere_many": "Copiar {{count}} imatges aquí",
+      "moveHere_many": "Moure {{count}} imatges aquí"
     },
     "library": {
       "addCopiedToAlbum_one": "Afegir imatge copiada a l'àlbum",
       "addCopiedToAlbum_other": "Afegir {{count}} imatges copiades a l'àlbum",
-      "refreshView": "Actualitzar vista"
+      "refreshView": "Actualitzar vista",
+      "addCopiedToAlbum_many": "Afegir {{count}} imatges copiades a l'àlbum"
     },
     "merge": {
       "focusStack": "Apilament d'enfocament",
@@ -270,7 +276,19 @@
       "resetAdjustments_one": "Restablir ajustaments",
       "resetAdjustments_other": "Restablir ajustaments a {{count}} imatges",
       "showExplorer": "Mostrar a l'Explorador de fitxers",
-      "virtualCopy": "Còpia virtual"
+      "virtualCopy": "Còpia virtual",
+      "autoAdjust_many": "Ajustament automàtic de les imatges",
+      "collage_many": "Crear collage",
+      "convertNegative_many": "Convertir negatius",
+      "copyImage_many": "Copiar {{count}} imatges",
+      "cullImage_many": "Cribrar imatges",
+      "deleteImage_many": "Eliminar {{count}} imatges",
+      "denoise_many": "Reduir soroll de les imatges",
+      "exportImage_many": "Exportar {{count}} imatges",
+      "pasteAdjustments_many": "Enganxar ajustaments a {{count}} imatges",
+      "removeFromAlbum_many": "Treure {{count}} imatges de l'àlbum",
+      "renameImage_many": "Reanomenar {{count}} imatges",
+      "resetAdjustments_many": "Restablir ajustaments a {{count}} imatges"
     },
     "toasts": {
       "couldNotShowExplorer": "No s'ha pogut mostrar el fitxer a l'explorador: {{err}}",
@@ -385,7 +403,11 @@
         "invertedName": "{{name}} Invertit",
         "quickErase": "Esborrat ràpid {{count}}",
         "quickErase_one": "Esborrat ràpid {{count}}",
-        "quickErase_other": "Esborrat ràpid {{count}}"
+        "quickErase_other": "Esborrat ràpid {{count}}",
+        "aiEdit_many": "Edició IA {{count}}",
+        "clone_many": "Clonar {{count}}",
+        "heal_many": "Corregir {{count}}",
+        "quickErase_many": "Esborrat ràpid {{count}}"
       },
       "resetInpaintingTooltip": "Restablir Inpainting",
       "settings": {
@@ -585,7 +607,8 @@
         "invertedName": "{{name}} Invertida",
         "maskName": "Màscara {{count}}",
         "maskName_one": "Màscara {{count}}",
-        "maskName_other": "Màscara {{count}}"
+        "maskName_other": "Màscara {{count}}",
+        "maskName_many": "Màscara {{count}}"
       },
       "resetMaskingTooltip": "Restablir emmascarament",
       "settings": {
@@ -759,7 +782,8 @@
       "saveEditedImageTitle": "Desar imatge editada",
       "selectFolderTitle": "Seleccioneu la carpeta per exportar {{count}} imatge/s",
       "selectFolderTitle_one": "Seleccioneu la carpeta per exportar {{count}} imatge",
-      "selectFolderTitle_other": "Seleccioneu la carpeta per exportar {{count}} imatges"
+      "selectFolderTitle_other": "Seleccioneu la carpeta per exportar {{count}} imatges",
+      "selectFolderTitle_many": "Seleccioneu la carpeta per exportar {{count}} imatges"
     },
     "file": {
       "quality": "Qualitat",
@@ -811,7 +835,8 @@
       "failed": "L'exportació ha fallat",
       "noImageSelected": "No s'ha seleccionat cap imatge per exportar.",
       "noImagesSelected": "No s'han seleccionat imatges.",
-      "success": "Exportació correcta!"
+      "success": "Exportació correcta!",
+      "exportMultiple_many": "Exportar {{count}} {{label}}"
     },
     "title": "Exportar",
     "watermark": {
@@ -998,7 +1023,8 @@
       "tooltipFocalLength": "Distància focal",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Velocitat d'obturació",
-      "tooltipVirtualCopy": "Còpia virtual"
+      "tooltipVirtualCopy": "Còpia virtual",
+      "imagesCount_many": "{{count}} imatges"
     },
     "search": {
       "noResults": "No s'han trobat resultats",
@@ -1205,7 +1231,9 @@
       "similarityThresholdDesc": "Més baix és més estricte (duplicats exactes). Més alt és més flexible (gairebé duplicats). Es recomana un valor de 24 a 32.",
       "startCulling": "Iniciar cribratge",
       "starting": "S'està iniciant...",
-      "title": "Cribrar imatges"
+      "title": "Cribrar imatges",
+      "applyButton_many": "Aplicar a {{count}} imatges",
+      "duplicatesHeader_many": "Duplicats ({{count}})"
     },
     "denoise": {
       "batchProgressText": "S'està reduint el soroll de {{current}} de {{total}}...",
@@ -1251,7 +1279,8 @@
       "savedSuccess": "L'apilament d'enfocament s'ha desat correctament!",
       "stacking": "Apilant enfocament",
       "start": "Inicia",
-      "title": "Apilament d'enfocament"
+      "title": "Apilament d'enfocament",
+      "descriptionWithCount_many": "Combina {{count}} imatges amb diferents distàncies d'enfocament en una sola imatge perfectament nítida."
     },
     "hdr": {
       "cancel": "Cancel·lar",
@@ -1269,7 +1298,8 @@
       "savedSuccess": "HDR desat correctament!",
       "speedNotice": "Això pot trigar uns minuts depenent del nombre i la mida de les vostres exposicions.",
       "start": "Iniciar",
-      "title": "Fusionar a HDR"
+      "title": "Fusionar a HDR",
+      "descriptionWithCount_many": "Combineu {{count}} exposicions bràqueting en una única imatge d'Alt Rang Dinàmic."
     },
     "importSettings": {
       "cancel": "Cancel·lar",
@@ -1339,7 +1369,8 @@
       "resetViewTooltip": "Restablir visualització",
       "title": "Conversió de negatiu",
       "zoomInTooltip": "Apropar",
-      "zoomOutTooltip": "Allunyar"
+      "zoomOutTooltip": "Allunyar",
+      "convertAndSaveAll_many": "Convertir i desar-ho tot ({{count}})"
     },
     "panorama": {
       "cancel": "Cancel·lar",
@@ -1357,7 +1388,8 @@
       "speedNotice": "Això pot trigar uns minuts depenent del nombre i la mida de les imatges.",
       "start": "Iniciar",
       "stitchingProgress": "S'està unint el panorama",
-      "title": "Unir panorama"
+      "title": "Unir panorama",
+      "descCount_many": "Combineu {{count}} imatges superposades en un panorama perfecte."
     },
     "renameAlbum": {
       "placeholder": "Introduïu el nou nom de l'àlbum..."
@@ -1370,7 +1402,8 @@
       "titleMultiple": "Reanomenar {{count}} imatges",
       "titleMultiple_one": "Reanomenar {{count}} imatge",
       "titleMultiple_other": "Reanomenar {{count}} imatges",
-      "titleSingle": "Reanomenar imatge"
+      "titleSingle": "Reanomenar imatge",
+      "titleMultiple_many": "Reanomenar {{count}} imatges"
     },
     "renameFolder": {
       "cancel": "Cancel·lar",
@@ -1480,7 +1513,10 @@
         "processing": "S'està processant...",
         "sidecarSuccess": "{{count}} fitxers sidecar eliminats correctament.",
         "sidecarSuccess_one": "{{count}} fitxer sidecar eliminat correctament.",
-        "sidecarSuccess_other": "{{count}} fitxers sidecar eliminats correctament."
+        "sidecarSuccess_other": "{{count}} fitxers sidecar eliminats correctament.",
+        "aiSuccess_many": "{{count}} fitxers actualitzats. S'han eliminat les etiquetes d'IA.",
+        "allSuccess_many": "{{count}} fitxers actualitzats. S'han eliminat totes les etiquetes no relacionades amb el color.",
+        "sidecarSuccess_many": "{{count}} fitxers sidecar eliminats correctament."
       },
       "title": "Gestió de dades"
     },
@@ -1696,7 +1732,8 @@
         "title": "Preprocessament d'imatges",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Bàsic"
+          "basic": "Bàsic",
+          "oklab": "Oklab (Perceptiu)"
         },
         "tonemapperOverride": "Sobreescriptura global del mapejador de tons",
         "tonemapperOverrideDesc": "Força un mapejador de tons específic globalment per a totes les imatges, amagant l'interruptor del mapejador del tauler d'ajustaments."
@@ -1802,7 +1839,8 @@
         "rateStars_one": "Puntuar amb 1 estrella",
         "rateStars_other": "Puntuar amb {{count}} estrelles",
         "resetZoom": "Restablir zoom per ajustar a la finestra",
-        "selectToRate": "Seleccioneu una imatge per puntuar"
+        "selectToRate": "Seleccioneu una imatge per puntuar",
+        "rateStars_many": "Puntuar amb {{count}} estrelles"
       },
       "zoomLabel": "Zoom",
       "zoomLabelReset": "Restablir zoom"

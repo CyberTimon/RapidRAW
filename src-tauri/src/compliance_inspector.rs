@@ -178,7 +178,7 @@ pub fn scan_image_compliance(image: &DynamicImage) -> Vec<ComplianceIssue> {
     issues
 }
 
-/// Automatically inpaints all detected compliance bounding boxes seamlessly
+/// Automatically inpaints all detected compliance bounding boxes seamlessly with feathered boundary blending
 pub fn inpaint_compliance_boxes(
     image: &mut DynamicImage,
     issues: &[ComplianceIssue],
@@ -198,14 +198,13 @@ pub fn inpaint_compliance_boxes(
             continue;
         }
 
-        // Expand box by 4px padding for clean border blend
-        let pad = 4u32;
+        // Expand box by 6px padding for feathered seamless blend
+        let pad = 6u32;
         let min_x = bx.saturating_sub(pad);
         let min_y = by.saturating_sub(pad);
         let max_x = (bx + bw + pad).min(width - 1);
         let max_y = (by + bh + pad).min(height - 1);
 
-        // Fast border-interpolated biharmonic inpainting
         let border_w = (max_x - min_x) as f32;
         let border_h = (max_y - min_y) as f32;
 
@@ -215,26 +214,40 @@ pub fn inpaint_compliance_boxes(
 
         for py in min_y..=max_y {
             for px in min_x..=max_x {
-                let ty = (py - min_y) as f32 / border_h;
-                let tx = (px - min_x) as f32 / border_w;
+                let ty = ((py - min_y) as f32 / border_h).clamp(0.0, 1.0);
+                let tx = ((px - min_x) as f32 / border_w).clamp(0.0, 1.0);
 
-                // Sample 4 outer border pixels
+                // Smooth cosine / hermite interpolation weights
+                let wy = (1.0 - (ty * std::f32::consts::PI).cos()) * 0.5;
+                let wx = (1.0 - (tx * std::f32::consts::PI).cos()) * 0.5;
+
+                // Sample outer border pixels
                 let top_p = rgb_img.get_pixel(px, min_y);
                 let bot_p = rgb_img.get_pixel(px, max_y);
                 let left_p = rgb_img.get_pixel(min_x, py);
                 let right_p = rgb_img.get_pixel(max_x, py);
 
-                let r = (1.0 - ty) * top_p[0] as f32 + ty * bot_p[0] as f32;
-                let g = (1.0 - ty) * top_p[1] as f32 + ty * bot_p[1] as f32;
-                let b = (1.0 - ty) * top_p[2] as f32 + ty * bot_p[2] as f32;
+                let r_vert = (1.0 - wy) * top_p[0] as f32 + wy * bot_p[0] as f32;
+                let g_vert = (1.0 - wy) * top_p[1] as f32 + wy * bot_p[1] as f32;
+                let b_vert = (1.0 - wy) * top_p[2] as f32 + wy * bot_p[2] as f32;
 
-                let r2 = (1.0 - tx) * left_p[0] as f32 + tx * right_p[0] as f32;
-                let g2 = (1.0 - tx) * left_p[1] as f32 + tx * right_p[1] as f32;
-                let b2 = (1.0 - tx) * left_p[2] as f32 + tx * right_p[2] as f32;
+                let r_horiz = (1.0 - wx) * left_p[0] as f32 + wx * right_p[0] as f32;
+                let g_horiz = (1.0 - wx) * left_p[1] as f32 + wx * right_p[1] as f32;
+                let b_horiz = (1.0 - wx) * left_p[2] as f32 + wx * right_p[2] as f32;
 
-                let final_r = ((r + r2) * 0.5).round().clamp(0.0, 255.0) as u8;
-                let final_g = ((g + g2) * 0.5).round().clamp(0.0, 255.0) as u8;
-                let final_b = ((b + b2) * 0.5).round().clamp(0.0, 255.0) as u8;
+                let inpaint_r = (r_vert + r_horiz) * 0.5;
+                let inpaint_g = (g_vert + g_horiz) * 0.5;
+                let inpaint_b = (b_vert + b_horiz) * 0.5;
+
+                // Distance to edge for smooth boundary alpha feathering
+                let edge_dist_x = ((px - min_x).min(max_x - px) as f32) / pad.max(1) as f32;
+                let edge_dist_y = ((py - min_y).min(max_y - py) as f32) / pad.max(1) as f32;
+                let alpha = (edge_dist_x.min(edge_dist_y)).clamp(0.0, 1.0);
+
+                let orig_p = rgb_img.get_pixel(px, py);
+                let final_r = ((1.0 - alpha) * orig_p[0] as f32 + alpha * inpaint_r).round().clamp(0.0, 255.0) as u8;
+                let final_g = ((1.0 - alpha) * orig_p[1] as f32 + alpha * inpaint_g).round().clamp(0.0, 255.0) as u8;
+                let final_b = ((1.0 - alpha) * orig_p[2] as f32 + alpha * inpaint_b).round().clamp(0.0, 255.0) as u8;
 
                 rgb_img.put_pixel(px, py, Rgb([final_r, final_g, final_b]));
             }
@@ -248,18 +261,41 @@ pub fn inpaint_compliance_boxes(
 
 #[tauri::command]
 pub fn scan_active_image_compliance(state: State<AppState>) -> Result<Vec<ComplianceIssue>, String> {
+    let mut issues = if let Ok(preview_guard) = state.cached_preview.lock()
+        && let Some(cached) = &*preview_guard
+    {
+        scan_image_compliance(&cached.image)
+    } else {
+        let orig_guard = state.original_image.lock().map_err(|e| e.to_string())?;
+        if let Some(loaded_image) = &*orig_guard {
+            scan_image_compliance(&loaded_image.image)
+        } else {
+            return Err("No active image loaded".to_string());
+        }
+    };
+
+    // Check for recognizable faces / private property requiring release
     if let Ok(preview_guard) = state.cached_preview.lock()
         && let Some(cached) = &*preview_guard
     {
-        return Ok(scan_image_compliance(&cached.image));
+        let thumb = cached.image.thumbnail(320, 320).to_rgb8();
+        let skin_ratio = crate::color_matcher::calculate_skin_presence_ratio(&thumb);
+        if skin_ratio > 0.08 {
+            issues.push(ComplianceIssue {
+                id: "model_release_req".to_string(),
+                issue_type: "model_release".to_string(),
+                label: "Model Release Recommended".to_string(),
+                confidence: (skin_ratio * 3.0).clamp(0.65, 0.98),
+                x: 25.0,
+                y: 15.0,
+                width: 50.0,
+                height: 50.0,
+                recommendation: "Recognizable subject detected. Commercial stock submission requires a signed Model Release.".to_string(),
+            });
+        }
     }
 
-    let orig_guard = state.original_image.lock().map_err(|e| e.to_string())?;
-    if let Some(loaded_image) = &*orig_guard {
-        Ok(scan_image_compliance(&loaded_image.image))
-    } else {
-        Err("No active image loaded".to_string())
-    }
+    Ok(issues)
 }
 
 #[tauri::command]
@@ -286,3 +322,44 @@ pub fn auto_inpaint_compliance_issues(
         Err("No active image loaded".to_string())
     }
 }
+
+/// Generates a professional visual HTML Pre-flight Audit Report for stock photo submissions
+#[tauri::command]
+pub fn export_stock_audit_report(
+    output_path: String,
+    state: State<AppState>,
+) -> Result<String, String> {
+    let issues = scan_active_image_compliance(state)?;
+    let is_clean = issues.is_empty();
+
+    let mut html = String::from("<!DOCTYPE html><html><head><meta charset='utf-8'><title>RapidRAW Stock Compliance Pre-Flight Audit</title><style>");
+    html.push_str("body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:#121316;color:#e1e4ea;padding:32px;}");
+    html.push_str(".card{background:#1a1c23;border-radius:12px;padding:24px;max-width:800px;margin:0 auto;border:1px solid #2d3139;}");
+    html.push_str(".badge{display:inline-block;padding:4px 12px;border-radius:20px;font-weight:bold;font-size:13px;}");
+    html.push_str(".badge-pass{background:#1e4620;color:#4ade80;} .badge-warn{background:#54380a;color:#facc15;}");
+    html.push_str("table{width:100%;border-collapse:collapse;margin-top:16px;} th,td{text-align:left;padding:10px;border-bottom:1px solid #2d3139;}");
+    html.push_str("</style></head><body><div class='card'>");
+    html.push_str("<h1>📸 RapidRAW Commercial Stock Pre-Flight Audit</h1>");
+    html.push_str("<p>Generated automatically before stock submission to Adobe Stock, Shutterstock, and Getty Images.</p>");
+
+    if is_clean {
+        html.push_str("<div class='badge badge-pass'>✅ 100% COMPLIANT - READY FOR SUBMISSION</div>");
+        html.push_str("<p style='margin-top:16px;'>Zero unauthorized trademarks, visible license plates, or dust defects detected.</p>");
+    } else {
+        html.push_str("<div class='badge badge-warn'>⚠️ ISSUES FLAGGED FOR REVIEW</div>");
+        html.push_str("<table><tr><th>Type</th><th>Label</th><th>Confidence</th><th>Recommendation</th></tr>");
+        for issue in &issues {
+            html.push_str(&format!(
+                "<tr><td><code>{}</code></td><td><b>{}</b></td><td>{:.0}%</td><td>{}</td></tr>",
+                issue.issue_type, issue.label, issue.confidence * 100.0, issue.recommendation
+            ));
+        }
+        html.push_str("</table>");
+    }
+
+    html.push_str("</div></body></html>");
+
+    std::fs::write(&output_path, html).map_err(|e| e.to_string())?;
+    Ok(format!("Stock audit report exported to {}", output_path))
+}
+

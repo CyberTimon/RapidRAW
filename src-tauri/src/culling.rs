@@ -64,37 +64,7 @@ const WEIGHT_CENTER_FOCUS: f64 = 0.35;
 const WEIGHT_EXPOSURE: f64 = 0.25;
 
 fn calculate_laplacian_variance(image: &GrayImage) -> f64 {
-    let (width, height) = image.dimensions();
-    if width < 3 || height < 3 {
-        return 0.0;
-    }
-
-    let mut laplacian_values = Vec::with_capacity(((width - 2) * (height - 2)) as usize);
-    let mut sum = 0.0;
-
-    for y in 1..height - 1 {
-        for x in 1..width - 1 {
-            let p_center = image.get_pixel(x, y)[0] as i32;
-            let p_north = image.get_pixel(x, y - 1)[0] as i32;
-            let p_south = image.get_pixel(x, y + 1)[0] as i32;
-            let p_west = image.get_pixel(x - 1, y)[0] as i32;
-            let p_east = image.get_pixel(x + 1, y)[0] as i32;
-            let conv_val = (p_north + p_south + p_west + p_east - 4 * p_center) as f64;
-            laplacian_values.push(conv_val);
-            sum += conv_val;
-        }
-    }
-
-    if laplacian_values.is_empty() {
-        return 0.0;
-    }
-    let mean = sum / laplacian_values.len() as f64;
-
-    laplacian_values
-        .iter()
-        .map(|v| (v - mean).powi(2))
-        .sum::<f64>()
-        / laplacian_values.len() as f64
+    crate::image_processing::compute_gray_laplacian_variance(image)
 }
 
 fn calculate_exposure_metric(image: &GrayImage) -> f64 {
@@ -591,4 +561,53 @@ pub fn generate_stock_report(
 
     std::fs::write(&report_path, html).map_err(|e| format!("Failed to write HTML report to {:?}: {}", report_path, e))?;
     Ok(report_path.to_string_lossy().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::Luma;
+
+    #[test]
+    fn test_calculate_exposure_metric_balanced_vs_clipped() {
+        let (w, h) = (64u32, 64u32);
+        let mut balanced_img = GrayImage::new(w, h);
+        let mut clipped_img = GrayImage::new(w, h);
+
+        for y in 0..h {
+            for x in 0..w {
+                balanced_img.put_pixel(x, y, Luma([128]));
+                // Clipped has 80% blown highlights (255)
+                let val = if x < 50 { 255 } else { 128 };
+                clipped_img.put_pixel(x, y, Luma([val]));
+            }
+        }
+
+        let balanced_score = calculate_exposure_metric(&balanced_img);
+        let clipped_score = calculate_exposure_metric(&clipped_img);
+
+        assert!(balanced_score > 0.95, "Balanced midtone exposure should have ~1.0 score: got {}", balanced_score);
+        assert!(clipped_score < 0.5, "Clipped exposure must be heavily penalized: got {}", clipped_score);
+    }
+
+    #[test]
+    fn test_laplacian_variance_focus() {
+        let (w, h) = (64u32, 64u32);
+        let mut flat = GrayImage::new(w, h);
+        let mut edges = GrayImage::new(w, h);
+
+        for y in 0..h {
+            for x in 0..w {
+                flat.put_pixel(x, y, Luma([128]));
+                let v = if (x / 4) % 2 == 0 { 200 } else { 50 };
+                edges.put_pixel(x, y, Luma([v]));
+            }
+        }
+
+        let flat_var = calculate_laplacian_variance(&flat);
+        let edge_var = calculate_laplacian_variance(&edges);
+
+        assert!(flat_var < 1.0, "Flat field must have near-zero variance: got {}", flat_var);
+        assert!(edge_var > 100.0, "High-contrast edge pattern must have high variance: got {}", edge_var);
+    }
 }

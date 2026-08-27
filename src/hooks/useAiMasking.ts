@@ -1,10 +1,11 @@
 import { useCallback, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
+import { v4 as uuidv4 } from 'uuid';
 import { useEditorStore } from '../store/useEditorStore';
 import { useEditorActions } from './useEditorActions';
-import { Adjustments, AiPatch, MaskContainer, Coord } from '../utils/adjustments';
-import { SubMask } from '../components/panel/right/Masks';
+import { Adjustments, AiPatch, MaskContainer, Coord, INITIAL_MASK_ADJUSTMENTS, INITIAL_MASK_CONTAINER } from '../utils/adjustments';
+import { Mask, SubMask, SubMaskMode } from '../components/panel/right/Masks';
 import { Invokes } from '../components/ui/AppProperties';
 import { useAuth } from '@clerk/react';
 
@@ -418,6 +419,211 @@ export function useAiMasking() {
     useEditorStore.getState().selectedImage?.path,
   ]);
 
+  const handleGeneratePortraitSubmasks = async () => {
+    const { selectedImage, adjustments, patchesSentToBackend } = useEditorStore.getState();
+    if (!selectedImage?.path) return;
+    setEditor({ isGeneratingAiMask: true });
+
+    try {
+      const transformAdjustments = getTransformAdjustments(adjustments);
+      const portraitResult: any = await invoke('generate_portrait_submasks', {
+        jsAdjustments: transformAdjustments,
+      });
+
+      if (!portraitResult?.persons || portraitResult.persons.length === 0) {
+        toast.info('No portrait subjects detected in frame');
+        return;
+      }
+
+      const newMasks: MaskContainer[] = [];
+
+      portraitResult.persons.forEach((person: any, idx: number) => {
+        const personLabel = `Person ${idx + 1}`;
+
+        if (person.facial_skin_mask_base64) {
+          const skinMaskId = uuidv4();
+          patchesSentToBackend.delete(skinMaskId);
+          newMasks.push({
+            ...INITIAL_MASK_CONTAINER,
+            id: uuidv4(),
+            name: `${personLabel} - Facial Skin`,
+            subMasks: [
+              {
+                id: skinMaskId,
+                name: 'Facial Skin',
+                type: Mask.Brush,
+                mode: SubMaskMode.Additive,
+                opacity: 100,
+                invert: false,
+                visible: true,
+                parameters: {
+                  mask_data_base64: person.facial_skin_mask_base64,
+                  rotation: adjustments.rotation,
+                  flip_horizontal: adjustments.flipHorizontal,
+                  flip_vertical: adjustments.flipVertical,
+                  orientation_steps: adjustments.orientationSteps,
+                },
+              },
+            ],
+            adjustments: {
+              ...INITIAL_MASK_ADJUSTMENTS,
+              texture: -15,
+              clarity: -10,
+            },
+          });
+        }
+
+        if (person.eye_sclera_mask_base64) {
+          const eyesMaskId = uuidv4();
+          patchesSentToBackend.delete(eyesMaskId);
+          newMasks.push({
+            ...INITIAL_MASK_CONTAINER,
+            id: uuidv4(),
+            name: `${personLabel} - Eyes & Sclera`,
+            subMasks: [
+              {
+                id: eyesMaskId,
+                name: 'Eyes',
+                type: Mask.Brush,
+                mode: SubMaskMode.Additive,
+                opacity: 100,
+                invert: false,
+                visible: true,
+                parameters: {
+                  mask_data_base64: person.eye_sclera_mask_base64,
+                  rotation: adjustments.rotation,
+                  flip_horizontal: adjustments.flipHorizontal,
+                  flip_vertical: adjustments.flipVertical,
+                  orientation_steps: adjustments.orientationSteps,
+                },
+              },
+            ],
+            adjustments: {
+              ...INITIAL_MASK_ADJUSTMENTS,
+              exposure: 0.25,
+              clarity: 15,
+            },
+          });
+        }
+
+        if (person.teeth_mask_base64) {
+          const teethMaskId = uuidv4();
+          patchesSentToBackend.delete(teethMaskId);
+          newMasks.push({
+            ...INITIAL_MASK_CONTAINER,
+            id: uuidv4(),
+            name: `${personLabel} - Teeth`,
+            subMasks: [
+              {
+                id: teethMaskId,
+                name: 'Teeth',
+                type: Mask.Brush,
+                mode: SubMaskMode.Additive,
+                opacity: 100,
+                invert: false,
+                visible: true,
+                parameters: {
+                  mask_data_base64: person.teeth_mask_base64,
+                  rotation: adjustments.rotation,
+                  flip_horizontal: adjustments.flipHorizontal,
+                  flip_vertical: adjustments.flipVertical,
+                  orientation_steps: adjustments.orientationSteps,
+                },
+              },
+            ],
+            adjustments: {
+              ...INITIAL_MASK_ADJUSTMENTS,
+              exposure: 0.2,
+              saturation: -20,
+            },
+          });
+        }
+
+        if (person.lips_mask_base64) {
+          const lipsMaskId = uuidv4();
+          patchesSentToBackend.delete(lipsMaskId);
+          newMasks.push({
+            ...INITIAL_MASK_CONTAINER,
+            id: uuidv4(),
+            name: `${personLabel} - Lips`,
+            subMasks: [
+              {
+                id: lipsMaskId,
+                name: 'Lips',
+                type: Mask.Brush,
+                mode: SubMaskMode.Additive,
+                opacity: 100,
+                invert: false,
+                visible: true,
+                parameters: {
+                  mask_data_base64: person.lips_mask_base64,
+                  rotation: adjustments.rotation,
+                  flip_horizontal: adjustments.flipHorizontal,
+                  flip_vertical: adjustments.flipVertical,
+                  orientation_steps: adjustments.orientationSteps,
+                },
+              },
+            ],
+            adjustments: {
+              ...INITIAL_MASK_ADJUSTMENTS,
+              saturation: 10,
+              vibrance: 10,
+            },
+          });
+        }
+
+        if (person.hair_mask_base64) {
+          const hairMaskId = uuidv4();
+          patchesSentToBackend.delete(hairMaskId);
+          newMasks.push({
+            ...INITIAL_MASK_CONTAINER,
+            id: uuidv4(),
+            name: `${personLabel} - Hair`,
+            subMasks: [
+              {
+                id: hairMaskId,
+                name: 'Hair',
+                type: Mask.Brush,
+                mode: SubMaskMode.Additive,
+                opacity: 100,
+                invert: false,
+                visible: true,
+                parameters: {
+                  mask_data_base64: person.hair_mask_base64,
+                  rotation: adjustments.rotation,
+                  flip_horizontal: adjustments.flipHorizontal,
+                  flip_vertical: adjustments.flipVertical,
+                  orientation_steps: adjustments.orientationSteps,
+                },
+              },
+            ],
+            adjustments: {
+              ...INITIAL_MASK_ADJUSTMENTS,
+              contrast: 15,
+              clarity: 10,
+            },
+          });
+        }
+      });
+
+      if (newMasks.length > 0) {
+        setAdjustments((prev: Adjustments) => ({
+          ...prev,
+          masks: [...(prev.masks || []), ...newMasks],
+        }));
+        setEditor({
+          activeMaskContainerId: newMasks[0].id,
+          activeMaskId: newMasks[0].subMasks[0]?.id || null,
+        });
+        toast.success(`Generated ${newMasks.length} portrait sub-masks across detected subjects`);
+      }
+    } catch (error) {
+      toast.error(`Portrait Segmentation Failed: ${error}`);
+    } finally {
+      setEditor({ isGeneratingAiMask: false });
+    }
+  };
+
   return {
     updateSubMask,
     handleGenerativeReplace,
@@ -430,5 +636,6 @@ export function useAiMasking() {
     handleGenerateAiDepthMask,
     handleGenerateAiForegroundMask,
     handleGenerateAiSkyMask,
+    handleGeneratePortraitSubmasks,
   };
 }

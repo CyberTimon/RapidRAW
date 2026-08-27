@@ -34,7 +34,7 @@ pub struct LoadedImage {
     pub path: String,
     pub image: Arc<DynamicImage>,
     pub is_raw: bool,
-    pub pyramid: Option<Arc<crate::fast_resizer::MultiResPyramid>>,
+    pub screen_proxy: Option<Arc<DynamicImage>>,
 }
 
 #[derive(Clone)]
@@ -147,7 +147,9 @@ pub struct AppState {
     pub ai_init_lock: TokioMutex<()>,
     pub export_task_token: Arc<Mutex<Option<Arc<AtomicBool>>>>,
     pub hdr_result: Arc<Mutex<Option<DynamicImage>>>,
+    pub hdr_linear_radiance: Arc<Mutex<Option<image::Rgb32FImage>>>,
     pub panorama_result: Arc<Mutex<Option<DynamicImage>>>,
+    pub panorama_linear_radiance: Arc<Mutex<Option<image::Rgb32FImage>>>,
     pub focus_stack_result: Arc<Mutex<Option<DynamicImage>>>,
     pub denoise_result: Arc<Mutex<Option<DynamicImage>>>,
     pub indexing_task_handle: Mutex<Option<JoinHandle<()>>>,

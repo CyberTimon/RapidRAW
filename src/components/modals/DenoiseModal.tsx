@@ -1,19 +1,67 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, XCircle, Loader2, Save, RefreshCw, ZoomIn, ZoomOut, Move, Grip } from 'lucide-react';
-import { motion } from 'framer-motion';
+import {
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Save,
+  RefreshCw,
+  ZoomIn,
+  ZoomOut,
+  Move,
+  Grip,
+  Sparkles,
+  Wand2,
+  Eye,
+  ShieldCheck,
+  SplitSquareVertical,
+  Columns,
+  Maximize2,
+  Layers,
+  Camera,
+  Sliders,
+  Bookmark,
+  Zap,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { invoke } from '@tauri-apps/api/core';
 import Button from '../ui/Button';
 import Dropdown from '../ui/Dropdown';
 import Slider from '../ui/Slider';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { listen } from '@tauri-apps/api/event';
+import { useLibraryStore } from '../../store/useLibraryStore';
+import { useEditorStore } from '../../store/useEditorStore';
+import { Invokes } from '../ui/AppProperties';
 
 interface DenoiseModalProps {
   isOpen: boolean;
   onClose(): void;
-  onDenoise(intensity: number, method: 'ai' | 'bm3d'): void;
-  onBatchDenoise(intensity: number, method: 'ai' | 'bm3d', paths: string[]): Promise<string[]>;
+  onDenoise(
+    intensity: number,
+    method: 'ai' | 'bm3d',
+    healDust?: boolean,
+    visualizeDefects?: boolean,
+    protectStars?: boolean,
+    preserveDetails?: number,
+    chromaIntensity?: number,
+    shadowBoost?: number,
+    deband?: boolean,
+    filmGrain?: number
+  ): void;
+  onBatchDenoise(
+    intensity: number,
+    method: 'ai' | 'bm3d',
+    paths: string[],
+    healDust?: boolean,
+    protectStars?: boolean,
+    preserveDetails?: number,
+    chromaIntensity?: number,
+    shadowBoost?: number,
+    deband?: boolean,
+    filmGrain?: number
+  ): Promise<string[]>;
   onSave(): Promise<string>;
   onOpenFile(path: string): void;
   error: string | null;
@@ -27,7 +75,31 @@ interface DenoiseModalProps {
   targetPaths: string[];
 }
 
-const ImageCompare = ({ original, denoised }: { original: string; denoised: string }) => {
+interface SnapshotState {
+  intensity: number;
+  chromaIntensity: number;
+  preserveDetails: number;
+  shadowBoost: number;
+  filmGrain: number;
+  deband: boolean;
+  protectStars: boolean;
+  healDust: boolean;
+  method: 'ai' | 'bm3d';
+}
+
+const ImageCompare = ({
+  original,
+  denoised,
+  isHoldingOriginal,
+  viewMode = 'split',
+  onViewModeChange,
+}: {
+  original: string;
+  denoised: string;
+  isHoldingOriginal?: boolean;
+  viewMode?: 'split' | 'side-by-side' | 'single';
+  onViewModeChange?: (mode: 'split' | 'side-by-side' | 'single') => void;
+}) => {
   const { t } = useTranslation();
   const [sliderPosition, setSliderPosition] = useState(50);
   const [zoom, setZoom] = useState(1);
@@ -89,118 +161,183 @@ const ImageCompare = ({ original, denoised }: { original: string; denoised: stri
     e.stopPropagation();
     if (!containerRef.current) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left - rect.width / 2;
-    const mouseY = e.clientY - rect.top - rect.height / 2;
+    const zoomFactor = 1.15;
+    let newZoom = zoom;
 
-    const delta = -e.deltaY * 0.001;
-    const newZoom = Math.min(Math.max(0.5, zoom + delta), 4);
-
-    const scaleRatio = newZoom / zoom;
-    const mouseFromCenterX = mouseX - pan.x;
-    const mouseFromCenterY = mouseY - pan.y;
-
-    const newPanX = mouseX - mouseFromCenterX * scaleRatio;
-    const newPanY = mouseY - mouseFromCenterY * scaleRatio;
+    if (e.deltaY < 0) {
+      newZoom = Math.min(zoom * zoomFactor, 6);
+    } else {
+      newZoom = Math.max(zoom / zoomFactor, 0.5);
+    }
 
     setZoom(newZoom);
-    setPan({ x: newPanX, y: newPanY });
-  };
-
-  const imageTransformStyle = {
-    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-    transition: isDragging || isResizingSlider ? 'none' : 'transform 0.1s ease-out',
-    transformOrigin: 'center center',
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#111] rounded-lg overflow-hidden border border-surface">
-      <div className="h-9 bg-bg-primary border-b border-surface flex items-center justify-between px-3">
-        <Text as="div" variant={TextVariants.small} className="flex items-center gap-2">
-          <Move size={14} /> <span>{t('modals.denoise.panZoomEnabled')}</span>
-        </Text>
-        <Text as="div" variant={TextVariants.small} className="flex items-center gap-2">
-          <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.5))} className="hover:text-text-primary">
-            <ZoomOut size={16} />
-          </button>
-          <span className="w-10 text-center">{(zoom * 100).toFixed(0)}%</span>
-          <button onClick={() => setZoom((z) => Math.min(4, z + 0.5))} className="hover:text-text-primary">
-            <ZoomIn size={16} />
-          </button>
-          <button
-            onClick={() => {
-              setZoom(1);
-              setPan({ x: 0, y: 0 });
-              setSliderPosition(50);
-            }}
-            className="ml-2 text-accent hover:underline"
-          >
-            {t('modals.denoise.reset')}
-          </button>
-        </Text>
-      </div>
-
-      <div
-        ref={containerRef}
-        className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing select-none"
-        onMouseDown={handleMouseDown}
-        onWheel={handleWheel}
-      >
-        <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none">
-          <div className="origin-center" style={imageTransformStyle}>
-            <img
-              src={denoised}
-              alt="Denoised"
-              className="max-w-none shadow-xl"
-              style={{ height: 'auto' }}
-              draggable={false}
-            />
+    <div
+      ref={containerRef}
+      className="relative w-full h-[460px] bg-[#0a0a0a] rounded-lg overflow-hidden border border-surface select-none cursor-grab active:cursor-grabbing"
+      onMouseDown={handleMouseDown}
+      onWheel={handleWheel}
+    >
+      {viewMode === 'side-by-side' ? (
+        <div className="w-full h-full flex items-center justify-center relative">
+          <div className="w-1/2 h-full relative overflow-hidden border-r border-border-color/60">
+            <div
+              className="w-full h-full flex items-center justify-center relative"
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transformOrigin: 'center center',
+              }}
+            >
+              <img src={original} alt="Original" className="absolute inset-0 w-full h-full object-contain pointer-events-none" />
+            </div>
+            <span className="absolute top-2 left-2 bg-black/70 px-2 py-0.5 rounded text-[10px] font-mono text-white pointer-events-none">
+              Original (Noisy)
+            </span>
+          </div>
+          <div className="w-1/2 h-full relative overflow-hidden">
+            <div
+              className="w-full h-full flex items-center justify-center relative"
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transformOrigin: 'center center',
+              }}
+            >
+              <img src={denoised} alt="Denoised" className="absolute inset-0 w-full h-full object-contain pointer-events-none" />
+            </div>
+            <span className="absolute top-2 left-2 bg-accent/80 px-2 py-0.5 rounded text-[10px] font-mono text-white pointer-events-none">
+              Denoised & Restored
+            </span>
           </div>
         </div>
-
+      ) : (
         <div
-          className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none"
-          style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+          className="w-full h-full flex items-center justify-center relative"
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: 'center center',
+            transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+          }}
         >
-          <div className="origin-center" style={imageTransformStyle}>
-            <img
-              src={original}
-              alt="Original"
-              className="max-w-none shadow-xl"
-              style={{ height: 'auto' }}
-              draggable={false}
-            />
-          </div>
-        </div>
+          <img
+            src={isHoldingOriginal ? original : denoised}
+            alt="Main"
+            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+          />
 
+          {viewMode === 'split' && !isHoldingOriginal && (
+            <div
+              className="absolute inset-0 overflow-hidden pointer-events-none"
+              style={{ clipPath: `polygon(0 0, ${sliderPosition}% 0, ${sliderPosition}% 100%, 0 100%)` }}
+            >
+              <img
+                src={original}
+                alt="Original"
+                className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {viewMode === 'split' && !isHoldingOriginal && (
         <div
-          className="absolute top-0 bottom-0 w-0.5 bg-white cursor-col-resize z-10 shadow-[0_0_8px_rgba(0,0,0,0.8)]"
-          style={{ left: `${sliderPosition}%` }}
+          className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-10 flex items-center justify-center shadow-[0_0_8px_rgba(0,0,0,0.5)]"
+          style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}
           onMouseDown={handleSliderMouseDown}
         >
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center gap-0.5">
-            <div className="w-0.5 h-3 bg-black/40 rounded-full"></div>
-            <div className="w-0.5 h-3 bg-black/40 rounded-full"></div>
+          <div className="w-6 h-6 rounded-full bg-white text-black flex items-center justify-center shadow-lg border border-neutral-300">
+            <Move size={12} />
           </div>
         </div>
+      )}
 
-        <Text
-          as="div"
-          variant={TextVariants.small}
-          color={TextColors.white}
-          weight={TextWeights.medium}
-          className="absolute top-3 left-3 bg-black/60 backdrop-blur-xs px-2.5 py-1 rounded-md pointer-events-none z-0"
+      {/* Floating Toolbar */}
+      <div className="absolute bottom-3 left-3 flex items-center gap-1.5 z-20 bg-surface/90 backdrop-blur-md px-2 py-1 rounded-md border border-border-color/50">
+        <button
+          type="button"
+          onClick={() => setZoom((z) => Math.min(z * 1.25, 6))}
+          className="p-1 hover:bg-card-active rounded text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+          title="Zoom In"
         >
-          {t('modals.denoise.original')}
+          <ZoomIn size={15} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom((z) => Math.max(z / 1.25, 0.5))}
+          className="p-1 hover:bg-card-active rounded text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+          title="Zoom Out"
+        >
+          <ZoomOut size={15} />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setZoom(1);
+            setPan({ x: 0, y: 0 });
+          }}
+          className="px-1.5 py-0.5 hover:bg-card-active rounded text-text-secondary hover:text-text-primary text-[10px] font-mono transition-colors cursor-pointer"
+          title="Fit to Screen"
+        >
+          FIT
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setZoom(2);
+            setPan({ x: 0, y: 0 });
+          }}
+          className="px-1.5 py-0.5 hover:bg-card-active rounded text-text-secondary hover:text-text-primary text-[10px] font-mono transition-colors cursor-pointer"
+          title="100% Pixel Peep (1:1)"
+        >
+          100%
+        </button>
+
+        <div className="h-4 w-px bg-border-color/60 mx-0.5" />
+
+        <button
+          type="button"
+          onClick={() => onViewModeChange?.('split')}
+          className={`p-1 rounded transition-colors ${viewMode === 'split' ? 'bg-accent text-white' : 'text-text-secondary hover:text-text-primary'}`}
+          title="Split View (Draggable Divider)"
+        >
+          <SplitSquareVertical size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => onViewModeChange?.('side-by-side')}
+          className={`p-1 rounded transition-colors ${viewMode === 'side-by-side' ? 'bg-accent text-white' : 'text-text-secondary hover:text-text-primary'}`}
+          title="Side-by-Side Dual Viewport"
+        >
+          <Columns size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => onViewModeChange?.('single')}
+          className={`p-1 rounded transition-colors ${viewMode === 'single' ? 'bg-accent text-white' : 'text-text-secondary hover:text-text-primary'}`}
+          title="Single Denoised View"
+        >
+          <Maximize2 size={14} />
+        </button>
+      </div>
+
+      <div className="flex justify-between w-full pointer-events-none">
+        <Text
+          as="span"
+          variant={TextVariants.small}
+          weight={TextWeights.medium}
+          className="absolute top-3 left-3 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-md text-[11px] font-mono z-10"
+        >
+          {isHoldingOriginal ? '⚡ ORIGINAL (HOLDING)' : viewMode === 'split' ? 'ORIGINAL (LEFT)' : 'VIEWPORT'}
         </Text>
         <Text
-          as="div"
+          as="span"
           variant={TextVariants.small}
-          color={TextColors.button}
           weight={TextWeights.medium}
-          className="absolute top-3 right-3 bg-accent/90 backdrop-blur-xs px-2.5 py-1 rounded-md pointer-events-none z-0"
+          className="absolute top-3 right-3 bg-accent/90 backdrop-blur-md px-2.5 py-1 rounded-md text-[11px] font-mono z-10"
         >
-          {t('modals.denoise.denoised')}
+          DENOISED (RIGHT) · HOLD [ \ ] TO COMPARE
         </Text>
       </div>
     </div>
@@ -225,10 +362,65 @@ export default function DenoiseModal({
   targetPaths,
 }: DenoiseModalProps) {
   const { t } = useTranslation();
+  const selectedImage = useEditorStore((state) => state.selectedImage);
+  const imageList = useLibraryStore((state) => state.imageList);
+
+  const activeIso = useMemo(() => {
+    const target = (targetPaths[0] && imageList.find((img) => img.path === targetPaths[0])) || selectedImage;
+    if (!target?.exif) return null;
+    const isoVal = target.exif['PhotographicSensitivity'] || target.exif['ISO'] || target.exif['ISOSpeedRatings'];
+    if (!isoVal) return null;
+    const parsed = parseInt(isoVal, 10);
+    return isNaN(parsed) || parsed <= 0 ? null : parsed;
+  }, [targetPaths, imageList, selectedImage]);
+
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
-  const [intensity, setIntensity] = useState<number>(15);
+
+  // Pro parameters
+  const [intensity, setIntensity] = useState<number>(35);
+  const [chromaIntensity, setChromaIntensity] = useState<number>(100);
+  const [preserveDetails, setPreserveDetails] = useState<number>(25);
+  const [shadowBoost, setShadowBoost] = useState<number>(0);
+  const [filmGrain, setFilmGrain] = useState<number>(0);
+  const [deband, setDeband] = useState<boolean>(false);
   const [method, setMethod] = useState<'ai' | 'bm3d'>('ai');
+  const [healDust, setHealDust] = useState(true);
+  const [protectStars, setProtectStars] = useState(true);
+  const [dustSpotsHealed, setDustSpotsHealed] = useState<number | null>(null);
+  const [visualizeDefects, setVisualizeDefects] = useState(false);
+  const [empiricalSigma, setEmpiricalSigma] = useState<number | null>(null);
+  const [cameraProfile, setCameraProfile] = useState<{ make: string; model: string; sensor_type: string } | null>(null);
+  const [autoProfile, setAutoProfile] = useState<{
+    sigma: number;
+    effective_iso: number;
+    snr_db: number;
+    make?: string;
+    model?: string;
+    sensor_type?: string;
+    dual_gain_active?: boolean;
+    recommended_engine: 'ai' | 'bm3d';
+    recommended_intensity: number;
+    recommended_chroma: number;
+    recommended_details: number;
+    recommended_shadow_boost: number;
+    recommended_deband: boolean;
+    flat_patch_used?: boolean;
+  } | null>(null);
+
+  // Comparison View State
+  const [viewMode, setViewMode] = useState<'split' | 'side-by-side' | 'single'>('split');
+  const [isHoldingOriginal, setIsHoldingOriginal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'basic' | 'pro' | 'presets'>('basic');
+
+  // A / B / C Snapshot Matrix
+  const [activeSnapshot, setActiveSnapshot] = useState<'A' | 'B' | 'C'>('A');
+  const [snapshots, setSnapshots] = useState<{ [key: string]: SnapshotState | null }>({
+    A: null,
+    B: null,
+    C: null,
+  });
+
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; path: string } | null>(null);
@@ -243,12 +435,139 @@ export default function DenoiseModal({
     [t],
   );
 
+  // Global keydown for hold-to-compare and snapshots
   useEffect(() => {
-    const unlisten = listen('denoise-batch-progress', (e: any) => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.key === '\\' || e.code === 'Space') {
+        setIsHoldingOriginal(true);
+      } else if (e.key === '1') {
+        recallSnapshot('A');
+      } else if (e.key === '2') {
+        recallSnapshot('B');
+      } else if (e.key === '3') {
+        recallSnapshot('C');
+      } else if (e.key.toLowerCase() === 's') {
+        setViewMode((m) => (m === 'split' ? 'side-by-side' : 'split'));
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === '\\' || e.code === 'Space') {
+        setIsHoldingOriginal(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isOpen, intensity, chromaIntensity, preserveDetails, shadowBoost, filmGrain, deband, protectStars, healDust, method]);
+
+  const saveCurrentSnapshot = (slot: 'A' | 'B' | 'C') => {
+    const current: SnapshotState = {
+      intensity,
+      chromaIntensity,
+      preserveDetails,
+      shadowBoost,
+      filmGrain,
+      deband,
+      protectStars,
+      healDust,
+      method,
+    };
+    setSnapshots((prev) => ({ ...prev, [slot]: current }));
+    setActiveSnapshot(slot);
+  };
+
+  const recallSnapshot = (slot: 'A' | 'B' | 'C') => {
+    const snap = snapshots[slot];
+    if (snap) {
+      setIntensity(snap.intensity);
+      setChromaIntensity(snap.chromaIntensity);
+      setPreserveDetails(snap.preserveDetails);
+      setShadowBoost(snap.shadowBoost);
+      setFilmGrain(snap.filmGrain);
+      setDeband(snap.deband);
+      setProtectStars(snap.protectStars);
+      setHealDust(snap.healDust);
+      setMethod(snap.method);
+      setActiveSnapshot(slot);
+    } else {
+      saveCurrentSnapshot(slot);
+    }
+  };
+
+  const applyPreset = (presetName: string) => {
+    switch (presetName) {
+      case 'astro':
+        setIntensity(65);
+        setChromaIntensity(100);
+        setProtectStars(true);
+        setPreserveDetails(35);
+        setShadowBoost(20);
+        setDeband(true);
+        setFilmGrain(0);
+        break;
+      case 'portrait':
+        setIntensity(40);
+        setChromaIntensity(100);
+        setPreserveDetails(30);
+        setShadowBoost(0);
+        setFilmGrain(6);
+        setDeband(false);
+        break;
+      case 'wildlife':
+        setIntensity(35);
+        setChromaIntensity(100);
+        setPreserveDetails(50);
+        setShadowBoost(30);
+        setFilmGrain(0);
+        break;
+      case 'extreme':
+        setIntensity(80);
+        setChromaIntensity(100);
+        setPreserveDetails(20);
+        setShadowBoost(40);
+        setDeband(true);
+        setFilmGrain(0);
+        break;
+      case 'analog':
+        setIntensity(25);
+        setChromaIntensity(80);
+        setPreserveDetails(25);
+        setFilmGrain(18);
+        break;
+      default: // auto
+        if (empiricalSigma) {
+          const autoIntensity = Math.min(85, Math.max(15, Math.round(empiricalSigma * 180)));
+          setIntensity(autoIntensity);
+        }
+        setChromaIntensity(100);
+        setPreserveDetails(25);
+        setShadowBoost(0);
+        setFilmGrain(0);
+        break;
+    }
+  };
+
+  useEffect(() => {
+    const unlistenBatch = listen('denoise-batch-progress', (e: any) => {
       setBatchProgress(e.payload);
     });
+    const unlistenComplete = listen('denoise-complete', (e: any) => {
+      if (e.payload?.dust_spots_healed !== undefined) {
+        setDustSpotsHealed(e.payload.dust_spots_healed);
+      }
+    });
     return () => {
-      unlisten.then((f) => f());
+      unlistenBatch.then((f) => f());
+      unlistenComplete.then((f) => f());
     };
   }, []);
 
@@ -259,10 +578,90 @@ export default function DenoiseModal({
         ? t('modals.denoise.downloadingText', { status: aiModelDownloadStatus })
         : progressMessage || t('modals.denoise.initializing');
 
+  const recommendedEngine: 'ai' | 'bm3d' = useMemo(() => {
+    if (isRaw) return 'ai';
+    if (activeIso && activeIso >= 800) return 'ai';
+    if (empiricalSigma && empiricalSigma > 0.05) return 'ai';
+    return 'bm3d';
+  }, [isRaw, activeIso, empiricalSigma]);
+
+  const recommendationReason = useMemo(() => {
+    if (isRaw) return 'RAW sensor data detected · Neural Deep Denoise reconstructs authentic sensor Bayer patterns';
+    if (activeIso && activeIso >= 800) return `High ISO (${activeIso}) · AI Neural model eliminates heavy color noise & grain`;
+    return 'Low noise floor / daylight · Guided Wavelet preserves razor-sharp edges with zero hallucination';
+  }, [isRaw, activeIso]);
+
   useEffect(() => {
     if (isOpen) {
-      setMethod(isRaw ? 'ai' : 'bm3d');
-      setIntensity(isRaw ? 50 : 15);
+      const initialEngine = isRaw || (activeIso && activeIso >= 800) ? 'ai' : 'bm3d';
+      setMethod(initialEngine);
+      const targetPath = targetPaths[0] || selectedImage?.path;
+
+      if (targetPath) {
+        invoke<{
+          sigma: number;
+          iso: number | null;
+          effective_iso: number;
+          snr_db: number;
+          make?: string;
+          model?: string;
+          sensor_type?: string;
+          dual_gain_active?: boolean;
+          recommended_engine: 'ai' | 'bm3d';
+          recommended_intensity: number;
+          recommended_chroma: number;
+          recommended_details: number;
+          recommended_shadow_boost: number;
+          recommended_deband: boolean;
+          flat_patch_used?: boolean;
+        }>(Invokes.AnalyzeImageNoiseProfile, { path: targetPath, exposure_push: 0.0 })
+          .then((profile) => {
+            if (profile?.sigma !== undefined) {
+              setEmpiricalSigma(profile.sigma);
+              setAutoProfile(profile);
+              if (profile.recommended_intensity) {
+                setIntensity(profile.recommended_intensity);
+              }
+              if (profile.recommended_chroma !== undefined) {
+                setChromaIntensity(profile.recommended_chroma);
+              }
+              if (profile.recommended_details !== undefined) {
+                setPreserveDetails(profile.recommended_details);
+              }
+              if (profile.recommended_shadow_boost !== undefined) {
+                setShadowBoost(profile.recommended_shadow_boost);
+              }
+              if (profile.recommended_deband !== undefined) {
+                setDeband(profile.recommended_deband);
+              }
+              if (profile.recommended_engine) {
+                setMethod(profile.recommended_engine);
+              }
+              if (profile.make || profile.model) {
+                setCameraProfile({
+                  make: profile.make || 'Universal',
+                  model: profile.model || 'CMOS',
+                  sensor_type: profile.sensor_type || 'Universal CMOS Sensor',
+                });
+              }
+            }
+          })
+          .catch((e) => {
+            console.warn('Fast noise profiling fallback:', e);
+            if (activeIso) {
+              const autoIntensity = Math.min(85, Math.max(15, Math.round(Math.log2(activeIso / 100) * 12 + 20)));
+              setIntensity(autoIntensity);
+            } else {
+              setIntensity(isRaw ? 50 : 15);
+            }
+          });
+      } else if (activeIso) {
+        const autoIntensity = Math.min(85, Math.max(15, Math.round(Math.log2(activeIso / 100) * 12 + 20)));
+        setIntensity(autoIntensity);
+      } else {
+        setIntensity(isRaw ? 50 : 15);
+      }
+
       setIsMounted(true);
       const timer = setTimeout(() => setShow(true), 10);
       return () => clearTimeout(timer);
@@ -273,10 +672,13 @@ export default function DenoiseModal({
         setSavedPath(null);
         setIsSaving(false);
         setBatchProgress(null);
+        setEmpiricalSigma(null);
+        setCameraProfile(null);
+        setAutoProfile(null);
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, isRaw]);
+  }, [isOpen, isRaw, activeIso, targetPaths, selectedImage]);
 
   const handleClose = useCallback(() => {
     if (isSaving) return;
@@ -299,7 +701,18 @@ export default function DenoiseModal({
     if (isBatch) {
       setIsSaving(true);
       try {
-        await onBatchDenoise(intensity / 100, method, targetPaths);
+        await onBatchDenoise(
+          intensity / 100,
+          method,
+          targetPaths,
+          healDust,
+          protectStars,
+          preserveDetails / 100,
+          chromaIntensity / 100,
+          shadowBoost / 100,
+          deband,
+          filmGrain / 100
+        );
         onClose();
       } catch (e) {
         console.error('Batch denoise failed:', e);
@@ -308,7 +721,18 @@ export default function DenoiseModal({
         setBatchProgress(null);
       }
     } else {
-      onDenoise(intensity / 100, method);
+      onDenoise(
+        intensity / 100,
+        method,
+        healDust,
+        visualizeDefects,
+        protectStars,
+        preserveDetails / 100,
+        chromaIntensity / 100,
+        shadowBoost / 100,
+        deband,
+        filmGrain / 100
+      );
     }
   };
 
@@ -334,7 +758,7 @@ export default function DenoiseModal({
   const renderContent = () => {
     if (error) {
       return (
-        <div className="flex flex-col items-center justify-center py-10 h-[460px]">
+        <div className="flex flex-col items-center justify-center py-6 h-[260px] md:h-[340px]">
           <div className="flex items-center justify-center mb-6">
             <XCircle className="w-12 h-12 text-red-500" />
           </div>
@@ -350,8 +774,14 @@ export default function DenoiseModal({
 
     if (previewBase64 && originalBase64 && !isProcessing && !isBatch) {
       return (
-        <div className="w-full h-[500px]">
-          <ImageCompare original={originalBase64} denoised={previewBase64} />
+        <div className="w-full h-[300px] md:h-[400px]">
+          <ImageCompare
+            original={originalBase64}
+            denoised={previewBase64}
+            isHoldingOriginal={isHoldingOriginal}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
           {savedPath && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
               <Text
@@ -371,78 +801,85 @@ export default function DenoiseModal({
 
     if (isProcessing || (isBatch && isSaving)) {
       return (
-        <div className="flex h-[460px] overflow-hidden rounded-lg border border-surface">
-          <div className="w-2/5 relative overflow-hidden shrink-0 bg-[#0a0a0a] flex items-center justify-center">
-            {loadingImageUrl ? (
-              <img src={loadingImageUrl} alt="Selected preview" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-surface/50" />
-            )}
-          </div>
-          <div className="flex-1 flex flex-col items-center justify-center px-12 bg-bg-primary">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.4 }}
-              className="flex flex-col items-center w-full"
-            >
-              <Text variant={TextVariants.title} className="mb-2 text-center">
-                {t('modals.denoise.denoisingProgress')}
-              </Text>
-              <Text className="text-center font-mono h-6 flex justify-center items-center">{currentStatusText}</Text>
-
-              <div className="mt-8 w-64 relative">
-                <div className="h-1 bg-surface rounded-full overflow-hidden relative w-full shadow-xs">
-                  <motion.div
-                    className="absolute inset-y-0 w-[80%] bg-linear-to-r from-transparent via-accent to-transparent mix-blend-screen"
-                    style={{ filter: 'blur(3px)' }}
-                    animate={{ x: ['-150%', '150%'] }}
-                    transition={{ repeat: Infinity, duration: 1.5, ease: [0.4, 0, 0.2, 1] }}
-                  />
-                  <motion.div
-                    className="absolute inset-y-0 w-[40%] bg-linear-to-r from-transparent via-white/90 to-transparent"
-                    style={{ filter: 'blur(1px)' }}
-                    animate={{ x: ['-250%', '250%'] }}
-                    transition={{ repeat: Infinity, duration: 1.5, ease: [0.4, 0, 0.2, 1] }}
-                  />
-                </div>
-              </div>
-
-              <Text
-                variant={TextVariants.small}
-                data-tooltip={t('modals.denoise.gpuWarningTooltip')}
-                className="mt-6 text-center max-w-xs opacity-60"
-              >
-                {t('modals.denoise.speedNotice')}
-              </Text>
-            </motion.div>
-          </div>
+        <div className="flex flex-col items-center justify-center py-6 h-[260px] md:h-[340px]">
+          <Loader2 className="w-12 h-12 animate-spin text-accent mb-4" />
+          <Text variant={TextVariants.title} className="mb-2">
+            {currentStatusText}
+          </Text>
+          <Text color={TextColors.secondary}>{t('modals.denoise.waitText', 'This may take a moment depending on resolution...')}</Text>
         </div>
       );
     }
 
     return (
-      <div className="flex flex-col items-center justify-center h-[460px]">
-        <div className="flex items-center justify-center mb-6">
-          <Grip className="w-12 h-12 text-accent" />
+      <div className="flex flex-col items-center justify-center py-4 h-[260px] md:h-[340px] text-center">
+        <div className="relative mb-4">
+          <div className="w-20 h-20 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent">
+            <Sparkles size={36} />
+          </div>
+          {cameraProfile && (
+            <span className="absolute -bottom-2 -right-2 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[9px] font-mono">
+              {cameraProfile.make}
+            </span>
+          )}
         </div>
-        <Text variant={TextVariants.title} className="mb-3 text-center">
-          {isBatch ? t('modals.denoise.titleBatch') : t('modals.denoise.titleSingle')}
+        <Text variant={TextVariants.heading} weight={TextWeights.semibold} className="mb-1">
+          {isBatch ? t('modals.denoise.titleBatch', 'Batch RAW Denoise') : 'Professional Studio Denoise Engine'}
         </Text>
-        <Text className="text-center max-w-md leading-relaxed">{t('modals.denoise.description')}</Text>
+        <Text color={TextColors.secondary} className="max-w-md text-sm leading-relaxed mb-4">
+          {isBatch
+            ? t('modals.denoise.descBatch', `Batch denoise ${targetPaths.length} selected images`)
+            : 'AI Neural + Wavelet BM3D joint engine. Erases high-ISO color blotches while preserving organic pores, eyelashes, and pinpoint stars.'}
+        </Text>
+        <div className="flex flex-wrap items-center justify-center gap-2 max-w-xl">
+          {cameraProfile && (
+            <span
+              className="px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-300 text-[11px] font-mono border border-blue-500/30 flex items-center gap-1.5 shadow-sm"
+              title={cameraProfile.sensor_type}
+            >
+              <Camera size={12} className="text-blue-400" />
+              <span>{cameraProfile.make} {cameraProfile.model}</span>
+            </span>
+          )}
+          {empiricalSigma !== null && (
+            <span
+              className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-300 text-[11px] font-mono border border-emerald-500/30 flex items-center gap-1.5 shadow-sm"
+              title={autoProfile ? `Effective ISO ${autoProfile.effective_iso} · SNR ${autoProfile.snr_db} dB · Base noise ${(empiricalSigma * 100).toFixed(2)}%` : undefined}
+            >
+              <Zap size={12} className="text-emerald-400" />
+              <span>
+                {autoProfile ? `ISO ${autoProfile.effective_iso}` : activeIso ? `ISO ${activeIso}` : 'Auto'}
+                {autoProfile ? ` · SNR ${autoProfile.snr_db}dB` : ''}
+                {` · σ = ${(empiricalSigma * 100).toFixed(1)}%`}
+                {autoProfile?.dual_gain_active ? ' · ⚡ DCG' : ''}
+                {autoProfile?.flat_patch_used ? ' · 🎯 Flat' : ''}
+              </span>
+            </span>
+          )}
+          {autoProfile && (
+            <button
+              type="button"
+              onClick={() => {
+                setIntensity(autoProfile.recommended_intensity);
+                setChromaIntensity(autoProfile.recommended_chroma);
+                setPreserveDetails(autoProfile.recommended_details);
+                setShadowBoost(autoProfile.recommended_shadow_boost);
+                setDeband(autoProfile.recommended_deband);
+                setMethod(autoProfile.recommended_engine);
+              }}
+              className="px-2 py-1 rounded-md bg-accent/20 hover:bg-accent/30 text-accent text-[11px] font-mono font-medium border border-accent/30 flex items-center gap-1 transition-colors"
+              title="Reset all sliders to physical sensor auto-calibrated values"
+            >
+              <Sparkles size={11} />
+              <span>Re-Auto</span>
+            </button>
+          )}
+        </div>
       </div>
     );
   };
 
   const renderButtons = () => {
-    if (error) {
-      return (
-        <Button onClick={handleClose} className="w-full">
-          {t('modals.denoise.close')}
-        </Button>
-      );
-    }
-
     if (savedPath) {
       return (
         <>
@@ -460,71 +897,339 @@ export default function DenoiseModal({
     const disabled = isProcessing || isSaving;
 
     return (
-      <div className={`w-full flex items-center gap-4 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="flex-1 flex items-center gap-6">
-          <div className="flex flex-col gap-1 w-[280px] mt-2 shrink-0">
-            <Text variant={TextVariants.body} weight={TextWeights.medium}>
-              {t('modals.denoise.methodLabel')}
-            </Text>
-            <Dropdown
-              options={methodOptions}
-              value={method}
-              onChange={(val) => {
-                setMethod(val);
-                setIntensity(val === 'ai' ? 50 : 15);
-              }}
-            />
+      <div className={`w-full flex flex-col gap-3 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+        {/* Navigation Tabs */}
+        <div className="flex items-center justify-between border-b border-border-color/40 pb-2">
+          <div className="flex items-center gap-1 bg-bg-secondary/60 p-0.5 rounded-lg border border-border-color/30">
+            <button
+              type="button"
+              onClick={() => setActiveTab('basic')}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === 'basic' ? 'bg-accent text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <Sliders size={12} />
+              <span>Core Adjustments</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('pro')}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === 'pro' ? 'bg-accent text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <Layers size={12} />
+              <span>Pro Sliders</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('presets')}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === 'presets' ? 'bg-accent text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <Bookmark size={12} />
+              <span>Style Presets</span>
+            </button>
           </div>
-          <div className="flex-1 max-w-[280px]">
-            <Slider
-              label={method === 'ai' ? t('modals.denoise.qualityTileSizeLabel') : t('modals.denoise.strengthLabel')}
-              value={intensity}
-              min={0}
-              max={100}
-              step={1}
-              defaultValue={method === 'ai' ? 50 : 15}
-              onChange={(e) => setIntensity(Number(e.target.value))}
-              trackClassName="bg-bg-secondary"
-              fillOrigin="min"
-            />
+
+          {/* Snapshot A/B/C Matrix */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-mono text-text-secondary uppercase">Snapshots:</span>
+            {(['A', 'B', 'C'] as const).map((slot) => {
+              const hasData = snapshots[slot] !== null;
+              const isActive = activeSnapshot === slot;
+              return (
+                <button
+                  key={slot}
+                  type="button"
+                  onClick={() => recallSnapshot(slot)}
+                  className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold border transition-all ${
+                    isActive
+                      ? 'bg-accent text-white border-accent'
+                      : hasData
+                        ? 'bg-surface/80 border-accent/40 text-accent hover:bg-accent/20'
+                        : 'bg-surface/40 border-border-color/30 text-text-secondary hover:text-text-primary'
+                  }`}
+                  title={hasData ? `Snapshot ${slot}: Click to recall (Hotkeys: 1, 2, 3)` : `Snapshot ${slot}: Empty (Click to save)`}
+                >
+                  {slot}
+                  {hasData && <span className="ml-1 text-[8px] opacity-75">●</span>}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="h-10 w-px bg-surface shrink-0" />
+        {/* Tab Contents */}
+        {activeTab === 'basic' && (
+          <div className="flex items-center gap-6">
+            <div className="flex flex-col gap-1 w-[260px] shrink-0">
+              <div className="flex items-center justify-between">
+                <Text variant={TextVariants.small} weight={TextWeights.medium}>
+                  {t('modals.denoise.methodLabel')}
+                </Text>
+                <span className="px-1.5 py-0.2 rounded bg-accent/20 text-accent font-bold text-[9px] uppercase tracking-wide">
+                  {method === recommendedEngine ? '✨ Recommended' : 'Manual'}
+                </span>
+              </div>
+              <Dropdown
+                options={methodOptions}
+                value={method}
+                direction="up"
+                onChange={(val) => {
+                  setMethod(val);
+                  setIntensity(val === 'ai' ? 50 : 15);
+                }}
+              />
+              <span className="text-[10px] text-text-secondary leading-tight mt-0.5">
+                {method === 'ai'
+                  ? '🤖 AI Neural: Deep reconstruction for high-ISO RAW grain & color blotches.'
+                  : '⚡ Wavelet BM3D: Deterministic ultra-sharp edge preservation.'}
+              </span>
+            </div>
 
-        <div className="flex gap-2 shrink-0">
-          <button
-            onClick={handleClose}
-            className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm"
-          >
-            {previewBase64 ? t('modals.denoise.close') : t('modals.denoise.cancel')}
-          </button>
+            <div className="flex-1 max-w-[360px]">
+              <div className="flex items-center justify-between mb-1">
+                <Text variant={TextVariants.small} weight={TextWeights.medium}>
+                  Luminance Denoise: {intensity}%
+                </Text>
+                {empiricalSigma !== null && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold border border-emerald-500/30">
+                    ⚡ Auto (σ={(empiricalSigma * 100).toFixed(1)}%{activeIso ? ` · ISO ${activeIso}` : ''})
+                  </span>
+                )}
+              </div>
+              <Slider
+                label="Luminance Strength"
+                value={intensity}
+                min={0}
+                max={100}
+                step={1}
+                defaultValue={35}
+                onChange={(e) => setIntensity(Number(e.target.value))}
+                trackClassName="bg-bg-secondary"
+                fillOrigin="min"
+              />
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIntensity(20)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+                    intensity <= 25 ? 'bg-accent/20 border-accent text-accent' : 'bg-surface/60 border-border-color/40 text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  Subtle (20%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIntensity(45)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+                    intensity > 25 && intensity <= 55 ? 'bg-accent/20 border-accent text-accent' : 'bg-surface/60 border-border-color/40 text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  Balanced (45%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIntensity(75)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+                    intensity > 55 ? 'bg-accent/20 border-accent text-accent' : 'bg-surface/60 border-border-color/40 text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  Heavy (75%)
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-          <Button
-            onClick={handleRunDenoise}
-            disabled={isProcessing || isSaving}
-            variant={previewBase64 && !isBatch ? 'secondary' : 'primary'}
-          >
-            {isProcessing || (isBatch && isSaving) ? (
-              <Loader2 className="animate-spin mr-2" size={16} />
-            ) : previewBase64 && !isBatch ? (
-              <RefreshCw className="mr-2" size={16} />
-            ) : (
-              <Grip className="mr-2" size={16} />
-            )}
-            {isBatch
-              ? t('modals.denoise.btnBatchDenoise')
-              : previewBase64
-                ? t('modals.denoise.btnRetry')
-                : t('modals.denoise.btnStart')}
-          </Button>
+        {activeTab === 'pro' && (
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-xs font-medium text-text-primary">Color (Chroma) Noise: {chromaIntensity}%</span>
+              </div>
+              <Slider
+                label="Color Noise"
+                value={chromaIntensity}
+                min={0}
+                max={100}
+                step={1}
+                defaultValue={100}
+                onChange={(e) => setChromaIntensity(Number(e.target.value))}
+                fillOrigin="min"
+              />
+              <span className="text-[10px] text-text-secondary">Erases purple/green blotches at 100% without softening.</span>
+            </div>
 
-          {previewBase64 && !isBatch && (
-            <Button onClick={handleSave} disabled={isSaving || isProcessing}>
-              {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
-              {t('modals.denoise.btnSave')}
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-xs font-medium text-text-primary">Detail Recovery: {preserveDetails}%</span>
+              </div>
+              <Slider
+                label="Detail Recovery"
+                value={preserveDetails}
+                min={0}
+                max={100}
+                step={1}
+                defaultValue={25}
+                onChange={(e) => setPreserveDetails(Number(e.target.value))}
+                fillOrigin="min"
+              />
+              <span className="text-[10px] text-text-secondary">Anti-plastic skin: Re-injects organic micro-structures.</span>
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-xs font-medium text-text-primary">Shadows Boost: {shadowBoost}%</span>
+              </div>
+              <Slider
+                label="Shadows Boost"
+                value={shadowBoost}
+                min={0}
+                max={100}
+                step={1}
+                defaultValue={0}
+                onChange={(e) => setShadowBoost(Number(e.target.value))}
+                fillOrigin="min"
+              />
+              <span className="text-[10px] text-text-secondary">Denoises deep shadow zones while leaving highlights untouched.</span>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'presets' && (
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { id: 'auto', label: '⚡ Auto AI Calibrated', desc: 'Optimal empirical balance' },
+              { id: 'astro', label: '🌌 Astro Pinpoint Stars', desc: 'Protects stars, debands shadows' },
+              { id: 'portrait', label: '👰 Wedding & Portrait', desc: 'Smooth skin with pore recovery' },
+              { id: 'wildlife', label: '🦅 Wildlife Feathers', desc: 'Maximum micro-texture preservation' },
+              { id: 'extreme', label: '🌙 Extreme Low-Light (6400+)', desc: 'Heavy dual-channel cleanup' },
+              { id: 'analog', label: '🎞️ 35mm Analog Grain', desc: 'Subtle denoise with film texture' },
+            ].map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyPreset(preset.id)}
+                className="px-3 py-1.5 rounded-lg bg-surface/80 hover:bg-card-active border border-border-color/40 text-left transition-all cursor-pointer"
+              >
+                <div className="text-xs font-medium text-text-primary">{preset.label}</div>
+                <div className="text-[10px] text-text-secondary">{preset.desc}</div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Feature Toggles */}
+        <div className="flex flex-wrap items-center justify-between pt-2 border-t border-border-color/30">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={protectStars}
+                onChange={(e) => setProtectStars(e.target.checked)}
+                className="rounded border-border-color bg-surface text-accent focus:ring-0"
+              />
+              <span className="text-text-primary text-[11px] font-medium flex items-center gap-1">
+                <ShieldCheck size={12} className="text-blue-400" />
+                Star & Specular Protection
+              </span>
+            </label>
+
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={deband}
+                onChange={(e) => setDeband(e.target.checked)}
+                className="rounded border-border-color bg-surface text-accent focus:ring-0"
+              />
+              <span className="text-text-primary text-[11px] font-medium">Deband Sensor Stripes</span>
+            </label>
+
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={healDust}
+                onChange={(e) => setHealDust(e.target.checked)}
+                className="rounded border-border-color bg-surface text-accent focus:ring-0"
+              />
+              <span className="text-text-primary text-[11px] font-medium flex items-center gap-1">
+                <Sparkles size={12} className="text-amber-400" />
+                Auto-Heal Dust
+              </span>
+              {dustSpotsHealed !== null && dustSpotsHealed > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-[9px]">
+                  {dustSpotsHealed} healed
+                </span>
+              )}
+            </label>
+
+            <button
+              type="button"
+              onClick={() => {
+                const nextVal = !visualizeDefects;
+                setVisualizeDefects(nextVal);
+                onDenoise(
+                  intensity / 100,
+                  method,
+                  healDust,
+                  nextVal,
+                  protectStars,
+                  preserveDetails / 100,
+                  chromaIntensity / 100,
+                  shadowBoost / 100,
+                  deband,
+                  filmGrain / 100
+                );
+              }}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border transition-all ${
+                visualizeDefects
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                  : 'bg-surface/60 border-border-color/40 text-text-secondary hover:text-text-primary'
+              }`}
+              title="Toggle High-Contrast Defect Inspection HUD"
+            >
+              <Eye size={11} />
+              <span>Defects HUD</span>
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleClose}
+              className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm cursor-pointer"
+            >
+              {previewBase64 ? t('modals.denoise.close') : t('modals.denoise.cancel')}
+            </button>
+
+            <Button
+              onClick={handleRunDenoise}
+              disabled={isProcessing || isSaving}
+              variant={previewBase64 && !isBatch ? 'secondary' : 'primary'}
+            >
+              {isProcessing || (isBatch && isSaving) ? (
+                <Loader2 className="animate-spin mr-2" size={16} />
+              ) : previewBase64 && !isBatch ? (
+                <RefreshCw className="mr-2" size={16} />
+              ) : (
+                <Grip className="mr-2" size={16} />
+              )}
+              {isBatch
+                ? t('modals.denoise.btnBatchDenoise')
+                : previewBase64
+                  ? t('modals.denoise.btnRetry')
+                  : t('modals.denoise.btnStart')}
             </Button>
-          )}
+
+            {previewBase64 && !isBatch && (
+              <Button onClick={handleSave} disabled={isSaving || isProcessing}>
+                {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
+                {t('modals.denoise.btnSave')}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -534,22 +1239,22 @@ export default function DenoiseModal({
 
   return (
     <div
-      className={`fixed inset-0 flex items-center justify-center z-50 bg-black/40 backdrop-blur-xs transition-opacity duration-300 ease-in-out ${
+      className={`fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-xs transition-opacity duration-300 ease-in-out ${
         show ? 'opacity-100' : 'opacity-0'
       }`}
       onMouseDown={handleBackdropMouseDown}
       onClick={handleBackdropClick}
     >
       <div
-        className={`bg-surface rounded-xl shadow-2xl p-6 w-full max-w-4xl transform transition-all duration-300 ease-out ${
+        className={`bg-surface rounded-xl shadow-2xl p-5 md:p-6 w-full max-w-5xl max-h-[90vh] flex flex-col transform transition-all duration-300 ease-out ${
           show ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 -translate-y-4'
         }`}
       >
-        <div className="flex flex-col">
+        <div className="flex-1 overflow-y-auto pr-1 min-h-0">
           {renderContent()}
-          <div className={`mt-4 flex justify-end gap-3 ${savedPath ? '' : 'pt-4 border-t border-surface/50'}`}>
-            {renderButtons()}
-          </div>
+        </div>
+        <div className={`mt-3 pt-3 flex justify-end gap-3 shrink-0 ${savedPath ? '' : 'border-t border-surface/50'}`}>
+          {renderButtons()}
         </div>
       </div>
     </div>

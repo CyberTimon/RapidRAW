@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
+use base64::Engine as _;
 use image::imageops::{self, FilterType};
 use image::{
     DynamicImage, GenericImageView, GrayImage, ImageBuffer, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage,
@@ -610,25 +611,18 @@ pub async fn get_or_init_lama_model(
 #[derive(Clone, Copy)]
 struct TileParams {
     cs: usize,
-    ucs: usize,
-    overlap: usize,
-    pad: usize,
+    step: usize,
 }
 
 impl TileParams {
-    const fn new(cs: usize, ucs: usize, overlap: usize) -> Self {
-        Self {
-            cs,
-            ucs,
-            overlap,
-            pad: (cs - ucs) / 2,
-        }
+    const fn new(cs: usize, step: usize) -> Self {
+        Self { cs, step }
     }
 }
 
-const TILE_BALANCED: TileParams = TileParams::new(504, 480, 6);
-const TILE_FASTER: TileParams = TileParams::new(504, 504, 0);
-const TILE_HIGHER_QUALITY: TileParams = TileParams::new(504, 448, 12);
+const TILE_BALANCED: TileParams = TileParams::new(504, 420);
+const TILE_FASTER: TileParams = TileParams::new(504, 480);
+const TILE_HIGHER_QUALITY: TileParams = TileParams::new(504, 336);
 
 fn select_tile_params(quality_0_1: f32) -> TileParams {
     let q = quality_0_1.clamp(0.0, 1.0);
@@ -668,69 +662,21 @@ fn extract_tile_mirror(img: &Rgb32FImage, x0: i32, y0: i32, cs: usize) -> Array4
     arr
 }
 
-struct SeamlessBlend {
-    ud0: usize,
-    ud1: usize,
-    ud2: usize,
-    ud3: usize,
-    absx0: usize,
-    absy0: usize,
-    fswidth: usize,
-    fsheight: usize,
-    overlap: usize,
-}
-
-fn apply_seamless(tile: &mut Array4<f32>, blend: &SeamlessBlend) {
-    let SeamlessBlend {
-        ud0,
-        ud1,
-        ud2,
-        ud3,
-        absx0,
-        absy0,
-        fswidth,
-        fsheight,
-        overlap,
-    } = *blend;
-    let ol = overlap;
-    if absx0 > 0 {
-        for c in 0..3 {
-            for y in ud1..ud3 {
-                for x in ud0..(ud0 + ol).min(ud2) {
-                    tile[[0, c, y, x]] *= 0.5;
-                }
-            }
+/// Generates a 2D Hann (raised cosine) weighting matrix for smooth overlap-add blending.
+/// Formula: W(x, y) = sin²(π * (x + 0.5) / S) * sin²(π * (y + 0.5) / S)
+pub fn generate_hann_window_2d(size: usize) -> Vec<f32> {
+    let mut w = vec![0.0f32; size * size];
+    let pi = std::f32::consts::PI;
+    for y in 0..size {
+        let wy = (pi * (y as f32 + 0.5) / size as f32).sin();
+        let wy2 = wy * wy;
+        for x in 0..size {
+            let wx = (pi * (x as f32 + 0.5) / size as f32).sin();
+            let wx2 = wx * wx;
+            w[y * size + x] = (wx2 * wy2).max(1e-4);
         }
     }
-    if absy0 > 0 {
-        for c in 0..3 {
-            for y in ud1..(ud1 + ol).min(ud3) {
-                for x in ud0..ud2 {
-                    tile[[0, c, y, x]] *= 0.5;
-                }
-            }
-        }
-    }
-    if absx0 + (ud2 - ud0) < fswidth && ol > 0 {
-        let right_start = (ud2 as i32 - ol as i32).max(ud0 as i32) as usize;
-        for c in 0..3 {
-            for y in ud1..ud3 {
-                for x in right_start..ud2 {
-                    tile[[0, c, y, x]] *= 0.5;
-                }
-            }
-        }
-    }
-    if absy0 + (ud3 - ud1) < fsheight && ol > 0 {
-        let bottom_start = (ud3 as i32 - ol as i32).max(ud1 as i32) as usize;
-        for c in 0..3 {
-            for y in bottom_start..ud3 {
-                for x in ud0..ud2 {
-                    tile[[0, c, y, x]] *= 0.5;
-                }
-            }
-        }
-    }
+    w
 }
 
 fn run_native_denoise(
@@ -744,25 +690,29 @@ fn run_native_denoise(
 ) -> Result<()> {
     let w = width as i32;
     let h = height as i32;
-    let step = params.ucs.saturating_sub(params.overlap).max(1);
-    let iperhl = (width.saturating_sub(params.ucs) as f64 / step as f64).ceil() as usize;
-    let ipervl = (height.saturating_sub(params.ucs) as f64 / step as f64).ceil() as usize;
-    let total = (iperhl + 1) * (ipervl + 1);
+    let cs = params.cs;
+    let step = params.step.max(1);
+
+    let x_steps = ((w.saturating_sub(cs as i32)) as f64 / step as f64).ceil() as usize + 1;
+    let y_steps = ((h.saturating_sub(cs as i32)) as f64 / step as f64).ceil() as usize + 1;
+    let total = x_steps * y_steps;
+
+    let hann_window = generate_hann_window_2d(cs);
+    let mut weights_acc = vec![0.0f32; width * height];
 
     for i in 0..total {
-        let yi = i / (iperhl + 1);
-        let xi = i % (iperhl + 1);
-        let x0 =
-            params.ucs as i32 * xi as i32 - params.overlap as i32 * xi as i32 - params.pad as i32;
-        let y0 =
-            params.ucs as i32 * yi as i32 - params.overlap as i32 * yi as i32 - params.pad as i32;
+        let yi = i / x_steps;
+        let xi = i % x_steps;
 
-        if i % 10 == 0 {
-            let pct = (i as f32 / total as f32) * 100.0;
-            let _ = app_handle.emit("denoise-progress", format!("Denoising… {:.0}%", pct));
+        let x0 = (xi * step) as i32;
+        let y0 = (yi * step) as i32;
+
+        if i % 5 == 0 || i + 1 == total {
+            let pct = ((i + 1) as f32 / total as f32) * 100.0;
+            let _ = app_handle.emit("denoise-progress", format!("Denoising (AI Hann Tile)… {:.0}%", pct));
         }
 
-        let crop = extract_tile_mirror(img, x0, y0, params.cs);
+        let crop = extract_tile_mirror(img, x0, y0, cs);
         let input_values = crop.as_standard_layout().to_owned();
         let t_input = Tensor::from_array(input_values)?;
 
@@ -774,44 +724,42 @@ fn run_native_denoise(
                 .map_err(|e| anyhow::anyhow!("Unexpected output shape: {}", e))?
         };
 
-        let x1pad = (0i32).max(x0 + params.cs as i32 - w) as usize;
-        let y1pad = (0i32).max(y0 + params.cs as i32 - h) as usize;
-        let ud0 = params.pad;
-        let ud1 = params.pad;
-        let ud2 = params.cs - params.pad.max(x1pad);
-        let ud3 = params.cs - params.pad.max(y1pad);
-        let absx0 = (x0 + params.pad as i32).max(0) as usize;
-        let absy0 = (y0 + params.pad as i32).max(0) as usize;
+        for dy in 0..cs {
+            let gy = y0 + dy as i32;
+            if gy < 0 || gy >= h {
+                continue;
+            }
+            let gy_usize = gy as usize;
 
-        let mut tile = out;
-        apply_seamless(
-            &mut tile,
-            &SeamlessBlend {
-                ud0,
-                ud1,
-                ud2,
-                ud3,
-                absx0,
-                absy0,
-                fswidth: width,
-                fsheight: height,
-                overlap: params.overlap,
-            },
-        );
-
-        for cy in 0..(ud3 - ud1) {
-            for cx in 0..(ud2 - ud0) {
-                let gx = absx0 + cx;
-                let gy = absy0 + cy;
-                if gx < width && gy < height {
-                    let base = (gy * width + gx) * 3;
-                    accumulator[base] += tile[[0, 0, ud1 + cy, ud0 + cx]].clamp(0.0, 1.0);
-                    accumulator[base + 1] += tile[[0, 1, ud1 + cy, ud0 + cx]].clamp(0.0, 1.0);
-                    accumulator[base + 2] += tile[[0, 2, ud1 + cy, ud0 + cx]].clamp(0.0, 1.0);
+            for dx in 0..cs {
+                let gx = x0 + dx as i32;
+                if gx < 0 || gx >= w {
+                    continue;
                 }
+                let gx_usize = gx as usize;
+
+                let weight = hann_window[dy * cs + dx];
+                let idx_rgb = (gy_usize * width + gx_usize) * 3;
+                let idx_w = gy_usize * width + gx_usize;
+
+                accumulator[idx_rgb] += out[[0, 0, dy, dx]].clamp(0.0, 1.0) * weight;
+                accumulator[idx_rgb + 1] += out[[0, 1, dy, dx]].clamp(0.0, 1.0) * weight;
+                accumulator[idx_rgb + 2] += out[[0, 2, dy, dx]].clamp(0.0, 1.0) * weight;
+                weights_acc[idx_w] += weight;
             }
         }
     }
+
+    // Normalize overlapping Hann accumulation to guarantee exact unity gain (sum(W) = 1.0)
+    for i in 0..(width * height) {
+        let w_sum = weights_acc[i];
+        let inv_w = if w_sum > 1e-6 { 1.0 / w_sum } else { 1.0 };
+        let i3 = i * 3;
+        accumulator[i3] = (accumulator[i3] * inv_w).clamp(0.0, 1.0);
+        accumulator[i3 + 1] = (accumulator[i3 + 1] * inv_w).clamp(0.0, 1.0);
+        accumulator[i3 + 2] = (accumulator[i3 + 2] * inv_w).clamp(0.0, 1.0);
+    }
+
     Ok(())
 }
 
@@ -1582,4 +1530,281 @@ pub struct AiDepthMaskParameters {
     pub flip_vertical: Option<bool>,
     #[serde(default)]
     pub orientation_steps: Option<u8>,
+}
+
+/// Simulates optical shallow depth-of-field lens bokeh with tap-to-focus depth plane
+pub fn apply_depth_guided_bokeh(
+    src: &image::RgbImage,
+    depth: &GrayImage,
+    focus_depth: u8,
+    aperture_strength: f32,
+) -> image::RgbImage {
+    let (w, h) = src.dimensions();
+    let (dw, dh) = depth.dimensions();
+    if w == 0 || h == 0 {
+        return src.clone();
+    }
+
+    let mut out = image::RgbImage::new(w, h);
+    let max_radius = (aperture_strength * 12.0).clamp(0.0, 32.0) as i32;
+    if max_radius <= 0 {
+        return src.clone();
+    }
+
+    for y in 0..h {
+        let dy = ((y as f32 / h as f32) * dh as f32).min(dh as f32 - 1.0) as u32;
+        for x in 0..w {
+            let dx = ((x as f32 / w as f32) * dw as f32).min(dw as f32 - 1.0) as u32;
+            let d_val = depth.get_pixel(dx, dy)[0];
+            let coc = ((d_val as f32 - focus_depth as f32).abs() / 255.0) * max_radius as f32;
+            let radius = coc.round() as i32;
+
+            if radius <= 0 {
+                out.put_pixel(x, y, *src.get_pixel(x, y));
+            } else {
+                let mut sum_r = 0.0f32;
+                let mut sum_g = 0.0f32;
+                let mut sum_b = 0.0f32;
+                let mut count = 0.0f32;
+
+                for ky in -radius..=radius {
+                    let py = (y as i32 + ky).clamp(0, h as i32 - 1) as u32;
+                    for kx in -radius..=radius {
+                        if kx * kx + ky * ky <= radius * radius {
+                            let px = (x as i32 + kx).clamp(0, w as i32 - 1) as u32;
+                            let p = src.get_pixel(px, py);
+                            sum_r += p[0] as f32;
+                            sum_g += p[1] as f32;
+                            sum_b += p[2] as f32;
+                            count += 1.0;
+                        }
+                    }
+                }
+
+                if count > 0.0 {
+                    out.put_pixel(
+                        x,
+                        y,
+                        image::Rgb([
+                            (sum_r / count).round().clamp(0.0, 255.0) as u8,
+                            (sum_g / count).round().clamp(0.0, 255.0) as u8,
+                            (sum_b / count).round().clamp(0.0, 255.0) as u8,
+                        ]),
+                    );
+                } else {
+                    out.put_pixel(x, y, *src.get_pixel(x, y));
+                }
+            }
+        }
+    }
+
+    out
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PortraitPersonSubmasks {
+    pub person_id: u32,
+    pub facial_skin_mask_base64: Option<String>,
+    pub body_skin_mask_base64: Option<String>,
+    pub eye_sclera_mask_base64: Option<String>,
+    pub iris_mask_base64: Option<String>,
+    pub teeth_mask_base64: Option<String>,
+    pub lips_mask_base64: Option<String>,
+    pub hair_mask_base64: Option<String>,
+    pub bounding_box: [f64; 4],
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PortraitSegmentationResult {
+    pub persons: Vec<PortraitPersonSubmasks>,
+    pub background_mask_base64: Option<String>,
+}
+
+fn encode_gray_to_base64(image: &GrayImage) -> Option<String> {
+    let mut buf = std::io::Cursor::new(Vec::new());
+    if image.write_to(&mut buf, image::ImageFormat::Png).is_ok() {
+        let base64_str = base64::engine::general_purpose::STANDARD.encode(buf.get_ref());
+        Some(format!("data:image/png;base64,{}", base64_str))
+    } else {
+        None
+    }
+}
+
+pub fn detect_and_segment_portrait_features(
+    img: &DynamicImage,
+) -> PortraitSegmentationResult {
+    let (w, h) = img.dimensions();
+    if w < 100 || h < 100 {
+        return PortraitSegmentationResult {
+            persons: Vec::new(),
+            background_mask_base64: None,
+        };
+    }
+
+    let rgb = img.to_rgb8();
+    let sample_step = 8;
+    let mut skin_points: Vec<(u32, u32)> = Vec::new();
+
+    for y in (0..h).step_by(sample_step) {
+        for x in (0..w).step_by(sample_step) {
+            let p = rgb.get_pixel(x, y);
+            let r = p[0] as f32;
+            let g = p[1] as f32;
+            let b = p[2] as f32;
+
+            let is_skin = r > 60.0 && g > 40.0 && b > 20.0
+                && (r - g).abs() > 12.0
+                && r > g && g >= b
+                && (r / (g + 0.001)) < 2.8;
+
+            if is_skin {
+                skin_points.push((x, y));
+            }
+        }
+    }
+
+    if skin_points.len() < 25 {
+        return PortraitSegmentationResult {
+            persons: Vec::new(),
+            background_mask_base64: None,
+        };
+    }
+
+    // Cluster skin points into primary face/person bounds
+    let min_x = skin_points.iter().map(|p| p.0).min().unwrap_or(0);
+    let max_x = skin_points.iter().map(|p| p.0).max().unwrap_or(w);
+    let min_y = skin_points.iter().map(|p| p.1).min().unwrap_or(0);
+    let max_y = skin_points.iter().map(|p| p.1).max().unwrap_or(h);
+
+    let cluster_w = (max_x - min_x).max(60);
+    let cluster_h = (max_y - min_y).max(60);
+
+    let norm_bbox = [
+        min_x as f64 / w as f64,
+        min_y as f64 / h as f64,
+        cluster_w as f64 / w as f64,
+        cluster_h as f64 / h as f64,
+    ];
+
+    let mut facial_skin_img = GrayImage::new(w, h);
+    let mut body_skin_img = GrayImage::new(w, h);
+    let mut eyes_img = GrayImage::new(w, h);
+    let mut teeth_img = GrayImage::new(w, h);
+    let mut lips_img = GrayImage::new(w, h);
+    let mut hair_img = GrayImage::new(w, h);
+
+    let face_center_x = (min_x + max_x) / 2;
+    let face_top_y = min_y;
+    let face_bottom_y = min_y + (cluster_h * 2 / 3);
+
+    for y in 0..h {
+        for x in 0..w {
+            let p = rgb.get_pixel(x, y);
+            let r = p[0] as f32;
+            let g = p[1] as f32;
+            let b = p[2] as f32;
+            let luma = 0.299 * r + 0.587 * g + 0.114 * b;
+
+            let in_face_bbox = x >= min_x && x <= max_x && y >= face_top_y && y <= face_bottom_y;
+
+            let is_skin = r > 60.0 && g > 40.0 && b > 20.0
+                && (r - g).abs() > 12.0
+                && r > g && g >= b
+                && (r / (g + 0.001)) < 2.8;
+
+            if in_face_bbox {
+                // Lips detection (high red saturation in lower third of face)
+                let in_mouth_zone = y > face_top_y + (cluster_h * 4 / 10) && y <= face_bottom_y;
+                let is_lip_tone = r > g * 1.35 && r > b * 1.35 && luma < 210.0;
+                let is_teeth_tone = in_mouth_zone && luma > 180.0 && (r - g).abs() < 25.0 && (g - b).abs() < 25.0;
+
+                if is_teeth_tone {
+                    teeth_img.put_pixel(x, y, Luma([255]));
+                } else if is_lip_tone && in_mouth_zone {
+                    lips_img.put_pixel(x, y, Luma([255]));
+                } else if is_skin {
+                    facial_skin_img.put_pixel(x, y, Luma([255]));
+                }
+
+                // Eyes detection (upper third of face with high contrast sclera)
+                let in_eye_zone = y >= face_top_y + (cluster_h / 8) && y <= face_top_y + (cluster_h * 4 / 10);
+                if in_eye_zone && ((luma > 195.0 && (r - b).abs() < 30.0) || (luma < 45.0 && (x as i32 - face_center_x as i32).abs() < (cluster_w as i32 / 3))) {
+                    eyes_img.put_pixel(x, y, Luma([255]));
+                }
+            } else if is_skin && y > face_bottom_y {
+                body_skin_img.put_pixel(x, y, Luma([255]));
+            }
+
+            // Hair detection (perimeter above and around face bbox with dark or saturated tones)
+            let in_hair_zone = (x + 20 >= min_x && x <= max_x + 20) && (y + 40 >= min_y.saturating_sub(cluster_h / 3) && y <= face_bottom_y);
+            if in_hair_zone && !in_face_bbox && !is_skin && luma < 120.0 {
+                hair_img.put_pixel(x, y, Luma([255]));
+            }
+        }
+    }
+
+    let person = PortraitPersonSubmasks {
+        person_id: 1,
+        facial_skin_mask_base64: encode_gray_to_base64(&facial_skin_img),
+        body_skin_mask_base64: encode_gray_to_base64(&body_skin_img),
+        eye_sclera_mask_base64: encode_gray_to_base64(&eyes_img),
+        iris_mask_base64: None,
+        teeth_mask_base64: encode_gray_to_base64(&teeth_img),
+        lips_mask_base64: encode_gray_to_base64(&lips_img),
+        hair_mask_base64: encode_gray_to_base64(&hair_img),
+        bounding_box: norm_bbox,
+    };
+
+    PortraitSegmentationResult {
+        persons: vec![person],
+        background_mask_base64: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_hann_window_2d_properties() {
+        let size = 64;
+        let window = generate_hann_window_2d(size);
+        assert_eq!(window.len(), size * size);
+
+        // Center value should be near maximum (1.0)
+        let center_idx = (size / 2) * size + (size / 2);
+        assert!(window[center_idx] > 0.95, "Hann center should be close to 1.0, got {}", window[center_idx]);
+
+        // Corner values should be near zero / min floor
+        let corner_idx = 0;
+        assert!(window[corner_idx] < 0.05, "Hann corner should be close to 0.0, got {}", window[corner_idx]);
+    }
+
+    #[test]
+    fn test_depth_guided_bokeh_preserves_focal_plane() {
+        let (w, h) = (32u32, 32u32);
+        let mut src = image::RgbImage::new(w, h);
+        let mut depth = GrayImage::new(w, h);
+
+        for y in 0..h {
+            for x in 0..w {
+                // In-focus left half has high frequency alternating pixels
+                let v = if (x + y) % 2 == 0 { 240 } else { 20 };
+                src.put_pixel(x, y, image::Rgb([v, v, v]));
+                // Left half is depth 128 (in-focus), right half is depth 255 (background)
+                let d = if x < 16 { 128 } else { 255 };
+                depth.put_pixel(x, y, Luma([d]));
+            }
+        }
+
+        let bokeh = apply_depth_guided_bokeh(&src, &depth, 128, 1.0);
+
+        // In-focus pixel at (4, 4) should remain unchanged (240)
+        let focal_p = bokeh.get_pixel(4, 4);
+        assert_eq!(focal_p[0], 240, "Focal plane pixels must remain perfectly sharp");
+
+        // Out-of-focus background pixel at (24, 24) should be blurred towards average (~130)
+        let background_p = bokeh.get_pixel(24, 24);
+        assert!((background_p[0] as i32 - 130).abs() < 25, "Background should be blurred towards average: got {}", background_p[0]);
+    }
 }

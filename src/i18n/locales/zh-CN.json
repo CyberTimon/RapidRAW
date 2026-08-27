@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "电影感色调映射",
         "basic": "基础",
-        "basicDesc": "标准色调映射"
+        "basicDesc": "标准色调映射",
+        "oklab": "Oklab",
+        "oklabDesc": "感知色彩与高光科学"
       },
       "reset": "重置",
       "shadows": "阴影",
@@ -200,7 +202,8 @@
       "resetAdjustments": "重置调整",
       "stitchPanorama": "拼接全景图",
       "tagging": "标签",
-      "undo": "撤销"
+      "undo": "撤销",
+      "ratingLabel_many": "{{count}} 星"
     },
     "folders": {
       "changeIcon": "更换图标",
@@ -218,12 +221,15 @@
       "removeRoot": "移除根文件夹",
       "renameFolder": "重命名文件夹",
       "showExplorer": "在文件资源管理器中显示",
-      "unpin": "取消固定文件夹"
+      "unpin": "取消固定文件夹",
+      "copyHere_many": "复制 {{count}} 张图像至此",
+      "moveHere_many": "移动 {{count}} 张图像至此"
     },
     "library": {
       "addCopiedToAlbum_one": "将复制的图像添加到相册",
       "addCopiedToAlbum_other": "将 {{count}} 张复制的图像添加到相册",
-      "refreshView": "刷新视图"
+      "refreshView": "刷新视图",
+      "addCopiedToAlbum_many": "将 {{count}} 张复制的图像添加到相册"
     },
     "merge": {
       "focusStack": "焦距合成",
@@ -270,7 +276,19 @@
       "resetAdjustments_one": "重置调整",
       "resetAdjustments_other": "重置 {{count}} 张图像的调整",
       "showExplorer": "在文件资源管理器中显示",
-      "virtualCopy": "虚拟副本"
+      "virtualCopy": "虚拟副本",
+      "autoAdjust_many": "自动调整图像",
+      "collage_many": "创建拼贴画",
+      "convertNegative_many": "转换负片",
+      "copyImage_many": "复制 {{count}} 张图像",
+      "cullImage_many": "筛选图像",
+      "deleteImage_many": "删除 {{count}} 张图像",
+      "denoise_many": "降噪图像",
+      "exportImage_many": "导出 {{count}} 张图像",
+      "pasteAdjustments_many": "粘贴调整到 {{count}} 张图像",
+      "removeFromAlbum_many": "从相册中移除 {{count}} 张图像",
+      "renameImage_many": "重命名 {{count}} 张图像",
+      "resetAdjustments_many": "重置 {{count}} 张图像的调整"
     },
     "toasts": {
       "couldNotShowExplorer": "无法在文件资源管理器中显示文件：{{err}}",
@@ -383,7 +401,11 @@
         "invertedName": "{{name}} 反转",
         "quickErase": "快速擦除 {{count}}",
         "quickErase_one": "快速擦除 {{count}}",
-        "quickErase_other": "快速擦除 {{count}}"
+        "quickErase_other": "快速擦除 {{count}}",
+        "aiEdit_many": "AI 编辑 {{count}}",
+        "clone_many": "克隆 {{count}}",
+        "heal_many": "修复 {{count}}",
+        "quickErase_many": "快速擦除 {{count}}"
       },
       "resetInpaintingTooltip": "重置图像修复",
       "settings": {
@@ -583,7 +605,8 @@
         "invertedName": "{{name}} 反转",
         "maskName": "蒙版 {{count}}",
         "maskName_one": "蒙版 {{count}}",
-        "maskName_other": "蒙版 {{count}}"
+        "maskName_other": "蒙版 {{count}}",
+        "maskName_many": "蒙版 {{count}}"
       },
       "resetMaskingTooltip": "重置蒙版",
       "settings": {
@@ -757,7 +780,8 @@
       "saveEditedImageTitle": "保存编辑后的图像",
       "selectFolderTitle": "选择文件夹以导出 {{count}} 张图像",
       "selectFolderTitle_one": "选择文件夹以导出 {{count}} 张图像",
-      "selectFolderTitle_other": "选择文件夹以导出 {{count}} 张图像"
+      "selectFolderTitle_other": "选择文件夹以导出 {{count}} 张图像",
+      "selectFolderTitle_many": "选择文件夹以导出 {{count}} 张图像"
     },
     "file": {
       "quality": "质量",
@@ -809,7 +833,8 @@
       "failed": "导出失败",
       "noImageSelected": "未选择要导出的图像。",
       "noImagesSelected": "未选择图像。",
-      "success": "导出成功！"
+      "success": "导出成功！",
+      "exportMultiple_many": "导出 {{count}} {{label}}"
     },
     "title": "导出",
     "watermark": {
@@ -996,7 +1021,8 @@
       "tooltipFocalLength": "焦距",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "快门速度",
-      "tooltipVirtualCopy": "虚拟副本"
+      "tooltipVirtualCopy": "虚拟副本",
+      "imagesCount_many": "{{count}} 张图像"
     },
     "search": {
       "noResults": "未找到结果",
@@ -1203,7 +1229,9 @@
       "similarityThresholdDesc": "值越低越严格（完全重复）。值越高越宽松（近似重复）。建议值 24-32。",
       "startCulling": "开始筛选",
       "starting": "启动中...",
-      "title": "筛选图像"
+      "title": "筛选图像",
+      "applyButton_many": "应用到 {{count}} 张图像",
+      "duplicatesHeader_many": "重复项（{{count}}）"
     },
     "denoise": {
       "batchProgressText": "降噪中 {{current}} / {{total}}...",
@@ -1249,7 +1277,8 @@
       "savedSuccess": "焦距合成已成功保存！",
       "stacking": "正在合成焦距",
       "start": "开始",
-      "title": "焦距合成"
+      "title": "焦距合成",
+      "descriptionWithCount_many": "将 {{count}} 张不同对焦距离的图像合并为一张完美清晰的图像。"
     },
     "hdr": {
       "cancel": "取消",
@@ -1267,7 +1296,8 @@
       "savedSuccess": "HDR 保存成功！",
       "speedNotice": "这可能需要几分钟，具体取决于曝光图像的数量和大小。",
       "start": "开始",
-      "title": "合并为 HDR"
+      "title": "合并为 HDR",
+      "descriptionWithCount_many": "将 {{count}} 张包围曝光合并为一张高动态范围图像。"
     },
     "importSettings": {
       "cancel": "取消",
@@ -1337,7 +1367,8 @@
       "resetViewTooltip": "重置视图",
       "title": "负片转换",
       "zoomInTooltip": "放大",
-      "zoomOutTooltip": "缩小"
+      "zoomOutTooltip": "缩小",
+      "convertAndSaveAll_many": "转换并保存全部（{{count}}）"
     },
     "panorama": {
       "cancel": "取消",
@@ -1355,7 +1386,8 @@
       "speedNotice": "这可能需要几分钟，具体取决于图像的数量和大小。",
       "start": "开始",
       "stitchingProgress": "拼接全景图中",
-      "title": "拼接全景图"
+      "title": "拼接全景图",
+      "descCount_many": "将 {{count}} 张重叠图像合并为一张无缝全景图。"
     },
     "renameAlbum": {
       "placeholder": "输入新的相册名称..."
@@ -1368,7 +1400,8 @@
       "titleMultiple": "重命名 {{count}} 张图像",
       "titleMultiple_one": "重命名 {{count}} 张图像",
       "titleMultiple_other": "重命名 {{count}} 张图像",
-      "titleSingle": "重命名图像"
+      "titleSingle": "重命名图像",
+      "titleMultiple_many": "重命名 {{count}} 张图像"
     },
     "renameFolder": {
       "cancel": "取消",
@@ -1478,7 +1511,10 @@
         "processing": "处理中...",
         "sidecarSuccess": "{{count}} 个附属文件已成功删除。",
         "sidecarSuccess_one": "{{count}} 个附属文件已成功删除。",
-        "sidecarSuccess_other": "{{count}} 个附属文件已成功删除。"
+        "sidecarSuccess_other": "{{count}} 个附属文件已成功删除。",
+        "aiSuccess_many": "{{count}} 个文件已更新。AI 标签已移除。",
+        "allSuccess_many": "{{count}} 个文件已更新。所有非颜色标签已移除。",
+        "sidecarSuccess_many": "{{count}} 个附属文件已成功删除。"
       },
       "title": "数据管理"
     },
@@ -1694,7 +1730,8 @@
         "title": "图像预处理",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "基础"
+          "basic": "基础",
+          "oklab": "Oklab (感知)"
         },
         "tonemapperOverride": "全局色调映射覆盖",
         "tonemapperOverrideDesc": "为所有图像全局强制使用特定的色调映射器，从调整面板中隐藏色调映射器开关。"
@@ -1800,7 +1837,8 @@
         "rateStars_one": "评分 1 星",
         "rateStars_other": "评分 {{count}} 星",
         "resetZoom": "重置缩放以适应窗口",
-        "selectToRate": "选择一张图像以评分"
+        "selectToRate": "选择一张图像以评分",
+        "rateStars_many": "评分 {{count}} 星"
       },
       "zoomLabel": "缩放",
       "zoomLabelReset": "重置缩放"

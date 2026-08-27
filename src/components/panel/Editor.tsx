@@ -101,6 +101,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const overlayRotation = useEditorStore((s) => s.overlayRotation);
   const isStraightenActive = useEditorStore((s) => s.isStraightenActive);
   const isWbPickerActive = useEditorStore((s) => s.isWbPickerActive);
+  const isTatActive = useEditorStore((s) => s.isTatActive);
+  const tatMode = useEditorStore((s) => s.tatMode);
   const liveRotation = useEditorStore((s) => s.liveRotation);
   const brushSettings = useEditorStore((s) => s.brushSettings);
   const activeMaskContainerId = useEditorStore((s) => s.activeMaskContainerId);
@@ -211,19 +213,34 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   const handleDisplaySizeChange = useCallback(
     (size: RenderSize) => {
-      setEditor({ displaySize: { width: size.width, height: size.height } });
+      const state = useEditorStore.getState();
+      if (state.displaySize.width !== size.width || state.displaySize.height !== size.height) {
+        setEditor({ displaySize: { width: size.width, height: size.height } });
+      }
       if (size.scale) {
         const baseWidth = size.width / size.scale;
         const baseHeight = size.height / size.scale;
-        const newSize = {
-          width: baseWidth,
-          height: baseHeight,
-          offsetX: size.offsetX || 0,
-          offsetY: size.offsetY || 0,
-          containerWidth: size.containerWidth || 0,
-          containerHeight: size.containerHeight || 0,
-        };
-        setEditor({ baseRenderSize: newSize });
+        const curBase = state.baseRenderSize;
+        if (
+          !curBase ||
+          curBase.width !== baseWidth ||
+          curBase.height !== baseHeight ||
+          curBase.offsetX !== (size.offsetX || 0) ||
+          curBase.offsetY !== (size.offsetY || 0) ||
+          curBase.containerWidth !== (size.containerWidth || 0) ||
+          curBase.containerHeight !== (size.containerHeight || 0)
+        ) {
+          setEditor({
+            baseRenderSize: {
+              width: baseWidth,
+              height: baseHeight,
+              offsetX: size.offsetX || 0,
+              offsetY: size.offsetY || 0,
+              containerWidth: size.containerWidth || 0,
+              containerHeight: size.containerHeight || 0,
+            },
+          });
+        }
       }
     },
     [setEditor],
@@ -619,6 +636,34 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         activeSubMask?.parameters?.isInitialDraw)) ||
     isWbPickerActive;
 
+  const heldSpeedKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      const key = e.key.toLowerCase();
+      if (['q', 'w', 'e', 'r', 't', 'y', 'u'].includes(key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        heldSpeedKeyRef.current = key;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (heldSpeedKeyRef.current === key) {
+        heldSpeedKeyRef.current = null;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
   useEffect(() => {
     const container = imageContainerRef.current;
     if (!container) return;
@@ -627,6 +672,47 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       e.preventDefault();
       if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
       if (physicsFrameId.current) cancelAnimationFrame(physicsFrameId.current);
+
+      // Speed-Edit Quick Dial Gesture
+      const activeSpeedKey = heldSpeedKeyRef.current;
+      if (activeSpeedKey && !e.ctrlKey && !e.metaKey) {
+        const stepDir = e.deltaY < 0 ? 1 : -1;
+        setAdjustments((prev: Adjustments) => {
+          switch (activeSpeedKey.toLowerCase()) {
+            case 'q': {
+              const next = Number(((prev.exposure ?? 0) + stepDir * 0.05).toFixed(2));
+              return { ...prev, exposure: Math.max(-5, Math.min(5, next)) };
+            }
+            case 'w': {
+              const next = Math.max(-100, Math.min(100, (prev.contrast ?? 0) + stepDir * 2));
+              return { ...prev, contrast: next };
+            }
+            case 'e': {
+              const next = Math.max(-100, Math.min(100, (prev.highlights ?? 0) + stepDir * 2));
+              return { ...prev, highlights: next };
+            }
+            case 'r': {
+              const next = Math.max(-100, Math.min(100, (prev.shadows ?? 0) + stepDir * 2));
+              return { ...prev, shadows: next };
+            }
+            case 't': {
+              const next = Math.max(2000, Math.min(12000, (prev.temperature ?? 5500) + stepDir * 50));
+              return { ...prev, temperature: next };
+            }
+            case 'y': {
+              const next = Math.max(-100, Math.min(100, (prev.tint ?? 0) + stepDir * 2));
+              return { ...prev, tint: next };
+            }
+            case 'u': {
+              const next = Math.max(-100, Math.min(100, (prev.saturation ?? 0) + stepDir * 2));
+              return { ...prev, saturation: next };
+            }
+            default:
+              return prev;
+          }
+        });
+        return;
+      }
 
       const isPinch = e.ctrlKey;
 
@@ -2044,55 +2130,59 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
             transform: `translate(${transformState.positionX}px, ${transformState.positionY}px) scale(${transformState.scale})`,
           }}
         >
-          <ImageCanvas
-            appSettings={appSettings}
-            activeAiPatchContainerId={activeAiPatchContainerId}
-            activeAiSubMaskId={activeAiSubMaskId}
-            activeMaskContainerId={activeMaskContainerId}
-            activeMaskId={activeMaskId}
-            adjustments={adjustments}
-            brushSettings={brushSettings}
-            crop={crop}
-            finalPreviewUrl={finalPreviewUrl}
-            handleCropComplete={handleCropComplete}
-            imageRenderSize={imageRenderSize}
-            interactivePatch={interactivePatch}
-            isAiEditing={isAiEditing}
-            isCropping={isCropping}
-            isMaskControlHovered={isMaskControlHovered}
-            isMasking={isMasking}
-            isStraightenActive={isStraightenActive}
-            isRotationActive={isRotationActive}
-            isSliderDragging={isSliderDragging}
-            maskOverlayUrl={maskOverlayUrl}
-            onGenerateAiMask={handleGenerateAiMask}
-            onSelectAiPatchContainer={(id) => setEditor({ activeAiPatchContainerId: id })}
-            onSelectMaskContainer={(id) => setEditor({ activeMaskContainerId: id })}
-            onLiveMaskPreview={handleLiveMaskPreview}
-            onManualCleanup={handleManualCleanup}
-            onQuickErase={handleQuickErase}
-            onSelectAiSubMask={(id) => setEditor({ activeAiSubMaskId: id })}
-            onSelectMask={(id) => setEditor({ activeMaskId: id })}
-            onStraighten={handleStraighten}
-            selectedImage={selectedImage}
-            setCrop={handleCropChange}
-            setIsMaskHovered={setIsMaskHovered}
-            setIsMaskTouchInteracting={setIsMaskTouchInteracting}
-            showOriginal={showOriginal}
-            transformedOriginalUrl={transformedOriginalUrl}
-            uncroppedAdjustedPreviewUrl={uncroppedAdjustedPreviewUrl}
-            updateSubMask={updateSubMaskLocal}
-            isWbPickerActive={isWbPickerActive}
-            onWbPicked={handleWbPicked}
-            setAdjustments={setAdjustments}
-            overlayRotation={overlayRotation}
-            overlayMode={overlayMode}
-            cursorStyle={cursorStyle}
-            isMaxZoom={isMaxZoom}
-            liveRotation={liveRotation}
-            transformState={transformState}
-            hasRenderedFirstFrame={hasRenderedFirstFrame}
-          />
+          {selectedImage && (
+            <ImageCanvas
+              appSettings={appSettings}
+              activeAiPatchContainerId={activeAiPatchContainerId}
+              activeAiSubMaskId={activeAiSubMaskId}
+              activeMaskContainerId={activeMaskContainerId}
+              activeMaskId={activeMaskId}
+              adjustments={adjustments}
+              brushSettings={brushSettings}
+              crop={crop}
+              finalPreviewUrl={finalPreviewUrl}
+              handleCropComplete={handleCropComplete}
+              imageRenderSize={imageRenderSize}
+              interactivePatch={interactivePatch}
+              isAiEditing={isAiEditing}
+              isCropping={isCropping}
+              isMaskControlHovered={isMaskControlHovered}
+              isMasking={isMasking}
+              isStraightenActive={isStraightenActive}
+              isRotationActive={isRotationActive}
+              isSliderDragging={isSliderDragging}
+              maskOverlayUrl={maskOverlayUrl}
+              onGenerateAiMask={handleGenerateAiMask}
+              onSelectAiPatchContainer={(id) => setEditor({ activeAiPatchContainerId: id })}
+              onSelectMaskContainer={(id) => setEditor({ activeMaskContainerId: id })}
+              onLiveMaskPreview={handleLiveMaskPreview}
+              onManualCleanup={handleManualCleanup}
+              onQuickErase={handleQuickErase}
+              onSelectAiSubMask={(id) => setEditor({ activeAiSubMaskId: id })}
+              onSelectMask={(id) => setEditor({ activeMaskId: id })}
+              onStraighten={handleStraighten}
+              selectedImage={selectedImage}
+              setCrop={handleCropChange}
+              setIsMaskHovered={setIsMaskHovered}
+              setIsMaskTouchInteracting={setIsMaskTouchInteracting}
+              showOriginal={showOriginal}
+              transformedOriginalUrl={transformedOriginalUrl}
+              uncroppedAdjustedPreviewUrl={uncroppedAdjustedPreviewUrl}
+              updateSubMask={updateSubMaskLocal}
+              isWbPickerActive={isWbPickerActive}
+              isTatActive={isTatActive}
+              tatMode={tatMode}
+              onWbPicked={handleWbPicked}
+              setAdjustments={setAdjustments}
+              overlayRotation={overlayRotation}
+              overlayMode={overlayMode}
+              cursorStyle={cursorStyle}
+              isMaxZoom={isMaxZoom}
+              liveRotation={liveRotation}
+              transformState={transformState}
+              hasRenderedFirstFrame={hasRenderedFirstFrame}
+            />
+          )}
         </div>
       </div>
     </div>

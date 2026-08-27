@@ -6,6 +6,7 @@ version = 4
 name = "RapidRAW"
 version = "0.0.0"
 dependencies = [
+ "ab_glyph",
  "anyhow",
  "base64 0.22.1",
  "blake3",
@@ -67,6 +68,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-plugin-single-instance",
  "tempfile",
+ "tiff",
  "tokenizers",
  "tokio",
  "trash",

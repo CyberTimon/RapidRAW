@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Mapowanie tonów w stylu filmowym",
         "basic": "Podstawowe",
-        "basicDesc": "Standardowe mapowanie tonów"
+        "basicDesc": "Standardowe mapowanie tonów",
+        "oklab": "Oklab",
+        "oklabDesc": "Perceptual Color & Highlight Science"
       },
       "reset": "Resetuj",
       "shadows": "Cienie",
@@ -1764,7 +1766,8 @@
         "title": "Wstępne przetwarzanie obrazu",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Podstawowe"
+          "basic": "Podstawowe",
+          "oklab": "Oklab (Perceptual)"
         },
         "tonemapperOverride": "Globalne nadpisywanie mapowania tonów",
         "tonemapperOverrideDesc": "Wymusza konkretne mapowanie tonów globalnie dla wszystkich obrazów, ukrywając pole wyboru mapera z panelu edycji."

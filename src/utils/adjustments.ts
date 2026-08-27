@@ -235,7 +235,7 @@ export interface Adjustments {
   structure: number;
   temperature: number;
   tint: number;
-  toneMapper: 'agx' | 'basic';
+  toneMapper: 'agx' | 'basic' | 'oklab';
   transformDistortion: number;
   transformVertical: number;
   transformHorizontal: number;

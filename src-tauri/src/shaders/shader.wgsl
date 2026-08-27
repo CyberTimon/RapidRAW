@@ -243,6 +243,60 @@ fn linear_to_srgb_extended(c: vec3<f32>) -> vec3<f32> {
     return select(higher, lower, safe_c <= cutoff);
 }
 
+// Convert Linear sRGB to Oklab perceptual color space
+fn linear_srgb_to_oklab(c: vec3<f32>) -> vec3<f32> {
+    let l = 0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b;
+    let m = 0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b;
+    let s = 0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b;
+
+    let l_ = pow(max(l, 0.0), 1.0 / 3.0);
+    let m_ = pow(max(m, 0.0), 1.0 / 3.0);
+    let s_ = pow(max(s, 0.0), 1.0 / 3.0);
+
+    return vec3<f32>(
+        0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+        1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+        0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+    );
+}
+
+// Convert Oklab perceptual color space to Linear sRGB
+fn oklab_to_linear_srgb(c: vec3<f32>) -> vec3<f32> {
+    let l_ = c.x + 0.3963377774 * c.y + 0.2158037573 * c.z;
+    let m_ = c.x - 0.1055613458 * c.y - 0.0638541728 * c.z;
+    let s_ = c.x - 0.0894841775 * c.y - 1.2914855480 * c.z;
+
+    let l = l_ * l_ * l_;
+    let m = m_ * m_ * m_;
+    let s = s_ * s_ * s_;
+
+    return vec3<f32>(
+        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+    );
+}
+
+// Oklab perceptual tone transformation with smooth highlight shoulder compression
+fn oklab_full_transform(linear_rgb: vec3<f32>) -> vec3<f32> {
+    let safe_rgb = max(linear_rgb, vec3<f32>(0.0));
+    var lab = linear_srgb_to_oklab(safe_rgb);
+
+    // Perceptual lightness curve with smooth highlight roll-off
+    let l = lab.x;
+    let compressed_l = l / pow(1.0 + pow(l, 1.25), 1.0 / 1.25);
+    let target_l = clamp(compressed_l * 1.35, 0.0, 1.0);
+
+    // Gentle chroma compression in extreme highlights to prevent gamut clipping
+    let chroma_scale = clamp(1.0 - smoothstep(0.75, 1.0, target_l) * 0.35, 0.0, 1.0);
+    lab.x = target_l;
+    lab.y *= chroma_scale;
+    lab.z *= chroma_scale;
+
+    let out_linear = max(oklab_to_linear_srgb(lab), vec3<f32>(0.0));
+    return linear_to_srgb(out_linear);
+}
+
 fn rgb_to_hsv(c: vec3<f32>) -> vec3<f32> {
     let c_max = max(c.r, max(c.g, c.b));
     let c_min = min(c.r, min(c.g, c.b));
@@ -283,6 +337,98 @@ fn apply_hue_shift(color: vec3<f32>, shift_degrees: f32) -> vec3<f32> {
     shifted_h = (shifted_h + 360.0) % 360.0;
     let shifted_srgb = hsv_to_rgb(vec3<f32>(shifted_h, hsv.y, hsv.z));
     return srgb_to_linear(shifted_srgb);
+}
+
+// Analytical Memory Color Enhancement for RAW sensor spectra (Foliage, Sky, Skin)
+fn apply_analytical_memory_colors(linear_rgb: vec3<f32>) -> vec3<f32> {
+    let safe_rgb = max(linear_rgb, vec3<f32>(0.0));
+    let srgb = linear_to_srgb_extended(safe_rgb);
+    var hsv = rgb_to_hsv(srgb);
+    let hue = hsv.x;
+    let sat = hsv.y;
+
+    if (sat < 0.015) {
+        return safe_rgb;
+    }
+
+    // 1. Sky & Cyan-Blue correction (200° - 255°)
+    // RAW 3x3 matrices shift skies towards purplish-blue. Shift toward rich cobalt-cyan.
+    let sky_mask = smoothstep(190.0, 215.0, hue) * (1.0 - smoothstep(245.0, 265.0, hue));
+    let sky_sat_mod = 1.0 + (0.16 * sky_mask);
+    let sky_hue_shift = -8.5 * sky_mask;
+
+    // 2. Foliage & Nature Greens (65° - 135°)
+    // RAW chlorophyll greens appear yellowish/olive. Shift towards lush emerald green.
+    let green_mask = smoothstep(55.0, 75.0, hue) * (1.0 - smoothstep(125.0, 150.0, hue));
+    let green_sat_mod = 1.0 + (0.14 * green_mask);
+    let green_hue_shift = 11.0 * green_mask;
+
+    // 3. Warm Skin-Tone Harmony (12° - 42°)
+    // Stabilize human skin tones around ~28° and prevent oversaturation/sunburned look
+    let skin_mask = smoothstep(8.0, 18.0, hue) * (1.0 - smoothstep(40.0, 52.0, hue));
+    let skin_hue_target = 28.0;
+    let skin_hue_delta = (skin_hue_target - hue) * 0.22 * skin_mask;
+    let skin_sat_mod = 1.0 + (0.05 * skin_mask);
+
+    // Apply composite adjustments
+    var new_hue = hue + sky_hue_shift + green_hue_shift + skin_hue_delta;
+    new_hue = (new_hue + 360.0) % 360.0;
+    let new_sat = clamp(sat * sky_sat_mod * green_sat_mod * skin_sat_mod, 0.0, 1.0);
+
+    let tuned_srgb = hsv_to_rgb(vec3<f32>(new_hue, new_sat, hsv.z));
+    return srgb_to_linear(tuned_srgb);
+}
+
+// Asymmetric Sigmoidal Photographic S-Curve & Perceptual Color Engine for RAW Images
+fn raw_photographic_transform(composite_linear: vec3<f32>) -> vec3<f32> {
+    // 1. Analytical Memory Color Vector Tuning
+    let color_tuned = apply_analytical_memory_colors(composite_linear);
+
+    // 2. Transform to Oklab perceptual color space
+    let safe_rgb = max(color_tuned, vec3<f32>(0.0));
+    var lab = linear_srgb_to_oklab(safe_rgb);
+    let L = lab.x;
+    let C = length(lab.yz);
+    let h = atan2(lab.z, lab.y);
+
+    if (L <= 0.0001) {
+        return vec3<f32>(0.0);
+    }
+
+    // 3. Photographic Exposure Baseline Lift (+0.55 EV equivalent in linear light)
+    const BASELINE_GAIN: f32 = 1.45;
+    let L_gain = L * BASELINE_GAIN;
+
+    // 4. Asymmetric Photographic Sigmoidal Tone Curve on Lightness (L)
+    // - Sharp midtone contrast slope (gamma = 1.32) around 18% middle gray (sigma = 0.20)
+    // - Deep toe anchoring true zero black
+    // - Smooth asymptotic shoulder compression for highlights
+    const SIGMOID_GAMMA: f32 = 1.32;
+    const SIGMOID_SIGMA: f32 = 0.20;
+    let L_pow = pow(L_gain, SIGMOID_GAMMA);
+    let sigma_pow = pow(SIGMOID_SIGMA, SIGMOID_GAMMA);
+    let sigmoid_L = L_pow / (L_pow + sigma_pow);
+
+    // Scale curve so standard diffuse white settles smoothly around 1.0
+    const CURVE_SCALE: f32 = 1.16;
+    let target_L = clamp(sigmoid_L * CURVE_SCALE, 0.0, 1.0);
+
+    // 5. Perceptual Chroma Preservation
+    // Scale chroma with lightness change so contrast does not desaturate the image
+    let luma_ratio = target_L / max(L, 0.001);
+    let chroma_scale = clamp(pow(luma_ratio, 0.65), 0.5, 1.5);
+    var target_C = C * chroma_scale;
+
+    // 6. Filmic Highlight Desaturation (Path-to-White)
+    // Natural specular highlights and sun reflections roll off smoothly to neutral white
+    let highlight_burn = smoothstep(0.78, 1.0, target_L);
+    target_C *= (1.0 - highlight_burn * 0.75);
+
+    // 7. Reconstruct Oklab coordinates & convert back to Linear sRGB
+    let reconstructed_lab = vec3<f32>(target_L, target_C * cos(h), target_C * sin(h));
+    let linear_out = max(oklab_to_linear_srgb(reconstructed_lab), vec3<f32>(0.0));
+
+    return linear_to_srgb(linear_out);
 }
 
 fn get_raw_hsl_influence(hue: f32, center: f32, width: f32) -> f32 {
@@ -473,41 +619,45 @@ fn apply_highlights_adjustment(
 ) -> vec3<f32> {
     if (highlights_adj == 0.0) { return color_in; }
 
-    let pixel_luma = get_luma(max(color_in, vec3<f32>(0.0)));
-    let safe_pixel_luma = max(pixel_luma, 0.0001);
+    let safe_rgb = max(color_in, vec3<f32>(0.0));
+    var lab = linear_srgb_to_oklab(safe_rgb);
+    let luma = lab.x;
 
-    let pixel_mask_input = tanh(safe_pixel_luma * 1.5);
-    let highlight_mask = smoothstep(0.3, 0.95, pixel_mask_input);
-
-    if (highlight_mask < 0.001) {
+    // Perceptual highlight mask focused on upper midtones and highlights
+    let highlight_mask = smoothstep(0.35, 0.95, luma);
+    if (highlight_mask < 0.0001) {
         return color_in;
     }
 
-    let luma = pixel_luma;
-    var final_adjusted_color: vec3<f32>;
-
     if (highlights_adj < 0.0) {
-        var new_luma: f32;
-        if (luma <= 1.0) {
-            let gamma = 1.0 - highlights_adj * 1.75;
-            new_luma = pow(luma, gamma);
-        } else {
-            let luma_excess = luma - 1.0;
-            let compression_strength = -highlights_adj * 6.0;
-            let compressed_excess = luma_excess / (1.0 + luma_excess * compression_strength);
-            new_luma = 1.0 + compressed_excess;
-        }
-        let tonally_adjusted_color = color_in * (new_luma / max(luma, 0.0001));
-        let desaturation_amount = smoothstep(1.0, 10.0, luma);
-        let white_point = vec3<f32>(new_luma);
-        final_adjusted_color = mix(tonally_adjusted_color, white_point, desaturation_amount);
-    } else {
-        let adjustment = highlights_adj * 1.75;
-        let factor = pow(2.0, adjustment);
-        final_adjusted_color = color_in * factor;
-    }
+        // High-fidelity Sigmoid compression for highlight recovery (Capture One / Darktable Sigmoid grade)
+        let strength = -highlights_adj; // 0.0 to 1.0
 
-    return mix(color_in, final_adjusted_color, highlight_mask);
+        // Asymptotic Sigmoidal compression on Oklab lightness above knee threshold
+        let knee = 0.50;
+        let diff = max(luma - knee, 0.0);
+        let compression_factor = 1.0 / (1.0 + diff * strength * 2.85);
+        let new_luma = knee + diff * compression_factor;
+
+        // Chromatic saturation preservation:
+        // When pulling down overexposed areas, boost chroma proportionally to prevent washed-out grey clouds / cyan shifts
+        let chroma_boost = 1.0 + strength * 0.45 * smoothstep(knee, 1.2, luma);
+
+        let recovered_lab = vec3<f32>(
+            new_luma,
+            lab.y * chroma_boost,
+            lab.z * chroma_boost
+        );
+
+        let recovered_rgb = max(oklab_to_linear_srgb(recovered_lab), vec3<f32>(0.0));
+        return mix(color_in, recovered_rgb, highlight_mask);
+    } else {
+        // Smooth photographic highlight boost
+        let boost = highlights_adj * 1.5;
+        let factor = pow(2.0, boost);
+        let boosted_rgb = color_in * factor;
+        return mix(color_in, boosted_rgb, highlight_mask);
+    }
 }
 
 fn apply_linear_exposure(color_in: vec3<f32>, exposure_adj: f32) -> vec3<f32> {
@@ -1344,6 +1494,36 @@ fn no_tonemap(c: vec3<f32>) -> vec3<f32> {
     return c;
 }
 
+// ACEScg (AP1) to sRGB and sRGB to ACEScg conversion matrices
+const ACEScg_to_sRGB_mat = mat3x3<f32>(
+    vec3<f32>(1.70505, -0.13008, -0.02400),
+    vec3<f32>(-0.62423, 1.17144, -0.12970),
+    vec3<f32>(-0.08082, -0.04136, 1.15370)
+);
+
+const sRGB_to_ACEScg_mat = mat3x3<f32>(
+    vec3<f32>(0.613097, 0.070194, 0.020616),
+    vec3<f32>(0.339523, 0.916354, 0.109570),
+    vec3<f32>(0.047379, 0.013452, 0.869814)
+);
+
+fn acescg_rrt_odt_fit(c: vec3<f32>) -> vec3<f32> {
+    let a: f32 = 2.51;
+    let b: f32 = 0.03;
+    let c_val: f32 = 2.43;
+    let d: f32 = 0.59;
+    let e: f32 = 0.14;
+    let v = max(c, vec3<f32>(0.0));
+    return clamp((v * (a * v + b)) / (v * (c_val * v + d) + e), vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
+fn acescg_full_transform(color_in: vec3<f32>) -> vec3<f32> {
+    let in_aces = sRGB_to_ACEScg_mat * max(color_in, vec3<f32>(0.0));
+    let tonemapped_aces = acescg_rrt_odt_fit(in_aces);
+    let srgb_out = ACEScg_to_sRGB_mat * tonemapped_aces;
+    return linear_to_srgb(clamp(srgb_out, vec3<f32>(0.0), vec3<f32>(1.0)));
+}
+
 fn is_default_curve(points: array<Point, 16>, count: u32) -> bool {
     if (count < 2u) {
         return false;
@@ -1815,13 +1995,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var base_srgb: vec3<f32>;
     if (adjustments.global.tonemapper_mode == 1u) {
         base_srgb = agx_full_transform(composite_rgb_linear);
+    } else if (adjustments.global.tonemapper_mode == 2u) {
+        base_srgb = acescg_full_transform(composite_rgb_linear);
+    } else if (adjustments.global.tonemapper_mode == 3u) {
+        base_srgb = oklab_full_transform(composite_rgb_linear);
     } else if (is_raw == 1u) {
-        var srgb_emulated = linear_to_srgb(composite_rgb_linear);
-        const BRIGHTNESS_GAMMA: f32 = 1.1;
-        srgb_emulated = pow(srgb_emulated, vec3<f32>(1.0 / BRIGHTNESS_GAMMA));
-        const CONTRAST_MIX: f32 = 0.75;
-        let contrast_curve = srgb_emulated * srgb_emulated * (3.0 - 2.0 * srgb_emulated);
-        base_srgb = mix(srgb_emulated, contrast_curve, CONTRAST_MIX);
+        base_srgb = raw_photographic_transform(composite_rgb_linear);
     } else {
         base_srgb = linear_to_srgb(composite_rgb_linear);
     }

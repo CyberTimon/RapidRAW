@@ -319,6 +319,99 @@ pub fn read_iso(path: &str, file_bytes: &[u8]) -> Option<u32> {
     None
 }
 
+pub fn read_f_number(path: &str, file_bytes: &[u8]) -> Option<f32> {
+    if let Some(map) = read_rrexif_sidecar(Path::new(path))
+        && let Some(val_str) = map.get("FNumber").or(map.get("ApertureValue"))
+    {
+        let cleaned = val_str.replace("f/", "").replace("F/", "").trim().to_string();
+        if let Ok(val) = cleaned.parse::<f32>() {
+            if val > 0.1 && val < 128.0 {
+                return Some(val);
+            }
+        }
+    }
+
+    if is_raw_file(path)
+        && let Some(meta) = read_raw_metadata(file_bytes)
+    {
+        if let Some(r) = meta.exif.fnumber {
+            if r.d != 0 {
+                let val = r.n as f32 / r.d as f32;
+                if val > 0.1 && val < 128.0 {
+                    return Some(val);
+                }
+            }
+        } else if let Some(r) = meta.exif.aperture_value {
+            if r.d != 0 {
+                let apex = r.n as f32 / r.d as f32;
+                let val = (2.0f32).powf(apex / 2.0);
+                if val > 0.1 && val < 128.0 {
+                    return Some(val);
+                }
+            }
+        }
+    }
+
+    if let Some(exif) = read_exif(file_bytes) {
+        if let Some(f_field) = exif.get_field(exif::Tag::FNumber, In::PRIMARY) {
+            if let Value::Rational(ref r) = f_field.value {
+                if let Some(val) = r.first() {
+                    if val.denom != 0 {
+                        let res = val.num as f32 / val.denom as f32;
+                        if res > 0.1 && res < 128.0 {
+                            return Some(res);
+                        }
+                    }
+                }
+            }
+        } else if let Some(a_field) = exif.get_field(exif::Tag::ApertureValue, In::PRIMARY) {
+            if let Value::Rational(ref r) = a_field.value {
+                if let Some(val) = r.first() {
+                    if val.denom != 0 {
+                        let apex = val.num as f32 / val.denom as f32;
+                        let res = (2.0f32).powf(apex / 2.0);
+                        if res > 0.1 && res < 128.0 {
+                            return Some(res);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+pub fn read_camera_make_model(path: &str, file_bytes: &[u8]) -> Option<(String, String)> {
+    if let Some(map) = read_rrexif_sidecar(Path::new(path)) {
+        let make = map.get("Make").cloned().unwrap_or_default();
+        let model = map.get("Model").cloned().unwrap_or_default();
+        if !make.is_empty() || !model.is_empty() {
+            return Some((make, model));
+        }
+    }
+
+    if is_raw_file(path)
+        && let Some(meta) = read_raw_metadata(file_bytes)
+    {
+        if !meta.make.is_empty() || !meta.model.is_empty() {
+            return Some((meta.make.clone(), meta.model.clone()));
+        }
+    }
+
+    if let Some(exif) = read_exif(file_bytes) {
+        let make = exif.get_field(exif::Tag::Make, In::PRIMARY)
+            .map(|f| f.display_value().to_string().replace('"', "").trim().to_string())
+            .unwrap_or_default();
+        let model = exif.get_field(exif::Tag::Model, In::PRIMARY)
+            .map(|f| f.display_value().to_string().replace('"', "").trim().to_string())
+            .unwrap_or_default();
+        if !make.is_empty() || !model.is_empty() {
+            return Some((make, model));
+        }
+    }
+    None
+}
+
 pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
     let mut map = HashMap::new();
 
@@ -1298,22 +1391,45 @@ pub fn write_image_with_metadata(
 pub fn get_primary_sidecar_path(image_path: &Path) -> PathBuf {
     let mut filename = image_path.file_name().unwrap_or_default().to_os_string();
     filename.push(".rrdata");
-    image_path.with_file_name(filename)
+    let parent = image_path.parent().unwrap_or_else(|| Path::new(""));
+    let subfolder_sidecar = parent.join(".rapidraw").join(&filename);
+    let legacy_sidecar = image_path.with_file_name(&filename);
+
+    if subfolder_sidecar.exists() {
+        subfolder_sidecar
+    } else if legacy_sidecar.exists() {
+        legacy_sidecar
+    } else {
+        subfolder_sidecar
+    }
 }
 
 pub fn get_rrexif_path(image_path: &Path) -> PathBuf {
     let mut filename = image_path.file_name().unwrap_or_default().to_os_string();
     filename.push(".rrexif");
-    image_path.with_file_name(filename)
+    let parent = image_path.parent().unwrap_or_else(|| Path::new(""));
+    let subfolder_rrexif = parent.join(".rapidraw").join(&filename);
+    let legacy_rrexif = image_path.with_file_name(&filename);
+
+    if subfolder_rrexif.exists() {
+        subfolder_rrexif
+    } else if legacy_rrexif.exists() {
+        legacy_rrexif
+    } else {
+        subfolder_rrexif
+    }
 }
 
-fn load_primary_metadata(image_path: &Path) -> ImageMetadata {
+pub fn load_primary_metadata(image_path: &Path) -> ImageMetadata {
     let primary = get_primary_sidecar_path(image_path);
     load_sidecar(&primary)
 }
 
 fn save_primary_metadata(image_path: &Path, metadata: &ImageMetadata) -> std::io::Result<()> {
     let primary = get_primary_sidecar_path(image_path);
+    if let Some(parent) = primary.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
     let json = serde_json::to_string_pretty(metadata).map_err(std::io::Error::other)?;
     fs::write(&primary, json)
 }
@@ -1437,4 +1553,27 @@ pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> 
     metadata.exif = Some(exif_data);
     save_primary_metadata(target_image_path, &metadata)
         .map_err(|e| format!("Failed to write sidecar: {}", e))
+}
+
+/// Generates standard Google Photosphere GPano XMP metadata payload for 360° VR and photosphere viewers.
+pub fn generate_gpano_xmp(full_w: u32, full_h: u32, is_spherical: bool) -> String {
+    let proj_type = if is_spherical { "equirectangular" } else { "cylindrical" };
+    format!(
+        r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.1.0-jc003">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:Description rdf:about=""
+        xmlns:GPano="http://ns.google.com/photos/1.0/panorama/">
+      <GPano:UsePanoramaViewer>True</GPano:UsePanoramaViewer>
+      <GPano:ProjectionType>{}</GPano:ProjectionType>
+      <GPano:FullPanoWidthPixels>{}</GPano:FullPanoWidthPixels>
+      <GPano:FullPanoHeightPixels>{}</GPano:FullPanoHeightPixels>
+      <GPano:CroppedAreaImageWidthPixels>{}</GPano:CroppedAreaImageWidthPixels>
+      <GPano:CroppedAreaImageHeightPixels>{}</GPano:CroppedAreaImageHeightPixels>
+      <GPano:CroppedAreaLeftPixels>0</GPano:CroppedAreaLeftPixels>
+      <GPano:CroppedAreaTopPixels>0</GPano:CroppedAreaTopPixels>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>"#,
+        proj_type, full_w, full_h, full_w, full_h
+    )
 }

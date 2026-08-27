@@ -1,5 +1,5 @@
 use crate::AppState;
-use crate::fast_resizer::{fast_resize_rgb32f, MultiResPyramid};
+use crate::fast_resizer::{fast_downscale_dynamic, fast_resize_rgb32f};
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ pub struct SuperResolutionResult {
     pub processing_time_ms: u64,
 }
 
-/// Neural / edge-preserving multi-threaded Super-Resolution pipeline
+/// Neural / edge-preserving multi-threaded Super-Resolution pipeline with lean memory streaming
 pub fn perform_super_resolution(
     src: &DynamicImage,
     options: &SuperResolutionOptions,
@@ -39,21 +39,36 @@ pub fn perform_super_resolution(
         format!("Upscaling from {}x{} to {}x{} ({}x)...", src_w, src_h, dst_w, dst_h, factor),
     );
 
-    // 1. High-fidelity SIMD Lanczos3 base reconstruction
+    // 1. High-fidelity SIMD Lanczos3 base reconstruction (single allocation)
     let src_rgb32f = src.to_rgb32f();
     let upscaled_base = fast_resize_rgb32f(&src_rgb32f, dst_w, dst_h);
-    let rgb32f = upscaled_base;
 
     let _ = app_handle.emit("upscale-progress", "Synthesizing high-frequency edge textures...");
 
     let tex_gain = options.texture_enhancement.clamp(0.0, 1.0) * 0.40;
     let noise_suppress = options.noise_suppression.clamp(0.0, 1.0) * 0.15;
 
-    // 2. Parallel directional gradient & texture synthesis
+    // 2. Parallel directional gradient & texture synthesis with zero-clone line buffers
     let row_stride = (dst_w * 3) as usize;
-    let mut raw_pixels = rgb32f.clone().into_raw();
-    let src_snapshot = rgb32f.clone();
+    let mut raw_pixels = upscaled_base.into_raw();
 
+    // Pre-calculate luminance in lightweight row slices to avoid cloning multi-gigabyte images
+    let luma_stride = dst_w as usize;
+    let mut luma_map = vec![0.0f32; (dst_w * dst_h) as usize];
+
+    luma_map
+        .par_chunks_mut(luma_stride)
+        .zip(raw_pixels.par_chunks(row_stride))
+        .for_each(|(luma_row, pixel_row)| {
+            for x in 0..dst_w as usize {
+                let r = pixel_row[x * 3];
+                let g = pixel_row[x * 3 + 1];
+                let b = pixel_row[x * 3 + 2];
+                luma_row[x] = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            }
+        });
+
+    // In-place Laplacian detail sharpening
     raw_pixels
         .par_chunks_mut(row_stride)
         .enumerate()
@@ -63,38 +78,36 @@ pub fn perform_super_resolution(
                 return;
             }
 
-            for x in 1..(dst_w - 1) {
-                let cp = src_snapshot.get_pixel(x, y);
-                let clum = 0.2126 * cp[0] + 0.7152 * cp[1] + 0.0722 * cp[2];
+            let prev_row_idx = (y as usize - 1) * luma_stride;
+            let curr_row_idx = y as usize * luma_stride;
+            let next_row_idx = (y as usize + 1) * luma_stride;
 
-                // 4-neighbor laplacian detail extraction
-                let p_l = src_snapshot.get_pixel(x - 1, y);
-                let p_r = src_snapshot.get_pixel(x + 1, y);
-                let p_t = src_snapshot.get_pixel(x, y - 1);
-                let p_b = src_snapshot.get_pixel(x, y + 1);
-
-                let lum_l = 0.2126 * p_l[0] + 0.7152 * p_l[1] + 0.0722 * p_l[2];
-                let lum_r = 0.2126 * p_r[0] + 0.7152 * p_r[1] + 0.0722 * p_r[2];
-                let lum_t = 0.2126 * p_t[0] + 0.7152 * p_t[1] + 0.0722 * p_t[2];
-                let lum_b = 0.2126 * p_b[0] + 0.7152 * p_b[1] + 0.0722 * p_b[2];
+            for x in 1..(dst_w as usize - 1) {
+                let clum = luma_map[curr_row_idx + x];
+                let lum_l = luma_map[curr_row_idx + x - 1];
+                let lum_r = luma_map[curr_row_idx + x + 1];
+                let lum_t = luma_map[prev_row_idx + x];
+                let lum_b = luma_map[next_row_idx + x];
 
                 let lap = 4.0 * clum - lum_l - lum_r - lum_t - lum_b;
                 let edge_mag = (lum_r - lum_l).abs() + (lum_b - lum_t).abs();
 
-                // Non-linear texture sharpening: enhance real edges, suppress random flat sensor noise
+                // Non-linear texture sharpening: enhance real edges, suppress flat sensor noise
                 let edge_weight = if edge_mag > noise_suppress {
                     (edge_mag / (edge_mag + 0.08)) * tex_gain
                 } else {
                     0.0
                 };
 
-                let out_idx = (x * 3) as usize;
+                let out_idx = x * 3;
                 for c in 0..3 {
-                    let val = cp[c] + lap * edge_weight;
+                    let val = row_slice[out_idx + c] + lap * edge_weight;
                     row_slice[out_idx + c] = val.clamp(0.0, 1.0);
                 }
             }
         });
+
+    drop(luma_map);
 
     let buffer = ImageBuffer::<Rgb<f32>, _>::from_raw(dst_w, dst_h, raw_pixels)
         .ok_or_else(|| "Failed to construct super-resolution buffer".to_string())?;
@@ -124,16 +137,17 @@ pub fn upscale_active_image(
         let upscaled = perform_super_resolution(&loaded_image.image, &options, &app_handle)?;
         let (nw, nh) = upscaled.dimensions();
 
-        // Rebuild pyramid for instant responsive zooming
-        let new_pyramid = MultiResPyramid::build(&upscaled);
-        loaded_image.pyramid = Some(Arc::new(new_pyramid));
-        loaded_image.image = Arc::new(upscaled.clone());
+        // Build screen proxy to keep RAM usage minimal
+        let new_proxy = fast_downscale_dynamic(&upscaled, 2560, 2560);
+        let upscaled_arc = Arc::new(upscaled);
+        loaded_image.screen_proxy = Some(Arc::new(new_proxy));
+        loaded_image.image = Arc::clone(&upscaled_arc);
 
-        // Update cached preview
+        // Update cached preview efficiently
         if let Ok(mut preview_guard) = state.cached_preview.lock()
             && let Some(cached) = &mut *preview_guard
         {
-            cached.image = Arc::new(upscaled);
+            cached.image = upscaled_arc;
         }
 
         let elapsed = start_time.elapsed().as_millis() as u64;

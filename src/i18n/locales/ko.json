@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "필름 같은 톤 매핑",
         "basic": "기본",
-        "basicDesc": "표준 톤 매핑"
+        "basicDesc": "표준 톤 매핑",
+        "oklab": "Oklab",
+        "oklabDesc": "지각 색상 및 하이라이트 과학"
       },
       "reset": "초기화",
       "shadows": "섀도우",
@@ -200,7 +202,8 @@
       "resetAdjustments": "조정값 초기화",
       "stitchPanorama": "파노라마 스티칭",
       "tagging": "태그 지정",
-      "undo": "실행 취소"
+      "undo": "실행 취소",
+      "ratingLabel_many": "{{count}}점"
     },
     "folders": {
       "changeIcon": "아이콘 변경",
@@ -218,12 +221,15 @@
       "removeRoot": "루트 폴더 제거",
       "renameFolder": "폴더 이름 변경",
       "showExplorer": "파일 탐색기에서 표시",
-      "unpin": "폴더 고정 해제"
+      "unpin": "폴더 고정 해제",
+      "copyHere_many": "여기에 이미지 {{count}}개 복사",
+      "moveHere_many": "여기로 이미지 {{count}}개 이동"
     },
     "library": {
       "addCopiedToAlbum_one": "복사한 이미지를 앨범에 추가",
       "addCopiedToAlbum_other": "복사한 이미지 {{count}}개를 앨범에 추가",
-      "refreshView": "보기 새로고침"
+      "refreshView": "보기 새로고침",
+      "addCopiedToAlbum_many": "복사한 이미지 {{count}}개를 앨범에 추가"
     },
     "merge": {
       "focusStack": "포커스 스태킹",
@@ -270,7 +276,19 @@
       "resetAdjustments_one": "조정값 초기화",
       "resetAdjustments_other": "이미지 {{count}}개의 조정값 초기화",
       "showExplorer": "파일 탐색기에서 표시",
-      "virtualCopy": "가상 복사본"
+      "virtualCopy": "가상 복사본",
+      "autoAdjust_many": "이미지 자동 조정",
+      "collage_many": "콜라주 만들기",
+      "convertNegative_many": "네거티브 변환",
+      "copyImage_many": "이미지 {{count}}개 복사",
+      "cullImage_many": "이미지 선별",
+      "deleteImage_many": "이미지 {{count}}개 삭제",
+      "denoise_many": "이미지 노이즈 제거",
+      "exportImage_many": "이미지 {{count}}개 내보내기",
+      "pasteAdjustments_many": "이미지 {{count}}개에 조정값 붙여넣기",
+      "removeFromAlbum_many": "앨범에서 이미지 {{count}}개 제거",
+      "renameImage_many": "이미지 {{count}}개 이름 변경",
+      "resetAdjustments_many": "이미지 {{count}}개의 조정값 초기화"
     },
     "toasts": {
       "couldNotShowExplorer": "탐색기에서 파일을 표시할 수 없습니다: {{err}}",
@@ -383,7 +401,11 @@
         "invertedName": "{{name}} 반전됨",
         "quickErase": "빠른 지우기 {{count}}",
         "quickErase_one": "빠른 지우기 {{count}}",
-        "quickErase_other": "빠른 지우기 {{count}}"
+        "quickErase_other": "빠른 지우기 {{count}}",
+        "aiEdit_many": "AI 편집 {{count}}",
+        "clone_many": "복제 {{count}}",
+        "heal_many": "복구 {{count}}",
+        "quickErase_many": "빠른 지우기 {{count}}"
       },
       "resetInpaintingTooltip": "인페인팅 초기화",
       "settings": {
@@ -583,7 +605,8 @@
         "invertedName": "{{name}} 반전됨",
         "maskName": "마스크 {{count}}",
         "maskName_one": "마스크 {{count}}",
-        "maskName_other": "마스크 {{count}}"
+        "maskName_other": "마스크 {{count}}",
+        "maskName_many": "마스크 {{count}}"
       },
       "resetMaskingTooltip": "마스킹 초기화",
       "settings": {
@@ -757,7 +780,8 @@
       "saveEditedImageTitle": "편집한 이미지 저장",
       "selectFolderTitle": "이미지 {{count}}개를 내보낼 폴더 선택",
       "selectFolderTitle_one": "이미지 {{count}}개를 내보낼 폴더 선택",
-      "selectFolderTitle_other": "이미지 {{count}}개를 내보낼 폴더 선택"
+      "selectFolderTitle_other": "이미지 {{count}}개를 내보낼 폴더 선택",
+      "selectFolderTitle_many": "이미지 {{count}}개를 내보낼 폴더 선택"
     },
     "file": {
       "quality": "품질",
@@ -809,7 +833,8 @@
       "failed": "내보내기 실패",
       "noImageSelected": "내보낼 이미지가 선택되지 않았습니다.",
       "noImagesSelected": "선택된 이미지가 없습니다.",
-      "success": "내보내기 성공!"
+      "success": "내보내기 성공!",
+      "exportMultiple_many": "{{label}} {{count}}개 내보내기"
     },
     "title": "내보내기",
     "watermark": {
@@ -996,7 +1021,8 @@
       "tooltipFocalLength": "초점 거리",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "셔터 속도",
-      "tooltipVirtualCopy": "가상 복사본"
+      "tooltipVirtualCopy": "가상 복사본",
+      "imagesCount_many": "이미지 {{count}}개"
     },
     "search": {
       "noResults": "결과를 찾을 수 없습니다",
@@ -1203,7 +1229,9 @@
       "similarityThresholdDesc": "값이 낮을수록 더 엄격합니다 (완전 중복). 높을수록 더 느슨합니다 (유사 중복). 24~32 값을 권장합니다.",
       "startCulling": "선별 시작",
       "starting": "시작 중...",
-      "title": "이미지 선별"
+      "title": "이미지 선별",
+      "applyButton_many": "이미지 {{count}}개에 적용",
+      "duplicatesHeader_many": "중복 ({{count}})"
     },
     "denoise": {
       "batchProgressText": "{{total}}개 중 {{current}}개 노이즈 제거 중...",
@@ -1249,7 +1277,8 @@
       "savedSuccess": "포커스 스택이 성공적으로 저장되었습니다!",
       "stacking": "포커스 스태킹 중",
       "start": "시작",
-      "title": "포커스 스태킹"
+      "title": "포커스 스태킹",
+      "descriptionWithCount_many": "초점 거리가 다른 {{count}}개의 이미지를 결합하여 완벽하게 선명한 단일 이미지를 만듭니다."
     },
     "hdr": {
       "cancel": "취소",
@@ -1267,7 +1296,8 @@
       "savedSuccess": "HDR이 성공적으로 저장되었습니다!",
       "speedNotice": "노출의 개수와 크기에 따라 몇 분이 걸릴 수 있습니다.",
       "start": "시작",
-      "title": "HDR로 병합"
+      "title": "HDR로 병합",
+      "descriptionWithCount_many": "브래킷 노출 {{count}}개를 단일 HDR(High Dynamic Range) 이미지로 결합합니다."
     },
     "importSettings": {
       "cancel": "취소",
@@ -1337,7 +1367,8 @@
       "resetViewTooltip": "보기 초기화",
       "title": "네거티브 변환",
       "zoomInTooltip": "확대",
-      "zoomOutTooltip": "축소"
+      "zoomOutTooltip": "축소",
+      "convertAndSaveAll_many": "모두 변환 및 저장 ({{count}})"
     },
     "panorama": {
       "cancel": "취소",
@@ -1355,7 +1386,8 @@
       "speedNotice": "이미지의 개수와 크기에 따라 몇 분이 걸릴 수 있습니다.",
       "start": "시작",
       "stitchingProgress": "파노라마 스티칭 중",
-      "title": "파노라마 스티칭"
+      "title": "파노라마 스티칭",
+      "descCount_many": "겹치는 이미지 {{count}}개를 매끄러운 파노라마로 결합합니다."
     },
     "renameAlbum": {
       "placeholder": "새 앨범 이름 입력..."
@@ -1368,7 +1400,8 @@
       "titleMultiple": "이미지 {{count}}개 이름 변경",
       "titleMultiple_one": "이미지 {{count}}개 이름 변경",
       "titleMultiple_other": "이미지 {{count}}개 이름 변경",
-      "titleSingle": "이미지 이름 변경"
+      "titleSingle": "이미지 이름 변경",
+      "titleMultiple_many": "이미지 {{count}}개 이름 변경"
     },
     "renameFolder": {
       "cancel": "취소",
@@ -1478,7 +1511,10 @@
         "processing": "처리 중...",
         "sidecarSuccess": "사이드카 파일 {{count}}개가 성공적으로 삭제되었습니다.",
         "sidecarSuccess_one": "사이드카 파일 {{count}}개가 성공적으로 삭제되었습니다.",
-        "sidecarSuccess_other": "사이드카 파일 {{count}}개가 성공적으로 삭제되었습니다."
+        "sidecarSuccess_other": "사이드카 파일 {{count}}개가 성공적으로 삭제되었습니다.",
+        "aiSuccess_many": "{{count}}개 파일이 업데이트되었습니다. AI 태그가 제거되었습니다.",
+        "allSuccess_many": "{{count}}개 파일이 업데이트되었습니다. 색상을 제외한 모든 태그가 제거되었습니다.",
+        "sidecarSuccess_many": "사이드카 파일 {{count}}개가 성공적으로 삭제되었습니다."
       },
       "title": "데이터 관리"
     },
@@ -1694,7 +1730,8 @@
         "title": "이미지 전처리",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "기본"
+          "basic": "기본",
+          "oklab": "Oklab (지각적)"
         },
         "tonemapperOverride": "전역 톤매퍼 재정의",
         "tonemapperOverrideDesc": "모든 이미지에 특정 톤매퍼를 전역으로 강제 적용하고, 조정 패널에서 톤매퍼 전환을 숨깁니다."
@@ -1800,7 +1837,8 @@
         "rateStars_one": "1점 평가",
         "rateStars_other": "{{count}}점 평가",
         "resetZoom": "창에 맞게 확대/축소 초기화",
-        "selectToRate": "평가할 이미지를 선택하세요"
+        "selectToRate": "평가할 이미지를 선택하세요",
+        "rateStars_many": "{{count}}점 평가"
       },
       "zoomLabel": "확대/축소",
       "zoomLabelReset": "확대/축소 초기화"

@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Film-like Tonemapping",
         "basic": "Basic",
-        "basicDesc": "Standard Tonemapping"
+        "basicDesc": "Standard Tonemapping",
+        "oklab": "Oklab",
+        "oklabDesc": "Perceptual Color & Highlight Science"
       },
       "reset": "Reset",
       "nightSkyMagic": "Night Sky & Astro Magic",
@@ -230,7 +232,8 @@
       "resetAdjustments": "Reset Adjustments",
       "stitchPanorama": "Stitch Panorama",
       "tagging": "Tagging",
-      "undo": "Undo"
+      "undo": "Undo",
+      "ratingLabel_many": "{{count}} Stars"
     },
     "folders": {
       "changeIcon": "Change Icon",
@@ -248,12 +251,15 @@
       "removeRoot": "Remove Root Folder",
       "renameFolder": "Rename Folder",
       "showExplorer": "Show in File Explorer",
-      "unpin": "Unpin Folder"
+      "unpin": "Unpin Folder",
+      "copyHere_many": "Copy {{count}} images here",
+      "moveHere_many": "Move {{count}} images here"
     },
     "library": {
       "addCopiedToAlbum_one": "Add copied image to album",
       "addCopiedToAlbum_other": "Add {{count}} copied images to album",
-      "refreshView": "Refresh View"
+      "refreshView": "Refresh View",
+      "addCopiedToAlbum_many": "Add {{count}} copied images to album"
     },
     "merge": {
       "focusStack": "Focus Stacking",
@@ -300,7 +306,19 @@
       "resetAdjustments_one": "Reset Adjustments",
       "resetAdjustments_other": "Reset Adjustments on {{count}} Images",
       "showExplorer": "Show in File Explorer",
-      "virtualCopy": "Virtual Copy"
+      "virtualCopy": "Virtual Copy",
+      "autoAdjust_many": "Auto Adjust Images",
+      "collage_many": "Create Collage",
+      "convertNegative_many": "Convert Negatives",
+      "copyImage_many": "Copy {{count}} Images",
+      "cullImage_many": "Cull Images",
+      "deleteImage_many": "Delete {{count}} Images",
+      "denoise_many": "Denoise Images",
+      "exportImage_many": "Export {{count}} Images",
+      "pasteAdjustments_many": "Paste Adjustments to {{count}} Images",
+      "removeFromAlbum_many": "Remove {{count}} Images from Album",
+      "renameImage_many": "Rename {{count}} Images",
+      "resetAdjustments_many": "Reset Adjustments on {{count}} Images"
     },
     "toasts": {
       "couldNotShowExplorer": "Could not show file in explorer: {{err}}",
@@ -415,7 +433,11 @@
         "invertedName": "{{name}} Inverted",
         "quickErase": "Quick Erase {{count}}",
         "quickErase_one": "Quick Erase {{count}}",
-        "quickErase_other": "Quick Erase {{count}}"
+        "quickErase_other": "Quick Erase {{count}}",
+        "aiEdit_many": "AI Edit {{count}}",
+        "clone_many": "Clone {{count}}",
+        "heal_many": "Heal {{count}}",
+        "quickErase_many": "Quick Erase {{count}}"
       },
       "resetInpaintingTooltip": "Reset Inpainting",
       "settings": {
@@ -617,7 +639,8 @@
         "invertedName": "{{name}} Inverted",
         "maskName": "Mask {{count}}",
         "maskName_one": "Mask {{count}}",
-        "maskName_other": "Mask {{count}}"
+        "maskName_other": "Mask {{count}}",
+        "maskName_many": "Mask {{count}}"
       },
       "resetMaskingTooltip": "Reset Masking",
       "settings": {
@@ -791,7 +814,8 @@
       "saveEditedImageTitle": "Save Edited Image",
       "selectFolderTitle": "Select Folder to Export {{count}} Image(s)",
       "selectFolderTitle_one": "Select Folder to Export {{count}} Image",
-      "selectFolderTitle_other": "Select Folder to Export {{count}} Images"
+      "selectFolderTitle_other": "Select Folder to Export {{count}} Images",
+      "selectFolderTitle_many": "Select Folder to Export {{count}} Images"
     },
     "file": {
       "quality": "Quality",
@@ -843,7 +867,8 @@
       "failed": "Export failed",
       "noImageSelected": "No image selected for export.",
       "noImagesSelected": "No images selected.",
-      "success": "Export successful!"
+      "success": "Export successful!",
+      "exportMultiple_many": "Export {{count}} {{label}}"
     },
     "title": "Export",
     "watermark": {
@@ -1030,7 +1055,8 @@
       "tooltipFocalLength": "Focal Length",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Shutter Speed",
-      "tooltipVirtualCopy": "Virtual Copy"
+      "tooltipVirtualCopy": "Virtual Copy",
+      "imagesCount_many": "{{count}} images"
     },
     "search": {
       "noResults": "No Results Found",
@@ -1239,7 +1265,9 @@
       "similarityThresholdDesc": "Lower is stricter (exact duplicates). Higher is looser (near duplicates). A value of 24-32 is recommended.",
       "startCulling": "Start Culling",
       "starting": "Starting...",
-      "title": "Cull Images"
+      "title": "Cull Images",
+      "applyButton_many": "Apply to {{count}} images",
+      "duplicatesHeader_many": "Duplicates ({{count}})"
     },
     "denoise": {
       "batchProgressText": "Denoising {{current}} of {{total}}...",
@@ -1285,7 +1313,8 @@
       "savedSuccess": "Focus Stack Saved Successfully!",
       "stacking": "Stacking Focus",
       "start": "Start",
-      "title": "Focus Stacking"
+      "title": "Focus Stacking",
+      "descriptionWithCount_many": "Combine {{count}} images with varying focus distances into a single perfectly sharp image."
     },
     "hdr": {
       "cancel": "Cancel",
@@ -1303,7 +1332,8 @@
       "savedSuccess": "HDR Saved Successfully!",
       "speedNotice": "This may take a few minutes depending on the number and size of your exposures.",
       "start": "Start",
-      "title": "Merge to HDR"
+      "title": "Merge to HDR",
+      "descriptionWithCount_many": "Combine {{count}} bracketed exposures into a single High Dynamic Range image."
     },
     "importSettings": {
       "cancel": "Cancel",
@@ -1373,7 +1403,8 @@
       "resetViewTooltip": "Reset View",
       "title": "Negative Conversion",
       "zoomInTooltip": "Zoom In",
-      "zoomOutTooltip": "Zoom Out"
+      "zoomOutTooltip": "Zoom Out",
+      "convertAndSaveAll_many": "Convert & Save All ({{count}})"
     },
     "panorama": {
       "cancel": "Cancel",
@@ -1391,7 +1422,8 @@
       "speedNotice": "This may take a few minutes depending on the number and size of images.",
       "start": "Start",
       "stitchingProgress": "Stitching Panorama",
-      "title": "Stitch Panorama"
+      "title": "Stitch Panorama",
+      "descCount_many": "Combine {{count}} overlapping images into a seamless panorama."
     },
     "renameAlbum": {
       "placeholder": "Enter new album name..."
@@ -1404,7 +1436,8 @@
       "titleMultiple": "Rename {{count}} Images",
       "titleMultiple_one": "Rename {{count}} Image",
       "titleMultiple_other": "Rename {{count}} Images",
-      "titleSingle": "Rename Image"
+      "titleSingle": "Rename Image",
+      "titleMultiple_many": "Rename {{count}} Images"
     },
     "renameFolder": {
       "cancel": "Cancel",
@@ -1514,7 +1547,10 @@
         "processing": "Processing...",
         "sidecarSuccess": "{{count}} sidecar files deleted successfully.",
         "sidecarSuccess_one": "{{count}} sidecar file deleted successfully.",
-        "sidecarSuccess_other": "{{count}} sidecar files deleted successfully."
+        "sidecarSuccess_other": "{{count}} sidecar files deleted successfully.",
+        "aiSuccess_many": "{{count}} files updated. AI tags removed.",
+        "allSuccess_many": "{{count}} files updated. All non-color tags removed.",
+        "sidecarSuccess_many": "{{count}} sidecar files deleted successfully."
       },
       "title": "Data Management"
     },
@@ -1730,7 +1766,8 @@
         "title": "Image Preprocessing",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Basic"
+          "basic": "Basic",
+          "oklab": "Oklab (Perceptual)"
         },
         "tonemapperOverride": "Global Tonemapper Override",
         "tonemapperOverrideDesc": "Force a specific tonemapper globally for all images, hiding the tonemapper switch from the adjustments panel."
@@ -1836,7 +1873,8 @@
         "rateStars_one": "Rate 1 star",
         "rateStars_other": "Rate {{count}} stars",
         "resetZoom": "Reset Zoom to Fit Window",
-        "selectToRate": "Select an image to rate"
+        "selectToRate": "Select an image to rate",
+        "rateStars_many": "Rate {{count}} stars"
       },
       "zoomLabel": "Zoom",
       "zoomLabelReset": "Reset Zoom"

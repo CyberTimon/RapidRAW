@@ -11,6 +11,7 @@ import {
   Sparkles,
   TriangleRight,
   User,
+  Users,
   Sun,
   Stamp,
   Bandage,
@@ -20,6 +21,7 @@ import i18n from 'i18next';
 export enum Mask {
   AiDepth = 'ai-depth',
   AiForeground = 'ai-foreground',
+  AiPortrait = 'ai-portrait',
   AiSky = 'ai-sky',
   AiSubject = 'ai-subject',
   All = 'all',
@@ -100,6 +102,7 @@ export function getSubMaskName(subMask: Pick<SubMask, 'name' | 'type'>) {
 export const MASK_ICON_MAP: Record<string, any> = {
   [Mask.AiDepth]: BringToFront,
   [Mask.AiForeground]: User,
+  [Mask.AiPortrait]: Users,
   [Mask.AiSky]: Cloud,
   [Mask.AiSubject]: Sparkles,
   [Mask.All]: RectangleHorizontal,
@@ -120,6 +123,12 @@ export const MASK_PANEL_CREATION_TYPES: Array<MaskType> = [
     icon: Sparkles,
     name: 'Subject',
     type: Mask.AiSubject,
+  },
+  {
+    disabled: false,
+    icon: Users,
+    name: 'Portrait AI',
+    type: Mask.AiPortrait,
   },
   {
     disabled: false,

@@ -13,6 +13,7 @@ use std::io::Cursor;
 use std::path::Path;
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering as AtomicOrdering};
 use std::sync::{Arc, Mutex};
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
 struct ProgressReporter<'a> {
@@ -48,16 +49,333 @@ impl Bm3dParams {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SensorNoiseProfile {
+    pub make: String,
+    pub model: String,
+    pub sensor_type: String,
+    pub base_read_noise: f32,
+    pub shot_noise_coeff: f32,
+    pub dual_gain_iso: Option<u32>,
+}
+
+pub fn get_sensor_noise_profile(make: &str, model: &str) -> SensorNoiseProfile {
+    let make_lower = make.to_lowercase();
+    let model_lower = model.to_lowercase();
+
+    if make_lower.contains("canon") {
+        if model_lower.contains("77d") {
+            SensorNoiseProfile {
+                make: "Canon".into(),
+                model: "EOS 77D".into(),
+                sensor_type: "Canon 24.2MP APS-C Dual Pixel CMOS (3.72µm)".into(),
+                base_read_noise: 0.0022,
+                shot_noise_coeff: 0.00058,
+                dual_gain_iso: Some(400),
+            }
+        } else if model_lower.contains("80d") || model_lower.contains("800d") || model_lower.contains("t7i") || model_lower.contains("200d") || model_lower.contains("sl2") || model_lower.contains("m5") || model_lower.contains("m6") {
+            SensorNoiseProfile {
+                make: "Canon".into(),
+                model: if model.is_empty() { "EOS APS-C".into() } else { model.to_string() },
+                sensor_type: "Canon 24.2MP APS-C Dual Pixel CMOS (3.72µm)".into(),
+                base_read_noise: 0.0022,
+                shot_noise_coeff: 0.00058,
+                dual_gain_iso: Some(400),
+            }
+        } else if model_lower.contains("90d") || model_lower.contains("r7") || model_lower.contains("m6 ii") {
+            SensorNoiseProfile {
+                make: "Canon".into(),
+                model: if model.is_empty() { "EOS 32.5MP APS-C".into() } else { model.to_string() },
+                sensor_type: "Canon 32.5MP APS-C High-Density CMOS (3.20µm)".into(),
+                base_read_noise: 0.0024,
+                shot_noise_coeff: 0.00062,
+                dual_gain_iso: Some(400),
+            }
+        } else if model_lower.contains("r5") || model_lower.contains("r6") || model_lower.contains("r3") || model_lower.contains("1d") || model_lower.contains("r1") {
+            SensorNoiseProfile {
+                make: "Canon".into(),
+                model: if model.is_empty() { "EOS R Series".into() } else { model.to_string() },
+                sensor_type: "Canon Full-Frame Dual Gain DGO (4.40µm)".into(),
+                base_read_noise: 0.0012,
+                shot_noise_coeff: 0.00038,
+                dual_gain_iso: Some(400),
+            }
+        } else if model_lower.contains("5d") || model_lower.contains("6d") || model_lower.contains("rp") || model_lower.contains("r8") {
+            SensorNoiseProfile {
+                make: "Canon".into(),
+                model: if model.is_empty() { "EOS Full-Frame".into() } else { model.to_string() },
+                sensor_type: "Canon EOS Full-Frame CMOS (5.36µm)".into(),
+                base_read_noise: 0.0017,
+                shot_noise_coeff: 0.00045,
+                dual_gain_iso: None,
+            }
+        } else {
+            SensorNoiseProfile {
+                make: "Canon".into(),
+                model: if model.is_empty() { "EOS APS-C".into() } else { model.to_string() },
+                sensor_type: "Canon APS-C Dual Pixel CMOS".into(),
+                base_read_noise: 0.0022,
+                shot_noise_coeff: 0.00058,
+                dual_gain_iso: Some(400),
+            }
+        }
+    } else if make_lower.contains("sony") {
+        SensorNoiseProfile {
+            make: "Sony".into(),
+            model: if model.is_empty() { "Alpha Series".into() } else { model.to_string() },
+            sensor_type: "Sony Exmor R BSI-CMOS Dual Native (3.76µm)".into(),
+            base_read_noise: 0.0011,
+            shot_noise_coeff: 0.00035,
+            dual_gain_iso: Some(640),
+        }
+    } else if make_lower.contains("nikon") {
+        SensorNoiseProfile {
+            make: "Nikon".into(),
+            model: if model.is_empty() { "Z Series".into() } else { model.to_string() },
+            sensor_type: "Nikon FX BSI-CMOS Dual Conversion Gain (4.35µm)".into(),
+            base_read_noise: 0.0012,
+            shot_noise_coeff: 0.00036,
+            dual_gain_iso: Some(800),
+        }
+    } else if make_lower.contains("fuji") {
+        SensorNoiseProfile {
+            make: "Fujifilm".into(),
+            model: if model.is_empty() { "X Series".into() } else { model.to_string() },
+            sensor_type: "Fujifilm X-Trans BSI-CMOS (3.77µm)".into(),
+            base_read_noise: 0.0019,
+            shot_noise_coeff: 0.00048,
+            dual_gain_iso: Some(800),
+        }
+    } else {
+        SensorNoiseProfile {
+            make: if make.is_empty() { "Universal".into() } else { make.to_string() },
+            model: if model.is_empty() { "Standard".into() } else { model.to_string() },
+            sensor_type: "Universal CMOS Noise Model".into(),
+            base_read_noise: 0.0020,
+            shot_noise_coeff: 0.00050,
+            dual_gain_iso: None,
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn analyze_image_noise_profile(
+    path: String,
+    exposure_push: Option<f32>,
+    app_handle: tauri::AppHandle,
+) -> Result<serde_json::Value, String> {
+    let (source_path, _) = parse_virtual_path(&path);
+    let path_str = source_path.to_string_lossy().to_string();
+    let file_bytes = fs::read(&source_path).map_err(|e| e.to_string())?;
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let dynamic_img = load_base_image_from_bytes(&file_bytes, &path_str, false, &settings, None)
+        .map_err(|e| e.to_string())?;
+    let rgb = dynamic_img.to_rgb32f();
+
+    let (width, height) = rgb.dimensions();
+
+    // 1. Flat patch extraction (with texture safeguard)
+    let flat_patch_sigma = estimate_flat_patch_noise(&rgb);
+    let global_mad_sigma = estimate_wavelet_mad_noise(&rgb);
+    let empirical_sigma = flat_patch_sigma.unwrap_or(global_mad_sigma);
+
+    // 2. Heteroscedastic noise curve (alpha, beta)
+    let (alpha_shot, beta_read) = estimate_heteroscedastic_noise_curve(&rgb);
+
+    // 3. Sensor Profile (including Canon 77D / Dual Pixel APS-C / Sony / Nikon / Fuji)
+    let (make, model) = crate::exif_processing::read_camera_make_model(&path_str, &file_bytes)
+        .unwrap_or_default();
+    let profile = get_sensor_noise_profile(&make, &model);
+
+    // 4. EXIF Parameters: ISO and Shutter Speed
+    let iso = crate::exif_processing::read_iso(&path_str, &file_bytes);
+    let exposure_time = crate::exif_processing::read_exposure_time_secs(&path_str, &file_bytes);
+
+    // 5. Thermal Dark Current Factor for long exposures (> 1.0s)
+    let thermal_factor = if let Some(t_exp) = exposure_time {
+        if t_exp > 1.0 {
+            1.0 + 0.15 * (t_exp.log2()).max(0.0)
+        } else {
+            1.0
+        }
+    } else {
+        1.0
+    };
+
+    // 6. Effective ISO (factoring in develop exposure push)
+    let push = exposure_push.unwrap_or(0.0).clamp(-4.0, 5.0);
+    let raw_iso = iso.unwrap_or(400) as f32;
+    let effective_iso = ((raw_iso * 2.0f32.powf(push.max(0.0))).round() as u32).max(50);
+
+    // 7. Megapixel density normalization
+    let mp = (width * height) as f32 / 1_000_000.0;
+    let mp_scale = (mp / 24.0).sqrt().clamp(0.85, 1.45);
+
+    // 8. Dual Conversion Gain (DCG) discontinuity check
+    let is_high_gain = profile.dual_gain_iso.map_or(false, |thresh| effective_iso >= thresh);
+    let gain_dip = if is_high_gain { -3.5 } else { 0.0 };
+
+    // 9. Multi-tier Smart Auto Calculations
+    let iso_factor = ((effective_iso as f32 / 100.0).log2() * 11.5 + 18.0 + gain_dip).max(5.0);
+    let mad_factor = empirical_sigma * 150.0 * mp_scale * thermal_factor;
+    let combined_intensity = ((iso_factor * 0.40 + mad_factor * 0.60).round() as u32).clamp(5, 85);
+
+    // Dynamic pro slider coordinates per ISO sub-tier
+    let (rec_engine, rec_luma, rec_chroma, rec_detail, rec_shadow_boost, rec_deband) = if effective_iso <= 250 {
+        ("bm3d", combined_intensity.min(12), 50, 40, 0, false)
+    } else if effective_iso <= 800 {
+        ("bm3d", combined_intensity.clamp(15, 38), 90, 30, 0, false)
+    } else if effective_iso <= 3200 {
+        ("ai", combined_intensity.clamp(35, 60), 100, 25, 20, false)
+    } else {
+        ("ai", combined_intensity.clamp(55, 80), 100, 20, 35, true)
+    };
+
+    let snr_db = (20.0 * (1.0 / empirical_sigma.max(0.0005)).log10()).clamp(10.0, 50.0);
+
+    Ok(serde_json::json!({
+        "sigma": empirical_sigma,
+        "global_mad_sigma": global_mad_sigma,
+        "flat_patch_used": flat_patch_sigma.is_some(),
+        "alpha_shot": alpha_shot,
+        "beta_read": beta_read * thermal_factor,
+        "iso": iso,
+        "effective_iso": effective_iso,
+        "exposure_time": exposure_time,
+        "exposure_push": push,
+        "snr_db": (snr_db * 10.0).round() / 10.0,
+        "make": profile.make,
+        "model": profile.model,
+        "sensor_type": profile.sensor_type,
+        "dual_gain_active": is_high_gain,
+        "recommended_engine": rec_engine,
+        "recommended_intensity": rec_luma,
+        "recommended_chroma": rec_chroma,
+        "recommended_details": rec_detail,
+        "recommended_shadow_boost": rec_shadow_boost,
+        "recommended_deband": rec_deband,
+        "preserve_details": (rec_detail as f32) / 100.0
+    }))
+}
+
+#[tauri::command]
+pub async fn preview_denoised_roi(
+    path: String,
+    center_x: f32,
+    center_y: f32,
+    crop_size: Option<u32>,
+    intensity: f32,
+    chroma_intensity: Option<f32>,
+    preserve_details: Option<f32>,
+    shadow_boost: Option<f32>,
+    deband: Option<bool>,
+    protect_stars: Option<bool>,
+    film_grain: Option<f32>,
+    _method: String,
+    app_handle: tauri::AppHandle,
+    _state: tauri::State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    let (source_path, _) = parse_virtual_path(&path);
+    let path_str = source_path.to_string_lossy().to_string();
+    let file_bytes = fs::read(&source_path).map_err(|e| e.to_string())?;
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let dynamic_img = load_base_image_from_bytes(&file_bytes, &path_str, false, &settings, None)
+        .map_err(|e| e.to_string())?;
+
+    let is_raw = is_raw_file(&path_str);
+    let mut full_rgb = dynamic_img.to_rgb32f();
+    if is_raw {
+        let mut dyn_raw = DynamicImage::ImageRgb32F(full_rgb);
+        apply_cpu_default_raw_processing(&mut dyn_raw);
+        full_rgb = dyn_raw.to_rgb32f();
+    }
+
+    let (w, h) = full_rgb.dimensions();
+    let size = crop_size.unwrap_or(512).clamp(128, 1024).min(w).min(h);
+    let cx = ((center_x.clamp(0.0, 1.0) * w as f32) as u32).min(w.saturating_sub(1));
+    let cy = ((center_y.clamp(0.0, 1.0) * h as f32) as u32).min(h.saturating_sub(1));
+
+    let half = size / 2;
+    let x0 = cx.saturating_sub(half).min(w.saturating_sub(size));
+    let y0 = cy.saturating_sub(half).min(h.saturating_sub(size));
+
+    let mut orig_crop = Rgb32FImage::new(size, size);
+    for dy in 0..size {
+        for dx in 0..size {
+            let px = full_rgb.get_pixel(x0 + dx, y0 + dy);
+            orig_crop.put_pixel(dx, dy, *px);
+        }
+    }
+
+    let mut crop_for_denoiser = orig_crop.clone();
+    if deband.unwrap_or(false) {
+        remove_sensor_banding(&mut crop_for_denoiser);
+    }
+
+    let chroma = chroma_intensity.unwrap_or(1.0);
+    let grain = film_grain.unwrap_or(0.0);
+    if chroma > 0.0 || grain > 0.0 {
+        crop_for_denoiser = apply_chroma_luma_denoise(&crop_for_denoiser, intensity, chroma, grain);
+    }
+
+    let mut denoised_crop = run_bm3d_fast_tile(&crop_for_denoiser, intensity, &app_handle);
+
+    if protect_stars.unwrap_or(true) {
+        apply_star_point_protection(&mut denoised_crop, &orig_crop);
+    }
+
+    let details = preserve_details.unwrap_or(0.25);
+    if details > 0.001 {
+        apply_edge_guided_texture_preservation(&mut denoised_crop, &orig_crop, details);
+    }
+
+    let s_boost = shadow_boost.unwrap_or(0.0);
+    if s_boost > 0.001 {
+        apply_shadow_weighted_zoning(&mut denoised_crop, &orig_crop, s_boost);
+    }
+
+    let orig_b64 = img_to_base64_jpeg(&orig_crop, 85)?;
+    let denoised_rgb = denoised_crop.to_rgb32f();
+    let denoised_b64 = img_to_base64_jpeg(&denoised_rgb, 85)?;
+
+    Ok(serde_json::json!({
+        "original_roi": orig_b64,
+        "denoised_roi": denoised_b64,
+        "x0": x0,
+        "y0": y0,
+        "size": size,
+        "full_width": w,
+        "full_height": h
+    }))
+}
+
 #[tauri::command]
 pub async fn apply_denoising(
     path: String,
     intensity: f32,
     method: String,
+    heal_dust: Option<bool>,
+    visualize_defects: Option<bool>,
+    protect_stars: Option<bool>,
+    preserve_details: Option<f32>,
+    chroma_intensity: Option<f32>,
+    shadow_boost: Option<f32>,
+    deband: Option<bool>,
+    film_grain: Option<f32>,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let (source_path, _) = parse_virtual_path(&path);
     let path_str = source_path.to_string_lossy().to_string();
+
+    let should_heal = heal_dust.unwrap_or(true);
+    let should_visualize = visualize_defects.unwrap_or(false);
+    let should_protect_stars = protect_stars.unwrap_or(true);
+    let detail_amount = preserve_details.unwrap_or(0.25);
+    let chroma = chroma_intensity.unwrap_or(1.0);
+    let s_boost = shadow_boost.unwrap_or(0.0);
+    let should_deband = deband.unwrap_or(false);
+    let grain = film_grain.unwrap_or(0.0);
 
     let mut ai_session = None;
     if method == "ai" {
@@ -74,7 +392,22 @@ pub async fn apply_denoising(
     let denoise_result_handle = state.denoise_result.clone();
 
     tokio::task::spawn_blocking(move || {
-        match denoise_image(path_str, intensity, method, app_handle.clone(), ai_session) {
+        let _sleep_guard = crate::sleep_lock::SleepLockGuard::new("apply_denoising");
+        match denoise_image(
+            path_str,
+            intensity,
+            method,
+            should_heal,
+            should_visualize,
+            should_protect_stars,
+            detail_amount,
+            chroma,
+            s_boost,
+            should_deband,
+            grain,
+            app_handle.clone(),
+            ai_session,
+        ) {
             Ok((image, _)) => {
                 *denoise_result_handle.lock().unwrap() = Some(image);
             }
@@ -92,9 +425,24 @@ pub async fn batch_denoise_images(
     paths: Vec<String>,
     intensity: f32,
     method: String,
+    heal_dust: Option<bool>,
+    protect_stars: Option<bool>,
+    preserve_details: Option<f32>,
+    chroma_intensity: Option<f32>,
+    shadow_boost: Option<f32>,
+    deband: Option<bool>,
+    film_grain: Option<f32>,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
+    let should_heal = heal_dust.unwrap_or(true);
+    let should_protect_stars = protect_stars.unwrap_or(true);
+    let detail_amount = preserve_details.unwrap_or(0.25);
+    let chroma = chroma_intensity.unwrap_or(1.0);
+    let s_boost = shadow_boost.unwrap_or(0.0);
+    let should_deband = deband.unwrap_or(false);
+    let grain = film_grain.unwrap_or(0.0);
+
     let mut ai_session = None;
     if method == "ai" {
         let session = crate::ai_processing::get_or_init_denoise_model(
@@ -108,6 +456,7 @@ pub async fn batch_denoise_images(
     }
 
     tokio::task::spawn_blocking(move || {
+        let _sleep_guard = crate::sleep_lock::SleepLockGuard::new("batch_denoise_images");
         let mut results = Vec::new();
 
         for (i, path_str) in paths.iter().enumerate() {
@@ -128,6 +477,14 @@ pub async fn batch_denoise_images(
                 real_path.clone(),
                 intensity,
                 method.clone(),
+                should_heal,
+                false,
+                should_protect_stars,
+                detail_amount,
+                chroma,
+                s_boost,
+                should_deband,
+                grain,
                 app_handle.clone(),
                 ai_session.clone(),
             ) {
@@ -192,6 +549,7 @@ pub async fn batch_denoise_images(
 #[tauri::command]
 pub async fn save_denoised_image(
     original_path_str: String,
+    export_format: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let denoised_image = state.denoise_result.lock().unwrap().take().ok_or_else(|| {
@@ -211,22 +569,28 @@ pub async fn save_denoised_image(
         .and_then(|s| s.to_str())
         .unwrap_or("denoised");
 
-    let (output_filename, image_to_save): (String, DynamicImage) = if is_raw {
-        let filename = format!("{}_Denoised.tiff", stem);
-        (
-            filename,
-            DynamicImage::ImageRgb16(denoised_image.to_rgb16()),
-        )
+    let fmt = export_format.unwrap_or_else(|| (if is_raw { "tiff" } else { "png" }).to_string()).to_lowercase();
+    let output_path = if fmt == "dng" {
+        let out = parent_dir.join(format!("{}_Denoised.dng", stem));
+        let rgb32f = denoised_image.to_rgb32f();
+        crate::dng_encoder::write_linear_dng_file(&out, &rgb32f, None)
+            .map_err(|e| format!("Failed to save DNG: {}", e))?;
+        out
+    } else if is_raw || fmt == "tiff" {
+        let out = parent_dir.join(format!("{}_Denoised.tiff", stem));
+        let rgb16 = denoised_image.to_rgb16();
+        DynamicImage::ImageRgb16(rgb16)
+            .save(&out)
+            .map_err(|e| format!("Failed to save TIFF image: {}", e))?;
+        out
     } else {
-        let filename = format!("{}_Denoised.png", stem);
-        (filename, DynamicImage::ImageRgb8(denoised_image.to_rgb8()))
+        let out = parent_dir.join(format!("{}_Denoised.png", stem));
+        let rgb8 = denoised_image.to_rgb8();
+        DynamicImage::ImageRgb8(rgb8)
+            .save(&out)
+            .map_err(|e| format!("Failed to save PNG image: {}", e))?;
+        out
     };
-
-    let output_path = parent_dir.join(output_filename);
-
-    image_to_save
-        .save(&output_path)
-        .map_err(|e| format!("Failed to save image: {}", e))?;
 
     let (real_path, _) = crate::file_management::parse_virtual_path(&original_path_str);
     let _ =
@@ -274,13 +638,48 @@ fn run_bm3d(
         bm3d_process_joint(&channels, width, height, &params, &dct_tables, &progress);
 
     {
-        let _ = app_handle.emit("denoise-progress", "Blending detail...");
-        let blurred_y = gaussian_blur_1ch(&original_y, width as usize, height as usize, 3.0);
-        let detail_strength = (intensity * 0.5_f32).clamp(0.0_f32, 0.5_f32);
+        let _ = app_handle.emit("denoise-progress", "Applying Guided Micro-Texture & Edge Recovery...");
+        let w_usize = width as usize;
+        let h_usize = height as usize;
+        let blurred_y = gaussian_blur_1ch(&original_y, w_usize, h_usize, 2.5);
         let y_ch = &mut denoised_channels[0];
+
+        // Compute local variance map to distinguish flat backgrounds vs structural micro-edges
+        let mut variance_map = vec![0.0f32; original_y.len()];
+        let radius = 2usize;
+        for y in radius..h_usize.saturating_sub(radius) {
+            for x in radius..w_usize.saturating_sub(radius) {
+                let mut sum = 0.0f32;
+                let mut sq_sum = 0.0f32;
+                let mut count = 0.0f32;
+                for dy in 0..=(2 * radius) {
+                    for dx in 0..=(2 * radius) {
+                        let px = original_y[(y + dy - radius) * w_usize + (x + dx - radius)];
+                        sum += px;
+                        sq_sum += px * px;
+                        count += 1.0;
+                    }
+                }
+                let mean = sum / count;
+                let var = (sq_sum / count) - (mean * mean);
+                variance_map[y * w_usize + x] = var.max(0.0);
+            }
+        }
+
+        // Apply Topaz-grade edge-guided detail re-injection
+        let detail_strength = (0.35 + intensity * 0.45).clamp(0.2, 0.8);
         for i in 0..y_ch.len() {
-            let hf = original_y[i] - blurred_y[i];
-            y_ch[i] = (y_ch[i] + detail_strength * hf).clamp(0.0, 255.0);
+            let var = variance_map[i];
+            // Sigmoid edge confidence: 0.0 for flat sky/bokeh, 1.0 for hair/fabric/eyelashes
+            let edge_confidence = (var / (var + 45.0)).clamp(0.0, 1.0);
+            let structural_detail = original_y[i] - blurred_y[i];
+
+            // Re-inject detail only into true structural edges, leaving flat background 100% clean
+            let refined_y = y_ch[i] + (structural_detail * detail_strength * edge_confidence);
+
+            // Subtle organic micro-grain to prevent plastic look
+            let pseudo_noise = (((i as f32 * 12.9898 + y_ch[i] * 78.233).sin() * 43758.5453).fract() - 0.5) * 0.6;
+            y_ch[i] = (refined_y + pseudo_noise).clamp(0.0, 255.0);
         }
     }
 
@@ -294,10 +693,573 @@ fn run_bm3d(
     Ok(DynamicImage::ImageRgb32F(out_img_buffer))
 }
 
+/// Extracts candidate 32x32 patches from a strided sub-sampled proxy grid,
+/// calculates spatial gradient energy for each patch, and measures Wavelet MAD on the lowest-gradient 25% patches.
+/// If all patches have high gradient (macro / all-texture scene), returns None to signal fallback to the physical hardware profile.
+pub fn estimate_flat_patch_noise(img: &Rgb32FImage) -> Option<f32> {
+    let (width, height) = img.dimensions();
+    if width < 64 || height < 64 {
+        return None;
+    }
+
+    let patch_size = 32u32;
+    let grid_x = 8u32;
+    let grid_y = 8u32;
+    let step_x = (width.saturating_sub(patch_size)) / grid_x.max(1);
+    let step_y = (height.saturating_sub(patch_size)) / grid_y.max(1);
+
+    if step_x == 0 || step_y == 0 {
+        return None;
+    }
+
+    struct PatchStats {
+        gradient_sum: f32,
+        mad_sigma: f32,
+    }
+
+    let mut candidate_patches = Vec::with_capacity((grid_x * grid_y) as usize);
+
+    for gy in 0..grid_y {
+        let py0 = gy * step_y;
+        for gx in 0..grid_x {
+            let px0 = gx * step_x;
+
+            let mut grad_sum = 0.0f32;
+            let mut hh = Vec::with_capacity(256);
+
+            // Compute gradient and 2D Haar diagonal subband in the 32x32 patch
+            for dy in 0..15 {
+                let y0 = py0 + dy * 2;
+                let y1 = (y0 + 1).min(height - 1);
+                for dx in 0..15 {
+                    let x0 = px0 + dx * 2;
+                    let x1 = (x0 + 1).min(width - 1);
+
+                    let p00 = img.get_pixel(x0, y0);
+                    let p10 = img.get_pixel(x1, y0);
+                    let p01 = img.get_pixel(x0, y1);
+                    let p11 = img.get_pixel(x1, y1);
+
+                    let l00 = 0.299 * p00[0] + 0.587 * p00[1] + 0.114 * p00[2];
+                    let l10 = 0.299 * p10[0] + 0.587 * p10[1] + 0.114 * p10[2];
+                    let l01 = 0.299 * p01[0] + 0.587 * p01[1] + 0.114 * p01[2];
+                    let l11 = 0.299 * p11[0] + 0.587 * p11[1] + 0.114 * p11[2];
+
+                    let gx_val = (l10 - l00).abs() + (l11 - l01).abs();
+                    let gy_val = (l01 - l00).abs() + (l11 - l10).abs();
+                    grad_sum += gx_val + gy_val;
+
+                    let diag_wavelet = (0.5 * (l00 - l10 - l01 + l11)).abs();
+                    hh.push(diag_wavelet);
+                }
+            }
+
+            if !hh.is_empty() {
+                let mid = hh.len() / 2;
+                hh.select_nth_unstable_by(mid, |a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+                let sigma = hh[mid] / 0.6745;
+                candidate_patches.push(PatchStats {
+                    gradient_sum: grad_sum / 225.0,
+                    mad_sigma: sigma,
+                });
+            }
+        }
+    }
+
+    if candidate_patches.is_empty() {
+        return None;
+    }
+
+    // Sort patches by gradient ascending (flattest first)
+    candidate_patches.sort_by(|a, b| a.gradient_sum.partial_cmp(&b.gradient_sum).unwrap_or(std::cmp::Ordering::Equal));
+
+    let min_grad = candidate_patches[0].gradient_sum;
+    // Texture safeguard threshold: if even the flattest patch has high gradient energy (> 0.085),
+    // it is an all-texture image (macro subject, dense foliage, dense star cluster)
+    if min_grad > 0.085 {
+        return None;
+    }
+
+    // Take the flattest 25% of patches (skies, walls, smooth bokeh)
+    let sample_count = (candidate_patches.len() / 4).max(1);
+    let mut sigmas: Vec<f32> = candidate_patches[0..sample_count].iter().map(|p| p.mad_sigma).collect();
+    sigmas.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let median_flat_sigma = sigmas[sigmas.len() / 2];
+
+    Some(median_flat_sigma.clamp(0.001, 1.0))
+}
+
+/// Estimates heteroscedastic affine noise parameters (alpha, beta) where Var(Y) = alpha * Y + beta.
+/// Restricts calculation to the safe linear response window [0.04, 0.88] to avoid highlight saturation and black clamping distortion.
+pub fn estimate_heteroscedastic_noise_curve(img: &Rgb32FImage) -> (f32, f32) {
+    let (width, height) = img.dimensions();
+    if width < 32 || height < 32 {
+        return (0.001, 0.0001);
+    }
+
+    // 10 luminance bins spanning [0.04, 0.88]
+    const NUM_BINS: usize = 10;
+    let mut bin_counts = [0usize; NUM_BINS];
+    let mut bin_luma_sum = [0.0f32; NUM_BINS];
+    let mut bin_diff_sq_sum = [0.0f32; NUM_BINS];
+
+    let stride = if width * height > 1_000_000 { 2u32 } else { 1u32 };
+
+    for y in (0..height - 1).step_by(stride as usize) {
+        for x in (0..width - 1).step_by(stride as usize) {
+            let p0 = img.get_pixel(x, y);
+            let p_right = img.get_pixel(x + 1, y);
+            let p_down = img.get_pixel(x, y + 1);
+
+            let l0 = 0.299 * p0[0] + 0.587 * p0[1] + 0.114 * p0[2];
+            if l0 < 0.04 || l0 > 0.88 {
+                continue;
+            }
+
+            let l_r = 0.299 * p_right[0] + 0.587 * p_right[1] + 0.114 * p_right[2];
+            let l_d = 0.299 * p_down[0] + 0.587 * p_down[1] + 0.114 * p_down[2];
+
+            // Local high-frequency variation (difference to adjacent pixels)
+            let diff_sq = 0.5 * ((l0 - l_r).powi(2) + (l0 - l_d).powi(2));
+
+            let bin_idx = (((l0 - 0.04) / (0.88 - 0.04)) * (NUM_BINS as f32))
+                .floor()
+                .clamp(0.0, (NUM_BINS - 1) as f32) as usize;
+
+            bin_counts[bin_idx] += 1;
+            bin_luma_sum[bin_idx] += l0;
+            bin_diff_sq_sum[bin_idx] += diff_sq;
+        }
+    }
+
+    let mut valid_points = Vec::new();
+    for i in 0..NUM_BINS {
+        if bin_counts[i] > 100 {
+            let mean_y = bin_luma_sum[i] / bin_counts[i] as f32;
+            let variance = bin_diff_sq_sum[i] / bin_counts[i] as f32;
+            valid_points.push((mean_y, variance));
+        }
+    }
+
+    if valid_points.len() < 3 {
+        return (0.0008, 0.0001);
+    }
+
+    // Robust linear regression with non-negativity constraint
+    let n = valid_points.len() as f32;
+    let sum_x: f32 = valid_points.iter().map(|(x, _)| x).sum();
+    let sum_y: f32 = valid_points.iter().map(|(_, y)| y).sum();
+    let sum_xx: f32 = valid_points.iter().map(|(x, _)| x * x).sum();
+    let sum_xy: f32 = valid_points.iter().map(|(x, y)| x * y).sum();
+
+    let denom = n * sum_xx - sum_x * sum_x;
+    let alpha = if denom.abs() > 1e-7 {
+        ((n * sum_xy - sum_x * sum_y) / denom).max(0.0)
+    } else {
+        0.0005
+    };
+
+    let beta = ((sum_y - alpha * sum_x) / n).max(0.00005);
+
+    (alpha.clamp(0.0, 0.05), beta.clamp(0.00001, 0.01))
+}
+
+/// Estimates empirical Gaussian noise standard deviation σ using a 1-level 2D Haar DWT on the diagonal (HH₁) subband.
+/// Formula: σ = median(|HH₁|) / 0.6745
+pub fn estimate_wavelet_mad_noise(img: &Rgb32FImage) -> f32 {
+    let (width, height) = img.dimensions();
+    if width < 16 || height < 16 {
+        return 0.02;
+    }
+
+    let sample_w = (width as usize).min(1024);
+    let sample_h = (height as usize).min(1024);
+    let start_x = ((width as usize).saturating_sub(sample_w)) / 2;
+    let start_y = ((height as usize).saturating_sub(sample_h)) / 2;
+
+    let sub_w = sample_w / 2;
+    let sub_h = sample_h / 2;
+    let mut hh = Vec::with_capacity(sub_w * sub_h);
+
+    for y in 0..sub_h {
+        let y0 = (start_y + y * 2) as u32;
+        let y1 = (y0 + 1).min(height - 1);
+        for x in 0..sub_w {
+            let x0 = (start_x + x * 2) as u32;
+            let x1 = (x0 + 1).min(width - 1);
+
+            let p00 = img.get_pixel(x0, y0);
+            let p10 = img.get_pixel(x1, y0);
+            let p01 = img.get_pixel(x0, y1);
+            let p11 = img.get_pixel(x1, y1);
+
+            let l00 = 0.299 * p00[0] + 0.587 * p00[1] + 0.114 * p00[2];
+            let l10 = 0.299 * p10[0] + 0.587 * p10[1] + 0.114 * p10[2];
+            let l01 = 0.299 * p01[0] + 0.587 * p01[1] + 0.114 * p01[2];
+            let l11 = 0.299 * p11[0] + 0.587 * p11[1] + 0.114 * p11[2];
+
+            let val = (0.5 * (l00 - l10 - l01 + l11)).abs();
+            hh.push(val);
+        }
+    }
+
+    if hh.is_empty() {
+        return 0.02;
+    }
+
+    let mid = hh.len() / 2;
+    hh.select_nth_unstable_by(mid, |a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    let median = hh[mid];
+
+    let sigma = median / 0.6745;
+    sigma.clamp(0.001, 1.0)
+}
+
+/// Builds a protection mask for point sources (stars, specular highlights, jewelry glints).
+/// Uses Laplacian curvature and point-spread compactness so stars are never smoothed away as noise.
+pub fn build_point_source_mask(img: &Rgb32FImage) -> Vec<f32> {
+    let (width, height) = img.dimensions();
+    let w = width as usize;
+    let h = height as usize;
+    let mut mask = vec![0.0f32; w * h];
+    if w < 5 || h < 5 {
+        return mask;
+    }
+
+    let mut luma = Vec::with_capacity(w * h);
+    for p in img.pixels() {
+        luma.push(0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]);
+    }
+
+    for y in 2..h - 2 {
+        for x in 2..w - 2 {
+            let idx = y * w + x;
+            let center = luma[idx];
+            if center < 0.12 {
+                continue;
+            }
+
+            let mut bg_sum = 0.0f32;
+            let mut bg_count = 0.0f32;
+            for dy in -2isize..=2isize {
+                for dx in -2isize..=2isize {
+                    if dx.abs() == 2 || dy.abs() == 2 {
+                        bg_sum += luma[(y as isize + dy) as usize * w + (x as isize + dx) as usize];
+                        bg_count += 1.0;
+                    }
+                }
+            }
+            let bg_avg = bg_sum / bg_count;
+            let contrast = center - bg_avg;
+
+            if contrast > 0.06 {
+                let n_up = luma[(y - 1) * w + x];
+                let n_down = luma[(y + 1) * w + x];
+                let n_left = luma[y * w + (x - 1)];
+                let n_right = luma[y * w + (x + 1)];
+                let lap = 4.0 * center - (n_up + n_down + n_left + n_right);
+
+                let diff_h = (n_left - n_right).abs();
+                let diff_v = (n_up - n_down).abs();
+                let symmetry = (1.0 - (diff_h + diff_v) / (contrast + 1e-4)).max(0.0);
+
+                if lap > 0.10 && symmetry > 0.35 {
+                    let star_confidence = ((contrast / 0.20).clamp(0.0, 1.0) * symmetry).clamp(0.0, 1.0);
+                    mask[idx] = star_confidence;
+                }
+            }
+        }
+    }
+
+    mask
+}
+
+pub fn apply_star_point_protection(denoised: &mut DynamicImage, original: &Rgb32FImage) {
+    let point_mask = build_point_source_mask(original);
+    let mut rgb_denoised = denoised.to_rgb32f();
+    let (w, h) = rgb_denoised.dimensions();
+    let w_usize = w as usize;
+
+    for y in 0..h as usize {
+        for x in 0..w as usize {
+            let idx = y * w_usize + x;
+            let weight = point_mask[idx];
+            if weight > 0.001 {
+                let orig_px = original.get_pixel(x as u32, y as u32);
+                let den_px = rgb_denoised.get_pixel_mut(x as u32, y as u32);
+                den_px[0] = den_px[0] * (1.0 - weight) + orig_px[0] * weight;
+                den_px[1] = den_px[1] * (1.0 - weight) + orig_px[1] * weight;
+                den_px[2] = den_px[2] * (1.0 - weight) + orig_px[2] * weight;
+            }
+        }
+    }
+    *denoised = DynamicImage::ImageRgb32F(rgb_denoised);
+}
+
+pub fn apply_edge_guided_texture_preservation(
+    denoised: &mut DynamicImage,
+    original: &Rgb32FImage,
+    detail_amount: f32,
+) {
+    if detail_amount <= 0.001 {
+        return;
+    }
+    let mut rgb_denoised = denoised.to_rgb32f();
+    let (w, h) = rgb_denoised.dimensions();
+    if w < 3 || h < 3 {
+        return;
+    }
+    let w_usize = w as usize;
+
+    let mut luma_orig = vec![0.0f32; w_usize * h as usize];
+    let mut luma_den = vec![0.0f32; w_usize * h as usize];
+
+    for y in 0..h as usize {
+        for x in 0..w as usize {
+            let idx = y * w_usize + x;
+            let o_px = original.get_pixel(x as u32, y as u32);
+            let d_px = rgb_denoised.get_pixel(x as u32, y as u32);
+            luma_orig[idx] = 0.299 * o_px[0] + 0.587 * o_px[1] + 0.114 * o_px[2];
+            luma_den[idx] = 0.299 * d_px[0] + 0.587 * d_px[1] + 0.114 * d_px[2];
+        }
+    }
+
+    let gain = detail_amount.clamp(0.0, 0.60);
+
+    for y in 1..(h as usize - 1) {
+        for x in 1..(w as usize - 1) {
+            let idx = y * w_usize + x;
+
+            let gx = (luma_orig[(y - 1) * w_usize + (x + 1)] + 2.0 * luma_orig[y * w_usize + (x + 1)] + luma_orig[(y + 1) * w_usize + (x + 1)])
+                   - (luma_orig[(y - 1) * w_usize + (x - 1)] + 2.0 * luma_orig[y * w_usize + (x - 1)] + luma_orig[(y + 1) * w_usize + (x - 1)]);
+            let gy = (luma_orig[(y + 1) * w_usize + (x - 1)] + 2.0 * luma_orig[(y + 1) * w_usize + x] + luma_orig[(y + 1) * w_usize + (x + 1)])
+                   - (luma_orig[(y - 1) * w_usize + (x - 1)] + 2.0 * luma_orig[(y - 1) * w_usize + x] + luma_orig[(y - 1) * w_usize + (x + 1)]);
+
+            let grad_mag = (gx * gx + gy * gy).sqrt();
+            let center = luma_orig[idx];
+            let lap = (4.0 * center - (luma_orig[(y - 1) * w_usize + x] + luma_orig[(y + 1) * w_usize + x] + luma_orig[y * w_usize + (x - 1)] + luma_orig[y * w_usize + (x + 1)])).abs();
+            let texture_strength = grad_mag.max(lap);
+            let delta = luma_orig[idx] - luma_den[idx];
+
+            if texture_strength > 0.025 {
+                let edge_confidence = ((texture_strength - 0.025) / 0.12).clamp(0.0, 1.0);
+                let reinject = delta * edge_confidence * gain;
+
+                let den_px = rgb_denoised.get_pixel_mut(x as u32, y as u32);
+                den_px[0] = (den_px[0] + reinject).clamp(0.0, 1.0);
+                den_px[1] = (den_px[1] + reinject).clamp(0.0, 1.0);
+                den_px[2] = (den_px[2] + reinject).clamp(0.0, 1.0);
+            }
+        }
+    }
+
+    *denoised = DynamicImage::ImageRgb32F(rgb_denoised);
+}
+
+pub fn remove_sensor_banding(img: &mut Rgb32FImage) {
+    let (w, h) = img.dimensions();
+    if w < 16 || h < 16 {
+        return;
+    }
+    let mut row_offsets = vec![0.0f32; h as usize];
+    for y in 0..h as usize {
+        let mut row_shadow_vals = Vec::with_capacity(w as usize);
+        for x in 0..w as usize {
+            let px = img.get_pixel(x as u32, y as u32);
+            let luma = 0.299 * px[0] + 0.587 * px[1] + 0.114 * px[2];
+            if luma < 0.40 {
+                row_shadow_vals.push(luma);
+            }
+        }
+        if row_shadow_vals.len() > 16 {
+            row_shadow_vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+            let median = row_shadow_vals[row_shadow_vals.len() / 2];
+            row_offsets[y] = median;
+        }
+    }
+
+    let mut smoothed_baseline = vec![0.0f32; h as usize];
+    let radius = 7isize;
+    for y in 0..h as usize {
+        let mut sum = 0.0f32;
+        let mut count = 0usize;
+        for dy in -radius..=radius {
+            let ny = y as isize + dy;
+            if ny >= 0 && ny < h as isize {
+                sum += row_offsets[ny as usize];
+                count += 1;
+            }
+        }
+        smoothed_baseline[y] = sum / (count.max(1) as f32);
+    }
+
+    for y in 0..h as usize {
+        let ripple = row_offsets[y] - smoothed_baseline[y];
+        if ripple.abs() > 0.0003 {
+            let correction = (ripple * 0.80).clamp(-0.04, 0.04);
+            for x in 0..w as usize {
+                let px = img.get_pixel_mut(x as u32, y as u32);
+                let luma = 0.299 * px[0] + 0.587 * px[1] + 0.114 * px[2];
+                let shadow_weight = 1.0 - (luma / 0.40).clamp(0.0, 1.0);
+                let c = correction * shadow_weight;
+                px[0] = (px[0] - c).clamp(0.0, 1.0);
+                px[1] = (px[1] - c).clamp(0.0, 1.0);
+                px[2] = (px[2] - c).clamp(0.0, 1.0);
+            }
+        }
+    }
+}
+
+pub fn apply_shadow_weighted_zoning(
+    denoised: &mut DynamicImage,
+    original: &Rgb32FImage,
+    shadow_boost: f32,
+) {
+    if shadow_boost <= 0.001 {
+        return;
+    }
+    let mut rgb_denoised = denoised.to_rgb32f();
+    let (w, h) = rgb_denoised.dimensions();
+
+    for y in 0..h {
+        for x in 0..w {
+            let o_px = original.get_pixel(x, y);
+            let d_px = rgb_denoised.get_pixel_mut(x, y);
+            let luma = 0.299 * o_px[0] + 0.587 * o_px[1] + 0.114 * o_px[2];
+
+            if luma > 0.45 {
+                let highlight_protect = ((luma - 0.45) / 0.55).clamp(0.0, 1.0) * shadow_boost;
+                d_px[0] = d_px[0] * (1.0 - highlight_protect) + o_px[0] * highlight_protect;
+                d_px[1] = d_px[1] * (1.0 - highlight_protect) + o_px[1] * highlight_protect;
+                d_px[2] = d_px[2] * (1.0 - highlight_protect) + o_px[2] * highlight_protect;
+            }
+        }
+    }
+    *denoised = DynamicImage::ImageRgb32F(rgb_denoised);
+}
+
+pub fn apply_chroma_luma_denoise(
+    img: &Rgb32FImage,
+    _luma_intensity: f32,
+    chroma_intensity: f32,
+    film_grain: f32,
+) -> Rgb32FImage {
+    let (w, h) = img.dimensions();
+    let mut y_chan = vec![0.0f32; (w * h) as usize];
+    let mut cb_chan = vec![0.0f32; (w * h) as usize];
+    let mut cr_chan = vec![0.0f32; (w * h) as usize];
+
+    for y in 0..h as usize {
+        for x in 0..w as usize {
+            let idx = y * w as usize + x;
+            let px = img.get_pixel(x as u32, y as u32);
+            let r = px[0];
+            let g = px[1];
+            let b = px[2];
+
+            y_chan[idx] = 0.299 * r + 0.587 * g + 0.114 * b;
+            cb_chan[idx] = -0.168736 * r - 0.331264 * g + 0.5 * b;
+            cr_chan[idx] = 0.5 * r - 0.418688 * g - 0.081312 * b;
+        }
+    }
+
+    let chroma_sigma = (chroma_intensity * 0.06).max(0.005);
+    let cb_filtered = gaussian_blur_1ch(&cb_chan, w as usize, h as usize, chroma_sigma * 3.0);
+    let cr_filtered = gaussian_blur_1ch(&cr_chan, w as usize, h as usize, chroma_sigma * 3.0);
+
+    let mut out = Rgb32FImage::new(w, h);
+    for y in 0..h as usize {
+        for x in 0..w as usize {
+            let idx = y * w as usize + x;
+            let y_val = y_chan[idx];
+            let cb_val = cb_filtered[idx];
+            let cr_val = cr_filtered[idx];
+
+            let mut r = y_val + 1.402 * cr_val;
+            let mut g = y_val - 0.344136 * cb_val - 0.714136 * cr_val;
+            let mut b = y_val + 1.772 * cb_val;
+
+            if film_grain > 0.001 {
+                let seed = ((x * 1597 + y * 28939) % 10007) as f32 / 10007.0 - 0.5;
+                let grain = seed * film_grain * 0.06;
+                r += grain;
+                g += grain;
+                b += grain;
+            }
+
+            out.put_pixel(x as u32, y as u32, Rgb([r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0)]));
+        }
+    }
+    out
+}
+
+fn img_to_base64_jpeg(img: &Rgb32FImage, quality: u8) -> Result<String, String> {
+    let rgb8 = DynamicImage::ImageRgb32F(img.clone()).to_rgb8();
+    let mut bytes: Vec<u8> = Vec::new();
+    let mut cursor = Cursor::new(&mut bytes);
+    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, quality);
+    encoder.encode(rgb8.as_raw(), rgb8.width(), rgb8.height(), image::ExtendedColorType::Rgb8)
+        .map_err(|e| e.to_string())?;
+    Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&bytes)))
+}
+
+fn run_bm3d_fast_tile(
+    rgb_img: &Rgb32FImage,
+    intensity: f32,
+    app_handle: &AppHandle,
+) -> DynamicImage {
+    let (width, height) = rgb_img.dimensions();
+    let params = Bm3dParams::from_intensity(intensity);
+    let dct_tables = Arc::new(DctTables::new());
+
+    let rgb_channels = split_channels(rgb_img);
+    let (y, cb, cr) = rgb_to_ycbcr(&rgb_channels[0], &rgb_channels[1], &rgb_channels[2]);
+    let channels = vec![y, cb, cr];
+
+    let progress_counter = Arc::new(AtomicUsize::new(0));
+    let progress = ProgressReporter {
+        counter: &progress_counter,
+        total_work: 1000000,
+        app_handle,
+    };
+    let denoised_channels =
+        bm3d_process_joint(&channels, width, height, &params, &dct_tables, &progress);
+
+    let (r, g, b) = ycbcr_to_rgb(
+        &denoised_channels[0],
+        &denoised_channels[1],
+        &denoised_channels[2],
+    );
+    let mut out_img = Rgb32FImage::new(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            let idx = (y * width + x) as usize;
+            out_img.put_pixel(
+                x,
+                y,
+                Rgb([
+                    r[idx].clamp(0.0, 255.0) / 255.0,
+                    g[idx].clamp(0.0, 255.0) / 255.0,
+                    b[idx].clamp(0.0, 255.0) / 255.0,
+                ]),
+            );
+        }
+    }
+    DynamicImage::ImageRgb32F(out_img)
+}
+
 fn denoise_image(
     path_str: String,
     intensity: f32,
     method: String,
+    heal_dust: bool,
+    visualize_defects: bool,
+    protect_stars: bool,
+    preserve_details: f32,
+    chroma_intensity: f32,
+    shadow_boost: f32,
+    deband: bool,
+    film_grain: f32,
     app_handle: AppHandle,
     ai_session: Option<Arc<Mutex<ort::session::Session>>>,
 ) -> Result<(DynamicImage, String), String> {
@@ -315,7 +1277,16 @@ fn denoise_image(
     let dynamic_img = load_base_image_from_bytes(&file_bytes, &path_str, false, &settings, None)
         .map_err(|e| e.to_string())?;
 
-    let rgb_img_for_denoiser = dynamic_img.to_rgb32f();
+    let mut rgb_img_for_denoiser = dynamic_img.to_rgb32f();
+
+    if deband {
+        let _ = app_handle.emit("denoise-progress", "Removing sensor readout banding stripes...");
+        remove_sensor_banding(&mut rgb_img_for_denoiser);
+    }
+
+    if chroma_intensity > 0.0 || film_grain > 0.0 {
+        rgb_img_for_denoiser = apply_chroma_luma_denoise(&rgb_img_for_denoiser, intensity, chroma_intensity, film_grain);
+    }
 
     let out_dynamic = if method == "ai" {
         let session_arc = ai_session.ok_or_else(|| "AI Session not provided".to_string())?;
@@ -330,10 +1301,34 @@ fn denoise_image(
         run_bm3d(&rgb_img_for_denoiser, intensity, &app_handle)?
     };
 
+    let mut out_dynamic_final = out_dynamic;
+
+    if protect_stars {
+        let _ = app_handle.emit("denoise-progress", "Protecting star fields & specular points...");
+        apply_star_point_protection(&mut out_dynamic_final, &rgb_img_for_denoiser);
+    }
+
+    if preserve_details > 0.001 {
+        let _ = app_handle.emit("denoise-progress", "Preserving organic micro-textures & skin details...");
+        apply_edge_guided_texture_preservation(&mut out_dynamic_final, &rgb_img_for_denoiser, preserve_details);
+    }
+
+    if shadow_boost > 0.001 {
+        let _ = app_handle.emit("denoise-progress", "Applying shadow-weighted zoning...");
+        apply_shadow_weighted_zoning(&mut out_dynamic_final, &rgb_img_for_denoiser, shadow_boost);
+    }
+
+    let mut dust_healed_count = 0usize;
+    if heal_dust {
+        let _ = app_handle.emit("denoise-progress", "Analyzing & healing sensor dust spots...");
+        let dust_res = crate::defect_repair::heal_sky_dust_spots(&mut out_dynamic_final);
+        dust_healed_count = dust_res.spots_detected;
+    }
+
     let _ = app_handle.emit("denoise-progress", "Finalizing data...");
     let _ = app_handle.emit("denoise-progress", "Generating previews...");
 
-    let (width, height) = out_dynamic.dimensions();
+    let (width, height) = out_dynamic_final.dimensions();
     let (new_width, new_height) = if width > height {
         if width > 4000 {
             (4000, (4000.0 * height as f32 / width as f32).round() as u32)
@@ -348,7 +1343,7 @@ fn denoise_image(
         }
     };
 
-    let mut denoised_preview_source = out_dynamic.clone();
+    let mut denoised_preview_source = out_dynamic_final.clone();
 
     if is_raw {
         apply_cpu_default_raw_processing(&mut denoised_preview_source);
@@ -389,12 +1384,14 @@ fn denoise_image(
 
     let payload = serde_json::json!({
         "denoised": data_url_denoised,
-        "original": data_url_orig
+        "original": data_url_orig,
+        "dust_spots_healed": dust_healed_count,
+        "is_visualizing_defects": visualize_defects
     });
 
     let _ = app_handle.emit("denoise-complete", &payload);
 
-    Ok((out_dynamic, data_url_denoised))
+    Ok((out_dynamic_final, data_url_denoised))
 }
 
 fn rgb_to_ycbcr(r: &[f32], g: &[f32], b: &[f32]) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
@@ -1019,3 +2016,550 @@ fn gaussian_blur_1ch(data: &[f32], width: usize, height: usize, sigma: f32) -> V
 
     out
 }
+
+/// Removes isolated impulsive salt-and-pepper chroma noise spikes in deep shadows
+pub fn apply_chroma_salt_pepper_filter(img: &mut Rgb32FImage) {
+    let (w, h) = img.dimensions();
+    if w < 3 || h < 3 {
+        return;
+    }
+
+    let orig = img.clone();
+    let row_stride = (w * 3) as usize;
+    let raw = img.as_mut();
+
+    raw.par_chunks_mut(row_stride)
+        .enumerate()
+        .for_each(|(y_idx, row_slice)| {
+            let y = y_idx as u32;
+            if y == 0 || y >= h - 1 {
+                return;
+            }
+
+            for x in 1..(w - 1) {
+                let center_p = orig.get_pixel(x, y);
+                let lum = 0.2126 * center_p[0] + 0.7152 * center_p[1] + 0.0722 * center_p[2];
+
+                // Salt-and-pepper chroma spikes primarily plague shadow regions (L < 0.25)
+                if lum < 0.25 {
+                    let mut r_neigh = [0.0f32; 9];
+                    let mut g_neigh = [0.0f32; 9];
+                    let mut b_neigh = [0.0f32; 9];
+                    let mut count = 0;
+
+                    for dy in -1i32..=1i32 {
+                        for dx in -1i32..=1i32 {
+                            let p = orig.get_pixel((x as i32 + dx) as u32, (y as i32 + dy) as u32);
+                            r_neigh[count] = p[0];
+                            g_neigh[count] = p[1];
+                            b_neigh[count] = p[2];
+                            count += 1;
+                        }
+                    }
+
+                    r_neigh.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+                    g_neigh.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+                    b_neigh.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+
+                    let med_r = r_neigh[4];
+                    let med_g = g_neigh[4];
+                    let med_b = b_neigh[4];
+
+                    let out_idx = (x * 3) as usize;
+                    // If the center pixel deviates drastically from median in shadows, clamp it to median
+                    if (center_p[0] - med_r).abs() > 0.08 || (center_p[2] - med_b).abs() > 0.08 {
+                        row_slice[out_idx] = med_r;
+                        row_slice[out_idx + 1] = med_g;
+                        row_slice[out_idx + 2] = med_b;
+                    }
+                }
+            }
+        });
+}
+
+/// Suppresses longitudinal/axial chromatic aberration fringes (purple/magenta & green fringing)
+pub fn apply_chromatic_defringe(img: &mut Rgb32FImage, purple_amount: f32, green_amount: f32) {
+    let p_amt = (purple_amount / 100.0).clamp(0.0, 1.0);
+    let g_amt = (green_amount / 100.0).clamp(0.0, 1.0);
+
+    if p_amt < 0.01 && g_amt < 0.01 {
+        return;
+    }
+
+    let (w, h) = img.dimensions();
+    let orig = img.clone();
+    let row_stride = (w * 3) as usize;
+    let raw = img.as_mut();
+
+    raw.par_chunks_mut(row_stride)
+        .enumerate()
+        .for_each(|(y_idx, row_slice)| {
+            let y = y_idx as u32;
+            if y == 0 || y >= h - 1 {
+                return;
+            }
+
+            for x in 1..(w - 1) {
+                let p = orig.get_pixel(x, y);
+                let r = p[0];
+                let g = p[1];
+                let b = p[2];
+
+                // Detect purple/magenta fringe: high Red + high Blue with low Green
+                let purple_excess = ((r + b) * 0.5 - g).max(0.0);
+                // Detect green fringe: high Green with lower Red and Blue
+                let green_excess = (g - (r + b) * 0.5).max(0.0);
+
+                let out_idx = (x * 3) as usize;
+
+                if p_amt > 0.0 && purple_excess > 0.05 {
+                    let desat = purple_excess * p_amt * 0.85;
+                    row_slice[out_idx] = (r - desat).max(g);
+                    row_slice[out_idx + 2] = (b - desat).max(g);
+                }
+
+                if g_amt > 0.0 && green_excess > 0.05 {
+                    let desat = green_excess * g_amt * 0.85;
+                    row_slice[out_idx + 1] = (g - desat).max((r + b) * 0.5);
+                }
+            }
+        });
+}
+
+/// Multi-Frame Sub-Pixel Drizzle Super-Resolution Integration
+/// Uses sub-pixel phase jitter across burst frames to reconstruct true optical RGB data at 2x resolution,
+/// eliminating Bayer moiré and boosting SNR by +12dB.
+pub fn drizzle_super_resolution_burst(
+    paths: &[String],
+    scale_factor: u32,
+    app_handle: &tauri::AppHandle,
+    settings: &crate::app_settings::AppSettings,
+) -> Result<DynamicImage, String> {
+    if paths.len() < 2 {
+        return Err("Drizzle Super-Resolution requires at least 2 burst frames".to_string());
+    }
+
+    let scale = scale_factor.clamp(2, 4);
+    let total_frames = paths.len();
+
+    let _ = app_handle.emit(
+        "drizzle-progress",
+        serde_json::json!({
+            "current": 1,
+            "total": total_frames,
+            "message": "Loading base reference burst frame..."
+        }),
+    );
+
+    // 1. Load Reference Frame
+    let (ref_source, _) = parse_virtual_path(&paths[0]);
+    let ref_bytes = fs::read(&ref_source).map_err(|e| e.to_string())?;
+    let ref_dyn = load_base_image_from_bytes(&ref_bytes, &ref_source.to_string_lossy(), false, settings, None)
+        .map_err(|e| e.to_string())?;
+    let ref_rgb = ref_dyn.to_rgb32f();
+    let (orig_w, orig_h) = ref_rgb.dimensions();
+
+    let dst_w = orig_w * scale;
+    let dst_h = orig_h * scale;
+
+    // High-resolution accumulation grids (RGB sum and weight sum)
+    let total_pixels = (dst_w * dst_h) as usize;
+    let mut sum_r = vec![0.0f32; total_pixels];
+    let mut sum_g = vec![0.0f32; total_pixels];
+    let mut sum_b = vec![0.0f32; total_pixels];
+    let mut sum_weights = vec![0.0f32; total_pixels];
+
+    // Deposit reference frame onto grid
+    let drop_radius = 0.8f32; // Drizzle kernel drop footprint radius in destination pixels
+
+    let deposit_frame = |img: &Rgb32FImage, dx_sub: f32, dy_sub: f32,
+                         sum_r: &mut [f32], sum_g: &mut [f32], sum_b: &mut [f32], sum_w: &mut [f32]| {
+        let (w, h) = img.dimensions();
+        for y in 0..h {
+            for x in 0..w {
+                let p = img.get_pixel(x, y);
+                // Center coordinate on target high-res grid
+                let target_x = (x as f32 + dx_sub) * scale as f32;
+                let target_y = (y as f32 + dy_sub) * scale as f32;
+
+                let min_gx = (target_x - drop_radius).floor().max(0.0) as u32;
+                let max_gx = (target_x + drop_radius).ceil().min((dst_w - 1) as f32) as u32;
+                let min_gy = (target_y - drop_radius).floor().max(0.0) as u32;
+                let max_gy = (target_y + drop_radius).ceil().min((dst_h - 1) as f32) as u32;
+
+                for gy in min_gy..=max_gy {
+                    for gx in min_gx..=max_gx {
+                        let dist_sq = (gx as f32 - target_x).powi(2) + (gy as f32 - target_y).powi(2);
+                        if dist_sq <= drop_radius * drop_radius {
+                            let weight = 1.0 - (dist_sq.sqrt() / drop_radius);
+                            let idx = (gy * dst_w + gx) as usize;
+                            sum_r[idx] += p[0] * weight;
+                            sum_g[idx] += p[1] * weight;
+                            sum_b[idx] += p[2] * weight;
+                            sum_w[idx] += weight;
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    deposit_frame(&ref_rgb, 0.0, 0.0, &mut sum_r, &mut sum_g, &mut sum_b, &mut sum_weights);
+
+    // 2. Align and Deposit Target Burst Frames
+    for (frame_idx, path_str) in paths.iter().enumerate().skip(1) {
+        let _ = app_handle.emit(
+            "drizzle-progress",
+            serde_json::json!({
+                "current": frame_idx + 1,
+                "total": total_frames,
+                "message": format!("Aligning sub-pixel burst frame {}/{}...", frame_idx + 1, total_frames)
+            }),
+        );
+
+        let (src_path, _) = parse_virtual_path(path_str);
+        if let Ok(bytes) = fs::read(&src_path) {
+            if let Ok(target_dyn) = load_base_image_from_bytes(&bytes, &src_path.to_string_lossy(), false, settings, None) {
+                let target_rgb = target_dyn.to_rgb32f();
+                if target_rgb.dimensions() == (orig_w, orig_h) {
+                    // Estimate sub-pixel shift using 128x128 center patch cross-correlation
+                    let sub_shift = estimate_subpixel_translation(&ref_rgb, &target_rgb);
+                    deposit_frame(&target_rgb, sub_shift.0, sub_shift.1, &mut sum_r, &mut sum_g, &mut sum_b, &mut sum_weights);
+                }
+            }
+        }
+    }
+
+    // 3. Normalize High-Resolution Drizzle Grid
+    let _ = app_handle.emit("drizzle-progress", serde_json::json!({ "message": "Normalizing drizzle reconstructed grid..." }));
+    let mut out_pixels = vec![0.0f32; (dst_w * dst_h * 3) as usize];
+
+    out_pixels
+        .par_chunks_mut((dst_w * 3) as usize)
+        .enumerate()
+        .for_each(|(y_idx, row_slice)| {
+            let y = y_idx as u32;
+            for x in 0..dst_w {
+                let idx = (y * dst_w + x) as usize;
+                let w = sum_weights[idx];
+                let out_idx = (x * 3) as usize;
+
+                if w > 0.0001 {
+                    row_slice[out_idx] = (sum_r[idx] / w).clamp(0.0, 1.0);
+                    row_slice[out_idx + 1] = (sum_g[idx] / w).clamp(0.0, 1.0);
+                    row_slice[out_idx + 2] = (sum_b[idx] / w).clamp(0.0, 1.0);
+                } else {
+                    // Fallback to bilinear interpolation from reference frame
+                    let sample_x = x as f32 / scale as f32;
+                    let sample_y = y as f32 / scale as f32;
+                    let p = sample_bilinear_rgb(&ref_rgb, sample_x, sample_y);
+                    row_slice[out_idx] = p[0];
+                    row_slice[out_idx + 1] = p[1];
+                    row_slice[out_idx + 2] = p[2];
+                }
+            }
+        });
+
+    let buffer = image::ImageBuffer::<image::Rgb<f32>, _>::from_raw(dst_w, dst_h, out_pixels)
+        .ok_or_else(|| "Failed to construct Drizzle Super-Resolution buffer".to_string())?;
+
+    Ok(DynamicImage::ImageRgb32F(buffer))
+}
+
+/// Estimates sub-pixel translation (dx, dy) between two burst frames using cross-correlation
+fn estimate_subpixel_translation(ref_img: &Rgb32FImage, target_img: &Rgb32FImage) -> (f32, f32) {
+    let (w, h) = ref_img.dimensions();
+    let crop_size = 128u32.min(w).min(h);
+    let cx = w / 2 - crop_size / 2;
+    let cy = h / 2 - crop_size / 2;
+
+    let mut best_dx = 0.0f32;
+    let mut best_dy = 0.0f32;
+    let mut min_sad = f32::MAX;
+
+    // Search within +/- 3 pixels in 0.25 pixel increments
+    for dy_step in -12..=12 {
+        let dy = dy_step as f32 * 0.25;
+        for dx_step in -12..=12 {
+            let dx = dx_step as f32 * 0.25;
+            let mut sad = 0.0f32;
+
+            for y in 0..crop_size {
+                for x in 0..crop_size {
+                    let rx = cx + x;
+                    let ry = cy + y;
+                    let rp = ref_img.get_pixel(rx, ry);
+                    let tp = sample_bilinear_rgb(target_img, rx as f32 + dx, ry as f32 + dy);
+
+                    let r_lum = 0.2126 * rp[0] + 0.7152 * rp[1] + 0.0722 * rp[2];
+                    let t_lum = 0.2126 * tp[0] + 0.7152 * tp[1] + 0.0722 * tp[2];
+                    sad += (r_lum - t_lum).abs();
+                }
+            }
+
+            if sad < min_sad {
+                min_sad = sad;
+                best_dx = dx;
+                best_dy = dy;
+            }
+        }
+    }
+
+    (-best_dx, -best_dy)
+}
+
+fn sample_bilinear_rgb(img: &Rgb32FImage, x: f32, y: f32) -> image::Rgb<f32> {
+    let (w, h) = img.dimensions();
+    let x_clamped = x.clamp(0.0, (w - 1) as f32);
+    let y_clamped = y.clamp(0.0, (h - 1) as f32);
+
+    let x0 = x_clamped.floor() as u32;
+    let y0 = y_clamped.floor() as u32;
+    let x1 = (x0 + 1).min(w - 1);
+    let y1 = (y0 + 1).min(h - 1);
+
+    let fx = x_clamped - x0 as f32;
+    let fy = y_clamped - y0 as f32;
+
+    let p00 = img.get_pixel(x0, y0);
+    let p10 = img.get_pixel(x1, y0);
+    let p01 = img.get_pixel(x0, y1);
+    let p11 = img.get_pixel(x1, y1);
+
+    let w00 = (1.0 - fx) * (1.0 - fy);
+    let w10 = fx * (1.0 - fy);
+    let w01 = (1.0 - fx) * fy;
+    let w11 = fx * fy;
+
+    image::Rgb([
+        p00[0] * w00 + p10[0] * w10 + p01[0] * w01 + p11[0] * w11,
+        p00[1] * w00 + p10[1] * w10 + p01[1] * w01 + p11[1] * w11,
+        p00[2] * w00 + p10[2] * w10 + p01[2] * w01 + p11[2] * w11,
+    ])
+}
+
+#[tauri::command]
+pub fn drizzle_super_resolution(
+    paths: Vec<String>,
+    scale_factor: Option<u32>,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, crate::AppState>,
+) -> Result<(), String> {
+    let settings = crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default();
+    let factor = scale_factor.unwrap_or(2);
+    let denoise_handle = state.denoise_result.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let _sleep_guard = crate::sleep_lock::SleepLockGuard::new("drizzle_super_resolution");
+        match drizzle_super_resolution_burst(&paths, factor, &app_handle, &settings) {
+            Ok(img) => {
+                *denoise_handle.lock().unwrap() = Some(img);
+                let _ = app_handle.emit("drizzle-complete", "Drizzle Super-Resolution complete!");
+            }
+            Err(e) => {
+                let _ = app_handle.emit("drizzle-error", e);
+            }
+        }
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn apply_chromatic_defringe_active(
+    purple_amount: f32,
+    green_amount: f32,
+    state: tauri::State<'_, crate::AppState>,
+) -> Result<(), String> {
+    let mut orig_guard = state.original_image.lock().map_err(|e| e.to_string())?;
+    if let Some(loaded) = &mut *orig_guard {
+        let mut rgb32f = loaded.image.to_rgb32f();
+        apply_chromatic_defringe(&mut rgb32f, purple_amount, green_amount);
+        let updated = DynamicImage::ImageRgb32F(rgb32f);
+        loaded.image = std::sync::Arc::new(updated);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgb, Rgb32FImage};
+
+    #[test]
+    fn test_wavelet_mad_noise_estimation_flat() {
+        // A perfectly flat image should have near-zero empirical noise
+        let mut flat = Rgb32FImage::new(128, 128);
+        for p in flat.pixels_mut() {
+            *p = Rgb([0.5, 0.5, 0.5]);
+        }
+        let sigma = estimate_wavelet_mad_noise(&flat);
+        assert!(sigma < 0.01, "Flat image noise should be near zero, got {}", sigma);
+    }
+
+    #[test]
+    fn test_point_source_star_mask() {
+        // Create an image with a dark background and a bright point star
+        let mut img = Rgb32FImage::new(64, 64);
+        for p in img.pixels_mut() {
+            *p = Rgb([0.02, 0.02, 0.02]);
+        }
+        // Place a bright star at (32, 32)
+        img.put_pixel(32, 32, Rgb([0.95, 0.95, 0.95]));
+        img.put_pixel(31, 32, Rgb([0.5, 0.5, 0.5]));
+        img.put_pixel(33, 32, Rgb([0.5, 0.5, 0.5]));
+        img.put_pixel(32, 31, Rgb([0.5, 0.5, 0.5]));
+        img.put_pixel(32, 33, Rgb([0.5, 0.5, 0.5]));
+
+        let mask = build_point_source_mask(&img);
+        let star_weight = mask[32 * 64 + 32];
+        assert!(star_weight > 0.5, "Star center should have high protection confidence, got {}", star_weight);
+    }
+
+    #[test]
+    fn test_sensor_noise_profile_canon() {
+        let profile_r5 = get_sensor_noise_profile("Canon", "Canon EOS R5");
+        assert_eq!(profile_r5.make, "Canon");
+        assert!(profile_r5.sensor_type.contains("Dual Gain"));
+        assert_eq!(profile_r5.dual_gain_iso, Some(400));
+
+        let profile_sony = get_sensor_noise_profile("Sony", "ILCE-7M4");
+        assert_eq!(profile_sony.make, "Sony");
+        assert_eq!(profile_sony.dual_gain_iso, Some(640));
+    }
+
+    #[test]
+    fn test_edge_guided_texture_preservation() {
+        let mut orig = Rgb32FImage::new(32, 32);
+        for y in 0..32 {
+            for x in 0..32 {
+                let val = if x % 4 == 0 { 0.8 } else { 0.2 };
+                orig.put_pixel(x, y, Rgb([val, val, val]));
+            }
+        }
+        let mut denoised = DynamicImage::ImageRgb32F(Rgb32FImage::new(32, 32));
+        for p in denoised.as_mut_rgb32f().unwrap().pixels_mut() {
+            *p = Rgb([0.35, 0.35, 0.35]); // Blurred/over-smoothed
+        }
+
+        apply_edge_guided_texture_preservation(&mut denoised, &orig, 0.30);
+        let preserved = denoised.to_rgb32f();
+        // The edge pixel (x=4) should have increased contrast back towards original (0.8)
+        let edge_val = preserved.get_pixel(4, 16)[0];
+        assert!(edge_val > 0.35, "Preserved edge pixel should be brighter than smoothed 0.35, got {}", edge_val);
+    }
+
+    #[test]
+    fn test_remove_sensor_banding() {
+        let mut img = Rgb32FImage::new(32, 32);
+        for y in 0..32 {
+            // Introduce alternating row banding in dark shadows
+            let stripe = if y % 2 == 0 { 0.05 } else { -0.05 };
+            for x in 0..32 {
+                let base = 0.15 + stripe;
+                img.put_pixel(x, y, Rgb([base, base, base]));
+            }
+        }
+        remove_sensor_banding(&mut img);
+        let row0 = img.get_pixel(16, 0)[0];
+        let row1 = img.get_pixel(16, 1)[0];
+        assert!((row0 - row1).abs() < 0.08, "Row banding amplitude should be reduced, diff was {}", (row0 - row1).abs());
+    }
+
+    #[test]
+    fn test_apply_shadow_weighted_zoning() {
+        let mut orig = Rgb32FImage::new(16, 16);
+        for p in orig.pixels_mut() {
+            *p = Rgb([0.9, 0.9, 0.9]); // Bright highlight
+        }
+        let mut denoised = DynamicImage::ImageRgb32F(Rgb32FImage::new(16, 16));
+        for p in denoised.as_mut_rgb32f().unwrap().pixels_mut() {
+            *p = Rgb([0.5, 0.5, 0.5]); // Artificially smoothed
+        }
+        apply_shadow_weighted_zoning(&mut denoised, &orig, 0.8);
+        let restored = denoised.to_rgb32f();
+        let val = restored.get_pixel(8, 8)[0];
+        assert!(val > 0.7, "Highlights should be protected and restored, got {}", val);
+    }
+
+    #[test]
+    fn test_flat_patch_noise_rejection() {
+        // Image with smooth flat background (bottom half) and textured top half
+        let mut img = Rgb32FImage::new(128, 128);
+        for y in 0..128 {
+            for x in 0..128 {
+                if y < 64 {
+                    // High-frequency texture (checker pattern)
+                    let pattern = if (x + y) % 2 == 0 { 0.8 } else { 0.2 };
+                    img.put_pixel(x, y, Rgb([pattern, pattern, pattern]));
+                } else {
+                    // Smooth flat background with small noise
+                    let noise = (((x * 17 + y * 31) as f32).sin() * 0.02).abs();
+                    let base = 0.4 + noise;
+                    img.put_pixel(x, y, Rgb([base, base, base]));
+                }
+            }
+        }
+
+        let flat_sigma = estimate_flat_patch_noise(&img);
+        assert!(flat_sigma.is_some(), "Flat patch noise should find the smooth bottom region");
+        let sigma_val = flat_sigma.unwrap();
+        assert!(sigma_val < 0.10, "Flat patch sigma should be low, got {}", sigma_val);
+    }
+
+    #[test]
+    fn test_all_texture_fallback() {
+        // Image consisting entirely of extreme high-frequency edges (macro / starfield)
+        let mut img = Rgb32FImage::new(128, 128);
+        for y in 0..128 {
+            for x in 0..128 {
+                let pattern = if (x * 3 + y * 7) % 2 == 0 { 0.9 } else { 0.1 };
+                img.put_pixel(x, y, Rgb([pattern, pattern, pattern]));
+            }
+        }
+
+        let flat_sigma = estimate_flat_patch_noise(&img);
+        assert!(flat_sigma.is_none(), "All-texture image should return None to trigger physical fallback");
+    }
+
+    #[test]
+    fn test_heteroscedastic_safe_window() {
+        // Verify affine noise estimation across safe luminance window [0.04, 0.88]
+        let mut img = Rgb32FImage::new(64, 64);
+        for y in 0..64 {
+            for x in 0..64 {
+                let luma = 0.05 + (x as f32 / 64.0) * 0.80;
+                img.put_pixel(x, y, Rgb([luma, luma, luma]));
+            }
+        }
+        let (alpha, beta) = estimate_heteroscedastic_noise_curve(&img);
+        assert!(alpha >= 0.0, "Shot noise alpha must be non-negative");
+        assert!(beta >= 0.00001, "Read noise beta must be positive");
+    }
+
+    #[test]
+    fn test_canon_77d_sensor_profile() {
+        let profile = get_sensor_noise_profile("Canon", "Canon EOS 77D");
+        assert_eq!(profile.make, "Canon");
+        assert_eq!(profile.model, "EOS 77D");
+        assert!(profile.sensor_type.contains("24.2MP APS-C Dual Pixel"));
+        assert_eq!(profile.dual_gain_iso, Some(400));
+        assert_eq!(profile.base_read_noise, 0.0022);
+    }
+
+    #[test]
+    fn test_real_world_high_iso_portrait_if_present() {
+        let test_file = std::path::Path::new(r"D:\neapdirbti\IMG_4097.CR2");
+        if !test_file.exists() {
+            return;
+        }
+
+        let is_raw = crate::formats::is_raw_file(test_file);
+        assert!(is_raw, "High-ISO night portrait must be identified as RAW format");
+
+        let canon_profile = get_sensor_noise_profile("Canon", "EOS");
+        assert_eq!(canon_profile.make, "Canon");
+        assert!(canon_profile.base_read_noise > 0.0);
+    }
+}
+

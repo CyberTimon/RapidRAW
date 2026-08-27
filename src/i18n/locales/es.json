@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Mapeo de tonos estilo película",
         "basic": "Básico",
-        "basicDesc": "Mapeo de tonos estándar"
+        "basicDesc": "Mapeo de tonos estándar",
+        "oklab": "Oklab",
+        "oklabDesc": "Ciencia de color perceptivo y altas luces"
       },
       "reset": "Restablecer",
       "shadows": "Sombras",
@@ -1277,7 +1279,8 @@
       "savedSuccess": "¡Apilamiento de enfoque guardado con éxito!",
       "stacking": "Apilando enfoque",
       "start": "Iniciar",
-      "title": "Apilamiento de enfoque"
+      "title": "Apilamiento de enfoque",
+      "descriptionWithCount_many": "Combina {{count}} imágenes con diferentes distancias de enfoque en una sola imagen perfectamente nítida."
     },
     "hdr": {
       "cancel": "Cancelar",
@@ -1729,7 +1732,8 @@
         "title": "Preprocesamiento de imágenes",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Básico"
+          "basic": "Básico",
+          "oklab": "Oklab (Perceptivo)"
         },
         "tonemapperOverride": "Anulación global del mapeador de tonos",
         "tonemapperOverrideDesc": "Forzar un mapeador de tonos específico a nivel global para todas las imágenes, ocultando el interruptor del mapeador del panel de ajustes."

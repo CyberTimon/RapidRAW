@@ -3,6 +3,7 @@ import { getVersion } from '@tauri-apps/api/app';
 import { open } from '@tauri-apps/plugin-shell';
 import {
   AlertTriangle,
+  Camera,
   Check,
   Folder,
   FolderInput,
@@ -16,6 +17,7 @@ import {
   Columns,
   SlidersHorizontal,
   Rows3,
+  Zap,
 } from 'lucide-react';
 import CullingView from './library/CullingView';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -322,6 +324,34 @@ export default function MainLibrary(props: MainLibraryProps) {
     checkVersion();
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.isComposing
+      ) {
+        return;
+      }
+      if (e.key === 'c' || e.key === 'C') {
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && props.imageList.length > 0) {
+          e.preventDefault();
+          setUI({
+            speedCullerModalState: {
+              isOpen: true,
+              selectedPaths: props.multiSelectedPaths.length > 1 ? props.multiSelectedPaths : [],
+              initialIndex: props.activePath
+                ? Math.max(0, props.imageList.findIndex((im) => im.path === props.activePath))
+                : 0,
+            },
+          });
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [props.imageList, props.activePath, props.multiSelectedPaths, setUI]);
+
   if (!props.rootPaths || props.rootPaths.length === 0) {
     if (!props.appSettings) {
       return null;
@@ -595,13 +625,43 @@ export default function MainLibrary(props: MainLibraryProps) {
               sortOptions={translatedSortOptions}
             />
             {!props.isAndroid && (
-              <Button
-                className="h-12 w-12 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center"
-                onClick={props.onNavigateToCommunity}
-                data-tooltip={t('library.tooltips.communityPresets')}
-              >
-                <Users className="w-5 h-5" />
-              </Button>
+              <>
+                <Button
+                  className="h-12 w-12 bg-transparent text-amber-400 shadow-none p-0 flex items-center justify-center hover:text-amber-300 hover:scale-105 transition-all"
+                  onClick={() =>
+                    setUI({
+                      speedCullerModalState: {
+                        isOpen: true,
+                        selectedPaths: props.multiSelectedPaths.length > 1 ? props.multiSelectedPaths : [],
+                        initialIndex: props.activePath
+                          ? Math.max(0, props.imageList.findIndex((im) => im.path === props.activePath))
+                          : 0,
+                      },
+                    })
+                  }
+                  data-tooltip="⚡ Speed Culler & AI Face Loupe (C)"
+                >
+                  <Zap className="w-5 h-5 fill-amber-400/20 text-amber-400" />
+                </Button>
+                <Button
+                  className="h-12 w-12 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center hover:text-accent transition-colors"
+                  onClick={() =>
+                    setUI((state) => ({
+                      tetheringModalState: { ...state.tetheringModalState, isOpen: true },
+                    }))
+                  }
+                  data-tooltip="Camera Tethering (Live View & Remote Shutter)"
+                >
+                  <Camera className="w-5 h-5" />
+                </Button>
+                <Button
+                  className="h-12 w-12 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center"
+                  onClick={props.onNavigateToCommunity}
+                  data-tooltip={t('library.tooltips.communityPresets')}
+                >
+                  <Users className="w-5 h-5" />
+                </Button>
+              </>
             )}
             <Button
               className="h-12 w-12 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center"

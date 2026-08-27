@@ -31,6 +31,7 @@ export const OPTION_SEPARATOR = 'separator';
 
 export enum Invokes {
   AddTagForPaths = 'add_tag_for_paths',
+  AnalyzeImageNoiseProfile = 'analyze_image_noise_profile',
   ApplyAdjustments = 'apply_adjustments',
   ApplyAdjustmentsToPaths = 'apply_adjustments_to_paths',
   ApplyAutoAdjustmentsToPaths = 'apply_auto_adjustments_to_paths',
@@ -80,6 +81,7 @@ export enum Invokes {
   LoadPresets = 'load_presets',
   LoadSettings = 'load_settings',
   MoveFiles = 'move_files',
+  PreviewDenoisedRoi = 'preview_denoised_roi',
   ReadExifForPaths = 'read_exif_for_paths',
   RemoveTagForPaths = 'remove_tag_for_paths',
   RenameFiles = 'rename_files',
@@ -97,9 +99,12 @@ export enum Invokes {
   ShowInFinder = 'show_in_finder',
   StartBackgroundIndexing = 'start_background_indexing',
   StitchPanorama = 'stitch_panorama',
+  DetectPanoramaSequences = 'detect_panorama_sequences',
+  StitchHdrPanorama = 'stitch_hdr_panorama',
   StitchFocusStack = 'stitch_focus_stack',
   SaveFocusStack = 'save_focus_stack',
   MergeHdr = 'merge_hdr',
+  ValidateHdrBrackets = 'validate_hdr_brackets',
   TestAIConnectorConnection = 'test_ai_connector_connection',
   UpdateWgpuTransform = 'update_wgpu_transform',
   UpdateExifFields = 'update_exif_fields',
@@ -111,6 +116,7 @@ export enum Invokes {
   SaveAlbums = 'save_albums',
   AddToAlbum = 'add_to_album',
   GetAlbumImages = 'get_album_images',
+  ExtractEmbeddedRawPreview = 'extract_embedded_raw_preview',
 }
 
 export enum ExifOverlay {

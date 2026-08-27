@@ -1960,6 +1960,7 @@ pub async fn stitch_focus_stack(
     app_handle: AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    let _sleep_guard = crate::sleep_lock::SleepLockGuard::new("stitch_focus_stack");
     if paths.len() < 2 {
         return Err("Please select at least two images to stack.".to_string());
     }
@@ -2137,6 +2138,7 @@ fn make_depth_preview(result: &StackResult, n_frames: usize) -> Result<String, S
 #[tauri::command]
 pub async fn save_focus_stack(
     first_path_str: String,
+    export_format: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let focus_image = state
@@ -2152,14 +2154,91 @@ pub async fn save_focus_stack(
         .ok_or_else(|| "Could not determine output directory.".to_string())?;
     let stem = first_path.file_stem().unwrap_or_default().to_string_lossy();
 
-    let output_path = parent_dir.join(format!("{}_Stacked.tiff", stem));
-
-    let rgb16 = focus_image.to_rgb16();
-    rgb16
-        .save_with_format(&output_path, ImageFormat::Tiff)
-        .map_err(|e| format!("Failed to save {}: {}", output_path.display(), e))?;
+    let fmt = export_format.unwrap_or_else(|| "tiff".to_string()).to_lowercase();
+    let output_path = if fmt == "dng" {
+        let out = parent_dir.join(format!("{}_Stacked.dng", stem));
+        let rgb32f = focus_image.to_rgb32f();
+        crate::dng_encoder::write_linear_dng_file(&out, &rgb32f, None)
+            .map_err(|e| format!("Failed to save DNG: {}", e))?;
+        out
+    } else {
+        let out = parent_dir.join(format!("{}_Stacked.tiff", stem));
+        let rgb16 = focus_image.to_rgb16();
+        rgb16
+            .save_with_format(&out, ImageFormat::Tiff)
+            .map_err(|e| format!("Failed to save {}: {}", out.display(), e))?;
+        out
+    };
 
     crate::exif_processing::write_rrexif_sidecar(&first_path_str, &output_path).ok();
 
     Ok(output_path.to_string_lossy().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lens_warp_identity_and_scaling() {
+        let (w, h) = (100usize, 100usize);
+        let warp = LensWarp::identity(w, h);
+        let (x, y) = (25.0f64, 40.0f64);
+        let (u, v) = warp.apply(x, y);
+
+        assert!((u - x).abs() < 1e-5, "Identity warp must preserve coordinates: {} vs {}", u, x);
+        assert!((v - y).abs() < 1e-5, "Identity warp must preserve coordinates: {} vs {}", v, y);
+
+        // Rescaling factor
+        let scaled = warp.rescaled(0.5);
+        assert_eq!(scaled.cx, 25.0);
+        assert_eq!(scaled.cy, 25.0);
+    }
+
+    #[test]
+    fn test_laplacian_pyramid_reconstruction_lossless() {
+        let (w, h) = (64usize, 64usize);
+        let mut plane = Plane::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                plane.data[y * w + x] = ((x as f32 * 0.1).sin() * (y as f32 * 0.1).cos()).abs();
+            }
+        }
+
+        let lp = laplacian_pyramid(&plane, 4);
+        let reconstructed = collapse_pyramid(&lp);
+
+        let mut max_err = 0.0f32;
+        for i in 0..w * h {
+            let err = (plane.data[i] - reconstructed.data[i]).abs();
+            if err > max_err {
+                max_err = err;
+            }
+        }
+
+        assert!(max_err < 0.015, "Laplacian pyramid collapse must reconstruct within 1.5% tolerance: got {}", max_err);
+    }
+
+    #[test]
+    fn test_depth_preview_plane_generation() {
+        let (w, h) = (32usize, 32usize);
+        let dummy_rgb = PlanarRgb::new(w, h);
+        let depth_labels = vec![2u16; w * h];
+
+        let result = StackResult {
+            image: dummy_rgb,
+            depth: depth_labels,
+            depth_w: w,
+            depth_h: h,
+            poses: Vec::new(),
+            reference: 0,
+        };
+
+        let depth_plane = depth_preview_plane(&result, 5);
+        assert_eq!(depth_plane.w, w);
+        assert_eq!(depth_plane.h, h);
+        // Frame 2 out of 5 frames should normalize to 2/4 = 0.5
+        let val = depth_plane.at(16, 16);
+        assert!((val - 0.5).abs() < 1e-4, "Normalized depth label must equal 0.5: got {}", val);
+    }
 }

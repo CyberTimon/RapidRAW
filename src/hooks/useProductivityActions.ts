@@ -3,21 +3,27 @@ import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '../store/useUIStore';
 import { Invokes } from '../components/ui/AppProperties';
 
-export function useProductivityActions(refreshImageList: () => Promise<void>) {
+export function useProductivityActions(refreshImageList: () => Promise<void> = async () => {}) {
   const setUI = useUIStore((state) => state.setUI);
 
   const handleStartPanorama = useCallback(
-    (paths: string[]) => {
+    (
+      paths: string[],
+      projection: 'cylindrical' | 'spherical' | 'planar' = 'cylindrical',
+      isHdr: boolean = false,
+      boundaryWarp: number = 0.5,
+    ) => {
       setUI((state) => ({
         panoramaModalState: {
           ...state.panoramaModalState,
           isProcessing: true,
           error: null,
           finalImageBase64: null,
-          progressMessage: 'Starting panorama process...',
+          progressMessage: isHdr ? 'Starting HDR Panorama merge & stitch...' : 'Starting panorama process...',
         },
       }));
-      invoke(Invokes.StitchPanorama, { paths }).catch((err) => {
+      const command = isHdr ? Invokes.StitchHdrPanorama : Invokes.StitchPanorama;
+      invoke(command, { paths, projection, boundaryWarp }).catch((err) => {
         setUI((state) => ({
           panoramaModalState: { ...state.panoramaModalState, isProcessing: false, error: String(err) },
         }));
@@ -26,7 +32,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     [setUI],
   );
 
-  const handleSavePanorama = useCallback(async (): Promise<string> => {
+  const handleSavePanorama = useCallback(async (format: string = 'jpeg'): Promise<string> => {
     const { panoramaModalState } = useUIStore.getState();
     if (panoramaModalState.stitchingSourcePaths.length === 0) {
       const err = 'Source paths for panorama not found.';
@@ -36,6 +42,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     try {
       const savedPath: string = await invoke(Invokes.SavePanorama, {
         firstPathStr: panoramaModalState.stitchingSourcePaths[0],
+        format,
       });
       await refreshImageList();
       return savedPath;
@@ -88,7 +95,16 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
   }, [refreshImageList, setUI]);
 
   const handleStartHdr = useCallback(
-    (paths: string[]) => {
+    (paths: string[], options?: {
+      profile?: 'natural' | 'vivid' | 'interior' | 'dramatic' | 'portra' | 'velvia' | 'cinestill' | 'monochromeHdr';
+      deghostSensitivity?: 'off' | 'low' | 'medium' | 'high';
+      referenceIndex?: number;
+      autoSemantic?: boolean;
+      exposureBias?: number;
+      highlightRecovery?: number;
+      shadowLift?: number;
+      detailBoost?: number;
+    }) => {
       setUI((state) => ({
         hdrModalState: {
           ...state.hdrModalState,
@@ -98,14 +114,14 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
           progressMessage: 'Starting HDR process...',
         },
       }));
-      invoke(Invokes.MergeHdr, { paths }).catch((err) => {
+      invoke(Invokes.MergeHdr, { paths, options }).catch((err) => {
         setUI((state) => ({ hdrModalState: { ...state.hdrModalState, isProcessing: false, error: String(err) } }));
       });
     },
     [setUI],
   );
 
-  const handleSaveHdr = useCallback(async (): Promise<string> => {
+  const handleSaveHdr = useCallback(async (formatOrSaveAsDng: string | boolean = 'dng', customSuffix?: string): Promise<string> => {
     const { hdrModalState } = useUIStore.getState();
     if (hdrModalState.stitchingSourcePaths.length === 0) {
       const err = 'Source paths for HDR not found.';
@@ -113,7 +129,17 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
       throw new Error(err);
     }
     try {
-      const savedPath: string = await invoke(Invokes.SaveHdr, { firstPathStr: hdrModalState.stitchingSourcePaths[0] });
+      const formatStr = typeof formatOrSaveAsDng === 'string'
+        ? formatOrSaveAsDng
+        : formatOrSaveAsDng
+        ? 'dng'
+        : 'tiff';
+      const savedPath: string = await invoke(Invokes.SaveHdr, {
+        firstPathStr: hdrModalState.stitchingSourcePaths[0],
+        format: formatStr,
+        saveAsDng: formatStr === 'dng',
+        customSuffix: customSuffix ?? undefined,
+      });
       await refreshImageList();
       return savedPath;
     } catch (err) {
@@ -124,7 +150,18 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
   }, [refreshImageList, setUI]);
 
   const handleApplyDenoise = useCallback(
-    async (intensity: number, method: 'ai' | 'bm3d') => {
+    async (
+      intensity: number,
+      method: 'ai' | 'bm3d',
+      healDust: boolean = true,
+      visualizeDefects: boolean = false,
+      protectStars: boolean = true,
+      preserveDetails: number = 0.25,
+      chromaIntensity: number = 1.0,
+      shadowBoost: number = 0.0,
+      deband: boolean = false,
+      filmGrain: number = 0.0
+    ) => {
       const { denoiseModalState } = useUIStore.getState();
       if (denoiseModalState.targetPaths.length === 0) return;
 
@@ -142,6 +179,14 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
           path: denoiseModalState.targetPaths[0],
           intensity: intensity,
           method: method,
+          healDust,
+          visualizeDefects,
+          protectStars,
+          preserveDetails,
+          chromaIntensity,
+          shadowBoost,
+          deband,
+          filmGrain,
         });
       } catch (err) {
         setUI((state) => ({
@@ -153,9 +198,31 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
   );
 
   const handleBatchDenoise = useCallback(
-    async (intensity: number, method: 'ai' | 'bm3d', paths: string[]) => {
+    async (
+      intensity: number,
+      method: 'ai' | 'bm3d',
+      paths: string[],
+      healDust: boolean = true,
+      protectStars: boolean = true,
+      preserveDetails: number = 0.25,
+      chromaIntensity: number = 1.0,
+      shadowBoost: number = 0.0,
+      deband: boolean = false,
+      filmGrain: number = 0.0
+    ) => {
       try {
-        const savedPaths: string[] = await invoke('batch_denoise_images', { paths, intensity, method });
+        const savedPaths: string[] = await invoke('batch_denoise_images', {
+          paths,
+          intensity,
+          method,
+          healDust,
+          protectStars,
+          preserveDetails,
+          chromaIntensity,
+          shadowBoost,
+          deband,
+          filmGrain,
+        });
         await refreshImageList();
         return savedPaths;
       } catch (err) {
@@ -207,6 +274,8 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
           sigma_clip: 2.5,
           stack_mode: 'kappa_sigma',
           auto_dark_subtract: true,
+          remove_light_pollution: true,
+          freeze_ground: true,
         },
       }).catch((err) => {
         setUI((state) => ({ hdrModalState: { ...state.hdrModalState, isProcessing: false, error: String(err) } }));
@@ -226,7 +295,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
             quality: 95,
           },
         });
-        await refreshImageList();
+        if (refreshImageList) await refreshImageList();
         return result;
       } catch (err) {
         console.error('Stock photo auto-prep error:', err);
@@ -236,12 +305,63 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     [refreshImageList],
   );
 
+  const handleProcessNightSkySession = useCallback(
+    async (
+      paths: string[],
+      options?: { freezeGround?: boolean; removeLightPollution?: boolean; sigmaClip?: number }
+    ) => {
+      if (paths.length < 2) return;
+      setUI((state) => ({
+        nightSkyState: {
+          ...state.nightSkyState,
+          isProcessing: true,
+          error: null,
+          progressMessage: 'Initializing Night Sky Stacker...',
+        },
+      }));
+      try {
+        await invoke('stack_astro_frames', {
+          options: {
+            paths,
+            sigma_clip: options?.sigmaClip ?? 2.5,
+            stack_mode: 'kappa_sigma',
+            auto_dark_subtract: true,
+            remove_light_pollution: options?.removeLightPollution ?? true,
+            freeze_ground: options?.freezeGround ?? true,
+          },
+        });
+        setUI((state) => ({
+          nightSkyState: {
+            ...state.nightSkyState,
+            isProcessing: false,
+            progressMessage: 'Session Stack Complete!',
+          },
+          hdrModalState: {
+            ...state.hdrModalState,
+            isOpen: true,
+            stitchingSourcePaths: paths,
+          },
+        }));
+      } catch (err) {
+        setUI((state) => ({
+          nightSkyState: {
+            ...state.nightSkyState,
+            isProcessing: false,
+            error: String(err),
+          },
+        }));
+      }
+    },
+    [setUI],
+  );
+
   return {
     handleStartPanorama,
     handleSavePanorama,
     handleStartHdr,
     handleSaveHdr,
     handleStartAstroStack,
+    handleProcessNightSkySession,
     handleStartStockPhotoPrep,
     handleApplyDenoise,
     handleBatchDenoise,

@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Filmähnliches Tonemapping",
         "basic": "Standard",
-        "basicDesc": "Standard-Tonemapping"
+        "basicDesc": "Standard-Tonemapping",
+        "oklab": "Oklab",
+        "oklabDesc": "Wahrnehmungsbasierte Farb- & Spitzlichter-Wissenschaft"
       },
       "reset": "Zurücksetzen",
       "shadows": "Tiefen",
@@ -200,7 +202,8 @@
       "resetAdjustments": "Einstellungen zurücksetzen",
       "stitchPanorama": "Panorama zusammenfügen",
       "tagging": "Tagging",
-      "undo": "Rückgängig"
+      "undo": "Rückgängig",
+      "ratingLabel_many": "{{count}} Sterne"
     },
     "folders": {
       "changeIcon": "Symbol ändern",
@@ -218,12 +221,15 @@
       "removeRoot": "Stammordner entfernen",
       "renameFolder": "Ordner umbenennen",
       "showExplorer": "Im Explorer anzeigen",
-      "unpin": "Ordner lösen"
+      "unpin": "Ordner lösen",
+      "copyHere_many": "{{count}} Bilder hierher kopieren",
+      "moveHere_many": "{{count}} Bilder hierher verschieben"
     },
     "library": {
       "addCopiedToAlbum_one": "Kopiertes Bild zum Album hinzufügen",
       "addCopiedToAlbum_other": "{{count}} kopierte Bilder zum Album hinzufügen",
-      "refreshView": "Ansicht aktualisieren"
+      "refreshView": "Ansicht aktualisieren",
+      "addCopiedToAlbum_many": "{{count}} kopierte Bilder zum Album hinzufügen"
     },
     "merge": {
       "focusStack": "Fokus-Stacking",
@@ -270,7 +276,19 @@
       "resetAdjustments_one": "Einstellungen zurücksetzen",
       "resetAdjustments_other": "Einstellungen bei {{count}} Bildern zurücksetzen",
       "showExplorer": "Im Explorer anzeigen",
-      "virtualCopy": "Virtuelle Kopie"
+      "virtualCopy": "Virtuelle Kopie",
+      "autoAdjust_many": "Bilder autom. anpassen",
+      "collage_many": "Collage erstellen",
+      "convertNegative_many": "Negative umwandeln",
+      "copyImage_many": "{{count}} Bilder kopieren",
+      "cullImage_many": "Bilder aussortieren",
+      "deleteImage_many": "{{count}} Bilder löschen",
+      "denoise_many": "Bilder entrauschen",
+      "exportImage_many": "{{count}} Bilder exportieren",
+      "pasteAdjustments_many": "Einstellungen in {{count}} Bilder einfügen",
+      "removeFromAlbum_many": "{{count}} Bilder aus Album entfernen",
+      "renameImage_many": "{{count}} Bilder umbenennen",
+      "resetAdjustments_many": "Einstellungen bei {{count}} Bildern zurücksetzen"
     },
     "toasts": {
       "couldNotShowExplorer": "Datei konnte nicht im Explorer angezeigt werden: {{err}}",
@@ -385,7 +403,11 @@
         "invertedName": "{{name}} umgekehrt",
         "quickErase": "Schnelles Löschen {{count}}",
         "quickErase_one": "Schnelles Löschen {{count}}",
-        "quickErase_other": "Schnelles Löschen {{count}}"
+        "quickErase_other": "Schnelles Löschen {{count}}",
+        "aiEdit_many": "KI-Bearbeitung {{count}}",
+        "clone_many": "Klonen {{count}}",
+        "heal_many": "Reparieren {{count}}",
+        "quickErase_many": "Schnelles Löschen {{count}}"
       },
       "resetInpaintingTooltip": "Reparieren zurücksetzen",
       "settings": {
@@ -585,7 +607,8 @@
         "invertedName": "{{name}} umgekehrt",
         "maskName": "Maske {{count}}",
         "maskName_one": "Maske {{count}}",
-        "maskName_other": "Maske {{count}}"
+        "maskName_other": "Maske {{count}}",
+        "maskName_many": "Maske {{count}}"
       },
       "resetMaskingTooltip": "Maskierung zurücksetzen",
       "settings": {
@@ -759,7 +782,8 @@
       "saveEditedImageTitle": "Bearbeitetes Bild speichern",
       "selectFolderTitle": "Ordner zum Exportieren von {{count}} Bild(ern) auswählen",
       "selectFolderTitle_one": "Ordner zum Exportieren von {{count}} Bild auswählen",
-      "selectFolderTitle_other": "Ordner zum Exportieren von {{count}} Bildern auswählen"
+      "selectFolderTitle_other": "Ordner zum Exportieren von {{count}} Bildern auswählen",
+      "selectFolderTitle_many": "Ordner zum Exportieren von {{count}} Bildern auswählen"
     },
     "file": {
       "quality": "Qualität",
@@ -811,7 +835,8 @@
       "failed": "Export fehlgeschlagen",
       "noImageSelected": "Kein Bild zum Exportieren ausgewählt.",
       "noImagesSelected": "Keine Bilder ausgewählt.",
-      "success": "Export erfolgreich!"
+      "success": "Export erfolgreich!",
+      "exportMultiple_many": "Exportiere {{count}} {{label}}"
     },
     "title": "Export",
     "watermark": {
@@ -998,7 +1023,8 @@
       "tooltipFocalLength": "Brennweite",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Verschlusszeit",
-      "tooltipVirtualCopy": "Virtuelle Kopie"
+      "tooltipVirtualCopy": "Virtuelle Kopie",
+      "imagesCount_many": "{{count}} Bilder"
     },
     "search": {
       "noResults": "Keine Ergebnisse gefunden",
@@ -1205,7 +1231,9 @@
       "similarityThresholdDesc": "Niedriger ist strenger (exakte Duplikate). Höher ist lockerer. 24-32 wird empfohlen.",
       "startCulling": "Aussortieren starten",
       "starting": "Wird gestartet...",
-      "title": "Bilder aussortieren"
+      "title": "Bilder aussortieren",
+      "applyButton_many": "Auf {{count}} Bilder anwenden",
+      "duplicatesHeader_many": "Duplikate ({{count}})"
     },
     "denoise": {
       "batchProgressText": "Entrauschen von {{current}} aus {{total}}...",
@@ -1251,7 +1279,8 @@
       "savedSuccess": "Fokus-Stack erfolgreich gespeichert!",
       "stacking": "Fokus wird gestapelt",
       "start": "Start",
-      "title": "Fokus-Stacking"
+      "title": "Fokus-Stacking",
+      "descriptionWithCount_many": "Kombinieren Sie {{count}} Bilder mit unterschiedlichen Fokusdistanzen zu einem einzigen, perfekt scharfen Bild."
     },
     "hdr": {
       "cancel": "Abbrechen",
@@ -1269,7 +1298,8 @@
       "savedSuccess": "HDR erfolgreich gespeichert!",
       "speedNotice": "Dies kann je nach Anzahl und Größe Ihrer Belichtungen einige Minuten dauern.",
       "start": "Start",
-      "title": "Zu HDR zusammenfügen"
+      "title": "Zu HDR zusammenfügen",
+      "descriptionWithCount_many": "Kombinieren Sie {{count}} Belichtungen zu einem einzigen High Dynamic Range Bild."
     },
     "importSettings": {
       "cancel": "Abbrechen",
@@ -1339,7 +1369,8 @@
       "resetViewTooltip": "Ansicht zurücksetzen",
       "title": "Negativumwandlung",
       "zoomInTooltip": "Vergrößern",
-      "zoomOutTooltip": "Verkleinern"
+      "zoomOutTooltip": "Verkleinern",
+      "convertAndSaveAll_many": "Alle umwandeln & speichern ({{count}})"
     },
     "panorama": {
       "cancel": "Abbrechen",
@@ -1357,7 +1388,8 @@
       "speedNotice": "Dies kann je nach Anzahl und Größe der Bilder einige Minuten dauern.",
       "start": "Start",
       "stitchingProgress": "Panorama wird zusammengefügt",
-      "title": "Panorama zusammenfügen"
+      "title": "Panorama zusammenfügen",
+      "descCount_many": "Kombinieren Sie {{count}} überlappende Bilder zu einem nahtlosen Panorama."
     },
     "renameAlbum": {
       "placeholder": "Neuen Albumnamen eingeben..."
@@ -1370,7 +1402,8 @@
       "titleMultiple": "{{count}} Bilder umbenennen",
       "titleMultiple_one": "{{count}} Bild umbenennen",
       "titleMultiple_other": "{{count}} Bilder umbenennen",
-      "titleSingle": "Bild umbenennen"
+      "titleSingle": "Bild umbenennen",
+      "titleMultiple_many": "{{count}} Bilder umbenennen"
     },
     "renameFolder": {
       "cancel": "Abbrechen",
@@ -1480,7 +1513,10 @@
         "processing": "Wird verarbeitet...",
         "sidecarSuccess": "{{count}} Filialdateien erfolgreich gelöscht.",
         "sidecarSuccess_one": "{{count}} Filialdatei erfolgreich gelöscht.",
-        "sidecarSuccess_other": "{{count}} Filialdateien erfolgreich gelöscht."
+        "sidecarSuccess_other": "{{count}} Filialdateien erfolgreich gelöscht.",
+        "aiSuccess_many": "{{count}} Dateien aktualisiert. KI-Tags entfernt.",
+        "allSuccess_many": "{{count}} Dateien aktualisiert. Alle nicht-farbigen Tags entfernt.",
+        "sidecarSuccess_many": "{{count}} Filialdateien erfolgreich gelöscht."
       },
       "title": "Datenverwaltung"
     },
@@ -1696,7 +1732,8 @@
         "title": "Bildvorverarbeitung",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Standard"
+          "basic": "Standard",
+          "oklab": "Oklab (Wahrnehmung)"
         },
         "tonemapperOverride": "Globaler Tonemapper-Override",
         "tonemapperOverrideDesc": "Erzwingt einen spezifischen Tonemapper global für alle Bilder."
@@ -1802,7 +1839,8 @@
         "rateStars_one": "Mit 1 Stern bewerten",
         "rateStars_other": "Mit {{count}} Sternen bewerten",
         "resetZoom": "Zoom auf Einpassen zurücksetzen",
-        "selectToRate": "Bild zur Bewertung auswählen"
+        "selectToRate": "Bild zur Bewertung auswählen",
+        "rateStars_many": "Mit {{count}} Sternen bewerten"
       },
       "zoomLabel": "Zoom",
       "zoomLabelReset": "Zoom zurücksetzen"

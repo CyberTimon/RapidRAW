@@ -277,26 +277,49 @@ export function useTauriListeners({
       }),
       listen('hdr-progress', (event: any) => {
         if (isEffectActive) {
-          useUIStore.getState().setUI((state) => ({
-            hdrModalState: {
-              ...state.hdrModalState,
-              error: null,
-              finalImageBase64: null,
-              isOpen: true,
-              progressMessage: event.payload,
-            },
-          }));
+          useUIStore.getState().setUI((state) => {
+            if (!state.hdrModalState.isOpen) return state;
+            return {
+              hdrModalState: {
+                ...state.hdrModalState,
+                progressMessage: event.payload,
+              },
+            };
+          });
+        }
+      }),
+      listen('astro-progress', (event: any) => {
+        if (isEffectActive) {
+          useUIStore.getState().setUI((state) => {
+            if (!state.nightSkyState.isProcessing && !state.hdrModalState.isOpen) return state;
+            return {
+              nightSkyState: {
+                ...state.nightSkyState,
+                progressMessage: event.payload,
+              },
+              hdrModalState: {
+                ...state.hdrModalState,
+                progressMessage: event.payload,
+              },
+            };
+          });
         }
       }),
       listen('hdr-complete', (event: any) => {
         if (isEffectActive) {
           useUIStore.getState().setUI((state) => ({
+            nightSkyState: {
+              ...state.nightSkyState,
+              isProcessing: false,
+              progressMessage: 'Astro stack completed!',
+            },
             hdrModalState: {
               ...state.hdrModalState,
+              detectedScene: event.payload.scene || null,
               error: null,
               finalImageBase64: event.payload.base64,
               isProcessing: false,
-              progressMessage: 'Hdr Ready',
+              progressMessage: 'HDR Ready',
             },
           }));
         }
@@ -309,7 +332,7 @@ export function useTauriListeners({
               error: String(event.payload),
               finalImageBase64: null,
               isProcessing: false,
-              progressMessage: 'An error occurred.',
+              progressMessage: null,
             },
           }));
         }

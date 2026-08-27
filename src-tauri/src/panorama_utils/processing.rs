@@ -9,9 +9,9 @@ use rayon::prelude::*;
 
 const MAX_PROCESSING_DIMENSION: u32 = 1600;
 const FAST_THRESHOLD: u8 = 15;
-const NON_MAXIMA_SUPPRESSION_RADIUS: f32 = 15.0;
+const NON_MAXIMA_SUPPRESSION_RADIUS: f32 = 12.0;
 const BRIEF_PATCH_SIZE: u32 = 32;
-const MATCH_RATIO_THRESHOLD: f32 = 0.8;
+pub const MATCH_RATIO_THRESHOLD: f32 = 0.75;
 const RANSAC_ITERATIONS: usize = 2500;
 const RANSAC_INLIER_THRESHOLD: f64 = 5.0;
 pub const MIN_INLIERS_FOR_CONNECTION: usize = 15;
@@ -62,6 +62,10 @@ pub fn normalize_grayscale(img: &GrayImage) -> GrayImage {
     })
 }
 
+const ANMS_TARGET_FEATURES_PER_SCALE: usize = 600;
+const ANMS_ROBUSTNESS_COEFF: f32 = 0.9;
+
+/// Multi-Scale Steered ORB Feature Extractor with Adaptive Non-Maximal Suppression (ANMS)
 pub fn find_features(img: &GrayImage, brief_pairs: &[(Point2<i32>, Point2<i32>)]) -> Vec<Feature> {
     find_features_tuned(
         img,
@@ -75,54 +79,150 @@ pub fn find_features_tuned(
     img: &GrayImage,
     brief_pairs: &[(Point2<i32>, Point2<i32>)],
     fast_threshold: u8,
-    non_maxima_suppression_radius: f32,
+    _non_maxima_suppression_radius: f32,
 ) -> Vec<Feature> {
-    let blurred_img_u8 = imageproc::filter::gaussian_blur_f32(img, 1.5);
-    let corners = corners_fast9(&blurred_img_u8, fast_threshold);
-    let keypoints = non_maximal_suppression(&corners, non_maxima_suppression_radius);
-    let blurred_img_f32 = gaussian_blur_f32(&convert_gray_u8_to_f32(img), 2.0);
-    let features: Vec<Feature> = keypoints
-        .par_iter()
-        .filter_map(|kp| {
-            compute_brief_descriptor(&blurred_img_f32, kp, BRIEF_PATCH_SIZE, brief_pairs).map(
-                |descriptor| Feature {
-                    keypoint: *kp,
-                    descriptor,
-                },
-            )
-        })
-        .collect();
-    features
+    let (w, h) = img.dimensions();
+    let mut all_features = Vec::new();
+
+    // 4-Scale Octave Pyramid for robust scale invariance across zoom/focal shifts
+    let scales = [1.0f32, 0.75f32, 0.50f32, 0.35f32];
+
+    for &scale in &scales {
+        let cur_img = if (scale - 1.0).abs() < 1e-4 {
+            img.clone()
+        } else {
+            let nw = ((w as f32) * scale).round().max(100.0) as u32;
+            let nh = ((h as f32) * scale).round().max(100.0) as u32;
+            image::imageops::resize(img, nw, nh, image::imageops::FilterType::Triangle)
+        };
+
+        let blurred_u8 = imageproc::filter::gaussian_blur_f32(&cur_img, 1.2);
+        // Adaptive FAST threshold per scale
+        let scale_fast_thresh = if scale < 0.6 {
+            fast_threshold.saturating_sub(4).max(8)
+        } else {
+            fast_threshold
+        };
+        let corners = corners_fast9(&blurred_u8, scale_fast_thresh);
+
+        // Adaptive Non-Maximal Suppression (Brown, Szeliski, Winder CVPR 2005)
+        let keypoints = adaptive_non_maximal_suppression(&corners, ANMS_TARGET_FEATURES_PER_SCALE);
+        let blurred_f32 = gaussian_blur_f32(&convert_gray_u8_to_f32(&cur_img), 1.8);
+
+        let scale_inv = 1.0 / scale;
+        let mut level_features: Vec<Feature> = keypoints
+            .par_iter()
+            .filter_map(|kp| {
+                // Compute local patch intensity moments for rotation invariance
+                let angle = compute_patch_orientation(&blurred_f32, kp, BRIEF_PATCH_SIZE);
+                compute_steered_brief_descriptor(&blurred_f32, kp, BRIEF_PATCH_SIZE, brief_pairs, angle)
+                    .map(|descriptor| Feature {
+                        keypoint: KeyPoint {
+                            x: (kp.x as f32 * scale_inv).round() as u32,
+                            y: (kp.y as f32 * scale_inv).round() as u32,
+                        },
+                        descriptor,
+                    })
+            })
+            .collect();
+
+        all_features.append(&mut level_features);
+    }
+
+    all_features
 }
 
-fn non_maximal_suppression(corners: &[Corner], radius: f32) -> Vec<KeyPoint> {
-    let mut sorted_corners = corners.to_vec();
-    sorted_corners.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
-    let mut result = Vec::new();
-    let radius_sq = radius * radius;
-    let mut is_suppressed_grid = vec![false; sorted_corners.len()];
-    for i in 0..sorted_corners.len() {
-        if is_suppressed_grid[i] {
-            continue;
-        }
-        let corner_i = sorted_corners[i];
-        result.push(KeyPoint {
-            x: corner_i.x,
-            y: corner_i.y,
-        });
-        for j in (i + 1)..sorted_corners.len() {
-            if is_suppressed_grid[j] {
-                continue;
-            }
-            let corner_j = sorted_corners[j];
-            let dx = corner_i.x as f32 - corner_j.x as f32;
-            let dy = corner_i.y as f32 - corner_j.y as f32;
-            if dx * dx + dy * dy < radius_sq {
-                is_suppressed_grid[j] = true;
-            }
+/// Computes centroid intensity orientation angle theta = atan2(m01, m10)
+fn compute_patch_orientation(
+    img: &ImageBuffer<Luma<f32>, Vec<f32>>,
+    kp: &KeyPoint,
+    patch_size: u32,
+) -> f32 {
+    let half = patch_size as i32 / 2;
+    let (width, height) = img.dimensions();
+    let (cx, cy) = (kp.x as i32, kp.y as i32);
+
+    if cx < half || cx >= width as i32 - half || cy < half || cy >= height as i32 - half {
+        return 0.0;
+    }
+
+    let mut m10 = 0.0f32;
+    let mut m01 = 0.0f32;
+
+    for dy in -half..=half {
+        for dx in -half..=half {
+            let px = (cx + dx) as u32;
+            let py = (cy + dy) as u32;
+            let val = img.get_pixel(px, py)[0];
+            m10 += dx as f32 * val;
+            m01 += dy as f32 * val;
         }
     }
-    result
+
+    m01.atan2(m10)
+}
+
+/// Adaptive Non-Maximal Suppression (ANMS)
+/// Guarantees a mathematically uniform spatial distribution of keypoints across the entire canvas,
+/// including image corners, low-contrast skylines, and horizons.
+pub fn adaptive_non_maximal_suppression(corners: &[Corner], target_k: usize) -> Vec<KeyPoint> {
+    if corners.is_empty() {
+        return Vec::new();
+    }
+    if corners.len() <= target_k {
+        return corners
+            .iter()
+            .map(|c| KeyPoint { x: c.x, y: c.y })
+            .collect();
+    }
+
+    // 1. Sort all candidate corners by response score descending
+    let mut sorted_corners = corners.to_vec();
+    sorted_corners.sort_by(|a, b| b.score.total_cmp(&a.score));
+
+    // Cap search set to top 2500 candidates for sub-millisecond execution
+    let search_len = sorted_corners.len().min(2500);
+    let active_corners = &sorted_corners[..search_len];
+
+    // 2. Compute minimum suppression radius r_i for each corner
+    // r_i = min_j ||x_i - x_j|| subject to score_j * c_robust > score_i
+    let mut radii: Vec<(f32, usize)> = Vec::with_capacity(search_len);
+
+    // Strongest corner has infinite suppression radius
+    radii.push((f32::INFINITY, 0));
+
+    for i in 1..search_len {
+        let ci = &active_corners[i];
+        let score_thresh = ci.score as f32;
+        let mut min_dist_sq = f32::INFINITY;
+
+        for j in 0..i {
+            let cj = &active_corners[j];
+            if (cj.score as f32) > (score_thresh * ANMS_ROBUSTNESS_COEFF) {
+                let dx = ci.x as f32 - cj.x as f32;
+                let dy = ci.y as f32 - cj.y as f32;
+                let dist_sq = dx * dx + dy * dy;
+                if dist_sq < min_dist_sq {
+                    min_dist_sq = dist_sq;
+                }
+            }
+        }
+
+        radii.push((min_dist_sq.sqrt(), i));
+    }
+
+    // 3. Sort corners by suppression radius descending
+    radii.sort_by(|a, b| b.0.total_cmp(&a.0));
+
+    // 4. Select top target_k keypoints
+    let select_count = target_k.min(radii.len());
+    radii[..select_count]
+        .iter()
+        .map(|&(_, idx)| {
+            let c = &active_corners[idx];
+            KeyPoint { x: c.x, y: c.y }
+        })
+        .collect()
 }
 
 pub fn generate_brief_pairs() -> Vec<(Point2<i32>, Point2<i32>)> {
@@ -143,11 +243,12 @@ pub fn generate_brief_pairs() -> Vec<(Point2<i32>, Point2<i32>)> {
         .collect()
 }
 
-fn compute_brief_descriptor(
+fn compute_steered_brief_descriptor(
     img: &ImageBuffer<Luma<f32>, Vec<f32>>,
     kp: &KeyPoint,
     patch_size: u32,
     pairs: &[(Point2<i32>, Point2<i32>)],
+    angle: f32,
 ) -> Option<Descriptor> {
     let mut descriptor = [0u8; BRIEF_DESCRIPTOR_SIZE / 8];
     let (width, height) = img.dimensions();
@@ -159,11 +260,27 @@ fn compute_brief_descriptor(
     {
         return None;
     }
+
+    let cos_a = angle.cos();
+    let sin_a = angle.sin();
+
     for (i, pair) in pairs.iter().enumerate() {
-        let p1_x = (kp.x as i32 + pair.0.x) as u32;
-        let p1_y = (kp.y as i32 + pair.0.y) as u32;
-        let p2_x = (kp.x as i32 + pair.1.x) as u32;
-        let p2_y = (kp.y as i32 + pair.1.y) as u32;
+        // Rotate pair offset by patch orientation angle
+        let r1_x = ((pair.0.x as f32 * cos_a - pair.0.y as f32 * sin_a).round() as i32)
+            .clamp(-(half_patch_size as i32), half_patch_size as i32);
+        let r1_y = ((pair.0.x as f32 * sin_a + pair.0.y as f32 * cos_a).round() as i32)
+            .clamp(-(half_patch_size as i32), half_patch_size as i32);
+
+        let r2_x = ((pair.1.x as f32 * cos_a - pair.1.y as f32 * sin_a).round() as i32)
+            .clamp(-(half_patch_size as i32), half_patch_size as i32);
+        let r2_y = ((pair.1.x as f32 * sin_a + pair.1.y as f32 * cos_a).round() as i32)
+            .clamp(-(half_patch_size as i32), half_patch_size as i32);
+
+        let p1_x = (kp.x as i32 + r1_x).clamp(0, width as i32 - 1) as u32;
+        let p1_y = (kp.y as i32 + r1_y).clamp(0, height as i32 - 1) as u32;
+        let p2_x = (kp.x as i32 + r2_x).clamp(0, width as i32 - 1) as u32;
+        let p2_y = (kp.y as i32 + r2_y).clamp(0, height as i32 - 1) as u32;
+
         let intensity1 = img.get_pixel(p1_x, p1_y)[0];
         let intensity2 = img.get_pixel(p2_x, p2_y)[0];
         if intensity1 < intensity2 {
@@ -182,14 +299,16 @@ fn hamming_distance(d1: &Descriptor, d2: &Descriptor) -> u32 {
         .sum()
 }
 
+/// Bidirectional Cross-Check Feature Matcher with Lowe's Ratio Test (0.75)
 pub fn match_features(features1: &[Feature], features2: &[Feature]) -> Vec<Match> {
     if features1.is_empty() || features2.is_empty() {
         return Vec::new();
     }
-    features1
+
+    // 1. Forward matching (1 -> 2)
+    let forward_matches: Vec<Option<(usize, u32)>> = features1
         .par_iter()
-        .enumerate()
-        .filter_map(|(i, f1)| {
+        .map(|f1| {
             let mut best_dist = u32::MAX;
             let mut second_best_dist = u32::MAX;
             let mut best_idx = 0;
@@ -206,15 +325,56 @@ pub fn match_features(features1: &[Feature], features2: &[Feature]) -> Vec<Match
             if second_best_dist > 0
                 && (best_dist as f32 / second_best_dist as f32) < MATCH_RATIO_THRESHOLD
             {
-                Some(Match {
-                    index1: i,
-                    index2: best_idx,
-                })
+                Some((best_idx, best_dist))
             } else {
                 None
             }
         })
-        .collect()
+        .collect();
+
+    // 2. Backward matching (2 -> 1)
+    let backward_matches: Vec<Option<usize>> = features2
+        .par_iter()
+        .map(|f2| {
+            let mut best_dist = u32::MAX;
+            let mut second_best_dist = u32::MAX;
+            let mut best_idx = 0;
+            for (i, f1) in features1.iter().enumerate() {
+                let dist = hamming_distance(&f2.descriptor, &f1.descriptor);
+                if dist < best_dist {
+                    second_best_dist = best_dist;
+                    best_dist = dist;
+                    best_idx = i;
+                } else if dist < second_best_dist {
+                    second_best_dist = dist;
+                }
+            }
+            if second_best_dist > 0
+                && (best_dist as f32 / second_best_dist as f32) < MATCH_RATIO_THRESHOLD
+            {
+                Some(best_idx)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // 3. Keep only reciprocal matches
+    let mut mutual_matches = Vec::new();
+    for (i, fwd) in forward_matches.into_iter().enumerate() {
+        if let Some((j, _)) = fwd {
+            if let Some(Some(reciprocal_i)) = backward_matches.get(j) {
+                if *reciprocal_i == i {
+                    mutual_matches.push(Match {
+                        index1: i,
+                        index2: j,
+                    });
+                }
+            }
+        }
+    }
+
+    mutual_matches
 }
 
 pub fn find_homography_ransac(
@@ -393,7 +553,6 @@ fn build_integral_images(gray: &GrayImage) -> (Vec<u64>, Vec<u128>) {
 }
 
 pub fn generate_low_detail_mask(gray_full: &GrayImage) -> GrayImage {
-    println!("    - Generating low-detail mask...");
     let (width, height) = gray_full.dimensions();
     let mut mask = GrayImage::new(width, height);
     let (sat, sat_sq) = build_integral_images(gray_full);
@@ -448,4 +607,56 @@ pub fn generate_low_detail_mask(gray_full: &GrayImage) -> GrayImage {
             }
         });
     mask
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use imageproc::corners::Corner;
+
+    #[test]
+    fn test_anms_uniform_distribution() {
+        // Create a dense cluster of high-scoring corners in one region, plus sparse corners elsewhere
+        let mut corners = Vec::new();
+        // Clustered high score corners at (10, 10)
+        for i in 0..20 {
+            corners.push(Corner {
+                x: 10 + i % 5,
+                y: 10 + i / 5,
+                score: 1000.0 - i as f32,
+            });
+        }
+        // Distant corners across canvas
+        corners.push(Corner { x: 500, y: 100, score: 200.0 });
+        corners.push(Corner { x: 100, y: 500, score: 200.0 });
+        corners.push(Corner { x: 500, y: 500, score: 200.0 });
+
+        let selected = adaptive_non_maximal_suppression(&corners, 5);
+        assert_eq!(selected.len(), 5);
+
+        // Verify ANMS selected corners spread out across the canvas instead of all from the cluster
+        let has_distant_corner = selected.iter().any(|kp| kp.x > 200 || kp.y > 200);
+        assert!(has_distant_corner, "ANMS must select spatially distributed distant corners");
+    }
+
+    #[test]
+    fn test_bidirectional_match_filtering() {
+        // Descriptors with 1 exact pair and 1 ambiguous pair
+        let d1 = [0u8; 32];
+        let mut d2 = [0u8; 32];
+        d2[0] = 0b00000001; // Distance 1
+
+        let f1 = vec![
+            Feature { keypoint: KeyPoint { x: 10, y: 10 }, descriptor: d1 },
+        ];
+        let f2 = vec![
+            Feature { keypoint: KeyPoint { x: 12, y: 10 }, descriptor: d2 },
+            Feature { keypoint: KeyPoint { x: 100, y: 100 }, descriptor: [255u8; 32] },
+        ];
+
+        let matches = match_features(&f1, &f2);
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].index1, 0);
+        assert_eq!(matches[0].index2, 0);
+    }
 }

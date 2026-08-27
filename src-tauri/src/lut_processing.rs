@@ -688,3 +688,49 @@ pub fn load_and_parse_lut(path: String, state: State<AppState>) -> Result<LutPar
 
     Ok(LutParseResult { size: lut_size })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_parse_cube_synthetic_2x2x2() {
+        let cube_content = "
+# Synthetic 2x2x2 Cube
+TITLE \"Test 2x2x2\"
+LUT_3D_SIZE 2
+0.0 0.0 0.0
+1.0 0.0 0.0
+0.0 1.0 0.0
+1.0 1.0 0.0
+0.0 0.0 1.0
+1.0 0.0 1.0
+0.0 1.0 1.0
+1.0 1.0 1.0
+";
+        let lut = parse_cube(Cursor::new(cube_content)).expect("Should parse 2x2x2 cube");
+        assert_eq!(lut.size, 2);
+        assert_eq!(lut.data.len(), 2 * 2 * 2 * 3);
+        assert_eq!(lut.data[0], 0.0);
+        assert_eq!(lut.data[lut.data.len() - 1], 1.0);
+    }
+
+    #[test]
+    fn test_parse_3dl_synthetic_2x2x2() {
+        let content_3dl = "
+# 3DL test file
+0.0 0.0 0.0
+1.0 0.0 0.0
+0.0 1.0 0.0
+1.0 1.0 0.0
+0.0 0.0 1.0
+1.0 0.0 1.0
+0.0 1.0 1.0
+1.0 1.0 1.0
+";
+        let lut = parse_3dl(Cursor::new(content_3dl)).expect("Should parse 3DL file");
+        assert_eq!(lut.size, 2);
+        assert_eq!(lut.data.len(), 24);
+    }
+}

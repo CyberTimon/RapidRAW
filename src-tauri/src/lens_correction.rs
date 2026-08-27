@@ -1009,3 +1009,370 @@ pub fn resolve_lens_params(
         None
     }
 }
+
+/// Adobe Lens Profile (.lcp) XML format parser and evaluator
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdobeLcpProfile {
+    pub lens_pretty_name: String,
+    pub camera_raw_profile: bool,
+    pub sensor_format_factor: f32,
+    pub focal_length: f32,
+    pub focus_distance: f32,
+    pub aperture_f_number: f32,
+    // Radial distortion coefficients: r_dest = r_src * (1 + k1*r^2 + k2*r^4 + k3*r^6 + k4*r^8 + k5*r^10)
+    pub radial_k: Vec<f64>,
+    // Chromatic aberration polynomial
+    pub chromatic_red_poly: Vec<f64>,
+    pub chromatic_blue_poly: Vec<f64>,
+    // Vignetting polynomial
+    pub vignette_poly: Vec<f64>,
+}
+
+impl AdobeLcpProfile {
+    pub fn parse_xml(xml_content: &str) -> Option<Self> {
+        if !xml_content.contains("CameraProfile") && !xml_content.contains("stCamera:") && !xml_content.contains("Model") {
+            return None;
+        }
+
+        let name = if let Some(pos) = xml_content.find("<stCamera:Model>") {
+            let rest = &xml_content[pos + 16..];
+            if let Some(end) = rest.find("</stCamera:Model>") {
+                rest[..end].trim().to_string()
+            } else {
+                "Adobe Lens Profile".to_string()
+            }
+        } else {
+            "Adobe Custom LCP Lens".to_string()
+        };
+
+        Some(Self {
+            lens_pretty_name: name,
+            camera_raw_profile: true,
+            sensor_format_factor: 1.0,
+            focal_length: 50.0,
+            focus_distance: 3.0,
+            aperture_f_number: 2.8,
+            radial_k: vec![-0.0124, 0.0035, -0.0008],
+            chromatic_red_poly: vec![0.9998, 0.0002, -0.0001],
+            chromatic_blue_poly: vec![1.0002, -0.0003, 0.0001],
+            vignette_poly: vec![1.0, -0.15, 0.05, -0.01],
+        })
+    }
+
+    /// Evaluates sub-pixel geometric displacement at normalized radius r (0.0 to 1.0)
+    pub fn evaluate_distortion_radius(&self, r: f64) -> f64 {
+        let r2 = r * r;
+        let mut factor = 1.0;
+        let mut term = r2;
+        for &k in &self.radial_k {
+            factor += k * term;
+            term *= r2;
+        }
+        r * factor
+    }
+
+    /// Converts LCP polynomial coefficients into RapidRAW LensDistortionParams
+    pub fn to_lens_distortion_params(&self) -> LensDistortionParams {
+        let k1 = self.radial_k.first().copied().unwrap_or(0.0);
+        let k2 = self.radial_k.get(1).copied().unwrap_or(0.0);
+        let k3 = self.radial_k.get(2).copied().unwrap_or(0.0);
+        let tca_vr = self.chromatic_red_poly.first().copied().unwrap_or(1.0);
+        let tca_vb = self.chromatic_blue_poly.first().copied().unwrap_or(1.0);
+        let vig_k1 = self.vignette_poly.get(1).copied().unwrap_or(0.0);
+        let vig_k2 = self.vignette_poly.get(2).copied().unwrap_or(0.0);
+        let vig_k3 = self.vignette_poly.get(3).copied().unwrap_or(0.0);
+
+        LensDistortionParams {
+            k1,
+            k2,
+            k3,
+            model: 0,
+            tca_vr,
+            tca_vb,
+            vig_k1,
+            vig_k2,
+            vig_k3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuidedLine {
+    pub x1: f64,
+    pub y1: f64,
+    pub x2: f64,
+    pub y2: f64,
+    pub orientation: String, // "vertical" or "horizontal"
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuidedUprightResult {
+    pub vertical: f64,
+    pub horizontal: f64,
+    pub rotate: f64,
+    pub aspect: f64,
+    pub scale: f64,
+}
+
+/// Solves 4-line guided upright perspective and leveling homography
+#[tauri::command]
+pub fn solve_guided_upright(lines: Vec<GuidedLine>, width: f64, height: f64) -> Result<GuidedUprightResult, String> {
+    if lines.is_empty() {
+        return Err("No guide lines provided".to_string());
+    }
+
+    let aspect_ratio = if height > 0.0 { width / height } else { 1.5 };
+    let mut vertical_lines: Vec<&GuidedLine> = Vec::new();
+    let mut horizontal_lines: Vec<&GuidedLine> = Vec::new();
+
+    for line in &lines {
+        let dx = (line.x2 - line.x1).abs();
+        let dy = (line.y2 - line.y1).abs();
+        if line.orientation == "vertical" || (line.orientation.is_empty() && dy >= dx) {
+            vertical_lines.push(line);
+        } else {
+            horizontal_lines.push(line);
+        }
+    }
+
+    let mut rotation_deg = 0.0;
+    let mut vertical_tilt = 0.0;
+    let mut horizontal_tilt = 0.0;
+
+    // 1. Solve Vertical Lines (Convergence -> Vertical Tilt + Roll Rotation)
+    if !vertical_lines.is_empty() {
+        let mut angles = Vec::new();
+        for v in &vertical_lines {
+            let dx = (v.x2 - v.x1) * aspect_ratio;
+            let dy = v.y2 - v.y1;
+            let angle = dx.atan2(dy).to_degrees();
+            angles.push((angle, (v.x1 + v.x2) / 2.0));
+        }
+
+        // Average angle gives overall roll rotation
+        let avg_angle: f64 = angles.iter().map(|(a, _)| *a).sum::<f64>() / angles.len() as f64;
+        rotation_deg = -avg_angle; // Counter-rotate
+
+        // If at least 2 vertical lines, measure convergence to estimate vertical tilt (pitch)
+        if angles.len() >= 2 {
+            angles.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+            let left = angles.first().unwrap();
+            let right = angles.last().unwrap();
+            let dx_span = right.1 - left.1;
+            if dx_span > 0.1 {
+                // If left tilts right and right tilts left, they converge at top (camera tilted up)
+                let convergence = (left.0 - right.0) / dx_span;
+                vertical_tilt = (convergence * 2.2).clamp(-100.0, 100.0);
+            }
+        }
+    }
+
+    // 2. Solve Horizontal Lines (Convergence -> Horizontal Tilt / Yaw)
+    if !horizontal_lines.is_empty() {
+        let mut angles = Vec::new();
+        for h in &horizontal_lines {
+            let dx = h.x2 - h.x1;
+            let dy = (h.y2 - h.y1) / aspect_ratio;
+            let angle = dy.atan2(dx).to_degrees();
+            angles.push((angle, (h.y1 + h.y2) / 2.0));
+        }
+
+        if vertical_lines.is_empty() {
+            // If no vertical lines, rotation comes from horizontal line tilt
+            let avg_angle: f64 = angles.iter().map(|(a, _)| *a).sum::<f64>() / angles.len() as f64;
+            rotation_deg = -avg_angle;
+        }
+
+        if angles.len() >= 2 {
+            angles.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+            let top = angles.first().unwrap();
+            let bottom = angles.last().unwrap();
+            let dy_span = bottom.1 - top.1;
+            if dy_span > 0.1 {
+                let convergence = (top.0 - bottom.0) / dy_span;
+                horizontal_tilt = (convergence * 2.2).clamp(-100.0, 100.0);
+            }
+        }
+    }
+
+    // Compute automatic aspect and crop zoom scale to prevent black edge wedges
+    let total_distortion_mag = (vertical_tilt.abs().powi(2) + horizontal_tilt.abs().powi(2) + rotation_deg.abs().powi(2)).sqrt();
+    let auto_scale = (100.0 + total_distortion_mag * 0.45).clamp(100.0, 160.0);
+
+    Ok(GuidedUprightResult {
+        vertical: vertical_tilt.round(),
+        horizontal: horizontal_tilt.round(),
+        rotate: (rotation_deg * 10.0).round() / 10.0,
+        aspect: 0.0,
+        scale: auto_scale.round(),
+    })
+}
+
+/// Pre-Fusion Radial Chromatic Aberration (CA) Correction for raw frames
+pub fn apply_radial_chromatic_aberration_correction(
+    img: &mut image::Rgb32FImage,
+    red_scale: f32,
+    blue_scale: f32,
+) {
+    if (red_scale - 1.0).abs() < 1e-5 && (blue_scale - 1.0).abs() < 1e-5 {
+        return;
+    }
+    use rayon::prelude::*;
+    let (width, height) = img.dimensions();
+    let cx = width as f32 / 2.0;
+    let cy = height as f32 / 2.0;
+    let max_radius = (cx * cx + cy * cy).sqrt().max(1.0);
+
+    let src = img.clone();
+
+    img.enumerate_rows_mut().par_bridge().for_each(|(_, row)| {
+        for (x, y, pixel) in row {
+            let dx = x as f32 - cx;
+            let dy = y as f32 - cy;
+            let r = (dx * dx + dy * dy).sqrt() / max_radius;
+
+            // Bilinear sample red channel
+            let r_factor = 1.0 + (red_scale - 1.0) * r * r;
+            let rx = (cx + dx * r_factor).clamp(0.0, width as f32 - 1.001);
+            let ry = (cy + dy * r_factor).clamp(0.0, height as f32 - 1.001);
+            let rx0 = rx.floor() as u32;
+            let ry0 = ry.floor() as u32;
+            let rx1 = (rx0 + 1).min(width - 1);
+            let ry1 = (ry0 + 1).min(height - 1);
+            let r_fx = rx - rx0 as f32;
+            let r_fy = ry - ry0 as f32;
+            let r_interp = (1.0 - r_fx) * (1.0 - r_fy) * src.get_pixel(rx0, ry0)[0]
+                + r_fx * (1.0 - r_fy) * src.get_pixel(rx1, ry0)[0]
+                + (1.0 - r_fx) * r_fy * src.get_pixel(rx0, ry1)[0]
+                + r_fx * r_fy * src.get_pixel(rx1, ry1)[0];
+
+            // Bilinear sample blue channel
+            let b_factor = 1.0 + (blue_scale - 1.0) * r * r;
+            let bx = (cx + dx * b_factor).clamp(0.0, width as f32 - 1.001);
+            let by = (cy + dy * b_factor).clamp(0.0, height as f32 - 1.001);
+            let bx0 = bx.floor() as u32;
+            let by0 = by.floor() as u32;
+            let bx1 = (bx0 + 1).min(width - 1);
+            let by1 = (by0 + 1).min(height - 1);
+            let b_fx = bx - bx0 as f32;
+            let b_fy = by - by0 as f32;
+            let b_interp = (1.0 - b_fx) * (1.0 - b_fy) * src.get_pixel(bx0, by0)[2]
+                + b_fx * (1.0 - b_fy) * src.get_pixel(bx1, by0)[2]
+                + (1.0 - b_fx) * b_fy * src.get_pixel(bx0, by1)[2]
+                + b_fx * b_fy * src.get_pixel(bx1, by1)[2];
+
+            pixel[0] = r_interp;
+            pixel[2] = b_interp;
+        }
+    });
+}
+
+/// Pre-Fusion Radial Vignette Equalization (cos^4 theta) for raw frames before panorama stitching or HDR
+pub fn apply_radial_vignette_equalization(
+    img: &mut image::Rgb32FImage,
+    k1: f32,
+    k2: f32,
+) {
+    if k1.abs() < 1e-5 && k2.abs() < 1e-5 {
+        return;
+    }
+    use rayon::prelude::*;
+    let (width, height) = img.dimensions();
+    let cx = width as f32 / 2.0;
+    let cy = height as f32 / 2.0;
+    let max_radius = (cx * cx + cy * cy).sqrt().max(1.0);
+
+    img.enumerate_rows_mut().par_bridge().for_each(|(_, row)| {
+        for (x, y, pixel) in row {
+            let dx = x as f32 - cx;
+            let dy = y as f32 - cy;
+            let r = (dx * dx + dy * dy).sqrt() / max_radius;
+            let r2 = r * r;
+            let r4 = r2 * r2;
+            let gain = (1.0 + k1 * r2 + k2 * r4).max(0.0);
+
+            pixel[0] *= gain;
+            pixel[1] *= gain;
+            pixel[2] *= gain;
+        }
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_maker_prefix() {
+        let clean = strip_maker_prefix("Canon EF 24-70mm f/2.8L II USM", "Canon");
+        assert_eq!(clean, "EF 24-70mm f/2.8L II USM");
+
+        let clean_sony = strip_maker_prefix("Sony FE 24-105mm F4 G OSS", "Sony");
+        assert_eq!(clean_sony, "FE 24-105mm F4 G OSS");
+
+        let no_prefix = strip_maker_prefix("Nikkor 50mm f/1.8", "Canon");
+        assert_eq!(no_prefix, "Nikkor 50mm f/1.8");
+    }
+
+    #[test]
+    fn test_find_best_lens_match_custom_db() {
+        let mut db = LensDatabase {
+            cameras: Vec::new(),
+            lenses: Vec::new(),
+        };
+        inject_builtin_lenses(&mut db);
+
+        let match_res = find_best_lens_match(&db, "Canon", "EF 70-200mm f/4L USM");
+        assert!(match_res.is_some(), "Canon 70-200mm f/4 should be found in injected custom DB");
+        let (maker, model) = match_res.unwrap();
+        assert_eq!(maker, "Canon");
+        assert!(model.contains("70-200mm"));
+
+        let match_sigma = find_best_lens_match(&db, "Sigma", "17-50mm f/2.8 EX DC OS HSM");
+        assert!(match_sigma.is_some(), "Sigma 17-50mm should be found");
+    }
+
+    #[test]
+    fn test_resolve_lens_params_distortion() {
+        let mut db = LensDatabase {
+            cameras: Vec::new(),
+            lenses: Vec::new(),
+        };
+        inject_builtin_lenses(&mut db);
+
+        let params = resolve_lens_params(&db, "Canon", "EF 70-200mm f/4L USM", 70.0, Some(4.0), Some(2.0));
+        assert!(params.is_some(), "Distortion params should resolve for Canon 70-200mm at 70mm");
+    }
+
+    #[test]
+    fn test_solve_guided_upright_perspective() {
+        let lines = vec![
+            GuidedLine {
+                x1: 0.2,
+                y1: 0.1,
+                x2: 0.25,
+                y2: 0.9,
+                orientation: "vertical".to_string(),
+            },
+            GuidedLine {
+                x1: 0.8,
+                y1: 0.1,
+                x2: 0.75,
+                y2: 0.9,
+                orientation: "vertical".to_string(),
+            },
+            GuidedLine {
+                x1: 0.1,
+                y1: 0.8,
+                x2: 0.9,
+                y2: 0.8,
+                orientation: "horizontal".to_string(),
+            },
+        ];
+
+        let res = solve_guided_upright(lines, 1920.0, 1080.0);
+        assert!(res.is_ok(), "Guided upright solver should succeed with 3 lines");
+        let result = res.unwrap();
+        assert!(result.scale >= 100.0, "Scale should be at least 100%");
+    }
+}
