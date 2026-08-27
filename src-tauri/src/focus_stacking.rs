@@ -10,8 +10,6 @@ use tauri::{AppHandle, Emitter};
 use crate::app_settings::load_settings;
 use crate::app_state::AppState;
 use crate::file_management::parse_virtual_path;
-use crate::formats::is_raw_file;
-use crate::image_processing::apply_cpu_default_raw_processing;
 
 const MEMORY_BUDGET_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 
@@ -2087,12 +2085,10 @@ fn decode_frame(
     settings: &crate::app_settings::AppSettings,
 ) -> Result<PlanarRgb, String> {
     let bytes = fs::read(path).map_err(|e| format!("Failed to read {}: {}", path, e))?;
-    let mut dyn_img =
-        crate::image_loader::load_base_image_from_bytes(&bytes, path, false, settings, None)
-            .map_err(|e| format!("Failed to decode {}: {}", path, e))?;
-    if is_raw_file(path) {
-        apply_cpu_default_raw_processing(&mut dyn_img);
-    }
+    let dyn_img = crate::image_loader::load_base_image_tagged(&bytes, path, false, settings, None)
+        .map_err(|e| format!("Failed to decode {}: {}", path, e))?
+        .into_srgb()
+        .into_inner();
     Ok(PlanarRgb::from_rgb32f(&dyn_img.to_rgb32f()))
 }
 

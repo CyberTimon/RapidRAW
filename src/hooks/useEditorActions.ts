@@ -67,11 +67,12 @@ export function useEditorActions() {
     [setAdjustments],
   );
 
-  const handleAutoAdjustments = useCallback(async () => {
+  const handleAutoAdjustments = useCallback(async (mode?: string | any) => {
+    const meteringMode = typeof mode === 'string' ? mode : 'percentile';
     const selectedImage = useEditorStore.getState().selectedImage;
     if (!selectedImage?.isReady) return;
     try {
-      const autoAdjustments: Adjustments = await invoke(Invokes.CalculateAutoAdjustments);
+      const autoAdjustments: Adjustments = await invoke(Invokes.CalculateAutoAdjustments, { mode: meteringMode });
       setAdjustments((prev: Adjustments) => ({
         ...prev,
         ...autoAdjustments,

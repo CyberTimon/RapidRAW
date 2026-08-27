@@ -104,6 +104,15 @@ fn calculate_exposure_metric(image: &GrayImage) -> f64 {
         return 0.0;
     }
 
+    let histogram_total: u32 = histogram.channels[0].iter().sum();
+    assert_eq!(
+        histogram_total,
+        image.width() * image.height(),
+        "Histogram total mismatch: expected {} pixels, found {}",
+        image.width() * image.height(),
+        histogram_total
+    );
+
     let clip_threshold_dark = 5;
     let clip_threshold_bright = 250;
 
@@ -135,8 +144,10 @@ fn analyze_image(
 
     let file_bytes = std::fs::read(path).map_err(|e| e.to_string())?;
 
-    let img = image_loader::load_base_image_from_bytes(&file_bytes, path, true, settings, None)
-        .map_err(|e| e.to_string())?;
+    let img = image_loader::load_base_image_tagged(&file_bytes, path, true, settings, None)
+        .map_err(|e| e.to_string())?
+        .into_srgb()
+        .into_inner();
 
     let (width, height) = img.dimensions();
     let thumbnail = img.thumbnail(ANALYSIS_DIM, ANALYSIS_DIM);

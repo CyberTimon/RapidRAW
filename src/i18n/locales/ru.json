@@ -336,11 +336,17 @@
         "details": "Детали",
         "effects": "Эффекты"
       },
+      "autoModes": {
+        "percentile": "Процентиль",
+        "geometricMean": "Среднее геометрическое",
+        "zonal": "Зональный"
+      },
       "title": "Настройки",
       "tooltips": {
         "autoAdjust": "Автонастройка изображения",
         "resetAdjustments": "Сбросить настройки",
-        "toggleAnalytics": "Показать/скрыть панель гистограммы"
+        "toggleAnalytics": "Показать/скрыть панель гистограммы",
+        "autoAdjustHold": "Удерживайте для режимов замера"
       }
     },
     "ai": {

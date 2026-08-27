@@ -336,11 +336,17 @@
         "details": "Detale",
         "effects": "Efekty"
       },
+      "autoModes": {
+        "percentile": "Percentyl",
+        "geometricMean": "Średnia geometryczna",
+        "zonal": "Strefowy"
+      },
       "title": "Ustawienia",
       "tooltips": {
         "autoAdjust": "Auto-korekta obrazu",
         "resetAdjustments": "Resetuj ustawienia",
-        "toggleAnalytics": "Przełącz widok analityki"
+        "toggleAnalytics": "Przełącz widok analityki",
+        "autoAdjustHold": "Przytrzymaj, aby wyświetlić tryby pomiaru"
       }
     },
     "ai": {
