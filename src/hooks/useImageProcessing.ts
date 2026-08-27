@@ -54,14 +54,15 @@ export function useImageProcessing(
 
   const geometricAdjustmentsKey = useMemo(() => {
     if (!adjustments) return '';
-    const { crop, rotation, flipHorizontal, flipVertical, orientationSteps } = adjustments;
-    return JSON.stringify({ crop, rotation, flipHorizontal, flipVertical, orientationSteps });
+    const { crop, rotation, flipHorizontal, flipVertical, orientationSteps, toneMapper } = adjustments;
+    return JSON.stringify({ crop, rotation, flipHorizontal, flipVertical, orientationSteps, toneMapper });
   }, [
     adjustments?.crop,
     adjustments?.rotation,
     adjustments?.flipHorizontal,
     adjustments?.flipVertical,
     adjustments?.orientationSteps,
+    adjustments?.toneMapper,
   ]);
 
   const calculateROI = useCallback(() => {

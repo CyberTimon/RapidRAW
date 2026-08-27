@@ -136,16 +136,28 @@ fn develop_internal(
         safe_highlight_compression
     };
 
+    let soft_knee = |x: f32| -> f32 {
+        if x <= 1.0 {
+            x
+        } else if clamp_limit <= 1.0 {
+            1.0
+        } else {
+            let over = x - 1.0;
+            let range = clamp_limit - 1.0;
+            1.0 + range * (over / (over + range))
+        }
+    };
+
     check_cancel()?;
 
     match &mut developed_intermediate {
         Intermediate::Monochrome(pixels) => {
             pixels.data.iter_mut().for_each(|p| {
-                let mut linear_val = *p * rescale_factor;
+                let mut v = (*p * rescale_factor).max(0.0);
                 if is_linear_format && apply_ungamma {
-                    linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
+                    v = srgb_to_linear(v.clamp(0.0, 1.0));
                 }
-                *p = linear_val.clamp(0.0, clamp_limit);
+                *p = soft_knee(v).clamp(0.0, clamp_limit);
             });
         }
         Intermediate::ThreeColor(pixels) => {
@@ -161,43 +173,42 @@ fn develop_internal(
                 }
 
                 let max_c = r.max(g).max(b);
-
-                let (final_r, final_g, final_b) = if max_c > 1.0 {
-                    let min_c = r.min(g).min(b);
-                    let compression_factor =
-                        (1.0 - (max_c - 1.0) / (safe_highlight_compression - 1.0)).clamp(0.0, 1.0);
-                    let compressed_r = min_c + (r - min_c) * compression_factor;
-                    let compressed_g = min_c + (g - min_c) * compression_factor;
-                    let compressed_b = min_c + (b - min_c) * compression_factor;
-                    let compressed_max = compressed_r.max(compressed_g).max(compressed_b);
-
-                    if compressed_max > 1e-6 {
-                        let rescale = max_c / compressed_max;
-                        (
-                            compressed_r * rescale,
-                            compressed_g * rescale,
-                            compressed_b * rescale,
-                        )
-                    } else {
-                        (max_c, max_c, max_c)
-                    }
+                let scale = if max_c > 1.0 {
+                    soft_knee(max_c) / max_c
                 } else {
-                    (r, g, b)
+                    1.0
                 };
 
-                p[0] = final_r.clamp(0.0, clamp_limit);
-                p[1] = final_g.clamp(0.0, clamp_limit);
-                p[2] = final_b.clamp(0.0, clamp_limit);
+                let mut r_s = r * scale;
+                let mut g_s = g * scale;
+                let mut b_s = b * scale;
+
+                let min_c = r.min(g).min(b);
+                let mid_c = r + g + b - max_c - min_c;
+                let desat_start = 0.6;
+                let desat_end = 1.0;
+                if mid_c > desat_start {
+                    let t = ((mid_c - desat_start) / (desat_end - desat_start)).clamp(0.0, 1.0);
+                    let blend = t * t * (3.0 - 2.0 * t);
+                    let neutral = max_c * scale;
+                    r_s = r_s * (1.0 - blend) + neutral * blend;
+                    g_s = g_s * (1.0 - blend) + neutral * blend;
+                    b_s = b_s * (1.0 - blend) + neutral * blend;
+                }
+
+                p[0] = r_s.clamp(0.0, clamp_limit);
+                p[1] = g_s.clamp(0.0, clamp_limit);
+                p[2] = b_s.clamp(0.0, clamp_limit);
             });
         }
         Intermediate::FourColor(pixels) => {
             pixels.data.iter_mut().for_each(|p| {
                 p.iter_mut().for_each(|c| {
-                    let mut linear_val = *c * rescale_factor;
+                    let mut v = (*c * rescale_factor).max(0.0);
                     if is_linear_format && apply_ungamma {
-                        linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
+                        v = srgb_to_linear(v.clamp(0.0, 1.0));
                     }
-                    *c = linear_val.clamp(0.0, clamp_limit);
+                    *c = soft_knee(v).clamp(0.0, clamp_limit);
                 });
             });
         }
