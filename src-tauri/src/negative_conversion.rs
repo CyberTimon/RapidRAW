@@ -6,6 +6,7 @@ use image::{DynamicImage, Rgb32FImage};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::sync::Arc;
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
@@ -198,7 +199,7 @@ pub async fn preview_negative_conversion(
         let mut cache = state.geometry_cache.lock().unwrap();
 
         if let Some(cached_img) = cache.get(&cache_key) {
-            cached_img.clone()
+            (**cached_img).clone()
         } else {
             let image_to_downscale = {
                 let original_lock = state.original_image.lock().unwrap();
@@ -263,8 +264,9 @@ pub async fn preview_negative_conversion(
 
             let downscaled = downscale_f32_image(&image_to_downscale, 1080, 1080);
 
-            cache.insert(cache_key, downscaled.clone());
-            downscaled
+            let downscaled_arc = Arc::new(downscaled);
+            cache.insert(cache_key, Arc::clone(&downscaled_arc));
+            (*downscaled_arc).clone()
         }
     };
 
