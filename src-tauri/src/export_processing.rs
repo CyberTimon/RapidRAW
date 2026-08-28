@@ -497,12 +497,19 @@ fn save_image_with_metadata(
 
     let mut image_bytes = encode_image_to_bytes(image, &extension, export_settings.jpeg_quality)?;
 
+    let tags = if export_settings.keep_metadata {
+        exif_processing::load_tags_from_sidecar(Path::new(source_path_str))
+    } else {
+        None
+    };
+
     exif_processing::write_image_with_metadata(
         &mut image_bytes,
         source_path_str,
         &extension,
         export_settings.keep_metadata,
         export_settings.strip_gps,
+        tags.as_deref(),
     )?;
 
     #[cfg(target_os = "android")]
