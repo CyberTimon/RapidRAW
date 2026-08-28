@@ -2285,6 +2285,7 @@ pub fn run() {
             ai_commands::generate_ai_foreground_mask,
             ai_commands::generate_ai_sky_mask,
             ai_commands::generate_ai_depth_mask,
+            ai_commands::detect_red_eyes,
             ai_commands::check_ai_connector_status,
             ai_commands::test_ai_connector_connection,
             ai_commands::generate_full_image_depth_map,

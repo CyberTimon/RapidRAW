@@ -59,6 +59,14 @@ const DEPTH_FILENAME: &str = "depth_anything_v2_vits.onnx";
 const DEPTH_INPUT_SIZE: u32 = 518;
 const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b526304f2562be";
 
+// YuNet is provided by OpenCV Zoo under the MIT license. Pinning the model commit keeps the
+// downloaded bytes stable so the checksum remains meaningful.
+const RED_EYE_MODEL_URL: &str = "https://media.githubusercontent.com/media/opencv/opencv_zoo/f12e12798e8314f7c074a6656816c048dcc95b7a/models/face_detection_yunet/face_detection_yunet_2023mar.onnx";
+const RED_EYE_MODEL_FILENAME: &str = "face_detection_yunet_2023mar.onnx";
+const RED_EYE_MODEL_SHA256: &str =
+    "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4";
+const RED_EYE_MODEL_INPUT_SIZE: u32 = 640;
+
 pub struct AiModels {
     pub sam_encoder: Mutex<Session>,
     pub sam_decoder: Mutex<Session>,
@@ -91,8 +99,29 @@ pub struct AiState {
     pub denoise_model: Option<Arc<Mutex<Session>>>,
     pub clip_models: Option<Arc<ClipModels>>,
     pub lama_model: Option<Arc<Mutex<Session>>>,
+    pub red_eye_model: Option<Arc<Mutex<Session>>>,
     pub embeddings: Option<ImageEmbeddings>,
     pub depth_map: Option<CachedDepthMap>,
+}
+
+#[derive(Serialize, Debug, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+pub struct RedEyeDetection {
+    pub center_x: f32,
+    pub center_y: f32,
+    pub radius_x: f32,
+    pub radius_y: f32,
+    pub confidence: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FaceCandidate {
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    eyes: [(f32, f32); 2],
+    score: f32,
 }
 
 fn edt_1d(f: &mut [f32], v: &mut [usize], z: &mut [f32], d: &mut [f32]) {
@@ -407,6 +436,7 @@ pub async fn get_or_init_ai_models(
             denoise_model: None,
             clip_models: None,
             lama_model: None,
+            red_eye_model: None,
             embeddings: None,
             depth_map: None,
         });
@@ -467,6 +497,7 @@ pub async fn get_or_init_denoise_model(
             denoise_model: Some(denoise_model.clone()),
             clip_models: None,
             lama_model: None,
+            red_eye_model: None,
             embeddings: None,
             depth_map: None,
         });
@@ -539,6 +570,7 @@ pub async fn get_or_init_clip_models(
             denoise_model: None,
             clip_models: Some(clip_models.clone()),
             lama_model: None,
+            red_eye_model: None,
             embeddings: None,
             depth_map: None,
         });
@@ -599,12 +631,373 @@ pub async fn get_or_init_lama_model(
             denoise_model: None,
             clip_models: None,
             lama_model: Some(lama_model.clone()),
+            red_eye_model: None,
             embeddings: None,
             depth_map: None,
         });
     }
 
     Ok(lama_model)
+}
+
+pub async fn get_or_init_red_eye_model(
+    app_handle: &tauri::AppHandle,
+    ai_state_mutex: &Mutex<Option<AiState>>,
+    ai_init_lock: &TokioMutex<()>,
+) -> Result<Arc<Mutex<Session>>> {
+    if let Some(model) = ai_state_mutex
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|state| state.red_eye_model.clone())
+    {
+        return Ok(model);
+    }
+
+    let _guard = ai_init_lock.lock().await;
+
+    if let Some(model) = ai_state_mutex
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|state| state.red_eye_model.clone())
+    {
+        return Ok(model);
+    }
+
+    let models_dir = get_models_dir(app_handle)?;
+    download_and_verify_model(
+        app_handle,
+        &models_dir,
+        RED_EYE_MODEL_FILENAME,
+        RED_EYE_MODEL_URL,
+        RED_EYE_MODEL_SHA256,
+        "Face Detection Model",
+    )
+    .await?;
+
+    let _ = ort::init().with_name("AI-Red-Eye").commit();
+    let model_path = models_dir.join(RED_EYE_MODEL_FILENAME);
+    let model = Arc::new(Mutex::new(
+        Session::builder()?.commit_from_file(model_path)?,
+    ));
+
+    crate::register_exit_handler();
+
+    let mut ai_state_lock = ai_state_mutex.lock().unwrap();
+    if let Some(state) = ai_state_lock.as_mut() {
+        state.red_eye_model = Some(model.clone());
+    } else {
+        *ai_state_lock = Some(AiState {
+            models: None,
+            denoise_model: None,
+            clip_models: None,
+            lama_model: None,
+            red_eye_model: Some(model.clone()),
+            embeddings: None,
+            depth_map: None,
+        });
+    }
+
+    Ok(model)
+}
+
+fn intersection_over_union(a: &FaceCandidate, b: &FaceCandidate) -> f32 {
+    let left = a.x.max(b.x);
+    let top = a.y.max(b.y);
+    let right = (a.x + a.width).min(b.x + b.width);
+    let bottom = (a.y + a.height).min(b.y + b.height);
+    let intersection = (right - left).max(0.0) * (bottom - top).max(0.0);
+    let union = a.width * a.height + b.width * b.height - intersection;
+    if union <= 0.0 {
+        0.0
+    } else {
+        intersection / union
+    }
+}
+
+fn has_reliable_eye_landmarks(face: &FaceCandidate) -> bool {
+    let dx = face.eyes[0].0 - face.eyes[1].0;
+    let dy = face.eyes[0].1 - face.eyes[1].1;
+    let minimum_eye_distance = face.width * 0.2;
+    dx * dx + dy * dy >= minimum_eye_distance * minimum_eye_distance
+}
+
+fn red_pixel_weight(r: u8, g: u8, b: u8) -> f32 {
+    let r = r as f32;
+    let g = g as f32;
+    let b = b as f32;
+    let competing_channel = g.max(b);
+    let red_excess = r - competing_channel;
+
+    // Corrected pupils often retain a dark purple or warm catchlight. Requiring red to
+    // dominate both competing channels keeps those neutral pupils from being treated as
+    // red-eye while still accepting the bright red/orange reflection produced by a flash.
+    if r < 64.0 || red_excess < 50.0 || r < g * 2.0 || r < b * 1.4 {
+        return 0.0;
+    }
+
+    red_excess * (r / (g + b + 1.0)).clamp(0.0, 3.0)
+}
+
+fn find_red_pupil(
+    image: &image::RgbImage,
+    eye: (f32, f32),
+    face: &FaceCandidate,
+) -> Option<RedEyeDetection> {
+    let (image_width, image_height) = image.dimensions();
+    if eye.0 < 0.0 || eye.1 < 0.0 || eye.0 >= image_width as f32 || eye.1 >= image_height as f32 {
+        return None;
+    }
+
+    let search_radius_x = (face.width * 0.12).clamp(4.0, 80.0);
+    let search_radius_y = (face.height * 0.07).clamp(4.0, 60.0);
+    let min_x = (eye.0 - search_radius_x).floor().max(0.0) as u32;
+    let max_x = (eye.0 + search_radius_x)
+        .ceil()
+        .min(image_width.saturating_sub(1) as f32) as u32;
+    let min_y = (eye.1 - search_radius_y).floor().max(0.0) as u32;
+    let max_y = (eye.1 + search_radius_y)
+        .ceil()
+        .min(image_height.saturating_sub(1) as f32) as u32;
+
+    let region_width = (max_x - min_x + 1) as usize;
+    let region_height = (max_y - min_y + 1) as usize;
+    let mut candidate_weights = vec![0.0; region_width * region_height];
+
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            let pixel = image.get_pixel(x, y).0;
+            let color_weight = red_pixel_weight(pixel[0], pixel[1], pixel[2]);
+            if color_weight <= 0.0 {
+                continue;
+            }
+
+            let dx = (x as f32 - eye.0) / search_radius_x;
+            let dy = (y as f32 - eye.1) / search_radius_y;
+            let distance_squared = dx * dx + dy * dy;
+            let weight = color_weight * (-2.0 * distance_squared).exp();
+            let index = (y - min_y) as usize * region_width + (x - min_x) as usize;
+            candidate_weights[index] = weight;
+        }
+    }
+
+    // Red-eye forms a coherent pupil-sized region. Select the strongest connected region so
+    // isolated red eyelid or skin pixels cannot pull the mask away from the pupil.
+    let mut visited = vec![false; candidate_weights.len()];
+    let mut candidates = Vec::new();
+    let mut total_weight = 0.0;
+    let mut weighted_x = 0.0;
+    let mut weighted_y = 0.0;
+
+    for start_index in 0..candidate_weights.len() {
+        if visited[start_index] || candidate_weights[start_index] <= 0.0 {
+            continue;
+        }
+
+        visited[start_index] = true;
+        let mut stack = vec![start_index];
+        let mut component = Vec::new();
+        let mut component_weight = 0.0;
+        let mut component_weighted_x = 0.0;
+        let mut component_weighted_y = 0.0;
+
+        while let Some(index) = stack.pop() {
+            let local_x = index % region_width;
+            let local_y = index / region_width;
+            let x = min_x as usize + local_x;
+            let y = min_y as usize + local_y;
+            let weight = candidate_weights[index];
+            component.push((x as f32, y as f32, weight));
+            component_weight += weight;
+            component_weighted_x += x as f32 * weight;
+            component_weighted_y += y as f32 * weight;
+
+            for neighbor_y in local_y.saturating_sub(1)..=(local_y + 1).min(region_height - 1) {
+                for neighbor_x in local_x.saturating_sub(1)..=(local_x + 1).min(region_width - 1) {
+                    let neighbor_index = neighbor_y * region_width + neighbor_x;
+                    if !visited[neighbor_index] && candidate_weights[neighbor_index] > 0.0 {
+                        visited[neighbor_index] = true;
+                        stack.push(neighbor_index);
+                    }
+                }
+            }
+        }
+
+        if component_weight > total_weight {
+            candidates = component;
+            total_weight = component_weight;
+            weighted_x = component_weighted_x;
+            weighted_y = component_weighted_y;
+        }
+    }
+
+    let minimum_candidate_count = ((face.width * 0.04).ceil() as usize).max(3);
+    if candidates.len() < minimum_candidate_count || total_weight < 60.0 {
+        return None;
+    }
+
+    let center_x = weighted_x / total_weight;
+    let center_y = weighted_y / total_weight;
+    // YuNet's horizontal eye landmarks can drift on partially overlapping or angled faces.
+    // Keep the vertical bound tighter because eyelids and eyebrows are the more common source
+    // of strongly red false positives, while allowing for pupils below the landmarks when a
+    // subject is looking down.
+    let maximum_center_offset_x = (face.width * 0.11).max(3.0);
+    let maximum_center_offset_y = (face.height * 0.05).max(3.0);
+    if (center_x - eye.0).abs() > maximum_center_offset_x
+        || (center_y - eye.1).abs() > maximum_center_offset_y
+    {
+        return None;
+    }
+
+    let extent_limit = face.width.min(face.height) * 0.065;
+    let mut extent_x: f32 = 0.0;
+    let mut extent_y: f32 = 0.0;
+
+    for (x, y, _) in candidates {
+        let dx = (x - center_x).abs();
+        let dy = (y - center_y).abs();
+        if dx <= extent_limit && dy <= extent_limit {
+            extent_x = extent_x.max(dx);
+            extent_y = extent_y.max(dy);
+        }
+    }
+
+    let minimum_radius = (face.width * 0.015).max(2.0);
+    let maximum_radius = (face.width * 0.055).max(minimum_radius);
+    let padding = (face.width * 0.008).max(1.0);
+    let radius_x = (extent_x + padding).clamp(minimum_radius, maximum_radius);
+    let radius_y = (extent_y + padding).clamp(minimum_radius, maximum_radius);
+    let confidence = (face.score * (total_weight / 500.0).clamp(0.35, 1.0)).clamp(0.0, 1.0);
+
+    Some(RedEyeDetection {
+        center_x,
+        center_y,
+        radius_x,
+        radius_y,
+        confidence,
+    })
+}
+
+pub fn detect_red_eyes(
+    image: &DynamicImage,
+    model: &Mutex<Session>,
+) -> Result<Vec<RedEyeDetection>> {
+    let (image_width, image_height) = image.dimensions();
+    if image_width == 0 || image_height == 0 {
+        return Ok(Vec::new());
+    }
+
+    let input_size = RED_EYE_MODEL_INPUT_SIZE as usize;
+    let scale = RED_EYE_MODEL_INPUT_SIZE as f32 / image_width.max(image_height) as f32;
+    let resized_width = ((image_width as f32 * scale).round() as u32).max(1);
+    let resized_height = ((image_height as f32 * scale).round() as u32).max(1);
+    let resized = image
+        .resize_exact(resized_width, resized_height, FilterType::Triangle)
+        .into_rgb8();
+    let resized_pixels = resized.as_raw();
+
+    let mut input: Array4<f32> = Array4::zeros((1, 3, input_size, input_size));
+    for y in 0..resized_height as usize {
+        for x in 0..resized_width as usize {
+            let index = (y * resized_width as usize + x) * 3;
+            input[[0, 0, y, x]] = resized_pixels[index + 2] as f32;
+            input[[0, 1, y, x]] = resized_pixels[index + 1] as f32;
+            input[[0, 2, y, x]] = resized_pixels[index] as f32;
+        }
+    }
+
+    let tensor = Tensor::from_array(input)?;
+    let mut session = model.lock().unwrap();
+    let outputs = session.run(ort::inputs![tensor])?;
+    let mut faces = Vec::new();
+
+    for (stride, cls_name, obj_name, bbox_name, keypoints_name) in [
+        (8usize, "cls_8", "obj_8", "bbox_8", "kps_8"),
+        (16usize, "cls_16", "obj_16", "bbox_16", "kps_16"),
+        (32usize, "cls_32", "obj_32", "bbox_32", "kps_32"),
+    ] {
+        let cls = outputs[cls_name].try_extract_array::<f32>()?;
+        let obj = outputs[obj_name].try_extract_array::<f32>()?;
+        let bbox = outputs[bbox_name].try_extract_array::<f32>()?;
+        let keypoints = outputs[keypoints_name].try_extract_array::<f32>()?;
+        let cls = cls
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Unexpected YuNet class output layout"))?;
+        let obj = obj
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Unexpected YuNet object output layout"))?;
+        let bbox = bbox
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Unexpected YuNet bounding-box output layout"))?;
+        let keypoints = keypoints
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Unexpected YuNet keypoint output layout"))?;
+        let grid_width = input_size / stride;
+
+        for index in 0..cls.len() {
+            let score = (cls[index].clamp(0.0, 1.0) * obj[index].clamp(0.0, 1.0)).sqrt();
+            if score < 0.75 {
+                continue;
+            }
+
+            let row = index / grid_width;
+            let column = index % grid_width;
+            let center_x = (column as f32 + bbox[index * 4]) * stride as f32;
+            let center_y = (row as f32 + bbox[index * 4 + 1]) * stride as f32;
+            let width = bbox[index * 4 + 2].exp() * stride as f32;
+            let height = bbox[index * 4 + 3].exp() * stride as f32;
+            let eye = |offset: usize| {
+                (
+                    (keypoints[index * 10 + offset] + column as f32) * stride as f32 / scale,
+                    (keypoints[index * 10 + offset + 1] + row as f32) * stride as f32 / scale,
+                )
+            };
+
+            faces.push(FaceCandidate {
+                x: (center_x - width / 2.0) / scale,
+                y: (center_y - height / 2.0) / scale,
+                width: width / scale,
+                height: height / scale,
+                eyes: [eye(0), eye(2)],
+                score,
+            });
+        }
+    }
+    drop(outputs);
+    drop(session);
+
+    faces.sort_by(|a, b| b.score.total_cmp(&a.score));
+    let mut selected_faces: Vec<FaceCandidate> = Vec::new();
+    for face in faces {
+        if selected_faces
+            .iter()
+            .all(|selected| intersection_over_union(&face, selected) < 0.3)
+        {
+            selected_faces.push(face);
+        }
+        if selected_faces.len() >= 50 {
+            break;
+        }
+    }
+
+    let full_resolution_rgb = image.to_rgb8();
+    let mut detections = Vec::new();
+    for face in selected_faces {
+        // Near-profile faces can collapse YuNet's two eye landmarks onto the same feature,
+        // making saturated skin highlights look like pupils.
+        if !has_reliable_eye_landmarks(&face) {
+            continue;
+        }
+        for eye in face.eyes {
+            if let Some(detection) = find_red_pupil(&full_resolution_rgb, eye, &face) {
+                detections.push(detection);
+            }
+        }
+    }
+
+    Ok(detections)
 }
 
 #[derive(Clone, Copy)]
@@ -1582,4 +1975,178 @@ pub struct AiDepthMaskParameters {
     pub flip_vertical: Option<bool>,
     #[serde(default)]
     pub orientation_steps: Option<u8>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_face() -> FaceCandidate {
+        FaceCandidate {
+            x: 20.0,
+            y: 10.0,
+            width: 100.0,
+            height: 120.0,
+            eyes: [(50.0, 50.0), (90.0, 50.0)],
+            score: 0.95,
+        }
+    }
+
+    #[test]
+    fn red_pupil_refinement_finds_the_colored_region() {
+        let mut image = image::RgbImage::from_pixel(140, 140, Rgb([90, 75, 70]));
+        for y in 46..=54 {
+            for x in 46..=54 {
+                let dx = x as i32 - 50;
+                let dy = y as i32 - 50;
+                if dx * dx + dy * dy <= 16 {
+                    image.put_pixel(x, y, Rgb([230, 35, 45]));
+                }
+            }
+        }
+
+        let detection = find_red_pupil(&image, (50.0, 50.0), &test_face())
+            .expect("red pupil should be detected");
+
+        assert!((detection.center_x - 50.0).abs() < 0.5);
+        assert!((detection.center_y - 50.0).abs() < 0.5);
+        assert!((3.0..=6.0).contains(&detection.radius_x));
+        assert!((3.0..=6.0).contains(&detection.radius_y));
+    }
+
+    #[test]
+    fn red_pupil_refinement_ignores_neutral_eyes() {
+        let image = image::RgbImage::from_pixel(140, 140, Rgb([85, 80, 75]));
+        assert!(find_red_pupil(&image, (50.0, 50.0), &test_face()).is_none());
+    }
+
+    #[test]
+    fn red_pupil_refinement_ignores_purple_corrected_pupils() {
+        let mut image = image::RgbImage::from_pixel(140, 140, Rgb([90, 75, 70]));
+        for y in 46..=54 {
+            for x in 46..=54 {
+                let dx = x as i32 - 50;
+                let dy = y as i32 - 50;
+                if dx * dx + dy * dy <= 16 {
+                    image.put_pixel(x, y, Rgb([100, 40, 82]));
+                }
+            }
+        }
+
+        assert!(find_red_pupil(&image, (50.0, 50.0), &test_face()).is_none());
+    }
+
+    #[test]
+    fn red_pupil_refinement_ignores_red_skin_beside_the_eye() {
+        let mut image = image::RgbImage::from_pixel(140, 140, Rgb([90, 75, 70]));
+        for y in 54..=62 {
+            for x in 46..=54 {
+                let dx = x as i32 - 50;
+                let dy = y as i32 - 58;
+                if dx * dx + dy * dy <= 16 {
+                    image.put_pixel(x, y, Rgb([230, 35, 45]));
+                }
+            }
+        }
+
+        assert!(find_red_pupil(&image, (50.0, 50.0), &test_face()).is_none());
+    }
+
+    #[test]
+    fn red_pupil_refinement_tolerates_horizontal_landmark_error() {
+        let mut image = image::RgbImage::from_pixel(140, 140, Rgb([90, 75, 70]));
+        for y in 46..=54 {
+            for x in 54..=62 {
+                let dx = x as i32 - 58;
+                let dy = y as i32 - 50;
+                if dx * dx + dy * dy <= 16 {
+                    image.put_pixel(x, y, Rgb([230, 35, 45]));
+                }
+            }
+        }
+
+        assert!(find_red_pupil(&image, (50.0, 50.0), &test_face()).is_some());
+    }
+
+    #[test]
+    fn red_pupil_refinement_selects_a_coherent_pupil_region() {
+        let mut image = image::RgbImage::from_pixel(140, 140, Rgb([90, 75, 70]));
+        for (center_x, radius) in [(44_i32, 2_i32), (58_i32, 4_i32)] {
+            for y in 46..=54 {
+                for x in 40..=62 {
+                    let dx = x as i32 - center_x;
+                    let dy = y as i32 - 50;
+                    if dx * dx + dy * dy <= radius * radius {
+                        image.put_pixel(x, y, Rgb([230, 35, 45]));
+                    }
+                }
+            }
+        }
+
+        let detection = find_red_pupil(&image, (50.0, 50.0), &test_face())
+            .expect("the larger coherent pupil region should be detected");
+        assert!((detection.center_x - 58.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn red_pupil_refinement_ignores_sparse_red_specks_on_large_faces() {
+        let mut image = image::RgbImage::from_pixel(700, 700, Rgb([90, 75, 70]));
+        for x in 295..310 {
+            image.put_pixel(x, 300, Rgb([230, 35, 45]));
+        }
+        let face = FaceCandidate {
+            x: 50.0,
+            y: 20.0,
+            width: 500.0,
+            height: 600.0,
+            eyes: [(250.0, 300.0), (450.0, 300.0)],
+            score: 0.95,
+        };
+
+        assert!(find_red_pupil(&image, (250.0, 300.0), &face).is_none());
+    }
+
+    #[test]
+    fn red_pupil_refinement_tolerates_downward_gaze_landmark_error() {
+        let mut image = image::RgbImage::from_pixel(140, 140, Rgb([90, 75, 70]));
+        for y in 52..=60 {
+            for x in 46..=54 {
+                let dx = x as i32 - 50;
+                let dy = y as i32 - 56;
+                if dx * dx + dy * dy <= 16 {
+                    image.put_pixel(x, y, Rgb([230, 35, 45]));
+                }
+            }
+        }
+
+        let mut face = test_face();
+        face.height = 125.0;
+        assert!(find_red_pupil(&image, (50.0, 50.0), &face).is_some());
+    }
+
+    #[test]
+    fn red_eye_detection_rejects_collapsed_profile_landmarks() {
+        let mut face = test_face();
+        face.eyes = [(50.0, 50.0), (60.0, 52.0)];
+        assert!(!has_reliable_eye_landmarks(&face));
+
+        face.eyes = [(50.0, 50.0), (90.0, 50.0)];
+        assert!(has_reliable_eye_landmarks(&face));
+    }
+
+    #[test]
+    fn red_pupil_refinement_ignores_warm_skin_tones() {
+        let mut image = image::RgbImage::from_pixel(140, 140, Rgb([90, 75, 70]));
+        for y in 46..=54 {
+            for x in 46..=54 {
+                let dx = x as i32 - 50;
+                let dy = y as i32 - 50;
+                if dx * dx + dy * dy <= 16 {
+                    image.put_pixel(x, y, Rgb([150, 80, 90]));
+                }
+            }
+        }
+
+        assert!(find_red_pupil(&image, (50.0, 50.0), &test_face()).is_none());
+    }
 }

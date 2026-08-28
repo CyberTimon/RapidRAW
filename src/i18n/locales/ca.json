@@ -603,6 +603,15 @@
         "maskName_one": "Màscara {{count}}",
         "maskName_other": "Màscara {{count}}"
       },
+      "redEye": {
+        "alreadyMasked": "Totes les pupil·les vermelles detectades ja tenen màscares de correcció.",
+        "detected": "Pupil·les vermelles corregides: {{total}}.",
+        "failed": "La detecció d'ulls vermells ha fallat: {{error}}",
+        "maskName": "Ulls vermells",
+        "noneDetected": "No s'ha detectat cap pupil·la vermella.",
+        "pupilName": "Pupil·la {{number}}",
+        "tooltip": "Detectar i corregir els ulls vermells"
+      },
       "resetMaskingTooltip": "Restablir emmascarament",
       "settings": {
         "aiModelDownloading": "S'està baixant el model d'IA: ",

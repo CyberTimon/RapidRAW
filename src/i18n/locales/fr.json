@@ -624,6 +624,15 @@
         "maskName_one": "Masque {{count}}",
         "maskName_other": "Masques {{count}}"
       },
+      "redEye": {
+        "alreadyMasked": "Toutes les pupilles rouges détectées ont déjà un masque de correction.",
+        "detected": "{{total}} pupille(s) rouge(s) corrigée(s).",
+        "failed": "Échec de la détection des yeux rouges : {{error}}",
+        "maskName": "Yeux rouges",
+        "noneDetected": "Aucune pupille rouge détectée.",
+        "pupilName": "Pupille {{number}}",
+        "tooltip": "Détecter et corriger les yeux rouges"
+      },
       "resetMaskingTooltip": "Réinitialiser le masquage",
       "settings": {
         "aiModelDownloading": "Téléchargement du modèle IA : ",

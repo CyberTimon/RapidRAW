@@ -645,6 +645,15 @@
         "maskName_one": "Маска {{count}}",
         "maskName_other": "Маска {{count}}"
       },
+      "redEye": {
+        "alreadyMasked": "Для всех обнаруженных красных зрачков уже созданы корректирующие маски.",
+        "detected": "Исправлено красных зрачков: {{total}}.",
+        "failed": "Не удалось обнаружить красные глаза: {{error}}",
+        "maskName": "Красные глаза",
+        "noneDetected": "Красные зрачки не обнаружены.",
+        "pupilName": "Зрачок {{number}}",
+        "tooltip": "Обнаружить и исправить красные глаза"
+      },
       "resetMaskingTooltip": "Сбросить маскирование",
       "settings": {
         "aiModelDownloading": "Загрузка ИИ-модели: ",

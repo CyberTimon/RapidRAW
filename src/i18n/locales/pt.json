@@ -624,6 +624,15 @@
         "maskName_one": "Máscara {{count}}",
         "maskName_other": "Máscara {{count}}"
       },
+      "redEye": {
+        "alreadyMasked": "Todas as pupilas vermelhas detetadas já têm máscaras de correção.",
+        "detected": "{{total}} pupila(s) vermelha(s) corrigida(s).",
+        "failed": "Falha ao detetar olhos vermelhos: {{error}}",
+        "maskName": "Olhos vermelhos",
+        "noneDetected": "Nenhuma pupila vermelha detetada.",
+        "pupilName": "Pupila {{number}}",
+        "tooltip": "Detetar e corrigir olhos vermelhos"
+      },
       "resetMaskingTooltip": "Redefinir Mascaramento",
       "settings": {
         "aiModelDownloading": "Baixando Modelo de IA: ",

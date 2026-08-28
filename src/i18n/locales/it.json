@@ -624,6 +624,15 @@
         "maskName_one": "Maschera {{count}}",
         "maskName_other": "Maschera {{count}}"
       },
+      "redEye": {
+        "alreadyMasked": "Tutte le pupille rosse rilevate hanno già una maschera di correzione.",
+        "detected": "Corrette {{total}} pupille rosse.",
+        "failed": "Rilevamento occhi rossi non riuscito: {{error}}",
+        "maskName": "Occhi rossi",
+        "noneDetected": "Nessuna pupilla rossa rilevata.",
+        "pupilName": "Pupilla {{number}}",
+        "tooltip": "Rileva e correggi gli occhi rossi"
+      },
       "resetMaskingTooltip": "Ripristina Mascheratura",
       "settings": {
         "aiModelDownloading": "Download Modello AI: ",

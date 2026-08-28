@@ -603,6 +603,15 @@
         "maskName_one": "Mask {{count}}",
         "maskName_other": "Mask {{count}}"
       },
+      "redEye": {
+        "alreadyMasked": "All detected red pupils already have correction masks.",
+        "detected": "Corrected {{total}} red-eye pupil(s).",
+        "failed": "Red-eye detection failed: {{error}}",
+        "maskName": "Red Eye",
+        "noneDetected": "No red pupils were detected.",
+        "pupilName": "Pupil {{number}}",
+        "tooltip": "Detect and correct red eye"
+      },
       "resetMaskingTooltip": "Reset Masking",
       "settings": {
         "aiModelDownloading": "AI Model Downloading: ",

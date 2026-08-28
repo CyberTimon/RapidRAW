@@ -11,6 +11,8 @@ import { v4 as uuidv4 } from 'uuid';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'react-toastify';
 import {
   DndContext,
   DragOverlay,
@@ -77,7 +79,7 @@ import {
   ADJUSTMENT_SECTIONS,
 } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
-import { OPTION_SEPARATOR, Orientation, Panel } from '../../ui/AppProperties';
+import { Invokes, OPTION_SEPARATOR, Orientation, Panel } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
 import { usePresets } from '../../../hooks/usePresets';
 import Text from '../../ui/Text';
@@ -96,6 +98,35 @@ interface DragData {
   maskType?: Mask;
   parentId?: string;
 }
+
+interface RedEyeDetection {
+  centerX: number;
+  centerY: number;
+  radiusX: number;
+  radiusY: number;
+}
+
+const getRedEyeRadialRegion = (subMask: SubMask): RedEyeDetection | null => {
+  if (subMask.type !== Mask.Radial) return null;
+
+  const { centerX, centerY, radiusX, radiusY } = subMask.parameters || {};
+  if (![centerX, centerY, radiusX, radiusY].every(Number.isFinite)) return null;
+
+  return { centerX, centerY, radiusX, radiusY };
+};
+
+const redEyeRegionsOverlap = (first: RedEyeDetection, second: RedEyeDetection) => {
+  const combinedRadiusX = Math.max(Math.abs(first.radiusX) + Math.abs(second.radiusX), 1);
+  const combinedRadiusY = Math.max(Math.abs(first.radiusY) + Math.abs(second.radiusY), 1);
+  const normalizedX = (first.centerX - second.centerX) / combinedRadiusX;
+  const normalizedY = (first.centerY - second.centerY) / combinedRadiusY;
+  return normalizedX * normalizedX + normalizedY * normalizedY <= 1;
+};
+
+const isRedEyeMaskContainer = (mask: MaskContainer) => {
+  const reds = mask.adjustments?.hsl?.reds;
+  return reds?.saturation === -100 && reds?.luminance === -100;
+};
 
 const SUB_MASK_CONFIG: Record<Mask, any> = {
   [Mask.Radial]: {
@@ -361,6 +392,7 @@ export default function MasksPanel() {
   const hasPerformedInitialSelection = useRef(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [analyzingSubMaskId, setAnalyzingSubMaskId] = useState<string | null>(null);
+  const [isDetectingRedEyes, setIsDetectingRedEyes] = useState(false);
 
   const { showContextMenu } = useContextMenu();
   const { presets } = usePresets(adjustments);
@@ -453,6 +485,97 @@ export default function MasksPanel() {
   const handleResetAllMasks = () => {
     handleDeselect();
     setAdjustments((prev: any) => ({ ...prev, masks: [] }));
+  };
+
+  const handleRemoveRedEye = async () => {
+    if (!selectedImage || isGeneratingAiMask) return;
+
+    setIsDetectingRedEyes(true);
+    setEditor({ isGeneratingAiMask: true });
+
+    try {
+      const detections = await invoke<RedEyeDetection[]>(Invokes.DetectRedEyes, {
+        jsAdjustments: adjustments,
+      });
+
+      if (detections.length === 0) {
+        toast.info(t('editor.masks.redEye.noneDetected'));
+        return;
+      }
+
+      const redEyeMasks = (adjustments.masks || []).filter(isRedEyeMaskContainer);
+      const existingRedEyeMask = redEyeMasks.find((mask) => mask.id);
+      const occupiedRegions = redEyeMasks
+        .flatMap((mask) => mask.subMasks.map(getRedEyeRadialRegion))
+        .filter((region): region is RedEyeDetection => region !== null);
+      const newDetections: Array<{ detection: RedEyeDetection; pupilNumber: number }> = [];
+
+      for (const [index, detection] of detections.entries()) {
+        if (occupiedRegions.some((region) => redEyeRegionsOverlap(detection, region))) continue;
+        occupiedRegions.push(detection);
+        newDetections.push({ detection, pupilNumber: index + 1 });
+      }
+
+      if (newDetections.length === 0) {
+        toast.info(t('editor.masks.redEye.alreadyMasked'));
+        return;
+      }
+
+      const maskId = existingRedEyeMask?.id || uuidv4();
+      const subMasks: SubMask[] = newDetections.map(({ detection, pupilNumber }) => ({
+        id: uuidv4(),
+        invert: false,
+        mode: SubMaskMode.Additive,
+        name: t('editor.masks.redEye.pupilName', { number: pupilNumber }),
+        opacity: 100,
+        parameters: {
+          centerX: detection.centerX,
+          centerY: detection.centerY,
+          radiusX: detection.radiusX,
+          radiusY: detection.radiusY,
+          rotation: 0,
+          feather: 0.35,
+        },
+        type: Mask.Radial,
+        visible: true,
+      }));
+      if (existingRedEyeMask) {
+        setAdjustments((prev: Adjustments) => ({
+          ...prev,
+          masks: (prev.masks || []).map((mask) =>
+            mask.id === maskId ? { ...mask, subMasks: [...mask.subMasks, ...subMasks] } : mask,
+          ),
+        }));
+      } else {
+        const redEyeAdjustments = JSON.parse(JSON.stringify(INITIAL_MASK_ADJUSTMENTS));
+        redEyeAdjustments.hsl.reds.saturation = -100;
+        redEyeAdjustments.hsl.reds.luminance = -100;
+
+        const redEyeMask: MaskContainer = {
+          adjustments: redEyeAdjustments,
+          id: maskId,
+          invert: false,
+          name: t('editor.masks.redEye.maskName'),
+          opacity: 100,
+          subMasks,
+          visible: true,
+        };
+
+        setAdjustments((prev: Adjustments) => ({
+          ...prev,
+          masks: [...(prev.masks || []), redEyeMask],
+        }));
+      }
+      onSelectContainer(maskId);
+      onSelectMask(subMasks[0].id);
+      setExpandedContainers((prev) => new Set(prev).add(maskId));
+      toast.success(t('editor.masks.redEye.detected', { total: newDetections.length }));
+    } catch (error) {
+      toast.error(t('editor.masks.redEye.failed', { error: String(error) }));
+    } finally {
+      setIsDetectingRedEyes(false);
+      setEditor({ isGeneratingAiMask: false });
+    }
   };
 
   const createMaskLogic = (type: Mask, mode: SubMaskMode = SubMaskMode.Additive) => {
@@ -983,6 +1106,14 @@ export default function MasksPanel() {
         <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
           <Text variant={TextVariants.title}>{t('editor.masks.maskingTitle')}</Text>
           <div className="flex items-center gap-1">
+            <button
+              className="p-2 rounded-full hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isGeneratingAiMask}
+              onClick={handleRemoveRedEye}
+              data-tooltip={t('editor.masks.redEye.tooltip')}
+            >
+              {isDetectingRedEyes ? <Loader2 size={18} className="animate-spin" /> : <Eye size={18} />}
+            </button>
             <button
               className={clsx(
                 'p-2 rounded-full transition-colors',

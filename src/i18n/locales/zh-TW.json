@@ -601,6 +601,15 @@
         "maskName_one": "遮色片 {{count}}",
         "maskName_other": "遮色片 {{count}}"
       },
+      "redEye": {
+        "alreadyMasked": "所有偵測到的紅眼瞳孔都已有校正遮色片。",
+        "detected": "已校正 {{total}} 個紅眼瞳孔。",
+        "failed": "紅眼偵測失敗：{{error}}",
+        "maskName": "紅眼",
+        "noneDetected": "未偵測到紅色瞳孔。",
+        "pupilName": "瞳孔 {{number}}",
+        "tooltip": "偵測並校正紅眼"
+      },
       "resetMaskingTooltip": "重置遮色片",
       "settings": {
         "aiModelDownloading": "AI 模型下載中：",
