@@ -173,6 +173,13 @@ export function useTauriListeners({
       listen('export-cancelling', () => {
         if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Cancelling });
       }),
+      listen('export-warning', (event: any) => {
+        if (isEffectActive)
+          useProcessStore.getState().setExportState({
+            status: Status.Warning,
+            warningMessage: typeof event.payload === 'string' ? event.payload : 'Export completed with warnings.',
+          });
+      }),
       listen('export-cancelled', () => {
         if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Cancelled });
       }),

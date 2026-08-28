@@ -70,6 +70,7 @@ export interface ExportState {
   errorMessage: string;
   progress: Progress;
   status: Status;
+  warningMessage: string;
 }
 
 export interface FileFormat {
@@ -93,6 +94,7 @@ export enum Status {
   Idle = 'idle',
   Importing = 'importing',
   Success = 'success',
+  Warning = 'warning',
 }
 
 export interface ExportPreset {

@@ -40,7 +40,7 @@ let pasteTimeout: ReturnType<typeof setTimeout>;
 const MAX_PREVIEW_CACHE_SIZE = 10;
 
 export const useProcessStore = create<ProcessState>((set, get) => ({
-  exportState: { errorMessage: '', progress: { current: 0, total: 0 }, status: Status.Idle },
+  exportState: { errorMessage: '', warningMessage: '', progress: { current: 0, total: 0 }, status: Status.Idle },
   importState: { errorMessage: '', path: '', progress: { current: 0, total: 0 }, status: Status.Idle },
   isIndexing: false,
   indexingProgress: { current: 0, total: 0 },
@@ -81,13 +81,14 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
 
     clearTimeout(exportTimeout);
 
-    if ([Status.Success, Status.Error, Status.Cancelled].includes(status)) {
+    if ([Status.Success, Status.Error, Status.Cancelled, Status.Warning].includes(status)) {
       exportTimeout = setTimeout(() => {
         set((prev) => ({
           exportState: {
             ...prev.exportState,
             status: Status.Idle,
             errorMessage: '',
+            warningMessage: '',
             progress: { current: 0, total: 0 },
           },
         }));

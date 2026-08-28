@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X } from 'lucide-react';
+import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import debounce from 'lodash.debounce';
@@ -279,7 +279,7 @@ export default function ExportPanel({
   const activePanels = useUIStore((state) => state.activePanels);
   const isPanelReallyActive = Object.values(activePanels).includes(Panel.Export);
 
-  const { status, progress, errorMessage } = exportState;
+  const { status, progress, errorMessage, warningMessage } = exportState;
   const isExporting = [Status.Exporting, Status.Cancelling].includes(status);
   const isCancelling = status === Status.Cancelling;
   const isLibraryContext = !!onClose;
@@ -898,6 +898,8 @@ export default function ExportPanel({
                     ? 'bg-red-500/20 text-red-400 shadow-none'
                     : status === Status.Cancelled
                       ? 'bg-yellow-500/20 text-yellow-400 shadow-none'
+                      : status === Status.Warning
+                        ? 'bg-amber-500/20 text-amber-400 shadow-none'                      
                       : ''
           }`}
           disabled={isCancelling || (status !== Status.Exporting && !canExport)}
@@ -932,6 +934,10 @@ export default function ExportPanel({
           ) : status === Status.Cancelled ? (
             <>
               <Ban size={18} className="mr-2" /> {t('export.status.cancelled')}
+            </>
+          ) : status === Status.Warning ? (
+            <>
+              <AlertTriangle size={18} className="mr-2" /> {warningMessage || t('export.status.warning')}
             </>
           ) : (
             <>
