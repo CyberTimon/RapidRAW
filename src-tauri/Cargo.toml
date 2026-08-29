@@ -79,6 +79,9 @@ gphoto2 = { git = "https://github.com/CyberTimon/libgphoto2-rs", optional = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["std", "CFData", "CFDictionary", "CFNumber", "CFString"] }
+objc2-core-graphics = { version = "0.3.2", default-features = false, features = ["std", "CGBitmapContext", "CGColorSpace", "CGContext", "CGGeometry", "CGImage"] }
+objc2-image-io = { version = "0.3.2", default-features = false, features = ["std", "CGImageSource", "CGImageProperties", "objc2-core-graphics"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-context = "0.1"

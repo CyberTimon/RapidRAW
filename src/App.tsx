@@ -62,6 +62,8 @@ import { useProductivityActions } from './hooks/useProductivityActions';
 
 import { useAppInitialization } from './hooks/useAppInitialization';
 import { useAndroidBackHandler } from './hooks/useAndroidBackHandler';
+import { useConvertedInputConfirmation } from './hooks/useConvertedInputConfirmation';
+import { useExternalImageDrop } from './hooks/useExternalImageDrop';
 import './i18n';
 
 import {
@@ -344,11 +346,23 @@ function App() {
     refs: navigationRefs,
   });
 
+  const { confirmConvertedInputs } = useConvertedInputConfirmation();
+  const handleImageSelectWithConfirmation = useCallback(
+    async (path: string, openInEditor: boolean = true) => {
+      if (!(await confirmConvertedInputs([path]))) return false;
+      await handleImageSelect(path, openInEditor);
+      return true;
+    },
+    [confirmConvertedInputs, handleImageSelect],
+  );
+
+  useExternalImageDrop(handleImageSelectWithConfirmation);
+
   const {
     externalEditSession,
     isFinishing: isExternalEditFinishing,
     finishExternalEdit,
-  } = useExternalEditSession(handleImageSelect);
+  } = useExternalEditSession(handleImageSelectWithConfirmation);
 
   const {
     handleRate,
@@ -360,7 +374,7 @@ function App() {
     handleTogglePinFolder,
     handleCreateAlbumItem,
     handleRenameAlbumItem,
-  } = useLibraryActions(handleImageSelect);
+  } = useLibraryActions(handleImageSelectWithConfirmation);
 
   const { displayList: sortedImageList, badges: groupBadgeInfo } = useSortedLibrary();
 
@@ -401,7 +415,7 @@ function App() {
   } = useFileOperations(
     handleLibraryRefresh,
     refreshAllFolderTrees,
-    handleImageSelect,
+    handleImageSelectWithConfirmation,
     handleBackToLibrary,
     sortedImageList,
   );
@@ -426,7 +440,7 @@ function App() {
     handleAlbumTreeContextMenu,
     handleMainLibraryContextMenu,
   } = useAppContextMenus({
-    handleImageSelect,
+    handleImageSelect: handleImageSelectWithConfirmation,
     handleBackToLibrary,
     handleLibraryRefresh,
     handleRenameFiles,
@@ -468,7 +482,7 @@ function App() {
     handleBackToLibrary,
     handleDeleteSelected,
     handleGoHome,
-    handleImageSelect,
+    handleImageSelect: handleImageSelectWithConfirmation,
     handlePasteFiles,
     handleToggleFullScreen,
     handleZoomChange,
@@ -739,7 +753,9 @@ function App() {
         case Panel.Presets:
           return <PresetsPanel onNavigateToCommunity={() => setUI({ activeView: 'community' })} />;
         case Panel.Tethering:
-          return <TetheringPanel onLibraryRefresh={handleLibraryRefresh} onImageSelect={handleImageSelect} />;
+          return (
+            <TetheringPanel onLibraryRefresh={handleLibraryRefresh} onImageSelect={handleImageSelectWithConfirmation} />
+          );
         default:
           return null;
       }
@@ -951,7 +967,7 @@ function App() {
                     setLibraryViewMode={setLibraryViewMode}
                     handleClearSelection={handleClearSelection}
                     handleLibraryImageSingleClick={handleLibraryImageSingleClick}
-                    handleImageSelect={handleImageSelect}
+                    handleImageSelect={handleImageSelectWithConfirmation}
                     handleRate={handleRate}
                     handleThumbnailContextMenu={handleThumbnailContextMenu}
                     handleMainLibraryContextMenu={handleMainLibraryContextMenu}
@@ -1004,7 +1020,7 @@ function App() {
           </DndContext>
         </div>
         <AppModals
-          handleImageSelect={handleImageSelect}
+          handleImageSelect={handleImageSelectWithConfirmation}
           handleSavePanorama={handleSavePanorama}
           handleStartPanorama={handleStartPanorama}
           handleStartFocusStack={handleStartFocusStack}

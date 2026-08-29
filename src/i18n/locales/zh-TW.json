@@ -893,6 +893,10 @@
       "toggleFit": "切換 1:1 / 適應",
       "vc": "VC"
     },
+    "drop": {
+      "openedFirst": "已開啟拖放的 {{total}} 張影像中的第一張。",
+      "unsupported": "拖放的檔案中沒有支援的影像。"
+    },
     "filters": {
       "edited": {
         "all": "所有影像",
@@ -1141,6 +1145,11 @@
     "confirm": {
       "cancel": "取消",
       "confirm": "確認"
+    },
+    "convertedInput": {
+      "confirm": "開啟 HEIC",
+      "message": "RapidRAW 使用系統的 HEVC 解碼器，將 HEIC/HEIF 影像作為高精度 RGB 工作影像開啟以供編輯。不會建立新的影像檔案，原始檔案也不會被修改。\n\n編輯內容會自動儲存在原始檔案旁的 .rrdata 輔助檔案中。需要完成的 JPEG、TIFF 或其他影像檔案時，請使用「匯出」。HDR 顯示效果可能與支援 HDR 的檢視器有所不同。",
+      "title": "開啟 HEIC 進行編輯？"
     },
     "copyPaste": {
       "autoSyncDesc": "自動將調整套用於所有選取的影像。",

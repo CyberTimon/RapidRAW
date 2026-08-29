@@ -893,6 +893,10 @@
       "toggleFit": "1:1 / 全体表示の切り替え",
       "vc": "VC"
     },
+    "drop": {
+      "openedFirst": "ドロップされた {{total}} 枚の画像のうち最初の画像を開きました。",
+      "unsupported": "ドロップされたファイルに対応する画像がありません。"
+    },
     "filters": {
       "edited": {
         "all": "すべての画像",
@@ -1141,6 +1145,11 @@
     "confirm": {
       "cancel": "キャンセル",
       "confirm": "確認"
+    },
+    "convertedInput": {
+      "confirm": "HEIC を開く",
+      "message": "RapidRAW はシステムの HEVC デコーダーを使用して、HEIC/HEIF 画像を編集用の高精度 RGB 作業画像として開きます。新しい画像ファイルは作成されず、元のファイルも変更されません。\n\n編集内容は元のファイルの隣にある .rrdata サイドカーファイルへ自動保存されます。完成した JPEG、TIFF、またはその他の画像ファイルが必要な場合は「エクスポート」を使用してください。HDR の表示は HDR 対応ビューアーと異なる場合があります。",
+      "title": "HEIC を編集用に開きますか？"
     },
     "copyPaste": {
       "autoSyncDesc": "選択したすべての画像に調整を自動的に適用します。",

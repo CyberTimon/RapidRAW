@@ -918,6 +918,10 @@
       "toggleFit": "Alternar 1:1 / Ajustar",
       "vc": "CV"
     },
+    "drop": {
+      "openedFirst": "Se abrió la primera de las {{total}} imágenes soltadas.",
+      "unsupported": "No se encontraron imágenes compatibles entre los archivos soltados."
+    },
     "filters": {
       "edited": {
         "all": "Todas las imágenes",
@@ -1167,6 +1171,11 @@
     "confirm": {
       "cancel": "Cancelar",
       "confirm": "Confirmar"
+    },
+    "convertedInput": {
+      "confirm": "Abrir HEIC",
+      "message": "RapidRAW usa el decodificador HEVC del sistema para abrir imágenes HEIC/HEIF como una imagen de trabajo RGB de alta precisión para editar. No se crea ningún archivo de imagen nuevo y el original permanece sin cambios.\n\nTus ediciones se guardan automáticamente en un archivo auxiliar .rrdata junto al original. Usa Exportar cuando quieras un archivo JPEG, TIFF u otro formato de imagen finalizado. La apariencia HDR puede variar respecto a un visor compatible con HDR.",
+      "title": "¿Abrir HEIC para editar?"
     },
     "copyPaste": {
       "autoSyncDesc": "Aplica automáticamente los ajustes a todas las imágenes seleccionadas.",

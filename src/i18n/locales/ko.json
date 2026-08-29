@@ -893,6 +893,10 @@
       "toggleFit": "1:1 / 맞춤 전환",
       "vc": "VC"
     },
+    "drop": {
+      "openedFirst": "드롭한 이미지 {{total}}개 중 첫 번째 이미지를 열었습니다.",
+      "unsupported": "드롭한 파일에서 지원되는 이미지를 찾지 못했습니다."
+    },
     "filters": {
       "edited": {
         "all": "모든 이미지",
@@ -1141,6 +1145,11 @@
     "confirm": {
       "cancel": "취소",
       "confirm": "확인"
+    },
+    "convertedInput": {
+      "confirm": "HEIC 열기",
+      "message": "RapidRAW는 시스템의 HEVC 디코더를 사용하여 HEIC/HEIF 이미지를 편집용 고정밀 RGB 작업 이미지로 엽니다. 새 이미지 파일은 생성되지 않으며 원본도 변경되지 않습니다.\n\n편집 내용은 원본 옆의 .rrdata 사이드카 파일에 자동으로 저장됩니다. 완성된 JPEG, TIFF 또는 다른 이미지 파일이 필요할 때는 내보내기를 사용하세요. HDR 표시는 HDR 지원 뷰어와 다를 수 있습니다.",
+      "title": "편집할 HEIC를 열까요?"
     },
     "copyPaste": {
       "autoSyncDesc": "선택한 모든 이미지에 조정을 자동으로 적용합니다.",
