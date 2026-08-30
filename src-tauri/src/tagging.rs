@@ -15,7 +15,7 @@ use tokio::task::JoinHandle;
 use walkdir::WalkDir;
 
 use crate::file_management::{self, parse_virtual_path};
-use crate::formats::is_supported_image_file;
+use crate::formats::is_nonempty_supported_image_file;
 use crate::hierarchy::TAG_HIERARCHY;
 use crate::image_processing::ImageMetadata;
 use crate::{AppState, candidates::TAG_CANDIDATES};
@@ -294,9 +294,7 @@ pub async fn start_background_indexing(
             Ok(entries) => entries
                 .filter_map(Result::ok)
                 .map(|entry| entry.path())
-                .filter(|path| {
-                    path.is_file() && is_supported_image_file(path.to_string_lossy().as_ref())
-                })
+                .filter(|path| path.is_file() && is_nonempty_supported_image_file(path))
                 .collect(),
             Err(e) => {
                 eprintln!("Failed to read directory '{}': {}", folder_path, e);
