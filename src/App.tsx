@@ -851,7 +851,8 @@ function App() {
         {!isAndroid && (
           <div
             className={clsx(
-              'shrink-0 overflow-hidden z-50',
+              'shrink-0 z-50',
+              isFullScreen ? 'overflow-hidden' : 'overflow-visible',
               !isInstantTransition && 'transition-all duration-300 ease-in-out',
               isFullScreen ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-15 opacity-100',
             )}

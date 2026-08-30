@@ -2044,6 +2044,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     >
       {hasRenderedAnyPreview && <div className="hidden" data-bench-id="editor-first-frame" />}
       <div
+        id="rapidraw-editor-toolbar-anchor"
         className={clsx(
           'shrink-0 relative z-10',
           !isInstantTransition && 'transition-all duration-300 ease-in-out',
