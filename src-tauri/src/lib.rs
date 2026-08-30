@@ -90,7 +90,8 @@ use crate::image_processing::{
     Crop, GeometryParams, RenderRequest, apply_coarse_rotation, apply_cpu_default_raw_processing,
     apply_flip, apply_geometry_warp, apply_linear_to_srgb, downscale_f32_image,
     get_all_adjustments_from_json, get_or_init_gpu_context, process_and_get_dynamic_image,
-    resolve_tonemapper_override, resolve_tonemapper_override_from_handle, warp_image_geometry,
+    process_and_get_dynamic_image_with_ticket, resolve_tonemapper_override,
+    resolve_tonemapper_override_from_handle, warp_image_geometry,
 };
 use crate::mask_generation::{
     MaskDefinition, generate_mask_bitmap, get_cached_or_generate_mask,
@@ -235,6 +236,7 @@ fn cancel_thumbnail_generation(
     state
         .thumbnail_cancellation_token
         .store(true, Ordering::SeqCst);
+    state.adjusted_thumbnail_manager.cancel_all();
 
     let mut tracker = state.thumbnail_progress.lock().unwrap();
     tracker.total = 0;
@@ -331,6 +333,7 @@ fn process_preview_job(
     request_analytics: bool,
     compute_waveform: bool,
     active_waveform_channel: Option<&str>,
+    gpu_work_ticket: GpuWorkTicket,
 ) -> Result<Vec<u8>, String> {
     let fn_start = std::time::Instant::now();
     let context = get_or_init_gpu_context(&state, app_handle)?;
@@ -520,6 +523,7 @@ fn process_preview_job(
             "apply_adjustments",
             use_wgpu_renderer,
             analytics_config,
+            gpu_work_ticket,
         );
 
     if let Ok(final_processed_image) = final_processed_image_result {
@@ -669,6 +673,7 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
                 job.request_analytics,
                 job.compute_waveform,
                 job.active_waveform_channel.as_deref(),
+                job.gpu_work_ticket,
             ) {
                 Ok(bytes) => {
                     let _ = responder.send(bytes);
@@ -694,6 +699,10 @@ async fn apply_adjustments(
     state: tauri::State<'_, AppState>,
 ) -> Result<Response, String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
+    state.adjusted_thumbnail_manager.note_editor_activity();
+    let gpu_work_ticket = state
+        .gpu_work_scheduler
+        .ticket(GpuWorkPriority::Interactive);
 
     {
         let tx_guard = state.preview_worker_tx.lock().unwrap();
@@ -707,6 +716,7 @@ async fn apply_adjustments(
                 compute_waveform,
                 active_waveform_channel,
                 responder: tx,
+                gpu_work_ticket,
             };
             worker_tx
                 .send(job)
@@ -729,6 +739,10 @@ fn generate_uncropped_preview(
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let context = get_or_init_gpu_context(&state, &app_handle)?;
+    state.adjusted_thumbnail_manager.note_editor_activity();
+    let gpu_work_ticket = state
+        .gpu_work_scheduler
+        .ticket(GpuWorkPriority::Interactive);
     let mut adjustments_clone = js_adjustments.clone();
     hydrate_adjustments(&state, &mut adjustments_clone);
 
@@ -820,7 +834,7 @@ fn generate_uncropped_preview(
         let lut_path = adjustments_clone["lutPath"].as_str();
         let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
-        if let Ok(processed_image) = process_and_get_dynamic_image(
+        if let Ok(processed_image) = process_and_get_dynamic_image_with_ticket(
             &context,
             &state,
             &processing_base,
@@ -832,6 +846,7 @@ fn generate_uncropped_preview(
                 roi: None,
             },
             "generate_uncropped_preview",
+            gpu_work_ticket,
         ) {
             let (width, height) = processed_image.dimensions();
             let rgb_pixels = processed_image.to_rgb8().into_vec();
@@ -862,6 +877,7 @@ async fn preview_geometry_transform(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
+    state.adjusted_thumbnail_manager.note_editor_activity();
     let (loaded_image_path, is_raw) = {
         let guard = state.original_image.lock().unwrap();
         let loaded = guard.as_ref().ok_or("No image loaded")?;
@@ -881,6 +897,9 @@ async fn preview_geometry_transform(
         if let Some(cached_image) = maybe_cached_image {
             cached_image
         } else {
+            let gpu_work_ticket = state
+                .gpu_work_scheduler
+                .ticket(GpuWorkPriority::Interactive);
             let context = get_or_init_gpu_context(&state, &app_handle)?;
 
             let original_image = {
@@ -938,7 +957,7 @@ async fn preview_geometry_transform(
             let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
             let mask_bitmaps = Vec::new();
 
-            let processed_base = process_and_get_dynamic_image(
+            let processed_base = process_and_get_dynamic_image_with_ticket(
                 &context,
                 &state,
                 &preview_base,
@@ -950,6 +969,7 @@ async fn preview_geometry_transform(
                     roi: None,
                 },
                 "preview_geometry_transform_base_gen",
+                gpu_work_ticket,
             )?;
 
             let mut cache = state.geometry_cache.lock().unwrap();
@@ -1486,6 +1506,13 @@ async fn generate_preview_for_path(
     js_adjustments: Value,
     app_handle: tauri::AppHandle,
 ) -> Result<Response, String> {
+    let gpu_work_ticket = {
+        let state = app_handle.state::<AppState>();
+        state.adjusted_thumbnail_manager.note_editor_activity();
+        state
+            .gpu_work_scheduler
+            .ticket(GpuWorkPriority::Interactive)
+    };
     tokio::task::spawn_blocking(move || {
         let state = app_handle.state::<AppState>();
         let context = get_or_init_gpu_context(&state, &app_handle)?;
@@ -1553,7 +1580,7 @@ async fn generate_preview_for_path(
         let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
         let unique_hash = calculate_full_job_hash(&source_path_str, &js_adjustments);
 
-        let final_image = process_and_get_dynamic_image(
+        let final_image = process_and_get_dynamic_image_with_ticket(
             &context,
             &state,
             transformed_image.as_ref(),
@@ -1565,6 +1592,7 @@ async fn generate_preview_for_path(
                 roi: None,
             },
             "generate_preview_for_path",
+            gpu_work_ticket,
         )?;
 
         let (width, height) = final_image.dimensions();
@@ -2054,6 +2082,7 @@ pub fn run() {
             start_preview_worker(app_handle.clone());
             start_analytics_worker(app_handle.clone());
             file_management::start_thumbnail_workers(app_handle.clone());
+            file_management::start_adjusted_thumbnail_worker(app_handle.clone());
             file_management::start_metadata_workers(app_handle.clone());
             jxl_oxide::integration::register_image_decoding_hook();
 
@@ -2250,7 +2279,9 @@ pub fn run() {
             full_transformed_cache: Mutex::new(None),
             decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
             thumbnail_manager: ThumbnailManager::new(),
+            adjusted_thumbnail_manager: AdjustedThumbnailManager::new(),
             metadata_manager: MetadataManager::new(),
+            gpu_work_scheduler: GpuWorkScheduler::new(),
             disks_cache: Mutex::new(None),
             disks_cache_refreshing: AtomicBool::new(false),
             camera_session: Mutex::new(camera_tethering::CameraSession::new()),

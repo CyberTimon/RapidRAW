@@ -11,7 +11,7 @@ use wgpu::util::{DeviceExt, TextureDataOrder};
 
 use crate::image_processing::{AllAdjustments, GpuContext, MAX_MASKS};
 use crate::lut_processing::Lut;
-use crate::{AppState, GpuImageCache};
+use crate::{AppState, GpuImageCache, GpuWorkPriority, GpuWorkTicket};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Roi {
@@ -1593,6 +1593,27 @@ pub fn process_and_get_dynamic_image(
     request: RenderRequest,
     caller_id: &str,
 ) -> Result<DynamicImage, String> {
+    process_and_get_dynamic_image_with_priority(
+        context,
+        state,
+        base_image,
+        transform_hash,
+        request,
+        caller_id,
+        GpuWorkPriority::Background,
+    )
+}
+
+pub fn process_and_get_dynamic_image_with_priority(
+    context: &GpuContext,
+    state: &tauri::State<AppState>,
+    base_image: &DynamicImage,
+    transform_hash: u64,
+    request: RenderRequest,
+    caller_id: &str,
+    priority: GpuWorkPriority,
+) -> Result<DynamicImage, String> {
+    let _gpu_work_permit = state.gpu_work_scheduler.acquire(priority);
     process_and_get_dynamic_image_inner(
         context,
         state,
@@ -1602,6 +1623,47 @@ pub fn process_and_get_dynamic_image(
         caller_id,
         false,
         None,
+    )
+}
+
+pub fn process_and_get_dynamic_image_with_ticket(
+    context: &GpuContext,
+    state: &tauri::State<AppState>,
+    base_image: &DynamicImage,
+    transform_hash: u64,
+    request: RenderRequest,
+    caller_id: &str,
+    gpu_work_ticket: GpuWorkTicket,
+) -> Result<DynamicImage, String> {
+    let _gpu_work_permit = gpu_work_ticket.acquire();
+    process_and_get_dynamic_image_inner(
+        context,
+        state,
+        base_image,
+        transform_hash,
+        request,
+        caller_id,
+        false,
+        None,
+    )
+}
+
+pub fn process_and_get_dynamic_image_for_export(
+    context: &GpuContext,
+    state: &tauri::State<AppState>,
+    base_image: &DynamicImage,
+    transform_hash: u64,
+    request: RenderRequest,
+    caller_id: &str,
+) -> Result<DynamicImage, String> {
+    process_and_get_dynamic_image_with_priority(
+        context,
+        state,
+        base_image,
+        transform_hash,
+        request,
+        caller_id,
+        GpuWorkPriority::Export,
     )
 }
 
@@ -1615,7 +1677,9 @@ pub fn process_and_get_dynamic_image_with_analytics(
     caller_id: &str,
     output_to_display: bool,
     analytics_config: Option<crate::AnalyticsConfig>,
+    gpu_work_ticket: GpuWorkTicket,
 ) -> Result<DynamicImage, String> {
+    let _gpu_work_permit = gpu_work_ticket.acquire();
     process_and_get_dynamic_image_inner(
         context,
         state,
