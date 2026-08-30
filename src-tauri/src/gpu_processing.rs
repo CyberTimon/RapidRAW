@@ -11,7 +11,7 @@ use wgpu::util::{DeviceExt, TextureDataOrder};
 
 use crate::image_processing::{AllAdjustments, GpuContext, MAX_MASKS};
 use crate::lut_processing::Lut;
-use crate::{AppState, GpuImageCache};
+use crate::{AppState, GpuImageCache, PreviewGeneration};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Roi {
@@ -26,6 +26,11 @@ pub struct RenderRequest<'a> {
     pub mask_bitmaps: &'a [ImageBuffer<Luma<u8>, Vec<u8>>],
     pub lut: Option<Arc<Lut>>,
     pub roi: Option<Roi>,
+}
+
+pub struct PreviewProcessResult {
+    pub image: DynamicImage,
+    pub display_submission: Option<wgpu::SubmissionIndex>,
 }
 
 #[repr(C)]
@@ -54,7 +59,11 @@ pub struct WgpuDisplay {
 }
 
 impl WgpuDisplay {
-    pub fn render(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub fn render(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Result<Option<wgpu::SubmissionIndex>, String> {
         if let Some(bind_group) = &self.current_bind_group {
             let output = match self.surface.get_current_texture() {
                 wgpu::CurrentSurfaceTexture::Success(tex)
@@ -64,10 +73,23 @@ impl WgpuDisplay {
                     match self.surface.get_current_texture() {
                         wgpu::CurrentSurfaceTexture::Success(tex)
                         | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-                        _ => panic!("Failed to acquire surface texture"),
+                        _ => {
+                            return Err(
+                                "Failed to acquire the display surface after reconfiguration"
+                                    .to_string(),
+                            );
+                        }
                     }
                 }
-                _ => return,
+                wgpu::CurrentSurfaceTexture::Timeout => {
+                    return Err("Timed out acquiring the display surface".to_string());
+                }
+                wgpu::CurrentSurfaceTexture::Occluded => {
+                    return Err("Display surface is occluded".to_string());
+                }
+                wgpu::CurrentSurfaceTexture::Validation => {
+                    return Err("Display surface validation failed".to_string());
+                }
             };
             let view = output
                 .texture
@@ -129,8 +151,11 @@ impl WgpuDisplay {
                     }
                 }
             }
-            queue.submit(Some(encoder.finish()));
+            let submission = queue.submit(Some(encoder.finish()));
             output.present();
+            Ok(Some(submission))
+        } else {
+            Ok(None)
         }
     }
 }
@@ -411,6 +436,52 @@ pub fn get_or_init_gpu_context(
     Ok(new_context)
 }
 
+#[cfg(target_os = "macos")]
+pub fn start_gpu_pipeline_prewarm(app_handle: tauri::AppHandle) {
+    let generation = app_handle.state::<AppState>().preview_generation.snapshot();
+
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(350));
+        if !generation.is_current() {
+            return;
+        }
+
+        let state = app_handle.state::<AppState>();
+        if state.original_image.lock().unwrap().is_some() {
+            return;
+        }
+
+        let context = match get_or_init_gpu_context(&state, &app_handle) {
+            Ok(context) => context,
+            Err(error) => {
+                log::warn!("GPU pipeline prewarm skipped: {}", error);
+                return;
+            }
+        };
+
+        let mut processor_lock = state.gpu_processor.lock().unwrap();
+        if processor_lock.is_some()
+            || !generation.is_current()
+            || state.original_image.lock().unwrap().is_some()
+        {
+            return;
+        }
+
+        let started = Instant::now();
+        match GpuProcessor::new(context, 1, 1) {
+            Ok(processor) => {
+                *processor_lock = Some(crate::GpuProcessorState {
+                    processor,
+                    width: 1,
+                    height: 1,
+                });
+                log::info!("GPU compute pipelines prewarmed in {:?}", started.elapsed());
+            }
+            Err(error) => log::warn!("GPU pipeline prewarm failed: {}", error),
+        }
+    });
+}
+
 fn read_texture_data_roi(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -535,6 +606,24 @@ pub struct GpuProcessor {
     dummy_blur_view: wgpu::TextureView,
     dummy_lut_view: wgpu::TextureView,
     dummy_lut_sampler: wgpu::Sampler,
+    textures: GpuProcessorTextures,
+}
+
+fn rounded_processor_capacity(dimension: u32) -> u32 {
+    dimension.saturating_add(255) & !255
+}
+
+fn expanded_processor_capacity(current: Option<(u32, u32)>, requested: (u32, u32)) -> (u32, u32) {
+    let requested = (
+        rounded_processor_capacity(requested.0),
+        rounded_processor_capacity(requested.1),
+    );
+    current.map_or(requested, |current| {
+        (current.0.max(requested.0), current.1.max(requested.1))
+    })
+}
+
+struct GpuProcessorTextures {
     ping_pong_view: wgpu::TextureView,
     sharpness_blur_view: wgpu::TextureView,
     tonal_blur_view: wgpu::TextureView,
@@ -544,12 +633,110 @@ pub struct GpuProcessor {
     pub tile_output_texture: wgpu::Texture,
     pub tile_output_texture_view: wgpu::TextureView,
     pub working_texture: wgpu::Texture,
-    pub working_texture_view: wgpu::TextureView,
     pub output_texture: wgpu::Texture,
     pub output_texture_view: wgpu::TextureView,
 }
 
 const FLARE_MAP_SIZE: u32 = 512;
+
+impl GpuProcessorTextures {
+    fn new(device: &wgpu::Device, max_width: u32, max_height: u32) -> Self {
+        const TILE_SIZE: u32 = 2048;
+        const TILE_OVERLAP: u32 = 128;
+
+        let clamped_tile_size = wgpu::Extent3d {
+            width: max_width.min(TILE_SIZE + TILE_OVERLAP * 2),
+            height: max_height.min(TILE_SIZE + TILE_OVERLAP * 2),
+            depth_or_array_layers: 1,
+        };
+        let full_image_size = wgpu::Extent3d {
+            width: max_width,
+            height: max_height,
+            depth_or_array_layers: 1,
+        };
+        let reusable_texture_desc = wgpu::TextureDescriptor {
+            label: None,
+            size: clamped_tile_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba16Float,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
+            view_formats: &[],
+        };
+
+        let ping_pong_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Ping Pong Texture"),
+            ..reusable_texture_desc
+        });
+        let sharpness_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Sharpness Blur Texture"),
+            ..reusable_texture_desc
+        });
+        let tonal_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Tonal Blur Texture"),
+            ..reusable_texture_desc
+        });
+        let clarity_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Clarity Blur Texture"),
+            ..reusable_texture_desc
+        });
+        let structure_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Structure Blur Texture"),
+            ..reusable_texture_desc
+        });
+
+        let tile_output_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Tile Output Texture"),
+            size: clamped_tile_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::STORAGE_BINDING
+                | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        let working_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Working Output Texture"),
+            size: full_image_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        let output_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Full Output Texture"),
+            size: full_image_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+
+        Self {
+            ping_pong_view: ping_pong_texture.create_view(&Default::default()),
+            sharpness_blur_view: sharpness_blur_texture.create_view(&Default::default()),
+            tonal_blur_view: tonal_blur_texture.create_view(&Default::default()),
+            clarity_blur_view: clarity_blur_texture.create_view(&Default::default()),
+            structure_blur_view: structure_blur_texture.create_view(&Default::default()),
+            tile_output_texture_view: tile_output_texture.create_view(&Default::default()),
+            tile_output_texture,
+            working_texture,
+            output_texture_view: output_texture.create_view(&Default::default()),
+            output_texture,
+        }
+    }
+}
 
 impl GpuProcessor {
     pub fn new(context: GpuContext, max_width: u32, max_height: u32) -> Result<Self, String> {
@@ -947,106 +1134,7 @@ impl GpuProcessor {
         let dummy_lut_view = dummy_lut_texture.create_view(&Default::default());
         let dummy_lut_sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
 
-        const TILE_SIZE: u32 = 2048;
-        const TILE_OVERLAP: u32 = 128;
-
-        let clamped_tile_width = max_width.min(TILE_SIZE + TILE_OVERLAP * 2);
-        let clamped_tile_height = max_height.min(TILE_SIZE + TILE_OVERLAP * 2);
-
-        let clamped_tile_size = wgpu::Extent3d {
-            width: clamped_tile_width,
-            height: clamped_tile_height,
-            depth_or_array_layers: 1,
-        };
-
-        let full_image_size = wgpu::Extent3d {
-            width: max_width,
-            height: max_height,
-            depth_or_array_layers: 1,
-        };
-
-        let reusable_texture_desc = wgpu::TextureDescriptor {
-            label: None,
-            size: clamped_tile_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba16Float,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
-            view_formats: &[],
-        };
-
-        let ping_pong_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Ping Pong Texture"),
-            ..reusable_texture_desc
-        });
-        let ping_pong_view = ping_pong_texture.create_view(&Default::default());
-
-        let sharpness_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Sharpness Blur Texture"),
-            ..reusable_texture_desc
-        });
-        let sharpness_blur_view = sharpness_blur_texture.create_view(&Default::default());
-
-        let tonal_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Tonal Blur Texture"),
-            ..reusable_texture_desc
-        });
-        let tonal_blur_view = tonal_blur_texture.create_view(&Default::default());
-
-        let clarity_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Clarity Blur Texture"),
-            ..reusable_texture_desc
-        });
-        let clarity_blur_view = clarity_blur_texture.create_view(&Default::default());
-
-        let structure_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Structure Blur Texture"),
-            ..reusable_texture_desc
-        });
-        let structure_blur_view = structure_blur_texture.create_view(&Default::default());
-
-        let tile_output_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Tile Output Texture"),
-            size: clamped_tile_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::STORAGE_BINDING
-                | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
-        let tile_output_texture_view = tile_output_texture.create_view(&Default::default());
-
-        let working_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Working Output Texture"),
-            size: full_image_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_DST
-                | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
-        let working_texture_view = working_texture.create_view(&Default::default());
-
-        let output_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Full Output Texture"),
-            size: full_image_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_DST
-                | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
-        let output_texture_view = output_texture.create_view(&Default::default());
+        let textures = GpuProcessorTextures::new(device, max_width, max_height);
 
         Ok(Self {
             context,
@@ -1069,20 +1157,15 @@ impl GpuProcessor {
             dummy_blur_view,
             dummy_lut_view,
             dummy_lut_sampler,
-            ping_pong_view,
-            sharpness_blur_view,
-            tonal_blur_view,
-            clarity_blur_view,
-            structure_blur_view,
-            tile_output_texture,
-            tile_output_texture_view,
-            working_texture,
-            working_texture_view,
-            output_texture,
-            output_texture_view,
+            textures,
         })
     }
 
+    pub fn resize(&mut self, max_width: u32, max_height: u32) {
+        self.textures = GpuProcessorTextures::new(&self.context.device, max_width, max_height);
+    }
+
+    #[allow(clippy::too_many_arguments)]
     pub fn run(
         &self,
         input_texture_view: &wgpu::TextureView,
@@ -1091,7 +1174,11 @@ impl GpuProcessor {
         request: RenderRequest,
         skip_cpu_readback: bool,
         output_to_display: bool,
+        preview_generation: Option<&PreviewGeneration>,
     ) -> Result<(Vec<u8>, u32, u32, u32, u32), String> {
+        if let Some(generation) = preview_generation {
+            generation.ensure_current()?;
+        }
         let device = &self.context.device;
         let queue = &self.context.queue;
         let scale = (width.min(height) as f32) / 1080.0;
@@ -1283,6 +1370,9 @@ impl GpuProcessor {
                 cpass.dispatch_workgroups(FLARE_MAP_SIZE / 16, FLARE_MAP_SIZE / 16, 1);
             }
 
+            if let Some(generation) = preview_generation {
+                generation.ensure_current()?;
+            }
             queue.submit(Some(encoder.finish()));
         }
 
@@ -1305,6 +1395,9 @@ impl GpuProcessor {
 
         for tile_y in start_tile_y..end_tile_y {
             for tile_x in start_tile_x..end_tile_x {
+                if let Some(generation) = preview_generation {
+                    generation.ensure_current()?;
+                }
                 let x_start_unclamped = tile_x * TILE_SIZE;
                 let y_start_unclamped = tile_y * TILE_SIZE;
 
@@ -1333,10 +1426,12 @@ impl GpuProcessor {
                     depth_or_array_layers: 1,
                 };
 
-                let run_blur = |base_radius: f32, output_view: &wgpu::TextureView| -> bool {
+                let run_blur = |base_radius: f32,
+                                output_view: &wgpu::TextureView|
+                 -> Result<bool, String> {
                     let radius = (base_radius * scale).ceil().max(1.0) as u32;
                     if radius == 0 {
-                        return false;
+                        return Ok(false);
                     }
 
                     let params = BlurParams {
@@ -1363,7 +1458,9 @@ impl GpuProcessor {
                             },
                             wgpu::BindGroupEntry {
                                 binding: 1,
-                                resource: wgpu::BindingResource::TextureView(&self.ping_pong_view),
+                                resource: wgpu::BindingResource::TextureView(
+                                    &self.textures.ping_pong_view,
+                                ),
                             },
                             wgpu::BindGroupEntry {
                                 binding: 2,
@@ -1385,7 +1482,9 @@ impl GpuProcessor {
                         entries: &[
                             wgpu::BindGroupEntry {
                                 binding: 0,
-                                resource: wgpu::BindingResource::TextureView(&self.ping_pong_view),
+                                resource: wgpu::BindingResource::TextureView(
+                                    &self.textures.ping_pong_view,
+                                ),
                             },
                             wgpu::BindGroupEntry {
                                 binding: 1,
@@ -1405,14 +1504,17 @@ impl GpuProcessor {
                         cpass.dispatch_workgroups(input_width, input_height.div_ceil(256), 1);
                     }
 
+                    if let Some(generation) = preview_generation {
+                        generation.ensure_current()?;
+                    }
                     queue.submit(Some(blur_encoder.finish()));
-                    true
+                    Ok(true)
                 };
 
-                let did_create_sharpness_blur = run_blur(1.0, &self.sharpness_blur_view);
-                let did_create_tonal_blur = run_blur(3.5, &self.tonal_blur_view);
-                let did_create_clarity_blur = run_blur(8.0, &self.clarity_blur_view);
-                let did_create_structure_blur = run_blur(40.0, &self.structure_blur_view);
+                let did_create_sharpness_blur = run_blur(1.0, &self.textures.sharpness_blur_view)?;
+                let did_create_tonal_blur = run_blur(3.5, &self.textures.tonal_blur_view)?;
+                let did_create_clarity_blur = run_blur(8.0, &self.textures.clarity_blur_view)?;
+                let did_create_structure_blur = run_blur(40.0, &self.textures.structure_blur_view)?;
 
                 let mut main_encoder = device.create_command_encoder(&Default::default());
 
@@ -1433,7 +1535,7 @@ impl GpuProcessor {
                     wgpu::BindGroupEntry {
                         binding: 1,
                         resource: wgpu::BindingResource::TextureView(
-                            &self.tile_output_texture_view,
+                            &self.textures.tile_output_texture_view,
                         ),
                     },
                     wgpu::BindGroupEntry {
@@ -1457,7 +1559,7 @@ impl GpuProcessor {
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 5 + MAX_MASK_BINDINGS,
                     resource: wgpu::BindingResource::TextureView(if did_create_sharpness_blur {
-                        &self.sharpness_blur_view
+                        &self.textures.sharpness_blur_view
                     } else {
                         &self.dummy_blur_view
                     }),
@@ -1465,7 +1567,7 @@ impl GpuProcessor {
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 6 + MAX_MASK_BINDINGS,
                     resource: wgpu::BindingResource::TextureView(if did_create_tonal_blur {
-                        &self.tonal_blur_view
+                        &self.textures.tonal_blur_view
                     } else {
                         &self.dummy_blur_view
                     }),
@@ -1473,7 +1575,7 @@ impl GpuProcessor {
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 7 + MAX_MASK_BINDINGS,
                     resource: wgpu::BindingResource::TextureView(if did_create_clarity_blur {
-                        &self.clarity_blur_view
+                        &self.textures.clarity_blur_view
                     } else {
                         &self.dummy_blur_view
                     }),
@@ -1481,7 +1583,7 @@ impl GpuProcessor {
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 8 + MAX_MASK_BINDINGS,
                     resource: wgpu::BindingResource::TextureView(if did_create_structure_blur {
-                        &self.structure_blur_view
+                        &self.textures.structure_blur_view
                     } else {
                         &self.dummy_blur_view
                     }),
@@ -1524,7 +1626,7 @@ impl GpuProcessor {
                 if output_to_display {
                     main_encoder.copy_texture_to_texture(
                         wgpu::TexelCopyTextureInfo {
-                            texture: &self.tile_output_texture,
+                            texture: &self.textures.tile_output_texture,
                             mip_level: 0,
                             origin: wgpu::Origin3d {
                                 x: crop_x_start,
@@ -1534,7 +1636,7 @@ impl GpuProcessor {
                             aspect: wgpu::TextureAspect::All,
                         },
                         wgpu::TexelCopyTextureInfo {
-                            texture: &self.working_texture,
+                            texture: &self.textures.working_texture,
                             mip_level: 0,
                             origin: wgpu::Origin3d {
                                 x: x_start,
@@ -1551,13 +1653,16 @@ impl GpuProcessor {
                     );
                 }
 
+                if let Some(generation) = preview_generation {
+                    generation.ensure_current()?;
+                }
                 queue.submit(Some(main_encoder.finish()));
 
                 if !skip_cpu_readback {
                     let processed_tile_data = read_texture_data_roi(
                         device,
                         queue,
-                        &self.tile_output_texture,
+                        &self.textures.tile_output_texture,
                         wgpu::Origin3d::ZERO,
                         input_texture_size,
                     )?;
@@ -1602,7 +1707,9 @@ pub fn process_and_get_dynamic_image(
         caller_id,
         false,
         None,
+        None,
     )
+    .map(|result| result.image)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1615,7 +1722,8 @@ pub fn process_and_get_dynamic_image_with_analytics(
     caller_id: &str,
     output_to_display: bool,
     analytics_config: Option<crate::AnalyticsConfig>,
-) -> Result<DynamicImage, String> {
+    preview_generation: Option<&PreviewGeneration>,
+) -> Result<PreviewProcessResult, String> {
     process_and_get_dynamic_image_inner(
         context,
         state,
@@ -1625,6 +1733,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
         caller_id,
         output_to_display,
         analytics_config,
+        preview_generation,
     )
 }
 
@@ -1638,7 +1747,8 @@ fn process_and_get_dynamic_image_inner(
     caller_id: &str,
     output_to_display: bool,
     analytics_config: Option<crate::AnalyticsConfig>,
-) -> Result<DynamicImage, String> {
+    preview_generation: Option<&PreviewGeneration>,
+) -> Result<PreviewProcessResult, String> {
     let start_time = Instant::now();
     let (width, height) = base_image.dimensions();
     let device = &context.device;
@@ -1652,13 +1762,23 @@ fn process_and_get_dynamic_image_inner(
             height,
             max_dim
         );
-        return Ok(base_image.clone());
+        return Ok(PreviewProcessResult {
+            image: base_image.clone(),
+            display_submission: None,
+        });
+    }
+
+    if let Some(generation) = preview_generation {
+        generation.ensure_current()?;
     }
 
     let mut processor_lock = state.gpu_processor.lock().unwrap();
+    if let Some(generation) = preview_generation {
+        generation.ensure_current()?;
+    }
     let mut needs_new_processor = false;
-    let new_width = (width + 255) & !255;
-    let new_height = (height + 255) & !255;
+    let current_capacity = processor_lock.as_ref().map(|p| (p.width, p.height));
+    let (new_width, new_height) = expanded_processor_capacity(current_capacity, (width, height));
 
     if let Some(p) = processor_lock.as_ref() {
         if p.width < width || p.height < height {
@@ -1669,27 +1789,27 @@ fn process_and_get_dynamic_image_inner(
     }
 
     if needs_new_processor {
-        log::info!(
-            "Creating new GPU Processor for dimensions up to {}x{}",
-            new_width,
-            new_height
-        );
-
-        let old_processor = processor_lock.take();
-        drop(old_processor);
-
-        let _ = context.device.poll(wgpu::PollType::Wait {
-            submission_index: None,
-            timeout: Some(std::time::Duration::from_millis(500)),
-        });
-
-        let new_processor = GpuProcessor::new(context.clone(), new_width, new_height)?;
-
-        *processor_lock = Some(crate::GpuProcessorState {
-            processor: new_processor,
-            width: new_width,
-            height: new_height,
-        });
+        if let Some(processor_state) = processor_lock.as_mut() {
+            log::info!(
+                "Resizing GPU Processor textures to {}x{}",
+                new_width,
+                new_height
+            );
+            processor_state.processor.resize(new_width, new_height);
+            processor_state.width = new_width;
+            processor_state.height = new_height;
+        } else {
+            log::info!(
+                "Creating GPU Processor for dimensions up to {}x{}",
+                new_width,
+                new_height
+            );
+            *processor_lock = Some(crate::GpuProcessorState {
+                processor: GpuProcessor::new(context.clone(), new_width, new_height)?,
+                width: new_width,
+                height: new_height,
+            });
+        }
     }
 
     let processor_state = processor_lock.as_ref().unwrap();
@@ -1711,10 +1831,9 @@ fn process_and_get_dynamic_image_inner(
         let old_cache = cache_lock.take();
         drop(old_cache);
 
-        let _ = context.device.poll(wgpu::PollType::Wait {
-            submission_index: None,
-            timeout: Some(std::time::Duration::from_millis(500)),
-        });
+        if let Some(generation) = preview_generation {
+            generation.ensure_current()?;
+        }
 
         let img_rgba_f16 = to_rgba_f16(base_image);
         let texture_size = wgpu::Extent3d {
@@ -1759,7 +1878,26 @@ fn process_and_get_dynamic_image_inner(
         request,
         skip_readback,
         output_to_display,
+        preview_generation,
     )?;
+
+    if let Some(generation) = preview_generation {
+        generation.ensure_current()?;
+    }
+
+    // Keep the final persistent-texture copy and surface present atomic with respect to
+    // generation changes. A newer request waits only for this short commit section.
+    let _preview_commit = if output_to_display {
+        if let Some(generation) = preview_generation {
+            let guard = generation.lock_commit();
+            generation.ensure_current()?;
+            Some(guard)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
 
     let mut final_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("Final Passes Encoder"),
@@ -1785,7 +1923,7 @@ fn process_and_get_dynamic_image_inner(
 
         final_encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
-                texture: &processor.working_texture,
+                texture: &processor.textures.working_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d {
                     x: out_x,
@@ -1818,7 +1956,7 @@ fn process_and_get_dynamic_image_inner(
     if output_to_display {
         final_encoder.copy_texture_to_texture(
             wgpu::TexelCopyTextureInfo {
-                texture: &processor.working_texture,
+                texture: &processor.textures.working_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d {
                     x: out_x,
@@ -1828,7 +1966,7 @@ fn process_and_get_dynamic_image_inner(
                 aspect: wgpu::TextureAspect::All,
             },
             wgpu::TexelCopyTextureInfo {
-                texture: &processor.output_texture,
+                texture: &processor.textures.output_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d {
                     x: out_x,
@@ -1847,6 +1985,9 @@ fn process_and_get_dynamic_image_inner(
     }
 
     if submit_final_encoder {
+        if let Some(generation) = preview_generation {
+            generation.ensure_current()?;
+        }
         queue.submit(Some(final_encoder.finish()));
     }
 
@@ -1856,6 +1997,7 @@ fn process_and_get_dynamic_image_inner(
             let padded_bytes_per_row: u32 = async_padded_bpr;
             let unpadded_bytes_per_row: u32 = async_unpadded_bpr;
             let device_clone = context.device.clone();
+            let analytics_generation = analytics.generation.clone();
 
             std::thread::spawn(move || {
                 let buffer_slice = output_buffer.slice(..);
@@ -1874,6 +2016,9 @@ fn process_and_get_dynamic_image_inner(
                 }
 
                 if let Ok(Ok(())) = rx.recv() {
+                    if !analytics_generation.is_current() {
+                        return;
+                    }
                     let padded_data = buffer_slice.get_mapped_range().to_vec();
                     output_buffer.unmap();
 
@@ -1897,13 +2042,18 @@ fn process_and_get_dynamic_image_inner(
                             image: std::sync::Arc::new(dynamic_img),
                             compute_waveform: analytics.compute_waveform,
                             active_waveform_channel: analytics.active_waveform_channel,
+                            generation: analytics_generation,
                         });
                     }
                 }
             });
         } else {
             let pixels_clone = processed_pixels.clone();
+            let analytics_generation = analytics.generation.clone();
             std::thread::spawn(move || {
+                if !analytics_generation.is_current() {
+                    return;
+                }
                 if let Some(img_buf) =
                     ImageBuffer::<Rgba<u8>, _>::from_raw(out_w, out_h, pixels_clone)
                 {
@@ -1913,16 +2063,23 @@ fn process_and_get_dynamic_image_inner(
                         image: std::sync::Arc::new(dynamic_img),
                         compute_waveform: analytics.compute_waveform,
                         active_waveform_channel: analytics.active_waveform_channel,
+                        generation: analytics_generation,
                     });
                 }
             });
         }
     }
 
-    if output_to_display
-        && let Ok(mut display_lock) = context.display.lock()
-        && let Some(display) = display_lock.as_mut()
-    {
+    let mut display_submission = None;
+    if output_to_display {
+        if let Some(generation) = preview_generation {
+            generation.ensure_current()?;
+        }
+        let mut display_lock = context.display.lock().unwrap();
+        let display = display_lock
+            .as_mut()
+            .ok_or_else(|| "WGPU display is not initialized".to_string())?;
+
         display.latest_transform.image_size = [width as f32, height as f32];
         display.latest_transform.texture_size =
             [processor_state.width as f32, processor_state.height as f32];
@@ -1942,7 +2099,9 @@ fn process_and_get_dynamic_image_inner(
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&processor.output_texture_view),
+                    resource: wgpu::BindingResource::TextureView(
+                        &processor.textures.output_texture_view,
+                    ),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
@@ -1952,7 +2111,7 @@ fn process_and_get_dynamic_image_inner(
             label: None,
         });
         display.current_bind_group = Some(bind_group);
-        display.render(device, queue);
+        display_submission = display.render(device, queue)?;
     }
 
     if skip_readback {
@@ -1966,7 +2125,10 @@ fn process_and_get_dynamic_image_inner(
             duration,
             fps
         );
-        return Ok(DynamicImage::new_rgba8(0, 0));
+        return Ok(PreviewProcessResult {
+            image: DynamicImage::new_rgba8(0, 0),
+            display_submission,
+        });
     }
 
     let duration = start_time.elapsed();
@@ -1984,5 +2146,29 @@ fn process_and_get_dynamic_image_inner(
 
     let img_buf = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(out_w, out_h, processed_pixels)
         .ok_or("Failed to create image buffer from GPU data")?;
-    Ok(DynamicImage::ImageRgba8(img_buf))
+    Ok(PreviewProcessResult {
+        image: DynamicImage::ImageRgba8(img_buf),
+        display_submission,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn processor_capacity_rounds_up_without_shrinking_either_axis() {
+        assert_eq!(
+            expanded_processor_capacity(None, (1921, 1081)),
+            (2048, 1280)
+        );
+        assert_eq!(
+            expanded_processor_capacity(Some((4096, 2048)), (1536, 3072)),
+            (4096, 3072)
+        );
+        assert_eq!(
+            expanded_processor_capacity(Some((4096, 3072)), (3840, 2160)),
+            (4096, 3072)
+        );
+    }
 }

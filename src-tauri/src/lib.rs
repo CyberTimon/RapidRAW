@@ -311,7 +311,7 @@ async fn update_wgpu_transform(
                 0,
                 bytemuck::bytes_of(&display.latest_transform),
             );
-            display.render(&context.device, &context.queue);
+            let _ = display.render(&context.device, &context.queue);
         }
     })
     .await
@@ -324,6 +324,7 @@ async fn update_wgpu_transform(
 fn process_preview_job(
     app_handle: &tauri::AppHandle,
     state: tauri::State<AppState>,
+    generation: PreviewGeneration,
     mut adjustments_json: serde_json::Value,
     is_interactive: bool,
     target_resolution: Option<u32>,
@@ -333,8 +334,10 @@ fn process_preview_job(
     active_waveform_channel: Option<&str>,
 ) -> Result<Vec<u8>, String> {
     let fn_start = std::time::Instant::now();
+    generation.ensure_current()?;
     let context = get_or_init_gpu_context(&state, app_handle)?;
     hydrate_adjustments(&state, &mut adjustments_json);
+    generation.ensure_current()?;
     let adjustments_clone = adjustments_json;
 
     let loaded_image_guard = state.original_image.lock().unwrap();
@@ -343,6 +346,7 @@ fn process_preview_job(
         .ok_or("No original image loaded")?
         .clone();
     drop(loaded_image_guard);
+    generation.ensure_current()?;
 
     let new_transform_hash = calculate_transform_hash(&adjustments_clone);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
@@ -384,6 +388,7 @@ fn process_preview_job(
 
         let (base, scale, offset) =
             generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?;
+        generation.ensure_current()?;
         (Arc::new(base), scale, offset)
     };
 
@@ -416,6 +421,7 @@ fn process_preview_job(
         small
     };
 
+    generation.ensure_current()?;
     *cached_preview_lock = Some(CachedPreview {
         image: Arc::clone(&final_preview_base),
         small_image: Arc::clone(&small_preview_base),
@@ -475,6 +481,7 @@ fn process_preview_job(
             )
         })
         .collect();
+    generation.ensure_current()?;
 
     let is_raw = loaded_image.is_raw;
     let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
@@ -500,6 +507,7 @@ fn process_preview_job(
                 compute_waveform,
                 active_waveform_channel: channel_filter,
                 sender: tx,
+                generation: generation.clone(),
             })
     } else {
         None
@@ -520,91 +528,118 @@ fn process_preview_job(
             "apply_adjustments",
             use_wgpu_renderer,
             analytics_config,
+            Some(&generation),
         );
 
-    if let Ok(final_processed_image) = final_processed_image_result {
-        if use_wgpu_renderer {
-            let _ = context.device.poll(wgpu::PollType::Wait {
-                submission_index: None,
+    let final_processed = match final_processed_image_result {
+        Ok(final_processed) => final_processed,
+        Err(error) => {
+            if error != PREVIEW_SUPERSEDED {
+                log::error!(
+                    "[process_preview_job] processing failed after {:.2?}: {}",
+                    fn_start.elapsed(),
+                    error
+                );
+            }
+            return Err(error);
+        }
+    };
+
+    generation.ensure_current()?;
+    if use_wgpu_renderer {
+        let submission = final_processed
+            .display_submission
+            .ok_or_else(|| "WGPU display did not submit a frame".to_string())?;
+        let device = context.device.clone();
+        let completion_app_handle = app_handle.clone();
+        let completion_generation = generation.clone();
+        let completion_path = loaded_image.path.clone();
+        std::thread::spawn(move || {
+            let completion = device.poll(wgpu::PollType::Wait {
+                submission_index: Some(submission),
                 timeout: Some(std::time::Duration::from_millis(500)),
             });
-            let _ = app_handle.emit(
-                "wgpu-frame-ready",
-                serde_json::json!({ "path": loaded_image.path }),
-            );
-            return Ok(b"WGPU_RENDER".to_vec());
-        }
-
-        let final_processed_image = Arc::new(final_processed_image);
-        let final_rgba_image = match &*final_processed_image {
-            DynamicImage::ImageRgba8(img) => img,
-            _ => return Err("Expected Rgba8 image from GPU for encoding".to_string()),
-        };
-
-        let raw_bytes: &[u8] = final_rgba_image.as_raw();
-        let rgba8_pixels: &[RGBA8] = raw_bytes.as_rgba();
-
-        let img_ref = ImgRef::new(
-            rgba8_pixels,
-            final_rgba_image.width() as usize,
-            final_rgba_image.height() as usize,
-        );
-
-        let step_start = std::time::Instant::now();
-
-        let encode_result = Encoder::new(Preset::BaselineFastest)
-            .quality(jpeg_quality)
-            .fast_color(true)
-            .encode_imgref(img_ref);
-
-        match encode_result {
-            Ok(jpeg_bytes) => {
-                if is_interactive {
-                    let (roi_w, roi_h) = final_rgba_image.dimensions();
-                    let (rx, ry) = if let Some(r) = pixel_roi {
-                        (r.x, r.y)
-                    } else {
-                        (0, 0)
-                    };
-
-                    let mut response = Vec::with_capacity(24 + jpeg_bytes.len());
-                    response.extend_from_slice(&rx.to_le_bytes());
-                    response.extend_from_slice(&ry.to_le_bytes());
-                    response.extend_from_slice(&roi_w.to_le_bytes());
-                    response.extend_from_slice(&roi_h.to_le_bytes());
-                    response.extend_from_slice(&preview_width.to_le_bytes());
-                    response.extend_from_slice(&preview_height.to_le_bytes());
-                    response.extend_from_slice(&jpeg_bytes);
-
-                    log::info!(
-                        "[process_preview_job] interactive ROI {}x{} encode in {:.2?}, total {:.2?}",
-                        roi_w,
-                        roi_h,
-                        step_start.elapsed(),
-                        fn_start.elapsed()
+            if completion.is_ok() {
+                let _commit_guard = completion_generation.lock_commit();
+                if completion_generation.is_current() {
+                    let _ = completion_app_handle.emit(
+                        "wgpu-frame-ready",
+                        serde_json::json!({
+                            "path": completion_path,
+                            "generation": completion_generation.number(),
+                        }),
                     );
-                    Ok(response)
-                } else {
-                    let (width, height) = final_rgba_image.dimensions();
-                    log::info!(
-                        "[process_preview_job] full {}x{} q={} encode in {:.2?}, total {:.2?}",
-                        width,
-                        height,
-                        jpeg_quality,
-                        step_start.elapsed(),
-                        fn_start.elapsed()
-                    );
-                    Ok(jpeg_bytes)
                 }
+            } else if let Err(error) = completion {
+                log::warn!("WGPU frame completion wait failed: {}", error);
             }
-            Err(e) => Err(format!("Failed to encode preview: {}", e)),
+        });
+        return Ok(b"WGPU_RENDER".to_vec());
+    }
+
+    let final_processed_image = Arc::new(final_processed.image);
+    let final_rgba_image = match &*final_processed_image {
+        DynamicImage::ImageRgba8(img) => img,
+        _ => return Err("Expected Rgba8 image from GPU for encoding".to_string()),
+    };
+
+    let raw_bytes: &[u8] = final_rgba_image.as_raw();
+    let rgba8_pixels: &[RGBA8] = raw_bytes.as_rgba();
+
+    let img_ref = ImgRef::new(
+        rgba8_pixels,
+        final_rgba_image.width() as usize,
+        final_rgba_image.height() as usize,
+    );
+
+    let step_start = std::time::Instant::now();
+
+    let encode_result = Encoder::new(Preset::BaselineFastest)
+        .quality(jpeg_quality)
+        .fast_color(true)
+        .encode_imgref(img_ref);
+
+    match encode_result {
+        Ok(jpeg_bytes) => {
+            if is_interactive {
+                let (roi_w, roi_h) = final_rgba_image.dimensions();
+                let (rx, ry) = if let Some(r) = pixel_roi {
+                    (r.x, r.y)
+                } else {
+                    (0, 0)
+                };
+
+                let mut response = Vec::with_capacity(24 + jpeg_bytes.len());
+                response.extend_from_slice(&rx.to_le_bytes());
+                response.extend_from_slice(&ry.to_le_bytes());
+                response.extend_from_slice(&roi_w.to_le_bytes());
+                response.extend_from_slice(&roi_h.to_le_bytes());
+                response.extend_from_slice(&preview_width.to_le_bytes());
+                response.extend_from_slice(&preview_height.to_le_bytes());
+                response.extend_from_slice(&jpeg_bytes);
+
+                log::info!(
+                    "[process_preview_job] interactive ROI {}x{} encode in {:.2?}, total {:.2?}",
+                    roi_w,
+                    roi_h,
+                    step_start.elapsed(),
+                    fn_start.elapsed()
+                );
+                Ok(response)
+            } else {
+                let (width, height) = final_rgba_image.dimensions();
+                log::info!(
+                    "[process_preview_job] full {}x{} q={} encode in {:.2?}, total {:.2?}",
+                    width,
+                    height,
+                    jpeg_quality,
+                    step_start.elapsed(),
+                    fn_start.elapsed()
+                );
+                Ok(jpeg_bytes)
+            }
         }
-    } else {
-        log::error!(
-            "[process_preview_job] processing failed after {:.2?}",
-            fn_start.elapsed()
-        );
-        Err("Processing failed".to_string())
+        Err(e) => Err(format!("Failed to encode preview: {}", e)),
     }
 }
 
@@ -615,8 +650,10 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
 
     std::thread::spawn(move || {
         while let Ok(mut job) = rx.recv() {
-            while let Ok(latest) = rx.try_recv() {
-                job = latest;
+            while let Ok(queued_job) = rx.try_recv() {
+                if queued_job.generation.number() > job.generation.number() {
+                    job = queued_job;
+                }
             }
 
             let histogram_data = image_processing::calculate_histogram_from_image(&job.image).ok();
@@ -631,7 +668,9 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
                 None
             };
 
-            if histogram_data.is_some() || waveform_data.is_some() {
+            let _commit_guard = job.generation.lock_commit();
+            if job.generation.is_current() && (histogram_data.is_some() || waveform_data.is_some())
+            {
                 let _ = app_handle.emit(
                     "analytics-update",
                     serde_json::json!({
@@ -653,15 +692,19 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
 
     std::thread::spawn(move || {
         while let Ok(mut job) = rx.recv() {
-            while let Ok(latest_job) = rx.try_recv() {
-                job = latest_job;
+            while let Ok(queued_job) = rx.try_recv() {
+                if queued_job.generation.number() > job.generation.number() {
+                    job = queued_job;
+                }
             }
 
             let state = app_handle.state::<AppState>();
+            let generation = job.generation.clone();
             let responder = job.responder;
             match process_preview_job(
                 &app_handle,
                 state,
+                generation,
                 job.adjustments,
                 job.is_interactive,
                 job.target_resolution,
@@ -674,7 +717,9 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
                     let _ = responder.send(bytes);
                 }
                 Err(e) => {
-                    log::error!("Preview worker error: {}", e);
+                    if e != PREVIEW_SUPERSEDED {
+                        log::error!("Preview worker error: {}", e);
+                    }
                 }
             }
         }
@@ -694,6 +739,7 @@ async fn apply_adjustments(
     state: tauri::State<'_, AppState>,
 ) -> Result<Response, String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
+    let generation = state.preview_generation.next();
 
     {
         let tx_guard = state.preview_worker_tx.lock().unwrap();
@@ -707,6 +753,7 @@ async fn apply_adjustments(
                 compute_waveform,
                 active_waveform_channel,
                 responder: tx,
+                generation,
             };
             worker_tx
                 .send(job)
@@ -1828,6 +1875,11 @@ fn frontend_ready(
         }
     }
 
+    #[cfg(target_os = "macos")]
+    if is_first_run {
+        gpu_processing::start_gpu_pipeline_prewarm(app_handle.clone());
+    }
+
     let open_with_file = state.initial_file_path.lock().unwrap().take();
     let edit_session = state.pending_edit_session.lock().unwrap().take();
     if let Some(path) = &open_with_file {
@@ -1895,7 +1947,7 @@ pub fn run() {
                         display.config.width = size.width.max(1);
                         display.config.height = size.height.max(1);
                         display.surface.configure(&ctx.device, &display.config);
-                        display.render(&ctx.device, &ctx.queue);
+                        let _ = display.render(&ctx.device, &ctx.queue);
                     }
         })
         .setup(move |app| {
@@ -2239,6 +2291,7 @@ pub fn run() {
             thumbnail_cancellation_token: Arc::new(AtomicBool::new(false)),
             thumbnail_progress: Mutex::new(ThumbnailProgressTracker { total: 0, completed: 0 }),
             preview_worker_tx: Mutex::new(None),
+            preview_generation: PreviewGenerationTracker::new(),
             analytics_worker_tx: Mutex::new(None),
             mask_cache: Mutex::new(HashMap::new()),
             patch_cache: Mutex::new(HashMap::new()),
