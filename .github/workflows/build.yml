@@ -126,7 +126,8 @@ jobs:
         if: ${{ inputs.target != '' }}
         run: rustup target add ${{ inputs.target }}
 
-      - id: patch-release-name
+      - name: Patch release asset name pattern
+        id: patch-release-name
         shell: bash
         if: ${{ inputs.release-id != '' }}
         run: |
