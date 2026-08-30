@@ -151,6 +151,24 @@ fn enqueue_metadata(
     manager.cvar.notify_one();
 }
 
+/// Drops the calling thread to Utility quality-of-service on macOS.
+///
+/// Ingest work (thumbnail and metadata workers) can occupy every core at
+/// default QoS, competing with the UI and the preview pipeline for
+/// performance cores and, on unified memory, starving the GPU. Utility QoS
+/// marks the work as throughput-oriented so the scheduler steers it to
+/// efficiency cores and deprioritizes it under load. Other platforms have no
+/// direct equivalent, so this is a no-op there.
+#[cfg(target_os = "macos")]
+pub(crate) fn set_utility_thread_qos() {
+    unsafe {
+        libc::pthread_set_qos_class_self_np(libc::qos_class_t::QOS_CLASS_UTILITY, 0);
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn set_utility_thread_qos() {}
+
 // Not compute-heavy — these threads mostly block waiting on iCloud to
 // materialize a file, not burning CPU — so a small fixed pool is enough and
 // doesn't need a user-facing setting the way thumbnail_worker_threads does.
@@ -165,6 +183,7 @@ pub fn start_metadata_workers(app_handle: tauri::AppHandle) {
         let manager_clone = manager.clone();
 
         std::thread::spawn(move || {
+            set_utility_thread_qos();
             loop {
                 let item = {
                     let mut queue = manager_clone.queue.lock().unwrap();
@@ -1871,6 +1890,7 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
         let manager_clone = manager.clone();
 
         std::thread::spawn(move || {
+            set_utility_thread_qos();
             loop {
                 let path_to_process: String = {
                     let mut queue = manager_clone.queue.lock().unwrap();
@@ -4217,5 +4237,30 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         let _ = fs::write(&xmp_file, content);
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod qos_tests {
+    use super::set_utility_thread_qos;
+
+    #[test]
+    fn helper_sets_utility_qos_on_calling_thread() {
+        std::thread::spawn(|| {
+            set_utility_thread_qos();
+            let mut qos = libc::qos_class_t::QOS_CLASS_UNSPECIFIED;
+            let mut relative_priority = 0;
+            let result = unsafe {
+                libc::pthread_get_qos_class_np(
+                    libc::pthread_self(),
+                    &mut qos,
+                    &mut relative_priority,
+                )
+            };
+            assert_eq!(result, 0);
+            assert!(matches!(qos, libc::qos_class_t::QOS_CLASS_UTILITY));
+        })
+        .join()
+        .unwrap();
     }
 }

@@ -828,8 +828,7 @@ pub fn is_image_cached(path: String, state: tauri::State<'_, AppState>) -> bool 
         .decoded_image_cache
         .lock()
         .unwrap()
-        .get(&source_path_str)
-        .is_some()
+        .contains(&source_path_str)
 }
 
 #[tauri::command]
