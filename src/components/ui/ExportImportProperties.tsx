@@ -32,6 +32,7 @@ export const FILENAME_VARIABLES: Array<string> = [
 
 export interface ExportSettings {
   filenameTemplate: string | null;
+  filenamePrependDatestamp?: boolean;
   jpegQuality: number;
   keepMetadata: boolean;
   preserveTimestamps: boolean;
@@ -110,6 +111,7 @@ export interface ExportPreset {
   exportMasks?: boolean;
   preserveFolders?: boolean;
   filenameTemplate: string;
+  filenamePrependDatestamp?: boolean;
   enableWatermark: boolean;
   watermarkPath: string | null;
   watermarkAnchor: string;

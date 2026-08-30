@@ -14,6 +14,7 @@ export function useExportSettings() {
   const [exportMasks, setExportMasks] = useState(false);
   const [preserveFolders, setPreserveFolders] = useState(false);
   const [filenameTemplate, setFilenameTemplate] = useState('{original_filename}_edited');
+  const [filenamePrependDatestamp, setFilenamePrependDatestamp] = useState(false);
   const [enableWatermark, setEnableWatermark] = useState(false);
   const [watermarkPath, setWatermarkPath] = useState<string | null>(null);
   const [watermarkAnchor, setWatermarkAnchor] = useState<WatermarkAnchor>(WatermarkAnchor.BottomRight);
@@ -34,6 +35,7 @@ export function useExportSettings() {
     setExportMasks(preset.exportMasks ?? false);
     setPreserveFolders(preset.preserveFolders ?? false);
     setFilenameTemplate(preset.filenameTemplate);
+    setFilenamePrependDatestamp(preset.filenamePrependDatestamp ?? false);
     setEnableWatermark(preset.enableWatermark);
     setWatermarkPath(preset.watermarkPath);
     setWatermarkAnchor(preset.watermarkAnchor as WatermarkAnchor);
@@ -56,6 +58,7 @@ export function useExportSettings() {
       exportMasks,
       preserveFolders,
       filenameTemplate,
+      filenamePrependDatestamp,
       enableWatermark,
       watermarkPath,
       watermarkAnchor,
@@ -76,13 +79,14 @@ export function useExportSettings() {
       exportMasks,
       preserveFolders,
       filenameTemplate,
+      filenamePrependDatestamp,
       enableWatermark,
       watermarkPath,
       watermarkAnchor,
       watermarkScale,
       watermarkSpacing,
       watermarkOpacity,
-    ]
+    ],
   );
 
   return {
@@ -110,6 +114,8 @@ export function useExportSettings() {
     setPreserveFolders,
     filenameTemplate,
     setFilenameTemplate,
+    filenamePrependDatestamp,
+    setFilenamePrependDatestamp,
     enableWatermark,
     setEnableWatermark,
     watermarkPath,

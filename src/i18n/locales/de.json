@@ -762,6 +762,7 @@
   "export": {
     "advanced": {
       "exportMasks": "Masken als separate Dateien exportieren",
+      "prependDatestamp": "Datumsstempel voranstellen (YYYYMMDD-Dateiname)",
       "preserveFolders": "Ordnerstruktur beibehalten",
       "preserveTimestamps": "Dateizeitstempel aus EXIF-Aufnahmedatum setzen",
       "title": "Exporteinstellungen"
