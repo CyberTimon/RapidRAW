@@ -493,14 +493,40 @@ mod tests {
 
     #[test]
     fn f16_roundtrip_stays_within_half_precision() {
-        let mut cache = DecodedImageCache::with_byte_budget(2, usize::MAX);
-        let original = rgb_f32_image(32, 32);
-        cache.insert("img".into(), original.clone(), HashMap::new());
-        let (restored, _) = cache.get("img").unwrap();
+        let mut cache = DecodedImageCache::with_byte_budget(4, usize::MAX);
+        // Deliberately non-square and portrait so a transposed width/height
+        // would change the restored geometry instead of silently passing.
+        for (width, height) in [(37u32, 91u32), (91, 37)] {
+            let original = rgb_f32_image(width, height);
+            let key = format!("{width}x{height}");
+            cache.insert(key.clone(), original.clone(), HashMap::new());
+            let (restored, _) = cache.get(&key).unwrap();
 
-        let original_buffer = original.to_rgb32f();
-        let restored_buffer = restored.to_rgb32f();
-        for (a, b) in original_buffer.iter().zip(restored_buffer.iter()) {
+            assert_eq!(restored.dimensions(), (width, height));
+
+            let original_buffer = original.to_rgb32f();
+            let restored_buffer = restored.to_rgb32f();
+            for (a, b) in original_buffer.iter().zip(restored_buffer.iter()) {
+                let tolerance = a.abs() * 1e-3 + 1e-6;
+                assert!((a - b).abs() <= tolerance, "{a} vs {b}");
+            }
+        }
+    }
+
+    #[test]
+    fn rgba_roundtrip_preserves_geometry_and_alpha() {
+        let mut cache = DecodedImageCache::with_byte_budget(2, usize::MAX);
+        let buffer = Rgba32FImage::from_fn(23, 61, |x, y| {
+            let base = (x + y * 23) as f32;
+            image::Rgba([base * 0.01, base * 0.02, base * 0.03, 0.5])
+        });
+        let original = Arc::new(DynamicImage::ImageRgba32F(buffer));
+        cache.insert("rgba".into(), original.clone(), HashMap::new());
+        let (restored, _) = cache.get("rgba").unwrap();
+
+        assert_eq!(restored.dimensions(), (23, 61));
+        let restored_buffer = restored.to_rgba32f();
+        for (a, b) in original.to_rgba32f().iter().zip(restored_buffer.iter()) {
             let tolerance = a.abs() * 1e-3 + 1e-6;
             assert!((a - b).abs() <= tolerance, "{a} vs {b}");
         }
