@@ -917,6 +917,23 @@
         "rawOnly": "RAWのみ"
       }
     },
+    "facets": {
+      "readingMetadata": "写真のメタデータを読み込んでいます…",
+      "cameras": {
+        "clearFilter": "カメラフィルターを解除",
+        "empty": "カメラ情報を含む写真を追加すると、ここに表示されます。",
+        "lensesTitle": "レンズ",
+        "switchToCameras": "カメラを表示",
+        "switchToLenses": "レンズを表示",
+        "title": "カメラ"
+      },
+      "locations": {
+        "clearFilter": "場所フィルターを解除",
+        "empty": "位置情報を含む写真を追加すると、ここに表示されます。",
+        "geocoding": "写真の場所を検索しています…",
+        "title": "場所"
+      }
+    },
     "folders": {
       "addFolder": "フォルダを追加",
       "albumsEmpty": "右クリックでアルバムを作成します。",

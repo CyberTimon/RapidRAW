@@ -87,6 +87,8 @@ interface CullingModalState {
 const ALL_PANELS: Panel[] = [
   Panel.Metadata,
   Panel.FolderTree,
+  Panel.Cameras,
+  Panel.Locations,
   Panel.Export,
   Panel.Tethering,
   Panel.Adjustments,
@@ -99,6 +101,8 @@ const ALL_PANELS: Panel[] = [
 const DEFAULT_PANEL_DEFAULT_REGIONS: Record<Panel, PanelRegion> = {
   [Panel.Metadata]: 'leftTop',
   [Panel.FolderTree]: 'leftTop',
+  [Panel.Cameras]: 'leftTop',
+  [Panel.Locations]: 'leftTop',
   [Panel.Export]: 'leftTop',
   [Panel.Tethering]: 'leftTop',
   [Panel.Adjustments]: 'rightTop',
@@ -124,7 +128,14 @@ export function reconcileWorkspace(
     leftTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
     rightTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
     panelLayout: {
-      leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export, ...(isTetheringSupported ? [Panel.Tethering] : [])],
+      leftTop: [
+        Panel.Metadata,
+        Panel.FolderTree,
+        Panel.Cameras,
+        Panel.Locations,
+        Panel.Export,
+        ...(isTetheringSupported ? [Panel.Tethering] : []),
+      ],
       leftBottom: [],
       rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
       rightBottom: [],
@@ -167,8 +178,21 @@ export function reconcileWorkspace(
 
   allowedPanels.forEach((panel) => {
     if (!seenPanels.has(panel)) {
-      const targetRegion = DEFAULT_PANEL_DEFAULT_REGIONS[panel] || 'leftTop';
-      sanitizedLayout[targetRegion].push(panel);
+      let targetRegion = DEFAULT_PANEL_DEFAULT_REGIONS[panel] || 'leftTop';
+      if (panel === Panel.Cameras || panel === Panel.Locations) {
+        const exportRegion = (Object.keys(sanitizedLayout) as PanelRegion[]).find((region) =>
+          sanitizedLayout[region].includes(Panel.Export),
+        );
+        if (exportRegion) targetRegion = exportRegion;
+      }
+
+      const targetPanels = sanitizedLayout[targetRegion];
+      const exportIndex = targetPanels.indexOf(Panel.Export);
+      if ((panel === Panel.Cameras || panel === Panel.Locations) && exportIndex >= 0) {
+        targetPanels.splice(exportIndex, 0, panel);
+      } else {
+        targetPanels.push(panel);
+      }
       seenPanels.add(panel);
     }
   });
@@ -287,7 +311,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   compactEditorPanelHeightOverride: null,
 
   panelLayout: {
-    leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export],
+    leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Cameras, Panel.Locations, Panel.Export],
     leftBottom: [],
     rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
     rightBottom: [],

@@ -917,6 +917,23 @@
         "rawOnly": "仅 RAW"
       }
     },
+    "facets": {
+      "readingMetadata": "正在读取照片元数据…",
+      "cameras": {
+        "clearFilter": "清除相机筛选",
+        "empty": "添加包含相机元数据的照片后，它们会显示在这里。",
+        "lensesTitle": "镜头",
+        "switchToCameras": "显示相机",
+        "switchToLenses": "显示镜头",
+        "title": "相机"
+      },
+      "locations": {
+        "clearFilter": "清除地点筛选",
+        "empty": "添加包含位置数据的照片后，它们会显示在这里。",
+        "geocoding": "正在查找照片地点…",
+        "title": "地点"
+      }
+    },
     "folders": {
       "addFolder": "添加文件夹",
       "albumsEmpty": "右键单击以创建相册。",

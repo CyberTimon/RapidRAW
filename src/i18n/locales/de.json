@@ -919,6 +919,23 @@
         "rawOnly": "Nur RAW"
       }
     },
+    "facets": {
+      "readingMetadata": "Fotometadaten werden gelesen…",
+      "cameras": {
+        "clearFilter": "Kamerafilter löschen",
+        "empty": "Füge Fotos mit Kamerametadaten hinzu, um sie hier anzuzeigen.",
+        "lensesTitle": "Objektive",
+        "switchToCameras": "Kameras anzeigen",
+        "switchToLenses": "Objektive anzeigen",
+        "title": "Kameras"
+      },
+      "locations": {
+        "clearFilter": "Ortsfilter löschen",
+        "empty": "Füge Fotos mit Ortsdaten hinzu, um sie hier anzuzeigen.",
+        "geocoding": "Fotoorte werden gesucht…",
+        "title": "Orte"
+      }
+    },
     "folders": {
       "addFolder": "Ordner hinzufügen",
       "albumsEmpty": "Rechtsklick, um ein Album zu erstellen.",

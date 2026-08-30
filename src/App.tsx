@@ -27,6 +27,8 @@ import SidePanelArea from './components/panel/SidePanelArea';
 import { PANEL_ICONS } from './components/panel/PanelSwitcher';
 import Controls from './components/panel/right/ControlsPanel';
 import MetadataPanel from './components/panel/right/MetadataPanel';
+import CamerasPanel from './components/panel/right/CamerasPanel';
+import LocationsPanel from './components/panel/right/LocationsPanel';
 import CropPanel from './components/panel/right/CropPanel';
 import MasksPanel from './components/panel/right/MasksPanel';
 import AIPanel from './components/panel/right/AIPanel';
@@ -726,6 +728,10 @@ function App() {
               onClose={() => setUI({ isLibraryExportPanelVisible: false })}
             />
           );
+        case Panel.Cameras:
+          return <CamerasPanel />;
+        case Panel.Locations:
+          return <LocationsPanel />;
         case Panel.Adjustments:
           return <Controls />;
         case Panel.Metadata:

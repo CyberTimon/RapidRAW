@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import {
+  EquipmentFacetKind,
   FilterCriteria,
   ImageFile,
+  LibraryFacetFilter,
   RawStatus,
   SortCriteria,
   SortDirection,
@@ -41,6 +43,8 @@ interface LibraryState {
   sortCriteria: SortCriteria;
   filterCriteria: FilterCriteria;
   searchCriteria: SearchCriteria;
+  libraryFacet: LibraryFacetFilter | null;
+  equipmentFacetKind: EquipmentFacetKind;
 
   // UI State specific to the Library View
   isTreeLoading: boolean;
@@ -51,7 +55,9 @@ interface LibraryState {
   // Actions
   setLibrary: (updater: Partial<LibraryState> | ((state: LibraryState) => Partial<LibraryState>)) => void;
   clearSelection: () => void;
+  setEquipmentFacetKind: (kind: EquipmentFacetKind) => void;
   setFilterCriteria: (criteria: Partial<FilterCriteria> | ((prev: FilterCriteria) => FilterCriteria)) => void;
+  setLibraryFacet: (facet: LibraryFacetFilter | null) => void;
   setSearchCriteria: (criteria: Partial<SearchCriteria> | ((prev: SearchCriteria) => SearchCriteria)) => void;
   setSortCriteria: (criteria: Partial<SortCriteria> | ((prev: SortCriteria) => SortCriteria)) => void;
 }
@@ -77,6 +83,8 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   sortCriteria: { key: 'name', order: SortDirection.Ascending },
   filterCriteria: { colors: [], rating: 0, rawStatus: RawStatus.All },
   searchCriteria: { tags: [], text: '', mode: 'OR' },
+  libraryFacet: null,
+  equipmentFacetKind: 'camera',
 
   isTreeLoading: false,
   isViewLoading: false,
@@ -97,11 +105,15 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
   clearSelection: () => set({ multiSelectedPaths: [], libraryActivePath: null }),
 
+  setEquipmentFacetKind: (equipmentFacetKind) => set({ equipmentFacetKind }),
+
   setFilterCriteria: (criteria) =>
     set((state) => ({
       filterCriteria:
         typeof criteria === 'function' ? criteria(state.filterCriteria) : { ...state.filterCriteria, ...criteria },
     })),
+
+  setLibraryFacet: (libraryFacet) => set({ libraryFacet }),
 
   setSearchCriteria: (criteria) =>
     set((state) => ({

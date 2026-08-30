@@ -965,6 +965,23 @@
         "rawOnly": "Tylko RAW"
       }
     },
+    "facets": {
+      "readingMetadata": "Odczytywanie metadanych zdjęć…",
+      "cameras": {
+        "clearFilter": "Wyczyść filtr aparatu",
+        "empty": "Dodaj zdjęcia z metadanymi aparatu, aby zobaczyć je tutaj.",
+        "lensesTitle": "Obiektywy",
+        "switchToCameras": "Pokaż aparaty",
+        "switchToLenses": "Pokaż obiektywy",
+        "title": "Aparaty"
+      },
+      "locations": {
+        "clearFilter": "Wyczyść filtr lokalizacji",
+        "empty": "Dodaj zdjęcia z danymi lokalizacji, aby zobaczyć je tutaj.",
+        "geocoding": "Wyszukiwanie lokalizacji zdjęć…",
+        "title": "Lokalizacje"
+      }
+    },
     "folders": {
       "addFolder": "Dodaj folder",
       "albumsEmpty": "Kliknij prawym przyciskiem, aby utworzyć album.",

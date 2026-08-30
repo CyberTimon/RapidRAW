@@ -917,6 +917,23 @@
         "rawOnly": "僅 RAW"
       }
     },
+    "facets": {
+      "readingMetadata": "正在讀取照片中繼資料…",
+      "cameras": {
+        "clearFilter": "清除相機篩選",
+        "empty": "加入包含相機中繼資料的照片後，它們會顯示在這裡。",
+        "lensesTitle": "鏡頭",
+        "switchToCameras": "顯示相機",
+        "switchToLenses": "顯示鏡頭",
+        "title": "相機"
+      },
+      "locations": {
+        "clearFilter": "清除地點篩選",
+        "empty": "加入包含位置資料的照片後，它們會顯示在這裡。",
+        "geocoding": "正在尋找照片地點…",
+        "title": "地點"
+      }
+    },
     "folders": {
       "addFolder": "新增資料夾",
       "albumsEmpty": "右鍵單擊以建立相簿。",

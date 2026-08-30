@@ -51,6 +51,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       folderTrees: [],
       multiSelectedPaths: [],
       libraryActivePath: null,
+      libraryFacet: null,
       expandedFolders: new Set(),
     });
     useUIStore.getState().setUI({ isLibraryExportPanelVisible: false });
@@ -258,11 +259,13 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     ) => {
       const { appSettings, handleSettingsChange } = useSettingsStore.getState();
       const { pinnedFolders } = appSettings || { pinnedFolders: [] };
-      const { setLibrary, sortCriteria } = useLibraryStore.getState();
+      const { setLibrary, setLibraryFacet, sortCriteria } = useLibraryStore.getState();
       const { setUI } = useUIStore.getState();
       const { setProcess } = useProcessStore.getState();
       const { selectedImage, resetHistory, setEditor } = useEditorStore.getState();
       const libraryViewMode = appSettings?.libraryViewMode;
+
+      setLibraryFacet(null);
 
       if (!preserveEditor) {
         await invoke('cancel_thumbnail_generation');
@@ -360,7 +363,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
             const finalImageList = files.map((image) => ({
               ...image,
-              exif: combinedExifMap[image.path] || image.exif || null,
+              exif: combinedExifMap[image.path] || image.exif || {},
             }));
             setLibrary({ imageList: finalImageList });
           } else {
@@ -375,11 +378,13 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
                   const chunk = paths.slice(i, i + chunkSize);
                   try {
                     const chunkExif: any = await invoke(Invokes.ReadExifForPaths, { paths: chunk });
+                    const chunkPaths = new Set(chunk);
                     setLibrary((state) => ({
-                      imageList: state.imageList.map((image) => ({
-                        ...image,
-                        exif: chunkExif[image.path] || image.exif || null,
-                      })),
+                      imageList: state.imageList.map((image) =>
+                        chunkPaths.has(image.path)
+                          ? { ...image, exif: chunkExif[image.path] || image.exif || {} }
+                          : image,
+                      ),
                     }));
                     await new Promise((resolve) => setTimeout(resolve, 50));
                   } catch (err) {
@@ -411,8 +416,10 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
   const handleSelectAlbum = useCallback(
     async (albumId: string, albumName: string, imagePaths: string[], preserveEditor = false) => {
-      const { setLibrary } = useLibraryStore.getState();
+      const { setLibrary, setLibraryFacet } = useLibraryStore.getState();
       const { setUI } = useUIStore.getState();
+
+      setLibraryFacet(null);
 
       if (!preserveEditor) {
         await invoke('cancel_thumbnail_generation');
@@ -441,6 +448,38 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
           imageRatings: initialRatings,
           ...(preserveEditor ? {} : { multiSelectedPaths: [], libraryActivePath: null }),
         });
+
+        if (files.length > 0) {
+          const paths = files.map((file) => file.path);
+
+          setTimeout(() => {
+            const fetchExifInChunks = async () => {
+              const chunkSize = 50;
+              for (let i = 0; i < paths.length; i += chunkSize) {
+                if (useLibraryStore.getState().activeAlbumId !== albumId) break;
+
+                const chunk = paths.slice(i, i + chunkSize);
+                try {
+                  const chunkExif: Record<string, ImageFile['exif']> = await invoke(Invokes.ReadExifForPaths, {
+                    paths: chunk,
+                  });
+                  const chunkPaths = new Set(chunk);
+                  setLibrary((state) => ({
+                    imageList: state.imageList.map((image) =>
+                      chunkPaths.has(image.path)
+                        ? { ...image, exif: chunkExif[image.path] || image.exif || {} }
+                        : image,
+                    ),
+                  }));
+                  await new Promise((resolve) => setTimeout(resolve, 50));
+                } catch (err) {
+                  console.error('Failed to read album EXIF chunk:', err);
+                }
+              }
+            };
+            fetchExifInChunks();
+          }, 500);
+        }
       } catch (err) {
         console.error('Failed to load album images:', err);
         toast.error(`Failed to load album: ${err}`);

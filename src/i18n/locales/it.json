@@ -942,6 +942,23 @@
         "rawOnly": "Solo RAW"
       }
     },
+    "facets": {
+      "readingMetadata": "Lettura dei metadati delle foto…",
+      "cameras": {
+        "clearFilter": "Cancella filtro fotocamera",
+        "empty": "Aggiungi foto con metadati della fotocamera per vederle qui.",
+        "lensesTitle": "Obiettivi",
+        "switchToCameras": "Mostra fotocamere",
+        "switchToLenses": "Mostra obiettivi",
+        "title": "Fotocamere"
+      },
+      "locations": {
+        "clearFilter": "Cancella filtro posizione",
+        "empty": "Aggiungi foto con dati sulla posizione per vederle qui.",
+        "geocoding": "Ricerca delle posizioni delle foto…",
+        "title": "Posizioni"
+      }
+    },
     "folders": {
       "addFolder": "Aggiungi cartella",
       "albumsEmpty": "Fai clic con il tasto destro per creare un album.",

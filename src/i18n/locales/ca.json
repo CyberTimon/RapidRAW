@@ -919,6 +919,23 @@
         "rawOnly": "Només RAW"
       }
     },
+    "facets": {
+      "readingMetadata": "S'estan llegint les metadades de les fotos…",
+      "cameras": {
+        "clearFilter": "Esborra el filtre de càmera",
+        "empty": "Afegiu fotos amb metadades de càmera per veure-les aquí.",
+        "lensesTitle": "Objectius",
+        "switchToCameras": "Mostra les càmeres",
+        "switchToLenses": "Mostra els objectius",
+        "title": "Càmeres"
+      },
+      "locations": {
+        "clearFilter": "Esborra el filtre d'ubicació",
+        "empty": "Afegiu fotos amb dades d'ubicació per veure-les aquí.",
+        "geocoding": "S'estan cercant les ubicacions de les fotos…",
+        "title": "Ubicacions"
+      }
+    },
     "folders": {
       "addFolder": "Afegir carpeta",
       "albumsEmpty": "Feu clic amb el botó dret per crear un àlbum.",

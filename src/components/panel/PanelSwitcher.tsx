@@ -12,6 +12,7 @@ import {
   SwatchBook,
   FileInput,
   Camera,
+  MapPin,
   Folder as FolderIcon,
   type LucideIcon,
 } from 'lucide-react';
@@ -27,6 +28,8 @@ export const PANEL_ICONS: Record<Panel, LucideIcon> = {
   [Panel.Presets]: SwatchBook,
   [Panel.Export]: FileInput,
   [Panel.FolderTree]: FolderIcon,
+  [Panel.Cameras]: Camera,
+  [Panel.Locations]: MapPin,
   [Panel.Tethering]: Camera,
 };
 
@@ -39,6 +42,8 @@ const PANEL_TITLES: Record<Panel, string> = {
   [Panel.Presets]: 'editor.switcher.tooltips.presets',
   [Panel.Export]: 'editor.switcher.tooltips.export',
   [Panel.FolderTree]: 'library.folders.sourcesTitle',
+  [Panel.Cameras]: 'library.facets.cameras.title',
+  [Panel.Locations]: 'library.facets.locations.title',
   [Panel.Tethering]: 'editor.switcher.tooltips.tethering',
 };
 
@@ -249,6 +254,8 @@ export function MobilePanelSwitcher({
 }) {
   const MOBILE_PANELS = [
     Panel.Metadata,
+    Panel.Cameras,
+    Panel.Locations,
     Panel.Adjustments,
     Panel.Crop,
     Panel.Masks,
