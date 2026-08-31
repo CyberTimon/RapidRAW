@@ -62,6 +62,78 @@ pub struct GpuProcessorState {
     pub height: u32,
 }
 
+pub const PREVIEW_SUPERSEDED: &str = "Preview superseded";
+
+#[derive(Clone)]
+pub struct PreviewGeneration {
+    number: usize,
+    latest: Arc<AtomicUsize>,
+    commit: Arc<Mutex<()>>,
+}
+
+impl PreviewGeneration {
+    pub fn number(&self) -> usize {
+        self.number
+    }
+
+    pub fn is_current(&self) -> bool {
+        self.latest.load(std::sync::atomic::Ordering::Acquire) == self.number
+    }
+
+    pub fn ensure_current(&self) -> Result<(), String> {
+        if self.is_current() {
+            Ok(())
+        } else {
+            Err(PREVIEW_SUPERSEDED.to_string())
+        }
+    }
+
+    pub fn lock_commit(&self) -> std::sync::MutexGuard<'_, ()> {
+        self.commit.lock().unwrap()
+    }
+}
+
+pub struct PreviewGenerationTracker {
+    latest: Arc<AtomicUsize>,
+    commit: Arc<Mutex<()>>,
+}
+
+impl Default for PreviewGenerationTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PreviewGenerationTracker {
+    pub fn new() -> Self {
+        Self {
+            latest: Arc::new(AtomicUsize::new(0)),
+            commit: Arc::new(Mutex::new(())),
+        }
+    }
+
+    pub fn next(&self) -> PreviewGeneration {
+        let _commit_guard = self.commit.lock().unwrap();
+        let number = self
+            .latest
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel)
+            .wrapping_add(1);
+        PreviewGeneration {
+            number,
+            latest: Arc::clone(&self.latest),
+            commit: Arc::clone(&self.commit),
+        }
+    }
+
+    pub fn snapshot(&self) -> PreviewGeneration {
+        PreviewGeneration {
+            number: self.latest.load(std::sync::atomic::Ordering::Acquire),
+            latest: Arc::clone(&self.latest),
+            commit: Arc::clone(&self.commit),
+        }
+    }
+}
+
 pub struct PreviewJob {
     pub adjustments: serde_json::Value,
     pub is_interactive: bool,
@@ -71,6 +143,7 @@ pub struct PreviewJob {
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
     pub responder: tokio::sync::oneshot::Sender<Vec<u8>>,
+    pub generation: PreviewGeneration,
 }
 
 pub struct AnalyticsJob {
@@ -78,6 +151,7 @@ pub struct AnalyticsJob {
     pub image: Arc<DynamicImage>,
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
+    pub generation: PreviewGeneration,
 }
 
 pub struct AnalyticsConfig {
@@ -85,6 +159,7 @@ pub struct AnalyticsConfig {
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
     pub sender: Sender<AnalyticsJob>,
+    pub generation: PreviewGeneration,
 }
 
 pub struct ThumbnailProgressTracker {
@@ -159,6 +234,7 @@ pub struct AppState {
     pub thumbnail_cancellation_token: Arc<AtomicBool>,
     pub thumbnail_progress: Mutex<ThumbnailProgressTracker>,
     pub preview_worker_tx: Mutex<Option<Sender<PreviewJob>>>,
+    pub preview_generation: PreviewGenerationTracker,
     pub analytics_worker_tx: Mutex<Option<Sender<AnalyticsJob>>>,
     pub mask_cache: Mutex<HashMap<u64, GrayImage>>,
     pub patch_cache: Mutex<HashMap<String, serde_json::Value>>,
@@ -174,4 +250,57 @@ pub struct AppState {
     pub disks_cache: Mutex<Option<Disks>>,
     pub disks_cache_refreshing: AtomicBool,
     pub camera_session: Mutex<CameraSession>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn newer_preview_generation_supersedes_older_work() {
+        let tracker = PreviewGenerationTracker::new();
+        let first = tracker.next();
+        assert!(first.is_current());
+
+        let second = tracker.next();
+        assert!(!first.is_current());
+        assert!(second.is_current());
+        assert_eq!(first.ensure_current().unwrap_err(), PREVIEW_SUPERSEDED);
+    }
+
+    #[test]
+    fn snapshot_is_invalidated_when_preview_work_starts() {
+        let tracker = PreviewGenerationTracker::new();
+        let idle_snapshot = tracker.snapshot();
+        assert!(idle_snapshot.is_current());
+
+        let active = tracker.next();
+        assert!(!idle_snapshot.is_current());
+        assert!(active.is_current());
+    }
+
+    #[test]
+    fn generation_change_waits_for_frame_commit() {
+        let tracker = Arc::new(PreviewGenerationTracker::new());
+        let first = tracker.next();
+        let commit_guard = first.lock_commit();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let tracker_for_thread = Arc::clone(&tracker);
+
+        let handle = std::thread::spawn(move || {
+            let next = tracker_for_thread.next();
+            tx.send(next.number()).unwrap();
+        });
+
+        assert!(
+            rx.recv_timeout(std::time::Duration::from_millis(25))
+                .is_err()
+        );
+        drop(commit_guard);
+        assert_eq!(
+            rx.recv_timeout(std::time::Duration::from_secs(1)).unwrap(),
+            2
+        );
+        handle.join().unwrap();
+    }
 }

@@ -841,6 +841,8 @@ pub async fn load_image(
     let my_generation = state.load_image_generation.fetch_add(1, Ordering::SeqCst) + 1;
     let generation_tracker = state.load_image_generation.clone();
     let cancel_token = Some((generation_tracker.clone(), my_generation));
+    // Invalidate any in-flight preview before replacing the source image or its caches.
+    let _ = state.preview_generation.next();
 
     {
         *state.original_image.lock().unwrap() = None;
