@@ -6,6 +6,7 @@ import {
   SortCriteria,
   SortDirection,
   AlbumItem,
+  Roll,
 } from '../components/ui/AppProperties';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
 import { ColumnWidths } from '../components/panel/MainLibrary';
@@ -28,6 +29,10 @@ interface LibraryState {
   albumTree: AlbumItem[];
   activeAlbumId: string | null;
   expandedAlbumGroups: Set<string>;
+
+  // Film rolls
+  rolls: Roll[];
+  activeRollId: string | null;
 
   // Images & Selection
   imageList: Array<ImageFile>;
@@ -66,6 +71,9 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   albumTree: [],
   activeAlbumId: null,
   expandedAlbumGroups: new Set<string>(),
+
+  rolls: [],
+  activeRollId: null,
 
   imageList: [],
   imageRatings: {},

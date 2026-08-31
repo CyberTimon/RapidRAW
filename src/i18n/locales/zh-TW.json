@@ -223,7 +223,8 @@
     "library": {
       "addCopiedToAlbum_one": "將複製的影像新增到相簿",
       "addCopiedToAlbum_other": "將 {{count}} 張複製的影像新增到相簿",
-      "refreshView": "重新整理檢視"
+      "refreshView": "重新整理檢視",
+      "addCopiedToRoll_other": "將 {{count}} 張複製的影像加入底片卷"
     },
     "merge": {
       "focusStack": "焦距合成",
@@ -270,7 +271,10 @@
       "resetAdjustments_one": "重置調整",
       "resetAdjustments_other": "重置 {{count}} 張影像的調整",
       "showExplorer": "在檔案資源管理器中顯示",
-      "virtualCopy": "虛擬副本"
+      "virtualCopy": "虛擬副本",
+      "addToRoll": "加入底片卷",
+      "noRolls": "沒有可用的底片卷",
+      "removeFromRoll_other": "從底片卷移除 {{count}} 張影像"
     },
     "toasts": {
       "couldNotShowExplorer": "無法在檔案資源管理器中顯示檔案：{{err}}",
@@ -286,7 +290,18 @@
       "failedMove": "移動檔案失敗：{{err}}",
       "failedMoveError": "移動失敗：{{err}}",
       "failedMoveInvalid": "移動失敗：未找到目標組或目標組無效。",
-      "failedRemoveImages": "移除影像失敗：{{err}}"
+      "failedRemoveImages": "移除影像失敗：{{err}}",
+      "failedAddToRoll": "加入底片卷失敗：{{err}}",
+      "failedDeleteRoll": "刪除底片卷失敗：{{err}}",
+      "failedRemoveFromRoll": "從底片卷移除失敗：{{err}}",
+      "failedSaveRoll": "儲存底片卷失敗：{{err}}",
+      "failedLoadRoll": "載入底片卷失敗：{{err}}"
+    },
+    "rolls": {
+      "confirmDelete_other": "刪除包含 {{count}} 張照片的底片卷",
+      "deleteRoll": "刪除底片卷",
+      "editRoll": "編輯底片卷",
+      "newRoll": "新增底片卷"
     }
   },
   "editor": {
@@ -929,7 +944,8 @@
       "sections": {
         "albums": "相簿",
         "folders": "資料夾",
-        "pinned": "已固定"
+        "pinned": "已固定",
+        "rolls": "底片卷"
       },
       "sort": {
         "created": "建立日期",
@@ -943,7 +959,8 @@
         "collapse": "摺疊",
         "expand": "展開",
         "sortFolders": "對資料夾排序"
-      }
+      },
+      "rollsEmpty": "按右鍵以建立底片卷。"
     },
     "grid": {
       "columns": {
@@ -1423,6 +1440,18 @@
       "yAxis": "Y 軸",
       "zoomInTooltip": "放大",
       "zoomOutTooltip": "縮小"
+    },
+    "roll": {
+      "camera": "相機",
+      "cameraPlaceholder": "例如 Nikon F3",
+      "editTitle": "編輯底片卷",
+      "filmStock": "底片型號",
+      "filmStockPlaceholder": "例如 Kodak Portra 400",
+      "finishedOn": "拍完日期",
+      "loadedOn": "裝片日期",
+      "newTitle": "新增底片卷",
+      "name": "底片卷名稱（選填）",
+      "namePlaceholder": "例如：夏日旅行"
     }
   },
   "settings": {

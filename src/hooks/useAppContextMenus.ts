@@ -51,12 +51,14 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { Invokes, Option, OPTION_SEPARATOR, Panel, AlbumItem, Album, AlbumGroup } from '../components/ui/AppProperties';
+import { Invokes, OPTION_SEPARATOR, Panel } from '../components/ui/AppProperties';
+import type { Option, AlbumItem, Album, AlbumGroup, Roll } from '../components/ui/AppProperties';
 import { Color, COLOR_LABELS, INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
 import TaggingSubMenu from '../context/TaggingSubMenu';
 import { useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
 import { globalImageCache } from '../utils/ImageLRUCache';
+import { getRollTitle } from '../utils/collections';
 
 export interface UseAppContextMenusProps {
   handleImageSelect: (path: string) => void;
@@ -333,8 +335,16 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       event.stopPropagation();
 
       const { selectedImage, copiedAdjustments, setEditor } = useEditorStore.getState();
-      const { multiSelectedPaths, imageList, libraryActivePath, albumTree, activeAlbumId, setLibrary } =
-        useLibraryStore.getState();
+      const {
+        multiSelectedPaths,
+        imageList,
+        libraryActivePath,
+        albumTree,
+        activeAlbumId,
+        rolls,
+        activeRollId,
+        setLibrary,
+      } = useLibraryStore.getState();
       const { appSettings } = useSettingsStore.getState();
       const { activeView, setUI, setPanel } = useUIStore.getState();
       const { setProcess } = useProcessStore.getState();
@@ -438,11 +448,14 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           await invoke(Invokes.CreateVirtualCopy, {
             sourceVirtualPath: sourcePath,
             targetAlbumId: activeAlbumId || null,
+            targetRollId: activeRollId || null,
           });
 
           if (activeAlbumId) {
             const sortedTree = await invoke<AlbumItem[]>(Invokes.GetAlbums);
             setLibrary({ albumTree: sortedTree });
+          } else if (activeRollId) {
+            setLibrary({ rolls: await invoke<Roll[]>(Invokes.GetRolls) });
           }
           await props.refreshImageList();
         } catch (err) {
@@ -524,6 +537,29 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           } catch (e) {
             toast.error(t('contextMenus.toasts.failedRemoveImages', { err: e }));
           }
+        }
+      };
+
+      const handleRemoveFromRoll = async () => {
+        if (!activeRollId) return;
+        try {
+          const currentRolls = await invoke<Roll[]>(Invokes.GetRolls);
+          const updated = currentRolls.map((roll) =>
+            roll.id === activeRollId
+              ? { ...roll, images: roll.images.filter((path) => !finalSelection.includes(path)) }
+              : roll,
+          );
+          await invoke(Invokes.SaveRolls, { rolls: updated });
+          const sortedRolls = await invoke<Roll[]>(Invokes.GetRolls);
+          setLibrary({
+            rolls: sortedRolls,
+            imageList: imageList.filter((image) => !finalSelection.includes(image.path)),
+            multiSelectedPaths: [],
+            libraryActivePath: finalSelection.includes(libraryActivePath ?? '') ? null : libraryActivePath,
+            selectionAnchorPath: null,
+          });
+        } catch (err) {
+          toast.error(t('contextMenus.toasts.failedRemoveFromRoll', { err }));
         }
       };
 
@@ -688,10 +724,13 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
                   await invoke(Invokes.DuplicateFile, {
                     path: finalSelection[0],
                     targetAlbumId: activeAlbumId || null,
+                    targetRollId: activeRollId || null,
                   });
                   if (activeAlbumId) {
                     const sortedTree = await invoke<AlbumItem[]>(Invokes.GetAlbums);
                     setLibrary({ albumTree: sortedTree });
+                  } else if (activeRollId) {
+                    setLibrary({ rolls: await invoke<Roll[]>(Invokes.GetRolls) });
                   }
                   await props.refreshImageList();
                 } catch (err) {
@@ -757,6 +796,42 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               ? buildAddToAlbumMenu(albumTree, finalSelection)
               : [{ label: t('contextMenus.thumbnail.noAlbums'), disabled: true }],
         },
+        {
+          label: t('contextMenus.thumbnail.addToRoll'),
+          icon: Film,
+          submenu:
+            rolls.length > 0
+              ? rolls.map((roll) => ({
+                  label: getRollTitle(roll),
+                  onClick: async () => {
+                    try {
+                      await invoke(Invokes.AddToRoll, { rollId: roll.id, paths: finalSelection });
+                      const updatedRolls = await invoke<Roll[]>(Invokes.GetRolls);
+                      setLibrary((state) => {
+                        const movedFromActiveRoll = !!state.activeRollId && state.activeRollId !== roll.id;
+                        return {
+                          rolls: updatedRolls,
+                          multiSelectedPaths: [],
+                          ...(movedFromActiveRoll
+                            ? {
+                                imageList: state.imageList.filter((image) => !finalSelection.includes(image.path)),
+                                libraryActivePath: finalSelection.includes(state.libraryActivePath ?? '')
+                                  ? null
+                                  : state.libraryActivePath,
+                                selectionAnchorPath: finalSelection.includes(state.selectionAnchorPath ?? '')
+                                  ? null
+                                  : state.selectionAnchorPath,
+                              }
+                            : {}),
+                        };
+                      });
+                    } catch (err) {
+                      toast.error(t('contextMenus.toasts.failedAddToRoll', { err }));
+                    }
+                  },
+                }))
+              : [{ label: t('contextMenus.thumbnail.noRolls'), disabled: true }],
+        },
         ...(activeAlbumId
           ? [
               {
@@ -764,6 +839,16 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
                 icon: Trash2,
                 isDestructive: true,
                 onClick: handleRemoveFromAlbum,
+              },
+            ]
+          : []),
+        ...(activeRollId
+          ? [
+              {
+                label: t('contextMenus.thumbnail.removeFromRoll', { count: selectionCount }),
+                icon: Trash2,
+                isDestructive: true,
+                onClick: handleRemoveFromRoll,
               },
             ]
           : []),
@@ -1270,35 +1355,101 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
     [showContextMenu, albumIcons, t],
   );
 
+  const handleRollContextMenu = useCallback(
+    (event: React.MouseEvent, roll: Roll | null) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const { setUI } = useUIStore.getState();
+      const { activeRollId, setLibrary } = useLibraryStore.getState();
+      const options: Option[] = [
+        {
+          label: t('contextMenus.rolls.newRoll'),
+          icon: Film,
+          onClick: () => setUI({ rollActionTarget: null, isRollModalOpen: true }),
+        },
+        ...(roll
+          ? [
+              { type: OPTION_SEPARATOR } as Option,
+              {
+                label: t('contextMenus.rolls.editRoll'),
+                icon: Edit,
+                onClick: () => setUI({ rollActionTarget: roll.id, isRollModalOpen: true }),
+              },
+              {
+                label: t('contextMenus.rolls.deleteRoll'),
+                icon: Trash2,
+                isDestructive: true,
+                submenu: [
+                  { label: t('contextMenus.editor.cancel'), icon: X, onClick: () => {} },
+                  {
+                    label: t('contextMenus.rolls.confirmDelete', { count: roll.images.length }),
+                    icon: Check,
+                    isDestructive: true,
+                    onClick: async () => {
+                      try {
+                        const currentRolls = await invoke<Roll[]>(Invokes.GetRolls);
+                        const updated = currentRolls.filter((item) => item.id !== roll.id);
+                        await invoke(Invokes.SaveRolls, { rolls: updated });
+                        setLibrary({
+                          rolls: await invoke<Roll[]>(Invokes.GetRolls),
+                          ...(activeRollId === roll.id
+                            ? { activeRollId: null, currentFolderPath: null, imageList: [], multiSelectedPaths: [] }
+                            : {}),
+                        });
+                      } catch (err) {
+                        toast.error(t('contextMenus.toasts.failedDeleteRoll', { err }));
+                      }
+                    },
+                  },
+                ],
+              },
+            ]
+          : []),
+      ];
+      showContextMenu(event.clientX, event.clientY, options);
+    },
+    [showContextMenu, t],
+  );
+
   const handleMainLibraryContextMenu = useCallback(
     (event: any) => {
       event.preventDefault();
       event.stopPropagation();
 
       const { copiedFilePaths, setProcess } = useProcessStore.getState();
-      const { currentFolderPath, activeAlbumId, setLibrary } = useLibraryStore.getState();
+      const { currentFolderPath, activeAlbumId, activeRollId, setLibrary } = useLibraryStore.getState();
 
       const numCopied = copiedFilePaths.length;
       const copyPastedLabel = t('contextMenus.folders.copyHere', { count: numCopied });
       const movePastedLabel = t('contextMenus.folders.moveHere', { count: numCopied });
       const addCopiedToAlbumLabel = t('contextMenus.library.addCopiedToAlbum', { count: numCopied });
 
-      const isAlbumView = !!activeAlbumId;
+      const isCollectionView = !!activeAlbumId || !!activeRollId;
 
-      const pasteOption = isAlbumView
+      const pasteOption = isCollectionView
         ? {
-            label: addCopiedToAlbumLabel,
+            label: activeRollId
+              ? t('contextMenus.library.addCopiedToRoll', { count: numCopied })
+              : addCopiedToAlbumLabel,
             icon: ClipboardPaste,
             disabled: copiedFilePaths.length === 0,
             onClick: async () => {
               try {
-                await invoke(Invokes.AddToAlbum, { albumId: activeAlbumId, paths: copiedFilePaths });
-                console.log(`Added ${numCopied} image(s) to album`);
-                const updatedTree = await invoke<AlbumItem[]>(Invokes.GetAlbums);
-                setLibrary({ albumTree: updatedTree });
+                if (activeRollId) {
+                  await invoke(Invokes.AddToRoll, { rollId: activeRollId, paths: copiedFilePaths });
+                  setLibrary({ rolls: await invoke<Roll[]>(Invokes.GetRolls) });
+                } else {
+                  await invoke(Invokes.AddToAlbum, { albumId: activeAlbumId, paths: copiedFilePaths });
+                  const updatedTree = await invoke<AlbumItem[]>(Invokes.GetAlbums);
+                  setLibrary({ albumTree: updatedTree });
+                }
                 await props.refreshImageList();
               } catch (err) {
-                toast.error(t('contextMenus.toasts.failedAddToAlbum', { err }));
+                toast.error(
+                  activeRollId
+                    ? t('contextMenus.toasts.failedAddToRoll', { err })
+                    : t('contextMenus.toasts.failedAddToAlbum', { err }),
+                );
               }
             },
           }
@@ -1349,7 +1500,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           icon: FolderInput,
           label: t('contextMenus.folders.importImages'),
           onClick: () => props.handleImportClick(currentFolderPath as string),
-          disabled: !currentFolderPath || isAlbumView,
+          disabled: !currentFolderPath || isCollectionView,
         },
       ];
 
@@ -1363,6 +1514,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
     handleThumbnailContextMenu,
     handleFolderTreeContextMenu,
     handleAlbumTreeContextMenu,
+    handleRollContextMenu,
     handleMainLibraryContextMenu,
   };
 }

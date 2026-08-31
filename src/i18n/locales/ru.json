@@ -231,7 +231,11 @@
       "addCopiedToAlbum_many": "Добавить {{count}} скопированных изображений в альбом",
       "addCopiedToAlbum_one": "Добавить скопированное изображение в альбом",
       "addCopiedToAlbum_other": "Добавить {{count}} скопированных изображений в альбом",
-      "refreshView": "Обновить вид"
+      "refreshView": "Обновить вид",
+      "addCopiedToRoll_one": "Добавить скопированное изображение на плёнку",
+      "addCopiedToRoll_few": "Добавить {{count}} скопированных изображений на плёнку",
+      "addCopiedToRoll_many": "Добавить {{count}} скопированных изображений на плёнку",
+      "addCopiedToRoll_other": "Добавить {{count}} скопированных изображений на плёнку"
     },
     "merge": {
       "focusStack": "Стекинг по фокусу",
@@ -302,7 +306,13 @@
       "resetAdjustments_one": "Сбросить настройки",
       "resetAdjustments_other": "Сбросить настройки для {{count}} изображений",
       "showExplorer": "Показать в проводнике",
-      "virtualCopy": "Виртуальная копия"
+      "virtualCopy": "Виртуальная копия",
+      "addToRoll": "Добавить на плёнку",
+      "noRolls": "Нет доступных плёнок",
+      "removeFromRoll_one": "Убрать с плёнки",
+      "removeFromRoll_few": "Убрать {{count}} изображений с плёнки",
+      "removeFromRoll_many": "Убрать {{count}} изображений с плёнки",
+      "removeFromRoll_other": "Убрать {{count}} изображений с плёнки"
     },
     "toasts": {
       "couldNotShowExplorer": "Не удалось показать файл в проводнике: {{err}}",
@@ -318,7 +328,21 @@
       "failedMove": "Не удалось переместить файлы: {{err}}",
       "failedMoveError": "Не удалось переместить: {{err}}",
       "failedMoveInvalid": "Не удалось переместить: целевая группа не найдена или недействительна.",
-      "failedRemoveImages": "Не удалось удалить изображения: {{err}}"
+      "failedRemoveImages": "Не удалось удалить изображения: {{err}}",
+      "failedAddToRoll": "Не удалось добавить на плёнку: {{err}}",
+      "failedDeleteRoll": "Не удалось удалить плёнку: {{err}}",
+      "failedRemoveFromRoll": "Не удалось убрать с плёнки: {{err}}",
+      "failedSaveRoll": "Не удалось сохранить плёнку: {{err}}",
+      "failedLoadRoll": "Не удалось загрузить плёнку: {{err}}"
+    },
+    "rolls": {
+      "confirmDelete_one": "Удалить плёнку с {{count}} фотографией",
+      "confirmDelete_few": "Удалить плёнку с {{count}} фотографиями",
+      "confirmDelete_many": "Удалить плёнку с {{count}} фотографиями",
+      "confirmDelete_other": "Удалить плёнку с {{count}} фотографиями",
+      "deleteRoll": "Удалить плёнку",
+      "editRoll": "Изменить плёнку",
+      "newRoll": "Новая плёнка"
     }
   },
   "editor": {
@@ -977,7 +1001,8 @@
       "sections": {
         "albums": "Альбомы",
         "folders": "Папки",
-        "pinned": "Закрепленные"
+        "pinned": "Закрепленные",
+        "rolls": "Плёнки"
       },
       "sort": {
         "created": "Дата создания",
@@ -991,7 +1016,8 @@
         "collapse": "Свернуть",
         "expand": "Развернуть",
         "sortFolders": "Сортировать папки"
-      }
+      },
+      "rollsEmpty": "Щёлкните правой кнопкой, чтобы создать плёнку."
     },
     "grid": {
       "columns": {
@@ -1487,6 +1513,18 @@
       "yAxis": "Ось Y",
       "zoomInTooltip": "Увеличить",
       "zoomOutTooltip": "Уменьшить"
+    },
+    "roll": {
+      "camera": "Камера",
+      "cameraPlaceholder": "например, Nikon F3",
+      "editTitle": "Изменить плёнку",
+      "filmStock": "Фотоплёнка",
+      "filmStockPlaceholder": "например, Kodak Portra 400",
+      "finishedOn": "Отснята",
+      "loadedOn": "Заряжена",
+      "newTitle": "Новая плёнка",
+      "name": "Название плёнки (необязательно)",
+      "namePlaceholder": "например, Летняя поездка"
     }
   },
   "settings": {

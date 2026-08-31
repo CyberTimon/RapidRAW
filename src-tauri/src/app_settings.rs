@@ -63,6 +63,8 @@ pub struct LastFolderState {
     #[serde(default)]
     pub active_album_id: Option<String>,
     #[serde(default)]
+    pub active_roll_id: Option<String>,
+    #[serde(default)]
     pub expanded_album_groups: Vec<String>,
 }
 
@@ -720,4 +722,41 @@ pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(),
         .unwrap()
         .set_capacity(cache_size);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LastFolderState;
+
+    #[test]
+    fn last_folder_state_round_trips_active_roll() {
+        let json = r#"{
+            "currentFolderPath": "Roll: 2024-06-15 · Summer · 00007",
+            "expandedFolders": ["/photos"],
+            "activeAlbumId": null,
+            "activeRollId": "roll-7",
+            "expandedAlbumGroups": []
+        }"#;
+
+        let state: LastFolderState = serde_json::from_str(json).unwrap();
+        assert_eq!(state.active_roll_id.as_deref(), Some("roll-7"));
+
+        let serialized = serde_json::to_value(state).unwrap();
+        assert_eq!(serialized["activeRollId"], "roll-7");
+    }
+
+    #[test]
+    fn last_folder_state_defaults_active_roll_for_old_settings() {
+        let state: LastFolderState = serde_json::from_str(
+            r#"{
+                "currentFolderPath": "/photos",
+                "expandedFolders": [],
+                "activeAlbumId": null,
+                "expandedAlbumGroups": []
+            }"#,
+        )
+        .unwrap();
+
+        assert!(state.active_roll_id.is_none());
+    }
 }

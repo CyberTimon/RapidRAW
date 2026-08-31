@@ -227,7 +227,10 @@
       "addCopiedToAlbum_many": "Aggiungi {{count}} immagini copiate all'album",
       "addCopiedToAlbum_one": "Aggiungi l'immagine copiata all'album",
       "addCopiedToAlbum_other": "Aggiungi {{count}} immagini copiate all'album",
-      "refreshView": "Aggiorna Visualizzazione"
+      "refreshView": "Aggiorna Visualizzazione",
+      "addCopiedToRoll_one": "Aggiungi immagine copiata al rullino",
+      "addCopiedToRoll_many": "Aggiungi {{count}} immagini copiate al rullino",
+      "addCopiedToRoll_other": "Aggiungi {{count}} immagini copiate al rullino"
     },
     "merge": {
       "focusStack": "Focus Stacking",
@@ -286,7 +289,12 @@
       "resetAdjustments_one": "Ripristina Regolazioni",
       "resetAdjustments_other": "Ripristina Regolazioni su {{count}} Immagini",
       "showExplorer": "Mostra in Esplora File",
-      "virtualCopy": "Copia Virtuale"
+      "virtualCopy": "Copia Virtuale",
+      "addToRoll": "Aggiungi al rullino",
+      "noRolls": "Nessun rullino disponibile",
+      "removeFromRoll_one": "Rimuovi dal rullino",
+      "removeFromRoll_many": "Rimuovi {{count}} immagini dal rullino",
+      "removeFromRoll_other": "Rimuovi {{count}} immagini dal rullino"
     },
     "toasts": {
       "couldNotShowExplorer": "Impossibile mostrare il file in esplora risorse: {{err}}",
@@ -302,7 +310,20 @@
       "failedMove": "Impossibile spostare i file: {{err}}",
       "failedMoveError": "Impossibile spostare: {{err}}",
       "failedMoveInvalid": "Impossibile spostare: Gruppo di destinazione non trovato o non valido.",
-      "failedRemoveImages": "Impossibile rimuovere le immagini: {{err}}"
+      "failedRemoveImages": "Impossibile rimuovere le immagini: {{err}}",
+      "failedAddToRoll": "Impossibile aggiungere al rullino: {{err}}",
+      "failedDeleteRoll": "Impossibile eliminare il rullino: {{err}}",
+      "failedRemoveFromRoll": "Impossibile rimuovere dal rullino: {{err}}",
+      "failedSaveRoll": "Impossibile salvare il rullino: {{err}}",
+      "failedLoadRoll": "Impossibile caricare il rullino: {{err}}"
+    },
+    "rolls": {
+      "confirmDelete_one": "Elimina rullino con {{count}} foto",
+      "confirmDelete_many": "Elimina rullino con {{count}} foto",
+      "confirmDelete_other": "Elimina rullino con {{count}} foto",
+      "deleteRoll": "Elimina rullino",
+      "editRoll": "Modifica rullino",
+      "newRoll": "Nuovo rullino"
     }
   },
   "editor": {
@@ -954,7 +975,8 @@
       "sections": {
         "albums": "Album",
         "folders": "Cartelle",
-        "pinned": "Fissate"
+        "pinned": "Fissate",
+        "rolls": "Rullini"
       },
       "sort": {
         "created": "Data di creazione",
@@ -968,7 +990,8 @@
         "collapse": "Comprimi",
         "expand": "Espandi",
         "sortFolders": "Ordina cartelle"
-      }
+      },
+      "rollsEmpty": "Fai clic con il pulsante destro per creare un rullino."
     },
     "grid": {
       "columns": {
@@ -1455,6 +1478,18 @@
       "yAxis": "Asse Y",
       "zoomInTooltip": "Ingrandisci",
       "zoomOutTooltip": "Riduci"
+    },
+    "roll": {
+      "camera": "Fotocamera",
+      "cameraPlaceholder": "es. Nikon F3",
+      "editTitle": "Modifica rullino",
+      "filmStock": "Pellicola",
+      "filmStockPlaceholder": "es. Kodak Portra 400",
+      "finishedOn": "Terminato il",
+      "loadedOn": "Caricato il",
+      "newTitle": "Nuovo rullino",
+      "name": "Nome del rullino (facoltativo)",
+      "namePlaceholder": "es. Viaggio estivo"
     }
   },
   "settings": {

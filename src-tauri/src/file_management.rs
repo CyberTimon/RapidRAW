@@ -835,6 +835,50 @@ pub enum AlbumItem {
     },
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Roll {
+    pub id: String,
+    #[serde(default)]
+    pub number: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    pub camera: String,
+    pub film_stock: String,
+    pub loaded_on: String,
+    pub finished_on: Option<String>,
+    pub images: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct RollsData {
+    #[serde(default = "default_next_roll_number")]
+    next_number: u64,
+    #[serde(default)]
+    rolls: Vec<Roll>,
+}
+
+impl Default for RollsData {
+    fn default() -> Self {
+        Self {
+            next_number: default_next_roll_number(),
+            rolls: Vec::new(),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StoredRolls {
+    Current(RollsData),
+    Legacy(Vec<Roll>),
+}
+
+fn default_next_roll_number() -> u64 {
+    1
+}
+
 fn get_albums_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
     let data_dir = app_handle
         .path()
@@ -887,6 +931,339 @@ pub fn save_albums(mut tree: Vec<AlbumItem>, app_handle: AppHandle) -> Result<()
     fs::write(path, json_string).map_err(|e| e.to_string())
 }
 
+fn get_rolls_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
+    let data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+    let rolls_dir = data_dir.join("rolls");
+    if !rolls_dir.exists() {
+        fs::create_dir_all(&rolls_dir).map_err(|e| e.to_string())?;
+    }
+    Ok(rolls_dir.join("rolls.json"))
+}
+
+fn sort_and_deduplicate_rolls(rolls: &mut [Roll]) -> bool {
+    rolls.sort_by(|a, b| {
+        b.loaded_on
+            .cmp(&a.loaded_on)
+            .then_with(|| a.camera.to_lowercase().cmp(&b.camera.to_lowercase()))
+    });
+
+    // An image belongs to one roll only. For legacy duplicate data, keep it on
+    // the most recently loaded roll.
+    let original_image_count: usize = rolls.iter().map(|roll| roll.images.len()).sum();
+    let mut assigned_images = HashSet::new();
+    for roll in rolls.iter_mut() {
+        roll.images
+            .retain(|path| assigned_images.insert(path.clone()));
+    }
+    rolls.iter().map(|roll| roll.images.len()).sum::<usize>() != original_image_count
+}
+
+fn read_rolls_data(path: &Path) -> Result<(RollsData, bool), String> {
+    if !path.exists() {
+        return Ok((RollsData::default(), false));
+    }
+
+    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    match serde_json::from_str::<StoredRolls>(&content).map_err(|e| e.to_string())? {
+        StoredRolls::Current(data) => Ok((data, false)),
+        StoredRolls::Legacy(rolls) => Ok((
+            RollsData {
+                rolls,
+                ..Default::default()
+            },
+            true,
+        )),
+    }
+}
+
+fn write_rolls_data(path: &Path, data: &RollsData) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(data).map_err(|e| e.to_string())?;
+    fs::write(path, json).map_err(|e| e.to_string())
+}
+
+fn assign_roll_numbers(data: &mut RollsData) -> Result<bool, String> {
+    let mut changed = false;
+    let mut used_numbers = HashSet::new();
+
+    for roll in &mut data.rolls {
+        if roll.number == 0 || !used_numbers.insert(roll.number) {
+            if roll.number != 0 {
+                changed = true;
+            }
+            roll.number = 0;
+        }
+    }
+
+    let highest_number = used_numbers.iter().copied().max().unwrap_or(0);
+    let minimum_next = highest_number
+        .checked_add(1)
+        .ok_or_else(|| "Roll number limit reached".to_string())?;
+    let mut next_number = data.next_number.max(minimum_next).max(1);
+
+    let mut unnumbered_indices: Vec<usize> = data
+        .rolls
+        .iter()
+        .enumerate()
+        .filter_map(|(index, roll)| (roll.number == 0).then_some(index))
+        .collect();
+    unnumbered_indices.sort_by(|&a, &b| {
+        data.rolls[a]
+            .loaded_on
+            .cmp(&data.rolls[b].loaded_on)
+            .then_with(|| {
+                data.rolls[a]
+                    .camera
+                    .to_lowercase()
+                    .cmp(&data.rolls[b].camera.to_lowercase())
+            })
+            .then_with(|| data.rolls[a].id.cmp(&data.rolls[b].id))
+    });
+
+    for index in unnumbered_indices {
+        data.rolls[index].number = next_number;
+        next_number = next_number
+            .checked_add(1)
+            .ok_or_else(|| "Roll number limit reached".to_string())?;
+        changed = true;
+    }
+
+    if data.next_number != next_number {
+        data.next_number = next_number;
+        changed = true;
+    }
+
+    Ok(changed)
+}
+
+#[tauri::command]
+pub fn get_rolls(app_handle: AppHandle) -> Result<Vec<Roll>, String> {
+    let path = get_rolls_path(&app_handle)?;
+    let (mut data, was_legacy) = read_rolls_data(&path)?;
+    let numbers_changed = assign_roll_numbers(&mut data)?;
+    let images_changed = sort_and_deduplicate_rolls(&mut data.rolls);
+
+    if was_legacy || numbers_changed || images_changed {
+        write_rolls_data(&path, &data)?;
+    }
+
+    Ok(data.rolls)
+}
+
+#[tauri::command]
+pub fn save_rolls(mut rolls: Vec<Roll>, app_handle: AppHandle) -> Result<(), String> {
+    let path = get_rolls_path(&app_handle)?;
+    let (mut data, _) = read_rolls_data(&path)?;
+    assign_roll_numbers(&mut data)?;
+
+    let existing_numbers: HashMap<_, _> = data
+        .rolls
+        .iter()
+        .map(|roll| (roll.id.as_str(), roll.number))
+        .collect();
+    for roll in &mut rolls {
+        roll.number = existing_numbers.get(roll.id.as_str()).copied().unwrap_or(0);
+    }
+
+    data.rolls = rolls;
+    assign_roll_numbers(&mut data)?;
+    sort_and_deduplicate_rolls(&mut data.rolls);
+    write_rolls_data(&path, &data)
+}
+
+fn move_images_to_roll(
+    rolls: &mut [Roll],
+    target_roll_id: &str,
+    paths: &[String],
+) -> Result<(), String> {
+    if !rolls.iter().any(|roll| roll.id == target_roll_id) {
+        return Err("Roll not found".to_string());
+    }
+
+    let paths_to_move: HashSet<&str> = paths.iter().map(String::as_str).collect();
+    for roll in rolls.iter_mut() {
+        roll.images
+            .retain(|path| !paths_to_move.contains(path.as_str()));
+    }
+
+    let target_roll = rolls
+        .iter_mut()
+        .find(|roll| roll.id == target_roll_id)
+        .ok_or_else(|| "Roll not found".to_string())?;
+    for path in paths {
+        if !target_roll.images.contains(path) {
+            target_roll.images.push(path.clone());
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn add_to_roll(
+    roll_id: String,
+    paths: Vec<String>,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    let mut rolls = get_rolls(app_handle.clone())?;
+    move_images_to_roll(&mut rolls, &roll_id, &paths)?;
+    save_rolls(rolls, app_handle)
+}
+
+#[cfg(test)]
+mod roll_tests {
+    use super::{
+        Roll, RollsData, StoredRolls, assign_roll_numbers, move_images_to_roll,
+        sort_and_deduplicate_rolls,
+    };
+
+    fn roll(id: &str, loaded_on: &str, images: &[&str]) -> Roll {
+        Roll {
+            id: id.to_string(),
+            number: 0,
+            name: None,
+            camera: "Camera".to_string(),
+            film_stock: "Film".to_string(),
+            loaded_on: loaded_on.to_string(),
+            finished_on: None,
+            images: images.iter().map(|path| path.to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn moving_images_removes_them_from_other_rolls() {
+        let mut rolls = vec![
+            roll("old", "2024-01-01", &["one.jpg", "two.jpg"]),
+            roll("new", "2024-02-01", &["three.jpg"]),
+        ];
+        let paths = vec!["one.jpg".to_string(), "three.jpg".to_string()];
+
+        move_images_to_roll(&mut rolls, "new", &paths).unwrap();
+
+        assert_eq!(rolls[0].images, vec!["two.jpg"]);
+        assert_eq!(rolls[1].images, vec!["one.jpg", "three.jpg"]);
+    }
+
+    #[test]
+    fn sorting_legacy_data_keeps_duplicate_on_newest_roll() {
+        let mut rolls = vec![
+            roll("old", "2024-01-01", &["image.jpg"]),
+            roll("new", "2024-02-01", &["image.jpg"]),
+        ];
+
+        assert!(sort_and_deduplicate_rolls(&mut rolls));
+
+        assert_eq!(rolls[0].id, "new");
+        assert_eq!(rolls[0].images, vec!["image.jpg"]);
+        assert!(rolls[1].images.is_empty());
+    }
+
+    #[test]
+    fn sorting_unique_data_reports_no_deduplication() {
+        let mut rolls = vec![
+            roll("old", "2024-01-01", &["one.jpg"]),
+            roll("new", "2024-02-01", &["two.jpg"]),
+        ];
+
+        assert!(!sort_and_deduplicate_rolls(&mut rolls));
+        assert_eq!(rolls[0].id, "new");
+    }
+
+    #[test]
+    fn missing_rolls_field_defaults_to_empty() {
+        let stored: StoredRolls = serde_json::from_str(r#"{"nextNumber": 4}"#).unwrap();
+        let StoredRolls::Current(data) = stored else {
+            panic!("expected current roll storage");
+        };
+
+        assert_eq!(data.next_number, 4);
+        assert!(data.rolls.is_empty());
+    }
+
+    #[test]
+    fn legacy_array_without_numbers_or_names_deserializes() {
+        let stored: StoredRolls = serde_json::from_str(
+            r#"[{
+                "id": "legacy",
+                "camera": "Camera",
+                "filmStock": "Film",
+                "loadedOn": "2024-01-01",
+                "finishedOn": null,
+                "images": ["one.jpg"]
+            }]"#,
+        )
+        .unwrap();
+        let StoredRolls::Legacy(rolls) = stored else {
+            panic!("expected legacy roll storage");
+        };
+
+        assert_eq!(rolls[0].number, 0);
+        assert!(rolls[0].name.is_none());
+    }
+
+    #[test]
+    fn numbering_legacy_rolls_starts_with_oldest() {
+        let mut data = RollsData {
+            next_number: 1,
+            rolls: vec![
+                roll("new", "2024-02-01", &[]),
+                roll("old", "2024-01-01", &[]),
+            ],
+        };
+
+        assign_roll_numbers(&mut data).unwrap();
+
+        assert_eq!(data.rolls[0].number, 2);
+        assert_eq!(data.rolls[1].number, 1);
+        assert_eq!(data.next_number, 3);
+    }
+
+    #[test]
+    fn existing_numbers_stay_stable_when_adding_a_roll() {
+        let mut first = roll("one", "2024-01-01", &[]);
+        first.number = 8;
+        let mut data = RollsData {
+            next_number: 9,
+            rolls: vec![first, roll("two", "2024-02-01", &[])],
+        };
+
+        assign_roll_numbers(&mut data).unwrap();
+
+        assert_eq!(data.rolls[0].number, 8);
+        assert_eq!(data.rolls[1].number, 9);
+        assert_eq!(data.next_number, 10);
+    }
+
+    #[test]
+    fn moving_to_missing_roll_does_not_change_membership() {
+        let mut rolls = vec![roll("one", "2024-01-01", &["one.jpg"])];
+        let original = rolls[0].images.clone();
+
+        assert!(move_images_to_roll(&mut rolls, "missing", &["one.jpg".to_string()]).is_err());
+        assert_eq!(rolls[0].images, original);
+    }
+
+    #[test]
+    fn deleted_roll_numbers_are_not_reused() {
+        let mut data = RollsData {
+            next_number: 1,
+            rolls: vec![
+                roll("one", "2024-01-01", &[]),
+                roll("two", "2024-02-01", &[]),
+            ],
+        };
+        assign_roll_numbers(&mut data).unwrap();
+        data.rolls.clear();
+        data.rolls.push(roll("three", "2024-03-01", &[]));
+
+        assign_roll_numbers(&mut data).unwrap();
+
+        assert_eq!(data.rolls[0].number, 3);
+        assert_eq!(data.next_number, 4);
+    }
+}
+
 #[tauri::command]
 pub fn add_to_album(
     album_id: String,
@@ -924,7 +1301,7 @@ pub fn add_to_album(
     Ok(())
 }
 
-fn sync_album_path_changes(
+fn sync_collection_path_changes(
     app_handle: &AppHandle,
     renames: Option<&HashMap<String, String>>,
     deletions: Option<&HashSet<String>>,
@@ -1014,6 +1391,53 @@ fn sync_album_path_changes(
 
         if changed {
             let _ = save_albums(tree, app_handle.clone());
+        }
+    }
+
+    if let Ok(mut rolls) = get_rolls(app_handle.clone()) {
+        let mut changed = false;
+        for roll in &mut rolls {
+            let mut updated = Vec::new();
+            for image in roll.images.drain(..) {
+                let mut image = image;
+                if let Some((old_folder, new_folder)) = folder_rename
+                    && let Ok(relative) = Path::new(&image).strip_prefix(old_folder)
+                {
+                    image = Path::new(new_folder)
+                        .join(relative)
+                        .to_string_lossy()
+                        .into_owned();
+                    changed = true;
+                }
+                if let Some(rename_map) = renames {
+                    if let Some(new_path) = rename_map.get(&image) {
+                        image = new_path.clone();
+                        changed = true;
+                    } else if let Some((base, copy_id)) = image.rsplit_once("?vc=")
+                        && let Some(new_base) = rename_map.get(base)
+                    {
+                        image = format!("{}?vc={}", new_base, copy_id);
+                        changed = true;
+                    }
+                }
+                let deleted = deletions.is_some_and(|deleted_paths| {
+                    deleted_paths.iter().any(|path| {
+                        Path::new(&image).starts_with(path)
+                            || image
+                                .rsplit_once("?vc=")
+                                .is_some_and(|(base, _)| base == path)
+                    })
+                });
+                if deleted {
+                    changed = true;
+                } else {
+                    updated.push(image);
+                }
+            }
+            roll.images = updated;
+        }
+        if changed {
+            let _ = save_rolls(rolls, app_handle.clone());
         }
     }
 }
@@ -2210,7 +2634,7 @@ pub fn rename_folder(path: String, new_name: String, app_handle: AppHandle) -> R
         fs::rename(p, &new_path).map_err(|e| e.to_string())?;
 
         let new_folder_str = new_path.to_string_lossy().into_owned();
-        sync_album_path_changes(&app_handle, None, None, Some((&path, &new_folder_str)));
+        sync_collection_path_changes(&app_handle, None, None, Some((&path, &new_folder_str)));
 
         Ok(())
     } else {
@@ -2238,7 +2662,7 @@ pub fn delete_folder(path: String, app_handle: AppHandle) -> Result<(), String> 
 
     let mut deletions = HashSet::new();
     deletions.insert(path);
-    sync_album_path_changes(&app_handle, None, Some(&deletions), None);
+    sync_collection_path_changes(&app_handle, None, Some(&deletions), None);
 
     Ok(())
 }
@@ -2247,6 +2671,7 @@ pub fn delete_folder(path: String, app_handle: AppHandle) -> Result<(), String> 
 pub fn duplicate_file(
     path: String,
     target_album_id: Option<String>,
+    target_roll_id: Option<String>,
     app_handle: AppHandle,
 ) -> Result<String, String> {
     let (source_path, source_sidecar_path) = parse_virtual_path(&path);
@@ -2305,6 +2730,8 @@ pub fn duplicate_file(
 
     if let Some(album_id) = target_album_id {
         let _ = add_to_album(album_id, vec![dest_path_str.clone()], app_handle);
+    } else if let Some(roll_id) = target_roll_id {
+        let _ = add_to_roll(roll_id, vec![dest_path_str.clone()], app_handle);
     }
 
     Ok(dest_path_str)
@@ -2507,7 +2934,7 @@ pub fn move_files(
         }
     }
 
-    sync_album_path_changes(&app_handle, Some(&renames), None, None);
+    sync_collection_path_changes(&app_handle, Some(&renames), None, None);
 
     Ok(())
 }
@@ -3398,6 +3825,7 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
     }
 
     if files_to_trash.is_empty() {
+        sync_collection_path_changes(&app_handle, None, Some(&deletions), None);
         return Ok(());
     }
 
@@ -3435,7 +3863,7 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
         }
     }
 
-    sync_album_path_changes(&app_handle, None, Some(&deletions), None);
+    sync_collection_path_changes(&app_handle, None, Some(&deletions), None);
 
     Ok(())
 }
@@ -3509,6 +3937,9 @@ pub fn delete_files_with_associated(
                 if let Some(stem) = deletion_stem_for(&entry_filename_str)
                     && stems_to_delete.contains(stem)
                 {
+                    if is_supported_image_file(&entry_path) {
+                        deletions.insert(entry_path.to_string_lossy().into_owned());
+                    }
                     files_to_trash.insert(entry_path);
                 }
             }
@@ -3516,6 +3947,7 @@ pub fn delete_files_with_associated(
     }
 
     if files_to_trash.is_empty() {
+        sync_collection_path_changes(&app_handle, None, Some(&deletions), None);
         return Ok(());
     }
 
@@ -3545,7 +3977,7 @@ pub fn delete_files_with_associated(
         }
     }
 
-    sync_album_path_changes(&app_handle, None, Some(&deletions), None);
+    sync_collection_path_changes(&app_handle, None, Some(&deletions), None);
 
     Ok(())
 }
@@ -3962,7 +4394,7 @@ pub fn rename_files(
         }
     }
 
-    sync_album_path_changes(&app_handle, Some(&renames), None, None);
+    sync_collection_path_changes(&app_handle, Some(&renames), None, None);
 
     Ok(final_new_paths)
 }
@@ -3971,6 +4403,7 @@ pub fn rename_files(
 pub fn create_virtual_copy(
     source_virtual_path: String,
     target_album_id: Option<String>,
+    target_roll_id: Option<String>,
     app_handle: AppHandle,
 ) -> Result<String, String> {
     let (source_path, source_sidecar_path) = parse_virtual_path(&source_virtual_path);
@@ -3991,6 +4424,8 @@ pub fn create_virtual_copy(
 
     if let Some(album_id) = target_album_id {
         let _ = add_to_album(album_id, vec![new_virtual_path.clone()], app_handle);
+    } else if let Some(roll_id) = target_roll_id {
+        let _ = add_to_roll(roll_id, vec![new_virtual_path.clone()], app_handle);
     }
 
     Ok(new_virtual_path)

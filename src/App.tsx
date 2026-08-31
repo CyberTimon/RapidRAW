@@ -1,4 +1,5 @@
 import { type PointerEvent as ReactPointerEvent, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -67,9 +68,12 @@ import './i18n';
 import {
   Invokes,
   ImageFile,
+  Album,
+  AlbumItem,
   LibraryViewMode,
   Panel,
   PanelRegion,
+  Roll,
   Theme,
   ThumbnailSize,
   ThumbnailAspectRatio,
@@ -141,6 +145,7 @@ function ImageDragOverlayNode({ activeItem }: { activeItem: { path: string; path
 }
 
 function App() {
+  const { t } = useTranslation();
   const COMPACT_EDITOR_MAX_WIDTH = 900;
   const ANDROID_PHONE_MAX_WIDTH = 600;
 
@@ -337,6 +342,7 @@ function App() {
     handleImageSelect,
     handleSelectSubfolder,
     handleSelectAlbum,
+    handleSelectRoll,
     handleOpenFolder,
     handleContinueSession,
   } = useAppNavigation({
@@ -360,21 +366,30 @@ function App() {
     handleTogglePinFolder,
     handleCreateAlbumItem,
     handleRenameAlbumItem,
+    handleSaveRoll,
   } = useLibraryActions(handleImageSelect);
 
   const { displayList: sortedImageList, badges: groupBadgeInfo } = useSortedLibrary();
 
   const handleLibraryRefresh = useCallback(async () => {
     if (currentFolderPath) {
-      if (currentFolderPath.startsWith('Album: ')) {
-        const { activeAlbumId, albumTree } = useLibraryStore.getState();
+      if (currentFolderPath.startsWith('Roll: ')) {
+        const { activeRollId, setLibrary } = useLibraryStore.getState();
+        const rolls = await invoke<Roll[]>(Invokes.GetRolls);
+        setLibrary({ rolls });
+        const roll = rolls.find((item) => item.id === activeRollId);
+        if (roll) await handleSelectRoll(roll, true);
+      } else if (currentFolderPath.startsWith('Album: ')) {
+        const { activeAlbumId, setLibrary } = useLibraryStore.getState();
         if (activeAlbumId) {
-          const findObj = (nodes: any[]): any => {
-            for (const n of nodes) {
-              if (n.id === activeAlbumId) return n;
-              if (n.type === 'group') {
-                const f = findObj(n.children);
-                if (f) return f;
+          const albumTree = await invoke<AlbumItem[]>(Invokes.GetAlbums);
+          setLibrary({ albumTree });
+          const findObj = (nodes: AlbumItem[]): Album | null => {
+            for (const node of nodes) {
+              if (node.id === activeAlbumId && node.type === 'album') return node;
+              if (node.type === 'group') {
+                const match = findObj(node.children);
+                if (match) return match;
               }
             }
             return null;
@@ -386,7 +401,7 @@ function App() {
         await handleSelectSubfolder(currentFolderPath, false, undefined, false, true);
       }
     }
-  }, [currentFolderPath, handleSelectSubfolder, handleSelectAlbum]);
+  }, [currentFolderPath, handleSelectSubfolder, handleSelectAlbum, handleSelectRoll]);
 
   const {
     executeDelete,
@@ -424,6 +439,7 @@ function App() {
     handleThumbnailContextMenu,
     handleFolderTreeContextMenu,
     handleAlbumTreeContextMenu,
+    handleRollContextMenu,
     handleMainLibraryContextMenu,
   } = useAppContextMenus({
     handleImageSelect,
@@ -704,7 +720,9 @@ function App() {
               isResizing={isResizing}
               onContextMenu={handleFolderTreeContextMenu}
               onAlbumContextMenu={handleAlbumTreeContextMenu}
+              onRollContextMenu={handleRollContextMenu}
               onSelectAlbum={handleSelectAlbum}
+              onSelectRoll={handleSelectRoll}
               onFolderSelect={(path) => handleSelectSubfolder(path, false)}
               onToggleFolder={handleToggleFolder}
               onOpenFolder={handleOpenFolder}
@@ -748,7 +766,9 @@ function App() {
       isResizing,
       handleFolderTreeContextMenu,
       handleAlbumTreeContextMenu,
+      handleRollContextMenu,
       handleSelectAlbum,
+      handleSelectRoll,
       handleSelectSubfolder,
       handleToggleFolder,
       handleOpenFolder,
@@ -809,6 +829,35 @@ function App() {
         .catch((err) => {
           toast.error(`Failed to move files: ${err}`);
         });
+    }
+
+    if (active.data.current?.type === 'library-image' && over?.data.current?.type === 'roll') {
+      const targetRollId = over.data.current.id;
+      const sourcePaths = activeImageDragItem?.paths || [active.data.current.path];
+
+      invoke(Invokes.AddToRoll, { rollId: targetRollId, paths: sourcePaths })
+        .then(() => invoke<Roll[]>(Invokes.GetRolls))
+        .then((rolls) => {
+          useLibraryStore.getState().setLibrary((state) => {
+            const movedFromActiveRoll = !!state.activeRollId && state.activeRollId !== targetRollId;
+            return {
+              rolls,
+              multiSelectedPaths: [],
+              ...(movedFromActiveRoll
+                ? {
+                    imageList: state.imageList.filter((image) => !sourcePaths.includes(image.path)),
+                    libraryActivePath: sourcePaths.includes(state.libraryActivePath ?? '')
+                      ? null
+                      : state.libraryActivePath,
+                    selectionAnchorPath: sourcePaths.includes(state.selectionAnchorPath ?? '')
+                      ? null
+                      : state.selectionAnchorPath,
+                  }
+                : {}),
+            };
+          });
+        })
+        .catch((err) => toast.error(t('contextMenus.toasts.failedAddToRoll', { err })));
     }
 
     if (active.data.current?.type === 'library-image' && over?.data.current?.type === 'album') {
@@ -1025,6 +1074,7 @@ function App() {
           handleSaveCollage={handleSaveCollage}
           handleCreateAlbumItem={handleCreateAlbumItem}
           handleRenameAlbumItem={handleRenameAlbumItem}
+          handleSaveRoll={handleSaveRoll}
         />
         <ToastContainer
           position="bottom-right"

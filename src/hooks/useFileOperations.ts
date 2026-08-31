@@ -8,6 +8,7 @@ import { useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Invokes } from '../components/ui/AppProperties';
+import type { AlbumItem, Roll } from '../components/ui/AppProperties';
 import { Status } from '../components/ui/ExportImportProperties';
 
 export function useFileOperations(
@@ -68,6 +69,7 @@ export function useFileOperations(
       try {
         const command = options.includeAssociated ? 'delete_files_with_associated' : 'delete_files_from_disk';
         await invoke(command, { paths: pathsToDelete });
+        await refreshAllFolderTrees();
         await refreshImageList();
 
         if (selectedImage && activeView === 'editor') {
@@ -100,7 +102,7 @@ export function useFileOperations(
         toast.error(`Failed to delete files: ${err}`);
       }
     },
-    [refreshImageList, handleBackToLibrary, sortedImageList, handleImageSelect],
+    [refreshImageList, refreshAllFolderTrees, handleBackToLibrary, sortedImageList, handleImageSelect],
   );
 
   const handleDeleteSelected = useCallback(() => {
@@ -229,6 +231,7 @@ export function useFileOperations(
             paths: renameTargetPaths,
           });
 
+          await refreshAllFolderTrees();
           await refreshImageList();
 
           if (selectedImage && renameTargetPaths.includes(selectedImage.path)) {
@@ -256,7 +259,7 @@ export function useFileOperations(
       }
       setUI({ renameTargetPaths: [] });
     },
-    [refreshImageList, handleImageSelect, handleBackToLibrary],
+    [refreshImageList, refreshAllFolderTrees, handleImageSelect, handleBackToLibrary],
   );
 
   const handleRenameFiles = useCallback((paths: Array<string>) => {
@@ -378,12 +381,18 @@ export function useFileOperations(
   const handlePasteFiles = useCallback(
     async (mode = 'copy') => {
       const { copiedFilePaths, setProcess } = useProcessStore.getState();
-      const { currentFolderPath, setLibrary } = useLibraryStore.getState();
+      const { currentFolderPath, activeAlbumId, activeRollId, setLibrary } = useLibraryStore.getState();
 
       if (copiedFilePaths.length === 0 || !currentFolderPath) return;
 
       try {
-        if (mode === 'copy') {
+        if (activeRollId) {
+          await invoke(Invokes.AddToRoll, { rollId: activeRollId, paths: copiedFilePaths });
+          setLibrary({ rolls: await invoke<Roll[]>(Invokes.GetRolls) });
+        } else if (activeAlbumId) {
+          await invoke(Invokes.AddToAlbum, { albumId: activeAlbumId, paths: copiedFilePaths });
+          setLibrary({ albumTree: await invoke<AlbumItem[]>(Invokes.GetAlbums) });
+        } else if (mode === 'copy') {
           await invoke(Invokes.CopyFiles, { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });
         } else {
           await invoke(Invokes.MoveFiles, { sourcePaths: copiedFilePaths, destinationFolder: currentFolderPath });

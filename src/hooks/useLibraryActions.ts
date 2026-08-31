@@ -1,16 +1,20 @@
 import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
+import { useTranslation } from 'react-i18next';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
-import { Invokes, ImageFile, AlbumItem, Album, AlbumGroup } from '../components/ui/AppProperties';
+import { Invokes } from '../components/ui/AppProperties';
+import type { ImageFile, AlbumItem, Album, AlbumGroup, Roll } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { computeSortedLibrary } from './useSortedLibrary';
 import { expandGroupedPaths } from '../utils/imageGrouping';
+import { getRollPath, type RollDetails } from '../utils/collections';
 
 export function useLibraryActions(handleImageSelect?: (path: string, openInEditor?: boolean) => void) {
+  const { t } = useTranslation();
   const handleRate = useCallback((newRating: number, paths?: string[]) => {
     const { multiSelectedPaths, imageList, imageRatings, setLibrary } = useLibraryStore.getState();
     const { selectedImage } = useEditorStore.getState();
@@ -280,6 +284,20 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
 
     try {
       const updates: any = {};
+      const [albumsResult, rollsResult] = await Promise.allSettled([
+        invoke<AlbumItem[]>(Invokes.GetAlbums),
+        invoke<Roll[]>(Invokes.GetRolls),
+      ]);
+      if (albumsResult.status === 'fulfilled') {
+        setLibrary({ albumTree: albumsResult.value });
+      } else {
+        console.error('Failed to refresh albums:', albumsResult.reason);
+      }
+      if (rollsResult.status === 'fulfilled') {
+        setLibrary({ rolls: rollsResult.value });
+      } else {
+        console.error('Failed to refresh film rolls:', rollsResult.reason);
+      }
 
       if (rootPaths && rootPaths.length > 0) {
         const treesData = await invoke(Invokes.GetPinnedFolderTrees, {
@@ -405,6 +423,30 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     }
   }, []);
 
+  const handleSaveRoll = useCallback(
+    async (details: RollDetails) => {
+      const { activeRollId, setLibrary } = useLibraryStore.getState();
+      const { rollActionTarget } = useUIStore.getState();
+
+      try {
+        const currentRolls = await invoke<Roll[]>(Invokes.GetRolls);
+        const updatedRolls = rollActionTarget
+          ? currentRolls.map((roll) => (roll.id === rollActionTarget ? { ...roll, ...details } : roll))
+          : [...currentRolls, { id: crypto.randomUUID(), number: 0, images: [], ...details }];
+        await invoke(Invokes.SaveRolls, { rolls: updatedRolls });
+        const savedRolls = await invoke<Roll[]>(Invokes.GetRolls);
+        const activeRoll = savedRolls.find((roll) => roll.id === activeRollId);
+        setLibrary({
+          rolls: savedRolls,
+          ...(rollActionTarget === activeRollId && activeRoll ? { currentFolderPath: getRollPath(activeRoll) } : {}),
+        });
+      } catch (err) {
+        toast.error(t('contextMenus.toasts.failedSaveRoll', { err }));
+      }
+    },
+    [t],
+  );
+
   const handleRenameAlbumItem = useCallback(async (newName: string) => {
     const { albumTree, setLibrary } = useLibraryStore.getState();
     const { albumActionTarget } = useUIStore.getState();
@@ -446,5 +488,6 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     handleTogglePinFolder,
     handleCreateAlbumItem,
     handleRenameAlbumItem,
+    handleSaveRoll,
   };
 }

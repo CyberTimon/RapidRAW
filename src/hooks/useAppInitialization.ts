@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useShallow } from 'zustand/react/shallow';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { isCollectionPath } from '../utils/collections';
 import { useUIStore, reconcileWorkspace } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
@@ -105,6 +106,7 @@ export const useAppInitialization = ({
     currentFolderPath,
     expandedFolders,
     activeAlbumId,
+    activeRollId,
     expandedAlbumGroups,
     setSortCriteria,
     setFilterCriteria,
@@ -116,6 +118,7 @@ export const useAppInitialization = ({
       currentFolderPath: state.currentFolderPath,
       expandedFolders: state.expandedFolders,
       activeAlbumId: state.activeAlbumId,
+      activeRollId: state.activeRollId,
       expandedAlbumGroups: state.expandedAlbumGroups,
       setSortCriteria: state.setSortCriteria,
       setFilterCriteria: state.setFilterCriteria,
@@ -231,7 +234,7 @@ export const useAppInitialization = ({
 
         if (!isAndroid && rootFolders.length > 0) {
           const currentPath = settings.lastFolderState?.currentFolderPath || rootFolders[0];
-          const isAlbum = currentPath.startsWith('Album: ');
+          const isCollection = isCollectionPath(currentPath);
           const command =
             settings.libraryViewMode === LibraryViewMode.Recursive
               ? Invokes.ListImagesRecursive
@@ -245,7 +248,7 @@ export const useAppInitialization = ({
               expandedFolders: settings.lastFolderState?.expandedFolders ?? rootFolders,
               showImageCounts: settings.enableFolderImageCounts || settings.folderTreeSort?.key === 'imageCount',
             }),
-            images: isAlbum ? undefined : invoke(command, { path: currentPath }),
+            images: isCollection ? undefined : invoke(command, { path: currentPath }),
           };
         }
 
@@ -361,7 +364,7 @@ export const useAppInitialization = ({
 
   useEffect(() => {
     if (isInitialMount.current || !appSettings) return;
-    if (!currentFolderPath && !activeAlbumId) return;
+    if (!currentFolderPath && !activeAlbumId && !activeRollId) return;
 
     const currentExpanded = Array.from(expandedFolders);
     const currentExpandedAlbums = Array.from(expandedAlbumGroups);
@@ -370,27 +373,38 @@ export const useAppInitialization = ({
       currentFolderPath: null,
       expandedFolders: [],
       activeAlbumId: null,
+      activeRollId: null,
       expandedAlbumGroups: [],
     };
 
     const pathChanged = prevFolderState.currentFolderPath !== currentFolderPath;
     const expandedChanged = JSON.stringify(prevFolderState.expandedFolders || []) !== JSON.stringify(currentExpanded);
     const albumChanged = prevFolderState.activeAlbumId !== activeAlbumId;
+    const rollChanged = prevFolderState.activeRollId !== activeRollId;
     const albumExpandedChanged =
       JSON.stringify(prevFolderState.expandedAlbumGroups || []) !== JSON.stringify(currentExpandedAlbums);
 
-    if (pathChanged || expandedChanged || albumChanged || albumExpandedChanged) {
+    if (pathChanged || expandedChanged || albumChanged || rollChanged || albumExpandedChanged) {
       handleSettingsChange({
         ...appSettings,
         lastFolderState: {
           currentFolderPath,
           expandedFolders: currentExpanded,
           activeAlbumId,
+          activeRollId,
           expandedAlbumGroups: currentExpandedAlbums,
         },
       });
     }
-  }, [currentFolderPath, expandedFolders, activeAlbumId, expandedAlbumGroups, appSettings, handleSettingsChange]);
+  }, [
+    currentFolderPath,
+    expandedFolders,
+    activeAlbumId,
+    activeRollId,
+    expandedAlbumGroups,
+    appSettings,
+    handleSettingsChange,
+  ]);
 
   useEffect(() => {
     if (!appSettings) return;
