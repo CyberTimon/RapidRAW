@@ -1715,6 +1715,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       const H = isSwapped ? selectedImage.width : selectedImage.height;
       const rotation = liveRotation !== null && liveRotation !== undefined ? liveRotation : adjustments.rotation || 0;
 
+      const setLive = (pc: PercentCrop) => {
+        setEditor({ liveCropPixels: { width: Math.round((pc.width / 100) * W), height: Math.round((pc.height / 100) * H) } });
+      };
+
       const MIN_CROP_PX = 64;
       const minPctW = (MIN_CROP_PX / W) * 100;
       const minPctH = (MIN_CROP_PX / H) * 100;
@@ -1734,12 +1738,15 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       if (checkCropValid(toPixel(percentCrop), W, H, rotation)) {
         setCrop(percentCrop);
         lastValidCropRef.current = percentCrop;
+        setLive(percentCrop);
+
         return;
       }
 
       if (!lastValidCropRef.current) {
         setCrop(percentCrop);
         lastValidCropRef.current = percentCrop;
+        setLive(percentCrop);
         return;
       }
 
@@ -1826,6 +1833,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
         setCrop(finalCrop);
         lastValidCropRef.current = finalCrop;
+        setLive(finalCrop);
         return;
       }
 
@@ -1878,6 +1886,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         if (newW <= oldW && isValidInitially) {
           setCrop(targetCrop);
           lastValidCropRef.current = targetCrop;
+          setLive(targetCrop);
         } else {
           let low = 0;
           let high = 1;
@@ -1902,6 +1911,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           }
           setCrop(bestValid);
           lastValidCropRef.current = bestValid;
+          setLive(bestValid);
         }
       } else {
         const eps = 1e-3;
@@ -1969,6 +1979,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
         setCrop(finalCrop);
         lastValidCropRef.current = finalCrop;
+        setLive(finalCrop);
       }
     },
     [selectedImage, adjustments.orientationSteps, adjustments.rotation, adjustments.aspectRatio, liveRotation],
@@ -1982,6 +1993,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       if (liveRotation !== null && liveRotation !== undefined) {
         return;
       }
+
+      setEditor({ liveCropPixels: null });
 
       const orientationSteps = adjustments.orientationSteps || 0;
       const isSwapped = orientationSteps === 1 || orientationSteps === 3;

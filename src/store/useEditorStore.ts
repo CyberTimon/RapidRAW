@@ -59,6 +59,7 @@ interface EditorState {
   isStraightenActive: boolean;
   isWbPickerActive: boolean;
   liveRotation: number | null;
+  liveCropPixels: { width: number; height: number } | null;
   brushSettings: BrushSettings | null;
 
   // Masks & AI
@@ -122,6 +123,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   isStraightenActive: false,
   isWbPickerActive: false,
   liveRotation: null,
+  liveCropPixels: null,
 
   copiedSectionAdjustments: null,
   copiedMask: null,

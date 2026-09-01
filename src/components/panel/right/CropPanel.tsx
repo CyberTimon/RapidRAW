@@ -24,7 +24,7 @@ import Slider from '../../ui/Slider';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
-import { calculateAreaPreservingCrop, calculateCenteredCrop } from '../../../utils/cropUtils';
+import { calculateAreaPreservingCrop, calculateCenteredCrop, getOrientedDimensions } from '../../../utils/cropUtils';
 import { Crop } from 'react-image-crop';
 
 const BASE_RATIO = 1.618;
@@ -52,6 +52,7 @@ export default function CropPanel() {
   const isStraightenActive = useEditorStore((s) => s.isStraightenActive);
   const activeOverlay = useEditorStore((s) => s.overlayMode);
   const setEditor = useEditorStore((s) => s.setEditor);
+  const liveCropPixels = useEditorStore((s) => s.liveCropPixels);
   const { setAdjustments, handleRotate } = useEditorActions();
   const [customW, setCustomW] = useState('');
   const [customH, setCustomH] = useState('');
@@ -567,6 +568,36 @@ export default function CropPanel() {
                 </div>
               </div>
             </div>
+
+            {selectedImage?.width && selectedImage?.height && (() => {
+              const live = liveCropPixels;
+              let cropW: number;
+              let cropH: number;
+              if (live) {
+                cropW = live.width;
+                cropH = live.height;
+              } else {
+                const crop = adjustments.crop;
+                const { width: W, height: H } = getOrientedDimensions(
+                  selectedImage.width,
+                  selectedImage.height,
+                  orientationSteps,
+                );
+                cropW = crop
+                  ? crop.unit === '%' ? Math.round((crop.width / 100) * W) : Math.round(crop.width)
+                  : W;
+                cropH = crop
+                  ? crop.unit === '%' ? Math.round((crop.height / 100) * H) : Math.round(crop.height)
+                  : H;
+              }
+              return (
+                <div className="flex justify-center">
+                  <Text color={TextColors.secondary}>
+                    {cropW.toLocaleString()} &times; {cropH.toLocaleString()} px
+                  </Text>
+                </div>
+              );
+            })()}
 
             <div className="space-y-4">
               <Text variant={TextVariants.heading} className="mb-2">
