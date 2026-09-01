@@ -902,7 +902,7 @@ async fn preview_geometry_transform(
             .cloned();
 
         if let Some(cached_image) = maybe_cached_image {
-            cached_image
+            (*cached_image).clone()
         } else {
             let context = get_or_init_gpu_context(&state, &app_handle)?;
 
@@ -979,10 +979,15 @@ async fn preview_geometry_transform(
                 .geometry_cache
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
-            if cache.len() > 5 {
-                cache.clear();
+            if cache.len() >= 4 {
+                // Evict one entry at a time rather than clearing all at once.
+                // Each value holds a full decoded DynamicImage; clearing all
+                // entries simultaneously causes a spike in re-processing work.
+                if let Some(oldest_key) = cache.keys().next().cloned() {
+                    cache.remove(&oldest_key);
+                }
             }
-            cache.insert(visual_hash, processed_base.clone());
+            cache.insert(visual_hash, Arc::new(processed_base.clone()));
 
             processed_base
         }
