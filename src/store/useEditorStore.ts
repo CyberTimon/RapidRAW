@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { Adjustments, INITIAL_ADJUSTMENTS, MaskContainer, AiPatch } from '../utils/adjustments';
+import { Adjustments, INITIAL_ADJUSTMENTS, MaskContainer, AiPatch, GuideLine } from '../utils/adjustments';
 import { SelectedImage, WaveformData, BrushSettings } from '../components/ui/AppProperties';
 import { ChannelConfig } from '../components/adjustments/Curves';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
 import { ToolType } from '../components/panel/right/Masks';
 import { OverlayMode } from '../components/panel/right/CropPanel';
+import { GuidedResultJson } from '../components/panel/editor/overlays/GuidedPerspectiveOverlay';
 
 interface InteractivePatch {
   url: string;
@@ -59,6 +60,12 @@ interface EditorState {
   isStraightenActive: boolean;
   isWbPickerActive: boolean;
   liveRotation: number | null;
+  isGuidedPerspectiveActive: boolean;
+  guidedLines: GuideLine[];
+  selectedGuideLineId: string | null;
+  guidedResult: GuidedResultJson | null;
+  guidedPreviewUrl: string | null;
+  guidedAutoCrop: boolean;
   brushSettings: BrushSettings | null;
 
   // Masks & AI
@@ -122,6 +129,12 @@ export const useEditorStore = create<EditorState>((set) => ({
   isStraightenActive: false,
   isWbPickerActive: false,
   liveRotation: null,
+  isGuidedPerspectiveActive: false,
+  guidedLines: [],
+  selectedGuideLineId: null,
+  guidedResult: null,
+  guidedPreviewUrl: null,
+  guidedAutoCrop: true,
 
   copiedSectionAdjustments: null,
   copiedMask: null,

@@ -10,6 +10,7 @@ import {
   RotateCw,
   Ruler,
   Scan,
+  Waypoints,
   X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +19,7 @@ import clsx from 'clsx';
 import { Orientation } from '../../ui/AppProperties';
 import TransformModal from '../../modals/TransformModal';
 import LensCorrectionModal from '../../modals/LensCorrectionModal';
+import GuidedPerspectiveModal from '../../modals/GuidedPerspectiveModal';
 import { motion } from 'framer-motion';
 import Text from '../../ui/Text';
 import Slider from '../../ui/Slider';
@@ -52,7 +54,9 @@ export default function CropPanel() {
   const isStraightenActive = useEditorStore((s) => s.isStraightenActive);
   const activeOverlay = useEditorStore((s) => s.overlayMode);
   const setEditor = useEditorStore((s) => s.setEditor);
-  const { setAdjustments, handleRotate } = useEditorActions();
+  const { setAdjustments, handleRotate, handleEnterGuided, handleCancelGuided, handleApplyGuided } =
+    useEditorActions();
+  const isGuidedPerspectiveActive = useEditorStore((s) => s.isGuidedPerspectiveActive);
   const [customW, setCustomW] = useState('');
   const [customH, setCustomH] = useState('');
   const [isTransformModalOpen, setIsTransformModalOpen] = useState(false);
@@ -268,6 +272,13 @@ export default function CropPanel() {
     }
   }, [orientationSteps, activePreset, aspectRatio, getEffectiveOriginalRatio, applyAspectRatio]);
 
+  useEffect(() => {
+    if (isGuidedPerspectiveActive) {
+      setIsTransformModalOpen(false);
+      setIsLensModalOpen(false);
+    }
+  }, [isGuidedPerspectiveActive]);
+
   const handleCustomInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (name === 'customW') {
@@ -382,6 +393,7 @@ export default function CropPanel() {
       lensTcaEnabled: INITIAL_ADJUSTMENTS.lensTcaEnabled,
       lensVignetteEnabled: INITIAL_ADJUSTMENTS.lensVignetteEnabled,
       lensDistortionParams: INITIAL_ADJUSTMENTS.lensDistortionParams,
+      guidedPerspective: INITIAL_ADJUSTMENTS.guidedPerspective,
     }));
   };
 
@@ -681,7 +693,7 @@ export default function CropPanel() {
               <Text variant={TextVariants.heading} className="mb-2">
                 {t('editor.crop.geometryHeading')}
               </Text>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <motion.div
                   className="flex flex-col items-center justify-center p-3 cursor-pointer rounded-lg transition-colors bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary group"
                   onClick={() => setIsTransformModalOpen(true)}
@@ -701,6 +713,20 @@ export default function CropPanel() {
                 >
                   <Aperture size={20} className="transition-none" />
                   <span className="text-xs mt-2 transition-none">{t('editor.crop.labels.lens')}</span>
+                </motion.div>
+                <motion.div
+                  className="flex flex-col items-center justify-center p-3 cursor-pointer rounded-lg transition-colors bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary group"
+                  onClick={() => {
+                    setIsTransformModalOpen(false);
+                    setIsLensModalOpen(false);
+                    handleEnterGuided();
+                  }}
+                  data-tooltip={t('editor.crop.tooltips.guided')}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                >
+                  <Waypoints size={20} className="transition-none" />
+                  <span className="text-xs mt-2 transition-none">{t('editor.crop.labels.guided')}</span>
                 </motion.div>
               </div>
             </div>
@@ -747,6 +773,14 @@ export default function CropPanel() {
             ...newParams,
           }));
         }}
+        currentAdjustments={adjustments}
+        selectedImage={selectedImage}
+      />
+
+      <GuidedPerspectiveModal
+        isOpen={isGuidedPerspectiveActive}
+        onClose={handleCancelGuided}
+        onApply={handleApplyGuided}
         currentAdjustments={adjustments}
         selectedImage={selectedImage}
       />

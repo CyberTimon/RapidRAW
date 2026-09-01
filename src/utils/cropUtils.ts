@@ -1,4 +1,5 @@
 import { Crop } from 'react-image-crop';
+import { Adjustments } from './adjustments';
 
 export function getOrientedDimensions(
   imageWidth: number,
@@ -193,4 +194,41 @@ export function calculateStraightenAngle(dx: number, dy: number): number {
   if (correction < -180) correction += 360;
 
   return correction;
+}
+
+export function guidedCropToPixelCrop(
+  crop: [number, number, number, number],
+  adjustments: Adjustments,
+  image: { width: number; height: number },
+): Crop {
+  let [x, y, w, h] = crop;
+  const steps = ((adjustments.orientationSteps % 4) + 4) % 4;
+  if (steps === 1) {
+    [x, y, w, h] = [1 - y - h, x, h, w];
+  } else if (steps === 2) {
+    x = 1 - x - w;
+    y = 1 - y - h;
+  } else if (steps === 3) {
+    [x, y, w, h] = [y, 1 - x - w, h, w];
+  }
+  if (adjustments.flipHorizontal) {
+    x = 1 - x - w;
+  }
+  if (adjustments.flipVertical) {
+    y = 1 - y - h;
+  }
+  const { width: baseW, height: baseH } = getOrientedDimensions(
+    image.width,
+    image.height,
+    adjustments.orientationSteps,
+  );
+  let px = Math.ceil(x * baseW);
+  let py = Math.ceil(y * baseH);
+  let pw = Math.floor(w * baseW);
+  let ph = Math.floor(h * baseH);
+  px = Math.max(0, Math.min(px, baseW));
+  py = Math.max(0, Math.min(py, baseH));
+  pw = Math.max(0, Math.min(pw, baseW - px));
+  ph = Math.max(0, Math.min(ph, baseH - py));
+  return { unit: 'px', x: px, y: py, width: pw, height: ph };
 }

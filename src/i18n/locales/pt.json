@@ -456,6 +456,7 @@
       "labels": {
         "flipHoriz": "Inverter Horiz.",
         "flipVert": "Inverter Vert.",
+        "guided": "Guiado",
         "lens": "Lente",
         "rotateLeft": "Girar para a Esquerda",
         "rotateRight": "Girar para a Direita",
@@ -541,6 +542,7 @@
         "compositionOverlay": "Sobreposição de Composição",
         "flipHoriz": "Inverter imagem horizontalmente",
         "flipVert": "Inverter imagem verticalmente",
+        "guided": "Correção de perspetiva guiada",
         "lens": "Correção de distorção de lente",
         "overlayDetails": "Sobreposição: {{name}}{{rotateHint}}",
         "resetFineRotation": "Redefinir Rotação Fina",
@@ -558,6 +560,17 @@
       "done": "Concluído",
       "exporting": "Exportando…",
       "savesTo": "Edição externa — salva em"
+    },
+    "guided": {
+      "constrainCrop": "Restringir recorte",
+      "hint": "Desenhe ao longo das arestas que devem ser verticais ou horizontais",
+      "lineCount": "{{count}}/4 linhas desenhadas, são necessárias pelo menos 2",
+      "toast": {
+        "aggressiveCrop": "A correção recorta uma grande parte da imagem",
+        "angleRejected": "A linha está demasiado longe da vertical ou da horizontal",
+        "maxLines": "Máximo de 2 linhas verticais e 2 horizontais",
+        "needTwoLines": "Desenhe pelo menos 2 linhas para a correção de perspetiva"
+      }
     },
     "layout": {
       "split": "Dividir"
@@ -1185,6 +1198,7 @@
         "curves": "Curvas",
         "exposureToneMapper": "Exposição e Mapeador de Tons",
         "grain": "Granulação",
+        "guidedPerspective": "Perspetiva guiada",
         "halationGlow": "Halo e Brilho",
         "hueShift": "Deslocamento de matiz global",
         "lensCorrection": "Correção de Lente",
@@ -1299,6 +1313,12 @@
       "stacking": "Empilhando Foco",
       "start": "Iniciar",
       "title": "Empilhamento de Foco"
+    },
+    "guidedPerspective": {
+      "apply": "Aplicar",
+      "cancel": "Cancelar",
+      "resetTooltip": "Repor linhas-guia",
+      "title": "Perspetiva guiada"
     },
     "hdr": {
       "cancel": "Cancelar",
@@ -1614,6 +1634,7 @@
         "toggle_export": "Alternar painel de Exportação",
         "toggle_folder_tree": "Alternar painel da árvore de pastas",
         "toggle_fullscreen": "Alternar tela cheia",
+        "toggle_guided_perspective": "Alternar perspetiva guiada",
         "toggle_left_panel": "Alternar painel esquerdo",
         "toggle_library_exif": "Alternar sobreposição EXIF",
         "toggle_masks": "Alternar painel de Máscaras",

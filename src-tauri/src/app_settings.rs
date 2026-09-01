@@ -151,6 +151,7 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "lensDistortionEnabled",
         "lensTcaEnabled",
         "lensVignetteEnabled",
+        "guidedPerspective",
     ]
     .iter()
     .map(|s| s.to_string())
@@ -185,6 +186,7 @@ pub fn default_included_adjustments() -> HashSet<String> {
         "lensDistortionEnabled",
         "lensTcaEnabled",
         "lensVignetteEnabled",
+        "guidedPerspective",
     ];
 
     for item in off_by_default.iter() {

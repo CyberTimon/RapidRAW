@@ -2,10 +2,12 @@ import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import { toast } from 'react-toastify';
+import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useProcessStore } from '../store/useProcessStore';
+import { useUIStore } from '../store/useUIStore';
 import {
   Adjustments,
   INITIAL_ADJUSTMENTS,
@@ -14,8 +16,8 @@ import {
   LensAdjustment,
   normalizeLoadedAdjustments,
 } from '../utils/adjustments';
-import { calculateCenteredCrop } from '../utils/cropUtils';
-import { Invokes } from '../components/ui/AppProperties';
+import { calculateCenteredCrop, guidedCropToPixelCrop } from '../utils/cropUtils';
+import { Invokes, Panel } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 
 export const debouncedSetHistory = debounce((newAdj: Adjustments) => {
@@ -30,6 +32,7 @@ export const debouncedSave = debounce((path: string, adjustmentsToSave: Adjustme
 }, 300);
 
 export function useEditorActions() {
+  const { t } = useTranslation();
   const setEditor = useEditorStore((s) => s.setEditor);
 
   const setAdjustments = useCallback(
@@ -115,6 +118,7 @@ export function useEditorActions() {
           'lensDistortionEnabled',
           'lensTcaEnabled',
           'lensVignetteEnabled',
+          'guidedPerspective',
         ];
 
         geometryKeys.forEach((key) => {
@@ -358,6 +362,66 @@ export function useEditorActions() {
     useEditorStore.getState().setEditor({ zoom: transformZoom });
   }, []);
 
+  const handleEnterGuided = useCallback(() => {
+    const { adjustments } = useEditorStore.getState();
+    const committed = adjustments.guidedPerspective;
+    useUIStore.getState().setPanel(Panel.Crop);
+    setEditor({
+      isGuidedPerspectiveActive: true,
+      guidedLines: committed?.lines ? structuredClone(committed.lines) : [],
+      selectedGuideLineId: null,
+      guidedResult: null,
+      guidedPreviewUrl: null,
+      guidedAutoCrop: committed?.autoCrop ?? true,
+      isStraightenActive: false,
+      isRotationActive: false,
+      isWbPickerActive: false,
+      activeMaskId: null,
+      activeMaskContainerId: null,
+    });
+  }, [setEditor]);
+
+  const handleCancelGuided = useCallback(() => {
+    setEditor({
+      isGuidedPerspectiveActive: false,
+      guidedLines: [],
+      selectedGuideLineId: null,
+      guidedResult: null,
+      guidedPreviewUrl: null,
+    });
+  }, [setEditor]);
+
+  const handleApplyGuided = useCallback(() => {
+    const { guidedLines, guidedResult, guidedAutoCrop, selectedImage } = useEditorStore.getState();
+    if (!guidedResult?.valid) {
+      toast.error(t('editor.guided.toast.needTwoLines'));
+      return;
+    }
+    const [_cx, _cy, cw, ch] = guidedResult.crop;
+    if (cw * ch < 0.5) {
+      toast.warn(t('editor.guided.toast.aggressiveCrop'));
+    }
+    setAdjustments((prev) => {
+      const next: Adjustments = {
+        ...prev,
+        transformVertical: 0,
+        transformHorizontal: 0,
+        transformRotate: 0,
+        transformDistortion: 0,
+        transformScale: 100,
+        transformAspect: 0,
+        transformXOffset: 0,
+        transformYOffset: 0,
+        guidedPerspective: { enabled: true, lines: guidedLines, autoCrop: guidedAutoCrop },
+      };
+      if (guidedAutoCrop && selectedImage?.width && selectedImage?.height) {
+        next.crop = guidedCropToPixelCrop(guidedResult.crop, prev, selectedImage);
+      }
+      return next;
+    });
+    handleCancelGuided();
+  }, [setAdjustments, handleCancelGuided, t]);
+
   return {
     setAdjustments,
     handleRotate,
@@ -369,5 +433,8 @@ export function useEditorActions() {
     handlePasteAdjustments,
     handleZoomChange,
     toggleShowOriginal,
+    handleEnterGuided,
+    handleCancelGuided,
+    handleApplyGuided,
   };
 }

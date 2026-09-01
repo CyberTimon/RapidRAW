@@ -456,6 +456,7 @@
       "labels": {
         "flipHoriz": "Miroir Horiz",
         "flipVert": "Miroir Vert",
+        "guided": "Guidé",
         "lens": "Objectif",
         "rotateLeft": "Pivoter à gauche",
         "rotateRight": "Pivoter à droite",
@@ -541,6 +542,7 @@
         "compositionOverlay": "Superposition de composition",
         "flipHoriz": "Retourner l'image horizontalement",
         "flipVert": "Retourner l'image verticalement",
+        "guided": "Correction de perspective guidée",
         "lens": "Correction de distorsion de l'objectif",
         "overlayDetails": "Superposition : {{name}}{{rotateHint}}",
         "resetFineRotation": "Réinitialiser la rotation fine",
@@ -558,6 +560,17 @@
       "done": "Terminé",
       "exporting": "Exportation…",
       "savesTo": "Modification externe — s'enregistre dans"
+    },
+    "guided": {
+      "constrainCrop": "Contraindre le recadrage",
+      "hint": "Tracez le long des bords qui doivent être verticaux ou horizontaux",
+      "lineCount": "{{count}}/4 lignes tracées, 2 minimum",
+      "toast": {
+        "aggressiveCrop": "La correction recadre une grande partie de l'image",
+        "angleRejected": "La ligne s'écarte trop de la verticale ou de l'horizontale",
+        "maxLines": "Maximum 2 lignes verticales et 2 horizontales",
+        "needTwoLines": "Tracez au moins 2 lignes pour la correction de perspective"
+      }
     },
     "layout": {
       "split": "Diviser"
@@ -1185,6 +1198,7 @@
         "curves": "Courbes",
         "exposureToneMapper": "Exposition & Mappeur de tons",
         "grain": "Grain",
+        "guidedPerspective": "Perspective guidée",
         "halationGlow": "Halo & Lueur",
         "hueShift": "Décalage de teinte global",
         "lensCorrection": "Correction de l'objectif",
@@ -1298,6 +1312,12 @@
       "stacking": "Empilement de la mise au point",
       "start": "Démarrer",
       "title": "Empilement de mise au point"
+    },
+    "guidedPerspective": {
+      "apply": "Appliquer",
+      "cancel": "Annuler",
+      "resetTooltip": "Réinitialiser les lignes de guide",
+      "title": "Perspective guidée"
     },
     "hdr": {
       "cancel": "Annuler",
@@ -1613,6 +1633,7 @@
         "toggle_export": "Basculer le panneau d'exportation",
         "toggle_folder_tree": "Afficher/Masquer le panneau d'arborescence des dossiers",
         "toggle_fullscreen": "Basculer en plein écran",
+        "toggle_guided_perspective": "Basculer la perspective guidée",
         "toggle_left_panel": "Afficher/Masquer le panneau gauche",
         "toggle_library_exif": "Basculer la superposition EXIF",
         "toggle_masks": "Basculer le panneau des masques",

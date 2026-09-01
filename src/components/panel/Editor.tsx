@@ -1434,6 +1434,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       'lensDistortionEnabled',
       'lensTcaEnabled',
       'lensVignetteEnabled',
+      'guidedPerspective',
     ];
 
     const geometry: any = {};

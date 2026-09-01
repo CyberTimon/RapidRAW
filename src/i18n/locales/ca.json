@@ -436,6 +436,7 @@
       "labels": {
         "flipHoriz": "Capgirar horitz.",
         "flipVert": "Capgirar vert.",
+        "guided": "Guiat",
         "lens": "Objectiu",
         "rotateLeft": "Girar a l'esquerra",
         "rotateRight": "Girar a la dreta",
@@ -521,6 +522,7 @@
         "compositionOverlay": "Superposició de composició",
         "flipHoriz": "Capgirar la imatge horitzontalment",
         "flipVert": "Capgirar la imatge verticalment",
+        "guided": "Correcció de perspectiva guiada",
         "lens": "Correcció de la distorsió de l'objectiu",
         "overlayDetails": "Superposició: {{name}}{{rotateHint}}",
         "resetFineRotation": "Restablir rotació fina",
@@ -538,6 +540,17 @@
       "done": "Fet",
       "exporting": "S'està exportant…",
       "savesTo": "Edició externa — es desa a"
+    },
+    "guided": {
+      "constrainCrop": "Restringir el retall",
+      "hint": "Dibuixa al llarg de les vores que han de ser verticals o horitzontals",
+      "lineCount": "{{count}}/4 línies dibuixades, en calen almenys 2",
+      "toast": {
+        "aggressiveCrop": "La correcció retalla una gran part de la imatge",
+        "angleRejected": "La línia s'allunya massa de la vertical o l'horitzontal",
+        "maxLines": "Màxim 2 línies verticals i 2 horitzontals",
+        "needTwoLines": "Dibuixa almenys 2 línies per a la correcció de perspectiva"
+      }
     },
     "layout": {
       "split": "Dividir"
@@ -1161,6 +1174,7 @@
         "curves": "Corbes",
         "exposureToneMapper": "Exposició i Mapejador de tons",
         "grain": "Gra",
+        "guidedPerspective": "Perspectiva guiada",
         "halationGlow": "Halació i Resplendor",
         "hueShift": "Canvi de to global",
         "lensCorrection": "Correcció de l'objectiu",
@@ -1272,6 +1286,12 @@
       "stacking": "Apilant enfocament",
       "start": "Inicia",
       "title": "Apilament d'enfocament"
+    },
+    "guidedPerspective": {
+      "apply": "Aplicar",
+      "cancel": "Cancel·lar",
+      "resetTooltip": "Restablir les línies guia",
+      "title": "Perspectiva guiada"
     },
     "hdr": {
       "cancel": "Cancel·lar",
@@ -1580,6 +1600,7 @@
         "toggle_export": "Alternar tauler d'Exportació",
         "toggle_folder_tree": "Alternar tauler d'arbre de carpetes",
         "toggle_fullscreen": "Alternar pantalla completa",
+        "toggle_guided_perspective": "Commuta la perspectiva guiada",
         "toggle_left_panel": "Commutar el panell esquerre",
         "toggle_library_exif": "Alternar superposició EXIF",
         "toggle_masks": "Alternar tauler de Màscares",

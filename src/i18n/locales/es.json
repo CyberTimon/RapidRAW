@@ -456,6 +456,7 @@
       "labels": {
         "flipHoriz": "Voltear Horiz",
         "flipVert": "Voltear Vert",
+        "guided": "Guiado",
         "lens": "Lente",
         "rotateLeft": "Rotar a la izquierda",
         "rotateRight": "Rotar a la derecha",
@@ -541,6 +542,7 @@
         "compositionOverlay": "Superposición de composición",
         "flipHoriz": "Voltear imagen horizontalmente",
         "flipVert": "Voltear imagen verticalmente",
+        "guided": "Corrección de perspectiva guiada",
         "lens": "Corrección de distorsión de lente",
         "overlayDetails": "Superposición: {{name}}{{rotateHint}}",
         "resetFineRotation": "Restablecer rotación fina",
@@ -558,6 +560,17 @@
       "done": "Listo",
       "exporting": "Exportando…",
       "savesTo": "Edición externa: se guarda en"
+    },
+    "guided": {
+      "constrainCrop": "Restringir recorte",
+      "hint": "Dibuja a lo largo de los bordes que deben ser verticales u horizontales",
+      "lineCount": "{{count}}/4 líneas dibujadas, se necesitan al menos 2",
+      "toast": {
+        "aggressiveCrop": "La corrección recorta una gran parte de la imagen",
+        "angleRejected": "La línea se aleja demasiado de la vertical o la horizontal",
+        "maxLines": "Máximo 2 líneas verticales y 2 horizontales",
+        "needTwoLines": "Dibuja al menos 2 líneas para la corrección de perspectiva"
+      }
     },
     "layout": {
       "split": "Dividir"
@@ -1185,6 +1198,7 @@
         "curves": "Curvas",
         "exposureToneMapper": "Exposición y Mapeador de tonos",
         "grain": "Grano",
+        "guidedPerspective": "Perspectiva guiada",
         "halationGlow": "Halación y Resplandor",
         "hueShift": "Cambio de tono global",
         "lensCorrection": "Corrección de lente",
@@ -1298,6 +1312,12 @@
       "stacking": "Apilando enfoque",
       "start": "Iniciar",
       "title": "Apilamiento de enfoque"
+    },
+    "guidedPerspective": {
+      "apply": "Aplicar",
+      "cancel": "Cancelar",
+      "resetTooltip": "Restablecer líneas guía",
+      "title": "Perspectiva guiada"
     },
     "hdr": {
       "cancel": "Cancelar",
@@ -1613,6 +1633,7 @@
         "toggle_export": "Alternar panel de Exportación",
         "toggle_folder_tree": "Alternar panel de árbol de carpetas",
         "toggle_fullscreen": "Alternar pantalla completa",
+        "toggle_guided_perspective": "Alternar perspectiva guiada",
         "toggle_left_panel": "Alternar panel izquierdo",
         "toggle_library_exif": "Alternar superposición EXIF",
         "toggle_masks": "Alternar panel de Máscaras",

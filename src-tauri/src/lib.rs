@@ -22,6 +22,7 @@ mod file_management;
 mod focus_stacking;
 mod formats;
 mod gpu_processing;
+mod guided_perspective;
 mod hdr_deghosting;
 mod image_loader;
 mod image_processing;
@@ -971,6 +972,17 @@ async fn preview_geometry_transform(
         } else {
             adjusted_params.lens_vignette_amount *= 0.8;
         }
+
+        let (base_w, base_h) = base_image_to_warp.dimensions();
+        log::debug!(
+            "preview_geometry_transform guided_active={} valid_lines={}",
+            adjusted_params.guided_perspective_enabled,
+            crate::guided_perspective::count_valid_lines(
+                &adjusted_params.guided_lines,
+                base_w as f64,
+                base_h as f64,
+            )
+        );
 
         let warped_image = warp_image_geometry(&base_image_to_warp, adjusted_params);
         let orientation_steps = js_adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
@@ -2261,6 +2273,7 @@ pub fn run() {
             generate_preset_preview,
             generate_uncropped_preview,
             preview_geometry_transform,
+            guided_perspective::calculate_guided_perspective,
             get_log_file_path,
             frontend_log,
             save_collage,

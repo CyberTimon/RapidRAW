@@ -31,7 +31,15 @@ export const useKeyboardShortcuts = ({
   handleToggleFullScreen,
   handleZoomChange,
 }: KeyboardShortcutsProps) => {
-  const { handleRotate, handleCopyAdjustments, handlePasteAdjustments, toggleShowOriginal } = useEditorActions();
+  const {
+    handleRotate,
+    handleCopyAdjustments,
+    handlePasteAdjustments,
+    toggleShowOriginal,
+    handleEnterGuided,
+    handleCancelGuided,
+    handleApplyGuided,
+  } = useEditorActions();
   const { handleRate, handleSetColorLabel } = useLibraryActions();
 
   const sortedListRef = useRef(sortedImageList);
@@ -445,6 +453,14 @@ export const useKeyboardShortcuts = ({
           }
         },
       },
+      toggle_guided_perspective: {
+        shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
+        execute: (e: any, s: any) => {
+          e.preventDefault();
+          if (s.editor.isGuidedPerspectiveActive) handleCancelGuided();
+          else handleEnterGuided();
+        },
+      },
       rate_0: {
         shouldFire: () => true,
         execute: (e: any) => {
@@ -564,6 +580,10 @@ export const useKeyboardShortcuts = ({
         match: (e: KeyboardEvent) => e.code === 'Escape',
         execute: (e: KeyboardEvent, s: any) => {
           e.preventDefault();
+          if (s.editor.isGuidedPerspectiveActive) {
+            handleCancelGuided();
+            return;
+          }
           if (s.editor.isStraightenActive) s.editor.setEditor({ isStraightenActive: false });
           else if (s.ui.customEscapeHandler) s.ui.customEscapeHandler();
           else if (s.editor.activeAiSubMaskId) s.editor.setEditor({ activeAiSubMaskId: null });
@@ -574,6 +594,27 @@ export const useKeyboardShortcuts = ({
           else if (s.ui.isFullScreen) handleToggleFullScreen();
           else if (s.ui.activeView === 'editor') handleBackToLibrary();
           else if (s.ui.activeView === 'library' && s.library.rootPaths?.length > 0) handleGoHome();
+        },
+      },
+      {
+        match: (e: KeyboardEvent, s: any) =>
+          (e.code === 'Enter' || e.code === 'NumpadEnter') && s.editor.isGuidedPerspectiveActive,
+        execute: (e: KeyboardEvent) => {
+          e.preventDefault();
+          handleApplyGuided();
+        },
+      },
+      {
+        match: (e: KeyboardEvent, s: any) => {
+          const isDeleteKey = s.settings.osPlatform === 'macos' ? e.code === 'Backspace' : e.code === 'Delete';
+          return isDeleteKey && s.editor.isGuidedPerspectiveActive && !!s.editor.selectedGuideLineId;
+        },
+        execute: (e: KeyboardEvent, s: any) => {
+          e.preventDefault();
+          s.editor.setEditor({
+            guidedLines: s.editor.guidedLines.filter((l: any) => l.id !== s.editor.selectedGuideLineId),
+            selectedGuideLineId: null,
+          });
         },
       },
       {
@@ -694,5 +735,8 @@ export const useKeyboardShortcuts = ({
     handleRate,
     handleSetColorLabel,
     toggleShowOriginal,
+    handleEnterGuided,
+    handleCancelGuided,
+    handleApplyGuided,
   ]);
 };

@@ -434,6 +434,7 @@
       "labels": {
         "flipHoriz": "水平翻转",
         "flipVert": "垂直翻转",
+        "guided": "引导",
         "lens": "镜头",
         "rotateLeft": "向左旋转",
         "rotateRight": "向右旋转",
@@ -519,6 +520,7 @@
         "compositionOverlay": "构图叠加",
         "flipHoriz": "水平翻转图像",
         "flipVert": "垂直翻转图像",
+        "guided": "引导式透视校正",
         "lens": "镜头畸变校正",
         "overlayDetails": "叠加：{{name}}{{rotateHint}}",
         "resetFineRotation": "重置精细旋转",
@@ -536,6 +538,17 @@
       "done": "完成",
       "exporting": "正在导出…",
       "savesTo": "外部编辑 — 保存至"
+    },
+    "guided": {
+      "constrainCrop": "约束裁剪",
+      "hint": "沿应保持垂直或水平的边缘绘制",
+      "lineCount": "已绘制 {{count}}/4 条线，至少需要 2 条",
+      "toast": {
+        "aggressiveCrop": "校正会裁掉图像的很大一部分",
+        "angleRejected": "线条偏离垂直或水平太多",
+        "maxLines": "最多 2 条垂直线和 2 条水平线",
+        "needTwoLines": "透视校正至少需要绘制 2 条线"
+      }
     },
     "layout": {
       "split": "拆分"
@@ -1159,6 +1172,7 @@
         "curves": "曲线",
         "exposureToneMapper": "曝光与色调映射",
         "grain": "颗粒",
+        "guidedPerspective": "引导透视",
         "halationGlow": "光晕与发光",
         "hueShift": "全局色相偏移",
         "lensCorrection": "镜头校正",
@@ -1270,6 +1284,12 @@
       "stacking": "正在合成焦距",
       "start": "开始",
       "title": "焦距合成"
+    },
+    "guidedPerspective": {
+      "apply": "应用",
+      "cancel": "取消",
+      "resetTooltip": "重置辅助线",
+      "title": "引导透视"
     },
     "hdr": {
       "cancel": "取消",
@@ -1578,6 +1598,7 @@
         "toggle_export": "切换导出面板",
         "toggle_folder_tree": "切换文件夹树面板",
         "toggle_fullscreen": "切换全屏",
+        "toggle_guided_perspective": "切换引导透视",
         "toggle_left_panel": "切换左侧面板",
         "toggle_library_exif": "切换 EXIF 叠加",
         "toggle_masks": "切换蒙版面板",

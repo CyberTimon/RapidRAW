@@ -476,6 +476,7 @@
       "labels": {
         "flipHoriz": "Przerzuć w poziomie",
         "flipVert": "Przerzuć w pionie",
+        "guided": "Prowadzone",
         "lens": "Obiektyw",
         "rotateLeft": "Obróć w lewo",
         "rotateRight": "Obróć w prawo",
@@ -561,6 +562,7 @@
         "compositionOverlay": "Nakładka kompozycji",
         "flipHoriz": "Przerzuć obraz w poziomie",
         "flipVert": "Przerzuć obraz w pionie",
+        "guided": "Prowadzona korekcja perspektywy",
         "lens": "Korekcja zniekształceń obiektywu",
         "overlayDetails": "Nakładka: {{name}}{{rotateHint}}",
         "resetFineRotation": "Resetuj precyzyjny obrót",
@@ -578,6 +580,17 @@
       "done": "Gotowe",
       "exporting": "Eksportowanie…",
       "savesTo": "Zewnętrzna edycja — zapisuje do"
+    },
+    "guided": {
+      "constrainCrop": "Ogranicz kadrowanie",
+      "hint": "Rysuj wzdłuż krawędzi, które mają być pionowe lub poziome",
+      "lineCount": "{{count}}/4 linie, potrzeba co najmniej 2",
+      "toast": {
+        "aggressiveCrop": "Korekcja obcina dużą część obrazu",
+        "angleRejected": "Linia zbyt mocno odbiega od pionu lub poziomu",
+        "maxLines": "Maksimum 2 linie pionowe i 2 poziome",
+        "needTwoLines": "Narysuj co najmniej 2 linie do korekcji perspektywy"
+      }
     },
     "layout": {
       "split": "Podziel"
@@ -1209,6 +1222,7 @@
         "curves": "Krzywe",
         "exposureToneMapper": "Ekspozycja i Mapowanie tonów",
         "grain": "Ziarno",
+        "guidedPerspective": "Prowadzona perspektywa",
         "halationGlow": "Halacja i Poświata",
         "hueShift": "Globalne przesunięcie odcienia",
         "lensCorrection": "Korekcja obiektywu",
@@ -1326,6 +1340,12 @@
       "stacking": "Składanie ostrości",
       "start": "Rozpocznij",
       "title": "Stosowanie ostrości"
+    },
+    "guidedPerspective": {
+      "apply": "Zastosuj",
+      "cancel": "Anuluj",
+      "resetTooltip": "Resetuj linie prowadzące",
+      "title": "Prowadzona perspektywa"
     },
     "hdr": {
       "cancel": "Anuluj",
@@ -1648,6 +1668,7 @@
         "toggle_export": "Przełącz panel Eksport",
         "toggle_folder_tree": "Przełącz panel drzewa folderów",
         "toggle_fullscreen": "Przełącz tryb pełnoekranowy",
+        "toggle_guided_perspective": "Przełącz prowadzoną perspektywę",
         "toggle_left_panel": "Przełącz lewy panel",
         "toggle_library_exif": "Przełącz nakładkę EXIF",
         "toggle_masks": "Przełącz panel Maski",

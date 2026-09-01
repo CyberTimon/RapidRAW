@@ -436,6 +436,7 @@
       "labels": {
         "flipHoriz": "Horiz. spiegeln",
         "flipVert": "Vert. spiegeln",
+        "guided": "Führung",
         "lens": "Objektiv",
         "rotateLeft": "Links drehen",
         "rotateRight": "Rechts drehen",
@@ -521,6 +522,7 @@
         "compositionOverlay": "Kompositions-Überlagerung",
         "flipHoriz": "Bild horizontal spiegeln",
         "flipVert": "Bild vertikal spiegeln",
+        "guided": "Geführte Perspektivkorrektur",
         "lens": "Objektivverzerrung korrigieren",
         "overlayDetails": "Überlagerung: {{name}}{{rotateHint}}",
         "resetFineRotation": "Feinrotation zurücksetzen",
@@ -538,6 +540,17 @@
       "done": "Fertig",
       "exporting": "Exportieren…",
       "savesTo": "Externe Bearbeitung — speichert in"
+    },
+    "guided": {
+      "constrainCrop": "Zuschnitt begrenzen",
+      "hint": "Zeichne entlang von Kanten, die senkrecht oder waagerecht sein sollen",
+      "lineCount": "{{count}}/4 Linien gezeichnet, mindestens 2 nötig",
+      "toast": {
+        "aggressiveCrop": "Die Korrektur schneidet einen großen Teil des Bildes ab",
+        "angleRejected": "Linie weicht zu stark von Senkrecht oder Waagerecht ab",
+        "maxLines": "Maximal 2 senkrechte und 2 waagerechte Linien",
+        "needTwoLines": "Zeichne mindestens 2 Linien für die Perspektivkorrektur"
+      }
     },
     "layout": {
       "split": "Teilen"
@@ -1161,6 +1174,7 @@
         "curves": "Kurven",
         "exposureToneMapper": "Belichtung & Tonemapper",
         "grain": "Körnung",
+        "guidedPerspective": "Geführte Perspektive",
         "halationGlow": "Lichthof & Glühen",
         "hueShift": "Globaler Farbton-Shift",
         "lensCorrection": "Objektivkorrektur",
@@ -1272,6 +1286,12 @@
       "stacking": "Fokus wird gestapelt",
       "start": "Start",
       "title": "Fokus-Stacking"
+    },
+    "guidedPerspective": {
+      "apply": "Übernehmen",
+      "cancel": "Abbrechen",
+      "resetTooltip": "Hilfslinien zurücksetzen",
+      "title": "Geführte Perspektive"
     },
     "hdr": {
       "cancel": "Abbrechen",
@@ -1580,6 +1600,7 @@
         "toggle_export": "Exportieren-Panel ein-/ausblenden",
         "toggle_folder_tree": "Ordnerstruktur-Panel ein-/ausblenden",
         "toggle_fullscreen": "Vollbild umschalten",
+        "toggle_guided_perspective": "Geführte Perspektive umschalten",
         "toggle_left_panel": "Linkes Panel ein-/ausblenden",
         "toggle_library_exif": "EXIF-Überlagerung ein-/ausblenden",
         "toggle_masks": "Maskieren-Panel ein-/ausblenden",

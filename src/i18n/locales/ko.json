@@ -434,6 +434,7 @@
       "labels": {
         "flipHoriz": "좌우 반전",
         "flipVert": "상하 반전",
+        "guided": "가이드",
         "lens": "렌즈",
         "rotateLeft": "왼쪽으로 회전",
         "rotateRight": "오른쪽으로 회전",
@@ -519,6 +520,7 @@
         "compositionOverlay": "구도 오버레이",
         "flipHoriz": "이미지를 좌우로 반전",
         "flipVert": "이미지를 상하로 반전",
+        "guided": "가이드 원근 보정",
         "lens": "렌즈 왜곡 보정",
         "overlayDetails": "오버레이: {{name}}{{rotateHint}}",
         "resetFineRotation": "미세 회전 초기화",
@@ -536,6 +538,17 @@
       "done": "완료",
       "exporting": "내보내는 중…",
       "savesTo": "외부 편집 — 저장 위치:"
+    },
+    "guided": {
+      "constrainCrop": "크롭 제한",
+      "hint": "수직 또는 수평이어야 하는 가장자리를 따라 그리세요",
+      "lineCount": "{{count}}/4개 선, 최소 2개 필요",
+      "toast": {
+        "aggressiveCrop": "보정으로 이미지의 많은 부분이 잘립니다",
+        "angleRejected": "선이 수직 또는 수평에서 너무 벗어났습니다",
+        "maxLines": "수직·수평 선은 각각 최대 2개",
+        "needTwoLines": "원근 보정을 위해 선을 2개 이상 그리세요"
+      }
     },
     "layout": {
       "split": "분할"
@@ -1159,6 +1172,7 @@
         "curves": "커브",
         "exposureToneMapper": "노출 및 톤 매퍼",
         "grain": "그레인",
+        "guidedPerspective": "가이드 원근",
         "halationGlow": "헐레이션 및 글로우",
         "hueShift": "글로벌 색조 시프트",
         "lensCorrection": "렌즈 보정",
@@ -1270,6 +1284,12 @@
       "stacking": "포커스 스태킹 중",
       "start": "시작",
       "title": "포커스 스태킹"
+    },
+    "guidedPerspective": {
+      "apply": "적용",
+      "cancel": "취소",
+      "resetTooltip": "가이드 선 초기화",
+      "title": "가이드 원근"
     },
     "hdr": {
       "cancel": "취소",
@@ -1578,6 +1598,7 @@
         "toggle_export": "내보내기 패널 전환",
         "toggle_folder_tree": "폴더 트리 패널 토글",
         "toggle_fullscreen": "전체 화면 전환",
+        "toggle_guided_perspective": "가이드 원근 전환",
         "toggle_left_panel": "왼쪽 패널 토글",
         "toggle_library_exif": "EXIF 오버레이 전환",
         "toggle_masks": "마스크 패널 전환",

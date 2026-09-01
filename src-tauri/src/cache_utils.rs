@@ -23,6 +23,7 @@ pub const GEOMETRY_KEYS: &[&str] = &[
     "lensDistortionEnabled",
     "lensTcaEnabled",
     "lensVignetteEnabled",
+    "guidedPerspective",
 ];
 
 pub fn calculate_thumbnail_base_hash(adjustments: &serde_json::Value) -> u64 {

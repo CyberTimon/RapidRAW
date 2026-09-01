@@ -434,6 +434,7 @@
       "labels": {
         "flipHoriz": "水平翻轉",
         "flipVert": "垂直翻轉",
+        "guided": "引導",
         "lens": "鏡頭",
         "rotateLeft": "向左旋轉",
         "rotateRight": "向右旋轉",
@@ -519,6 +520,7 @@
         "compositionOverlay": "構圖疊加",
         "flipHoriz": "水平翻轉影像",
         "flipVert": "垂直翻轉影像",
+        "guided": "引導式透視校正",
         "lens": "鏡頭畸變校正",
         "overlayDetails": "疊加：{{name}}{{rotateHint}}",
         "resetFineRotation": "重置精細旋轉",
@@ -536,6 +538,17 @@
       "done": "完成",
       "exporting": "正在匯出…",
       "savesTo": "外部編輯 — 儲存至"
+    },
+    "guided": {
+      "constrainCrop": "約束裁切",
+      "hint": "沿著應保持垂直或水平的邊緣繪製",
+      "lineCount": "已繪製 {{count}}/4 條線，至少需要 2 條",
+      "toast": {
+        "aggressiveCrop": "校正會裁掉影像的很大一部分",
+        "angleRejected": "線條偏離垂直或水平太多",
+        "maxLines": "最多 2 條垂直線和 2 條水平線",
+        "needTwoLines": "透視校正至少需要繪製 2 條線"
+      }
     },
     "layout": {
       "split": "拆分"
@@ -1159,6 +1172,7 @@
         "curves": "曲線",
         "exposureToneMapper": "曝光與色調映射",
         "grain": "顆粒",
+        "guidedPerspective": "引導透視",
         "halationGlow": "光暈與發光",
         "hueShift": "全域色相偏移",
         "lensCorrection": "鏡頭校正",
@@ -1270,6 +1284,12 @@
       "stacking": "正在合成焦距",
       "start": "開始",
       "title": "焦距合成"
+    },
+    "guidedPerspective": {
+      "apply": "套用",
+      "cancel": "取消",
+      "resetTooltip": "重設輔助線",
+      "title": "引導透視"
     },
     "hdr": {
       "cancel": "取消",
@@ -1578,6 +1598,7 @@
         "toggle_export": "切換匯出面板",
         "toggle_folder_tree": "切換資料夾樹面板",
         "toggle_fullscreen": "切換全屏",
+        "toggle_guided_perspective": "切換引導透視",
         "toggle_left_panel": "切換左側面板",
         "toggle_library_exif": "切換 EXIF 疊加",
         "toggle_masks": "切換遮色片面板",

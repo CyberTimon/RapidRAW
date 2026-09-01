@@ -456,6 +456,7 @@
       "labels": {
         "flipHoriz": "Rifletti Orizz.",
         "flipVert": "Rifletti Vert.",
+        "guided": "Guidato",
         "lens": "Obiettivo",
         "rotateLeft": "Ruota a Sinistra",
         "rotateRight": "Ruota a Destra",
@@ -541,6 +542,7 @@
         "compositionOverlay": "Sovrapposizione Composizione",
         "flipHoriz": "Rifletti immagine orizzontalmente",
         "flipVert": "Rifletti immagine verticalmente",
+        "guided": "Correzione prospettica guidata",
         "lens": "Correzione distorsione obiettivo",
         "overlayDetails": "Sovrapposizione: {{name}}{{rotateHint}}",
         "resetFineRotation": "Ripristina Rotazione Fine",
@@ -558,6 +560,17 @@
       "done": "Fatto",
       "exporting": "Esportazione…",
       "savesTo": "Modifica esterna — salva in"
+    },
+    "guided": {
+      "constrainCrop": "Vincola ritaglio",
+      "hint": "Disegna lungo i bordi che devono essere verticali o orizzontali",
+      "lineCount": "{{count}}/4 linee disegnate, ne servono almeno 2",
+      "toast": {
+        "aggressiveCrop": "La correzione ritaglia una gran parte dell'immagine",
+        "angleRejected": "La linea è troppo lontana dalla verticale o dall'orizzontale",
+        "maxLines": "Massimo 2 linee verticali e 2 orizzontali",
+        "needTwoLines": "Disegna almeno 2 linee per la correzione prospettica"
+      }
     },
     "layout": {
       "split": "Dividi"
@@ -1185,6 +1198,7 @@
         "curves": "Curve",
         "exposureToneMapper": "Esposizione e Tone Mapper",
         "grain": "Grana",
+        "guidedPerspective": "Prospettiva guidata",
         "halationGlow": "Alonatura e Bagliore",
         "hueShift": "Spostamento tonalità globale",
         "lensCorrection": "Correzione Obiettivo",
@@ -1298,6 +1312,12 @@
       "stacking": "Unione messa a fuoco in corso",
       "start": "Avvia",
       "title": "Focus Stacking"
+    },
+    "guidedPerspective": {
+      "apply": "Applica",
+      "cancel": "Annulla",
+      "resetTooltip": "Reimposta le linee guida",
+      "title": "Prospettiva guidata"
     },
     "hdr": {
       "cancel": "Annulla",
@@ -1613,6 +1633,7 @@
         "toggle_export": "Attiva/Disattiva pannello Esportazione",
         "toggle_folder_tree": "Mostra/Nascondi pannello albero delle cartelle",
         "toggle_fullscreen": "Attiva/Disattiva schermo intero",
+        "toggle_guided_perspective": "Attiva/disattiva prospettiva guidata",
         "toggle_left_panel": "Mostra/Nascondi pannello sinistro",
         "toggle_library_exif": "Attiva/Disattiva overlay EXIF",
         "toggle_masks": "Attiva/Disattiva pannello Maschere",

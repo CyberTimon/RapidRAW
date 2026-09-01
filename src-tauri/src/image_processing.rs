@@ -1,4 +1,5 @@
 use crate::gpu_processing::WgpuDisplay;
+use crate::guided_perspective::GuideLine;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat3, Vec2, Vec3};
 use image::{DynamicImage, GenericImageView, Rgb32FImage, Rgba};
@@ -79,7 +80,7 @@ pub struct Crop {
     pub height: f64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GeometryParams {
     pub distortion: f32,
     pub vertical: f32,
@@ -104,6 +105,10 @@ pub struct GeometryParams {
     pub vig_k1: f32,
     pub vig_k2: f32,
     pub vig_k3: f32,
+    #[serde(default)]
+    pub guided_lines: Vec<GuideLine>,
+    #[serde(default)]
+    pub guided_perspective_enabled: bool,
 }
 
 impl Default for GeometryParams {
@@ -132,6 +137,8 @@ impl Default for GeometryParams {
             vig_k1: 0.0,
             vig_k2: 0.0,
             vig_k3: 0.0,
+            guided_lines: Vec::new(),
+            guided_perspective_enabled: false,
         }
     }
 }
@@ -140,6 +147,16 @@ pub fn get_geometry_params_from_json(adjustments: &serde_json::Value) -> Geometr
     let lens_params = adjustments
         .get("lensDistortionParams")
         .and_then(|v| v.as_object());
+
+    let guided = adjustments.get("guidedPerspective");
+    let guided_perspective_enabled = guided
+        .and_then(|g| g.get("enabled"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let guided_lines: Vec<GuideLine> = guided
+        .and_then(|g| g.get("lines"))
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
 
     GeometryParams {
         distortion: adjustments["transformDistortion"].as_f64().unwrap_or(0.0) as f32,
@@ -191,6 +208,8 @@ pub fn get_geometry_params_from_json(adjustments: &serde_json::Value) -> Geometr
         vig_k3: lens_params
             .and_then(|p| p.get("vig_k3").and_then(|k| k.as_f64()))
             .unwrap_or(0.0) as f32,
+        guided_lines,
+        guided_perspective_enabled,
     }
 }
 
@@ -406,10 +425,25 @@ fn interpolate_pixel(
     }
 }
 
-fn build_transform_matrices(
+fn guided_h_to_na(h: &[[f64; 3]; 3]) -> NaMatrix3<f32> {
+    NaMatrix3::new(
+        h[0][0] as f32,
+        h[0][1] as f32,
+        h[0][2] as f32,
+        h[1][0] as f32,
+        h[1][1] as f32,
+        h[1][2] as f32,
+        h[2][0] as f32,
+        h[2][1] as f32,
+        h[2][2] as f32,
+    )
+}
+
+fn build_transform_matrices_with_guided(
     params: &GeometryParams,
     width: f32,
     height: f32,
+    guided_forward: Option<&NaMatrix3<f32>>,
 ) -> (NaMatrix3<f32>, f32, f32, f64) {
     let cx = width / 2.0;
     let cy = height / 2.0;
@@ -448,11 +482,21 @@ fn build_transform_matrices(
     );
     let m_offset = NaMatrix3::new(1.0, 0.0, off_x, 0.0, 1.0, off_y, 0.0, 0.0, 1.0);
 
-    let forward = t_center * m_offset * m_perspective * m_rotate * m_scale * t_uncenter;
+    let guided_m = guided_forward.copied().unwrap_or_else(NaMatrix3::identity);
+    let forward = t_center * m_offset * m_perspective * m_rotate * m_scale * guided_m * t_uncenter;
     let half_diagonal =
         ((width as f64 * width as f64 + height as f64 * height as f64).sqrt()) / 2.0;
 
     (forward, cx, cy, half_diagonal)
+}
+
+#[allow(dead_code)]
+fn build_transform_matrices(
+    params: &GeometryParams,
+    width: f32,
+    height: f32,
+) -> (NaMatrix3<f32>, f32, f32, f64) {
+    build_transform_matrices_with_guided(params, width, height, None)
 }
 
 struct TcaContext<'a> {
@@ -648,8 +692,29 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
     let (width, height) = src_img.dimensions();
     let mut out_buffer = vec![0.0f32; (width * height * 3) as usize];
 
-    let (forward_transform, cx, cy, half_diagonal) =
-        build_transform_matrices(&params, width as f32, height as f32);
+    let guided = if params.guided_perspective_enabled
+        && crate::guided_perspective::count_valid_lines(
+            &params.guided_lines,
+            width as f64,
+            height as f64,
+        ) >= 2
+    {
+        crate::guided_perspective::compute_guided_homography(
+            &params.guided_lines,
+            width as f64,
+            height as f64,
+        )
+    } else {
+        None
+    };
+    let guided_na = guided.as_ref().map(|g| guided_h_to_na(&g.forward_h));
+
+    let (forward_transform, cx, cy, half_diagonal) = build_transform_matrices_with_guided(
+        &params,
+        width as f32,
+        height as f32,
+        guided_na.as_ref(),
+    );
     let inv = forward_transform
         .try_inverse()
         .unwrap_or(NaMatrix3::identity());
@@ -808,8 +873,29 @@ pub fn unwarp_image_geometry(warped_image: &DynamicImage, params: GeometryParams
     let (width, height) = src_img.dimensions();
     let mut out_buffer = vec![0.0f32; (width * height * 3) as usize];
 
-    let (forward_transform, cx, cy, half_diagonal) =
-        build_transform_matrices(&params, width as f32, height as f32);
+    let guided = if params.guided_perspective_enabled
+        && crate::guided_perspective::count_valid_lines(
+            &params.guided_lines,
+            width as f64,
+            height as f64,
+        ) >= 2
+    {
+        crate::guided_perspective::compute_guided_homography(
+            &params.guided_lines,
+            width as f64,
+            height as f64,
+        )
+    } else {
+        None
+    };
+    let guided_na = guided.as_ref().map(|g| guided_h_to_na(&g.forward_h));
+
+    let (forward_transform, cx, cy, half_diagonal) = build_transform_matrices_with_guided(
+        &params,
+        width as f32,
+        height as f32,
+        guided_na.as_ref(),
+    );
     let max_radius_sq_inv = 1.0 / ((cx * cx + cy * cy) as f64);
     let hd = half_diagonal;
 
@@ -1032,7 +1118,25 @@ pub fn inverse_transform_point(
     let width = curr_w as f32;
     let height = curr_h as f32;
 
-    let (forward_transform, cx_f32, cy_f32, hd) = build_transform_matrices(&params, width, height);
+    let guided = if params.guided_perspective_enabled
+        && crate::guided_perspective::count_valid_lines(
+            &params.guided_lines,
+            width as f64,
+            height as f64,
+        ) >= 2
+    {
+        crate::guided_perspective::compute_guided_homography(
+            &params.guided_lines,
+            width as f64,
+            height as f64,
+        )
+    } else {
+        None
+    };
+    let guided_na = guided.as_ref().map(|g| guided_h_to_na(&g.forward_h));
+
+    let (forward_transform, cx_f32, cy_f32, hd) =
+        build_transform_matrices_with_guided(&params, width, height, guided_na.as_ref());
     let cx = cx_f32 as f64;
     let cy = cy_f32 as f64;
     let inv = forward_transform
@@ -1313,6 +1417,10 @@ pub fn apply_flip<'a>(
 }
 
 pub fn is_geometry_identity(params: &GeometryParams) -> bool {
+    if params.guided_perspective_enabled && params.guided_lines.len() >= 2 {
+        return false;
+    }
+
     let dist_identity = !params.lens_distortion_enabled
         || ((params.lens_distortion_amount - 1.0).abs() < 1e-4
             && params.lens_dist_k1.abs() < 1e-6

@@ -434,6 +434,7 @@
       "labels": {
         "flipHoriz": "水平反転",
         "flipVert": "垂直反転",
+        "guided": "ガイド",
         "lens": "レンズ",
         "rotateLeft": "左回転",
         "rotateRight": "右回転",
@@ -519,6 +520,7 @@
         "compositionOverlay": "構図ガイド",
         "flipHoriz": "画像を水平方向に反転",
         "flipVert": "画像を垂直方向に反転",
+        "guided": "ガイド付き遠近補正",
         "lens": "レンズ歪み補正",
         "overlayDetails": "ガイド: {{name}}{{rotateHint}}",
         "resetFineRotation": "微調整回転をリセット",
@@ -536,6 +538,17 @@
       "done": "完了",
       "exporting": "書き出し中…",
       "savesTo": "外部編集 — 保存先"
+    },
+    "guided": {
+      "constrainCrop": "クロップを制限",
+      "hint": "垂直または水平にすべきエッジに沿って描画します",
+      "lineCount": "{{count}}/4 本の線（最低2本必要）",
+      "toast": {
+        "aggressiveCrop": "補正により画像の大部分が切り取られます",
+        "angleRejected": "線が垂直または水平から離れすぎています",
+        "maxLines": "垂直・水平それぞれ最大2本まで",
+        "needTwoLines": "遠近補正には少なくとも2本の線が必要です"
+      }
     },
     "layout": {
       "split": "分割"
@@ -1159,6 +1172,7 @@
         "curves": "トーンカーブ",
         "exposureToneMapper": "露光量とトーンマッパー",
         "grain": "粒子",
+        "guidedPerspective": "ガイド遠近法",
         "halationGlow": "ハレーションとグロー",
         "hueShift": "グローバル色相シフト",
         "lensCorrection": "レンズ補正",
@@ -1270,6 +1284,12 @@
       "stacking": "フォーカスをスタック中",
       "start": "開始",
       "title": "フォーカススタッキング"
+    },
+    "guidedPerspective": {
+      "apply": "適用",
+      "cancel": "キャンセル",
+      "resetTooltip": "ガイド線をリセット",
+      "title": "ガイド遠近法"
     },
     "hdr": {
       "cancel": "キャンセル",
@@ -1578,6 +1598,7 @@
         "toggle_export": "書き出しパネルの表示/非表示",
         "toggle_folder_tree": "フォルダーツリーパネルの切り替え",
         "toggle_fullscreen": "全画面表示の切り替え",
+        "toggle_guided_perspective": "ガイド遠近法を切り替え",
         "toggle_left_panel": "左パネルの表示/非表示",
         "toggle_library_exif": "EXIF重ね合わせ表示の表示/非表示",
         "toggle_masks": "マスクパネルの表示/非表示",

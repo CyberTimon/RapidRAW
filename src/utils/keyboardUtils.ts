@@ -286,6 +286,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'editing',
   },
   {
+    action: 'toggle_guided_perspective',
+    description: 'settings.keybinds.actions.toggle_guided_perspective',
+    defaultCombo: ['shift', 'KeyG'],
+    section: 'editing',
+  },
+  {
     action: 'brush_size_up',
     description: 'settings.keybinds.actions.brush_size_up',
     defaultCombo: ['ctrl', 'ArrowUp'],
