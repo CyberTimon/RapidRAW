@@ -281,9 +281,86 @@ pub fn get_cached_full_warped_image(
     Ok(warped_arc)
 }
 
+fn clear_pending_display_frame_if_generation(state: &AppState, generation: usize) {
+    let mut pending = state.pending_display_frame.lock().unwrap();
+    if pending
+        .as_ref()
+        .is_some_and(|frame| frame.generation.number() == generation)
+    {
+        *pending = None;
+    }
+}
+
+fn schedule_display_completion(
+    app_handle: tauri::AppHandle,
+    context: &crate::image_processing::GpuContext,
+    frame: PendingDisplayFrame,
+    submission: wgpu::SubmissionIndex,
+) {
+    let device = context.device.clone();
+    std::thread::spawn(move || {
+        let completion = device.poll(wgpu::PollType::Wait {
+            submission_index: Some(submission),
+            timeout: Some(std::time::Duration::from_millis(500)),
+        });
+        if completion.is_ok() {
+            let _commit_guard = frame.generation.lock_commit();
+            if frame.generation.is_current() {
+                let _ = app_handle.emit(
+                    "wgpu-frame-ready",
+                    serde_json::json!({
+                        "path": frame.path,
+                        "generation": frame.generation.number(),
+                    }),
+                );
+            }
+        } else if let Err(error) = completion {
+            log::warn!("WGPU frame completion wait failed: {}", error);
+        }
+    });
+}
+
+fn render_wgpu_display(
+    app_handle: &tauri::AppHandle,
+    context: &crate::image_processing::GpuContext,
+) -> Result<(), String> {
+    let state = app_handle.state::<AppState>();
+    let pending = state.pending_display_frame.lock().unwrap().clone();
+
+    if let Some(frame) = pending {
+        let commit_generation = frame.generation.clone();
+        let _commit_guard = commit_generation.lock_commit();
+        if !frame.generation.is_current() {
+            clear_pending_display_frame_if_generation(&state, frame.generation.number());
+            return Ok(());
+        }
+
+        let result = {
+            let mut display_lock = context.display.lock().unwrap();
+            let display = display_lock
+                .as_mut()
+                .ok_or_else(|| "WGPU display is not initialized".to_string())?;
+            display.render(&context.device, &context.queue)?
+        };
+
+        if let gpu_processing::DisplayRenderResult::Submitted(submission) = result {
+            clear_pending_display_frame_if_generation(&state, frame.generation.number());
+            schedule_display_completion(app_handle.clone(), context, frame, submission);
+        }
+        return Ok(());
+    }
+
+    let mut display_lock = context.display.lock().unwrap();
+    if let Some(display) = display_lock.as_mut() {
+        let _ = display.render(&context.device, &context.queue)?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 async fn update_wgpu_transform(
     payload: WgpuTransformPayload,
+    app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let context = match state.gpu_context.lock().unwrap().as_ref() {
@@ -291,7 +368,7 @@ async fn update_wgpu_transform(
         None => return Ok(()),
     };
 
-    tokio::task::spawn_blocking(move || {
+    tokio::task::spawn_blocking(move || -> Result<(), String> {
         let mut display_lock = context.display.lock().unwrap();
         if let Some(display) = display_lock.as_mut() {
             display.latest_transform.rect = [payload.x, payload.y, payload.width, payload.height];
@@ -311,11 +388,12 @@ async fn update_wgpu_transform(
                 0,
                 bytemuck::bytes_of(&display.latest_transform),
             );
-            let _ = display.render(&context.device, &context.queue);
         }
+        drop(display_lock);
+        render_wgpu_display(&app_handle, &context)
     })
     .await
-    .map_err(|e| format!("Task panicked: {}", e))?;
+    .map_err(|e| format!("Task panicked: {}", e))??;
 
     Ok(())
 }
@@ -547,33 +625,24 @@ fn process_preview_job(
 
     generation.ensure_current()?;
     if use_wgpu_renderer {
-        let submission = final_processed
-            .display_submission
-            .ok_or_else(|| "WGPU display did not submit a frame".to_string())?;
-        let device = context.device.clone();
-        let completion_app_handle = app_handle.clone();
-        let completion_generation = generation.clone();
-        let completion_path = loaded_image.path.clone();
-        std::thread::spawn(move || {
-            let completion = device.poll(wgpu::PollType::Wait {
-                submission_index: Some(submission),
-                timeout: Some(std::time::Duration::from_millis(500)),
-            });
-            if completion.is_ok() {
-                let _commit_guard = completion_generation.lock_commit();
-                if completion_generation.is_current() {
-                    let _ = completion_app_handle.emit(
-                        "wgpu-frame-ready",
-                        serde_json::json!({
-                            "path": completion_path,
-                            "generation": completion_generation.number(),
-                        }),
-                    );
-                }
-            } else if let Err(error) = completion {
-                log::warn!("WGPU frame completion wait failed: {}", error);
+        let frame = PendingDisplayFrame {
+            path: loaded_image.path.clone(),
+            generation: generation.clone(),
+        };
+        match final_processed.display_result {
+            gpu_processing::DisplayRenderResult::Submitted(submission) => {
+                *state.pending_display_frame.lock().unwrap() = None;
+                schedule_display_completion(app_handle.clone(), &context, frame, submission);
             }
-        });
+            gpu_processing::DisplayRenderResult::Deferred => {
+                let _commit_guard = generation.lock_commit();
+                generation.ensure_current()?;
+                *state.pending_display_frame.lock().unwrap() = Some(frame);
+            }
+            gpu_processing::DisplayRenderResult::Empty => {
+                return Err("WGPU display did not have a frame to present".to_string());
+            }
+        }
         return Ok(b"WGPU_RENDER".to_vec());
     }
 
@@ -1939,16 +2008,33 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(PinchZoomDisablePlugin)
-        .on_window_event(|window, event| if let tauri::WindowEvent::Resized(size) = event {
+        .on_window_event(|window, event| {
             let state = window.state::<AppState>();
-            if let Some(ctx) = state.gpu_context.lock().unwrap().as_ref()
-                && let Ok(mut display_lock) = ctx.display.try_lock()
-                    && let Some(display) = display_lock.as_mut() {
+            let context = state.gpu_context.lock().unwrap().as_ref().cloned();
+            let Some(context) = context else {
+                return;
+            };
+
+            let should_render = match event {
+                tauri::WindowEvent::Resized(size) => {
+                    if let Ok(mut display_lock) = context.display.try_lock()
+                        && let Some(display) = display_lock.as_mut()
+                    {
                         display.config.width = size.width.max(1);
                         display.config.height = size.height.max(1);
-                        display.surface.configure(&ctx.device, &display.config);
-                        let _ = display.render(&ctx.device, &ctx.queue);
+                        display.surface.configure(&context.device, &display.config);
                     }
+                    true
+                }
+                tauri::WindowEvent::Focused(true) => true,
+                _ => false,
+            };
+
+            if should_render
+                && let Err(error) = render_wgpu_display(window.app_handle(), &context)
+            {
+                log::warn!("WGPU display retry failed: {}", error);
+            }
         })
         .setup(move |app| {
             #[cfg(feature = "tethering")]
@@ -2292,6 +2378,7 @@ pub fn run() {
             thumbnail_progress: Mutex::new(ThumbnailProgressTracker { total: 0, completed: 0 }),
             preview_worker_tx: Mutex::new(None),
             preview_generation: PreviewGenerationTracker::new(),
+            pending_display_frame: Mutex::new(None),
             analytics_worker_tx: Mutex::new(None),
             mask_cache: Mutex::new(HashMap::new()),
             patch_cache: Mutex::new(HashMap::new()),

@@ -104,6 +104,12 @@ impl Default for PreviewGenerationTracker {
     }
 }
 
+#[derive(Clone)]
+pub struct PendingDisplayFrame {
+    pub path: String,
+    pub generation: PreviewGeneration,
+}
+
 impl PreviewGenerationTracker {
     pub fn new() -> Self {
         Self {
@@ -235,6 +241,7 @@ pub struct AppState {
     pub thumbnail_progress: Mutex<ThumbnailProgressTracker>,
     pub preview_worker_tx: Mutex<Option<Sender<PreviewJob>>>,
     pub preview_generation: PreviewGenerationTracker,
+    pub pending_display_frame: Mutex<Option<PendingDisplayFrame>>,
     pub analytics_worker_tx: Mutex<Option<Sender<AnalyticsJob>>>,
     pub mask_cache: Mutex<HashMap<u64, GrayImage>>,
     pub patch_cache: Mutex<HashMap<String, serde_json::Value>>,
@@ -277,6 +284,24 @@ mod tests {
         let active = tracker.next();
         assert!(!idle_snapshot.is_current());
         assert!(active.is_current());
+    }
+
+    #[test]
+    fn deferred_display_frame_is_invalidated_by_new_preview_work() {
+        let tracker = PreviewGenerationTracker::new();
+        let pending = PendingDisplayFrame {
+            path: "preview.jpg".to_string(),
+            generation: tracker.next(),
+        };
+        assert!(pending.generation.is_current());
+
+        let replacement = tracker.next();
+        assert!(!pending.generation.is_current());
+        assert_eq!(
+            pending.generation.ensure_current().unwrap_err(),
+            PREVIEW_SUPERSEDED
+        );
+        assert!(replacement.is_current());
     }
 
     #[test]

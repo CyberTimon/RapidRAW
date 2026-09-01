@@ -30,7 +30,13 @@ pub struct RenderRequest<'a> {
 
 pub struct PreviewProcessResult {
     pub image: DynamicImage,
-    pub display_submission: Option<wgpu::SubmissionIndex>,
+    pub display_result: DisplayRenderResult,
+}
+
+pub enum DisplayRenderResult {
+    Empty,
+    Deferred,
+    Submitted(wgpu::SubmissionIndex),
 }
 
 #[repr(C)]
@@ -63,7 +69,7 @@ impl WgpuDisplay {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-    ) -> Result<Option<wgpu::SubmissionIndex>, String> {
+    ) -> Result<DisplayRenderResult, String> {
         if let Some(bind_group) = &self.current_bind_group {
             let output = match self.surface.get_current_texture() {
                 wgpu::CurrentSurfaceTexture::Success(tex)
@@ -73,19 +79,24 @@ impl WgpuDisplay {
                     match self.surface.get_current_texture() {
                         wgpu::CurrentSurfaceTexture::Success(tex)
                         | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-                        _ => {
+                        wgpu::CurrentSurfaceTexture::Timeout
+                        | wgpu::CurrentSurfaceTexture::Occluded => {
+                            return Ok(DisplayRenderResult::Deferred);
+                        }
+                        wgpu::CurrentSurfaceTexture::Outdated
+                        | wgpu::CurrentSurfaceTexture::Lost => {
                             return Err(
                                 "Failed to acquire the display surface after reconfiguration"
                                     .to_string(),
                             );
                         }
+                        wgpu::CurrentSurfaceTexture::Validation => {
+                            return Err("Display surface validation failed".to_string());
+                        }
                     }
                 }
-                wgpu::CurrentSurfaceTexture::Timeout => {
-                    return Err("Timed out acquiring the display surface".to_string());
-                }
-                wgpu::CurrentSurfaceTexture::Occluded => {
-                    return Err("Display surface is occluded".to_string());
+                wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
+                    return Ok(DisplayRenderResult::Deferred);
                 }
                 wgpu::CurrentSurfaceTexture::Validation => {
                     return Err("Display surface validation failed".to_string());
@@ -153,9 +164,9 @@ impl WgpuDisplay {
             }
             let submission = queue.submit(Some(encoder.finish()));
             output.present();
-            Ok(Some(submission))
+            Ok(DisplayRenderResult::Submitted(submission))
         } else {
-            Ok(None)
+            Ok(DisplayRenderResult::Empty)
         }
     }
 }
@@ -1764,7 +1775,7 @@ fn process_and_get_dynamic_image_inner(
         );
         return Ok(PreviewProcessResult {
             image: base_image.clone(),
-            display_submission: None,
+            display_result: DisplayRenderResult::Empty,
         });
     }
 
@@ -2070,7 +2081,7 @@ fn process_and_get_dynamic_image_inner(
         }
     }
 
-    let mut display_submission = None;
+    let mut display_result = DisplayRenderResult::Empty;
     if output_to_display {
         if let Some(generation) = preview_generation {
             generation.ensure_current()?;
@@ -2111,23 +2122,35 @@ fn process_and_get_dynamic_image_inner(
             label: None,
         });
         display.current_bind_group = Some(bind_group);
-        display_submission = display.render(device, queue)?;
+        display_result = display.render(device, queue)?;
     }
 
     if skip_readback {
         let duration = start_time.elapsed();
-        let fps = 1.0 / duration.as_secs_f64();
-        log::info!(
-            "[{}] {}x{} native WGPU display updated in {:?} ({:.2} FPS)",
-            caller_id,
-            width,
-            height,
-            duration,
-            fps
-        );
+        match &display_result {
+            DisplayRenderResult::Submitted(_) => {
+                let fps = 1.0 / duration.as_secs_f64();
+                log::info!(
+                    "[{}] {}x{} native WGPU display submitted in {:?} ({:.2} FPS)",
+                    caller_id,
+                    width,
+                    height,
+                    duration,
+                    fps
+                );
+            }
+            DisplayRenderResult::Deferred => log::debug!(
+                "[{}] {}x{} WGPU frame ready in {:?}; surface presentation deferred",
+                caller_id,
+                width,
+                height,
+                duration
+            ),
+            DisplayRenderResult::Empty => {}
+        }
         return Ok(PreviewProcessResult {
             image: DynamicImage::new_rgba8(0, 0),
-            display_submission,
+            display_result,
         });
     }
 
@@ -2148,7 +2171,7 @@ fn process_and_get_dynamic_image_inner(
         .ok_or("Failed to create image buffer from GPU data")?;
     Ok(PreviewProcessResult {
         image: DynamicImage::ImageRgba8(img_buf),
-        display_submission,
+        display_result,
     })
 }
 
