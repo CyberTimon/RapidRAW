@@ -11,6 +11,7 @@ use std::process::Command;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::thread;
+use std::time::Duration;
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -25,7 +26,6 @@ use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 use walkdir::WalkDir;
 
-use crate::AppState;
 use crate::PendingMetadata;
 #[cfg(target_os = "android")]
 use crate::android_integration::*;
@@ -43,6 +43,7 @@ use crate::image_processing::{
 use crate::mask_generation::MaskDefinition;
 use crate::preset_converter;
 use crate::tagging::COLOR_TAG_PREFIX;
+use crate::{AppState, GpuWorkPriority};
 
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
     let cache_dir = app_handle
@@ -1453,6 +1454,7 @@ pub fn generate_thumbnail_data(
     gpu_context: Option<&GpuContext>,
     preloaded_image: Option<&DynamicImage>,
     app_handle: &AppHandle,
+    gpu_priority: GpuWorkPriority,
 ) -> anyhow::Result<DynamicImage> {
     let (source_path, sidecar_path) = parse_virtual_path(path_str);
     let source_path_str = source_path.to_string_lossy().to_string();
@@ -1706,7 +1708,7 @@ pub fn generate_thumbnail_data(
         meta.adjustments.to_string().hash(&mut hasher);
         let unique_hash = hasher.finish();
 
-        if let Ok(processed_image) = gpu_processing::process_and_get_dynamic_image(
+        if let Ok(processed_image) = gpu_processing::process_and_get_dynamic_image_with_priority(
             context,
             &state,
             cropped_preview.as_ref(),
@@ -1718,6 +1720,7 @@ pub fn generate_thumbnail_data(
                 roi: None,
             },
             "generate_thumbnail_data",
+            gpu_priority,
         ) {
             return Ok(processed_image);
         } else {
@@ -1778,14 +1781,29 @@ fn encode_thumbnail(image: &DynamicImage, target_width: u32) -> Result<Vec<u8>> 
     Ok(buf.into_inner())
 }
 
+#[derive(Clone, Copy)]
+struct ThumbnailGenerationOptions {
+    force_regenerate: bool,
+    gpu_priority: GpuWorkPriority,
+}
+
+impl ThumbnailGenerationOptions {
+    const fn new(force_regenerate: bool, gpu_priority: GpuWorkPriority) -> Self {
+        Self {
+            force_regenerate,
+            gpu_priority,
+        }
+    }
+}
+
 fn generate_single_thumbnail_and_cache(
     path_str: &str,
     thumb_cache_dir: &Path,
     gpu_context: Option<&GpuContext>,
     preloaded_image: Option<&DynamicImage>,
-    force_regenerate: bool,
     app_handle: &AppHandle,
     settings: &AppSettings,
+    options: ThumbnailGenerationOptions,
 ) -> Option<(String, String, u8, bool)> {
     let (source_path, sidecar_path) = parse_virtual_path(path_str);
 
@@ -1818,7 +1836,7 @@ fn generate_single_thumbnail_and_cache(
     let small_path = thumb_cache_dir.join(format!("{}_small.jpg", cache_hash));
     let medium_path = thumb_cache_dir.join(format!("{}_medium.jpg", cache_hash));
 
-    if !force_regenerate && small_path.exists() && medium_path.exists() {
+    if !options.force_regenerate && small_path.exists() && medium_path.exists() {
         return Some((
             small_path.to_string_lossy().into_owned(),
             medium_path.to_string_lossy().into_owned(),
@@ -1834,13 +1852,16 @@ fn generate_single_thumbnail_and_cache(
     let target_width_small = settings.small_thumbnail_resolution.unwrap_or(480);
     let target_width_medium = settings.medium_thumbnail_resolution.unwrap_or(1280);
 
-    if let Ok(thumb_image) =
-        generate_thumbnail_data(path_str, gpu_context, preloaded_image, app_handle)
-        && let (Ok(small_data), Ok(medium_data)) = (
-            encode_thumbnail(&thumb_image, target_width_small),
-            encode_thumbnail(&thumb_image, target_width_medium),
-        )
-    {
+    if let Ok(thumb_image) = generate_thumbnail_data(
+        path_str,
+        gpu_context,
+        preloaded_image,
+        app_handle,
+        options.gpu_priority,
+    ) && let (Ok(small_data), Ok(medium_data)) = (
+        encode_thumbnail(&thumb_image, target_width_small),
+        encode_thumbnail(&thumb_image, target_width_medium),
+    ) {
         let _ = fs::write(&small_path, &small_data);
         let _ = fs::write(&medium_path, &medium_data);
         return Some((
@@ -1890,6 +1911,9 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                 };
 
                 let state = app_clone.state::<crate::AppState>();
+                let thumbnail_revision = state
+                    .adjusted_thumbnail_manager
+                    .snapshot_revision(&path_to_process);
                 let gpu_context =
                     crate::gpu_processing::get_or_init_gpu_context(&state, &app_clone).ok();
 
@@ -1906,12 +1930,16 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                         &cache_dir,
                         gpu_context.as_ref(),
                         None,
-                        false,
                         &app_clone,
                         &current_settings,
+                        ThumbnailGenerationOptions::new(false, GpuWorkPriority::VisibleThumbnail),
                     );
 
-                    if let Some((small_path, medium_path, rating, is_edited)) = result {
+                    if state
+                        .adjusted_thumbnail_manager
+                        .revision_is_current(&path_to_process, thumbnail_revision)
+                        && let Some((small_path, medium_path, rating, is_edited)) = result
+                    {
                         emit_thumbnail_generated(
                             &app_clone,
                             &path_to_process,
@@ -1931,6 +1959,99 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
             }
         });
     }
+}
+
+pub fn start_adjusted_thumbnail_worker(app_handle: tauri::AppHandle) {
+    let state = app_handle.state::<crate::AppState>();
+    let manager = state.adjusted_thumbnail_manager.clone();
+    let thumbnail_manager = state.thumbnail_manager.clone();
+
+    thread::spawn(move || {
+        loop {
+            let job = manager.wait_for_ready();
+            if !manager.is_current(&job) {
+                continue;
+            }
+
+            let path = job.path().to_string();
+            {
+                let mut processing = thumbnail_manager.processing_now.lock().unwrap();
+                if processing.contains(&path) {
+                    drop(processing);
+                    manager.requeue(&job, Duration::from_millis(250));
+                    continue;
+                }
+                processing.insert(path.clone());
+            }
+
+            if !manager.is_current(&job) {
+                thumbnail_manager
+                    .processing_now
+                    .lock()
+                    .unwrap()
+                    .remove(&path);
+                continue;
+            }
+
+            let state = app_handle.state::<AppState>();
+            let preloaded_image = state
+                .original_image
+                .lock()
+                .unwrap()
+                .as_ref()
+                .filter(|loaded| loaded.path == path)
+                .map(|loaded| loaded.image.clone());
+            let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
+            let settings = load_settings(app_handle.clone()).unwrap_or_default();
+
+            let thumb_cache_dir = match resolve_thumbnail_cache_dir(&app_handle) {
+                Ok(dir) => dir,
+                Err(error) => {
+                    log::warn!(
+                        "Unable to initialize thumbnail cache directory for '{}': {}",
+                        path,
+                        error
+                    );
+                    emit_thumbnail_cache_setup_error(&app_handle, &path, &error);
+                    thumbnail_manager
+                        .processing_now
+                        .lock()
+                        .unwrap()
+                        .remove(&path);
+                    continue;
+                }
+            };
+
+            let result = generate_single_thumbnail_and_cache(
+                &path,
+                &thumb_cache_dir,
+                gpu_context.as_ref(),
+                preloaded_image.as_deref(),
+                &app_handle,
+                &settings,
+                ThumbnailGenerationOptions::new(false, GpuWorkPriority::SelectedThumbnail),
+            );
+
+            if manager.is_current(&job)
+                && let Some((small_path, medium_path, rating, is_edited)) = result
+            {
+                emit_thumbnail_generated(
+                    &app_handle,
+                    &path,
+                    &small_path,
+                    &medium_path,
+                    rating,
+                    is_edited,
+                );
+            }
+
+            thumbnail_manager
+                .processing_now
+                .lock()
+                .unwrap()
+                .remove(&path);
+        }
+    });
 }
 
 #[tauri::command]
@@ -2519,6 +2640,7 @@ pub fn save_metadata_and_update_thumbnail(
     app_handle: AppHandle,
     state: tauri::State<AppState>,
 ) -> Result<(), String> {
+    let thumbnail_revision = state.adjusted_thumbnail_manager.invalidate(&path);
     let (source_path, sidecar_path) = parse_virtual_path(&path);
 
     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
@@ -2545,65 +2667,9 @@ pub fn save_metadata_and_update_thumbnail(
         sync_metadata_to_xmp(&source_path, &metadata, create_if_missing);
     }
 
-    let loaded_image_lock = state.original_image.lock().unwrap();
-    let preloaded_image_option = if let Some(loaded_image) = loaded_image_lock.as_ref() {
-        if loaded_image.path == path {
-            Some(loaded_image.image.clone())
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-    drop(loaded_image_lock);
-
-    let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
-    let app_handle_clone = app_handle.clone();
-    let path_clone = path.clone();
-
-    add_to_thumbnail_queue(&state, 1, &app_handle);
-
-    thread::spawn(move || {
-        let state = app_handle_clone.state::<AppState>();
-        let settings = load_settings(app_handle_clone.clone()).unwrap_or_default();
-
-        let thumb_cache_dir = match resolve_thumbnail_cache_dir(&app_handle_clone) {
-            Ok(dir) => dir,
-            Err(e) => {
-                log::warn!(
-                    "Unable to initialize thumbnail cache directory for '{}': {}",
-                    path_clone,
-                    e
-                );
-                emit_thumbnail_cache_setup_error(&app_handle_clone, &path_clone, &e);
-                increment_thumbnail_progress(&state, &app_handle_clone);
-                return;
-            }
-        };
-
-        let result = generate_single_thumbnail_and_cache(
-            &path_clone,
-            &thumb_cache_dir,
-            gpu_context.as_ref(),
-            preloaded_image_option.as_deref(),
-            true,
-            &app_handle_clone,
-            &settings,
-        );
-
-        if let Some((small_path, medium_path, rating, is_edited)) = result {
-            emit_thumbnail_generated(
-                &app_handle_clone,
-                &path_clone,
-                &small_path,
-                &medium_path,
-                rating,
-                is_edited,
-            );
-        }
-
-        increment_thumbnail_progress(&state, &app_handle_clone);
-    });
+    state
+        .adjusted_thumbnail_manager
+        .arm_deferred(path, thumbnail_revision);
 
     Ok(())
 }
@@ -2628,6 +2694,14 @@ pub async fn apply_adjustments_to_paths(
             .lock()
             .unwrap()
             .clone();
+        let adjusted_thumbnail_manager = app_handle
+            .state::<AppState>()
+            .adjusted_thumbnail_manager
+            .clone();
+        let thumbnail_revisions: HashMap<String, _> = paths
+            .iter()
+            .map(|path| (path.clone(), adjusted_thumbnail_manager.invalidate(path)))
+            .collect();
 
         paths.par_iter().for_each(|path| {
             let (_, sidecar_path) = parse_virtual_path(path);
@@ -2688,12 +2762,17 @@ pub async fn apply_adjustments_to_paths(
                 &thumb_cache_dir,
                 gpu_context.as_ref(),
                 None,
-                true,
                 &app_handle,
                 &settings,
+                ThumbnailGenerationOptions::new(true, GpuWorkPriority::Background),
             );
 
-            if let Some((small_path, medium_path, rating, is_edited)) = result {
+            let revision_is_current = thumbnail_revisions.get(path_str).is_some_and(|revision| {
+                adjusted_thumbnail_manager.revision_is_current(path_str, *revision)
+            });
+            if revision_is_current
+                && let Some((small_path, medium_path, rating, is_edited)) = result
+            {
                 emit_thumbnail_generated(
                     &app_handle,
                     path_str,
@@ -2723,6 +2802,14 @@ pub async fn reset_adjustments_for_paths(
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
         let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
         let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
+        let adjusted_thumbnail_manager = app_handle
+            .state::<AppState>()
+            .adjusted_thumbnail_manager
+            .clone();
+        let thumbnail_revisions: HashMap<String, _> = paths
+            .iter()
+            .map(|path| (path.clone(), adjusted_thumbnail_manager.invalidate(path)))
+            .collect();
 
         paths.par_iter().for_each(|path| {
             let (_, sidecar_path) = parse_virtual_path(path);
@@ -2764,12 +2851,17 @@ pub async fn reset_adjustments_for_paths(
                 &thumb_cache_dir,
                 gpu_context.as_ref(),
                 None,
-                true,
                 &app_handle,
                 &settings,
+                ThumbnailGenerationOptions::new(true, GpuWorkPriority::Background),
             );
 
-            if let Some((small_path, medium_path, rating, is_edited)) = result {
+            let revision_is_current = thumbnail_revisions.get(path_str).is_some_and(|revision| {
+                adjusted_thumbnail_manager.revision_is_current(path_str, *revision)
+            });
+            if revision_is_current
+                && let Some((small_path, medium_path, rating, is_edited)) = result
+            {
                 emit_thumbnail_generated(
                     &app_handle,
                     path_str,
@@ -2901,8 +2993,10 @@ pub async fn apply_auto_adjustments_to_paths(
         };
 
         let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
+        let adjusted_thumbnail_manager = state.adjusted_thumbnail_manager.clone();
 
         paths.par_iter().for_each(|path| {
+            let thumbnail_revision = adjusted_thumbnail_manager.invalidate(path);
             let loaded_image: Option<DynamicImage> = (|| -> Result<DynamicImage, String> {
                 let (source_path, sidecar_path) = parse_virtual_path(path);
                 let source_path_str = source_path.to_string_lossy().to_string();
@@ -2966,12 +3060,14 @@ pub async fn apply_auto_adjustments_to_paths(
                 &thumb_cache_dir,
                 gpu_context.as_ref(),
                 loaded_image.as_ref(),
-                true,
                 &app_handle,
                 &settings,
+                ThumbnailGenerationOptions::new(true, GpuWorkPriority::Background),
             );
 
-            if let Some((small_path, medium_path, rating, is_edited)) = result {
+            if adjusted_thumbnail_manager.revision_is_current(path, thumbnail_revision)
+                && let Some((small_path, medium_path, rating, is_edited)) = result
+            {
                 emit_thumbnail_generated(
                     &app_handle,
                     path,
@@ -3686,7 +3782,13 @@ pub fn get_cached_or_generate_thumbnail_image(
             );
         }
 
-        let thumb_image = generate_thumbnail_data(path_str, gpu_context, None, app_handle)?;
+        let thumb_image = generate_thumbnail_data(
+            path_str,
+            gpu_context,
+            None,
+            app_handle,
+            GpuWorkPriority::Background,
+        )?;
         if let (Ok(small_data), Ok(medium_data)) = (
             encode_thumbnail(&thumb_image, target_width_small),
             encode_thumbnail(&thumb_image, target_width_medium),
@@ -3703,7 +3805,13 @@ pub fn get_cached_or_generate_thumbnail_image(
 
         Ok(thumb_image)
     } else {
-        generate_thumbnail_data(path_str, gpu_context, None, app_handle)
+        generate_thumbnail_data(
+            path_str,
+            gpu_context,
+            None,
+            app_handle,
+            GpuWorkPriority::Background,
+        )
     }
 }
 
