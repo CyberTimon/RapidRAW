@@ -785,27 +785,25 @@ fn generate_uncropped_preview(
             Cow::Borrowed(loaded_image.image.as_ref())
         };
 
-        let warped_image = apply_geometry_warp(patched_image, &adjustments_clone);
-        let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, &adjustments_clone);
         let orientation_steps = adjustments_clone["orientationSteps"].as_u64().unwrap_or(0) as u8;
-        let coarse_rotated_image = apply_coarse_rotation(blurred_image, orientation_steps);
-
+        let coarse_rotated_image = apply_coarse_rotation(patched_image, orientation_steps);
         let flip_horizontal = adjustments_clone["flipHorizontal"]
             .as_bool()
             .unwrap_or(false);
         let flip_vertical = adjustments_clone["flipVertical"].as_bool().unwrap_or(false);
-
-        let flipped_image =
-            apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical).into_owned();
+        let oriented_image = apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical);
+        let warped_image = apply_geometry_warp(oriented_image, &adjustments_clone);
+        let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, &adjustments_clone);
+        let oriented_image = blurred_image.into_owned();
 
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
         let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
 
-        let (rotated_w, rotated_h) = flipped_image.dimensions();
+        let (rotated_w, rotated_h) = oriented_image.dimensions();
 
         let (processing_base, scale_for_gpu) = if rotated_w > preview_dim || rotated_h > preview_dim
         {
-            let base = downscale_f32_image(&flipped_image, preview_dim, preview_dim);
+            let base = downscale_f32_image(&oriented_image, preview_dim, preview_dim);
             let scale = if rotated_w > 0 {
                 base.width() as f32 / rotated_w as f32
             } else {
@@ -813,7 +811,7 @@ fn generate_uncropped_preview(
             };
             (base, scale)
         } else {
-            (flipped_image.clone(), 1.0)
+            (oriented_image, 1.0)
         };
 
         let (preview_width, preview_height) = processing_base.dimensions();
@@ -1000,19 +998,18 @@ async fn preview_geometry_transform(
             adjusted_params.lens_vignette_amount *= 0.8;
         }
 
-        let warped_image = warp_image_geometry(&base_image_to_warp, adjusted_params);
         let orientation_steps = js_adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
         let flip_horizontal = js_adjustments["flipHorizontal"].as_bool().unwrap_or(false);
         let flip_vertical = js_adjustments["flipVertical"].as_bool().unwrap_or(false);
 
         let coarse_rotated_image =
-            apply_coarse_rotation(Cow::Owned(warped_image), orientation_steps);
-        let flipped_image =
-            apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical).into_owned();
+            apply_coarse_rotation(Cow::Borrowed(&base_image_to_warp), orientation_steps);
+        let oriented_image = apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical);
+        let warped_image = warp_image_geometry(oriented_image.as_ref(), adjusted_params);
 
         if show_lines {
-            let gray_image = flipped_image.to_luma8();
-            let mut visualization = flipped_image.to_rgba8();
+            let gray_image = warped_image.to_luma8();
+            let mut visualization = warped_image.to_rgba8();
             let edges = canny(&gray_image, 50.0, 100.0);
 
             let min_dim = gray_image.width().min(gray_image.height());
@@ -1063,7 +1060,7 @@ async fn preview_geometry_transform(
 
             DynamicImage::ImageRgba8(visualization)
         } else {
-            flipped_image
+            warped_image
         }
     })
     .await

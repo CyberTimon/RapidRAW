@@ -1572,16 +1572,19 @@ pub fn generate_thumbnail_data(
                 img
             };
 
-            let warped_image =
-                apply_geometry_warp(Cow::Borrowed(&composite_image), &meta.adjustments);
-
-            let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, &meta.adjustments);
-
             let orientation_steps =
                 meta.adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
-            let coarse_rotated_image = apply_coarse_rotation(blurred_image, orientation_steps);
+            let flip_horizontal = meta.adjustments["flipHorizontal"]
+                .as_bool()
+                .unwrap_or(false);
+            let flip_vertical = meta.adjustments["flipVertical"].as_bool().unwrap_or(false);
+            let coarse_rotated_image =
+                apply_coarse_rotation(Cow::Borrowed(&composite_image), orientation_steps);
+            let oriented_image = apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical);
+            let warped_image = apply_geometry_warp(oriented_image, &meta.adjustments);
+            let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, &meta.adjustments);
 
-            let (full_w, full_h) = coarse_rotated_image.dimensions();
+            let (full_w, full_h) = blurred_image.dimensions();
 
             let mut processing_dim = target_res;
             if let Some(c) = &crop_data
@@ -1599,7 +1602,7 @@ pub fn generate_thumbnail_data(
 
             let (base, gpu_scale) = if full_w > processing_dim || full_h > processing_dim {
                 let base = crate::image_processing::downscale_f32_image(
-                    &coarse_rotated_image,
+                    &blurred_image,
                     processing_dim,
                     processing_dim,
                 );
@@ -1610,7 +1613,7 @@ pub fn generate_thumbnail_data(
                 };
                 (base, scale)
             } else {
-                (coarse_rotated_image.into_owned(), 1.0)
+                (blurred_image.into_owned(), 1.0)
             };
 
             let total_scale = gpu_scale * raw_scale_factor;
