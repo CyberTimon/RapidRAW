@@ -188,10 +188,12 @@ export default function BottomBar({
       uiVisibility: { ...s.uiVisibility, filmstrip: !s.uiVisibility.filmstrip },
     }));
 
-  const { displaySize, originalSize } = useEditorStore(
+  const { displaySize, originalSize, baseRenderSize, zoom } = useEditorStore(
     useShallow((state) => ({
       displaySize: state.displaySize,
       originalSize: state.originalSize,
+      baseRenderSize: state.baseRenderSize,
+      zoom: state.zoom,
     })),
   );
 
@@ -204,8 +206,9 @@ export default function BottomBar({
   const [isZoomLabelHovered, setIsZoomLabelHovered] = useState(false);
   const isZoomReady = !isLoading && originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0;
 
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
   const currentOriginalPercent = isZoomReady
-    ? (displaySize.width * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)) / originalSize.width
+    ? (zoom * baseRenderSize.width * dpr) / originalSize.width
     : 1.0;
 
   const [latchedSliderValue, setLatchedSliderValue] = useState(1.0);
@@ -232,7 +235,7 @@ export default function BottomBar({
   useEffect(() => {
     if (isZoomReady && !isDraggingSlider.current) {
       setLatchedSliderValue(currentOriginalPercent);
-      setLatchedDisplayPercent(Math.round(currentOriginalPercent * 100));
+      setLatchedDisplayPercent(currentOriginalPercent * 100);
     }
   }, [currentOriginalPercent, isZoomReady]);
 
@@ -604,7 +607,7 @@ export default function BottomBar({
                       className="cursor-pointer hover:text-text-primary transition-colors select-none"
                       data-tooltip={t('ui.bottomBar.tooltips.customZoom')}
                     >
-                      {latchedDisplayPercent}%
+                      {Math.round(latchedDisplayPercent)}%
                     </span>
                   )}
                 </div>
