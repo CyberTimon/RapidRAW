@@ -777,12 +777,28 @@
       "preserveTimestamps": "Establir les marques de temps dels fitxers des de la data de captura EXIF",
       "title": "Configuració d'exportació"
     },
+    "replaceOriginal": {
+      "confirmTitle": "Reemplaçar imatge(s) original(s)?",
+      "confirmMessage": "Després d'exportar, les imatges originals seleccionades se substituiran per les versions editades i els originals aniran a la paperera del sistema. Això no es pot desfer.",
+      "confirmMessage_one": "Després d'exportar, la imatge original seleccionada se substituirà per la versió editada i l'original anirà a la paperera del sistema. Això no es pot desfer.",
+      "confirmMessage_other": "Després d'exportar, les {{count}} imatges originals seleccionades se substituiran per les versions editades i els originals aniran a la paperera del sistema. Això no es pot desfer.",
+      "confirmMessage_many": "Després d'exportar, les {{count}} imatges originals seleccionades se substituiran per les versions editades i els originals aniran a la paperera del sistema. Això no es pot desfer.",
+      "confirmButton": "Exporta i reemplaça"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",
       "kb": "KB",
       "mb": "MB",
       "tb": "TB"
+    },
+    "deleteOriginal": {
+      "confirmTitle": "Eliminar imatge(s) original(s)?",
+      "confirmMessage": "Després d'exportar, les imatges originals seleccionades i les seves dades d'edició (.rrdata) aniran a la paperera del sistema. Això no es pot desfer.",
+      "confirmMessage_one": "Després d'exportar, la imatge original seleccionada i les seves dades d'edició (.rrdata) aniran a la paperera del sistema. Això no es pot desfer.",
+      "confirmMessage_other": "Després d'exportar, les {{count}} imatges originals seleccionades i les seves dades d'edició (.rrdata) aniran a la paperera del sistema. Això no es pot desfer.",
+      "confirmMessage_many": "Després d'exportar, les {{count}} imatges originals seleccionades i les seves dades d'edició (.rrdata) aniran a la paperera del sistema. Això no es pot desfer.",
+      "confirmButton": "Exporta i elimina"
     },
     "dialog": {
       "saveEditedImageTitle": "Desar imatge editada",
@@ -803,6 +819,13 @@
     "metadata": {
       "removeGps": "Eliminar dades GPS",
       "saveWithMetadata": "Desar amb metadades"
+    },
+    "originalHandling": {
+      "label": "Fitxers originals",
+      "off": "Conserva",
+      "replace": "Reemplaça",
+      "delete": "Elimina",
+      "attachedVcsUnavailable": "No és possible perquè les imatges seleccionades tenen còpies virtuals adjuntes."
     },
     "resize": {
       "dontEnlarge": "No ampliar",

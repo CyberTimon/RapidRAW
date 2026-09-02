@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { type ReactNode, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X } from 'lucide-react';
+import { listen } from '@tauri-apps/api/event';
+import { type TFunction } from 'i18next';
+import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import debounce from 'lodash.debounce';
@@ -10,12 +12,14 @@ import Button from '../../ui/Button';
 import Dropdown from '../../ui/Dropdown';
 import Slider from '../../ui/Slider';
 import ImagePicker from '../../ui/ImagePicker';
+import SegmentedSwitch from '../../ui/SegmentedSwitch';
 import {
   ExportPreset,
   ExportSettings,
   FileFormat,
   FILE_FORMATS,
   FILENAME_VARIABLES,
+  OriginalFilesReplacedPayload,
   Status,
   ExportState,
   FileFormats,
@@ -28,23 +32,59 @@ import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
+import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useUIStore } from '../../../store/useUIStore';
 
 interface ExportPanelProps {
   exportState: ExportState;
   multiSelectedPaths: Array<string>;
   selectedImage: SelectedImage | null;
-  setExportState(state: any): void;
+  setExportState(updater: Partial<ExportState> | ((current: ExportState) => Partial<ExportState>)): void;
   appSettings: AppSettings | null;
   onSettingsChange: (settings: AppSettings) => void;
   rootPaths: string[];
   isVisible?: boolean;
   onClose?: () => void;
+  onFilesReplaced?: (payload: OriginalFilesReplacedPayload) => void | Promise<void>;
 }
 
 interface SectionProps {
-  children: any;
+  children: ReactNode;
   title: string;
+}
+
+type ExportTerminationEvent = 'export-complete' | 'export-error' | 'export-cancelled';
+
+interface ExportTermination {
+  event: ExportTerminationEvent;
+  changed: OriginalFilesReplacedPayload | null;
+}
+
+function waitForExportTermination(): Promise<ExportTermination> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let changed: OriginalFilesReplacedPayload | null = null;
+    const unlisteners: Array<Promise<() => void>> = [];
+    const finish = (eventName: ExportTerminationEvent) => {
+      if (settled) return;
+      settled = true;
+      for (const unlisten of unlisteners) {
+        unlisten.then((fn) => fn()).catch(() => {});
+      }
+      resolve({ event: eventName, changed });
+    };
+    unlisteners.push(
+      listen('original-files-changed', (payload) => {
+        const p = payload?.payload as OriginalFilesReplacedPayload | undefined;
+        if (p && Array.isArray(p.replacements) && Array.isArray(p.deleted)) {
+          changed = { replacements: p.replacements, deleted: p.deleted };
+        }
+      }),
+    );
+    unlisteners.push(listen('export-complete', () => finish('export-complete')));
+    unlisteners.push(listen('export-error', () => finish('export-error')));
+    unlisteners.push(listen('export-cancelled', () => finish('export-cancelled')));
+  });
 }
 
 function Section({ title, children }: SectionProps) {
@@ -158,7 +198,7 @@ function WatermarkPreview({
   );
 }
 
-const formatBytes = (bytes: number, t: any, decimals = 2) => {
+const formatBytes = (bytes: number, t: TFunction, decimals = 2) => {
   if (!+bytes) return `0 ${t('export.bytes.bytes')}`;
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
@@ -173,6 +213,8 @@ const formatBytes = (bytes: number, t: any, decimals = 2) => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 };
 
+type OriginalHandling = 'off' | 'replace' | 'delete';
+
 export default function ExportPanel({
   exportState,
   multiSelectedPaths,
@@ -183,6 +225,7 @@ export default function ExportPanel({
   rootPaths,
   isVisible = true,
   onClose,
+  onFilesReplaced,
 }: ExportPanelProps) {
   const { t } = useTranslation();
 
@@ -240,7 +283,9 @@ export default function ExportPanel({
   const adjustmentsRef = useRef(useEditorStore.getState().adjustments);
 
   const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
+  const [originalHandling, setOriginalHandling] = useState<OriginalHandling>('off');
   const initDone = useRef(false);
+  const pendingHandlingRef = useRef<'off' | 'replace' | 'delete'>('off');
 
   useEffect(() => {
     if (initDone.current || appSettings === null || !isVisible) return;
@@ -296,6 +341,36 @@ export default function ExportPanel({
 
   const numImages = pathsToExport.length;
 
+  const libraryImages = useLibraryStore((s) => s.imageList);
+
+  const originalHandlingUnavailableReason = useMemo(() => {
+    const batchedVcIdsByBase = new Map<string, Set<string>>();
+    for (const path of pathsToExport) {
+      if (!path.includes('?vc=')) continue;
+      const separatorIndex = path.indexOf('?vc=');
+      const base = path.substring(0, separatorIndex);
+      const id = path.substring(separatorIndex + 4);
+      if (!batchedVcIdsByBase.has(base)) batchedVcIdsByBase.set(base, new Set());
+      batchedVcIdsByBase.get(base)!.add(id);
+    }
+    const hasUnbatchedVcs = pathsToExport.some((path) => {
+      if (path.includes('?vc=')) return false;
+      const basePrefix = `${path}?vc=`;
+      return libraryImages.some((img) => {
+        if (!img.is_virtual_copy || !img.path.startsWith(basePrefix)) return false;
+        const id = img.path.substring(basePrefix.length);
+        return !batchedVcIdsByBase.get(path)?.has(id);
+      });
+    });
+    return hasUnbatchedVcs ? t('export.originalHandling.attachedVcsUnavailable') : null;
+  }, [pathsToExport, libraryImages, t]);
+
+  useEffect(() => {
+    if (originalHandlingUnavailableReason) {
+      setOriginalHandling('off');
+    }
+  }, [originalHandlingUnavailableReason]);
+
   useEffect(() => {
     const fetchDims = async () => {
       if (!enableWatermark || numImages === 0 || !isVisible || !isPanelReallyActive) return;
@@ -304,7 +379,9 @@ export default function ExportPanel({
         return;
       }
       try {
-        const dims: any = await invoke('get_image_dimensions', { path: pathsToExport[0] });
+        const dims = await invoke<{ width: number; height: number }>('get_image_dimensions', {
+          path: pathsToExport[0],
+        });
         if (dims.width > 0 && dims.height > 0) setImageAspectRatio(dims.width / dims.height);
       } catch {
         setImageAspectRatio(3 / 2);
@@ -324,7 +401,7 @@ export default function ExportPanel({
           path: watermarkPath,
         });
         setWatermarkImageAspectRatio(dimensions.height > 0 ? dimensions.width / dimensions.height : 1);
-      } catch (error) {
+      } catch {
         setWatermarkImageAspectRatio(1);
       }
     };
@@ -363,7 +440,7 @@ export default function ExportPanel({
             currentEditAdjustments: currentAdj || null,
           });
           setEstimatedSize(size);
-        } catch (err) {
+        } catch {
           setEstimatedSize(null);
         } finally {
           setIsEstimating(false);
@@ -454,11 +531,39 @@ export default function ExportPanel({
     }, 0);
   };
 
-  const handleExport = async () => {
+  const handleOriginalHandlingChange = useCallback(
+    (id: string) => {
+      const next = id as OriginalHandling;
+      if (next === originalHandling) return;
+      setOriginalHandling(next);
+    },
+    [originalHandling],
+  );
+
+  const performExport = async () => {
     if (numImages === 0 || isExporting) return;
+
+    const effectiveReplaceOriginal = originalHandling === 'replace' && !originalHandlingUnavailableReason;
+    const effectiveDeleteOriginal = originalHandling === 'delete' && !originalHandlingUnavailableReason;
+
+    const intendedHandling = pendingHandlingRef.current;
+    pendingHandlingRef.current = 'off';
+    if (
+      intendedHandling !== 'off' &&
+      ((intendedHandling === 'replace' && !effectiveReplaceOriginal) ||
+        (intendedHandling === 'delete' && !effectiveDeleteOriginal))
+    ) {
+      setExportState({
+        errorMessage: t('export.originalHandling.attachedVcsUnavailable'),
+        progress,
+        status: Status.Error,
+      });
+      return;
+    }
 
     let finalFilenameTemplate = filenameTemplate;
     if (
+      !effectiveReplaceOriginal &&
       numImages > 1 &&
       !filenameTemplate.includes('{sequence}') &&
       !filenameTemplate.includes('{original_filename}')
@@ -486,46 +591,50 @@ export default function ExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
+      replaceOriginal: effectiveReplaceOriginal,
+      deleteOriginal: effectiveDeleteOriginal,
     };
 
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
 
     try {
-      const selectedFormat: any = FILE_FORMATS.find((f) => f.id === fileFormat);
+      const selectedFormat = FILE_FORMATS.find((f) => f.id === fileFormat) as FileFormat;
 
       let outputFolderOrFile = '';
-      const shouldChooseOutputFile = numImages === 1 && !preserveFolders;
-      if (shouldChooseOutputFile) {
-        const originalFilename = pathsToExport[0].split(/[\\/]/).pop() || '';
-        const stem = originalFilename.substring(0, originalFilename.lastIndexOf('.')) || originalFilename;
-        const suggestedName = finalFilenameTemplate.replace('{original_filename}', stem);
-        const outputFileName = `${suggestedName}.${selectedFormat.extensions[0]}`;
+      let shouldChooseOutputFile = false;
+      if (!effectiveReplaceOriginal) {
+        shouldChooseOutputFile = numImages === 1 && !preserveFolders;
+        if (shouldChooseOutputFile) {
+          const originalFilename = pathsToExport[0].split(/[\\/]/).pop() || '';
+          const stem = originalFilename.substring(0, originalFilename.lastIndexOf('.')) || originalFilename;
+          const suggestedName = finalFilenameTemplate.replace('{original_filename}', stem);
+          const outputFileName = `${suggestedName}.${selectedFormat.extensions[0]}`;
 
-        outputFolderOrFile = isAndroid
-          ? outputFileName
-          : ((await save({
-              title: t('export.dialog.saveEditedImageTitle'),
-              defaultPath: lastExportPath ? `${lastExportPath}/${outputFileName}` : outputFileName,
-              filters: [
-                { name: selectedFormat.name, extensions: selectedFormat.extensions },
-                ...FILE_FORMATS.filter((f: FileFormat) => f.id !== fileFormat).map((f: FileFormat) => ({
-                  name: f.name,
-                  extensions: f.extensions,
-                })),
-              ],
-            })) as string);
-      } else {
-        outputFolderOrFile = isAndroid
-          ? ''
-          : ((await open({
-              title: t('export.dialog.selectFolderTitle', { count: numImages }),
-              directory: true,
-              defaultPath: lastExportPath ?? undefined,
-            })) as string);
+          outputFolderOrFile = isAndroid
+            ? outputFileName
+            : ((await save({
+                title: t('export.dialog.saveEditedImageTitle'),
+                defaultPath: lastExportPath ? `${lastExportPath}/${outputFileName}` : outputFileName,
+                filters: [
+                  { name: selectedFormat.name, extensions: selectedFormat.extensions },
+                  ...FILE_FORMATS.filter((f: FileFormat) => f.id !== fileFormat).map((f: FileFormat) => ({
+                    name: f.name,
+                    extensions: f.extensions,
+                  })),
+                ],
+              })) as string);
+        } else {
+          outputFolderOrFile = isAndroid
+            ? ''
+            : ((await open({
+                title: t('export.dialog.selectFolderTitle', { count: numImages }),
+                directory: true,
+                defaultPath: lastExportPath ?? undefined,
+              })) as string);
+        }
       }
-
-      if (isAndroid || outputFolderOrFile) {
-        if (!isAndroid) {
+      if (isAndroid || outputFolderOrFile || effectiveReplaceOriginal) {
+        if (!isAndroid && !effectiveReplaceOriginal && outputFolderOrFile) {
           const dir = shouldChooseOutputFile
             ? outputFolderOrFile.substring(
                 0,
@@ -546,6 +655,32 @@ export default function ExportPanel({
           currentEditPath: selectedImage?.path || null,
           currentEditAdjustments: adjustmentsRef.current || null,
         });
+
+        if (effectiveReplaceOriginal || effectiveDeleteOriginal) {
+          const replacements = effectiveReplaceOriginal
+            ? pathsToExport.map((p) => {
+                const isVirtualCopy = p.includes('?vc=');
+                const filePath = p.split('?vc=')[0];
+                const separator = filePath.includes('\\') ? '\\' : '/';
+                const dir = filePath.substring(0, filePath.lastIndexOf(separator));
+                const name = filePath.split(separator).pop() || filePath;
+                const stem = name.substring(0, name.lastIndexOf('.')) || name;
+                const ext = String(selectedFormat.extensions[0]).toLowerCase();
+                let fileName = `${stem}.${ext}`;
+                if (isVirtualCopy && `${dir ? `${dir}${separator}` : ''}${fileName}` === filePath) {
+                  fileName = `${stem}_1.${ext}`;
+                }
+                const to = dir ? `${dir}${separator}${fileName}` : fileName;
+                return { from: p, to };
+              })
+            : [];
+          const predictedDeleted = effectiveDeleteOriginal ? [...pathsToExport] : [];
+          const termination = await waitForExportTermination();
+          const payload = termination.changed ?? { replacements, deleted: predictedDeleted };
+          if (termination.changed || termination.event === 'export-complete') {
+            await onFilesReplaced?.(payload);
+          }
+        }
       }
     } catch (error) {
       setExportState({
@@ -554,6 +689,32 @@ export default function ExportPanel({
         status: Status.Error,
       });
     }
+  };
+
+  const handleExport = async () => {
+    if (numImages === 0 || isExporting) return;
+
+    if (originalHandling !== 'off' && !originalHandlingUnavailableReason) {
+      const useReplace = originalHandling === 'replace';
+      pendingHandlingRef.current = useReplace ? 'replace' : 'delete';
+      useUIStore.getState().setUI({
+        confirmModalState: {
+          isOpen: true,
+          title: t(useReplace ? 'export.replaceOriginal.confirmTitle' : 'export.deleteOriginal.confirmTitle'),
+          message: t(useReplace ? 'export.replaceOriginal.confirmMessage' : 'export.deleteOriginal.confirmMessage', {
+            count: numImages,
+          }),
+          confirmText: t(useReplace ? 'export.replaceOriginal.confirmButton' : 'export.deleteOriginal.confirmButton'),
+          confirmVariant: 'destructive',
+          onConfirm: () => {
+            void performExport();
+          },
+        },
+      });
+      return;
+    }
+
+    await performExport();
   };
 
   const handleCancel = async () => {
@@ -789,6 +950,30 @@ export default function ExportPanel({
                     </div>
                   )}
                 </Section>
+                {!isAndroid && (
+                  <Section title={t('export.originalHandling.label')}>
+                    <SegmentedSwitch
+                      disabled={isExporting}
+                      options={[
+                        { id: 'off', label: t('export.originalHandling.off') },
+                        {
+                          id: 'replace',
+                          label: t('export.originalHandling.replace'),
+                          disabled: !!originalHandlingUnavailableReason,
+                          tooltip: originalHandlingUnavailableReason ?? undefined,
+                        },
+                        {
+                          id: 'delete',
+                          label: t('export.originalHandling.delete'),
+                          disabled: !!originalHandlingUnavailableReason,
+                          tooltip: originalHandlingUnavailableReason ?? undefined,
+                        },
+                      ]}
+                      value={originalHandling}
+                      onChange={handleOriginalHandlingChange}
+                    />
+                  </Section>
+                )}
               </>
             )}
 

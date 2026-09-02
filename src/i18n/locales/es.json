@@ -798,12 +798,28 @@
       "preserveTimestamps": "Establecer marcas de tiempo del archivo desde la fecha de captura EXIF",
       "title": "Ajustes de exportación"
     },
+    "replaceOriginal": {
+      "confirmTitle": "¿Reemplazar imagen(es) original(es)?",
+      "confirmMessage": "Después de exportar, las imágenes originales seleccionadas se reemplazarán con las versiones editadas. Los originales se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmMessage_one": "Después de exportar, la imagen original seleccionada se reemplazará con la versión editada. El original se moverá a la papelera. Esto no se puede deshacer.",
+      "confirmMessage_other": "Después de exportar, las {{count}} imágenes originales seleccionadas se reemplazarán con las versiones editadas. Los originales se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmMessage_many": "Después de exportar, las {{count}} imágenes originales seleccionadas se reemplazarán con las versiones editadas. Los originales se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmButton": "Exportar y reemplazar"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",
       "kb": "KB",
       "mb": "MB",
       "tb": "TB"
+    },
+    "deleteOriginal": {
+      "confirmTitle": "¿Eliminar imagen(es) original(es)?",
+      "confirmMessage": "Después de exportar, las imágenes originales seleccionadas y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmMessage_one": "Después de exportar, la imagen original seleccionada y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmMessage_other": "Después de exportar, las {{count}} imágenes originales seleccionadas y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmMessage_many": "Después de exportar, las {{count}} imágenes originales seleccionadas y sus datos de edición (.rrdata) se moverán a la papelera. Esto no se puede deshacer.",
+      "confirmButton": "Exportar y eliminar"
     },
     "dialog": {
       "saveEditedImageTitle": "Guardar imagen editada",
@@ -825,6 +841,13 @@
     "metadata": {
       "removeGps": "Eliminar datos GPS",
       "saveWithMetadata": "Guardar con metadatos"
+    },
+    "originalHandling": {
+      "label": "Archivos originales",
+      "off": "Conservar",
+      "replace": "Reemplazar",
+      "delete": "Eliminar",
+      "attachedVcsUnavailable": "No es posible porque las imágenes seleccionadas tienen copias virtuales adjuntas."
     },
     "resize": {
       "dontEnlarge": "No agrandar",

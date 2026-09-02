@@ -775,12 +775,24 @@
       "preserveTimestamps": "将文件时间戳设为 EXIF 拍摄日期",
       "title": "导出设置"
     },
+    "replaceOriginal": {
+      "confirmTitle": "替换原始图像？",
+      "confirmMessage": "导出完成后，所选原始图像将被编辑后的版本替换，原图像将移到系统回收站。此操作无法撤销。",
+      "confirmMessage_other": "导出完成后，所选 {{count}} 张原始图像将被编辑后的版本替换，原图像将移到系统回收站。此操作无法撤销。",
+      "confirmButton": "导出并替换"
+    },
     "bytes": {
       "bytes": "字节",
       "gb": "GB",
       "kb": "KB",
       "mb": "MB",
       "tb": "TB"
+    },
+    "deleteOriginal": {
+      "confirmTitle": "删除原始图像？",
+      "confirmMessage": "导出完成后，所选原始图像及其编辑数据（.rrdata）将被移到系统回收站。此操作无法撤销。",
+      "confirmMessage_other": "导出完成后，所选 {{count}} 张原始图像及其编辑数据（.rrdata）将被移到系统回收站。此操作无法撤销。",
+      "confirmButton": "导出并删除"
     },
     "dialog": {
       "saveEditedImageTitle": "保存编辑后的图像",
@@ -801,6 +813,13 @@
     "metadata": {
       "removeGps": "移除 GPS 数据",
       "saveWithMetadata": "保存时包含元数据"
+    },
+    "originalHandling": {
+      "label": "原始文件",
+      "off": "保留",
+      "replace": "替换",
+      "delete": "删除",
+      "attachedVcsUnavailable": "无法执行，因为所选图像带有虚拟副本。"
     },
     "resize": {
       "dontEnlarge": "不放大",

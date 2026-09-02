@@ -66,17 +66,19 @@ fn emit_thumbnail_cache_setup_error(app_handle: &AppHandle, path: &str, reason: 
 fn compute_thumbnail_cache_hash(path_str: &str, adjustments_bytes: &[u8]) -> Option<String> {
     let (source_path, _) = parse_virtual_path(path_str);
 
-    let img_mod_time = fs::metadata(&source_path)
-        .ok()?
+    let metadata = fs::metadata(&source_path).ok()?;
+    let img_mod_time = metadata
         .modified()
         .ok()?
         .duration_since(std::time::UNIX_EPOCH)
         .ok()?
         .as_secs();
+    let img_size = metadata.len();
 
     let mut hasher = blake3::Hasher::new();
     hasher.update(path_str.as_bytes());
     hasher.update(&img_mod_time.to_le_bytes());
+    hasher.update(&img_size.to_le_bytes());
     hasher.update(adjustments_bytes);
     Some(hasher.finalize().to_hex().to_string())
 }
@@ -924,7 +926,7 @@ pub fn add_to_album(
     Ok(())
 }
 
-fn sync_album_path_changes(
+pub(crate) fn sync_album_path_changes(
     app_handle: &AppHandle,
     renames: Option<&HashMap<String, String>>,
     deletions: Option<&HashSet<String>>,
@@ -3633,6 +3635,199 @@ pub fn delete_files_with_associated(
     sync_album_path_changes(&app_handle, None, Some(&deletions), None);
 
     Ok(())
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+pub(crate) fn trash_file_or_remove(path: &Path) -> Result<(), String> {
+    match trash::delete(path) {
+        Ok(()) => Ok(()),
+        Err(trash_error) => {
+            log::warn!(
+                "Failed to move file to trash {}: {}. Falling back to permanent delete.",
+                path.display(),
+                trash_error
+            );
+            fs::remove_file(path).map_err(|e| format!("Failed to delete {}: {}", path.display(), e))
+        }
+    }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+pub(crate) fn trash_file_or_remove(path: &Path) -> Result<(), String> {
+    fs::remove_file(path).map_err(|e| format!("Failed to delete {}: {}", path.display(), e))
+}
+
+pub(crate) fn cleanup_sidecars_after_replacement(source: &Path, target: &Path) -> HashSet<String> {
+    let mut deletions = HashSet::new();
+    deletions.insert(source.to_string_lossy().into_owned());
+
+    let Some(parent) = source.parent() else {
+        return deletions;
+    };
+    let source_file_name = source.file_name().unwrap_or_default().to_string_lossy();
+    let target_file_name = target.file_name().unwrap_or_default().to_string_lossy();
+
+    let old_primary = parent.join(format!("{}.rrdata", source_file_name));
+    let new_primary = parent.join(format!("{}.rrdata", target_file_name));
+
+    if old_primary.exists() {
+        let mut metadata = crate::exif_processing::load_sidecar(&old_primary);
+        metadata.adjustments = serde_json::json!({});
+
+        if new_primary == old_primary {
+            if let Ok(json) = serde_json::to_string_pretty(&metadata) {
+                let _ = fs::write(&old_primary, json);
+            }
+        } else {
+            let carry_over =
+                metadata.rating != 0 || metadata.tags.is_some() || metadata.exif.is_some();
+            if carry_over && let Ok(json) = serde_json::to_string_pretty(&metadata) {
+                let _ = fs::write(&new_primary, json);
+            }
+            let _ = trash_file_or_remove(&old_primary);
+        }
+    }
+
+    if let Ok(entries) = fs::read_dir(parent) {
+        for entry in entries.filter_map(Result::ok) {
+            let entry_path = entry.path();
+            if !entry_path.is_file() {
+                continue;
+            }
+            let entry_file_name = entry.file_name();
+            let entry_filename = entry_file_name.to_string_lossy();
+            let old_vc_prefix = format!("{}.", source_file_name);
+
+            if entry_filename.starts_with(&old_vc_prefix)
+                && entry_filename.ends_with(".rrdata")
+                && entry_filename != format!("{}.rrdata", source_file_name)
+            {
+                let _ = trash_file_or_remove(&entry_path);
+            }
+        }
+    }
+
+    let old_rrexif = parent.join(format!("{}.rrexif", source_file_name));
+    let new_rrexif = parent.join(format!("{}.rrexif", target_file_name));
+    if old_rrexif.exists() && old_rrexif != new_rrexif {
+        let _ = trash_file_or_remove(&old_rrexif);
+    }
+
+    deletions
+}
+
+pub(crate) fn is_same_path(a: &Path, b: &Path) -> bool {
+    if a == b {
+        return true;
+    }
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    {
+        let (sa, sb) = (a.to_string_lossy(), b.to_string_lossy());
+        if sa.eq_ignore_ascii_case(&sb) {
+            return true;
+        }
+    }
+    false
+}
+
+pub(crate) fn recycle_original_with_sidecars(source: &Path) -> Result<HashSet<String>, String> {
+    let mut deletions = HashSet::new();
+    deletions.insert(source.to_string_lossy().into_owned());
+
+    trash_file_or_remove(source)?;
+
+    let Some(parent) = source.parent() else {
+        return Ok(deletions);
+    };
+    let source_file_name = source.file_name().unwrap_or_default().to_string_lossy();
+
+    if let Ok(entries) = fs::read_dir(parent) {
+        for entry in entries.filter_map(Result::ok) {
+            let entry_path = entry.path();
+            if !entry_path.is_file() {
+                continue;
+            }
+            let entry_file_name = entry.file_name();
+            let entry_filename = entry_file_name.to_string_lossy();
+
+            if entry_filename == format!("{}.rrdata", source_file_name)
+                || (entry_filename.starts_with(&format!("{}.", source_file_name))
+                    && entry_filename.ends_with(".rrdata"))
+                || entry_filename == format!("{}.rrexif", source_file_name)
+            {
+                let _ = trash_file_or_remove(&entry_path);
+            }
+        }
+    }
+
+    Ok(deletions)
+}
+
+pub(crate) fn find_available_sibling_path_excluding(
+    target: &Path,
+    reserved: &HashSet<PathBuf>,
+) -> PathBuf {
+    if !target.exists() && !reserved.contains(target) {
+        return target.to_path_buf();
+    }
+
+    let stem = target
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("image")
+        .to_string();
+    let extension = target
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_string();
+
+    for counter in 1..10000u32 {
+        let candidate_name = if extension.is_empty() {
+            format!("{}_{}", stem, counter)
+        } else {
+            format!("{}_{}.{}", stem, counter, extension)
+        };
+        let candidate = target.with_file_name(candidate_name);
+        if !candidate.exists() && !reserved.contains(&candidate) {
+            return candidate;
+        }
+    }
+
+    target.to_path_buf()
+}
+
+pub(crate) fn find_unbatched_vc_sidecar(
+    source_path_str: &str,
+    batched_vc_ids: &HashMap<String, HashSet<String>>,
+) -> Option<String> {
+    let source_path = Path::new(source_path_str);
+    let parent = source_path.parent()?;
+    let file_name = source_path.file_name()?.to_string_lossy().to_string();
+    let prefix = format!("{}.", file_name);
+
+    for entry in fs::read_dir(parent).ok()?.filter_map(Result::ok) {
+        if !entry.path().is_file() {
+            continue;
+        }
+        let entry_filename = entry.file_name().to_string_lossy().to_string();
+        if entry_filename.starts_with(&prefix) && entry_filename.ends_with(".rrdata") {
+            let id_end = entry_filename.len() - ".rrdata".len();
+            if id_end <= prefix.len() {
+                continue;
+            }
+            let vc_id = &entry_filename[prefix.len()..id_end];
+            if !vc_id.is_empty()
+                && !batched_vc_ids
+                    .get(source_path_str)
+                    .is_some_and(|ids| ids.contains(vc_id))
+            {
+                return Some(file_name);
+            }
+        }
+    }
+
+    None
 }
 
 pub fn get_thumb_cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {

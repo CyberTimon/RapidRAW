@@ -775,12 +775,24 @@
       "preserveTimestamps": "EXIFの撮影日時からファイルタイムスタンプを設定",
       "title": "書き出し設定"
     },
+    "replaceOriginal": {
+      "confirmTitle": "元の画像を置き換えますか？",
+      "confirmMessage": "書き出し後、選択した元の画像は編集済みのバージョンに置き換えられ、元の画像はゴミ箱へ移動されます。元に戻すことはできません。",
+      "confirmMessage_other": "書き出し後、選択した{{count}}件の元の画像は編集済みのバージョンに置き換えられ、元の画像はゴミ箱へ移動されます。元に戻すことはできません。",
+      "confirmButton": "書き出して置き換え"
+    },
     "bytes": {
       "bytes": "バイト",
       "gb": "GB",
       "kb": "KB",
       "mb": "MB",
       "tb": "TB"
+    },
+    "deleteOriginal": {
+      "confirmTitle": "元の画像を削除しますか？",
+      "confirmMessage": "書き出し後、選択した元の画像とその編集データ（.rrdata）はゴミ箱へ移動されます。元に戻すことはできません。",
+      "confirmMessage_other": "書き出し後、選択した{{count}}件の元の画像とその編集データ（.rrdata）はゴミ箱へ移動されます。元に戻すことはできません。",
+      "confirmButton": "書き出して削除"
     },
     "dialog": {
       "saveEditedImageTitle": "編集した画像を保存",
@@ -801,6 +813,13 @@
     "metadata": {
       "removeGps": "GPSデータを削除",
       "saveWithMetadata": "メタデータを含めて保存"
+    },
+    "originalHandling": {
+      "label": "元のファイル",
+      "off": "保持",
+      "replace": "置き換え",
+      "delete": "削除",
+      "attachedVcsUnavailable": "選択した画像には仮想コピーが添付されているため、実行できません。"
     },
     "resize": {
       "dontEnlarge": "拡大しない",

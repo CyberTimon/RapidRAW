@@ -798,12 +798,28 @@
       "preserveTimestamps": "Definir Data/Hora do Arquivo a partir da Data de Captura EXIF",
       "title": "Configurações de Exportação"
     },
+    "replaceOriginal": {
+      "confirmTitle": "Substituir imagem(ns) original(is)?",
+      "confirmMessage": "Após exportar, as imagens originais selecionadas serão substituídas pelas versões editadas. Os originais serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_one": "Após exportar, a imagem original selecionada será substituída pela versão editada. O original será movido para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_other": "Após exportar, as {{count}} imagens originais selecionadas serão substituídas pelas versões editadas. Os originais serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_many": "Após exportar, as {{count}} imagens originais selecionadas serão substituídas pelas versões editadas. Os originais serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmButton": "Exportar e substituir"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",
       "kb": "KB",
       "mb": "MB",
       "tb": "TB"
+    },
+    "deleteOriginal": {
+      "confirmTitle": "Excluir imagem(ns) original(is)?",
+      "confirmMessage": "Após exportar, as imagens originais selecionadas e seus dados de edição (.rrdata) serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_one": "Após exportar, a imagem original selecionada e seus dados de edição (.rrdata) serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_other": "Após exportar, as {{count}} imagens originais selecionadas e seus dados de edição (.rrdata) serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmMessage_many": "Após exportar, as {{count}} imagens originais selecionadas e seus dados de edição (.rrdata) serão movidos para a Lixeira. Não pode ser desfeito.",
+      "confirmButton": "Exportar e excluir"
     },
     "dialog": {
       "saveEditedImageTitle": "Salvar Imagem Editada",
@@ -825,6 +841,13 @@
     "metadata": {
       "removeGps": "Remover Dados de GPS",
       "saveWithMetadata": "Salvar com Metadados"
+    },
+    "originalHandling": {
+      "label": "Arquivos originais",
+      "off": "Manter",
+      "replace": "Substituir",
+      "delete": "Excluir",
+      "attachedVcsUnavailable": "Não é possível porque as imagens selecionadas têm cópias virtuais anexadas."
     },
     "resize": {
       "dontEnlarge": "Não Ampliar",

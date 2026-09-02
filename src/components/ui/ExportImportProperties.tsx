@@ -44,6 +44,8 @@ export interface ExportSettings {
   watermark: WatermarkSettings | null;
   exportMasks?: boolean;
   preserveFolders?: boolean;
+  replaceOriginal?: boolean;
+  deleteOriginal?: boolean;
 }
 
 export enum WatermarkAnchor {
@@ -93,6 +95,11 @@ export enum Status {
   Idle = 'idle',
   Importing = 'importing',
   Success = 'success',
+}
+
+export interface OriginalFilesReplacedPayload {
+  replacements: Array<{ from: string; to: string }>;
+  deleted: string[];
 }
 
 export interface ExportPreset {

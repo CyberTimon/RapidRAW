@@ -798,12 +798,28 @@
       "preserveTimestamps": "Imposta Timestamp File dalla Data di Acquisizione EXIF",
       "title": "Impostazioni di Esportazione"
     },
+    "replaceOriginal": {
+      "confirmTitle": "Sostituire immagine/i originale/i?",
+      "confirmMessage": "Dopo l'esportazione, le immagini originali selezionate verranno sostituite con le versioni modificate. Gli originali verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmMessage_one": "Dopo l'esportazione, l'immagine originale selezionata verrà sostituita con la versione modificata. L'originale verrà spostato nel Cestino. Non può essere annullato.",
+      "confirmMessage_other": "Dopo l'esportazione, le {{count}} immagini originali selezionate verranno sostituite con le versioni modificate. Gli originali verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmMessage_many": "Dopo l'esportazione, le {{count}} immagini originali selezionate verranno sostituite con le versioni modificate. Gli originali verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmButton": "Esporta e sostituisci"
+    },
     "bytes": {
       "bytes": "Byte",
       "gb": "GB",
       "kb": "KB",
       "mb": "MB",
       "tb": "TB"
+    },
+    "deleteOriginal": {
+      "confirmTitle": "Eliminare immagine/i originale/i?",
+      "confirmMessage": "Dopo l'esportazione, le immagini originali selezionate e i loro dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmMessage_one": "Dopo l'esportazione, l'immagine originale selezionata e i suoi dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmMessage_other": "Dopo l'esportazione, le {{count}} immagini originali selezionate e i loro dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmMessage_many": "Dopo l'esportazione, le {{count}} immagini originali selezionate e i loro dati di modifica (.rrdata) verranno spostati nel Cestino. Non può essere annullato.",
+      "confirmButton": "Esporta ed elimina"
     },
     "dialog": {
       "saveEditedImageTitle": "Salva Immagine Modificata",
@@ -825,6 +841,13 @@
     "metadata": {
       "removeGps": "Rimuovi Dati GPS",
       "saveWithMetadata": "Salva con Metadati"
+    },
+    "originalHandling": {
+      "label": "File originali",
+      "off": "Mantieni",
+      "replace": "Sostituisci",
+      "delete": "Elimina",
+      "attachedVcsUnavailable": "Non possibile perché le immagini selezionate hanno copie virtuali collegate."
     },
     "resize": {
       "dontEnlarge": "Non Ingrandire",

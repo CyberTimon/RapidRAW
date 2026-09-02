@@ -777,12 +777,26 @@
       "preserveTimestamps": "Set File Timestamps from EXIF Capture Date",
       "title": "Export Settings"
     },
+    "replaceOriginal": {
+      "confirmTitle": "Replace Original(s)?",
+      "confirmMessage": "After exporting, the selected original image(s) will be replaced by the edited version(s). The originals will be moved to the system Recycle Bin. This cannot be undone.",
+      "confirmMessage_one": "After exporting, the selected original image will be replaced by the edited version. The original will be moved to the system Recycle Bin. This cannot be undone.",
+      "confirmMessage_other": "After exporting, the {{count}} selected original images will be replaced by the edited versions. The originals will be moved to the system Recycle Bin. This cannot be undone.",
+      "confirmButton": "Export & Replace"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",
       "kb": "KB",
       "mb": "MB",
       "tb": "TB"
+    },
+    "deleteOriginal": {
+      "confirmTitle": "Delete Original(s)?",
+      "confirmMessage": "After exporting, the selected original image(s) and their edit data (.rrdata) will be moved to the system Recycle Bin. This cannot be undone.",
+      "confirmMessage_one": "After exporting, the selected original image and its edit data (.rrdata) will be moved to the system Recycle Bin. This cannot be undone.",
+      "confirmMessage_other": "After exporting, the {{count}} selected original images and their edit data (.rrdata) will be moved to the system Recycle Bin. This cannot be undone.",
+      "confirmButton": "Export & Delete"
     },
     "dialog": {
       "saveEditedImageTitle": "Save Edited Image",
@@ -803,6 +817,13 @@
     "metadata": {
       "removeGps": "Remove GPS Data",
       "saveWithMetadata": "Save with Metadata"
+    },
+    "originalHandling": {
+      "label": "Original Files",
+      "off": "Keep",
+      "replace": "Replace",
+      "delete": "Delete",
+      "attachedVcsUnavailable": "Not possible because the selected image has attached virtual copies."
     },
     "resize": {
       "dontEnlarge": "Don't Enlarge",

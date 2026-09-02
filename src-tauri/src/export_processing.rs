@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -20,7 +20,9 @@ use tauri::Manager;
 use crate::AppState;
 use crate::exif_processing;
 use crate::file_management::{
-    generate_filename_from_template, parse_virtual_path, read_file_mapped,
+    cleanup_sidecars_after_replacement, find_available_sibling_path_excluding,
+    find_unbatched_vc_sidecar, generate_filename_from_template, is_same_path, parse_virtual_path,
+    read_file_mapped, recycle_original_with_sidecars, trash_file_or_remove,
 };
 use crate::formats::is_raw_file;
 use crate::image_loader::{
@@ -74,6 +76,10 @@ pub struct ExportSettings {
     pub export_masks: bool,
     #[serde(default)]
     pub preserve_folders: bool,
+    #[serde(default)]
+    pub replace_original: bool,
+    #[serde(default)]
+    pub delete_original: bool,
 }
 
 #[derive(Clone)]
@@ -488,12 +494,9 @@ fn save_image_with_metadata(
     output_path: &std::path::Path,
     source_path_str: &str,
     export_settings: &ExportSettings,
+    output_format: &str,
 ) -> Result<(), String> {
-    let extension = output_path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
+    let extension = output_format.to_lowercase();
 
     let mut image_bytes = encode_image_to_bytes(image, &extension, export_settings.jpeg_quality)?;
 
@@ -768,6 +771,7 @@ fn export_masks_for_image(
                 &mask_image_path,
                 source_path_str,
                 export_settings,
+                extension,
             )?;
             ensure_export_not_cancelled(cancellation_token)?;
 
@@ -854,6 +858,25 @@ fn export_adjustments_as_lut(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn promote_replacement_temp(
+    replacement_temp: &Option<PathBuf>,
+    target: &Path,
+) -> Result<(), String> {
+    let Some(temp_path) = replacement_temp else {
+        return Ok(());
+    };
+    if let Err(e) = fs::rename(temp_path, target) {
+        let _ = fs::remove_file(temp_path);
+        return Err(format!(
+            "Failed to finalize replaced file {}: {}",
+            target.display(),
+            e
+        ));
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn export_images_impl(
     paths: Vec<String>,
     output_folder_or_file: String,
@@ -901,7 +924,10 @@ pub(crate) async fn export_images_impl(
     let available_ram_gb = sys.available_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
     let ram_based_limit = (available_ram_gb / 4.0).floor() as usize;
 
-    let num_threads = if paths.len() == 1 {
+    let num_threads = if export_settings.replace_original
+        || export_settings.delete_original
+        || paths.len() == 1
+    {
         1
     } else {
         available_cores.min(ram_based_limit).clamp(1, 4)
@@ -913,6 +939,29 @@ pub(crate) async fn export_images_impl(
         available_ram_gb,
         num_threads
     );
+
+    if export_settings.replace_original || export_settings.delete_original {
+        let mut batched_vc_ids: HashMap<String, HashSet<String>> = HashMap::new();
+        for path in paths.iter().filter(|p| p.contains("?vc=")) {
+            if let Some((base, id)) = path.rsplit_once("?vc=") {
+                batched_vc_ids
+                    .entry(base.to_string())
+                    .or_default()
+                    .insert(id.to_string());
+            }
+        }
+        for path in paths.iter() {
+            if path.contains("?vc=") {
+                continue;
+            }
+            if let Some(file_name) = find_unbatched_vc_sidecar(path, &batched_vc_ids) {
+                return Err(format!(
+                    "'{}' has attached virtual copies. Include them in this export or delete them before replacing or deleting the original.",
+                    file_name
+                ));
+            }
+        }
+    }
 
     let _export_task = tokio::spawn(async move {
         let _task_guard = task_guard;
@@ -951,6 +1000,41 @@ pub(crate) async fn export_images_impl(
             export_items.push((i, path_str, *count, explicit_vc));
         }
 
+        let actual_replacements: Arc<std::sync::Mutex<Vec<(String, String)>>> =
+            Arc::new(std::sync::Mutex::new(Vec::new()));
+        let actual_deleted: Arc<std::sync::Mutex<Vec<String>>> =
+            Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut reserved_conversion_targets: HashSet<PathBuf> = HashSet::new();
+        if export_settings.replace_original || export_settings.delete_original {
+            let mut bases_with_vcs: HashSet<String> = HashSet::new();
+            for (_, path, _, _) in export_items.iter() {
+                if let Some((base, _)) = path.rsplit_once("?vc=") {
+                    bases_with_vcs.insert(base.to_string());
+                }
+            }
+            export_items.sort_by_key(|(_, path, _, _)| {
+                usize::from(!path.contains("?vc=") && bases_with_vcs.contains(path))
+            });
+
+            if export_settings.replace_original {
+                let export_extension = output_format.to_lowercase();
+                for (_, path, _, _) in export_items.iter() {
+                    if path.contains("?vc=") {
+                        continue;
+                    }
+                    let (source, _) = parse_virtual_path(path);
+                    let stem = source
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("image");
+                    let target = source.with_file_name(format!("{}.{}", stem, export_extension));
+                    if target != source {
+                        reserved_conversion_targets.insert(target);
+                    }
+                }
+            }
+        }
+
         let semaphore = Arc::new(tokio::sync::Semaphore::new(num_threads));
         let mut join_handles = Vec::new();
 
@@ -971,6 +1055,9 @@ pub(crate) async fn export_images_impl(
             let base_origin_folders = base_origin_folders.clone();
             let export_settings = export_settings.clone();
             let output_format = output_format.clone();
+            let reserved_conversion_targets = reserved_conversion_targets.clone();
+            let actual_replacements_task = Arc::clone(&actual_replacements);
+            let actual_deleted_task = Arc::clone(&actual_deleted);
             let settings = settings.clone();
             let cancellation_token_clone = Arc::clone(&cancellation_token);
             let adjustments_mode = adjustments_mode.clone();
@@ -981,6 +1068,11 @@ pub(crate) async fn export_images_impl(
                 let state = app_handle_clone.state::<AppState>();
                 let (source_path, sidecar_path) = parse_virtual_path(&image_path_str);
                 let source_path_str = source_path.to_string_lossy().to_string();
+
+                #[cfg(target_os = "android")]
+                if export_settings.replace_original || export_settings.delete_original {
+                    return Err("Replace/Delete Original is not supported on Android.".to_string());
+                }
 
                 let is_current_edit = match &adjustments_mode {
                     ExportAdjustmentsMode::UseSidecars { active_path, .. } => {
@@ -1052,8 +1144,66 @@ pub(crate) async fn export_images_impl(
 
                 let extension = output_format.to_lowercase();
 
+                let is_virtual_copy_item = image_path_str.contains("?vc=");
+                let mut replacement_target: Option<PathBuf> = None;
+                let mut replacement_temp: Option<PathBuf> = None;
+                let mut conversion_target: Option<PathBuf> = None;
+                if export_settings.replace_original {
+                    if is_virtual_copy_item {
+                        let target_path = {
+                            let stem = source_path
+                                .file_stem()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or("image");
+                            source_path.with_file_name(format!("{}.{}", stem, extension))
+                        };
+                        conversion_target = Some(find_available_sibling_path_excluding(
+                            &target_path,
+                            &reserved_conversion_targets,
+                        ));
+                    } else {
+                        let target_path = {
+                            let stem = source_path
+                                .file_stem()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or("image");
+                            source_path.with_file_name(format!("{}.{}", stem, extension))
+                        };
+                        if target_path.exists() && !is_same_path(&target_path, &source_path) {
+                            return Err(format!(
+                                "Replace Original: '{}' already exists. Rename or move it before replacing {}.",
+                                target_path.display(),
+                                source_path.display()
+                            ));
+                        }
+                        if is_same_path(&target_path, &source_path) {
+                            replacement_temp = Some(source_path.with_file_name(format!(
+                                ".rrreplace-{}.tmp",
+                                uuid::Uuid::new_v4()
+                            )));
+                        }
+                        replacement_target = Some(target_path);
+                    }
+                }
+
+                if !is_virtual_copy_item
+                    && export_settings.delete_original
+                    && output_path == source_path
+                {
+                    return Err(format!(
+                        "Delete Original: output '{}' matches the original file. Choose a different output folder or filename.",
+                        output_path.display()
+                    ));
+                }
+
                 let result: Result<(), String> = (|| {
                     if extension == "cube" {
+                        if export_settings.replace_original || export_settings.delete_original {
+                            return Err(
+                                "Replace/Delete Original is not supported for LUT exports."
+                                    .to_string(),
+                            );
+                        }
                         let cube_bytes = export_adjustments_as_lut(
                             &js_adjustments,
                             &source_path_str,
@@ -1080,6 +1230,18 @@ pub(crate) async fn export_images_impl(
                         ensure_export_not_cancelled(&cancellation_token_clone)?;
                         return Ok(());
                     }
+
+                    let (output_write_path, output_mask_base_path) =
+                        if let Some(target) = &replacement_target {
+                            match &replacement_temp {
+                                Some(temp_path) => (temp_path.clone(), target.clone()),
+                                None => (target.clone(), target.clone()),
+                            }
+                        } else if let Some(target) = &conversion_target {
+                            (target.clone(), target.clone())
+                        } else {
+                            (output_path.clone(), output_path.clone())
+                        };
 
                     let base_image = if is_current_edit {
                         match crate::get_original_image(&state) {
@@ -1149,14 +1311,15 @@ pub(crate) async fn export_images_impl(
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
                     save_image_with_metadata(
                         &final_image,
-                        &output_path,
+                        &output_write_path,
                         &source_path_str,
                         &export_settings,
+                        &extension,
                     )?;
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
                     if export_settings.preserve_timestamps {
-                        set_timestamps_from_exif(Path::new(&source_path_str), &output_path);
+                        set_timestamps_from_exif(Path::new(&source_path_str), &output_write_path);
                     }
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
@@ -1165,7 +1328,7 @@ pub(crate) async fn export_images_impl(
                             &base_image,
                             &js_adjustments,
                             &export_settings,
-                            &output_path,
+                            &output_mask_base_path,
                             &source_path_str,
                             &context_clone,
                             &state,
@@ -1175,6 +1338,143 @@ pub(crate) async fn export_images_impl(
                         )?;
                     }
 
+                    if replacement_target.is_some()
+                        || conversion_target.is_some()
+                        || export_settings.delete_original
+                    {
+                        #[cfg(not(target_os = "android"))]
+                        {
+                            if let Some(target) = replacement_target.clone() {
+                                let promotes_in_place = is_same_path(&target, &source_path);
+                                let displaced = if promotes_in_place {
+                                    let d = source_path.with_file_name(format!(
+                                        "{}.rrdisplaced-{}.{}",
+                                        source_path
+                                            .file_stem()
+                                            .and_then(|s| s.to_str())
+                                            .unwrap_or("image"),
+                                        uuid::Uuid::new_v4(),
+                                        source_path
+                                            .extension()
+                                            .and_then(|e| e.to_str())
+                                            .unwrap_or("dat")
+                                    ));
+                                    fs::rename(&source_path, &d).map_err(|e| {
+                                        format!(
+                                            "Failed to stage replaced file {}: {}",
+                                            target.display(),
+                                            e
+                                        )
+                                    })?;
+                                    Some(d)
+                                } else {
+                                    None
+                                };
+                                if let Err(e) = promote_replacement_temp(&replacement_temp, &target)
+                                {
+                                    if let Some(d) = &displaced {
+                                        let _ = fs::rename(d, &source_path);
+                                    }
+                                    return Err(e);
+                                }
+
+                                let _ = cleanup_sidecars_after_replacement(&source_path, &target);
+
+                                let superseded = match &displaced {
+                                    Some(d) => d,
+                                    None => &source_path,
+                                };
+                                if let Err(e) = trash_file_or_remove(superseded) {
+                                    log::warn!(
+                                        "Failed to discard superseded original {}: {}",
+                                        superseded.display(),
+                                        e
+                                    );
+                                }
+
+                                actual_replacements_task.lock().unwrap().push((
+                                    image_path_str.clone(),
+                                    target.to_string_lossy().into_owned(),
+                                ));
+
+                                if !promotes_in_place {
+                                    let mut renames = HashMap::new();
+                                    renames.insert(
+                                        image_path_str.clone(),
+                                        target.to_string_lossy().into_owned(),
+                                    );
+                                    crate::file_management::sync_album_path_changes(
+                                        &app_handle_clone,
+                                        Some(&renames),
+                                        None,
+                                        None,
+                                    );
+                                }
+                            } else if let Some(target) = conversion_target.clone() {
+                                let mut renames = HashMap::new();
+                                renames.insert(
+                                    image_path_str.clone(),
+                                    target.to_string_lossy().into_owned(),
+                                );
+                                if sidecar_path.exists() {
+                                    let mut metadata =
+                                        crate::exif_processing::load_sidecar(&sidecar_path);
+                                    metadata.adjustments = serde_json::json!({});
+                                    let carry_over = metadata.rating != 0
+                                        || metadata.tags.is_some()
+                                        || metadata.exif.is_some();
+                                    if carry_over
+                                        && let Ok(json) = serde_json::to_string_pretty(&metadata)
+                                    {
+                                        let new_sidecar_path =
+                                            crate::exif_processing::get_primary_sidecar_path(
+                                                &target,
+                                            );
+                                        let _ = fs::write(&new_sidecar_path, json);
+                                    }
+                                    trash_file_or_remove(&sidecar_path)?;
+                                }
+                                crate::file_management::sync_album_path_changes(
+                                    &app_handle_clone,
+                                    Some(&renames),
+                                    None,
+                                    None,
+                                );
+                                actual_replacements_task.lock().unwrap().push((
+                                    image_path_str.clone(),
+                                    target.to_string_lossy().into_owned(),
+                                ));
+                            } else if is_virtual_copy_item {
+                                trash_file_or_remove(&sidecar_path)?;
+                                let mut deletions = HashSet::new();
+                                deletions.insert(image_path_str.clone());
+                                crate::file_management::sync_album_path_changes(
+                                    &app_handle_clone,
+                                    None,
+                                    Some(&deletions),
+                                    None,
+                                );
+                                actual_deleted_task
+                                    .lock()
+                                    .unwrap()
+                                    .push(image_path_str.clone());
+                            } else if output_write_path != source_path {
+                                let deletions = recycle_original_with_sidecars(&source_path)?;
+                                crate::file_management::sync_album_path_changes(
+                                    &app_handle_clone,
+                                    None,
+                                    Some(&deletions),
+                                    None,
+                                );
+                                actual_deleted_task
+                                    .lock()
+                                    .unwrap()
+                                    .push(image_path_str.clone());
+                            }
+                        }
+                    }
+
+                    ensure_export_not_cancelled(&cancellation_token_clone)?;
                     Ok(())
                 })();
 
@@ -1212,11 +1512,33 @@ pub(crate) async fn export_images_impl(
 
         let errors: Vec<String> = results.into_iter().filter_map(Result::err).collect();
         let error_count = errors.len();
+        let actual_replacements_finalize = Arc::clone(&actual_replacements);
+        let actual_deleted_finalize = Arc::clone(&actual_deleted);
         let export_state = app_handle.state::<AppState>();
         let finalized = finish_export_task(
             &export_state.export_task_token,
             &cancellation_token,
             |cancelled| {
+                {
+                    let replacements = actual_replacements_finalize
+                        .lock()
+                        .map(|g| g.clone())
+                        .unwrap_or_default();
+                    let deleted = actual_deleted_finalize
+                        .lock()
+                        .map(|g| g.clone())
+                        .unwrap_or_default();
+                    let _ = app_handle.emit(
+                        "original-files-changed",
+                        serde_json::json!({
+                            "replacements": replacements
+                                .iter()
+                                .map(|(from, to)| serde_json::json!({ "from": from, "to": to }))
+                                .collect::<Vec<_>>(),
+                            "deleted": deleted,
+                        }),
+                    );
+                }
                 if cancelled {
                     log::info!("Batch export cancelled and worker cleanup completed");
                     let _ = app_handle.emit("export-cancelled", ());
@@ -1346,6 +1668,8 @@ pub async fn run_headless_export(
         watermark: None,
         export_masks: false,
         preserve_folders: true,
+        replace_original: false,
+        delete_original: false,
     };
 
     let mut custom_adjustments = None;
@@ -1454,31 +1778,35 @@ pub async fn estimate_export_sizes(
         hydrate_adjustments(&state, &mut adjustments_clone);
 
         let new_transform_hash = calculate_transform_hash(&adjustments_clone);
-        let cached_preview_lock = state.cached_preview.lock().unwrap();
         let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
 
-        let (preview_image, scale, unscaled_crop_offset) = if let Some(cached) =
-            &*cached_preview_lock
-        {
-            if cached.transform_hash == new_transform_hash && cached.preview_dim == preview_dim {
-                let img = Arc::clone(&cached.image);
-                let s = cached.scale;
-                let offset = cached.unscaled_crop_offset;
-                drop(cached_preview_lock);
-                let owned_img = Arc::try_unwrap(img).unwrap_or_else(|arc| (*arc).clone());
-                (owned_img, s, offset)
-            } else {
-                drop(cached_preview_lock);
-                generate_transformed_preview(
-                    &state,
-                    &loaded_image,
-                    &adjustments_clone,
-                    preview_dim,
-                )?
+        let cached_hit = {
+            let cached_preview_lock = state.cached_preview.lock().unwrap();
+            cached_preview_lock
+                .as_ref()
+                .filter(|cached| {
+                    cached.transform_hash == new_transform_hash && cached.preview_dim == preview_dim
+                })
+                .map(|cached| {
+                    (
+                        Arc::clone(&cached.image),
+                        cached.scale,
+                        cached.unscaled_crop_offset,
+                    )
+                })
+        };
+
+        let (preview_image, scale, unscaled_crop_offset) = match cached_hit {
+            Some((image_arc, scale, unscaled_crop_offset)) => {
+                let owned_img = Arc::try_unwrap(image_arc).unwrap_or_else(|arc| (*arc).clone());
+                (owned_img, scale, unscaled_crop_offset)
             }
-        } else {
-            drop(cached_preview_lock);
-            generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?
+            None => generate_transformed_preview(
+                &state,
+                &loaded_image,
+                &adjustments_clone,
+                preview_dim,
+            )?,
         };
 
         let (img_w, img_h) = preview_image.dimensions();
