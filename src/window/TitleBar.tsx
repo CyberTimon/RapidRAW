@@ -83,6 +83,13 @@ export default function TitleBar() {
   const isLinux = osPlatform === 'linux';
   const isWindows = osPlatform === 'windows';
   const isMobile = osPlatform === 'android';
+
+  useEffect(() => {
+    if (osPlatform && !isMobile) {
+      window.dispatchEvent(new Event('rapidraw-titlebar-slot-ready'));
+    }
+  }, [isMobile, osPlatform]);
+
   if (!osPlatform || isMobile) {
     return null;
   }
@@ -91,7 +98,7 @@ export default function TitleBar() {
   return (
     <div className="relative pt-2 px-2 w-full z-50 bg-transparent" {...outerDragProps}>
       <div
-        className="h-10 bg-bg-secondary flex justify-between items-center select-none rounded-lg overflow-hidden"
+        className="h-10 bg-bg-secondary flex justify-between items-center select-none rounded-lg overflow-visible"
         {...outerDragProps}
       >
         <div className="flex items-center h-full">
@@ -118,7 +125,7 @@ export default function TitleBar() {
             <p className="text-sm font-semibold text-text-secondary pointer-events-none">RapidRAW</p>
           </div>
         </div>
-        <div data-tauri-drag-region className="flex-1 h-full" />
+        <div id="rapidraw-titlebar-editor-slot" data-tauri-drag-region className="relative flex-1 min-w-0 h-full" />
         <div className="flex items-center h-full z-10">
           {isLinux && (
             <div className="flex items-center gap-2 pr-2 h-full">
