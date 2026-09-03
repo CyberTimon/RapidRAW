@@ -60,6 +60,7 @@ interface EditorState {
   isWbPickerActive: boolean;
   isGuidedPerspectiveActive: boolean;
   liveRotation: number | null;
+  liveCropPixels: { width: number; height: number } | null;
   brushSettings: BrushSettings | null;
 
   // Masks & AI
@@ -124,6 +125,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   isWbPickerActive: false,
   isGuidedPerspectiveActive: false,
   liveRotation: null,
+  liveCropPixels: null,
 
   copiedSectionAdjustments: null,
   copiedMask: null,
