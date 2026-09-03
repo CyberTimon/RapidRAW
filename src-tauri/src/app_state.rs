@@ -35,6 +35,9 @@ pub struct LoadedImage {
     pub path: String,
     pub image: Arc<DynamicImage>,
     pub is_raw: bool,
+    /// Camera calibration for raw files, used to resolve white balance without
+    /// decoding again. `None` for non-raws and for raws with no usable profile.
+    pub color_info: Option<crate::color_management::CameraColorInfo>,
 }
 
 #[derive(Clone)]

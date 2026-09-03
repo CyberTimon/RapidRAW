@@ -115,6 +115,9 @@ struct GlobalAdjustments {
     halation_amount: f32,
     flare_amount: f32,
     sharpness_threshold: f32,
+
+    wb_coefficients: vec4<f32>,
+    camera_to_working: mat3x3<f32>,
 }
 
 struct MaskAdjustments {
@@ -592,6 +595,51 @@ fn apply_color_calibration(color: vec3<f32>, cal: ColorCalibrationSettings) -> v
     }
 
     return c;
+}
+
+// Camera-native RGB into the working space, white balanced on the way.
+//
+// The gains have to be applied here, before the matrix: a camera matrix is only
+// valid for the illuminant it was interpolated for, so balancing afterwards
+// leaves the matrix evaluated for light the data no longer has.
+//
+// w carries the highlight compression limit rather than a plain flag: zero
+// means no camera profile was resolved, so the texture already holds developed
+// data and this is a pass-through. Anything above zero is the limit from
+// settings, which the develop step can no longer apply itself.
+fn apply_camera_color(color: vec3<f32>, wb: vec4<f32>, camera_to_working: mat3x3<f32>) -> vec3<f32> {
+    if (wb.w <= 0.0) {
+        return color;
+    }
+    var balanced = color * wb.xyz;
+
+    // The develop step rolls off anything above 1.0, but with the gains moved
+    // here nothing reaches it any more: camera-native data tops out at the
+    // white level, so that branch is dead and the setting stopped doing
+    // anything. Same curve, run where the headroom now appears.
+    //
+    // Doing it before the color matrix rather than after, as develop did, is
+    // deliberate. This is where the sensor actually clipped, so a channel that
+    // ran out of range is still identifiable as itself.
+    let limit = max(wb.w, 1.01);
+    let max_c = max(balanced.r, max(balanced.g, balanced.b));
+    if (max_c > 1.0) {
+        let min_c = min(balanced.r, min(balanced.g, balanced.b));
+        let factor = clamp(1.0 - (max_c - 1.0) / (limit - 1.0), 0.0, 1.0);
+        let compressed = vec3<f32>(min_c) + (balanced - vec3<f32>(min_c)) * factor;
+        let compressed_max = max(compressed.r, max(compressed.g, compressed.b));
+        if (compressed_max > 1e-6) {
+            // Desaturate toward the darkest channel, then put the original
+            // brightness back. A fully blown pixel lands on neutral, which is
+            // what stops clipped highlights going magenta once the gains have
+            // pulled the channels apart.
+            balanced = compressed * (max_c / compressed_max);
+        } else {
+            balanced = vec3<f32>(max_c);
+        }
+    }
+
+    return camera_to_working * balanced;
 }
 
 fn apply_white_balance(color: vec3<f32>, temp: f32, tnt: f32) -> vec3<f32> {
@@ -1642,6 +1690,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         initial_linear_rgb = color_from_texture;
     }
 
+    initial_linear_rgb = apply_camera_color(
+        initial_linear_rgb,
+        adjustments.global.wb_coefficients,
+        adjustments.global.camera_to_working
+    );
+
     var t_exposure = adjustments.global.exposure;
     var t_brightness = adjustments.global.brightness;
     var t_contrast = adjustments.global.contrast;
@@ -1775,7 +1829,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     var composite_rgb_linear = apply_dehaze(processed_rgb, structure_blurred, is_raw, t_dehaze);
-    composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_temperature, t_tint);
+    if (adjustments.global.wb_coefficients.w < 0.5) {
+        composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_temperature, t_tint);
+    }
     composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, absolute_coord_i);
     composite_rgb_linear = apply_filmic_exposure(composite_rgb_linear, t_brightness);
     composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_blurred, is_raw, t_contrast, t_shadows, t_whites, t_blacks);

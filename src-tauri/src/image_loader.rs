@@ -84,6 +84,57 @@ pub fn load_base_image_from_bytes(
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
+    // Deliberately never color managed. Callers of this entry point drop the
+    // profile, so handing them camera-native pixels would leave the data with
+    // no way to reach a display space.
+    load_base_image_inner(
+        bytes,
+        path_for_ext_check,
+        use_fast_raw_dev,
+        settings,
+        false,
+        cancel_token,
+    )
+    .map(|(image, _)| image)
+}
+
+/// Load an image, also returning the camera color profile for raw files.
+///
+/// Honours the color management setting, so a returned profile means the
+/// pixels are camera-native and the renderer must apply the transform.
+/// Non-raw files and raws without a usable calibration yield `None`.
+pub fn load_base_image_with_color_info(
+    bytes: &[u8],
+    path_for_ext_check: &str,
+    use_fast_raw_dev: bool,
+    settings: &AppSettings,
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<(
+    DynamicImage,
+    Option<crate::color_management::CameraColorInfo>,
+)> {
+    let color_managed = settings.color_managed_wb.unwrap_or(false);
+    load_base_image_inner(
+        bytes,
+        path_for_ext_check,
+        use_fast_raw_dev,
+        settings,
+        color_managed,
+        cancel_token,
+    )
+}
+
+fn load_base_image_inner(
+    bytes: &[u8],
+    path_for_ext_check: &str,
+    use_fast_raw_dev: bool,
+    settings: &AppSettings,
+    color_managed: bool,
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<(
+    DynamicImage,
+    Option<crate::color_management::CameraColorInfo>,
+)> {
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
     let linear_mode = settings.linear_raw_mode.clone();
     let color_nr_setting = settings.raw_preprocessing_color_nr.unwrap_or(0.5);
@@ -104,15 +155,16 @@ pub fn load_base_image_from_bytes(
 
     if is_raw_file(path_for_ext_check) {
         match panic::catch_unwind(move || {
-            crate::raw_processing::develop_raw_image(
+            crate::raw_processing::develop_raw_image_with_color_info(
                 bytes,
                 use_fast_raw_dev,
                 highlight_compression,
                 linear_mode,
+                color_managed,
                 cancel_token,
             )
         }) {
-            Ok(Ok(mut image)) => {
+            Ok(Ok((mut image, color_info))) => {
                 if !use_fast_raw_dev && (color_nr_amount > 0.0 || sharpening_amount > 0.0) {
                     let start = Instant::now();
                     remove_raw_artifacts_and_enhance(
@@ -127,7 +179,7 @@ pub fn load_base_image_from_bytes(
                         duration
                     );
                 }
-                Ok(image)
+                Ok((image, color_info))
             }
             Ok(Err(e)) => {
                 let classified = classify_raw_develop_error(path_for_ext_check, e);
@@ -149,7 +201,7 @@ pub fn load_base_image_from_bytes(
                         preview.height()
                     );
 
-                    return Ok(linearize_embedded_preview(preview));
+                    return Ok((linearize_embedded_preview(preview), None));
                 }
                 Err(classified)
             }
@@ -163,7 +215,7 @@ pub fn load_base_image_from_bytes(
                         preview.height()
                     );
 
-                    return Ok(linearize_embedded_preview(preview));
+                    return Ok((linearize_embedded_preview(preview), None));
                 }
                 Err(anyhow!(
                     "Failed to process RAW file: {}",
@@ -188,7 +240,7 @@ pub fn load_base_image_from_bytes(
             );
         }
 
-        Ok(image)
+        Ok((image, None))
     }
 }
 
@@ -821,14 +873,22 @@ pub fn composite_patches_on_image(
 }
 
 #[tauri::command]
-pub fn is_image_cached(path: String, state: tauri::State<'_, AppState>) -> bool {
+pub fn is_image_cached(
+    path: String,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> bool {
     let (source_path, _) = parse_virtual_path(&path);
     let source_path_str = source_path.to_string_lossy().to_string();
+    let color_managed = load_settings(app_handle)
+        .unwrap_or_default()
+        .color_managed_wb
+        .unwrap_or(false);
     state
         .decoded_image_cache
         .lock()
         .unwrap()
-        .get(&source_path_str)
+        .get(&source_path_str, color_managed)
         .is_some()
 }
 
@@ -897,6 +957,7 @@ pub async fn load_image(
     let metadata: ImageMetadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let color_managed = settings.color_managed_wb.unwrap_or(false);
 
     let path_clone = source_path_str.clone();
 
@@ -904,10 +965,15 @@ pub async fn load_image(
         .decoded_image_cache
         .lock()
         .unwrap()
-        .get(&source_path_str);
+        .get(&source_path_str, color_managed);
 
-    let (pristine_arc, exif_data) = if let Some((cached_img, cached_exif)) = cached_data {
-        (cached_img, cached_exif)
+    let (pristine_arc, exif_data, color_info) = if let Some((
+        cached_img,
+        cached_exif,
+        cached_color,
+    )) = cached_data
+    {
+        (cached_img, cached_exif, cached_color)
     } else {
         if crate::file_management::is_cloud_placeholder(&source_path) {
             return Err(format!(
@@ -916,19 +982,27 @@ pub async fn load_image(
             ));
         }
 
-        let (pristine_img, exif_data_loaded) = tokio::task::spawn_blocking(move || {
-            if generation_tracker.load(Ordering::SeqCst) != my_generation {
-                return Err("Load cancelled".to_string());
-            }
+        let (pristine_img, exif_data_loaded, color_info_loaded) =
+            tokio::task::spawn_blocking(move || {
+                if generation_tracker.load(Ordering::SeqCst) != my_generation {
+                    return Err("Load cancelled".to_string());
+                }
 
-            let result: Result<(DynamicImage, HashMap<String, String>), String> =
-                (|| match read_file_mapped(Path::new(&path_clone)) {
+                #[allow(clippy::type_complexity)]
+                let result: Result<
+                    (
+                        DynamicImage,
+                        HashMap<String, String>,
+                        Option<crate::color_management::CameraColorInfo>,
+                    ),
+                    String,
+                > = (|| match read_file_mapped(Path::new(&path_clone)) {
                     Ok(mmap) => {
                         if generation_tracker.load(Ordering::SeqCst) != my_generation {
                             return Err("Load cancelled".to_string());
                         }
 
-                        let img = load_base_image_from_bytes(
+                        let (img, color) = load_base_image_with_color_info(
                             &mmap,
                             &path_clone,
                             false,
@@ -937,7 +1011,7 @@ pub async fn load_image(
                         )
                         .map_err(|e| e.to_string())?;
                         let exif = exif_processing::read_exif_data(&path_clone, &mmap);
-                        Ok((img, exif))
+                        Ok((img, exif, color))
                     }
                     Err(e) => {
                         log::warn!(
@@ -953,7 +1027,7 @@ pub async fn load_image(
                             return Err("Load cancelled".to_string());
                         }
 
-                        let img = load_base_image_from_bytes(
+                        let (img, color) = load_base_image_with_color_info(
                             &bytes,
                             &path_clone,
                             false,
@@ -962,13 +1036,13 @@ pub async fn load_image(
                         )
                         .map_err(|e| e.to_string())?;
                         let exif = exif_processing::read_exif_data(&path_clone, &bytes);
-                        Ok((img, exif))
+                        Ok((img, exif, color))
                     }
                 })();
-            result
-        })
-        .await
-        .map_err(|e| e.to_string())??;
+                result
+            })
+            .await
+            .map_err(|e| e.to_string())??;
 
         let arc_img = Arc::new(pristine_img);
 
@@ -976,9 +1050,11 @@ pub async fn load_image(
             source_path_str.clone(),
             arc_img.clone(),
             exif_data_loaded.clone(),
+            color_info_loaded.clone(),
+            color_managed,
         );
 
-        (arc_img, exif_data_loaded)
+        (arc_img, exif_data_loaded, color_info_loaded)
     };
 
     if state.load_image_generation.load(Ordering::SeqCst) != my_generation {
@@ -997,6 +1073,7 @@ pub async fn load_image(
         path,
         image: pristine_arc,
         is_raw,
+        color_info,
     });
 
     Ok(LoadImageResult {

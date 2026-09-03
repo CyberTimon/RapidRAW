@@ -1457,6 +1457,18 @@ pub struct GpuMat3 {
     col2: [f32; 4],
 }
 
+impl GpuMat3 {
+    /// Build from a column-major 3x3, padding each column out to the 16-byte
+    /// stride a WGSL `mat3x3<f32>` expects.
+    pub fn from_cols_f32(cols: [[f32; 3]; 3]) -> Self {
+        Self {
+            col0: [cols[0][0], cols[0][1], cols[0][2], 0.0],
+            col1: [cols[1][0], cols[1][1], cols[1][2], 0.0],
+            col2: [cols[2][0], cols[2][1], cols[2][2], 0.0],
+        }
+    }
+}
+
 impl Default for GpuMat3 {
     fn default() -> Self {
         Self {
@@ -1554,6 +1566,12 @@ pub struct GlobalAdjustments {
     pub halation_amount: f32,
     pub flare_amount: f32,
     pub sharpness_threshold: f32,
+
+    /// xyz: white balance gains for camera-native data. w: 1.0 when the CPU
+    /// side resolved a camera profile, 0.0 to keep the legacy develop path.
+    pub wb_coefficients: [f32; 4],
+    /// Camera RGB to working space, interpolated for the chosen illuminant.
+    pub camera_to_working: GpuMat3,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -1621,6 +1639,20 @@ pub struct AllAdjustments {
     pub tile_offset_x: u32,
     pub tile_offset_y: u32,
     pub mask_atlas_cols: u32,
+}
+
+impl AllAdjustments {
+    /// Switch the render onto the color-managed path.
+    ///
+    /// Only callers holding a camera profile can do this; everything else
+    /// leaves the flag clear and keeps rawler's developed output.
+    pub fn set_camera_color(&mut self, resolved: &crate::color_management::ResolvedWhiteBalance) {
+        let [r, g, b] = resolved.coefficients;
+        // w doubles as the highlight roll-off limit; see apply_camera_color.
+        // Anything above zero also means the path is live.
+        self.global.wb_coefficients = [r, g, b, resolved.highlight_compression.max(1.01)];
+        self.global.camera_to_working = GpuMat3::from_cols_f32(resolved.camera_to_working);
+    }
 }
 
 struct AdjustmentScales {
@@ -2212,6 +2244,11 @@ fn get_global_adjustments_from_json(
     };
 
     GlobalAdjustments {
+        // Off unless a caller with a camera profile fills these in; the
+        // legacy develop path stays exactly as it was.
+        wb_coefficients: [1.0, 1.0, 1.0, 0.0],
+        camera_to_working: GpuMat3::default(),
+
         exposure: get_val("basic", "exposure", SCALES.exposure, None),
         brightness: get_val("basic", "brightness", SCALES.brightness, None),
         contrast: get_val("basic", "contrast", SCALES.contrast, None),

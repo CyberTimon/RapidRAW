@@ -14,6 +14,7 @@ mod app_settings;
 mod app_state;
 mod cache_utils;
 mod camera_tethering;
+mod color_management;
 mod culling;
 mod denoising;
 mod exif_processing;
@@ -493,7 +494,13 @@ fn process_preview_job(
 
     let is_raw = loaded_image.is_raw;
     let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
-    let final_adjustments = get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
+    let mut final_adjustments =
+        get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
+    crate::color_management::apply_to_render(
+        &mut final_adjustments,
+        loaded_image.color_info.as_ref(),
+        &adjustments_clone,
+    );
     let lut_path = adjustments_clone["lutPath"].as_str();
     let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
