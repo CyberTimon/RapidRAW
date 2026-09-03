@@ -1194,6 +1194,7 @@ pub fn write_image_with_metadata(
     output_format: &str,
     keep_metadata: bool,
     strip_gps: bool,
+    tags: Option<&[String]>,
 ) -> Result<(), String> {
     // FIXME: temporary solution until I find a way to write metadata to TIFF
     if !keep_metadata || output_format.to_lowercase() == "tiff" {
@@ -1527,6 +1528,12 @@ pub fn write_image_with_metadata(
         log::warn!("Failed to write metadata: {}", e);
     }
 
+    if let Some(tags) = tags {
+        if !tags.is_empty() {
+            inject_xmp_keywords(image_bytes, output_format, tags);
+        }
+    }
+
     Ok(())
 }
 
@@ -1545,6 +1552,11 @@ pub fn get_rrexif_path(image_path: &Path) -> PathBuf {
 fn load_primary_metadata(image_path: &Path) -> ImageMetadata {
     let primary = get_primary_sidecar_path(image_path);
     load_sidecar(&primary)
+}
+
+pub fn load_tags_from_sidecar(image_path: &Path) -> Option<Vec<String>> {
+    let metadata = load_primary_metadata(image_path);
+    metadata.tags.filter(|t| !t.is_empty())
 }
 
 fn save_primary_metadata(image_path: &Path, metadata: &ImageMetadata) -> std::io::Result<()> {
@@ -1674,3 +1686,182 @@ pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> 
     save_primary_metadata(target_image_path, &metadata)
         .map_err(|e| format!("Failed to write sidecar: {}", e))
 }
+
+/// Builds a minimal XMP packet containing dc:subject keywords and injects
+/// it into the image bytes in the correct location for each container format.
+fn inject_xmp_keywords(image_bytes: &mut Vec<u8>, format: &str, tags: &[String]) {
+    let xmp_packet = build_xmp_keywords_packet(tags);
+    let xmp_bytes = xmp_packet.as_bytes();
+
+    match format.to_lowercase().as_str() {
+        "jpg" | "jpeg" => inject_xmp_jpeg(image_bytes, xmp_bytes),
+        "png" => inject_xmp_png(image_bytes, xmp_bytes),
+        "webp" => inject_xmp_webp(image_bytes, xmp_bytes),
+        _ => {
+            log::debug!("XMP keyword injection not supported for format: {}", format);
+        }
+    }
+}
+
+/// Builds a minimal XMP packet string containing dc:subject keywords.
+fn build_xmp_keywords_packet(tags: &[String]) -> String {
+    let items: String = tags
+        .iter()
+        .map(|t| {
+            let escaped = t
+                .replace('&', "&amp;")
+                .replace('<', "&lt;")
+                .replace('>', "&gt;")
+                .replace('"', "&quot;")
+                .replace('\'', "&apos;");
+            format!("      <rdf:li>{}</rdf:li>\n", escaped)
+        })
+        .collect();
+
+    format!(
+        "<?xpacket begin='\u{FEFF}' id='W5M0MpCehiHzreSzNTczkc9d'?>\n\
+         <x:xmpmeta xmlns:x='adobe:ns:meta/'>\n\
+           <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>\n\
+             <rdf:Description rdf:about='' xmlns:dc='http://purl.org/dc/elements/1.1/'>\n\
+               <dc:subject>\n\
+                 <rdf:Bag>\n\
+         {}\
+                 </rdf:Bag>\n\
+               </dc:subject>\n\
+             </rdf:Description>\n\
+           </rdf:RDF>\n\
+         </x:xmpmeta>\n\
+         <?xpacket end='w'?>",
+        items
+    )
+}
+
+/// Injects XMP as a JPEG APP1 segment after the SOI marker.
+fn inject_xmp_jpeg(image_bytes: &mut Vec<u8>, xmp_bytes: &[u8]) {
+    const NAMESPACE: &[u8] = b"http://ns.adobe.com/xap/1.0/\0";
+    let segment_data_len = 2 + NAMESPACE.len() + xmp_bytes.len();
+    if segment_data_len > 0xFFFF {
+        log::warn!(
+            "XMP keyword packet too large for JPEG APP1 segment ({} bytes); skipping",
+            segment_data_len
+        );
+        return;
+    }
+    let length = segment_data_len as u16;
+
+    let mut segment = Vec::with_capacity(2 + segment_data_len);
+    segment.extend_from_slice(&[0xFF, 0xE1]);
+    segment.extend_from_slice(&length.to_be_bytes());
+    segment.extend_from_slice(NAMESPACE);
+    segment.extend_from_slice(xmp_bytes);
+
+    if image_bytes.len() >= 2 && image_bytes[0] == 0xFF && image_bytes[1] == 0xD8 {
+        image_bytes.splice(2..2, segment);
+    } else {
+        log::warn!("JPEG bytes do not begin with SOI marker; skipping XMP injection");
+    }
+}
+
+/// Injects XMP as a PNG iTXt chunk before the IEND chunk.
+fn inject_xmp_png(image_bytes: &mut Vec<u8>, xmp_bytes: &[u8]) {
+    const KEYWORD: &[u8] = b"XML:com.adobe.xmp";
+    let mut chunk_data: Vec<u8> = Vec::new();
+    chunk_data.extend_from_slice(KEYWORD);
+    chunk_data.push(0x00); // null separator
+    chunk_data.push(0x00); // compression flag: none
+    chunk_data.push(0x00); // compression method: none
+    chunk_data.push(0x00); // language tag: empty
+    chunk_data.push(0x00); // translated keyword: empty
+    chunk_data.extend_from_slice(xmp_bytes);
+
+    let length = chunk_data.len() as u32;
+    let chunk_type = b"iTXt";
+
+    let mut crc_input = Vec::with_capacity(4 + chunk_data.len());
+    crc_input.extend_from_slice(chunk_type);
+    crc_input.extend_from_slice(&chunk_data);
+    let crc = crc32_ieee(&crc_input);
+
+    let mut chunk = Vec::with_capacity(12 + chunk_data.len());
+    chunk.extend_from_slice(&length.to_be_bytes());
+    chunk.extend_from_slice(chunk_type);
+    chunk.extend_from_slice(&chunk_data);
+    chunk.extend_from_slice(&crc.to_be_bytes());
+
+    if let Some(iend_pos) = find_png_iend(image_bytes) {
+        image_bytes.splice(iend_pos..iend_pos, chunk);
+    } else {
+        log::warn!("Could not find PNG IEND chunk; skipping XMP injection");
+    }
+}
+
+/// Injects XMP as a WebP XMP  chunk in the RIFF container.
+fn inject_xmp_webp(image_bytes: &mut Vec<u8>, xmp_bytes: &[u8]) {
+    let padded_len = xmp_bytes.len() + (xmp_bytes.len() % 2);
+    let mut chunk: Vec<u8> = Vec::with_capacity(8 + padded_len);
+    chunk.extend_from_slice(b"XMP ");
+    chunk.extend_from_slice(&(xmp_bytes.len() as u32).to_le_bytes());
+    chunk.extend_from_slice(xmp_bytes);
+    if xmp_bytes.len() % 2 != 0 {
+        chunk.push(0x00);
+    }
+
+    if image_bytes.len() >= 12
+        && &image_bytes[0..4] == b"RIFF"
+        && &image_bytes[8..12] == b"WEBP"
+    {
+        let current_riff_size = u32::from_le_bytes(
+            image_bytes[4..8].try_into().unwrap_or([0u8; 4])
+        );
+        let new_riff_size = current_riff_size.saturating_add(chunk.len() as u32);
+        image_bytes[4..8].copy_from_slice(&new_riff_size.to_le_bytes());
+        image_bytes.extend_from_slice(&chunk);
+    } else {
+        log::warn!("WebP bytes do not have valid RIFF/WEBP header; skipping XMP injection");
+    }
+}
+
+/// Finds the byte offset of the IEND chunk in PNG bytes.
+fn find_png_iend(bytes: &[u8]) -> Option<usize> {
+    let mut pos = 8usize;
+    while pos + 8 <= bytes.len() {
+        let length = u32::from_be_bytes(bytes[pos..pos + 4].try_into().ok()?) as usize;
+        let chunk_type = &bytes[pos + 4..pos + 8];
+        if chunk_type == b"IEND" {
+            return Some(pos);
+        }
+        pos += 8 + length + 4;
+    }
+    None
+}
+
+/// CRC32 using the IEEE polynomial, as required by PNG.
+fn crc32_ieee(data: &[u8]) -> u32 {
+    let mut crc: u32 = 0xFFFFFFFF;
+    for &byte in data {
+        let index = ((crc ^ byte as u32) & 0xFF) as usize;
+        crc = CRC32_TABLE[index] ^ (crc >> 8);
+    }
+    crc ^ 0xFFFFFFFF
+}
+
+/// Precomputed CRC32 IEEE lookup table.
+const CRC32_TABLE: [u32; 256] = {
+    let mut table = [0u32; 256];
+    let mut i = 0usize;
+    while i < 256 {
+        let mut c = i as u32;
+        let mut k = 0;
+        while k < 8 {
+            if c & 1 != 0 {
+                c = 0xEDB88320 ^ (c >> 1);
+            } else {
+                c >>= 1;
+            }
+            k += 1;
+        }
+        table[i] = c;
+        i += 1;
+    }
+    table
+};
