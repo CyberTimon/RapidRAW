@@ -19,8 +19,9 @@ import { useTranslation } from 'react-i18next';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import clsx from 'clsx';
 import { Orientation } from '../../ui/AppProperties';
-import TransformModal from '../../modals/TransformModal';
-import LensCorrectionModal from '../../modals/LensCorrectionModal';
+import { lazy, Suspense } from 'react';
+const TransformModal = lazy(() => import('../../modals/TransformModal'));
+const LensCorrectionModal = lazy(() => import('../../modals/LensCorrectionModal'));
 import { motion } from 'framer-motion';
 import Text from '../../ui/Text';
 import Slider from '../../ui/Slider';
@@ -824,37 +825,43 @@ export default function CropPanel() {
         )}
       </div>
 
-      <TransformModal
-        isOpen={isTransformModalOpen}
-        onClose={() => setIsTransformModalOpen(false)}
-        onApply={(newParams) => {
-          setAdjustments((prev: Adjustments) => ({
-            ...prev,
-            transformDistortion: newParams.distortion,
-            transformVertical: newParams.vertical,
-            transformHorizontal: newParams.horizontal,
-            transformRotate: newParams.rotate,
-            transformAspect: newParams.aspect,
-            transformScale: newParams.scale,
-            transformXOffset: newParams.x_offset,
-            transformYOffset: newParams.y_offset,
-          }));
-        }}
-        currentAdjustments={adjustments}
-      />
+      <Suspense fallback={null}>
+        {isTransformModalOpen && (
+          <TransformModal
+            isOpen={isTransformModalOpen}
+            onClose={() => setIsTransformModalOpen(false)}
+            onApply={(newParams) => {
+              setAdjustments((prev: Adjustments) => ({
+                ...prev,
+                transformDistortion: newParams.distortion,
+                transformVertical: newParams.vertical,
+                transformHorizontal: newParams.horizontal,
+                transformRotate: newParams.rotate,
+                transformAspect: newParams.aspect,
+                transformScale: newParams.scale,
+                transformXOffset: newParams.x_offset,
+                transformYOffset: newParams.y_offset,
+              }));
+            }}
+            currentAdjustments={adjustments}
+          />
+        )}
 
-      <LensCorrectionModal
-        isOpen={isLensModalOpen}
-        onClose={() => setIsLensModalOpen(false)}
-        onApply={(newParams) => {
-          setAdjustments((prev: Adjustments) => ({
-            ...prev,
-            ...newParams,
-          }));
-        }}
-        currentAdjustments={adjustments}
-        selectedImage={selectedImage}
-      />
+        {isLensModalOpen && (
+          <LensCorrectionModal
+            isOpen={isLensModalOpen}
+            onClose={() => setIsLensModalOpen(false)}
+            onApply={(newParams) => {
+              setAdjustments((prev: Adjustments) => ({
+                ...prev,
+                ...newParams,
+              }));
+            }}
+            currentAdjustments={adjustments}
+            selectedImage={selectedImage}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }
