@@ -116,3 +116,45 @@ pub fn is_supported_image_file<P: AsRef<Path>>(path: P) -> bool {
         .iter()
         .any(|non_raw_ext| non_raw_ext.eq_ignore_ascii_case(ext))
 }
+
+/// Returns whether a path points to a supported image with locally readable content.
+///
+/// Zero-byte image entries cannot be decoded and commonly represent cloud-sync
+/// placeholders whose contents have not been downloaded yet. Metadata is read on
+/// every call so the image becomes discoverable on the next scan after hydration.
+pub fn is_nonempty_supported_image_file<P: AsRef<Path>>(path: P) -> bool {
+    let path = path.as_ref();
+
+    is_supported_image_file(path)
+        && std::fs::metadata(path).is_ok_and(|metadata| metadata.is_file() && metadata.len() > 0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_nonempty_supported_image_file, is_supported_image_file};
+
+    #[test]
+    fn empty_supported_images_are_hidden_until_they_have_content() {
+        let temp_dir = tempfile::tempdir().expect("create temp directory");
+        let image_path = temp_dir.path().join("cloud-placeholder.jpg");
+
+        std::fs::File::create(&image_path).expect("create empty image placeholder");
+        assert!(is_supported_image_file(&image_path));
+        assert!(!is_nonempty_supported_image_file(&image_path));
+
+        std::fs::write(&image_path, b"hydrated").expect("hydrate image placeholder");
+        assert!(is_nonempty_supported_image_file(&image_path));
+    }
+
+    #[test]
+    fn missing_and_unsupported_files_are_not_discoverable() {
+        let temp_dir = tempfile::tempdir().expect("create temp directory");
+        let missing_image = temp_dir.path().join("missing.jpg");
+        let unsupported_file = temp_dir.path().join("notes.txt");
+
+        std::fs::write(&unsupported_file, b"content").expect("create unsupported file");
+
+        assert!(!is_nonempty_supported_image_file(missing_image));
+        assert!(!is_nonempty_supported_image_file(unsupported_file));
+    }
+}

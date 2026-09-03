@@ -31,7 +31,7 @@ use crate::PendingMetadata;
 use crate::android_integration::*;
 use crate::app_settings::*;
 use crate::exif_processing;
-use crate::formats::{is_raw_file, is_supported_image_file};
+use crate::formats::{is_nonempty_supported_image_file, is_raw_file, is_supported_image_file};
 use crate::gpu_processing;
 use crate::image_loader;
 use crate::image_processing::GpuContext;
@@ -598,7 +598,7 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                 .entry(source_filename.to_string())
                 .or_default()
                 .push(copy_id);
-        } else if is_supported_image_file(&file_name) {
+        } else if is_nonempty_supported_image_file(&entry_path) {
             images.push((file_name, entry_path));
         }
     }
@@ -726,7 +726,7 @@ pub fn list_images_recursive(
                     .or_default()
                     .push(copy_id);
             }
-        } else if is_supported_image_file(entry_path.to_string_lossy().as_ref()) {
+        } else if is_nonempty_supported_image_file(entry_path) {
             images.push(entry_path.to_path_buf());
         }
     }
@@ -1030,7 +1030,7 @@ pub fn get_album_images(
         .into_par_iter()
         .filter_map(|virtual_path| {
             let (source_path, sidecar_path) = parse_virtual_path(&virtual_path);
-            if !source_path.exists() {
+            if !is_nonempty_supported_image_file(&source_path) {
                 return None;
             }
 
@@ -1183,7 +1183,7 @@ fn scan_dir_lazy(
                         .filter_map(Result::ok)
                         .filter(|e| {
                             e.file_type().is_file()
-                                && crate::formats::is_supported_image_file(e.path())
+                                && crate::formats::is_nonempty_supported_image_file(e.path())
                         })
                         .count()
                 } else {
@@ -1213,7 +1213,7 @@ fn scan_dir_lazy(
             });
         } else if show_image_counts
             && file_type.is_file()
-            && crate::formats::is_supported_image_file(&current_path)
+            && crate::formats::is_nonempty_supported_image_file(&current_path)
         {
             current_dir_image_count += 1;
         }
