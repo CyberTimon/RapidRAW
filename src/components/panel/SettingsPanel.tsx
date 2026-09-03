@@ -559,6 +559,7 @@ export default function SettingsPanel({
     rawPreprocessingColorNr: appSettings?.rawPreprocessingColorNr ?? 0.5,
     rawPreprocessingSharpening: appSettings?.rawPreprocessingSharpening ?? 0.35,
     applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
+    colorManagedWb: appSettings?.colorManagedWb ?? false,
   });
   const [restartRequired, setRestartRequired] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
@@ -667,6 +668,7 @@ export default function SettingsPanel({
       rawPreprocessingColorNr: appSettings?.rawPreprocessingColorNr ?? 0.5,
       rawPreprocessingSharpening: appSettings?.rawPreprocessingSharpening ?? 0.35,
       applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
+      colorManagedWb: appSettings?.colorManagedWb ?? false,
     });
     setRestartRequired(false);
   }, [appSettings]);
@@ -706,7 +708,8 @@ export default function SettingsPanel({
         key === 'rawHighlightCompression' ||
         key === 'rawPreprocessingColorNr' ||
         key === 'rawPreprocessingSharpening' ||
-        key === 'applyPreprocessingToNonRaws'
+        key === 'applyPreprocessingToNonRaws' ||
+        key === 'colorManagedWb'
       ) {
         await invoke('clear_image_caches');
       }
@@ -2116,6 +2119,18 @@ export default function SettingsPanel({
                           id="preprocessing-non-raws-toggle"
                           label={t('settings.processing.preprocessing.enablePreprocessingNonRaws')}
                           onChange={(checked) => handleProcessingSettingChange('applyPreprocessingToNonRaws', checked)}
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.processing.preprocessing.colorManagedWb')}
+                        description={t('settings.processing.preprocessing.colorManagedWbDesc')}
+                      >
+                        <Switch
+                          checked={processingSettings.colorManagedWb}
+                          id="color-managed-wb-toggle"
+                          label={t('settings.processing.preprocessing.colorManagedWb')}
+                          onChange={(checked) => handleProcessingSettingChange('colorManagedWb', checked)}
                         />
                       </SettingItem>
 
