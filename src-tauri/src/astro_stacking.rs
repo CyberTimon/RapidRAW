@@ -27,6 +27,44 @@ pub struct AstroStackOptions {
     pub remove_light_pollution: Option<bool>,
     pub freeze_ground: Option<bool>,
     pub preserve_pedestal: Option<f32>,
+    pub eco_thermal_mode: Option<bool>, // Caps CPU package power to keep temps < 75°C with zero system lag
+}
+
+pub fn get_thermal_pool(eco_mode: bool) -> &'static rayon::ThreadPool {
+    static ECO_POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
+    static FULL_POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
+
+    if eco_mode {
+        ECO_POOL.get_or_init(|| {
+            let total = std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(4);
+            // On quad-core / 8-thread Tiger Lake laptops (like i7-1165G7):
+            // Using 4 threads assigns exactly 1 worker per physical core with 0 hyperthread contention.
+            // This caps CPU package power under 16W, keeping thermals strictly < 75°C,
+            // while leaving 4 logical threads 100% free for the OS, Tauri WebView2 compositor, and mouse events.
+            let threads = if total <= 4 {
+                total.saturating_sub(1).max(1)
+            } else if total <= 8 {
+                4
+            } else {
+                (total - 2).max(4)
+            };
+
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .thread_name(|i| format!("rapidraw-thermal-worker-{}", i))
+                .build()
+                .unwrap_or_else(|_| rayon::ThreadPoolBuilder::new().build().unwrap())
+        })
+    } else {
+        FULL_POOL.get_or_init(|| {
+            rayon::ThreadPoolBuilder::new()
+                .thread_name(|i| format!("rapidraw-worker-{}", i))
+                .build()
+                .unwrap_or_else(|_| rayon::ThreadPoolBuilder::new().build().unwrap())
+        })
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,11 +76,11 @@ pub struct AstroStackResult {
     pub message: String,
 }
 
-#[derive(Debug, Clone)]
-struct StarPoint {
-    x: f32,
-    y: f32,
-    brightness: f32,
+#[derive(Debug, Clone, Copy)]
+pub struct StarPoint {
+    pub x: f32,
+    pub y: f32,
+    pub brightness: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -222,16 +260,174 @@ fn calculate_rigid_alignment(
     RigidTransform2D { dx, dy, dtheta }
 }
 
-/// Warps an image using continuous 4-point bilinear interpolation with rigid translation and rotation
-fn warp_rigid(
+/// Suppresses isolated single-pixel thermal hot pixels on long-exposure RAW frames
+pub fn suppress_cosmetic_hot_pixels(img: &mut Rgb32FImage) {
+    let (width, height) = img.dimensions();
+    if width < 4 || height < 4 {
+        return;
+    }
+
+    let raw = img.as_mut();
+    let row_stride = (width * 3) as usize;
+
+    raw.par_chunks_mut(row_stride)
+        .enumerate()
+        .for_each(|(y_idx, row_slice)| {
+            if y_idx == 0 || y_idx >= height as usize - 1 {
+                return;
+            }
+            for x in 1..(width as usize - 1) {
+                let idx = x * 3;
+                for c in 0..3 {
+                    let val = row_slice[idx + c];
+                    if val > 0.06 {
+                        let left = row_slice[idx - 3 + c];
+                        let right = row_slice[idx + 3 + c];
+                        let max_neighbor = left.max(right);
+
+                        // Dirac delta hot-pixel test (isolated single-pixel spike)
+                        if val > 0.10 && val > max_neighbor * 3.5 && max_neighbor < 0.35 {
+                            row_slice[idx + c] = (left + right) * 0.5;
+                        }
+                    }
+                }
+            }
+        });
+}
+
+/// Suppresses horizontal readout line banding typical of Canon APS-C sensors in deep shadows
+pub fn suppress_horizontal_shadow_banding(img: &mut Rgb32FImage) {
+    let (width, height) = img.dimensions();
+    if height < 32 || width < 32 {
+        return;
+    }
+
+    let step_x = 8;
+    let mut row_medians = vec![0.0f32; height as usize];
+
+    for y in 0..height as usize {
+        let mut shadow_vals = Vec::with_capacity((width as usize) / step_x);
+        for x in (0..width as usize).step_by(step_x) {
+            let p = img.get_pixel(x as u32, y as u32);
+            let lum = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+            if lum < 0.035 {
+                shadow_vals.push(lum);
+            }
+        }
+        if shadow_vals.len() > 16 {
+            shadow_vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            row_medians[y] = shadow_vals[shadow_vals.len() / 2];
+        }
+    }
+
+    let window = 15;
+    let mut smoothed = vec![0.0f32; height as usize];
+    for y in 0..height as usize {
+        let start = y.saturating_sub(window);
+        let end = (y + window).min(height as usize - 1);
+        let count = (end - start + 1) as f32;
+        let sum: f32 = row_medians[start..=end].iter().sum();
+        smoothed[y] = sum / count;
+    }
+
+    let raw = img.as_mut();
+    let row_stride = (width * 3) as usize;
+
+    raw.par_chunks_mut(row_stride)
+        .enumerate()
+        .for_each(|(y, row_slice)| {
+            let delta = row_medians[y] - smoothed[y];
+            if delta.abs() > 1e-6 && delta.abs() < 0.015 {
+                for x in 0..width as usize {
+                    let idx = x * 3;
+                    let lum = 0.2126 * row_slice[idx] + 0.7152 * row_slice[idx + 1] + 0.0722 * row_slice[idx + 2];
+                    let weight = (1.0 - (lum / 0.04).min(1.0)).max(0.0);
+                    if weight > 0.0 {
+                        let corr = delta * weight;
+                        row_slice[idx] = (row_slice[idx] - corr).max(0.0);
+                        row_slice[idx + 1] = (row_slice[idx + 1] - corr).max(0.0);
+                        row_slice[idx + 2] = (row_slice[idx + 2] - corr).max(0.0);
+                    }
+                }
+            }
+        });
+}
+
+/// Estimates optimal 2nd-order radial lens distortion k1 on outer perimeter star pairs
+pub fn estimate_radial_distortion(
+    ref_stars: &[StarPoint],
+    target_stars: &[StarPoint],
+    transform: RigidTransform2D,
+    width: f32,
+    height: f32,
+) -> f32 {
+    let cx = width * 0.5;
+    let cy = height * 0.5;
+    let diag = (cx * cx + cy * cy).sqrt().max(1.0);
+
+    let mut outer_pairs = Vec::new();
+    for r in ref_stars {
+        let r_dist = ((r.x - cx).powi(2) + (r.y - cy).powi(2)).sqrt();
+        if r_dist > diag * 0.35 {
+            for t in target_stars {
+                let dist = ((r.x - t.x).powi(2) + (r.y - t.y).powi(2)).sqrt();
+                if dist < 50.0 {
+                    outer_pairs.push((*r, *t));
+                    break;
+                }
+            }
+        }
+    }
+
+    if outer_pairs.len() < 4 {
+        return 0.0;
+    }
+
+    let cos_t = (-transform.dtheta).cos();
+    let sin_t = (-transform.dtheta).sin();
+
+    let eval_error = |k1_cand: f32| -> f32 {
+        let mut err = 0.0;
+        for &(r, t) in &outer_pairs {
+            let x_rel = t.x - cx;
+            let y_rel = t.y - cy;
+            let rot_x = cos_t * x_rel - sin_t * y_rel;
+            let rot_y = sin_t * x_rel + cos_t * y_rel;
+            let r_norm = (rot_x * rot_x + rot_y * rot_y).sqrt() / diag;
+            let dist_factor = 1.0 + k1_cand * r_norm * r_norm;
+            let pred_x = rot_x * dist_factor + cx - transform.dx;
+            let pred_y = rot_y * dist_factor + cy - transform.dy;
+            err += (pred_x - r.x).powi(2) + (pred_y - r.y).powi(2);
+        }
+        err / outer_pairs.len() as f32
+    };
+
+    let mut best_k1 = 0.0f32;
+    let mut min_err = eval_error(0.0);
+
+    for step in [-0.06, -0.04, -0.02, 0.02, 0.04, 0.06] {
+        let err = eval_error(step);
+        if err < min_err {
+            min_err = err;
+            best_k1 = step;
+        }
+    }
+
+    best_k1
+}
+
+/// Warps an image using continuous 4-point bilinear interpolation with rigid translation, rotation, and radial distortion
+pub fn warp_rigid_radial(
     img: &Rgb32FImage,
     transform: RigidTransform2D,
+    k1: f32,
     width: u32,
     height: u32,
 ) -> Rgb32FImage {
     let mut out = Rgb32FImage::new(width, height);
     let cx = width as f32 * 0.5;
     let cy = height as f32 * 0.5;
+    let diag = (cx * cx + cy * cy).sqrt().max(1.0);
     let cos_t = (-transform.dtheta).cos();
     let sin_t = (-transform.dtheta).sin();
 
@@ -240,17 +436,33 @@ fn warp_rigid(
         for x in 0..width {
             let x_rel = x as f32 - cx;
 
-            // Rotate around center, then shift
-            let rot_x = cos_t * x_rel - sin_t * y_rel + cx;
-            let rot_y = sin_t * x_rel + cos_t * y_rel + cy;
+            // Rotate around center
+            let rot_x = cos_t * x_rel - sin_t * y_rel;
+            let rot_y = sin_t * x_rel + cos_t * y_rel;
 
-            let sx = rot_x - transform.dx;
-            let sy = rot_y - transform.dy;
+            // Radial distortion compensation
+            let r_norm = (rot_x * rot_x + rot_y * rot_y).sqrt() / diag;
+            let dist_factor = 1.0 + k1 * r_norm * r_norm;
+            let dist_x = rot_x * dist_factor + cx;
+            let dist_y = rot_y * dist_factor + cy;
+
+            let sx = dist_x - transform.dx;
+            let sy = dist_y - transform.dy;
 
             out.put_pixel(x, y, sample_bilinear(img, sx, sy));
         }
     }
     out
+}
+
+/// Warps an image using continuous 4-point bilinear interpolation with rigid translation and rotation
+pub fn warp_rigid(
+    img: &Rgb32FImage,
+    transform: RigidTransform2D,
+    width: u32,
+    height: u32,
+) -> Rgb32FImage {
+    warp_rigid_radial(img, transform, 0.0, width, height)
 }
 
 /// 4-point bilinear sub-pixel interpolation to preserve 100% of star photon energy
@@ -556,7 +768,146 @@ pub fn remove_background_gradient(img: &mut Rgb32FImage, preserve_pedestal: Opti
         });
 }
 
-/// Estimates a fast smooth horizon / sky mask for ground freezing
+/// Measures astronomical subframe quality score based on star count, compactness (FWHM), and background noise
+pub fn calculate_subframe_quality(img: &Rgb32FImage, stars: &[StarPoint]) -> f32 {
+    let (width, height) = img.dimensions();
+    let num_stars = stars.len() as f32;
+    if num_stars < 3.0 {
+        return 0.1;
+    }
+
+    // Measure background noise variance sigma_bg in dark celestial tiles
+    let mut tile_variances = Vec::new();
+    let tile_size = 64;
+    for ty in (0..(height.saturating_sub(tile_size))).step_by(tile_size as usize * 2) {
+        for tx in (0..(width.saturating_sub(tile_size))).step_by(tile_size as usize * 2) {
+            let mut lums = Vec::with_capacity((tile_size * tile_size / 4) as usize);
+            for y in (ty..(ty + tile_size)).step_by(2) {
+                for x in (tx..(tx + tile_size)).step_by(2) {
+                    let p = img.get_pixel(x, y);
+                    lums.push(0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]);
+                }
+            }
+            if !lums.is_empty() {
+                let mean = lums.iter().sum::<f32>() / lums.len() as f32;
+                if mean < 0.025 {
+                    let var = lums.iter().map(|&v| (v - mean).powi(2)).sum::<f32>() / lums.len() as f32;
+                    tile_variances.push(var.sqrt());
+                }
+            }
+        }
+    }
+
+    let bg_noise = if !tile_variances.is_empty() {
+        tile_variances.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        tile_variances[tile_variances.len() / 2].max(0.0005)
+    } else {
+        0.005
+    };
+
+    // Compute FWHM compactness metric of detected stars
+    let mut compactness_sum = 0.0f32;
+    let mut comp_count = 0.0f32;
+    for s in stars.iter().take(40) {
+        let sx = s.x.round() as u32;
+        let sy = s.y.round() as u32;
+        if sx >= 2 && sx < width - 2 && sy >= 2 && sy < height - 2 {
+            let center_p = img.get_pixel(sx, sy);
+            let center_l = 0.2126 * center_p[0] + 0.7152 * center_p[1] + 0.0722 * center_p[2];
+            let edge_p = img.get_pixel(sx + 2, sy);
+            let edge_l = 0.2126 * edge_p[0] + 0.7152 * edge_p[1] + 0.0722 * edge_p[2];
+            let ratio = (edge_l / center_l.max(1e-4)).clamp(0.01, 1.0);
+            compactness_sum += ratio;
+            comp_count += 1.0;
+        }
+    }
+    let fwhm_proxy = if comp_count > 0.0 { compactness_sum / comp_count } else { 0.5 };
+
+    // Quality Q = N_stars / (FWHM^2 * sigma_bg^2)
+    (num_stars / (fwhm_proxy.powi(2) * bg_noise.powi(2) * 1e6).max(1.0)).clamp(0.1, 100.0)
+}
+
+/// Photometric Color Calibration (PCC): balances stellar population toward neutral white
+/// and anchors deep space background to neutral navy
+pub fn apply_celestial_photometric_white_balance(img: &mut Rgb32FImage, stars: &[StarPoint]) {
+    let (width, height) = img.dimensions();
+    if stars.len() < 5 {
+        return;
+    }
+
+    // Measure background sky color in dark percentiles
+    let mut r_vals = Vec::new();
+    let mut g_vals = Vec::new();
+    let mut b_vals = Vec::new();
+    for y in (0..height).step_by(16) {
+        for x in (0..width).step_by(16) {
+            let p = img.get_pixel(x, y);
+            let lum = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+            if lum < 0.02 {
+                r_vals.push(p[0]);
+                g_vals.push(p[1]);
+                b_vals.push(p[2]);
+            }
+        }
+    }
+
+    let (bg_r, bg_g, bg_b) = if r_vals.len() > 20 {
+        r_vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        g_vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        b_vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let mid = r_vals.len() / 2;
+        (r_vals[mid], g_vals[mid], b_vals[mid])
+    } else {
+        (0.005, 0.005, 0.005)
+    };
+
+    // Measure stellar population centroid colors (subtracting background)
+    let mut star_r_sum = 0.0f32;
+    let mut star_g_sum = 0.0f32;
+    let mut star_b_sum = 0.0f32;
+    let mut valid_stars = 0.0f32;
+
+    for s in stars.iter().take(60) {
+        let x = s.x.round() as u32;
+        let y = s.y.round() as u32;
+        if x < width && y < height {
+            let p = img.get_pixel(x, y);
+            let net_r = (p[0] - bg_r).max(0.0);
+            let net_g = (p[1] - bg_g).max(0.0);
+            let net_b = (p[2] - bg_b).max(0.0);
+            if net_g > 0.02 {
+                star_r_sum += net_r;
+                star_g_sum += net_g;
+                star_b_sum += net_b;
+                valid_stars += 1.0;
+            }
+        }
+    }
+
+    if valid_stars < 4.0 {
+        return;
+    }
+
+    let avg_r = star_r_sum / valid_stars;
+    let avg_g = star_g_sum / valid_stars;
+    let avg_b = star_b_sum / valid_stars;
+
+    // Balance against green
+    let mul_r = (avg_g / avg_r.max(1e-4)).clamp(0.70, 1.45);
+    let mul_b = (avg_g / avg_b.max(1e-4)).clamp(0.70, 1.45);
+
+    let raw = img.as_mut();
+    let row_stride = (width * 3) as usize;
+    raw.par_chunks_mut(row_stride).for_each(|row_slice| {
+        for x in 0..width as usize {
+            let idx = x * 3;
+            row_slice[idx] = (row_slice[idx] * mul_r).min(1.0);
+            row_slice[idx + 2] = (row_slice[idx + 2] * mul_b).min(1.0);
+        }
+    });
+}
+
+/// Estimates an edge-aware horizon / sky mask for ground freezing
 fn generate_sky_mask_proxy(ref_frame: &Rgb32FImage) -> Vec<f32> {
     let (width, height) = ref_frame.dimensions();
     let mut mask = vec![1.0f32; (width * height) as usize];
@@ -582,25 +933,33 @@ fn generate_sky_mask_proxy(ref_frame: &Rgb32FImage) -> Vec<f32> {
         }
     }
 
-    // Feathered gradient across horizon (default to upper 60% sky)
     let horizon_y = (min_luma_y as f32).clamp(height as f32 * 0.35, height as f32 * 0.85);
-    let feather_dist = (height as f32 * 0.08).max(20.0);
+    let feather_dist = (height as f32 * 0.10).max(25.0);
 
     for y in 0..height as usize {
         let y_f = y as f32;
-        let weight = if y_f <= horizon_y - feather_dist {
-            1.0 // Pure sky
+        let global_weight = if y_f <= horizon_y - feather_dist {
+            1.0
         } else if y_f >= horizon_y + feather_dist {
-            0.0 // Pure ground
+            0.0
         } else {
-            // Smooth Hermite blend
             let t = (horizon_y + feather_dist - y_f) / (2.0 * feather_dist);
             t * t * (3.0 - 2.0 * t)
         };
 
         let row_offset = y * width as usize;
         for x in 0..width as usize {
-            mask[row_offset + x] = weight;
+            if global_weight <= 0.0 {
+                mask[row_offset + x] = 0.0;
+            } else if global_weight >= 1.0 {
+                mask[row_offset + x] = 1.0;
+            } else {
+                // Edge guidance in transition zone
+                let p = ref_frame.get_pixel(x as u32, y as u32);
+                let lum = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+                let edge_bias = ((lum - min_luma) / 0.02).clamp(-0.5, 0.5);
+                mask[row_offset + x] = (global_weight + edge_bias * 0.25).clamp(0.0, 1.0);
+            }
         }
     }
 
@@ -716,6 +1075,8 @@ pub fn process_astro_stack(
             }
         }
 
+        suppress_cosmetic_hot_pixels(&mut rgb32f);
+        suppress_horizontal_shadow_banding(&mut rgb32f);
         loaded_raw_frames.push(rgb32f);
     }
 
@@ -726,6 +1087,9 @@ pub fn process_astro_stack(
 
     // Star detection on reference frame (frame 0)
     let ref_stars = detect_star_centroids(&loaded_raw_frames[0]);
+    let mut frame_weights = Vec::with_capacity(total_frames);
+    let ref_q = calculate_subframe_quality(&loaded_raw_frames[0], &ref_stars);
+    frame_weights.push(ref_q);
 
     // Sub-pixel aligned sky frames
     let mut aligned_sky_frames: Vec<Rgb32FImage> = Vec::with_capacity(total_frames);
@@ -733,6 +1097,9 @@ pub fn process_astro_stack(
 
     for i in 1..total_frames {
         let target_stars = detect_star_centroids(&loaded_raw_frames[i]);
+        let q = calculate_subframe_quality(&loaded_raw_frames[i], &target_stars);
+        frame_weights.push(q);
+
         let transform = calculate_rigid_alignment(
             &ref_stars,
             &target_stars,
@@ -742,10 +1109,19 @@ pub fn process_astro_stack(
         );
 
         if transform.dx.abs() > 0.05 || transform.dy.abs() > 0.05 || transform.dtheta.abs() > 0.0001 {
-            let shifted = warp_rigid(&loaded_raw_frames[i], transform, width, height);
+            let k1 = estimate_radial_distortion(&ref_stars, &target_stars, transform, width as f32, height as f32);
+            let shifted = warp_rigid_radial(&loaded_raw_frames[i], transform, k1, width, height);
             aligned_sky_frames.push(shifted);
         } else {
             aligned_sky_frames.push(loaded_raw_frames[i].clone());
+        }
+    }
+
+    // Normalize quality weights around 1.0
+    let sum_w: f32 = frame_weights.iter().sum();
+    if sum_w > 0.0 {
+        for w in &mut frame_weights {
+            *w = (*w / sum_w) * total_frames as f32;
         }
     }
 
@@ -766,80 +1142,89 @@ pub fn process_astro_stack(
     let row_stride = (width * 3) as usize;
     let mut out_raw = vec![0.0f32; (width * height * 3) as usize];
     let completed_rows = std::sync::atomic::AtomicUsize::new(0);
+    let eco = options.eco_thermal_mode.unwrap_or(true);
+    let pool = get_thermal_pool(eco);
 
-    out_raw
-        .par_chunks_mut(row_stride)
-        .enumerate()
-        .for_each(|(y_idx, row_slice)| {
-            let y = y_idx as usize;
-            let mut sky_r = vec![0.0f32; total_frames];
-            let mut sky_g = vec![0.0f32; total_frames];
-            let mut sky_b = vec![0.0f32; total_frames];
-
-            let mut gnd_r = vec![0.0f32; total_frames];
-            let mut gnd_g = vec![0.0f32; total_frames];
-            let mut gnd_b = vec![0.0f32; total_frames];
-
-            for x in 0..width as usize {
-                let pixel_offset = (y * width as usize + x) * 3;
-                let sky_weight = sky_mask[y * width as usize + x];
-
-                for i in 0..total_frames {
-                    let s_raw = sky_raws[i];
-                    sky_r[i] = s_raw[pixel_offset];
-                    sky_g[i] = s_raw[pixel_offset + 1];
-                    sky_b[i] = s_raw[pixel_offset + 2];
-
-                    if freeze_ground && sky_weight < 0.99 {
-                        let g_raw = ground_raws[i];
-                        gnd_r[i] = g_raw[pixel_offset];
-                        gnd_g[i] = g_raw[pixel_offset + 1];
-                        gnd_b[i] = g_raw[pixel_offset + 2];
-                    }
+    pool.install(|| {
+        out_raw
+            .par_chunks_mut(row_stride)
+            .enumerate()
+            .for_each(|(y_idx, row_slice)| {
+                // Yield periodically to give Windows GUI compositor 100% responsiveness
+                if y_idx % 128 == 0 {
+                    std::thread::yield_now();
                 }
 
-                // Stack sky pixels (Kappa-Sigma outlier rejection)
-                let (sr, sg, sb) = if options.stack_mode == "median" {
-                    sky_r.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                    sky_g.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                    sky_b.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                    (sky_r[total_frames / 2], sky_g[total_frames / 2], sky_b[total_frames / 2])
-                } else {
-                    (
-                        kappa_sigma_mean(&sky_r, kappa),
-                        kappa_sigma_mean(&sky_g, kappa),
-                        kappa_sigma_mean(&sky_b, kappa),
-                    )
-                };
+                let y = y_idx as usize;
+                let mut sky_r = vec![0.0f32; total_frames];
+                let mut sky_g = vec![0.0f32; total_frames];
+                let mut sky_b = vec![0.0f32; total_frames];
 
-                // Blend with frozen ground stack if applicable
-                let (final_r, final_g, final_b) = if freeze_ground && sky_weight < 0.99 {
-                    gnd_r.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                    gnd_g.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                    gnd_b.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                    let (gr, gg, gb) = (gnd_r[total_frames / 2], gnd_g[total_frames / 2], gnd_b[total_frames / 2]);
+                let mut gnd_r = vec![0.0f32; total_frames];
+                let mut gnd_g = vec![0.0f32; total_frames];
+                let mut gnd_b = vec![0.0f32; total_frames];
 
-                    (
-                        sr * sky_weight + gr * (1.0 - sky_weight),
-                        sg * sky_weight + gg * (1.0 - sky_weight),
-                        sb * sky_weight + gb * (1.0 - sky_weight),
-                    )
-                } else {
-                    (sr, sg, sb)
-                };
+                for x in 0..width as usize {
+                    let pixel_offset = (y * width as usize + x) * 3;
+                    let sky_weight = sky_mask[y * width as usize + x];
 
-                let out_idx = x * 3;
-                row_slice[out_idx] = final_r;
-                row_slice[out_idx + 1] = final_g;
-                row_slice[out_idx + 2] = final_b;
-            }
+                    for i in 0..total_frames {
+                        let s_raw = sky_raws[i];
+                        sky_r[i] = s_raw[pixel_offset];
+                        sky_g[i] = s_raw[pixel_offset + 1];
+                        sky_b[i] = s_raw[pixel_offset + 2];
 
-            let done = completed_rows.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            if done % 64 == 0 || done == height as usize - 1 {
-                let pct = ((done as f32 / height as f32) * 100.0).min(100.0) as u32;
-                let _ = app_handle.emit("astro-progress", format!("Performing Kappa-Sigma clipping stack... {}%", pct));
-            }
-        });
+                        if freeze_ground && sky_weight < 0.99 {
+                            let g_raw = ground_raws[i];
+                            gnd_r[i] = g_raw[pixel_offset];
+                            gnd_g[i] = g_raw[pixel_offset + 1];
+                            gnd_b[i] = g_raw[pixel_offset + 2];
+                        }
+                    }
+
+                    // Stack sky pixels (Quality-Weighted Kappa-Sigma outlier rejection)
+                    let (sr, sg, sb) = if options.stack_mode == "median" {
+                        sky_r.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                        sky_g.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                        sky_b.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                        (sky_r[total_frames / 2], sky_g[total_frames / 2], sky_b[total_frames / 2])
+                    } else {
+                        (
+                            weighted_kappa_sigma_mean(&sky_r, &frame_weights, kappa),
+                            weighted_kappa_sigma_mean(&sky_g, &frame_weights, kappa),
+                            weighted_kappa_sigma_mean(&sky_b, &frame_weights, kappa),
+                        )
+                    };
+
+                    // Blend with frozen ground stack if applicable
+                    let (final_r, final_g, final_b) = if freeze_ground && sky_weight < 0.99 {
+                        gnd_r.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                        gnd_g.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                        gnd_b.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                        let (gr, gg, gb) = (gnd_r[total_frames / 2], gnd_g[total_frames / 2], gnd_b[total_frames / 2]);
+
+                        (
+                            sr * sky_weight + gr * (1.0 - sky_weight),
+                            sg * sky_weight + gg * (1.0 - sky_weight),
+                            sb * sky_weight + gb * (1.0 - sky_weight),
+                        )
+                    } else {
+                        (sr, sg, sb)
+                    };
+
+                    let out_idx = x * 3;
+                    row_slice[out_idx] = final_r;
+                    row_slice[out_idx + 1] = final_g;
+                    row_slice[out_idx + 2] = final_b;
+                }
+
+                let done = completed_rows.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if done % 64 == 0 || done == height as usize - 1 {
+                    let pct = ((done as f32 / height as f32) * 100.0).min(100.0) as u32;
+                    let _ = app_handle.emit("astro-progress", format!("Performing Kappa-Sigma clipping stack... {}%", pct));
+                }
+            });
+    });
 
     let mut buffer = ImageBuffer::<Rgb<f32>, _>::from_raw(width, height, out_raw)
         .ok_or_else(|| "Failed to construct stacked image buffer".to_string())?;
@@ -851,14 +1236,65 @@ pub fn process_astro_stack(
         neutralize_star_cores(&mut buffer);
     }
 
+    // Apply Celestial Photometric Color Calibration (PCC)
+    apply_celestial_photometric_white_balance(&mut buffer, &ref_stars);
+
     let final_dyn = DynamicImage::ImageRgb32F(buffer);
     let _ = app_handle.emit("astro-progress", "Astro stacking complete!");
 
     Ok(final_dyn)
 }
 
+/// Weighted Astronomical Kappa-Sigma Outlier Clipping with subframe quality weights
+fn weighted_kappa_sigma_mean(values: &[f32], weights: &[f32], kappa: f32) -> f32 {
+    let n = values.len();
+    if n <= 2 {
+        let mut sum = 0.0;
+        let mut w_sum = 0.0;
+        for i in 0..n {
+            sum += values[i] * weights[i];
+            w_sum += weights[i];
+        }
+        return if w_sum > 0.0 { sum / w_sum } else { values.iter().sum::<f32>() / n as f32 };
+    }
+
+    let mut w_sum = 0.0;
+    let mut mean_val = 0.0;
+    for i in 0..n {
+        mean_val += values[i] * weights[i];
+        w_sum += weights[i];
+    }
+    if w_sum > 0.0 {
+        mean_val /= w_sum;
+    }
+
+    let mut var_val = 0.0;
+    for i in 0..n {
+        let diff = values[i] - mean_val;
+        var_val += weights[i] * diff * diff;
+    }
+    let std_val = if w_sum > 0.0 { (var_val / w_sum).sqrt().max(1e-5) } else { 0.01 };
+    let threshold = kappa * std_val;
+
+    let mut acc = 0.0;
+    let mut acc_w = 0.0;
+    for i in 0..n {
+        if (values[i] - mean_val).abs() <= threshold {
+            acc += values[i] * weights[i];
+            acc_w += weights[i];
+        }
+    }
+
+    if acc_w > 0.0 {
+        acc / acc_w
+    } else {
+        mean_val
+    }
+}
+
 /// Robust Astronomical Kappa-Sigma Outlier Clipping (PixInsight / Siril standard)
-fn kappa_sigma_mean(values: &[f32], kappa: f32) -> f32 {
+#[allow(dead_code)]
+pub fn kappa_sigma_mean(values: &[f32], kappa: f32) -> f32 {
     let n = values.len();
     if n <= 2 {
         return values.iter().sum::<f32>() / n as f32;

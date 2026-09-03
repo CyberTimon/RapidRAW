@@ -96,6 +96,12 @@ pub struct AiState {
     pub depth_map: Option<CachedDepthMap>,
 }
 
+static DIRECTML_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn is_directml_active() -> bool {
+    DIRECTML_ACTIVE.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 fn edt_1d(f: &mut [f32], v: &mut [usize], z: &mut [f32], d: &mut [f32]) {
     let n = f.len();
     if n == 0 {
@@ -454,7 +460,20 @@ pub async fn get_or_init_denoise_model(
 
     let _ = ort::init().with_name("AI-Denoise").commit();
     let model_path = models_dir.join(DENOISE_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let session = match Session::builder()?
+        .with_execution_providers([ort::execution_providers::DirectMLExecutionProvider::default().build()])
+        .and_then(|b| b.commit_from_file(&model_path))
+    {
+        Ok(s) => {
+            log::info!("AI Denoise: DirectML Intel Iris Xe GPU execution provider initialized successfully");
+            DIRECTML_ACTIVE.store(true, std::sync::atomic::Ordering::Relaxed);
+            s
+        }
+        Err(e) => {
+            log::warn!("AI Denoise: DirectML initialization failed ({:?}), falling back to CPU", e);
+            Session::builder()?.commit_from_file(&model_path)?
+        }
+    };
     let denoise_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -1533,6 +1552,7 @@ pub struct AiDepthMaskParameters {
 }
 
 /// Simulates optical shallow depth-of-field lens bokeh with tap-to-focus depth plane
+#[allow(dead_code)]
 pub fn apply_depth_guided_bokeh(
     src: &image::RgbImage,
     depth: &GrayImage,

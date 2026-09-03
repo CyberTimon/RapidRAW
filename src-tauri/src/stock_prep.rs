@@ -118,8 +118,23 @@ pub fn run_stock_photo_prep_batch(
         if ext == "tiff" {
             let _ = rgb8.save(&out_path);
         } else {
-            // Save clean high quality JPEG
-            let _ = rgb8.save_with_format(&out_path, image::ImageFormat::Jpeg);
+            // Save clean high-quality JPEG with sanitized commercial EXIF (< 2 KB, GPS stripped)
+            let mut jpeg_bytes = Vec::new();
+            let mut cursor = std::io::Cursor::new(&mut jpeg_bytes);
+            let quality = options.quality.clamp(75, 100);
+            let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, quality);
+            if encoder.encode(rgb8.as_raw(), width, height, image::ExtendedColorType::Rgb8).is_ok() {
+                let _ = crate::exif_processing::write_image_with_metadata(
+                    &mut jpeg_bytes,
+                    path_str,
+                    "jpg",
+                    true,
+                    true, // strip GPS & private tags for stock compliance
+                );
+                let _ = fs::write(&out_path, jpeg_bytes);
+            } else {
+                let _ = rgb8.save_with_format(&out_path, image::ImageFormat::Jpeg);
+            }
         }
 
         audits.push(StockImageAudit {

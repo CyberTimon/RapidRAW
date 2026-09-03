@@ -34,6 +34,8 @@ import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
 import NightSkyDropzone from './NightSkyDropzone';
+import FocusStackDropzone from './FocusStackDropzone';
+import StockPrepDropzone from './StockPrepDropzone';
 import { AlbumItem, AlbumGroup, Album, Invokes, FolderTreeSort, SortDirection } from '../../ui/AppProperties';
 
 export interface FolderTree {
@@ -648,6 +650,8 @@ export default function FolderTree({
   const [searchQuery, setSearchQuery] = useState('');
   const [isHovering, setIsHovering] = useState(false);
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const [isFocusStackExpanded, setIsFocusStackExpanded] = useState(false);
+  const [isStockPrepExpanded, setIsStockPrepExpanded] = useState(false);
   const pinnedFolders = appSettings?.pinnedFolders || [];
   const openSections = appSettings?.openTreeSections ?? ['current'];
   const showImageCounts = appSettings?.enableFolderImageCounts ?? false;
@@ -983,47 +987,154 @@ export default function FolderTree({
                   transition={{ duration: 0.2, ease: 'easeInOut' }}
                   className="overflow-hidden"
                 >
-                  <div className="pt-1 pb-2 px-1">
-                    <div
-                      className={clsx(
-                        'flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm font-medium transition-colors select-none',
-                        nightSkyState.isExpanded ? 'bg-card-active text-text-primary' : 'hover:bg-card-active text-text-primary/90',
-                      )}
-                      onClick={() =>
-                        setUI((s) => ({
-                          nightSkyState: {
-                            ...s.nightSkyState,
-                            isExpanded: !s.nightSkyState.isExpanded,
-                          },
-                        }))
-                      }
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base leading-none">🪐</span>
-                        <span>Night Sky</span>
-                      </div>
-                      <ChevronDown
-                        size={15}
+                  <div className="pt-1 pb-2 px-1 flex flex-col gap-1">
+                    {/* Night Sky / Astro Stacker */}
+                    <div>
+                      <div
                         className={clsx(
-                          'text-text-secondary transition-transform duration-200',
-                          nightSkyState.isExpanded && 'rotate-180',
+                          'flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm font-medium transition-colors select-none',
+                          nightSkyState.isExpanded ? 'bg-card-active text-text-primary' : 'hover:bg-card-active text-text-primary/90',
                         )}
-                      />
+                        onClick={() =>
+                          setUI((s) => ({
+                            nightSkyState: {
+                              ...s.nightSkyState,
+                              isExpanded: !s.nightSkyState.isExpanded,
+                            },
+                          }))
+                        }
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-base leading-none">🪐</span>
+                          <span>Night Sky (Astro)</span>
+                        </div>
+                        <ChevronDown
+                          size={15}
+                          className={clsx(
+                            'text-text-secondary transition-transform duration-200',
+                            nightSkyState.isExpanded && 'rotate-180',
+                          )}
+                        />
+                      </div>
+
+                      <AnimatePresence>
+                        {nightSkyState.isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden pt-1"
+                          >
+                            <NightSkyDropzone />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
-                    <AnimatePresence>
-                      {nightSkyState.isExpanded && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden pt-1"
-                        >
-                          <NightSkyDropzone />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    {/* Focus Stacker */}
+                    <div>
+                      <div
+                        className={clsx(
+                          'flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm font-medium transition-colors select-none',
+                          isFocusStackExpanded ? 'bg-card-active text-text-primary' : 'hover:bg-card-active text-text-primary/90',
+                        )}
+                        onClick={() => setIsFocusStackExpanded((prev) => !prev)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-base leading-none">🥞</span>
+                          <span>Focus Stacker</span>
+                        </div>
+                        <ChevronDown
+                          size={15}
+                          className={clsx(
+                            'text-text-secondary transition-transform duration-200',
+                            isFocusStackExpanded && 'rotate-180',
+                          )}
+                        />
+                      </div>
+
+                      <AnimatePresence>
+                        {isFocusStackExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden pt-1"
+                          >
+                            <FocusStackDropzone />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Stock Photo Prep */}
+                    <div>
+                      <div
+                        className={clsx(
+                          'flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm font-medium transition-colors select-none',
+                          isStockPrepExpanded ? 'bg-card-active text-text-primary' : 'hover:bg-card-active text-text-primary/90',
+                        )}
+                        onClick={() => setIsStockPrepExpanded((prev) => !prev)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-base leading-none">💼</span>
+                          <span>Stock Photo Prep</span>
+                        </div>
+                        <ChevronDown
+                          size={15}
+                          className={clsx(
+                            'text-text-secondary transition-transform duration-200',
+                            isStockPrepExpanded && 'rotate-180',
+                          )}
+                        />
+                      </div>
+
+                      <AnimatePresence>
+                        {isStockPrepExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden pt-1"
+                          >
+                            <StockPrepDropzone />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Collage & Contact Sheet Launcher */}
+                    <div
+                      className="flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm font-medium hover:bg-card-active text-text-primary/90 transition-colors select-none"
+                      onClick={() => {
+                        const multiSelectedPaths = useLibraryStore.getState().multiSelectedPaths;
+                        const libraryActivePath = useLibraryStore.getState().libraryActivePath;
+                        const imageList = useLibraryStore.getState().imageList;
+
+                        const paths =
+                          multiSelectedPaths && multiSelectedPaths.length > 0
+                            ? multiSelectedPaths
+                            : libraryActivePath
+                              ? [libraryActivePath]
+                              : [];
+                        const sourceImages = imageList.filter((img) => paths.includes(img.path));
+                        setUI({
+                          collageModalState: {
+                            isOpen: true,
+                            sourceImages: sourceImages.length > 0 ? sourceImages : imageList.slice(0, 4),
+                          },
+                        });
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base leading-none">🖼️</span>
+                        <span>Collage & Contact Sheet</span>
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/15 text-accent font-medium">Launch</span>
+                    </div>
                   </div>
                 </motion.div>
               )}

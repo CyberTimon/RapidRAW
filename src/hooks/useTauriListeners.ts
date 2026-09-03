@@ -305,6 +305,22 @@ export function useTauriListeners({
           });
         }
       }),
+      listen('astro-error', (event: any) => {
+        if (isEffectActive) {
+          useUIStore.getState().setUI((state) => ({
+            nightSkyState: {
+              ...state.nightSkyState,
+              isProcessing: false,
+              error: String(event.payload),
+            },
+            hdrModalState: {
+              ...state.hdrModalState,
+              isProcessing: false,
+              error: String(event.payload),
+            },
+          }));
+        }
+      }),
       listen('hdr-complete', (event: any) => {
         if (isEffectActive) {
           useUIStore.getState().setUI((state) => ({

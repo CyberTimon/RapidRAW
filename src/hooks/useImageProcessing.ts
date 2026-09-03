@@ -43,6 +43,7 @@ export function useImageProcessing(
   const pendingApplyRef = useRef<{ adjustments: Adjustments; targetRes?: number } | null>(null);
   const currentOriginalResRef = useRef<number>(0);
   const dragIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAnalyticsRequestTime = useRef<number>(0);
   const activeWaveformChannelRef = useRef(activeWaveformChannel);
   activeWaveformChannelRef.current = activeWaveformChannel;
 
@@ -172,12 +173,20 @@ export function useImageProcessing(
       const jobId = ++previewJobIdRef.current;
       const roi = calculateROI();
 
+      const now = performance.now();
+      const requestAnalytics =
+        now - lastAnalyticsRequestTime.current > 33.33 || dragging === false;
+      if (requestAnalytics) {
+        lastAnalyticsRequestTime.current = now;
+      }
+
       try {
         const buffer: ArrayBuffer = await invoke(Invokes.ApplyAdjustments, {
           jsAdjustments: payload,
           isInteractive: dragging,
           targetResolution: targetRes || null,
           roi: roi || null,
+          requestAnalytics,
           computeWaveform: !!isWaveformVisible,
           activeWaveformChannel: activeWaveformChannelRef.current || null,
         });
@@ -353,32 +362,15 @@ export function useImageProcessing(
 
   const requestHiFiZoom = useMemo(
     () =>
-      debounce((currentAdjustments: Adjustments, targetRes: number) => {
+      debounce((targetRes: number) => {
         if (targetRes > currentResRef.current) {
           currentResRef.current = targetRes;
-          applyAdjustments(currentAdjustments, false, targetRes);
+          const { adjustments, previewOverride } = useEditorStore.getState();
+          const renderAdjustments = previewOverride ?? adjustments;
+          applyAdjustments(renderAdjustments, false, targetRes);
         }
       }, 50),
     [applyAdjustments, currentResRef],
-  );
-
-  const requestHiFiOriginalZoom = useMemo(
-    () =>
-      debounce(async (currentAdjustments: Adjustments, targetRes: number) => {
-        if (targetRes > currentOriginalResRef.current) {
-          try {
-            const base64Data: string = await invoke('generate_original_transformed_preview', {
-              jsAdjustments: currentAdjustments,
-              targetResolution: targetRes,
-            });
-            currentOriginalResRef.current = targetRes;
-            setEditor({ transformedOriginalUrl: base64Data });
-          } catch (e) {
-            console.error('Failed to generate hi-fi original preview:', e);
-          }
-        }
-      }, 200),
-    [setEditor],
   );
 
   useEffect(() => {
@@ -397,7 +389,7 @@ export function useImageProcessing(
       const finalRes = Math.round(baseRes);
 
       if (finalRes > currentResRef.current) {
-        requestHiFiZoom(adjustments, finalRes);
+        requestHiFiZoom(finalRes);
       }
     }
     return () => {
@@ -482,76 +474,6 @@ export function useImageProcessing(
     appSettings?.copyPasteSettings?.includedAdjustments,
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
-  ]);
-
-  useEffect(() => {
-    setEditor({ transformedOriginalUrl: null });
-    currentOriginalResRef.current = 0;
-  }, [geometricAdjustmentsKey, selectedImage?.path, setEditor]);
-
-  useEffect(() => {
-    if (
-      activeView === 'editor' &&
-      showOriginal &&
-      selectedImage?.isReady &&
-      displaySize.width > 0 &&
-      !isSliderDragging
-    ) {
-      let targetRes = calculateTargetRes();
-      if (targetRes > currentOriginalResRef.current) {
-        requestHiFiOriginalZoom(adjustments, targetRes);
-      }
-    }
-    return () => {
-      requestHiFiOriginalZoom.cancel();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    activeView,
-    showOriginal,
-    displaySize.width,
-    displaySize.height,
-    calculateTargetRes,
-    selectedImage?.isReady,
-    isSliderDragging,
-    requestHiFiOriginalZoom,
-    originalSize,
-  ]);
-
-  useEffect(() => {
-    let isEffectActive = true;
-    const generate = async () => {
-      if (activeView === 'editor' && showOriginal && selectedImage?.path && !transformedOriginalUrl) {
-        try {
-          const targetRes = calculateTargetRes();
-          const base64Data: string = await invoke('generate_original_transformed_preview', {
-            jsAdjustments: adjustments,
-            targetResolution: targetRes,
-          });
-          if (isEffectActive) {
-            currentOriginalResRef.current = targetRes;
-            setEditor({ transformedOriginalUrl: base64Data });
-          }
-        } catch (e) {
-          if (isEffectActive) {
-            console.error('Failed to generate original preview:', e);
-            setEditor({ showOriginal: false });
-          }
-        }
-      }
-    };
-    generate();
-    return () => {
-      isEffectActive = false;
-    };
-  }, [
-    activeView,
-    showOriginal,
-    selectedImage?.path,
-    adjustments,
-    transformedOriginalUrl,
-    calculateTargetRes,
-    setEditor,
   ]);
 
   return {

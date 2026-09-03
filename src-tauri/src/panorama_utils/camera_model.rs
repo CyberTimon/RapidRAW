@@ -61,6 +61,12 @@ impl CameraPose {
         }
     }
 
+    /// Computes effective focal length in pixels using physical sensor dimensions and EXIF focal length
+    pub fn focal_length_from_exif(focal_mm: f64, sensor_width_mm: Option<f64>, image_width_px: u32) -> f64 {
+        let sensor_w = sensor_width_mm.unwrap_or(22.3); // Default Canon APS-C (EOS 77D/80D/200D)
+        (focal_mm * image_width_px as f64) / sensor_w.max(1.0)
+    }
+
     /// Computes 3D rotation matrix R = R_y(yaw) * R_x(pitch) * R_z(roll)
     pub fn rotation_matrix(&self) -> Matrix3<f64> {
         let cy = self.yaw.cos();
@@ -422,7 +428,15 @@ pub fn bundle_adjust_poses(
     }
 
     // 3. Level Horizon using 3D Optical Up-Vector Optimization
-    // Ensures straight, flat horizons across multi-camera panoramic sweeps
+    auto_level_camera_poses(poses);
+}
+
+/// Automatically levels camera poses to remove aggregate pitch and roll tilt,
+/// keeping horizon lines flat and maximizing rectangular inscribed crop area.
+pub fn auto_level_camera_poses(poses: &mut [CameraPose]) {
+    if poses.is_empty() {
+        return;
+    }
     let avg_pitch: f64 = poses.iter().map(|p| p.pitch).sum::<f64>() / poses.len() as f64;
     let avg_roll: f64 = poses.iter().map(|p| p.roll).sum::<f64>() / poses.len() as f64;
 

@@ -220,6 +220,7 @@ export interface Adjustments {
   lumaNoiseReduction: number;
   lutData?: string | null;
   lutIntensity?: number;
+  lutIsSceneReferred?: boolean;
   lutName?: string | null;
   lutPath?: string | null;
   lutSize?: number;
@@ -556,6 +557,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   lumaNoiseReduction: 0,
   lutData: null,
   lutIntensity: 100,
+  lutIsSceneReferred: false,
   lutName: null,
   lutPath: null,
   lutSize: 0,
@@ -577,7 +579,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   structure: 0,
   temperature: 0,
   tint: 0,
-  toneMapper: 'basic',
+  toneMapper: 'agx',
   transformDistortion: 0,
   transformVertical: 0,
   transformHorizontal: 0,

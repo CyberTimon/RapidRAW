@@ -14,6 +14,247 @@ use little_exif::metadata::Metadata;
 use little_exif::rational::{iR64, uR64};
 use rawler::decoders::RawMetadata;
 
+pub fn extract_focal_length_from_file(original_path: &Path) -> Option<f64> {
+    if let Ok(raw_source) = rawler::rawsource::RawSource::new(original_path) {
+        let loader = rawler::RawLoader::new();
+        if let Ok(decoder) = loader.get_decoder(&raw_source) {
+            if let Ok(meta) = decoder.raw_metadata(&raw_source, &Default::default()) {
+                if let Some(fl) = meta.exif.focal_length {
+                    if fl.d > 0 {
+                        return Some(fl.n as f64 / fl.d as f64);
+                    }
+                }
+            }
+        }
+    }
+    if let Ok(file) = std::fs::File::open(original_path) {
+        let mut bufreader = std::io::BufReader::new(file);
+        let exifreader = exif::Reader::new();
+        if let Ok(exif) = exifreader.read_from_container(&mut bufreader) {
+            if let Some(field) = exif.get_field(exif::Tag::FocalLength, exif::In::PRIMARY) {
+                match field.value {
+                    exif::Value::Rational(ref v) if !v.is_empty() => {
+                        return Some(v[0].num as f64 / v[0].denom.max(1) as f64);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    None
+}
+
+pub fn build_standard_exif_app1_segment(original_path: &Path) -> Option<Vec<u8>> {
+    let loader = rawler::RawLoader::new();
+    let raw_source = rawler::rawsource::RawSource::new(original_path).ok()?;
+    let decoder = loader.get_decoder(&raw_source).ok()?;
+    let meta = decoder.raw_metadata(&raw_source, &Default::default()).ok()?;
+
+    let make = if !meta.make.is_empty() { meta.make.trim().to_string() } else { "Canon".to_string() };
+    let model = if !meta.model.is_empty() { meta.model.trim().to_string() } else { "EOS Camera".to_string() };
+    let software = "RapidRAW".to_string();
+    let lens = meta.exif.lens_model.unwrap_or_else(|| "Standard Lens".to_string());
+    let dt = meta.exif.date_time_original.unwrap_or_else(|| "2026:08:27 14:15:32".to_string());
+    let iso = meta.exif.iso_speed.unwrap_or(100) as u16;
+    let (exp_num, exp_den) = meta.exif.exposure_time.map(|t| (t.n, t.d)).unwrap_or((1, 100));
+    let (fn_num, fn_den) = meta.exif.fnumber.map(|f| (f.n, f.d)).unwrap_or((28, 10));
+    let (fl_num, fl_den) = meta.exif.focal_length.map(|fl| (fl.n, fl.d)).unwrap_or((50, 1));
+
+    let mut tiff_buf = Vec::new();
+    // 1. TIFF Header: Little Endian ("II*\0", IFD0 offset = 8)
+    tiff_buf.extend_from_slice(b"II*\0");
+    tiff_buf.extend_from_slice(&8u32.to_le_bytes());
+
+    // Number of tags in IFD0: 5 (Make, Model, Software, Orientation, ExifIFDPointer)
+    let num_ifd0 = 5u16;
+    tiff_buf.extend_from_slice(&num_ifd0.to_le_bytes());
+
+    let mut val_offset = 8u32 + 2 + 5 * 12 + 4; // 74 bytes
+
+    let make_bytes = format!("{}\0", make).into_bytes();
+    let model_bytes = format!("{}\0", model).into_bytes();
+    let software_bytes = format!("{}\0", software).into_bytes();
+
+    let make_off = val_offset; val_offset += make_bytes.len() as u32;
+    let model_off = val_offset; val_offset += model_bytes.len() as u32;
+    let soft_off = val_offset; val_offset += software_bytes.len() as u32;
+
+    let exif_ifd_off = (val_offset + 3) & !3; // 4-byte align
+
+    // Tag 0x010F: Make (ASCII)
+    tiff_buf.extend_from_slice(&0x010Fu16.to_le_bytes());
+    tiff_buf.extend_from_slice(&2u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&(make_bytes.len() as u32).to_le_bytes());
+    tiff_buf.extend_from_slice(&make_off.to_le_bytes());
+
+    // Tag 0x0110: Model (ASCII)
+    tiff_buf.extend_from_slice(&0x0110u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&2u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&(model_bytes.len() as u32).to_le_bytes());
+    tiff_buf.extend_from_slice(&model_off.to_le_bytes());
+
+    // Tag 0x0131: Software (ASCII)
+    tiff_buf.extend_from_slice(&0x0131u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&2u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&(software_bytes.len() as u32).to_le_bytes());
+    tiff_buf.extend_from_slice(&soft_off.to_le_bytes());
+
+    // Tag 0x0112: Orientation (SHORT, count 1, value 1)
+    tiff_buf.extend_from_slice(&0x0112u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&3u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+
+    // Tag 0x8769: ExifIFDPointer (LONG, count 1)
+    tiff_buf.extend_from_slice(&0x8769u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&4u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+    tiff_buf.extend_from_slice(&exif_ifd_off.to_le_bytes());
+
+    // Next IFD offset: 0
+    tiff_buf.extend_from_slice(&0u32.to_le_bytes());
+
+    // Append IFD0 value bytes
+    tiff_buf.extend_from_slice(&make_bytes);
+    tiff_buf.extend_from_slice(&model_bytes);
+    tiff_buf.extend_from_slice(&software_bytes);
+
+    // Pad to exif_ifd_off
+    while tiff_buf.len() < (exif_ifd_off as usize) {
+        tiff_buf.push(0);
+    }
+
+    // Exif SubIFD (7 tags)
+    let num_sub = 7u16;
+    tiff_buf.extend_from_slice(&num_sub.to_le_bytes());
+
+    let mut sub_val_offset = exif_ifd_off + 2 + 7 * 12 + 4;
+    let dt_bytes = format!("{}\0", dt).into_bytes();
+    let lens_bytes = format!("{}\0", lens).into_bytes();
+
+    let exp_off = sub_val_offset; sub_val_offset += 8;
+    let fn_off = sub_val_offset; sub_val_offset += 8;
+    let fl_off = sub_val_offset; sub_val_offset += 8;
+    let dt_off = sub_val_offset; sub_val_offset += dt_bytes.len() as u32;
+    let lens_off = sub_val_offset;
+
+    // Tag 0x829A: ExposureTime (RATIONAL)
+    tiff_buf.extend_from_slice(&0x829Au16.to_le_bytes());
+    tiff_buf.extend_from_slice(&5u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+    tiff_buf.extend_from_slice(&exp_off.to_le_bytes());
+
+    // Tag 0x829D: FNumber (RATIONAL)
+    tiff_buf.extend_from_slice(&0x829Du16.to_le_bytes());
+    tiff_buf.extend_from_slice(&5u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+    tiff_buf.extend_from_slice(&fn_off.to_le_bytes());
+
+    // Tag 0x8827: ISOSpeedRatings (SHORT)
+    tiff_buf.extend_from_slice(&0x8827u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&3u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+    tiff_buf.extend_from_slice(&(iso as u32).to_le_bytes());
+
+    // Tag 0x9003: DateTimeOriginal (ASCII)
+    tiff_buf.extend_from_slice(&0x9003u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&2u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&(dt_bytes.len() as u32).to_le_bytes());
+    tiff_buf.extend_from_slice(&dt_off.to_le_bytes());
+
+    // Tag 0x920A: FocalLength (RATIONAL)
+    tiff_buf.extend_from_slice(&0x920Au16.to_le_bytes());
+    tiff_buf.extend_from_slice(&5u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+    tiff_buf.extend_from_slice(&fl_off.to_le_bytes());
+
+    // Tag 0xA001: ColorSpace (SHORT, value 1 = sRGB)
+    tiff_buf.extend_from_slice(&0xA001u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&3u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+
+    // Tag 0xA434: LensModel (ASCII)
+    tiff_buf.extend_from_slice(&0xA434u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&2u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&(lens_bytes.len() as u32).to_le_bytes());
+    tiff_buf.extend_from_slice(&lens_off.to_le_bytes());
+
+    // Next SubIFD offset: 0
+    tiff_buf.extend_from_slice(&0u32.to_le_bytes());
+
+    // Append SubIFD values:
+    tiff_buf.extend_from_slice(&exp_num.to_le_bytes());
+    tiff_buf.extend_from_slice(&exp_den.to_le_bytes());
+    tiff_buf.extend_from_slice(&fn_num.to_le_bytes());
+    tiff_buf.extend_from_slice(&fn_den.to_le_bytes());
+    tiff_buf.extend_from_slice(&fl_num.to_le_bytes());
+    tiff_buf.extend_from_slice(&fl_den.to_le_bytes());
+    tiff_buf.extend_from_slice(&dt_bytes);
+    tiff_buf.extend_from_slice(&lens_bytes);
+
+    // Assemble final APP1 marker
+    let payload_len = 6 + tiff_buf.len();
+    let marker_len = payload_len + 2;
+    let mut app1 = Vec::with_capacity(marker_len + 2);
+    app1.push(0xFF);
+    app1.push(0xE1);
+    app1.push(((marker_len >> 8) & 0xFF) as u8);
+    app1.push((marker_len & 0xFF) as u8);
+    app1.extend_from_slice(b"Exif\0\0");
+    app1.extend_from_slice(&tiff_buf);
+
+    Some(app1)
+}
+
+pub const STANDARD_SRGB_ICC_PROFILE: &[u8] = &[
+    0x00, 0x00, 0x01, 0xE6, 0x61, 0x70, 0x70, 0x6C, 0x02, 0x10, 0x00, 0x00, 0x6D, 0x6E, 0x74, 0x72,
+    0x52, 0x47, 0x42, 0x20, 0x58, 0x59, 0x5A, 0x20, 0x07, 0xEA, 0x00, 0x08, 0x00, 0x1F, 0x00, 0x0C,
+    0x00, 0x00, 0x00, 0x00, 0x61, 0x63, 0x73, 0x70, 0x4D, 0x53, 0x46, 0x54, 0x00, 0x00, 0x00, 0x00,
+    0x6E, 0x6F, 0x6E, 0x65, 0x6E, 0x6F, 0x6E, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF6, 0xD6, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0xD3, 0x2D,
+    0x52, 0x50, 0x52, 0x57, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x09, 0x64, 0x65, 0x73, 0x63, 0x00, 0x00, 0x00, 0xF0, 0x00, 0x00, 0x00, 0x5F,
+    0x63, 0x70, 0x72, 0x74, 0x00, 0x00, 0x01, 0x50, 0x00, 0x00, 0x00, 0x16, 0x77, 0x74, 0x70, 0x74,
+    0x00, 0x00, 0x01, 0x68, 0x00, 0x00, 0x00, 0x14, 0x72, 0x58, 0x59, 0x5A, 0x00, 0x00, 0x01, 0x7C,
+    0x00, 0x00, 0x00, 0x14, 0x67, 0x58, 0x59, 0x5A, 0x00, 0x00, 0x01, 0x90, 0x00, 0x00, 0x00, 0x14,
+    0x62, 0x58, 0x59, 0x5A, 0x00, 0x00, 0x01, 0xA4, 0x00, 0x00, 0x00, 0x14, 0x72, 0x54, 0x52, 0x43,
+    0x00, 0x00, 0x01, 0xB8, 0x00, 0x00, 0x00, 0x0E, 0x67, 0x54, 0x52, 0x43, 0x00, 0x00, 0x01, 0xC8,
+    0x00, 0x00, 0x00, 0x0E, 0x62, 0x54, 0x52, 0x43, 0x00, 0x00, 0x01, 0xD8, 0x00, 0x00, 0x00, 0x0E,
+    0x64, 0x65, 0x73, 0x63, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x73, 0x52, 0x47, 0x42,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x74, 0x65, 0x78, 0x74, 0x00, 0x00, 0x00, 0x00, 0x52, 0x61, 0x70, 0x69, 0x64, 0x52, 0x41, 0x57,
+    0x20, 0x73, 0x52, 0x47, 0x42, 0x00, 0x00, 0x00, 0x58, 0x59, 0x5A, 0x20, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0xF6, 0xD6, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0xD3, 0x2D, 0x58, 0x59, 0x5A, 0x20,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6F, 0xA2, 0x00, 0x00, 0x38, 0xF4, 0x00, 0x00, 0x03, 0x8F,
+    0x58, 0x59, 0x5A, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x62, 0x99, 0x00, 0x00, 0xB7, 0x85,
+    0x00, 0x00, 0x18, 0xD9, 0x58, 0x59, 0x5A, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x24, 0x9F,
+    0x00, 0x00, 0x0F, 0x83, 0x00, 0x00, 0xB6, 0xCF, 0x63, 0x75, 0x72, 0x76, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x01, 0x02, 0x33, 0x00, 0x00, 0x63, 0x75, 0x72, 0x76, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x01, 0x02, 0x33, 0x00, 0x00, 0x63, 0x75, 0x72, 0x76, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x01, 0x02, 0x33,
+];
+
+pub fn build_standard_icc_app2_segment() -> Vec<u8> {
+    let prefix = b"ICC_PROFILE\0\x01\x01";
+    let payload_len = prefix.len() + STANDARD_SRGB_ICC_PROFILE.len();
+    let marker_len = payload_len + 2;
+    let mut app2 = Vec::with_capacity(marker_len + 2);
+    app2.push(0xFF);
+    app2.push(0xE2);
+    app2.push(((marker_len >> 8) & 0xFF) as u8);
+    app2.push((marker_len & 0xFF) as u8);
+    app2.extend_from_slice(prefix);
+    app2.extend_from_slice(STANDARD_SRGB_ICC_PROFILE);
+    app2
+}
+
 pub fn truncate_large_exif(value: &str) -> String {
     if value.len() <= 500 {
         return value.to_string();

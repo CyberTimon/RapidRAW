@@ -14,7 +14,7 @@ fn test_inspect_4044_to_4052() {
             let exp_time = exif_processing::read_exposure_time_secs(&p_str, &bytes);
             let f_num = exif_processing::read_f_number(&p_str, &bytes);
             let iso = exif_processing::read_iso(&p_str, &bytes);
-            let date = exif_processing::get_creation_date_from_bytes(&p_str, &bytes);
+            let date = exif_processing::get_creation_date_from_path(path);
             println!(
                 "IMG_{}.CR2: Exp={:?}s, Aperture=f/{:?}, ISO={:?}, Date={}",
                 i, exp_time, f_num, iso, date

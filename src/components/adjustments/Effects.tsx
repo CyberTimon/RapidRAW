@@ -19,8 +19,8 @@ interface EffectsPanelProps {
   adjustments: Adjustments;
   isForMask?: boolean;
   setAdjustments(adjustments: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)): any;
-  handleLutSelect(path: string): void;
-  onLutHover?: (path: string | null) => void;
+  handleLutSelect(path: string, isBuiltIn?: boolean): void;
+  onLutHover?: (path: string | null, isBuiltIn?: boolean) => void;
   appSettings: AppSettings | null;
   onDragStateChange?: (isDragging: boolean) => void;
 }

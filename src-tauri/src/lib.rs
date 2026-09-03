@@ -10,14 +10,14 @@ pub mod app_settings;
 mod app_state;
 pub mod astro_stacking;
 mod cache_utils;
-pub mod color_management;
+pub mod camera_tethering;
 pub mod compliance_inspector;
 mod culling;
 mod default_presets;
 pub mod defect_repair;
 mod denoising;
 pub mod exif_processing;
-mod export_processing;
+pub mod export_processing;
 pub mod fast_resizer;
 mod file_management;
 pub mod focus_stacking;
@@ -35,8 +35,8 @@ mod lut_processing;
 mod mask_generation;
 mod multi_exposure;
 mod negative_conversion;
-mod panorama_stitching;
-mod panorama_utils;
+pub mod panorama_stitching;
+pub mod panorama_utils;
 mod preset_converter;
 pub mod raw_processing;
 pub mod stock_prep;
@@ -53,7 +53,6 @@ pub mod bokeh_simulator;
 pub mod batch_export_engine;
 pub mod speed_culler;
 pub mod hdr_fusion;
-pub mod hdr_flambient;
 pub mod stability;
 mod tagging;
 mod tagging_utils;
@@ -400,6 +399,7 @@ fn process_preview_job(
     is_interactive: bool,
     target_resolution: Option<u32>,
     roi: Option<(f32, f32, f32, f32)>,
+    request_analytics: bool,
     compute_waveform: bool,
     active_waveform_channel: Option<&str>,
 ) -> Result<Vec<u8>, String> {
@@ -553,7 +553,7 @@ fn process_preview_job(
     let lut_path = adjustments_clone["lutPath"].as_str();
     let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
-    let wants_analytics = !(is_interactive && pixel_roi.is_some());
+    let wants_analytics = !(is_interactive && pixel_roi.is_some()) && request_analytics;
     let channel_filter = if is_interactive {
         active_waveform_channel.map(|s| s.to_string())
     } else {
@@ -737,6 +737,7 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
                 job.is_interactive,
                 job.target_resolution,
                 job.roi,
+                job.request_analytics,
                 job.compute_waveform,
                 job.active_waveform_channel.as_deref(),
             ) {
@@ -751,12 +752,14 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn apply_adjustments(
     js_adjustments: serde_json::Value,
     is_interactive: bool,
     target_resolution: Option<u32>,
     roi: Option<(f32, f32, f32, f32)>,
+    request_analytics: bool,
     compute_waveform: bool,
     active_waveform_channel: Option<String>,
     state: tauri::State<'_, AppState>,
@@ -771,6 +774,7 @@ async fn apply_adjustments(
                 is_interactive,
                 target_resolution,
                 roi,
+                request_analytics,
                 compute_waveform,
                 active_waveform_channel,
                 responder: tx,
@@ -921,61 +925,7 @@ fn generate_uncropped_preview(
     Ok(())
 }
 
-#[tauri::command]
-fn generate_original_transformed_preview(
-    js_adjustments: serde_json::Value,
-    target_resolution: Option<u32>,
-    state: tauri::State<AppState>,
-    app_handle: tauri::AppHandle,
-) -> Result<String, String> {
-    let loaded_image = state
-        .original_image
-        .lock()
-        .unwrap()
-        .clone()
-        .ok_or("No original image loaded")?;
 
-    let mut adjustments_clone = js_adjustments.clone();
-
-    if let Some(obj) = adjustments_clone.as_object_mut() {
-        obj.insert(
-            "lensBlurEnabled".to_string(),
-            serde_json::Value::Bool(false),
-        );
-    }
-
-    hydrate_adjustments(&state, &mut adjustments_clone);
-
-    let mut image_for_preview = loaded_image.image.as_ref().clone();
-    if loaded_image.is_raw {
-        apply_cpu_default_raw_processing(&mut image_for_preview);
-    }
-
-    let (transformed_full_res, _unscaled_crop_offset) =
-        apply_all_transformations(Cow::Borrowed(&image_for_preview), &adjustments_clone);
-
-    let settings = load_settings(app_handle).unwrap_or_default();
-    let default_dim = settings.editor_preview_resolution.unwrap_or(1920);
-    let preview_dim = target_resolution.unwrap_or(default_dim);
-
-    let (w, h) = transformed_full_res.dimensions();
-    let transformed_image = if w > preview_dim || h > preview_dim {
-        downscale_f32_image(transformed_full_res.as_ref(), preview_dim, preview_dim)
-    } else {
-        transformed_full_res.into_owned()
-    };
-
-    let (width, height) = transformed_image.dimensions();
-    let rgb_pixels = transformed_image.to_rgb8().into_vec();
-
-    let bytes = Encoder::new(Preset::BaselineFastest)
-        .quality(80)
-        .encode_rgb(&rgb_pixels, width, height)
-        .map_err(|e| format!("Failed to encode with mozjpeg-rs: {}", e))?;
-
-    let base64_str = general_purpose::STANDARD.encode(&bytes);
-    Ok(format!("data:image/jpeg;base64,{}", base64_str))
-}
 
 #[tauri::command]
 async fn preview_geometry_transform(
@@ -1641,26 +1591,37 @@ async fn save_hdr(
     };
 
     let output_path = parent_dir.join(output_filename);
+    let (real_path, _) = crate::file_management::parse_virtual_path(&first_path_str);
+    let real_path_str = real_path.to_string_lossy().to_string();
 
     match export_format {
         "jpeg" | "jpg" => {
             let sdr_rgb = hdr_preview.to_rgb8();
-            crate::export_processing::save_jpeg_high_quality(&output_path, &sdr_rgb)?;
+            crate::export_processing::save_jpeg_high_quality_with_metadata(&output_path, &sdr_rgb, Some(&real_path_str))?;
         }
         "ultrahdr" => {
             let sdr_rgb = hdr_preview.to_rgb8();
             let lin_img = linear_radiance.unwrap_or_else(|| hdr_preview.to_rgb32f());
-            crate::export_processing::save_ultrahdr_jpeg(&output_path, &lin_img, &sdr_rgb)?;
+            crate::export_processing::save_ultrahdr_jpeg_with_metadata(&output_path, &lin_img, &sdr_rgb, Some(&real_path_str))?;
         }
         "png" => {
-            hdr_preview
-                .save(&output_path)
-                .map_err(|e| format!("Failed to save HDR PNG image: {}", e))?;
+            crate::export_processing::save_png_high_quality_with_metadata(&output_path, &hdr_preview, Some(&real_path_str))?;
         }
         "dng" => {
             let lin_img = linear_radiance.unwrap_or_else(|| hdr_preview.to_rgb32f());
             let mut dng_meta = crate::dng_encoder::DngExportMetadata::default();
             dng_meta.description = Some(format!("RapidRAW 32-Bit Linear Composite ({})", suffix));
+
+            if let Ok(raw_source) = rawler::rawsource::RawSource::new(std::path::Path::new(&real_path_str)) {
+                let loader = rawler::RawLoader::new();
+                if let Ok(decoder) = loader.get_decoder(&raw_source) {
+                    if let Ok(raw_meta) = decoder.raw_metadata(&raw_source, &Default::default()) {
+                        if !raw_meta.make.is_empty() { dng_meta.make = Some(raw_meta.make); }
+                        if !raw_meta.model.is_empty() { dng_meta.model = Some(raw_meta.model); }
+                    }
+                }
+            }
+
             crate::dng_encoder::write_linear_dng_file(&output_path, &lin_img, Some(&dng_meta))
                 .map_err(|e| format!("Failed to save 32-bit Linear DNG image: {}", e))?;
         }
@@ -1670,9 +1631,8 @@ async fn save_hdr(
         }
     }
 
-    let (real_path, _) = crate::file_management::parse_virtual_path(&first_path_str);
     let _ =
-        crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
+        crate::exif_processing::write_rrexif_sidecar(&real_path_str, &output_path);
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -2447,6 +2407,7 @@ pub fn run() {
             hdr_linear_radiance: Arc::new(Mutex::new(None)),
             panorama_result: Arc::new(Mutex::new(None)),
             panorama_linear_radiance: Arc::new(Mutex::new(None)),
+            panorama_metadata: Arc::new(Mutex::new(None)),
             focus_stack_result: Arc::new(Mutex::new(None)),
             denoise_result: Arc::new(Mutex::new(None)),
             indexing_task_handle: Mutex::new(None),
@@ -2470,11 +2431,11 @@ pub fn run() {
             metadata_manager: MetadataManager::new(),
             disks_cache: Mutex::new(None),
             disks_cache_refreshing: AtomicBool::new(false),
+            camera_session: Mutex::new(camera_tethering::CameraSession::new()),
         })
         .invoke_handler(tauri::generate_handler![
             apply_adjustments,
             generate_preview_for_path,
-            generate_original_transformed_preview,
             generate_preset_preview,
             generate_uncropped_preview,
             preview_geometry_transform,
@@ -2501,6 +2462,7 @@ pub fn run() {
             cache_utils::clear_image_caches,
             app_settings::load_settings,
             app_settings::save_settings,
+            app_settings::is_tethering_supported,
             ai_commands::generate_ai_subject_mask,
             ai_commands::precompute_ai_subject_mask,
             ai_commands::generate_ai_foreground_mask,
@@ -2512,6 +2474,8 @@ pub fn run() {
             ai_commands::generate_full_image_depth_map,
             inpainting::invoke_generative_replace_with_mask_def,
             inpainting::generate_manual_cleanup_patch,
+            inpainting::generate_liquify_patch,
+            inpainting::generate_retouch_patch,
             denoising::apply_denoising,
             denoising::batch_denoise_images,
             denoising::save_denoised_image,
@@ -2523,6 +2487,13 @@ pub fn run() {
             image_loader::is_image_cached,
             panorama_stitching::stitch_panorama,
             panorama_stitching::save_panorama,
+            camera_tethering::tether_list_cameras,
+            camera_tethering::tether_connect,
+            camera_tethering::tether_get_settings,
+            camera_tethering::tether_set_setting,
+            camera_tethering::tether_capture,
+            camera_tethering::tether_get_preview,
+            camera_tethering::tether_autofocus,
             panorama_stitching::detect_panorama_sequences,
             hdr_panorama::stitch_hdr_panorama,
             export_processing::export_images,

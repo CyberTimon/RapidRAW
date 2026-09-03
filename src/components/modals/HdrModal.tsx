@@ -14,6 +14,8 @@ import {
   ChevronDown,
   ChevronUp,
   Columns,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
@@ -56,7 +58,7 @@ interface HdrModalProps {
   progressMessage: string | null;
 }
 
-export type HdrExportFormat = 'jpeg' | 'ultrahdr' | 'dng' | 'tiff';
+export type HdrExportFormat = 'jpeg' | 'ultrahdr' | 'dng' | 'tiff' | 'png';
 
 export default function HdrModal({
   detectedScene,
@@ -78,6 +80,9 @@ export default function HdrModal({
   const [show, setShow] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [copiedError, setCopiedError] = useState(false);
+  const [copiedSaveError, setCopiedSaveError] = useState(false);
   const [exportFormat, setExportFormat] = useState<HdrExportFormat>('jpeg');
 
   // Visual Intent Presets: 'natural' | 'interior' | 'dramatic'
@@ -115,12 +120,25 @@ export default function HdrModal({
           .catch(console.error);
       }
 
+      // Auto-adapt preset intent from detected scene
+      if (detectedScene) {
+        const lower = detectedScene.toLowerCase();
+        if (lower.includes('interior') || lower.includes('indoor') || lower.includes('real estate')) {
+          setSelectedIntent('interior');
+        } else if (lower.includes('landscape') || lower.includes('sunset') || lower.includes('dramatic')) {
+          setSelectedIntent('dramatic');
+        } else {
+          setSelectedIntent('natural');
+        }
+      }
+
       return () => clearTimeout(timer);
     } else {
       setShow(false);
       const timer = setTimeout(() => {
         setIsMounted(false);
         setSavedPath(null);
+        setSaveError(null);
         setIsSaving(false);
       }, 300);
       return () => clearTimeout(timer);
@@ -145,11 +163,13 @@ export default function HdrModal({
 
   const handleSave = async () => {
     setIsSaving(true);
+    setSaveError(null);
     try {
       const path = await onSave(exportFormat);
       setSavedPath(path);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('HDR save error:', e);
+      setSaveError(String(e?.message || e));
     } finally {
       setIsSaving(false);
     }
@@ -189,15 +209,28 @@ export default function HdrModal({
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center py-10 h-[480px]">
-          <div className="flex items-center justify-center mb-6">
+          <div className="flex items-center justify-center mb-4">
             <XCircle className="w-12 h-12 text-red-500" />
           </div>
-          <Text variant={TextVariants.title} className="mb-2 text-center">
+          <Text variant={TextVariants.title} className="mb-2 text-center text-red-400">
             {t('modals.hdr.failed')}
           </Text>
-          <Text className="text-center p-4 rounded-lg bg-bg-primary max-w-md mt-2 leading-relaxed">
-            {String(error)}
-          </Text>
+          <div className="w-full max-w-lg mt-3 flex flex-col items-center">
+            <div className="w-full p-4 rounded-lg bg-neutral-900/90 border border-red-500/30 text-xs font-mono select-text cursor-text leading-relaxed text-red-200 max-h-48 overflow-y-auto break-all shadow-inner">
+              {String(error)}
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(String(error));
+                setCopiedError(true);
+                setTimeout(() => setCopiedError(false), 2000);
+              }}
+              className="mt-3 flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-medium transition-colors cursor-pointer border border-neutral-700 shadow-xs"
+            >
+              {copiedError ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 text-neutral-400" />}
+              <span>{copiedError ? 'Copied Error' : 'Copy Error Text'}</span>
+            </button>
+          </div>
         </div>
       );
     }
@@ -205,6 +238,43 @@ export default function HdrModal({
     if (finalImageBase64 && !isProcessing) {
       return (
         <div className="w-full flex flex-col gap-3">
+          {saveError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 bg-red-950/80 border border-red-500/50 rounded-lg flex items-start justify-between gap-3 text-red-200 text-xs shadow-md"
+            >
+              <div className="flex items-start gap-2.5 overflow-hidden">
+                <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div className="flex flex-col gap-1 overflow-hidden">
+                  <span className="font-semibold text-red-300">Save Failed (Select another format below to save):</span>
+                  <span className="font-mono select-text cursor-text break-all text-[11px] opacity-90">{saveError}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(saveError);
+                    setCopiedSaveError(true);
+                    setTimeout(() => setCopiedSaveError(false), 2000);
+                  }}
+                  className="px-2.5 py-1 bg-red-900/90 hover:bg-red-800 text-white rounded text-xs flex items-center gap-1 transition-colors cursor-pointer border border-red-700/60 shadow-xs"
+                  title="Copy error text"
+                >
+                  {copiedSaveError ? <Check className="w-3 h-3 text-green-300" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedSaveError ? 'Copied' : 'Copy Error'}</span>
+                </button>
+                <button
+                  onClick={() => setSaveError(null)}
+                  className="p-1 hover:bg-red-900/60 rounded text-red-400 hover:text-white transition-colors cursor-pointer"
+                  title="Dismiss error"
+                >
+                  ✕
+                </button>
+              </div>
+            </motion.div>
+          )}
+
           {/* Interactive Split Curtain Preview Canvas */}
           <div
             ref={previewContainerRef}
@@ -596,6 +666,16 @@ export default function HdrModal({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setExportFormat('png')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    exportFormat === 'png' ? 'bg-amber-500 text-black font-bold shadow-xs' : 'text-neutral-400 hover:text-white'
+                  }`}
+                  title="16-Bit Lossless PNG (~20 MB)"
+                >
+                  PNG
+                </button>
+                <button
+                  type="button"
                   onClick={() => setExportFormat('dng')}
                   className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                     exportFormat === 'dng' ? 'bg-amber-500 text-black font-bold shadow-xs' : 'text-neutral-400 hover:text-white'
@@ -624,6 +704,8 @@ export default function HdrModal({
                   ? 'Save JPEG'
                   : exportFormat === 'ultrahdr'
                   ? 'Save Ultra HDR'
+                  : exportFormat === 'png'
+                  ? 'Save PNG'
                   : 'Save TIFF'}
               </Button>
             </div>

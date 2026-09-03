@@ -48,10 +48,9 @@ export function useProductivityActions(refreshImageList: () => Promise<void> = a
       return savedPath;
     } catch (err) {
       console.error('Failed to save panorama:', err);
-      setUI((state) => ({ panoramaModalState: { ...state.panoramaModalState, error: String(err) } }));
       throw err;
     }
-  }, [refreshImageList, setUI]);
+  }, [refreshImageList]);
 
   const handleStartFocusStack = useCallback(
     (paths: string[]) => {
@@ -144,10 +143,9 @@ export function useProductivityActions(refreshImageList: () => Promise<void> = a
       return savedPath;
     } catch (err) {
       console.error('Failed to save HDR image:', err);
-      setUI((state) => ({ hdrModalState: { ...state.hdrModalState, error: String(err) } }));
       throw err;
     }
-  }, [refreshImageList, setUI]);
+  }, [refreshImageList]);
 
   const handleApplyDenoise = useCallback(
     async (
@@ -257,33 +255,6 @@ export function useProductivityActions(refreshImageList: () => Promise<void> = a
     [refreshImageList],
   );
 
-  const handleStartAstroStack = useCallback(
-    (paths: string[]) => {
-      setUI((state) => ({
-        hdrModalState: {
-          ...state.hdrModalState,
-          isProcessing: true,
-          error: null,
-          finalImageBase64: null,
-          progressMessage: 'Starting Astro Stacker (Kappa-Sigma Alignment)...',
-        },
-      }));
-      invoke('stack_astro_frames', {
-        options: {
-          paths,
-          sigma_clip: 2.5,
-          stack_mode: 'kappa_sigma',
-          auto_dark_subtract: true,
-          remove_light_pollution: true,
-          freeze_ground: true,
-        },
-      }).catch((err) => {
-        setUI((state) => ({ hdrModalState: { ...state.hdrModalState, isProcessing: false, error: String(err) } }));
-      });
-    },
-    [setUI],
-  );
-
   const handleStartStockPhotoPrep = useCallback(
     async (paths: string[], outputDir: string) => {
       try {
@@ -360,7 +331,6 @@ export function useProductivityActions(refreshImageList: () => Promise<void> = a
     handleSavePanorama,
     handleStartHdr,
     handleSaveHdr,
-    handleStartAstroStack,
     handleProcessNightSkySession,
     handleStartStockPhotoPrep,
     handleApplyDenoise,

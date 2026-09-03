@@ -22,6 +22,7 @@ import {
   Sliders,
   Bookmark,
   Zap,
+  Cpu,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
@@ -406,6 +407,9 @@ export default function DenoiseModal({
     recommended_shadow_boost: number;
     recommended_deband: boolean;
     flat_patch_used?: boolean;
+    gpu_accelerator?: string;
+    pipeline_mode?: string;
+    est_speed_sec?: number;
   } | null>(null);
 
   // Comparison View State
@@ -424,15 +428,38 @@ export default function DenoiseModal({
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; path: string } | null>(null);
+
+  // Real-Time Sub-Tile Loupe ROI Preview State (<25ms)
+  const [roiPreview, setRoiPreview] = useState<{ original: string; denoised: string } | null>(null);
+  const [isRoiLoading, setIsRoiLoading] = useState(false);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const isBatch = targetPaths.length > 1;
   const mouseDownTarget = useRef<EventTarget | null>(null);
+  const recommendedEngine: 'ai' | 'bm3d' = useMemo(() => {
+    if (isRaw) return 'ai';
+    if (activeIso && activeIso >= 800) return 'ai';
+    if (empiricalSigma && empiricalSigma > 0.05) return 'ai';
+    return 'bm3d';
+  }, [isRaw, activeIso, empiricalSigma]);
+
+  const recommendationReason = useMemo(() => {
+    if (isRaw) return 'RAW sensor data detected · Neural Deep Denoise reconstructs authentic sensor Bayer patterns';
+    if (activeIso && activeIso >= 800) return `High ISO (${activeIso}) · AI Neural model eliminates heavy color noise & grain`;
+    return 'Low noise floor / daylight · Guided Wavelet preserves razor-sharp edges with zero hallucination';
+  }, [isRaw, activeIso]);
 
   const methodOptions = useMemo<Array<{ label: string; value: 'ai' | 'bm3d' }>>(
     () => [
-      { label: t('modals.denoise.methodAi'), value: 'ai' },
-      { label: t('modals.denoise.methodBm3d'), value: 'bm3d' },
+      {
+        label: `${t('modals.denoise.methodAi')}${recommendedEngine === 'ai' ? ' ✨ (Recommended)' : ''}`,
+        value: 'ai',
+      },
+      {
+        label: `${t('modals.denoise.methodBm3d')}${recommendedEngine === 'bm3d' ? ' ✨ (Recommended)' : ''}`,
+        value: 'bm3d',
+      },
     ],
-    [t],
+    [t, recommendedEngine],
   );
 
   // Global keydown for hold-to-compare and snapshots
@@ -504,6 +531,7 @@ export default function DenoiseModal({
   };
 
   const applyPreset = (presetName: string) => {
+    setActivePresetId(presetName);
     switch (presetName) {
       case 'astro':
         setIntensity(65);
@@ -577,19 +605,6 @@ export default function DenoiseModal({
       : aiModelDownloadStatus?.includes('NIND')
         ? t('modals.denoise.downloadingText', { status: aiModelDownloadStatus })
         : progressMessage || t('modals.denoise.initializing');
-
-  const recommendedEngine: 'ai' | 'bm3d' = useMemo(() => {
-    if (isRaw) return 'ai';
-    if (activeIso && activeIso >= 800) return 'ai';
-    if (empiricalSigma && empiricalSigma > 0.05) return 'ai';
-    return 'bm3d';
-  }, [isRaw, activeIso, empiricalSigma]);
-
-  const recommendationReason = useMemo(() => {
-    if (isRaw) return 'RAW sensor data detected · Neural Deep Denoise reconstructs authentic sensor Bayer patterns';
-    if (activeIso && activeIso >= 800) return `High ISO (${activeIso}) · AI Neural model eliminates heavy color noise & grain`;
-    return 'Low noise floor / daylight · Guided Wavelet preserves razor-sharp edges with zero hallucination';
-  }, [isRaw, activeIso]);
 
   useEffect(() => {
     if (isOpen) {
@@ -675,10 +690,61 @@ export default function DenoiseModal({
         setEmpiricalSigma(null);
         setCameraProfile(null);
         setAutoProfile(null);
+        setRoiPreview(null);
       }, 300);
       return () => clearTimeout(timer);
     }
   }, [isOpen, isRaw, activeIso, targetPaths, selectedImage]);
+
+  // Real-time Sub-Tile Loupe ROI Preview Debounce (<25ms)
+  useEffect(() => {
+    if (!isOpen || isBatch || isProcessing) return;
+    const targetPath = targetPaths[0] || selectedImage?.path;
+    if (!targetPath) return;
+
+    const timer = setTimeout(async () => {
+      setIsRoiLoading(true);
+      try {
+        const res = await invoke<{ original_roi: string; denoised_roi: string }>(Invokes.PreviewDenoisedRoi, {
+          path: targetPath,
+          centerX: 0.5,
+          centerY: 0.5,
+          cropSize: 512,
+          intensity: intensity / 100,
+          chromaIntensity: chromaIntensity / 100,
+          preserveDetails: preserveDetails / 100,
+          shadowBoost: shadowBoost / 100,
+          deband,
+          protectStars,
+          filmGrain: filmGrain / 100,
+          method,
+        });
+        if (res?.original_roi && res?.denoised_roi) {
+          setRoiPreview({ original: res.original_roi, denoised: res.denoised_roi });
+        }
+      } catch (e) {
+        console.warn('Real-time Loupe ROI preview failed:', e);
+      } finally {
+        setIsRoiLoading(false);
+      }
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [
+    isOpen,
+    isBatch,
+    isProcessing,
+    targetPaths,
+    selectedImage,
+    intensity,
+    chromaIntensity,
+    preserveDetails,
+    shadowBoost,
+    deband,
+    protectStars,
+    filmGrain,
+    method,
+  ]);
 
   const handleClose = useCallback(() => {
     if (isSaving) return;
@@ -772,16 +838,26 @@ export default function DenoiseModal({
       );
     }
 
-    if (previewBase64 && originalBase64 && !isProcessing && !isBatch) {
+    const activePreview = previewBase64 || roiPreview?.denoised;
+    const activeOriginal = originalBase64 || roiPreview?.original;
+
+    if (activePreview && activeOriginal && !isProcessing && !isBatch) {
       return (
-        <div className="w-full h-[300px] md:h-[400px]">
+        <div className="w-full h-[300px] md:h-[400px] relative">
           <ImageCompare
-            original={originalBase64}
-            denoised={previewBase64}
+            original={activeOriginal}
+            denoised={activePreview}
             isHoldingOriginal={isHoldingOriginal}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
           />
+          {!previewBase64 && roiPreview && (
+            <div className="absolute top-3 right-3 z-30 pointer-events-none flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface/90 backdrop-blur-md border border-accent/30 text-accent text-[11px] font-mono shadow-md">
+              <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+              <span>100% Loupe Live ROI (512x512)</span>
+              {isRoiLoading && <Loader2 size={11} className="animate-spin text-accent" />}
+            </div>
+          )}
           {savedPath && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
               <Text
@@ -839,6 +915,25 @@ export default function DenoiseModal({
             >
               <Camera size={12} className="text-blue-400" />
               <span>{cameraProfile.make} {cameraProfile.model}</span>
+            </span>
+          )}
+          {autoProfile?.gpu_accelerator && (
+            <span
+              className="px-2.5 py-1 rounded-md bg-cyan-500/10 text-cyan-300 text-[11px] font-mono border border-cyan-500/30 flex items-center gap-1.5 shadow-sm"
+              title={`Hardware Acceleration: ${autoProfile.gpu_accelerator}`}
+            >
+              <Cpu size={12} className="text-cyan-400" />
+              <span>{autoProfile.gpu_accelerator}</span>
+            </span>
+          )}
+          {autoProfile?.pipeline_mode && (
+            <span
+              className="px-2.5 py-1 rounded-md bg-purple-500/10 text-purple-300 text-[11px] font-mono border border-purple-500/30 flex items-center gap-1.5 shadow-sm"
+              title={`Pipeline Architecture: ${autoProfile.pipeline_mode}`}
+            >
+              <Layers size={12} className="text-purple-400" />
+              <span>{autoProfile.pipeline_mode}</span>
+              {autoProfile.est_speed_sec ? ` (~${autoProfile.est_speed_sec}s)` : ''}
             </span>
           )}
           {empiricalSigma !== null && (
@@ -934,9 +1029,9 @@ export default function DenoiseModal({
           </div>
 
           {/* Snapshot A/B/C Matrix */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5" title="Snapshot Comparison: Click an empty slot (A/B/C) to save current slider settings; click a filled slot to recall. Hotkeys: 1, 2, 3">
             <span className="text-[11px] font-mono text-text-secondary uppercase">Snapshots:</span>
-            {(['A', 'B', 'C'] as const).map((slot) => {
+            {(['A', 'B', 'C'] as const).map((slot, idx) => {
               const hasData = snapshots[slot] !== null;
               const isActive = activeSnapshot === slot;
               return (
@@ -946,12 +1041,16 @@ export default function DenoiseModal({
                   onClick={() => recallSnapshot(slot)}
                   className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold border transition-all ${
                     isActive
-                      ? 'bg-accent text-white border-accent'
+                      ? 'bg-accent text-white border-accent shadow-sm ring-1 ring-accent/50'
                       : hasData
                         ? 'bg-surface/80 border-accent/40 text-accent hover:bg-accent/20'
                         : 'bg-surface/40 border-border-color/30 text-text-secondary hover:text-text-primary'
                   }`}
-                  title={hasData ? `Snapshot ${slot}: Click to recall (Hotkeys: 1, 2, 3)` : `Snapshot ${slot}: Empty (Click to save)`}
+                  title={
+                    hasData
+                      ? `Snapshot ${slot} [Hotkey: ${idx + 1}] — Filled (Click to recall settings)`
+                      : `Snapshot ${slot} [Hotkey: ${idx + 1}] — Empty (Click to save current settings)`
+                  }
                 >
                   {slot}
                   {hasData && <span className="ml-1 text-[8px] opacity-75">●</span>}
@@ -970,7 +1069,7 @@ export default function DenoiseModal({
                   {t('modals.denoise.methodLabel')}
                 </Text>
                 <span className="px-1.5 py-0.2 rounded bg-accent/20 text-accent font-bold text-[9px] uppercase tracking-wide">
-                  {method === recommendedEngine ? '✨ Recommended' : 'Manual'}
+                  {method === recommendedEngine ? '✨ Recommended Mode' : '⚡ Custom Mode'}
                 </span>
               </div>
               <Dropdown
@@ -982,10 +1081,8 @@ export default function DenoiseModal({
                   setIntensity(val === 'ai' ? 50 : 15);
                 }}
               />
-              <span className="text-[10px] text-text-secondary leading-tight mt-0.5">
-                {method === 'ai'
-                  ? '🤖 AI Neural: Deep reconstruction for high-ISO RAW grain & color blotches.'
-                  : '⚡ Wavelet BM3D: Deterministic ultra-sharp edge preservation.'}
+              <span className="text-[10px] text-text-secondary leading-tight mt-0.5" title={recommendationReason}>
+                💡 {recommendationReason}
               </span>
             </div>
 
@@ -1048,7 +1145,9 @@ export default function DenoiseModal({
           <div className="grid grid-cols-3 gap-4">
             <div>
               <div className="flex justify-between mb-1">
-                <span className="text-xs font-medium text-text-primary">Color (Chroma) Noise: {chromaIntensity}%</span>
+                <Text variant={TextVariants.small} weight={TextWeights.medium}>
+                  Color (Chroma) Noise: {chromaIntensity}%
+                </Text>
               </div>
               <Slider
                 label="Color Noise"
@@ -1065,7 +1164,9 @@ export default function DenoiseModal({
 
             <div>
               <div className="flex justify-between mb-1">
-                <span className="text-xs font-medium text-text-primary">Detail Recovery: {preserveDetails}%</span>
+                <Text variant={TextVariants.small} weight={TextWeights.medium}>
+                  Detail Recovery: {preserveDetails}%
+                </Text>
               </div>
               <Slider
                 label="Detail Recovery"
@@ -1082,7 +1183,9 @@ export default function DenoiseModal({
 
             <div>
               <div className="flex justify-between mb-1">
-                <span className="text-xs font-medium text-text-primary">Shadows Boost: {shadowBoost}%</span>
+                <Text variant={TextVariants.small} weight={TextWeights.medium}>
+                  Shadows Boost: {shadowBoost}%
+                </Text>
               </div>
               <Slider
                 label="Shadows Boost"
@@ -1101,24 +1204,33 @@ export default function DenoiseModal({
 
         {activeTab === 'presets' && (
           <div className="flex flex-wrap items-center gap-2">
-            {[
+            {([
               { id: 'auto', label: '⚡ Auto AI Calibrated', desc: 'Optimal empirical balance' },
               { id: 'astro', label: '🌌 Astro Pinpoint Stars', desc: 'Protects stars, debands shadows' },
               { id: 'portrait', label: '👰 Wedding & Portrait', desc: 'Smooth skin with pore recovery' },
               { id: 'wildlife', label: '🦅 Wildlife Feathers', desc: 'Maximum micro-texture preservation' },
               { id: 'extreme', label: '🌙 Extreme Low-Light (6400+)', desc: 'Heavy dual-channel cleanup' },
               { id: 'analog', label: '🎞️ 35mm Analog Grain', desc: 'Subtle denoise with film texture' },
-            ].map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => applyPreset(preset.id)}
-                className="px-3 py-1.5 rounded-lg bg-surface/80 hover:bg-card-active border border-border-color/40 text-left transition-all cursor-pointer"
-              >
-                <div className="text-xs font-medium text-text-primary">{preset.label}</div>
-                <div className="text-[10px] text-text-secondary">{preset.desc}</div>
-              </button>
-            ))}
+            ] as const).map((preset) => {
+              const isActive = activePresetId === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => applyPreset(preset.id)}
+                  className={`px-3 py-1.5 rounded-lg border text-left transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-accent/15 border-accent text-accent ring-1 ring-accent shadow-sm'
+                      : 'bg-surface/80 hover:bg-card-active border-border-color/40 text-text-primary'
+                  }`}
+                >
+                  <div className={`text-xs font-medium ${isActive ? 'text-accent font-semibold' : 'text-text-primary'}`}>
+                    {preset.label}
+                  </div>
+                  <div className="text-[10px] text-text-secondary">{preset.desc}</div>
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -1168,30 +1280,15 @@ export default function DenoiseModal({
 
             <button
               type="button"
-              onClick={() => {
-                const nextVal = !visualizeDefects;
-                setVisualizeDefects(nextVal);
-                onDenoise(
-                  intensity / 100,
-                  method,
-                  healDust,
-                  nextVal,
-                  protectStars,
-                  preserveDetails / 100,
-                  chromaIntensity / 100,
-                  shadowBoost / 100,
-                  deband,
-                  filmGrain / 100
-                );
-              }}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border transition-all ${
+              onClick={() => setVisualizeDefects(!visualizeDefects)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium border transition-all cursor-pointer ${
                 visualizeDefects
-                  ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300 ring-1 ring-amber-500/40 shadow-sm'
                   : 'bg-surface/60 border-border-color/40 text-text-secondary hover:text-text-primary'
               }`}
-              title="Toggle High-Contrast Defect Inspection HUD"
+              title="Toggle High-Contrast Defect Inspection HUD (Active during Denoise rendering)"
             >
-              <Eye size={11} />
+              <Eye size={12} />
               <span>Defects HUD</span>
             </button>
           </div>

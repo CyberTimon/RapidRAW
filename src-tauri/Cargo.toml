@@ -1,13 +1,28 @@
 [package]
 name = "RapidRAW"
+version = "1.6.2"
 description = "A blazingly-fast, non-destructive, and GPU-accelerated RAW image editor built with performance in mind."
 authors = ["Timon Käch"]
 edition = "2024"
 rust-version = "1.95"
+autobins = false
 
 [lib]
 name = "rapidraw_lib"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["rlib"]
+
+[[bin]]
+name = "RapidRAW"
+path = "src/main.rs"
+
+[[bin]]
+name = "render_all"
+path = "src/bin/render_all.rs"
+test = false
+
+[features]
+default = []
+tethering = ["dep:gphoto2"]
 
 [dependencies]
 tauri = { version = "2.11", features = [ "macos-private-api", "rustls-tls", "protocol-asset" ] }
@@ -29,13 +44,10 @@ tokio = { version = "1", features = ["full"] }
 uuid = { version = "1.23", features = ["v4", "serde"] }
 walkdir = "2.5.0"
 imageproc = "0.27.0"
-ab_glyph = "0.2"
-ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic"] }
+ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic", "directml"] }
 ndarray = "0.16"
-futures-util = "0.3"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-os = "2.3.2"
-os_info = "3"
 log = "0.4"
 fern = "0.7"
 little_exif = "0.6.23"
@@ -52,11 +64,11 @@ tempfile = "3.27.0"
 image_hasher = "3.1.1"
 regex = "1.12.4"
 memmap2 = "0.9.11"
+flate2 = "1.0"
 half = { version = "2.7.1", features = ["bytemuck"] }
 glam = "0.33.2"
 quick-xml = { version = "0.41", features = ["serialize"] }
 fuzzy-matcher = "0.3.7"
-image-hdr = { version = "0.6.0", default-features = false }
 mozjpeg-rs = "0.9.2"
 webp = "0.3"
 jxl-oxide = { version = "0.12.6", features = ["image"] }
@@ -74,6 +86,9 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 trash = "5.2.6"
 tauri-plugin-single-instance = "2.4.2"
 reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "rustls"] }
+
+[target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
+gphoto2 = { git = "https://github.com/CyberTimon/libgphoto2-rs", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"
@@ -97,6 +112,10 @@ tauri-build = { version = "2.6", features = [] }
 sha2 = "0.11"
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls"] }
 hex = "0.4"
+
+[[test]]
+name = "test_batch_render_all_12"
+path = "tests/test_batch_render_all_12.rs"
 
 [profile.dev]
 opt-level = 2

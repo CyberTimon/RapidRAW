@@ -1,5 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
+  "productName": "RapidRAW",
   "identifier": "io.github.CyberTimon.RapidRAW",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -93,5 +94,5 @@
       }
     }
   },
-  "version": "1.6.1"
+  "version": "1.6.2"
 }

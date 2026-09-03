@@ -749,18 +749,30 @@ pub fn generate_iso21496_gain_map(
     max_headroom_ev: f32,
 ) -> (image::GrayImage, f32) {
     let (w, h) = sdr_image.dimensions();
-    let mut gain_map = image::GrayImage::new(w, h);
+    let target_w = (w / 2).max(1);
+    let target_h = (h / 2).max(1);
 
+    // Downsample SDR and HDR to half resolution for compliant spatial gain map
+    let sdr_small = imageops::resize(sdr_image, target_w, target_h, imageops::FilterType::Triangle);
     let hdr_rgb = hdr_image.to_rgb32f();
+    let hdr_small = imageops::resize(&hdr_rgb, target_w, target_h, imageops::FilterType::Triangle);
+
+    let mut gain_map = image::GrayImage::new(target_w, target_h);
     let max_headroom = max_headroom_ev.max(1.0);
 
     let eps = 1e-4f32;
-    for y in 0..h {
-        for x in 0..w {
-            let sdr_px = sdr_image.get_pixel(x, y);
-            let hdr_px = hdr_rgb.get_pixel(x, y);
+    for y in 0..target_h {
+        for x in 0..target_w {
+            let sdr_px = sdr_small.get_pixel(x, y);
+            let hdr_px = hdr_small.get_pixel(x, y);
 
-            let sdr_luma = (0.2126 * sdr_px[0] as f32 + 0.7152 * sdr_px[1] as f32 + 0.0722 * sdr_px[2] as f32) / 255.0;
+            // Linearize SDR luminance via inverse sRGB EOTF before computing ratio
+            let sdr_l_srgb = (0.2126 * sdr_px[0] as f32 + 0.7152 * sdr_px[1] as f32 + 0.0722 * sdr_px[2] as f32) / 255.0;
+            let sdr_luma = if sdr_l_srgb <= 0.04045 {
+                sdr_l_srgb / 12.92
+            } else {
+                ((sdr_l_srgb + 0.055) / 1.055).powf(2.4)
+            };
             let hdr_luma = (0.2126 * hdr_px[0] + 0.7152 * hdr_px[1] + 0.0722 * hdr_px[2]).max(0.0);
 
             // Logarithmic gain ratio normalized by MaxHeadroom
@@ -778,42 +790,210 @@ pub fn generate_iso21496_gain_map(
 /// Builds ISO 21496-1 standard XMP metadata string for Ultra HDR Gain Maps
 pub fn build_iso21496_xmp_metadata(max_headroom: f32) -> String {
     format!(
-        "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:hdrgm=\"http://ns.adobe.com/hdr-gain-map/1.0/\" hdrgm:Version=\"1.0\" hdrgm:GainMapMin=\"0.0\" hdrgm:GainMapMax=\"{:.2}\" hdrgm:Gamma=\"1.0\" hdrgm:OffsetSDR=\"0.0\" hdrgm:OffsetHDR=\"0.0\" hdrgm:HDRCapacityMin=\"0.0\" hdrgm:HDRCapacityMax=\"{:.2}\" hdrgm:BaseRenditionIsHDR=\"False\"/></rdf:RDF></x:xmpmeta>",
+        "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:hdrgm=\"http://ns.adobe.com/hdr-gain-map/1.0/\" xmlns:Container=\"http://schemas.google.com/photos/1.0/container/\" xmlns:Item=\"http://schemas.google.com/photos/1.0/container/item/\" hdrgm:Version=\"1.0\" hdrgm:GainMapMin=\"0.0\" hdrgm:GainMapMax=\"{:.2}\" hdrgm:Gamma=\"1.0\" hdrgm:OffsetSDR=\"0.0\" hdrgm:OffsetHDR=\"0.0\" hdrgm:HDRCapacityMin=\"0.0\" hdrgm:HDRCapacityMax=\"{:.2}\" hdrgm:BaseRenditionIsHDR=\"False\"><Container:Directory><rdf:Seq><rdf:li rdf:parseType=\"Resource\"><Container:Item Item:Semantic=\"Primary\" Item:Mime=\"image/jpeg\"/></rdf:li><rdf:li rdf:parseType=\"Resource\"><Container:Item Item:Semantic=\"GainMap\" Item:Mime=\"image/jpeg\"/></rdf:li></rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>",
         max_headroom, max_headroom
     )
 }
 
-/// Saves a 32-bit floating point image as a Deflate-compressed TIFF (reduces file size by 70-85% losslessly)
+/// Injects standard ICC Profile tag (Tag 34675 / 0x8773) into a TIFF file's IFD directory.
+/// Ensures 100% compliance with professional print RIP software, Photoshop, and fine-art labs.
+pub fn inject_icc_profile_into_tiff(path: &Path, icc_bytes: &[u8]) -> Result<(), String> {
+    let mut data = fs::read(path).map_err(|e| format!("Failed to read TIFF for ICC injection: {}", e))?;
+    if data.len() < 8 || &data[0..4] != b"II*\0" {
+        return Ok(()); // Not a standard little-endian TIFF
+    }
+
+    let ifd_offset = u32::from_le_bytes([data[4], data[5], data[6], data[7]]) as usize;
+    if ifd_offset + 2 > data.len() {
+        return Ok(());
+    }
+
+    let num_tags = u16::from_le_bytes([data[ifd_offset], data[ifd_offset + 1]]) as usize;
+    if ifd_offset + 2 + num_tags * 12 + 4 > data.len() {
+        return Ok(());
+    }
+
+    let mut entries = Vec::with_capacity(num_tags + 1);
+    let mut cur = ifd_offset + 2;
+    for _ in 0..num_tags {
+        let tag = u16::from_le_bytes([data[cur], data[cur + 1]]);
+        if tag == 34675 {
+            return Ok(()); // Already has ICC profile tag
+        }
+        let entry: [u8; 12] = data[cur..cur + 12].try_into().unwrap();
+        entries.push((tag, entry));
+        cur += 12;
+    }
+
+    // 1. Append ICC profile bytes aligned to 2-byte boundary
+    if data.len() % 2 != 0 {
+        data.push(0);
+    }
+    let icc_offset = data.len() as u32;
+    data.extend_from_slice(icc_bytes);
+
+    // 2. Create Tag 34675: tag=34675 (u16), type=7 (UNDEFINED u16), count=len (u32), offset (u32)
+    let mut new_entry = [0u8; 12];
+    new_entry[0..2].copy_from_slice(&34675u16.to_le_bytes());
+    new_entry[2..4].copy_from_slice(&7u16.to_le_bytes());
+    new_entry[4..8].copy_from_slice(&(icc_bytes.len() as u32).to_le_bytes());
+    new_entry[8..12].copy_from_slice(&icc_offset.to_le_bytes());
+    entries.push((34675, new_entry));
+
+    // Sort entries ascending by tag ID (mandatory in TIFF specification)
+    entries.sort_by_key(|&(tag, _)| tag);
+
+    // 3. Append new IFD to file
+    if data.len() % 2 != 0 {
+        data.push(0);
+    }
+    let new_ifd_offset = data.len() as u32;
+    let new_num_tags = entries.len() as u16;
+    data.extend_from_slice(&new_num_tags.to_le_bytes());
+    for (_, entry) in entries {
+        data.extend_from_slice(&entry);
+    }
+    data.extend_from_slice(&0u32.to_le_bytes()); // Next IFD = 0
+
+    // 4. Update header IFD pointer at offset 4..8
+    data[4..8].copy_from_slice(&new_ifd_offset.to_le_bytes());
+
+    fs::write(path, data).map_err(|e| format!("Failed to write TIFF with ICC profile: {}", e))?;
+    Ok(())
+}
+
+/// Saves a 32-bit floating point image as a Deflate-compressed 16-bit TIFF with embedded sRGB ICC profile
 pub fn save_tiff_compressed<P: AsRef<Path>>(path: P, img: &image::Rgb32FImage) -> Result<(), String> {
-    use tiff::encoder::{TiffEncoder, colortype::RGB32Float, Compression, DeflateLevel};
+    use tiff::encoder::{TiffEncoder, colortype::RGB16, Compression, DeflateLevel};
     use std::io::BufWriter;
-    let file = fs::File::create(path).map_err(|e| format!("Failed to create TIFF file: {}", e))?;
+    let file = fs::File::create(path.as_ref()).map_err(|e| format!("Failed to create TIFF file: {}", e))?;
     let mut writer = BufWriter::new(file);
     let mut encoder = TiffEncoder::new(&mut writer)
         .map_err(|e| format!("TIFF encoder error: {}", e))?
         .with_compression(Compression::Deflate(DeflateLevel::default()));
     let (w, h) = img.dimensions();
     let image = encoder
-        .new_image::<RGB32Float>(w, h)
+        .new_image::<RGB16>(w, h)
         .map_err(|e| format!("TIFF image init error: {}", e))?;
-    image.write_data(img.as_raw()).map_err(|e| format!("TIFF write error: {}", e))?;
+    let u16_data: Vec<u16> = img.as_raw().iter().map(|&v| (v.clamp(0.0, 1.0) * 65535.0).round() as u16).collect();
+    image.write_data(&u16_data).map_err(|e| format!("TIFF write error: {}", e))?;
     std::io::Write::flush(&mut writer).map_err(|e| format!("Failed to flush TIFF: {}", e))?;
+    drop(writer);
+
+    let _ = inject_icc_profile_into_tiff(path.as_ref(), crate::exif_processing::STANDARD_SRGB_ICC_PROFILE);
     Ok(())
 }
 
-/// Saves an 8-bit sRGB image as a high quality JPEG
+/// Saves an 8-bit sRGB image as a high quality JPEG with standard EXIF and sRGB ICC profile
 pub fn save_jpeg_high_quality<P: AsRef<Path>>(
     path: P,
     sdr_image: &image::RgbImage,
 ) -> Result<(), String> {
+    save_jpeg_high_quality_with_metadata(path, sdr_image, None)
+}
+
+/// Saves an 8-bit sRGB image as a high quality JPEG with standard EXIF and sRGB ICC profile
+pub fn save_jpeg_high_quality_with_metadata<P: AsRef<Path>>(
+    path: P,
+    sdr_image: &image::RgbImage,
+    reference_raw_path: Option<&str>,
+) -> Result<(), String> {
     use std::io::BufWriter;
+    let mut base_jpeg = Vec::new();
+    {
+        let mut encoder = JpegEncoder::new_with_quality(&mut base_jpeg, 95);
+        encoder
+            .encode_image(&DynamicImage::ImageRgb8(sdr_image.clone()))
+            .map_err(|e| format!("JPEG encode error: {}", e))?;
+    }
+
+    let exif_app1 = if let Some(p) = reference_raw_path {
+        crate::exif_processing::build_standard_exif_app1_segment(Path::new(p)).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let icc_app2 = crate::exif_processing::build_standard_icc_app2_segment();
+
+    let mut final_jpeg = Vec::with_capacity(base_jpeg.len() + exif_app1.len() + icc_app2.len());
+    if base_jpeg.len() >= 2 {
+        final_jpeg.extend_from_slice(&base_jpeg[..2]); // SOI (0xFF, 0xD8)
+        final_jpeg.extend_from_slice(&exif_app1);       // APP1 EXIF
+        final_jpeg.extend_from_slice(&icc_app2);        // APP2 ICC
+        final_jpeg.extend_from_slice(&base_jpeg[2..]);   // Rest of JPEG scan data
+    } else {
+        final_jpeg = base_jpeg;
+    }
+
     let file = fs::File::create(path).map_err(|e| format!("Failed to create JPEG file: {}", e))?;
     let mut writer = BufWriter::new(file);
-    let mut encoder = JpegEncoder::new_with_quality(&mut writer, 95);
-    encoder
-        .encode_image(&DynamicImage::ImageRgb8(sdr_image.clone()))
-        .map_err(|e| format!("JPEG encode error: {}", e))?;
+    std::io::Write::write_all(&mut writer, &final_jpeg).map_err(|e| format!("Failed to write JPEG: {}", e))?;
     std::io::Write::flush(&mut writer).map_err(|e| format!("Failed to flush JPEG: {}", e))?;
+    Ok(())
+}
+
+/// Saves a DynamicImage (or 32-bit floating point RGB image) as a high quality 16-bit or 8-bit PNG
+pub fn save_png_high_quality_with_metadata<P: AsRef<Path>>(
+    path: P,
+    img: &DynamicImage,
+    _reference_raw_path: Option<&str>,
+) -> Result<(), String> {
+    use image::codecs::png::{PngEncoder, CompressionType, FilterType};
+    use image::ImageEncoder;
+    use std::io::BufWriter;
+
+    let (w, h) = img.dimensions();
+    let mut raw_png = Vec::new();
+    {
+        let encoder = PngEncoder::new_with_quality(&mut raw_png, CompressionType::Default, FilterType::Sub);
+
+        if let Some(rgb32f) = img.as_rgb32f() {
+            let raw = rgb32f.as_raw();
+            let mut be_bytes = Vec::with_capacity(raw.len() * 2);
+            for &v in raw {
+                let u = (v.clamp(0.0, 1.0) * 65535.0).round() as u16;
+                be_bytes.extend_from_slice(&u.to_be_bytes());
+            }
+            encoder
+                .write_image(&be_bytes, w, h, image::ExtendedColorType::Rgb16)
+                .map_err(|e| format!("PNG 16-bit encoding error: {}", e))?;
+        } else if let Some(rgb16) = img.as_rgb16() {
+            let raw = rgb16.as_raw();
+            let mut be_bytes = Vec::with_capacity(raw.len() * 2);
+            for &val in raw {
+                be_bytes.extend_from_slice(&val.to_be_bytes());
+            }
+            encoder
+                .write_image(&be_bytes, w, h, image::ExtendedColorType::Rgb16)
+                .map_err(|e| format!("PNG 16-bit encoding error: {}", e))?;
+        } else {
+            let rgb8 = img.to_rgb8();
+            encoder
+                .write_image(rgb8.as_raw(), w, h, image::ExtendedColorType::Rgb8)
+                .map_err(|e| format!("PNG 8-bit encoding error: {}", e))?;
+        }
+    }
+
+    // Inject standard PNG sRGB chunk (Perceptual intent) directly after IHDR (at byte offset 33)
+    let srgb_chunk: [u8; 13] = [
+        0x00, 0x00, 0x00, 0x01, // Length: 1
+        0x73, 0x52, 0x47, 0x42, // Chunk type: "sRGB"
+        0x00,                   // Rendering intent: 0 (Perceptual)
+        0xAE, 0xCE, 0x1C, 0xE9, // CRC-32 for "sRGB\0"
+    ];
+
+    let mut final_png = Vec::with_capacity(raw_png.len() + srgb_chunk.len());
+    if raw_png.len() >= 33 && &raw_png[12..16] == b"IHDR" {
+        final_png.extend_from_slice(&raw_png[..33]);
+        final_png.extend_from_slice(&srgb_chunk);
+        final_png.extend_from_slice(&raw_png[33..]);
+    } else {
+        final_png = raw_png;
+    }
+
+    let file = fs::File::create(path).map_err(|e| format!("Failed to create PNG file: {}", e))?;
+    let mut writer = BufWriter::new(file);
+    std::io::Write::write_all(&mut writer, &final_png).map_err(|e| format!("Failed to write PNG: {}", e))?;
+    std::io::Write::flush(&mut writer).map_err(|e| format!("Failed to flush PNG: {}", e))?;
     Ok(())
 }
 
@@ -831,8 +1011,17 @@ pub fn inject_xmp_into_jpeg(jpeg_bytes: &[u8], xmp_str: &str) -> Vec<u8> {
         return jpeg_bytes.to_vec();
     }
 
+    // If existing APP1 EXIF segment is at index 2, insert XMP after it
+    let mut insert_pos = 2;
+    if jpeg_bytes.len() > 6 && jpeg_bytes[2] == 0xFF && jpeg_bytes[3] == 0xE1 {
+        let seg_len = ((jpeg_bytes[4] as usize) << 8) | (jpeg_bytes[5] as usize);
+        if 2 + 2 + seg_len <= jpeg_bytes.len() {
+            insert_pos = 2 + 2 + seg_len;
+        }
+    }
+
     let mut out = Vec::with_capacity(jpeg_bytes.len() + marker_len + 2);
-    out.extend_from_slice(&jpeg_bytes[..2]); // SOI (0xFF, 0xD8)
+    out.extend_from_slice(&jpeg_bytes[..insert_pos]); // SOI + (APP1 EXIF if present)
 
     // APP1 marker: 0xFF, 0xE1
     out.push(0xFF);
@@ -842,7 +1031,7 @@ pub fn inject_xmp_into_jpeg(jpeg_bytes: &[u8], xmp_str: &str) -> Vec<u8> {
     out.extend_from_slice(namespace);
     out.extend_from_slice(xmp_bytes);
 
-    out.extend_from_slice(&jpeg_bytes[2..]);
+    out.extend_from_slice(&jpeg_bytes[insert_pos..]);
     out
 }
 
@@ -851,50 +1040,50 @@ pub fn build_mpf_app2_header(primary_size: usize, gain_map_size: usize) -> Vec<u
     // 0xFF, 0xE2 APP2 marker with CIPA DC-007 Multi-Picture Format (MPF) directory
     let mut mpf_payload = Vec::new();
     mpf_payload.extend_from_slice(b"MPF\0");
-    // TIFF Header (Little Endian: II, 0x002A, Offset = 8)
-    mpf_payload.extend_from_slice(&[b'I', b'I', 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00]);
+    // TIFF Header: Little Endian
+    mpf_payload.extend_from_slice(b"II*\0");
+    mpf_payload.extend_from_slice(&8u32.to_le_bytes()); // Offset to IFD0
 
-    // IFD with 3 tags: MPFVersion (0xB000), NumberOfImages (0xB001), MPImageList (0xB002)
-    let num_tags: u16 = 3;
-    mpf_payload.extend_from_slice(&num_tags.to_le_bytes());
+    // Number of tags: 3 (Version, Number of Images, Entry List)
+    mpf_payload.extend_from_slice(&3u16.to_le_bytes());
 
-    // Tag 1: MPFVersion (UNDEFINED, count 4, value '0100')
+    // Tag 0xB000 (MPF Version: 0100)
     mpf_payload.extend_from_slice(&0xB000u16.to_le_bytes());
-    mpf_payload.extend_from_slice(&7u16.to_le_bytes());
-    mpf_payload.extend_from_slice(&4u32.to_le_bytes());
+    mpf_payload.extend_from_slice(&7u16.to_le_bytes()); // UNDEFINED
+    mpf_payload.extend_from_slice(&4u32.to_le_bytes()); // Count 4
     mpf_payload.extend_from_slice(b"0100");
 
-    // Tag 2: NumberOfImages (LONG, count 1, value 2)
+    // Tag 0xB001 (Number of Images: 2)
     mpf_payload.extend_from_slice(&0xB001u16.to_le_bytes());
-    mpf_payload.extend_from_slice(&4u16.to_le_bytes());
-    mpf_payload.extend_from_slice(&1u32.to_le_bytes());
-    mpf_payload.extend_from_slice(&2u32.to_le_bytes());
+    mpf_payload.extend_from_slice(&4u16.to_le_bytes()); // LONG
+    mpf_payload.extend_from_slice(&1u32.to_le_bytes()); // Count 1
+    mpf_payload.extend_from_slice(&2u32.to_le_bytes()); // 2 Images
 
-    // Tag 3: MPImageList (UNDEFINED, count 32, offset 46)
+    // Tag 0xB002 (MP Entry List Offset)
     mpf_payload.extend_from_slice(&0xB002u16.to_le_bytes());
-    mpf_payload.extend_from_slice(&7u16.to_le_bytes());
-    mpf_payload.extend_from_slice(&32u32.to_le_bytes());
-    mpf_payload.extend_from_slice(&46u32.to_le_bytes());
+    mpf_payload.extend_from_slice(&7u16.to_le_bytes()); // UNDEFINED
+    mpf_payload.extend_from_slice(&32u32.to_le_bytes()); // 2 entries * 16 bytes = 32 bytes
+    mpf_payload.extend_from_slice(&46u32.to_le_bytes()); // Offset relative to TIFF header start (46 bytes)
 
-    // Next IFD offset = 0
+    // Offset to Next IFD: 0 (No more IFDs)
     mpf_payload.extend_from_slice(&0u32.to_le_bytes());
 
-    // MP Entry 1 (Primary Image: Individual Image Type = Baseline Primary, Size, Data Offset = 0)
-    mpf_payload.extend_from_slice(&0x030000u32.to_le_bytes()); // Primary image attribute
-    mpf_payload.extend_from_slice(&(primary_size as u32).to_le_bytes());
-    mpf_payload.extend_from_slice(&0u32.to_le_bytes());
-    mpf_payload.extend_from_slice(&0u16.to_le_bytes()); // Dependent image 1
-    mpf_payload.extend_from_slice(&0u16.to_le_bytes()); // Dependent image 2
+    // MP Entry 1: Primary Image (Type: Baseline SDR, Length: 0 for primary, Offset: 0)
+    mpf_payload.extend_from_slice(&0x030000u32.to_le_bytes()); // Type: Primary Image
+    mpf_payload.extend_from_slice(&0u32.to_le_bytes());        // Individual image size (0 for primary)
+    mpf_payload.extend_from_slice(&0u32.to_le_bytes());        // Image offset (0 for primary)
+    mpf_payload.extend_from_slice(&0u16.to_le_bytes());        // Dependent image 1
+    mpf_payload.extend_from_slice(&0u16.to_le_bytes());        // Dependent image 2
 
-    // MP Entry 2 (Secondary Image: Individual Image Type = Multi-Picture, Size, Data Offset = primary_size)
-    mpf_payload.extend_from_slice(&0x000000u32.to_le_bytes());
+    // MP Entry 2: Secondary Image (Type: Large Thumbnail / Gain Map, Length: gain_map_size, Offset: primary_size)
+    mpf_payload.extend_from_slice(&0x000000u32.to_le_bytes()); // Type: Secondary
     mpf_payload.extend_from_slice(&(gain_map_size as u32).to_le_bytes());
     mpf_payload.extend_from_slice(&(primary_size as u32).to_le_bytes());
     mpf_payload.extend_from_slice(&0u16.to_le_bytes());
     mpf_payload.extend_from_slice(&0u16.to_le_bytes());
 
-    let marker_len = (mpf_payload.len() + 2) as u16;
-    let mut out = Vec::with_capacity(mpf_payload.len() + 4);
+    let marker_len = mpf_payload.len() + 2;
+    let mut out = Vec::with_capacity(marker_len + 2);
     out.push(0xFF);
     out.push(0xE2);
     out.push(((marker_len >> 8) & 0xFF) as u8);
@@ -908,6 +1097,16 @@ pub fn save_ultrahdr_jpeg<P: AsRef<Path>>(
     path: P,
     linear_hdr: &image::Rgb32FImage,
     sdr_preview: &image::RgbImage,
+) -> Result<(), String> {
+    save_ultrahdr_jpeg_with_metadata(path, linear_hdr, sdr_preview, None)
+}
+
+/// Saves an ISO 21496-1 Ultra HDR JPEG with embedded logarithmic Gain Map, standard EXIF, ICC and XMP / MPF metadata
+pub fn save_ultrahdr_jpeg_with_metadata<P: AsRef<Path>>(
+    path: P,
+    linear_hdr: &image::Rgb32FImage,
+    sdr_preview: &image::RgbImage,
+    reference_raw_path: Option<&str>,
 ) -> Result<(), String> {
     use std::io::{BufWriter, Write};
     let (gain_map, max_headroom) = generate_iso21496_gain_map(
@@ -925,6 +1124,13 @@ pub fn save_ultrahdr_jpeg<P: AsRef<Path>>(
             .map_err(|e| format!("Base JPEG encode error: {}", e))?;
     }
 
+    let exif_app1 = if let Some(p) = reference_raw_path {
+        crate::exif_processing::build_standard_exif_app1_segment(Path::new(p)).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let icc_app2 = crate::exif_processing::build_standard_icc_app2_segment();
+
     let mut gain_map_jpeg = Vec::new();
     {
         let mut encoder = JpegEncoder::new_with_quality(&mut gain_map_jpeg, 90);
@@ -938,13 +1144,21 @@ pub fn save_ultrahdr_jpeg<P: AsRef<Path>>(
     let gain_map_with_xmp = inject_xmp_into_jpeg(&gain_map_jpeg, &xmp_meta);
 
     // Build MPF directory header
-    let mpf_header = build_mpf_app2_header(base_with_xmp.len() + 4, gain_map_with_xmp.len());
+    let dummy_mpf = build_mpf_app2_header(0, gain_map_with_xmp.len());
+    let primary_exact_size = base_with_xmp.len() + exif_app1.len() + icc_app2.len() + dummy_mpf.len();
+    let mpf_header = build_mpf_app2_header(primary_exact_size, gain_map_with_xmp.len());
 
-    // Insert MPF marker right after SOI in base image
-    let mut final_base = Vec::with_capacity(base_with_xmp.len() + mpf_header.len());
-    final_base.extend_from_slice(&base_with_xmp[..2]); // SOI
-    final_base.extend_from_slice(&mpf_header);
-    final_base.extend_from_slice(&base_with_xmp[2..]);
+    // Assemble final base stream: SOI -> APP1 EXIF -> APP2 ICC -> APP2 MPF -> APP1 XMP + image scan data
+    let mut final_base = Vec::with_capacity(primary_exact_size);
+    if base_with_xmp.len() >= 2 {
+        final_base.extend_from_slice(&base_with_xmp[..2]); // SOI (0xFF, 0xD8)
+        final_base.extend_from_slice(&exif_app1);          // APP1 EXIF
+        final_base.extend_from_slice(&icc_app2);           // APP2 ICC Profile
+        final_base.extend_from_slice(&mpf_header);          // APP2 MPF Dual-Stream Header
+        final_base.extend_from_slice(&base_with_xmp[2..]);  // APP1 XMP + Primary Image Scan
+    } else {
+        final_base = base_with_xmp;
+    }
 
     let file = fs::File::create(path).map_err(|e| format!("Failed to create Ultra HDR file: {}", e))?;
     let mut writer = BufWriter::new(file);

@@ -77,6 +77,7 @@ pub async fn stitch_panorama(
         .collect();
 
     let panorama_result_handle = state.panorama_result.clone();
+    let panorama_metadata_handle = state.panorama_metadata.clone();
     let selected_proj = projection.unwrap_or(stitching::PanoramaProjection::Cylindrical);
     let warp_strength = boundary_warp.unwrap_or(0.5);
 
@@ -85,7 +86,7 @@ pub async fn stitch_panorama(
 
         match panorama_result {
             Ok(panorama_image) => {
-                let _ = app_handle.emit("panorama-progress", "Creating preview...");
+                let _ = app_handle.emit("panorama-progress", "Generating high-resolution preview... 98%");
 
                 let (w, h) = panorama_image.dimensions();
                 let (new_w, new_h) = if w > h {
@@ -109,6 +110,7 @@ pub async fn stitch_panorama(
                 let final_base64 = format!("data:image/png;base64,{}", base64_str);
 
                 *panorama_result_handle.lock().unwrap() = Some(panorama_image);
+                *panorama_metadata_handle.lock().unwrap() = Some((selected_proj, warp_strength));
 
                 let _ = app_handle.emit(
                     "panorama-complete",
@@ -169,26 +171,42 @@ pub async fn save_panorama(
     };
 
     let output_path = parent_dir.join(output_filename);
+    let (real_path, _) = crate::file_management::parse_virtual_path(&first_path_str);
+    let real_path_str = real_path.to_string_lossy().to_string();
 
     match export_format {
         "jpeg" | "jpg" => {
             let sdr_rgb = panorama_image.to_rgb8();
-            crate::export_processing::save_jpeg_high_quality(&output_path, &sdr_rgb)?;
+            crate::export_processing::save_jpeg_high_quality_with_metadata(&output_path, &sdr_rgb, Some(&real_path_str))?;
         }
         "ultrahdr" => {
             let sdr_rgb = panorama_image.to_rgb8();
             let lin_img = linear_radiance.unwrap_or_else(|| panorama_image.to_rgb32f());
-            crate::export_processing::save_ultrahdr_jpeg(&output_path, &lin_img, &sdr_rgb)?;
+            crate::export_processing::save_ultrahdr_jpeg_with_metadata(&output_path, &lin_img, &sdr_rgb, Some(&real_path_str))?;
         }
         "png" => {
-            panorama_image
-                .save(&output_path)
-                .map_err(|e| format!("Failed to save panorama image: {}", e))?;
+            crate::export_processing::save_png_high_quality_with_metadata(&output_path, &panorama_image, Some(&real_path_str))?;
         }
         "dng" => {
             let lin_img = linear_radiance.unwrap_or_else(|| panorama_image.to_rgb32f());
+            let pano_meta = state.panorama_metadata.lock().unwrap().clone();
+            let proj_tag = match pano_meta {
+                Some((p, w)) => format!(" [{:?} Projection, Boundary Warp: {:.0}%]", p, w * 100.0),
+                None => "".to_string(),
+            };
             let mut dng_meta = crate::dng_encoder::DngExportMetadata::default();
-            dng_meta.description = Some(format!("RapidRAW 32-Bit Linear Panoramic Composite ({}_Pano)", stem));
+            dng_meta.description = Some(format!("RapidRAW 32-Bit Linear Panoramic Composite ({}_Pano){}", stem, proj_tag));
+
+            if let Ok(raw_source) = rawler::rawsource::RawSource::new(Path::new(&real_path_str)) {
+                let loader = rawler::RawLoader::new();
+                if let Ok(decoder) = loader.get_decoder(&raw_source) {
+                    if let Ok(raw_meta) = decoder.raw_metadata(&raw_source, &Default::default()) {
+                        if !raw_meta.make.is_empty() { dng_meta.make = Some(raw_meta.make); }
+                        if !raw_meta.model.is_empty() { dng_meta.model = Some(raw_meta.model); }
+                    }
+                }
+            }
+
             crate::dng_encoder::write_linear_dng_file(&output_path, &lin_img, Some(&dng_meta))
                 .map_err(|e| format!("Failed to save 32-bit Linear DNG panorama: {}", e))?;
         }
@@ -198,9 +216,8 @@ pub async fn save_panorama(
         }
     }
 
-    let (real_path, _) = crate::file_management::parse_virtual_path(&first_path_str);
     let _ =
-        crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
+        crate::exif_processing::write_rrexif_sidecar(&real_path_str, &output_path);
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -211,92 +228,110 @@ pub fn stitch_images(
     boundary_warp: f32,
     app_handle: AppHandle,
 ) -> Result<DynamicImage, String> {
+    stitch_images_impl(image_paths, projection, boundary_warp, Some(&app_handle))
+}
+
+pub fn stitch_images_headless(
+    image_paths: Vec<String>,
+    projection: PanoramaProjection,
+    boundary_warp: f32,
+) -> Result<DynamicImage, String> {
+    stitch_images_impl(image_paths, projection, boundary_warp, None)
+}
+
+fn stitch_images_impl(
+    image_paths: Vec<String>,
+    projection: PanoramaProjection,
+    boundary_warp: f32,
+    app_handle: Option<&AppHandle>,
+) -> Result<DynamicImage, String> {
     if image_paths.len() < 2 {
         return Err("At least two images are required for a panorama.".to_string());
     }
 
-    let _ = app_handle.emit("panorama-progress", "Starting panorama process...");
+    if let Some(h) = app_handle {
+        let _ = h.emit("panorama-progress", "Initializing panorama pipeline... 5%");
+    }
     println!(
         "Starting panorama stitching process for {} images...",
         image_paths.len()
     );
 
-    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let settings = app_handle
+        .and_then(|h| load_settings(h.clone()).ok())
+        .unwrap_or_default();
 
     let start_time = Instant::now();
-    let _ = app_handle.emit("panorama-progress", "Loading and extracting multi-scale ORB features...");
-    println!("Loading and extracting multi-scale ORB features (in parallel)...");
+    if let Some(h) = app_handle {
+        let _ = h.emit("panorama-progress", "Loading images & extracting multi-scale ORB features... 10%");
+    }
+    println!("Loading and extracting multi-scale ORB features (memory-capped sequential pipeline)...");
     let brief_pairs = processing::generate_brief_pairs();
 
-    let image_data_results: Vec<Result<ImageInfo, String>> = image_paths
-        .par_iter()
-        .enumerate()
-        .map(|(i, filename)| {
-            let _ = app_handle.emit(
+    let mut image_data = Vec::with_capacity(image_paths.len());
+    let mut reference_exposure_gain: Option<f32> = None;
+
+    for (i, filename) in image_paths.iter().enumerate() {
+        let pct = 10 + ((i + 1) * 15 / image_paths.len());
+        let name = Path::new(filename)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
+        if let Some(h) = app_handle {
+            let _ = h.emit(
                 "panorama-progress",
-                format!(
-                    "Processing '{}'",
-                    Path::new(filename)
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                ),
+                format!("Extracting features '{}' ({}%)", name, pct),
             );
-            println!("  - Processing '{}'", filename);
-
-            let file_bytes = fs::read(filename)
-                .map_err(|e| format!("Failed to read image {}: {}", filename, e))?;
-
-            let mut dynamic_image = crate::image_loader::load_base_image_from_bytes(
-                &file_bytes,
-                filename,
-                false,
-                &settings,
-                None,
-            )
-            .map_err(|e| format!("Failed to load image {}: {}", filename, e))?;
-
-            if is_raw_file(filename) {
-                develop_and_normalize_raw_for_panorama(&mut dynamic_image);
-            }
-
-            let image_f32 = dynamic_image.to_rgb32f();
-
-            let color_full_u8 = dynamic_image.to_rgb8();
-            let gray_full = image::imageops::colorops::grayscale(&color_full_u8);
-
-            let (w, h) = gray_full.dimensions();
-            let (new_w, new_h, scale_factor) = processing::calculate_downscale_dimensions(w, h);
-
-            let gray_small = image::imageops::resize(
-                &gray_full,
-                new_w,
-                new_h,
-                image::imageops::FilterType::Triangle,
-            );
-
-            let low_detail_mask = processing::generate_low_detail_mask(&gray_full);
-
-            let features = processing::find_features(&gray_small, &brief_pairs);
-            println!("    Found {} multi-scale ORB features in '{}'", features.len(), filename);
-
-            Ok(ImageInfo {
-                id: i,
-                filename: filename.to_string(),
-                image: image_f32,
-                low_detail_mask,
-                scale_factor,
-                features,
-            })
-        })
-        .collect();
-
-    let mut image_data = Vec::new();
-    for result in image_data_results {
-        match result {
-            Ok(info) => image_data.push(info),
-            Err(e) => return Err(e),
         }
+        println!("  - Processing '{}' ({}/{})", filename, i + 1, image_paths.len());
+
+        let file_bytes = fs::read(filename)
+            .map_err(|e| format!("Failed to read image {}: {}", filename, e))?;
+
+        let mut dynamic_image = crate::image_loader::load_base_image_from_bytes(
+            &file_bytes,
+            filename,
+            false,
+            &settings,
+            None,
+        )
+        .map_err(|e| format!("Failed to load image {}: {}", filename, e))?;
+
+        if is_raw_file(filename) {
+            let gain = develop_and_normalize_raw_for_panorama(&mut dynamic_image, reference_exposure_gain);
+            if reference_exposure_gain.is_none() {
+                reference_exposure_gain = Some(gain);
+            }
+        }
+
+        let image_f32 = dynamic_image.to_rgb32f();
+
+        let color_full_u8 = dynamic_image.to_rgb8();
+        let gray_full = image::imageops::colorops::grayscale(&color_full_u8);
+
+        let (w, h) = gray_full.dimensions();
+        let (new_w, new_h, scale_factor) = processing::calculate_downscale_dimensions(w, h);
+
+        let gray_small = image::imageops::resize(
+            &gray_full,
+            new_w,
+            new_h,
+            image::imageops::FilterType::Triangle,
+        );
+
+        let low_detail_mask = processing::generate_low_detail_mask(&gray_full);
+
+        let features = processing::find_features(&gray_small, &brief_pairs);
+        println!("    Found {} multi-scale ORB features in '{}'", features.len(), filename);
+
+        image_data.push(ImageInfo {
+            id: i,
+            filename: filename.to_string(),
+            image: image_f32,
+            low_detail_mask,
+            scale_factor,
+            features,
+        });
     }
 
     println!(
@@ -305,7 +340,9 @@ pub fn stitch_images(
     );
 
     let start_time = Instant::now();
-    let _ = app_handle.emit("panorama-progress", "Finding image matches...");
+    if let Some(h) = app_handle {
+        let _ = h.emit("panorama-progress", "Pairwise feature matching & homography estimation... 28%");
+    }
     println!("Finding all pairwise matches (in parallel)...");
     let mut pairwise_matches: HashMap<(usize, usize), MatchInfo> = HashMap::new();
 
@@ -392,7 +429,9 @@ pub fn stitch_images(
     }
 
     let start_time = Instant::now();
-    let _ = app_handle.emit("panorama-progress", "Determining stitching order & estimating 3D camera poses...");
+    if let Some(h) = app_handle {
+        let _ = h.emit("panorama-progress", "Determining stitching order & estimating 3D camera poses... 36%");
+    }
     println!("Determining stitching order & estimating 3D camera poses...");
     let (ordered_indices, global_homographies) =
         build_stitching_order(&image_data, &pairwise_matches);
@@ -411,13 +450,22 @@ pub fn stitch_images(
                 .to_string()
         })
         .collect();
-    println!("Stitching order determined: {:?}", ordered_filenames);
+    println!("  Stitching order: {:?}", ordered_filenames);
 
     let stitched_images_info: Vec<&ImageInfo> =
         ordered_indices.iter().map(|&i| &image_data[i]).collect();
 
-    // 1. Initialize Camera Poses from global homographies
-    let avg_f = image_data[0].image.width().max(image_data[0].image.height()) as f64 * 1.25;
+    // 1. Convert Global Homographies into 3D Spherical/Cylindrical Camera Poses with True EXIF Focal Length
+    let first_path = Path::new(&image_data[0].filename);
+    let exif_focal_mm = crate::exif_processing::extract_focal_length_from_file(first_path);
+    let (first_w, first_h) = image_data[0].image.dimensions();
+    let avg_f = if let Some(f_mm) = exif_focal_mm {
+        let f_px = CameraPose::focal_length_from_exif(f_mm, None, first_w);
+        println!("  - Detected physical EXIF Focal Length: {:.1} mm -> {:.1} pixels", f_mm, f_px);
+        f_px
+    } else {
+        first_w.max(first_h) as f64 * 1.25
+    };
     let mut camera_poses: Vec<CameraPose> = Vec::with_capacity(stitched_images_info.len());
 
     for (k, &img_info) in stitched_images_info.iter().enumerate() {
@@ -433,7 +481,9 @@ pub fn stitch_images(
     }
 
     // 2. Collect tie points across all matched pairs and run Levenberg-Marquardt Bundle Adjustment
-    let _ = app_handle.emit("panorama-progress", "Optimizing camera poses with Levenberg-Marquardt Bundle Adjustment...");
+    if let Some(h) = app_handle {
+        let _ = h.emit("panorama-progress", "Optimizing 3D poses with Levenberg-Marquardt Bundle Adjustment... 42%");
+    }
     println!("Running Levenberg-Marquardt Bundle Adjustment on 3D camera poses...");
 
     let mut tie_points: Vec<MatchTiePoint> = Vec::new();
@@ -460,13 +510,18 @@ pub fn stitch_images(
     }
 
     bundle_adjust_poses(&mut camera_poses, &tie_points, 20);
+    crate::panorama_utils::camera_model::auto_level_camera_poses(&mut camera_poses);
 
-    let _ = app_handle.emit("panorama-progress", "Calculating local APAP mesh warps to eliminate parallax...");
+    if let Some(h) = app_handle {
+        let _ = h.emit("panorama-progress", "Calculating local APAP mesh deformation grids... 48%");
+    }
     println!("Calculating local APAP mesh deformation grids to eliminate parallax...");
     let mesh_warps = compute_apap_mesh_warps(&camera_poses, &tie_points);
 
     let _start_time = Instant::now();
-    let _ = app_handle.emit("panorama-progress", "Warping, 2D Graph-Cut & Multi-Band Spline Blending...");
+    if let Some(h) = app_handle {
+        let _ = h.emit("panorama-progress", "Ray-traced stitching & Multi-Band Laplacian Pyramid Blending... 50%");
+    }
     println!("Ray-traced stitching with APAP meshes, 2D Graph-Cut & Multi-Band Laplacian Pyramid Blending...");
 
     let panorama = ray_traced_multiband_stitcher(
@@ -475,11 +530,13 @@ pub fn stitch_images(
         &mesh_warps,
         projection,
         boundary_warp,
-        app_handle.clone(),
+        app_handle,
     );
 
     println!("Stitching completed in {:.2?}\n", start_time.elapsed());
-    let _ = app_handle.emit("panorama-progress", "Finalizing panorama...");
+    if let Some(h) = app_handle {
+        let _ = h.emit("panorama-progress", "Finalizing panorama composition... 96%");
+    }
 
     Ok(DynamicImage::ImageRgb32F(panorama))
 }
@@ -513,7 +570,7 @@ impl Dsu {
     }
 }
 
-fn build_stitching_order(
+pub(crate) fn build_stitching_order(
     images: &[ImageInfo],
     matches: &HashMap<(usize, usize), MatchInfo>,
 ) -> (Vec<usize>, HashMap<usize, Matrix3<f64>>) {
@@ -661,40 +718,45 @@ fn build_stitching_order(
 }
 
 /// Develops and normalizes RAW sensor data for panoramic stitching:
-/// 1. Adaptive exposure scaling to place middle-gray and highlights properly
+/// 1. Unified reference-anchored exposure scaling to prevent blotchy sky boundaries
 /// 2. Perceptual filmic S-curve tone mapping
 /// 3. Saturation and natural color enhancement
-pub fn develop_and_normalize_raw_for_panorama(image: &mut DynamicImage) {
+pub fn develop_and_normalize_raw_for_panorama(image: &mut DynamicImage, fixed_exposure_gain: Option<f32>) -> f32 {
     let mut f32_image = image.to_rgb32f();
     let (w, h) = f32_image.dimensions();
     let total_pixels = (w * h) as usize;
     if total_pixels == 0 {
-        return;
+        return 1.0;
     }
 
-    // 1. Analyze 98.5th percentile luminance to compute adaptive exposure scaling
-    let mut sample_lumas = Vec::with_capacity(10000);
-    let step = (total_pixels / 10000).max(1);
-    for i in (0..total_pixels).step_by(step) {
-        let x = (i % w as usize) as u32;
-        let y = (i / w as usize) as u32;
-        let p = f32_image.get_pixel(x, y);
-        let luma = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
-        if luma > 0.001 {
-            sample_lumas.push(luma);
+    let exposure_gain = match fixed_exposure_gain {
+        Some(g) => g,
+        None => {
+            // 1. Analyze 98.5th percentile luminance to compute anchor exposure scaling
+            let mut sample_lumas = Vec::with_capacity(10000);
+            let step = (total_pixels / 10000).max(1);
+            for i in (0..total_pixels).step_by(step) {
+                let x = (i % w as usize) as u32;
+                let y = (i / w as usize) as u32;
+                let p = f32_image.get_pixel(x, y);
+                let luma = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+                if luma > 0.001 {
+                    sample_lumas.push(luma);
+                }
+            }
+            sample_lumas.sort_by(|a, b| a.total_cmp(b));
+
+            let p98 = if !sample_lumas.is_empty() {
+                let idx = (sample_lumas.len() as f32 * 0.985) as usize;
+                sample_lumas[idx.min(sample_lumas.len() - 1)].clamp(0.05, 1.0)
+            } else {
+                0.5
+            };
+
+            // Calculate exposure multiplier so highlights align near 0.95
+            (0.95 / p98).clamp(1.0, 4.5)
         }
-    }
-    sample_lumas.sort_by(|a, b| a.total_cmp(b));
-
-    let p98 = if !sample_lumas.is_empty() {
-        let idx = (sample_lumas.len() as f32 * 0.985) as usize;
-        sample_lumas[idx.min(sample_lumas.len() - 1)].clamp(0.05, 1.0)
-    } else {
-        0.5
     };
-
-    // Calculate exposure multiplier so highlights align near 0.95
-    let exposure_gain = (0.95 / p98).clamp(1.0, 4.5);
 
     // 2. Perceptual Filmic S-curve & Saturation Boost
     f32_image.par_chunks_mut(3).for_each(|pixel| {
@@ -724,6 +786,7 @@ pub fn develop_and_normalize_raw_for_panorama(image: &mut DynamicImage) {
     });
 
     *image = DynamicImage::ImageRgb32F(f32_image);
+    exposure_gain
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]

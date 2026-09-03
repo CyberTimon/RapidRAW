@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, XCircle, Loader2, Save, RefreshCw, Layers, Sliders, Sparkles } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Save, RefreshCw, Layers, Sliders, Sparkles, Copy, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Button from '../ui/Button';
 import Text from '../ui/Text';
@@ -40,6 +40,9 @@ export default function PanoramaModal({
   const [show, setShow] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [copiedError, setCopiedError] = useState(false);
+  const [copiedSaveError, setCopiedSaveError] = useState(false);
   const [projection, setProjection] = useState<'cylindrical' | 'spherical' | 'planar' | 'panini' | 'stereographic'>('cylindrical');
   const [boundaryWarp, setBoundaryWarp] = useState<number>(0.5);
   const [isHdr, setIsHdr] = useState<boolean>(false);
@@ -78,6 +81,7 @@ export default function PanoramaModal({
       const timer = setTimeout(() => {
         setIsMounted(false);
         setSavedPath(null);
+        setSaveError(null);
         setIsSaving(false);
       }, 300);
       return () => clearTimeout(timer);
@@ -102,11 +106,13 @@ export default function PanoramaModal({
 
   const handleSave = async () => {
     setIsSaving(true);
+    setSaveError(null);
     try {
       const path = await onSave(exportFormat);
       setSavedPath(path);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('Panorama save error:', e);
+      setSaveError(String(e?.message || e));
     } finally {
       setIsSaving(false);
     }
@@ -123,22 +129,72 @@ export default function PanoramaModal({
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center py-10 h-[490px]">
-          <div className="flex items-center justify-center mb-6">
+          <div className="flex items-center justify-center mb-4">
             <XCircle className="w-12 h-12 text-red-500" />
           </div>
-          <Text variant={TextVariants.title} className="mb-2 text-center">
+          <Text variant={TextVariants.title} className="mb-2 text-center text-red-400">
             {t('modals.panorama.failed')}
           </Text>
-          <Text className="text-center p-4 rounded-lg bg-bg-primary max-w-md mt-2 leading-relaxed">
-            {String(error)}
-          </Text>
+          <div className="w-full max-w-lg mt-3 flex flex-col items-center">
+            <div className="w-full p-4 rounded-lg bg-neutral-900/90 border border-red-500/30 text-xs font-mono select-text cursor-text leading-relaxed text-red-200 max-h-48 overflow-y-auto break-all shadow-inner">
+              {String(error)}
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(String(error));
+                setCopiedError(true);
+                setTimeout(() => setCopiedError(false), 2000);
+              }}
+              className="mt-3 flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-medium transition-colors cursor-pointer border border-neutral-700 shadow-xs"
+            >
+              {copiedError ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 text-neutral-400" />}
+              <span>{copiedError ? 'Copied Error' : 'Copy Error Text'}</span>
+            </button>
+          </div>
         </div>
       );
     }
 
     if (finalImageBase64 && !isProcessing) {
       return (
-        <div className="w-full">
+        <div className="w-full flex flex-col">
+          {saveError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-3 p-3 bg-red-950/80 border border-red-500/50 rounded-lg flex items-start justify-between gap-3 text-red-200 text-xs shadow-md"
+            >
+              <div className="flex items-start gap-2.5 overflow-hidden">
+                <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div className="flex flex-col gap-1 overflow-hidden">
+                  <span className="font-semibold text-red-300">Save Failed (Select another format below to save without re-stitching):</span>
+                  <span className="font-mono select-text cursor-text break-all text-[11px] opacity-90">{saveError}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(saveError);
+                    setCopiedSaveError(true);
+                    setTimeout(() => setCopiedSaveError(false), 2000);
+                  }}
+                  className="px-2.5 py-1 bg-red-900/90 hover:bg-red-800 text-white rounded text-xs flex items-center gap-1 transition-colors cursor-pointer border border-red-700/60 shadow-xs"
+                  title="Copy error text"
+                >
+                  {copiedSaveError ? <Check className="w-3 h-3 text-green-300" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedSaveError ? 'Copied' : 'Copy Error'}</span>
+                </button>
+                <button
+                  onClick={() => setSaveError(null)}
+                  className="p-1 hover:bg-red-900/60 rounded text-red-400 hover:text-white transition-colors cursor-pointer"
+                  title="Dismiss error"
+                >
+                  ✕
+                </button>
+              </div>
+            </motion.div>
+          )}
+
           <div
             ref={imageContainerRef}
             onMouseMove={handleMouseMove}
@@ -192,11 +248,11 @@ export default function PanoramaModal({
     }
 
     if (isProcessing) {
-      const fracMatch = progressMessage?.match(/panel (\d+) of (\d+)/i) || progressMessage?.match(/image (\d+) of (\d+)/i);
       const pctMatch = progressMessage?.match(/(\d+)%/);
-      const panoPct = fracMatch
-        ? Math.round((parseInt(fracMatch[1], 10) / parseInt(fracMatch[2], 10)) * 100)
-        : (pctMatch ? parseInt(pctMatch[1], 10) : 45);
+      const fracMatch = progressMessage?.match(/panel (\d+) of (\d+)/i) || progressMessage?.match(/image (\d+) of (\d+)/i);
+      const panoPct = pctMatch
+        ? parseInt(pctMatch[1], 10)
+        : (fracMatch ? Math.round((parseInt(fracMatch[1], 10) / parseInt(fracMatch[2], 10)) * 100) : 5);
 
       const steps = [
         { label: 'ORB Matching', active: (panoPct || 0) >= 10 },

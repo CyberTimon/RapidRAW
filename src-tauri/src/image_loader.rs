@@ -566,49 +566,75 @@ pub fn composite_patches_on_image(
     match &mut composited_image {
         DynamicImage::ImageRgb32F(img_buf) => {
             for patch in decoded_patches {
+                let mask_raw = patch.mask.as_raw();
+                let color_raw = patch.color.as_raw();
+                let patch_w = patch.mask.width() as usize;
+
                 if let (Some(ox), Some(oy)) = (patch.offset_x, patch.offset_y) {
                     let max_x = (ox + patch.mask.width()).min(base_w);
                     let max_y = (oy + patch.mask.height()).min(base_h);
 
-                    for y in oy..max_y {
-                        let py = y - oy;
-                        for x in ox..max_x {
-                            let px = x - ox;
-                            let mask_value = patch.mask.get_pixel(px, py)[0];
-                            if mask_value > 0 {
-                                let patch_pixel = patch.color.get_pixel(px, py);
-                                let (pr, pg, pb) = get_color(
-                                    &patch,
-                                    patch_pixel[0],
-                                    patch_pixel[1],
-                                    patch_pixel[2],
-                                );
+                    let crop_w = max_x.saturating_sub(ox) as usize;
+                    let crop_h = max_y.saturating_sub(oy) as usize;
 
-                                let alpha = mask_value as f32 / 255.0;
-                                let one_minus_alpha = 1.0 - alpha;
-
-                                let base_px = img_buf.get_pixel_mut(x, y);
-                                base_px[0] = pr * alpha + base_px[0] * one_minus_alpha;
-                                base_px[1] = pg * alpha + base_px[1] * one_minus_alpha;
-                                base_px[2] = pb * alpha + base_px[2] * one_minus_alpha;
-                            }
-                        }
+                    if crop_w == 0 || crop_h == 0 {
+                        continue;
                     }
+
+                    let base_w_usize = base_w as usize;
+                    let ox_usize = ox as usize;
+                    let oy_usize = oy as usize;
+
+                    img_buf
+                        .par_chunks_mut(base_w_usize * 3)
+                        .enumerate()
+                        .skip(oy_usize)
+                        .take(crop_h)
+                        .for_each(|(y, row)| {
+                            let py = y - oy_usize;
+                            let patch_row_start = py * patch_w;
+
+                            for x in ox_usize..(ox_usize + crop_w) {
+                                let px = x - ox_usize;
+                                let mask_idx = patch_row_start + px;
+                                let mask_value = mask_raw[mask_idx];
+
+                                if mask_value > 0 {
+                                    let color_idx = mask_idx * 3;
+                                    let pr_u8 = color_raw[color_idx];
+                                    let pg_u8 = color_raw[color_idx + 1];
+                                    let pb_u8 = color_raw[color_idx + 2];
+
+                                    let (pr, pg, pb) = get_color(&patch, pr_u8, pg_u8, pb_u8);
+
+                                    let alpha = mask_value as f32 / 255.0;
+                                    let one_minus_alpha = 1.0 - alpha;
+
+                                    let base_idx = x * 3;
+                                    row[base_idx] = pr * alpha + row[base_idx] * one_minus_alpha;
+                                    row[base_idx + 1] =
+                                        pg * alpha + row[base_idx + 1] * one_minus_alpha;
+                                    row[base_idx + 2] =
+                                        pb * alpha + row[base_idx + 2] * one_minus_alpha;
+                                }
+                            }
+                        });
                 } else {
                     img_buf
                         .par_chunks_mut((base_w * 3) as usize)
                         .enumerate()
                         .for_each(|(y, row)| {
+                            let patch_row_start = y * patch_w;
                             for x in 0..base_w as usize {
-                                let mask_value = patch.mask.get_pixel(x as u32, y as u32)[0];
+                                let mask_idx = patch_row_start + x;
+                                let mask_value = mask_raw[mask_idx];
                                 if mask_value > 0 {
-                                    let patch_pixel = patch.color.get_pixel(x as u32, y as u32);
-                                    let (pr, pg, pb) = get_color(
-                                        &patch,
-                                        patch_pixel[0],
-                                        patch_pixel[1],
-                                        patch_pixel[2],
-                                    );
+                                    let color_idx = mask_idx * 3;
+                                    let pr_u8 = color_raw[color_idx];
+                                    let pg_u8 = color_raw[color_idx + 1];
+                                    let pb_u8 = color_raw[color_idx + 2];
+
+                                    let (pr, pg, pb) = get_color(&patch, pr_u8, pg_u8, pb_u8);
 
                                     let alpha = mask_value as f32 / 255.0;
                                     let one_minus_alpha = 1.0 - alpha;
@@ -624,50 +650,74 @@ pub fn composite_patches_on_image(
         }
         DynamicImage::ImageRgba32F(img_buf) => {
             for patch in decoded_patches {
+                let mask_raw = patch.mask.as_raw();
+                let color_raw = patch.color.as_raw();
+                let patch_w = patch.mask.width() as usize;
+
                 if let (Some(ox), Some(oy)) = (patch.offset_x, patch.offset_y) {
                     let max_x = (ox + patch.mask.width()).min(base_w);
                     let max_y = (oy + patch.mask.height()).min(base_h);
 
-                    for y in oy..max_y {
-                        let py = y - oy;
-                        for x in ox..max_x {
-                            let px = x - ox;
-                            let mask_value = patch.mask.get_pixel(px, py)[0];
-                            if mask_value > 0 {
-                                let patch_pixel = patch.color.get_pixel(px, py);
-                                let (pr, pg, pb) = get_color(
-                                    &patch,
-                                    patch_pixel[0],
-                                    patch_pixel[1],
-                                    patch_pixel[2],
-                                );
+                    let crop_w = max_x.saturating_sub(ox) as usize;
+                    let crop_h = max_y.saturating_sub(oy) as usize;
 
-                                let alpha = mask_value as f32 / 255.0;
-                                let one_minus_alpha = 1.0 - alpha;
-
-                                let base_px = img_buf.get_pixel_mut(x, y);
-                                base_px[0] = pr * alpha + base_px[0] * one_minus_alpha;
-                                base_px[1] = pg * alpha + base_px[1] * one_minus_alpha;
-                                base_px[2] = pb * alpha + base_px[2] * one_minus_alpha;
-                            }
-                        }
+                    if crop_w == 0 || crop_h == 0 {
+                        continue;
                     }
+
+                    let base_w_usize = base_w as usize;
+                    let ox_usize = ox as usize;
+                    let oy_usize = oy as usize;
+
+                    img_buf
+                        .par_chunks_mut(base_w_usize * 4)
+                        .enumerate()
+                        .skip(oy_usize)
+                        .take(crop_h)
+                        .for_each(|(y, row)| {
+                            let py = y - oy_usize;
+                            let patch_row_start = py * patch_w;
+
+                            for x in ox_usize..(ox_usize + crop_w) {
+                                let px = x - ox_usize;
+                                let mask_idx = patch_row_start + px;
+                                let mask_value = mask_raw[mask_idx];
+
+                                if mask_value > 0 {
+                                    let color_idx = mask_idx * 3;
+                                    let pr_u8 = color_raw[color_idx];
+                                    let pg_u8 = color_raw[color_idx + 1];
+                                    let pb_u8 = color_raw[color_idx + 2];
+
+                                    let (pr, pg, pb) = get_color(&patch, pr_u8, pg_u8, pb_u8);
+                                    let alpha = mask_value as f32 / 255.0;
+                                    let one_minus_alpha = 1.0 - alpha;
+
+                                    let base_idx = x * 4;
+                                    row[base_idx] = pr * alpha + row[base_idx] * one_minus_alpha;
+                                    row[base_idx + 1] =
+                                        pg * alpha + row[base_idx + 1] * one_minus_alpha;
+                                    row[base_idx + 2] =
+                                        pb * alpha + row[base_idx + 2] * one_minus_alpha;
+                                }
+                            }
+                        });
                 } else {
                     img_buf
                         .par_chunks_mut((base_w * 4) as usize)
                         .enumerate()
                         .for_each(|(y, row)| {
+                            let patch_row_start = y * patch_w;
                             for x in 0..base_w as usize {
-                                let mask_value = patch.mask.get_pixel(x as u32, y as u32)[0];
+                                let mask_idx = patch_row_start + x;
+                                let mask_value = mask_raw[mask_idx];
                                 if mask_value > 0 {
-                                    let patch_pixel = patch.color.get_pixel(x as u32, y as u32);
-                                    let (pr, pg, pb) = get_color(
-                                        &patch,
-                                        patch_pixel[0],
-                                        patch_pixel[1],
-                                        patch_pixel[2],
-                                    );
+                                    let color_idx = mask_idx * 3;
+                                    let pr_u8 = color_raw[color_idx];
+                                    let pg_u8 = color_raw[color_idx + 1];
+                                    let pb_u8 = color_raw[color_idx + 2];
 
+                                    let (pr, pg, pb) = get_color(&patch, pr_u8, pg_u8, pb_u8);
                                     let alpha = mask_value as f32 / 255.0;
                                     let one_minus_alpha = 1.0 - alpha;
 
@@ -683,46 +733,83 @@ pub fn composite_patches_on_image(
         _ => {
             let mut rgba32_img = composited_image.to_rgba32f();
             for patch in decoded_patches {
+                let mask_raw = patch.mask.as_raw();
+                let color_raw = patch.color.as_raw();
+                let patch_w = patch.mask.width() as usize;
+
                 if let (Some(ox), Some(oy)) = (patch.offset_x, patch.offset_y) {
                     let max_x = (ox + patch.mask.width()).min(base_w);
                     let max_y = (oy + patch.mask.height()).min(base_h);
-                    for y in oy..max_y {
-                        let py = y - oy;
-                        for x in ox..max_x {
-                            let px = x - ox;
-                            let mask_val = patch.mask.get_pixel(px, py)[0];
-                            if mask_val > 0 {
-                                let patch_px = patch.color.get_pixel(px, py);
-                                let (pr, pg, pb) =
-                                    get_color(&patch, patch_px[0], patch_px[1], patch_px[2]);
 
-                                let alpha = mask_val as f32 / 255.0;
-                                let one_minus_alpha = 1.0 - alpha;
-                                let base_px = rgba32_img.get_pixel_mut(x, y);
-                                base_px[0] = pr * alpha + base_px[0] * one_minus_alpha;
-                                base_px[1] = pg * alpha + base_px[1] * one_minus_alpha;
-                                base_px[2] = pb * alpha + base_px[2] * one_minus_alpha;
-                            }
-                        }
+                    let crop_w = max_x.saturating_sub(ox) as usize;
+                    let crop_h = max_y.saturating_sub(oy) as usize;
+
+                    if crop_w == 0 || crop_h == 0 {
+                        continue;
                     }
+
+                    let base_w_usize = base_w as usize;
+                    let ox_usize = ox as usize;
+                    let oy_usize = oy as usize;
+
+                    rgba32_img
+                        .par_chunks_mut(base_w_usize * 4)
+                        .enumerate()
+                        .skip(oy_usize)
+                        .take(crop_h)
+                        .for_each(|(y, row)| {
+                            let py = y - oy_usize;
+                            let patch_row_start = py * patch_w;
+
+                            for x in ox_usize..(ox_usize + crop_w) {
+                                let px = x - ox_usize;
+                                let mask_idx = patch_row_start + px;
+                                let mask_value = mask_raw[mask_idx];
+
+                                if mask_value > 0 {
+                                    let color_idx = mask_idx * 3;
+                                    let pr_u8 = color_raw[color_idx];
+                                    let pg_u8 = color_raw[color_idx + 1];
+                                    let pb_u8 = color_raw[color_idx + 2];
+
+                                    let (pr, pg, pb) = get_color(&patch, pr_u8, pg_u8, pb_u8);
+                                    let alpha = mask_value as f32 / 255.0;
+                                    let one_minus_alpha = 1.0 - alpha;
+
+                                    let base_idx = x * 4;
+                                    row[base_idx] = pr * alpha + row[base_idx] * one_minus_alpha;
+                                    row[base_idx + 1] =
+                                        pg * alpha + row[base_idx + 1] * one_minus_alpha;
+                                    row[base_idx + 2] =
+                                        pb * alpha + row[base_idx + 2] * one_minus_alpha;
+                                }
+                            }
+                        });
                 } else {
-                    for y in 0..base_h {
-                        for x in 0..base_w {
-                            let mask_val = patch.mask.get_pixel(x, y)[0];
-                            if mask_val > 0 {
-                                let patch_px = patch.color.get_pixel(x, y);
-                                let (pr, pg, pb) =
-                                    get_color(&patch, patch_px[0], patch_px[1], patch_px[2]);
+                    rgba32_img
+                        .par_chunks_mut((base_w * 4) as usize)
+                        .enumerate()
+                        .for_each(|(y, row)| {
+                            let patch_row_start = y * patch_w;
+                            for x in 0..base_w as usize {
+                                let mask_idx = patch_row_start + x;
+                                let mask_value = mask_raw[mask_idx];
+                                if mask_value > 0 {
+                                    let color_idx = mask_idx * 3;
+                                    let pr_u8 = color_raw[color_idx];
+                                    let pg_u8 = color_raw[color_idx + 1];
+                                    let pb_u8 = color_raw[color_idx + 2];
 
-                                let alpha = mask_val as f32 / 255.0;
-                                let one_minus_alpha = 1.0 - alpha;
-                                let base_px = rgba32_img.get_pixel_mut(x, y);
-                                base_px[0] = pr * alpha + base_px[0] * one_minus_alpha;
-                                base_px[1] = pg * alpha + base_px[1] * one_minus_alpha;
-                                base_px[2] = pb * alpha + base_px[2] * one_minus_alpha;
+                                    let (pr, pg, pb) = get_color(&patch, pr_u8, pg_u8, pb_u8);
+                                    let alpha = mask_value as f32 / 255.0;
+                                    let one_minus_alpha = 1.0 - alpha;
+
+                                    row[x * 4] = pr * alpha + row[x * 4] * one_minus_alpha;
+                                    row[x * 4 + 1] = pg * alpha + row[x * 4 + 1] * one_minus_alpha;
+                                    row[x * 4 + 2] = pb * alpha + row[x * 4 + 2] * one_minus_alpha;
+                                }
                             }
-                        }
-                    }
+                        });
                 }
             }
             composited_image = DynamicImage::ImageRgba32F(rgba32_img);

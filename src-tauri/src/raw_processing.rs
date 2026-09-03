@@ -355,7 +355,7 @@ pub fn extract_raw_bayer_cfa(
     let mut tensor = vec![0.0f32; half_w * half_h * 4]; // 4-plane: R, G1, G2, B
 
     let white = raw_image.whitelevel.0.first().cloned().unwrap_or(16383) as f32;
-    let black = raw_image.blacklevel.levels.first().map(|r| r.as_f32()).unwrap_or(512.0);
+    let black = raw_image.blacklevel.levels.first().map(|r| r.as_f32()).unwrap_or(2048.0);
     let denom = (white - black).max(1.0);
 
     let wb = [
@@ -383,6 +383,41 @@ pub fn extract_raw_bayer_cfa(
     }
 
     Ok((tensor, half_w, half_h, wb))
+}
+
+/// Extracts un-interpolated 2D Bayer CFA array (1 value per pixel) with camera calibration
+#[allow(dead_code)]
+pub fn extract_raw_bayer_array(
+    file_bytes: &[u8],
+) -> Result<(Vec<f32>, usize, usize, [u8; 4], [f32; 4])> {
+    let source = RawSource::new_from_slice(file_bytes);
+    let decoder = rawler::get_decoder(&source)?;
+    let raw_image = decoder.raw_image(&source, &RawDecodeParams::default(), false)?;
+
+    let w = raw_image.width;
+    let h = raw_image.height;
+
+    let white = raw_image.whitelevel.0.first().cloned().unwrap_or(16383) as f32;
+    let black = raw_image.blacklevel.levels.first().map(|r| r.as_f32()).unwrap_or(2048.0);
+    let denom = (white - black).max(1.0);
+
+    let wb = [
+        raw_image.wb_coeffs[0],
+        raw_image.wb_coeffs[1],
+        raw_image.wb_coeffs[2],
+        raw_image.wb_coeffs[3],
+    ];
+
+    let mut cfa = vec![0.0f32; w * h];
+    if let rawler::rawimage::RawImageData::Integer(data) = &raw_image.data {
+        for (i, &val) in data.iter().enumerate() {
+            cfa[i] = ((val as f32 - black) / denom).clamp(0.0, 1.5);
+        }
+    }
+
+    // RGGB standard pattern: 0=R, 1=G1, 2=G2, 3=B
+    let pattern = [0u8, 1u8, 1u8, 2u8];
+    Ok((cfa, w, h, pattern, wb))
 }
 
 pub fn get_fast_demosaic_scale_factor(

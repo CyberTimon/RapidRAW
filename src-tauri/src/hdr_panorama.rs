@@ -114,20 +114,27 @@ pub fn cluster_hdr_brackets(paths: &[String]) -> Vec<ExposureBracketGroup> {
         if let Some(prev_t) = last_timestamp {
             if prev_t > 0 && item.timestamp > 0 {
                 let dt = (item.timestamp as i64 - prev_t as i64).abs();
-                // If shots are separated by more than 7 seconds, they belong to different bursts/scenes
-                if dt > 7 {
+                // If shots are separated by more than 3 seconds, they belong to different angles/bursts
+                if dt > 3 {
                     start_new_group = true;
                 }
             }
         }
 
         if !start_new_group && let Some(last_exp) = last_exposure {
-            let ratio = if last_exp > 0.0 { item.exposure / last_exp } else { 1.0 };
-            let is_bracket = ratio > 1.35 || ratio < 0.74;
-
-            // If exposure does not vary and we already have at least 2 frames in current bracket
-            if !is_bracket && current_group.len() >= 2 {
+            // In AEB brackets, exposure progresses (e.g. -2 EV -> 0 EV -> +2 EV).
+            // When moving to the next angle, the camera resets to the start of the bracket (-2 EV),
+            // which causes a sharp drop in exposure time (e.g. ratio < 0.7) when current group has >= 2 frames.
+            if current_group.len() >= 2 && item.exposure < last_exp * 0.7 {
                 start_new_group = true;
+            } else {
+                let ratio = if last_exp > 0.0 { item.exposure / last_exp } else { 1.0 };
+                let is_bracket = ratio > 1.35 || ratio < 0.74;
+
+                // If exposure does not vary and we already have at least 2 frames in current bracket
+                if !is_bracket && current_group.len() >= 2 {
+                    start_new_group = true;
+                }
             }
         }
 
@@ -151,7 +158,7 @@ pub fn cluster_hdr_brackets(paths: &[String]) -> Vec<ExposureBracketGroup> {
         });
     }
 
-    if groups.len() <= 1 && paths.len() > 3 {
+    if groups.len() <= 1 && paths.len() >= 6 && paths.len() % 3 == 0 {
         return paths
             .chunks(3)
             .enumerate()
@@ -261,7 +268,7 @@ pub async fn stitch_hdr_panorama(
         let _ = handle_for_task.emit("panorama-progress", "Stitching 32-bit HDR panels with 2D Graph-Cut & Multi-Band blending...");
         println!("Stitching {} 32-bit HDR panels with {:?} projection...", valid_panels.len(), selected_projection);
 
-        let final_hdr_pano = stitch_hdr_panels(&valid_panels, selected_projection, warp_strength, &handle_for_task)?;
+        let final_hdr_pano = stitch_hdr_panels(&valid_panels, selected_projection, warp_strength, Some(&handle_for_task))?;
 
         // 3. Create high-resolution preview
         let _ = handle_for_task.emit("panorama-progress", "Creating 32-bit HDR Panorama preview...");
@@ -312,12 +319,57 @@ pub async fn stitch_hdr_panorama(
     }
 }
 
-/// Stitches pre-merged 32-bit float HDR image panels
-fn stitch_hdr_panels(
+/// Converts 32-bit linear floating-point HDR panel to a high-contrast,
+/// perceptually uniform 8-bit grayscale image optimized for multi-scale ORB/FAST feature detection.
+pub fn hdr_to_feature_grayscale(panel: &Rgb32FImage) -> image::GrayImage {
+    let (w, h) = panel.dimensions();
+    let mut gray = image::GrayImage::new(w, h);
+
+    // 1. Calculate luminance L = 0.2126*R + 0.7152*G + 0.0722*B
+    // and sample 1st and 99th percentiles for robust adaptive range normalization
+    let mut lums: Vec<f32> = Vec::with_capacity((w * h / 16) as usize);
+    for y in (0..h).step_by(4) {
+        for x in (0..w).step_by(4) {
+            let p = panel.get_pixel(x, y);
+            let lum = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+            if lum > 0.0001 && lum.is_finite() {
+                lums.push(lum);
+            }
+        }
+    }
+
+    let (p_low, p_high) = if lums.is_empty() {
+        (0.001, 1.0)
+    } else {
+        lums.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let low_idx = (lums.len() as f32 * 0.01) as usize;
+        let high_idx = ((lums.len() as f32 * 0.99) as usize).min(lums.len() - 1);
+        (lums[low_idx].max(1e-5), lums[high_idx].max(1e-4))
+    };
+
+    let range = (p_high - p_low).max(1e-4);
+
+    // 2. Tonemap and gamma correct (sRGB gamma 2.2) to reveal full texture in shadows & midtones
+    for y in 0..h {
+        for x in 0..w {
+            let p = panel.get_pixel(x, y);
+            let lum = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+            let norm = ((lum - p_low) / range).clamp(0.0, 1.0);
+            let val = (norm.powf(1.0 / 2.2) * 255.0).clamp(0.0, 255.0) as u8;
+            gray.put_pixel(x, y, image::Luma([val]));
+        }
+    }
+
+    gray
+}
+
+/// Stitches pre-merged 32-bit float HDR image panels using robust multi-scale ORB matching,
+/// scaled homography RANSAC, MST anchor selection, and bundle adjustment.
+pub fn stitch_hdr_panels(
     panels: &[Rgb32FImage],
     projection: PanoramaProjection,
     boundary_warp: f32,
-    app_handle: &AppHandle,
+    app_handle: Option<&AppHandle>,
 ) -> Result<Rgb32FImage, String> {
     if panels.is_empty() {
         return Err("No HDR panels available to stitch.".to_string());
@@ -328,13 +380,12 @@ fn stitch_hdr_panels(
 
     let brief_pairs = crate::panorama_utils::processing::generate_brief_pairs();
 
-    // Extract features on downscaled luminance representations
+    // Extract features on tone-mapped perceptual luminance representations
     let image_infos: Vec<ImageInfo> = panels
         .iter()
         .enumerate()
         .map(|(i, panel)| {
-            let color_u8 = image::DynamicImage::ImageRgb32F(panel.clone()).to_rgb8();
-            let gray_full = image::imageops::colorops::grayscale(&color_u8);
+            let gray_full = hdr_to_feature_grayscale(panel);
             let (w, h) = gray_full.dimensions();
             let (new_w, new_h, scale_factor) = crate::panorama_utils::processing::calculate_downscale_dimensions(w, h);
             let gray_small = image::imageops::resize(&gray_full, new_w, new_h, image::imageops::FilterType::Triangle);
@@ -352,64 +403,75 @@ fn stitch_hdr_panels(
         })
         .collect();
 
-    // Match features pairwise
-    let mut pairwise_matches = HashMap::new();
-    for i in 0..image_infos.len() {
-        for j in (i + 1)..image_infos.len() {
-            let matches = crate::panorama_utils::processing::match_features(&image_infos[i].features, &image_infos[j].features);
-            if matches.len() >= 8 {
-                let keypoints1: Vec<crate::panorama_stitching::KeyPoint> = image_infos[i].features.iter().map(|f| f.keypoint).collect();
-                let keypoints2: Vec<crate::panorama_stitching::KeyPoint> = image_infos[j].features.iter().map(|f| f.keypoint).collect();
-                if let Some((h, inliers)) = crate::panorama_utils::processing::find_homography_ransac(&matches, &keypoints1, &keypoints2) {
-                    let inlier_count = inliers.len();
-                    if inlier_count >= 6 {
-                        pairwise_matches.insert((i, j), crate::panorama_stitching::MatchInfo {
-                            homography: h,
-                            inliers: inlier_count,
-                            inlier_matches: inliers.clone(),
-                        });
-                        if let Some(h_inv) = h.try_inverse() {
-                            pairwise_matches.insert((j, i), crate::panorama_stitching::MatchInfo {
-                                homography: h_inv,
-                                inliers: inlier_count,
-                                inlier_matches: inliers,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Build chaining global homographies
-    let mut global_homographies = HashMap::new();
-    global_homographies.insert(0, nalgebra::Matrix3::identity());
-
-    let mut visited = vec![false; image_infos.len()];
-    visited[0] = true;
-    let mut queue = std::collections::VecDeque::new();
-    queue.push_back(0);
-
-    while let Some(curr) = queue.pop_front() {
-        for neighbor in 0..image_infos.len() {
-            if !visited[neighbor] && pairwise_matches.contains_key(&(curr, neighbor)) {
-                let h_step = pairwise_matches[&(curr, neighbor)].homography;
-                let h_global = global_homographies[&curr] * h_step;
-                global_homographies.insert(neighbor, h_global);
-                visited[neighbor] = true;
-                queue.push_back(neighbor);
-            }
-        }
-    }
-
-    let stitched_infos: Vec<&ImageInfo> = image_infos
-        .iter()
-        .filter(|info| global_homographies.contains_key(&info.id))
+    // Match features pairwise in parallel with homography scaling & refinement
+    let pairs_to_check: Vec<(usize, usize)> = (0..image_infos.len())
+        .flat_map(|i| (i + 1..image_infos.len()).map(move |j| (i, j)))
         .collect();
 
-    if stitched_infos.len() < 2 {
+    let match_results: Vec<Option<((usize, usize), crate::panorama_stitching::MatchInfo)>> = pairs_to_check
+        .par_iter()
+        .map(|&(i, j)| {
+            let features1 = &image_infos[i].features;
+            let features2 = &image_infos[j].features;
+
+            let initial_matches = crate::panorama_utils::processing::match_features(features1, features2);
+            if initial_matches.len() < crate::panorama_utils::processing::MIN_INLIERS_FOR_CONNECTION {
+                return None;
+            }
+
+            let keypoints1: Vec<crate::panorama_stitching::KeyPoint> = features1.iter().map(|f| f.keypoint).collect();
+            let keypoints2: Vec<crate::panorama_stitching::KeyPoint> = features2.iter().map(|f| f.keypoint).collect();
+
+            if let Some((_h_small, inliers)) = crate::panorama_utils::processing::find_homography_ransac(&initial_matches, &keypoints1, &keypoints2)
+                && inliers.len() >= crate::panorama_utils::processing::MIN_INLIERS_FOR_CONNECTION
+            {
+                let inlier_points: Vec<(nalgebra::Point2<f64>, nalgebra::Point2<f64>)> = inliers
+                    .iter()
+                    .map(|m| {
+                        let p1 = keypoints1[m.index1];
+                        let p2 = keypoints2[m.index2];
+                        (
+                            nalgebra::Point2::new(p1.x as f64, p1.y as f64),
+                            nalgebra::Point2::new(p2.x as f64, p2.y as f64),
+                        )
+                    })
+                    .collect();
+
+                if let Some(h_refined) = crate::panorama_utils::processing::compute_homography(&inlier_points) {
+                    let s1 = image_infos[i].scale_factor;
+                    let s2 = image_infos[j].scale_factor;
+                    let scale_mat_i_inv = nalgebra::Matrix3::new(1.0 / s1, 0.0, 0.0, 0.0, 1.0 / s1, 0.0, 0.0, 0.0, 1.0);
+                    let scale_mat_j = nalgebra::Matrix3::new(s2, 0.0, 0.0, 0.0, s2, 0.0, 0.0, 0.0, 1.0);
+                    let h_full = scale_mat_j * h_refined * scale_mat_i_inv;
+
+                    let match_info = crate::panorama_stitching::MatchInfo {
+                        homography: h_full,
+                        inliers: inliers.len(),
+                        inlier_matches: inliers,
+                    };
+                    return Some(((i, j), match_info));
+                }
+            }
+            None
+        })
+        .collect();
+
+    let mut pairwise_matches: HashMap<(usize, usize), crate::panorama_stitching::MatchInfo> = HashMap::new();
+    for (pair, info) in match_results.into_iter().flatten() {
+        pairwise_matches.insert(pair, info);
+    }
+
+    if pairwise_matches.is_empty() {
         return Err("Could not align enough overlapping HDR panels. Ensure at least 30% overlap between adjacent shots.".to_string());
     }
+
+    let (ordered_indices, global_homographies) = crate::panorama_stitching::build_stitching_order(&image_infos, &pairwise_matches);
+
+    if ordered_indices.len() < 2 {
+        return Err("Could not align enough overlapping HDR panels. Ensure at least 30% overlap between adjacent shots.".to_string());
+    }
+
+    let stitched_infos: Vec<&ImageInfo> = ordered_indices.iter().map(|&i| &image_infos[i]).collect();
 
     // Initialize camera poses and run bundle adjustment
     let avg_f = stitched_infos[0].image.width().max(stitched_infos[0].image.height()) as f64 * 1.25;
@@ -427,7 +489,39 @@ fn stitch_hdr_panels(
         camera_poses.push(pose);
     }
 
-    let pano = ray_traced_multiband_stitcher(&stitched_infos, &camera_poses, &[], projection, boundary_warp, app_handle.clone());
+    // Levenberg-Marquardt Bundle Adjustment on 3D camera poses for HDR panels
+    let mut tie_points: Vec<crate::panorama_utils::camera_model::MatchTiePoint> = Vec::new();
+    let index_map: HashMap<usize, usize> = ordered_indices.iter().enumerate().map(|(k, &id)| (id, k)).collect();
+
+    for (&(id1, id2), match_info) in &pairwise_matches {
+        if let (Some(&k1), Some(&k2)) = (index_map.get(&id1), index_map.get(&id2)) {
+            let s1 = image_infos[id1].scale_factor;
+            let s2 = image_infos[id2].scale_factor;
+            let f1 = &image_infos[id1].features;
+            let f2 = &image_infos[id2].features;
+
+            for m in &match_info.inlier_matches {
+                let p1 = f1[m.index1].keypoint;
+                let p2 = f2[m.index2].keypoint;
+
+                let p1_full = nalgebra::Point2::new(p1.x as f64 / s1, p1.y as f64 / s1);
+                let p2_full = nalgebra::Point2::new(p2.x as f64 / s2, p2.y as f64 / s2);
+
+                tie_points.push(crate::panorama_utils::camera_model::MatchTiePoint {
+                    img1: k1,
+                    img2: k2,
+                    p1: p1_full,
+                    p2: p2_full,
+                });
+            }
+        }
+    }
+
+    if !tie_points.is_empty() {
+        crate::panorama_utils::camera_model::bundle_adjust_poses(&mut camera_poses, &tie_points, 15);
+    }
+
+    let pano = ray_traced_multiband_stitcher(&stitched_infos, &camera_poses, &[], projection, boundary_warp, app_handle);
     Ok(pano)
 }
 
@@ -450,5 +544,28 @@ mod tests {
         assert!(!groups.is_empty(), "Should generate bracket groups");
         let total_clustered: usize = groups.iter().map(|g| g.paths.len()).sum();
         assert_eq!(total_clustered, 6, "All 6 photos must be assigned to bracket groups without data loss");
+    }
+
+    #[test]
+    fn test_hdr_to_feature_grayscale_contrast_and_texture() {
+        let mut hdr_panel = Rgb32FImage::new(100, 100);
+        for y in 0..100 {
+            for x in 0..100 {
+                // Wide dynamic range from deep shadow (0.005) to highlight (8.5)
+                let lum = 0.005 + (x as f32 / 100.0) * 8.5;
+                hdr_panel.put_pixel(x, y, image::Rgb([lum, lum, lum]));
+            }
+        }
+
+        let gray = hdr_to_feature_grayscale(&hdr_panel);
+        let min_val = gray.iter().copied().min().unwrap();
+        let max_val = gray.iter().copied().max().unwrap();
+
+        assert_eq!(min_val, 0, "Grayscale floor should be mapped to 0");
+        assert_eq!(max_val, 255, "Grayscale ceiling should reach 255 for feature contrast");
+
+        // Check that 18% gray (approx 0.18) is mapped into middle range rather than crushed near 0
+        let mid_pixel = gray.get_pixel(50, 50)[0];
+        assert!(mid_pixel > 80, "Midtone details must be lifted above dark floor for ORB detector, got {}", mid_pixel);
     }
 }

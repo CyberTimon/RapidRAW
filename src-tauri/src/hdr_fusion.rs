@@ -1037,6 +1037,16 @@ pub fn fuse_exposures_linear_radiance<R: tauri::Runtime>(
     Ok(result.tone_mapped_preview)
 }
 
+#[inline]
+fn to_srgb(x: f32) -> f32 {
+    let xc = x.clamp(0.0, 1.0);
+    if xc <= 0.0031308 {
+        xc * 12.92
+    } else {
+        1.055 * xc.powf(1.0 / 2.4) - 0.055
+    }
+}
+
 fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
     frames: &[Rgb32FImage],
     exposure_scales: &[f32],
@@ -1070,23 +1080,6 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
     let mut working_frames: Vec<Rgb32FImage> = frames.to_vec();
     normalize_bracket_white_balance(&mut working_frames, ref_idx);
 
-    let to_linear = |x: f32| -> f32 {
-        let xc = x.clamp(0.0, 1.0);
-        if xc <= 0.04045 {
-            xc / 12.92
-        } else {
-            ((xc + 0.055) / 1.055).powf(2.4)
-        }
-    };
-
-    let to_srgb = |x: f32| -> f32 {
-        let xc = x.clamp(0.0, 1.0);
-        if xc <= 0.0031308 {
-            xc * 12.92
-        } else {
-            1.055 * xc.powf(1.0 / 2.4) - 0.055
-        }
-    };
 
     let radiance_weight = |z: f32| -> f32 {
         if z <= 0.015 {
@@ -1140,9 +1133,9 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
                     let scale = exposure_scales[k].max(1e-5);
                     let inv_scale = ref_scale / scale;
 
-                    let mut lin_r = to_linear(r) * inv_scale;
-                    let mut lin_g = to_linear(g) * inv_scale;
-                    let mut lin_b = to_linear(b) * inv_scale;
+                    let mut lin_r = r * inv_scale;
+                    let mut lin_g = g * inv_scale;
+                    let mut lin_b = b * inv_scale;
 
                     // Single-Channel Highlight Reconstruction & Chromatic Infilling
                     // If one or two channels clip near 1.0 but others are intact, estimate the true clipped channel slope
@@ -1217,6 +1210,51 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
             }
         });
 
+    let mut linear_radiance = Rgb32FImage::new(w, h);
+    {
+        let lin_raw = linear_radiance.as_mut();
+        lin_raw
+            .par_chunks_mut(row_stride * 3)
+            .enumerate()
+            .for_each(|(y, row)| {
+                for x in 0..row_stride {
+                    let pixel_idx = y * row_stride + x;
+                    let out_idx = x * 3;
+                    row[out_idx] = radiance_r[pixel_idx].max(0.0);
+                    row[out_idx + 1] = radiance_g[pixel_idx].max(0.0);
+                    row[out_idx + 2] = radiance_b[pixel_idx].max(0.0);
+                }
+            });
+    }
+
+    let tone_mapped_preview = tone_map_radiance_image::<R>(&linear_radiance, options, app_handle);
+
+    Ok(HdrFusionResult {
+        linear_radiance,
+        tone_mapped_preview,
+    })
+}
+
+/// Applies 3-Tier Multi-Scale Decomposition, Scene-Adaptive Keying, ARRI LogC4 highlight roll-off,
+/// and Oklab perceptual grading directly to a 32-bit linear radiance composite image.
+pub fn tone_map_radiance_image<R: tauri::Runtime>(
+    radiance: &Rgb32FImage,
+    options: &HdrMergeOptions,
+    app_handle: Option<&tauri::AppHandle<R>>,
+) -> Rgb32FImage {
+    let (w, h) = radiance.dimensions();
+    let num_pixels = (w * h) as usize;
+    let row_stride = w as usize;
+
+    let mut radiance_r = Vec::with_capacity(num_pixels);
+    let mut radiance_g = Vec::with_capacity(num_pixels);
+    let mut radiance_b = Vec::with_capacity(num_pixels);
+    for chunk in radiance.as_raw().chunks_exact(3) {
+        radiance_r.push(chunk[0]);
+        radiance_g.push(chunk[1]);
+        radiance_b.push(chunk[2]);
+    }
+
     // Optical Veiling Glare / Lens Flare Deconvolution Floor Subtraction
     let mut min_scene_luma = f32::MAX;
     for i in (0..num_pixels).step_by(64) {
@@ -1288,10 +1326,15 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
     let scene_ev_range = (max_ev - min_ev).max(1.0);
     let comp_factor = (target_ev_range / scene_ev_range).min(1.0);
     
-    // Perceptual Middle Gray Anchoring (Zone V, 18% linear reflectance = -2.47 EV)
-    // Anchors scene median to natural 45-50% sRGB presentation with graceful highlight compression and shadow lift
-    let target_mid_ev = -2.47f32;
+    // Reinhard-Mantiuk Scene-Adaptive Photometric Keying (Zones 0–X)
+    let key_alpha = 0.18 * (2.0f32).powf(((2.0 * mid_ev - min_ev - max_ev) / (max_ev - min_ev).max(0.5)).clamp(-2.0, 2.0));
+    let key_adaptation = (0.18 - key_alpha).max(0.0) / 0.18;
+    let target_mid_ev = -1.65f32 + key_adaptation * 1.65;
     let comp_offset = target_mid_ev - mid_ev * comp_factor;
+    let shadow_knee = -2.20f32 + key_adaptation * 1.50;
+
+    println!(">>> HDR EV PARAMS: min={:.2}, mid={:.2}, max={:.2}, range={:.2}, comp_factor={:.2}, key_alpha={:.4}, target_mid={:.2}, comp_offset={:.2}",
+        min_ev, mid_ev, max_ev, scene_ev_range, comp_factor, key_alpha, target_mid_ev, comp_offset);
 
     let mut output = Rgb32FImage::new(w, h);
     let out_raw = output.as_mut();
@@ -1313,7 +1356,6 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
 
                 // 3. Compress Coarse Base Illumination to display dynamic range with Perceptual Shadow Lift
                 let mut comp_base_ev = b_coarse * comp_factor + comp_offset;
-                let shadow_knee = -4.2f32;
                 if comp_base_ev < shadow_knee {
                     let underflow = shadow_knee - comp_base_ev;
                     let lift_strength = 0.55 + 0.35 * shadow_lift;
@@ -1321,7 +1363,6 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
                 }
 
                 // Ansel Adams 11-Zone Micro-Contrast Dynamic Equalization (Zones 0-X)
-                // Zone V is 18% middle gray; boost tactile detail in midtones (Zones IV-VI)
                 let zone = ((b_coarse - min_ev) / scene_ev_range * 10.0).clamp(0.0, 10.0);
                 let zone_midtone_weight = (-(zone - 5.0).powi(2) / 4.5).exp();
                 let dynamic_detail_boost = detail_boost * (1.0 + 0.22 * zone_midtone_weight);
@@ -1354,7 +1395,7 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
                 let g_lin = (radiance_g[pixel_idx] * gain).max(0.0);
                 let b_lin = (radiance_b[pixel_idx] * gain).max(0.0);
 
-                // 6. Oklab Perceptual Color Space Tone Compression (Pure Hue & Saturation Constancy)
+                // 6. Oklab Perceptual Color Space Tone Compression
                 let (l_ok, a_ok, b_ok) = linear_srgb_to_oklab(r_lin, g_lin, b_lin);
                 let (target_l_ok, _, _) = linear_srgb_to_oklab(filmic_luma, filmic_luma, filmic_luma);
 
@@ -1375,31 +1416,9 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
             }
         });
 
-    // Polish with perceptual Oklab color grading
     let profile = options.profile.unwrap_or(HdrToneProfile::Natural);
     apply_stock_grade_tone_profile(&mut output, profile);
-
-    let mut linear_radiance = Rgb32FImage::new(w, h);
-    {
-        let lin_raw = linear_radiance.as_mut();
-        lin_raw
-            .par_chunks_mut(row_stride * 3)
-            .enumerate()
-            .for_each(|(y, row)| {
-                for x in 0..row_stride {
-                    let pixel_idx = y * row_stride + x;
-                    let out_idx = x * 3;
-                    row[out_idx] = radiance_r[pixel_idx].max(0.0);
-                    row[out_idx + 1] = radiance_g[pixel_idx].max(0.0);
-                    row[out_idx + 2] = radiance_b[pixel_idx].max(0.0);
-                }
-            });
-    }
-
-    Ok(HdrFusionResult {
-        linear_radiance,
-        tone_mapped_preview: output,
-    })
+    output
 }
 
 #[cfg(test)]

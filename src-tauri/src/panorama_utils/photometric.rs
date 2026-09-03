@@ -487,6 +487,7 @@ pub fn multiband_laplacian_blend_roi(
 
 /// Mertens-Kautz-Van Reeth Multiscale Exposure Fusion
 /// Blends bracketed HDR exposures by computing local Contrast, Saturation, and Well-Exposedness metrics.
+#[allow(dead_code)]
 pub fn compute_mertens_exposure_fusion(
     exposures: &[Rgb32FImage],
     w_contrast: f32,
