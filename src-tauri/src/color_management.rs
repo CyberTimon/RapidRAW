@@ -8,8 +8,9 @@
 //!
 //! The profile is extracted at decode time and carried alongside the image so
 //! the renderer can resolve white balance per adjustment without re-decoding.
-//! The develop path itself still runs rawler's own calibration — switching it
-//! to camera-native output has to land together with the shader change.
+//! With a profile present the buffer is camera-native, and every consumer of
+//! it has to apply the transform: the GPU path through `apply_to_render`, the
+//! CPU path through `develop_to_working`.
 #![allow(dead_code)]
 
 use rawcolor::{
@@ -306,6 +307,58 @@ pub fn apply_to_render(
     }
 }
 
+/// Apply the color-managed white balance on the CPU.
+///
+/// The same arithmetic as `apply_camera_color` in the shader, for consumers
+/// that read the camera-native buffer without rendering it on the GPU:
+/// thumbnails and the auto-adjustment analysis. Keep the two in step.
+pub fn develop_to_working(
+    image: &image::DynamicImage,
+    info: &CameraColorInfo,
+    js_adjustments: &serde_json::Value,
+) -> image::DynamicImage {
+    use rayon::prelude::*;
+
+    let (cct, duv) = target_temp_tint(info, js_adjustments);
+    let Some(resolved) = info.resolve(cct, duv) else {
+        return image.clone();
+    };
+    let [gain_r, gain_g, gain_b] = resolved.coefficients;
+    let limit = resolved.highlight_compression.max(1.01);
+    let cols = resolved.camera_to_working;
+
+    let mut buffer = image.to_rgba32f();
+    let samples: &mut [f32] = &mut buffer;
+    samples.par_chunks_mut(4).for_each(|px| {
+        let balanced = roll_off_highlights([px[0] * gain_r, px[1] * gain_g, px[2] * gain_b], limit);
+        for (channel, out) in px.iter_mut().take(3).enumerate() {
+            *out = cols[0][channel] * balanced[0]
+                + cols[1][channel] * balanced[1]
+                + cols[2][channel] * balanced[2];
+        }
+    });
+    image::DynamicImage::ImageRgba32F(buffer)
+}
+
+/// Highlight roll-off, mirroring the shader: above 1.0, compress toward the
+/// darkest channel so a blown pixel lands on neutral, then put the original
+/// brightness back.
+fn roll_off_highlights(balanced: [f32; 3], limit: f32) -> [f32; 3] {
+    let max_c = balanced[0].max(balanced[1]).max(balanced[2]);
+    if max_c <= 1.0 {
+        return balanced;
+    }
+    let min_c = balanced[0].min(balanced[1]).min(balanced[2]);
+    let factor = (1.0 - (max_c - 1.0) / (limit - 1.0)).clamp(0.0, 1.0);
+    let compressed = balanced.map(|c| min_c + (c - min_c) * factor);
+    let compressed_max = compressed[0].max(compressed[1]).max(compressed[2]);
+    if compressed_max > 1e-6 {
+        compressed.map(|c| c * (max_c / compressed_max))
+    } else {
+        [max_c; 3]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -367,8 +420,8 @@ mod tests {
 
     #[test]
     fn four_color_matrices_are_declined() {
-        assert!(to_mat3(&vec![0.5; 12]).is_none());
-        assert!(to_mat3(&vec![0.5; 3]).is_none());
+        assert!(to_mat3(&[0.5; 12]).is_none());
+        assert!(to_mat3(&[0.5; 3]).is_none());
     }
 
     #[test]
@@ -673,5 +726,55 @@ mod tests {
         let max = working.max_component();
         assert!((working.x() / max - working.y() / max).abs() < 1e-6);
         assert!((working.y() / max - working.z() / max).abs() < 1e-6);
+    }
+
+    #[test]
+    fn cpu_develop_honours_the_shader_contract() {
+        let info = CameraColorInfo {
+            profile: profile_from_map(vec![
+                (Illuminant::A, tungsten_flat()),
+                (Illuminant::D65, daylight_flat()),
+            ])
+            .unwrap(),
+            as_shot_coefficients: None,
+            as_shot_temp_tint: Some(TempTint::new(3200.0, 0.0)),
+            highlight_compression: 2.5,
+        };
+        let [r, g, b] = info.resolve_as_shot().unwrap().coefficients;
+
+        // Camera white, camera grey, and a pixel blown past the roll-off limit.
+        let mut buffer = image::Rgba32FImage::new(3, 1);
+        buffer.put_pixel(0, 0, image::Rgba([1.0 / r, 1.0 / g, 1.0 / b, 1.0]));
+        buffer.put_pixel(1, 0, image::Rgba([0.5 / r, 0.5 / g, 0.5 / b, 1.0]));
+        buffer.put_pixel(2, 0, image::Rgba([2.0 / r, 3.0 / g, 2.0 / b, 1.0]));
+
+        let developed = develop_to_working(
+            &image::DynamicImage::ImageRgba32F(buffer),
+            &info,
+            &serde_json::json!({}),
+        )
+        .to_rgba32f();
+
+        let white = developed.get_pixel(0, 0).0;
+        let grey = developed.get_pixel(1, 0).0;
+        let blown = developed.get_pixel(2, 0).0;
+        for c in &white[..3] {
+            assert!((c - 1.0).abs() < 1e-4, "camera white became {white:?}");
+        }
+        for c in &grey[..3] {
+            assert!((c - 0.5).abs() < 1e-4, "camera grey became {grey:?}");
+        }
+        // Past the limit everything collapses to neutral at the brightness of
+        // the hottest channel, which is what keeps blown highlights from going
+        // magenta.
+        assert!(
+            (blown[0] - blown[1]).abs() < 1e-4 && (blown[1] - blown[2]).abs() < 1e-4,
+            "blown pixel became {blown:?}"
+        );
+        assert!(
+            (blown[0] - 3.0).abs() < 1e-3,
+            "blown pixel became {blown:?}"
+        );
+        assert!((developed.get_pixel(0, 0).0[3] - 1.0).abs() < 1e-6);
     }
 }

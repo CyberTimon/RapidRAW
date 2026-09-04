@@ -3509,16 +3509,25 @@ pub fn auto_results_to_json(results: &AutoAdjustmentResults) -> serde_json::Valu
 pub fn calculate_auto_adjustments(
     state: tauri::State<AppState>,
 ) -> Result<serde_json::Value, String> {
-    let original_image = state
+    let loaded = state
         .original_image
         .lock()
         .unwrap()
-        .as_ref()
-        .ok_or("No image loaded for auto adjustments")?
-        .image
-        .clone();
+        .clone()
+        .ok_or("No image loaded for auto adjustments")?;
 
-    let results = perform_auto_analysis(&original_image);
+    // The analysis wants developed pixels. With a profile the buffer is
+    // camera-native, so develop it at the as-shot balance first.
+    let analysed: Cow<DynamicImage> = match loaded.color_info.as_ref() {
+        Some(info) => Cow::Owned(crate::color_management::develop_to_working(
+            &loaded.image,
+            info,
+            &json!({}),
+        )),
+        None => Cow::Borrowed(loaded.image.as_ref()),
+    };
+
+    let results = perform_auto_analysis(&analysed);
 
     Ok(auto_results_to_json(&results))
 }
