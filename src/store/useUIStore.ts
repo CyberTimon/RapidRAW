@@ -28,6 +28,7 @@ interface ConfirmModalState {
   confirmVariant?: string;
   isOpen: boolean;
   message?: string;
+  onCancel?(): void;
   onConfirm?(): void;
   title?: string;
 }

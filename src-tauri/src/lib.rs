@@ -14,6 +14,7 @@ mod app_settings;
 mod app_state;
 mod cache_utils;
 mod camera_tethering;
+mod converted_input;
 mod culling;
 mod denoising;
 mod exif_processing;

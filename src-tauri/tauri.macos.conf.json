@@ -1,5 +1,58 @@
 {
   "bundle": {
+    "fileAssociations": [
+      {
+        "ext": [
+          "dng",
+          "pro",
+          "ari",
+          "crw",
+          "cr2",
+          "cr3",
+          "bay",
+          "raw",
+          "erf",
+          "raf",
+          "3fr",
+          "fff",
+          "iiq",
+          "kdc",
+          "k25",
+          "dcs",
+          "dcr",
+          "mos",
+          "rwl",
+          "mef",
+          "mrw",
+          "nef",
+          "nrw",
+          "orf",
+          "rw2",
+          "pef",
+          "ptx",
+          "srw",
+          "x3f",
+          "arw",
+          "srf",
+          "sr2",
+          "jpg",
+          "jpeg",
+          "png",
+          "gif",
+          "bmp",
+          "tiff",
+          "tif",
+          "exr",
+          "qoi",
+          "hif",
+          "heic",
+          "heif"
+        ],
+        "name": "Image",
+        "description": "Image file",
+        "role": "Editor"
+      }
+    ],
     "macOS": {
       "minimumSystemVersion": "13.0"
     }

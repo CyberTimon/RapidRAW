@@ -247,6 +247,7 @@ export interface AppSettings {
   groupEditedFiles?: boolean;
   groupPreferredType?: GroupPreference; // legacy
   alwaysDecodeRawThumbnails?: boolean;
+  convertedInputDisclosureVersion?: number;
   workspace?: WorkspaceState;
 }
 
@@ -349,6 +350,7 @@ export interface SortCriteria {
 }
 
 export interface SupportedTypes {
+  convertedInput: Array<string>;
   nonRaw: Array<string>;
   raw: Array<string>;
 }

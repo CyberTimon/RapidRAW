@@ -2164,11 +2164,13 @@ pub fn get_supported_file_types() -> Result<serde_json::Value, String> {
         .iter()
         .map(|(ext, _)| *ext)
         .collect();
-    let non_raw_extensions: Vec<&str> = crate::formats::NON_RAW_EXTENSIONS.to_vec();
+    let non_raw_extensions: Vec<&str> = crate::formats::supported_non_raw_extensions().collect();
+    let converted_input_extensions: Vec<&str> = crate::formats::CONVERTED_INPUT_EXTENSIONS.to_vec();
 
     Ok(serde_json::json!({
         "raw": raw_extensions,
-        "nonRaw": non_raw_extensions
+        "nonRaw": non_raw_extensions,
+        "convertedInput": converted_input_extensions
     }))
 }
 
