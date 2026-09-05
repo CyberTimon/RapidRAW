@@ -816,7 +816,10 @@
     },
     "file": {
       "quality": "Qualité",
-      "qualityLossless": "Qualité (Sans perte)"
+      "qualityLossless": "Qualité (Sans perte)",
+      "tiffBitDepth": "Profondeur de bits TIFF",
+      "tiffBitDepth8": "8 bits",
+      "tiffBitDepth16": "16 bits"
     },
     "labels": {
       "image": "Image",

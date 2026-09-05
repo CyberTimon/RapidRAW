@@ -1681,6 +1681,10 @@ pub fn run() {
 
     let args: Vec<String> = std::env::args().skip(1).collect();
     let launch_req = parse_launch_args(&args);
+    if let LaunchRequest::InvalidHeadless(error) = &launch_req {
+        eprintln!("Headless export failed: {}", error);
+        std::process::exit(2);
+    }
     let is_headless = matches!(launch_req, LaunchRequest::HeadlessExport(_));
 
     let mut builder = tauri::Builder::default();
@@ -1868,22 +1872,26 @@ pub fn run() {
                 );
             }
 
-            if let LaunchRequest::HeadlessExport(session) = launch_req {
-                let app_handle_clone = app_handle.clone();
-                tauri::async_runtime::spawn(async move {
-                    match crate::export_processing::run_headless_export(session, app_handle_clone.clone()).await {
-                        Ok(_) => {
-                            println!("Headless export completed successfully.");
-                            app_handle_clone.exit(0);
+            match launch_req {
+                LaunchRequest::HeadlessExport(session) => {
+                    let app_handle_clone = app_handle.clone();
+                    tauri::async_runtime::spawn(async move {
+                        match crate::export_processing::run_headless_export(session, app_handle_clone.clone()).await {
+                            Ok(_) => {
+                                println!("Headless export completed successfully.");
+                                app_handle_clone.exit(0);
+                            }
+                            Err(e) => {
+                                eprintln!("Headless export failed: {}", e);
+                                app_handle_clone.exit(1);
+                            }
                         }
-                        Err(e) => {
-                            eprintln!("Headless export failed: {}", e);
-                            app_handle_clone.exit(1);
-                        }
-                    }
-                });
+                    });
 
-                return Ok(());
+                    return Ok(());
+                }
+                LaunchRequest::InvalidHeadless(_) => unreachable!("invalid headless arguments exit before app setup"),
+                _ => {}
             }
 
             start_preview_worker(app_handle.clone());

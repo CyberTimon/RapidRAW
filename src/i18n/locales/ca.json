@@ -794,7 +794,10 @@
     },
     "file": {
       "quality": "Qualitat",
-      "qualityLossless": "Qualitat (Sense pèrdua)"
+      "qualityLossless": "Qualitat (Sense pèrdua)",
+      "tiffBitDepth": "Profunditat de bits TIFF",
+      "tiffBitDepth8": "8 bits",
+      "tiffBitDepth16": "16 bits"
     },
     "labels": {
       "image": "Imatge",

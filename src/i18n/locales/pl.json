@@ -838,7 +838,10 @@
     },
     "file": {
       "quality": "Jakość",
-      "qualityLossless": "Jakość (Bezstratna)"
+      "qualityLossless": "Jakość (Bezstratna)",
+      "tiffBitDepth": "Głębia bitowa TIFF",
+      "tiffBitDepth8": "8 bitów",
+      "tiffBitDepth16": "16 bitów"
     },
     "labels": {
       "image": "Obraz",

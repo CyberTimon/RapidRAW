@@ -792,7 +792,10 @@
     },
     "file": {
       "quality": "画質",
-      "qualityLossless": "画質 (ロスレス)"
+      "qualityLossless": "画質 (ロスレス)",
+      "tiffBitDepth": "TIFF ビット深度",
+      "tiffBitDepth8": "8 ビット",
+      "tiffBitDepth16": "16 ビット"
     },
     "labels": {
       "image": "画像",
