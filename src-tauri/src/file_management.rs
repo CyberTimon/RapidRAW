@@ -1527,7 +1527,11 @@ pub fn generate_thumbnail_data(
             let mut raw_scale_factor = 1.0f32;
 
             let composite_image = if let Some(img) = preloaded_image {
-                image_loader::composite_patches_on_image(img, &adjustments)?
+                image_loader::composite_patches_on_image(
+                    img,
+                    &adjustments,
+                    Some(source_path_str.as_str()),
+                )?
             } else {
                 let mmap_guard;
                 let vec_guard;
@@ -1572,8 +1576,11 @@ pub fn generate_thumbnail_data(
                 img
             };
 
-            let warped_image =
-                apply_geometry_warp(Cow::Borrowed(&composite_image), &meta.adjustments);
+            let warped_image = apply_geometry_warp(
+                Cow::Borrowed(&composite_image),
+                &meta.adjustments,
+                Some(source_path_str.as_str()),
+            );
 
             let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, &meta.adjustments);
 
@@ -1726,7 +1733,7 @@ pub fn generate_thumbnail_data(
     }
 
     let mut final_image = if let Some(img) = preloaded_image {
-        image_loader::composite_patches_on_image(img, &adjustments)?
+        image_loader::composite_patches_on_image(img, &adjustments, Some(source_path_str.as_str()))?
     } else {
         match read_file_mapped(&source_path) {
             Ok(mmap) => image_loader::load_and_composite(
@@ -2072,7 +2079,16 @@ pub fn resolve_lens_params_in_adjustments(
         let mode = map
             .get("lensCorrectionMode")
             .and_then(|v| v.as_str())
-            .unwrap_or("manual");
+            .unwrap_or("manual")
+            .to_string();
+
+        if mode == "embedded" {
+            // The values come from the RAW file. A stale Lensfun entry would
+            // otherwise apply on top of them.
+            map.remove("lensMaker");
+            map.remove("lensModel");
+            map.remove("lensDistortionParams");
+        }
 
         if mode == "auto" {
             if let Some(exif) = exif_data {

@@ -416,7 +416,7 @@ fn process_image_for_export_pipeline(
     app_handle: &tauri::AppHandle,
 ) -> Result<DynamicImage, String> {
     let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
+        apply_all_transformations(Cow::Borrowed(base_image), js_adjustments, Some(path));
     let (img_w, img_h) = transformed_image.dimensions();
 
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -685,8 +685,11 @@ fn export_masks_for_image(
     cancellation_token: &AtomicBool,
 ) -> Result<(), String> {
     ensure_export_not_cancelled(cancellation_token)?;
-    let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
+    let (transformed_image, unscaled_crop_offset) = apply_all_transformations(
+        Cow::Borrowed(base_image),
+        js_adjustments,
+        Some(source_path_str),
+    );
     ensure_export_not_cancelled(cancellation_token)?;
     let (img_w, img_h) = transformed_image.dimensions();
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
@@ -1083,10 +1086,12 @@ pub(crate) async fn export_images_impl(
 
                     let base_image = if is_current_edit {
                         match crate::get_original_image(&state) {
-                            Ok((orig_data_arc, _)) => {
-                                composite_patches_on_image(&orig_data_arc, &js_adjustments)
-                                    .map_err(|e| format!("Failed to composite AI patches: {}", e))?
-                            }
+                            Ok((orig_data_arc, _)) => composite_patches_on_image(
+                                &orig_data_arc,
+                                &js_adjustments,
+                                Some(source_path_str.as_str()),
+                            )
+                            .map_err(|e| format!("Failed to composite AI patches: {}", e))?,
                             Err(_) => {
                                 let bytes =
                                     fs::read(&source_path_str).map_err(|e| e.to_string())?;
@@ -1539,8 +1544,11 @@ pub async fn estimate_export_sizes(
         )?;
         let preview_byte_size = preview_bytes.len();
 
-        let (transformed_full_res, _) =
-            apply_all_transformations(&loaded_image.image, &adjustments_clone);
+        let (transformed_full_res, _) = apply_all_transformations(
+            &loaded_image.image,
+            &adjustments_clone,
+            Some(loaded_image.path.as_str()),
+        );
         let (full_w, full_h) = transformed_full_res.dimensions();
 
         let (final_full_w, final_full_h) = if let Some(resize_opts) = &export_settings.resize {
@@ -1603,8 +1611,11 @@ pub async fn estimate_export_sizes(
             .unwrap_or(serde_json::Value::Null);
         }
 
-        let (transformed_shrunk_res, unscaled_crop_offset) =
-            apply_all_transformations(Cow::Borrowed(&original_image), &js_adjustments);
+        let (transformed_shrunk_res, unscaled_crop_offset) = apply_all_transformations(
+            Cow::Borrowed(&original_image),
+            &js_adjustments,
+            Some(source_path_str.as_str()),
+        );
         let (shrunk_w, shrunk_h) = transformed_shrunk_res.dimensions();
 
         let preview_base = if shrunk_w > ESTIMATE_DIM || shrunk_h > ESTIMATE_DIM {

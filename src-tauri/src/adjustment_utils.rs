@@ -93,10 +93,11 @@ pub fn hydrate_adjustments(state: &tauri::State<AppState>, adjustments: &mut ser
 pub fn apply_all_transformations<'a, I: IntoCowImage<'a>>(
     image: I,
     adjustments: &serde_json::Value,
+    source_path: Option<&str>,
 ) -> (Cow<'a, DynamicImage>, (f32, f32)) {
     let start_time = std::time::Instant::now();
     let image = image.into_cow();
-    let warped_image = apply_geometry_warp(image, adjustments);
+    let warped_image = apply_geometry_warp(image, adjustments, source_path);
     let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, adjustments);
 
     let orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;

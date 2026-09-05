@@ -114,6 +114,17 @@ enum TransformAdjustment {
   TransformYOffset = 'transformYOffset',
 }
 
+/**
+ * Summary of the correction data that is embedded in the RAW file.
+ * The backend command `get_embedded_lens_profile` returns this data.
+ */
+export interface EmbeddedLensProfileInfo {
+  source: string;
+  hasDistortion: boolean;
+  hasTca: boolean;
+  hasVignette: boolean;
+}
+
 export enum LensAdjustment {
   LensCorrectionMode = 'lensCorrectionMode',
   LensMaker = 'lensMaker',
@@ -213,7 +224,7 @@ export interface Adjustments {
   lensBlurMaxFade: number;
   lensBlurMinDepth: number;
   lensBlurMinFade: number;
-  lensCorrectionMode: 'auto' | 'manual';
+  lensCorrectionMode: 'auto' | 'embedded' | 'manual';
   lensDistortionAmount: number;
   lensVignetteAmount: number;
   lensTcaAmount: number;
