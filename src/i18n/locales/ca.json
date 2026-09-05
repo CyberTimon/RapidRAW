@@ -176,6 +176,10 @@
       "red": "Vermell",
       "yellow": "Groc"
     },
+    "dialogs": {
+      "importXmpAdjustmentsTitle": "Importar ajustaments XMP",
+      "xmpSidecar": "Fitxer XMP"
+    },
     "editor": {
       "autoAdjust": "Ajustament automàtic",
       "autoLensCorrection": "Correcció d'objectiu automàtica",
@@ -189,6 +193,7 @@
       "editImage": "Editar imatge",
       "exportImage": "Exportar imatge",
       "frameImage": "Emmarcar imatge",
+      "importXmpAdjustments": "Importar ajustaments XMP",
       "mergeHdr": "Fusionar a HDR",
       "noLabel": "Sense etiqueta",
       "noRating": "Sense puntuació",
@@ -210,6 +215,7 @@
       "copyHere_other": "Copiar {{count}} imatges aquí",
       "deleteFolder": "Eliminar carpeta",
       "importImages": "Importar imatges",
+      "importMatchingXmpSidecars": "Importar ajustaments XMP",
       "moveHere_one": "Moure imatge aquí",
       "moveHere_other": "Moure {{count}} imatges aquí",
       "newFolder": "Nova carpeta",
@@ -262,6 +268,7 @@
       "duplicateImage": "Duplicar imatge",
       "exportImage_one": "Exportar imatge",
       "exportImage_other": "Exportar {{count}} imatges",
+      "importXmpAdjustments": "Importar ajustaments XMP",
       "noAlbums": "Cap àlbum disponible",
       "pasteAdjustments_one": "Enganxar ajustaments",
       "pasteAdjustments_other": "Enganxar ajustaments a {{count}} imatges",
@@ -275,6 +282,15 @@
       "showExplorer": "Mostrar a l'Explorador de fitxers",
       "virtualCopy": "Còpia virtual"
     },
+    "xmpImportReport": {
+      "available": "Informe d'importació XMP: {{unchanged}} sense canvis, {{failed}} amb error. Feu clic per veure'n els detalls.",
+      "copied": "S'ha copiat l'informe d'importació.",
+      "copy": "Copiar l'informe",
+      "failed": "Amb error ({{total}})",
+      "folder": "Carpeta: {{folder}}",
+      "title": "Informe d'importació XMP",
+      "unchanged": "No importats — sense canvis compatibles ({{total}})"
+    },
     "toasts": {
       "couldNotShowExplorer": "No s'ha pogut mostrar el fitxer a l'explorador: {{err}}",
       "couldNotShowFolder": "No s'ha pogut mostrar la carpeta: {{err}}",
@@ -286,10 +302,22 @@
       "failedDelete": "No s'ha pogut eliminar: {{err}}",
       "failedDeleteFolder": "No s'ha pogut eliminar la carpeta: {{err}}",
       "failedDuplicate": "No s'ha pogut duplicar el fitxer: {{err}}",
+      "failedImportMatchingXmpSidecars": "No s'han pogut importar els fitxers XMP coincidents: {{err}}",
+      "failedImportXmpAdjustments": "No s'han pogut importar els ajustaments XMP: {{err}}",
+      "failedMatchingXmpSidecars_one": "No s'ha pogut importar {{count}} fitxer XMP coincident.",
+      "failedMatchingXmpSidecars_many": "No s'han pogut importar {{count}} fitxers XMP coincidents.",
+      "failedMatchingXmpSidecars_other": "No s'han pogut importar {{count}} fitxers XMP coincidents.",
       "failedMove": "No s'han pogut moure els fitxers: {{err}}",
       "failedMoveError": "No s'ha pogut moure: {{err}}",
       "failedMoveInvalid": "No s'ha pogut moure: el grup de destinació no s'ha trobat o no és vàlid.",
-      "failedRemoveImages": "No s'han pogut treure les imatges: {{err}}"
+      "failedRemoveImages": "No s'han pogut treure les imatges: {{err}}",
+      "importedMatchingXmpSidecars_one": "S'ha importat {{count}} fitxer XMP coincident.",
+      "importedMatchingXmpSidecars_many": "S'han importat {{count}} fitxers XMP coincidents.",
+      "importedMatchingXmpSidecars_other": "S'han importat {{count}} fitxers XMP coincidents.",
+      "importedXmpAdjustments": "S'han importat els ajustaments XMP.",
+      "importingMatchingXmpSidecars": "S'estan important els fitxers XMP coincidents…",
+      "noMatchingXmpSidecars": "No s'ha trobat cap fitxer XMP coincident.",
+      "unchangedMatchingXmpSidecars": "S'han omès {{count}} fitxers XMP coincidents sense canvis importables."
     }
   },
   "editor": {

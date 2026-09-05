@@ -338,6 +338,7 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - [Showcase & Edits](#showcase--edits)
 - [The Idea](#the-idea)
 - [Key Features](#key-features)
+- [Importing Lightroom XMP Sidecars](#importing-lightroom-xmp-sidecars)
 - [Supported Formats, Lenses & Languages](#supported-formats-lenses--languages)
 - [Current Priorities](#current-priorities)
 - [AI Roadmap](#ai-roadmap)
@@ -532,6 +533,7 @@ Explore example edits processed entirely within RapidRAW. You can download the `
         <li><strong>Culling View:</strong> Compare images side-by-side with star ratings, color labels, and metadata.</li>
         <li><strong>Organization:</strong> Recursive folder view, virtual copies, color labels, star ratings, and custom tags.</li>
         <li><strong>File Operations:</strong> Import, copy, move, rename, and duplicate images/folders.</li>
+        <li><strong>Lightroom Migration:</strong> Import adjustments and metadata from matching Adobe Lightroom and Camera Raw <code>.xmp</code> sidecars.</li>
         <li><strong>Filmstrip View:</strong> Quickly navigate between images in your current folder while editing.</li>
         <li><strong>Batch Operations:</strong> Apply adjustments or export entire batches of images simultaneously.</li>
         <li><strong>EXIF Data & CLI:</strong> Full metadata viewer and headless CLI batch exporter for scripting/terminal use.</li>
@@ -565,6 +567,15 @@ Explore example edits processed entirely within RapidRAW. You can download the `
     </td>
   </tr>
 </table>
+
+## Importing Lightroom XMP Sidecars
+
+RapidRAW imports supported Adobe Lightroom and Camera Raw adjustments into its non-destructive `.rrdata` workflow. The original image remains unchanged.
+
+- To import one image, right-click it and choose **Import XMP Adjustments**. RapidRAW first looks for a same-name `.xmp` sidecar beside the image and opens a file picker if none is found.
+- To import a library tree, right-click a folder and choose **Import XMP Adjustments**. Images and sidecars are matched by filename within each folder, including nested folders.
+
+The importer supports current and legacy Lightroom process versions, crop and rotation (including EXIF-oriented crops), as-shot white balance, custom white balance when the XMP includes an explicit as-shot baseline, and rating, label, and keyword metadata. Lightroom and RapidRAW use different processing engines, so similarly named adjustment values may not produce pixel-identical results; calibrated adjustment conversion is planned separately.
 
 ## Supported Formats, Lenses & Languages
 
