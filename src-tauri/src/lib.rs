@@ -2213,16 +2213,40 @@ pub fn run() {
         .run(#[allow(unused_variables)] |app_handle, event| {
             match event {
                 #[cfg(target_os = "macos")]
-                tauri::RunEvent::Opened { urls } => {
-                    if let Some(url) = urls.first()
-                        && let Ok(path) = url.to_file_path()
-                        && let Some(path_str) = path.to_str()
-                    {
-                        let state = app_handle.state::<AppState>();
-                        *state.initial_file_path.lock().unwrap() = Some(path_str.to_string());
-                        log::info!("macOS initial open: Stored path {} for later.", path_str);
-                    }
-                }
+				tauri::RunEvent::Opened { urls } => {
+				    if let Some(url) = urls.first()
+				        && let Ok(path) = url.to_file_path()
+				        && let Some(path_str) = path.to_str()
+				    {
+				        let state = app_handle.state::<AppState>();
+
+				        if state
+				            .window_setup_complete
+				            .load(std::sync::atomic::Ordering::Relaxed)
+				        {
+				            if let Some(window) = app_handle.get_webview_window("main") {
+				                let _ = window.unminimize();
+				                let _ = window.show();
+				                let _ = window.set_focus();
+				            }
+
+				            log::info!("macOS runtime open: Opening {}.", path_str);
+
+				            emit_launch_request(
+				                app_handle,
+				                LaunchRequest::OpenFile(path_str.to_string()),
+				            );
+				        } else {
+				            *state.initial_file_path.lock().unwrap() =
+				                Some(path_str.to_string());
+
+				            log::info!(
+				                "macOS initial open: Stored path {} for later.",
+				                path_str
+				            );
+				        }
+				    }
+				}
                 tauri::RunEvent::ExitRequested { api, .. } => {
                     api.prevent_exit();
 
