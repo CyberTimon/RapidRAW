@@ -18,6 +18,7 @@ mod culling;
 mod denoising;
 mod exif_processing;
 mod export_processing;
+mod external_control;
 mod file_management;
 mod focus_stacking;
 mod formats;
@@ -1888,6 +1889,19 @@ pub fn run() {
 
             start_preview_worker(app_handle.clone());
             start_analytics_worker(app_handle.clone());
+            {
+                let enabled = settings.enable_external_control.unwrap_or(true);
+                let port = std::env::var("RAPIDRAW_CONTROL_PORT")
+                    .ok()
+                    .and_then(|v| v.parse::<u16>().ok())
+                    .or(settings.external_control_port)
+                    .unwrap_or(external_control::DEFAULT_PORT);
+                if enabled {
+                    external_control::start(app_handle.clone(), port);
+                } else {
+                    log::info!("External control: disabled in settings");
+                }
+            }
             file_management::start_thumbnail_workers(app_handle.clone());
             file_management::start_metadata_workers(app_handle.clone());
             jxl_oxide::integration::register_image_decoding_hook();
@@ -2052,6 +2066,7 @@ pub fn run() {
             crate::register_exit_handler();
             Ok(())
         })
+        .manage(external_control::ExternalControlState::new())
         .manage(AppState {
             window_setup_complete: AtomicBool::new(false),
             gpu_crash_flag_path: Mutex::new(None),
@@ -2092,6 +2107,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             apply_adjustments,
+            external_control::external_control_publish,
+            external_control::external_control_status,
             generate_preview_for_path,
             generate_preset_preview,
             generate_uncropped_preview,
