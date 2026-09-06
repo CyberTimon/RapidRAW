@@ -807,6 +807,12 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "destination": {
+      "customFolder": "Cartella personalizzata",
+      "originalFolder": "Cartella dell'immagine originale",
+      "subfolder": "Sottocartella",
+      "subfolderPlaceholder": "es. final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "Salva Immagine Modificata",
       "selectFolderTitle": "Seleziona Cartella per Esportare {{count}} Immagine(i)",
@@ -841,6 +847,7 @@
     },
     "sections": {
       "advanced": "Avanzate",
+      "destination": "Destinazione",
       "fileNaming": "Nomenclatura File",
       "fileSettings": "Impostazioni File",
       "imageSizing": "Dimensionamento Immagine",

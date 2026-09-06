@@ -807,6 +807,12 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "destination": {
+      "customFolder": "Pasta personalizada",
+      "originalFolder": "Pasta da imagem original",
+      "subfolder": "Subpasta",
+      "subfolderPlaceholder": "ex. final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "Salvar Imagem Editada",
       "selectFolderTitle": "Selecionar Pasta para Exportar {{count}} Imagem(ns)",
@@ -841,6 +847,7 @@
     },
     "sections": {
       "advanced": "Avançado",
+      "destination": "Destino",
       "fileNaming": "Nomeação de Arquivos",
       "fileSettings": "Configurações de Arquivo",
       "imageSizing": "Dimensionamento de Imagem",

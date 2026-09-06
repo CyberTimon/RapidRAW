@@ -784,6 +784,12 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "destination": {
+      "customFolder": "カスタムフォルダー",
+      "originalFolder": "元の画像フォルダー",
+      "subfolder": "サブフォルダー",
+      "subfolderPlaceholder": "例：final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "編集した画像を保存",
       "selectFolderTitle": "{{count}} 枚の画像を書き出すフォルダを選択",
@@ -817,6 +823,7 @@
     },
     "sections": {
       "advanced": "詳細設定",
+      "destination": "保存先",
       "fileNaming": "ファイル名の命名",
       "fileSettings": "ファイル設定",
       "imageSizing": "画像サイズ",

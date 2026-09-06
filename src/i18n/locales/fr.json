@@ -807,6 +807,12 @@
       "mb": "Mo",
       "tb": "To"
     },
+    "destination": {
+      "customFolder": "Dossier personnalisé",
+      "originalFolder": "Dossier de l'image d'origine",
+      "subfolder": "Sous-dossier",
+      "subfolderPlaceholder": "ex. final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "Enregistrer l'image modifiée",
       "selectFolderTitle": "Sélectionner le dossier pour exporter {{count}} image(s)",
@@ -841,6 +847,7 @@
     },
     "sections": {
       "advanced": "Avancé",
+      "destination": "Destination",
       "fileNaming": "Nommage des fichiers",
       "fileSettings": "Paramètres du fichier",
       "imageSizing": "Taille de l'image",

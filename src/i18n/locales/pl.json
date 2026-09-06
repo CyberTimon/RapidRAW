@@ -828,6 +828,12 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "destination": {
+      "customFolder": "Folder niestandardowy",
+      "originalFolder": "Folder oryginalnego obrazu",
+      "subfolder": "Podfolder",
+      "subfolderPlaceholder": "np. final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "Zapisz edytowany obraz",
       "selectFolderTitle": "Wybierz folder do eksportu {{count}} obrazów",
@@ -863,6 +869,7 @@
     },
     "sections": {
       "advanced": "Zaawansowane",
+      "destination": "Miejsce docelowe",
       "fileNaming": "Nazewnictwo plików",
       "fileSettings": "Ustawienia pliku",
       "imageSizing": "Rozmiar obrazu",

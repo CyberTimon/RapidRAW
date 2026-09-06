@@ -786,6 +786,12 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "destination": {
+      "customFolder": "Custom folder",
+      "originalFolder": "Original image folder",
+      "subfolder": "Subfolder",
+      "subfolderPlaceholder": "e.g. final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "Save Edited Image",
       "selectFolderTitle": "Select Folder to Export {{count}} Image(s)",
@@ -819,6 +825,7 @@
     },
     "sections": {
       "advanced": "Advanced",
+      "destination": "Destination",
       "fileNaming": "File Naming",
       "fileSettings": "File Settings",
       "imageSizing": "Image Sizing",

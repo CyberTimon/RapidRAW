@@ -786,6 +786,12 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "destination": {
+      "customFolder": "Benutzerdefinierter Ordner",
+      "originalFolder": "Ursprungsordner des Bildes",
+      "subfolder": "Unterordner",
+      "subfolderPlaceholder": "z. B. final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "Bearbeitetes Bild speichern",
       "selectFolderTitle": "Ordner zum Exportieren von {{count}} Bild(ern) auswählen",
@@ -819,6 +825,7 @@
     },
     "sections": {
       "advanced": "Erweitert",
+      "destination": "Zielort",
       "fileNaming": "Dateibenennung",
       "fileSettings": "Dateieinstellungen",
       "imageSizing": "Bildgröße",

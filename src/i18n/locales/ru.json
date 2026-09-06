@@ -828,6 +828,12 @@
       "mb": "МБ",
       "tb": "ТБ"
     },
+    "destination": {
+      "customFolder": "Пользовательская папка",
+      "originalFolder": "Папка исходного изображения",
+      "subfolder": "Вложенная папка",
+      "subfolderPlaceholder": "напр. final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "Сохранить измененное изображение",
       "selectFolderTitle": "Выберите папку для экспорта {{count}} изобр.",
@@ -863,6 +869,7 @@
     },
     "sections": {
       "advanced": "Дополнительно",
+      "destination": "Место назначения",
       "fileNaming": "Именование файлов",
       "fileSettings": "Параметры файла",
       "imageSizing": "Размер изображения",

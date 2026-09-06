@@ -784,6 +784,12 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "destination": {
+      "customFolder": "自訂資料夾",
+      "originalFolder": "原始影像資料夾",
+      "subfolder": "子資料夾",
+      "subfolderPlaceholder": "例如：final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "儲存編輯後的影像",
       "selectFolderTitle": "選擇資料夾以匯出 {{count}} 張影像",
@@ -817,6 +823,7 @@
     },
     "sections": {
       "advanced": "高階",
+      "destination": "目標位置",
       "fileNaming": "檔案命名",
       "fileSettings": "檔案設定",
       "imageSizing": "影像大小",

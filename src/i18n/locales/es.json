@@ -807,6 +807,12 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "destination": {
+      "customFolder": "Carpeta personalizada",
+      "originalFolder": "Carpeta de la imagen original",
+      "subfolder": "Subcarpeta",
+      "subfolderPlaceholder": "p. ej. final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "Guardar imagen editada",
       "selectFolderTitle": "Seleccionar carpeta para exportar {{count}} imagen(es)",
@@ -841,6 +847,7 @@
     },
     "sections": {
       "advanced": "Avanzado",
+      "destination": "Destino",
       "fileNaming": "Nomenclatura de archivos",
       "fileSettings": "Ajustes de archivo",
       "imageSizing": "Tamaño de imagen",

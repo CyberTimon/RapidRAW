@@ -245,6 +245,10 @@ pub struct ExportPreset {
     pub preserve_folders: Option<bool>,
     #[serde(default)]
     pub last_export_path: Option<String>,
+    #[serde(default)]
+    pub destination_type: Option<String>,
+    #[serde(default)]
+    pub subfolder: Option<String>,
 }
 
 pub fn default_export_presets() -> Vec<ExportPreset> {
@@ -270,6 +274,8 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             export_masks: Some(false),
             preserve_folders: Some(false),
             last_export_path: None,
+            destination_type: Some("customFolder".to_string()),
+            subfolder: Some("".to_string()),
         },
         ExportPreset {
             id: "default-fast".to_string(),
@@ -292,6 +298,8 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             export_masks: Some(false),
             preserve_folders: Some(false),
             last_export_path: None,
+            destination_type: Some("customFolder".to_string()),
+            subfolder: Some("".to_string()),
         },
     ]
 }

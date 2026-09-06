@@ -784,6 +784,12 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "destination": {
+      "customFolder": "自定义文件夹",
+      "originalFolder": "原始图像文件夹",
+      "subfolder": "子文件夹",
+      "subfolderPlaceholder": "例如：final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "保存编辑后的图像",
       "selectFolderTitle": "选择文件夹以导出 {{count}} 张图像",
@@ -817,6 +823,7 @@
     },
     "sections": {
       "advanced": "高级",
+      "destination": "目标位置",
       "fileNaming": "文件命名",
       "fileSettings": "文件设置",
       "imageSizing": "图像大小",

@@ -786,6 +786,12 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "destination": {
+      "customFolder": "Carpeta personalitzada",
+      "originalFolder": "Carpeta de la imatge original",
+      "subfolder": "Subcarpeta",
+      "subfolderPlaceholder": "p. ex. final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "Desar imatge editada",
       "selectFolderTitle": "Seleccioneu la carpeta per exportar {{count}} imatge/s",
@@ -819,6 +825,7 @@
     },
     "sections": {
       "advanced": "Avançat",
+      "destination": "Destinació",
       "fileNaming": "Nomenclatura de fitxers",
       "fileSettings": "Configuració del fitxer",
       "imageSizing": "Mida de la imatge",

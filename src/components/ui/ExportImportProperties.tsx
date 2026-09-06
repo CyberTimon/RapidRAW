@@ -44,6 +44,8 @@ export interface ExportSettings {
   watermark: WatermarkSettings | null;
   exportMasks?: boolean;
   preserveFolders?: boolean;
+  destinationType?: string;
+  subfolder?: string;
 }
 
 export enum WatermarkAnchor {
@@ -117,4 +119,6 @@ export interface ExportPreset {
   watermarkSpacing: number;
   watermarkOpacity: number;
   lastExportPath?: string;
+  destinationType?: string;
+  subfolder?: string;
 }

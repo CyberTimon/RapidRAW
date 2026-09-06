@@ -784,6 +784,12 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "destination": {
+      "customFolder": "사용자 지정 폴더",
+      "originalFolder": "원본 이미지 폴더",
+      "subfolder": "하위 폴더",
+      "subfolderPlaceholder": "예: final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "편집한 이미지 저장",
       "selectFolderTitle": "이미지 {{count}}개를 내보낼 폴더 선택",
@@ -817,6 +823,7 @@
     },
     "sections": {
       "advanced": "고급",
+      "destination": "대상",
       "fileNaming": "파일 이름 지정",
       "fileSettings": "파일 설정",
       "imageSizing": "이미지 크기",
