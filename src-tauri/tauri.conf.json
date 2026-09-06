@@ -39,39 +39,177 @@
     "category": "Photography",
     "fileAssociations": [
       {
+        "ext": ["dng"],
+        "contentTypes": ["com.adobe.raw-image"],
+        "name": "DNG RAW Image",
+        "description": "DNG RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["crw"],
+        "contentTypes": ["com.canon.crw-raw-image"],
+        "name": "Canon CRW RAW Image",
+        "description": "Canon CRW RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["cr2"],
+        "contentTypes": ["com.canon.cr2-raw-image"],
+        "name": "Canon CR2 RAW Image",
+        "description": "Canon CR2 RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["cr3"],
+        "contentTypes": ["com.canon.cr3-raw-image"],
+        "name": "Canon CR3 RAW Image",
+        "description": "Canon CR3 RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["raw"],
+        "contentTypes": ["com.panasonic.raw-image"],
+        "name": "RAW Image",
+        "description": "RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["erf"],
+        "contentTypes": ["com.epson.raw-image"],
+        "name": "Epson RAW Image",
+        "description": "Epson RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["raf"],
+        "contentTypes": ["com.fuji.raw-image"],
+        "name": "Fujifilm RAW Image",
+        "description": "Fujifilm RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["3fr"],
+        "contentTypes": ["com.hasselblad.3fr-raw-image"],
+        "name": "Hasselblad 3FR RAW Image",
+        "description": "Hasselblad 3FR RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["fff"],
+        "contentTypes": ["com.hasselblad.fff-raw-image"],
+        "name": "Hasselblad FFF RAW Image",
+        "description": "Hasselblad FFF RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["iiq"],
+        "contentTypes": ["com.phaseone.raw-image"],
+        "name": "Phase One RAW Image",
+        "description": "Phase One RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["dcr"],
+        "contentTypes": ["com.kodak.raw-image"],
+        "name": "Kodak RAW Image",
+        "description": "Kodak RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["mos"],
+        "contentTypes": ["com.leafamerica.raw-image"],
+        "name": "Leaf RAW Image",
+        "description": "Leaf RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["rwl"],
+        "contentTypes": ["com.leica.rwl-raw-image"],
+        "name": "Leica RAW Image",
+        "description": "Leica RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["mrw"],
+        "contentTypes": ["com.konicaminolta.raw-image"],
+        "name": "Minolta RAW Image",
+        "description": "Minolta RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["nef"],
+        "contentTypes": ["com.nikon.raw-image"],
+        "name": "Nikon RAW Image",
+        "description": "Nikon RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["nrw"],
+        "contentTypes": ["com.nikon.nrw-raw-image"],
+        "name": "Nikon NRW RAW Image",
+        "description": "Nikon NRW RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["orf"],
+        "contentTypes": ["com.olympus.raw-image"],
+        "name": "Olympus RAW Image",
+        "description": "Olympus RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["rw2"],
+        "contentTypes": ["com.panasonic.rw2-raw-image"],
+        "name": "Panasonic RW2 RAW Image",
+        "description": "Panasonic RW2 RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["pef"],
+        "contentTypes": ["com.pentax.raw-image"],
+        "name": "Pentax RAW Image",
+        "description": "Pentax RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["srw"],
+        "contentTypes": ["com.samsung.raw-image"],
+        "name": "Samsung RAW Image",
+        "description": "Samsung RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["arw"],
+        "contentTypes": ["com.sony.arw-raw-image"],
+        "name": "Sony ARW RAW Image",
+        "description": "Sony ARW RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["srf"],
+        "contentTypes": ["com.sony.raw-image"],
+        "name": "Sony RAW Image",
+        "description": "Sony RAW image",
+        "role": "Editor"
+      },
+      {
+        "ext": ["sr2"],
+        "contentTypes": ["com.sony.sr2-raw-image"],
+        "name": "Sony SR2 RAW Image",
+        "description": "Sony SR2 RAW image",
+        "role": "Editor"
+      },
+      {
         "ext": [
-          "dng",
           "pro",
           "ari",
-          "crw",
-          "cr2",
-          "cr3",
           "bay",
-          "raw",
-          "erf",
-          "raf",
-          "3fr",
-          "fff",
-          "iiq",
           "kdc",
           "k25",
           "dcs",
-          "dcr",
-          "mos",
-          "rwl",
           "mef",
-          "mrw",
-          "nef",
-          "nrw",
-          "orf",
-          "rw2",
-          "pef",
           "ptx",
-          "srw",
           "x3f",
-          "arw",
-          "srf",
-          "sr2",
           "jpg",
           "jpeg",
           "png",
