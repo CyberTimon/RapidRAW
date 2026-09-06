@@ -182,8 +182,6 @@ fn pick_name(names: &[MultiName], fallback: &str) -> String {
         .unwrap_or_else(|| fallback.to_string())
 }
 
-/// Compares all language variants of a name. The comparison is exact but
-/// ignores upper and lower case.
 fn any_name_matches(names: &[MultiName], needle: &str) -> bool {
     names
         .iter()
@@ -667,13 +665,6 @@ pub fn get_lensfun_lenses_for_maker(
     }
 }
 
-/// Finds the lens of a fixed lens camera through the Lensfun mount.
-///
-/// A camera with a fixed lens writes no `LensModel` EXIF tag. Lensfun gives
-/// such a camera its own mount, and exactly one lens uses that mount. The
-/// fallback applies only in this unambiguous case. If the mount has more than
-/// one lens, the camera has interchangeable lenses. The search then stops.
-/// Otherwise a Canon EOS would get an arbitrary EF lens.
 pub fn find_lens_by_camera_mount<'a>(
     db: &'a LensDatabase,
     camera_maker: &str,
@@ -736,11 +727,6 @@ fn lens_result(db: &LensDatabase, lens: &Lens) -> (String, String) {
     (lens_maker, lens.get_display_name(&maker_lenses))
 }
 
-/// Finds the best lens for the EXIF data.
-///
-/// `model` is the EXIF tag `LensModel`. `camera_model` is the tag `Model`.
-/// If `LensModel` is absent, or if the fuzzy search finds nothing, the
-/// fallback through the camera mount applies.
 pub fn find_best_lens_match(
     db: &LensDatabase,
     maker: &str,

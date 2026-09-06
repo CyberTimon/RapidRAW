@@ -547,8 +547,6 @@ export default function CropPanel() {
     const exifModel = selectedImage?.exif?.LensModel;
     const exifCameraModel = selectedImage?.exif?.Model;
 
-    // A camera with a fixed lens writes no LensModel. For such a camera the
-    // backend falls back to the Lensfun mount of the camera model.
     if (!exifMaker || (!exifModel && !exifCameraModel)) {
       setDetectionStatus('not_found');
       return;
