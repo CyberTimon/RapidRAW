@@ -438,9 +438,21 @@ pub async fn read_exif_for_paths(
             } else if is_cloud_placeholder(&source_path) {
                 HashMap::new()
             } else if let Ok(mmap) = read_file_mapped(&source_path) {
-                crate::exif_processing::read_exif_data(&source_path_str, &mmap)
+                let mut map = crate::exif_processing::read_exif_data(&source_path_str, &mmap);
+                if !map.contains_key("Rating")
+                    && let Some(r) = crate::exif_processing::read_image_rating(mmap.as_ref())
+                {
+                    map.insert("Rating".to_string(), r.to_string());
+                }
+                map
             } else if let Ok(bytes) = fs::read(&source_path) {
-                crate::exif_processing::read_exif_data(&source_path_str, &bytes)
+                let mut map = crate::exif_processing::read_exif_data(&source_path_str, &bytes);
+                if !map.contains_key("Rating")
+                    && let Some(r) = crate::exif_processing::read_image_rating(&bytes)
+                {
+                    map.insert("Rating".to_string(), r.to_string());
+                }
+                map
             } else {
                 HashMap::new()
             };

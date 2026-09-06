@@ -399,6 +399,54 @@ pub fn read_raw_metadata(file_bytes: &[u8]) -> Option<RawMetadata> {
     decoder.raw_metadata(&raw_source, &Default::default()).ok()
 }
 
+fn parse_xmp_rating(raw: &str) -> Option<u8> {
+    let v: i32 = raw.trim().parse().ok()?;
+    match v {
+        -1 => None,
+        0..=5 => Some(v as u8),
+        _ => None,
+    }
+}
+
+static XMP_RATING_ATTR: std::sync::OnceLock<regex::bytes::Regex> = std::sync::OnceLock::new();
+static XMP_RATING_ELEM: std::sync::OnceLock<regex::bytes::Regex> = std::sync::OnceLock::new();
+
+pub fn read_image_rating(file_bytes: &[u8]) -> Option<u8> {
+    let attr = XMP_RATING_ATTR.get_or_init(|| {
+        regex::bytes::Regex::new(r#"xmp:Rating\s*=\s*["'](-?[0-9]+)["']"#).unwrap()
+    });
+    if let Some(caps) = attr.captures(file_bytes)
+        && let Some(m) = caps.get(1)
+        && let Ok(s) = std::str::from_utf8(m.as_bytes())
+        && let Some(r) = parse_xmp_rating(s)
+    {
+        return Some(r);
+    }
+    let elem = XMP_RATING_ELEM.get_or_init(|| {
+        regex::bytes::Regex::new(r#"<xmp:Rating>(-?[0-9]+)</xmp:Rating>"#).unwrap()
+    });
+    if let Some(caps) = elem.captures(file_bytes)
+        && let Some(m) = caps.get(1)
+        && let Ok(s) = std::str::from_utf8(m.as_bytes())
+        && let Some(r) = parse_xmp_rating(s)
+    {
+        return Some(r);
+    }
+
+    if let Some(exif) = read_exif(file_bytes) {
+        for field in exif.fields() {
+            if field.tag.number() == 0x4746 {
+                return field
+                    .value
+                    .get_uint(0)
+                    .and_then(|v| (v <= 5).then_some(v as u8));
+            }
+        }
+    }
+
+    None
+}
+
 pub fn read_exposure_time_secs(path: &str, file_bytes: &[u8]) -> Option<f32> {
     if let Some(map) = read_rrexif_sidecar(Path::new(path))
         && let Some(val_str) = map.get("ExposureTime").or(map.get("ShutterSpeedValue"))

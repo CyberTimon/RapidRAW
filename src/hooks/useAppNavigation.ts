@@ -361,11 +361,15 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
               }
             }
 
-            const finalImageList = files.map((image) => ({
-              ...image,
-              exif: combinedExifMap[image.path] || image.exif || null,
-            }));
-            setLibrary({ imageList: finalImageList });
+            const imageRatings: Record<string, number> = {};
+            const finalImageList = files.map((image) => {
+              const exif = combinedExifMap[image.path] || image.exif || null;
+              const camRating = Number(exif?.Rating);
+              const rating = Number.isFinite(camRating) ? camRating : (image.rating ?? 0);
+              imageRatings[image.path] = rating;
+              return { ...image, exif, rating };
+            });
+            setLibrary({ imageList: finalImageList, imageRatings });
           } else {
             setLibrary({ imageList: files });
 
@@ -378,12 +382,17 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
                   const chunk = paths.slice(i, i + chunkSize);
                   try {
                     const chunkExif: any = await invoke(Invokes.ReadExifForPaths, { paths: chunk });
-                    setLibrary((state) => ({
-                      imageList: state.imageList.map((image) => ({
-                        ...image,
-                        exif: chunkExif[image.path] || image.exif || null,
-                      })),
-                    }));
+                    setLibrary((state) => {
+                      const imageRatings = { ...state.imageRatings };
+                      const imageList = state.imageList.map((image) => {
+                        const exif = chunkExif[image.path] || image.exif || null;
+                        const camRating = Number(exif?.Rating);
+                        const rating = Number.isFinite(camRating) ? camRating : (image.rating ?? 0);
+                        imageRatings[image.path] = rating;
+                        return { ...image, exif, rating };
+                      });
+                      return { imageList, imageRatings };
+                    });
                     await new Promise((resolve) => setTimeout(resolve, 50));
                   } catch (err) {
                     console.error('Failed to read EXIF chunk:', err);
