@@ -1611,6 +1611,7 @@
         "toggle_metadata": "メタデータパネルの表示/非表示",
         "toggle_presets": "プリセットパネルの表示/非表示",
         "toggle_right_panel": "右パネルの表示/非表示",
+        "toggle_window_fullscreen": "ウィンドウの全画面表示の切り替え",
         "undo": "操作を元に戻す",
         "zoom_100": "100%ズーム",
         "zoom_fit": "画面に合わせる",

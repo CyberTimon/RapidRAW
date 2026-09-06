@@ -1613,6 +1613,7 @@
         "toggle_metadata": "Toggle Metadata panel",
         "toggle_presets": "Toggle Presets panel",
         "toggle_right_panel": "Toggle Right Panel",
+        "toggle_window_fullscreen": "Toggle window fullscreen",
         "undo": "Undo adjustment",
         "zoom_100": "Zoom to 100%",
         "zoom_fit": "Zoom to fit",

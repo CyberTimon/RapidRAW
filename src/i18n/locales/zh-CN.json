@@ -1611,6 +1611,7 @@
         "toggle_metadata": "切换元数据面板",
         "toggle_presets": "切换预设面板",
         "toggle_right_panel": "切换右侧面板",
+        "toggle_window_fullscreen": "切换窗口全屏",
         "undo": "撤销调整",
         "zoom_100": "缩放到 100%",
         "zoom_fit": "缩放以适应",

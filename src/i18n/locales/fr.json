@@ -1646,6 +1646,7 @@
         "toggle_metadata": "Basculer le panneau des métadonnées",
         "toggle_presets": "Basculer le panneau des paramètres prédéfinis",
         "toggle_right_panel": "Afficher/Masquer le panneau droit",
+        "toggle_window_fullscreen": "Basculer la fenêtre en plein écran",
         "undo": "Annuler l'ajustement",
         "zoom_100": "Zoomer à 100%",
         "zoom_fit": "Zoomer pour ajuster",
