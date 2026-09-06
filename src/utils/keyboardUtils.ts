@@ -116,6 +116,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'view',
   },
   {
+    action: 'toggle_window_fullscreen',
+    description: 'settings.keybinds.actions.toggle_window_fullscreen',
+    defaultCombo: ['F11'],
+    section: 'view',
+  },
+  {
     action: 'show_original',
     description: 'settings.keybinds.actions.show_original',
     defaultCombo: ['KeyB'],
