@@ -464,6 +464,10 @@ pub struct AppSettings {
     pub display_edit_icon: Option<bool>,
     #[serde(default = "default_linear_raw_mode")]
     pub linear_raw_mode: String,
+    /// Develop raws to camera-native RGB and do white balance colorimetrically
+    /// on the GPU, instead of letting rawler calibrate with a fixed matrix.
+    #[serde(default)]
+    pub color_managed_wb: Option<bool>,
     #[serde(default)]
     pub enable_xmp_sync: Option<bool>,
     #[serde(default)]
@@ -582,6 +586,7 @@ impl Default for AppSettings {
             enable_folder_image_counts: Some(false),
             display_edit_icon: Some(true),
             linear_raw_mode: default_linear_raw_mode(),
+            color_managed_wb: Some(false),
             enable_xmp_sync: Some(true),
             create_xmp_if_missing: Some(false),
             is_waveform_visible: Some(false),

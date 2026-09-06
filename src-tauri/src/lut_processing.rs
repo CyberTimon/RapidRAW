@@ -690,8 +690,13 @@ pub fn generate_lut_previews(
                 "lutIsSceneReferred": request.is_built_in,
                 "sectionVisibility": { "effects": true }
             });
-            let swatch_adjustments =
+            let mut swatch_adjustments =
                 get_all_adjustments_from_json(&swatch_lut_json, is_raw, tm_override);
+            crate::color_management::apply_to_render(
+                &mut swatch_adjustments,
+                loaded_image.color_info.as_ref(),
+                &base_json,
+            );
 
             let thumb = render_lut_swatch(
                 &context,

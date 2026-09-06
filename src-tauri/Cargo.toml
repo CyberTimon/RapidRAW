@@ -29,6 +29,7 @@ bytemuck = { version = "1.25", features = ["derive"] }
 anyhow = "1.0.104"
 kamadak-exif = "0.6.1"
 rawler = { git = "https://github.com/CyberTimon/RapidRAW-DngLab.git" }
+rawcolor = "0.1.1"
 tokio = { version = "1", features = ["full"] }
 uuid = { version = "1.25", features = ["v4", "serde"] }
 walkdir = "2.5.0"
@@ -114,3 +115,6 @@ strip = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
+
+[dev-dependencies]
+naga = { version = "29.0", features = ["wgsl-in"] }

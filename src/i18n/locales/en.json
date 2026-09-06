@@ -1749,7 +1749,9 @@
           "basic": "Basic"
         },
         "tonemapperOverride": "Global Tonemapper Override",
-        "tonemapperOverrideDesc": "Force a specific tonemapper globally for all images, hiding the tonemapper switch from the adjustments panel."
+        "tonemapperOverrideDesc": "Force a specific tonemapper globally for all images, hiding the tonemapper switch from the adjustments panel.",
+        "colorManagedWb": "Color-Managed White Balance",
+        "colorManagedWbDesc": "Develop RAW files to camera-native color and resolve white balance from the camera's own calibration, interpolated for the scene illuminant, instead of always calibrating with the daylight matrix. Experimental. Applies to the preview, export, thumbnails, preset and LUT previews and auto adjustments; AI patches are generated in whichever color the buffer holds at the time, so patches made with this on won't match with it off."
       },
       "previewRes": "Preview Resolution",
       "previewResDesc": "Determines the maximum resolution of the preview. Lower values significantly improve performance.",

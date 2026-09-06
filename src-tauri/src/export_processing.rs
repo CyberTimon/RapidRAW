@@ -24,7 +24,7 @@ use crate::file_management::{
 };
 use crate::formats::is_raw_file;
 use crate::image_loader::{
-    composite_patches_on_image, load_and_composite, load_base_image_from_bytes,
+    composite_patches_on_image, load_base_image_from_bytes, load_base_image_with_color_info,
 };
 use crate::image_processing::{
     AllAdjustments, Crop, GpuContext, RenderRequest, downscale_f32_image,
@@ -412,6 +412,7 @@ fn process_image_for_export_pipeline(
     context: &GpuContext,
     state: &tauri::State<AppState>,
     is_raw: bool,
+    color_info: Option<&crate::color_management::CameraColorInfo>,
     debug_tag: &str,
     app_handle: &tauri::AppHandle,
 ) -> Result<DynamicImage, String> {
@@ -442,6 +443,7 @@ fn process_image_for_export_pipeline(
     let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
     let mut all_adjustments = get_all_adjustments_from_json(js_adjustments, is_raw, tm_override);
     all_adjustments.global.show_clipping = 0;
+    crate::color_management::apply_to_render(&mut all_adjustments, color_info, js_adjustments);
 
     let lut_path = js_adjustments["lutPath"].as_str();
     let lut = lut_path.and_then(|p| get_or_load_lut(state, p).ok());
@@ -547,6 +549,7 @@ fn process_image_for_export(
     context: &GpuContext,
     state: &tauri::State<AppState>,
     is_raw: bool,
+    color_info: Option<&crate::color_management::CameraColorInfo>,
     app_handle: &tauri::AppHandle,
 ) -> Result<DynamicImage, String> {
     let processed_image = process_image_for_export_pipeline(
@@ -556,6 +559,7 @@ fn process_image_for_export(
         context,
         state,
         is_raw,
+        color_info,
         "process_image_for_export",
         app_handle,
     )?;
@@ -1101,51 +1105,40 @@ pub(crate) async fn export_images_impl(
                         return Ok(());
                     }
 
-                    let base_image = if is_current_edit {
-                        match crate::get_original_image(&state) {
-                            Ok((orig_data_arc, _)) => {
-                                composite_patches_on_image(&orig_data_arc, &js_adjustments)
-                                    .map_err(|e| format!("Failed to composite AI patches: {}", e))?
-                            }
-                            Err(_) => {
-                                let bytes =
-                                    fs::read(&source_path_str).map_err(|e| e.to_string())?;
-                                load_and_composite(
-                                    &bytes,
-                                    &source_path_str,
-                                    &js_adjustments,
-                                    false,
-                                    &settings,
-                                    None,
-                                )
-                                .map_err(|e| format!("Failed to load fallback image: {}", e))?
-                            }
-                        }
+                    // The profile travels with the pixels: with the
+                    // color-managed path on, both the in-memory buffer and a
+                    // fresh decode are camera-native, and the export has to
+                    // apply the same transform the preview did.
+                    let (base_image, color_info) = if is_current_edit
+                        && let Ok(loaded) = crate::get_loaded_image(&state)
+                    {
+                        let composited = composite_patches_on_image(&loaded.image, &js_adjustments)
+                            .map_err(|e| format!("Failed to composite AI patches: {}", e))?;
+                        (composited, loaded.color_info)
                     } else {
-                        match read_file_mapped(Path::new(&source_path_str)) {
-                            Ok(mmap) => load_and_composite(
-                                &mmap,
+                        let decode = |bytes: &[u8]| {
+                            load_base_image_with_color_info(
+                                bytes,
                                 &source_path_str,
-                                &js_adjustments,
                                 false,
                                 &settings,
                                 None,
                             )
-                            .map_err(|e| format!("Failed to load from mmap: {}", e))?,
-                            Err(_) => {
-                                let bytes =
-                                    fs::read(&source_path_str).map_err(|e| e.to_string())?;
-                                load_and_composite(
-                                    &bytes,
-                                    &source_path_str,
-                                    &js_adjustments,
-                                    false,
-                                    &settings,
-                                    None,
-                                )
-                                .map_err(|e| format!("Failed to load from bytes: {}", e))?
-                            }
-                        }
+                        };
+                        let (decoded, color_info) =
+                            match read_file_mapped(Path::new(&source_path_str)) {
+                                Ok(mmap) => decode(&mmap)
+                                    .map_err(|e| format!("Failed to load from mmap: {}", e))?,
+                                Err(_) => {
+                                    let bytes =
+                                        fs::read(&source_path_str).map_err(|e| e.to_string())?;
+                                    decode(&bytes)
+                                        .map_err(|e| format!("Failed to load from bytes: {}", e))?
+                                }
+                            };
+                        let composited = composite_patches_on_image(&decoded, &js_adjustments)
+                            .map_err(|e| format!("Failed to composite AI patches: {}", e))?;
+                        (composited, color_info)
                     };
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
@@ -1164,6 +1157,7 @@ pub(crate) async fn export_images_impl(
                         &context_clone,
                         &state,
                         is_raw,
+                        color_info.as_ref(),
                         &app_handle_clone,
                     )?;
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
@@ -1531,6 +1525,11 @@ pub async fn estimate_export_sizes(
         let mut all_adjustments =
             get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
         all_adjustments.global.show_clipping = 0;
+        crate::color_management::apply_to_render(
+            &mut all_adjustments,
+            loaded_image.color_info.as_ref(),
+            &adjustments_clone,
+        );
 
         let lut = adjustments_clone["lutPath"]
             .as_str()

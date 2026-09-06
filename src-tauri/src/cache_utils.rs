@@ -229,9 +229,20 @@ pub fn calculate_full_job_hash(path: &str, adjustments: &serde_json::Value) -> u
     hasher.finish()
 }
 
+type DecodedEntry = (
+    String,
+    Arc<DynamicImage>,
+    HashMap<String, String>,
+    Option<crate::color_management::CameraColorInfo>,
+    // Whether these pixels were developed color-managed. Stored rather than
+    // inferred from the profile, because a file with no usable calibration
+    // yields no profile in either mode and would otherwise never cache-hit.
+    bool,
+);
+
 pub struct DecodedImageCache {
     capacity: usize,
-    items: Vec<(String, Arc<DynamicImage>, HashMap<String, String>)>,
+    items: Vec<DecodedEntry>,
 }
 
 impl DecodedImageCache {
@@ -249,10 +260,26 @@ impl DecodedImageCache {
         }
     }
 
-    pub fn get(&mut self, path: &str) -> Option<(Arc<DynamicImage>, HashMap<String, String>)> {
-        if let Some(pos) = self.items.iter().position(|(p, _, _)| p == path) {
+    /// Look up decoded pixels developed in the given mode.
+    ///
+    /// A mode mismatch is a miss: the buffers hold different data.
+    #[allow(clippy::type_complexity)]
+    pub fn get(
+        &mut self,
+        path: &str,
+        color_managed: bool,
+    ) -> Option<(
+        Arc<DynamicImage>,
+        HashMap<String, String>,
+        Option<crate::color_management::CameraColorInfo>,
+    )> {
+        if let Some(pos) = self
+            .items
+            .iter()
+            .position(|(p, _, _, _, m)| p == path && *m == color_managed)
+        {
             let item = self.items.remove(pos);
-            let result = (item.1.clone(), item.2.clone());
+            let result = (item.1.clone(), item.2.clone(), item.3.clone());
             self.items.push(item);
             Some(result)
         } else {
@@ -269,13 +296,20 @@ impl DecodedImageCache {
         path: String,
         image: Arc<DynamicImage>,
         exif: HashMap<String, String>,
+        color_info: Option<crate::color_management::CameraColorInfo>,
+        color_managed: bool,
     ) {
-        if let Some(pos) = self.items.iter().position(|(p, _, _)| *p == path) {
+        if let Some(pos) = self
+            .items
+            .iter()
+            .position(|(p, _, _, _, m)| *p == path && *m == color_managed)
+        {
             self.items.remove(pos);
         } else if self.items.len() >= self.capacity {
             self.items.remove(0);
         }
-        self.items.push((path, image, exif));
+        self.items
+            .push((path, image, exif, color_info, color_managed));
     }
 }
 

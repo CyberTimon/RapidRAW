@@ -1553,14 +1553,20 @@ pub fn generate_thumbnail_data(
                     }
                 };
 
-                let img = image_loader::load_and_composite(
+                let (decoded, color_info) = image_loader::load_base_image_with_color_info(
                     file_slice,
                     &source_path_str,
-                    &adjustments,
                     true,
                     &settings,
                     None,
                 )?;
+                let decoded = match color_info.as_ref() {
+                    Some(info) => {
+                        crate::color_management::develop_to_working(&decoded, info, &adjustments)
+                    }
+                    None => decoded,
+                };
+                let img = image_loader::composite_patches_on_image(&decoded, &adjustments)?;
 
                 if is_raw {
                     raw_scale_factor = crate::raw_processing::get_fast_demosaic_scale_factor(
@@ -2548,7 +2554,7 @@ pub fn save_metadata_and_update_thumbnail(
     let loaded_image_lock = state.original_image.lock().unwrap();
     let preloaded_image_option = if let Some(loaded_image) = loaded_image_lock.as_ref() {
         if loaded_image.path == path {
-            Some(loaded_image.image.clone())
+            Some(loaded_image.clone())
         } else {
             None
         }
@@ -2556,6 +2562,7 @@ pub fn save_metadata_and_update_thumbnail(
         None
     };
     drop(loaded_image_lock);
+    let thumbnail_adjustments = metadata.adjustments.clone();
 
     let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
     let app_handle_clone = app_handle.clone();
@@ -2580,6 +2587,18 @@ pub fn save_metadata_and_update_thumbnail(
                 return;
             }
         };
+
+        // With a profile the buffer is camera-native, so develop it here and
+        // hand the thumbnail the same pixels the preview shows.
+        let preloaded_image_option =
+            preloaded_image_option.map(|loaded| match loaded.color_info.as_ref() {
+                Some(info) => Arc::new(crate::color_management::develop_to_working(
+                    &loaded.image,
+                    info,
+                    &thumbnail_adjustments,
+                )),
+                None => loaded.image,
+            });
 
         let result = generate_single_thumbnail_and_cache(
             &path_clone,
