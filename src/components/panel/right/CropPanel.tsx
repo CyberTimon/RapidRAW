@@ -535,6 +535,8 @@ export default function CropPanel() {
           focalLength: parseExifNumber(selectedImage?.exif?.FocalLength),
           aperture: parseExifNumber(selectedImage?.exif?.FNumber),
           distance: parseExifNumber(selectedImage?.exif?.SubjectDistance),
+          cameraMaker: selectedImage?.exif?.Make ?? '',
+          cameraModel: selectedImage?.exif?.Model ?? '',
         });
         return distParams;
       } catch (error) {

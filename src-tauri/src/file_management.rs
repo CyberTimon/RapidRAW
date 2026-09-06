@@ -2153,6 +2153,14 @@ pub fn resolve_lens_params_in_adjustments(
                         }
                     }
 
+                    let camera_crop = exif_data.as_ref().and_then(|exif| {
+                        crate::lens_correction::camera_crop_factor(
+                            db,
+                            exif.get("Make").map(|s| s.as_str()).unwrap_or(""),
+                            exif.get("Model").map(|s| s.as_str()).unwrap_or(""),
+                        )
+                    });
+
                     if let Some(params) = crate::lens_correction::resolve_lens_params(
                         db,
                         maker,
@@ -2160,6 +2168,7 @@ pub fn resolve_lens_params_in_adjustments(
                         focal_length,
                         aperture,
                         distance,
+                        camera_crop,
                     ) {
                         map.insert(
                             "lensDistortionParams".to_string(),

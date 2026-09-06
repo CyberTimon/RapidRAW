@@ -236,6 +236,7 @@ export interface Adjustments {
     k2: number;
     k3: number;
     model: number;
+    radius_scale?: number;
     tca_vr: number;
     tca_vb: number;
     vig_k1: number;

@@ -106,6 +106,11 @@ pub struct GeometryParams {
     pub vig_k1: f32,
     pub vig_k2: f32,
     pub vig_k3: f32,
+    /// Factor between the radius normalized to the half diagonal and the
+    /// radius that the Lensfun models expect. A value of 0.0 marks values
+    /// from an older sidecar file, which are evaluated the old way.
+    #[serde(default)]
+    pub lens_radius_scale: f32,
     #[serde(default)]
     pub guided_lines: Vec<GuideLine>,
     #[serde(default)]
@@ -142,6 +147,7 @@ impl Default for GeometryParams {
             vig_k1: 0.0,
             vig_k2: 0.0,
             vig_k3: 0.0,
+            lens_radius_scale: 0.0,
             guided_lines: Vec::new(),
             guided_perspective_enabled: false,
             embedded: None,
@@ -157,6 +163,8 @@ struct LensCorrection<'a> {
     lk2: f64,
     lk3: f64,
     is_ptlens: bool,
+    /// 0.0 marks values from an older sidecar file.
+    radius_scale: f64,
     /// Blend factor for the distortion.
     dist_amount: f64,
     /// Blend factor for the chromatic aberration.
@@ -192,8 +200,13 @@ impl<'a> LensCorrection<'a> {
                 params.lens_distortion_enabled
                     && (lk1.abs() > 1e-6 || lk2.abs() > 1e-6 || lk3.abs() > 1e-6),
                 params.lens_tca_enabled,
-                // Lensfun values have always been amplified.
-                (params.lens_distortion_amount as f64) * 2.5,
+                if params.lens_radius_scale > 0.0 {
+                    params.lens_distortion_amount as f64
+                } else {
+                    // Values from an older sidecar file keep the old
+                    // behaviour, so that an existing edit does not change.
+                    (params.lens_distortion_amount as f64) * 2.5
+                },
                 params.lens_tca_amount as f64,
             ),
         };
@@ -220,6 +233,7 @@ impl<'a> LensCorrection<'a> {
             lk2,
             lk3,
             is_ptlens: params.lens_model == 1,
+            radius_scale: params.lens_radius_scale as f64,
             dist_amount,
             tca_amount,
             const_vr,
@@ -238,7 +252,19 @@ impl<'a> LensCorrection<'a> {
         }
         let raw = match self.embedded {
             Some(profile) => profile.radial_at(1, ru_norm as f32) as f64,
+            None if self.radius_scale > 0.0 => {
+                // Lensfun defines r = 1 at the middle of the long edge. The
+                // scale also carries the crop factor of the calibration.
+                let t = ru_norm * self.radius_scale;
+                if self.is_ptlens {
+                    1.0 + self.lk1 * t + self.lk2 * t * t + self.lk3 * t * t * t
+                } else {
+                    let t2 = t * t;
+                    1.0 + self.lk1 * t2 + self.lk2 * (t2 * t2)
+                }
+            }
             None => {
+                // Values from an older sidecar file, evaluated the old way.
                 let ru_norm2 = ru_norm * ru_norm;
                 if self.is_ptlens {
                     let d = 1.0 - self.lk1 - self.lk2 - self.lk3;
@@ -468,6 +494,9 @@ fn geometry_params_without_profile(adjustments: &serde_json::Value) -> GeometryP
             .unwrap_or(0.0) as f32,
         vig_k3: lens_params
             .and_then(|p| p.get("vig_k3").and_then(|k| k.as_f64()))
+            .unwrap_or(0.0) as f32,
+        lens_radius_scale: lens_params
+            .and_then(|p| p.get("radius_scale").and_then(|k| k.as_f64()))
             .unwrap_or(0.0) as f32,
         guided_lines,
         guided_perspective_enabled,
@@ -3863,14 +3892,66 @@ mod lens_tests {
     }
 
     #[test]
-    fn lensfun_path_is_unchanged() {
-        // Without a profile the polynomial still applies, amplified by 2.5.
+    fn lensfun_poly_model_uses_the_radius_scale() {
+        // m(t) = 1 + k1*t^2 + k2*t^4 with t = r * radius_scale.
         let mut params = base_params();
         params.lens_dist_k1 = -0.02;
+        params.lens_radius_scale = 1.8028;
         let lens = LensCorrection::new(&params);
         assert!(lens.has_distortion);
 
-        // k1 is stored as f32, thus the generous tolerance.
+        // The scale is stored as f32, so the test uses the stored value.
+        let t = params.lens_radius_scale as f64;
+        let expected = 1.0 + (params.lens_dist_k1 as f64) * t * t;
+        assert!(
+            (lens.distortion_scale(1.0) - expected).abs() < 1e-9,
+            "{} instead of {}",
+            lens.distortion_scale(1.0),
+            expected
+        );
+
+        // The amount blends between 1.0 and the model value, without the
+        // amplification that the old code applied.
+        params.lens_distortion_amount = 0.5;
+        let lens = LensCorrection::new(&params);
+        let half = 1.0 + (expected - 1.0) * 0.5;
+        assert!((lens.distortion_scale(1.0) - half).abs() < 1e-9);
+    }
+
+    #[test]
+    fn lensfun_ptlens_model_uses_the_radius_scale() {
+        // m(t) = 1 + k1*t + k2*t^2 + k3*t^3.
+        let mut params = base_params();
+        params.lens_model = 1;
+        params.lens_dist_k1 = -0.004;
+        params.lens_dist_k2 = -0.089;
+        params.lens_dist_k3 = 0.025;
+        params.lens_radius_scale = 1.8028;
+        let lens = LensCorrection::new(&params);
+
+        let t = params.lens_radius_scale as f64;
+        let expected = 1.0
+            + (params.lens_dist_k1 as f64) * t
+            + (params.lens_dist_k2 as f64) * t * t
+            + (params.lens_dist_k3 as f64) * t * t * t;
+        assert!(
+            (lens.distortion_scale(1.0) - expected).abs() < 1e-9,
+            "{} instead of {}",
+            lens.distortion_scale(1.0),
+            expected
+        );
+    }
+
+    #[test]
+    fn old_sidecar_values_keep_the_old_behaviour() {
+        // Without a radius scale the values come from an older sidecar file.
+        // They keep the old evaluation, amplified by 2.5.
+        let mut params = base_params();
+        params.lens_dist_k1 = -0.02;
+        params.lens_radius_scale = 0.0;
+        let lens = LensCorrection::new(&params);
+        assert!(lens.has_distortion);
+
         let expected = 1.0 + (params.lens_dist_k1 as f64) * 2.5;
         assert!(
             (lens.distortion_scale(1.0) - expected).abs() < 1e-9,
