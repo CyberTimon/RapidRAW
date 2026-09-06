@@ -33,8 +33,13 @@ fn prepare_source_image(
     };
 
     let (base_image, _) = crate::get_original_image(state)?;
-    let composited = composite_patches_on_image(&base_image, &source_image_adjustments)
-        .map_err(|e| format!("Failed to prepare source image: {}", e))?;
+    let source_path = crate::current_source_path(state);
+    let composited = composite_patches_on_image(
+        &base_image,
+        &source_image_adjustments,
+        source_path.as_deref(),
+    )
+    .map_err(|e| format!("Failed to prepare source image: {}", e))?;
 
     let source_image = if is_raw {
         apply_linear_to_srgb(composited)
@@ -199,8 +204,11 @@ pub async fn generate_manual_cleanup_patch(
     )
     .ok_or("Failed to generate mask bitmap for manual cleanup")?;
 
-    let mask_bitmap =
-        crate::image_processing::inverse_transform_mask(mask_bitmap, &current_adjustments);
+    let mask_bitmap = crate::image_processing::inverse_transform_mask(
+        mask_bitmap,
+        &current_adjustments,
+        crate::current_source_path(&state).as_deref(),
+    );
 
     let (min_x, max_x, min_y, max_y) = calculate_mask_bounds(&mask_bitmap)?;
 
@@ -213,6 +221,7 @@ pub async fn generate_manual_cleanup_patch(
         trans_w as f64,
         trans_h as f64,
         &current_adjustments,
+        crate::current_source_path(&state).as_deref(),
     );
 
     let offset_x = (source_point_untransformed.0 - center_x).round() as i32;
@@ -420,8 +429,11 @@ pub async fn invoke_generative_replace_with_mask_def(
     )
     .ok_or("Failed to generate mask bitmap for AI replace")?;
 
-    let mask_bitmap =
-        crate::image_processing::inverse_transform_mask(mask_bitmap, &current_adjustments);
+    let mask_bitmap = crate::image_processing::inverse_transform_mask(
+        mask_bitmap,
+        &current_adjustments,
+        crate::current_source_path(&state).as_deref(),
+    );
 
     let (min_x, max_x, min_y, max_y) = calculate_mask_bounds(&mask_bitmap)?;
 

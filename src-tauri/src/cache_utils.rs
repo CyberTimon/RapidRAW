@@ -18,6 +18,7 @@ pub const GEOMETRY_KEYS: &[&str] = &[
     "lensVignetteAmount",
     "lensTcaAmount",
     "lensDistortionParams",
+    "lensCorrectionMode",
     "lensMaker",
     "lensModel",
     "lensDistortionEnabled",
@@ -309,4 +310,5 @@ pub fn clear_session_caches(state: tauri::State<AppState>) {
     if let Ok(mut geometry_cache) = state.geometry_cache.lock() {
         geometry_cache.clear();
     }
+    crate::embedded_lens_correction::clear_profile_cache();
 }

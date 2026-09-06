@@ -110,6 +110,7 @@ export function useEditorActions() {
           'lensVignetteAmount',
           'lensTcaAmount',
           'lensDistortionParams',
+          'lensCorrectionMode',
           'lensMaker',
           'lensModel',
           'lensDistortionEnabled',

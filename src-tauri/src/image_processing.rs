@@ -1,3 +1,4 @@
+use crate::embedded_lens_correction::EmbeddedLensProfile;
 use crate::gpu_processing::WgpuDisplay;
 use crate::guided_perspective::{GuideLine, compute_guided_homography, count_valid_lines};
 use bytemuck::{Pod, Zeroable};
@@ -109,6 +110,10 @@ pub struct GeometryParams {
     pub guided_lines: Vec<GuideLine>,
     #[serde(default)]
     pub guided_perspective_enabled: bool,
+    /// Correction data embedded in the RAW file. If this field is set, the
+    /// table replaces the Lensfun polynomial.
+    #[serde(skip)]
+    pub embedded: Option<Arc<EmbeddedLensProfile>>,
 }
 
 impl Default for GeometryParams {
@@ -139,11 +144,267 @@ impl Default for GeometryParams {
             vig_k3: 0.0,
             guided_lines: Vec::new(),
             guided_perspective_enabled: false,
+            embedded: None,
         }
     }
 }
 
+/// Holds the values that a pixel row needs for the lens correction. The
+/// choice between the table and the polynomial is made once, in advance.
+struct LensCorrection<'a> {
+    embedded: Option<&'a EmbeddedLensProfile>,
+    lk1: f64,
+    lk2: f64,
+    lk3: f64,
+    is_ptlens: bool,
+    /// Blend factor for the distortion.
+    dist_amount: f64,
+    /// Blend factor for the chromatic aberration.
+    tca_amount: f64,
+    /// Lensfun factors, already blended. They do not depend on the radius.
+    const_vr: f32,
+    const_vb: f32,
+    has_distortion: bool,
+    has_tca: bool,
+}
+
+impl<'a> LensCorrection<'a> {
+    fn new(params: &'a GeometryParams) -> Self {
+        let lk1 = params.lens_dist_k1 as f64;
+        let lk2 = params.lens_dist_k2 as f64;
+        let lk3 = params.lens_dist_k3 as f64;
+
+        let embedded = params
+            .embedded
+            .as_deref()
+            .filter(|p| p.has_distortion || p.has_tca);
+
+        let (has_distortion, has_tca, dist_amount, tca_amount) = match embedded {
+            Some(profile) => (
+                params.lens_distortion_enabled && profile.has_distortion,
+                params.lens_tca_enabled && profile.has_tca,
+                // The table gives the exact multiplier. The slider blends
+                // between 1.0 and that value, without amplification.
+                params.lens_distortion_amount as f64,
+                params.lens_tca_amount as f64,
+            ),
+            None => (
+                params.lens_distortion_enabled
+                    && (lk1.abs() > 1e-6 || lk2.abs() > 1e-6 || lk3.abs() > 1e-6),
+                params.lens_tca_enabled,
+                // Lensfun values have always been amplified.
+                (params.lens_distortion_amount as f64) * 2.5,
+                params.lens_tca_amount as f64,
+            ),
+        };
+
+        let const_vr = if (params.tca_vr - 1.0).abs() > 1e-5 {
+            1.0 + (params.tca_vr - 1.0) * params.lens_tca_amount
+        } else {
+            1.0
+        };
+        let const_vb = if (params.tca_vb - 1.0).abs() > 1e-5 {
+            1.0 + (params.tca_vb - 1.0) * params.lens_tca_amount
+        } else {
+            1.0
+        };
+
+        let has_tca = has_tca
+            && (embedded.is_some()
+                || (const_vr - 1.0).abs() > 1e-5
+                || (const_vb - 1.0).abs() > 1e-5);
+
+        Self {
+            embedded,
+            lk1,
+            lk2,
+            lk3,
+            is_ptlens: params.lens_model == 1,
+            dist_amount,
+            tca_amount,
+            const_vr,
+            const_vb,
+            has_distortion,
+            has_tca,
+        }
+    }
+
+    /// Multiplier Rd/Ru for the green channel, thus the distortion alone.
+    /// `ru_norm` is the radius, normalized to the half diagonal.
+    #[inline]
+    fn distortion_scale(&self, ru_norm: f64) -> f64 {
+        if !self.has_distortion {
+            return 1.0;
+        }
+        let raw = match self.embedded {
+            Some(profile) => profile.radial_at(1, ru_norm as f32) as f64,
+            None => {
+                let ru_norm2 = ru_norm * ru_norm;
+                if self.is_ptlens {
+                    let d = 1.0 - self.lk1 - self.lk2 - self.lk3;
+                    self.lk1 * ru_norm2 * ru_norm + self.lk2 * ru_norm2 + self.lk3 * ru_norm + d
+                } else {
+                    1.0 + self.lk1 * ru_norm2
+                        + self.lk2 * (ru_norm2 * ru_norm2)
+                        + self.lk3 * (ru_norm2 * ru_norm2 * ru_norm2)
+                }
+            }
+        };
+        1.0 + (raw - 1.0) * self.dist_amount
+    }
+
+    /// Factors for red and blue, each relative to the green channel.
+    ///
+    /// `interpolate_pixel_with_tca` scales the sample position of the green
+    /// channel. Thus the necessary factor is the ratio of the multipliers,
+    /// not the multiplier itself.
+    #[inline]
+    fn tca_factors(&self, ru_norm: f64) -> (f32, f32) {
+        if !self.has_tca {
+            return (1.0, 1.0);
+        }
+        match self.embedded {
+            Some(profile) => {
+                let r = ru_norm as f32;
+                let g = profile.radial_at(1, r);
+                if g.abs() < 1e-9 {
+                    return (1.0, 1.0);
+                }
+                let amount = self.tca_amount as f32;
+                let vr = 1.0 + (profile.radial_at(0, r) / g - 1.0) * amount;
+                let vb = 1.0 + (profile.radial_at(2, r) / g - 1.0) * amount;
+                (vr, vb)
+            }
+            None => (self.const_vr, self.const_vb),
+        }
+    }
+
+    /// Inverts the distortion: Ru for a given Rd.
+    ///
+    /// Both radii are normalized to the half diagonal. Newton's method uses a
+    /// numeric derivative. It fits the polynomial and the piecewise linear
+    /// table equally well.
+    fn inverse_distortion(&self, rd_norm: f64) -> f64 {
+        if !self.has_distortion || rd_norm <= 1e-9 {
+            return rd_norm;
+        }
+        const H: f64 = 1e-4;
+        let mut ru = rd_norm;
+        for _ in 0..8 {
+            let value = ru * self.distortion_scale(ru) - rd_norm;
+            let ahead = (ru + H) * self.distortion_scale(ru + H);
+            let slope = (ahead - (value + rd_norm)) / H;
+            if slope.abs() < 1e-9 {
+                break;
+            }
+            let delta = value / slope;
+            ru -= delta;
+            if delta.abs() < 1e-7 {
+                break;
+            }
+        }
+        ru.max(0.0)
+    }
+}
+
+/// Holds the values for the vignetting.
+struct LensVignette<'a> {
+    embedded: Option<&'a EmbeddedLensProfile>,
+    vk1: f64,
+    vk2: f64,
+    vk3: f64,
+    amount: f64,
+    active: bool,
+}
+
+impl<'a> LensVignette<'a> {
+    fn new(params: &'a GeometryParams) -> Self {
+        let vk1 = params.vig_k1 as f64;
+        let vk2 = params.vig_k2 as f64;
+        let vk3 = params.vig_k3 as f64;
+
+        let embedded = params.embedded.as_deref().filter(|p| p.has_vignette);
+
+        let (amount, active) = match embedded {
+            // The table already gives the final gain. The slider only
+            // blends between 1.0 and that value.
+            Some(_) => (
+                params.lens_vignette_amount as f64,
+                params.lens_vignette_enabled && params.lens_vignette_amount > 0.01,
+            ),
+            None => {
+                let amount = (params.lens_vignette_amount as f64) * 0.8;
+                (
+                    amount,
+                    params.lens_vignette_enabled
+                        && (vk1.abs() > 1e-6 || vk2.abs() > 1e-6 || vk3.abs() > 1e-6)
+                        && amount > 0.01,
+                )
+            }
+        };
+
+        Self {
+            embedded,
+            vk1,
+            vk2,
+            vk3,
+            amount,
+            active,
+        }
+    }
+
+    /// Gain for the radius, normalized to the half diagonal.
+    #[inline]
+    fn gain(&self, ru_norm: f64) -> f64 {
+        match self.embedded {
+            Some(profile) => {
+                let gain = profile.vignette_at(ru_norm as f32) as f64;
+                1.0 + (gain - 1.0) * self.amount
+            }
+            None => {
+                let r2 = ru_norm * ru_norm;
+                let v_factor =
+                    1.0 + self.vk1 * r2 + self.vk2 * (r2 * r2) + self.vk3 * (r2 * r2 * r2);
+                if v_factor <= 1e-6 {
+                    return 1.0;
+                }
+                1.0 + (1.0 / v_factor - 1.0) * self.amount
+            }
+        }
+    }
+}
+
+/// Reads the geometry values without the embedded correction data.
 pub fn get_geometry_params_from_json(adjustments: &serde_json::Value) -> GeometryParams {
+    get_geometry_params_for_source(adjustments, None)
+}
+
+/// Reads the geometry values and loads the correction data that is embedded
+/// in the RAW file.
+///
+/// The profile is loaded in mode `embedded` only. It is not written to the
+/// sidecar file, because the values are already in the RAW file.
+pub fn get_geometry_params_for_source(
+    adjustments: &serde_json::Value,
+    source_path: Option<&str>,
+) -> GeometryParams {
+    let mut params = geometry_params_without_profile(adjustments);
+
+    let mode = adjustments
+        .get("lensCorrectionMode")
+        .and_then(|v| v.as_str())
+        .unwrap_or("manual");
+
+    if mode == "embedded"
+        && let Some(path) = source_path
+    {
+        params.embedded = crate::embedded_lens_correction::cached_profile(path);
+    }
+
+    params
+}
+
+fn geometry_params_without_profile(adjustments: &serde_json::Value) -> GeometryParams {
     let lens_params = adjustments
         .get("lensDistortionParams")
         .and_then(|v| v.as_object());
@@ -210,6 +471,7 @@ pub fn get_geometry_params_from_json(adjustments: &serde_json::Value) -> Geometr
             .unwrap_or(0.0) as f32,
         guided_lines,
         guided_perspective_enabled,
+        embedded: None,
     }
 }
 
@@ -605,16 +867,10 @@ fn compute_lens_auto_crop_scale(params: &GeometryParams, width: f32, height: f32
     let half_diagonal = (cx * cx + cy * cy).sqrt();
     let max_radius_sq_inv = 1.0 / (cx * cx + cy * cy);
 
-    let lk1 = params.lens_dist_k1 as f64;
-    let lk2 = params.lens_dist_k2 as f64;
-    let lk3 = params.lens_dist_k3 as f64;
-    let lens_dist_amt = (params.lens_distortion_amount as f64) * 2.5;
+    let lens = LensCorrection::new(params);
 
     let k_distortion = (params.distortion as f64 / 100.0) * 2.5;
-
-    let has_lens_correction = params.lens_distortion_enabled
-        && (lk1.abs() > 1e-6 || lk2.abs() > 1e-6 || lk3.abs() > 1e-6);
-    let is_ptlens = params.lens_model == 1;
+    let has_lens_correction = lens.has_distortion;
 
     let sample_points: [(f64, f64); 8] = [
         (cx, 0.0),
@@ -641,26 +897,7 @@ fn compute_lens_auto_crop_scale(params: &GeometryParams, width: f32, height: f32
         let mut mapped_dy = dy;
 
         if has_lens_correction {
-            let ru_norm = ru / half_diagonal;
-            let ru_norm2 = ru_norm * ru_norm;
-
-            let rd_norm = if is_ptlens {
-                let a = lk1;
-                let b = lk2;
-                let c = lk3;
-                let d = 1.0 - a - b - c;
-                ru_norm * (a * ru_norm2 * ru_norm + b * ru_norm2 + c * ru_norm + d)
-            } else {
-                ru_norm
-                    * (1.0
-                        + lk1 * ru_norm2
-                        + lk2 * (ru_norm2 * ru_norm2)
-                        + lk3 * (ru_norm2 * ru_norm2 * ru_norm2))
-            };
-
-            let effective_r_norm = ru_norm + (rd_norm - ru_norm) * lens_dist_amt;
-            let scale = effective_r_norm / ru_norm;
-
+            let scale = lens.distortion_scale(ru / half_diagonal);
             mapped_dx *= scale;
             mapped_dy *= scale;
         }
@@ -706,40 +943,18 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
     let hd = half_diagonal;
 
     let k_distortion = (params.distortion as f64 / 100.0) * 2.5;
-    let lk1 = params.lens_dist_k1 as f64;
-    let lk2 = params.lens_dist_k2 as f64;
-    let lk3 = params.lens_dist_k3 as f64;
-    let lens_dist_amt = (params.lens_distortion_amount as f64) * 2.5;
+    let lens = LensCorrection::new(&params);
+    let vignette = LensVignette::new(&params);
 
-    let has_lens_correction = params.lens_distortion_enabled
-        && (lk1.abs() > 1e-6 || lk2.abs() > 1e-6 || lk3.abs() > 1e-6);
-    let is_ptlens = params.lens_model == 1;
+    let has_lens_correction = lens.has_distortion;
+    let has_tca = lens.has_tca;
+    let has_vignetting = vignette.active;
 
     let auto_crop_scale = if has_lens_correction || k_distortion.abs() > 1e-5 {
         compute_lens_auto_crop_scale(&params, width as f32, height as f32) as f32
     } else {
         1.0
     };
-
-    let vr = if (params.tca_vr - 1.0).abs() > 1e-5 {
-        params.tca_vr + (1.0 - params.tca_vr) * (1.0 - params.lens_tca_amount)
-    } else {
-        1.0
-    };
-    let vb = if (params.tca_vb - 1.0).abs() > 1e-5 {
-        params.tca_vb + (1.0 - params.tca_vb) * (1.0 - params.lens_tca_amount)
-    } else {
-        1.0
-    };
-    let has_tca = params.lens_tca_enabled && ((vr - 1.0).abs() > 1e-5 || (vb - 1.0).abs() > 1e-5);
-
-    let vk1 = params.vig_k1 as f64;
-    let vk2 = params.vig_k2 as f64;
-    let vk3 = params.vig_k3 as f64;
-    let lens_vig_amt = (params.lens_vignette_amount as f64) * 0.8;
-    let has_vignetting = params.lens_vignette_enabled
-        && (vk1.abs() > 1e-6 || vk2.abs() > 1e-6 || vk3.abs() > 1e-6)
-        && lens_vig_amt > 0.01;
 
     let src_raw = src_img.as_raw();
     let width_usize = width as usize;
@@ -770,34 +985,22 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
                         src_y = cy + (src_y - cy) / auto_crop_scale;
                     }
 
-                    if has_lens_correction {
+                    // The chromatic aberration and the vignetting need the
+                    // normalized radius too.
+                    let mut ru_norm = 0.0f64;
+                    if has_lens_correction || has_tca || has_vignetting {
                         let dx = (src_x - cx) as f64;
                         let dy = (src_y - cy) as f64;
                         let ru = (dx * dx + dy * dy).sqrt();
 
                         if ru > 1e-6 {
-                            let ru_norm = ru / hd;
-                            let ru_norm2 = ru_norm * ru_norm;
+                            ru_norm = ru / hd;
 
-                            let rd_norm = if is_ptlens {
-                                let a = lk1;
-                                let b = lk2;
-                                let c = lk3;
-                                let d = 1.0 - a - b - c;
-                                ru_norm * (a * ru_norm2 * ru_norm + b * ru_norm2 + c * ru_norm + d)
-                            } else {
-                                ru_norm
-                                    * (1.0
-                                        + lk1 * ru_norm2
-                                        + lk2 * (ru_norm2 * ru_norm2)
-                                        + lk3 * (ru_norm2 * ru_norm2 * ru_norm2))
-                            };
-
-                            let effective_r_norm = ru_norm + (rd_norm - ru_norm) * lens_dist_amt;
-                            let scale = effective_r_norm / ru_norm;
-
-                            src_x = cx + (dx * scale) as f32;
-                            src_y = cy + (dy * scale) as f32;
+                            if has_lens_correction {
+                                let scale = lens.distortion_scale(ru_norm);
+                                src_x = cx + (dx * scale) as f32;
+                                src_y = cy + (dy * scale) as f32;
+                            }
                         }
                     }
 
@@ -812,31 +1015,23 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
                     }
 
                     if has_tca {
+                        let (vr, vb) = lens.tca_factors(ru_norm);
                         interpolate_pixel_with_tca(&tca_ctx, src_x, src_y, vr, vb, pixel);
                     } else {
                         interpolate_pixel(src_raw, width_usize, height_usize, src_x, src_y, pixel);
                     }
 
                     if has_vignetting {
+                        // The vignetting applies to the position in the
+                        // captured image, thus after the distortion.
                         let dx = (src_x - cx) as f64;
                         let dy = (src_y - cy) as f64;
-                        let ru = (dx * dx + dy * dy).sqrt();
-                        let ru_norm = ru / hd;
-                        let ru_norm2 = ru_norm * ru_norm;
+                        let r_src = (dx * dx + dy * dy).sqrt() / hd;
+                        let final_gain = vignette.gain(r_src) as f32;
 
-                        let v_factor = 1.0
-                            + vk1 * ru_norm2
-                            + vk2 * (ru_norm2 * ru_norm2)
-                            + vk3 * (ru_norm2 * ru_norm2 * ru_norm2);
-
-                        if v_factor > 1e-6 {
-                            let correction_gain = 1.0 / v_factor;
-                            let final_gain = 1.0 + (correction_gain - 1.0) * lens_vig_amt;
-
-                            pixel[0] *= final_gain as f32;
-                            pixel[1] *= final_gain as f32;
-                            pixel[2] *= final_gain as f32;
-                        }
+                        pixel[0] *= final_gain;
+                        pixel[1] *= final_gain;
+                        pixel[2] *= final_gain;
                     }
                 }
                 current_vec += step_vec_x;
@@ -858,14 +1053,8 @@ pub fn unwarp_image_geometry(warped_image: &DynamicImage, params: GeometryParams
     let hd = half_diagonal;
 
     let k_distortion = (params.distortion as f64 / 100.0) * 2.5;
-    let lk1 = params.lens_dist_k1 as f64;
-    let lk2 = params.lens_dist_k2 as f64;
-    let lk3 = params.lens_dist_k3 as f64;
-    let lens_dist_amt = (params.lens_distortion_amount as f64) * 2.5;
-
-    let has_lens_correction = params.lens_distortion_enabled
-        && (lk1.abs() > 1e-6 || lk2.abs() > 1e-6 || lk3.abs() > 1e-6);
-    let is_ptlens = params.lens_model == 1;
+    let lens = LensCorrection::new(&params);
+    let has_lens_correction = lens.has_distortion;
 
     let auto_crop_scale = if has_lens_correction || k_distortion.abs() > 1e-5 {
         compute_lens_auto_crop_scale(&params, width as f32, height as f32) as f32
@@ -909,51 +1098,7 @@ pub fn unwarp_image_geometry(warped_image: &DynamicImage, params: GeometryParams
                     let rd = (dx * dx + dy * dy).sqrt();
 
                     if rd > 1e-6 {
-                        let mut ru = rd;
-
-                        for _ in 0..8 {
-                            let ru_norm = ru / hd;
-                            let ru_norm2 = ru_norm * ru_norm;
-
-                            let (f_val, f_prime) = if is_ptlens {
-                                let a = lk1;
-                                let b = lk2;
-                                let c = lk3;
-                                let d = 1.0 - a - b - c;
-                                let poly = a * ru_norm2 * ru_norm + b * ru_norm2 + c * ru_norm + d;
-
-                                let val = ru * poly;
-                                let prime = 4.0 * a * ru_norm2 * ru_norm
-                                    + 3.0 * b * ru_norm2
-                                    + 2.0 * c * ru_norm
-                                    + d;
-                                (val, prime)
-                            } else {
-                                let poly = 1.0
-                                    + lk1 * ru_norm2
-                                    + lk2 * (ru_norm2 * ru_norm2)
-                                    + lk3 * (ru_norm2 * ru_norm2 * ru_norm2);
-                                let val = ru * poly;
-                                let poly_prime = 2.0 * lk1 * ru_norm
-                                    + 4.0 * lk2 * ru_norm2 * ru_norm
-                                    + 6.0 * lk3 * (ru_norm2 * ru_norm2) * ru_norm;
-                                let prime = poly + ru_norm * poly_prime;
-                                (val, prime)
-                            };
-
-                            let g_val = ru + (f_val - ru) * lens_dist_amt - rd;
-                            let g_prime = 1.0 + (f_prime - 1.0) * lens_dist_amt;
-
-                            if g_prime.abs() < 1e-7 {
-                                break;
-                            }
-                            let delta = g_val / g_prime;
-                            ru -= delta;
-                            if delta.abs() < 1e-4 {
-                                break;
-                            }
-                        }
-
+                        let ru = lens.inverse_distortion(rd / hd) * hd;
                         let scale = ru / rd;
                         current_x = cx + (dx * scale) as f32;
                         current_y = cy + (dy * scale) as f32;
@@ -985,6 +1130,7 @@ pub fn unwarp_image_geometry(warped_image: &DynamicImage, params: GeometryParams
 pub fn inverse_transform_mask(
     mask: image::GrayImage,
     adjustments: &serde_json::Value,
+    source_path: Option<&str>,
 ) -> image::GrayImage {
     let rotation_degrees = adjustments
         .get("rotation")
@@ -1015,7 +1161,7 @@ pub fn inverse_transform_mask(
     let inverse_steps = (4 - (steps % 4)) % 4;
     let unrotated_coarse = apply_coarse_rotation(flipped, inverse_steps).into_owned();
 
-    let unwarped = apply_unwarp_geometry(unrotated_coarse, adjustments).into_owned();
+    let unwarped = apply_unwarp_geometry(unrotated_coarse, adjustments, source_path).into_owned();
 
     unwarped.into_luma8()
 }
@@ -1026,6 +1172,7 @@ pub fn inverse_transform_point(
     mut curr_w: f64,
     mut curr_h: f64,
     adjustments: &serde_json::Value,
+    source_path: Option<&str>,
 ) -> (f64, f64) {
     let rotation_degrees = adjustments
         .get("rotation")
@@ -1072,7 +1219,7 @@ pub fn inverse_transform_point(
         std::mem::swap(&mut curr_w, &mut curr_h);
     }
 
-    let params = get_geometry_params_from_json(adjustments);
+    let params = get_geometry_params_for_source(adjustments, source_path);
     let width = curr_w as f32;
     let height = curr_h as f32;
 
@@ -1090,14 +1237,8 @@ pub fn inverse_transform_point(
         let mut src_y = (vec.y as f64) * inv_z;
 
         let k_distortion = (params.distortion as f64 / 100.0) * 2.5;
-        let lk1 = params.lens_dist_k1 as f64;
-        let lk2 = params.lens_dist_k2 as f64;
-        let lk3 = params.lens_dist_k3 as f64;
-        let lens_dist_amt = (params.lens_distortion_amount as f64) * 2.5;
-
-        let has_lens_correction = params.lens_distortion_enabled
-            && (lk1.abs() > 1e-6 || lk2.abs() > 1e-6 || lk3.abs() > 1e-6);
-        let is_ptlens = params.lens_model == 1;
+        let lens = LensCorrection::new(&params);
+        let has_lens_correction = lens.has_distortion;
 
         let auto_crop_scale = if has_lens_correction || k_distortion.abs() > 1e-5 {
             compute_lens_auto_crop_scale(&params, width, height)
@@ -1116,26 +1257,7 @@ pub fn inverse_transform_point(
             let ru = (dx * dx + dy * dy).sqrt();
 
             if ru > 1e-6 {
-                let ru_norm = ru / hd;
-                let ru_norm2 = ru_norm * ru_norm;
-
-                let rd_norm = if is_ptlens {
-                    let a = lk1;
-                    let b = lk2;
-                    let c = lk3;
-                    let d = 1.0 - a - b - c;
-                    ru_norm * (a * ru_norm2 * ru_norm + b * ru_norm2 + c * ru_norm + d)
-                } else {
-                    ru_norm
-                        * (1.0
-                            + lk1 * ru_norm2
-                            + lk2 * (ru_norm2 * ru_norm2)
-                            + lk3 * (ru_norm2 * ru_norm2 * ru_norm2))
-                };
-
-                let effective_r_norm = ru_norm + (rd_norm - ru_norm) * lens_dist_amt;
-                let scale = effective_r_norm / ru_norm;
-
+                let scale = lens.distortion_scale(ru / hd);
                 src_x = cx + (dx * scale);
                 src_y = cy + (dy * scale);
             }
@@ -1250,9 +1372,10 @@ pub fn apply_orientation(image: DynamicImage, orientation: Orientation) -> Dynam
 pub fn apply_geometry_warp<'a>(
     image: impl IntoCowImage<'a>,
     adjustments: &serde_json::Value,
+    source_path: Option<&str>,
 ) -> Cow<'a, DynamicImage> {
     let image = image.into_cow();
-    let params = get_geometry_params_from_json(adjustments);
+    let params = get_geometry_params_for_source(adjustments, source_path);
     if !is_geometry_identity(&params) {
         Cow::Owned(warp_image_geometry(image.as_ref(), params))
     } else {
@@ -1263,9 +1386,10 @@ pub fn apply_geometry_warp<'a>(
 pub fn apply_unwarp_geometry<'a>(
     image: impl IntoCowImage<'a>,
     adjustments: &serde_json::Value,
+    source_path: Option<&str>,
 ) -> Cow<'a, DynamicImage> {
     let image = image.into_cow();
-    let params = get_geometry_params_from_json(adjustments);
+    let params = get_geometry_params_for_source(adjustments, source_path);
     if !is_geometry_identity(&params) {
         Cow::Owned(unwarp_image_geometry(image.as_ref(), params))
     } else {
@@ -1358,6 +1482,15 @@ pub fn apply_flip<'a>(
 
 pub fn is_geometry_identity(params: &GeometryParams) -> bool {
     if params.guided_perspective_enabled && params.guided_lines.len() >= 2 {
+        return false;
+    }
+
+    // Embedded data has an effect even without Lensfun values.
+    if let Some(profile) = params.embedded.as_deref()
+        && ((params.lens_distortion_enabled && profile.has_distortion)
+            || (params.lens_tca_enabled && profile.has_tca)
+            || (params.lens_vignette_enabled && profile.has_vignette))
+    {
         return false;
     }
 
@@ -2067,6 +2200,17 @@ pub fn is_image_edited(
         .get("flipVertical")
         .and_then(|v| v.as_bool())
         .unwrap_or(false)
+    {
+        return true;
+    }
+
+    // Mode "embedded" changes the image, even without Lensfun values. The
+    // RAW file is not opened for this. The mode alone is enough.
+    if adj
+        .get("lensCorrectionMode")
+        .and_then(|v| v.as_str())
+        .unwrap_or("manual")
+        == "embedded"
     {
         return true;
     }
@@ -3484,4 +3628,263 @@ pub fn calculate_auto_adjustments(
     let results = perform_auto_analysis(&original_image);
 
     Ok(auto_results_to_json(&results))
+}
+
+#[cfg(test)]
+mod lens_tests {
+    use super::*;
+    use crate::embedded_lens_correction::PROFILE_KNOTS;
+
+    /// Builds a profile with one given curve for all three channels.
+    fn profile_with_curve(f: impl Fn(f32) -> f32) -> Arc<EmbeddedLensProfile> {
+        let values: Vec<f32> = (0..PROFILE_KNOTS)
+            .map(|i| f(i as f32 / (PROFILE_KNOTS - 1) as f32))
+            .collect();
+        Arc::new(EmbeddedLensProfile {
+            source: "Test".to_string(),
+            radial: [values.clone(), values.clone(), values],
+            vignette: vec![1.0; PROFILE_KNOTS],
+            has_distortion: true,
+            has_tca: false,
+            has_vignette: false,
+        })
+    }
+
+    fn base_params() -> GeometryParams {
+        GeometryParams {
+            lens_distortion_amount: 1.0,
+            lens_tca_amount: 1.0,
+            lens_vignette_amount: 1.0,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn table_replaces_polynomial() {
+        let mut params = base_params();
+        params.embedded = Some(profile_with_curve(|r| 1.0 - 0.2 * r));
+
+        let lens = LensCorrection::new(&params);
+        assert!(lens.has_distortion);
+        assert!((lens.distortion_scale(0.0) - 1.0).abs() < 1e-4);
+        assert!((lens.distortion_scale(1.0) - 0.8).abs() < 1e-4);
+        assert!((lens.distortion_scale(0.5) - 0.9).abs() < 1e-3);
+    }
+
+    #[test]
+    fn amount_blends_between_one_and_table() {
+        let mut params = base_params();
+        params.embedded = Some(profile_with_curve(|r| 1.0 - 0.2 * r));
+
+        params.lens_distortion_amount = 0.0;
+        assert!((LensCorrection::new(&params).distortion_scale(1.0) - 1.0).abs() < 1e-6);
+
+        params.lens_distortion_amount = 0.5;
+        assert!((LensCorrection::new(&params).distortion_scale(1.0) - 0.9).abs() < 1e-4);
+
+        params.lens_distortion_amount = 1.0;
+        assert!((LensCorrection::new(&params).distortion_scale(1.0) - 0.8).abs() < 1e-4);
+    }
+
+    #[test]
+    fn table_inverse_is_consistent() {
+        let mut params = base_params();
+        params.embedded = Some(profile_with_curve(|r| 1.0 - 0.15 * r * r));
+        let lens = LensCorrection::new(&params);
+
+        for i in 1..=20 {
+            let ru = i as f64 / 20.0;
+            let rd = ru * lens.distortion_scale(ru);
+            let back = lens.inverse_distortion(rd);
+            assert!(
+                (back - ru).abs() < 1e-4,
+                "ru = {}, rd = {}, back = {}",
+                ru,
+                rd,
+                back
+            );
+        }
+    }
+
+    #[test]
+    fn tca_factors_are_relative_to_green() {
+        let green: Vec<f32> = (0..PROFILE_KNOTS).map(|_| 1.0).collect();
+        let red: Vec<f32> = (0..PROFILE_KNOTS)
+            .map(|i| 1.0 + 0.001 * (i as f32 / (PROFILE_KNOTS - 1) as f32))
+            .collect();
+        let blue: Vec<f32> = (0..PROFILE_KNOTS)
+            .map(|i| 1.0 - 0.002 * (i as f32 / (PROFILE_KNOTS - 1) as f32))
+            .collect();
+
+        let mut params = base_params();
+        params.embedded = Some(Arc::new(EmbeddedLensProfile {
+            source: "Test".to_string(),
+            radial: [red, green, blue],
+            vignette: vec![1.0; PROFILE_KNOTS],
+            has_distortion: false,
+            has_tca: true,
+            has_vignette: false,
+        }));
+
+        let lens = LensCorrection::new(&params);
+        assert!(!lens.has_distortion);
+        assert!(lens.has_tca);
+
+        let (vr, vb) = lens.tca_factors(1.0);
+        assert!((vr - 1.001).abs() < 1e-5, "vr = {}", vr);
+        assert!((vb - 0.998).abs() < 1e-5, "vb = {}", vb);
+
+        // There is no shift at the center.
+        let (vr0, vb0) = lens.tca_factors(0.0);
+        assert!((vr0 - 1.0).abs() < 1e-6);
+        assert!((vb0 - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn vignette_uses_table_directly() {
+        let mut params = base_params();
+        params.embedded = Some(Arc::new(EmbeddedLensProfile {
+            source: "Test".to_string(),
+            radial: [
+                vec![1.0; PROFILE_KNOTS],
+                vec![1.0; PROFILE_KNOTS],
+                vec![1.0; PROFILE_KNOTS],
+            ],
+            vignette: (0..PROFILE_KNOTS)
+                .map(|i| 1.0 + 0.6 * (i as f32 / (PROFILE_KNOTS - 1) as f32))
+                .collect(),
+            has_distortion: false,
+            has_tca: false,
+            has_vignette: true,
+        }));
+
+        let vignette = LensVignette::new(&params);
+        assert!(vignette.active);
+        assert!((vignette.gain(0.0) - 1.0).abs() < 1e-6);
+        assert!((vignette.gain(1.0) - 1.6).abs() < 1e-4);
+
+        // The slider blends between 1.0 and the table value.
+        params.lens_vignette_amount = 0.5;
+        let vignette = LensVignette::new(&params);
+        assert!((vignette.gain(1.0) - 1.3).abs() < 1e-4);
+    }
+
+    #[test]
+    fn embedded_profile_is_not_identity() {
+        let mut params = base_params();
+        assert!(is_geometry_identity(&params));
+
+        params.embedded = Some(profile_with_curve(|r| 1.0 - 0.2 * r));
+        assert!(!is_geometry_identity(&params));
+
+        // Disabled corrections do not change the image.
+        params.lens_distortion_enabled = false;
+        params.lens_tca_enabled = false;
+        params.lens_vignette_enabled = false;
+        assert!(is_geometry_identity(&params));
+    }
+
+    #[test]
+    fn auto_crop_respects_table() {
+        // A multiplier above 1.0 moves the sample position outwards.
+        // Without the crop, black borders would appear.
+        let mut params = base_params();
+        params.embedded = Some(profile_with_curve(|r| 1.0 + 0.1 * r * r));
+        let scale = compute_lens_auto_crop_scale(&params, 4000.0, 3000.0);
+        assert!(scale > 1.09, "crop scale = {}", scale);
+
+        // Barrel distortion needs no crop.
+        params.embedded = Some(profile_with_curve(|r| 1.0 - 0.15 * r * r));
+        let scale = compute_lens_auto_crop_scale(&params, 4000.0, 3000.0);
+        assert!((scale - 1.0).abs() < 1e-9, "crop scale = {}", scale);
+    }
+
+    fn white_pixel_image(width: u32, height: u32, x: u32, y: u32) -> DynamicImage {
+        let mut buf = vec![0.0f32; (width * height * 3) as usize];
+        let i = ((y * width + x) * 3) as usize;
+        buf[i] = 1.0;
+        buf[i + 1] = 1.0;
+        buf[i + 2] = 1.0;
+        DynamicImage::ImageRgb32F(Rgb32FImage::from_vec(width, height, buf).unwrap())
+    }
+
+    #[test]
+    fn warp_moves_the_pixel_as_the_table_says() {
+        // A constant multiplier of 0.5 samples at half the radius. A source
+        // point at distance 40 from the center thus appears at distance 80.
+        let mut params = base_params();
+        params.embedded = Some(profile_with_curve(|_| 0.5));
+
+        let src = white_pixel_image(200, 200, 140, 100);
+        let out = warp_image_geometry(&src, params);
+        let out = out.to_rgb32f();
+
+        assert!(
+            out.get_pixel(180, 100)[0] > 0.9,
+            "the pixel is not at x = 180"
+        );
+        assert!(
+            out.get_pixel(140, 100)[0] < 0.1,
+            "the pixel is still at x = 140"
+        );
+    }
+
+    #[test]
+    fn warp_applies_the_vignette_gain() {
+        let mut params = base_params();
+        params.embedded = Some(Arc::new(EmbeddedLensProfile {
+            source: "Test".to_string(),
+            radial: [
+                vec![1.0; PROFILE_KNOTS],
+                vec![1.0; PROFILE_KNOTS],
+                vec![1.0; PROFILE_KNOTS],
+            ],
+            vignette: (0..PROFILE_KNOTS)
+                .map(|i| 1.0 + 0.6 * (i as f32 / (PROFILE_KNOTS - 1) as f32))
+                .collect(),
+            has_distortion: false,
+            has_tca: false,
+            has_vignette: true,
+        }));
+
+        let buf = vec![0.5f32; 200 * 200 * 3];
+        let src = DynamicImage::ImageRgb32F(Rgb32FImage::from_vec(200, 200, buf).unwrap());
+        let out = warp_image_geometry(&src, params).to_rgb32f();
+
+        // The center keeps its value.
+        assert!((out.get_pixel(100, 100)[0] - 0.5).abs() < 1e-3);
+
+        // Point (190, 190) has the radius 0.9 of the half diagonal.
+        // The gain there is 1 + 0.6 * 0.9 = 1.54.
+        // `interpolate_pixel` leaves the last row and column black, thus the
+        // test does not use the exact corner.
+        let outer = out.get_pixel(190, 190)[0];
+        assert!((outer - 0.5 * 1.54).abs() < 0.01, "outer = {}", outer);
+    }
+
+    #[test]
+    fn lensfun_path_is_unchanged() {
+        // Without a profile the polynomial still applies, amplified by 2.5.
+        let mut params = base_params();
+        params.lens_dist_k1 = -0.02;
+        let lens = LensCorrection::new(&params);
+        assert!(lens.has_distortion);
+
+        // k1 is stored as f32, thus the generous tolerance.
+        let expected = 1.0 + (params.lens_dist_k1 as f64) * 2.5;
+        assert!(
+            (lens.distortion_scale(1.0) - expected).abs() < 1e-9,
+            "{} instead of {}",
+            lens.distortion_scale(1.0),
+            expected
+        );
+
+        params.tca_vr = 1.0004;
+        params.tca_vb = 0.9997;
+        let lens = LensCorrection::new(&params);
+        assert!(lens.has_tca);
+        let (vr, vb) = lens.tca_factors(0.3);
+        assert!((vr - 1.0004).abs() < 1e-6);
+        assert!((vb - 0.9997).abs() < 1e-6);
+    }
 }

@@ -16,6 +16,7 @@ mod cache_utils;
 mod camera_tethering;
 mod culling;
 mod denoising;
+mod embedded_lens_correction;
 mod exif_processing;
 mod export_processing;
 mod file_management;
@@ -203,14 +204,18 @@ fn compute_full_transformed_res(
         .is_some_and(|a| !a.is_empty());
     let patched_original_image = if has_patches {
         Cow::Owned(
-            composite_patches_on_image(&loaded_image.image, adjustments)
+            composite_patches_on_image(&loaded_image.image, adjustments, Some(&loaded_image.path))
                 .map_err(|e| format!("Failed to composite AI patches: {}", e))?,
         )
     } else {
         Cow::Borrowed(loaded_image.image.as_ref())
     };
 
-    let (transformed_img, offset) = apply_all_transformations(patched_original_image, adjustments);
+    let (transformed_img, offset) = apply_all_transformations(
+        patched_original_image,
+        adjustments,
+        Some(&loaded_image.path),
+    );
     Ok((Arc::new(transformed_img.into_owned()), offset))
 }
 
@@ -262,13 +267,15 @@ pub fn get_cached_full_warped_image(
     }
 
     let (base_arc, is_raw) = get_original_image(state)?;
+    let source_path = current_source_path(state);
     let mut cow_image = Cow::Borrowed(base_arc.as_ref());
 
     if is_raw {
         apply_cpu_default_raw_processing(cow_image.to_mut());
     }
 
-    let warped_image = apply_geometry_warp(cow_image, js_adjustments).into_owned();
+    let warped_image =
+        apply_geometry_warp(cow_image, js_adjustments, source_path.as_deref()).into_owned();
     let warped_arc = Arc::new(warped_image);
 
     {
@@ -771,8 +778,12 @@ async fn generate_uncropped_preview(
                     .is_some_and(|a| !a.is_empty());
                 let patched_image = if has_patches {
                     Cow::Owned(
-                        composite_patches_on_image(&loaded_image.image, &adjustments_clone)
-                            .unwrap_or_else(|_| loaded_image.image.as_ref().clone()),
+                        composite_patches_on_image(
+                            &loaded_image.image,
+                            &adjustments_clone,
+                            Some(&loaded_image.path),
+                        )
+                        .unwrap_or_else(|_| loaded_image.image.as_ref().clone()),
                     )
                 } else {
                     Cow::Borrowed(loaded_image.image.as_ref())
@@ -800,9 +811,17 @@ async fn generate_uncropped_preview(
             1.0
         };
 
-        let params = crate::image_processing::get_geometry_params_from_json(&adjustments_clone);
+        let params = crate::image_processing::get_geometry_params_for_source(
+            &adjustments_clone,
+            Some(&loaded_image.path),
+        );
         let mut adjusted_params = params;
-        adjusted_params.lens_vignette_amount *= if is_raw { 0.4 } else { 0.8 };
+        // The preview damps the Lensfun vignetting values. Embedded data is
+        // already exact and stays as it is. Otherwise the preview would
+        // differ from the export.
+        if adjusted_params.embedded.is_none() {
+            adjusted_params.lens_vignette_amount *= if is_raw { 0.4 } else { 0.8 };
+        }
 
         let warped_image = warp_image_geometry(&pre_geometry_base, adjusted_params);
         let orientation_steps = adjustments_clone["orientationSteps"].as_u64().unwrap_or(0) as u8;
@@ -876,6 +895,15 @@ async fn generate_uncropped_preview(
     })
     .await
     .map_err(|e| format!("Task execution failed: {}", e))?
+}
+
+/// Returns the file path of the image that is loaded now.
+pub fn current_source_path(state: &tauri::State<AppState>) -> Option<String> {
+    state
+        .original_image
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().map(|img| img.path.clone()))
 }
 
 pub fn get_original_image(
@@ -1008,7 +1036,7 @@ async fn generate_all_community_previews(
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-    let mut base_thumbnails: Vec<(DynamicImage, bool, f32)> = Vec::new();
+    let mut base_thumbnails: Vec<(DynamicImage, bool, f32, String)> = Vec::new();
     for image_path in image_paths.iter() {
         let (source_path, _) = parse_virtual_path(image_path);
         let source_path_str = source_path.to_string_lossy().to_string();
@@ -1032,7 +1060,7 @@ async fn generate_all_community_previews(
             (original_image, 1.0)
         };
 
-        base_thumbnails.push((base_image, is_raw, base_scale));
+        base_thumbnails.push((base_image, is_raw, base_scale, source_path_str.clone()));
     }
 
     for preset in presets.iter() {
@@ -1043,7 +1071,7 @@ async fn generate_all_community_previews(
         preset.name.hash(&mut preset_hasher);
         let preset_hash = preset_hasher.finish();
 
-        for (i, (base_image, is_raw, base_scale)) in base_thumbnails.iter().enumerate() {
+        for (i, (base_image, is_raw, base_scale, base_path)) in base_thumbnails.iter().enumerate() {
             let mut scaled_adjustments = js_adjustments.clone();
             if let Some(crop_val) = scaled_adjustments.get_mut("crop")
                 && let Ok(c) = serde_json::from_value::<Crop>(crop_val.clone())
@@ -1057,8 +1085,11 @@ async fn generate_all_community_previews(
                 .unwrap_or(serde_json::Value::Null);
             }
 
-            let (transformed_image, _scaled_crop_offset) =
-                crate::apply_all_transformations(Cow::Borrowed(base_image), &scaled_adjustments);
+            let (transformed_image, _scaled_crop_offset) = crate::apply_all_transformations(
+                Cow::Borrowed(base_image),
+                &scaled_adjustments,
+                Some(base_path.as_str()),
+            );
             let (img_w, img_h) = transformed_image.dimensions();
 
             let mask_definitions: Vec<MaskDefinition> = scaled_adjustments
@@ -1349,8 +1380,11 @@ async fn generate_preview_for_path(
             }
         };
 
-        let (transformed_image, unscaled_crop_offset) =
-            apply_all_transformations(Cow::Borrowed(&base_image), &js_adjustments);
+        let (transformed_image, unscaled_crop_offset) = apply_all_transformations(
+            Cow::Borrowed(&base_image),
+            &js_adjustments,
+            Some(source_path_str.as_str()),
+        );
         let (img_w, img_h) = transformed_image.dimensions();
         let mask_definitions: Vec<MaskDefinition> = js_adjustments
             .get("masks")
@@ -2197,6 +2231,7 @@ pub fn run() {
             lens_correction::get_lensfun_lenses_for_maker,
             lens_correction::autodetect_lens,
             lens_correction::get_lens_distortion_params,
+            embedded_lens_correction::get_embedded_lens_profile,
             negative_conversion::preview_negative_conversion,
             negative_conversion::convert_negatives,
             camera_tethering::tether_list_cameras,

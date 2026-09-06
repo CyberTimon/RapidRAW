@@ -74,7 +74,7 @@ pub fn load_and_composite(
 ) -> Result<DynamicImage> {
     let base_image =
         load_base_image_from_bytes(base_image, path, use_fast_raw_dev, settings, cancel_token)?;
-    composite_patches_on_image(&base_image, adjustments)
+    composite_patches_on_image(&base_image, adjustments, Some(path))
 }
 
 pub fn load_base_image_from_bytes(
@@ -398,6 +398,7 @@ pub fn load_image_with_orientation(
 pub fn composite_patches_on_image(
     base_image: &DynamicImage,
     current_adjustments: &Value,
+    source_path: Option<&str>,
 ) -> Result<DynamicImage> {
     let patches_val = match current_adjustments.get("aiPatches") {
         Some(val) => val,
@@ -500,8 +501,11 @@ pub fn composite_patches_on_image(
                     generate_mask_bitmap(&mask_def, trans_w, trans_h, 1.0, (0.0, 0.0), None)
                         .context("Failed to generate mask from sub_masks for compositing")?;
 
-                gen_mask =
-                    crate::image_processing::inverse_transform_mask(gen_mask, current_adjustments);
+                gen_mask = crate::image_processing::inverse_transform_mask(
+                    gen_mask,
+                    current_adjustments,
+                    source_path,
+                );
 
                 if let (Some(ox), Some(oy)) = (offset_x, offset_y) {
                     let w = patch_data

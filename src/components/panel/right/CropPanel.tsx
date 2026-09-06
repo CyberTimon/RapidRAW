@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
+import { Adjustments, EmbeddedLensProfileInfo, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import clsx from 'clsx';
 import { Orientation } from '../../ui/AppProperties';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -93,6 +93,9 @@ export default function CropPanel() {
   const localRotationRef = useRef<number | null>(null);
 
   const lensMode = adjustments.lensCorrectionMode || 'manual';
+  // "embedded" is a form of "auto". The toggle shows both states as "Auto".
+  const isAutoMode = lensMode === 'auto' || lensMode === 'embedded';
+  const [embeddedProfile, setEmbeddedProfile] = useState<EmbeddedLensProfileInfo | null>(null);
 
   const [modeBubbleStyle, setModeBubbleStyle] = useState({});
   const isModeInitialAnimation = useRef(true);
@@ -545,17 +548,41 @@ export default function CropPanel() {
   const handleAutoDetectLens = useCallback(async () => {
     const exifMaker = selectedImage?.exif?.Make;
     const exifModel = selectedImage?.exif?.LensModel;
-
-    if (!exifMaker || !exifModel) {
-      setDetectionStatus('not_found');
-      return;
-    }
+    const exifCameraModel = selectedImage?.exif?.Model;
 
     setDetectionStatus('detecting');
     try {
+      // The values that the camera maker wrote into the RAW file have
+      // priority. They are usually more exact than a measured database.
+      const embedded: EmbeddedLensProfileInfo | null = await invoke('get_embedded_lens_profile', {
+        path: selectedImage?.path ?? '',
+      });
+
+      if (embedded) {
+        setEmbeddedProfile(embedded);
+        setAdjustments((prev) => ({
+          ...prev,
+          lensMaker: null,
+          lensModel: null,
+          lensDistortionParams: null,
+          lensCorrectionMode: 'embedded',
+        }));
+        setDetectionStatus('success');
+        setTimeout(() => setDetectionStatus('idle'), 2000);
+        return;
+      }
+
+      setEmbeddedProfile(null);
+
+      if (!exifModel && !exifCameraModel) {
+        setDetectionStatus('not_found');
+        return;
+      }
+
       const result: [string, string] | null = await invoke('autodetect_lens', {
-        maker: exifMaker,
-        model: exifModel,
+        maker: exifMaker ?? '',
+        model: exifModel ?? '',
+        cameraModel: exifCameraModel ?? '',
       });
 
       if (result) {
@@ -578,7 +605,7 @@ export default function CropPanel() {
     } catch {
       setDetectionStatus('not_found');
     }
-  }, [selectedImage?.exif, fetchDistortionParams, setAdjustments]);
+  }, [selectedImage?.exif, selectedImage?.path, fetchDistortionParams, setAdjustments]);
 
   const handleMakerChange = useCallback(
     (maker: string) => {
@@ -629,17 +656,22 @@ export default function CropPanel() {
     [myLenses, fetchDistortionParams, setAdjustments],
   );
 
-  const hasDistortion =
-    Math.abs(adjustments.lensDistortionParams?.k1 || 0) > 1e-6 ||
-    Math.abs(adjustments.lensDistortionParams?.k2 || 0) > 1e-6 ||
-    Math.abs(adjustments.lensDistortionParams?.k3 || 0) > 1e-6;
-  const hasTca =
-    Math.abs((adjustments.lensDistortionParams?.tca_vr || 1) - 1) > 1e-5 ||
-    Math.abs((adjustments.lensDistortionParams?.tca_vb || 1) - 1) > 1e-5;
-  const hasVignetting =
-    Math.abs(adjustments.lensDistortionParams?.vig_k1 || 0) > 1e-6 ||
-    Math.abs(adjustments.lensDistortionParams?.vig_k2 || 0) > 1e-6 ||
-    Math.abs(adjustments.lensDistortionParams?.vig_k3 || 0) > 1e-6;
+  const usesEmbedded = lensMode === 'embedded' && embeddedProfile !== null;
+
+  const hasDistortion = usesEmbedded
+    ? embeddedProfile.hasDistortion
+    : Math.abs(adjustments.lensDistortionParams?.k1 || 0) > 1e-6 ||
+      Math.abs(adjustments.lensDistortionParams?.k2 || 0) > 1e-6 ||
+      Math.abs(adjustments.lensDistortionParams?.k3 || 0) > 1e-6;
+  const hasTca = usesEmbedded
+    ? embeddedProfile.hasTca
+    : Math.abs((adjustments.lensDistortionParams?.tca_vr || 1) - 1) > 1e-5 ||
+      Math.abs((adjustments.lensDistortionParams?.tca_vb || 1) - 1) > 1e-5;
+  const hasVignetting = usesEmbedded
+    ? embeddedProfile.hasVignette
+    : Math.abs(adjustments.lensDistortionParams?.vig_k1 || 0) > 1e-6 ||
+      Math.abs(adjustments.lensDistortionParams?.vig_k2 || 0) > 1e-6 ||
+      Math.abs(adjustments.lensDistortionParams?.vig_k3 || 0) > 1e-6;
 
   const myLensOptions = useMemo(() => {
     if (myLenses.length === 0) {
@@ -651,8 +683,31 @@ export default function CropPanel() {
     }));
   }, [myLenses, t]);
 
+  // Load the embedded profile again when the image changes.
   useEffect(() => {
-    const selectedIndex = lensMode === 'auto' ? 0 : 1;
+    let cancelled = false;
+    if (lensMode !== 'embedded' || !selectedImage?.path) {
+      setEmbeddedProfile(null);
+      return;
+    }
+    invoke('get_embedded_lens_profile', { path: selectedImage.path })
+      .then((info) => {
+        if (!cancelled) {
+          setEmbeddedProfile((info as EmbeddedLensProfileInfo | null) ?? null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setEmbeddedProfile(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lensMode, selectedImage?.path]);
+
+  useEffect(() => {
+    const selectedIndex = isAutoMode ? 0 : 1;
     const targetX = `${selectedIndex * 100}%`;
     const targetWidth = '50%';
 
@@ -669,7 +724,7 @@ export default function CropPanel() {
         width: targetWidth,
       });
     }
-  }, [lensMode]);
+  }, [lensMode, isAutoMode]);
 
   const handleModeChange = useCallback(
     (mode: 'auto' | 'manual') => {
@@ -719,6 +774,7 @@ export default function CropPanel() {
     const handleResetLens = () => {
       setDetectionStatus('idle');
       setLenses([]);
+      setEmbeddedProfile(null);
       setAdjustments((prev: Adjustments) => ({
         ...prev,
         lensMaker: INITIAL_ADJUSTMENTS.lensMaker,
@@ -1288,7 +1344,7 @@ export default function CropPanel() {
                               onClick={() => handleModeChange('auto')}
                               className={clsx(
                                 'relative flex-1 flex items-center justify-center gap-2 px-3 p-1.5 text-sm font-medium rounded-md transition-colors',
-                                lensMode === 'auto' ? 'text-button-text' : 'text-text-primary hover:bg-surface/50',
+                                isAutoMode ? 'text-button-text' : 'text-text-primary hover:bg-surface/50',
                               )}
                               style={{ WebkitTapHighlightColor: 'transparent' }}
                             >
@@ -1311,13 +1367,13 @@ export default function CropPanel() {
                           </div>
                         </div>
 
-                        {lensMode === 'auto' ? (
+                        {isAutoMode ? (
                           <div
                             className={clsx(
                               'w-full flex items-center justify-center gap-2 p-3 text-sm rounded-md border transition-colors',
                               detectionStatus === 'not_found'
                                 ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                                : adjustments.lensMaker
+                                : adjustments.lensMaker || usesEmbedded
                                   ? 'bg-green-500/10 text-green-400 border-green-500/20'
                                   : 'bg-bg-primary border-surface text-text-secondary',
                             )}
@@ -1328,9 +1384,18 @@ export default function CropPanel() {
                               </>
                             ) : detectionStatus === 'not_found' ? (
                               t('modals.lensCorrection.lensProfileNotFound')
+                            ) : usesEmbedded ? (
+                              <>
+                                <Check size={16} />{' '}
+                                {t('modals.lensCorrection.embeddedSource', { source: embeddedProfile.source })}
+                              </>
                             ) : adjustments.lensMaker && adjustments.lensModel ? (
                               <>
-                                <Check size={16} /> {adjustments.lensMaker} - {adjustments.lensModel}
+                                <Check size={16} />{' '}
+                                {t('modals.lensCorrection.lensfunSource', {
+                                  maker: adjustments.lensMaker,
+                                  model: adjustments.lensModel,
+                                })}
                               </>
                             ) : (
                               <>
