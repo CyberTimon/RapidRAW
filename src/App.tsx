@@ -47,6 +47,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useThumbnails } from './hooks/useThumbnails';
 import { ImageDimensions } from './hooks/useImageRenderSize';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useExternalControl } from './hooks/useExternalControl';
 import { useTauriListeners } from './hooks/useTauriListeners';
 import { useFileOperations } from './hooks/useFileOperations';
 import { useAppContextMenus } from './hooks/useAppContextMenus';
@@ -471,6 +472,8 @@ function App() {
       setTimeout(() => setUI({ isInstantTransition: false }), 100);
     }
   }, [isFullScreen, setUI]);
+
+  useExternalControl();
 
   useKeyboardShortcuts({
     sortedImageList,

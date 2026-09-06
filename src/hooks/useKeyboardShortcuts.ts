@@ -9,6 +9,7 @@ import { useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
+import { registerControlActions } from '../utils/externalControl';
 
 interface KeyboardShortcutsProps {
   sortedImageList: Array<ImageFile>;
@@ -559,6 +560,9 @@ export const useKeyboardShortcuts = ({
       },
     };
 
+    // Expose the named actions to hardware controllers (see useExternalControl).
+    const unregisterControlActions = registerControlActions(actions, getStoreState);
+
     const builtinShortcuts = [
       {
         match: (e: KeyboardEvent) => e.code === 'Escape',
@@ -678,6 +682,7 @@ export const useKeyboardShortcuts = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      unregisterControlActions();
     };
   }, [
     handleBackToLibrary,
