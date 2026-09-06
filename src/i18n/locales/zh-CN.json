@@ -1450,6 +1450,12 @@
     }
   },
   "settings": {
+    "search": {
+      "clear": "清除搜索",
+      "noResults": "未找到设置。",
+      "placeholder": "搜索设置…",
+      "results": "搜索结果"
+    },
     "adjustments": {
       "chromaticAberration": "色差",
       "colorCalibration": "颜色校准",

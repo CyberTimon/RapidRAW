@@ -1450,6 +1450,12 @@
     }
   },
   "settings": {
+    "search": {
+      "clear": "検索をクリア",
+      "noResults": "設定が見つかりません。",
+      "placeholder": "設定を検索…",
+      "results": "検索結果"
+    },
     "adjustments": {
       "chromaticAberration": "色収差",
       "colorCalibration": "カラーキャリブレーション",

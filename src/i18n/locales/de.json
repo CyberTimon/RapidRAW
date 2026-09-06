@@ -1452,6 +1452,12 @@
     }
   },
   "settings": {
+    "search": {
+      "clear": "Suche löschen",
+      "noResults": "Keine Einstellungen gefunden.",
+      "placeholder": "Einstellungen durchsuchen…",
+      "results": "Suchergebnisse"
+    },
     "adjustments": {
       "chromaticAberration": "Chromatische Aberration",
       "colorCalibration": "Farbkalibrierung",

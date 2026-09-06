@@ -1514,6 +1514,12 @@
     }
   },
   "settings": {
+    "search": {
+      "clear": "Wyczyść wyszukiwanie",
+      "noResults": "Nie znaleziono ustawień.",
+      "placeholder": "Szukaj w ustawieniach…",
+      "results": "Wyniki wyszukiwania"
+    },
     "adjustments": {
       "chromaticAberration": "Aberracja chromatyczna",
       "colorCalibration": "Kalibracja kolorów",

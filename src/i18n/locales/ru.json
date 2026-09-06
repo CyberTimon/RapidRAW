@@ -1514,6 +1514,12 @@
     }
   },
   "settings": {
+    "search": {
+      "clear": "Очистить поиск",
+      "noResults": "Настройки не найдены.",
+      "placeholder": "Поиск в настройках…",
+      "results": "Результаты поиска"
+    },
     "adjustments": {
       "chromaticAberration": "Хроматическая аберрация",
       "colorCalibration": "Калибровка цвета",
