@@ -1575,6 +1575,11 @@
     "general": {
       "createXmp": "Créer les fichiers XMP manquants",
       "createXmpDesc": "Créer automatiquement un nouveau fichier annexe XMP s'il n'en existe pas pour une image.",
+      "xmpBackfillError": "Impossible de créer les fichiers XMP manquants : {{error}}",
+      "xmpBackfillSuccess": "{{count}} fichiers XMP manquants ont été créés.",
+      "xmpBackfillSuccess_many": "{{count}} fichiers XMP manquants ont été créés.",
+      "xmpBackfillSuccess_one": "{{count}} fichier XMP manquant a été créé.",
+      "xmpBackfillSuccess_other": "{{count}} fichiers XMP manquants ont été créés.",
       "createXmpMissing": "Créer XMP si manquant",
       "displayEditIcon": "Afficher l'icône de retouche",
       "displayEditIconDesc": "Afficher une petite icône de curseur sur les miniatures qui ont été retouchées.",

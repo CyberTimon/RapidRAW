@@ -1542,6 +1542,11 @@
     "general": {
       "createXmp": "Crear fitxers XMP que falten",
       "createXmpDesc": "Crear automàticament un nou fitxer sidecar XMP si no n'existeix cap per a una imatge.",
+      "xmpBackfillError": "No s'han pogut crear els fitxers XMP absents: {{error}}",
+      "xmpBackfillSuccess": "S'han creat {{count}} fitxers XMP absents.",
+      "xmpBackfillSuccess_many": "S'han creat {{count}} fitxers XMP absents.",
+      "xmpBackfillSuccess_one": "S'ha creat {{count}} fitxer XMP absent.",
+      "xmpBackfillSuccess_other": "S'han creat {{count}} fitxers XMP absents.",
       "createXmpMissing": "Crear XMP si falta",
       "displayEditIcon": "Mostrar icona d'edició",
       "displayEditIconDesc": "Mostra una petita icona de control lliscant a les miniatures que han estat editades.",

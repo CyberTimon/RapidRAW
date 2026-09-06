@@ -1610,6 +1610,12 @@
     "general": {
       "createXmp": "Twórz brakujące pliki XMP",
       "createXmpDesc": "Automatycznie utwórz nowy plik poboczny XMP, jeśli nie istnieje dla obrazu.",
+      "xmpBackfillError": "Nie udało się utworzyć brakujących plików XMP: {{error}}",
+      "xmpBackfillSuccess": "Utworzono {{count}} brakujących plików XMP.",
+      "xmpBackfillSuccess_few": "Utworzono {{count}} brakujące pliki XMP.",
+      "xmpBackfillSuccess_many": "Utworzono {{count}} brakujących plików XMP.",
+      "xmpBackfillSuccess_one": "Utworzono {{count}} brakujący plik XMP.",
+      "xmpBackfillSuccess_other": "Utworzono {{count}} brakujących plików XMP.",
       "createXmpMissing": "Utwórz XMP, jeśli brakuje",
       "displayEditIcon": "Wyświetl ikonę edycji",
       "displayEditIconDesc": "Pokazuje małą ikonkę suwaków na miniaturach, które były edytowane.",

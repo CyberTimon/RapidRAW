@@ -1542,6 +1542,10 @@
     "general": {
       "createXmp": "Create Missing XMP Files",
       "createXmpDesc": "Automatically create a new XMP sidecar file if one does not exist for an image.",
+      "xmpBackfillError": "Failed to create missing XMP files: {{error}}",
+      "xmpBackfillSuccess": "Created {{count}} missing XMP files.",
+      "xmpBackfillSuccess_one": "Created {{count}} missing XMP file.",
+      "xmpBackfillSuccess_other": "Created {{count}} missing XMP files.",
       "createXmpMissing": "Create XMP if missing",
       "displayEditIcon": "Display Edit Icon",
       "displayEditIconDesc": "Show a small slider icon on thumbnails that have been edited.",

@@ -1540,6 +1540,10 @@
     "general": {
       "createXmp": "建立缺失的 XMP 檔案",
       "createXmpDesc": "如果影像沒有對應的 XMP 附屬檔案，則自動建立一個。",
+      "xmpBackfillError": "無法建立缺少的 XMP 檔案：{{error}}",
+      "xmpBackfillSuccess": "已建立 {{count}} 個缺少的 XMP 檔案。",
+      "xmpBackfillSuccess_one": "已建立 {{count}} 個缺少的 XMP 檔案。",
+      "xmpBackfillSuccess_other": "已建立 {{count}} 個缺少的 XMP 檔案。",
       "createXmpMissing": "缺失時建立 XMP",
       "displayEditIcon": "顯示編輯圖示",
       "displayEditIconDesc": "在已編輯的縮圖上顯示一個小滑桿圖示。",

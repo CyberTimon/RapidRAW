@@ -1540,6 +1540,10 @@
     "general": {
       "createXmp": "見つからないXMPファイルを作成",
       "createXmpDesc": "画像にXMPサイドカーファイルが存在しない場合、自動的に新規作成します。",
+      "xmpBackfillError": "不足しているXMPファイルを作成できませんでした: {{error}}",
+      "xmpBackfillSuccess": "不足していたXMPファイルを{{count}}個作成しました。",
+      "xmpBackfillSuccess_one": "不足していたXMPファイルを{{count}}個作成しました。",
+      "xmpBackfillSuccess_other": "不足していたXMPファイルを{{count}}個作成しました。",
       "createXmpMissing": "見つからない場合はXMPを作成",
       "displayEditIcon": "編集アイコンを表示",
       "displayEditIconDesc": "編集されたサムネイルに小さなスライダーアイコンを表示します。",

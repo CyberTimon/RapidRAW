@@ -1575,6 +1575,11 @@
     "general": {
       "createXmp": "Crea File XMP Mancanti",
       "createXmpDesc": "Crea automaticamente un nuovo file sidecar XMP se non ne esiste uno per un'immagine.",
+      "xmpBackfillError": "Impossibile creare i file XMP mancanti: {{error}}",
+      "xmpBackfillSuccess": "Creati {{count}} file XMP mancanti.",
+      "xmpBackfillSuccess_many": "Creati {{count}} file XMP mancanti.",
+      "xmpBackfillSuccess_one": "Creato {{count}} file XMP mancante.",
+      "xmpBackfillSuccess_other": "Creati {{count}} file XMP mancanti.",
       "createXmpMissing": "Crea XMP se mancante",
       "displayEditIcon": "Mostra Icona Modifica",
       "displayEditIconDesc": "Mostra una piccola icona del cursore sulle miniature che sono state modificate.",

@@ -1610,6 +1610,12 @@
     "general": {
       "createXmp": "Создавать недостающие файлы XMP",
       "createXmpDesc": "Автоматически создавать файл сопутствующих данных XMP, если он отсутствует у изображения.",
+      "xmpBackfillError": "Не удалось создать отсутствующие файлы XMP: {{error}}",
+      "xmpBackfillSuccess": "Создано {{count}} отсутствующих файлов XMP.",
+      "xmpBackfillSuccess_few": "Создано {{count}} отсутствующих файла XMP.",
+      "xmpBackfillSuccess_many": "Создано {{count}} отсутствующих файлов XMP.",
+      "xmpBackfillSuccess_one": "Создан {{count}} отсутствующий файл XMP.",
+      "xmpBackfillSuccess_other": "Создано {{count}} отсутствующих файлов XMP.",
       "createXmpMissing": "Создавать XMP при отсутствии",
       "displayEditIcon": "Показывать индикатор изменений",
       "displayEditIconDesc": "Показывать небольшой значок ползунка на эскизах тех кадров, которые были изменены.",
