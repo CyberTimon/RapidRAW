@@ -951,6 +951,7 @@ pub(crate) async fn export_images_impl(
             export_items.push((i, path_str, *count, explicit_vc));
         }
 
+        let used_paths = Arc::new(Mutex::new(std::collections::HashSet::new()));
         let semaphore = Arc::new(tokio::sync::Semaphore::new(num_threads));
         let mut join_handles = Vec::new();
 
@@ -974,6 +975,7 @@ pub(crate) async fn export_images_impl(
             let settings = settings.clone();
             let cancellation_token_clone = Arc::clone(&cancellation_token);
             let adjustments_mode = adjustments_mode.clone();
+            let used_paths_clone = Arc::clone(&used_paths);
 
             let handle = tokio::task::spawn_blocking(move || {
                 ensure_export_not_cancelled(&cancellation_token_clone)?;
@@ -1031,8 +1033,9 @@ pub(crate) async fn export_images_impl(
                 }
 
                 let new_filename = format!("{}.{}", new_stem, output_format);
-                let output_path = if is_explicit_file_path && total_paths == 1 {
-                    output_folder_path
+
+                let mut output_path = if is_explicit_file_path && total_paths == 1 {
+                    output_folder_path.clone()
                 } else if export_settings.preserve_folders {
                     if let Some(rel_dir) = relative_export_dir_for_preserved_folders(
                         source_path.as_path(),
@@ -1051,6 +1054,23 @@ pub(crate) async fn export_images_impl(
                 };
 
                 let extension = output_format.to_lowercase();
+
+                if !(is_explicit_file_path && total_paths == 1) {
+                    let mut used = used_paths_clone.lock().unwrap();
+                    let parent_dir = output_path
+                        .parent()
+                        .unwrap_or(std::path::Path::new(""))
+                        .to_path_buf();
+                    let mut counter = 1;
+
+                    while output_path.exists() || used.contains(&output_path) {
+                        let incremented_filename =
+                            format!("{}_{}.{}", new_stem, counter, extension);
+                        output_path = parent_dir.join(&incremented_filename);
+                        counter += 1;
+                    }
+                    used.insert(output_path.clone());
+                }
 
                 let result: Result<(), String> = (|| {
                     if extension == "cube" {

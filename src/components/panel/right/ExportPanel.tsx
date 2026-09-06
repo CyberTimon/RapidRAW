@@ -457,18 +457,8 @@ export default function ExportPanel({
   const handleExport = async () => {
     if (numImages === 0 || isExporting) return;
 
-    let finalFilenameTemplate = filenameTemplate;
-    if (
-      numImages > 1 &&
-      !filenameTemplate.includes('{sequence}') &&
-      !filenameTemplate.includes('{original_filename}')
-    ) {
-      finalFilenameTemplate = `${filenameTemplate}_{sequence}`;
-      setFilenameTemplate(finalFilenameTemplate);
-    }
-
     const exportSettings: ExportSettings = {
-      filenameTemplate: finalFilenameTemplate,
+      filenameTemplate,
       jpegQuality,
       keepMetadata,
       preserveTimestamps,
@@ -498,7 +488,7 @@ export default function ExportPanel({
       if (shouldChooseOutputFile) {
         const originalFilename = pathsToExport[0].split(/[\\/]/).pop() || '';
         const stem = originalFilename.substring(0, originalFilename.lastIndexOf('.')) || originalFilename;
-        const suggestedName = finalFilenameTemplate.replace('{original_filename}', stem);
+        const suggestedName = (filenameTemplate || '').replace('{original_filename}', stem);
         const outputFileName = `${suggestedName}.${selectedFormat.extensions[0]}`;
 
         outputFolderOrFile = isAndroid
