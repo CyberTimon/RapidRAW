@@ -1,0 +1,10 @@
+GeoNames geographical data
+
+Copyright GeoNames contributors
+https://www.geonames.org/
+
+Licensed under the Creative Commons Attribution 4.0 License:
+https://creativecommons.org/licenses/by/4.0/
+
+RapidRAW uses this data through the reverse_geocoder Rust crate to resolve photo
+coordinates to nearby place names entirely on the user's device.

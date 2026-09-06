@@ -79,6 +79,7 @@ export enum Invokes {
   LoadSettings = 'load_settings',
   MoveFiles = 'move_files',
   ReadExifForPaths = 'read_exif_for_paths',
+  ReverseGeocodeCoordinates = 'reverse_geocode_coordinates',
   RemoveTagForPaths = 'remove_tag_for_paths',
   RenameFiles = 'rename_files',
   RenameFolder = 'rename_folder',
@@ -126,8 +127,10 @@ export enum ExifOverlay {
 export enum Panel {
   Adjustments = 'adjustments',
   Ai = 'ai',
+  Cameras = 'cameras',
   Crop = 'crop',
   Export = 'export',
+  Locations = 'locations',
   Masks = 'masks',
   Metadata = 'metadata',
   Presets = 'presets',
@@ -268,6 +271,16 @@ export const EditedStatus = {
 } as const;
 
 export type EditedStatus = (typeof EditedStatus)[keyof typeof EditedStatus];
+
+export type EquipmentFacetKind = 'camera' | 'lens';
+export type LibraryFacetKind = EquipmentFacetKind | 'location';
+
+export interface LibraryFacetFilter {
+  countryCode?: string;
+  kind: LibraryFacetKind;
+  primary: string;
+  secondary?: string;
+}
 
 export interface FilterCriteria {
   colors: Array<string>;
