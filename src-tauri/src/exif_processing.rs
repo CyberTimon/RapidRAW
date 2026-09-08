@@ -212,6 +212,22 @@ pub fn truncate_large_exif(value: &str) -> String {
     value.to_string()
 }
 
+/// Resolve camera metadata without changing the original image or creating sidecars.
+pub fn load_image_metadata(image_path: &Path, sidecar_path: &Path) -> ImageMetadata {
+    let mut metadata = load_sidecar(sidecar_path);
+    inherit_embedded_rating(image_path, &mut metadata);
+    metadata
+}
+
+pub fn inherit_embedded_rating(image_path: &Path, metadata: &mut ImageMetadata) {
+    if metadata.rating == 0
+        && !metadata.rating_is_explicit
+        && !crate::file_management::is_cloud_placeholder(image_path)
+    {
+        metadata.rating = crate::embedded_rating::read_rating(image_path).unwrap_or(0);
+    }
+}
+
 pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
     if !sidecar_path.exists() {
         return ImageMetadata::default();
@@ -1544,7 +1560,7 @@ pub fn get_rrexif_path(image_path: &Path) -> PathBuf {
 
 fn load_primary_metadata(image_path: &Path) -> ImageMetadata {
     let primary = get_primary_sidecar_path(image_path);
-    load_sidecar(&primary)
+    load_image_metadata(image_path, &primary)
 }
 
 fn save_primary_metadata(image_path: &Path, metadata: &ImageMetadata) -> std::io::Result<()> {

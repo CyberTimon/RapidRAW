@@ -1,3 +1,4 @@
+import { requestLibraryExif } from '../../../hooks/libraryExifQueue';
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
@@ -1073,6 +1074,7 @@ export default function CullingView(props: any) {
 
   const queueThumbnailRequest = useCallback(
     (path: string) => {
+      requestLibraryExif([path]);
       if (!onRequestThumbnails) return;
       if (useProcessStore.getState().thumbnails[path]) return;
       requestQueueRef.current.add(path);

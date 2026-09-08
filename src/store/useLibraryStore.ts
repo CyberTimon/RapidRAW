@@ -1,3 +1,4 @@
+import type { RatingProgress } from '../utils/ratingUpdates';
 import { create } from 'zustand';
 import {
   FilterCriteria,
@@ -32,6 +33,7 @@ interface LibraryState {
   // Images & Selection
   imageList: Array<ImageFile>;
   imageRatings: Record<string, number>;
+  ratingProgress: RatingProgress | null;
   multiSelectedPaths: Array<string>;
   selectionAnchorPath: string | null;
   libraryActivePath: string | null;
@@ -45,6 +47,7 @@ interface LibraryState {
   // UI State specific to the Library View
   isTreeLoading: boolean;
   isViewLoading: boolean;
+  isDiscovering: boolean;
   libraryScrollTop: number;
   listColumnWidths: ColumnWidths;
 
@@ -69,6 +72,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
   imageList: [],
   imageRatings: {},
+  ratingProgress: null,
   multiSelectedPaths: [],
   selectionAnchorPath: null,
   libraryActivePath: null,
@@ -80,6 +84,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
   isTreeLoading: false,
   isViewLoading: false,
+  isDiscovering: false,
   libraryScrollTop: 0,
   listColumnWidths: {
     thumbnail: 4,

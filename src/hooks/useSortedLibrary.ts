@@ -1,3 +1,4 @@
+import { hasKnownRating } from '../utils/ratingUpdates';
 import { useMemo } from 'react';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -6,6 +7,14 @@ import { buildImageGroups, GroupBadgeInfo, GroupId } from '../utils/imageGroupin
 
 export const ADVANCED_QUERY_REGEX =
   /^(iso|aperture|f|shutter|s|focal|mm|rating|color|camera|make|model|lens)\s*(?::)?\s*(>=|<=|>|<|=)?\s*(.+)$/i;
+
+export function requiresLibraryExif(sortKey: string, tags: string[]) {
+  return ['date_taken', 'iso', 'shutter_speed', 'aperture', 'focal_length'].includes(sortKey) ||
+    tags.some((tag) => {
+      const field = tag.match(ADVANCED_QUERY_REGEX)?.[1].toLowerCase();
+      return field !== undefined && field !== 'rating' && field !== 'color';
+    });
+}
 
 const parseShutter = (val: string | undefined): number => {
   if (!val) return 0;
@@ -49,6 +58,7 @@ function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLi
 
   const matchesFilter = (image: ImageFile): boolean => {
     if (filterCriteria.rating !== 0) {
+      if (!hasKnownRating(image)) return false;
       const rating = imageRatings[image.path] || 0;
       if (filterCriteria.rating === -1 && rating !== 0) return false;
       if (filterCriteria.rating === 5 && rating !== 5) return false;
@@ -90,6 +100,7 @@ function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLi
 
   const evaluateQuery = (q: any, image: ImageFile) => {
     const { field, operator, value } = q;
+    if (field === 'rating' && !hasKnownRating(image)) return false;
 
     if (['iso', 'aperture', 'f', 'shutter', 's', 'focal', 'mm', 'rating'].includes(field)) {
       let imgVal = 0;

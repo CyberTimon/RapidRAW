@@ -1,3 +1,4 @@
+import { protectManualRatings } from './libraryRatingScan';
 import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
@@ -25,12 +26,14 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     const currentRating = imageRatings[selectedPaths[0]] || 0;
     const finalRating = newRating === currentRating ? 0 : newRating;
 
+    protectManualRatings(pathsToRate);
     setLibrary((state) => {
       const newRatings = { ...state.imageRatings };
       pathsToRate.forEach((p) => {
         newRatings[p] = finalRating;
       });
-      return { imageRatings: newRatings };
+      const rated = new Set(pathsToRate);
+      return { imageRatings: newRatings, imageList: state.imageList.map((image) => rated.has(image.path) ? { ...image, rating_state: 'ready', rating: finalRating } : image) };
     });
 
     invoke(Invokes.SetRatingForPaths, { paths: pathsToRate, rating: finalRating }).catch((err) => {
