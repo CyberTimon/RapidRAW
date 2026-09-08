@@ -103,6 +103,8 @@ fn resolve_image_metadata(
         let _ = fs::write(sidecar_path, json);
     }
 
+    crate::exif_processing::inherit_embedded_rating(image_path, &mut metadata);
+
     let is_raw = crate::formats::is_raw_file(image_path);
     let tm_override = crate::image_processing::resolve_tonemapper_override(settings, is_raw);
     let is_edited =
@@ -473,7 +475,8 @@ pub async fn update_exif_fields(
         paths.par_iter().for_each(|path| {
             let original_path = Path::new(&path);
             let primary_path = crate::exif_processing::get_primary_sidecar_path(original_path);
-            let temp_metadata = crate::exif_processing::load_sidecar(&primary_path);
+            let temp_metadata =
+                crate::exif_processing::load_image_metadata(original_path, &primary_path);
 
             let mut exif_data = temp_metadata.exif.unwrap_or_else(|| {
                 if let Some(existing) = crate::exif_processing::read_rrexif_sidecar(original_path) {
@@ -496,7 +499,8 @@ pub async fn update_exif_fields(
                 }
             }
 
-            let mut final_metadata = crate::exif_processing::load_sidecar(&primary_path);
+            let mut final_metadata =
+                crate::exif_processing::load_image_metadata(original_path, &primary_path);
 
             final_metadata.exif = Some(exif_data);
             if let Ok(json) = serde_json::to_string_pretty(&final_metadata) {
@@ -1797,20 +1801,19 @@ fn generate_single_thumbnail_and_cache(
             sidecar_path.clone(),
         );
         (0, false, Vec::new())
-    } else if let Ok(content) = fs::read_to_string(&sidecar_path) {
-        if let Ok(meta) = serde_json::from_str::<ImageMetadata>(&content) {
-            let is_raw = crate::formats::is_raw_file(path_str);
-            let tm = crate::image_processing::resolve_tonemapper_override(settings, is_raw);
-            (
-                meta.rating,
-                crate::image_processing::is_image_edited(&meta.adjustments, is_raw, tm),
-                serde_json::to_vec(&meta.adjustments).unwrap_or_default(),
-            )
-        } else {
-            (0, false, Vec::new())
-        }
     } else {
-        (0, false, Vec::new())
+        let meta = crate::exif_processing::load_image_metadata(&source_path, &sidecar_path);
+        let is_raw = crate::formats::is_raw_file(path_str);
+        let tm = crate::image_processing::resolve_tonemapper_override(settings, is_raw);
+        (
+            meta.rating,
+            crate::image_processing::is_image_edited(&meta.adjustments, is_raw, tm),
+            if sidecar_path.exists() {
+                serde_json::to_vec(&meta.adjustments).unwrap_or_default()
+            } else {
+                Vec::new()
+            },
+        )
     };
 
     let cache_hash = compute_thumbnail_cache_hash(path_str, &adjustments_bytes)?;
@@ -2527,7 +2530,7 @@ pub fn save_metadata_and_update_thumbnail(
 ) -> Result<(), String> {
     let (source_path, sidecar_path) = parse_virtual_path(&path);
 
-    let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+    let mut metadata = crate::exif_processing::load_image_metadata(&source_path, &sidecar_path);
 
     let mut final_adjustments = adjustments;
     {
@@ -2636,9 +2639,10 @@ pub async fn apply_adjustments_to_paths(
             .clone();
 
         paths.par_iter().for_each(|path| {
-            let (_, sidecar_path) = parse_virtual_path(path);
+            let (source_path, sidecar_path) = parse_virtual_path(path);
 
-            let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+            let mut existing_metadata =
+                crate::exif_processing::load_image_metadata(&source_path, &sidecar_path);
 
             let mut new_adjustments = existing_metadata.adjustments;
             if new_adjustments.is_null() {
@@ -2731,9 +2735,10 @@ pub async fn reset_adjustments_for_paths(
         let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
         paths.par_iter().for_each(|path| {
-            let (_, sidecar_path) = parse_virtual_path(path);
+            let (source_path, sidecar_path) = parse_virtual_path(path);
 
-            let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+            let mut existing_metadata =
+                crate::exif_processing::load_image_metadata(&source_path, &sidecar_path);
 
             existing_metadata.adjustments = serde_json::json!({});
 
@@ -2823,7 +2828,8 @@ pub async fn apply_auto_lens_correction_to_paths(
 
         paths.par_iter().for_each(|path| {
             let (source_path, sidecar_path) = parse_virtual_path(path);
-            let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+            let mut existing_metadata =
+                crate::exif_processing::load_image_metadata(&source_path, &sidecar_path);
 
             if existing_metadata.adjustments.is_null() {
                 existing_metadata.adjustments = serde_json::json!({});
@@ -2926,7 +2932,8 @@ pub async fn apply_auto_adjustments_to_paths(
                 let auto_results = perform_auto_analysis(&image);
                 let auto_adjustments_json = auto_results_to_json(&auto_results);
 
-                let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+                let mut existing_metadata =
+                    crate::exif_processing::load_image_metadata(&source_path, &sidecar_path);
 
                 if existing_metadata.adjustments.is_null() {
                     existing_metadata.adjustments = serde_json::json!({});
@@ -3006,9 +3013,9 @@ pub fn set_color_label_for_paths(
     let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
     paths.par_iter().for_each(|path| {
-        let (_, sidecar_path) = parse_virtual_path(path);
+        let (source_path, sidecar_path) = parse_virtual_path(path);
 
-        let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+        let mut metadata = crate::exif_processing::load_image_metadata(&source_path, &sidecar_path);
 
         let mut tags = metadata.tags.unwrap_or_default();
         tags.retain(|tag| !tag.starts_with(COLOR_TAG_PREFIX));
@@ -3049,11 +3056,12 @@ pub fn set_rating_for_paths(
     let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
     paths.par_iter().for_each(|path| {
-        let (_, sidecar_path) = parse_virtual_path(path);
+        let (source_path, sidecar_path) = parse_virtual_path(path);
 
-        let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+        let mut metadata = crate::exif_processing::load_image_metadata(&source_path, &sidecar_path);
 
         metadata.rating = rating;
+        metadata.rating_is_explicit = true;
 
         if let Ok(json_string) = serde_json::to_string_pretty(&metadata) {
             let _ = std::fs::write(&sidecar_path, json_string);
@@ -3083,6 +3091,7 @@ pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadat
         let _ = fs::write(&sidecar_path, json);
     }
 
+    crate::exif_processing::inherit_embedded_rating(&source_path, &mut metadata);
     Ok(metadata)
 }
 
@@ -4087,19 +4096,7 @@ pub fn create_virtual_copy(
     Ok(new_virtual_path)
 }
 
-pub fn extract_xmp_rating(content: &str) -> Option<u8> {
-    if let Some(idx) = content.find("xmp:Rating=\"") {
-        let start = idx + 12;
-        let end = content[start..].find('"').map(|i| start + i)?;
-        return content[start..end].parse().ok();
-    }
-    if let Some(idx) = content.find("<xmp:Rating>") {
-        let start = idx + 12;
-        let end = content[start..].find('<').map(|i| start + i)?;
-        return content[start..end].parse().ok();
-    }
-    None
-}
+pub use crate::embedded_rating::extract_xmp_rating;
 
 pub fn extract_xmp_label(content: &str) -> Option<String> {
     if let Some(idx) = content.find("xmp:Label=\"") {
@@ -4156,6 +4153,7 @@ pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) 
         && let Ok(content) = fs::read_to_string(&xmp_file)
     {
         if metadata.rating == 0
+            && !metadata.rating_is_explicit
             && let Some(rating) = extract_xmp_rating(&content)
             && rating != 0
         {

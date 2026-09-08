@@ -53,6 +53,8 @@ impl<'a> IntoCowImage<'a> for &'a std::sync::Arc<DynamicImage> {
 pub struct ImageMetadata {
     pub version: u32,
     pub rating: u8,
+    #[serde(default)]
+    pub rating_is_explicit: bool,
     pub adjustments: Value,
     #[serde(default)]
     pub tags: Option<Vec<String>>,
@@ -65,6 +67,7 @@ impl Default for ImageMetadata {
         ImageMetadata {
             version: 1,
             rating: 0,
+            rating_is_explicit: false,
             adjustments: Value::Null,
             tags: None,
             exif: None,
