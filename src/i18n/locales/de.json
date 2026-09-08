@@ -1313,14 +1313,19 @@
       "title": "Zu HDR zusammenfügen"
     },
     "importSettings": {
+      "applyAutoAdjustments": "Automatische Bearbeitung auf jedes Bild anwenden",
+      "applyPreset": "Preset auf jedes Bild anwenden",
       "cancel": "Abbrechen",
       "dateFormat": "Datumsformat",
       "dateFormatPlaceholder": "z. B., YYYY/MM-DD",
       "deleteAfterImport": "Originale nach erfolgreichem Import löschen",
       "deleteWarning": "Dateien werden in den Systempapierkorb verschoben.",
+      "editsOnImport": "Bearbeitung beim Import",
+      "editsOnImportHint": "Die automatische Bearbeitung enthält die Objektivkorrektur, sofern das Objektiv aus den EXIF-Daten erkannt wird; Bilder ohne Treffer bleiben unkorrigiert.",
       "fileNaming": "Dateibenennung",
       "folderOrganization": "Ordnerorganisation",
       "organizeByDate": "In Unterordner nach Datum organisieren",
+      "presetNone": "Keins",
       "sourceFiles": "Quelldateien",
       "startImport": "Import starten",
       "title": "Importeinstellungen"

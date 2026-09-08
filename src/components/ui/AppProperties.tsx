@@ -329,6 +329,9 @@ export interface ImportSettings {
   organizeByDate: boolean;
   dateFolderFormat: string;
   deleteAfterImport: boolean;
+  applyAutoAdjustments?: boolean;
+  presetId?: string | null;
+  presetAdjustments?: Partial<Adjustments> | null;
 }
 
 export interface Progress {

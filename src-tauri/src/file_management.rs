@@ -382,6 +382,10 @@ pub struct ImportSettings {
     pub organize_by_date: bool,
     pub date_folder_format: String,
     pub delete_after_import: bool,
+    #[serde(default)]
+    pub apply_auto_adjustments: bool,
+    #[serde(default)]
+    pub preset_adjustments: Option<Value>,
 }
 
 pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
@@ -3807,13 +3811,23 @@ pub async fn import_files(
     let _ = app_handle.emit("import-start", serde_json::json!({ "total": total_files }));
 
     tauri::async_runtime::spawn_blocking(move || {
+        let apply_edits = settings.apply_auto_adjustments || settings.preset_adjustments.is_some();
+        let app_settings = load_settings(app_handle.clone()).unwrap_or_default();
+        let lens_db = app_handle
+            .state::<AppState>()
+            .lens_db
+            .lock()
+            .unwrap()
+            .clone();
+        let mut imported_dest_paths: Vec<PathBuf> = Vec::new();
+
         for (i, source_path_str) in source_paths.iter().enumerate() {
             let _ = app_handle.emit(
                 "import-progress",
                 serde_json::json!({ "current": i, "total": total_files, "path": source_path_str }),
             );
 
-            let import_result: Result<(), String> = (|| {
+            let import_result: Result<Option<PathBuf>, String> = (|| {
                 #[cfg(target_os = "android")]
                 if is_android_content_uri(source_path_str) {
                     let resolved_name = resolve_android_content_uri_name(source_path_str)?;
@@ -3868,7 +3882,7 @@ pub async fn import_files(
                         );
                     }
 
-                    return Ok(());
+                    return Ok(Some(dest_file_path));
                 }
 
                 let (source_path, source_sidecar) = parse_virtual_path(source_path_str);
@@ -3971,14 +3985,49 @@ pub async fn import_files(
                     }
                 }
 
-                Ok(())
+                Ok(Some(dest_file_path))
             })();
 
-            if let Err(e) = import_result {
-                eprintln!("Failed to import {}: {}", source_path_str, e);
-                let _ = app_handle.emit("import-error", e);
-                continue;
+            match import_result {
+                Ok(Some(dest_file_path)) => {
+                    if apply_edits {
+                        imported_dest_paths.push(dest_file_path);
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    eprintln!("Failed to import {}: {}", source_path_str, e);
+                    let _ = app_handle.emit("import-error", e);
+                    return;
+                }
             }
+        }
+
+        if apply_edits && !imported_dest_paths.is_empty() {
+            let _ = app_handle.emit(
+                "import-progress",
+                serde_json::json!({ "current": total_files, "total": total_files, "path": "Applying edits" }),
+            );
+            let preset_adjustments = settings.preset_adjustments.as_ref();
+            imported_dest_paths.par_iter().for_each(|dest_file_path| {
+                let dest_str = dest_file_path.to_string_lossy().to_string();
+                let (_, sidecar_path) = parse_virtual_path(&dest_str);
+                if let Err(e) = apply_import_edits_to_sidecar(
+                    dest_file_path,
+                    &sidecar_path,
+                    settings.apply_auto_adjustments,
+                    preset_adjustments,
+                    &app_settings,
+                    lens_db.as_deref(),
+                    None,
+                ) {
+                    eprintln!(
+                        "Failed to apply import edits to {}: {}",
+                        dest_file_path.display(),
+                        e
+                    );
+                }
+            });
         }
 
         let _ = app_handle.emit(
