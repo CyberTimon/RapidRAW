@@ -1,3 +1,4 @@
+import RatingScanStatus from '../panel/library/RatingScanStatus';
 import { useShallow } from 'zustand/react/shallow';
 
 import CommunityPage from '../panel/CommunityPage';
@@ -122,6 +123,7 @@ export default function LibraryView({
   return (
     <div className="flex flex-row grow h-full min-h-0">
       <div className="flex-1 flex flex-col min-w-0 gap-2">
+        <RatingScanStatus />
         {activeView === 'community' ? (
           <CommunityPage
             onBackToLibrary={() => setUI({ activeView: 'library' })}

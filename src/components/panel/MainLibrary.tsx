@@ -169,6 +169,7 @@ function DisplayModeSwitch({ displayMode, setDisplayMode, t }: DisplayModeSwitch
 }
 
 export default function MainLibrary(props: MainLibraryProps) {
+  const isRatingScanning = useLibraryStore((state) => !!state.ratingProgress && !state.ratingProgress.done);
   const { t } = useTranslation();
   const setUI = useUIStore((state) => state.setUI);
   const [appVersion, setAppVersion] = useState('');
@@ -622,6 +623,8 @@ export default function MainLibrary(props: MainLibraryProps) {
             thumbnailSizeOptions={translatedThumbnailSizeOptions}
           />
         )
+      ) : isRatingScanning ? (
+        <div className="flex-1" />
       ) : props.isIndexing || props.aiModelDownloadStatus || props.importState.status === Status.Importing ? (
         <div className="flex-1 flex flex-col items-center justify-center" onContextMenu={props.onEmptyAreaContextMenu}>
           <Loader2 className="h-12 w-12 text-secondary animate-spin mb-4" />

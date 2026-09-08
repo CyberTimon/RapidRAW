@@ -1,3 +1,4 @@
+import type { RatingProgress } from '../utils/ratingUpdates';
 import { create } from 'zustand';
 import {
   FilterCriteria,
@@ -32,6 +33,7 @@ interface LibraryState {
   // Images & Selection
   imageList: Array<ImageFile>;
   imageRatings: Record<string, number>;
+  ratingProgress: RatingProgress | null;
   multiSelectedPaths: Array<string>;
   selectionAnchorPath: string | null;
   libraryActivePath: string | null;
@@ -69,6 +71,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
   imageList: [],
   imageRatings: {},
+  ratingProgress: null,
   multiSelectedPaths: [],
   selectionAnchorPath: null,
   libraryActivePath: null,

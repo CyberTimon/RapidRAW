@@ -1,3 +1,4 @@
+import { requestLibraryExif } from '../../../hooks/libraryExifQueue';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { List, useListCallbackRef } from 'react-window';
 import { ChevronUp, ChevronDown } from 'lucide-react';
@@ -259,6 +260,7 @@ export default function LibraryGrid(props: any) {
 
   const queueThumbnailRequest = useCallback(
     (path: string) => {
+      requestLibraryExif([path]);
       if (!onRequestThumbnails) return;
       if (useProcessStore.getState().thumbnails[path]) return;
       requestQueueRef.current.add(path);

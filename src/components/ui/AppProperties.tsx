@@ -284,6 +284,8 @@ export interface Folder {
 }
 
 export interface ImageFile {
+  rating_state?: 'pending' | 'ready' | 'failed';
+  rating_error?: string;
   is_edited: boolean;
   modified: number;
   path: string;

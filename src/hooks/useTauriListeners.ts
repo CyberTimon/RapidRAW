@@ -1,3 +1,4 @@
+import { canAcceptThumbnailRating } from '../utils/ratingUpdates';
 import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/core';
@@ -58,7 +59,7 @@ export function useTauriListeners({
 
       if (Object.keys(pendingRatings).length > 0 || Object.keys(pendingEdits).length > 0) {
         useLibraryStore.getState().setLibrary((state) => ({
-          imageRatings: { ...state.imageRatings, ...pendingRatings },
+          imageRatings: { ...state.imageRatings, ...Object.fromEntries(Object.entries(pendingRatings).filter(([path]) => canAcceptThumbnailRating(state.imageList.find((image) => image.path === path)))) },
           imageList:
             Object.keys(pendingEdits).length > 0
               ? state.imageList.map((img) =>
@@ -114,7 +115,7 @@ export function useTauriListeners({
           mediumThumbnailBuffer.current[path] = data;
           refs.current.markGenerated(path);
         }
-        if (rating !== undefined) {
+        if (typeof rating === 'number' && canAcceptThumbnailRating(useLibraryStore.getState().imageList.find((image) => image.path === path))) {
           ratingBuffer.current[path] = rating;
         }
         if (is_edited !== undefined) {
@@ -129,7 +130,7 @@ export function useTauriListeners({
         const { path, rating, is_edited, tags } = event.payload;
 
         useLibraryStore.getState().setLibrary((state) => ({
-          imageRatings: { ...state.imageRatings, [path]: rating },
+          imageRatings: state.imageList.find((image) => image.path === path)?.rating_state ? state.imageRatings : { ...state.imageRatings, [path]: rating },
           imageList: state.imageList.map((img) =>
             img.path === path ? { ...img, is_edited, tags: tags ?? img.tags } : img,
           ),

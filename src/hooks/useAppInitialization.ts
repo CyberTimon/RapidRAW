@@ -245,7 +245,7 @@ export const useAppInitialization = ({
               expandedFolders: settings.lastFolderState?.expandedFolders ?? rootFolders,
               showImageCounts: settings.enableFolderImageCounts || settings.folderTreeSort?.key === 'imageCount',
             }),
-            images: isAlbum ? undefined : invoke(command, { path: currentPath }),
+            images: isAlbum ? undefined : invoke(command, { path: currentPath, deferRatings: true }),
           };
         }
 
