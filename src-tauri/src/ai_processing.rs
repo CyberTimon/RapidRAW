@@ -306,7 +306,7 @@ pub fn fast_guided_filter(
     GrayImage::from_raw(hr_w, hr_h, final_mask_raw).unwrap()
 }
 
-fn get_models_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf> {
+pub(crate) fn get_models_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf> {
     let models_dir = app_handle.path().app_data_dir()?.join("models");
     if !models_dir.exists() {
         fs::create_dir_all(&models_dir)?;
@@ -405,7 +405,7 @@ fn promote_legacy_model_filename(
     Ok(())
 }
 
-async fn download_and_verify_model(
+pub(crate) async fn download_and_verify_model(
     app_handle: &tauri::AppHandle,
     models_dir: &Path,
     filename: &str,

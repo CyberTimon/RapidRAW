@@ -37,6 +37,8 @@ mod multi_exposure;
 mod negative_conversion;
 mod panorama_stitching;
 mod panorama_utils;
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+mod people;
 mod preset_converter;
 mod raw_processing;
 mod tagging;
@@ -1685,6 +1687,8 @@ pub fn run() {
     let is_headless = matches!(launch_req, LaunchRequest::HeadlessExport(_));
 
     let mut builder = tauri::Builder::default();
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    { builder = builder.plugin(people::plugin()); }
 
     #[cfg(target_os = "linux")]
     {

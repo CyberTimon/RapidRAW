@@ -175,5 +175,11 @@ fn main() {
 
     println!("cargo:rerun-if-changed=build.rs");
 
-    tauri_build::build()
+    let attributes = tauri_build::Attributes::new().plugin(
+        "people",
+        tauri_build::InlinedPlugin::new()
+            .commands(&["start", "cancel", "status", "list", "faces", "paths", "mutate", "thumbnail", "clear"])
+            .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
+    );
+    tauri_build::try_build(attributes).expect("Failed to build Tauri permissions")
 }
