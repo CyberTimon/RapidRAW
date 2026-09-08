@@ -3,24 +3,39 @@ import { useTranslation } from 'react-i18next';
 import Switch from '../ui/Switch';
 import { FILENAME_VARIABLES } from '../ui/ExportImportProperties';
 import Text from '../ui/Text';
+import { ImportSettings } from '../ui/AppProperties';
 import { TextVariants } from '../../types/typography';
 
 interface ImportSettingsModalProps {
   fileCount: number;
+  initialSettings?: ImportSettings | null;
   isOpen: boolean;
   onClose(): void;
-  onSave(settings: any): void;
+  onSave(settings: ImportSettings): void;
 }
 
-export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave }: ImportSettingsModalProps) {
+const DEFAULTS: ImportSettings = {
+  filenameTemplate: '{original_filename}',
+  organizeByDate: false,
+  dateFolderFormat: 'YYYY/MM-DD',
+  deleteAfterImport: false,
+};
+
+export default function ImportSettingsModal({
+  fileCount,
+  initialSettings,
+  isOpen,
+  onClose,
+  onSave,
+}: ImportSettingsModalProps) {
   const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
 
-  const [filenameTemplate, setFilenameTemplate] = useState('{original_filename}');
-  const [organizeByDate, setOrganizeByDate] = useState(false);
-  const [dateFolderFormat, setDateFolderFormat] = useState('YYYY/MM-DD');
-  const [deleteAfterImport, setDeleteAfterImport] = useState(false);
+  const [filenameTemplate, setFilenameTemplate] = useState(DEFAULTS.filenameTemplate);
+  const [organizeByDate, setOrganizeByDate] = useState(DEFAULTS.organizeByDate);
+  const [dateFolderFormat, setDateFolderFormat] = useState(DEFAULTS.dateFolderFormat);
+  const [deleteAfterImport, setDeleteAfterImport] = useState(DEFAULTS.deleteAfterImport);
   const filenameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -36,6 +51,17 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const s = { ...DEFAULTS, ...(initialSettings || {}) };
+    setFilenameTemplate(s.filenameTemplate || DEFAULTS.filenameTemplate);
+    setOrganizeByDate(!!s.organizeByDate);
+    setDateFolderFormat(s.dateFolderFormat || DEFAULTS.dateFolderFormat);
+    setDeleteAfterImport(!!s.deleteAfterImport);
+  }, [isOpen, initialSettings]);
 
   const handleSave = useCallback(() => {
     let finalFilenameTemplate = filenameTemplate;

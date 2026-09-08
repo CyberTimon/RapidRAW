@@ -282,6 +282,13 @@ export function useFileOperations(
     async (settings: any) => {
       const { importTargetFolder, importSourcePaths } = useUIStore.getState();
       if (!importTargetFolder) return;
+
+      const { appSettings, handleSettingsChange } = useSettingsStore.getState();
+      if (appSettings) {
+        const { presetAdjustments: _drop, ...persistable } = settings;
+        handleSettingsChange({ ...appSettings, lastImportSettings: persistable });
+      }
+
       await startImportFiles(importSourcePaths, importTargetFolder, settings);
     },
     [startImportFiles],

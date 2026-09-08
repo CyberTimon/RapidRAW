@@ -535,6 +535,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub always_decode_raw_thumbnails: Option<bool>,
     #[serde(default)]
+    pub last_import_settings: Option<Value>,
+    #[serde(default)]
     pub workspace: WorkspaceState,
 }
 
@@ -629,6 +631,7 @@ impl Default for AppSettings {
             group_associated_files: Some(false),
             group_preferred_type: Some("raw".to_string()),
             always_decode_raw_thumbnails: Some(false),
+            last_import_settings: None,
             workspace: WorkspaceState::default(),
         }
     }
