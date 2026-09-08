@@ -1,4 +1,29 @@
 {
+  "people": {
+    "title": "Osoby",
+    "scan": "Skanuj osoby",
+    "scope": "Zakres skanowania",
+    "results": "Bieżące wyniki filtrowania",
+    "source": "Bieżące źródło",
+    "roots": "Wszystkie foldery główne",
+    "rescan": "Skanuj ponownie wybór lub wyniki",
+    "progress": "{{processed}} / {{total}} · twarze: {{faces}} · pominięte: {{skipped}} · błędy: {{failed}}",
+    "cancel": "Anuluj",
+    "confirm": "Pobierz modele twarzy jednorazowo. Zdjęcia są przetwarzane lokalnie, a dane twarzy pozostają na tym urządzeniu.",
+    "back": "Wstecz",
+    "merge": "Połącz wybrane osoby",
+    "clear": "Usuń dane osób",
+    "clearConfirm": "Usunąć osoby, dopasowania, nazwy i miniatury twarzy? Zdjęcia i edycje zostaną zachowane.",
+    "unnamed": "Osoba bez nazwy",
+    "select": "Wybierz",
+    "name": "Nazwa",
+    "save": "Zapisz",
+    "newPerson": "Nowa osoba",
+    "move": "Przenieś wybrane twarze",
+    "ignore": "Ignoruj",
+    "restore": "Przywróć",
+    "cover": "Ustaw jako okładkę"
+  },
   "adjustments": {
     "basic": {
       "blacks": "Czernie",

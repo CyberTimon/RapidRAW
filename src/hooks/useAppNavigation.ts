@@ -2,6 +2,7 @@ import { beginLibraryLoad, isCurrentLibraryLoad, startLibraryRatingScan } from '
 import { scanLibrary } from './libraryScan';
 import { resetLibraryExifQueue } from './libraryExifQueue';
 import { useCallback } from 'react';
+import { usePeopleStore } from '../people/store';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { homeDir } from '@tauri-apps/api/path';
@@ -48,6 +49,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     clearThumbnailQueue();
     beginLibraryLoad();
     resetLibraryExifQueue();
+    usePeopleStore.setState({ activePersonId: null });
     useLibraryStore.getState().setLibrary({
       rootPaths: [],
       currentFolderPath: null,
@@ -282,6 +284,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         await invoke('cancel_thumbnail_generation');
         if (!isCurrentLibraryLoad(loadId)) return;
         clearThumbnailQueue();
+        usePeopleStore.setState({ activePersonId: null });
         setLibrary({ isViewLoading: true, activeAlbumId: null, libraryScrollTop: 0 });
         setProcess({ thumbnails: {}, mediumThumbnails: {} });
         globalImageCache.clear();
@@ -378,6 +381,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     async (albumId: string, albumName: string, imagePaths: string[], preserveEditor = false) => {
       const loadId = beginLibraryLoad();
       resetLibraryExifQueue();
+      usePeopleStore.setState({ activePersonId: null });
       const { setLibrary } = useLibraryStore.getState();
       const { setUI } = useUIStore.getState();
 

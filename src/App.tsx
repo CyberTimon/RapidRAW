@@ -40,6 +40,8 @@ import { ContextMenuProvider } from './context/ContextMenuContext';
 import { useSettingsStore } from './store/useSettingsStore';
 import { DEFAULT_BOTTOM_PANEL_HEIGHT, DEFAULT_PANEL_WIDTH, useUIStore } from './store/useUIStore';
 import { useLibraryStore } from './store/useLibraryStore';
+import { usePeopleStore } from './people/store';
+import { loadPersonBucket } from './people/navigation';
 import { useEditorStore } from './store/useEditorStore';
 import { useProcessStore } from './store/useProcessStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -374,6 +376,8 @@ function App() {
   const { displayList: sortedImageList, badges: groupBadgeInfo } = useSortedLibrary();
 
   const handleLibraryRefresh = useCallback(async () => {
+    const personId = usePeopleStore.getState().activePersonId;
+    if (personId) { await loadPersonBucket(personId); return; }
     if (currentFolderPath) {
       if (currentFolderPath.startsWith('Album: ')) {
         const { activeAlbumId, albumTree } = useLibraryStore.getState();

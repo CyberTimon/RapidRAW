@@ -38,6 +38,7 @@ import { ImportState, Status } from '../ui/ExportImportProperties';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { usePeopleStore } from '../../people/store';
 import { useUIStore } from '../../store/useUIStore';
 import SettingsPanel from './SettingsPanel';
 
@@ -170,6 +171,7 @@ function DisplayModeSwitch({ displayMode, setDisplayMode, t }: DisplayModeSwitch
 
 export default function MainLibrary(props: MainLibraryProps) {
   const isRatingScanning = useLibraryStore((state) => !!state.ratingProgress && !state.ratingProgress.done);
+  const activePerson = usePeopleStore((s) => s.people.find((p) => p.id === s.activePersonId));
   const { t } = useTranslation();
   const setUI = useUIStore((state) => state.setUI);
   const [appVersion, setAppVersion] = useState('');
@@ -321,7 +323,7 @@ export default function MainLibrary(props: MainLibraryProps) {
     checkVersion();
   }, []);
 
-  if (!props.rootPaths || props.rootPaths.length === 0) {
+  if ((!props.rootPaths || props.rootPaths.length === 0) && !activePerson) {
     if (!props.appSettings) {
       return null;
     }
@@ -519,7 +521,7 @@ export default function MainLibrary(props: MainLibraryProps) {
           <Text variant={TextVariants.headline}>{t('library.header.title')}</Text>
           {!props.isAndroid && (
             <div className="flex items-center gap-2">
-              {props.currentFolderPath ? (
+              {activePerson ? <Text className="truncate">{activePerson.name || t('people.unnamed')}</Text> : props.currentFolderPath ? (
                 <Text className="truncate">{props.currentFolderPath}</Text>
               ) : (
                 <p className="text-sm invisible select-none pointer-events-none h-5 overflow-hidden"></p>

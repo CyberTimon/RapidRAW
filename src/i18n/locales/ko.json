@@ -1,4 +1,29 @@
 {
+  "people": {
+    "title": "인물",
+    "scan": "인물 스캔",
+    "scope": "스캔 범위",
+    "results": "현재 필터 결과",
+    "source": "현재 소스",
+    "roots": "모든 루트 폴더",
+    "rescan": "선택 항목 또는 결과 다시 스캔",
+    "progress": "{{processed}} / {{total}} · 얼굴 {{faces}} · 건너뜀 {{skipped}} · 실패 {{failed}}",
+    "cancel": "취소",
+    "confirm": "얼굴 모델을 한 번 다운로드합니다. 사진은 로컬에서 처리되며 얼굴 데이터는 이 기기에 저장됩니다.",
+    "back": "뒤로",
+    "merge": "선택한 인물 병합",
+    "clear": "인물 데이터 삭제",
+    "clearConfirm": "인물, 얼굴 일치, 이름 및 얼굴 썸네일을 모두 삭제할까요? 사진과 편집 내용은 유지됩니다.",
+    "unnamed": "이름 없는 인물",
+    "select": "선택",
+    "name": "이름",
+    "save": "저장",
+    "newPerson": "새 인물",
+    "move": "선택한 얼굴 이동",
+    "ignore": "무시",
+    "restore": "복원",
+    "cover": "표지로 사용"
+  },
   "adjustments": {
     "basic": {
       "blacks": "블랙",

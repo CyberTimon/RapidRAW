@@ -1,4 +1,29 @@
 {
+  "people": {
+    "title": "Pessoas",
+    "scan": "Buscar pessoas",
+    "scope": "Âmbito da análise",
+    "results": "Resultados filtrados atuais",
+    "source": "Fonte atual",
+    "roots": "Todas as pastas raiz",
+    "rescan": "Analisar seleção ou resultados novamente",
+    "progress": "{{processed}} / {{total}} · {{faces}} rostos · {{skipped}} ignorados · {{failed}} falhas",
+    "cancel": "Cancelar",
+    "confirm": "Baixe os modelos faciais uma vez. As fotos são processadas localmente e os dados faciais ficam neste dispositivo.",
+    "back": "Voltar",
+    "merge": "Mesclar pessoas selecionadas",
+    "clear": "Apagar dados de pessoas",
+    "clearConfirm": "Apagar pessoas, correspondências, nomes e miniaturas faciais? As fotos e edições serão mantidas.",
+    "unnamed": "Pessoa sem nome",
+    "select": "Selecionar",
+    "name": "Nome",
+    "save": "Salvar",
+    "newPerson": "Nova pessoa",
+    "move": "Mover rostos selecionados",
+    "ignore": "Ignorar",
+    "restore": "Restaurar",
+    "cover": "Usar como capa"
+  },
   "adjustments": {
     "basic": {
       "blacks": "Pretos",

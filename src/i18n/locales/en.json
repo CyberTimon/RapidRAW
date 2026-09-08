@@ -1,4 +1,29 @@
 {
+  "people": {
+    "title": "People",
+    "scan": "Scan people",
+    "scope": "Scan scope",
+    "results": "Current filtered results",
+    "source": "Current source",
+    "roots": "All roots",
+    "rescan": "Rescan selection or results",
+    "progress": "{{processed}} / {{total}} · {{faces}} faces · {{skipped}} skipped · {{failed}} failed",
+    "cancel": "Cancel",
+    "confirm": "Download face models once. Photos are processed locally and face data stays on this device.",
+    "back": "Back",
+    "merge": "Merge selected people",
+    "clear": "Clear people data",
+    "clearConfirm": "Delete all saved people, face matches, names, and face thumbnails? Your photos and edits will remain.",
+    "unnamed": "Unnamed person",
+    "select": "Select",
+    "name": "Name",
+    "save": "Save",
+    "newPerson": "New person",
+    "move": "Move selected faces",
+    "ignore": "Ignore",
+    "restore": "Restore",
+    "cover": "Use as cover"
+  },
   "adjustments": {
     "basic": {
       "blacks": "Blacks",

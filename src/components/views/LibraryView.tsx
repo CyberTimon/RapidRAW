@@ -1,5 +1,8 @@
 import RatingScanStatus from '../panel/library/RatingScanStatus';
 import { useShallow } from 'zustand/react/shallow';
+import { lazy, Suspense } from 'react';
+import PeopleToolbar from '../../people/PeopleToolbar';
+const PeopleView = lazy(() => import('../../people/PeopleView'));
 
 import CommunityPage from '../panel/CommunityPage';
 import MainLibrary from '../panel/MainLibrary';
@@ -124,7 +127,12 @@ export default function LibraryView({
     <div className="flex flex-row grow h-full min-h-0">
       <div className="flex-1 flex flex-col min-w-0 gap-2">
         <RatingScanStatus />
-        {activeView === 'community' ? (
+        {!isAndroid && <PeopleToolbar filteredPaths={sortedImageList.map((image) => image.path)} />}
+        {!isAndroid && activeView === 'people' ? (
+          <Suspense fallback={null}>
+            <PeopleView />
+          </Suspense>
+        ) : activeView === 'community' ? (
           <CommunityPage
             onBackToLibrary={() => setUI({ activeView: 'library' })}
             supportedTypes={supportedTypes}

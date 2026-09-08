@@ -1454,7 +1454,7 @@ fn apply_exif_orientation(img: DynamicImage, orientation: u32) -> DynamicImage {
     }
 }
 
-fn try_load_embedded_raw_preview(source_path: &Path, target_res: u32) -> Option<DynamicImage> {
+pub(crate) fn try_load_embedded_raw_preview(source_path: &Path, target_res: u32) -> Option<DynamicImage> {
     // The format-aware decoder supports previews outside TIFF EXIF (including CR3).
     // None of these methods demosaic sensor pixels.
     let decoded = std::panic::catch_unwind(|| {

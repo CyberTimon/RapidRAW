@@ -1,4 +1,29 @@
 {
+  "people": {
+    "title": "Personnes",
+    "scan": "Rechercher des personnes",
+    "scope": "Portée de l’analyse",
+    "results": "Résultats filtrés actuels",
+    "source": "Source actuelle",
+    "roots": "Tous les dossiers racines",
+    "rescan": "Réanalyser la sélection ou les résultats",
+    "progress": "{{processed}} / {{total}} · {{faces}} visages · {{skipped}} ignorés · {{failed}} échecs",
+    "cancel": "Annuler",
+    "confirm": "Téléchargez les modèles une seule fois. Les photos sont traitées localement et les données faciales restent sur cet appareil.",
+    "back": "Retour",
+    "merge": "Fusionner les personnes sélectionnées",
+    "clear": "Effacer les données des personnes",
+    "clearConfirm": "Supprimer les personnes, correspondances, noms et miniatures de visages ? Les photos et retouches seront conservées.",
+    "unnamed": "Personne sans nom",
+    "select": "Sélectionner",
+    "name": "Nom",
+    "save": "Enregistrer",
+    "newPerson": "Nouvelle personne",
+    "move": "Déplacer les visages sélectionnés",
+    "ignore": "Ignorer",
+    "restore": "Restaurer",
+    "cover": "Utiliser comme couverture"
+  },
   "adjustments": {
     "basic": {
       "blacks": "Noirs",

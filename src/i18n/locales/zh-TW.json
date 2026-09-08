@@ -1,4 +1,29 @@
 {
+  "people": {
+    "title": "人物",
+    "scan": "掃描人物",
+    "scope": "掃描範圍",
+    "results": "目前篩選結果",
+    "source": "目前來源",
+    "roots": "所有根資料夾",
+    "rescan": "重新掃描所選照片或結果",
+    "progress": "{{processed}} / {{total}} · {{faces}} 張人臉 · 略過 {{skipped}} · 失敗 {{failed}}",
+    "cancel": "取消",
+    "confirm": "首次使用需下載人臉模型。照片在本機處理，人臉資料保留在此裝置上。",
+    "back": "返回",
+    "merge": "合併所選人物",
+    "clear": "清除人物資料",
+    "clearConfirm": "刪除所有人物、人臉比對、姓名及人臉縮圖？照片及編輯將保留。",
+    "unnamed": "未命名人物",
+    "select": "選取",
+    "name": "姓名",
+    "save": "儲存",
+    "newPerson": "新人物",
+    "move": "移動所選人臉",
+    "ignore": "忽略",
+    "restore": "還原",
+    "cover": "設為封面"
+  },
   "adjustments": {
     "basic": {
       "blacks": "黑色",

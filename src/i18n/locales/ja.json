@@ -1,4 +1,29 @@
 {
+  "people": {
+    "title": "人物",
+    "scan": "人物をスキャン",
+    "scope": "スキャン範囲",
+    "results": "現在の絞り込み結果",
+    "source": "現在のソース",
+    "roots": "すべてのルートフォルダー",
+    "rescan": "選択または結果を再スキャン",
+    "progress": "{{processed}} / {{total}} · 顔 {{faces}} · スキップ {{skipped}} · 失敗 {{failed}}",
+    "cancel": "キャンセル",
+    "confirm": "顔モデルを一度ダウンロードします。写真はローカルで処理され、顔データはこのデバイスに保存されます。",
+    "back": "戻る",
+    "merge": "選択した人物を統合",
+    "clear": "人物データを削除",
+    "clearConfirm": "人物、顔の一致、名前、顔のサムネイルをすべて削除しますか？写真と編集は保持されます。",
+    "unnamed": "名前のない人物",
+    "select": "選択",
+    "name": "名前",
+    "save": "保存",
+    "newPerson": "新しい人物",
+    "move": "選択した顔を移動",
+    "ignore": "無視",
+    "restore": "復元",
+    "cover": "カバーに設定"
+  },
   "adjustments": {
     "basic": {
       "blacks": "黒レベル",
