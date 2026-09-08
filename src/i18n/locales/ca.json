@@ -1,4 +1,29 @@
 {
+  "people": {
+    "title": "Persones",
+    "scan": "Cerca persones",
+    "scope": "Abast de l’anàlisi",
+    "results": "Resultats filtrats actuals",
+    "source": "Font actual",
+    "roots": "Totes les carpetes arrel",
+    "rescan": "Torna a analitzar la selecció o els resultats",
+    "progress": "{{processed}} / {{total}} · {{faces}} rostres · {{skipped}} omesos · {{failed}} errors",
+    "cancel": "Cancel·la",
+    "confirm": "Descarrega els models facials una vegada. Les fotos es processen localment i les dades facials es queden en aquest dispositiu.",
+    "back": "Enrere",
+    "merge": "Combina les persones seleccionades",
+    "clear": "Esborra les dades de persones",
+    "clearConfirm": "Vols eliminar persones, coincidències, noms i miniatures facials? Es conservaran les fotos i les edicions.",
+    "unnamed": "Persona sense nom",
+    "select": "Selecciona",
+    "name": "Nom",
+    "save": "Desa",
+    "newPerson": "Persona nova",
+    "move": "Mou els rostres seleccionats",
+    "ignore": "Ignora",
+    "restore": "Restaura",
+    "cover": "Fes servir com a portada"
+  },
   "adjustments": {
     "basic": {
       "blacks": "Negres",

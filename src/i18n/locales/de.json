@@ -1,4 +1,29 @@
 {
+  "people": {
+    "title": "Personen",
+    "scan": "Personen scannen",
+    "scope": "Scan-Auswahl",
+    "results": "Aktuelle Filterergebnisse",
+    "source": "Aktuelle Quelle",
+    "roots": "Alle Stammordner",
+    "rescan": "Auswahl oder Ergebnisse erneut scannen",
+    "progress": "{{processed}} / {{total}} · {{faces}} Gesichter · {{skipped}} übersprungen · {{failed}} fehlgeschlagen",
+    "cancel": "Abbrechen",
+    "confirm": "Gesichtsmodelle einmal herunterladen. Fotos werden lokal verarbeitet; Gesichtsdaten bleiben auf diesem Gerät.",
+    "back": "Zurück",
+    "merge": "Ausgewählte Personen zusammenführen",
+    "clear": "Personendaten löschen",
+    "clearConfirm": "Alle Personen, Zuordnungen, Namen und Gesichtsvorschauen löschen? Fotos und Bearbeitungen bleiben erhalten.",
+    "unnamed": "Unbenannte Person",
+    "select": "Auswählen",
+    "name": "Name",
+    "save": "Speichern",
+    "newPerson": "Neue Person",
+    "move": "Ausgewählte Gesichter verschieben",
+    "ignore": "Ignorieren",
+    "restore": "Wiederherstellen",
+    "cover": "Als Titelbild verwenden"
+  },
   "adjustments": {
     "basic": {
       "blacks": "Schwarz",

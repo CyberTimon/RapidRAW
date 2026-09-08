@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { usePeopleStore } from '../people/store';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { homeDir } from '@tauri-apps/api/path';
@@ -42,6 +43,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
   } = refs;
 
   const handleGoHome = useCallback(() => {
+    usePeopleStore.setState({ activePersonId: null });
     useLibraryStore.getState().setLibrary({
       rootPaths: [],
       currentFolderPath: null,
@@ -270,6 +272,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       if (!preserveEditor) {
         await invoke('cancel_thumbnail_generation');
         clearThumbnailQueue();
+        usePeopleStore.setState({ activePersonId: null });
         setLibrary({ isViewLoading: true, activeAlbumId: null, libraryScrollTop: 0 });
         setProcess({ thumbnails: {} });
         globalImageCache.clear();
@@ -414,6 +417,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
   const handleSelectAlbum = useCallback(
     async (albumId: string, albumName: string, imagePaths: string[], preserveEditor = false) => {
+      usePeopleStore.setState({ activePersonId: null });
       const { setLibrary } = useLibraryStore.getState();
       const { setUI } = useUIStore.getState();
 
