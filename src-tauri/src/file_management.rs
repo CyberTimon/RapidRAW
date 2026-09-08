@@ -2878,6 +2878,134 @@ pub async fn apply_auto_lens_correction_to_paths(
     Ok(())
 }
 
+/// Merge `incoming` adjustment keys into `target`, deep-merging only `sectionVisibility`
+/// so that visibility flags set elsewhere are preserved.
+fn merge_adjustment_values(
+    target: &mut serde_json::Map<String, Value>,
+    incoming: &serde_json::Map<String, Value>,
+) {
+    for (k, v) in incoming {
+        if k == "sectionVisibility" {
+            if let Some(existing_vis) = target.get_mut(k) {
+                if let (Some(existing_map), Some(new_map)) =
+                    (existing_vis.as_object_mut(), v.as_object())
+                {
+                    for (vk, vv) in new_map {
+                        existing_map.insert(vk.clone(), vv.clone());
+                    }
+                } else {
+                    target.insert(k.clone(), v.clone());
+                }
+            } else {
+                target.insert(k.clone(), v.clone());
+            }
+        } else {
+            target.insert(k.clone(), v.clone());
+        }
+    }
+}
+
+/// Apply auto analysis and/or a preset to a single image's sidecar. When `apply_auto` is set the
+/// automatic lens correction is folded in as well (`lensCorrectionMode = "auto"`); images whose
+/// lens cannot be resolved from EXIF simply keep no lens params and are left uncorrected.
+///
+/// Returns the decoded base image when this function had to load one, so callers can reuse it for
+/// thumbnail regeneration.
+pub fn apply_import_edits_to_sidecar(
+    source_path: &Path,
+    sidecar_path: &Path,
+    apply_auto: bool,
+    preset_adjustments: Option<&Value>,
+    settings: &AppSettings,
+    lens_db: Option<&crate::lens_correction::LensDatabase>,
+    preloaded_image: Option<&DynamicImage>,
+) -> Result<Option<DynamicImage>, String> {
+    let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
+    let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
+
+    let mut existing_metadata = crate::exif_processing::load_sidecar(sidecar_path);
+    if existing_metadata.adjustments.is_null() {
+        existing_metadata.adjustments = serde_json::json!({});
+    }
+
+    let mut owned_image: Option<DynamicImage> = None;
+
+    if apply_auto {
+        let image_ref: &DynamicImage = match preloaded_image {
+            Some(img) => img,
+            None => {
+                let source_path_str = source_path.to_string_lossy().to_string();
+                let file_bytes = fs::read(source_path).map_err(|e| e.to_string())?;
+                let img = image_loader::load_base_image_from_bytes(
+                    &file_bytes,
+                    &source_path_str,
+                    true,
+                    settings,
+                    None,
+                )
+                .map_err(|e| e.to_string())?;
+                owned_image = Some(img);
+                owned_image.as_ref().unwrap()
+            }
+        };
+
+        let auto_json = auto_results_to_json(&perform_auto_analysis(image_ref));
+        if let (Some(target), Some(incoming)) = (
+            existing_metadata.adjustments.as_object_mut(),
+            auto_json.as_object(),
+        ) {
+            merge_adjustment_values(target, incoming);
+        }
+    }
+
+    if let Some(preset) = preset_adjustments
+        && let (Some(target), Some(incoming)) = (
+            existing_metadata.adjustments.as_object_mut(),
+            preset.as_object(),
+        )
+    {
+        merge_adjustment_values(target, incoming);
+    }
+
+    if apply_auto && let Some(map) = existing_metadata.adjustments.as_object_mut() {
+        map.insert("lensCorrectionMode".to_string(), serde_json::json!("auto"));
+        for key in [
+            "lensDistortionEnabled",
+            "lensTcaEnabled",
+            "lensVignetteEnabled",
+        ] {
+            map.entry(key.to_string())
+                .or_insert(serde_json::json!(true));
+        }
+    }
+
+    let is_auto_lens = existing_metadata
+        .adjustments
+        .get("lensCorrectionMode")
+        .and_then(|v| v.as_str())
+        == Some("auto");
+    if is_auto_lens {
+        let exif_for_lens: Option<HashMap<String, String>> =
+            crate::exif_processing::read_rrexif_sidecar(source_path)
+                .or_else(|| existing_metadata.exif.clone());
+        resolve_lens_params_in_adjustments(
+            &mut existing_metadata.adjustments,
+            &exif_for_lens,
+            lens_db,
+        );
+    }
+
+    if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
+        let _ = std::fs::write(sidecar_path, json_string);
+    }
+
+    if enable_xmp_sync {
+        sync_metadata_to_xmp(source_path, &existing_metadata, create_xmp_if_missing);
+    }
+
+    Ok(owned_image)
+}
+
 #[tauri::command]
 pub async fn apply_auto_adjustments_to_paths(
     paths: Vec<String>,
@@ -2888,10 +3016,9 @@ pub async fn apply_auto_adjustments_to_paths(
 
     tauri::async_runtime::spawn_blocking(move || {
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
-        let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
-        let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
         let state = app_handle.state::<AppState>();
+        let lens_db = state.lens_db.lock().unwrap().clone();
         let thumb_cache_dir = match resolve_thumbnail_cache_dir(&app_handle) {
             Ok(dir) => dir,
             Err(e) => {
@@ -2909,63 +3036,19 @@ pub async fn apply_auto_adjustments_to_paths(
         let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
 
         paths.par_iter().for_each(|path| {
-            let loaded_image: Option<DynamicImage> = (|| -> Result<DynamicImage, String> {
-                let (source_path, sidecar_path) = parse_virtual_path(path);
-                let source_path_str = source_path.to_string_lossy().to_string();
-
-                let file_bytes = fs::read(&source_path).map_err(|e| e.to_string())?;
-                let image = image_loader::load_base_image_from_bytes(
-                    &file_bytes,
-                    &source_path_str,
-                    true,
-                    &settings,
-                    None,
-                )
-                .map_err(|e| e.to_string())?;
-
-                let auto_results = perform_auto_analysis(&image);
-                let auto_adjustments_json = auto_results_to_json(&auto_results);
-
-                let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
-
-                if existing_metadata.adjustments.is_null() {
-                    existing_metadata.adjustments = serde_json::json!({});
-                }
-
-                if let (Some(existing_map), Some(auto_map)) = (
-                    existing_metadata.adjustments.as_object_mut(),
-                    auto_adjustments_json.as_object(),
-                ) {
-                    for (k, v) in auto_map {
-                        if k == "sectionVisibility" {
-                            if let Some(existing_vis_val) = existing_map.get_mut(k) {
-                                if let (Some(existing_vis), Some(auto_vis)) =
-                                    (existing_vis_val.as_object_mut(), v.as_object())
-                                {
-                                    for (vis_k, vis_v) in auto_vis {
-                                        existing_vis.insert(vis_k.clone(), vis_v.clone());
-                                    }
-                                }
-                            } else {
-                                existing_map.insert(k.clone(), v.clone());
-                            }
-                        } else {
-                            existing_map.insert(k.clone(), v.clone());
-                        }
-                    }
-                }
-
-                if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
-                    let _ = std::fs::write(&sidecar_path, json_string);
-                }
-
-                if enable_xmp_sync {
-                    sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
-                }
-                Ok(image)
-            })()
+            let (source_path, sidecar_path) = parse_virtual_path(path);
+            let loaded_image: Option<DynamicImage> = apply_import_edits_to_sidecar(
+                &source_path,
+                &sidecar_path,
+                true,
+                None,
+                &settings,
+                lens_db.as_deref(),
+                None,
+            )
             .map_err(|e| eprintln!("Failed to apply auto adjustments to {}: {}", path, e))
-            .ok();
+            .ok()
+            .flatten();
 
             let result = generate_single_thumbnail_and_cache(
                 path,
