@@ -2335,6 +2335,10 @@ fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, S
         associated_files.push(rrexif_path);
     }
 
+    if let Some(xmp_path) = resolve_xmp_path(source_image_path) {
+        associated_files.push(xmp_path);
+    }
+
     let parent_dir = source_image_path
         .parent()
         .ok_or("Could not determine parent directory")?;
@@ -3634,6 +3638,10 @@ fn deletion_stem_for(filename: &str) -> Option<&str> {
         }
     } else if filename.ends_with(".rrexif") {
         filename.trim_end_matches(".rrexif")
+    } else if filename.ends_with(".xmp") {
+        filename.trim_end_matches(".xmp")
+    } else if filename.ends_with(".XMP") {
+        filename.trim_end_matches(".XMP")
     } else if is_supported_image_file(filename) {
         filename
     } else {
