@@ -3947,6 +3947,11 @@ pub async fn import_files(
                     let _ = fs::copy(&source_rrexif, &dest_rrexif);
                 }
 
+                if let Some(source_xmp) = resolve_xmp_path(&source_path) {
+                    let dest_xmp = dest_file_path.with_extension("xmp");
+                    let _ = fs::copy(&source_xmp, &dest_xmp);
+                }
+
                 if settings.delete_after_import {
                     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
                     {
@@ -3991,9 +3996,7 @@ pub async fn import_files(
 
             match import_result {
                 Ok(Some(dest_file_path)) => {
-                    if apply_edits {
-                        imported_dest_paths.push(dest_file_path);
-                    }
+                    imported_dest_paths.push(dest_file_path);
                 }
                 Ok(None) => {}
                 Err(e) => {
@@ -4002,6 +4005,22 @@ pub async fn import_files(
                     return;
                 }
             }
+        }
+
+        // Capture the camera rating / color label / keywords from a sidecar or embedded XMP
+        // into the .rrdata sidecar right away, so it cannot be shadowed later by a skeleton
+        // .xmp (created by AI tagging or the first edit) that starts at rating 0.
+        if app_settings.enable_xmp_sync.unwrap_or(false) {
+            imported_dest_paths.par_iter().for_each(|dest_file_path| {
+                let dest_str = dest_file_path.to_string_lossy().to_string();
+                let (_, sidecar_path) = parse_virtual_path(&dest_str);
+                let mut meta = crate::exif_processing::load_sidecar(&sidecar_path);
+                if sync_metadata_from_xmp(dest_file_path, &mut meta, true)
+                    && let Ok(json) = serde_json::to_string_pretty(&meta)
+                {
+                    let _ = fs::write(&sidecar_path, json);
+                }
+            });
         }
 
         if apply_edits && !imported_dest_paths.is_empty() {
@@ -4515,5 +4534,61 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         let _ = fs::write(&xmp_file, content);
+    }
+}
+
+#[cfg(test)]
+mod xmp_embedded_tests {
+    use super::*;
+    use std::io::Write;
+
+    fn write_temp(name: &str, bytes: &[u8]) -> PathBuf {
+        let mut p = std::env::temp_dir();
+        p.push(format!("rapidraw_xmp_test_{}_{}", std::process::id(), name));
+        let mut f = fs::File::create(&p).unwrap();
+        f.write_all(bytes).unwrap();
+        p
+    }
+
+    #[test]
+    fn reads_rating_from_embedded_xmp_packet() {
+        let mut buf = vec![0u8; 200_000];
+        buf.extend_from_slice(
+            b"<?xpacket begin='\xef\xbb\xbf' id='W5M0MpCehiHzreSzNTczkc9d'?>\n\
+              <x:xmpmeta xmlns:x='adobe:ns:meta/'>\n\
+              <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>\n\
+              <rdf:Description rdf:about='' xmlns:xmp='http://ns.adobe.com/xap/1.0/'>\n\
+              <xmp:Rating>5</xmp:Rating>\n</rdf:Description>\n</rdf:RDF>\n</x:xmpmeta>\n\
+              <?xpacket end='w'?>",
+        );
+        buf.extend_from_slice(&vec![0xffu8; 50_000]);
+
+        let path = write_temp("rating.bin", &buf);
+        let packet = read_embedded_xmp_packet(&path).expect("packet found");
+        assert!(packet.contains("<xmp:Rating>5</xmp:Rating>"));
+        assert_eq!(extract_xmp_rating(&packet), Some(5));
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn returns_none_when_no_packet() {
+        let path = write_temp("nopacket.bin", &vec![0x11u8; 400_000]);
+        assert!(read_embedded_xmp_packet(&path).is_none());
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn sync_skips_embedded_scan_when_disabled() {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(
+            b"<?xpacket begin='' id='x'?><xmp:Rating>3</xmp:Rating><?xpacket end='w'?>",
+        );
+        let path = write_temp("gated.bin", &buf);
+        let mut meta = ImageMetadata::default();
+        assert!(!sync_metadata_from_xmp(&path, &mut meta, false));
+        assert_eq!(meta.rating, 0);
+        assert!(sync_metadata_from_xmp(&path, &mut meta, true));
+        assert_eq!(meta.rating, 3);
+        let _ = fs::remove_file(&path);
     }
 }
