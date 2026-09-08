@@ -286,6 +286,8 @@ pub struct ImageFile {
     modified: u64,
     is_edited: bool,
     rating: u8,
+    #[serde(default = "ready_rating_state")]
+    rating_state: String,
     tags: Option<Vec<String>>,
     exif: Option<HashMap<String, String>>,
     is_virtual_copy: bool,
@@ -293,6 +295,8 @@ pub struct ImageFile {
     is_raw: bool,
     group_id: Option<String>,
 }
+
+fn ready_rating_state() -> String { "ready".to_string() }
 
 fn make_group_key(source_path: &Path) -> String {
     let parent = source_path.parent().unwrap_or(Path::new(""));
@@ -552,6 +556,8 @@ fn update_rotational_disk_flag(path: &str, app_handle: &AppHandle) {
                 .store(is_hdd, Ordering::Relaxed);
         }
         None => {
+            // Until disk discovery finishes, avoid parallel seeks on an unknown drive.
+            state.thumbnail_manager.rotational_disk.store(true, Ordering::Relaxed);
             if !state.disks_cache_refreshing.swap(true, Ordering::Relaxed) {
                 let refresh_app_handle = app_handle.clone();
                 thread::spawn(move || {
@@ -566,7 +572,12 @@ fn update_rotational_disk_flag(path: &str, app_handle: &AppHandle) {
 }
 
 #[tauri::command]
-pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<ImageFile>, String> {
+pub async fn list_images_in_dir(path: String, app_handle: AppHandle, defer_ratings: Option<bool>) -> Result<Vec<ImageFile>, String> {
+    tauri::async_runtime::spawn_blocking(move || list_images_in_dir_sync(path, app_handle, defer_ratings.unwrap_or(false)))
+        .await.map_err(|error| error.to_string())?
+}
+
+fn list_images_in_dir_sync(path: String, app_handle: AppHandle, defer_ratings: bool) -> Result<Vec<ImageFile>, String> {
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
 
@@ -576,7 +587,8 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
     let mut images = Vec::new();
     let mut sidecars_by_filename: HashMap<String, Vec<Option<String>>> = HashMap::new();
 
-    for entry in entries.filter_map(Result::ok) {
+    for entry in entries {
+        let entry = entry.map_err(|error| error.to_string())?;
         let entry_path = entry.path();
         let file_name = entry
             .file_name()
@@ -648,7 +660,9 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                     && resolve_xmp_path(&path_buf)
                         .is_some_and(|p| crate::file_management::is_cloud_placeholder(&p));
 
-                let metadata = if crate::file_management::is_cloud_placeholder(&sidecar_path)
+                let metadata = if defer_ratings {
+                    ImageFileMetadata { is_edited: false, tags: None, rating: 0, is_raw: crate::formats::is_raw_file(&path_buf) }
+                } else if crate::file_management::is_cloud_placeholder(&sidecar_path)
                     || xmp_is_placeholder
                 {
                     enqueue_metadata(
@@ -677,6 +691,7 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                     is_raw: metadata.is_raw,
                     group_id: None,
                     rating: metadata.rating,
+                    rating_state: if defer_ratings { "pending" } else { "ready" }.to_string(),
                     is_cloud_placeholder,
                 });
             }
@@ -690,10 +705,12 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
 }
 
 #[tauri::command]
-pub fn list_images_recursive(
-    path: String,
-    app_handle: AppHandle,
-) -> Result<Vec<ImageFile>, String> {
+pub async fn list_images_recursive(path: String, app_handle: AppHandle, defer_ratings: Option<bool>) -> Result<Vec<ImageFile>, String> {
+    tauri::async_runtime::spawn_blocking(move || list_images_recursive_sync(path, app_handle, defer_ratings.unwrap_or(false)))
+        .await.map_err(|error| error.to_string())?
+}
+
+fn list_images_recursive_sync(path: String, app_handle: AppHandle, defer_ratings: bool) -> Result<Vec<ImageFile>, String> {
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
 
@@ -704,7 +721,8 @@ pub fn list_images_recursive(
 
     let mut sidecars_by_path: HashMap<PathBuf, Vec<Option<String>>> = HashMap::new();
 
-    for entry in WalkDir::new(root_path).into_iter().filter_map(Result::ok) {
+    for entry in WalkDir::new(root_path) {
+        let entry = entry.map_err(|error| error.to_string())?;
         let entry_path = entry.path();
         if !entry_path.is_file() {
             continue;
@@ -781,7 +799,9 @@ pub fn list_images_recursive(
                     && resolve_xmp_path(&path_buf)
                         .is_some_and(|p| crate::file_management::is_cloud_placeholder(&p));
 
-                let metadata = if crate::file_management::is_cloud_placeholder(&sidecar_path)
+                let metadata = if defer_ratings {
+                    ImageFileMetadata { is_edited: false, tags: None, rating: 0, is_raw: crate::formats::is_raw_file(&path_buf) }
+                } else if crate::file_management::is_cloud_placeholder(&sidecar_path)
                     || xmp_is_placeholder
                 {
                     enqueue_metadata(
@@ -810,6 +830,7 @@ pub fn list_images_recursive(
                     is_raw: metadata.is_raw,
                     group_id: None,
                     rating: metadata.rating,
+                    rating_state: if defer_ratings { "pending" } else { "ready" }.to_string(),
                     is_cloud_placeholder,
                 });
             }
@@ -1081,6 +1102,7 @@ pub fn get_album_images(
                 is_raw: metadata.is_raw,
                 group_id: None,
                 rating: metadata.rating,
+                rating_state: "ready".to_string(),
                 is_cloud_placeholder,
             })
         })
@@ -1790,7 +1812,7 @@ fn generate_single_thumbnail_and_cache(
     force_regenerate: bool,
     app_handle: &AppHandle,
     settings: &AppSettings,
-) -> Option<(String, String, u8, bool)> {
+) -> Option<(String, String, Option<u8>, bool)> {
     let (source_path, sidecar_path) = parse_virtual_path(path_str);
 
     let (rating, is_edited, adjustments_bytes) = if is_cloud_placeholder(&sidecar_path) {
@@ -1800,13 +1822,13 @@ fn generate_single_thumbnail_and_cache(
             source_path.clone(),
             sidecar_path.clone(),
         );
-        (0, false, Vec::new())
+        (None, false, Vec::new())
     } else {
-        let meta = crate::exif_processing::load_image_metadata(&source_path, &sidecar_path);
+        let meta = crate::exif_processing::load_sidecar(&sidecar_path);
         let is_raw = crate::formats::is_raw_file(path_str);
         let tm = crate::image_processing::resolve_tonemapper_override(settings, is_raw);
         (
-            meta.rating,
+            if meta.rating_is_explicit || meta.rating > 0 { Some(meta.rating) } else { crate::rating_cache::peek(&source_path).map(|r| r.unwrap_or(0)) },
             crate::image_processing::is_image_edited(&meta.adjustments, is_raw, tm),
             if sidecar_path.exists() {
                 serde_json::to_vec(&meta.adjustments).unwrap_or_default()
@@ -2051,19 +2073,18 @@ fn emit_thumbnail_generated(
     path: &str,
     small_thumbnail_path: &str,
     medium_thumbnail_path: &str,
-    rating: u8,
+    rating: Option<u8>,
     is_edited: bool,
 ) {
-    let _ = app_handle.emit(
-        "thumbnail-generated",
-        serde_json::json!({
+    let mut payload = serde_json::json!({
             "path": path,
             "thumbnailPath": small_thumbnail_path,
             "previewPath": medium_thumbnail_path,
             "rating": rating,
             "is_edited": is_edited
-        }),
-    );
+        });
+    if rating.is_none() { payload.as_object_mut().unwrap().remove("rating"); }
+    let _ = app_handle.emit("thumbnail-generated", payload);
 }
 
 pub fn resolve_lens_params_in_adjustments(
