@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
@@ -94,10 +94,11 @@ fn resolve_image_metadata(
     enable_xmp_sync: bool,
     settings: &AppSettings,
 ) -> ImageFileMetadata {
+    let sidecar_existed = sidecar_path.exists();
     let mut metadata = crate::exif_processing::load_sidecar(sidecar_path);
 
     if enable_xmp_sync
-        && sync_metadata_from_xmp(image_path, &mut metadata)
+        && sync_metadata_from_xmp(image_path, &mut metadata, !sidecar_existed)
         && let Ok(json) = serde_json::to_string_pretty(&metadata)
     {
         let _ = fs::write(sidecar_path, json);
@@ -3164,7 +3165,7 @@ pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadat
     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
     if enable_xmp_sync
-        && sync_metadata_from_xmp(&source_path, &mut metadata)
+        && sync_metadata_from_xmp(&source_path, &mut metadata, true)
         && let Ok(json) = serde_json::to_string_pretty(&metadata)
     {
         let _ = fs::write(&sidecar_path, json);
@@ -4279,14 +4280,88 @@ pub fn resolve_xmp_path(image_path: &Path) -> Option<PathBuf> {
     }
 }
 
-pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) -> bool {
-    let actual_xmp = resolve_xmp_path(source_path);
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return None;
+    }
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+/// Scan an image file for an embedded XMP packet (`<?xpacket begin=…?> … <?xpacket end=…?>`).
+/// Cameras like Sony and phone exports store the rating/label there instead of a `.xmp` sidecar.
+/// Reads sequentially in chunks and stops as soon as the packet is complete.
+fn read_embedded_xmp_packet(source_path: &Path) -> Option<String> {
+    const CHUNK_SIZE: usize = 64 * 1024;
+    const MAX_XMP_PACKET_SIZE: usize = 16 * 1024 * 1024;
+    const XMP_START: &[u8] = b"<?xpacket begin=";
+    const XMP_END: &[u8] = b"<?xpacket end=";
+    const XMP_CLOSE: &[u8] = b"?>";
+
+    let mut file = fs::File::open(source_path).ok()?;
+    let mut chunk = vec![0u8; CHUNK_SIZE];
+    let mut pending = Vec::new();
+    let mut packet: Option<Vec<u8>> = None;
+
+    loop {
+        let read = file.read(&mut chunk).ok()?;
+        if read == 0 {
+            return None;
+        }
+
+        if let Some(packet_bytes) = packet.as_mut() {
+            packet_bytes.extend_from_slice(&chunk[..read]);
+            if packet_bytes.len() > MAX_XMP_PACKET_SIZE {
+                return None;
+            }
+            if let Some(end_idx) = find_bytes(packet_bytes, XMP_END)
+                && let Some(close_idx) = find_bytes(&packet_bytes[end_idx..], XMP_CLOSE)
+            {
+                let packet_end = end_idx + close_idx + XMP_CLOSE.len();
+                packet_bytes.truncate(packet_end);
+                return String::from_utf8(std::mem::take(packet_bytes)).ok();
+            }
+        } else {
+            pending.extend_from_slice(&chunk[..read]);
+            if let Some(start_idx) = find_bytes(&pending, XMP_START) {
+                let mut packet_bytes = pending.split_off(start_idx);
+                pending.clear();
+
+                if let Some(end_idx) = find_bytes(&packet_bytes, XMP_END)
+                    && let Some(close_idx) = find_bytes(&packet_bytes[end_idx..], XMP_CLOSE)
+                {
+                    let packet_end = end_idx + close_idx + XMP_CLOSE.len();
+                    packet_bytes.truncate(packet_end);
+                    return String::from_utf8(packet_bytes).ok();
+                }
+
+                if packet_bytes.len() > MAX_XMP_PACKET_SIZE {
+                    return None;
+                }
+                packet = Some(packet_bytes);
+            } else {
+                let keep = XMP_START.len().saturating_sub(1);
+                if pending.len() > keep {
+                    pending.drain(..pending.len() - keep);
+                }
+            }
+        }
+    }
+}
+
+pub fn sync_metadata_from_xmp(
+    source_path: &Path,
+    metadata: &mut ImageMetadata,
+    scan_embedded: bool,
+) -> bool {
+    let content_opt: Option<String> = match resolve_xmp_path(source_path) {
+        Some(xmp_file) => fs::read_to_string(&xmp_file).ok(),
+        None if scan_embedded => read_embedded_xmp_packet(source_path),
+        None => None,
+    };
 
     let mut changed = false;
 
-    if let Some(xmp_file) = actual_xmp
-        && let Ok(content) = fs::read_to_string(&xmp_file)
-    {
+    if let Some(content) = content_opt {
         if metadata.rating == 0
             && let Some(rating) = extract_xmp_rating(&content)
             && rating != 0
