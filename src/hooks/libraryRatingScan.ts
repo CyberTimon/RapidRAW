@@ -11,8 +11,9 @@ export function beginLibraryLoad() {
   unsubscribe?.();
   unsubscribe = undefined;
   overrides.clear();
-  useLibraryStore.getState().setLibrary({ ratingProgress: null });
+  useLibraryStore.getState().setLibrary({ ratingProgress: null, isDiscovering: false });
   void invoke('cancel_rating_scan').catch(console.error);
+  void invoke('cancel_library_scan').catch(console.error);
   return activeLoad;
 }
 export function isCurrentLibraryLoad(id: string) {
@@ -27,16 +28,28 @@ export async function startLibraryRatingScan(id: string, paths: string[]) {
     .getState()
     .setLibrary({ ratingProgress: { scanId: id, checked: 0, total: paths.length, failed: 0, done: false } });
   let stop: UnlistenFn | undefined;
+  let pending: RatingBatch | undefined;
+  let flushTimer: ReturnType<typeof setTimeout> | undefined;
+  const flush = () => {
+    clearTimeout(flushTimer);
+    flushTimer = undefined;
+    const batch = pending;
+    pending = undefined;
+    if (!batch || !isCurrentLibraryLoad(id)) return;
+    useLibraryStore
+      .getState()
+      .setLibrary(
+        (state) =>
+          applyRatingBatch(state.ratingProgress?.scanId, state.imageList, state.imageRatings, batch, overrides) ?? {},
+      );
+  };
   try {
     stop = await listen<RatingBatch>('library-rating-batch', ({ payload }) => {
       if (!isCurrentLibraryLoad(id)) return;
-      useLibraryStore
-        .getState()
-        .setLibrary(
-          (state) =>
-            applyRatingBatch(state.ratingProgress?.scanId, state.imageList, state.imageRatings, payload, overrides) ??
-            {},
-        );
+      if (payload.scan_id !== id) return;
+      pending = { ...payload, updates: [...(pending?.updates ?? []), ...payload.updates] };
+      if (payload.done) flush();
+      else if (!flushTimer) flushTimer = setTimeout(flush, 100);
     });
     if (!isCurrentLibraryLoad(id)) {
       stop();
@@ -45,6 +58,7 @@ export async function startLibraryRatingScan(id: string, paths: string[]) {
     unsubscribe = stop;
     await invoke('scan_library_ratings', { scanId: id, paths });
   } catch (error) {
+    flush();
     console.error('Rating scan failed', error);
     if (isCurrentLibraryLoad(id))
       useLibraryStore.getState().setLibrary((state) => ({

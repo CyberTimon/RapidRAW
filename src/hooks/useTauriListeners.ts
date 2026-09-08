@@ -1,4 +1,5 @@
 import { canAcceptThumbnailRating } from '../utils/ratingUpdates';
+import { mergeThumbnailCache } from '../utils/thumbnailCache';
 import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/core';
@@ -52,14 +53,21 @@ export function useTauriListeners({
 
       if (Object.keys(pendingThumbs).length > 0) {
         useProcessStore.getState().setProcess((state) => ({
-          thumbnails: { ...state.thumbnails, ...pendingThumbs },
-          mediumThumbnails: { ...state.mediumThumbnails, ...pendingMediumThumbs },
+          thumbnails: mergeThumbnailCache(state.thumbnails, pendingThumbs),
+          mediumThumbnails: mergeThumbnailCache(state.mediumThumbnails, pendingMediumThumbs),
         }));
       }
 
       if (Object.keys(pendingRatings).length > 0 || Object.keys(pendingEdits).length > 0) {
         useLibraryStore.getState().setLibrary((state) => ({
-          imageRatings: { ...state.imageRatings, ...Object.fromEntries(Object.entries(pendingRatings).filter(([path]) => canAcceptThumbnailRating(state.imageList.find((image) => image.path === path)))) },
+          imageRatings: {
+            ...state.imageRatings,
+            ...Object.fromEntries(
+              Object.entries(pendingRatings).filter(([path]) =>
+                canAcceptThumbnailRating(state.imageList.find((image) => image.path === path)),
+              ),
+            ),
+          },
           imageList:
             Object.keys(pendingEdits).length > 0
               ? state.imageList.map((img) =>
@@ -106,16 +114,19 @@ export function useTauriListeners({
         if (!isEffectActive) return;
         const { path, thumbnailPath, previewPath, rating, is_edited, data } = event.payload;
 
-        if (thumbnailPath && previewPath) {
+        if (thumbnailPath) {
           thumbnailBuffer.current[path] = convertFileSrc(thumbnailPath.replace(/\\/g, '/'));
-          mediumThumbnailBuffer.current[path] = convertFileSrc(previewPath.replace(/\\/g, '/'));
+          if (previewPath) mediumThumbnailBuffer.current[path] = convertFileSrc(previewPath.replace(/\\/g, '/'));
           refs.current.markGenerated(path);
         } else if (data) {
           thumbnailBuffer.current[path] = data;
           mediumThumbnailBuffer.current[path] = data;
           refs.current.markGenerated(path);
         }
-        if (typeof rating === 'number' && canAcceptThumbnailRating(useLibraryStore.getState().imageList.find((image) => image.path === path))) {
+        if (
+          typeof rating === 'number' &&
+          canAcceptThumbnailRating(useLibraryStore.getState().imageList.find((image) => image.path === path))
+        ) {
           ratingBuffer.current[path] = rating;
         }
         if (is_edited !== undefined) {
@@ -130,7 +141,9 @@ export function useTauriListeners({
         const { path, rating, is_edited, tags } = event.payload;
 
         useLibraryStore.getState().setLibrary((state) => ({
-          imageRatings: state.imageList.find((image) => image.path === path)?.rating_state ? state.imageRatings : { ...state.imageRatings, [path]: rating },
+          imageRatings: state.imageList.find((image) => image.path === path)?.rating_state
+            ? state.imageRatings
+            : { ...state.imageRatings, [path]: rating },
           imageList: state.imageList.map((img) =>
             img.path === path ? { ...img, is_edited, tags: tags ?? img.tags } : img,
           ),

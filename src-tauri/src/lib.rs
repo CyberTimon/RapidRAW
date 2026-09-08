@@ -20,6 +20,9 @@ mod embedded_rating;
 mod cr3_rating;
 mod rating_cache;
 mod rating_scan;
+mod library_scan;
+mod library_walk;
+mod thumbnail_queue;
 mod exif_processing;
 mod export_processing;
 mod file_management;
@@ -2153,6 +2156,8 @@ pub fn run() {
             file_management::get_supported_file_types,
             file_management::read_exif_for_paths,
             file_management::list_images_in_dir,
+            library_scan::start_library_scan,
+            library_scan::cancel_library_scan,
             rating_scan::scan_library_ratings,
             rating_scan::cancel_rating_scan,
             file_management::list_images_recursive,
@@ -2160,6 +2165,7 @@ pub fn run() {
             file_management::get_folder_children,
             file_management::get_pinned_folder_trees,
             file_management::update_thumbnail_queue,
+            file_management::pause_thumbnail_background,
             file_management::create_folder,
             file_management::delete_folder,
             file_management::copy_files,

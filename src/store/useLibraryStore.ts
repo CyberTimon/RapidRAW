@@ -47,6 +47,7 @@ interface LibraryState {
   // UI State specific to the Library View
   isTreeLoading: boolean;
   isViewLoading: boolean;
+  isDiscovering: boolean;
   libraryScrollTop: number;
   listColumnWidths: ColumnWidths;
 
@@ -83,6 +84,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
   isTreeLoading: false,
   isViewLoading: false,
+  isDiscovering: false,
   libraryScrollTop: 0,
   listColumnWidths: {
     thumbnail: 4,

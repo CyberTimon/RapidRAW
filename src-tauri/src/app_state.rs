@@ -93,7 +93,9 @@ pub struct ThumbnailProgressTracker {
 }
 
 pub struct ThumbnailManager {
-    pub queue: Mutex<VecDeque<String>>,
+    pub queue: Mutex<VecDeque<crate::thumbnail_queue::Job>>,
+    pub generation: AtomicUsize,
+    pub background_paused: AtomicBool,
     pub cvar: Condvar,
     pub processing_now: Mutex<HashSet<String>>,
     pub rotational_disk: AtomicBool,
@@ -104,6 +106,8 @@ impl ThumbnailManager {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             queue: Mutex::new(VecDeque::new()),
+            generation: AtomicUsize::new(0),
+            background_paused: AtomicBool::new(false),
             cvar: Condvar::new(),
             processing_now: Mutex::new(HashSet::new()),
             rotational_disk: AtomicBool::new(false),

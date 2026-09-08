@@ -1,5 +1,7 @@
 import { requestLibraryExif } from '../../../hooks/libraryExifQueue';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { setVisibleThumbnails } from '../../../utils/thumbnailCache';
+import { useLibraryScrollAnchor } from '../../../hooks/useLibraryScrollAnchor';
 import { List, useListCallbackRef } from 'react-window';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import debounce from 'lodash.debounce';
@@ -523,6 +525,33 @@ export default function LibraryGrid(props: any) {
     [gridData],
   );
 
+  const visiblePaths = useRef<string[]>([]);
+  useLibraryScrollAnchor(listHandle?.element, gridData, currentFolderPath);
+  const onRowsRendered = useCallback(
+    ({ startIndex, stopIndex }: { startIndex: number; stopIndex: number }) => {
+      const paths =
+        gridData?.rows
+          .slice(startIndex, stopIndex + 1)
+          .flatMap((row: { images?: { path: string }[] }) => row.images?.map((image) => image.path) ?? []) ?? [];
+      visiblePaths.current = paths;
+      setVisibleThumbnails(paths);
+      onRequestThumbnails?.(paths);
+    },
+    [gridData, onRequestThumbnails],
+  );
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (libraryContainerRef.current?.getBoundingClientRect().height) {
+        const missing = visiblePaths.current.filter((path) => !useProcessStore.getState().thumbnails[path]);
+        if (missing.length) onRequestThumbnails?.(missing);
+      }
+    }, 6000);
+    return () => {
+      clearInterval(timer);
+      clearTimeout(requestTimeoutRef.current);
+    };
+  }, [onRequestThumbnails]);
+
   if (!gridData) {
     return (
       <div
@@ -567,6 +596,8 @@ export default function LibraryGrid(props: any) {
         )}
         <div style={{ height: gridData.isListView ? gridSize.height - 36 : gridSize.height, width: gridSize.width }}>
           <List
+            onRowsRendered={onRowsRendered}
+            overscanCount={2}
             listRef={setListHandle}
             rowCount={gridData.rows.length}
             rowHeight={getItemSize}

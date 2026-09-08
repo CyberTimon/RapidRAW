@@ -93,7 +93,7 @@ export default function LibraryView({
       multiSelectedPaths: state.multiSelectedPaths,
       imageList: state.imageList,
       imageRatings: state.imageRatings,
-      isViewLoading: state.isViewLoading,
+      isViewLoading: state.isViewLoading || state.isDiscovering,
       isTreeLoading: state.isTreeLoading,
     })),
   );
