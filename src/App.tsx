@@ -312,7 +312,7 @@ function App() {
       effectiveRatio = adjustments.aspectRatio;
     }
     const desiredImageHeight = viewportSize.width / effectiveRatio;
-    const topUiEstimation = !appSettings?.decorations && !isWindowFullScreen ? 110 : 60;
+    const topUiEstimation = !appSettings?.decorations ? 110 : 60;
     const totalDesiredTopHeight = desiredImageHeight + topUiEstimation;
     const calculatedBottomHeight = Math.round(viewportSize.height - totalDesiredTopHeight);
     return Math.max(halfScreenHeight, calculatedBottomHeight);
@@ -472,6 +472,17 @@ function App() {
     }
   }, [isFullScreen, setUI]);
 
+  const handleToggleWindowFullScreen = useCallback(async () => {
+    try {
+      const appWindow = getCurrentWindow();
+      const nextFullScreen = !(await appWindow.isFullscreen());
+      await appWindow.setFullscreen(nextFullScreen);
+      setUI({ isWindowFullScreen: nextFullScreen });
+    } catch (error) {
+      console.error('Failed to toggle window fullscreen:', error);
+    }
+  }, [setUI]);
+
   useKeyboardShortcuts({
     sortedImageList,
     handleBackToLibrary,
@@ -480,6 +491,7 @@ function App() {
     handleImageSelect,
     handlePasteFiles,
     handleToggleFullScreen,
+    handleToggleWindowFullScreen,
     handleZoomChange,
   });
 
@@ -874,7 +886,7 @@ function App() {
               isFullScreen ? 'max-h-0 opacity-0 pointer-events-none' : 'max-h-15 opacity-100',
             )}
           >
-            {appSettings?.decorations || (!isWindowFullScreen && <TitleBar />)}
+            {appSettings?.decorations || <TitleBar />}
           </div>
         )}
         <div

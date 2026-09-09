@@ -18,6 +18,7 @@ interface KeyboardShortcutsProps {
   handleImageSelect(path: string, openInEditor?: boolean): void;
   handlePasteFiles(str: string): void;
   handleToggleFullScreen(): void;
+  handleToggleWindowFullScreen(): void;
   handleZoomChange(zoomValue: number, fitToWindow?: boolean): void;
 }
 
@@ -29,6 +30,7 @@ export const useKeyboardShortcuts = ({
   handleImageSelect,
   handlePasteFiles,
   handleToggleFullScreen,
+  handleToggleWindowFullScreen,
   handleZoomChange,
 }: KeyboardShortcutsProps) => {
   const { handleRotate, handleCopyAdjustments, handlePasteAdjustments, toggleShowOriginal } = useEditorActions();
@@ -300,6 +302,13 @@ export const useKeyboardShortcuts = ({
           handleToggleFullScreen();
         },
       },
+      toggle_window_fullscreen: {
+        shouldFire: () => true,
+        execute: (e: KeyboardEvent) => {
+          e.preventDefault();
+          handleToggleWindowFullScreen();
+        },
+      },
       show_original: {
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any) => {
@@ -561,6 +570,19 @@ export const useKeyboardShortcuts = ({
 
     const builtinShortcuts = [
       {
+        // The default Tauri menu binds Cmd+Ctrl+F to View > Enter Full Screen, but
+        // that item never fires for a window built without decorations, so the event
+        // falls through to the webview. Handle it here as a builtin rather than a
+        // rebindable combo, because normalizeCombo folds Cmd and Ctrl into one token
+        // and cannot express the chord.
+        match: (e: KeyboardEvent, s: ReturnType<typeof getStoreState>) =>
+          s.settings.osPlatform === 'macos' && e.metaKey && e.ctrlKey && e.code === 'KeyF',
+        execute: (e: KeyboardEvent) => {
+          e.preventDefault();
+          handleToggleWindowFullScreen();
+        },
+      },
+      {
         match: (e: KeyboardEvent) => e.code === 'Escape',
         execute: (e: KeyboardEvent, s: any) => {
           e.preventDefault();
@@ -686,6 +708,7 @@ export const useKeyboardShortcuts = ({
     handleImageSelect,
     handlePasteFiles,
     handleToggleFullScreen,
+    handleToggleWindowFullScreen,
     handleZoomChange,
     handleRotate,
     handleCopyAdjustments,
