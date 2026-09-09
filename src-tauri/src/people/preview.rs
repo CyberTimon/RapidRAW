@@ -10,7 +10,11 @@ pub fn clear_cache() {
 }
 
 pub fn load(path: &str) -> Result<Arc<RgbImage>> {
-    let fingerprint = fingerprint(path)?;
+    load_sized(path, 1280)
+}
+
+pub fn load_sized(path: &str, size: u32) -> Result<Arc<RgbImage>> {
+    let fingerprint = format!("{}:{size}", fingerprint(path)?);
     if let Some((_, _, image)) = CACHE
         .lock()
         .unwrap()
@@ -19,7 +23,7 @@ pub fn load(path: &str) -> Result<Arc<RgbImage>> {
     {
         return Ok(image.clone());
     }
-    let image = Arc::new(decode(path)?);
+    let image = Arc::new(decode(path, size)?);
     let mut cache = CACHE.lock().unwrap();
     cache.retain(|(p, _, _)| p != path);
     if cache.len() >= 2 {
@@ -30,10 +34,10 @@ pub fn load(path: &str) -> Result<Arc<RgbImage>> {
 }
 
 // Original, oriented pixels keep face coordinates independent of editor crops and effects.
-fn decode(path: &str) -> Result<RgbImage> {
+fn decode(path: &str, size: u32) -> Result<RgbImage> {
     let image = if crate::formats::is_raw_file(path) {
         if let Some(preview) =
-            crate::file_management::try_load_embedded_raw_preview(Path::new(path), 1280)
+            crate::file_management::try_load_embedded_raw_preview(Path::new(path), size)
         {
             preview
         } else {
@@ -56,9 +60,9 @@ fn decode(path: &str) -> Result<RgbImage> {
     } else {
         crate::image_loader::load_image_with_orientation(&std::fs::read(path)?, None)?
     };
-    Ok(if image.width() > 1280 || image.height() > 1280 {
+    Ok(if image.width() > size || image.height() > size {
         image
-            .resize(1280, 1280, image::imageops::FilterType::Triangle)
+            .resize(size, size, image::imageops::FilterType::Triangle)
             .to_rgb8()
     } else {
         image.to_rgb8()

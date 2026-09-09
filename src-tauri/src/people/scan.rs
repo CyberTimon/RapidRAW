@@ -46,7 +46,11 @@ fn process(
     for input in &scope.paths {
         let (physical, _) = crate::file_management::parse_virtual_path(input);
         if scope.recursive && physical.is_dir() {
-            for entry in walkdir::WalkDir::new(&physical).follow_links(false) {
+            for entry in walkdir::WalkDir::new(&physical)
+                .follow_links(false)
+                .into_iter()
+                .filter_entry(|entry| !database::is_internal_path(entry.path()))
+            {
                 if cancel.load(Ordering::Relaxed) {
                     return Ok(());
                 }
@@ -67,12 +71,22 @@ fn process(
                     _ => {}
                 }
             }
-        } else {
+        } else if !database::is_internal_path(&physical) {
             paths.insert(physical.canonicalize().unwrap_or(physical));
         }
     }
     let mut db = database::open(&super::db_path(app)?)?;
+    // Face replacement invalidates previous assignment snapshots.
+    db.execute("DELETE FROM people_history", [])?;
     database::prune(&mut db)?;
+    let started = std::time::Instant::now();
+    let mut last_update = std::time::Instant::now();
+    let settings = if scope.detailed {
+        DETAILED_DETECTION_VERSION
+    } else {
+        STANDARD_DETECTION_VERSION
+    };
+    state_stage(app, "scanning");
     let paths = paths.into_iter().collect::<Vec<_>>();
     let state = app.state::<PeopleState>();
     state.progress.lock().unwrap().total = paths.len();
@@ -93,9 +107,9 @@ fn process(
                 || crate::file_management::is_cloud_placeholder(std::path::Path::new(&path))
                 || !crate::formats::is_supported_image_file(&path)
                 || (!scope.force
-                    && fingerprint
-                        .as_ref()
-                        .is_some_and(|f| database::unchanged(&db, &path, f).unwrap_or(false)));
+                    && fingerprint.as_ref().is_some_and(|f| {
+                        database::unchanged_for(&db, &path, f, scope.detailed).unwrap_or(false)
+                    }));
             (path, fingerprint, skip)
         })
         .collect::<Vec<_>>();
@@ -114,8 +128,10 @@ fn process(
                         None
                     } else {
                         Some(
-                            std::panic::catch_unwind(|| preview::load(path))
-                                .unwrap_or_else(|_| Err(anyhow::anyhow!("Image decoder panicked"))),
+                            std::panic::catch_unwind(|| {
+                                preview::load_sized(path, if scope.detailed { 2560 } else { 1280 })
+                            })
+                            .unwrap_or_else(|_| Err(anyhow::anyhow!("Image decoder panicked"))),
                         )
                     };
                     if tx.send((path.clone(), fingerprint.clone(), image)).is_err() {
@@ -139,12 +155,21 @@ fn process(
                         preview::fingerprint(&path)? == fingerprint,
                         "Image changed during scan"
                     );
-                    database::replace(&mut db, &path, &fingerprint, &faces)?;
+                    if cancel.load(Ordering::Relaxed) {
+                        return Ok(0);
+                    }
+                    database::replace_scanned(&mut db, &path, &fingerprint, &faces, settings)?;
+                    for face in database::query_faces(&db, None, Some(&path), None)? {
+                        if let Err(error) = super::thumbnails::cache(app, &face, &image) {
+                            log::warn!("People thumbnail cache: {error}");
+                        }
+                    }
                     Ok(faces.len())
                 })),
             };
             let mut p = state.progress.lock().unwrap();
             p.processed += 1;
+            p.elapsed_ms = started.elapsed().as_millis() as u64;
             match result {
                 None => p.skipped += 1,
                 Some(Ok(count)) => p.detected_faces += count,
@@ -155,10 +180,23 @@ fn process(
             }
             drop(p);
             publish(app);
+            if last_update.elapsed() >= std::time::Duration::from_millis(750) {
+                let _ = app.emit("people-index-updated", ());
+                last_update = std::time::Instant::now();
+            }
         }
         Ok(())
     })?;
+    if !cancel.load(Ordering::Relaxed) {
+        state_stage(app, "organizing");
+        super::organize::run(&mut db, false, cancel)?;
+    }
     Ok(())
+}
+
+pub fn state_stage(app: &tauri::AppHandle, stage: &str) {
+    app.state::<PeopleState>().progress.lock().unwrap().stage = stage.into();
+    publish(app);
 }
 
 pub fn publish(app: &tauri::AppHandle) {

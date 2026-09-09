@@ -178,11 +178,31 @@ fn main() {
     let attributes = tauri_build::Attributes::new().plugin(
         "people",
         tauri_build::InlinedPlugin::new()
-            .commands(&["start", "cancel", "status", "list", "faces", "paths", "mutate", "thumbnail", "clear"])
+            .commands(&[
+                "start",
+                "cancel",
+                "status",
+                "list",
+                "faces",
+                "paths",
+                "mutate",
+                "thumbnail",
+                "clear",
+                "organize",
+                "suggestions",
+                "undo",
+                "can_undo",
+                "shortcuts",
+                "set_shortcut",
+                "export_people",
+            ])
             .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
     );
-    let attributes = attributes.plugin("scene-auto", tauri_build::InlinedPlugin::new()
-        .commands(&["start_job", "status", "cancel", "protect", "inspect"])
-        .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands));
+    let attributes = attributes.plugin(
+        "scene-auto",
+        tauri_build::InlinedPlugin::new()
+            .commands(&["start_job", "status", "cancel", "protect", "inspect"])
+            .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
+    );
     tauri_build::try_build(attributes).expect("Failed to build Tauri permissions")
 }

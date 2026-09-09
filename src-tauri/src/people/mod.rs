@@ -1,12 +1,25 @@
+mod cohorts;
 mod commands;
 mod database;
+mod export;
+mod export_files;
 mod geometry;
+mod history;
+mod jobs;
+#[cfg(test)]
+mod local_validation;
+mod matching;
 pub(crate) mod models;
 mod mutations;
+mod organize;
 mod preview;
+#[cfg(test)]
+mod recognition_tests;
 mod scan;
+mod shortcuts;
 #[cfg(test)]
 mod tests;
+mod thumbnails;
 pub(crate) mod types;
 
 use std::{
@@ -15,12 +28,28 @@ use std::{
 };
 use tauri::Manager;
 
-#[derive(Default)]
 pub struct PeopleState {
     models: tokio::sync::Mutex<Option<models::Models>>,
     progress: Mutex<types::PeopleScanProgress>,
     cancel: Mutex<Option<Arc<AtomicBool>>>,
+    warming: AtomicBool,
+    warmed: Mutex<std::collections::HashSet<String>>,
+    thumbnail_slots: tokio::sync::Semaphore,
     maintenance: tokio::sync::Mutex<()>,
+}
+
+impl Default for PeopleState {
+    fn default() -> Self {
+        Self {
+            models: Default::default(),
+            progress: Default::default(),
+            cancel: Default::default(),
+            maintenance: Default::default(),
+            warming: AtomicBool::new(false),
+            warmed: Default::default(),
+            thumbnail_slots: tokio::sync::Semaphore::new(2),
+        }
+    }
 }
 
 fn db_path(app: &tauri::AppHandle) -> anyhow::Result<PathBuf> {
@@ -44,7 +73,14 @@ pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::faces,
             commands::paths,
             commands::mutate,
-            commands::thumbnail,
+            thumbnails::thumbnail,
+            jobs::organize,
+            jobs::suggestions,
+            jobs::undo,
+            jobs::can_undo,
+            jobs::shortcuts,
+            jobs::set_shortcut,
+            export::export_people,
             commands::clear
         ])
         .build()

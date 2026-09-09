@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub const STANDARD_DETECTION_VERSION: &str = "standard-v1";
+pub const DETAILED_DETECTION_VERSION: &str = "detailed-v1";
 pub const MODEL_VERSION: &str = "yunet-2023mar-sface-2021dec-v1";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -36,6 +38,8 @@ pub struct PersonSummary {
 #[serde(rename_all = "camelCase")]
 pub struct PeopleScanProgress {
     pub running: bool,
+    pub stage: String,
+    pub elapsed_ms: u64,
     pub total: usize,
     pub processed: usize,
     pub skipped: usize,
@@ -53,4 +57,6 @@ pub struct PeopleScanScope {
     pub recursive: bool,
     #[serde(default)]
     pub force: bool,
+    #[serde(default)]
+    pub detailed: bool,
 }
