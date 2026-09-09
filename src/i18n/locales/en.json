@@ -2010,5 +2010,52 @@
         "vectorscope": "Vectorscope"
       }
     }
+  },
+  "sceneAuto": {
+    "title": "Scene-aware Auto",
+    "enable": "Use scene-aware Auto (preview)",
+    "close": "Close Auto controls",
+    "skipEdited": "Skip edited photos",
+    "apply_one": "Auto · {{count}} photo",
+    "apply_other": "Auto · {{count}} photos",
+    "update": "Update batch",
+    "undo": "Undo batch",
+    "cancel": "Cancel",
+    "controls": {
+      "strength": "Strength",
+      "subjectBrightness": "Subject brightness",
+      "warmth": "Warmth",
+      "consistency": "Consistency"
+    },
+    "groups_one": "{{count}} lighting group",
+    "groups_other": "{{count}} lighting groups",
+    "group": "{{index}} · {{scene}} · {{count}} photos",
+    "lighting": "Lighting",
+    "detected": "Detected",
+    "reference": "Reference",
+    "automatic": "Automatic",
+    "overrideControls": "Tune this group",
+    "scenes": {
+      "daylight": "Daylight",
+      "warmIndoor": "Warm indoor",
+      "night": "Night",
+      "mixed": "Mixed light",
+      "uncertain": "Uncertain"
+    },
+    "phases": {
+      "preparing": "Preparing",
+      "loadingModels": "Loading models",
+      "analyzing": "Analyzing",
+      "applying": "Applying",
+      "undoing": "Undoing",
+      "complete": "Complete",
+      "cancelled": "Cancelled",
+      "failed": "Failed"
+    },
+    "skipped_one": "{{count}} skipped",
+    "skipped_other": "{{count}} skipped",
+    "details": "Processing details",
+    "settings": "Auto settings…",
+    "error": "Auto failed: {{error}}"
   }
 }

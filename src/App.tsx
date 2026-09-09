@@ -1,3 +1,4 @@
+import AutoSurface from './auto/AutoSurface';
 import { type PointerEvent as ReactPointerEvent, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -855,6 +856,7 @@ function App() {
 
   return (
     <>
+      <AutoSurface />
       <ImageProcessingManager
         transformWrapperRef={transformWrapperRef}
         prevAdjustmentsRef={prevAdjustmentsRef}

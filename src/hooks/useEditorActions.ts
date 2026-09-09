@@ -1,4 +1,6 @@
 import { useCallback } from 'react';
+import { protectAutoEdit } from '../auto/editSafety';
+import { useAutoStore } from '../auto/store';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import { toast } from 'react-toastify';
@@ -23,7 +25,7 @@ export const debouncedSetHistory = debounce((newAdj: Adjustments) => {
 }, 500);
 
 export const debouncedSave = debounce((path: string, adjustmentsToSave: Adjustments) => {
-  invoke(Invokes.SaveMetadataAndUpdateThumbnail, { path, adjustments: adjustmentsToSave }).catch((err) => {
+  return invoke(Invokes.SaveMetadataAndUpdateThumbnail, { path, adjustments: adjustmentsToSave }).catch((err) => {
     console.error('Auto-save failed:', err);
     toast.error(`Failed to save changes: ${err}`);
   });
@@ -36,7 +38,8 @@ export function useEditorActions() {
     (value: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)) => {
       setEditor((state) => {
         const prev = state.adjustments;
-        const newAdjustments = typeof value === 'function' ? value(prev) : { ...prev, ...value };
+        const proposed = typeof value === 'function' ? value(prev) : { ...prev, ...value };
+        const newAdjustments = protectAutoEdit(prev, proposed, state.selectedImage?.path);
         debouncedSetHistory(newAdjustments);
         return {
           adjustments: newAdjustments,
@@ -73,6 +76,11 @@ export function useEditorActions() {
   const handleAutoAdjustments = useCallback(async () => {
     const selectedImage = useEditorStore.getState().selectedImage;
     if (!selectedImage?.isReady) return;
+    if (useAutoStore.getState().enabled) {
+      const { runAuto } = await import('../auto/runtime');
+      await runAuto([selectedImage.path]);
+      return;
+    }
     try {
       const autoAdjustments: Adjustments = await invoke(Invokes.CalculateAutoAdjustments);
       setAdjustments((prev: Adjustments) => ({

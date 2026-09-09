@@ -1,5 +1,6 @@
+import { useAutoStore } from '../../../auto/store';
 import React, { useCallback } from 'react';
-import { RotateCcw, Copy, ClipboardPaste, PencilSparkles, ChartArea } from 'lucide-react';
+import { RotateCcw, Copy, ClipboardPaste, PencilSparkles, ChartArea, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -219,6 +220,10 @@ export default function Controls() {
             data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
           >
             <PencilSparkles size={18} />
+          </button>
+          <button className="p-2 rounded-full hover:bg-surface" aria-label={t('sceneAuto.settings')}
+            onClick={() => useAutoStore.setState({ open: true })}>
+            <SlidersHorizontal size={16} />
           </button>
           <button
             className={clsx(

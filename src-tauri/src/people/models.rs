@@ -6,7 +6,7 @@ use ort::{session::Session, value::Tensor};
 
 pub struct Models {
     detector: Session,
-    recognizer: Session,
+    recognizer: Option<Session>,
 }
 
 impl Models {
@@ -32,14 +32,24 @@ impl Models {
         Self::from_dir(&dir)
     }
 
+    /// Detection only: Auto never loads identity embeddings or writes the people database.
+    pub async fn detector_only(app: &tauri::AppHandle) -> Result<Self> {
+        let dir = crate::ai_processing::get_models_dir(app)?;
+        let file = "face_detection_yunet_2023mar.onnx";
+        crate::ai_processing::download_and_verify_model(app, &dir, file,
+            "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+            "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4", "YuNet").await?;
+        Ok(Self { detector: Session::builder()?.with_intra_threads(1)?.commit_from_file(dir.join(file))?, recognizer: None })
+    }
+
     pub fn from_dir(dir: &std::path::Path) -> Result<Self> {
         Ok(Self {
             detector: Session::builder()?
                 .with_intra_threads(1)?
                 .commit_from_file(dir.join("face_detection_yunet_2023mar.onnx"))?,
-            recognizer: Session::builder()?
+            recognizer: Some(Session::builder()?
                 .with_intra_threads(1)?
-                .commit_from_file(dir.join("face_recognition_sface_2021dec.onnx"))?,
+                .commit_from_file(dir.join("face_recognition_sface_2021dec.onnx"))?),
         })
     }
 
@@ -101,6 +111,7 @@ impl Models {
             }
         }
         let mut faces = geometry::suppress(faces);
+        let Some(recognizer) = self.recognizer.as_mut() else { return Ok(faces); };
         for face in &mut faces {
             let points = face.landmarks.map(|p| [p[0] * w as f32, p[1] * h as f32]);
             let aligned = geometry::align(image, &points)?;
@@ -110,8 +121,7 @@ impl Models {
                     tensor[[0, c, y as usize, x as usize]] = p[c] as f32;
                 }
             }
-            let output = self
-                .recognizer
+            let output = recognizer
                 .run(ort::inputs![Tensor::from_array(tensor)?])?;
             face.embedding = output[0]
                 .try_extract_array::<f32>()?

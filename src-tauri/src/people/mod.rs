@@ -1,13 +1,13 @@
 mod commands;
 mod database;
 mod geometry;
-mod models;
+pub(crate) mod models;
 mod mutations;
 mod preview;
 mod scan;
 #[cfg(test)]
 mod tests;
-mod types;
+pub(crate) mod types;
 
 use std::{
     path::PathBuf,

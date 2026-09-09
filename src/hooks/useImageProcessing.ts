@@ -1,3 +1,4 @@
+import { isAutoHydration } from '../auto/editSafety';
 import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
@@ -451,7 +452,7 @@ export function useImageProcessing(
 
         const hasAdjustmentsChanged = prev.adjustments !== adjustments;
 
-        if (hasAdjustmentsChanged) {
+        if (hasAdjustmentsChanged && !isAutoHydration(adjustments)) {
           debouncedSave(selectedImage.path, adjustments);
 
           const otherPaths = multiSelectedPaths.filter((p) => p !== selectedImage.path);

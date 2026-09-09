@@ -44,7 +44,7 @@ use crate::mask_generation::MaskDefinition;
 use crate::preset_converter;
 use crate::tagging::COLOR_TAG_PREFIX;
 
-fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
+pub(crate) fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
     let cache_dir = app_handle
         .path()
         .app_cache_dir()
@@ -1512,11 +1512,20 @@ fn generate_thumbnail_at_size(
     app_handle: &AppHandle,
     target: Option<u32>,
 ) -> anyhow::Result<DynamicImage> {
+    render_auto_preview(path_str, gpu_context, preloaded_image, app_handle, target, None)
+}
+
+/// Uses exactly the thumbnail renderer, but can evaluate unsaved Auto proposals.
+pub(crate) fn render_auto_preview(
+    path_str: &str, gpu_context: Option<&GpuContext>, preloaded_image: Option<&DynamicImage>,
+    app_handle: &AppHandle, target: Option<u32>, override_metadata: Option<ImageMetadata>,
+) -> anyhow::Result<DynamicImage> {
+    let strict = override_metadata.is_some();
     let (source_path, sidecar_path) = parse_virtual_path(path_str);
     let source_path_str = source_path.to_string_lossy().to_string();
     let is_raw = is_raw_file(&source_path_str);
 
-    let metadata: Option<ImageMetadata> = if is_cloud_placeholder(&sidecar_path) {
+    let metadata: Option<ImageMetadata> = if override_metadata.is_some() { override_metadata } else if is_cloud_placeholder(&sidecar_path) {
         enqueue_metadata(
             app_handle,
             path_str.to_string(),
@@ -1553,17 +1562,30 @@ fn generate_thumbnail_at_size(
         crate::gpu_processing::get_or_init_gpu_context(&state, app_handle).ok()
     } else { None };
     let gpu_context = gpu_context.or(owned_gpu.as_ref());
+    anyhow::ensure!(!strict || gpu_context.is_some(), "Auto preview requires an available GPU renderer");
     if let (Some(context), Some(meta)) = (gpu_context, metadata)
         && !meta.adjustments.is_null()
     {
         let state = app_handle.state::<AppState>();
         let target_res = target.unwrap_or(settings.medium_thumbnail_resolution.unwrap_or(1280));
 
-        let base_cache_hash = crate::cache_utils::calculate_thumbnail_base_hash(&meta.adjustments);
+        let mut base_cache_hash = crate::cache_utils::calculate_thumbnail_base_hash(&meta.adjustments);
+        let strict_cacheable = strict && preloaded_image.is_some()
+            && meta.adjustments["aiPatches"].as_array().is_none_or(|patches| patches.is_empty())
+            && !meta.adjustments["lensBlurEnabled"].as_bool().unwrap_or(false);
+        if strict_cacheable {
+            let image = preloaded_image.unwrap();
+            let mut hasher = DefaultHasher::new();
+            "scene-auto-preview".hash(&mut hasher);
+            base_cache_hash.hash(&mut hasher);
+            image.dimensions().hash(&mut hasher);
+            blake3::hash(image.as_bytes()).as_bytes().hash(&mut hasher);
+            base_cache_hash = hasher.finish();
+        }
 
         let crop_data: Option<Crop> = serde_json::from_value(meta.adjustments["crop"].clone()).ok();
 
-        let cached_base: Option<(Arc<DynamicImage>, f32)> = {
+        let cached_base: Option<(Arc<DynamicImage>, f32)> = if strict && !strict_cacheable { None } else {
             let cache = state.thumbnail_geometry_cache.lock().unwrap();
             if let Some((cached_hash, img, scale)) = cache.get(path_str) {
                 let mut sufficient_resolution = img.width().max(img.height()) >= (target_res as f32 * 0.95) as u32;
@@ -1578,6 +1600,12 @@ fn generate_thumbnail_at_size(
                     }
                 }
 
+                if strict {
+                    // Auto compares rendered pixels; concurrent thumbnail requests must not change its size.
+                    let final_max = crop_data.as_ref().map_or(img.width().max(img.height()) as f32,
+                        |c| c.width.max(c.height) as f32 * *scale);
+                    sufficient_resolution &= (final_max - target_res as f32).abs() <= 1.0;
+                }
                 if *cached_hash == base_cache_hash && sufficient_resolution {
                     Some((Arc::clone(img), *scale))
                 } else {
@@ -1771,6 +1799,8 @@ fn generate_thumbnail_at_size(
         let mut hasher = DefaultHasher::new();
         path_str.hash(&mut hasher);
         meta.adjustments.to_string().hash(&mut hasher);
+        // Unsaved analyses must not reuse GPU pixels from an older source with identical settings.
+        if strict { cropped_preview.as_bytes().hash(&mut hasher); }
         let unique_hash = hasher.finish();
 
         if let Ok(processed_image) = gpu_processing::process_and_get_dynamic_image(
@@ -1788,6 +1818,7 @@ fn generate_thumbnail_at_size(
         ) {
             return Ok(processed_image);
         } else {
+            anyhow::ensure!(!strict, "Auto preview rendering failed");
             return Ok(cropped_preview.into_owned());
         }
     }
@@ -1845,7 +1876,7 @@ fn encode_thumbnail(image: &DynamicImage, target_width: u32) -> Result<Vec<u8>> 
     Ok(buf.into_inner())
 }
 
-fn generate_single_thumbnail_and_cache(
+pub(crate) fn generate_single_thumbnail_and_cache(
     path_str: &str,
     thumb_cache_dir: &Path,
     gpu_context: Option<&GpuContext>,
@@ -2115,7 +2146,7 @@ pub fn increment_thumbnail_progress(state: &AppState, app_handle: &AppHandle) {
     }
 }
 
-fn emit_thumbnail_generated(
+pub(crate) fn emit_thumbnail_generated(
     app_handle: &AppHandle,
     path: &str,
     small_thumbnail_path: &str,
@@ -2596,6 +2627,7 @@ pub fn save_metadata_and_update_thumbnail(
     app_handle: AppHandle,
     state: tauri::State<AppState>,
 ) -> Result<(), String> {
+    let auto_write_guard = crate::auto_adjust::storage::WRITE_LOCK.lock().unwrap();
     let (source_path, sidecar_path) = parse_virtual_path(&path);
 
     let mut metadata = crate::exif_processing::load_image_metadata(&source_path, &sidecar_path);
@@ -2622,6 +2654,7 @@ pub fn save_metadata_and_update_thumbnail(
         sync_metadata_to_xmp(&source_path, &metadata, create_if_missing);
     }
 
+    drop(auto_write_guard);
     let loaded_image_lock = state.original_image.lock().unwrap();
     let preloaded_image_option = if let Some(loaded_image) = loaded_image_lock.as_ref() {
         if loaded_image.path == path {
@@ -4264,6 +4297,12 @@ pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) 
 }
 
 pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create_if_missing: bool) {
+    if let Err(error) = sync_metadata_to_xmp_checked(source_path, metadata, create_if_missing) {
+        log::error!("XMP synchronization failed: {}", error);
+    }
+}
+
+pub(crate) fn sync_metadata_to_xmp_checked(source_path: &Path, metadata: &ImageMetadata, create_if_missing: bool) -> Result<(), String> {
     let xmp_path = source_path.with_extension("xmp");
     let xmp_path_upper = source_path.with_extension("XMP");
 
@@ -4277,7 +4316,7 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
 
     if actual_xmp.is_none() {
         if !create_if_missing {
-            return;
+            return Ok(());
         }
         let skeleton = r#"<?xml version="1.0" encoding="UTF-8"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="RapidRAW">
@@ -4288,16 +4327,12 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
   </rdf:Description>
  </rdf:RDF>
 </x:xmpmeta>"#;
-        if let Err(e) = fs::write(&xmp_path, skeleton) {
-            log::error!("Failed to create skeleton XMP: {}", e);
-            return;
-        }
+        fs::write(&xmp_path, skeleton).map_err(|e| e.to_string())?;
         actual_xmp = Some(xmp_path);
     }
 
-    if let Some(xmp_file) = actual_xmp
-        && let Ok(mut content) = fs::read_to_string(&xmp_file)
-    {
+    if let Some(xmp_file) = actual_xmp {
+        let mut content = fs::read_to_string(&xmp_file).map_err(|e| e.to_string())?;
         let rating_str = metadata.rating.to_string();
         let re_rating_attr = regex!(r#"xmp:Rating\s*=\s*"[^"]*""#);
         let re_rating_tag = regex!(r#"<xmp:Rating\s*>[^<]*</xmp:Rating>"#);
@@ -4373,6 +4408,7 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
             }
         }
 
-        let _ = fs::write(&xmp_file, content);
+        fs::write(&xmp_file, content).map_err(|e| e.to_string())?;
     }
+    Ok(())
 }

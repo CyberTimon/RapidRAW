@@ -181,5 +181,8 @@ fn main() {
             .commands(&["start", "cancel", "status", "list", "faces", "paths", "mutate", "thumbnail", "clear"])
             .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
     );
+    let attributes = attributes.plugin("scene-auto", tauri_build::InlinedPlugin::new()
+        .commands(&["start_job", "status", "cancel", "protect", "inspect"])
+        .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands));
     tauri_build::try_build(attributes).expect("Failed to build Tauri permissions")
 }

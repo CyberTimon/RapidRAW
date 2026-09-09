@@ -172,6 +172,7 @@ export interface ParametricCurve {
 }
 
 export interface Adjustments {
+  autoProvenance?: { version: string; batchId: string; groupId: string; reduced: boolean; manual?: boolean };
   [index: string]: any;
   aiPatches: Array<AiPatch>;
   aspectRatio: number | null;
@@ -361,6 +362,7 @@ export interface MaskAdjustments {
 }
 
 export interface MaskContainer {
+  autoOwner?: string;
   adjustments: MaskAdjustments;
   id?: any;
   invert: boolean;

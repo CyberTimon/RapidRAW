@@ -23,7 +23,7 @@
     ],
     "security": {
       "csp": null,
-      "capabilities": ["default"],
+      "capabilities": ["default", "people", "scene-auto"],
       "assetProtocol": {
         "enable": true,
         "scope": ["$APPCACHE/thumbnails/*"]

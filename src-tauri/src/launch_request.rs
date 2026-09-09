@@ -27,6 +27,7 @@ pub enum LaunchRequest {
     OpenFile(String),
     EditSession(ExternalEditSession),
     HeadlessExport(HeadlessExportSession),
+    AutoEvaluate(String),
 }
 
 #[derive(Serialize, Default)]
@@ -37,6 +38,9 @@ pub struct LaunchPayload {
 }
 
 pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
+    if args.first().map(String::as_str) == Some("auto-evaluate") {
+        return LaunchRequest::AutoEvaluate(args.get(1).cloned().unwrap_or_default());
+    }
     if args.first().map(|s| s.as_str()) == Some("export") {
         let mut iter = args.iter().skip(1);
 
@@ -154,7 +158,7 @@ pub fn emit_launch_request(app_handle: &tauri::AppHandle, request: LaunchRequest
         LaunchRequest::OpenFile(path) => {
             handle_file_open(app_handle, PathBuf::from(path));
         }
-        LaunchRequest::HeadlessExport(_) => {
+        LaunchRequest::HeadlessExport(_) | LaunchRequest::AutoEvaluate(_) => {
             println!(
                 "Error: Headless export cannot be attached to an already running GUI instance."
             );

@@ -6,6 +6,7 @@ use mimalloc::MiMalloc;
 static GLOBAL: MiMalloc = MiMalloc;
 
 mod adjustment_utils;
+mod auto_adjust;
 mod ai_commands;
 mod ai_connector;
 mod ai_processing;
@@ -1690,9 +1691,9 @@ pub fn run() {
 
     let args: Vec<String> = std::env::args().skip(1).collect();
     let launch_req = parse_launch_args(&args);
-    let is_headless = matches!(launch_req, LaunchRequest::HeadlessExport(_));
+    let is_headless = matches!(launch_req, LaunchRequest::HeadlessExport(_) | LaunchRequest::AutoEvaluate(_));
 
-    let mut builder = tauri::Builder::default();
+    let mut builder = tauri::Builder::default().plugin(auto_adjust::plugin());
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     { builder = builder.plugin(people::plugin()); }
 
@@ -1878,6 +1879,18 @@ pub fn run() {
                     "Wayland Nvidia quirk status: {:?}",
                     tauri_plugin_wayland_nvidia_quirk::status()
                 );
+            }
+
+            if let LaunchRequest::AutoEvaluate(manifest) = &launch_req {
+                let manifest = manifest.clone();
+                let evaluation_app = app_handle.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    match crate::auto_adjust::evaluation::run(&evaluation_app, &manifest) {
+                        Ok(()) => evaluation_app.exit(0),
+                        Err(error) => { eprintln!("Auto evaluation failed: {error}"); evaluation_app.exit(1); }
+                    }
+                });
+                return Ok(());
             }
 
             if let LaunchRequest::HeadlessExport(session) = launch_req {

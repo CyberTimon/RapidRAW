@@ -1,3 +1,4 @@
+import { useAutoStore } from '../auto/store';
 import { useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
@@ -465,6 +466,10 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
 
       const handleApplyAutoAdjustmentsToSelection = () => {
         if (finalSelection.length === 0) return;
+        if (useAutoStore.getState().enabled) {
+          void import('../auto/runtime').then(({ runAuto }) => runAuto(finalSelection));
+          return;
+        }
         finalSelection.forEach((p) => globalImageCache.delete(p));
 
         invoke(Invokes.ApplyAutoAdjustmentsToPaths, { paths: finalSelection })
@@ -570,6 +575,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           icon: Gauge,
           submenu: [
             { label: autoAdjustLabel, icon: PencilSparkles, onClick: handleApplyAutoAdjustmentsToSelection },
+            { label: t('sceneAuto.settings'), icon: PencilSparkles, onClick: () => useAutoStore.setState({ open: true }) },
             {
               label: t('contextMenus.thumbnail.autoLensCorrection', { count: selectionCount }),
               icon: Aperture,
