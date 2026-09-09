@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
-import { listen } from '@tauri-apps/api/event';
+import { useState } from 'react';
+import { usePeopleEvents } from './usePeopleEvents';
 import { ScanFace, ChevronDown, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
-import { peopleInvoke, usePeopleStore, clearFaceThumbnails } from './store';
-import type { PeopleScanProgress, PeopleScanScope } from './types';
+import { peopleInvoke, usePeopleStore } from './store';
+import type { PeopleScanScope } from './types';
 import { resolvePeopleScope } from './scopes';
 import ConfirmModal from '../components/modals/ConfirmModal';
 export default function PeopleToolbar({ filteredPaths }: { filteredPaths: string[] }) {
@@ -15,37 +15,7 @@ export default function PeopleToolbar({ filteredPaths }: { filteredPaths: string
   const [menu, setMenu] = useState(false);
   const [pending, setPending] = useState<PeopleScanScope | null>(null);
   const [starting, setStarting] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    const listeners = [
-      'people-scan-progress',
-      'people-scan-complete',
-      'people-scan-failed',
-      'people-scan-cancelled',
-    ].map((event) =>
-      listen<PeopleScanProgress>(event, ({ payload }) => {
-        if (alive) usePeopleStore.setState({ progress: payload, error: payload.error });
-      }),
-    );
-    listeners.push(
-      listen('people-index-updated', () => {
-        if (alive) {
-          clearFaceThumbnails();
-          void usePeopleStore.getState().refresh();
-        }
-      }),
-    );
-    void usePeopleStore.getState().refresh();
-    void peopleInvoke<PeopleScanProgress>('status')
-      .then((value) => {
-        if (alive) usePeopleStore.setState({ progress: value });
-      })
-      .catch((e) => usePeopleStore.setState({ error: String(e) }));
-    return () => {
-      alive = false;
-      listeners.forEach((p) => void p.then((unlisten) => unlisten()));
-    };
-  }, []);
+  usePeopleEvents();
   const start = async (scope: PeopleScanScope) => {
     setStarting(true);
     setPending(null);
@@ -59,7 +29,7 @@ export default function PeopleToolbar({ filteredPaths }: { filteredPaths: string
       setStarting(false);
     }
   };
-  const choose = (kind: 'context' | 'results' | 'source' | 'roots', force = false) => {
+  const choose = (kind: 'context' | 'results' | 'source' | 'roots', force = false, detailed = false) => {
     const library = useLibraryStore.getState();
     const scope = resolvePeopleScope(
       kind,
@@ -69,6 +39,7 @@ export default function PeopleToolbar({ filteredPaths }: { filteredPaths: string
       library.rootPaths,
       force,
     );
+    scope.detailed = detailed;
     if (!scope.paths.length) return;
     setMenu(false);
     if (localStorage.getItem('people-models-confirmed')) void start(scope);
@@ -112,12 +83,23 @@ export default function PeopleToolbar({ filteredPaths }: { filteredPaths: string
             <button className="block p-2 w-full text-left hover:bg-surface" onClick={() => choose('roots')}>
               {t('people.roots')}
             </button>
+            <button
+              className="block p-2 w-full text-left hover:bg-surface"
+              onClick={() => choose('context', false, true)}
+            >
+              {t('people.findMore')}
+            </button>
             <button className="block p-2 w-full text-left hover:bg-surface" onClick={() => choose('context', true)}>
               {t('people.rescan')}
             </button>
           </div>
         )}
       </div>
+      {progress?.stage && (
+        <span role="status" className="text-text-secondary">
+          {t(`people.stages.${progress.stage}`)}
+        </span>
+      )}
       {progress && progress.total > 0 && (
         <span role="status" className="text-text-secondary">
           {t('people.progress', {

@@ -127,7 +127,9 @@ export default function LibraryView({
     <div className="flex flex-row grow h-full min-h-0">
       <div className="flex-1 flex flex-col min-w-0 gap-2">
         <RatingScanStatus />
-        {!isAndroid && <PeopleToolbar filteredPaths={sortedImageList.map((image) => image.path)} />}
+        {!isAndroid && rootPaths.length > 0 && (
+          <PeopleToolbar filteredPaths={sortedImageList.map((image) => image.path)} />
+        )}
         {!isAndroid && activeView === 'people' ? (
           <Suspense fallback={null}>
             <PeopleView />
