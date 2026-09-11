@@ -220,6 +220,7 @@ export interface AppSettings {
   enableFolderImageCounts?: boolean;
   displayEditIcon?: boolean;
   linearRawMode?: string;
+  colorManagedWb?: boolean;
   enableXmpSync?: boolean;
   createXmpIfMissing?: boolean;
   isWaveformVisible?: boolean;

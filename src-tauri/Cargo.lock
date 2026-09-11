@@ -37,6 +37,7 @@ dependencies = [
  "memmap2",
  "mimalloc",
  "mozjpeg-rs",
+ "naga",
  "nalgebra",
  "ndarray",
  "ndk-context",
@@ -46,6 +47,7 @@ dependencies = [
  "pollster",
  "quick-xml 0.41.0",
  "rand 0.10.2",
+ "rawcolor",
  "rawler",
  "rayon",
  "regex",
@@ -5225,6 +5227,12 @@ dependencies = [
  "objc2-foundation",
  "objc2-quartz-core",
 ]
+
+[[package]]
+name = "rawcolor"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1839c82df8c23135a69c027587efada55602a7311af4b5849313062f831630ca"
 
 [[package]]
 name = "rawler"

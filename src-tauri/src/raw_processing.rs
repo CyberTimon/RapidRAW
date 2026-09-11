@@ -1,3 +1,4 @@
+use crate::color_management::CameraColorInfo;
 use crate::image_processing::apply_orientation;
 use anyhow::{Result, anyhow};
 use image::{DynamicImage, ImageBuffer, Rgba};
@@ -12,21 +13,27 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-pub fn develop_raw_image(
+/// Develop a raw file, also returning its camera color profile.
+///
+/// Callers that only want pixels ignore the second element; extracting the
+/// profile costs nothing beyond reading metadata already in hand.
+pub fn develop_raw_image_with_color_info(
     file_bytes: &[u8],
     fast_demosaic: bool,
     highlight_compression: f32,
     linear_mode: String,
+    color_managed: bool,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
-) -> Result<DynamicImage> {
-    let (developed_image, orientation) = develop_internal(
+) -> Result<(DynamicImage, Option<CameraColorInfo>)> {
+    let (developed_image, orientation, color_info) = develop_internal(
         file_bytes,
         fast_demosaic,
         highlight_compression,
         linear_mode,
+        color_managed,
         cancel_token,
     )?;
-    Ok(apply_orientation(developed_image, orientation))
+    Ok((apply_orientation(developed_image, orientation), color_info))
 }
 
 fn is_linear_raw_format(raw_image: &RawImage) -> bool {
@@ -50,8 +57,9 @@ fn develop_internal(
     fast_demosaic: bool,
     highlight_compression: f32,
     linear_mode: String,
+    color_managed: bool,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
-) -> Result<(DynamicImage, Orientation)> {
+) -> Result<(DynamicImage, Orientation, Option<CameraColorInfo>)> {
     let check_cancel = || -> Result<()> {
         if let Some((tracker, generation)) = &cancel_token
             && tracker.load(Ordering::SeqCst) != *generation
@@ -77,6 +85,23 @@ fn develop_internal(
         .unwrap_or(Orientation::Normal);
 
     let is_linear_format = is_linear_raw_format(&raw_image);
+
+    // Shared with the color-managed path, which rolls highlights off in the
+    // shader instead because the gains no longer run during develop.
+    let safe_highlight_compression = highlight_compression.max(1.01);
+
+    // Invariant: a returned profile means the pixels are camera-native. The
+    // renderer keys its color-managed path off exactly that, so the two can
+    // never disagree about what the buffer holds.
+    //
+    // Linear formats are excluded for now: they arrive already demosaiced and
+    // partly processed, so they need their own handling.
+    let color_info = if color_managed && !is_linear_format {
+        CameraColorInfo::from_raw(&raw_image, safe_highlight_compression)
+    } else {
+        None
+    };
+    let use_color_management = color_info.is_some();
 
     let (apply_ungamma, apply_calibration) = match linear_mode.as_str() {
         "gamma" => (true, true),
@@ -110,11 +135,17 @@ fn develop_internal(
                 && step != ProcessingStep::Demosaic
                 && (apply_calibration || step != ProcessingStep::Calibrate)
         });
-    } else if fast_demosaic {
-        developer.demosaic_algorithm = DemosaicAlgorithm::Speed;
-        developer.steps.retain(|&step| step != ProcessingStep::SRgb);
     } else {
-        developer.steps.retain(|&step| step != ProcessingStep::SRgb);
+        if fast_demosaic {
+            developer.demosaic_algorithm = DemosaicAlgorithm::Speed;
+        }
+        developer.steps.retain(|&step| {
+            // Dropping Calibrate leaves the data camera-native, which is what
+            // the color-managed path wants. It also takes white balance with
+            // it, since rawler only applies wb inside that step.
+            step != ProcessingStep::SRgb
+                && (!use_color_management || step != ProcessingStep::Calibrate)
+        });
     }
 
     raw_image.wb_coeffs =
@@ -127,8 +158,6 @@ fn develop_internal(
 
     let denominator = (original_white_level - original_black_level).max(1.0);
     let rescale_factor = (u32::MAX as f32 - original_black_level) / denominator;
-
-    let safe_highlight_compression = highlight_compression.max(1.01);
 
     let clamp_limit = if fast_demosaic {
         1.0
@@ -230,7 +259,7 @@ fn develop_internal(
         }
     };
 
-    Ok((dynamic_image, orientation))
+    Ok((dynamic_image, orientation, color_info))
 }
 
 pub fn get_fast_demosaic_scale_factor(

@@ -14,6 +14,7 @@ mod app_settings;
 mod app_state;
 mod cache_utils;
 mod camera_tethering;
+mod color_management;
 mod culling;
 mod denoising;
 mod exif_processing;
@@ -493,7 +494,13 @@ fn process_preview_job(
 
     let is_raw = loaded_image.is_raw;
     let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
-    let final_adjustments = get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
+    let mut final_adjustments =
+        get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
+    crate::color_management::apply_to_render(
+        &mut final_adjustments,
+        loaded_image.color_info.as_ref(),
+        &adjustments_clone,
+    );
     let lut_path = adjustments_clone["lutPath"].as_str();
     let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
@@ -841,6 +848,11 @@ async fn generate_uncropped_preview(
         let mut uncropped_adjustments =
             get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
         uncropped_adjustments.global.show_clipping = 0;
+        crate::color_management::apply_to_render(
+            &mut uncropped_adjustments,
+            loaded_image.color_info.as_ref(),
+            &adjustments_clone,
+        );
         let lut_path = adjustments_clone["lutPath"].as_str();
         let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
@@ -889,6 +901,20 @@ pub fn get_original_image(
         std::sync::Arc::clone(&loaded_image.image),
         loaded_image.is_raw,
     ))
+}
+
+/// The loaded image together with its color profile.
+///
+/// Anything that renders these pixels needs the profile as well, since with
+/// the color-managed path on the buffer is camera-native and the render has
+/// to apply the transform to match the preview.
+pub fn get_loaded_image(state: &tauri::State<AppState>) -> Result<LoadedImage, String> {
+    state
+        .original_image
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or_else(|| "No original image loaded".to_string())
 }
 
 #[tauri::command]
@@ -943,6 +969,11 @@ fn generate_preset_preview(
     let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
     let mut all_adjustments = get_all_adjustments_from_json(&js_adjustments, is_raw, tm_override);
     all_adjustments.global.show_clipping = 0;
+    crate::color_management::apply_to_render(
+        &mut all_adjustments,
+        loaded_image.color_info.as_ref(),
+        &js_adjustments,
+    );
     let lut_path = js_adjustments["lutPath"].as_str();
     let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
