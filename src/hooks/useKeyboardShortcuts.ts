@@ -31,7 +31,8 @@ export const useKeyboardShortcuts = ({
   handleToggleFullScreen,
   handleZoomChange,
 }: KeyboardShortcutsProps) => {
-  const { handleRotate, handleCopyAdjustments, handlePasteAdjustments, toggleShowOriginal } = useEditorActions();
+  const { handleRotate, handleCopyAdjustments, handlePasteAdjustments, handleSyncAdjustments, toggleShowOriginal } =
+    useEditorActions();
   const { handleRate, handleSetColorLabel } = useLibraryActions();
 
   const sortedListRef = useRef(sortedImageList);
@@ -109,6 +110,13 @@ export const useKeyboardShortcuts = ({
           handlePasteAdjustments();
         },
       },
+      sync_adjustments: {
+        shouldFire: (s: any) => s.library.multiSelectedPaths.length > 1,
+        execute: (e: any) => {
+          e.preventDefault();
+          void handleSyncAdjustments();
+        },
+      },
       copy_image_path: {
         shouldFire: (s: any) => getImagePathsForCopy(s).length > 0,
         execute: (e: any, s: any) => {
@@ -134,12 +142,14 @@ export const useKeyboardShortcuts = ({
         shouldFire: () => sortedListRef.current.length > 0,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          s.library.setLibrary({ multiSelectedPaths: sortedListRef.current.map((f: ImageFile) => f.path) });
-          if (s.ui.activeView === 'library') {
-            const lastPath = sortedListRef.current[sortedListRef.current.length - 1].path;
-            s.library.setLibrary({ libraryActivePath: lastPath });
-            handleImageSelect(lastPath, false);
-          }
+          const sourcePath =
+            s.library.libraryActivePath || s.editor.selectedImage?.path || sortedListRef.current[0].path;
+          const allPaths = sortedListRef.current.map((file: ImageFile) => file.path);
+          s.library.setLibrary({
+            multiSelectedPaths: [sourcePath, ...allPaths.filter((path: string) => path !== sourcePath)],
+            libraryActivePath: sourcePath,
+            selectionAnchorPath: sourcePath,
+          });
         },
       },
       delete_selected: {
@@ -691,6 +701,7 @@ export const useKeyboardShortcuts = ({
     handleCopyAdjustments,
     handleCopyImagePaths,
     handlePasteAdjustments,
+    handleSyncAdjustments,
     handleRate,
     handleSetColorLabel,
     toggleShowOriginal,

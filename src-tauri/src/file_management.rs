@@ -724,7 +724,16 @@ fn list_images_recursive_sync(path: String, app_handle: AppHandle, defer_ratings
 
     let mut sidecars_by_path: HashMap<PathBuf, Vec<Option<String>>> = HashMap::new();
 
-    for entry in WalkDir::new(root_path) {
+    // Recursive library mode represents the user's source folders.  RapidRAW's
+    // own working directories (for example `.rapidraw-auto-evaluation-*`) are
+    // deliberately hidden and must not become additional library groups.
+    // Prune hidden directories at the walker boundary so their files cannot
+    // appear as duplicate source images or be edited from the library.
+    let entries = WalkDir::new(root_path).into_iter().filter_entry(|entry| {
+        entry.depth() == 0 || !entry.file_name().to_string_lossy().starts_with('.')
+    });
+
+    for entry in entries {
         let entry = entry.map_err(|error| error.to_string())?;
         let entry_path = entry.path();
         if !entry_path.is_file() {

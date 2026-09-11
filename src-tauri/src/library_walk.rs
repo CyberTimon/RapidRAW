@@ -31,7 +31,14 @@ pub fn walk(
                         return Ok(warnings);
                     }
                     match entry.and_then(|entry| Ok((entry.file_type()?, entry.path()))) {
-                        Ok((kind, path)) if kind.is_dir() => children.push(path),
+                        Ok((kind, path))
+                            if kind.is_dir()
+                                && !path.file_name().is_some_and(|name| {
+                                    name.to_string_lossy().starts_with('.')
+                                }) =>
+                        {
+                            children.push(path)
+                        }
                         Ok(_) => {}
                         Err(error) => warnings.push(error.to_string()),
                     }
@@ -49,6 +56,34 @@ pub fn walk(
 mod tests {
     use super::*;
     use std::cell::Cell;
+    #[test]
+    fn hidden_working_folders_are_pruned_but_source_folders_remain() {
+        let root = tempfile::tempdir().unwrap();
+        for path in [
+            ".rapidraw-auto-evaluation-job/inputs",
+            ".rapidraw-auto-evaluation-job/camera-previews",
+            "camera/originals",
+            "inputs",
+            "previews",
+        ] {
+            std::fs::create_dir_all(root.path().join(path)).unwrap();
+        }
+        let mut visited = Vec::new();
+        walk(
+            root.path(),
+            true,
+            || false,
+            |path| {
+                visited.push(path.strip_prefix(root.path()).unwrap().to_path_buf());
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            visited,
+            ["", "camera", "camera/originals", "inputs", "previews"].map(PathBuf::from)
+        );
+    }
     #[test]
     fn ten_thousand_files_are_discovered_without_waiting_for_the_last_folder() {
         let root = tempfile::tempdir().unwrap();

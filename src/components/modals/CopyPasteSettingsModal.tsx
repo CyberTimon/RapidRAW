@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { ADJUSTMENT_GROUPS, COPYABLE_ADJUSTMENT_KEYS, CopyPasteSettings, PasteMode } from '../../utils/adjustments';
+import { COPYABLE_ADJUSTMENT_KEYS, CopyPasteSettings, PasteMode } from '../../utils/adjustments';
 import Button from '../ui/Button';
 import Switch from '../ui/Switch';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import AdjustmentSelection from './AdjustmentSelection';
 
 interface CopyPasteSettingsModalProps {
   isOpen: boolean;
@@ -14,8 +15,6 @@ interface CopyPasteSettingsModalProps {
   onSave(settings: CopyPasteSettings): void;
   settings: CopyPasteSettings;
 }
-
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const DEFAULT_SETTINGS: CopyPasteSettings = {
   mode: PasteMode.Merge,
@@ -248,28 +247,10 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
               </div>
             </div>
             <div className="bg-bg-primary p-4 rounded-md max-h-64 overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
-                {Object.entries(ADJUSTMENT_GROUPS).map(([section, groups]) => (
-                  <div key={section}>
-                    <Text variant={TextVariants.heading} className="mb-2">
-                      {t(`editor.adjustments.sections.${section}`, { defaultValue: capitalize(section) })}
-                    </Text>
-                    {groups.map((group) => {
-                      const isFullyChecked = group.keys.every((key) => localSettings.includedAdjustments.includes(key));
-
-                      return (
-                        <div key={group.label} className="mb-1.5 last:mb-0">
-                          <Switch
-                            label={t(group.label)}
-                            checked={isFullyChecked}
-                            onChange={(checked) => handleGroupToggle(group.keys, checked)}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
+              <AdjustmentSelection
+                includedAdjustments={localSettings.includedAdjustments}
+                onToggle={handleGroupToggle}
+              />
             </div>
           </div>
         </div>

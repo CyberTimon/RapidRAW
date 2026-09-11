@@ -771,6 +771,83 @@ export interface AdjustmentGroup {
   keys: string[];
 }
 
+export interface AdjustmentOption {
+  label: string;
+  keys: string[];
+}
+
+export const getAdjustmentOptions = (group: AdjustmentGroup): AdjustmentOption[] => {
+  const bundledOptions: Record<string, AdjustmentOption[]> = {
+    'modals.copyPaste.groups.curves': [{ label: 'Curves', keys: group.keys }],
+    'modals.copyPaste.groups.colorGrading': [{ label: 'Color grading', keys: group.keys }],
+    'modals.copyPaste.groups.colorMixer': [{ label: 'Color mixer', keys: group.keys }],
+    'modals.copyPaste.groups.colorCalibration': [{ label: 'Color calibration', keys: group.keys }],
+    'modals.copyPaste.groups.lut': [
+      { label: 'LUT', keys: group.keys.filter((key) => key !== Effect.LutIntensity) },
+      { label: 'LUT intensity', keys: [Effect.LutIntensity] },
+    ],
+    'modals.copyPaste.groups.masks': [{ label: 'Masks', keys: group.keys }],
+  };
+
+  const bundled = bundledOptions[group.label];
+  if (bundled) return bundled;
+
+  const labels: Record<string, string> = {
+    aspectRatio: 'Aspect ratio',
+    centré: 'Center detail',
+    chromaticAberrationBlueYellow: 'Blue / yellow correction',
+    chromaticAberrationRedCyan: 'Red / cyan correction',
+    colorNoiseReduction: 'Color noise reduction',
+    crop: 'Crop',
+    curveMode: 'Curve mode',
+    flipHorizontal: 'Flip horizontal',
+    flipVertical: 'Flip vertical',
+    grainAmount: 'Grain amount',
+    grainRoughness: 'Grain roughness',
+    grainSize: 'Grain size',
+    guidedPerspective: 'Guided perspective',
+    lensCorrectionMode: 'Correction mode',
+    lensBlurAmount: 'Lens blur amount',
+    lensBlurDepthMap: 'Depth map',
+    lensBlurDiffusion: 'Lens blur diffusion',
+    lensBlurEnabled: 'Lens blur',
+    lensBlurMaxDepth: 'Maximum depth',
+    lensBlurMaxFade: 'Maximum depth fade',
+    lensBlurMinDepth: 'Minimum depth',
+    lensBlurMinFade: 'Minimum depth fade',
+    lensBlurShape: 'Bokeh shape',
+    lensDistortionAmount: 'Distortion amount',
+    lensDistortionEnabled: 'Distortion correction',
+    lensMaker: 'Lens profile',
+    lensModel: 'Lens model',
+    lensTcaAmount: 'Chromatic aberration amount',
+    lensTcaEnabled: 'Chromatic aberration correction',
+    lensVignetteAmount: 'Vignette correction amount',
+    lensVignetteEnabled: 'Vignette correction',
+    lumaNoiseReduction: 'Luminance noise reduction',
+    orientationSteps: 'Orientation',
+    sharpnessThreshold: 'Sharpness threshold',
+    toneMapper: 'Tone mapper',
+    transformAspect: 'Transform aspect',
+    transformDistortion: 'Distortion',
+    transformHorizontal: 'Horizontal perspective',
+    transformRotate: 'Transform rotation',
+    transformScale: 'Scale',
+    transformVertical: 'Vertical perspective',
+    transformXOffset: 'Horizontal offset',
+    transformYOffset: 'Vertical offset',
+    vignetteAmount: 'Vignette amount',
+    vignetteFeather: 'Vignette feather',
+    vignetteMidpoint: 'Vignette midpoint',
+    vignetteRoundness: 'Vignette roundness',
+  };
+
+  return group.keys.map((key) => ({
+    label: labels[key] || key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (value) => value.toUpperCase()),
+    keys: [key],
+  }));
+};
+
 export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
   basic: [
     {
@@ -848,6 +925,20 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
         Effect.LutIsSceneReferred,
       ],
     },
+    {
+      label: 'adjustments.effects.lensBlur',
+      keys: [
+        Effect.LensBlurEnabled,
+        Effect.LensBlurAmount,
+        Effect.lensBlurDiffusion,
+        Effect.LensBlurShape,
+        Effect.LensBlurDepthMap,
+        Effect.LensBlurMinDepth,
+        Effect.LensBlurMaxDepth,
+        Effect.LensBlurMinFade,
+        Effect.LensBlurMaxFade,
+      ],
+    },
   ],
   geometry: [
     { label: 'modals.copyPaste.groups.cropAspectRatio', keys: ['crop', 'aspectRatio'] },
@@ -887,7 +978,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
       keys: ['guidedPerspective'],
     },
   ],
-  masks: [{ label: 'modals.copyPaste.groups.masks', keys: ['masks'] }],
+  masks: [{ label: 'modals.copyPaste.groups.masks', keys: ['masks', 'aiPatches'] }],
 };
 
 export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUPS)

@@ -8,6 +8,7 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useProcessStore } from '../store/useProcessStore';
+import { useUIStore } from '../store/useUIStore';
 import {
   Adjustments,
   INITIAL_ADJUSTMENTS,
@@ -271,11 +272,11 @@ export function useEditorActions() {
         }
       } catch (err) {
         toast.error(`Failed to load metadata for copying: ${err}`);
-        return;
+        return false;
       }
     }
 
-    if (!sourceAdjustments) return;
+    if (!sourceAdjustments) return false;
 
     const adjustmentsToCopy: any = {};
 
@@ -286,6 +287,7 @@ export function useEditorActions() {
     }
     useEditorStore.getState().setEditor({ copiedAdjustments: adjustmentsToCopy });
     useProcessStore.getState().setProcess({ isCopied: true });
+    return true;
   }, []);
 
   const handlePasteAdjustments = useCallback(
@@ -356,6 +358,21 @@ export function useEditorActions() {
     [setAdjustments],
   );
 
+  const handleSyncAdjustments = useCallback(async () => {
+    const { selectedImage } = useEditorStore.getState();
+    const { multiSelectedPaths } = useLibraryStore.getState();
+    const { activeView } = useUIStore.getState();
+    const sourcePath =
+      activeView === 'editor' && selectedImage && multiSelectedPaths.includes(selectedImage.path)
+        ? selectedImage.path
+        : multiSelectedPaths[0];
+    if (!sourcePath || multiSelectedPaths.length < 2) return;
+
+    const didCopy = await handleCopyAdjustments(sourcePath);
+    if (!didCopy) return;
+    handlePasteAdjustments(multiSelectedPaths.filter((path) => path !== sourcePath));
+  }, [handleCopyAdjustments, handlePasteAdjustments]);
+
   const handleZoomChange = useCallback((zoomValue: number, fitToWindow: boolean = false) => {
     const { originalSize, baseRenderSize, adjustments } = useEditorStore.getState();
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
@@ -416,6 +433,7 @@ export function useEditorActions() {
     handleAutoLensCorrection,
     handleCopyAdjustments,
     handlePasteAdjustments,
+    handleSyncAdjustments,
     handleZoomChange,
     toggleShowOriginal,
   };
