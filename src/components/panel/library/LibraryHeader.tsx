@@ -1,3 +1,4 @@
+import RecursiveFolderGrouping from './RecursiveFolderGrouping';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -658,6 +659,8 @@ export function ViewOptionsDropdown({
               />
             </div>
           </div>
+
+          {libraryViewMode === LibraryViewMode.Recursive && <RecursiveFolderGrouping />}
 
           <div>
             <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">

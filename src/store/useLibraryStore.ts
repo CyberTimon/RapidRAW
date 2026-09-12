@@ -50,6 +50,7 @@ interface LibraryState {
   isDiscovering: boolean;
   libraryScrollTop: number;
   listColumnWidths: ColumnWidths;
+  groupRecursiveFolders: boolean;
 
   // Actions
   setLibrary: (updater: Partial<LibraryState> | ((state: LibraryState) => Partial<LibraryState>)) => void;
@@ -86,6 +87,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   isViewLoading: false,
   isDiscovering: false,
   libraryScrollTop: 0,
+  groupRecursiveFolders: false,
   listColumnWidths: {
     thumbnail: 4,
     name: 20,

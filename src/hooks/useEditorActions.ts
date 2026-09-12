@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { protectAutoEdit } from '../auto/editSafety';
-import { useAutoStore } from '../auto/store';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import { toast } from 'react-toastify';
@@ -77,22 +76,9 @@ export function useEditorActions() {
   const handleAutoAdjustments = useCallback(async () => {
     const selectedImage = useEditorStore.getState().selectedImage;
     if (!selectedImage?.isReady) return;
-    if (useAutoStore.getState().enabled) {
-      const { runAuto } = await import('../auto/runtime');
-      await runAuto([selectedImage.path]);
-      return;
-    }
-    try {
-      const autoAdjustments: Adjustments = await invoke(Invokes.CalculateAutoAdjustments);
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        ...autoAdjustments,
-        sectionVisibility: { ...prev.sectionVisibility, ...autoAdjustments.sectionVisibility },
-      }));
-    } catch (err) {
-      toast.error(`Failed to apply auto adjustments: ${err}`);
-    }
-  }, [setAdjustments]);
+    const { runAuto } = await import('../auto/runtime');
+    await runAuto([selectedImage.path]);
+  }, []);
 
   const toggleShowOriginal = useCallback(() => {
     setEditor((state) => {

@@ -1,8 +1,9 @@
+import { createLibraryComparator, parseShutter, parseAperture, parseFocalLength } from '../utils/librarySorting';
 import { hasKnownRating } from '../utils/ratingUpdates';
 import { useMemo } from 'react';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { RawStatus, EditedStatus, SortDirection, ImageFile, GroupingMode } from '../components/ui/AppProperties';
+import { RawStatus, EditedStatus, ImageFile, GroupingMode } from '../components/ui/AppProperties';
 import { buildImageGroups, GroupBadgeInfo, GroupId } from '../utils/imageGrouping';
 
 export const ADVANCED_QUERY_REGEX =
@@ -15,34 +16,6 @@ export function requiresLibraryExif(sortKey: string, tags: string[]) {
       return field !== undefined && field !== 'rating' && field !== 'color';
     });
 }
-
-const parseShutter = (val: string | undefined): number => {
-  if (!val) return 0;
-  const cleanVal = val.replace(/s/i, '').trim();
-  const parts = cleanVal.split('/');
-  if (parts.length === 2) {
-    const num = parseFloat(parts[0]);
-    const den = parseFloat(parts[1]);
-    return den !== 0 ? num / den : 0;
-  }
-  const numVal = parseFloat(cleanVal);
-  return isNaN(numVal) ? 0 : numVal;
-};
-
-const parseAperture = (val: string | undefined): number => {
-  if (!val) return 0;
-  const match = val.match(/(\d+(\.\d+)?)/);
-  const numVal = match ? parseFloat(match[0]) : 0;
-  return isNaN(numVal) ? 0 : numVal;
-};
-
-const parseFocalLength = (val: string | undefined): number => {
-  if (!val) return 0;
-  const match = val.match(/(\d+(\.\d+)?)/);
-  if (!match) return 0;
-  const numVal = parseFloat(match[0]);
-  return isNaN(numVal) ? 0 : numVal;
-};
 
 export interface GroupedLibrary {
   displayList: ImageFile[];
@@ -210,61 +183,7 @@ function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLi
 
   const list = [...filteredBySearch];
 
-  list.sort((a, b) => {
-    const { key, order } = sortCriteria;
-    let comparison = 0;
-
-    switch (key) {
-      case 'date_taken': {
-        const dateA = a.exif?.DateTimeOriginal || '';
-        const dateB = b.exif?.DateTimeOriginal || '';
-        if (dateA !== dateB) comparison = dateA < dateB ? -1 : 1;
-        else comparison = a.modified - b.modified;
-        break;
-      }
-      case 'iso': {
-        const isoA = parseInt(a.exif?.PhotographicSensitivity || a.exif?.ISOSpeedRatings || '0', 10) || 0;
-        const isoB = parseInt(b.exif?.PhotographicSensitivity || b.exif?.ISOSpeedRatings || '0', 10) || 0;
-        comparison = isoA - isoB;
-        break;
-      }
-      case 'shutter_speed': {
-        comparison = parseShutter(a.exif?.ExposureTime) - parseShutter(b.exif?.ExposureTime);
-        break;
-      }
-      case 'aperture': {
-        comparison = parseAperture(a.exif?.FNumber) - parseAperture(b.exif?.FNumber);
-        break;
-      }
-      case 'focal_length': {
-        comparison = parseFocalLength(a.exif?.FocalLength) - parseFocalLength(b.exif?.FocalLength);
-        break;
-      }
-      case 'date':
-        comparison = a.modified - b.modified;
-        break;
-      case 'rating':
-        comparison = (imageRatings[a.path] || 0) - (imageRatings[b.path] || 0);
-        break;
-      case 'edited':
-        comparison = a.is_edited === b.is_edited ? 0 : a.is_edited ? 1 : -1;
-        break;
-      default: {
-        const nameA = a.path.split(/[\\/]/).pop() || a.path;
-        const nameB = b.path.split(/[\\/]/).pop() || b.path;
-        comparison = nameA.localeCompare(nameB);
-        break;
-      }
-    }
-
-    if (comparison === 0 && key !== 'name') {
-      const nameA = a.path.split(/[\\/]/).pop() || a.path;
-      const nameB = b.path.split(/[\\/]/).pop() || b.path;
-      return nameA.localeCompare(nameB);
-    }
-
-    return order === SortDirection.Ascending ? comparison : -comparison;
-  });
+  list.sort(createLibraryComparator(sortCriteria, imageRatings));
 
   const badges = isGroupingActive
     ? buildImageGroups(imageList, groupingMode, appSettings?.groupEditedFiles ?? true).badges

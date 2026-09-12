@@ -1074,6 +1074,7 @@
         "metadataOff": "Off",
         "noLabel": "No Label",
         "recursive": "Recursive",
+        "groupByFolder": "Group by folder",
         "showMetadata": "Show Metadata",
         "sortAscending": "Sort Ascending",
         "sortBy": "Sort by",
@@ -1109,7 +1110,7 @@
     "sort": {
       "aperture": "Aperture",
       "dateModified": "Date Modified",
-      "dateTaken": "Date Taken",
+      "dateTaken": "Time captured",
       "editedStatus": "Edited Status",
       "fileName": "File Name",
       "focalLength": "Focal Length",
