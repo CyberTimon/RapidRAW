@@ -79,10 +79,10 @@ use crate::formats::is_raw_file;
 use crate::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
 use crate::image_loader::{composite_patches_on_image, load_and_composite};
 use crate::image_processing::{
-    Crop, RenderRequest, apply_coarse_rotation, apply_cpu_default_raw_processing, apply_crop,
-    apply_flip, apply_geometry_warp, apply_linear_to_srgb, apply_rotation, downscale_f32_image,
-    get_all_adjustments_from_json, get_or_init_gpu_context, process_and_get_dynamic_image,
-    resolve_tonemapper_override, resolve_tonemapper_override_from_handle, warp_image_geometry,
+    Crop, RenderRequest, apply_coarse_rotation, apply_cpu_default_raw_processing, apply_flip,
+    apply_geometry_warp, apply_linear_to_srgb, downscale_f32_image, get_all_adjustments_from_json,
+    get_or_init_gpu_context, process_and_get_dynamic_image, resolve_tonemapper_override,
+    resolve_tonemapper_override_from_handle, warp_image_geometry,
 };
 use crate::mask_generation::{
     MaskDefinition, generate_mask_bitmap, get_cached_or_generate_mask,
@@ -199,7 +199,7 @@ fn compute_full_transformed_res(
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
 ) -> Result<(Arc<DynamicImage>, (f32, f32)), String> {
-    let geo_hash = crate::cache_utils::calculate_geometry_hash(adjustments);
+    let geo_hash = crate::cache_utils::calculate_patched_warped_hash(adjustments);
 
     let warped_arc = {
         let mut cache_lock = state
@@ -222,30 +222,12 @@ fn compute_full_transformed_res(
         }
     };
 
-    let orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
-    let rotation = adjustments["rotation"].as_f64().unwrap_or(0.0) as f32;
-    let flip_h = adjustments["flipHorizontal"].as_bool().unwrap_or(false);
-    let flip_v = adjustments["flipVertical"].as_bool().unwrap_or(false);
+    let (transformed_img, offset) = crate::adjustment_utils::apply_spatial_transformations(
+        Cow::Borrowed(warped_arc.as_ref()),
+        adjustments,
+    );
 
-    let mut img_cow = Cow::Borrowed(warped_arc.as_ref());
-
-    img_cow = apply_coarse_rotation(img_cow, orientation_steps);
-
-    if rotation.abs() > 1e-5 {
-        img_cow = apply_rotation(img_cow, rotation);
-    }
-
-    img_cow = apply_flip(img_cow, flip_h, flip_v);
-
-    let mut offset = (0.0, 0.0);
-    if let Some(crop_val) = adjustments.get("crop") {
-        if let Ok(crop) = serde_json::from_value::<Crop>(crop_val.clone()) {
-            offset = (crop.x as f32, crop.y as f32);
-        }
-        img_cow = apply_crop(img_cow, crop_val);
-    }
-
-    Ok((Arc::new(img_cow.into_owned()), offset))
+    Ok((Arc::new(transformed_img.into_owned()), offset))
 }
 
 fn compute_patched_and_warped(
@@ -267,8 +249,9 @@ fn compute_patched_and_warped(
     };
 
     let warped = apply_geometry_warp(patched_image, adjustments);
+    let blurred = crate::lens_blur::apply_lens_blur(warped, adjustments);
 
-    Ok(Arc::new(warped.into_owned()))
+    Ok(Arc::new(blurred.into_owned()))
 }
 
 #[tauri::command]

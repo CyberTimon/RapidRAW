@@ -26,7 +26,24 @@ pub const GEOMETRY_KEYS: &[&str] = &[
     "guidedPerspective",
 ];
 
-pub fn calculate_thumbnail_base_hash(adjustments: &serde_json::Value) -> u64 {
+pub fn calculate_geometry_hash(adjustments: &serde_json::Value) -> u64 {
+    let mut hasher = DefaultHasher::new();
+
+    if let Some(patches) = adjustments.get("aiPatches") {
+        patches.to_string().hash(&mut hasher);
+    }
+
+    for key in GEOMETRY_KEYS {
+        if let Some(val) = adjustments.get(key) {
+            key.hash(&mut hasher);
+            val.to_string().hash(&mut hasher);
+        }
+    }
+
+    hasher.finish()
+}
+
+pub fn calculate_patched_warped_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
     calculate_geometry_hash(adjustments).hash(&mut hasher);
@@ -63,21 +80,15 @@ pub fn calculate_thumbnail_base_hash(adjustments: &serde_json::Value) -> u64 {
     hasher.finish()
 }
 
-pub fn calculate_geometry_hash(adjustments: &serde_json::Value) -> u64 {
+pub fn calculate_thumbnail_base_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
-    if let Some(patches) = adjustments.get("aiPatches") {
-        patches.to_string().hash(&mut hasher);
-    }
+    calculate_patched_warped_hash(adjustments).hash(&mut hasher);
 
-    adjustments["orientationSteps"].as_u64().hash(&mut hasher);
-
-    for key in GEOMETRY_KEYS {
-        if let Some(val) = adjustments.get(key) {
-            key.hash(&mut hasher);
-            val.to_string().hash(&mut hasher);
-        }
-    }
+    adjustments["orientationSteps"]
+        .as_u64()
+        .unwrap_or(0)
+        .hash(&mut hasher);
 
     hasher.finish()
 }
