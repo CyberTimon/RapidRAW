@@ -1,6 +1,6 @@
-# Scene-aware Auto (preview)
+# Scene-aware Auto
 
-Open **Auto settings…** from the selection context menu, or the sliders button beside editor Auto. Enable **Use scene-aware Auto (preview)**, select photos, then press Auto. The original Auto remains the default until visual calibration is approved.
+Open **Auto settings…** from the selection context menu, or the sliders button beside editor Auto. Tone and per-photo white balance run by default. Curves, Presence, Color, Color grading, and Color mixer are available under **Advanced** and remain off until enabled.
 
 Adjust Strength, Subject brightness, Warmth, and Consistency, then choose **Update batch**. Expand lighting groups to override a classification, tune a group independently, or choose an edited reference from that group. **Undo batch** restores the pre-Auto edits for unchanged photos. **Skip edited photos** applies to new selections; later manual changes are always protected during tuning and Undo. To explicitly replace them, turn off Skip edited photos and start a new Auto operation.
 
@@ -10,14 +10,14 @@ Batch metadata and write-ahead records are stored in the application data direct
 
 ## Visual release gate
 
-Do not promote this engine to the default from automated tests alone. Its thresholds are provisional.
+Do not enable the advanced adjustment families by default from automated tests alone. Their thresholds are provisional.
 
 1. Choose original/reference pairs covering daylight, tungsten, night, stage lighting, backlit groups, varied skin tones, silhouettes, and noisy shadows. Keep separate calibration and evaluation subsets.
 2. Evaluate on copies. Compare the rendered edits against preferred references and inspect masks at full resolution for halos, noise amplification, and highlight loss.
 3. Compare matched scenes with different exposure: darker subjects should receive stronger recovery while colors and subject brightness converge. Different skin tones and intentional light colors must remain distinct.
 4. Exercise all four controls and group/reference overrides. Repeating Update with the same settings must not accumulate changes. Verify manual mask edits, crops, virtual copies, cancellation, and Undo after newer manual edits.
 5. Time cold/warm runs of 100 and 1,000 real photos on the target machine, recording resolution/format, wall time, peak memory, per-photo failures, and whether the interface remains responsive. Analysis and application are bounded; at most two full decodes are retained for application look-ahead.
-6. Approve the held-out results before changing the opt-in default. No real-image accuracy or event-size performance claim is established by the source tests.
+6. Approve the held-out results before enabling any advanced family by default. No real-image accuracy or event-size performance claim is established by the source tests.
 
 ## Focused checks
 
@@ -46,6 +46,6 @@ Twelve additional evaluation images were reviewed separately: 10, 115, 133, 153,
 
 Focused validation: 17 Rust Auto tests, four frontend safety tests, touched-file lint with no new existing-file diagnostics, native build, frontend production build, and diff/format checks. No repository-wide typecheck was run. Full interactive cancellation, Undo, virtual-copy, and mask-edit workflows still require an unlocked app session; automated checks do not establish that UI proof. The reported People command permission error was addressed by enabling the existing People capability alongside the new Auto capability.
 
-Release remains opt-in. Dark grain, strong backlight, missed faces, and mixed lighting still need visual judgment. The references do not cover the full requested outdoor daylight/night/sunset range, and 1,000 photos have not been benchmarked. Approve the comparison pages and complete interactive acceptance before promoting this to the default Auto.
+Tone and white balance are the default Auto correction. Advanced families remain opt-in. Dark grain, strong backlight, missed faces, and mixed lighting still need visual judgment. The references do not cover the full requested outdoor daylight/night/sunset range, and 1,000 photos have not been benchmarked. Approve the comparison pages and complete interactive acceptance before broadening the defaults.
 
 The final high-ISO regression run processed 153 and 169 in 5.3 seconds with no failures. Rendered comparisons confirmed substantially reduced washout in 153; it remains intentionally dark and visibly noisy. The recovery cap does not constitute denoising.

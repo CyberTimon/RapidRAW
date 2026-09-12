@@ -9,6 +9,7 @@ import { Adjustments, ColorGrading } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import AutoWhiteBalanceButton from '../../auto/AutoWhiteBalanceButton';
 
 interface ColorProps {
   color: string;
@@ -473,18 +474,21 @@ export default function ColorPanel({
       <div className="p-2 bg-bg-tertiary rounded-md">
         <div className="flex justify-between items-center mb-2">
           <Text variant={TextVariants.heading}>{t('adjustments.color.whiteBalance')}</Text>
-          {!isForMask && toggleWbPicker && (
-            <button
-              onClick={toggleWbPicker}
-              className={`p-1.5 rounded-md transition-colors ${
-                isWbPickerActive
-                  ? 'bg-accent text-button-text'
-                  : 'hover:bg-bg-secondary text-text-secondary'
-              }`}
-              data-tooltip={t('adjustments.color.wbPickerTooltip')}
-            >
-              <Pipette size={16} />
-            </button>
+          {!isForMask && (
+            <div className="flex items-center gap-1">
+              <AutoWhiteBalanceButton />
+              {toggleWbPicker && (
+                <button
+                  onClick={toggleWbPicker}
+                  className={`p-1.5 rounded-md transition-colors ${
+                    isWbPickerActive ? 'bg-accent text-button-text' : 'hover:bg-bg-secondary text-text-secondary'
+                  }`}
+                  data-tooltip={t('adjustments.color.wbPickerTooltip')}
+                >
+                  <Pipette size={16} />
+                </button>
+              )}
+            </div>
           )}
         </div>
         <Slider

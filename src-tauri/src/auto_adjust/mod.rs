@@ -1,3 +1,6 @@
+mod advanced;
+#[cfg(test)]
+mod advanced_tests;
 mod analysis;
 mod cache;
 mod completion;
@@ -11,6 +14,7 @@ pub(crate) mod storage;
 #[cfg(test)]
 mod tests;
 mod types;
+mod value_ops;
 mod worker;
 
 use std::{
@@ -51,14 +55,23 @@ fn cancel(app: tauri::AppHandle, id: String) -> Result<(), String> {
 }
 #[tauri::command]
 fn protect(app: tauri::AppHandle, path: String) {
-    app.state::<AutoState>().protected.lock().unwrap().insert(path);
+    app.state::<AutoState>()
+        .protected
+        .lock()
+        .unwrap()
+        .insert(path);
 }
 #[tauri::command]
 async fn inspect(app: tauri::AppHandle, id: String) -> Result<serde_json::Value, String> {
     // The controls need group summaries, never all baseline/mask data over IPC.
     tauri::async_runtime::spawn_blocking(move || {
         let batch = storage::load(&app, &id).map_err(|e| e.to_string())?;
-        Ok(serde_json::json!({ "id": batch.id, "groups": batch.groups }))
+        Ok(serde_json::json!({
+            "id": batch.id,
+            "version": batch.version,
+            "canRetune": batch.version == types::VERSION,
+            "groups": batch.groups
+        }))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -69,6 +82,12 @@ pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             app.manage(AutoState::default());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![jobs::start_job, status, cancel, protect, inspect])
+        .invoke_handler(tauri::generate_handler![
+            jobs::start_job,
+            status,
+            cancel,
+            protect,
+            inspect
+        ])
         .build()
 }

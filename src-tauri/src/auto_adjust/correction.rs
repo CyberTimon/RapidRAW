@@ -1,23 +1,43 @@
-use super::{analysis::default_target, types::*};
+use super::{advanced, analysis::default_target, types::*};
 use serde_json::{Value, json};
 
 pub fn neutral(baseline: &Value) -> Value {
-    let mut result = if baseline.is_object() { baseline.clone() } else { json!({}) };
+    neutral_selected(baseline, &AdjustmentFamilies::default())
+}
+
+pub fn neutral_selected(baseline: &Value, selected: &AdjustmentFamilies) -> Value {
+    let mut result = if baseline.is_object() {
+        baseline.clone()
+    } else {
+        json!({})
+    };
     result.as_object_mut().unwrap().remove("autoProvenance");
-    for key in KEYS {
-        result[*key] = json!(0);
+    if selected.tone {
+        for key in TONE_KEYS {
+            result[*key] = json!(0);
+        }
     }
-    result["masks"] = json!(
-        baseline["masks"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter(|m| m.get("autoOwner").is_none())
-            .cloned()
-            .collect::<Vec<_>>()
-    );
-    result["sectionVisibility"]["basic"] = json!(true);
-    result["sectionVisibility"]["color"] = json!(true);
+    if selected.white_balance {
+        for key in WHITE_BALANCE_KEYS {
+            result[*key] = json!(0);
+        }
+    }
+    if selected.tone {
+        result["masks"] = json!(
+            baseline["masks"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|m| m.get("autoOwner").is_none())
+                .cloned()
+                .collect::<Vec<_>>()
+        );
+        result["sectionVisibility"]["basic"] = json!(true);
+    }
+    if selected.white_balance {
+        result["sectionVisibility"]["color"] = json!(true);
+    }
+    advanced::reset(&mut result, selected);
     result
 }
 pub fn recovery_limited(a: &Analysis) -> bool {
@@ -39,7 +59,27 @@ pub fn target(a: &Analysis, g: &Group, c: &Controls, scene: Scene) -> f64 {
         .clamp(0.12, 0.7)
 }
 pub fn propose(a: &Analysis, g: &Group, c: &Controls, scene: Scene, baseline: &Value) -> Value {
-    let mut out = neutral(baseline);
+    propose_selected(
+        a,
+        g,
+        c,
+        scene,
+        baseline,
+        &AdjustmentFamilies::default(),
+        WhiteBalanceIntent::PreserveAtmosphere,
+    )
+}
+
+pub fn propose_selected(
+    a: &Analysis,
+    g: &Group,
+    c: &Controls,
+    scene: Scene,
+    baseline: &Value,
+    selected: &AdjustmentFamilies,
+    white_balance_intent: WhiteBalanceIntent,
+) -> Value {
+    let mut out = neutral_selected(baseline, selected);
     let desired = target(a, g, c, scene);
     // Convert the display-referred ratio to an approximate linear EV starting point.
     // The renderer feedback loop below evaluates/corrects this initial estimate.
@@ -54,66 +94,129 @@ pub fn propose(a: &Analysis, g: &Group, c: &Controls, scene: Scene, baseline: &V
         2.2
     };
     let exposure = ev.clamp(-1.5, cap * (1. - 0.5 * a.noise));
-    let exposure = if a.p90 > 0.82 { exposure.min(0.3) } else { exposure };
-    out["exposure"] = json!(if !a.faces.is_empty() && !a.reduced && a.subject >= 0.025 {
-        exposure.min(0.8)
+    let exposure = if a.p90 > 0.82 {
+        exposure.min(0.3)
     } else {
         exposure
-    });
-    if !a.faces.is_empty() && !a.reduced && a.subject >= 0.025 {
-        // Midtone recovery retains more highlight headroom than linear exposure alone.
-        out["brightness"] = json!(
-            (desired / a.subject.max(0.025))
-                .log2()
-                .clamp(0., brightness_limit(a, scene).min(3.2 * (1. - 0.3 * a.noise)))
-        );
-    }
-    out["shadows"] =
-        json!(((desired - a.subject).max(0.) * 32. * (1. - a.noise)).min(if scene == Scene::Night {
-            10.
+    };
+    if selected.tone {
+        out["exposure"] = json!(if !a.faces.is_empty() && !a.reduced && a.subject >= 0.025 {
+            exposure.min(0.8)
         } else {
-            16.
-        }));
+            exposure
+        });
+    }
+    if selected.tone && !a.faces.is_empty() && !a.reduced && a.subject >= 0.025 {
+        // Midtone recovery retains more highlight headroom than linear exposure alone.
+        out["brightness"] = json!((desired / a.subject.max(0.025)).log2().clamp(
+            0.,
+            brightness_limit(a, scene).min(3.2 * (1. - 0.3 * a.noise))
+        ));
+    }
+    if selected.tone {
+        out["shadows"] =
+            json!(
+                ((desired - a.subject).max(0.) * 32. * (1. - a.noise))
+                    .min(if scene == Scene::Night { 10. } else { 16. })
+            );
+        let range = a.p90 - a.p10;
+        out["contrast"] = json!(((0.55 - range) * 35.).clamp(-10., 18.));
+        out["whites"] = json!(if a.p99 > 0.96 {
+            -((a.p99 - 0.96) * 200.).min(18.)
+        } else {
+            ((0.9 - a.p99).max(0.) * 20.).min(12.)
+        });
+        out["blacks"] = json!(-((a.p10 - 0.01).max(0.) * 40.).min(15.));
+    }
     let midtones = out["brightness"].as_f64().unwrap_or(0.);
-    if midtones > 1.0 {
+    if selected.tone && midtones > 1.0 {
         // Keep strong midtone recovery from lifting the black floor and exposing noisy shadows.
         out["shadows"] = json!(-(midtones * 7. * (1. + a.noise)).min(28.));
         out["blacks"] = json!(-(midtones * 8.).min(28.));
         out["contrast"] = json!((midtones * 6.).min(20.));
     }
-    out["highlights"] = json!(-((a.p99 - 0.65).max(0.) * 220. + a.clipped * 500.).min(80.));
+    if selected.tone {
+        out["highlights"] = json!(-((a.p99 - 0.65).max(0.) * 220. + a.clipped * 500.).min(80.));
+    }
     // Preserve atmosphere: warm light is only partly neutralized; colored light is left intact.
-    let atmosphere = match scene {
-        Scene::Mixed => 0.,
-        Scene::Night => 0.2,
-        Scene::WarmIndoor => 0.3,
-        Scene::Uncertain => 0.25,
-        _ => 0.65,
+    let atmosphere = match white_balance_intent {
+        WhiteBalanceIntent::Neutralize => 1.,
+        WhiteBalanceIntent::PreserveAtmosphere => match scene {
+            Scene::Mixed => 0.,
+            Scene::Night => 0.2,
+            Scene::WarmIndoor => 0.3,
+            Scene::Uncertain => 0.25,
+            _ => 0.65,
+        },
     };
-    let shared = if g.paths.len() > 1 { c.consistency * a.neutral_confidence } else { 0. };
+    let shared =
+        if white_balance_intent == WhiteBalanceIntent::PreserveAtmosphere && g.paths.len() > 1 {
+            c.consistency * a.neutral_confidence
+        } else {
+            0.
+        };
     let cast = a.warmth * atmosphere + (a.warmth - g.warmth) * shared * (1. - atmosphere);
+    let neutral_confidence =
+        if white_balance_intent == WhiteBalanceIntent::Neutralize && a.neutral_confidence > 0. {
+            a.neutral_confidence.max(0.35)
+        } else {
+            a.neutral_confidence
+        };
     // Shader temperature is divided by 25 and then applies +/- 0.2 RGB gains.
-    out["temperature"] = json!((-cast * 125. * a.neutral_confidence + c.warmth * 12.).clamp(-30., 30.));
-    out["tint"] = json!(
-        (a.tint * 80. * a.neutral_confidence * atmosphere + (a.tint - g.tint) * shared * 30.)
-            .clamp(-20., 20.)
-    );
+    if selected.white_balance {
+        out["temperature"] =
+            json!((-cast * 125. * neutral_confidence + c.warmth * 12.).clamp(-30., 30.));
+        out["tint"] = json!(
+            (a.tint * 80. * neutral_confidence * atmosphere + (a.tint - g.tint) * shared * 30.)
+                .clamp(-20., 20.)
+        );
+    }
     out
 }
-pub fn blend(mut candidate: Value, baseline: &Value, strength: f64) -> Value {
+pub fn blend(candidate: Value, baseline: &Value, strength: f64) -> Value {
+    blend_selected(
+        candidate,
+        baseline,
+        strength,
+        &AdjustmentFamilies::default(),
+    )
+}
+
+pub fn blend_selected(
+    mut candidate: Value,
+    baseline: &Value,
+    strength: f64,
+    selected: &AdjustmentFamilies,
+) -> Value {
     if strength == 0. {
         return baseline.clone();
     }
-    for k in KEYS {
-        let old = baseline[*k].as_f64().unwrap_or(0.);
-        let value = candidate[*k].as_f64().unwrap_or(0.);
-        let limit = if *k == "exposure" || *k == "brightness" { 5.0 } else { 100.0 };
-        candidate[*k] = json!((old + (value - old) * strength).clamp(-limit, limit));
+    for keys in [
+        if selected.tone { TONE_KEYS } else { &[] },
+        if selected.white_balance {
+            WHITE_BALANCE_KEYS
+        } else {
+            &[]
+        },
+    ] {
+        for k in keys {
+            let old = baseline[*k].as_f64().unwrap_or(0.);
+            let value = candidate[*k].as_f64().unwrap_or(0.);
+            let limit = if *k == "exposure" || *k == "brightness" {
+                5.0
+            } else {
+                100.0
+            };
+            candidate[*k] = json!((old + (value - old) * strength).clamp(-limit, limit));
+        }
     }
-    if let Some(masks) = candidate["masks"].as_array_mut() {
-        for m in masks {
-            if m.get("autoOwner").is_some() {
-                m["opacity"] = json!((100. * strength).min(100.));
+    advanced::blend(&mut candidate, baseline, selected, strength);
+    if selected.tone {
+        if let Some(masks) = candidate["masks"].as_array_mut() {
+            for m in masks {
+                if m.get("autoOwner").is_some() {
+                    m["opacity"] = json!((100. * strength).min(100.));
+                }
             }
         }
     }
@@ -130,13 +233,20 @@ pub fn add_subject_masks(
     offset: (f64, f64),
     batch: &str,
 ) {
-    if a.reduced || a.iso.unwrap_or(0) >= 6400 || a.noise > 0.65 || a.p99 < 0.75 || a.subject >= target * 0.92
+    if a.reduced
+        || a.iso.unwrap_or(0) >= 6400
+        || a.noise > 0.65
+        || a.p99 < 0.75
+        || a.subject >= target * 0.92
     {
         return;
     }
     let mut masks = out["masks"].as_array().cloned().unwrap_or_default();
-    for f in
-        a.faces.iter().filter(|f| f.confidence >= 0.9 && f.bounds[2] >= 0.025 && f.bounds[3] >= 0.025).take(8)
+    for f in a
+        .faces
+        .iter()
+        .filter(|f| f.confidence >= 0.9 && f.bounds[2] >= 0.025 && f.bounds[3] >= 0.025)
+        .take(8)
     {
         if f.luma >= 0.7 || f.luma < 0.025 {
             continue;

@@ -8,26 +8,25 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import AutoControls from './AutoControls';
+import AutoAdjustmentPicker from './AutoAdjustmentPicker';
 import { runAuto } from './runtime';
+import { resolveAutoPanelPaths } from './applyOptions';
 const AutoGroups = lazy(() => import('./AutoGroups'));
 
 export default memo(function AutoPanel() {
   const { t } = useTranslation();
-  const { open, enabled, options, progress, pending, lastBatchId, setAuto } = useAutoStore();
+  const { open, options, progress, pending, lastBatchId, canRetune, setAuto } = useAutoStore();
   const selected = useLibraryStore((s) => s.multiSelectedPaths);
   const libraryPath = useLibraryStore((s) => s.libraryActivePath);
   const editorPath = useEditorStore((s) => s.selectedImage?.path);
   const view = useUIStore((s) => s.activeView);
-  const paths = selected.length
-    ? selected
-    : view === 'library'
-      ? libraryPath
-        ? [libraryPath]
-        : []
-      : editorPath
-        ? [editorPath]
-        : [];
+  const paths = resolveAutoPanelPaths(view, editorPath, selected, libraryPath);
   const busy = pending || !!progress?.running;
+  const activeProgress = progress?.running ? progress : pending ? null : progress;
+  const completed = activeProgress?.completed ?? 0;
+  const total = activeProgress?.total ?? 0;
+  const hasProgressTotal = total > 0;
+  const progressPercent = hasProgressTotal ? Math.min(100, Math.max(0, (completed / total) * 100)) : 0;
   if (!open) return null;
   return (
     <aside
@@ -49,15 +48,11 @@ export default memo(function AutoPanel() {
         </button>
       </div>
       <div className="max-h-[65vh] overflow-y-auto px-3 pb-3 grid gap-3">
-        <label className="flex gap-2 items-center">
-          <input
-            type="checkbox"
-            checked={enabled}
-            disabled={busy}
-            onChange={(e) => setAuto({ enabled: e.target.checked })}
-          />
-          {t('sceneAuto.enable')}
-        </label>
+        <AutoAdjustmentPicker
+          value={options.adjustments}
+          disabled={busy}
+          onChange={(adjustments) => setAuto({ options: { ...options, adjustments } })}
+        />
         <AutoControls
           value={options.controls}
           disabled={busy}
@@ -87,7 +82,7 @@ export default memo(function AutoPanel() {
             disabled={busy || !paths.length}
             className="rounded bg-surface px-3 py-2 hover:bg-card-active disabled:opacity-50"
             onClick={() => {
-              setAuto({ enabled: true, options: { ...options, groups: {} } });
+              setAuto({ options: { ...options, groups: {} } });
               void runAuto(paths);
             }}
           >
@@ -95,15 +90,17 @@ export default memo(function AutoPanel() {
           </button>
           {lastBatchId ? (
             <>
-              <button
-                disabled={busy}
-                className="rounded px-2 py-2 hover:bg-surface disabled:opacity-50"
-                onClick={() => {
-                  void runAuto([], 'tune');
-                }}
-              >
-                {t('sceneAuto.update')}
-              </button>
+              {canRetune ? (
+                <button
+                  disabled={busy}
+                  className="rounded px-2 py-2 hover:bg-surface disabled:opacity-50"
+                  onClick={() => {
+                    void runAuto([], 'tune');
+                  }}
+                >
+                  {t('sceneAuto.update')}
+                </button>
+              ) : null}
               <button
                 disabled={busy}
                 className="rounded px-2 py-2 hover:bg-surface disabled:opacity-50"
@@ -128,7 +125,32 @@ export default memo(function AutoPanel() {
             </button>
           ) : null}
         </div>
-        {progress ? (
+        {busy ? (
+          <div className="grid gap-1.5" role="status" aria-live="polite">
+            <div className="flex items-center justify-between gap-3 text-text-secondary">
+              <span>{t(`sceneAuto.phases.${activeProgress?.phase || 'preparing'}`)}</span>
+              {hasProgressTotal ? (
+                <span>
+                  {completed}/{total}
+                </span>
+              ) : null}
+            </div>
+            <div
+              className="h-1.5 w-full overflow-hidden rounded-full bg-surface"
+              role="progressbar"
+              aria-label={t('sceneAuto.title')}
+              aria-valuemin={0}
+              {...(hasProgressTotal ? { 'aria-valuemax': total, 'aria-valuenow': completed } : {})}
+            >
+              <div
+                className={`h-full rounded-full bg-accent transition-[width] duration-300 ${
+                  hasProgressTotal ? '' : 'w-1/3 animate-pulse'
+                }`}
+                style={hasProgressTotal ? { width: `${progressPercent}%` } : undefined}
+              />
+            </div>
+          </div>
+        ) : progress ? (
           <div role="status" aria-live="polite" className="text-text-secondary">
             {t(`sceneAuto.phases.${progress.phase || 'complete'}`)} {progress.completed}/{progress.total}
             {progress.skipped.length ? (

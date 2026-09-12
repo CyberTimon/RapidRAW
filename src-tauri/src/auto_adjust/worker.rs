@@ -24,10 +24,16 @@ pub(super) fn report(app: &tauri::AppHandle, path: &str, result: Result<()>) {
     }
     state.publish(app);
 }
-pub fn apply(app: &tauri::AppHandle, batch: &mut Batch, settings: &AppSettings, resume: bool) -> Result<()> {
+pub fn apply(
+    app: &tauri::AppHandle,
+    batch: &mut Batch,
+    settings: &AppSettings,
+    resume: bool,
+) -> Result<()> {
     let state = app.state::<AutoState>();
     let app_state = app.state::<crate::AppState>();
-    let gpu = gpu_processing::get_or_init_gpu_context(&app_state, app).map_err(anyhow::Error::msg)?;
+    let gpu =
+        gpu_processing::get_or_init_gpu_context(&app_state, app).map_err(anyhow::Error::msg)?;
     if !resume {
         phase(app, "loadingModels", batch.entries.len());
         let reduced = match cache::prepare(app) {
@@ -76,7 +82,10 @@ pub fn apply(app: &tauri::AppHandle, batch: &mut Batch, settings: &AppSettings, 
                 );
             }
             if let Some(path) = &o.reference_path {
-                ensure!(g.paths.contains(path), "Reference must belong to its lighting group");
+                ensure!(
+                    g.paths.contains(path),
+                    "Reference must belong to its lighting group"
+                );
                 let base = render::decode(path, settings)?;
                 let (meta, _) = storage::metadata(path)?;
                 let view = render::preview(app, path, &base, &gpu, meta.adjustments)?;
@@ -107,7 +116,11 @@ pub fn apply(app: &tauri::AppHandle, batch: &mut Batch, settings: &AppSettings, 
             if state.cancelled() {
                 break;
             }
-            let base = pending.take().unwrap().join().map_err(|_| anyhow::anyhow!("Auto decode failed"))?;
+            let base = pending
+                .take()
+                .unwrap()
+                .join()
+                .map_err(|_| anyhow::anyhow!("Auto decode failed"))?;
             // Bounded look-ahead overlaps decoding with current preview evaluation.
             pending = batch
                 .entries
@@ -124,8 +137,20 @@ pub fn apply(app: &tauri::AppHandle, batch: &mut Batch, settings: &AppSettings, 
                 .get(&g.id)
                 .and_then(|o| o.controls.as_ref())
                 .unwrap_or(&batch.options.controls);
-            let outcome =
-                base.and_then(|base| apply_one(app, &batch.id, entry, g, controls, settings, &gpu, &base));
+            let outcome = base.and_then(|base| {
+                apply_one(
+                    app,
+                    &batch.id,
+                    entry,
+                    g,
+                    controls,
+                    &batch.options.adjustments,
+                    batch.options.white_balance_intent,
+                    settings,
+                    &gpu,
+                    &base,
+                )
+            });
             report(app, &entry.path, outcome);
         }
         Ok(())
@@ -139,6 +164,8 @@ fn apply_one(
     e: &mut Entry,
     g: &Group,
     c: &Controls,
+    selected: &AdjustmentFamilies,
+    white_balance_intent: WhiteBalanceIntent,
     settings: &AppSettings,
     gpu: &GpuContext,
     base: &image::DynamicImage,
@@ -157,12 +184,22 @@ fn apply_one(
         state.progress.lock().unwrap().skipped.push(e.path.clone());
         return Ok(());
     }
-    let mut result = render::refine(app, e, g, c, g.scene, base, gpu, id)?;
+    let mut result = render::refine(
+        app,
+        e,
+        g,
+        c,
+        selected,
+        white_balance_intent,
+        g.scene,
+        base,
+        gpu,
+        id,
+    )?;
     if !result.is_object() {
         result = serde_json::json!({});
     }
-    result["autoProvenance"] =
-        serde_json::json!({"version":VERSION,"batchId":id,"groupId":g.id,"reduced":e.analysis.reduced});
+    result["autoProvenance"] = serde_json::json!({"version":VERSION,"batchId":id,"groupId":g.id,"reduced":e.analysis.reduced});
     {
         let _lock = storage::WRITE_LOCK.lock().unwrap();
         if state.cancelled() || state.protected.lock().unwrap().contains(&e.path) {
@@ -174,7 +211,10 @@ fn apply_one(
             state.progress.lock().unwrap().skipped.push(e.path.clone());
             return Ok(());
         }
-        ensure!(storage::current_fingerprint(app, &e.path)? == e.fingerprint, "Source changed during Auto");
+        ensure!(
+            storage::current_fingerprint(app, &e.path)? == e.fingerprint,
+            "Source changed during Auto"
+        );
         // Write-ahead journal makes an interrupted commit recoverable without guessing.
         let previous = e.clone();
         e.expected = result.clone();
@@ -188,12 +228,10 @@ fn apply_one(
         }
         state.progress.lock().unwrap().changed.push(e.path.clone());
         if e.analysis.reduced {
-            state
-                .progress
-                .lock()
-                .unwrap()
-                .warnings
-                .insert(e.path.clone(), "Global correction only; subject detection unavailable".into());
+            state.progress.lock().unwrap().warnings.insert(
+                e.path.clone(),
+                "Global correction only; subject detection unavailable".into(),
+            );
         }
         super::completion::sync(app, &e.path, &meta, settings);
     }

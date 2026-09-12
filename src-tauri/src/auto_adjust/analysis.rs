@@ -12,6 +12,28 @@ fn luma(p: &image::Rgb<u8>) -> f64 {
     (0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64) / 255.
 }
 
+const HUE_CENTERS: [f64; 8] = [0., 30., 60., 120., 180., 240., 300., 340.];
+
+fn hue_distance(value: f64, center: f64) -> f64 {
+    (value - center + 540.).rem_euclid(360.) - 180.
+}
+
+fn hsv(r: f64, g: f64, b: f64) -> (f64, f64, f64) {
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let delta = max - min;
+    let hue = if delta < 1e-6 {
+        0.
+    } else if max == r {
+        60. * ((g - b) / delta).rem_euclid(6.)
+    } else if max == g {
+        60. * ((b - r) / delta + 2.)
+    } else {
+        60. * ((r - g) / delta + 4.)
+    };
+    (hue, if max > 0. { delta / max } else { 0. }, max)
+}
+
 /// Display-referred statistics from the actual neutral renderer, never raw linear bytes.
 pub fn measure(
     image: &RgbImage,
@@ -20,13 +42,29 @@ pub fn measure(
     captured: Option<i64>,
     reduced: bool,
 ) -> Analysis {
-    let mut a = Analysis { faces, iso, captured, reduced, ..Analysis::default() };
+    let mut a = Analysis {
+        faces,
+        iso,
+        captured,
+        reduced,
+        ..Analysis::default()
+    };
     let mut ys = Vec::new();
     let mut neutral_r = Vec::new();
     let mut neutral_g = Vec::new();
     let mut noise = Vec::new();
     let mut chroma = Vec::new();
     let mut background = Vec::new();
+    let mut hue_count = [0_f64; 8];
+    let mut hue_delta = [0_f64; 8];
+    let mut hue_delta_sq = [0_f64; 8];
+    let mut hue_sat = [0_f64; 8];
+    let mut hue_luma = [0_f64; 8];
+    let mut tone_count = [0_f64; 3];
+    let mut tone_warmth = [0_f64; 3];
+    let mut tone_tint = [0_f64; 3];
+    let mut local_contrast_sum = 0_f64;
+    let mut local_contrast_count = 0_f64;
     let (w, h) = image.dimensions();
     if w == 0 || h == 0 {
         return a;
@@ -47,12 +85,41 @@ pub fn measure(
         let r = p[0] as f64 + 1.;
         let g = p[1] as f64 + 1.;
         let b = p[2] as f64 + 1.;
+        let warmth = (r / b).ln();
+        let tint = (g / (r * b).sqrt()).ln();
         if v > 0.08 && max < 0.96 {
-            chroma.push((r / b).ln());
+            chroma.push(warmth);
             if sat < 0.32 {
-                neutral_r.push((r / b).ln());
-                neutral_g.push((g / (r * b).sqrt()).ln());
+                neutral_r.push(warmth);
+                neutral_g.push(tint);
             }
+        }
+        if v > 0.04 && max < 0.98 && sat < 0.45 {
+            let tone = if v < 0.3 {
+                0
+            } else if v < 0.7 {
+                1
+            } else {
+                2
+            };
+            tone_count[tone] += 1.;
+            tone_warmth[tone] += warmth;
+            tone_tint[tone] += tint;
+        }
+        let in_face = a.faces.iter().any(|f| inside(x, y, w, h, &f.bounds));
+        if sat > 0.12 && v > 0.04 && max < 0.98 && !in_face {
+            let (hue, saturation, _) = hsv(r / 256., g / 256., b / 256.);
+            let (bin, delta) = HUE_CENTERS
+                .iter()
+                .enumerate()
+                .map(|(index, center)| (index, hue_distance(hue, *center)))
+                .min_by(|a, b| a.1.abs().total_cmp(&b.1.abs()))
+                .unwrap();
+            hue_count[bin] += 1.;
+            hue_delta[bin] += delta;
+            hue_delta_sq[bin] += delta * delta;
+            hue_sat[bin] += saturation;
+            hue_luma[bin] += v;
         }
         if x > 0 && y > 0 && x + 1 < w && y + 1 < h && v > 0.015 && v < 0.3 {
             let neighbors = [
@@ -66,8 +133,10 @@ pub fn measure(
             if hi - lo < 0.04 {
                 noise.push((v - neighbors.iter().sum::<f64>() / 4.).abs());
             }
+            local_contrast_sum += hi - lo;
+            local_contrast_count += 1.;
         }
-        if !a.faces.iter().any(|f| inside(x, y, w, h, &f.bounds)) {
+        if !in_face {
             background.push(v);
         }
     }
@@ -83,6 +152,51 @@ pub fn measure(
     a.warmth = quantile(&mut neutral_r, 0.5);
     a.tint = quantile(&mut neutral_g, 0.5);
     a.color_variance = quantile(&mut chroma, 0.9) - quantile(&mut chroma, 0.1);
+    a.local_contrast = if local_contrast_count > 0. {
+        local_contrast_sum / local_contrast_count
+    } else {
+        0.
+    };
+    a.tonal_color = (0..3)
+        .map(|index| {
+            let count = tone_count[index];
+            ColorSample {
+                coverage: count / n,
+                warmth: tone_warmth[index] / count.max(1.),
+                tint: tone_tint[index] / count.max(1.),
+                confidence: (count / n / 0.05).clamp(0., 1.),
+                ..ColorSample::default()
+            }
+        })
+        .collect();
+    a.hue_bins = (0..8)
+        .map(|index| {
+            let count = hue_count[index];
+            let mean_delta = hue_delta[index] / count.max(1.);
+            let variance = (hue_delta_sq[index] / count.max(1.) - mean_delta * mean_delta).max(0.);
+            ColorSample {
+                coverage: count / n,
+                hue: mean_delta,
+                saturation: hue_sat[index] / count.max(1.),
+                luminance: hue_luma[index] / count.max(1.),
+                confidence: (count / n / 0.025).clamp(0., 1.)
+                    * (1. - variance.sqrt() / 45.).clamp(0., 1.),
+                ..ColorSample::default()
+            }
+        })
+        .collect();
+    let supported = a
+        .hue_bins
+        .iter()
+        .filter(|bin| bin.confidence > 0.4)
+        .collect::<Vec<_>>();
+    let supported_weight = supported.iter().map(|bin| bin.coverage).sum::<f64>();
+    a.hue_offset = supported
+        .iter()
+        .map(|bin| bin.hue * bin.coverage)
+        .sum::<f64>()
+        / supported_weight.max(1e-6);
+    a.hue_confidence = (supported_weight / 0.35).clamp(0., 1.);
     a.noise = (quantile(&mut noise, 0.5) * 25.).clamp(0., 1.);
     if iso.unwrap_or(0) >= 3200 {
         a.noise = a.noise.max(0.25);
@@ -96,7 +210,11 @@ pub fn measure(
         f.luma = quantile(&mut pixels, 0.5);
     }
     let mut subjects = a.faces.iter().map(|f| f.luma).collect::<Vec<_>>();
-    a.subject = if subjects.is_empty() { a.median } else { quantile(&mut subjects, 0.5) };
+    a.subject = if subjects.is_empty() {
+        a.median
+    } else {
+        quantile(&mut subjects, 0.5)
+    };
     a.background = quantile(&mut background, 0.5);
     (a.scene, a.confidence) = classify(&a);
     a
@@ -107,7 +225,9 @@ fn inside(x: u32, y: u32, w: u32, h: u32, b: &[f32; 4]) -> bool {
     x >= b[0] && x <= b[0] + b[2] && y >= b[1] && y <= b[1] + b[3]
 }
 pub fn classify(a: &Analysis) -> (Scene, f64) {
-    if (a.color_variance > 1.25 && a.saturation > 0.3) || (a.saturation > 0.55 && a.color_variance > 0.8) {
+    if (a.color_variance > 1.25 && a.saturation > 0.3)
+        || (a.saturation > 0.55 && a.color_variance > 0.8)
+    {
         return (Scene::Mixed, 0.75);
     }
     // Darkness alone is insufficient evidence for night: look for concentrated lights/high ISO.

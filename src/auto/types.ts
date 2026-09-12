@@ -5,6 +5,15 @@ export interface Controls {
   warmth: number;
   consistency: number;
 }
+export interface AutoAdjustmentFamilies {
+  tone: boolean;
+  whiteBalance: boolean;
+  curves: boolean;
+  presence: boolean;
+  color: boolean;
+  colorGrading: boolean;
+  colorMixer: boolean;
+}
 export interface GroupOverride {
   scene?: Scene;
   controls?: Controls;
@@ -12,6 +21,8 @@ export interface GroupOverride {
 }
 export interface AutoOptions {
   controls: Controls;
+  adjustments: AutoAdjustmentFamilies;
+  whiteBalanceIntent: 'preserveAtmosphere' | 'neutralize';
   skipEdited: boolean;
   groups: Record<string, GroupOverride>;
 }
@@ -38,8 +49,31 @@ export interface AutoProgress {
   warnings: Record<string, string>;
   groups: LightingGroup[];
 }
+export interface AutoBatchInspection {
+  id: string;
+  version: string;
+  canRetune: boolean;
+  groups: LightingGroup[];
+}
 export const DEFAULT_CONTROLS: Controls = { strength: 1, subjectBrightness: 0, warmth: 0, consistency: 0.5 };
-export const DEFAULT_OPTIONS: AutoOptions = { controls: DEFAULT_CONTROLS, skipEdited: true, groups: {} };
+export const DEFAULT_ADJUSTMENTS: AutoAdjustmentFamilies = {
+  tone: true,
+  whiteBalance: true,
+  curves: false,
+  presence: false,
+  color: false,
+  colorGrading: false,
+  colorMixer: false,
+};
+export const DEFAULT_OPTIONS: AutoOptions = {
+  controls: DEFAULT_CONTROLS,
+  adjustments: DEFAULT_ADJUSTMENTS,
+  whiteBalanceIntent: 'preserveAtmosphere',
+  skipEdited: true,
+  groups: {},
+};
+export const PRIMARY_ADJUSTMENTS = ['tone', 'whiteBalance'] as const;
+export const ADVANCED_ADJUSTMENTS = ['curves', 'presence', 'color', 'colorGrading', 'colorMixer'] as const;
 export const SCENES: Scene[] = ['daylight', 'warmIndoor', 'night', 'mixed', 'uncertain'];
 export const CONTROL_SPECS = [
   { key: 'strength', min: 0, max: 1.5, step: 0.05 },

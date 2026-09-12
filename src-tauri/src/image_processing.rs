@@ -18,7 +18,7 @@ pub use crate::gpu_processing::{
     RenderRequest, get_or_init_gpu_context, process_and_get_dynamic_image,
     process_and_get_dynamic_image_with_analytics,
 };
-use crate::{AppState, mask_generation::MaskDefinition};
+use crate::mask_generation::MaskDefinition;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 pub trait IntoCowImage<'a> {
@@ -3469,22 +3469,4 @@ pub fn auto_results_to_json(results: &AutoAdjustmentResults) -> serde_json::Valu
         "whites": results.whites,
         "blacks": results.blacks
     })
-}
-
-#[tauri::command]
-pub fn calculate_auto_adjustments(
-    state: tauri::State<AppState>,
-) -> Result<serde_json::Value, String> {
-    let original_image = state
-        .original_image
-        .lock()
-        .unwrap()
-        .as_ref()
-        .ok_or("No image loaded for auto adjustments")?
-        .image
-        .clone();
-
-    let results = perform_auto_analysis(&original_image);
-
-    Ok(auto_results_to_json(&results))
 }

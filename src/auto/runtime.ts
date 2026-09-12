@@ -10,7 +10,8 @@ import { INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments, type Adjustments } fro
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { markAutoHydration, isAutoHydration as isPersisted } from './editSafety';
 import { debouncedSave, debouncedSetHistory } from '../hooks/useEditorActions';
-import type { AutoProgress, AutoOptions } from './types';
+import type { AutoBatchInspection, AutoProgress, AutoOptions } from './types';
+import { prepareAutoApplyOptions } from './applyOptions';
 
 let listener: Promise<() => void> | undefined;
 let hydrated = new Set<string>();
@@ -75,10 +76,11 @@ export async function connectAuto() {
     const { lastBatchId } = useAutoStore.getState();
     if (lastBatchId) {
       try {
-        const batch = await invoke<{ groups: AutoProgress['groups'] }>('plugin:scene-auto|inspect', {
+        const batch = await invoke<AutoBatchInspection>('plugin:scene-auto|inspect', {
           id: lastBatchId,
         });
         useAutoStore.setState({
+          canRetune: batch.canRetune,
           progress: { ...status, batchId: lastBatchId, groups: batch.groups, phase: 'complete' },
         });
       } catch {
@@ -91,7 +93,7 @@ export async function runAuto(paths: string[], mode: 'apply' | 'tune' | 'undo' =
   const state = useAutoStore.getState();
   if (state.pending || state.progress?.running) return;
   if (mode === 'apply' && !paths.length) return;
-  useAutoStore.setState({ pending: true, open: true });
+  useAutoStore.setState({ pending: true, open: true, ...(mode === 'apply' ? { canRetune: true } : {}) });
   try {
     await connectAuto();
     await debouncedSave.flush();
@@ -115,9 +117,10 @@ export async function runAuto(paths: string[], mode: 'apply' | 'tune' | 'undo' =
     libraryAtStart = useLibraryStore.getState().libraryActiveAdjustments;
     hydrated = new Set();
     dispatching = true;
+    const requestedOptions = options || state.options;
     const id = await invoke<string>('plugin:scene-auto|start_job', {
       paths,
-      options: options || state.options,
+      options: mode === 'apply' ? prepareAutoApplyOptions(requestedOptions, paths.length) : requestedOptions,
       batchId: mode === 'apply' ? null : state.lastBatchId,
       undo: mode === 'undo',
     });
