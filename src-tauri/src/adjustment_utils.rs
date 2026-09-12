@@ -104,7 +104,7 @@ pub fn apply_spatial_transformations<'a, I: IntoCowImage<'a>>(
     let rotated_image = apply_rotation(flipped_image, rotation_degrees);
 
     let crop_data: Option<Crop> = serde_json::from_value(adjustments["crop"].clone()).ok();
-    let crop_json = serde_json::to_value(&crop_data).unwrap_or(serde_json::Value::Null);
+    let crop_json = serde_json::to_value(crop_data).unwrap_or(serde_json::Value::Null);
     let cropped_image = apply_crop(rotated_image, &crop_json);
 
     let unscaled_crop_offset = crop_data.map_or((0.0, 0.0), |c| (c.x as f32, c.y as f32));
