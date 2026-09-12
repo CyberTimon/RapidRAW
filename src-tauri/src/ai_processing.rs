@@ -18,6 +18,7 @@ use tauri::Emitter;
 use tauri::Manager;
 use tokenizers::Tokenizer;
 use tokio::sync::Mutex as TokioMutex;
+use log::{info, warn};
 
 const ENCODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_encoder.onnx?download=true";
 const DECODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_decoder.onnx?download=true";
@@ -59,6 +60,446 @@ const DEPTH_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resol
 const DEPTH_FILENAME: &str = "depth_anything_v2_vits.onnx";
 const DEPTH_INPUT_SIZE: u32 = 518;
 const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b526304f2562be";
+
+/// Initialize GPU providers for ONNX Runtime
+/// This function sets up environment variables and configures ONNX to use GPU acceleration
+/// 
+/// Supported GPU preferences via ORT_PREFERRED_GPU environment variable:
+/// - "nvidia" or "cuda": Prefer NVIDIA CUDA over other providers
+/// - "intel" or "directml": Prefer Intel/DirectML over other providers
+/// - "auto": Automatic selection (default) - uses first available provider
+/// - "cpu": CPU only, no GPU acceleration
+pub fn init_gpu_providers() {
+    info!("╔════════════════════════════════════════════════════════════╗");
+    info!("║         GPU PROVIDER INITIALIZATION (ONNX Runtime)         ║");
+    info!("╚════════════════════════════════════════════════════════════╝");
+    
+    // Read preferred GPU from environment variable (try multiple common spellings)
+    let preferred_gpu = std::env::var("ORT_PREFERRED_GPU")
+        .or_else(|_| std::env::var("PREFERRED_GPU"))
+        .or_else(|_| std::env::var("ONNX_PREFERRED_GPU"))
+        .unwrap_or_else(|_| "auto".to_string())
+        .to_lowercase();
+
+    info!("Environment Variables:");
+    info!("  ORT_PREFERRED_GPU = {:?}", 
+        std::env::var("ORT_PREFERRED_GPU").unwrap_or_else(|_| "NOT SET".to_string()));
+    info!("  PREFERRED_GPU = {:?}", 
+        std::env::var("PREFERRED_GPU").unwrap_or_else(|_| "NOT SET".to_string()));
+    info!("  ONNX_PREFERRED_GPU = {:?}", 
+        std::env::var("ONNX_PREFERRED_GPU").unwrap_or_else(|_| "NOT SET".to_string()));
+    info!("  Resolved user preference: '{}'", preferred_gpu);
+    info!("");
+
+    // Enable ONNX Runtime's internal logging to see which providers are available
+    info!("Setting up ONNX Runtime logging for provider diagnostics...");
+    unsafe {
+        std::env::set_var("ORT_LOGGING_LEVEL", "verbose");
+    }
+
+    // Configure ONNX Runtime for GPU execution based on platform and preference
+    #[cfg(target_os = "windows")]
+    {
+        if preferred_gpu == "cuda" || preferred_gpu == "nvidia" {
+            ensure_windows_cuda_runtime_paths();
+        }
+
+        let providers = match preferred_gpu.as_str() {
+            "nvidia" | "cuda" => {
+                info!("User Selection: NVIDIA CUDA");
+                info!("Provider Order: CUDA → DirectML → CPU");
+                info!("Note: CUDA requires NVIDIA CUDA provider DLLs in system PATH or same directory");
+                info!("Looking for: onnxruntime_providers_cuda.dll, onnxruntime_providers_tensorrt.dll");
+                "CUDA,DirectML,CPU"
+            },
+            "intel" | "directml" => {
+                info!("User Selection: Intel DirectML");
+                info!("Provider Order: DirectML → CUDA → CPU");
+                info!("Note: DirectML is built-in to Windows 10/11");
+                "DirectML,CUDA,CPU"
+            },
+            "cpu" => {
+                info!("User Selection: CPU Only");
+                info!("Provider Order: CPU");
+                info!("Note: GPU acceleration disabled");
+                "CPU"
+            },
+            _ => {
+                info!("User Selection: Auto (Default)");
+                info!("Provider Order: DirectML → CUDA → CPU");
+                "DirectML,CUDA,CPU"
+            }
+        };
+        info!("ORT_EXECUTION_PROVIDERS = '{}'", providers);
+        
+        // Also log the paths that ONNX Runtime will search
+        info!("System PATH directories:");
+        if let Ok(path_var) = std::env::var("PATH") {
+            for (i, path) in path_var.split(';').take(5).enumerate() {
+                info!("  [{}] {}", i + 1, path);
+            }
+            if path_var.split(';').count() > 5 {
+                info!("  ... and {} more", path_var.split(';').count() - 5);
+            }
+        }
+        
+        unsafe {
+            std::env::set_var("ORT_EXECUTION_PROVIDERS", providers);
+        }
+    }
+    
+    #[cfg(target_os = "macos")]
+    {
+        let providers = match preferred_gpu.as_str() {
+            "cpu" => {
+                info!("User Selection: CPU Only");
+                info!("Provider Order: CPU");
+                "CPU"
+            },
+            _ => {
+                info!("User Selection: Auto (Default)");
+                info!("Provider Order: CoreML → CPU");
+                info!("Note: CoreML uses Metal Performance Shaders automatically");
+                "CoreML,CPU"
+            }
+        };
+        unsafe {
+            std::env::set_var("ORT_EXECUTION_PROVIDERS", providers);
+        }
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        let providers = match preferred_gpu.as_str() {
+            "nvidia" | "cuda" => {
+                info!("User Selection: NVIDIA CUDA");
+                info!("Provider Order: CUDA → TensorRT → CPU");
+                info!("Note: CUDA requires NVIDIA CUDA Toolkit and cuDNN");
+                "CUDA,TensorRT,CPU"
+            },
+            "tensorrt" => {
+                info!("User Selection: NVIDIA TensorRT (Optimized)");
+                info!("Provider Order: TensorRT → CUDA → CPU");
+                info!("Note: TensorRT provides better performance than CUDA");
+                "TensorRT,CUDA,CPU"
+            },
+            "cpu" => {
+                info!("User Selection: CPU Only");
+                info!("Provider Order: CPU");
+                "CPU"
+            },
+            _ => {
+                info!("User Selection: Auto (Default)");
+                info!("Provider Order: CUDA → TensorRT → CPU");
+                "CUDA,TensorRT,CPU"
+            }
+        };
+        unsafe {
+            std::env::set_var("ORT_EXECUTION_PROVIDERS", providers);
+        }
+    }
+    
+    info!("");
+    info!("⚠️  IMPORTANT NOTES:");
+    info!("─────────────────────────────────────────────────────────────");
+    info!("1. If requested GPU provider isn't available, ONNX Runtime");
+    info!("   will automatically fall back to the next provider in order.");
+    info!("2. For NVIDIA CUDA support, ensure ONNX Runtime is compiled");
+    info!("   with CUDA enabled (see troubleshooting guide).");
+    info!("3. GPU inference performance improves on subsequent runs.");
+    info!("4. Check logs after model loading to verify actual provider.");
+    info!("");
+    info!("╔════════════════════════════════════════════════════════════╗");
+    info!("║  Waiting for ONNX Runtime to load models...                ║");
+    info!("║  Watch logs for provider confirmation messages             ║");
+    info!("╚════════════════════════════════════════════════════════════╝");
+}
+
+fn resolved_gpu_preference() -> String {
+    std::env::var("ORT_PREFERRED_GPU")
+        .or_else(|_| std::env::var("PREFERRED_GPU"))
+        .or_else(|_| std::env::var("ONNX_PREFERRED_GPU"))
+        .unwrap_or_else(|_| "auto".to_string())
+        .to_lowercase()
+}
+
+#[cfg(target_os = "windows")]
+fn find_dll_on_path(dll_name: &str) -> Option<String> {
+    let path_var = std::env::var("PATH").ok()?;
+    for dir in path_var.split(';').filter(|p| !p.is_empty()) {
+        let candidate = Path::new(dir).join(dll_name);
+        if candidate.exists() {
+            return Some(candidate.display().to_string());
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn ensure_windows_cuda_runtime_paths() {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(custom) = std::env::var("RAPIDRAW_CUDA_PATH")
+        && !custom.trim().is_empty()
+    {
+        candidates.push(PathBuf::from(custom));
+    }
+
+    if let Ok(custom_list) = std::env::var("RAPIDRAW_CUDA_PATHS") {
+        for part in custom_list.split(';') {
+            let trimmed = part.trim();
+            if !trimmed.is_empty() {
+                candidates.push(PathBuf::from(trimmed));
+            }
+        }
+    }
+
+    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+        let base = PathBuf::from(local_app_data)
+            .join("Programs")
+            .join("Ollama")
+            .join("lib")
+            .join("ollama");
+        candidates.push(base.join("cuda_v13"));
+        candidates.push(base.join("cuda_v12"));
+    }
+
+    if let Ok(cuda_path) = std::env::var("CUDA_PATH") {
+        candidates.push(PathBuf::from(cuda_path).join("bin"));
+    }
+    for (key, value) in std::env::vars() {
+        if key.starts_with("CUDA_PATH_V") {
+            candidates.push(PathBuf::from(value).join("bin"));
+        }
+    }
+
+    let mut existing_path = std::env::var("PATH").unwrap_or_default();
+    let mut added = Vec::new();
+
+    for dir in candidates {
+        if !dir.exists() {
+            continue;
+        }
+
+        let canonical = std::fs::canonicalize(&dir).unwrap_or(dir);
+        let dir_str = canonical.to_string_lossy().to_string();
+
+        let already_present = existing_path
+            .split(';')
+            .any(|p| p.eq_ignore_ascii_case(&dir_str));
+        if already_present {
+            continue;
+        }
+
+        if existing_path.is_empty() {
+            existing_path = dir_str.clone();
+        } else {
+            existing_path = format!("{};{}", dir_str, existing_path);
+        }
+        added.push(dir_str);
+    }
+
+    if !added.is_empty() {
+        unsafe {
+            std::env::set_var("PATH", &existing_path);
+        }
+        info!("Added CUDA runtime directories to PATH:");
+        for dir in added {
+            info!("  + {}", dir);
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn log_windows_provider_availability(preferred_gpu: &str) {
+    use ort::execution_providers::{
+        CPUExecutionProvider, CUDAExecutionProvider, DirectMLExecutionProvider, ExecutionProvider,
+    };
+
+    let cuda_available = CUDAExecutionProvider::default().is_available().unwrap_or(false);
+    let directml_available = DirectMLExecutionProvider::default().is_available().unwrap_or(false);
+    let cpu_available = CPUExecutionProvider::default().is_available().unwrap_or(true);
+
+    info!("ONNX provider availability probe:");
+    info!("  CUDAExecutionProvider available: {}", cuda_available);
+    info!("  DmlExecutionProvider available: {}", directml_available);
+    info!("  CPUExecutionProvider available: {}", cpu_available);
+
+    if !cuda_available {
+        warn!("CUDA provider not available to ONNX Runtime. If you expected CUDA, verify provider DLL compatibility.");
+    }
+
+    if preferred_gpu == "cuda" || preferred_gpu == "nvidia" {
+        let has_cudart_13 = find_dll_on_path("cudart64_130.dll").is_some();
+        let has_cudart_12 = find_dll_on_path("cudart64_12.dll").is_some();
+
+        if !has_cudart_13 && has_cudart_12 {
+            warn!(
+                "Detected CUDA 12 runtime (cudart64_12.dll) but CUDA 13 runtime DLL is missing (cudart64_130.dll)."
+            );
+            warn!(
+                "If your ONNX Runtime CUDA provider was built for CUDA 13, it cannot load with only CUDA 12 runtime present."
+            );
+        }
+
+        let required_cuda_runtime_dlls = [
+            "nvcuda.dll",
+            "cudart64_130.dll",
+            "cublas64_13.dll",
+            "cublasLt64_13.dll",
+            "cudnn64_9.dll",
+        ];
+
+        let mut missing = Vec::new();
+        info!("CUDA dependency probe (PATH lookup):");
+        for dll in required_cuda_runtime_dlls {
+            match find_dll_on_path(dll) {
+                Some(path) => info!("  ✓ {} at {}", dll, path),
+                None => {
+                    warn!("  ✗ {} not found in PATH", dll);
+                    missing.push(dll);
+                }
+            }
+        }
+
+        if !missing.is_empty() {
+            warn!(
+                "CUDA runtime dependencies missing ({}). ONNX will fall back to CPU/other providers.",
+                missing.join(", ")
+            );
+            if directml_available {
+                warn!(
+                    "DirectML provider is available. Set ORT_PREFERRED_GPU=directml to force GPU usage without CUDA toolkit."
+                );
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn execution_providers_for_preference(
+    preferred_gpu: &str,
+) -> Vec<ort::execution_providers::ExecutionProviderDispatch> {
+    use ort::execution_providers::{
+        CPUExecutionProvider, CUDAExecutionProvider, DirectMLExecutionProvider,
+    };
+
+    match preferred_gpu {
+        "nvidia" | "cuda" => vec![
+            CUDAExecutionProvider::default().with_device_id(0).build(),
+            DirectMLExecutionProvider::default().with_device_id(0).build(),
+            CPUExecutionProvider::default().build(),
+        ],
+        "intel" | "directml" => vec![
+            DirectMLExecutionProvider::default().with_device_id(0).build(),
+            CUDAExecutionProvider::default().with_device_id(0).build(),
+            CPUExecutionProvider::default().build(),
+        ],
+        "cpu" => vec![CPUExecutionProvider::default().build()],
+        _ => vec![
+            DirectMLExecutionProvider::default().with_device_id(0).build(),
+            CUDAExecutionProvider::default().with_device_id(0).build(),
+            CPUExecutionProvider::default().build(),
+        ],
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn execution_providers_for_preference(
+    preferred_gpu: &str,
+) -> Vec<ort::execution_providers::ExecutionProviderDispatch> {
+    use ort::execution_providers::{
+        CPUExecutionProvider, CUDAExecutionProvider, TensorRTExecutionProvider,
+    };
+
+    match preferred_gpu {
+        "nvidia" | "cuda" => vec![
+            CUDAExecutionProvider::default().with_device_id(0).build(),
+            TensorRTExecutionProvider::default().build(),
+            CPUExecutionProvider::default().build(),
+        ],
+        "tensorrt" => vec![
+            TensorRTExecutionProvider::default().build(),
+            CUDAExecutionProvider::default().with_device_id(0).build(),
+            CPUExecutionProvider::default().build(),
+        ],
+        "cpu" => vec![CPUExecutionProvider::default().build()],
+        _ => vec![
+            CUDAExecutionProvider::default().with_device_id(0).build(),
+            TensorRTExecutionProvider::default().build(),
+            CPUExecutionProvider::default().build(),
+        ],
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn execution_providers_for_preference(
+    preferred_gpu: &str,
+) -> Vec<ort::execution_providers::ExecutionProviderDispatch> {
+    use ort::execution_providers::{CoreMLExecutionProvider, CPUExecutionProvider};
+
+    match preferred_gpu {
+        "cpu" => vec![CPUExecutionProvider::default().build()],
+        _ => vec![
+            CoreMLExecutionProvider::default().build(),
+            CPUExecutionProvider::default().build(),
+        ],
+    }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+fn execution_providers_for_preference(
+    _preferred_gpu: &str,
+) -> Vec<ort::execution_providers::ExecutionProviderDispatch> {
+    use ort::execution_providers::CPUExecutionProvider;
+
+    vec![CPUExecutionProvider::default().build()]
+}
+
+fn create_session_for_model(model_path: &Path, model_name: &str) -> Result<Session> {
+    let preferred_gpu = resolved_gpu_preference();
+
+    #[cfg(target_os = "windows")]
+    log_windows_provider_availability(&preferred_gpu);
+
+    let providers = execution_providers_for_preference(&preferred_gpu);
+    
+    info!(
+        "Creating session for '{}' with GPU preference '{}'",
+        model_name, preferred_gpu
+    );
+    
+    #[cfg(target_os = "windows")]
+    {
+        info!("Provider chain for this session:");
+        for (i, _prov) in providers.iter().enumerate() {
+            info!("  [{}] Attempting...", i + 1);
+        }
+    }
+
+    let builder = Session::builder().map_err(|e| {
+        log::error!("Failed to create ONNX SessionBuilder for '{}': {}", model_name, e);
+        e
+    })?;
+
+    let builder = builder.with_execution_providers(providers).map_err(|e| {
+        log::error!(
+            "Failed to configure execution providers for '{}': {}",
+            model_name,
+            e
+        );
+        e
+    })?;
+
+    let session = builder.commit_from_file(model_path).map_err(|e| {
+        log::error!("Failed to load model '{}' from {}: {}", model_name, model_path.display(), e);
+        e
+    })?;
+
+    info!("Session for '{}' created successfully (inference on first run will show actual provider)", model_name);
+
+    Ok(session)
+}
 
 pub struct AiModels {
     pub sam_encoder: Mutex<Session>,
@@ -519,17 +960,46 @@ pub async fn get_or_init_ai_models(
 
     let _ = ort::init().with_name("AI").commit();
 
+    info!("");
+    info!("╔════════════════════════════════════════════════════════════╗");
+    info!("║         ONNX Runtime Model Loading                         ║");
+    info!("╚════════════════════════════════════════════════════════════╝");
+    info!("ORT_EXECUTION_PROVIDERS environment: {:?}", 
+        std::env::var("ORT_EXECUTION_PROVIDERS").unwrap_or_else(|_| "NOT SET".to_string()));
+    info!("ORT_DYLIB_PATH environment: {:?}", 
+        std::env::var("ORT_DYLIB_PATH").unwrap_or_else(|_| "NOT SET".to_string()));
+    info!("⚠️  If models load but use CPU, the CUDA provider DLL was not found.");
+    info!("    Ensure onnxruntime_providers_cuda.dll is in the same directory as onnxruntime.dll");
+    info!("    or in a directory included in the Windows PATH environment variable.");
+    info!("Loading AI models with configured providers...");
+    info!("");
+
     let encoder_path = models_dir.join(ENCODER_FILENAME);
     let decoder_path = models_dir.join(DECODER_FILENAME);
     let u2netp_path = models_dir.join(U2NETP_FILENAME);
     let sky_seg_path = models_dir.join(SKYSEG_FILENAME);
     let depth_path = models_dir.join(DEPTH_FILENAME);
 
-    let sam_encoder = Session::builder()?.commit_from_file(encoder_path)?;
-    let sam_decoder = Session::builder()?.commit_from_file(decoder_path)?;
-    let u2netp = Session::builder()?.commit_from_file(u2netp_path)?;
-    let sky_seg = Session::builder()?.commit_from_file(sky_seg_path)?;
-    let depth_anything = Session::builder()?.commit_from_file(depth_path)?;
+    info!("→ Loading SAM Encoder from: {}", encoder_path.display());
+    let sam_encoder = create_session_for_model(&encoder_path, "SAM Encoder")?;
+    info!("✓ SAM Encoder loaded successfully");
+
+    info!("→ Loading SAM Decoder from: {}", decoder_path.display());
+    let sam_decoder = create_session_for_model(&decoder_path, "SAM Decoder")?;
+    info!("✓ SAM Decoder loaded successfully");
+
+    info!("→ Loading U2NetP from: {}", u2netp_path.display());
+    let u2netp = create_session_for_model(&u2netp_path, "U2NetP")?;
+    info!("✓ U2NetP loaded successfully");
+
+    info!("→ Loading Sky Segmentation from: {}", sky_seg_path.display());
+    let sky_seg = create_session_for_model(&sky_seg_path, "Sky Segmentation")?;
+    info!("✓ Sky Segmentation loaded successfully");
+
+    info!("→ Loading Depth Anything from: {}", depth_path.display());
+    let depth_anything = create_session_for_model(&depth_path, "Depth Anything")?;
+    info!("✓ Depth Anything loaded successfully");
+    info!("");
 
     crate::register_exit_handler();
 
@@ -596,7 +1066,11 @@ pub async fn get_or_init_denoise_model(
 
     let _ = ort::init().with_name("AI-Denoise").commit();
     let model_path = models_dir.join(DENOISE_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    
+    info!("→ Loading Denoising Model from: {}", model_path.display());
+    let session = create_session_for_model(&model_path, "NIND Denoise")?;
+    info!("✓ Denoising Model loaded successfully");
+    
     let denoise_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -665,7 +1139,11 @@ pub async fn get_or_init_clip_models(
 
     let _ = ort::init().with_name("AI-Tagging").commit();
     let clip_model_path = models_dir.join(CLIP_MODEL_FILENAME);
-    let model = Mutex::new(Session::builder()?.commit_from_file(clip_model_path)?);
+    
+    info!("→ Loading CLIP Model from: {}", clip_model_path.display());
+    let model = Mutex::new(create_session_for_model(&clip_model_path, "CLIP")?);
+    info!("✓ CLIP Model loaded successfully");
+    
     let tokenizer =
         Tokenizer::from_file(clip_tokenizer_path).map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
@@ -728,7 +1206,11 @@ pub async fn get_or_init_lama_model(
 
     let _ = ort::init().with_name("AI-Inpainting").commit();
     let model_path = models_dir.join(LAMA_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    
+    info!("→ Loading Inpainting Model (LAMA) from: {}", model_path.display());
+    let session = create_session_for_model(&model_path, "LAMA Inpainting")?;
+    info!("✓ Inpainting Model loaded successfully");
+    
     let lama_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();

@@ -30,9 +30,18 @@ fn download_and_verify(
     let temp_path = out_dir.join(temp_filename);
 
     println!(
-        "cargo:warning=Downloading to temporary path: {:?}",
-        temp_path
+        "cargo:warning=⬇️  Downloading ONNX Runtime library..."
     );
+    println!(
+        "cargo:warning=   URL: {}", url
+    );
+    println!(
+        "cargo:warning=   Temp: {:?}", temp_path
+    );
+    println!(
+        "cargo:warning=   Final: {:?}", dest_path
+    );
+    
     let mut response = reqwest::blocking::get(url)?;
 
     if !response.status().is_success() {
@@ -45,14 +54,14 @@ fn download_and_verify(
 
     let mut temp_file = fs::File::create(&temp_path)?;
     response.copy_to(&mut temp_file)?;
-    println!("cargo:warning=Download complete. Verifying file integrity...");
+    println!("cargo:warning=✓ Download complete. Verifying file integrity...");
 
     match verify_sha256(&temp_path, expected_hash) {
         Ok(true) => {
             fs::copy(&temp_path, dest_path)?;
             fs::remove_file(&temp_path)?;
             println!(
-                "cargo:warning=Successfully downloaded and verified {:?}.",
+                "cargo:warning=✓ Successfully downloaded and verified {:?}.",
                 dest_path
             );
             Ok(())
@@ -123,29 +132,57 @@ fn main() {
     fs::create_dir_all(&dest_dir).unwrap();
     let dest_path = dest_dir.join(lib_name);
 
+    let allow_custom_ort = env::var("RAPIDRAW_ALLOW_CUSTOM_ORT")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+
     let mut is_valid = false;
     if dest_path.exists() {
-        match verify_sha256(&dest_path, expected_hash) {
-            Ok(true) => {
-                println!(
-                    "cargo:warning=ONNX Runtime library already exists and is valid. Skipping download."
-                );
-                is_valid = true;
-            }
-            Ok(false) => {
-                println!(
-                    "cargo:warning=File {:?} exists but has incorrect hash. Deleting and re-downloading.",
-                    dest_path
-                );
-                fs::remove_file(&dest_path).unwrap();
-            }
-            Err(e) => {
-                println!(
-                    "cargo:warning=Could not verify file {:?}: {}. Re-downloading.",
-                    dest_path, e
-                );
+        if allow_custom_ort {
+            println!(
+                "cargo:warning=⚠️  RAPIDRAW_ALLOW_CUSTOM_ORT is set. Skipping hash verification for custom ONNX Runtime library."
+            );
+            println!(
+                "cargo:warning=   If GPU does not initialize, unset RAPIDRAW_ALLOW_CUSTOM_ORT and rebuild to fetch the expected runtime."
+            );
+            is_valid = true;
+        } else {
+            match verify_sha256(&dest_path, expected_hash) {
+                Ok(true) => {
+                    println!(
+                        "cargo:warning=✓ ONNX Runtime library already exists and is valid. Skipping download."
+                    );
+                    println!(
+                        "cargo:warning=  Path: {}", dest_path.display()
+                    );
+                    is_valid = true;
+                }
+                Ok(false) => {
+                    println!(
+                        "cargo:warning=⚠️  Existing ONNX Runtime library hash mismatch at {:?}.",
+                        dest_path
+                    );
+                    println!(
+                        "cargo:warning=   This often indicates an incompatible custom runtime (for example older GPU DLL sets)."
+                    );
+                    println!(
+                        "cargo:warning=   Deleting and re-downloading the expected runtime for this build."
+                    );
+                    fs::remove_file(&dest_path).unwrap();
+                }
+                Err(e) => {
+                    println!(
+                        "cargo:warning=⚠️  Could not verify file {:?}: {}. Re-downloading.",
+                        dest_path, e
+                    );
+                }
             }
         }
+    } else {
+        println!(
+            "cargo:warning=❌ ONNX Runtime library not found at {:?}. Will download.",
+            dest_path
+        );
     }
 
     if !is_valid {
@@ -163,16 +200,22 @@ fn main() {
         }
     }
 
+    // Set ORT_LIB_LOCATION for all platforms to help ORT find the library at runtime
+    // This is especially important for the load-dynamic feature
+    println!("cargo:rustc-env=ORT_LIB_LOCATION={}", dest_dir.display());
+    println!("cargo:rustc-env=ORT_STRATEGY=manual");
+    println!("cargo:rustc-link-search=native={}", dest_dir.display());
+
     if target_os == "android" {
         let jni_libs_dir = manifest_dir.join("gen/android/app/src/main/jniLibs/arm64-v8a");
         fs::create_dir_all(&jni_libs_dir).unwrap();
         fs::copy(&dest_path, jni_libs_dir.join(lib_name)).unwrap();
-
-        println!("cargo:rustc-env=ORT_LIB_LOCATION={}", dest_dir.display());
-        println!("cargo:rustc-env=ORT_STRATEGY=manual");
-        println!("cargo:rustc-link-search=native={}", dest_dir.display());
     }
 
+    println!("cargo:warning=ONNX Runtime library setup complete:");
+    println!("cargo:warning=  Platform: {}-{}", target_os, target_arch);
+    println!("cargo:warning=  Library: {}", lib_name);
+    println!("cargo:warning=  Location: {}", dest_dir.display());
     println!("cargo:rerun-if-changed=build.rs");
 
     tauri_build::build()
