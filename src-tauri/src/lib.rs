@@ -79,10 +79,10 @@ use crate::formats::is_raw_file;
 use crate::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
 use crate::image_loader::{composite_patches_on_image, load_and_composite};
 use crate::image_processing::{
-    Crop, RenderRequest, apply_coarse_rotation, apply_cpu_default_raw_processing, apply_flip,
-    apply_geometry_warp, apply_linear_to_srgb, downscale_f32_image, get_all_adjustments_from_json,
-    get_or_init_gpu_context, process_and_get_dynamic_image, resolve_tonemapper_override,
-    resolve_tonemapper_override_from_handle, warp_image_geometry,
+    Crop, RenderRequest, apply_coarse_rotation, apply_cpu_default_raw_processing, apply_crop,
+    apply_flip, apply_geometry_warp, apply_linear_to_srgb, apply_rotation, downscale_f32_image,
+    get_all_adjustments_from_json, get_or_init_gpu_context, process_and_get_dynamic_image,
+    resolve_tonemapper_override, resolve_tonemapper_override_from_handle, warp_image_geometry,
 };
 use crate::mask_generation::{
     MaskDefinition, generate_mask_bitmap, get_cached_or_generate_mask,
@@ -165,12 +165,13 @@ pub fn generate_transformed_preview(
             if *hash == transform_hash {
                 (Arc::clone(img), *offset)
             } else {
-                let (arc_img, offset) = compute_full_transformed_res(loaded_image, adjustments)?;
+                let (arc_img, offset) =
+                    compute_full_transformed_res(state, loaded_image, adjustments)?;
                 *cache_lock = Some((transform_hash, Arc::clone(&arc_img), offset));
                 (arc_img, offset)
             }
         } else {
-            let (arc_img, offset) = compute_full_transformed_res(loaded_image, adjustments)?;
+            let (arc_img, offset) = compute_full_transformed_res(state, loaded_image, adjustments)?;
             *cache_lock = Some((transform_hash, Arc::clone(&arc_img), offset));
             (arc_img, offset)
         }
@@ -194,14 +195,69 @@ pub fn generate_transformed_preview(
 }
 
 fn compute_full_transformed_res(
+    state: &tauri::State<AppState>,
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
 ) -> Result<(Arc<DynamicImage>, (f32, f32)), String> {
+    let geo_hash = crate::cache_utils::calculate_geometry_hash(adjustments);
+
+    let warped_arc = {
+        let mut cache_lock = state
+            .patched_warped_cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+
+        if let Some((hash, img)) = cache_lock.as_ref() {
+            if *hash == geo_hash {
+                Arc::clone(img)
+            } else {
+                let new_img = compute_patched_and_warped(loaded_image, adjustments)?;
+                *cache_lock = Some((geo_hash, Arc::clone(&new_img)));
+                new_img
+            }
+        } else {
+            let new_img = compute_patched_and_warped(loaded_image, adjustments)?;
+            *cache_lock = Some((geo_hash, Arc::clone(&new_img)));
+            new_img
+        }
+    };
+
+    let orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
+    let rotation = adjustments["rotation"].as_f64().unwrap_or(0.0) as f32;
+    let flip_h = adjustments["flipHorizontal"].as_bool().unwrap_or(false);
+    let flip_v = adjustments["flipVertical"].as_bool().unwrap_or(false);
+
+    let mut img_cow = Cow::Borrowed(warped_arc.as_ref());
+
+    img_cow = apply_coarse_rotation(img_cow, orientation_steps);
+
+    if rotation.abs() > 1e-5 {
+        img_cow = apply_rotation(img_cow, rotation);
+    }
+
+    img_cow = apply_flip(img_cow, flip_h, flip_v);
+
+    let mut offset = (0.0, 0.0);
+    if let Some(crop_val) = adjustments.get("crop") {
+        if let Ok(crop) = serde_json::from_value::<Crop>(crop_val.clone()) {
+            offset = (crop.x as f32, crop.y as f32);
+        }
+        img_cow = apply_crop(img_cow, crop_val);
+    }
+
+    Ok((Arc::new(img_cow.into_owned()), offset))
+}
+
+fn compute_patched_and_warped(
+    loaded_image: &LoadedImage,
+    adjustments: &serde_json::Value,
+) -> Result<Arc<DynamicImage>, String> {
     let has_patches = adjustments
         .get("aiPatches")
         .and_then(|v| v.as_array())
         .is_some_and(|a| !a.is_empty());
-    let patched_original_image = if has_patches {
+
+    let patched_image = if has_patches {
         Cow::Owned(
             composite_patches_on_image(&loaded_image.image, adjustments)
                 .map_err(|e| format!("Failed to composite AI patches: {}", e))?,
@@ -210,8 +266,9 @@ fn compute_full_transformed_res(
         Cow::Borrowed(loaded_image.image.as_ref())
     };
 
-    let (transformed_img, offset) = apply_all_transformations(patched_original_image, adjustments);
-    Ok((Arc::new(transformed_img.into_owned()), offset))
+    let warped = apply_geometry_warp(patched_image, adjustments);
+
+    Ok(Arc::new(warped.into_owned()))
 }
 
 #[tauri::command]
@@ -2082,6 +2139,7 @@ pub fn run() {
             lens_db: Mutex::new(None),
             load_image_generation: Arc::new(AtomicUsize::new(0)),
             full_warped_cache: Mutex::new(None),
+            patched_warped_cache: Mutex::new(None),
             full_transformed_cache: Mutex::new(None),
             decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
             thumbnail_manager: ThumbnailManager::new(),
