@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSliderHoverArrowKeys } from './sliderArrowKeys';
 
 type SliderChangeEvent =
   | React.ChangeEvent<HTMLInputElement>
@@ -110,6 +111,25 @@ const Slider = ({
 
   const onDragStateChangeRef = useRef(onDragStateChange);
   onDragStateChangeRef.current = onDragStateChange;
+
+  const hoverArrowKeys = useSliderHoverArrowKeys({
+    containerRef,
+    disabled,
+    max,
+    min,
+    onChange: (nextValue) => {
+      setDisplayValue(nextValue);
+      setInputValue(String(nextValue));
+      onChangeRef.current({ target: { value: nextValue } });
+    },
+    onInteractionEnd: () => {
+      onDragStateChangeRef.current(false);
+      onPointerUp?.();
+    },
+    onInteractionStart: () => onDragStateChangeRef.current(true),
+    step,
+    value,
+  });
 
   useEffect(() => {
     onDragStateChangeRef.current(isDragging);
@@ -508,7 +528,12 @@ const Slider = ({
   const numericValue = isNaN(Number(value)) ? 0 : Number(value);
 
   return (
-    <div className={`mb-2 group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`} ref={containerRef}>
+    <div
+      className={`mb-2 group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      onMouseEnter={hoverArrowKeys.onMouseEnter}
+      onMouseLeave={hoverArrowKeys.onMouseLeave}
+      ref={containerRef}
+    >
       <div className="flex justify-between items-center mb-1">
         <div
           className={`grid ${typeof label === 'string' && !disabled ? 'cursor-pointer' : ''}`}

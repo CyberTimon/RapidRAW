@@ -18,6 +18,7 @@ const entries = [
   'src/crop/store.test.ts',
   'src/shortcuts/profiles.test.ts',
   'src/shortcuts/libraryNavigation.test.ts',
+  'src/components/ui/sliderArrowKeys.test.ts',
   'src/utils/thumbnailCache.test.ts',
 ];
 try {
