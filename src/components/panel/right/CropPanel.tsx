@@ -545,8 +545,9 @@ export default function CropPanel() {
   const handleAutoDetectLens = useCallback(async () => {
     const exifMaker = selectedImage?.exif?.Make;
     const exifModel = selectedImage?.exif?.LensModel;
+    const exifCameraModel = selectedImage?.exif?.Model;
 
-    if (!exifMaker || !exifModel) {
+    if (!exifMaker || (!exifModel && !exifCameraModel)) {
       setDetectionStatus('not_found');
       return;
     }
@@ -555,7 +556,8 @@ export default function CropPanel() {
     try {
       const result: [string, string] | null = await invoke('autodetect_lens', {
         maker: exifMaker,
-        model: exifModel,
+        model: exifModel ?? '',
+        cameraModel: exifCameraModel ?? '',
       });
 
       if (result) {

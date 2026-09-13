@@ -173,6 +173,31 @@ fn strip_maker_prefix(name: &str, maker: &str) -> String {
     name.to_string()
 }
 
+fn pick_name(names: &[MultiName], fallback: &str) -> String {
+    names
+        .iter()
+        .find(|n| n.lang.as_deref() == Some("en"))
+        .or_else(|| names.first())
+        .map(|n| n.value.clone())
+        .unwrap_or_else(|| fallback.to_string())
+}
+
+fn any_name_matches(names: &[MultiName], needle: &str) -> bool {
+    names
+        .iter()
+        .any(|n| n.value.trim().eq_ignore_ascii_case(needle))
+}
+
+impl Camera {
+    pub fn get_maker(&self) -> String {
+        pick_name(&self.maker, "Misc")
+    }
+
+    pub fn get_model(&self) -> String {
+        pick_name(&self.model, "Unknown Model")
+    }
+}
+
 impl Lens {
     pub fn get_full_model_name(&self) -> String {
         self.model
@@ -640,7 +665,86 @@ pub fn get_lensfun_lenses_for_maker(
     }
 }
 
+pub fn find_lens_by_camera_mount<'a>(
+    db: &'a LensDatabase,
+    camera_maker: &str,
+    camera_model: &str,
+) -> Option<&'a Lens> {
+    let clean_maker = camera_maker.trim().trim_matches('"');
+    let clean_model = camera_model.trim().trim_matches('"');
+
+    if clean_maker.is_empty() || clean_model.is_empty() {
+        return None;
+    }
+
+    let mounts: Vec<&str> = db
+        .cameras
+        .iter()
+        .filter(|c| {
+            any_name_matches(&c.maker, clean_maker) && any_name_matches(&c.model, clean_model)
+        })
+        .map(|c| c.mount.trim())
+        .filter(|m| !m.is_empty())
+        .collect();
+
+    if mounts.is_empty() {
+        return None;
+    }
+
+    let mut hits: Vec<&Lens> = Vec::new();
+    for lens in &db.lenses {
+        if lens
+            .mount
+            .iter()
+            .any(|m| mounts.iter().any(|c| m.trim().eq_ignore_ascii_case(c)))
+        {
+            hits.push(lens);
+            if hits.len() > 1 {
+                log::info!(
+                    "Mount fallback for {} {}: more than one lens on mount, giving up.",
+                    clean_maker,
+                    clean_model
+                );
+                return None;
+            }
+        }
+    }
+
+    let lens = hits.into_iter().next()?;
+    log::info!(
+        "Mount fallback for {} {}: using fixed lens {} {}",
+        clean_maker,
+        clean_model,
+        lens.get_maker(),
+        lens.get_full_model_name()
+    );
+    Some(lens)
+}
+
+fn lens_result(db: &LensDatabase, lens: &Lens) -> (String, String) {
+    let lens_maker = lens.get_maker();
+    let maker_lenses = lenses_for_maker(db, &lens_maker);
+    (lens_maker, lens.get_display_name(&maker_lenses))
+}
+
 pub fn find_best_lens_match(
+    db: &LensDatabase,
+    maker: &str,
+    model: &str,
+    camera_model: &str,
+) -> Option<(String, String)> {
+    let clean_model = model.trim().trim_matches('"');
+
+    if !clean_model.is_empty()
+        && let Some(hit) = find_lens_by_fuzzy_model(db, maker, clean_model)
+    {
+        return Some(hit);
+    }
+
+    find_lens_by_camera_mount(db, maker, camera_model).map(|lens| lens_result(db, lens))
+}
+
+fn find_lens_by_fuzzy_model(
     db: &LensDatabase,
     maker: &str,
     model: &str,
@@ -726,6 +830,7 @@ pub fn find_best_lens_match(
 pub fn autodetect_lens(
     maker: String,
     model: String,
+    camera_model: Option<String>,
     state: tauri::State<AppState>,
 ) -> Result<Option<(String, String)>, String> {
     let db_guard = state
@@ -733,7 +838,12 @@ pub fn autodetect_lens(
         .lock()
         .map_err(|e| format!("Lock poisoned: {}", e))?;
     if let Some(db) = &*db_guard {
-        Ok(find_best_lens_match(db, &maker, &model))
+        Ok(find_best_lens_match(
+            db,
+            &maker,
+            &model,
+            camera_model.as_deref().unwrap_or(""),
+        ))
     } else {
         Ok(None)
     }

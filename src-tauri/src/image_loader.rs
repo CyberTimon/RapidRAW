@@ -863,6 +863,10 @@ pub async fn load_image(
             .full_transformed_cache
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
+        *state
+            .patched_warped_cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
 
         state
             .mask_cache

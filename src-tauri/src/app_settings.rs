@@ -245,6 +245,10 @@ pub struct ExportPreset {
     pub preserve_folders: Option<bool>,
     #[serde(default)]
     pub last_export_path: Option<String>,
+    #[serde(default)]
+    pub destination_type: Option<String>,
+    #[serde(default)]
+    pub subfolder: Option<String>,
 }
 
 pub fn default_export_presets() -> Vec<ExportPreset> {
@@ -270,6 +274,8 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             export_masks: Some(false),
             preserve_folders: Some(false),
             last_export_path: None,
+            destination_type: Some("customFolder".to_string()),
+            subfolder: Some("".to_string()),
         },
         ExportPreset {
             id: "default-fast".to_string(),
@@ -292,6 +298,8 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             export_masks: Some(false),
             preserve_folders: Some(false),
             last_export_path: None,
+            destination_type: Some("customFolder".to_string()),
+            subfolder: Some("".to_string()),
         },
     ]
 }
@@ -563,7 +571,7 @@ impl Default for AppSettings {
             thumbnail_size: Some("small".to_string()),
             #[cfg(not(target_os = "android"))]
             thumbnail_size: Some("medium".to_string()),
-            thumbnail_aspect_ratio: Some("cover".to_string()),
+            thumbnail_aspect_ratio: Some("contain".to_string()),
             ai_provider: Some("cpu".to_string()),
             adjustment_visibility: default_adjustment_visibility(),
             open_tree_sections: default_open_tree_sections(),

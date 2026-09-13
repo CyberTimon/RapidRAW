@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Invokes, ImageFile } from '../../ui/AppProperties';
+import { Invokes, ImageFile, ThumbnailAspectRatio } from '../../ui/AppProperties';
 import { Thumbnail } from './LibraryItems';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
@@ -1132,12 +1132,15 @@ export default function CullingView(props: any) {
     };
   }, [resize, stopResizing]);
 
+  const effectiveAspectRatio =
+    thumbnailAspectRatio === ThumbnailAspectRatio.Justified ? ThumbnailAspectRatio.Contain : thumbnailAspectRatio;
+
   const rowProps = useMemo(
     () => ({
       imageList,
       multiSelectedPaths,
       activePath,
-      thumbnailAspectRatio,
+      thumbnailAspectRatio: effectiveAspectRatio,
       imageRatings,
       onContextMenu,
       onImageDoubleClick,
@@ -1150,7 +1153,7 @@ export default function CullingView(props: any) {
       imageList,
       multiSelectedPaths,
       activePath,
-      thumbnailAspectRatio,
+      effectiveAspectRatio,
       imageRatings,
       onContextMenu,
       onImageDoubleClick,

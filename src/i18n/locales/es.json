@@ -807,6 +807,12 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "destination": {
+      "customFolder": "Carpeta personalizada",
+      "originalFolder": "Carpeta de la imagen original",
+      "subfolder": "Subcarpeta",
+      "subfolderPlaceholder": "p. ej. final, WebP"
+    },
     "dialog": {
       "saveEditedImageTitle": "Guardar imagen editada",
       "selectFolderTitle": "Seleccionar carpeta para exportar {{count}} imagen(es)",
@@ -841,6 +847,7 @@
     },
     "sections": {
       "advanced": "Avanzado",
+      "destination": "Destino",
       "fileNaming": "Nomenclatura de archivos",
       "fileSettings": "Ajustes de archivo",
       "imageSizing": "Tamaño de imagen",
@@ -980,6 +987,9 @@
         "clearSearch": "Borrar búsqueda",
         "collapse": "Contraer",
         "expand": "Expandir",
+        "moreOptions": "Opciones",
+        "navBack": "Atrás",
+        "navForward": "Adelante",
         "sortFolders": "Ordenar carpetas"
       }
     },
@@ -1100,6 +1110,7 @@
     },
     "thumbnailFit": {
       "fillSquare": "Llenar cuadrado",
+      "justified": "Mosaico",
       "originalRatio": "Proporción original"
     },
     "thumbnailSize": {

@@ -165,12 +165,13 @@ pub fn generate_transformed_preview(
             if *hash == transform_hash {
                 (Arc::clone(img), *offset)
             } else {
-                let (arc_img, offset) = compute_full_transformed_res(loaded_image, adjustments)?;
+                let (arc_img, offset) =
+                    compute_full_transformed_res(state, loaded_image, adjustments)?;
                 *cache_lock = Some((transform_hash, Arc::clone(&arc_img), offset));
                 (arc_img, offset)
             }
         } else {
-            let (arc_img, offset) = compute_full_transformed_res(loaded_image, adjustments)?;
+            let (arc_img, offset) = compute_full_transformed_res(state, loaded_image, adjustments)?;
             *cache_lock = Some((transform_hash, Arc::clone(&arc_img), offset));
             (arc_img, offset)
         }
@@ -194,14 +195,51 @@ pub fn generate_transformed_preview(
 }
 
 fn compute_full_transformed_res(
+    state: &tauri::State<AppState>,
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
 ) -> Result<(Arc<DynamicImage>, (f32, f32)), String> {
+    let geo_hash = crate::cache_utils::calculate_patched_warped_hash(adjustments);
+
+    let warped_arc = {
+        let mut cache_lock = state
+            .patched_warped_cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+
+        if let Some((hash, img)) = cache_lock.as_ref() {
+            if *hash == geo_hash {
+                Arc::clone(img)
+            } else {
+                let new_img = compute_patched_and_warped(loaded_image, adjustments)?;
+                *cache_lock = Some((geo_hash, Arc::clone(&new_img)));
+                new_img
+            }
+        } else {
+            let new_img = compute_patched_and_warped(loaded_image, adjustments)?;
+            *cache_lock = Some((geo_hash, Arc::clone(&new_img)));
+            new_img
+        }
+    };
+
+    let (transformed_img, offset) = crate::adjustment_utils::apply_spatial_transformations(
+        Cow::Borrowed(warped_arc.as_ref()),
+        adjustments,
+    );
+
+    Ok((Arc::new(transformed_img.into_owned()), offset))
+}
+
+fn compute_patched_and_warped(
+    loaded_image: &LoadedImage,
+    adjustments: &serde_json::Value,
+) -> Result<Arc<DynamicImage>, String> {
     let has_patches = adjustments
         .get("aiPatches")
         .and_then(|v| v.as_array())
         .is_some_and(|a| !a.is_empty());
-    let patched_original_image = if has_patches {
+
+    let patched_image = if has_patches {
         Cow::Owned(
             composite_patches_on_image(&loaded_image.image, adjustments)
                 .map_err(|e| format!("Failed to composite AI patches: {}", e))?,
@@ -210,8 +248,10 @@ fn compute_full_transformed_res(
         Cow::Borrowed(loaded_image.image.as_ref())
     };
 
-    let (transformed_img, offset) = apply_all_transformations(patched_original_image, adjustments);
-    Ok((Arc::new(transformed_img.into_owned()), offset))
+    let warped = apply_geometry_warp(patched_image, adjustments);
+    let blurred = crate::lens_blur::apply_lens_blur(warped, adjustments);
+
+    Ok(Arc::new(blurred.into_owned()))
 }
 
 #[tauri::command]
@@ -2258,6 +2298,7 @@ pub fn run() {
             lens_db: Mutex::new(None),
             load_image_generation: Arc::new(AtomicUsize::new(0)),
             full_warped_cache: Mutex::new(None),
+            patched_warped_cache: Mutex::new(None),
             full_transformed_cache: Mutex::new(None),
             decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
             thumbnail_manager: ThumbnailManager::new(),
@@ -2389,16 +2430,40 @@ pub fn run() {
         .run(#[allow(unused_variables)] |app_handle, event| {
             match event {
                 #[cfg(target_os = "macos")]
-                tauri::RunEvent::Opened { urls } => {
-                    if let Some(url) = urls.first()
-                        && let Ok(path) = url.to_file_path()
-                        && let Some(path_str) = path.to_str()
-                    {
-                        let state = app_handle.state::<AppState>();
-                        *state.initial_file_path.lock().unwrap() = Some(path_str.to_string());
-                        log::info!("macOS initial open: Stored path {} for later.", path_str);
-                    }
-                }
+				tauri::RunEvent::Opened { urls } => {
+				    if let Some(url) = urls.first()
+				        && let Ok(path) = url.to_file_path()
+				        && let Some(path_str) = path.to_str()
+				    {
+				        let state = app_handle.state::<AppState>();
+
+				        if state
+				            .window_setup_complete
+				            .load(std::sync::atomic::Ordering::Relaxed)
+				        {
+				            if let Some(window) = app_handle.get_webview_window("main") {
+				                let _ = window.unminimize();
+				                let _ = window.show();
+				                let _ = window.set_focus();
+				            }
+
+				            log::info!("macOS runtime open: Opening {}.", path_str);
+
+				            emit_launch_request(
+				                app_handle,
+				                LaunchRequest::OpenFile(path_str.to_string()),
+				            );
+				        } else {
+				            *state.initial_file_path.lock().unwrap() =
+				                Some(path_str.to_string());
+
+				            log::info!(
+				                "macOS initial open: Stored path {} for later.",
+				                path_str
+				            );
+				        }
+				    }
+				}
                 tauri::RunEvent::ExitRequested { api, .. } => {
                     api.prevent_exit();
 
