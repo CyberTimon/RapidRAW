@@ -37,6 +37,7 @@ use crate::lut_processing::{
 use crate::mask_generation::{MaskDefinition, generate_mask_bitmap};
 
 use crate::cache_utils::{calculate_full_job_hash, calculate_transform_hash};
+use crate::desktop_activity::DesktopActivityGuard;
 use crate::{
     apply_all_transformations, generate_transformed_preview, get_cached_or_generate_mask,
     hydrate_adjustments, load_settings, resolve_warped_image_for_masks,
@@ -308,6 +309,7 @@ struct ExportTaskGuard {
     task_token: Arc<Mutex<Option<Arc<AtomicBool>>>>,
     cancellation_token: Arc<AtomicBool>,
     app_handle: Option<tauri::AppHandle>,
+    _desktop_activity: Option<DesktopActivityGuard>,
 }
 
 impl ExportTaskGuard {
@@ -319,6 +321,27 @@ impl ExportTaskGuard {
             task_token,
             cancellation_token,
             app_handle: None,
+            _desktop_activity: match DesktopActivityGuard::acquire_export() {
+                Ok(activity) => Some(activity),
+                Err(error) => {
+                    log::warn!("Could not protect the export from background throttling: {error}");
+                    None
+                }
+            },
+        }
+    }
+
+    #[cfg(test)]
+    fn with_activity(
+        task_token: Arc<Mutex<Option<Arc<AtomicBool>>>>,
+        cancellation_token: Arc<AtomicBool>,
+        activity: DesktopActivityGuard,
+    ) -> Self {
+        Self {
+            task_token,
+            cancellation_token,
+            app_handle: None,
+            _desktop_activity: Some(activity),
         }
     }
 
@@ -405,6 +428,101 @@ impl Drop for ExportTaskGuard {
                 _ => {}
             },
         );
+    }
+}
+
+#[cfg(test)]
+mod export_task_guard_tests {
+    use super::*;
+
+    fn guarded_task(
+        acquisitions: Arc<AtomicUsize>,
+        releases: Arc<AtomicUsize>,
+    ) -> (ExportTaskGuard, Arc<AtomicBool>) {
+        let task_token = Arc::new(Mutex::new(None));
+        let cancellation_token = register_export_task(&task_token).unwrap();
+        let activity = DesktopActivityGuard::for_test(
+            move || {
+                acquisitions.fetch_add(1, Ordering::SeqCst);
+            },
+            move || {
+                releases.fetch_add(1, Ordering::SeqCst);
+            },
+        );
+        (
+            ExportTaskGuard::with_activity(
+                task_token,
+                Arc::clone(&cancellation_token),
+                activity,
+            ),
+            cancellation_token,
+        )
+    }
+
+    #[test]
+    fn releases_background_activity_after_success() {
+        let acquisitions = Arc::new(AtomicUsize::new(0));
+        let releases = Arc::new(AtomicUsize::new(0));
+        let (guard, cancellation_token) =
+            guarded_task(Arc::clone(&acquisitions), Arc::clone(&releases));
+
+        assert!(finish_export_task(
+            &guard.task_token,
+            &cancellation_token,
+            |cancelled| assert!(!cancelled),
+        ));
+        drop(guard);
+
+        assert_eq!(acquisitions.load(Ordering::SeqCst), 1);
+        assert_eq!(releases.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn releases_background_activity_after_cancellation() {
+        let acquisitions = Arc::new(AtomicUsize::new(0));
+        let releases = Arc::new(AtomicUsize::new(0));
+        let (guard, cancellation_token) =
+            guarded_task(Arc::clone(&acquisitions), Arc::clone(&releases));
+        cancellation_token.store(true, Ordering::SeqCst);
+
+        assert!(finish_export_task(
+            &guard.task_token,
+            &cancellation_token,
+            |cancelled| assert!(cancelled),
+        ));
+        drop(guard);
+
+        assert_eq!(acquisitions.load(Ordering::SeqCst), 1);
+        assert_eq!(releases.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn releases_background_activity_after_failure() {
+        let acquisitions = Arc::new(AtomicUsize::new(0));
+        let releases = Arc::new(AtomicUsize::new(0));
+        let (guard, _) = guarded_task(Arc::clone(&acquisitions), Arc::clone(&releases));
+
+        drop(guard);
+
+        assert_eq!(acquisitions.load(Ordering::SeqCst), 1);
+        assert_eq!(releases.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn releases_background_activity_when_task_unwinds() {
+        let acquisitions = Arc::new(AtomicUsize::new(0));
+        let releases = Arc::new(AtomicUsize::new(0));
+        let unwind_acquisitions = Arc::clone(&acquisitions);
+        let unwind_releases = Arc::clone(&releases);
+
+        let result = std::panic::catch_unwind(move || {
+            let (_guard, _) = guarded_task(unwind_acquisitions, unwind_releases);
+            panic!("simulated export worker panic");
+        });
+
+        assert!(result.is_err());
+        assert_eq!(acquisitions.load(Ordering::SeqCst), 1);
+        assert_eq!(releases.load(Ordering::SeqCst), 1);
     }
 }
 
@@ -872,6 +990,7 @@ pub(crate) async fn export_images_impl(
     completion_tx: Option<tokio::sync::oneshot::Sender<Result<(), usize>>>,
 ) -> Result<(), String> {
     let cancellation_token = register_export_task(&state.export_task_token)?;
+    let thumbnail_pause_guard = state.thumbnail_manager.pause_for_export();
     let task_guard = ExportTaskGuard::with_app_handle(
         Arc::clone(&state.export_task_token),
         Arc::clone(&cancellation_token),
@@ -921,6 +1040,7 @@ pub(crate) async fn export_images_impl(
 
     let _export_task = tokio::spawn(async move {
         let _task_guard = task_guard;
+        let _thumbnail_pause_guard = thumbnail_pause_guard;
         let output_folder_path = std::path::Path::new(&output_folder_or_file);
         let total_paths = paths.len();
         let settings = load_settings(app_handle.clone()).unwrap_or_default();

@@ -77,8 +77,8 @@ The index publishes incremental updates at most every 750 ms plus a final update
 Focus/visibility reconciliation fetches backend status and index state. Compact
 stages distinguish preparing, scanning, organizing, exporting, and completion.
 Backend progress exposes elapsed scan time. Processing does not depend on browser
-animation or intersection callbacks. No App Nap override is installed: desktop
-focus/minimize measurements remain required before changing power policy.
+animation or intersection callbacks. People scans do not change desktop power
+policy; edited person exports inherit the shared, scoped background activity guard.
 
 Cancellation retains completed image transactions and drains decoding workers;
 organization rolls back its uncommitted pass. Clearing People data removes the

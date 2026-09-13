@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicUsize};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Condvar, Mutex};
 
@@ -96,6 +96,7 @@ pub struct ThumbnailManager {
     pub queue: Mutex<VecDeque<crate::thumbnail_queue::Job>>,
     pub generation: AtomicUsize,
     pub background_paused: AtomicBool,
+    pub export_paused: AtomicBool,
     pub cvar: Condvar,
     pub processing_now: Mutex<HashSet<String>>,
     pub rotational_disk: AtomicBool,
@@ -108,11 +109,36 @@ impl ThumbnailManager {
             queue: Mutex::new(VecDeque::new()),
             generation: AtomicUsize::new(0),
             background_paused: AtomicBool::new(false),
+            export_paused: AtomicBool::new(false),
             cvar: Condvar::new(),
             processing_now: Mutex::new(HashSet::new()),
             rotational_disk: AtomicBool::new(false),
             io_gate: Mutex::new(()),
         })
+    }
+
+    pub fn pause_for_export(self: &Arc<Self>) -> ThumbnailExportPauseGuard {
+        let queue = self.queue.lock().unwrap();
+        self.export_paused.store(true, Ordering::Relaxed);
+        self.cvar.notify_all();
+        drop(queue);
+        ThumbnailExportPauseGuard {
+            manager: Arc::clone(self),
+        }
+    }
+}
+
+pub struct ThumbnailExportPauseGuard {
+    manager: Arc<ThumbnailManager>,
+}
+
+impl Drop for ThumbnailExportPauseGuard {
+    fn drop(&mut self) {
+        let _queue = self.manager.queue.lock().unwrap();
+        self.manager
+            .export_paused
+            .store(false, Ordering::Relaxed);
+        self.manager.cvar.notify_all();
     }
 }
 
@@ -178,4 +204,19 @@ pub struct AppState {
     pub disks_cache: Mutex<Option<Disks>>,
     pub disks_cache_refreshing: AtomicBool,
     pub camera_session: Mutex<CameraSession>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn export_pause_guard_resumes_thumbnail_workers() {
+        let manager = ThumbnailManager::new();
+        {
+            let _guard = manager.pause_for_export();
+            assert!(manager.export_paused.load(Ordering::Relaxed));
+        }
+        assert!(!manager.export_paused.load(Ordering::Relaxed));
+    }
 }

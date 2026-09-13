@@ -1448,21 +1448,55 @@ fn apply_exif_orientation(img: DynamicImage, orientation: u32) -> DynamicImage {
     }
 }
 
-pub(crate) fn try_load_embedded_raw_preview(source_path: &Path, target_res: u32) -> Option<DynamicImage> {
+pub(crate) fn try_load_embedded_raw_preview(
+    source_path: &Path,
+    target_res: u32,
+) -> Option<DynamicImage> {
     // The format-aware decoder supports previews outside TIFF EXIF (including CR3).
     // None of these methods demosaic sensor pixels.
     let decoded = std::panic::catch_unwind(|| {
         let source = rawler::rawsource::RawSource::new(source_path).ok()?;
         let decoder = rawler::get_decoder(&source).ok()?;
         let params = Default::default();
-        let adequate = |image: &DynamicImage| image.width().max(image.height()) >= (target_res as f32 * 0.95) as u32;
-        let image = decoder.thumbnail_image(&source, &params).ok().flatten().filter(adequate)
-            .or_else(|| decoder.preview_image(&source, &params).ok().flatten().filter(adequate))
-            .or_else(|| decoder.full_image(&source, &params).ok().flatten().filter(adequate))?;
-        let orientation = decoder.raw_metadata(&source, &params).ok()
-            .and_then(|metadata| metadata.exif.orientation).unwrap_or(1);
+        let adequate = |image: &DynamicImage| {
+            image.width().max(image.height()) >= (target_res as f32 * 0.95) as u32
+        };
+        let image = if decoder.format_hint() == rawler::decoders::FormatHint::CR3 {
+            decoder
+                .full_image(&source, &params)
+                .ok()
+                .flatten()
+                .filter(adequate)
+        } else {
+            decoder
+                .thumbnail_image(&source, &params)
+                .ok()
+                .flatten()
+                .filter(adequate)
+                .or_else(|| {
+                    decoder
+                        .preview_image(&source, &params)
+                        .ok()
+                        .flatten()
+                        .filter(adequate)
+                })
+                .or_else(|| {
+                    decoder
+                        .full_image(&source, &params)
+                        .ok()
+                        .flatten()
+                        .filter(adequate)
+                })
+        }?;
+        let orientation = decoder
+            .raw_metadata(&source, &params)
+            .ok()
+            .and_then(|metadata| metadata.exif.orientation)
+            .unwrap_or(1);
         Some(apply_exif_orientation(image, orientation as u32))
-    }).ok().flatten();
+    })
+    .ok()
+    .flatten();
     decoded.or_else(|| try_load_exif_preview(source_path, target_res))
 }
 
@@ -2024,8 +2058,12 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
             loop {
                 let (job, generation) = {
                     let mut queue = manager_clone.queue.lock().unwrap();
-                    while queue.is_empty() || (queue.back().is_some_and(|job| job.background)
-                        && (worker > 0 || manager_clone.background_paused.load(Ordering::Relaxed))) {
+                    while queue.is_empty()
+                        || manager_clone.export_paused.load(Ordering::Relaxed)
+                        || (queue.back().is_some_and(|job| job.background)
+                            && (worker > 0
+                                || manager_clone.background_paused.load(Ordering::Relaxed)))
+                    {
                         queue = manager_clone.cvar.wait(queue).unwrap();
                     }
                     let job = queue.pop_back().unwrap();
