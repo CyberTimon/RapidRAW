@@ -1,19 +1,18 @@
-import { protectManualRatings } from './libraryRatingScan';
 import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
-import { Invokes, ImageFile, AlbumItem, Album, AlbumGroup } from '../components/ui/AppProperties';
-import { globalImageCache } from '../utils/ImageLRUCache';
+import { Invokes, AlbumItem, Album, AlbumGroup } from '../components/ui/AppProperties';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { computeSortedLibrary } from './useSortedLibrary';
 import { expandGroupedPaths } from '../utils/imageGrouping';
+import { commitColorChange, commitExifChange, commitRatingChange, commitTagChange } from '../history/libraryHistory';
 
 export function useLibraryActions(handleImageSelect?: (path: string, openInEditor?: boolean) => void) {
-  const handleRate = useCallback((newRating: number, paths?: string[]) => {
-    const { multiSelectedPaths, imageList, imageRatings, setLibrary } = useLibraryStore.getState();
+  const handleRate = useCallback(async (newRating: number, paths?: string[]) => {
+    const { multiSelectedPaths, imageList, imageRatings } = useLibraryStore.getState();
     const { selectedImage } = useEditorStore.getState();
 
     const selectedPaths =
@@ -26,24 +25,16 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     const currentRating = imageRatings[selectedPaths[0]] || 0;
     const finalRating = newRating === currentRating ? 0 : newRating;
 
-    protectManualRatings(pathsToRate);
-    setLibrary((state) => {
-      const newRatings = { ...state.imageRatings };
-      pathsToRate.forEach((p) => {
-        newRatings[p] = finalRating;
-      });
-      const rated = new Set(pathsToRate);
-      return { imageRatings: newRatings, imageList: state.imageList.map((image) => rated.has(image.path) ? { ...image, rating_state: 'ready', rating: finalRating } : image) };
-    });
-
-    invoke(Invokes.SetRatingForPaths, { paths: pathsToRate, rating: finalRating }).catch((err) => {
+    try {
+      await commitRatingChange(pathsToRate, finalRating);
+    } catch (err) {
       console.error(err);
       toast.error(`Failed to apply rating: ${err}`);
-    });
+    }
   }, []);
 
   const handleSetColorLabel = useCallback(async (color: string | null, paths?: string[]) => {
-    const { multiSelectedPaths, libraryActivePath, imageList, setLibrary } = useLibraryStore.getState();
+    const { multiSelectedPaths, imageList } = useLibraryStore.getState();
     const { selectedImage } = useEditorStore.getState();
 
     const selectedPaths =
@@ -53,8 +44,7 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     const groupingMode = useSettingsStore.getState().appSettings?.grouping ?? 'off';
     const pathsToUpdate = expandGroupedPaths(imageList, selectedPaths, groupingMode);
 
-    const primaryPath = selectedImage?.path || libraryActivePath;
-    const primaryImage = imageList.find((img: ImageFile) => img.path === primaryPath);
+    const primaryImage = imageList.find((image) => image.path === selectedPaths[0]);
     let currentColor = null;
     if (primaryImage && primaryImage.tags) {
       const colorTag = primaryImage.tags.find((tag: string) => tag.startsWith('color:'));
@@ -63,43 +53,36 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     const finalColor = color !== null && color === currentColor ? null : color;
 
     try {
-      await invoke(Invokes.SetColorLabelForPaths, { paths: pathsToUpdate, color: finalColor });
-      setLibrary((state) => ({
-        imageList: state.imageList.map((image: ImageFile) => {
-          if (pathsToUpdate.includes(image.path)) {
-            const otherTags = (image.tags || []).filter((tag: string) => !tag.startsWith('color:'));
-            const newTags = finalColor ? [...otherTags, `color:${finalColor}`] : otherTags;
-            return { ...image, tags: newTags };
-          }
-          return image;
-        }),
-      }));
+      await commitColorChange(pathsToUpdate, finalColor);
     } catch (err) {
       toast.error(`Failed to set color label: ${err}`);
     }
   }, []);
 
-  const handleTagsChanged = useCallback((changedPaths: string[], newTags: { tag: string; isUser: boolean }[]) => {
+  const handleTagChange = useCallback(async (changedPaths: string[], tag: string, present: boolean) => {
     const { imageList } = useLibraryStore.getState();
     const groupingMode = useSettingsStore.getState().appSettings?.grouping ?? 'off';
     const pathsToUpdate = expandGroupedPaths(imageList, changedPaths, groupingMode);
-
-    useLibraryStore.getState().setLibrary((state) => ({
-      imageList: state.imageList.map((image) => {
-        if (pathsToUpdate.includes(image.path)) {
-          const colorTags = (image.tags || []).filter((t) => t.startsWith('color:'));
-          const prefixedNewTags = newTags.map((t) => (t.isUser ? `user:${t.tag}` : t.tag));
-          const finalTags = [...colorTags, ...prefixedNewTags].sort();
-          return { ...image, tags: finalTags.length > 0 ? finalTags : null };
-        }
-        return image;
-      }),
-    }));
+    try {
+      await commitTagChange(pathsToUpdate, tag, present);
+    } catch (err) {
+      toast.error(`Failed to update tags: ${err}`);
+      throw err;
+    }
   }, []);
 
+  const handleAddTag = useCallback(
+    (paths: string[], tag: string) => handleTagChange(paths, tag, true),
+    [handleTagChange],
+  );
+  const handleRemoveTag = useCallback(
+    (paths: string[], tag: string) => handleTagChange(paths, tag, false),
+    [handleTagChange],
+  );
+
   const handleUpdateExif = useCallback(async (paths: Array<string> | undefined, updates: Record<string, string>) => {
-    const { multiSelectedPaths, imageList, setLibrary } = useLibraryStore.getState();
-    const { selectedImage, setEditor } = useEditorStore.getState();
+    const { multiSelectedPaths } = useLibraryStore.getState();
+    const { selectedImage } = useEditorStore.getState();
 
     const pathsToUpdate =
       paths && paths.length > 0
@@ -111,35 +94,8 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
             : [];
     if (pathsToUpdate.length === 0) return;
 
-    const physicalPathsSet = new Set(pathsToUpdate.map((p) => p.split('?vc=')[0]));
-    const physicalPathsArray = Array.from(physicalPathsSet);
-
     try {
-      await invoke(Invokes.UpdateExifFields, { paths: physicalPathsArray, updates });
-
-      setEditor((state) => {
-        if (!state.selectedImage || !physicalPathsSet.has(state.selectedImage.path.split('?vc=')[0])) return state;
-        return { selectedImage: { ...state.selectedImage, exif: { ...(state.selectedImage.exif || {}), ...updates } } };
-      });
-
-      setLibrary((state) => ({
-        imageList: state.imageList.map((img) => {
-          if (physicalPathsSet.has(img.path.split('?vc=')[0])) {
-            return { ...img, exif: { ...(img.exif || {}), ...updates } };
-          }
-          return img;
-        }),
-      }));
-
-      pathsToUpdate.forEach((p) => {
-        const cached = globalImageCache.get(p);
-        if (cached && cached.selectedImage) {
-          globalImageCache.set(p, {
-            ...cached,
-            selectedImage: { ...cached.selectedImage, exif: { ...(cached.selectedImage.exif || {}), ...updates } },
-          });
-        }
-      });
+      await commitExifChange(pathsToUpdate, updates);
     } catch (err) {
       toast.error(`Failed to update metadata: ${err}`);
     }
@@ -328,7 +284,7 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     handleSettingsChange({ ...appSettings, pinnedFolders: newPins });
 
     try {
-      const trees = await invoke(Invokes.GetPinnedFolderTrees, {
+      const trees = await invoke<unknown[]>(Invokes.GetPinnedFolderTrees, {
         paths: newPins,
         expandedFolders: Array.from(expandedFolders),
         showImageCounts: appSettings.enableFolderImageCounts ?? false,
@@ -440,7 +396,8 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
   return {
     handleRate,
     handleSetColorLabel,
-    handleTagsChanged,
+    handleAddTag,
+    handleRemoveTag,
     handleUpdateExif,
     handleClearSelection,
     handleLibraryImageSingleClick,

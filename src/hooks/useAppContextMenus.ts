@@ -55,10 +55,12 @@ import { useProcessStore } from '../store/useProcessStore';
 import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Invokes, Option, OPTION_SEPARATOR, Panel, AlbumItem, Album, AlbumGroup } from '../components/ui/AppProperties';
-import { Color, COLOR_LABELS, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
+import { Color, COLOR_LABELS } from '../utils/adjustments';
 import TaggingSubMenu from '../context/TaggingSubMenu';
 import { useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
+import { getActionHistorySnapshot } from '../history/actionHistory';
+import { executeCommand } from '../shortcuts/runtime';
 
 export interface UseAppContextMenusProps {
   handleImageSelect: (path: string) => void;
@@ -83,7 +85,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
     handleCopyAdjustments,
     handlePasteAdjustments,
   } = useEditorActions();
-  const { handleRate, handleSetColorLabel, handleTagsChanged } = useLibraryActions();
+  const { handleRate, handleSetColorLabel } = useLibraryActions();
 
   const albumIcons = useMemo(
     () => [
@@ -169,15 +171,15 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       event.preventDefault();
       event.stopPropagation();
 
-      const { selectedImage, history, historyIndex, undo, redo, resetHistory, copiedAdjustments, setEditor } =
-        useEditorStore.getState();
+      const { selectedImage, history, historyIndex, copiedAdjustments } = useEditorStore.getState();
       const { appSettings } = useSettingsStore.getState();
       const { setPanel, setUI } = useUIStore.getState();
 
       if (!selectedImage) return;
 
-      const canUndo = historyIndex > 0;
-      const canRedo = historyIndex < history.length - 1;
+      const actionHistory = getActionHistorySnapshot();
+      const canUndo = actionHistory.canUndo || historyIndex > 0;
+      const canRedo = actionHistory.canRedo || historyIndex < history.length - 1;
       const commonTags = getCommonTags([selectedImage.path]);
 
       const options: Array<Option> = [
@@ -188,8 +190,20 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           onClick: () => setPanel(Panel.Export),
         },
         { type: OPTION_SEPARATOR },
-        { label: t('contextMenus.editor.undo'), icon: Undo, commandId: 'undo', onClick: undo, disabled: !canUndo },
-        { label: t('contextMenus.editor.redo'), icon: Redo, commandId: 'redo', onClick: redo, disabled: !canRedo },
+        {
+          label: t('contextMenus.editor.undo'),
+          icon: Undo,
+          commandId: 'undo',
+          onClick: () => executeCommand('undo'),
+          disabled: !canUndo,
+        },
+        {
+          label: t('contextMenus.editor.redo'),
+          icon: Redo,
+          commandId: 'redo',
+          onClick: () => executeCommand('redo'),
+          disabled: !canRedo,
+        },
         { type: OPTION_SEPARATOR },
         {
           label: t('contextMenus.editor.copyAdjustments'),
@@ -298,7 +312,6 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               customProps: {
                 paths: [selectedImage.path],
                 initialTags: commonTags,
-                onTagsChanged: handleTagsChanged,
                 appSettings,
               },
             },
@@ -314,16 +327,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               label: t('contextMenus.editor.confirmReset'),
               icon: Check,
               isDestructive: true,
-              onClick: () => {
-                const originalAspectRatio =
-                  selectedImage.width && selectedImage.height ? selectedImage.width / selectedImage.height : null;
-                resetHistory({
-                  ...INITIAL_ADJUSTMENTS,
-                  aspectRatio: originalAspectRatio,
-                  aiPatches: [],
-                });
-                setEditor({ adjustments: { ...INITIAL_ADJUSTMENTS, aspectRatio: originalAspectRatio, aiPatches: [] } });
-              },
+              onClick: () => handleResetAdjustments([selectedImage.path]),
             },
           ],
         },
@@ -337,7 +341,6 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       handleAutoAdjustments,
       handleRate,
       handleSetColorLabel,
-      handleTagsChanged,
       showContextMenu,
       t,
     ],
@@ -744,7 +747,6 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               customProps: {
                 paths: finalSelection,
                 initialTags: commonTags,
-                onTagsChanged: handleTagsChanged,
                 appSettings,
               },
             },
@@ -809,7 +811,6 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       handlePasteAdjustments,
       handleRate,
       handleSetColorLabel,
-      handleTagsChanged,
       handleResetAdjustments,
       showContextMenu,
       props,

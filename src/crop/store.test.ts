@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { useEditorStore } from '../store/useEditorStore';
 import { INITIAL_ADJUSTMENTS } from '../utils/adjustments';
 import type { SelectedImage } from '../components/ui/AppProperties';
+import { resetActionHistory, undoLastAction } from '../history/actionHistory';
 
 function reset() {
   const store = useEditorStore.getState();
@@ -68,4 +69,18 @@ test('history menu selects local crop steps while preserving exposure', () => {
   assert.equal(useEditorStore.getState().historyIndex, 0);
   store.finishCrop(false);
   assert.equal(useEditorStore.getState().adjustments.rotation, 0);
+});
+
+test('history menu jumps are globally undoable outside crop', async () => {
+  resetActionHistory();
+  const store = useEditorStore.getState();
+  store.resetHistory({ ...INITIAL_ADJUSTMENTS });
+  store.setEditor({ selectedImage: { path: 'photo-a', width: 1, height: 1, isReady: true } as SelectedImage });
+  store.pushHistory({ ...INITIAL_ADJUSTMENTS, exposure: 1 });
+  store.pushHistory({ ...INITIAL_ADJUSTMENTS, exposure: 2 });
+
+  store.goToHistoryIndex(0);
+  assert.equal(useEditorStore.getState().adjustments.exposure, 0);
+  await undoLastAction();
+  assert.equal(useEditorStore.getState().adjustments.exposure, 2);
 });

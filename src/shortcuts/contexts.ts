@@ -1,6 +1,8 @@
 import type { CommandId } from './definitions';
 export type CommandContext = 'library' | 'editor' | 'crop' | 'mask' | 'people' | 'global';
 const global = new Set([
+  'undo',
+  'redo',
   'gallery',
   'develop',
   'open_settings',

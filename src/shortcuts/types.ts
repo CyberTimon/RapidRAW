@@ -18,7 +18,7 @@ export interface ShortcutState {
 }
 export interface CommandHandler {
   shouldFire?: (state: ShortcutState) => boolean;
-  execute: (event: KeyboardEvent, state: ShortcutState) => void;
+  execute: (event: KeyboardEvent, state: ShortcutState) => void | Promise<void>;
 }
 export type CommandHandlers = Partial<Record<CommandId, CommandHandler>>;
 export type ShortcutEnvironment = Omit<KeyboardShortcutsProps, 'sortedImageList'> &

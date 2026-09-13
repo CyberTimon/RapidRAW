@@ -3,6 +3,8 @@ import { useEditorStore } from '../store/useEditorStore';
 import { LibraryDisplayMode, Panel } from '../components/ui/AppProperties';
 import type { CommandHandlers, ShortcutEnvironment, ShortcutState } from './types';
 import { cropCommands } from './cropCommands';
+import { getActionHistorySnapshot, redoLastAction, undoLastAction } from '../history/actionHistory';
+import { peopleInvoke, usePeopleStore } from '../people/store';
 
 export function extraCommands(env: ShortcutEnvironment): CommandHandlers {
   const activePath = (s: ShortcutState) =>
@@ -90,18 +92,38 @@ export function extraCommands(env: ShortcutEnvironment): CommandHandlers {
     },
     shortcut_help: { execute: (_, s) => s.ui.setUI({ isSettingsOpen: true, settingsSection: 'shortcuts' }) },
     undo: {
-      shouldFire: (s) =>
-        s.editor.cropSession
-          ? s.editor.cropSession.index > 0
-          : s.ui.activeView === 'editor' && s.editor.historyIndex > 0,
-      execute: (_, s) => s.editor.undo(),
+      shouldFire: (s) => {
+        if (getActionHistorySnapshot().busy) return false;
+        if (s.editor.cropSession) return s.editor.cropSession.index > 0;
+        if (s.ui.activeView === 'people') return usePeopleStore.getState().canUndo;
+        const history = getActionHistorySnapshot();
+        return history.canUndo || (s.ui.activeView === 'editor' && s.editor.historyIndex > 0);
+      },
+      execute: async (_, s) => {
+        if (s.editor.cropSession) s.editor.undo();
+        else if (s.ui.activeView === 'people') {
+          await peopleInvoke('undo');
+          await usePeopleStore.getState().refresh();
+        } else if (getActionHistorySnapshot().canUndo) await undoLastAction();
+        else s.editor.undo();
+      },
     },
     redo: {
-      shouldFire: (s) =>
-        s.editor.cropSession
-          ? s.editor.cropSession.index < s.editor.cropSession.history.length - 1
-          : s.ui.activeView === 'editor' && s.editor.historyIndex < s.editor.history.length - 1,
-      execute: (_, s) => s.editor.redo(),
+      shouldFire: (s) => {
+        if (getActionHistorySnapshot().busy) return false;
+        if (s.editor.cropSession) return s.editor.cropSession.index < s.editor.cropSession.history.length - 1;
+        if (s.ui.activeView === 'people') return false;
+        const history = getActionHistorySnapshot();
+        return (
+          history.canRedo ||
+          (s.ui.activeView === 'editor' && s.editor.historyIndex < s.editor.history.length - 1)
+        );
+      },
+      execute: async (_, s) => {
+        if (s.editor.cropSession) s.editor.redo();
+        else if (getActionHistorySnapshot().canRedo) await redoLastAction();
+        else s.editor.redo();
+      },
     },
     mask_delete: {
       shouldFire: (s) => !!(s.editor.activeMaskContainerId || s.editor.activeAiPatchContainerId),

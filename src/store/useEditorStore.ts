@@ -1,104 +1,10 @@
 import { protectAutoEdit } from '../auto/editSafety';
 import { create } from 'zustand';
-import {
-  beginSession,
-  recordGeometry,
-  sameGeometry,
-  cropGeometry,
-  committedAdjustments,
-  type CropSession,
-} from '../crop/session';
-import { Adjustments, INITIAL_ADJUSTMENTS, MaskContainer, AiPatch } from '../utils/adjustments';
-import { SelectedImage, WaveformData, BrushSettings } from '../components/ui/AppProperties';
-import { ChannelConfig } from '../components/adjustments/Curves';
-import { ImageDimensions } from '../hooks/useImageRenderSize';
+import { beginSession, recordGeometry, sameGeometry, cropGeometry, committedAdjustments } from '../crop/session';
+import { Adjustments, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
 import { ToolType } from '../components/panel/right/Masks';
-import type { OverlayMode } from '../crop/overlays';
-
-interface InteractivePatch {
-  url: string;
-  normX: number;
-  normY: number;
-  normW: number;
-  normH: number;
-}
-
-interface BaseRenderSize extends ImageDimensions {
-  containerHeight: number;
-  containerWidth: number;
-  offsetX: number;
-  offsetY: number;
-}
-
-interface EditorState {
-  // Core Image & Adjustments
-  selectedImage: SelectedImage | null;
-  adjustments: Adjustments;
-  previewOverride: Adjustments | null;
-  cropSession: CropSession | null;
-  beginCrop: () => void;
-  finishCrop: (accept: boolean) => void;
-
-  // History State
-  history: Adjustments[];
-  historyIndex: number;
-
-  // Previews & Overlays
-  finalPreviewUrl: string | null;
-  uncroppedAdjustedPreviewUrl: string | null;
-  interactivePatch: InteractivePatch | null;
-  showOriginal: boolean;
-
-  // Analytics
-  histogram: ChannelConfig | null;
-  waveform: WaveformData | null;
-  isWaveformVisible: boolean;
-  activeWaveformChannel: string;
-  waveformHeight: number;
-
-  // Interaction State
-  isSliderDragging: boolean;
-  zoom: number;
-  displaySize: ImageDimensions;
-  previewSize: ImageDimensions;
-  baseRenderSize: BaseRenderSize;
-  originalSize: ImageDimensions;
-
-  // Tools State
-  isRotationActive: boolean;
-  overlayMode: OverlayMode;
-  overlayRotation: number;
-  isStraightenActive: boolean;
-  isWbPickerActive: boolean;
-  isGuidedPerspectiveActive: boolean;
-  liveRotation: number | null;
-  brushSettings: BrushSettings | null;
-
-  // Masks & AI
-  activeMaskContainerId: string | null;
-  activeMaskId: string | null;
-  activeAiPatchContainerId: string | null;
-  activeAiSubMaskId: string | null;
-  isMaskControlHovered: boolean;
-  isGeneratingAiMask: boolean;
-  isGeneratingAi: boolean;
-  isAIConnectorConnected: boolean;
-  hasRenderedFirstFrame: boolean;
-  patchesSentToBackend: Set<string>;
-
-  // Clipboard
-  copiedSectionAdjustments: any | null;
-  copiedMask: MaskContainer | null;
-  copiedAdjustments: Adjustments | null;
-
-  // Actions
-  setEditor: (updater: Partial<EditorState> | ((state: EditorState) => Partial<EditorState>)) => void;
-  pushHistory: (newAdjustments: Adjustments) => void;
-  undo: () => void;
-  redo: () => void;
-  resetHistory: (initialState: Adjustments) => void;
-  goToHistoryIndex: (index: number) => void;
-}
+import { recordAdjustmentChange } from '../history/editorHistory';
+import type { EditorState } from './editorStoreTypes';
 
 export const useEditorStore = create<EditorState>((set) => ({
   selectedImage: null,
@@ -159,7 +65,8 @@ export const useEditorStore = create<EditorState>((set) => ({
         previewOverride: null,
       };
     }),
-  finishCrop: (accept) =>
+  finishCrop: (accept) => {
+    let transition: Parameters<typeof recordAdjustmentChange>[0] | null = null;
     set((state) => {
       const session = state.cropSession;
       if (!session) return state;
@@ -170,6 +77,18 @@ export const useEditorStore = create<EditorState>((set) => ({
       const history = changed
         ? [...state.history.slice(0, state.historyIndex + 1), adjustments].slice(-50)
         : state.history;
+      if (changed) {
+        const beforeIndex = state.historyIndex;
+        const afterIndex = history.length - 1;
+        transition = {
+          path: session.path,
+          before: state.history[beforeIndex],
+          beforeIndex,
+          after: adjustments,
+          afterIndex,
+          apply: (snapshot, index) => applyHistoryReplay(session.path, snapshot, index),
+        };
+      }
       return {
         adjustments,
         history,
@@ -180,7 +99,9 @@ export const useEditorStore = create<EditorState>((set) => ({
         isStraightenActive: false,
         isGuidedPerspectiveActive: false,
       };
-    }),
+    });
+    if (transition) recordAdjustmentChange(transition);
+  },
   setEditor: (updater) =>
     set((state) => {
       const update = typeof updater === 'function' ? updater(state) : updater;
@@ -190,15 +111,32 @@ export const useEditorStore = create<EditorState>((set) => ({
       return update;
     }),
 
-  pushHistory: (newAdj) =>
+  pushHistory: (newAdj, recordGlobal = true) => {
+    let transition: Parameters<typeof recordAdjustmentChange>[0] | null = null;
     set((state) => {
       const committed = committedAdjustments(newAdj, state.cropSession);
       if (JSON.stringify(state.history[state.historyIndex]) === JSON.stringify(committed)) return state;
       const newHistory = state.history.slice(0, state.historyIndex + 1);
+      const beforeIndex = state.historyIndex;
       newHistory.push(committed);
-      if (newHistory.length > 50) newHistory.shift();
-      return { history: newHistory, historyIndex: newHistory.length - 1 };
-    }),
+      const shifted = newHistory.length > 50;
+      if (shifted) newHistory.shift();
+      const afterIndex = newHistory.length - 1;
+      const path = state.selectedImage?.path;
+      if (path) {
+        transition = {
+          path,
+          before: state.history[beforeIndex],
+          beforeIndex: shifted ? Math.max(0, beforeIndex - 1) : beforeIndex,
+          after: committed,
+          afterIndex,
+          apply: (snapshot, index) => applyHistoryReplay(path, snapshot, index),
+        };
+      }
+      return { history: newHistory, historyIndex: afterIndex };
+    });
+    if (transition && recordGlobal) recordAdjustmentChange(transition);
+  },
 
   undo: () =>
     set((state) => {
@@ -236,7 +174,8 @@ export const useEditorStore = create<EditorState>((set) => ({
       adjustments: initialState,
     }),
 
-  goToHistoryIndex: (index) =>
+  goToHistoryIndex: (index) => {
+    let transition: Parameters<typeof recordAdjustmentChange>[0] | null = null;
     set((state) => {
       if (state.cropSession) {
         const session = state.cropSession;
@@ -244,8 +183,31 @@ export const useEditorStore = create<EditorState>((set) => ({
         return { cropSession: { ...session, index }, adjustments: { ...state.adjustments, ...session.history[index] } };
       }
       if (index >= 0 && index < state.history.length) {
+        const path = state.selectedImage?.path;
+        if (path && index !== state.historyIndex) {
+          transition = {
+            path,
+            before: state.history[state.historyIndex],
+            beforeIndex: state.historyIndex,
+            after: state.history[index],
+            afterIndex: index,
+            apply: (snapshot, preferredIndex) => applyHistoryReplay(path, snapshot, preferredIndex),
+          };
+        }
         return { historyIndex: index, adjustments: state.history[index] };
       }
       return state;
-    }),
+    });
+    if (transition) recordAdjustmentChange(transition);
+  },
 }));
+
+function applyHistoryReplay(path: string, adjustments: Adjustments, preferredIndex: number) {
+  useEditorStore.setState((state) => {
+    if (state.selectedImage?.path !== path) return state;
+    if (JSON.stringify(state.history[preferredIndex]) === JSON.stringify(adjustments)) {
+      return { adjustments, historyIndex: preferredIndex };
+    }
+    return { adjustments, history: [adjustments], historyIndex: 0 };
+  });
+}
