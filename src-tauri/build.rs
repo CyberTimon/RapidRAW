@@ -187,17 +187,11 @@ fn main() {
 
     if !is_valid {
         println!(
-            "cargo:warning=Downloading ONNX Runtime library for {}-{}...",
-            target_os, target_arch
+            "cargo:warning=ℹ️  Custom ONNX Runtime download disabled. Using ort crate's built-in runtime with DirectML/CUDA support."
         );
-        let base_url =
-            "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/onnxruntimes-v1.22.0/";
-        let download_url = format!("{}{}?download=true", base_url, download_filename);
-        println!("cargo:warning=URL: {}", download_url);
-
-        if let Err(e) = download_and_verify(&download_url, &dest_path, expected_hash) {
-            panic!("Failed to download and verify ONNX Runtime library: {}", e);
-        }
+        println!(
+            "cargo:warning=   To use a custom runtime, set RAPIDRAW_ALLOW_CUSTOM_ORT=1"
+        );
     }
 
     // Set ORT_LIB_LOCATION for all platforms to help ORT find the library at runtime

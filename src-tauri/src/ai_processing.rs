@@ -11,6 +11,8 @@ use image::{
 use ndarray::{Array, Array4, IxDyn};
 use ort::session::Session;
 use ort::value::Tensor;
+use ort::ep::*;
+use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -18,7 +20,17 @@ use tauri::Emitter;
 use tauri::Manager;
 use tokenizers::Tokenizer;
 use tokio::sync::Mutex as TokioMutex;
-use log::{info, warn};
+use log::{info, warn, error};
+use std::time::Instant;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+// Flag to track if we've logged provider detection on first inference
+static FIRST_DENOISE_INFERENCE: AtomicBool = AtomicBool::new(true);
+
+// Global flag ensuring ONNX environment is initialized once at startup
+static ONNX_ENV_INITIALIZED: Lazy<Result<()>> = Lazy::new(|| {
+    initialize_onnx_environment()
+});
 
 const ENCODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_encoder.onnx?download=true";
 const DECODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_decoder.onnx?download=true";
@@ -62,13 +74,8 @@ const DEPTH_INPUT_SIZE: u32 = 518;
 const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b526304f2562be";
 
 /// Initialize GPU providers for ONNX Runtime
-/// This function sets up environment variables and configures ONNX to use GPU acceleration
-/// 
-/// Supported GPU preferences via ORT_PREFERRED_GPU environment variable:
-/// - "nvidia" or "cuda": Prefer NVIDIA CUDA over other providers
-/// - "intel" or "directml": Prefer Intel/DirectML over other providers
-/// - "auto": Automatic selection (default) - uses first available provider
-/// - "cpu": CPU only, no GPU acceleration
+/// This function MUST be called once at app startup, BEFORE any models are loaded
+/// It configures the global ONNX Runtime with GPU providers
 pub fn init_gpu_providers() {
     info!("╔════════════════════════════════════════════════════════════╗");
     info!("║         GPU PROVIDER INITIALIZATION (ONNX Runtime)         ║");
@@ -200,6 +207,15 @@ pub fn init_gpu_providers() {
     }
     
     info!("");
+    info!("⚠️  INITIALIZING ONNX RUNTIME PROVIDERS:");
+    info!("─────────────────────────────────────────────────────────────");
+    
+    // The global ONNX environment is initialized with the best available providers.
+    // All sessions will automatically use the configured GPU provider.
+    
+    info!("GPU preference: {}", preferred_gpu);
+    
+    info!("");
     info!("⚠️  IMPORTANT NOTES:");
     info!("─────────────────────────────────────────────────────────────");
     info!("1. If requested GPU provider isn't available, ONNX Runtime");
@@ -213,6 +229,13 @@ pub fn init_gpu_providers() {
     info!("║  Waiting for ONNX Runtime to load models...                ║");
     info!("║  Watch logs for provider confirmation messages             ║");
     info!("╚════════════════════════════════════════════════════════════╝");
+    
+    // Trigger initialization of the ONNX Runtime environment
+    // This will be done once and then cached by the Lazy static
+    match ONNX_ENV_INITIALIZED.as_ref() {
+        Ok(_) => info!("✓ ONNX Runtime environment initialized successfully"),
+        Err(e) => error!("✗ Failed to initialize ONNX Runtime environment: {}", e),
+    }
 }
 
 fn resolved_gpu_preference() -> String {
@@ -312,191 +335,167 @@ fn ensure_windows_cuda_runtime_paths() {
 
 #[cfg(target_os = "windows")]
 fn log_windows_provider_availability(preferred_gpu: &str) {
-    use ort::execution_providers::{
-        CPUExecutionProvider, CUDAExecutionProvider, DirectMLExecutionProvider, ExecutionProvider,
-    };
-
-    let cuda_available = CUDAExecutionProvider::default().is_available().unwrap_or(false);
-    let directml_available = DirectMLExecutionProvider::default().is_available().unwrap_or(false);
-    let cpu_available = CPUExecutionProvider::default().is_available().unwrap_or(true);
-
-    info!("ONNX provider availability probe:");
-    info!("  CUDAExecutionProvider available: {}", cuda_available);
-    info!("  DmlExecutionProvider available: {}", directml_available);
-    info!("  CPUExecutionProvider available: {}", cpu_available);
-
-    if !cuda_available {
-        warn!("CUDA provider not available to ONNX Runtime. If you expected CUDA, verify provider DLL compatibility.");
-    }
-
-    if preferred_gpu == "cuda" || preferred_gpu == "nvidia" {
-        let has_cudart_13 = find_dll_on_path("cudart64_130.dll").is_some();
-        let has_cudart_12 = find_dll_on_path("cudart64_12.dll").is_some();
-
-        if !has_cudart_13 && has_cudart_12 {
-            warn!(
-                "Detected CUDA 12 runtime (cudart64_12.dll) but CUDA 13 runtime DLL is missing (cudart64_130.dll)."
-            );
-            warn!(
-                "If your ONNX Runtime CUDA provider was built for CUDA 13, it cannot load with only CUDA 12 runtime present."
-            );
-        }
-
-        let required_cuda_runtime_dlls = [
-            "nvcuda.dll",
-            "cudart64_130.dll",
-            "cublas64_13.dll",
-            "cublasLt64_13.dll",
-            "cudnn64_9.dll",
-        ];
-
-        let mut missing = Vec::new();
-        info!("CUDA dependency probe (PATH lookup):");
-        for dll in required_cuda_runtime_dlls {
-            match find_dll_on_path(dll) {
-                Some(path) => info!("  ✓ {} at {}", dll, path),
-                None => {
-                    warn!("  ✗ {} not found in PATH", dll);
-                    missing.push(dll);
-                }
-            }
-        }
-
-        if !missing.is_empty() {
-            warn!(
-                "CUDA runtime dependencies missing ({}). ONNX will fall back to CPU/other providers.",
-                missing.join(", ")
-            );
-            if directml_available {
-                warn!(
-                    "DirectML provider is available. Set ORT_PREFERRED_GPU=directml to force GPU usage without CUDA toolkit."
-                );
-            }
-        }
-    }
+    info!("GPU provider preference: {}", preferred_gpu);
+    info!("Actual provider will be confirmed on first model inference");
 }
 
 #[cfg(target_os = "windows")]
-fn execution_providers_for_preference(
-    preferred_gpu: &str,
-) -> Vec<ort::execution_providers::ExecutionProviderDispatch> {
-    use ort::execution_providers::{
-        CPUExecutionProvider, CUDAExecutionProvider, DirectMLExecutionProvider,
-    };
-
-    match preferred_gpu {
-        "nvidia" | "cuda" => vec![
-            CUDAExecutionProvider::default().with_device_id(0).build(),
-            DirectMLExecutionProvider::default().with_device_id(0).build(),
-            CPUExecutionProvider::default().build(),
-        ],
-        "intel" | "directml" => vec![
-            DirectMLExecutionProvider::default().with_device_id(0).build(),
-            CUDAExecutionProvider::default().with_device_id(0).build(),
-            CPUExecutionProvider::default().build(),
-        ],
-        "cpu" => vec![CPUExecutionProvider::default().build()],
-        _ => vec![
-            DirectMLExecutionProvider::default().with_device_id(0).build(),
-            CUDAExecutionProvider::default().with_device_id(0).build(),
-            CPUExecutionProvider::default().build(),
-        ],
-    }
-}
-
-#[cfg(target_os = "linux")]
-fn execution_providers_for_preference(
-    preferred_gpu: &str,
-) -> Vec<ort::execution_providers::ExecutionProviderDispatch> {
-    use ort::execution_providers::{
-        CPUExecutionProvider, CUDAExecutionProvider, TensorRTExecutionProvider,
-    };
-
-    match preferred_gpu {
-        "nvidia" | "cuda" => vec![
-            CUDAExecutionProvider::default().with_device_id(0).build(),
-            TensorRTExecutionProvider::default().build(),
-            CPUExecutionProvider::default().build(),
-        ],
-        "tensorrt" => vec![
-            TensorRTExecutionProvider::default().build(),
-            CUDAExecutionProvider::default().with_device_id(0).build(),
-            CPUExecutionProvider::default().build(),
-        ],
-        "cpu" => vec![CPUExecutionProvider::default().build()],
-        _ => vec![
-            CUDAExecutionProvider::default().with_device_id(0).build(),
-            TensorRTExecutionProvider::default().build(),
-            CPUExecutionProvider::default().build(),
-        ],
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn execution_providers_for_preference(
-    preferred_gpu: &str,
-) -> Vec<ort::execution_providers::ExecutionProviderDispatch> {
-    use ort::execution_providers::{CoreMLExecutionProvider, CPUExecutionProvider};
-
-    match preferred_gpu {
-        "cpu" => vec![CPUExecutionProvider::default().build()],
-        _ => vec![
-            CoreMLExecutionProvider::default().build(),
-            CPUExecutionProvider::default().build(),
-        ],
-    }
-}
-
-#[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
-fn execution_providers_for_preference(
-    _preferred_gpu: &str,
-) -> Vec<ort::execution_providers::ExecutionProviderDispatch> {
-    use ort::execution_providers::CPUExecutionProvider;
-
-    vec![CPUExecutionProvider::default().build()]
-}
-
-fn create_session_for_model(model_path: &Path, model_name: &str) -> Result<Session> {
+fn initialize_onnx_environment() -> Result<()> {
     let preferred_gpu = resolved_gpu_preference();
 
-    #[cfg(target_os = "windows")]
+    info!("Creating ONNX Runtime environment with execution providers...");
+    info!("GPU preference: {}", preferred_gpu);
+
     log_windows_provider_availability(&preferred_gpu);
 
-    let providers = execution_providers_for_preference(&preferred_gpu);
-    
-    info!(
-        "Creating session for '{}' with GPU preference '{}'",
-        model_name, preferred_gpu
-    );
-    
-    #[cfg(target_os = "windows")]
-    {
-        info!("Provider chain for this session:");
-        for (i, _prov) in providers.iter().enumerate() {
-            info!("  [{}] Attempting...", i + 1);
+    // Configure execution providers based on preference
+    if preferred_gpu == "cuda" || preferred_gpu == "nvidia" {
+        info!("Setting up CUDA → DirectML → CPU provider chain");
+        let committed = ort::init()
+            .with_execution_providers([
+                CUDA::default().build(),
+                DirectML::default().build(),
+            ])
+            .commit();
+        if !committed {
+            return Err(anyhow::anyhow!("Failed to commit ONNX environment with CUDA/DirectML providers"));
+        }
+    } else if preferred_gpu == "cpu" {
+        info!("CPU-only mode");
+        let committed = ort::init().commit();
+        if !committed {
+            return Err(anyhow::anyhow!("Failed to commit ONNX environment in CPU-only mode"));
+        }
+    } else {
+        // Default: DirectML → CUDA → CPU
+        info!("Setting up DirectML → CUDA → CPU provider chain (default)");
+        let committed = ort::init()
+            .with_execution_providers([
+                DirectML::default().build(),
+                CUDA::default().build(),
+            ])
+            .commit();
+        if !committed {
+            return Err(anyhow::anyhow!("Failed to commit ONNX environment with DirectML/CUDA providers"));
         }
     }
 
-    let builder = Session::builder().map_err(|e| {
-        log::error!("Failed to create ONNX SessionBuilder for '{}': {}", model_name, e);
-        e
-    })?;
+    info!("✓ ONNX Runtime environment created successfully");
+    info!("  GPU providers are now available for all sessions");
 
-    let builder = builder.with_execution_providers(providers).map_err(|e| {
-        log::error!(
-            "Failed to configure execution providers for '{}': {}",
-            model_name,
-            e
-        );
-        e
-    })?;
+    Ok(())
+}
 
-    let session = builder.commit_from_file(model_path).map_err(|e| {
-        log::error!("Failed to load model '{}' from {}: {}", model_name, model_path.display(), e);
-        e
-    })?;
+#[cfg(target_os = "linux")]
+fn initialize_onnx_environment() -> Result<()> {
+    let preferred_gpu = resolved_gpu_preference();
 
-    info!("Session for '{}' created successfully (inference on first run will show actual provider)", model_name);
+    info!("Creating ONNX Runtime environment with execution providers...");
+    info!("GPU preference: {}", preferred_gpu);
+
+    // Configure execution providers based on preference
+    if preferred_gpu == "tensorrt" {
+        info!("Setting up TensorRT → CUDA → CPU provider chain");
+        let committed = ort::init()
+            .with_execution_providers([
+                TensorRT::default().build(),
+                CUDA::default().build(),
+            ])
+            .commit();
+        if !committed {
+            return Err(anyhow::anyhow!("Failed to commit ONNX environment with TensorRT/CUDA providers"));
+        }
+    } else if preferred_gpu == "cpu" {
+        info!("CPU-only mode");
+        let committed = ort::init().commit();
+        if !committed {
+            return Err(anyhow::anyhow!("Failed to commit ONNX environment in CPU-only mode"));
+        }
+    } else {
+        // Default: CUDA → TensorRT → CPU
+        info!("Setting up CUDA → TensorRT → CPU provider chain (default)");
+        let committed = ort::init()
+            .with_execution_providers([
+                CUDA::default().build(),
+                TensorRT::default().build(),
+            ])
+            .commit();
+        if !committed {
+            return Err(anyhow::anyhow!("Failed to commit ONNX environment with CUDA/TensorRT providers"));
+        }
+    }
+
+    info!("✓ ONNX Runtime environment created successfully");
+    info!("  GPU providers are now available for all sessions");
+
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn initialize_onnx_environment() -> Result<()> {
+    let preferred_gpu = resolved_gpu_preference();
+
+    info!("Creating ONNX Runtime environment with execution providers...");
+    info!("GPU preference: {}", preferred_gpu);
+
+    // Configure execution providers
+    if preferred_gpu == "cpu" {
+        info!("CPU-only mode");
+        let committed = ort::init().commit();
+        if !committed {
+            return Err(anyhow::anyhow!("Failed to commit ONNX environment in CPU-only mode"));
+        }
+    } else {
+        // Default: CoreML → CPU
+        info!("Setting up CoreML → CPU provider chain");
+        let committed = ort::init()
+            .with_execution_providers([
+                CoreML::default().build(),
+            ])
+            .commit();
+        if !committed {
+            return Err(anyhow::anyhow!("Failed to commit ONNX environment with CoreML provider"));
+        }
+    }
+
+    info!("✓ ONNX Runtime environment created successfully");
+    info!("  GPU providers are now available for all sessions");
+
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+fn initialize_onnx_environment() -> Result<()> {
+    info!("Creating ONNX Runtime environment (unsupported platform - CPU only)");
+    
+    let committed = ort::init().commit();
+    if !committed {
+        return Err(anyhow::anyhow!("Failed to commit ONNX environment"));
+    }
+
+    info!("✓ ONNX Runtime environment created successfully");
+
+    Ok(())
+}
+
+fn create_session_for_model(model_path: &Path, model_name: &str) -> Result<Session> {
+    // Ensure ONNX environment has been initialized (happens once at startup)
+    ONNX_ENV_INITIALIZED.as_ref().map_err(|e| {
+        anyhow::anyhow!("ONNX Runtime environment not initialized: {}", e)
+    })?;
+    
+    info!("Creating session for '{}'", model_name);
+
+    // Create session using the globally-configured environment
+    let session = Session::builder()
+        .map_err(|e| anyhow::anyhow!("Failed to create SessionBuilder for '{}': {}", model_name, e))?
+        .commit_from_file(model_path)
+        .map_err(|e| anyhow::anyhow!("Failed to load model '{}' from {}: {}", model_name, model_path.display(), e))?;
+
+    info!("Session for '{}' created successfully", model_name);
+    info!("⚠️  Actual GPU provider will be confirmed on first inference");
+    info!("   If performance seems slow (~1-2s for image processing),");
+    info!("   the provider may have fallen back to CPU. Check logs after first run.");
 
     Ok(session)
 }
@@ -1064,7 +1063,6 @@ pub async fn get_or_init_denoise_model(
     )
     .await?;
 
-    let _ = ort::init().with_name("AI-Denoise").commit();
     let model_path = models_dir.join(DENOISE_FILENAME);
     
     info!("→ Loading Denoising Model from: {}", model_path.display());
@@ -1389,12 +1387,84 @@ fn run_native_denoise(
 
         let crop = extract_tile_mirror(img, x0, y0, params.cs);
         let input_values = crop.as_standard_layout().to_owned();
+        
+        // Debug: Log input tensor stats on first inference
+        if FIRST_DENOISE_INFERENCE.load(Ordering::Relaxed) {
+            let input_min = input_values.iter().cloned().fold(f32::INFINITY, f32::min);
+            let input_max = input_values.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            let input_mean = input_values.sum() / input_values.len() as f32;
+            info!("Input tensor range - min: {:.6}, max: {:.6}, mean: {:.6}", input_min, input_max, input_mean);
+            
+            // Count how many pixels have significant values (> 0.01)
+            let significant_count = input_values.iter().filter(|&&v| v.abs() > 0.01).count();
+            info!("Input tensor - {} significant values out of {}", significant_count, input_values.len());
+        }
+        
         let t_input = Tensor::from_array(input_values)?;
 
         let out = {
             let mut sess = session.lock().unwrap();
+            
+            // Detect actual provider on first inference
+            let is_first = FIRST_DENOISE_INFERENCE.swap(false, Ordering::Relaxed);
+            let inference_start = if is_first { Some(Instant::now()) } else { None };
+            
             let outputs = sess.run(ort::inputs![t_input])?;
-            let arr = outputs[0].try_extract_array::<f32>()?.to_owned();
+            
+            // Extract and force GPU->CPU sync by converting to owned array
+            // The .into_owned() forces materialization of GPU data into CPU memory
+            let arr = outputs[0].try_extract_array::<f32>()?.into_owned();
+            
+            if let Some(start) = inference_start {
+                let elapsed = start.elapsed();
+                let ms = elapsed.as_secs_f64() * 1000.0;
+                
+                // Heuristic: GPU inference is typically <50ms for a tile, CPU is >100ms
+                let provider_guess = if ms < 50.0 {
+                    "GPU (DirectML/CUDA)"
+                } else if ms < 100.0 {
+                    "GPU (possibly with CPU fallback)"
+                } else {
+                    "CPU (GPU may not be available)"
+                };
+                
+                info!("═══════════════════════════════════════════════════════════");
+                info!("🎯 FIRST INFERENCE PROVIDER DETECTION");
+                info!("───────────────────────────────────────────────────────────");
+                info!("First tile inference took: {:.2}ms", ms);
+                info!("Estimated provider: {}", provider_guess);
+                info!("");
+                info!("Performance expectations:");
+                info!("  • GPU (DirectML/CUDA): 20-50ms per tile");
+                info!("  • GPU with CPU fallback: 50-100ms per tile");
+                info!("  • CPU only: 100-500ms+ per tile");
+                info!("");
+                info!("If slower than expected:");
+                info!("  1. Check ORT_PREFERRED_GPU environment variable");
+                info!("  2. Run diagnostics: cargo run --release -- --gpu-info");
+                info!("  3. See troubleshooting guide for DirectML setup");
+                info!("═══════════════════════════════════════════════════════════");
+            }
+            
+            // Debug: Log tensor shape and sample values on first inference
+            if is_first {
+                let shape = arr.shape();
+                info!("Output tensor shape: {:?}", shape);
+                if !arr.is_empty() {
+                    let arr_flat = arr.clone().into_shape_with_order(arr.len()).unwrap_or(ndarray::Array1::zeros(0));
+                    let min = arr_flat.iter().cloned().fold(f32::INFINITY, f32::min);
+                    let max = arr_flat.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                    let mean = arr_flat.sum() / arr_flat.len() as f32;
+                    
+                    // Count how many output values are significant
+                    let non_zero_count = arr_flat.iter().filter(|&&v| v.abs() > 0.0001).count();
+                    
+                    info!("Output range - min: {:.6}, max: {:.6}, mean: {:.6}", min, max, mean);
+                    info!("Output non-zero values: {} out of {}", non_zero_count, arr_flat.len());
+                    info!("First 10 values: {:?}", arr_flat.iter().take(10).collect::<Vec<_>>());
+                }
+            }
+            
             arr.into_dimensionality::<ndarray::Ix4>()
                 .map_err(|e| anyhow::anyhow!("Unexpected output shape: {}", e))?
         };
@@ -1441,6 +1511,15 @@ fn run_native_denoise(
 }
 
 fn accumulator_to_rgb32f(acc: &[f32], width: u32, height: u32) -> Rgb32FImage {
+    // Debug: Log accumulator stats on first conversion
+    if !acc.is_empty() {
+        let min = acc.iter().cloned().fold(f32::INFINITY, f32::min);
+        let max = acc.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let mean = acc.iter().sum::<f32>() / acc.len() as f32;
+        info!("Accumulator stats - min: {:.6}, max: {:.6}, mean: {:.6}", min, max, mean);
+        info!("Accumulator non-zero values: {}", acc.iter().filter(|&&v| v.abs() > 0.001).count());
+    }
+    
     let mut out = Rgb32FImage::new(width, height);
     for (i, p) in out.pixels_mut().enumerate() {
         let i3 = i * 3;
@@ -1475,6 +1554,20 @@ pub fn run_ai_denoise(
     )?;
 
     let out_img_buffer = accumulator_to_rgb32f(&accumulator, width, height);
+    
+    // Final debug: Check if output is essentially black
+    let non_zero_count = accumulator.iter().filter(|&&v| v.abs() > 0.01).count();
+    if non_zero_count == 0 {
+        warn!("⚠️  DENOISE OUTPUT IS ALL BLACK - accumulator contains no significant values");
+        warn!("    Total accumulator elements: {}", accumulator.len());
+        warn!("    Non-zero elements: {}", non_zero_count);
+        let min = accumulator.iter().cloned().fold(f32::INFINITY, f32::min);
+        let max = accumulator.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        warn!("    Range: min={:.6}, max={:.6}", min, max);
+    } else {
+        info!("✓ Denoise output has {} non-zero values", non_zero_count);
+    }
+    
     Ok(DynamicImage::ImageRgb32F(out_img_buffer))
 }
 
