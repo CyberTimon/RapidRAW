@@ -1,3 +1,6 @@
+#[path = "display_clip.rs"]
+mod display_clip;
+
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -96,37 +99,15 @@ impl WgpuDisplay {
                     occlusion_query_set: None,
                     multiview_mask: NonZero::new(0),
                 });
-                let clip_x1 = self.latest_transform.clip[0].max(0.0);
-                let clip_y1 = self.latest_transform.clip[1].max(0.0);
-                let clip_x2 =
-                    (self.latest_transform.clip[0] + self.latest_transform.clip[2]).max(0.0);
-                let clip_y2 =
-                    (self.latest_transform.clip[1] + self.latest_transform.clip[3]).max(0.0);
-
-                let final_clip_x = clip_x1.floor() as u32;
-                let final_clip_y = clip_y1.floor() as u32;
-                let final_clip_w = (clip_x2.ceil() as u32).saturating_sub(final_clip_x);
-                let final_clip_h = (clip_y2.ceil() as u32).saturating_sub(final_clip_y);
-
-                let max_x = self.config.width;
-                let max_y = self.config.height;
-
-                if final_clip_x < max_x && final_clip_y < max_y {
-                    let clamped_width = final_clip_w.min(max_x - final_clip_x);
-                    let clamped_height = final_clip_h.min(max_y - final_clip_y);
-
-                    if clamped_width > 0 && clamped_height > 0 {
-                        rpass.set_scissor_rect(
-                            final_clip_x,
-                            final_clip_y,
-                            clamped_width,
-                            clamped_height,
-                        );
-
-                        rpass.set_pipeline(&self.pipeline);
-                        rpass.set_bind_group(0, bind_group, &[]);
-                        rpass.draw(0..4, 0..1);
-                    }
+                if let Some([x, y, width, height]) = display_clip::surface_clip(
+                    self.latest_transform.clip,
+                    self.latest_transform.window,
+                    [self.config.width, self.config.height],
+                ) {
+                    rpass.set_scissor_rect(x, y, width, height);
+                    rpass.set_pipeline(&self.pipeline);
+                    rpass.set_bind_group(0, bind_group, &[]);
+                    rpass.draw(0..4, 0..1);
                 }
             }
             queue.submit(Some(encoder.finish()));
