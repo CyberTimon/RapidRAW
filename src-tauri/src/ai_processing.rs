@@ -10,8 +10,8 @@ use image::{
 };
 use ndarray::{Array, Array4, IxDyn};
 use ort::session::Session;
-use ort::value::Tensor;
-use ort::ep::*;
+use ort::value::{Tensor, TensorRef};
+use ort::{ep::*, info};
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -1064,10 +1064,24 @@ pub async fn get_or_init_denoise_model(
     .await?;
 
     let model_path = models_dir.join(DENOISE_FILENAME);
-    
+
     info!("→ Loading Denoising Model from: {}", model_path.display());
-    let session = create_session_for_model(&model_path, "NIND Denoise")?;
-    info!("✓ Denoising Model loaded successfully");
+    
+    // Ensure the global ONNX environment has been initialized with GPU providers
+    // Session::builder() will automatically use the global environment
+    ONNX_ENV_INITIALIZED.as_ref()
+        .map_err(|e| anyhow::anyhow!("ONNX environment initialization failed: {}", e))?;
+    
+    use ort::session::builder::GraphOptimizationLevel;
+    let session = Session::builder()
+        .map_err(|e| anyhow::anyhow!("SessionBuilder: {}", e))?
+        .with_optimization_level(GraphOptimizationLevel::Level1)
+        .map_err(|e| anyhow::anyhow!("optimization level: {}", e))?
+        .with_memory_pattern(false)
+        .map_err(|e| anyhow::anyhow!("memory pattern: {}", e))?
+        .commit_from_file(&model_path)
+        .map_err(|e| anyhow::anyhow!("Failed to load denoise model: {}", e))?;
+    info!("✓ Denoising Model loaded (Level1 optimization, no memory pattern)");
     
     let denoise_model = Arc::new(Mutex::new(session));
 
@@ -1399,8 +1413,10 @@ fn run_native_denoise(
             let significant_count = input_values.iter().filter(|&&v| v.abs() > 0.01).count();
             info!("Input tensor - {} significant values out of {}", significant_count, input_values.len());
         }
-        
-        let t_input = Tensor::from_array(input_values)?;
+
+        // TensorRef (borrowed) correctly triggers the host→device upload in DirectML/CUDA;
+        // Tensor::from_array (owned) can be misidentified as already on-device, giving zeros.
+        let t_input = TensorRef::from_array_view(&input_values)?;
 
         let out = {
             let mut sess = session.lock().unwrap();
@@ -1410,7 +1426,7 @@ fn run_native_denoise(
             let inference_start = if is_first { Some(Instant::now()) } else { None };
             
             let outputs = sess.run(ort::inputs![t_input])?;
-            
+
             // Extract and force GPU->CPU sync by converting to owned array
             // The .into_owned() forces materialization of GPU data into CPU memory
             let arr = outputs[0].try_extract_array::<f32>()?.into_owned();
