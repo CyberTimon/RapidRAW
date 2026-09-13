@@ -1,3 +1,4 @@
+import { usePanelCommands } from '../../../shortcuts/usePanelCommands';
 import React, { useEffect, useCallback, useState, useRef } from 'react';
 import {
   Camera,
@@ -425,6 +426,32 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
       setTethering({ isCapturing: false });
     }
   };
+
+  usePanelCommands({
+    tether_capture: {
+      shouldFire: () => isConnected && !isCapturing && !!currentFolderPath,
+      execute: () => {
+        void captureImage();
+      },
+    },
+    tether_autofocus: {
+      shouldFire: () => isConnected && !isFocusing,
+      execute: () => {
+        void triggerAutoFocus();
+      },
+    },
+    tether_detect: {
+      shouldFire: () => !isDetecting,
+      execute: () => {
+        void detectCameras(false);
+      },
+    },
+    tether_liveview: { shouldFire: () => isConnected, execute: () => setLiveViewEnabled((value) => !value) },
+    tether_ghost: {
+      shouldFire: () => isConnected,
+      execute: () => setTethering((state) => ({ showGhostImage: !state.showGhostImage })),
+    },
+  });
 
   useEffect(() => {
     if (isConnected || cameras.length > 0) return;

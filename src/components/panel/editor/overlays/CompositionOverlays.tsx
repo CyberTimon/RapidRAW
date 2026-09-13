@@ -1,5 +1,5 @@
 import React from 'react';
-import type { OverlayMode } from '../../right/CropPanel';
+import type { OverlayMode } from '../../../../crop/overlays';
 
 interface CompositionOverlaysProps {
   width: number;
@@ -173,7 +173,8 @@ export default function CompositionOverlays({
     const PHI = (1 + Math.sqrt(5)) / 2;
     const baseW = 1000;
     const baseH = baseW / PHI;
-    const pathData = 'M 0 618.03 A 618.03 618.03 0 0 1 618.03 0 A 381.97 381.97 0 0 1 1000 381.97 A 236.06 236.06 0 0 1 763.94 618.03 A 145.91 145.91 0 0 1 618.03 472.12 A 90.15 90.15 0 0 1 708.18 381.97 A 55.76 55.76 0 0 1 763.94 437.73 A 34.39 34.39 0 0 1 729.55 472.12 A 21.37 21.37 0 0 1 708.18 450.75 A 13.12 13.12 0 0 1 721.30 437.77 A 8.11 8.11 0 0 1 729.41 445.88 A 5.01 5.01 0 0 1 724.40 450.89';
+    const pathData =
+      'M 0 618.03 A 618.03 618.03 0 0 1 618.03 0 A 381.97 381.97 0 0 1 1000 381.97 A 236.06 236.06 0 0 1 763.94 618.03 A 145.91 145.91 0 0 1 618.03 472.12 A 90.15 90.15 0 0 1 708.18 381.97 A 55.76 55.76 0 0 1 763.94 437.73 A 34.39 34.39 0 0 1 729.55 472.12 A 21.37 21.37 0 0 1 708.18 450.75 A 13.12 13.12 0 0 1 721.30 437.77 A 8.11 8.11 0 0 1 729.41 445.88 A 5.01 5.01 0 0 1 724.40 450.89';
     const transform = `translate(${width / 2} ${height / 2}) rotate(${r * 90}) scale(${r % 2 === 0 ? width / baseW : height / baseW}, ${r % 2 === 0 ? height / baseH : width / baseH}) translate(${-baseW / 2} ${-baseH / 2})`;
 
     return (

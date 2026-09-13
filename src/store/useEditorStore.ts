@@ -1,10 +1,19 @@
+import { protectAutoEdit } from '../auto/editSafety';
 import { create } from 'zustand';
+import {
+  beginSession,
+  recordGeometry,
+  sameGeometry,
+  cropGeometry,
+  committedAdjustments,
+  type CropSession,
+} from '../crop/session';
 import { Adjustments, INITIAL_ADJUSTMENTS, MaskContainer, AiPatch } from '../utils/adjustments';
 import { SelectedImage, WaveformData, BrushSettings } from '../components/ui/AppProperties';
 import { ChannelConfig } from '../components/adjustments/Curves';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
 import { ToolType } from '../components/panel/right/Masks';
-import { OverlayMode } from '../components/panel/right/CropPanel';
+import type { OverlayMode } from '../crop/overlays';
 
 interface InteractivePatch {
   url: string;
@@ -26,6 +35,9 @@ interface EditorState {
   selectedImage: SelectedImage | null;
   adjustments: Adjustments;
   previewOverride: Adjustments | null;
+  cropSession: CropSession | null;
+  beginCrop: () => void;
+  finishCrop: (accept: boolean) => void;
 
   // History State
   history: Adjustments[];
@@ -92,6 +104,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   selectedImage: null,
   adjustments: INITIAL_ADJUSTMENTS,
   previewOverride: null,
+  cropSession: null,
   history: [INITIAL_ADJUSTMENTS],
   historyIndex: 0,
 
@@ -137,18 +150,63 @@ export const useEditorStore = create<EditorState>((set) => ({
   hasRenderedFirstFrame: false,
   patchesSentToBackend: new Set<string>(),
 
-  setEditor: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
+  beginCrop: () =>
+    set((state) => {
+      if (!state.selectedImage || state.cropSession) return state;
+      return {
+        cropSession: beginSession(state.selectedImage.path, state.adjustments),
+        showOriginal: false,
+        previewOverride: null,
+      };
+    }),
+  finishCrop: (accept) =>
+    set((state) => {
+      const session = state.cropSession;
+      if (!session) return state;
+      const adjustments = accept
+        ? protectAutoEdit({ ...state.adjustments, ...session.original }, state.adjustments, session.path)
+        : { ...state.adjustments, ...session.original };
+      const changed = accept && !sameGeometry(session.original, cropGeometry(adjustments));
+      const history = changed
+        ? [...state.history.slice(0, state.historyIndex + 1), adjustments].slice(-50)
+        : state.history;
+      return {
+        adjustments,
+        history,
+        historyIndex: changed ? history.length - 1 : state.historyIndex,
+        cropSession: null,
+        liveRotation: null,
+        isRotationActive: false,
+        isStraightenActive: false,
+        isGuidedPerspectiveActive: false,
+      };
+    }),
+  setEditor: (updater) =>
+    set((state) => {
+      const update = typeof updater === 'function' ? updater(state) : updater;
+      if (update.adjustments && state.cropSession) {
+        return { ...update, cropSession: recordGeometry(state.cropSession, update.adjustments) };
+      }
+      return update;
+    }),
 
   pushHistory: (newAdj) =>
     set((state) => {
+      const committed = committedAdjustments(newAdj, state.cropSession);
+      if (JSON.stringify(state.history[state.historyIndex]) === JSON.stringify(committed)) return state;
       const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push(newAdj);
+      newHistory.push(committed);
       if (newHistory.length > 50) newHistory.shift();
       return { history: newHistory, historyIndex: newHistory.length - 1 };
     }),
 
   undo: () =>
     set((state) => {
+      if (state.cropSession) {
+        const session = state.cropSession;
+        const index = Math.max(0, session.index - 1);
+        return { cropSession: { ...session, index }, adjustments: { ...state.adjustments, ...session.history[index] } };
+      }
       if (state.historyIndex > 0) {
         const newIndex = state.historyIndex - 1;
         return { historyIndex: newIndex, adjustments: state.history[newIndex] };
@@ -158,6 +216,11 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   redo: () =>
     set((state) => {
+      if (state.cropSession) {
+        const session = state.cropSession;
+        const index = Math.min(session.history.length - 1, session.index + 1);
+        return { cropSession: { ...session, index }, adjustments: { ...state.adjustments, ...session.history[index] } };
+      }
       if (state.historyIndex < state.history.length - 1) {
         const newIndex = state.historyIndex + 1;
         return { historyIndex: newIndex, adjustments: state.history[newIndex] };
@@ -167,6 +230,7 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   resetHistory: (initialState) =>
     set({
+      cropSession: null,
       history: [initialState],
       historyIndex: 0,
       adjustments: initialState,
@@ -174,6 +238,11 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   goToHistoryIndex: (index) =>
     set((state) => {
+      if (state.cropSession) {
+        const session = state.cropSession;
+        if (index < 0 || index >= session.history.length) return state;
+        return { cropSession: { ...session, index }, adjustments: { ...state.adjustments, ...session.history[index] } };
+      }
       if (index >= 0 && index < state.history.length) {
         return { historyIndex: index, adjustments: state.history[index] };
       }

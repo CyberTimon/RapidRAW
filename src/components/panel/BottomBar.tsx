@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
 import Filmstrip from './Filmstrip';
-import { GLOBAL_KEYS, ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
+import { ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
@@ -275,16 +275,6 @@ export default function BottomBar({
     setIsZoomActive(false);
     if (isZoomReady) {
       setLatchedDisplayPercent(Math.round(currentOriginalPercent * 100));
-    }
-  };
-
-  const handleZoomKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && ['z', 'y'].includes(e.key.toLowerCase())) {
-      (e.target as HTMLElement).blur();
-      return;
-    }
-    if (GLOBAL_KEYS.includes(e.key)) {
-      (e.target as HTMLElement).blur();
     }
   };
 
@@ -574,7 +564,6 @@ export default function BottomBar({
                     step="0.05"
                     value={latchedSliderValue}
                     onChange={handleSliderChange}
-                    onKeyDown={handleZoomKeyDown}
                     onMouseDown={handleMouseDown}
                     onMouseUp={handleMouseUp}
                     onTouchStart={handleMouseDown}

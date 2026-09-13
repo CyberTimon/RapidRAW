@@ -1,6 +1,6 @@
 {
   "name": "rapidraw",
-  "author": "Timon Käch",
+  "author": "Timon K\u00e4ch",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -16,7 +16,8 @@
     "i18n:extract": "i18next-cli extract",
     "i18n:check": "i18next-cli extract --ci --dry-run && npm run i18n:runtime-check",
     "i18n:runtime-check": "node src/i18n/check-runtime.mjs",
-    "i18n:lint": "i18next-cli lint"
+    "i18n:lint": "i18next-cli lint",
+    "test:controls": "node scripts/test-controls.mjs"
   },
   "dependencies": {
     "@clerk/react": "^6.14.5",

@@ -1,3 +1,5 @@
+import { useUIStore } from '../store/useUIStore';
+import { hasOpenDialog } from '../shortcuts/focus';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLibraryStore } from '../store/useLibraryStore';
@@ -65,16 +67,19 @@ export default function PeopleReview({ id, onClose }: { id: string | null; onClo
   );
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
+      if (useUIStore.getState().isSettingsOpen || hasOpenDialog(useUIStore.getState()) || event.defaultPrevented)
+        return;
       const key = usablePeopleShortcut(event);
       if (!key) return;
       const target = shortcuts.byKey.get(key);
       if (target && selected.length && target !== id && !busy && !running) {
         event.preventDefault();
+        event.stopImmediatePropagation();
         moveFaces(target);
       }
     };
-    window.addEventListener('keydown', handleShortcut);
-    return () => window.removeEventListener('keydown', handleShortcut);
+    window.addEventListener('keydown', handleShortcut, true);
+    return () => window.removeEventListener('keydown', handleShortcut, true);
   }, [busy, id, moveFaces, running, selected.length, shortcuts.byKey]);
   return (
     <section className="p-3 overflow-auto flex-1 min-h-0">

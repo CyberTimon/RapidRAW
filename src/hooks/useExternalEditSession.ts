@@ -1,3 +1,5 @@
+import { finishCropSession } from '../crop/lifecycle';
+import { usePanelCommands } from '../shortcuts/usePanelCommands';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { exit } from '@tauri-apps/plugin-process';
@@ -47,6 +49,7 @@ export function useExternalEditSession(handleImageSelect: (path: string) => void
   }, [isFinishing, exportStatus]);
 
   const finishExternalEdit = useCallback(async () => {
+    if ((await finishCropSession()) === false) return;
     const session = useProcessStore.getState().externalEditSession;
     const { selectedImage, adjustments } = useEditorStore.getState();
     if (!session || !selectedImage) return;
@@ -93,6 +96,15 @@ export function useExternalEditSession(handleImageSelect: (path: string) => void
       });
     }
   }, []);
+
+  usePanelCommands({
+    finish_external_edit: {
+      shouldFire: () => !!externalEditSession && !isFinishing,
+      execute: () => {
+        void finishExternalEdit();
+      },
+    },
+  });
 
   return { externalEditSession, isFinishing, finishExternalEdit };
 }

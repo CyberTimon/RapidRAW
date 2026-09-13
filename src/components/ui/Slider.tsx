@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GLOBAL_KEYS } from './AppProperties';
 
 type SliderChangeEvent =
   | React.ChangeEvent<HTMLInputElement>
@@ -515,16 +514,6 @@ const Slider = ({
     }
   };
 
-  const handleRangeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.currentTarget.blur();
-      return;
-    }
-    if (GLOBAL_KEYS.includes(e.key)) {
-      e.currentTarget.blur();
-    }
-  };
-
   const numericValue = isNaN(Number(value)) ? 0 : Number(value);
 
   return (
@@ -608,7 +597,6 @@ const Slider = ({
           min={String(min)}
           onChange={handleChange}
           onDoubleClick={handleReset}
-          onKeyDown={handleRangeKeyDown}
           onMouseDown={handleMouseDown}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}

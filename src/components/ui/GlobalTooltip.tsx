@@ -4,6 +4,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
 import Text from './Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { shortcutLabel } from '../../shortcuts/profiles';
+import { formatKeyCode } from '../../utils/keyboardUtils';
 
 const TOOLTIP_DELAY = 500;
 const OFFSET = 8;
@@ -49,8 +52,13 @@ export default function GlobalTooltip() {
     };
 
     const computePosition = (el: HTMLElement): TooltipData | null => {
-      const content = el.getAttribute('data-tooltip');
-      if (!content) return null;
+      const label = el.getAttribute('data-tooltip');
+      if (!label) return null;
+      const settings = useSettingsStore.getState();
+      const keys = shortcutLabel(el.getAttribute('data-command') || '', settings.appSettings)
+        .map((key) => formatKeyCode(key, settings.osPlatform))
+        .join(' + ');
+      const content = keys ? `${label} (${keys})` : label;
 
       const rect = el.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;

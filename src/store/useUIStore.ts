@@ -210,6 +210,7 @@ export function reconcileWorkspace(
 
 interface UIState {
   activeView: string;
+  settingsSection: string;
   isFullScreen: boolean;
   isWindowFullScreen: boolean;
   isInstantTransition: boolean;
@@ -277,6 +278,7 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set, get) => ({
   activeView: 'library',
+  settingsSection: 'general',
   isFullScreen: false,
   isWindowFullScreen: false,
   isInstantTransition: false,

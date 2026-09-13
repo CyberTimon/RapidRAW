@@ -1,3 +1,4 @@
+import { usePanelCommands } from '../../../shortcuts/usePanelCommands';
 import {
   type ChangeEvent,
   type PointerEvent as ReactPointerEvent,
@@ -555,6 +556,26 @@ export default function MasksPanel() {
     if (!forceNewMaskContainer && activeMaskContainerId) handleAddSubMask(activeMaskContainerId, type);
     else handleAddMaskContainer(type);
   };
+
+  usePanelCommands(
+    Object.fromEntries(
+      [
+        ['mask_brush', Mask.Brush],
+        ['mask_linear', Mask.Linear],
+        ['mask_radial', Mask.Radial],
+        ['mask_subject', Mask.AiSubject],
+        ['mask_sky', Mask.AiSky],
+        ['mask_luminance', Mask.Luminance],
+        ['mask_color', Mask.Color],
+      ].map(([id, type]) => [
+        id,
+        {
+          shouldFire: () => useUIStore.getState().activePanel === Panel.Masks && !!selectedImage?.isReady,
+          execute: () => handleAddMaskContainer(type as Mask),
+        },
+      ]),
+    ),
+  );
 
   const handleGridRightClick = (event: React.MouseEvent, type: Mask | null) => {
     if (event.button !== 2) return;

@@ -1,3 +1,4 @@
+import { usePanelCommands } from '../../../shortcuts/usePanelCommands';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
@@ -1206,6 +1207,33 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     ];
     showContextMenu(event.clientX, event.clientY, options);
   };
+
+  usePanelCommands({
+    preset_create: {
+      shouldFire: (s) => s.ui.activePanel === Panel.Presets && !!selectedImage,
+      execute: () => setConfigureModalState({ isOpen: true, preset: null }),
+    },
+    preset_folder: {
+      shouldFire: (s) => s.ui.activePanel === Panel.Presets,
+      execute: () => setIsAddFolderModalOpen(true),
+    },
+    preset_import: {
+      shouldFire: (s) => s.ui.activePanel === Panel.Presets,
+      execute: () => {
+        void handleImportPresets();
+      },
+    },
+    preset_export: {
+      shouldFire: (s) => s.ui.activePanel === Panel.Presets && presets.length > 0,
+      execute: () => {
+        void handleExportAllPresets();
+      },
+    },
+    preset_sort: {
+      shouldFire: (s) => s.ui.activePanel === Panel.Presets && presets.length > 0,
+      execute: () => sortAllPresetsAlphabetically(),
+    },
+  });
 
   const folders = useMemo(() => presets.filter((item: UserPreset) => item.folder), [presets]);
   const rootPresets = useMemo(() => presets.filter((item: UserPreset) => item.preset), [presets]);

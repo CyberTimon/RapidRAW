@@ -1,3 +1,6 @@
+import { executeCommand } from '../../../shortcuts/runtime';
+import { shortcutLabel } from '../../../shortcuts/profiles';
+import { formatKeyCode } from '../../../utils/keyboardUtils';
 import { memo, useState, useEffect, useRef, useMemo } from 'react';
 import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -37,12 +40,7 @@ const EditorToolbar = memo(
     canUndo,
     isAndroid,
     isLoading,
-    onBackToLibrary,
     onImageSelect,
-    onRedo,
-    onToggleFullScreen,
-    onToggleShowOriginal,
-    onUndo,
     selectedImage,
     showOriginal,
     showDateView,
@@ -349,11 +347,14 @@ const EditorToolbar = memo(
       }
     }, [isHistoryVisible, adjustmentsHistoryIndex]);
 
-    const handleButtonKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-      if (e.key === 'Tab') return;
-      e.currentTarget.blur();
+    const shortcutSettings = useSettingsStore((s) => s.appSettings);
+    const shortcutPlatform = useSettingsStore((s) => s.osPlatform);
+    const hint = (label: string, action: string) => {
+      const keys = shortcutLabel(action, shortcutSettings)
+        .map((key) => formatKeyCode(key, shortcutPlatform))
+        .join(' + ');
+      return keys ? `${label} (${keys})` : label;
     };
-
     const isExpanded = isInfoHovered && (hasExif || isLoading);
 
     return (
@@ -361,8 +362,7 @@ const EditorToolbar = memo(
         <div className="flex items-center gap-2 shrink-0 z-40">
           <button
             className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors shrink-0"
-            onClick={onBackToLibrary}
-            onKeyDown={handleButtonKeyDown}
+            onClick={() => executeCommand('gallery')}
             data-tooltip={t('editor.toolbar.tooltips.backToLibrary')}
             data-bench-id="back-to-library"
           >
@@ -449,7 +449,6 @@ const EditorToolbar = memo(
                         )}
                         data-tooltip={t('editor.toolbar.switchToVariant', { label: v.label })}
                         onClick={(e) => onImageSelect?.(v.path, e)}
-                        onKeyDown={handleButtonKeyDown}
                       >
                         {v.label}
                       </button>
@@ -584,13 +583,12 @@ const EditorToolbar = memo(
             <button
               className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!canUndo}
-              onClick={onUndo}
-              onKeyDown={handleButtonKeyDown}
+              onClick={() => executeCommand('undo')}
               onContextMenu={(e) => {
                 e.preventDefault();
                 setIsHistoryVisible((prev) => !prev);
               }}
-              data-tooltip={t('editor.toolbar.tooltips.undo')}
+              data-tooltip={hint(t('editor.toolbar.tooltips.undo'), 'undo')}
               data-bench-id="undo"
             >
               <Undo size={20} />
@@ -598,13 +596,12 @@ const EditorToolbar = memo(
             <button
               className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!canRedo}
-              onClick={onRedo}
-              onKeyDown={handleButtonKeyDown}
+              onClick={() => executeCommand('redo')}
               onContextMenu={(e) => {
                 e.preventDefault();
                 setIsHistoryVisible((prev) => !prev);
               }}
-              data-tooltip={t('editor.toolbar.tooltips.redo')}
+              data-tooltip={hint(t('editor.toolbar.tooltips.redo'), 'redo')}
             >
               <Redo size={20} />
             </button>
@@ -635,7 +632,6 @@ const EditorToolbar = memo(
                         key={i}
                         data-active={isCurrent}
                         onClick={() => goToAdjustmentsHistoryIndex(i)}
-                        onKeyDown={handleButtonKeyDown}
                         className={clsx(
                           'text-left px-3 py-2 transition-colors mx-1 my-0.5 rounded-md',
                           isCurrent
@@ -674,8 +670,7 @@ const EditorToolbar = memo(
                 ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
                 : 'bg-surface hover:bg-card-active text-text-primary',
             )}
-            onClick={onToggleShowOriginal}
-            onKeyDown={handleButtonKeyDown}
+            onClick={() => executeCommand('show_original')}
             data-tooltip={
               showOriginal ? t('editor.toolbar.tooltips.showEdited') : t('editor.toolbar.tooltips.showOriginal')
             }
@@ -684,8 +679,7 @@ const EditorToolbar = memo(
           </button>
           <button
             className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative"
-            onClick={onToggleFullScreen}
-            onKeyDown={handleButtonKeyDown}
+            onClick={() => executeCommand('toggle_fullscreen')}
             data-tooltip={t('editor.toolbar.tooltips.fullscreen')}
           >
             <div className="relative w-5 h-5 flex items-center justify-center">

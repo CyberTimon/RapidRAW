@@ -504,6 +504,16 @@ pub struct AppSettings {
     #[serde(default)]
     pub keybinds: HashMap<String, Vec<String>>,
     #[serde(default)]
+    pub shortcut_profile: Option<String>,
+    #[serde(default)]
+    pub lightroom_keybinds: HashMap<String, Vec<String>>,
+    #[serde(default)]
+    pub crop_drag_mode: Option<String>,
+    #[serde(default)]
+    pub crop_overlay: Option<String>,
+    #[serde(default)]
+    pub crop_rotation_grid: Option<String>,
+    #[serde(default)]
     pub thumbnail_worker_threads: Option<u32>,
     #[serde(default)]
     pub image_cache_size: Option<u32>,
@@ -614,6 +624,11 @@ impl Default for AppSettings {
             zoom_speed_multiplier: Some(1.0),
             zoom_photo_to_pixel_click: Some(false),
             keybinds: HashMap::new(),
+            shortcut_profile: None,
+            lightroom_keybinds: HashMap::new(),
+            crop_drag_mode: None,
+            crop_overlay: None,
+            crop_rotation_grid: None,
             #[cfg(target_os = "android")]
             thumbnail_worker_threads: Some(2),
             #[cfg(not(target_os = "android"))]
@@ -745,3 +760,7 @@ pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(),
         .set_capacity(cache_size);
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "control_settings_tests.rs"]
+mod control_settings_tests;

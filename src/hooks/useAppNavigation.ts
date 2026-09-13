@@ -1,3 +1,4 @@
+import { finishCropSession } from '../crop/lifecycle';
 import { beginLibraryLoad, isCurrentLibraryLoad, startLibraryRatingScan } from './libraryRatingScan';
 import { scanLibrary } from './libraryScan';
 import { resetLibraryExifQueue } from './libraryExifQueue';
@@ -65,12 +66,16 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
   }, [clearThumbnailQueue]);
 
   const handleBackToLibrary = useCallback(() => {
+    finishCropSession();
     const { selectedImage } = useEditorStore.getState();
     const { setLibrary } = useLibraryStore.getState();
     const { setUI } = useUIStore.getState();
 
     if (selectedImage?.path && cachedEditStateRef.current) {
-      globalImageCache.set(selectedImage.path, cachedEditStateRef.current);
+      globalImageCache.set(selectedImage.path, {
+        ...cachedEditStateRef.current,
+        adjustments: useEditorStore.getState().adjustments,
+      });
     }
     if (transformWrapperRef.current) {
       transformWrapperRef.current.resetTransform(0);
@@ -92,8 +97,9 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
   const handleImageSelect = useCallback(
     async (path: string, openInEditor: boolean = true) => {
-      const { selectedImage, isSliderDragging, resetHistory, setEditor } = useEditorStore.getState();
-      const { setLibrary, multiSelectedPaths } = useLibraryStore.getState();
+      finishCropSession();
+      const { selectedImage, resetHistory, setEditor } = useEditorStore.getState();
+      const { setLibrary, multiSelectedPaths, selectionAnchorPath } = useLibraryStore.getState();
       const { setUI } = useUIStore.getState();
 
       if (openInEditor) {
@@ -101,13 +107,17 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       }
 
       if (selectedImage?.path === path) return;
+      selectedImagePathRef.current = path;
 
       useEditorStore.getState().patchesSentToBackend.clear();
       debouncedSave.flush();
       debouncedSetHistory.cancel();
 
       if (selectedImage?.path && cachedEditStateRef.current) {
-        globalImageCache.set(selectedImage.path, cachedEditStateRef.current);
+        globalImageCache.set(selectedImage.path, {
+          ...cachedEditStateRef.current,
+          adjustments: useEditorStore.getState().adjustments,
+        });
       }
 
       const cachedThumb = useProcessStore.getState().thumbnails[path];
@@ -121,6 +131,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       const isCachedInBackend = isFrontendCached
         ? await invoke<boolean>('is_image_cached', { path }).catch(() => false)
         : false;
+      if (selectedImagePathRef.current !== path) return;
 
       const hasDifferentResolution =
         cached &&
@@ -131,14 +142,12 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         setEditor({ hasRenderedFirstFrame: false });
       }
 
-      selectedImagePathRef.current = path;
-
       const newMultiSelectedPaths = multiSelectedPaths.includes(path) ? multiSelectedPaths : [path];
 
       setLibrary({
         multiSelectedPaths: newMultiSelectedPaths,
         libraryActivePath: path,
-        selectionAnchorPath: path,
+        selectionAnchorPath: multiSelectedPaths.includes(path) ? (selectionAnchorPath ?? path) : path,
       });
 
       setEditor({
@@ -157,6 +166,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       });
 
       if (isFrontendCached) {
+        resetHistory(cached.adjustments);
         setEditor({
           selectedImage: {
             ...cached.selectedImage,
@@ -170,8 +180,6 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
           uncroppedAdjustedPreviewUrl: cached.uncroppedPreviewUrl,
         });
 
-        setEditor({ adjustments: cached.adjustments });
-        resetHistory(cached.adjustments);
         prevAdjustmentsRef.current = { path, adjustments: cached.adjustments };
 
         setLibrary({ isViewLoading: false });
@@ -206,7 +214,13 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
             if (freshAdjustments.aspectRatio == null && cached.adjustments.aspectRatio != null) {
               freshAdjustments.aspectRatio = cached.adjustments.aspectRatio;
             }
-            if (!isSliderDragging && JSON.stringify(cached.adjustments) !== JSON.stringify(freshAdjustments)) {
+            const current = useEditorStore.getState();
+            if (
+              !current.cropSession &&
+              !current.isSliderDragging &&
+              JSON.stringify(current.adjustments) === JSON.stringify(cached.adjustments) &&
+              JSON.stringify(cached.adjustments) !== JSON.stringify(freshAdjustments)
+            ) {
               setEditor({ adjustments: freshAdjustments });
               resetHistory(freshAdjustments);
               prevAdjustmentsRef.current = { path, adjustments: freshAdjustments };

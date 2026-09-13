@@ -1,3 +1,7 @@
+import { executeCommand } from '../../../shortcuts/runtime';
+import CropControls from '../../../crop/CropControls';
+import type { OverlayMode } from '../../../crop/overlays';
+export type { OverlayMode } from '../../../crop/overlays';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Aperture,
@@ -48,8 +52,6 @@ import { useContextMenu } from '../../../context/ContextMenuContext';
 const BASE_RATIO = 1.618;
 const ORIGINAL_RATIO = 0;
 const RATIO_TOLERANCE = 0.01;
-
-export type OverlayMode = 'none' | 'thirds' | 'goldenTriangle' | 'goldenSpiral' | 'phiGrid' | 'armature' | 'diagonal';
 
 interface CropPreset {
   name: string;
@@ -173,17 +175,6 @@ export default function CropPanel() {
     [setEditor],
   );
 
-  const setOverlay = useCallback((mode: OverlayMode) => setEditor({ overlayMode: mode }), [setEditor]);
-
-  const setOverlayRotation = useCallback(
-    (updater: React.SetStateAction<number>) => {
-      setEditor((state) => ({
-        overlayRotation: typeof updater === 'function' ? updater(state.overlayRotation) : updater,
-      }));
-    },
-    [setEditor],
-  );
-
   const lastSyncedRatio = useRef<number | null>(null);
 
   const { aspectRatio, rotation = 0, flipHorizontal = false, flipVertical = false, orientationSteps = 0 } = adjustments;
@@ -207,30 +198,6 @@ export default function CropPanel() {
       setLenses([]);
     }
   }, [adjustments.lensMaker]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const activeTag = document.activeElement?.tagName.toLowerCase();
-      if (activeTag === 'input' || activeTag === 'textarea') return;
-
-      if (e.ctrlKey || e.metaKey) return;
-
-      if (e.key.toLowerCase() === 'o') {
-        e.preventDefault();
-
-        if (e.shiftKey) {
-          setOverlayRotation((prev) => (prev + 1) % 4);
-        } else {
-          const currentIndex = OVERLAYS.findIndex((o) => o.id === activeOverlay);
-          const nextIndex = (currentIndex + 1) % OVERLAYS.length;
-          setOverlay(OVERLAYS[nextIndex].id);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeOverlay, setOverlay, setOverlayRotation, OVERLAYS]);
 
   useEffect(() => {
     return () => {
@@ -419,44 +386,11 @@ export default function CropPanel() {
   }, [aspectRatio, applyAspectRatio]);
 
   const handleReset = () => {
-    const originalAspectRatio =
-      selectedImage?.width && selectedImage?.height ? selectedImage.width / selectedImage.height : null;
-
     setPreferPortrait(false);
     setIsEditingCustom(false);
     lastSyncedRatio.current = null;
     updateLocalRotation(null);
-
-    setOverlay('thirds');
-
-    setAdjustments((prev: Adjustments) => ({
-      ...prev,
-      aspectRatio: originalAspectRatio,
-      crop: INITIAL_ADJUSTMENTS.crop,
-      flipHorizontal: INITIAL_ADJUSTMENTS.flipHorizontal ?? false,
-      flipVertical: INITIAL_ADJUSTMENTS.flipVertical ?? false,
-      orientationSteps: INITIAL_ADJUSTMENTS.orientationSteps ?? 0,
-      rotation: INITIAL_ADJUSTMENTS.rotation ?? 0,
-      transformDistortion: INITIAL_ADJUSTMENTS.transformDistortion ?? 0,
-      transformVertical: INITIAL_ADJUSTMENTS.transformVertical ?? 0,
-      transformHorizontal: INITIAL_ADJUSTMENTS.transformHorizontal ?? 0,
-      transformRotate: INITIAL_ADJUSTMENTS.transformRotate ?? 0,
-      transformAspect: INITIAL_ADJUSTMENTS.transformAspect ?? 0,
-      transformScale: INITIAL_ADJUSTMENTS.transformScale ?? 100,
-      transformXOffset: INITIAL_ADJUSTMENTS.transformXOffset ?? 0,
-      transformYOffset: INITIAL_ADJUSTMENTS.transformYOffset ?? 0,
-      guidedPerspective: INITIAL_ADJUSTMENTS.guidedPerspective,
-      lensMaker: INITIAL_ADJUSTMENTS.lensMaker,
-      lensModel: INITIAL_ADJUSTMENTS.lensModel,
-      lensDistortionAmount: INITIAL_ADJUSTMENTS.lensDistortionAmount,
-      lensVignetteAmount: INITIAL_ADJUSTMENTS.lensVignetteAmount,
-      lensTcaAmount: INITIAL_ADJUSTMENTS.lensTcaAmount,
-      lensDistortionEnabled: INITIAL_ADJUSTMENTS.lensDistortionEnabled,
-      lensTcaEnabled: INITIAL_ADJUSTMENTS.lensTcaEnabled,
-      lensVignetteEnabled: INITIAL_ADJUSTMENTS.lensVignetteEnabled,
-      lensDistortionParams: INITIAL_ADJUSTMENTS.lensDistortionParams,
-      lensCorrectionMode: INITIAL_ADJUSTMENTS.lensCorrectionMode,
-    }));
+    executeCommand('crop_reset');
   };
 
   const isPresetActive = (preset: CropPreset) => preset === activePreset;
@@ -482,11 +416,7 @@ export default function CropPanel() {
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, rotation: 0 }));
   };
 
-  const handleOverlayCycle = () => {
-    const currentIndex = OVERLAYS.findIndex((o) => o.id === activeOverlay);
-    const nextIndex = (currentIndex + 1) % OVERLAYS.length;
-    setOverlay(OVERLAYS[nextIndex].id);
-  };
+  const handleOverlayCycle = () => executeCommand('crop_overlay');
 
   const getOverlayTooltip = () => {
     const current = OVERLAYS.find((o) => o.id === activeOverlay);
@@ -760,6 +690,7 @@ export default function CropPanel() {
         </button>
       </div>
 
+      {selectedImage && <CropControls />}
       <div className="grow overflow-y-auto p-3 space-y-6 custom-scrollbar">
         {selectedImage ? (
           <>

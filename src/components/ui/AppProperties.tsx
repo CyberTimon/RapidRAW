@@ -2,31 +2,6 @@ import { ExportPreset } from './ExportImportProperties';
 import { Adjustments, CopyPasteSettings } from '../../utils/adjustments';
 import { ToolType } from '../panel/right/Masks';
 
-export const GLOBAL_KEYS = [
-  ' ',
-  'ArrowUp',
-  'ArrowDown',
-  'ArrowLeft',
-  'ArrowRight',
-  'f',
-  'b',
-  'a',
-  's',
-  'd',
-  'r',
-  'm',
-  'k',
-  'p',
-  'i',
-  'e',
-  '0',
-  '1',
-  '2',
-  '3',
-  '4',
-  '5',
-  'Enter',
-];
 export const OPTION_SEPARATOR = 'separator';
 
 export enum Invokes {
@@ -227,6 +202,11 @@ export interface AppSettings {
   zoomSpeedMultiplier?: number;
   zoomPhotoToPixelClick?: boolean;
   keybinds?: { [action: string]: string[] };
+  shortcutProfile?: 'rapidraw' | 'lightroom';
+  lightroomKeybinds?: Record<string, string[]>;
+  cropDragMode?: 'photo' | 'frame';
+  cropOverlay?: 'none' | 'thirds' | 'diagonal' | 'goldenTriangle' | 'goldenSpiral' | 'phiGrid' | 'armature';
+  cropRotationGrid?: 'selected' | 'dense';
   tonemapperOverrideEnabled?: boolean;
   defaultRawTonemapper?: string;
   defaultNonRawTonemapper?: string;
@@ -297,6 +277,7 @@ export interface ImageFile {
 }
 
 export interface Option {
+  commandId?: import('../../shortcuts/definitions').CommandId;
   color?: string;
   disabled?: boolean;
   icon?: any;

@@ -1,3 +1,4 @@
+import { committedAdjustments } from '../crop/session';
 import { useCallback } from 'react';
 import { protectAutoEdit } from '../auto/editSafety';
 import { invoke } from '@tauri-apps/api/core';
@@ -24,11 +25,25 @@ export const debouncedSetHistory = debounce((newAdj: Adjustments) => {
   useEditorStore.getState().pushHistory(newAdj);
 }, 500);
 
+let metadataSaveQueue: Promise<unknown> = Promise.resolve();
+
 export const debouncedSave = debounce((path: string, adjustmentsToSave: Adjustments) => {
-  return invoke(Invokes.SaveMetadataAndUpdateThumbnail, { path, adjustments: adjustmentsToSave }).catch((err) => {
-    console.error('Auto-save failed:', err);
-    toast.error(`Failed to save changes: ${err}`);
-  });
+  const current = useEditorStore.getState();
+  const adjustments =
+    current.cropSession?.path === path
+      ? committedAdjustments(adjustmentsToSave, current.cropSession)
+      : adjustmentsToSave;
+  const operation = metadataSaveQueue
+    .catch(() => undefined)
+    .then(() => invoke(Invokes.SaveMetadataAndUpdateThumbnail, { path, adjustments }));
+  metadataSaveQueue = operation;
+  return operation
+    .then(() => true)
+    .catch((err) => {
+      console.error('Auto-save failed:', err);
+      toast.error(`Failed to save changes: ${err}`);
+      return false;
+    });
 }, 300);
 
 export function useEditorActions() {
@@ -39,7 +54,14 @@ export function useEditorActions() {
       setEditor((state) => {
         const prev = state.adjustments;
         const proposed = typeof value === 'function' ? value(prev) : { ...prev, ...value };
-        const newAdjustments = protectAutoEdit(prev, proposed, state.selectedImage?.path);
+        const protectedCommitted = protectAutoEdit(
+          committedAdjustments(prev, state.cropSession),
+          committedAdjustments(proposed, state.cropSession),
+          state.selectedImage?.path,
+        );
+        const newAdjustments = state.cropSession
+          ? { ...proposed, autoProvenance: protectedCommitted.autoProvenance }
+          : protectedCommitted;
         debouncedSetHistory(newAdjustments);
         return {
           adjustments: newAdjustments,

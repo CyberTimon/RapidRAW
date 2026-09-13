@@ -79,6 +79,10 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
           setEditor((state) => {
             if (state.selectedImage && state.selectedImage.path === selectedImage.path) {
               return {
+                adjustments:
+                  !state.adjustments.aspectRatio && !state.adjustments.crop
+                    ? { ...state.adjustments, aspectRatio: loadImageResult.width / loadImageResult.height }
+                    : state.adjustments,
                 selectedImage: {
                   ...state.selectedImage,
                   exif: loadImageResult.exif,
@@ -88,15 +92,6 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
                   metadata: loadImageResult.metadata,
                   width: loadImageResult.width,
                 },
-              };
-            }
-            return state;
-          });
-
-          setEditor((state) => {
-            if (!state.adjustments.aspectRatio && !state.adjustments.crop) {
-              return {
-                adjustments: { ...state.adjustments, aspectRatio: loadImageResult.width / loadImageResult.height },
               };
             }
             return state;

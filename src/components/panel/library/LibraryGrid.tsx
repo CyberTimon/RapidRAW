@@ -191,7 +191,9 @@ export default function LibraryGrid(props: any) {
     const itemWidth = isListView ? availableWidth : (availableWidth - ITEM_GAP * (columnCount - 1)) / columnCount;
 
     const columns = getLibraryColumnWidths(listColumnWidths);
-    const contentWidth = isListView ? Math.max(availableWidth, libraryTableWidth(columns, showExifCols) + 16) : availableWidth;
+    const contentWidth = isListView
+      ? Math.max(availableWidth, libraryTableWidth(columns, showExifCols) + 16)
+      : availableWidth;
     const listRowHeight = Math.max(36, Math.min(300, columns.thumbnail));
     const rowHeight = isListView ? listRowHeight : itemWidth + ITEM_GAP;
     const headerHeight = 40;
@@ -267,6 +269,16 @@ export default function LibraryGrid(props: any) {
 
   const prevGrouping = useRef(groupRecursiveFolders);
   const prevActivePath = useRef<string | null>(null);
+  useEffect(() => {
+    useLibraryStore.getState().setLibrary({
+      keyboardRows:
+        gridData?.rows
+          .filter((row) => row.type === 'images')
+          .map((row) => row.images.map((image: ImageFile) => image.path)) ?? [],
+    });
+    return () => useLibraryStore.getState().setLibrary({ keyboardRows: [] });
+  }, [gridData]);
+
   const prevDisplayMode = useRef<LibraryDisplayMode | null>(null);
   const prevListElement = useRef<HTMLElement | null>(null);
 
@@ -447,30 +459,32 @@ export default function LibraryGrid(props: any) {
       onContextMenu={props.onEmptyAreaContextMenu}
     >
       <div className="w-full h-full overflow-x-auto overflow-y-hidden custom-scrollbar">
-      <div className="flex flex-col h-full" style={{ width: gridData.contentWidth }}>
-        {gridData.isListView && (
-          <ListHeader
-            widths={listColumnWidths}
-            setWidths={(w: any) => setLibrary({ listColumnWidths: typeof w === 'function' ? w(listColumnWidths) : w })}
-            sortCriteria={sortCriteria}
-            onSortChange={handleHeaderSort}
-          />
-        )}
-        <div className="flex-1 min-h-0" style={{ width: gridData.contentWidth }}>
-          <List
-            onRowsRendered={onRowsRendered}
-            overscanCount={2}
-            listRef={setListHandle}
-            rowCount={gridData.rows.length}
-            rowHeight={getItemSize}
-            onScroll={(e: React.UIEvent<HTMLElement>) => handleScroll(e.currentTarget.scrollTop)}
-            className="custom-scrollbar"
-            style={{ height: '100%', overflowX: 'hidden' }}
-            rowComponent={Row}
-            rowProps={memoizedRowProps}
-          />
+        <div className="flex flex-col h-full" style={{ width: gridData.contentWidth }}>
+          {gridData.isListView && (
+            <ListHeader
+              widths={listColumnWidths}
+              setWidths={(w: any) =>
+                setLibrary({ listColumnWidths: typeof w === 'function' ? w(listColumnWidths) : w })
+              }
+              sortCriteria={sortCriteria}
+              onSortChange={handleHeaderSort}
+            />
+          )}
+          <div className="flex-1 min-h-0" style={{ width: gridData.contentWidth }}>
+            <List
+              onRowsRendered={onRowsRendered}
+              overscanCount={2}
+              listRef={setListHandle}
+              rowCount={gridData.rows.length}
+              rowHeight={getItemSize}
+              onScroll={(e: React.UIEvent<HTMLElement>) => handleScroll(e.currentTarget.scrollTop)}
+              className="custom-scrollbar"
+              style={{ height: '100%', overflowX: 'hidden' }}
+              rowComponent={Row}
+              rowProps={memoizedRowProps}
+            />
+          </div>
         </div>
-      </div>
       </div>
     </div>
   );

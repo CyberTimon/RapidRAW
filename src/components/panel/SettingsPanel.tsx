@@ -1,3 +1,4 @@
+import ShortcutSettings from '../../shortcuts/ShortcutSettings';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
@@ -34,13 +35,7 @@ import Slider from '../ui/Slider';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
 import { useTranslation } from 'react-i18next';
 import { Invokes } from '../ui/AppProperties';
-import {
-  formatKeyCode,
-  KeybindDefinition,
-  KEYBIND_DEFINITIONS,
-  KEYBIND_SECTIONS,
-  normalizeCombo,
-} from '../../utils/keyboardUtils';
+
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
@@ -66,16 +61,6 @@ interface DataActionItemProps {
   isProcessing: boolean;
   message: string;
   title: string;
-}
-
-interface KeybindRowProps {
-  def: KeybindDefinition;
-  currentCombo?: string[];
-  osPlatform: string;
-  onSave: (action: string, combo: string[]) => void;
-  recordingAction: string | null;
-  onStartRecording: (action: string) => void;
-  isConflicting: boolean;
 }
 
 interface SettingItemProps {
@@ -145,76 +130,6 @@ const zoomMultiplierOptions: OptionItem<number>[] = [
   { value: 0.5, label: '0.50x (Half)' },
   { value: 0.25, label: '0.25x' },
 ];
-
-const KeybindRow = ({
-  def,
-  currentCombo,
-  osPlatform,
-  onSave,
-  recordingAction,
-  onStartRecording,
-  isConflicting,
-}: KeybindRowProps) => {
-  const { t } = useTranslation();
-  const recording = recordingAction === def.action;
-
-  useEffect(() => {
-    if (!recording) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onSave(def.action, []);
-        onStartRecording('');
-        return;
-      }
-      e.preventDefault();
-      const parts = normalizeCombo(e, osPlatform);
-      if (parts.length > 0 && !['ctrl', 'shift', 'alt'].includes(parts[parts.length - 1])) {
-        onSave(def.action, parts);
-        onStartRecording('');
-      }
-    };
-    window.addEventListener('keydown', handler, { capture: true });
-    return () => window.removeEventListener('keydown', handler, { capture: true });
-  }, [recording, def.action, onSave, onStartRecording]);
-
-  const displayCombo = currentCombo !== undefined ? (currentCombo.length ? currentCombo : null) : def.defaultCombo;
-
-  return (
-    <div className="flex justify-between items-center py-2">
-      <Text variant={TextVariants.label}>{t(def.description as any)}</Text>
-      <div className="flex items-center gap-1">
-        {isConflicting && <span className="text-yellow-400 text-xs">⚠</span>}
-        <button onClick={() => onStartRecording(def.action)} className="flex items-center gap-1 flex-wrap shrink-0">
-          {recording ? (
-            <Text
-              as="kbd"
-              variant={TextVariants.small}
-              color={TextColors.accent}
-              weight={TextWeights.semibold}
-              className="px-2 py-1 font-sans bg-bg-primary border border-accent rounded-md animate-pulse"
-            >
-              {t('settings.controls.pressKey')}
-            </Text>
-          ) : (
-            <Text
-              as="kbd"
-              variant={TextVariants.small}
-              color={TextColors.primary}
-              weight={TextWeights.semibold}
-              className={`px-2 py-1 font-sans bg-bg-primary border rounded-md cursor-pointer hover:border-accent transition-colors ${isConflicting ? 'border-yellow-400' : 'border-border-color'}`}
-            >
-              {displayCombo ? (
-                displayCombo.map((k) => formatKeyCode(k, osPlatform)).join(' + ')
-              ) : (
-                <span className="text-text-secondary italic">{t('settings.controls.notAssigned')}</span>
-              )}
-            </Text>
-          )}
-        </button>
-      </div>
-    </div>
-  );
-};
 
 const SettingItem = ({ children, description, label }: SettingItemProps) => (
   <div>
@@ -527,7 +442,6 @@ export default function SettingsPanel({
   });
   const [testStatus, setTestStatus] = useState<TestStatus>({ message: '', success: null, testing: false });
   const [hasInteractedWithLivePreview, setHasInteractedWithLivePreview] = useState(false);
-  const [recordingAction, setRecordingAction] = useState<string | null>(null);
 
   const [aiProvider, setAiProvider] = useState(appSettings?.aiProvider || 'cpu');
   const [aiConnectorAddress, setAiConnectorAddress] = useState<string>(appSettings?.aiConnectorAddress || '');
@@ -561,7 +475,9 @@ export default function SettingsPanel({
     applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
   });
   const [restartRequired, setRestartRequired] = useState(false);
-  const [activeCategory, setActiveCategory] = useState('general');
+  const requestedCategory = useUIStore((s) => s.settingsSection);
+  const [activeCategory, setActiveCategory] = useState(requestedCategory);
+  useEffect(() => setActiveCategory(requestedCategory), [requestedCategory]);
   const [logPath, setLogPath] = useState<string | null>(null);
   const [logPathLoading, setLogPathLoading] = useState(true);
   const [logPathError, setLogPathError] = useState(false);
@@ -1011,29 +927,6 @@ export default function SettingsPanel({
       handleAddAiTag();
     }
   };
-
-  const handleKeybindSave = (action: string, combo: string[]) => {
-    const newKeybinds = { ...(appSettings?.keybinds || {}), [action]: combo };
-    onSettingsChange({ ...appSettings, keybinds: newKeybinds });
-  };
-
-  const conflictingKeys = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    const userKb = appSettings?.keybinds || {};
-    for (const def of KEYBIND_DEFINITIONS) {
-      const userCombo = userKb[def.action];
-      const effective = userCombo?.length ? userCombo : userCombo === undefined ? def.defaultCombo : null;
-      if (!effective) continue;
-      const key = effective.join('+');
-      if (!map.has(key)) map.set(key, new Set());
-      map.get(key)!.add(def.action);
-    }
-    const keys = new Set<string>();
-    for (const [, actions] of map) {
-      if (actions.size > 1) actions.forEach((k) => keys.add(k));
-    }
-    return keys;
-  }, [appSettings?.keybinds]);
 
   return (
     <>
@@ -2506,41 +2399,8 @@ export default function SettingsPanel({
                     </div>
                   </div>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                      {t('settings.controls.keyboardTitle')}
-                    </Text>
-                    <div className="space-y-8">
-                      {' '}
-                      {KEYBIND_SECTIONS.map((section) => {
-                        const sectionDefs = KEYBIND_DEFINITIONS.filter((d) => d.section === section.id);
-                        const userKb = appSettings?.keybinds || {};
-                        return (
-                          <div key={section.id}>
-                            <Text variant={TextVariants.heading}>{t(section.label as any)}</Text>
-                            <div className="divide-y divide-border-color">
-                              {sectionDefs.map((def) => (
-                                <KeybindRow
-                                  key={def.action}
-                                  def={def}
-                                  currentCombo={userKb[def.action]}
-                                  osPlatform={osPlatform}
-                                  onSave={handleKeybindSave}
-                                  recordingAction={recordingAction}
-                                  onStartRecording={setRecordingAction}
-                                  isConflicting={conflictingKeys.has(def.action)}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div className="flex justify-end mt-6">
-                        <Button variant="ghost" onClick={() => onSettingsChange({ ...appSettings, keybinds: {} })}>
-                          {t('settings.controls.resetDefaults')}
-                        </Button>
-                      </div>
-                    </div>
+                  <div className="p-4">
+                    <ShortcutSettings settings={appSettings} osPlatform={osPlatform} save={onSettingsChange} />
                   </div>
                 </motion.div>
               )}

@@ -1,4 +1,5 @@
-import { isAutoHydration } from '../auto/editSafety';
+import { committedAdjustments } from '../crop/session';
+import { useAdjustmentPersistence } from './useAdjustmentPersistence';
 import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
@@ -7,9 +8,8 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useLibraryStore } from '../store/useLibraryStore';
-import { Adjustments, COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
+import { Adjustments } from '../utils/adjustments';
 import { Invokes, Panel } from '../components/ui/AppProperties';
-import { debouncedSave } from './useEditorActions';
 import { globalImageCache } from '../utils/ImageLRUCache';
 
 export function useImageProcessing(
@@ -22,9 +22,11 @@ export function useImageProcessing(
   },
 ) {
   const { previewJobIdRef, latestRenderedJobIdRef, currentResRef } = renderRefs;
+  const persistAdjustments = useAdjustmentPersistence(prevAdjustmentsRef);
 
   const selectedImage = useEditorStore((state) => state.selectedImage);
   const adjustments = useEditorStore((state) => state.adjustments);
+  const cropSession = useEditorStore((state) => state.cropSession);
   const previewOverride = useEditorStore((state) => state.previewOverride);
   const isWaveformVisible = useEditorStore((state) => state.isWaveformVisible);
   const activeWaveformChannel = useEditorStore((state) => state.activeWaveformChannel);
@@ -41,6 +43,7 @@ export function useImageProcessing(
 
   const uncroppedJobIdRef = useRef(0);
   const latestUncroppedJobIdRef = useRef(0);
+  const uncroppedFingerprintRef = useRef('');
 
   const inFlightCountRef = useRef(0);
   const lastAnalyticsTimeRef = useRef<number>(0);
@@ -312,15 +315,23 @@ export function useImageProcessing(
       throttle(
         (adj: Adjustments) => {
           if (!useEditorStore.getState().selectedImage?.isReady) return;
+          const path = useEditorStore.getState().selectedImage?.path;
+          const fingerprint = JSON.stringify({ path, ...adj, crop: null, rotation: 0, aspectRatio: null });
+          if (fingerprint === uncroppedFingerprintRef.current && useEditorStore.getState().uncroppedAdjustedPreviewUrl)
+            return;
+          uncroppedFingerprintRef.current = fingerprint;
           const jobId = ++uncroppedJobIdRef.current;
           invoke<string>(Invokes.GenerateUncroppedPreview, { jsAdjustments: adj })
             .then((dataUrl) => {
-              if (jobId >= latestUncroppedJobIdRef.current) {
+              if (jobId === uncroppedJobIdRef.current && useEditorStore.getState().selectedImage?.path === path) {
                 latestUncroppedJobIdRef.current = jobId;
                 useEditorStore.getState().setEditor({ uncroppedAdjustedPreviewUrl: dataUrl });
               }
             })
-            .catch(console.error);
+            .catch((error) => {
+              if (jobId === uncroppedJobIdRef.current) uncroppedFingerprintRef.current = '';
+              console.error(error);
+            });
         },
         30,
         { leading: true, trailing: true },
@@ -443,39 +454,7 @@ export function useImageProcessing(
 
         if (previewOverride) return;
 
-        const prev = prevAdjustmentsRef.current;
-
-        if (!prev || prev.path !== selectedImage.path) {
-          prevAdjustmentsRef.current = { path: selectedImage.path, adjustments };
-          return;
-        }
-
-        const hasAdjustmentsChanged = prev.adjustments !== adjustments;
-
-        if (hasAdjustmentsChanged && !isAutoHydration(adjustments)) {
-          debouncedSave(selectedImage.path, adjustments);
-
-          const otherPaths = multiSelectedPaths.filter((p) => p !== selectedImage.path);
-          if (appSettings?.copyPasteSettings?.autoSync && otherPaths.length > 0) {
-            const delta: Partial<Adjustments> = {};
-            const includedKeys = appSettings?.copyPasteSettings?.includedAdjustments || COPYABLE_ADJUSTMENT_KEYS;
-            for (const key of Object.keys(adjustments) as Array<keyof Adjustments>) {
-              if (includedKeys.includes(key as string)) {
-                if (JSON.stringify(adjustments[key]) !== JSON.stringify(prev.adjustments[key])) {
-                  (delta as any)[key] = adjustments[key];
-                }
-              }
-            }
-            if (Object.keys(delta).length > 0) {
-              otherPaths.forEach((p) => globalImageCache.delete(p));
-              invoke(Invokes.ApplyAdjustmentsToPaths, { paths: otherPaths, adjustments: delta }).catch((err) => {
-                console.error('Failed to apply adjustments to multi-selection:', err);
-              });
-            }
-          }
-
-          prevAdjustmentsRef.current = { path: selectedImage.path, adjustments };
-        }
+        persistAdjustments(selectedImage.path, committedAdjustments(adjustments, cropSession));
       }, 50);
     }
 
@@ -484,6 +463,8 @@ export function useImageProcessing(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    persistAdjustments,
+    cropSession,
     activeView,
     adjustments,
     previewOverride,

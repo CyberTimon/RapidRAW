@@ -1,3 +1,7 @@
+import { executeCommand } from '../shortcuts/runtime';
+import { shortcutLabel } from '../shortcuts/profiles';
+import { formatKeyCode } from '../utils/keyboardUtils';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, FC } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -151,6 +155,11 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
 }
 
 function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
+  const settings = useSettingsStore((s) => s.appSettings);
+  const platform = useSettingsStore((s) => s.osPlatform);
+  const commandKeys = shortcutLabel(option.commandId || '', settings)
+    .map((key) => formatKeyCode(key, platform))
+    .join(' + ');
   const { activeSubmenu, openSubmenu, closeSubmenu, cancelCloseSubmenu } = useContextMenu();
   const itemRef = useRef(null);
   const hoverTimeoutRef = useRef<any>(null);
@@ -205,7 +214,7 @@ function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
         disabled={option.disabled}
         onClick={() => {
           if (!option.disabled && !option.submenu && option.onClick) {
-            option.onClick();
+            if (!option.commandId || !executeCommand(option.commandId)) option.onClick();
             hideContextMenu();
           }
           if (!option.disabled && option.submenu && hasInteractiveSubmenu) {
@@ -229,6 +238,7 @@ function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
           {option.icon && <option.icon size={16} />}
           <span>{option.label}</span>
         </div>
+        {commandKeys && !option.submenu && <span className="text-xs text-text-secondary ml-4">{commandKeys}</span>}
         {option.submenu && <ChevronRight size={16} />}
       </button>
 

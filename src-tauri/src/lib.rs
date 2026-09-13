@@ -1537,7 +1537,9 @@ fn saved_window_state_is_usable(state: &WindowState, monitors: &[MonitorBounds])
     }
 
     if monitors.is_empty() {
-        return true;
+        // Keep the persisted state below wgpu's guaranteed surface limit even
+        // when monitor enumeration is temporarily unavailable.
+        return state.width <= 16_384 && state.height <= 16_384;
     }
 
     let window_left = state.x as i64;
@@ -1546,6 +1548,15 @@ fn saved_window_state_is_usable(state: &WindowState, monitors: &[MonitorBounds])
     let window_bottom = window_top + state.height as i64;
 
     monitors.iter().any(|monitor| {
+        // Reject corrupted or stale physical sizes before they reach wgpu.
+        // A saved window may be larger than a monitor when spanning displays,
+        // but it should never be orders of magnitude larger than the desktop.
+        if state.width > monitor.width.saturating_mul(2)
+            || state.height > monitor.height.saturating_mul(2)
+        {
+            return false;
+        }
+
         let monitor_left = monitor.x as i64;
         let monitor_top = monitor.y as i64;
         let monitor_right = monitor_left + monitor.width as i64;

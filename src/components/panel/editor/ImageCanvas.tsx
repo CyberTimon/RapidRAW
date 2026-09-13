@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
-import ReactCrop from 'react-image-crop';
-import 'react-image-crop/dist/ReactCrop.css';
+import CropViewport from '../../../crop/CropViewport';
 import { Stage, Layer, Ellipse, Line, Transformer, Group, Circle, Rect, Arrow } from 'react-konva';
 import { PercentCrop, Crop } from 'react-image-crop';
 import { Stamp, Bandage, Spline, BrushCleaning } from 'lucide-react';
@@ -12,8 +11,7 @@ import { RenderSize } from '../../../hooks/useImageRenderSize';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../../store/useEditorStore';
-import type { OverlayMode } from '../right/CropPanel';
-import CompositionOverlays from './overlays/CompositionOverlays';
+import type { OverlayMode } from '../../../crop/overlays';
 import { calculateStraightenAngle } from '../../../utils/cropUtils';
 import { toast } from 'react-toastify';
 
@@ -1890,7 +1888,10 @@ const ImageCanvas = memo(
         return null;
       }
 
-      const scale = Math.min(viewportWidth / uncroppedEffectiveWidth, viewportHeight / uncroppedEffectiveHeight);
+      const scale = Math.min(
+        Math.max(1, viewportWidth - 64) / uncroppedEffectiveWidth,
+        Math.max(1, viewportHeight - 64) / uncroppedEffectiveHeight,
+      );
 
       const renderWidth = uncroppedEffectiveWidth * scale;
       const renderHeight = uncroppedEffectiveHeight * scale;
@@ -2965,17 +2966,6 @@ const ImageCanvas = memo(
       return `rotate(${rotation}deg)`;
     }, [adjustments.rotation, liveRotation]);
 
-    const getCropDimensions = () => {
-      if (!crop || !uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) {
-        return { width: 0, height: 0 };
-      }
-
-      const width = crop.unit === '%' ? uncroppedImageRenderSize.width * (crop.width / 100) : crop.width;
-      const height = crop.unit === '%' ? uncroppedImageRenderSize.height * (crop.height / 100) : crop.height;
-
-      return { width, height };
-    };
-
     const effectiveCursor = useMemo(() => {
       if (isGuidedPerspectiveActive && isCropping) return 'crosshair';
       if (isWbPickerActive) return 'crosshair';
@@ -3366,7 +3356,7 @@ const ImageCanvas = memo(
             pointerEvents: isCropViewVisible ? 'auto' : 'none',
           }}
         >
-          {cropPreviewUrl && uncroppedImageRenderSize && (
+          {isCropping && isCropViewVisible && cropPreviewUrl && uncroppedImageRenderSize && (
             <div
               style={{
                 height: uncroppedImageRenderSize.height,
@@ -3384,32 +3374,27 @@ const ImageCanvas = memo(
                 }
               }}
             >
-              <ReactCrop
-                aspect={adjustments.aspectRatio ?? undefined}
-                crop={crop ?? undefined}
+              <CropViewport
+                key={`${selectedImage.path}:${appSettings?.cropDragMode}:${isStraightenActive || isGuidedPerspectiveActive}`}
+                crop={crop}
+                width={uncroppedImageRenderSize.width!}
+                height={uncroppedImageRenderSize.height!}
+                sourceWidth={effectiveImageDimensions.width}
+                sourceHeight={effectiveImageDimensions.height}
+                aspect={adjustments.aspectRatio ?? null}
+                rotation={adjustments.rotation || 0}
+                movePhoto={appSettings?.cropDragMode === 'photo'}
                 onChange={setCrop}
                 onComplete={handleCropComplete}
-                ruleOfThirds={false}
-                renderSelectionAddon={() => {
-                  const { width, height } = getCropDimensions();
-                  if (width <= 0 || height <= 0) {
-                    return null;
-                  }
-                  const showDenseGrid = isRotationActive && !isStraightenActive && !isGuidedPerspectiveActive;
-                  const currentOverlayMode =
-                    isRotationActive || isStraightenActive || isGuidedPerspectiveActive
-                      ? 'none'
-                      : overlayMode || 'none';
-                  return (
-                    <CompositionOverlays
-                      width={width}
-                      height={height}
-                      mode={currentOverlayMode}
-                      rotation={overlayRotation || 0}
-                      denseVisible={showDenseGrid}
-                    />
-                  );
-                }}
+                disabled={isStraightenActive || isGuidedPerspectiveActive}
+                overlay={isStraightenActive || isGuidedPerspectiveActive ? 'none' : overlayMode || 'thirds'}
+                overlayRotation={overlayRotation || 0}
+                dense={
+                  !!isRotationActive &&
+                  appSettings?.cropRotationGrid !== 'selected' &&
+                  !isStraightenActive &&
+                  !isGuidedPerspectiveActive
+                }
               >
                 <img
                   alt="Crop preview"
@@ -3424,7 +3409,7 @@ const ImageCanvas = memo(
                     imageRendering: isMaxZoom ? 'pixelated' : 'auto',
                   }}
                 />
-              </ReactCrop>
+              </CropViewport>
 
               {(isStraightenActive ||
                 isGuidedPerspectiveActive ||

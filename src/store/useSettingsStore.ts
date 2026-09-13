@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import { toast } from 'react-toastify';
+import i18n from 'i18next';
+let settingsSaveQueue: Promise<unknown> = Promise.resolve();
 import { invoke } from '@tauri-apps/api/core';
 import { platform } from '@tauri-apps/plugin-os';
 import { AppSettings, SupportedTypes, Invokes } from '../components/ui/AppProperties';
@@ -52,9 +55,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ appSettings: newSettings });
 
     try {
-      await invoke(Invokes.SaveSettings, { settings: settingsToSave });
+      const operation = settingsSaveQueue
+        .catch(() => undefined)
+        .then(() => invoke(Invokes.SaveSettings, { settings: settingsToSave }));
+      settingsSaveQueue = operation;
+      await operation;
     } catch (err) {
       console.error('Failed to save settings:', err);
+      toast.error(i18n.t('shortcuts.saveFailed'));
     }
   },
 }));

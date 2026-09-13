@@ -49,6 +49,7 @@ interface LibraryState {
   isViewLoading: boolean;
   isDiscovering: boolean;
   libraryScrollTop: number;
+  keyboardRows: string[][];
   listColumnWidths: ColumnWidths;
   groupRecursiveFolders: boolean;
 
@@ -87,6 +88,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   isViewLoading: false,
   isDiscovering: false,
   libraryScrollTop: 0,
+  keyboardRows: [],
   groupRecursiveFolders: false,
   listColumnWidths: {
     thumbnail: 4,

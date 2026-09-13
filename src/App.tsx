@@ -1,3 +1,5 @@
+import { useCropClose } from './crop/useCropClose';
+import { installCropLifecycle } from './crop/lifecycle';
 import AutoSurface from './auto/AutoSurface';
 import { type PointerEvent as ReactPointerEvent, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -378,7 +380,10 @@ function App() {
 
   const handleLibraryRefresh = useCallback(async () => {
     const personId = usePeopleStore.getState().activePersonId;
-    if (personId) { await loadPersonBucket(personId); return; }
+    if (personId) {
+      await loadPersonBucket(personId);
+      return;
+    }
     if (currentFolderPath) {
       if (currentFolderPath.startsWith('Album: ')) {
         const { activeAlbumId, albumTree } = useLibraryStore.getState();
@@ -477,7 +482,15 @@ function App() {
     }
   }, [isFullScreen, setUI]);
 
+  useEffect(installCropLifecycle, []);
+  useCropClose();
+
   useKeyboardShortcuts({
+    handleOpenFolder,
+    handleImportClick,
+    handleRenameFiles,
+    handleLibraryRefresh,
+    handleCreateAlbumItem,
     sortedImageList,
     handleBackToLibrary,
     handleDeleteSelected,
