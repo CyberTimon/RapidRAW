@@ -1,7 +1,8 @@
+import { useCullingPreview } from '../../../hooks/useCullingPreview';
+import { useCullingPrefetch } from '../../../hooks/useCullingPrefetch';
 import { requestLibraryExif } from '../../../hooks/libraryExifQueue';
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { invoke } from '@tauri-apps/api/core';
 import { List, useListCallbackRef } from 'react-window';
 import {
   Loader2,
@@ -20,16 +21,14 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Invokes, ImageFile } from '../../ui/AppProperties';
+import { ImageFile } from '../../ui/AppProperties';
 import { Thumbnail } from './LibraryItems';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useProcessStore } from '../../../store/useProcessStore';
-import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
-import { expandGroupedPaths } from '../../../utils/imageGrouping';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
 
 interface SyncViewport {
@@ -74,13 +73,6 @@ function CullingPreview({
 }) {
   const { t } = useTranslation();
   const thumbUrl = useProcessStore((s) => s.thumbnails[image.path]);
-  const initialPreview = useProcessStore((s) => s.previews[image.path]);
-  const setPreview = useProcessStore((s) => s.setPreview);
-  const safeThumbKey = thumbUrl || '';
-  const [highResSrc, setHighResSrc] = useState<string | null>(
-    initialPreview?.thumbKey === safeThumbKey ? initialPreview.url : null,
-  );
-  const [isLoading, setIsLoading] = useState(!highResSrc);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -93,15 +85,15 @@ function CullingPreview({
   const panRef = useRef(pan);
   const [tagInputValue, setTagInputValue] = useState('');
   const [fitScale, setFitScale] = useState<number | null>(null);
-  const { handleRate, handleSetColorLabel, handleTagsChanged } = useLibraryActions();
+  const [previewFit, setPreviewFit] = useState<number | null>(null);
+  const { src: highResSrc, previewSrc, isLoading } = useCullingPreview(image.path, zoom, previewFit);
+  const {
+    handleRate,
+    handleSetColorLabel,
+    handleAddTag: commitAddTag,
+    handleRemoveTag: commitRemoveTag,
+  } = useLibraryActions();
   const USER_TAG_PREFIX = 'user:';
-  const getPathsToUpdate = () =>
-    expandGroupedPaths(
-      useLibraryStore.getState().imageList,
-      [image.path],
-      useSettingsStore.getState().appSettings?.grouping ?? 'off',
-    );
-
   const currentColor = useMemo(() => {
     return image.tags?.find((t) => t.startsWith('color:'))?.substring(6) || null;
   }, [image.tags]);
@@ -170,10 +162,7 @@ function CullingPreview({
     if (newTagValue && !currentTags.some((t) => t.tag === newTagValue)) {
       try {
         const prefixedTag = `${USER_TAG_PREFIX}${newTagValue}`;
-        const pathsToUpdate = getPathsToUpdate();
-        await invoke(Invokes.AddTagForPaths, { paths: pathsToUpdate, tag: prefixedTag });
-        const newTags = [...currentTags, { tag: newTagValue, isUser: true }];
-        handleTagsChanged([image.path], newTags);
+        await commitAddTag([image.path], prefixedTag);
         setTagInputValue('');
       } catch (err) {
         console.error(`Failed to add tag: ${err}`);
@@ -184,10 +173,7 @@ function CullingPreview({
   const handleRemoveTag = async (tagToRemove: { tag: string; isUser: boolean }) => {
     try {
       const prefixedTag = tagToRemove.isUser ? `${USER_TAG_PREFIX}${tagToRemove.tag}` : tagToRemove.tag;
-      const pathsToUpdate = getPathsToUpdate();
-      await invoke(Invokes.RemoveTagForPaths, { paths: pathsToUpdate, tag: prefixedTag });
-      const newTags = currentTags.filter((t) => t.tag !== tagToRemove.tag);
-      handleTagsChanged([image.path], newTags);
+      await commitRemoveTag([image.path], prefixedTag);
     } catch (err) {
       console.error(`Failed to remove tag: ${err}`);
     }
@@ -238,73 +224,20 @@ function CullingPreview({
   }, [updateFitScale]);
 
   useEffect(() => {
-    const currentPreview = useProcessStore.getState().previews[image.path];
-    if (currentPreview && currentPreview.thumbKey === safeThumbKey) {
-      setHighResSrc(currentPreview.url);
-      setIsLoading(false);
-      setPreview(image.path, currentPreview.url, safeThumbKey);
-      return;
-    }
-
+    if (!previewSrc) return;
+    const preview = new Image();
     let active = true;
-    setIsLoading(true);
-    setHighResSrc(null);
-
-    const fetchPreviewWithAdjustments = async () => {
-      try {
-        const metadata: any = await invoke(Invokes.LoadMetadata, { path: image.path });
-        if (!active) return;
-
-        const adjustments =
-          metadata && metadata.adjustments && !metadata.adjustments.is_null ? metadata.adjustments : {};
-
-        const bytes = await invoke<Uint8Array>(Invokes.GeneratePreviewForPath, {
-          path: image.path,
-          jsAdjustments: adjustments,
-        });
-        if (!active) return;
-
-        const blob = new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' });
-        const localBlobUrl = URL.createObjectURL(blob);
-
-        setPreview(image.path, localBlobUrl, safeThumbKey);
-
-        if (active) {
-          setHighResSrc(localBlobUrl);
-          setIsLoading(false);
-        }
-      } catch (err) {
-        console.error('Error loading culling preview with adjustments:', err);
-
-        if (active) {
-          try {
-            const fallbackBytes = await invoke<Uint8Array>(Invokes.GeneratePreviewForPath, {
-              path: image.path,
-              jsAdjustments: {},
-            });
-            if (!active) return;
-            const blob = new Blob([new Uint8Array(fallbackBytes)], { type: 'image/jpeg' });
-            const localBlobUrl = URL.createObjectURL(blob);
-
-            setPreview(image.path, localBlobUrl, safeThumbKey);
-            setHighResSrc(localBlobUrl);
-          } catch (fallbackErr) {
-            console.error('Fallback preview generation also failed:', fallbackErr);
-          }
-          setIsLoading(false);
-        }
-      }
+    const update = () => {
+      if (!active || !containerRef.current || !preview.naturalWidth) return;
+      const { clientWidth, clientHeight } = containerRef.current;
+      setPreviewFit(Math.min(clientWidth / preview.naturalWidth, clientHeight / preview.naturalHeight));
     };
-
-    const delayTimeout = setTimeout(() => {
-      fetchPreviewWithAdjustments();
-    }, 200);
-
-    return () => {
-      active = false;
-      clearTimeout(delayTimeout);
-    };
-  }, [image.path, safeThumbKey, setPreview]);
+    preview.onload = update;
+    preview.src = previewSrc;
+    const observer = new ResizeObserver(update);
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => { active = false; observer.disconnect(); };
+  }, [previewSrc]);
 
   useEffect(() => {
     if (syncViewport.isActive) {
@@ -1168,6 +1101,7 @@ export default function CullingView(props: any) {
     .map((p: string) => imageList.find((img: ImageFile) => img.path === p))
     .filter(Boolean);
   const displayCount = displayImages.length;
+  const onRowsRendered = useCullingPrefetch(imageList, multiSelectedPaths, activePath, onRequestThumbnails);
 
   const handleSidebarEmptyClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -1242,6 +1176,8 @@ export default function CullingView(props: any) {
         />
         <div key={`${sidebarWidth}-${thumbnailAspectRatio}`} style={{ height: listHeight, width: '100%' }}>
           <List
+            onRowsRendered={onRowsRendered}
+            overscanCount={2}
             listRef={setListHandle}
             rowCount={imageList.length}
             rowHeight={sidebarWidth - 16}

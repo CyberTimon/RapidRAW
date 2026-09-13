@@ -1,3 +1,4 @@
+import { queueThumbnails } from '../../../hooks/thumbnailRequests';
 import ListHeader from './LibraryListHeader';
 import { getLibraryColumnWidths, libraryTableWidth } from '../../../utils/libraryColumns';
 import { naturalNameCompare } from '../../../utils/librarySorting';
@@ -410,6 +411,11 @@ export default function LibraryGrid(props: any) {
       visiblePaths.current = paths;
       setVisibleThumbnails(paths);
       onRequestThumbnails?.(paths);
+      const visible = new Set(paths);
+      const adjacent = gridData?.rows.slice(Math.max(0, startIndex - 2), stopIndex + 3)
+        .flatMap((row: { images?: { path: string }[] }) => row.images?.map((image) => image.path) ?? [])
+        .filter((path: string) => !visible.has(path) && !useProcessStore.getState().thumbnails[path]) ?? [];
+      if (adjacent.length) void queueThumbnails(adjacent, false, true).catch(console.error);
     },
     [gridData, onRequestThumbnails],
   );

@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import Switch from '../components/ui/Switch';
 import { ADVANCED_ADJUSTMENTS, PRIMARY_ADJUSTMENTS, type AutoAdjustmentFamilies } from './types';
 
 type FamilyKey = keyof AutoAdjustmentFamilies;
@@ -24,16 +25,17 @@ function FamilyToggle({
   disabled: boolean;
   onChange: (value: AutoAdjustmentFamilies) => void;
 }) {
+  const { t } = useTranslation();
+  const label = t(FAMILY_TRANSLATION_KEYS[family]);
+
   return (
-    <label className="flex min-h-9 cursor-pointer items-center gap-2 py-1">
-      <input
-        type="checkbox"
-        checked={value[family]}
-        disabled={disabled}
-        onChange={(event) => onChange({ ...value, [family]: event.target.checked })}
-      />
-      <span>{useTranslation().t(FAMILY_TRANSLATION_KEYS[family])}</span>
-    </label>
+    <Switch
+      checked={value[family]}
+      className="min-h-9 gap-2 py-1"
+      disabled={disabled}
+      label={label}
+      onChange={(checked) => onChange({ ...value, [family]: checked })}
+    />
   );
 }
 

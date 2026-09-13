@@ -1,3 +1,5 @@
+import { selectLibraryImage } from './librarySelection';
+import { queueThumbnails } from './thumbnailRequests';
 import { finishCropSession } from '../crop/lifecycle';
 import { beginLibraryLoad, isCurrentLibraryLoad, startLibraryRatingScan } from './libraryRatingScan';
 import { scanLibrary } from './libraryScan';
@@ -91,12 +93,16 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
     const lastActivePath = selectedImage?.path ?? null;
 
-    setLibrary({ libraryActivePath: lastActivePath });
+    setLibrary({ libraryActivePath: lastActivePath, isViewLoading: false });
     setUI({ activeView: 'library', slideDirection: 1 });
   }, [refs]);
 
   const handleImageSelect = useCallback(
     async (path: string, openInEditor: boolean = true) => {
+      if (!openInEditor) {
+        selectLibraryImage(path);
+        return;
+      }
       finishCropSession();
       const { selectedImage, resetHistory, setEditor } = useEditorStore.getState();
       const { setLibrary, multiSelectedPaths, selectionAnchorPath } = useLibraryStore.getState();
@@ -123,7 +129,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       const cachedThumb = useProcessStore.getState().thumbnails[path];
       const cachedMedium = useProcessStore.getState().mediumThumbnails[path] || cachedThumb;
       if (!useProcessStore.getState().mediumThumbnails[path]) {
-        void invoke('update_thumbnail_queue', { paths: [path], medium: true }).catch(console.error);
+        void queueThumbnails([path], true).catch(console.error);
       }
 
       const cached = globalImageCache.get(path);

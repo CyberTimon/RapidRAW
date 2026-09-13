@@ -12,6 +12,11 @@ import { markAutoHydration, isAutoHydration as isPersisted } from './editSafety'
 import { debouncedSave, debouncedSetHistory } from '../hooks/useEditorActions';
 import type { AutoBatchInspection, AutoProgress, AutoOptions } from './types';
 import { prepareAutoApplyOptions } from './applyOptions';
+import {
+  captureAutoBatchHistory,
+  recordCompletedAutoBatch,
+  type AutoBatchHistoryCapture,
+} from '../history/autoBatchHistory';
 
 let listener: Promise<() => void> | undefined;
 let hydrated = new Set<string>();
@@ -19,6 +24,15 @@ let activeJobId: string | null = null;
 let dispatching = false;
 let editorAtStart: Adjustments | null = null;
 let libraryAtStart: Adjustments | null = null;
+let autoHistoryJob: { capture: AutoBatchHistoryCapture; id: string } | null = null;
+
+async function finishAutoHistory(progress: AutoProgress) {
+  if (progress.running || autoHistoryJob?.id !== progress.id) return;
+  const job = autoHistoryJob;
+  autoHistoryJob = null;
+  if (progress.phase === 'complete') await recordCompletedAutoBatch(job.capture, progress.changed);
+}
+
 async function accept(progress: AutoProgress) {
   if (dispatching || (activeJobId && activeJobId !== progress.id)) return;
   activeJobId = progress.id;
@@ -29,7 +43,10 @@ async function accept(progress: AutoProgress) {
     hydrated.add(path);
     globalImageCache.delete(path);
   }
-  if (!paths.length) return;
+  if (!paths.length) {
+    await finishAutoHistory(progress);
+    return;
+  }
   const changed = new Set(paths);
   useProcessStore.setState((state) => {
     const previews = { ...state.previews };
@@ -64,6 +81,7 @@ async function accept(progress: AutoProgress) {
       libraryAtStart = normalized;
     }
   }
+  await finishAutoHistory(progress);
 }
 export async function connectAuto() {
   listener ??= listen<AutoProgress>('scene-auto-progress', ({ payload }) => {
@@ -116,6 +134,15 @@ export async function runAuto(paths: string[], mode: 'apply' | 'tune' | 'undo' =
     editorAtStart = useEditorStore.getState().adjustments;
     libraryAtStart = useLibraryStore.getState().libraryActiveAdjustments;
     hydrated = new Set();
+    const latest = useAutoStore.getState();
+    const historyPaths =
+      mode === 'apply'
+        ? paths
+        : [...(latest.progress?.changed ?? []), ...(latest.progress?.groups.flatMap((group) => group.paths) ?? [])];
+    const historyCapture = await captureAutoBatchHistory(
+      historyPaths,
+      mode === 'undo' ? 'Undo Auto adjustments' : 'Auto adjustments',
+    );
     dispatching = true;
     const requestedOptions = options || state.options;
     const id = await invoke<string>('plugin:scene-auto|start_job', {
@@ -125,10 +152,12 @@ export async function runAuto(paths: string[], mode: 'apply' | 'tune' | 'undo' =
       undo: mode === 'undo',
     });
     activeJobId = id;
+    autoHistoryJob = historyCapture ? { capture: historyCapture, id } : null;
     dispatching = false;
     // Covers jobs that complete between command dispatch and listener registration/reconnection.
     await accept(await invoke<AutoProgress>('plugin:scene-auto|status'));
   } catch (error) {
+    autoHistoryJob = null;
     toast.error(i18n.t('sceneAuto.error', { error: String(error) }));
   } finally {
     dispatching = false;

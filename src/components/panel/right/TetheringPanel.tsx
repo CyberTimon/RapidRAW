@@ -908,7 +908,6 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
                   label={t('tethering.autoOpenCaptured')}
                   checked={autoOpenCaptured}
                   onChange={(checked) => setTethering({ autoOpenCaptured: checked })}
-                  trackClassName="bg-bg-primary"
                   className="w-full"
                 />
               </div>

@@ -1,19 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { X, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Invokes } from '../components/ui/AppProperties';
 import Text from '../components/ui/Text';
 import { TextVariants } from '../types/typography';
-import { useLibraryStore } from '../store/useLibraryStore';
-import { expandGroupedPaths } from '../utils/imageGrouping';
+import { useLibraryActions } from '../hooks/useLibraryActions';
+import type { AppSettings } from '../components/ui/AppProperties';
 
 interface TaggingSubMenuProps {
   paths: string[];
   initialTags: { tag: string; isUser: boolean }[];
-  onTagsChanged: (paths: string[], newTags: { tag: string; isUser: boolean }[]) => void;
-  appSettings: any;
+  appSettings?: AppSettings | null;
   hideContextMenu: () => void;
 }
 
@@ -24,14 +21,9 @@ const tagVariants = {
   exit: { opacity: 0, scale: 0.8, transition: { duration: 0.15 } },
 };
 
-export default function TaggingSubMenu({
-  paths,
-  initialTags,
-  onTagsChanged,
-  appSettings,
-  hideContextMenu,
-}: TaggingSubMenuProps) {
+export default function TaggingSubMenu({ paths, initialTags, appSettings, hideContextMenu }: TaggingSubMenuProps) {
   const { t } = useTranslation();
+  const { handleAddTag: commitAddTag, handleRemoveTag: commitRemoveTag } = useLibraryActions();
   const [tags, setTags] = useState<{ tag: string; isUser: boolean }[]>(initialTags);
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,19 +36,14 @@ export default function TaggingSubMenu({
     inputRef.current?.focus();
   }, []);
 
-  const getPathsToUpdate = () =>
-    expandGroupedPaths(useLibraryStore.getState().imageList, paths, appSettings?.grouping ?? 'off');
-
   const handleAddTag = async (tagToAdd: string) => {
     const newTagValue = tagToAdd.trim().toLowerCase();
     if (newTagValue && !tags.some((t) => t.tag === newTagValue)) {
       try {
         const prefixedTag = `${USER_TAG_PREFIX}${newTagValue}`;
-        const pathsToUpdate = getPathsToUpdate();
-        await invoke(Invokes.AddTagForPaths, { paths: pathsToUpdate, tag: prefixedTag });
+        await commitAddTag(paths, prefixedTag);
         const newTags = [...tags, { tag: newTagValue, isUser: true }].sort((a, b) => a.tag.localeCompare(b.tag));
         setTags(newTags);
-        onTagsChanged(paths, newTags);
         setInputValue('');
       } catch (err) {
         console.error(`Failed to add tag: ${err}`);
@@ -67,11 +54,9 @@ export default function TaggingSubMenu({
   const handleRemoveTag = async (tagToRemove: { tag: string; isUser: boolean }) => {
     try {
       const prefixedTag = tagToRemove.isUser ? `${USER_TAG_PREFIX}${tagToRemove.tag}` : tagToRemove.tag;
-      const pathsToUpdate = getPathsToUpdate();
-      await invoke(Invokes.RemoveTagForPaths, { paths: pathsToUpdate, tag: prefixedTag });
+      await commitRemoveTag(paths, prefixedTag);
       const newTags = tags.filter((t) => t.tag !== tagToRemove.tag);
       setTags(newTags);
-      onTagsChanged(paths, newTags);
     } catch (err) {
       console.error(`Failed to remove tag: ${err}`);
     }

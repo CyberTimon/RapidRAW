@@ -17,6 +17,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useAiMasking } from '../../hooks/useAiMasking';
 import { useEditorActions } from '../../hooks/useEditorActions';
+import { useActionHistory } from '../../history/useActionHistory';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -78,14 +79,17 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const hasRenderedFirstFrame = useEditorStore((s) => s.hasRenderedFirstFrame);
 
   const setEditor = useEditorStore((s) => s.setEditor);
-  const undo = useEditorStore((s) => s.undo);
-  const redo = useEditorStore((s) => s.redo);
   const goToHistoryIndex = useEditorStore((s) => s.goToHistoryIndex);
   const cropSession = useEditorStore((s) => s.cropSession);
-  const canUndo = cropSession ? cropSession.index > 0 : adjustmentsHistoryIndex > 0;
-  const canRedo = cropSession
-    ? cropSession.index < cropSession.history.length - 1
-    : adjustmentsHistoryIndex < adjustmentsHistory.length - 1;
+  const actionHistory = useActionHistory();
+  const canUndo =
+    !actionHistory.busy &&
+    (cropSession ? cropSession.index > 0 : actionHistory.canUndo || adjustmentsHistoryIndex > 0);
+  const canRedo =
+    !actionHistory.busy &&
+    (cropSession
+      ? cropSession.index < cropSession.history.length - 1
+      : actionHistory.canRedo || adjustmentsHistoryIndex < adjustmentsHistory.length - 1);
 
   const isAndroid = osPlatform === 'android';
 
@@ -1531,10 +1535,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           isLoading={isLoading}
           onBackToLibrary={onBackToLibrary}
           onImageSelect={onImageSelect}
-          onRedo={redo}
           onToggleFullScreen={handleToggleFullScreen}
           onToggleShowOriginal={toggleShowOriginal}
-          onUndo={undo}
           selectedImage={selectedImage}
           showOriginal={showOriginal}
           showDateView={showExifDateView}

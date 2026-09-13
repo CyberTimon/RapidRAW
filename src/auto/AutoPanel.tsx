@@ -9,6 +9,7 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import AutoControls from './AutoControls';
 import AutoAdjustmentPicker from './AutoAdjustmentPicker';
+import Switch from '../components/ui/Switch';
 import { runAuto } from './runtime';
 import { resolveAutoPanelPaths } from './applyOptions';
 const AutoGroups = lazy(() => import('./AutoGroups'));
@@ -58,15 +59,12 @@ export default memo(function AutoPanel() {
           disabled={busy}
           onChange={(controls) => setAuto({ options: { ...options, controls } })}
         />
-        <label className="flex gap-2 items-center">
-          <input
-            type="checkbox"
-            checked={options.skipEdited}
-            disabled={busy}
-            onChange={(e) => setAuto({ options: { ...options, skipEdited: e.target.checked } })}
-          />
-          {t('sceneAuto.skipEdited')}
-        </label>
+        <Switch
+          checked={options.skipEdited}
+          disabled={busy}
+          label={t('sceneAuto.skipEdited')}
+          onChange={(checked) => setAuto({ options: { ...options, skipEdited: checked } })}
+        />
         {progress?.groups.length ? (
           <Suspense fallback={null}>
             <AutoGroups

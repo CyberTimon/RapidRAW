@@ -1,20 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { Check, ChevronDown, ChevronRight, Plus, Star, Tag, X, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { Invokes } from '../../ui/AppProperties';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { IconAperture, IconShutter, IconIso, IconFocalLength, IconLens } from '../editor/ExifIcons';
-import { useEditorStore } from '../../../store/useEditorStore';
+import { useMetadataImage } from '../../../hooks/useMetadataImage';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
-import { expandGroupedPaths } from '../../../utils/imageGrouping';
 
 interface CameraSetting {
   format?(value: number): string | number;
@@ -237,13 +234,19 @@ export default function MetadataPanel() {
   const [isAuthorExpanded, setIsAuthorExpanded] = useState(false);
   const [tagInputValue, setTagInputValue] = useState('');
   const [isTagInputFocused, setIsTagInputFocused] = useState(false);
-  const selectedImage = useEditorStore((s) => s.selectedImage);
+  const selectedImage = useMetadataImage();
   const multiSelectedPaths = useLibraryStore((s) => s.multiSelectedPaths);
   const imageRatings = useLibraryStore((s) => s.imageRatings);
   const appSettings = useSettingsStore((s) => s.appSettings);
   const thumbnails = useProcessStore((s) => s.thumbnails);
 
-  const { handleRate, handleSetColorLabel, handleTagsChanged, handleUpdateExif } = useLibraryActions();
+  const {
+    handleRate,
+    handleSetColorLabel,
+    handleAddTag: commitAddTag,
+    handleRemoveTag: commitRemoveTag,
+    handleUpdateExif,
+  } = useLibraryActions();
 
   const rating = selectedImage ? imageRatings[selectedImage.path] || 0 : 0;
   const tags = useLibraryStore((state) => {
@@ -253,12 +256,6 @@ export default function MetadataPanel() {
   const liveThumbnailUrl = selectedImage ? thumbnails[selectedImage.path] : undefined;
 
   const targetPaths = multiSelectedPaths?.length > 0 ? multiSelectedPaths : selectedImage ? [selectedImage.path] : [];
-  const getPathsToUpdate = () => {
-    const { imageList } = useLibraryStore.getState();
-    const groupingMode = useSettingsStore.getState().appSettings?.grouping ?? 'off';
-    return expandGroupedPaths(imageList, targetPaths, groupingMode);
-  };
-
   const { cameraGridSettings, lensSetting, gpsData, otherExifEntries } = useMemo(() => {
     const exif = selectedImage?.exif || {};
 
@@ -356,11 +353,7 @@ export default function MetadataPanel() {
     if (newTagValue && !currentTags.some((t) => t.tag === newTagValue)) {
       try {
         const prefixedTag = `${USER_TAG_PREFIX}${newTagValue}`;
-        const pathsToUpdate = getPathsToUpdate();
-        await invoke(Invokes.AddTagForPaths, { paths: pathsToUpdate, tag: prefixedTag });
-
-        const newTags = [...currentTags, { tag: newTagValue, isUser: true }];
-        handleTagsChanged(targetPaths, newTags);
+        await commitAddTag(targetPaths, prefixedTag);
         setTagInputValue('');
       } catch (err) {
         console.error(`Failed to add tag: ${err}`);
@@ -371,11 +364,7 @@ export default function MetadataPanel() {
   const handleRemoveTag = async (tagToRemove: { tag: string; isUser: boolean }) => {
     try {
       const prefixedTag = tagToRemove.isUser ? `${USER_TAG_PREFIX}${tagToRemove.tag}` : tagToRemove.tag;
-      const pathsToUpdate = getPathsToUpdate();
-      await invoke(Invokes.RemoveTagForPaths, { paths: pathsToUpdate, tag: prefixedTag });
-
-      const newTags = currentTags.filter((t) => t.tag !== tagToRemove.tag);
-      handleTagsChanged(targetPaths, newTags);
+      await commitRemoveTag(targetPaths, prefixedTag);
     } catch (err) {
       console.error(`Failed to remove tag: ${err}`);
     }

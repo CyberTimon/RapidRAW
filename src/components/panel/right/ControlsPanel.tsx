@@ -1,6 +1,14 @@
 import { useAutoStore } from '../../../auto/store';
 import React, { useCallback } from 'react';
-import { RotateCcw, Copy, ClipboardPaste, PencilSparkles, ChartArea, SlidersHorizontal } from 'lucide-react';
+import {
+  RotateCcw,
+  Copy,
+  ClipboardPaste,
+  PencilSparkles,
+  ChartArea,
+  SlidersHorizontal,
+  LoaderCircle,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -31,6 +39,7 @@ import { useUIStore } from '../../../store/useUIStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
 import Switch from '../../ui/Switch';
+import SyncProgress from '../../ui/SyncProgress';
 
 export default function Controls() {
   const { t } = useTranslation();
@@ -84,6 +93,7 @@ export default function Controls() {
     (val: any) => setEditor({ copiedSectionAdjustments: val }),
     [setEditor],
   );
+  const isImageReady = selectedImage?.isReady ?? false;
 
   const toggleWbPicker = useCallback(
     () => setEditor((state) => ({ isWbPickerActive: !state.isWbPickerActive })),
@@ -241,14 +251,17 @@ export default function Controls() {
         <div className="flex items-center gap-1">
           <button
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            disabled={!selectedImage}
+            disabled={!isImageReady}
             onClick={handleAutoAdjustments}
             data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
           >
             <PencilSparkles size={18} />
           </button>
-          <button className="p-2 rounded-full hover:bg-surface" aria-label={t('sceneAuto.settings')}
-            onClick={() => useAutoStore.setState({ open: true })}>
+          <button
+            className="p-2 rounded-full hover:bg-surface"
+            aria-label={t('sceneAuto.settings')}
+            onClick={() => useAutoStore.setState({ open: true })}
+          >
             <SlidersHorizontal size={16} />
           </button>
           <button
@@ -263,7 +276,7 @@ export default function Controls() {
           </button>
           <button
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            disabled={!selectedImage}
+            disabled={!isImageReady}
             onClick={handleResetAdjustments}
             data-tooltip={t('editor.adjustments.tooltips.resetAdjustments')}
           >
@@ -303,7 +316,7 @@ export default function Controls() {
       </AnimatePresence>
 
       <div className="grow overflow-y-scroll p-3 flex flex-col gap-2">
-        {selectedImage ? (
+        {isImageReady ? (
           Object.keys(ADJUSTMENT_SECTIONS).map((sectionName: string) => {
             const SectionComponent: any = {
               basic: BasicAdjustments,
@@ -342,6 +355,14 @@ export default function Controls() {
               </div>
             );
           })
+        ) : selectedImage ? (
+          <div
+            className="flex h-full items-center justify-center"
+            role="status"
+            aria-label={t('settings.data.loading')}
+          >
+            <LoaderCircle className="animate-spin text-text-secondary" size={18} />
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full">
             <Text
@@ -363,6 +384,7 @@ export default function Controls() {
             onChange={handleSyncChange}
             tooltip={t('modals.copyPaste.autoSyncDesc')}
           />
+          <SyncProgress />
         </div>
       )}
     </div>

@@ -21,10 +21,8 @@ interface EditorToolbarProps {
   isLoading: boolean;
   onBackToLibrary(): void;
   onImageSelect?(path: string, event?: any): void;
-  onRedo(): void;
   onToggleFullScreen(): void;
   onToggleShowOriginal(): void;
-  onUndo(): void;
   selectedImage: SelectedImage;
   showOriginal: boolean;
   showDateView: boolean;

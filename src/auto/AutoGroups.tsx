@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import Switch from '../components/ui/Switch';
 import AutoControls from './AutoControls';
 import { SCENES, type AutoOptions, type LightingGroup, type Scene } from './types';
 export default memo(function AutoGroups({
@@ -64,15 +65,12 @@ export default memo(function AutoGroups({
                     ))}
                   </select>
                 </label>
-                <label className="flex gap-2 items-center">
-                  <input
-                    type="checkbox"
-                    disabled={disabled}
-                    checked={!!override.controls}
-                    onChange={(e) => update({ controls: e.target.checked ? { ...options.controls } : undefined })}
-                  />
-                  {t('sceneAuto.overrideControls')}
-                </label>
+                <Switch
+                  checked={!!override.controls}
+                  disabled={disabled}
+                  label={t('sceneAuto.overrideControls')}
+                  onChange={(checked) => update({ controls: checked ? { ...options.controls } : undefined })}
+                />
                 {override.controls ? (
                   <AutoControls
                     value={override.controls}

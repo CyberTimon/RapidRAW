@@ -1,3 +1,5 @@
+import OpenEditorPanel from './components/panel/OpenEditorPanel';
+import ExportQueue from './components/ui/ExportQueue';
 import { useCropClose } from './crop/useCropClose';
 import { installCropLifecycle } from './crop/lifecycle';
 import AutoSurface from './auto/AutoSurface';
@@ -733,6 +735,9 @@ function App() {
 
   const renderAppPanel = useCallback(
     (panelId: Panel) => {
+      if (activeView !== 'editor' && [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets].includes(panelId)) {
+        return <OpenEditorPanel onOpen={handleImageSelect} />;
+      }
       switch (panelId) {
         case Panel.FolderTree:
           return (
@@ -753,7 +758,7 @@ function App() {
             <ExportPanel
               exportState={exportState}
               multiSelectedPaths={multiSelectedPaths}
-              selectedImage={selectedImage}
+              selectedImage={activeView === 'editor' ? selectedImage : null}
               setExportState={setExportState}
               appSettings={appSettings}
               onSettingsChange={handleSettingsChange}
@@ -781,6 +786,8 @@ function App() {
       }
     },
     [
+      activeView,
+      handleImageSelect,
       isResizing,
       handleFolderTreeContextMenu,
       handleAlbumTreeContextMenu,
@@ -870,6 +877,7 @@ function App() {
   return (
     <>
       <AutoSurface />
+      <ExportQueue />
       <ImageProcessingManager
         transformWrapperRef={transformWrapperRef}
         prevAdjustmentsRef={prevAdjustmentsRef}
@@ -877,7 +885,10 @@ function App() {
         latestRenderedJobIdRef={latestRenderedJobIdRef}
         currentResRef={currentResRef}
       />
-      <ImageLoaderManager cachedEditStateRef={cachedEditStateRef} />
+      <ImageLoaderManager
+        cachedEditStateRef={cachedEditStateRef}
+        prevAdjustmentsRef={prevAdjustmentsRef}
+      />
       <div
         className={clsx(
           'flex flex-col h-screen font-sans text-text-primary overflow-hidden select-none',

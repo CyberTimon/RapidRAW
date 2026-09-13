@@ -55,6 +55,7 @@ const Slider = ({
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState<string>(String(value));
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputEditActiveRef = useRef(false);
   const rangeInputRef = useRef<HTMLInputElement | null>(null);
   const [isLabelHovered, setIsLabelHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -131,6 +132,7 @@ const Slider = ({
     }
 
     setIsDragging(false);
+    inputEditActiveRef.current = false;
     setIsEditing(false);
     setIsLabelHovered(false);
     setDisplayValue(value);
@@ -305,13 +307,6 @@ const Slider = ({
     }
   }, [value, isEditing, isDragging]);
 
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }
-  }, [isEditing]);
-
   const handleReset = () => {
     if (disabled) return;
 
@@ -440,7 +435,10 @@ const Slider = ({
   const handleValueClick = () => {
     if (disabled) return;
 
+    inputEditActiveRef.current = true;
+    setInputValue(String(value));
     setIsEditing(true);
+    inputRef.current?.select();
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -451,27 +449,21 @@ const Slider = ({
       return;
     }
     setInputValue(textVal);
-    const parseableText = textVal.replace(',', '.');
-    const parsedValue = parseFloat(parseableText);
-    if (!isNaN(parsedValue)) {
-      const clampedValue = Math.max(min, Math.min(max, parsedValue));
-      onChange({
-        target: {
-          value: clampedValue,
-        },
-      });
-    }
   };
 
   const handleInputCommit = () => {
+    // Enter also blurs the input. Commit the editing session only once.
+    if (!inputEditActiveRef.current) return;
+    inputEditActiveRef.current = false;
     if (disabled) {
       setInputValue(String(value));
       setIsEditing(false);
       return;
     }
 
-    let newValue = parseFloat(inputValue.replace(',', '.'));
-    if (isNaN(newValue)) {
+    const text = (inputRef.current?.value ?? inputValue).replace(',', '.').trim();
+    let newValue = text ? Number(text) : NaN;
+    if (!Number.isFinite(newValue)) {
       newValue = value;
     } else {
       newValue = Math.max(min, Math.min(max, newValue));
@@ -481,18 +473,22 @@ const Slider = ({
         value: newValue,
       },
     };
-    onChange(syntheticEvent);
+    if (newValue !== Number(value)) onChange(syntheticEvent);
     setIsEditing(false);
     onPointerUp?.();
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.stopPropagation();
     if (disabled) return;
 
     if (e.key === 'Enter') {
+      e.preventDefault();
       handleInputCommit();
       e.currentTarget.blur();
     } else if (e.key === 'Escape') {
+      e.preventDefault();
+      inputEditActiveRef.current = false;
       setInputValue(String(value));
       setIsEditing(false);
       e.currentTarget.blur();
@@ -506,11 +502,6 @@ const Slider = ({
       const newValue = currentNum + direction * step;
       const snappedNewValue = snapToStep(newValue);
       setInputValue(String(snappedNewValue));
-      onChange({
-        target: {
-          value: snappedNewValue,
-        },
-      });
     }
   };
 
@@ -545,32 +536,29 @@ const Slider = ({
             </span>
           )}
         </div>
-        <div className="w-12 text-right">
-          {isEditing ? (
-            <input
-              className="w-full text-sm text-right bg-card-active border border-gray-500 rounded-sm px-1 py-0 outline-none focus:ring-1 focus:ring-blue-500 text-text-primary"
-              disabled={disabled}
-              max={max}
-              min={min}
-              onBlur={handleInputCommit}
-              onChange={handleInputChange}
-              onKeyDown={handleInputKeyDown}
-              ref={inputRef}
-              step={step}
-              type="text"
-              value={inputValue}
-            />
-          ) : (
-            <span
-              className={`text-sm text-text-primary w-full text-right select-none ${disabled ? '' : 'cursor-text'}`}
-              onClick={disabled ? undefined : handleValueClick}
-              onDoubleClick={disabled ? undefined : handleReset}
-              data-tooltip={disabled ? undefined : t('ui.slider.clickToEdit')}
-            >
-              {decimalPlaces > 0 && numericValue === 0 ? '0' : numericValue.toFixed(decimalPlaces)}
-              {suffix && <span className="text-[10px] align-top inline-block mt-0.5 ml-0.5">{suffix}</span>}
-            </span>
-          )}
+        <div className="w-12 text-right flex items-baseline justify-end">
+          <input
+            className="w-full min-w-0 text-sm text-right bg-transparent rounded-sm px-1 py-0 outline-none focus:bg-card-active focus:ring-1 focus:ring-blue-500 text-text-primary"
+            aria-label={typeof label === 'string' ? label : undefined}
+            disabled={disabled}
+            max={max}
+            min={min}
+            onBlur={handleInputCommit}
+            onFocus={handleValueClick}
+            onChange={handleInputChange}
+            onKeyDown={handleInputKeyDown}
+            ref={inputRef}
+            step={step}
+            type="text"
+            value={
+              isEditing
+                ? inputValue
+                : decimalPlaces > 0 && numericValue === 0
+                  ? '0'
+                  : numericValue.toFixed(decimalPlaces)
+            }
+          />
+          {suffix && <span className="text-[10px] ml-0.5">{suffix}</span>}
         </div>
       </div>
 

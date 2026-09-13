@@ -1,5 +1,6 @@
+import { thumbnailGeneration, type ThumbnailGeneratedEvent } from './thumbnailRequests';
 import { canAcceptThumbnailRating } from '../utils/ratingUpdates';
-import { mergeThumbnailCache } from '../utils/thumbnailCache';
+import { mergeThumbnailCache, withThumbnailRevision } from '../utils/thumbnailCache';
 import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/core';
@@ -32,6 +33,7 @@ export function useTauriListeners({
   const mediumThumbnailBuffer = useRef<Record<string, string>>({});
   const ratingBuffer = useRef<Record<string, number>>({});
   const editStatusBuffer = useRef<Record<string, boolean>>({});
+  const bufferGeneration = useRef(thumbnailGeneration());
   const flushHandle = useRef<number | null>(null);
 
   useEffect(() => {
@@ -41,6 +43,11 @@ export function useTauriListeners({
       flushHandle.current = null;
       if (!isEffectActive) return;
 
+      if (bufferGeneration.current !== thumbnailGeneration()) {
+        thumbnailBuffer.current = {};
+        mediumThumbnailBuffer.current = {};
+        bufferGeneration.current = thumbnailGeneration();
+      }
       const pendingThumbs = thumbnailBuffer.current;
       const pendingMediumThumbs = mediumThumbnailBuffer.current;
       const pendingRatings = ratingBuffer.current;
@@ -52,10 +59,16 @@ export function useTauriListeners({
       editStatusBuffer.current = {};
 
       if (Object.keys(pendingThumbs).length > 0) {
-        useProcessStore.getState().setProcess((state) => ({
-          thumbnails: mergeThumbnailCache(state.thumbnails, pendingThumbs),
-          mediumThumbnails: mergeThumbnailCache(state.mediumThumbnails, pendingMediumThumbs),
-        }));
+        useProcessStore.getState().setProcess((state) => {
+          const medium = { ...state.mediumThumbnails };
+          for (const path of Object.keys(pendingThumbs)) {
+            if (state.thumbnails[path] !== pendingThumbs[path] && !pendingMediumThumbs[path]) delete medium[path];
+          }
+          return {
+            thumbnails: mergeThumbnailCache(state.thumbnails, pendingThumbs),
+            mediumThumbnails: mergeThumbnailCache(medium, pendingMediumThumbs),
+          };
+        });
       }
 
       if (Object.keys(pendingRatings).length > 0 || Object.keys(pendingEdits).length > 0) {
@@ -110,13 +123,28 @@ export function useTauriListeners({
       listen('thumbnail-generation-complete', () => {
         if (isEffectActive) useProcessStore.getState().setProcess({ thumbnailProgress: { current: 0, total: 0 } });
       }),
-      listen('thumbnail-generated', (event: any) => {
+      listen<ThumbnailGeneratedEvent>('thumbnail-generated', (event) => {
         if (!isEffectActive) return;
-        const { path, thumbnailPath, previewPath, rating, is_edited, data } = event.payload;
+        const { path, thumbnailPath, previewPath, rating, is_edited, data, requestGeneration } = event.payload;
+        if (requestGeneration != null && requestGeneration !== thumbnailGeneration()) return;
 
+        if (bufferGeneration.current !== thumbnailGeneration()) {
+          thumbnailBuffer.current = {};
+          mediumThumbnailBuffer.current = {};
+          bufferGeneration.current = thumbnailGeneration();
+        }
         if (thumbnailPath) {
-          thumbnailBuffer.current[path] = convertFileSrc(thumbnailPath.replace(/\\/g, '/'));
-          if (previewPath) mediumThumbnailBuffer.current[path] = convertFileSrc(previewPath.replace(/\\/g, '/'));
+          const revision = event.payload.revision ?? Date.now();
+          thumbnailBuffer.current[path] = withThumbnailRevision(
+            convertFileSrc(thumbnailPath.replace(/\\/g, '/')),
+            revision,
+          );
+          if (previewPath) {
+            mediumThumbnailBuffer.current[path] = withThumbnailRevision(
+              convertFileSrc(previewPath.replace(/\\/g, '/')),
+              event.payload.previewRevision ?? revision,
+            );
+          }
           refs.current.markGenerated(path);
         } else if (data) {
           thumbnailBuffer.current[path] = data;

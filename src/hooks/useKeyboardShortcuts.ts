@@ -18,7 +18,7 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
-import { debouncedSetHistory, useEditorActions } from './useEditorActions';
+import { debouncedSave, debouncedSetHistory, useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
 
 export interface KeyboardShortcutsProps {
@@ -142,10 +142,13 @@ export const useKeyboardShortcuts = ({
       ...workflowCommands(env),
     };
     const run = (action: CommandId, event: KeyboardEvent) => {
+      if (['undo', 'redo'].includes(action)) {
+        debouncedSetHistory.flush();
+        debouncedSave.flush();
+      }
       const state = getStoreState();
       const handler = panelCommand(action) ?? actions[action];
       if (!handler || (handler.shouldFire && !handler.shouldFire(state))) return false;
-      if (['undo', 'redo'].includes(action)) debouncedSetHistory.flush();
       const leavesCrop =
         [
           'gallery',
