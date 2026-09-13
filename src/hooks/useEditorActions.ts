@@ -299,7 +299,7 @@ export function useEditorActions() {
   }, []);
 
   const handlePasteAdjustments = useCallback(
-    (paths?: string[]) => {
+    async (paths?: string[]) => {
       const { copiedAdjustments, selectedImage, adjustments } = useEditorStore.getState();
       const { multiSelectedPaths } = useLibraryStore.getState();
       const { appSettings } = useSettingsStore.getState();
@@ -331,12 +331,12 @@ export function useEditorActions() {
 
       if (Object.keys(adjustmentsToApply).length === 0) {
         setProcess({ isPasted: true });
-        return;
+        return true;
       }
 
       const pathsToUpdate =
         paths || (multiSelectedPaths.length > 0 ? multiSelectedPaths : selectedImage ? [selectedImage.path] : []);
-      if (pathsToUpdate.length === 0) return;
+      if (pathsToUpdate.length === 0) return false;
 
       pathsToUpdate.forEach((p) => globalImageCache.delete(p));
 
@@ -344,24 +344,26 @@ export function useEditorActions() {
         setAdjustments({ ...adjustments, ...adjustmentsToApply });
       }
 
-      invoke(Invokes.ApplyAdjustmentsToPaths, { paths: pathsToUpdate, adjustments: adjustmentsToApply })
-        .then(() => {
-          if (selectedImage && pathsToUpdate.includes(selectedImage.path)) {
-            invoke('load_metadata', { path: selectedImage.path }).then((meta: any) => {
-              if (meta.adjustments) {
-                setAdjustments((prev: any) => ({
-                  ...prev,
-                  lensMaker: meta.adjustments.lensMaker,
-                  lensModel: meta.adjustments.lensModel,
-                  lensDistortionParams: meta.adjustments.lensDistortionParams,
-                }));
-              }
-            });
+      try {
+        await invoke(Invokes.ApplyAdjustmentsToPaths, { paths: pathsToUpdate, adjustments: adjustmentsToApply });
+        if (selectedImage && pathsToUpdate.includes(selectedImage.path)) {
+          const meta: any = await invoke('load_metadata', { path: selectedImage.path });
+          if (meta.adjustments) {
+            setAdjustments((prev: any) => ({
+              ...prev,
+              lensMaker: meta.adjustments.lensMaker,
+              lensModel: meta.adjustments.lensModel,
+              lensDistortionParams: meta.adjustments.lensDistortionParams,
+            }));
           }
-        })
-        .catch((err) => toast.error(`Failed to paste adjustments: ${err}`));
+        }
+      } catch (err) {
+        toast.error(`Failed to paste adjustments: ${err}`);
+        return false;
+      }
 
       setProcess({ isPasted: true });
+      return true;
     },
     [setAdjustments],
   );
@@ -378,7 +380,7 @@ export function useEditorActions() {
 
     const didCopy = await handleCopyAdjustments(sourcePath);
     if (!didCopy) return;
-    handlePasteAdjustments(multiSelectedPaths.filter((path) => path !== sourcePath));
+    await handlePasteAdjustments(multiSelectedPaths.filter((path) => path !== sourcePath));
   }, [handleCopyAdjustments, handlePasteAdjustments]);
 
   const handleZoomChange = useCallback((zoomValue: number, fitToWindow: boolean = false) => {

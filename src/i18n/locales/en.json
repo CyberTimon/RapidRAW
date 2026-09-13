@@ -1232,6 +1232,7 @@
       "autoSyncDesc": "Automatically apply adjustments to all selected images.",
       "autoSyncLabel": "Enable auto-sync",
       "autoSyncTitle": "Auto-sync adjustments",
+      "syncLabel": "Sync",
       "cancel": "Cancel",
       "descMerge": "Adds your copied changes, leaving other settings untouched.",
       "descReplace": "Overwrites all selected settings, resetting the rest to their defaults.",

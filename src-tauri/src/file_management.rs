@@ -2825,7 +2825,9 @@ pub async fn apply_adjustments_to_paths(
 
             increment_thumbnail_progress(&state, &app_handle);
         });
-    });
+    })
+    .await
+    .map_err(|error| format!("Adjustment sync task failed: {error}"))?;
 
     Ok(())
 }

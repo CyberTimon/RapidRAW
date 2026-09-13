@@ -12,7 +12,14 @@ import EffectsPanel from '../../adjustments/Effects';
 import CollapsibleSection from '../../ui/CollapsibleSection';
 import Waveform from '../editor/Waveform';
 import Resizer from '../../ui/Resizer';
-import { Adjustments, SectionVisibility, INITIAL_ADJUSTMENTS, ADJUSTMENT_SECTIONS } from '../../../utils/adjustments';
+import {
+  Adjustments,
+  SectionVisibility,
+  INITIAL_ADJUSTMENTS,
+  ADJUSTMENT_SECTIONS,
+  COPYABLE_ADJUSTMENT_KEYS,
+  PasteMode,
+} from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
@@ -23,6 +30,7 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
+import Switch from '../../ui/Switch';
 
 export default function Controls() {
   const { t } = useTranslation();
@@ -31,10 +39,11 @@ export default function Controls() {
     useWaveformControls();
   const { setAdjustments, handleAutoAdjustments, handleLutSelect, setLutPreviewOverride } = useEditorActions();
 
-  const { appSettings, theme } = useSettingsStore(
+  const { appSettings, theme, handleSettingsChange } = useSettingsStore(
     useShallow((state) => ({
       appSettings: state.appSettings,
       theme: state.theme,
+      handleSettingsChange: state.handleSettingsChange,
     })),
   );
 
@@ -119,6 +128,23 @@ export default function Controls() {
       sectionVisibility: { ...INITIAL_ADJUSTMENTS.sectionVisibility },
     }));
   };
+
+  const handleSyncChange = useCallback(
+    (autoSync: boolean) => {
+      if (!appSettings) return;
+      const copyPasteSettings = appSettings.copyPasteSettings ?? {
+        mode: PasteMode.Merge,
+        includedAdjustments: COPYABLE_ADJUSTMENT_KEYS,
+        knownAdjustments: [],
+        autoSync: false,
+      };
+      void handleSettingsChange({
+        ...appSettings,
+        copyPasteSettings: { ...copyPasteSettings, autoSync },
+      });
+    },
+    [appSettings, handleSettingsChange],
+  );
 
   const handleToggleSection = (section: string) => {
     setCollapsibleState((prev: any) => {
@@ -329,6 +355,16 @@ export default function Controls() {
           </div>
         )}
       </div>
+      {appSettings && (
+        <div className="shrink-0 bg-bg-secondary px-3 py-2">
+          <Switch
+            checked={appSettings.copyPasteSettings?.autoSync ?? false}
+            label={t('modals.copyPaste.syncLabel')}
+            onChange={handleSyncChange}
+            tooltip={t('modals.copyPaste.autoSyncDesc')}
+          />
+        </div>
+      )}
     </div>
   );
 }

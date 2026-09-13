@@ -9,6 +9,16 @@ import { globalImageCache } from '../utils/ImageLRUCache';
 import { Invokes } from '../components/ui/AppProperties';
 import { debouncedSave } from './useEditorActions';
 
+let adjustmentSyncQueue: Promise<unknown> = Promise.resolve();
+
+function queueAdjustmentSync(paths: string[], adjustments: Partial<Adjustments>) {
+  const operation = adjustmentSyncQueue
+    .catch(() => undefined)
+    .then(() => invoke(Invokes.ApplyAdjustmentsToPaths, { paths, adjustments }));
+  adjustmentSyncQueue = operation;
+  return operation;
+}
+
 // Rendering and crop acceptance share one baseline, so navigation can flush an
 // accepted crop without waiting for the next render or Auto Sync running twice.
 export function useAdjustmentPersistence(previousRef: RefObject<{ path: string; adjustments: Adjustments } | null>) {
@@ -33,7 +43,7 @@ export function useAdjustmentPersistence(previousRef: RefObject<{ path: string; 
         );
         if (Object.keys(delta).length) {
           otherPaths.forEach((p) => globalImageCache.delete(p));
-          void invoke(Invokes.ApplyAdjustmentsToPaths, { paths: otherPaths, adjustments: delta }).catch((error) => {
+          void queueAdjustmentSync(otherPaths, delta).catch((error) => {
             console.error('Failed to apply adjustments to multi-selection:', error);
           });
         }
