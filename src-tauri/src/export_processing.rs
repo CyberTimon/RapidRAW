@@ -1138,12 +1138,19 @@ pub(crate) async fn export_images_impl(
                     }
 
                     let base_image = if is_current_edit {
-                        match crate::get_original_image(&state) {
-                            Ok((orig_data_arc, _)) => {
+                        let cached_source = state
+                            .original_image
+                            .lock()
+                            .unwrap()
+                            .as_ref()
+                            .filter(|loaded| loaded.path == source_path_str)
+                            .map(|loaded| Arc::clone(&loaded.image));
+                        match cached_source {
+                            Some(orig_data_arc) => {
                                 composite_patches_on_image(&orig_data_arc, &js_adjustments)
                                     .map_err(|e| format!("Failed to composite AI patches: {}", e))?
                             }
-                            Err(_) => {
+                            None => {
                                 let bytes =
                                     fs::read(&source_path_str).map_err(|e| e.to_string())?;
                                 load_and_composite(

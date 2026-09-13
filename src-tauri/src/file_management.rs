@@ -62,23 +62,9 @@ fn emit_thumbnail_cache_setup_error(app_handle: &AppHandle, path: &str, reason: 
     );
 }
 
-fn compute_thumbnail_cache_hash(path_str: &str, adjustments_bytes: &[u8]) -> Option<String> {
-    let (source_path, _) = parse_virtual_path(path_str);
-
-    let img_mod_time = fs::metadata(&source_path)
-        .ok()?
-        .modified()
-        .ok()?
-        .duration_since(std::time::UNIX_EPOCH)
-        .ok()?
-        .as_secs();
-
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(path_str.as_bytes());
-    hasher.update(&img_mod_time.to_le_bytes());
-    hasher.update(adjustments_bytes);
-    Some(hasher.finalize().to_hex().to_string())
-}
+#[path = "thumbnail_identity.rs"]
+mod thumbnail_identity;
+use thumbnail_identity::{compute_thumbnail_cache_hash, thumbnail_revision};
 
 struct ImageFileMetadata {
     is_edited: bool,
@@ -1570,7 +1556,7 @@ pub(crate) fn render_auto_preview(
         crate::gpu_processing::get_or_init_gpu_context(&state, app_handle).ok()
     } else { None };
     let gpu_context = gpu_context.or(owned_gpu.as_ref());
-    anyhow::ensure!(!strict || gpu_context.is_some(), "Auto preview requires an available GPU renderer");
+    anyhow::ensure!(!(strict || visually_edited || has_crop) || gpu_context.is_some(), "Edited preview requires an available GPU renderer");
     if let (Some(context), Some(meta)) = (gpu_context, metadata)
         && !meta.adjustments.is_null()
     {
@@ -1578,6 +1564,10 @@ pub(crate) fn render_auto_preview(
         let target_res = target.unwrap_or(settings.medium_thumbnail_resolution.unwrap_or(1280));
 
         let mut base_cache_hash = crate::cache_utils::calculate_thumbnail_base_hash(&meta.adjustments);
+        let mut renderer_hasher = DefaultHasher::new();
+        base_cache_hash.hash(&mut renderer_hasher);
+        compute_thumbnail_cache_hash(path_str, &[], &settings).hash(&mut renderer_hasher);
+        base_cache_hash = renderer_hasher.finish();
         let strict_cacheable = strict && preloaded_image.is_some()
             && meta.adjustments["aiPatches"].as_array().is_none_or(|patches| patches.is_empty())
             && !meta.adjustments["lensBlurEnabled"].as_bool().unwrap_or(false);
@@ -1806,6 +1796,7 @@ pub(crate) fn render_auto_preview(
 
         let mut hasher = DefaultHasher::new();
         path_str.hash(&mut hasher);
+        base_cache_hash.hash(&mut hasher);
         meta.adjustments.to_string().hash(&mut hasher);
         // Unsaved analyses must not reuse GPU pixels from an older source with identical settings.
         if strict { cropped_preview.as_bytes().hash(&mut hasher); }
@@ -1826,7 +1817,7 @@ pub(crate) fn render_auto_preview(
         ) {
             return Ok(processed_image);
         } else {
-            anyhow::ensure!(!strict, "Auto preview rendering failed");
+            anyhow::ensure!(!(strict || visually_edited || has_crop), "Preview rendering failed; refusing to discard saved edits");
             return Ok(cropped_preview.into_owned());
         }
     }
@@ -1927,7 +1918,7 @@ fn generate_thumbnail_sizes(
         )
     };
 
-    let cache_hash = compute_thumbnail_cache_hash(path_str, &adjustments_bytes)?;
+    let cache_hash = compute_thumbnail_cache_hash(path_str, &adjustments_bytes, settings)?;
 
     let small_path = thumb_cache_dir.join(format!("{}_small.jpg", cache_hash));
     let medium_path = thumb_cache_dir.join(format!("{}_medium.jpg", cache_hash));
@@ -1953,7 +1944,12 @@ fn generate_thumbnail_sizes(
             if medium { encode_thumbnail(&thumb_image, target_width_medium) } else { Ok(Vec::new()) },
         )
     {
-        if force_regenerate || image::image_dimensions(&small_path).is_err() {
+        // A save or replacement during rendering must not publish pixels for an old revision.
+        let latest_settings = load_settings(app_handle.clone()).unwrap_or_default();
+        if get_cache_key_hash(path_str, &latest_settings).as_deref() != Some(cache_hash.as_str()) {
+            return None;
+        }
+        if force_regenerate || image::open(&small_path).is_err() {
             write_thumbnail_atomic(&small_path, &small_data).ok()?;
         }
         if medium { write_thumbnail_atomic(&medium_path, &medium_data).ok()?; }
@@ -1968,8 +1964,8 @@ fn generate_thumbnail_sizes(
 }
 
 fn cached_thumbnail_paths(small: &Path, medium: &Path, require_medium: bool) -> Option<(String, String)> {
-    image::image_dimensions(small).ok()?;
-    let medium_valid = image::image_dimensions(medium).is_ok();
+    image::open(small).ok()?;
+    let medium_valid = image::open(medium).is_ok();
     if require_medium && !medium_valid { return None; }
     Some((small.to_string_lossy().into_owned(), if medium_valid {
         medium.to_string_lossy().into_owned()
@@ -1986,6 +1982,28 @@ fn write_thumbnail_atomic(path: &Path, data: &[u8]) -> std::io::Result<()> {
     temporary.write_all(data)?;
     temporary.persist(path).map_err(|error| error.error)?;
     Ok(())
+}
+
+fn write_adjustment_sidecar_preserving_source(
+    source_path: &Path,
+    sidecar_path: &Path,
+    contents: &[u8],
+) -> Result<(), String> {
+    let targets_source = source_path == sidecar_path
+        || (source_path.exists()
+            && sidecar_path.exists()
+            && matches!(
+                (source_path.canonicalize(), sidecar_path.canonicalize()),
+                (Ok(source), Ok(sidecar)) if source == sidecar
+            ));
+    if targets_source {
+        return Err(format!(
+            "Refusing to write adjustment metadata over source image: {}",
+            source_path.display()
+        ));
+    }
+
+    fs::write(sidecar_path, contents).map_err(|error| error.to_string())
 }
 
 pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
@@ -2012,18 +2030,25 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                     }
                     let job = queue.pop_back().unwrap();
                     let generation = manager_clone.generation.load(Ordering::SeqCst);
-                    let key = format!("{}:{}:{}", generation, job.medium, job.path);
-                    if !manager_clone.processing_now.lock().unwrap().insert(key) { continue; }
+                    let key = job.path.clone();
+                    if !manager_clone.processing_now.lock().unwrap().insert(key) {
+                        queue.push_front(job);
+                        // Wake on completion; do not spin while another size is rendering.
+                        drop(manager_clone.cvar.wait(queue).unwrap());
+                        continue;
+                    }
                     (job, generation)
                 };
-                let processing_key = format!("{}:{}:{}", generation, job.medium, job.path);
+                let processing_key = job.path.clone();
                 let path_to_process = job.path;
 
                 // Serialize disk access on rotating media, including cache misses.
                 let _io_permit = manager_clone.rotational_disk.load(Ordering::Relaxed)
                     .then(|| manager_clone.io_gate.lock().unwrap());
                 if generation != manager_clone.generation.load(Ordering::SeqCst) {
+                    let _queue = manager_clone.queue.lock().unwrap();
                     manager_clone.processing_now.lock().unwrap().remove(&processing_key);
+                    manager_clone.cvar.notify_all();
                     continue;
                 }
 
@@ -2048,6 +2073,9 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                                 "path": path_to_process, "thumbnailPath": small_path,
                                 "previewPath": medium_path,
                                 "background": job.background,
+                                "requestGeneration": job.request_generation,
+                                "revision": thumbnail_revision(&small_path),
+                                "previewRevision": thumbnail_revision(&medium_path),
                             }));
                         } else {
                             emit_thumbnail_cache_setup_error(&app_clone, &path_to_process, "Preview unavailable");
@@ -2055,7 +2083,11 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                         increment_thumbnail_progress(&state, &app_clone);
                     }
                 }
-                manager_clone.processing_now.lock().unwrap().remove(&processing_key);
+                {
+                    let _queue = manager_clone.queue.lock().unwrap();
+                    manager_clone.processing_now.lock().unwrap().remove(&processing_key);
+                    manager_clone.cvar.notify_all();
+                }
             }
         });
     }
@@ -2074,6 +2106,7 @@ pub fn update_thumbnail_queue(
     app_handle: tauri::AppHandle,
     background: Option<bool>,
     medium: Option<bool>,
+    request_generation: Option<u64>,
 ) -> Result<(), String> {
     let state = app_handle.state::<crate::AppState>();
 
@@ -2095,7 +2128,7 @@ pub fn update_thumbnail_queue(
         return Ok(());
     }
 
-    crate::thumbnail_queue::enqueue(&mut queue, paths, medium.unwrap_or(false), background.unwrap_or(false));
+    crate::thumbnail_queue::enqueue_request(&mut queue, paths, medium.unwrap_or(false), background.unwrap_or(false), request_generation);
 
     let queue_len = queue.len();
     drop(queue);
@@ -2167,7 +2200,9 @@ pub(crate) fn emit_thumbnail_generated(
             "thumbnailPath": small_thumbnail_path,
             "previewPath": medium_thumbnail_path,
             "rating": rating,
-            "is_edited": is_edited
+            "is_edited": is_edited,
+            "revision": thumbnail_revision(small_thumbnail_path),
+            "previewRevision": thumbnail_revision(medium_thumbnail_path)
         });
     if rating.is_none() { payload.as_object_mut().unwrap().remove("rating"); }
     let _ = app_handle.emit("thumbnail-generated", payload);
@@ -2731,11 +2766,12 @@ pub async fn apply_adjustments_to_paths(
     paths: Vec<String>,
     adjustments: Value,
     app_handle: AppHandle,
+    sync_job_id: Option<String>,
 ) -> Result<(), String> {
     let state = app_handle.state::<AppState>();
     add_to_thumbnail_queue(&state, paths.len(), &app_handle);
 
-    tauri::async_runtime::spawn_blocking(move || {
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
         let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
         let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
@@ -2747,6 +2783,7 @@ pub async fn apply_adjustments_to_paths(
             .unwrap()
             .clone();
 
+        let failures = std::sync::atomic::AtomicUsize::new(0);
         paths.par_iter().for_each(|path| {
             let (source_path, sidecar_path) = parse_virtual_path(path);
 
@@ -2774,8 +2811,15 @@ pub async fn apply_adjustments_to_paths(
 
             existing_metadata.adjustments = new_adjustments;
 
-            if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
-                let _ = std::fs::write(&sidecar_path, json_string);
+            let saved = serde_json::to_vec_pretty(&existing_metadata)
+                .map_err(|error| error.to_string())
+                .and_then(|json| {
+                    write_adjustment_sidecar_preserving_source(&source_path, &sidecar_path, &json)
+                });
+            if let Err(error) = saved {
+                log::error!("Adjustment sync write failed for {}: {}", path, error);
+                failures.fetch_add(1, Ordering::Relaxed);
+                return;
             }
 
             if enable_xmp_sync {
@@ -2795,12 +2839,18 @@ pub async fn apply_adjustments_to_paths(
                 for _ in 0..paths.len() {
                     increment_thumbnail_progress(&state, &app_handle);
                 }
-                return;
+                return Err(format!("Sync preview cache unavailable: {e}"));
             }
         };
 
         let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
 
+        log::info!(
+            "Adjustment sync saved settings; refreshing {} cached thumbnail preview(s) from read-only source images",
+            paths.len()
+        );
+
+        let sync_completed = std::sync::atomic::AtomicUsize::new(0);
         paths.par_iter().for_each(|path_str| {
             let result = generate_single_thumbnail_and_cache(
                 path_str,
@@ -2821,13 +2871,30 @@ pub async fn apply_adjustments_to_paths(
                     rating,
                     is_edited,
                 );
+            } else {
+                failures.fetch_add(1, Ordering::Relaxed);
             }
 
             increment_thumbnail_progress(&state, &app_handle);
+            if let Some(job_id) = &sync_job_id {
+                let completed = sync_completed.fetch_add(1, Ordering::Relaxed) + 1;
+                let _ = app_handle.emit("adjustment-sync-progress", serde_json::json!({
+                    "jobId": job_id, "completed": completed,
+                }));
+            }
         });
+        let failed = failures.load(Ordering::Relaxed);
+        log::info!(
+            "Adjustment sync thumbnail refresh finished for {} image(s); original source images were not modified",
+            paths.len()
+        );
+        if failed > 0 {
+            return Err(format!("Sync finished with {failed} write or preview errors"));
+        }
+        Ok(())
     })
     .await
-    .map_err(|error| format!("Adjustment sync task failed: {error}"))?;
+    .map_err(|error| format!("Adjustment sync task failed: {error}"))??;
 
     Ok(())
 }
@@ -3655,7 +3722,7 @@ pub fn get_thumb_cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
     Ok(thumb_cache_dir)
 }
 
-pub fn get_cache_key_hash(path_str: &str) -> Option<String> {
+pub fn get_cache_key_hash(path_str: &str, settings: &AppSettings) -> Option<String> {
     let (_, sidecar_path) = parse_virtual_path(path_str);
 
     let adjustments_bytes = if let Ok(content) = fs::read_to_string(&sidecar_path) {
@@ -3668,7 +3735,7 @@ pub fn get_cache_key_hash(path_str: &str) -> Option<String> {
         Vec::new()
     };
 
-    compute_thumbnail_cache_hash(path_str, &adjustments_bytes)
+    compute_thumbnail_cache_hash(path_str, &adjustments_bytes, settings)
 }
 
 pub fn get_cached_or_generate_thumbnail_image(
@@ -3681,7 +3748,7 @@ pub fn get_cached_or_generate_thumbnail_image(
     let target_width_small = settings.small_thumbnail_resolution.unwrap_or(480);
     let target_width_medium = settings.medium_thumbnail_resolution.unwrap_or(1280);
 
-    if let Some(cache_hash) = get_cache_key_hash(path_str) {
+    if let Some(cache_hash) = get_cache_key_hash(path_str, &settings) {
         let cache_path = thumb_cache_dir.join(format!("{}_medium.jpg", cache_hash));
 
         if cache_path.exists() {

@@ -371,7 +371,14 @@ pub fn downscale_f32_image(image: &DynamicImage, nwidth: u32, nheight: u32) -> D
     let out = Rgb32FImage::from_raw(new_w, new_h, out_buf).expect("buffer size mismatch");
     let result = DynamicImage::ImageRgb32F(out);
 
-    log::info!("downscale_f32_image took {:.2?}", start.elapsed());
+    log::debug!(
+        "In-memory image downscale {}x{} -> {}x{} took {:.2?}",
+        width,
+        height,
+        new_w,
+        new_h,
+        start.elapsed()
+    );
 
     result
 }

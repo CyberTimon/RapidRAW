@@ -1,6 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mergeThumbnailCache, setVisibleThumbnails, THUMBNAIL_CACHE_LIMIT } from './thumbnailCache';
+import {
+  mergeThumbnailCache,
+  setVisibleThumbnails,
+  THUMBNAIL_CACHE_LIMIT,
+  withThumbnailRevision,
+} from './thumbnailCache';
+
+test('adds a distinct revision to regenerated thumbnail URLs', () => {
+  assert.equal(withThumbnailRevision('asset://thumbnail.jpg', 42), 'asset://thumbnail.jpg?rapidrawRevision=42');
+  assert.equal(withThumbnailRevision('asset://thumbnail.jpg?size=small', 43), 'asset://thumbnail.jpg?size=small&rapidrawRevision=43');
+});
+
+test('unchanged disk revisions reuse asset URLs', () => {
+  const first = withThumbnailRevision('asset://thumbnail.jpg', 'revision:123');
+  assert.equal(first, withThumbnailRevision('asset://thumbnail.jpg', 'revision:123'));
+  assert.notEqual(first, withThumbnailRevision('asset://thumbnail.jpg', 'revision:124'));
+});
 
 test('scrolling across ten thousand photos keeps URL storage bounded and visible photos pinned', () => {
   let cache: Record<string, string> = {};

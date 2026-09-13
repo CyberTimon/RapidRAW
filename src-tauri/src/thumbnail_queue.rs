@@ -6,10 +6,21 @@ pub struct Job {
     pub path: String,
     pub medium: bool,
     pub background: bool,
+    pub request_generation: Option<u64>,
 }
 
 /// The back is highest priority. Large requests are bounded before insertion.
 pub fn enqueue(queue: &mut VecDeque<Job>, paths: Vec<String>, medium: bool, background: bool) {
+    enqueue_request(queue, paths, medium, background, None);
+}
+
+pub fn enqueue_request(
+    queue: &mut VecDeque<Job>,
+    paths: Vec<String>,
+    medium: bool,
+    background: bool,
+    request_generation: Option<u64>,
+) {
     let mut seen = HashSet::new();
     let jobs: Vec<_> = paths
         .into_iter()
@@ -19,11 +30,13 @@ pub fn enqueue(queue: &mut VecDeque<Job>, paths: Vec<String>, medium: bool, back
             path,
             medium,
             background,
+            request_generation,
         })
         .collect();
     for mut job in jobs.into_iter().rev() {
         if let Some(index) = queue.iter().position(|old| old.path == job.path) {
             if background {
+                queue[index].medium |= job.medium;
                 continue;
             }
             job.medium |= queue.remove(index).unwrap().medium;
@@ -44,6 +57,17 @@ pub fn enqueue(queue: &mut VecDeque<Job>, paths: Vec<String>, medium: bool, back
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn medium_upgrade_keeps_foreground_priority_and_generation() {
+        let mut queue = VecDeque::new();
+        enqueue_request(&mut queue, vec!["a".into()], false, false, Some(7));
+        enqueue_request(&mut queue, vec!["a".into()], true, true, Some(7));
+        assert_eq!(queue.len(), 1);
+        let job = queue.pop_back().unwrap();
+        assert!(job.medium);
+        assert!(!job.background);
+        assert_eq!(job.request_generation, Some(7));
+    }
     #[test]
     fn oversized_requests_terminate_and_visible_work_wins() {
         let mut queue = VecDeque::new();

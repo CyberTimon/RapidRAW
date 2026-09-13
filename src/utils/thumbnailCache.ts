@@ -1,6 +1,12 @@
 const recent = new Map<string, number>();
 const visible = new Set<string>();
 export const THUMBNAIL_CACHE_LIMIT = 1000;
+
+export function withThumbnailRevision(url: string, revision: string | number = Date.now()) {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}rapidrawRevision=${encodeURIComponent(String(revision))}`;
+}
+
 export function touchThumbnails(paths: string[]) {
   for (const path of paths) {
     recent.delete(path);
