@@ -2584,7 +2584,10 @@ pub fn remove_raw_artifacts_and_enhance(
     color_nr_inv_sigma: f32,
     sharpening_amount: f32,
 ) {
-    let mut buffer = image.to_rgb32f();
+    let mut buffer = match std::mem::replace(image, DynamicImage::new_rgb8(1, 1)) {
+        DynamicImage::ImageRgb32F(buffer) => buffer,
+        other => other.to_rgb32f(),
+    };
     let w = buffer.width() as usize;
     let h = buffer.height() as usize;
 
@@ -3476,4 +3479,19 @@ pub fn auto_results_to_json(results: &AutoAdjustmentResults) -> serde_json::Valu
         "whites": results.whites,
         "blacks": results.blacks
     })
+}
+
+#[cfg(test)]
+mod raw_preprocessing_tests {
+    use super::*;
+
+    #[test]
+    fn rgb32f_preprocessing_reuses_the_source_allocation() {
+        let mut image = DynamicImage::ImageRgb32F(Rgb32FImage::new(4, 3));
+        let source = image.as_rgb32f().unwrap().as_raw().as_ptr();
+
+        remove_raw_artifacts_and_enhance(&mut image, 0.0, 0.0);
+
+        assert_eq!(image.as_rgb32f().unwrap().as_raw().as_ptr(), source);
+    }
 }

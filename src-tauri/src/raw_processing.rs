@@ -1,6 +1,6 @@
 use crate::image_processing::apply_orientation;
 use anyhow::{Result, anyhow};
-use image::{DynamicImage, ImageBuffer, Rgba};
+use image::{DynamicImage, ImageBuffer, Rgb};
 use rawler::{
     decoders::{Orientation, RawDecodeParams},
     imgop::develop::{DemosaicAlgorithm, Intermediate, ProcessingStep, RawDevelop},
@@ -212,18 +212,18 @@ fn develop_internal(
 
     let dynamic_image = match developed_intermediate {
         Intermediate::ThreeColor(pixels) => {
-            let buffer = ImageBuffer::<Rgba<f32>, _>::from_fn(width, height, |x, y| {
+            let buffer = ImageBuffer::<Rgb<f32>, _>::from_fn(width, height, |x, y| {
                 let p = pixels.data[(y * width + x) as usize];
-                Rgba([p[0], p[1], p[2], 1.0])
+                Rgb([p[0], p[1], p[2]])
             });
-            DynamicImage::ImageRgba32F(buffer)
+            DynamicImage::ImageRgb32F(buffer)
         }
         Intermediate::Monochrome(pixels) => {
-            let buffer = ImageBuffer::<Rgba<f32>, _>::from_fn(width, height, |x, y| {
+            let buffer = ImageBuffer::<Rgb<f32>, _>::from_fn(width, height, |x, y| {
                 let p = pixels.data[(y * width + x) as usize];
-                Rgba([p, p, p, 1.0])
+                Rgb([p, p, p])
             });
-            DynamicImage::ImageRgba32F(buffer)
+            DynamicImage::ImageRgb32F(buffer)
         }
         _ => {
             return Err(anyhow!("Unsupported intermediate format for conversion"));

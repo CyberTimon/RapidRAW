@@ -17,6 +17,7 @@ mod cache_utils;
 mod camera_tethering;
 mod culling;
 mod denoising;
+mod desktop_activity;
 mod embedded_rating;
 mod cr3_rating;
 mod rating_cache;
@@ -1455,6 +1456,12 @@ fn setup_logging(app_handle: &tauri::AppHandle) {
         })
         .level(level)
         .chain(std::io::stderr());
+
+    if level < log::LevelFilter::Debug {
+        // Lens resolution is advisory and independent of RapidRAW's Lensfun corrections.
+        // Keep upstream database diagnostics available when verbose logging is requested.
+        dispatch = dispatch.level_for("rawler::lens", log::LevelFilter::Error);
+    }
 
     if let Some(file) = log_file {
         dispatch = dispatch.chain(file);
