@@ -160,6 +160,29 @@ fn develop_internal(
                     b = srgb_to_linear(b.clamp(0.0, 1.0));
                 }
 
+                let max_c_initial = r.max(g).max(b);
+
+                if max_c_initial > 1.0 {
+                    let min_c = r.min(g).min(b);
+
+                    let base_desat = ((min_c - 0.3) * 2.5).clamp(0.0, 1.0);
+
+                    let magenta_factor = (r.min(b) - g).max(0.0);
+                    let magenta_desat = ((magenta_factor - 0.15) * 2.5).clamp(0.0, 1.0);
+
+                    let target_desat = base_desat.max(magenta_desat);
+
+                    let intensity = ((max_c_initial - 1.0) * 2.0).clamp(0.0, 1.0);
+                    let mut desat = target_desat * intensity;
+
+                    if desat > 0.0 {
+                        desat = desat * desat * (3.0 - 2.0 * desat);
+                        r = r * (1.0 - desat) + max_c_initial * desat;
+                        g = g * (1.0 - desat) + max_c_initial * desat;
+                        b = b * (1.0 - desat) + max_c_initial * desat;
+                    }
+                }
+
                 let max_c = r.max(g).max(b);
 
                 let (final_r, final_g, final_b) = if max_c > 1.0 {
