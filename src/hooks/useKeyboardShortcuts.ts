@@ -558,7 +558,6 @@ export const useKeyboardShortcuts = ({
       },
     };
 
-    // Expose the named actions to hardware controllers (see useExternalControl).
     const unregisterControlActions = registerControlActions(actions, getStoreState);
 
     const builtinShortcuts = [

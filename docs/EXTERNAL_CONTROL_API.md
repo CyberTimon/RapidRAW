@@ -103,30 +103,26 @@ without asking.
 ## Parameters
 
 Identifiers are the field names of RapidRAW's `Adjustments` object; nested ones are joined
-with dots. Ranges mirror the sliders in the UI. `get_params` returns the authoritative table
-for the running build; the list below is the one shipped with protocol 1.
+with dots. The table is derived from `ADJUSTMENT_SECTIONS` / `ADJUSTMENT_GROUPS` and
+`INITIAL_ADJUSTMENTS` in `src/utils/adjustments.ts`, so every numeric slider in the Basic,
+Color, Details, Effects and Geometry sections is addressable, and `group` is the section
+name. Ranges mirror the sliders in the UI; the default is −100 … 100, step 1, with these
+exceptions:
 
-| group         | id                                                                                                           | range            | step |
-| ------------- | ------------------------------------------------------------------------------------------------------------ | ---------------- | ---- |
-| basic         | `exposure`, `brightness`                                                                                     | −5 … 5           | 0.01 |
-| basic         | `contrast`, `highlights`, `shadows`, `whites`, `blacks`                                                      | −100 … 100       | 1    |
-| color         | `temperature`, `tint`, `vibrance`, `saturation`                                                              | −100 … 100       | 1    |
-| color         | `hue`                                                                                                        | −180 … 180       | 1    |
-| hsl           | `hsl.<color>.hue` / `.saturation` / `.luminance` — colors: reds, oranges, yellows, greens, aquas, blues, purples, magentas | −100 … 100 | 1 |
-| colorGrading  | `colorGrading.<range>.hue` — ranges: shadows, midtones, highlights, global                                    | 0 … 360          | 1    |
-| colorGrading  | `colorGrading.<range>.saturation`                                                                            | 0 … 100          | 1    |
-| colorGrading  | `colorGrading.<range>.luminance`                                                                             | −100 … 100       | 1    |
-| colorGrading  | `colorGrading.blending`                                                                                      | 0 … 100          | 1    |
-| colorGrading  | `colorGrading.balance`                                                                                       | −100 … 100       | 1    |
-| calibration   | `colorCalibration.shadowsTint`, `.redHue`, `.redSaturation`, `.greenHue`, `.greenSaturation`, `.blueHue`, `.blueSaturation` | −100 … 100 | 1 |
-| details       | `sharpness`, `clarity`, `dehaze`, `structure`, `centré`, `chromaticAberrationRedCyan`, `chromaticAberrationBlueYellow` | −100 … 100 | 1 |
-| details       | `sharpnessThreshold`                                                                                         | 0 … 80           | 1    |
-| details       | `lumaNoiseReduction`, `colorNoiseReduction`                                                                  | 0 … 100          | 1    |
-| effects       | `glowAmount`, `halationAmount`, `flareAmount`, `lensBlurAmount`, `lensBlurDiffusion`, `vignetteMidpoint`, `vignetteFeather`, `grainAmount`, `grainSize`, `grainRoughness`, `lutIntensity` | 0 … 100 | 1 |
-| effects       | `vignetteAmount`, `vignetteRoundness`                                                                        | −100 … 100       | 1    |
-| transform     | `rotation`, `transformRotate`                                                                                | −45 … 45         | 0.1  |
-| transform     | `transformVertical`, `transformHorizontal`, `transformDistortion`, `transformAspect`, `transformXOffset`, `transformYOffset` | −100 … 100 | 1 |
-| transform     | `transformScale`                                                                                             | 50 … 150         | 1    |
+| id                                                                                     | range      | step |
+| -------------------------------------------------------------------------------------- | ---------- | ---- |
+| `exposure`, `brightness`                                                               | −5 … 5     | 0.01 |
+| `hue`                                                                                  | −180 … 180 | 1    |
+| `colorGrading.<range>.hue` — ranges: shadows, midtones, highlights, global             | 0 … 360    | 1    |
+| `colorGrading.<range>.saturation`, `colorGrading.blending`                             | 0 … 100    | 1    |
+| `sharpnessThreshold`                                                                   | 0 … 80     | 1    |
+| `lumaNoiseReduction`, `colorNoiseReduction`                                            | 0 … 100    | 1    |
+| `glowAmount`, `halationAmount`, `flareAmount`, `lensBlurAmount`, `lensBlurDiffusion`, `vignetteMidpoint`, `vignetteFeather`, `grainAmount`, `grainSize`, `grainRoughness`, `lutIntensity` | 0 … 100 | 1 |
+| `rotation`, `transformRotate`                                                          | −45 … 45   | 0.1  |
+| `transformScale`                                                                       | 50 … 150   | 1    |
+| `lensDistortionAmount`, `lensVignetteAmount`, `lensTcaAmount`                          | 0 … 200    | 1    |
+
+`get_params` returns the authoritative table for the running build.
 
 Note the accent in `centré` — it is the real field name in RapidRAW.
 

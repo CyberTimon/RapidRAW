@@ -1,32 +1,12 @@
-/**
- * External control: parameter table and action registry.
- *
- * A hardware controller talks to the Rust-side TCP server (src-tauri/src/external_control.rs),
- * which forwards each message to the webview as the `external-control-command` event.
- * `useExternalControl` interprets those messages; this module holds the data it needs:
- *
- *  - CONTROL_PARAMS: every adjustment a controller may address, with its range and default.
- *    Ranges mirror the sliders in src/components/adjustments so a dial can never push a value
- *    the UI could not.
- *  - the action registry: the named actions (undo, preview_next, rate_3, ...) that
- *    useKeyboardShortcuts builds are registered here so a controller button can fire them
- *    without a synthetic keyboard event.
- *
- * Message vocabulary: docs/EXTERNAL_CONTROL_API.md
- */
-
-import { Adjustments, INITIAL_ADJUSTMENTS } from './adjustments';
+import { Adjustments, ADJUSTMENT_GROUPS, ADJUSTMENT_SECTIONS, INITIAL_ADJUSTMENTS } from './adjustments';
 
 export const EXTERNAL_CONTROL_COMMAND_EVENT = 'external-control-command';
 export const EXTERNAL_CONTROL_CLIENTS_EVENT = 'external-control-clients';
 export const EXTERNAL_CONTROL_PROTOCOL = 1;
 
 export interface ControlParam {
-  /** Stable identifier used on the wire, e.g. `exposure`, `hsl.reds.hue`. */
   id: string;
-  /** Path into the Adjustments object. */
   path: string[];
-  /** Panel the slider lives in; informational, for controller UIs. */
   group: string;
   min: number;
   max: number;
@@ -34,104 +14,78 @@ export interface ControlParam {
   default: number;
 }
 
-const p = (
-  id: string,
-  group: string,
-  min: number,
-  max: number,
-  step: number,
-  path: string[] = id.split('.'),
-  def?: number,
-): ControlParam => ({
-  id,
-  path,
-  group,
-  min,
-  max,
-  step,
-  default: def ?? numberOr(readPath(INITIAL_ADJUSTMENTS, path), 0),
-});
+type Range = [number, number, number];
 
-const numberOr = (value: unknown, fallback: number): number =>
-  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+const DEFAULT_RANGE: Range = [-100, 100, 1];
 
-const HSL_COLORS = ['reds', 'oranges', 'yellows', 'greens', 'aquas', 'blues', 'purples', 'magentas'];
-const GRADING_RANGES = ['shadows', 'midtones', 'highlights', 'global'];
+const RANGES: Record<string, Range> = {
+  exposure: [-5, 5, 0.01],
+  brightness: [-5, 5, 0.01],
+  hue: [-180, 180, 1],
+  sharpnessThreshold: [0, 80, 1],
+  rotation: [-45, 45, 0.1],
+  transformRotate: [-45, 45, 0.1],
+  transformScale: [50, 150, 1],
+  lensDistortionAmount: [0, 200, 1],
+  lensVignetteAmount: [0, 200, 1],
+  lensTcaAmount: [0, 200, 1],
+  'colorGrading.blending': [0, 100, 1],
+  'colorGrading.*.hue': [0, 360, 1],
+  'colorGrading.*.saturation': [0, 100, 1],
+  glowAmount: [0, 100, 1],
+  halationAmount: [0, 100, 1],
+  flareAmount: [0, 100, 1],
+  lensBlurAmount: [0, 100, 1],
+  lensBlurDiffusion: [0, 100, 1],
+  vignetteMidpoint: [0, 100, 1],
+  vignetteFeather: [0, 100, 1],
+  grainAmount: [0, 100, 1],
+  grainSize: [0, 100, 1],
+  grainRoughness: [0, 100, 1],
+  lutIntensity: [0, 100, 1],
+  lumaNoiseReduction: [0, 100, 1],
+  colorNoiseReduction: [0, 100, 1],
+};
 
-const FLAT_PARAMS: ControlParam[] = [
-  // Basic (Basic.tsx)
-  p('exposure', 'basic', -5, 5, 0.01),
-  p('brightness', 'basic', -5, 5, 0.01),
-  p('contrast', 'basic', -100, 100, 1),
-  p('highlights', 'basic', -100, 100, 1),
-  p('shadows', 'basic', -100, 100, 1),
-  p('whites', 'basic', -100, 100, 1),
-  p('blacks', 'basic', -100, 100, 1),
-  // Color (Color.tsx)
-  p('temperature', 'color', -100, 100, 1),
-  p('tint', 'color', -100, 100, 1),
-  p('vibrance', 'color', -100, 100, 1),
-  p('saturation', 'color', -100, 100, 1),
-  p('hue', 'color', -180, 180, 1),
-  p('colorGrading.blending', 'colorGrading', 0, 100, 1),
-  p('colorGrading.balance', 'colorGrading', -100, 100, 1),
-  p('colorCalibration.shadowsTint', 'calibration', -100, 100, 1),
-  p('colorCalibration.redHue', 'calibration', -100, 100, 1),
-  p('colorCalibration.redSaturation', 'calibration', -100, 100, 1),
-  p('colorCalibration.greenHue', 'calibration', -100, 100, 1),
-  p('colorCalibration.greenSaturation', 'calibration', -100, 100, 1),
-  p('colorCalibration.blueHue', 'calibration', -100, 100, 1),
-  p('colorCalibration.blueSaturation', 'calibration', -100, 100, 1),
-  // Details (Details.tsx)
-  p('sharpness', 'details', -100, 100, 1),
-  p('sharpnessThreshold', 'details', 0, 80, 1),
-  p('clarity', 'details', -100, 100, 1),
-  p('dehaze', 'details', -100, 100, 1),
-  p('structure', 'details', -100, 100, 1),
-  p('centré', 'details', -100, 100, 1),
-  p('lumaNoiseReduction', 'details', 0, 100, 1),
-  p('colorNoiseReduction', 'details', 0, 100, 1),
-  p('chromaticAberrationRedCyan', 'details', -100, 100, 1),
-  p('chromaticAberrationBlueYellow', 'details', -100, 100, 1),
-  // Effects (Effects.tsx)
-  p('glowAmount', 'effects', 0, 100, 1),
-  p('halationAmount', 'effects', 0, 100, 1),
-  p('flareAmount', 'effects', 0, 100, 1),
-  p('lensBlurAmount', 'effects', 0, 100, 1),
-  p('lensBlurDiffusion', 'effects', 0, 100, 1),
-  p('vignetteAmount', 'effects', -100, 100, 1),
-  p('vignetteMidpoint', 'effects', 0, 100, 1),
-  p('vignetteRoundness', 'effects', -100, 100, 1),
-  p('vignetteFeather', 'effects', 0, 100, 1),
-  p('grainAmount', 'effects', 0, 100, 1),
-  p('grainSize', 'effects', 0, 100, 1),
-  p('grainRoughness', 'effects', 0, 100, 1),
-  p('lutIntensity', 'effects', 0, 100, 1),
-  // Transform / crop
-  p('rotation', 'transform', -45, 45, 0.1),
-  p('transformRotate', 'transform', -45, 45, 0.1),
-  p('transformVertical', 'transform', -100, 100, 1),
-  p('transformHorizontal', 'transform', -100, 100, 1),
-  p('transformDistortion', 'transform', -100, 100, 1),
-  p('transformAspect', 'transform', -100, 100, 1),
-  p('transformScale', 'transform', 50, 150, 1),
-  p('transformXOffset', 'transform', -100, 100, 1),
-  p('transformYOffset', 'transform', -100, 100, 1),
+const NOT_SLIDERS = new Set([
+  'lutSize',
+  'orientationSteps',
+  'lensBlurMinDepth',
+  'lensBlurMaxDepth',
+  'lensBlurMinFade',
+  'lensBlurMaxFade',
+]);
+
+const SECTION_KEYS: Array<[string, string[]]> = [
+  ['basic', ADJUSTMENT_SECTIONS.basic],
+  ['color', ADJUSTMENT_SECTIONS.color],
+  ['details', ADJUSTMENT_SECTIONS.details],
+  ['effects', ADJUSTMENT_SECTIONS.effects],
+  ['geometry', ADJUSTMENT_GROUPS.geometry.flatMap((group) => group.keys)],
 ];
 
-const HSL_PARAMS: ControlParam[] = HSL_COLORS.flatMap((color) => [
-  p(`hsl.${color}.hue`, 'hsl', -100, 100, 1),
-  p(`hsl.${color}.saturation`, 'hsl', -100, 100, 1),
-  p(`hsl.${color}.luminance`, 'hsl', -100, 100, 1),
-]);
+const rangeFor = (id: string): Range => RANGES[id] ?? RANGES[id.replace(/^([^.]+)\.[^.]+\./, '$1.*.')] ?? DEFAULT_RANGE;
 
-const GRADING_PARAMS: ControlParam[] = GRADING_RANGES.flatMap((range) => [
-  p(`colorGrading.${range}.hue`, 'colorGrading', 0, 360, 1),
-  p(`colorGrading.${range}.saturation`, 'colorGrading', 0, 100, 1),
-  p(`colorGrading.${range}.luminance`, 'colorGrading', -100, 100, 1),
-]);
+const collectParams = (group: string, path: string[], value: unknown, out: ControlParam[]) => {
+  const id = path.join('.');
+  if (typeof value === 'number') {
+    if (NOT_SLIDERS.has(id)) return;
+    const [min, max, step] = rangeFor(id);
+    out.push({ id, path, group, min, max, step, default: value });
+  } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+    for (const [key, child] of Object.entries(value)) {
+      collectParams(group, [...path, key], child, out);
+    }
+  }
+};
 
-export const CONTROL_PARAMS: ControlParam[] = [...FLAT_PARAMS, ...HSL_PARAMS, ...GRADING_PARAMS];
+export const CONTROL_PARAMS: ControlParam[] = SECTION_KEYS.flatMap(([group, keys]) => {
+  const out: ControlParam[] = [];
+  for (const key of keys) {
+    collectParams(group, [key], (INITIAL_ADJUSTMENTS as unknown as Record<string, unknown>)[key], out);
+  }
+  return out;
+});
 
 const PARAM_INDEX = new Map(CONTROL_PARAMS.map((param) => [param.id, param]));
 
@@ -148,7 +102,6 @@ export function readPath(obj: unknown, path: string[]): unknown {
   return cur;
 }
 
-/** Immutable set along `path`, shallow-copying every object on the way. */
 export function writePath<T extends object>(obj: T, path: string[], value: unknown): T {
   if (path.length === 0) return obj;
   const [head, ...rest] = path;
@@ -158,7 +111,6 @@ export function writePath<T extends object>(obj: T, path: string[], value: unkno
   return { ...obj, [head]: next };
 }
 
-/** Snap to the parameter's step grid and clamp to its range. */
 export function normalizeParamValue(param: ControlParam, raw: number): number {
   if (!Number.isFinite(raw)) return param.default;
   const decimals = Math.max(0, Math.ceil(-Math.log10(param.step)));
@@ -172,7 +124,6 @@ export function readParamValue(adjustments: Adjustments, param: ControlParam): n
   return typeof value === 'number' && Number.isFinite(value) ? value : param.default;
 }
 
-/** Flat `{ id: value }` map of every parameter, for the `state` message. */
 export function snapshotParams(adjustments: Adjustments): Record<string, number> {
   const out: Record<string, number> = {};
   for (const param of CONTROL_PARAMS) {
@@ -180,10 +131,6 @@ export function snapshotParams(adjustments: Adjustments): Record<string, number>
   }
   return out;
 }
-
-// ---------------------------------------------------------------------------
-// Action registry
-// ---------------------------------------------------------------------------
 
 export interface RegisteredAction {
   shouldFire?: (storeState: unknown) => boolean;
