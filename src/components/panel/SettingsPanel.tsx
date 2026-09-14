@@ -2065,6 +2065,7 @@ export default function SettingsPanel({
                       {t('settings.processing.preprocessing.title')}
                     </Text>
                     <div className="space-y-8">
+                      {/* turn off highlights clipping setting for now - needs clean cleanup across other files.
                       <SettingItem
                         label={t('settings.processing.preprocessing.highlightRecovery')}
                         description={t('settings.processing.preprocessing.highlightRecoveryDesc')}
@@ -2082,6 +2083,7 @@ export default function SettingsPanel({
                           fillOrigin="min"
                         />
                       </SettingItem>
+                      */}
 
                       <SettingItem
                         label={t('settings.processing.preprocessing.colorNr')}

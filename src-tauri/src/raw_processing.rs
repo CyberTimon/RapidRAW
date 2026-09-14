@@ -48,7 +48,7 @@ fn srgb_to_linear(value: f32) -> f32 {
 fn develop_internal(
     file_bytes: &[u8],
     fast_demosaic: bool,
-    highlight_compression: f32,
+    _highlight_compression: f32,
     linear_mode: String,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<(DynamicImage, Orientation)> {
@@ -128,7 +128,8 @@ fn develop_internal(
     let denominator = (original_white_level - original_black_level).max(1.0);
     let rescale_factor = (u32::MAX as f32 - original_black_level) / denominator;
 
-    let safe_highlight_compression = highlight_compression.max(1.01);
+    // turn off highlights clipping setting for now - needs clean cleanup across other files.
+    let safe_highlight_compression = 1000.0;
 
     let clamp_limit = if fast_demosaic {
         1.0
