@@ -69,6 +69,7 @@ export function useFileOperations(
         const command = options.includeAssociated ? 'delete_files_with_associated' : 'delete_files_from_disk';
         await invoke(command, { paths: pathsToDelete });
         await refreshImageList();
+        await refreshAllFolderTrees();
 
         if (selectedImage && activeView === 'editor') {
           const physicalPath = selectedImage.path.split('?vc=')[0];
@@ -100,7 +101,7 @@ export function useFileOperations(
         toast.error(`Failed to delete files: ${err}`);
       }
     },
-    [refreshImageList, handleBackToLibrary, sortedImageList, handleImageSelect],
+    [refreshImageList, refreshAllFolderTrees, handleBackToLibrary, sortedImageList, handleImageSelect],
   );
 
   const handleDeleteSelected = useCallback(() => {
@@ -282,6 +283,13 @@ export function useFileOperations(
     async (settings: any) => {
       const { importTargetFolder, importSourcePaths } = useUIStore.getState();
       if (!importTargetFolder) return;
+
+      const { appSettings, handleSettingsChange } = useSettingsStore.getState();
+      if (appSettings) {
+        const { presetAdjustments: _drop, ...persistable } = settings;
+        handleSettingsChange({ ...appSettings, lastImportSettings: persistable });
+      }
+
       await startImportFiles(importSourcePaths, importTargetFolder, settings);
     },
     [startImportFiles],

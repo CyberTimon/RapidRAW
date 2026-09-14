@@ -3472,16 +3472,48 @@ pub fn auto_results_to_json(results: &AutoAdjustmentResults) -> serde_json::Valu
 pub fn calculate_auto_adjustments(
     state: tauri::State<AppState>,
 ) -> Result<serde_json::Value, String> {
-    let original_image = state
-        .original_image
-        .lock()
-        .unwrap()
-        .as_ref()
-        .ok_or("No image loaded for auto adjustments")?
-        .image
-        .clone();
+    let (original_image, image_path) = {
+        let guard = state.original_image.lock().unwrap();
+        let loaded = guard
+            .as_ref()
+            .ok_or("No image loaded for auto adjustments")?;
+        (loaded.image.clone(), loaded.path.clone())
+    };
 
     let results = perform_auto_analysis(&original_image);
+    let mut adjustments = auto_results_to_json(&results);
 
-    Ok(auto_results_to_json(&results))
+    // Fold automatic lens correction into the auto-edit workflow. When the lens cannot be
+    // resolved from EXIF the lens keys are stripped again so the image is simply left uncorrected.
+    if let Some(map) = adjustments.as_object_mut() {
+        map.insert("lensCorrectionMode".to_string(), json!("auto"));
+    }
+
+    let (source_path, _) = crate::file_management::parse_virtual_path(&image_path);
+    let exif = crate::exif_processing::read_rrexif_sidecar(&source_path);
+    let lens_db = state.lens_db.lock().unwrap().clone();
+    crate::file_management::resolve_lens_params_in_adjustments(
+        &mut adjustments,
+        &exif,
+        lens_db.as_deref(),
+    );
+
+    let lens_resolved = adjustments
+        .get("lensDistortionParams")
+        .map(|v| !v.is_null())
+        .unwrap_or(false);
+    if let Some(map) = adjustments.as_object_mut() {
+        if lens_resolved {
+            map.insert("lensDistortionEnabled".to_string(), json!(true));
+            map.insert("lensTcaEnabled".to_string(), json!(true));
+            map.insert("lensVignetteEnabled".to_string(), json!(true));
+        } else {
+            map.remove("lensCorrectionMode");
+            map.remove("lensMaker");
+            map.remove("lensModel");
+            map.remove("lensDistortionParams");
+        }
+    }
+
+    Ok(adjustments)
 }
