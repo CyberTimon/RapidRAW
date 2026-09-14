@@ -824,8 +824,8 @@
       "quality": "Qualité",
       "qualityLossless": "Qualité (Sans perte)",
       "tiffBitDepth": "Profondeur de bits TIFF",
-      "tiffBitDepth8": "8 bits",
-      "tiffBitDepth16": "16 bits"
+      "tiffBitDepth16": "16 bits",
+      "tiffBitDepth8": "8 bits"
     },
     "labels": {
       "image": "Image",
@@ -1586,6 +1586,7 @@
       "displayEditIcon": "Afficher l'icône de retouche",
       "displayEditIconDesc": "Afficher une petite icône de curseur sur les miniatures qui ont été retouchées.",
       "enableFocusMode": "Activer le mode de concentration",
+      "enableNeutralGreyCanvas": "Activer le fond gris neutre",
       "enableOsTitlebar": "Activer la barre de titre de l'OS",
       "enableXmpSync": "Activer la synchronisation XMP",
       "focusMode": "Mode de concentration",
@@ -1596,6 +1597,8 @@
       "fontDesc": "Modifier la police de l'application.",
       "nativeTitlebar": "Barre de titre native",
       "nativeTitlebarDesc": "Utiliser la barre de titre de fenêtre par défaut de votre système au lieu de celle personnalisée de RapidRAW.",
+      "neutralGreyCanvas": "Toile gris neutre",
+      "neutralGreyCanvasDesc": "Utilisez une toile gris neutre pour un étalonnage des couleurs et de l'exposition plus précis sans modifier le thème de l'application.",
       "poppins": "Poppins",
       "showImageCounts": "Afficher le nombre d'images",
       "system": "Défaut du système",

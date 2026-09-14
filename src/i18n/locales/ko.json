@@ -800,8 +800,8 @@
       "quality": "품질",
       "qualityLossless": "품질 (무손실)",
       "tiffBitDepth": "TIFF 비트 심도",
-      "tiffBitDepth8": "8비트",
-      "tiffBitDepth16": "16비트"
+      "tiffBitDepth16": "16비트",
+      "tiffBitDepth8": "8비트"
     },
     "labels": {
       "image": "이미지",
@@ -1551,6 +1551,7 @@
       "displayEditIcon": "편집 아이콘 표시",
       "displayEditIconDesc": "편집된 썸네일에 작은 슬라이더 아이콘을 표시합니다.",
       "enableFocusMode": "집중 모드 활성화",
+      "enableNeutralGreyCanvas": "뉴트럴 그레이 배경 활성화",
       "enableOsTitlebar": "OS 제목 표시줄 활성화",
       "enableXmpSync": "XMP 동기화 활성화",
       "focusMode": "집중 모드",
@@ -1561,6 +1562,8 @@
       "fontDesc": "애플리케이션 글꼴을 변경합니다.",
       "nativeTitlebar": "네이티브 제목 표시줄",
       "nativeTitlebarDesc": "RapidRAW의 사용자 지정 제목 표시줄 대신 시스템 기본 창 제목 표시줄을 사용합니다.",
+      "neutralGreyCanvas": "뉴트럴 그레이 캔버스",
+      "neutralGreyCanvasDesc": "앱 테마를 변경하지 않고 더 정확한 색상 및 노출 보정을 위해 뉴트럴 그레이 캔버스를 사용합니다.",
       "poppins": "Poppins",
       "showImageCounts": "이미지 개수 표시",
       "system": "시스템 기본값",

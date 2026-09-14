@@ -846,8 +846,8 @@
       "quality": "Jakość",
       "qualityLossless": "Jakość (Bezstratna)",
       "tiffBitDepth": "Głębia bitowa TIFF",
-      "tiffBitDepth8": "8 bitów",
-      "tiffBitDepth16": "16 bitów"
+      "tiffBitDepth16": "16 bitów",
+      "tiffBitDepth8": "8 bitów"
     },
     "labels": {
       "image": "Obraz",
@@ -1621,6 +1621,7 @@
       "displayEditIcon": "Wyświetl ikonę edycji",
       "displayEditIconDesc": "Pokazuje małą ikonkę suwaków na miniaturach, które były edytowane.",
       "enableFocusMode": "Włącz Tryb skupienia",
+      "enableNeutralGreyCanvas": "Włącz neutralne szare tło",
       "enableOsTitlebar": "Włącz systemowy pasek tytułu",
       "enableXmpSync": "Włącz synchronizację XMP",
       "focusMode": "Tryb skupienia",
@@ -1631,6 +1632,8 @@
       "fontDesc": "Zmień czcionkę aplikacji.",
       "nativeTitlebar": "Natywny pasek tytułu",
       "nativeTitlebarDesc": "Użyj domyślnego paska tytułu okna twojego systemu zamiast niestandardowego w RapidRAW.",
+      "neutralGreyCanvas": "Neutralne szare płótno",
+      "neutralGreyCanvasDesc": "Użyj neutralnego, szarego płótna do dokładniejszej korekcji kolorów i ekspozycji bez zmiany motywu aplikacji.",
       "poppins": "Poppins",
       "showImageCounts": "Pokaż licznik obrazów",
       "system": "Domyślna systemowa",

@@ -5,93 +5,119 @@ LOCALES_DIR = Path("./locales")
 
 TRANSLATIONS = {
     "ca": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mosaic"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "Llenç gris neutre",
+                "neutralGreyCanvasDesc": "Utilitzeu un llenç gris neutre per a una gradació de color i exposició més precisa sense canviar el tema de l'aplicació.",
+                "enableNeutralGreyCanvas": "Activa el fons gris neutre"
             }
         }
     },
     "de": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mosaik"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "Neutralgraue Arbeitsfläche",
+                "neutralGreyCanvasDesc": "Verwenden Sie eine neutralgraue Arbeitsfläche für eine genauere Farb- und Belichtungskorrektur, ohne das App-Design zu ändern.",
+                "enableNeutralGreyCanvas": "Neutralgrauen Hintergrund aktivieren"
             }
         }
     },
     "en": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Masonry"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "Neutral Grey Canvas",
+                "neutralGreyCanvasDesc": "Use a neutral grey canvas for more accurate color and exposure grading without changing the app theme.",
+                "enableNeutralGreyCanvas": "Enable Neutral Grey Background"
             }
         }
     },
     "es": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mosaico"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "Lienzo gris neutro",
+                "neutralGreyCanvasDesc": "Utiliza un lienzo gris neutro para una gradación de color y exposición más precisa sin cambiar el tema de la aplicación.",
+                "enableNeutralGreyCanvas": "Activar fondo gris neutro"
             }
         }
     },
     "fr": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mosaïque"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "Toile gris neutre",
+                "neutralGreyCanvasDesc": "Utilisez une toile gris neutre pour un étalonnage des couleurs et de l'exposition plus précis sans modifier le thème de l'application.",
+                "enableNeutralGreyCanvas": "Activer le fond gris neutre"
             }
         }
     },
     "it": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mosaico"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "Tela grigio neutro",
+                "neutralGreyCanvasDesc": "Usa una tela grigio neutro per una correzione del colore e dell'esposizione più precisa senza cambiare il tema dell'app.",
+                "enableNeutralGreyCanvas": "Abilita sfondo grigio neutro"
             }
         }
     },
     "ja": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "メイソンリー"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "ニュートラルグレーのキャンバス",
+                "neutralGreyCanvasDesc": "アプリのテーマを変更せずに、より正確な色と露出のグレーディングを行うために、ニュートラルグレーのキャンバスを使用します。",
+                "enableNeutralGreyCanvas": "ニュートラルグレーの背景を有効にする"
             }
         }
     },
     "ko": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "메이슨리"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "뉴트럴 그레이 캔버스",
+                "neutralGreyCanvasDesc": "앱 테마를 변경하지 않고 더 정확한 색상 및 노출 보정을 위해 뉴트럴 그레이 캔버스를 사용합니다.",
+                "enableNeutralGreyCanvas": "뉴트럴 그레이 배경 활성화"
             }
         }
     },
     "pl": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mozaika"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "Neutralne szare płótno",
+                "neutralGreyCanvasDesc": "Użyj neutralnego, szarego płótna do dokładniejszej korekcji kolorów i ekspozycji bez zmiany motywu aplikacji.",
+                "enableNeutralGreyCanvas": "Włącz neutralne szare tło"
             }
         }
     },
     "pt": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mosaico"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "Tela cinza neutro",
+                "neutralGreyCanvasDesc": "Use uma tela cinza neutro para uma gradação de cores e exposição mais precisa sem alterar o tema do aplicativo.",
+                "enableNeutralGreyCanvas": "Ativar fundo cinza neutro"
             }
         }
     },
     "ru": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Мозаика"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "Нейтрально-серый холст",
+                "neutralGreyCanvasDesc": "Используйте нейтрально-серый холст для более точной цветокоррекции и настройки экспозиции без изменения темы приложения.",
+                "enableNeutralGreyCanvas": "Включить нейтрально-серый фон"
             }
         }
     },
     "zh-CN": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "瀑布流"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "中性灰画布",
+                "neutralGreyCanvasDesc": "使用中性灰画布，以便在不更改应用主题的情况下进行更准确的色彩和曝光分级。",
+                "enableNeutralGreyCanvas": "启用中性灰背景"
             }
         }
     },
     "zh-TW": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "瀑布流"
+        "settings": {
+            "general": {
+                "neutralGreyCanvas": "中性灰畫布",
+                "neutralGreyCanvasDesc": "使用中性灰畫布，以便在不更改應用程式主題的情況下進行更準確的色彩和曝光分級。",
+                "enableNeutralGreyCanvas": "啟用中性灰背景"
             }
         }
     }
@@ -126,10 +152,8 @@ def update_json_file(file_path: Path, trans: dict):
         print(f"Error parsing JSON in {file_path.name}. Skipping.")
         return
 
-    # 1. Merge new translations
     deep_merge(data, trans)
 
-    # 2. Sort alphabetically to maintain formatting consistency
     sorted_data = sort_dict_recursively(data)
 
     with open(file_path, "w", encoding="utf-8") as f:
@@ -143,7 +167,7 @@ def main():
         print(f"Error: Locales directory '{LOCALES_DIR}' does not exist.")
         return
 
-    print("Starting translation updates for Masonry/Justified thumbnail fit...")
+    print("Starting translation updates for Neutral Grey Canvas settings...")
     for lang, trans in TRANSLATIONS.items():
         file_path = LOCALES_DIR / f"{lang}.json"
         update_json_file(file_path, trans)

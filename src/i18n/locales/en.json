@@ -802,8 +802,8 @@
       "quality": "Quality",
       "qualityLossless": "Quality (Lossless)",
       "tiffBitDepth": "TIFF bit depth",
-      "tiffBitDepth8": "8-bit",
-      "tiffBitDepth16": "16-bit"
+      "tiffBitDepth16": "16-bit",
+      "tiffBitDepth8": "8-bit"
     },
     "labels": {
       "image": "Image",
@@ -1553,6 +1553,7 @@
       "displayEditIcon": "Display Edit Icon",
       "displayEditIconDesc": "Show a small slider icon on thumbnails that have been edited.",
       "enableFocusMode": "Enable Focus Mode",
+      "enableNeutralGreyCanvas": "Enable Neutral Grey Background",
       "enableOsTitlebar": "Enable OS Titlebar",
       "enableXmpSync": "Enable XMP Sync",
       "focusMode": "Focus Mode",
@@ -1563,6 +1564,8 @@
       "fontDesc": "Change the application font.",
       "nativeTitlebar": "Native Titlebar",
       "nativeTitlebarDesc": "Use your system's default window titlebar instead of RapidRAW's custom one.",
+      "neutralGreyCanvas": "Neutral Grey Canvas",
+      "neutralGreyCanvasDesc": "Use a neutral grey canvas for more accurate color and exposure grading without changing the app theme.",
       "poppins": "Poppins",
       "showImageCounts": "Show Image Counts",
       "system": "System Default",
