@@ -1132,6 +1132,7 @@ export default function SettingsPanel({
                             { value: 'ko', label: '한국어' },
                             { value: 'zh-CN', label: '简体中文' },
                             { value: 'zh-TW', label: '繁體中文' },
+                            { value: 'az', label: 'Azərbaycan dili' },
                           ]}
                           value={appSettings?.language || 'en'}
                           triggerClassName="bg-bg-primary"
