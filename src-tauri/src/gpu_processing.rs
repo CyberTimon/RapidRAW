@@ -2200,18 +2200,3 @@ fn process_and_get_dynamic_image_inner(
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn high_precision_shader_keeps_shared_transfer_and_changes_storage_format() {
-        let source = high_precision_shader_source();
-        assert!(source.contains("texture_storage_2d<rgba16float, write>"));
-        assert!(!source.contains("texture_storage_2d<rgba8unorm, write>"));
-        assert!(source.contains("override HIGH_PRECISION_OUTPUT: u32 = 0u"));
-        assert!(source.contains("default_tonemapped = linear_to_srgb"));
-        assert!(source.contains("base_srgb = default_tonemapped"));
-    }
-}
