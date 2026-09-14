@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri::Emitter;
 
+use crate::export_processing::TiffBitDepth;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalEditSession {
@@ -17,6 +19,7 @@ pub struct HeadlessExportSession {
     pub output: String,
     pub format: String,
     pub quality: u8,
+    pub tiff_bit_depth: TiffBitDepth,
     pub keep_metadata: bool,
     pub adjustments_override: Option<String>,
 }
@@ -27,6 +30,7 @@ pub enum LaunchRequest {
     OpenFile(String),
     EditSession(ExternalEditSession),
     HeadlessExport(HeadlessExportSession),
+    InvalidHeadless(String),
 }
 
 #[derive(Serialize, Default)]
@@ -44,6 +48,7 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
         let mut output = String::new();
         let mut format = String::from("jpeg");
         let mut quality = 90;
+        let mut tiff_bit_depth = TiffBitDepth::default();
         let mut keep_metadata = false;
         let mut adjustments_override = None;
 
@@ -70,6 +75,26 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
                         quality = q.parse().unwrap_or(90);
                     }
                 }
+                "--tiff-bit-depth" => {
+                    let Some(value) = iter.next() else {
+                        return LaunchRequest::InvalidHeadless(
+                            "Missing value for --tiff-bit-depth; expected 8 or 16.".to_string(),
+                        );
+                    };
+                    let Ok(value) = value.parse::<u8>() else {
+                        return LaunchRequest::InvalidHeadless(format!(
+                            "Invalid TIFF bit depth '{}'; expected 8 or 16.",
+                            value
+                        ));
+                    };
+                    let Ok(value) = TiffBitDepth::try_from(value) else {
+                        return LaunchRequest::InvalidHeadless(format!(
+                            "Invalid TIFF bit depth '{}'; expected 8 or 16.",
+                            value
+                        ));
+                    };
+                    tiff_bit_depth = value;
+                }
                 "--keep-metadata" => keep_metadata = true,
                 "--adjustments" => {
                     if let Some(adj) = iter.next() {
@@ -85,6 +110,7 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
             output,
             format,
             quality,
+            tiff_bit_depth,
             keep_metadata,
             adjustments_override,
         });
@@ -159,6 +185,80 @@ pub fn emit_launch_request(app_handle: &tauri::AppHandle, request: LaunchRequest
                 "Error: Headless export cannot be attached to an already running GUI instance."
             );
         }
+        LaunchRequest::InvalidHeadless(error) => {
+            log::error!("Invalid headless export request: {}", error);
+        }
         LaunchRequest::None => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    #[test]
+    fn headless_tiff_bit_depth_defaults_to_sixteen() {
+        let request = parse_launch_args(&args(&[
+            "export",
+            "input.raw",
+            "--output",
+            "output.tiff",
+            "--format",
+            "tiff",
+        ]));
+
+        let LaunchRequest::HeadlessExport(session) = request else {
+            panic!("expected headless export request");
+        };
+        assert_eq!(session.tiff_bit_depth, TiffBitDepth::Sixteen);
+    }
+
+    #[test]
+    fn headless_tiff_bit_depth_accepts_eight_and_sixteen() {
+        for (value, expected) in [("8", TiffBitDepth::Eight), ("16", TiffBitDepth::Sixteen)] {
+            let request = parse_launch_args(&args(&[
+                "export",
+                "input.raw",
+                "--output",
+                "output.tiff",
+                "--format",
+                "tiff",
+                "--tiff-bit-depth",
+                value,
+            ]));
+
+            let LaunchRequest::HeadlessExport(session) = request else {
+                panic!("expected headless export request for {value}");
+            };
+            assert_eq!(session.tiff_bit_depth, expected);
+        }
+    }
+
+    #[test]
+    fn headless_tiff_bit_depth_rejects_invalid_or_missing_values() {
+        for values in [
+            vec!["--tiff-bit-depth", "12"],
+            vec!["--tiff-bit-depth", "sixteen"],
+            vec!["--tiff-bit-depth"],
+        ] {
+            let mut full_args = args(&[
+                "export",
+                "input.raw",
+                "--output",
+                "output.tiff",
+                "--format",
+                "tiff",
+            ]);
+            full_args.extend(args(&values));
+
+            let LaunchRequest::InvalidHeadless(error) = parse_launch_args(&full_args) else {
+                panic!("expected invalid headless request for {values:?}");
+            };
+            assert!(error.contains("expected 8 or 16"));
+        }
     }
 }
