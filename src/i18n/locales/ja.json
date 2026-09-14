@@ -176,6 +176,10 @@
       "red": "レッド",
       "yellow": "イエロー"
     },
+    "dialogs": {
+      "importXmpAdjustmentsTitle": "Import XMP Adjustments",
+      "xmpSidecar": "XMP Sidecar"
+    },
     "editor": {
       "autoAdjust": "画像を自動補正",
       "autoLensCorrection": "自動レンズ補正",
@@ -189,6 +193,7 @@
       "editImage": "画像を編集",
       "exportImage": "画像を書き出し",
       "frameImage": "画像にフレームを追加",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "mergeHdr": "HDRに統合",
       "noLabel": "ラベルなし",
       "noRating": "評価なし",
@@ -210,6 +215,7 @@
       "copyHere_other": "{{count}} 枚の画像をここにコピー",
       "deleteFolder": "フォルダを削除",
       "importImages": "画像をインポート",
+      "importMatchingXmpSidecars": "Import XMP Adjustments",
       "moveHere_one": "画像をここに移動",
       "moveHere_other": "{{count}} 枚の画像をここに移動",
       "newFolder": "新規フォルダ",
@@ -262,6 +268,7 @@
       "duplicateImage": "画像を複製",
       "exportImage_one": "画像を書き出し",
       "exportImage_other": "{{count}} 枚の画像を書き出し",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "noAlbums": "利用可能なアルバムがありません",
       "pasteAdjustments_one": "補正設定を貼り付け",
       "pasteAdjustments_other": "{{count}} 枚の画像に補正設定を貼り付け",
@@ -275,6 +282,15 @@
       "showExplorer": "エクスプローラーで表示",
       "virtualCopy": "仮想コピー"
     },
+    "xmpImportReport": {
+      "available": "XMP import report: {{unchanged}} unchanged, {{failed}} failed. Click to view details.",
+      "copied": "Import report copied.",
+      "copy": "Copy Report",
+      "failed": "Failed ({{total}})",
+      "folder": "Folder: {{folder}}",
+      "title": "XMP Import Report",
+      "unchanged": "Not imported — no supported changes ({{total}})"
+    },
     "toasts": {
       "couldNotShowExplorer": "エクスプローラーでファイルを表示できませんでした: {{err}}",
       "couldNotShowFolder": "フォルダを表示できませんでした: {{err}}",
@@ -286,10 +302,18 @@
       "failedDelete": "削除に失敗しました: {{err}}",
       "failedDeleteFolder": "フォルダの削除に失敗しました: {{err}}",
       "failedDuplicate": "ファイルの複製に失敗しました: {{err}}",
+      "failedImportMatchingXmpSidecars": "Failed to import matching XMP sidecars: {{err}}",
+      "failedImportXmpAdjustments": "Failed to import XMP adjustments: {{err}}",
+      "failedMatchingXmpSidecars_other": "Matching XMP sidecars failed to import: {{count}}.",
       "failedMove": "ファイルの移動に失敗しました: {{err}}",
       "failedMoveError": "移動に失敗しました: {{err}}",
       "failedMoveInvalid": "移動に失敗しました: 対象グループが見つからないか無効です。",
-      "failedRemoveImages": "画像の削除に失敗しました: {{err}}"
+      "failedRemoveImages": "画像の削除に失敗しました: {{err}}",
+      "importedMatchingXmpSidecars_other": "Imported matching XMP sidecars: {{count}}.",
+      "importedXmpAdjustments": "Imported XMP adjustments.",
+      "importingMatchingXmpSidecars": "Importing matching XMP sidecars…",
+      "noMatchingXmpSidecars": "No matching XMP sidecars found.",
+      "unchangedMatchingXmpSidecars": "Skipped matching XMP sidecars with no importable changes: {{count}}."
     }
   },
   "editor": {
