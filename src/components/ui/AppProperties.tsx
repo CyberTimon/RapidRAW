@@ -47,6 +47,7 @@ export enum Invokes {
   CreateVirtualCopy = 'create_virtual_copy',
   CullImages = 'cull_images',
   DeleteFolder = 'delete_folder',
+  DetectRedEyes = 'detect_red_eyes',
   DuplicateFile = 'duplicate_file',
   EstimateExportSizes = 'estimate_export_sizes',
   ExportImages = 'export_images',
