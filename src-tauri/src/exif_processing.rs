@@ -301,7 +301,7 @@ fn normalize_creation_datetime(s: &str) -> Option<String> {
     Some(format!("{} {}", date.replace(':', "-"), time))
 }
 
-fn parse_creation_datetime(s: &str) -> Option<NaiveDateTime> {
+pub(crate) fn parse_creation_datetime(s: &str) -> Option<NaiveDateTime> {
     let clean = clean_creation_datetime_str(s);
     if clean.is_empty() {
         return None;
@@ -1040,6 +1040,15 @@ fn apply_sidecar_field_overrides(metadata: &mut Metadata, map: &HashMap<String, 
     let clean_s = |s: &String| s.replace('"', "").trim().to_string();
     let is_user_edit = |s: &str| !s.is_empty() && s != "...";
 
+    // Missing dates may come from partial sidecars, not an intentional removal.
+    if let Some(value) = map.get("DateTimeOriginal")
+        && let Some(date) = parse_creation_datetime(value)
+    {
+        metadata.set_tag(ExifTag::DateTimeOriginal(
+            date.format("%Y:%m:%d %H:%M:%S").to_string(),
+        ));
+    }
+
     match map.get("Artist").map(clean_s) {
         Some(val) => {
             if is_user_edit(&val) {
@@ -1699,4 +1708,106 @@ pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> 
     metadata.exif = Some(exif_data);
     save_primary_metadata(target_image_path, &metadata)
         .map_err(|e| format!("Failed to write sidecar: {}", e))
+}
+
+#[cfg(test)]
+mod capture_date_export_tests {
+    use super::*;
+
+    fn export_with_capture_date_override(capture_date: Option<&str>) -> exif::Exif {
+        let directory = tempfile::tempdir().unwrap();
+        let source_path = directory.path().join("source.jpg");
+        let mut pixels = Vec::new();
+        image::DynamicImage::new_rgb8(2, 2)
+            .write_to(&mut Cursor::new(&mut pixels), image::ImageFormat::Jpeg)
+            .unwrap();
+        let mut source_bytes = pixels.clone();
+        let mut source_metadata = Metadata::new();
+        source_metadata.set_tag(ExifTag::Make("Capture Date test camera".to_string()));
+        source_metadata.set_tag(ExifTag::DateTimeOriginal("2020:01:02 03:04:05".to_string()));
+        source_metadata.set_tag(ExifTag::OffsetTimeOriginal("-04:00".to_string()));
+        source_metadata.set_tag(ExifTag::SubSecTimeOriginal("123".to_string()));
+        source_metadata
+            .write_to_vec(&mut source_bytes, FileExtension::JPEG)
+            .unwrap();
+        fs::write(&source_path, &source_bytes).unwrap();
+
+        let mut exif = read_exif_data_from_bytes(&source_path.to_string_lossy(), &source_bytes);
+        match capture_date {
+            Some(value) => {
+                exif.insert("DateTimeOriginal".to_string(), value.to_string());
+            }
+            None => {
+                exif = HashMap::from([("Artist".to_string(), "Sidecar author".to_string())]);
+            }
+        }
+        save_primary_metadata(
+            &source_path,
+            &ImageMetadata {
+                exif: Some(exif),
+                ..ImageMetadata::default()
+            },
+        )
+        .unwrap();
+
+        write_image_with_metadata(
+            &mut pixels,
+            &source_path.to_string_lossy(),
+            "jpg",
+            true,
+            false,
+        )
+        .unwrap();
+        assert_eq!(fs::read(&source_path).unwrap(), source_bytes);
+        exif::Reader::new()
+            .read_from_container(&mut Cursor::new(pixels))
+            .unwrap()
+    }
+
+    fn ascii_tag(exif: &exif::Exif, tag: exif::Tag) -> Option<&str> {
+        let field = exif.get_field(tag, In::PRIMARY)?;
+        match &field.value {
+            Value::Ascii(values) => std::str::from_utf8(values.first()?).ok(),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn sidecar_capture_date_overrides_full_source_exif_on_export() {
+        let exported = export_with_capture_date_override(Some("2024-06-07 08:09:10"));
+        assert_eq!(
+            ascii_tag(&exported, exif::Tag::DateTimeOriginal),
+            Some("2024:06:07 08:09:10")
+        );
+        // Capture Date edits only change wall-clock seconds, as original-file writes do.
+        assert_eq!(
+            ascii_tag(&exported, exif::Tag::OffsetTimeOriginal),
+            Some("-04:00")
+        );
+        assert_eq!(
+            ascii_tag(&exported, exif::Tag::SubSecTimeOriginal),
+            Some("123")
+        );
+        assert_eq!(
+            ascii_tag(&exported, exif::Tag::Make),
+            Some("Capture Date test camera")
+        );
+    }
+
+    #[test]
+    fn partial_sidecar_preserves_source_capture_date_on_export() {
+        let exported = export_with_capture_date_override(None);
+        assert_eq!(
+            ascii_tag(&exported, exif::Tag::DateTimeOriginal),
+            Some("2020:01:02 03:04:05")
+        );
+        assert_eq!(
+            ascii_tag(&exported, exif::Tag::Artist),
+            Some("Sidecar author")
+        );
+        assert_eq!(
+            ascii_tag(&exported, exif::Tag::Make),
+            Some("Capture Date test camera")
+        );
+    }
 }
