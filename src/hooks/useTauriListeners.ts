@@ -389,6 +389,47 @@ export function useTauriListeners({
           }));
         }
       }),
+      listen('drizzle-progress', (event: any) => {
+        if (isEffectActive) {
+          const msg = typeof event.payload === 'object' && event.payload?.message ? event.payload.message : String(event.payload);
+          useUIStore.getState().setUI((state) => ({
+            drizzleModalState: { ...state.drizzleModalState, progressMessage: msg },
+          }));
+        }
+      }),
+      listen('drizzle-complete', (event: any) => {
+        if (isEffectActive) {
+          const payload = event.payload;
+          useUIStore.getState().setUI((state) => ({
+            drizzleModalState: {
+              ...state.drizzleModalState,
+              error: null,
+              finalImageBase64: payload?.base64 || null,
+              meta: payload ? {
+                width: payload.width,
+                height: payload.height,
+                scale: payload.scale,
+                frames_stacked: payload.frames_stacked,
+                snr_boost: payload.snr_boost,
+              } : null,
+              isProcessing: false,
+              progressMessage: null,
+            },
+          }));
+        }
+      }),
+      listen('drizzle-error', (event: any) => {
+        if (isEffectActive) {
+          useUIStore.getState().setUI((state) => ({
+            drizzleModalState: {
+              ...state.drizzleModalState,
+              error: String(event.payload),
+              isProcessing: false,
+              progressMessage: null,
+            },
+          }));
+        }
+      }),
       listen('culling-start', (event: any) => {
         if (isEffectActive) {
           useUIStore.getState().setUI((state) => ({

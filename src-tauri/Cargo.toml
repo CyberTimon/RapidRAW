@@ -1,6 +1,6 @@
 [package]
 name = "RapidRAW"
-version = "1.6.2"
+version = "1.6.3"
 description = "A blazingly-fast, non-destructive, and GPU-accelerated RAW image editor built with performance in mind."
 authors = ["Timon Käch"]
 edition = "2024"
@@ -18,6 +18,11 @@ path = "src/main.rs"
 [[bin]]
 name = "render_all"
 path = "src/bin/render_all.rs"
+test = false
+
+[[bin]]
+name = "find_clusters"
+path = "src/bin/find_clusters.rs"
 test = false
 
 [features]
@@ -125,10 +130,18 @@ incremental = true
 [profile.dev.package."*"]
 opt-level = 3
 
+# MACHINE SAFETY PROFILE: Prevents OOM crashes on 16 GB systems.
+# Previous `codegen-units = 1` + `lto = true` caused a single 3.2 GB LLVM pass
+# that, combined with 4 parallel test codegen units at ~2.5 GB each, exceeded
+# available physical memory (15.7 GB) and crashed the machine.
+#
+# Current settings: thin-lto + 4 codegen-units keeps peak per-unit memory
+# under 1 GB while producing nearly identical binary performance.
 [profile.release]
-codegen-units = 1
-lto = true
+codegen-units = 4
+lto = "thin"
 strip = true
+opt-level = 3
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
@@ -137,4 +150,5 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-cli
 opt-level = 1
 debug = 0
 incremental = true
+codegen-units = 4
 

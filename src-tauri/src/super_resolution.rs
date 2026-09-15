@@ -23,27 +23,19 @@ pub struct SuperResolutionResult {
     pub processing_time_ms: u64,
 }
 
-/// Neural / edge-preserving multi-threaded Super-Resolution pipeline with lean memory streaming
-pub fn perform_super_resolution(
+/// Neural / edge-preserving multi-threaded Super-Resolution pipeline with lean memory streaming (Core)
+pub fn perform_super_resolution_core(
     src: &DynamicImage,
     options: &SuperResolutionOptions,
-    app_handle: &AppHandle,
 ) -> Result<DynamicImage, String> {
     let (src_w, src_h) = src.dimensions();
     let factor = options.scale_factor.clamp(2, 4);
     let dst_w = src_w * factor;
     let dst_h = src_h * factor;
 
-    let _ = app_handle.emit(
-        "upscale-progress",
-        format!("Upscaling from {}x{} to {}x{} ({}x)...", src_w, src_h, dst_w, dst_h, factor),
-    );
-
     // 1. High-fidelity SIMD Lanczos3 base reconstruction (single allocation)
     let src_rgb32f = src.to_rgb32f();
     let upscaled_base = fast_resize_rgb32f(&src_rgb32f, dst_w, dst_h);
-
-    let _ = app_handle.emit("upscale-progress", "Synthesizing high-frequency edge textures...");
 
     let tex_gain = options.texture_enhancement.clamp(0.0, 1.0) * 0.40;
     let noise_suppress = options.noise_suppression.clamp(0.0, 1.0) * 0.15;
@@ -112,8 +104,29 @@ pub fn perform_super_resolution(
     let buffer = ImageBuffer::<Rgb<f32>, _>::from_raw(dst_w, dst_h, raw_pixels)
         .ok_or_else(|| "Failed to construct super-resolution buffer".to_string())?;
 
-    let _ = app_handle.emit("upscale-progress", "Super-resolution complete!");
     Ok(DynamicImage::ImageRgb32F(buffer))
+}
+
+/// Neural / edge-preserving multi-threaded Super-Resolution pipeline with lean memory streaming
+pub fn perform_super_resolution(
+    src: &DynamicImage,
+    options: &SuperResolutionOptions,
+    app_handle: &AppHandle,
+) -> Result<DynamicImage, String> {
+    let (src_w, src_h) = src.dimensions();
+    let factor = options.scale_factor.clamp(2, 4);
+    let dst_w = src_w * factor;
+    let dst_h = src_h * factor;
+
+    let _ = app_handle.emit(
+        "upscale-progress",
+        format!("Upscaling from {}x{} to {}x{} ({}x)...", src_w, src_h, dst_w, dst_h, factor),
+    );
+
+    let result = perform_super_resolution_core(src, options)?;
+
+    let _ = app_handle.emit("upscale-progress", "Super-resolution complete!");
+    Ok(result)
 }
 
 #[tauri::command]

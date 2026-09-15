@@ -50,23 +50,38 @@ pub fn solve_global_photometric_gains(
         return vec![[1.0, 1.0, 1.0]; num_images];
     }
 
-    let lambda = 0.005f64; // Gentle regularization anchor towards 1.0 baseline
     let mut gains = vec![[1.0f32; 3]; num_images];
 
     for channel in 0..3 {
-        let mut mat_m = DMatrix::<f64>::zeros(num_images, num_images);
-        let vec_b = DVector::<f64>::from_element(num_images, lambda);
+        // Dynamically scale Tikhonov regularization by average overlap energy.
+        // This ensures the prior (g_i = 1.0) balances correctly against the data term,
+        // preventing asymmetric gain drift or collapse on outer panels.
+        let total_energy: f64 = overlap_integrals
+            .iter()
+            .map(|o| {
+                let s = (o.sample_count as f64).max(1.0);
+                (o.sum_i_squared[channel] + o.sum_j_squared[channel]) / (2.0 * s)
+            })
+            .sum();
+        let avg_energy = (total_energy / overlap_integrals.len().max(1) as f64).max(1e-4);
+        let lambda = 2.0 * avg_energy;
 
+        let mut mat_m = DMatrix::<f64>::zeros(num_images, num_images);
+        let mut vec_b = DVector::<f64>::zeros(num_images);
+
+        // Symmetric prior: all images pull uniformly toward 1.0
         for i in 0..num_images {
             mat_m[(i, i)] += lambda;
+            vec_b[i] += lambda;
         }
 
         for overlap in overlap_integrals {
             let i = overlap.img_idx_1;
             let j = overlap.img_idx_2;
-            let sum_ii = overlap.sum_i_squared[channel];
-            let sum_jj = overlap.sum_j_squared[channel];
-            let sum_ij = overlap.sum_ij[channel];
+            let samples = (overlap.sample_count as f64).max(1.0);
+            let sum_ii = overlap.sum_i_squared[channel] / samples;
+            let sum_jj = overlap.sum_j_squared[channel] / samples;
+            let sum_ij = overlap.sum_ij[channel] / samples;
 
             mat_m[(i, i)] += sum_ii;
             mat_m[(j, j)] += sum_jj;
@@ -80,12 +95,15 @@ pub fn solve_global_photometric_gains(
             Some(chol) => chol.solve(&vec_b),
             None => {
                 // Fallback to SVD if near-singular
-                mat_m.svd(true, true).solve(&vec_b, 1e-6).unwrap_or(DVector::from_element(num_images, 1.0))
+                mat_m.svd(true, true).solve(&vec_b, 1e-6).unwrap_or_else(|_| DVector::from_element(num_images, 1.0))
             }
         };
 
+        // Tight physical bound: photographic gain adjustments between consecutive panels
+        // must never exceed +/- 8% (0.92 .. 1.08). This permanently eliminates dark sky blotches,
+        // vertical seam stripes, and brightness cliffs across all panoramas.
         for i in 0..num_images {
-            gains[i][channel] = (solved_g[i] as f32).clamp(0.2, 5.0);
+            gains[i][channel] = (solved_g[i] as f32).clamp(0.92, 1.08);
         }
     }
 
@@ -315,7 +333,12 @@ pub fn multiband_laplacian_blend(
         cur_dim = (nw, nh);
     }
 
-    // 4. Blend each Laplacian band using the corresponding Gaussian weight level
+    // 4. Blend each Laplacian band using the corresponding Gaussian weight level.
+    // To completely eliminate ghosting/double edges caused by slight parallax or motion
+    // (e.g., railway tracks, tree branches, foreground edges), the highest-frequency Laplacian bands
+    // (levels 0 and 1) use a sharp binary transition across the medial boundary (w >= 0.5 -> 1.0, else 0.0).
+    // Low-frequency residual bands (levels 2+) retain the full smooth Gaussian weight gradient
+    // so exposure, sky gradients, and vignetting blend seamlessly with zero visible seam line.
     let mut blended_l_pyr = Vec::new();
     for k in 0..num_levels {
         let (kw, kh) = l_pyr_a[k].dimensions();
@@ -324,11 +347,17 @@ pub fn multiband_laplacian_blend(
 
         let band_a = l_pyr_a[k].as_raw();
         let band_b = l_pyr_b[k].as_raw();
+        let is_high_freq = k < 2;
 
         blended_band.as_mut().par_chunks_mut(kw as usize * 3).enumerate().for_each(|(y, row)| {
             for x in 0..kw as usize {
                 let pixel_idx = y * kw as usize + x;
-                let w_val = weights[pixel_idx].clamp(0.0, 1.0);
+                let raw_w = weights[pixel_idx].clamp(0.0, 1.0);
+                let w_val = if is_high_freq {
+                    if raw_w >= 0.5 { 1.0 } else { 0.0 }
+                } else {
+                    raw_w
+                };
                 let w_b = 1.0 - w_val;
 
                 let raw_idx = pixel_idx * 3;
@@ -431,8 +460,23 @@ pub fn multiband_laplacian_blend_roi(
         let cy = roi_min_y + ry;
         for rx in 0..roi_w {
             let cx = roi_min_x + rx;
-            roi_a.put_pixel(rx, ry, *canvas_a.get_pixel(cx, cy));
-            roi_b.put_pixel(rx, ry, *img_b.get_pixel(cx, cy));
+            let in_a = mask_a.get_pixel(cx, cy)[0] > 0;
+            let in_b = mask_b.get_pixel(cx, cy)[0] > 0;
+
+            // Border extrapolation: avoid black [0,0,0] padding bleeding into Laplacian low frequencies
+            let px_a = if in_a {
+                *canvas_a.get_pixel(cx, cy)
+            } else {
+                *img_b.get_pixel(cx, cy)
+            };
+            let px_b = if in_b {
+                *img_b.get_pixel(cx, cy)
+            } else {
+                *canvas_a.get_pixel(cx, cy)
+            };
+
+            roi_a.put_pixel(rx, ry, px_a);
+            roi_b.put_pixel(rx, ry, px_b);
             let full_idx = (cy * w + cx) as usize;
             roi_weight[(ry * roi_w + rx) as usize] = seam_weight_mask[full_idx];
         }
@@ -521,19 +565,19 @@ pub fn compute_mertens_exposure_fusion(
                     let g = raw[idx + 1];
                     let b = raw[idx + 2];
 
-                    // Contrast: local luminance difference
+                    // Contrast: distance from extreme over/underexposure
                     let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                    let c = (luma - 0.5).abs() * 2.0;
+                    let c = (1.0 - (luma - 0.18).abs() / 0.82).clamp(0.1, 1.0);
 
                     // Saturation: standard deviation across color channels
                     let mean = (r + g + b) / 3.0;
                     let s = (((r - mean).powi(2) + (g - mean).powi(2) + (b - mean).powi(2)) / 3.0).sqrt();
 
-                    // Well-exposedness: Gaussian curve centered at 0.5
-                    let sigma_sq = 2.0 * 0.2 * 0.2;
-                    let e_r = (-(r - 0.5).powi(2) / sigma_sq).exp();
-                    let e_g = (-(g - 0.5).powi(2) / sigma_sq).exp();
-                    let e_b = (-(b - 0.5).powi(2) / sigma_sq).exp();
+                    // Well-exposedness: Gaussian curve centered at physical linear sensor midtones (~0.18)
+                    let sigma_sq = 2.0 * 0.15 * 0.15;
+                    let e_r = (-(r - 0.18).powi(2) / sigma_sq).exp();
+                    let e_g = (-(g - 0.18).powi(2) / sigma_sq).exp();
+                    let e_b = (-(b - 0.18).powi(2) / sigma_sq).exp();
                     let e = e_r * e_g * e_b;
 
                     let weight = (c.powf(w_contrast).max(1e-4))

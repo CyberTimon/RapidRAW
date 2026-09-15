@@ -68,12 +68,28 @@ export function useAiMasking() {
 
       try {
         const patchDefinitionForBackend = adjustments.aiPatches.find((p: AiPatch) => p.id === patchId);
+        const hasRetouch = patchDefinitionForBackend?.subMasks?.some((sm: SubMask) => sm.type === Mask.Retouch);
+        const hasLiquify = patchDefinitionForBackend?.subMasks?.some((sm: SubMask) => sm.type === Mask.Liquify);
 
-        const newPatchDataJson: any = await invoke('generate_manual_cleanup_patch', {
-          currentAdjustments: adjustments,
-          patchDefinition: patchDefinitionForBackend,
-          sourcePoint: [sourceX, sourceY],
-        });
+        let newPatchDataJson: any;
+        if (hasRetouch) {
+          newPatchDataJson = await invoke('generate_retouch_patch', {
+            patchDefinition: patchDefinitionForBackend,
+            currentAdjustments: adjustments,
+          });
+        } else if (hasLiquify) {
+          newPatchDataJson = await invoke('generate_liquify_patch', {
+            patchDefinition: patchDefinitionForBackend,
+            currentAdjustments: adjustments,
+            sourcePoint: [sourceX, sourceY],
+          });
+        } else {
+          newPatchDataJson = await invoke('generate_manual_cleanup_patch', {
+            currentAdjustments: adjustments,
+            patchDefinition: patchDefinitionForBackend,
+            sourcePoint: [sourceX, sourceY],
+          });
+        }
 
         const newPatchData = JSON.parse(newPatchDataJson);
         patchesSentToBackend.delete(patchId);

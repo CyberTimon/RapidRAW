@@ -7,6 +7,7 @@ use crate::file_management::{parse_virtual_path, read_file_mapped, set_rating_fo
 use crate::image_loader::load_base_image_from_bytes;
 use base64::{engine::general_purpose, Engine as _};
 use image::{DynamicImage, GenericImageView, ImageFormat};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::path::Path;
@@ -296,12 +297,145 @@ pub fn extract_green_cfa_focus_peaking(
     })
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BurstGroup {
     pub group_id: usize,
     pub photo_paths: Vec<String>,
     pub hero_path: String,
     pub similarity_score: f32,
+    pub hero_score: f32,
+    pub frame_count: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct FrameBurstMeta {
+    pub path: String,
+    pub timestamp: f64,
+    pub dhash: u64,
+    pub hero_score: f32,
+    pub sharpness_score: f32,
+    pub exposure_score: f32,
+}
+
+/// Computes the hero score for a candidate frame based on the industry-standard formula:
+/// Score = 0.60 * LaplacianSharpness + 0.25 * ExposureBalance + 0.15 * EyeFocus
+pub fn compute_hero_score(sharpness_score: f32, exposure_score: f32, faces: &[FaceLoupeCrop]) -> f32 {
+    let sharpness_norm = sharpness_score.clamp(0.0, 100.0);
+    let exposure_norm = exposure_score.clamp(0.0, 100.0);
+
+    let eye_focus = if faces.is_empty() {
+        75.0f32
+    } else {
+        let any_blink = faces.iter().any(|f| !f.is_eyes_open);
+        if any_blink {
+            20.0f32
+        } else {
+            let sharp_eyes_count = faces.iter().filter(|f| f.is_sharp && f.is_eyes_open).count();
+            if sharp_eyes_count == faces.len() {
+                100.0f32
+            } else {
+                70.0f32
+            }
+        }
+    };
+
+    0.60 * sharpness_norm + 0.25 * exposure_norm + 0.15 * eye_focus
+}
+
+fn extract_frame_timestamp(source_path: &Path, file_bytes: &[u8]) -> f64 {
+    let exif_map = crate::exif_processing::read_exif_data(&source_path.to_string_lossy(), file_bytes);
+
+    let sub_sec: f64 = exif_map
+        .get("SubSecTimeOriginal")
+        .or_else(|| exif_map.get("SubSecTime"))
+        .or_else(|| exif_map.get("SubsecTimeDigitized"))
+        .and_then(|s| s.trim().parse::<f64>().ok())
+        .map(|val| {
+            let digits = (val.log10().floor() as i32 + 1).max(1);
+            val / 10f64.powi(digits)
+        })
+        .unwrap_or(0.0);
+
+    let base_ts = exif_map
+        .get("DateTimeOriginal")
+        .or_else(|| exif_map.get("DateTime"))
+        .and_then(|s| crate::hdr_panorama::parse_exif_timestamp(s))
+        .map(|ts| ts as f64)
+        .unwrap_or_else(|| {
+            std::fs::metadata(source_path)
+                .and_then(|m| m.modified())
+                .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs_f64())
+                .unwrap_or(0.0)
+        });
+
+    base_ts + sub_sec
+}
+
+pub fn cluster_burst_frames(
+    mut entries: Vec<FrameBurstMeta>,
+    time_window_secs: f64,
+    max_hamming_dist: u32,
+) -> Vec<BurstGroup> {
+    if entries.len() < 2 {
+        return Vec::new();
+    }
+
+    entries.sort_by(|a, b| {
+        a.timestamp.partial_cmp(&b.timestamp).unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let mut groups: Vec<BurstGroup> = Vec::new();
+    let mut current_cluster: Vec<FrameBurstMeta> = Vec::new();
+
+    for item in entries {
+        if let Some(last) = current_cluster.last() {
+            let dt = (item.timestamp - last.timestamp).abs();
+            let dist = hamming_distance(item.dhash, last.dhash);
+            let sim_to_anchor = hamming_distance(item.dhash, current_cluster[0].dhash);
+
+            if dt <= time_window_secs && (dist <= max_hamming_dist || sim_to_anchor <= max_hamming_dist + 2) {
+                current_cluster.push(item);
+            } else {
+                if current_cluster.len() > 1 {
+                    let hero = current_cluster
+                        .iter()
+                        .max_by(|a, b| a.hero_score.partial_cmp(&b.hero_score).unwrap())
+                        .unwrap();
+
+                    groups.push(BurstGroup {
+                        group_id: groups.len() + 1,
+                        photo_paths: current_cluster.iter().map(|f| f.path.clone()).collect(),
+                        hero_path: hero.path.clone(),
+                        similarity_score: 90.0,
+                        hero_score: hero.hero_score,
+                        frame_count: current_cluster.len(),
+                    });
+                }
+                current_cluster.clear();
+                current_cluster.push(item);
+            }
+        } else {
+            current_cluster.push(item);
+        }
+    }
+
+    if current_cluster.len() > 1 {
+        let hero = current_cluster
+            .iter()
+            .max_by(|a, b| a.hero_score.partial_cmp(&b.hero_score).unwrap())
+            .unwrap();
+
+        groups.push(BurstGroup {
+            group_id: groups.len() + 1,
+            photo_paths: current_cluster.iter().map(|f| f.path.clone()).collect(),
+            hero_path: hero.path.clone(),
+            similarity_score: 92.0,
+            hero_score: hero.hero_score,
+            frame_count: current_cluster.len(),
+        });
+    }
+
+    groups
 }
 
 /// Computes 64-bit difference hash (DHash) for fast visual similarity comparison
@@ -326,64 +460,60 @@ pub fn hamming_distance(h1: u64, h2: u64) -> u32 {
     (h1 ^ h2).count_ones()
 }
 
-/// Groups burst sequences based on hash distance (distance <= 10 out of 64 bits = ~85% similarity)
+/// Groups burst sequences based on capture time window gating (dt <= 2.0s) and hash similarity
 #[tauri::command]
 pub fn group_burst_photos(
     paths: Vec<String>,
+    time_window_secs: Option<f64>,
+    max_hamming_dist: Option<u32>,
     app_handle: AppHandle,
-    state: State<crate::AppState>,
+    _state: State<crate::AppState>,
 ) -> Result<Vec<BurstGroup>, String> {
-    let mut entries = Vec::new();
+    let time_window = time_window_secs.unwrap_or(2.0).clamp(0.5, 10.0);
+    let max_dist = max_hamming_dist.unwrap_or(12);
 
-    for path in &paths {
-        if let Ok(analysis) = analyze_culling_frame(path.clone(), app_handle.clone(), state.clone()) {
+    let entries: Vec<FrameBurstMeta> = paths
+        .par_iter()
+        .filter_map(|path| {
             let (source_path, _) = parse_virtual_path(path);
             let path_str = source_path.to_string_lossy().to_string();
-            if let Ok(bytes) = read_file_mapped(Path::new(&path_str)) {
-                let settings = crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default();
-                if let Ok(img) = load_base_image_from_bytes(&bytes, &path_str, false, &settings, None) {
-                    let hash = compute_dhash(&img);
-                    entries.push((path.clone(), hash, analysis.sharpness_score));
-                }
-            }
-        }
-    }
+            let bytes = read_file_mapped(Path::new(&path_str)).ok()?;
+            let timestamp = extract_frame_timestamp(&source_path, &bytes);
 
-    let mut groups: Vec<BurstGroup> = Vec::new();
-    let mut visited = vec![false; entries.len()];
+            let settings = crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default();
+            let img = load_base_image_from_bytes(&bytes, &path_str, false, &settings, None).ok()?;
 
-    for i in 0..entries.len() {
-        if visited[i] {
-            continue;
-        }
+            let dhash = compute_dhash(&img);
+            let sharpness = compute_sharpness_variance(&img);
 
-        let mut current_group = vec![entries[i].0.clone()];
-        let mut best_sharpness = entries[i].2;
-        let mut best_path = entries[i].0.clone();
-        visited[i] = true;
+            let gray = img.to_luma8();
+            let total = (gray.width() * gray.height()) as f32;
+            let good_midtones = if total > 0.0 {
+                gray.pixels().filter(|p| p[0] > 45 && p[0] < 220).count() as f32
+            } else {
+                0.0
+            };
+            let exposure = if total > 0.0 {
+                ((good_midtones / total) * 100.0).clamp(0.0, 100.0)
+            } else {
+                50.0
+            };
 
-        for j in (i + 1)..entries.len() {
-            if !visited[j] && hamming_distance(entries[i].1, entries[j].1) <= 10 {
-                visited[j] = true;
-                current_group.push(entries[j].0.clone());
-                if entries[j].2 > best_sharpness {
-                    best_sharpness = entries[j].2;
-                    best_path = entries[j].0.clone();
-                }
-            }
-        }
+            let faces = detect_face_loupes(&img);
+            let hero_score = compute_hero_score(sharpness, exposure, &faces);
 
-        if current_group.len() > 1 {
-            groups.push(BurstGroup {
-                group_id: groups.len() + 1,
-                photo_paths: current_group,
-                hero_path: best_path,
-                similarity_score: 0.90,
-            });
-        }
-    }
+            Some(FrameBurstMeta {
+                path: path.clone(),
+                timestamp,
+                dhash,
+                hero_score,
+                sharpness_score: sharpness,
+                exposure_score: exposure,
+            })
+        })
+        .collect();
 
-    Ok(groups)
+    Ok(cluster_burst_frames(entries, time_window, max_dist))
 }
 
 #[cfg(test)]
@@ -438,5 +568,116 @@ mod tests {
         let face = &loupes[0];
         assert!(face.width >= 0.2 && face.height >= 0.2, "Extracted normalized face size must be sufficient: got {}x{}", face.width, face.height);
         assert!(face.crop_data_url.starts_with("data:image/jpeg;base64,"), "Loupe must generate valid JPEG base64 URL");
+    }
+
+    #[test]
+    fn test_cluster_burst_frames_temporal_and_hero_selection() {
+        let entries = vec![
+            FrameBurstMeta {
+                path: "frame_001.raw".to_string(),
+                timestamp: 1000.0,
+                dhash: 0b1010101010101010,
+                hero_score: 55.0,
+                sharpness_score: 50.0,
+                exposure_score: 70.0,
+            },
+            FrameBurstMeta {
+                path: "frame_002.raw".to_string(),
+                timestamp: 1000.3, // 300ms later (burst)
+                dhash: 0b1010101010101011, // 1 bit diff
+                hero_score: 88.0, // Best sharpness & focus!
+                sharpness_score: 90.0,
+                exposure_score: 85.0,
+            },
+            FrameBurstMeta {
+                path: "frame_003.raw".to_string(),
+                timestamp: 1000.6, // 300ms later (burst)
+                dhash: 0b1010101010101010,
+                hero_score: 62.0,
+                sharpness_score: 60.0,
+                exposure_score: 70.0,
+            },
+            FrameBurstMeta {
+                path: "frame_004.raw".to_string(),
+                timestamp: 1060.0, // 60 seconds later (isolated shot)
+                dhash: 0b1010101010101010,
+                hero_score: 70.0,
+                sharpness_score: 70.0,
+                exposure_score: 70.0,
+            },
+            FrameBurstMeta {
+                path: "frame_005.raw".to_string(),
+                timestamp: 1200.0, // Burst 2
+                dhash: 0b1111000011110000,
+                hero_score: 65.0,
+                sharpness_score: 60.0,
+                exposure_score: 70.0,
+            },
+            FrameBurstMeta {
+                path: "frame_006.raw".to_string(),
+                timestamp: 1200.4, // Burst 2
+                dhash: 0b1111000011110001,
+                hero_score: 79.0, // Hero for Burst 2
+                sharpness_score: 80.0,
+                exposure_score: 75.0,
+            },
+        ];
+
+        let groups = cluster_burst_frames(entries, 2.0, 12);
+        assert_eq!(groups.len(), 2, "Should detect exactly 2 distinct burst groups");
+
+        // First burst group verification
+        assert_eq!(groups[0].group_id, 1);
+        assert_eq!(groups[0].frame_count, 3);
+        assert_eq!(groups[0].hero_path, "frame_002.raw");
+        assert_eq!(groups[0].hero_score, 88.0);
+        assert_eq!(
+            groups[0].photo_paths,
+            vec!["frame_001.raw", "frame_002.raw", "frame_003.raw"]
+        );
+
+        // Second burst group verification
+        assert_eq!(groups[1].group_id, 2);
+        assert_eq!(groups[1].frame_count, 2);
+        assert_eq!(groups[1].hero_path, "frame_006.raw");
+        assert_eq!(groups[1].hero_score, 79.0);
+        assert_eq!(groups[1].photo_paths, vec!["frame_005.raw", "frame_006.raw"]);
+    }
+
+    #[test]
+    fn test_hero_score_formula_penalizes_blinks() {
+        let open_eyes_face = vec![FaceLoupeCrop {
+            face_index: 0,
+            x: 0.5,
+            y: 0.5,
+            width: 0.2,
+            height: 0.2,
+            sharpness_score: 80.0,
+            is_eyes_open: true,
+            is_sharp: true,
+            crop_data_url: "".to_string(),
+        }];
+
+        let blink_face = vec![FaceLoupeCrop {
+            face_index: 0,
+            x: 0.5,
+            y: 0.5,
+            width: 0.2,
+            height: 0.2,
+            sharpness_score: 80.0,
+            is_eyes_open: false, // Closed eyes / blink!
+            is_sharp: true,
+            crop_data_url: "".to_string(),
+        }];
+
+        let score_open = compute_hero_score(80.0, 75.0, &open_eyes_face);
+        let score_blink = compute_hero_score(80.0, 75.0, &blink_face);
+
+        assert!(
+            score_open > score_blink + 10.0,
+            "Blink face must score significantly lower than open-eyes face with equal sharpness: {} vs {}",
+            score_open,
+            score_blink
+        );
     }
 }

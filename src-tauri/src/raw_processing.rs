@@ -11,6 +11,7 @@ use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
 };
+use rayon::prelude::*;
 
 pub fn develop_raw_image(
     file_bytes: &[u8],
@@ -69,12 +70,31 @@ fn develop_internal(
     check_cancel()?;
     let mut raw_image: RawImage = decoder.raw_image(&source, &RawDecodeParams::default(), false)?;
 
+    // Correct sensor white level if rawler extracted nominal JPEG maker note ceiling (e.g. 11892)
+    // for 14-bit sensors whose physical sensels saturate at 16383
+    if let Some(&w_val) = raw_image.whitelevel.0.first() {
+        if w_val < 16383 && w_val > 5000 {
+            let max_sensel = match &raw_image.data {
+                rawler::rawimage::RawImageData::Integer(data) => data.iter().copied().max().unwrap_or(w_val as u16),
+                _ => w_val as u16,
+            };
+            if max_sensel > w_val as u16 || w_val == 11892 {
+                let target_white = (max_sensel as u32).max(16383);
+                raw_image.whitelevel = rawler::rawimage::WhiteLevel(vec![target_white]);
+            }
+        }
+    }
+
     let metadata = decoder.raw_metadata(&source, &RawDecodeParams::default())?;
     let orientation = metadata
         .exif
         .orientation
         .map(Orientation::from_u16)
         .unwrap_or(Orientation::Normal);
+    let iso = metadata.exif.iso_speed.unwrap_or(100) as f32;
+
+    // Sensor physics conditioning: OB row drift subtraction + 3x3 Bayer hot-pixel filter
+    condition_raw_bayer_sensor(&mut raw_image, iso);
 
     let is_linear_format = is_linear_raw_format(&raw_image);
 
@@ -576,5 +596,139 @@ pub fn reconstruct_directional_clipped_highlights(img: &mut image::Rgb32FImage) 
             }
         }
     });
+}
+
+/// Pre-demosaicing raw Bayer sensor conditioning for high-ISO and long-exposure frames:
+/// 1. Optical Black (OB) row drift subtraction to eliminate horizontal read noise banding
+/// 2. Raw-level 3x3 same-channel Bayer median hot-pixel filter to prevent colored demosaic crosses
+pub fn condition_raw_bayer_sensor(raw_image: &mut rawler::rawimage::RawImage, iso: f32) {
+    let w = raw_image.width;
+    let h = raw_image.height;
+    if w < 10 || h < 10 {
+        return;
+    }
+
+    let nominal_black = raw_image
+        .blacklevel
+        .levels
+        .first()
+        .map(|r| r.as_f32())
+        .unwrap_or(2048.0);
+
+    // 1. Optical Black (OB) Row Drift Subtraction:
+    // Search for a vertical optical black column strip in raw_image.blackareas (e.g. [0, 34, 260, 4056])
+    let ob_strip = raw_image.blackareas.iter().find(|rect| {
+        rect.width() >= 32 && rect.height() >= h / 2
+    }).cloned();
+
+    if let rawler::rawimage::RawImageData::Integer(ref mut data) = raw_image.data {
+        if let Some(strip) = ob_strip {
+            let x_start = strip.x() + 8; // skip transition boundary
+            let x_end = (strip.x() + strip.width()).saturating_sub(8).min(w);
+            let y_start = strip.y().min(h);
+            let y_end = (strip.y() + strip.height()).min(h);
+
+            if x_end > x_start && y_end > y_start {
+                let sample_count = (x_end - x_start) as f32;
+
+                // Process rows in parallel with Rayon: subtract per-row drift
+                data.par_chunks_mut(w)
+                    .enumerate()
+                    .for_each(|(y, row)| {
+                        if y >= y_start && y < y_end {
+                            let mut ob_sum = 0.0f32;
+                            for x in x_start..x_end {
+                                ob_sum += row[x] as f32;
+                            }
+                            let ob_mean = ob_sum / sample_count;
+                            let drift = ob_mean - nominal_black;
+
+                            // If drift exceeds normal random fluctuation (> 0.5 DN), correct row
+                            if drift.abs() > 0.5 {
+                                for val in row.iter_mut() {
+                                    *val = (*val as f32 - drift).clamp(0.0, 65535.0).round() as u16;
+                                }
+                            }
+                        }
+                    });
+            }
+        }
+
+        // 2. Raw-Level 3x3 Same-Channel Bayer Median Hot-Pixel Filter:
+        // Especially critical at ISO >= 1600 or long exposures to prevent colored demosaicing star artifacts.
+        let iso_factor = (iso / 100.0).max(1.0);
+        let spike_thresh = (150.0 * iso_factor.sqrt()).min(8000.0) as u16;
+
+        // In active area, check sensels (x +/- 2, y +/- 2 for same Bayer channel)
+        let active_crop = raw_image.crop_area.or(raw_image.active_area);
+        let (crop_x0, crop_y0, crop_x1, crop_y1) = if let Some(c) = active_crop {
+            (c.x().max(2), c.y().max(2), (c.x() + c.width()).min(w - 2), (c.y() + c.height()).min(h - 2))
+        } else {
+            (2, 2, w - 2, h - 2)
+        };
+
+        if crop_x1 > crop_x0 && crop_y1 > crop_y0 {
+            // Snapshot for read-only neighbor lookups
+            let data_snapshot = data.clone();
+            data.par_chunks_mut(w)
+                .enumerate()
+                .for_each(|(y, row)| {
+                    if y >= crop_y0 && y < crop_y1 {
+                        let y_prev2 = (y - 2) * w;
+                        let y_curr = y * w;
+                        let y_next2 = (y + 2) * w;
+
+                        for x in crop_x0..crop_x1 {
+                            let val = row[x];
+                            let p00 = data_snapshot[y_prev2 + x - 2];
+                            let p01 = data_snapshot[y_prev2 + x];
+                            let p02 = data_snapshot[y_prev2 + x + 2];
+                            let p10 = data_snapshot[y_curr + x - 2];
+                            let p12 = data_snapshot[y_curr + x + 2];
+                            let p20 = data_snapshot[y_next2 + x - 2];
+                            let p21 = data_snapshot[y_next2 + x];
+                            let p22 = data_snapshot[y_next2 + x + 2];
+
+                            let max_neighbor = p00.max(p01).max(p02).max(p10).max(p12).max(p20).max(p21).max(p22);
+                            if val > max_neighbor.saturating_add(spike_thresh) {
+                                let mut neighbors = [p00, p01, p02, p10, p12, p20, p21, p22];
+                                neighbors.sort_unstable();
+                                let median = (neighbors[3] as u32 + neighbors[4] as u32) / 2;
+                                row[x] = median as u16;
+                            }
+                        }
+                    }
+                });
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_inspect_raw_sensor_metadata() {
+        let p = Path::new(r"D:\neapdirbti\IMG_4712.CR2");
+        if !p.exists() { return; }
+        let bytes = std::fs::read(p).unwrap();
+        let source = rawler::rawsource::RawSource::new_from_slice(&bytes);
+        let decoder = rawler::get_decoder(&source).unwrap();
+        let mut raw_image = decoder.raw_image(&source, &rawler::decoders::RawDecodeParams::default(), false).unwrap();
+        println!("RAW WxH: {}x{}", raw_image.width, raw_image.height);
+        println!("Active area: {:?}", raw_image.active_area);
+        println!("Crop area: {:?}", raw_image.crop_area);
+        println!("Black areas: {:?}", raw_image.blackareas);
+        println!("Black level: {:?}", raw_image.blacklevel);
+        println!("White level: {:?}", raw_image.whitelevel);
+        if let Some(r) = raw_image.active_area {
+            println!("Rect x={}, y={}, w={}, h={}", r.x(), r.y(), r.width(), r.height());
+        }
+
+        // Test conditioning
+        condition_raw_bayer_sensor(&mut raw_image, 1600.0);
+        println!("Sensor conditioning passed successfully!");
+    }
 }
 

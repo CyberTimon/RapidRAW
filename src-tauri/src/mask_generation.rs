@@ -345,6 +345,131 @@ fn apply_grow_and_feather(mask: &mut GrayImage, grow: f32, feather: f32, width: 
     }
 }
 
+#[allow(dead_code)]
+pub fn box_filter_f32(src: &[f32], width: usize, height: usize, radius: usize) -> Vec<f32> {
+    if width == 0 || height == 0 {
+        return Vec::new();
+    }
+    let r = radius.max(1);
+    let mut temp = vec![0.0f32; width * height];
+    let mut dst = vec![0.0f32; width * height];
+
+    // Horizontal pass
+    for y in 0..height {
+        let row_offset = y * width;
+        let mut sum = 0.0f32;
+        let mut count = 0usize;
+
+        for x in 0..=r.min(width - 1) {
+            sum += src[row_offset + x];
+            count += 1;
+        }
+
+        for x in 0..width {
+            temp[row_offset + x] = sum / count as f32;
+
+            let add_x = x + r + 1;
+            if add_x < width {
+                sum += src[row_offset + add_x];
+                count += 1;
+            }
+
+            if x >= r {
+                let sub_x = x - r;
+                sum -= src[row_offset + sub_x];
+                count -= 1;
+            }
+        }
+    }
+
+    // Vertical pass
+    for x in 0..width {
+        let mut sum = 0.0f32;
+        let mut count = 0usize;
+
+        for y in 0..=r.min(height - 1) {
+            sum += temp[y * width + x];
+            count += 1;
+        }
+
+        for y in 0..height {
+            dst[y * width + x] = sum / count as f32;
+
+            let add_y = y + r + 1;
+            if add_y < height {
+                sum += temp[add_y * width + x];
+                count += 1;
+            }
+
+            if y >= r {
+                let sub_y = y - r;
+                sum -= temp[sub_y * width + x];
+                count -= 1;
+            }
+        }
+    }
+
+    dst
+}
+
+/// Fast O(1) guided filter for edge-aware mask refinement
+#[allow(dead_code)]
+pub fn fast_guided_filter(guide: &GrayImage, mask: &GrayImage, radius: usize, eps: f32) -> GrayImage {
+    let (w, h) = guide.dimensions();
+    let (mw, mh) = mask.dimensions();
+    if w == 0 || h == 0 || w != mw || h != mh {
+        return mask.clone();
+    }
+    let len = (w * h) as usize;
+    let width = w as usize;
+    let height = h as usize;
+
+    let mut i_norm = vec![0.0f32; len];
+    let mut p_norm = vec![0.0f32; len];
+    let mut ip = vec![0.0f32; len];
+    let mut ii = vec![0.0f32; len];
+
+    let guide_slice = guide.as_raw();
+    let mask_slice = mask.as_raw();
+
+    for idx in 0..len {
+        let i_val = guide_slice[idx] as f32 / 255.0;
+        let p_val = mask_slice[idx] as f32 / 255.0;
+        i_norm[idx] = i_val;
+        p_norm[idx] = p_val;
+        ip[idx] = i_val * p_val;
+        ii[idx] = i_val * i_val;
+    }
+
+    let mean_i = box_filter_f32(&i_norm, width, height, radius);
+    let mean_p = box_filter_f32(&p_norm, width, height, radius);
+    let mean_ip = box_filter_f32(&ip, width, height, radius);
+    let mean_ii = box_filter_f32(&ii, width, height, radius);
+
+    let mut a = vec![0.0f32; len];
+    let mut b = vec![0.0f32; len];
+
+    for idx in 0..len {
+        let cov_ip = mean_ip[idx] - mean_i[idx] * mean_p[idx];
+        let var_i = (mean_ii[idx] - mean_i[idx] * mean_i[idx]).max(0.0);
+        let a_val = cov_ip / (var_i + eps);
+        let b_val = mean_p[idx] - a_val * mean_i[idx];
+        a[idx] = a_val;
+        b[idx] = b_val;
+    }
+
+    let mean_a = box_filter_f32(&a, width, height, radius);
+    let mean_b = box_filter_f32(&b, width, height, radius);
+
+    let mut output = GrayImage::new(w, h);
+    for (idx, p) in output.pixels_mut().enumerate() {
+        let q = (mean_a[idx] * i_norm[idx] + mean_b[idx]).clamp(0.0, 1.0);
+        p[0] = (q * 255.0 + 0.5) as u8;
+    }
+
+    output
+}
+
 fn stroke_bounds(
     points: &[Point],
     width: u32,

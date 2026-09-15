@@ -1462,9 +1462,15 @@ const ImageCanvas = memo(
       (activeSubMask?.type === Mask.Brush ||
         activeSubMask?.type === Mask.Flow ||
         activeSubMask?.type === Mask.Clone ||
-        activeSubMask?.type === Mask.Heal);
+        activeSubMask?.type === Mask.Heal ||
+        activeSubMask?.type === Mask.Retouch ||
+        activeSubMask?.type === Mask.Liquify);
     const isManualCleanupActive =
-      isAiEditing && (activeSubMask?.type === Mask.Clone || activeSubMask?.type === Mask.Heal);
+      isAiEditing &&
+      (activeSubMask?.type === Mask.Clone ||
+        activeSubMask?.type === Mask.Heal ||
+        activeSubMask?.type === Mask.Retouch ||
+        activeSubMask?.type === Mask.Liquify);
 
     const isCloneOrHealActive =
       (isMasking || isAiEditing) && (activeSubMask?.type === Mask.Clone || activeSubMask?.type === Mask.Heal);
@@ -2547,9 +2553,10 @@ const ImageCanvas = memo(
         }
 
         if (isManualCleanupActive && activeId) {
-          const sourceX = activeSubMask?.parameters.sourceX;
-          const sourceY = activeSubMask?.parameters.sourceY;
-          if (sourceX !== undefined && sourceY !== undefined) {
+          const isDirectAction = activeSubMask?.type === Mask.Retouch || activeSubMask?.type === Mask.Liquify;
+          const sourceX = activeSubMask?.parameters?.sourceX ?? 0;
+          const sourceY = activeSubMask?.parameters?.sourceY ?? 0;
+          if (isDirectAction || (activeSubMask?.parameters?.sourceX !== undefined && activeSubMask?.parameters?.sourceY !== undefined)) {
             triggerManualCleanup(activeId, sourceX, sourceY);
           }
         }

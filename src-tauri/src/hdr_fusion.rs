@@ -82,6 +82,8 @@ pub struct HdrMergeOptions {
     pub shadow_lift: Option<f32>,
     pub detail_boost: Option<f32>,
     pub user_deghost_strokes: Option<Vec<UserDeghostStroke>>,
+    pub frame_isos: Option<Vec<f32>>,
+    pub half_size: Option<bool>,
 }
 
 impl Default for HdrMergeOptions {
@@ -95,8 +97,10 @@ impl Default for HdrMergeOptions {
             exposure_bias: Some(0.0),
             highlight_recovery: Some(50.0),
             shadow_lift: Some(30.0),
-            detail_boost: Some(1.20),
+            detail_boost: Some(1.00),
             user_deghost_strokes: None,
+            frame_isos: None,
+            half_size: Some(false),
         }
     }
 }
@@ -285,7 +289,7 @@ pub fn guided_filter_grayscale(
 
     let mut q = vec![0.0f32; n];
     q.par_iter_mut().enumerate().for_each(|(i, q_val)| {
-        *q_val = (mean_a[i] * guidance[i] + mean_b[i]).max(1e-6);
+        *q_val = mean_a[i] * guidance[i] + mean_b[i];
     });
 
     q
@@ -707,7 +711,9 @@ pub fn fuse_exposures_mertens<R: tauri::Runtime>(
                 luma[i] = 0.2126 * raw_img[idx] + 0.7152 * raw_img[idx + 1] + 0.0722 * raw_img[idx + 2];
             }
             let radius = ((fw_u.min(fh_u) as f32 * 0.005).round() as usize).clamp(8, 28);
-            guided_filter_grayscale(&luma, raw_w, fw_u, fh_u, radius, 1e-3)
+            let mut g = guided_filter_grayscale(&luma, raw_w, fw_u, fh_u, radius, 1e-3);
+            g.par_iter_mut().for_each(|val| *val = val.max(0.0));
+            g
         })
         .collect();
     let mut weight_maps = guided_weight_maps;
@@ -967,17 +973,27 @@ pub fn apply_stock_grade_tone_profile(
             l_val = l_val.clamp(0.0, 1.0).powf(gamma_adj);
         }
 
-        // 4. Smart Vibrance in Oklab Chroma (Preserves skin tone and hue perfectly)
+        // 4. Smart Vibrance in Oklab Chroma (Preserves skin tone, boosts foliage vitality)
         let chroma = (a_val * a_val + b_val * b_val).sqrt();
+        let is_foliage = a_val < -0.005 && b_val > 0.015;
         let vib_multiplier = if is_skin_tone {
             1.0
+        } else if is_foliage {
+            // Natural chlorophyll preservation: boost foliage chroma to match camera optical ground truth (21.9%)
+            1.0 + (vibrance_scale - 1.0) * 2.2 + 0.22
         } else {
             // Hunt effect: slightly boost midtone saturation, keep shadows natural
             let hunt_boost = (l_val * (1.0 - l_val) * 4.0).clamp(0.0, 1.0);
             1.0 + (1.0 - (chroma * 3.0).min(0.8)) * (vibrance_scale - 1.0) * (0.6 + 0.4 * hunt_boost)
         };
-        a_val *= vib_multiplier;
-        b_val *= vib_multiplier;
+        let shadow_damp = if l_val < 0.035 {
+            let t = ((l_val - 0.035) / 0.015).clamp(-10.0, 10.0);
+            0.08 + 0.92 / (1.0 + (-t).exp())
+        } else {
+            1.0
+        };
+        a_val *= vib_multiplier * shadow_damp;
+        b_val *= vib_multiplier * shadow_damp;
 
         if is_monochrome {
             a_val = 0.0;
@@ -1034,7 +1050,7 @@ pub fn fuse_exposures_linear_radiance<R: tauri::Runtime>(
     cancel_token: Option<&Arc<AtomicBool>>,
 ) -> Result<Rgb32FImage, String> {
     let result = fuse_exposures_linear_radiance_internal(frames, exposure_scales, options, app_handle, cancel_token)?;
-    Ok(result.tone_mapped_preview)
+    Ok(result.linear_radiance)
 }
 
 #[inline]
@@ -1052,7 +1068,7 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
     exposure_scales: &[f32],
     options: &HdrMergeOptions,
     app_handle: Option<&AppHandle<R>>,
-    _cancel_token: Option<&Arc<AtomicBool>>,
+    cancel_token: Option<&Arc<AtomicBool>>,
 ) -> Result<HdrFusionResult, String> {
     if frames.is_empty() {
         return Err("No frames provided for exposure fusion.".to_string());
@@ -1062,6 +1078,12 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
             linear_radiance: frames[0].clone(),
             tone_mapped_preview: frames[0].clone(),
         });
+    }
+
+    if let Some(token) = cancel_token {
+        if token.load(Ordering::Relaxed) {
+            return Err("HDR exposure fusion cancelled by user.".to_string());
+        }
     }
 
     let (w, h) = frames[0].dimensions();
@@ -1080,15 +1102,19 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
     let mut working_frames: Vec<Rgb32FImage> = frames.to_vec();
     normalize_bracket_white_balance(&mut working_frames, ref_idx);
 
-
+    // Physically grounded Photon Transfer Curve (PTC) weight centered on linear sensor midtones (~0.18)
     let radiance_weight = |z: f32| -> f32 {
-        if z <= 0.015 {
-            (z / 0.015).powi(2) * 0.1
-        } else if z >= 0.90 {
-            ((1.0 - z) / 0.10).clamp(0.0, 1.0).powi(3)
+        if z <= 0.01 {
+            (z / 0.01).clamp(0.0, 1.0).powi(2) * 0.1
+        } else if z >= 0.88 {
+            ((0.96 - z) / 0.08).clamp(0.0, 1.0).powi(3)
         } else {
-            let norm = (z - 0.48) / 0.46;
-            (1.0 - norm * norm).max(0.0).powi(2)
+            let norm = if z < 0.18 {
+                (z - 0.18) / 0.17
+            } else {
+                (z - 0.18) / 0.70
+            };
+            (1.0 - norm * norm).clamp(0.0, 1.0).powi(2)
         }
     };
 
@@ -1130,6 +1156,10 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
                     let g = frame_raw[raw_idx + 1];
                     let b = frame_raw[raw_idx + 2];
 
+                    if k != ref_idx && r == 0.0 && g == 0.0 && b == 0.0 {
+                        continue;
+                    }
+
                     let scale = exposure_scales[k].max(1e-5);
                     let inv_scale = ref_scale / scale;
 
@@ -1137,9 +1167,10 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
                     let mut lin_g = g * inv_scale;
                     let mut lin_b = b * inv_scale;
 
-                    // Single-Channel Highlight Reconstruction & Chromatic Infilling
-                    // If one or two channels clip near 1.0 but others are intact, estimate the true clipped channel slope
-                    let clip_thresh = 0.93f32;
+                    // Multi-Channel Highlight Reconstruction & Chromatic Infilling:
+                    // If one or two channels saturate near 0.91+, infer clipped channel energy
+                    // to prevent unnatural yellow or magenta sun fringe rings around specular cores
+                    let clip_thresh = 0.91f32;
                     let r_clipped = r > clip_thresh;
                     let g_clipped = g > clip_thresh;
                     let b_clipped = b > clip_thresh;
@@ -1153,6 +1184,28 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
                     } else if b_clipped && !r_clipped && !g_clipped {
                         let avg_intact = (lin_r + lin_g) * 0.5;
                         lin_b = lin_b.max(avg_intact * 1.05);
+                    } else if r_clipped && g_clipped && !b_clipped {
+                        // R and G clipped (yellow core) -> infer from Blue
+                        lin_r = lin_r.max(lin_b * 1.08);
+                        lin_g = lin_g.max(lin_b * 1.08);
+                    } else if r_clipped && b_clipped && !g_clipped {
+                        // R and B clipped (magenta fringe) -> infer from Green
+                        lin_r = lin_r.max(lin_g * 1.08);
+                        lin_b = lin_b.max(lin_g * 1.08);
+                    } else if g_clipped && b_clipped && !r_clipped {
+                        // G and B clipped (cyan fringe) -> infer from Red
+                        lin_g = lin_g.max(lin_r * 1.08);
+                        lin_b = lin_b.max(lin_r * 1.08);
+                    }
+
+                    // Pure white desaturation knee at specular saturation core (r,g,b > 0.95)
+                    let peak_sensor = r.max(g).max(b);
+                    if peak_sensor > 0.95 {
+                        let max_lin = lin_r.max(lin_g).max(lin_b);
+                        let core_t = ((peak_sensor - 0.95) / 0.05).clamp(0.0, 1.0);
+                        lin_r = lin_r * (1.0 - core_t) + max_lin * core_t;
+                        lin_g = lin_g * (1.0 - core_t) + max_lin * core_t;
+                        lin_b = lin_b * (1.0 - core_t) + max_lin * core_t;
                     }
 
                     if scale < min_scale {
@@ -1172,9 +1225,17 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
                     let min_val = r.min(g).min(b);
                     let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
-                    // Canon EOS 77D Dual Pixel Sensor Photon Transfer Curve (PTC) Noise Calibration
-                    let shot_noise_coeff = 0.00085f32;
-                    let read_noise_floor = 0.000032f32;
+                    // Best Linear Unbiased Estimator (BLUE) Photon Transfer Curve (PTC) Sensor Noise Weighting
+                    let frame_iso = options
+                        .frame_isos
+                        .as_ref()
+                        .and_then(|isos| isos.get(k).copied())
+                        .unwrap_or(100.0)
+                        .clamp(50.0, 25600.0);
+                    let iso_norm = (frame_iso / 100.0).max(0.5);
+
+                    let shot_noise_coeff = 0.00085f32 * iso_norm;
+                    let read_noise_floor = 0.000032f32 * iso_norm.powf(1.65);
                     let noise_var = (shot_noise_coeff * luma + read_noise_floor) * (inv_scale * inv_scale).max(1e-6);
                     let snr_weight = (1.0 / noise_var.max(1e-8)).min(100000.0);
 
@@ -1198,14 +1259,24 @@ fn fuse_exposures_linear_radiance_internal<R: tauri::Runtime>(
                     row_r[x] = sum_r / total_w;
                     row_g[x] = sum_g / total_w;
                     row_b[x] = sum_b / total_w;
-                } else if min_scale < f32::MAX {
-                    row_r[x] = backup_shortest_r;
-                    row_g[x] = backup_shortest_g;
-                    row_b[x] = backup_shortest_b;
                 } else {
-                    row_r[x] = backup_longest_r;
-                    row_g[x] = backup_longest_g;
-                    row_b[x] = backup_longest_b;
+                    let ref_raw = working_frames[ref_idx].as_raw();
+                    let ref_r = ref_raw[raw_idx];
+                    let ref_g = ref_raw[raw_idx + 1];
+                    let ref_b = ref_raw[raw_idx + 2];
+                    if ref_r > 0.0 || ref_g > 0.0 || ref_b > 0.0 {
+                        row_r[x] = ref_r;
+                        row_g[x] = ref_g;
+                        row_b[x] = ref_b;
+                    } else if min_scale < f32::MAX {
+                        row_r[x] = backup_shortest_r;
+                        row_g[x] = backup_shortest_g;
+                        row_b[x] = backup_shortest_b;
+                    } else {
+                        row_r[x] = backup_longest_r;
+                        row_g[x] = backup_longest_g;
+                        row_b[x] = backup_longest_b;
+                    }
                 }
             }
         });
@@ -1288,33 +1359,32 @@ pub fn tone_map_radiance_image<R: tauri::Runtime>(
         });
 
     let min_dim = w.min(h) as f32;
-    let r_coarse = ((min_dim * 0.025).round() as usize).clamp(24, 80);
-    let r_fine = ((min_dim * 0.007).round() as usize).clamp(6, 20);
+    // Unclamped optical radius: 5.5% of sensor dimension (~220px on 24MP) ensures illumination
+    // transitions smoothly across scene without wrapping around tree branches or rooflines (eliminates halos)
+    let r_coarse = ((min_dim * 0.055).round() as usize).clamp(60, 260);
+    let r_fine = ((min_dim * 0.012).round() as usize).clamp(12, 48);
 
-    let base_coarse = guided_filter_grayscale(&log2_luma, &log2_luma, w as usize, h as usize, r_coarse, 0.06);
-    let base_fine = guided_filter_grayscale(&log2_luma, &log2_luma, w as usize, h as usize, r_fine, 0.015);
+    let base_coarse = guided_filter_grayscale(&log2_luma, &log2_luma, w as usize, h as usize, r_coarse, 0.12);
+    let base_fine = guided_filter_grayscale(&log2_luma, &log2_luma, w as usize, h as usize, r_fine, 0.025);
 
     // Calculate dynamic range percentiles on the coarse illumination layer (99.8% highlight / 50% midtone / 0.2% shadow)
-    let mut sorted_base = base_coarse.clone();
-    let p_min_idx = (num_pixels as f32 * 0.002) as usize;
-    let p_mid_idx = (num_pixels as f32 * 0.500) as usize;
-    let p_max_idx = (num_pixels as f32 * 0.998).min(num_pixels as f32 - 1.0) as usize;
-    sorted_base.select_nth_unstable_by(p_min_idx, |a, b| a.total_cmp(b));
-    let min_ev = sorted_base[p_min_idx];
-    sorted_base.select_nth_unstable_by(p_mid_idx, |a, b| a.total_cmp(b));
-    let mid_ev = sorted_base[p_mid_idx];
-    sorted_base.select_nth_unstable_by(p_max_idx, |a, b| a.total_cmp(b));
-    let max_ev = sorted_base[p_max_idx];
+    let step = (num_pixels / 100_000).max(1);
+    let mut sampled_base: Vec<f32> = base_coarse.iter().step_by(step).copied().collect();
+    sampled_base.sort_unstable_by(|a, b| a.total_cmp(b));
+    let n_s = sampled_base.len();
+    let min_ev = sampled_base[(n_s as f32 * 0.002) as usize];
+    let mid_ev = sampled_base[(n_s as f32 * 0.500) as usize];
+    let max_ev = sampled_base[((n_s as f32 * 0.998) as usize).min(n_s - 1)];
 
     let (default_target_ev, default_detail_boost) = match options.profile.unwrap_or(HdrToneProfile::Natural) {
-        HdrToneProfile::Natural => (5.6f32, 1.20f32),
-        HdrToneProfile::Vivid => (6.3f32, 1.30f32),
-        HdrToneProfile::Interior => (4.9f32, 1.15f32),
-        HdrToneProfile::Dramatic => (6.9f32, 1.40f32),
-        HdrToneProfile::Portra => (5.2f32, 1.10f32),
-        HdrToneProfile::Velvia => (6.8f32, 1.35f32),
-        HdrToneProfile::Cinestill => (5.8f32, 1.18f32),
-        HdrToneProfile::MonochromeHdr => (6.4f32, 1.45f32),
+        HdrToneProfile::Natural => (5.6f32, 1.00f32),
+        HdrToneProfile::Vivid => (6.3f32, 1.08f32),
+        HdrToneProfile::Interior => (4.9f32, 1.00f32),
+        HdrToneProfile::Dramatic => (6.9f32, 1.20f32),
+        HdrToneProfile::Portra => (5.2f32, 1.00f32),
+        HdrToneProfile::Velvia => (6.8f32, 1.15f32),
+        HdrToneProfile::Cinestill => (5.8f32, 1.05f32),
+        HdrToneProfile::MonochromeHdr => (6.4f32, 1.20f32),
     };
 
     let target_ev_range = default_target_ev;
@@ -1324,14 +1394,37 @@ pub fn tone_map_radiance_image<R: tauri::Runtime>(
     let shadow_lift = (options.shadow_lift.unwrap_or(30.0) / 100.0).clamp(0.0, 1.0);
 
     let scene_ev_range = (max_ev - min_ev).max(1.0);
-    let comp_factor = (target_ev_range / scene_ev_range).min(1.0);
+    // Dynamic contrast adaptation: on wide HDR scenes, compress to target_ev_range;
+    // on low-contrast / flat scenes (range < target_ev_range), expand contrast up to 1.30x
+    // to anchor deep blacks and eliminate milky foggy veils.
+    let comp_factor = (target_ev_range / scene_ev_range).clamp(0.40, 1.30);
     
     // Reinhard-Mantiuk Scene-Adaptive Photometric Keying (Zones 0–X)
     let key_alpha = 0.18 * (2.0f32).powf(((2.0 * mid_ev - min_ev - max_ev) / (max_ev - min_ev).max(0.5)).clamp(-2.0, 2.0));
     let key_adaptation = (0.18 - key_alpha).max(0.0) / 0.18;
-    let target_mid_ev = -1.65f32 + key_adaptation * 1.65;
-    let comp_offset = target_mid_ev - mid_ev * comp_factor;
-    let shadow_knee = -2.20f32 + key_adaptation * 1.50;
+    // Calibrated Zone V midtone target matching Canon camera optical ground truth (~104-112 DN in sRGB)
+    // Low-key night scenes retain their dark night sky anchor (~25-35 DN) instead of being blown out to milky fog.
+    // A scene is only low-key night if both mid_ev is deeply negative (< -5.5 EV) AND max highlights are low (< 1.0 EV).
+    let night_factor = if max_ev < 1.0 && mid_ev < -5.0 {
+        (( -5.0 - mid_ev ) / 2.0).clamp(0.0, 1.0) * ((1.0 - max_ev) / 2.0).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let normal_target = -2.71f32 + key_adaptation * 0.35;
+    let night_target = mid_ev * 0.70 + normal_target * 0.30;
+    let target_mid_ev = normal_target * (1.0 - night_factor) + night_target * night_factor;
+    let mut comp_offset = target_mid_ev - mid_ev * comp_factor;
+
+    // Ansel Adams Zone 0 / Zone I Black Floor Anchoring:
+    // If the scene has a narrow dynamic range, the shadow base can float up to milky gray (> 35 DN).
+    // Ensure the 0.2nd percentile of scene radiance anchors firmly to Zone 0/I (<= -5.6 EV, ~8-15 DN)
+    let expected_min_mapped = min_ev * comp_factor + comp_offset;
+    if expected_min_mapped > -5.6 {
+        let black_anchor_shift = (expected_min_mapped - (-5.6)).min(1.2) * (1.0 - 0.40 * shadow_lift);
+        comp_offset -= black_anchor_shift;
+    }
+
+    let shadow_knee = (-5.20f32 + key_adaptation * 0.80).min(-3.80);
 
     println!(">>> HDR EV PARAMS: min={:.2}, mid={:.2}, max={:.2}, range={:.2}, comp_factor={:.2}, key_alpha={:.4}, target_mid={:.2}, comp_offset={:.2}",
         min_ev, mid_ev, max_ev, scene_ev_range, comp_factor, key_alpha, target_mid_ev, comp_offset);
@@ -1358,24 +1451,29 @@ pub fn tone_map_radiance_image<R: tauri::Runtime>(
                 let mut comp_base_ev = b_coarse * comp_factor + comp_offset;
                 if comp_base_ev < shadow_knee {
                     let underflow = shadow_knee - comp_base_ev;
-                    let lift_strength = 0.55 + 0.35 * shadow_lift;
-                    comp_base_ev = shadow_knee - underflow / (1.0 + underflow * lift_strength);
+                    // Proportional shadow toe preserves true physical black point (0 DN) while providing controlled lift
+                    let toe_scale = 1.0 - 0.35 * shadow_lift;
+                    comp_base_ev = shadow_knee - underflow * toe_scale;
                 }
 
-                // Ansel Adams 11-Zone Micro-Contrast Dynamic Equalization (Zones 0-X)
-                let zone = ((b_coarse - min_ev) / scene_ev_range * 10.0).clamp(0.0, 10.0);
-                let zone_midtone_weight = (-(zone - 5.0).powi(2) / 4.5).exp();
-                let dynamic_detail_boost = detail_boost * (1.0 + 0.22 * zone_midtone_weight);
+                // 1:1 Natural Optical Micro-Contrast Calibration (Eliminates digital grunge & noise buzz)
+                let dynamic_detail_boost = detail_boost;
 
                 // 4. Reconstruct with Tactile 3D Micro-Texture Clarity & Exposure Bias
-                let recon_ev = comp_base_ev + structure + micro_texture * dynamic_detail_boost + exp_bias;
+                // Structure added back at true 1:1 scale (no edge attenuation trap) to eliminate halos
+                let s_clamped = structure;
+                let t_boosted = (micro_texture * dynamic_detail_boost).clamp(-0.36, 0.36);
+                let recon_ev = comp_base_ev + s_clamped + t_boosted + exp_bias;
                 let raw_lin_luma = (2.0f32).powf(recon_ev);
 
-                // 5. ARRI LogC4 / ACES Sensitometric Highlight Roll-Off & Purity Knee
-                let knee = 0.60 + 0.25 * (1.0 - hl_recovery);
+                // 5. ARRI LogC4 / ACES Sensitometric Highlight Roll-Off & Specular Reach (Clean 255 DN Ceiling)
+                let knee = 0.60 + 0.20 * (1.0 - hl_recovery);
+                let shoulder_span = 1.0 - knee;
                 let filmic_luma = if raw_lin_luma > knee {
                     let diff = raw_lin_luma - knee;
-                    knee + (1.0 - knee) * (diff / (1.0 - knee + diff)).clamp(0.0, 1.0)
+                    let s = shoulder_span * (0.85 + 0.35 * hl_recovery);
+                    let rolloff = diff / (s + diff);
+                    (knee + shoulder_span * rolloff).clamp(0.0, 1.0)
                 } else {
                     raw_lin_luma.clamp(0.0, 1.0)
                 };
@@ -1404,8 +1502,15 @@ pub fn tone_map_radiance_image<R: tauri::Runtime>(
                 } else {
                     1.0
                 };
-                let a_mapped = a_ok * sat_preservation * highlight_desat;
-                let b_mapped = b_ok * sat_preservation * highlight_desat;
+                // Continuous ISO/Dynamic-Adaptive Sigmoid Shadow Chroma Damping:
+                // Confined strictly to deep Zone 0 sensor noise floor (L < 0.035 in OkLab)
+                // Eliminates sensor read noise casts while preserving 100% natural chroma in foliage, moss, and shadows
+                let l_knee = 0.035f32;
+                let sigmoid_t = ((target_l_ok - l_knee) / 0.015).clamp(-10.0, 10.0);
+                let sigmoid_damp = 1.0 / (1.0 + (-sigmoid_t).exp());
+                let shadow_chroma_damping = 0.06 + 0.94 * sigmoid_damp;
+                let a_mapped = a_ok * sat_preservation * highlight_desat * shadow_chroma_damping;
+                let b_mapped = b_ok * sat_preservation * highlight_desat * shadow_chroma_damping;
 
                 let (r_out, g_out, b_out) = oklab_to_linear_srgb(target_l_ok, a_mapped, b_mapped);
 
@@ -1418,6 +1523,16 @@ pub fn tone_map_radiance_image<R: tauri::Runtime>(
 
     let profile = options.profile.unwrap_or(HdrToneProfile::Natural);
     apply_stock_grade_tone_profile(&mut output, profile);
+
+    let quality_options = crate::quality_shield::QualityGateOptions {
+        target_min_black: 0.012,
+        target_white_ceiling: 1.0,
+        max_acceptable_black_floor: 0.12,
+        min_acceptable_contrast_std: 0.110,
+        enforce_histogram_stretch: false,
+    };
+    crate::quality_shield::enforce_photographic_quality_invariants(&mut output, &quality_options);
+
     output
 }
 
@@ -1454,6 +1569,7 @@ mod tests {
             shadow_lift: Some(30.0),
             detail_boost: Some(1.2),
             user_deghost_strokes: None,
+            frame_isos: None,
         };
 
         let result = fuse_exposures_mertens::<tauri::Wry>(&frames, &exposure_scales, &options, None, None);

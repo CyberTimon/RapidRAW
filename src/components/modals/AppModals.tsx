@@ -29,6 +29,7 @@ const ClientDeliveryModal = lazy(() => import('./ClientDeliveryModal'));
 const BokehModal = lazy(() => import('./BokehModal'));
 const AdvancedExportModal = lazy(() => import('./AdvancedExportModal'));
 const SpeedCullerModal = lazy(() => import('./SpeedCullerModal'));
+const DrizzleModal = lazy(() => import('./DrizzleModal'));
 
 import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
 import { CopyPasteSettings } from '../../utils/adjustments';
@@ -36,7 +37,7 @@ import { CopyPasteSettings } from '../../utils/adjustments';
 export interface AppModalsProps {
   handleImageSelect: (path: string) => void;
   handleSavePanorama: (format?: string) => Promise<string>;
-  handleStartPanorama: (paths: string[], projection?: 'cylindrical' | 'spherical' | 'planar', isHdr?: boolean, boundaryWarp?: number) => void;
+  handleStartPanorama: (paths: string[], projection?: 'cylindrical' | 'spherical' | 'planar', isHdr?: boolean, boundaryWarp?: number, halfSize?: boolean) => void;
   handleSaveHdr: (format?: string) => Promise<string>;
   handleStartHdr: (paths: string[], options?: {
     profile?: 'natural' | 'vivid' | 'interior' | 'dramatic' | 'portra' | 'velvia' | 'cinestill' | 'monochromeHdr';
@@ -46,6 +47,7 @@ export interface AppModalsProps {
     highlightRecovery?: number;
     shadowLift?: number;
     detailBoost?: number;
+    halfSize?: boolean;
   }) => void;
   handleStartFocusStack: (paths: string[]) => void;
   handleSaveFocusStack: () => Promise<string>;
@@ -232,8 +234,9 @@ export default function AppModals(props: AppModalsProps) {
         }
         onOpenFile={(path: string) => props.handleImageSelect(path)}
         onSave={(fmt) => props.handleSavePanorama(fmt)}
-        onStitch={(proj, warp, isHdr) => props.handleStartPanorama(panoramaModalState.stitchingSourcePaths, proj as any, !!isHdr, warp)}
+        onStitch={(proj, warp, isHdr, halfSize) => props.handleStartPanorama(panoramaModalState.stitchingSourcePaths, proj as any, !!isHdr, warp, halfSize)}
         progressMessage={panoramaModalState.progressMessage}
+        sourcePaths={panoramaModalState.stitchingSourcePaths}
       />
       <HdrModal
         detectedScene={hdrModalState.detectedScene}
@@ -432,7 +435,10 @@ export default function AppModals(props: AppModalsProps) {
       />
       <ColorMatcherModal
         isOpen={colorMatcherModalState.isOpen}
-        onClose={() => setUI({ colorMatcherModalState: { isOpen: false } })}
+        onClose={() => setUI({ colorMatcherModalState: { isOpen: false, heroPath: null, targetPaths: [] } })}
+        heroPath={colorMatcherModalState.heroPath}
+        targetPaths={colorMatcherModalState.targetPaths}
+        initialMode={colorMatcherModalState.initialMode}
       />
       <HeroCuratorModal
         isOpen={heroCuratorModalState.isOpen}
@@ -458,6 +464,7 @@ export default function AppModals(props: AppModalsProps) {
         selectedPaths={advancedExportModalState.selectedPaths}
       />
       <SpeedCullerModal />
+      <DrizzleModal onOpenFile={props.handleImageSelect} />
     </Suspense>
   );
 }

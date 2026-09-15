@@ -12,6 +12,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void> = a
       projection: 'cylindrical' | 'spherical' | 'planar' = 'cylindrical',
       isHdr: boolean = false,
       boundaryWarp: number = 0.5,
+      halfSize: boolean = false,
     ) => {
       setUI((state) => ({
         panoramaModalState: {
@@ -23,7 +24,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void> = a
         },
       }));
       const command = isHdr ? Invokes.StitchHdrPanorama : Invokes.StitchPanorama;
-      invoke(command, { paths, projection, boundaryWarp }).catch((err) => {
+      invoke(command, { paths, projection, boundaryWarp, halfSize }).catch((err) => {
         setUI((state) => ({
           panoramaModalState: { ...state.panoramaModalState, isProcessing: false, error: String(err) },
         }));
@@ -103,6 +104,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void> = a
       highlightRecovery?: number;
       shadowLift?: number;
       detailBoost?: number;
+      halfSize?: boolean;
     }) => {
       setUI((state) => ({
         hdrModalState: {
@@ -256,7 +258,19 @@ export function useProductivityActions(refreshImageList: () => Promise<void> = a
   );
 
   const handleStartStockPhotoPrep = useCallback(
-    async (paths: string[], outputDir: string) => {
+    async (
+      paths: string[],
+      outputDir: string,
+      customOptions?: {
+        enableBm3dTriad?: boolean;
+        enableReflector?: boolean;
+        enableAutoFraming?: boolean;
+        enableDustScrubbing?: boolean;
+        enableMultiCrop?: boolean;
+        enableBlinkGate?: boolean;
+        enableAgencyDispatch?: boolean;
+      },
+    ) => {
       try {
         const result: any = await invoke('batch_stock_photo_prep', {
           options: {
@@ -264,6 +278,13 @@ export function useProductivityActions(refreshImageList: () => Promise<void> = a
             output_dir: outputDir,
             format: 'jpg',
             quality: 95,
+            enable_bm3d_triad: customOptions?.enableBm3dTriad ?? true,
+            enable_reflector: customOptions?.enableReflector ?? true,
+            enable_auto_framing: customOptions?.enableAutoFraming ?? true,
+            enable_dust_scrubbing: customOptions?.enableDustScrubbing ?? true,
+            enable_multi_crop: customOptions?.enableMultiCrop ?? false,
+            enable_blink_gate: customOptions?.enableBlinkGate ?? true,
+            enable_agency_dispatch: customOptions?.enableAgencyDispatch ?? false,
           },
         });
         if (refreshImageList) await refreshImageList();
@@ -279,7 +300,16 @@ export function useProductivityActions(refreshImageList: () => Promise<void> = a
   const handleProcessNightSkySession = useCallback(
     async (
       paths: string[],
-      options?: { freezeGround?: boolean; removeLightPollution?: boolean; sigmaClip?: number }
+      options?: {
+        freezeGround?: boolean;
+        removeLightPollution?: boolean;
+        sigmaClip?: number;
+        starTrailsMode?: boolean;
+        cometDecay?: boolean;
+        decayRate?: number;
+        fillGaps?: boolean;
+        useGpu?: boolean;
+      }
     ) => {
       if (paths.length < 2) return;
       setUI((state) => ({
@@ -287,20 +317,30 @@ export function useProductivityActions(refreshImageList: () => Promise<void> = a
           ...state.nightSkyState,
           isProcessing: true,
           error: null,
-          progressMessage: 'Initializing Night Sky Stacker...',
+          progressMessage: options?.starTrailsMode ? 'Initializing Star Trails Engine...' : 'Initializing Night Sky Stacker...',
         },
       }));
       try {
-        await invoke('stack_astro_frames', {
-          options: {
+        if (options?.starTrailsMode) {
+          await invoke('stack_star_trails', {
             paths,
-            sigma_clip: options?.sigmaClip ?? 2.5,
-            stack_mode: 'kappa_sigma',
-            auto_dark_subtract: true,
-            remove_light_pollution: options?.removeLightPollution ?? true,
-            freeze_ground: options?.freezeGround ?? true,
-          },
-        });
+            cometDecay: options?.cometDecay ?? true,
+            decayRate: options?.decayRate ?? 0.08,
+            fillGaps: options?.fillGaps ?? true,
+          });
+        } else {
+          await invoke('stack_astro_frames', {
+            options: {
+              paths,
+              sigma_clip: options?.sigmaClip ?? 2.5,
+              stack_mode: 'kappa_sigma',
+              auto_dark_subtract: true,
+              remove_light_pollution: options?.removeLightPollution ?? true,
+              freeze_ground: options?.freezeGround ?? true,
+              use_gpu: options?.useGpu ?? true,
+            },
+          });
+        }
         setUI((state) => ({
           nightSkyState: {
             ...state.nightSkyState,

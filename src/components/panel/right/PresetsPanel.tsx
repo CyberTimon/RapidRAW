@@ -32,6 +32,7 @@ import {
   Wrench,
   Palette,
   Settings2,
+  Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfigurePresetModal from '../../modals/ConfigurePresetModal';
@@ -1207,8 +1208,273 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     showContextMenu(event.clientX, event.clientY, options);
   };
 
-  const folders = useMemo(() => presets.filter((item: UserPreset) => item.folder), [presets]);
-  const rootPresets = useMemo(() => presets.filter((item: UserPreset) => item.preset), [presets]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedManufacturer, setSelectedManufacturer] = useState<string>('all');
+  const [selectedFeature, setSelectedFeature] = useState<string>('all');
+  const [showColor, setShowColor] = useState<boolean>(true);
+  const [showBw, setShowBw] = useState<boolean>(true);
+
+  const MANUFACTURERS = useMemo(() => [
+    { id: 'all', label: 'All Brands' },
+    { id: 'adox', label: 'Adox' },
+    { id: 'agfa', label: 'Agfa' },
+    { id: 'amber-film', label: 'Amber Film Co.' },
+    { id: 'candido', label: 'Candido Film' },
+    { id: 'catlabs', label: 'CatLABS' },
+    { id: 'cinestill', label: 'CineStill' },
+    { id: 'dubblefilm', label: 'Dubblefilm' },
+    { id: 'ferrania', label: 'Ferrania' },
+    { id: 'foma', label: 'Fomapan' },
+    { id: 'fujifilm', label: 'Fujifilm' },
+    { id: 'harman', label: 'Harman' },
+    { id: 'ilford', label: 'Ilford' },
+    { id: 'kodak', label: 'Kodak' },
+    { id: 'konica', label: 'Konica Minolta' },
+    { id: 'kono', label: 'Kono!' },
+    { id: 'kosmo-foto', label: 'Kosmo Foto' },
+    { id: 'lomography', label: 'Lomography' },
+    { id: 'luckyfilm', label: 'Luckyfilm' },
+    { id: 'original-wolfen', label: 'Original Wolfen' },
+    { id: 'orwo', label: 'ORWO' },
+    { id: 'perutz', label: 'Perutz' },
+    { id: 'polaroid', label: 'Polaroid' },
+    { id: 'reflxg', label: 'Reflxg Labs' },
+    { id: 'rollei', label: 'Rollei' },
+    { id: 'santacolor', label: 'Santacolor' },
+    { id: 'silberra', label: 'Silberra' },
+    { id: 'svema', label: 'Svema' },
+    { id: 'tasma', label: 'Tasma' },
+    { id: 'washi', label: 'Washi' },
+    { id: 'yodica', label: 'Yodica' },
+  ], []);
+
+  const FEATURES = useMemo(() => [
+    { id: 'all', label: 'All Styles' },
+    { id: 'sports', label: 'Sports & Action' },
+    { id: 'portrait', label: 'Portrait & Wedding' },
+    { id: 'travel', label: 'Travel & Street' },
+    { id: 'night', label: 'Night Sky & Astro' },
+    { id: 'macro', label: 'Macro & High-Res' },
+    { id: 'cinematic', label: 'Cinematic & ECN-2' },
+    { id: 'bw', label: 'Black & White' },
+    { id: 'creative', label: 'Color Shift & IR' },
+    { id: 'vivid', label: 'Vivid & Slide' },
+  ], []);
+
+  const matchesManufacturer = useCallback((item: UserPreset, mfg: string): boolean => {
+    if (mfg === 'all') return true;
+    const name = item.folder?.name || item.preset?.name || '';
+    const id = item.folder?.id || item.preset?.id || '';
+    const nameLower = name.toLowerCase();
+    const idLower = id.toLowerCase();
+
+    switch (mfg) {
+      case 'amber-film': return idLower.includes('amber') || nameLower.includes('amber');
+      case 'candido': return idLower.includes('candido') || nameLower.includes('candido');
+      case 'kosmo-foto': return idLower.includes('kosmo') || nameLower.includes('kosmo');
+      case 'reflxg': return idLower.includes('reflxg') || nameLower.includes('reflxg');
+      case 'santacolor': return idLower.includes('santacolor') || nameLower.includes('santacolor') || nameLower.includes('santa');
+      case 'kodak': return idLower.includes('kodak') || idLower.includes('kodachrome') || idLower.includes('portra') || idLower.includes('tri-x') || idLower.includes('tmax') || idLower.includes('ektar') || idLower.includes('ektapress') || idLower.includes('ebx') || nameLower.includes('kodak');
+      case 'fujifilm': return idLower.includes('fuji') || idLower.includes('acros') || idLower.includes('velvia') || idLower.includes('provia') || idLower.includes('astia') || idLower.includes('eterna') || idLower.includes('fortia') || nameLower.includes('fuji');
+      case 'ilford': return idLower.includes('ilford') || idLower.includes('hp5') || idLower.includes('fp4') || idLower.includes('pan-f') || idLower.includes('xp2') || nameLower.includes('ilford');
+      case 'agfa': return idLower.includes('agfa') || nameLower.includes('agfa');
+      case 'adox': return idLower.includes('adox') || nameLower.includes('adox');
+      case 'foma': return idLower.includes('foma') || nameLower.includes('foma') || nameLower.includes('retropan') || idLower.includes('fomapan') || nameLower.includes('fomapan');
+      case 'rollei': return idLower.includes('rollei') || nameLower.includes('rollei');
+      case 'ferrania': return idLower.includes('ferrania') || nameLower.includes('ferrania');
+      case 'catlabs': return idLower.includes('catlabs') || nameLower.includes('catlabs');
+      case 'kono': return idLower.includes('kono') || nameLower.includes('kono');
+      case 'washi': return idLower.includes('washi') || nameLower.includes('washi');
+      case 'konica': return idLower.includes('konica') || idLower.includes('sakura') || idLower.includes('minolta') || nameLower.includes('konica') || nameLower.includes('minolta');
+      case 'svema': return idLower.includes('svema') || nameLower.includes('svema');
+      case 'tasma': return idLower.includes('tasma') || nameLower.includes('tasma');
+      case 'orwo': return (idLower.includes('orwo') || nameLower.includes('orwo')) && !idLower.includes('original-wolfen') && !nameLower.includes('original wolfen');
+      case 'original-wolfen': return idLower.includes('original-wolfen') || nameLower.includes('original wolfen');
+      case 'silberra': return idLower.includes('silberra') || nameLower.includes('silberra');
+      case 'yodica': return idLower.includes('yodica') || nameLower.includes('yodica');
+      case 'luckyfilm': return idLower.includes('luckyfilm') || nameLower.includes('luckyfilm') || idLower.includes('lucky') || nameLower.includes('lucky');
+      case 'dubblefilm': return idLower.includes('dubblefilm') || nameLower.includes('dubblefilm') || idLower.includes('dubble') || nameLower.includes('dubble');
+      case 'perutz': return idLower.includes('perutz') || nameLower.includes('perutz');
+      case 'cinestill': return idLower.includes('cinestill') || nameLower.includes('cinestill');
+      case 'polaroid': return idLower.includes('polaroid') || nameLower.includes('polaroid');
+      case 'lomography': return idLower.includes('lomo') || nameLower.includes('lomo');
+      case 'harman': return idLower.includes('harman') || nameLower.includes('harman');
+      default: return true;
+    }
+  }, []);
+
+  const isBlackAndWhitePreset = useCallback((preset: Preset): boolean => {
+    if (preset.adjustments?.saturation !== undefined && preset.adjustments.saturation <= -90) {
+      return true;
+    }
+    const id = (preset.id || '').toLowerCase();
+    const name = (preset.name || '').toLowerCase();
+    return (
+      name.includes('b&w') ||
+      name.includes('bw') ||
+      name.includes('monochrome') ||
+      name.includes('black & white') ||
+      id.includes('bw') ||
+      id.includes('acros') ||
+      id.includes('tri-x') ||
+      id.includes('tmax') ||
+      id.includes('hp5') ||
+      id.includes('fp4') ||
+      id.includes('pan-f') ||
+      id.includes('delta-') ||
+      id.includes('xp2') ||
+      id.includes('fomapan') ||
+      id.includes('retropan') ||
+      id.includes('p30') ||
+      id.includes('orto') ||
+      id.includes('ortho') ||
+      id.includes('silvermax') ||
+      id.includes('retro-80s') ||
+      id.includes('direct-positive') ||
+      id.includes('kentmere') ||
+      id.includes('monolith') ||
+      id.includes('washi-film-w') ||
+      id.includes('washi-film-v') ||
+      id.includes('silberra-pan') ||
+      id.includes('silberra-orto') ||
+      id.includes('original-wolfen-np') ||
+      id.includes('original-wolfen-dp') ||
+      id.includes('luckyfilm-shd') ||
+      id.includes('kosmo-foto') ||
+      id.includes('candido-bw') ||
+      id.includes('reflxg-bw') ||
+      id.includes('santacolor-nordic')
+    );
+  }, []);
+
+  const matchesFeature = useCallback((presetName: string, presetId: string, folderId?: string, feature?: string): boolean => {
+    if (!feature || feature === 'all') return true;
+    const pId = presetId.toLowerCase();
+    const pName = presetName.toLowerCase();
+    const fId = (folderId || '').toLowerCase();
+
+    switch (feature) {
+      case 'sports':
+        return pId.includes('ektapress') || pId.includes('superia-1600') || pId.includes('pro-800z') || pId.includes('press-800') || pId.includes('centuria-800') || pId.includes('venus') || pId.includes('tmax-3200') || pId.includes('delta-3200') || pId.includes('candido-800') || pId.includes('amber-t800') || pName.includes('action') || pName.includes('speed') || pName.includes('sports') || pName.includes('motorsports');
+      case 'portrait':
+        return fId.includes('wedding') || pId.includes('portra') || pId.includes('pro-160') || pId.includes('pro-neg') || pId.includes('xp2') || pId.includes('astia') || pId.includes('silberra-color-160') || pId.includes('candido-400') || pName.includes('skin') || pName.includes('portrait') || pName.includes('wedding');
+      case 'travel':
+        return fId.includes('travel') || pId.includes('ultramax') || pId.includes('sensia') || pId.includes('superia') || pId.includes('gold') || pId.includes('colorplus') || pId.includes('luckyfilm-color') || pId.includes('press-800') || pId.includes('ektapress') || pId.includes('amber-400') || pId.includes('candido-200') || pName.includes('street') || pName.includes('travel') || pName.includes('photojournalism') || pName.includes('news');
+      case 'night':
+        return fId.includes('night') || pId.includes('astro') || pId.includes('cinestill-800t') || pId.includes('venus') || pId.includes('e200') || pId.includes('provia-400x') || pId.includes('superia-1600') || pId.includes('amber-t800') || pId.includes('candido-800') || pName.includes('night') || pName.includes('star') || pName.includes('milky');
+      case 'macro':
+        return fId.includes('macro') || pId.includes('tech-pan') || pId.includes('cms-20') || pId.includes('copex') || pId.includes('reala') || pId.includes('kodachrome-25') || pId.includes('epn') || pId.includes('ultra-50') || pId.includes('astia-100f') || pId.includes('fortia') || pId.includes('santacolor-100') || pId.includes('reflxg-bw-100') || pName.includes('macro') || pName.includes('resolution') || pName.includes('micro') || pName.includes('petals');
+      case 'cinematic':
+        return fId.includes('cinematic') || pId.includes('cine') || pId.includes('eterna') || pId.includes('eastman') || pId.includes('tarkovsky') || pId.includes('sovcolor') || pId.includes('technicolor') || pId.includes('agfacolor') || pId.includes('silberra-color-100') || pId.includes('original-wolfen-nc') || pId.includes('amber') || pId.includes('reflxg') || pName.includes('cinema') || pName.includes('ecn-2');
+      case 'bw':
+        return fId.includes('ilford') || pId.includes('acros') || pId.includes('tri-x') || pId.includes('tmax') || pId.includes('hp5') || pId.includes('fp4') || pId.includes('foma') || pId.includes('svema-foto') || pId.includes('type-42') || pId.includes('p30') || pId.includes('retro-80s') || pId.includes('ortho') || pId.includes('luckyfilm-shd') || pId.includes('silberra-pan') || pId.includes('original-wolfen-np') || pId.includes('kosmo-foto') || pId.includes('candido-bw') || pId.includes('reflxg-bw') || pId.includes('santacolor-nordic') || pName.includes('b&w') || pName.includes('bw') || pName.includes('monochrome');
+      case 'creative':
+        return fId.includes('creative') || fId.includes('yodica') || fId.includes('dubblefilm') || pId.includes('lomo') || pId.includes('aerochrome') || pId.includes('polaroid') || pId.includes('phoenix') || pId.includes('purple') || pId.includes('turquoise') || pId.includes('yodica') || pId.includes('dubblefilm') || pName.includes('shift') || pName.includes('ir') || pName.includes('instant') || pName.includes('burst') || pName.includes('flare');
+      case 'vivid':
+        return pId.includes('velvia') || pId.includes('ektar') || pId.includes('100vs') || pId.includes('ultra') || pId.includes('yodica') || pId.includes('fortia') || pId.includes('ebx') || pId.includes('santacolor') || pName.includes('vivid') || pName.includes('saturated');
+      default:
+        return true;
+    }
+  }, []);
+
+  const hasActiveFilters = searchQuery.trim() !== '' || selectedManufacturer !== 'all' || selectedFeature !== 'all' || !showColor || !showBw;
+
+  const resetFilters = useCallback(() => {
+    setSearchQuery('');
+    setSelectedManufacturer('all');
+    setSelectedFeature('all');
+    setShowColor(true);
+    setShowBw(true);
+  }, []);
+
+  // Filter folders and nested presets
+  const filteredFolders = useMemo(() => {
+    const rawFolders = presets.filter((item: UserPreset) => item.folder);
+    if (!hasActiveFilters) return rawFolders;
+
+    const query = searchQuery.toLowerCase().trim();
+
+    return rawFolders.map((item: UserPreset) => {
+      const folder = item.folder;
+      if (!folder) return null;
+
+      const folderMatchesMfg = matchesManufacturer(item, selectedManufacturer);
+
+      const matchingChildren = (folder.children || []).filter((preset: Preset) => {
+        const folderNameLower = (folder.name || '').toLowerCase();
+        const presetIdLower = (preset.id || '').toLowerCase();
+        const matchesQuery = !query || preset.name.toLowerCase().includes(query) || presetIdLower.includes(query) || folderNameLower.includes(query);
+        const matchesMfg = selectedManufacturer === 'all' || (query.length >= 2 && matchesQuery) || folderMatchesMfg || matchesManufacturer({ preset }, selectedManufacturer);
+        const matchesFeat = matchesFeature(preset.name, preset.id, folder.id, selectedFeature);
+
+        const isBw = isBlackAndWhitePreset(preset);
+        const matchesColorFilter = (isBw && showBw) || (!isBw && showColor);
+
+        return matchesQuery && matchesMfg && matchesFeat && matchesColorFilter;
+      });
+
+      if (matchingChildren.length > 0) {
+        return {
+          ...item,
+          folder: {
+            ...folder,
+            children: matchingChildren,
+          },
+        };
+      }
+      return null;
+    }).filter(Boolean) as UserPreset[];
+  }, [presets, hasActiveFilters, searchQuery, selectedManufacturer, selectedFeature, showColor, showBw, matchesManufacturer, matchesFeature, isBlackAndWhitePreset]);
+
+  const filteredRootPresets = useMemo(() => {
+    const rawRoot = presets.filter((item: UserPreset) => item.preset);
+    if (!hasActiveFilters) return rawRoot;
+
+    const query = searchQuery.toLowerCase().trim();
+
+    return rawRoot.filter((item: UserPreset) => {
+      const preset = item.preset;
+      if (!preset) return false;
+
+      const presetIdLower = (preset.id || '').toLowerCase();
+      const matchesQuery = !query || preset.name.toLowerCase().includes(query) || presetIdLower.includes(query);
+      const matchesMfg = selectedManufacturer === 'all' || (query.length >= 2 && matchesQuery) || matchesManufacturer(item, selectedManufacturer);
+      const matchesFeat = matchesFeature(preset.name, preset.id, undefined, selectedFeature);
+
+      const isBw = isBlackAndWhitePreset(preset);
+      const matchesColorFilter = (isBw && showBw) || (!isBw && showColor);
+
+      return matchesQuery && matchesMfg && matchesFeat && matchesColorFilter;
+    });
+  }, [presets, hasActiveFilters, searchQuery, selectedManufacturer, selectedFeature, showColor, showBw, matchesManufacturer, matchesFeature, isBlackAndWhitePreset]);
+
+  // Auto-expand folders when active filters/search match items inside
+  useEffect(() => {
+    if (hasActiveFilters) {
+      const autoExpandIds = new Set<string>();
+      filteredFolders.forEach((item) => {
+        if (item.folder?.id) {
+          autoExpandIds.add(item.folder.id);
+        }
+      });
+      setExpandedFolders((prev) => {
+        const merged = new Set(prev);
+        autoExpandIds.forEach((id) => merged.add(id));
+        return merged;
+      });
+    }
+  }, [hasActiveFilters, filteredFolders]);
+
+  const totalMatchingPresets = useMemo(() => {
+    let count = filteredRootPresets.length;
+    filteredFolders.forEach((item) => {
+      count += item.folder?.children?.length || 0;
+    });
+    return count;
+  }, [filteredFolders, filteredRootPresets]);
+
+  const folders = filteredFolders;
+  const rootPresets = filteredRootPresets;
 
   return (
     <DndContext id="presets-panel-dnd" sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -1250,6 +1516,161 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           </div>
         </div>
 
+        {/* Dynamic Dual-Filter Header (Manufacturer & Feature/Genre) */}
+        <div className="px-3 py-2 shrink-0 border-b border-surface/50 space-y-2 bg-surface/30">
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search 100+ film stocks (Portra, Ektachrome, Tri-X, CineStill...)"
+              className="w-full bg-surface border border-border-color/60 rounded-md px-3 py-1.5 text-xs text-text-primary placeholder-text-secondary focus:outline-none focus:border-accent"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-text-secondary hover:text-text-primary px-1"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Quick-Filter Chips */}
+          <div className="flex items-center gap-1 overflow-x-auto py-0.5 no-scrollbar text-[10.5px]">
+            <span className="text-text-secondary shrink-0 text-[10px] font-medium mr-0.5">Quick:</span>
+            {[
+              { label: 'All', q: '', mfg: 'all', feat: 'all' },
+              { label: 'Portra', q: 'portra', mfg: 'all', feat: 'all' },
+              { label: 'Cinematic ECN-2', q: '', mfg: 'all', feat: 'cinematic' },
+              { label: 'Velvia / Chrome', q: 'velvia', mfg: 'all', feat: 'all' },
+              { label: 'B&W Tri-X', q: 'tri-x', mfg: 'all', feat: 'all' },
+              { label: 'CineStill 800T', q: '800t', mfg: 'all', feat: 'all' },
+            ].map((chip, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setSearchQuery(chip.q);
+                  setSelectedManufacturer(chip.mfg);
+                  setSelectedFeature(chip.feat);
+                }}
+                className={`px-2 py-0.5 rounded-full shrink-0 border transition-all cursor-pointer ${
+                  (chip.q && searchQuery.toLowerCase() === chip.q.toLowerCase()) ||
+                  (chip.feat !== 'all' && selectedFeature === chip.feat) ||
+                  (!chip.q && chip.feat === 'all' && searchQuery === '' && selectedFeature === 'all')
+                    ? 'bg-accent/20 border-accent text-accent font-semibold'
+                    : 'bg-surface/80 border-border-color/60 text-text-secondary hover:text-text-primary hover:border-text-secondary'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
+          {selectedManufacturer === 'all' && !searchQuery && (
+            <div className="text-[10px] text-text-secondary/80 flex items-center justify-between">
+              <span>💡 Searching all 30+ brands globally. Type any stock code to filter.</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] uppercase font-semibold text-text-secondary tracking-wider block mb-1">
+                Manufacturer
+              </label>
+              <select
+                value={selectedManufacturer}
+                onChange={(e) => setSelectedManufacturer(e.target.value)}
+                className="w-full bg-surface border border-border-color/60 rounded-md px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-accent cursor-pointer"
+              >
+                {MANUFACTURERS.map((mfg) => (
+                  <option key={mfg.id} value={mfg.id}>
+                    {mfg.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] uppercase font-semibold text-text-secondary tracking-wider block mb-1">
+                Genre & Feature
+              </label>
+              <select
+                value={selectedFeature}
+                onChange={(e) => setSelectedFeature(e.target.value)}
+                className="w-full bg-surface border border-border-color/60 rounded-md px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-accent cursor-pointer"
+              >
+                {FEATURES.map((feat) => (
+                  <option key={feat.id} value={feat.id}>
+                    {feat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Type Filter: Color & B&W Checkmarks */}
+          <div className="flex items-center gap-3 pt-0.5">
+            <span className="text-[10px] uppercase font-semibold text-text-secondary tracking-wider">
+              Film Type:
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowColor((prev) => !prev)}
+                className="flex items-center gap-1.5 cursor-pointer group text-xs text-text-primary select-none focus:outline-none"
+              >
+                <div
+                  className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-colors ${
+                    showColor
+                      ? 'bg-accent border-accent text-white'
+                      : 'border-border-color/80 bg-surface/60 group-hover:border-accent/60'
+                  }`}
+                >
+                  {showColor && <Check size={10} strokeWidth={3} />}
+                </div>
+                <span className={`text-xs ${showColor ? 'text-text-primary font-medium' : 'text-text-secondary'}`}>
+                  Color
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowBw((prev) => !prev)}
+                className="flex items-center gap-1.5 cursor-pointer group text-xs text-text-primary select-none focus:outline-none"
+              >
+                <div
+                  className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-colors ${
+                    showBw
+                      ? 'bg-accent border-accent text-white'
+                      : 'border-border-color/80 bg-surface/60 group-hover:border-accent/60'
+                  }`}
+                >
+                  {showBw && <Check size={10} strokeWidth={3} />}
+                </div>
+                <span className={`text-xs ${showBw ? 'text-text-primary font-medium' : 'text-text-secondary'}`}>
+                  B&W
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {hasActiveFilters && (
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[11px] text-text-secondary">
+                Found <strong className="text-accent">{totalMatchingPresets}</strong> preset{totalMatchingPresets !== 1 ? 's' : ''}
+              </span>
+              <button
+                onClick={resetFilters}
+                className="text-[11px] text-accent hover:underline font-medium"
+              >
+                Reset Filters
+              </button>
+            </div>
+          )}
+        </div>
+
         <RootDroppableArea onContextMenu={handleBackgroundContextMenu}>
           {!selectedImage ? (
             <div className="flex items-center justify-center h-full">
@@ -1278,6 +1699,15 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
               <Button variant="secondary" onClick={onNavigateToCommunity}>
                 <Users size={16} className="mr-2" />
                 {t('editor.presets.status.getCommunity')}
+              </Button>
+            </div>
+          ) : hasActiveFilters && totalMatchingPresets === 0 ? (
+            <div className="text-center text-text-secondary flex flex-col items-center gap-3 py-8">
+              <Text variant={TextVariants.heading} color={TextColors.secondary}>
+                No film stock matching your filters
+              </Text>
+              <Button variant="secondary" onClick={resetFilters}>
+                Clear All Filters
               </Button>
             </div>
           ) : (

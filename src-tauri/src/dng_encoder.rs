@@ -57,6 +57,7 @@ pub struct DngExportMetadata {
     pub description: Option<String>,
     pub as_shot_neutral: Option<[f32; 3]>,
     pub baseline_exposure: Option<f32>,
+    pub white_level: Option<u32>,
 }
 
 impl Default for DngExportMetadata {
@@ -68,6 +69,7 @@ impl Default for DngExportMetadata {
             description: Some("32-Bit Floating-Point Linear DNG Composite".to_string()),
             as_shot_neutral: Some([1.0, 1.0, 1.0]),
             baseline_exposure: Some(0.0),
+            white_level: None,
         }
     }
 }
@@ -403,14 +405,18 @@ pub fn encode_linear_dng(image: &Rgb32FImage, metadata: Option<&DngExportMetadat
         extra_bytes: Some(bl_bytes),
     });
 
-    // Tag: WhiteLevel = 1 (LONG)
-    entries.push(TiffEntry {
-        tag: TAG_WHITE_LEVEL,
-        field_type: TIFF_TYPE_LONG,
-        count: 1,
-        data_or_offset: 1,
-        extra_bytes: None,
-    });
+    // Tag: WhiteLevel
+    // For 32-bit floating-point DNGs (SampleFormat = 3), WhiteLevel tag is omitted
+    // according to Adobe DNG specification to prevent clipping scene radiance values > 1.0.
+    if let Some(wl) = meta.white_level {
+        entries.push(TiffEntry {
+            tag: TAG_WHITE_LEVEL,
+            field_type: TIFF_TYPE_LONG,
+            count: 1,
+            data_or_offset: wl,
+            extra_bytes: None,
+        });
+    }
 
     // Tag: BaselineExposure (SRATIONAL)
     // Computes dynamic baseline exposure so RAW editors (Lightroom/ACR) render midtones at Zone V (18%)

@@ -449,6 +449,10 @@ pub async fn read_exif_for_paths(
                 crate::exif_processing::read_rrexif_sidecar(&source_path)
             {
                 sidecar_exif
+            } else if let Some(cached_exif) =
+                crate::exif_processing::read_central_cached_exif(&source_path)
+            {
+                cached_exif
             } else if is_cloud_placeholder(&source_path) {
                 HashMap::new()
             } else if let Ok(mmap) = read_file_mapped(&source_path) {
@@ -512,6 +516,7 @@ pub async fn update_exif_fields(
 
             let mut final_metadata = crate::exif_processing::load_sidecar(&primary_path);
 
+            crate::exif_processing::write_central_cached_exif(original_path, &exif_data);
             final_metadata.exif = Some(exif_data);
             if let Ok(json) = serde_json::to_string_pretty(&final_metadata) {
                 if let Some(parent) = primary_path.parent() {

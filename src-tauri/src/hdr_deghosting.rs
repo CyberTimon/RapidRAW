@@ -163,7 +163,12 @@ pub fn load_hdr_frames<R: tauri::Runtime>(
     app_handle: Option<&AppHandle<R>>,
     settings: &AppSettings,
 ) -> Result<Vec<HdrFrame>, String> {
-    assert!(paths.len() >= 2, "hdr merge requires at least two paths");
+    if paths.len() < 2 {
+        return Err("HDR merge requires at least two images.".to_string());
+    }
+    let mut hdr_load_settings = settings.clone();
+    hdr_load_settings.raw_preprocessing_sharpening = Some(0.0);
+
     paths
         .iter()
         .map(|path| {
@@ -182,16 +187,21 @@ pub fn load_hdr_frames<R: tauri::Runtime>(
             let file_bytes =
                 fs::read(path).map_err(|e| format!("Failed to read image {}: {}", path, e))?;
             let dynamic_image =
-                load_base_image_from_bytes(&file_bytes, path, false, settings, None)
+                load_base_image_from_bytes(&file_bytes, path, false, &hdr_load_settings, None)
                     .map_err(|e| format!("Failed to load image {}: {}", path, e))?;
-            let gains = match read_iso(path, &file_bytes) {
-                None => return Err(format!("Image {} is missing ISO/Sensitivity data", path)),
-                Some(gains) => gains as f32,
-            };
-            let exposure = match read_exposure_time_secs(path, &file_bytes) {
-                None => return Err(format!("Image {} is missing ExposureTime data", path)),
-                Some(exp) => Duration::from_secs_f32(exp),
-            };
+            let gains = read_iso(path, &file_bytes).map(|g| g as f32).unwrap_or(100.0);
+            let exposure = read_exposure_time_secs(path, &file_bytes)
+                .map(Duration::from_secs_f32)
+                .unwrap_or_else(|| {
+                    let rgb = dynamic_image.to_rgb8();
+                    let px_count = rgb.pixels().len().min(5000);
+                    let mean_luma = if px_count > 0 {
+                        rgb.pixels().take(px_count).map(|p| (0.2126 * p[0] as f32 + 0.7152 * p[1] as f32 + 0.0722 * p[2] as f32) / 255.0).sum::<f32>() / px_count as f32
+                    } else {
+                        0.5
+                    };
+                    Duration::from_secs_f32((mean_luma * 0.1).clamp(0.001, 10.0))
+                });
             let f_number = read_f_number(path, &file_bytes).unwrap_or(4.0);
             Ok((path.clone(), dynamic_image, exposure, gains, f_number))
         })
@@ -199,10 +209,9 @@ pub fn load_hdr_frames<R: tauri::Runtime>(
 }
 
 pub fn assert_uniform_dimensions(frames: &[HdrFrame]) -> Result<(), String> {
-    assert!(
-        !frames.is_empty(),
-        "dimension check requires at least one frame"
-    );
+    if frames.is_empty() {
+        return Err("Dimension check requires at least one frame.".to_string());
+    }
     let (first_path, first_image, _, _, _) = &frames[0];
     let width = first_image.width();
     let height = first_image.height();
@@ -899,14 +908,12 @@ pub fn apply_reference_deghosting_mask<R: tauri::Runtime>(
                 let r_ref = ref_raw[raw_offset];
                 let g_ref = ref_raw[raw_offset + 1];
                 let b_ref = ref_raw[raw_offset + 2];
-                let lum_ref_srgb = 0.2126 * r_ref + 0.7152 * g_ref + 0.0722 * b_ref;
-                let lin_ref = if lum_ref_srgb <= 0.04045 { lum_ref_srgb / 12.92 } else { ((lum_ref_srgb + 0.055) / 1.055).powf(2.4) };
+                let lin_ref = 0.2126 * r_ref + 0.7152 * g_ref + 0.0722 * b_ref;
 
                 let r_frame = frame_raw[raw_offset];
                 let g_frame = frame_raw[raw_offset + 1];
                 let b_frame = frame_raw[raw_offset + 2];
-                let lum_frame_srgb = 0.2126 * r_frame + 0.7152 * g_frame + 0.0722 * b_frame;
-                let lin_frame = if lum_frame_srgb <= 0.04045 { lum_frame_srgb / 12.92 } else { ((lum_frame_srgb + 0.055) / 1.055).powf(2.4) };
+                let lin_frame = 0.2126 * r_frame + 0.7152 * g_frame + 0.0722 * b_frame;
 
                 let norm_lin_frame = lin_frame * ratio;
                 let diff = (norm_lin_frame - lin_ref).abs();
@@ -1150,15 +1157,12 @@ pub fn blend_deghost_multiband(
                     let base = x * 3;
                     for c in 0..3 {
                         let ref_val = ref_row[base + c];
-                        let lin_ref_c = if ref_val <= 0.04045 { ref_val / 12.92 } else { ((ref_val + 0.055) / 1.055).powf(2.4) };
-                        let ref_scaled_lin = (lin_ref_c / ratio).clamp(0.0, 1.0);
-                        let ref_scaled_srgb = if ref_scaled_lin <= 0.0031308 { ref_scaled_lin * 12.92 } else { 1.055 * ref_scaled_lin.powf(1.0 / 2.4) - 0.055 };
-
+                        let ref_scaled_lin = (ref_val / ratio).max(0.0);
                         let frame_val = frame_row[base + c];
 
                         // Smooth blend factor combining high and low frequency transitions cleanly
                         let blend_factor = m_narrow * 0.7 + m_wide * 0.3;
-                        frame_row[base + c] = (frame_val * blend_factor + ref_scaled_srgb * (1.0 - blend_factor)).clamp(0.0, 1.0);
+                        frame_row[base + c] = (frame_val * blend_factor + ref_scaled_lin * (1.0 - blend_factor)).max(0.0);
                     }
                 }
             }

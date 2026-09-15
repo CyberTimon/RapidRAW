@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -11,6 +11,7 @@ import {
   Moon,
   FolderOpen,
   Plus,
+  Trash2,
 } from 'lucide-react';
 import { useUIStore } from '../../../store/useUIStore';
 import { useLibraryStore } from '../../../store/useLibraryStore';
@@ -180,6 +181,11 @@ export default function NightSkyDropzone() {
       freezeGround: nightSkyState.freezeGround,
       removeLightPollution: nightSkyState.removeLightPollution,
       sigmaClip: nightSkyState.sigmaClip,
+      starTrailsMode: nightSkyState.starTrailsMode,
+      cometDecay: nightSkyState.cometDecay,
+      decayRate: nightSkyState.decayRate,
+      fillGaps: nightSkyState.fillGaps,
+      useGpu: nightSkyState.useGpu,
     });
   };
 
@@ -213,113 +219,134 @@ export default function NightSkyDropzone() {
         <div className="flex items-center gap-2 mt-2">
           <button
             type="button"
-            className="flex items-center gap-1 text-[11px] font-medium text-accent hover:underline"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleBrowseFiles();
-            }}
+            className="px-2.5 py-1 bg-surface rounded-md text-[11px] text-text-primary border border-surface hover:border-accent transition-colors shadow-xs"
           >
-            <FolderOpen size={13} />
             <span>{t('astro.dropzone.browse', 'Browse files...')}</span>
           </button>
         </div>
       </div>
 
-      {/* 1-Click Button to Add Selected Library Photos */}
-      {selectedLibraryPaths.length > 0 && (
-        <button
-          type="button"
-          onClick={() => addPaths(selectedLibraryPaths)}
-          disabled={isProcessing}
-          className="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded bg-accent/15 hover:bg-accent/25 text-accent text-xs font-medium transition-colors border border-accent/30"
-        >
-          <Plus size={13} />
-          <span>Add Selected Library Photos ({selectedLibraryPaths.length})</span>
-        </button>
-      )}
-
-      {/* Target Files List */}
+      {/* Frame count & clear */}
       {targetPaths.length > 0 && (
-        <div className="flex flex-col gap-1.5 bg-bg-primary/50 p-2 rounded-md border border-surface/60">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-text-primary flex items-center gap-1">
-              <Sparkles size={12} className="text-accent" />
-              <span>
-                {targetPaths.length} {t('astro.framesSelected', 'frames queued')}
-              </span>
-            </span>
-            <button
-              onClick={clearAll}
-              disabled={isProcessing}
-              className="text-[10px] text-text-secondary hover:text-red-400 transition-colors disabled:opacity-40"
-            >
-              {t('astro.clearAll', 'Clear all')}
-            </button>
-          </div>
-
-          <div className="max-h-28 overflow-y-auto flex flex-col gap-1 pr-1 custom-scrollbar">
-            {targetPaths.map((p) => {
-              const fileName = p.split(/[\\/]/).pop() || p;
-              return (
-                <div
-                  key={p}
-                  className="flex items-center justify-between bg-surface/60 hover:bg-surface px-2 py-1 rounded text-[11px] group"
-                >
-                  <span className="truncate flex-1 text-text-primary pr-2" title={p}>
-                    {fileName}
-                  </span>
-                  {!isProcessing && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removePath(p);
-                      }}
-                      className="text-text-secondary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+        <div className="flex items-center justify-between text-[11px] text-text-secondary px-1">
+          <span className="flex items-center gap-1.5 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+            {targetPaths.length} {t('astro.framesSelected', 'frames queued')}
+          </span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              clearAll();
+            }}
+            disabled={isProcessing}
+            className="hover:text-red-400 text-[10px] transition-colors flex items-center gap-0.5"
+          >
+            <Trash2 size={11} />
+            {t('astro.clearAll', 'Clear all')}
+          </button>
         </div>
       )}
 
-      {/* Smart Auto Options */}
-      <div className="flex flex-col gap-1 pt-1">
+      {/* Stacking Options */}
+      <div className="flex flex-col gap-1.5 pt-1">
+        {/* Star Trails Mode Switch */}
         <label className="flex items-center gap-2 cursor-pointer select-none text-[12px] text-text-primary">
           <input
             type="checkbox"
-            checked={nightSkyState.freezeGround}
+            checked={nightSkyState.starTrailsMode}
             disabled={isProcessing}
             onChange={(e) =>
               setUI((s) => ({
-                nightSkyState: { ...s.nightSkyState, freezeGround: e.target.checked },
+                nightSkyState: { ...s.nightSkyState, starTrailsMode: e.target.checked },
               }))
             }
             className="rounded border-surface text-accent focus:ring-accent accent-accent h-3.5 w-3.5"
           />
-          <span className="flex items-center gap-1">
-            <ShieldCheck size={13} className="text-accent" />
-            <span>{t('astro.options.freezeGround', 'Freeze Landscape Ground')}</span>
-          </span>
+          <span className="font-medium">Star Trails Mode (MIP Long Exposure)</span>
         </label>
 
-        <label className="flex items-center gap-2 cursor-pointer select-none text-[12px] text-text-primary">
-          <input
-            type="checkbox"
-            checked={nightSkyState.removeLightPollution}
-            disabled={isProcessing}
-            onChange={(e) =>
-              setUI((s) => ({
-                nightSkyState: { ...s.nightSkyState, removeLightPollution: e.target.checked },
-              }))
-            }
-            className="rounded border-surface text-accent focus:ring-accent accent-accent h-3.5 w-3.5"
-          />
-          <span>{t('astro.options.removeLightPollution', 'Remove Light-Pollution Glow')}</span>
-        </label>
+        {nightSkyState.starTrailsMode ? (
+          <div className="pl-5 space-y-1.5 border-l border-accent/30 ml-1">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] text-text-primary">
+              <input
+                type="checkbox"
+                checked={nightSkyState.cometDecay}
+                disabled={isProcessing}
+                onChange={(e) =>
+                  setUI((s) => ({
+                    nightSkyState: { ...s.nightSkyState, cometDecay: e.target.checked },
+                  }))
+                }
+                className="rounded border-surface text-accent focus:ring-accent accent-accent h-3 w-3"
+              />
+              <span>Exponential Comet Tail Decay</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] text-text-primary">
+              <input
+                type="checkbox"
+                checked={nightSkyState.fillGaps}
+                disabled={isProcessing}
+                onChange={(e) =>
+                  setUI((s) => ({
+                    nightSkyState: { ...s.nightSkyState, fillGaps: e.target.checked },
+                  }))
+                }
+                className="rounded border-surface text-accent focus:ring-accent accent-accent h-3 w-3"
+              />
+              <span>Intervalometer Gap Filling</span>
+            </label>
+          </div>
+        ) : (
+          <>
+            <label className="flex items-center gap-2 cursor-pointer select-none text-[12px] text-text-primary">
+              <input
+                type="checkbox"
+                checked={nightSkyState.freezeGround}
+                disabled={isProcessing}
+                onChange={(e) =>
+                  setUI((s) => ({
+                    nightSkyState: { ...s.nightSkyState, freezeGround: e.target.checked },
+                  }))
+                }
+                className="rounded border-surface text-accent focus:ring-accent accent-accent h-3.5 w-3.5"
+              />
+              <span className="flex items-center gap-1">
+                <ShieldCheck size={13} className="text-accent" />
+                <span>{t('astro.options.freezeGround', 'Freeze Landscape Ground')}</span>
+              </span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none text-[12px] text-text-primary">
+              <input
+                type="checkbox"
+                checked={nightSkyState.removeLightPollution}
+                disabled={isProcessing}
+                onChange={(e) =>
+                  setUI((s) => ({
+                    nightSkyState: { ...s.nightSkyState, removeLightPollution: e.target.checked },
+                  }))
+                }
+                className="rounded border-surface text-accent focus:ring-accent accent-accent h-3.5 w-3.5"
+              />
+              <span>{t('astro.options.removeLightPollution', 'Remove Light-Pollution Glow')}</span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none text-[12px] text-text-primary">
+              <input
+                type="checkbox"
+                checked={nightSkyState.useGpu}
+                disabled={isProcessing}
+                onChange={(e) =>
+                  setUI((s) => ({
+                    nightSkyState: { ...s.nightSkyState, useGpu: e.target.checked },
+                  }))
+                }
+                className="rounded border-surface text-accent focus:ring-accent accent-accent h-3.5 w-3.5"
+              />
+              <span className="text-accent font-medium">⚡ WebGPU Acceleration</span>
+            </label>
+          </>
+        )}
       </div>
 
       {/* Error display */}
@@ -362,7 +389,11 @@ export default function NightSkyDropzone() {
         ) : (
           <>
             <Sparkles size={14} />
-            <span>{t('astro.autoProcessBtn', 'Auto Process Milky Way ✨')}</span>
+            <span>
+              {nightSkyState.starTrailsMode
+                ? 'Stack Star Trails 💫'
+                : t('astro.autoProcessBtn', 'Auto Process Milky Way ✨')}
+            </span>
           </>
         )}
       </button>

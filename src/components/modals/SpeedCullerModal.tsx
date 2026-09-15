@@ -37,6 +37,14 @@ interface CullingFrameAnalysis {
   faces: FaceLoupeCrop[];
 }
 
+export interface BurstGroup {
+  group_id: string;
+  hero_path: string;
+  member_paths: string[];
+  hero_score: number;
+  frame_count: number;
+}
+
 export default function SpeedCullerModal() {
   const { speedCullerModalState, setUI } = useUIStore(
     useShallow((state) => ({
@@ -71,6 +79,8 @@ export default function SpeedCullerModal() {
   const [isTriaging, setIsTriaging] = useState(false);
   const [triageReport, setTriageReport] = useState<string | null>(null);
   const [rawPreviewCache, setRawPreviewCache] = useState<Record<string, string>>({});
+  const [burstGroups, setBurstGroups] = useState<BurstGroup[]>([]);
+  const [isBurstGrouping, setIsBurstGrouping] = useState(false);
   const requestedPathsRef = useRef<Set<string>>(new Set());
 
   const currentPath = paths[currentIndex] || '';
@@ -80,11 +90,18 @@ export default function SpeedCullerModal() {
     [imageList, currentPath]
   );
 
+  const currentBurstGroup = useMemo(() => {
+    return burstGroups.find((g) => g.member_paths.includes(currentPath));
+  }, [burstGroups, currentPath]);
+
   // Auto-Burst & Hero Pick Detection
   const isHeroPick = useMemo(() => {
+    if (currentBurstGroup && currentBurstGroup.hero_path === currentPath) {
+      return true;
+    }
     if (!analysis) return false;
     return analysis.sharpness_score > 40.0 && !analysis.is_blurry;
-  }, [analysis]);
+  }, [currentBurstGroup, currentPath, analysis]);
 
   // Sync initial index
   useEffect(() => {
@@ -224,6 +241,30 @@ export default function SpeedCullerModal() {
     handleColorLabel('red');
   }, [handleRate, handleColorLabel]);
 
+  const handleGroupBursts = useCallback(async () => {
+    if (paths.length === 0) return;
+    setIsBurstGrouping(true);
+    try {
+      const groups = await invoke<BurstGroup[]>('group_burst_photos', {
+        paths,
+        timeWindowSecs: 2.0,
+        maxHammingDist: 12,
+      });
+      setBurstGroups(groups);
+      if (groups.length > 0) {
+        setTriageReport(
+          `Grouped ${groups.length} burst series (${groups.reduce((acc, g) => acc + g.frame_count, 0)} frames total)`
+        );
+      } else {
+        setTriageReport('No multi-frame burst clusters detected');
+      }
+    } catch (err) {
+      console.error('Burst grouping failed:', err);
+    } finally {
+      setIsBurstGrouping(false);
+    }
+  }, [paths]);
+
   // Keyboard navigation & blitz rating
   useEffect(() => {
     if (!isOpen) return;
@@ -309,6 +350,11 @@ export default function SpeedCullerModal() {
           e.preventDefault();
           setCompareMode((prev) => !prev);
           break;
+        case 'b':
+        case 'B':
+          e.preventDefault();
+          handleGroupBursts();
+          break;
         case ' ':
           e.preventDefault();
           setIs100Zoom((z) => !z);
@@ -324,7 +370,7 @@ export default function SpeedCullerModal() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleNext, handlePrev, handleRate, handleColorLabel, handlePick, handleReject, setUI]);
+  }, [isOpen, handleNext, handlePrev, handleRate, handleColorLabel, handlePick, handleReject, setUI, handleGroupBursts]);
 
   const handleRunAiTriage = async () => {
     if (paths.length === 0) return;
@@ -416,6 +462,25 @@ export default function SpeedCullerModal() {
                   🌟 Hero Pick
                 </span>
               )}
+
+              {currentBurstGroup && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-orange-500/20 border border-orange-500/40 text-orange-300 text-[10px] font-bold">
+                  <span>🔥 Burst ({currentBurstGroup.member_paths.indexOf(currentPath) + 1}/{currentBurstGroup.frame_count})</span>
+                  {currentBurstGroup.hero_path !== currentPath && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const hIdx = paths.indexOf(currentBurstGroup.hero_path);
+                        if (hIdx !== -1) setCurrentIndex(hIdx);
+                      }}
+                      className="px-1.5 py-0.2 rounded bg-amber-500/30 hover:bg-amber-500/50 text-amber-200 text-[9px] font-semibold transition-colors cursor-pointer"
+                      title="Jump directly to the sharpest Hero frame in this burst"
+                    >
+                      ⭐ Hero
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -426,6 +491,22 @@ export default function SpeedCullerModal() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleGroupBursts}
+            disabled={isBurstGrouping}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium border transition-colors cursor-pointer ${
+              burstGroups.length > 0
+                ? 'bg-orange-500/20 border-orange-500 text-orange-300'
+                : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white'
+            }`}
+            title="Auto-group rapid bursts and identify sharpest Hero frame (B)"
+          >
+            {isBurstGrouping ? <Loader2 size={12} className="animate-spin text-orange-400" /> : <Zap size={12} className="text-orange-400" />}
+            <span className="hidden sm:inline">{burstGroups.length > 0 ? `${burstGroups.length} Bursts` : 'Bursts'}</span>
+            <span className="font-mono text-[10px] opacity-75">(B)</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setFocusPeaking(!focusPeaking)}
@@ -674,6 +755,8 @@ export default function SpeedCullerModal() {
             const actualIdx = Math.max(0, currentIndex - 4) + idx;
             const thumbUrl = rawPreviewCache[p] || thumbnails[p] || (p ? convertFileSrc(p.replace(/\\/g, '/')) : '');
             const isSelected = actualIdx === currentIndex;
+            const burstMeta = burstGroups.find((g) => g.member_paths.includes(p));
+            const isHeroOfBurst = burstMeta?.hero_path === p;
             const starRating = (p && imageRatings[p]) || 0;
 
             return (
@@ -688,6 +771,11 @@ export default function SpeedCullerModal() {
                   <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-neutral-800" />
+                )}
+                {burstMeta && (
+                  <div className="absolute top-0 left-0 px-0.5 bg-black/75 rounded-br text-[7px] font-bold text-orange-400">
+                    🔥{isHeroOfBurst ? '⭐' : ''}
+                  </div>
                 )}
                 {starRating > 0 && (
                   <div className="absolute bottom-0 right-0 px-1 bg-black/70 text-[8px] font-bold text-amber-400">

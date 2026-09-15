@@ -5,7 +5,9 @@
 
 use crate::AppState;
 use image::{imageops::FilterType, DynamicImage, GenericImageView, ImageBuffer, Rgb, RgbImage};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use tauri::State;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -228,13 +230,130 @@ pub fn simulate_optical_bokeh(
     })
 }
 
+/// Applies optical Scheimpflug tilt-shift blur with arbitrary angle rotation,
+/// progressive distance falloff, and specular highlight bokeh discs.
+pub fn apply_tilt_shift_transform(
+    src: &RgbImage,
+    center_y_norm: f32,
+    band_height_norm: f32,
+    angle_deg: f32,
+    blur_amount: f32,
+    specular_boost: f32,
+) -> RgbImage {
+    let (tw, th) = src.dimensions();
+    if tw < 8 || th < 8 {
+        return src.clone();
+    }
+
+    let cy = center_y_norm.clamp(0.05, 0.95) * th as f32;
+    let cx = tw as f32 * 0.5;
+    let half_band_px = band_height_norm.clamp(0.02, 0.8) * th as f32 * 0.5;
+    let blur_rad = blur_amount.clamp(4.0, 60.0);
+    let spec = specular_boost.clamp(0.0, 100.0);
+
+    let theta = angle_deg.clamp(-90.0, 90.0).to_radians();
+    let cos_t = theta.cos();
+    let sin_t = theta.sin();
+
+    let mut out = src.clone();
+    let raw_src = src.clone();
+
+    let rows: Vec<Vec<Rgb<u8>>> = (0..th)
+        .into_par_iter()
+        .map(|y| {
+            let mut row_pixels = Vec::with_capacity(tw as usize);
+            for x in 0..tw {
+                let dx = x as f32 - cx;
+                let dy = y as f32 - cy;
+                // Signed perpendicular distance to the rotated focal line
+                let perp_dist = (-dx * sin_t + dy * cos_t).abs();
+                let dist_from_focus = (perp_dist - half_band_px).max(0.0);
+                let blur_factor = (dist_from_focus / (th as f32 * 0.35)).clamp(0.0, 1.0);
+                let curr_blur = (blur_factor * blur_rad).round() as i32;
+
+                if curr_blur <= 1 {
+                    row_pixels.push(*raw_src.get_pixel(x, y));
+                } else {
+                    let mut acc_r = 0.0f32;
+                    let mut acc_g = 0.0f32;
+                    let mut acc_b = 0.0f32;
+                    let mut w_sum = 0.0f32;
+
+                    let step = (curr_blur / 6).max(1);
+
+                    let mut ky = -curr_blur;
+                    while ky <= curr_blur {
+                        let sy = (y as i32 + ky).clamp(0, th as i32 - 1) as u32;
+                        let mut kx = -curr_blur;
+                        while kx <= curr_blur {
+                            let sx = (x as i32 + kx).clamp(0, tw as i32 - 1) as u32;
+                            let p = raw_src.get_pixel(sx, sy);
+                            let luma = 0.2126 * p[0] as f32 + 0.7152 * p[1] as f32 + 0.0722 * p[2] as f32;
+
+                            let weight = if luma > 190.0 && spec > 0.0 {
+                                1.0 + (spec / 100.0) * ((luma - 190.0) / 65.0).powi(2) * 8.0
+                            } else {
+                                1.0
+                            };
+
+                            acc_r += p[0] as f32 * weight;
+                            acc_g += p[1] as f32 * weight;
+                            acc_b += p[2] as f32 * weight;
+                            w_sum += weight;
+
+                            kx += step;
+                        }
+                        ky += step;
+                    }
+
+                    row_pixels.push(Rgb([
+                        (acc_r / w_sum).clamp(0.0, 255.0) as u8,
+                        (acc_g / w_sum).clamp(0.0, 255.0) as u8,
+                        (acc_b / w_sum).clamp(0.0, 255.0) as u8,
+                    ]));
+                }
+            }
+            row_pixels
+        })
+        .collect();
+
+    for (y, row) in rows.into_iter().enumerate() {
+        for (x, pixel) in row.into_iter().enumerate() {
+            out.put_pixel(x as u32, y as u32, pixel);
+        }
+    }
+
+    out
+}
+
+/// Applies tilt-shift miniature transformation if enabled in adjustments
+pub fn apply_tilt_shift_if_enabled<'a>(
+    image: Cow<'a, DynamicImage>,
+    adjustments: &serde_json::Value,
+) -> Cow<'a, DynamicImage> {
+    if !adjustments["tiltShiftEnabled"].as_bool().unwrap_or(false) {
+        return image;
+    }
+
+    let cy = adjustments["tiltShiftCenterY"].as_f64().unwrap_or(0.5) as f32;
+    let band = adjustments["tiltShiftBandHeight"].as_f64().unwrap_or(0.25) as f32;
+    let angle = adjustments["tiltShiftAngleDeg"].as_f64().unwrap_or(0.0) as f32;
+    let blur = adjustments["tiltShiftBlurRadius"].as_f64().unwrap_or(24.0) as f32;
+    let spec = adjustments["tiltShiftSpecularBoost"].as_f64().unwrap_or(40.0) as f32;
+
+    let rgb8 = image.to_rgb8();
+    let transformed = apply_tilt_shift_transform(&rgb8, cy, band, angle, blur, spec);
+    Cow::Owned(DynamicImage::ImageRgb8(transformed))
+}
+
 /// 1-Click Tilt-Shift Scheimpflug Miniature Mode
 #[tauri::command]
 pub fn simulate_tilt_shift(
     center_y_norm: Option<f32>,
     band_height_norm: Option<f32>,
-    _angle_deg: Option<f32>,
+    angle_deg: Option<f32>,
     blur_amount: Option<f32>,
+    specular_boost: Option<f32>,
     state: State<AppState>,
 ) -> Result<String, String> {
     let orig_guard = state.original_image.lock().map_err(|e| e.to_string())?;
@@ -244,49 +363,14 @@ pub fn simulate_tilt_shift(
         return Err("No active image loaded".to_string());
     };
 
-    let cy = center_y_norm.unwrap_or(0.5).clamp(0.1, 0.9);
-    let band = band_height_norm.unwrap_or(0.25).clamp(0.05, 0.6);
-    let blur_rad = (blur_amount.unwrap_or(24.0)).clamp(4.0, 60.0) as u32;
+    let cy = center_y_norm.unwrap_or(0.5);
+    let band = band_height_norm.unwrap_or(0.25);
+    let angle = angle_deg.unwrap_or(0.0);
+    let blur_rad = blur_amount.unwrap_or(24.0);
+    let spec = specular_boost.unwrap_or(40.0);
 
     let thumb = active_img.thumbnail(960, 960).to_rgb8();
-    let (tw, th) = thumb.dimensions();
-    let cy_px = (cy * th as f32) as i32;
-    let half_band_px = (band * th as f32 * 0.5) as i32;
-
-    let mut out = thumb.clone();
-
-    for y in 0..th {
-        let dist_from_focus = ((y as i32 - cy_px).abs() - half_band_px).max(0) as f32;
-        let blur_factor = (dist_from_focus / (th as f32 * 0.35)).clamp(0.0, 1.0);
-        let curr_blur = (blur_factor * blur_rad as f32).round() as i32;
-
-        if curr_blur > 1 {
-            for x in 0..tw {
-                let mut acc_r = 0.0f32;
-                let mut acc_g = 0.0f32;
-                let mut acc_b = 0.0f32;
-                let mut w_sum = 0.0f32;
-
-                for ky in -curr_blur..=curr_blur {
-                    let sy = (y as i32 + ky).clamp(0, th as i32 - 1) as u32;
-                    for kx in -curr_blur..=curr_blur {
-                        let sx = (x as i32 + kx).clamp(0, tw as i32 - 1) as u32;
-                        let p = thumb.get_pixel(sx, sy);
-                        acc_r += p[0] as f32;
-                        acc_g += p[1] as f32;
-                        acc_b += p[2] as f32;
-                        w_sum += 1.0;
-                    }
-                }
-
-                out.put_pixel(x, y, image::Rgb([
-                    (acc_r / w_sum) as u8,
-                    (acc_g / w_sum) as u8,
-                    (acc_b / w_sum) as u8,
-                ]));
-            }
-        }
-    }
+    let out = apply_tilt_shift_transform(&thumb, cy, band, angle, blur_rad, spec);
 
     use base64::Engine;
     use std::io::Cursor;
@@ -373,4 +457,81 @@ pub fn simulate_3d_relighting(
         base64::engine::general_purpose::STANDARD.encode(buf.into_inner())
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tilt_shift_focus_band_preservation_and_falloff() {
+        let w = 200u32;
+        let h = 200u32;
+        // Synthetic high-frequency checkerboard pattern
+        let mut img = RgbImage::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                let val = if ((x / 10) + (y / 10)) % 2 == 0 { 255 } else { 0 };
+                img.put_pixel(x, y, Rgb([val, val, val]));
+            }
+        }
+
+        // Horizontal tilt-shift: center_y = 0.5 (y=100), band_height = 0.2 (thickness = 40px -> half_band = 20px)
+        let out = apply_tilt_shift_transform(&img, 0.5, 0.2, 0.0, 24.0, 0.0);
+
+        // 1. Focus Band Preservation: Pixels strictly within y in [85..115] must be 100% untouched
+        for y in 85..=115 {
+            for x in 0..w {
+                assert_eq!(
+                    img.get_pixel(x, y),
+                    out.get_pixel(x, y),
+                    "Focus band pixel at ({}, {}) was altered!",
+                    x,
+                    y
+                );
+            }
+        }
+
+        // 2. Monotonic Falloff: Deep out-of-focus region (y = 10) must have drastically reduced edge contrast
+        let diff_orig = (img.get_pixel(9, 10)[0] as i32 - img.get_pixel(10, 10)[0] as i32).abs();
+        let diff_blurred = (out.get_pixel(9, 10)[0] as i32 - out.get_pixel(10, 10)[0] as i32).abs();
+        assert!(diff_orig > 200, "Original checkerboard must have high contrast");
+        assert!(
+            diff_blurred < 80,
+            "Far out-of-focus region must be blurred (contrast reduced from {} to {})",
+            diff_orig,
+            diff_blurred
+        );
+    }
+
+    #[test]
+    fn test_tilt_shift_rotation_diagonal() {
+        let w = 160u32;
+        let h = 160u32;
+        let img = RgbImage::from_pixel(w, h, Rgb([100, 150, 200]));
+        let out = apply_tilt_shift_transform(&img, 0.5, 0.25, 45.0, 20.0, 50.0);
+        assert_eq!(out.dimensions(), (w, h));
+    }
+
+    #[test]
+    fn test_tilt_shift_specular_highlights() {
+        let w = 100u32;
+        let h = 100u32;
+        let mut img = RgbImage::from_pixel(w, h, Rgb([20, 20, 20]));
+        // Add a bright specular point light in the blur zone (y = 10)
+        img.put_pixel(50, 10, Rgb([255, 255, 255]));
+
+        let out_normal = apply_tilt_shift_transform(&img, 0.5, 0.1, 0.0, 20.0, 0.0);
+        let out_boosted = apply_tilt_shift_transform(&img, 0.5, 0.1, 0.0, 20.0, 100.0);
+
+        let p_norm = out_normal.get_pixel(50, 10)[0];
+        let p_boost = out_boosted.get_pixel(50, 10)[0];
+        assert!(
+            p_boost >= p_norm,
+            "Specular boost must enhance or preserve highlight brightness (normal: {}, boosted: {})",
+            p_norm,
+            p_boost
+        );
+    }
+}
+
 

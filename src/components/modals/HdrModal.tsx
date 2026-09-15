@@ -54,6 +54,7 @@ interface HdrModalProps {
     highlightRecovery?: number;
     shadowLift?: number;
     detailBoost?: number;
+    halfSize?: boolean;
   }): void;
   progressMessage: string | null;
 }
@@ -88,6 +89,7 @@ export default function HdrModal({
   // Visual Intent Presets: 'natural' | 'interior' | 'dramatic'
   const [selectedIntent, setSelectedIntent] = useState<'natural' | 'interior' | 'dramatic'>('natural');
   const [hdrStrength, setHdrStrength] = useState<number>(65); // 0 to 100%
+  const [qualityMode, setQualityMode] = useState<'fast' | 'master'>('fast');
 
   // Advanced Controls Accordion
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
@@ -107,6 +109,36 @@ export default function HdrModal({
   const [healthReport, setHealthReport] = useState<BracketHealthReport | null>(null);
 
   const mouseDownTarget = useRef<EventTarget | null>(null);
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasUserAdjustedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    // Only invoke tone-mapping update if the user has actively adjusted sliders,
+    // avoiding clobbering the freshly tone-fused Hugin output on initial load.
+    if (!finalImageBase64 || isProcessing || !hasUserAdjustedRef.current) return;
+
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+
+    updateTimeoutRef.current = setTimeout(() => {
+      invoke(Invokes.UpdateHdrToneMapping, {
+        options: {
+          profile: selectedIntent,
+          exposureBias,
+          highlightRecovery,
+          shadowLift,
+          detailBoost: microDetail,
+        },
+      }).catch(console.error);
+    }, 60);
+
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, [finalImageBase64, isProcessing, selectedIntent, exposureBias, highlightRecovery, shadowLift, microDetail]);
 
   useEffect(() => {
     if (isOpen) {
@@ -191,6 +223,7 @@ export default function HdrModal({
       highlightRecovery,
       shadowLift,
       detailBoost: microDetail,
+      halfSize: qualityMode === 'fast',
     });
   };
 
@@ -332,6 +365,98 @@ export default function HdrModal({
             )}
           </div>
 
+          {/* Real-Time Interactive Tone-Mapping Sliders (< 80ms) */}
+          <div className="bg-neutral-900/80 border border-neutral-800 rounded-lg p-2.5 flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5">
+                <Sliders size={13} className="text-amber-400" />
+                <span className="font-semibold text-neutral-200">Interactive Tone Tuning (Real-Time):</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {(['natural', 'interior', 'dramatic'] as const).map((intent) => (
+                  <button
+                    key={intent}
+                    type="button"
+                    onClick={() => setSelectedIntent(intent)}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium capitalize border transition-all cursor-pointer ${
+                      selectedIntent === intent
+                        ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-bold'
+                        : 'bg-neutral-800/80 border-neutral-700 text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    {intent}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2 text-xs">
+              <div className="flex flex-col gap-0.5">
+                <div className="flex justify-between text-[10px] text-neutral-400">
+                  <span>Exposure:</span>
+                  <span className="font-mono text-amber-300">{exposureBias > 0 ? `+${exposureBias}` : exposureBias} EV</span>
+                </div>
+                <input
+                  type="range"
+                  min="-2.0"
+                  max="2.0"
+                  step="0.1"
+                  value={exposureBias}
+                  onChange={(e) => setExposureBias(parseFloat(e.target.value))}
+                  className="w-full accent-amber-500 h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              <div className="flex flex-col gap-0.5">
+                <div className="flex justify-between text-[10px] text-neutral-400">
+                  <span>Highlights:</span>
+                  <span className="font-mono text-amber-300">{highlightRecovery}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={highlightRecovery}
+                  onChange={(e) => setHighlightRecovery(parseInt(e.target.value, 10))}
+                  className="w-full accent-amber-500 h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              <div className="flex flex-col gap-0.5">
+                <div className="flex justify-between text-[10px] text-neutral-400">
+                  <span>Shadows:</span>
+                  <span className="font-mono text-amber-300">{shadowLift}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={shadowLift}
+                  onChange={(e) => setShadowLift(parseInt(e.target.value, 10))}
+                  className="w-full accent-amber-500 h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              <div className="flex flex-col gap-0.5">
+                <div className="flex justify-between text-[10px] text-neutral-400">
+                  <span>Detail Boost:</span>
+                  <span className="font-mono text-amber-300">{microDetail.toFixed(2)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.8"
+                  max="1.6"
+                  step="0.05"
+                  value={microDetail}
+                  onChange={(e) => setMicroDetail(parseFloat(e.target.value))}
+                  className="w-full accent-amber-500 h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+            </div>
+          </div>
+
           {savedPath && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
               <Text
@@ -433,6 +558,42 @@ export default function HdrModal({
             </span>
           </div>
         )}
+
+        {/* Quality Mode: Fast Draft vs Full Master */}
+        <div className="flex items-center justify-between bg-neutral-900/80 border border-neutral-800 rounded-xl p-2.5">
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-neutral-200">Processing Resolution:</span>
+            <span className="text-[11px] text-neutral-400">
+              {qualityMode === 'fast'
+                ? '⚡ Fast Draft (Half-size, rapid ~15s preview)'
+                : '💎 Full Master (Full native RAW resolution & maximum fidelity)'}
+            </span>
+          </div>
+          <div className="flex items-center bg-black/50 border border-neutral-700/60 rounded-lg p-0.5">
+            <button
+              type="button"
+              onClick={() => setQualityMode('fast')}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                qualityMode === 'fast'
+                  ? 'bg-amber-500 text-black font-bold shadow-xs'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              ⚡ Fast Draft
+            </button>
+            <button
+              type="button"
+              onClick={() => setQualityMode('master')}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                qualityMode === 'master'
+                  ? 'bg-amber-500 text-black font-bold shadow-xs'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              💎 Full Master
+            </button>
+          </div>
+        </div>
 
         {/* 3 Visual Intent Cards (1-Click Simplicity) */}
         <div className="flex flex-col gap-1.5">

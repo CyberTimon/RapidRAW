@@ -112,3 +112,85 @@ export function rotateCropCenter(
     height: crop.height,
   };
 }
+
+export function calculateAutoCropForRotation(
+  imageWidth: number,
+  imageHeight: number,
+  orientationSteps: number = 0,
+  aspectRatio: number | null,
+  newRotation: number,
+  currentCrop: Crop | null = null,
+  rotationDelta: number = 0,
+): Crop | null {
+  const { width: W, height: H } = getOrientedDimensions(imageWidth, imageHeight, orientationSteps);
+  const A = aspectRatio || (W > 0 && H > 0 ? W / H : 1);
+
+  if (!currentCrop) {
+    return calculateCenteredCrop(imageWidth, imageHeight, orientationSteps, A, newRotation);
+  }
+
+  const followedCrop = rotationDelta !== 0 ? rotateCropCenter(currentCrop, W, H, rotationDelta) : currentCrop;
+
+  if (isCropWithinBounds(followedCrop, W, H, newRotation)) {
+    return followedCrop;
+  }
+
+  let low = 0.1;
+  let high = 1.0;
+  let bestCrop = followedCrop;
+
+  for (let i = 0; i < 12; i++) {
+    const mid = (low + high) / 2;
+    const cx = followedCrop.x + followedCrop.width / 2;
+    const cy = followedCrop.y + followedCrop.height / 2;
+    const nw = followedCrop.width * mid;
+    const nh = followedCrop.height * mid;
+    const testCrop: Crop = {
+      unit: 'px',
+      x: cx - nw / 2,
+      y: cy - nh / 2,
+      width: nw,
+      height: nh,
+    };
+
+    if (isCropWithinBounds(testCrop, W, H, newRotation)) {
+      bestCrop = testCrop;
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+
+  if (low < 0.15) {
+    return calculateCenteredCrop(imageWidth, imageHeight, orientationSteps, A, newRotation);
+  }
+
+  return {
+    unit: 'px',
+    x: Math.ceil(bestCrop.x),
+    y: Math.ceil(bestCrop.y),
+    width: Math.floor(bestCrop.width),
+    height: Math.floor(bestCrop.height),
+  };
+}
+
+export function calculateStraightenAngle(dx: number, dy: number): number {
+  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+  let targetAngle;
+
+  if (angle > -45 && angle <= 45) {
+    targetAngle = 0;
+  } else if (angle > 45 && angle <= 135) {
+    targetAngle = 90;
+  } else if (angle > 135 || angle <= -135) {
+    targetAngle = 180;
+  } else {
+    targetAngle = -90;
+  }
+
+  let correction = targetAngle - angle;
+  if (correction > 180) correction -= 360;
+  if (correction < -180) correction += 360;
+
+  return correction;
+}

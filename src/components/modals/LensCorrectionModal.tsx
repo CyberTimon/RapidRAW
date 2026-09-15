@@ -15,6 +15,7 @@ import {
   SquareDashed,
   CircleDashed,
   Activity,
+  Sparkles,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Button from '../ui/Button';
@@ -80,6 +81,10 @@ interface LensParams {
     vig_k2: number;
     vig_k3: number;
   } | null;
+  defringeEnabled: boolean;
+  defringePurpleAmount: number;
+  defringeGreenAmount: number;
+  defringeEdgeThreshold: number;
 }
 
 interface LensCorrectionModalProps {
@@ -101,6 +106,10 @@ const DEFAULT_PARAMS: LensParams = {
   lensTcaEnabled: true,
   lensVignetteEnabled: true,
   lensDistortionParams: null,
+  defringeEnabled: false,
+  defringePurpleAmount: 50,
+  defringeGreenAmount: 50,
+  defringeEdgeThreshold: 0.12,
 };
 
 const parseFocalLength = (exif: any): number | null => {
@@ -283,7 +292,13 @@ export default function LensCorrectionModal({
 
         const result: string = await invoke('preview_geometry_transform', {
           params: fullParams,
-          jsAdjustments: currentAdjustments,
+          jsAdjustments: {
+            ...currentAdjustments,
+            defringeEnabled: currentParams.defringeEnabled,
+            defringePurpleAmount: currentParams.defringePurpleAmount,
+            defringeGreenAmount: currentParams.defringeGreenAmount,
+            defringeEdgeThreshold: currentParams.defringeEdgeThreshold,
+          },
           showLines: false,
         });
         setPreviewUrl(result);
@@ -316,6 +331,10 @@ export default function LensCorrectionModal({
         lensTcaEnabled: currentAdjustments.lensTcaEnabled ?? true,
         lensVignetteEnabled: currentAdjustments.lensVignetteEnabled ?? true,
         lensDistortionParams: currentAdjustments.lensDistortionParams,
+        defringeEnabled: currentAdjustments.defringeEnabled ?? false,
+        defringePurpleAmount: currentAdjustments.defringePurpleAmount ?? 50,
+        defringeGreenAmount: currentAdjustments.defringeGreenAmount ?? 50,
+        defringeEdgeThreshold: currentAdjustments.defringeEdgeThreshold ?? 0.12,
       };
 
       setParams(initParams);
@@ -816,6 +835,63 @@ export default function LensCorrectionModal({
                       step={1}
                       onChange={(e) => handleAmountChange('lensVignetteAmount', Number(e.target.value))}
                     />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Edge-Aware Axial Defringing */}
+            <div className="pt-2 border-t border-surface">
+              <div className="flex items-center gap-3 p-2 rounded-md bg-surface transition-colors">
+                <Text as="div" className="p-1.5 bg-bg-primary rounded-sm text-violet-400">
+                  <Sparkles size={16} />
+                </Text>
+                <Switch
+                  className="grow"
+                  label={t('modals.lensCorrection.defringe', { defaultValue: 'Edge-Aware Axial Defringe' })}
+                  checked={params.defringeEnabled}
+                  onChange={(val) => handleToggleChange('defringeEnabled', val)}
+                />
+              </div>
+              <AnimatePresence initial={false}>
+                {params.defringeEnabled && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                    animate={{ height: 'auto', opacity: 1, marginTop: 8 }}
+                    exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                    transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                    className="overflow-hidden px-2 space-y-3"
+                  >
+                    <Slider
+                      label={t('modals.lensCorrection.defringePurple', { defaultValue: 'Purple Fringe Suppression' })}
+                      value={params.defringePurpleAmount}
+                      min={0}
+                      max={100}
+                      defaultValue={50}
+                      step={1}
+                      onChange={(e) => handleAmountChange('defringePurpleAmount', Number(e.target.value))}
+                    />
+                    <Slider
+                      label={t('modals.lensCorrection.defringeGreen', { defaultValue: 'Green Fringe Suppression' })}
+                      value={params.defringeGreenAmount}
+                      min={0}
+                      max={100}
+                      defaultValue={50}
+                      step={1}
+                      onChange={(e) => handleAmountChange('defringeGreenAmount', Number(e.target.value))}
+                    />
+                    <Slider
+                      label={t('modals.lensCorrection.defringeThreshold', { defaultValue: 'Edge Gradient Sensitivity' })}
+                      value={Math.round((params.defringeEdgeThreshold ?? 0.12) * 100)}
+                      min={5}
+                      max={40}
+                      defaultValue={12}
+                      step={1}
+                      onChange={(e) => handleAmountChange('defringeEdgeThreshold', Number(e.target.value) / 100)}
+                    />
+                    <Text variant={TextVariants.small} color={TextColors.secondary} className="text-[11px] leading-tight block">
+                      Sobel edge-gating suppresses axial chromatic halos on contrast edges, leaving real purple flowers and green foliage untouched.
+                    </Text>
                   </motion.div>
                 )}
               </AnimatePresence>

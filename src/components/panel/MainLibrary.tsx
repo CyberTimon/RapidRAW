@@ -18,6 +18,8 @@ import {
   SlidersHorizontal,
   Rows3,
   Zap,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import CullingView from './library/CullingView';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -91,6 +93,8 @@ interface MainLibraryProps {
   thumbnailProgress: Progress;
   thumbnailSize: ThumbnailSize;
   onNavigateToCommunity(): void;
+  onHistoryBack?: () => void;
+  onHistoryForward?: () => void;
 }
 
 export interface ColumnWidths {
@@ -193,6 +197,10 @@ export default function MainLibrary(props: MainLibraryProps) {
   };
 
   const searchCriteria = useLibraryStore((state) => state.searchCriteria);
+  const folderHistory = useLibraryStore((state) => state.folderHistory);
+  const folderHistoryIndex = useLibraryStore((state) => state.folderHistoryIndex);
+  const canGoBack = folderHistoryIndex > 0;
+  const canGoForward = folderHistoryIndex < folderHistory.length - 1;
 
   const translatedRatingFilterOptions = useMemo(
     () => [
@@ -240,6 +248,7 @@ export default function MainLibrary(props: MainLibraryProps) {
     () => [
       { id: ThumbnailAspectRatio.Cover, label: t('library.thumbnailFit.fillSquare') },
       { id: ThumbnailAspectRatio.Contain, label: t('library.thumbnailFit.originalRatio') },
+      { id: ThumbnailAspectRatio.Masonry, label: t('library.thumbnailFit.masonry', 'Masonry Adaptive') },
     ],
     [t],
   );
@@ -608,6 +617,25 @@ export default function MainLibrary(props: MainLibraryProps) {
           <DisplayModeSwitch displayMode={libraryDisplayMode} setDisplayMode={setLibraryDisplayMode} t={t} />
 
           <div className="flex items-center bg-surface p-1 rounded-lg gap-1 border border-border-color/20">
+            {/* Folder History Navigation */}
+            <div className="flex items-center gap-0.5 mr-0.5">
+              <Button
+                className="h-10 w-10 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center hover:bg-card-active rounded-md transition-colors disabled:opacity-25 disabled:pointer-events-none"
+                disabled={!canGoBack}
+                onClick={props.onHistoryBack}
+                data-tooltip="Go Back (History)"
+              >
+                <ChevronLeft size={18} />
+              </Button>
+              <Button
+                className="h-10 w-10 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center hover:bg-card-active rounded-md transition-colors disabled:opacity-25 disabled:pointer-events-none"
+                disabled={!canGoForward}
+                onClick={props.onHistoryForward}
+                data-tooltip="Go Forward (History)"
+              >
+                <ChevronRight size={18} />
+              </Button>
+            </div>
             <SearchInput indexingProgress={props.indexingProgress} isIndexing={props.isIndexing} />
             <ViewOptionsDropdown
               libraryViewMode={props.libraryViewMode}

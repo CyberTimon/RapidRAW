@@ -795,10 +795,32 @@ pub fn build_iso21496_xmp_metadata(max_headroom: f32) -> String {
     )
 }
 
-/// Injects standard ICC Profile tag (Tag 34675 / 0x8773) into a TIFF file's IFD directory.
+/// High-speed Triangular Probability Density Function (TPDF) random dither generator
+#[inline]
+pub fn tpdf_dither(seed: &mut u64) -> f32 {
+    // 64-bit XorShift PRNG
+    *seed ^= *seed << 13;
+    *seed ^= *seed >> 7;
+    *seed ^= *seed << 17;
+    let u1 = (*seed as u32) as f32 / 4294967296.0;
+    *seed ^= *seed << 13;
+    *seed ^= *seed >> 7;
+    *seed ^= *seed << 17;
+    let u2 = (*seed as u32) as f32 / 4294967296.0;
+    // TPDF dither in [-1.0, 1.0], triangular distribution centered at 0
+    (u1 + u2 - 1.0) * 0.5
+}
+
+/// Injects standard ICC Profile tag (Tag 34675 / 0x8773) and 300 DPI Resolution Tags
+/// (Tag 282 XResolution, Tag 283 YResolution, Tag 296 ResolutionUnit) into a TIFF file's IFD directory.
 /// Ensures 100% compliance with professional print RIP software, Photoshop, and fine-art labs.
-pub fn inject_icc_profile_into_tiff(path: &Path, icc_bytes: &[u8]) -> Result<(), String> {
-    let mut data = fs::read(path).map_err(|e| format!("Failed to read TIFF for ICC injection: {}", e))?;
+pub fn inject_icc_and_resolution_tags_into_tiff(
+    path: &Path,
+    icc_bytes: &[u8],
+    x_dpi: u32,
+    y_dpi: u32,
+) -> Result<(), String> {
+    let mut data = fs::read(path).map_err(|e| format!("Failed to read TIFF for ICC/DPI injection: {}", e))?;
     if data.len() < 8 || &data[0..4] != b"II*\0" {
         return Ok(()); // Not a standard little-endian TIFF
     }
@@ -813,37 +835,77 @@ pub fn inject_icc_profile_into_tiff(path: &Path, icc_bytes: &[u8]) -> Result<(),
         return Ok(());
     }
 
-    let mut entries = Vec::with_capacity(num_tags + 1);
+    let mut entries = Vec::with_capacity(num_tags + 4);
     let mut cur = ifd_offset + 2;
     for _ in 0..num_tags {
         let tag = u16::from_le_bytes([data[cur], data[cur + 1]]);
-        if tag == 34675 {
-            return Ok(()); // Already has ICC profile tag
+        // Filter out existing resolution or ICC tags so we replace them cleanly
+        if tag != 34675 && tag != 282 && tag != 283 && tag != 296 {
+            let entry: [u8; 12] = data[cur..cur + 12].try_into().unwrap();
+            entries.push((tag, entry));
         }
-        let entry: [u8; 12] = data[cur..cur + 12].try_into().unwrap();
-        entries.push((tag, entry));
         cur += 12;
     }
 
-    // 1. Append ICC profile bytes aligned to 2-byte boundary
+    // 1. Append 8-byte RATIONAL for XResolution: [x_dpi, 1]
+    if data.len() % 4 != 0 {
+        data.resize(data.len() + (4 - (data.len() % 4)), 0);
+    }
+    let x_res_offset = data.len() as u32;
+    data.extend_from_slice(&x_dpi.to_le_bytes());
+    data.extend_from_slice(&1u32.to_le_bytes());
+
+    // 2. Append 8-byte RATIONAL for YResolution: [y_dpi, 1]
+    if data.len() % 4 != 0 {
+        data.resize(data.len() + (4 - (data.len() % 4)), 0);
+    }
+    let y_res_offset = data.len() as u32;
+    data.extend_from_slice(&y_dpi.to_le_bytes());
+    data.extend_from_slice(&1u32.to_le_bytes());
+
+    // 3. Append ICC profile bytes aligned to 2-byte boundary
     if data.len() % 2 != 0 {
         data.push(0);
     }
     let icc_offset = data.len() as u32;
     data.extend_from_slice(icc_bytes);
 
-    // 2. Create Tag 34675: tag=34675 (u16), type=7 (UNDEFINED u16), count=len (u32), offset (u32)
-    let mut new_entry = [0u8; 12];
-    new_entry[0..2].copy_from_slice(&34675u16.to_le_bytes());
-    new_entry[2..4].copy_from_slice(&7u16.to_le_bytes());
-    new_entry[4..8].copy_from_slice(&(icc_bytes.len() as u32).to_le_bytes());
-    new_entry[8..12].copy_from_slice(&icc_offset.to_le_bytes());
-    entries.push((34675, new_entry));
+    // Tag 282: XResolution (RATIONAL, count=1, offset)
+    let mut x_entry = [0u8; 12];
+    x_entry[0..2].copy_from_slice(&282u16.to_le_bytes());
+    x_entry[2..4].copy_from_slice(&5u16.to_le_bytes()); // Type 5 = RATIONAL
+    x_entry[4..8].copy_from_slice(&1u32.to_le_bytes());  // Count = 1
+    x_entry[8..12].copy_from_slice(&x_res_offset.to_le_bytes());
+    entries.push((282, x_entry));
+
+    // Tag 283: YResolution (RATIONAL, count=1, offset)
+    let mut y_entry = [0u8; 12];
+    y_entry[0..2].copy_from_slice(&283u16.to_le_bytes());
+    y_entry[2..4].copy_from_slice(&5u16.to_le_bytes()); // Type 5 = RATIONAL
+    y_entry[4..8].copy_from_slice(&1u32.to_le_bytes());  // Count = 1
+    y_entry[8..12].copy_from_slice(&y_res_offset.to_le_bytes());
+    entries.push((283, y_entry));
+
+    // Tag 296: ResolutionUnit (SHORT, count=1, value=2 for Inches)
+    let mut res_unit_entry = [0u8; 12];
+    res_unit_entry[0..2].copy_from_slice(&296u16.to_le_bytes());
+    res_unit_entry[2..4].copy_from_slice(&3u16.to_le_bytes()); // Type 3 = SHORT
+    res_unit_entry[4..8].copy_from_slice(&1u32.to_le_bytes());  // Count = 1
+    res_unit_entry[8..10].copy_from_slice(&2u16.to_le_bytes()); // 2 = Inches
+    entries.push((296, res_unit_entry));
+
+    // Tag 34675: ICC Profile (UNDEFINED, count=len, offset)
+    let mut icc_entry = [0u8; 12];
+    icc_entry[0..2].copy_from_slice(&34675u16.to_le_bytes());
+    icc_entry[2..4].copy_from_slice(&7u16.to_le_bytes()); // Type 7 = UNDEFINED
+    icc_entry[4..8].copy_from_slice(&(icc_bytes.len() as u32).to_le_bytes());
+    icc_entry[8..12].copy_from_slice(&icc_offset.to_le_bytes());
+    entries.push((34675, icc_entry));
 
     // Sort entries ascending by tag ID (mandatory in TIFF specification)
     entries.sort_by_key(|&(tag, _)| tag);
 
-    // 3. Append new IFD to file
+    // 4. Append new IFD to file
     if data.len() % 2 != 0 {
         data.push(0);
     }
@@ -855,14 +917,20 @@ pub fn inject_icc_profile_into_tiff(path: &Path, icc_bytes: &[u8]) -> Result<(),
     }
     data.extend_from_slice(&0u32.to_le_bytes()); // Next IFD = 0
 
-    // 4. Update header IFD pointer at offset 4..8
+    // 5. Update header IFD pointer at offset 4..8
     data[4..8].copy_from_slice(&new_ifd_offset.to_le_bytes());
 
-    fs::write(path, data).map_err(|e| format!("Failed to write TIFF with ICC profile: {}", e))?;
+    fs::write(path, data).map_err(|e| format!("Failed to write TIFF with ICC and resolution tags: {}", e))?;
     Ok(())
 }
 
-/// Saves a 32-bit floating point image as a Deflate-compressed 16-bit TIFF with embedded sRGB ICC profile
+/// Backwards-compatible wrapper that injects ICC profile and standard 300 DPI resolution tags
+pub fn inject_icc_profile_into_tiff(path: &Path, icc_bytes: &[u8]) -> Result<(), String> {
+    inject_icc_and_resolution_tags_into_tiff(path, icc_bytes, 300, 300)
+}
+
+/// Saves a 32-bit floating point image as a Deflate-compressed 16-bit TIFF with TPDF anti-contour dithering,
+/// embedded sRGB ICC profile, and physical 300 DPI print resolution tags.
 pub fn save_tiff_compressed<P: AsRef<Path>>(path: P, img: &image::Rgb32FImage) -> Result<(), String> {
     use tiff::encoder::{TiffEncoder, colortype::RGB16, Compression, DeflateLevel};
     use std::io::BufWriter;
@@ -875,12 +943,19 @@ pub fn save_tiff_compressed<P: AsRef<Path>>(path: P, img: &image::Rgb32FImage) -
     let image = encoder
         .new_image::<RGB16>(w, h)
         .map_err(|e| format!("TIFF image init error: {}", e))?;
-    let u16_data: Vec<u16> = img.as_raw().iter().map(|&v| (v.clamp(0.0, 1.0) * 65535.0).round() as u16).collect();
+
+    // TPDF anti-contour continuous-tone print dithering
+    let mut rng_seed = 0x853c49e6748fea9b_u64;
+    let u16_data: Vec<u16> = img.as_raw().iter().map(|&v| {
+        let d = tpdf_dither(&mut rng_seed) / 65535.0;
+        ((v + d).clamp(0.0, 1.0) * 65535.0).round() as u16
+    }).collect();
+
     image.write_data(&u16_data).map_err(|e| format!("TIFF write error: {}", e))?;
     std::io::Write::flush(&mut writer).map_err(|e| format!("Failed to flush TIFF: {}", e))?;
     drop(writer);
 
-    let _ = inject_icc_profile_into_tiff(path.as_ref(), crate::exif_processing::STANDARD_SRGB_ICC_PROFILE);
+    let _ = inject_icc_and_resolution_tags_into_tiff(path.as_ref(), crate::exif_processing::STANDARD_SRGB_ICC_PROFILE, 300, 300);
     Ok(())
 }
 
@@ -948,22 +1023,24 @@ pub fn save_png_high_quality_with_metadata<P: AsRef<Path>>(
 
         if let Some(rgb32f) = img.as_rgb32f() {
             let raw = rgb32f.as_raw();
-            let mut be_bytes = Vec::with_capacity(raw.len() * 2);
+            let mut ne_bytes = Vec::with_capacity(raw.len() * 2);
+            let mut rng_seed = 0x123456789abcdef0_u64;
             for &v in raw {
-                let u = (v.clamp(0.0, 1.0) * 65535.0).round() as u16;
-                be_bytes.extend_from_slice(&u.to_be_bytes());
+                let d = tpdf_dither(&mut rng_seed) / 65535.0;
+                let u = ((v + d).clamp(0.0, 1.0) * 65535.0).round() as u16;
+                ne_bytes.extend_from_slice(&u.to_ne_bytes());
             }
             encoder
-                .write_image(&be_bytes, w, h, image::ExtendedColorType::Rgb16)
+                .write_image(&ne_bytes, w, h, image::ExtendedColorType::Rgb16)
                 .map_err(|e| format!("PNG 16-bit encoding error: {}", e))?;
         } else if let Some(rgb16) = img.as_rgb16() {
             let raw = rgb16.as_raw();
-            let mut be_bytes = Vec::with_capacity(raw.len() * 2);
+            let mut ne_bytes = Vec::with_capacity(raw.len() * 2);
             for &val in raw {
-                be_bytes.extend_from_slice(&val.to_be_bytes());
+                ne_bytes.extend_from_slice(&val.to_ne_bytes());
             }
             encoder
-                .write_image(&be_bytes, w, h, image::ExtendedColorType::Rgb16)
+                .write_image(&ne_bytes, w, h, image::ExtendedColorType::Rgb16)
                 .map_err(|e| format!("PNG 16-bit encoding error: {}", e))?;
         } else {
             let rgb8 = img.to_rgb8();
@@ -973,18 +1050,27 @@ pub fn save_png_high_quality_with_metadata<P: AsRef<Path>>(
         }
     }
 
-    // Inject standard PNG sRGB chunk (Perceptual intent) directly after IHDR (at byte offset 33)
+    // Inject standard PNG sRGB chunk (Perceptual intent) and 300 DPI pHYs chunk directly after IHDR (at byte offset 33)
     let srgb_chunk: [u8; 13] = [
         0x00, 0x00, 0x00, 0x01, // Length: 1
         0x73, 0x52, 0x47, 0x42, // Chunk type: "sRGB"
         0x00,                   // Rendering intent: 0 (Perceptual)
         0xAE, 0xCE, 0x1C, 0xE9, // CRC-32 for "sRGB\0"
     ];
+    let phys_chunk: [u8; 21] = [
+        0x00, 0x00, 0x00, 0x09, // Length: 9
+        0x70, 0x48, 0x59, 0x73, // Chunk type: "pHYs"
+        0x00, 0x00, 0x2E, 0x23, // 11811 pixels per meter (~300 DPI) X
+        0x00, 0x00, 0x2E, 0x23, // 11811 pixels per meter (~300 DPI) Y
+        0x01,                   // Unit: meter
+        0x78, 0xA5, 0x3F, 0x76, // CRC-32
+    ];
 
-    let mut final_png = Vec::with_capacity(raw_png.len() + srgb_chunk.len());
+    let mut final_png = Vec::with_capacity(raw_png.len() + srgb_chunk.len() + phys_chunk.len());
     if raw_png.len() >= 33 && &raw_png[12..16] == b"IHDR" {
         final_png.extend_from_slice(&raw_png[..33]);
         final_png.extend_from_slice(&srgb_chunk);
+        final_png.extend_from_slice(&phys_chunk);
         final_png.extend_from_slice(&raw_png[33..]);
     } else {
         final_png = raw_png;

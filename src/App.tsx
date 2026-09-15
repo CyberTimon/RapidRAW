@@ -285,6 +285,8 @@ function App() {
     handleBackToLibrary,
     handleImageSelect,
     handleSelectSubfolder,
+    handleHistoryBack,
+    handleHistoryForward,
     handleSelectAlbum,
     handleOpenFolder,
     handleContinueSession,
@@ -839,6 +841,8 @@ function App() {
                       handlePasteAdjustments={handlePasteAdjustments}
                       handleResetAdjustments={handleResetAdjustments}
                       requestThumbnails={requestThumbnails}
+                      handleHistoryBack={handleHistoryBack}
+                      handleHistoryForward={handleHistoryForward}
                     />
                   </ErrorBoundary>
                 </div>

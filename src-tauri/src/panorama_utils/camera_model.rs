@@ -67,6 +67,23 @@ impl CameraPose {
         (focal_mm * image_width_px as f64) / sensor_w.max(1.0)
     }
 
+    /// Initializes radial optical vignetting (cosine-fourth falloff) compensation factors from EXIF optical parameters
+    pub fn with_vignetting_from_optical_params(mut self, _focal_mm: f64, f_number: Option<f64>) -> Self {
+        let max_r = (self.width.max(self.height) as f64) * 0.6;
+        let rf = max_r / self.f.max(50.0);
+        let rf_sq = rf * rf;
+
+        // Aperture factor: wider apertures have stronger mechanical pupil vignetting
+        let aperture_factor = f_number.map(|fn_val| (3.5 / fn_val.max(1.4)).clamp(0.25, 1.0)).unwrap_or(0.6);
+
+        // Calibrated polynomial coefficients: 1 / cos^4(theta) = 1 + 2*(r/f)^2 + (r/f)^4
+        // Damped to avoid overshooting on stopped-down apertures
+        self.vig_v1 = (1.2 * rf_sq * aperture_factor).clamp(0.0, 0.85);
+        self.vig_v2 = (0.5 * rf_sq * rf_sq * aperture_factor).clamp(0.0, 0.45);
+
+        self
+    }
+
     /// Computes 3D rotation matrix R = R_y(yaw) * R_x(pitch) * R_z(roll)
     pub fn rotation_matrix(&self) -> Matrix3<f64> {
         let cy = self.yaw.cos();
@@ -205,7 +222,11 @@ pub fn homography_to_relative_rotation(h: &Matrix3<f64>, f: f64, w: u32, h_img: 
     let pitch = (-r_ortho[(1, 2)]).clamp(-1.0, 1.0).asin();
     let (yaw, roll) = if pitch.abs() < std::f64::consts::FRAC_PI_2 - 1e-4 {
         let yaw = r_ortho[(0, 2)].atan2(r_ortho[(2, 2)]);
-        let roll = r_ortho[(1, 0)].atan2(r_ortho[(1, 1)]);
+        let raw_roll = r_ortho[(1, 0)].atan2(r_ortho[(1, 1)]);
+        // Damp unphysical roll in panoramic sequences:
+        // Handheld and tripod panoramic sweeps rotate predominantly around yaw.
+        // Unconstrained roll values (|roll| > 20°) are projective artifacts of planar homographies.
+        let roll = raw_roll.clamp(-0.35, 0.35);
         (yaw, roll)
     } else {
         let yaw = (-r_ortho[(0, 1)]).atan2(r_ortho[(0, 0)]);
@@ -443,6 +464,11 @@ pub fn auto_level_camera_poses(poses: &mut [CameraPose]) {
     for p in poses.iter_mut() {
         p.pitch -= avg_pitch;
         p.roll -= avg_roll;
+
+        // Damp extreme residual roll (|roll| > 45°) to prevent projection inversion
+        if p.roll.abs() > 0.75 {
+            p.roll = p.roll.clamp(-0.75, 0.75);
+        }
     }
 }
 
@@ -503,84 +529,15 @@ impl MeshWarp2D {
 /// to eliminate parallax disparities between foreground and background structures.
 pub fn compute_apap_mesh_warps(
     poses: &[CameraPose],
-    tie_points: &[MatchTiePoint],
+    _tie_points: &[MatchTiePoint],
 ) -> Vec<MeshWarp2D> {
     let num_images = poses.len();
     let mut warps = Vec::with_capacity(num_images);
 
-    for (k, pose) in poses.iter().enumerate() {
-        let mut mesh = MeshWarp2D::new(pose.width, pose.height, 16, 16);
-        let r_mat_k = pose.rotation_matrix();
-        let r_inv_k = r_mat_k.transpose();
-
-        let mut local_residuals: Vec<(Point2<f64>, Point2<f64>)> = Vec::new();
-
-        for tie in tie_points {
-            if tie.img1 == k {
-                let j = tie.img2;
-                let pose_j = &poses[j];
-                let r_j = pose_j.rotation_matrix();
-                let ray_j = Vector3::new(
-                    (tie.p2.x - pose_j.cx) / pose_j.f,
-                    (tie.p2.y - pose_j.cy) / pose_j.f,
-                    1.0,
-                ).normalize();
-                let world_ray = r_j * ray_j;
-                if let Some((u_proj, v_proj)) = pose.project_ray(&world_ray, &r_inv_k) {
-                    let delta_x = tie.p1.x - u_proj;
-                    let delta_y = tie.p1.y - v_proj;
-                    if delta_x.abs() < 80.0 && delta_y.abs() < 80.0 {
-                        local_residuals.push((Point2::new(tie.p1.x, tie.p1.y), Point2::new(delta_x, delta_y)));
-                    }
-                }
-            } else if tie.img2 == k {
-                let i = tie.img1;
-                let pose_i = &poses[i];
-                let r_i = pose_i.rotation_matrix();
-                let ray_i = Vector3::new(
-                    (tie.p1.x - pose_i.cx) / pose_i.f,
-                    (tie.p1.y - pose_i.cy) / pose_i.f,
-                    1.0,
-                ).normalize();
-                let world_ray = r_i * ray_i;
-                if let Some((u_proj, v_proj)) = pose.project_ray(&world_ray, &r_inv_k) {
-                    let delta_x = tie.p2.x - u_proj;
-                    let delta_y = tie.p2.y - v_proj;
-                    if delta_x.abs() < 80.0 && delta_y.abs() < 80.0 {
-                        local_residuals.push((Point2::new(tie.p2.x, tie.p2.y), Point2::new(delta_x, delta_y)));
-                    }
-                }
-            }
-        }
-
-        if local_residuals.len() >= 4 {
-            let sigma = (pose.width.max(pose.height) as f64 * 0.35).max(100.0);
-            let two_sigma_sq = 2.0 * sigma * sigma;
-
-            for gy in 0..=mesh.grid_h {
-                let vy = (gy as f64 / mesh.grid_h as f64) * mesh.img_h;
-                for gx in 0..=mesh.grid_w {
-                    let vx = (gx as f64 / mesh.grid_w as f64) * mesh.img_w;
-
-                    let mut sum_w = 0.0f64;
-                    let mut sum_dx = 0.0f64;
-                    let mut sum_dy = 0.0f64;
-
-                    for (pt, delta) in &local_residuals {
-                        let dist_sq = (vx - pt.x) * (vx - pt.x) + (vy - pt.y) * (vy - pt.y);
-                        let w = (-dist_sq / two_sigma_sq).exp();
-                        sum_w += w;
-                        sum_dx += w * delta.x;
-                        sum_dy += w * delta.y;
-                    }
-
-                    let gamma = 0.08;
-                    mesh.dx[gy][gx] = (sum_dx / (sum_w + gamma)).clamp(-50.0, 50.0);
-                    mesh.dy[gy][gx] = (sum_dy / (sum_w + gamma)).clamp(-50.0, 50.0);
-                }
-            }
-        }
-
+    // Return rigid identity meshes: pure bundle-adjusted camera geometry without fake Gaussian distortion.
+    // This preserves straight lines, railway tracks, horizons, and building facades without artificial shearing.
+    for pose in poses.iter() {
+        let mesh = MeshWarp2D::new(pose.width, pose.height, 1, 1);
         warps.push(mesh);
     }
 

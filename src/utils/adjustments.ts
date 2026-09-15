@@ -100,6 +100,12 @@ export enum CreativeAdjustment {
   GlowAmount = 'glowAmount',
   HalationAmount = 'halationAmount',
   FlareAmount = 'flareAmount',
+  TiltShiftEnabled = 'tiltShiftEnabled',
+  TiltShiftCenterY = 'tiltShiftCenterY',
+  TiltShiftBandHeight = 'tiltShiftBandHeight',
+  TiltShiftAngleDeg = 'tiltShiftAngleDeg',
+  TiltShiftBlurRadius = 'tiltShiftBlurRadius',
+  TiltShiftSpecularBoost = 'tiltShiftSpecularBoost',
 }
 
 export enum TransformAdjustment {
@@ -228,6 +234,16 @@ export interface Adjustments {
   orientationSteps: number;
   rotation: number;
   saturation: number;
+  tiltShiftEnabled: boolean;
+  tiltShiftCenterY: number;
+  tiltShiftBandHeight: number;
+  tiltShiftAngleDeg: number;
+  tiltShiftBlurRadius: number;
+  tiltShiftSpecularBoost: number;
+  defringeEnabled?: boolean;
+  defringePurpleAmount?: number;
+  defringeGreenAmount?: number;
+  defringeEdgeThreshold?: number;
   sectionVisibility: SectionVisibility;
   shadows: number;
   sharpness: number;
@@ -565,6 +581,16 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   orientationSteps: 0,
   rotation: 0,
   saturation: 0,
+  tiltShiftEnabled: false,
+  tiltShiftCenterY: 0.5,
+  tiltShiftBandHeight: 0.25,
+  tiltShiftAngleDeg: 0,
+  tiltShiftBlurRadius: 24,
+  tiltShiftSpecularBoost: 40,
+  defringeEnabled: false,
+  defringePurpleAmount: 50,
+  defringeGreenAmount: 50,
+  defringeEdgeThreshold: 0.12,
   sectionVisibility: {
     basic: true,
     curves: true,
@@ -693,6 +719,12 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     lensBlurMaxFade: loadedAdjustments.lensBlurMaxFade ?? INITIAL_ADJUSTMENTS.lensBlurMaxFade,
     lensBlurMinDepth: loadedAdjustments.lensBlurMinDepth ?? INITIAL_ADJUSTMENTS.lensBlurMinDepth,
     lensBlurMinFade: loadedAdjustments.lensBlurMinFade ?? INITIAL_ADJUSTMENTS.lensBlurMinFade,
+    tiltShiftEnabled: loadedAdjustments.tiltShiftEnabled ?? INITIAL_ADJUSTMENTS.tiltShiftEnabled,
+    tiltShiftCenterY: loadedAdjustments.tiltShiftCenterY ?? INITIAL_ADJUSTMENTS.tiltShiftCenterY,
+    tiltShiftBandHeight: loadedAdjustments.tiltShiftBandHeight ?? INITIAL_ADJUSTMENTS.tiltShiftBandHeight,
+    tiltShiftAngleDeg: loadedAdjustments.tiltShiftAngleDeg ?? INITIAL_ADJUSTMENTS.tiltShiftAngleDeg,
+    tiltShiftBlurRadius: loadedAdjustments.tiltShiftBlurRadius ?? INITIAL_ADJUSTMENTS.tiltShiftBlurRadius,
+    tiltShiftSpecularBoost: loadedAdjustments.tiltShiftSpecularBoost ?? INITIAL_ADJUSTMENTS.tiltShiftSpecularBoost,
     lensCorrectionMode: loadedAdjustments.lensCorrectionMode || 'manual',
     lensMaker: loadedAdjustments.lensMaker ?? INITIAL_ADJUSTMENTS.lensMaker,
     lensModel: loadedAdjustments.lensModel ?? INITIAL_ADJUSTMENTS.lensModel,
@@ -905,5 +937,11 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.LensBlurMaxDepth,
     Effect.LensBlurMinFade,
     Effect.LensBlurMaxFade,
+    CreativeAdjustment.TiltShiftEnabled,
+    CreativeAdjustment.TiltShiftCenterY,
+    CreativeAdjustment.TiltShiftBandHeight,
+    CreativeAdjustment.TiltShiftAngleDeg,
+    CreativeAdjustment.TiltShiftBlurRadius,
+    CreativeAdjustment.TiltShiftSpecularBoost,
   ],
 };

@@ -140,12 +140,16 @@ impl DinicGraph {
     }
 }
 
-/// Finds the optimal 2D seam mask between two registered images using downscaled proxy Graph-Cut.
-/// Returns a full-resolution float weight mask in [0.0, 1.0] where 1.0 = img_a, 0.0 = img_b.
+/// Finds the optimal 2D seam mask between two registered images using full-resolution Euclidean distance transform.
+/// Returns a full-resolution float weight mask in [0.0, 1.0] where 1.0 = pano_canvas, 0.0 = img_to_add.
+///
+/// For multi-band Laplacian blending, this provides a smooth distance ramp d_A / (d_A + d_B) across the overlap.
+/// When fed into the Laplacian pyramid, finest bands transition sharply at the medial boundary (0.5),
+/// eliminating double vision and ghosting, while coarse bands transition smoothly, eliminating sky seams.
 pub fn compute_2d_graphcut_seam_mask(
     pano_canvas: &Rgb32FImage,
     pano_valid_mask: &GrayImage,
-    img_to_add: &Rgb32FImage,
+    _img_to_add: &Rgb32FImage,
     add_valid_mask: &GrayImage,
 ) -> Vec<f32> {
     let (w, h) = pano_canvas.dimensions();
@@ -185,118 +189,96 @@ pub fn compute_2d_graphcut_seam_mask(
         return mask;
     }
 
-    let overlap_w = (max_ox - min_ox + 1) as usize;
-    let overlap_h = (max_oy - min_oy + 1) as usize;
+    // 2. Compute 2D Euclidean Distance Transform to image boundaries on the overlap region
+    // Expand by 4px to ensure smooth decay to outer boundaries
+    let pad = 4u32;
+    let roi_min_x = min_ox.saturating_sub(pad);
+    let roi_max_x = (max_ox + pad).min(w - 1);
+    let roi_min_y = min_oy.saturating_sub(pad);
+    let roi_max_y = (max_oy + pad).min(h - 1);
 
-    // 2. Downscale overlap region to proxy grid
-    let max_dim = overlap_w.max(overlap_h);
-    let scale_step = if max_dim > MAX_GRAPH_CUT_PROXY_DIM as usize {
-        (max_dim as f32 / MAX_GRAPH_CUT_PROXY_DIM as f32).ceil() as usize
-    } else {
-        1
-    };
+    let roi_w = (roi_max_x - roi_min_x + 1) as usize;
+    let roi_h = (roi_max_y - roi_min_y + 1) as usize;
+    let num_roi = roi_w * roi_h;
 
-    let proxy_w = (overlap_w + scale_step - 1) / scale_step;
-    let proxy_h = (overlap_h + scale_step - 1) / scale_step;
-    let num_proxy_nodes = proxy_w * proxy_h;
+    let mut dist_a = vec![1e6f32; num_roi];
+    let mut dist_b = vec![1e6f32; num_roi];
 
-    let src_node = num_proxy_nodes;
-    let sink_node = num_proxy_nodes + 1;
-    let total_nodes = num_proxy_nodes + 2;
-
-    let mut graph = DinicGraph::new(total_nodes);
-
-    let pano_raw = pano_canvas.as_raw();
-    let add_raw = img_to_add.as_raw();
-    let full_stride = w as usize * 3;
-
-    // 3. Populate edge weights: color difference + gradient saliency
-    for py in 0..proxy_h {
-        let y_full = (min_oy as usize + py * scale_step).min(h as usize - 1);
-        for px in 0..proxy_w {
-            let x_full = (min_ox as usize + px * scale_step).min(w as usize - 1);
-            let u = py * proxy_w + px;
-
-            let on_pano = pano_valid_mask.get_pixel(x_full as u32, y_full as u32)[0] > 0;
-            let on_add = add_valid_mask.get_pixel(x_full as u32, y_full as u32)[0] > 0;
-
-            if !on_pano && on_add {
-                // Must belong to image B (sink)
-                graph.add_terminal_edge(u, sink_node, 1e6);
-            } else if on_pano && !on_add {
-                // Must belong to image A (source)
-                graph.add_terminal_edge(src_node, u, 1e6);
-            } else if px == 0 {
-                // Outer left proxy border terminal bias
-                graph.add_terminal_edge(src_node, u, 50.0);
-            } else if px == proxy_w - 1 {
-                // Outer right proxy border terminal bias
-                graph.add_terminal_edge(u, sink_node, 50.0);
+    for ry in 0..roi_h {
+        let cy = roi_min_y as usize + ry;
+        for rx in 0..roi_w {
+            let cx = roi_min_x as usize + rx;
+            let idx = ry * roi_w + rx;
+            let in_a = pano_valid_mask.get_pixel(cx as u32, cy as u32)[0] > 0;
+            let in_b = add_valid_mask.get_pixel(cx as u32, cy as u32)[0] > 0;
+            if !in_a {
+                dist_a[idx] = 0.0;
             }
-
-            // Neighbor links (Horizontal and Vertical) with Photomontage Gradient Ratio Metric
-            let raw_offset = y_full * full_stride + x_full * 3;
-            let pa = [
-                pano_raw[raw_offset],
-                pano_raw[raw_offset + 1],
-                pano_raw[raw_offset + 2],
-            ];
-            let pb = [
-                add_raw[raw_offset],
-                add_raw[raw_offset + 1],
-                add_raw[raw_offset + 2],
-            ];
-
-            let color_diff = ((pa[0] - pb[0]).powi(2)
-                + (pa[1] - pb[1]).powi(2)
-                + (pa[2] - pb[2]).powi(2))
-            .sqrt();
-
-            if px + 1 < proxy_w {
-                let v_right = py * proxy_w + (px + 1);
-                let x_next = (min_ox as usize + (px + 1) * scale_step).min(w as usize - 1);
-                let raw_next = y_full * full_stride + x_next * 3;
-                let grad_a = ((pano_raw[raw_next] - pa[0]).abs()
-                    + (pano_raw[raw_next + 1] - pa[1]).abs()
-                    + (pano_raw[raw_next + 2] - pa[2]).abs()) * 0.333;
-                let grad_b = ((add_raw[raw_next] - pb[0]).abs()
-                    + (add_raw[raw_next + 1] - pb[1]).abs()
-                    + (add_raw[raw_next + 2] - pb[2]).abs()) * 0.333;
-                let max_grad = grad_a.max(grad_b);
-
-                // High color mismatch or sharp line gradients (rails, edges) increase edge capacity,
-                // making min-cut actively route through smooth, uniform regions.
-                let weight = (color_diff * 120.0) + (max_grad * 180.0) + 1.0;
-                graph.add_edge(u, v_right, weight);
-            }
-            if py + 1 < proxy_h {
-                let v_down = (py + 1) * proxy_w + px;
-                let y_next = (min_oy as usize + (py + 1) * scale_step).min(h as usize - 1);
-                let raw_next = y_next * full_stride + x_full * 3;
-                let grad_a = ((pano_raw[raw_next] - pa[0]).abs()
-                    + (pano_raw[raw_next + 1] - pa[1]).abs()
-                    + (pano_raw[raw_next + 2] - pa[2]).abs()) * 0.333;
-                let grad_b = ((add_raw[raw_next] - pb[0]).abs()
-                    + (add_raw[raw_next + 1] - pb[1]).abs()
-                    + (add_raw[raw_next + 2] - pb[2]).abs()) * 0.333;
-                let max_grad = grad_a.max(grad_b);
-
-                let weight = (color_diff * 120.0) + (max_grad * 180.0) + 1.0;
-                graph.add_edge(u, v_down, weight);
+            if !in_b {
+                dist_b[idx] = 0.0;
             }
         }
     }
 
-    // 4. Solve Min-Cut / Max-Flow
-    let _ = graph.max_flow(src_node, sink_node);
-    let s_reachable = graph.get_source_reachable(src_node);
+    // Forward pass (top-left to bottom-right)
+    for ry in 0..roi_h {
+        for rx in 0..roi_w {
+            let idx = ry * roi_w + rx;
+            let mut da = dist_a[idx];
+            let mut db = dist_b[idx];
 
-    // 5. Bilinearly Upsample optimal seam mask back to full resolution (Zero Staircases)
-    let mut proxy_mask = vec![0.0f32; num_proxy_nodes];
-    for u in 0..num_proxy_nodes {
-        proxy_mask[u] = if s_reachable[u] { 1.0 } else { 0.0 };
+            if rx > 0 {
+                da = da.min(dist_a[idx - 1] + 1.0);
+                db = db.min(dist_b[idx - 1] + 1.0);
+            }
+            if ry > 0 {
+                let up = (ry - 1) * roi_w + rx;
+                da = da.min(dist_a[up] + 1.0);
+                db = db.min(dist_b[up] + 1.0);
+                if rx > 0 {
+                    da = da.min(dist_a[up - 1] + 1.414);
+                    db = db.min(dist_b[up - 1] + 1.414);
+                }
+                if rx + 1 < roi_w {
+                    da = da.min(dist_a[up + 1] + 1.414);
+                    db = db.min(dist_b[up + 1] + 1.414);
+                }
+            }
+            dist_a[idx] = da;
+            dist_b[idx] = db;
+        }
     }
 
+    // Backward pass (bottom-right to top-left)
+    for ry in (0..roi_h).rev() {
+        for rx in (0..roi_w).rev() {
+            let idx = ry * roi_w + rx;
+            let mut da = dist_a[idx];
+            let mut db = dist_b[idx];
+
+            if rx + 1 < roi_w {
+                da = da.min(dist_a[idx + 1] + 1.0);
+                db = db.min(dist_b[idx + 1] + 1.0);
+            }
+            if ry + 1 < roi_h {
+                let down = (ry + 1) * roi_w + rx;
+                da = da.min(dist_a[down] + 1.0);
+                db = db.min(dist_b[down] + 1.0);
+                if rx + 1 < roi_w {
+                    da = da.min(dist_a[down + 1] + 1.414);
+                    db = db.min(dist_b[down + 1] + 1.414);
+                }
+                if rx > 0 {
+                    da = da.min(dist_a[down - 1] + 1.414);
+                    db = db.min(dist_b[down - 1] + 1.414);
+                }
+            }
+            dist_a[idx] = da;
+            dist_b[idx] = db;
+        }
+    }
+
+    // 3. Assemble full mask with smooth distance-weighted transition across overlap
     let mut full_mask = vec![0.0f32; num_pixels];
 
     for y in 0..h as usize {
@@ -310,28 +292,21 @@ pub fn compute_2d_graphcut_seam_mask(
             } else if !on_pano && on_add {
                 full_mask[idx] = 0.0;
             } else if on_pano && on_add {
-                // Continuous bilinear proxy sampling
-                let gx = (x as f32 - min_ox as f32) / scale_step as f32;
-                let gy = (y as f32 - min_oy as f32) / scale_step as f32;
-
-                let px0 = (gx.floor().max(0.0) as usize).min(proxy_w - 1);
-                let px1 = (px0 + 1).min(proxy_w - 1);
-                let py0 = (gy.floor().max(0.0) as usize).min(proxy_h - 1);
-                let py1 = (py0 + 1).min(proxy_h - 1);
-
-                let fx = (gx - px0 as f32).clamp(0.0, 1.0);
-                let fy = (gy - py0 as f32).clamp(0.0, 1.0);
-
-                let v00 = proxy_mask[py0 * proxy_w + px0];
-                let v10 = proxy_mask[py0 * proxy_w + px1];
-                let v01 = proxy_mask[py1 * proxy_w + px0];
-                let v11 = proxy_mask[py1 * proxy_w + px1];
-
-                let top = v00 * (1.0 - fx) + v10 * fx;
-                let bottom = v01 * (1.0 - fx) + v11 * fx;
-                let val = top * (1.0 - fy) + bottom * fy;
-
-                full_mask[idx] = val.clamp(0.0, 1.0);
+                let rx = x.saturating_sub(roi_min_x as usize);
+                let ry = y.saturating_sub(roi_min_y as usize);
+                if rx < roi_w && ry < roi_h {
+                    let roi_idx = ry * roi_w + rx;
+                    let da = dist_a[roi_idx];
+                    let db = dist_b[roi_idx];
+                    let total_d = da + db;
+                    if total_d > 1e-4 {
+                        full_mask[idx] = (da / total_d).clamp(0.0, 1.0);
+                    } else {
+                        full_mask[idx] = 0.5;
+                    }
+                } else {
+                    full_mask[idx] = 0.5;
+                }
             }
         }
     }

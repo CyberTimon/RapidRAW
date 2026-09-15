@@ -249,6 +249,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       preloadedImages?: ImageFile[],
       expandParents = true,
       preserveEditor = false,
+      isHistoryNav = false,
     ) => {
       const { appSettings, handleSettingsChange } = useSettingsStore.getState();
       const { pinnedFolders } = appSettings || { pinnedFolders: [] };
@@ -297,6 +298,10 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
             }
             newExpandedFolders.add(relevantRoot);
           }
+        }
+
+        if (!isHistoryNav && path) {
+          useLibraryStore.getState().pushFolderHistory(path);
         }
 
         setLibrary({
@@ -595,11 +600,27 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     });
   };
 
+  const handleHistoryBack = useCallback(async () => {
+    const targetPath = useLibraryStore.getState().stepFolderHistory('back');
+    if (targetPath) {
+      await handleSelectSubfolder(targetPath, false, undefined, true, false, true);
+    }
+  }, [handleSelectSubfolder]);
+
+  const handleHistoryForward = useCallback(async () => {
+    const targetPath = useLibraryStore.getState().stepFolderHistory('forward');
+    if (targetPath) {
+      await handleSelectSubfolder(targetPath, false, undefined, true, false, true);
+    }
+  }, [handleSelectSubfolder]);
+
   return {
     handleGoHome,
     handleBackToLibrary,
     handleImageSelect,
     handleSelectSubfolder,
+    handleHistoryBack,
+    handleHistoryForward,
     handleSelectAlbum,
     handleOpenFolder,
     handleContinueSession,

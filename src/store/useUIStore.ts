@@ -54,6 +54,25 @@ export interface HdrModalState {
   stitchingSourcePaths: Array<string>;
 }
 
+export interface DrizzleModalState {
+  isOpen: boolean;
+  isProcessing: boolean;
+  sourcePaths: string[];
+  scaleFactor: number;
+  pixfrac: number;
+  progressMessage: string | null;
+  error: string | null;
+  finalImageBase64: string | null;
+  originalBase64: string | null;
+  meta: {
+    width: number;
+    height: number;
+    scale: number;
+    frames_stacked: number;
+    snr_boost: string;
+  } | null;
+}
+
 export interface DenoiseModalState {
   isOpen: boolean;
   isProcessing: boolean;
@@ -77,6 +96,9 @@ export interface BatchPolishModalState {
 
 export interface ColorMatcherModalState {
   isOpen: boolean;
+  heroPath?: string | null;
+  targetPaths?: string[];
+  initialMode?: 'matcher' | 'harmonize';
 }
 
 export interface HeroCuratorModalState {
@@ -128,6 +150,11 @@ export interface NightSkyState {
   removeLightPollution: boolean;
   sigmaClip: number;
   error: string | null;
+  starTrailsMode: boolean;
+  cometDecay: boolean;
+  decayRate: number;
+  fillGaps: boolean;
+  useGpu: boolean;
 }
 
 export interface CullingModalState {
@@ -190,6 +217,7 @@ interface UIState {
   panoramaModalState: PanoramaModalState;
   focusStackModalState: FocusStackModalState;
   hdrModalState: HdrModalState;
+  drizzleModalState: DrizzleModalState;
   negativeModalState: NegativeConversionModalState;
   denoiseModalState: DenoiseModalState;
   cullingModalState: CullingModalState;
@@ -299,6 +327,18 @@ export const useUIStore = create<UIState>((set, get) => ({
     progressMessage: '',
     stitchingSourcePaths: [],
   },
+  drizzleModalState: {
+    isOpen: false,
+    isProcessing: false,
+    sourcePaths: [],
+    scaleFactor: 2,
+    pixfrac: 0.8,
+    progressMessage: null,
+    error: null,
+    finalImageBase64: null,
+    originalBase64: null,
+    meta: null,
+  },
   negativeModalState: { isOpen: false, targetPaths: [] },
   denoiseModalState: {
     isOpen: false,
@@ -336,6 +376,11 @@ export const useUIStore = create<UIState>((set, get) => ({
     removeLightPollution: true,
     sigmaClip: 2.5,
     error: null,
+    starTrailsMode: false,
+    cometDecay: true,
+    decayRate: 0.08,
+    fillGaps: true,
+    useGpu: true,
   },
 
   setUI: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),

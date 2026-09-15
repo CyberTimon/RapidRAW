@@ -1987,7 +1987,8 @@ pub async fn stitch_focus_stack(
         let result = run_focus_stack(source.as_ref(), &cfg, &progress)?;
 
         progress("Creating preview...");
-        let final_image = result.image.to_rgb32f();
+        let mut final_image = result.image.to_rgb32f();
+        normalize_focus_stack_radiance(&mut final_image);
         let preview = make_preview(&final_image, 1200)?;
         let depth_preview = make_depth_preview(&result, n)?;
 
@@ -2173,6 +2174,86 @@ pub async fn save_focus_stack(
     crate::exif_processing::write_rrexif_sidecar(&first_path_str, &output_path).ok();
 
     Ok(output_path.to_string_lossy().to_string())
+}
+
+pub fn stack_images_headless(
+    paths: &[String],
+    output_path: &std::path::Path,
+) -> Result<(), String> {
+    if paths.len() < 2 {
+        return Err("Please provide at least two images to stack.".to_string());
+    }
+    let settings = crate::app_settings::AppSettings::default();
+    let n = paths.len();
+    println!("Loading {} frames for focus stacking (headless DiskSource streaming)...", n);
+    let first = decode_frame(&paths[0], &settings)?;
+    let (w, h) = (first.w, first.h);
+
+    let disk = DiskSource::create(n, w, h)?;
+    disk.write(0, &first)?;
+    drop(first);
+
+    for (i, p) in paths.iter().enumerate().skip(1) {
+        println!("  - Loading focus frame {}/{}...", i + 1, n);
+        let f = decode_frame(p, &settings)?;
+        check_dims(i, &f, w, h)?;
+        disk.write(i, &f)?;
+    }
+
+    let cfg = StackConfig::default();
+    let progress = |msg: &str| println!("  [Focus Stack] {}", msg);
+    let result = run_focus_stack(&disk, &cfg, &progress)?;
+
+    let mut rgb32f = result.image.to_rgb32f();
+    normalize_focus_stack_radiance(&mut rgb32f);
+
+    let dyn_img = DynamicImage::ImageRgb32F(rgb32f);
+    let rgb16_img = dyn_img.to_rgb16();
+    rgb16_img
+        .save_with_format(output_path, ImageFormat::Tiff)
+        .map_err(|e| format!("Failed to save TIFF {}: {}", output_path.display(), e))?;
+
+    let preview_path = output_path.with_extension("jpg");
+    let sdr_preview = dyn_img.to_rgb8();
+    sdr_preview
+        .save_with_format(&preview_path, ImageFormat::Jpeg)
+        .map_err(|e| format!("Failed to save preview JPEG {}: {}", preview_path.display(), e))?;
+
+    println!("Focus stack saved successfully to {}", output_path.display());
+    Ok(())
+}
+
+pub fn normalize_focus_stack_radiance(rgb32f: &mut image::Rgb32FImage) {
+    let total_pixels = (rgb32f.width() * rgb32f.height()) as usize;
+    let step = (total_pixels / 10000).max(1);
+    let mut sample_lumas: Vec<f32> = Vec::with_capacity(10000);
+    for p in rgb32f.pixels().step_by(step) {
+        let luma = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+        if luma > 0.005 {
+            sample_lumas.push(luma);
+        }
+    }
+    sample_lumas.sort_unstable_by(|a, b| a.total_cmp(b));
+    if !sample_lumas.is_empty() {
+        let n = sample_lumas.len();
+        let p1 = sample_lumas[(n as f32 * 0.01) as usize].clamp(0.001, 0.50);
+        let p99 = sample_lumas[((n as f32 * 0.99) as usize).min(n - 1)].clamp(0.05, 1.0);
+        if p99 < 0.90 || p1 > 0.06 {
+            let target_p1 = 0.04f32;
+            let target_p99 = 0.95f32;
+            let range = (p99 - p1).max(0.05);
+            let target_range = target_p99 - target_p1;
+            println!("Focus stack photometric anchoring: P1={:.3}, P99={:.3} -> stretching to [{:.3}, {:.3}]", p1, p99, target_p1, target_p99);
+            for p in rgb32f.pixels_mut() {
+                let luma = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+                let new_luma = ((luma - p1) / range * target_range + target_p1).clamp(0.0, 1.0);
+                let ratio = new_luma / luma.max(1e-5);
+                p[0] = (p[0] * ratio).clamp(0.0, 1.0);
+                p[1] = (p[1] * ratio).clamp(0.0, 1.0);
+                p[2] = (p[2] * ratio).clamp(0.0, 1.0);
+            }
+        }
+    }
 }
 
 #[cfg(test)]

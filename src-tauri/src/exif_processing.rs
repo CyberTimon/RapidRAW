@@ -65,11 +65,11 @@ pub fn build_standard_exif_app1_segment(original_path: &Path) -> Option<Vec<u8>>
     tiff_buf.extend_from_slice(b"II*\0");
     tiff_buf.extend_from_slice(&8u32.to_le_bytes());
 
-    // Number of tags in IFD0: 5 (Make, Model, Software, Orientation, ExifIFDPointer)
-    let num_ifd0 = 5u16;
+    // Number of tags in IFD0: 8 (Make, Model, Orientation, XResolution, YResolution, ResolutionUnit, Software, ExifIFDPointer)
+    let num_ifd0 = 8u16;
     tiff_buf.extend_from_slice(&num_ifd0.to_le_bytes());
 
-    let mut val_offset = 8u32 + 2 + 5 * 12 + 4; // 74 bytes
+    let mut val_offset = 8u32 + 2 + 8 * 12 + 4; // 110 bytes
 
     let make_bytes = format!("{}\0", make).into_bytes();
     let model_bytes = format!("{}\0", model).into_bytes();
@@ -78,6 +78,11 @@ pub fn build_standard_exif_app1_segment(original_path: &Path) -> Option<Vec<u8>>
     let make_off = val_offset; val_offset += make_bytes.len() as u32;
     let model_off = val_offset; val_offset += model_bytes.len() as u32;
     let soft_off = val_offset; val_offset += software_bytes.len() as u32;
+
+    // 4-byte align for resolution rationals
+    val_offset = (val_offset + 3) & !3;
+    let x_res_off = val_offset; val_offset += 8;
+    let y_res_off = val_offset; val_offset += 8;
 
     let exif_ifd_off = (val_offset + 3) & !3; // 4-byte align
 
@@ -93,17 +98,35 @@ pub fn build_standard_exif_app1_segment(original_path: &Path) -> Option<Vec<u8>>
     tiff_buf.extend_from_slice(&(model_bytes.len() as u32).to_le_bytes());
     tiff_buf.extend_from_slice(&model_off.to_le_bytes());
 
-    // Tag 0x0131: Software (ASCII)
-    tiff_buf.extend_from_slice(&0x0131u16.to_le_bytes());
-    tiff_buf.extend_from_slice(&2u16.to_le_bytes());
-    tiff_buf.extend_from_slice(&(software_bytes.len() as u32).to_le_bytes());
-    tiff_buf.extend_from_slice(&soft_off.to_le_bytes());
-
     // Tag 0x0112: Orientation (SHORT, count 1, value 1)
     tiff_buf.extend_from_slice(&0x0112u16.to_le_bytes());
     tiff_buf.extend_from_slice(&3u16.to_le_bytes());
     tiff_buf.extend_from_slice(&1u32.to_le_bytes());
     tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+
+    // Tag 0x011A: XResolution (RATIONAL, count 1, [300, 1])
+    tiff_buf.extend_from_slice(&0x011Au16.to_le_bytes());
+    tiff_buf.extend_from_slice(&5u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+    tiff_buf.extend_from_slice(&x_res_off.to_le_bytes());
+
+    // Tag 0x011B: YResolution (RATIONAL, count 1, [300, 1])
+    tiff_buf.extend_from_slice(&0x011Bu16.to_le_bytes());
+    tiff_buf.extend_from_slice(&5u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+    tiff_buf.extend_from_slice(&y_res_off.to_le_bytes());
+
+    // Tag 0x0128: ResolutionUnit (SHORT, count 1, value 2 = Inches)
+    tiff_buf.extend_from_slice(&0x0128u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&3u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+    tiff_buf.extend_from_slice(&2u32.to_le_bytes());
+
+    // Tag 0x0131: Software (ASCII)
+    tiff_buf.extend_from_slice(&0x0131u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&2u16.to_le_bytes());
+    tiff_buf.extend_from_slice(&(software_bytes.len() as u32).to_le_bytes());
+    tiff_buf.extend_from_slice(&soft_off.to_le_bytes());
 
     // Tag 0x8769: ExifIFDPointer (LONG, count 1)
     tiff_buf.extend_from_slice(&0x8769u16.to_le_bytes());
@@ -118,6 +141,22 @@ pub fn build_standard_exif_app1_segment(original_path: &Path) -> Option<Vec<u8>>
     tiff_buf.extend_from_slice(&make_bytes);
     tiff_buf.extend_from_slice(&model_bytes);
     tiff_buf.extend_from_slice(&software_bytes);
+
+    // Pad to x_res_off
+    while tiff_buf.len() < (x_res_off as usize) {
+        tiff_buf.push(0);
+    }
+    // Append XResolution [300, 1]
+    tiff_buf.extend_from_slice(&300u32.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
+
+    // Pad to y_res_off
+    while tiff_buf.len() < (y_res_off as usize) {
+        tiff_buf.push(0);
+    }
+    // Append YResolution [300, 1]
+    tiff_buf.extend_from_slice(&300u32.to_le_bytes());
+    tiff_buf.extend_from_slice(&1u32.to_le_bytes());
 
     // Pad to exif_ifd_off
     while tiff_buf.len() < (exif_ifd_off as usize) {
@@ -1726,14 +1765,80 @@ pub fn read_exif_data_from_bytes(path: &str, file_bytes: &[u8]) -> HashMap<Strin
     exif_data
 }
 
+static CENTRAL_EXIF_CACHE_DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+pub fn init_central_exif_cache_dir(dir: PathBuf) {
+    let _ = fs::create_dir_all(&dir);
+    let _ = CENTRAL_EXIF_CACHE_DIR.set(dir);
+}
+
+pub fn get_central_exif_cache_dir() -> PathBuf {
+    if let Some(dir) = CENTRAL_EXIF_CACHE_DIR.get() {
+        return dir.clone();
+    }
+    let fallback = std::env::temp_dir().join("rapidraw").join("exif");
+    let _ = fs::create_dir_all(&fallback);
+    fallback
+}
+
+pub fn compute_exif_cache_key(source_path: &Path) -> Option<String> {
+    let canonical = source_path.canonicalize().unwrap_or_else(|_| source_path.to_path_buf());
+    let path_str = canonical.to_string_lossy();
+    let mod_time = fs::metadata(source_path)
+        .ok()?
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(path_str.as_bytes());
+    hasher.update(&mod_time.to_le_bytes());
+    Some(hasher.finalize().to_hex().to_string())
+}
+
+pub fn read_central_cached_exif(source_path: &Path) -> Option<HashMap<String, String>> {
+    let key = compute_exif_cache_key(source_path)?;
+    let cache_dir = get_central_exif_cache_dir();
+    let cache_file = cache_dir.join(format!("{}.json", key));
+    if cache_file.exists() {
+        if let Ok(content) = fs::read_to_string(&cache_file) {
+            if let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&content) {
+                return Some(map);
+            }
+        }
+    }
+    None
+}
+
+pub fn write_central_cached_exif(source_path: &Path, exif_map: &HashMap<String, String>) {
+    if exif_map.is_empty() {
+        return;
+    }
+    if let Some(key) = compute_exif_cache_key(source_path) {
+        let cache_dir = get_central_exif_cache_dir();
+        let _ = fs::create_dir_all(&cache_dir);
+        let cache_file = cache_dir.join(format!("{}.json", key));
+        if let Ok(json) = serde_json::to_string(exif_map) {
+            let _ = fs::write(&cache_file, json);
+        }
+    }
+}
+
 pub fn read_exif_data(path: &str, file_bytes: &[u8]) -> HashMap<String, String> {
     let source_path = Path::new(path);
     if let Some(sidecar_exif) = read_rrexif_sidecar(source_path) {
         return sidecar_exif;
     }
 
+    if let Some(cached_exif) = read_central_cached_exif(source_path) {
+        return cached_exif;
+    }
+
     let exif_map = read_exif_data_from_bytes(path, file_bytes);
     if !exif_map.is_empty() {
+        write_central_cached_exif(source_path, &exif_map);
         let mut metadata = load_primary_metadata(source_path);
         metadata.exif = Some(exif_map.clone());
         let _ = save_primary_metadata(source_path, &metadata);

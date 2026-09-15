@@ -13,9 +13,11 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
 use crate::app_settings::load_settings;
-use crate::exif_processing::read_exposure_time_secs;
+use crate::exif_processing::{read_exposure_time_secs, read_iso, read_f_number};
 use crate::file_management::parse_virtual_path;
-use crate::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
+#[allow(unused_imports)]
+use crate::hdr_deghosting::{align_hdr_frames, compute_physical_exposure_scale, load_hdr_frames};
+use std::time::Duration;
 use crate::panorama_stitching::ImageInfo;
 use crate::panorama_utils::camera_model::{CameraPose, PanoramaProjection};
 use crate::panorama_utils::stitching::ray_traced_multiband_stitcher;
@@ -38,7 +40,7 @@ pub struct ExposureBracketGroup {
 }
 
 /// Parses capture timestamp string (YYYY:MM:DD HH:MM:SS) into seconds for temporal grouping
-fn parse_exif_timestamp(datetime_str: &str) -> Option<u64> {
+pub fn parse_exif_timestamp(datetime_str: &str) -> Option<u64> {
     let parts: Vec<&str> = datetime_str.split_whitespace().collect();
     if parts.len() != 2 {
         return None;
@@ -55,17 +57,28 @@ fn parse_exif_timestamp(datetime_str: &str) -> Option<u64> {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct HdrPanoGroupingReport {
+    pub total_files: usize,
+    pub panels: Vec<ExposureBracketGroup>,
+    pub excluded_outliers: Vec<String>,
+    pub is_consistent_bracket_size: bool,
+    pub detected_bracket_size: usize,
+}
+
 /// Automatically clusters arbitrary RAW photo selections into HDR exposure bracket groups
-/// by EXIF capture timestamp delta (dt < 7s), focal length, and exposure EV progressions.
-pub fn cluster_hdr_brackets(paths: &[String]) -> Vec<ExposureBracketGroup> {
+/// by physical exposure scale E = (t * ISO) / F^2, temporal burst proximity, and outlier isolation.
+pub fn cluster_hdr_brackets_robust(paths: &[String]) -> (Vec<ExposureBracketGroup>, Vec<String>) {
     if paths.is_empty() {
-        return Vec::new();
+        return (Vec::new(), Vec::new());
     }
 
+    #[derive(Clone)]
     struct ItemMeta {
         path: String,
         timestamp: u64,
-        exposure: f32,
+        physical_scale: f32,
     }
 
     let mut items: Vec<ItemMeta> = Vec::with_capacity(paths.len());
@@ -73,8 +86,11 @@ pub fn cluster_hdr_brackets(paths: &[String]) -> Vec<ExposureBracketGroup> {
     for path in paths {
         let (source_path, _) = parse_virtual_path(path);
         let file_bytes = fs::read(&source_path).unwrap_or_default();
-        let exposure = read_exposure_time_secs(&source_path.to_string_lossy(), &file_bytes).unwrap_or(0.01);
-        
+        let exposure_sec = read_exposure_time_secs(&source_path.to_string_lossy(), &file_bytes).unwrap_or(0.01);
+        let iso = read_iso(&source_path.to_string_lossy(), &file_bytes).map(|g| g as f32).unwrap_or(100.0);
+        let f_number = read_f_number(&source_path.to_string_lossy(), &file_bytes).unwrap_or(5.6);
+        let physical_scale = compute_physical_exposure_scale(Duration::from_secs_f32(exposure_sec), iso, f_number);
+
         let exif_map = crate::exif_processing::read_exif_data(&source_path.to_string_lossy(), &file_bytes);
         let timestamp = exif_map
             .get("DateTimeOriginal")
@@ -90,7 +106,7 @@ pub fn cluster_hdr_brackets(paths: &[String]) -> Vec<ExposureBracketGroup> {
         items.push(ItemMeta {
             path: path.clone(),
             timestamp,
-            exposure,
+            physical_scale,
         });
     }
 
@@ -103,36 +119,85 @@ pub fn cluster_hdr_brackets(paths: &[String]) -> Vec<ExposureBracketGroup> {
         }
     });
 
-    let mut groups: Vec<ExposureBracketGroup> = Vec::new();
-    let mut current_group: Vec<String> = Vec::new();
-    let mut last_timestamp: Option<u64> = None;
-    let mut last_exposure: Option<f32> = None;
+    // Detect and isolate temporal outliers (e.g. disconnected shots separated by > 60s from the burst sequence)
+    let mut cohesive_items = Vec::new();
+    let mut excluded_outliers = Vec::new();
 
-    for item in items {
-        let mut start_new_group = false;
+    let n = items.len();
+    for i in 0..n {
+        let t = items[i].timestamp;
+        let mut is_outlier = false;
 
-        if let Some(prev_t) = last_timestamp {
-            if prev_t > 0 && item.timestamp > 0 {
-                let dt = (item.timestamp as i64 - prev_t as i64).abs();
-                // If shots are separated by more than 3 seconds, they belong to different angles/bursts
-                if dt > 3 {
-                    start_new_group = true;
-                }
+        if n >= 4 && t > 0 {
+            let prev_gap = if i > 0 && items[i - 1].timestamp > 0 {
+                (t as i64 - items[i - 1].timestamp as i64).abs()
+            } else {
+                0
+            };
+            let next_gap = if i + 1 < n && items[i + 1].timestamp > 0 {
+                (items[i + 1].timestamp as i64 - t as i64).abs()
+            } else {
+                0
+            };
+
+            // Tail outlier: last frame shot > 60 seconds after preceding burst
+            if i == n - 1 && prev_gap > 60 {
+                is_outlier = true;
+            }
+            // Head outlier: first frame shot > 60 seconds before following burst
+            if i == 0 && next_gap > 60 {
+                is_outlier = true;
             }
         }
 
-        if !start_new_group && let Some(last_exp) = last_exposure {
-            // In AEB brackets, exposure progresses (e.g. -2 EV -> 0 EV -> +2 EV).
-            // When moving to the next angle, the camera resets to the start of the bracket (-2 EV),
-            // which causes a sharp drop in exposure time (e.g. ratio < 0.7) when current group has >= 2 frames.
-            if current_group.len() >= 2 && item.exposure < last_exp * 0.7 {
-                start_new_group = true;
-            } else {
-                let ratio = if last_exp > 0.0 { item.exposure / last_exp } else { 1.0 };
-                let is_bracket = ratio > 1.35 || ratio < 0.74;
+        if is_outlier {
+            println!("  [HDR Pano] Isolating outlier frame {} (temporal delta > 60s)", items[i].path);
+            excluded_outliers.push(items[i].path.clone());
+        } else {
+            cohesive_items.push(items[i].clone());
+        }
+    }
 
-                // If exposure does not vary and we already have at least 2 frames in current bracket
-                if !is_bracket && current_group.len() >= 2 {
+    let mut groups: Vec<ExposureBracketGroup> = Vec::new();
+    let mut current_group: Vec<ItemMeta> = Vec::new();
+
+    for item in cohesive_items {
+        let mut start_new_group = false;
+
+        if !current_group.is_empty() {
+            let prev_item = current_group.last().unwrap();
+
+            // 1. Check temporal gap: if timestamp delta > 15 seconds, likely a different angle or pause
+            if prev_item.timestamp > 0 && item.timestamp > 0 {
+                let dt = (item.timestamp as i64 - prev_item.timestamp as i64).abs();
+                if dt > 15 {
+                    start_new_group = true;
+                }
+            }
+
+            // 2. Exposure collision check: in an HDR bracket, all frames must have distinct exposures.
+            // If current_group already contains a frame with a similar exposure scale (ratio in [0.80, 1.25]),
+            // this new frame cannot be part of the same bracket and must start the next bracket.
+            if !start_new_group {
+                let has_duplicate_exposure = current_group.iter().any(|existing| {
+                    let r = if existing.physical_scale > 0.0 {
+                        item.physical_scale / existing.physical_scale
+                    } else {
+                        1.0
+                    };
+                    r >= 0.80 && r <= 1.25
+                });
+
+                if has_duplicate_exposure {
+                    start_new_group = true;
+                }
+            }
+
+            // 3. Bracket length limit: standard brackets are 3 frames (or max 5 frames).
+            // If we have reached 3 frames and total cohesive count is a multiple of 3, start new group.
+            let total_cohesive = paths.len().saturating_sub(excluded_outliers.len());
+            if !start_new_group && current_group.len() >= 3 {
+                if total_cohesive % 3 == 0 || current_group.len() >= 5 {
                     start_new_group = true;
                 }
             }
@@ -141,25 +206,33 @@ pub fn cluster_hdr_brackets(paths: &[String]) -> Vec<ExposureBracketGroup> {
         if start_new_group && !current_group.is_empty() {
             groups.push(ExposureBracketGroup {
                 position_index: groups.len(),
-                paths: current_group.clone(),
+                paths: current_group.iter().map(|it| it.path.clone()).collect(),
             });
             current_group.clear();
         }
 
-        current_group.push(item.path);
-        last_timestamp = Some(item.timestamp);
-        last_exposure = Some(item.exposure);
+        current_group.push(item);
     }
 
     if !current_group.is_empty() {
         groups.push(ExposureBracketGroup {
             position_index: groups.len(),
-            paths: current_group,
+            paths: current_group.iter().map(|it| it.path.clone()).collect(),
         });
     }
 
-    if groups.len() <= 1 && paths.len() >= 6 && paths.len() % 3 == 0 {
-        return paths
+    // Smart fallback: If grouping produced single-frame orphans or only 1 group,
+    // but the cohesive files count is divisible by 3 and >= 6, chunk by 3!
+    let total_cohesive = paths.len().saturating_sub(excluded_outliers.len());
+    let has_orphans = groups.iter().any(|g| g.paths.len() < 2);
+    if (groups.len() <= 1 || has_orphans) && total_cohesive >= 6 && total_cohesive % 3 == 0 {
+        let mut fallback_paths = Vec::new();
+        for path in paths {
+            if !excluded_outliers.contains(path) {
+                fallback_paths.push(path.clone());
+            }
+        }
+        let fallback_groups: Vec<ExposureBracketGroup> = fallback_paths
             .chunks(3)
             .enumerate()
             .map(|(i, chunk)| ExposureBracketGroup {
@@ -167,9 +240,14 @@ pub fn cluster_hdr_brackets(paths: &[String]) -> Vec<ExposureBracketGroup> {
                 paths: chunk.to_vec(),
             })
             .collect();
+        return (fallback_groups, excluded_outliers);
     }
 
-    groups
+    (groups, excluded_outliers)
+}
+
+pub fn cluster_hdr_brackets(paths: &[String]) -> Vec<ExposureBracketGroup> {
+    cluster_hdr_brackets_robust(paths).0
 }
 
 #[tauri::command]
@@ -177,6 +255,7 @@ pub async fn stitch_hdr_panorama(
     paths: Vec<String>,
     projection: Option<PanoramaProjection>,
     boundary_warp: Option<f32>,
+    half_size: Option<bool>,
     app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
@@ -187,100 +266,37 @@ pub async fn stitch_hdr_panorama(
     }
 
     let selected_projection = projection.unwrap_or(PanoramaProjection::Cylindrical);
-    let warp_strength = boundary_warp.unwrap_or(0.5);
+    let _warp_strength = boundary_warp.unwrap_or(0.5);
     let panorama_result_handle = state.panorama_result.clone();
+    let panorama_linear_radiance_handle = state.panorama_linear_radiance.clone();
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let handle_for_task = app_handle.clone();
+    let is_half_size = half_size.unwrap_or(false);
 
+    let cancel_token = state.panorama_cancellation_token.clone();
     let task = tokio::task::spawn_blocking(move || {
-        let _ = handle_for_task.emit("panorama-progress", "Analyzing HDR exposure brackets...");
-        println!("Analyzing HDR exposure brackets across {} photos...", paths.len());
+        let final_hdr_pano = crate::hugin_engine::run_hugin_hdr_panorama(
+            &paths,
+            selected_projection,
+            &settings,
+            is_half_size,
+            Some(&handle_for_task),
+            Some(&cancel_token),
+        )?;
 
-        let bracket_groups = cluster_hdr_brackets(&paths);
-        let num_positions = bracket_groups.len();
-        println!("Detected {} panorama angle positions with multi-exposure brackets.", num_positions);
+        // 4. Create high-resolution preview directly from the tone-fused output without double tone-mapping
+        let _ = handle_for_task.emit("panorama-progress", "Creating HDR Panorama preview... 98%");
+        let master_dyn = DynamicImage::ImageRgb32F(final_hdr_pano.clone());
+        let master_rgb8 = master_dyn.to_rgb8();
+        let (w, h) = (master_rgb8.width(), master_rgb8.height());
 
-        if num_positions < 2 {
-            return Err("Could not detect at least 2 distinct panorama angles in the selection.".to_string());
-        }
-
-        // 1. Parallel HDR Merge each angle position into 32-bit linear floating-point panels
-        let merged_hdr_panels: Vec<Result<Rgb32FImage, String>> = bracket_groups
-            .par_iter()
-            .map(|group| {
-                let group_msg = format!("Merging 32-bit HDR for Position {} of {}...", group.position_index + 1, num_positions);
-                let _ = handle_for_task.emit("panorama-progress", &group_msg);
-
-                if group.paths.len() == 1 {
-                    let (source_path, _) = parse_virtual_path(&group.paths[0]);
-                    let file_bytes = fs::read(&source_path).map_err(|e| e.to_string())?;
-                    let mut img = crate::image_loader::load_base_image_from_bytes(&file_bytes, &source_path.to_string_lossy(), false, &settings, None)
-                        .map_err(|e| e.to_string())?;
-                    if crate::formats::is_raw_file(&*source_path.to_string_lossy()) {
-                        crate::image_processing::apply_cpu_default_raw_processing(&mut img);
-                    }
-                    return Ok(img.to_rgb32f());
-                }
-
-                let mut frames = load_hdr_frames(&group.paths, Some(&handle_for_task), &settings)?;
-                let _ = assert_uniform_dimensions(&frames);
-
-                let ref_idx = crate::hdr_deghosting::select_best_reference_index(&frames);
-                align_hdr_frames(&mut frames, Some(&handle_for_task));
-                crate::hdr_deghosting::apply_reference_deghosting_mask(
-                    &mut frames,
-                    ref_idx,
-                    Some(crate::hdr_fusion::DeghostSensitivity::Medium),
-                    None,
-                    Some(&handle_for_task),
-                );
-
-                let rgb_frames: Vec<Rgb32FImage> = frames.iter().map(|f| f.1.to_rgb32f()).collect();
-                let exposure_scales: Vec<f32> = frames
-                    .iter()
-                    .map(|f| crate::hdr_deghosting::compute_physical_exposure_scale(f.2, f.3, f.4))
-                    .collect();
-
-                let options = crate::hdr_fusion::HdrMergeOptions {
-                    reference_index: Some(ref_idx),
-                    ..Default::default()
-                };
-                let fused = crate::hdr_fusion::fuse_exposures_linear_radiance(
-                    &rgb_frames,
-                    &exposure_scales,
-                    &options,
-                    Some(&handle_for_task),
-                    None,
-                )?;
-                Ok(fused)
-            })
-            .collect();
-
-        let mut valid_panels = Vec::new();
-        for panel_res in merged_hdr_panels {
-            match panel_res {
-                Ok(panel) => valid_panels.push(panel),
-                Err(e) => return Err(format!("HDR Merge failed for position: {}", e)),
-            }
-        }
-
-        // 2. Stitch the 32-bit HDR panels using 3D ray projection and 2D Graph-Cut + Multi-Band Blending
-        let _ = handle_for_task.emit("panorama-progress", "Stitching 32-bit HDR panels with 2D Graph-Cut & Multi-Band blending...");
-        println!("Stitching {} 32-bit HDR panels with {:?} projection...", valid_panels.len(), selected_projection);
-
-        let final_hdr_pano = stitch_hdr_panels(&valid_panels, selected_projection, warp_strength, Some(&handle_for_task))?;
-
-        // 3. Create high-resolution preview
-        let _ = handle_for_task.emit("panorama-progress", "Creating 32-bit HDR Panorama preview...");
-        let (w, h) = final_hdr_pano.dimensions();
         let (new_w, new_h) = if w > h {
             (1200, ((1200.0 * h as f32 / w as f32).round() as u32).max(1))
         } else {
             (((1200.0 * w as f32 / h as f32).round() as u32).max(1), 1200)
         };
 
-        let preview_f32 = crate::image_processing::downscale_f32_image(&DynamicImage::ImageRgb32F(final_hdr_pano.clone()), new_w, new_h);
-        let preview_u8 = preview_f32.to_rgb8();
+        let preview_u8 = image::imageops::resize(&master_rgb8, new_w, new_h, image::imageops::FilterType::Triangle);
 
         let mut buf = std::io::Cursor::new(Vec::new());
         if let Err(e) = preview_u8.write_to(&mut buf, ImageFormat::Png) {
@@ -291,7 +307,8 @@ pub async fn stitch_hdr_panorama(
         let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
         let final_base64 = format!("data:image/png;base64,{}", base64_str);
 
-        *panorama_result_handle.lock().unwrap() = Some(DynamicImage::ImageRgb32F(final_hdr_pano));
+        *panorama_result_handle.lock().unwrap() = Some(master_dyn);
+        *panorama_linear_radiance_handle.lock().unwrap() = Some(final_hdr_pano);
 
         let _ = handle_for_task.emit(
             "panorama-complete",
@@ -332,35 +349,38 @@ pub fn hdr_to_feature_grayscale(panel: &Rgb32FImage) -> image::GrayImage {
         for x in (0..w).step_by(4) {
             let p = panel.get_pixel(x, y);
             let lum = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
-            if lum > 0.0001 && lum.is_finite() {
+            if lum > 0.00001 && lum.is_finite() {
                 lums.push(lum);
             }
         }
     }
 
-    let (p_low, p_high) = if lums.is_empty() {
-        (0.001, 1.0)
+    let (p01, p99) = if lums.is_empty() {
+        (0.0f32, 1.0f32)
     } else {
         lums.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        let low_idx = (lums.len() as f32 * 0.01) as usize;
-        let high_idx = ((lums.len() as f32 * 0.99) as usize).min(lums.len() - 1);
-        (lums[low_idx].max(1e-5), lums[high_idx].max(1e-4))
+        let idx01 = (lums.len() as f32 * 0.01) as usize;
+        let idx99 = ((lums.len() as f32 * 0.99) as usize).min(lums.len() - 1);
+        (lums[idx01].max(0.0), lums[idx99].max(0.001))
     };
 
-    let range = (p_high - p_low).max(1e-4);
+    let span = (p99 - p01).max(1e-5);
+    let log_denom = (1.0f32 + 20.0f32).ln();
 
-    // 2. Tonemap and gamma correct (sRGB gamma 2.2) to reveal full texture in shadows & midtones
+    // 2. Perceptual log-luminance mapping + sRGB gamma 2.2 to preserve sharp feature gradients
+    // across deep shadow foliage, iron bridge details, and bright skies simultaneously.
     for y in 0..h {
         for x in 0..w {
             let p = panel.get_pixel(x, y);
-            let lum = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
-            let norm = ((lum - p_low) / range).clamp(0.0, 1.0);
+            let lum = (0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]).max(0.0);
+            let relative = ((lum - p01) / span).clamp(0.0, 1.0);
+            let norm = (1.0 + 20.0 * relative).ln() / log_denom;
             let val = (norm.powf(1.0 / 2.2) * 255.0).clamp(0.0, 255.0) as u8;
             gray.put_pixel(x, y, image::Luma([val]));
         }
     }
 
-    gray
+    crate::panorama_utils::processing::normalize_grayscale(&gray)
 }
 
 /// Stitches pre-merged 32-bit float HDR image panels using robust multi-scale ORB matching,
@@ -369,6 +389,7 @@ pub fn stitch_hdr_panels(
     panels: &[Rgb32FImage],
     projection: PanoramaProjection,
     boundary_warp: f32,
+    optical_params: Option<(f64, Option<f64>)>,
     app_handle: Option<&AppHandle>,
 ) -> Result<Rgb32FImage, String> {
     if panels.is_empty() {
@@ -380,28 +401,40 @@ pub fn stitch_hdr_panels(
 
     let brief_pairs = crate::panorama_utils::processing::generate_brief_pairs();
 
-    // Extract features on tone-mapped perceptual luminance representations
+    // Extract perceptual grayscale representations once for all multi-scale matching passes
+    let grays_full: Vec<image::GrayImage> = panels.iter().map(|p| hdr_to_feature_grayscale(p)).collect();
+
     let image_infos: Vec<ImageInfo> = panels
         .iter()
         .enumerate()
         .map(|(i, panel)| {
-            let gray_full = hdr_to_feature_grayscale(panel);
+            let gray_full = &grays_full[i];
             let (w, h) = gray_full.dimensions();
             let (new_w, new_h, scale_factor) = crate::panorama_utils::processing::calculate_downscale_dimensions(w, h);
-            let gray_small = image::imageops::resize(&gray_full, new_w, new_h, image::imageops::FilterType::Triangle);
-            let low_detail_mask = crate::panorama_utils::processing::generate_low_detail_mask(&gray_full);
+            let gray_small = image::imageops::resize(gray_full, new_w, new_h, image::imageops::FilterType::Triangle);
+            let low_detail_mask = crate::panorama_utils::processing::generate_low_detail_mask(gray_full);
             let features = crate::panorama_utils::processing::find_features(&gray_small, &brief_pairs);
+            println!("  [HDR Pano] Angle {}: extracted {} features (scale: {:.2})", i + 1, features.len(), scale_factor);
+
+            let proxy_dyn = DynamicImage::ImageRgb32F(panel.clone()).resize_exact(new_w, new_h, image::imageops::FilterType::Triangle);
+            let proxy_image = proxy_dyn.to_rgb32f();
 
             ImageInfo {
                 id: i,
                 filename: format!("HDR_Angle_{:02}", i + 1),
-                image: panel.clone(),
+                full_width: w,
+                full_height: h,
+                proxy_image,
+                full_image: Some(panel.clone()),
                 low_detail_mask,
                 scale_factor,
                 features,
+                exposure_gain: 1.0,
             }
         })
         .collect();
+
+    let min_inliers = crate::panorama_utils::processing::MIN_INLIERS_FOR_CONNECTION; // Enforce strict 15 inlier floor for robust graph topology
 
     // Match features pairwise in parallel with homography scaling & refinement
     let pairs_to_check: Vec<(usize, usize)> = (0..image_infos.len())
@@ -415,44 +448,104 @@ pub fn stitch_hdr_panels(
             let features2 = &image_infos[j].features;
 
             let initial_matches = crate::panorama_utils::processing::match_features(features1, features2);
-            if initial_matches.len() < crate::panorama_utils::processing::MIN_INLIERS_FOR_CONNECTION {
-                return None;
-            }
+            println!("  [HDR Pano] Pair ({}, {}): {} initial matches", i + 1, j + 1, initial_matches.len());
+            let mut best_match: Option<crate::panorama_stitching::MatchInfo> = None;
 
-            let keypoints1: Vec<crate::panorama_stitching::KeyPoint> = features1.iter().map(|f| f.keypoint).collect();
-            let keypoints2: Vec<crate::panorama_stitching::KeyPoint> = features2.iter().map(|f| f.keypoint).collect();
+            if initial_matches.len() >= min_inliers {
+                let keypoints1: Vec<crate::panorama_stitching::KeyPoint> = features1.iter().map(|f| f.keypoint).collect();
+                let keypoints2: Vec<crate::panorama_stitching::KeyPoint> = features2.iter().map(|f| f.keypoint).collect();
 
-            if let Some((_h_small, inliers)) = crate::panorama_utils::processing::find_homography_ransac(&initial_matches, &keypoints1, &keypoints2)
-                && inliers.len() >= crate::panorama_utils::processing::MIN_INLIERS_FOR_CONNECTION
-            {
-                let inlier_points: Vec<(nalgebra::Point2<f64>, nalgebra::Point2<f64>)> = inliers
-                    .iter()
-                    .map(|m| {
-                        let p1 = keypoints1[m.index1];
-                        let p2 = keypoints2[m.index2];
-                        (
-                            nalgebra::Point2::new(p1.x as f64, p1.y as f64),
-                            nalgebra::Point2::new(p2.x as f64, p2.y as f64),
-                        )
-                    })
-                    .collect();
+                if let Some((_h_small, inliers)) = crate::panorama_utils::processing::find_homography_ransac_with_min_inliers(&initial_matches, &keypoints1, &keypoints2, min_inliers)
+                    && inliers.len() >= min_inliers
+                {
+                    let inlier_points: Vec<(nalgebra::Point2<f64>, nalgebra::Point2<f64>)> = inliers
+                        .iter()
+                        .map(|m| {
+                            let p1 = keypoints1[m.index1];
+                            let p2 = keypoints2[m.index2];
+                            (
+                                nalgebra::Point2::new(p1.x as f64, p1.y as f64),
+                                nalgebra::Point2::new(p2.x as f64, p2.y as f64),
+                            )
+                        })
+                        .collect();
 
-                if let Some(h_refined) = crate::panorama_utils::processing::compute_homography(&inlier_points) {
-                    let s1 = image_infos[i].scale_factor;
-                    let s2 = image_infos[j].scale_factor;
-                    let scale_mat_i_inv = nalgebra::Matrix3::new(1.0 / s1, 0.0, 0.0, 0.0, 1.0 / s1, 0.0, 0.0, 0.0, 1.0);
-                    let scale_mat_j = nalgebra::Matrix3::new(s2, 0.0, 0.0, 0.0, s2, 0.0, 0.0, 0.0, 1.0);
-                    let h_full = scale_mat_j * h_refined * scale_mat_i_inv;
+                    if let Some(h_refined) = crate::panorama_utils::processing::compute_homography(&inlier_points) {
+                        let s1 = image_infos[i].scale_factor;
+                        let s2 = image_infos[j].scale_factor;
+                        let scale_mat_i_inv = nalgebra::Matrix3::new(1.0 / s1, 0.0, 0.0, 0.0, 1.0 / s1, 0.0, 0.0, 0.0, 1.0);
+                        let scale_mat_j = nalgebra::Matrix3::new(s2, 0.0, 0.0, 0.0, s2, 0.0, 0.0, 0.0, 1.0);
+                        let h_full = scale_mat_j * h_refined * scale_mat_i_inv;
 
-                    let match_info = crate::panorama_stitching::MatchInfo {
-                        homography: h_full,
-                        inliers: inliers.len(),
-                        inlier_matches: inliers,
-                    };
-                    return Some(((i, j), match_info));
+                        best_match = Some(crate::panorama_stitching::MatchInfo {
+                            homography: h_full,
+                            inliers: inliers.len(),
+                            inlier_matches: inliers,
+                        });
+                    }
                 }
             }
-            None
+
+            // High-resolution fallback pass if pair is borderline or has < 25 inliers (e.g. low-contrast rails/foliage)
+            let inlier_count = best_match.as_ref().map(|m| m.inliers).unwrap_or(0);
+            if inlier_count < 25 {
+                let gray_full_1 = &grays_full[i];
+                let gray_full_2 = &grays_full[j];
+                let (w1, h1) = gray_full_1.dimensions();
+                let (w2, h2) = gray_full_2.dimensions();
+                let (hd_w1, hd_h1, hd_s1) = crate::panorama_utils::processing::calculate_downscale_dimensions_capped(w1, h1, 2400);
+                let (hd_w2, hd_h2, hd_s2) = crate::panorama_utils::processing::calculate_downscale_dimensions_capped(w2, h2, 2400);
+
+                let hd_img1 = image::imageops::resize(gray_full_1, hd_w1, hd_h1, image::imageops::FilterType::Triangle);
+                let hd_img2 = image::imageops::resize(gray_full_2, hd_w2, hd_h2, image::imageops::FilterType::Triangle);
+
+                let hd_feat1 = crate::panorama_utils::processing::find_features_tuned(&hd_img1, &brief_pairs, 7, 12.0);
+                let hd_feat2 = crate::panorama_utils::processing::find_features_tuned(&hd_img2, &brief_pairs, 7, 12.0);
+
+                let hd_matches = crate::panorama_utils::processing::match_features(&hd_feat1, &hd_feat2);
+                if hd_matches.len() >= min_inliers {
+                    let hd_kp1: Vec<crate::panorama_stitching::KeyPoint> = hd_feat1.iter().map(|f| f.keypoint).collect();
+                    let hd_kp2: Vec<crate::panorama_stitching::KeyPoint> = hd_feat2.iter().map(|f| f.keypoint).collect();
+
+                    if let Some((_h_small, hd_inliers)) = crate::panorama_utils::processing::find_homography_ransac_with_min_inliers(&hd_matches, &hd_kp1, &hd_kp2, min_inliers)
+                        && hd_inliers.len() > inlier_count
+                    {
+                        println!("  [HDR Pano] Adaptive HD fallback for pair ({}, {}): {} matches, {} inliers (previously {})",
+                            i + 1, j + 1, hd_matches.len(), hd_inliers.len(), inlier_count);
+
+                        let inlier_points: Vec<(nalgebra::Point2<f64>, nalgebra::Point2<f64>)> = hd_inliers
+                            .iter()
+                            .map(|m| {
+                                let p1 = hd_kp1[m.index1];
+                                let p2 = hd_kp2[m.index2];
+                                (
+                                    nalgebra::Point2::new(p1.x as f64, p1.y as f64),
+                                    nalgebra::Point2::new(p2.x as f64, p2.y as f64),
+                                )
+                            })
+                            .collect();
+
+                        if let Some(h_refined) = crate::panorama_utils::processing::compute_homography(&inlier_points) {
+                            let scale_mat_i_inv = nalgebra::Matrix3::new(1.0 / hd_s1, 0.0, 0.0, 0.0, 1.0 / hd_s1, 0.0, 0.0, 0.0, 1.0);
+                            let scale_mat_j = nalgebra::Matrix3::new(hd_s2, 0.0, 0.0, 0.0, hd_s2, 0.0, 0.0, 0.0, 1.0);
+                            let h_full = scale_mat_j * h_refined * scale_mat_i_inv;
+
+                            best_match = Some(crate::panorama_stitching::MatchInfo {
+                                homography: h_full,
+                                inliers: hd_inliers.len(),
+                                inlier_matches: hd_inliers,
+                            });
+                        }
+                    }
+                }
+            }
+
+            if let Some(ref m) = best_match {
+                println!("  [HDR Pano] Final accepted match pair ({}, {}): {} inliers", i + 1, j + 1, m.inliers);
+                Some(((i, j), best_match.unwrap()))
+            } else {
+                None
+            }
         })
         .collect();
 
@@ -460,6 +553,7 @@ pub fn stitch_hdr_panels(
     for (pair, info) in match_results.into_iter().flatten() {
         pairwise_matches.insert(pair, info);
     }
+    println!("  [HDR Pano] Total matched pairs found: {}", pairwise_matches.len());
 
     if pairwise_matches.is_empty() {
         return Err("Could not align enough overlapping HDR panels. Ensure at least 30% overlap between adjacent shots.".to_string());
@@ -473,13 +567,23 @@ pub fn stitch_hdr_panels(
 
     let stitched_infos: Vec<&ImageInfo> = ordered_indices.iter().map(|&i| &image_infos[i]).collect();
 
-    // Initialize camera poses and run bundle adjustment
-    let avg_f = stitched_infos[0].image.width().max(stitched_infos[0].image.height()) as f64 * 1.25;
+    // 1. Initialize camera poses with optical physics & vignetting compensation
+    let (first_w, first_h) = (stitched_infos[0].full_width, stitched_infos[0].full_height);
+    let (avg_f, vig_params) = if let Some((f_mm, fn_opt)) = optical_params {
+        let f_px = CameraPose::focal_length_from_exif(f_mm, None, first_w);
+        println!("  - HDR Pano physical focal length: {:.1} mm -> {:.1} px", f_mm, f_px);
+        (f_px, Some((f_mm, fn_opt)))
+    } else {
+        (first_w.max(first_h) as f64 * 1.25, None)
+    };
     let mut camera_poses = Vec::with_capacity(stitched_infos.len());
 
     for (k, &img_info) in stitched_infos.iter().enumerate() {
-        let (w, h) = img_info.image.dimensions();
+        let (w, h) = (img_info.full_width, img_info.full_height);
         let mut pose = CameraPose::new(k, w, h, Some(avg_f));
+        if let Some((f_mm, fn_opt)) = vig_params {
+            pose = pose.with_vignetting_from_optical_params(f_mm, fn_opt);
+        }
         if let Some(h_global) = global_homographies.get(&img_info.id) {
             let (yaw, pitch, roll) = crate::panorama_utils::camera_model::homography_to_relative_rotation(h_global, avg_f, w, h);
             pose.yaw = yaw;
@@ -489,7 +593,7 @@ pub fn stitch_hdr_panels(
         camera_poses.push(pose);
     }
 
-    // Levenberg-Marquardt Bundle Adjustment on 3D camera poses for HDR panels
+    // 2. Levenberg-Marquardt Bundle Adjustment on 3D camera poses for HDR panels
     let mut tie_points: Vec<crate::panorama_utils::camera_model::MatchTiePoint> = Vec::new();
     let index_map: HashMap<usize, usize> = ordered_indices.iter().enumerate().map(|(k, &id)| (id, k)).collect();
 
@@ -499,19 +603,25 @@ pub fn stitch_hdr_panels(
             let s2 = image_infos[id2].scale_factor;
             let f1 = &image_infos[id1].features;
             let f2 = &image_infos[id2].features;
+            let img1 = &image_infos[id1].proxy_image;
+            let img2 = &image_infos[id2].proxy_image;
 
             for m in &match_info.inlier_matches {
                 let p1 = f1[m.index1].keypoint;
                 let p2 = f2[m.index2].keypoint;
 
-                let p1_full = nalgebra::Point2::new(p1.x as f64 / s1, p1.y as f64 / s1);
-                let p2_full = nalgebra::Point2::new(p2.x as f64 / s2, p2.y as f64 / s2);
+                let p1_proxy = nalgebra::Point2::new(p1.x as f64, p1.y as f64);
+                let p2_proxy = nalgebra::Point2::new(p2.x as f64, p2.y as f64);
+
+                let p2_refined_proxy = crate::panorama_utils::processing::refine_match_klt_subpixel(img1, p1_proxy, img2, p2_proxy);
+                let p1_full = nalgebra::Point2::new(p1.x as f64 * s1, p1.y as f64 * s1);
+                let p2_refined_full = nalgebra::Point2::new(p2_refined_proxy.x * s2, p2_refined_proxy.y * s2);
 
                 tie_points.push(crate::panorama_utils::camera_model::MatchTiePoint {
                     img1: k1,
                     img2: k2,
                     p1: p1_full,
-                    p2: p2_full,
+                    p2: p2_refined_full,
                 });
             }
         }
@@ -521,8 +631,39 @@ pub fn stitch_hdr_panels(
         crate::panorama_utils::camera_model::bundle_adjust_poses(&mut camera_poses, &tie_points, 15);
     }
 
-    let pano = ray_traced_multiband_stitcher(&stitched_infos, &camera_poses, &[], projection, boundary_warp, app_handle);
+    // 3. Automatic Horizon Roll & Pitch Leveling
+    crate::panorama_utils::camera_model::auto_level_camera_poses(&mut camera_poses);
+
+    // 4. Compute local APAP mesh deformation grids to eliminate parallax in HDR panels
+    let mesh_warps = crate::panorama_utils::camera_model::compute_apap_mesh_warps(&camera_poses, &tie_points);
+
+    let pano = ray_traced_multiband_stitcher(
+        &stitched_infos,
+        &camera_poses,
+        &mesh_warps,
+        projection,
+        boundary_warp,
+        app_handle,
+        None,
+        None,
+    )?;
     Ok(pano)
+}
+
+#[tauri::command]
+pub fn inspect_hdr_pano_grouping(paths: Vec<String>) -> Result<HdrPanoGroupingReport, String> {
+    let (panels, excluded_outliers) = cluster_hdr_brackets_robust(&paths);
+    let total_files = paths.len();
+    let detected_bracket_size = if !panels.is_empty() { panels[0].paths.len() } else { 0 };
+    let is_consistent_bracket_size = !panels.is_empty() && panels.iter().all(|p| p.paths.len() == detected_bracket_size);
+
+    Ok(HdrPanoGroupingReport {
+        total_files,
+        panels,
+        excluded_outliers,
+        is_consistent_bracket_size,
+        detected_bracket_size,
+    })
 }
 
 #[cfg(test)]

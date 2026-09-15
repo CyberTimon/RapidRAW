@@ -1208,6 +1208,115 @@ pub fn solve_guided_upright(lines: Vec<GuidedLine>, width: f64, height: f64) -> 
     })
 }
 
+/// Auto-detects transverse chromatic aberration scale factors for Red and Blue channels relative to Green.
+/// Samples radial high-contrast edge gradients in the outer 35%–90% field of view.
+pub fn auto_detect_transverse_chromatic_aberration(img: &image::Rgb32FImage) -> (f32, f32) {
+    let (width, height) = img.dimensions();
+    if width < 200 || height < 200 {
+        return (1.0, 1.0);
+    }
+    let cx = width as f32 / 2.0;
+    let cy = height as f32 / 2.0;
+    let max_radius = (cx * cx + cy * cy).sqrt().max(1.0);
+
+    // Collect high-contrast radial edges in outer field (r >= 0.35 && r <= 0.90)
+    let step = ((width * height) / 10000).max(1);
+    let mut edge_samples = Vec::with_capacity(1200);
+
+    for idx in (0..(width * height)).step_by(step as usize) {
+        let x = (idx % width) as u32;
+        let y = (idx / width) as u32;
+
+        if x < 4 || y < 4 || x >= width - 4 || y >= height - 4 {
+            continue;
+        }
+
+        let dx = x as f32 - cx;
+        let dy = y as f32 - cy;
+        let dist = (dx * dx + dy * dy).sqrt();
+        let r = dist / max_radius;
+
+        if r < 0.35 || r > 0.90 {
+            continue;
+        }
+
+        let dir_x = dx / dist.max(1e-4);
+        let dir_y = dy / dist.max(1e-4);
+
+        // Check green channel radial gradient
+        let x_step = (dir_x * 2.0).round() as i32;
+        let y_step = (dir_y * 2.0).round() as i32;
+
+        let g_next = img.get_pixel((x as i32 + x_step) as u32, (y as i32 + y_step) as u32)[1];
+        let g_prev = img.get_pixel((x as i32 - x_step) as u32, (y as i32 - y_step) as u32)[1];
+
+        let grad = (g_next - g_prev).abs();
+        if grad > 0.08 {
+            edge_samples.push((x, y, r * r, dir_x, dir_y));
+            if edge_samples.len() >= 1000 {
+                break;
+            }
+        }
+    }
+
+    if edge_samples.len() < 50 {
+        return (1.0, 1.0);
+    }
+
+    // Grid search for optimal red and blue radial scale delta: s in [-0.0012, 0.0012]
+    // r_channel = r * (1 + delta * r^2)
+    let deltas = [
+        -0.0012f32, -0.0009, -0.0006, -0.0003, 0.0, 0.0003, 0.0006, 0.0009, 0.0012,
+    ];
+
+    let mut best_delta_r = 0.0f32;
+    let mut min_err_r = f32::INFINITY;
+
+    let mut best_delta_b = 0.0f32;
+    let mut min_err_b = f32::INFINITY;
+
+    for &delta in &deltas {
+        let mut err_r = 0.0f32;
+        let mut err_b = 0.0f32;
+
+        for &(x, y, r_sq, dir_x, dir_y) in &edge_samples {
+            let offset = delta * r_sq * max_radius;
+            let sx = (x as f32 + dir_x * offset).clamp(0.0, width as f32 - 1.001);
+            let sy = (y as f32 + dir_y * offset).clamp(0.0, height as f32 - 1.001);
+
+            let sx0 = sx.floor() as u32;
+            let sy0 = sy.floor() as u32;
+            let sx1 = (sx0 + 1).min(width - 1);
+            let sy1 = (sy0 + 1).min(height - 1);
+            let fx = sx - sx0 as f32;
+            let fy = sy - sy0 as f32;
+
+            let p00 = img.get_pixel(sx0, sy0);
+            let p10 = img.get_pixel(sx1, sy0);
+            let p01 = img.get_pixel(sx0, sy1);
+            let p11 = img.get_pixel(sx1, sy1);
+
+            let r_interp = (p00[0] * (1.0 - fx) + p10[0] * fx) * (1.0 - fy) + (p01[0] * (1.0 - fx) + p11[0] * fx) * fy;
+            let b_interp = (p00[2] * (1.0 - fx) + p10[2] * fx) * (1.0 - fy) + (p01[2] * (1.0 - fx) + p11[2] * fx) * fy;
+            let g_target = img.get_pixel(x, y)[1];
+
+            err_r += (r_interp - g_target).abs();
+            err_b += (b_interp - g_target).abs();
+        }
+
+        if err_r < min_err_r {
+            min_err_r = err_r;
+            best_delta_r = delta;
+        }
+        if err_b < min_err_b {
+            min_err_b = err_b;
+            best_delta_b = delta;
+        }
+    }
+
+    (1.0 + best_delta_r, 1.0 + best_delta_b)
+}
+
 /// Pre-Fusion Radial Chromatic Aberration (CA) Correction for raw frames
 pub fn apply_radial_chromatic_aberration_correction(
     img: &mut image::Rgb32FImage,

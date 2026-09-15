@@ -8,7 +8,7 @@ use rand::rng;
 use rayon::prelude::*;
 
 const MAX_PROCESSING_DIMENSION: u32 = 1600;
-const FAST_THRESHOLD: u8 = 15;
+const FAST_THRESHOLD: u8 = 10;
 const NON_MAXIMA_SUPPRESSION_RADIUS: f32 = 12.0;
 const BRIEF_PATCH_SIZE: u32 = 32;
 pub const MATCH_RATIO_THRESHOLD: f32 = 0.75;
@@ -81,6 +81,8 @@ pub fn find_features_tuned(
     fast_threshold: u8,
     _non_maxima_suppression_radius: f32,
 ) -> Vec<Feature> {
+    let norm_img = normalize_grayscale(img);
+    let img = &norm_img;
     let (w, h) = img.dimensions();
     let mut all_features = Vec::new();
 
@@ -96,10 +98,10 @@ pub fn find_features_tuned(
             image::imageops::resize(img, nw, nh, image::imageops::FilterType::Triangle)
         };
 
-        let blurred_u8 = imageproc::filter::gaussian_blur_f32(&cur_img, 1.2);
+        let blurred_u8 = imageproc::filter::gaussian_blur_f32(&cur_img, 0.8);
         // Adaptive FAST threshold per scale
         let scale_fast_thresh = if scale < 0.6 {
-            fast_threshold.saturating_sub(4).max(8)
+            fast_threshold.saturating_sub(3).max(7)
         } else {
             fast_threshold
         };
@@ -382,6 +384,15 @@ pub fn find_homography_ransac(
     keypoints1: &[KeyPoint],
     keypoints2: &[KeyPoint],
 ) -> Option<(Matrix3<f64>, Vec<Match>)> {
+    find_homography_ransac_with_min_inliers(matches, keypoints1, keypoints2, MIN_INLIERS_FOR_CONNECTION)
+}
+
+pub fn find_homography_ransac_with_min_inliers(
+    matches: &[Match],
+    keypoints1: &[KeyPoint],
+    keypoints2: &[KeyPoint],
+    min_inliers: usize,
+) -> Option<(Matrix3<f64>, Vec<Match>)> {
     let mut rng = rng();
     let mut best_h: Option<Matrix3<f64>> = None;
     let mut best_inliers: Vec<Match> = Vec::new();
@@ -401,6 +412,10 @@ pub fn find_homography_ransac(
     if points.len() < 4 {
         return None;
     }
+
+    // Dynamic inlier threshold: requires solid consensus without being impossible on larger match sets.
+    // Scales from 20 up to a ceiling of 45 inliers (or 10% of matches, whichever is smaller above 20).
+    let effective_min_inliers = min_inliers.max(20).max(((matches.len() as f64 * 0.10).round() as usize).min(45));
 
     let ransac_inlier_threshold_sq = RANSAC_INLIER_THRESHOLD.powi(2);
 
@@ -426,6 +441,13 @@ pub fn find_homography_ransac(
         }
 
         if let Some(h) = compute_homography(&sample_points) {
+            // Homography h is normalized such that h[(2,2)] == 1.0.
+            // Check determinant: for valid planar camera homographies, det(H) is strictly positive and typically between 0.1 and 10.0
+            let det = h.determinant();
+            if det <= 0.05 || det > 10.0 || !det.is_finite() {
+                continue;
+            }
+
             let current_inliers: Vec<Match> = matches
                 .par_iter()
                 .enumerate()
@@ -457,9 +479,37 @@ pub fn find_homography_ransac(
         }
     }
 
-    if best_inliers.len() >= MIN_INLIERS_FOR_CONNECTION {
+    if best_inliers.len() >= effective_min_inliers {
+        // Spatial spread check: inliers must span a meaningful area across both images
+        // Prevents small corner clusters (e.g. single bush or cloud) from producing degenerate homographies
+        let mut min_x1 = f64::INFINITY;
+        let mut max_x1 = f64::NEG_INFINITY;
+        let mut min_y1 = f64::INFINITY;
+        let mut max_y1 = f64::NEG_INFINITY;
+
+        for m in &best_inliers {
+            let p1 = keypoints1[m.index1];
+            min_x1 = min_x1.min(p1.x as f64);
+            max_x1 = max_x1.max(p1.x as f64);
+            min_y1 = min_y1.min(p1.y as f64);
+            max_y1 = max_y1.max(p1.y as f64);
+        }
+
+        let span_x = max_x1 - min_x1;
+        let span_y = max_y1 - min_y1;
+        // Require at least 80px span in both directions on the proxy resolution
+        if span_x < 80.0 || span_y < 80.0 {
+            println!("  [RANSAC] Rejected match: inliers ({}) clustered too tightly (span: {:.1}x{:.1})",
+                best_inliers.len(), span_x, span_y);
+            return None;
+        }
+
+        println!("  [RANSAC] Accepted match: {} inliers (span: {:.1}x{:.1}, det: {:.3})",
+            best_inliers.len(), span_x, span_y, best_h.as_ref().map(|h| h.determinant()).unwrap_or(0.0));
         Some((best_h.unwrap(), best_inliers))
     } else {
+        println!("  [RANSAC] Rejected: best inliers {} < effective_min_inliers {}",
+            best_inliers.len(), effective_min_inliers);
         None
     }
 }
@@ -504,7 +554,13 @@ pub fn compute_homography(points: &[(Point2<f64>, Point2<f64>)]) -> Option<Matri
     let svd = SVD::new(a, true, true);
     let v_t = svd.v_t.expect("SVD failed to compute V_t");
     let h_vec = v_t.row(v_t.nrows() - 1).transpose();
-    Some(Matrix3::from_iterator(h_vec.iter().cloned()).transpose())
+    let raw_h = Matrix3::from_iterator(h_vec.iter().cloned()).transpose();
+    let h22 = raw_h[(2, 2)];
+    if h22.abs() > 1e-8 {
+        Some(raw_h / h22)
+    } else {
+        Some(raw_h)
+    }
 }
 
 fn convert_gray_u8_to_f32(img: &GrayImage) -> ImageBuffer<Luma<f32>, Vec<f32>> {
@@ -609,6 +665,132 @@ pub fn generate_low_detail_mask(gray_full: &GrayImage) -> GrayImage {
     mask
 }
 
+/// Iterative Lucas-Kanade (KLT) sub-pixel optical flow refinement
+/// Refines matching coordinate (p2) in img2 against template patch around p1 in img1 to 1/16th pixel precision.
+pub fn refine_match_klt_subpixel(
+    img1: &image::Rgb32FImage,
+    p1: Point2<f64>,
+    img2: &image::Rgb32FImage,
+    p2: Point2<f64>,
+) -> Point2<f64> {
+    let (w1, h1) = img1.dimensions();
+    let (w2, h2) = img2.dimensions();
+
+    let r_patch = 5i32; // 11x11 patch window
+    let pad = (r_patch + 2) as f64;
+
+    if p1.x < pad || p1.y < pad || p1.x >= (w1 as f64 - pad) || p1.y >= (h1 as f64 - pad) {
+        return p2;
+    }
+    if p2.x < pad || p2.y < pad || p2.x >= (w2 as f64 - pad) || p2.y >= (h2 as f64 - pad) {
+        return p2;
+    }
+
+    #[inline(always)]
+    fn sample_luma_subpixel(img: &image::Rgb32FImage, x: f64, y: f64) -> f64 {
+        let (w, h) = img.dimensions();
+        let x_clamped = x.clamp(0.0, (w - 1) as f64);
+        let y_clamped = y.clamp(0.0, (h - 1) as f64);
+        let x0 = x_clamped.floor() as u32;
+        let y0 = y_clamped.floor() as u32;
+        let x1 = (x0 + 1).min(w - 1);
+        let y1 = (y0 + 1).min(h - 1);
+        let fx = x_clamped - x0 as f64;
+        let fy = y_clamped - y0 as f64;
+
+        let p00 = img.get_pixel(x0, y0);
+        let p10 = img.get_pixel(x1, y0);
+        let p01 = img.get_pixel(x0, y1);
+        let p11 = img.get_pixel(x1, y1);
+
+        let l00 = 0.2126 * p00[0] as f64 + 0.7152 * p00[1] as f64 + 0.0722 * p00[2] as f64;
+        let l10 = 0.2126 * p10[0] as f64 + 0.7152 * p10[1] as f64 + 0.0722 * p10[2] as f64;
+        let l01 = 0.2126 * p01[0] as f64 + 0.7152 * p01[1] as f64 + 0.0722 * p01[2] as f64;
+        let l11 = 0.2126 * p11[0] as f64 + 0.7152 * p11[1] as f64 + 0.0722 * p11[2] as f64;
+
+        (l00 * (1.0 - fx) + l10 * fx) * (1.0 - fy) + (l01 * (1.0 - fx) + l11 * fx) * fy
+    }
+
+    // Pre-extract template patch values from img1 around p1
+    let mut template = [0.0f64; 121];
+    let mut idx = 0;
+    for dy in -r_patch..=r_patch {
+        for dx in -r_patch..=r_patch {
+            template[idx] = sample_luma_subpixel(img1, p1.x + dx as f64, p1.y + dy as f64);
+            idx += 1;
+        }
+    }
+
+    let mut cur_p2 = p2;
+    let initial_p2 = p2;
+    let max_iterations = 8;
+    let subpixel_convergence_sq = (1.0 / 16.0) * (1.0 / 16.0); // 0.0625 px convergence (1/16th px)
+    let max_drift_sq = 4.0 * 4.0; // Max allowable refinement drift = 4.0 px
+
+    for _ in 0..max_iterations {
+        if cur_p2.x < pad || cur_p2.y < pad || cur_p2.x >= (w2 as f64 - pad) || cur_p2.y >= (h2 as f64 - pad) {
+            break;
+        }
+
+        let mut g00 = 0.0f64;
+        let mut g01 = 0.0f64;
+        let mut g11 = 0.0f64;
+        let mut bx = 0.0f64;
+        let mut by = 0.0f64;
+
+        let mut t_idx = 0;
+        for dy in -r_patch..=r_patch {
+            let sy = cur_p2.y + dy as f64;
+            for dx in -r_patch..=r_patch {
+                let sx = cur_p2.x + dx as f64;
+
+                let t_val = template[t_idx];
+                let i_val = sample_luma_subpixel(img2, sx, sy);
+
+                // Central difference gradients
+                let ix = (sample_luma_subpixel(img2, sx + 1.0, sy) - sample_luma_subpixel(img2, sx - 1.0, sy)) * 0.5;
+                let iy = (sample_luma_subpixel(img2, sx, sy + 1.0) - sample_luma_subpixel(img2, sx, sy - 1.0)) * 0.5;
+
+                let diff = t_val - i_val;
+
+                g00 += ix * ix;
+                g01 += ix * iy;
+                g11 += iy * iy;
+                bx += ix * diff;
+                by += iy * diff;
+
+                t_idx += 1;
+            }
+        }
+
+        let det = g00 * g11 - g01 * g01;
+        let trace = g00 + g11;
+
+        if det <= 1e-7 || trace < 1e-4 {
+            break;
+        }
+
+        let inv_det = 1.0 / det;
+        let delta_x = (g11 * bx - g01 * by) * inv_det;
+        let delta_y = (-g01 * bx + g00 * by) * inv_det;
+
+        cur_p2.x += delta_x;
+        cur_p2.y += delta_y;
+
+        let step_sq = delta_x * delta_x + delta_y * delta_y;
+        if step_sq < subpixel_convergence_sq {
+            break;
+        }
+
+        let drift_sq = (cur_p2.x - initial_p2.x).powi(2) + (cur_p2.y - initial_p2.y).powi(2);
+        if drift_sq > max_drift_sq {
+            return initial_p2;
+        }
+    }
+
+    cur_p2
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -658,5 +840,50 @@ mod tests {
         assert_eq!(matches.len(), 1);
         assert_eq!(matches[0].index1, 0);
         assert_eq!(matches[0].index2, 0);
+    }
+
+    #[test]
+    fn test_klt_subpixel_refinement_accuracy() {
+        // Synthesize 50x50 Gaussian spot image
+        let (w, h) = (50u32, 50u32);
+        let center_x = 25.0f64;
+        let center_y = 25.0f64;
+        let sigma = 3.5f64;
+
+        let mut img1 = image::Rgb32FImage::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                let dx = x as f64 - center_x;
+                let dy = y as f64 - center_y;
+                let val = (-(dx * dx + dy * dy) / (2.0 * sigma * sigma)).exp() as f32;
+                img1.put_pixel(x, y, image::Rgb([val, val, val]));
+            }
+        }
+
+        // Second image shifted by true sub-pixel delta (+0.35 px, -0.45 px)
+        let shift_x = 0.35f64;
+        let shift_y = -0.45f64;
+        let mut img2 = image::Rgb32FImage::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                let dx = (x as f64 - shift_x) - center_x;
+                let dy = (y as f64 - shift_y) - center_y;
+                let val = (-(dx * dx + dy * dy) / (2.0 * sigma * sigma)).exp() as f32;
+                img2.put_pixel(x, y, image::Rgb([val, val, val]));
+            }
+        }
+
+        let p1 = Point2::new(center_x, center_y);
+        // Start KLT from integer coordinate (25.0, 25.0)
+        let initial_p2 = Point2::new(center_x, center_y);
+        let refined_p2 = refine_match_klt_subpixel(&img1, p1, &img2, initial_p2);
+
+        let expected_x = center_x + shift_x;
+        let expected_y = center_y + shift_y;
+        let err = ((refined_p2.x - expected_x).powi(2) + (refined_p2.y - expected_y).powi(2)).sqrt();
+
+        println!("KLT initial error: {:.4} px, refined error: {:.4} px (1/16th px target: 0.0625)", 
+            (shift_x * shift_x + shift_y * shift_y).sqrt(), err);
+        assert!(err < 0.0625, "KLT sub-pixel error must be < 1/16th pixel (0.0625), got {:.5}", err);
     }
 }

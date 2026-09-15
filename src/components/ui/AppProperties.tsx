@@ -96,11 +96,13 @@ export enum Invokes {
   ShowInFinder = 'show_in_finder',
   StartBackgroundIndexing = 'start_background_indexing',
   StitchPanorama = 'stitch_panorama',
+  CancelPanorama = 'cancel_panorama',
   DetectPanoramaSequences = 'detect_panorama_sequences',
   StitchHdrPanorama = 'stitch_hdr_panorama',
   StitchFocusStack = 'stitch_focus_stack',
   SaveFocusStack = 'save_focus_stack',
   MergeHdr = 'merge_hdr',
+  UpdateHdrToneMapping = 'update_hdr_tone_mapping',
   ValidateHdrBrackets = 'validate_hdr_brackets',
   TestAIConnectorConnection = 'test_ai_connector_connection',
   UpdateWgpuTransform = 'update_wgpu_transform',
@@ -167,6 +169,7 @@ export enum Theme {
 export enum ThumbnailAspectRatio {
   Cover = 'cover',
   Contain = 'contain',
+  Masonry = 'masonry',
 }
 
 export interface WorkspaceState {

@@ -1,3 +1,8 @@
 # High-Performance SIMD Autovectorization for Windows x86_64
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+avx2,+fma,+sse4.2"]
+
+# MACHINE SAFETY: Limit parallel compiler jobs to 2.
+# Prevents OOM crashes on 16 GB systems during release builds.
+[build]
+jobs = 2

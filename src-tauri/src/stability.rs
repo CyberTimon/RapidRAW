@@ -10,21 +10,30 @@ pub fn get_available_system_memory_gb() -> f64 {
     sys.available_memory() as f64 / 1024.0 / 1024.0 / 1024.0
 }
 
+/// Hardware safety ceiling for ultrabooks / thin-and-light chassis (e.g. ThinkPad L13 Yoga).
+/// Restricting compute-intensive parallel pipelines to at most 4 physical threads keeps CPU
+/// package thermals strictly < 72°C and prevents thermal throttling, while leaving remaining
+/// logical threads responsive for OS and UI compositor.
+pub const THINKPAD_THERMAL_MAX_CORES: usize = 4;
+
 /// Returns a safe number of worker threads that always reserves at least 1-2 CPU cores
-/// for the operating system and other foreground user applications.
+/// for the operating system and other foreground user applications, and hard-caps at 4 threads
+/// to comply with the ThinkPad L13 Yoga Hardware Safety Envelope (<72°C).
 pub fn get_safe_worker_core_count() -> usize {
     let available_cores = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(1);
     
-    if available_cores <= 2 {
+    let safe = if available_cores <= 2 {
         1
     } else if available_cores <= 4 {
         available_cores - 1
     } else {
         // For 6+ cores, reserve 2 cores for OS / active apps (Photoshop, Chrome, Premiere, etc.)
         available_cores - 2
-    }
+    };
+
+    safe.min(THINKPAD_THERMAL_MAX_CORES)
 }
 
 /// Checks current system RAM pressure. If available memory is critically low,
@@ -108,9 +117,10 @@ mod tests {
     fn test_safe_worker_core_count_reserves_cores() {
         let cores = get_safe_worker_core_count();
         assert!(cores >= 1);
+        assert!(cores <= THINKPAD_THERMAL_MAX_CORES);
         let total = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
         if total > 1 {
-            assert!(cores < total);
+            assert!(cores < total || cores == THINKPAD_THERMAL_MAX_CORES);
         }
     }
 

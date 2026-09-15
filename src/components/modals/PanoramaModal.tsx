@@ -2,9 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle, XCircle, Loader2, Save, RefreshCw, Layers, Sliders, Sparkles, Copy, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { invoke } from '@tauri-apps/api/core';
 import Button from '../ui/Button';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import { Invokes } from '../ui/AppProperties';
+import HdrPanoPreflightModal from './HdrPanoPreflightModal';
 
 export type PanoramaExportFormat = 'jpeg' | 'ultrahdr' | 'dng' | 'tiff' | 'png';
 
@@ -18,8 +21,9 @@ interface PanoramaModalProps {
   onClose(): void;
   onOpenFile(path: string): void;
   onSave(format?: string): Promise<string>;
-  onStitch(projection?: 'cylindrical' | 'spherical' | 'planar' | 'panini' | 'stereographic', boundaryWarp?: number, isHdr?: boolean): void;
+  onStitch(projection?: 'cylindrical' | 'spherical' | 'planar' | 'panini' | 'stereographic', boundaryWarp?: number, isHdr?: boolean, halfSize?: boolean): void;
   progressMessage: string | null;
+  sourcePaths?: string[];
 }
 
 export default function PanoramaModal({
@@ -34,10 +38,12 @@ export default function PanoramaModal({
   onSave,
   onStitch,
   progressMessage,
+  sourcePaths,
 }: PanoramaModalProps) {
   const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
+  const [showPreflight, setShowPreflight] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -46,6 +52,7 @@ export default function PanoramaModal({
   const [projection, setProjection] = useState<'cylindrical' | 'spherical' | 'planar' | 'panini' | 'stereographic'>('cylindrical');
   const [boundaryWarp, setBoundaryWarp] = useState<number>(0.5);
   const [isHdr, setIsHdr] = useState<boolean>(false);
+  const [qualityMode, setQualityMode] = useState<'fast' | 'master'>('fast');
   const [exportFormat, setExportFormat] = useState<PanoramaExportFormat>('jpeg');
   const [loupe, setLoupe] = useState<{ active: boolean; x: number; y: number; px: number; py: number }>({
     active: false,
@@ -71,9 +78,9 @@ export default function PanoramaModal({
   useEffect(() => {
     if (isOpen) {
       setIsMounted(true);
-      if (imageCount && imageCount >= 6 && imageCount % 3 === 0) {
-        setIsHdr(true);
-      }
+      // Auto-detect HDR bracket bursts: if images >= 6 and divisible by 3, default to true
+      const autoHdr = !!(imageCount && imageCount >= 6 && imageCount % 3 === 0);
+      setIsHdr(autoHdr);
       const timer = setTimeout(() => setShow(true), 10);
       return () => clearTimeout(timer);
     } else {
@@ -90,8 +97,11 @@ export default function PanoramaModal({
 
   const handleClose = useCallback(() => {
     if (isSaving) return;
+    if (isProcessing) {
+      invoke(Invokes.CancelPanorama).catch(console.error);
+    }
     onClose();
-  }, [onClose, isSaving]);
+  }, [onClose, isSaving, isProcessing]);
 
   const handleBackdropMouseDown = (e: React.MouseEvent) => {
     mouseDownTarget.current = e.target;
@@ -347,17 +357,65 @@ export default function PanoramaModal({
                   : 'Fuses bracketed exposures into 32-bit linear radiance before stitching.'}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsHdr(!isHdr)}
-              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${
-                isHdr
-                  ? 'bg-amber-500 text-neutral-950 border-amber-400 shadow-md font-bold'
-                  : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:text-white'
-              }`}
-            >
-              {isHdr ? 'HDR Mode ON' : 'HDR Mode OFF'}
-            </button>
+            <div className="flex items-center gap-2">
+              {isHdr && sourcePaths && sourcePaths.length >= 3 && (
+                <button
+                  type="button"
+                  onClick={() => setShowPreflight(true)}
+                  className="px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-amber-400 border border-amber-500/30 transition-all cursor-pointer flex items-center gap-1"
+                >
+                  <Sparkles size={12} />
+                  <span>Verify Brackets...</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsHdr(!isHdr)}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${
+                  isHdr
+                    ? 'bg-amber-500 text-neutral-950 border-amber-400 shadow-md font-bold'
+                    : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:text-white'
+                }`}
+              >
+                {isHdr ? 'HDR Mode ON' : 'HDR Mode OFF'}
+              </button>
+            </div>
+          </div>
+
+          {/* Processing Resolution (Fast Draft vs Full Master) */}
+          <div className="flex items-center justify-between p-2.5 rounded-lg bg-neutral-950 border border-neutral-800">
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold text-neutral-200">Processing Resolution:</span>
+              <span className="text-[10.5px] text-neutral-400">
+                {qualityMode === 'fast'
+                  ? '⚡ Fast Draft (Half-size, rapid ~30s stitch)'
+                  : '💎 Full Master (Full native RAW resolution & maximum fidelity)'}
+              </span>
+            </div>
+            <div className="flex items-center bg-black/50 border border-neutral-700/60 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setQualityMode('fast')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                  qualityMode === 'fast'
+                    ? 'bg-amber-500 text-black font-bold shadow-xs'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                ⚡ Fast Draft
+              </button>
+              <button
+                type="button"
+                onClick={() => setQualityMode('master')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                  qualityMode === 'master'
+                    ? 'bg-amber-500 text-black font-bold shadow-xs'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                💎 Full Master
+              </button>
+            </div>
           </div>
 
           {/* Projection Selector */}
@@ -498,7 +556,7 @@ export default function PanoramaModal({
           {finalImageBase64 ? t('modals.panorama.close') : t('modals.panorama.cancel')}
         </button>
 
-        <Button onClick={() => onStitch(projection, boundaryWarp, isHdr)} disabled={isProcessing} variant={finalImageBase64 ? 'secondary' : 'primary'}>
+        <Button onClick={() => onStitch(projection, boundaryWarp, isHdr, qualityMode === 'fast')} disabled={isProcessing} variant={finalImageBase64 ? 'secondary' : 'primary'}>
           {isProcessing ? (
             <Loader2 className="animate-spin mr-2" size={16} />
           ) : finalImageBase64 ? (
@@ -606,6 +664,18 @@ export default function PanoramaModal({
           {renderButtons()}
         </div>
       </div>
+
+      <HdrPanoPreflightModal
+        isOpen={showPreflight}
+        paths={sourcePaths || []}
+        onClose={() => setShowPreflight(false)}
+        onProceed={(selectedProj, selectedWarp) => {
+          setProjection(selectedProj);
+          setBoundaryWarp(selectedWarp);
+          setIsHdr(true);
+          onStitch(selectedProj, selectedWarp, true);
+        }}
+      />
     </div>
   );
 }

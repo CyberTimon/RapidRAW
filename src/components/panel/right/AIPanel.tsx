@@ -91,6 +91,14 @@ const SUB_MASK_CONFIG: any = {
   [Mask.Brush]: { showBrushTools: true },
   [Mask.Clone]: { showBrushTools: true },
   [Mask.Heal]: { showBrushTools: true },
+  [Mask.Retouch]: {
+    showBrushTools: true,
+    parameters: [{ key: 'intensity', min: 0, max: 100, step: 1, defaultValue: 50 }],
+  },
+  [Mask.Liquify]: {
+    showBrushTools: true,
+    parameters: [{ key: 'pressure', min: 1, max: 100, step: 1, defaultValue: 50 }],
+  },
   [Mask.Linear]: { parameters: [] },
   [Mask.AiSubject]: {
     parameters: [
@@ -558,6 +566,16 @@ export default function AIPanel() {
         (adjustments.aiPatches || []).filter((p: AiPatch) => p.subMasks.some((sm: SubMask) => sm.type === Mask.Heal))
           .length + 1;
       name = t('editor.ai.patches.heal', { count });
+    } else if (type === Mask.Retouch) {
+      const count =
+        (adjustments.aiPatches || []).filter((p: AiPatch) => p.subMasks.some((sm: SubMask) => sm.type === Mask.Retouch))
+          .length + 1;
+      name = `Retouch ${count}`;
+    } else if (type === Mask.Liquify) {
+      const count =
+        (adjustments.aiPatches || []).filter((p: AiPatch) => p.subMasks.some((sm: SubMask) => sm.type === Mask.Liquify))
+          .length + 1;
+      name = `Liquify ${count}`;
     } else {
       const count = (adjustments.aiPatches || []).length + 1;
       name = t('editor.ai.patches.aiEdit', { count });
@@ -577,19 +595,36 @@ export default function AIPanel() {
     setAdjustments((prev: Adjustments) => ({ ...prev, aiPatches: [...(prev.aiPatches || []), newContainer] }));
     onSelectPatchContainer(newContainer.id);
 
-    const isStandalone = [Mask.Clone, Mask.Heal].includes(type);
+    const isStandalone = [Mask.Clone, Mask.Heal, Mask.Retouch, Mask.Liquify].includes(type);
 
     onSelectSubMask(subMask.id);
     if (!isStandalone) {
       setExpandedContainers((prev) => new Set(prev).add(newContainer.id));
     }
 
-    if (type === Mask.Brush || type === Mask.Clone || type === Mask.Heal) {
+    if (
+      type === Mask.Brush ||
+      type === Mask.Clone ||
+      type === Mask.Heal ||
+      type === Mask.Retouch ||
+      type === Mask.Liquify
+    ) {
       selectBrushToolForNewMask();
     }
 
     if (type === Mask.AiForeground) handleGenerateAiForegroundMask(subMask.id);
   };
+
+  useEffect(() => {
+    const onQuickRetouch = () => handleAddAiPatchContainer(Mask.Retouch);
+    const onQuickLiquify = () => handleAddAiPatchContainer(Mask.Liquify);
+    window.addEventListener('rapidraw-quick-retouch', onQuickRetouch);
+    window.addEventListener('rapidraw-quick-liquify', onQuickLiquify);
+    return () => {
+      window.removeEventListener('rapidraw-quick-retouch', onQuickRetouch);
+      window.removeEventListener('rapidraw-quick-liquify', onQuickLiquify);
+    };
+  }, [handleAddAiPatchContainer]);
 
   const handleAddSubMask = (
     containerId: string,
@@ -1901,10 +1936,15 @@ function SettingsPanel({
 
   const isQuickErasePatch = displayContainer.subMasks?.some((sm: SubMask) => sm.type === Mask.QuickEraser);
   const isCloneOrHealPatch = displayContainer.subMasks?.some(
-    (sm: SubMask) => sm.type === Mask.Clone || sm.type === Mask.Heal,
+    (sm: SubMask) =>
+      sm.type === Mask.Clone ||
+      sm.type === Mask.Heal ||
+      sm.type === Mask.Retouch ||
+      sm.type === Mask.Liquify,
   );
   const isStandalone =
-    displayContainer?.subMasks?.length === 1 && [Mask.Clone, Mask.Heal].includes(displayContainer.subMasks[0].type);
+    displayContainer?.subMasks?.length === 1 &&
+    [Mask.Clone, Mask.Heal, Mask.Retouch, Mask.Liquify].includes(displayContainer.subMasks[0].type);
 
   useEffect(() => {
     if (container) {

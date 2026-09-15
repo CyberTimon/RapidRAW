@@ -15,6 +15,7 @@ import {
   Sun,
   Stamp,
   Bandage,
+  Waves,
 } from 'lucide-react';
 import i18n from 'i18next';
 
@@ -34,6 +35,8 @@ export enum Mask {
   Radial = 'radial',
   Clone = 'clone',
   Heal = 'heal',
+  Retouch = 'retouch',
+  Liquify = 'liquify',
 }
 
 export enum SubMaskMode {
@@ -84,6 +87,8 @@ export function formatMaskTypeName(type: string) {
   if (type === Mask.Radial) return i18n.t('masks.types.radial');
   if (type === Mask.Clone) return i18n.t('masks.types.clone');
   if (type === Mask.Heal) return i18n.t('masks.types.heal');
+  if (type === Mask.Retouch) return i18n.t('masks.types.retouch', 'Retouch / Skin');
+  if (type === Mask.Liquify) return i18n.t('masks.types.liquify', 'Liquify Warp');
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
@@ -115,6 +120,8 @@ export const MASK_ICON_MAP: Record<string, any> = {
   [Mask.Radial]: Circle,
   [Mask.Clone]: Stamp,
   [Mask.Heal]: Bandage,
+  [Mask.Retouch]: Sparkles,
+  [Mask.Liquify]: Waves,
 };
 
 export const MASK_PANEL_CREATION_TYPES: Array<MaskType> = [
@@ -175,6 +182,18 @@ export const AI_MANUAL_CLEANUP_TYPES: Array<MaskType> = [
     icon: Bandage,
     name: 'Heal',
     type: Mask.Heal,
+  },
+  {
+    disabled: false,
+    icon: Sparkles,
+    name: 'Retouch',
+    type: Mask.Retouch,
+  },
+  {
+    disabled: false,
+    icon: Waves,
+    name: 'Liquify',
+    type: Mask.Liquify,
   },
 ];
 

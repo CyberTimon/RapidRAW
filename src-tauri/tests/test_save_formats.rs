@@ -17,6 +17,7 @@ fn test_encode_linear_dng_and_tags() {
         description: Some("Linear DNG Float".to_string()),
         as_shot_neutral: Some([1.0, 1.0, 1.0]),
         baseline_exposure: Some(0.0),
+        white_level: None,
     };
 
     let dng_bytes = rapidraw_lib::dng_encoder::encode_linear_dng(&img, Some(&meta)).expect("DNG encoding failed");

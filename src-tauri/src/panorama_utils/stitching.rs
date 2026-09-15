@@ -19,6 +19,8 @@ use image::{GrayImage, Rgb, Rgb32FImage};
 use nalgebra::{Matrix3, Vector3};
 use rayon::prelude::*;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
 pub fn ray_traced_multiband_stitcher(
@@ -28,12 +30,18 @@ pub fn ray_traced_multiband_stitcher(
     projection: PanoramaProjection,
     boundary_warp_strength: f32,
     app_handle: Option<&AppHandle>,
-) -> Rgb32FImage {
+    cancel_token: Option<&Arc<AtomicBool>>,
+    settings: Option<&crate::app_settings::AppSettings>,
+) -> Result<Rgb32FImage, String> {
     if images.is_empty() || poses.is_empty() {
-        return Rgb32FImage::new(0, 0);
+        return Ok(Rgb32FImage::new(0, 0));
     }
+    let default_settings = crate::app_settings::AppSettings::default();
+    let actual_settings = settings.unwrap_or(&default_settings);
+
     if images.len() == 1 {
-        return images[0].image.clone();
+        let single = images[0].get_panel_image(actual_settings)?;
+        return Ok(single.into_owned());
     }
 
     if let Some(h) = app_handle {
@@ -53,7 +61,7 @@ pub fn ray_traced_multiband_stitcher(
 
     for (k, &img_info) in images.iter().enumerate() {
         let pose = &poses[k];
-        let (w, h) = img_info.image.dimensions();
+        let (w, h) = (img_info.full_width, img_info.full_height);
         let corners = [
             (0.0, 0.0),
             (w as f64, 0.0),
@@ -114,9 +122,27 @@ pub fn ray_traced_multiband_stitcher(
     };
 
     // Budget canvas dimensions safely to prevent Out-Of-Memory (OOM) allocations
-    let out_width = (((max_theta - min_theta) * avg_f).ceil() as u32).clamp(400, 18000);
-    let out_height = (((max_phi - min_phi) * avg_f).ceil() as u32).clamp(300, 10000);
-    println!("  - Panoramic canvas dimensions: {}x{}", out_width, out_height);
+    let raw_span_theta = (max_theta - min_theta).max(1e-4);
+    let raw_span_phi = (max_phi - min_phi).max(1e-4);
+    let max_canvas_w = 18000.0f64;
+    let max_canvas_h = 10000.0f64;
+
+    let scale_x = max_canvas_w / (raw_span_theta * avg_f);
+    let scale_y = max_canvas_h / (raw_span_phi * avg_f);
+    let canvas_scale = scale_x.min(scale_y).min(1.0);
+    let canvas_f = avg_f * canvas_scale;
+
+    let out_width = ((raw_span_theta * canvas_f).ceil() as u32).clamp(400, 18000);
+    let out_height = ((raw_span_phi * canvas_f).ceil() as u32).clamp(300, 10000);
+    println!("  - Panoramic canvas dimensions: {}x{} (canvas_scale: {:.3}, canvas_f: {:.1} px, avg_f: {:.1} px)",
+        out_width, out_height, canvas_scale, canvas_f, avg_f);
+    println!("  - Raw FOV: theta=[{:.4}, {:.4}] ({:.1} deg), phi=[{:.4}, {:.4}] ({:.1} deg)",
+        min_theta, max_theta, (max_theta - min_theta).to_degrees(),
+        min_phi, max_phi, (max_phi - min_phi).to_degrees());
+    for (i, p) in poses.iter().enumerate() {
+        println!("    Pose {}: yaw={:.3} deg, pitch={:.3} deg, roll={:.3} deg, f={:.1}",
+            i, p.yaw.to_degrees(), p.pitch.to_degrees(), p.roll.to_degrees(), p.f);
+    }
 
     let canvas_cx = out_width as f64 / 2.0;
     let canvas_cy = out_height as f64 / 2.0;
@@ -134,7 +160,7 @@ pub fn ray_traced_multiband_stitcher(
     let proxy_h = (out_height / proxy_scale).max(100);
     let proxy_cx = proxy_w as f64 / 2.0;
     let proxy_cy = proxy_h as f64 / 2.0;
-    let proxy_f = avg_f / proxy_scale as f64;
+    let proxy_f = canvas_f / proxy_scale as f64;
 
     let mut proxy_panels: Vec<Rgb32FImage> = Vec::with_capacity(images.len());
     let mut proxy_masks: Vec<GrayImage> = Vec::with_capacity(images.len());
@@ -145,7 +171,8 @@ pub fn ray_traced_multiband_stitcher(
 
         let pose = &poses[k];
         let r_inv = &r_invs[k];
-        let src_img = &img_info.image;
+        let src_img = &img_info.proxy_image;
+        let s_factor = img_info.scale_factor;
 
         let num_pixels_per_row = proxy_w as usize * 3;
         p_img
@@ -192,9 +219,12 @@ pub fn ray_traced_multiband_stitcher(
                     };
 
                     if let Some((u, v)) = pose.project_ray(&world_ray, r_inv) {
-                        let color = get_interpolated_pixel(src_img, u, v);
+                        let color = get_interpolated_pixel(src_img, u / s_factor, v / s_factor);
+                        let vig = pose.vignetting_gain(u, v);
                         let start = x as usize * 3;
-                        row_slice[start..start + 3].copy_from_slice(&color.0);
+                        row_slice[start] = (color.0[0] * vig).max(0.0);
+                        row_slice[start + 1] = (color.0[1] * vig).max(0.0);
+                        row_slice[start + 2] = (color.0[2] * vig).max(0.0);
                         mask_row[x as usize] = 255;
                     }
                 }
@@ -265,6 +295,11 @@ pub fn ray_traced_multiband_stitcher(
     let mut final_mask = GrayImage::new(out_width, out_height);
 
     for (k, &img_info) in images.iter().enumerate() {
+        if let Some(token) = cancel_token {
+            if token.load(Ordering::Relaxed) {
+                return Err("Panorama stitching cancelled by user".to_string());
+            }
+        }
         let panel_name = Path::new(&img_info.filename)
             .file_name()
             .unwrap_or_default()
@@ -281,7 +316,8 @@ pub fn ray_traced_multiband_stitcher(
 
         let pose = &poses[k];
         let r_inv = &r_invs[k];
-        let src_img = &img_info.image;
+        let panel_cow = img_info.get_panel_image(actual_settings)?;
+        let src_img = panel_cow.as_ref();
         let gain = global_gains.get(k).copied().unwrap_or([1.0, 1.0, 1.0]);
         let mesh_warp = mesh_warps.get(k);
 
@@ -292,23 +328,34 @@ pub fn ray_traced_multiband_stitcher(
             .enumerate()
             .for_each(|(y, (row_slice, mask_row))| {
                 for x in 0..out_width {
-                    let theta = (x as f64 - canvas_cx) / avg_f + mid_theta;
-                    let phi = (y as f64 - canvas_cy) / avg_f + mid_phi;
+                    let d_theta = (x as f64 - canvas_cx) / canvas_f + mid_theta;
+                    let h_cyl = (y as f64 - canvas_cy) / canvas_f;
 
                     let world_ray = match active_projection {
                         PanoramaProjection::Cylindrical => {
-                            let denom = (1.0 + phi * phi).sqrt();
-                            Vector3::new(theta.sin() / denom, phi / denom, theta.cos() / denom)
+                            let sin_t = d_theta.sin();
+                            let cos_t = d_theta.cos();
+                            // Exact 3D pitch rotation around world X-axis by mid_phi preserves straight horizons
+                            let cos_pitch = mid_phi.cos();
+                            let sin_pitch = mid_phi.sin();
+                            let ray_x = sin_t;
+                            let ray_y = h_cyl * cos_pitch + cos_t * sin_pitch;
+                            let ray_z = -h_cyl * sin_pitch + cos_t * cos_pitch;
+                            Vector3::new(ray_x, ray_y, ray_z).normalize()
                         }
                         PanoramaProjection::Spherical => {
-                            let cos_p = phi.cos();
-                            Vector3::new(cos_p * theta.sin(), phi.sin(), cos_p * theta.cos())
+                            let phi_rad = (y as f64 - canvas_cy) / canvas_f + mid_phi;
+                            let cos_p = phi_rad.cos();
+                            Vector3::new(cos_p * d_theta.sin(), phi_rad.sin(), cos_p * d_theta.cos())
                         }
                         PanoramaProjection::Planar => {
-                            let len = (theta * theta + phi * phi + 1.0).sqrt();
-                            Vector3::new(theta / len, phi / len, 1.0 / len)
+                            let phi = (y as f64 - canvas_cy) / canvas_f + mid_phi;
+                            let len = (d_theta * d_theta + phi * phi + 1.0).sqrt();
+                            Vector3::new(d_theta / len, phi / len, 1.0 / len)
                         }
                         PanoramaProjection::Panini => {
+                            let theta = d_theta;
+                            let phi = (y as f64 - canvas_cy) / canvas_f + mid_phi;
                             let d = 1.0;
                             let scale_v = (d + 1.0) / (d + theta.cos().max(1e-4));
                             let ray_x = theta.sin();
@@ -317,11 +364,13 @@ pub fn ray_traced_multiband_stitcher(
                             Vector3::new(ray_x, ray_y, ray_z).normalize()
                         }
                         PanoramaProjection::Stereographic => {
+                            let theta = d_theta;
+                            let phi = (y as f64 - canvas_cy) / canvas_f + mid_phi;
                             let r = (theta * theta + phi * phi).sqrt();
                             if r < 1e-6 {
                                 Vector3::new(0.0, 0.0, 1.0)
                             } else {
-                                let ang = 2.0 * (r / 2.0).atan();
+                                let ang: f64 = 2.0 * (r / 2.0).atan();
                                 let sin_a = ang.sin();
                                 let cos_a = ang.cos();
                                 Vector3::new(sin_a * (theta / r), sin_a * (phi / r), cos_a).normalize()
@@ -345,6 +394,9 @@ pub fn ray_traced_multiband_stitcher(
                     }
                 }
             });
+
+        let panel_non_zero = panel_mask.pixels().filter(|p| p[0] > 0).count();
+        println!("  - Panel {} mapped pixels: {}", k + 1, panel_non_zero);
 
         if k == 0 {
             final_panorama = panel_img;
@@ -373,8 +425,8 @@ pub fn ray_traced_multiband_stitcher(
             let _ = h.emit("panorama-progress", "Applying Boundary Mesh Warp & Inscribed Crop... 92%");
         }
         println!("Applying Boundary Mesh Warp (strength: {:.1}%)...", boundary_warp_strength * 100.0);
-        let warped = apply_boundary_mesh_warp(&final_panorama, &final_mask, boundary_warp_strength);
-        crop_to_maximum_inner_rectangle(&warped, &final_mask)
+        let (warped, warped_mask) = apply_boundary_mesh_warp(&final_panorama, &final_mask, boundary_warp_strength);
+        crop_to_maximum_inner_rectangle(&warped, &warped_mask)
     } else {
         if let Some(h) = app_handle {
             let _ = h.emit("panorama-progress", "Applying Maximum Inscribed Rectangular Crop... 92%");
@@ -382,30 +434,7 @@ pub fn ray_traced_multiband_stitcher(
         crop_to_maximum_inner_rectangle(&final_panorama, &final_mask)
     };
 
-    // Photometric Exposure Normalization: Ensure linear raw radiance is properly scaled
-    let (sw, sh) = stitched_result.dimensions();
-    let num_px = (sw * sh) as usize;
-    if num_px > 0 {
-        let mut max_luma = 0.0f32;
-        for p in stitched_result.pixels() {
-            let luma = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
-            if luma > max_luma {
-                max_luma = luma;
-            }
-        }
-        if max_luma > 0.01 && max_luma < 0.40 {
-            let boost = (0.85 / max_luma).clamp(1.0, 4.0);
-            let mut normalized = stitched_result;
-            for p in normalized.pixels_mut() {
-                p[0] *= boost;
-                p[1] *= boost;
-                p[2] *= boost;
-            }
-            return normalized;
-        }
-    }
-
-    stitched_result
+    Ok(stitched_result)
 }
 
 /// Fallback compatibility wrapper for progressive_seam_stitcher
@@ -417,10 +446,10 @@ pub fn progressive_seam_stitcher(
 ) -> Rgb32FImage {
     // Generate initial camera poses from homographies
     let mut poses = Vec::with_capacity(images.len());
-    let avg_f = images[0].image.width().max(images[0].image.height()) as f64 * 1.25;
+    let avg_f = images[0].full_width.max(images[0].full_height) as f64 * 1.25;
 
     for (k, &img_info) in images.iter().enumerate() {
-        let (w, h) = img_info.image.dimensions();
+        let (w, h) = (img_info.full_width, img_info.full_height);
         let mut pose = CameraPose::new(k, w, h, Some(avg_f));
         if let Some(h_global) = global_homographies.get(&img_info.id) {
             let (yaw, pitch, roll) = crate::panorama_utils::camera_model::homography_to_relative_rotation(h_global, avg_f, w, h);
@@ -431,21 +460,21 @@ pub fn progressive_seam_stitcher(
         poses.push(pose);
     }
 
-    ray_traced_multiband_stitcher(images, &poses, &[], PanoramaProjection::Cylindrical, 0.5, app_handle)
+    ray_traced_multiband_stitcher(images, &poses, &[], PanoramaProjection::Cylindrical, 0.5, app_handle, None, None).unwrap_or_else(|_| Rgb32FImage::new(0, 0))
 }
 
 /// 2D Content-Preserving Laplacian Mesh Boundary Rectangulation (Boundary Warp)
 /// Stretches irregular wavy outer panorama boundaries outward to fill a full rectangular canvas
 /// while preserving straight interior horizon lines and architectural geometries.
-pub fn apply_boundary_mesh_warp(pano: &Rgb32FImage, mask: &GrayImage, strength: f32) -> Rgb32FImage {
+pub fn apply_boundary_mesh_warp(pano: &Rgb32FImage, mask: &GrayImage, strength: f32) -> (Rgb32FImage, GrayImage) {
     let (w, h) = pano.dimensions();
     if w < 10 || h < 10 || strength <= 0.001 {
-        return pano.clone();
+        return (pano.clone(), mask.clone());
     }
 
     let (min_x, min_y, max_x, max_y) = match compute_mask_bounding_box(mask) {
         Some(b) => b,
-        None => return pano.clone(),
+        None => return (pano.clone(), mask.clone()),
     };
 
     let s = strength.clamp(0.0, 1.0) as f64;
@@ -549,29 +578,36 @@ pub fn apply_boundary_mesh_warp(pano: &Rgb32FImage, mask: &GrayImage, strength: 
         }
     }
 
-    // 2.1. Laplacian Mesh Stiffness Smoothing (3 iterations) to ensure C1 continuity
-    for _ in 0..3 {
+    // 2.1. Laplacian Mesh Stiffness & Collinear Line Smoothing (4 iterations) to ensure C1 continuity
+    // and preserve straight horizons and vertical architectural walls across boundary warps
+    for _ in 0..4 {
         let mut smooth_x = src_mesh_x.clone();
         let mut smooth_y = src_mesh_y.clone();
         for r in 1..grid_rows {
             for c in 1..grid_cols {
-                smooth_x[r][c] = 0.5 * src_mesh_x[r][c]
-                    + 0.125 * (src_mesh_x[r - 1][c] + src_mesh_x[r + 1][c] + src_mesh_x[r][c - 1] + src_mesh_x[r][c + 1]);
-                smooth_y[r][c] = 0.5 * src_mesh_y[r][c]
-                    + 0.125 * (src_mesh_y[r - 1][c] + src_mesh_y[r + 1][c] + src_mesh_y[r][c - 1] + src_mesh_y[r][c + 1]);
+                let lap_x = 0.25 * (src_mesh_x[r - 1][c] + src_mesh_x[r + 1][c] + src_mesh_x[r][c - 1] + src_mesh_x[r][c + 1]);
+                let lap_y = 0.25 * (src_mesh_y[r - 1][c] + src_mesh_y[r + 1][c] + src_mesh_y[r][c - 1] + src_mesh_y[r][c + 1]);
+
+                let line_horiz_y = 0.5 * (src_mesh_y[r][c - 1] + src_mesh_y[r][c + 1]);
+                let line_vert_x = 0.5 * (src_mesh_x[r - 1][c] + src_mesh_x[r + 1][c]);
+
+                smooth_x[r][c] = 0.5 * src_mesh_x[r][c] + 0.3 * lap_x + 0.2 * line_vert_x;
+                smooth_y[r][c] = 0.5 * src_mesh_y[r][c] + 0.3 * lap_y + 0.2 * line_horiz_y;
             }
         }
         src_mesh_x = smooth_x;
         src_mesh_y = smooth_y;
     }
 
-    // 3. Render final warped image with bicubic sampling across grid cells
+    // 3. Render final warped image and mask with bicubic/nearest sampling across grid cells
     let mut warped = Rgb32FImage::new(w, h);
+    let mut warped_mask = GrayImage::new(w, h);
 
     warped
         .par_chunks_mut(w as usize * 3)
+        .zip(warped_mask.par_chunks_mut(w as usize))
         .enumerate()
-        .for_each(|(y, row)| {
+        .for_each(|(y, (row, mask_row))| {
             let v_frac = y as f64 / (h - 1).max(1) as f64;
             let r_float = v_frac * grid_rows as f64;
             let r0 = (r_float.floor() as usize).min(grid_rows - 1);
@@ -604,10 +640,18 @@ pub fn apply_boundary_mesh_warp(pano: &Rgb32FImage, mask: &GrayImage, strength: 
                 row[idx] = px[0];
                 row[idx + 1] = px[1];
                 row[idx + 2] = px[2];
+
+                let sx_round = interp_sx.round() as i32;
+                let sy_round = interp_sy.round() as i32;
+                if sx_round >= 0 && sx_round < w as i32 && sy_round >= 0 && sy_round < h as i32 {
+                    mask_row[x] = mask.get_pixel(sx_round as u32, sy_round as u32)[0];
+                } else {
+                    mask_row[x] = 0;
+                }
             }
         });
 
-    warped
+    (warped, warped_mask)
 }
 
 /// Computes non-zero bounding box from mask
@@ -638,7 +682,9 @@ pub fn compute_mask_bounding_box(mask: &GrayImage) -> Option<(u32, u32, u32, u32
 
 /// Trims unmapped margin pixels from canvas
 pub fn crop_to_valid_mask(pano: &Rgb32FImage, mask: &GrayImage) -> Rgb32FImage {
-    if let Some((min_x, min_y, max_x, max_y)) = compute_mask_bounding_box(mask) {
+    let bbox = compute_mask_bounding_box(mask);
+    println!("  - crop_to_valid_mask: bbox = {:?}", bbox);
+    if let Some((min_x, min_y, max_x, max_y)) = bbox {
         let crop_w = max_x - min_x + 1;
         let crop_h = max_y - min_y + 1;
         let mut cropped = Rgb32FImage::new(crop_w, crop_h);
@@ -696,46 +742,39 @@ pub fn find_maximum_inner_rectangle(mask: &GrayImage) -> Option<(u32, u32, u32, 
         let raw_mask = mask.as_raw();
         let stride = w as usize;
 
+        // Conservative min-pooling: proxy pixel is 255 if and only if EVERY pixel in the S x S block is non-zero
         for py in 0..ph {
-            let sy = (py * scale).min(h - 1) as usize;
+            let y_start = (py * scale) as usize;
+            let y_end = ((py + 1) * scale).min(h) as usize;
             for px in 0..pw {
-                let sx = (px * scale).min(w - 1) as usize;
-                // Conservative sampling: proxy pixel is valid if all sampled corners are non-zero
-                let sx_end = ((px + 1) * scale).min(w) as usize - 1;
-                let sy_end = ((py + 1) * scale).min(h) as usize - 1;
-                let c1 = raw_mask[sy * stride + sx] > 0;
-                let c2 = raw_mask[sy * stride + sx_end] > 0;
-                let c3 = raw_mask[sy_end * stride + sx] > 0;
-                let c4 = raw_mask[sy_end * stride + sx_end] > 0;
-                if c1 && c2 && c3 && c4 {
+                let x_start = (px * scale) as usize;
+                let x_end = ((px + 1) * scale).min(w) as usize;
+
+                let mut valid_count = 0usize;
+                let mut total_count = 0usize;
+                for y in y_start..y_end {
+                    let row_offset = y * stride;
+                    for x in x_start..x_end {
+                        total_count += 1;
+                        if raw_mask[row_offset + x] > 0 {
+                            valid_count += 1;
+                        }
+                    }
+                }
+
+                if total_count > 0 && (valid_count as f32 / total_count as f32) >= 0.96 {
                     pmask.put_pixel(px, py, image::Luma([255]));
                 }
             }
         }
 
         if let Some((prx, pry, prw, prh)) = find_maximum_inner_rectangle_exact(&pmask) {
-            let mut full_x = (prx * scale).min(w - 1);
-            let mut full_y = (pry * scale).min(h - 1);
-            let mut full_w = (prw * scale).min(w - full_x);
-            let mut full_h = (prh * scale).min(h - full_y);
+            let full_x = prx * scale;
+            let full_y = pry * scale;
+            let full_w = (prw * scale).min(w - full_x);
+            let full_h = (prh * scale).min(h - full_y);
 
-            // Refine bounds to guarantee 100% non-zero mask pixels on full resolution
-            while full_w > 10 && (0..full_h).any(|dy| mask.get_pixel(full_x, full_y + dy)[0] == 0) {
-                full_x += 1;
-                full_w -= 1;
-            }
-            while full_w > 10 && (0..full_h).any(|dy| mask.get_pixel(full_x + full_w - 1, full_y + dy)[0] == 0) {
-                full_w -= 1;
-            }
-            while full_h > 10 && (0..full_w).any(|dx| mask.get_pixel(full_x + dx, full_y)[0] == 0) {
-                full_y += 1;
-                full_h -= 1;
-            }
-            while full_h > 10 && (0..full_w).any(|dx| mask.get_pixel(full_x + dx, full_y + full_h - 1)[0] == 0) {
-                full_h -= 1;
-            }
-
-            if full_w > 10 && full_h > 10 {
+            if full_w > 100 && full_h > 100 {
                 return Some((full_x, full_y, full_w, full_h));
             }
         }
@@ -792,26 +831,32 @@ fn find_maximum_inner_rectangle_exact(mask: &GrayImage) -> Option<(u32, u32, u32
         }
     }
 
-    if max_area > 0 && best_rect.2 > 10 && best_rect.3 > 10 {
+    if max_area > 0 && best_rect.2 > 100 && best_rect.3 > 100 {
         Some(best_rect)
     } else {
         None
     }
 }
 
-/// Automatically crops stitched panorama to the maximum clean inscribed inner rectangle
 pub fn crop_to_maximum_inner_rectangle(pano: &Rgb32FImage, mask: &GrayImage) -> Rgb32FImage {
+    let non_zero = mask.pixels().filter(|p| p[0] > 0).count();
+    println!("  - crop_to_maximum_inner_rectangle: mask non-zero pixels = {} / {}", non_zero, mask.len());
     if let Some((rx, ry, rw, rh)) = find_maximum_inner_rectangle(mask) {
-        let mut cropped = Rgb32FImage::new(rw, rh);
-        for y in 0..rh {
-            for x in 0..rw {
-                cropped.put_pixel(x, y, *pano.get_pixel(rx + x, ry + y));
+        println!("  - find_maximum_inner_rectangle found: x={}, y={}, w={}, h={}", rx, ry, rw, rh);
+        if rw > 100 && rh > 100 {
+            let mut cropped = Rgb32FImage::new(rw, rh);
+            for y in 0..rh {
+                for x in 0..rw {
+                    cropped.put_pixel(x, y, *pano.get_pixel(rx + x, ry + y));
+                }
             }
+            return cropped;
         }
-        cropped
-    } else {
-        crop_to_valid_mask(pano, mask)
     }
+
+    println!("  - find_maximum_inner_rectangle returned None, falling back to crop_to_valid_mask");
+    // Fallback: If maximum inner rectangle fails or is degenerate, crop to valid mask bounding box
+    crop_to_valid_mask(pano, mask)
 }
 
 #[inline(always)]
@@ -824,8 +869,8 @@ fn catmull_rom_1d(p0: f32, p1: f32, p2: f32, p3: f32, t: f32) -> f32 {
         + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3)
 }
 
-/// 16-Tap Catmull-Rom Bicubic Sub-Pixel Resampling
-/// Preserves sharp high-frequency micro-details, foliage textures, and crisp edges without aliasing.
+/// 16-Tap Catmull-Rom Bicubic Sub-Pixel Resampling with Local Anti-Ringing Bounding Envelope
+/// Preserves sharp high-frequency micro-details, foliage textures, and crisp edges without aliasing or halos.
 pub fn get_catmull_rom_bicubic_pixel(img: &Rgb32FImage, x: f64, y: f64) -> Rgb<f32> {
     let (w, h) = img.dimensions();
     let x_int = x.floor() as i32;
@@ -837,6 +882,11 @@ pub fn get_catmull_rom_bicubic_pixel(img: &Rgb32FImage, x: f64, y: f64) -> Rgb<f
 
     let tx = (x - x_int as f64) as f32;
     let ty = (y - y_int as f64) as f32;
+
+    let p_00 = img.get_pixel(x_int as u32, y_int as u32);
+    let p_10 = img.get_pixel((x_int + 1) as u32, y_int as u32);
+    let p_01 = img.get_pixel(x_int as u32, (y_int + 1) as u32);
+    let p_11 = img.get_pixel((x_int + 1) as u32, (y_int + 1) as u32);
 
     let mut col_interp = [[0.0f32; 3]; 4];
 
@@ -854,13 +904,17 @@ pub fn get_catmull_rom_bicubic_pixel(img: &Rgb32FImage, x: f64, y: f64) -> Rgb<f
 
     let mut out = [0.0f32; 3];
     for c in 0..3 {
-        out[c] = catmull_rom_1d(
+        let val = catmull_rom_1d(
             col_interp[0][c],
             col_interp[1][c],
             col_interp[2][c],
             col_interp[3][c],
             ty,
-        ).max(0.0);
+        );
+        // Anti-ringing clamp: restricts interpolated value strictly within local central 2x2 bounding envelope
+        let min_val = p_00[c].min(p_10[c]).min(p_01[c]).min(p_11[c]);
+        let max_val = p_00[c].max(p_10[c]).max(p_01[c]).max(p_11[c]);
+        out[c] = val.clamp(min_val, max_val);
     }
 
     Rgb(out)
@@ -948,7 +1002,7 @@ mod tests {
             }
         }
 
-        let warped = apply_boundary_mesh_warp(&pano, &mask, 1.0);
+        let (warped, _) = apply_boundary_mesh_warp(&pano, &mask, 1.0);
         assert_eq!(warped.dimensions(), (w, h));
 
         // Verify that the previously empty top-left border now contains smoothly warped color content

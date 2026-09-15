@@ -48,6 +48,7 @@ import {
   Briefcase,
   User,
   Album as AlbumIcon,
+  Telescope,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
@@ -701,6 +702,24 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
                 setUI({
                   colorMatcherModalState: {
                     isOpen: true,
+                    heroPath: finalSelection[0] || null,
+                    targetPaths: finalSelection.slice(1),
+                    initialMode: 'matcher',
+                  },
+                });
+              },
+            },
+            {
+              icon: Wand2,
+              label: 'Harmonize Series to Hero Photo...',
+              disabled: finalSelection.length < 2,
+              onClick: () => {
+                setUI({
+                  colorMatcherModalState: {
+                    isOpen: true,
+                    heroPath: finalSelection[0] || null,
+                    targetPaths: finalSelection.slice(1),
+                    initialMode: 'harmonize',
                   },
                 });
               },
@@ -864,6 +883,27 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
                   setUI((state) => ({
                     hdrModalState: { ...state.hdrModalState, isProcessing: false, error: String(err) },
                   }));
+                });
+              },
+            },
+            {
+              disabled: selectionCount < 2,
+              icon: Telescope,
+              label: t('contextMenus.merge.drizzle', 'Hubble Drizzle Super-Resolution (2x/3x/4x)'),
+              onClick: () => {
+                setUI({
+                  drizzleModalState: {
+                    error: null,
+                    finalImageBase64: null,
+                    originalBase64: null,
+                    isOpen: true,
+                    isProcessing: false,
+                    progressMessage: null,
+                    sourcePaths: finalSelection,
+                    scaleFactor: 2,
+                    pixfrac: 0.8,
+                    meta: null,
+                  },
                 });
               },
             },

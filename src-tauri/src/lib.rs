@@ -6,6 +6,7 @@ mod ai_commands;
 mod ai_connector;
 mod ai_processing;
 mod android_integration;
+pub mod agency_uploader;
 pub mod app_settings;
 mod app_state;
 pub mod astro_stacking;
@@ -14,8 +15,9 @@ pub mod camera_tethering;
 pub mod compliance_inspector;
 mod culling;
 mod default_presets;
+mod film_verification;
 pub mod defect_repair;
-mod denoising;
+pub mod denoising;
 pub mod exif_processing;
 pub mod export_processing;
 pub mod fast_resizer;
@@ -25,6 +27,7 @@ pub mod formats;
 mod gpu_processing;
 pub mod hdr_deghosting;
 pub mod hdr_presets;
+pub mod hugin_engine;
 pub mod image_loader;
 pub mod image_processing;
 mod inpainting;
@@ -53,6 +56,11 @@ pub mod bokeh_simulator;
 pub mod batch_export_engine;
 pub mod speed_culler;
 pub mod hdr_fusion;
+pub mod quality_shield;
+pub mod bilateral_decomposition;
+pub mod filmic_color_science;
+pub mod photographic_critic;
+pub mod auto_tune_loop;
 pub mod stability;
 mod tagging;
 mod tagging_utils;
@@ -100,6 +108,7 @@ use crate::cache_utils::{
 };
 use crate::file_management::{parse_virtual_path, read_file_mapped};
 use crate::formats::is_raw_file;
+#[allow(unused_imports)]
 use crate::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
 use crate::image_loader::{composite_patches_on_image, load_and_composite};
 use crate::image_processing::{
@@ -1045,7 +1054,11 @@ async fn preview_geometry_transform(
             adjusted_params.lens_vignette_amount *= 0.8;
         }
 
-        let warped_image = warp_image_geometry(&base_image_to_warp, adjusted_params);
+        let defringed_base = crate::denoising::apply_chromatic_defringe_if_enabled(
+            std::borrow::Cow::Borrowed(&base_image_to_warp),
+            &js_adjustments,
+        );
+        let warped_image = warp_image_geometry(&defringed_base, adjusted_params);
         let orientation_steps = js_adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
         let flip_horizontal = js_adjustments["flipHorizontal"].as_bool().unwrap_or(false);
         let flip_vertical = js_adjustments["flipVertical"].as_bool().unwrap_or(false);
@@ -1427,7 +1440,7 @@ async fn save_temp_file(bytes: Vec<u8>) -> Result<String, String> {
 #[tauri::command]
 async fn merge_hdr(
     paths: Vec<String>,
-    options: Option<hdr_fusion::HdrMergeOptions>,
+    _options: Option<hdr_fusion::HdrMergeOptions>,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -1436,68 +1449,21 @@ async fn merge_hdr(
         return Err("Please select at least two images to merge.".to_string());
     }
 
-    let _ = app_handle.emit("hdr-progress", "Loading and decoding bracketed frames... 15%");
     let hdr_result_handle = state.hdr_result.clone();
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let cancel_token = state.panorama_cancellation_token.clone();
+    let half_size = _options.as_ref().and_then(|o| o.half_size).unwrap_or(false);
 
-    let mut frames = load_hdr_frames(&paths, Some(&app_handle), &settings)?;
-    assert_uniform_dimensions(&frames)?;
-
-    let num_frames = frames.len();
-    let mut merge_options = options.unwrap_or_default();
-    let ref_idx = merge_options
-        .reference_index
-        .unwrap_or_else(|| hdr_deghosting::select_best_reference_index(&frames))
-        .min(num_frames - 1);
-    merge_options.reference_index = Some(ref_idx);
-
-    // Auto-detect photographic semantic scene if enabled
-    let (detected_scene, _confidence) = crate::semantic_auto_polish::detect_semantic_scene(&frames[ref_idx].1);
-    let scene_display = detected_scene.display_name();
-    log::info!("HDR Auto Scene Detection: {} (ref_idx: {})", scene_display, ref_idx);
-
-    if merge_options.auto_semantic.unwrap_or(true) && merge_options.profile.is_none() {
-        let mapped_profile = match detected_scene {
-            crate::semantic_auto_polish::SemanticScene::Sunset => hdr_fusion::HdrToneProfile::Vivid,
-            crate::semantic_auto_polish::SemanticScene::Architecture => hdr_fusion::HdrToneProfile::Interior,
-            crate::semantic_auto_polish::SemanticScene::Portrait => hdr_fusion::HdrToneProfile::Natural,
-            crate::semantic_auto_polish::SemanticScene::Landscape => hdr_fusion::HdrToneProfile::Natural,
-            _ => hdr_fusion::HdrToneProfile::Natural,
-        };
-        merge_options.profile = Some(mapped_profile);
-    }
-
-    let _ = app_handle.emit("hdr-progress", "Aligning exposure brackets... 35%");
-    align_hdr_frames(&mut frames, Some(&app_handle));
-
-    hdr_deghosting::apply_reference_deghosting_mask(
-        &mut frames,
-        ref_idx,
-        merge_options.deghost_sensitivity,
-        merge_options.user_deghost_strokes.as_deref(),
+    let master_fused = crate::hugin_engine::run_hugin_hdr(
+        &paths,
+        &settings,
+        half_size,
         Some(&app_handle),
-    );
+        Some(&cancel_token),
+    )?;
 
-    let mut rgb_frames: Vec<Rgb32FImage> = frames.iter().map(|f| f.1.to_rgb32f()).collect();
-
-    // Pre-Fusion Cleaners: Hot pixel suppression and directional highlight reconstruction
-    for img in &mut rgb_frames {
-        crate::raw_processing::suppress_bayer_hot_pixels_and_impulse_noise(img);
-        crate::raw_processing::reconstruct_directional_clipped_highlights(img);
-    }
-
-    let exposure_scales: Vec<f32> = frames
-        .iter()
-        .map(|f| hdr_deghosting::compute_physical_exposure_scale(f.2, f.3, f.4))
-        .collect();
-
-    log::info!("Starting Next-Gen Studio HDR Dual-Radiance Exposure Fusion of {} images", rgb_frames.len());
-    let _ = app_handle.emit("hdr-progress", "Fusing exposure details... 60%");
-    let hdr_dual = hdr_fusion::fuse_exposures_dual(&rgb_frames, &exposure_scales, &merge_options, Some(&app_handle), None)?;
-
-    *state.hdr_linear_radiance.lock().unwrap() = Some(hdr_dual.linear_radiance);
-    let hdr_merged = DynamicImage::ImageRgb32F(hdr_dual.tone_mapped_preview);
-    log::info!("HDR Exposure Fusion completed successfully");
+    *state.hdr_linear_radiance.lock().unwrap() = Some(master_fused.clone());
+    let hdr_merged = DynamicImage::ImageRgb32F(master_fused);
 
     let _ = app_handle.emit("hdr-progress", "Creating preview... 98%");
     let mut buf = Cursor::new(Vec::new());
@@ -1514,8 +1480,8 @@ async fn merge_hdr(
         "hdr-complete",
         serde_json::json!({
             "base64": final_base64,
-            "scene": scene_display,
-            "detectedScene": format!("{:?}", detected_scene).to_lowercase(),
+            "scene": "Natural",
+            "detectedScene": "natural",
         }),
     );
     Ok(())
@@ -1549,6 +1515,44 @@ async fn validate_hdr_brackets(
     }
 
     Ok(crate::hdr_presets::validate_bracket_health(&apertures, &exposure_times, &clipped_fractions))
+}
+
+#[tauri::command]
+async fn update_hdr_tone_mapping(
+    options: hdr_fusion::HdrMergeOptions,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let linear_radiance = {
+        let guard = state.hdr_linear_radiance.lock().map_err(|e| e.to_string())?;
+        guard
+            .as_ref()
+            .ok_or_else(|| "No linear radiance available for HDR tone-mapping update".to_string())?
+            .clone()
+    };
+
+    let tm = hdr_fusion::tone_map_radiance_image(&linear_radiance, &options, Some(&app_handle));
+    let hdr_merged = DynamicImage::ImageRgb32F(tm);
+
+    let mut buf = Cursor::new(Vec::new());
+    if let Err(e) = hdr_merged.to_rgb8().write_to(&mut buf, ImageFormat::Png) {
+        return Err(format!("Failed to encode hdr preview: {}", e));
+    }
+
+    let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
+    let final_base64 = format!("data:image/png;base64,{}", base64_str);
+
+    *state.hdr_result.lock().unwrap() = Some(hdr_merged);
+
+    let _ = app_handle.emit(
+        "hdr-complete",
+        serde_json::json!({
+            "base64": final_base64,
+            "scene": "Interactive Update",
+            "detectedScene": "interactive",
+        }),
+    );
+    Ok(())
 }
 
 #[tauri::command]
@@ -2040,6 +2044,17 @@ fn frontend_ready(
     })
 }
 
+#[tauri::command]
+async fn get_photographic_critic_report(
+    path: String,
+) -> Result<photographic_critic::PhotographicQualityReport, String> {
+    let (source_path, _) = file_management::parse_virtual_path(&path);
+    let bytes = std::fs::read(&source_path).map_err(|e| e.to_string())?;
+    let img = image::load_from_memory(&bytes).map_err(|e| e.to_string())?;
+    let rgb32f = img.to_rgb32f();
+    Ok(photographic_critic::evaluate_photographic_quality(&rgb32f))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let safe_cores = stability::get_safe_worker_core_count();
@@ -2114,6 +2129,12 @@ pub fn run() {
             }
 
             let app_handle = app.handle().clone();
+
+            if let Ok(cache_dir) = app_handle.path().app_cache_dir() {
+                let exif_cache_dir = cache_dir.join("exif");
+                exif_processing::init_central_exif_cache_dir(exif_cache_dir);
+                auto_tune_loop::init_calibration_vault_path(cache_dir);
+            }
 
             {
                 let disks_app_handle = app_handle.clone();
@@ -2415,6 +2436,7 @@ pub fn run() {
             initial_file_path: Mutex::new(None),
             pending_edit_session: Mutex::new(None),
             thumbnail_cancellation_token: Arc::new(AtomicBool::new(false)),
+            panorama_cancellation_token: Arc::new(AtomicBool::new(false)),
             thumbnail_progress: Mutex::new(ThumbnailProgressTracker { total: 0, completed: 0 }),
             preview_worker_tx: Mutex::new(None),
             analytics_worker_tx: Mutex::new(None),
@@ -2444,7 +2466,9 @@ pub fn run() {
             save_collage,
             merge_hdr,
             validate_hdr_brackets,
+            get_photographic_critic_report,
             save_hdr,
+            update_hdr_tone_mapping,
             lut_processing::load_and_parse_lut,
             lut_processing::list_luts,
             lut_processing::import_luts,
@@ -2486,6 +2510,7 @@ pub fn run() {
             image_loader::load_image,
             image_loader::is_image_cached,
             panorama_stitching::stitch_panorama,
+            panorama_stitching::cancel_panorama,
             panorama_stitching::save_panorama,
             camera_tethering::tether_list_cameras,
             camera_tethering::tether_connect,
@@ -2496,6 +2521,7 @@ pub fn run() {
             camera_tethering::tether_autofocus,
             panorama_stitching::detect_panorama_sequences,
             hdr_panorama::stitch_hdr_panorama,
+            hdr_panorama::inspect_hdr_pano_grouping,
             export_processing::export_images,
             export_processing::cancel_export,
             export_processing::estimate_export_sizes,
@@ -2560,6 +2586,7 @@ pub fn run() {
             astro_stacking::stack_astro_frames,
             astro_stacking::remove_active_light_pollution_gradient,
             stock_prep::batch_stock_photo_prep,
+            agency_uploader::dispatch_to_stock_agencies,
             compliance_inspector::scan_active_image_compliance,
             compliance_inspector::auto_inpaint_compliance_issues,
             super_resolution::upscale_active_image,
@@ -2590,9 +2617,11 @@ pub fn run() {
             speed_culler::group_burst_photos,
             raw_processing::extract_embedded_raw_preview,
             denoising::drizzle_super_resolution,
+            denoising::save_drizzle_image,
             denoising::apply_chromatic_defringe_active,
             astro_stacking::stack_star_trails,
             astro_stacking::apply_adc_active,
+            astro_stacking::apply_adc_manual,
             bokeh_simulator::simulate_tilt_shift,
             bokeh_simulator::simulate_3d_relighting,
             compliance_inspector::export_stock_audit_report,

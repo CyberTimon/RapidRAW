@@ -46,6 +46,10 @@ export const createSubMask = (
       return { ...common, parameters: { maskDataBase64: null, grow: 0, feather: 0 } };
     case Mask.QuickEraser:
       return { ...common, parameters: { maskDataBase64: null, grow: 50, feather: 50 } };
+    case Mask.Retouch:
+      return { ...common, parameters: { lines: [], intensity: 50 } };
+    case Mask.Liquify:
+      return { ...common, parameters: { lines: [], pressure: 50, liquifyMode: 'push' } };
     default:
       return { ...common, parameters: {} };
   }
