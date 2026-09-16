@@ -16,16 +16,16 @@ interface BasicAdjustmentsProps {
 interface ToneMapperSwitchProps {
   selectedMapper: string;
   onMapperChange: (mapper: string) => void;
-  evShiftValue: number;
-  onEvShiftChange: (value: number) => void;
+  exposureValue: number;
+  onExposureChange: (value: number) => void;
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
 const ToneMapperSwitch = ({
   selectedMapper,
   onMapperChange,
-  evShiftValue,
-  onEvShiftChange,
+  exposureValue,
+  onExposureChange,
   onDragStateChange,
 }: ToneMapperSwitchProps) => {
   const { t } = useTranslation();
@@ -51,7 +51,7 @@ const ToneMapperSwitch = ({
 
   const handleReset = () => {
     onMapperChange('basic');
-    onEvShiftChange(0);
+    onExposureChange(0);
   };
 
   useEffect(() => {
@@ -139,12 +139,12 @@ const ToneMapperSwitch = ({
         </div>
         <div className="mt-2.5 px-1">
           <Slider
-            label={t('adjustments.basic.evShift')}
+            label={t('adjustments.basic.exposure')}
             max={5}
             min={-5}
-            onChange={(e: any) => onEvShiftChange(parseFloat(e.target.value))}
+            onChange={(e: any) => onExposureChange(parseFloat(e.target.value))}
             step={0.01}
-            value={evShiftValue}
+            value={exposureValue}
             trackClassName="bg-surface"
             onDragStateChange={onDragStateChange}
           />
@@ -181,7 +181,7 @@ export default function BasicAdjustments({
     <div>
       {hideTonemapper ? (
         <Slider
-          label={t('adjustments.basic.evShift')}
+          label={t('adjustments.basic.exposure')}
           max={5}
           min={-5}
           onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Exposure, e.target.value)}
@@ -193,13 +193,13 @@ export default function BasicAdjustments({
         <ToneMapperSwitch
           selectedMapper={adjustments.toneMapper || 'agx'}
           onMapperChange={handleToneMapperChange}
-          evShiftValue={adjustments.exposure}
-          onEvShiftChange={(value) => handleAdjustmentChange(BasicAdjustment.Exposure, value)}
+          exposureValue={adjustments.exposure}
+          onExposureChange={(value) => handleAdjustmentChange(BasicAdjustment.Exposure, value)}
           onDragStateChange={onDragStateChange}
         />
       )}
       <Slider
-        label={t('adjustments.basic.exposure')}
+        label={t('adjustments.basic.brightness')}
         max={5}
         min={-5}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Brightness, e.target.value)}

@@ -2,9 +2,9 @@
   "adjustments": {
     "basic": {
       "blacks": "黒レベル",
+      "brightness": "明るさ",
       "contrast": "コントラスト",
-      "evShift": "露出補正",
-      "exposure": "露光量",
+      "exposure": "露出",
       "highlights": "ハイライト",
       "mappers": {
         "agx": "AgX",

@@ -3,121 +3,109 @@ from pathlib import Path
 
 LOCALES_DIR = Path("./locales")
 
+# Translations for the new Exposure (formerly EV Shift) and Brightness (formerly Exposure) keys
 TRANSLATIONS = {
     "ca": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "Llenç gris neutre",
-                "neutralGreyCanvasDesc": "Utilitzeu un llenç gris neutre per a una gradació de color i exposició més precisa sense canviar el tema de l'aplicació.",
-                "enableNeutralGreyCanvas": "Activa el fons gris neutre"
+        "adjustments": {
+            "basic": {
+                "exposure": "Exposició",
+                "brightness": "Brillantor"
             }
         }
     },
     "de": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "Neutralgraue Arbeitsfläche",
-                "neutralGreyCanvasDesc": "Verwenden Sie eine neutralgraue Arbeitsfläche für eine genauere Farb- und Belichtungskorrektur, ohne das App-Design zu ändern.",
-                "enableNeutralGreyCanvas": "Neutralgrauen Hintergrund aktivieren"
+        "adjustments": {
+            "basic": {
+                "exposure": "Belichtung",
+                "brightness": "Helligkeit"
             }
         }
     },
     "en": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "Neutral Grey Canvas",
-                "neutralGreyCanvasDesc": "Use a neutral grey canvas for more accurate color and exposure grading without changing the app theme.",
-                "enableNeutralGreyCanvas": "Enable Neutral Grey Background"
+        "adjustments": {
+            "basic": {
+                "exposure": "Exposure",
+                "brightness": "Brightness"
             }
         }
     },
     "es": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "Lienzo gris neutro",
-                "neutralGreyCanvasDesc": "Utiliza un lienzo gris neutro para una gradación de color y exposición más precisa sin cambiar el tema de la aplicación.",
-                "enableNeutralGreyCanvas": "Activar fondo gris neutro"
+        "adjustments": {
+            "basic": {
+                "exposure": "Exposición",
+                "brightness": "Brillo"
             }
         }
     },
     "fr": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "Toile gris neutre",
-                "neutralGreyCanvasDesc": "Utilisez une toile gris neutre pour un étalonnage des couleurs et de l'exposition plus précis sans modifier le thème de l'application.",
-                "enableNeutralGreyCanvas": "Activer le fond gris neutre"
+        "adjustments": {
+            "basic": {
+                "exposure": "Exposition",
+                "brightness": "Luminosité"
             }
         }
     },
     "it": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "Tela grigio neutro",
-                "neutralGreyCanvasDesc": "Usa una tela grigio neutro per una correzione del colore e dell'esposizione più precisa senza cambiare il tema dell'app.",
-                "enableNeutralGreyCanvas": "Abilita sfondo grigio neutro"
+        "adjustments": {
+            "basic": {
+                "exposure": "Esposizione",
+                "brightness": "Luminosità"
             }
         }
     },
     "ja": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "ニュートラルグレーのキャンバス",
-                "neutralGreyCanvasDesc": "アプリのテーマを変更せずに、より正確な色と露出のグレーディングを行うために、ニュートラルグレーのキャンバスを使用します。",
-                "enableNeutralGreyCanvas": "ニュートラルグレーの背景を有効にする"
+        "adjustments": {
+            "basic": {
+                "exposure": "露出",
+                "brightness": "明るさ"
             }
         }
     },
     "ko": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "뉴트럴 그레이 캔버스",
-                "neutralGreyCanvasDesc": "앱 테마를 변경하지 않고 더 정확한 색상 및 노출 보정을 위해 뉴트럴 그레이 캔버스를 사용합니다.",
-                "enableNeutralGreyCanvas": "뉴트럴 그레이 배경 활성화"
+        "adjustments": {
+            "basic": {
+                "exposure": "노출",
+                "brightness": "밝기"
             }
         }
     },
     "pl": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "Neutralne szare płótno",
-                "neutralGreyCanvasDesc": "Użyj neutralnego, szarego płótna do dokładniejszej korekcji kolorów i ekspozycji bez zmiany motywu aplikacji.",
-                "enableNeutralGreyCanvas": "Włącz neutralne szare tło"
+        "adjustments": {
+            "basic": {
+                "exposure": "Ekspozycja",
+                "brightness": "Jasność"
             }
         }
     },
     "pt": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "Tela cinza neutro",
-                "neutralGreyCanvasDesc": "Use uma tela cinza neutro para uma gradação de cores e exposição mais precisa sem alterar o tema do aplicativo.",
-                "enableNeutralGreyCanvas": "Ativar fundo cinza neutro"
+        "adjustments": {
+            "basic": {
+                "exposure": "Exposição",
+                "brightness": "Brilho"
             }
         }
     },
     "ru": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "Нейтрально-серый холст",
-                "neutralGreyCanvasDesc": "Используйте нейтрально-серый холст для более точной цветокоррекции и настройки экспозиции без изменения темы приложения.",
-                "enableNeutralGreyCanvas": "Включить нейтрально-серый фон"
+        "adjustments": {
+            "basic": {
+                "exposure": "Экспозиция",
+                "brightness": "Яркость"
             }
         }
     },
     "zh-CN": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "中性灰画布",
-                "neutralGreyCanvasDesc": "使用中性灰画布，以便在不更改应用主题的情况下进行更准确的色彩和曝光分级。",
-                "enableNeutralGreyCanvas": "启用中性灰背景"
+        "adjustments": {
+            "basic": {
+                "exposure": "曝光",
+                "brightness": "亮度"
             }
         }
     },
     "zh-TW": {
-        "settings": {
-            "general": {
-                "neutralGreyCanvas": "中性灰畫布",
-                "neutralGreyCanvasDesc": "使用中性灰畫布，以便在不更改應用程式主題的情況下進行更準確的色彩和曝光分級。",
-                "enableNeutralGreyCanvas": "啟用中性灰背景"
+        "adjustments": {
+            "basic": {
+                "exposure": "曝光",
+                "brightness": "亮度"
             }
         }
     }
@@ -152,6 +140,13 @@ def update_json_file(file_path: Path, trans: dict):
         print(f"Error parsing JSON in {file_path.name}. Skipping.")
         return
 
+    # Remove the deprecated evShift key if it exists
+    try:
+        if "evShift" in data.get("adjustments", {}).get("basic", {}):
+            del data["adjustments"]["basic"]["evShift"]
+    except Exception:
+        pass
+
     deep_merge(data, trans)
 
     sorted_data = sort_dict_recursively(data)
@@ -167,7 +162,7 @@ def main():
         print(f"Error: Locales directory '{LOCALES_DIR}' does not exist.")
         return
 
-    print("Starting translation updates for Neutral Grey Canvas settings...")
+    print("Starting translation updates for Exposure and Brightness keys...")
     for lang, trans in TRANSLATIONS.items():
         file_path = LOCALES_DIR / f"{lang}.json"
         update_json_file(file_path, trans)

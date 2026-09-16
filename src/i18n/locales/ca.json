@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "Negres",
+      "brightness": "Brillantor",
       "contrast": "Contrast",
-      "evShift": "Compensació EV",
       "exposure": "Exposició",
       "highlights": "Altes llums",
       "mappers": {

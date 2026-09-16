@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "黑色",
+      "brightness": "亮度",
       "contrast": "对比度",
-      "evShift": "EV 偏移",
       "exposure": "曝光",
       "highlights": "高光",
       "mappers": {

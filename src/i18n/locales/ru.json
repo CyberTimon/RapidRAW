@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "Затемнение",
+      "brightness": "Яркость",
       "contrast": "Контрастность",
-      "evShift": "Сдвиг экспозиции",
       "exposure": "Экспозиция",
       "highlights": "Света",
       "mappers": {
