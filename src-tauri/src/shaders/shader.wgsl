@@ -481,43 +481,54 @@ fn apply_highlights_adjustment(
     is_raw: u32,
     highlights_adj: f32
 ) -> vec3<f32> {
-    if (highlights_adj == 0.0) { return color_in; }
-
-    let pixel_luma = get_luma(max(color_in, vec3<f32>(0.0)));
-    let safe_pixel_luma = max(pixel_luma, 0.0001);
-
-    let pixel_mask_input = tanh(safe_pixel_luma * 1.5);
-    let highlight_mask = smoothstep(0.3, 0.95, pixel_mask_input);
-
-    if (highlight_mask < 0.001) {
+    if (abs(highlights_adj) < 0.001) {
         return color_in;
     }
 
-    let luma = pixel_luma;
-    var final_adjusted_color: vec3<f32>;
-
-    if (highlights_adj < 0.0) {
-        var new_luma: f32;
-        if (luma <= 1.0) {
-            let gamma = 1.0 - highlights_adj * 1.75;
-            new_luma = pow(luma, gamma);
-        } else {
-            let luma_excess = luma - 1.0;
-            let compression_strength = -highlights_adj * 6.0;
-            let compressed_excess = luma_excess / (1.0 + luma_excess * compression_strength);
-            new_luma = 1.0 + compressed_excess;
-        }
-        let tonally_adjusted_color = color_in * (new_luma / max(luma, 0.0001));
-        let desaturation_amount = smoothstep(1.0, 10.0, luma);
-        let white_point = vec3<f32>(new_luma);
-        final_adjusted_color = mix(tonally_adjusted_color, white_point, desaturation_amount);
-    } else {
-        let adjustment = highlights_adj * 1.75;
-        let factor = pow(2.0, adjustment);
-        final_adjusted_color = color_in * factor;
+    let pixel_luma = get_luma(max(color_in, vec3<f32>(0.0)));
+    if (pixel_luma < 0.0001) {
+        return color_in;
     }
 
-    return mix(color_in, final_adjusted_color, highlight_mask);
+    const l_pivot: f32 = 0.25;
+    if (pixel_luma <= l_pivot) {
+        return color_in;
+    }
+
+    var target_luma: f32 = pixel_luma;
+
+    if (highlights_adj < 0.0) {
+        let k = -highlights_adj;
+        let delta = pixel_luma - l_pivot;
+
+        let compression_strength = k * 1.85;
+        let compressed_delta = delta / (1.0 + compression_strength * (delta / (1.0 + delta * 0.5)));
+
+        let slope_ratio = compressed_delta / max(delta, 1e-4);
+        let lost_gradient = 1.0 - slope_ratio;
+
+        let texture_retention = 0.32 * k;
+        let textured_delta = compressed_delta * (1.0 + lost_gradient * texture_retention);
+
+        let blend = smoothstep(l_pivot, l_pivot + 0.35, pixel_luma);
+        target_luma = l_pivot + mix(delta, textured_delta, blend);
+
+    } else {
+        let delta = pixel_luma - l_pivot;
+        let boost_factor = 1.0 + highlights_adj * 0.5;
+        let blend = smoothstep(l_pivot, l_pivot + 0.35, pixel_luma);
+        target_luma = l_pivot + mix(delta, delta * boost_factor, blend);
+    }
+
+    let luma_ratio = target_luma / pixel_luma;
+    var final_color = color_in * luma_ratio;
+
+    if (highlights_adj < 0.0 && pixel_luma > 1.3) {
+        let blowout = smoothstep(1.3, 5.0, pixel_luma) * (-highlights_adj) * 0.35;
+        final_color = mix(final_color, vec3<f32>(target_luma), blowout);
+    }
+
+    return final_color;
 }
 
 fn apply_linear_exposure(color_in: vec3<f32>, exposure_adj: f32) -> vec3<f32> {

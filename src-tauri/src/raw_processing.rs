@@ -45,6 +45,67 @@ fn srgb_to_linear(value: f32) -> f32 {
     }
 }
 
+#[inline]
+fn smootherstep(edge0: f32, edge1: f32, x: f32) -> f32 {
+    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
+    t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+}
+
+#[inline]
+fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
+    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+#[inline]
+fn recover_clipped_pixel(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
+    let max_c = r.max(g).max(b);
+
+    if max_c <= 0.50 {
+        return (r, g, b);
+    }
+
+    let mut cur_r = r;
+    let mut cur_g = g;
+    let mut cur_b = b;
+
+    let outer_blend = smootherstep(0.50, 1.5, max_c);
+
+    let magenta = (cur_r.min(cur_b) - cur_g).max(0.0);
+    if magenta > 0.0 {
+        let target_g = cur_r.min(cur_b) * 0.80 + ((cur_r + cur_b) * 0.5) * 0.20;
+        let correction = (target_g - cur_g).max(0.0);
+        cur_g += correction * outer_blend;
+    }
+
+    let residual = (cur_r.min(cur_b) - cur_g).max(0.0);
+    if residual > 0.0 {
+        cur_g += residual * outer_blend;
+    }
+
+    let new_max = cur_r.max(cur_g).max(cur_b);
+    let min_c = cur_r.min(cur_g).min(cur_b);
+
+    let knee = smoothstep(0.50, 1.5, new_max);
+
+    if knee > 0.0 {
+        let neutrality = (min_c / new_max.max(1e-5)).clamp(0.0, 1.0);
+
+        let core_burn = smoothstep(0.60, 3.0, new_max);
+
+        let desat = (knee * (neutrality * 0.85 + core_burn * 0.15)).clamp(0.0, 1.0);
+        let smooth_desat = desat * desat * (3.0 - 2.0 * desat);
+
+        let neutral_value = min_c + (new_max - min_c) * 1.0;
+
+        cur_r = cur_r * (1.0 - smooth_desat) + neutral_value * smooth_desat;
+        cur_g = cur_g * (1.0 - smooth_desat) + neutral_value * smooth_desat;
+        cur_b = cur_b * (1.0 - smooth_desat) + neutral_value * smooth_desat;
+    }
+
+    (cur_r, cur_g, cur_b)
+}
+
 fn develop_internal(
     file_bytes: &[u8],
     fast_demosaic: bool,
@@ -128,13 +189,17 @@ fn develop_internal(
     let denominator = (original_white_level - original_black_level).max(1.0);
     let rescale_factor = (u32::MAX as f32 - original_black_level) / denominator;
 
-    // turn off highlights clipping setting for now - needs clean cleanup across other files.
     let safe_highlight_compression = 1000.0;
 
     let clamp_limit = if fast_demosaic {
         1.0
     } else {
         safe_highlight_compression
+    };
+
+    let (width, height) = {
+        let dim = developed_intermediate.dim();
+        (dim.w as u32, dim.h as u32)
     };
 
     check_cancel()?;
@@ -144,7 +209,7 @@ fn develop_internal(
             pixels.data.iter_mut().for_each(|p| {
                 let mut linear_val = *p * rescale_factor;
                 if is_linear_format && apply_ungamma {
-                    linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
+                    linear_val = srgb_to_linear(linear_val.max(0.0));
                 }
                 *p = linear_val.clamp(0.0, clamp_limit);
             });
@@ -156,62 +221,16 @@ fn develop_internal(
                 let mut b = (p[2] * rescale_factor).max(0.0);
 
                 if is_linear_format && apply_ungamma {
-                    r = srgb_to_linear(r.clamp(0.0, 1.0));
-                    g = srgb_to_linear(g.clamp(0.0, 1.0));
-                    b = srgb_to_linear(b.clamp(0.0, 1.0));
+                    r = srgb_to_linear(r.max(0.0));
+                    g = srgb_to_linear(g.max(0.0));
+                    b = srgb_to_linear(b.max(0.0));
                 }
 
-                let max_c_initial = r.max(g).max(b);
+                let (rec_r, rec_g, rec_b) = recover_clipped_pixel(r, g, b);
 
-                if max_c_initial > 1.0 {
-                    let min_c = r.min(g).min(b);
-
-                    let base_desat = ((min_c - 0.3) * 2.5).clamp(0.0, 1.0);
-
-                    let magenta_factor = (r.min(b) - g).max(0.0);
-                    let magenta_desat = ((magenta_factor - 0.15) * 2.5).clamp(0.0, 1.0);
-
-                    let target_desat = base_desat.max(magenta_desat);
-
-                    let intensity = ((max_c_initial - 1.0) * 2.0).clamp(0.0, 1.0);
-                    let mut desat = target_desat * intensity;
-
-                    if desat > 0.0 {
-                        desat = desat * desat * (3.0 - 2.0 * desat);
-                        r = r * (1.0 - desat) + max_c_initial * desat;
-                        g = g * (1.0 - desat) + max_c_initial * desat;
-                        b = b * (1.0 - desat) + max_c_initial * desat;
-                    }
-                }
-
-                let max_c = r.max(g).max(b);
-
-                let (final_r, final_g, final_b) = if max_c > 1.0 {
-                    let min_c = r.min(g).min(b);
-                    let compression_factor =
-                        (1.0 - (max_c - 1.0) / (safe_highlight_compression - 1.0)).clamp(0.0, 1.0);
-                    let compressed_r = min_c + (r - min_c) * compression_factor;
-                    let compressed_g = min_c + (g - min_c) * compression_factor;
-                    let compressed_b = min_c + (b - min_c) * compression_factor;
-                    let compressed_max = compressed_r.max(compressed_g).max(compressed_b);
-
-                    if compressed_max > 1e-6 {
-                        let rescale = max_c / compressed_max;
-                        (
-                            compressed_r * rescale,
-                            compressed_g * rescale,
-                            compressed_b * rescale,
-                        )
-                    } else {
-                        (max_c, max_c, max_c)
-                    }
-                } else {
-                    (r, g, b)
-                };
-
-                p[0] = final_r.clamp(0.0, clamp_limit);
-                p[1] = final_g.clamp(0.0, clamp_limit);
-                p[2] = final_b.clamp(0.0, clamp_limit);
+                p[0] = rec_r.clamp(0.0, clamp_limit);
+                p[1] = rec_g.clamp(0.0, clamp_limit);
+                p[2] = rec_b.clamp(0.0, clamp_limit);
             });
         }
         Intermediate::FourColor(pixels) => {
@@ -219,18 +238,13 @@ fn develop_internal(
                 p.iter_mut().for_each(|c| {
                     let mut linear_val = *c * rescale_factor;
                     if is_linear_format && apply_ungamma {
-                        linear_val = srgb_to_linear(linear_val.clamp(0.0, 1.0));
+                        linear_val = srgb_to_linear(linear_val.max(0.0));
                     }
                     *c = linear_val.clamp(0.0, clamp_limit);
                 });
             });
         }
     }
-
-    let (width, height) = {
-        let dim = developed_intermediate.dim();
-        (dim.w as u32, dim.h as u32)
-    };
 
     check_cancel()?;
 
