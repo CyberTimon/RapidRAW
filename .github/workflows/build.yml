@@ -110,6 +110,11 @@ jobs:
           ndk-version: r26d
           link-to-sdk: true
 
+      - name: Accept Android SDK Licenses
+        if: inputs.mobile == 'android'
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
       - name: Install frontend dependencies
         run: npm install
 
