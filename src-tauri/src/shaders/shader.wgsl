@@ -542,28 +542,17 @@ fn apply_filmic_exposure(color_in: vec3<f32>, brightness_adj: f32) -> vec3<f32> 
     if (brightness_adj == 0.0) {
         return color_in;
     }
-    const RATIONAL_CURVE_MIX: f32 = 0.92;
+    const RATIONAL_CURVE_MIX: f32 = 0.95;
     const MIDTONE_STRENGTH: f32 = 1.2;
     const TOP_ANCHOR: f32 = 1.06;
-    const TRANSITION_SPAN: f32 = 4.0 * TOP_ANCHOR;
     let original_luma = get_luma(color_in);
     if (abs(original_luma) < 0.00001) {
         return color_in;
     }
-    var scale: f32;
-    var k: f32;
-    if (brightness_adj >= 0.0) {
-        let direct_adj = brightness_adj * (1.0 - RATIONAL_CURVE_MIX);
-        let rational_adj = brightness_adj * RATIONAL_CURVE_MIX;
-        scale = pow(2.0, direct_adj);
-        k = pow(2.0, -rational_adj * MIDTONE_STRENGTH);
-    } else {
-        const NEG_DIRECT_MIX: f32 = 0.30;
-        let direct_adj = brightness_adj * NEG_DIRECT_MIX;
-        let rational_adj = brightness_adj * (1.0 - NEG_DIRECT_MIX);
-        scale = pow(2.0, direct_adj);
-        k = pow(2.0, -rational_adj * MIDTONE_STRENGTH);
-    }
+    let direct_adj = brightness_adj * (1.0 - RATIONAL_CURVE_MIX);
+    let rational_adj = brightness_adj * RATIONAL_CURVE_MIX;
+    let scale = pow(2.0, direct_adj);
+    let k = pow(2.0, -rational_adj * MIDTONE_STRENGTH);
     let luma_abs = abs(original_luma);
     var shaped_luma_abs: f32;
     if (luma_abs <= TOP_ANCHOR) {
@@ -571,25 +560,16 @@ fn apply_filmic_exposure(color_in: vec3<f32>, brightness_adj: f32) -> vec3<f32> 
         let shaped_norm = luma_norm / (luma_norm + (1.0 - luma_norm) * k);
         shaped_luma_abs = shaped_norm * TOP_ANCHOR;
     } else {
-        let excess = luma_abs - TOP_ANCHOR;
-        let t = smoothstep(0.0, 1.0, excess / (excess + TRANSITION_SPAN));
-
-        if (brightness_adj >= 0.0) {
-            let slope = mix(k, 1.0, t);
-            shaped_luma_abs = TOP_ANCHOR + excess * slope;
-        } else {
-            let raw_excess_pull = pow(2.0, brightness_adj * 0.55);
-            let excess_slope = mix(1.0, raw_excess_pull, t);
-            shaped_luma_abs = TOP_ANCHOR + excess * excess_slope;
-        }
+        shaped_luma_abs = luma_abs;
     }
-    let new_luma = sign(original_luma) * shaped_luma_abs * scale;
+    let new_luma_abs = shaped_luma_abs * scale;
+    let new_luma = sign(original_luma) * new_luma_abs;
     let chroma = color_in - vec3<f32>(original_luma);
-    let total_luma_scale = abs(new_luma) / luma_abs;
-    let luma_weight = clamp(abs(new_luma), 0.0, 2.0) * 0.5;
+    let total_luma_scale = new_luma_abs / luma_abs;
+    let luma_weight = clamp(new_luma_abs, 0.0, 2.0) * 0.5;
     let dynamic_exp = mix(0.95, 0.65, luma_weight);
     let base_chroma_scale = pow(total_luma_scale, dynamic_exp);
-    let highlight_rolloff = 1.0 / (1.0 + max(0.0, abs(new_luma) - 0.9) * 2.0);
+    let highlight_rolloff = 1.0 / (1.0 + max(0.0, new_luma_abs - 0.9) * 2.0);
     let chroma_scale = base_chroma_scale * highlight_rolloff;
     return vec3<f32>(new_luma) + chroma * chroma_scale;
 }
