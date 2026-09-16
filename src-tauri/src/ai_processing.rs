@@ -9,9 +9,12 @@ use image::{
     DynamicImage, GenericImageView, GrayImage, ImageBuffer, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage,
 };
 use ndarray::{Array, Array4, IxDyn};
-use ort::session::Session;
-use ort::value::{Tensor, TensorRef};
 use ort::{ep::*, info};
+use ort::{
+	inputs,
+	session::{Session, SessionOutputs},
+	value::{Tensor, TensorRef}
+};
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -1063,7 +1066,11 @@ pub async fn get_or_init_denoise_model(
     )
     .await?;
 
+    // Override the denoise model filename for local development
+    let LOCAL_DENOISE_FILENAME = "E:\\Python\\NIND\\ShadowWeightedL1_24_deep_500_32.onnx";
+
     let model_path = models_dir.join(DENOISE_FILENAME);
+    let model_path = std::path::Path::new(LOCAL_DENOISE_FILENAME);
 
     info!("→ Loading Denoising Model from: {}", model_path.display());
     
@@ -1418,6 +1425,9 @@ fn run_native_denoise(
         // Tensor::from_array (owned) can be misidentified as already on-device, giving zeros.
         let t_input = TensorRef::from_array_view(&input_values)?;
 
+       	let mut cond = Array::<f32, _>::zeros((1, 1));
+    	cond[[0, 0]] = 10.;
+
         let out = {
             let mut sess = session.lock().unwrap();
             
@@ -1425,7 +1435,10 @@ fn run_native_denoise(
             let is_first = FIRST_DENOISE_INFERENCE.swap(false, Ordering::Relaxed);
             let inference_start = if is_first { Some(Instant::now()) } else { None };
             
-            let outputs = sess.run(ort::inputs![t_input])?;
+            //let outputs = sess.run(ort::inputs![t_input])?;
+            let outputs: SessionOutputs = sess.run(ort::inputs![
+                "batch_rgb" => TensorRef::from_array_view(&input_values)?, 
+	            "conditioning" => TensorRef::from_array_view(&cond)?])?;
 
             // Extract and force GPU->CPU sync by converting to owned array
             // The .into_owned() forces materialization of GPU data into CPU memory
