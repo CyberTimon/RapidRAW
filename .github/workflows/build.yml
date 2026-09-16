@@ -101,6 +101,8 @@ jobs:
       - name: Setup Android SDK
         if: inputs.mobile == 'android'
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
 
       - name: Setup Android NDK
         if: inputs.mobile == 'android'
