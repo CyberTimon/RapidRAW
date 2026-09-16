@@ -336,169 +336,297 @@ fn ensure_windows_cuda_runtime_paths() {
     }
 }
 
-#[cfg(target_os = "windows")]
-fn log_windows_provider_availability(preferred_gpu: &str) {
-    info!("GPU provider preference: {}", preferred_gpu);
-    info!("Actual provider will be confirmed on first model inference");
-}
-
-#[cfg(target_os = "windows")]
+/// Initialize ONNX Runtime environment with GPU providers based on available features.
+/// This function is called once at app startup and configures the global ONNX environment.
+/// All subsequently-created sessions (including denoise) will automatically inherit
+/// these configured providers.
+/// 
+/// Uses the ORT examples pattern with feature flags to support:
+/// - Windows: DirectML, CUDA
+/// - Linux: CUDA, TensorRT  
+/// - macOS: CoreML
+/// - Any platform: Fallback to CPU-only if GPU providers unavailable
 fn initialize_onnx_environment() -> Result<()> {
-    let preferred_gpu = resolved_gpu_preference();
-
-    info!("Creating ONNX Runtime environment with execution providers...");
-    info!("GPU preference: {}", preferred_gpu);
-
-    log_windows_provider_availability(&preferred_gpu);
-
-    // Configure execution providers based on preference
-    if preferred_gpu == "cuda" || preferred_gpu == "nvidia" {
-        info!("Setting up CUDA → DirectML → CPU provider chain");
-        let committed = ort::init()
-            .with_execution_providers([
-                CUDA::default().build(),
-                DirectML::default().build(),
-            ])
-            .commit();
-        if !committed {
-            return Err(anyhow::anyhow!("Failed to commit ONNX environment with CUDA/DirectML providers"));
-        }
-    } else if preferred_gpu == "cpu" {
-        info!("CPU-only mode");
-        let committed = ort::init().commit();
-        if !committed {
-            return Err(anyhow::anyhow!("Failed to commit ONNX environment in CPU-only mode"));
-        }
-    } else {
-        // Default: DirectML → CUDA → CPU
-        info!("Setting up DirectML → CUDA → CPU provider chain (default)");
-        let committed = ort::init()
-            .with_execution_providers([
-                DirectML::default().build(),
-                CUDA::default().build(),
-            ])
-            .commit();
-        if !committed {
-            return Err(anyhow::anyhow!("Failed to commit ONNX environment with DirectML/CUDA providers"));
-        }
-    }
-
-    info!("✓ ONNX Runtime environment created successfully");
-    info!("  GPU providers are now available for all sessions");
-
-    Ok(())
-}
-
-#[cfg(target_os = "linux")]
-fn initialize_onnx_environment() -> Result<()> {
-    let preferred_gpu = resolved_gpu_preference();
-
-    info!("Creating ONNX Runtime environment with execution providers...");
-    info!("GPU preference: {}", preferred_gpu);
-
-    // Configure execution providers based on preference
-    if preferred_gpu == "tensorrt" {
-        info!("Setting up TensorRT → CUDA → CPU provider chain");
-        let committed = ort::init()
-            .with_execution_providers([
-                TensorRT::default().build(),
-                CUDA::default().build(),
-            ])
-            .commit();
-        if !committed {
-            return Err(anyhow::anyhow!("Failed to commit ONNX environment with TensorRT/CUDA providers"));
-        }
-    } else if preferred_gpu == "cpu" {
-        info!("CPU-only mode");
-        let committed = ort::init().commit();
-        if !committed {
-            return Err(anyhow::anyhow!("Failed to commit ONNX environment in CPU-only mode"));
-        }
-    } else {
-        // Default: CUDA → TensorRT → CPU
-        info!("Setting up CUDA → TensorRT → CPU provider chain (default)");
-        let committed = ort::init()
-            .with_execution_providers([
-                CUDA::default().build(),
-                TensorRT::default().build(),
-            ])
-            .commit();
-        if !committed {
-            return Err(anyhow::anyhow!("Failed to commit ONNX environment with CUDA/TensorRT providers"));
-        }
-    }
-
-    info!("✓ ONNX Runtime environment created successfully");
-    info!("  GPU providers are now available for all sessions");
-
-    Ok(())
-}
-
-#[cfg(target_os = "macos")]
-fn initialize_onnx_environment() -> Result<()> {
-    let preferred_gpu = resolved_gpu_preference();
-
-    info!("Creating ONNX Runtime environment with execution providers...");
-    info!("GPU preference: {}", preferred_gpu);
-
-    // Configure execution providers
-    if preferred_gpu == "cpu" {
-        info!("CPU-only mode");
-        let committed = ort::init().commit();
-        if !committed {
-            return Err(anyhow::anyhow!("Failed to commit ONNX environment in CPU-only mode"));
-        }
-    } else {
-        // Default: CoreML → CPU
-        info!("Setting up CoreML → CPU provider chain");
-        let committed = ort::init()
-            .with_execution_providers([
-                CoreML::default().build(),
-            ])
-            .commit();
-        if !committed {
-            return Err(anyhow::anyhow!("Failed to commit ONNX environment with CoreML provider"));
-        }
-    }
-
-    info!("✓ ONNX Runtime environment created successfully");
-    info!("  GPU providers are now available for all sessions");
-
-    Ok(())
-}
-
-#[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
-fn initialize_onnx_environment() -> Result<()> {
-    info!("Creating ONNX Runtime environment (unsupported platform - CPU only)");
+    info!("╔════════════════════════════════════════════════════════════╗");
+    info!("║  ONNX Runtime Environment Initialization (One-time only)   ║");
+    info!("╚════════════════════════════════════════════════════════════╝");
     
-    let committed = ort::init().commit();
-    if !committed {
-        return Err(anyhow::anyhow!("Failed to commit ONNX environment"));
+    match crate::common::init_environment() {
+        Ok(()) => {
+            info!("✓ ONNX Runtime environment created successfully");
+            info!("  All execution providers configured based on available features");
+            info!("  Sessions will inherit these providers automatically");
+            Ok(())
+        }
+        Err(e) => {
+            error!("❌ FAILED to initialize ONNX environment!");
+            error!("   Error: {}", e);
+            error!("   This is a critical error that will prevent model loading");
+            Err(anyhow::anyhow!("Failed to initialize ONNX environment: {}", e))
+        }
     }
-
-    info!("✓ ONNX Runtime environment created successfully");
-
-    Ok(())
 }
 
 fn create_session_for_model(model_path: &Path, model_name: &str) -> Result<Session> {
-    // Ensure ONNX environment has been initialized (happens once at startup)
-    ONNX_ENV_INITIALIZED.as_ref().map_err(|e| {
-        anyhow::anyhow!("ONNX Runtime environment not initialized: {}", e)
-    })?;
+    info!("═══════════════════════════════════════════════════════════");
+    info!("📦 SESSION CREATION START: {}", model_name);
+    info!("═══════════════════════════════════════════════════════════");
     
-    info!("Creating session for '{}'", model_name);
+    // Step 1: Verify file exists
+    info!("✓ Step 1: Verifying model file exists...");
+    if !model_path.exists() {
+        error!("❌ Model file NOT FOUND: {}", model_path.display());
+        return Err(anyhow::anyhow!("Model file not found: {}", model_path.display()));
+    }
+    info!("✓ Model file exists: {}", model_path.display());
+    
+    // Step 2: Ensure ONNX environment has been initialized
+    info!("✓ Step 2: Checking ONNX environment...");
+    match ONNX_ENV_INITIALIZED.as_ref() {
+        Ok(_) => info!("✓ ONNX environment initialized"),
+        Err(e) => {
+            error!("❌ ONNX environment initialization failed: {}", e);
+            return Err(anyhow::anyhow!("ONNX Runtime environment not initialized: {}", e));
+        }
+    }
+    
+    // Step 3: Create Session builder
+    info!("✓ Step 3: Creating SessionBuilder...");
+    let mut builder = match Session::builder() {
+        Ok(b) => {
+            info!("✓ SessionBuilder created successfully");
+            b
+        }
+        Err(e) => {
+            error!("❌ Failed to create SessionBuilder: {}", e);
+            return Err(anyhow::anyhow!("Failed to create SessionBuilder for '{}': {}", model_name, e));
+        }
+    };
+    
+    // Step 4: Commit session from file (THIS IS WHERE CRASHES HAPPEN)
+    info!("✓ Step 4: Loading model from file ({})", model_path.display());
+    info!("   ⏳ This may take a few seconds...");
+    
+    let session = match builder.commit_from_file(model_path) {
+        Ok(s) => {
+            info!("✓ Model loaded successfully from file");
+            s
+        }
+        Err(e) => {
+            error!("❌ CRITICAL ERROR: Failed to load model from file!");
+            error!("   Path: {}", model_path.display());
+            error!("   Error: {}", e);
+            error!("   Error type: {:?}", e);
+            return Err(anyhow::anyhow!("Failed to load model '{}' from {}: {}", model_name, model_path.display(), e));
+        }
+    };
+    
+    info!("✓ Session for '{}' created successfully", model_name);
+    info!("═══════════════════════════════════════════════════════════");
+    info!("📦 SESSION CREATION COMPLETE: {}", model_name);
+    info!("═══════════════════════════════════════════════════════════");
 
-    // Create session using the globally-configured environment
-    let session = Session::builder()
-        .map_err(|e| anyhow::anyhow!("Failed to create SessionBuilder for '{}': {}", model_name, e))?
-        .commit_from_file(model_path)
-        .map_err(|e| anyhow::anyhow!("Failed to load model '{}' from {}: {}", model_name, model_path.display(), e))?;
+    Ok(session)
+}
 
-    info!("Session for '{}' created successfully", model_name);
-    info!("⚠️  Actual GPU provider will be confirmed on first inference");
-    info!("   If performance seems slow (~1-2s for image processing),");
-    info!("   the provider may have fallen back to CPU. Check logs after first run.");
+/// Create a session for a GPU-accelerated model (e.g., NIND Denoise)
+/// 
+/// Uses GraphOptimizationLevel::Level1 to prevent DirectML/CUDA op fusion issues
+/// that can break attention-based models like UTNet.
+fn create_gpu_session_for_model(model_path: &Path, model_name: &str) -> Result<Session> {
+    info!("═══════════════════════════════════════════════════════════");
+    info!("🎮 GPU SESSION CREATION START: {}", model_name);
+    info!("═══════════════════════════════════════════════════════════");
+    
+    // Step 1: Verify file exists
+    info!("✓ Step 1: Verifying model file exists...");
+    if !model_path.exists() {
+        error!("❌ Model file NOT FOUND: {}", model_path.display());
+        return Err(anyhow::anyhow!("Model file not found: {}", model_path.display()));
+    }
+    info!("✓ Model file exists: {}", model_path.display());
+    
+    // Step 2: Ensure ONNX environment has been initialized
+    info!("✓ Step 2: Checking ONNX environment...");
+    match ONNX_ENV_INITIALIZED.as_ref() {
+        Ok(_) => info!("✓ ONNX environment initialized"),
+        Err(e) => {
+            error!("❌ ONNX environment initialization failed: {}", e);
+            return Err(anyhow::anyhow!("ONNX Runtime environment not initialized: {}", e));
+        }
+    }
+    
+    use ort::session::builder::GraphOptimizationLevel;
+    
+    // Step 3: Create Session builder with GPU optimization settings
+    info!("✓ Step 3: Creating SessionBuilder with GPU optimization...");
+    let mut builder = match Session::builder() {
+        Ok(b) => {
+            info!("✓ SessionBuilder created successfully");
+            b
+        }
+        Err(e) => {
+            error!("❌ Failed to create SessionBuilder: {}", e);
+            return Err(anyhow::anyhow!("Failed to create SessionBuilder for '{}': {}", model_name, e));
+        }
+    };
+
+    builder = match builder.with_execution_providers([
+            ort::ep::DirectML::default().build(),
+            ort::ep::CUDA::default().build(),
+            ort::ep::CPU::default().build(),
+        ]) {
+            Ok(b) => {
+                info!("✓ Execution providers set successfully");
+                b
+            }
+            Err(e) => {
+                error!("❌ Failed to set execution providers: {}", e);
+                return Err(anyhow::anyhow!("Failed to set execution providers for '{}': {}", model_name, e));
+            }
+        };
+        
+    
+    // Set Level1 optimization for GPU (prevents DirectML/CUDA op fusion bugs on attention models)
+    info!("✓ Step 3b: Setting optimization level to Level1 (GPU-safe)...");
+    builder = match builder.with_optimization_level(GraphOptimizationLevel::Level1) {
+        Ok(b) => {
+            info!("✓ Optimization level set to Level1");
+            b
+        }
+        Err(e) => {
+            error!("❌ Failed to set optimization level: {}", e);
+            return Err(anyhow::anyhow!("Failed to set optimization level: {}", e));
+        }
+    };
+    
+    // Disable memory pattern to prevent tile buffer artifacts
+    info!("✓ Step 3c: Disabling memory pattern (tile-processing safety)...");
+    builder = match builder.with_memory_pattern(false) {
+        Ok(b) => {
+            info!("✓ Memory pattern disabled");
+            b
+        }
+        Err(e) => {
+            error!("❌ Failed to disable memory pattern: {}", e);
+            return Err(anyhow::anyhow!("Failed to disable memory pattern: {}", e));
+        }
+    };
+    
+    // Step 4: Commit session from file
+    info!("✓ Step 4: Loading model from file ({})", model_path.display());
+    info!("   ⏳ This may take a few seconds...");
+    
+    let session = match builder.commit_from_file(model_path) {
+        Ok(s) => {
+            info!("✓ Model loaded successfully from file");
+            s
+        }
+        Err(e) => {
+            error!("❌ CRITICAL ERROR: Failed to load GPU model from file!");
+            error!("   Path: {}", model_path.display());
+            error!("   Error: {}", e);
+            return Err(anyhow::anyhow!("Failed to load GPU model '{}' from {}: {}", model_name, model_path.display(), e));
+        }
+    };
+    
+    info!("✓ GPU Session for '{}' created successfully", model_name);
+    info!("═══════════════════════════════════════════════════════════");
+    info!("🎮 GPU SESSION CREATION COMPLETE: {}", model_name);
+    info!("═══════════════════════════════════════════════════════════");
+
+    Ok(session)
+}
+
+/// Create a session for a CPU-only model (e.g., SAM Encoder/Decoder, U2Net, etc.)
+/// 
+/// Uses GraphOptimizationLevel::Level3 for maximum optimization on CPU.
+/// All models still use the global environment but with CPU-friendly optimization.
+fn create_cpu_session_for_model(model_path: &Path, model_name: &str) -> Result<Session> {
+    info!("═══════════════════════════════════════════════════════════");
+    info!("⚙️  CPU SESSION CREATION START: {}", model_name);
+    info!("═══════════════════════════════════════════════════════════");
+    
+    // Step 1: Verify file exists
+    info!("✓ Step 1: Verifying model file exists...");
+    if !model_path.exists() {
+        error!("❌ Model file NOT FOUND: {}", model_path.display());
+        return Err(anyhow::anyhow!("Model file not found: {}", model_path.display()));
+    }
+    info!("✓ Model file exists: {}", model_path.display());
+    
+    // Step 2: Ensure ONNX environment has been initialized
+    info!("✓ Step 2: Checking ONNX environment...");
+    match ONNX_ENV_INITIALIZED.as_ref() {
+        Ok(_) => info!("✓ ONNX environment initialized"),
+        Err(e) => {
+            error!("❌ ONNX environment initialization failed: {}", e);
+            return Err(anyhow::anyhow!("ONNX Runtime environment not initialized: {}", e));
+        }
+    }
+    
+    use ort::session::builder::GraphOptimizationLevel;
+    
+    // Step 3: Create Session builder with CPU optimization settings
+    info!("✓ Step 3: Creating SessionBuilder with CPU optimization...");
+    let mut builder = match Session::builder() {
+        Ok(b) => {
+            info!("✓ SessionBuilder created successfully");
+            b
+        }
+        Err(e) => {
+            error!("❌ Failed to create SessionBuilder: {}", e);
+            return Err(anyhow::anyhow!("Failed to create SessionBuilder for '{}': {}", model_name, e));
+        }
+    };
+
+    builder = match builder.with_execution_providers([
+        ort::ep::CPU::default().build(),
+    ]) {
+        Ok(b) => {
+            info!("✓ Execution providers set successfully");
+            b
+        }
+        Err(e) => {
+            error!("❌ Failed to set execution providers: {}", e);
+            return Err(anyhow::anyhow!("Failed to set execution providers for '{}': {}", model_name, e));
+        }
+    };
+
+    // Set Level3 optimization for CPU (maximum optimization)
+    info!("✓ Step 3b: Setting optimization level to Level3 (CPU-optimized)...");
+    builder = match builder.with_optimization_level(GraphOptimizationLevel::Level3) {
+        Ok(b) => {
+            info!("✓ Optimization level set to Level3");
+            b
+        }
+        Err(e) => {
+            error!("❌ Failed to set optimization level: {}", e);
+            return Err(anyhow::anyhow!("Failed to set optimization level: {}", e));
+        }
+    };
+    
+    // Step 4: Commit session from file
+    info!("✓ Step 4: Loading model from file ({})", model_path.display());
+    info!("   ⏳ This may take a few seconds...");
+    
+    let session = match builder.commit_from_file(model_path) {
+        Ok(s) => {
+            info!("✓ Model loaded successfully from file");
+            s
+        }
+        Err(e) => {
+            error!("❌ CRITICAL ERROR: Failed to load CPU model from file!");
+            error!("   Path: {}", model_path.display());
+            error!("   Error: {}", e);
+            return Err(anyhow::anyhow!("Failed to load CPU model '{}' from {}: {}", model_name, model_path.display(), e));
+        }
+    };
+    
+    info!("✓ CPU Session for '{}' created successfully", model_name);
+    info!("═══════════════════════════════════════════════════════════");
+    info!("⚙️  CPU SESSION CREATION COMPLETE: {}", model_name);
+    info!("═══════════════════════════════════════════════════════════");
 
     Ok(session)
 }
@@ -982,25 +1110,94 @@ pub async fn get_or_init_ai_models(
     let sky_seg_path = models_dir.join(SKYSEG_FILENAME);
     let depth_path = models_dir.join(DEPTH_FILENAME);
 
-    info!("→ Loading SAM Encoder from: {}", encoder_path.display());
-    let sam_encoder = create_session_for_model(&encoder_path, "SAM Encoder")?;
-    info!("✓ SAM Encoder loaded successfully");
+    info!("╔════════════════════════════════════════════════════════════╗");
+    info!("║              LOADING AI MODELS (5 total)                  ║");
+    info!("╚════════════════════════════════════════════════════════════╝");
 
-    info!("→ Loading SAM Decoder from: {}", decoder_path.display());
-    let sam_decoder = create_session_for_model(&decoder_path, "SAM Decoder")?;
-    info!("✓ SAM Decoder loaded successfully");
+    // Load SAM Encoder (CPU-only model)
+    info!("");
+    info!("📦 MODEL 1/5: SAM Encoder (CPU)");
+    info!("→ Loading from: {}", encoder_path.display());
+    let sam_encoder = match create_cpu_session_for_model(&encoder_path, "SAM Encoder") {
+        Ok(session) => {
+            info!("✓ SAM Encoder loaded successfully");
+            session
+        }
+        Err(e) => {
+            error!("❌ CRASHED while loading SAM Encoder!");
+            error!("   Error: {}", e);
+            return Err(e);
+        }
+    };
 
-    info!("→ Loading U2NetP from: {}", u2netp_path.display());
-    let u2netp = create_session_for_model(&u2netp_path, "U2NetP")?;
-    info!("✓ U2NetP loaded successfully");
+    // Load SAM Decoder (CPU-only model)
+    info!("");
+    info!("📦 MODEL 2/5: SAM Decoder (CPU)");
+    info!("→ Loading from: {}", decoder_path.display());
+    let sam_decoder = match create_cpu_session_for_model(&decoder_path, "SAM Decoder") {
+        Ok(session) => {
+            info!("✓ SAM Decoder loaded successfully");
+            session
+        }
+        Err(e) => {
+            error!("❌ CRASHED while loading SAM Decoder!");
+            error!("   Error: {}", e);
+            return Err(e);
+        }
+    };
 
-    info!("→ Loading Sky Segmentation from: {}", sky_seg_path.display());
-    let sky_seg = create_session_for_model(&sky_seg_path, "Sky Segmentation")?;
-    info!("✓ Sky Segmentation loaded successfully");
+    // Load U2NetP (CPU-only model)
+    info!("");
+    info!("📦 MODEL 3/5: U2NetP (CPU - Foreground Segmentation)");
+    info!("→ Loading from: {}", u2netp_path.display());
+    let u2netp = match create_cpu_session_for_model(&u2netp_path, "U2NetP") {
+        Ok(session) => {
+            info!("✓ U2NetP loaded successfully");
+            session
+        }
+        Err(e) => {
+            error!("❌ CRASHED while loading U2NetP!");
+            error!("   Error: {}", e);
+            return Err(e);
+        }
+    };
 
-    info!("→ Loading Depth Anything from: {}", depth_path.display());
-    let depth_anything = create_session_for_model(&depth_path, "Depth Anything")?;
-    info!("✓ Depth Anything loaded successfully");
+    // Load Sky Segmentation (CPU-only model)
+    info!("");
+    info!("📦 MODEL 4/5: Sky Segmentation (CPU)");
+    info!("→ Loading from: {}", sky_seg_path.display());
+    let sky_seg = match create_cpu_session_for_model(&sky_seg_path, "Sky Segmentation") {
+        Ok(session) => {
+            info!("✓ Sky Segmentation loaded successfully");
+            session
+        }
+        Err(e) => {
+            error!("❌ CRASHED while loading Sky Segmentation!");
+            error!("   Error: {}", e);
+            return Err(e);
+        }
+    };
+
+    // Load Depth Anything (CPU-only model)
+    info!("");
+    info!("📦 MODEL 5/5: Depth Anything (CPU)");
+    info!("→ Loading from: {}", depth_path.display());
+    let depth_anything = match create_cpu_session_for_model(&depth_path, "Depth Anything") {
+        Ok(session) => {
+            info!("✓ Depth Anything loaded successfully");
+            session
+        }
+        Err(e) => {
+            error!("❌ CRASHED while loading Depth Anything!");
+            error!("   Error: {}", e);
+            return Err(e);
+        }
+    };
+
+    info!("");
+    info!("╔════════════════════════════════════════════════════════════╗");
+    info!("║           ✓ ALL 5 MODELS LOADED SUCCESSFULLY              ║");
+    info!("╚════════════════════════════════════════════════════════════╝");
     info!("");
 
     crate::register_exit_handler();
@@ -1074,21 +1271,10 @@ pub async fn get_or_init_denoise_model(
 
     info!("→ Loading Denoising Model from: {}", model_path.display());
     
-    // Ensure the global ONNX environment has been initialized with GPU providers
-    // Session::builder() will automatically use the global environment
-    ONNX_ENV_INITIALIZED.as_ref()
-        .map_err(|e| anyhow::anyhow!("ONNX environment initialization failed: {}", e))?;
+    // Load denoise model with GPU-specific settings (Level1 optimization, no memory pattern)
+    let session = create_gpu_session_for_model(&model_path, "NIND Denoise")?;
     
-    use ort::session::builder::GraphOptimizationLevel;
-    let session = Session::builder()
-        .map_err(|e| anyhow::anyhow!("SessionBuilder: {}", e))?
-        .with_optimization_level(GraphOptimizationLevel::Level1)
-        .map_err(|e| anyhow::anyhow!("optimization level: {}", e))?
-        .with_memory_pattern(false)
-        .map_err(|e| anyhow::anyhow!("memory pattern: {}", e))?
-        .commit_from_file(&model_path)
-        .map_err(|e| anyhow::anyhow!("Failed to load denoise model: {}", e))?;
-    info!("✓ Denoising Model loaded (Level1 optimization, no memory pattern)");
+    info!("✓ Denoising Model loaded (GPU-optimized: Level1 optimization, no memory pattern)");
     
     let denoise_model = Arc::new(Mutex::new(session));
 
