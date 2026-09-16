@@ -377,6 +377,7 @@ export interface UiVisibility {
   filmstrip: boolean;
   leftPanel: boolean;
   rightPanel: boolean;
+  quickFilter?: boolean;
 }
 
 export interface WaveformData {

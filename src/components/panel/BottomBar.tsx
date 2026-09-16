@@ -215,7 +215,16 @@ export default function BottomBar({
   const total = totalImages ?? 0;
   const showSelectionCounter = numSelected > 1;
 
-  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+  const isFilterExpanded = Boolean(uiVisibility.quickFilter);
+
+  const toggleQuickFilter = () => {
+    setUI((s) => ({
+      uiVisibility: {
+        ...s.uiVisibility,
+        quickFilter: !s.uiVisibility.quickFilter,
+      },
+    }));
+  };
   const { filterCriteria, setFilterCriteria } = useLibraryStore(
     useShallow((state) => ({
       filterCriteria: state.filterCriteria,
@@ -456,8 +465,8 @@ export default function BottomBar({
                 'relative w-8 h-8 flex items-center justify-center rounded-md transition-colors shrink-0',
                 isFilterExpanded ? 'text-text-primary' : 'text-text-secondary hover:bg-surface hover:text-text-primary',
               )}
-              onClick={() => setIsFilterExpanded(!isFilterExpanded)}
-              data-tooltip={t('ui.bottomBar.tooltips.quickFilter', 'Quick Filter')}
+              onClick={toggleQuickFilter}
+              data-tooltip={t('ui.bottomBar.tooltips.quickFilter')}
             >
               <Filter size={18} />
             </button>
