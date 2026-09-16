@@ -1215,7 +1215,7 @@ pub async fn get_or_init_lama_model(
     let models_dir = get_models_dir(app_handle)?;
     download_and_verify_model(
         app_handle,
-        &models_dir,
+        &models_dir, 
         LAMA_FILENAME,
         LAMA_URL,
         LAMA_SHA256,

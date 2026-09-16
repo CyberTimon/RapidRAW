@@ -146,6 +146,7 @@ export function useAiMasking() {
         }));
         setEditor({ activeAiPatchContainerId: null, activeAiSubMaskId: null });
       } catch (err) {
+        console.error('AI Replace Failed:', err);
         toast.error(`AI Replace Failed: ${err}`);
         setAdjustments((prev: Adjustments) => ({
           ...prev,
@@ -235,7 +236,12 @@ export function useAiMasking() {
         }));
         setEditor({ activeAiPatchContainerId: null, activeAiSubMaskId: null });
       } catch (err: any) {
-        toast.error(`Quick Erase Failed: ${err.message || String(err)}`);
+        console.error('Quick Erase Failed:', err);
+        const errMsg = err.message || String(err);
+        const detailedMsg = errMsg.includes('MatMul')
+          ? `Quick Erase Failed: SAM Decoder has a DirectML compatibility issue. Please set ORT_PREFERRED_GPU=cpu and restart.`
+          : `Quick Erase Failed: ${errMsg}`;
+        toast.error(detailedMsg);
         setAdjustments((prev: Partial<Adjustments>) => ({
           ...prev,
           aiPatches: prev.aiPatches?.map((p: AiPatch) => (p.id === patchId ? { ...p, isLoading: false } : p)),

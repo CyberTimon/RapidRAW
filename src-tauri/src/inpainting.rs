@@ -4,6 +4,7 @@ use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, GenericImageView, Rgb, RgbImage, RgbaImage};
 use rayon::prelude::*;
 use serde_json::Value;
+use log::error;
 
 use crate::ai_connector;
 use crate::ai_processing;
@@ -435,7 +436,10 @@ pub async fn invoke_generative_replace_with_mask_def(
         .map_err(|e| e.to_string())?;
 
         ai_processing::run_lama_inpainting(&source_image, &mask_bitmap, &lama_model)
-            .map_err(|e| e.to_string())?
+            .map_err(|e| {
+                error!("LAMA inpainting failed: {}", e);
+                e.to_string()
+            })?
     } else if settings.ai_provider.as_deref() == Some("cloud")
         && let Some(auth_token) = token
     {

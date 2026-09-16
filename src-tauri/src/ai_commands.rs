@@ -4,6 +4,7 @@ use std::io::Cursor;
 
 use base64::{Engine as _, engine::general_purpose};
 use image::{GrayImage, ImageFormat};
+use log::error;
 
 use crate::ai_connector;
 use crate::ai_processing::{
@@ -222,7 +223,10 @@ pub async fn generate_ai_subject_mask(
 ) -> Result<AiSubjectMaskParameters, String> {
     let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            error!("Failed to initialize AI models: {}", e);
+            e.to_string()
+        })?;
 
     let path_hash = {
         let mut hasher = blake3::Hasher::new();
@@ -250,7 +254,10 @@ pub async fn generate_ai_subject_mask(
             } else {
                 let mut new_embeddings =
                     generate_image_embeddings(warped_image.as_ref(), &models.sam_encoder)
-                        .map_err(|e| e.to_string())?;
+                        .map_err(|e| {
+                            error!("Failed to generate image embeddings: {}", e);
+                            e.to_string()
+                        })?;
                 new_embeddings.path_hash = path_hash.clone();
                 ai_state.embeddings = Some(new_embeddings.clone());
                 new_embeddings
@@ -258,7 +265,10 @@ pub async fn generate_ai_subject_mask(
         } else {
             let mut new_embeddings =
                 generate_image_embeddings(warped_image.as_ref(), &models.sam_encoder)
-                    .map_err(|e| e.to_string())?;
+                    .map_err(|e| {
+                        error!("Failed to generate image embeddings: {}", e);
+                        e.to_string()
+                    })?;
             new_embeddings.path_hash = path_hash.clone();
             ai_state.embeddings = Some(new_embeddings.clone());
             new_embeddings
@@ -344,7 +354,10 @@ pub async fn generate_ai_subject_mask(
         unrotated_end_point,
         Some(warped_image.as_ref()),
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| {
+        error!("SAM Decoder failed: {}", e);
+        e.to_string()
+    })?;
 
     let base64_data = encode_to_base64_png(&mask_bitmap)?;
 
