@@ -199,15 +199,6 @@ export default function BasicAdjustments({
         />
       )}
       <Slider
-        label={t('adjustments.basic.brightness')}
-        max={5}
-        min={-5}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Brightness, e.target.value)}
-        step={0.01}
-        value={adjustments.brightness}
-        onDragStateChange={onDragStateChange}
-      />
-      <Slider
         label={t('adjustments.basic.contrast')}
         max={100}
         min={-100}
@@ -250,6 +241,15 @@ export default function BasicAdjustments({
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Blacks, e.target.value)}
         step={1}
         value={adjustments.blacks}
+        onDragStateChange={onDragStateChange}
+      />
+      <Slider
+        label={t('adjustments.basic.brightness')}
+        max={5}
+        min={-5}
+        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Brightness, e.target.value)}
+        step={0.01}
+        value={adjustments.brightness}
         onDragStateChange={onDragStateChange}
       />
     </div>
