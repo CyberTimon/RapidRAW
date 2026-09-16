@@ -6,7 +6,7 @@ use crate::image_loader::load_base_image_from_bytes;
 use crate::image_processing::apply_cpu_default_raw_processing;
 use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, GenericImageView, ImageFormat, Rgb, Rgb32FImage};
-use rayon::prelude::*;
+use rayon::{prelude::*, string};
 use std::cmp::Ordering;
 use std::fs;
 use std::io::Cursor;
@@ -85,7 +85,7 @@ pub async fn apply_denoising(
     let denoise_result_handle = state.denoise_result.clone();
 
     tokio::task::spawn_blocking(move || {
-        match denoise_image(path_str, intensity, method, app_handle.clone(), ai_session) {
+        match denoise_image(path_str, intensity, method, app_handle.clone(), ai_session, denoise_model) {
             Ok((image, _)) => {
                 *denoise_result_handle.lock().unwrap() = Some(image);
             }
@@ -152,6 +152,7 @@ pub async fn batch_denoise_images(
                 method.clone(),
                 app_handle.clone(),
                 ai_session.clone(),
+                denoise_model.clone(),
             ) {
                 Ok((image, _)) => {
                     let is_raw = crate::formats::is_raw_file(&real_path);
@@ -322,6 +323,7 @@ fn denoise_image(
     method: String,
     app_handle: AppHandle,
     ai_session: Option<Arc<Mutex<ort::session::Session>>>,
+    denoise_model: String,
 ) -> Result<(DynamicImage, String), String> {
     let path = Path::new(&path_str);
     if !path.exists() {
@@ -346,6 +348,7 @@ fn denoise_image(
             intensity,
             &session_arc,
             &app_handle,
+            &denoise_model,
         )
         .map_err(|e| e.to_string())?
     } else {

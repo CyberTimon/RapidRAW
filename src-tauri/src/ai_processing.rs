@@ -66,9 +66,8 @@ const DENOISE_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/res
 const DENOISE_FILENAME: &str = "nind_denoise_utnet_684.onnx";
 const DENOISE_SHA256: &str = "ee3586279d514df557ff3f7dec6df37fafc51ba5d3a3435b2cc9ac2d9017e7fe";
 
-const DENOISE_2_URL: &str = "https://your-model-url-here/model.onnx?download=true";
-const DENOISE_2_FILENAME: &str = "denoise_model_2.onnx";
-const DENOISE_2_SHA256: &str = "your-sha256-hash-here";
+// RawRefinery model loaded from local file
+const RAWREFINERY_LOCAL_PATH: &str = "E:\\Python\\NIND\\ShadowWeightedL1_24_deep_500_32.onnx";
 
 const LAMA_URL: &str =
     "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/lama_fp16.onnx?download=true";
@@ -1269,18 +1268,13 @@ pub async fn get_or_init_denoise_model(
     )
     .await?;
 
-    // Override the denoise model filename for local development
-    let LOCAL_DENOISE_FILENAME = "E:\\Python\\NIND\\ShadowWeightedL1_24_deep_500_32.onnx";
-
     let model_path = models_dir.join(DENOISE_FILENAME);
-    let model_path = std::path::Path::new(LOCAL_DENOISE_FILENAME);
 
-    info!("→ Loading Denoising Model from: {}", model_path.display());
+    info!("→ Loading NIND Model from: {}", model_path.display());
     
-    // Load denoise model with GPU-specific settings (Level1 optimization, no memory pattern)
-    let session = create_gpu_session_for_model(&model_path, "NIND Denoise")?;
+    let session = create_session_for_model(&model_path, "NIND")?;
     
-    info!("✓ Denoising Model loaded (GPU-optimized: Level1 optimization, no memory pattern)");
+    info!("✓ NIND Model loaded (GPU-optimized)");
     
     let denoise_model = Arc::new(Mutex::new(session));
 
@@ -1329,24 +1323,21 @@ pub async fn get_or_init_denoise_model_2(
         return Ok(denoise_model_2);
     }
 
-    let models_dir = get_models_dir(app_handle)?;
-    download_and_verify_model(
-        app_handle,
-        &models_dir,
-        DENOISE_2_FILENAME,
-        DENOISE_2_URL,
-        DENOISE_2_SHA256,
-        "Denoise Model 2",
-    )
-    .await?;
+    // Load RawRefinery model from local file
+    let model_path = std::path::Path::new(RAWREFINERY_LOCAL_PATH);
 
-    let model_path = models_dir.join(DENOISE_2_FILENAME);
+    if !model_path.exists() {
+        return Err(anyhow::anyhow!(
+            "RawRefinery model not found at: {}\nPlease ensure the model file exists at this path.",
+            RAWREFINERY_LOCAL_PATH
+        ));
+    }
 
-    info!("→ Loading Denoising Model 2 from: {}", model_path.display());
+    info!("→ Loading RawRefinery Model from: {}", model_path.display());
     
-    let session = create_gpu_session_for_model(&model_path, "Denoise Model 2")?;
+    let session = create_gpu_session_for_model(&model_path, "RawRefinery")?;
     
-    info!("✓ Denoising Model 2 loaded (GPU-optimized)");
+    info!("✓ RawRefinery Model loaded (GPU-optimized)");
     
     let denoise_model_2 = Arc::new(Mutex::new(session));
 
@@ -1646,6 +1637,7 @@ fn run_native_denoise(
     height: usize,
     app_handle: &tauri::AppHandle,
     params: TileParams,
+    denoise_model: &str,
 ) -> Result<()> {
     let w = width as i32;
     let h = height as i32;
@@ -1696,10 +1688,17 @@ fn run_native_denoise(
             let is_first = FIRST_DENOISE_INFERENCE.swap(false, Ordering::Relaxed);
             let inference_start = if is_first { Some(Instant::now()) } else { None };
             
-            //let outputs = sess.run(ort::inputs![t_input])?;
-            let outputs: SessionOutputs = sess.run(ort::inputs![
-                "batch_rgb" => TensorRef::from_array_view(&input_values)?, 
-	            "conditioning" => TensorRef::from_array_view(&cond)?])?;
+            // Different model inputs based on denoise_model
+            let outputs = if denoise_model == "model2" {
+                // RawRefinery model inputs
+                sess.run(ort::inputs![
+                    "batch_rgb" => TensorRef::from_array_view(&input_values)?, 
+                    "conditioning" => TensorRef::from_array_view(&cond)?])?
+            } else {
+                // NIND model inputs
+                sess.run(ort::inputs![
+                    "input" => TensorRef::from_array_view(&input_values)?])?
+            };
 
             // Extract and force GPU->CPU sync by converting to owned array
             // The .into_owned() forces materialization of GPU data into CPU memory
@@ -1723,6 +1722,7 @@ fn run_native_denoise(
                 info!("───────────────────────────────────────────────────────────");
                 info!("First tile inference took: {:.2}ms", ms);
                 info!("Estimated provider: {}", provider_guess);
+                info!("Denoise model: {}", denoise_model);
                 info!("");
                 info!("Performance expectations:");
                 info!("  • GPU (DirectML/CUDA): 20-50ms per tile");
@@ -1827,6 +1827,7 @@ pub fn run_ai_denoise(
     intensity: f32,
     session: &Mutex<Session>,
     app_handle: &tauri::AppHandle,
+    denoise_model: &str,
 ) -> Result<DynamicImage> {
     let (width, height) = rgb_img.dimensions();
     let params = select_tile_params(intensity);
@@ -1841,6 +1842,7 @@ pub fn run_ai_denoise(
         height as usize,
         app_handle,
         params,
+        denoise_model,
     )?;
 
     let out_img_buffer = accumulator_to_rgb32f(&accumulator, width, height);
