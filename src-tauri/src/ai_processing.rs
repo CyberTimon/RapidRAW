@@ -66,6 +66,10 @@ const DENOISE_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/res
 const DENOISE_FILENAME: &str = "nind_denoise_utnet_684.onnx";
 const DENOISE_SHA256: &str = "ee3586279d514df557ff3f7dec6df37fafc51ba5d3a3435b2cc9ac2d9017e7fe";
 
+const DENOISE_2_URL: &str = "https://your-model-url-here/model.onnx?download=true";
+const DENOISE_2_FILENAME: &str = "denoise_model_2.onnx";
+const DENOISE_2_SHA256: &str = "your-sha256-hash-here";
+
 const LAMA_URL: &str =
     "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/lama_fp16.onnx?download=true";
 const LAMA_FILENAME: &str = "lama_fp16.onnx";
@@ -661,6 +665,7 @@ pub struct CachedDepthMap {
 pub struct AiState {
     pub models: Option<Arc<AiModels>>,
     pub denoise_model: Option<Arc<Mutex<Session>>>,
+    pub denoise_model_2: Option<Arc<Mutex<Session>>>,
     pub clip_models: Option<Arc<ClipModels>>,
     pub lama_model: Option<Arc<Mutex<Session>>>,
     pub embeddings: Option<ImageEmbeddings>,
@@ -1217,6 +1222,7 @@ pub async fn get_or_init_ai_models(
         *ai_state_lock = Some(AiState {
             models: Some(models.clone()),
             denoise_model: None,
+            denoise_model_2: None,
             clip_models: None,
             lama_model: None,
             embeddings: None,
@@ -1287,6 +1293,7 @@ pub async fn get_or_init_denoise_model(
         *ai_state_lock = Some(AiState {
             models: None,
             denoise_model: Some(denoise_model.clone()),
+            denoise_model_2: None,
             clip_models: None,
             lama_model: None,
             embeddings: None,
@@ -1295,6 +1302,72 @@ pub async fn get_or_init_denoise_model(
     }
 
     Ok(denoise_model)
+}
+
+pub async fn get_or_init_denoise_model_2(
+    app_handle: &tauri::AppHandle,
+    ai_state_mutex: &Mutex<Option<AiState>>,
+    ai_init_lock: &TokioMutex<()>,
+) -> Result<Arc<Mutex<Session>>> {
+    if let Some(denoise_model_2) = ai_state_mutex
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|state| state.denoise_model_2.clone())
+    {
+        return Ok(denoise_model_2);
+    }
+
+    let _guard = ai_init_lock.lock().await;
+
+    if let Some(denoise_model_2) = ai_state_mutex
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|state| state.denoise_model_2.clone())
+    {
+        return Ok(denoise_model_2);
+    }
+
+    let models_dir = get_models_dir(app_handle)?;
+    download_and_verify_model(
+        app_handle,
+        &models_dir,
+        DENOISE_2_FILENAME,
+        DENOISE_2_URL,
+        DENOISE_2_SHA256,
+        "Denoise Model 2",
+    )
+    .await?;
+
+    let model_path = models_dir.join(DENOISE_2_FILENAME);
+
+    info!("→ Loading Denoising Model 2 from: {}", model_path.display());
+    
+    let session = create_gpu_session_for_model(&model_path, "Denoise Model 2")?;
+    
+    info!("✓ Denoising Model 2 loaded (GPU-optimized)");
+    
+    let denoise_model_2 = Arc::new(Mutex::new(session));
+
+    crate::register_exit_handler();
+
+    let mut ai_state_lock = ai_state_mutex.lock().unwrap();
+    if let Some(state) = ai_state_lock.as_mut() {
+        state.denoise_model_2 = Some(denoise_model_2.clone());
+    } else {
+        *ai_state_lock = Some(AiState {
+            models: None,
+            denoise_model: None,
+            denoise_model_2: Some(denoise_model_2.clone()),
+            clip_models: None,
+            lama_model: None,
+            embeddings: None,
+            depth_map: None,
+        });
+    }
+
+    Ok(denoise_model_2)
 }
 
 pub async fn get_or_init_clip_models(
@@ -1363,6 +1436,7 @@ pub async fn get_or_init_clip_models(
         *ai_state_lock = Some(AiState {
             models: None,
             denoise_model: None,
+            denoise_model_2: None,
             clip_models: Some(clip_models.clone()),
             lama_model: None,
             embeddings: None,
@@ -1426,6 +1500,7 @@ pub async fn get_or_init_lama_model(
     } else {
         *ai_state_lock = Some(AiState {
             models: None,
+            denoise_model_2: None,
             denoise_model: None,
             clip_models: None,
             lama_model: Some(lama_model.clone()),

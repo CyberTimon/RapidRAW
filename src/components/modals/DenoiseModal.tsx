@@ -12,8 +12,8 @@ import { listen } from '@tauri-apps/api/event';
 interface DenoiseModalProps {
   isOpen: boolean;
   onClose(): void;
-  onDenoise(intensity: number, method: 'ai' | 'bm3d'): void;
-  onBatchDenoise(intensity: number, method: 'ai' | 'bm3d', paths: string[]): Promise<string[]>;
+  onDenoise(intensity: number, method: 'ai_model1' | 'ai_model2' | 'bm3d'): void;
+  onBatchDenoise(intensity: number, method: 'ai_model1' | 'ai_model2' | 'bm3d', paths: string[]): Promise<string[]>;
   onSave(): Promise<string>;
   onOpenFile(path: string): void;
   error: string | null;
@@ -228,16 +228,17 @@ export default function DenoiseModal({
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [intensity, setIntensity] = useState<number>(15);
-  const [method, setMethod] = useState<'ai' | 'bm3d'>('ai');
+  const [method, setMethod] = useState<'ai_model1' | 'ai_model2' | 'bm3d'>('ai_model1');
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; path: string } | null>(null);
   const isBatch = targetPaths.length > 1;
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
-  const methodOptions = useMemo<Array<{ label: string; value: 'ai' | 'bm3d' }>>(
+  const methodOptions = useMemo<Array<{ label: string; value: 'ai_model1' | 'ai_model2' | 'bm3d' }>>(
     () => [
-      { label: t('modals.denoise.methodAi'), value: 'ai' },
+      { label: t('modals.denoise.model1Label'), value: 'ai_model1' },
+      { label: t('modals.denoise.model2Label'), value: 'ai_model2' },
       { label: t('modals.denoise.methodBm3d'), value: 'bm3d' },
     ],
     [t],
@@ -261,7 +262,7 @@ export default function DenoiseModal({
 
   useEffect(() => {
     if (isOpen) {
-      setMethod(isRaw ? 'ai' : 'bm3d');
+      setMethod(isRaw ? 'ai_model1' : 'bm3d');
       setIntensity(isRaw ? 50 : 15);
       setIsMounted(true);
       const timer = setTimeout(() => setShow(true), 10);
@@ -471,18 +472,18 @@ export default function DenoiseModal({
               value={method}
               onChange={(val) => {
                 setMethod(val);
-                setIntensity(val === 'ai' ? 50 : 15);
+                setIntensity(val === 'bm3d' ? 15 : 50);
               }}
             />
           </div>
           <div className="flex-1 max-w-[280px]">
             <Slider
-              label={method === 'ai' ? t('modals.denoise.qualityTileSizeLabel') : t('modals.denoise.strengthLabel')}
+              label={method === 'bm3d' ? t('modals.denoise.strengthLabel') : t('modals.denoise.qualityTileSizeLabel')}
               value={intensity}
               min={0}
               max={100}
               step={1}
-              defaultValue={method === 'ai' ? 50 : 15}
+              defaultValue={method === 'bm3d' ? 15 : 50}
               onChange={(e) => setIntensity(Number(e.target.value))}
               trackClassName="bg-bg-secondary"
               fillOrigin="min"
