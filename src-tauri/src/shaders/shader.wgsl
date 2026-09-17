@@ -1474,39 +1474,28 @@ fn is_default_curve(points: array<Point, 16>, count: u32) -> bool {
     return is_identity && p0_is_origin && p_last_is_end;
 }
 
-fn apply_all_curves(color: vec3<f32>, luma_curve: array<Point, 16>, luma_curve_count: u32, red_curve: array<Point, 16>, red_curve_count: u32, green_curve: array<Point, 16>, green_curve_count: u32, blue_curve: array<Point, 16>, blue_curve_count: u32) -> vec3<f32> {
-    let red_is_default = is_default_curve(red_curve, red_curve_count);
-    let green_is_default = is_default_curve(green_curve, green_curve_count);
-    let blue_is_default = is_default_curve(blue_curve, blue_curve_count);
-    let rgb_curves_are_active = !red_is_default || !green_is_default || !blue_is_default;
+fn apply_all_curves(
+    color: vec3<f32>,
+    luma_curve: array<Point, 16>, luma_curve_count: u32,
+    red_curve: array<Point, 16>, red_curve_count: u32,
+    green_curve: array<Point, 16>, green_curve_count: u32,
+    blue_curve: array<Point, 16>, blue_curve_count: u32
+) -> vec3<f32> {
+    var r = apply_curve(color.r, luma_curve, luma_curve_count);
+    var g = apply_curve(color.g, luma_curve, luma_curve_count);
+    var b = apply_curve(color.b, luma_curve, luma_curve_count);
 
-    if (rgb_curves_are_active) {
-        let color_graded = vec3<f32>(
-            apply_curve(color.r, red_curve, red_curve_count),
-            apply_curve(color.g, green_curve, green_curve_count),
-            apply_curve(color.b, blue_curve, blue_curve_count)
-        );
-        let luma_initial = get_luma(color);
-        let luma_target = apply_curve(luma_initial, luma_curve, luma_curve_count);
-        let luma_graded = get_luma(color_graded);
-
-        let d = luma_target - luma_graded;
-        var final_color = color_graded + vec3<f32>(d);
-
-        let c_min = min(final_color.r, min(final_color.g, final_color.b));
-        if (c_min < 0.0) {
-            final_color = vec3<f32>(luma_target) + ((final_color - vec3<f32>(luma_target)) * luma_target) / max(luma_target - c_min, 1e-6);
-        }
-
-        let c_max = max(final_color.r, max(final_color.g, final_color.b));
-        if (c_max > 1.0) {
-            final_color = vec3<f32>(luma_target) + ((final_color - vec3<f32>(luma_target)) * (1.0 - luma_target)) / max(c_max - luma_target, 1e-6);
-        }
-
-        return clamp(final_color, vec3<f32>(0.0), vec3<f32>(1.0));
-    } else {
-        return vec3<f32>(apply_curve(color.r, luma_curve, luma_curve_count), apply_curve(color.g, luma_curve, luma_curve_count), apply_curve(color.b, luma_curve, luma_curve_count));
+    if (!is_default_curve(red_curve, red_curve_count)) {
+        r = apply_curve(r, red_curve, red_curve_count);
     }
+    if (!is_default_curve(green_curve, green_curve_count)) {
+        g = apply_curve(g, green_curve, green_curve_count);
+    }
+    if (!is_default_curve(blue_curve, blue_curve_count)) {
+        b = apply_curve(b, blue_curve, blue_curve_count);
+    }
+
+    return clamp(vec3<f32>(r, g, b), vec3<f32>(0.0), vec3<f32>(1.0));
 }
 
 fn get_mask_influence(mask_index: u32, coords: vec2<u32>) -> f32 {
