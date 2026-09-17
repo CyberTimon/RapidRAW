@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "Negres",
+      "brightness": "Brillantor",
       "contrast": "Contrast",
-      "evShift": "Compensació EV",
       "exposure": "Exposició",
       "highlights": "Altes llums",
       "mappers": {
@@ -800,7 +800,10 @@
     },
     "file": {
       "quality": "Qualitat",
-      "qualityLossless": "Qualitat (Sense pèrdua)"
+      "qualityLossless": "Qualitat (Sense pèrdua)",
+      "tiffBitDepth": "Profunditat de bits TIFF",
+      "tiffBitDepth16": "16 bits",
+      "tiffBitDepth8": "8 bits"
     },
     "labels": {
       "image": "Imatge",
@@ -1551,6 +1554,7 @@
       "displayEditIcon": "Mostrar icona d'edició",
       "displayEditIconDesc": "Mostra una petita icona de control lliscant a les miniatures que han estat editades.",
       "enableFocusMode": "Activar mode de concentració",
+      "enableNeutralGreyCanvas": "Activa el fons gris neutre",
       "enableOsTitlebar": "Activar barra de títol del SO",
       "enableXmpSync": "Activar sincronització XMP",
       "focusMode": "Mode de concentració",
@@ -1561,6 +1565,8 @@
       "fontDesc": "Canvia el tipus de lletra de l'aplicació.",
       "nativeTitlebar": "Barra de títol nativa",
       "nativeTitlebarDesc": "Utilitzar la barra de títol de la finestra predeterminada del sistema en lloc de la personalitzada de RapidRAW.",
+      "neutralGreyCanvas": "Llenç gris neutre",
+      "neutralGreyCanvasDesc": "Utilitzeu un llenç gris neutre per a una gradació de color i exposició més precisa sense canviar el tema de l'aplicació.",
       "poppins": "Poppins",
       "showImageCounts": "Mostrar recomptes d'imatges",
       "system": "Predeterminat del sistema",

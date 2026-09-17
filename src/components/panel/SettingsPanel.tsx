@@ -1199,6 +1199,18 @@ export default function SettingsPanel({
                       </SettingItem>
 
                       <SettingItem
+                        label={t('settings.general.neutralGreyCanvas')}
+                        description={t('settings.general.neutralGreyCanvasDesc')}
+                      >
+                        <Switch
+                          checked={appSettings?.editorNeutralGreyBg ?? false}
+                          id="neutral-grey-bg-toggle"
+                          label={t('settings.general.enableNeutralGreyCanvas')}
+                          onChange={(checked) => onSettingsChange({ ...appSettings, editorNeutralGreyBg: checked })}
+                        />
+                      </SettingItem>
+
+                      <SettingItem
                         label={t('settings.general.displayEditIcon')}
                         description={t('settings.general.displayEditIconDesc')}
                       >
@@ -2053,6 +2065,7 @@ export default function SettingsPanel({
                       {t('settings.processing.preprocessing.title')}
                     </Text>
                     <div className="space-y-8">
+                      {/* turn off highlights clipping setting for now - needs clean cleanup across other files.
                       <SettingItem
                         label={t('settings.processing.preprocessing.highlightRecovery')}
                         description={t('settings.processing.preprocessing.highlightRecoveryDesc')}
@@ -2070,6 +2083,7 @@ export default function SettingsPanel({
                           fillOrigin="min"
                         />
                       </SettingItem>
+                      */}
 
                       <SettingItem
                         label={t('settings.processing.preprocessing.colorNr')}

@@ -3,95 +3,109 @@ from pathlib import Path
 
 LOCALES_DIR = Path("./locales")
 
+# Translations for the new Exposure (formerly EV Shift) and Brightness (formerly Exposure) keys
 TRANSLATIONS = {
     "ca": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mosaic"
+        "adjustments": {
+            "basic": {
+                "exposure": "Exposició",
+                "brightness": "Brillantor"
             }
         }
     },
     "de": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mosaik"
+        "adjustments": {
+            "basic": {
+                "exposure": "Belichtung",
+                "brightness": "Helligkeit"
             }
         }
     },
     "en": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Masonry"
+        "adjustments": {
+            "basic": {
+                "exposure": "Exposure",
+                "brightness": "Brightness"
             }
         }
     },
     "es": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mosaico"
+        "adjustments": {
+            "basic": {
+                "exposure": "Exposición",
+                "brightness": "Brillo"
             }
         }
     },
     "fr": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mosaïque"
+        "adjustments": {
+            "basic": {
+                "exposure": "Exposition",
+                "brightness": "Luminosité"
             }
         }
     },
     "it": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mosaico"
+        "adjustments": {
+            "basic": {
+                "exposure": "Esposizione",
+                "brightness": "Luminosità"
             }
         }
     },
     "ja": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "メイソンリー"
+        "adjustments": {
+            "basic": {
+                "exposure": "露出",
+                "brightness": "明るさ"
             }
         }
     },
     "ko": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "메이슨리"
+        "adjustments": {
+            "basic": {
+                "exposure": "노출",
+                "brightness": "밝기"
             }
         }
     },
     "pl": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mozaika"
+        "adjustments": {
+            "basic": {
+                "exposure": "Ekspozycja",
+                "brightness": "Jasność"
             }
         }
     },
     "pt": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Mosaico"
+        "adjustments": {
+            "basic": {
+                "exposure": "Exposição",
+                "brightness": "Brilho"
             }
         }
     },
     "ru": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "Мозаика"
+        "adjustments": {
+            "basic": {
+                "exposure": "Экспозиция",
+                "brightness": "Яркость"
             }
         }
     },
     "zh-CN": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "瀑布流"
+        "adjustments": {
+            "basic": {
+                "exposure": "曝光",
+                "brightness": "亮度"
             }
         }
     },
     "zh-TW": {
-        "library": {
-            "thumbnailFit": {
-                "justified": "瀑布流"
+        "adjustments": {
+            "basic": {
+                "exposure": "曝光",
+                "brightness": "亮度"
             }
         }
     }
@@ -126,10 +140,15 @@ def update_json_file(file_path: Path, trans: dict):
         print(f"Error parsing JSON in {file_path.name}. Skipping.")
         return
 
-    # 1. Merge new translations
+    # Remove the deprecated evShift key if it exists
+    try:
+        if "evShift" in data.get("adjustments", {}).get("basic", {}):
+            del data["adjustments"]["basic"]["evShift"]
+    except Exception:
+        pass
+
     deep_merge(data, trans)
 
-    # 2. Sort alphabetically to maintain formatting consistency
     sorted_data = sort_dict_recursively(data)
 
     with open(file_path, "w", encoding="utf-8") as f:
@@ -143,7 +162,7 @@ def main():
         print(f"Error: Locales directory '{LOCALES_DIR}' does not exist.")
         return
 
-    print("Starting translation updates for Masonry/Justified thumbnail fit...")
+    print("Starting translation updates for Exposure and Brightness keys...")
     for lang, trans in TRANSLATIONS.items():
         file_path = LOCALES_DIR / f"{lang}.json"
         update_json_file(file_path, trans)

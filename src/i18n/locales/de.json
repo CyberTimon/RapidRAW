@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "Schwarz",
+      "brightness": "Helligkeit",
       "contrast": "Kontrast",
-      "evShift": "EV-Korrektur",
       "exposure": "Belichtung",
       "highlights": "Lichter",
       "mappers": {
@@ -800,7 +800,10 @@
     },
     "file": {
       "quality": "Qualität",
-      "qualityLossless": "Qualität (Verlustfrei)"
+      "qualityLossless": "Qualität (Verlustfrei)",
+      "tiffBitDepth": "TIFF-Bittiefe",
+      "tiffBitDepth16": "16 Bit",
+      "tiffBitDepth8": "8 Bit"
     },
     "labels": {
       "image": "Bild",
@@ -1551,6 +1554,7 @@
       "displayEditIcon": "Bearbeitungssymbol anzeigen",
       "displayEditIconDesc": "Zeigt ein kleines Schieberegler-Symbol auf Miniaturbildern an, die bearbeitet wurden.",
       "enableFocusMode": "Fokusmodus aktivieren",
+      "enableNeutralGreyCanvas": "Neutralgrauen Hintergrund aktivieren",
       "enableOsTitlebar": "OS-Titelleiste aktivieren",
       "enableXmpSync": "XMP-Sync aktivieren",
       "focusMode": "Fokusmodus",
@@ -1561,6 +1565,8 @@
       "fontDesc": "Ändern Sie die Schriftart der Anwendung.",
       "nativeTitlebar": "Native Titelleiste",
       "nativeTitlebarDesc": "Verwenden Sie die Standard-Fenstertitelleiste Ihres Systems anstelle der benutzerdefinierten von RapidRAW.",
+      "neutralGreyCanvas": "Neutralgraue Arbeitsfläche",
+      "neutralGreyCanvasDesc": "Verwenden Sie eine neutralgraue Arbeitsfläche für eine genauere Farb- und Belichtungskorrektur, ohne das App-Design zu ändern.",
       "poppins": "Poppins",
       "showImageCounts": "Bildanzahl anzeigen",
       "system": "Systemstandard",

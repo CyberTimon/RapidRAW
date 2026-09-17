@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "Pretos",
+      "brightness": "Brilho",
       "contrast": "Contraste",
-      "evShift": "Compensação de EV",
       "exposure": "Exposição",
       "highlights": "Realces",
       "mappers": {
@@ -822,7 +822,10 @@
     },
     "file": {
       "quality": "Qualidade",
-      "qualityLossless": "Qualidade (Sem Perdas)"
+      "qualityLossless": "Qualidade (Sem Perdas)",
+      "tiffBitDepth": "Profundidade de bits TIFF",
+      "tiffBitDepth16": "16 bits",
+      "tiffBitDepth8": "8 bits"
     },
     "labels": {
       "image": "Imagem",
@@ -1585,6 +1588,7 @@
       "displayEditIcon": "Exibir Ícone de Edição",
       "displayEditIconDesc": "Mostrar um pequeno ícone de controle deslizante em miniaturas que foram editadas.",
       "enableFocusMode": "Ativar Modo de Foco",
+      "enableNeutralGreyCanvas": "Ativar fundo cinza neutro",
       "enableOsTitlebar": "Ativar Barra de Título do SO",
       "enableXmpSync": "Ativar Sincronização XMP",
       "focusMode": "Modo de Foco",
@@ -1595,6 +1599,8 @@
       "fontDesc": "Alterar a fonte do aplicativo.",
       "nativeTitlebar": "Barra de Título Nativa",
       "nativeTitlebarDesc": "Use a barra de título padrão da janela do seu sistema em vez da personalizada do RapidRAW.",
+      "neutralGreyCanvas": "Tela cinza neutro",
+      "neutralGreyCanvasDesc": "Use uma tela cinza neutro para uma gradação de cores e exposição mais precisa sem alterar o tema do aplicativo.",
       "poppins": "Poppins",
       "showImageCounts": "Mostrar Contagens de Imagem",
       "system": "Padrão do Sistema",

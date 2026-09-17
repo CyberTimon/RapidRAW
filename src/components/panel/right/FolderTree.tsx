@@ -904,7 +904,7 @@ export default function FolderTree({
               placeholder={t('library.folders.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-surface border border-transparent rounded-md pl-9 pr-8 py-2 text-sm focus:outline-hidden truncate"
+              className="w-full h-9 bg-surface border border-transparent rounded-md pl-9 pr-8 py-2 text-sm focus:outline-hidden truncate"
             />
             {searchQuery && (
               <button

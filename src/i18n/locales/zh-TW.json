@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "黑色",
+      "brightness": "亮度",
       "contrast": "對比",
-      "evShift": "EV 偏移",
       "exposure": "曝光",
       "highlights": "亮部",
       "mappers": {
@@ -798,7 +798,10 @@
     },
     "file": {
       "quality": "品質",
-      "qualityLossless": "品質（無損）"
+      "qualityLossless": "品質（無損）",
+      "tiffBitDepth": "TIFF 位元深度",
+      "tiffBitDepth16": "16 位元",
+      "tiffBitDepth8": "8 位元"
     },
     "labels": {
       "image": "影像",
@@ -1549,6 +1552,7 @@
       "displayEditIcon": "顯示編輯圖示",
       "displayEditIconDesc": "在已編輯的縮圖上顯示一個小滑桿圖示。",
       "enableFocusMode": "啟用專注模式",
+      "enableNeutralGreyCanvas": "啟用中性灰背景",
       "enableOsTitlebar": "啟用系統標題欄",
       "enableXmpSync": "啟用 XMP 同步",
       "focusMode": "專注模式",
@@ -1559,6 +1563,8 @@
       "fontDesc": "更改應用程式字型。",
       "nativeTitlebar": "原生標題欄",
       "nativeTitlebarDesc": "使用系統預設的視窗標題欄，而非 RapidRAW 的自定義標題欄。",
+      "neutralGreyCanvas": "中性灰畫布",
+      "neutralGreyCanvasDesc": "使用中性灰畫布，以便在不更改應用程式主題的情況下進行更準確的色彩和曝光分級。",
       "poppins": "Poppins",
       "showImageCounts": "顯示影像計數",
       "system": "系統預設",
