@@ -477,7 +477,8 @@ fn apply_tonal_adjustments(
 
 fn apply_highlights_adjustment(
     color_in: vec3<f32>,
-    blurred_color_input_space: vec3<f32>,
+    coords_i: vec2<i32>,
+    scale: f32,
     is_raw: u32,
     highlights_adj: f32
 ) -> vec3<f32> {
@@ -490,41 +491,105 @@ fn apply_highlights_adjustment(
         return color_in;
     }
 
-    const l_pivot: f32 = 0.25;
+    const l_pivot: f32 = 0.10;
     if (pixel_luma <= l_pivot) {
         return color_in;
     }
+
+    let dims = vec2<i32>(textureDimensions(input_texture));
+    let max_idx = dims - vec2<i32>(1);
+
+    var center_tex = textureLoad(input_texture, clamp(coords_i, vec2<i32>(0), max_idx), 0).rgb;
+    if (is_raw == 0u) {
+        center_tex = srgb_to_linear(center_tex);
+    }
+    let center_tex_luma = max(get_luma(center_tex), 1e-4);
+
+    let r_inner = max(1, i32(round(3.5 * scale)));
+    let r_outer = max(2, i32(round(7.5 * scale)));
+    let r_diag  = max(1, i32(round(f32(r_outer) * 0.7071)));
+
+    let offsets = array<vec2<i32>, 12>(
+        vec2<i32>( r_inner,        0), vec2<i32>(-r_inner,        0),
+        vec2<i32>(       0,  r_inner), vec2<i32>(       0, -r_inner),
+        vec2<i32>( r_outer,        0), vec2<i32>(-r_outer,        0),
+        vec2<i32>(       0,  r_outer), vec2<i32>(       0, -r_outer),
+        vec2<i32>(  r_diag,   r_diag), vec2<i32>( -r_diag,   r_diag),
+        vec2<i32>(  r_diag,  -r_diag), vec2<i32>( -r_diag,  -r_diag)
+    );
+
+    let spatial_weights = array<f32, 12>(
+        0.85, 0.85, 0.85, 0.85,
+        0.50, 0.50, 0.50, 0.50,
+        0.50, 0.50, 0.50, 0.50
+    );
+
+    let range_tol = max(pixel_luma * 0.22, 0.03);
+    let inv_two_range_sq = 1.0 / (2.0 * range_tol * range_tol);
+
+    var sum_luma: f32 = pixel_luma;
+    var sum_w: f32 = 1.0;
+
+    for (var i = 0u; i < 12u; i = i + 1u) {
+        let coord = clamp(coords_i + offsets[i], vec2<i32>(0), max_idx);
+        var s_rgb = textureLoad(input_texture, coord, 0).rgb;
+        if (is_raw == 0u) {
+            s_rgb = srgb_to_linear(s_rgb);
+        }
+        let s_luma_raw = max(get_luma(s_rgb), 0.0);
+        let s_luma = pixel_luma * (s_luma_raw / center_tex_luma);
+
+        let diff = abs(s_luma - pixel_luma);
+        let w = exp(- (diff * diff) * inv_two_range_sq) * spatial_weights[i];
+
+        sum_luma += s_luma * w;
+        sum_w += w;
+    }
+
+    let luma_base = sum_luma / sum_w;
+    let detail_ratio = pixel_luma / max(luma_base, 1e-4);
+
+    let safe_detail = clamp(detail_ratio, 0.65, 1.55);
+
+    let log_detail = log2(safe_detail);
+    let soft_log_detail = log_detail / (1.0 + abs(log_detail) * 0.40);
 
     var target_luma: f32 = pixel_luma;
 
     if (highlights_adj < 0.0) {
         let k = -highlights_adj;
-        let delta = pixel_luma - l_pivot;
+        let delta_base = max(luma_base - l_pivot, 0.0);
 
-        let compression_strength = k * 1.85;
-        let compressed_delta = delta / (1.0 + compression_strength * (delta / (1.0 + delta * 0.5)));
+        let compression_strength = k * 2.2;
+        let compressed_delta = delta_base / (1.0 + compression_strength * (delta_base / (1.0 + delta_base * 0.35)));
+        let target_base = l_pivot + compressed_delta;
 
-        let slope_ratio = compressed_delta / max(delta, 1e-4);
-        let lost_gradient = 1.0 - slope_ratio;
+        let restoration_gain = 1.0 + k * 0.55;
+        let recovered_detail = exp2(soft_log_detail * restoration_gain);
 
-        let texture_retention = 0.32 * k;
-        let textured_delta = compressed_delta * (1.0 + lost_gradient * texture_retention);
+        let recovered_target = target_base * recovered_detail;
 
         let blend = smoothstep(l_pivot, l_pivot + 0.35, pixel_luma);
-        target_luma = l_pivot + mix(delta, textured_delta, blend);
+        target_luma = mix(pixel_luma, recovered_target, blend);
 
     } else {
-        let delta = pixel_luma - l_pivot;
-        let boost_factor = 1.0 + highlights_adj * 0.5;
+        let boost = highlights_adj * 0.70;
+        let delta_base = max(luma_base - l_pivot, 0.0);
+        let boosted_delta = delta_base * (1.0 + boost / (1.0 + delta_base * 0.25));
+        let target_base = l_pivot + boosted_delta;
+
+        let detail_boost = exp2(soft_log_detail * (1.0 + highlights_adj * 0.20));
+        let boosted_target = target_base * detail_boost;
+
         let blend = smoothstep(l_pivot, l_pivot + 0.35, pixel_luma);
-        target_luma = l_pivot + mix(delta, delta * boost_factor, blend);
+        target_luma = mix(pixel_luma, boosted_target, blend);
     }
 
     let luma_ratio = target_luma / pixel_luma;
     var final_color = color_in * luma_ratio;
 
-    if (highlights_adj < 0.0 && pixel_luma > 1.3) {
-        let blowout = smoothstep(1.3, 5.0, pixel_luma) * (-highlights_adj) * 0.35;
+    if (highlights_adj < 0.0 && pixel_luma > 1.0) {
+        let blowout = smoothstep(1.0, 3.5, pixel_luma) * (-highlights_adj) * 0.40;
         final_color = mix(final_color, vec3<f32>(target_luma), blowout);
     }
 
@@ -1803,7 +1868,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_temperature, t_tint);
     composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, absolute_coord_i);
     composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_blurred, is_raw, t_contrast, t_shadows, t_whites, t_blacks);
-    composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, tonal_blurred, is_raw, t_highlights);
+    composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, absolute_coord_i, scale, is_raw, t_highlights);
     composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
     composite_rgb_linear = apply_hsl_panel(composite_rgb_linear, final_hsl, absolute_coord_i);
     composite_rgb_linear = apply_hue_shift(composite_rgb_linear, t_hue);
