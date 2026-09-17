@@ -66,6 +66,10 @@ const DENOISE_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/res
 const DENOISE_FILENAME: &str = "nind_denoise_utnet_684.onnx";
 const DENOISE_SHA256: &str = "ee3586279d514df557ff3f7dec6df37fafc51ba5d3a3435b2cc9ac2d9017e7fe";
 
+const RAWREFINERY_URL: &str = "https://drive.google.com/uc?export=download&id=1TALb8b-OYx2rkKV90RZpJpndjyWFcYQy";
+const RAWREFINERY_FILENAME: &str = "ShadowWeightedL1_24_deep_500_32.onnx";
+const RAWREFINERY_SHA256: &str = "959b44a7c1f64485263f5ad8eab362d0d9caf97a67a8e6c2e78df5ae1a6e598a";
+
 // RawRefinery model loaded from local file
 const RAWREFINERY_LOCAL_PATH: &str = "E:\\Python\\NIND\\ShadowWeightedL1_24_deep_500_32.onnx";
 
@@ -1122,7 +1126,7 @@ pub async fn get_or_init_ai_models(
     info!("");
     info!("📦 MODEL 1/5: SAM Encoder (CPU)");
     info!("→ Loading from: {}", encoder_path.display());
-    let sam_encoder = match create_cpu_session_for_model(&encoder_path, "SAM Encoder") {
+    let sam_encoder = match create_session_for_model(&encoder_path, "SAM Encoder") {
         Ok(session) => {
             info!("✓ SAM Encoder loaded successfully");
             session
@@ -1138,7 +1142,7 @@ pub async fn get_or_init_ai_models(
     info!("");
     info!("📦 MODEL 2/5: SAM Decoder (CPU)");
     info!("→ Loading from: {}", decoder_path.display());
-    let sam_decoder = match create_cpu_session_for_model(&decoder_path, "SAM Decoder") {
+    let sam_decoder = match create_session_for_model(&decoder_path, "SAM Decoder") {
         Ok(session) => {
             info!("✓ SAM Decoder loaded successfully");
             session
@@ -1154,7 +1158,7 @@ pub async fn get_or_init_ai_models(
     info!("");
     info!("📦 MODEL 3/5: U2NetP (CPU - Foreground Segmentation)");
     info!("→ Loading from: {}", u2netp_path.display());
-    let u2netp = match create_cpu_session_for_model(&u2netp_path, "U2NetP") {
+    let u2netp = match create_gpu_session_for_model(&u2netp_path, "U2NetP") {
         Ok(session) => {
             info!("✓ U2NetP loaded successfully");
             session
@@ -1170,7 +1174,7 @@ pub async fn get_or_init_ai_models(
     info!("");
     info!("📦 MODEL 4/5: Sky Segmentation (CPU)");
     info!("→ Loading from: {}", sky_seg_path.display());
-    let sky_seg = match create_cpu_session_for_model(&sky_seg_path, "Sky Segmentation") {
+    let sky_seg = match create_gpu_session_for_model(&sky_seg_path, "Sky Segmentation") {
         Ok(session) => {
             info!("✓ Sky Segmentation loaded successfully");
             session
@@ -1186,7 +1190,7 @@ pub async fn get_or_init_ai_models(
     info!("");
     info!("📦 MODEL 5/5: Depth Anything (CPU)");
     info!("→ Loading from: {}", depth_path.display());
-    let depth_anything = match create_cpu_session_for_model(&depth_path, "Depth Anything") {
+    let depth_anything = match create_gpu_session_for_model(&depth_path, "Depth Anything") {
         Ok(session) => {
             info!("✓ Depth Anything loaded successfully");
             session
@@ -1322,17 +1326,39 @@ pub async fn get_or_init_denoise_model_2(
     {
         return Ok(denoise_model_2);
     }
+/*
+    let models_dir = get_models_dir(app_handle)?;
+    download_and_verify_model(
+        app_handle,
+        &models_dir,
+        RAWREFINERY_FILENAME,
+        RAWREFINERY_URL,
+        RAWREFINERY_SHA256,
+        "RawRefinery Model",
+    )
+    .await?;
+
+    let model_path = models_dir.join(RAWREFINERY_FILENAME);
+
+    // Load RawRefinery model from local file
+    if !model_path.exists() {
+        return Err(anyhow::anyhow!(
+            "RawRefinery model not found at: {}\nPlease ensure the model file exists at this path.",
+            model_path.display()
+        ));
+    }
+
+ */
 
     // Load RawRefinery model from local file
     let model_path = std::path::Path::new(RAWREFINERY_LOCAL_PATH);
-
     if !model_path.exists() {
         return Err(anyhow::anyhow!(
             "RawRefinery model not found at: {}\nPlease ensure the model file exists at this path.",
             RAWREFINERY_LOCAL_PATH
         ));
     }
-
+    
     info!("→ Loading RawRefinery Model from: {}", model_path.display());
     
     let session = create_gpu_session_for_model(&model_path, "RawRefinery")?;
@@ -1410,7 +1436,7 @@ pub async fn get_or_init_clip_models(
     let clip_model_path = models_dir.join(CLIP_MODEL_FILENAME);
     
     info!("→ Loading CLIP Model from: {}", clip_model_path.display());
-    let model = Mutex::new(create_session_for_model(&clip_model_path, "CLIP")?);
+    let model = Mutex::new(create_gpu_session_for_model(&clip_model_path, "CLIP")?);
     info!("✓ CLIP Model loaded successfully");
     
     let tokenizer =
