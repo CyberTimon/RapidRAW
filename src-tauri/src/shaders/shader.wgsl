@@ -693,36 +693,41 @@ fn apply_white_balance(color: vec3<f32>, temp: f32, tnt: f32) -> vec3<f32> {
 }
 
 fn apply_creative_color(color: vec3<f32>, sat: f32, vib: f32) -> vec3<f32> {
-    var processed = color;
-    let luma = get_luma(processed);
+    if (sat == 0.0 && vib == 0.0) {
+        return color;
+    }
 
-    if (sat != 0.0) {
-        processed = mix(vec3<f32>(luma), processed, 1.0 + sat);
+    var processed = color;
+    let luma = get_luma(max(processed, vec3<f32>(0.0)));
+
+    let srgb = linear_to_srgb_extended(max(processed, vec3<f32>(0.0)));
+    let hsv = rgb_to_hsv(srgb);
+    let current_sat = hsv.y;
+    let hue = hsv.x;
+
+    var vib_factor: f32 = 0.0;
+    if (vib != 0.0) {
+        if (vib > 0.0) {
+            let sat_weight = pow(1.0 - current_sat, 1.25);
+            let skin_center = 25.0;
+            let hue_dist = min(abs(hue - skin_center), 360.0 - abs(hue - skin_center));
+            let is_skin = 1.0 - smoothstep(12.0, 38.0, hue_dist);
+            let skin_dampener = mix(1.0, 0.50, is_skin);
+
+            vib_factor = vib * sat_weight * skin_dampener * 1.5;
+        } else {
+            let desat_weight = smoothstep(0.05, 0.75, current_sat);
+            vib_factor = vib * desat_weight;
+        }
     }
-    if (vib == 0.0) { return processed; }
-    let c_max = max(processed.r, max(processed.g, processed.b));
-    let c_min = min(processed.r, min(processed.g, processed.b));
-    let delta = c_max - c_min;
-    if (delta < 0.02) {
-        return processed;
-    }
-    let current_sat = delta / max(c_max, 0.001);
-    if (vib > 0.0) {
-        let sat_mask = 1.0 - smoothstep(0.4, 0.9, current_sat);
-        let hsv = rgb_to_hsv(processed);
-        let hue = hsv.x;
-        let skin_center = 25.0;
-        let hue_dist = min(abs(hue - skin_center), 360.0 - abs(hue - skin_center));
-        let is_skin = smoothstep(35.0, 10.0, hue_dist);
-        let skin_dampener = mix(1.0, 0.6, is_skin);
-        let amount = vib * sat_mask * skin_dampener * 3.0;
-        processed = mix(vec3<f32>(luma), processed, 1.0 + amount);
-    } else {
-        let desat_mask = 1.0 - smoothstep(0.2, 0.8, current_sat);
-        let amount = vib * desat_mask;
-        processed = mix(vec3<f32>(luma), processed, 1.0 + amount);
-    }
-    return processed;
+
+    let sat_scale = max(1.0 + sat, 0.0);
+    let vib_scale = max(1.0 + vib_factor, 0.0);
+    let final_mult = sat_scale * vib_scale;
+
+    processed = mix(vec3<f32>(luma), processed, final_mult);
+
+    return max(processed, vec3<f32>(0.0));
 }
 
 fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords_i: vec2<i32>) -> vec3<f32> {
