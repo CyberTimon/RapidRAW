@@ -483,24 +483,6 @@ pub fn remove_tag_for_paths(
     Ok(())
 }
 
-fn rrdata_source_path(rrdata: &Path) -> Option<PathBuf> {
-    let name = rrdata.file_name()?.to_str()?;
-    let base = name.strip_suffix(".rrdata")?;
-
-    let source_filename = if base.len() >= 7 && base.as_bytes()[base.len() - 7] == b'.' {
-        let id = &base[base.len() - 6..];
-        if id.chars().all(|c| c.is_ascii_hexdigit()) {
-            &base[..base.len() - 7]
-        } else {
-            base
-        }
-    } else {
-        base
-    };
-
-    Some(rrdata.with_file_name(source_filename))
-}
-
 fn sync_xmp_for_rrdata(
     rrdata_path: &Path,
     metadata: &ImageMetadata,
@@ -510,7 +492,7 @@ fn sync_xmp_for_rrdata(
     if !enable_xmp_sync {
         return;
     }
-    if let Some(source_path) = rrdata_source_path(rrdata_path) {
+    if let Some(source_path) = crate::file_management::rrdata_source_path(rrdata_path) {
         file_management::sync_metadata_to_xmp(&source_path, metadata, create_xmp_if_missing);
     }
 }
