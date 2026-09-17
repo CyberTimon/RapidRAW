@@ -60,20 +60,25 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-09-17:** Rewrite vibrance & local contrast preserving highlights adjustment
+- **2026-09-16:** Add highlights color reconstruction & improve exposure shader
+- **2026-09-14:** Add neutral grey canvas toggle
+- **2026-09-13:** Improve RAW highlight recovery and color clipping
+- **2026-09-12:** Add Ctrl crop pan/zoom and optimize preview transform caching
 - **2026-09-09:** Add masonry thumbnail layout mode
 - **2026-09-09:** Add back and forward navigation history for library
 - **2026-09-06:** Support exporting to original folder with subfolder
 - **2026-09-03:** Rewrite Wayland/Nvidia workaround
 - **2026-09-02:** Refactor crop panel & integrate transform/lens correction directly into main canvas
+
+<details>
+<summary><strong>Expand further</strong></summary>
+
 - **2026-09-01:** Implemented guided perspective correction thanks to @hogar1977
 - **2026-09-01:** Add context menu option to auto apply lens correction
 - **2026-08-31:** New edge-aware filter for ai masks, improved sharpening & mobile UI improvements
 - **2026-08-29:** Improved EXIF ​​metadata processing during export
 - **2026-08-29:** Implement folder-level EXIF caching and prevent redundant adjustment saves
-
-<details>
-<summary><strong>Expand further</strong></summary>
-
 - **2026-08-28:** Categorize mask creation panel
 - **2026-08-27:** Split thumbnail resolution settings into separate grid and editor preview sizes
 - **2026-08-26:** Introduced a retouch tool to effortlessly smooth skin
