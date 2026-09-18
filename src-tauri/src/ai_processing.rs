@@ -66,7 +66,7 @@ const DENOISE_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/res
 const DENOISE_FILENAME: &str = "nind_denoise_utnet_684.onnx";
 const DENOISE_SHA256: &str = "ee3586279d514df557ff3f7dec6df37fafc51ba5d3a3435b2cc9ac2d9017e7fe";
 
-const RAWREFINERY_URL: &str = "https://drive.google.com/uc?export=download&id=1TALb8b-OYx2rkKV90RZpJpndjyWFcYQy";
+const RAWREFINERY_URL: &str = "https://speets.eu/download/ShadowWeightedL1_24_deep_500_32.onnx";
 const RAWREFINERY_FILENAME: &str = "ShadowWeightedL1_24_deep_500_32.onnx";
 const RAWREFINERY_SHA256: &str = "959b44a7c1f64485263f5ad8eab362d0d9caf97a67a8e6c2e78df5ae1a6e598a";
 
@@ -1326,7 +1326,7 @@ pub async fn get_or_init_denoise_model_2(
     {
         return Ok(denoise_model_2);
     }
-/*
+
     let models_dir = get_models_dir(app_handle)?;
     download_and_verify_model(
         app_handle,
@@ -1348,8 +1348,7 @@ pub async fn get_or_init_denoise_model_2(
         ));
     }
 
- */
-
+ /*
     // Load RawRefinery model from local file
     let model_path = std::path::Path::new(RAWREFINERY_LOCAL_PATH);
     if !model_path.exists() {
@@ -1360,7 +1359,7 @@ pub async fn get_or_init_denoise_model_2(
     }
     
     info!("→ Loading RawRefinery Model from: {}", model_path.display());
-    
+*/
     let session = create_gpu_session_for_model(&model_path, "RawRefinery")?;
     
     info!("✓ RawRefinery Model loaded (GPU-optimized)");

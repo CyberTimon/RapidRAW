@@ -237,8 +237,8 @@ export default function DenoiseModal({
 
   const methodOptions = useMemo<Array<{ label: string; value: 'ai_model1' | 'ai_model2' | 'bm3d' }>>(
     () => [
-      { label: t('modals.denoise.model1Label'), value: 'ai_model1' },
-      { label: t('modals.denoise.model2Label'), value: 'ai_model2' },
+      { label: t('modals.denoise.methodAi'), value: 'ai_model1' },
+      { label: t('modals.denoise.methodAi2'), value: 'ai_model2' },
       { label: t('modals.denoise.methodBm3d'), value: 'bm3d' },
     ],
     [t],
