@@ -14,7 +14,6 @@ mod app_settings;
 mod app_state;
 mod cache_utils;
 mod camera_tethering;
-mod common;
 mod culling;
 mod denoising;
 mod exif_processing;
@@ -1716,132 +1715,6 @@ fn frontend_ready(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Set ORT library path IMMEDIATELY, before any other code runs
-    // This must happen before the ORT crate tries to load the library
-    #[cfg(not(target_os = "android"))]
-    {
-        use std::path::PathBuf;
-        
-        eprintln!("[ONNX] Starting early library path resolution...");
-        
-        // Get current executable directory
-        let exe_dir = std::env::current_exe()
-            .ok()
-            .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
-            .unwrap_or_else(|| PathBuf::from("."));
-        
-        eprintln!("[ONNX] Executable directory: {}", exe_dir.display());
-        eprintln!("[ONNX] Current working directory: {}", std::env::current_dir().unwrap_or_default().display());
-        
-        // Try to find and set the ONNX Runtime library path from multiple potential locations
-        let mut possible_paths = vec![
-            // Current working directory
-            PathBuf::from("./resources"),
-            PathBuf::from("./src-tauri/resources"),
-            // Executable directory
-            exe_dir.join("resources"),
-            exe_dir.join("../resources"),
-            exe_dir.join("../../resources"),
-            // Bundled app locations
-            exe_dir.join("../../../resources"),
-            exe_dir.join("../../../../resources"),
-            // Development paths from exe directory
-            exe_dir.join("../src-tauri/resources"),
-        ];
-        
-        // Try to add absolute paths if we can determine the workspace
-        if let Ok(cwd) = std::env::current_dir() {
-            possible_paths.push(cwd.join("src-tauri/resources"));
-            possible_paths.push(cwd.join("resources"));
-            
-            // If we find RapidRAW in the path, try to use it as workspace root
-            if let Some(pos) = cwd.to_string_lossy().rfind("RapidRAW") {
-                if let Ok(root) = std::path::PathBuf::from(&cwd.to_string_lossy()[..pos + 8]).canonicalize() {
-                    possible_paths.push(root.join("src-tauri/resources"));
-                }
-            }
-        }
-
-        let mut found_path = None;
-        let ort_lib_name = {
-            #[cfg(target_os = "windows")]
-            { "onnxruntime.dll" }
-            #[cfg(target_os = "linux")]
-            { "libonnxruntime.so" }
-            #[cfg(target_os = "macos")]
-            { "libonnxruntime.dylib" }
-            #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
-            { "libonnxruntime.so" }
-        };
-
-        // Check each possible path
-        for path in &possible_paths {
-            let full_path = path.join(ort_lib_name);
-            if full_path.exists() {
-                eprintln!("[ONNX] ✓ Found library at: {}", full_path.display());
-                found_path = Some(path.clone());
-                break;
-            } else {
-                eprintln!("[ONNX] ✗ Not found at: {}", full_path.display());
-            }
-        }
-
-        if let Some(path) = found_path {
-            let canonical_path = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
-            let canonical_lib_path = canonical_path.join(ort_lib_name);
-            
-            unsafe {
-                std::env::set_var("ORT_LIB_LOCATION", &canonical_path);
-                // ort (load-dynamic) expects ORT_DYLIB_PATH to be the dylib filename/path, not a directory.
-                std::env::set_var("ORT_DYLIB_PATH", &canonical_lib_path);
-                
-                // On Windows, also add to PATH so LoadLibrary can find the DLL
-                #[cfg(target_os = "windows")]
-                {
-                    let mut path_additions = vec![canonical_path.clone()];
-                    let gpu_lib_subdir = canonical_path.join("onnxruntime-win-x64-gpu_cuda13-1.30.0").join("lib");
-                    if gpu_lib_subdir.exists() {
-                        path_additions.push(gpu_lib_subdir);
-                    }
-                    
-                    if let Ok(current_path) = std::env::var("PATH") {
-                        let additions = path_additions.iter()
-                            .map(|p| p.display().to_string())
-                            .collect::<Vec<_>>()
-                            .join(";");
-                        let new_path = format!("{};{}", additions, current_path);
-                        std::env::set_var("PATH", new_path);
-                    } else {
-                        let additions = path_additions.iter()
-                            .map(|p| p.display().to_string())
-                            .collect::<Vec<_>>()
-                            .join(";");
-                        std::env::set_var("PATH", additions);
-                    }
-                }
-            }
-            
-            #[cfg(target_os = "windows")]
-            eprintln!("[ONNX] Added to Windows PATH: {}", canonical_path.display());
-            
-            eprintln!("[ONNX] ✓ Successfully configured ORT library path");
-            eprintln!("[ONNX]   ORT_LIB_LOCATION = {}", canonical_path.display());
-            eprintln!("[ONNX]   ORT_DYLIB_PATH = {}", canonical_lib_path.display());
-        } else {
-            eprintln!("[ONNX] ✗ ERROR: Could not find ONNX Runtime library!");
-            eprintln!("[ONNX] Checked {} locations:", possible_paths.len());
-            for (i, path) in possible_paths.iter().enumerate() {
-                eprintln!("[ONNX]   [{}] {}", i + 1, path.display());
-            }
-            eprintln!("[ONNX]");
-            eprintln!("[ONNX] TROUBLESHOOTING:");
-            eprintln!("[ONNX] 1. Run: cargo build --release in src-tauri/ to ensure library is downloaded");
-            eprintln!("[ONNX] 2. Verify file exists: ls src-tauri/resources/onnxruntime.* (or .dll/.so/.dylib)");
-            eprintln!("[ONNX] 3. Run from workspace root: cd /path/to/RapidRAW && npm run tauri dev");
-            eprintln!("[ONNX]");
-        }
-    }
-
     let _ = rayon::ThreadPoolBuilder::new()
         .stack_size(8 * 1024 * 1024)
         .build_global();
@@ -2017,62 +1890,12 @@ pub fn run() {
                         { "libonnxruntime.so" }
                     };
                     let ort_library_path = resource_path.join(ort_library_name);
-                    
-                    // Only override ORT paths here if this resolved resource directory actually contains the library.
-                    if ort_library_path.exists() {
-                        std::env::set_var("ORT_LIB_LOCATION", &resource_path);
-                        std::env::set_var("ORT_DYLIB_PATH", &ort_library_path);
-                    } else {
-                        log::warn!(
-                            "Resolved resource path does not contain ONNX Runtime library; preserving existing ORT_* environment values."
-                        );
-                    }
-                    
-                    log::info!("╔════════════════════════════════════════════════════════════╗");
-                    log::info!("║       ONNX RUNTIME LIBRARY PATH CONFIGURATION              ║");
-                    log::info!("╚════════════════════════════════════════════════════════════╝");
-                    log::info!("Resource Directory: {}", resource_path.display());
-                    log::info!("Library Name: {}", ort_library_name);
-                    log::info!("Full Library Path: {}", ort_library_path.display());
-                    log::info!(
-                        "ORT_LIB_LOCATION: {}",
-                        std::env::var("ORT_LIB_LOCATION").unwrap_or_else(|_| "NOT SET".to_string())
-                    );
-                    log::info!(
-                        "ORT_DYLIB_PATH: {}",
-                        std::env::var("ORT_DYLIB_PATH").unwrap_or_else(|_| "NOT SET".to_string())
-                    );
-                    
-                    // Verify the library file exists
-                    if ort_library_path.exists() {
-                        log::info!("✓ ONNX Runtime library file EXISTS");
-                        if let Ok(metadata) = std::fs::metadata(&ort_library_path) {
-                            log::info!("  File size: {} bytes", metadata.len());
-                        }
-                    } else {
-                        log::warn!("✗ ONNX Runtime library file NOT FOUND at: {}", ort_library_path.display());
-                        log::warn!("  This may cause failures when attempting to use AI features");
-                        
-                        // Try to list what files are in the resources directory
-                        if let Ok(entries) = std::fs::read_dir(&resource_path) {
-                            log::warn!("  Files in resource directory:");
-                            for entry in entries {
-                                if let Ok(entry) = entry {
-                                    if let Ok(metadata) = entry.metadata() {
-                                        let type_str = if metadata.is_dir() { "[DIR]" } else { "[FILE]" };
-                                        log::warn!("    {} {}", type_str, entry.path().display());
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    std::env::set_var("ORT_DYLIB_PATH", &ort_library_path);
+                    println!("Set ORT_DYLIB_PATH to: {}", ort_library_path.display());
                 }
             }
 
             setup_logging(&app_handle);
-
-            // Initialize GPU providers for ONNX Runtime after logger is ready
-            crate::ai_processing::init_gpu_providers();
 
             if let Some(backend) = &settings.processing_backend
                 && backend != "auto" {
