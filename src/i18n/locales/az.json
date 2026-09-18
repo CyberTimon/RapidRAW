@@ -1,0 +1,1989 @@
+{
+  "adjustments": {
+    "basic": {
+      "blacks": "Qara tonlar",
+      "contrast": "Kontrast",
+      "evShift": "EV sürüşməsi",
+      "exposure": "Ekspozisiya",
+      "highlights": "İşıqlı sahələr",
+      "mappers": {
+        "agx": "AgX",
+        "agxDesc": "Fotoplyonkaya bənzər ton xəritələndirməsi",
+        "basic": "Əsas",
+        "basicDesc": "Standart ton xəritələndirməsi"
+      },
+      "reset": "Sıfırla",
+      "shadows": "Kölgələr",
+      "toneMapper": "Ton xəritələndiricisi",
+      "whites": "Ağ tonlar"
+    },
+    "color": {
+      "ariaSelectColor": "{{name}} rəngini seç",
+      "calibration": {
+        "colors": {
+          "blue": "Mavi",
+          "green": "Yaşıl",
+          "red": "Qırmızı"
+        },
+        "hue": "Rəng tonu",
+        "primaries": "Əsas rənglər",
+        "saturation": "Doyma",
+        "shadows": "Kölgələr",
+        "tint": "Rəng çaları",
+        "title": "Rəng kalibrləməsi"
+      },
+      "colorGrading": "Rəng korreksiyası",
+      "colorMixer": "Rəng qarışdırıcısı",
+      "grading": {
+        "balance": "Balans",
+        "blending": "Qarışdırma",
+        "global": "Ümumi",
+        "highlights": "İşıqlı sahələr",
+        "midtones": "Orta tonlar",
+        "shadows": "Kölgələr"
+      },
+      "hue": "Rəng tonu",
+      "localHue": "Yerli rəng tonu",
+      "luminance": "Parlaqlıq",
+      "mixerColors": {
+        "aquas": "Firuzəyi tonlar",
+        "blues": "Mavi tonlar",
+        "greens": "Yaşıl tonlar",
+        "magentas": "Macenta tonlar",
+        "oranges": "Narıncı tonlar",
+        "purples": "Bənövşəyi tonlar",
+        "reds": "Qırmızı tonlar",
+        "yellows": "Sarı tonlar"
+      },
+      "presence": "İfadəlilik",
+      "saturation": "Doyma",
+      "temperature": "Temperatur",
+      "tint": "Rəng çaları",
+      "toggleSliders": "Sürüşdürmə tənzimləyicilərini göstər/gizlət",
+      "vibrance": "Canlılıq",
+      "wbPickerTooltip": "Ağ balansı seçicisi",
+      "wbPickerWgpuDisabled": "Ağ balansı seçicisi: parametrlərdə WGPU-nu söndürün.",
+      "whiteBalance": "Ağ balansı"
+    },
+    "curves": {
+      "channelTitle": "{{channel}} kanalı",
+      "channels": {
+        "blue": "Mavi",
+        "green": "Yaşıl",
+        "luma": "Lüma",
+        "red": "Qırmızı"
+      },
+      "copyParametric": "{{channel}} parametrik əyrisini kopyala",
+      "copyPoint": "{{channel}} nöqtə əyrisini kopyala",
+      "curveDataUnavailable": "Əyri məlumatları mövcud deyil.",
+      "parametricCurve": "Parametrik əyri",
+      "params": {
+        "blackLevel": "Qara səviyyəsi",
+        "darks": "Tünd sahələr",
+        "highlights": "İşıqlı sahələr",
+        "lights": "Açıq sahələr",
+        "shadows": "Kölgələr",
+        "whiteLevel": "Ağ səviyyəsi"
+      },
+      "pasteFromParametric": "Parametrik əyridən yapışdır",
+      "pasteParametric": "Parametrik əyrini yapışdır",
+      "pastePoint": "Nöqtə əyrisini yapışdır",
+      "pointCurve": "Nöqtə əyrisi",
+      "resetAllParametric": "Bütün parametrik əyriləri sıfırla",
+      "resetAllPoint": "Bütün nöqtə əyrilərini sıfırla",
+      "resetParametric": "{{channel}} parametrik əyrisini sıfırla",
+      "resetPoint": "{{channel}} nöqtə əyrisini sıfırla"
+    },
+    "details": {
+      "blueYellow": "Mavi/sarı",
+      "centre": "Mərkəzləşdirilmiş",
+      "chromaticAberration": "Xromatik aberrasiya",
+      "clarity": "Aydınlıq",
+      "color": "Rəng",
+      "dehaze": "Dumanın aradan qaldırılması",
+      "luminance": "Parlaqlıq",
+      "noiseReduction": "Küyün azaldılması",
+      "presence": "İfadəlilik",
+      "redCyan": "Qırmızı/sian",
+      "sharpening": "Kəskinləşdirmə",
+      "sharpness": "Kəskinlik",
+      "structure": "Struktur",
+      "threshold": "Hədd"
+    },
+    "effects": {
+      "amount": "Miqdar",
+      "bokehCircular": "Dairəvi",
+      "bokehHexagonal": "Altıbucaqlı",
+      "bokehOctagonal": "Səkkizbucaqlı",
+      "bokehRing": "Qabarcıq (halqa)",
+      "bokehShape": "Boke forması",
+      "creative": "Yaradıcı",
+      "feather": "Kənarların yumşaldılması",
+      "glow": "Parıltı",
+      "grain": "Dənəvərlik",
+      "halation": "İşıq haləsi",
+      "lensBlur": "Obyektiv bulanıqlığı",
+      "lensDiffusion": "Diffuziya",
+      "lightFlares": "İşıq parlamaları",
+      "lut": "LUT",
+      "midpoint": "Orta nöqtə",
+      "roughness": "Nahamarlıq",
+      "roundness": "Dairəvilik",
+      "size": "Ölçü",
+      "vignette": "Vinyet"
+    }
+  },
+  "contextMenus": {
+    "album": {
+      "emptyGroup": "(Boş qrup)"
+    },
+    "albumIcons": {
+      "automotive": "Avtomobillər",
+      "default": "Qovluq (standart)",
+      "favorites": "Sevimlilər",
+      "featured": "Seçilənlər",
+      "locations": "Məkanlar",
+      "nature": "Təbiət",
+      "people": "İnsanlar",
+      "person": "Şəxs",
+      "photography": "Fotoqrafiya",
+      "portfolio": "İş nümunələri",
+      "summer": "Yay",
+      "travel": "Səyahət"
+    },
+    "albums": {
+      "alreadyAtRoot": "Artıq kök qovluqdadır",
+      "alreadyHere": "Artıq buradadır",
+      "confirmDeleteAlbum": "Albomun silinməsini təsdiqlə",
+      "confirmDeleteGroupEmpty": "Albom qrupunun silinməsini təsdiqlə",
+      "confirmDeleteGroupNested": "Qrupun və içindəki bütün albomların silinməsini təsdiqlə",
+      "deleteAlbum": "Albomu sil",
+      "deleteGroup": "Qrupu sil",
+      "moveHere": "Buraya köçür",
+      "moveTo": "Buraya köçür...",
+      "newAlbum": "Yeni albom",
+      "newGroup": "Yeni qrup",
+      "renameAlbum": "Albomun adını dəyiş",
+      "renameGroup": "Qrupun adını dəyiş",
+      "rootDir": "Kök qovluq"
+    },
+    "colors": {
+      "blue": "Mavi",
+      "green": "Yaşıl",
+      "orange": "Narıncı",
+      "pink": "Çəhrayı",
+      "purple": "Bənövşəyi",
+      "red": "Qırmızı",
+      "yellow": "Sarı"
+    },
+    "editor": {
+      "autoAdjust": "Şəkli avtomatik tənzimlə",
+      "autoLensCorrection": "Avtomatik obyektiv korreksiyası",
+      "cancel": "Ləğv et",
+      "colorLabel": "Rəng nişanı",
+      "confirmReset": "Sıfırlamanı təsdiqlə",
+      "convertNegative": "Neqativi çevir",
+      "copyAdjustments": "Tənzimləmələri kopyala",
+      "cullImage": "Şəkli çeşidlə",
+      "denoise": "Şəkildəki küyü azalt",
+      "editImage": "Şəkli redaktə et",
+      "exportImage": "Şəkli ixrac et",
+      "frameImage": "Şəkli çərçivəyə sal",
+      "mergeHdr": "HDR şəklində birləşdir",
+      "noLabel": "Nişan yoxdur",
+      "noRating": "Qiymət yoxdur",
+      "pasteAdjustments": "Tənzimləmələri yapışdır",
+      "productivity": "Məhsuldarlıq",
+      "rating": "Qiymət",
+      "ratingLabel_one": "{{count}} ulduz",
+      "ratingLabel_other": "{{count}} ulduz",
+      "redo": "Təkrarla",
+      "resetAdjustments": "Tənzimləmələri sıfırla",
+      "stitchPanorama": "Panorama birləşdir",
+      "tagging": "Etiketləmə",
+      "undo": "Geri al"
+    },
+    "folders": {
+      "changeIcon": "İşarəni dəyiş",
+      "confirm": "Təsdiqlə",
+      "copyHere_one": "Şəkli buraya kopyala",
+      "copyHere_other": "{{count}} şəkli buraya kopyala",
+      "deleteFolder": "Qovluğu sil",
+      "importImages": "Şəkilləri idxal et",
+      "moveHere_one": "Şəkli buraya köçür",
+      "moveHere_other": "{{count}} şəkli buraya köçür",
+      "newFolder": "Yeni qovluq",
+      "paste": "Yapışdır",
+      "pin": "Qovluğu bərkit",
+      "refresh": "Qovluqları yenilə",
+      "removeRoot": "Kök qovluğu çıxar",
+      "renameFolder": "Qovluğun adını dəyiş",
+      "showExplorer": "Fayl bələdçisində göstər",
+      "unpin": "Qovluğun bərkidilməsini ləğv et"
+    },
+    "library": {
+      "addCopiedToAlbum_one": "Kopyalanmış şəkli alboma əlavə et",
+      "addCopiedToAlbum_other": "Kopyalanmış {{count}} şəkli alboma əlavə et",
+      "refreshView": "Görünüşü yenilə"
+    },
+    "merge": {
+      "focusStack": "Fokus yığımı",
+      "title": "Birləşdir"
+    },
+    "tagging": {
+      "addTagTooltip": "Etiket əlavə et",
+      "noTags": "Etiket əlavə edilməyib",
+      "placeholder": "Etiket əlavə et...",
+      "removeTooltip": "“{{tag}}” etiketini çıxar",
+      "shortcutsHeading": "Qısayollar"
+    },
+    "thumbnail": {
+      "addToAlbum": "Alboma əlavə et",
+      "autoAdjust_one": "Şəkli avtomatik tənzimlə",
+      "autoAdjust_other": "Şəkilləri avtomatik tənzimlə",
+      "autoLensCorrection_one": "Avtomatik obyektiv korreksiyası",
+      "autoLensCorrection_other": "Avtomatik obyektiv korreksiyası",
+      "collage_one": "Şəkli çərçivəyə sal",
+      "collage_other": "Kollaj yarat",
+      "confirmDelete": "Silməni təsdiqlə",
+      "confirmDeleteVc": "Virtual nüsxələrlə birlikdə silinməni təsdiqlə",
+      "convertNegative_one": "Neqativi çevir",
+      "convertNegative_other": "Neqativləri çevir",
+      "copyImage_one": "Şəkli kopyala",
+      "copyImage_other": "{{count}} şəkli kopyala",
+      "cullImage_one": "Şəkli çeşidlə",
+      "cullImage_other": "Şəkilləri çeşidlə",
+      "deleteAssociated": "Əlaqəli fayllarla birlikdə sil",
+      "deleteImage_one": "Şəkli sil",
+      "deleteImage_other": "{{count}} şəkli sil",
+      "deleteSelected": "Yalnız seçilənləri sil",
+      "denoise_one": "Şəkildəki küyü azalt",
+      "denoise_other": "Şəkillərdəki küyü azalt",
+      "duplicateImage": "Şəklin dublikatını yarat",
+      "exportImage_one": "Şəkli ixrac et",
+      "exportImage_other": "{{count}} şəkli ixrac et",
+      "noAlbums": "Albom yoxdur",
+      "pasteAdjustments_one": "Tənzimləmələri yapışdır",
+      "pasteAdjustments_other": "Tənzimləmələri {{count}} şəklə yapışdır",
+      "physicalCopy": "Fiziki nüsxə",
+      "removeFromAlbum_one": "Albomdan çıxar",
+      "removeFromAlbum_other": "{{count}} şəkli albomdan çıxar",
+      "renameImage_one": "Şəklin adını dəyiş",
+      "renameImage_other": "{{count}} şəklin adını dəyiş",
+      "resetAdjustments_one": "Tənzimləmələri sıfırla",
+      "resetAdjustments_other": "{{count}} şəklin tənzimləmələrini sıfırla",
+      "showExplorer": "Fayl bələdçisində göstər",
+      "virtualCopy": "Virtual nüsxə"
+    },
+    "toasts": {
+      "couldNotShowExplorer": "Faylı bələdçidə göstərmək mümkün olmadı: {{err}}",
+      "couldNotShowFolder": "Qovluğu göstərmək mümkün olmadı: {{err}}",
+      "failedAddToAlbum": "Alboma əlavə etmək mümkün olmadı: {{err}}",
+      "failedApplyAuto": "Avtomatik tənzimləmələri tətbiq etmək mümkün olmadı: {{err}}",
+      "failedChangeIcon": "İşarəni dəyişmək mümkün olmadı: {{err}}",
+      "failedCopy": "Faylları kopyalamaq mümkün olmadı: {{err}}",
+      "failedCreateVirtualCopy": "Virtual nüsxə yaratmaq mümkün olmadı: {{err}}",
+      "failedDelete": "Silmək mümkün olmadı: {{err}}",
+      "failedDeleteFolder": "Qovluğu silmək mümkün olmadı: {{err}}",
+      "failedDuplicate": "Faylın dublikatını yaratmaq mümkün olmadı: {{err}}",
+      "failedMove": "Faylları köçürmək mümkün olmadı: {{err}}",
+      "failedMoveError": "Köçürmək mümkün olmadı: {{err}}",
+      "failedMoveInvalid": "Köçürmək mümkün olmadı: hədəf qrup tapılmadı və ya etibarsızdır.",
+      "failedRemoveImages": "Şəkilləri çıxarmaq mümkün olmadı: {{err}}"
+    }
+  },
+  "editor": {
+    "adjustments": {
+      "actions": {
+        "copySectionSettings": "{{section}} parametrlərini kopyala",
+        "pasteLabel": "{{section}} parametrlərini yapışdır",
+        "pasteSettings": "Parametrləri yapışdır",
+        "resetSectionSettings": "{{section}} parametrlərini sıfırla"
+      },
+      "sections": {
+        "basic": "Əsas",
+        "color": "Rəng",
+        "curves": "Əyrilər",
+        "details": "Detallar",
+        "effects": "Effektlər"
+      },
+      "title": "Tənzimləmələr",
+      "tooltips": {
+        "autoAdjust": "Şəkli avtomatik tənzimlə",
+        "resetAdjustments": "Tənzimləmələri sıfırla",
+        "toggleAnalytics": "Analitika görünüşünü göstər/gizlət"
+      }
+    },
+    "ai": {
+      "actions": {
+        "addNewComponent": "Yeni komponent əlavə et",
+        "copyComponent": "Komponenti kopyala",
+        "copyEdit": "Redaktəni kopyala",
+        "deleteComponent": "Komponenti sil",
+        "deleteEdit": "Redaktəni sil",
+        "duplicateAndInvertComponent": "Komponentin dublikatını yarat və tərsinə çevir",
+        "duplicateAndInvertEdit": "Redaktənin dublikatını yarat və tərsinə çevir",
+        "duplicateComponent": "Komponentin dublikatını yarat",
+        "duplicateEdit": "Redaktənin dublikatını yarat",
+        "hideEdit": "Redaktəni gizlət",
+        "intersectEditWith": "Redaktəni bununla kəsişdir",
+        "pasteComponent": "Komponenti yapışdır",
+        "pasteEdit": "Redaktəni yapışdır",
+        "rename": "Adını dəyiş",
+        "resetSelection": "Seçimi sıfırla",
+        "showEdit": "Redaktəni göstər",
+        "subtractFromEdit": "Redaktədən çıx",
+        "switchToAdd": "Əlavə etməyə keç",
+        "switchToIntersect": "Kəsişməyə keç",
+        "switchToSubtract": "Çıxmaya keç"
+      },
+      "addNewEdit": "Yeni redaktə əlavə et",
+      "brush": {
+        "add": "Əlavə et",
+        "erase": "Poz",
+        "feather": "Fırça kənarlarının yumşaldılması",
+        "size": "Fırça ölçüsü"
+      },
+      "comingSoon": "Tezliklə",
+      "connection": {
+        "backendLabel": "Süni intellekt mühərriki:",
+        "builtinDesc": "Əsas yerli CPU-dan istifadə olunur. Generativ əvəzləmə üçün parametrlərdə buludu və ya AI Connector-u seçin.",
+        "builtinLabel": "Daxili süni intellekt:",
+        "cloudLabel": "Bulud süni intellekti:",
+        "connectorConnectedDesc": "Yerli generativ mühərrikə qoşulub.",
+        "connectorDisconnectedDesc": "Yalnız sadə təsvir tamamlama funksiyası mövcuddur. Yerli mühərrikinizi başladın.",
+        "connectorLabel": "AI Connector:",
+        "loginRequiredDesc": "Bulud süni intellektindən istifadə etmək üçün parametrlər vasitəsilə daxil olun.",
+        "monthlyUsage": "Aylıq istifadə",
+        "notDetected": "Aşkarlanmadı",
+        "notLoggedIn": "Hesaba daxil olunmayıb",
+        "proRequiredDesc": "Pro abunəliyi tələb olunur. Parametrlərdə planınızı yüksəldin.",
+        "ready": "Hazırdır",
+        "upgradeRequired": "Planın yüksəldilməsi tələb olunur"
+      },
+      "createNewTitle": "Yeni generativ redaktə yarat",
+      "createNewTooltip": "Yeni {{name}} redaktəsi yarat",
+      "dropzoneText": "Yeni redaktə yaratmaq üçün buraya buraxın",
+      "editSettingsTitle": "Redaktə parametrləri",
+      "editsTitle": "Redaktələr",
+      "generatingDepthMap": "Süni intellekt dərinlik xəritəsini hesablayır...",
+      "generativeEditTitle": "Generativ redaktə",
+      "inpaintingTitle": "Təsvir tamamlama",
+      "liquify": {
+        "mode": "Plastik deformasiya rejimi",
+        "modes": {
+          "expand": "Genişləndir",
+          "pinch": "Sıx",
+          "push": "İtələ",
+          "twirl": "Bur"
+        }
+      },
+      "manualCleanupTitle": "Əl ilə təmizləmə",
+      "noImageSelected": "Şəkil seçilməyib.",
+      "params": {
+        "feather": "Kənarların yumşaldılması",
+        "grow": "Böyüt",
+        "intensity": "İntensivlik",
+        "pressure": "Təzyiq"
+      },
+      "patches": {
+        "aiEdit": "Süni intellekt redaktəsi {{count}}",
+        "aiEdit_one": "Süni intellekt redaktəsi {{count}}",
+        "aiEdit_other": "Süni intellekt redaktəsi {{count}}",
+        "clone": "Klon {{count}}",
+        "clone_one": "Klon {{count}}",
+        "clone_other": "Klon {{count}}",
+        "heal": "Bərpa {{count}}",
+        "heal_one": "Bərpa {{count}}",
+        "heal_other": "Bərpa {{count}}",
+        "invertedName": "{{name}} tərsinə çevrilmiş",
+        "liquify": "Plastik deformasiya {{count}}",
+        "liquify_one": "Plastik deformasiya {{count}}",
+        "liquify_other": "Plastik deformasiya {{count}}",
+        "quickErase": "Sürətli pozma {{count}}",
+        "quickErase_one": "Sürətli pozma {{count}}",
+        "quickErase_other": "Sürətli pozma {{count}}",
+        "retouch": "Retuş {{count}}"
+      },
+      "resetInpaintingTooltip": "Təsvirin tamamlanmasını sıfırla",
+      "settings": {
+        "aiModelDownloading": "Süni intellekt modeli endirilir: ",
+        "basicInpaintTooltipDisabled": "Generativ mühərrik mövcud deyil və ya qurulmayıb. Əsas təsvir tamamlama tələb olunur.",
+        "basicInpaintTooltipEnabled": "Əsas təsvir tamamlama daha sürətlidir, lakin generativ deyil. Mətn sorğusu ilə generativ süni intellektdən istifadə etmək üçün işarəni götürün.",
+        "componentPropertiesTitle": "{{name}} xüsusiyyətləri",
+        "downloading": "Endirilir: ",
+        "fastInpaintDesc": "Seçilmiş sahəni ətrafdakı piksellər əsasında doldurun.",
+        "generateWithAiButton": "Süni intellektlə yarat",
+        "generating": "Yaradılır...",
+        "generativeDesc": "Seçilmiş sahədə nə yaratmaq istədiyinizi təsvir edin.",
+        "generativeReplaceTitle": "Generativ əvəzləmə",
+        "inpaintSelectionButton": "Seçilmiş sahənin təsvirini tamamla",
+        "invertComponent": "Komponenti tərsinə çevir",
+        "invertSelection": "Seçimi tərsinə çevir",
+        "placeholder": "məsələn, çiçək tarlası",
+        "quickEraseDesc": "Obyekti çıxarmaq üçün seçilmiş sahəni doldurun.",
+        "selectionPropertiesTitle": "Seçimin xüsusiyyətləri",
+        "useBasicInpaint": "Əsas təsvir tamamlama funksiyasından istifadə et"
+      },
+      "touchUpTitle": "Retuş"
+    },
+    "crop": {
+      "aspectRatioHeading": "Tərəflər nisbəti",
+      "custom": {
+        "hPlaceholder": "H",
+        "hTooltip": "Hündürlük",
+        "wPlaceholder": "E",
+        "wTooltip": "En"
+      },
+      "geometryHeading": "Həndəsə",
+      "labels": {
+        "flipHoriz": "Üfüqi çevir",
+        "flipVert": "Şaquli çevir",
+        "lens": "Obyektiv",
+        "rotateLeft": "Sola döndər",
+        "rotateRight": "Sağa döndər",
+        "transform": "Transformasiya"
+      },
+      "orientationHeading": "İstiqamət",
+      "overlays": {
+        "armature": {
+          "desc": "Kompozisiya skeleti",
+          "name": "Kompozisiya skeleti"
+        },
+        "diagonal": {
+          "desc": "Diaqonal xətlər",
+          "name": "Diaqonal xətlər"
+        },
+        "none": {
+          "desc": "Üst qat yoxdur",
+          "name": "Yoxdur"
+        },
+        "phiGrid": {
+          "desc": "Fi toru (qızıl nisbət)",
+          "name": "Fi toru"
+        },
+        "spiral": {
+          "desc": "Qızıl spiral (Fibonaççi)",
+          "name": "Spiral"
+        },
+        "thirds": {
+          "desc": "Üçdəbir qaydası",
+          "name": "Üçdəbir bölgüsü"
+        },
+        "triangle": {
+          "desc": "Qızıl üçbucaq",
+          "name": "Üçbucaq"
+        }
+      },
+      "presets": {
+        "custom": {
+          "name": "Fərdi",
+          "tooltip": "Fərdi tərəflər nisbətini daxil edin"
+        },
+        "free": {
+          "desc": "Sərbəst kəsmə",
+          "name": "Sərbəst"
+        },
+        "original": {
+          "desc": "Orijinal şəklin tərəflər nisbəti",
+          "name": "Orijinal"
+        },
+        "r169": {
+          "desc": "16:9 - Geniş ekran, masaüstü fonları, YouTube",
+          "name": "16:9"
+        },
+        "r219": {
+          "desc": "21:9 - Ultrageniş monitorlar, kino formatı",
+          "name": "21:9"
+        },
+        "r32": {
+          "desc": "3:2 - 35 mm fotoplyonka, DSLR kameralar",
+          "name": "3:2"
+        },
+        "r43": {
+          "desc": "4:3 - Ənənəvi monitorlar, planşetlər",
+          "name": "4:3"
+        },
+        "r54": {
+          "desc": "5:4 - Instagram üfüqi formatı, 8x10 çaplar",
+          "name": "5:4"
+        },
+        "r6524": {
+          "desc": "65:24 - Panoramik 35 mm geniş format",
+          "name": "65:24"
+        },
+        "sq": {
+          "desc": "Kvadrat - Instagram, profil şəkilləri",
+          "name": "1:1"
+        }
+      },
+      "resetTooltip": "Kəsməni və transformasiyanı sıfırla",
+      "rotationHeading": "Döndərmə",
+      "title": "Kəsmə və transformasiya",
+      "tooltips": {
+        "compositionOverlay": "Kompozisiya üst qatı",
+        "flipHoriz": "Şəkli üfüqi çevir",
+        "flipVert": "Şəkli şaquli çevir",
+        "lens": "Obyektiv təhrifinin korreksiyası",
+        "overlayDetails": "Üst qat: {{name}}{{rotateHint}}",
+        "resetFineRotation": "Dəqiq döndərməni sıfırla",
+        "rotateHint": " (döndərmək üçün Shift+O)",
+        "rotateLeft": "Saat əqrəbinin əksinə 90° döndər",
+        "rotateRight": "Saat əqrəbi istiqamətində 90° döndər",
+        "straighten": "Düzləndirmə aləti (S)",
+        "switchOrientation": "İstiqaməti dəyiş",
+        "switchToLandscape": "Üfüqi istiqamətə keç",
+        "switchToPortrait": "Şaquli istiqamətə keç",
+        "transform": "Perspektiv və trapesiya təhrifinin korreksiyası"
+      }
+    },
+    "externalEdit": {
+      "done": "Hazırdır",
+      "exporting": "İxrac edilir…",
+      "savesTo": "Xarici redaktə — burada yadda saxlanılır"
+    },
+    "guided": {
+      "cancel": "Ləğv et",
+      "drawingActive": "Çəkmə aktivdir",
+      "hint": "Fotonuzda şaquli və ya üfüqi olmalı kənarlar boyunca xətlər çəkin.",
+      "linesStatus": "Aktiv bələdçi xətləri",
+      "toast": {
+        "angleRejected": "Xəttin bucağı üfüqi və ya şaquli istiqamətdən çox uzaqdır",
+        "maxLines": "Ən çox 2 şaquli və 2 üfüqi xəttə icazə verilir"
+      }
+    },
+    "layout": {
+      "split": "Böl"
+    },
+    "masks": {
+      "actions": {
+        "addNewComponent": "Yeni komponent əlavə et",
+        "applyPreset": "Hazır tənzimləməni tətbiq et",
+        "copyComponent": "Komponenti kopyala",
+        "copyMask": "Maskanı kopyala",
+        "deleteComponent": "Komponenti sil",
+        "deleteMask": "Maskanı sil",
+        "duplicateAndInvertComponent": "Komponentin dublikatını yarat və tərsinə çevir",
+        "duplicateAndInvertMask": "Maskanın dublikatını yarat və tərsinə çevir",
+        "duplicateComponent": "Komponentin dublikatını yarat",
+        "duplicateMask": "Maskanın dublikatını yarat",
+        "hideComponent": "Komponenti gizlət",
+        "hideMask": "Maskanı gizlət",
+        "intersectMaskWith": "Maskanı bununla kəsişdir",
+        "noPresets": "Hazır tənzimləmə yoxdur",
+        "pasteComponent": "Komponenti yapışdır",
+        "pasteMask": "Maskanı yapışdır",
+        "pasteMaskAdjustments": "Maska tənzimləmələrini yapışdır",
+        "rename": "Adını dəyiş",
+        "resetMaskAdjustments": "Maska tənzimləmələrini sıfırla",
+        "showComponent": "Komponenti göstər",
+        "showMask": "Maskanı göstər",
+        "subtractFromMask": "Maskadan çıx",
+        "switchToAdd": "Əlavə etməyə keç",
+        "switchToIntersect": "Kəsişməyə keç",
+        "switchToSubtract": "Çıxmaya keç"
+      },
+      "addNewMask": "Yeni maska əlavə et",
+      "aiTitle": "Süni intellekt seçimləri",
+      "basicTitle": "Əsas alətlər",
+      "brush": {
+        "brush": "Fırça",
+        "eraser": "Pozan",
+        "feather": "Fırça kənarlarının yumşaldılması",
+        "flow": "Axın",
+        "size": "Fırça ölçüsü"
+      },
+      "comingSoon": "Tezliklə",
+      "depthRange": {
+        "far": "Uzaq",
+        "near": "Yaxın",
+        "reset": "Sıfırla",
+        "title": "Dərinlik diapazonu"
+      },
+      "dropzoneText": "Yeni maska yaratmaq üçün buraya buraxın",
+      "maskAdjustmentsTitle": "Maska tənzimləmələri",
+      "maskingTitle": "Maskalama",
+      "masksTitle": "Maskalar",
+      "params": {
+        "feather": "Kənarların yumşaldılması",
+        "globalFeather": "Kənarların ümumi yumşaldılması",
+        "grow": "Böyüt",
+        "tolerance": "Dözümlülük"
+      },
+      "patches": {
+        "copyName": "{{name}} nüsxəsi",
+        "invertedName": "{{name}} tərsinə çevrilmiş",
+        "maskName": "Maska {{count}}",
+        "maskName_one": "Maska {{count}}",
+        "maskName_other": "Maska {{count}}"
+      },
+      "rangeTitle": "Diapazonlar və ümumi",
+      "resetMaskingTooltip": "Maskalamanı sıfırla",
+      "settings": {
+        "aiModelDownloading": "Süni intellekt modeli endirilir: ",
+        "applyPreset": "Hazır tənzimləməni tətbiq et",
+        "componentPropertiesTitle": "{{name}} xüsusiyyətləri",
+        "copySectionSettings": "{{section}} parametrlərini kopyala",
+        "invertComponent": "Komponenti tərsinə çevir",
+        "invertMask": "Maskanı tərsinə çevir",
+        "maskPropertiesTitle": "Maskanın xüsusiyyətləri",
+        "noPresetsFound": "Hazır tənzimləmə tapılmadı",
+        "opacity": "Qeyri-şəffaflıq",
+        "pasteSectionSettings": "{{section}} parametrlərini yapışdır",
+        "pasteSettings": "Parametrləri yapışdır",
+        "resetSectionSettings": "{{section}} parametrlərini sıfırla",
+        "select": "Seç",
+        "selectPresetTooltip": "Tətbiq etmək üçün hazır tənzimləmə seçin"
+      },
+      "toggleAnalyticsInAdjustments": "Tənzimləmələr panelində analitikanı göstər/gizlət",
+      "toggleAnalyticsTooltip": "Analitika görünüşünü göstər/gizlət",
+      "tooltips": {
+        "addToCurrent": "Cari maskaya {{name}} əlavə et və ya yenisini yarat (sağ klik)",
+        "createNew": "Yeni {{name}} maskası yarat",
+        "selectNewSourcePoint": "Yeni mənbə nöqtəsi seçmək üçün {{modifier}} + klik"
+      }
+    },
+    "metadata": {
+      "author": {
+        "creatorDetails": "Yaradıcının məlumatları",
+        "title": "Müəllif və müəllif hüquqları"
+      },
+      "camera": {
+        "aperture": "Diafraqma",
+        "focalLength": "Fokus məsafəsi",
+        "iso": "ISO",
+        "lens": "Obyektiv",
+        "shutterSpeed": "Zatvor sürəti",
+        "title": "Kamera məlumatları"
+      },
+      "clickToEdit": "Redaktə etmək üçün klikləyin",
+      "copied": "Kopyalandı",
+      "copy": "Kopyala",
+      "emptyClickToAdd": "Boşdur (əlavə etmək üçün klikləyin)",
+      "extendedExif": {
+        "title": "Genişləndirilmiş EXIF"
+      },
+      "fields": {
+        "author": "Müəllif",
+        "comments": "Şərhlər",
+        "copyright": "Müəllif hüquqları",
+        "title": "Başlıq"
+      },
+      "fileInfo": {
+        "dimensions": "{{width}} × {{height}} px • {{megapixels}} MP",
+        "dimensionsNoMp": "{{width}} × {{height}} px",
+        "emptyDimensions": "- × - px",
+        "title": "Fayl məlumatları",
+        "virtualCopy": "Virtual nüsxə"
+      },
+      "gps": {
+        "altitude": "Dəniz səviyyəsindən hündürlük",
+        "clickToOpenTooltip": "Xəritəni yeni vərəqdə açmaq üçün klikləyin",
+        "latitude": "En dairəsi",
+        "longitude": "Uzunluq dairəsi",
+        "title": "GPS məkanı"
+      },
+      "organization": {
+        "addTagPlaceholder": "Etiket əlavə et...",
+        "colorLabel": "Rəng nişanı",
+        "noTags": "Etiket yoxdur",
+        "none": "Yoxdur",
+        "rating": "Qiymət",
+        "ratingLabels": "Qiymət və nişanlar",
+        "tags": "Etiketlər",
+        "title": "Təşkil"
+      },
+      "title": "Metaməlumatlar"
+    },
+    "presets": {
+      "amount": "Miqdar",
+      "dialog": {
+        "allPresetFiles": "Bütün hazır tənzimləmə faylları",
+        "exportAllTitle": "Bütün hazır tənzimləmələri ixrac et",
+        "exportTitle": "İxrac et: {{type}}",
+        "importPresetsTitle": "Hazır tənzimləmələri idxal et",
+        "legacyPreset": "Köhnə hazır tənzimləmə",
+        "presetFile": "Hazır tənzimləmə faylı",
+        "rapidRawPreset": "RapidRAW hazır tənzimləməsi"
+      },
+      "menu": {
+        "configurePreset": "Hazır tənzimləməni qur",
+        "deleteFolder": "Qovluğu sil",
+        "deletePreset": "Hazır tənzimləməni sil",
+        "duplicatePreset": "Hazır tənzimləmənin dublikatını yarat",
+        "exportFolder": "Qovluğu ixrac et",
+        "exportPreset": "Hazır tənzimləməni ixrac et",
+        "newFolder": "Yeni qovluq",
+        "newPreset": "Yeni hazır tənzimləmə",
+        "overwrite": "Üzərinə yaz",
+        "renameFolder": "Qovluğun adını dəyiş",
+        "sortAll": "Hamısını əlifba sırası ilə sırala"
+      },
+      "status": {
+        "empty": "Hələ hazır tənzimləmə yadda saxlanılmayıb. Özünüz yaradın, fayldan idxal edin və ya icmanın hazır tənzimləmələrini kəşf edin.",
+        "getCommunity": "İcmanın hazır tənzimləmələrini əldə et",
+        "loading": "Hazır tənzimləmələr yüklənir..."
+      },
+      "supports": {
+        "cropTransform": "Kəsmə və transformasiya",
+        "label": "{{features}} dəstəklənir",
+        "masks": "Maskalar"
+      },
+      "title": "Hazır tənzimləmələr",
+      "tooltips": {
+        "explore": "İcmanın hazır tənzimləmələrini kəşf et",
+        "export": "Bütün hazır tənzimləmələri .rrpreset faylına ixrac et",
+        "import": "Hazır tənzimləmələri .rrpreset faylından idxal et",
+        "saveNew": "Yeni hazır tənzimləmə kimi yadda saxla"
+      },
+      "types": {
+        "folder": "Qovluq",
+        "preset": "Hazır tənzimləmə",
+        "style": "Üslub",
+        "tool": "Alət"
+      }
+    },
+    "switcher": {
+      "tooltips": {
+        "adjust": "Tənzimlə",
+        "crop": "Kəs",
+        "export": "İxrac et",
+        "info": "Məlumat",
+        "inpaint": "Təsviri tamamla",
+        "masks": "Maskalar",
+        "presets": "Hazır tənzimləmələr",
+        "tethering": "Kameradan birbaşa çəkiliş"
+      }
+    },
+    "toolbar": {
+      "switchToVariant": "{{label}} bölməsinə keç",
+      "tooltips": {
+        "aperture": "Diafraqma",
+        "backToLibrary": "Kitabxanaya qayıt",
+        "focalLength": "Fokus məsafəsi",
+        "fullscreen": "Tam ekranı aç/bağla (F)",
+        "iso": "ISO",
+        "redo": "Təkrarla (Ctrl+Y) və ya tarixçə (sağ klik)",
+        "showEdited": "Redaktə olunmuşu göstər (B)",
+        "showOriginal": "Orijinalı göstər (B)",
+        "shutterSpeed": "Zatvor sürəti",
+        "undo": "Geri al (Ctrl+Z) və ya tarixçə (sağ klik)"
+      },
+      "vc": "VN"
+    }
+  },
+  "export": {
+    "advanced": {
+      "exportMasks": "Maskaları ayrı fayllar kimi ixrac et",
+      "preserveFolders": "Qovluq strukturunu qoru",
+      "preserveTimestamps": "Faylın vaxt göstəricilərini EXIF çəkiliş tarixinə əsasən təyin et",
+      "title": "İxrac parametrləri"
+    },
+    "bytes": {
+      "bytes": "Bayt",
+      "gb": "GB",
+      "kb": "KB",
+      "mb": "MB",
+      "tb": "TB"
+    },
+    "destination": {
+      "customFolder": "Fərdi qovluq",
+      "originalFolder": "Orijinal şəklin qovluğu",
+      "subfolder": "Alt qovluq",
+      "subfolderPlaceholder": "məsələn, son, WebP"
+    },
+    "dialog": {
+      "saveEditedImageTitle": "Redaktə olunmuş şəkli yadda saxla",
+      "selectFolderTitle": "{{count}} şəkli ixrac etmək üçün qovluq seçin",
+      "selectFolderTitle_one": "{{count}} şəkli ixrac etmək üçün qovluq seçin",
+      "selectFolderTitle_other": "{{count}} şəkli ixrac etmək üçün qovluq seçin"
+    },
+    "file": {
+      "quality": "Keyfiyyət",
+      "qualityLossless": "Keyfiyyət (itkisiz)"
+    },
+    "labels": {
+      "image": "Şəkil",
+      "image_plural": "Şəkillər",
+      "lut": "LUT",
+      "lut_plural": "LUT-lar"
+    },
+    "metadata": {
+      "removeGps": "GPS məlumatlarını çıxar",
+      "saveWithMetadata": "Metaməlumatlarla yadda saxla"
+    },
+    "resize": {
+      "dontEnlarge": "Böyütmə",
+      "modes": {
+        "height": "Hündürlük",
+        "longEdge": "Uzun kənar",
+        "shortEdge": "Qısa kənar",
+        "width": "En"
+      },
+      "pixels": "piksel",
+      "resizeToFit": "Sığışdırmaq üçün ölçünü dəyiş"
+    },
+    "sections": {
+      "advanced": "Əlavə",
+      "destination": "Təyinat",
+      "fileNaming": "Faylların adlandırılması",
+      "fileSettings": "Fayl parametrləri",
+      "imageSizing": "Şəklin ölçüləndirilməsi",
+      "metadata": "Metaməlumatlar",
+      "watermark": "Su nişanı"
+    },
+    "status": {
+      "cancelExport": "İxracı ləğv et",
+      "cancelled": "İxrac ləğv edildi",
+      "cancelling": "İxrac ləğv edilir…",
+      "estimatedAverageSize": " (orta hesabla {{size}})",
+      "estimatedSize": "Təxmini fayl ölçüsü: ~{{size}}",
+      "estimatedTotalSize": "Təxmini ümumi ölçü: ~{{size}}",
+      "estimatingSize": "Ölçü hesablanır...",
+      "exportMultiple": "İxrac et: {{count}} {{label}}",
+      "exportMultiple_one": "İxrac et: {{count}} {{label}}",
+      "exportMultiple_other": "İxrac et: {{count}} {{label}}",
+      "exportSingle": "İxrac et: {{label}}",
+      "exporting": "İxrac edilir…",
+      "exportingProgress": "İxrac edilir… ({{current}}/{{total}})",
+      "failed": "İxrac uğursuz oldu",
+      "noImageSelected": "İxrac üçün şəkil seçilməyib.",
+      "noImagesSelected": "Şəkillər seçilməyib.",
+      "success": "İxrac uğurla tamamlandı!"
+    },
+    "title": "İxrac et",
+    "watermark": {
+      "addWatermark": "Su nişanı əlavə et",
+      "anchors": {
+        "bottomCenter": "Aşağı mərkəz",
+        "bottomLeft": "Aşağı sol",
+        "bottomRight": "Aşağı sağ",
+        "center": "Mərkəz",
+        "centerLeft": "Mərkəz sol",
+        "centerRight": "Mərkəz sağ",
+        "topCenter": "Yuxarı mərkəz",
+        "topLeft": "Yuxarı sol",
+        "topRight": "Yuxarı sağ"
+      },
+      "logoText": "Loqo",
+      "opacity": "Qeyri-şəffaflıq",
+      "previewText": "Önbaxış",
+      "scale": "Miqyas",
+      "spacing": "Aralıq",
+      "watermarkImage": "Su nişanı şəkli"
+    }
+  },
+  "library": {
+    "community": {
+      "actionSave": "Yadda saxla",
+      "actionSaved": "Yadda saxlanıldı",
+      "actionSaving": "Yadda saxlanılır...",
+      "fetchingPresets": "GitHub-dan hazır tənzimləmələr alınır...",
+      "footerHeading": "Hazır tənzimləmənizin seçilənlər arasında olmasını istəyirsiniz?",
+      "footerLinkText": "GitHub-da müraciət yaradın",
+      "headerDesc": "İcmanın yaratdığı hazır tənzimləmələri kəşf edin.",
+      "headerTitle": "İcmanın hazır tənzimləmələri",
+      "presetBy": "müəllif: {{creator}}",
+      "searchPlaceholder": "Hazır tənzimləmələrdə axtarış...",
+      "sortBy": "Sıralama:",
+      "sortMethods": {
+        "name": "Ad (A-Z)"
+      }
+    },
+    "culling": {
+      "addTagPlaceholder": "Etiket əlavə et...",
+      "altCullingPreviewHighRes": "Çeşidləmə üçün yüksək ayırdetməli önbaxış",
+      "altThumbnailLoading": "Miniatürlər yüklənir",
+      "aperture": "Diafraqma",
+      "cameraSettings": "Kamera parametrləri",
+      "clickThumbnailsHint": "Müqayisə görünüşünə əlavə etmək üçün sağ yan paneldəki miniatürlərə klikləyin.",
+      "colorLabel": "Rəng nişanı",
+      "dimensions": "Ölçülər",
+      "editImage": "Şəkli redaktə et",
+      "focalLength": "Fokus məsafəsi",
+      "iso": "ISO",
+      "metadata": "Metaməlumatlar",
+      "noMetadataAvailable": "Metaməlumatlar mövcud deyil",
+      "noTagsAdded": "Etiket əlavə edilməyib",
+      "none": "Yoxdur",
+      "rateAndLabel": "Qiymətləndir və nişanla",
+      "rating": "Qiymət",
+      "selectImagesToCompare": "Müqayisə üçün şəkilləri seçin",
+      "shutterSpeed": "Zatvor sürəti",
+      "syncZoomAndPan": "Miqyası və sürüşdürməni sinxronlaşdır",
+      "tags": "Etiketlər",
+      "toggleFit": "1:1 / sığışdırma arasında keç",
+      "vc": "VN"
+    },
+    "filters": {
+      "edited": {
+        "all": "Bütün şəkillər",
+        "editedOnly": "Yalnız redaktə olunmuşlar",
+        "uneditedOnly": "Yalnız redaktə olunmamışlar"
+      },
+      "noMatch": "Süzgəcinizə uyğun şəkil tapılmadı.",
+      "rating": {
+        "all": "Hamısını göstər",
+        "andUpSuffix": "və yuxarı",
+        "fiveOnly": "yalnız 5",
+        "fourAndUp": "4 və yuxarı",
+        "oneAndUp": "1 və yuxarı",
+        "onlySuffix": "yalnız",
+        "threeAndUp": "3 və yuxarı",
+        "twoAndUp": "2 və yuxarı",
+        "unrated": "Yalnız qiymətləndirilməmişlər"
+      },
+      "raw": {
+        "all": "Bütün növlər",
+        "nonRawOnly": "Yalnız RAW olmayanlar",
+        "rawOnly": "Yalnız RAW"
+      }
+    },
+    "folders": {
+      "addFolder": "Qovluq əlavə et",
+      "albumsEmpty": "Albom yaratmaq üçün sağ klikləyin.",
+      "collapseSection": "{{section}} bölməsini yığ",
+      "expandSection": "{{section}} bölməsini genişləndir",
+      "loading": "Qovluqlar yüklənir...",
+      "noFoldersFound": "Qovluq tapılmadı.",
+      "openFolderInstruction": "Strukturunu görmək üçün qovluq açın.",
+      "searchPlaceholder": "Qovluqlarda axtarış...",
+      "sections": {
+        "albums": "Albomlar",
+        "folders": "Qovluqlar",
+        "pinned": "Bərkidilmişlər"
+      },
+      "sort": {
+        "created": "Yaradılma tarixi",
+        "imageCount": "Şəkil sayı",
+        "modified": "Dəyişdirilmə tarixi",
+        "name": "Əlifba sırası ilə"
+      },
+      "sourcesTitle": "Mənbələr",
+      "tooltips": {
+        "clearSearch": "Axtarışı təmizlə",
+        "collapse": "Yığ",
+        "expand": "Genişləndir",
+        "sortFolders": "Qovluqları sırala"
+      }
+    },
+    "grid": {
+      "columns": {
+        "aperture": "Diafraqma",
+        "focal": "Fokus məsafəsi",
+        "iso": "ISO",
+        "label": "Nişan",
+        "modified": "Dəyişdirilib",
+        "name": "Ad",
+        "rating": "Qiymət",
+        "shutter": "Zatvor"
+      }
+    },
+    "header": {
+      "search": {
+        "addFilterOrSearch": "Süzgəc əlavə et və ya axtarış et...",
+        "indexingImages": "Şəkillər indekslənir...",
+        "indexingProgress": "İndekslənir... ({{current}}/{{total}})",
+        "matchAll": "Bütün etiketlər uyğun gəlsin",
+        "matchAny": "İstənilən etiket uyğun gəlsin",
+        "searchOrQuery": "Axtarış et və ya sorğu əlavə et",
+        "tooltipAdvancedQueries": "Əlavə sorğular: iso:>800, f:<=2.8, s:1/200, mm:50, camera:sony",
+        "tooltipClearSearch": "Axtarışı təmizlə",
+        "tooltipSearchFilter": "Axtarış və ya süzgəc"
+      },
+      "title": "Kitabxana",
+      "viewOptions": {
+        "currentFolder": "Cari qovluq",
+        "displayMode": "Göstərmə rejimi",
+        "exifDisabledTooltip": "Bu seçimdən istifadə etmək üçün parametrlərdə EXIF oxunmasını aktivləşdirin.",
+        "filterByColorLabel": "Rəng nişanına görə süzgəcdən keçir",
+        "filterByEdited": "Redaktə vəziyyətinə görə süzgəcdən keçir",
+        "filterByFileType": "Fayl növünə görə süzgəcdən keçir",
+        "filterByRating": "Qiymətə görə süzgəcdən keçir",
+        "groupEditedFiles": "Redaktə olunmuş faylları qruplara daxil et",
+        "groupIgnoreMetadata": "Uyğun gəlməyən EXIF tarixlərini nəzərə alma",
+        "groupOff": "Söndürülüb",
+        "groupPreferJpeg": "JPEG-ə üstünlük ver",
+        "groupPreferRaw": "RAW-a üstünlük ver",
+        "groupRawJpeg": "RAW və JPEG fayllarını qruplaşdır",
+        "metadataAlways": "Həmişə",
+        "metadataHover": "Kursor üzərinə gəldikdə",
+        "metadataOff": "Söndürülüb",
+        "noLabel": "Nişan yoxdur",
+        "recursive": "Alt qovluqlarla birlikdə",
+        "showMetadata": "Metaməlumatları göstər",
+        "sortAscending": "Artan sıra ilə sırala",
+        "sortBy": "Sıralama meyarı",
+        "sortDescending": "Azalan sıra ilə sırala",
+        "thumbnailFit": "Miniatürün sığışdırılması",
+        "thumbnailSize": "Miniatür ölçüsü",
+        "title": "Görünüş seçimləri"
+      }
+    },
+    "import": {
+      "complete": "İdxal tamamlandı!",
+      "failed": "İdxal uğursuz oldu!",
+      "progress": "İdxal edilir... ({{current}}/{{total}})"
+    },
+    "items": {
+      "cloudPlaceholder": "iCloud-da saxlanılır — endirilməyib",
+      "collapseFolder": "Qovluğu yığ",
+      "currentFolder": "Cari qovluq",
+      "expandFolder": "Qovluğu genişləndir",
+      "imagesCount_one": "1 şəkil",
+      "imagesCount_other": "{{count}} şəkil",
+      "tooltipAperture": "Diafraqma",
+      "tooltipFocalLength": "Fokus məsafəsi",
+      "tooltipIso": "ISO",
+      "tooltipShutterSpeed": "Zatvor sürəti",
+      "tooltipVirtualCopy": "Virtual nüsxə"
+    },
+    "search": {
+      "noResults": "Nəticə tapılmadı",
+      "noResultsAiHint": " Daha əhatəli axtarış üçün parametrlərdə avtomatik etiketləməni aktivləşdirin.",
+      "noResultsDesc": "Fayl adı və ya etiketlər əsasında şəkil tapılmadı."
+    },
+    "sort": {
+      "aperture": "Diafraqma",
+      "dateModified": "Dəyişdirilmə tarixi",
+      "dateTaken": "Çəkiliş tarixi",
+      "editedStatus": "Redaktə vəziyyəti",
+      "fileName": "Fayl adı",
+      "focalLength": "Fokus məsafəsi",
+      "iso": "ISO",
+      "rating": "Qiymət",
+      "shutterSpeed": "Zatvor sürəti"
+    },
+    "splash": {
+      "addFolder": "Qovluq əlavə et",
+      "brand": "RapidRAW",
+      "continueSession": "Seansı davam etdir",
+      "contribute": "GitHub-da töhfə ver",
+      "descriptionAndroid": "GPU ilə sürətləndirilən olduqca sürətli RAW şəkil redaktoru. Başlamaq üçün kitabxananı açın.",
+      "descriptionDesktop": "GPU ilə sürətləndirilən olduqca sürətli RAW şəkil redaktoru. Başlamaq üçün qovluq açın.",
+      "donate": "Ko-Fi vasitəsilə ianə et",
+      "downloadVersion": "{{version}} versiyasını endirmək üçün klikləyin",
+      "goToSettings": "Parametrlərə keç",
+      "imagesBy": "Şəkillərin müəllifi",
+      "latestVersion": "Ən son versiyadan istifadə edirsiniz",
+      "newVersionAvailable": "Yeni versiya mövcuddur!",
+      "openFolder": "Qovluq aç",
+      "openLibrary": "Kitabxananı aç",
+      "or": "və ya",
+      "version": "Versiya {{version}}",
+      "welcomeBack": "Yenidən xoş gəlmisiniz!",
+      "welcomeBackDesc": "Qaldığınız yerdən davam edin və ya yeni seans başladın."
+    },
+    "status": {
+      "downloading": "{{status}} endirilir...",
+      "importing": "Şəkillər idxal edilir... ({{current}}/{{total}})",
+      "indexing": "Şəkillər indekslənir... ({{current}}/{{total}})",
+      "moment": "Bu, bir qədər vaxt apara bilər.",
+      "processing": "Şəkillər emal edilir..."
+    },
+    "thumbnailFit": {
+      "fillSquare": "Kvadratı doldur",
+      "originalRatio": "Orijinal nisbət"
+    },
+    "thumbnailSize": {
+      "large": "Böyük",
+      "list": "Siyahı",
+      "medium": "Orta",
+      "small": "Kiçik"
+    },
+    "tooltips": {
+      "communityPresets": "İcmanın hazır tənzimləmələri",
+      "goHome": "Baş səhifəyə keç",
+      "importImages": "Şəkilləri idxal et"
+    }
+  },
+  "masks": {
+    "types": {
+      "all": "Bütün şəkil",
+      "brush": "Fırça",
+      "clone": "Klon",
+      "color": "Rəng",
+      "depth": "Dərinlik",
+      "flow": "Axın",
+      "foreground": "Ön plan",
+      "heal": "Bərpa",
+      "linear": "Xətti",
+      "liquify": "Plastik deformasiya",
+      "luminance": "Parlaqlıq",
+      "others": "Digərləri",
+      "quickErase": "Sürətli pozma",
+      "quickEraser": "Sürətli pozan",
+      "radial": "Radial",
+      "retouch": "Retuş",
+      "sky": "Səma",
+      "subject": "Əsas obyekt"
+    }
+  },
+  "menus": {
+    "tagging": {
+      "addTagTooltip": "Etiket əlavə et",
+      "noTags": "Etiket əlavə edilməyib",
+      "placeholder": "Etiket əlavə et...",
+      "removeTooltip": "“{{tag}}” etiketini çıxar",
+      "shortcutsHeading": "Qısayollar"
+    }
+  },
+  "modals": {
+    "collage": {
+      "aspectRatio": "Tərəflər nisbəti",
+      "background": "Arxa plan",
+      "borderRadius": "Künc radiusu",
+      "cancel": "Ləğv et",
+      "close": "Bağla",
+      "done": "Hazırdır",
+      "errorTitle": "Xəta baş verdi",
+      "exportSize": "İxrac ölçüsü (px)",
+      "keepOriginalRatio": "Orijinal tərəflər nisbətini qoru",
+      "layout": "Düzülüş",
+      "original": "Orijinal",
+      "saveButton": "Kollajı yadda saxla",
+      "saved": "Kollaj yadda saxlanıldı!",
+      "saving": "Yadda saxlanılır...",
+      "shuffleTooltip": "Şəkilləri qarışdır",
+      "spacing": "Aralıq"
+    },
+    "configurePreset": {
+      "cancel": "Ləğv et",
+      "includeCropTransform": "Kəsməni və transformasiyanı daxil et",
+      "includeMasks": "Maskaları daxil et",
+      "placeholder": "Hazır tənzimləmənin adını daxil edin...",
+      "save": "Yadda saxla",
+      "titleConfigure": "Hazır tənzimləməni qur",
+      "titleSave": "Yeni hazır tənzimləməni yadda saxla",
+      "typeStyleDesc": "Görünüşü bütövlükdə tətbiq edir. Bütün cari parametrlərinizi hazır tənzimləməyə tam uyğun gələn dəyərlərlə əvəz edir.",
+      "typeStyleLabel": "Üslub",
+      "typeToolDesc": "Digər parametrlərinizə toxunmadan yalnız müəyyən dəyişiklikləri tətbiq edir.",
+      "typeToolLabel": "Alət"
+    },
+    "confirm": {
+      "cancel": "Ləğv et",
+      "confirm": "Təsdiqlə"
+    },
+    "copyPaste": {
+      "autoSyncDesc": "Tənzimləmələri bütün seçilmiş şəkillərə avtomatik tətbiq et.",
+      "autoSyncLabel": "Avtomatik sinxronlaşdırmanı aktivləşdir",
+      "autoSyncTitle": "Tənzimləmələri avtomatik sinxronlaşdır",
+      "cancel": "Ləğv et",
+      "descMerge": "Digər parametrlərə toxunmadan kopyaladığınız dəyişiklikləri əlavə edir.",
+      "descReplace": "Bütün seçilmiş parametrlərin üzərinə yazır, qalanlarını standart dəyərlərinə sıfırlayır.",
+      "groups": {
+        "chromaticAberration": "Xromatik aberrasiya",
+        "clarityDehaze": "Aydınlıq və dumanın aradan qaldırılması",
+        "colorCalibration": "Rəng kalibrləməsi",
+        "colorGrading": "Rəng korreksiyası",
+        "colorMixer": "Rəng qarışdırıcısı",
+        "cropAspectRatio": "Kəsmə və tərəflər nisbəti",
+        "curves": "Əyrilər",
+        "exposureToneMapper": "Ekspozisiya və ton xəritələndiricisi",
+        "grain": "Dənəvərlik",
+        "guidedPerspective": "Bələdçi xətlərlə perspektiv",
+        "halationGlow": "İşıq haləsi və parıltı",
+        "hueShift": "Ümumi rəng tonu sürüşməsi",
+        "lensCorrection": "Obyektiv korreksiyası",
+        "lut": "LUT",
+        "masks": "Maskalar",
+        "noiseReduction": "Küyün azaldılması",
+        "presence": "İfadəlilik",
+        "sharpness": "Kəskinlik",
+        "tone": "Ton",
+        "transformRotation": "Transformasiya və döndərmə",
+        "vignette": "Vinyet",
+        "whiteBalance": "Ağ balansı"
+      },
+      "includedAdjustments": "Daxil edilmiş tənzimləmələr",
+      "modeMerge": "Birləşdir",
+      "modeReplace": "Əvəz et",
+      "pasteMode": "Yapışdırma rejimi",
+      "save": "Yadda saxla",
+      "selectAll": "Hamısını seç",
+      "selectNone": "Heç birini seçmə",
+      "title": "Parametrləri kopyala və yapışdır"
+    },
+    "createAlbum": {
+      "placeholder": "Albom adını daxil edin..."
+    },
+    "createFolder": {
+      "cancel": "Ləğv et",
+      "create": "Yarat",
+      "placeholder": "Qovluq adını daxil edin...",
+      "title": "Yeni qovluq yarat"
+    },
+    "createGroup": {
+      "placeholder": "Qrup adını daxil edin..."
+    },
+    "culling": {
+      "actionDelete": "Zibil qutusuna köçür",
+      "actionRateZero": "Qiyməti 1 ulduz olaraq təyin et",
+      "actionReject": "Rədd edilmiş kimi işarələ (qırmızı nişan)",
+      "applyButton_one": "1 şəklə tətbiq et",
+      "applyButton_other": "{{count}} şəklə tətbiq et",
+      "bestImage": "Ən yaxşı şəkil",
+      "blurThreshold": "Bulanıqlıq həddi",
+      "blurThresholdDesc": "Kəskinlik balı bu dəyərdən aşağı olan şəkillər işarələnir. Yüksək dəyər daha sərt seçim deməkdir.",
+      "blurryImagesTab": "Bulanıq şəkillər",
+      "cancel": "Ləğv et",
+      "close": "Bağla",
+      "cullingFailed": "Çeşidləmə uğursuz oldu",
+      "cullingSuggestions": "Çeşidləmə təklifləri",
+      "done": "Hazırdır",
+      "duplicatesHeader": "Dublikatlar ({{count}})",
+      "duplicatesHeader_one": "Dublikatlar ({{count}})",
+      "duplicatesHeader_other": "Dublikatlar ({{count}})",
+      "filterBlurry": "Bulanıq şəkilləri süzgəcdən keçir",
+      "groupHeader": "Qrup {{index}}",
+      "groupSimilar": "Oxşar şəkilləri qruplaşdır",
+      "noIssuesDesc": "Bütün şəkillər fərqli və kəskin görünür.",
+      "noIssuesFound": "Problem tapılmadı!",
+      "score": "Bal: {{score}}",
+      "sharpness": "Kəskinlik: {{sharpness}}",
+      "similarGroupsTab": "Oxşar qruplar",
+      "similarityThreshold": "Oxşarlıq həddi",
+      "similarityThresholdDesc": "Aşağı dəyər daha sərtdir (tam dublikatlar). Yüksək dəyər daha yumşaqdır (yaxın dublikatlar). 24-32 arası dəyər tövsiyə olunur.",
+      "startCulling": "Çeşidləməyə başla",
+      "starting": "Başladılır...",
+      "title": "Şəkilləri çeşidlə"
+    },
+    "denoise": {
+      "batchProgressText": "Küy azaldılır: {{current}} / {{total}}...",
+      "btnBatchDenoise": "Toplu şəkildə küyü azalt və yadda saxla",
+      "btnRetry": "Yenidən cəhd et",
+      "btnSave": "Yadda saxla",
+      "btnStart": "Başla",
+      "cancel": "Ləğv et",
+      "close": "Bağla",
+      "denoised": "Küy azaldılıb",
+      "denoisingProgress": "Küy azaldılır",
+      "description": "Süni intellektə əsaslanan və ya ənənəvi küyün azaldılması üsulu ilə şəklinizdəki küyü azaldın.",
+      "downloadingText": "{{status}} endirilir...",
+      "gpuWarningTooltip": "Asılılıqlardakı məhdudiyyətlərə görə NIND ilə küyün azaldılması hələ GPU sürətləndirilməsini dəstəkləmir.",
+      "initializing": "İlkin hazırlıq gedir...",
+      "methodAi": "NIND (süni intellekt - RAW üçün ən yaxşı)",
+      "methodBm3d": "BM3D (ənənəvi - bütün formatlar)",
+      "methodLabel": "Üsul",
+      "openInEditor": "Redaktorda aç",
+      "original": "Orijinal",
+      "panZoomEnabled": "Sürüşdürmə və miqyaslama aktivdir",
+      "processingFailed": "Emal uğursuz oldu",
+      "qualityTileSizeLabel": "Keyfiyyət / fraqment ölçüsü",
+      "reset": "Sıfırla",
+      "saveSuccess": "Şəkil uğurla yadda saxlanıldı!",
+      "speedNotice": "Şəklin ölçüsündən və seçilmiş üsuldan asılı olaraq bu, bir neçə dəqiqə çəkə bilər.",
+      "strengthLabel": "Güc",
+      "titleBatch": "Şəkillərdəki küyü azalt",
+      "titleSingle": "Şəkildəki küyü azalt"
+    },
+    "focusStack": {
+      "cancel": "Ləğv et",
+      "close": "Bağla",
+      "depthMap": "Dərinlik xəritəsi",
+      "description": "Müxtəlif fokus məsafələrində çəkilmiş şəkilləri tam kəskin bir şəkildə birləşdirin.",
+      "descriptionWithCount_one": "Müxtəlif fokus məsafələrində çəkilmiş {{count}} şəkli tam kəskin bir şəkildə birləşdirin.",
+      "descriptionWithCount_other": "Müxtəlif fokus məsafələrində çəkilmiş {{count}} şəkli tam kəskin bir şəkildə birləşdirin.",
+      "failed": "Fokus yığımı uğursuz oldu",
+      "initializing": "İlkin hazırlıq gedir...",
+      "openInEditor": "Redaktorda aç",
+      "result": "Nəticə",
+      "save": "Yadda saxla",
+      "savedSuccess": "Fokus yığımı uğurla yadda saxlanıldı!",
+      "stacking": "Fokus yığımı aparılır",
+      "start": "Başla",
+      "title": "Fokus yığımı"
+    },
+    "hdr": {
+      "cancel": "Ləğv et",
+      "close": "Bağla",
+      "description": "Ekspozisiya breketinqi ilə çəkdiyiniz şəkilləri vahid yüksək dinamik diapazonlu şəkildə birləşdirin.",
+      "descriptionWithCount": "Ekspozisiya breketinqi ilə çəkilmiş {{count}} şəkli vahid yüksək dinamik diapazonlu şəkildə birləşdirin.",
+      "descriptionWithCount_one": "Ekspozisiya breketinqi ilə çəkilmiş {{count}} şəkli vahid yüksək dinamik diapazonlu şəkildə birləşdirin.",
+      "descriptionWithCount_other": "Ekspozisiya breketinqi ilə çəkilmiş {{count}} şəkli vahid yüksək dinamik diapazonlu şəkildə birləşdirin.",
+      "failed": "HDR birləşdirməsi uğursuz oldu",
+      "initializing": "İlkin hazırlıq gedir...",
+      "merging": "HDR birləşdirilir",
+      "openInEditor": "Redaktorda aç",
+      "retry": "Yenidən cəhd et",
+      "save": "Yadda saxla",
+      "savedSuccess": "HDR uğurla yadda saxlanıldı!",
+      "speedNotice": "Ekspozisiyaların sayından və ölçüsündən asılı olaraq bu, bir neçə dəqiqə çəkə bilər.",
+      "start": "Başla",
+      "title": "HDR şəklində birləşdir"
+    },
+    "importSettings": {
+      "cancel": "Ləğv et",
+      "dateFormat": "Tarix formatı",
+      "dateFormatPlaceholder": "məsələn, YYYY/MM-DD",
+      "deleteAfterImport": "Uğurlu idxaldan sonra orijinalları sil",
+      "deleteWarning": "Fayllar sistemin zibil qutusuna köçürüləcək.",
+      "fileNaming": "Faylların adlandırılması",
+      "folderOrganization": "Qovluqların təşkili",
+      "organizeByDate": "Tarixə görə alt qovluqlarda təşkil et",
+      "sourceFiles": "Mənbə faylları",
+      "startImport": "İdxala başla",
+      "title": "İdxal parametrləri"
+    },
+    "lensCorrection": {
+      "amount": "Miqdar",
+      "apply": "Tətbiq et",
+      "autoDetectLens": "Obyektivi avtomatik aşkarla",
+      "autoDetectStatus": "Avtomatik aşkarlama vəziyyəti",
+      "cancel": "Ləğv et",
+      "chooseSavedLens": "Yadda saxlanılmış obyektivi seç",
+      "chromaticAberration": "Xromatik aberrasiya",
+      "compareTooltip": "Müqayisə etmək üçün basıb saxlayın",
+      "corrections": "Korreksiyalar",
+      "databaseNotice": "Obyektiv verilənlər bazasını <0>Lensfun layihəsi</0> (<1>CC BY-SA 3.0</1>) təqdim edir.",
+      "detecting": "Aşkarlanır...",
+      "detectingExif": "EXIF aşkarlanır...",
+      "distortion": "Təhrif",
+      "lensFound": "Obyektiv tapıldı",
+      "lensProfileNotFound": "Obyektiv profili tapılmadı",
+      "manageLensesPlaceholder": "Obyektivlərinizi parametrlərdə idarə edin",
+      "manualSelection": "Əl ilə seçim",
+      "maskWarning": "Obyektiv korreksiyası əsas həndəsəni yeniləyir. Mövcud maskalar yerini dəyişə bilər və süni intellekt maskaları yenidən yaradılmalıdır.",
+      "modeAuto": "Avtomatik",
+      "modeManual": "Əl ilə",
+      "notFound": "Tapılmadı",
+      "original": "Orijinal",
+      "resetTooltip": "Obyektiv korreksiyasını sıfırla",
+      "resetZoomTooltip": "Miqyası sıfırla",
+      "selectLensModel": "Obyektiv modelini seç",
+      "selectManufacturer": "İstehsalçını seç",
+      "title": "Obyektiv korreksiyası",
+      "vignetting": "Vinyetləmə",
+      "waitingAutoDetect": "Avtomatik aşkarlama gözlənilir...",
+      "zoomInTooltip": "Yaxınlaşdır",
+      "zoomOutTooltip": "Uzaqlaşdır"
+    },
+    "negativeConversion": {
+      "blueWeight": "Mavi (sarı)",
+      "cancel": "Ləğv et",
+      "colorTiming": "Rəng tarazlanması",
+      "compareTooltip": "Orijinalı görmək üçün basıb saxlayın",
+      "contrast": "Kontrast (dərəcə)",
+      "convertAndSave": "Çevir və yadda saxla",
+      "convertAndSaveAll": "Hamısını çevir və yadda saxla ({{count}})",
+      "convertAndSaveAll_one": "Hamısını çevir və yadda saxla ({{count}})",
+      "convertAndSaveAll_other": "Hamısını çevir və yadda saxla ({{count}})",
+      "converting": "Çevrilir",
+      "convertingProgress": "Çevrilir {{current}}/{{total}}",
+      "exposure": "Ekspozisiya",
+      "greenWeight": "Yaşıl (macenta)",
+      "noticeText": "Tərsinə çevirmə məntiqi marcinz606 tərəfindən yaradılmış <0>NegPy</0> (<1>GPL-3.0</1>) əsasında hazırlanıb.",
+      "originalLabel": "Orijinal neqativ",
+      "printGrade": "Çap dərəcəsi",
+      "redWeight": "Qırmızı (sian)",
+      "resetTooltip": "Sıfırla",
+      "resetViewTooltip": "Görünüşü sıfırla",
+      "title": "Neqativin çevrilməsi",
+      "zoomInTooltip": "Yaxınlaşdır",
+      "zoomOutTooltip": "Uzaqlaşdır"
+    },
+    "panorama": {
+      "cancel": "Ləğv et",
+      "close": "Bağla",
+      "descCount": "Üst-üstə düşən {{count}} şəkli tikişsiz panoramada birləşdirin.",
+      "descCount_one": "Üst-üstə düşən {{count}} şəkli tikişsiz panoramada birləşdirin.",
+      "descCount_other": "Üst-üstə düşən {{count}} şəkli tikişsiz panoramada birləşdirin.",
+      "descGeneric": "Üst-üstə düşən şəkillərinizi tikişsiz panoramada birləşdirin.",
+      "failed": "Panorama uğursuz oldu",
+      "initializing": "İlkin hazırlıq gedir...",
+      "openInEditor": "Redaktorda aç",
+      "retry": "Yenidən cəhd et",
+      "save": "Yadda saxla",
+      "savedSuccess": "Panorama uğurla yadda saxlanıldı!",
+      "speedNotice": "Şəkillərin sayından və ölçüsündən asılı olaraq bu, bir neçə dəqiqə çəkə bilər.",
+      "start": "Başla",
+      "stitchingProgress": "Panorama birləşdirilir",
+      "title": "Panorama birləşdir"
+    },
+    "renameAlbum": {
+      "placeholder": "Yeni albom adını daxil edin..."
+    },
+    "renameFile": {
+      "cancel": "Ləğv et",
+      "fileNamingTemplate": "Fayl adlandırma şablonu",
+      "newName": "Yeni ad",
+      "save": "Yadda saxla",
+      "titleMultiple": "{{count}} şəklin adını dəyiş",
+      "titleMultiple_one": "{{count}} şəklin adını dəyiş",
+      "titleMultiple_other": "{{count}} şəklin adını dəyiş",
+      "titleSingle": "Şəklin adını dəyiş"
+    },
+    "renameFolder": {
+      "cancel": "Ləğv et",
+      "placeholder": "Yeni qovluq adını daxil edin...",
+      "save": "Yadda saxla",
+      "title": "Qovluğun adını dəyiş"
+    },
+    "renameGroup": {
+      "placeholder": "Yeni qrup adını daxil edin..."
+    },
+    "transform": {
+      "amount": "Miqdar",
+      "apply": "Tətbiq et",
+      "aspect": "Tərəflər nisbəti",
+      "cancel": "Ləğv et",
+      "compareTooltip": "Müqayisə etmək üçün basıb saxlayın",
+      "distortion": "Təhrif",
+      "geometry": "Həndəsə",
+      "guided": "Bələdçi xətlərlə perspektiv",
+      "horizontal": "Üfüqi",
+      "manual": "Əl ilə transformasiya",
+      "maskWarning": "Transformasiya əsas həndəsəni yeniləyir. Mövcud maskalar yerini dəyişə bilər və süni intellekt maskaları yenidən yaradılmalıdır.",
+      "offset": "Yerdəyişmə",
+      "original": "Orijinal",
+      "perspective": "Perspektiv",
+      "resetTooltip": "Transformasiyanı sıfırla",
+      "resetZoomTooltip": "Miqyası sıfırla",
+      "rotate": "Döndər",
+      "scale": "Miqyas",
+      "title": "Transformasiya",
+      "toggleGridTooltip": "Toru göstər/gizlət",
+      "toggleHelperLinesTooltip": "Köməkçi xətləri göstər/gizlət",
+      "vertical": "Şaquli",
+      "xAxis": "X oxu",
+      "yAxis": "Y oxu",
+      "zoomInTooltip": "Yaxınlaşdır",
+      "zoomOutTooltip": "Uzaqlaşdır"
+    }
+  },
+  "settings": {
+    "adjustments": {
+      "chromaticAberration": "Xromatik aberrasiya",
+      "colorCalibration": "Rəng kalibrləməsi",
+      "description": "Redaktə panelini sadələşdirmək üçün tez-tez istifadə etmədiyiniz tənzimləmə bölmələrini gizlədin. Parametrləriniz gizli olduqda belə qorunacaq və tətbiq ediləcək.",
+      "grain": "Dənəvərlik",
+      "noiseReduction": "Küyün azaldılması",
+      "title": "Tənzimləmələrin görünməsi"
+    },
+    "categories": {
+      "general": "Ümumi",
+      "processing": "Emal",
+      "shortcuts": "İdarəetmə"
+    },
+    "controls": {
+      "keyboardTitle": "Klaviatura ilə idarəetmə",
+      "modes": {
+        "mouse": "Siçan",
+        "trackpad": "Toxunma paneli"
+      },
+      "notAssigned": "Təyin edilməyib",
+      "optimization": "Giriş cihazının optimallaşdırılması",
+      "optimizationDesc": "İş sahəsini sürüşdürmək və miqyaslamaq üçün istifadə etdiyiniz əsas giriş cihazını seçin.",
+      "pressKey": "Düyməyə basın... (təmizləmək üçün Esc)",
+      "resetDefaults": "Hamısını standart dəyərlərə sıfırla",
+      "speed": "Sürət",
+      "title": "Siçan ilə idarəetmə",
+      "zoom": "Miqyaslama sürəti əmsalı",
+      "zoomClick": "Fotonu 100%-ə miqyasla",
+      "zoomClickDesc": "Siçan klikində redaktordakı fotonu 100%-ə miqyasla",
+      "zoomClickInfo": "Kəskinliyi və küyü qiymətləndirmək üçün fotoya klikləyərək dərhal 100%-ə (1:1 piksel) miqyaslayın. Söndürüldükdə klik tədricən yaxınlaşdırır.",
+      "zoomDesc": "Sürüşdürmə çarxı və ya iki barmaqla sıxma jesti ilə iş sahəsinin yaxınlaşdırılma və uzaqlaşdırılma sürətini tənzimləyin."
+    },
+    "data": {
+      "clearSidecars": "Bütün köməkçi faylları təmizlə",
+      "clearSidecarsButton": "Təmizlə",
+      "clearSidecarsDesc": "Bu, kök qovluqlarınızdakı bütün .rrdata fayllarını (redaktələriniz daxil olmaqla) siləcək:",
+      "clearThumbnail": "Miniatür keşini təmizlə",
+      "clearThumbnailButton": "Təmizlə",
+      "clearThumbnailDesc": "Bu, keşdəki bütün miniatür şəkillərini siləcək. Kitabxananıza baxarkən onlar avtomatik yenidən yaradılacaq.",
+      "loading": "Yüklənir...",
+      "logs": "Tətbiq jurnallarına bax",
+      "logsButton": "Aç",
+      "logsDesc": "Problemləri aradan qaldırmaq üçün tətbiqin jurnal faylına baxın. Jurnal burada yerləşir:",
+      "modals": {
+        "aiMessage": "Bütün aktiv kök qovluqlardakı bütün şəkillərdən süni intellektin yaratdığı etiketləri çıxarmaq istədiyinizə əminsiniz?\n\nBu, istifadəçinin əlavə etdiyi etiketlərə təsir etməyəcək. Bu əməliyyatı geri almaq mümkün deyil.",
+        "allMessage": "Bütün aktiv kök qovluqlardakı bütün şəkillərdən həm süni intellektin yaratdığı, həm də istifadəçinin əlavə etdiyi etiketləri çıxarmaq istədiyinizə əminsiniz?\n\nBu əməliyyatı geri almaq mümkün deyil.",
+        "cacheMessage": "Miniatür keşini təmizləmək istədiyinizə əminsiniz?\n\nBütün miniatürlər yenidən yaradılmalıdır və bu, böyük qovluqlar üçün ləng ola bilər.",
+        "confirmAiTitle": "Süni intellekt etiketlərinin silinməsini təsdiqlə",
+        "confirmAllTitle": "Bütün etiketlərin silinməsini təsdiqlə",
+        "confirmCacheTitle": "Keşin silinməsini təsdiqlə",
+        "confirmClear": "Təmizlə",
+        "confirmClearAi": "Süni intellekt etiketlərini təmizlə",
+        "confirmClearAll": "Bütün etiketləri təmizlə",
+        "confirmClearCache": "Keşi təmizlə",
+        "confirmDeleteAllEdits": "Bütün redaktələri sil",
+        "confirmResetLayout": "Düzülüşü sıfırla",
+        "confirmResetLayoutTitle": "İş sahəsinin düzülüşünü sıfırla",
+        "confirmTitle": "Silinməni təsdiqlə",
+        "resetLayoutMessage": "İş sahəsinin düzülüşünü sıfırlamaq istədiyinizə əminsiniz? Bütün bərkidilmiş panellər, enlər və panel dəyişdiricilərinin mövqeləri standart vəziyyətlərinə qaytarılacaq.",
+        "sidecarMessage": "Bütün köməkçi faylları silmək istədiyinizə əminsiniz?\n\nBu, bütün aktiv kök qovluqlardakı və onların alt qovluqlarındakı bütün şəkillərin redaktələrini həmişəlik siləcək."
+      },
+      "noFolders": "Qovluqlar seçilməyib",
+      "resetLayoutButton": "Düzülüşü sıfırla",
+      "resetLayoutDesc": "Panellərin bərkidilməsini, yan ayırıcıları, hündürlükləri və panel dəyişdiricilərini standart düzülüşə qaytarın.",
+      "resetLayoutTitle": "İş sahəsinin düzülüşünü sıfırla",
+      "statuses": {
+        "aiSuccess": "{{count}} fayl yeniləndi. Süni intellekt etiketləri çıxarıldı.",
+        "aiSuccess_one": "{{count}} fayl yeniləndi. Süni intellekt etiketləri çıxarıldı.",
+        "aiSuccess_other": "{{count}} fayl yeniləndi. Süni intellekt etiketləri çıxarıldı.",
+        "allSuccess": "{{count}} fayl yeniləndi. Rəng nişanlarından başqa bütün etiketlər çıxarıldı.",
+        "allSuccess_one": "{{count}} fayl yeniləndi. Rəng nişanlarından başqa bütün etiketlər çıxarıldı.",
+        "allSuccess_other": "{{count}} fayl yeniləndi. Rəng nişanlarından başqa bütün etiketlər çıxarıldı.",
+        "cacheSuccess": "Miniatür keşi uğurla təmizləndi.",
+        "clearingAi": "Bütün köməkçi fayllardan süni intellekt etiketləri təmizlənir...",
+        "clearingAll": "Köməkçi fayllardan bütün etiketlər təmizlənir...",
+        "clearingCache": "Miniatür keşi təmizlənir...",
+        "deleting": "Köməkçi fayllar silinir, gözləyin...",
+        "failedToGetPath": "Jurnal faylının yolunu əldə etmək mümkün olmadı.",
+        "layoutResetSuccess": "İş sahəsinin düzülüşü standart vəziyyətinə qaytarıldı.",
+        "processing": "Emal edilir...",
+        "resettingLayout": "İş sahəsi sıfırlanır...",
+        "sidecarSuccess": "{{count}} köməkçi fayl uğurla silindi.",
+        "sidecarSuccess_one": "{{count}} köməkçi fayl uğurla silindi.",
+        "sidecarSuccess_other": "{{count}} köməkçi fayl uğurla silindi."
+      },
+      "title": "Məlumatların idarə edilməsi"
+    },
+    "general": {
+      "createXmp": "Çatışmayan XMP fayllarını yarat",
+      "createXmpDesc": "Şəkil üçün XMP köməkçi faylı yoxdursa, avtomatik yenisini yaradın.",
+      "createXmpMissing": "XMP yoxdursa, yarat",
+      "displayEditIcon": "Redaktə işarəsini göstər",
+      "displayEditIconDesc": "Redaktə olunmuş miniatürlərdə kiçik tənzimləyici işarəsi göstər.",
+      "enableFocusMode": "Diqqət rejimini aktivləşdir",
+      "enableOsTitlebar": "Əməliyyat sisteminin başlıq sətrini aktivləşdir",
+      "enableXmpSync": "XMP sinxronlaşdırmasını aktivləşdir",
+      "focusMode": "Diqqət rejimi",
+      "focusModeDesc": "Yeni panel açdıqda digər panelləri avtomatik bağlayaraq diqqətinizi cəmləməyə kömək edir.",
+      "folderImageCounts": "Qovluqlardakı şəkil sayı",
+      "folderImageCountsDesc": "Kursor qovluq ağacının üzərinə gəldikdə qovluqlardakı şəkillərin sayını göstər.",
+      "font": "Şrift",
+      "fontDesc": "Tətbiqin şriftini dəyişin.",
+      "nativeTitlebar": "Sistemin başlıq sətri",
+      "nativeTitlebarDesc": "RapidRAW-ın fərdi başlıq sətri əvəzinə sisteminizin standart pəncərə başlıq sətrindən istifadə edin.",
+      "poppins": "Poppins",
+      "showImageCounts": "Şəkil sayını göstər",
+      "system": "Sistemin standartı",
+      "theme": "Tema",
+      "themeDesc": "Tətbiqin görünüşünü dəyişin.",
+      "title": "Ümumi parametrlər",
+      "xmpSync": "XMP metaməlumatlarının sinxronlaşdırılması",
+      "xmpSyncDesc": "Digər foto redaktorları ilə uyğunluq üçün qiymətləri, rəng nişanlarını və etiketləri standart XMP köməkçi faylları ilə sinxronlaşdırın."
+    },
+    "keybinds": {
+      "actions": {
+        "brush_size_down": "Fırça ölçüsünü azalt",
+        "brush_size_up": "Fırça ölçüsünü artır",
+        "color_label_blue": "Rəng nişanı: mavi",
+        "color_label_green": "Rəng nişanı: yaşıl",
+        "color_label_none": "Rəng nişanı: yoxdur",
+        "color_label_purple": "Rəng nişanı: bənövşəyi",
+        "color_label_red": "Rəng nişanı: qırmızı",
+        "color_label_yellow": "Rəng nişanı: sarı",
+        "copy_adjustments": "Seçilmiş tənzimləmələri kopyala",
+        "copy_files": "Seçilmiş faylları kopyala",
+        "copy_image_path": "Seçilmiş şəkillərin yolunu kopyala",
+        "cycle_zoom": "Miqyası növbə ilə dəyiş (sığışdır, 2x sığışdır, 100%)",
+        "delete_selected": "Seçilmiş faylları sil",
+        "focus_search": "Axtarış sahəsini aktivləşdir",
+        "open_image": "Seçilmiş şəkli aç",
+        "open_settings": "Parametrləri aç",
+        "paste_adjustments": "Kopyalanmış tənzimləmələri yapışdır",
+        "paste_files": "Faylları cari qovluğa yapışdır",
+        "preview_next": "Növbəti şəkil",
+        "preview_prev": "Əvvəlki şəkil",
+        "rate_0": "Ulduz qiyməti: 0",
+        "rate_1": "Ulduz qiyməti: 1",
+        "rate_2": "Ulduz qiyməti: 2",
+        "rate_3": "Ulduz qiyməti: 3",
+        "rate_4": "Ulduz qiyməti: 4",
+        "rate_5": "Ulduz qiyməti: 5",
+        "redo": "Tənzimləməni təkrarla",
+        "rotate_left": "Saat əqrəbinin əksinə 90° döndər",
+        "rotate_right": "Saat əqrəbi istiqamətində 90° döndər",
+        "select_all": "Bütün şəkilləri seç",
+        "show_original": "Orijinalı göstər (əvvəl/sonra)",
+        "toggle_adjustments": "Tənzimləmələr panelini göstər/gizlət",
+        "toggle_ai": "Süni intellekt panelini göstər/gizlət",
+        "toggle_analytics": "Analitika görünüşünü göstər/gizlət",
+        "toggle_bottom_panel": "Foto lentini göstər/gizlət",
+        "toggle_crop": "Kəsmə / düzləndirmə arasında keç",
+        "toggle_crop_panel": "Kəsmə panelini göstər/gizlət",
+        "toggle_export": "İxrac panelini göstər/gizlət",
+        "toggle_folder_tree": "Qovluq ağacı panelini göstər/gizlət",
+        "toggle_fullscreen": "Tam ekranı aç/bağla",
+        "toggle_left_panel": "Sol paneli göstər/gizlət",
+        "toggle_library_exif": "EXIF üst qatını göstər/gizlət",
+        "toggle_masks": "Maskalar panelini göstər/gizlət",
+        "toggle_metadata": "Metaməlumatlar panelini göstər/gizlət",
+        "toggle_presets": "Hazır tənzimləmələr panelini göstər/gizlət",
+        "toggle_right_panel": "Sağ paneli göstər/gizlət",
+        "undo": "Tənzimləməni geri al",
+        "zoom_100": "100%-ə miqyasla",
+        "zoom_fit": "Sığışdırmaq üçün miqyasla",
+        "zoom_in": "Yaxınlaşdır",
+        "zoom_in_step": "Addımla yaxınlaşdır",
+        "zoom_out": "Uzaqlaşdır",
+        "zoom_out_step": "Addımla uzaqlaşdır"
+      },
+      "sections": {
+        "editing": "Redaktə",
+        "library": "Kitabxana",
+        "panels": "Panellər",
+        "rating": "Qiymət və nişanlar",
+        "view": "Görünüş"
+      }
+    },
+    "language": "Dil",
+    "languageDesc": "Tətbiqin dilini dəyişin.",
+    "lenses": {
+      "addButton": "Obyektivlərimə əlavə et",
+      "addNew": "Yeni obyektiv əlavə et",
+      "description": "Obyektiv korreksiyası panelində tez əldə etmək üçün tez-tez istifadə etdiyiniz obyektivlərin siyahısını yaradın.",
+      "manufacturerPlaceholder": "İstehsalçını seç",
+      "modelPlaceholder": "Obyektiv modelini seç",
+      "noLenses": "Hələ obyektiv əlavə edilməyib.",
+      "removeTooltip": "Obyektivi çıxar",
+      "saved": "Yadda saxlanılmış obyektivlər",
+      "title": "Obyektivlərim"
+    },
+    "processing": {
+      "ai": {
+        "cloud": {
+          "description": "Daha sadə həll istəyənlər üçün könüllü abunəlik öz serverinizdə yerləşdirmə ilə eyni yüksək keyfiyyətli nəticələri əlavə zəhmət olmadan təqdim edir. Bu, ən rahat seçim və layihəyə dəstək verməyin ən yaxşı yoludur.",
+          "feature1": "Maksimum rahatlıq, quraşdırma tələb olunmur",
+          "feature2": "Öz serverinizdə yerləşdirmə ilə eyni nəticələr",
+          "feature3": "Güclü avadanlıq tələb olunmur",
+          "signedIn": {
+            "active": "Bulud abunəliyi aktivdir",
+            "inactive": "Aktiv abunəlik yoxdur",
+            "logout": "Hesabdan çıx",
+            "manage": "İdarə et",
+            "usage": "Aylıq istifadə",
+            "usageStats": "{{requests}} / {{limit}} sorğu"
+          },
+          "signedOut": {
+            "noAccount": "Hesabınız yoxdur?",
+            "signup": "Veb-saytda qeydiyyatdan keçin",
+            "upgradeBtn": "Veb-saytda planı yüksəlt",
+            "upgradeDesc": "Bulud süni intellektinin funksiyalarından istifadə etmək üçün bulud abunəliyi lazımdır."
+          },
+          "title": "Bulud xidməti"
+        },
+        "connector": {
+          "address": "AI Connector ünvanı",
+          "addressDesc": "İşləyən AI Connector nüsxənizin ünvanını və portunu daxil edin. Generativ süni intellekt funksiyaları üçün tələb olunur.",
+          "description": "Güclü GPU-su olan və maksimum nəzarət istəyən istifadəçilər RapidRAW-ı öz Connector serverlərinə qoşa bilərlər. Bu, texniki iş proseslərinə tam nəzarət verir.",
+          "failed": "Qoşulma uğursuz oldu.",
+          "feature1": "Öz ComfyUI nüsxənizdən istifadə edin",
+          "feature2": "Ödənişsiz təkmil generativ redaktələr",
+          "feature3": "Fərdi iş prosesinin seçimi",
+          "success": "Qoşulma uğurludur!",
+          "test": "Yoxla",
+          "testing": "Yoxlanılır...",
+          "title": "Öz serverində yerləşdirilən (RapidRAW AI Connector)"
+        },
+        "cpu": {
+          "description": "Birbaşa RapidRAW-a inteqrasiya edilmiş bu funksiyalar tamamilə kompüterinizdə işləyir. Onlar sürətli və ödənişsizdir, quraşdırma tələb etmir və gündəlik iş prosesini sürətləndirmək üçün idealdır.",
+          "feature1": "Süni intellektlə maskalama (əsas obyekt, səma, ön plan)",
+          "feature2": "Şəkillərin avtomatik etiketlənməsi",
+          "feature3": "CPU-ya əsaslanan sadə generativ əvəzləmə",
+          "title": "Daxili süni intellekt (CPU)"
+        },
+        "description": "RapidRAW-ın süni intellekti çeviklik üçün hazırlanıb. Sürətli yerli alətlərdən öz güclü serverinizdə yerləşdirməyə qədər ideal iş prosesinizi seçin.",
+        "providers": {
+          "aiConnector": "AI Connector",
+          "cloud": "Bulud",
+          "cpu": "CPU"
+        },
+        "title": "Generativ süni intellekt"
+      },
+      "alwaysDecodeRaw": "RAW-ı həmişə dekodlaşdır",
+      "alwaysDecodeRawDesc": "Miniatürlər üçün daxili JPEG önbaxışlarından istifadə etmək əvəzinə tam RAW dekodlaşdırmasını məcburi et. Miniatürləriniz açılmış şəkildən rəng və ya kontrast baxımından fərqlənirsə, bunu aktivləşdirin.",
+      "alwaysDecodeRawLabel": "Miniatürlər üçün RAW-ı həmişə dekodlaşdır",
+      "backend": "Emal mühərriki",
+      "backendDesc": "Qrafik API-ni seçin. “Avtomatik” tövsiyə olunur. Bəzi sistemlərdə çökmələri aradan qaldıra bilər.",
+      "backends": {
+        "auto": "Avtomatik",
+        "dx12": "DirectX 12",
+        "gl": "OpenGL",
+        "metal": "Metal",
+        "vulkan": "Vulkan"
+      },
+      "dynamicDesc": "Redaktor önbaxışı ekranınızın faktiki piksel sıxlığına uyğun təsvir edir. Bu, hər detalın 1:1 piksel dəqiqliyi ilə göstərilməsini təmin edir, miqyaslayarkən və fokusu yoxlayarkən maksimum aydınlıq verir.",
+      "enableLivePreviews": "Canlı önbaxışları aktivləşdir",
+      "highDpi": "Yüksək DPI ilə təsvirin yaradılması",
+      "highDpiDesc": "Önbaxışları ekranınızın yerli {{dpr}}x fiziki piksel ayırdetməsində yaradın. Mümkün olan ən kəskin önbaxışı yaradır, lakin xeyli çox yaddaşdan istifadə edir.",
+      "highDpiDescStandard": "Bu parametr yalnız yüksək DPI ekranlarına təsir edir. Cari ekranınız standart ayırdetməyə malikdir.",
+      "imageCache": "Dekodlaşdırılmış şəkil keşi",
+      "imageCacheDesc": "RAM-da saxlanılan tam ayırdetməli şəkillərin maksimum sayı. Yüksək dəyərlər son redaktə olunmuş şəkillər arasında keçidi ani edir, lakin xeyli çox yaddaşdan istifadə edir.",
+      "images": "Şəkillər",
+      "linuxCompat": "Linux uyğunluq rejimi",
+      "linuxCompatDesc": "GPU sürücüsünün çökmələrindən yayınmaq üçün proqram vasitəsilə kompozisiyanı məcburi edin. Nvidia GPU-larında artıq daha yüngül avtomatik həll tətbiq olunur, buna görə bunu yalnız işə salarkən və ya şəkilləri açarkən çökmələr davam edirsə aktivləşdirin.",
+      "linuxCompatLabel": "Uyğunluq rejimini aktivləşdir",
+      "livePreviewQuality": "Canlı önbaxış keyfiyyəti",
+      "livePreviewQualityDesc": "Sürüşdürmə tənzimləyicilərini çəkərkən şəklin ayırdetməsini və sıxılmasını idarə edir. Aşağı keyfiyyət cavab sürətini xeyli artırır.",
+      "livePreviews": "Canlı interaktiv önbaxışlar",
+      "livePreviewsDesc": "Sürüşdürmə tənzimləyicilərini çəkərkən önbaxışı dərhal yenilə. Tənzimləmə zamanı interfeys ləngiyirsə, bunu söndürün.",
+      "mediumThumbnailRes": "Redaktor miniatürünün ayırdetməsi",
+      "mediumThumbnailResDesc": "Redaktorda tam şəkillər yüklənərkən göstərilən önbaxışın ayırdetməsi.",
+      "modes": {
+        "dynamic": "Dinamik",
+        "static": "Sabit ayırdetmə"
+      },
+      "nativeDpi": "Ekranın yerli DPI dəyəri ilə təsvir yarat",
+      "preprocessing": {
+        "applyPreprocessing": "İlkin emalı RAW olmayanlara tətbiq et",
+        "applyPreprocessingDesc": "Aktivləşdirildikdə yuxarıdakı əsas rəng küyünün azaldılması və ilkin kəskinləşdirmə standart formatlara da tətbiq ediləcək.",
+        "colorNr": "Əsas rəng küyünün azaldılması",
+        "colorNrDesc": "Rəng küyünü aradan qaldırmaq üçün emalın əvvəlində çarpaz ikitərəfli süzgəc tətbiq edir. Yüksək dəyər = küyün daha güclü azaldılması.",
+        "defaultNonRawTonemapper": "RAW olmayanlar üçün standart ton xəritələndiricisi",
+        "defaultNonRawTonemapperDesc": "RAW olmayan şəkillərə (məsələn, JPEG, PNG) tətbiq ediləcək ton xəritələndiricisi.",
+        "defaultRawTonemapper": "Standart RAW ton xəritələndiricisi",
+        "defaultRawTonemapperDesc": "RAW şəkillərinə tətbiq ediləcək ton xəritələndiricisi.",
+        "enablePreprocessingNonRaws": "RAW olmayanlar üçün aktivləşdir",
+        "enableTonemapperOverride": "Ton xəritələndiricisinin əvəzlənməsini aktivləşdir",
+        "highlightRecovery": "RAW fayllarında işıqlı sahələrin bərpası",
+        "highlightRecoveryDesc": "RAW fayllarındakı həddi aşmış işıqlı sahələrdən nə qədər detalın bərpa ediləcəyini idarə edir. Yüksək dəyərlər daha çox detalı bərpa edir, lakin bənövşəyi artefaktlar yarada bilər.",
+        "linearOptions": {
+          "auto": "Avtomatik",
+          "gamma": "Qamma tətbiq et",
+          "gamma_skip_calib": "Qamma tətbiq et və kalibrləməni ötür",
+          "skip_calib": "Kalibrləməni ötür"
+        },
+        "linearRaw": "Xətti RAW emalı",
+        "linearRawDesc": "Bəzi DNG fayllarındakı rəng sapmalarını və ya çəhrayı çaları düzəldir. Artıq emal edilmiş LinearRAW məlumatlarının necə şərh olunduğunu idarə edir.",
+        "sharpening": "Əsas ilkin kəskinləşdirmə",
+        "sharpeningDesc": "Emalın əvvəlində detalları yüngülcə gücləndirir. Yüksək dəyər = daha çox kəskinləşdirmə.",
+        "title": "Şəklin ilkin emalı",
+        "tonemapperOptions": {
+          "agx": "AgX",
+          "basic": "Əsas"
+        },
+        "tonemapperOverride": "Ümumi ton xəritələndiricisinin əvəzlənməsi",
+        "tonemapperOverrideDesc": "Bütün şəkillər üçün müəyyən ton xəritələndiricisini məcburi tətbiq edir və ton xəritələndiricisi seçimini tənzimləmələr panelindən gizlədir."
+      },
+      "previewRes": "Önbaxış ayırdetməsi",
+      "previewResDesc": "Önbaxışın maksimum ayırdetməsini müəyyən edir. Aşağı dəyərlər məhsuldarlığı xeyli artırır.",
+      "previewStrategy": "Önbaxışın yaradılması strategiyası",
+      "qualities": {
+        "full": "Tam ayırdetmə",
+        "high": "Yüksək keyfiyyət",
+        "performance": "Məhsuldarlıq"
+      },
+      "renderScale": "Təsvirin ayırdetmə miqyası",
+      "renderScaleDesc": "Təsvirin ayırdetməsini ekranınıza nisbətən miqyaslayır. Aşağı dəyərlər bir qədər kəskinlik itkisi hesabına yüksək ayırdetməli ekranlarda məhsuldarlığı artırır.",
+      "restartRequired": "Emal mühərrikindəki dəyişikliklərin qüvvəyə minməsi üçün tətbiqi yenidən başlatmaq lazımdır.",
+      "saveRelaunch": "Yadda saxla və yenidən başlat",
+      "smallThumbnailRes": "Tor miniatürlərinin ayırdetməsi",
+      "smallThumbnailResDesc": "Kitabxana torunda göstərilən miniatürlərin ayırdetməsi.",
+      "staticDesc": "Redaktor şəkli sabit ayırdetmədə təsvir edir. Bu rejim ən sürətli və sabitdir; piksel dəqiqliyi ilə miqyaslamadan daha çox rəvan işləməyə üstünlük verilən zəif avadanlıqlar üçün idealdır.",
+      "staticPreviewRes": "Statik önbaxış ayırdetməsi",
+      "staticPreviewResDesc": "Kəsmə rejimi, obyektiv korreksiyası və perspektiv alətləri kimi statik önbaxışların ayırdetməsini təyin edir. Redaktorun əsas önbaxışına təsir etmir.",
+      "threads": "İcra axınları",
+      "thumbnailRes": "Miniatür ayırdetməsi",
+      "thumbnailResDesc": "Yaradılan kitabxana miniatürlərinin ayırdetməsini müəyyən edir. Yüksək dəyərlər yüklənmə zamanı daha kəskin şəkillər yaradır.",
+      "title": "Emal mühərriki",
+      "wgpu": "WGPU ilə birbaşa təsvir yaratma",
+      "wgpuDescAndroid": "Ani cavab verən canlı önbaxışlar üçün brauzer kodlaşdırmasını ötürür. (Android-də söndürülüb: yerli WGPU səthinin yaradılması hazırda mobil veb görünüşü ilə birlikdə dəstəklənmir.)",
+      "wgpuDescLinux": "Ani cavab verən canlı önbaxışlar üçün brauzer kodlaşdırmasını ötürür. (Linux-da söndürülüb: Tauri veb görünüşləri üçün GTK-dan istifadə edir; bu, eyni X11 səthində WGPU ilə toqquşur və titrəməyə səbəb olur.)",
+      "wgpuDescRecommended": "Ani cavab verən canlı önbaxışlar üçün brauzer kodlaşdırmasını ötürür. Məhsuldarlıq üçün xüsusilə tövsiyə olunur.",
+      "wgpuLabel": "WGPU ilə birbaşa təsvir yaratmanı aktivləşdir",
+      "workerThreads": "Miniatürlərin işçi icra axınları",
+      "workerThreadsDesc": "Miniatürlər yaratmaq üçün istifadə olunan paralel icra axınlarının sayı. Yüksək dəyərlər kitabxananın yüklənməsini sürətləndirir, lakin daha çox CPU və RAM resursundan istifadə edir."
+    },
+    "tagging": {
+      "addCustomPlaceholder": "Fərdi süni intellekt etiketləri əlavə et (vergüllə ayrılmış)...",
+      "addCustomTooltip": "Süni intellekt etiketi əlavə et",
+      "addShortcutTooltip": "Qısayol əlavə et",
+      "addShortcutsPlaceholder": "Qısayollar əlavə et (vergüllə ayrılmış)...",
+      "aiTagging": "Süni intellektlə etiketləmə",
+      "aiTaggingDesc": "Süni intellekt (CLIP) modeli ilə şəkillərin avtomatik etiketlənməsini aktivləşdirir. Bu, əlavə model endirəcək və qovluqlara baxarkən məhsuldarlığa təsir edəcək. Etiketlər qovluqda axtarış üçün istifadə olunur.",
+      "amount": "Miqdar",
+      "automaticAiTagging": "Süni intellektlə avtomatik etiketləmə",
+      "clearAiTagsButton": "Təmizlə",
+      "clearAiTagsDesc": "Bu, bütün aktiv kök qovluqlardakı .rrdata fayllarınızdan süni intellektin yaratdığı bütün etiketləri çıxaracaq. İstifadəçinin əlavə etdiyi etiketlər saxlanılacaq.",
+      "clearAiTagsTitle": "Süni intellekt etiketlərini təmizlə",
+      "clearAllTagsDesc": "Bu, bütün aktiv kök qovluqlardakı .rrdata fayllarınızdan həm süni intellektin yaratdığı, həm də istifadəçinin əlavə etdiyi bütün etiketləri çıxaracaq. Rəng nişanları saxlanılacaq.",
+      "clearAllTagsTitle": "Bütün etiketləri təmizlə",
+      "clearCustomTooltip": "Süni intellekt etiketləri siyahısını təmizlə",
+      "clearShortcutsTooltip": "Qısayol etiketləri siyahısını təmizlə",
+      "customList": "Fərdi süni intellekt etiketləri siyahısı",
+      "customListDesc": "Təqdim edildikdə süni intellekt RapidRAW-ın daxili siyahısı əvəzinə yalnız bu siyahıdakı etiketlərdən istifadə edəcək. Etiketləmə yalnız ingilis dilində işləyir.",
+      "maxAiTags": "Süni intellekt etiketlərinin maksimum sayı",
+      "maxAiTagsDesc": "Hər şəkil üçün yaradılacaq etiketlərin maksimum sayı.",
+      "noCustomTags": "Fərdi süni intellekt etiketi yoxdur (daxili siyahı istifadə olunur)",
+      "noShortcuts": "Qısayol əlavə edilməyib",
+      "removeCustomTooltip": "“{{tag}}” etiketini çıxar",
+      "removeShortcutTooltip": "“{{shortcut}}” qısayolunu çıxar",
+      "shortcuts": "Etiketləmə qısayolları",
+      "shortcutsDesc": "Etiketləmə kontekst menyusunda qısayol kimi görünəcək etiketlərin siyahısı.",
+      "title": "Etiketləmə"
+    },
+    "thanks": {
+      "description": "RapidRAW-ın hazırlanmasında çox mühüm rol oynayan aşağıdakı layihələrə böyük təşəkkürümüzü bildiririk:",
+      "list": {
+        "darktable": "Bu işin bəzi hissələrinə istiqamət verən nümunəvi tətbiqlərə görə.",
+        "depth": "Süni intellektlə dərinlik maskalamasını mümkün edən güclü monokulyar dərinlik qiymətləndirmə modelinə görə.",
+        "lama": "Məzmuna uyğun doldurmanı və obyektlərin çıxarılmasını mümkün edən güclü və sadə təsvir tamamlama modelinə görə.",
+        "lensfun": "Avtomatik obyektiv korreksiyası üçün əvəzsiz açıq mənbəli kitabxanasına və əhatəli verilənlər bazasına görə.",
+        "libgphoto2": "RapidRAW-ın kameradan birbaşa çəkiliş və uzaqdan çəkiliş alt sistemini təmin edən əhatəli kamera rabitəsi kitabxanasına görə.",
+        "negpy": "Neqativin çevrilməsi məntiqinə ilham verdiyinə görə.",
+        "nind": "RapidRAW-da süni intellektlə küyün azaldılmasını təmin edən süni intellekt modellərini təqdim etdiyinə görə.",
+        "rawler": "Bu layihədə RAW fayllarının emalının əsasını təşkil edən əla Rust paketinə görə.",
+        "sam2": "Süni intellektlə əsas obyektin aşkarlanması üçün istifadə olunan təməl modeli təqdim etdiyinə görə.",
+        "spektrafilm": "RapidRAW-ın daxili fotoplyonka təqlidlərini təmin edən, Andrea Volpato tərəfindən hazırlanmış spektrə əsaslanan fotoplyonka təqlidi LUT-larına görə. CC BY-SA 4.0 lisenziyalıdır.",
+        "u2net": "Süni intellektlə səmanın və ön planın aşkarlanması üçün istifadə olunan etibarlı arxitekturanı təqdim etdiyinə görə.",
+        "you": "RapidRAW-dan istifadə etdiyinizə və ona dəstək verdiyinizə görə. Marağınız bu layihəni yaşadır və inkişaf etdirir.",
+        "youLabel": "Siz"
+      },
+      "title": "Xüsusi təşəkkürlər"
+    },
+    "themes": {
+      "dark": "Tünd",
+      "grey": "Boz",
+      "light": "Açıq"
+    },
+    "title": "Parametrlər",
+    "tooltips": {
+      "goHome": "Baş səhifəyə keç"
+    }
+  },
+  "tethering": {
+    "aperture": "Diafraqma",
+    "aperturePlaceholder": "məsələn, 2.8",
+    "autoApplyPreset": "Hazır tənzimləməni avtomatik tətbiq et",
+    "autoOpenCaptured": "Çəkilmiş şəkli avtomatik aç",
+    "cameraConnected": "Kamera qoşulub",
+    "capturing": "Çəkilir...",
+    "changePreset": "Dəyiş",
+    "clearPreset": "Hazır tənzimləməni təmizlə",
+    "connectCamera": "Kameranı qoş",
+    "expComp": "Ekspozisiya kompensasiyası",
+    "expCompPlaceholder": "məsələn, 0.0",
+    "expMode": "Ekspozisiya rejimi",
+    "exposureSettings": "Ekspozisiya parametrləri",
+    "flipHorizontal": "Üfüqi çevir",
+    "generalSettings": "Ümumi parametrlər",
+    "ghostOverlayAlt": "Yarı şəffaf üst qat",
+    "iso": "ISO",
+    "isoPlaceholder": "məsələn, 400",
+    "liveViewAlt": "Canlı görünüş",
+    "metering": "İşıqölçmə rejimi",
+    "noCameraDetected": "Kamera aşkarlanmadı",
+    "noCamerasFound": "Kamera tapılmadı. Qoşulduğundan və kompüterdən uzaqdan idarəetmə rejimində olduğundan əmin olun.",
+    "overlayLastShot": "Son kadrı üst qat kimi göstər",
+    "overlayOff": "Söndürülüb",
+    "rotate90": "90° döndər",
+    "scanTooltip": "Kameraları axtar",
+    "selectCamera": "Kameranı seç",
+    "selectCameraPlaceholder": "Kamera seçin",
+    "shutter": "Zatvor",
+    "shutterPlaceholder": "məsələn, 1/200",
+    "startLiveView": "Canlı görünüşü başlat",
+    "status": "Vəziyyət",
+    "stopLiveView": "Canlı görünüşü dayandır",
+    "title": "Kameradan birbaşa çəkiliş",
+    "toasts": {
+      "afFailed": "Avtofokusu işə salmaq mümkün olmadı",
+      "cameraDisconnected": "Kamera ilə əlaqə kəsildi",
+      "captureFailed": "Çəkiliş uğursuz oldu: {{err}}",
+      "communicationFailed": "Kamera ilə əlaqə yaratmaq mümkün olmadı",
+      "connectionFailed": "Qoşulma uğursuz oldu: {{err}}",
+      "detectionFailed": "Aşkarlama uğursuz oldu: {{err}}",
+      "noCamerasFound": "Kamera tapılmadı. Kompüterdən uzaqdan idarəetmə rejimində olduğundan əmin olun.",
+      "presetApplyFailed": "Hazır tənzimləməni çəkilmiş şəklə tətbiq etmək mümkün olmadı",
+      "selectFolderFirst": "Əvvəlcə kitabxananızda standart qovluq seçin.",
+      "setFailed": "“{{key}}” parametrini təyin etmək mümkün olmadı: {{err}}"
+    },
+    "triggerAutofocus": "Avtofokusu işə sal",
+    "triggerCapture": "Çək",
+    "wbTemp": "Ağ balansının temperaturu (K)",
+    "wbTempPlaceholder": "məsələn, 5600",
+    "whiteBalance": "Ağ balansı"
+  },
+  "ui": {
+    "bottomBar": {
+      "imagesSelected": "{{total}} şəkildən {{current}} şəkil seçilib",
+      "tooltips": {
+        "collapseFilmstrip": "Foto lentini yığ",
+        "collapseLeft": "Sol paneli yığ",
+        "collapseRight": "Sağ paneli yığ",
+        "copyPasteSettings": "Parametrləri kopyala və yapışdır",
+        "copySettings": "Parametrləri kopyala",
+        "customZoom": "Fərdi miqyas faizini daxil etmək üçün klikləyin",
+        "expandFilmstrip": "Foto lentini genişləndir",
+        "expandLeft": "Sol paneli genişləndir",
+        "expandRight": "Sağ paneli genişləndir",
+        "export": "İxrac et",
+        "pasteSettings": "Parametrləri yapışdır",
+        "quickFilter": "Sürətli süzgəc",
+        "rateStars_one": "1 ulduzla qiymətləndir",
+        "rateStars_other": "{{count}} ulduzla qiymətləndir",
+        "resetZoom": "Miqyası pəncərəyə sığacaq şəkildə sıfırla",
+        "selectToRate": "Qiymətləndirmək üçün şəkil seçin"
+      },
+      "zoomLabel": "Miqyas",
+      "zoomLabelReset": "Miqyası sıfırla"
+    },
+    "collapsibleSection": {
+      "disableSection": "Bölməni söndür",
+      "enableSection": "Bölməni aktivləşdir"
+    },
+    "colorWheel": {
+      "hue": "Rəng tonu",
+      "hueAbbreviation": "RT:",
+      "luminance": "Parlaqlıq",
+      "reset": "Sıfırla",
+      "saturation": "Doyma",
+      "saturationAbbreviation": "D:"
+    },
+    "exportPresets": {
+      "deleteTooltip": "Hazır tənzimləməni sil",
+      "heading": "İxrac üçün hazır tənzimləmələr",
+      "overwriteTooltip": "Seçilmiş hazır tənzimləmənin üzərinə yaz",
+      "placeholder": "Hazır tənzimləmə seçin...",
+      "presetNamePlaceholder": "Hazır tənzimləmənin adı",
+      "saveAsNewTooltip": "Cari parametrləri yeni hazır tənzimləmə kimi yadda saxla",
+      "savedTooltip": "Yadda saxlanıldı!"
+    },
+    "filmstrip": {
+      "tooltips": {
+        "color": "Rəng: {{color}}",
+        "virtualCopy": "Virtual nüsxə"
+      },
+      "virtualCopyAbbreviation": "VN"
+    },
+    "imagePicker": {
+      "clearImage": "Şəkli təmizlə",
+      "filterLabel": "Şəkil faylları",
+      "select": "Seç",
+      "selectImageFile": "Şəkil faylı seçin"
+    },
+    "lut": {
+      "clearLut": "LUT-u təmizlə",
+      "customLuts": "Fərdi LUT-lar",
+      "empty": "Hələ LUT yoxdur — idxal edin",
+      "filmEmulations": "Fotoplyonka təqlidləri",
+      "filterLabel": "LUT faylları",
+      "import": "Profilləri idxal et",
+      "importFailed": "LUT-ları idxal etmək mümkün olmadı",
+      "intensity": "İntensivlik",
+      "label": "LUT",
+      "removeLut": "LUT-u çıxar",
+      "select": "Seç",
+      "selectLutFile": "LUT faylı seçin",
+      "unsupportedFormat": "Dəstəklənməyən fayl formatları aşkarlandı: .{{ext}}"
+    },
+    "slider": {
+      "clickToEdit": "Redaktə etmək üçün klikləyin",
+      "reset": "Sıfırla"
+    },
+    "waveform": {
+      "tooltips": {
+        "hideClipping": "Ton həddinin aşılması xəbərdarlıqlarını gizlət",
+        "histogram": "Histoqram",
+        "luma": "Lüma",
+        "parade": "Kanalların yanaşı görünüşü",
+        "rgb": "RGB üst qatı",
+        "showClipping": "Ton həddinin aşılması xəbərdarlıqlarını göstər",
+        "vectorscope": "Vektorskop"
+      }
+    }
+  }
+}
