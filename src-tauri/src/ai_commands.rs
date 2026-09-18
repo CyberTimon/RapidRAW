@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
@@ -9,7 +10,8 @@ use crate::ai_connector;
 use crate::ai_processing::{
     AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters,
     AiSubjectMaskParameters, CachedDepthMap, generate_image_embeddings, get_or_init_ai_models,
-    run_depth_anything_model, run_sam_decoder, run_sky_seg_model, run_u2netp_model,
+    get_or_init_red_eye_model, run_depth_anything_model, run_sam_decoder, run_sky_seg_model,
+    run_u2netp_model,
 };
 use crate::app_settings::load_settings;
 use crate::app_state::AppState;
@@ -23,6 +25,67 @@ fn encode_to_base64_png(image: &GrayImage) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
     let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
     Ok(format!("data:image/png;base64,{}", base64_str))
+}
+
+#[tauri::command]
+pub async fn detect_red_eyes(
+    js_adjustments: serde_json::Value,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<Vec<crate::ai_processing::RedEyeDetection>, String> {
+    let model = get_or_init_red_eye_model(&app_handle, &state.ai_state, &state.ai_init_lock)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+    let orientation_steps = js_adjustments
+        .get("orientationSteps")
+        .and_then(|value| value.as_u64())
+        .unwrap_or(0) as u8;
+    let flip_horizontal = js_adjustments
+        .get("flipHorizontal")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    let flip_vertical = js_adjustments
+        .get("flipVertical")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    let rotation = js_adjustments
+        .get("rotation")
+        .and_then(|value| value.as_f64())
+        .unwrap_or(0.0) as f32;
+
+    let coarse_rotated = crate::image_processing::apply_coarse_rotation(
+        Cow::Borrowed(warped_image.as_ref()),
+        orientation_steps,
+    )
+    .into_owned();
+    let flipped = crate::image_processing::apply_flip(
+        Cow::Owned(coarse_rotated),
+        flip_horizontal,
+        flip_vertical,
+    )
+    .into_owned();
+    let transformed =
+        crate::image_processing::apply_rotation(Cow::Owned(flipped), rotation).into_owned();
+
+    let mut detections = crate::ai_processing::detect_red_eyes(&transformed, &model)
+        .map_err(|error| error.to_string())?;
+
+    if let Some(crop_value) = js_adjustments.get("crop")
+        && !crop_value.is_null()
+        && let Ok(crop) =
+            serde_json::from_value::<crate::image_processing::Crop>(crop_value.clone())
+    {
+        detections.retain(|detection| {
+            detection.center_x >= crop.x as f32
+                && detection.center_y >= crop.y as f32
+                && detection.center_x <= (crop.x + crop.width) as f32
+                && detection.center_y <= (crop.y + crop.height) as f32
+        });
+    }
+
+    Ok(detections)
 }
 
 #[tauri::command]
