@@ -73,16 +73,6 @@ const DEPTH_FILENAME: &str = "depth_anything_v2_vits.onnx";
 const DEPTH_INPUT_SIZE: u32 = 518;
 const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b526304f2562be";
 
-/// Initialize ONNX Runtime environment with GPU providers based on available features.
-/// This function is called once at app startup and configures the global ONNX environment.
-/// All subsequently-created sessions (including denoise) will automatically inherit
-/// these configured providers.
-/// 
-/// Uses the ORT examples pattern with feature flags to support:
-/// - Windows: DirectML, CUDA
-/// - Linux: CUDA, TensorRT  
-/// - macOS: CoreML
-/// - Any platform: Fallback to CPU-only if GPU providers unavailable
 fn initialize_onnx_environment() -> Result<()> {
     info!("ONNX Runtime Environment Initialization (One-time only)");
     
@@ -198,11 +188,25 @@ fn create_gpu_session_for_model(model_path: &Path, model_name: &str) -> Result<S
         }
     };
 
-    builder = match builder.with_execution_providers([
-            ort::ep::DirectML::default().build(),
-            ort::ep::CUDA::default().build(),
-            ort::ep::CPU::default().build(),
-        ]) {
+#[cfg(target_os = "windows")]
+    let providers = [
+        ort::ep::DirectML::default().build(),
+        ort::ep::CUDA::default().build(),
+        ort::ep::CPU::default().build(),
+    ];
+#[cfg(target_os = "linux")]
+    let providers = [
+        ort::ep::CPU::default().build(),
+    ];
+#[cfg(target_os = "macos")]
+    let providers = [        
+        ort::ep::CPU::default().build(),
+    ];
+#[cfg(target_os = "android")]
+    let providers = [
+        ort::ep::CPU::default().build(),
+    ];    
+    builder = match builder.with_execution_providers(providers) {
             Ok(b) => {
                 info!("Execution providers set successfully");
                 b
