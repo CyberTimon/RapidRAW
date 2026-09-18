@@ -891,7 +891,7 @@ pub async fn get_or_init_denoise_model(
 
     info!("→ Loading NIND Model from: {}", model_path.display());
     
-    let session = create_gpu_session_for_model(&model_path, "NIND")?;
+    let session = create_cpu_session_for_model(&model_path, "NIND")?;
     
     info!("NIND Model loaded (CPU-optimized)");
     
