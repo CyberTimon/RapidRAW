@@ -13,7 +13,6 @@ use ort::{
     session::{Session},
 	value::{Tensor, TensorRef}
 };
-use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -22,11 +21,6 @@ use tauri::Manager;
 use tokenizers::Tokenizer;
 use tokio::sync::Mutex as TokioMutex;
 use log::{info, warn, error};
-
-// Global flag ensuring ONNX environment is initialized once at startup
-static ONNX_ENV_INITIALIZED: Lazy<Result<()>> = Lazy::new(|| {
-    initialize_onnx_environment()
-});
 
 const ENCODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_encoder.onnx?download=true";
 const DECODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_decoder.onnx?download=true";
@@ -73,121 +67,25 @@ const DEPTH_FILENAME: &str = "depth_anything_v2_vits.onnx";
 const DEPTH_INPUT_SIZE: u32 = 518;
 const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b526304f2562be";
 
-fn initialize_onnx_environment() -> Result<()> {
-    info!("ONNX Runtime Environment Initialization (One-time only)");
-    
-    match crate::common::init_environment() {
-        Ok(()) => {
-            info!("ONNX Runtime environment created successfully");
-            info!("All execution providers configured based on available features");
-            info!("Sessions will inherit these providers automatically");
-            Ok(())
-        }
-        Err(e) => {
-            error!("FAILED to initialize ONNX environment!");
-            error!("Error: {}", e);
-            error!("This is a critical error that will prevent model loading");
-            Err(anyhow::anyhow!("Failed to initialize ONNX environment: {}", e))
-        }
-    }
-}
+fn create_cpu_session_for_model(model_path: &Path) -> Result<Session> {
 
-fn create_cpu_session_for_model(model_path: &Path, model_name: &str) -> Result<Session> {
-    info!("SESSION CREATION START: {}", model_name);
-    
-    // Step 1: Verify file exists
-    info!("Step 1: Verifying model file exists...");
     if !model_path.exists() {
-        error!("Model file NOT FOUND: {}", model_path.display());
         return Err(anyhow::anyhow!("Model file not found: {}", model_path.display()));
     }
-    info!("Model file exists: {}", model_path.display());
+
+    let session = Session::builder()
+        .map_err(|e| anyhow::anyhow!("Failed to create CPU session: {}", e))?
+        .commit_from_file(model_path)
+        .map_err(|e| anyhow::anyhow!("Failed to load CPU model from {}: {}", model_path.display(), e))?;
     
-    // Step 2: Ensure ONNX environment has been initialized
-    info!("Step 2: Checking ONNX environment...");
-    match ONNX_ENV_INITIALIZED.as_ref() {
-        Ok(_) => info!("ONNX environment initialized"),
-        Err(e) => {
-            error!("ONNX environment initialization failed: {}", e);
-            return Err(anyhow::anyhow!("ONNX Runtime environment not initialized: {}", e));
-        }
-    }
-    
-    // Step 3: Create Session builder
-    info!("Step 3: Creating SessionBuilder...");
-    let mut builder = match Session::builder() {
-        Ok(b) => {
-            info!("SessionBuilder created successfully");
-            b
-        }
-        Err(e) => {
-            error!("Failed to create SessionBuilder: {}", e);
-            return Err(anyhow::anyhow!("Failed to create SessionBuilder for '{}': {}", model_name, e));
-        }
-    };
-    
-    // Step 4: Commit session from file (THIS IS WHERE CRASHES HAPPEN)
-    info!("Step 4: Loading model from file ({})", model_path.display());
-    info!("This may take a few seconds...");
-    
-    let session = match builder.commit_from_file(model_path) {
-        Ok(s) => {
-            info!("Model loaded successfully from file");
-            s
-        }
-        Err(e) => {
-            error!("CRITICAL ERROR: Failed to load model from file!");
-            error!(" Path: {}", model_path.display());
-            error!(" Error: {}", e);
-            error!(" Error type: {:?}", e);
-            return Err(anyhow::anyhow!("Failed to load model '{}' from {}: {}", model_name, model_path.display(), e));
-        }
-    };
-    
-    info!("Session for '{}' created successfully", model_name);    
     Ok(session)
 }
 
-/// Create a session for a GPU-accelerated model (e.g., NIND Denoise)
-/// 
-/// Uses GraphOptimizationLevel::Level1 to prevent DirectML/CUDA op fusion issues
-/// that can break attention-based models like UTNet.
-fn create_gpu_session_for_model(model_path: &Path, model_name: &str) -> Result<Session> {
-    info!("GPU SESSION CREATION START: {}", model_name);
-   
-    // Step 1: Verify file exists
-    info!("Step 1: Verifying model file exists...");
+fn create_gpu_session_for_model(model_path: &Path) -> Result<Session> {
     if !model_path.exists() {
-        error!("Model file NOT FOUND: {}", model_path.display());
         return Err(anyhow::anyhow!("Model file not found: {}", model_path.display()));
     }
-    info!("Model file exists: {}", model_path.display());
     
-    // Step 2: Ensure ONNX environment has been initialized
-    info!("Step 2: Checking ONNX environment...");
-    match ONNX_ENV_INITIALIZED.as_ref() {
-        Ok(_) => info!("ONNX environment initialized"),
-        Err(e) => {
-            error!("ONNX environment initialization failed: {}", e);
-            return Err(anyhow::anyhow!("ONNX Runtime environment not initialized: {}", e));
-        }
-    }
-    
-    use ort::session::builder::GraphOptimizationLevel;
-    
-    // Step 3: Create Session builder with GPU optimization settings
-    info!("Step 3: Creating SessionBuilder with GPU optimization...");
-    let mut builder = match Session::builder() {
-        Ok(b) => {
-            info!("SessionBuilder created successfully");
-            b
-        }
-        Err(e) => {
-            error!("Failed to create SessionBuilder: {}", e);
-            return Err(anyhow::anyhow!("Failed to create SessionBuilder for '{}': {}", model_name, e));
-        }
-    };
-
 #[cfg(target_os = "windows")]
     let providers = [
         ort::ep::DirectML::default().build(),
@@ -205,63 +103,23 @@ fn create_gpu_session_for_model(model_path: &Path, model_name: &str) -> Result<S
 #[cfg(target_os = "android")]
     let providers = [
         ort::ep::CPU::default().build(),
-    ];    
-    builder = match builder.with_execution_providers(providers) {
-            Ok(b) => {
-                info!("Execution providers set successfully");
-                b
-            }
-            Err(e) => {
-                error!("Failed to set execution providers: {}", e);
-                return Err(anyhow::anyhow!("Failed to set execution providers for '{}': {}", model_name, e));
-            }
-        };
-        
+    ];
     
-    // Set Level1 optimization for GPU (prevents DirectML/CUDA op fusion bugs on attention models)
-    info!("Step 3b: Setting optimization level to Level1 (GPU-safe)...");
-    builder = match builder.with_optimization_level(GraphOptimizationLevel::Level1) {
-        Ok(b) => {
-            info!("Optimization level set to Level1");
-            b
-        }
-        Err(e) => {
-            error!("Failed to set optimization level: {}", e);
-            return Err(anyhow::anyhow!("Failed to set optimization level: {}", e));
-        }
-    };
+    use ort::session::builder::GraphOptimizationLevel;
+    let mut builder = Session::builder()
+        .map_err(|e| anyhow::anyhow!("Failed to create SessionBuilder: {}", e))?;
     
-    // Disable memory pattern to prevent tile buffer artifacts
-    info!("Step 3c: Disabling memory pattern (tile-processing safety)...");
-    builder = match builder.with_memory_pattern(false) {
-        Ok(b) => {
-            info!("Memory pattern disabled");
-            b
-        }
-        Err(e) => {
-            error!("Failed to disable memory pattern: {}", e);
-            return Err(anyhow::anyhow!("Failed to disable memory pattern: {}", e));
-        }
-    };
+    builder = builder.with_execution_providers(providers)
+        .map_err(|e| anyhow::anyhow!("Failed to set execution providers: {}", e))?;
     
-    // Step 4: Commit session from file
-    info!("Step 4: Loading model from file ({})", model_path.display());
-    info!("This may take a few seconds...");
+    builder = builder.with_optimization_level(GraphOptimizationLevel::Level1)
+        .map_err(|e| anyhow::anyhow!("Failed to set optimization level: {}", e))?;
     
-    let session = match builder.commit_from_file(model_path) {
-        Ok(s) => {
-            info!("Model loaded successfully from file");
-            s
-        }
-        Err(e) => {
-            error!("CRITICAL ERROR: Failed to load GPU model from file!");
-            error!(" Path: {}", model_path.display());
-            error!(" Error: {}", e);
-            return Err(anyhow::anyhow!("Failed to load GPU model '{}' from {}: {}", model_name, model_path.display(), e));
-        }
-    };
+    builder = builder.with_memory_pattern(false)
+        .map_err(|e| anyhow::anyhow!("Failed to disable memory pattern: {}", e))?;
     
-    info!("GPU Session for '{}' created successfully", model_name);
+    let session = builder.commit_from_file(model_path)
+        .map_err(|e| anyhow::anyhow!("Failed to load GPU model from {}: {}", model_path.display(), e))?;
     Ok(session)
 }
 
@@ -749,7 +607,7 @@ pub async fn get_or_init_ai_models(
     info!("");
     info!("MODEL 1/5: SAM Encoder (CPU)");
     info!("→ Loading from: {}", encoder_path.display());
-    let sam_encoder = match create_cpu_session_for_model(&encoder_path, "SAM Encoder") {
+    let sam_encoder = match create_cpu_session_for_model(&encoder_path) {
         Ok(session) => {
             info!("SAM Encoder loaded successfully");
             session
@@ -765,7 +623,7 @@ pub async fn get_or_init_ai_models(
     info!("");
     info!("MODEL 2/5: SAM Decoder (CPU)");
     info!(" Loading from: {}", decoder_path.display());
-    let sam_decoder = match create_cpu_session_for_model(&decoder_path, "SAM Decoder") {
+    let sam_decoder = match create_cpu_session_for_model(&decoder_path) {
         Ok(session) => {
             info!("SAM Decoder loaded successfully");
             session
@@ -781,7 +639,7 @@ pub async fn get_or_init_ai_models(
     info!("");
     info!("MODEL 3/5: U2NetP (CPU - Foreground Segmentation)");
     info!(" Loading from: {}", u2netp_path.display());
-    let u2netp = match create_gpu_session_for_model(&u2netp_path, "U2NetP") {
+    let u2netp = match create_gpu_session_for_model(&u2netp_path) {
         Ok(session) => {
             info!("U2NetP loaded successfully");
             session
@@ -797,7 +655,7 @@ pub async fn get_or_init_ai_models(
     info!("");
     info!("MODEL 4/5: Sky Segmentation (CPU)");
     info!(" Loading from: {}", sky_seg_path.display());
-    let sky_seg = match create_gpu_session_for_model(&sky_seg_path, "Sky Segmentation") {
+    let sky_seg = match create_gpu_session_for_model(&sky_seg_path) {
         Ok(session) => {
             info!("Sky Segmentation loaded successfully");
             session
@@ -813,7 +671,7 @@ pub async fn get_or_init_ai_models(
     info!("");
     info!("MODEL 5/5: Depth Anything (CPU)");
     info!(" Loading from: {}", depth_path.display());
-    let depth_anything = match create_gpu_session_for_model(&depth_path, "Depth Anything") {
+    let depth_anything = match create_gpu_session_for_model(&depth_path) {
         Ok(session) => {
             info!("Depth Anything loaded successfully");
             session
@@ -891,11 +749,11 @@ pub async fn get_or_init_denoise_model(
     )
     .await?;
 
-    let model_path = models_dir.join(DENOISE_FILENAME);
+    let nind_model_path = models_dir.join(DENOISE_FILENAME);
 
-    info!("→ Loading NIND Model from: {}", model_path.display());
+    info!("→ Loading NIND Model from: {}", nind_model_path.display());
     
-    let session = create_cpu_session_for_model(&model_path, "NIND")?;
+    let session = create_cpu_session_for_model(&nind_model_path)?;
     
     info!("NIND Model loaded (CPU-optimized)");
     
@@ -957,17 +815,17 @@ pub async fn get_or_init_denoise_model_2(
     )
     .await?;
 
-    let model_path = models_dir.join(RAWREFINERY_FILENAME);
+    let rawrefinary_model_path = models_dir.join(RAWREFINERY_FILENAME);
 
     // Load RawRefinery model from local file
-    if !model_path.exists() {
+    if !rawrefinary_model_path.exists() {
         return Err(anyhow::anyhow!(
             "RawRefinery model not found at: {}\nPlease ensure the model file exists at this path.",
-            model_path.display()
+            rawrefinary_model_path.display()
         ));
     }
 
-    let session = create_gpu_session_for_model(&model_path, "RawRefinery")?;
+    let session = create_gpu_session_for_model(&rawrefinary_model_path)?;
     
     info!("RawRefinery Model loaded (GPU-optimized)");
     
@@ -1042,7 +900,7 @@ pub async fn get_or_init_clip_models(
     let clip_model_path = models_dir.join(CLIP_MODEL_FILENAME);
     
     info!("→ Loading CLIP Model from: {}", clip_model_path.display());
-    let model = Mutex::new(create_gpu_session_for_model(&clip_model_path, "CLIP")?);
+    let model = Mutex::new(create_gpu_session_for_model(&clip_model_path)?);
     info!("CLIP Model loaded successfully");
     
     let tokenizer =
@@ -1107,10 +965,10 @@ pub async fn get_or_init_lama_model(
     .await?;
 
     let _ = ort::init().with_name("AI-Inpainting").commit();
-    let model_path = models_dir.join(LAMA_FILENAME);
+    let lama_model_path = models_dir.join(LAMA_FILENAME);
     
-    info!("→ Loading Inpainting Model (LAMA) from: {}", model_path.display());
-    let session = create_cpu_session_for_model(&model_path, "LAMA Inpainting")?;
+    info!("→ Loading Inpainting Model (LAMA) from: {}", lama_model_path.display());
+    let session = create_cpu_session_for_model(&lama_model_path)?;
     info!("Inpainting Model loaded successfully");
     
     let lama_model = Arc::new(Mutex::new(session));
@@ -1268,11 +1126,12 @@ fn run_native_denoise(
     width: usize,
     height: usize,
     app_handle: &tauri::AppHandle,
-    params: TileParams,
+    intensity: f32,
     denoise_model: &str,
 ) -> Result<()> {
     let w = width as i32;
     let h = height as i32;
+    let params = select_tile_params(intensity);
     let step = params.ucs.saturating_sub(params.overlap).max(1);
     let iperhl = (width.saturating_sub(params.ucs) as f64 / step as f64).ceil() as usize;
     let ipervl = (height.saturating_sub(params.ucs) as f64 / step as f64).ceil() as usize;
@@ -1298,7 +1157,7 @@ fn run_native_denoise(
         // Tensor::from_array (owned) can be misidentified as already on-device, giving zeros.
 
        	let mut cond = Array::<f32, _>::zeros((1, 1));
-    	cond[[0, 0]] = 10.;
+    	cond[[0, 0]] = 10.;  // This value needs to be set based on the ISO number, 10 works for now (see RawRefinery documentation).
 
         let out = {
             let mut sess = session.lock().unwrap();
@@ -1394,7 +1253,6 @@ pub fn run_ai_denoise(
     denoise_model: &str,
 ) -> Result<DynamicImage> {
     let (width, height) = rgb_img.dimensions();
-    let params = select_tile_params(intensity);
 
     let _ = app_handle.emit("denoise-progress", "Denoising (AI NIND)...");
     let mut accumulator = vec![0.0f32; width as usize * height as usize * 3];
@@ -1405,7 +1263,7 @@ pub fn run_ai_denoise(
         width as usize,
         height as usize,
         app_handle,
-        params,
+        intensity,
         denoise_model,
     )?;
 
