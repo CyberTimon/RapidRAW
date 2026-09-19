@@ -896,6 +896,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
         lastCtrlClickTimeRef.current = now;
 
+        if (isCropping) return;
+
         isCropPanningRef.current = true;
         cropPanStartRef.current = { x: e.clientX, y: e.clientY };
         cropPanStartCropRef.current = getEffectiveCrop();
@@ -2199,7 +2201,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   let cursorStyle = 'default';
   if ((isShiftPressed && !isCropping) || straightenDragLine) {
     cursorStyle = 'crosshair';
-  } else if (isCtrlPressed && !isBrushActive) {
+  } else if (isCtrlPressed && !isBrushActive && !isCropping) {
     cursorStyle = isCropPanningRef.current ? 'grabbing' : 'move';
   } else if (isPanningState && isMiddleMousePanning.current) {
     cursorStyle = 'grabbing';
