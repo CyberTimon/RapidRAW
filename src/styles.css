@@ -152,6 +152,16 @@
 }
 
 @layer components {
+  [data-settings-search-highlight='true'] {
+    outline: 2px solid var(--color-accent) !important;
+    outline-offset: 6px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-accent) 16%, transparent);
+    transition:
+      outline-color 180ms ease,
+      box-shadow 180ms ease;
+  }
+
   .slider-input::-webkit-slider-thumb {
     @apply h-4 w-4 appearance-none rounded-full bg-accent;
     transition:
