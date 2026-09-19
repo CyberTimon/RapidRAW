@@ -1699,6 +1699,73 @@ pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_b
     }
 }
 
+/// Saves an image produced by one of the conversions (denoising, negative
+/// conversion, panorama stitching, HDR merging, focus stacking) with the
+/// metadata of the image it was derived from embedded in it.
+///
+/// These conversions also drop a RapidRAW sidecar next to their output, which
+/// is what RapidRAW itself reads. Embedding the same data makes the file say
+/// the same thing to everything else.
+pub fn save_converted_image(
+    image: &image::DynamicImage,
+    output_path: &Path,
+    source_path_str: &str,
+) -> Result<(), String> {
+    let dimensions = image::GenericImageView::dimensions(image);
+    let metadata = collect_metadata_from_source(source_path_str, false, Some(dimensions));
+
+    let extension = output_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let bytes = match extension.as_str() {
+        "tif" | "tiff" => {
+            let samples = match image {
+                image::DynamicImage::ImageRgb32F(_) | image::DynamicImage::ImageRgba32F(_) => {
+                    crate::tiff_metadata::TiffSamples::ThirtyTwoFloat
+                }
+                image::DynamicImage::ImageRgb16(_)
+                | image::DynamicImage::ImageRgba16(_)
+                | image::DynamicImage::ImageLuma16(_)
+                | image::DynamicImage::ImageLumaA16(_) => {
+                    crate::tiff_metadata::TiffSamples::Sixteen
+                }
+                _ => crate::tiff_metadata::TiffSamples::Eight,
+            };
+            crate::tiff_metadata::encode_tiff_with_metadata(image, samples, metadata.as_ref())?
+        }
+        "png" => {
+            let mut bytes = Vec::new();
+            image
+                .write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Png)
+                .map_err(|e| format!("Failed to encode image: {}", e))?;
+
+            if let Some(metadata) = metadata
+                && let Err(e) = metadata.write_to_vec(
+                    &mut bytes,
+                    FileExtension::PNG {
+                        as_zTXt_chunk: true,
+                    },
+                )
+            {
+                log::warn!("Failed to write metadata: {}", e);
+            }
+            bytes
+        }
+        other => {
+            return Err(format!(
+                "Unsupported format for a converted image: '{}'",
+                other
+            ));
+        }
+    };
+
+    fs::write(output_path, bytes)
+        .map_err(|e| format!("Failed to write file to '{}': {}", output_path.display(), e))
+}
+
 pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> Result<(), String> {
     let source_path = Path::new(source_path_str);
 

@@ -21,15 +21,17 @@ use little_exif::ifd::ExifTagGroup;
 use little_exif::metadata::Metadata;
 use std::borrow::Cow;
 use std::io::{Cursor, Seek, Write};
-use tiff::encoder::colortype::{RGB8, RGB16};
+use tiff::encoder::colortype::{RGB8, RGB16, RGB32Float};
 use tiff::encoder::{DirectoryEncoder, Rational, SRational, TiffEncoder, TiffValue};
 use tiff::tags::{Tag, Type};
 
-/// Sample format of the TIFF to write.
+/// Sample format of the TIFF to write. Exports pick eight or sixteen bit,
+/// panorama stitching and HDR merging keep their float data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TiffSamples {
     Eight,
     Sixteen,
+    ThirtyTwoFloat,
 }
 
 const TAG_EXIF_IFD: u16 = 0x8769;
@@ -111,6 +113,16 @@ pub fn encode_tiff_with_metadata(
             let pixels = image.to_rgb16();
             let mut image_encoder = encoder
                 .new_image::<RGB16>(width, height)
+                .map_err(|e| format!("Failed to start TIFF image: {}", e))?;
+            write_main_ifd(image_encoder.encoder(), metadata, exif_ifd, gps_ifd)?;
+            image_encoder
+                .write_data(pixels.as_raw())
+                .map_err(|e| format!("Failed to write TIFF pixel data: {}", e))?;
+        }
+        TiffSamples::ThirtyTwoFloat => {
+            let pixels = image.to_rgb32f();
+            let mut image_encoder = encoder
+                .new_image::<RGB32Float>(width, height)
                 .map_err(|e| format!("Failed to start TIFF image: {}", e))?;
             write_main_ifd(image_encoder.encoder(), metadata, exif_ifd, gps_ifd)?;
             image_encoder
