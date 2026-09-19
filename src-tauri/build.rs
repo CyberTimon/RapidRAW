@@ -68,11 +68,46 @@ fn download_and_verify(
     }
 }
 
+/// The TIFF exporter writes EXIF tags through the `tiff` crate directly, while
+/// `image` keeps its own copy of that crate for the pixel data. Both have to be
+/// the same version, otherwise the binary carries two copies of it. Cargo
+/// resolves that silently, so check it here and stop the build instead.
+fn verify_single_tiff_version(manifest_dir: &Path) {
+    let lock_path = manifest_dir.join("Cargo.lock");
+    println!("cargo:rerun-if-changed={}", lock_path.display());
+
+    let Ok(lock) = fs::read_to_string(&lock_path) else {
+        return;
+    };
+
+    let versions: Vec<&str> = lock
+        .split("[[package]]")
+        .filter(|entry| entry.contains("name = \"tiff\""))
+        .filter_map(|entry| {
+            entry
+                .lines()
+                .find_map(|line| line.trim().strip_prefix("version = "))
+        })
+        .map(|version| version.trim_matches('"'))
+        .collect();
+
+    if versions.len() > 1 {
+        panic!(
+            "Cargo resolved {} versions of the `tiff` crate ({}). `image` changed the version it \
+             depends on, so update the `tiff` entry in Cargo.toml to match it.",
+            versions.len(),
+            versions.join(", ")
+        );
+    }
+}
+
 fn main() {
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
 
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+
+    verify_single_tiff_version(&manifest_dir);
 
     let (download_filename, lib_name, expected_hash) =
         match (target_os.as_str(), target_arch.as_str()) {
