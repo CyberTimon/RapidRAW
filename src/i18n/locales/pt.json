@@ -452,6 +452,9 @@
       "custom": {
         "hPlaceholder": "A",
         "hTooltip": "Altura",
+        "removeTooltip": "Remover proporção salva",
+        "saveTooltip": "Salvar proporção como predefinição",
+        "savedTooltip": "Proporção salva {{ratio}}",
         "wPlaceholder": "L",
         "wTooltip": "Largura"
       },

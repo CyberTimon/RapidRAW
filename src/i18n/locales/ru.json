@@ -472,6 +472,9 @@
       "custom": {
         "hPlaceholder": "В",
         "hTooltip": "Высота",
+        "removeTooltip": "Удалить сохранённое соотношение сторон",
+        "saveTooltip": "Сохранить соотношение сторон как пресет",
+        "savedTooltip": "Сохранённое соотношение сторон {{ratio}}",
         "wPlaceholder": "Ш",
         "wTooltip": "Ширина"
       },
