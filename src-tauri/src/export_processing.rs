@@ -35,6 +35,7 @@ use crate::lut_processing::{
     convert_image_to_cube_lut, generate_identity_lut_image, get_or_load_lut,
 };
 use crate::mask_generation::{MaskDefinition, generate_mask_bitmap};
+use crate::tiff_metadata::{TiffSamples, encode_tiff_with_metadata};
 
 use crate::cache_utils::{calculate_full_job_hash, calculate_transform_hash};
 use crate::{
@@ -569,11 +570,23 @@ fn save_image_with_metadata(
         .unwrap_or("")
         .to_lowercase();
 
+    let tiff_metadata =
+        if export_settings.keep_metadata && matches!(extension.as_str(), "tif" | "tiff") {
+            exif_processing::collect_metadata_from_source(
+                source_path_str,
+                export_settings.strip_gps,
+                Some(image.dimensions()),
+            )
+        } else {
+            None
+        };
+
     let mut image_bytes = encode_image_to_bytes(
         image,
         &extension,
         export_settings.jpeg_quality,
         export_settings.tiff_bit_depth,
+        tiff_metadata.as_ref(),
     )?;
 
     exif_processing::write_image_with_metadata(
@@ -675,6 +688,7 @@ fn encode_image_to_bytes(
     output_format: &str,
     jpeg_quality: u8,
     tiff_bit_depth: TiffBitDepth,
+    tiff_metadata: Option<&little_exif::metadata::Metadata>,
 ) -> Result<Vec<u8>, String> {
     let mut image_bytes = Vec::new();
     let mut cursor = Cursor::new(&mut image_bytes);
@@ -739,14 +753,15 @@ fn encode_image_to_bytes(
                 .write_to(&mut cursor, image::ImageFormat::Png)
                 .map_err(|e| e.to_string())?;
         }
+        // Unlike the formats above, TIFF gets its metadata here rather than
+        // afterwards: patching an encoded TIFF would move its pixel data away
+        // from the offsets recorded in the IFD.
         "tif" | "tiff" => {
-            let image_to_encode = match tiff_bit_depth {
-                TiffBitDepth::Eight => DynamicImage::ImageRgb8(image.to_rgb8()),
-                TiffBitDepth::Sixteen => DynamicImage::ImageRgb16(image.to_rgb16()),
+            let samples = match tiff_bit_depth {
+                TiffBitDepth::Eight => TiffSamples::Eight,
+                TiffBitDepth::Sixteen => TiffSamples::Sixteen,
             };
-            image_to_encode
-                .write_to(&mut cursor, image::ImageFormat::Tiff)
-                .map_err(|e| e.to_string())?;
+            return encode_tiff_with_metadata(image, samples, tiff_metadata);
         }
         "avif" => {
             image
@@ -1686,6 +1701,7 @@ pub async fn estimate_export_sizes(
             &output_format,
             export_settings.jpeg_quality,
             export_settings.tiff_bit_depth,
+            None,
         )?;
         let preview_byte_size = preview_bytes.len();
 
@@ -1826,6 +1842,7 @@ pub async fn estimate_export_sizes(
             &output_format,
             export_settings.jpeg_quality,
             export_settings.tiff_bit_depth,
+            None,
         )?;
         let single_image_estimated_size = preview_bytes.len();
 
