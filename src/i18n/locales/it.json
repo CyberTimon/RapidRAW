@@ -470,6 +470,10 @@
           "desc": "Triangoli Armonici",
           "name": "Armatura"
         },
+        "center": {
+          "desc": "Linee centrali",
+          "name": "Centro"
+        },
         "diagonal": {
           "desc": "Linee Diagonali",
           "name": "Linee Diagonali"

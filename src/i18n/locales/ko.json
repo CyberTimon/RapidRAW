@@ -448,6 +448,10 @@
           "desc": "골격선 구도",
           "name": "골격선"
         },
+        "center": {
+          "desc": "중앙선",
+          "name": "중앙"
+        },
         "diagonal": {
           "desc": "대각선",
           "name": "대각선"
