@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../store/useUIStore';
@@ -18,8 +19,10 @@ import ConfirmModal from './ConfirmModal';
 import ImportSettingsModal from './ImportSettingsModal';
 import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
+import CaptureDateModal from './CaptureDateModal';
 import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
 import { CopyPasteSettings } from '../../utils/adjustments';
+import { useLibraryActions } from '../../hooks/useLibraryActions';
 
 export interface AppModalsProps {
   handleImageSelect: (path: string) => void;
@@ -47,6 +50,7 @@ export interface AppModalsProps {
 
 export default function AppModals(props: AppModalsProps) {
   const { t } = useTranslation();
+  const { getCaptureDateRevertAvailability, handleUpdateCaptureDates } = useLibraryActions();
   const { appSettings, handleSettingsChange } = useSettingsStore(
     useShallow((state) => ({
       appSettings: state.appSettings,
@@ -58,10 +62,13 @@ export default function AppModals(props: AppModalsProps) {
     isCreateFolderModalOpen,
     isRenameFolderModalOpen,
     isRenameFileModalOpen,
+    isCaptureDateModalOpen,
     isImportModalOpen,
     isCopyPasteSettingsModalOpen,
     folderActionTarget,
     renameTargetPaths,
+    captureDateReferencePath,
+    captureDateTargetPaths,
     importSourcePaths,
     isCreateAlbumModalOpen,
     isCreateAlbumGroupModalOpen,
@@ -81,10 +88,13 @@ export default function AppModals(props: AppModalsProps) {
       isCreateFolderModalOpen: state.isCreateFolderModalOpen,
       isRenameFolderModalOpen: state.isRenameFolderModalOpen,
       isRenameFileModalOpen: state.isRenameFileModalOpen,
+      isCaptureDateModalOpen: state.isCaptureDateModalOpen,
       isImportModalOpen: state.isImportModalOpen,
       isCopyPasteSettingsModalOpen: state.isCopyPasteSettingsModalOpen,
       folderActionTarget: state.folderActionTarget,
       renameTargetPaths: state.renameTargetPaths,
+      captureDateReferencePath: state.captureDateReferencePath,
+      captureDateTargetPaths: state.captureDateTargetPaths,
       importSourcePaths: state.importSourcePaths,
       isCreateAlbumModalOpen: state.isCreateAlbumModalOpen,
       isCreateAlbumGroupModalOpen: state.isCreateAlbumGroupModalOpen,
@@ -114,6 +124,25 @@ export default function AppModals(props: AppModalsProps) {
       selectedImage: state.selectedImage,
       finalPreviewUrl: state.finalPreviewUrl,
     })),
+  );
+
+  const imageList = useLibraryStore((state) => state.imageList);
+  const resolvedCaptureDateReferencePath =
+    captureDateReferencePath && captureDateTargetPaths.includes(captureDateReferencePath)
+      ? captureDateReferencePath
+      : captureDateTargetPaths[0] || '';
+  const captureDateReferenceImage =
+    imageList.find((image) => image.path === resolvedCaptureDateReferencePath) ||
+    (selectedImage?.path === resolvedCaptureDateReferencePath ? selectedImage : null);
+  const captureDateReferenceName = resolvedCaptureDateReferencePath.split(/[\\/]/).pop()?.split('?vc=')[0] || '';
+  const physicalCaptureDateTargetPaths = Array.from(
+    new Set(captureDateTargetPaths.map((path) => path.split('?vc=')[0])),
+  );
+  const canWriteCaptureDateToOriginal =
+    physicalCaptureDateTargetPaths.length > 0 && physicalCaptureDateTargetPaths.every((path) => /\.jpe?g$/i.test(path));
+  const checkCaptureDateRevertAvailability = useCallback(
+    () => getCaptureDateRevertAvailability(captureDateTargetPaths),
+    [captureDateTargetPaths, getCaptureDateRevertAvailability],
   );
 
   const closeConfirmModal = () => {
@@ -314,6 +343,21 @@ export default function AppModals(props: AppModalsProps) {
         isOpen={isRenameFileModalOpen}
         onClose={() => setUI({ isRenameFileModalOpen: false })}
         onSave={props.handleSaveRename}
+      />
+      <CaptureDateModal
+        canWriteOriginal={canWriteCaptureDateToOriginal}
+        currentDate={captureDateReferenceImage?.exif?.DateTimeOriginal}
+        isOpen={isCaptureDateModalOpen}
+        onApply={(operation, writeToOriginal) =>
+          handleUpdateCaptureDates(captureDateTargetPaths, operation, writeToOriginal)
+        }
+        onCheckRevertAvailability={checkCaptureDateRevertAvailability}
+        onClose={() =>
+          setUI({ captureDateReferencePath: null, captureDateTargetPaths: [], isCaptureDateModalOpen: false })
+        }
+        referenceName={captureDateReferenceName}
+        referencePath={resolvedCaptureDateReferencePath}
+        targetCount={physicalCaptureDateTargetPaths.length}
       />
       <ConfirmModal {...confirmModalState} onClose={closeConfirmModal} />
       <ImportSettingsModal
