@@ -6,7 +6,7 @@ use crate::image_loader::load_base_image_from_bytes;
 use crate::image_processing::apply_cpu_default_raw_processing;
 use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, GenericImageView, ImageFormat, Rgb, Rgb32FImage};
-use rayon::prelude::*;
+use rayon::{prelude::*};
 use std::cmp::Ordering;
 use std::fs;
 use std::io::Cursor;
@@ -53,6 +53,7 @@ pub async fn apply_denoising(
     path: String,
     intensity: f32,
     method: String,
+    denoise_model: String,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -61,20 +62,30 @@ pub async fn apply_denoising(
 
     let mut ai_session = None;
     if method == "ai" {
-        let session = crate::ai_processing::get_or_init_denoise_model(
-            &app_handle,
-            &state.ai_state,
-            &state.ai_init_lock,
-        )
-        .await
-        .map_err(|e| e.to_string())?;
+        let session = if denoise_model == "model2" {
+            crate::ai_processing::get_or_init_denoise_model_2(
+                &app_handle,
+                &state.ai_state,
+                &state.ai_init_lock,
+            )
+            .await
+            .map_err(|e| e.to_string())?
+        } else {
+            crate::ai_processing::get_or_init_denoise_model(
+                &app_handle,
+                &state.ai_state,
+                &state.ai_init_lock,
+            )
+            .await
+            .map_err(|e| e.to_string())?
+        };
         ai_session = Some(session);
     }
 
     let denoise_result_handle = state.denoise_result.clone();
 
     tokio::task::spawn_blocking(move || {
-        match denoise_image(path_str, intensity, method, app_handle.clone(), ai_session) {
+        match denoise_image(path_str, intensity, method, app_handle.clone(), ai_session, denoise_model) {
             Ok((image, _)) => {
                 *denoise_result_handle.lock().unwrap() = Some(image);
             }
@@ -92,18 +103,29 @@ pub async fn batch_denoise_images(
     paths: Vec<String>,
     intensity: f32,
     method: String,
+    denoise_model: String,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
     let mut ai_session = None;
     if method == "ai" {
-        let session = crate::ai_processing::get_or_init_denoise_model(
-            &app_handle,
-            &state.ai_state,
-            &state.ai_init_lock,
-        )
-        .await
-        .map_err(|e| e.to_string())?;
+        let session = if denoise_model == "model2" {
+            crate::ai_processing::get_or_init_denoise_model_2(
+                &app_handle,
+                &state.ai_state,
+                &state.ai_init_lock,
+            )
+            .await
+            .map_err(|e| e.to_string())?
+        } else {
+            crate::ai_processing::get_or_init_denoise_model(
+                &app_handle,
+                &state.ai_state,
+                &state.ai_init_lock,
+            )
+            .await
+            .map_err(|e| e.to_string())?
+        };
         ai_session = Some(session);
     }
 
@@ -130,6 +152,7 @@ pub async fn batch_denoise_images(
                 method.clone(),
                 app_handle.clone(),
                 ai_session.clone(),
+                denoise_model.clone(),
             ) {
                 Ok((image, _)) => {
                     let is_raw = crate::formats::is_raw_file(&real_path);
@@ -300,6 +323,7 @@ fn denoise_image(
     method: String,
     app_handle: AppHandle,
     ai_session: Option<Arc<Mutex<ort::session::Session>>>,
+    denoise_model: String,
 ) -> Result<(DynamicImage, String), String> {
     let path = Path::new(&path_str);
     if !path.exists() {
@@ -324,6 +348,7 @@ fn denoise_image(
             intensity,
             &session_arc,
             &app_handle,
+            &denoise_model,
         )
         .map_err(|e| e.to_string())?
     } else {

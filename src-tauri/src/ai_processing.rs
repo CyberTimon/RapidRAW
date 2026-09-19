@@ -9,8 +9,10 @@ use image::{
     DynamicImage, GenericImageView, GrayImage, ImageBuffer, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage,
 };
 use ndarray::{Array, Array4, IxDyn};
-use ort::session::Session;
-use ort::value::Tensor;
+use ort::{
+    session::{Session},
+	value::{Tensor, TensorRef}
+};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -18,6 +20,7 @@ use tauri::Emitter;
 use tauri::Manager;
 use tokenizers::Tokenizer;
 use tokio::sync::Mutex as TokioMutex;
+use log::{info, warn, error};
 
 const ENCODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_encoder.onnx?download=true";
 const DECODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_decoder.onnx?download=true";
@@ -50,6 +53,10 @@ const DENOISE_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/res
 const DENOISE_FILENAME: &str = "nind_denoise_utnet_684.onnx";
 const DENOISE_SHA256: &str = "ee3586279d514df557ff3f7dec6df37fafc51ba5d3a3435b2cc9ac2d9017e7fe";
 
+const RAWREFINERY_URL: &str = "https://speets.eu/download/ShadowWeightedL1_24_deep_500_32.onnx";
+const RAWREFINERY_FILENAME: &str = "ShadowWeightedL1_24_deep_500_32.onnx";
+const RAWREFINERY_SHA256: &str = "959b44a7c1f64485263f5ad8eab362d0d9caf97a67a8e6c2e78df5ae1a6e598a";
+
 const LAMA_URL: &str =
     "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/lama_fp16.onnx?download=true";
 const LAMA_FILENAME: &str = "lama_fp16.onnx";
@@ -59,6 +66,62 @@ const DEPTH_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resol
 const DEPTH_FILENAME: &str = "depth_anything_v2_vits.onnx";
 const DEPTH_INPUT_SIZE: u32 = 518;
 const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b526304f2562be";
+
+fn create_cpu_session_for_model(model_path: &Path) -> Result<Session> {
+
+    if !model_path.exists() {
+        return Err(anyhow::anyhow!("Model file not found: {}", model_path.display()));
+    }
+
+    let session = Session::builder()
+        .map_err(|e| anyhow::anyhow!("Failed to create CPU session: {}", e))?
+        .commit_from_file(model_path)
+        .map_err(|e| anyhow::anyhow!("Failed to load CPU model from {}: {}", model_path.display(), e))?;
+    
+    Ok(session)
+}
+
+fn create_gpu_session_for_model(model_path: &Path) -> Result<Session> {
+    if !model_path.exists() {
+        return Err(anyhow::anyhow!("Model file not found: {}", model_path.display()));
+    }
+    
+#[cfg(target_os = "windows")]
+    let providers = [
+        ort::ep::DirectML::default().build(),
+        ort::ep::CUDA::default().build(),
+        ort::ep::CPU::default().build(),
+    ];
+#[cfg(target_os = "linux")]
+    let providers = [
+        ort::ep::CPU::default().build(),
+    ];
+#[cfg(target_os = "macos")]
+    let providers = [        
+        ort::ep::CPU::default().build(),
+    ];
+#[cfg(target_os = "android")]
+    let providers = [
+        ort::ep::CPU::default().build(),
+    ];
+    
+    use ort::session::builder::GraphOptimizationLevel;
+    let mut builder = Session::builder()
+        .map_err(|e| anyhow::anyhow!("Failed to create SessionBuilder: {}", e))?;
+    
+    builder = builder.with_execution_providers(providers)
+        .map_err(|e| anyhow::anyhow!("Failed to set execution providers: {}", e))?;
+    
+    builder = builder.with_optimization_level(GraphOptimizationLevel::Level1)
+        .map_err(|e| anyhow::anyhow!("Failed to set optimization level: {}", e))?;
+    
+    builder = builder.with_memory_pattern(false)
+        .map_err(|e| anyhow::anyhow!("Failed to disable memory pattern: {}", e))?;
+    
+    let session = builder.commit_from_file(model_path)
+        .map_err(|e| anyhow::anyhow!("Failed to load GPU model from {}: {}", model_path.display(), e))?;
+    Ok(session)
+}
 
 pub struct AiModels {
     pub sam_encoder: Mutex<Session>,
@@ -90,6 +153,7 @@ pub struct CachedDepthMap {
 pub struct AiState {
     pub models: Option<Arc<AiModels>>,
     pub denoise_model: Option<Arc<Mutex<Session>>>,
+    pub denoise_model_2: Option<Arc<Mutex<Session>>>,
     pub clip_models: Option<Arc<ClipModels>>,
     pub lama_model: Option<Arc<Mutex<Session>>>,
     pub embeddings: Option<ImageEmbeddings>,
@@ -519,17 +583,107 @@ pub async fn get_or_init_ai_models(
 
     let _ = ort::init().with_name("AI").commit();
 
+    info!("");
+    info!("ONNX Runtime Model Loading");
+    info!("ORT_EXECUTION_PROVIDERS environment: {:?}", 
+        std::env::var("ORT_EXECUTION_PROVIDERS").unwrap_or_else(|_| "NOT SET".to_string()));
+    info!("ORT_DYLIB_PATH environment: {:?}", 
+        std::env::var("ORT_DYLIB_PATH").unwrap_or_else(|_| "NOT SET".to_string()));
+    info!("If models load but use CPU, the CUDA provider DLL was not found.");
+    info!("Ensure onnxruntime_providers_cuda.dll is in the same directory as onnxruntime.dll");
+    info!("or in a directory included in the Windows PATH environment variable.");
+    info!("Loading AI models with configured providers...");
+    info!("");
+
     let encoder_path = models_dir.join(ENCODER_FILENAME);
     let decoder_path = models_dir.join(DECODER_FILENAME);
     let u2netp_path = models_dir.join(U2NETP_FILENAME);
     let sky_seg_path = models_dir.join(SKYSEG_FILENAME);
     let depth_path = models_dir.join(DEPTH_FILENAME);
+    
+    info!("LOADING AI MODELS (5 total)");
 
-    let sam_encoder = Session::builder()?.commit_from_file(encoder_path)?;
-    let sam_decoder = Session::builder()?.commit_from_file(decoder_path)?;
-    let u2netp = Session::builder()?.commit_from_file(u2netp_path)?;
-    let sky_seg = Session::builder()?.commit_from_file(sky_seg_path)?;
-    let depth_anything = Session::builder()?.commit_from_file(depth_path)?;
+    // Load SAM Encoder (CPU-only model)
+    info!("");
+    info!("MODEL 1/5: SAM Encoder (CPU)");
+    info!("→ Loading from: {}", encoder_path.display());
+    let sam_encoder = match create_cpu_session_for_model(&encoder_path) {
+        Ok(session) => {
+            info!("SAM Encoder loaded successfully");
+            session
+        }
+        Err(e) => {
+            error!("CRASHED while loading SAM Encoder!");
+            error!("Error: {}", e);
+            return Err(e);
+        }
+    };
+
+    // Load SAM Decoder (CPU-only model)
+    info!("");
+    info!("MODEL 2/5: SAM Decoder (CPU)");
+    info!(" Loading from: {}", decoder_path.display());
+    let sam_decoder = match create_cpu_session_for_model(&decoder_path) {
+        Ok(session) => {
+            info!("SAM Decoder loaded successfully");
+            session
+        }
+        Err(e) => {
+            error!("CRASHED while loading SAM Decoder!");
+            error!("Error: {}", e);
+            return Err(e);
+        }
+    };
+
+    // Load U2NetP (CPU-only model)
+    info!("");
+    info!("MODEL 3/5: U2NetP (CPU - Foreground Segmentation)");
+    info!(" Loading from: {}", u2netp_path.display());
+    let u2netp = match create_gpu_session_for_model(&u2netp_path) {
+        Ok(session) => {
+            info!("U2NetP loaded successfully");
+            session
+        }
+        Err(e) => {
+            error!("CRASHED while loading U2NetP!");
+            error!("Error: {}", e);
+            return Err(e);
+        }
+    };
+
+    // Load Sky Segmentation (CPU-only model)
+    info!("");
+    info!("MODEL 4/5: Sky Segmentation (CPU)");
+    info!(" Loading from: {}", sky_seg_path.display());
+    let sky_seg = match create_gpu_session_for_model(&sky_seg_path) {
+        Ok(session) => {
+            info!("Sky Segmentation loaded successfully");
+            session
+        }
+        Err(e) => {
+            error!("CRASHED while loading Sky Segmentation!");
+            error!("Error: {}", e);
+            return Err(e);
+        }
+    };
+
+    // Load Depth Anything (CPU-only model)
+    info!("");
+    info!("MODEL 5/5: Depth Anything (CPU)");
+    info!(" Loading from: {}", depth_path.display());
+    let depth_anything = match create_gpu_session_for_model(&depth_path) {
+        Ok(session) => {
+            info!("Depth Anything loaded successfully");
+            session
+        }
+        Err(e) => {
+            error!("CRASHED while loading Depth Anything!");
+            error!("Error: {}", e);
+            return Err(e);
+        }
+    };
+
+    info!("ALL 5 MODELS LOADED SUCCESSFULLY");    
 
     crate::register_exit_handler();
 
@@ -548,6 +702,7 @@ pub async fn get_or_init_ai_models(
         *ai_state_lock = Some(AiState {
             models: Some(models.clone()),
             denoise_model: None,
+            denoise_model_2: None,
             clip_models: None,
             lama_model: None,
             embeddings: None,
@@ -594,9 +749,14 @@ pub async fn get_or_init_denoise_model(
     )
     .await?;
 
-    let _ = ort::init().with_name("AI-Denoise").commit();
-    let model_path = models_dir.join(DENOISE_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let nind_model_path = models_dir.join(DENOISE_FILENAME);
+
+    info!("→ Loading NIND Model from: {}", nind_model_path.display());
+    
+    let session = create_cpu_session_for_model(&nind_model_path)?;
+    
+    info!("NIND Model loaded (CPU-optimized)");
+    
     let denoise_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -608,6 +768,7 @@ pub async fn get_or_init_denoise_model(
         *ai_state_lock = Some(AiState {
             models: None,
             denoise_model: Some(denoise_model.clone()),
+            denoise_model_2: None,
             clip_models: None,
             lama_model: None,
             embeddings: None,
@@ -616,6 +777,78 @@ pub async fn get_or_init_denoise_model(
     }
 
     Ok(denoise_model)
+}
+
+pub async fn get_or_init_denoise_model_2(
+    app_handle: &tauri::AppHandle,
+    ai_state_mutex: &Mutex<Option<AiState>>,
+    ai_init_lock: &TokioMutex<()>,
+) -> Result<Arc<Mutex<Session>>> {
+    if let Some(denoise_model_2) = ai_state_mutex
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|state| state.denoise_model_2.clone())
+    {
+        return Ok(denoise_model_2);
+    }
+
+    let _guard = ai_init_lock.lock().await;
+
+    if let Some(denoise_model_2) = ai_state_mutex
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|state| state.denoise_model_2.clone())
+    {
+        return Ok(denoise_model_2);
+    }
+
+    let models_dir = get_models_dir(app_handle)?;
+    download_and_verify_model(
+        app_handle,
+        &models_dir,
+        RAWREFINERY_FILENAME,
+        RAWREFINERY_URL,
+        RAWREFINERY_SHA256,
+        "RawRefinery Model",
+    )
+    .await?;
+
+    let rawrefinary_model_path = models_dir.join(RAWREFINERY_FILENAME);
+
+    // Load RawRefinery model from local file
+    if !rawrefinary_model_path.exists() {
+        return Err(anyhow::anyhow!(
+            "RawRefinery model not found at: {}\nPlease ensure the model file exists at this path.",
+            rawrefinary_model_path.display()
+        ));
+    }
+
+    let session = create_gpu_session_for_model(&rawrefinary_model_path)?;
+    
+    info!("RawRefinery Model loaded (GPU-optimized)");
+    
+    let denoise_model_2 = Arc::new(Mutex::new(session));
+
+    crate::register_exit_handler();
+
+    let mut ai_state_lock = ai_state_mutex.lock().unwrap();
+    if let Some(state) = ai_state_lock.as_mut() {
+        state.denoise_model_2 = Some(denoise_model_2.clone());
+    } else {
+        *ai_state_lock = Some(AiState {
+            models: None,
+            denoise_model: None,
+            denoise_model_2: Some(denoise_model_2.clone()),
+            clip_models: None,
+            lama_model: None,
+            embeddings: None,
+            depth_map: None,
+        });
+    }
+
+    Ok(denoise_model_2)
 }
 
 pub async fn get_or_init_clip_models(
@@ -665,7 +898,11 @@ pub async fn get_or_init_clip_models(
 
     let _ = ort::init().with_name("AI-Tagging").commit();
     let clip_model_path = models_dir.join(CLIP_MODEL_FILENAME);
-    let model = Mutex::new(Session::builder()?.commit_from_file(clip_model_path)?);
+    
+    info!("→ Loading CLIP Model from: {}", clip_model_path.display());
+    let model = Mutex::new(create_gpu_session_for_model(&clip_model_path)?);
+    info!("CLIP Model loaded successfully");
+    
     let tokenizer =
         Tokenizer::from_file(clip_tokenizer_path).map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
@@ -680,6 +917,7 @@ pub async fn get_or_init_clip_models(
         *ai_state_lock = Some(AiState {
             models: None,
             denoise_model: None,
+            denoise_model_2: None,
             clip_models: Some(clip_models.clone()),
             lama_model: None,
             embeddings: None,
@@ -718,7 +956,7 @@ pub async fn get_or_init_lama_model(
     let models_dir = get_models_dir(app_handle)?;
     download_and_verify_model(
         app_handle,
-        &models_dir,
+        &models_dir, 
         LAMA_FILENAME,
         LAMA_URL,
         LAMA_SHA256,
@@ -727,8 +965,12 @@ pub async fn get_or_init_lama_model(
     .await?;
 
     let _ = ort::init().with_name("AI-Inpainting").commit();
-    let model_path = models_dir.join(LAMA_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let lama_model_path = models_dir.join(LAMA_FILENAME);
+    
+    info!("→ Loading Inpainting Model (LAMA) from: {}", lama_model_path.display());
+    let session = create_cpu_session_for_model(&lama_model_path)?;
+    info!("Inpainting Model loaded successfully");
+    
     let lama_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -739,6 +981,7 @@ pub async fn get_or_init_lama_model(
     } else {
         *ai_state_lock = Some(AiState {
             models: None,
+            denoise_model_2: None,
             denoise_model: None,
             clip_models: None,
             lama_model: Some(lama_model.clone()),
@@ -883,10 +1126,12 @@ fn run_native_denoise(
     width: usize,
     height: usize,
     app_handle: &tauri::AppHandle,
-    params: TileParams,
+    intensity: f32,
+    denoise_model: &str,
 ) -> Result<()> {
     let w = width as i32;
     let h = height as i32;
+    let params = select_tile_params(intensity);
     let step = params.ucs.saturating_sub(params.overlap).max(1);
     let iperhl = (width.saturating_sub(params.ucs) as f64 / step as f64).ceil() as usize;
     let ipervl = (height.saturating_sub(params.ucs) as f64 / step as f64).ceil() as usize;
@@ -907,12 +1152,32 @@ fn run_native_denoise(
 
         let crop = extract_tile_mirror(img, x0, y0, params.cs);
         let input_values = crop.as_standard_layout().to_owned();
-        let t_input = Tensor::from_array(input_values)?;
+        
+        // TensorRef (borrowed) correctly triggers the host→device upload in DirectML/CUDA;
+        // Tensor::from_array (owned) can be misidentified as already on-device, giving zeros.
+
+       	let mut cond = Array::<f32, _>::zeros((1, 1));
+    	cond[[0, 0]] = 10.;  // This value needs to be set based on the ISO number, 10 works for now (see RawRefinery documentation).
 
         let out = {
             let mut sess = session.lock().unwrap();
-            let outputs = sess.run(ort::inputs![t_input])?;
-            let arr = outputs[0].try_extract_array::<f32>()?.to_owned();
+            
+            // Different model inputs based on denoise_model
+            let outputs = if denoise_model == "model2" {
+                // RawRefinery model inputs
+                sess.run(ort::inputs![
+                    "batch_rgb" => TensorRef::from_array_view(&input_values)?, 
+                    "conditioning" => TensorRef::from_array_view(&cond)?])?
+            } else {
+                // NIND model inputs
+                sess.run(ort::inputs![
+                    "input" => TensorRef::from_array_view(&input_values)?])?
+            };
+
+            // Extract and force GPU->CPU sync by converting to owned array
+            // The .into_owned() forces materialization of GPU data into CPU memory
+            let arr = outputs[0].try_extract_array::<f32>()?.into_owned();
+
             arr.into_dimensionality::<ndarray::Ix4>()
                 .map_err(|e| anyhow::anyhow!("Unexpected output shape: {}", e))?
         };
@@ -959,6 +1224,15 @@ fn run_native_denoise(
 }
 
 fn accumulator_to_rgb32f(acc: &[f32], width: u32, height: u32) -> Rgb32FImage {
+    // Debug: Log accumulator stats on first conversion
+    if !acc.is_empty() {
+        let min = acc.iter().cloned().fold(f32::INFINITY, f32::min);
+        let max = acc.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let mean = acc.iter().sum::<f32>() / acc.len() as f32;
+        info!("Accumulator stats - min: {:.6}, max: {:.6}, mean: {:.6}", min, max, mean);
+        info!("Accumulator non-zero values: {}", acc.iter().filter(|&&v| v.abs() > 0.001).count());
+    }
+    
     let mut out = Rgb32FImage::new(width, height);
     for (i, p) in out.pixels_mut().enumerate() {
         let i3 = i * 3;
@@ -976,9 +1250,9 @@ pub fn run_ai_denoise(
     intensity: f32,
     session: &Mutex<Session>,
     app_handle: &tauri::AppHandle,
+    denoise_model: &str,
 ) -> Result<DynamicImage> {
     let (width, height) = rgb_img.dimensions();
-    let params = select_tile_params(intensity);
 
     let _ = app_handle.emit("denoise-progress", "Denoising (AI NIND)...");
     let mut accumulator = vec![0.0f32; width as usize * height as usize * 3];
@@ -989,10 +1263,25 @@ pub fn run_ai_denoise(
         width as usize,
         height as usize,
         app_handle,
-        params,
+        intensity,
+        denoise_model,
     )?;
 
     let out_img_buffer = accumulator_to_rgb32f(&accumulator, width, height);
+    
+    // Final debug: Check if output is essentially black
+    let non_zero_count = accumulator.iter().filter(|&&v| v.abs() > 0.01).count();
+    if non_zero_count == 0 {
+        warn!("DENOISE OUTPUT IS ALL BLACK - accumulator contains no significant values");
+        warn!(" Total accumulator elements: {}", accumulator.len());
+        warn!(" Non-zero elements: {}", non_zero_count);
+        let min = accumulator.iter().cloned().fold(f32::INFINITY, f32::min);
+        let max = accumulator.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        warn!(" Range: min={:.6}, max={:.6}", min, max);
+    } else {
+        info!("Denoise output has {} non-zero values", non_zero_count);
+    }
+    
     Ok(DynamicImage::ImageRgb32F(out_img_buffer))
 }
 

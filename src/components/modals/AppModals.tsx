@@ -30,8 +30,12 @@ export interface AppModalsProps {
   handleStartFocusStack: (paths: string[]) => void;
   handleSaveFocusStack: () => Promise<string>;
   refreshImageList: () => Promise<void>;
-  handleApplyDenoise: (intensity: number, method: 'ai' | 'bm3d') => Promise<void>;
-  handleBatchDenoise: (intensity: number, method: 'ai' | 'bm3d', paths: string[]) => Promise<string[]>;
+  handleApplyDenoise: (intensity: number, method: 'ai_model1' | 'ai_model2' | 'bm3d') => Promise<void>;
+  handleBatchDenoise: (
+    intensity: number,
+    method: 'ai_model1' | 'ai_model2' | 'bm3d',
+    paths: string[],
+  ) => Promise<string[]>;
   handleSaveDenoisedImage: () => Promise<string>;
   handleCreateFolder: (folderName: string) => Promise<void>;
   handleRenameFolder: (newName: string) => Promise<void>;

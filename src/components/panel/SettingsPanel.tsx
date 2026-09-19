@@ -1728,6 +1728,17 @@ export default function SettingsPanel({
                       </li>
                       <li>
                         <a
+                          href="https://github.com/rymuelle/RawRefinery"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          RawRefinery
+                        </a>
+                        : {t('settings.thanks.list.rawrefinery')}
+                      </li>
+                      <li>
+                        <a
                           href="http://gphoto.org/"
                           target="_blank"
                           rel="noopener noreferrer"
