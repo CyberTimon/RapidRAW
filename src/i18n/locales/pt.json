@@ -470,6 +470,10 @@
           "desc": "Armação",
           "name": "Armação"
         },
+        "center": {
+          "desc": "Linhas centrais",
+          "name": "Centro"
+        },
         "diagonal": {
           "desc": "Linhas Diagonais",
           "name": "Linhas Diagonais"
