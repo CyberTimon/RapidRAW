@@ -43,6 +43,19 @@ interface ExportPanelProps {
   onClose?: () => void;
 }
 
+const MAX_PAD_RATIO = 1000;
+
+function parseRatio(value: string): number | null {
+  const parsed = Number(value.trim().replace(',', '.'));
+  return Number.isFinite(parsed) && parsed > 0 && parsed <= MAX_PAD_RATIO ? parsed : null;
+}
+
+function normalizeHexColor(value: string): string | null {
+  const trimmed = value.trim();
+  const hex = trimmed.startsWith('#') ? trimmed.slice(1) : trimmed;
+  return /^[0-9a-fA-F]{6}$/.test(hex) ? `#${hex.toLowerCase()}` : null;
+}
+
 interface SectionProps {
   children: any;
   title: string;
@@ -220,6 +233,14 @@ export default function ExportPanel({
     setResizeValue,
     dontEnlarge,
     setDontEnlarge,
+    enablePad,
+    setEnablePad,
+    padRatioWidth,
+    setPadRatioWidth,
+    padRatioHeight,
+    setPadRatioHeight,
+    padColor,
+    setPadColor,
     keepMetadata,
     setKeepMetadata,
     preserveTimestamps,
@@ -283,6 +304,48 @@ export default function ExportPanel({
     },
     [appSettings, currentSettingsObject, onSettingsChange],
   );
+
+  const [padRatioWidthText, setPadRatioWidthText] = useState<string>(String(padRatioWidth));
+  const [padRatioHeightText, setPadRatioHeightText] = useState<string>(String(padRatioHeight));
+  const [padColorText, setPadColorText] = useState<string>(padColor);
+
+  useEffect(() => {
+    setPadRatioWidthText(String(padRatioWidth));
+  }, [padRatioWidth]);
+
+  useEffect(() => {
+    setPadRatioHeightText(String(padRatioHeight));
+  }, [padRatioHeight]);
+
+  useEffect(() => {
+    setPadColorText(padColor);
+  }, [padColor]);
+
+  const padRatioWidthValue = parseRatio(padRatioWidthText);
+  const padRatioHeightValue = parseRatio(padRatioHeightText);
+  const isPadValid = !enablePad || (padRatioWidthValue !== null && padRatioHeightValue !== null);
+  const padSettings =
+    enablePad && padRatioWidthValue !== null && padRatioHeightValue !== null
+      ? { ratioWidth: padRatioWidthValue, ratioHeight: padRatioHeightValue, color: padColor }
+      : null;
+
+  const handlePadRatioWidthChange = (value: string) => {
+    setPadRatioWidthText(value);
+    const parsed = parseRatio(value);
+    if (parsed !== null) setPadRatioWidth(parsed);
+  };
+
+  const handlePadRatioHeightChange = (value: string) => {
+    setPadRatioHeightText(value);
+    const parsed = parseRatio(value);
+    if (parsed !== null) setPadRatioHeight(parsed);
+  };
+
+  const handlePadColorTextChange = (value: string) => {
+    setPadColorText(value);
+    const normalized = normalizeHexColor(value);
+    if (normalized !== null) setPadColor(normalized);
+  };
 
   const [estimatedSize, setEstimatedSize] = useState<number | null>(null);
   const [isEstimating, setIsEstimating] = useState<boolean>(false);
@@ -400,6 +463,7 @@ export default function ExportPanel({
       destinationType,
       subfolder,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
+      pad: padSettings,
       stripGps,
       exportMasks: exportMasks,
       watermark:
@@ -443,6 +507,10 @@ export default function ExportPanel({
     resizeMode,
     resizeValue,
     dontEnlarge,
+    enablePad,
+    padRatioWidthText,
+    padRatioHeightText,
+    padColor,
     keepMetadata,
     preserveTimestamps,
     stripGps,
@@ -486,6 +554,7 @@ export default function ExportPanel({
       destinationType,
       subfolder,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
+      pad: padSettings,
       stripGps,
       exportMasks: exportMasks,
       watermark:
@@ -590,7 +659,7 @@ export default function ExportPanel({
     }
   };
 
-  const canExport = numImages > 0;
+  const canExport = numImages > 0 && isPadValid;
   const isLut = fileFormat === FileFormats.Cube;
   const itemLabel = isLut ? t('export.labels.lut') : t('export.labels.image');
   const itemLabelPlural = isLut ? t('export.labels.lut_plural') : t('export.labels.image_plural');
@@ -754,6 +823,75 @@ export default function ExportPanel({
                         onChange={setDontEnlarge}
                         trackClassName="bg-surface"
                       />
+                    </div>
+                  )}
+                  <Switch
+                    label={t('export.pad.padToAspectRatio')}
+                    checked={enablePad}
+                    onChange={setEnablePad}
+                    disabled={isExporting}
+                    trackClassName="bg-surface"
+                  />
+                  {enablePad && (
+                    <div className="space-y-4 pl-2 border-l-2 border-surface">
+                      <div className="flex items-center gap-2">
+                        <Text variant={TextVariants.label} className="flex-1">
+                          {t('export.pad.aspectRatio')}
+                        </Text>
+                        <input
+                          aria-label={t('export.pad.ratioWidth')}
+                          className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
+                            padRatioWidthValue === null ? 'border-red-500' : 'border-surface focus:border-accent'
+                          }`}
+                          disabled={isExporting}
+                          min="0"
+                          onChange={(e) => handlePadRatioWidthChange(e.target.value)}
+                          step="any"
+                          type="number"
+                          value={padRatioWidthText}
+                        />
+                        <Text variant={TextVariants.label}>:</Text>
+                        <input
+                          aria-label={t('export.pad.ratioHeight')}
+                          className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
+                            padRatioHeightValue === null ? 'border-red-500' : 'border-surface focus:border-accent'
+                          }`}
+                          disabled={isExporting}
+                          min="0"
+                          onChange={(e) => handlePadRatioHeightChange(e.target.value)}
+                          step="any"
+                          type="number"
+                          value={padRatioHeightText}
+                        />
+                      </div>
+                      {!isPadValid && (
+                        <Text variant={TextVariants.label} className="text-red-500">
+                          {t('export.pad.invalidRatio')}
+                        </Text>
+                      )}
+                      <div>
+                        <Text variant={TextVariants.label} className="mb-2 block">
+                          {t('export.pad.backgroundColor')}
+                        </Text>
+                        <div className="flex items-center gap-2 bg-surface p-2 rounded-md">
+                          <input
+                            aria-label={t('export.pad.backgroundColor')}
+                            className="w-8 h-8 p-0 border-none rounded-sm cursor-pointer bg-transparent"
+                            disabled={isExporting}
+                            onChange={(e) => setPadColor(e.target.value)}
+                            type="color"
+                            value={padColor}
+                          />
+                          <input
+                            className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
+                            disabled={isExporting}
+                            onBlur={() => setPadColorText(padColor)}
+                            onChange={(e) => handlePadColorTextChange(e.target.value)}
+                            type="text"
+                            value={padColorText}
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </Section>

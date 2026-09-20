@@ -9,6 +9,10 @@ export function useExportSettings() {
   const [resizeMode, setResizeMode] = useState('longEdge');
   const [resizeValue, setResizeValue] = useState(2048);
   const [dontEnlarge, setDontEnlarge] = useState(true);
+  const [enablePad, setEnablePad] = useState(false);
+  const [padRatioWidth, setPadRatioWidth] = useState(1);
+  const [padRatioHeight, setPadRatioHeight] = useState(1);
+  const [padColor, setPadColor] = useState('#000000');
   const [keepMetadata, setKeepMetadata] = useState(true);
   const [preserveTimestamps, setPreserveTimestamps] = useState(false);
   const [stripGps, setStripGps] = useState(true);
@@ -32,6 +36,10 @@ export function useExportSettings() {
     setResizeMode(preset.resizeMode);
     setResizeValue(preset.resizeValue);
     setDontEnlarge(preset.dontEnlarge);
+    setEnablePad(preset.enablePad ?? false);
+    setPadRatioWidth(preset.padRatioWidth ?? 1);
+    setPadRatioHeight(preset.padRatioHeight ?? 1);
+    setPadColor(preset.padColor ?? '#000000');
     setKeepMetadata(preset.keepMetadata);
     setPreserveTimestamps(preset.preserveTimestamps ?? false);
     setStripGps(preset.stripGps);
@@ -57,6 +65,10 @@ export function useExportSettings() {
       resizeMode,
       resizeValue,
       dontEnlarge,
+      enablePad,
+      padRatioWidth,
+      padRatioHeight,
+      padColor,
       keepMetadata,
       preserveTimestamps,
       stripGps,
@@ -80,6 +92,10 @@ export function useExportSettings() {
       resizeMode,
       resizeValue,
       dontEnlarge,
+      enablePad,
+      padRatioWidth,
+      padRatioHeight,
+      padColor,
       keepMetadata,
       preserveTimestamps,
       stripGps,
@@ -112,6 +128,14 @@ export function useExportSettings() {
     setResizeValue,
     dontEnlarge,
     setDontEnlarge,
+    enablePad,
+    setEnablePad,
+    padRatioWidth,
+    setPadRatioWidth,
+    padRatioHeight,
+    setPadRatioHeight,
+    padColor,
+    setPadColor,
     keepMetadata,
     setKeepMetadata,
     preserveTimestamps,

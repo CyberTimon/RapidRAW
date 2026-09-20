@@ -43,6 +43,11 @@ export interface ExportSettings {
     value: number;
     dontEnlarge: boolean;
   } | null;
+  pad: {
+    ratioWidth: number;
+    ratioHeight: number;
+    color: string;
+  } | null;
   stripGps: boolean;
   watermark: WatermarkSettings | null;
   exportMasks?: boolean;
@@ -110,6 +115,10 @@ export interface ExportPreset {
   resizeMode: string;
   resizeValue: number;
   dontEnlarge: boolean;
+  enablePad?: boolean;
+  padRatioWidth?: number;
+  padRatioHeight?: number;
+  padColor?: string;
   keepMetadata: boolean;
   preserveTimestamps: boolean;
   stripGps: boolean;

@@ -90,11 +90,27 @@ pub struct ResizeOptions {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct PadOptions {
+    pub ratio_width: f32,
+    pub ratio_height: f32,
+    pub color: String,
+}
+
+impl PadOptions {
+    fn rgb(&self) -> [u8; 3] {
+        parse_hex_color(&self.color).unwrap_or([0, 0, 0])
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportSettings {
     pub jpeg_quality: u8,
     #[serde(default)]
     pub tiff_bit_depth: TiffBitDepth,
     pub resize: Option<ResizeOptions>,
+    #[serde(default)]
+    pub pad: Option<PadOptions>,
     pub keep_metadata: bool,
     #[serde(default)]
     pub preserve_timestamps: bool,
@@ -229,6 +245,19 @@ fn apply_watermark(
     Ok(())
 }
 
+const PAD_RATIO_EPSILON: f64 = 0.001;
+const MAX_PAD_DIMENSION: u32 = 65_535;
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ExportGeometry {
+    pub canvas_w: u32,
+    pub canvas_h: u32,
+    pub photo_w: u32,
+    pub photo_h: u32,
+    pub offset_x: u32,
+    pub offset_y: u32,
+}
+
 fn calculate_resize_target(
     current_w: u32,
     current_h: u32,
@@ -260,6 +289,173 @@ fn calculate_resize_target(
     } else {
         let w = (value as f32 * (current_w as f32 / current_h as f32)).round() as u32;
         (w, value)
+    }
+}
+
+fn parse_hex_color(hex: &str) -> Option<[u8; 3]> {
+    let raw = hex.trim().trim_start_matches('#');
+    let normalized: String = match raw.len() {
+        3 => raw.chars().flat_map(|c| [c, c]).collect(),
+        6 => raw.to_string(),
+        8 => raw[..6].to_string(),
+        _ => return None,
+    };
+    Some([
+        u8::from_str_radix(&normalized[0..2], 16).ok()?,
+        u8::from_str_radix(&normalized[2..4], 16).ok()?,
+        u8::from_str_radix(&normalized[4..6], 16).ok()?,
+    ])
+}
+
+fn calculate_pad_target(current_w: u32, current_h: u32, pad: &PadOptions) -> Option<(u32, u32)> {
+    if current_w == 0 || current_h == 0 {
+        return None;
+    }
+
+    let ratio_w = pad.ratio_width as f64;
+    let ratio_h = pad.ratio_height as f64;
+    if !ratio_w.is_finite() || !ratio_h.is_finite() || ratio_w <= 0.0 || ratio_h <= 0.0 {
+        return None;
+    }
+
+    let target_ratio = ratio_w / ratio_h;
+    let original_ratio = current_w as f64 / current_h as f64;
+    if (original_ratio - target_ratio).abs() < PAD_RATIO_EPSILON {
+        return None;
+    }
+
+    let (new_w, new_h) = if original_ratio > target_ratio {
+        (current_w, (current_w as f64 / target_ratio).round() as u32)
+    } else {
+        ((current_h as f64 * target_ratio).round() as u32, current_h)
+    };
+
+    let new_w = new_w.max(current_w);
+    let new_h = new_h.max(current_h);
+
+    if new_w > MAX_PAD_DIMENSION || new_h > MAX_PAD_DIMENSION {
+        log::warn!(
+            "Pad target {}x{} exceeds the maximum supported dimension; skipping padding.",
+            new_w,
+            new_h
+        );
+        return None;
+    }
+
+    if new_w == current_w && new_h == current_h {
+        return None;
+    }
+
+    Some((new_w, new_h))
+}
+
+fn compute_padded_geometry(
+    src_w: u32,
+    src_h: u32,
+    canvas_w: u32,
+    canvas_h: u32,
+    resize_opts: Option<&ResizeOptions>,
+) -> ExportGeometry {
+    let (final_w, final_h) = match resize_opts {
+        Some(opts) => calculate_resize_target(canvas_w, canvas_h, opts),
+        None => (canvas_w, canvas_h),
+    };
+
+    let photo_w =
+        ((src_w as f64 * final_w as f64 / canvas_w as f64).round() as u32).clamp(1, final_w.max(1));
+    let photo_h =
+        ((src_h as f64 * final_h as f64 / canvas_h as f64).round() as u32).clamp(1, final_h.max(1));
+
+    ExportGeometry {
+        canvas_w: final_w,
+        canvas_h: final_h,
+        photo_w,
+        photo_h,
+        offset_x: (final_w - photo_w) / 2,
+        offset_y: (final_h - photo_h) / 2,
+    }
+}
+
+fn compute_export_output_size(src_w: u32, src_h: u32, settings: &ExportSettings) -> (u32, u32) {
+    match settings
+        .pad
+        .as_ref()
+        .and_then(|pad| calculate_pad_target(src_w, src_h, pad))
+    {
+        Some((canvas_w, canvas_h)) => {
+            let geometry =
+                compute_padded_geometry(src_w, src_h, canvas_w, canvas_h, settings.resize.as_ref());
+            (geometry.canvas_w, geometry.canvas_h)
+        }
+        None => match &settings.resize {
+            Some(opts) => calculate_resize_target(src_w, src_h, opts),
+            None => (src_w, src_h),
+        },
+    }
+}
+
+fn pad_buffer<P>(
+    src: &ImageBuffer<P, Vec<P::Subpixel>>,
+    geometry: &ExportGeometry,
+    fill: P,
+) -> ImageBuffer<P, Vec<P::Subpixel>>
+where
+    P: image::Pixel + 'static,
+    P::Subpixel: 'static,
+{
+    let mut canvas = ImageBuffer::from_pixel(geometry.canvas_w, geometry.canvas_h, fill);
+    imageops::replace(
+        &mut canvas,
+        src,
+        geometry.offset_x as i64,
+        geometry.offset_y as i64,
+    );
+    canvas
+}
+
+fn pad_image_to_canvas(
+    image: &DynamicImage,
+    geometry: &ExportGeometry,
+    color: [u8; 3],
+) -> DynamicImage {
+    let [r, g, b] = color;
+    let to_16 = |value: u8| (value as u16) * 257;
+    let to_f32 = |value: u8| value as f32 / 255.0;
+
+    match image {
+        DynamicImage::ImageRgb8(buffer) => {
+            DynamicImage::ImageRgb8(pad_buffer(buffer, geometry, image::Rgb([r, g, b])))
+        }
+        DynamicImage::ImageRgba8(buffer) => DynamicImage::ImageRgba8(pad_buffer(
+            buffer,
+            geometry,
+            image::Rgba([r, g, b, u8::MAX]),
+        )),
+        DynamicImage::ImageRgb16(buffer) => DynamicImage::ImageRgb16(pad_buffer(
+            buffer,
+            geometry,
+            image::Rgb([to_16(r), to_16(g), to_16(b)]),
+        )),
+        DynamicImage::ImageRgba16(buffer) => DynamicImage::ImageRgba16(pad_buffer(
+            buffer,
+            geometry,
+            image::Rgba([to_16(r), to_16(g), to_16(b), u16::MAX]),
+        )),
+        DynamicImage::ImageRgb32F(buffer) => DynamicImage::ImageRgb32F(pad_buffer(
+            buffer,
+            geometry,
+            image::Rgb([to_f32(r), to_f32(g), to_f32(b)]),
+        )),
+        DynamicImage::ImageRgba32F(buffer) => DynamicImage::ImageRgba32F(pad_buffer(
+            buffer,
+            geometry,
+            image::Rgba([to_f32(r), to_f32(g), to_f32(b), 1.0f32]),
+        )),
+        other => DynamicImage::ImageRgba8(pad_buffer(
+            &other.to_rgba8(),
+            geometry,
+            image::Rgba([r, g, b, u8::MAX]),
+        )),
     }
 }
 
@@ -325,23 +521,84 @@ fn relative_export_dir_for_preserved_folders(
         })
 }
 
-fn apply_export_resize_and_watermark(
+fn apply_export_geometry(
     mut image: DynamicImage,
     export_settings: &ExportSettings,
-) -> Result<DynamicImage, String> {
-    if let Some(resize_opts) = &export_settings.resize {
-        let (current_w, current_h) = image.dimensions();
-        let (target_w, target_h) = calculate_resize_target(current_w, current_h, resize_opts);
+) -> Result<(DynamicImage, ExportGeometry), String> {
+    let (src_w, src_h) = image.dimensions();
+    let pad_target = export_settings
+        .pad
+        .as_ref()
+        .and_then(|pad| calculate_pad_target(src_w, src_h, pad));
 
-        if target_w != current_w || target_h != current_h {
-            image = image.resize(target_w, target_h, imageops::FilterType::Lanczos3);
+    match pad_target {
+        None => {
+            if let Some(resize_opts) = &export_settings.resize {
+                let (target_w, target_h) = calculate_resize_target(src_w, src_h, resize_opts);
+
+                if target_w != src_w || target_h != src_h {
+                    image = image.resize(target_w, target_h, imageops::FilterType::Lanczos3);
+                }
+            }
+
+            let (width, height) = image.dimensions();
+            Ok((
+                image,
+                ExportGeometry {
+                    canvas_w: width,
+                    canvas_h: height,
+                    photo_w: width,
+                    photo_h: height,
+                    offset_x: 0,
+                    offset_y: 0,
+                },
+            ))
+        }
+        Some((canvas_w, canvas_h)) => {
+            let geometry = compute_padded_geometry(
+                src_w,
+                src_h,
+                canvas_w,
+                canvas_h,
+                export_settings.resize.as_ref(),
+            );
+
+            if geometry.photo_w != src_w || geometry.photo_h != src_h {
+                image = image.resize_exact(
+                    geometry.photo_w,
+                    geometry.photo_h,
+                    imageops::FilterType::Lanczos3,
+                );
+            }
+
+            let color = export_settings
+                .pad
+                .as_ref()
+                .map(|pad| pad.rgb())
+                .unwrap_or([0, 0, 0]);
+
+            Ok((pad_image_to_canvas(&image, &geometry, color), geometry))
         }
     }
+}
+
+fn apply_export_geometry_and_watermark(
+    image: DynamicImage,
+    export_settings: &ExportSettings,
+) -> Result<(DynamicImage, ExportGeometry), String> {
+    let (mut image, geometry) = apply_export_geometry(image, export_settings)?;
 
     if let Some(watermark_settings) = &export_settings.watermark {
         apply_watermark(&mut image, watermark_settings)?;
     }
-    Ok(image)
+    Ok((image, geometry))
+}
+
+fn apply_export_resize_and_watermark(
+    image: DynamicImage,
+    export_settings: &ExportSettings,
+) -> Result<DynamicImage, String> {
+    Ok(apply_export_geometry_and_watermark(image, export_settings)?.0)
 }
 
 fn ensure_export_not_cancelled(cancellation_token: &AtomicBool) -> Result<(), String> {
@@ -836,15 +1093,28 @@ fn export_masks_for_image(
             )?;
             ensure_export_not_cancelled(cancellation_token)?;
 
-            let with_options = apply_export_resize_and_watermark(processed, export_settings)?;
-            let (out_w, out_h) = with_options.dimensions();
+            let (with_options, geometry) =
+                apply_export_geometry_and_watermark(processed, export_settings)?;
 
-            let alpha_resized = imageops::resize(
-                &mask_bitmaps[i],
-                out_w,
-                out_h,
-                imageops::FilterType::Lanczos3,
-            );
+            let alpha_scaled = if mask_bitmaps[i].width() == geometry.photo_w
+                && mask_bitmaps[i].height() == geometry.photo_h
+            {
+                mask_bitmaps[i].clone()
+            } else {
+                imageops::resize(
+                    &mask_bitmaps[i],
+                    geometry.photo_w,
+                    geometry.photo_h,
+                    imageops::FilterType::Lanczos3,
+                )
+            };
+
+            let alpha_resized: GrayImage =
+                if geometry.photo_w == geometry.canvas_w && geometry.photo_h == geometry.canvas_h {
+                    alpha_scaled
+                } else {
+                    pad_buffer(&alpha_scaled, &geometry, Luma([0u8]))
+                };
             ensure_export_not_cancelled(cancellation_token)?;
 
             let mask_image_path =
@@ -1485,6 +1755,7 @@ pub async fn run_headless_export(
         jpeg_quality: session.quality,
         tiff_bit_depth: session.tiff_bit_depth,
         resize: None,
+        pad: None,
         keep_metadata: session.keep_metadata,
         preserve_timestamps: true,
         strip_gps: false,
@@ -1693,11 +1964,8 @@ pub async fn estimate_export_sizes(
             apply_all_transformations(&loaded_image.image, &adjustments_clone);
         let (full_w, full_h) = transformed_full_res.dimensions();
 
-        let (final_full_w, final_full_h) = if let Some(resize_opts) = &export_settings.resize {
-            calculate_resize_target(full_w, full_h, resize_opts)
-        } else {
-            (full_w, full_h)
-        };
+        let (final_full_w, final_full_h) =
+            compute_export_output_size(full_w, full_h, &export_settings);
 
         let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
         let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
@@ -1832,11 +2100,8 @@ pub async fn estimate_export_sizes(
         let full_w = (shrunk_w as f32 / raw_scale_factor).round() as u32;
         let full_h = (shrunk_h as f32 / raw_scale_factor).round() as u32;
 
-        let (final_full_w, final_full_h) = if let Some(resize_opts) = &export_settings.resize {
-            calculate_resize_target(full_w, full_h, resize_opts)
-        } else {
-            (full_w, full_h)
-        };
+        let (final_full_w, final_full_h) =
+            compute_export_output_size(full_w, full_h, &export_settings);
 
         let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
         let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
