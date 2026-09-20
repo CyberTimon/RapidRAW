@@ -27,11 +27,14 @@ mod hdr_deghosting;
 mod image_loader;
 mod image_processing;
 mod inpainting;
+#[cfg(target_os = "linux")]
+mod kde_global_menu;
 mod launch_request;
 mod lens_blur;
 mod lens_correction;
 mod lut_processing;
 mod mask_generation;
+mod menu;
 mod multi_exposure;
 mod negative_conversion;
 mod panorama_stitching;
@@ -1694,6 +1697,21 @@ fn frontend_ready(
                 let _ = window.set_fullscreen(true);
             }
         }
+
+        #[cfg(target_os = "linux")]
+        if is_first_run
+            && std::env::var_os("WAYLAND_DISPLAY").is_some()
+            && std::env::var_os("RAPIDRAW_DISABLE_MENU").is_none()
+            && load_settings(app_handle.clone())
+                .map(|s| s.enable_global_menu.unwrap_or(false))
+                .unwrap_or(false)
+        {
+            let menu_app_handle = app_handle.clone();
+            let menu_window = window.clone();
+            tauri::async_runtime::spawn(async move {
+                kde_global_menu::install(menu_app_handle, menu_window).await;
+            });
+        }
     }
 
     let open_with_file = state.initial_file_path.lock().unwrap().take();
@@ -1932,6 +1950,49 @@ pub fn run() {
                 }
                 LaunchRequest::InvalidHeadless(_) => unreachable!("invalid headless arguments exit before app setup"),
                 _ => {}
+            }
+
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            {
+                // Escape hatch: the Linux native menu can stack-overflow on launch on systems
+                // where the GTK appmenu-gtk-module (used for KDE/Ubuntu global menu forwarding)
+                // is loaded (see https://github.com/tauri-apps/muda/issues/411). If that happens
+                // the user can't reach Settings to disable the toggle, so allow forcing it off
+                // via an env var as a way back into the app.
+                let menu_force_disabled = std::env::var_os("RAPIDRAW_DISABLE_MENU").is_some();
+                // On Wayland, KDE's Global Menu widget is reached through a different mechanism
+                // entirely (see kde_global_menu.rs, wired up from frontend_ready once the window
+                // is shown) rather than through muda's GTK/X11-only menu attachment.
+                #[cfg(target_os = "linux")]
+                let is_wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
+
+                #[cfg(target_os = "macos")]
+                let should_set_native_menu = !menu_force_disabled;
+                #[cfg(target_os = "linux")]
+                let should_set_native_menu =
+                    !menu_force_disabled && !is_wayland && settings.enable_global_menu.unwrap_or(false);
+                #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+                let should_set_native_menu = false;
+
+                if menu_force_disabled {
+                    log::info!("Native application menu disabled via RAPIDRAW_DISABLE_MENU.");
+                }
+
+                if should_set_native_menu {
+                    match menu::build_menu(&app_handle) {
+                        Ok(app_menu) => {
+                            if let Err(e) = app.set_menu(app_menu) {
+                                log::warn!("Failed to set application menu: {}", e);
+                            } else {
+                                let menu_emit_handle = app_handle.clone();
+                                app.on_menu_event(move |_app_handle, event| {
+                                    let _ = menu_emit_handle.emit("menu-action", event.id().0.clone());
+                                });
+                            }
+                        }
+                        Err(e) => log::warn!("Failed to build application menu: {}", e),
+                    }
+                }
             }
 
             start_preview_worker(app_handle.clone());

@@ -465,6 +465,8 @@ function App() {
     handleImageSelect,
     handlePasteFiles,
     handleZoomChange,
+    handleOpenFolder,
+    handleImportClick,
   });
 
   useEffect(() => {

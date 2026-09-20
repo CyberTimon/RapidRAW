@@ -461,6 +461,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub linux_gpu_optimization_migrated_v1: Option<bool>,
     #[serde(default)]
+    pub enable_global_menu: Option<bool>,
+    #[serde(default)]
     pub library_view_mode: Option<String>,
     #[serde(default = "default_export_presets")]
     pub export_presets: Vec<ExportPreset>,
@@ -582,6 +584,7 @@ impl Default for AppSettings {
             processing_backend: Some("auto".to_string()),
             linux_gpu_optimization: Some(false),
             linux_gpu_optimization_migrated_v1: Some(true),
+            enable_global_menu: Some(false),
             library_view_mode: Some("flat".to_string()),
             export_presets: default_export_presets(),
             my_lenses: Some(Vec::new()),

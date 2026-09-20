@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { toast } from 'react-toastify';
-import { ImageFile, Panel, ExifOverlay } from '../components/ui/AppProperties';
+import { open } from '@tauri-apps/plugin-shell';
+import { ImageFile, Panel, ExifOverlay, Invokes } from '../components/ui/AppProperties';
 import { KEYBIND_DEFINITIONS, normalizeCombo } from '../utils/keyboardUtils';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
@@ -18,6 +21,8 @@ interface KeyboardShortcutsProps {
   handleImageSelect(path: string, openInEditor?: boolean): void;
   handlePasteFiles(str: string): void;
   handleZoomChange(zoomValue: number, fitToWindow?: boolean): void;
+  handleOpenFolder?(): void;
+  handleImportClick?(targetPath: string): void;
 }
 
 export const useKeyboardShortcuts = ({
@@ -28,8 +33,18 @@ export const useKeyboardShortcuts = ({
   handleImageSelect,
   handlePasteFiles,
   handleZoomChange,
+  handleOpenFolder,
+  handleImportClick,
 }: KeyboardShortcutsProps) => {
-  const { handleRotate, handleCopyAdjustments, handlePasteAdjustments, toggleShowOriginal } = useEditorActions();
+  const {
+    handleRotate,
+    handleCopyAdjustments,
+    handlePasteAdjustments,
+    toggleShowOriginal,
+    handleResetAdjustments,
+    handleAutoAdjustments,
+    handleAutoLensCorrection,
+  } = useEditorActions();
   const { handleRate, handleSetColorLabel } = useLibraryActions();
 
   const sortedListRef = useRef(sortedImageList);
@@ -555,6 +570,175 @@ export const useKeyboardShortcuts = ({
           });
         },
       },
+      menu_open_folder: {
+        shouldFire: () => !!handleOpenFolder,
+        execute: () => handleOpenFolder?.(),
+      },
+      menu_import_images: {
+        shouldFire: () => !!handleImportClick,
+        execute: (_e: any, s: any) => {
+          if (!s.library.currentFolderPath || s.library.activeAlbumId) {
+            toast.info('Open a folder in the library first to import images into it.');
+            return;
+          }
+          handleImportClick?.(s.library.currentFolderPath);
+        },
+      },
+      menu_show_in_finder: {
+        shouldFire: () => true,
+        execute: (_e: any, s: any) => {
+          const path = s.editor.selectedImage?.path || s.library.libraryActivePath;
+          if (!path) {
+            toast.info('Select a photo first.');
+            return;
+          }
+          invoke(Invokes.ShowInFinder, { path }).catch((err: any) =>
+            toast.error(`Could not show file in file manager: ${err}`),
+          );
+        },
+      },
+      menu_reset_adjustments: {
+        shouldFire: () => true,
+        execute: () => handleResetAdjustments(),
+      },
+      menu_auto_adjust: {
+        shouldFire: (s: any) => !!s.editor.selectedImage?.isReady,
+        execute: () => handleAutoAdjustments(),
+      },
+      menu_auto_lens_correction: {
+        shouldFire: () => true,
+        execute: () => handleAutoLensCorrection(),
+      },
+      menu_denoise: {
+        shouldFire: () => true,
+        execute: (_e: any, s: any) => {
+          const paths = getImagePathsForCopy(s);
+          if (paths.length === 0) {
+            toast.info('Select at least one photo to denoise.');
+            return;
+          }
+          s.ui.setUI({
+            denoiseModalState: {
+              isOpen: true,
+              isProcessing: false,
+              previewBase64: null,
+              error: null,
+              targetPaths: paths,
+              progressMessage: null,
+              isRaw: s.editor.selectedImage?.isRaw || false,
+            },
+          });
+        },
+      },
+      menu_convert_negative: {
+        shouldFire: () => true,
+        execute: (_e: any, s: any) => {
+          const paths = getImagePathsForCopy(s);
+          if (paths.length === 0) {
+            toast.info('Select at least one photo to convert.');
+            return;
+          }
+          s.ui.setUI({ negativeModalState: { isOpen: true, targetPaths: paths } });
+        },
+      },
+      menu_frame_collage: {
+        shouldFire: () => true,
+        execute: (_e: any, s: any) => {
+          const paths = getImagePathsForCopy(s);
+          if (paths.length === 0 || paths.length > 9) {
+            toast.info('Select between 1 and 9 photos to create a collage.');
+            return;
+          }
+          const sourceImages = s.library.imageList.filter((img: ImageFile) => paths.includes(img.path));
+          s.ui.setUI({ collageModalState: { isOpen: true, sourceImages } });
+        },
+      },
+      menu_cull_selected: {
+        shouldFire: () => true,
+        execute: (_e: any, s: any) => {
+          const paths = getImagePathsForCopy(s);
+          if (paths.length < 2) {
+            toast.info('Select at least 2 photos to cull.');
+            return;
+          }
+          s.ui.setUI({
+            cullingModalState: { isOpen: true, progress: null, suggestions: null, error: null, pathsToCull: paths },
+          });
+        },
+      },
+      menu_stitch_panorama: {
+        shouldFire: () => true,
+        execute: (_e: any, s: any) => {
+          const paths = getImagePathsForCopy(s);
+          if (paths.length < 2 || paths.length > 30) {
+            toast.info('Select between 2 and 30 photos to stitch a panorama.');
+            return;
+          }
+          s.ui.setUI({
+            panoramaModalState: {
+              error: null,
+              finalImageBase64: null,
+              isOpen: true,
+              isProcessing: false,
+              progressMessage: null,
+              stitchingSourcePaths: paths,
+            },
+          });
+        },
+      },
+      menu_merge_hdr: {
+        shouldFire: () => true,
+        execute: (_e: any, s: any) => {
+          const paths = getImagePathsForCopy(s);
+          if (paths.length < 2 || paths.length > 9) {
+            toast.info('Select between 2 and 9 photos to merge to HDR.');
+            return;
+          }
+          s.ui.setUI({
+            hdrModalState: {
+              error: null,
+              finalImageBase64: null,
+              isOpen: true,
+              isProcessing: false,
+              progressMessage: null,
+              stitchingSourcePaths: paths,
+            },
+          });
+        },
+      },
+      menu_focus_stack: {
+        shouldFire: () => true,
+        execute: (_e: any, s: any) => {
+          const paths = getImagePathsForCopy(s);
+          if (paths.length < 2) {
+            toast.info('Select at least 2 photos to focus stack.');
+            return;
+          }
+          s.ui.setUI({
+            focusStackModalState: {
+              error: null,
+              finalImageBase64: null,
+              depthMapBase64: null,
+              isOpen: true,
+              isProcessing: false,
+              progressMessage: null,
+              sourcePaths: paths,
+            },
+          });
+        },
+      },
+      menu_tethering: {
+        shouldFire: () => true,
+        execute: (_e: any, s: any) => s.ui.setPanel(Panel.Tethering),
+      },
+      menu_open_github: {
+        shouldFire: () => true,
+        execute: () => open('https://github.com/CyberTimon/RapidRAW'),
+      },
+      menu_report_issue: {
+        shouldFire: () => true,
+        execute: () => open('https://github.com/CyberTimon/RapidRAW/issues/new'),
+      },
     };
 
     const builtinShortcuts = [
@@ -673,9 +857,18 @@ export const useKeyboardShortcuts = ({
       }
     };
 
+    const unlistenMenuPromise = listen<string>('menu-action', (event) => {
+      const state = getStoreState();
+      const handler = actions[event.payload];
+      if (handler && (!handler.shouldFire || handler.shouldFire(state))) {
+        handler.execute({ preventDefault: () => {} }, state);
+      }
+    });
+
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      unlistenMenuPromise.then((unlisten) => unlisten());
     };
   }, [
     handleBackToLibrary,
@@ -684,10 +877,15 @@ export const useKeyboardShortcuts = ({
     handleImageSelect,
     handlePasteFiles,
     handleZoomChange,
+    handleOpenFolder,
+    handleImportClick,
     handleRotate,
     handleCopyAdjustments,
     handleCopyImagePaths,
     handlePasteAdjustments,
+    handleResetAdjustments,
+    handleAutoAdjustments,
+    handleAutoLensCorrection,
     handleRate,
     handleSetColorLabel,
     toggleShowOriginal,
