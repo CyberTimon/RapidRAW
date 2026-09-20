@@ -821,12 +821,12 @@
       "saveWithMetadata": "メタデータを含めて保存"
     },
     "pad": {
-      "aspectRatio": "Aspect Ratio",
-      "backgroundColor": "Background Color",
-      "invalidRatio": "Enter a positive number for both width and height.",
-      "padToAspectRatio": "Pad to Aspect Ratio",
-      "ratioHeight": "Aspect ratio height",
-      "ratioWidth": "Aspect ratio width"
+      "aspectRatio": "アスペクト比",
+      "backgroundColor": "背景色",
+      "invalidRatio": "幅と高さに正の数を入力してください。",
+      "padToAspectRatio": "アスペクト比に合わせて余白を追加",
+      "ratioHeight": "アスペクト比の高さ",
+      "ratioWidth": "アスペクト比の幅"
     },
     "resize": {
       "dontEnlarge": "拡大しない",

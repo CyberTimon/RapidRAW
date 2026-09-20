@@ -845,12 +845,12 @@
       "saveWithMetadata": "Salva con Metadati"
     },
     "pad": {
-      "aspectRatio": "Aspect Ratio",
-      "backgroundColor": "Background Color",
-      "invalidRatio": "Enter a positive number for both width and height.",
-      "padToAspectRatio": "Pad to Aspect Ratio",
-      "ratioHeight": "Aspect ratio height",
-      "ratioWidth": "Aspect ratio width"
+      "aspectRatio": "Proporzioni",
+      "backgroundColor": "Colore Sfondo",
+      "invalidRatio": "Inserisci un numero positivo per larghezza e altezza.",
+      "padToAspectRatio": "Estendi alle Proporzioni",
+      "ratioHeight": "Altezza delle proporzioni",
+      "ratioWidth": "Larghezza delle proporzioni"
     },
     "resize": {
       "dontEnlarge": "Non Ingrandire",

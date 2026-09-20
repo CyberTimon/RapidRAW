@@ -821,12 +821,12 @@
       "saveWithMetadata": "메타데이터와 함께 저장"
     },
     "pad": {
-      "aspectRatio": "Aspect Ratio",
-      "backgroundColor": "Background Color",
-      "invalidRatio": "Enter a positive number for both width and height.",
-      "padToAspectRatio": "Pad to Aspect Ratio",
-      "ratioHeight": "Aspect ratio height",
-      "ratioWidth": "Aspect ratio width"
+      "aspectRatio": "종횡비",
+      "backgroundColor": "배경색",
+      "invalidRatio": "너비와 높이에 양수를 입력하세요.",
+      "padToAspectRatio": "종횡비에 맞춰 여백 추가",
+      "ratioHeight": "종횡비 높이",
+      "ratioWidth": "종횡비 너비"
     },
     "resize": {
       "dontEnlarge": "확대하지 않음",

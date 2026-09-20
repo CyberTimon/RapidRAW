@@ -867,12 +867,12 @@
       "saveWithMetadata": "Zapisz z metadanymi"
     },
     "pad": {
-      "aspectRatio": "Aspect Ratio",
-      "backgroundColor": "Background Color",
-      "invalidRatio": "Enter a positive number for both width and height.",
-      "padToAspectRatio": "Pad to Aspect Ratio",
-      "ratioHeight": "Aspect ratio height",
-      "ratioWidth": "Aspect ratio width"
+      "aspectRatio": "Proporcje",
+      "backgroundColor": "Kolor tła",
+      "invalidRatio": "Wprowadź liczbę dodatnią dla szerokości i wysokości.",
+      "padToAspectRatio": "Rozszerz do proporcji",
+      "ratioHeight": "Wysokość proporcji",
+      "ratioWidth": "Szerokość proporcji"
     },
     "resize": {
       "dontEnlarge": "Nie powiększaj",

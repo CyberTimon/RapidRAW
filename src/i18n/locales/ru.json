@@ -867,12 +867,12 @@
       "saveWithMetadata": "Сохранить с метаданными"
     },
     "pad": {
-      "aspectRatio": "Aspect Ratio",
-      "backgroundColor": "Background Color",
-      "invalidRatio": "Enter a positive number for both width and height.",
-      "padToAspectRatio": "Pad to Aspect Ratio",
-      "ratioHeight": "Aspect ratio height",
-      "ratioWidth": "Aspect ratio width"
+      "aspectRatio": "Соотношение сторон",
+      "backgroundColor": "Цвет фона",
+      "invalidRatio": "Введите положительное число для ширины и высоты.",
+      "padToAspectRatio": "Расширить до соотношения сторон",
+      "ratioHeight": "Высота соотношения сторон",
+      "ratioWidth": "Ширина соотношения сторон"
     },
     "resize": {
       "dontEnlarge": "Не увеличивать",

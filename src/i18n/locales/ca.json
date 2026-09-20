@@ -823,12 +823,12 @@
       "saveWithMetadata": "Desar amb metadades"
     },
     "pad": {
-      "aspectRatio": "Aspect Ratio",
-      "backgroundColor": "Background Color",
-      "invalidRatio": "Enter a positive number for both width and height.",
-      "padToAspectRatio": "Pad to Aspect Ratio",
-      "ratioHeight": "Aspect ratio height",
-      "ratioWidth": "Aspect ratio width"
+      "aspectRatio": "Relació d'aspecte",
+      "backgroundColor": "Color de fons",
+      "invalidRatio": "Introduïu un nombre positiu per a l'amplada i l'alçada.",
+      "padToAspectRatio": "Ampliar a la relació d'aspecte",
+      "ratioHeight": "Alçada de la relació d'aspecte",
+      "ratioWidth": "Amplada de la relació d'aspecte"
     },
     "resize": {
       "dontEnlarge": "No ampliar",

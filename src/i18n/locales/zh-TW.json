@@ -821,12 +821,12 @@
       "saveWithMetadata": "儲存時包含後設資料"
     },
     "pad": {
-      "aspectRatio": "Aspect Ratio",
-      "backgroundColor": "Background Color",
-      "invalidRatio": "Enter a positive number for both width and height.",
-      "padToAspectRatio": "Pad to Aspect Ratio",
-      "ratioHeight": "Aspect ratio height",
-      "ratioWidth": "Aspect ratio width"
+      "aspectRatio": "寬高比",
+      "backgroundColor": "背景顏色",
+      "invalidRatio": "請為寬度和高度輸入正數。",
+      "padToAspectRatio": "填充至寬高比",
+      "ratioHeight": "寬高比高度",
+      "ratioWidth": "寬高比寬度"
     },
     "resize": {
       "dontEnlarge": "不放大",
