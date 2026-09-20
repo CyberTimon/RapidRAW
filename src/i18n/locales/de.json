@@ -450,6 +450,10 @@
           "desc": "Harmonische Dreiecke",
           "name": "Dreiecke"
         },
+        "center": {
+          "desc": "Mittellinien",
+          "name": "Mitte"
+        },
         "diagonal": {
           "desc": "Diagonale Linien",
           "name": "Diagonalen"

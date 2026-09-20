@@ -448,6 +448,10 @@
           "desc": "骨架",
           "name": "骨架"
         },
+        "center": {
+          "desc": "中心線",
+          "name": "中心"
+        },
         "diagonal": {
           "desc": "對角線",
           "name": "對角線"
