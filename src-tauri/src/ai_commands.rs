@@ -34,6 +34,7 @@ fn encode_to_base64_png(image: &GrayImage) -> Result<String, String> {
     Ok(format!("data:image/png;base64,{}", base64_str))
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn generate_ai_foreground_mask(
     js_adjustments: serde_json::Value,
@@ -86,6 +87,7 @@ pub async fn generate_ai_foreground_mask(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn generate_ai_sky_mask(
     js_adjustments: serde_json::Value,
@@ -517,12 +519,11 @@ pub async fn precompute_ai_subject_mask(
 
     {
         let ai_state_lock = state.ai_state.lock().unwrap();
-        if let Some(ai_state) = ai_state_lock.as_ref() {
-            if let Some(cached_embeddings) = &ai_state.embeddings {
-                if cached_embeddings.path_hash == path_hash {
-                    return Ok(());
-                }
-            }
+        if let Some(ai_state) = ai_state_lock.as_ref()
+            && let Some(cached_embeddings) = &ai_state.embeddings
+            && cached_embeddings.path_hash == path_hash
+        {
+            return Ok(());
         }
     }
 

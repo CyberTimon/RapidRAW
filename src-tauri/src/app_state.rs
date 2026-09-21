@@ -85,10 +85,10 @@ impl<'a> AiTaskGuard<'a> {
 impl<'a> Drop for AiTaskGuard<'a> {
     fn drop(&mut self) {
         let mut tasks = self.active_ai_tasks.lock().unwrap();
-        if let Some(existing) = tasks.get(&self.task_id) {
-            if Arc::ptr_eq(existing, &self.token) {
-                tasks.remove(&self.task_id);
-            }
+        if let Some(existing) = tasks.get(&self.task_id)
+            && Arc::ptr_eq(existing, &self.token)
+        {
+            tasks.remove(&self.task_id);
         }
     }
 }

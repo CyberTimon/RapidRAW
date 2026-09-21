@@ -359,14 +359,14 @@ const CloudDashboard = () => {
             <Text variant={TextVariants.small}>
               {t('settings.processing.ai.cloud.signedIn.usageStats', {
                 requests: cloudUsage?.requests ?? 0,
-                limit: cloudUsage?.limit ?? 500,
+                limit: cloudUsage?.limit ?? 200,
               })}
             </Text>
           </div>
           <div className="w-full bg-bg-primary rounded-full h-2">
             <div
               className="bg-accent h-2 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, ((cloudUsage?.requests ?? 0) / (cloudUsage?.limit ?? 500)) * 100)}%` }}
+              style={{ width: `${Math.min(100, ((cloudUsage?.requests ?? 0) / (cloudUsage?.limit ?? 200)) * 100)}%` }}
             />
           </div>
         </div>

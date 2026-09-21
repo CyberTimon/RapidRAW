@@ -367,6 +367,7 @@ pub async fn generate_manual_cleanup_patch(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn invoke_generative_replace_with_mask_def(
     path: String,

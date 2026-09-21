@@ -220,7 +220,7 @@ const ConnectionStatus = ({
       statusText = t('editor.ai.connection.ready');
 
       const reqs = cloudUsage?.requests ?? 0;
-      const limit = cloudUsage?.limit ?? 500;
+      const limit = cloudUsage?.limit ?? 200;
       const percent = Math.min(100, (reqs / limit) * 100);
 
       hoverContent = (
