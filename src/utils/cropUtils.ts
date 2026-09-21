@@ -238,6 +238,36 @@ export function moveCropInsideBounds(
   };
 }
 
+export function fitCropTowards<T extends Crop>(from: T, to: T, isValid: (crop: T) => boolean): T {
+  if (isValid(to)) {
+    return to;
+  }
+
+  let low = 0;
+  let high = 1;
+  let bestCrop = from;
+
+  for (let i = 0; i < 15; i++) {
+    const mid = (low + high) / 2;
+    const testCrop: T = {
+      ...from,
+      x: from.x + (to.x - from.x) * mid,
+      y: from.y + (to.y - from.y) * mid,
+      width: from.width + (to.width - from.width) * mid,
+      height: from.height + (to.height - from.height) * mid,
+    };
+
+    if (isValid(testCrop)) {
+      bestCrop = testCrop;
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+
+  return bestCrop;
+}
+
 export function forceCropInBounds(crop: Crop, imageW: number, imageH: number, rotation: number): Crop {
   if (isCropWithinBounds(crop, imageW, imageH, rotation)) {
     return crop;
