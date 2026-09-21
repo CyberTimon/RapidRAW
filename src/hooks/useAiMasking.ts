@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { useEditorStore } from '../store/useEditorStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useEditorActions } from './useEditorActions';
+import { useCloudStore } from '../store/useCloudStore';
 import { Adjustments, AiPatch, MaskContainer, Coord } from '../utils/adjustments';
 import { SubMask } from '../components/panel/right/Masks';
 import { Invokes } from '../components/ui/AppProperties';
@@ -172,6 +173,9 @@ export function useAiMasking() {
           ),
         }));
         setEditor({ activeAiPatchContainerId: null, activeAiSubMaskId: null });
+        if (!useFastInpaint) {
+          useCloudStore.getState().fetchUsage(getToken);
+        }
       } catch (err: any) {
         if (!String(err).includes('cancelled')) {
           toast.error(`AI Replace Failed: ${err}`);

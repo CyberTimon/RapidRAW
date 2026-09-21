@@ -70,6 +70,7 @@ import { useProcessStore } from '../../../store/useProcessStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { useAiMasking } from '../../../hooks/useAiMasking';
+import { useCloudUsage } from '../../../hooks/useCloudUsage';
 
 export const STANDALONE_MASK_TYPES: Mask[] = [Mask.Clone, Mask.Heal, Mask.Liquify, Mask.Retouch];
 
@@ -355,40 +356,12 @@ export default function AIPanel() {
     handleCancelAiTask,
   } = useAiMasking();
 
-  const appSettings = useSettingsStore((s) => s.appSettings);
-  const aiProvider = appSettings?.aiProvider || 'cpu';
-
-  const { user, isSignedIn } = useUser();
-  const { getToken } = useAuth();
-  const isPro = user?.publicMetadata?.plan === 'pro';
-  const [cloudUsage, setCloudUsage] = useState<{ requests: number; limit: number; month: string } | null>(null);
+  const { cloudUsage, isSignedIn, isPro, aiProvider } = useCloudUsage();
 
   const isGenerativeAvailable =
-    (aiProvider === 'cloud' && !!isSignedIn && !!isPro) || (aiProvider === 'ai-connector' && isAIConnectorConnected);
+    (aiProvider === 'cloud' && isSignedIn && isPro) || (aiProvider === 'ai-connector' && isAIConnectorConnected);
 
   const hasAnyActiveAiTask = Object.keys(activeAiTasks).length > 0;
-
-  useEffect(() => {
-    if (aiProvider !== 'cloud' || !isSignedIn || !isPro) return;
-
-    const fetchUsage = async () => {
-      try {
-        const token = await getToken();
-        if (!token) return;
-
-        const res = await fetch('http://127.0.0.1:5000/usage', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          setCloudUsage(await res.json());
-        }
-      } catch (e) {
-        console.error('Failed to fetch cloud usage', e);
-      }
-    };
-
-    fetchUsage();
-  }, [aiProvider, isSignedIn, isPro, getToken]);
 
   const setBrushSettings = useCallback(
     (updater: any) =>
@@ -1122,8 +1095,18 @@ export default function AIPanel() {
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0 p-3">
+          <div className="mb-4 shrink-0">
+            <ConnectionStatus
+              aiProvider={aiProvider}
+              isAIConnectorConnected={isAIConnectorConnected}
+              isSignedIn={!!isSignedIn}
+              isPro={!!isPro}
+              cloudUsage={cloudUsage}
+            />
+          </div>
+
           {!selectedImage ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center flex-1">
               <Text
                 variant={TextVariants.heading}
                 color={TextColors.secondary}
@@ -1146,15 +1129,7 @@ export default function AIPanel() {
                     className="z-10 shrink-0"
                     onClick={handleDeselect}
                   >
-                    <ConnectionStatus
-                      aiProvider={aiProvider}
-                      isAIConnectorConnected={isAIConnectorConnected}
-                      isSignedIn={!!isSignedIn}
-                      isPro={!!isPro}
-                      cloudUsage={cloudUsage}
-                    />
-
-                    <Text variant={TextVariants.heading} className="mb-2 mt-6">
+                    <Text variant={TextVariants.heading} className="mb-2">
                       {t('editor.ai.manualCleanupTitle')}
                     </Text>
                     <div className="grid grid-cols-3 gap-2 mb-6" onClick={(e) => e.stopPropagation()}>
@@ -1302,6 +1277,7 @@ export default function AIPanel() {
                       setCollapsibleState={setCollapsibleState}
                       isGenerativeAvailable={isGenerativeAvailable}
                       onManualCleanup={handleDirectPatch}
+                      aiProvider={aiProvider}
                     />
                   </motion.div>
                 )}
@@ -1980,6 +1956,7 @@ function SettingsPanel({
   setCollapsibleState,
   isGenerativeAvailable,
   onManualCleanup,
+  aiProvider,
 }: any) {
   const { t } = useTranslation();
   const isActive = !!container;
@@ -1989,6 +1966,7 @@ function SettingsPanel({
   const [useFastInpaint, setUseFastInpaint] = useState(!isGenerativeAvailable);
   const prevContainerId = useRef<string | null>(null);
 
+  const isCloud = aiProvider === 'cloud';
   const isContainerRunning = Boolean(activeAiTasks[displayContainer.id]) || Boolean(displayContainer.isLoading);
 
   useEffect(() => {
@@ -2021,8 +1999,9 @@ function SettingsPanel({
 
   const handleGenerateClick = () => {
     if (!container) return;
-    updateContainer(container.id, { prompt });
-    onGenerativeReplace(container.id, prompt, useFastInpaint);
+    const finalPrompt = isCloud ? '' : prompt;
+    updateContainer(container.id, { prompt: finalPrompt });
+    onGenerativeReplace(container.id, finalPrompt, useFastInpaint);
   };
 
   const handleToggleSection = (section: string) =>
@@ -2080,7 +2059,7 @@ function SettingsPanel({
               />
 
               <AnimatePresence>
-                {!useFastInpaint && (
+                {!useFastInpaint && !isCloud && (
                   <motion.div
                     animate={{ opacity: 1, height: 'auto', marginTop: '0.75rem' }}
                     className="overflow-hidden"
@@ -2092,9 +2071,7 @@ function SettingsPanel({
                       <Input
                         className="grow"
                         disabled={isContainerRunning}
-                        onChange={(e: any) => {
-                          setPrompt(e.target.value);
-                        }}
+                        onChange={(e: any) => setPrompt(e.target.value)}
                         onBlur={() => isActive && updateContainer(container.id, { prompt })}
                         onKeyDown={(e: any) => {
                           if (e.key === 'Enter' && !isContainerRunning) handleGenerateClick();

@@ -44,6 +44,7 @@ import {
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
+import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
 import { RotateCcw } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
@@ -275,7 +276,7 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
     () => [
       { id: 'cpu', label: t('settings.processing.ai.providers.cpu'), icon: Cpu },
       { id: 'ai-connector', label: t('settings.processing.ai.providers.aiConnector'), icon: Server },
-      //{ id: 'cloud', label: t('settings.processing.ai.providers.cloud'), icon: Cloud },
+      { id: 'cloud', label: t('settings.processing.ai.providers.cloud'), icon: Cloud },
     ],
     [t],
   );
@@ -315,30 +316,9 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
 
 const CloudDashboard = () => {
   const { user } = useUser();
-  const { getToken } = useAuth();
   const { signOut } = useClerk();
-  const [usage, setUsage] = useState<{ requests: number; limit: number; month: string } | null>(null);
   const { t } = useTranslation();
-
-  useEffect(() => {
-    const fetchUsage = async () => {
-      try {
-        const token = await getToken();
-        if (!token) return;
-        const res = await fetch('http://127.0.0.1:5000/usage', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          setUsage(await res.json());
-        }
-      } catch (e) {
-        console.error('Failed to fetch cloud usage', e);
-      }
-    };
-    fetchUsage();
-  }, [getToken]);
-
-  const isPro = user?.publicMetadata?.plan === 'pro';
+  const { cloudUsage, isPro } = useCloudUsage();
 
   return (
     <div className="space-y-4">
@@ -378,15 +358,15 @@ const CloudDashboard = () => {
             <Text variant={TextVariants.label}>{t('settings.processing.ai.cloud.signedIn.usage')}</Text>
             <Text variant={TextVariants.small}>
               {t('settings.processing.ai.cloud.signedIn.usageStats', {
-                requests: usage?.requests ?? 0,
-                limit: usage?.limit ?? 500,
+                requests: cloudUsage?.requests ?? 0,
+                limit: cloudUsage?.limit ?? 500,
               })}
             </Text>
           </div>
           <div className="w-full bg-bg-primary rounded-full h-2">
             <div
               className="bg-accent h-2 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, ((usage?.requests ?? 0) / (usage?.limit ?? 500)) * 100)}%` }}
+              style={{ width: `${Math.min(100, ((cloudUsage?.requests ?? 0) / (cloudUsage?.limit ?? 500)) * 100)}%` }}
             />
           </div>
         </div>
@@ -2370,7 +2350,7 @@ export default function SettingsPanel({
                                     <Text variant={TextVariants.small}>
                                       {t('settings.processing.ai.cloud.signedOut.noAccount')}{' '}
                                       <button
-                                        onClick={() => open('https://www.getrapidraw.com/dashboard')}
+                                        onClick={() => open('https://www.getrapidraw.com/cloud')}
                                         className="text-accent hover:underline focus:outline-none"
                                       >
                                         {t('settings.processing.ai.cloud.signedOut.signup')}
