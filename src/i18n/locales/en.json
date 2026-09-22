@@ -1324,14 +1324,19 @@
       "title": "Merge to HDR"
     },
     "importSettings": {
+      "applyAutoAdjustments": "Apply automatic edits to every image",
+      "applyPreset": "Apply a preset to every image",
       "cancel": "Cancel",
       "dateFormat": "Date Format",
       "dateFormatPlaceholder": "e.g., YYYY/MM-DD",
       "deleteAfterImport": "Delete originals after successful import",
       "deleteWarning": "Files will be moved to the system trash.",
+      "editsOnImport": "Edits on Import",
+      "editsOnImportHint": "Automatic edits include lens correction when the lens can be identified from EXIF; images without a match are left uncorrected.",
       "fileNaming": "File Naming",
       "folderOrganization": "Folder Organization",
       "organizeByDate": "Organize into subfolders by date",
+      "presetNone": "None",
       "sourceFiles": "Source Files",
       "startImport": "Start Import",
       "title": "Import Settings"

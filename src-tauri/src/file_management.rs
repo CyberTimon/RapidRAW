@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
@@ -94,10 +94,11 @@ fn resolve_image_metadata(
     enable_xmp_sync: bool,
     settings: &AppSettings,
 ) -> ImageFileMetadata {
+    let sidecar_existed = sidecar_path.exists();
     let mut metadata = crate::exif_processing::load_sidecar(sidecar_path);
 
     if enable_xmp_sync
-        && sync_metadata_from_xmp(image_path, &mut metadata)
+        && sync_metadata_from_xmp(image_path, &mut metadata, !sidecar_existed)
         && let Ok(json) = serde_json::to_string_pretty(&metadata)
     {
         let _ = fs::write(sidecar_path, json);
@@ -382,6 +383,10 @@ pub struct ImportSettings {
     pub organize_by_date: bool,
     pub date_folder_format: String,
     pub delete_after_import: bool,
+    #[serde(default)]
+    pub apply_auto_adjustments: bool,
+    #[serde(default)]
+    pub preset_adjustments: Option<Value>,
 }
 
 pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
@@ -2330,6 +2335,10 @@ fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, S
         associated_files.push(rrexif_path);
     }
 
+    if let Some(xmp_path) = resolve_xmp_path(source_image_path) {
+        associated_files.push(xmp_path);
+    }
+
     let parent_dir = source_image_path
         .parent()
         .ok_or("Could not determine parent directory")?;
@@ -2880,6 +2889,134 @@ pub async fn apply_auto_lens_correction_to_paths(
     Ok(())
 }
 
+/// Merge `incoming` adjustment keys into `target`, deep-merging only `sectionVisibility`
+/// so that visibility flags set elsewhere are preserved.
+fn merge_adjustment_values(
+    target: &mut serde_json::Map<String, Value>,
+    incoming: &serde_json::Map<String, Value>,
+) {
+    for (k, v) in incoming {
+        if k == "sectionVisibility" {
+            if let Some(existing_vis) = target.get_mut(k) {
+                if let (Some(existing_map), Some(new_map)) =
+                    (existing_vis.as_object_mut(), v.as_object())
+                {
+                    for (vk, vv) in new_map {
+                        existing_map.insert(vk.clone(), vv.clone());
+                    }
+                } else {
+                    target.insert(k.clone(), v.clone());
+                }
+            } else {
+                target.insert(k.clone(), v.clone());
+            }
+        } else {
+            target.insert(k.clone(), v.clone());
+        }
+    }
+}
+
+/// Apply auto analysis and/or a preset to a single image's sidecar. When `apply_auto` is set the
+/// automatic lens correction is folded in as well (`lensCorrectionMode = "auto"`); images whose
+/// lens cannot be resolved from EXIF simply keep no lens params and are left uncorrected.
+///
+/// Returns the decoded base image when this function had to load one, so callers can reuse it for
+/// thumbnail regeneration.
+pub fn apply_import_edits_to_sidecar(
+    source_path: &Path,
+    sidecar_path: &Path,
+    apply_auto: bool,
+    preset_adjustments: Option<&Value>,
+    settings: &AppSettings,
+    lens_db: Option<&crate::lens_correction::LensDatabase>,
+    preloaded_image: Option<&DynamicImage>,
+) -> Result<Option<DynamicImage>, String> {
+    let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
+    let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
+
+    let mut existing_metadata = crate::exif_processing::load_sidecar(sidecar_path);
+    if existing_metadata.adjustments.is_null() {
+        existing_metadata.adjustments = serde_json::json!({});
+    }
+
+    let mut owned_image: Option<DynamicImage> = None;
+
+    if apply_auto {
+        let image_ref: &DynamicImage = match preloaded_image {
+            Some(img) => img,
+            None => {
+                let source_path_str = source_path.to_string_lossy().to_string();
+                let file_bytes = fs::read(source_path).map_err(|e| e.to_string())?;
+                let img = image_loader::load_base_image_from_bytes(
+                    &file_bytes,
+                    &source_path_str,
+                    true,
+                    settings,
+                    None,
+                )
+                .map_err(|e| e.to_string())?;
+                owned_image = Some(img);
+                owned_image.as_ref().unwrap()
+            }
+        };
+
+        let auto_json = auto_results_to_json(&perform_auto_analysis(image_ref));
+        if let (Some(target), Some(incoming)) = (
+            existing_metadata.adjustments.as_object_mut(),
+            auto_json.as_object(),
+        ) {
+            merge_adjustment_values(target, incoming);
+        }
+    }
+
+    if let Some(preset) = preset_adjustments
+        && let (Some(target), Some(incoming)) = (
+            existing_metadata.adjustments.as_object_mut(),
+            preset.as_object(),
+        )
+    {
+        merge_adjustment_values(target, incoming);
+    }
+
+    if apply_auto && let Some(map) = existing_metadata.adjustments.as_object_mut() {
+        map.insert("lensCorrectionMode".to_string(), serde_json::json!("auto"));
+        for key in [
+            "lensDistortionEnabled",
+            "lensTcaEnabled",
+            "lensVignetteEnabled",
+        ] {
+            map.entry(key.to_string())
+                .or_insert(serde_json::json!(true));
+        }
+    }
+
+    let is_auto_lens = existing_metadata
+        .adjustments
+        .get("lensCorrectionMode")
+        .and_then(|v| v.as_str())
+        == Some("auto");
+    if is_auto_lens {
+        let exif_for_lens: Option<HashMap<String, String>> =
+            crate::exif_processing::read_rrexif_sidecar(source_path)
+                .or_else(|| existing_metadata.exif.clone());
+        resolve_lens_params_in_adjustments(
+            &mut existing_metadata.adjustments,
+            &exif_for_lens,
+            lens_db,
+        );
+    }
+
+    if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
+        let _ = std::fs::write(sidecar_path, json_string);
+    }
+
+    if enable_xmp_sync {
+        sync_metadata_to_xmp(source_path, &existing_metadata, create_xmp_if_missing);
+    }
+
+    Ok(owned_image)
+}
+
 #[tauri::command]
 pub async fn apply_auto_adjustments_to_paths(
     paths: Vec<String>,
@@ -2890,10 +3027,9 @@ pub async fn apply_auto_adjustments_to_paths(
 
     tauri::async_runtime::spawn_blocking(move || {
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
-        let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
-        let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
         let state = app_handle.state::<AppState>();
+        let lens_db = state.lens_db.lock().unwrap().clone();
         let thumb_cache_dir = match resolve_thumbnail_cache_dir(&app_handle) {
             Ok(dir) => dir,
             Err(e) => {
@@ -2911,63 +3047,19 @@ pub async fn apply_auto_adjustments_to_paths(
         let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
 
         paths.par_iter().for_each(|path| {
-            let loaded_image: Option<DynamicImage> = (|| -> Result<DynamicImage, String> {
-                let (source_path, sidecar_path) = parse_virtual_path(path);
-                let source_path_str = source_path.to_string_lossy().to_string();
-
-                let file_bytes = fs::read(&source_path).map_err(|e| e.to_string())?;
-                let image = image_loader::load_base_image_from_bytes(
-                    &file_bytes,
-                    &source_path_str,
-                    true,
-                    &settings,
-                    None,
-                )
-                .map_err(|e| e.to_string())?;
-
-                let auto_results = perform_auto_analysis(&image);
-                let auto_adjustments_json = auto_results_to_json(&auto_results);
-
-                let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
-
-                if existing_metadata.adjustments.is_null() {
-                    existing_metadata.adjustments = serde_json::json!({});
-                }
-
-                if let (Some(existing_map), Some(auto_map)) = (
-                    existing_metadata.adjustments.as_object_mut(),
-                    auto_adjustments_json.as_object(),
-                ) {
-                    for (k, v) in auto_map {
-                        if k == "sectionVisibility" {
-                            if let Some(existing_vis_val) = existing_map.get_mut(k) {
-                                if let (Some(existing_vis), Some(auto_vis)) =
-                                    (existing_vis_val.as_object_mut(), v.as_object())
-                                {
-                                    for (vis_k, vis_v) in auto_vis {
-                                        existing_vis.insert(vis_k.clone(), vis_v.clone());
-                                    }
-                                }
-                            } else {
-                                existing_map.insert(k.clone(), v.clone());
-                            }
-                        } else {
-                            existing_map.insert(k.clone(), v.clone());
-                        }
-                    }
-                }
-
-                if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
-                    let _ = std::fs::write(&sidecar_path, json_string);
-                }
-
-                if enable_xmp_sync {
-                    sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
-                }
-                Ok(image)
-            })()
+            let (source_path, sidecar_path) = parse_virtual_path(path);
+            let loaded_image: Option<DynamicImage> = apply_import_edits_to_sidecar(
+                &source_path,
+                &sidecar_path,
+                true,
+                None,
+                &settings,
+                lens_db.as_deref(),
+                None,
+            )
             .map_err(|e| eprintln!("Failed to apply auto adjustments to {}: {}", path, e))
-            .ok();
+            .ok()
+            .flatten();
 
             let result = generate_single_thumbnail_and_cache(
                 path,
@@ -3079,7 +3171,7 @@ pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadat
     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
     if enable_xmp_sync
-        && sync_metadata_from_xmp(&source_path, &mut metadata)
+        && sync_metadata_from_xmp(&source_path, &mut metadata, true)
         && let Ok(json) = serde_json::to_string_pretty(&metadata)
     {
         let _ = fs::write(&sidecar_path, json);
@@ -3548,6 +3640,10 @@ fn deletion_stem_for(filename: &str) -> Option<&str> {
         }
     } else if filename.ends_with(".rrexif") {
         filename.trim_end_matches(".rrexif")
+    } else if filename.ends_with(".xmp") {
+        filename.trim_end_matches(".xmp")
+    } else if filename.ends_with(".XMP") {
+        filename.trim_end_matches(".XMP")
     } else if is_supported_image_file(filename) {
         filename
     } else {
@@ -3726,13 +3822,23 @@ pub async fn import_files(
     let _ = app_handle.emit("import-start", serde_json::json!({ "total": total_files }));
 
     tauri::async_runtime::spawn_blocking(move || {
+        let apply_edits = settings.apply_auto_adjustments || settings.preset_adjustments.is_some();
+        let app_settings = load_settings(app_handle.clone()).unwrap_or_default();
+        let lens_db = app_handle
+            .state::<AppState>()
+            .lens_db
+            .lock()
+            .unwrap()
+            .clone();
+        let mut imported_dest_paths: Vec<PathBuf> = Vec::new();
+
         for (i, source_path_str) in source_paths.iter().enumerate() {
             let _ = app_handle.emit(
                 "import-progress",
                 serde_json::json!({ "current": i, "total": total_files, "path": source_path_str }),
             );
 
-            let import_result: Result<(), String> = (|| {
+            let import_result: Result<Option<PathBuf>, String> = (|| {
                 #[cfg(target_os = "android")]
                 if is_android_content_uri(source_path_str) {
                     let resolved_name = resolve_android_content_uri_name(source_path_str)?;
@@ -3787,7 +3893,7 @@ pub async fn import_files(
                         );
                     }
 
-                    return Ok(());
+                    return Ok(Some(dest_file_path));
                 }
 
                 let (source_path, source_sidecar) = parse_virtual_path(source_path_str);
@@ -3851,6 +3957,11 @@ pub async fn import_files(
                     let _ = fs::copy(&source_rrexif, &dest_rrexif);
                 }
 
+                if let Some(source_xmp) = resolve_xmp_path(&source_path) {
+                    let dest_xmp = dest_file_path.with_extension("xmp");
+                    let _ = fs::copy(&source_xmp, &dest_xmp);
+                }
+
                 if settings.delete_after_import {
                     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
                     {
@@ -3890,14 +4001,63 @@ pub async fn import_files(
                     }
                 }
 
-                Ok(())
+                Ok(Some(dest_file_path))
             })();
 
-            if let Err(e) = import_result {
-                eprintln!("Failed to import {}: {}", source_path_str, e);
-                let _ = app_handle.emit("import-error", e);
-                continue;
+            match import_result {
+                Ok(Some(dest_file_path)) => {
+                    imported_dest_paths.push(dest_file_path);
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    eprintln!("Failed to import {}: {}", source_path_str, e);
+                    let _ = app_handle.emit("import-error", e);
+                    return;
+                }
             }
+        }
+
+        // Capture the camera rating / color label / keywords from a sidecar or embedded XMP
+        // into the .rrdata sidecar right away, so it cannot be shadowed later by a skeleton
+        // .xmp (created by AI tagging or the first edit) that starts at rating 0.
+        if app_settings.enable_xmp_sync.unwrap_or(false) {
+            imported_dest_paths.par_iter().for_each(|dest_file_path| {
+                let dest_str = dest_file_path.to_string_lossy().to_string();
+                let (_, sidecar_path) = parse_virtual_path(&dest_str);
+                let mut meta = crate::exif_processing::load_sidecar(&sidecar_path);
+                if sync_metadata_from_xmp(dest_file_path, &mut meta, true)
+                    && let Ok(json) = serde_json::to_string_pretty(&meta)
+                {
+                    let _ = fs::write(&sidecar_path, json);
+                }
+            });
+        }
+
+        if apply_edits && !imported_dest_paths.is_empty() {
+            let _ = app_handle.emit(
+                "import-progress",
+                serde_json::json!({ "current": total_files, "total": total_files, "path": "Applying edits" }),
+            );
+            let preset_adjustments = settings.preset_adjustments.as_ref();
+            imported_dest_paths.par_iter().for_each(|dest_file_path| {
+                let dest_str = dest_file_path.to_string_lossy().to_string();
+                let (_, sidecar_path) = parse_virtual_path(&dest_str);
+                if let Err(e) = apply_import_edits_to_sidecar(
+                    dest_file_path,
+                    &sidecar_path,
+                    settings.apply_auto_adjustments,
+                    preset_adjustments,
+                    &app_settings,
+                    lens_db.as_deref(),
+                    None,
+                ) {
+                    eprintln!(
+                        "Failed to apply import edits to {}: {}",
+                        dest_file_path.display(),
+                        e
+                    );
+                }
+            });
         }
 
         let _ = app_handle.emit(
@@ -4149,14 +4309,88 @@ pub fn resolve_xmp_path(image_path: &Path) -> Option<PathBuf> {
     }
 }
 
-pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) -> bool {
-    let actual_xmp = resolve_xmp_path(source_path);
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return None;
+    }
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+/// Scan an image file for an embedded XMP packet (`<?xpacket begin=…?> … <?xpacket end=…?>`).
+/// Cameras like Sony and phone exports store the rating/label there instead of a `.xmp` sidecar.
+/// Reads sequentially in chunks and stops as soon as the packet is complete.
+fn read_embedded_xmp_packet(source_path: &Path) -> Option<String> {
+    const CHUNK_SIZE: usize = 64 * 1024;
+    const MAX_XMP_PACKET_SIZE: usize = 16 * 1024 * 1024;
+    const XMP_START: &[u8] = b"<?xpacket begin=";
+    const XMP_END: &[u8] = b"<?xpacket end=";
+    const XMP_CLOSE: &[u8] = b"?>";
+
+    let mut file = fs::File::open(source_path).ok()?;
+    let mut chunk = vec![0u8; CHUNK_SIZE];
+    let mut pending = Vec::new();
+    let mut packet: Option<Vec<u8>> = None;
+
+    loop {
+        let read = file.read(&mut chunk).ok()?;
+        if read == 0 {
+            return None;
+        }
+
+        if let Some(packet_bytes) = packet.as_mut() {
+            packet_bytes.extend_from_slice(&chunk[..read]);
+            if packet_bytes.len() > MAX_XMP_PACKET_SIZE {
+                return None;
+            }
+            if let Some(end_idx) = find_bytes(packet_bytes, XMP_END)
+                && let Some(close_idx) = find_bytes(&packet_bytes[end_idx..], XMP_CLOSE)
+            {
+                let packet_end = end_idx + close_idx + XMP_CLOSE.len();
+                packet_bytes.truncate(packet_end);
+                return String::from_utf8(std::mem::take(packet_bytes)).ok();
+            }
+        } else {
+            pending.extend_from_slice(&chunk[..read]);
+            if let Some(start_idx) = find_bytes(&pending, XMP_START) {
+                let mut packet_bytes = pending.split_off(start_idx);
+                pending.clear();
+
+                if let Some(end_idx) = find_bytes(&packet_bytes, XMP_END)
+                    && let Some(close_idx) = find_bytes(&packet_bytes[end_idx..], XMP_CLOSE)
+                {
+                    let packet_end = end_idx + close_idx + XMP_CLOSE.len();
+                    packet_bytes.truncate(packet_end);
+                    return String::from_utf8(packet_bytes).ok();
+                }
+
+                if packet_bytes.len() > MAX_XMP_PACKET_SIZE {
+                    return None;
+                }
+                packet = Some(packet_bytes);
+            } else {
+                let keep = XMP_START.len().saturating_sub(1);
+                if pending.len() > keep {
+                    pending.drain(..pending.len() - keep);
+                }
+            }
+        }
+    }
+}
+
+pub fn sync_metadata_from_xmp(
+    source_path: &Path,
+    metadata: &mut ImageMetadata,
+    scan_embedded: bool,
+) -> bool {
+    let content_opt: Option<String> = match resolve_xmp_path(source_path) {
+        Some(xmp_file) => fs::read_to_string(&xmp_file).ok(),
+        None if scan_embedded => read_embedded_xmp_packet(source_path),
+        None => None,
+    };
 
     let mut changed = false;
 
-    if let Some(xmp_file) = actual_xmp
-        && let Ok(content) = fs::read_to_string(&xmp_file)
-    {
+    if let Some(content) = content_opt {
         if metadata.rating == 0
             && let Some(rating) = extract_xmp_rating(&content)
             && rating != 0
@@ -4310,5 +4544,61 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         let _ = fs::write(&xmp_file, content);
+    }
+}
+
+#[cfg(test)]
+mod xmp_embedded_tests {
+    use super::*;
+    use std::io::Write;
+
+    fn write_temp(name: &str, bytes: &[u8]) -> PathBuf {
+        let mut p = std::env::temp_dir();
+        p.push(format!("rapidraw_xmp_test_{}_{}", std::process::id(), name));
+        let mut f = fs::File::create(&p).unwrap();
+        f.write_all(bytes).unwrap();
+        p
+    }
+
+    #[test]
+    fn reads_rating_from_embedded_xmp_packet() {
+        let mut buf = vec![0u8; 200_000];
+        buf.extend_from_slice(
+            b"<?xpacket begin='\xef\xbb\xbf' id='W5M0MpCehiHzreSzNTczkc9d'?>\n\
+              <x:xmpmeta xmlns:x='adobe:ns:meta/'>\n\
+              <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>\n\
+              <rdf:Description rdf:about='' xmlns:xmp='http://ns.adobe.com/xap/1.0/'>\n\
+              <xmp:Rating>5</xmp:Rating>\n</rdf:Description>\n</rdf:RDF>\n</x:xmpmeta>\n\
+              <?xpacket end='w'?>",
+        );
+        buf.extend_from_slice(&vec![0xffu8; 50_000]);
+
+        let path = write_temp("rating.bin", &buf);
+        let packet = read_embedded_xmp_packet(&path).expect("packet found");
+        assert!(packet.contains("<xmp:Rating>5</xmp:Rating>"));
+        assert_eq!(extract_xmp_rating(&packet), Some(5));
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn returns_none_when_no_packet() {
+        let path = write_temp("nopacket.bin", &vec![0x11u8; 400_000]);
+        assert!(read_embedded_xmp_packet(&path).is_none());
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn sync_skips_embedded_scan_when_disabled() {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(
+            b"<?xpacket begin='' id='x'?><xmp:Rating>3</xmp:Rating><?xpacket end='w'?>",
+        );
+        let path = write_temp("gated.bin", &buf);
+        let mut meta = ImageMetadata::default();
+        assert!(!sync_metadata_from_xmp(&path, &mut meta, false));
+        assert_eq!(meta.rating, 0);
+        assert!(sync_metadata_from_xmp(&path, &mut meta, true));
+        assert_eq!(meta.rating, 3);
+        let _ = fs::remove_file(&path);
     }
 }
