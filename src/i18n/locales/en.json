@@ -432,6 +432,9 @@
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Height",
+        "removeTooltip": "Remove saved aspect ratio",
+        "saveTooltip": "Save aspect ratio as preset",
+        "savedTooltip": "Saved aspect ratio {{ratio}}",
         "wPlaceholder": "W",
         "wTooltip": "Width"
       },

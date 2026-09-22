@@ -452,6 +452,9 @@
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Altura",
+        "removeTooltip": "Eliminar la relación de aspecto guardada",
+        "saveTooltip": "Guardar la relación de aspecto como preajuste",
+        "savedTooltip": "Relación de aspecto guardada {{ratio}}",
         "wPlaceholder": "An",
         "wTooltip": "Anchura"
       },

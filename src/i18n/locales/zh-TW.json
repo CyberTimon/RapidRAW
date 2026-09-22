@@ -430,6 +430,9 @@
       "custom": {
         "hPlaceholder": "高",
         "hTooltip": "高度",
+        "removeTooltip": "刪除已儲存的寬高比",
+        "saveTooltip": "將寬高比儲存為預設",
+        "savedTooltip": "已儲存的寬高比 {{ratio}}",
         "wPlaceholder": "寬",
         "wTooltip": "寬度"
       },

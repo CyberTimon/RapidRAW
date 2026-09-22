@@ -73,6 +73,12 @@ pub struct MyLens {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CustomAspectRatio {
+    pub width: f64,
+    pub height: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum PasteMode {
     Merge,
@@ -537,6 +543,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub always_decode_raw_thumbnails: Option<bool>,
     #[serde(default)]
+    pub custom_aspect_ratios: Vec<CustomAspectRatio>,
+    #[serde(default)]
     pub workspace: WorkspaceState,
 }
 
@@ -632,6 +640,7 @@ impl Default for AppSettings {
             group_associated_files: Some(false),
             group_preferred_type: Some("raw".to_string()),
             always_decode_raw_thumbnails: Some(false),
+            custom_aspect_ratios: Vec::new(),
             workspace: WorkspaceState::default(),
         }
     }

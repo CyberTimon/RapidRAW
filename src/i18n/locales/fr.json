@@ -452,6 +452,9 @@
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Hauteur",
+        "removeTooltip": "Supprimer le rapport d'aspect enregistré",
+        "saveTooltip": "Enregistrer le rapport d'aspect comme préréglage",
+        "savedTooltip": "Rapport d'aspect enregistré {{ratio}}",
         "wPlaceholder": "L",
         "wTooltip": "Largeur"
       },

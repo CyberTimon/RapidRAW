@@ -432,6 +432,9 @@
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Höhe",
+        "removeTooltip": "Gespeichertes Seitenverhältnis entfernen",
+        "saveTooltip": "Seitenverhältnis als Vorgabe speichern",
+        "savedTooltip": "Gespeichertes Seitenverhältnis {{ratio}}",
         "wPlaceholder": "B",
         "wTooltip": "Breite"
       },

@@ -432,6 +432,9 @@
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Alçada",
+        "removeTooltip": "Elimina la relació d'aspecte desada",
+        "saveTooltip": "Desa la relació d'aspecte com a predefinit",
+        "savedTooltip": "Relació d'aspecte desada {{ratio}}",
         "wPlaceholder": "Am",
         "wTooltip": "Amplada"
       },

@@ -472,6 +472,9 @@
       "custom": {
         "hPlaceholder": "Wys.",
         "hTooltip": "Wysokość",
+        "removeTooltip": "Usuń zapisane proporcje",
+        "saveTooltip": "Zapisz proporcje jako ustawienie",
+        "savedTooltip": "Zapisane proporcje {{ratio}}",
         "wPlaceholder": "Szer.",
         "wTooltip": "Szerokość"
       },

@@ -430,6 +430,9 @@
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "高さ",
+        "removeTooltip": "保存したアスペクト比を削除",
+        "saveTooltip": "アスペクト比をプリセットとして保存",
+        "savedTooltip": "保存したアスペクト比 {{ratio}}",
         "wPlaceholder": "W",
         "wTooltip": "幅"
       },

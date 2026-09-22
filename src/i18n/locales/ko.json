@@ -430,6 +430,9 @@
       "custom": {
         "hPlaceholder": "높이",
         "hTooltip": "높이",
+        "removeTooltip": "저장된 종횡비 삭제",
+        "saveTooltip": "종횡비를 프리셋으로 저장",
+        "savedTooltip": "저장된 종횡비 {{ratio}}",
         "wPlaceholder": "너비",
         "wTooltip": "너비"
       },
