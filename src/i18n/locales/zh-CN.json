@@ -784,6 +784,21 @@
       "preserveTimestamps": "将文件时间戳设为 EXIF 拍摄日期",
       "title": "导出设置"
     },
+    "border": {
+      "addBorder": "添加边框",
+      "bases": {
+        "eachEdge": "各自边长",
+        "longEdge": "长边",
+        "shortEdge": "短边"
+      },
+      "basis": "厚度基准",
+      "color": "边框颜色",
+      "hint": "在填充之前应用，因此图像保持精确的宽高比。",
+      "invalidPercent": "请为两者输入 0 到 100 之间的数字。",
+      "leftRight": "左右",
+      "percent": "%",
+      "topBottom": "上下"
+    },
     "bytes": {
       "bytes": "字节",
       "gb": "GB",

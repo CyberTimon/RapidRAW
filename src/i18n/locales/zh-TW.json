@@ -784,6 +784,21 @@
       "preserveTimestamps": "將檔案時間戳設為 EXIF 拍攝日期",
       "title": "匯出設定"
     },
+    "border": {
+      "addBorder": "新增邊框",
+      "bases": {
+        "eachEdge": "各自邊長",
+        "longEdge": "長邊",
+        "shortEdge": "短邊"
+      },
+      "basis": "厚度基準",
+      "color": "邊框顏色",
+      "hint": "在填充之前套用，因此圖像保持精確的寬高比。",
+      "invalidPercent": "請為兩者輸入 0 到 100 之間的數字。",
+      "leftRight": "左右",
+      "percent": "%",
+      "topBottom": "上下"
+    },
     "bytes": {
       "bytes": "位元組",
       "gb": "GB",

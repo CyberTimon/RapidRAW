@@ -784,6 +784,21 @@
       "preserveTimestamps": "EXIFの撮影日時からファイルタイムスタンプを設定",
       "title": "書き出し設定"
     },
+    "border": {
+      "addBorder": "枠を追加",
+      "bases": {
+        "eachEdge": "それぞれの辺",
+        "longEdge": "長辺",
+        "shortEdge": "短辺"
+      },
+      "basis": "太さの基準",
+      "color": "枠の色",
+      "hint": "余白の追加前に適用されるため、画像は正確なアスペクト比を保ちます。",
+      "invalidPercent": "両方に0から100までの数値を入力してください。",
+      "leftRight": "左右",
+      "percent": "%",
+      "topBottom": "上下"
+    },
     "bytes": {
       "bytes": "バイト",
       "gb": "GB",

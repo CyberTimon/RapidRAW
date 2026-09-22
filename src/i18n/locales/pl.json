@@ -828,6 +828,21 @@
       "preserveTimestamps": "Ustaw datę modyfikacji pliku na podstawie daty wykonania (EXIF)",
       "title": "Ustawienia eksportu"
     },
+    "border": {
+      "addBorder": "Dodaj ramkę",
+      "bases": {
+        "eachEdge": "Odpowiednia krawędź",
+        "longEdge": "Dłuższa krawędź",
+        "shortEdge": "Krótsza krawędź"
+      },
+      "basis": "Podstawa grubości",
+      "color": "Kolor ramki",
+      "hint": "Stosowane przed wypełnieniem, więc obraz zachowuje dokładne proporcje.",
+      "invalidPercent": "Wprowadź liczbę od 0 do 100 dla obu.",
+      "leftRight": "Lewo i prawo",
+      "percent": "%",
+      "topBottom": "Góra i dół"
+    },
     "bytes": {
       "bytes": "Bajty",
       "gb": "GB",

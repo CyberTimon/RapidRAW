@@ -784,6 +784,21 @@
       "preserveTimestamps": "EXIF 촬영 날짜로 파일 타임스탬프 설정",
       "title": "내보내기 설정"
     },
+    "border": {
+      "addBorder": "테두리 추가",
+      "bases": {
+        "eachEdge": "각 변",
+        "longEdge": "긴 변",
+        "shortEdge": "짧은 변"
+      },
+      "basis": "두께 기준",
+      "color": "테두리 색상",
+      "hint": "여백 추가 전에 적용되므로 이미지가 정확한 종횡비를 유지합니다.",
+      "invalidPercent": "둘 다 0에서 100 사이의 숫자를 입력하세요.",
+      "leftRight": "좌우",
+      "percent": "%",
+      "topBottom": "상하"
+    },
     "bytes": {
       "bytes": "바이트",
       "gb": "GB",

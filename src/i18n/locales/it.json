@@ -807,6 +807,21 @@
       "preserveTimestamps": "Imposta Timestamp File dalla Data di Acquisizione EXIF",
       "title": "Impostazioni di Esportazione"
     },
+    "border": {
+      "addBorder": "Aggiungi Bordo",
+      "bases": {
+        "eachEdge": "Ogni Lato Rispettivo",
+        "longEdge": "Lato Lungo",
+        "shortEdge": "Lato Corto"
+      },
+      "basis": "Base dello Spessore",
+      "color": "Colore Bordo",
+      "hint": "Applicato prima del riempimento, così l'immagine mantiene le proporzioni esatte.",
+      "invalidPercent": "Inserisci un numero tra 0 e 100 per entrambi.",
+      "leftRight": "Sinistra e Destra",
+      "percent": "%",
+      "topBottom": "Alto e Basso"
+    },
     "bytes": {
       "bytes": "Byte",
       "gb": "GB",
