@@ -786,6 +786,21 @@
       "preserveTimestamps": "Set File Timestamps from EXIF Capture Date",
       "title": "Export Settings"
     },
+    "border": {
+      "addBorder": "Add Border",
+      "bases": {
+        "eachEdge": "Each Respective Edge",
+        "longEdge": "Longest Edge",
+        "shortEdge": "Shortest Edge"
+      },
+      "basis": "Thickness Basis",
+      "color": "Border Color",
+      "hint": "Applied before padding, so the padded image keeps the exact aspect ratio.",
+      "invalidPercent": "Enter a number between 0 and 100 for both.",
+      "leftRight": "Left & Right",
+      "percent": "%",
+      "topBottom": "Top & Bottom"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",

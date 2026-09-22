@@ -11,6 +11,7 @@ import Dropdown from '../../ui/Dropdown';
 import Slider from '../../ui/Slider';
 import ImagePicker from '../../ui/ImagePicker';
 import {
+  BorderBasis,
   ExportPreset,
   ExportSettings,
   FileFormat,
@@ -48,6 +49,13 @@ const MAX_PAD_RATIO = 1000;
 function parseRatio(value: string): number | null {
   const parsed = Number(value.trim().replace(',', '.'));
   return Number.isFinite(parsed) && parsed > 0 && parsed <= MAX_PAD_RATIO ? parsed : null;
+}
+
+const MAX_BORDER_PERCENT = 100;
+
+function parsePercent(value: string): number | null {
+  const parsed = Number(value.trim().replace(',', '.'));
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= MAX_BORDER_PERCENT ? parsed : null;
 }
 
 function normalizeHexColor(value: string): string | null {
@@ -210,6 +218,15 @@ export default function ExportPanel({
     [t],
   );
 
+  const borderBasisOptions = useMemo(
+    () => [
+      { label: t('export.border.bases.longEdge'), value: BorderBasis.LongEdge },
+      { label: t('export.border.bases.shortEdge'), value: BorderBasis.ShortEdge },
+      { label: t('export.border.bases.eachEdge'), value: BorderBasis.EachEdge },
+    ],
+    [t],
+  );
+
   const tiffBitDepthOptions = useMemo(
     () => [
       { label: t('export.file.tiffBitDepth8'), value: '8' },
@@ -241,6 +258,16 @@ export default function ExportPanel({
     setPadRatioHeight,
     padColor,
     setPadColor,
+    enableBorder,
+    setEnableBorder,
+    borderBasis,
+    setBorderBasis,
+    borderHorizontalPercent,
+    setBorderHorizontalPercent,
+    borderVerticalPercent,
+    setBorderVerticalPercent,
+    borderColor,
+    setBorderColor,
     keepMetadata,
     setKeepMetadata,
     preserveTimestamps,
@@ -345,6 +372,58 @@ export default function ExportPanel({
     setPadColorText(value);
     const normalized = normalizeHexColor(value);
     if (normalized !== null) setPadColor(normalized);
+  };
+
+  const [borderHorizontalText, setBorderHorizontalText] = useState<string>(
+    String(borderHorizontalPercent),
+  );
+  const [borderVerticalText, setBorderVerticalText] = useState<string>(
+    String(borderVerticalPercent),
+  );
+  const [borderColorText, setBorderColorText] = useState<string>(borderColor);
+
+  useEffect(() => {
+    setBorderHorizontalText(String(borderHorizontalPercent));
+  }, [borderHorizontalPercent]);
+
+  useEffect(() => {
+    setBorderVerticalText(String(borderVerticalPercent));
+  }, [borderVerticalPercent]);
+
+  useEffect(() => {
+    setBorderColorText(borderColor);
+  }, [borderColor]);
+
+  const borderHorizontalValue = parsePercent(borderHorizontalText);
+  const borderVerticalValue = parsePercent(borderVerticalText);
+  const isBorderValid =
+    !enableBorder || (borderHorizontalValue !== null && borderVerticalValue !== null);
+  const borderSettings =
+    enableBorder && borderHorizontalValue !== null && borderVerticalValue !== null
+      ? {
+          basis: borderBasis,
+          horizontalPercent: borderHorizontalValue,
+          verticalPercent: borderVerticalValue,
+          color: borderColor,
+        }
+      : null;
+
+  const handleBorderHorizontalChange = (value: string) => {
+    setBorderHorizontalText(value);
+    const parsed = parsePercent(value);
+    if (parsed !== null) setBorderHorizontalPercent(parsed);
+  };
+
+  const handleBorderVerticalChange = (value: string) => {
+    setBorderVerticalText(value);
+    const parsed = parsePercent(value);
+    if (parsed !== null) setBorderVerticalPercent(parsed);
+  };
+
+  const handleBorderColorTextChange = (value: string) => {
+    setBorderColorText(value);
+    const normalized = normalizeHexColor(value);
+    if (normalized !== null) setBorderColor(normalized);
   };
 
   const [estimatedSize, setEstimatedSize] = useState<number | null>(null);
@@ -463,6 +542,7 @@ export default function ExportPanel({
       destinationType,
       subfolder,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
+      border: borderSettings,
       pad: padSettings,
       stripGps,
       exportMasks: exportMasks,
@@ -511,6 +591,11 @@ export default function ExportPanel({
     padRatioWidthText,
     padRatioHeightText,
     padColor,
+    enableBorder,
+    borderBasis,
+    borderHorizontalText,
+    borderVerticalText,
+    borderColor,
     keepMetadata,
     preserveTimestamps,
     stripGps,
@@ -554,6 +639,7 @@ export default function ExportPanel({
       destinationType,
       subfolder,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
+      border: borderSettings,
       pad: padSettings,
       stripGps,
       exportMasks: exportMasks,
@@ -659,7 +745,7 @@ export default function ExportPanel({
     }
   };
 
-  const canExport = numImages > 0 && isPadValid;
+  const canExport = numImages > 0 && isPadValid && isBorderValid;
   const isLut = fileFormat === FileFormats.Cube;
   const itemLabel = isLut ? t('export.labels.lut') : t('export.labels.image');
   const itemLabelPlural = isLut ? t('export.labels.lut_plural') : t('export.labels.image_plural');
@@ -790,39 +876,99 @@ export default function ExportPanel({
               <>
                 <Section title={t('export.sections.imageSizing')}>
                   <Switch
-                    label={t('export.resize.resizeToFit')}
-                    checked={enableResize}
-                    onChange={setEnableResize}
+                    label={t('export.border.addBorder')}
+                    checked={enableBorder}
+                    onChange={setEnableBorder}
                     disabled={isExporting}
                     trackClassName="bg-surface"
                   />
-                  {enableResize && (
+                  {enableBorder && (
                     <div className="space-y-4 pl-2 border-l-2 border-surface">
-                      <div className="flex items-center gap-2">
+                      <div>
+                        <Text variant={TextVariants.label} className="mb-2 block">
+                          {t('export.border.basis')}
+                        </Text>
                         <Dropdown
-                          options={resizeModeOptions}
-                          value={resizeMode}
-                          onChange={setResizeMode}
+                          options={borderBasisOptions}
+                          value={borderBasis}
+                          onChange={setBorderBasis}
                           disabled={isExporting}
                           className="w-full"
                         />
-                        <input
-                          className="w-24 bg-surface text-center rounded-md p-2 border border-surface focus:border-accent focus:ring-accent text-text-secondary focus:text-text-primary"
-                          disabled={isExporting}
-                          min="1"
-                          onChange={(e) => setResizeValue(parseInt(e?.target?.value))}
-                          type="number"
-                          value={resizeValue}
-                        />
-                        <Text variant={TextVariants.label}>{t('export.resize.pixels')}</Text>
                       </div>
-                      <Switch
-                        checked={dontEnlarge}
-                        disabled={isExporting}
-                        label={t('export.resize.dontEnlarge')}
-                        onChange={setDontEnlarge}
-                        trackClassName="bg-surface"
-                      />
+                      <div className="flex items-center gap-2">
+                        <Text variant={TextVariants.label} className="flex-1">
+                          {t('export.border.leftRight')}
+                        </Text>
+                        <input
+                          aria-label={t('export.border.leftRight')}
+                          className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
+                            borderHorizontalValue === null
+                              ? 'border-red-500'
+                              : 'border-surface focus:border-accent'
+                          }`}
+                          disabled={isExporting}
+                          max={MAX_BORDER_PERCENT}
+                          min="0"
+                          onChange={(e) => handleBorderHorizontalChange(e.target.value)}
+                          step="any"
+                          type="number"
+                          value={borderHorizontalText}
+                        />
+                        <Text variant={TextVariants.label}>{t('export.border.percent')}</Text>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Text variant={TextVariants.label} className="flex-1">
+                          {t('export.border.topBottom')}
+                        </Text>
+                        <input
+                          aria-label={t('export.border.topBottom')}
+                          className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
+                            borderVerticalValue === null
+                              ? 'border-red-500'
+                              : 'border-surface focus:border-accent'
+                          }`}
+                          disabled={isExporting}
+                          max={MAX_BORDER_PERCENT}
+                          min="0"
+                          onChange={(e) => handleBorderVerticalChange(e.target.value)}
+                          step="any"
+                          type="number"
+                          value={borderVerticalText}
+                        />
+                        <Text variant={TextVariants.label}>{t('export.border.percent')}</Text>
+                      </div>
+                      {!isBorderValid && (
+                        <Text variant={TextVariants.label} className="text-red-500">
+                          {t('export.border.invalidPercent')}
+                        </Text>
+                      )}
+                      <div>
+                        <Text variant={TextVariants.label} className="mb-2 block">
+                          {t('export.border.color')}
+                        </Text>
+                        <div className="flex items-center gap-2 bg-surface p-2 rounded-md">
+                          <input
+                            aria-label={t('export.border.color')}
+                            className="w-8 h-8 p-0 border-none rounded-sm cursor-pointer bg-transparent"
+                            disabled={isExporting}
+                            onChange={(e) => setBorderColor(e.target.value)}
+                            type="color"
+                            value={borderColor}
+                          />
+                          <input
+                            className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
+                            disabled={isExporting}
+                            onBlur={() => setBorderColorText(borderColor)}
+                            onChange={(e) => handleBorderColorTextChange(e.target.value)}
+                            type="text"
+                            value={borderColorText}
+                          />
+                        </div>
+                      </div>
+                      {enablePad && (
+                        <Text variant={TextVariants.label}>{t('export.border.hint')}</Text>
+                      )}
                     </div>
                   )}
                   <Switch
@@ -892,6 +1038,42 @@ export default function ExportPanel({
                           />
                         </div>
                       </div>
+                    </div>
+                  )}
+                  <Switch
+                    label={t('export.resize.resizeToFit')}
+                    checked={enableResize}
+                    onChange={setEnableResize}
+                    disabled={isExporting}
+                    trackClassName="bg-surface"
+                  />
+                  {enableResize && (
+                    <div className="space-y-4 pl-2 border-l-2 border-surface">
+                      <div className="flex items-center gap-2">
+                        <Dropdown
+                          options={resizeModeOptions}
+                          value={resizeMode}
+                          onChange={setResizeMode}
+                          disabled={isExporting}
+                          className="w-full"
+                        />
+                        <input
+                          className="w-24 bg-surface text-center rounded-md p-2 border border-surface focus:border-accent focus:ring-accent text-text-secondary focus:text-text-primary"
+                          disabled={isExporting}
+                          min="1"
+                          onChange={(e) => setResizeValue(parseInt(e?.target?.value))}
+                          type="number"
+                          value={resizeValue}
+                        />
+                        <Text variant={TextVariants.label}>{t('export.resize.pixels')}</Text>
+                      </div>
+                      <Switch
+                        checked={dontEnlarge}
+                        disabled={isExporting}
+                        label={t('export.resize.dontEnlarge')}
+                        onChange={setDontEnlarge}
+                        trackClassName="bg-surface"
+                      />
                     </div>
                   )}
                 </Section>

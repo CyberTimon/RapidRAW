@@ -63,6 +63,7 @@ export function useExternalEditSession(handleImageSelect: (path: string) => void
       destinationType: 'customFolder',
       subfolder: '',
       resize: null,
+      border: null,
       pad: null,
       stripGps: false,
       exportMasks: false,

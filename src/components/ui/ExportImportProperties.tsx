@@ -43,6 +43,12 @@ export interface ExportSettings {
     value: number;
     dontEnlarge: boolean;
   } | null;
+  border: {
+    basis: BorderBasis;
+    horizontalPercent: number;
+    verticalPercent: number;
+    color: string;
+  } | null;
   pad: {
     ratioWidth: number;
     ratioHeight: number;
@@ -54,6 +60,12 @@ export interface ExportSettings {
   preserveFolders?: boolean;
   destinationType?: string;
   subfolder?: string;
+}
+
+export enum BorderBasis {
+  LongEdge = 'longEdge',
+  ShortEdge = 'shortEdge',
+  EachEdge = 'eachEdge',
 }
 
 export enum WatermarkAnchor {
@@ -119,6 +131,11 @@ export interface ExportPreset {
   padRatioWidth?: number;
   padRatioHeight?: number;
   padColor?: string;
+  enableBorder?: boolean;
+  borderBasis?: string;
+  borderHorizontalPercent?: number;
+  borderVerticalPercent?: number;
+  borderColor?: string;
   keepMetadata: boolean;
   preserveTimestamps: boolean;
   stripGps: boolean;
