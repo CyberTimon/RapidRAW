@@ -2,6 +2,7 @@ use anyhow::Result;
 use image::DynamicImage;
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub struct Raw9Options {
     pub luminance_noise_reduction: Option<f32>,
     pub sharpness: f32,
@@ -100,7 +101,7 @@ mod imp {
                     return Some(filter);
                 }
             }
-            
+
             None
         }
     }
@@ -127,7 +128,11 @@ mod imp {
 
         log::info!("CIRAWFilter supported decoder versions: {:?}", all);
 
-        if prefer_dng { dng.or(plain) } else { plain.or(dng) }
+        if prefer_dng {
+            dng.or(plain)
+        } else {
+            plain.or(dng)
+        }
     }
 
     fn configure(filter: &CIRAWFilter, opts: &Raw9Options) {
@@ -218,7 +223,9 @@ mod imp {
 
     pub fn develop_raw9(bytes: &[u8], path: &str, opts: &Raw9Options) -> Result<DynamicImage> {
         if !core_image_raw_available() {
-            return Err(anyhow!("CIRAWFilter is not available on this macOS version"));
+            return Err(anyhow!(
+                "CIRAWFilter is not available on this macOS version"
+            ));
         }
 
         autoreleasepool(|_| {
