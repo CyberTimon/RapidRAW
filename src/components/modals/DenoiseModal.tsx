@@ -8,12 +8,18 @@ import Slider from '../ui/Slider';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
+import { Invokes } from '../ui/AppProperties';
+
+export type DenoiseMethod = 'ai' | 'bm3d' | 'raw9';
+
+const defaultIntensityFor = (m: DenoiseMethod) => (m === 'bm3d' ? 15 : 50);
 
 interface DenoiseModalProps {
   isOpen: boolean;
   onClose(): void;
-  onDenoise(intensity: number, method: 'ai' | 'bm3d'): void;
-  onBatchDenoise(intensity: number, method: 'ai' | 'bm3d', paths: string[]): Promise<string[]>;
+  onDenoise(intensity: number, method: DenoiseMethod): void;
+  onBatchDenoise(intensity: number, method: DenoiseMethod, paths: string[]): Promise<string[]>;
   onSave(): Promise<string>;
   onOpenFile(path: string): void;
   error: string | null;
@@ -228,19 +234,23 @@ export default function DenoiseModal({
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [intensity, setIntensity] = useState<number>(15);
-  const [method, setMethod] = useState<'ai' | 'bm3d'>('ai');
+  const [method, setMethod] = useState<DenoiseMethod>('ai');
+  const [raw9Available, setRaw9Available] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; path: string } | null>(null);
   const isBatch = targetPaths.length > 1;
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
-  const methodOptions = useMemo<Array<{ label: string; value: 'ai' | 'bm3d' }>>(
+  const targetPathsKey = targetPaths.join('\n');
+
+  const methodOptions = useMemo<Array<{ label: string; value: DenoiseMethod }>>(
     () => [
       { label: t('modals.denoise.methodAi'), value: 'ai' },
       { label: t('modals.denoise.methodBm3d'), value: 'bm3d' },
+      ...(raw9Available ? [{ label: t('modals.denoise.methodRaw9'), value: 'raw9' as const }] : []),
     ],
-    [t],
+    [t, raw9Available],
   );
 
   useEffect(() => {
@@ -251,6 +261,33 @@ export default function DenoiseModal({
       unlisten.then((f) => f());
     };
   }, []);
+
+  useEffect(() => {
+    if (!isOpen || targetPaths.length === 0) {
+      setRaw9Available(false);
+      return;
+    }
+    let cancelled = false;
+    invoke<boolean>(Invokes.IsRaw9Available, { paths: targetPaths })
+      .then((ok) => {
+        if (!cancelled) setRaw9Available(ok);
+      })
+      .catch(() => {
+        if (!cancelled) setRaw9Available(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, targetPathsKey]);
+
+  useEffect(() => {
+    if (method === 'raw9' && !raw9Available) {
+      const fallback: DenoiseMethod = isRaw ? 'ai' : 'bm3d';
+      setMethod(fallback);
+      setIntensity(defaultIntensityFor(fallback));
+    }
+  }, [method, raw9Available, isRaw]);
 
   const currentStatusText =
     isBatch && batchProgress
@@ -469,9 +506,10 @@ export default function DenoiseModal({
             <Dropdown
               options={methodOptions}
               value={method}
-              onChange={(val) => {
-                setMethod(val);
-                setIntensity(val === 'ai' ? 50 : 15);
+              onChange={(val: string) => {
+                const newMethod = val as DenoiseMethod;
+                setMethod(newMethod);
+                setIntensity(defaultIntensityFor(newMethod));
               }}
             />
           </div>
@@ -482,7 +520,7 @@ export default function DenoiseModal({
               min={0}
               max={100}
               step={1}
-              defaultValue={method === 'ai' ? 50 : 15}
+              defaultValue={defaultIntensityFor(method)}
               onChange={(e) => setIntensity(Number(e.target.value))}
               trackClassName="bg-bg-secondary"
               fillOrigin="min"

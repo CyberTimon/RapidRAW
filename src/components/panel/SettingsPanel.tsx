@@ -539,6 +539,7 @@ export default function SettingsPanel({
     rawPreprocessingColorNr: appSettings?.rawPreprocessingColorNr ?? 0.5,
     rawPreprocessingSharpening: appSettings?.rawPreprocessingSharpening ?? 0.35,
     applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
+    useAppleRaw9: appSettings?.useAppleRaw9 ?? false,
   });
   const [restartRequired, setRestartRequired] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
@@ -647,6 +648,7 @@ export default function SettingsPanel({
       rawPreprocessingColorNr: appSettings?.rawPreprocessingColorNr ?? 0.5,
       rawPreprocessingSharpening: appSettings?.rawPreprocessingSharpening ?? 0.35,
       applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
+      useAppleRaw9: appSettings?.useAppleRaw9 ?? false,
     });
     setRestartRequired(false);
   }, [appSettings]);
@@ -686,7 +688,8 @@ export default function SettingsPanel({
         key === 'rawHighlightCompression' ||
         key === 'rawPreprocessingColorNr' ||
         key === 'rawPreprocessingSharpening' ||
-        key === 'applyPreprocessingToNonRaws'
+        key === 'applyPreprocessingToNonRaws' ||
+        key === 'useAppleRaw9'
       ) {
         await invoke('clear_image_caches');
       }
@@ -2112,6 +2115,20 @@ export default function SettingsPanel({
                           onChange={(checked) => handleProcessingSettingChange('applyPreprocessingToNonRaws', checked)}
                         />
                       </SettingItem>
+
+                      {osPlatform === 'macos' && (
+                        <SettingItem
+                          label={t('settings.processing.preprocessing.appleRaw9')}
+                          description={t('settings.processing.preprocessing.appleRaw9Desc')}
+                        >
+                          <Switch
+                            checked={processingSettings.useAppleRaw9}
+                            id="apple-raw9-toggle"
+                            label={t('settings.processing.preprocessing.enableAppleRaw9')}
+                            onChange={(checked) => handleProcessingSettingChange('useAppleRaw9', checked)}
+                          />
+                        </SettingItem>
+                      )}
 
                       <SettingItem
                         label={t('settings.processing.preprocessing.linearRaw')}

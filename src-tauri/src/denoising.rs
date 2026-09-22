@@ -312,8 +312,15 @@ fn denoise_image(
     let _ = app_handle.emit("denoise-progress", "Loading image...");
 
     let file_bytes = fs::read(path).map_err(|e| e.to_string())?;
-    let dynamic_img = load_base_image_from_bytes(&file_bytes, &path_str, false, &settings, None)
-        .map_err(|e| e.to_string())?;
+
+    let mut original_settings = settings.clone();
+    if method == "raw9" {
+        original_settings.use_apple_raw9 = Some(false);
+    }
+
+    let dynamic_img =
+        load_base_image_from_bytes(&file_bytes, &path_str, false, &original_settings, None)
+            .map_err(|e| e.to_string())?;
 
     let rgb_img_for_denoiser = dynamic_img.to_rgb32f();
 
@@ -326,6 +333,13 @@ fn denoise_image(
             &app_handle,
         )
         .map_err(|e| e.to_string())?
+    } else if method == "raw9" {
+        if !is_raw {
+            return Err("Apple RAW 9 denoising only works on RAW files.".to_string());
+        }
+        let _ = app_handle.emit("denoise-progress", "Developing with Apple RAW 9...");
+        crate::apple_raw::denoise_raw9(&file_bytes, &path_str, intensity)
+            .map_err(|e| e.to_string())?
     } else {
         run_bm3d(&rgb_img_for_denoiser, intensity, &app_handle)?
     };

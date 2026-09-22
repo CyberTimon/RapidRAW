@@ -12,6 +12,7 @@ mod ai_processing;
 mod android_integration;
 mod app_settings;
 mod app_state;
+mod apple_raw;
 mod cache_utils;
 mod camera_tethering;
 mod culling;
@@ -2177,6 +2178,7 @@ pub fn run() {
             ai_commands::test_ai_connector_connection,
             ai_commands::generate_full_image_depth_map,
             ai_commands::cancel_ai_task,
+            apple_raw::is_raw9_available,
             inpainting::invoke_generative_replace_with_mask_def,
             inpainting::generate_manual_cleanup_patch,
             inpainting::generate_liquify_patch,
