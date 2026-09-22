@@ -470,16 +470,14 @@ export default function ColorPanel({
 
   return (
     <div className="space-y-4">
-      <div className="p-2 bg-bg-tertiary rounded-md">
+      <div className="p-1 bg-bg-tertiary rounded-md">
         <div className="flex justify-between items-center mb-2">
           <Text variant={TextVariants.heading}>{t('adjustments.color.whiteBalance')}</Text>
           {!isForMask && toggleWbPicker && (
             <button
               onClick={toggleWbPicker}
               className={`p-1.5 rounded-md transition-colors ${
-                isWbPickerActive
-                  ? 'bg-accent text-button-text'
-                  : 'hover:bg-bg-secondary text-text-secondary'
+                isWbPickerActive ? 'bg-accent text-button-text' : 'hover:bg-bg-secondary text-text-secondary'
               }`}
               data-tooltip={t('adjustments.color.wbPickerTooltip')}
             >
@@ -509,7 +507,7 @@ export default function ColorPanel({
         />
       </div>
 
-      <div className="p-2 bg-bg-tertiary rounded-md">
+      <div className="p-1 bg-bg-tertiary rounded-md">
         <Text variant={TextVariants.heading} className="mb-2">
           {t('adjustments.color.presence')}
         </Text>
@@ -533,7 +531,7 @@ export default function ColorPanel({
         />
       </div>
 
-      <div className="p-2 bg-bg-tertiary rounded-md">
+      <div className="p-1 bg-bg-tertiary rounded-md">
         <Text variant={TextVariants.heading} className="mb-2">
           {isForMask ? t('adjustments.color.localHue') : t('adjustments.color.hue')}
         </Text>
@@ -549,7 +547,7 @@ export default function ColorPanel({
         />
       </div>
 
-      <div className="p-2 bg-bg-tertiary rounded-md">
+      <div className="p-1 bg-bg-tertiary rounded-md">
         <Text variant={TextVariants.heading} className="mb-3">
           {t('adjustments.color.colorGrading')}
         </Text>
@@ -561,7 +559,7 @@ export default function ColorPanel({
         />
       </div>
 
-      <div className="p-2 bg-bg-tertiary rounded-md">
+      <div className="p-1 bg-bg-tertiary rounded-md">
         <Text variant={TextVariants.heading} className="mb-3">
           {t('adjustments.color.colorMixer')}
         </Text>
