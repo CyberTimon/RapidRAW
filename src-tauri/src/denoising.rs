@@ -53,7 +53,6 @@ pub async fn apply_denoising(
     path: String,
     intensity: f32,
     method: String,
-    denoise_model: String,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -61,9 +60,9 @@ pub async fn apply_denoising(
     let path_str = source_path.to_string_lossy().to_string();
 
     let mut ai_session = None;
-    if method == "ai" {
-        let session = if denoise_model == "model2" {
-            crate::ai_processing::get_or_init_denoise_model_2(
+    if method.starts_with("ai") {
+        let session = if method == "ai_rr" {
+            crate::ai_processing::get_or_init_denoise_model_rr(
                 &app_handle,
                 &state.ai_state,
                 &state.ai_init_lock,
@@ -71,7 +70,7 @@ pub async fn apply_denoising(
             .await
             .map_err(|e| e.to_string())?
         } else {
-            crate::ai_processing::get_or_init_denoise_model(
+            crate::ai_processing::get_or_init_denoise_model_nind(
                 &app_handle,
                 &state.ai_state,
                 &state.ai_init_lock,
@@ -85,7 +84,7 @@ pub async fn apply_denoising(
     let denoise_result_handle = state.denoise_result.clone();
 
     tokio::task::spawn_blocking(move || {
-        match denoise_image(path_str, intensity, method, app_handle.clone(), ai_session, denoise_model) {
+        match denoise_image(path_str, intensity, method, app_handle.clone(), ai_session) {
             Ok((image, _)) => {
                 *denoise_result_handle.lock().unwrap() = Some(image);
             }
@@ -103,14 +102,13 @@ pub async fn batch_denoise_images(
     paths: Vec<String>,
     intensity: f32,
     method: String,
-    denoise_model: String,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
     let mut ai_session = None;
-    if method == "ai" {
-        let session = if denoise_model == "model2" {
-            crate::ai_processing::get_or_init_denoise_model_2(
+    if method.starts_with("ai") {
+        let session = if method == "ai_rr" {
+            crate::ai_processing::get_or_init_denoise_model_rr(
                 &app_handle,
                 &state.ai_state,
                 &state.ai_init_lock,
@@ -118,7 +116,7 @@ pub async fn batch_denoise_images(
             .await
             .map_err(|e| e.to_string())?
         } else {
-            crate::ai_processing::get_or_init_denoise_model(
+            crate::ai_processing::get_or_init_denoise_model_nind(
                 &app_handle,
                 &state.ai_state,
                 &state.ai_init_lock,
@@ -152,7 +150,6 @@ pub async fn batch_denoise_images(
                 method.clone(),
                 app_handle.clone(),
                 ai_session.clone(),
-                denoise_model.clone(),
             ) {
                 Ok((image, _)) => {
                     let is_raw = crate::formats::is_raw_file(&real_path);
@@ -323,7 +320,6 @@ fn denoise_image(
     method: String,
     app_handle: AppHandle,
     ai_session: Option<Arc<Mutex<ort::session::Session>>>,
-    denoise_model: String,
 ) -> Result<(DynamicImage, String), String> {
     let path = Path::new(&path_str);
     if !path.exists() {
@@ -336,21 +332,35 @@ fn denoise_image(
     let _ = app_handle.emit("denoise-progress", "Loading image...");
 
     let file_bytes = fs::read(path).map_err(|e| e.to_string())?;
-    let dynamic_img = load_base_image_from_bytes(&file_bytes, &path_str, false, &settings, None)
-        .map_err(|e| e.to_string())?;
+
+    let mut original_settings = settings.clone();
+    if method == "raw9" {
+        original_settings.use_apple_raw9 = Some(false);
+    }
+
+    let dynamic_img =
+        load_base_image_from_bytes(&file_bytes, &path_str, false, &original_settings, None)
+            .map_err(|e| e.to_string())?;
 
     let rgb_img_for_denoiser = dynamic_img.to_rgb32f();
 
-    let mut out_dynamic = if method == "ai" {
+    let mut out_dynamic = if method.starts_with("ai") {
         let session_arc = ai_session.ok_or_else(|| "AI Session not provided".to_string())?;
         crate::ai_processing::run_ai_denoise(
             &rgb_img_for_denoiser,
             intensity,
             &session_arc,
             &app_handle,
-            &denoise_model,
+            &method,
         )
         .map_err(|e| e.to_string())?
+    } else if method == "raw9" {
+        if !is_raw {
+            return Err("Apple RAW 9 denoising only works on RAW files.".to_string());
+        }
+        let _ = app_handle.emit("denoise-progress", "Developing with Apple RAW 9...");
+        crate::apple_raw::denoise_raw9(&file_bytes, &path_str, intensity)
+            .map_err(|e| e.to_string())?
     } else {
         run_bm3d(&rgb_img_for_denoiser, intensity, &app_handle)?
     };

@@ -410,6 +410,7 @@
         "aiModelDownloading": "AI Model Downloading: ",
         "basicInpaintTooltipDisabled": "Generative backend not available or not configured. Basic inpainting is required.",
         "basicInpaintTooltipEnabled": "Basic inpainting is quicker but not generative. Uncheck to use Generative AI with a text prompt.",
+        "cancelGeneration": "Cancel Generation",
         "componentPropertiesTitle": "{{name}} Properties",
         "downloading": "Downloading: ",
         "fastInpaintDesc": "Fill selection based on surrounding pixels.",
@@ -432,6 +433,9 @@
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Height",
+        "removeTooltip": "Remove saved aspect ratio",
+        "saveTooltip": "Save aspect ratio as preset",
+        "savedTooltip": "Saved aspect ratio {{ratio}}",
         "wPlaceholder": "W",
         "wTooltip": "Width"
       },
@@ -783,6 +787,20 @@
       "preserveTimestamps": "Set File Timestamps from EXIF Capture Date",
       "title": "Export Settings"
     },
+    "border": {
+      "addBorder": "Add Border",
+      "bases": {
+        "eachEdge": "Each Respective Edge",
+        "longEdge": "Longest Edge",
+        "shortEdge": "Shortest Edge"
+      },
+      "basis": "Thickness Basis",
+      "color": "Border Color",
+      "invalidPercent": "Enter a number between 0 and 100 for both.",
+      "leftRight": "Left & Right",
+      "percent": "%",
+      "topBottom": "Top & Bottom"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",
@@ -818,6 +836,14 @@
     "metadata": {
       "removeGps": "Remove GPS Data",
       "saveWithMetadata": "Save with Metadata"
+    },
+    "pad": {
+      "aspectRatio": "Aspect Ratio",
+      "backgroundColor": "Background Color",
+      "invalidRatio": "Enter a positive number for both width and height.",
+      "padToAspectRatio": "Pad to Aspect Ratio",
+      "ratioHeight": "Aspect ratio height",
+      "ratioWidth": "Aspect ratio width"
     },
     "resize": {
       "dontEnlarge": "Don't Enlarge",
@@ -1273,10 +1299,11 @@
       "downloadingText": "Downloading {{status}}...",
       "gpuWarningTooltip": "NIND Denoise does not yet support GPU acceleration due to dependency limitations.",
       "initializing": "Initializing...",
+      "methodAi": "NIND (AI - Best for RAW)",
       "methodBm3d": "BM3D (Traditional - All formats)",
       "methodLabel": "Method",
-      "methodAi": "NIND (AI - Best for RAW)",
-      "methodAi2": "RawRefinery (AI)",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
+      "methodAiRr": "RawRefinery (AI)",
       "openInEditor": "Open in Editor",
       "original": "Original",
       "panZoomEnabled": "Pan & Zoom enabled",
@@ -1743,6 +1770,8 @@
       },
       "nativeDpi": "Render at native DPI",
       "preprocessing": {
+        "appleRaw9": "Apple RAW 9 Engine",
+        "appleRaw9Desc": "Develop RAW files with Apple's Core Image RAW 9 decoder, which demosaics and denoises in one step on the Neural Engine. Requires macOS 27 or later and a supported camera; unsupported files automatically use the built-in decoder. Slower than the default decoder. Thumbnails are not affected.",
         "applyPreprocessing": "Apply Preprocessing to Non-RAWs",
         "applyPreprocessingDesc": "If enabled, the base color noise reduction and pre-sharpening above will also be applied to standard formats.",
         "colorNr": "Base Color Noise Reduction",
@@ -1751,6 +1780,7 @@
         "defaultNonRawTonemapperDesc": "The tonemapper to apply to non-RAW images (e.g., JPEG, PNG).",
         "defaultRawTonemapper": "Default RAW Tonemapper",
         "defaultRawTonemapperDesc": "The tonemapper to apply to RAW images.",
+        "enableAppleRaw9": "Use Apple RAW 9 for RAW files",
         "enablePreprocessingNonRaws": "Enable for Non-RAWs",
         "enableTonemapperOverride": "Enable Tonemapper Override",
         "highlightRecovery": "RAW Highlight Recovery",

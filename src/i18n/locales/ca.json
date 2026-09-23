@@ -410,6 +410,7 @@
         "aiModelDownloading": "S'està baixant el model d'IA: ",
         "basicInpaintTooltipDisabled": "Rerefons generatiu no disponible o no configurat. Es requereix l'inpainting bàsic.",
         "basicInpaintTooltipEnabled": "L'inpainting bàsic és més ràpid però no és generatiu. Desmarqueu per utilitzar l'IA generativa amb una indicació de text.",
+        "cancelGeneration": "Cancel·lar generació",
         "componentPropertiesTitle": "Propietats de {{name}}",
         "downloading": "S'està baixant: ",
         "fastInpaintDesc": "Omplir la selecció basant-se en els píxels del voltant.",
@@ -432,6 +433,9 @@
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Alçada",
+        "removeTooltip": "Elimina la relació d'aspecte desada",
+        "saveTooltip": "Desa la relació d'aspecte com a predefinit",
+        "savedTooltip": "Relació d'aspecte desada {{ratio}}",
         "wPlaceholder": "Am",
         "wTooltip": "Amplada"
       },
@@ -783,6 +787,20 @@
       "preserveTimestamps": "Establir les marques de temps dels fitxers des de la data de captura EXIF",
       "title": "Configuració d'exportació"
     },
+    "border": {
+      "addBorder": "Afegeix una vora",
+      "bases": {
+        "eachEdge": "Cada vora respectiva",
+        "longEdge": "Vora llarga",
+        "shortEdge": "Vora curta"
+      },
+      "basis": "Base del gruix",
+      "color": "Color de la vora",
+      "invalidPercent": "Introduïu un nombre entre 0 i 100 per a tots dos.",
+      "leftRight": "Esquerra i dreta",
+      "percent": "%",
+      "topBottom": "A dalt i a baix"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",
@@ -818,6 +836,14 @@
     "metadata": {
       "removeGps": "Eliminar dades GPS",
       "saveWithMetadata": "Desar amb metadades"
+    },
+    "pad": {
+      "aspectRatio": "Relació d'aspecte",
+      "backgroundColor": "Color de fons",
+      "invalidRatio": "Introduïu un nombre positiu per a l'amplada i l'alçada.",
+      "padToAspectRatio": "Ampliar a la relació d'aspecte",
+      "ratioHeight": "Alçada de la relació d'aspecte",
+      "ratioWidth": "Amplada de la relació d'aspecte"
     },
     "resize": {
       "dontEnlarge": "No ampliar",
@@ -1273,10 +1299,10 @@
       "downloadingText": "S'està baixant {{status}}...",
       "gpuWarningTooltip": "La reducció de soroll NIND encara no admet acceleració per GPU a causa de limitacions de dependències.",
       "initializing": "S'està inicialitzant...",
+      "methodAi": "NIND (IA - Millor per a RAW)",
       "methodBm3d": "BM3D (Tradicional - Tots els formats)",
       "methodLabel": "Mètode",
-      "methodAi": "NIND (IA - Millor per a RAW)",
-      "methodAi2": "RawRefinery (IA)",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "Obrir a l'editor",
       "original": "Original",
       "panZoomEnabled": "Desplaçament i zoom activats",
@@ -1743,6 +1769,8 @@
       },
       "nativeDpi": "Renderitzar a la DPI nativa",
       "preprocessing": {
+        "appleRaw9": "Motor Apple RAW 9",
+        "appleRaw9Desc": "Revela els fitxers RAW amb el descodificador RAW 9 de Core Image d'Apple, que realitza el procés de demosaic i reducció de soroll en un sol pas al Neural Engine. Requereix macOS 27 o posterior i una càmera compatible; els fitxers no compatibles utilitzen automàticament el descodificador integrat. Més lent que el descodificador per defecte. Les miniatures no es veuen afectades.",
         "applyPreprocessing": "Aplicar preprocessament als No-RAW",
         "applyPreprocessingDesc": "Si està activat, la reducció del soroll de color base i la pre-nitidesa esmentades abans també s'aplicaran als formats estàndard.",
         "colorNr": "Reducció de soroll de color base",
@@ -1751,6 +1779,7 @@
         "defaultNonRawTonemapperDesc": "El mapejador de tons a aplicar a les imatges que no són RAW (p. ex., JPEG, PNG).",
         "defaultRawTonemapper": "Mapejador de tons predeterminat RAW",
         "defaultRawTonemapperDesc": "El mapejador de tons a aplicar a les imatges RAW.",
+        "enableAppleRaw9": "Utilitza Apple RAW 9 per als fitxers RAW",
         "enablePreprocessingNonRaws": "Activar per a No-RAW",
         "enableTonemapperOverride": "Activar la sobreescriptura del mapejador de tons",
         "highlightRecovery": "Recuperació de llums altes RAW",
@@ -1841,7 +1870,6 @@
         "negpy": "Per la inspiració que hi ha darrere de la lògica de conversió de negatius.",
         "nind": "Per proporcionar els models d'IA que impulsen les capacitats de reducció de soroll per IA a RapidRAW.",
         "rawler": "Per l'excel·lent component de Rust que proporciona la base per al processament de fitxers RAW en aquest projecte.",
-        "rawrefinery": "Per proporcionar models de reducció de soroll impulsat per IA dissenyats per preservar detalls mentre s'elimina soroll amb valors ISO alts.",
         "sam2": "Per proporcionar el model de base utilitzat per a les capacitats de detecció de subjectes per IA.",
         "spektrafilm": "Per les LUTs d'emulació de pel·lícula basades en espectres, d'Andrea Volpato, que impulsen les emulacions integrades de RapidRAW. Amb llicència CC BY-SA 4.0.",
         "u2net": "Per proporcionar la robusta arquitectura utilitzada per a les capacitats de detecció de cel i primer pla per IA.",

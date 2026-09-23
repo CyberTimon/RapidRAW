@@ -408,6 +408,7 @@
         "aiModelDownloading": "AI 模型下载中：",
         "basicInpaintTooltipDisabled": "生成式后端不可用或未配置。需要基础图像修复。",
         "basicInpaintTooltipEnabled": "基础图像修复更快但不具备生成式能力。取消勾选以使用生成式 AI 并输入文本提示。",
+        "cancelGeneration": "取消生成",
         "componentPropertiesTitle": "{{name}} 属性",
         "downloading": "下载中：",
         "fastInpaintDesc": "基于周围像素填充选区。",
@@ -430,6 +431,9 @@
       "custom": {
         "hPlaceholder": "高",
         "hTooltip": "高度",
+        "removeTooltip": "删除已保存的宽高比",
+        "saveTooltip": "将宽高比保存为预设",
+        "savedTooltip": "已保存的宽高比 {{ratio}}",
         "wPlaceholder": "宽",
         "wTooltip": "宽度"
       },
@@ -781,6 +785,20 @@
       "preserveTimestamps": "将文件时间戳设为 EXIF 拍摄日期",
       "title": "导出设置"
     },
+    "border": {
+      "addBorder": "添加边框",
+      "bases": {
+        "eachEdge": "各自边长",
+        "longEdge": "长边",
+        "shortEdge": "短边"
+      },
+      "basis": "厚度基准",
+      "color": "边框颜色",
+      "invalidPercent": "请为两者输入 0 到 100 之间的数字。",
+      "leftRight": "左右",
+      "percent": "%",
+      "topBottom": "上下"
+    },
     "bytes": {
       "bytes": "字节",
       "gb": "GB",
@@ -816,6 +834,14 @@
     "metadata": {
       "removeGps": "移除 GPS 数据",
       "saveWithMetadata": "保存时包含元数据"
+    },
+    "pad": {
+      "aspectRatio": "宽高比",
+      "backgroundColor": "背景颜色",
+      "invalidRatio": "请为宽度和高度输入正数。",
+      "padToAspectRatio": "填充至宽高比",
+      "ratioHeight": "宽高比高度",
+      "ratioWidth": "宽高比宽度"
     },
     "resize": {
       "dontEnlarge": "不放大",
@@ -1271,10 +1297,10 @@
       "downloadingText": "下载中 {{status}}...",
       "gpuWarningTooltip": "由于依赖项限制，NIND 降噪尚不支持 GPU 加速。",
       "initializing": "初始化中...",
+      "methodAi": "NIND（AI - 最适合 RAW）",
       "methodBm3d": "BM3D（传统 - 所有格式）",
       "methodLabel": "方法",
-      "methodAi": "NIND（AI - 最适合 RAW）",
-      "methodAi2": "RawRefinery（AI）",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "在编辑器中打开",
       "original": "原始",
       "panZoomEnabled": "平移和缩放已启用",
@@ -1741,6 +1767,8 @@
       },
       "nativeDpi": "以原生 DPI 渲染",
       "preprocessing": {
+        "appleRaw9": "Apple RAW 9 引擎",
+        "appleRaw9Desc": "使用 Apple 的 Core Image RAW 9 解码器冲洗 RAW 文件。它在神经网络引擎 (Neural Engine) 上一步完成去马赛克和降噪。需要 macOS 27 或更高版本以及支持的相机；不支持的文件将自动使用内置解码器。比默认解码器慢。缩略图不受影响。",
         "applyPreprocessing": "对非 RAW 图像应用预处理",
         "applyPreprocessingDesc": "如果启用，上述基础颜色降噪和预锐化也将应用于标准格式。",
         "colorNr": "基础颜色降噪",
@@ -1749,6 +1777,7 @@
         "defaultNonRawTonemapperDesc": "应用于非 RAW 图像（如 JPEG、PNG）的色调映射器。",
         "defaultRawTonemapper": "默认 RAW 色调映射",
         "defaultRawTonemapperDesc": "应用于 RAW 图像的色调映射器。",
+        "enableAppleRaw9": "对 RAW 文件使用 Apple RAW 9",
         "enablePreprocessingNonRaws": "对非 RAW 图像启用",
         "enableTonemapperOverride": "启用色调映射覆盖",
         "highlightRecovery": "RAW 高光恢复",
@@ -1839,7 +1868,6 @@
         "negpy": "为负片转换逻辑提供了灵感。",
         "nind": "为 AI 模型提供支持，驱动了 RapidRAW 中的 AI 降噪功能。",
         "rawler": "为优秀的 Rust 库提供支持，构成了本项目 RAW 文件处理的基础。",
-        "rawrefinery": "提供由 AI 驱动的降噪模型，旨在保留细节同时去除高 ISO 值下的噪声。",
         "sam2": "为提供基础模型，用于 AI 主体检测功能。",
         "spektrafilm": "感谢 Andrea Volpato 提供基于光谱的胶片模拟 LUT，为 RapidRAW 的内置胶片模拟提供支持。采用 CC BY-SA 4.0 许可。",
         "u2net": "为提供稳健的架构，用于 AI 天空和前景检测功能。",

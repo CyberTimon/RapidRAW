@@ -152,8 +152,8 @@ pub struct CachedDepthMap {
 
 pub struct AiState {
     pub models: Option<Arc<AiModels>>,
-    pub denoise_model: Option<Arc<Mutex<Session>>>,
-    pub denoise_model_2: Option<Arc<Mutex<Session>>>,
+    pub denoise_model_nind: Option<Arc<Mutex<Session>>>,
+    pub denoise_model_rr: Option<Arc<Mutex<Session>>>,
     pub clip_models: Option<Arc<ClipModels>>,
     pub lama_model: Option<Arc<Mutex<Session>>>,
     pub embeddings: Option<ImageEmbeddings>,
@@ -701,8 +701,8 @@ pub async fn get_or_init_ai_models(
     } else {
         *ai_state_lock = Some(AiState {
             models: Some(models.clone()),
-            denoise_model: None,
-            denoise_model_2: None,
+            denoise_model_nind: None,
+            denoise_model_rr: None,
             clip_models: None,
             lama_model: None,
             embeddings: None,
@@ -713,29 +713,29 @@ pub async fn get_or_init_ai_models(
     Ok(models)
 }
 
-pub async fn get_or_init_denoise_model(
+pub async fn get_or_init_denoise_model_nind(
     app_handle: &tauri::AppHandle,
     ai_state_mutex: &Mutex<Option<AiState>>,
     ai_init_lock: &TokioMutex<()>,
 ) -> Result<Arc<Mutex<Session>>> {
-    if let Some(denoise_model) = ai_state_mutex
+    if let Some(denoise_model_nind) = ai_state_mutex
         .lock()
         .unwrap()
         .as_ref()
-        .and_then(|state| state.denoise_model.clone())
+        .and_then(|state| state.denoise_model_nind.clone())
     {
-        return Ok(denoise_model);
+        return Ok(denoise_model_nind);
     }
 
     let _guard = ai_init_lock.lock().await;
 
-    if let Some(denoise_model) = ai_state_mutex
+    if let Some(denoise_model_nind) = ai_state_mutex
         .lock()
         .unwrap()
         .as_ref()
-        .and_then(|state| state.denoise_model.clone())
+        .and_then(|state| state.denoise_model_nind.clone())
     {
-        return Ok(denoise_model);
+        return Ok(denoise_model_nind);
     }
 
     let models_dir = get_models_dir(app_handle)?;
@@ -757,18 +757,18 @@ pub async fn get_or_init_denoise_model(
     
     info!("NIND Model loaded (CPU-optimized)");
     
-    let denoise_model = Arc::new(Mutex::new(session));
+    let denoise_model_nind = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
 
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = ai_state_lock.as_mut() {
-        state.denoise_model = Some(denoise_model.clone());
+        state.denoise_model_nind = Some(denoise_model_nind.clone());
     } else {
         *ai_state_lock = Some(AiState {
             models: None,
-            denoise_model: Some(denoise_model.clone()),
-            denoise_model_2: None,
+            denoise_model_nind: Some(denoise_model_nind.clone()),
+            denoise_model_rr : None,
             clip_models: None,
             lama_model: None,
             embeddings: None,
@@ -776,32 +776,32 @@ pub async fn get_or_init_denoise_model(
         });
     }
 
-    Ok(denoise_model)
+    Ok(denoise_model_nind)
 }
 
-pub async fn get_or_init_denoise_model_2(
+pub async fn get_or_init_denoise_model_rr(
     app_handle: &tauri::AppHandle,
     ai_state_mutex: &Mutex<Option<AiState>>,
     ai_init_lock: &TokioMutex<()>,
 ) -> Result<Arc<Mutex<Session>>> {
-    if let Some(denoise_model_2) = ai_state_mutex
+    if let Some(denoise_model_rr) = ai_state_mutex
         .lock()
         .unwrap()
         .as_ref()
-        .and_then(|state| state.denoise_model_2.clone())
+        .and_then(|state| state.denoise_model_rr.clone())
     {
-        return Ok(denoise_model_2);
+        return Ok(denoise_model_rr);
     }
 
     let _guard = ai_init_lock.lock().await;
 
-    if let Some(denoise_model_2) = ai_state_mutex
+    if let Some(denoise_model_rr) = ai_state_mutex
         .lock()
         .unwrap()
         .as_ref()
-        .and_then(|state| state.denoise_model_2.clone())
+        .and_then(|state| state.denoise_model_rr.clone())
     {
-        return Ok(denoise_model_2);
+        return Ok(denoise_model_rr);
     }
 
     let models_dir = get_models_dir(app_handle)?;
@@ -829,18 +829,18 @@ pub async fn get_or_init_denoise_model_2(
     
     info!("RawRefinery Model loaded (GPU-optimized)");
     
-    let denoise_model_2 = Arc::new(Mutex::new(session));
+    let denoise_model_rr = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
 
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = ai_state_lock.as_mut() {
-        state.denoise_model_2 = Some(denoise_model_2.clone());
+        state.denoise_model_rr = Some(denoise_model_rr.clone());
     } else {
         *ai_state_lock = Some(AiState {
             models: None,
-            denoise_model: None,
-            denoise_model_2: Some(denoise_model_2.clone()),
+            denoise_model_nind: None,
+            denoise_model_rr: Some(denoise_model_rr.clone()),
             clip_models: None,
             lama_model: None,
             embeddings: None,
@@ -848,7 +848,7 @@ pub async fn get_or_init_denoise_model_2(
         });
     }
 
-    Ok(denoise_model_2)
+    Ok(denoise_model_rr)
 }
 
 pub async fn get_or_init_clip_models(
@@ -916,8 +916,8 @@ pub async fn get_or_init_clip_models(
     } else {
         *ai_state_lock = Some(AiState {
             models: None,
-            denoise_model: None,
-            denoise_model_2: None,
+            denoise_model_nind: None,
+            denoise_model_rr: None,
             clip_models: Some(clip_models.clone()),
             lama_model: None,
             embeddings: None,
@@ -981,8 +981,8 @@ pub async fn get_or_init_lama_model(
     } else {
         *ai_state_lock = Some(AiState {
             models: None,
-            denoise_model_2: None,
-            denoise_model: None,
+            denoise_model_rr: None,
+            denoise_model_nind: None,
             clip_models: None,
             lama_model: Some(lama_model.clone()),
             embeddings: None,
@@ -1127,7 +1127,7 @@ fn run_native_denoise(
     height: usize,
     app_handle: &tauri::AppHandle,
     intensity: f32,
-    denoise_model: &str,
+    method: &str,
 ) -> Result<()> {
     let w = width as i32;
     let h = height as i32;
@@ -1163,7 +1163,7 @@ fn run_native_denoise(
             let mut sess = session.lock().unwrap();
             
             // Different model inputs based on denoise_model
-            let outputs = if denoise_model == "model2" {
+            let outputs = if method == "ai_rr" {
                 // RawRefinery model inputs
                 sess.run(ort::inputs![
                     "batch_rgb" => TensorRef::from_array_view(&input_values)?, 
@@ -1250,7 +1250,7 @@ pub fn run_ai_denoise(
     intensity: f32,
     session: &Mutex<Session>,
     app_handle: &tauri::AppHandle,
-    denoise_model: &str,
+    method: &str,
 ) -> Result<DynamicImage> {
     let (width, height) = rgb_img.dimensions();
 
@@ -1264,7 +1264,7 @@ pub fn run_ai_denoise(
         height as usize,
         app_handle,
         intensity,
-        denoise_model,
+        method,
     )?;
 
     let out_img_buffer = accumulator_to_rgb32f(&accumulator, width, height);

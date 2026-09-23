@@ -102,6 +102,30 @@ pub fn load_base_image_from_bytes(
         bytes,
     );
 
+    if is_raw_file(path_for_ext_check)
+        && !use_fast_raw_dev
+        && settings.use_apple_raw9.unwrap_or(false)
+    {
+        if let Some((tracker, generation)) = &cancel_token
+            && tracker.load(Ordering::SeqCst) != *generation
+        {
+            return Err(anyhow!("Load cancelled"));
+        }
+
+        match crate::apple_raw::develop_raw9(
+            bytes,
+            path_for_ext_check,
+            &crate::apple_raw::Raw9Options::for_loading(),
+        ) {
+            Ok(image) => return Ok(image),
+            Err(e) => log::warn!(
+                "Apple RAW 9 unavailable for '{}', falling back to rawler: {}",
+                path_for_ext_check,
+                e
+            ),
+        }
+    }
+
     if is_raw_file(path_for_ext_check) {
         match panic::catch_unwind(move || {
             crate::raw_processing::develop_raw_image(

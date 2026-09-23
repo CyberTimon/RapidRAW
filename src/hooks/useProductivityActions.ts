@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '../store/useUIStore';
 import { Invokes } from '../components/ui/AppProperties';
+import type { DenoiseMethod } from '../components/modals/DenoiseModal';
 
 export function useProductivityActions(refreshImageList: () => Promise<void>) {
   const setUI = useUIStore((state) => state.setUI);
@@ -124,7 +125,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
   }, [refreshImageList, setUI]);
 
   const handleApplyDenoise = useCallback(
-    async (intensity: number, method: 'ai_model1' | 'ai_model2' | 'bm3d') => {
+    async (intensity: number, method: DenoiseMethod) => {
       const { denoiseModalState } = useUIStore.getState();
       if (denoiseModalState.targetPaths.length === 0) return;
 
@@ -138,15 +139,10 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
       }));
 
       try {
-        // Extract method and model from combined value
-        const actualMethod = method.startsWith('ai_') ? 'ai' : 'bm3d';
-        const denoiseModel = method === 'ai_model2' ? 'model2' : 'model1';
-
         await invoke(Invokes.ApplyDenoising, {
           path: denoiseModalState.targetPaths[0],
           intensity: intensity,
-          method: actualMethod,
-          denoiseModel: denoiseModel,
+          method: method,
         });
       } catch (err) {
         setUI((state) => ({
@@ -158,18 +154,9 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
   );
 
   const handleBatchDenoise = useCallback(
-    async (intensity: number, method: 'ai_model1' | 'ai_model2' | 'bm3d', paths: string[]) => {
+    async (intensity: number, method: DenoiseMethod, paths: string[]) => {
       try {
-        // Extract method and model from combined value
-        const actualMethod = method.startsWith('ai_') ? 'ai' : 'bm3d';
-        const denoiseModel = method === 'ai_model2' ? 'model2' : 'model1';
-
-        const savedPaths: string[] = await invoke('batch_denoise_images', {
-          paths,
-          intensity,
-          method: actualMethod,
-          denoiseModel,
-        });
+        const savedPaths: string[] = await invoke('batch_denoise_images', { paths, intensity, method });
         await refreshImageList();
         return savedPaths;
       } catch (err) {

@@ -430,6 +430,7 @@
         "aiModelDownloading": "Téléchargement du modèle IA : ",
         "basicInpaintTooltipDisabled": "Moteur génératif non disponible ou non configuré. L'inpainting simple est requis.",
         "basicInpaintTooltipEnabled": "L'inpainting simple est plus rapide mais non génératif. Décochez pour utiliser l'IA générative avec un prompt texte.",
+        "cancelGeneration": "Annuler la génération",
         "componentPropertiesTitle": "Propriétés de {{name}}",
         "downloading": "Téléchargement : ",
         "fastInpaintDesc": "Remplir la sélection en fonction des pixels environnants.",
@@ -452,6 +453,9 @@
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Hauteur",
+        "removeTooltip": "Supprimer le rapport d'aspect enregistré",
+        "saveTooltip": "Enregistrer le rapport d'aspect comme préréglage",
+        "savedTooltip": "Rapport d'aspect enregistré {{ratio}}",
         "wPlaceholder": "L",
         "wTooltip": "Largeur"
       },
@@ -804,6 +808,20 @@
       "preserveTimestamps": "Définir l'horodatage des fichiers à partir de la date de prise de vue EXIF",
       "title": "Paramètres d'exportation"
     },
+    "border": {
+      "addBorder": "Ajouter une bordure",
+      "bases": {
+        "eachEdge": "Chaque bord respectif",
+        "longEdge": "Bord long",
+        "shortEdge": "Bord court"
+      },
+      "basis": "Base de l'épaisseur",
+      "color": "Couleur de la bordure",
+      "invalidPercent": "Saisissez un nombre entre 0 et 100 pour les deux.",
+      "leftRight": "Gauche et droite",
+      "percent": "%",
+      "topBottom": "Haut et bas"
+    },
     "bytes": {
       "bytes": "Octets",
       "gb": "Go",
@@ -840,6 +858,14 @@
     "metadata": {
       "removeGps": "Supprimer les données GPS",
       "saveWithMetadata": "Enregistrer avec les métadonnées"
+    },
+    "pad": {
+      "aspectRatio": "Rapport d'aspect",
+      "backgroundColor": "Couleur d'arrière-plan",
+      "invalidRatio": "Saisissez un nombre positif pour la largeur et la hauteur.",
+      "padToAspectRatio": "Étendre au rapport d'aspect",
+      "ratioHeight": "Hauteur du rapport d'aspect",
+      "ratioWidth": "Largeur du rapport d'aspect"
     },
     "resize": {
       "dontEnlarge": "Ne pas agrandir",
@@ -1299,10 +1325,10 @@
       "downloadingText": "Téléchargement {{status}}...",
       "gpuWarningTooltip": "Le débruitage NIND ne prend pas encore en charge l'accélération GPU en raison de limitations de dépendances.",
       "initializing": "Initialisation...",
+      "methodAi": "NIND (IA - Meilleur pour RAW)",
       "methodBm3d": "BM3D (Traditionnel - Tous formats)",
       "methodLabel": "Méthode",
-      "methodAi": "NIND (IA - Meilleur pour RAW)",
-      "methodAi2": "RawRefinery (IA)",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "Ouvrir dans l'éditeur",
       "original": "Original",
       "panZoomEnabled": "Panoramique & Zoom activés",
@@ -1776,6 +1802,8 @@
       },
       "nativeDpi": "Rendre à la DPI native",
       "preprocessing": {
+        "appleRaw9": "Moteur Apple RAW 9",
+        "appleRaw9Desc": "Développe les fichiers RAW avec le décodeur RAW 9 de Core Image d'Apple, qui effectue le dématriçage et la réduction de bruit en une seule étape sur le Neural Engine. Nécessite macOS 27 ou ultérieur et un appareil photo pris en charge ; les fichiers non pris en charge utilisent automatiquement le décodeur intégré. Plus lent que le décodeur par défaut. Les miniatures ne sont pas affectées.",
         "applyPreprocessing": "Appliquer le prétraitement aux Non-RAW",
         "applyPreprocessingDesc": "Si activé, la réduction du bruit colorimétrique de base et la pré-accentuation ci-dessus seront également appliquées aux formats standard.",
         "colorNr": "Réduction du bruit colorimétrique de base",
@@ -1784,6 +1812,7 @@
         "defaultNonRawTonemapperDesc": "Le mappeur de tons à appliquer aux images non-RAW (ex. JPEG, PNG).",
         "defaultRawTonemapper": "Mappeur de tons par défaut (RAW)",
         "defaultRawTonemapperDesc": "Le mappeur de tons à appliquer aux images RAW.",
+        "enableAppleRaw9": "Utiliser Apple RAW 9 pour les fichiers RAW",
         "enablePreprocessingNonRaws": "Activer pour les Non-RAW",
         "enableTonemapperOverride": "Activer la surcharge du mappeur de tons",
         "highlightRecovery": "Récupération des hautes lumières RAW",
@@ -1874,7 +1903,6 @@
         "negpy": "Pour l'inspiration derrière la logique de conversion de négatif.",
         "nind": "Pour avoir fourni les modèles d'IA qui propulsent les capacités de réduction de bruit par IA dans RapidRAW.",
         "rawler": "Pour l'excellente crate Rust qui fournit la base du traitement des fichiers RAW dans ce projet.",
-        "rawrefinery": "Pour les modèles de réduction de bruit alimentés par l'IA conçus pour préserver les détails tout en réduisant le bruit aux valeurs ISO élevées.",
         "sam2": "Pour avoir fourni le modèle de base utilisé pour les capacités de détection de sujet par IA.",
         "spektrafilm": "Pour les LUTs d'émulation de film à base spectrale d'Andrea Volpato, qui alimentent les émulations intégrées de RapidRAW. Sous licence CC BY-SA 4.0.",
         "u2net": "Pour avoir fourni l'architecture robuste utilisée pour les capacités de détection du ciel et du premier plan par l'IA.",

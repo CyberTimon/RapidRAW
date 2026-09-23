@@ -8,12 +8,18 @@ import Slider from '../ui/Slider';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
+import { Invokes } from '../ui/AppProperties';
+
+export type DenoiseMethod = 'ai_nind' | 'ai_rr' | 'bm3d' | 'raw9';
+
+const defaultIntensityFor = (m: DenoiseMethod) => (m === 'bm3d' ? 15 : 50);
 
 interface DenoiseModalProps {
   isOpen: boolean;
   onClose(): void;
-  onDenoise(intensity: number, method: 'ai_model1' | 'ai_model2' | 'bm3d'): void;
-  onBatchDenoise(intensity: number, method: 'ai_model1' | 'ai_model2' | 'bm3d', paths: string[]): Promise<string[]>;
+  onDenoise(intensity: number, method: DenoiseMethod): void;
+  onBatchDenoise(intensity: number, method: DenoiseMethod, paths: string[]): Promise<string[]>;
   onSave(): Promise<string>;
   onOpenFile(path: string): void;
   error: string | null;
@@ -228,20 +234,24 @@ export default function DenoiseModal({
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [intensity, setIntensity] = useState<number>(15);
-  const [method, setMethod] = useState<'ai_model1' | 'ai_model2' | 'bm3d'>('ai_model1');
+  const [method, setMethod] = useState<DenoiseMethod>('ai');
+  const [raw9Available, setRaw9Available] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; path: string } | null>(null);
   const isBatch = targetPaths.length > 1;
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
-  const methodOptions = useMemo<Array<{ label: string; value: 'ai_model1' | 'ai_model2' | 'bm3d' }>>(
+  const targetPathsKey = targetPaths.join('\n');
+
+  const methodOptions = useMemo<Array<{ label: string; value: DenoiseMethod }>>(
     () => [
-      { label: t('modals.denoise.methodAi'), value: 'ai_model1' },
-      { label: t('modals.denoise.methodAi2'), value: 'ai_model2' },
+      { label: t('modals.denoise.methodAi'), value: 'ai_nind' },
+      { label: t('modals.denoise.methodAiRr'), value: 'ai_rr' },
       { label: t('modals.denoise.methodBm3d'), value: 'bm3d' },
+      ...(raw9Available ? [{ label: t('modals.denoise.methodRaw9'), value: 'raw9' as const }] : []),
     ],
-    [t],
+    [t, raw9Available],
   );
 
   useEffect(() => {
@@ -253,6 +263,33 @@ export default function DenoiseModal({
     };
   }, []);
 
+  useEffect(() => {
+    if (!isOpen || targetPaths.length === 0) {
+      setRaw9Available(false);
+      return;
+    }
+    let cancelled = false;
+    invoke<boolean>(Invokes.IsRaw9Available, { paths: targetPaths })
+      .then((ok) => {
+        if (!cancelled) setRaw9Available(ok);
+      })
+      .catch(() => {
+        if (!cancelled) setRaw9Available(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, targetPathsKey]);
+
+  useEffect(() => {
+    if (method === 'raw9' && !raw9Available) {
+      const fallback: DenoiseMethod = isRaw ? 'ai' : 'bm3d';
+      setMethod(fallback);
+      setIntensity(defaultIntensityFor(fallback));
+    }
+  }, [method, raw9Available, isRaw]);
+
   const currentStatusText =
     isBatch && batchProgress
       ? t('modals.denoise.batchProgressText', { current: batchProgress.current, total: batchProgress.total })
@@ -262,7 +299,7 @@ export default function DenoiseModal({
 
   useEffect(() => {
     if (isOpen) {
-      setMethod(isRaw ? 'ai_model1' : 'bm3d');
+      setMethod(isRaw ? 'ai' : 'bm3d');
       setIntensity(isRaw ? 50 : 15);
       setIsMounted(true);
       const timer = setTimeout(() => setShow(true), 10);
@@ -470,20 +507,21 @@ export default function DenoiseModal({
             <Dropdown
               options={methodOptions}
               value={method}
-              onChange={(val) => {
-                setMethod(val);
-                setIntensity(val === 'bm3d' ? 15 : 50);
+              onChange={(val: string) => {
+                const newMethod = val as DenoiseMethod;
+                setMethod(newMethod);
+                setIntensity(defaultIntensityFor(newMethod));
               }}
             />
           </div>
           <div className="flex-1 max-w-[280px]">
             <Slider
-              label={method === 'bm3d' ? t('modals.denoise.strengthLabel') : t('modals.denoise.qualityTileSizeLabel')}
+              label={method === 'ai' ? t('modals.denoise.qualityTileSizeLabel') : t('modals.denoise.strengthLabel')}
               value={intensity}
               min={0}
               max={100}
               step={1}
-              defaultValue={method === 'bm3d' ? 15 : 50}
+              defaultValue={defaultIntensityFor(method)}
               onChange={(e) => setIntensity(Number(e.target.value))}
               trackClassName="bg-bg-secondary"
               fillOrigin="min"
