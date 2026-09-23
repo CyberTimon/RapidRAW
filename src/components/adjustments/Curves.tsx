@@ -234,6 +234,19 @@ function getSplitterGradient(channel: ActiveChannel) {
   }
 }
 
+function getOutputAxisGradient(channel: ActiveChannel) {
+  switch (channel) {
+    case ActiveChannel.Red:
+      return 'linear-gradient(to top, rgba(107, 229, 229, 0.8) 0%, rgba(255, 107, 107, 0.8) 100%)';
+    case ActiveChannel.Green:
+      return 'linear-gradient(to top, rgba(224, 107, 214, 0.8) 0%, rgba(107, 203, 119, 0.8) 100%)';
+    case ActiveChannel.Blue:
+      return 'linear-gradient(to top, rgba(255, 216, 77, 0.8) 0%, rgba(77, 150, 255, 0.8) 100%)';
+    default:
+      return 'linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(198, 195, 197, 0.8) 100%)';
+  }
+}
+
 function convertParametricToPoints(settings: ParametricCurveSettings): Array<Coord> {
   return buildParametricPoints(settings);
 }
@@ -815,7 +828,8 @@ export default function CurveGraph({
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative grid grid-cols-[auto_1fr] gap-1.5">
+        <div className="w-1.5 my-1 rounded-full" style={{ background: getOutputAxisGradient(activeChannel) }} />
         <div
           className="w-full aspect-square bg-surface-secondary p-1 rounded-md relative touch-none"
           onMouseDown={handleContainerStart}
@@ -923,6 +937,10 @@ export default function CurveGraph({
               ))}
           </svg>
         </div>
+        <div
+          className="col-start-2 h-1.5 mx-1 rounded-full"
+          style={{ background: getSplitterGradient(activeChannel) }}
+        />
       </div>
 
       <AnimatePresence initial={false}>
