@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider from '../ui/Slider';
 import Switch from '../ui/Switch';
-import { Adjustments, Effect, CreativeAdjustment } from '../../utils/adjustments';
+import { Adjustments, Effect, CreativeAdjustment, getAdjustmentToolOrder } from '../../utils/adjustments';
 import LUTControl from '../ui/LUTControl';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
@@ -194,11 +194,12 @@ export default function EffectsPanel({
   };
 
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
+  const toolOrder = getAdjustmentToolOrder('effects', appSettings?.adjustmentToolOrder);
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {adjustmentVisibility.creative !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('creative') }}>
           <Text variant={TextVariants.heading} className="mb-2">
             {t('adjustments.effects.creative')}
           </Text>
@@ -238,9 +239,9 @@ export default function EffectsPanel({
       )}
 
       {!isForMask && (
-        <div className="space-y-4">
+        <>
           {adjustmentVisibility.lensBlur !== false && (
-            <div className="p-1 bg-bg-tertiary rounded-md">
+            <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('lensBlur') }}>
               <Text variant={TextVariants.heading} className="mb-2">
                 {t('adjustments.effects.lensBlur')}
               </Text>
@@ -343,7 +344,7 @@ export default function EffectsPanel({
           )}
 
           {adjustmentVisibility.lut !== false && (
-            <div className="p-1 bg-bg-tertiary rounded-md">
+            <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('lut') }}>
               <Text variant={TextVariants.heading} className="mb-2">
                 {t('adjustments.effects.lut')}
               </Text>
@@ -361,7 +362,7 @@ export default function EffectsPanel({
           )}
 
           {adjustmentVisibility.vignette !== false && (
-            <div className="p-1 bg-bg-tertiary rounded-md">
+            <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('vignette') }}>
               <Text variant={TextVariants.heading} className="mb-2">
                 {t('adjustments.effects.vignette')}
               </Text>
@@ -409,7 +410,7 @@ export default function EffectsPanel({
           )}
 
           {adjustmentVisibility.grain !== false && (
-            <div className="p-1 bg-bg-tertiary rounded-md">
+            <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('grain') }}>
               <Text variant={TextVariants.heading} className="mb-2">
                 {t('adjustments.effects.grain')}
               </Text>
@@ -446,7 +447,7 @@ export default function EffectsPanel({
               />
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

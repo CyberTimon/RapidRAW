@@ -551,6 +551,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub hidden_adjustment_sections: Vec<String>,
     #[serde(default)]
+    pub adjustment_tool_order: HashMap<String, Vec<String>>,
+    #[serde(default)]
     pub collapsible_sections_state: Option<Value>,
     #[serde(default)]
     pub workspace: WorkspaceState,
@@ -652,6 +654,7 @@ impl Default for AppSettings {
             custom_aspect_ratios: Vec::new(),
             adjustment_section_order: Vec::new(),
             hidden_adjustment_sections: Vec::new(),
+            adjustment_tool_order: HashMap::new(),
             collapsible_sections_state: None,
             workspace: WorkspaceState::default(),
         }

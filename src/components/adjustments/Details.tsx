@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import Slider from '../ui/Slider';
-import { Adjustments, DetailsAdjustment } from '../../utils/adjustments';
+import { Adjustments, DetailsAdjustment, getAdjustmentToolOrder } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
@@ -28,11 +28,12 @@ export default function DetailsPanel({
   };
 
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
+  const toolOrder = getAdjustmentToolOrder('details', appSettings?.adjustmentToolOrder);
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {adjustmentVisibility.sharpening !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('sharpening') }}>
           <Text variant={TextVariants.heading} className="mb-2">
             {t('adjustments.details.sharpening')}
           </Text>
@@ -62,7 +63,7 @@ export default function DetailsPanel({
       )}
 
       {adjustmentVisibility.presence !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('presence') }}>
           <Text variant={TextVariants.heading} className="mb-2">
             {t('adjustments.details.presence')}
           </Text>
@@ -108,7 +109,7 @@ export default function DetailsPanel({
       )}
 
       {adjustmentVisibility.noiseReduction !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('noiseReduction') }}>
           <Text variant={TextVariants.heading} className="mb-2">
             {t('adjustments.details.noiseReduction')}
           </Text>
@@ -134,7 +135,7 @@ export default function DetailsPanel({
       )}
 
       {!isForMask && adjustmentVisibility.chromaticAberration !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('chromaticAberration') }}>
           <Text variant={TextVariants.heading} className="mb-2">
             {t('adjustments.details.chromaticAberration')}
           </Text>

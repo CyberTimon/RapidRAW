@@ -954,13 +954,13 @@ export const ADJUSTMENT_SECTIONS: Sections = {
   ],
 };
 
-export const getAdjustmentSectionOrder = (order: string[] = []): string[] => {
-  const defaultOrder = Object.keys(ADJUSTMENT_SECTIONS);
-  const savedOrder = order.filter(
-    (section, index) => defaultOrder.includes(section) && order.indexOf(section) === index,
-  );
-  return [...savedOrder, ...defaultOrder.filter((section) => !savedOrder.includes(section))];
+const reconcileOrder = (defaultOrder: string[], order: string[] = []): string[] => {
+  const savedOrder = order.filter((id, index) => defaultOrder.includes(id) && order.indexOf(id) === index);
+  return [...savedOrder, ...defaultOrder.filter((id) => !savedOrder.includes(id))];
 };
+
+export const getAdjustmentSectionOrder = (order?: string[]): string[] =>
+  reconcileOrder(Object.keys(ADJUSTMENT_SECTIONS), order);
 
 export const getVisibleAdjustmentSections = (order?: string[], hidden: string[] = []): string[] =>
   getAdjustmentSectionOrder(order).filter((section) => !hidden.includes(section));
@@ -994,3 +994,9 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
     { id: 'grain', isVisibleByDefault: true, label: 'adjustments.effects.grain' },
   ],
 };
+
+export const getAdjustmentToolOrder = (section: string, toolOrder?: Record<string, string[]>): string[] =>
+  reconcileOrder(
+    (ADJUSTMENT_SECTION_TOOLS[section] ?? []).map((tool) => tool.id),
+    toolOrder?.[section],
+  );

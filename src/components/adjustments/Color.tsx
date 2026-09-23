@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import Slider from '../ui/Slider';
 import ColorWheel from '../ui/ColorWheel';
 import { ColorAdjustment, ColorCalibration, HueSatLum, INITIAL_ADJUSTMENTS } from '../../utils/adjustments';
-import { Adjustments, ColorGrading } from '../../utils/adjustments';
+import { Adjustments, ColorGrading, getAdjustmentToolOrder } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
@@ -330,7 +330,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
   const trackSuffix = `${activePrimary}s`;
 
   return (
-    <div className="p-2 bg-bg-tertiary rounded-md mt-4">
+    <div className="p-2 bg-bg-tertiary rounded-md">
       <Text variant={TextVariants.heading} className="mb-2">
         {t('adjustments.color.calibration.title')}
       </Text>
@@ -405,6 +405,7 @@ export default function ColorPanel({
   const { t } = useTranslation();
   const [activeColor, setActiveColor] = useState('reds');
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
+  const toolOrder = getAdjustmentToolOrder('color', appSettings?.adjustmentToolOrder);
   const isWgpuEnabled = appSettings?.useWgpuRenderer !== false;
 
   const HSL_COLORS = useMemo<Array<ColorProps>>(
@@ -469,9 +470,9 @@ export default function ColorPanel({
   const luminance_slider = `lum-slider-${activeColor}`;
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {adjustmentVisibility.whiteBalance !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('whiteBalance') }}>
           <div className="flex justify-between items-center mb-2">
             <Text variant={TextVariants.heading}>{t('adjustments.color.whiteBalance')}</Text>
             {!isForMask && toggleWbPicker && (
@@ -510,7 +511,7 @@ export default function ColorPanel({
       )}
 
       {adjustmentVisibility.colorPresence !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('colorPresence') }}>
           <Text variant={TextVariants.heading} className="mb-2">
             {t('adjustments.color.presence')}
           </Text>
@@ -536,7 +537,7 @@ export default function ColorPanel({
       )}
 
       {adjustmentVisibility.hue !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('hue') }}>
           <Text variant={TextVariants.heading} className="mb-2">
             {isForMask ? t('adjustments.color.localHue') : t('adjustments.color.hue')}
           </Text>
@@ -554,7 +555,7 @@ export default function ColorPanel({
       )}
 
       {adjustmentVisibility.colorGrading !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('colorGrading') }}>
           <Text variant={TextVariants.heading} className="mb-3">
             {t('adjustments.color.colorGrading')}
           </Text>
@@ -568,7 +569,7 @@ export default function ColorPanel({
       )}
 
       {adjustmentVisibility.colorMixer !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('colorMixer') }}>
           <Text variant={TextVariants.heading} className="mb-3">
             {t('adjustments.color.colorMixer')}
           </Text>
@@ -618,12 +619,14 @@ export default function ColorPanel({
       )}
 
       {!isForMask && adjustmentVisibility.colorCalibration !== false && (
-        <ColorCalibrationPanel
-          adjustments={adjustments}
-          setAdjustments={setAdjustments}
-          appSettings={appSettings}
-          onDragStateChange={onDragStateChange}
-        />
+        <div style={{ order: toolOrder.indexOf('colorCalibration') }}>
+          <ColorCalibrationPanel
+            adjustments={adjustments}
+            setAdjustments={setAdjustments}
+            appSettings={appSettings}
+            onDragStateChange={onDragStateChange}
+          />
+        </div>
       )}
     </div>
   );
