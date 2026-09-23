@@ -123,6 +123,25 @@ export default function GlobalTooltip() {
       }
     };
 
+    const handleFocusIn = (e: FocusEvent) => {
+      const el = (e.target as HTMLElement).closest?.('[data-tooltip]');
+      if (!el || !(el instanceof HTMLElement) || el === targetRef.current) return;
+      hide();
+      if (!el.getAttribute('data-tooltip')) return;
+      targetRef.current = el;
+      const data = computePosition(el);
+      if (!data) return;
+      setLeftOverride(null);
+      setTooltip(data);
+      watchTarget();
+    };
+
+    const handleFocusOut = (e: FocusEvent) => {
+      const current = targetRef.current;
+      const next = e.relatedTarget as Node | null;
+      if (current && !current.contains(next)) hide();
+    };
+
     const dismiss = () => hide();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') hide();
@@ -130,6 +149,8 @@ export default function GlobalTooltip() {
 
     document.addEventListener('mouseover', handleMouseOver);
     document.addEventListener('mouseout', handleMouseOut);
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
     document.addEventListener('mousedown', dismiss);
     document.addEventListener('scroll', dismiss, true);
     document.addEventListener('keydown', onKey);
@@ -137,6 +158,8 @@ export default function GlobalTooltip() {
     return () => {
       document.removeEventListener('mouseover', handleMouseOver);
       document.removeEventListener('mouseout', handleMouseOut);
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
       document.removeEventListener('mousedown', dismiss);
       document.removeEventListener('scroll', dismiss, true);
       document.removeEventListener('keydown', onKey);
@@ -155,12 +178,25 @@ export default function GlobalTooltip() {
     if (!el) return;
 
     const width = el.offsetWidth;
+    const height = el.offsetHeight;
     const minLeft = TOOLTIP_VIEWPORT_MARGIN;
     const maxLeft = Math.max(minLeft, window.innerWidth - TOOLTIP_VIEWPORT_MARGIN - width);
     const desiredLeft = tooltip.centerX - width / 2;
     const clampedLeft = clamp(desiredLeft, minLeft, maxLeft);
     // Compensate for the -50% translateX so the original animation stays identical.
     const adjustedCenterX = clampedLeft + width / 2;
+    const target = targetRef.current;
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      const fitsBelow = rect.bottom + OFFSET + height + TOOLTIP_VIEWPORT_MARGIN <= window.innerHeight;
+      const fitsAbove = rect.top - OFFSET - height - TOOLTIP_VIEWPORT_MARGIN >= 0;
+      const isAbove = !fitsBelow && fitsAbove;
+      const y = isAbove ? rect.top - OFFSET : rect.bottom + OFFSET;
+      if (tooltip.isAbove !== isAbove || tooltip.y !== y) {
+        setTooltip({ ...tooltip, isAbove, y });
+        return;
+      }
+    }
 
     if (leftOverride !== adjustedCenterX) {
       setLeftOverride(adjustedCenterX);
@@ -174,17 +210,22 @@ export default function GlobalTooltip() {
       {tooltip && (
         <motion.div
           ref={tooltipRef}
+          role="tooltip"
           key={tooltip.content}
           initial={{ opacity: 0, scale: 0.9, y: tooltip.isAbove ? 5 : -5, x: '-50%' }}
           animate={{ opacity: 1, scale: 1, y: tooltip.isAbove ? -10 : 0, x: '-50%' }}
           exit={{ opacity: 0, scale: 0.9, x: '-50%' }}
           transition={{ duration: 0.15, ease: 'easeOut' }}
-          style={{ top: tooltip.y, left }}
+          style={{
+            top: tooltip.y,
+            left,
+            maxWidth: 'min(24rem, calc(100vw - 1.5rem))',
+          }}
           className={clsx(
             'fixed z-100 pointer-events-none',
             'bg-surface/80 backdrop-blur-xs',
             'border border-text-secondary/10 shadow-xl rounded-md',
-            'px-2.5 py-1.5 whitespace-nowrap',
+            'px-2.5 py-1.5 whitespace-normal text-center break-words',
             tooltip.isAbove && '-translate-y-full',
           )}
         >
