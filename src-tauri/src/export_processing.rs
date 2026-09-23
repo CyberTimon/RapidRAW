@@ -499,11 +499,12 @@ fn compute_fused_geometry(
     resize_opts: Option<&ResizeOptions>,
 ) -> ExportGeometry {
     let (final_w, final_h) = resize_target(canvas_w, canvas_h, resize_opts);
+    let (final_w, final_h) = (final_w.max(1), final_h.max(1));
 
     let photo_w =
-        ((src_w as f64 * final_w as f64 / canvas_w as f64).round() as u32).clamp(1, final_w.max(1));
+        ((src_w as f64 * final_w as f64 / canvas_w as f64).round() as u32).clamp(1, final_w);
     let photo_h =
-        ((src_h as f64 * final_h as f64 / canvas_h as f64).round() as u32).clamp(1, final_h.max(1));
+        ((src_h as f64 * final_h as f64 / canvas_h as f64).round() as u32).clamp(1, final_h);
 
     let border_x = ((border_src_x as f64 * final_w as f64 / canvas_w as f64).round() as u32)
         .min(final_w.saturating_sub(photo_w) / 2);
