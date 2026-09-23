@@ -108,24 +108,12 @@ pub struct BorderOptions {
     pub color: String,
 }
 
-impl BorderOptions {
-    fn rgb(&self) -> [u8; 3] {
-        parse_hex_color(&self.color).unwrap_or([0, 0, 0])
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PadOptions {
     pub ratio_width: f32,
     pub ratio_height: f32,
     pub color: String,
-}
-
-impl PadOptions {
-    fn rgb(&self) -> [u8; 3] {
-        parse_hex_color(&self.color).unwrap_or([0, 0, 0])
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -348,11 +336,38 @@ fn parse_hex_color(hex: &str) -> Option<[u8; 3]> {
     ])
 }
 
-fn calculate_pad_target(current_w: u32, current_h: u32, pad: &PadOptions) -> Option<(u32, u32)> {
-    if current_w == 0 || current_h == 0 {
-        return None;
-    }
+fn fill_color(hex: Option<&str>) -> [u8; 3] {
+    hex.and_then(parse_hex_color).unwrap_or([0, 0, 0])
+}
 
+fn resize_target(width: u32, height: u32, resize_opts: Option<&ResizeOptions>) -> (u32, u32) {
+    match resize_opts {
+        Some(opts) => calculate_resize_target(width, height, opts),
+        None => (width, height),
+    }
+}
+
+fn bordered_size(width: u32, height: u32, border_x: u32, border_y: u32) -> (u32, u32) {
+    (
+        width.saturating_add(border_x.saturating_mul(2)),
+        height.saturating_add(border_y.saturating_mul(2)),
+    )
+}
+
+fn exceeds_max_dimension(label: &str, width: u32, height: u32) -> bool {
+    let exceeds = width > MAX_PAD_DIMENSION || height > MAX_PAD_DIMENSION;
+    if exceeds {
+        log::warn!(
+            "{} {}x{} exceeds the maximum supported dimension; skipping.",
+            label,
+            width,
+            height
+        );
+    }
+    exceeds
+}
+
+fn calculate_pad_target(current_w: u32, current_h: u32, pad: &PadOptions) -> Option<(u32, u32)> {
     let ratio_w = pad.ratio_width as f64;
     let ratio_h = pad.ratio_height as f64;
     if !ratio_w.is_finite() || !ratio_h.is_finite() || ratio_w <= 0.0 || ratio_h <= 0.0 {
@@ -374,16 +389,9 @@ fn calculate_pad_target(current_w: u32, current_h: u32, pad: &PadOptions) -> Opt
     let new_w = new_w.max(current_w);
     let new_h = new_h.max(current_h);
 
-    if new_w > MAX_PAD_DIMENSION || new_h > MAX_PAD_DIMENSION {
-        log::warn!(
-            "Pad target {}x{} exceeds the maximum supported dimension; skipping padding.",
-            new_w,
-            new_h
-        );
-        return None;
-    }
-
-    if new_w == current_w && new_h == current_h {
+    if exceeds_max_dimension("Pad target", new_w, new_h)
+        || (new_w == current_w && new_h == current_h)
+    {
         return None;
     }
 
@@ -395,10 +403,6 @@ fn calculate_border_thickness(
     src_h: u32,
     border: &BorderOptions,
 ) -> Option<(u32, u32)> {
-    if src_w == 0 || src_h == 0 {
-        return None;
-    }
-
     let horizontal = border.horizontal_percent as f64;
     let vertical = border.vertical_percent as f64;
     if !horizontal.is_finite() || !vertical.is_finite() {
@@ -438,14 +442,8 @@ fn calculate_border_thickness(
         return None;
     }
 
-    let bordered_w = src_w.saturating_add(border_x.saturating_mul(2));
-    let bordered_h = src_h.saturating_add(border_y.saturating_mul(2));
-    if bordered_w > MAX_PAD_DIMENSION || bordered_h > MAX_PAD_DIMENSION {
-        log::warn!(
-            "Bordered size {}x{} exceeds the maximum supported dimension; skipping border.",
-            bordered_w,
-            bordered_h
-        );
+    let (bordered_w, bordered_h) = bordered_size(src_w, src_h, border_x, border_y);
+    if exceeds_max_dimension("Bordered size", bordered_w, bordered_h) {
         return None;
     }
 
@@ -457,14 +455,16 @@ fn compute_export_geometry(
     src_h: u32,
     settings: &ExportSettings,
 ) -> Option<ExportGeometry> {
+    if src_w == 0 || src_h == 0 {
+        return None;
+    }
+
     let border = settings
         .border
         .as_ref()
         .and_then(|border| calculate_border_thickness(src_w, src_h, border));
     let (border_src_x, border_src_y) = border.unwrap_or((0, 0));
-
-    let bordered_w = src_w.saturating_add(border_src_x.saturating_mul(2));
-    let bordered_h = src_h.saturating_add(border_src_y.saturating_mul(2));
+    let (bordered_w, bordered_h) = bordered_size(src_w, src_h, border_src_x, border_src_y);
 
     let pad_target = settings
         .pad
@@ -498,10 +498,7 @@ fn compute_fused_geometry(
     canvas_h: u32,
     resize_opts: Option<&ResizeOptions>,
 ) -> ExportGeometry {
-    let (final_w, final_h) = match resize_opts {
-        Some(opts) => calculate_resize_target(canvas_w, canvas_h, opts),
-        None => (canvas_w, canvas_h),
-    };
+    let (final_w, final_h) = resize_target(canvas_w, canvas_h, resize_opts);
 
     let photo_w =
         ((src_w as f64 * final_w as f64 / canvas_w as f64).round() as u32).clamp(1, final_w.max(1));
@@ -528,10 +525,29 @@ fn compute_fused_geometry(
 fn compute_export_output_size(src_w: u32, src_h: u32, settings: &ExportSettings) -> (u32, u32) {
     match compute_export_geometry(src_w, src_h, settings) {
         Some(geometry) => (geometry.canvas_w, geometry.canvas_h),
-        None => match &settings.resize {
-            Some(opts) => calculate_resize_target(src_w, src_h, opts),
-            None => (src_w, src_h),
-        },
+        None => resize_target(src_w, src_h, settings.resize.as_ref()),
+    }
+}
+
+trait FillChannel: image::Primitive {
+    fn from_u8(value: u8) -> Self;
+}
+
+impl FillChannel for u8 {
+    fn from_u8(value: u8) -> Self {
+        value
+    }
+}
+
+impl FillChannel for u16 {
+    fn from_u8(value: u8) -> Self {
+        value as u16 * 257
+    }
+}
+
+impl FillChannel for f32 {
+    fn from_u8(value: u8) -> Self {
+        value as f32 / 255.0
     }
 }
 
@@ -539,63 +555,26 @@ trait SolidFill: image::Pixel + 'static {
     fn from_rgb8(color: [u8; 3]) -> Self;
 }
 
-impl SolidFill for image::Rgb<u8> {
-    fn from_rgb8([r, g, b]: [u8; 3]) -> Self {
-        image::Rgb([r, g, b])
-    }
-}
-
-impl SolidFill for image::Rgba<u8> {
-    fn from_rgb8([r, g, b]: [u8; 3]) -> Self {
-        image::Rgba([r, g, b, u8::MAX])
-    }
-}
-
-impl SolidFill for image::Rgb<u16> {
-    fn from_rgb8([r, g, b]: [u8; 3]) -> Self {
-        image::Rgb([r as u16 * 257, g as u16 * 257, b as u16 * 257])
-    }
-}
-
-impl SolidFill for image::Rgba<u16> {
-    fn from_rgb8([r, g, b]: [u8; 3]) -> Self {
-        image::Rgba([r as u16 * 257, g as u16 * 257, b as u16 * 257, u16::MAX])
-    }
-}
-
-impl SolidFill for image::Rgb<f32> {
-    fn from_rgb8([r, g, b]: [u8; 3]) -> Self {
-        image::Rgb([r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0])
-    }
-}
-
-impl SolidFill for image::Rgba<f32> {
-    fn from_rgb8([r, g, b]: [u8; 3]) -> Self {
-        image::Rgba([r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0])
-    }
-}
-
-fn fill_rect<P>(
-    canvas: &mut ImageBuffer<P, Vec<P::Subpixel>>,
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
-    fill: P,
-) where
-    P: image::Pixel + 'static,
-    P::Subpixel: 'static,
+impl<T: FillChannel> SolidFill for image::Rgb<T>
+where
+    image::Rgb<T>: image::Pixel<Subpixel = T> + 'static,
 {
-    if width == 0 || height == 0 {
-        return;
+    fn from_rgb8([r, g, b]: [u8; 3]) -> Self {
+        image::Rgb([T::from_u8(r), T::from_u8(g), T::from_u8(b)])
     }
+}
 
-    let x_end = x.saturating_add(width).min(canvas.width());
-    let y_end = y.saturating_add(height).min(canvas.height());
-    for row in y..y_end {
-        for col in x..x_end {
-            canvas.put_pixel(col, row, fill);
-        }
+impl<T: FillChannel> SolidFill for image::Rgba<T>
+where
+    image::Rgba<T>: image::Pixel<Subpixel = T> + 'static,
+{
+    fn from_rgb8([r, g, b]: [u8; 3]) -> Self {
+        image::Rgba([
+            T::from_u8(r),
+            T::from_u8(g),
+            T::from_u8(b),
+            T::DEFAULT_MAX_VALUE,
+        ])
     }
 }
 
@@ -612,32 +591,35 @@ fn fill_border_frame<P>(
     let box_w = geometry
         .photo_w
         .saturating_add(geometry.border_x.saturating_mul(2));
+    let below_photo = geometry.offset_y.saturating_add(geometry.photo_h);
+    let right_of_photo = geometry.offset_x.saturating_add(geometry.photo_w);
 
-    fill_rect(canvas, box_x, box_y, box_w, geometry.border_y, fill);
-    fill_rect(
-        canvas,
-        box_x,
-        geometry.offset_y.saturating_add(geometry.photo_h),
-        box_w,
-        geometry.border_y,
-        fill,
-    );
-    fill_rect(
-        canvas,
-        box_x,
-        geometry.offset_y,
-        geometry.border_x,
-        geometry.photo_h,
-        fill,
-    );
-    fill_rect(
-        canvas,
-        geometry.offset_x.saturating_add(geometry.photo_w),
-        geometry.offset_y,
-        geometry.border_x,
-        geometry.photo_h,
-        fill,
-    );
+    let strips = [
+        (box_x, box_y, box_w, geometry.border_y),
+        (box_x, below_photo, box_w, geometry.border_y),
+        (
+            box_x,
+            geometry.offset_y,
+            geometry.border_x,
+            geometry.photo_h,
+        ),
+        (
+            right_of_photo,
+            geometry.offset_y,
+            geometry.border_x,
+            geometry.photo_h,
+        ),
+    ];
+
+    for (x, y, width, height) in strips {
+        let x_end = x.saturating_add(width).min(canvas.width());
+        let y_end = y.saturating_add(height).min(canvas.height());
+        for row in y..y_end {
+            for col in x..x_end {
+                canvas.put_pixel(col, row, fill);
+            }
+        }
+    }
 }
 
 fn place_photo_on_canvas<P>(
@@ -788,12 +770,9 @@ fn apply_export_geometry(
 
     match compute_export_geometry(src_w, src_h, export_settings) {
         None => {
-            if let Some(resize_opts) = &export_settings.resize {
-                let (target_w, target_h) = calculate_resize_target(src_w, src_h, resize_opts);
-
-                if target_w != src_w || target_h != src_h {
-                    image = image.resize(target_w, target_h, imageops::FilterType::Lanczos3);
-                }
+            let (target_w, target_h) = resize_target(src_w, src_h, export_settings.resize.as_ref());
+            if target_w != src_w || target_h != src_h {
+                image = image.resize(target_w, target_h, imageops::FilterType::Lanczos3);
             }
 
             let (width, height) = image.dimensions();
@@ -820,16 +799,13 @@ fn apply_export_geometry(
                 );
             }
 
-            let pad_color = export_settings
-                .pad
-                .as_ref()
-                .map(|pad| pad.rgb())
-                .unwrap_or([0, 0, 0]);
-            let border_color = export_settings
-                .border
-                .as_ref()
-                .map(|border| border.rgb())
-                .unwrap_or([0, 0, 0]);
+            let pad_color = fill_color(export_settings.pad.as_ref().map(|pad| pad.color.as_str()));
+            let border_color = fill_color(
+                export_settings
+                    .border
+                    .as_ref()
+                    .map(|border| border.color.as_str()),
+            );
 
             Ok((
                 compose_image_on_canvas(&image, &geometry, pad_color, border_color),
@@ -849,13 +825,6 @@ fn apply_export_geometry_and_watermark(
         apply_watermark(&mut image, watermark_settings)?;
     }
     Ok((image, geometry))
-}
-
-fn apply_export_resize_and_watermark(
-    image: DynamicImage,
-    export_settings: &ExportSettings,
-) -> Result<DynamicImage, String> {
-    Ok(apply_export_geometry_and_watermark(image, export_settings)?.0)
 }
 
 fn ensure_export_not_cancelled(cancellation_token: &AtomicBool) -> Result<(), String> {
@@ -1156,7 +1125,7 @@ fn process_image_for_export(
         render_output_precision(output_format, export_settings),
     )?;
 
-    apply_export_resize_and_watermark(processed_image, export_settings)
+    apply_export_geometry_and_watermark(processed_image, export_settings).map(|(image, _)| image)
 }
 
 fn build_single_mask_adjustments(all: &AllAdjustments, mask_index: usize) -> AllAdjustments {
@@ -1353,18 +1322,12 @@ fn export_masks_for_image(
             let (with_options, geometry) =
                 apply_export_geometry_and_watermark(processed, export_settings)?;
 
-            let alpha_scaled = if mask_bitmaps[i].width() == geometry.photo_w
-                && mask_bitmaps[i].height() == geometry.photo_h
-            {
-                mask_bitmaps[i].clone()
-            } else {
-                imageops::resize(
-                    &mask_bitmaps[i],
-                    geometry.photo_w,
-                    geometry.photo_h,
-                    imageops::FilterType::Lanczos3,
-                )
-            };
+            let alpha_scaled = imageops::resize(
+                &mask_bitmaps[i],
+                geometry.photo_w,
+                geometry.photo_h,
+                imageops::FilterType::Lanczos3,
+            );
 
             let alpha_resized: GrayImage = if geometry.is_identity() {
                 alpha_scaled
