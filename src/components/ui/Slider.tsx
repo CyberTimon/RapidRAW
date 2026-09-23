@@ -10,10 +10,16 @@ type SliderChangeEvent =
       };
     };
 
+export interface SliderMarker {
+  color: string;
+  value: number;
+}
+
 interface SliderProps {
   defaultValue?: number;
   disabled?: boolean;
   label: React.ReactNode;
+  markers?: Array<SliderMarker>;
   max: number;
   min: number;
   onChange(event: SliderChangeEvent): void;
@@ -38,6 +44,7 @@ const Slider = ({
   defaultValue = 0,
   disabled = false,
   label,
+  markers,
   max,
   min,
   onChange,
@@ -598,6 +605,17 @@ const Slider = ({
             width: `${Math.abs(fillPercentage - originPercentage)}%`,
           }}
         />
+        {max !== min &&
+          markers?.map(({ color, value: markerValue }, index) => (
+            <div
+              className="absolute top-1/2 w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none opacity-70"
+              key={index}
+              style={{
+                backgroundColor: color,
+                left: `calc(8px + (100% - 16px) * ${Math.max(0, Math.min(1, (markerValue - min) / (max - min)))})`,
+              }}
+            />
+          ))}
         <input
           ref={rangeInputRef}
           className={`absolute top-1/2 left-0 w-full h-7 -translate-y-1/2 appearance-none bg-transparent cursor-pointer m-0 p-0 slider-input z-10 ${

@@ -742,6 +742,14 @@ export default function CurveGraph({
     [activeParametricSettings.split1, activeParametricSettings.split2, activeParametricSettings.split3],
   );
 
+  const getParametricMarkers = (key: keyof ParametricCurveSettings) =>
+    Object.keys(channelConfig)
+      .filter(
+        (channel) =>
+          channel !== activeChannel && parametricCurves[channel]?.[key] !== DEFAULT_PARAMETRIC_CURVE_SETTINGS[key],
+      )
+      .map((channel) => ({ channel, color: channelConfig[channel].color, value: parametricCurves[channel][key] }));
+
   if (!activePoints) {
     return (
       <Text
@@ -936,6 +944,15 @@ export default function CurveGraph({
                         background: getSplitterGradient(activeChannel),
                       }}
                     />
+                    {splitPositions.flatMap(({ key }) =>
+                      getParametricMarkers(key).map(({ channel, color: markerColor, value }) => (
+                        <div
+                          className="absolute inset-y-0 w-0.5 -translate-x-1/2 pointer-events-none opacity-70"
+                          key={`${key}-${channel}`}
+                          style={{ backgroundColor: markerColor, left: `${value}%` }}
+                        />
+                      )),
+                    )}
                     {splitPositions.map(({ key, value }) => (
                       <button
                         key={key}
@@ -971,6 +988,7 @@ export default function CurveGraph({
               <div className="flex flex-col gap-2">
                 <Slider
                   label={t('adjustments.curves.params.whiteLevel')}
+                  markers={getParametricMarkers('whiteLevel')}
                   min={-100}
                   max={0}
                   step={1}
@@ -981,6 +999,7 @@ export default function CurveGraph({
                 />
                 <Slider
                   label={t('adjustments.curves.params.highlights')}
+                  markers={getParametricMarkers('highlights')}
                   min={-100}
                   max={100}
                   step={1}
@@ -991,6 +1010,7 @@ export default function CurveGraph({
                 />
                 <Slider
                   label={t('adjustments.curves.params.lights')}
+                  markers={getParametricMarkers('lights')}
                   min={-100}
                   max={100}
                   step={1}
@@ -1001,6 +1021,7 @@ export default function CurveGraph({
                 />
                 <Slider
                   label={t('adjustments.curves.params.darks')}
+                  markers={getParametricMarkers('darks')}
                   min={-100}
                   max={100}
                   step={1}
@@ -1011,6 +1032,7 @@ export default function CurveGraph({
                 />
                 <Slider
                   label={t('adjustments.curves.params.shadows')}
+                  markers={getParametricMarkers('shadows')}
                   min={-100}
                   max={100}
                   step={1}
@@ -1021,6 +1043,7 @@ export default function CurveGraph({
                 />
                 <Slider
                   label={t('adjustments.curves.params.blackLevel')}
+                  markers={getParametricMarkers('blackLevel')}
                   min={0}
                   max={100}
                   step={1}
