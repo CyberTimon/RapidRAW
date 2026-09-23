@@ -297,7 +297,6 @@
       "actions": {
         "copySectionSettings": "Copy {{section}} Settings",
         "customizePanels": "Customize Panels",
-        "hideSection": "Hide {{section}}",
         "pasteLabel": "Paste {{section}} Settings",
         "pasteSettings": "Paste Settings",
         "resetPanelLayout": "Reset to Default",

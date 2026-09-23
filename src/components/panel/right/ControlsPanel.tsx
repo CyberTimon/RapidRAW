@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { RotateCcw, Copy, ClipboardPaste, PencilSparkles, ChartArea, EyeOff, LayoutList } from 'lucide-react';
+import React, { useCallback } from 'react';
+import { RotateCcw, Copy, ClipboardPaste, PencilSparkles, ChartArea, LayoutList } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +11,7 @@ import EffectsPanel from '../../adjustments/Effects';
 import CollapsibleSection from '../../ui/CollapsibleSection';
 import Waveform from '../editor/Waveform';
 import Resizer from '../../ui/Resizer';
-import AdjustmentSectionsMenu from './AdjustmentSectionsMenu';
+import AdjustmentSectionsSubMenu from './AdjustmentSectionsSubMenu';
 import {
   Adjustments,
   SectionVisibility,
@@ -37,15 +37,13 @@ export default function Controls() {
     useWaveformControls();
   const { setAdjustments, handleAutoAdjustments, handleLutSelect, setLutPreviewOverride } = useEditorActions();
 
-  const { appSettings, theme, handleSettingsChange } = useSettingsStore(
+  const { appSettings, theme } = useSettingsStore(
     useShallow((state) => ({
       appSettings: state.appSettings,
       theme: state.theme,
-      handleSettingsChange: state.handleSettingsChange,
     })),
   );
 
-  const [isSectionsMenuOpen, setIsSectionsMenuOpen] = useState(false);
   const visibleSections = getVisibleAdjustmentSections(
     appSettings?.adjustmentSectionOrder,
     appSettings?.hiddenAdjustmentSections,
@@ -196,16 +194,6 @@ export default function Controls() {
       }));
     };
 
-    const handleHide = () => {
-      if (!appSettings) {
-        return;
-      }
-      handleSettingsChange({
-        ...appSettings,
-        hiddenAdjustmentSections: [...(appSettings.hiddenAdjustmentSections ?? []), sectionName],
-      });
-    };
-
     const isPasteAllowed = copiedSectionAdjustments && copiedSectionAdjustments.section === sectionName;
     const translatedSection = t(`editor.adjustments.sections.${sectionName}`);
 
@@ -228,15 +216,9 @@ export default function Controls() {
       },
       { type: OPTION_SEPARATOR },
       {
-        label: t('editor.adjustments.actions.hideSection', { section: translatedSection }),
-        icon: EyeOff,
-        onClick: handleHide,
-        disabled: visibleSections.length <= 1,
-      },
-      {
         label: t('editor.adjustments.actions.customizePanels'),
         icon: LayoutList,
-        onClick: () => setIsSectionsMenuOpen(true),
+        submenu: [{ customComponent: AdjustmentSectionsSubMenu }],
       },
     ];
 
@@ -245,7 +227,7 @@ export default function Controls() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="relative p-3 flex justify-between items-center shrink-0 border-b border-surface">
+      <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
         <Text variant={TextVariants.title}>{t('editor.adjustments.title')}</Text>
         <div className="flex items-center gap-1">
           <button
@@ -266,7 +248,6 @@ export default function Controls() {
           >
             <ChartArea size={18} />
           </button>
-          <AdjustmentSectionsMenu isOpen={isSectionsMenuOpen} onOpenChange={setIsSectionsMenuOpen} />
           <button
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage}

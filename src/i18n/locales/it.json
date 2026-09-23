@@ -313,7 +313,6 @@
       "actions": {
         "copySectionSettings": "Copia Impostazioni {{section}}",
         "customizePanels": "Personalizza Pannelli",
-        "hideSection": "Nascondi {{section}}",
         "pasteLabel": "Incolla Impostazioni {{section}}",
         "pasteSettings": "Incolla Impostazioni",
         "resetPanelLayout": "Ripristina Predefiniti",

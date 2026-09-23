@@ -313,7 +313,6 @@
       "actions": {
         "copySectionSettings": "Copiar Configurações de {{section}}",
         "customizePanels": "Personalizar Painéis",
-        "hideSection": "Ocultar {{section}}",
         "pasteLabel": "Colar Configurações de {{section}}",
         "pasteSettings": "Colar Configurações",
         "resetPanelLayout": "Redefinir para o Padrão",

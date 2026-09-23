@@ -297,7 +297,6 @@
       "actions": {
         "copySectionSettings": "{{section}}設定をコピー",
         "customizePanels": "パネルをカスタマイズ",
-        "hideSection": "{{section}}を非表示",
         "pasteLabel": "{{section}}設定を貼り付け",
         "pasteSettings": "設定を貼り付け",
         "resetPanelLayout": "デフォルトに戻す",

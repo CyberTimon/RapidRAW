@@ -297,7 +297,6 @@
       "actions": {
         "copySectionSettings": "复制 {{section}} 设置",
         "customizePanels": "自定义面板",
-        "hideSection": "隐藏 {{section}}",
         "pasteLabel": "粘贴 {{section}} 设置",
         "pasteSettings": "粘贴设置",
         "resetPanelLayout": "重置为默认值",

@@ -33,6 +33,7 @@ import {
   FileEdit,
   FolderOpen,
   Folder as FolderIcon,
+  LayoutList,
   Loader2,
   Minus,
   Plus,
@@ -54,6 +55,7 @@ import EffectsPanel from '../../adjustments/Effects';
 import Waveform from '../editor/Waveform';
 import Resizer from '../../ui/Resizer';
 import { DepthRangePicker } from '../../ui/DepthRangePicker';
+import AdjustmentSectionsSubMenu from './AdjustmentSectionsSubMenu';
 
 import {
   Mask,
@@ -2100,6 +2102,12 @@ function SettingsPanel({
         icon: RotateCcw,
         label: t('editor.masks.settings.resetSectionSettings', { section: sectionTitle }),
         onClick: handleReset,
+      },
+      { type: OPTION_SEPARATOR },
+      {
+        icon: LayoutList,
+        label: t('editor.adjustments.actions.customizePanels'),
+        submenu: [{ customComponent: AdjustmentSectionsSubMenu }],
       },
     ]);
   };

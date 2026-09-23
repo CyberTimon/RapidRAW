@@ -297,7 +297,6 @@
       "actions": {
         "copySectionSettings": "Copiar ajustaments de {{section}}",
         "customizePanels": "Personalitzar taulers",
-        "hideSection": "Ocultar {{section}}",
         "pasteLabel": "Enganxar ajustaments de {{section}}",
         "pasteSettings": "Enganxar ajustaments",
         "resetPanelLayout": "Restablir per defecte",

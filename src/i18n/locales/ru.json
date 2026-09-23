@@ -329,7 +329,6 @@
       "actions": {
         "copySectionSettings": "Копировать настройки раздела «{{section}}»",
         "customizePanels": "Настроить панели",
-        "hideSection": "Скрыть раздел «{{section}}»",
         "pasteLabel": "Вставить настройки раздела «{{section}}»",
         "pasteSettings": "Вставить настройки",
         "resetPanelLayout": "Сбросить по умолчанию",

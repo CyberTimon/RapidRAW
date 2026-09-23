@@ -329,7 +329,6 @@
       "actions": {
         "copySectionSettings": "Kopiuj ustawienia sekcji {{section}}",
         "customizePanels": "Dostosuj panele",
-        "hideSection": "Ukryj sekcję {{section}}",
         "pasteLabel": "Wklej ustawienia sekcji {{section}}",
         "pasteSettings": "Wklej ustawienia",
         "resetPanelLayout": "Przywróć domyślne",

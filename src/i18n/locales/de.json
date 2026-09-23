@@ -297,7 +297,6 @@
       "actions": {
         "copySectionSettings": "{{section}}-Einstellungen kopieren",
         "customizePanels": "Panels anpassen",
-        "hideSection": "{{section}} ausblenden",
         "pasteLabel": "{{section}}-Einstellungen einfügen",
         "pasteSettings": "Einstellungen einfügen",
         "resetPanelLayout": "Auf Standard zurücksetzen",

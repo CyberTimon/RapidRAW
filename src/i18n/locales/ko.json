@@ -297,7 +297,6 @@
       "actions": {
         "copySectionSettings": "{{section}} 설정 복사",
         "customizePanels": "패널 사용자 지정",
-        "hideSection": "{{section}} 숨기기",
         "pasteLabel": "{{section}} 설정 붙여넣기",
         "pasteSettings": "설정 붙여넣기",
         "resetPanelLayout": "기본값으로 초기화",
