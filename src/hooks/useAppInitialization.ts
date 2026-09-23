@@ -80,9 +80,10 @@ export const useAppInitialization = ({
     })),
   );
 
-  const { uiVisibility, setUI } = useUIStore(
+  const { uiVisibility, collapsibleSectionsState, setUI } = useUIStore(
     useShallow((state) => ({
       uiVisibility: state.uiVisibility,
+      collapsibleSectionsState: state.collapsibleSectionsState,
       setUI: state.setUI,
     })),
   );
@@ -190,6 +191,12 @@ export const useAppInitialization = ({
 
         if (settings?.uiVisibility) {
           setUI((state) => ({ uiVisibility: { ...state.uiVisibility, ...settings.uiVisibility } }));
+        }
+
+        if (settings?.collapsibleSectionsState) {
+          setUI((state) => ({
+            collapsibleSectionsState: { ...state.collapsibleSectionsState, ...settings.collapsibleSectionsState },
+          }));
         }
 
         setUI({
@@ -316,6 +323,13 @@ export const useAppInitialization = ({
       handleSettingsChange({ ...appSettings, uiVisibility });
     }
   }, [uiVisibility, appSettings, handleSettingsChange]);
+
+  useEffect(() => {
+    if (isInitialMount.current || !appSettings) return;
+    if (JSON.stringify(appSettings.collapsibleSectionsState) !== JSON.stringify(collapsibleSectionsState)) {
+      handleSettingsChange({ ...appSettings, collapsibleSectionsState });
+    }
+  }, [collapsibleSectionsState, appSettings, handleSettingsChange]);
 
   useEffect(() => {
     if (isInitialMount.current || !appSettings) return;
