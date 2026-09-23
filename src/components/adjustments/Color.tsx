@@ -404,7 +404,6 @@ export default function ColorPanel({
   const [activeColor, setActiveColor] = useState('reds');
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
   const toolOrder = getAdjustmentToolOrder('color', appSettings?.adjustmentToolOrder);
-  const isWgpuEnabled = appSettings?.useWgpuRenderer !== false;
 
   const HSL_COLORS = useMemo<Array<ColorProps>>(
     () => [
