@@ -408,6 +408,7 @@
         "aiModelDownloading": "AI 模型下载中：",
         "basicInpaintTooltipDisabled": "生成式后端不可用或未配置。需要基础图像修复。",
         "basicInpaintTooltipEnabled": "基础图像修复更快但不具备生成式能力。取消勾选以使用生成式 AI 并输入文本提示。",
+        "cancelGeneration": "取消生成",
         "componentPropertiesTitle": "{{name}} 属性",
         "downloading": "下载中：",
         "fastInpaintDesc": "基于周围像素填充选区。",

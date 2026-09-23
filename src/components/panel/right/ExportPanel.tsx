@@ -952,9 +952,9 @@ export default function ExportPanel({
           className="w-full"
         >
           <Button
-            className={`group rounded-md h-11 w-full flex items-center text-md font-bold! justify-center ${
+            className={`group rounded-md h-11 w-full flex items-center text-md font-bold! justify-center transition-colors ${
               status === Status.Exporting
-                ? 'bg-red-600/80 hover:bg-red-600 text-white'
+                ? 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 shadow-none'
                 : status === Status.Cancelling
                   ? 'bg-yellow-500/20 text-yellow-400 shadow-none'
                   : status === Status.Success
@@ -978,7 +978,7 @@ export default function ExportPanel({
                     : t('export.status.exporting')}
                 </span>
                 <span className="hidden items-center group-hover:flex">
-                  <Ban size={18} className="mr-2" />
+                  <X size={18} className="mr-2" />
                   {t('export.status.cancelExport')}
                 </span>
               </>

@@ -430,6 +430,7 @@
         "aiModelDownloading": "Download Modello AI: ",
         "basicInpaintTooltipDisabled": "Backend generativo non disponibile o non configurato. È richiesto l'inpainting semplice.",
         "basicInpaintTooltipEnabled": "L'inpainting semplice è più veloce ma non generativo. Deseleziona per usare l'AI generativa con un prompt di testo.",
+        "cancelGeneration": "Annulla generazione",
         "componentPropertiesTitle": "Proprietà {{name}}",
         "downloading": "Download in corso: ",
         "fastInpaintDesc": "Riempi la selezione in base ai pixel circostanti.",

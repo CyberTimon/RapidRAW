@@ -15,6 +15,7 @@ import {
   pointerWithin,
 } from '@dnd-kit/core';
 import {
+  Ban,
   Circle,
   ClipboardPaste,
   Copy,
@@ -2088,11 +2089,17 @@ function SettingsPanel({
 
             {isContainerRunning ? (
               <Button
-                className="w-full bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 transition-colors"
+                className="group w-full bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 transition-colors"
                 onClick={() => onCancelAiTask(displayContainer.id)}
               >
-                <X size={16} />
-                <span className="ml-2">{t('editor.ai.settings.cancelGeneration', 'Cancel Generation')}</span>
+                <span className="flex items-center justify-center group-hover:hidden">
+                  <Loader2 size={16} className="animate-spin mr-2" />
+                  {t('editor.ai.settings.generating')}
+                </span>
+                <span className="hidden items-center justify-center group-hover:flex">
+                  <X size={16} className="mr-2" />
+                  {t('editor.ai.settings.cancelGeneration')}
+                </span>
               </Button>
             ) : (
               <Button

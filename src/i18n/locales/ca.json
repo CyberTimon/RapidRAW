@@ -410,6 +410,7 @@
         "aiModelDownloading": "S'està baixant el model d'IA: ",
         "basicInpaintTooltipDisabled": "Rerefons generatiu no disponible o no configurat. Es requereix l'inpainting bàsic.",
         "basicInpaintTooltipEnabled": "L'inpainting bàsic és més ràpid però no és generatiu. Desmarqueu per utilitzar l'IA generativa amb una indicació de text.",
+        "cancelGeneration": "Cancel·lar generació",
         "componentPropertiesTitle": "Propietats de {{name}}",
         "downloading": "S'està baixant: ",
         "fastInpaintDesc": "Omplir la selecció basant-se en els píxels del voltant.",

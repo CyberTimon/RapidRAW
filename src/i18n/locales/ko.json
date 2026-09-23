@@ -408,6 +408,7 @@
         "aiModelDownloading": "AI 모델 다운로드 중: ",
         "basicInpaintTooltipDisabled": "생성형 백엔드를 사용할 수 없거나 구성되지 않았습니다. 기본 인페인팅이 필요합니다.",
         "basicInpaintTooltipEnabled": "기본 인페인팅은 더 빠르지만 생성형은 아닙니다. 텍스트 프롬프트로 생성형 AI를 사용하려면 선택을 해제하세요.",
+        "cancelGeneration": "생성 취소",
         "componentPropertiesTitle": "{{name}} 속성",
         "downloading": "다운로드 중: ",
         "fastInpaintDesc": "주변 픽셀을 기반으로 선택 영역을 채웁니다.",

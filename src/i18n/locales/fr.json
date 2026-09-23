@@ -430,6 +430,7 @@
         "aiModelDownloading": "Téléchargement du modèle IA : ",
         "basicInpaintTooltipDisabled": "Moteur génératif non disponible ou non configuré. L'inpainting simple est requis.",
         "basicInpaintTooltipEnabled": "L'inpainting simple est plus rapide mais non génératif. Décochez pour utiliser l'IA générative avec un prompt texte.",
+        "cancelGeneration": "Annuler la génération",
         "componentPropertiesTitle": "Propriétés de {{name}}",
         "downloading": "Téléchargement : ",
         "fastInpaintDesc": "Remplir la sélection en fonction des pixels environnants.",

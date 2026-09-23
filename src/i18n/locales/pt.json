@@ -430,6 +430,7 @@
         "aiModelDownloading": "Baixando Modelo de IA: ",
         "basicInpaintTooltipDisabled": "Backend generativo não disponível ou não configurado. O preenchimento básico é necessário.",
         "basicInpaintTooltipEnabled": "O preenchimento básico é mais rápido, mas não é generativo. Desmarque para usar IA Generativa com um prompt de texto.",
+        "cancelGeneration": "Cancelar geração",
         "componentPropertiesTitle": "Propriedades de {{name}}",
         "downloading": "Baixando: ",
         "fastInpaintDesc": "Preencher seleção com base nos pixels ao redor.",

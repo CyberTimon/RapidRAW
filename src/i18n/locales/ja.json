@@ -408,6 +408,7 @@
         "aiModelDownloading": "AIモデルをダウンロード中: ",
         "basicInpaintTooltipDisabled": "生成バックエンドが利用できないか、設定されていません。簡易インペインティングが必要です。",
         "basicInpaintTooltipEnabled": "簡易インペインティングは高速ですが、非生成式です。テキストプロンプトによるAIを使用する場合はチェックを外してください。",
+        "cancelGeneration": "生成をキャンセル",
         "componentPropertiesTitle": "{{name}} のプロパティ",
         "downloading": "ダウンロード中: ",
         "fastInpaintDesc": "周囲のピクセルに基づいて選択範囲を塗りつぶします。",

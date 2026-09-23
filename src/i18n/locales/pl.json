@@ -450,6 +450,7 @@
         "aiModelDownloading": "Pobieranie modelu AI: ",
         "basicInpaintTooltipDisabled": "Generatywny backend jest niedostępny lub nieskonfigurowany. Wymagany jest podstawowy inpainting.",
         "basicInpaintTooltipEnabled": "Podstawowy inpainting jest szybszy, ale nie generatywny. Odznacz, aby użyć Generatywnej AI za pomocą monitu tekstowego.",
+        "cancelGeneration": "Anuluj generowanie",
         "componentPropertiesTitle": "Właściwości dla {{name}}",
         "downloading": "Pobieranie: ",
         "fastInpaintDesc": "Wypełnij zaznaczenie na podstawie otaczających pikseli.",

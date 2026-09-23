@@ -410,6 +410,7 @@
         "aiModelDownloading": "AI Model Downloading: ",
         "basicInpaintTooltipDisabled": "Generative backend not available or not configured. Basic inpainting is required.",
         "basicInpaintTooltipEnabled": "Basic inpainting is quicker but not generative. Uncheck to use Generative AI with a text prompt.",
+        "cancelGeneration": "Cancel Generation",
         "componentPropertiesTitle": "{{name}} Properties",
         "downloading": "Downloading: ",
         "fastInpaintDesc": "Fill selection based on surrounding pixels.",

@@ -410,6 +410,7 @@
         "aiModelDownloading": "KI-Modell wird heruntergeladen: ",
         "basicInpaintTooltipDisabled": "Generatives Backend nicht verfügbar. Einfaches Reparieren ist erforderlich.",
         "basicInpaintTooltipEnabled": "Einfaches Reparieren ist schneller, aber nicht generativ. Deaktivieren für Text-Prompt-KI.",
+        "cancelGeneration": "Generierung abbrechen",
         "componentPropertiesTitle": "{{name}}-Eigenschaften",
         "downloading": "Wird heruntergeladen: ",
         "fastInpaintDesc": "Auswahl basierend auf umliegenden Pixeln füllen.",
