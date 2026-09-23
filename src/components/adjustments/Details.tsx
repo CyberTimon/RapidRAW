@@ -2,8 +2,7 @@ import { useTranslation } from 'react-i18next';
 import Slider from '../ui/Slider';
 import { Adjustments, DetailsAdjustment, getAdjustmentToolOrder } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
-import Text from '../ui/Text';
-import { TextVariants } from '../../types/typography';
+import AdjustmentSubSection from './AdjustmentSubSection';
 
 interface DetailsPanelProps {
   adjustments: Adjustments;
@@ -33,10 +32,11 @@ export default function DetailsPanel({
   return (
     <div className="flex flex-col gap-4">
       {adjustmentVisibility.sharpening !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('sharpening') }}>
-          <Text variant={TextVariants.heading} className="mb-2">
-            {t('adjustments.details.sharpening')}
-          </Text>
+        <AdjustmentSubSection
+          id="sharpening"
+          order={toolOrder.indexOf('sharpening')}
+          title={t('adjustments.details.sharpening')}
+        >
           <Slider
             label={t('adjustments.details.sharpness')}
             max={100}
@@ -59,14 +59,15 @@ export default function DetailsPanel({
               fillOrigin="min"
             />
           )}
-        </div>
+        </AdjustmentSubSection>
       )}
 
       {adjustmentVisibility.presence !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('presence') }}>
-          <Text variant={TextVariants.heading} className="mb-2">
-            {t('adjustments.details.presence')}
-          </Text>
+        <AdjustmentSubSection
+          id="presence"
+          order={toolOrder.indexOf('presence')}
+          title={t('adjustments.details.presence')}
+        >
           <Slider
             label={t('adjustments.details.clarity')}
             max={100}
@@ -105,14 +106,15 @@ export default function DetailsPanel({
               onDragStateChange={onDragStateChange}
             />
           )}
-        </div>
+        </AdjustmentSubSection>
       )}
 
       {adjustmentVisibility.noiseReduction !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('noiseReduction') }}>
-          <Text variant={TextVariants.heading} className="mb-2">
-            {t('adjustments.details.noiseReduction')}
-          </Text>
+        <AdjustmentSubSection
+          id="noiseReduction"
+          order={toolOrder.indexOf('noiseReduction')}
+          title={t('adjustments.details.noiseReduction')}
+        >
           <Slider
             label={t('adjustments.details.luminance')}
             max={100}
@@ -131,14 +133,15 @@ export default function DetailsPanel({
             value={adjustments.colorNoiseReduction}
             onDragStateChange={onDragStateChange}
           />
-        </div>
+        </AdjustmentSubSection>
       )}
 
       {!isForMask && adjustmentVisibility.chromaticAberration !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('chromaticAberration') }}>
-          <Text variant={TextVariants.heading} className="mb-2">
-            {t('adjustments.details.chromaticAberration')}
-          </Text>
+        <AdjustmentSubSection
+          id="chromaticAberration"
+          order={toolOrder.indexOf('chromaticAberration')}
+          title={t('adjustments.details.chromaticAberration')}
+        >
           <Slider
             label={t('adjustments.details.redCyan')}
             max={100}
@@ -159,7 +162,7 @@ export default function DetailsPanel({
             value={adjustments.chromaticAberrationBlueYellow}
             onDragStateChange={onDragStateChange}
           />
-        </div>
+        </AdjustmentSubSection>
       )}
     </div>
   );

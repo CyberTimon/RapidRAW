@@ -11,6 +11,7 @@ import { Adjustments, Effect, CreativeAdjustment, getAdjustmentToolOrder } from 
 import LUTControl from '../ui/LUTControl';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
+import AdjustmentSubSection from './AdjustmentSubSection';
 import { TextVariants } from '../../types/typography';
 import { DepthRangePicker } from '../ui/DepthRangePicker';
 import { useProcessStore } from '../../store/useProcessStore';
@@ -199,11 +200,11 @@ export default function EffectsPanel({
   return (
     <div className="flex flex-col gap-4">
       {adjustmentVisibility.creative !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('creative') }}>
-          <Text variant={TextVariants.heading} className="mb-2">
-            {t('adjustments.effects.creative')}
-          </Text>
-
+        <AdjustmentSubSection
+          id="creative"
+          order={toolOrder.indexOf('creative')}
+          title={t('adjustments.effects.creative')}
+        >
           <Slider
             label={t('adjustments.effects.glow')}
             max={100}
@@ -235,17 +236,17 @@ export default function EffectsPanel({
               onDragStateChange={onDragStateChange}
             />
           )}
-        </div>
+        </AdjustmentSubSection>
       )}
 
       {!isForMask && (
         <>
           {adjustmentVisibility.lensBlur !== false && (
-            <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('lensBlur') }}>
-              <Text variant={TextVariants.heading} className="mb-2">
-                {t('adjustments.effects.lensBlur')}
-              </Text>
-
+            <AdjustmentSubSection
+              id="lensBlur"
+              order={toolOrder.indexOf('lensBlur')}
+              title={t('adjustments.effects.lensBlur')}
+            >
               <Switch
                 label={t('adjustments.effects.lensBlur')}
                 checked={!!adjustments.lensBlurEnabled}
@@ -340,14 +341,11 @@ export default function EffectsPanel({
                   </div>
                 </div>
               </div>
-            </div>
+            </AdjustmentSubSection>
           )}
 
           {adjustmentVisibility.lut !== false && (
-            <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('lut') }}>
-              <Text variant={TextVariants.heading} className="mb-2">
-                {t('adjustments.effects.lut')}
-              </Text>
+            <AdjustmentSubSection id="lut" order={toolOrder.indexOf('lut')} title={t('adjustments.effects.lut')}>
               <LUTControl
                 lutPath={adjustments.lutPath || null}
                 lutName={adjustments.lutName || null}
@@ -358,14 +356,15 @@ export default function EffectsPanel({
                 onClear={handleLutClear}
                 onDragStateChange={onDragStateChange}
               />
-            </div>
+            </AdjustmentSubSection>
           )}
 
           {adjustmentVisibility.vignette !== false && (
-            <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('vignette') }}>
-              <Text variant={TextVariants.heading} className="mb-2">
-                {t('adjustments.effects.vignette')}
-              </Text>
+            <AdjustmentSubSection
+              id="vignette"
+              order={toolOrder.indexOf('vignette')}
+              title={t('adjustments.effects.vignette')}
+            >
               <Slider
                 label={t('adjustments.effects.amount')}
                 max={100}
@@ -406,14 +405,11 @@ export default function EffectsPanel({
                 onDragStateChange={onDragStateChange}
                 fillOrigin="min"
               />
-            </div>
+            </AdjustmentSubSection>
           )}
 
           {adjustmentVisibility.grain !== false && (
-            <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('grain') }}>
-              <Text variant={TextVariants.heading} className="mb-2">
-                {t('adjustments.effects.grain')}
-              </Text>
+            <AdjustmentSubSection id="grain" order={toolOrder.indexOf('grain')} title={t('adjustments.effects.grain')}>
               <Slider
                 label={t('adjustments.effects.amount')}
                 max={100}
@@ -445,7 +441,7 @@ export default function EffectsPanel({
                 onDragStateChange={onDragStateChange}
                 fillOrigin="min"
               />
-            </div>
+            </AdjustmentSubSection>
           )}
         </>
       )}

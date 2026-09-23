@@ -8,7 +8,8 @@ import { ColorAdjustment, ColorCalibration, HueSatLum, INITIAL_ADJUSTMENTS } fro
 import { Adjustments, ColorGrading, getAdjustmentToolOrder } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
-import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import AdjustmentSubSection from './AdjustmentSubSection';
+import { TextColors, TextWeights } from '../../types/typography';
 
 interface ColorProps {
   color: string;
@@ -330,10 +331,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
   const trackSuffix = `${activePrimary}s`;
 
   return (
-    <div className="p-2 bg-bg-tertiary rounded-md">
-      <Text variant={TextVariants.heading} className="mb-2">
-        {t('adjustments.color.calibration.title')}
-      </Text>
+    <div>
       <div>
         <Text color={TextColors.primary} weight={TextWeights.medium} className="mb-1">
           {t('adjustments.color.calibration.shadows')}
@@ -472,10 +470,10 @@ export default function ColorPanel({
   return (
     <div className="flex flex-col gap-4">
       {adjustmentVisibility.whiteBalance !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('whiteBalance') }}>
-          <div className="flex justify-between items-center mb-2">
-            <Text variant={TextVariants.heading}>{t('adjustments.color.whiteBalance')}</Text>
-            {!isForMask && toggleWbPicker && (
+        <AdjustmentSubSection
+          actions={
+            !isForMask &&
+            toggleWbPicker && (
               <button
                 onClick={toggleWbPicker}
                 className={`p-1.5 rounded-md transition-colors ${
@@ -485,8 +483,12 @@ export default function ColorPanel({
               >
                 <Pipette size={16} />
               </button>
-            )}
-          </div>
+            )
+          }
+          id="whiteBalance"
+          order={toolOrder.indexOf('whiteBalance')}
+          title={t('adjustments.color.whiteBalance')}
+        >
           <Slider
             label={t('adjustments.color.temperature')}
             max={100}
@@ -507,14 +509,15 @@ export default function ColorPanel({
             trackClassName="tint-gradient-track"
             onDragStateChange={onDragStateChange}
           />
-        </div>
+        </AdjustmentSubSection>
       )}
 
       {adjustmentVisibility.colorPresence !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('colorPresence') }}>
-          <Text variant={TextVariants.heading} className="mb-2">
-            {t('adjustments.color.presence')}
-          </Text>
+        <AdjustmentSubSection
+          id="colorPresence"
+          order={toolOrder.indexOf('colorPresence')}
+          title={t('adjustments.color.presence')}
+        >
           <Slider
             label={t('adjustments.color.vibrance')}
             max={100}
@@ -533,14 +536,15 @@ export default function ColorPanel({
             value={adjustments.saturation || 0}
             onDragStateChange={onDragStateChange}
           />
-        </div>
+        </AdjustmentSubSection>
       )}
 
       {adjustmentVisibility.hue !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('hue') }}>
-          <Text variant={TextVariants.heading} className="mb-2">
-            {isForMask ? t('adjustments.color.localHue') : t('adjustments.color.hue')}
-          </Text>
+        <AdjustmentSubSection
+          id="hue"
+          order={toolOrder.indexOf('hue')}
+          title={isForMask ? t('adjustments.color.localHue') : t('adjustments.color.hue')}
+        >
           <Slider
             label={t('adjustments.color.hue')}
             max={180}
@@ -551,28 +555,30 @@ export default function ColorPanel({
             trackClassName="hue-range-track"
             onDragStateChange={onDragStateChange}
           />
-        </div>
+        </AdjustmentSubSection>
       )}
 
       {adjustmentVisibility.colorGrading !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('colorGrading') }}>
-          <Text variant={TextVariants.heading} className="mb-3">
-            {t('adjustments.color.colorGrading')}
-          </Text>
+        <AdjustmentSubSection
+          id="colorGrading"
+          order={toolOrder.indexOf('colorGrading')}
+          title={t('adjustments.color.colorGrading')}
+        >
           <ColorGradingPanel
             adjustments={adjustments}
             setAdjustments={setAdjustments}
             appSettings={appSettings}
             onDragStateChange={onDragStateChange}
           />
-        </div>
+        </AdjustmentSubSection>
       )}
 
       {adjustmentVisibility.colorMixer !== false && (
-        <div className="p-1 bg-bg-tertiary rounded-md" style={{ order: toolOrder.indexOf('colorMixer') }}>
-          <Text variant={TextVariants.heading} className="mb-3">
-            {t('adjustments.color.colorMixer')}
-          </Text>
+        <AdjustmentSubSection
+          id="colorMixer"
+          order={toolOrder.indexOf('colorMixer')}
+          title={t('adjustments.color.colorMixer')}
+        >
           <div className="flex justify-between mb-4 px-1">
             {HSL_COLORS.map(({ name, color, label }) => (
               <ColorSwatch
@@ -615,18 +621,22 @@ export default function ColorPanel({
             trackClassName={luminance_slider}
             onDragStateChange={onDragStateChange}
           />
-        </div>
+        </AdjustmentSubSection>
       )}
 
       {!isForMask && adjustmentVisibility.colorCalibration !== false && (
-        <div style={{ order: toolOrder.indexOf('colorCalibration') }}>
+        <AdjustmentSubSection
+          id="colorCalibration"
+          order={toolOrder.indexOf('colorCalibration')}
+          title={t('adjustments.color.calibration.title')}
+        >
           <ColorCalibrationPanel
             adjustments={adjustments}
             setAdjustments={setAdjustments}
             appSettings={appSettings}
             onDragStateChange={onDragStateChange}
           />
-        </div>
+        </AdjustmentSubSection>
       )}
     </div>
   );

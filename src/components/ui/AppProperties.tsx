@@ -228,6 +228,7 @@ export interface AppSettings {
   adjustmentSectionOrder?: string[];
   hiddenAdjustmentSections?: string[];
   adjustmentToolOrder?: Record<string, string[]>;
+  collapsedAdjustmentTools?: string[];
   collapsibleSectionsState?: CollapsibleSectionsState;
   enableFolderImageCounts?: boolean;
   displayEditIcon?: boolean;
