@@ -328,8 +328,11 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Копировать настройки раздела «{{section}}»",
+        "customizePanels": "Настроить панели",
+        "hideSection": "Скрыть раздел «{{section}}»",
         "pasteLabel": "Вставить настройки раздела «{{section}}»",
         "pasteSettings": "Вставить настройки",
+        "resetPanelLayout": "Сбросить по умолчанию",
         "resetSectionSettings": "Сбросить настройки раздела «{{section}}»"
       },
       "sections": {
@@ -342,7 +345,9 @@
       "title": "Настройки",
       "tooltips": {
         "autoAdjust": "Автонастройка изображения",
+        "hideFromPanel": "Скрыть с панели",
         "resetAdjustments": "Сбросить настройки",
+        "showInPanel": "Показать на панели",
         "toggleAnalytics": "Показать/скрыть панель гистограммы"
       }
     },

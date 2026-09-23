@@ -328,8 +328,11 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Kopiuj ustawienia sekcji {{section}}",
+        "customizePanels": "Dostosuj panele",
+        "hideSection": "Ukryj sekcję {{section}}",
         "pasteLabel": "Wklej ustawienia sekcji {{section}}",
         "pasteSettings": "Wklej ustawienia",
+        "resetPanelLayout": "Przywróć domyślne",
         "resetSectionSettings": "Resetuj ustawienia sekcji {{section}}"
       },
       "sections": {
@@ -342,7 +345,9 @@
       "title": "Ustawienia",
       "tooltips": {
         "autoAdjust": "Auto-korekta obrazu",
+        "hideFromPanel": "Ukryj w panelu",
         "resetAdjustments": "Resetuj ustawienia",
+        "showInPanel": "Pokaż w panelu",
         "toggleAnalytics": "Przełącz widok analityki"
       }
     },

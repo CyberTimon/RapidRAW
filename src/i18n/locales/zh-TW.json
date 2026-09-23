@@ -296,8 +296,11 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "複製 {{section}} 設定",
+        "customizePanels": "自訂面板",
+        "hideSection": "隱藏 {{section}}",
         "pasteLabel": "貼上 {{section}} 設定",
         "pasteSettings": "貼上設定",
+        "resetPanelLayout": "重置為預設值",
         "resetSectionSettings": "重置 {{section}} 設定"
       },
       "sections": {
@@ -310,7 +313,9 @@
       "title": "調整",
       "tooltips": {
         "autoAdjust": "自動調整影像",
+        "hideFromPanel": "在面板中隱藏",
         "resetAdjustments": "重置調整",
+        "showInPanel": "在面板中顯示",
         "toggleAnalytics": "切換分析顯示"
       }
     },

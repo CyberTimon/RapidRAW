@@ -296,8 +296,11 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "{{section}}-Einstellungen kopieren",
+        "customizePanels": "Panels anpassen",
+        "hideSection": "{{section}} ausblenden",
         "pasteLabel": "{{section}}-Einstellungen einfügen",
         "pasteSettings": "Einstellungen einfügen",
+        "resetPanelLayout": "Auf Standard zurücksetzen",
         "resetSectionSettings": "{{section}}-Einstellungen zurücksetzen"
       },
       "sections": {
@@ -310,7 +313,9 @@
       "title": "Anpassungen",
       "tooltips": {
         "autoAdjust": "Bild autom. anpassen",
+        "hideFromPanel": "Im Panel ausblenden",
         "resetAdjustments": "Anpassungen zurücksetzen",
+        "showInPanel": "Im Panel anzeigen",
         "toggleAnalytics": "Analyseanzeige umschalten"
       }
     },

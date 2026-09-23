@@ -953,3 +953,14 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.LensBlurMaxFade,
   ],
 };
+
+export const getAdjustmentSectionOrder = (order: string[] = []): string[] => {
+  const defaultOrder = Object.keys(ADJUSTMENT_SECTIONS);
+  const savedOrder = order.filter(
+    (section, index) => defaultOrder.includes(section) && order.indexOf(section) === index,
+  );
+  return [...savedOrder, ...defaultOrder.filter((section) => !savedOrder.includes(section))];
+};
+
+export const getVisibleAdjustmentSections = (order?: string[], hidden: string[] = []): string[] =>
+  getAdjustmentSectionOrder(order).filter((section) => !hidden.includes(section));

@@ -312,8 +312,11 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copia Impostazioni {{section}}",
+        "customizePanels": "Personalizza Pannelli",
+        "hideSection": "Nascondi {{section}}",
         "pasteLabel": "Incolla Impostazioni {{section}}",
         "pasteSettings": "Incolla Impostazioni",
+        "resetPanelLayout": "Ripristina Predefiniti",
         "resetSectionSettings": "Ripristina Impostazioni {{section}}"
       },
       "sections": {
@@ -326,7 +329,9 @@
       "title": "Regolazioni",
       "tooltips": {
         "autoAdjust": "Regolazione Automatica Immagine",
+        "hideFromPanel": "Nascondi dal Pannello",
         "resetAdjustments": "Ripristina Regolazioni",
+        "showInPanel": "Mostra nel Pannello",
         "toggleAnalytics": "Attiva/Disattiva Visualizzazione Analitiche"
       }
     },

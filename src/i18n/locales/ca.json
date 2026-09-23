@@ -296,8 +296,11 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copiar ajustaments de {{section}}",
+        "customizePanels": "Personalitzar taulers",
+        "hideSection": "Ocultar {{section}}",
         "pasteLabel": "Enganxar ajustaments de {{section}}",
         "pasteSettings": "Enganxar ajustaments",
+        "resetPanelLayout": "Restablir per defecte",
         "resetSectionSettings": "Restablir ajustaments de {{section}}"
       },
       "sections": {
@@ -310,7 +313,9 @@
       "title": "Ajustaments",
       "tooltips": {
         "autoAdjust": "Ajustament automàtic de la imatge",
+        "hideFromPanel": "Ocultar del tauler",
         "resetAdjustments": "Restablir ajustaments",
+        "showInPanel": "Mostrar al tauler",
         "toggleAnalytics": "Alternar visualització d'anàlisi"
       }
     },

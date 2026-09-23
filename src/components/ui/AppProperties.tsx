@@ -225,6 +225,8 @@ export interface AppSettings {
   exportPresets?: ExportPreset[];
   myLenses?: any;
   customAspectRatios?: CustomAspectRatio[];
+  adjustmentSectionOrder?: string[];
+  hiddenAdjustmentSections?: string[];
   enableFolderImageCounts?: boolean;
   displayEditIcon?: boolean;
   linearRawMode?: string;

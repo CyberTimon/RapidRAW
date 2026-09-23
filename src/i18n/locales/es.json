@@ -312,8 +312,11 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copiar ajustes de {{section}}",
+        "customizePanels": "Personalizar paneles",
+        "hideSection": "Ocultar {{section}}",
         "pasteLabel": "Pegar ajustes de {{section}}",
         "pasteSettings": "Pegar ajustes",
+        "resetPanelLayout": "Restablecer valores predeterminados",
         "resetSectionSettings": "Restablecer ajustes de {{section}}"
       },
       "sections": {
@@ -326,7 +329,9 @@
       "title": "Ajustes",
       "tooltips": {
         "autoAdjust": "Ajuste automático de imagen",
+        "hideFromPanel": "Ocultar del panel",
         "resetAdjustments": "Restablecer ajustes",
+        "showInPanel": "Mostrar en el panel",
         "toggleAnalytics": "Alternar vista de análisis"
       }
     },

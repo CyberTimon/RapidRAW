@@ -547,6 +547,10 @@ pub struct AppSettings {
     #[serde(default)]
     pub custom_aspect_ratios: Vec<CustomAspectRatio>,
     #[serde(default)]
+    pub adjustment_section_order: Vec<String>,
+    #[serde(default)]
+    pub hidden_adjustment_sections: Vec<String>,
+    #[serde(default)]
     pub workspace: WorkspaceState,
 }
 
@@ -644,6 +648,8 @@ impl Default for AppSettings {
             group_preferred_type: Some("raw".to_string()),
             always_decode_raw_thumbnails: Some(false),
             custom_aspect_ratios: Vec::new(),
+            adjustment_section_order: Vec::new(),
+            hidden_adjustment_sections: Vec::new(),
             workspace: WorkspaceState::default(),
         }
     }
