@@ -98,6 +98,10 @@ function buildParametricPoints(settings: ParametricCurveSettings): Array<Coord> 
   return points;
 }
 
+function isIdentityCurve(points?: Array<Coord>) {
+  return !points || points.every((p) => p.x === p.y);
+}
+
 function getCurvePath(points: Array<Coord>) {
   if (points.length < 2) return '';
 
@@ -855,6 +859,20 @@ export default function CurveGraph({
                 const x = (value / 100) * 255;
                 return <line key={key} x1={x} y1="0" x2={x} y2="255" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />;
               })}
+
+            {Object.keys(channelConfig)
+              .filter((channel) => channel !== activeChannel && !isIdentityCurve(adjustments?.curves?.[channel]))
+              .map((channel) => (
+                <path
+                  d={getCurvePath(adjustments.curves[channel])}
+                  fill="none"
+                  key={channel}
+                  pointerEvents="none"
+                  stroke={channelConfig[channel].color}
+                  strokeOpacity={0.5}
+                  strokeWidth="1.5"
+                />
+              ))}
 
             <path d={getCurvePath(activePoints)} fill="none" stroke={color} strokeWidth="2.5" />
 
