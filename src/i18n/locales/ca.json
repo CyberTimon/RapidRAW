@@ -795,7 +795,6 @@
       },
       "basis": "Base del gruix",
       "color": "Color de la vora",
-      "hint": "S'aplica abans de l'emplenament, de manera que la imatge conserva la relació d'aspecte exacta.",
       "invalidPercent": "Introduïu un nombre entre 0 i 100 per a tots dos.",
       "leftRight": "Esquerra i dreta",
       "percent": "%",

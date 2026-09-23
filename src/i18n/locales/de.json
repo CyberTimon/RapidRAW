@@ -795,7 +795,6 @@
       },
       "basis": "Basis der Stärke",
       "color": "Rahmenfarbe",
-      "hint": "Wird vor dem Auffüllen angewendet, damit das Bild das exakte Seitenverhältnis behält.",
       "invalidPercent": "Geben Sie für beide eine Zahl zwischen 0 und 100 ein.",
       "leftRight": "Links & Rechts",
       "percent": "%",

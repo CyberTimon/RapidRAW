@@ -795,7 +795,6 @@
       },
       "basis": "Thickness Basis",
       "color": "Border Color",
-      "hint": "Applied before padding, so the padded image keeps the exact aspect ratio.",
       "invalidPercent": "Enter a number between 0 and 100 for both.",
       "leftRight": "Left & Right",
       "percent": "%",

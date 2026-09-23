@@ -837,7 +837,6 @@
       },
       "basis": "Podstawa grubości",
       "color": "Kolor ramki",
-      "hint": "Stosowane przed wypełnieniem, więc obraz zachowuje dokładne proporcje.",
       "invalidPercent": "Wprowadź liczbę od 0 do 100 dla obu.",
       "leftRight": "Lewo i prawo",
       "percent": "%",

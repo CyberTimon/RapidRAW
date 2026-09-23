@@ -816,7 +816,6 @@
       },
       "basis": "Base del grosor",
       "color": "Color del borde",
-      "hint": "Se aplica antes del relleno, por lo que la imagen conserva la relación de aspecto exacta.",
       "invalidPercent": "Introduce un número entre 0 y 100 para ambos.",
       "leftRight": "Izquierda y Derecha",
       "percent": "%",

@@ -816,7 +816,6 @@
       },
       "basis": "Base de l'épaisseur",
       "color": "Couleur de la bordure",
-      "hint": "Appliqué avant le remplissage, afin que l'image conserve le rapport d'aspect exact.",
       "invalidPercent": "Saisissez un nombre entre 0 et 100 pour les deux.",
       "leftRight": "Gauche et droite",
       "percent": "%",

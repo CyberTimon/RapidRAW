@@ -955,7 +955,6 @@ export default function ExportPanel({
                         label={t('export.border.color')}
                         onColorChange={setBorderColor}
                       />
-                      {enablePad && <Text variant={TextVariants.label}>{t('export.border.hint')}</Text>}
                     </div>
                   )}
                   <Switch
