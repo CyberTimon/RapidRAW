@@ -471,7 +471,7 @@ export default function CurveGraph({
 
   const inactiveChannels = Object.keys(channelConfig).filter((channel) => channel !== activeChannel);
 
-  const activePoints = isParametricMode
+  const activePoints: Array<Coord> = isParametricMode
     ? buildParametricPoints(activeParametricSettings)
     : (localPoints ?? adjustments?.curves?.[activeChannel]);
 
@@ -788,7 +788,7 @@ export default function CurveGraph({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          {Object.keys(channelConfig).map((channel: any) => {
+          {(Object.keys(channelConfig) as Array<ActiveChannel>).map((channel) => {
             const selected = activeChannel === channel;
             const channelLabel = t(`adjustments.curves.channels.${channel}`);
             return (
@@ -797,7 +797,7 @@ export default function CurveGraph({
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
                   selected ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent' : 'bg-surface-secondary'
                 } ${channel === ActiveChannel.Luma ? 'text-text-primary' : ''}`}
-                onClick={() => setActiveChannel(channel as ActiveChannel)}
+                onClick={() => setActiveChannel(channel)}
                 type="button"
                 style={{
                   backgroundColor:
