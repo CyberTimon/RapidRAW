@@ -6,7 +6,7 @@ use crate::image_loader::load_base_image_from_bytes;
 use crate::image_processing::apply_cpu_default_raw_processing;
 use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, GenericImageView, ImageFormat, Rgb, Rgb32FImage};
-use rayon::{prelude::*};
+use rayon::prelude::*;
 use std::cmp::Ordering;
 use std::fs;
 use std::io::Cursor;
