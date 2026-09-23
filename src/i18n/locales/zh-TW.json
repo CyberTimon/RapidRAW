@@ -1469,14 +1469,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "色差",
-      "colorCalibration": "顏色校準",
-      "description": "隱藏不常用的調整部分以簡化編輯面板。即使隱藏，您的設定也會被保留和應用。",
-      "grain": "顆粒",
-      "noiseReduction": "降噪",
-      "title": "調整可見性"
-    },
     "categories": {
       "general": "通用",
       "processing": "處理",

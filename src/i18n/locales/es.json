@@ -1501,14 +1501,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Aberración cromática",
-      "colorCalibration": "Calibración de color",
-      "description": "Oculta las secciones de ajustes que no usas a menudo para simplificar el panel de edición. Tus ajustes se mantendrán y aplicarán incluso si están ocultos.",
-      "grain": "Grano",
-      "noiseReduction": "Reducción de ruido",
-      "title": "Visibilidad de ajustes"
-    },
     "categories": {
       "general": "General",
       "processing": "Procesamiento",

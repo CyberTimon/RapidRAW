@@ -1533,14 +1533,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Aberracja chromatyczna",
-      "colorCalibration": "Kalibracja kolorów",
-      "description": "Ukryj rzadziej używane sekcje korekcji, by uprościć panel edycji. Twoje ustawienia zostaną zachowane i zastosowane nawet jeśli będą ukryte.",
-      "grain": "Ziarno",
-      "noiseReduction": "Redukcja szumu",
-      "title": "Widoczność narzędzi"
-    },
     "categories": {
       "general": "Ogólne",
       "processing": "Przetwarzanie",

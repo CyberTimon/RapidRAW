@@ -470,142 +470,152 @@ export default function ColorPanel({
 
   return (
     <div className="space-y-4">
-      <div className="p-1 bg-bg-tertiary rounded-md">
-        <div className="flex justify-between items-center mb-2">
-          <Text variant={TextVariants.heading}>{t('adjustments.color.whiteBalance')}</Text>
-          {!isForMask && toggleWbPicker && (
-            <button
-              onClick={toggleWbPicker}
-              className={`p-1.5 rounded-md transition-colors ${
-                isWbPickerActive ? 'bg-accent text-button-text' : 'hover:bg-bg-secondary text-text-secondary'
-              }`}
-              data-tooltip={t('adjustments.color.wbPickerTooltip')}
-            >
-              <Pipette size={16} />
-            </button>
-          )}
+      {adjustmentVisibility.whiteBalance !== false && (
+        <div className="p-1 bg-bg-tertiary rounded-md">
+          <div className="flex justify-between items-center mb-2">
+            <Text variant={TextVariants.heading}>{t('adjustments.color.whiteBalance')}</Text>
+            {!isForMask && toggleWbPicker && (
+              <button
+                onClick={toggleWbPicker}
+                className={`p-1.5 rounded-md transition-colors ${
+                  isWbPickerActive ? 'bg-accent text-button-text' : 'hover:bg-bg-secondary text-text-secondary'
+                }`}
+                data-tooltip={t('adjustments.color.wbPickerTooltip')}
+              >
+                <Pipette size={16} />
+              </button>
+            )}
+          </div>
+          <Slider
+            label={t('adjustments.color.temperature')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Temperature, e.target.value)}
+            step={1}
+            value={adjustments.temperature || 0}
+            trackClassName="temperature-gradient-track"
+            onDragStateChange={onDragStateChange}
+          />
+          <Slider
+            label={t('adjustments.color.tint')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Tint, e.target.value)}
+            step={1}
+            value={adjustments.tint || 0}
+            trackClassName="tint-gradient-track"
+            onDragStateChange={onDragStateChange}
+          />
         </div>
-        <Slider
-          label={t('adjustments.color.temperature')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Temperature, e.target.value)}
-          step={1}
-          value={adjustments.temperature || 0}
-          trackClassName="temperature-gradient-track"
-          onDragStateChange={onDragStateChange}
-        />
-        <Slider
-          label={t('adjustments.color.tint')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Tint, e.target.value)}
-          step={1}
-          value={adjustments.tint || 0}
-          trackClassName="tint-gradient-track"
-          onDragStateChange={onDragStateChange}
-        />
-      </div>
+      )}
 
-      <div className="p-1 bg-bg-tertiary rounded-md">
-        <Text variant={TextVariants.heading} className="mb-2">
-          {t('adjustments.color.presence')}
-        </Text>
-        <Slider
-          label={t('adjustments.color.vibrance')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Vibrance, e.target.value)}
-          step={1}
-          value={adjustments.vibrance || 0}
-          onDragStateChange={onDragStateChange}
-        />
-        <Slider
-          label={t('adjustments.color.saturation')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Saturation, e.target.value)}
-          step={1}
-          value={adjustments.saturation || 0}
-          onDragStateChange={onDragStateChange}
-        />
-      </div>
-
-      <div className="p-1 bg-bg-tertiary rounded-md">
-        <Text variant={TextVariants.heading} className="mb-2">
-          {isForMask ? t('adjustments.color.localHue') : t('adjustments.color.hue')}
-        </Text>
-        <Slider
-          label={t('adjustments.color.hue')}
-          max={180}
-          min={-180}
-          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Hue, e.target.value)}
-          step={1}
-          value={adjustments.hue || 0}
-          trackClassName="hue-range-track"
-          onDragStateChange={onDragStateChange}
-        />
-      </div>
-
-      <div className="p-1 bg-bg-tertiary rounded-md">
-        <Text variant={TextVariants.heading} className="mb-3">
-          {t('adjustments.color.colorGrading')}
-        </Text>
-        <ColorGradingPanel
-          adjustments={adjustments}
-          setAdjustments={setAdjustments}
-          appSettings={appSettings}
-          onDragStateChange={onDragStateChange}
-        />
-      </div>
-
-      <div className="p-1 bg-bg-tertiary rounded-md">
-        <Text variant={TextVariants.heading} className="mb-3">
-          {t('adjustments.color.colorMixer')}
-        </Text>
-        <div className="flex justify-between mb-4 px-1">
-          {HSL_COLORS.map(({ name, color, label }) => (
-            <ColorSwatch
-              color={color}
-              isActive={activeColor === name}
-              key={name}
-              name={name}
-              onClick={setActiveColor}
-              ariaLabel={t('adjustments.color.ariaSelectColor', { name: label })}
-            />
-          ))}
+      {adjustmentVisibility.colorPresence !== false && (
+        <div className="p-1 bg-bg-tertiary rounded-md">
+          <Text variant={TextVariants.heading} className="mb-2">
+            {t('adjustments.color.presence')}
+          </Text>
+          <Slider
+            label={t('adjustments.color.vibrance')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Vibrance, e.target.value)}
+            step={1}
+            value={adjustments.vibrance || 0}
+            onDragStateChange={onDragStateChange}
+          />
+          <Slider
+            label={t('adjustments.color.saturation')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Saturation, e.target.value)}
+            step={1}
+            value={adjustments.saturation || 0}
+            onDragStateChange={onDragStateChange}
+          />
         </div>
-        <Slider
-          label={t('adjustments.color.hue')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleHslChange(ColorAdjustment.Hue, e.target.value)}
-          step={1}
-          value={currentHsl.hue}
-          trackClassName={hue_slider}
-          onDragStateChange={onDragStateChange}
-        />
-        <Slider
-          label={t('adjustments.color.saturation')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleHslChange(ColorAdjustment.Saturation, e.target.value)}
-          step={1}
-          value={currentHsl.saturation}
-          trackClassName={saturation_slider}
-          onDragStateChange={onDragStateChange}
-        />
-        <Slider
-          label={t('adjustments.color.luminance')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleHslChange(ColorAdjustment.Luminance, e.target.value)}
-          step={1}
-          value={currentHsl.luminance}
-          trackClassName={luminance_slider}
-          onDragStateChange={onDragStateChange}
-        />
-      </div>
+      )}
+
+      {adjustmentVisibility.hue !== false && (
+        <div className="p-1 bg-bg-tertiary rounded-md">
+          <Text variant={TextVariants.heading} className="mb-2">
+            {isForMask ? t('adjustments.color.localHue') : t('adjustments.color.hue')}
+          </Text>
+          <Slider
+            label={t('adjustments.color.hue')}
+            max={180}
+            min={-180}
+            onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Hue, e.target.value)}
+            step={1}
+            value={adjustments.hue || 0}
+            trackClassName="hue-range-track"
+            onDragStateChange={onDragStateChange}
+          />
+        </div>
+      )}
+
+      {adjustmentVisibility.colorGrading !== false && (
+        <div className="p-1 bg-bg-tertiary rounded-md">
+          <Text variant={TextVariants.heading} className="mb-3">
+            {t('adjustments.color.colorGrading')}
+          </Text>
+          <ColorGradingPanel
+            adjustments={adjustments}
+            setAdjustments={setAdjustments}
+            appSettings={appSettings}
+            onDragStateChange={onDragStateChange}
+          />
+        </div>
+      )}
+
+      {adjustmentVisibility.colorMixer !== false && (
+        <div className="p-1 bg-bg-tertiary rounded-md">
+          <Text variant={TextVariants.heading} className="mb-3">
+            {t('adjustments.color.colorMixer')}
+          </Text>
+          <div className="flex justify-between mb-4 px-1">
+            {HSL_COLORS.map(({ name, color, label }) => (
+              <ColorSwatch
+                color={color}
+                isActive={activeColor === name}
+                key={name}
+                name={name}
+                onClick={setActiveColor}
+                ariaLabel={t('adjustments.color.ariaSelectColor', { name: label })}
+              />
+            ))}
+          </div>
+          <Slider
+            label={t('adjustments.color.hue')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleHslChange(ColorAdjustment.Hue, e.target.value)}
+            step={1}
+            value={currentHsl.hue}
+            trackClassName={hue_slider}
+            onDragStateChange={onDragStateChange}
+          />
+          <Slider
+            label={t('adjustments.color.saturation')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleHslChange(ColorAdjustment.Saturation, e.target.value)}
+            step={1}
+            value={currentHsl.saturation}
+            trackClassName={saturation_slider}
+            onDragStateChange={onDragStateChange}
+          />
+          <Slider
+            label={t('adjustments.color.luminance')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleHslChange(ColorAdjustment.Luminance, e.target.value)}
+            step={1}
+            value={currentHsl.luminance}
+            trackClassName={luminance_slider}
+            onDragStateChange={onDragStateChange}
+          />
+        </div>
+      )}
 
       {!isForMask && adjustmentVisibility.colorCalibration !== false && (
         <ColorCalibrationPanel

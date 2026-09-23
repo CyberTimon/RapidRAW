@@ -1501,14 +1501,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Aberrazione Cromatica",
-      "colorCalibration": "Calibrazione Colore",
-      "description": "Nascondi le sezioni di regolazione che non usi spesso per semplificare il pannello di modifica. Le tue impostazioni verranno mantenute e applicate anche se nascoste.",
-      "grain": "Grana",
-      "noiseReduction": "Riduzione Rumore",
-      "title": "Visibilità Regolazioni"
-    },
     "categories": {
       "general": "Generale",
       "processing": "Elaborazione",

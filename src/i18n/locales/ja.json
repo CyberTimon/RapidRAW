@@ -1469,14 +1469,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "色収差",
-      "colorCalibration": "カラーキャリブレーション",
-      "description": "使わない調整項目を非表示にして、編集パネルをシンプルにすることができます。非表示にしても、設定自体は維持され適用され続けます。",
-      "grain": "粒子",
-      "noiseReduction": "ノイズ低減",
-      "title": "調整項目の表示/非表示"
-    },
     "categories": {
       "general": "一般",
       "processing": "画像処理",

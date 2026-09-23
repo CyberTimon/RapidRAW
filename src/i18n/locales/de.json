@@ -1471,14 +1471,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Chromatische Aberration",
-      "colorCalibration": "Farbkalibrierung",
-      "description": "Blenden Sie Bereiche aus, die Sie nicht oft verwenden, um das Panel zu vereinfachen. Ihre Einstellungen bleiben erhalten und werden weiterhin angewendet.",
-      "grain": "Körnung",
-      "noiseReduction": "Rauschreduzierung",
-      "title": "Sichtbarkeit von Anpassungen"
-    },
     "categories": {
       "general": "Allgemein",
       "processing": "Verarbeitung",
