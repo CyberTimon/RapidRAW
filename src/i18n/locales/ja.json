@@ -785,6 +785,20 @@
       "preserveTimestamps": "EXIFの撮影日時からファイルタイムスタンプを設定",
       "title": "書き出し設定"
     },
+    "border": {
+      "addBorder": "枠を追加",
+      "bases": {
+        "eachEdge": "それぞれの辺",
+        "longEdge": "長辺",
+        "shortEdge": "短辺"
+      },
+      "basis": "太さの基準",
+      "color": "枠の色",
+      "invalidPercent": "両方に0から100までの数値を入力してください。",
+      "leftRight": "左右",
+      "percent": "%",
+      "topBottom": "上下"
+    },
     "bytes": {
       "bytes": "バイト",
       "gb": "GB",
@@ -820,6 +834,14 @@
     "metadata": {
       "removeGps": "GPSデータを削除",
       "saveWithMetadata": "メタデータを含めて保存"
+    },
+    "pad": {
+      "aspectRatio": "アスペクト比",
+      "backgroundColor": "背景色",
+      "invalidRatio": "幅と高さに正の数を入力してください。",
+      "padToAspectRatio": "アスペクト比に合わせて余白を追加",
+      "ratioHeight": "アスペクト比の高さ",
+      "ratioWidth": "アスペクト比の幅"
     },
     "resize": {
       "dontEnlarge": "拡大しない",

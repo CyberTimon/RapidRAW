@@ -787,6 +787,20 @@
       "preserveTimestamps": "Set File Timestamps from EXIF Capture Date",
       "title": "Export Settings"
     },
+    "border": {
+      "addBorder": "Add Border",
+      "bases": {
+        "eachEdge": "Each Respective Edge",
+        "longEdge": "Longest Edge",
+        "shortEdge": "Shortest Edge"
+      },
+      "basis": "Thickness Basis",
+      "color": "Border Color",
+      "invalidPercent": "Enter a number between 0 and 100 for both.",
+      "leftRight": "Left & Right",
+      "percent": "%",
+      "topBottom": "Top & Bottom"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",
@@ -822,6 +836,14 @@
     "metadata": {
       "removeGps": "Remove GPS Data",
       "saveWithMetadata": "Save with Metadata"
+    },
+    "pad": {
+      "aspectRatio": "Aspect Ratio",
+      "backgroundColor": "Background Color",
+      "invalidRatio": "Enter a positive number for both width and height.",
+      "padToAspectRatio": "Pad to Aspect Ratio",
+      "ratioHeight": "Aspect ratio height",
+      "ratioWidth": "Aspect ratio width"
     },
     "resize": {
       "dontEnlarge": "Don't Enlarge",

@@ -785,6 +785,20 @@
       "preserveTimestamps": "将文件时间戳设为 EXIF 拍摄日期",
       "title": "导出设置"
     },
+    "border": {
+      "addBorder": "添加边框",
+      "bases": {
+        "eachEdge": "各自边长",
+        "longEdge": "长边",
+        "shortEdge": "短边"
+      },
+      "basis": "厚度基准",
+      "color": "边框颜色",
+      "invalidPercent": "请为两者输入 0 到 100 之间的数字。",
+      "leftRight": "左右",
+      "percent": "%",
+      "topBottom": "上下"
+    },
     "bytes": {
       "bytes": "字节",
       "gb": "GB",
@@ -820,6 +834,14 @@
     "metadata": {
       "removeGps": "移除 GPS 数据",
       "saveWithMetadata": "保存时包含元数据"
+    },
+    "pad": {
+      "aspectRatio": "宽高比",
+      "backgroundColor": "背景颜色",
+      "invalidRatio": "请为宽度和高度输入正数。",
+      "padToAspectRatio": "填充至宽高比",
+      "ratioHeight": "宽高比高度",
+      "ratioWidth": "宽高比宽度"
     },
     "resize": {
       "dontEnlarge": "不放大",

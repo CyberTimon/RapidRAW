@@ -250,6 +250,24 @@ pub struct ExportPreset {
     #[serde(default)]
     pub preserve_folders: Option<bool>,
     #[serde(default)]
+    pub enable_pad: Option<bool>,
+    #[serde(default)]
+    pub pad_ratio_width: Option<f32>,
+    #[serde(default)]
+    pub pad_ratio_height: Option<f32>,
+    #[serde(default)]
+    pub pad_color: Option<String>,
+    #[serde(default)]
+    pub enable_border: Option<bool>,
+    #[serde(default)]
+    pub border_basis: Option<String>,
+    #[serde(default)]
+    pub border_horizontal_percent: Option<f32>,
+    #[serde(default)]
+    pub border_vertical_percent: Option<f32>,
+    #[serde(default)]
+    pub border_color: Option<String>,
+    #[serde(default)]
     pub last_export_path: Option<String>,
     #[serde(default)]
     pub destination_type: Option<String>,
@@ -279,6 +297,15 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             watermark_opacity: 75,
             export_masks: Some(false),
             preserve_folders: Some(false),
+            enable_pad: Some(false),
+            pad_ratio_width: Some(1.0),
+            pad_ratio_height: Some(1.0),
+            pad_color: Some("#000000".to_string()),
+            enable_border: Some(false),
+            border_basis: Some("longEdge".to_string()),
+            border_horizontal_percent: Some(2.0),
+            border_vertical_percent: Some(2.0),
+            border_color: Some("#000000".to_string()),
             last_export_path: None,
             destination_type: Some("customFolder".to_string()),
             subfolder: Some("".to_string()),
@@ -303,6 +330,15 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             watermark_opacity: 75,
             export_masks: Some(false),
             preserve_folders: Some(false),
+            enable_pad: Some(false),
+            pad_ratio_width: Some(1.0),
+            pad_ratio_height: Some(1.0),
+            pad_color: Some("#000000".to_string()),
+            enable_border: Some(false),
+            border_basis: Some("longEdge".to_string()),
+            border_horizontal_percent: Some(2.0),
+            border_vertical_percent: Some(2.0),
+            border_color: Some("#000000".to_string()),
             last_export_path: None,
             destination_type: Some("customFolder".to_string()),
             subfolder: Some("".to_string()),

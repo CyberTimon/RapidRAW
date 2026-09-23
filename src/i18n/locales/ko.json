@@ -785,6 +785,20 @@
       "preserveTimestamps": "EXIF 촬영 날짜로 파일 타임스탬프 설정",
       "title": "내보내기 설정"
     },
+    "border": {
+      "addBorder": "테두리 추가",
+      "bases": {
+        "eachEdge": "각 변",
+        "longEdge": "긴 변",
+        "shortEdge": "짧은 변"
+      },
+      "basis": "두께 기준",
+      "color": "테두리 색상",
+      "invalidPercent": "둘 다 0에서 100 사이의 숫자를 입력하세요.",
+      "leftRight": "좌우",
+      "percent": "%",
+      "topBottom": "상하"
+    },
     "bytes": {
       "bytes": "바이트",
       "gb": "GB",
@@ -820,6 +834,14 @@
     "metadata": {
       "removeGps": "GPS 데이터 제거",
       "saveWithMetadata": "메타데이터와 함께 저장"
+    },
+    "pad": {
+      "aspectRatio": "종횡비",
+      "backgroundColor": "배경색",
+      "invalidRatio": "너비와 높이에 양수를 입력하세요.",
+      "padToAspectRatio": "종횡비에 맞춰 여백 추가",
+      "ratioHeight": "종횡비 높이",
+      "ratioWidth": "종횡비 너비"
     },
     "resize": {
       "dontEnlarge": "확대하지 않음",

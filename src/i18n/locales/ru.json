@@ -829,6 +829,20 @@
       "preserveTimestamps": "Установить дату файла из EXIF даты съемки",
       "title": "Настройки экспорта"
     },
+    "border": {
+      "addBorder": "Добавить рамку",
+      "bases": {
+        "eachEdge": "Соответствующая сторона",
+        "longEdge": "Длинная сторона",
+        "shortEdge": "Короткая сторона"
+      },
+      "basis": "Основа толщины",
+      "color": "Цвет рамки",
+      "invalidPercent": "Введите число от 0 до 100 для обоих.",
+      "leftRight": "Слева и справа",
+      "percent": "%",
+      "topBottom": "Сверху и снизу"
+    },
     "bytes": {
       "bytes": "Байт",
       "gb": "ГБ",
@@ -866,6 +880,14 @@
     "metadata": {
       "removeGps": "Удалить данные GPS",
       "saveWithMetadata": "Сохранить с метаданными"
+    },
+    "pad": {
+      "aspectRatio": "Соотношение сторон",
+      "backgroundColor": "Цвет фона",
+      "invalidRatio": "Введите положительное число для ширины и высоты.",
+      "padToAspectRatio": "Расширить до соотношения сторон",
+      "ratioHeight": "Высота соотношения сторон",
+      "ratioWidth": "Ширина соотношения сторон"
     },
     "resize": {
       "dontEnlarge": "Не увеличивать",

@@ -785,6 +785,20 @@
       "preserveTimestamps": "將檔案時間戳設為 EXIF 拍攝日期",
       "title": "匯出設定"
     },
+    "border": {
+      "addBorder": "新增邊框",
+      "bases": {
+        "eachEdge": "各自邊長",
+        "longEdge": "長邊",
+        "shortEdge": "短邊"
+      },
+      "basis": "厚度基準",
+      "color": "邊框顏色",
+      "invalidPercent": "請為兩者輸入 0 到 100 之間的數字。",
+      "leftRight": "左右",
+      "percent": "%",
+      "topBottom": "上下"
+    },
     "bytes": {
       "bytes": "位元組",
       "gb": "GB",
@@ -820,6 +834,14 @@
     "metadata": {
       "removeGps": "移除 GPS 資料",
       "saveWithMetadata": "儲存時包含後設資料"
+    },
+    "pad": {
+      "aspectRatio": "寬高比",
+      "backgroundColor": "背景顏色",
+      "invalidRatio": "請為寬度和高度輸入正數。",
+      "padToAspectRatio": "填充至寬高比",
+      "ratioHeight": "寬高比高度",
+      "ratioWidth": "寬高比寬度"
     },
     "resize": {
       "dontEnlarge": "不放大",

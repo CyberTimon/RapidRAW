@@ -787,6 +787,20 @@
       "preserveTimestamps": "Dateizeitstempel aus EXIF-Aufnahmedatum setzen",
       "title": "Exporteinstellungen"
     },
+    "border": {
+      "addBorder": "Rahmen hinzufügen",
+      "bases": {
+        "eachEdge": "Jeweilige Kante",
+        "longEdge": "Lange Kante",
+        "shortEdge": "Kurze Kante"
+      },
+      "basis": "Basis der Stärke",
+      "color": "Rahmenfarbe",
+      "invalidPercent": "Geben Sie für beide eine Zahl zwischen 0 und 100 ein.",
+      "leftRight": "Links & Rechts",
+      "percent": "%",
+      "topBottom": "Oben & Unten"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",
@@ -822,6 +836,14 @@
     "metadata": {
       "removeGps": "GPS-Daten entfernen",
       "saveWithMetadata": "Mit Metadaten speichern"
+    },
+    "pad": {
+      "aspectRatio": "Seitenverhältnis",
+      "backgroundColor": "Hintergrundfarbe",
+      "invalidRatio": "Geben Sie für Breite und Höhe eine positive Zahl ein.",
+      "padToAspectRatio": "Auf Seitenverhältnis erweitern",
+      "ratioHeight": "Höhe des Seitenverhältnisses",
+      "ratioWidth": "Breite des Seitenverhältnisses"
     },
     "resize": {
       "dontEnlarge": "Nicht vergrößern",

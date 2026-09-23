@@ -787,6 +787,20 @@
       "preserveTimestamps": "Establir les marques de temps dels fitxers des de la data de captura EXIF",
       "title": "Configuració d'exportació"
     },
+    "border": {
+      "addBorder": "Afegeix una vora",
+      "bases": {
+        "eachEdge": "Cada vora respectiva",
+        "longEdge": "Vora llarga",
+        "shortEdge": "Vora curta"
+      },
+      "basis": "Base del gruix",
+      "color": "Color de la vora",
+      "invalidPercent": "Introduïu un nombre entre 0 i 100 per a tots dos.",
+      "leftRight": "Esquerra i dreta",
+      "percent": "%",
+      "topBottom": "A dalt i a baix"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",
@@ -822,6 +836,14 @@
     "metadata": {
       "removeGps": "Eliminar dades GPS",
       "saveWithMetadata": "Desar amb metadades"
+    },
+    "pad": {
+      "aspectRatio": "Relació d'aspecte",
+      "backgroundColor": "Color de fons",
+      "invalidRatio": "Introduïu un nombre positiu per a l'amplada i l'alçada.",
+      "padToAspectRatio": "Ampliar a la relació d'aspecte",
+      "ratioHeight": "Alçada de la relació d'aspecte",
+      "ratioWidth": "Amplada de la relació d'aspecte"
     },
     "resize": {
       "dontEnlarge": "No ampliar",

@@ -808,6 +808,20 @@
       "preserveTimestamps": "Imposta Timestamp File dalla Data di Acquisizione EXIF",
       "title": "Impostazioni di Esportazione"
     },
+    "border": {
+      "addBorder": "Aggiungi Bordo",
+      "bases": {
+        "eachEdge": "Ogni Lato Rispettivo",
+        "longEdge": "Lato Lungo",
+        "shortEdge": "Lato Corto"
+      },
+      "basis": "Base dello Spessore",
+      "color": "Colore Bordo",
+      "invalidPercent": "Inserisci un numero tra 0 e 100 per entrambi.",
+      "leftRight": "Sinistra e Destra",
+      "percent": "%",
+      "topBottom": "Alto e Basso"
+    },
     "bytes": {
       "bytes": "Byte",
       "gb": "GB",
@@ -844,6 +858,14 @@
     "metadata": {
       "removeGps": "Rimuovi Dati GPS",
       "saveWithMetadata": "Salva con Metadati"
+    },
+    "pad": {
+      "aspectRatio": "Proporzioni",
+      "backgroundColor": "Colore Sfondo",
+      "invalidRatio": "Inserisci un numero positivo per larghezza e altezza.",
+      "padToAspectRatio": "Estendi alle Proporzioni",
+      "ratioHeight": "Altezza delle proporzioni",
+      "ratioWidth": "Larghezza delle proporzioni"
     },
     "resize": {
       "dontEnlarge": "Non Ingrandire",
