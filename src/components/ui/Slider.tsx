@@ -37,6 +37,8 @@ const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const TOUCH_DRAG_THRESHOLD_PX = 10;
 const TOUCH_THUMB_HIT_RADIUS_PX = 24;
 
+const getFraction = (value: number, min: number, max: number) => (max !== min ? (value - min) / (max - min) : 0);
+
 const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
   'shiftKey' in event && (event.shiftKey || event.altKey);
 
@@ -87,12 +89,12 @@ const Slider = ({
     };
   }, []);
 
-  const fillPercentage = max !== min ? ((displayValue - min) / (max - min)) * 100 : 0;
+  const fillPercentage = getFraction(displayValue, min, max) * 100;
   const originPercentage = useMemo(() => {
     if (fillOrigin === 'min') {
       return 0;
     }
-    return max !== min ? ((defaultValue - min) / (max - min)) * 100 : 0;
+    return getFraction(defaultValue, min, max) * 100;
   }, [fillOrigin, defaultValue, min, max]);
 
   const stepStr = String(step);
@@ -381,8 +383,7 @@ const Slider = ({
     if (!inputEl) return;
 
     const rect = inputEl.getBoundingClientRect();
-    const fraction = max !== min ? (displayValue - min) / (max - min) : 0;
-    const thumbX = rect.left + Math.max(0, Math.min(1, fraction)) * rect.width;
+    const thumbX = rect.left + Math.max(0, Math.min(1, getFraction(displayValue, min, max))) * rect.width;
 
     if (Math.abs(touch.clientX - thumbX) > TOUCH_THUMB_HIT_RADIUS_PX) {
       pendingTouchRef.current = null;
@@ -605,17 +606,16 @@ const Slider = ({
             width: `${Math.abs(fillPercentage - originPercentage)}%`,
           }}
         />
-        {max !== min &&
-          markers?.map(({ color, value: markerValue }, index) => (
-            <div
-              className="absolute top-1/2 w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none opacity-70"
-              key={index}
-              style={{
-                backgroundColor: color,
-                left: `calc(8px + (100% - 16px) * ${Math.max(0, Math.min(1, (markerValue - min) / (max - min)))})`,
-              }}
-            />
-          ))}
+        {markers?.map(({ color, value: markerValue }, index) => (
+          <div
+            className="absolute top-1/2 w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none opacity-70"
+            key={index}
+            style={{
+              backgroundColor: color,
+              left: `calc(8px + (100% - 16px) * ${Math.max(0, Math.min(1, getFraction(markerValue, min, max)))})`,
+            }}
+          />
+        ))}
         <input
           ref={rangeInputRef}
           className={`absolute top-1/2 left-0 w-full h-7 -translate-y-1/2 appearance-none bg-transparent cursor-pointer m-0 p-0 slider-input z-10 ${

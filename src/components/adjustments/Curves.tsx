@@ -98,10 +98,6 @@ function buildParametricPoints(settings: ParametricCurveSettings): Array<Coord> 
   return points;
 }
 
-function isIdentityCurve(points?: Array<Coord>) {
-  return !points || points.every((p) => p.x === p.y);
-}
-
 function getCurvePath(points: Array<Coord>) {
   if (points.length < 2) return '';
 
@@ -219,32 +215,31 @@ function isDefaultParametricCurve(settings: ParametricCurveSettings | undefined)
   );
 }
 
-function getSplitterGradient(channel: ActiveChannel) {
+function getSplitterGradient(channel: ActiveChannel, direction = 'to right') {
   switch (channel) {
     case ActiveChannel.Luma:
-      return 'linear-gradient(to right, rgba(0, 0, 0, 0.8) 0%, rgba(64, 64, 64, 0.8) 25%, rgba(105, 101, 101, 0.8) 50%, rgba(158, 154, 154, 0.8) 75%, rgba(198, 195, 197, 0.8) 100%)';
+      return `linear-gradient(${direction}, rgba(0, 0, 0, 0.8) 0%, rgba(64, 64, 64, 0.8) 25%, rgba(105, 101, 101, 0.8) 50%, rgba(158, 154, 154, 0.8) 75%, rgba(198, 195, 197, 0.8) 100%)`;
     case ActiveChannel.Red:
-      return 'linear-gradient(to right, rgba(0, 0, 0, 0.8) 0%, rgba(64, 0, 0, 0.8) 25%, rgba(105, 50, 50, 0.8) 50%, rgba(158, 100, 100, 0.8) 75%, rgba(255, 107, 107, 0.8) 100%)';
+      return `linear-gradient(${direction}, rgba(0, 0, 0, 0.8) 0%, rgba(64, 0, 0, 0.8) 25%, rgba(105, 50, 50, 0.8) 50%, rgba(158, 100, 100, 0.8) 75%, rgba(255, 107, 107, 0.8) 100%)`;
     case ActiveChannel.Green:
-      return 'linear-gradient(to right, rgba(0, 0, 0, 0.8) 0%, rgba(0, 64, 0, 0.8) 25%, rgba(50, 105, 50, 0.8) 50%, rgba(100, 158, 100, 0.8) 75%, rgba(107, 203, 119, 0.8) 100%)';
+      return `linear-gradient(${direction}, rgba(0, 0, 0, 0.8) 0%, rgba(0, 64, 0, 0.8) 25%, rgba(50, 105, 50, 0.8) 50%, rgba(100, 158, 100, 0.8) 75%, rgba(107, 203, 119, 0.8) 100%)`;
     case ActiveChannel.Blue:
-      return 'linear-gradient(to right, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 64, 0.8) 25%, rgba(50, 50, 105, 0.8) 50%, rgba(100, 100, 158, 0.8) 75%, rgba(77, 150, 255, 0.8) 100%)';
+      return `linear-gradient(${direction}, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 64, 0.8) 25%, rgba(50, 50, 105, 0.8) 50%, rgba(100, 100, 158, 0.8) 75%, rgba(77, 150, 255, 0.8) 100%)`;
     default:
-      return 'linear-gradient(to right, rgba(0, 0, 0, 0.8) 0%, rgba(64, 64, 64, 0.8) 25%, rgba(105, 101, 101, 0.8) 50%, rgba(158, 154, 154, 0.8) 75%, rgba(198, 195, 197, 0.8) 100%)';
+      return `linear-gradient(${direction}, rgba(0, 0, 0, 0.8) 0%, rgba(64, 64, 64, 0.8) 25%, rgba(105, 101, 101, 0.8) 50%, rgba(158, 154, 154, 0.8) 75%, rgba(198, 195, 197, 0.8) 100%)`;
   }
 }
 
-function getOutputAxisGradient(channel: ActiveChannel) {
-  switch (channel) {
-    case ActiveChannel.Red:
-      return 'linear-gradient(to top, rgba(107, 229, 229, 0.8) 0%, rgba(255, 107, 107, 0.8) 100%)';
-    case ActiveChannel.Green:
-      return 'linear-gradient(to top, rgba(224, 107, 214, 0.8) 0%, rgba(107, 203, 119, 0.8) 100%)';
-    case ActiveChannel.Blue:
-      return 'linear-gradient(to top, rgba(255, 216, 77, 0.8) 0%, rgba(77, 150, 255, 0.8) 100%)';
-    default:
-      return 'linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(198, 195, 197, 0.8) 100%)';
-  }
+const OUTPUT_AXIS_COMPLEMENTS: Record<string, string> = {
+  red: '#6BE5E5',
+  green: '#E06BD6',
+  blue: '#FFD84D',
+};
+
+function getOutputAxisGradient(channel: ActiveChannel, color: string) {
+  const complement = OUTPUT_AXIS_COMPLEMENTS[channel];
+  if (!complement) return getSplitterGradient(channel, 'to top');
+  return `linear-gradient(to top, ${complement}CC 0%, ${color}CC 100%)`;
 }
 
 function convertParametricToPoints(settings: ParametricCurveSettings): Array<Coord> {
@@ -474,6 +469,8 @@ export default function CurveGraph({
     [histogram],
   );
 
+  const inactiveChannels = Object.keys(channelConfig).filter((channel) => channel !== activeChannel);
+
   const activePoints = isParametricMode
     ? buildParametricPoints(activeParametricSettings)
     : (localPoints ?? adjustments?.curves?.[activeChannel]);
@@ -615,12 +612,9 @@ export default function CurveGraph({
         });
       };
 
-      const areOtherParametricCurvesDirty = [
-        ActiveChannel.Luma,
-        ActiveChannel.Red,
-        ActiveChannel.Green,
-        ActiveChannel.Blue,
-      ].some((channel) => channel !== activeChannel && !isDefaultParametricCurve(parametricCurves[channel]));
+      const areOtherParametricCurvesDirty = inactiveChannels.some(
+        (channel) => !isDefaultParametricCurve(parametricCurves[channel]),
+      );
 
       const options = [
         {
@@ -702,12 +696,7 @@ export default function CurveGraph({
       }));
     };
 
-    const areOtherPointCurvesDirty = [
-      ActiveChannel.Luma,
-      ActiveChannel.Red,
-      ActiveChannel.Green,
-      ActiveChannel.Blue,
-    ].some((channel) => channel !== activeChannel && !isDefaultCurve(adjustments.curves?.[channel]));
+    const areOtherPointCurvesDirty = inactiveChannels.some((channel) => !isDefaultCurve(adjustments.curves?.[channel]));
 
     const options = [
       {
@@ -756,11 +745,8 @@ export default function CurveGraph({
   );
 
   const getParametricMarkers = (key: keyof ParametricCurveSettings) =>
-    Object.keys(channelConfig)
-      .filter(
-        (channel) =>
-          channel !== activeChannel && parametricCurves[channel]?.[key] !== DEFAULT_PARAMETRIC_CURVE_SETTINGS[key],
-      )
+    inactiveChannels
+      .filter((channel) => parametricCurves[channel]?.[key] !== DEFAULT_PARAMETRIC_CURVE_SETTINGS[key])
       .map((channel) => ({ channel, color: channelConfig[channel].color, value: parametricCurves[channel][key] }));
 
   if (!activePoints) {
@@ -829,7 +815,7 @@ export default function CurveGraph({
       </div>
 
       <div className="relative grid grid-cols-[auto_1fr] gap-1.5">
-        <div className="w-1.5 my-1 rounded-full" style={{ background: getOutputAxisGradient(activeChannel) }} />
+        <div className="w-1.5 my-1 rounded-full" style={{ background: getOutputAxisGradient(activeChannel, color) }} />
         <div
           className="w-full aspect-square bg-surface-secondary p-1 rounded-md relative touch-none"
           onMouseDown={handleContainerStart}
@@ -882,8 +868,12 @@ export default function CurveGraph({
                 return <line key={key} x1={x} y1="0" x2={x} y2="255" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />;
               })}
 
-            {Object.keys(channelConfig)
-              .filter((channel) => channel !== activeChannel && !isIdentityCurve(adjustments?.curves?.[channel]))
+            {inactiveChannels
+              .filter((channel) =>
+                isParametricMode
+                  ? !isDefaultParametricCurve(parametricCurves[channel])
+                  : !isDefaultCurve(adjustments.curves?.[channel]),
+              )
               .map((channel) => (
                 <path
                   d={getCurvePath(adjustments.curves[channel])}
